@@ -12,12 +12,12 @@ use frame_support::{
     weights::{DispatchClass, FunctionOf, SimpleDispatchInfo},
 };
 use frame_system::{self as system, ensure_signed};
-use polymesh_primitives::{AccountKey, Signatory};
+use polymesh_primitives::{AccountKey, IdentityId, Signatory};
 use polymesh_runtime_balances as balances;
 use polymesh_runtime_common::traits::{balances::CheckCdd, CommonTrait};
 use polymesh_runtime_identity as identity;
 use sp_core::H256;
-use sp_runtime::traits::{One, Zero};
+use sp_runtime::traits::{CheckedAdd, One, Zero};
 use sp_std::{convert::TryFrom, prelude::*};
 
 pub trait Trait: multisig::Trait {
@@ -110,6 +110,12 @@ decl_error! {
         NoSuchProposal,
         /// All the blocks in the timelock block range are full.
         TimelockBlockRangeFull,
+        /// The did reached the bridge limit
+        BridgeLimitReached,
+        /// Something Overflowed
+        Overflow,
+        /// Need I say more?
+        DivisionByZero,
         /// The transaction is time locked
         TimelockedTx,
     }
@@ -157,6 +163,15 @@ decl_storage! {
         /// become unlocked. Pending transactions are also included here if they will be tried automatically.
         TimelockedTxs get(fn timelocked_txs):
             map hasher(twox_64_concat) T::BlockNumber => Vec<BridgeTx<T::AccountId, T::Balance>>;
+
+        /// limit on bridged POLYX per identity for the testnet. (POLYX, LIMIT_REST_BLOCK)
+        BridgeLimit get(fn bridge_limit) config(): (T::Balance, T::BlockNumber);
+
+        /// Amount of POLYX bridged by the identity in last limit bucket (AMOUNT_BRIDGED, LAST_BUCKET)
+        PolyxBridged get(fn polyx_bridged): map hasher(twox_64_concat) IdentityId => (T::Balance, T::BlockNumber);
+
+        /// Identity whitelist that are not limited by the bridge limit
+        BridgeLimitWhitelist get(fn bridge_whitelist): map hasher(twox_64_concat) IdentityId => bool;
     }
     add_extra_genesis {
         // TODO: Remove multisig creator and add systematic CDD for the bridge multisig.
@@ -196,6 +211,10 @@ decl_event! {
         /// A vector of timelocked balances of a recipient, each with the number of the block in
         /// which the balance gets unlocked.
         TimelockedBalancesOfRecipient(Vec<(BlockNumber, Balance)>),
+        /// Whitelist status of an identity has been updated.
+        WhiteListUpdated(IdentityId, bool),
+        /// Bridge limit has been updated
+        BridgeLimitUpdated(Balance, BlockNumber),
     }
 }
 
@@ -269,6 +288,50 @@ decl_module! {
             ensure!(Self::frozen(), Error::<T>::NotFrozen);
             <Frozen>::put(false);
             Self::deposit_event(RawEvent::Unfrozen);
+            Ok(())
+        }
+
+        /// Change the bridge limits.
+        #[weight = SimpleDispatchInfo::FixedOperational(20_000)]
+        pub fn change_bridge_limit(origin, amount: T::Balance, duration: T::BlockNumber) -> DispatchResult {
+            let sender = ensure_signed(origin)?;
+            ensure!(sender == Self::admin(), Error::<T>::BadAdmin);
+            <BridgeLimit<T>>::put((amount.clone(), duration.clone()));
+            Self::deposit_event(RawEvent::BridgeLimitUpdated(amount, duration));
+            Ok(())
+        }
+
+        /// Change the bridge limits.
+        #[weight = SimpleDispatchInfo::FixedOperational(20_000)]
+        pub fn change_bridge_whitelist(origin, whitelist: Vec<(IdentityId, bool)>) -> DispatchResult {
+            let sender = ensure_signed(origin)?;
+            ensure!(sender == Self::admin(), Error::<T>::BadAdmin);
+            for (did, exempt) in whitelist {
+                <BridgeLimitWhitelist>::insert(did, exempt);
+                Self::deposit_event(RawEvent::WhiteListUpdated(did, exempt));
+            }
+            Ok(())
+        }
+
+        /// Force handle a tx (bypasses bridge limit and timelock)
+        #[weight = SimpleDispatchInfo::FixedOperational(20_000)]
+        pub fn force_handle_bridge_tx(origin, bridge_tx: BridgeTx<T::AccountId, T::Balance>) -> DispatchResult {
+            // NB: To avoid code duplication, this uses a hacky approach of temporarily whitelisting the did
+            let sender = ensure_signed(origin)?;
+            ensure!(sender == Self::admin(), Error::<T>::BadAdmin);
+            if let Some(did) = T::CddChecker::get_key_cdd_did(&AccountKey::try_from(bridge_tx.recipient.clone().encode())?) {
+                if !Self::bridge_whitelist(did) {
+                    // Whitelist the did temporarily
+                    <BridgeLimitWhitelist>::insert(did, true);
+                    Self::handle_bridge_tx_now(bridge_tx, false)?;
+                    <BridgeLimitWhitelist>::insert(did, false);
+                } else {
+                    // Already whitelisted
+                    return Self::handle_bridge_tx_now(bridge_tx, false);
+                }
+            } else {
+                return Err(Error::<T>::NoValidCdd.into());
+            }
             Ok(())
         }
 
@@ -394,10 +457,27 @@ decl_module! {
 impl<T: Trait> Module<T> {
     /// Issues the transacted amount to the recipient or returns a pending transaction.
     fn issue(recipient: &T::AccountId, amount: &T::Balance) -> DispatchResult {
-        ensure!(
-            T::CddChecker::check_key_cdd(&AccountKey::try_from(recipient.encode())?),
-            Error::<T>::NoValidCdd
-        );
+        if let Some(did) =
+            T::CddChecker::get_key_cdd_did(&AccountKey::try_from(recipient.encode())?)
+        {
+            if !Self::bridge_whitelist(did) {
+                let current_block_number = <system::Module<T>>::block_number();
+                let (limit, block_duration) = Self::bridge_limit();
+                ensure!(!block_duration.is_zero(), Error::<T>::DivisionByZero);
+                let current_bucket = current_block_number / block_duration;
+                let (bridged, last_bucket) = Self::polyx_bridged(did);
+                let mut total_mint = *amount;
+                if last_bucket == current_bucket {
+                    total_mint = total_mint
+                        .checked_add(&bridged)
+                        .ok_or(Error::<T>::Overflow)?;
+                }
+                ensure!(total_mint <= limit, Error::<T>::BridgeLimitReached);
+                <PolyxBridged<T>>::insert(did, (total_mint, current_bucket))
+            }
+        } else {
+            return Err(Error::<T>::NoValidCdd.into());
+        }
 
         let _pos_imbalance = <balances::Module<T>>::deposit_creating(&recipient, *amount);
 
@@ -507,27 +587,4 @@ impl<T: Trait> Module<T> {
             }
         }
     }
-
-    // /// Emits an event containing the timelocked balances of a given `IssueRecipient`.
-    // ///
-    // /// TODO: Convert this method to an RPC call.
-    // pub fn get_timelocked_balances_of_recipient(
-    //     issue_recipient: IssueRecipient<T::AccountId>,
-    // ) -> DispatchResult {
-    //     ensure!(!Self::frozen(), Error::<T>::Frozen);
-    //     let mut timelocked_balances = Vec::new();
-    //     for (n, txs) in <TimelockedTxs<T>>::enumerate() {
-    //         let sum_balance = |accum, tx: &BridgeTx<_, _>| {
-    //             if tx.recipient == issue_recipient {
-    //                 accum + tx.amount
-    //             } else {
-    //                 accum
-    //             }
-    //         };
-    //         let recipients_balance: T::Balance = txs.iter().fold(Zero::zero(), sum_balance);
-    //         timelocked_balances.push((n, recipients_balance));
-    //     }
-    //     Self::deposit_event(RawEvent::TimelockedBalancesOfRecipient(timelocked_balances));
-    //     Ok(())
-    // }
 }
