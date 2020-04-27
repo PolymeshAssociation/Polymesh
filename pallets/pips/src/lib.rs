@@ -330,7 +330,12 @@ decl_event!(
     {
         /// Pruning Historical PIPs is enabled or disabled (old value, new value)
         PruningHistoricalPips(bool, bool),
-        /// A Mesh Improvement Proposal was made with a `Balance` stake
+        /// A Mesh Improvement Proposal was made with a `Balance` stake.
+        ///
+        /// # Parameters:
+        ///
+        /// Proposer, PIP ID, deposit, URL, description, cool-off period end, proposal end, proposal
+        /// data.
         ProposalCreated(
             AccountId,
             PipId,
@@ -529,10 +534,10 @@ decl_module! {
                 amount: deposit
             };
             <Deposits<T>>::insert(id, &proposer, deposit_info);
-
+            let proposal_data = Self::reportable_proposal_data(&*proposal);
             let pip = Pip {
                 id,
-                proposal: *proposal.clone(),
+                proposal: *proposal,
                 state: ProposalState::Pending,
             };
             <Proposals<T>>::insert(id, pip);
@@ -552,7 +557,7 @@ decl_module! {
                 description,
                 cool_off_until,
                 end,
-                Self::reportable_proposal_data(*proposal),
+                proposal_data,
             ));
             Ok(())
         }
@@ -833,11 +838,11 @@ decl_module! {
                 T::GovernanceCommittee::is_member(&did),
                 Error::<T>::NotACommitteeMember
             );
-
+            let proposal_data = Self::reportable_proposal_data(&*proposal);
             let id = Self::next_pip_id();
             let pip = Pip {
                 id,
-                proposal: *proposal.clone(),
+                proposal: *proposal,
                 state: ProposalState::Pending,
             };
             <Proposals<T>>::insert(id, pip);
@@ -860,7 +865,7 @@ decl_module! {
                 description,
                 Zero::zero(),
                 Zero::zero(),
-                Self::reportable_proposal_data(*proposal),
+                proposal_data,
             ));
             Self::create_referendum(
                 id,
@@ -1218,7 +1223,7 @@ impl<T: Trait> Module<T> {
 
     /// Returns a reportable representation of a proposal taking care that the reported data are not
     /// too large.
-    fn reportable_proposal_data(proposal: T::Proposal) -> ProposalData {
+    fn reportable_proposal_data(proposal: &T::Proposal) -> ProposalData {
         let encoded_proposal = proposal.encode();
         let proposal_data = if encoded_proposal.len() > PIP_MAX_REPORTING_SIZE {
             ProposalData::Hash(BlakeTwo256::hash(encoded_proposal.as_slice()))
