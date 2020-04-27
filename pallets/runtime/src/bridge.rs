@@ -56,22 +56,14 @@ impl Default for BridgeTxStatus {
 #[derive(Encode, Decode, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Default)]
 pub struct BridgeTx<Account, Balance> {
     /// A single tx hash can have multiple locks. This nonce differentiates between them.
-    pub nonce: u16,
+    pub nonce: u32,
     /// Recipient of POLYX on Polymesh: the deposit address or identity.
     pub recipient: Account,
     /// Amount of POLYX tokens to credit.
     pub amount: Balance,
     /// Ethereum token lock transaction hash.
     pub tx_hash: H256,
-}
-
-/// A unique lock-and-mint bridge transaction identifier
-#[derive(Encode, Decode, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Default)]
-pub struct BridgeTxIdentifier {
-    /// A single tx hash can have multiple locks. This nonce differentiates between them.
-    pub nonce: u16,
-    /// Ethereum token lock transaction hash.
-    pub tx_hash: H256,
+    // NB: The bridge module no longer uses eth tx hash. It's here for compatibility reasons.
 }
 
 /// Additional details about a bridge tx
@@ -83,6 +75,9 @@ pub struct BridgeTxDetail<Balance, BlockNumber> {
     pub status: BridgeTxStatus,
     /// Block number at which this tx was executed or is planned to be executed.
     pub execution_block: BlockNumber,
+    /// Ethereum token lock transaction hash.
+    pub tx_hash: H256,
+    // NB: The bridge module no longer uses eth tx hash. It's here for compatibility reasons.
 }
 
 decl_error! {
@@ -148,7 +143,7 @@ decl_storage! {
         BridgeTxDetails get(fn bridge_tx_details):
             double_map
                 hasher(blake2_128_concat) T::AccountId,
-                hasher(blake2_128_concat) BridgeTxIdentifier
+                hasher(blake2_128_concat) u32
             =>
                 BridgeTxDetail<T::Balance, T::BlockNumber>;
 
@@ -362,11 +357,7 @@ decl_module! {
             DispatchResult
         {
             let sender = ensure_signed(origin)?;
-            let bridge_tx_identifier = BridgeTxIdentifier {
-                nonce: bridge_tx.nonce.clone(),
-                tx_hash: bridge_tx.tx_hash.clone()
-            };
-            let mut tx_details = Self::bridge_tx_details(&bridge_tx.recipient, &bridge_tx_identifier);
+            let mut tx_details = Self::bridge_tx_details(&bridge_tx.recipient, &bridge_tx.nonce);
             match tx_details.status {
                 // New bridge tx
                 BridgeTxStatus::Absent => {
@@ -388,7 +379,7 @@ decl_module! {
                     //TODO: Review admin permissions to handle bridge txs before mainnet
                     ensure!(sender == Self::controller() || sender == Self::admin(), Error::<T>::BadCaller);
                     tx_details.amount = bridge_tx.amount;
-                    <BridgeTxDetails<T>>::insert(&bridge_tx.recipient, &bridge_tx_identifier, tx_details);
+                    <BridgeTxDetails<T>>::insert(&bridge_tx.recipient, &bridge_tx.nonce, tx_details);
                     Ok(())
                 }
                 // Already handled/timelocked tx
@@ -417,13 +408,9 @@ decl_module! {
             let sender = ensure_signed(origin)?;
             ensure!(sender == Self::admin(), Error::<T>::BadAdmin);
             for bridge_tx in bridge_txs {
-                let bridge_tx_identifier = BridgeTxIdentifier {
-                    nonce: bridge_tx.nonce.clone(),
-                    tx_hash: bridge_tx.tx_hash.clone()
-                };
-                let tx_details = Self::bridge_tx_details(&bridge_tx.recipient, &bridge_tx_identifier);
+                let tx_details = Self::bridge_tx_details(&bridge_tx.recipient, &bridge_tx.nonce);
                 ensure!(tx_details.status != BridgeTxStatus::Handled, Error::<T>::ProposalAlreadyHandled);
-                <BridgeTxDetails<T>>::mutate(&bridge_tx.recipient, &bridge_tx_identifier, |tx_detail| tx_detail.status = BridgeTxStatus::Frozen);
+                <BridgeTxDetails<T>>::mutate(&bridge_tx.recipient, &bridge_tx.nonce, |tx_detail| tx_detail.status = BridgeTxStatus::Frozen);
                 Self::deposit_event(RawEvent::FrozenTx(bridge_tx));
             }
             Ok(())
@@ -449,13 +436,9 @@ decl_module! {
             let sender = ensure_signed(origin)?;
             ensure!(sender == Self::admin(), Error::<T>::BadAdmin);
             for bridge_tx in bridge_txs {
-                let bridge_tx_identifier = BridgeTxIdentifier {
-                    nonce: bridge_tx.nonce.clone(),
-                    tx_hash: bridge_tx.tx_hash.clone()
-                };
-                let tx_details = Self::bridge_tx_details(&bridge_tx.recipient, &bridge_tx_identifier);
+                let tx_details = Self::bridge_tx_details(&bridge_tx.recipient, &bridge_tx.nonce);
                 ensure!(tx_details.status == BridgeTxStatus::Frozen, Error::<T>::NoSuchFrozenTx);
-                <BridgeTxDetails<T>>::mutate(&bridge_tx.recipient, &bridge_tx_identifier, |tx_detail| tx_detail.status = BridgeTxStatus::Absent);
+                <BridgeTxDetails<T>>::mutate(&bridge_tx.recipient, &bridge_tx.nonce, |tx_detail| tx_detail.status = BridgeTxStatus::Absent);
                 Self::deposit_event(RawEvent::UnfrozenTx(bridge_tx.clone()));
                 if let Err(e) = Self::handle_bridge_tx_now(bridge_tx, true) {
                     sp_runtime::print(e);
@@ -502,11 +485,7 @@ impl<T: Trait> Module<T> {
         bridge_tx: BridgeTx<T::AccountId, T::Balance>,
         untrusted_manual_retry: bool,
     ) -> DispatchResult {
-        let bridge_tx_identifier = BridgeTxIdentifier {
-            nonce: bridge_tx.nonce.clone(),
-            tx_hash: bridge_tx.tx_hash.clone(),
-        };
-        let mut tx_details = Self::bridge_tx_details(&bridge_tx.recipient, &bridge_tx_identifier);
+        let mut tx_details = Self::bridge_tx_details(&bridge_tx.recipient, &bridge_tx.nonce);
         // NB: This function does not care if a transaction is timelocked. Therefore, this should only be called
         // after timelock has expired or timelock is to be bypassed by an admin.
         ensure!(
@@ -532,7 +511,7 @@ impl<T: Trait> Module<T> {
         if Self::issue(&bridge_tx.recipient, &amount).is_ok() {
             tx_details.status = BridgeTxStatus::Handled;
             tx_details.execution_block = <system::Module<T>>::block_number();
-            <BridgeTxDetails<T>>::insert(&bridge_tx.recipient, &bridge_tx_identifier, tx_details);
+            <BridgeTxDetails<T>>::insert(&bridge_tx.recipient, &bridge_tx.nonce, tx_details);
             Self::deposit_event(RawEvent::Bridged(bridge_tx));
         } else if !untrusted_manual_retry {
             // NB: If this was a manual retry, tx's automated retry schedule is not updated.
@@ -548,11 +527,7 @@ impl<T: Trait> Module<T> {
         timelock: T::BlockNumber,
     ) -> DispatchResult {
         let mut already_tried = 0;
-        let bridge_tx_identifier = BridgeTxIdentifier {
-            nonce: bridge_tx.nonce.clone(),
-            tx_hash: bridge_tx.tx_hash.clone(),
-        };
-        let mut tx_details = Self::bridge_tx_details(&bridge_tx.recipient, &bridge_tx_identifier);
+        let mut tx_details = Self::bridge_tx_details(&bridge_tx.recipient, &bridge_tx.nonce);
         match tx_details.status {
             BridgeTxStatus::Absent => {
                 tx_details.status = BridgeTxStatus::Timelocked;
@@ -571,6 +546,7 @@ impl<T: Trait> Module<T> {
                 return Err(Error::<T>::ProposalAlreadyHandled.into());
             }
         }
+        tx_details.tx_hash = bridge_tx.tx_hash.clone();
 
         if already_tried > 24 {
             // Limits the exponential backoff to *almost infinity* (~180 years)
@@ -586,7 +562,7 @@ impl<T: Trait> Module<T> {
         }
 
         tx_details.execution_block = unlock_block_number;
-        <BridgeTxDetails<T>>::insert(&bridge_tx.recipient, &bridge_tx_identifier, tx_details);
+        <BridgeTxDetails<T>>::insert(&bridge_tx.recipient, &bridge_tx.nonce, tx_details);
         <TimelockedTxs<T>>::mutate(unlock_block_number, |txs| {
             txs.push((*bridge_tx).clone());
         });
