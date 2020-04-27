@@ -287,6 +287,12 @@
             "proposal":"Call",
             "state":"ProposalState"
         },
+        "ProposalData" : {
+            "_enum": {
+                "Hash": "Hash",
+                "Proposal": "Call"
+            }
+        },
         "Referendum": {
             "id": "PipId",
             "state": "ReferendumState",
