@@ -11,7 +11,7 @@ use pallet_balances as balances;
 use pallet_committee as committee;
 use pallet_group as group;
 use pallet_pips::{
-    self as pips, DepositInfo, Error, MipDescription, PipsMetadata, Referendum, ReferendumState,
+    self as pips, DepositInfo, Error, PipDescription, PipsMetadata, Referendum, ReferendumState,
     ReferendumType, Url, VotingResult,
 };
 use polymesh_primitives::Beneficiary;
@@ -48,7 +48,7 @@ fn starting_a_proposal_works_we() {
     System::set_block_number(1);
     let proposal = make_proposal(42);
     let proposal_url: Url = b"www.abc.com".into();
-    let proposal_desc: MipDescription = b"Test description".into();
+    let proposal_desc: PipDescription = b"Test description".into();
 
     let alice_acc = AccountKeyring::Alice.public();
     let (alice_signer, _) = make_account_with_balance(alice_acc, 300).unwrap();
@@ -103,7 +103,7 @@ fn closing_a_proposal_works_we() {
     let proposal = make_proposal(42);
     let index = 0;
     let proposal_url: Url = b"www.abc.com".into();
-    let proposal_desc: MipDescription = b"Test description".into();
+    let proposal_desc: PipDescription = b"Test description".into();
 
     // Voting majority
     let root = Origin::system(frame_system::RawOrigin::Root);
@@ -148,7 +148,7 @@ fn creating_a_referendum_works_we() {
     System::set_block_number(1);
     let proposal = make_proposal(42);
     let proposal_url: Url = b"www.abc.com".into();
-    let proposal_desc: MipDescription = b"Test description".into();
+    let proposal_desc: PipDescription = b"Test description".into();
 
     let alice_acc = AccountKeyring::Alice.public();
     let (alice_signer, _) = make_account_with_balance(alice_acc, 300).unwrap();
@@ -212,7 +212,7 @@ fn enacting_a_referendum_works_we() {
     System::set_block_number(1);
     let proposal = make_proposal(42);
     let proposal_url: Url = b"www.abc.com".into();
-    let proposal_desc: MipDescription = b"Test description".into();
+    let proposal_desc: PipDescription = b"Test description".into();
 
     let alice_acc = AccountKeyring::Alice.public();
     let (alice_signer, _) = make_account_with_balance(alice_acc, 300).unwrap();
@@ -303,7 +303,7 @@ fn fast_tracking_a_proposal_works_we() {
     let proposal = make_proposal(42);
     let index = 0;
     let proposal_url: Url = b"www.abc.com".into();
-    let proposal_desc: MipDescription = b"Test description".into();
+    let proposal_desc: PipDescription = b"Test description".into();
 
     let root = Origin::system(frame_system::RawOrigin::Root);
 
@@ -393,7 +393,7 @@ fn emergency_referendum_works_we() {
     System::set_block_number(1);
     let proposal = make_proposal(42);
     let proposal_url: Url = b"www.abc.com".into();
-    let proposal_desc: MipDescription = b"Test description".into();
+    let proposal_desc: PipDescription = b"Test description".into();
 
     let root = Origin::system(frame_system::RawOrigin::Root);
 
@@ -468,7 +468,7 @@ fn reject_referendum_works_we() {
     System::set_block_number(1);
     let proposal = make_proposal(42);
     let proposal_url: Url = b"www.abc.com".into();
-    let proposal_desc: MipDescription = b"Test description".into();
+    let proposal_desc: PipDescription = b"Test description".into();
 
     let root = Origin::system(frame_system::RawOrigin::Root);
 
@@ -562,7 +562,7 @@ fn amend_pips_details_during_cool_off_period() {
 fn amend_pips_details_during_cool_off_period_we() {
     let proposal = make_proposal(42);
     let proposal_url: Url = b"www.abc.com".into();
-    let proposal_desc: MipDescription = b"Test description".into();
+    let proposal_desc: PipDescription = b"Test description".into();
 
     let (alice, _) = make_account(AccountKeyring::Alice.public()).unwrap();
     let (bob, _) = make_account(AccountKeyring::Bob.public()).unwrap();
@@ -580,7 +580,7 @@ fn amend_pips_details_during_cool_off_period_we() {
 
     // 2. Amend proposal during cool-off.
     let new_url: Url = b"www.xyz.com".into();
-    let new_desc: MipDescription = b"New description".into();
+    let new_desc: PipDescription = b"New description".into();
     assert_ok!(Pips::amend_proposal(
         alice.clone(),
         0,
@@ -655,7 +655,7 @@ fn cancel_pips_during_cool_off_period_we() {
     let alice_proposal = make_proposal(42);
     let bob_proposal = make_proposal(1);
     let proposal_url: Url = b"www.abc.com".into();
-    let proposal_desc: MipDescription = b"Test description".into();
+    let proposal_desc: PipDescription = b"Test description".into();
 
     let (alice, _) = make_account(AccountKeyring::Alice.public()).unwrap();
     let (bob, _) = make_account(AccountKeyring::Bob.public()).unwrap();
@@ -721,7 +721,7 @@ fn update_referendum_enactment_period_we() {
     let bob = Origin::signed(AccountKeyring::Bob.public());
 
     let proposal_url: Url = b"www.abc.com".into();
-    let proposal_desc: MipDescription = b"Test description".into();
+    let proposal_desc: PipDescription = b"Test description".into();
 
     let proposal_a = make_proposal(42);
     let proposal_b = make_proposal(107);
@@ -845,7 +845,7 @@ fn proposal_with_beneficiares_we() {
     // 2. Charlie creates a new proposal with 2 beneificiares
     let proposal = make_proposal(42);
     let proposal_url: Url = b"www.abc.com".into();
-    let proposal_desc: MipDescription = b"Test description".into();
+    let proposal_desc: PipDescription = b"Test description".into();
     let beneficiaries = vec![
         Beneficiary {
             id: charlie_id,
