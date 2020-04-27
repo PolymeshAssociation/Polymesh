@@ -3,10 +3,10 @@ use super::{
     ExtBuilder,
 };
 
-use frame_support::{assert_err, assert_ok, StorageDoubleMap};
+use frame_support::{assert_err, assert_ok, traits::Currency, StorageDoubleMap};
 use polymesh_primitives::{IdentityId, Signatory};
 use polymesh_runtime::{
-    bridge::{self, BridgeTx, IssueRecipient},
+    bridge::{self, BridgeTx, BridgeTxStatus},
     multisig,
 };
 use polymesh_runtime_balances as balances;
@@ -106,7 +106,7 @@ fn can_issue_to_identity_we() {
     let amount = 1_000_000_000_000_000_000_000;
     let bridge_tx = BridgeTx {
         nonce: 1,
-        recipient: IssueRecipient::Identity(bob_did),
+        recipient: AccountKeyring::Bob.public(),
         amount,
         tx_hash: Default::default(),
     };
@@ -120,7 +120,7 @@ fn can_issue_to_identity_we() {
     assert_ok!(Bridge::propose_bridge_tx(bob.clone(), bridge_tx.clone()));
     assert_tx_approvals!(controller, 0, 1);
     assert_tx_approvals!(controller, 1, 0);
-    let bobs_balance = Balances::identity_balance(bob_did);
+    let bobs_balance = Balances::total_balance(&AccountKeyring::Bob.public());
 
     assert_eq!(
         MultiSig::proposal_ids(&controller, proposal.clone()),
@@ -131,10 +131,13 @@ fn can_issue_to_identity_we() {
     assert_eq!(MultiSig::tx_approvals(&(controller, 1)), 0);
 
     assert_eq!(MultiSig::proposal_ids(&controller, proposal), Some(0));
-    let new_bobs_balance = Balances::identity_balance(bob_did);
+    let new_bobs_balance = Balances::total_balance(&AccountKeyring::Bob.public());
     assert_eq!(new_bobs_balance, bobs_balance + amount);
     // Attempt to handle the same transaction again.
-    assert!(Bridge::handled_txs(&bridge_tx));
+    assert_eq!(
+        Bridge::bridge_tx_details(AccountKeyring::Bob.public(), &1).status,
+        BridgeTxStatus::Handled
+    );
     assert_err!(
         Bridge::handle_bridge_tx(Origin::signed(controller), bridge_tx),
         Error::ProposalAlreadyHandled
@@ -213,12 +216,12 @@ fn can_change_controller() {
 #[test]
 fn cannot_propose_without_controller() {
     ExtBuilder::default().build().execute_with(|| {
-        let alice_did = register_keyring_account(AccountKeyring::Alice).unwrap();
+        let _alice_did = register_keyring_account(AccountKeyring::Alice).unwrap();
         let alice = Origin::signed(AccountKeyring::Alice.public());
         let amount = 1_000_000;
         let bridge_tx = BridgeTx {
             nonce: 1,
-            recipient: IssueRecipient::Identity(alice_did),
+            recipient: AccountKeyring::Alice.public(),
             amount,
             tx_hash: Default::default(),
         };
@@ -240,7 +243,7 @@ fn cannot_call_bridge_callback_extrinsics() {
         );
         let bridge_tx = BridgeTx {
             nonce: 1,
-            recipient: IssueRecipient::Account(alice_account),
+            recipient: AccountKeyring::Alice.public(),
             amount: 1_000_000,
             tx_hash: Default::default(),
         };
@@ -266,6 +269,7 @@ fn do_freeze_and_unfreeze_bridge() {
     let alice = Origin::signed(AccountKeyring::Alice.public());
     let bob = Origin::signed(AccountKeyring::Bob.public());
     let charlie = Origin::signed(AccountKeyring::Charlie.public());
+    assert_ok!(Bridge::change_timelock(admin.clone(), 3));
     assert_ok!(Balances::top_up_identity_balance(
         alice.clone(),
         alice_did,
@@ -311,7 +315,7 @@ fn do_freeze_and_unfreeze_bridge() {
     let amount = 1_000_000_000_000_000_000_000;
     let bridge_tx = BridgeTx {
         nonce: 1,
-        recipient: IssueRecipient::Identity(bob_did),
+        recipient: AccountKeyring::Bob.public(),
         amount,
         tx_hash: Default::default(),
     };
@@ -326,34 +330,42 @@ fn do_freeze_and_unfreeze_bridge() {
     assert_ok!(Bridge::freeze(admin.clone()));
     assert!(Bridge::frozen());
     assert_tx_approvals!(controller, 0, 1);
-    let bobs_balance = || Balances::identity_balance(bob_did);
+    let bobs_balance = || Balances::total_balance(&AccountKeyring::Bob.public());
     let starting_bobs_balance = bobs_balance();
     assert_eq!(
         MultiSig::proposal_ids(&controller, proposal.clone()),
         Some(0)
     );
-    // Approve the transaction bypassing the bridge API. The transaction will be handled but will itself be
-    // frozen.
+    // Approve the transaction bypassing the bridge API. The transaction will be handled but scheduled for later
     assert_ok!(MultiSig::approve_as_identity(charlie, controller, 0));
     assert_eq!(MultiSig::tx_approvals(&(controller, 0)), 2);
     assert_eq!(MultiSig::proposal_ids(&controller, proposal), Some(0));
     // The tokens were not issued because the transaction is frozen.
     assert_eq!(bobs_balance(), starting_bobs_balance);
-    assert!(!Bridge::handled_txs(&bridge_tx));
-    assert!(Bridge::frozen_txs(&bridge_tx));
+    assert_eq!(
+        Bridge::bridge_tx_details(AccountKeyring::Bob.public(), &1).status,
+        BridgeTxStatus::Timelocked
+    );
     // Unfreeze the bridge.
     assert_ok!(Bridge::unfreeze(admin.clone()));
     assert!(!Bridge::frozen());
-    // Still no issue. The transaction needs to be unfrozen.
+    // Still no issue. The transaction needs to be processed.
     assert_eq!(bobs_balance(), starting_bobs_balance);
-    assert!(!Bridge::handled_txs(bridge_tx.clone()));
-    assert_ok!(Bridge::unfreeze_txs(admin.clone(), vec![bridge_tx.clone()]));
+    assert_eq!(
+        Bridge::bridge_tx_details(AccountKeyring::Bob.public(), &1).status,
+        BridgeTxStatus::Timelocked
+    );
+    next_block();
+    next_block();
+    next_block();
+    next_block();
     // Now the tokens are issued.
     assert_eq!(bobs_balance(), starting_bobs_balance + amount);
-    assert!(!Bridge::frozen_txs(&bridge_tx));
-    assert!(!Bridge::pending_txs(bob_did).contains(&bridge_tx));
+    assert_eq!(
+        Bridge::bridge_tx_details(AccountKeyring::Bob.public(), &1).status,
+        BridgeTxStatus::Handled
+    );
     // Attempt to handle the same transaction again.
-    assert!(Bridge::handled_txs(&bridge_tx));
     assert_err!(
         Bridge::handle_bridge_tx(Origin::signed(controller), bridge_tx),
         Error::ProposalAlreadyHandled
@@ -410,25 +422,39 @@ fn do_timelock_txs() {
     let amount = 1_000_000_000_000_000_000_000;
     let bridge_tx = BridgeTx {
         nonce: 1,
-        recipient: IssueRecipient::Identity(bob_did),
+        recipient: AccountKeyring::Bob.public(),
         amount,
         tx_hash: Default::default(),
     };
     let proposal = Box::new(Call::Bridge(bridge::Call::handle_bridge_tx(
         bridge_tx.clone(),
     )));
-    let bobs_balance = || Balances::identity_balance(bob_did);
+    let bobs_balance = || Balances::total_balance(&AccountKeyring::Bob.public());
     let starting_bobs_balance = bobs_balance();
     assert_eq!(MultiSig::proposal_ids(&controller, proposal.clone()), None);
     assert_tx_approvals!(controller, 0, 0);
     assert_ok!(Bridge::propose_bridge_tx(bob.clone(), bridge_tx.clone()));
     assert_tx_approvals!(controller, 0, 1);
     let first_block_number = System::block_number();
-    let unlock_block_number = first_block_number + timelock;
+    let unlock_block_number = first_block_number + timelock + 1;
+    assert_eq!(
+        Bridge::bridge_tx_details(AccountKeyring::Bob.public(), &1).status,
+        BridgeTxStatus::Timelocked
+    );
     assert_eq!(
         Bridge::timelocked_txs(unlock_block_number),
         vec![bridge_tx.clone()]
     );
+    assert_eq!(
+        Bridge::bridge_tx_details(AccountKeyring::Bob.public(), &1).status,
+        BridgeTxStatus::Timelocked
+    );
+    assert_eq!(
+        Bridge::bridge_tx_details(AccountKeyring::Bob.public(), &1).execution_block,
+        unlock_block_number
+    );
+    next_block();
+    assert_eq!(bobs_balance(), starting_bobs_balance);
     next_block();
     assert_eq!(bobs_balance(), starting_bobs_balance);
     next_block();
@@ -437,5 +463,12 @@ fn do_timelock_txs() {
     assert_eq!(System::block_number(), unlock_block_number);
     assert!(Bridge::timelocked_txs(unlock_block_number).is_empty());
     assert_eq!(bobs_balance(), starting_bobs_balance + amount);
-    assert!(Bridge::handled_txs(&bridge_tx));
+    assert_eq!(
+        Bridge::bridge_tx_details(AccountKeyring::Bob.public(), &1).execution_block,
+        unlock_block_number
+    );
+    assert_eq!(
+        Bridge::bridge_tx_details(AccountKeyring::Bob.public(), &1).status,
+        BridgeTxStatus::Handled
+    );
 }
