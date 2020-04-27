@@ -344,6 +344,9 @@ impl CheckCdd for Test {
     fn check_key_cdd(key: &AccountKey) -> bool {
         true
     }
+    fn get_key_cdd_did(key: &AccountKey) -> Option<IdentityId> {
+        None
+    }
 }
 
 parameter_types! {
