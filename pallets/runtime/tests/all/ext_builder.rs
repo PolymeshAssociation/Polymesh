@@ -1,7 +1,7 @@
 use crate::TestStorage;
 
 use pallet_committee as committee;
-use pallet_mips as mips;
+use pallet_pips as pips;
 use polymesh_primitives::{AccountKey, Identity, IdentityId, PosRatio};
 use polymesh_runtime::asset::{self, TickerRegistrationConfig};
 use polymesh_runtime_balances as balances;
@@ -49,7 +49,7 @@ impl Default for MockProtocolBaseFees {
             ProtocolOp::IdentityAddClaim,
             ProtocolOp::IdentitySetMasterKey,
             ProtocolOp::IdentityAddSigningItem,
-            ProtocolOp::MipsPropose,
+            ProtocolOp::PipsPropose,
             ProtocolOp::VotingAddBallot,
         ];
         let fees = ops
@@ -328,8 +328,8 @@ impl ExtBuilder {
         .assimilate_storage(&mut storage)
         .unwrap();
 
-        mips::GenesisConfig::<TestStorage> {
-            prune_historical_mips: false,
+        pips::GenesisConfig::<TestStorage> {
+            prune_historical_pips: false,
             min_proposal_deposit: 50,
             quorum_threshold: 70,
             proposal_duration: 10,

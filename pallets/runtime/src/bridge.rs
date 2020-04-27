@@ -116,6 +116,8 @@ decl_error! {
         Overflow,
         /// Need I say more?
         DivisionByZero
+        /// The transaction is time locked
+        TimelockedTx,
     }
 }
 
@@ -367,7 +369,7 @@ decl_module! {
                     if timelock.is_zero() {
                         return Self::handle_bridge_tx_now(bridge_tx, false);
                     } else {
-                        return Self::handle_bridge_tx_later(&bridge_tx, timelock);
+                        return Self::handle_bridge_tx_later(bridge_tx, timelock);
                     }
                 }
                 // Pending cdd bridge tx
@@ -382,8 +384,10 @@ decl_module! {
                     <BridgeTxDetails<T>>::insert(&bridge_tx.recipient, &bridge_tx.nonce, tx_details);
                     Ok(())
                 }
-                // Already handled/timelocked tx
-                _ => {
+                BridgeTxStatus::Timelocked => {
+                    return Err(Error::<T>::TimelockedTx.into());
+                }
+                BridgeTxStatus::Handled => {
                     return Err(Error::<T>::ProposalAlreadyHandled.into());
                 }
             }
@@ -489,16 +493,19 @@ impl<T: Trait> Module<T> {
         // NB: This function does not care if a transaction is timelocked. Therefore, this should only be called
         // after timelock has expired or timelock is to be bypassed by an admin.
         ensure!(
-            tx_details.status != BridgeTxStatus::Frozen
-                && tx_details.status != BridgeTxStatus::Handled,
+            tx_details.status != BridgeTxStatus::Handled,
             Error::<T>::ProposalAlreadyHandled
+        );
+        ensure!(
+            tx_details.status != BridgeTxStatus::Frozen,
+            Error::<T>::FrozenTx
         );
 
         if Self::frozen() {
             // Untruested manual retries not allowed during frozen state.
             ensure!(!untrusted_manual_retry, Error::<T>::Frozen);
             // Bridge module frozen. Retry this tx again later.
-            return Self::handle_bridge_tx_later(&bridge_tx, Self::timelock());
+            return Self::handle_bridge_tx_later(bridge_tx, Self::timelock());
         }
 
         let amount = if untrusted_manual_retry {
@@ -516,14 +523,14 @@ impl<T: Trait> Module<T> {
         } else if !untrusted_manual_retry {
             // NB: If this was a manual retry, tx's automated retry schedule is not updated.
             // Recipient missing CDD or limit reached. Retry this tx again later.
-            return Self::handle_bridge_tx_later(&bridge_tx, Self::timelock());
+            return Self::handle_bridge_tx_later(bridge_tx, Self::timelock());
         }
         Ok(())
     }
 
     /// Handles a bridge transaction proposal after `timelock` blocks.
     fn handle_bridge_tx_later(
-        bridge_tx: &BridgeTx<T::AccountId, T::Balance>,
+        bridge_tx: BridgeTx<T::AccountId, T::Balance>,
         timelock: T::BlockNumber,
     ) -> DispatchResult {
         let mut already_tried = 0;
@@ -541,8 +548,10 @@ impl<T: Trait> Module<T> {
                 tx_details.status = BridgeTxStatus::Pending(1);
                 already_tried = 1;
             }
-            // Already handled/frozen.
-            _ => {
+            BridgeTxStatus::Frozen => {
+                return Err(Error::<T>::FrozenTx.into());
+            }
+            BridgeTxStatus::Handled => {
                 return Err(Error::<T>::ProposalAlreadyHandled.into());
             }
         }
@@ -564,7 +573,7 @@ impl<T: Trait> Module<T> {
         tx_details.execution_block = unlock_block_number;
         <BridgeTxDetails<T>>::insert(&bridge_tx.recipient, &bridge_tx.nonce, tx_details);
         <TimelockedTxs<T>>::mutate(unlock_block_number, |txs| {
-            txs.push((*bridge_tx).clone());
+            txs.push(bridge_tx);
         });
         Ok(())
     }
