@@ -1,25 +1,23 @@
 //! Bridge from Ethereum to Polymesh
 //!
 //! This module implements a one-way bridge between Polymath Classic on the Ethereum side, and
-//! Polymesh native. It mints POLY on Polymesh in return for permanently locked ERC20 POLY tokens.
+//! Polymesh native. It mints POLYX on Polymesh in return for permanently locked ERC20 POLYX tokens.
 
 use crate::multisig;
 use codec::{Decode, Encode};
-use core::result::Result as StdResult;
-use frame_support::dispatch::{DispatchError, DispatchResult};
+use frame_support::dispatch::DispatchResult;
 use frame_support::traits::{Currency, Get};
 use frame_support::{
     decl_error, decl_event, decl_module, decl_storage, ensure,
     weights::{DispatchClass, FunctionOf, SimpleDispatchInfo},
 };
 use frame_system::{self as system, ensure_signed};
-use polymesh_primitives::{traits::IdentityCurrency, AccountKey, IdentityId, Signatory};
+use polymesh_primitives::{AccountKey, Signatory};
 use polymesh_runtime_balances as balances;
-use polymesh_runtime_common::traits::CommonTrait;
+use polymesh_runtime_common::traits::{balances::CheckCdd, CommonTrait};
 use polymesh_runtime_identity as identity;
 use sp_core::H256;
 use sp_runtime::traits::{One, Zero};
-use sp_std::collections::btree_map::BTreeMap;
 use sp_std::{convert::TryFrom, prelude::*};
 
 pub trait Trait: multisig::Trait {
@@ -29,63 +27,58 @@ pub trait Trait: multisig::Trait {
     /// executed in a single block. Any excess bridge transactions are scheduled in later
     /// blocks.
     type MaxTimelockedTxsPerBlock: Get<u32>;
-    /// The block number range in which to look for available blocks to put a timelocked
-    /// transaction.
-    type BlockRangeForTimelock: Get<Self::BlockNumber>;
 }
 
-/// The intended recipient of POLY exchanged from the locked ERC20 tokens.
+/// The status of a bridge tx
 #[derive(Encode, Decode, Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
-pub enum IssueRecipient<AccountId> {
-    Account(AccountId),
-    Identity(IdentityId),
+pub enum BridgeTxStatus {
+    /// No such tx in the system.
+    Absent,
+    /// Tx missing cdd or bridge module frozen.
+    /// u8 represents number of times the module tried processing this tx.
+    /// It will be retried automatically. Anyone can manually retry these.
+    Pending(u8),
+    /// Tx frozen by admin. It will not be retried automatically.
+    Frozen,
+    /// Tx pending first execution. These can not be manually triggered by normal accounts.
+    Timelocked,
+    /// Tx has been credited.
+    Handled,
 }
 
-/// Converts an `IssueRecipient` to the identity and the account of the recipient. The returned
-/// error covers the case when there is a bug in the code and the account ID does not encode as
-/// bytes.
-fn identity_and_account<'a, T: 'a + Trait>(
-    recipient: &'a IssueRecipient<T::AccountId>,
-) -> StdResult<(Option<IdentityId>, Option<&'a T::AccountId>), &'static str> {
-    Ok(match recipient {
-        IssueRecipient::Account(account_id) => {
-            let to_key = AccountKey::try_from(account_id.encode())?;
-            (
-                <identity::Module<T>>::get_identity(&to_key),
-                Some(account_id),
-            )
-        }
-        IssueRecipient::Identity(did) => (Some(*did), None),
-    })
+impl Default for BridgeTxStatus {
+    fn default() -> Self {
+        BridgeTxStatus::Absent
+    }
 }
 
-/// A unique lock-and-mint bridge transaction containing Ethereum transaction data and a bridge nonce.
-#[derive(Encode, Decode, Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
-pub struct BridgeTx<AccountId, Balance> {
-    /// Bridge signer runtime nonce.
-    pub nonce: u64,
-    /// Recipient of POLY on Polymesh: the deposit address or identity.
-    pub recipient: IssueRecipient<AccountId>,
-    /// Amount of tokens locked on Ethereum.
+/// A unique lock-and-mint bridge transaction
+#[derive(Encode, Decode, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Default)]
+pub struct BridgeTx<Account, Balance> {
+    /// A single tx hash can have multiple locks. This nonce differentiates between them.
+    pub nonce: u32,
+    /// Recipient of POLYX on Polymesh: the deposit address or identity.
+    pub recipient: Account,
+    /// Amount of POLYX tokens to credit.
     pub amount: Balance,
     /// Ethereum token lock transaction hash.
     pub tx_hash: H256,
+    // NB: The bridge module no longer uses eth tx hash. It's here for compatibility reasons.
 }
 
-/// A transaction that is pending a valid identity CDD.
-#[derive(Encode, Decode, Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
-pub struct PendingTx<AccountId, Balance> {
-    /// The identity on which the CDD is pending.
-    pub did: IdentityId,
-    /// The pending transaction.
-    pub bridge_tx: BridgeTx<AccountId, Balance>,
+/// Additional details about a bridge tx
+#[derive(Encode, Decode, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Default)]
+pub struct BridgeTxDetail<Balance, BlockNumber> {
+    /// Amount of POLYX tokens to credit.
+    pub amount: Balance,
+    /// Status of the bridge tx.
+    pub status: BridgeTxStatus,
+    /// Block number at which this tx was executed or is planned to be executed.
+    pub execution_block: BlockNumber,
+    /// Ethereum token lock transaction hash.
+    pub tx_hash: H256,
+    // NB: The bridge module no longer uses eth tx hash. It's here for compatibility reasons.
 }
-
-/// Either a pending transaction or a `None` or an error.
-type IssueResult<T> = sp_std::result::Result<
-    Option<PendingTx<<T as frame_system::Trait>::AccountId, <T as CommonTrait>::Balance>>,
-    DispatchError,
->;
 
 decl_error! {
     pub enum Error for Module<T: Trait> {
@@ -117,6 +110,8 @@ decl_error! {
         NoSuchProposal,
         /// All the blocks in the timelock block range are full.
         TimelockBlockRangeFull,
+        /// The transaction is time locked
+        TimelockedTx,
     }
 }
 
@@ -139,23 +134,29 @@ decl_storage! {
                 config.signatures_required
             ).expect("cannot create the bridge multisig")
         }): T::AccountId;
-        /// Pending issuance transactions to identities.
-        PendingTxs get(fn pending_txs): map hasher(blake2_128_concat) IdentityId => Vec<BridgeTx<T::AccountId, T::Balance>>;
-        /// Frozen transactions.
-        FrozenTxs get(fn frozen_txs): map hasher(blake2_128_concat) BridgeTx<T::AccountId, T::Balance> => bool;
-        /// Handled bridge transactions.
-        HandledTxs get(fn handled_txs): map hasher(blake2_128_concat) BridgeTx<T::AccountId, T::Balance> => bool;
+
+        /// Status of bridge transactions
+        BridgeTxDetails get(fn bridge_tx_details):
+            double_map
+                hasher(blake2_128_concat) T::AccountId,
+                hasher(blake2_128_concat) u32
+            =>
+                BridgeTxDetail<T::Balance, T::BlockNumber>;
+
         /// The admin key.
         Admin get(fn admin) config(): T::AccountId;
+
         /// Whether or not the bridge operation is frozen.
         Frozen get(fn frozen): bool;
+
         /// The bridge transaction timelock period, in blocks, since the acceptance of the
         /// transaction proposal during which the admin key can freeze the transaction.
         Timelock get(fn timelock) config(): T::BlockNumber;
+
         /// The list of timelocked transactions with the block numbers in which those transactions
-        /// become unlocked.
+        /// become unlocked. Pending transactions are also included here if they will be tried automatically.
         TimelockedTxs get(fn timelocked_txs):
-            linked_map hasher(twox_64_concat) T::BlockNumber => Vec<BridgeTx<T::AccountId, T::Balance>>;
+            map hasher(twox_64_concat) T::BlockNumber => Vec<BridgeTx<T::AccountId, T::Balance>>;
     }
     add_extra_genesis {
         // TODO: Remove multisig creator and add systematic CDD for the bridge multisig.
@@ -177,14 +178,13 @@ decl_event! {
     {
         /// Confirmation of a signer set change.
         ControllerChanged(AccountId),
-        /// Confirmation of minting POLY on Polymesh in return for the locked ERC20 tokens on
+        /// Confirmation of Admin change.
+        AdminChanged(AccountId),
+        /// Confirmation of default timelock change.
+        TimelockChanged(BlockNumber),
+        /// Confirmation of minting POLYX on Polymesh in return for the locked ERC20 tokens on
         /// Ethereum.
         Bridged(BridgeTx<AccountId, Balance>),
-        /// Notification of an approved transaction having moved to a pending state due to the
-        /// recipient identity either being non-existent or not having a valid CDD.
-        Pending(PendingTx<AccountId, Balance>),
-        /// Notification of a failure to finalize a pending transaction. The transaction is removed.
-        Failed(BridgeTx<AccountId, Balance>),
         /// Notification of freezing the bridge.
         Frozen,
         /// Notification of unfreezing the bridge.
@@ -204,7 +204,6 @@ decl_module! {
         type Error = Error<T>;
 
         const MaxTimelockedTxsPerBlock: u32 = T::MaxTimelockedTxsPerBlock::get();
-        const BlockRangeForTimelock: T::BlockNumber = T::BlockRangeForTimelock::get();
 
         fn deposit_event() = default;
 
@@ -218,7 +217,8 @@ decl_module! {
         pub fn change_controller(origin, controller: T::AccountId) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             ensure!(sender == Self::admin(), Error::<T>::BadAdmin);
-            <Controller<T>>::put(controller);
+            <Controller<T>>::put(controller.clone());
+            Self::deposit_event(RawEvent::ControllerChanged(controller));
             Ok(())
         }
 
@@ -227,7 +227,8 @@ decl_module! {
         pub fn change_admin(origin, admin: T::AccountId) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             ensure!(sender == Self::admin(), Error::<T>::BadAdmin);
-            <Admin<T>>::put(admin);
+            <Admin<T>>::put(admin.clone());
+            Self::deposit_event(RawEvent::AdminChanged(admin));
             Ok(())
         }
 
@@ -236,7 +237,8 @@ decl_module! {
         pub fn change_timelock(origin, timelock: T::BlockNumber) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             ensure!(sender == Self::admin(), Error::<T>::BadAdmin);
-            <Timelock<T>>::put(timelock);
+            <Timelock<T>>::put(timelock.clone());
+            Self::deposit_event(RawEvent::TimelockChanged(timelock));
             Ok(())
         }
 
@@ -277,7 +279,6 @@ decl_module! {
         pub fn propose_bridge_tx(origin, bridge_tx: BridgeTx<T::AccountId, T::Balance>) ->
             DispatchResult
         {
-            ensure!(!Self::frozen(), Error::<T>::Frozen);
             let controller = Self::controller();
             ensure!(controller != Default::default(), Error::<T>::ControllerNotSet);
             let proposal = <T as Trait>::Proposal::from(Call::<T>::handle_bridge_tx(bridge_tx));
@@ -289,67 +290,43 @@ decl_module! {
             )
         }
 
-        /// Finalizes pending bridge transactions following a receipt of a valid CDD by the
-        /// recipient identity.
-        #[weight = SimpleDispatchInfo::FixedNormal(1_000_000)]
-        pub fn finalize_pending(_origin, did: IdentityId) -> DispatchResult {
-            ensure!(!Self::frozen(), Error::<T>::Frozen);
-            ensure!(<identity::Module<T>>::has_valid_cdd(did), Error::<T>::NoValidCdd);
-            let mut new_pending_txs: BTreeMap<_, Vec<BridgeTx<T::AccountId, T::Balance>>> =
-                BTreeMap::new();
-            for bridge_tx in Self::pending_txs(&did) {
-                match Self::issue(bridge_tx.clone()) {
-                    Ok(None) => Self::deposit_event(RawEvent::Bridged(bridge_tx)),
-                    Ok(Some(PendingTx {
-                        did: to_did,
-                        bridge_tx,
-                    })) => {
-                        let entry = new_pending_txs
-                            .entry(to_did)
-                            .or_default();
-                        entry.push(bridge_tx.clone());
-                        Self::deposit_event(RawEvent::Pending(PendingTx {
-                            did: to_did,
-                            bridge_tx
-                        }));
-                    }
-                    Err(_) => Self::deposit_event(RawEvent::Failed(bridge_tx)),
-                }
-            }
-            for (to_did, txs) in new_pending_txs {
-                if to_did == did {
-                    <PendingTxs<T>>::insert(did, txs);
-                } else {
-                    <PendingTxs<T>>::mutate(to_did, |pending_txs| pending_txs.extend(txs));
-                }
-            }
-            Ok(())
-        }
-
         /// Handles an approved bridge transaction proposal.
         #[weight = SimpleDispatchInfo::FixedNormal(750_000)]
         pub fn handle_bridge_tx(origin, bridge_tx: BridgeTx<T::AccountId, T::Balance>) ->
             DispatchResult
         {
             let sender = ensure_signed(origin)?;
-            //TODO: Review admin permissions to handle bridge txs before mainnet
-            ensure!(sender == Self::controller() || sender == Self::admin(), Error::<T>::BadCaller);
-
-            ensure!(!Self::handled_txs(&bridge_tx), Error::<T>::ProposalAlreadyHandled);
-            if Self::frozen() {
-                if !Self::frozen_txs(&bridge_tx) {
-                    // Move the transaction to the list of frozen transactions.
-                    <FrozenTxs<T>>::insert(&bridge_tx, true);
-                    Self::deposit_event(RawEvent::FrozenTx(bridge_tx));
+            let mut tx_details = Self::bridge_tx_details(&bridge_tx.recipient, &bridge_tx.nonce);
+            match tx_details.status {
+                // New bridge tx
+                BridgeTxStatus::Absent => {
+                    //TODO: Review admin permissions to handle bridge txs before mainnet
+                    ensure!(sender == Self::controller() || sender == Self::admin(), Error::<T>::BadCaller);
+                    let timelock = Self::timelock();
+                    if timelock.is_zero() {
+                        return Self::handle_bridge_tx_now(bridge_tx, false);
+                    } else {
+                        return Self::handle_bridge_tx_later(bridge_tx, timelock);
+                    }
                 }
-                return Ok(());
-            }
-            ensure!(!Self::frozen_txs(&bridge_tx), Error::<T>::FrozenTx);
-            let timelock = Self::timelock();
-            if timelock.is_zero() {
-                Self::handle_bridge_tx_now(bridge_tx)
-            } else {
-                Self::handle_bridge_tx_later(bridge_tx, timelock)
+                // Pending cdd bridge tx
+                BridgeTxStatus::Pending(_) => {
+                    return Self::handle_bridge_tx_now(bridge_tx, true);
+                }
+                // Pre frozen tx. We just set the correct amount.
+                BridgeTxStatus::Frozen => {
+                    //TODO: Review admin permissions to handle bridge txs before mainnet
+                    ensure!(sender == Self::controller() || sender == Self::admin(), Error::<T>::BadCaller);
+                    tx_details.amount = bridge_tx.amount;
+                    <BridgeTxDetails<T>>::insert(&bridge_tx.recipient, &bridge_tx.nonce, tx_details);
+                    Ok(())
+                }
+                BridgeTxStatus::Timelocked => {
+                    return Err(Error::<T>::TimelockedTx.into());
+                }
+                BridgeTxStatus::Handled => {
+                    return Err(Error::<T>::ProposalAlreadyHandled.into());
+                }
             }
         }
 
@@ -372,12 +349,9 @@ decl_module! {
             let sender = ensure_signed(origin)?;
             ensure!(sender == Self::admin(), Error::<T>::BadAdmin);
             for bridge_tx in bridge_txs {
-                let proposal =
-                    <T as Trait>::Proposal::from(Call::<T>::handle_bridge_tx(bridge_tx.clone())).into();
-                let proposal_id = <multisig::Module<T>>::proposal_ids(&Self::controller(), &proposal);
-                ensure!(proposal_id.is_some(), Error::<T>::NoSuchProposal);
-                ensure!(!Self::handled_txs(&bridge_tx), Error::<T>::ProposalAlreadyHandled);
-                <FrozenTxs<T>>::insert(&bridge_tx, true);
+                let tx_details = Self::bridge_tx_details(&bridge_tx.recipient, &bridge_tx.nonce);
+                ensure!(tx_details.status != BridgeTxStatus::Handled, Error::<T>::ProposalAlreadyHandled);
+                <BridgeTxDetails<T>>::mutate(&bridge_tx.recipient, &bridge_tx.nonce, |tx_detail| tx_detail.status = BridgeTxStatus::Frozen);
                 Self::deposit_event(RawEvent::FrozenTx(bridge_tx));
             }
             Ok(())
@@ -399,14 +373,15 @@ decl_module! {
         pub fn unfreeze_txs(origin, bridge_txs: Vec<BridgeTx<T::AccountId, T::Balance>>) ->
             DispatchResult
         {
+            // NB: An admin can call Freeze + Unfreeze on a transaction to bypass the timelock
             let sender = ensure_signed(origin)?;
             ensure!(sender == Self::admin(), Error::<T>::BadAdmin);
             for bridge_tx in bridge_txs {
-                ensure!(!Self::handled_txs(&bridge_tx), Error::<T>::ProposalAlreadyHandled);
-                ensure!(Self::frozen_txs(&bridge_tx), Error::<T>::NoSuchFrozenTx);
-                <FrozenTxs<T>>::remove(&bridge_tx);
+                let tx_details = Self::bridge_tx_details(&bridge_tx.recipient, &bridge_tx.nonce);
+                ensure!(tx_details.status == BridgeTxStatus::Frozen, Error::<T>::NoSuchFrozenTx);
+                <BridgeTxDetails<T>>::mutate(&bridge_tx.recipient, &bridge_tx.nonce, |tx_detail| tx_detail.status = BridgeTxStatus::Absent);
                 Self::deposit_event(RawEvent::UnfrozenTx(bridge_tx.clone()));
-                if let Err(e) = Self::handle_bridge_tx_now(bridge_tx) {
+                if let Err(e) = Self::handle_bridge_tx_now(bridge_tx, true) {
                     sp_runtime::print(e);
                 }
             }
@@ -418,44 +393,57 @@ decl_module! {
 
 impl<T: Trait> Module<T> {
     /// Issues the transacted amount to the recipient or returns a pending transaction.
-    fn issue(bridge_tx: BridgeTx<T::AccountId, T::Balance>) -> IssueResult<T> {
-        let BridgeTx {
-            nonce: _,
-            recipient,
-            amount,
-            tx_hash: _,
-        } = &bridge_tx;
-        let (did, account_id) = identity_and_account::<T>(recipient)?;
-        if let Some(did) = did {
-            // Issue to an identity or to an account associated with one.
-            if <identity::Module<T>>::has_valid_cdd(did) {
-                let neg_imbalance = <balances::Module<T>>::issue(*amount);
-                let resolution = if let Some(account_id) = account_id {
-                    <balances::Module<T>>::resolve_into_existing(account_id, neg_imbalance)
-                } else {
-                    <balances::Module<T>>::resolve_into_existing_identity(&did, neg_imbalance)
-                };
-                resolution.map_err(|_| Error::<T>::CannotCreditRecipient)?;
-            } else {
-                return Ok(Some(PendingTx { did, bridge_tx }));
-            }
-        } else if let Some(account_id) = account_id {
-            // Issue to an account not associated with an identity.
-            let neg_imbalance = <balances::Module<T>>::issue(*amount);
-            <balances::Module<T>>::resolve_into_existing(account_id, neg_imbalance)
-                .map_err(|_| Error::<T>::CannotCreditRecipient)?;
-        }
-        Ok(None)
+    fn issue(recipient: &T::AccountId, amount: &T::Balance) -> DispatchResult {
+        ensure!(
+            T::CddChecker::check_key_cdd(&AccountKey::try_from(recipient.encode())?),
+            Error::<T>::NoValidCdd
+        );
+
+        let _pos_imbalance = <balances::Module<T>>::deposit_creating(&recipient, *amount);
+
+        Ok(())
     }
 
     /// Handles a bridge transaction proposal immediately.
-    fn handle_bridge_tx_now(bridge_tx: BridgeTx<T::AccountId, T::Balance>) -> DispatchResult {
-        if let Some(PendingTx { did, bridge_tx }) = Self::issue(bridge_tx.clone())? {
-            <PendingTxs<T>>::mutate(did, |txs| txs.push(bridge_tx.clone()));
-            Self::deposit_event(RawEvent::Pending(PendingTx { did, bridge_tx }));
+    fn handle_bridge_tx_now(
+        bridge_tx: BridgeTx<T::AccountId, T::Balance>,
+        untrusted_manual_retry: bool,
+    ) -> DispatchResult {
+        let mut tx_details = Self::bridge_tx_details(&bridge_tx.recipient, &bridge_tx.nonce);
+        // NB: This function does not care if a transaction is timelocked. Therefore, this should only be called
+        // after timelock has expired or timelock is to be bypassed by an admin.
+        ensure!(
+            tx_details.status != BridgeTxStatus::Handled,
+            Error::<T>::ProposalAlreadyHandled
+        );
+        ensure!(
+            tx_details.status != BridgeTxStatus::Frozen,
+            Error::<T>::FrozenTx
+        );
+
+        if Self::frozen() {
+            // Untruested manual retries not allowed during frozen state.
+            ensure!(!untrusted_manual_retry, Error::<T>::Frozen);
+            // Bridge module frozen. Retry this tx again later.
+            return Self::handle_bridge_tx_later(bridge_tx, Self::timelock());
+        }
+
+        let amount = if untrusted_manual_retry {
+            // NB: The amount should be fetched from storage since the amount in `bridge_tx`
+            // may be altered in a manual retry
+            tx_details.amount
         } else {
-            <HandledTxs<T>>::insert(&bridge_tx, true);
+            bridge_tx.amount
+        };
+        if Self::issue(&bridge_tx.recipient, &amount).is_ok() {
+            tx_details.status = BridgeTxStatus::Handled;
+            tx_details.execution_block = <system::Module<T>>::block_number();
+            <BridgeTxDetails<T>>::insert(&bridge_tx.recipient, &bridge_tx.nonce, tx_details);
             Self::deposit_event(RawEvent::Bridged(bridge_tx));
+        } else if !untrusted_manual_retry {
+            // NB: If this was a manual retry, tx's automated retry schedule is not updated.
+            // Recipient missing CDD or limit reached. Retry this tx again later.
+            return Self::handle_bridge_tx_later(bridge_tx, Self::timelock());
         }
         Ok(())
     }
@@ -465,20 +453,45 @@ impl<T: Trait> Module<T> {
         bridge_tx: BridgeTx<T::AccountId, T::Balance>,
         timelock: T::BlockNumber,
     ) -> DispatchResult {
+        let mut already_tried = 0;
+        let mut tx_details = Self::bridge_tx_details(&bridge_tx.recipient, &bridge_tx.nonce);
+        match tx_details.status {
+            BridgeTxStatus::Absent => {
+                tx_details.status = BridgeTxStatus::Timelocked;
+                tx_details.amount = bridge_tx.amount.clone();
+            }
+            BridgeTxStatus::Pending(x) => {
+                tx_details.status = BridgeTxStatus::Pending(x + 1);
+                already_tried = x + 1;
+            }
+            BridgeTxStatus::Timelocked => {
+                tx_details.status = BridgeTxStatus::Pending(1);
+                already_tried = 1;
+            }
+            BridgeTxStatus::Frozen => {
+                return Err(Error::<T>::FrozenTx.into());
+            }
+            BridgeTxStatus::Handled => {
+                return Err(Error::<T>::ProposalAlreadyHandled.into());
+            }
+        }
+        tx_details.tx_hash = bridge_tx.tx_hash.clone();
+
+        if already_tried > 24 {
+            // Limits the exponential backoff to *almost infinity* (~180 years)
+            already_tried = 24;
+        }
+
         let current_block_number = <system::Module<T>>::block_number();
-        let mut unlock_block_number = current_block_number + timelock;
-        let range = T::BlockRangeForTimelock::get();
-        let max_unlock_block_number = unlock_block_number + range - One::one();
+        let mut unlock_block_number =
+            current_block_number + timelock + T::BlockNumber::from(2u32.pow(already_tried.into()));
         let max_timelocked_txs_per_block = T::MaxTimelockedTxsPerBlock::get() as usize;
-        while Self::timelocked_txs(unlock_block_number).len() >= max_timelocked_txs_per_block
-            && unlock_block_number <= max_unlock_block_number
-        {
+        while Self::timelocked_txs(unlock_block_number).len() >= max_timelocked_txs_per_block {
             unlock_block_number += One::one();
         }
-        ensure!(
-            unlock_block_number <= max_unlock_block_number,
-            Error::<T>::TimelockBlockRangeFull
-        );
+
+        tx_details.execution_block = unlock_block_number;
+        <BridgeTxDetails<T>>::insert(&bridge_tx.recipient, &bridge_tx.nonce, tx_details);
         <TimelockedTxs<T>>::mutate(unlock_block_number, |txs| {
             txs.push(bridge_tx);
         });
@@ -489,32 +502,32 @@ impl<T: Trait> Module<T> {
     fn handle_timelocked_txs(block_number: T::BlockNumber) {
         let txs = <TimelockedTxs<T>>::take(block_number);
         for tx in txs {
-            if let Err(e) = Self::handle_bridge_tx_now(tx) {
+            if let Err(e) = Self::handle_bridge_tx_now(tx, false) {
                 sp_runtime::print(e);
             }
         }
     }
 
-    /// Emits an event containing the timelocked balances of a given `IssueRecipient`.
-    ///
-    /// TODO: Convert this method to an RPC call.
-    pub fn get_timelocked_balances_of_recipient(
-        issue_recipient: IssueRecipient<T::AccountId>,
-    ) -> DispatchResult {
-        ensure!(!Self::frozen(), Error::<T>::Frozen);
-        let mut timelocked_balances = Vec::new();
-        for (n, txs) in <TimelockedTxs<T>>::enumerate() {
-            let sum_balance = |accum, tx: &BridgeTx<_, _>| {
-                if tx.recipient == issue_recipient {
-                    accum + tx.amount
-                } else {
-                    accum
-                }
-            };
-            let recipients_balance: T::Balance = txs.iter().fold(Zero::zero(), sum_balance);
-            timelocked_balances.push((n, recipients_balance));
-        }
-        Self::deposit_event(RawEvent::TimelockedBalancesOfRecipient(timelocked_balances));
-        Ok(())
-    }
+    // /// Emits an event containing the timelocked balances of a given `IssueRecipient`.
+    // ///
+    // /// TODO: Convert this method to an RPC call.
+    // pub fn get_timelocked_balances_of_recipient(
+    //     issue_recipient: IssueRecipient<T::AccountId>,
+    // ) -> DispatchResult {
+    //     ensure!(!Self::frozen(), Error::<T>::Frozen);
+    //     let mut timelocked_balances = Vec::new();
+    //     for (n, txs) in <TimelockedTxs<T>>::enumerate() {
+    //         let sum_balance = |accum, tx: &BridgeTx<_, _>| {
+    //             if tx.recipient == issue_recipient {
+    //                 accum + tx.amount
+    //             } else {
+    //                 accum
+    //             }
+    //         };
+    //         let recipients_balance: T::Balance = txs.iter().fold(Zero::zero(), sum_balance);
+    //         timelocked_balances.push((n, recipients_balance));
+    //     }
+    //     Self::deposit_event(RawEvent::TimelockedBalancesOfRecipient(timelocked_balances));
+    //     Ok(())
+    // }
 }

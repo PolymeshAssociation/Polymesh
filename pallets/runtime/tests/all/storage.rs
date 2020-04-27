@@ -371,7 +371,6 @@ impl bridge::Trait for TestStorage {
     type Event = Event;
     type Proposal = Call;
     type MaxTimelockedTxsPerBlock = MaxTimelockedTxsPerBlock;
-    type BlockRangeForTimelock = BlockRangeForTimelock;
 }
 
 impl exemption::Trait for TestStorage {
