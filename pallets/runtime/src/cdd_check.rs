@@ -1,6 +1,6 @@
 use crate::{multisig, Runtime};
 
-use polymesh_primitives::AccountKey;
+use polymesh_primitives::{AccountKey, IdentityId};
 use polymesh_runtime_common::traits::balances::CheckCdd;
 use polymesh_runtime_identity as identity;
 
@@ -15,10 +15,13 @@ pub struct CddChecker;
 
 impl CheckCdd for CddChecker {
     fn check_key_cdd(key: &AccountKey) -> bool {
-        // An account is that is a signing key or the master key of an Identity
+        Self::get_key_cdd_did(key).is_some()
+    }
+
+    fn get_key_cdd_did(key: &AccountKey) -> Option<IdentityId> {
         if let Some(did) = Identity::get_identity(&key) {
             if Identity::has_valid_cdd(did) {
-                return true;
+                return Some(did);
             }
         }
         // An account that is NOT a signing key or the master key of an Identity
@@ -27,10 +30,12 @@ impl CheckCdd for CddChecker {
             let ms = <multisig::KeyToMultiSig<Runtime>>::get(&key);
             if let Ok(ms_key) = AccountKey::try_from(ms.encode()) {
                 if let Some(did) = Identity::get_identity(&ms_key) {
-                    return Identity::has_valid_cdd(did);
+                    if Identity::has_valid_cdd(did) {
+                        return Some(did);
+                    }
                 }
             }
         }
-        return false;
+        return None;
     }
 }
