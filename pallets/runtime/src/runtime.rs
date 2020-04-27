@@ -953,6 +953,20 @@ impl_runtime_apis! {
         }
     }
 
+    impl pallet_asset_rpc_runtime_api::AssetApi<Block, AccountId, Balance> for Runtime {
+        #[inline]
+        fn can_transfer(
+            sender: AccountId,
+            ticker: Ticker,
+            from_did: IdentityId,
+            to_did: IdentityId,
+            value: Balance) -> pallet_asset_rpc_runtime_api::CanTransferResult
+        {
+            Asset::unsafe_can_transfer(sender, ticker, from_did, to_did, value)
+                .map_err(|(_code, msg)| msg.as_bytes().to_vec())
+        }
+    }
+
     #[cfg(feature = "runtime-benchmarks")]
     impl frame_benchmarking::Benchmark<Block> for Runtime {
         fn dispatch_benchmark(

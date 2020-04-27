@@ -79,7 +79,7 @@ use codec::{Decode, Encode};
 use core::result::Result as StdResult;
 use currency::*;
 use frame_support::{
-    decl_error, decl_event, decl_module, decl_storage,
+    debug, decl_error, decl_event, decl_module, decl_storage,
     dispatch::DispatchResult,
     ensure,
     traits::Currency,
@@ -88,7 +88,7 @@ use frame_support::{
 use frame_system::{self as system, ensure_signed};
 use hex_literal::hex;
 use pallet_contracts::{ExecReturnValue, Gas};
-use sp_runtime::traits::{CheckedAdd, CheckedSub, Verify};
+use sp_runtime::traits::{CheckedAdd, CheckedSub, Saturating, Verify};
 
 #[cfg(feature = "std")]
 use sp_runtime::{Deserialize, Serialize};
@@ -1043,33 +1043,30 @@ decl_module! {
         /// * `value` Amount of the tokens
         /// * `data` Off chain data blob to validate the transfer.
         #[weight = SimpleDispatchInfo::FixedNormal(300_000)]
-        pub fn can_transfer(origin, ticker: Ticker, from_did: IdentityId, to_did: IdentityId, value: T::Balance, data: Vec<u8>) {
+        pub fn can_transfer(
+                origin,
+                ticker: Ticker,
+                from_did: IdentityId,
+                to_did: IdentityId,
+                value: T::Balance,
+                data: Vec<u8>) -> DispatchResult
+        {
             let sender = ensure_signed(origin)?;
-            let mut current_balance: T::Balance = Self::balance(&ticker, &from_did);
 
-            if current_balance < value {
-                current_balance = 0.into();
-            } else {
-                current_balance -= value;
-            }
+            let transfer_result = Self::unsafe_can_transfer(sender, ticker, from_did, to_did, value);
+            let code: u32 = match transfer_result {
+                Ok(ref code) => *code as u32,
+                Err(ref err) => match err {
+                    (Error::InsufficientBalance,_msg) => ERC1400_INSUFFICIENT_BALANCE as u32,
+                    (_, _msg) => ERC1400_TRANSFER_FAILURE as u32,
+                },
+            };
+            let event = RawEvent::CanTransfer(ticker, from_did, to_did, value, data, code);
+            Self::deposit_event(event);
 
-            if current_balance < Self::total_custody_allowance((ticker, from_did)) {
-                sp_runtime::print("Insufficient balance");
-                Self::deposit_event(RawEvent::CanTransfer(ticker, from_did, to_did, value, data, ERC1400_INSUFFICIENT_BALANCE as u32));
-            } else {
-                match Self::_is_valid_transfer(&ticker, sender, Some(from_did), Some(to_did), value) {
-                    Ok(code) =>
-                    {
-                        Self::deposit_event(RawEvent::CanTransfer(ticker, from_did, to_did, value, data, code as u32));
-                    },
-                    Err(msg) => {
-                        // We emit a generic error with the event whenever there's an internal issue - i.e. captured
-                        // in a string error and not using the status codes
-                        sp_runtime::print(msg);
-                        Self::deposit_event(RawEvent::CanTransfer(ticker, from_did, to_did, value, data, ERC1400_TRANSFER_FAILURE as u32));
-                    }
-                }
-            }
+            transfer_result
+                .map(|_code|{})
+                .map_err(|(err,_)| err.into())
         }
 
         /// An ERC1594 transfer with data
@@ -2359,6 +2356,34 @@ impl<T: Trait> Module<T> {
                 }
             }
         }
+    }
+
+    pub fn unsafe_can_transfer(
+        sender: T::AccountId,
+        ticker: Ticker,
+        from_did: IdentityId,
+        to_did: IdentityId,
+        amount: T::Balance,
+    ) -> StdResult<u8, (Error<T>, &'static str)> {
+        let new_from_balance = Self::balance(&ticker, &from_did).saturating_sub(amount);
+
+        if new_from_balance < Self::total_custody_allowance((ticker, from_did)) {
+            return Err((Error::<T>::InsufficientBalance, "Insufficient balance"));
+        }
+
+        Self::_is_valid_transfer(&ticker, sender, Some(from_did), Some(to_did), amount).map_err(
+            |msg| {
+                debug::error!(
+                    "Invalid transfer of ticker {:?} from {} to {} with amount {:?}: {}",
+                    ticker,
+                    from_did,
+                    to_did,
+                    amount,
+                    msg
+                );
+                (Error::InvalidTransfer, msg)
+            },
+        )
     }
 }
 

@@ -1,7 +1,8 @@
 use codec::Codec;
 use jsonrpc_core::{Error as RpcError, ErrorCode, Result};
 use jsonrpc_derive::rpc;
-use polymesh_runtime_asset_rpc_runtime_api::CanTransferResult;
+use pallet_asset_rpc_runtime_api::{AssetApi as AssetRuntimeApi, CanTransferResult};
+use polymesh_primitives::{IdentityId, Ticker};
 use sp_api::ProvideRuntimeApi;
 use sp_blockchain::HeaderBackend;
 use sp_runtime::{generic::BlockId, traits::Block as BlockT};
@@ -16,15 +17,15 @@ pub type BalanceOf<T> =
     <<T as Trait>::Currency as Currency<<T as frame_system::Trait>::AccountId>>::Balance;
 
 #[rpc]
-pub trait AssetApi<Blockhash, IdentityId, Ticker, T> {
+pub trait AssetApi<BlockHash, AccountId, T> {
     #[rpc(name = "asset_canTransfer")]
     fn can_transfer(
         &self,
+        sender: AccountId,
         ticker: Ticker,
         from_did: IdentityId,
         to_did: IdentityId,
         value: T,
-        data: Vec<u8>,
         at: Option<BlockHash>,
     ) -> Result<CanTransferResult>;
 }
@@ -53,32 +54,31 @@ pub enum Error {
     RuntimeError,
 }
 
-impl<C, Block, IdentityId, Tickere> AssetApi<<Block as BlockT>::Hash, IdentityId, Ticker, T>
-    for Asset<C, Block>
+impl<C, Block, AccountId, T> AssetApi<<Block as BlockT>::Hash, AccountId, T> for Asset<C, Block>
 where
     Block: BlockT,
     C: Send + Sync + 'static,
     C: ProvideRuntimeApi<Block>,
     C: HeaderBackend<Block>,
-    C::Api: AssetRuntimeApi<Block, IdentityId, Ticker, T>,
-    IdentityId: Codec,
-    Ticker: Codec,
+    C::Api: AssetRuntimeApi<Block, AccountId, T>,
+    AccountId: Codec,
     T: Codec,
 {
     fn can_transfer(
         &self,
+        sender: AccountId,
         ticker: Ticker,
         from_did: IdentityId,
         to_did: IdentityId,
         value: T,
-        data: Vec<u8>,
+        at: Option<<Block as BlockT>::Hash>,
     ) -> Result<CanTransferResult> {
         let api = self.client.runtime_api();
         let at = BlockId::hash(at.unwrap_or_else(||
                 // If the block hash is not supplied assume the best block.
                 self.client.info().best_hash));
 
-        api.can_transfer(ticker, from_did, to_did, value, data, &at)
+        api.can_transfer(&at, sender, ticker, from_did, to_did, value)
             .map_err(|e| RpcError {
                 code: ErrorCode::ServerError(Error::RuntimeError as i64),
                 message: "Unable to check trnsfer".into(),

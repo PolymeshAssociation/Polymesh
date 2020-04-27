@@ -74,10 +74,12 @@ macro_rules! new_full_start {
         })?
         .with_rpc_extensions(|builder| -> Result<RpcExtension, _> {
             use contracts_rpc::{Contracts, ContractsApi};
+            use pallet_asset_rpc::{Asset, AssetApi};
             use pallet_mips_rpc::{Mips, MipsApi};
             use pallet_staking_rpc::{Staking, StakingApi};
             use pallet_transaction_payment_rpc::{TransactionPayment, TransactionPaymentApi};
             use polymesh_runtime_identity_rpc::{Identity, IdentityApi};
+
             // register contracts RPC extension
             let mut io = jsonrpc_core::IoHandler::default();
             io.extend_with(ContractsApi::to_delegate(Contracts::new(
@@ -93,6 +95,8 @@ macro_rules! new_full_start {
             io.extend_with(IdentityApi::to_delegate(Identity::new(
                 builder.client().clone(),
             )));
+            io.extend_with(AssetApi::to_delegate(Asset::new(builder.client().clone())));
+
             Ok(io)
         })?;
 

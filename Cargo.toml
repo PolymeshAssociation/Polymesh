@@ -54,6 +54,7 @@ im-online = { package = "pallet-im-online", path = "pallets/im-online", default-
 polymesh-protocol-fee = { package = "polymesh-protocol-fee", path = "pallets/protocol-fee", default-features = false }
 polymesh-runtime-treasury = { package = "polymesh-runtime-treasury", path = "pallets/treasury", default-features = false }
 pallet-asset = { package = "pallet-asset", path = "pallets/asset", default-features = false }
+pallet-asset-rpc = { package = "pallet-asset-rpc", path = "pallets/asset/rpc", default-features = false }
 
 
 parking_lot = "0.10.0"

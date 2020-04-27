@@ -33,6 +33,8 @@ polymesh-runtime-identity-rpc-runtime-api = { package = "polymesh-runtime-identi
 pallet-transaction-payment-rpc-runtime-api = { package = "pallet-transaction-payment-rpc-runtime-api", path = "../transaction-payment/rpc/runtime-api", default-features = false  }
 pallet-staking-rpc-runtime-api = { package = "pallet-staking-rpc-runtime-api", path = "../staking/rpc/runtime-api", default-features = false  }
 pallet-mips-rpc-runtime-api = { package = "pallet-mips-rpc-runtime-api", path = "../mips/rpc/runtime-api", default-features = false  }
+pallet-asset-rpc-runtime-api = { package = "pallet-asset-rpc-runtime-api", path = "../asset/rpc/runtime-api", default-features = false  }
+
 
 chrono = { version = "0.4.11", default-features = false }
 codec = { package = "parity-scale-codec", version = "1.2.0", default-features = false, features = ["derive"] }
