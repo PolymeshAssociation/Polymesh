@@ -1,4 +1,4 @@
-//! Runtime API definition for mips module.
+//! Runtime API definition for pips module.
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
@@ -55,14 +55,14 @@ impl CappedVoteCount {
 }
 
 sp_api::decl_runtime_apis! {
-    /// The API to interact with Mips governance.
-    pub trait MipsApi<AccountId, Balance>
+    /// The API to interact with Pips governance.
+    pub trait PipsApi<AccountId, Balance>
     where
         AccountId: Codec,
         Balance: Codec,
     {
-        /// Retrieve votes for a proposal for a given `mips_index`.
-        fn get_votes(mips_index: u32) -> VoteCount<Balance>;
+        /// Retrieve votes for a proposal for a given `pips_index`.
+        fn get_votes(pips_index: u32) -> VoteCount<Balance>;
 
         /// Retrieve proposals started by `address`.
         fn proposed_by(address: AccountId) -> Vec<u32>;
@@ -77,8 +77,8 @@ mod tests {
     use super::*;
 
     #[test]
-    fn should_serialize_mips_votes() {
-        let votes = MipsVotes::Success {
+    fn should_serialize_pips_votes() {
+        let votes = PipsVotes::Success {
             ayes: 3141u64,
             nays: 5926u64,
         };
