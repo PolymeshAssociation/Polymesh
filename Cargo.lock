@@ -3703,6 +3703,7 @@ dependencies = [
  "parity-scale-codec",
  "parking_lot 0.10.2",
  "polymesh-primitives",
+ "polymesh-protocol-fee",
  "polymesh-protocol-fee-rpc",
  "polymesh-runtime",
  "polymesh-runtime-common",

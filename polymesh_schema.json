@@ -373,7 +373,7 @@
         }
     },
     "BridgeTx": {
-        "nonce": "u16",
+        "nonce": "u32",
         "recipient": "AccountId",
         "value": "Balance",
         "tx_hash": "H256"
@@ -467,14 +467,11 @@
         }
     },
     "Weight": "u32",
-    "BridgeTxIdentifier": {
-        "nonce": "u16",
-        "tx_hash": "H256"
-    },
     "BridgeTxDetail": {
         "amount": "Balance",
         "status": "BridgeTxStatus",
-        "execution_block": "BlockNumber"
+        "execution_block": "BlockNumber",
+        "tx_hash": "H256"
     },
     "BridgeTxStatus": {
         "_enum": {
