@@ -23,9 +23,9 @@ members = [
     "pallets/staking/rpc",
     "pallets/staking/rpc/runtime-api",
     "pallets/staking/reward-curve",
-    "pallets/mips",
-    "pallets/mips/rpc",
-    "pallets/mips/rpc/runtime-api",
+    "pallets/pips",
+    "pallets/pips/rpc",
+    "pallets/pips/rpc/runtime-api",
     "pallets/identity",
     "pallets/identity/rpc",
     "pallets/identity/rpc/runtime-api",
@@ -53,8 +53,8 @@ pallet-protocol-fee-rpc-runtime-api = { package = "pallet-protocol-fee-rpc-runti
 pallet-contracts-rpc-runtime-api = { package = "pallet-contracts-rpc-runtime-api", git = "https://github.com/paritytech/substrate", rev = "a439a7aa5a9a3df2a42d9b25ea04288d3a0866e8", default-features = false }
 pallet-staking-rpc = { package = "pallet-staking-rpc", path = "pallets/staking/rpc", default-features = false }
 pallet-staking-rpc-runtime-api = { package = "pallet-staking-rpc-runtime-api", path = "pallets/staking/rpc/runtime-api", default-features = false }
-pallet-mips-rpc = { package = "pallet-mips-rpc", path = "pallets/mips/rpc", default-features = false }
-pallet-mips-rpc-runtime-api = { package = "pallet-mips-rpc-runtime-api", path = "pallets/mips/rpc/runtime-api", default-features = false }
+pallet-pips-rpc = { package = "pallet-pips-rpc", path = "pallets/pips/rpc", default-features = false }
+pallet-pips-rpc-runtime-api = { package = "pallet-pips-rpc-runtime-api", path = "pallets/pips/rpc/runtime-api", default-features = false }
 pallet-identity-rpc = { package = "pallet-identity-rpc", path = "pallets/identity/rpc", default-features = false }
 pallet-identity-rpc-runtime-api = { package = "pallet-identity-rpc-runtime-api", path = "pallets/identity/rpc/runtime-api", default-features = false }
 im-online = { package = "pallet-im-online", path = "pallets/im-online", default-features = false }

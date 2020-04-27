@@ -264,8 +264,8 @@ fn general_testnet_genesis(
             min_bond_threshold: 0,
             ..Default::default()
         }),
-        pallet_mips: Some(V1Config::MipsConfig {
-            prune_historical_mips: false,
+        pallet_pips: Some(V1Config::MipsConfig {
+            prune_historical_pips: false,
             min_proposal_deposit: 5000,
             quorum_threshold: 100_000,
             proposal_duration: 50,
@@ -581,8 +581,8 @@ fn v1_live_testnet_genesis() -> GenesisConfig {
             min_bond_threshold: 0,
             ..Default::default()
         }),
-        pallet_mips: Some(V1Config::MipsConfig {
-            prune_historical_mips: false,
+        pallet_pips: Some(PipsConfig {
+            prune_historical_pips: false,
             min_proposal_deposit: 5000,
             quorum_threshold: 100_000,
             proposal_duration: 50,
@@ -867,8 +867,8 @@ fn v1_testnet_genesis(
             min_bond_threshold: 0,
             ..Default::default()
         }),
-        pallet_mips: Some(V1Config::MipsConfig {
-            prune_historical_mips: false,
+        pallet_pips: Some(V1Config::MipsConfig {
+            prune_historical_pips: false,
             min_proposal_deposit: 5000,
             quorum_threshold: 100_000,
             proposal_duration: 50,

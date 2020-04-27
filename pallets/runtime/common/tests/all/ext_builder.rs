@@ -4,7 +4,7 @@ use pallet_balances as balances;
 use pallet_committee as committee;
 use pallet_group as group;
 use pallet_identity as identity;
-use pallet_mips as mips;
+use pallet_pips as pips;
 use pallet_treasury as treasury;
 use polymesh_common_utilities::{protocol_fee::ProtocolOp, traits::identity::LinkedKeyInfo};
 use polymesh_primitives::{AccountKey, Identity, IdentityId, PosRatio};
@@ -49,7 +49,7 @@ impl Default for MockProtocolBaseFees {
             ProtocolOp::IdentityAddClaim,
             ProtocolOp::IdentitySetMasterKey,
             ProtocolOp::IdentityAddSigningItem,
-            ProtocolOp::MipsPropose,
+            ProtocolOp::PipsPropose,
             ProtocolOp::VotingAddBallot,
         ];
         let fees = ops
@@ -328,8 +328,8 @@ impl ExtBuilder {
         .assimilate_storage(&mut storage)
         .unwrap();
 
-        mips::GenesisConfig::<TestStorage> {
-            prune_historical_mips: false,
+        pips::GenesisConfig::<TestStorage> {
+            prune_historical_pips: false,
             min_proposal_deposit: 50,
             quorum_threshold: 70,
             proposal_duration: 10,

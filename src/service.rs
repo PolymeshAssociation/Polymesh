@@ -64,7 +64,7 @@ pub trait RuntimeApiCollection<Extrinsic: codec::Codec + Send + Sync + 'static>:
     + sp_authority_discovery::AuthorityDiscoveryApi<Block>
     + pallet_contracts_rpc_runtime_api::ContractsApi<Block, AccountId, Balance, BlockNumber>
     + pallet_staking_rpc_runtime_api::StakingApi<Block>
-    + pallet_mips_rpc_runtime_api::MipsApi<Block, AccountId, Balance>
+    + pallet_pips_rpc_runtime_api::PipsApi<Block, AccountId, Balance>
     + pallet_identity_rpc_runtime_api::IdentityApi<Block, IdentityId, Ticker, AccountKey, SigningItem>
     + pallet_protocol_fee_rpc_runtime_api::ProtocolFeeApi<Block>
 where
@@ -87,7 +87,7 @@ where
         + sp_authority_discovery::AuthorityDiscoveryApi<Block>
         + pallet_contracts_rpc_runtime_api::ContractsApi<Block, AccountId, Balance, BlockNumber>
         + pallet_staking_rpc_runtime_api::StakingApi<Block>
-        + pallet_mips_rpc_runtime_api::MipsApi<Block, AccountId, Balance>
+        + pallet_pips_rpc_runtime_api::PipsApi<Block, AccountId, Balance>
         + pallet_identity_rpc_runtime_api::IdentityApi<
             Block,
             IdentityId,
@@ -170,7 +170,7 @@ macro_rules! new_full_start {
         .with_rpc_extensions(|builder| -> Result<RpcExtension, _> {
             use contracts_rpc::{Contracts, ContractsApi};
             use pallet_identity_rpc::{Identity, IdentityApi};
-            use pallet_mips_rpc::{Mips, MipsApi};
+            use pallet_pips_rpc::{Pips, PipsApi};
             use pallet_protocol_fee_rpc::{ProtocolFee, ProtocolFeeApi};
             use pallet_staking_rpc::{Staking, StakingApi};
             use pallet_transaction_payment_rpc::{TransactionPayment, TransactionPaymentApi};
@@ -185,7 +185,7 @@ macro_rules! new_full_start {
             io.extend_with(StakingApi::to_delegate(Staking::new(
                 builder.client().clone(),
             )));
-            io.extend_with(MipsApi::to_delegate(Mips::new(builder.client().clone())));
+            io.extend_with(PipsApi::to_delegate(Pips::new(builder.client().clone())));
             io.extend_with(IdentityApi::to_delegate(Identity::new(
                 builder.client().clone(),
             )));

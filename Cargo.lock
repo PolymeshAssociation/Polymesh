@@ -3237,68 +3237,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "pallet-mips"
-version = "0.1.0"
-dependencies = [
- "frame-support",
- "frame-system",
- "pallet-balances 0.1.0",
- "pallet-committee",
- "pallet-group",
- "pallet-identity",
- "pallet-mips-rpc-runtime-api",
- "pallet-protocol-fee",
- "pallet-timestamp",
- "pallet-transaction-payment",
- "pallet-treasury",
- "parity-scale-codec",
- "polymesh-common-utilities",
- "polymesh-primitives",
- "serde",
- "serde_derive",
- "shrinkwraprs",
- "sp-api",
- "sp-core",
- "sp-io",
- "sp-runtime",
- "sp-serializer",
- "sp-std",
- "sp-version",
- "substrate-test-runtime-client",
-]
-
-[[package]]
-name = "pallet-mips-rpc"
-version = "2.0.0"
-dependencies = [
- "jsonrpc-core",
- "jsonrpc-core-client",
- "jsonrpc-derive",
- "pallet-mips-rpc-runtime-api",
- "parity-scale-codec",
- "serde",
- "sp-api",
- "sp-blockchain",
- "sp-rpc",
- "sp-runtime",
- "sp-std",
- "substrate-test-runtime-client",
-]
-
-[[package]]
-name = "pallet-mips-rpc-runtime-api"
-version = "2.0.0"
-dependencies = [
- "frame-support",
- "parity-scale-codec",
- "serde",
- "serde_json",
- "sp-api",
- "sp-runtime",
- "sp-std",
-]
-
-[[package]]
 name = "pallet-multisig"
 version = "0.1.0"
 dependencies = [
@@ -3327,6 +3265,68 @@ dependencies = [
  "serde",
  "sp-runtime",
  "sp-staking",
+ "sp-std",
+]
+
+[[package]]
+name = "pallet-pips"
+version = "0.1.0"
+dependencies = [
+ "frame-support",
+ "frame-system",
+ "pallet-balances 0.1.0",
+ "pallet-committee",
+ "pallet-group",
+ "pallet-identity",
+ "pallet-pips-rpc-runtime-api",
+ "pallet-protocol-fee",
+ "pallet-timestamp",
+ "pallet-transaction-payment",
+ "pallet-treasury",
+ "parity-scale-codec",
+ "polymesh-common-utilities",
+ "polymesh-primitives",
+ "serde",
+ "serde_derive",
+ "shrinkwraprs",
+ "sp-api",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+ "sp-serializer",
+ "sp-std",
+ "sp-version",
+ "substrate-test-runtime-client",
+]
+
+[[package]]
+name = "pallet-pips-rpc"
+version = "2.0.0"
+dependencies = [
+ "jsonrpc-core",
+ "jsonrpc-core-client",
+ "jsonrpc-derive",
+ "pallet-pips-rpc-runtime-api",
+ "parity-scale-codec",
+ "serde",
+ "sp-api",
+ "sp-blockchain",
+ "sp-rpc",
+ "sp-runtime",
+ "sp-std",
+ "substrate-test-runtime-client",
+]
+
+[[package]]
+name = "pallet-pips-rpc-runtime-api"
+version = "2.0.0"
+dependencies = [
+ "frame-support",
+ "parity-scale-codec",
+ "serde",
+ "serde_json",
+ "sp-api",
+ "sp-runtime",
  "sp-std",
 ]
 
@@ -3891,8 +3891,8 @@ dependencies = [
  "pallet-identity-rpc",
  "pallet-identity-rpc-runtime-api",
  "pallet-im-online",
- "pallet-mips-rpc",
- "pallet-mips-rpc-runtime-api",
+ "pallet-pips-rpc",
+ "pallet-pips-rpc-runtime-api",
  "pallet-protocol-fee",
  "pallet-protocol-fee-rpc",
  "pallet-protocol-fee-rpc-runtime-api",
@@ -4002,8 +4002,8 @@ dependencies = [
  "pallet-contracts",
  "pallet-group",
  "pallet-identity",
- "pallet-mips",
  "pallet-multisig",
+ "pallet-pips",
  "pallet-protocol-fee",
  "pallet-randomness-collective-flip",
  "pallet-session",
@@ -4059,10 +4059,10 @@ dependencies = [
  "pallet-im-online",
  "pallet-indices",
  "pallet-membership",
- "pallet-mips",
- "pallet-mips-rpc-runtime-api",
  "pallet-multisig",
  "pallet-offences",
+ "pallet-pips",
+ "pallet-pips-rpc-runtime-api",
  "pallet-protocol-fee",
  "pallet-protocol-fee-rpc-runtime-api",
  "pallet-randomness-collective-flip",
@@ -4139,10 +4139,10 @@ dependencies = [
  "pallet-im-online",
  "pallet-indices",
  "pallet-membership",
- "pallet-mips",
- "pallet-mips-rpc-runtime-api",
  "pallet-multisig",
  "pallet-offences",
+ "pallet-pips",
+ "pallet-pips-rpc-runtime-api",
  "pallet-protocol-fee",
  "pallet-protocol-fee-rpc-runtime-api",
  "pallet-randomness-collective-flip",

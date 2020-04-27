@@ -12,7 +12,7 @@ pallet-identity = { package = "pallet-identity", path = "../../identity", defaul
 pallet-balances = { package = "pallet-balances", path = "../../balances", default-features = false  }
 pallet-transaction-payment = { package = "pallet-transaction-payment", path = "../../transaction-payment", default-features = false  }
 pallet-committee = { package = "pallet-committee", path = "../../committee", default-features = false }
-pallet-mips = { package = "pallet-mips", path = "../../mips", default-features = false }
+pallet-pips = { package = "pallet-pips", path = "../../pips", default-features = false }
 pallet-group = { package = "pallet-group", path = "../../group", default-features = false}
 pallet-multisig = { package = "pallet-multisig", path = "../../multisig", default-features = false}
 pallet-treasury = { package = "pallet-treasury", path = "../../treasury", default-features = false }
@@ -63,7 +63,7 @@ std = [
 	"pallet-timestamp/std",
 	"pallet-treasury/std",
 	"pallet-group/std",
-	"pallet-mips/std",
+	"pallet-pips/std",
 	"pallet-session/std",
 	"pallet-committee/std",
 	"pallet-balances/std",
