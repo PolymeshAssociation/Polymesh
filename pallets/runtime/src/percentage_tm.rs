@@ -22,6 +22,7 @@
 //! ### Public Functions
 //!
 //! - `verify_restriction` - Checks if a transfer is a valid transfer and returns the result
+//! - `maximum_percentage_enabled_for_token` - Provide the maximum percentage of tokens are allowed to hold for a given token
 
 use crate::{asset::AssetTrait, exemption};
 
@@ -57,6 +58,7 @@ decl_event!(
 
 decl_storage! {
     trait Store for Module<T: Trait> as PercentageTM {
+        /// Maximum percentage enabled for a given token
         MaximumPercentageEnabledForToken get(fn maximum_percentage_enabled_for_token): map hasher(blake2_128_concat) Ticker => u16;
     }
 }
