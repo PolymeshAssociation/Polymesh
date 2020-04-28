@@ -282,10 +282,16 @@
                 "Community"
             ]
         },
-        "PIP": {
+        "Pip": {
             "id": "PipId",
             "proposal":"Call",
             "state":"ProposalState"
+        },
+        "ProposalData" : {
+            "_enum": {
+                "Hash": "Hash",
+                "Proposal": "Call"
+            }
         },
         "Referendum": {
             "id": "PipId",
