@@ -5,13 +5,13 @@ authors = ["Polymath"]
 edition = "2018"
 
 [dependencies]
-polymesh-runtime-common = { package = "polymesh-runtime-common", path = "../common", default-features = false  }
+polymesh-common-utilities = { package = "polymesh-common-utilities", path = "../common", default-features = false  }
 polymesh-primitives = { package = "polymesh-primitives", path = "../../primitives", default-features = false  }
-polymesh-protocol-fee = { package = "polymesh-protocol-fee", path = "../protocol-fee", default-features = false }
-polymesh-runtime-group = { package = "polymesh-runtime-group", path = "../group", default-features = false }
-polymesh-runtime-identity = { package = "polymesh-runtime-identity", path = "../identity", default-features = false  }
-polymesh-runtime-balances = { package = "polymesh-runtime-balances", path = "../balances", default-features = false  }
-polymesh-runtime-treasury = { package = "polymesh-runtime-treasury", path = "../treasury", default-features = false  }
+pallet-protocol-fee = { package = "pallet-protocol-fee", path = "../protocol-fee", default-features = false }
+pallet-group = { package = "pallet-group", path = "../group", default-features = false }
+pallet-identity = { package = "pallet-identity", path = "../identity", default-features = false  }
+pallet-balances = { package = "pallet-balances", path = "../balances", default-features = false  }
+pallet-treasury = { package = "pallet-treasury", path = "../treasury", default-features = false  }
 pallet-pips-rpc-runtime-api = { default-features = false, path = "./rpc/runtime-api" }
 
 serde = { version = "1.0.104", default-features = false }
@@ -36,7 +36,7 @@ frame-support = { git = "https://github.com/paritytech/substrate", default-featu
 [dev-dependencies]
 test-client = { package = "substrate-test-runtime-client", git = "https://github.com/paritytech/substrate", rev = "a439a7aa5a9a3df2a42d9b25ea04288d3a0866e8", default-features = false }
 pallet-transaction-payment = { package = "pallet-transaction-payment", path = "../transaction-payment", default-features = false}
-polymesh-protocol-fee = { package = "polymesh-protocol-fee", path = "../protocol-fee", default-features = false}
+pallet-protocol-fee = { package = "pallet-protocol-fee", path = "../protocol-fee", default-features = false}
 
 [features]
 equalize = []
@@ -57,10 +57,11 @@ std = [
 	"frame-system/std",
 	"frame-support/std",
 	"polymesh-primitives/std",
-	"polymesh-runtime-common/std",
-	"polymesh-runtime-balances/std",
-	"polymesh-runtime-group/std",
-	"polymesh-runtime-identity/std",
+	"polymesh-common-utilities/std",
+	"pallet-balances/std",
+	"pallet-group/std",
+	"pallet-identity/std",
 	"pallet-pips-rpc-runtime-api/std",
 	"pallet-committee/std",
+	"pallet-treasury/std",
 ]

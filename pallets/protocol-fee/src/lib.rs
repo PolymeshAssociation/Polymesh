@@ -10,7 +10,7 @@ use frame_support::{
     weights::SimpleDispatchInfo,
 };
 use frame_system::{self as system, ensure_root};
-use polymesh_runtime_common::protocol_fee::{ChargeProtocolFee, ProtocolOp};
+use polymesh_common_utilities::protocol_fee::{ChargeProtocolFee, ProtocolOp};
 use primitives::{traits::IdentityCurrency, PosRatio, Signatory};
 use sp_runtime::{
     traits::{Saturating, Zero},

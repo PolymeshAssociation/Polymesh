@@ -160,14 +160,14 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use polymesh_primitives::{
-    traits::{BlockRewardsReserveCurrency, IdentityCurrency},
-    AccountKey, IdentityId, Permission, Signatory,
-};
-use polymesh_runtime_common::traits::{
+use polymesh_common_utilities::traits::{
     balances::{AccountData, BalancesTrait, CheckCdd, Memo, RawEvent, Reasons},
     identity::IdentityTrait,
     NegativeImbalance, PositiveImbalance,
+};
+use polymesh_primitives::{
+    traits::{BlockRewardsReserveCurrency, IdentityCurrency},
+    AccountKey, IdentityId, Permission, Signatory,
 };
 
 use codec::{Decode, Encode};
@@ -194,8 +194,8 @@ use sp_std::{
     cmp, convert::Infallible, convert::TryFrom, fmt::Debug, mem, prelude::*, result, vec,
 };
 
-pub use polymesh_runtime_common::traits::balances::Trait;
-pub type Event<T> = polymesh_runtime_common::traits::balances::Event<T>;
+pub use polymesh_common_utilities::traits::balances::Trait;
+pub type Event<T> = polymesh_common_utilities::traits::balances::Event<T>;
 
 decl_error! {
     pub enum Error for Module<T: Trait> {

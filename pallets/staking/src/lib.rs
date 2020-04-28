@@ -278,9 +278,9 @@ use frame_support::{
     },
     weights::SimpleDispatchInfo,
 };
+use pallet_identity as identity;
 use pallet_session::historical::SessionManager;
-use polymesh_runtime_common::identity::Trait as IdentityTrait;
-use polymesh_runtime_identity as identity;
+use polymesh_common_utilities::identity::Trait as IdentityTrait;
 use primitives::traits::BlockRewardsReserveCurrency;
 use primitives::AccountKey;
 use sp_phragmen::ExtendedBalance;
