@@ -147,7 +147,6 @@ fn general_testnet_genesis(
             bridge_limit: (100_000_000, 1000),
         }),
         identity: Some(V1Config::IdentityConfig {
-            owner: get_account_id_from_seed::<sr25519::Public>("Dave"),
             identities: vec![
                 // (master_account_id, service provider did, target did, expiry time of CustomerDueDiligence claim i.e 10 days is ms)
                 // Service providers
@@ -434,11 +433,22 @@ fn v1_live_testnet_genesis() -> GenesisConfig {
         get_authority_keys_from_seed("operator_4"),
         get_authority_keys_from_seed("operator_5"),
     ];
-    let root_key: AccountId = get_account_id_from_seed::<sr25519::Public>("Alice");
+    let root_key: AccountId = get_account_id_from_seed::<sr25519::Public>("polymath_1");
     // Need endowed accounts address
     let endowed_accounts: Vec<AccountId> = vec![
-        get_account_id_from_seed::<sr25519::Public>("Alice"),
-        get_account_id_from_seed::<sr25519::Public>("Bob"),
+        get_account_id_from_seed::<sr25519::Public>("polymath_1"),
+        get_account_id_from_seed::<sr25519::Public>("polymath_2"),
+        get_account_id_from_seed::<sr25519::Public>("polymath_3"),
+        get_account_id_from_seed::<sr25519::Public>("operator_1"),
+        get_account_id_from_seed::<sr25519::Public>("operator_2"),
+        get_account_id_from_seed::<sr25519::Public>("operator_3"),
+        get_account_id_from_seed::<sr25519::Public>("operator_4"),
+        get_account_id_from_seed::<sr25519::Public>("operator_5"),
+        get_account_id_from_seed::<sr25519::Public>("relay_1"),
+        get_account_id_from_seed::<sr25519::Public>("relay_2"),
+        get_account_id_from_seed::<sr25519::Public>("relay_3"),
+        get_account_id_from_seed::<sr25519::Public>("relay_4"),
+        get_account_id_from_seed::<sr25519::Public>("relay_5"),
     ];
 
     const STASH: u128 = 300 * POLY; //300 Poly
@@ -456,8 +466,8 @@ fn v1_live_testnet_genesis() -> GenesisConfig {
             },
         }),
         bridge: Some(V1Config::BridgeConfig {
-            admin: get_account_id_from_seed::<sr25519::Public>("Alice"),
-            creator: get_account_id_from_seed::<sr25519::Public>("Alice"),
+            admin: get_account_id_from_seed::<sr25519::Public>("polymath_1"),
+            creator: get_account_id_from_seed::<sr25519::Public>("polymath_1"),
             signatures_required: 3,
             signers: vec![
                 Signatory::AccountKey(get_account_id_from_seed::<sr25519::Public>("relay_1")),
@@ -469,7 +479,6 @@ fn v1_live_testnet_genesis() -> GenesisConfig {
             bridge_limit: (25_000_000_000, 21_600),
         }),
         identity: Some(V1Config::IdentityConfig {
-            owner: get_account_id_from_seed::<sr25519::Public>("Dave"),
             identities: vec![
                 // (master_account_id, service provider did, target did, expiry time of CustomerDueDiligence claim i.e 10 days is ms)
                 // Service providers
@@ -753,7 +762,6 @@ fn v1_testnet_genesis(
             bridge_limit: (100_000_000, 1000),
         }),
         identity: Some(V1Config::IdentityConfig {
-            owner: get_account_id_from_seed::<sr25519::Public>("Dave"),
             identities: vec![
                 // (master_account_id, service provider did, target did, expiry time of CustomerDueDiligence claim i.e 10 days is ms)
                 // Service providers

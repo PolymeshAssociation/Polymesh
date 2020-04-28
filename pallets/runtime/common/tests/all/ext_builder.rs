@@ -240,7 +240,6 @@ impl ExtBuilder {
 
         // Identity genesis.
         identity::GenesisConfig::<TestStorage> {
-            owner: root.clone().into(),
             did_records: system_identities.clone(),
             key_to_identity_ids: system_links,
             identities: vec![],

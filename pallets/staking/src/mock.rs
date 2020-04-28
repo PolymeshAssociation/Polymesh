@@ -600,7 +600,6 @@ impl ExtBuilder {
         .assimilate_storage(&mut storage);
 
         let _ = identity::GenesisConfig::<Test> {
-            owner: AccountKeyring::Alice.public().into(),
             identities: vec![
                 /// (master_account_id, service provider did, target did, expiry time of CustomerDueDiligence claim i.e 10 days is ms)
                 /// Provide Identity
