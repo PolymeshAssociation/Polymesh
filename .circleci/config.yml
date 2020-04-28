@@ -46,24 +46,24 @@ jobs:
           command: rustc --version > rust.version
       - restore_cache:
           keys:
-            - v6-test-cache-{{ checksum "./rust.version" }}-{{ checksum "./Cargo.lock" }}
-            - v6-test-cache-{{ checksum "./rust.version" }}
+            - v7-test-cache-{{ checksum "./rust.version" }}-{{ checksum "./Cargo.lock" }}
+            - v7-test-cache-{{ checksum "./rust.version" }}
       - run:
           name: Tests
           command: >-
             cargo test
-            --package polymesh-runtime
+            --package polymesh-runtime-common
             --package pallet-staking
-            --package polymesh-runtime-group
+            --package pallet-group
             --package pallet-im-online
             --package polymesh-primitives
             --package pallet-pips-rpc
             --package pallet-transaction-payment
             --package pallet-cdd-offchain-worker ||
             cargo test -j 1
-            --package polymesh-runtime
+            --package polymesh-runtime-common
             --package pallet-staking
-            --package polymesh-runtime-group
+            --package pallet-group
             --package pallet-im-online
             --package polymesh-primitives
             --package pallet-pips-rpc
@@ -71,7 +71,7 @@ jobs:
             --package pallet-cdd-offchain-worker
           no_output_timeout: 30m
       - save_cache:
-          key: v6-test-cache-{{ checksum "./rust.version" }}-{{ checksum "./Cargo.lock" }}
+          key: v7-test-cache-{{ checksum "./rust.version" }}-{{ checksum "./Cargo.lock" }}
           paths:
             - "~/.cargo"
             - "./target"

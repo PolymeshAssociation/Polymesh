@@ -4,7 +4,7 @@
 
 use codec::{Decode, Encode};
 use frame_support::dispatch::Vec;
-use polymesh_runtime_common::protocol_fee::ProtocolOp;
+use polymesh_common_utilities::protocol_fee::ProtocolOp;
 #[cfg(feature = "std")]
 use serde::{Deserialize, Serialize};
 use sp_runtime::traits::{SaturatedConversion, UniqueSaturatedInto};

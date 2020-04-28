@@ -36,19 +36,6 @@
 //! - `end_block` - Returns details of the token
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use pallet_pips_rpc_runtime_api::VoteCount;
-use polymesh_primitives::{AccountKey, Beneficiary, Signatory};
-use polymesh_runtime_common::{
-    constants::PIP_MAX_REPORTING_SIZE,
-    identity::Trait as IdentityTrait,
-    protocol_fee::{ChargeProtocolFee, ProtocolOp},
-    traits::{governance_group::GovernanceGroupTrait, group::GroupTrait},
-    CommonTrait, Context,
-};
-use polymesh_runtime_identity as identity;
-use polymesh_runtime_treasury::TreasuryTrait;
-
-// use shrinkwrap::Shrinkwrap;
 use codec::{Decode, Encode};
 use frame_support::{
     debug, decl_error, decl_event, decl_module, decl_storage,
@@ -59,6 +46,17 @@ use frame_support::{
     Parameter,
 };
 use frame_system::{self as system, ensure_signed};
+use pallet_identity as identity;
+use pallet_pips_rpc_runtime_api::VoteCount;
+use pallet_treasury::TreasuryTrait;
+use polymesh_common_utilities::{
+    constants::PIP_MAX_REPORTING_SIZE,
+    identity::Trait as IdentityTrait,
+    protocol_fee::{ChargeProtocolFee, ProtocolOp},
+    traits::{governance_group::GovernanceGroupTrait, group::GroupTrait},
+    CommonTrait, Context,
+};
+use polymesh_primitives::{AccountKey, Beneficiary, Signatory};
 use sp_core::H256;
 use sp_runtime::traits::{
     BlakeTwo256, CheckedAdd, CheckedSub, Dispatchable, EnsureOrigin, Hash, Saturating, Zero,

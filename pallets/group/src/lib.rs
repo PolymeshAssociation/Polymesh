@@ -59,12 +59,12 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use polymesh_primitives::{AccountKey, IdentityId};
-pub use polymesh_runtime_common::{
+use pallet_identity as identity;
+pub use polymesh_common_utilities::{
     group::{GroupTrait, InactiveMember, RawEvent, Trait},
     Context,
 };
-use polymesh_runtime_identity as identity;
+use polymesh_primitives::{AccountKey, IdentityId};
 
 use frame_support::{
     codec::Encode,
@@ -79,7 +79,7 @@ use frame_system::{self as system, ensure_signed};
 use sp_runtime::traits::EnsureOrigin;
 use sp_std::{convert::TryFrom, prelude::*};
 
-pub type Event<T, I> = polymesh_runtime_common::group::Event<T, I>;
+pub type Event<T, I> = polymesh_common_utilities::group::Event<T, I>;
 type Identity<T> = identity::Module<T>;
 
 decl_storage! {

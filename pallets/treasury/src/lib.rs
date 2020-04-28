@@ -1,16 +1,16 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 #![recursion_limit = "256"]
 
-use polymesh_primitives::{AccountKey, Beneficiary, IdentityId};
-use polymesh_runtime_balances as balances;
-use polymesh_runtime_common::{
+use pallet_balances as balances;
+use pallet_identity as identity;
+use polymesh_common_utilities::{
     traits::{
         balances::Trait as BalancesTrait, identity::Trait as IdentityTrait, CommonTrait,
         NegativeImbalance, PositiveImbalance,
     },
     Context,
 };
-use polymesh_runtime_identity as identity;
+use polymesh_primitives::{AccountKey, Beneficiary, IdentityId};
 
 use codec::Encode;
 use frame_support::{
