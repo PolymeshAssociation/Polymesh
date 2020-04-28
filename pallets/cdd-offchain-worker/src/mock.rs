@@ -10,18 +10,17 @@ use frame_support::{
     weights::{DispatchInfo, Weight},
 };
 use frame_system::EnsureSignedBy;
+use pallet_group as group;
+use pallet_identity::{self as identity};
+use pallet_protocol_fee as protocol_fee;
 use pallet_staking::{EraIndex, Exposure, ExposureOf, StakerStatus, StashOf};
-use polymesh_protocol_fee as protocol_fee;
-use polymesh_runtime_balances as pallet_balances;
-use polymesh_runtime_common::traits::{
+use polymesh_common_utilities::traits::{
     asset::AcceptTransfer,
     balances::{AccountData, CheckCdd},
     group::{GroupTrait, InactiveMember},
     multisig::AddSignerMultiSig,
     CommonTrait,
 };
-use polymesh_runtime_group as group;
-use polymesh_runtime_identity::{self as identity};
 use primitives::{AccountKey, IdentityId, Signatory};
 use sp_core::{
     crypto::{key_types, Pair as PairTrait},
