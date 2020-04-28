@@ -138,7 +138,7 @@ decl_storage! {
             }
             let creator_key = AccountKey::try_from(config.creator.clone().encode()).expect("cannot create the bridge multisig");
             let creator_did = Context::current_identity_or::<identity::Module<T>>(&creator_key).expect("cannot create the bridge multisig");
-    
+
             let multisig_id = <multisig::Module<T>>::create_multisig_account(
                 config.creator.clone(),
                 config.signers.as_slice(),

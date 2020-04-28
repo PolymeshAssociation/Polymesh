@@ -1,12 +1,12 @@
 use grandpa::AuthorityId as GrandpaId;
 use im_online::sr25519::AuthorityId as ImOnlineId;
-use std::convert::TryFrom;
 use pallet_treasury as treasury;
 use polymesh_common_utilities::{
     constants::currency::{MILLICENTS, POLY},
     protocol_fee::ProtocolOp,
 };
-use polymesh_primitives::{AccountKey, AccountId, IdentityId, PosRatio, Signatory, Signature};
+use polymesh_primitives::{AccountId, AccountKey, IdentityId, PosRatio, Signatory, Signature};
+use std::convert::TryFrom;
 
 use polymesh_runtime_common::asset::TickerRegistrationConfig;
 use polymesh_runtime_develop::{
@@ -471,11 +471,26 @@ fn v1_live_testnet_genesis() -> GenesisConfig {
             creator: get_account_id_from_seed::<sr25519::Public>("polymath_1"),
             signatures_required: 3,
             signers: vec![
-                Signatory::AccountKey(AccountKey::try_from(&get_from_seed::<sr25519::Public>("relay_1").to_vec()).unwrap()),
-                Signatory::AccountKey(AccountKey::try_from(&get_from_seed::<sr25519::Public>("relay_2").to_vec()).unwrap()),
-                Signatory::AccountKey(AccountKey::try_from(&get_from_seed::<sr25519::Public>("relay_3").to_vec()).unwrap()),
-                Signatory::AccountKey(AccountKey::try_from(&get_from_seed::<sr25519::Public>("relay_4").to_vec()).unwrap()),
-                Signatory::AccountKey(AccountKey::try_from(&get_from_seed::<sr25519::Public>("relay_5").to_vec()).unwrap()),
+                Signatory::AccountKey(
+                    AccountKey::try_from(&get_from_seed::<sr25519::Public>("relay_1").to_vec())
+                        .unwrap(),
+                ),
+                Signatory::AccountKey(
+                    AccountKey::try_from(&get_from_seed::<sr25519::Public>("relay_2").to_vec())
+                        .unwrap(),
+                ),
+                Signatory::AccountKey(
+                    AccountKey::try_from(&get_from_seed::<sr25519::Public>("relay_3").to_vec())
+                        .unwrap(),
+                ),
+                Signatory::AccountKey(
+                    AccountKey::try_from(&get_from_seed::<sr25519::Public>("relay_4").to_vec())
+                        .unwrap(),
+                ),
+                Signatory::AccountKey(
+                    AccountKey::try_from(&get_from_seed::<sr25519::Public>("relay_5").to_vec())
+                        .unwrap(),
+                ),
             ],
             timelock: V1Time::HOURS * 6,
             bridge_limit: (25_000_000_000, V1Time::DAYS * 1),
