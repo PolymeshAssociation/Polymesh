@@ -31,16 +31,16 @@ $ npm test
 
 The scripts that make up `npm test` are:
 
- - 0-create-identities
- - 1-poly-transfer
- - 2-key-management
- - 3-auth-join-did
- - 4-permission-management
- - 5-claim-management
- - 6-create-assets
- - 7-create-claim-rules
- - 8-asset-transfer
- - schema-test
+ - 0_create_identities
+ - 1_poly_transfer
+ - 2_key_management
+ - 3_auth_join_did
+ - 4_permission_management
+ - 5_claim_management
+ - 6_create_assets
+ - 7_create_claim_rules
+ - 8_asset_transfer
+ - schema_test
 
  The scripts either give a result of Passed or Failed.
 

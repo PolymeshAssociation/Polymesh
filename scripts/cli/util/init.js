@@ -55,8 +55,12 @@ async function initMain(api) {
   let entities = [];
   let alice = await generateEntity(api, "Alice");
   let bob = await generateEntity(api, "Bob");
+  let charlie = await generateEntity(api, "Charlie");
+  let dave = await generateEntity(api, "Dave");
   entities.push(alice);
   entities.push(bob);
+  entities.push(charlie);
+  entities.push(dave);
 
   return entities;
 }
@@ -173,12 +177,12 @@ const createIdentitiesWithExpiry = async function(api, accounts, alice, expiries
       .topUpIdentityBalance(dids[i], did_balance)
       .signAndSend(
         alice,
-        { nonce: reqImports["nonces"].get(alice.address) }
+        { nonce: nonces.get(alice.address) }
       );
 
-    reqImports["nonces"].set(
+    nonces.set(
       alice.address,
-      reqImports["nonces"].get(alice.address).addn(1)
+      nonces.get(alice.address).addn(1)
     );
   }
   return dids;
@@ -191,12 +195,9 @@ async function distributePoly(api, to, amount, from) {
     const transaction = api.tx.balances.transfer(to.address, amount);
     await sendTransaction(transaction, from, nonceObj); 
 
-    // await api.tx.balances
-    //   .transfer(accounts.address, transfer_amount)
-    //   .signAndSend(signingEntity, { nonce: nonces.get(signingEntity.address) });
-
-    nonces.set(from.address, nonces.get(from.address).addn(1));
+    nonces.set( from.address, nonces.get(from.address).addn(1));
 }
+   
 
 async function distributePolyBatch(api, to, amount, from) {
   // Perform the transfers
@@ -210,13 +211,13 @@ async function addSigningKeys(api, accounts, dids, signing_accounts) {
   for (let i = 0; i < accounts.length; i++) {
     // 1. Add Signing Item to identity.
 
-    // let nonceObj = {nonce: nonces.get(accounts[i].address)};
-    // const transaction = api.tx.identity.addAuthorizationAsKey({AccountKey: signing_accounts[i].publicKey}, {JoinIdentity: dids[i]}, null);
-    // await sendTransaction(transaction, accounts[i], nonceObj); 
+    let nonceObj = {nonce: nonces.get(accounts[i].address)};
+    const transaction = api.tx.identity.addAuthorizationAsKey({AccountKey: signing_accounts[i].publicKey}, {JoinIdentity: dids[i]}, null);
+    await sendTransaction(transaction, accounts[i], nonceObj); 
 
-    const unsub = await api.tx.identity
-    .addAuthorizationAsKey({AccountKey: signing_accounts[i].publicKey}, {JoinIdentity: dids[i]}, null)
-    .signAndSend(accounts[i], { nonce: nonces.get(accounts[i].address) });
+    // const unsub = await api.tx.identity
+    // .addAuthorizationAsKey({AccountKey: signing_accounts[i].publicKey}, {JoinIdentity: dids[i]}, null)
+    // .signAndSend(accounts[i], { nonce: nonces.get(accounts[i].address) });
 
     nonces.set(accounts[i].address, nonces.get(accounts[i].address).addn(1));
   }
@@ -237,14 +238,14 @@ async function authorizeJoinToIdentities(api, accounts, dids, signing_accounts) 
       }
     }
 
-    // let nonceObj = {nonce: nonces.get(signing_accounts[i].address)};
-    // const transaction = api.tx.identity.joinIdentityAsKey([last_auth_id]);
-    // await sendTransaction(transaction, signing_accounts[i], nonceObj); 
+    let nonceObj = {nonce: nonces.get(signing_accounts[i].address)};
+    const transaction = api.tx.identity.joinIdentityAsKey([last_auth_id]);
+    await sendTransaction(transaction, signing_accounts[i], nonceObj); 
 
-    const unsub = await api.tx.identity
-      .joinIdentityAsKey([last_auth_id])
-      .signAndSend(signing_accounts[i], { nonce: nonces.get(signing_accounts[i].address) });
-    nonces.set(signing_accounts[i].address, nonces.get(signing_accounts[i].address).addn(1));
+    // const unsub = await api.tx.identity
+    //   .joinIdentityAsKey([last_auth_id])
+    //   .signAndSend(signing_accounts[i], { nonce: nonces.get(signing_accounts[i].address) });
+    // nonces.set(signing_accounts[i].address, nonces.get(signing_accounts[i].address).addn(1));
   }
 
   return dids;
