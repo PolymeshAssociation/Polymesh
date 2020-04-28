@@ -241,6 +241,7 @@ fn testnet_genesis(
             signatures_required: 0,
             signers: vec![],
             timelock: 10,
+            bridge_limit: (100_000_000, 1000),
         }),
         identity: Some(IdentityConfig {
             owner: get_account_id_from_seed::<sr25519::Public>("Dave"),
