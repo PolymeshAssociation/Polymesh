@@ -238,7 +238,7 @@ fn general_testnet_genesis(
             ],
             timelock: 10,
             bridge_limit: (100_000_000, 1000),
-        }),        
+        }),
         balances: Some(V1Config::BalancesConfig {
             balances: endowed_accounts
                 .iter()
@@ -319,8 +319,7 @@ fn general_testnet_genesis(
         }),
         committee_Instance1: Some(V1Config::PolymeshCommitteeConfig {
             vote_threshold: (1, 2),
-            members: vec![
-            ],
+            members: vec![],
             phantom: Default::default(),
         }),
         group_Instance2: Some(v1::runtime::CddServiceProvidersConfig {
@@ -892,7 +891,7 @@ fn v1_testnet_genesis(
             ],
             timelock: 10,
             bridge_limit: (100_000_000, 1000),
-        }),        
+        }),
         balances: Some(V1Config::BalancesConfig {
             balances: endowed_accounts
                 .iter()
