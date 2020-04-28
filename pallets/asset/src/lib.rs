@@ -58,6 +58,9 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 #![recursion_limit = "256"]
 
+#[cfg(feature = "runtime-benchmarks")]
+pub mod benchmarking;
+
 use pallet_statistics as statistics;
 use polymesh_primitives::{
     AccountKey, AuthorizationData, AuthorizationError, Document, DocumentHash, DocumentName,
@@ -2386,6 +2389,3 @@ impl<T: Trait> Module<T> {
         )
     }
 }
-
-#[cfg(feature = "runtime-benchmarks")]
-pub mod benches;

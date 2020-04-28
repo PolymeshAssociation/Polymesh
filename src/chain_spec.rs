@@ -5,7 +5,7 @@ use polymesh_primitives::{AccountId, IdentityId, PosRatio, Signature};
 use polymesh_runtime::{
     config::{
         AssetConfig, BalancesConfig, BridgeConfig, ContractsConfig, GenesisConfig, IdentityConfig,
-        ImOnlineConfig, IndicesConfig, MipsConfig, SessionConfig, SimpleTokenConfig, StakingConfig,
+        ImOnlineConfig, IndicesConfig, PipsConfig, SessionConfig, SimpleTokenConfig, StakingConfig,
         SudoConfig, SystemConfig,
     },
     runtime::{
@@ -241,6 +241,7 @@ fn testnet_genesis(
             signatures_required: 0,
             signers: vec![],
             timelock: 10,
+            bridge_limit: (100_000_000, 1000),
         }),
         identity: Some(IdentityConfig {
             owner: get_account_id_from_seed::<sr25519::Public>("Dave"),
@@ -351,8 +352,8 @@ fn testnet_genesis(
             min_bond_threshold: 0,
             ..Default::default()
         }),
-        pallet_mips: Some(MipsConfig {
-            prune_historical_mips: false,
+        pallet_pips: Some(PipsConfig {
+            prune_historical_pips: false,
             min_proposal_deposit: 5000,
             quorum_threshold: 100_000,
             proposal_duration: 50,

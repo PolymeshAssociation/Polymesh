@@ -1,11 +1,12 @@
-use codec::Encode;
-use frame_benchmarking::{account, benchmarks};
-use frame_support::{traits::Currency, StorageValue};
-use frame_system::RawOrigin;
 use pallet_asset::*;
 use polymesh_primitives::{AccountKey, AuthorizationData, IdentityId, Signatory, Ticker};
 use polymesh_runtime_balances as balances;
 use polymesh_runtime_identity as identity;
+
+use codec::Encode;
+use frame_benchmarking::{account, benchmarks};
+use frame_support::{traits::Currency, StorageValue};
+use frame_system::RawOrigin;
 use sp_std::{convert::TryFrom, iter, prelude::*};
 
 const SEED: u32 = 0;
