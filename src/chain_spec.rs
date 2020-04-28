@@ -140,14 +140,6 @@ fn general_testnet_genesis(
                 registration_length: Some(5_184_000_000),
             },
         }),
-        bridge: Some(V1Config::BridgeConfig {
-            admin: get_account_id_from_seed::<sr25519::Public>("Alice"),
-            creator: get_account_id_from_seed::<sr25519::Public>("Alice"),
-            signatures_required: 0,
-            signers: vec![],
-            timelock: 10,
-            bridge_limit: (100_000_000, 1000),
-        }),
         identity: Some(V1Config::IdentityConfig {
             identities: vec![
                 // (master_account_id, service provider did, target did, expiry time of CustomerDueDiligence claim i.e 10 days is ms)
@@ -218,6 +210,35 @@ fn general_testnet_genesis(
             ],
             ..Default::default()
         }),
+        bridge: Some(V1Config::BridgeConfig {
+            admin: get_account_id_from_seed::<sr25519::Public>("Alice"),
+            creator: get_account_id_from_seed::<sr25519::Public>("Alice"),
+            signatures_required: 3,
+            signers: vec![
+                Signatory::AccountKey(
+                    AccountKey::try_from(&get_from_seed::<sr25519::Public>("relay_1").to_vec())
+                        .unwrap(),
+                ),
+                Signatory::AccountKey(
+                    AccountKey::try_from(&get_from_seed::<sr25519::Public>("relay_2").to_vec())
+                        .unwrap(),
+                ),
+                Signatory::AccountKey(
+                    AccountKey::try_from(&get_from_seed::<sr25519::Public>("relay_3").to_vec())
+                        .unwrap(),
+                ),
+                Signatory::AccountKey(
+                    AccountKey::try_from(&get_from_seed::<sr25519::Public>("relay_4").to_vec())
+                        .unwrap(),
+                ),
+                Signatory::AccountKey(
+                    AccountKey::try_from(&get_from_seed::<sr25519::Public>("relay_5").to_vec())
+                        .unwrap(),
+                ),
+            ],
+            timelock: 10,
+            bridge_limit: (100_000_000, 1000),
+        }),        
         balances: Some(V1Config::BalancesConfig {
             balances: endowed_accounts
                 .iter()
@@ -289,15 +310,16 @@ fn general_testnet_genesis(
             gas_price: 1 * MILLICENTS,
         }),
         group_Instance1: Some(v1::runtime::CommitteeMembershipConfig {
-            active_members: vec![],
+            active_members: vec![
+                IdentityId::from(3),
+                IdentityId::from(4),
+                IdentityId::from(5),
+            ],
             phantom: Default::default(),
         }),
         committee_Instance1: Some(V1Config::PolymeshCommitteeConfig {
             vote_threshold: (1, 2),
             members: vec![
-                IdentityId::from(3),
-                IdentityId::from(4),
-                IdentityId::from(5),
             ],
             phantom: Default::default(),
         }),
@@ -466,35 +488,6 @@ fn v1_live_testnet_genesis() -> GenesisConfig {
                 registration_length: Some(5_184_000_000),
             },
         }),
-        bridge: Some(V1Config::BridgeConfig {
-            admin: get_account_id_from_seed::<sr25519::Public>("polymath_1"),
-            creator: get_account_id_from_seed::<sr25519::Public>("polymath_1"),
-            signatures_required: 3,
-            signers: vec![
-                Signatory::AccountKey(
-                    AccountKey::try_from(&get_from_seed::<sr25519::Public>("relay_1").to_vec())
-                        .unwrap(),
-                ),
-                Signatory::AccountKey(
-                    AccountKey::try_from(&get_from_seed::<sr25519::Public>("relay_2").to_vec())
-                        .unwrap(),
-                ),
-                Signatory::AccountKey(
-                    AccountKey::try_from(&get_from_seed::<sr25519::Public>("relay_3").to_vec())
-                        .unwrap(),
-                ),
-                Signatory::AccountKey(
-                    AccountKey::try_from(&get_from_seed::<sr25519::Public>("relay_4").to_vec())
-                        .unwrap(),
-                ),
-                Signatory::AccountKey(
-                    AccountKey::try_from(&get_from_seed::<sr25519::Public>("relay_5").to_vec())
-                        .unwrap(),
-                ),
-            ],
-            timelock: V1Time::HOURS * 6,
-            bridge_limit: (25_000_000_000, V1Time::DAYS * 1),
-        }),
         identity: Some(V1Config::IdentityConfig {
             identities: vec![
                 // (master_account_id, service provider did, target did, expiry time of CustomerDueDiligence claim i.e 10 days is ms)
@@ -569,6 +562,35 @@ fn v1_live_testnet_genesis() -> GenesisConfig {
                 ),
             ],
             ..Default::default()
+        }),
+        bridge: Some(V1Config::BridgeConfig {
+            admin: get_account_id_from_seed::<sr25519::Public>("polymath_1"),
+            creator: get_account_id_from_seed::<sr25519::Public>("polymath_1"),
+            signatures_required: 3,
+            signers: vec![
+                Signatory::AccountKey(
+                    AccountKey::try_from(&get_from_seed::<sr25519::Public>("relay_1").to_vec())
+                        .unwrap(),
+                ),
+                Signatory::AccountKey(
+                    AccountKey::try_from(&get_from_seed::<sr25519::Public>("relay_2").to_vec())
+                        .unwrap(),
+                ),
+                Signatory::AccountKey(
+                    AccountKey::try_from(&get_from_seed::<sr25519::Public>("relay_3").to_vec())
+                        .unwrap(),
+                ),
+                Signatory::AccountKey(
+                    AccountKey::try_from(&get_from_seed::<sr25519::Public>("relay_4").to_vec())
+                        .unwrap(),
+                ),
+                Signatory::AccountKey(
+                    AccountKey::try_from(&get_from_seed::<sr25519::Public>("relay_5").to_vec())
+                        .unwrap(),
+                ),
+            ],
+            timelock: V1Time::HOURS * 6,
+            bridge_limit: (25_000_000_000, V1Time::DAYS * 1),
         }),
         balances: Some(V1Config::BalancesConfig {
             balances: endowed_accounts
@@ -767,14 +789,6 @@ fn v1_testnet_genesis(
                 registration_length: Some(5_184_000_000),
             },
         }),
-        bridge: Some(V1Config::BridgeConfig {
-            admin: get_account_id_from_seed::<sr25519::Public>("Alice"),
-            creator: get_account_id_from_seed::<sr25519::Public>("Alice"),
-            signatures_required: 0,
-            signers: vec![],
-            timelock: 10,
-            bridge_limit: (100_000_000, 1000),
-        }),
         identity: Some(V1Config::IdentityConfig {
             identities: vec![
                 // (master_account_id, service provider did, target did, expiry time of CustomerDueDiligence claim i.e 10 days is ms)
@@ -850,6 +864,35 @@ fn v1_testnet_genesis(
             ],
             ..Default::default()
         }),
+        bridge: Some(V1Config::BridgeConfig {
+            admin: get_account_id_from_seed::<sr25519::Public>("Alice"),
+            creator: get_account_id_from_seed::<sr25519::Public>("Alice"),
+            signatures_required: 3,
+            signers: vec![
+                Signatory::AccountKey(
+                    AccountKey::try_from(&get_from_seed::<sr25519::Public>("relay_1").to_vec())
+                        .unwrap(),
+                ),
+                Signatory::AccountKey(
+                    AccountKey::try_from(&get_from_seed::<sr25519::Public>("relay_2").to_vec())
+                        .unwrap(),
+                ),
+                Signatory::AccountKey(
+                    AccountKey::try_from(&get_from_seed::<sr25519::Public>("relay_3").to_vec())
+                        .unwrap(),
+                ),
+                Signatory::AccountKey(
+                    AccountKey::try_from(&get_from_seed::<sr25519::Public>("relay_4").to_vec())
+                        .unwrap(),
+                ),
+                Signatory::AccountKey(
+                    AccountKey::try_from(&get_from_seed::<sr25519::Public>("relay_5").to_vec())
+                        .unwrap(),
+                ),
+            ],
+            timelock: 10,
+            bridge_limit: (100_000_000, 1000),
+        }),        
         balances: Some(V1Config::BalancesConfig {
             balances: endowed_accounts
                 .iter()
@@ -914,16 +957,16 @@ fn v1_testnet_genesis(
             gas_price: 1 * MILLICENTS,
         }),
         group_Instance1: Some(v1::runtime::CommitteeMembershipConfig {
-            active_members: vec![],
-            phantom: Default::default(),
-        }),
-        committee_Instance1: Some(v1::runtime::PolymeshCommitteeConfig {
-            vote_threshold: (1, 2),
-            members: vec![
+            active_members: vec![
                 IdentityId::from(3),
                 IdentityId::from(4),
                 IdentityId::from(5),
             ],
+            phantom: Default::default(),
+        }),
+        committee_Instance1: Some(v1::runtime::PolymeshCommitteeConfig {
+            vote_threshold: (1, 2),
+            members: vec![],
             phantom: Default::default(),
         }),
         group_Instance2: Some(v1::runtime::CddServiceProvidersConfig {
