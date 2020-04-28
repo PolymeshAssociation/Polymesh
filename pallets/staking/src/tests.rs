@@ -26,7 +26,7 @@ use frame_support::{
     StorageMap,
 };
 use mock::*;
-use polymesh_runtime_balances::{self as balances, Error as BalancesError};
+use pallet_balances::{self as balances, Error as BalancesError};
 use sp_runtime::{
     assert_eq_error_rate,
     traits::{BadOrigin, OnInitialize},

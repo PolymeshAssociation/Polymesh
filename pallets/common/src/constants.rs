@@ -10,43 +10,13 @@ pub mod currency {
     pub const MAX_SUPPLY: Balance = ONE_UNIT * 1_000_000_000_000;
 }
 
-/// Time and blocks.
-pub mod time {
-    use polymesh_primitives::{BlockNumber, Moment};
-    // mainnet
-    // pub const MILLISECS_PER_BLOCK: Moment = 6000;
-    // Testnet
-    pub const MILLISECS_PER_BLOCK: Moment = 5000;
-    pub const SLOT_DURATION: Moment = MILLISECS_PER_BLOCK;
-    // mainnet
-    // pub const EPOCH_DURATION_IN_BLOCKS: BlockNumber = 4 * HOURS;
-    // Testnet
-    pub const EPOCH_DURATION_IN_BLOCKS: BlockNumber = 30 * MINUTES;
-
-    // These time units are defined in number of blocks.
-    pub const MINUTES: BlockNumber = 60_000 / (MILLISECS_PER_BLOCK as BlockNumber);
-    pub const HOURS: BlockNumber = MINUTES * 60;
-    pub const DAYS: BlockNumber = HOURS * 24;
-
-    // 1 in 4 blocks (on average, not counting collisions) will be primary babe blocks.
-    pub const PRIMARY_PROBABILITY: (u64, u64) = (1, 4);
-}
-
-/// Fee-related.
-pub mod fee {
-    pub use sp_arithmetic::Perbill;
-
-    /// The block saturation level. Fees will be updates based on this value.
-    pub const TARGET_BLOCK_FULLNESS: Perbill = Perbill::from_percent(25);
-}
-
 /// DID-related.
 pub mod did {
     /// prefix for user dids
     pub const USER: &[u8; 5] = b"USER:";
     /// prefix for security token dids
     pub const SECURITY_TOKEN: &[u8; 15] = b"SECURITY_TOKEN:";
-    /// Governan Committee DID. It is used in systematic CDD claim for Governance Commite members.
+    /// Governance Committee DID. It is used in systematic CDD claim for Governance Committee members.
     pub const GOVERNANCE_COMMITTEE_ID: &[u8; 32] = b"system:governance_committee\0\0\0\0\0";
     /// CDD Providers DID. It is used in systematic CDD claim for CDD Providers.
     pub const CDD_PROVIDERS_ID: &[u8; 32] = b"system:customer_due_diligence\0\0\0";
