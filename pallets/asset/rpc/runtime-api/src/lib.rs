@@ -24,6 +24,27 @@ sp_api::decl_runtime_apis! {
          T: Codec
      {
          /// Retrieve votes for a proposal for a given `mips_index`.
+         ///
+         /// # Example
+         ///
+         /// In this example we are checking if Alice can transfere 500 of ticket 0x01
+         /// from herself (Id=0x2a) to Bob (Id=0x3905)
+         ///
+         /// ```ignore
+         ///  curl \
+         ///    -H "Content-Type: application/json" \
+         ///    -d '{
+         ///        "id":1, \
+         ///        "jsonrpc":"2.0", \
+         ///        "method": "asset_canTransfer", \
+         ///        "params":[
+         ///            "5CoRaw9Ex4DUjGcnPbPBnc2nez5ZeTmM5WL3ZDVLZzM6eEgE", \
+         ///            "0x010000000000000000000000", \
+         ///            "0x2a00000000000000000000000000000000000000000000000000000000000000", \
+         ///            "0x3905000000000000000000000000000000000000000000000000000000000000", \
+         ///            500]}' \
+         ///    http://localhost:9933 | python3 -m json.tool
+         /// ```
          fn can_transfer(
              sender: AccountId,
              ticker: Ticker,
