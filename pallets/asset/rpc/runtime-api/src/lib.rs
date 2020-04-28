@@ -34,14 +34,13 @@ sp_api::decl_runtime_apis! {
          ///  curl \
          ///    -H "Content-Type: application/json" \
          ///    -d '{
-         ///        "id":1, \
-         ///        "jsonrpc":"2.0", \
-         ///        "method": "asset_canTransfer", \
+         ///        "id":1, "jsonrpc":"2.0",
+         ///        "method": "asset_canTransfer",
          ///        "params":[
-         ///            "5CoRaw9Ex4DUjGcnPbPBnc2nez5ZeTmM5WL3ZDVLZzM6eEgE", \
-         ///            "0x010000000000000000000000", \
-         ///            "0x2a00000000000000000000000000000000000000000000000000000000000000", \
-         ///            "0x3905000000000000000000000000000000000000000000000000000000000000", \
+         ///            "5CoRaw9Ex4DUjGcnPbPBnc2nez5ZeTmM5WL3ZDVLZzM6eEgE",
+         ///            "0x010000000000000000000000",
+         ///            "0x2a00000000000000000000000000000000000000000000000000000000000000",
+         ///            "0x3905000000000000000000000000000000000000000000000000000000000000",
          ///            500]}' \
          ///    http://localhost:9933 | python3 -m json.tool
          /// ```
