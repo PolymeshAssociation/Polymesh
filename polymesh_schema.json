@@ -233,13 +233,13 @@
             "motions": "Vec<Motion>"
         },
         "Url": "Text",
-        "MipDescription": "Text",
-        "MipsMetadata": {
+        "PipDescription": "Text",
+        "PipsMetadata": {
             "proposer": "AccountKey",
-            "index": "u32",
+            "id": "PipId",
             "end": "u32",
             "url": "Option<Url>",
-            "description": "Option<MipDescription>",
+            "description": "Option<PipDescription>",
             "cool_off_until": "u32",
             "beneficiaries": "Vec<Beneficiary>"
         },
@@ -256,7 +256,7 @@
             "ayes": "Vec<(IdentityId, Balance)>",
             "nays": "Vec<(IdentityId, Balance)>"
         },
-        "MipId": "u32",
+        "PipId": "u32",
         "ProposalState": {
             "_enum": [
                 "Pending",
@@ -282,13 +282,13 @@
                 "Community"
             ]
         },
-        "MIP": {
-            "index": "MipsIndex",
+        "PIP": {
+            "id": "PipId",
             "proposal":"Call",
             "state":"ProposalState"
         },
         "Referendum": {
-            "index": "MipsIndex",
+            "id": "PipId",
             "state": "ReferendumState",
             "referendum_type": "ReferendumType",
             "enactment_period": "u32"
@@ -373,9 +373,9 @@
             }
         },
         "BridgeTx": {
-            "nonce": "u64",
-            "recipient": "IssueRecipient",
-            "value": "u128",
+            "nonce": "u32",
+            "recipient": "AccountId",
+            "value": "Balance",
             "tx_hash": "H256"
         },
         "PendingTx": {
@@ -432,7 +432,7 @@
                 "IdentityAddClaim",
                 "IdentitySetMasterKey",
                 "IdentityAddSigningItem",
-                "MipsPropose",
+                "PipsPropose",
                 "VotingAddBallot"
             ]
         },
@@ -469,6 +469,21 @@
             }
         },
         "Weight": "u32",
+        "BridgeTxDetail": {
+            "amount": "Balance",
+            "status": "BridgeTxStatus",
+            "execution_block": "BlockNumber",
+            "tx_hash": "H256"
+        },
+        "BridgeTxStatus": {
+            "_enum": {
+                "Absent": "",
+                "Pending": "u8",
+                "Frozen": "",
+                "Timelocked": "",
+                "Handled": ""
+            }
+        },
         "CappedFee": "u64"
     },
     "rpc": {
@@ -527,7 +542,7 @@
                 "type": "DidRecords"
             }
         },
-        "mips":{
+        "pips":{
             "getVotes": {
                 "description": "Summary of votes of a proposal given by index",
                 "params": [

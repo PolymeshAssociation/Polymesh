@@ -16,7 +16,7 @@
 
 // Modified by Polymath Inc - 16th March 2020
 // Added ability to manage balances of identities with the balances module
-// In Polymesh, POLY balances can be held at either the identity or account level
+// In Polymesh, POLYX balances can be held at either the identity or account level
 // Implement `BlockRewardsReserveCurrency` trait in the balances module.
 // Remove migration functionality from the balances module as Polymesh doesn't needed
 // any migration data structure.
@@ -91,8 +91,8 @@
 //! ### Dispatchable Functions
 //!
 //! - `transfer` - Transfer some liquid free balance to another account.
-//! - `top_up_identity_balance` - Move some poly from balance of self to balance of an identity.
-//! - `reclaim_identity_balance` - Claim back poly from an identity. Can only be called by master key of the identity.
+//! - `top_up_identity_balance` - Move some POLYX from balance of self to balance of an identity.
+//! - `reclaim_identity_balance` - Claim back POLYX from an identity. Can only be called by master key of the identity.
 //! - `change_charge_did_flag` - Change setting that governs if user pays fee via their own balance or identity's balance.
 //! - `set_balance` - Set the balances of a given account. The origin of this call must be root.
 //!
@@ -329,7 +329,7 @@ decl_module! {
         }
 
         // Polymesh specific change
-        /// Move some poly from balance of self to balance of an identity.
+        /// Move some POLYX from balance of self to balance of an identity.
         /// no-op when,
         /// - value is zero
         ///
@@ -354,7 +354,7 @@ decl_module! {
         }
 
         // Polymesh specific change
-        /// Claim back poly from an identity. Can only be called by master key of the identity.
+        /// Claim back POLYX from an identity. Can only be called by master key of the identity.
         /// no-op when,
         /// - value is zero
         ///
@@ -389,7 +389,7 @@ decl_module! {
         }
 
         // Polymesh specific change
-        /// Move some poly from balance of self to balance of BRR.
+        /// Move some POLYX from balance of self to balance of BRR.
         #[weight = SimpleDispatchInfo::FixedNormal(1_000_000)]
         pub fn top_up_brr_balance(
             origin,
@@ -1037,17 +1037,6 @@ where
             Ok(PositiveImbalance::new(value))
         } else {
             Err(Error::<T>::Overflow)?
-        }
-    }
-
-    fn resolve_into_existing_identity(
-        who: &IdentityId,
-        value: Self::NegativeImbalance,
-    ) -> result::Result<(), Self::NegativeImbalance> {
-        let v = value.peek();
-        match Self::deposit_into_existing_identity(who, v) {
-            Ok(opposite) => Ok(drop(value.offset(opposite))),
-            _ => Err(value),
         }
     }
 }

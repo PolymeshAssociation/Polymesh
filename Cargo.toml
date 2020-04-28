@@ -21,9 +21,9 @@ members = [
     "pallets/staking/rpc",
     "pallets/staking/rpc/runtime-api",
     "pallets/staking/reward-curve",
-    "pallets/mips",
-    "pallets/mips/rpc",
-    "pallets/mips/rpc/runtime-api",
+    "pallets/pips",
+    "pallets/pips/rpc",
+    "pallets/pips/rpc/runtime-api",
     "pallets/identity",
     "pallets/identity/rpc",
     "pallets/identity/rpc/runtime-api",
@@ -44,7 +44,7 @@ polymesh-runtime-common = { package = "polymesh-runtime-common", path = "pallets
 polymesh-runtime = { path = "pallets/runtime" }
 pallet-transaction-payment-rpc = { package = "pallet-transaction-payment-rpc", path = "pallets/transaction-payment/rpc", default-features = false }
 pallet-staking-rpc = { package = "pallet-staking-rpc", path = "pallets/staking/rpc", default-features = false }
-pallet-mips-rpc = { package = "pallet-mips-rpc", path = "pallets/mips/rpc", default-features = false }
+pallet-pips-rpc = { package = "pallet-pips-rpc", path = "pallets/pips/rpc", default-features = false }
 polymesh-runtime-identity-rpc = { package = "polymesh-runtime-identity-rpc", path = "pallets/identity/rpc", default-features = false }
 im-online = { package = "pallet-im-online", path = "pallets/im-online", default-features = false }
 polymesh-protocol-fee-rpc = { package = "polymesh-protocol-fee-rpc", path = "pallets/protocol-fee/rpc", default-features = false }

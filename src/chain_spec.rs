@@ -5,7 +5,7 @@ use polymesh_runtime::{
     asset::TickerRegistrationConfig,
     config::{
         AssetConfig, BalancesConfig, BridgeConfig, ContractsConfig, GenesisConfig, IdentityConfig,
-        ImOnlineConfig, IndicesConfig, MipsConfig, SessionConfig, SimpleTokenConfig, StakingConfig,
+        ImOnlineConfig, IndicesConfig, PipsConfig, SessionConfig, SimpleTokenConfig, StakingConfig,
         SudoConfig, SystemConfig,
     },
     runtime::{
@@ -351,8 +351,8 @@ fn testnet_genesis(
             min_bond_threshold: 0,
             ..Default::default()
         }),
-        pallet_mips: Some(MipsConfig {
-            prune_historical_mips: false,
+        pallet_pips: Some(PipsConfig {
+            prune_historical_pips: false,
             min_proposal_deposit: 5000,
             quorum_threshold: 100_000,
             proposal_duration: 50,
