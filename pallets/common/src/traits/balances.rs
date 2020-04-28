@@ -7,7 +7,7 @@ use frame_support::{
     traits::{ExistenceRequirement, Get, OnUnbalanced, StoredMap, WithdrawReason, WithdrawReasons},
 };
 use frame_system::{self as system};
-use polymesh_primitives::AccountKey;
+use polymesh_primitives::{AccountKey, IdentityId};
 use sp_runtime::{traits::Saturating, RuntimeDebug};
 use sp_std::ops::BitOr;
 
@@ -150,4 +150,5 @@ pub trait BalancesTrait<A, B, NI> {
 
 pub trait CheckCdd {
     fn check_key_cdd(key: &AccountKey) -> bool;
+    fn get_key_cdd_did(key: &AccountKey) -> Option<IdentityId>;
 }
