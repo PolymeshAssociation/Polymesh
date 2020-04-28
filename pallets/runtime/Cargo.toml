@@ -6,7 +6,7 @@ edition = "2018"
 build = "build.rs"
 
 [dependencies]
-# Common 
+# Common
 polymesh-primitives = { package = "polymesh-primitives", path = "../../primitives", default-features = false }
 polymesh-runtime-common = { package = "polymesh-runtime-common", path = "../common", default-features = false }
 
@@ -170,5 +170,6 @@ std = [
 
 runtime-benchmarks = [
     "frame-benchmarking",
+    "pallet-asset/runtime-benchmarks",
     "polymesh-runtime-identity/runtime-benchmarks"
 ]

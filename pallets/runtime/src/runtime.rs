@@ -994,13 +994,13 @@ impl_runtime_apis! {
                     steps,
                     repeat,
                 ),
-                /*b"runtime-asset" | b"asset" => Asset::run_benchmark(
+                b"runtime-asset" | b"asset" => Asset::run_benchmark(
                     extrinsic,
                     lowest_range_values,
                     highest_range_values,
                     steps,
                     repeat,
-                ),*/
+                ),
                 _ => Err("Benchmark not found for this pallet."),
             };
             result.map_err(|e| e.into())

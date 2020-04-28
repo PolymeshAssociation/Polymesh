@@ -1,4 +1,4 @@
-use pallet_asset::*;
+use crate::*;
 use polymesh_primitives::{AccountKey, AuthorizationData, IdentityId, Signatory, Ticker};
 use polymesh_runtime_balances as balances;
 use polymesh_runtime_identity as identity;
