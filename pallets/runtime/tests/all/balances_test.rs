@@ -198,7 +198,7 @@ fn issue_must_work() {
             assert_eq!(Balances::total_issuance(), ti + 600);
             assert_eq!(Balances::free_balance(&brr), 0);
             drop(imbalance3);
-            // NOTE: Since burned Poly reduces total supply rather than increasing BRR balance,
+            // NOTE: Since burned POLYX reduces total supply rather than increasing BRR balance,
             // the new total supply is 1000 less after dropping.
             assert_eq!(Balances::total_issuance(), ti - 400);
             ti = ti - 400;
