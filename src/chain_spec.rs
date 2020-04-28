@@ -133,13 +133,10 @@ fn general_testnet_genesis(
             changes_trie_config: Default::default(),
         }),
         asset: Some(V1Config::AssetConfig {
-            asset_creation_fee: 250,
-            ticker_registration_fee: 250,
             ticker_registration_config: TickerRegistrationConfig {
                 max_ticker_length: 12,
                 registration_length: Some(5_184_000_000),
             },
-            fee_collector: get_account_id_from_seed::<sr25519::Public>("Dave"),
         }),
         bridge: Some(V1Config::BridgeConfig {
             admin: get_account_id_from_seed::<sr25519::Public>("Alice"),
@@ -453,21 +450,23 @@ fn v1_live_testnet_genesis() -> GenesisConfig {
             changes_trie_config: Default::default(),
         }),
         asset: Some(V1Config::AssetConfig {
-            asset_creation_fee: 250,
-            ticker_registration_fee: 250,
             ticker_registration_config: TickerRegistrationConfig {
                 max_ticker_length: 12,
                 registration_length: Some(5_184_000_000),
             },
-            fee_collector: get_account_id_from_seed::<sr25519::Public>("Dave"),
         }),
         bridge: Some(V1Config::BridgeConfig {
             admin: get_account_id_from_seed::<sr25519::Public>("Alice"),
             creator: get_account_id_from_seed::<sr25519::Public>("Alice"),
-            signatures_required: 0,
-            signers: vec![],
-            timelock: 10,
-            bridge_limit: (100_000_000, 1000),
+            signatures_required: 3,
+            signers: vec![
+                Signatory::AccountKey(get_account_id_from_seed::<sr25519::Public>("relay_1")),
+                Signatory::AccountKey(get_account_id_from_seed::<sr25519::Public>("relay_2")),
+                Signatory::AccountKey(get_account_id_from_seed::<sr25519::Public>("relay_3")),
+                Signatory::AccountKey(get_account_id_from_seed::<sr25519::Public>("relay_4")),
+                Signatory::AccountKey(get_account_id_from_seed::<sr25519::Public>("relay_5"))]
+            timelock: 5400,
+            bridge_limit: (25_000_000_000, 21_600),
         }),
         identity: Some(V1Config::IdentityConfig {
             owner: get_account_id_from_seed::<sr25519::Public>("Dave"),
@@ -740,13 +739,10 @@ fn v1_testnet_genesis(
             changes_trie_config: Default::default(),
         }),
         asset: Some(V1Config::AssetConfig {
-            asset_creation_fee: 250,
-            ticker_registration_fee: 250,
             ticker_registration_config: TickerRegistrationConfig {
                 max_ticker_length: 12,
                 registration_length: Some(5_184_000_000),
             },
-            fee_collector: get_account_id_from_seed::<sr25519::Public>("Dave"),
         }),
         bridge: Some(V1Config::BridgeConfig {
             admin: get_account_id_from_seed::<sr25519::Public>("Alice"),

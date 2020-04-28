@@ -139,6 +139,7 @@ decl_storage! {
                 config.signers.as_slice(),
                 config.signatures_required
             ).expect("cannot create the bridge multisig")
+            
         }): T::AccountId;
 
         /// Status of bridge transactions
