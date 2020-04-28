@@ -265,7 +265,7 @@ fn general_testnet_genesis(
             min_bond_threshold: 0,
             ..Default::default()
         }),
-        pallet_pips: Some(V1Config::MipsConfig {
+        pallet_pips: Some(V1Config::PipsConfig {
             prune_historical_pips: false,
             min_proposal_deposit: 5000,
             quorum_threshold: 100_000,
@@ -467,6 +467,7 @@ fn v1_live_testnet_genesis() -> GenesisConfig {
             signatures_required: 0,
             signers: vec![],
             timelock: 10,
+            bridge_limit: (100_000_000, 1000),
         }),
         identity: Some(V1Config::IdentityConfig {
             owner: get_account_id_from_seed::<sr25519::Public>("Dave"),
@@ -582,7 +583,7 @@ fn v1_live_testnet_genesis() -> GenesisConfig {
             min_bond_threshold: 0,
             ..Default::default()
         }),
-        pallet_pips: Some(PipsConfig {
+        pallet_pips: Some(V1Config::PipsConfig {
             prune_historical_pips: false,
             min_proposal_deposit: 5000,
             quorum_threshold: 100_000,
@@ -753,6 +754,7 @@ fn v1_testnet_genesis(
             signatures_required: 0,
             signers: vec![],
             timelock: 10,
+            bridge_limit: (100_000_000, 1000),
         }),
         identity: Some(V1Config::IdentityConfig {
             owner: get_account_id_from_seed::<sr25519::Public>("Dave"),
@@ -868,7 +870,7 @@ fn v1_testnet_genesis(
             min_bond_threshold: 0,
             ..Default::default()
         }),
-        pallet_pips: Some(V1Config::MipsConfig {
+        pallet_pips: Some(V1Config::PipsConfig {
             prune_historical_pips: false,
             min_proposal_deposit: 5000,
             quorum_threshold: 100_000,
