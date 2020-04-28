@@ -1,11 +1,13 @@
 use grandpa::AuthorityId as GrandpaId;
 use im_online::sr25519::AuthorityId as ImOnlineId;
+use std::convert::TryFrom;
 use pallet_treasury as treasury;
 use polymesh_common_utilities::{
     constants::currency::{MILLICENTS, POLY},
     protocol_fee::ProtocolOp,
 };
-use polymesh_primitives::{AccountId, IdentityId, PosRatio, Signature};
+use polymesh_primitives::{AccountKey, AccountId, IdentityId, PosRatio, Signatory, Signature};
+
 use polymesh_runtime_common::asset::TickerRegistrationConfig;
 use polymesh_runtime_develop::{
     self as general, config as GeneralConfig, constants::time as GeneralTime,
@@ -216,7 +218,6 @@ fn general_testnet_genesis(
             ],
             ..Default::default()
         }),
-        simple_token: Some(V1Config::SimpleTokenConfig { creation_fee: 1000 }),
         balances: Some(V1Config::BalancesConfig {
             balances: endowed_accounts
                 .iter()
@@ -470,13 +471,14 @@ fn v1_live_testnet_genesis() -> GenesisConfig {
             creator: get_account_id_from_seed::<sr25519::Public>("polymath_1"),
             signatures_required: 3,
             signers: vec![
-                Signatory::AccountKey(get_account_id_from_seed::<sr25519::Public>("relay_1")),
-                Signatory::AccountKey(get_account_id_from_seed::<sr25519::Public>("relay_2")),
-                Signatory::AccountKey(get_account_id_from_seed::<sr25519::Public>("relay_3")),
-                Signatory::AccountKey(get_account_id_from_seed::<sr25519::Public>("relay_4")),
-                Signatory::AccountKey(get_account_id_from_seed::<sr25519::Public>("relay_5"))]
-            timelock: 5400,
-            bridge_limit: (25_000_000_000, 21_600),
+                Signatory::AccountKey(AccountKey::try_from(&get_from_seed::<sr25519::Public>("relay_1").to_vec()).unwrap()),
+                Signatory::AccountKey(AccountKey::try_from(&get_from_seed::<sr25519::Public>("relay_2").to_vec()).unwrap()),
+                Signatory::AccountKey(AccountKey::try_from(&get_from_seed::<sr25519::Public>("relay_3").to_vec()).unwrap()),
+                Signatory::AccountKey(AccountKey::try_from(&get_from_seed::<sr25519::Public>("relay_4").to_vec()).unwrap()),
+                Signatory::AccountKey(AccountKey::try_from(&get_from_seed::<sr25519::Public>("relay_5").to_vec()).unwrap()),
+            ],
+            timelock: V1Time::HOURS * 6,
+            bridge_limit: (25_000_000_000, V1Time::DAYS * 1),
         }),
         identity: Some(V1Config::IdentityConfig {
             identities: vec![
@@ -496,64 +498,63 @@ fn v1_live_testnet_genesis() -> GenesisConfig {
                 ),
                 (
                     get_account_id_from_seed::<sr25519::Public>("cdd_provider_3"),
-                    IdentityId::from(2),
-                    IdentityId::from(2),
+                    IdentityId::from(3),
+                    IdentityId::from(3),
                     None,
                 ),
                 // Governance committee members
                 (
                     get_account_id_from_seed::<sr25519::Public>("polymath_1"),
                     IdentityId::from(1),
-                    IdentityId::from(3),
-                    None,
-                ),
-                (
-                    get_account_id_from_seed::<sr25519::Public>("polymath_2"),
-                    IdentityId::from(1),
                     IdentityId::from(4),
                     None,
                 ),
                 (
-                    get_account_id_from_seed::<sr25519::Public>("polymath_3"),
+                    get_account_id_from_seed::<sr25519::Public>("polymath_2"),
                     IdentityId::from(2),
                     IdentityId::from(5),
+                    None,
+                ),
+                (
+                    get_account_id_from_seed::<sr25519::Public>("polymath_3"),
+                    IdentityId::from(3),
+                    IdentityId::from(6),
                     None,
                 ),
                 // Validators
                 (
                     get_account_id_from_seed::<sr25519::Public>("operator_1//stash"),
                     IdentityId::from(2),
-                    IdentityId::from(6),
-                    None,
-                ),
-                (
-                    get_account_id_from_seed::<sr25519::Public>("operator_2//stash"),
-                    IdentityId::from(1),
                     IdentityId::from(7),
                     None,
                 ),
                 (
-                    get_account_id_from_seed::<sr25519::Public>("operator_3//stash"),
-                    IdentityId::from(1),
+                    get_account_id_from_seed::<sr25519::Public>("operator_2//stash"),
+                    IdentityId::from(2),
                     IdentityId::from(8),
+                    None,
+                ),
+                (
+                    get_account_id_from_seed::<sr25519::Public>("operator_3//stash"),
+                    IdentityId::from(3),
+                    IdentityId::from(9),
                     None,
                 ),
                 (
                     get_account_id_from_seed::<sr25519::Public>("operator_4//stash"),
                     IdentityId::from(1),
-                    IdentityId::from(9),
+                    IdentityId::from(10),
                     None,
                 ),
                 (
                     get_account_id_from_seed::<sr25519::Public>("operator_5//stash"),
-                    IdentityId::from(1),
-                    IdentityId::from(10),
+                    IdentityId::from(2),
+                    IdentityId::from(11),
                     None,
                 ),
             ],
             ..Default::default()
         }),
-        simple_token: Some(V1Config::SimpleTokenConfig { creation_fee: 1000 }),
         balances: Some(V1Config::BalancesConfig {
             balances: endowed_accounts
                 .iter()
@@ -578,24 +579,22 @@ fn v1_live_testnet_genesis() -> GenesisConfig {
         }),
         pallet_staking: Some(V1Config::StakingConfig {
             minimum_validator_count: 1,
-            validator_count: 2,
+            validator_count: 8,
             stakers: initial_authorities
                 .iter()
                 .map(|x| (x.0.clone(), x.1.clone(), STASH, v1::StakerStatus::Validator))
                 .collect(),
             invulnerables: initial_authorities.iter().map(|x| x.0.clone()).collect(),
             slash_reward_fraction: v1::Perbill::from_percent(10),
-            validator_commission: v1::Commission::Global(PerThing::from_rational_approximation(
-                1u64, 4u64,
-            )),
+            validator_commission: v1::Commission::Global(PerThing::zero()),
             min_bond_threshold: 0,
             ..Default::default()
         }),
         pallet_pips: Some(V1Config::PipsConfig {
             prune_historical_pips: false,
-            min_proposal_deposit: 5000,
-            quorum_threshold: 100_000,
-            proposal_duration: 50,
+            min_proposal_deposit: 5_000_000_000,
+            quorum_threshold: 100_000_000_000,
+            proposal_duration: V1Time::DAYS * 7,
             proposal_cool_off_period: V1Time::HOURS * 6,
             default_enactment_period: V1Time::DAYS * 7,
         }),
@@ -617,16 +616,16 @@ fn v1_live_testnet_genesis() -> GenesisConfig {
             gas_price: 1 * MILLICENTS,
         }),
         group_Instance1: Some(v1::runtime::CommitteeMembershipConfig {
-            active_members: vec![],
+            active_members: vec![
+                IdentityId::from(4),
+                IdentityId::from(5),
+                IdentityId::from(6),
+            ],
             phantom: Default::default(),
         }),
         committee_Instance1: Some(V1Config::PolymeshCommitteeConfig {
-            vote_threshold: (1, 2),
-            members: vec![
-                IdentityId::from(3),
-                IdentityId::from(4),
-                IdentityId::from(5),
-            ],
+            vote_threshold: (2, 3),
+            members: vec![],
             phantom: Default::default(),
         }),
         group_Instance2: Some(v1::runtime::CddServiceProvidersConfig {
@@ -634,7 +633,7 @@ fn v1_live_testnet_genesis() -> GenesisConfig {
             active_members: vec![
                 IdentityId::from(1),
                 IdentityId::from(2),
-                IdentityId::from(42),
+                IdentityId::from(3),
             ],
             phantom: Default::default(),
         }),
@@ -779,8 +778,8 @@ fn v1_testnet_genesis(
                 ),
                 (
                     get_account_id_from_seed::<sr25519::Public>("cdd_provider_3"),
-                    IdentityId::from(2),
-                    IdentityId::from(2),
+                    IdentityId::from(22),
+                    IdentityId::from(22),
                     None,
                 ),
                 // Governance committee members
@@ -836,12 +835,11 @@ fn v1_testnet_genesis(
             ],
             ..Default::default()
         }),
-        simple_token: Some(V1Config::SimpleTokenConfig { creation_fee: 1000 }),
         balances: Some(V1Config::BalancesConfig {
             balances: endowed_accounts
                 .iter()
-                .cloned()
-                .map(|k| (k, 1 << 55))
+                .map(|k: &AccountId| (k.clone(), ENDOWMENT))
+                .chain(initial_authorities.iter().map(|x| (x.0.clone(), STASH)))
                 .collect(),
         }),
         treasury: Some(v1::runtime::TreasuryConfig { balance: 0 }),
