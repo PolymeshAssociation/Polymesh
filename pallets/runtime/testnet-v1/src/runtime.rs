@@ -454,7 +454,7 @@ impl pallet_finality_tracker::Trait for Runtime {
 }
 
 parameter_types! {
-    pub const Prefix: &'static [u8] = b"Pay POLY to the Polymesh account:";
+    pub const Prefix: &'static [u8] = b"Pay POLYX to the Polymesh account:";
 }
 
 impl pallet_sudo::Trait for Runtime {

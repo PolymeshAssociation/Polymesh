@@ -148,7 +148,6 @@ impl<T: Get<Perbill>, R: system::Trait> Convert<Fixed64, Fixed64> for TargetedFe
 }
 
 #[cfg(test)]
-// #[ignore]
 mod tests {
     use super::*;
     use crate::{AvailableBlockRatio, MaximumBlockWeight};

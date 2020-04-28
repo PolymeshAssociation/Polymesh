@@ -230,7 +230,7 @@ decl_module! {
         /// * `did` DID of the investor
         /// * `ticker` Ticker of the token
         /// * `sto_id` A unique identifier to know which STO investor wants to invest in
-        /// * `value` Amount of POLY wants to invest in
+        /// * `value` Amount of POLYX wants to invest in
         #[weight = SimpleDispatchInfo::FixedNormal(500_000)]
         pub fn buy_tokens(origin, ticker: Ticker, sto_id: u32, value: T::Balance) -> DispatchResult {
             let sender = ensure_signed(origin)?;
@@ -269,7 +269,7 @@ decl_module! {
             // Mint tokens and update STO
             T::Asset::_mint_from_sto(&ticker, sender, did, token_amount_value.0)?;
 
-            // Transfer poly to token owner
+            // Transfer POLYX to token owner
             // TODO: transfer between DIDs
             //<balances::Module<T> as Currency<_>>::transfer(
                 //&sender,
@@ -356,7 +356,7 @@ decl_module! {
         /// * `origin` Signing key of the investor
         /// * `ticker` Ticker of the token
         /// * `sto_id` A unique identifier to know which STO investor wants to invest in
-        /// * `value` Amount of POLY wants to invest in
+        /// * `value` Amount of POLYX wants to invest in
         /// * `simple_token_ticker` Ticker of the simple token
         #[weight = SimpleDispatchInfo::FixedNormal(1_000_000)]
         pub fn buy_tokens_by_simple_token(origin, ticker: Ticker, sto_id: u32, value: T::Balance, simple_token_ticker: Ticker) -> DispatchResult {

@@ -1,7 +1,7 @@
 use pallet_identity as identity;
 use pallet_multisig as multisig;
 use polymesh_common_utilities::traits::balances::CheckCdd;
-use polymesh_primitives::AccountKey;
+use polymesh_primitives::{AccountKey, IdentityId};
 
 use codec::Encode;
 use core::convert::TryFrom;
@@ -14,10 +14,13 @@ where
     R: identity::Trait + multisig::Trait,
 {
     fn check_key_cdd(key: &AccountKey) -> bool {
-        // An account is that is a signing key or the master key of an Identity
+        Self::get_key_cdd_did(key).is_some()
+    }
+
+    fn get_key_cdd_did(key: &AccountKey) -> Option<IdentityId> {
         if let Some(did) = identity::Module::<R>::get_identity(&key) {
             if identity::Module::<R>::has_valid_cdd(did) {
-                return true;
+                return Some(did);
             }
         }
         // An account that is NOT a signing key or the master key of an Identity
@@ -26,10 +29,12 @@ where
             let ms = <multisig::KeyToMultiSig<R>>::get(&key);
             if let Ok(ms_key) = AccountKey::try_from(ms.encode()) {
                 if let Some(did) = identity::Module::<R>::get_identity(&ms_key) {
-                    return identity::Module::<R>::has_valid_cdd(did);
+                    if identity::Module::<R>::has_valid_cdd(did) {
+                        return Some(did);
+                    }
                 }
             }
         }
-        return false;
+        return None;
     }
 }

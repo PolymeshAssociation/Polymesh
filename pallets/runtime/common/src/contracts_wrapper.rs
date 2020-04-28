@@ -11,7 +11,7 @@
 //! ## Possible Tokenomics
 //!
 //!   - Initially restrict list of accounts that can put_code
-//!   - When code is instantiated enforce a POLY fee to the DID owning the code (i.e. that executed put_code)
+//!   - When code is instantiated enforce a POLYX fee to the DID owning the code (i.e. that executed put_code)
 
 use pallet_identity as identity;
 use polymesh_common_utilities::{identity::Trait as IdentityTrait, Context};
