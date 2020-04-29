@@ -19,13 +19,6 @@ pub trait IdentityCurrency<AccountId>: Currency<AccountId> {
         who: &IdentityId,
         value: Self::Balance,
     ) -> result::Result<Self::PositiveImbalance, DispatchError>;
-
-    /// Similar to deposit_creating, only accepts a `NegativeImbalance` and returns nothing on
-    /// success.
-    fn resolve_into_existing_identity(
-        who: &IdentityId,
-        value: Self::NegativeImbalance,
-    ) -> result::Result<(), Self::NegativeImbalance>;
 }
 
 /// A currency that has a block rewards reserve.
