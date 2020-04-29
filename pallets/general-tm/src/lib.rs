@@ -48,7 +48,7 @@
 use polymesh_primitives::{
     predicate, AccountKey, Claim, IdentityId, Rule, RuleType, Signatory, Ticker,
 };
-use polymesh_runtime_common::{
+use polymesh_common_utilities::{
     asset::Trait as AssetTrait,
     balances::Trait as BalancesTrait,
     constants::*,
@@ -57,7 +57,7 @@ use polymesh_runtime_common::{
     protocol_fee::{ChargeProtocolFee, ProtocolOp},
     Context,
 };
-use polymesh_runtime_identity as identity;
+use pallet_identity as identity;
 
 use codec::Encode;
 use core::result::Result as StdResult;

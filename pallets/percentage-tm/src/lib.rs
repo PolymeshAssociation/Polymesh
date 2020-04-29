@@ -26,11 +26,11 @@
 #![recursion_limit = "256"]
 
 use polymesh_primitives::{AccountKey, IdentityId, Signatory, Ticker};
-use polymesh_runtime_common::{
+use polymesh_common_utilities::{
     asset::Trait as AssetTrait, constants::*, exemption::Trait as ExemptionTrait,
     identity::Trait as IdentityTrait, CommonTrait, Context,
 };
-use polymesh_runtime_identity as identity;
+use pallet_identity as identity;
 
 use codec::Encode;
 use core::result::Result as StdResult;

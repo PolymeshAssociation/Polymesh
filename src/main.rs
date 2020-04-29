@@ -12,6 +12,7 @@ mod chain_spec;
 mod service;
 mod cli;
 mod command;
+mod load_chain_spec;
 
 fn main() -> sc_cli::Result<()> {
     let version = sc_cli::VersionInfo {

@@ -13,15 +13,13 @@ pub trait Trait: frame_system::Trait {
     type Currency: Currency<Self::AccountId>;
 }
 
-pub type BalanceOf<T> =
-    <<T as Trait>::Currency as Currency<<T as frame_system::Trait>::AccountId>>::Balance;
 sp_api::decl_runtime_apis! {
 
      /// The API to interact with Asset.
-     pub trait AssetApi<AccountId, T>
+     pub trait AssetApi<AccountId, Balance>
      where
          AccountId: Codec,
-         T: Codec
+         Balance: Codec
      {
          /// Retrieve votes for a proposal for a given `mips_index`.
          ///
@@ -49,6 +47,6 @@ sp_api::decl_runtime_apis! {
              ticker: Ticker,
              from_did: IdentityId,
              to_did: IdentityId,
-             value: T) -> CanTransferResult;
+             value: Balance) -> CanTransferResult;
     }
 }

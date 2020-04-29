@@ -1,7 +1,7 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use polymesh_primitives::Ticker;
-use polymesh_runtime_common::balances::Trait as BalancesTrait;
+use polymesh_common_utilities::balances::Trait as BalancesTrait;
 
 use frame_support::{decl_module, decl_storage};
 

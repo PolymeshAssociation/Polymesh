@@ -7,10 +7,12 @@ edition = "2018"
 [dependencies]
 # Common
 polymesh-primitives = { package = "polymesh-primitives", path = "../../../primitives", default-features = false }
-polymesh-runtime-common = { package = "polymesh-runtime-common", path = "../../common", default-features = false }
+polymesh-common-utilities = { package = "polymesh-common-utilities", path = "../../common", default-features = false }
 
 # Our pallets.
-polymesh-runtime-balances = { package = "polymesh-runtime-balances", path = "../../balances", default-features = false }
+pallet-balances = { package = "pallet-balances", path = "../../balances", default-features = false  }
+
+# RPC
 pallet-asset-rpc-runtime-api = { version = "0.1.0", path = "./runtime-api" }
 
 # Other

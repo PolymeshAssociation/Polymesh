@@ -54,14 +54,14 @@ use frame_support::{
     weights::SimpleDispatchInfo,
 };
 use frame_system::{self as system, ensure_signed};
-use polymesh_primitives::{AccountKey, IdentityId, Signatory};
-use polymesh_runtime_common::{
+use pallet_identity as identity;
+use polymesh_common_utilities::{
     governance_group::GovernanceGroupTrait,
     group::{GroupTrait, InactiveMember},
     identity::{IdentityTrait, Trait as IdentityModuleTrait},
     Context, SystematicIssuers,
 };
-use polymesh_runtime_identity as identity;
+use polymesh_primitives::{AccountKey, IdentityId, Signatory};
 use sp_core::u32_trait::Value as U32;
 use sp_runtime::traits::{EnsureOrigin, Hash, Zero};
 use sp_std::{convert::TryFrom, prelude::*, vec};

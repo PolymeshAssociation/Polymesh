@@ -7,18 +7,18 @@ edition = "2018"
 [dependencies]
 # Common
 polymesh-primitives = { package = "polymesh-primitives", path = "../../primitives", default-features = false }
-polymesh-runtime-common = { package = "polymesh-runtime-common", path = "../common", default-features = false }
+polymesh-common-utilities = { package = "polymesh-common-utilities", path = "../common", default-features = false }
 
 # Our pallets
-polymesh-runtime-identity = { package = "polymesh-runtime-identity", path = "../identity", default-features = false  }
+pallet-identity = { package = "pallet-identity", path = "../identity", default-features = false  }
 pallet-asset = { package = "pallet-asset", path = "../asset", default-features = false  }
 
 # Others
-codec = { package = "parity-scale-codec", version = "1.2.0", default-features = false, features = ["derive"] }
 serde = { version = "1.0.104", default-features = false }
 serde_derive = { version = "1.0.104", optional = true, default-features = false}
 
 # Substrate
+codec = { package = "parity-scale-codec", version = "1.2.0", default-features = false, features = ["derive"] }
 sp-core = { git = "https://github.com/paritytech/substrate", default-features = false, rev = "a439a7aa5a9a3df2a42d9b25ea04288d3a0866e8" }
 sp-io = { git = "https://github.com/paritytech/substrate", default-features = false, rev = "a439a7aa5a9a3df2a42d9b25ea04288d3a0866e8" }
 sp-std = { package = "sp-std", git = "https://github.com/paritytech/substrate", default-features = false, rev = "a439a7aa5a9a3df2a42d9b25ea04288d3a0866e8" }

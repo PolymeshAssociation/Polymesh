@@ -39,24 +39,27 @@
 #[cfg(feature = "runtime-benchmarks")]
 pub mod benchmarking;
 
-use polymesh_primitives::{
-    AccountKey, AuthIdentifier, Authorization, AuthorizationData, AuthorizationError, Claim,
-    ClaimType, Identity as DidRecord, IdentityClaim, IdentityId, Link, LinkData, Permission,
-    PreAuthorizedKeyInfo, Scope, Signatory, SignatoryType, SigningItem, Ticker,
-};
-use polymesh_runtime_common::{
-    constants::did::{SECURITY_TOKEN, USER},
+use polymesh_common_utilities::{
+    constants::did::{CDD_PROVIDERS_ID, GOVERNANCE_COMMITTEE_ID, SECURITY_TOKEN, USER},
     protocol_fee::{ChargeProtocolFee, ProtocolOp},
     traits::{
         asset::AcceptTransfer,
         group::{GroupTrait, InactiveMember},
         identity::{
-            AuthorizationNonce, LinkedKeyInfo, RawEvent, SigningItemWithAuth, TargetIdAuthorization,
+            AuthorizationNonce, LinkedKeyInfo, RawEvent, SigningItemWithAuth, TargetIdAuthorization, IdentityTrait, Trait
         },
         multisig::AddSignerMultiSig,
     },
     Context, SystematicIssuers,
 };
+use polymesh_primitives::{
+    AccountKey, AuthIdentifier, Authorization, AuthorizationData, AuthorizationError, Claim,
+    ClaimType, Identity as DidRecord, IdentityClaim, IdentityId, Link, LinkData, Permission,
+    PreAuthorizedKeyInfo, Scope, Signatory, SignatoryType, SigningItem, Ticker,
+};
+use pallet_identity_rpc_runtime_api::DidRecords as RpcDidRecords;
+use pallet_transaction_payment::{CddAndFeeDetails, ChargeTxFee};
+
 
 use codec::{Decode, Encode};
 use core::{
@@ -79,12 +82,8 @@ use frame_support::{
     weights::{DispatchClass, FunctionOf, GetDispatchInfo, SimpleDispatchInfo},
 };
 use frame_system::{self as system, ensure_root, ensure_signed};
-use pallet_transaction_payment::{CddAndFeeDetails, ChargeTxFee};
-use polymesh_runtime_identity_rpc_runtime_api::DidRecords as RpcDidRecords;
 
-pub use polymesh_runtime_common::traits::identity::{IdentityTrait, Trait};
-
-pub type Event<T> = polymesh_runtime_common::traits::identity::Event<T>;
+pub type Event<T> = polymesh_common_utilities::traits::identity::Event<T>;
 
 #[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, PartialOrd, Ord)]
 pub struct Claim1stKey {
@@ -113,9 +112,6 @@ pub struct BatchRevokeClaimItem {
 
 decl_storage! {
     trait Store for Module<T: Trait> as identity {
-
-        /// Module owner.
-        Owner get(fn owner) config(): T::AccountId;
 
         /// DID -> identity info
         pub DidRecords get(fn did_records) config(): map hasher(twox_64_concat) IdentityId => DidRecord;
@@ -162,8 +158,6 @@ decl_storage! {
     add_extra_genesis {
         config(identities): Vec<(T::AccountId, IdentityId, IdentityId, Option<u64>)>;
         build(|config: &GenesisConfig<T>| {
-            use polymesh_runtime_common::constants::did::{CDD_PROVIDERS_ID, GOVERNANCE_COMMITTEE_ID};
-
             // Add System DID: Governance committee && CDD providers
             [GOVERNANCE_COMMITTEE_ID, CDD_PROVIDERS_ID].iter()
                 .for_each(|raw_id| {

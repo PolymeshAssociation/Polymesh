@@ -1,7 +1,7 @@
 use crate::*;
 use polymesh_primitives::{AccountKey, AuthorizationData, IdentityId, Signatory, Ticker};
-use polymesh_runtime_balances as balances;
-use polymesh_runtime_identity as identity;
+use pallet_balances as balances;
+use pallet_identity as identity;
 
 use codec::Encode;
 use frame_benchmarking::{account, benchmarks};

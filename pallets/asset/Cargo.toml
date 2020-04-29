@@ -7,13 +7,13 @@ edition = "2018"
 [dependencies]
 # Common
 polymesh-primitives = { package = "polymesh-primitives", path = "../../primitives", default-features = false }
-polymesh-runtime-common = { package = "polymesh-runtime-common", path = "../common", default-features = false }
+polymesh-common-utilities = { package = "polymesh-common-utilities", path = "../common", default-features = false }
 
 # Our Pallets
-polymesh-protocol-fee = { package = "polymesh-protocol-fee", path = "../protocol-fee", default-features = false }
-polymesh-runtime-identity = { package = "polymesh-runtime-identity", path = "../identity", default-features = false  }
+pallet-balances = { package = "pallet-balances", path = "../balances", default-features = false  }
+pallet-identity = { package = "pallet-identity", path = "../identity", default-features = false  }
 pallet-statistics = { package = "pallet-statistics", path = "../statistics", default-features = false  }
-polymesh-runtime-balances = { package = "polymesh-runtime-balances", path = "../balances", default-features = false, optional = true }
+pallet-protocol-fee = { package = "pallet-protocol-fee", path = "../protocol-fee", default-features = false }
 
 # RPC
 pallet-asset-rpc-runtime-api = { package = "pallet-asset-rpc-runtime-api", version = "0.1.0", path = "./rpc/runtime-api", default-features = false }
@@ -45,7 +45,7 @@ test-client = { package = "substrate-test-runtime-client", git = "https://github
 
 [features]
 equalize = []
-default = ["std", "equalize"]
+default = ["std", "equalize", "runtime-benchmarks"]
 no_std = []
 only-staking = []
 std = [
@@ -64,11 +64,11 @@ std = [
     "pallet-timestamp/std",
     "pallet-contracts/std",
     "pallet-session/std",
-    "polymesh-runtime-common/std",
+    "polymesh-common-utilities/std",
     "polymesh-primitives/std",
     "pallet-asset-rpc-runtime-api/std",
+    "pallet-balances/std",
 ]
 runtime-benchmarks = [
     "frame-benchmarking",
-    "polymesh-runtime-balances",
 ]
