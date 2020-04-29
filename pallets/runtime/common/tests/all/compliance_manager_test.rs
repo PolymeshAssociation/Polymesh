@@ -592,11 +592,13 @@ fn should_modify_vector_of_trusted_issuer_we() {
     ));
 
     // Remove the trusted issuer 1 from the list
-    assert_ok!(ComplianceManager::remove_default_trusted_claim_issuers_batch(
-        token_owner_signed.clone(),
-        ticker,
-        vec![trusted_issuer_did_1]
-    ));
+    assert_ok!(
+        ComplianceManager::remove_default_trusted_claim_issuers_batch(
+            token_owner_signed.clone(),
+            ticker,
+            vec![trusted_issuer_did_1]
+        )
+    );
 
     assert_eq!(ComplianceManager::trusted_claim_issuer(ticker).len(), 1);
     assert_eq!(

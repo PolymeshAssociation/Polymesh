@@ -14,8 +14,8 @@ use polymesh_primitives::Ticker;
 
 use polymesh_runtime_common::{
     asset::{self, AssetType, SecurityToken},
-    dividend::{self, Dividend},
     compliance_manager,
+    dividend::{self, Dividend},
     simple_token::{self, SimpleTokenRecord},
 };
 
