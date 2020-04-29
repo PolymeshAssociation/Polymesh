@@ -68,8 +68,6 @@ decl_storage! {
         Allowance get(fn allowance): map hasher(blake2_128_concat) (Ticker, IdentityId, IdentityId) => T::Balance;
         /// Mapping from (ticker, owner DID) to their balance
         pub BalanceOf get(fn balance_of): map hasher(blake2_128_concat) (Ticker, IdentityId) => T::Balance;
-        /// The cost to create a new simple token
-        CreationFee get(fn creation_fee) config(): T::Balance;
         /// The details associated with each simple token
         Tokens get(fn tokens): map hasher(blake2_128_concat) Ticker => SimpleTokenRecord<T::Balance>;
     }
@@ -122,12 +120,6 @@ decl_module! {
             );
             ensure!(!<Tokens<T>>::contains_key(&ticker), Error::<T>::TickerAlreadyExists);
             ensure!(total_supply <= MAX_SUPPLY.into(), Error::<T>::TotalSupplyAboveLimit);
-
-            // TODO Charge proper fee
-            // <identity::DidRecords<T>>::mutate( did, |record| -> Result {
-            //     record.balance = record.balance.checked_sub(&Self::creation_fee()).ok_or("Could not charge for token issuance")?;
-            //     Ok(())
-            // })?;
 
             let new_token = SimpleTokenRecord {
                 ticker: ticker,

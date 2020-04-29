@@ -15,6 +15,8 @@ use pallet_balances as balances;
 use pallet_identity as identity;
 use pallet_multisig as multisig;
 use polymesh_common_utilities::traits::{balances::CheckCdd, CommonTrait};
+use polymesh_common_utilities::Context;
+
 use polymesh_primitives::{AccountKey, IdentityId, Signatory};
 use sp_core::H256;
 use sp_runtime::traits::{CheckedAdd, One, Zero};
@@ -134,11 +136,19 @@ decl_storage! {
                 // Default to the empty signer set.
                 return Default::default();
             }
-            <multisig::Module<T>>::create_multisig_account(
+            let creator_key = AccountKey::try_from(config.creator.clone().encode()).expect("cannot create the bridge creator account");
+            let creator_did = Context::current_identity_or::<identity::Module<T>>(&creator_key).expect("bridge creator account has no identity");
+
+            let multisig_id = <multisig::Module<T>>::create_multisig_account(
                 config.creator.clone(),
                 config.signers.as_slice(),
                 config.signatures_required
-            ).expect("cannot create the bridge multisig")
+            ).expect("cannot create the bridge multisig");
+            <identity::Module<T>>::unsafe_join_identity(
+                creator_did.clone(),
+                Signatory::from(AccountKey::try_from(multisig_id.clone().encode()).unwrap())
+            ).expect("cannot link the bridge multisig");
+            multisig_id
         }): T::AccountId;
 
         /// Status of bridge transactions
