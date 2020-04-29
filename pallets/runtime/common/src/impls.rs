@@ -88,7 +88,9 @@ pub struct LinearWeightToFee<C>(sp_std::marker::PhantomData<C>);
 
 impl<C: Get<Balance>> Convert<Weight, Balance> for LinearWeightToFee<C> {
     fn convert(w: Weight) -> Balance {
-        Balance::from(w)
+        // setting this to zero will disable the weight fee.
+        let coefficient = C::get();
+        Balance::from(w).saturating_mul(coefficient)
     }
 }
 
