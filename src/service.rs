@@ -94,8 +94,8 @@ where
             IdentityId,
             Ticker,
             AccountKey,
-            SigningItem>
-        + pallet_protocol_fee_rpc_runtime_api::ProtocolFeeApi<Block>
+            SigningItem,
+        > + pallet_protocol_fee_rpc_runtime_api::ProtocolFeeApi<Block>
         + pallet_asset_rpc_runtime_api::AssetApi<Block, AccountId, Balance>,
     Extrinsic: RuntimeExtrinsic,
     <Self as sp_api::ApiExt<Block>>::StateBackend: sp_api::StateBackend<BlakeTwo256>,
@@ -196,9 +196,7 @@ macro_rules! new_full_start {
             io.extend_with(ProtocolFeeApi::to_delegate(ProtocolFee::new(
                 builder.client().clone(),
             )));
-            io.extend_with(AssetApi::to_delegate(Asset::new(
-                builder.client().clone(),
-            )));
+            io.extend_with(AssetApi::to_delegate(Asset::new(builder.client().clone())));
 
             Ok(io)
         })?;

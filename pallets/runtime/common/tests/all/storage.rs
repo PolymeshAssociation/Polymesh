@@ -1,19 +1,18 @@
 use pallet_asset as asset;
-use pallet_general_tm as general_tm;
-use pallet_percentage_tm as percentage_tm;
-use pallet_statistics as statistics;
 use pallet_balances as balances;
 use pallet_committee as committee;
+use pallet_general_tm as general_tm;
 use pallet_group as group;
 use pallet_identity as identity;
 use pallet_multisig as multisig;
+use pallet_percentage_tm as percentage_tm;
 use pallet_pips as pips;
 use pallet_protocol_fee as protocol_fee;
+use pallet_statistics as statistics;
 use pallet_treasury as treasury;
 use polymesh_common_utilities::traits::{
-    asset::AcceptTransfer, balances::AccountData, group::GroupTrait, multisig::AddSignerMultiSig,
-    identity::Trait as IdentityTrait,
-    CommonTrait,
+    asset::AcceptTransfer, balances::AccountData, group::GroupTrait,
+    identity::Trait as IdentityTrait, multisig::AddSignerMultiSig, CommonTrait,
 };
 use polymesh_primitives::{AccountKey, AuthorizationData, IdentityId, Signatory};
 use polymesh_runtime_common::{

@@ -22,11 +22,11 @@ pub use runtime::{
 #[cfg(feature = "std")]
 pub mod config {
 
+    use pallet_asset as asset;
     use pallet_balances as balances;
     use pallet_committee as committee;
     use pallet_identity as identity;
     use pallet_protocol_fee as protocol_fee;
-    use pallet_asset as asset;
 
     pub type AssetConfig = asset::GenesisConfig<crate::Runtime>;
     pub type BalancesConfig = balances::GenesisConfig<crate::Runtime>;

@@ -25,12 +25,12 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 #![recursion_limit = "256"]
 
-use polymesh_primitives::{AccountKey, IdentityId, Signatory, Ticker};
+use pallet_identity as identity;
 use polymesh_common_utilities::{
     asset::Trait as AssetTrait, constants::*, exemption::Trait as ExemptionTrait,
     identity::Trait as IdentityTrait, CommonTrait, Context,
 };
-use pallet_identity as identity;
+use polymesh_primitives::{AccountKey, IdentityId, Signatory, Ticker};
 
 use codec::Encode;
 use core::result::Result as StdResult;

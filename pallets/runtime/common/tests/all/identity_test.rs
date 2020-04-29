@@ -10,7 +10,7 @@ use super::{
 use polymesh_common_utilities::{
     traits::{
         group::GroupTrait,
-        identity::{Trait as IdentityTrait, SigningItemWithAuth, TargetIdAuthorization},
+        identity::{SigningItemWithAuth, TargetIdAuthorization, Trait as IdentityTrait},
     },
     SystematicIssuers,
 };

@@ -1,6 +1,6 @@
 use crate::TestStorage;
 
-use polymesh_common_utilities::{ protocol_fee::ProtocolOp, traits::identity::LinkedKeyInfo };
+use polymesh_common_utilities::{protocol_fee::ProtocolOp, traits::identity::LinkedKeyInfo};
 use polymesh_primitives::{AccountKey, Identity, IdentityId, PosRatio};
 
 use pallet_asset::{self as asset, TickerRegistrationConfig};

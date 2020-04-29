@@ -4,28 +4,30 @@ use crate::{
     fee_details::CddHandler,
 };
 use polymesh_runtime_common::{
-    bridge, contracts_wrapper, dividend, exemption,
-    simple_token, sto_capped, voting, AvailableBlockRatio,
-    BlockHashCount, MaximumBlockLength, MaximumBlockWeight, NegativeImbalance,
-
+    bridge,
     cdd_check::CddChecker,
+    contracts_wrapper, dividend, exemption,
     impls::{Author, CurrencyToVoteHandler, LinearWeightToFee, TargetedFeeAdjustment},
+    simple_token, sto_capped, voting, AvailableBlockRatio, BlockHashCount, MaximumBlockLength,
+    MaximumBlockWeight, NegativeImbalance,
 };
 
+use pallet_asset as asset;
 use pallet_balances as balances;
 use pallet_committee as committee;
+use pallet_general_tm as general_tm;
 use pallet_group as group;
 use pallet_identity as identity;
 use pallet_multisig as multisig;
-use pallet_protocol_fee as protocol_fee;
-use pallet_treasury as treasury;
-use pallet_asset as asset;
-use pallet_general_tm as general_tm;
 use pallet_percentage_tm as percentage_tm;
+use pallet_protocol_fee as protocol_fee;
 use pallet_statistics as statistics;
+use pallet_treasury as treasury;
 use polymesh_common_utilities::{
-    constants::currency::*, protocol_fee::ProtocolOp, CommonTrait,
-    traits::{ balances::AccountData, identity::Trait as IdentityTrait },
+    constants::currency::*,
+    protocol_fee::ProtocolOp,
+    traits::{balances::AccountData, identity::Trait as IdentityTrait},
+    CommonTrait,
 };
 use polymesh_primitives::{
     AccountId, AccountIndex, AccountKey, Balance, BlockNumber, Hash, IdentityId, Index, Moment,

@@ -4,26 +4,30 @@ use crate::{
     fee_details::CddHandler,
 };
 use polymesh_runtime_common::{
+    bridge,
     cdd_check::CddChecker,
-    contracts_wrapper, dividend, exemption, simple_token, sto_capped, voting, bridge, AvailableBlockRatio,
-    BlockHashCount, MaximumBlockLength, MaximumBlockWeight, NegativeImbalance,
+    contracts_wrapper, dividend, exemption,
     impls::{Author, CurrencyToVoteHandler, LinearWeightToFee, TargetedFeeAdjustment},
+    simple_token, sto_capped, voting, AvailableBlockRatio, BlockHashCount, MaximumBlockLength,
+    MaximumBlockWeight, NegativeImbalance,
 };
 
 use pallet_asset as asset;
 use pallet_balances as balances;
 use pallet_committee as committee;
 use pallet_general_tm as general_tm;
-use pallet_percentage_tm as percentage_tm;
-use pallet_statistics as statistics;
 use pallet_group as group;
 use pallet_identity as identity;
 use pallet_multisig as multisig;
+use pallet_percentage_tm as percentage_tm;
 use pallet_protocol_fee as protocol_fee;
+use pallet_statistics as statistics;
 use pallet_treasury as treasury;
 use polymesh_common_utilities::{
-    constants::currency::*, protocol_fee::ProtocolOp, CommonTrait,
-    traits::{ balances::AccountData, identity::Trait as IdentityTrait },
+    constants::currency::*,
+    protocol_fee::ProtocolOp,
+    traits::{balances::AccountData, identity::Trait as IdentityTrait},
+    CommonTrait,
 };
 use polymesh_primitives::{
     AccountId, AccountIndex, AccountKey, Balance, BlockNumber, Hash, IdentityId, Index, Moment,
@@ -31,14 +35,20 @@ use polymesh_primitives::{
 };
 
 use sp_api::impl_runtime_apis;
-use sp_core::{ u32_trait::{_1, _2, _4}, OpaqueMetadata};
+use sp_core::{
+    u32_trait::{_1, _2, _4},
+    OpaqueMetadata,
+};
 use sp_runtime::{
-    curve::PiecewiseLinear, transaction_validity::TransactionValidity, MultiSignature,
-    create_runtime_str, generic, impl_opaque_keys, ApplyExtrinsicResult, Perbill, Percent, Permill,
+    create_runtime_str,
+    curve::PiecewiseLinear,
+    generic, impl_opaque_keys,
     traits::{
         BlakeTwo256, Block as BlockT, Extrinsic, OpaqueKeys, SaturatedConversion, StaticLookup,
         Verify,
     },
+    transaction_validity::TransactionValidity,
+    ApplyExtrinsicResult, MultiSignature, Perbill, Percent, Permill,
 };
 use sp_std::prelude::*;
 use sp_version::RuntimeVersion;

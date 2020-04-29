@@ -1,12 +1,9 @@
-use polymesh_primitives::{AccountKey, IdentityId, Signatory, Ticker};
 use pallet_identity as identity;
 use polymesh_common_utilities::{
-    balances::Trait as BalancesTrait,
-    asset::Trait as AssetTrait,
-    exemption::Trait as ExemptionTrait,
-    identity::Trait as IdentityTrait,
-    Context,
+    asset::Trait as AssetTrait, balances::Trait as BalancesTrait,
+    exemption::Trait as ExemptionTrait, identity::Trait as IdentityTrait, Context,
 };
+use polymesh_primitives::{AccountKey, IdentityId, Signatory, Ticker};
 
 use codec::Encode;
 use frame_support::{

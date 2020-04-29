@@ -2,10 +2,10 @@ use super::{
     storage::{make_account, TestStorage},
     ExtBuilder,
 };
-use polymesh_runtime_common::{ voting::{self, Ballot, Motion}, };
-use polymesh_primitives::Ticker;
 use pallet_asset::{self as asset, AssetType, SecurityToken};
 use pallet_general_tm as general_tm;
+use polymesh_primitives::Ticker;
+use polymesh_runtime_common::voting::{self, Ballot, Motion};
 
 use chrono::prelude::Utc;
 use frame_support::{assert_err, assert_ok};

@@ -45,9 +45,7 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 #![recursion_limit = "256"]
 
-use polymesh_primitives::{
-    predicate, AccountKey, Claim, IdentityId, Rule, RuleType, Signatory, Ticker,
-};
+use pallet_identity as identity;
 use polymesh_common_utilities::{
     asset::Trait as AssetTrait,
     balances::Trait as BalancesTrait,
@@ -57,7 +55,9 @@ use polymesh_common_utilities::{
     protocol_fee::{ChargeProtocolFee, ProtocolOp},
     Context,
 };
-use pallet_identity as identity;
+use polymesh_primitives::{
+    predicate, AccountKey, Claim, IdentityId, Rule, RuleType, Signatory, Ticker,
+};
 
 use codec::Encode;
 use core::result::Result as StdResult;

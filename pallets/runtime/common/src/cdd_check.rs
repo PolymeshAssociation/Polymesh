@@ -1,6 +1,6 @@
 use pallet_identity as identity;
 use pallet_multisig as multisig;
-use polymesh_common_utilities::traits::{ balances::CheckCdd, identity::Trait as IdentityTrait };
+use polymesh_common_utilities::traits::{balances::CheckCdd, identity::Trait as IdentityTrait};
 use polymesh_primitives::{AccountKey, IdentityId};
 
 use codec::Encode;

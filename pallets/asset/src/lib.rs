@@ -61,12 +61,8 @@
 #[cfg(feature = "runtime-benchmarks")]
 pub mod benchmarking;
 
+use pallet_identity as identity;
 use pallet_statistics as statistics;
-use polymesh_primitives::{
-    AccountKey, AuthorizationData, AuthorizationError, Document, DocumentHash, DocumentName,
-    DocumentUri, IdentityId, LinkData, Signatory, SmartExtension, SmartExtensionName,
-    SmartExtensionType, Ticker,
-};
 use polymesh_common_utilities::{
     asset::{AcceptTransfer, Trait as AssetTrait},
     balances::Trait as BalancesTrait,
@@ -76,7 +72,11 @@ use polymesh_common_utilities::{
     protocol_fee::{ChargeProtocolFee, ProtocolOp},
     CommonTrait, Context,
 };
-use pallet_identity as identity;
+use polymesh_primitives::{
+    AccountKey, AuthorizationData, AuthorizationError, Document, DocumentHash, DocumentName,
+    DocumentUri, IdentityId, LinkData, Signatory, SmartExtension, SmartExtensionName,
+    SmartExtensionType, Ticker,
+};
 
 use codec::{Decode, Encode};
 use core::result::Result as StdResult;

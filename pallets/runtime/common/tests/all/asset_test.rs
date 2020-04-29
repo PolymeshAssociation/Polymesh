@@ -6,9 +6,9 @@ use super::{
 use pallet_asset::{
     self as asset, AssetType, FundingRoundName, IdentifierType, SecurityToken, SignData,
 };
+use pallet_balances as balances;
 use pallet_general_tm as general_tm;
 use pallet_identity as identity;
-use pallet_balances as balances;
 
 use polymesh_primitives::{
     AuthorizationData, Document, IdentityId, LinkData, Signatory, SmartExtension,

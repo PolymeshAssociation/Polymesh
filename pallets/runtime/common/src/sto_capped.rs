@@ -29,13 +29,12 @@
 
 use crate::simple_token::{self, SimpleTokenTrait};
 
-use pallet_general_tm as general_tm;
 use pallet_balances as balances;
+use pallet_general_tm as general_tm;
 use pallet_identity as identity;
 use polymesh_common_utilities::{
-    asset::Trait as AssetTrait,
-    balances::Trait as BalancesTrait,
-    CommonTrait, Context};
+    asset::Trait as AssetTrait, balances::Trait as BalancesTrait, CommonTrait, Context,
+};
 use polymesh_primitives::{AccountKey, IdentityId, Signatory, Ticker};
 
 use codec::Encode;

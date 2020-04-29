@@ -3,16 +3,16 @@ use super::{
     ExtBuilder,
 };
 
-use polymesh_primitives::Ticker;
 use polymesh_common_utilities::traits::CommonTrait;
+use polymesh_primitives::Ticker;
 use polymesh_runtime_common::{
     dividend::{self, Dividend},
     simple_token::{self, SimpleTokenRecord},
 };
 
 use pallet_asset::{self as asset, AssetType, SecurityToken};
-use pallet_general_tm as general_tm;
 use pallet_balances as balances;
+use pallet_general_tm as general_tm;
 
 use frame_support::{assert_ok, traits::Currency};
 use frame_system::ensure_signed;
