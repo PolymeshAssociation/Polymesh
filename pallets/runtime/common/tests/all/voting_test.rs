@@ -6,7 +6,7 @@ use super::{
 use polymesh_primitives::Ticker;
 use polymesh_runtime_common::{
     asset::{self, AssetType, SecurityToken},
-    general_tm,
+    compliance_manager,
     voting::{self, Ballot, Motion},
 };
 
@@ -16,7 +16,7 @@ use std::convert::TryFrom;
 use test_client::AccountKeyring;
 
 type Asset = asset::Module<TestStorage>;
-type GeneralTM = general_tm::Module<TestStorage>;
+type ComplianceManager = compliance_manager::Module<TestStorage>;
 type Voting = voting::Module<TestStorage>;
 type Error = voting::Error<TestStorage>;
 
@@ -301,7 +301,7 @@ fn vote() {
         let receiver_rules = vec![];
 
         // Allow all transfers
-        assert_ok!(GeneralTM::add_active_rule(
+        assert_ok!(ComplianceManager::add_active_rule(
             token_owner_acc.clone(),
             ticker,
             sender_rules,

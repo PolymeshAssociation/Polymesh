@@ -15,7 +15,7 @@ use polymesh_primitives::Ticker;
 use polymesh_runtime_common::{
     asset::{self, AssetType, SecurityToken},
     dividend::{self, Dividend},
-    general_tm,
+    compliance_manager,
     simple_token::{self, SimpleTokenRecord},
 };
 
@@ -45,7 +45,7 @@ type Timestamp = pallet_timestamp::Module<TestStorage>;
 type DividendModule = dividend::Module<TestStorage>;
 type Balances = balances::Module<TestStorage>;
 type Asset = asset::Module<TestStorage>;
-type GeneralTM = general_tm::Module<TestStorage>;
+type ComplianceManager = compliance_manager::Module<TestStorage>;
 type SimpleToken = simple_token::Module<TestStorage>;
 
 #[test]
@@ -116,7 +116,7 @@ fn correct_dividend_must_work() {
         drop(outer);
 
         // Allow all transfers
-        assert_ok!(GeneralTM::add_active_rule(
+        assert_ok!(ComplianceManager::add_active_rule(
             token_owner_acc.clone(),
             ticker,
             vec![],

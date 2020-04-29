@@ -16,7 +16,7 @@ mod bridge;
 mod committee_test;
 mod dividend_test;
 mod fee_details;
-mod general_tm_test;
+mod compliance_manager_test;
 mod group_test;
 mod identity_test;
 mod multisig;

@@ -7,7 +7,7 @@ use frame_support::assert_ok;
 use polymesh_primitives::Ticker;
 use polymesh_runtime_common::{
     asset::{self, IdentifierType, SecurityToken},
-    general_tm, statistics,
+    compliance_manager, statistics,
 };
 use sp_std::convert::TryFrom;
 use test_client::AccountKeyring;
@@ -15,7 +15,7 @@ use test_client::AccountKeyring;
 type Origin = <TestStorage as frame_system::Trait>::Origin;
 type Asset = asset::Module<TestStorage>;
 type Statistic = statistics::Module<TestStorage>;
-type GeneralTM = general_tm::Module<TestStorage>;
+type ComplianceManager = compliance_manager::Module<TestStorage>;
 
 #[test]
 fn investor_count_per_asset() {
@@ -54,7 +54,7 @@ fn investor_count_per_asset_with_ext() {
     ));
 
     let ticker = Ticker::try_from(token.name.as_slice()).unwrap();
-    assert_ok!(GeneralTM::add_active_rule(
+    assert_ok!(ComplianceManager::add_active_rule(
         alice_signed.clone(),
         ticker,
         vec![],

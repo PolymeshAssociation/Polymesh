@@ -101,7 +101,7 @@ pub struct AssetTransferRules {
 type Identity<T> = identity::Module<T>;
 
 decl_storage! {
-    trait Store for Module<T: Trait> as GeneralTM {
+    trait Store for Module<T: Trait> as ComplianceManager {
         /// List of active rules for a ticker (Ticker -> Array of AssetTransferRules)
         pub AssetRulesMap get(fn asset_rules): map hasher(blake2_128_concat) Ticker => AssetTransferRules;
         /// List of trusted claim issuer Ticker -> Issuer Identity

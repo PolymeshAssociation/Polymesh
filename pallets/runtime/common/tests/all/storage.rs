@@ -18,7 +18,7 @@ use polymesh_common_utilities::traits::{
 };
 use polymesh_primitives::{AccountKey, AuthorizationData, IdentityId, Signatory};
 use polymesh_runtime_common::{
-    asset, bridge, cdd_check::CddChecker, dividend, exemption, general_tm, percentage_tm,
+    asset, bridge, cdd_check::CddChecker, dividend, exemption, compliance_manager, percentage_tm,
     simple_token, statistics, voting,
 };
 use sp_core::{
@@ -75,7 +75,7 @@ impl_outer_event! {
         pips<T>,
         pallet_contracts<T>,
         pallet_session,
-        general_tm,
+        compliance_manager,
         exemption,
         group Instance1<T>,
         group Instance2<T>,
@@ -346,7 +346,7 @@ impl percentage_tm::Trait for TestStorage {
     type Event = Event;
 }
 
-impl general_tm::Trait for TestStorage {
+impl compliance_manager::Trait for TestStorage {
     type Event = Event;
     type Asset = asset::Module<TestStorage>;
 }

@@ -56,7 +56,7 @@
 //! - `custodian_allowance`- Returns the allowance provided to a custodian for a given ticker and token holder
 //! - `total_custody_allowance` - Returns the total allowance approved by the token holder.
 
-use crate::{general_tm, percentage_tm, statistics};
+use crate::{compliance_manager, percentage_tm, statistics};
 
 use pallet_identity as identity;
 use polymesh_common_utilities::{
@@ -96,7 +96,7 @@ use sp_std::{convert::TryFrom, prelude::*};
 /// The module's configuration trait.
 pub trait Trait:
     frame_system::Trait
-    + general_tm::Trait
+    + compliance_manager::Trait
     + percentage_tm::Trait
     + BalancesTrait
     + IdentityTrait
@@ -1918,7 +1918,7 @@ impl<T: Trait> Module<T> {
     ) -> StdResult<u8, &'static str> {
         ensure!(!Self::frozen(ticker), Error::<T>::Frozen);
         let general_status_code =
-            <general_tm::Module<T>>::verify_restriction(ticker, from_did, to_did, value)?;
+            <compliance_manager::Module<T>>::verify_restriction(ticker, from_did, to_did, value)?;
         Ok(if general_status_code != ERC1400_TRANSFER_SUCCESS {
             general_status_code
         } else {

@@ -9,7 +9,7 @@ use pallet_identity::{self as identity, BatchAddClaimItem};
 use polymesh_primitives::{Claim, IdentityId, Rule, RuleType, Scope, Ticker};
 use polymesh_runtime_common::{
     asset::{self as asset, AssetType, Error as AssetError, SecurityToken, TokenName},
-    general_tm::{self as general_tm, AssetTransferRule, Error as GTMError},
+    compliance_manager::{self as compliance_manager, AssetTransferRule, Error as GTMError},
 };
 
 use chrono::prelude::Utc;
@@ -22,7 +22,7 @@ type Identity = identity::Module<TestStorage>;
 type Balances = balances::Module<TestStorage>;
 type Timestamp = pallet_timestamp::Module<TestStorage>;
 type Asset = asset::Module<TestStorage>;
-type GeneralTM = general_tm::Module<TestStorage>;
+type ComplianceManager = compliance_manager::Module<TestStorage>;
 type CDDGroup = group::Module<TestStorage, group::Instance2>;
 type Moment = u64;
 type Origin = <TestStorage as frame_system::Trait>::Origin;
@@ -123,7 +123,7 @@ fn should_add_and_verify_asset_rule_we() {
         rule_type: RuleType::IsPresent(Claim::Accredited(token_owner_did)),
     };
 
-    assert_ok!(GeneralTM::add_active_rule(
+    assert_ok!(ComplianceManager::add_active_rule(
         token_owner_signed.clone(),
         ticker,
         vec![sender_rule],
@@ -215,22 +215,22 @@ fn should_reset_assetrules_we() {
         None
     ));
 
-    assert_ok!(GeneralTM::add_active_rule(
+    assert_ok!(ComplianceManager::add_active_rule(
         token_owner_signed.clone(),
         ticker,
         vec![],
         vec![]
     ));
 
-    let asset_rules = GeneralTM::asset_rules(ticker);
+    let asset_rules = ComplianceManager::asset_rules(ticker);
     assert_eq!(asset_rules.rules.len(), 1);
 
-    assert_ok!(GeneralTM::reset_active_rules(
+    assert_ok!(ComplianceManager::reset_active_rules(
         token_owner_signed.clone(),
         ticker
     ));
 
-    let asset_rules_new = GeneralTM::asset_rules(ticker);
+    let asset_rules_new = ComplianceManager::asset_rules(ticker);
     assert_eq!(asset_rules_new.rules.len(), 0);
 }
 
@@ -288,7 +288,7 @@ fn pause_resume_asset_rules_we() {
         rule_type: RuleType::IsAbsent(Claim::NoData),
     }];
 
-    assert_ok!(GeneralTM::add_active_rule(
+    assert_ok!(ComplianceManager::add_active_rule(
         token_owner_signed.clone(),
         ticker,
         vec![],
@@ -303,7 +303,7 @@ fn pause_resume_asset_rules_we() {
     );
 
     // 5.2. Pause asset rules, and run the transaction.
-    assert_ok!(GeneralTM::pause_asset_rules(
+    assert_ok!(ComplianceManager::pause_asset_rules(
         token_owner_signed.clone(),
         ticker
     ));
@@ -315,7 +315,7 @@ fn pause_resume_asset_rules_we() {
     ));
 
     // 5.3. Resume asset rules, and new transfer should fail again.
-    assert_ok!(GeneralTM::resume_asset_rules(
+    assert_ok!(ComplianceManager::resume_asset_rules(
         token_owner_signed.clone(),
         ticker
     ));
@@ -369,7 +369,7 @@ fn should_successfully_add_and_use_default_issuers_we() {
 
     // Failed because trusted issuer identity not exist
     assert_err!(
-        GeneralTM::add_default_trusted_claim_issuer(
+        ComplianceManager::add_default_trusted_claim_issuer(
             token_owner_signed.clone(),
             ticker,
             IdentityId::from(1)
@@ -377,15 +377,15 @@ fn should_successfully_add_and_use_default_issuers_we() {
         GTMError::<TestStorage>::DidNotExist
     );
 
-    assert_ok!(GeneralTM::add_default_trusted_claim_issuer(
+    assert_ok!(ComplianceManager::add_default_trusted_claim_issuer(
         token_owner_signed.clone(),
         ticker,
         trusted_issuer_did
     ));
 
-    assert_eq!(GeneralTM::trusted_claim_issuer(ticker).len(), 1);
+    assert_eq!(ComplianceManager::trusted_claim_issuer(ticker).len(), 1);
     assert_eq!(
-        GeneralTM::trusted_claim_issuer(ticker),
+        ComplianceManager::trusted_claim_issuer(ticker),
         vec![trusted_issuer_did]
     );
 
@@ -409,7 +409,7 @@ fn should_successfully_add_and_use_default_issuers_we() {
         rule_type: RuleType::IsPresent(Claim::CustomerDueDiligence),
     };
 
-    assert_ok!(GeneralTM::add_active_rule(
+    assert_ok!(ComplianceManager::add_active_rule(
         token_owner_signed.clone(),
         ticker,
         vec![sender_rule],
@@ -492,7 +492,7 @@ fn should_modify_vector_of_trusted_issuer_we() {
 
     // Failed because caller is not the owner of the ticker
     assert_err!(
-        GeneralTM::add_default_trusted_claim_issuers_batch(
+        ComplianceManager::add_default_trusted_claim_issuers_batch(
             receiver_signed.clone(),
             ticker,
             vec![trusted_issuer_did_1, trusted_issuer_did_2]
@@ -502,7 +502,7 @@ fn should_modify_vector_of_trusted_issuer_we() {
 
     // Failed because trusted issuer identity not exist
     assert_err!(
-        GeneralTM::add_default_trusted_claim_issuers_batch(
+        ComplianceManager::add_default_trusted_claim_issuers_batch(
             token_owner_signed.clone(),
             ticker,
             vec![IdentityId::from(1), IdentityId::from(2)]
@@ -512,7 +512,7 @@ fn should_modify_vector_of_trusted_issuer_we() {
 
     // Failed because trusted issuers length < 0
     assert_err!(
-        GeneralTM::add_default_trusted_claim_issuers_batch(
+        ComplianceManager::add_default_trusted_claim_issuers_batch(
             token_owner_signed.clone(),
             ticker,
             vec![]
@@ -520,15 +520,15 @@ fn should_modify_vector_of_trusted_issuer_we() {
         GTMError::<TestStorage>::InvalidLength
     );
 
-    assert_ok!(GeneralTM::add_default_trusted_claim_issuers_batch(
+    assert_ok!(ComplianceManager::add_default_trusted_claim_issuers_batch(
         token_owner_signed.clone(),
         ticker,
         vec![trusted_issuer_did_1, trusted_issuer_did_2]
     ));
 
-    assert_eq!(GeneralTM::trusted_claim_issuer(ticker).len(), 2);
+    assert_eq!(ComplianceManager::trusted_claim_issuer(ticker).len(), 2);
     assert_eq!(
-        GeneralTM::trusted_claim_issuer(ticker),
+        ComplianceManager::trusted_claim_issuer(ticker),
         vec![trusted_issuer_did_1, trusted_issuer_did_2]
     );
 
@@ -577,7 +577,7 @@ fn should_modify_vector_of_trusted_issuer_we() {
     let x = vec![sender_rule.clone()];
     let y = vec![receiver_rule_1, receiver_rule_2];
 
-    assert_ok!(GeneralTM::add_active_rule(
+    assert_ok!(ComplianceManager::add_active_rule(
         token_owner_signed.clone(),
         ticker,
         x,
@@ -592,15 +592,15 @@ fn should_modify_vector_of_trusted_issuer_we() {
     ));
 
     // Remove the trusted issuer 1 from the list
-    assert_ok!(GeneralTM::remove_default_trusted_claim_issuers_batch(
+    assert_ok!(ComplianceManager::remove_default_trusted_claim_issuers_batch(
         token_owner_signed.clone(),
         ticker,
         vec![trusted_issuer_did_1]
     ));
 
-    assert_eq!(GeneralTM::trusted_claim_issuer(ticker).len(), 1);
+    assert_eq!(ComplianceManager::trusted_claim_issuer(ticker).len(), 1);
     assert_eq!(
-        GeneralTM::trusted_claim_issuer(ticker),
+        ComplianceManager::trusted_claim_issuer(ticker),
         vec![trusted_issuer_did_2]
     );
 
@@ -638,7 +638,7 @@ fn should_modify_vector_of_trusted_issuer_we() {
 
     // Failed because sender is not the owner of the ticker
     assert_err!(
-        GeneralTM::change_asset_rule(receiver_signed.clone(), ticker, asset_rule.clone()),
+        ComplianceManager::change_asset_rule(receiver_signed.clone(), ticker, asset_rule.clone()),
         GTMError::<TestStorage>::Unauthorized
     );
 
@@ -650,7 +650,7 @@ fn should_modify_vector_of_trusted_issuer_we() {
 
     // Failed because passed rule id is not valid
     assert_err!(
-        GeneralTM::change_asset_rule(
+        ComplianceManager::change_asset_rule(
             token_owner_signed.clone(),
             ticker,
             asset_rule_failure.clone()
@@ -659,7 +659,7 @@ fn should_modify_vector_of_trusted_issuer_we() {
     );
 
     // Should successfully change the asset rule
-    assert_ok!(GeneralTM::change_asset_rule(
+    assert_ok!(ComplianceManager::change_asset_rule(
         token_owner_signed.clone(),
         ticker,
         asset_rule
@@ -722,7 +722,7 @@ fn jurisdiction_asset_rules_we() {
             issuers: vec![token_owner_id],
         },
     ];
-    assert_ok!(GeneralTM::add_active_rule(
+    assert_ok!(ComplianceManager::add_active_rule(
         token_owner_signed.clone(),
         ticker,
         vec![],
@@ -782,7 +782,7 @@ fn scope_asset_rules_we() {
         rule_type: RuleType::IsPresent(Claim::Affiliate(scope)),
         issuers: vec![cdd_id],
     }];
-    assert_ok!(GeneralTM::add_active_rule(
+    assert_ok!(ComplianceManager::add_active_rule(
         owner_signed.clone(),
         ticker,
         vec![],
@@ -830,7 +830,7 @@ fn gtm_test_case_9_we() {
         ]),
         issuers: vec![issuer_id],
     }];
-    assert_ok!(GeneralTM::add_active_rule(
+    assert_ok!(ComplianceManager::add_active_rule(
         owner.clone(),
         ticker,
         vec![],
@@ -906,7 +906,7 @@ fn gtm_test_case_11_we() {
             issuers: vec![issuer_id],
         },
     ];
-    assert_ok!(GeneralTM::add_active_rule(
+    assert_ok!(ComplianceManager::add_active_rule(
         owner.clone(),
         ticker,
         vec![],
@@ -1000,7 +1000,7 @@ fn gtm_test_case_13_we() {
             issuers: vec![issuer_id],
         },
     ];
-    assert_ok!(GeneralTM::add_active_rule(
+    assert_ok!(ComplianceManager::add_active_rule(
         owner.clone(),
         ticker,
         vec![],

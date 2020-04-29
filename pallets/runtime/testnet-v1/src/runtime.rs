@@ -6,7 +6,7 @@ use crate::{
 use polymesh_runtime_common::{
     asset, bridge,
     cdd_check::CddChecker,
-    contracts_wrapper, dividend, exemption, general_tm,
+    contracts_wrapper, dividend, exemption, compliance_manager,
     impls::{Author, CurrencyToVoteHandler, LinearWeightToFee, TargetedFeeAdjustment},
     percentage_tm, simple_token, statistics, sto_capped, voting, AvailableBlockRatio,
     BlockHashCount, MaximumBlockLength, MaximumBlockWeight, NegativeImbalance,
@@ -277,9 +277,9 @@ impl pallet_session::historical::Trait for Runtime {
 
 pallet_staking_reward_curve::build! {
     const REWARD_CURVE: PiecewiseLinear<'static> = curve!(
-        min_inflation: 0_500_000,
-        max_inflation: 1_000_000,
-        ideal_stake: 0_100_000,
+        min_inflation: 0_025_000,
+        max_inflation: 0_200_000,
+        ideal_stake: 0_700_000,
         falloff: 0_050_000,
         max_piece_count: 40,
         test_precision: 0_005_000,
@@ -508,7 +508,7 @@ impl simple_token::Trait for Runtime {
     type Event = Event;
 }
 
-impl general_tm::Trait for Runtime {
+impl compliance_manager::Trait for Runtime {
     type Event = Event;
     type Asset = Asset;
 }
@@ -612,7 +612,7 @@ construct_runtime!(
         Dividend: dividend::{Module, Call, Storage, Event<T>},
         Identity: identity::{Module, Call, Storage, Event<T>, Config<T>},
         Bridge: bridge::{Module, Call, Storage, Config<T>, Event<T>},
-        GeneralTM: general_tm::{Module, Call, Storage, Event},
+        ComplianceManager: compliance_manager::{Module, Call, Storage, Event},
         Voting: voting::{Module, Call, Storage, Event<T>},
         StoCapped: sto_capped::{Module, Call, Storage, Event<T>},
         PercentageTM: percentage_tm::{Module, Call, Storage, Event<T>},
