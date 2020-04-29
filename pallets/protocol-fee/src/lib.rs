@@ -61,9 +61,9 @@ decl_storage! {
 decl_event! {
     pub enum Event<T> where Balance = BalanceOf<T> {
         /// The protocol fee of an operation.
-        Fee(Balance),
+        FeeSet(Balance),
         /// The fee coefficient.
-        Coefficient(PosRatio),
+        CoefficientSet(PosRatio),
     }
 }
 
@@ -77,7 +77,8 @@ decl_module! {
         #[weight = SimpleDispatchInfo::FixedOperational(500_000)]
         pub fn change_coefficient(origin, coefficient: PosRatio) -> DispatchResult {
             ensure_root(origin)?;
-            <Coefficient>::put(coefficient);
+            <Coefficient>::put(&coefficient);
+            Self::deposit_event(RawEvent::CoefficientSet(coefficient));
             Ok(())
         }
 
@@ -87,7 +88,8 @@ decl_module! {
             DispatchResult
         {
             ensure_root(origin)?;
-            <BaseFees<T>>::insert(op, base_fee);
+            <BaseFees<T>>::insert(op, &base_fee);
+            Self::deposit_event(RawEvent::FeeSet(base_fee));
             Ok(())
         }
 
