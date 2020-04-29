@@ -39,12 +39,7 @@
 #[cfg(feature = "runtime-benchmarks")]
 pub mod benchmarking;
 
-use polymesh_primitives::{
-    AccountKey, AuthIdentifier, Authorization, AuthorizationData, AuthorizationError, Claim,
-    ClaimType, Identity as DidRecord, IdentityClaim, IdentityId, Link, LinkData, Permission,
-    PreAuthorizedKeyInfo, Scope, Signatory, SignatoryType, SigningItem, Ticker,
-};
-use polymesh_runtime_common::{
+use polymesh_common_utilities::{
     constants::did::{CDD_PROVIDERS_ID, GOVERNANCE_COMMITTEE_ID, SECURITY_TOKEN, USER},
     protocol_fee::{ChargeProtocolFee, ProtocolOp},
     traits::{
@@ -56,6 +51,11 @@ use polymesh_runtime_common::{
         multisig::AddSignerMultiSig,
     },
     Context, SystematicIssuers,
+};
+use polymesh_primitives::{
+    AccountKey, AuthIdentifier, Authorization, AuthorizationData, AuthorizationError, Claim,
+    ClaimType, Identity as DidRecord, IdentityClaim, IdentityId, Link, LinkData, Permission,
+    PreAuthorizedKeyInfo, Scope, Signatory, SignatoryType, SigningItem, Ticker,
 };
 
 use codec::{Decode, Encode};
@@ -79,12 +79,12 @@ use frame_support::{
     weights::{DispatchClass, FunctionOf, GetDispatchInfo, SimpleDispatchInfo},
 };
 use frame_system::{self as system, ensure_root, ensure_signed};
+use pallet_identity_rpc_runtime_api::DidRecords as RpcDidRecords;
 use pallet_transaction_payment::{CddAndFeeDetails, ChargeTxFee};
-use polymesh_runtime_identity_rpc_runtime_api::DidRecords as RpcDidRecords;
 
-pub use polymesh_runtime_common::traits::identity::{IdentityTrait, Trait};
+pub use polymesh_common_utilities::traits::identity::{IdentityTrait, Trait};
 
-pub type Event<T> = polymesh_runtime_common::traits::identity::Event<T>;
+pub type Event<T> = polymesh_common_utilities::traits::identity::Event<T>;
 
 #[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, PartialOrd, Ord)]
 pub struct Claim1stKey {
@@ -113,9 +113,6 @@ pub struct BatchRevokeClaimItem {
 
 decl_storage! {
     trait Store for Module<T: Trait> as identity {
-
-        /// Module owner.
-        Owner get(fn owner) config(): T::AccountId;
 
         /// DID -> identity info
         pub DidRecords get(fn did_records) config(): map hasher(twox_64_concat) IdentityId => DidRecord;
@@ -458,10 +455,22 @@ decl_module! {
                 |batch_claim_item| <DidRecords>::contains_key(batch_claim_item.target)),
                 Error::<T>::DidMustAlreadyExist);
 
+            let cdd_count: usize = claims
+                .iter()
+                .filter(|batch_claim_item| match batch_claim_item.claim {
+                    Claim::CustomerDueDiligence => true,
+                    _ => false,
+                })
+                .count();
+            if cdd_count > 0 {
+                let cdd_providers = T::CddServiceProviders::get_members();
+                ensure!(cdd_providers.contains(&issuer), Error::<T>::UnAuthorizedCddProvider);
+            }
+
             T::ProtocolFee::charge_fee_batch(
                 &Signatory::AccountKey(sender_key),
                 ProtocolOp::IdentityAddClaim,
-                claims.len()
+                claims.len() - cdd_count
             )?;
             claims
                 .into_iter()

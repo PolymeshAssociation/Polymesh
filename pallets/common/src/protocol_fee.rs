@@ -19,7 +19,7 @@ pub enum ProtocolOp {
     IdentityAddClaim,
     IdentitySetMasterKey,
     IdentityAddSigningItem,
-    MipsPropose,
+    PipsPropose,
     VotingAddBallot,
 }
 
