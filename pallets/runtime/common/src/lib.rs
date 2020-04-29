@@ -5,10 +5,10 @@
 pub mod asset;
 pub mod bridge;
 pub mod cdd_check;
+pub mod compliance_manager;
 pub mod contracts_wrapper;
 pub mod dividend;
 pub mod exemption;
-pub mod compliance_manager;
 pub mod impls;
 pub mod percentage_tm;
 pub mod simple_token;

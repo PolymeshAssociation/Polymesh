@@ -6,7 +6,7 @@ use crate::{
 use polymesh_runtime_common::{
     asset, bridge,
     cdd_check::CddChecker,
-    contracts_wrapper, dividend, exemption, compliance_manager,
+    compliance_manager, contracts_wrapper, dividend, exemption,
     impls::{Author, CurrencyToVoteHandler, LinearWeightToFee, TargetedFeeAdjustment},
     percentage_tm, simple_token, statistics, sto_capped, voting, AvailableBlockRatio,
     BlockHashCount, MaximumBlockLength, MaximumBlockWeight, NegativeImbalance,
