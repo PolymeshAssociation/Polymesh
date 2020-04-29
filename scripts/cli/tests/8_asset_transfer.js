@@ -19,17 +19,13 @@ async function main() {
 
   let signing_keys = await reqImports.generateKeys( api, 3, "signing" );
 
-  await reqImports.distributePolyBatch( api, master_keys, reqImports.transfer_amount, testEntities[0] );
-
-  await reqImports.blockTillPoolEmpty(api);
-
   let issuer_dids = await reqImports.createIdentities( api, master_keys, testEntities[0] );
+
+  await reqImports.distributePolyBatch( api, master_keys, reqImports.transfer_amount, testEntities[0] );
 
   await reqImports.addSigningKeys( api, master_keys, issuer_dids, signing_keys );
 
   await reqImports.authorizeJoinToIdentities( api, master_keys, issuer_dids, signing_keys );
-
-  await reqImports.blockTillPoolEmpty(api);
 
   await reqImports.issueTokenPerDid( api, master_keys );
 
