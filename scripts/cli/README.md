@@ -29,7 +29,7 @@ To run the scripts and execute transactions:
 $ npm test
 ```
 
-The scripts that make up `npm test` are:
+The test scripts include those named below, and most make up `npm test`:
 
  - 0_create_identities
  - 1_poly_transfer
@@ -40,6 +40,7 @@ The scripts that make up `npm test` are:
  - 6_create_assets
  - 7_create_claim_rules
  - 8_asset_transfer
+ - 9_offchain_worker_test
  - schema_test
 
  The scripts either give a result of Passed or Failed.
