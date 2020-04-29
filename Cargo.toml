@@ -12,8 +12,10 @@ path = "src/main.rs"
 [workspace]
 members = [
     "primitives",
+    "pallets/runtime/common",
+    "pallets/runtime/develop",
+    "pallets/runtime/testnet-v1",
     "pallets/common",
-    "pallets/runtime",
     "pallets/transaction-payment",
     "pallets/transaction-payment/rpc",
     "pallets/transaction-payment/rpc/runtime-api",
@@ -32,24 +34,33 @@ members = [
     "pallets/committee",
     "pallets/group",
     "pallets/protocol-fee",
+    "pallets/multisig",
+    "pallets/cdd-offchain-worker",
     "pallets/protocol-fee/rpc",
     "pallets/protocol-fee/rpc/runtime-api",
     "pallets/treasury",
-    "pallets/cdd-offchain-worker"
 ]
 
 [dependencies]
 polymesh-primitives = { path = "primitives" }
-polymesh-runtime-common = { package = "polymesh-runtime-common", path = "pallets/common", default-features = false }
-polymesh-runtime = { path = "pallets/runtime" }
+polymesh-common-utilities = { package = "polymesh-common-utilities", path = "pallets/common", default-features = false }
+polymesh-runtime-common = { package = "polymesh-runtime-common", path = "pallets/runtime/common", default-features = false }
+polymesh-runtime-develop = { package = "polymesh-runtime-develop", path = "pallets/runtime/develop" }
+polymesh-runtime-testnet-v1 = { package = "polymesh-runtime-testnet-v1", path = "pallets/runtime/testnet-v1" }
 pallet-transaction-payment-rpc = { package = "pallet-transaction-payment-rpc", path = "pallets/transaction-payment/rpc", default-features = false }
+pallet-transaction-payment-rpc-runtime-api = { package = "pallet-transaction-payment-rpc-runtime-api", path = "pallets/transaction-payment/rpc/runtime-api", default-features = false }
+pallet-protocol-fee-rpc-runtime-api = { package = "pallet-protocol-fee-rpc-runtime-api", path = "pallets/protocol-fee/rpc/runtime-api", default-features = false }
+pallet-contracts-rpc-runtime-api = { package = "pallet-contracts-rpc-runtime-api", git = "https://github.com/paritytech/substrate", rev = "a439a7aa5a9a3df2a42d9b25ea04288d3a0866e8", default-features = false }
 pallet-staking-rpc = { package = "pallet-staking-rpc", path = "pallets/staking/rpc", default-features = false }
+pallet-staking-rpc-runtime-api = { package = "pallet-staking-rpc-runtime-api", path = "pallets/staking/rpc/runtime-api", default-features = false }
 pallet-pips-rpc = { package = "pallet-pips-rpc", path = "pallets/pips/rpc", default-features = false }
-polymesh-runtime-identity-rpc = { package = "polymesh-runtime-identity-rpc", path = "pallets/identity/rpc", default-features = false }
+pallet-pips-rpc-runtime-api = { package = "pallet-pips-rpc-runtime-api", path = "pallets/pips/rpc/runtime-api", default-features = false }
+pallet-identity-rpc = { package = "pallet-identity-rpc", path = "pallets/identity/rpc", default-features = false }
+pallet-identity-rpc-runtime-api = { package = "pallet-identity-rpc-runtime-api", path = "pallets/identity/rpc/runtime-api", default-features = false }
 im-online = { package = "pallet-im-online", path = "pallets/im-online", default-features = false }
-polymesh-protocol-fee-rpc = { package = "polymesh-protocol-fee-rpc", path = "pallets/protocol-fee/rpc", default-features = false }
-polymesh-protocol-fee = { package = "polymesh-protocol-fee", path = "pallets/protocol-fee", default-features = false }
-polymesh-runtime-treasury = { package = "polymesh-runtime-treasury", path = "pallets/treasury", default-features = false }
+pallet-protocol-fee = { package = "pallet-protocol-fee", path = "pallets/protocol-fee", default-features = false }
+pallet-protocol-fee-rpc = { package = "pallet-protocol-fee-rpc", path = "pallets/protocol-fee/rpc", default-features = false }
+pallet-treasury = { package = "pallet-treasury", path = "pallets/treasury", default-features = false }
 
 parking_lot = "0.10.0"
 tokio = "0.2.13"
@@ -61,13 +72,20 @@ hex-literal = "0.2.1"
 jsonrpc-core = "14.0.5"
 serde_json = '1.0.48'
 structopt = "0.3.12"
+chrono = { version = "0.4.11", default-features = false }
 linregress = { version = "0.1", optional = true }
 
 codec = { version = "1.2.0", package = "parity-scale-codec" }
 frame-benchmarking = { package = "frame-benchmarking", git = "https://github.com/paritytech/substrate", rev = "a439a7aa5a9a3df2a42d9b25ea04288d3a0866e8" }
 sc-rpc = { git = "https://github.com/paritytech/substrate", rev = "a439a7aa5a9a3df2a42d9b25ea04288d3a0866e8" }
+sc-chain-spec = { git = "https://github.com/paritytech/substrate", rev = "a439a7aa5a9a3df2a42d9b25ea04288d3a0866e8" }
+sp-api = { git = "https://github.com/paritytech/substrate", rev = "a439a7aa5a9a3df2a42d9b25ea04288d3a0866e8" }
 sp-io = { git = "https://github.com/paritytech/substrate", rev = "a439a7aa5a9a3df2a42d9b25ea04288d3a0866e8" }
+sp-offchain = { git = "https://github.com/paritytech/substrate", rev = "a439a7aa5a9a3df2a42d9b25ea04288d3a0866e8" }
+sp-block-builder = { git = "https://github.com/paritytech/substrate", rev = "a439a7aa5a9a3df2a42d9b25ea04288d3a0866e8" }
+sp-blockchain = { git = "https://github.com/paritytech/substrate", rev = "a439a7aa5a9a3df2a42d9b25ea04288d3a0866e8" }
 sp-runtime = { git = "https://github.com/paritytech/substrate", rev = "a439a7aa5a9a3df2a42d9b25ea04288d3a0866e8" }
+sp-session = { git = "https://github.com/paritytech/substrate", rev = "a439a7aa5a9a3df2a42d9b25ea04288d3a0866e8" }
 sp-core = { package = "sp-core", git = "https://github.com/paritytech/substrate", rev = "a439a7aa5a9a3df2a42d9b25ea04288d3a0866e8" }
 sc-client = { git = "https://github.com/paritytech/substrate", rev = "a439a7aa5a9a3df2a42d9b25ea04288d3a0866e8" }
 sc-client-api = { git = "https://github.com/paritytech/substrate", rev = "a439a7aa5a9a3df2a42d9b25ea04288d3a0866e8" }
@@ -91,6 +109,9 @@ contracts = { package = "pallet-contracts", git = "https://github.com/paritytech
 sc-authority-discovery = { package = "sc-authority-discovery", git = "https://github.com/paritytech/substrate", rev = "a439a7aa5a9a3df2a42d9b25ea04288d3a0866e8" }
 sp-authority-discovery = { package = "sp-authority-discovery", git = "https://github.com/paritytech/substrate", rev = "a439a7aa5a9a3df2a42d9b25ea04288d3a0866e8" }
 contracts-rpc = { package = "pallet-contracts-rpc", git = "https://github.com/paritytech/substrate", rev = "a439a7aa5a9a3df2a42d9b25ea04288d3a0866e8" }
+prometheus-endpoint = { package = "substrate-prometheus-endpoint", git = "https://github.com/paritytech/substrate", rev = "a439a7aa5a9a3df2a42d9b25ea04288d3a0866e8" }
+frame-system-rpc-runtime-api = { package = "frame-system-rpc-runtime-api", git = "https://github.com/paritytech/substrate", rev = "a439a7aa5a9a3df2a42d9b25ea04288d3a0866e8" }
+
 
 [build-dependencies]
 vergen = "3.1.0"
@@ -99,5 +120,5 @@ vergen = "3.1.0"
 default = []
 runtime-benchmarks = [
     "linregress",
-    "polymesh-runtime/runtime-benchmarks",
+    "polymesh-runtime-common/runtime-benchmarks",
 ]

@@ -1,7 +1,7 @@
 use codec::Codec;
 use jsonrpc_core::{Error as RpcError, ErrorCode, Result};
 use jsonrpc_derive::rpc;
-use polymesh_runtime_identity_rpc_runtime_api::{
+use pallet_identity_rpc_runtime_api::{
     AssetDidResult, CddStatus, DidRecords, IdentityApi as IdentityRuntimeApi,
 };
 use sp_api::ProvideRuntimeApi;

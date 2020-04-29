@@ -20,20 +20,20 @@ pallet-session = { package = "pallet-session", features = ["historical"], git = 
 pallet-authorship = { package = "pallet-authorship", git = "https://github.com/paritytech/substrate", default-features = false, rev = "a439a7aa5a9a3df2a42d9b25ea04288d3a0866e8" }
 primitives = { package = "polymesh-primitives", path = "../../primitives", default-features = false }
 pallet-babe = { package = "pallet-babe", git = "https://github.com/paritytech/substrate", default-features = false, rev = "a439a7aa5a9a3df2a42d9b25ea04288d3a0866e8" }
-polymesh-runtime-common = { package = "polymesh-runtime-common", path = "../common", default-features = false }
-polymesh-runtime-identity = { package = "polymesh-runtime-identity", path = "../identity", default-features = false}
+polymesh-common-utilities = { package = "polymesh-common-utilities", path = "../common", default-features = false }
+pallet-identity = { package = "pallet-identity", path = "../identity", default-features = false}
 
 [dev-dependencies]
 test-client = { package = "substrate-test-runtime-client", git = "https://github.com/paritytech/substrate", rev = "a439a7aa5a9a3df2a42d9b25ea04288d3a0866e8" }
 sp-core = { package ="sp-core", git = "https://github.com/paritytech/substrate", rev = "a439a7aa5a9a3df2a42d9b25ea04288d3a0866e8" }
-polymesh-runtime-balances = { package ="polymesh-runtime-balances", path = "../balances" }
-polymesh-runtime-group = { package = "polymesh-runtime-group", path = "../group"}
+pallet-balances = { package ="pallet-balances", path = "../balances" }
+pallet-group = { package = "pallet-group", path = "../group"}
 pallet-timestamp = { package ="pallet-timestamp", git = "https://github.com/paritytech/substrate", rev = "a439a7aa5a9a3df2a42d9b25ea04288d3a0866e8" }
 pallet-staking-reward-curve = { version = "2.0.0",  path = "../staking/reward-curve" }
 substrate-test-utils = { package ="substrate-test-utils", git = "https://github.com/paritytech/substrate", rev = "a439a7aa5a9a3df2a42d9b25ea04288d3a0866e8" }
 chrono = { version = "0.4.10", default-features = false }
 pallet-transaction-payment = { package = "pallet-transaction-payment", path = "../transaction-payment", default-features = false }
-polymesh-protocol-fee = { package = "polymesh-protocol-fee", path = "../protocol-fee", default-features = false }
+pallet-protocol-fee = { package = "pallet-protocol-fee", path = "../protocol-fee", default-features = false }
 
 [features]
 equalize = []
@@ -55,6 +55,6 @@ std = [
 	"pallet-authorship/std",
 	"primitives/std",
 	"pallet-babe/std",
-	"polymesh-runtime-common/std",
-	"polymesh-runtime-identity/std"
+	"polymesh-common-utilities/std",
+	"pallet-identity/std"
 ]
