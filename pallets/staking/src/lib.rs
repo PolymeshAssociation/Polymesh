@@ -2147,22 +2147,24 @@ impl<T: Trait> Module<T> {
             }
         }
 
-        let nominator_votes = <Nominators<T>>::enumerate().map(|(nominator, nominations)| {
-            let Nominations {
-                submitted_in,
-                mut targets,
-                suppressed: _,
-            } = nominations;
+        let nominator_votes = <Nominators<T>>::enumerate()
+            .filter(|(nominator, _)| Self::is_validator_or_nominator_compliant(&nominator))
+            .map(|(nominator, nominations)| {
+                let Nominations {
+                    submitted_in,
+                    mut targets,
+                    suppressed: _,
+                } = nominations;
 
-            // Filter out nomination targets which were nominated before the most recent
-            // non-zero slash.
-            targets.retain(|stash| {
-                <Self as Store>::SlashingSpans::get(&stash)
-                    .map_or(true, |spans| submitted_in >= spans.last_nonzero_slash())
+                // Filter out nomination targets which were nominated before the most recent
+                // non-zero slash.
+                targets.retain(|stash| {
+                    <Self as Store>::SlashingSpans::get(&stash)
+                        .map_or(true, |spans| submitted_in >= spans.last_nonzero_slash())
+                });
+
+                (nominator, targets)
             });
-
-            (nominator, targets)
-        });
         all_nominators.extend(nominator_votes);
 
         let maybe_phragmen_result = sp_phragmen::elect::<_, _, _, T::CurrencyToVote, Perbill>(
@@ -2340,7 +2342,7 @@ impl<T: Trait> Module<T> {
         for account in accounts {
             <PermissionedValidators<T>>::mutate(account.clone(), |v| {
                 if let Some(validator) = v {
-                    validator.compliance = if Self::is_validator_compliant(&account) {
+                    validator.compliance = if Self::is_validator_or_nominator_compliant(&account) {
                         Compliance::Active
                     } else {
                         Compliance::Pending
@@ -2351,7 +2353,7 @@ impl<T: Trait> Module<T> {
     }
 
     /// Is the stash account one of the permissioned validators?
-    pub fn is_validator_compliant(stash: &T::AccountId) -> bool {
+    pub fn is_validator_or_nominator_compliant(stash: &T::AccountId) -> bool {
         if let Some(account_key) = AccountKey::try_from(stash.encode()).ok() {
             if let Some(validator_identity) = <identity::Module<T>>::get_identity(&(account_key)) {
                 return <identity::Module<T>>::has_valid_cdd(validator_identity);

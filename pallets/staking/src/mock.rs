@@ -600,7 +600,6 @@ impl ExtBuilder {
         .assimilate_storage(&mut storage);
 
         let _ = identity::GenesisConfig::<Test> {
-            owner: AccountKeyring::Alice.public().into(),
             identities: vec![
                 /// (master_account_id, service provider did, target did, expiry time of CustomerDueDiligence claim i.e 10 days is ms)
                 /// Provide Identity
@@ -849,6 +848,22 @@ pub fn bond_nominator(acc: u64, val: u128, target: Vec<AccountId>) {
     assert_ok!(Staking::nominate(Origin::signed(controller), target));
 }
 
+pub fn bond_nominator_with_expiry(acc: u64, val: u128, claim_expiry: u64, target: Vec<AccountId>) {
+    // a = controller
+    // a + 1 = stash
+    let controller = account_from(acc);
+    let stash = account_from(acc + 1);
+    let _ = Balances::make_free_balance_be(&(stash), val);
+    assert_ok!(Staking::bond(
+        Origin::signed(stash),
+        controller,
+        val,
+        RewardDestination::Controller
+    ));
+    create_did_and_add_claim_with_expiry(stash, claim_expiry);
+    assert_ok!(Staking::nominate(Origin::signed(controller), target));
+}
+
 pub fn add_nominator_claim(
     claim_issuer: IdentityId,
     idendity_id: IdentityId,
@@ -906,6 +921,16 @@ pub fn create_did_and_add_claim(stash: AccountId) {
         Origin::signed(account_from(1005)),
         stash,
         None,
+        vec![]
+    ));
+}
+
+pub fn create_did_and_add_claim_with_expiry(stash: AccountId, expiry: u64) {
+    Balances::make_free_balance_be(&account_from(1005), 1_000_000);
+    assert_ok!(Identity::cdd_register_did(
+        Origin::signed(account_from(1005)),
+        stash,
+        Some(expiry.into()),
         vec![]
     ));
 }
