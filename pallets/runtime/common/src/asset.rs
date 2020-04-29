@@ -245,8 +245,6 @@ impl Default for RestrictionResult {
 
 decl_storage! {
     trait Store for Module<T: Trait> as Asset {
-        /// The DID of the fee collector
-        FeeCollector get(fn fee_collector) config(): T::AccountId;
         /// Ticker registration details
         /// (ticker) -> TickerRegistration
         pub Tickers get(fn ticker_registration): map hasher(blake2_128_concat) Ticker => TickerRegistration<T::Moment>;
@@ -263,10 +261,6 @@ decl_storage! {
         pub Identifiers get(fn identifiers): map hasher(blake2_128_concat) (Ticker, IdentifierType) => AssetIdentifier;
         /// (ticker, sender (DID), spender(DID)) -> allowance amount
         Allowance get(fn allowance): map hasher(blake2_128_concat) (Ticker, IdentityId, IdentityId) => T::Balance;
-        /// cost in base currency to create a token
-        AssetCreationFee get(fn asset_creation_fee) config(): T::Balance;
-        /// cost in base currency to register a ticker
-        TickerRegistrationFee get(fn ticker_registration_fee) config(): T::Balance;
         /// Checkpoints created per token
         /// (ticker) -> no. of checkpoints
         pub TotalCheckpoints get(fn total_checkpoints_of): map hasher(blake2_128_concat) Ticker => u64;
