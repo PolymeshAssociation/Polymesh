@@ -217,7 +217,8 @@ decl_module! {
         // this is needed only if you are using events in your module
         fn deposit_event() = default;
 
-        // TODO: Remove this function. cdd_register_did should be used instead.
+        // TODO: Remove this function before mainnet. cdd_register_did should be used instead.
+        /// Register a new did with a CDD claim for the caller.
         pub fn register_did(origin, signing_items: Vec<SigningItem>) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             let signer = Signatory::from(AccountKey::try_from(sender.encode())?);
@@ -245,12 +246,6 @@ decl_module! {
         ///
         /// # Weight
         /// `400_000 + 60_000 * signing_items.len()`
-        ///
-        /// # TODO
-        /// - Imbalance: Since we are not handling the imbalance here, this will leave a hold in
-        ///     the total supply. We are reducing someone's balance but not increasing anyone's
-        ///     else balance or decreasing total supply. This will mean that the sum of all
-        ///     balances will become less than the total supply.
         #[weight = FunctionOf(
             |(_, _, items): (&T::AccountId, &Option<T::Moment>, &Vec<SigningItem>)| {
                 400_000 + 60_000 * u32::try_from(items.len()).unwrap_or_default()
@@ -395,14 +390,14 @@ decl_module! {
             Ok(())
         }
 
-        /// Join an identity as a signing key
+        /// Join an identity as a signing key.
         #[weight = SimpleDispatchInfo::FixedNormal(300_000)]
         pub fn join_identity_as_key(origin, auth_id: u64) -> DispatchResult {
             let signer = Signatory::from(AccountKey::try_from(ensure_signed(origin)?.encode())?);
             Self::join_identity(signer, auth_id)
         }
 
-        /// Join an identity as a signing identity
+        /// Join an identity as a signing identity.
         #[weight = SimpleDispatchInfo::FixedNormal(300_000)]
         pub fn join_identity_as_identity(origin, auth_id: u64) -> DispatchResult {
             let sender_key = AccountKey::try_from(ensure_signed(origin)?.encode())?;
@@ -410,7 +405,7 @@ decl_module! {
             Self::join_identity(Signatory::from(sender_did), auth_id)
         }
 
-        /// Adds new claim record or edits an existing one. Only called by did_issuer's signing key
+        /// Adds a new claim record or edits an existing one. Only called by did_issuer's signing key.
         #[weight = SimpleDispatchInfo::FixedNormal(400_000)]
         pub fn add_claim(
             origin,
@@ -483,6 +478,7 @@ decl_module! {
             Ok(())
         }
 
+        /// Creates a call on behalf of another DID.
         #[weight = FunctionOf(
             |(_, call): (&IdentityId, &Box<T::Proposal>)| {
                 500_000 + call.get_dispatch_info().weight
@@ -539,7 +535,7 @@ decl_module! {
             Ok(())
         }
 
-        /// Marks the specified claim as revoked
+        /// Marks the specified claim as revoked.
         #[weight = SimpleDispatchInfo::FixedNormal(250_000)]
         pub fn revoke_claim(origin,
             target: IdentityId,
@@ -554,7 +550,7 @@ decl_module! {
             Ok(())
         }
 
-        /// Revoke multiple claims in a batch
+        /// Revoke multiple claims in a batch.
         ///
         /// # Arguments
         /// * origin - did issuer
@@ -625,11 +621,14 @@ decl_module! {
             Self::set_frozen_signing_key_flags(origin, true)
         }
 
+        /// Re-enables all signing keys of the caller's identity.
         #[weight = SimpleDispatchInfo::FixedNormal(200_000)]
         pub fn unfreeze_signing_keys(origin) -> DispatchResult {
             Self::set_frozen_signing_key_flags(origin, false)
         }
 
+        // TODO: Remove before mainnet launch.
+        /// Emits an event with caller's identity.
         #[weight = SimpleDispatchInfo::FixedNormal(50_000)]
         pub fn get_my_did(origin) -> DispatchResult {
             let sender_key = AccountKey::try_from(ensure_signed(origin)?.encode())?;
@@ -639,6 +638,8 @@ decl_module! {
             Ok(())
         }
 
+        // TODO: Remove before mainnet launch.
+        /// Emits an event with caller's identity and CDD status.
         #[weight = SimpleDispatchInfo::FixedNormal(200_000)]
         pub fn get_cdd_of(_origin, of: T::AccountId) -> DispatchResult {
             let key = AccountKey::try_from(of.encode())?;
@@ -650,7 +651,7 @@ decl_module! {
         }
 
         // Manage generic authorizations
-        /// Adds an authorization
+        /// Adds an authorization.
         #[weight = SimpleDispatchInfo::FixedNormal(200_000)]
         pub fn add_authorization(
             origin,
@@ -667,7 +668,7 @@ decl_module! {
         }
 
         /// Adds an authorization as a key.
-        /// To be used by signing keys that don't have an identity
+        /// To be used by signing keys that don't have an identity.
         #[weight = SimpleDispatchInfo::FixedNormal(150_000)]
         pub fn add_authorization_as_key(
             origin,
@@ -709,7 +710,7 @@ decl_module! {
             Ok(())
         }
 
-        /// Removes an authorization
+        /// Removes an authorization.
         #[weight = SimpleDispatchInfo::FixedNormal(250_000)]
         pub fn remove_authorization(
             origin,
@@ -734,7 +735,7 @@ decl_module! {
             Ok(())
         }
 
-        /// Removes an array of authorizations
+        /// Removes an array of authorizations.
         ///
         /// # Weight
         /// `150_000 + 50_000 * auths.len()`
@@ -776,7 +777,7 @@ decl_module! {
             Ok(())
         }
 
-        /// Accepts an authorization
+        /// Accepts an authorization.
         #[weight = SimpleDispatchInfo::FixedNormal(600_000)]
         pub fn accept_authorization(
             origin,
@@ -820,7 +821,7 @@ decl_module! {
             }
         }
 
-        /// Accepts an array of authorizations
+        /// Accepts an array of authorizations.
         ///
         /// # Weight
         /// `100_000 + 500_000 * auth_ids.len()`
@@ -1143,6 +1144,7 @@ impl<T: Trait> Module<T> {
         Ok(())
     }
 
+    /// Adds an authorization.
     pub fn add_auth(
         from: Signatory,
         target: Signatory,
@@ -1173,7 +1175,7 @@ impl<T: Trait> Module<T> {
         new_nonce
     }
 
-    /// Remove any authorization. No questions asked.
+    /// Removes any authorization. No questions asked.
     /// NB: Please do all the required checks before calling this function.
     pub fn remove_auth(target: Signatory, auth_id: u64, authorizer: Signatory, revoked: bool) {
         <Authorizations<T>>::remove(target, auth_id);
@@ -1206,15 +1208,17 @@ impl<T: Trait> Module<T> {
         Ok(())
     }
 
+    /// Fetches a particular authorization.
     pub fn get_authorization(target: Signatory, auth_id: u64) -> Authorization<T::Moment> {
         <Authorizations<T>>::get(target, auth_id)
     }
 
+    /// Fetches a particular link.
     pub fn get_link(target: Signatory, link_id: u64) -> Link<T::Moment> {
         <Links<T>>::get(target, link_id)
     }
 
-    /// Adds a link to a key or an identity
+    /// Adds a link to a key or an identity.
     /// NB: Please do all the required checks before calling this function.
     pub fn add_link(target: Signatory, link_data: LinkData, expiry: Option<T::Moment>) -> u64 {
         let new_nonce = Self::multi_purpose_nonce() + 1u64;
@@ -1232,7 +1236,7 @@ impl<T: Trait> Module<T> {
         new_nonce
     }
 
-    /// Remove a link (if it exists) from a key or identity
+    /// Remove a link (if it exists) from a key or identity.
     /// NB: Please do all the required checks before calling this function.
     pub fn remove_link(target: Signatory, link_id: u64) {
         if <Links<T>>::contains_key(target, link_id) {
@@ -1241,7 +1245,7 @@ impl<T: Trait> Module<T> {
         }
     }
 
-    /// Update link data (if it exists) from a key or identity
+    /// Update link data (if it exists) from a key or identity.
     /// NB: Please do all the required checks before calling this function.
     pub fn update_link(target: Signatory, link_id: u64, link_data: LinkData) {
         if <Links<T>>::contains_key(target, link_id) {
@@ -1250,7 +1254,7 @@ impl<T: Trait> Module<T> {
         }
     }
 
-    /// Accepts a master key rotation
+    /// Accepts a master key rotation.
     fn accept_master_key_rotation(
         sender_key: AccountKey,
         rotation_auth_id: u64,
@@ -1285,7 +1289,7 @@ impl<T: Trait> Module<T> {
         }
     }
 
-    /// Processes master key rotation
+    /// Processes master key rotation.
     pub fn unsafe_master_key_rotation(
         sender_key: AccountKey,
         rotation_for_did: IdentityId,
@@ -1345,6 +1349,7 @@ impl<T: Trait> Module<T> {
         Ok(())
     }
 
+    /// Updates permissions of signing items.
     /// Private and not sanitized function. It is designed to be used internally by
     /// others sanitezed functions.
     fn update_signing_item_permissions(
@@ -1401,6 +1406,7 @@ impl<T: Trait> Module<T> {
         }
     }
 
+    /// Checks if signer has correct permissions.
     fn is_signer_authorized_with_permissions(
         did: IdentityId,
         signer: &Signatory,
@@ -1707,6 +1713,7 @@ impl<T: Trait> Module<T> {
         IdentityId::try_from(T::Hashing::hash(&buf[..]).as_ref())
     }
 
+    /// Registers a did without adding a CDD claim for it.
     pub fn _register_did(
         sender: T::AccountId,
         signing_items: Vec<SigningItem>,
@@ -1898,14 +1905,17 @@ impl<T: Trait> Module<T> {
 }
 
 impl<T: Trait> IdentityTrait for Module<T> {
+    /// Fetches identity of a key.
     fn get_identity(key: &AccountKey) -> Option<IdentityId> {
         Self::get_identity(&key)
     }
 
+    /// Fetches the caller's identity from the context.
     fn current_identity() -> Option<IdentityId> {
         <CurrentDid>::get()
     }
 
+    /// Sets the caller's identity in the context.
     fn set_current_identity(id: Option<IdentityId>) {
         if let Some(id) = id {
             <CurrentDid>::put(id);
@@ -1914,10 +1924,12 @@ impl<T: Trait> IdentityTrait for Module<T> {
         }
     }
 
+    /// Fetches the fee payer from the context.
     fn current_payer() -> Option<Signatory> {
         <CurrentPayer>::get()
     }
 
+    /// Sets the fee payer in the context.
     fn set_current_payer(payer: Option<Signatory>) {
         if let Some(payer) = payer {
             <CurrentPayer>::put(payer);
@@ -1926,14 +1938,17 @@ impl<T: Trait> IdentityTrait for Module<T> {
         }
     }
 
+    /// Checks if the signer is authorized.
     fn is_signer_authorized(did: IdentityId, signer: &Signatory) -> bool {
         Self::is_signer_authorized(did, signer)
     }
 
+    /// Checks if the keys is the master key of the identity.
     fn is_master_key(did: IdentityId, key: &AccountKey) -> bool {
         Self::is_master_key(did, &key)
     }
 
+    /// Checks if the signer is authorized and has certain permissions.
     fn is_signer_authorized_with_permissions(
         did: IdentityId,
         signer: &Signatory,
@@ -1942,6 +1957,7 @@ impl<T: Trait> IdentityTrait for Module<T> {
         Self::is_signer_authorized_with_permissions(did, signer, permissions)
     }
 
+    /// Adds systematic CDD claims.
     fn unsafe_add_systematic_cdd_claims(targets: &[IdentityId], issuer: SystematicIssuers) {
         targets.iter().for_each(|new_member| {
             Self::unsafe_add_claim(
@@ -1953,6 +1969,7 @@ impl<T: Trait> IdentityTrait for Module<T> {
         });
     }
 
+    /// Removes systematic CDD claims.
     fn unsafe_revoke_systematic_cdd_claims(targets: &[IdentityId], issuer: SystematicIssuers) {
         targets.iter().for_each(|removed_member| {
             Self::unsafe_revoke_claim(
@@ -1966,6 +1983,7 @@ impl<T: Trait> IdentityTrait for Module<T> {
 }
 
 impl<T: Trait> ChangeMembers<IdentityId> for Module<T> {
+    /// Updates systematic CDDs of members of a group.
     fn change_members_sorted(
         incoming: &[IdentityId],
         outgoing: &[IdentityId],
@@ -1979,6 +1997,7 @@ impl<T: Trait> ChangeMembers<IdentityId> for Module<T> {
 }
 
 impl<T: Trait> InitializeMembers<IdentityId> for Module<T> {
+    /// Initializes members of a group by adding systematic claims for them.
     fn initialize_members(members: &[IdentityId]) {
         Self::unsafe_add_systematic_cdd_claims(members, SystematicIssuers::CDDProvider);
     }
