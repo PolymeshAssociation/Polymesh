@@ -240,7 +240,6 @@ impl ExtBuilder {
 
         // Identity genesis.
         identity::GenesisConfig::<TestStorage> {
-            owner: root.clone().into(),
             did_records: system_identities.clone(),
             key_to_identity_ids: system_links,
             identities: vec![],
@@ -257,13 +256,10 @@ impl ExtBuilder {
 
         // Asset genesis.
         asset::GenesisConfig::<TestStorage> {
-            asset_creation_fee: 0,
-            ticker_registration_fee: 0,
             ticker_registration_config: TickerRegistrationConfig {
                 max_ticker_length: 8,
                 registration_length: Some(10000),
             },
-            fee_collector: AccountKeyring::Dave.public().into(),
         }
         .assimilate_storage(&mut storage)
         .unwrap();

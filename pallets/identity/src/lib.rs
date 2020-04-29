@@ -114,9 +114,6 @@ pub struct BatchRevokeClaimItem {
 decl_storage! {
     trait Store for Module<T: Trait> as identity {
 
-        /// Module owner.
-        Owner get(fn owner) config(): T::AccountId;
-
         /// DID -> identity info
         pub DidRecords get(fn did_records) config(): map hasher(twox_64_concat) IdentityId => DidRecord;
 
