@@ -627,6 +627,25 @@ decl_module! {
             Self::set_frozen_signing_key_flags(origin, false)
         }
 
+        #[weight = SimpleDispatchInfo::FixedNormal(20_000)]
+        pub fn get_my_did(origin) -> DispatchResult {
+            let sender_key = AccountKey::try_from(ensure_signed(origin)?.encode())?;
+            let did = Context::current_identity_or::<Self>(&sender_key)?;
+
+            Self::deposit_event(RawEvent::DidQuery(sender_key, did));
+            Ok(())
+        }
+
+        #[weight = SimpleDispatchInfo::FixedNormal(200_000)]
+        pub fn get_cdd_of(_origin, of: T::AccountId) -> DispatchResult {
+            let key = AccountKey::try_from(of.encode())?;
+            if let Some(did) = Self::get_identity(&key) {
+                let cdd = Self::has_valid_cdd(did);
+                Self::deposit_event(RawEvent::CddQuery(key, did, cdd));
+            }
+            Ok(())
+        }
+
         // Manage generic authorizations
         /// Adds an authorization
         #[weight = SimpleDispatchInfo::FixedNormal(200_000)]
