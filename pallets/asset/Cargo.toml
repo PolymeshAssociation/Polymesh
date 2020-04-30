@@ -1,25 +1,28 @@
 [package]
-name = "pallet-identity"
+name = "pallet-asset"
 version = "0.1.0"
 authors = ["Polymath"]
 edition = "2018"
 
 [dependencies]
 # Common
-polymesh-common-utilities = { package = "polymesh-common-utilities", path = "../common", default-features = false }
 polymesh-primitives = { package = "polymesh-primitives", path = "../../primitives", default-features = false }
+polymesh-common-utilities = { package = "polymesh-common-utilities", path = "../common", default-features = false }
 
-# Out pallets
-pallet-balances = { package = "pallet-balances", path = "../balances", default-features = false, optional = true }
+# Our Pallets
+pallet-balances = { package = "pallet-balances", path = "../balances", default-features = false  }
+pallet-identity = { package = "pallet-identity", path = "../identity", default-features = false  }
+pallet-statistics = { package = "pallet-statistics", path = "../statistics", default-features = false  }
 pallet-protocol-fee = { package = "pallet-protocol-fee", path = "../protocol-fee", default-features = false }
-pallet-transaction-payment = { package = "pallet-transaction-payment", path = "../transaction-payment", default-features = false}
 
 # RPC
-pallet-identity-rpc-runtime-api = { package = "pallet-identity-rpc-runtime-api", version = "0.1.0", path = "./rpc/runtime-api", default-features = false }
+pallet-asset-rpc-runtime-api = { package = "pallet-asset-rpc-runtime-api", version = "0.1.0", path = "./rpc/runtime-api", default-features = false }
 
-# Others
+# Other
 serde = { version = "1.0.104", default-features = false }
 serde_derive = { version = "1.0.104", optional = true, default-features = false  }
+rustc-hex = { version = "2.1.0", default-features = false }
+hex-literal = "0.2.1"
 
 # Substrate
 codec = { package = "parity-scale-codec", version = "1.1.0", default-features = false, features = ["derive"] }
@@ -30,41 +33,42 @@ sp-serializer = { git = "https://github.com/paritytech/substrate", default-featu
 sp-runtime = { git = "https://github.com/paritytech/substrate", default-features = false, rev = "a439a7aa5a9a3df2a42d9b25ea04288d3a0866e8" }
 sp-version = { package = "sp-version", git = "https://github.com/paritytech/substrate", default-features = false, rev = "a439a7aa5a9a3df2a42d9b25ea04288d3a0866e8" }
 sp-api = { package = "sp-api", git = "https://github.com/paritytech/substrate", default-features = false, rev = "a439a7aa5a9a3df2a42d9b25ea04288d3a0866e8" }
-
 frame-benchmarking = { package = "frame-benchmarking", default-features = false, git = "https://github.com/paritytech/substrate", rev = "a439a7aa5a9a3df2a42d9b25ea04288d3a0866e8", optional = true }
 frame-system = { package = "frame-system", git = "https://github.com/paritytech/substrate", default-features = false, rev = "a439a7aa5a9a3df2a42d9b25ea04288d3a0866e8" }
 frame-support = { git = "https://github.com/paritytech/substrate", default-features = false, rev = "a439a7aa5a9a3df2a42d9b25ea04288d3a0866e8" }
-
 pallet-timestamp = { package = "pallet-timestamp", git = "https://github.com/paritytech/substrate", default-features = false, rev = "a439a7aa5a9a3df2a42d9b25ea04288d3a0866e8" }
+pallet-contracts = { package = "pallet-contracts", git = "https://github.com/paritytech/substrate", default-features = false, rev = "a439a7aa5a9a3df2a42d9b25ea04288d3a0866e8" }
+pallet-session = { package = "pallet-session", git = "https://github.com/paritytech/substrate", default-features = false, rev = "a439a7aa5a9a3df2a42d9b25ea04288d3a0866e8" }
 
 [dev-dependencies]
 test-client = { package = "substrate-test-runtime-client", git = "https://github.com/paritytech/substrate", rev = "a439a7aa5a9a3df2a42d9b25ea04288d3a0866e8", default-features = false  }
 
 [features]
 equalize = []
-default = ["std", "equalize"]
+default = ["std", "equalize", "runtime-benchmarks"]
 no_std = []
 only-staking = []
 std = [
-	"serde_derive",
-	"serde/std",
-	"codec/std",
-	"sp-std/std",
-	"sp-io/std",
-	"sp-core/std",
-	"sp-runtime/std",
-	"sp-version/std",
-	"sp-api/std",
-    "frame-benchmarking/std",
-	"frame-system/std",
-	"frame-support/std",
-	"pallet-timestamp/std",
+    "rustc-hex/std",
+    "serde_derive",
+    "serde/std",
+    "codec/std",
+    "sp-std/std",
+    "sp-io/std",
+    "sp-core/std",
+    "sp-runtime/std",
+    "sp-version/std",
+    "sp-api/std",
+    "frame-system/std",
+    "frame-support/std",
+    "pallet-timestamp/std",
+    "pallet-contracts/std",
+    "pallet-session/std",
+    "polymesh-common-utilities/std",
+    "polymesh-primitives/std",
+    "pallet-asset-rpc-runtime-api/std",
     "pallet-balances/std",
-	"polymesh-common-utilities/std",
-	"polymesh-primitives/std",
-	"pallet-identity-rpc-runtime-api/std",
 ]
 runtime-benchmarks = [
     "frame-benchmarking",
-    "pallet-balances",
 ]
