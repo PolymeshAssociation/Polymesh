@@ -17,7 +17,7 @@ let synced_block = 0;
 let synced_block_ts = 0;
 
 // Amount to seed each key with
-let transfer_amount = new BN(100).mul(new BN(10).pow(new BN(6)));
+let transfer_amount = new BN(100).mul(new BN(25000).pow(new BN(6)));
 let prepend = "demo";
 
 // Used for creating a single ticker 
