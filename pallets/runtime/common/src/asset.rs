@@ -3,58 +3,78 @@
 //! The Asset module is one place to create the security tokens on the Polymesh blockchain.
 //! It consist every required functionality related to securityToken and every function
 //! execution can be differentiate at the token level by providing the ticker of the token.
-//! In ethereum analogy every token has different smart contract address which act as the unique identity
-//! of the token while here token lives at low-level where token ticker act as the differentiator
+//! In Ethereum analogy every token has different smart contract address which act as the unique identity
+//! of the token while here token lives at low-level where token ticker act as the differentiator.
 //!
 //! ## Overview
 //!
 //! The Asset module provides functions for:
 //!
-//! - Creating the tokens
-//! - Creation of checkpoints on the token level
-//! - Management of the token (Document mgt etc)
-//! - Transfer/redeem functionality of the token
-//! - Custodian functionality
+//! - Creating the tokens.
+//! - Creation of checkpoints on the token level.
+//! - Management of the token (Document mgt etc).
+//! - Transfer/redeem functionality of the token.
+//! - Custodian functionality.
 //!
 //! ## Interface
 //!
 //! ### Dispatchable Functions
 //!
-//! - `register_ticker` - Used to either register a new ticker or extend registration of an existing ticker
-//! - `accept_ticker_transfer` - Used to accept a ticker transfer authorization
-//! - `create_token` - Initializes a new security token
-//! - `transfer` - Transfer tokens from one DID to another DID as tokens are stored/managed on the DID level
-//! - `controller_transfer` - Forces a transfer between two DIDs.
-//! - `approve` - Approve token transfer from one DID to DID
+//! - `register_ticker` - Used to either register a new ticker or extend registration of an existing ticker.
+//! - `accept_ticker_transfer` - Used to accept a ticker transfer authorization.
+//! - `accept_token_ownership_transfer` - Used to accept the token transfer authorization.
+//! - `create_token` - Initializes a new security token.
+//! - `freeze` - Freezes transfers and minting of a given token.
+//! - `unfreeze` - Unfreezes transfers and minting of a given token.
+//! - `rename_token` - Renames a given token.
+//! - `transfer` - Transfer tokens from one DID to another DID as tokens are stored/managed on the DID level.
+//! - `controller_transfer` - Forces a transfer between two DID.
+//! - `approve` - Approve token transfer from one DID to another.
 //! - `transfer_from` - If sufficient allowance provided, transfer from a DID to another DID without token owner's signature.
-//! - `create_checkpoint` - Function used to create the checkpoint
-//! - `issue` - Function is used to issue(or mint) new tokens for the given DID
-//! - `batch_issue` - Batch version of issue function
-//! - `redeem` - Used to redeem the security tokens
-//! - `redeem_from` - Used to redeem the security tokens by some other DID who has approval
-//! - `controller_redeem` - Forces a redemption of an DID's tokens. Can only be called by token owner
-//! - `make_divisible` - Change the divisibility of the token to divisible. Only called by the token owner
-//! - `can_transfer` - Checks whether a transaction with given parameters can take place or not
-//! - `transfer_with_data` - This function can be used by the exchanges of other third parties to dynamically validate the transaction by passing the data blob
-//! - `transfer_from_with_data` - This function can be used by the exchanges of other third parties to dynamically validate the transaction by passing the data blob
-//! - `is_issuable` - Used to know whether the given token will issue new tokens or not
-//! - `get_document` - Used to get the documents details attach with the token
-//! - `set_document` - Used to set the details of the document, Only be called by the token owner
-//! - `remove_document` - Used to remove the document details for the given token, Only be called by the token owner
-//! - `increase_custody_allowance` - Used to increase the allowance for a given custodian
-//! - `increase_custody_allowance_of` - Used to increase the allowance for a given custodian by providing the off chain signature
-//! - `transfer_by_custodian` - Used to transfer the tokens by the approved custodian
+//! - `create_checkpoint` - Function used to create the checkpoint.
+//! - `issue` - Function is used to issue(or mint) new tokens for the given DID.
+//! - `batch_issue` - Batch version of issue function.
+//! - `redeem` - Used to redeem the security tokens.
+//! - `redeem_from` - Used to redeem the security tokens by some other DID who has approval.
+//! - `controller_redeem` - Forces a redemption of an DID's tokens. Can only be called by token owner.
+//! - `make_divisible` - Change the divisibility of the token to divisible. Only called by the token owner.
+//! - `can_transfer` - Checks whether a transaction with given parameters can take place or not.
+//! - `transfer_with_data` - This function can be used by the exchanges of other third parties to dynamically validate the transaction by passing the data blob.
+//! - `transfer_from_with_data` - This function can be used by the exchanges of other third parties to dynamically validate the transaction by passing the data blob.
+//! - `is_issuable` - Used to know whether the given token will issue new tokens or not.
+//! - `add_documents` - Add documents for a given token, Only be called by the token owner.
+//! - `remove_documents` - Remove documents for a given token, Only be called by the token owner.
+//! - `update_documents` - Update documents for the given token, Only be called by the token owner.
+//! - `increase_custody_allowance` - Used to increase the allowance for a given custodian.
+//! - `increase_custody_allowance_of` - Used to increase the allowance for a given custodian by providing the off chain signature.
+//! - `transfer_by_custodian` - Used to transfer the tokens by the approved custodian.
+//! - `set_funding_round` - Sets the name of the current funding round.
+//! - `update_identifiers` - Updates the asset identifiers. Only called by the token owner.
+//! - `add_extension` - It is used to whitelist the Smart-Extension address for a given ticker.
+//! - `archive_extension` - Extension gets archived it means extension is no more use to verify the compliance or any smart logic it posses.
+//! - `unarchive_extension` - Extension gets un-archived it means extension is use to verify the compliance or any smart logic it posses.
 //!
 //! ### Public Functions
 //!
-//! - `is_ticker_available` - Returns if ticker is available to register
-//! - `is_ticker_registry_valid` - Returns if ticker is registered to a particular did
-//! - `token_details` - Returns details of the token
-//! - `balance_of` - Returns the balance of the DID corresponds to the ticker
-//! - `total_checkpoints_of` - Returns the checkpoint Id
-//! - `total_supply_at` - Returns the total supply at a given checkpoint
-//! - `custodian_allowance`- Returns the allowance provided to a custodian for a given ticker and token holder
+//! - `ticker_registration` - Provide ticker registration details.
+//! - `ticker_registration_config` - Provide the ticker registration configuration details.
+//! - `token_details` - Returns details of the token.
+//! - `balance_of` - Returns the balance of the DID corresponds to the ticker.
+//! - `identifiers` - It provides the identifiers for a given ticker.
+//! - `total_checkpoints_of` - Returns the checkpoint Id.
+//! - `total_supply_at` - Returns the total supply at a given checkpoint.
+//! - `custodian_allowance`- Returns the allowance provided to a custodian for a given ticker and token holder.
 //! - `total_custody_allowance` - Returns the total allowance approved by the token holder.
+//! - `extension_details` - It provides the list of Smart extension added for the given tokens.
+//! - `extensions` - It provides the list of Smart extension added for the given tokens and for the given type.
+//! - `frozen` - It tells whether the given ticker is frozen or not.
+//! - `is_ticker_available` - It checks whether the given ticker is available or not.
+//! - `is_ticker_registry_valid` - It checks whether the ticker is own by a given IdentityId or not.
+//! - `is_ticker_available_or_registered_to` - It provides the status of a given ticker.
+//! - `total_supply` - It provides the total supply of a ticker.
+//! - `get_balance_at` - It provides the balance of a DID at a certain checkpoint.
+//! - `verify_restriction` - It is use to verify the restriction implied by the smart extension and the generalTM.
+//! - `call_extension` - A helper function that is used to call the smart extension function.
 
 use crate::{general_tm, percentage_tm, statistics};
 
@@ -184,7 +204,7 @@ impl<T: AsRef<[u8]>> From<T> for FundingRoundName {
     }
 }
 
-/// struct to store the token details
+/// struct to store the token details.
 #[derive(Encode, Decode, Default, Clone, PartialEq, Debug)]
 pub struct SecurityToken<U> {
     pub name: TokenName,
@@ -195,7 +215,7 @@ pub struct SecurityToken<U> {
     pub link_id: u64,
 }
 
-/// struct to store the signed data
+/// struct to store the signed data.
 #[derive(Encode, Decode, Default, Clone, PartialEq, Debug)]
 pub struct SignData<U> {
     pub custodian_did: IdentityId,
@@ -205,7 +225,7 @@ pub struct SignData<U> {
     pub nonce: u16,
 }
 
-/// struct to store the ticker registration details
+/// struct to store the ticker registration details.
 #[derive(Encode, Decode, Clone, Default, PartialEq, Debug)]
 pub struct TickerRegistration<U> {
     pub owner: IdentityId,
@@ -213,7 +233,7 @@ pub struct TickerRegistration<U> {
     pub link_id: u64,
 }
 
-/// struct to store the ticker registration config
+/// struct to store the ticker registration config.
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[derive(Encode, Decode, Clone, Default, PartialEq, Debug)]
 pub struct TickerRegistrationConfig<U> {
@@ -221,7 +241,7 @@ pub struct TickerRegistrationConfig<U> {
     pub registration_length: Option<U>,
 }
 
-/// Enum that represents the current status of a ticker
+/// Enum that represents the current status of a ticker.
 #[derive(Encode, Decode, Clone, Eq, PartialEq, Debug)]
 pub enum TickerRegistrationStatus {
     RegisteredByOther,
@@ -229,7 +249,7 @@ pub enum TickerRegistrationStatus {
     RegisteredByDid,
 }
 
-/// Enum that uses as the return type for the restriction verification
+/// Enum that uses as the return type for the restriction verification.
 #[derive(Encode, Decode, Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub enum RestrictionResult {
     Valid,
@@ -245,41 +265,41 @@ impl Default for RestrictionResult {
 
 decl_storage! {
     trait Store for Module<T: Trait> as Asset {
-        /// Ticker registration details
+        /// Ticker registration details.
         /// (ticker) -> TickerRegistration
         pub Tickers get(fn ticker_registration): map hasher(blake2_128_concat) Ticker => TickerRegistration<T::Moment>;
-        /// Ticker registration config
+        /// Ticker registration config.
         /// (ticker) -> TickerRegistrationConfig
         pub TickerConfig get(fn ticker_registration_config) config(): TickerRegistrationConfig<T::Moment>;
-        /// details of the token corresponding to the token ticker
+        /// Details of the token corresponding to the token ticker.
         /// (ticker) -> SecurityToken details [returns SecurityToken struct]
         pub Tokens get(fn token_details): map hasher(blake2_128_concat) Ticker => SecurityToken<T::Balance>;
-        /// Used to store the securityToken balance corresponds to ticker and Identity
+        /// Used to store the securityToken balance corresponds to ticker and Identity.
         /// (ticker, DID) -> Balance
         pub BalanceOf get(fn balance_of): double_map hasher(blake2_128_concat) Ticker, hasher(blake2_128_concat) IdentityId => T::Balance;
         /// A map of pairs of a ticker name and an `IdentifierType` to asset identifiers.
         pub Identifiers get(fn identifiers): map hasher(blake2_128_concat) (Ticker, IdentifierType) => AssetIdentifier;
         /// (ticker, sender (DID), spender(DID)) -> allowance amount
         Allowance get(fn allowance): map hasher(blake2_128_concat) (Ticker, IdentityId, IdentityId) => T::Balance;
-        /// Checkpoints created per token
+        /// Checkpoints created per token.
         /// (ticker) -> no. of checkpoints
         pub TotalCheckpoints get(fn total_checkpoints_of): map hasher(blake2_128_concat) Ticker => u64;
-        /// Total supply of the token at the checkpoint
+        /// Total supply of the token at the checkpoint.
         /// (ticker, checkpointId) -> total supply at given checkpoint
         pub CheckpointTotalSupply get(fn total_supply_at): map hasher(blake2_128_concat) (Ticker, u64) => T::Balance;
-        /// Balance of a DID at a checkpoint
+        /// Balance of a DID at a checkpoint.
         /// (ticker, DID, checkpoint ID) -> Balance of a DID at a checkpoint
         CheckpointBalance get(fn balance_at_checkpoint): map hasher(blake2_128_concat) (Ticker, IdentityId, u64) => T::Balance;
-        /// Last checkpoint updated for a DID's balance
+        /// Last checkpoint updated for a DID's balance.
         /// (ticker, DID) -> List of checkpoints where user balance changed
         UserCheckpoints get(fn user_checkpoints): map hasher(blake2_128_concat) (Ticker, IdentityId) => Vec<u64>;
-        /// Allowance provided to the custodian
+        /// Allowance provided to the custodian.
         /// (ticker, token holder, custodian) -> balance
         pub CustodianAllowance get(fn custodian_allowance): map hasher(blake2_128_concat) (Ticker, IdentityId, IdentityId) => T::Balance;
-        /// Total custodian allowance for a given token holder
+        /// Total custodian allowance for a given token holder.
         /// (ticker, token holder) -> balance
         pub TotalCustodyAllowance get(fn total_custody_allowance): map hasher(blake2_128_concat) (Ticker, IdentityId) => T::Balance;
-        /// Store the nonce for off chain signature to increase the custody allowance
+        /// Store the nonce for off chain signature to increase the custody allowance.
         /// (ticker, token holder, nonce) -> bool
         AuthenticationNonce get(fn authentication_nonce): map hasher(blake2_128_concat) (Ticker, IdentityId, u16) => bool;
         /// The name of the current funding round.
@@ -288,10 +308,10 @@ decl_storage! {
         /// The total balances of tokens issued in all recorded funding rounds.
         /// (ticker, funding round) -> balance
         IssuedInFundingRound get(fn issued_in_funding_round): map hasher(blake2_128_concat) (Ticker, FundingRoundName) => T::Balance;
-        /// List of Smart extension added for the given tokens
+        /// List of Smart extension added for the given tokens.
         /// ticker, AccountId (SE address) -> SmartExtension detail
         pub ExtensionDetails get(fn extension_details): map hasher(blake2_128_concat) (Ticker, T::AccountId) => SmartExtension<T::AccountId>;
-        /// List of Smart extension added for the given tokens and for the given type
+        /// List of Smart extension added for the given tokens and for the given type.
         /// ticker, type of SE -> address/AccountId of SE
         pub Extensions get(fn extensions): map hasher(blake2_128_concat) (Ticker, SmartExtensionType) => Vec<T::AccountId>;
         /// The set of frozen assets implemented as a membership map.
@@ -302,7 +322,7 @@ decl_storage! {
 
 type Identity<T> = identity::Module<T>;
 
-// public interface for this runtime module
+// Public interface for this runtime module.
 decl_module! {
     pub struct Module<T: Trait> for enum Call where origin: T::Origin {
 
@@ -311,12 +331,12 @@ decl_module! {
         /// initialize the default event for this module
         fn deposit_event() = default;
 
-        /// This function is used to either register a new ticker or extend validity of an exisitng ticker
-        /// NB Ticker validity does not get carryforward when renewing ticker
+        /// This function is used to either register a new ticker or extend validity of an existing ticker.
+        /// NB: Ticker validity does not get carry forward when renewing ticker.
         ///
         /// # Arguments
-        /// * `origin` It contains the signing key of the caller (i.e who signed the transaction to execute this function)
-        /// * `ticker` ticker to register
+        /// * `origin` It contains the signing key of the caller (i.e who signed the transaction to execute this function).
+        /// * `ticker` ticker to register.
         #[weight = SimpleDispatchInfo::FixedNormal(500_000)]
         pub fn register_ticker(origin, ticker: Ticker) -> DispatchResult {
             let sender = ensure_signed(origin)?;
@@ -347,12 +367,12 @@ decl_module! {
             Self::_register_ticker(&ticker, &signer, to_did, expiry)
         }
 
-        /// This function is used to accept a ticker transfer
+        /// This function is used to accept a ticker transfer.
         /// NB: To reject the transfer, call remove auth function in identity module.
         ///
         /// # Arguments
-        /// * `origin` It contains the signing key of the caller (i.e who signed the transaction to execute this function)
-        /// * `auth_id` Authorization ID of ticker transfer authorization
+        /// * `origin` It contains the signing key of the caller (i.e who signed the transaction to execute this function).
+        /// * `auth_id` Authorization ID of ticker transfer authorization.
         #[weight = SimpleDispatchInfo::FixedNormal(500_000)]
         pub fn accept_ticker_transfer(origin, auth_id: u64) -> DispatchResult {
             let sender = ensure_signed(origin)?;
@@ -362,12 +382,12 @@ decl_module! {
             Self::_accept_ticker_transfer(to_did, auth_id)
         }
 
-        /// This function is used to accept a token ownership transfer
+        /// This function is used to accept a token ownership transfer.
         /// NB: To reject the transfer, call remove auth function in identity module.
         ///
         /// # Arguments
-        /// * `origin` It contains the signing key of the caller (i.e who signed the transaction to execute this function)
-        /// * `auth_id` Authorization ID of the token ownership transfer authorization
+        /// * `origin` It contains the signing key of the caller (i.e who signed the transaction to execute this function).
+        /// * `auth_id` Authorization ID of the token ownership transfer authorization.
         #[weight = SimpleDispatchInfo::FixedNormal(500_000)]
         pub fn accept_token_ownership_transfer(origin, auth_id: u64) -> DispatchResult {
             let sender = ensure_signed(origin)?;
@@ -379,7 +399,7 @@ decl_module! {
 
         /// Initializes a new security token
         /// makes the initiating account the owner of the security token
-        /// & the balance of the owner is set to total supply
+        /// & the balance of the owner is set to total supply.
         ///
         /// # Arguments
         /// * `origin` - contains the signing key of the caller (i.e who signed the transaction to execute this function).
@@ -389,7 +409,7 @@ decl_module! {
         /// * `divisible` - a boolean to identify the divisibility status of the token.
         /// * `asset_type` - the asset type.
         /// * `identifiers` - a vector of asset identifiers.
-        /// * `funding_round` - name of the funding round
+        /// * `funding_round` - name of the funding round.
         ///
         /// # Weight
         /// `400_000 + 20_000 * identifiers.len()`
@@ -435,7 +455,7 @@ decl_module! {
             );
 
             // checking max size for name and ticker
-            // byte arrays (vecs) with no max size should be avoided
+            // byte arrays (Vec) with no max size should be avoided
             ensure!(name.as_slice().len() <= 64, Error::<T>::TokenNameTooLong);
 
             let is_ticker_available_or_registered_to = Self::is_ticker_available_or_registered_to(&ticker, did);
@@ -499,8 +519,8 @@ decl_module! {
         /// Freezes transfers and minting of a given token.
         ///
         /// # Arguments
-        /// * `origin` - the signing key of the sender
-        /// * `ticker` - the ticker of the token
+        /// * `origin` - the signing key of the sender.
+        /// * `ticker` - the ticker of the token.
         #[weight = SimpleDispatchInfo::FixedNormal(150_000)]
         pub fn freeze(origin, ticker: Ticker) -> DispatchResult {
             let sender = ensure_signed(origin)?;
@@ -521,8 +541,8 @@ decl_module! {
         /// Unfreezes transfers and minting of a given token.
         ///
         /// # Arguments
-        /// * `origin` - the signing key of the sender
-        /// * `ticker` - the ticker of the frozen token
+        /// * `origin` - the signing key of the sender.
+        /// * `ticker` - the ticker of the frozen token.
         #[weight = SimpleDispatchInfo::FixedNormal(150_000)]
         pub fn unfreeze(origin, ticker: Ticker) -> DispatchResult {
             let sender = ensure_signed(origin)?;
@@ -543,9 +563,9 @@ decl_module! {
         /// Renames a given token.
         ///
         /// # Arguments
-        /// * `origin` - the signing key of the sender
-        /// * `ticker` - the ticker of the token
-        /// * `name` - the new name of the token
+        /// * `origin` - the signing key of the sender.
+        /// * `ticker` - the ticker of the token.
+        /// * `name` - the new name of the token.
         #[weight = SimpleDispatchInfo::FixedNormal(150_000)]
         pub fn rename_token(origin, ticker: Ticker, name: TokenName) -> DispatchResult {
             let sender = ensure_signed(origin)?;
@@ -562,13 +582,13 @@ decl_module! {
             Ok(())
         }
 
-        /// Transfer tokens from one DID to another DID as tokens are stored/managed on the DID level
+        /// Transfer tokens from one DID to another DID as tokens are stored/managed on the DID level.
         ///
         /// # Arguments
-        /// * `_origin` signing key of the sender
-        /// * `ticker` Ticker of the token
-        /// * `to_did` DID of the `to` token holder, to whom token needs to transferred
-        /// * `value` Value that needs to transferred
+        /// * `origin` signing key of the sender.
+        /// * `ticker` Ticker of the token.
+        /// * `to_did` DID of the `to` token holder, to whom token needs to transferred.
+        /// * `value` Value that needs to transferred.
         #[weight = SimpleDispatchInfo::FixedNormal(400_000)]
         pub fn transfer(origin, ticker: Ticker, to_did: IdentityId, value: T::Balance) -> DispatchResult {
             let sender = ensure_signed(origin)?;
@@ -592,11 +612,11 @@ decl_module! {
         }
 
         /// Forces a transfer between two DIDs & This can only be called by security token owner.
-        /// This function doesn't validate any type of restriction beside a valid CDD check
+        /// This function doesn't validate any type of restriction beside a valid CDD check.
         ///
         /// # Arguments
-        /// * `_origin` signing key of the token owner DID.
-        /// * `ticker` symbol of the token
+        /// * `origin` signing key of the token owner DID.
+        /// * `ticker` symbol of the token.
         /// * `from_did` DID of the token holder from whom balance token will be transferred.
         /// * `to_did` DID of token holder to whom token balance will be transferred.
         /// * `value` Amount of tokens.
@@ -622,13 +642,13 @@ decl_module! {
             Ok(())
         }
 
-        /// approve token transfer from one DID to DID
-        /// once this is done, transfer_from can be called with corresponding values
+        /// Approve token transfer from one DID to another.
+        /// once this is done, transfer_from can be called with corresponding values.
         ///
         /// # Arguments
-        /// * `_origin` Signing key of the token owner (i.e sender)
-        /// * `spender_did` DID of the spender
-        /// * `value` Amount of the tokens approved
+        /// * `origin` Signing key of the token owner (i.e sender).
+        /// * `spender_did` DID of the spender.
+        /// * `value` Amount of the tokens approved.
         #[weight = SimpleDispatchInfo::FixedNormal(200_000)]
         fn approve(origin, ticker: Ticker, spender_did: IdentityId, value: T::Balance) -> DispatchResult {
             let sender_key = AccountKey::try_from(ensure_signed(origin)?.encode())?;
@@ -654,11 +674,11 @@ decl_module! {
         /// If sufficient allowance provided, transfer from a DID to another DID without token owner's signature.
         ///
         /// # Arguments
-        /// * `_origin` Signing key of spender
-        /// * `_ticker` Ticker of the token
-        /// * `from_did` DID from whom token is being transferred
-        /// * `to_did` DID to whom token is being transferred
-        /// * `value` Amount of the token for transfer
+        /// * `origin` Signing key of spender.
+        /// * `ticker` Ticker of the token.
+        /// * `from_did` DID from whom token is being transferred.
+        /// * `to_did` DID to whom token is being transferred.
+        /// * `value` Amount of the token for transfer.
         #[weight = SimpleDispatchInfo::FixedNormal(500_000)]
         pub fn transfer_from(origin, ticker: Ticker, from_did: IdentityId, to_did: IdentityId, value: T::Balance) -> DispatchResult {
             let sender = ensure_signed(origin)?;
@@ -695,11 +715,12 @@ decl_module! {
             Ok(())
         }
 
-        /// Function used to create the checkpoint
+        /// Function used to create the checkpoint.
+        /// NB: Only called by the owner of the security token i.e owner DID.
         ///
         /// # Arguments
         /// * `origin` Signing key of the token owner. (Only token owner can call this function).
-        /// * `_ticker` Ticker of the token
+        /// * `ticker` Ticker of the token.
         #[weight = SimpleDispatchInfo::FixedNormal(300_000)]
         pub fn create_checkpoint(origin, ticker: Ticker) -> DispatchResult {
             let sender_key = AccountKey::try_from(ensure_signed(origin)?.encode())?;
@@ -716,13 +737,13 @@ decl_module! {
         }
 
         /// Function is used to issue(or mint) new tokens for the given DID
-        /// can only be executed by the token owner
+        /// can only be executed by the token owner.
         ///
         /// # Arguments
-        /// * `origin` Signing key of token owner
-        /// * `ticker` Ticker of the token
+        /// * `origin` Signing key of token owner.
+        /// * `ticker` Ticker of the token.
         /// * `to_did` DID of the token holder to whom new tokens get issued.
-        /// * `value` Amount of tokens that get issued
+        /// * `value` Amount of tokens that get issued.
         #[weight = SimpleDispatchInfo::FixedNormal(700_000)]
         pub fn issue(origin, ticker: Ticker, to_did: IdentityId, value: T::Balance, _data: Vec<u8>) -> DispatchResult {
             let sender = ensure_signed(origin)?;
@@ -740,13 +761,13 @@ decl_module! {
         }
 
         /// Function is used issue(or mint) new tokens for the given DIDs
-        /// can only be executed by the token owner
+        /// can only be executed by the token owner.
         ///
         /// # Arguments
-        /// * `origin` Signing key of token owner
-        /// * `ticker` Ticker of the token
+        /// * `origin` Signing key of token owner.
+        /// * `ticker` Ticker of the token.
         /// * `investor_dids` Array of the DID of the token holders to whom new tokens get issued.
-        /// * `values` Array of the Amount of tokens that get issued
+        /// * `values` Array of the Amount of tokens that get issued.
         ///
         /// # Weight
         /// `300_000 + 400_000 * idvestor_dids.len().max(values.len())`
@@ -845,12 +866,12 @@ decl_module! {
             Ok(())
         }
 
-        /// Used to redeem the security tokens
+        /// Used to redeem the security tokens.
         ///
         /// # Arguments
-        /// * `_origin` Signing key of the token holder who wants to redeem the tokens
-        /// * `ticker` Ticker of the token
-        /// * `value` Amount of the tokens needs to redeem
+        /// * `origin` Signing key of the token holder who wants to redeem the tokens.
+        /// * `ticker` Ticker of the token.
+        /// * `value` Amount of the tokens needs to redeem.
         /// * `_data` An off chain data blob used to validate the redeem functionality.
         #[weight = SimpleDispatchInfo::FixedNormal(500_000)]
         pub fn redeem(origin, ticker: Ticker, value: T::Balance, _data: Vec<u8>) -> DispatchResult {
@@ -897,13 +918,13 @@ decl_module! {
 
         }
 
-        /// Used to redeem the security tokens by some other DID who has approval
+        /// Used to redeem the security tokens by some other DID who has approval.
         ///
         /// # Arguments
-        /// * `_origin` Signing key of the spender who has valid approval to redeem the tokens
-        /// * `ticker` Ticker of the token
-        /// * `from_did` DID from whom balance get reduced
-        /// * `value` Amount of the tokens needs to redeem
+        /// * `origin` Signing key of the spender who has valid approval to redeem the tokens.
+        /// * `ticker` Ticker of the token.
+        /// * `from_did` DID from whom balance get reduced.
+        /// * `value` Amount of the tokens needs to redeem.
         /// * `_data` An off chain data blob used to validate the redeem functionality.
         #[weight = SimpleDispatchInfo::FixedNormal(500_000)]
         pub fn redeem_from(origin, ticker: Ticker, from_did: IdentityId, value: T::Balance, _data: Vec<u8>) -> DispatchResult {
@@ -942,7 +963,7 @@ decl_module! {
             let updated_allowance = allowance.checked_sub(&value)
                 .ok_or(Error::<T>::AllowanceOverflow)?;
 
-            //Decrease total suply
+            //Decrease total supply
             let mut token = Self::token_details(&ticker);
             token.total_supply = token.total_supply.checked_sub(&value)
                 .ok_or(Error::<T>::BalanceOverflow)?;
@@ -960,13 +981,13 @@ decl_module! {
             Ok(())
         }
 
-        /// Forces a redemption of an DID's tokens. Can only be called by token owner
+        /// Forces a redemption of an DID's tokens. Can only be called by token owner.
         ///
         /// # Arguments
-        /// * `_origin` Signing key of the token owner
-        /// * `ticker` Ticker of the token
-        /// * `token_holder_did` DID from whom balance get reduced
-        /// * `value` Amount of the tokens needs to redeem
+        /// * `origin` Signing key of the token owner.
+        /// * `ticker` Ticker of the token.
+        /// * `token_holder_did` DID from whom balance get reduced.
+        /// * `value` Amount of the tokens needs to redeem.
         /// * `data` An off chain data blob used to validate the redeem functionality.
         /// * `operator_data` Any data blob that defines the reason behind the force redeem.
         #[weight = SimpleDispatchInfo::FixedNormal(400_000)]
@@ -989,7 +1010,7 @@ decl_module! {
                 .checked_sub(&value)
                 .ok_or(Error::<T>::BalanceOverflow)?;
 
-            //Decrease total suply
+            // Decrease total supply
             let mut token = Self::token_details(&ticker);
             token.total_supply = token.total_supply.checked_sub(&value).ok_or(Error::<T>::BalanceOverflow)?;
 
@@ -1004,11 +1025,11 @@ decl_module! {
             Ok(())
         }
 
-        /// Makes an indivisible token divisible. Only called by the token owner
+        /// Makes an indivisible token divisible. Only called by the token owner.
         ///
         /// # Arguments
         /// * `origin` Signing key of the token owner.
-        /// * `ticker` Ticker of the token
+        /// * `ticker` Ticker of the token.
         #[weight = SimpleDispatchInfo::FixedNormal(150_000)]
         pub fn make_divisible(origin, ticker: Ticker) -> DispatchResult {
             let sender_key = AccountKey::try_from(ensure_signed(origin)?.encode())?;
@@ -1031,11 +1052,11 @@ decl_module! {
         /// This function is state less function and used to validate the transfer before actual transfer call.
         ///
         /// # Arguments
-        /// * `_origin` Signing Key of the caller
-        /// * `ticker` Ticker of the token
-        /// * `from_did` DID from whom tokens will be transferred
-        /// * `to_did` DID to whom tokens will be transferred
-        /// * `value` Amount of the tokens
+        /// * `origin` Signing Key of the caller.
+        /// * `ticker` Ticker of the token.
+        /// * `from_did` DID from whom tokens will be transferred.
+        /// * `to_did` DID to whom tokens will be transferred.
+        /// * `value` Amount of the tokens.
         /// * `data` Off chain data blob to validate the transfer.
         #[weight = SimpleDispatchInfo::FixedNormal(300_000)]
         pub fn can_transfer(origin, ticker: Ticker, from_did: IdentityId, to_did: IdentityId, value: T::Balance, data: Vec<u8>) {
@@ -1066,14 +1087,14 @@ decl_module! {
         }
 
         /// An ERC1594 transfer with data
-        /// This function can be used by the exchanges of other third parties to dynamically validate the transaction
-        /// by passing the data blob
+        /// This function can be used by the exchanges or other third parties to dynamically validate the transaction
+        /// by passing the data blob.
         ///
         /// # Arguments
-        /// * `origin` Signing key of the sender
-        /// * `ticker` Ticker of the token
-        /// * `to_did` DID to whom tokens will be transferred
-        /// * `value` Amount of the tokens
+        /// * `origin` Signing key of the sender.
+        /// * `ticker` Ticker of the token.
+        /// * `to_did` DID to whom tokens will be transferred.
+        /// * `value` Amount of the tokens.
         /// * `data` Off chain data blob to validate the transfer.
         #[weight = SimpleDispatchInfo::FixedNormal(450_000)]
         pub fn transfer_with_data(origin, ticker: Ticker, to_did: IdentityId, value: T::Balance, data: Vec<u8>) -> DispatchResult {
@@ -1088,15 +1109,15 @@ decl_module! {
         }
 
         /// An ERC1594 transfer_from with data
-        /// This function can be used by the exchanges of other third parties to dynamically validate the transaction
-        /// by passing the data blob
+        /// This function can be used by the exchanges or other third parties to dynamically validate the transaction
+        /// by passing the data blob.
         ///
         /// # Arguments
-        /// * `origin` Signing key of the spender
-        /// * `ticker` Ticker of the token
-        /// * `from_did` DID from whom tokens will be transferred
-        /// * `to_did` DID to whom tokens will be transferred
-        /// * `value` Amount of the tokens
+        /// * `origin` Signing key of the spender.
+        /// * `ticker` Ticker of the token.
+        /// * `from_did` DID from whom tokens will be transferred.
+        /// * `to_did` DID to whom tokens will be transferred.
+        /// * `value` Amount of the tokens.
         /// * `data` Off chain data blob to validate the transfer.
         #[weight = SimpleDispatchInfo::FixedNormal(550_000)]
         pub fn transfer_from_with_data(origin, ticker: Ticker, from_did: IdentityId, to_did: IdentityId, value: T::Balance, data: Vec<u8>) -> DispatchResult {
@@ -1106,22 +1127,22 @@ decl_module! {
             Ok(())
         }
 
-        /// Used to know whether the given token will issue new tokens or not
+        /// Used to know whether the given token will issue new tokens or not.
         ///
         /// # Arguments
-        /// * `_origin` Signing key
-        /// * `ticker` Ticker of the token whose issuance status need to know
+        /// * `_origin` Signing key.
+        /// * `ticker` Ticker of the token whose issuance status need to know.
         #[weight = SimpleDispatchInfo::FixedNormal(5_000)]
         pub fn is_issuable(_origin, ticker:Ticker) {
             Self::deposit_event(RawEvent::IsIssuable(ticker, true));
         }
 
-        /// Add documents for a given token. To be called only by the token owner
+        /// Add documents for a given token. To be called only by the token owner.
         ///
         /// # Arguments
-        /// * `origin` Signing key of the token owner
-        /// * `ticker` Ticker of the token
-        /// * `documents` Documents to be attached to `ticker`
+        /// * `origin` Signing key of the token owner.
+        /// * `ticker` Ticker of the token.
+        /// * `documents` Documents to be attached to `ticker`.
         ///
         /// # Weight
         /// `200_000 + 60_000 * documents.len()`
@@ -1155,12 +1176,12 @@ decl_module! {
             Ok(())
         }
 
-        /// Remove documents for a given token. To be called only by the token owner
+        /// Remove documents for a given token. To be called only by the token owner.
         ///
         /// # Arguments
-        /// * `origin` Signing key of the token owner
-        /// * `ticker` Ticker of the token
-        /// * `doc_ids` Documents to be removed from `ticker`
+        /// * `origin` Signing key of the token owner.
+        /// * `ticker` Ticker of the token.
+        /// * `doc_ids` Documents to be removed from `ticker`.
         ///
         /// # Weight
         /// `200_000 + 60_000 * do_ids.len()`
@@ -1189,12 +1210,12 @@ decl_module! {
             Ok(())
         }
 
-        /// Update documents for the given token, Only be called by the token owner
+        /// Update documents for the given token, Only be called by the token owner.
         ///
         /// # Arguments
-        /// * `origin` Signing key of the token owner
-        /// * `ticker` Ticker of the token
-        /// * `docs` Vector of tuples (Document to be updated, Contents of new document)
+        /// * `origin` Signing key of the token owner.
+        /// * `ticker` Ticker of the token.
+        /// * `docs` Vector of tuples (Document to be updated, Contents of new document).
         ///
         /// # Weight
         /// `200_000 + 60_000 * docs.len()`
@@ -1231,11 +1252,11 @@ decl_module! {
         /// This implementation make sure to have an accurate investor count from omnibus wallets.
         ///
         /// # Arguments
-        /// * `origin` Signing key of the token holder
-        /// * `ticker` Ticker of the token
-        /// * `holder_did` DID of the token holder (i.e who wants to increase the custody allowance)
-        /// * `custodian_did` DID of the custodian (i.e whom allowance provided)
-        /// * `value` Allowance amount
+        /// * `origin` Signing key of the token holder.
+        /// * `ticker` Ticker of the token.
+        /// * `holder_did` DID of the token holder (i.e who wants to increase the custody allowance).
+        /// * `custodian_did` DID of the custodian (i.e whom allowance provided).
+        /// * `value` Allowance amount.
         #[weight = SimpleDispatchInfo::FixedNormal(300_000)]
         pub fn increase_custody_allowance(origin, ticker: Ticker, holder_did: IdentityId, custodian_did: IdentityId, value: T::Balance) -> DispatchResult {
             let sender = ensure_signed(origin)?;
@@ -1250,18 +1271,18 @@ decl_module! {
             Ok(())
         }
 
-        /// Used to increase the allowance for a given custodian by providing the off chain signature
+        /// Used to increase the allowance for a given custodian by providing the off chain signature.
         ///
         /// # Arguments
-        /// * `origin` Signing key of a DID who posses off chain signature
-        /// * `ticker` Ticker of the token
-        /// * `holder_did` DID of the token holder (i.e who wants to increase the custody allowance)
+        /// * `origin` Signing key of a DID who posses off chain signature.
+        /// * `ticker` Ticker of the token.
+        /// * `holder_did` DID of the token holder (i.e who wants to increase the custody allowance).
         /// * `holder_account_id` Signing key which signs the off chain data blob.
-        /// * `custodian_did` DID of the custodian (i.e whom allowance provided)
-        /// * `caller_did` DID of the caller
-        /// * `value` Allowance amount
-        /// * `nonce` A u16 number which avoid the replay attack
-        /// * `signature` Signature provided by the holder_did
+        /// * `custodian_did` DID of the custodian (i.e whom allowance provided).
+        /// * `caller_did` DID of the caller.
+        /// * `value` Allowance amount.
+        /// * `nonce` A u16 number which avoid the replay attack.
+        /// * `signature` Signature provided by the holder_did.
         #[weight = SimpleDispatchInfo::FixedNormal(450_000)]
         pub fn increase_custody_allowance_of(
             origin,
@@ -1308,15 +1329,15 @@ decl_module! {
             Ok(())
         }
 
-        /// Used to transfer the tokens by the approved custodian
+        /// Used to transfer the tokens by the approved custodian.
         ///
         /// # Arguments
-        /// * `origin` Signing key of the custodian
-        /// * `ticker` Ticker of the token
-        /// * `holder_did` DID of the token holder (i.e whom balance get reduced)
-        /// * `custodian_did` DID of the custodian (i.e who has the valid approved allowance)
-        /// * `receiver_did` DID of the receiver
-        /// * `value` Amount of tokens need to transfer
+        /// * `origin` Signing key of the custodian.
+        /// * `ticker` Ticker of the token.
+        /// * `holder_did` DID of the token holder (i.e whom balance get reduced).
+        /// * `custodian_did` DID of the custodian (i.e who has the valid approved allowance).
+        /// * `receiver_did` DID of the receiver.
+        /// * `value` Amount of tokens need to transfer.
         #[weight = SimpleDispatchInfo::FixedNormal(750_000)]
         pub fn transfer_by_custodian(
             origin,
@@ -1383,8 +1404,8 @@ decl_module! {
         /// Updates the asset identifiers. Can only be called by the token owner.
         ///
         /// # Arguments
-        /// * `origin` - the signing key of the token owner
-        /// * `ticker` - the ticker of the token
+        /// * `origin` - the signing key of the token owner.
+        /// * `ticker` - the ticker of the token.
         /// * `identifiers` - the asset identifiers to be updated in the form of a vector of pairs
         ///    of `IdentifierType` and `AssetIdentifier` value.
         ///
@@ -1417,12 +1438,12 @@ decl_module! {
             Ok(())
         }
 
-        /// Whitelisting the Smart-Extension address for a given ticker
+        /// Whitelisting the Smart-Extension address for a given ticker.
         ///
         /// # Arguments
-        /// * `origin` - Signatory who owns to ticker/asset
-        /// * `ticker` - ticker for whom extension get added
-        /// * `extension_details` - Details of the smart extension
+        /// * `origin` - Signatory who owns to ticker/asset.
+        /// * `ticker` - ticker for whom extension get added.
+        /// * `extension_details` - Details of the smart extension.
         #[weight = SimpleDispatchInfo::FixedNormal(250_000)]
         pub fn add_extension(origin, ticker: Ticker, extension_details: SmartExtension<T::AccountId>) -> DispatchResult {
             let sender = ensure_signed(origin)?;
@@ -1441,12 +1462,12 @@ decl_module! {
             Ok(())
         }
 
-        /// Archived the extension. Extension will not be used to verify the compliance or any smart logic it posses
+        /// Archived the extension. Extension is use to verify the compliance or any smart logic it posses.
         ///
         /// # Arguments
         /// * `origin` - Signatory who owns the ticker/asset.
         /// * `ticker` - Ticker symbol of the asset.
-        /// * `extension_id` - AccountId of the extension that need to be archived
+        /// * `extension_id` - AccountId of the extension that need to be archived.
         #[weight = SimpleDispatchInfo::FixedNormal(250_000)]
         pub fn archive_extension(origin, ticker: Ticker, extension_id: T::AccountId) -> DispatchResult {
             let sender = ensure_signed(origin)?;
@@ -1465,12 +1486,12 @@ decl_module! {
             Ok(())
         }
 
-        /// Archived the extension. Extension will not be used to verify the compliance or any smart logic it posses
+        /// Un-archived the extension. Extension is use to verify the compliance or any smart logic it posses.
         ///
         /// # Arguments
         /// * `origin` - Signatory who owns the ticker/asset.
         /// * `ticker` - Ticker symbol of the asset.
-        /// * `extension_id` - AccountId of the extension that need to be un-archived
+        /// * `extension_id` - AccountId of the extension that need to be un-archived.
         #[weight = SimpleDispatchInfo::FixedNormal(250_000)]
         pub fn unarchive_extension(origin, ticker: Ticker, extension_id: T::AccountId) -> DispatchResult {
             let sender = ensure_signed(origin)?;
@@ -1498,40 +1519,39 @@ decl_event! {
         Moment = <T as pallet_timestamp::Trait>::Moment,
         AccountId = <T as frame_system::Trait>::AccountId,
     {
-        /// event for transfer of tokens
+        /// Event for transfer of tokens.
         /// ticker, from DID, to DID, value
         Transfer(Ticker, IdentityId, IdentityId, Balance),
-        /// event when an approval is made
+        /// Event when an approval is made.
         /// ticker, owner DID, spender DID, value
         Approval(Ticker, IdentityId, IdentityId, Balance),
-        /// emit when tokens get issued
+        /// Emit when tokens get issued.
         /// ticker, beneficiary DID, value, funding round, total issued in this funding round
         Issued(Ticker, IdentityId, Balance, FundingRoundName, Balance),
-        /// emit when tokens get redeemed
+        /// Emit when tokens get redeemed.
         /// ticker, DID, value
         Redeemed(Ticker, IdentityId, Balance),
-        /// event for forced transfer of tokens
+        /// Event for forced transfer of tokens.
         /// ticker, controller DID, from DID, to DID, value, data, operator data
         ControllerTransfer(Ticker, IdentityId, IdentityId, IdentityId, Balance, Vec<u8>, Vec<u8>),
-        /// event for when a forced redemption takes place
+        /// Event for when a forced redemption takes place.
         /// ticker, controller DID, token holder DID, value, data, operator data
         ControllerRedemption(Ticker, IdentityId, IdentityId, Balance, Vec<u8>, Vec<u8>),
-        /// Event for creation of the asset
+        /// Event for creation of the asset.
         /// ticker, total supply, owner DID, divisibility, asset type
         IssuedToken(Ticker, Balance, IdentityId, bool, AssetType),
         /// Event emitted when a token identifiers are updated.
         /// ticker, a vector of (identifier type, identifier value)
         IdentifiersUpdated(Ticker, Vec<(IdentifierType, AssetIdentifier)>),
-        /// Event for change in divisibility
+        /// Event for change in divisibility.
         /// ticker, divisibility
         DivisibilityChanged(Ticker, bool),
         /// can_transfer() output
         /// ticker, from_did, to_did, value, data, ERC1066 status
         /// 0 - OK
-        /// 1,2... - Error, meanings TBD
+        /// 1,2... - Error
         CanTransfer(Ticker, IdentityId, IdentityId, Balance, Vec<u8>, u32),
-        /// An additional event to Transfer; emitted when transfer_with_data is called; similar to
-        /// Transfer with data added at the end.
+        /// An additional event to Transfer; emitted when transfer_with_data is called.
         /// ticker, from DID, to DID, value, data
         TransferWithData(Ticker, IdentityId, IdentityId, Balance, Vec<u8>),
         /// is_issuable() output
@@ -1540,25 +1560,25 @@ decl_event! {
         /// get_document() output
         /// ticker, name, uri, content_hash, last modification date
         GetDocument(Ticker, DocumentName, DocumentUri, DocumentHash, Moment),
-        /// emit when tokens transferred by the custodian
+        /// Emit when tokens transferred by the custodian.
         /// ticker, custodian did, holder/from did, to did, amount
         CustodyTransfer(Ticker, IdentityId, IdentityId, IdentityId, Balance),
-        /// emit when allowance get increased
+        /// Emit when allowance get increased.
         /// ticker, holder did, custodian did, oldAllowance, newAllowance
         CustodyAllowanceChanged(Ticker, IdentityId, IdentityId, Balance, Balance),
-        /// emit when ticker is registered
+        /// Emit when ticker is registered.
         /// ticker, ticker owner, expiry
         TickerRegistered(Ticker, IdentityId, Option<Moment>),
-        /// emit when ticker is transferred
+        /// Emit when ticker is transferred.
         /// ticker, from, to
         TickerTransferred(Ticker, IdentityId, IdentityId),
-        /// emit when token ownership is transferred
+        /// Emit when token ownership is transferred.
         /// ticker, from, to
         TokenOwnershipTransferred(Ticker, IdentityId, IdentityId),
-        /// emit when ticker is registered
+        /// Emit when ticker is registered.
         /// ticker, current owner, approved owner
         TickerTransferApproval(Ticker, IdentityId, IdentityId),
-        /// ticker transfer approval withdrawal
+        /// Ticker transfer approval withdrawal.
         /// ticker, approved did
         TickerTransferApprovalWithdrawal(Ticker, IdentityId),
         /// An event emitted when an asset is frozen.
@@ -1573,13 +1593,13 @@ decl_event! {
         /// An event carrying the name of the current funding round of a ticker.
         /// Parameters: ticker, funding round name.
         FundingRound(Ticker, FundingRoundName),
-        /// Emitted when extension is added successfully
+        /// Emitted when extension is added successfully.
         /// ticker, extension AccountId, extension name, type of smart Extension
         ExtensionAdded(Ticker, AccountId, SmartExtensionName, SmartExtensionType),
-        /// Emitted when extension get archived
+        /// Emitted when extension get archived.
         /// ticker, AccountId
         ExtensionArchived(Ticker, AccountId),
-        /// Emitted when extension get archived
+        /// Emitted when extension get archived.
         /// ticker, AccountId
         ExtensionUnArchived(Ticker, AccountId),
     }
@@ -1587,21 +1607,21 @@ decl_event! {
 
 decl_error! {
     pub enum Error for Module<T: Trait> {
-        /// DID not found
+        /// DID not found.
         DIDNotFound,
-        /// Not a ticker transfer auth
+        /// Not a ticker transfer auth.
         NoTickerTransferAuth,
-        /// Not a token ownership transfer auth
+        /// Not a token ownership transfer auth.
         NotTickerOwnershipTransferAuth,
         /// The user is not authorized.
         Unauthorized,
-        /// when extension already archived
+        /// When extension already archived.
         AlreadyArchived,
-        /// when extension already unarchived
+        /// When extension already un-archived.
         AlreadyUnArchived,
-        /// when extension is already added
+        /// When extension is already added.
         ExtensionAlreadyPresent,
-        /// when smart extension failed to execute result
+        /// When smart extension failed to execute result.
         IncorrectResult,
         /// The sender must be a signing key for the DID.
         SenderMustBeSigningKeyForDid,
@@ -1733,7 +1753,7 @@ impl<T: Trait> AcceptTransfer for Module<T> {
 /// However, in the impl module section (this, below) the functions can be public and private
 /// Private functions are internal to this module e.g.: _transfer
 /// Public functions can be called from other modules e.g.: lock and unlock (being called from the tcr module)
-/// All functions in the impl module section are not part of public interface because they are not part of the Call enum
+/// All functions in the impl module section are not part of public interface because they are not part of the Call enum.
 impl<T: Trait> Module<T> {
     // Public immutables
     pub fn _is_owner(ticker: &Ticker, did: IdentityId) -> bool {
@@ -1775,9 +1795,9 @@ impl<T: Trait> Module<T> {
         false
     }
 
-    /// Returns 0 if ticker is registered to someone else
-    /// 1 if ticker is available for registry
-    /// 2 if ticker is already registered to provided did
+    /// Returns 0 if ticker is registered to someone else.
+    /// 1 if ticker is available for registry.
+    /// 2 if ticker is already registered to provided did.
     pub fn is_ticker_available_or_registered_to(
         ticker: &Ticker,
         did: IdentityId,
@@ -1845,7 +1865,7 @@ impl<T: Trait> Module<T> {
         Self::balance_of(ticker, did)
     }
 
-    // Get the total supply of an asset `id`
+    // Get the total supply of an asset `id`.
     pub fn total_supply(ticker: Ticker) -> T::Balance {
         Self::token_details(ticker).total_supply
     }
@@ -1869,7 +1889,7 @@ impl<T: Trait> Module<T> {
                 // This means their current balance = their balance at that cp.
                 return Self::balance(&ticker, &did);
             }
-            // Uses the first checkpoint that was created after target checpoint
+            // Uses the first checkpoint that was created after target checkpoint
             // and the user has data for that checkpoint
             return Self::balance_at_checkpoint((
                 ticker,
@@ -1957,7 +1977,7 @@ impl<T: Trait> Module<T> {
         })
     }
 
-    // the SimpleToken standard transfer function
+    // The SimpleToken standard transfer function
     // internal
     fn _transfer(
         ticker: &Ticker,
@@ -2077,7 +2097,7 @@ impl<T: Trait> Module<T> {
             updated_total_supply <= MAX_SUPPLY.into(),
             Error::<T>::TotalSupplyAboveLimit
         );
-        //Increase total suply
+        // Increase total supply
         token.total_supply = updated_total_supply;
 
         // Charge the given fee.
@@ -2166,7 +2186,7 @@ impl<T: Trait> Module<T> {
         Ok(())
     }
 
-    /// Accept and process a ticker transfer
+    /// Accept and process a ticker transfer.
     pub fn _accept_ticker_transfer(to_did: IdentityId, auth_id: u64) -> DispatchResult {
         ensure!(
             <identity::Authorizations<T>>::contains_key(Signatory::from(to_did), auth_id),
@@ -2217,7 +2237,7 @@ impl<T: Trait> Module<T> {
         Ok(())
     }
 
-    /// Accept and process a token ownership transfer
+    /// Accept and process a token ownership transfer.
     pub fn _accept_token_ownership_transfer(to_did: IdentityId, auth_id: u64) -> DispatchResult {
         ensure!(
             <identity::Authorizations<T>>::contains_key(Signatory::from(to_did), auth_id),
@@ -2341,10 +2361,10 @@ impl<T: Trait> Module<T> {
     /// A helper function that is used to call the smart extension function.
     ///
     /// # Arguments
-    /// * `from` - Caller of the extension
-    /// * `dest` - Address/AccountId of the smart extension whom get called
-    /// * `value` - Amount of native currency that need to transfer to the extension
-    /// * `gas_limit` - Maximum amount of gas passed to successfully execute the function
+    /// * `from` - Caller of the extension.
+    /// * `dest` - Address/AccountId of the smart extension whom get called.
+    /// * `value` - Amount of native currency that need to transfer to the extension.
+    /// * `gas_limit` - Maximum amount of gas passed to successfully execute the function.
     /// * `data` - Encoded data that contains function selector and function arguments values.
     pub fn call_extension(
         from: T::AccountId,
