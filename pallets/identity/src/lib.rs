@@ -39,6 +39,8 @@
 #[cfg(feature = "runtime-benchmarks")]
 pub mod benchmarking;
 
+use pallet_identity_rpc_runtime_api::DidRecords as RpcDidRecords;
+use pallet_transaction_payment::{CddAndFeeDetails, ChargeTxFee};
 use polymesh_common_utilities::{
     constants::did::{CDD_PROVIDERS_ID, GOVERNANCE_COMMITTEE_ID, SECURITY_TOKEN, USER},
     protocol_fee::{ChargeProtocolFee, ProtocolOp},
@@ -46,7 +48,8 @@ use polymesh_common_utilities::{
         asset::AcceptTransfer,
         group::{GroupTrait, InactiveMember},
         identity::{
-            AuthorizationNonce, LinkedKeyInfo, RawEvent, SigningItemWithAuth, TargetIdAuthorization,
+            AuthorizationNonce, IdentityTrait, LinkedKeyInfo, RawEvent, SigningItemWithAuth,
+            TargetIdAuthorization, Trait,
         },
         multisig::AddSignerMultiSig,
     },
@@ -79,10 +82,6 @@ use frame_support::{
     weights::{DispatchClass, FunctionOf, GetDispatchInfo, SimpleDispatchInfo},
 };
 use frame_system::{self as system, ensure_root, ensure_signed};
-use pallet_identity_rpc_runtime_api::DidRecords as RpcDidRecords;
-use pallet_transaction_payment::{CddAndFeeDetails, ChargeTxFee};
-
-pub use polymesh_common_utilities::traits::identity::{IdentityTrait, Trait};
 
 pub type Event<T> = polymesh_common_utilities::traits::identity::Event<T>;
 

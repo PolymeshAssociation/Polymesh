@@ -2,17 +2,13 @@
 // `construct_runtime!` does a lot of recursion and requires us to increase the limit to 256.
 #![recursion_limit = "256"]
 
-pub mod asset;
 pub mod bridge;
 pub mod cdd_check;
 pub mod contracts_wrapper;
 pub mod dividend;
 pub mod exemption;
-pub mod general_tm;
 pub mod impls;
-pub mod percentage_tm;
 pub mod simple_token;
-pub mod statistics;
 pub mod sto_capped;
 pub mod voting;
 
@@ -35,6 +31,3 @@ parameter_types! {
     pub const AvailableBlockRatio: Perbill = Perbill::from_percent(75);
     pub const MaximumBlockLength: u32 = 5 * 1024 * 1024;
 }
-
-#[cfg(feature = "runtime-benchmarks")]
-pub mod benches;
