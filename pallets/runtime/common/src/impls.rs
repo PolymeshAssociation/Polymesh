@@ -409,7 +409,9 @@ mod tests {
                     Fixed64::default(),
                 );
                 let truth = fee_multiplier_update(i, Fixed64::default());
-                assert_eq_error_rate!(truth.into_inner(), next.into_inner(), 5);
+                //The error is a function of the MaximumBlockWeight
+                //In Polymesh we are reducing the MaximumBlockWeight, so we increase the error term
+                assert_eq_error_rate!(truth.into_inner(), next.into_inner(), 2000);
             });
         });
 
