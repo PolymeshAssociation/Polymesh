@@ -19,10 +19,7 @@ async function main() {
 
   let issuer_dids = await reqImports.createIdentities(api, master_keys, testEntities[0]);
   
-  await reqImports.blockTillPoolEmpty(api);
-  
   await reqImports.distributePolyBatch( api, master_keys, reqImports.transfer_amount, testEntities[0] );
-  await reqImports.blockTillPoolEmpty(api);
 
   await reqImports.addSigningKeys( api, master_keys, issuer_dids, signing_keys );
 
