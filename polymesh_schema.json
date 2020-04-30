@@ -290,7 +290,7 @@
         "ProposalData" : {
             "_enum": {
                 "Hash": "Hash",
-                "Proposal": "Call"
+                "Proposal": "Vec<u8>"
             }
         },
         "Referendum": {
