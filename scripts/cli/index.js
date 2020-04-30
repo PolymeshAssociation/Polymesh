@@ -187,8 +187,6 @@ async function main() {
 
   await addClaimsToDids(api, claim_keys, issuer_dids, claim_issuer_dids, init_bars[14], init_bars[15], fast);
 
-  // // All transactions subitted, wait for queue to empty
-  // await blockTillPoolEmpty(api);
   await new Promise(resolve => setTimeout(resolve, 3000));
   init_multibar.stop();
 
@@ -208,7 +206,7 @@ async function main() {
 
   console.log("Claims Batch Test");
 
-  //await addClaimsBatchToDid(api, claim_keys, claim_issuer_dids, 10);
+  await addClaimsBatchToDid(api, master_keys, issuer_dids, 10, fast);
 
   console.log("Claim Batch Test Completed");
   process.exit();
@@ -486,14 +484,19 @@ async function issueTokenPerDid(api, accounts, dids, prepend, submitBar, complet
 
  // Takes in a number for the amount of claims to be produces
 // then creates a batch of claims based on that number.
-async function addClaimsBatchToDid(api, accounts, claim_did, n_claims) {
+async function addClaimsBatchToDid(api, accounts, dids, n_claims, fast) {
 
+  if (!fast) {
     // Holds the batch of claims
     let claims = [];
 
-    // Stores the value of each claim
-    let claim_record = (claim_did[0], 0, null);
+    const asset_did = reqImports.tickerToDid(reqImports.ticker);
 
+    // Stores the value of each claim
+    let claim_record = {target: dids[0], 
+                        claim: { Whitelisted: asset_did },
+                        expiry: null};
+  
     // This fills the claims array with claim_values up to n_claims amount
     for (let i = 0; i < n_claims; i++) {
       claims.push( claim_record );
@@ -501,13 +504,10 @@ async function addClaimsBatchToDid(api, accounts, claim_did, n_claims) {
 
     console.log("Claims length: " + claims.length);
 
-    // Calls the add_claims_batch function in identity.rs
-    const unsub = await api.tx.identity
-      .addClaimsBatch(claims)
-      .signAndSend(accounts[0], { nonce: reqImports.nonces.get(accounts[0].address) });
-
-
-      //unsub();
+    let nonceObj = {nonce: reqImports.nonces.get(accounts[1].address)};
+    const transaction = api.tx.identity.addClaimsBatch(claims);
+    await reqImports.sendTransaction(transaction, accounts[1], nonceObj);  
+  }
 
 }
 
