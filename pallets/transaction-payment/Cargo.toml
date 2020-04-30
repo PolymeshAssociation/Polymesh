@@ -16,8 +16,8 @@ primitives = {package = "polymesh-primitives", default-features = false, path = 
 [dev-dependencies]
 sp-io = { package = "sp-io", git = "https://github.com/paritytech/substrate", rev = "a439a7aa5a9a3df2a42d9b25ea04288d3a0866e8" }
 sp-core = { package = "sp-core", git = "https://github.com/paritytech/substrate", rev = "a439a7aa5a9a3df2a42d9b25ea04288d3a0866e8" }
-pallet-balances = { package = "polymesh-runtime-balances", version = "0.1.0", path = "../balances" }
-polymesh-runtime-common = { package = "polymesh-runtime-common", version = "0.1.0", path = "../common" }
+pallet-balances = { package = "pallet-balances", version = "0.1.0", path = "../balances" }
+polymesh-common-utilities = { package = "polymesh-common-utilities", version = "0.1.0", path = "../common" }
 
 [features]
 default = ["std"]
