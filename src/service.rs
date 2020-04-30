@@ -67,6 +67,7 @@ pub trait RuntimeApiCollection<Extrinsic: codec::Codec + Send + Sync + 'static>:
     + pallet_pips_rpc_runtime_api::PipsApi<Block, AccountId, Balance>
     + pallet_identity_rpc_runtime_api::IdentityApi<Block, IdentityId, Ticker, AccountKey, SigningItem>
     + pallet_protocol_fee_rpc_runtime_api::ProtocolFeeApi<Block>
+    + pallet_asset_rpc_runtime_api::AssetApi<Block, AccountId, Balance>
 where
     Extrinsic: RuntimeExtrinsic,
     <Self as sp_api::ApiExt<Block>>::StateBackend: sp_api::StateBackend<BlakeTwo256>,
@@ -94,7 +95,8 @@ where
             Ticker,
             AccountKey,
             SigningItem,
-        > + pallet_protocol_fee_rpc_runtime_api::ProtocolFeeApi<Block>,
+        > + pallet_protocol_fee_rpc_runtime_api::ProtocolFeeApi<Block>
+        + pallet_asset_rpc_runtime_api::AssetApi<Block, AccountId, Balance>,
     Extrinsic: RuntimeExtrinsic,
     <Self as sp_api::ApiExt<Block>>::StateBackend: sp_api::StateBackend<BlakeTwo256>,
 {
@@ -169,11 +171,13 @@ macro_rules! new_full_start {
         })?
         .with_rpc_extensions(|builder| -> Result<RpcExtension, _> {
             use contracts_rpc::{Contracts, ContractsApi};
+            use pallet_asset_rpc::{Asset, AssetApi};
             use pallet_identity_rpc::{Identity, IdentityApi};
             use pallet_pips_rpc::{Pips, PipsApi};
             use pallet_protocol_fee_rpc::{ProtocolFee, ProtocolFeeApi};
             use pallet_staking_rpc::{Staking, StakingApi};
             use pallet_transaction_payment_rpc::{TransactionPayment, TransactionPaymentApi};
+
             // register contracts RPC extension
             let mut io = jsonrpc_core::IoHandler::default();
             io.extend_with(ContractsApi::to_delegate(Contracts::new(
@@ -192,6 +196,8 @@ macro_rules! new_full_start {
             io.extend_with(ProtocolFeeApi::to_delegate(ProtocolFee::new(
                 builder.client().clone(),
             )));
+            io.extend_with(AssetApi::to_delegate(Asset::new(builder.client().clone())));
+
             Ok(io)
         })?;
 

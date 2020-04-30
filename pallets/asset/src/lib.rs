@@ -75,14 +75,18 @@
 //! - `get_balance_at` - It provides the balance of a DID at a certain checkpoint.
 //! - `verify_restriction` - It is use to verify the restriction implied by the smart extension and the generalTM.
 //! - `call_extension` - A helper function that is used to call the smart extension function.
-
-use crate::{general_tm, percentage_tm, statistics};
+#![cfg_attr(not(feature = "std"), no_std)]
+#![recursion_limit = "256"]
+#[cfg(feature = "runtime-benchmarks")]
+pub mod benchmarking;
 
 use pallet_identity as identity;
+use pallet_statistics as statistics;
 use polymesh_common_utilities::{
-    asset::AcceptTransfer,
+    asset::{AcceptTransfer, Trait as AssetTrait},
     balances::Trait as BalancesTrait,
     constants::*,
+    general_tm::Trait as GeneralTmTrait,
     identity::Trait as IdentityTrait,
     protocol_fee::{ChargeProtocolFee, ProtocolOp},
     CommonTrait, Context,
@@ -97,7 +101,7 @@ use codec::{Decode, Encode};
 use core::result::Result as StdResult;
 use currency::*;
 use frame_support::{
-    decl_error, decl_event, decl_module, decl_storage,
+    debug, decl_error, decl_event, decl_module, decl_storage,
     dispatch::DispatchResult,
     ensure,
     traits::Currency,
@@ -105,9 +109,8 @@ use frame_support::{
 };
 use frame_system::{self as system, ensure_signed};
 use hex_literal::hex;
-use pallet_contracts::ExecReturnValue;
-use pallet_contracts::Gas;
-use sp_runtime::traits::{CheckedAdd, CheckedSub, Verify};
+use pallet_contracts::{ExecReturnValue, Gas};
+use sp_runtime::traits::{CheckedAdd, CheckedSub, Saturating, Verify};
 
 #[cfg(feature = "std")]
 use sp_runtime::{Deserialize, Serialize};
@@ -116,16 +119,16 @@ use sp_std::{convert::TryFrom, prelude::*};
 /// The module's configuration trait.
 pub trait Trait:
     frame_system::Trait
-    + general_tm::Trait
-    + percentage_tm::Trait
     + BalancesTrait
     + IdentityTrait
+    + pallet_session::Trait
     + statistics::Trait
     + pallet_contracts::Trait
 {
     /// The overarching event type.
     type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
     type Currency: Currency<Self::AccountId>;
+    type GeneralTm: GeneralTmTrait<Self::Balance>;
 }
 
 /// The type of an asset represented by a token.
@@ -913,9 +916,7 @@ decl_module! {
             <statistics::Module<T>>::update_transfer_stats(&ticker, Some(updated_burner_balance), None, value);
 
             Self::deposit_event(RawEvent::Redeemed(ticker, did, value));
-
             Ok(())
-
         }
 
         /// Used to redeem the security tokens by some other DID who has approval.
@@ -1059,31 +1060,30 @@ decl_module! {
         /// * `value` Amount of the tokens.
         /// * `data` Off chain data blob to validate the transfer.
         #[weight = SimpleDispatchInfo::FixedNormal(300_000)]
-        pub fn can_transfer(origin, ticker: Ticker, from_did: IdentityId, to_did: IdentityId, value: T::Balance, data: Vec<u8>) {
+        pub fn can_transfer(
+                origin,
+                ticker: Ticker,
+                from_did: IdentityId,
+                to_did: IdentityId,
+                value: T::Balance,
+                data: Vec<u8>) -> DispatchResult
+        {
             let sender = ensure_signed(origin)?;
-            let mut current_balance: T::Balance = Self::balance(&ticker, &from_did);
-            if current_balance < value {
-                current_balance = 0.into();
-            } else {
-                current_balance -= value;
-            }
-            if current_balance < Self::total_custody_allowance((ticker, from_did)) {
-                sp_runtime::print("Insufficient balance");
-                Self::deposit_event(RawEvent::CanTransfer(ticker, from_did, to_did, value, data, ERC1400_INSUFFICIENT_BALANCE as u32));
-            } else {
-                match Self::_is_valid_transfer(&ticker, sender, Some(from_did), Some(to_did), value) {
-                    Ok(code) =>
-                    {
-                        Self::deposit_event(RawEvent::CanTransfer(ticker, from_did, to_did, value, data, code as u32));
-                    },
-                    Err(msg) => {
-                        // We emit a generic error with the event whenever there's an internal issue - i.e. captured
-                        // in a string error and not using the status codes
-                        sp_runtime::print(msg);
-                        Self::deposit_event(RawEvent::CanTransfer(ticker, from_did, to_did, value, data, ERC1400_TRANSFER_FAILURE as u32));
-                    }
-                }
-            }
+
+            let transfer_result = Self::unsafe_can_transfer(sender, ticker, from_did, to_did, value);
+            let code: u32 = match transfer_result {
+                Ok(ref code) => *code as u32,
+                Err(ref err) => match err {
+                    (Error::InsufficientBalance,_msg) => ERC1400_INSUFFICIENT_BALANCE as u32,
+                    (_, _msg) => ERC1400_TRANSFER_FAILURE as u32,
+                },
+            };
+            let event = RawEvent::CanTransfer(ticker, from_did, to_did, value, data, code);
+            Self::deposit_event(event);
+
+            transfer_result
+                .map(|_code|{})
+                .map_err(|(err,_)| err.into())
         }
 
         /// An ERC1594 transfer with data
@@ -1696,19 +1696,6 @@ decl_error! {
     }
 }
 
-pub trait AssetTrait<V, U> {
-    fn total_supply(ticker: &Ticker) -> V;
-    fn balance(ticker: &Ticker, did: IdentityId) -> V;
-    fn _mint_from_sto(
-        ticker: &Ticker,
-        caller: U,
-        sender_did: IdentityId,
-        tokens_purchased: V,
-    ) -> DispatchResult;
-    fn is_owner(ticker: &Ticker, did: IdentityId) -> bool;
-    fn get_balance_at(ticker: &Ticker, did: IdentityId, at: u64) -> V;
-}
-
 impl<T: Trait> AssetTrait<T::Balance, T::AccountId> for Module<T> {
     fn _mint_from_sto(
         ticker: &Ticker,
@@ -1938,7 +1925,7 @@ impl<T: Trait> Module<T> {
     ) -> StdResult<u8, &'static str> {
         ensure!(!Self::frozen(ticker), Error::<T>::Frozen);
         let general_status_code =
-            <general_tm::Module<T>>::verify_restriction(ticker, from_did, to_did, value)?;
+            T::GeneralTm::verify_restriction(ticker, from_did, to_did, value)?;
         Ok(if general_status_code != ERC1400_TRANSFER_SUCCESS {
             general_status_code
         } else {
@@ -2385,5 +2372,33 @@ impl<T: Trait> Module<T> {
                 }
             }
         }
+    }
+
+    pub fn unsafe_can_transfer(
+        sender: T::AccountId,
+        ticker: Ticker,
+        from_did: IdentityId,
+        to_did: IdentityId,
+        amount: T::Balance,
+    ) -> StdResult<u8, (Error<T>, &'static str)> {
+        let new_from_balance = Self::balance(&ticker, &from_did).saturating_sub(amount);
+
+        if new_from_balance < Self::total_custody_allowance((ticker, from_did)) {
+            return Err((Error::<T>::InsufficientBalance, "Insufficient balance"));
+        }
+
+        Self::_is_valid_transfer(&ticker, sender, Some(from_did), Some(to_did), amount).map_err(
+            |msg| {
+                debug::error!(
+                    "Invalid transfer of ticker {:?} from {} to {} with amount {:?}: {}",
+                    ticker,
+                    from_did,
+                    to_did,
+                    amount,
+                    msg
+                );
+                (Error::InvalidTransfer, msg)
+            },
+        )
     }
 }
