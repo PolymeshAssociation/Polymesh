@@ -1,6 +1,5 @@
 use grandpa::AuthorityId as GrandpaId;
 use im_online::sr25519::AuthorityId as ImOnlineId;
-use pallet_treasury as treasury;
 use polymesh_common_utilities::{
     constants::currency::{MILLICENTS, POLY},
     protocol_fee::ProtocolOp,
@@ -9,9 +8,7 @@ use polymesh_primitives::{AccountId, AccountKey, IdentityId, PosRatio, Signatory
 use std::convert::TryFrom;
 
 use polymesh_runtime_common::asset::TickerRegistrationConfig;
-use polymesh_runtime_develop::{
-    self as general, config as GeneralConfig, constants::time as GeneralTime,
-};
+use polymesh_runtime_develop::{self as general, constants::time as GeneralTime};
 use polymesh_runtime_testnet_v1::{
     self as v1,
     config::{self as V1Config, GenesisConfig},
@@ -57,7 +54,7 @@ fn v1_session_keys(
     }
 }
 
-fn general_session_keys(
+fn _general_session_keys(
     grandpa: GrandpaId,
     babe: BabeId,
     im_online: ImOnlineId,
@@ -246,7 +243,6 @@ fn general_testnet_genesis(
                 .map(|k| (k, 1 << 55))
                 .collect(),
         }),
-        treasury: Some(v1::runtime::TreasuryConfig { balance: 0 }),
         pallet_indices: Some(V1Config::IndicesConfig { indices: vec![] }),
         pallet_sudo: Some(V1Config::SudoConfig { key: root_key }),
         pallet_session: Some(V1Config::SessionConfig {
@@ -598,7 +594,6 @@ fn v1_live_testnet_genesis() -> GenesisConfig {
                 .chain(initial_authorities.iter().map(|x| (x.0.clone(), STASH)))
                 .collect(),
         }),
-        treasury: Some(v1::runtime::TreasuryConfig { balance: 0 }),
         pallet_indices: Some(V1Config::IndicesConfig { indices: vec![] }),
         pallet_sudo: Some(V1Config::SudoConfig { key: root_key }),
         pallet_session: Some(V1Config::SessionConfig {
@@ -899,7 +894,6 @@ fn v1_testnet_genesis(
                 .chain(initial_authorities.iter().map(|x| (x.0.clone(), STASH)))
                 .collect(),
         }),
-        treasury: Some(v1::runtime::TreasuryConfig { balance: 0 }),
         pallet_indices: Some(V1Config::IndicesConfig { indices: vec![] }),
         pallet_sudo: Some(V1Config::SudoConfig { key: root_key }),
         pallet_session: Some(V1Config::SessionConfig {
