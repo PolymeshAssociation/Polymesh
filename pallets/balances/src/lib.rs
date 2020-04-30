@@ -16,7 +16,7 @@
 
 // Modified by Polymath Inc - 16th March 2020
 // Added ability to manage balances of identities with the balances module
-// In Polymesh, POLY balances can be held at either the identity or account level
+// In Polymesh, POLYX balances can be held at either the identity or account level
 // Implement `BlockRewardsReserveCurrency` trait in the balances module.
 // Remove migration functionality from the balances module as Polymesh doesn't needed
 // any migration data structure.
@@ -91,8 +91,8 @@
 //! ### Dispatchable Functions
 //!
 //! - `transfer` - Transfer some liquid free balance to another account.
-//! - `top_up_identity_balance` - Move some poly from balance of self to balance of an identity.
-//! - `reclaim_identity_balance` - Claim back poly from an identity. Can only be called by master key of the identity.
+//! - `top_up_identity_balance` - Move some POLYX from balance of self to balance of an identity.
+//! - `reclaim_identity_balance` - Claim back POLYX from an identity. Can only be called by master key of the identity.
 //! - `change_charge_did_flag` - Change setting that governs if user pays fee via their own balance or identity's balance.
 //! - `set_balance` - Set the balances of a given account. The origin of this call must be root.
 //!
@@ -160,14 +160,14 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use polymesh_primitives::{
-    traits::{BlockRewardsReserveCurrency, IdentityCurrency},
-    AccountKey, IdentityId, Permission, Signatory,
-};
-use polymesh_runtime_common::traits::{
+use polymesh_common_utilities::traits::{
     balances::{AccountData, BalancesTrait, CheckCdd, Memo, RawEvent, Reasons},
     identity::IdentityTrait,
     NegativeImbalance, PositiveImbalance,
+};
+use polymesh_primitives::{
+    traits::{BlockRewardsReserveCurrency, IdentityCurrency},
+    AccountKey, IdentityId, Permission, Signatory,
 };
 
 use codec::{Decode, Encode};
@@ -194,8 +194,8 @@ use sp_std::{
     cmp, convert::Infallible, convert::TryFrom, fmt::Debug, mem, prelude::*, result, vec,
 };
 
-pub use polymesh_runtime_common::traits::balances::Trait;
-pub type Event<T> = polymesh_runtime_common::traits::balances::Event<T>;
+pub use polymesh_common_utilities::traits::balances::Trait;
+pub type Event<T> = polymesh_common_utilities::traits::balances::Event<T>;
 
 decl_error! {
     pub enum Error for Module<T: Trait> {
@@ -329,7 +329,7 @@ decl_module! {
         }
 
         // Polymesh specific change
-        /// Move some poly from balance of self to balance of an identity.
+        /// Move some POLYX from balance of self to balance of an identity.
         /// no-op when,
         /// - value is zero
         ///
@@ -339,26 +339,22 @@ decl_module! {
             origin,
             did: IdentityId,
             #[compact] value: T::Balance
-        ) {
+        ) -> DispatchResult {
             if value.is_zero() { return Ok(()) }
+
             let transactor = ensure_signed(origin)?;
-            match <Self as Currency<_>>::withdraw(
+            let _ = <Self as Currency<_>>::withdraw(
                 &transactor,
                 value,
                 WithdrawReason::TransactionPayment.into(),
                 ExistenceRequirement::KeepAlive,
-            ) {
-                Ok(_) => {
-                    let new_balance = Self::identity_balance(&did) + value;
-                    <IdentityBalance<T>>::insert(did, new_balance);
-                    return Ok(())
-                },
-                Err(err) => return Err(err),
-            };
+            )?;
+            Self::unsafe_top_up_identity_balance(&did, value);
+            Ok(())
         }
 
         // Polymesh specific change
-        /// Claim back poly from an identity. Can only be called by master key of the identity.
+        /// Claim back POLYX from an identity. Can only be called by master key of the identity.
         /// no-op when,
         /// - value is zero
         ///
@@ -393,7 +389,7 @@ decl_module! {
         }
 
         // Polymesh specific change
-        /// Move some poly from balance of self to balance of BRR.
+        /// Move some POLYX from balance of self to balance of BRR.
         #[weight = SimpleDispatchInfo::FixedNormal(1_000_000)]
         pub fn top_up_brr_balance(
             origin,
@@ -484,6 +480,12 @@ decl_module! {
 
 impl<T: Trait> Module<T> {
     // PRIVATE MUTABLES
+
+    /// It tops up the identity balance.
+    pub fn unsafe_top_up_identity_balance(did: &IdentityId, value: T::Balance) {
+        let new_balance = Self::identity_balance(did).saturating_add(value);
+        <IdentityBalance<T>>::insert(did, new_balance);
+    }
 
     /// Get the free balance of an account.
     pub fn free_balance(who: impl sp_std::borrow::Borrow<T::AccountId>) -> T::Balance {
@@ -1035,17 +1037,6 @@ where
             Ok(PositiveImbalance::new(value))
         } else {
             Err(Error::<T>::Overflow)?
-        }
-    }
-
-    fn resolve_into_existing_identity(
-        who: &IdentityId,
-        value: Self::NegativeImbalance,
-    ) -> result::Result<(), Self::NegativeImbalance> {
-        let v = value.peek();
-        match Self::deposit_into_existing_identity(who, v) {
-            Ok(opposite) => Ok(drop(value.offset(opposite))),
-            _ => Err(value),
         }
     }
 }

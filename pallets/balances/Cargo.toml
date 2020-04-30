@@ -1,11 +1,11 @@
 [package]
-name = "polymesh-runtime-balances"
+name = "pallet-balances"
 version = "0.1.0"
 authors = ["Polymath"]
 edition = "2018"
 
 [dependencies]
-polymesh-runtime-common = { package = "polymesh-runtime-common", path = "../common", default-features = false }
+polymesh-common-utilities = { package = "polymesh-common-utilities", path = "../common", default-features = false }
 polymesh-primitives = { package = "polymesh-primitives", path = "../../primitives", default-features = false }
 pallet-transaction-payment = { package = "pallet-transaction-payment", path = "../transaction-payment", default-features = false }
 
@@ -46,7 +46,7 @@ std = [
 	"frame-system/std",
 	"frame-support/std",
 	"pallet-timestamp/std",
-	"polymesh-runtime-common/std",
+	"polymesh-common-utilities/std",
 	"polymesh-primitives/std",
 	"pallet-transaction-payment/std"
 ]

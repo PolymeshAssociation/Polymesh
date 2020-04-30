@@ -2,8 +2,8 @@ use crate::*;
 use frame_benchmarking::{account, benchmarks};
 use frame_support::traits::Currency;
 use frame_system::RawOrigin;
+use pallet_balances as balances;
 use polymesh_primitives::{AccountKey, Claim, IdentityId, SigningItem};
-use polymesh_runtime_balances as balances;
 use sp_std::{iter, prelude::*};
 
 const SEED: u32 = 0;
