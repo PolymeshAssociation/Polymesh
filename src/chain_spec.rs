@@ -286,7 +286,7 @@ fn general_testnet_genesis(
         }),
         pallet_pips: Some(V1Config::PipsConfig {
             prune_historical_pips: false,
-            min_proposal_deposit: 5000,
+            min_proposal_deposit: 5_000 * POLY,
             quorum_threshold: 100_000,
             proposal_duration: 50,
             proposal_cool_off_period: GeneralTime::HOURS * 6,
@@ -629,7 +629,7 @@ fn v1_live_testnet_genesis() -> GenesisConfig {
         }),
         pallet_pips: Some(V1Config::PipsConfig {
             prune_historical_pips: false,
-            min_proposal_deposit: 5_000_000_000,
+            min_proposal_deposit: 5_000 * POLY,
             quorum_threshold: 100_000_000_000,
             proposal_duration: V1Time::DAYS * 7,
             proposal_cool_off_period: V1Time::HOURS * 6,
@@ -932,7 +932,7 @@ fn v1_testnet_genesis(
         }),
         pallet_pips: Some(V1Config::PipsConfig {
             prune_historical_pips: false,
-            min_proposal_deposit: 5000,
+            min_proposal_deposit: 5_000 * POLY,
             quorum_threshold: 100_000,
             proposal_duration: 50,
             proposal_cool_off_period: V1Time::HOURS * 6,
