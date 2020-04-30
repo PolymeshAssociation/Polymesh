@@ -5,7 +5,6 @@ use pallet_committee as committee;
 use pallet_group as group;
 use pallet_identity as identity;
 use pallet_pips as pips;
-use pallet_treasury as treasury;
 use polymesh_common_utilities::{protocol_fee::ProtocolOp, traits::identity::LinkedKeyInfo};
 use polymesh_primitives::{AccountKey, Identity, IdentityId, PosRatio};
 use polymesh_runtime_common::asset::{self, TickerRegistrationConfig};
@@ -73,7 +72,6 @@ pub struct ExtBuilder {
     governance_committee_vote_threshold: BuilderVoteThreshold,
     protocol_base_fees: MockProtocolBaseFees,
     protocol_coefficient: PosRatio,
-    treasury_balance: u128,
 }
 
 thread_local! {
@@ -84,12 +82,6 @@ thread_local! {
 }
 
 impl ExtBuilder {
-    /// Initial amount of the treasury.
-    pub fn treasury(mut self, amount: u128) -> Self {
-        self.treasury_balance = amount;
-        self
-    }
-
     pub fn transaction_fees(mut self, base_fee: u128, byte_fee: u128, weight_fee: u128) -> Self {
         self.transaction_base_fee = base_fee;
         self.transaction_byte_fee = byte_fee;
@@ -331,12 +323,6 @@ impl ExtBuilder {
             proposal_duration: 10,
             proposal_cool_off_period: 100,
             default_enactment_period: 100,
-        }
-        .assimilate_storage(&mut storage)
-        .unwrap();
-
-        treasury::GenesisConfig::<TestStorage> {
-            balance: self.treasury_balance,
         }
         .assimilate_storage(&mut storage)
         .unwrap();
