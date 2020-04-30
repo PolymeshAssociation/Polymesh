@@ -1,26 +1,31 @@
+use pallet_asset as asset;
+use pallet_balances as balances;
+use pallet_committee as committee;
+use pallet_general_tm as general_tm;
+use pallet_group as group;
+use pallet_identity as identity;
+use pallet_multisig as multisig;
+use pallet_percentage_tm as percentage_tm;
+use pallet_pips as pips;
+use pallet_protocol_fee as protocol_fee;
+use pallet_statistics as statistics;
+use pallet_treasury as treasury;
+use polymesh_common_utilities::traits::{
+    asset::AcceptTransfer, balances::AccountData, group::GroupTrait,
+    identity::Trait as IdentityTrait, multisig::AddSignerMultiSig, CommonTrait,
+};
+use polymesh_primitives::{AccountKey, AuthorizationData, IdentityId, Signatory};
+use polymesh_runtime_common::{
+    bridge, cdd_check::CddChecker, dividend, exemption, simple_token, voting,
+};
+
 use codec::Encode;
 use frame_support::{
     assert_ok, dispatch::DispatchResult, impl_outer_dispatch, impl_outer_event, impl_outer_origin,
     parameter_types, traits::Currency, weights::DispatchInfo,
 };
 use frame_system::{self as system};
-use pallet_balances as balances;
-use pallet_committee as committee;
-use pallet_group as group;
-use pallet_identity as identity;
-use pallet_multisig as multisig;
-use pallet_pips as pips;
-use pallet_protocol_fee as protocol_fee;
-use pallet_treasury as treasury;
-use polymesh_common_utilities::traits::{
-    asset::AcceptTransfer, balances::AccountData, group::GroupTrait, multisig::AddSignerMultiSig,
-    CommonTrait,
-};
-use polymesh_primitives::{AccountKey, AuthorizationData, IdentityId, Signatory};
-use polymesh_runtime_common::{
-    asset, bridge, cdd_check::CddChecker, dividend, exemption, general_tm, percentage_tm,
-    simple_token, statistics, voting,
-};
+
 use sp_core::{
     crypto::{key_types, Pair as PairTrait},
     sr25519::{Pair, Public},
@@ -33,7 +38,6 @@ use sp_runtime::{
     transaction_validity::{InvalidTransaction, TransactionValidity, ValidTransaction},
     AnySignature, KeyTypeId, Perbill,
 };
-
 use std::{cell::RefCell, convert::TryFrom};
 use test_client::AccountKeyring;
 
@@ -266,7 +270,7 @@ impl committee::Trait<committee::DefaultInstance> for TestStorage {
     type MotionDuration = MotionDuration;
 }
 
-impl identity::Trait for TestStorage {
+impl IdentityTrait for TestStorage {
     type Event = Event;
     type Proposal = Call;
     type AddSignerMultiSigTarget = TestStorage;
@@ -344,6 +348,8 @@ impl statistics::Trait for TestStorage {}
 
 impl percentage_tm::Trait for TestStorage {
     type Event = Event;
+    type Asset = asset::Module<TestStorage>;
+    type Exemption = exemption::Module<TestStorage>;
 }
 
 impl general_tm::Trait for TestStorage {
@@ -360,6 +366,7 @@ impl protocol_fee::Trait for TestStorage {
 impl asset::Trait for TestStorage {
     type Event = Event;
     type Currency = balances::Module<TestStorage>;
+    type GeneralTm = general_tm::Module<TestStorage>;
 }
 
 parameter_types! {

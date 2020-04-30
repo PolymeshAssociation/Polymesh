@@ -10,7 +10,7 @@ use super::{
 use polymesh_common_utilities::{
     traits::{
         group::GroupTrait,
-        identity::{SigningItemWithAuth, TargetIdAuthorization},
+        identity::{SigningItemWithAuth, TargetIdAuthorization, Trait as IdentityTrait},
     },
     SystematicIssuers,
 };
@@ -35,7 +35,7 @@ type System = frame_system::Module<TestStorage>;
 type Timestamp = pallet_timestamp::Module<TestStorage>;
 
 type Origin = <TestStorage as frame_system::Trait>::Origin;
-type CddServiceProviders = <TestStorage as identity::Trait>::CddServiceProviders;
+type CddServiceProviders = <TestStorage as IdentityTrait>::CddServiceProviders;
 
 // Identity Test Helper functions
 // =======================================
@@ -74,7 +74,7 @@ fn add_claims_batch_test() {
 fn add_claims_batch() {
     let alice_did = register_keyring_account(AccountKeyring::Alice).unwrap();
     let bob_issuer = AccountKeyring::Bob.public();
-    let bob_did = register_keyring_account(AccountKeyring::Bob).unwrap();
+    let _bob_did = register_keyring_account(AccountKeyring::Bob).unwrap();
     let cdd_claim_issuer = AccountKeyring::Eve.public();
     let cdd_claim_did = get_identity_id(AccountKeyring::Eve).unwrap();
 

@@ -2,24 +2,25 @@ use super::{
     storage::{make_account, TestStorage},
     ExtBuilder,
 };
-use chrono::{prelude::*, Duration};
-use frame_support::assert_ok;
-use frame_support::traits::Currency;
-use frame_system::ensure_signed;
+
 use polymesh_common_utilities::traits::CommonTrait;
-use test_client::{self, AccountKeyring};
-
-use pallet_balances as balances;
 use polymesh_primitives::Ticker;
-
 use polymesh_runtime_common::{
-    asset::{self, AssetType, SecurityToken},
     dividend::{self, Dividend},
-    general_tm,
     simple_token::{self, SimpleTokenRecord},
 };
 
+use pallet_asset::{self as asset, AssetType, SecurityToken};
+use pallet_balances as balances;
+use pallet_general_tm as general_tm;
+
+use frame_support::{assert_ok, traits::Currency};
+use frame_system::ensure_signed;
+
+use chrono::{prelude::*, Duration};
 use lazy_static::lazy_static;
+use test_client::{self, AccountKeyring};
+
 use std::{
     collections::HashMap,
     convert::TryFrom,

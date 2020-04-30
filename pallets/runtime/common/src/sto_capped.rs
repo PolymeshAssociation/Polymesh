@@ -27,15 +27,14 @@
 //! - `pause_sto` - Used to pause the STO of a given token
 //! - `unpause_sto` - Used to un pause the STO of a given token.
 
-use crate::{
-    asset::AssetTrait,
-    general_tm,
-    simple_token::{self, SimpleTokenTrait},
-};
+use crate::simple_token::{self, SimpleTokenTrait};
 
 use pallet_balances as balances;
+use pallet_general_tm as general_tm;
 use pallet_identity as identity;
-use polymesh_common_utilities::{balances::Trait as BalancesTrait, CommonTrait, Context};
+use polymesh_common_utilities::{
+    asset::Trait as AssetTrait, balances::Trait as BalancesTrait, CommonTrait, Context,
+};
 use polymesh_primitives::{AccountKey, IdentityId, Signatory, Ticker};
 
 use codec::Encode;
