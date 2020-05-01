@@ -32,9 +32,6 @@ fn reimbursement_and_disbursement_we() {
     let alice_acc = Origin::signed(AccountKeyring::Alice.public());
     let bob = register_keyring_account(AccountKeyring::Bob).unwrap();
 
-    // Registering did for treasury module. Done in genesis block automatically on live networks.
-    Identity::cdd_register_did(alice_acc.clone(), Treasury::account_id(), None, vec![]);
-
     let total_issuance = Balances::total_issuance();
 
     // Verify reimburstement.
