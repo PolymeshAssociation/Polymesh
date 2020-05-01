@@ -8,8 +8,8 @@ use polymesh_runtime_common::{
     cdd_check::CddChecker,
     contracts_wrapper, dividend, exemption,
     impls::{Author, CurrencyToVoteHandler, LinearWeightToFee, TargetedFeeAdjustment},
-    simple_token, sto_capped, voting, AvailableBlockRatio, BlockHashCount, MaximumBlockLength,
-    MaximumBlockWeight, NegativeImbalance,
+    merge_active_and_inactive, simple_token, sto_capped, voting, AvailableBlockRatio,
+    BlockHashCount, MaximumBlockLength, MaximumBlockWeight, NegativeImbalance,
 };
 
 use pallet_asset as asset;
@@ -23,6 +23,7 @@ use pallet_percentage_tm as percentage_tm;
 use pallet_protocol_fee as protocol_fee;
 use pallet_statistics as statistics;
 use pallet_treasury as treasury;
+
 use polymesh_common_utilities::{
     constants::currency::*,
     protocol_fee::ProtocolOp,
@@ -48,7 +49,7 @@ use sp_runtime::{
         Verify,
     },
     transaction_validity::TransactionValidity,
-    ApplyExtrinsicResult, MultiSignature, Perbill, Percent, Permill,
+    ApplyExtrinsicResult, MultiSignature, Perbill,
 };
 use sp_std::prelude::*;
 use sp_version::RuntimeVersion;
@@ -922,6 +923,20 @@ impl_runtime_apis! {
         {
             Asset::unsafe_can_transfer(sender, ticker, from_did, to_did, value)
                 .map_err(|(_code, msg)| msg.as_bytes().to_vec())
+        }
+    }
+
+    impl pallet_group_rpc_runtime_api::GroupApi<Block> for Runtime {
+        fn get_cdd_valid_members() -> Vec<pallet_group_rpc_runtime_api::Member> {
+            merge_active_and_inactive::<Block>(
+                CddServiceProviders::active_members(),
+                CddServiceProviders::inactive_members())
+        }
+
+        fn get_gc_valid_members() -> Vec<pallet_group_rpc_runtime_api::Member> {
+            merge_active_and_inactive::<Block>(
+                CommitteeMembership::active_members(),
+                CommitteeMembership::inactive_members())
         }
     }
 

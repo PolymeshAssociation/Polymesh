@@ -16,8 +16,7 @@ use sc_client::{self, Client, LongestChain};
 pub use sc_client_api::backend::Backend;
 use sc_consensus_babe;
 use sc_executor::native_executor_instance;
-pub use sc_executor::NativeExecutionDispatch;
-pub use sc_executor::NativeExecutor;
+pub use sc_executor::{NativeExecutionDispatch, NativeExecutor};
 pub use sc_service::{
     config::{full_version_from_strs, DatabaseConfig, PrometheusConfig},
     error::Error as ServiceError,
@@ -29,7 +28,7 @@ pub use sp_api::{ConstructRuntimeApi, Core as CoreApi, ProvideRuntimeApi, StateB
 pub use sp_consensus::SelectChain;
 use sp_inherents::InherentDataProviders;
 pub use sp_runtime::traits::BlakeTwo256;
-use std::sync::Arc;
+use std::{convert::From, sync::Arc};
 
 pub type Configuration =
     sc_service::Configuration<polymesh_runtime_testnet_v1::config::GenesisConfig>;
@@ -68,6 +67,7 @@ pub trait RuntimeApiCollection<Extrinsic: codec::Codec + Send + Sync + 'static>:
     + pallet_identity_rpc_runtime_api::IdentityApi<Block, IdentityId, Ticker, AccountKey, SigningItem>
     + pallet_protocol_fee_rpc_runtime_api::ProtocolFeeApi<Block>
     + pallet_asset_rpc_runtime_api::AssetApi<Block, AccountId, Balance>
+    + pallet_group_rpc_runtime_api::GroupApi<Block>
 where
     Extrinsic: RuntimeExtrinsic,
     <Self as sp_api::ApiExt<Block>>::StateBackend: sp_api::StateBackend<BlakeTwo256>,
@@ -96,7 +96,8 @@ where
             AccountKey,
             SigningItem,
         > + pallet_protocol_fee_rpc_runtime_api::ProtocolFeeApi<Block>
-        + pallet_asset_rpc_runtime_api::AssetApi<Block, AccountId, Balance>,
+        + pallet_asset_rpc_runtime_api::AssetApi<Block, AccountId, Balance>
+        + pallet_group_rpc_runtime_api::GroupApi<Block>,
     Extrinsic: RuntimeExtrinsic,
     <Self as sp_api::ApiExt<Block>>::StateBackend: sp_api::StateBackend<BlakeTwo256>,
 {
@@ -172,6 +173,7 @@ macro_rules! new_full_start {
         .with_rpc_extensions(|builder| -> Result<RpcExtension, _> {
             use contracts_rpc::{Contracts, ContractsApi};
             use pallet_asset_rpc::{Asset, AssetApi};
+            use pallet_group_rpc::{Group, GroupApi};
             use pallet_identity_rpc::{Identity, IdentityApi};
             use pallet_pips_rpc::{Pips, PipsApi};
             use pallet_protocol_fee_rpc::{ProtocolFee, ProtocolFeeApi};
@@ -197,6 +199,7 @@ macro_rules! new_full_start {
                 builder.client().clone(),
             )));
             io.extend_with(AssetApi::to_delegate(Asset::new(builder.client().clone())));
+            io.extend_with(GroupApi::to_delegate(Group::from(builder.client().clone())));
 
             Ok(io)
         })?;

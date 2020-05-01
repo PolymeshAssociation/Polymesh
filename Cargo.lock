@@ -3169,6 +3169,7 @@ version = "0.1.0"
 dependencies = [
  "frame-support",
  "frame-system",
+ "pallet-group-rpc-runtime-api",
  "pallet-identity",
  "pallet-timestamp",
  "parity-scale-codec",
@@ -3183,6 +3184,40 @@ dependencies = [
  "sp-std",
  "sp-version",
  "substrate-test-runtime-client",
+]
+
+[[package]]
+name = "pallet-group-rpc"
+version = "2.0.0"
+dependencies = [
+ "jsonrpc-core",
+ "jsonrpc-core-client",
+ "jsonrpc-derive",
+ "pallet-group-rpc-runtime-api",
+ "parity-scale-codec",
+ "polymesh-primitives",
+ "serde",
+ "sp-api",
+ "sp-blockchain",
+ "sp-rpc",
+ "sp-runtime",
+ "sp-std",
+ "substrate-test-runtime-client",
+]
+
+[[package]]
+name = "pallet-group-rpc-runtime-api"
+version = "2.0.0"
+dependencies = [
+ "frame-support",
+ "parity-scale-codec",
+ "polymesh-common-utilities",
+ "polymesh-primitives",
+ "serde",
+ "serde_json",
+ "sp-api",
+ "sp-runtime",
+ "sp-std",
 ]
 
 [[package]]
@@ -3979,6 +4014,8 @@ dependencies = [
  "pallet-contracts",
  "pallet-contracts-rpc",
  "pallet-contracts-rpc-runtime-api",
+ "pallet-group-rpc",
+ "pallet-group-rpc-runtime-api",
  "pallet-identity-rpc",
  "pallet-identity-rpc-runtime-api",
  "pallet-im-online",
@@ -4094,6 +4131,7 @@ dependencies = [
  "pallet-contracts",
  "pallet-general-tm",
  "pallet-group",
+ "pallet-group-rpc-runtime-api",
  "pallet-identity",
  "pallet-multisig",
  "pallet-percentage-tm",
@@ -4149,6 +4187,7 @@ dependencies = [
  "pallet-general-tm",
  "pallet-grandpa",
  "pallet-group",
+ "pallet-group-rpc-runtime-api",
  "pallet-identity",
  "pallet-identity-rpc-runtime-api",
  "pallet-im-online",
@@ -4229,6 +4268,7 @@ dependencies = [
  "pallet-general-tm",
  "pallet-grandpa",
  "pallet-group",
+ "pallet-group-rpc-runtime-api",
  "pallet-identity",
  "pallet-identity-rpc-runtime-api",
  "pallet-im-online",
