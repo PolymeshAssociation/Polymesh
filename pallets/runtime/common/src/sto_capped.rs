@@ -8,7 +8,7 @@
 //!
 //! - Launching a STO for a given asset
 //! - Buy asset from a STO
-//! - Pause/Unpause feature of the STO.
+//! - Pause/Un-pause feature of the STO.
 //!
 //! ### Terminology
 //!
@@ -27,15 +27,14 @@
 //! - `pause_sto` - Used to pause the STO of a given token
 //! - `unpause_sto` - Used to un pause the STO of a given token.
 
-use crate::{
-    asset::AssetTrait,
-    general_tm,
-    simple_token::{self, SimpleTokenTrait},
-};
+use crate::simple_token::{self, SimpleTokenTrait};
 
 use pallet_balances as balances;
+use pallet_general_tm as general_tm;
 use pallet_identity as identity;
-use polymesh_common_utilities::{balances::Trait as BalancesTrait, CommonTrait, Context};
+use polymesh_common_utilities::{
+    asset::Trait as AssetTrait, balances::Trait as BalancesTrait, CommonTrait, Context,
+};
 use polymesh_primitives::{AccountKey, IdentityId, Signatory, Ticker};
 
 use codec::Encode;
@@ -108,7 +107,7 @@ decl_error! {
         SenderMustBeSigningKeyForDid,
         /// The sender is not a token owner.
         NotAnOwner,
-        /// Prevalidation checks failed.
+        /// Pre-validation checks failed.
         PrevalidationFailed,
         /// Insufficient sender balance.
         InsufficientBalance,
@@ -227,7 +226,6 @@ decl_module! {
         ///
         /// # Arguments
         /// * `origin` Signing key of the investor
-        /// * `did` DID of the investor
         /// * `ticker` Ticker of the token
         /// * `sto_id` A unique identifier to know which STO investor wants to invest in
         /// * `value` Amount of POLYX wants to invest in
@@ -509,7 +507,7 @@ impl<T: Trait> Module<T> {
         selected_sto: STO<T::Balance, T::Moment>,
     ) -> DispatchResult {
         // TODO: Validate that buyer is whitelisted for primary issuance.
-        // Check whether the sto is unpaused or not
+        // Check whether the sto is un-paused or not
         ensure!(selected_sto.active, Error::<T>::Paused);
         // Check whether the sto is already ended
         let now = <pallet_timestamp::Module<T>>::get();

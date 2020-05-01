@@ -29,11 +29,10 @@
 //! - `add_ballot` - Creates a ballot.
 //! - `vote` - Casts a vote.
 //! - `cancel_ballot` - Cancels an existing ballot.
-
-use crate::asset::{self, AssetTrait};
-
+use pallet_asset as asset;
 use pallet_identity as identity;
 use polymesh_common_utilities::{
+    asset::Trait as AssetTrait,
     identity::Trait as IdentityTrait,
     protocol_fee::{ChargeProtocolFee, ProtocolOp},
     CommonTrait, Context,
@@ -51,7 +50,7 @@ use sp_std::{convert::TryFrom, prelude::*, vec};
 /// The module's configuration trait.
 pub trait Trait: pallet_timestamp::Trait + frame_system::Trait + IdentityTrait {
     type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
-    type Asset: asset::AssetTrait<Self::Balance, Self::AccountId>;
+    type Asset: AssetTrait<Self::Balance, Self::AccountId>;
 }
 
 /// A wrapper for a motion title.

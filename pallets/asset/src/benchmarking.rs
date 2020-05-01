@@ -1,11 +1,12 @@
-use crate::asset::*;
+use crate::*;
+use pallet_balances as balances;
+use pallet_identity as identity;
+use polymesh_primitives::{AccountKey, AuthorizationData, IdentityId, Signatory, Ticker};
+
 use codec::Encode;
 use frame_benchmarking::{account, benchmarks};
 use frame_support::{traits::Currency, StorageValue};
 use frame_system::RawOrigin;
-use pallet_balances as balances;
-use pallet_identity as identity;
-use polymesh_primitives::{AccountKey, AuthorizationData, IdentityId, Signatory, Ticker};
 use sp_std::{convert::TryFrom, iter, prelude::*};
 
 const SEED: u32 = 0;
