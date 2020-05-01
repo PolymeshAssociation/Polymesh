@@ -350,7 +350,7 @@ decl_module! {
         /// Proposes a bridge transaction, which amounts to making a multisig proposal for the
         /// bridge transaction if the transaction is new or approving an existing proposal if the
         /// transaction has already been proposed.
-        #[weight = SimpleDispatchInfo::FixedNormal(1_000_000)]
+        #[weight = SimpleDispatchInfo::FixedOperational(50_000)]
         pub fn propose_bridge_tx(origin, bridge_tx: BridgeTx<T::AccountId, T::Balance>) ->
             DispatchResult
         {
@@ -366,7 +366,7 @@ decl_module! {
         }
 
         /// Handles an approved bridge transaction proposal.
-        #[weight = SimpleDispatchInfo::FixedNormal(750_000)]
+        #[weight = SimpleDispatchInfo::FixedOperational(75_000)]
         pub fn handle_bridge_tx(origin, bridge_tx: BridgeTx<T::AccountId, T::Balance>) ->
             DispatchResult
         {
@@ -413,9 +413,9 @@ decl_module! {
             |(bridge_txs,): (
                 &Vec<BridgeTx<T::AccountId, T::Balance>>,
             )| {
-                50_000 + 200_000 * u32::try_from(bridge_txs.len()).unwrap_or_default()
+                50_000 + 2_000 * u32::try_from(bridge_txs.len()).unwrap_or_default()
             },
-            DispatchClass::Normal,
+            DispatchClass::Operational,
             true
         )]
         pub fn freeze_txs(origin, bridge_txs: Vec<BridgeTx<T::AccountId, T::Balance>>) ->
@@ -440,9 +440,9 @@ decl_module! {
             |(bridge_txs,): (
                 &Vec<BridgeTx<T::AccountId, T::Balance>>,
             )| {
-                50_000 + 700_000 * u32::try_from(bridge_txs.len()).unwrap_or_default()
+                50_000 + 2_000 * u32::try_from(bridge_txs.len()).unwrap_or_default()
             },
-            DispatchClass::Normal,
+            DispatchClass::Operational,
             true
         )]
         pub fn unfreeze_txs(origin, bridge_txs: Vec<BridgeTx<T::AccountId, T::Balance>>) ->

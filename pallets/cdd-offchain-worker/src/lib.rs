@@ -95,7 +95,7 @@ decl_module! {
         /// It's important to specify `weight` for unsigned calls as well, because even though
         /// they don't charge fees, we still don't want a single block to contain unlimited
         /// number of such transactions.
-        #[weight = SimpleDispatchInfo::FixedNormal(10_000_000)]
+        #[weight = SimpleDispatchInfo::FixedOperational(10_000_000)]
         fn take_off_invalidate_nominators(origin, _block_number: T::BlockNumber, target: Vec<T::AccountId>, _signature: <T::SignerId as RuntimeAppPublic>::Signature) -> DispatchResult {
             // This is an unsigned transaction so origin should be none
             ensure_none(origin)?;

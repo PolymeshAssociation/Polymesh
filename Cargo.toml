@@ -43,7 +43,7 @@ members = [
     "pallets/asset",
     "pallets/asset/rpc",
     "pallets/asset/rpc/runtime-api",
-    "pallets/general-tm",
+    "pallets/compliance-manager",
     "pallets/statistics",
     "pallets/percentage-tm",
 ]
