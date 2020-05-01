@@ -7,10 +7,9 @@ use pallet_balances as balances;
 use pallet_group::{self as group};
 use pallet_identity::{self as identity, BatchAddClaimItem};
 use polymesh_primitives::{Claim, IdentityId, Rule, RuleType, Scope, Ticker};
-use polymesh_runtime_common::{
-    asset::{self as asset, AssetType, Error as AssetError, SecurityToken, TokenName},
-    compliance_manager::{self as compliance_manager, AssetTransferRule, Error as GTMError},
-};
+
+use pallet_asset::{self as asset, AssetType, Error as AssetError, SecurityToken, TokenName};
+use pallet_compliance_manager::{self as compliance_manager, AssetTransferRule, Error as CMError};
 
 use chrono::prelude::Utc;
 use frame_support::{assert_err, assert_ok, traits::Currency};
@@ -374,7 +373,7 @@ fn should_successfully_add_and_use_default_issuers_we() {
             ticker,
             IdentityId::from(1)
         ),
-        GTMError::<TestStorage>::DidNotExist
+        CMError::<TestStorage>::DidNotExist
     );
 
     assert_ok!(ComplianceManager::add_default_trusted_claim_issuer(
@@ -497,7 +496,7 @@ fn should_modify_vector_of_trusted_issuer_we() {
             ticker,
             vec![trusted_issuer_did_1, trusted_issuer_did_2]
         ),
-        GTMError::<TestStorage>::Unauthorized
+        CMError::<TestStorage>::Unauthorized
     );
 
     // Failed because trusted issuer identity not exist
@@ -507,7 +506,7 @@ fn should_modify_vector_of_trusted_issuer_we() {
             ticker,
             vec![IdentityId::from(1), IdentityId::from(2)]
         ),
-        GTMError::<TestStorage>::DidNotExist
+        CMError::<TestStorage>::DidNotExist
     );
 
     // Failed because trusted issuers length < 0
@@ -517,7 +516,7 @@ fn should_modify_vector_of_trusted_issuer_we() {
             ticker,
             vec![]
         ),
-        GTMError::<TestStorage>::InvalidLength
+        CMError::<TestStorage>::InvalidLength
     );
 
     assert_ok!(ComplianceManager::add_default_trusted_claim_issuers_batch(
@@ -641,7 +640,7 @@ fn should_modify_vector_of_trusted_issuer_we() {
     // Failed because sender is not the owner of the ticker
     assert_err!(
         ComplianceManager::change_asset_rule(receiver_signed.clone(), ticker, asset_rule.clone()),
-        GTMError::<TestStorage>::Unauthorized
+        CMError::<TestStorage>::Unauthorized
     );
 
     let asset_rule_failure = AssetTransferRule {
@@ -657,7 +656,7 @@ fn should_modify_vector_of_trusted_issuer_we() {
             ticker,
             asset_rule_failure.clone()
         ),
-        GTMError::<TestStorage>::InvalidRuleId
+        CMError::<TestStorage>::InvalidRuleId
     );
 
     // Should successfully change the asset rule
@@ -807,13 +806,13 @@ fn scope_asset_rules_we() {
 }
 
 #[test]
-fn gtm_test_case_9() {
+fn cm_test_case_9() {
     ExtBuilder::default()
         .build()
-        .execute_with(gtm_test_case_9_we);
+        .execute_with(cm_test_case_9_we);
 }
 /// Is any of: KYC’d, Affiliate, Accredited, Whitelisted
-fn gtm_test_case_9_we() {
+fn cm_test_case_9_we() {
     // 0. Create accounts
     let owner = Origin::signed(AccountKeyring::Alice.public());
     let issuer = Origin::signed(AccountKeyring::Bob.public());
@@ -873,14 +872,14 @@ fn gtm_test_case_9_we() {
 }
 
 #[test]
-fn gtm_test_case_11() {
+fn cm_test_case_11() {
     ExtBuilder::default()
         .build()
-        .execute_with(gtm_test_case_11_we);
+        .execute_with(cm_test_case_11_we);
 }
 
 // Is any of: KYC’d, Affiliate, Accredited, Whitelisted, is none of: Jurisdiction=x, y, z,
-fn gtm_test_case_11_we() {
+fn cm_test_case_11_we() {
     // 0. Create accounts
     let owner = Origin::signed(AccountKeyring::Alice.public());
     let issuer = Origin::signed(AccountKeyring::Bob.public());
@@ -964,14 +963,14 @@ fn gtm_test_case_11_we() {
 }
 
 #[test]
-fn gtm_test_case_13() {
+fn cm_test_case_13() {
     ExtBuilder::default()
         .build()
-        .execute_with(gtm_test_case_13_we);
+        .execute_with(cm_test_case_13_we);
 }
 
 // Must be KYC’d, is any of: Affiliate, Whitelisted, Accredited, is none of: Jurisdiction=x, y, z, etc.
-fn gtm_test_case_13_we() {
+fn cm_test_case_13_we() {
     // 0. Create accounts
     let owner = Origin::signed(AccountKeyring::Alice.public());
     let issuer = Origin::signed(AccountKeyring::Bob.public());

@@ -18,6 +18,7 @@ use polymesh_common_utilities::traits::{
     asset::AcceptTransfer,
     balances::{AccountData, CheckCdd},
     group::{GroupTrait, InactiveMember},
+    identity::Trait as IdentityTrait,
     multisig::AddSignerMultiSig,
     CommonTrait,
 };
@@ -258,7 +259,7 @@ impl protocol_fee::Trait for Test {
     type OnProtocolFeePayment = ();
 }
 
-impl identity::Trait for Test {
+impl IdentityTrait for Test {
     type Event = ();
     type Proposal = Call;
     type AddSignerMultiSigTarget = Test;

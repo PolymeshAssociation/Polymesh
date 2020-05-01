@@ -2,13 +2,12 @@ use super::{
     storage::{register_keyring_account, TestStorage},
     ExtBuilder,
 };
+use pallet_asset::{self as asset, IdentifierType, SecurityToken};
+use pallet_compliance_manager as compliance_manager;
+use pallet_statistics as statistics;
+use polymesh_primitives::Ticker;
 
 use frame_support::assert_ok;
-use polymesh_primitives::Ticker;
-use polymesh_runtime_common::{
-    asset::{self, IdentifierType, SecurityToken},
-    compliance_manager, statistics,
-};
 use sp_std::convert::TryFrom;
 use test_client::AccountKeyring;
 

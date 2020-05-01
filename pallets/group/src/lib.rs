@@ -67,13 +67,8 @@ pub use polymesh_common_utilities::{
 use polymesh_primitives::{AccountKey, IdentityId};
 
 use frame_support::{
-    codec::Encode,
-    decl_error, decl_module, decl_storage,
-    dispatch::DispatchResult,
-    ensure,
-    traits::{ChangeMembers, InitializeMembers},
-    weights::SimpleDispatchInfo,
-    StorageValue,
+    codec::Encode, decl_error, decl_module, decl_storage, dispatch::DispatchResult, ensure,
+    traits::ChangeMembers, weights::SimpleDispatchInfo, StorageValue,
 };
 use frame_system::{self as system, ensure_signed};
 use sp_runtime::traits::EnsureOrigin;
@@ -93,6 +88,8 @@ decl_storage! {
     add_extra_genesis {
         config(phantom): sp_std::marker::PhantomData<(T, I)>;
         build(|config: &Self| {
+            use frame_support::traits::InitializeMembers;
+
             let mut members = config.active_members.clone();
             members.sort();
             T::MembershipInitialized::initialize_members(&members);

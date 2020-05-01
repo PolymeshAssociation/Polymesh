@@ -1,14 +1,15 @@
 use crate::TestStorage;
 
+use polymesh_common_utilities::{protocol_fee::ProtocolOp, traits::identity::LinkedKeyInfo};
+use polymesh_primitives::{AccountKey, Identity, IdentityId, PosRatio};
+
+use pallet_asset::{self as asset, TickerRegistrationConfig};
 use pallet_balances as balances;
 use pallet_committee as committee;
 use pallet_group as group;
 use pallet_identity as identity;
 use pallet_pips as pips;
 use pallet_treasury as treasury;
-use polymesh_common_utilities::{protocol_fee::ProtocolOp, traits::identity::LinkedKeyInfo};
-use polymesh_primitives::{AccountKey, Identity, IdentityId, PosRatio};
-use polymesh_runtime_common::asset::{self, TickerRegistrationConfig};
 
 use sp_core::sr25519::Public;
 use sp_io::TestExternalities;
@@ -43,7 +44,7 @@ impl Default for MockProtocolBaseFees {
             ProtocolOp::AssetAddDocument,
             ProtocolOp::AssetCreateToken,
             ProtocolOp::DividendNew,
-            ProtocolOp::GeneralTmAddActiveRule,
+            ProtocolOp::ComplianceManagerAddActiveRule,
             ProtocolOp::IdentityRegisterDid,
             ProtocolOp::IdentityCddRegisterDid,
             ProtocolOp::IdentityAddClaim,
@@ -224,7 +225,7 @@ impl ExtBuilder {
             .build_storage::<TestStorage>()
             .unwrap();
 
-        let root = AccountKeyring::Alice.public();
+        let _root = AccountKeyring::Alice.public();
 
         // Create Identitys.
         let mut system_accounts = self

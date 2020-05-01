@@ -1,6 +1,6 @@
 use grandpa::AuthorityId as GrandpaId;
 use im_online::sr25519::AuthorityId as ImOnlineId;
-use pallet_treasury as treasury;
+use pallet_asset::TickerRegistrationConfig;
 use polymesh_common_utilities::{
     constants::currency::{MILLICENTS, POLY},
     protocol_fee::ProtocolOp,
@@ -8,10 +8,7 @@ use polymesh_common_utilities::{
 use polymesh_primitives::{AccountId, AccountKey, IdentityId, PosRatio, Signatory, Signature};
 use std::convert::TryFrom;
 
-use polymesh_runtime_common::asset::TickerRegistrationConfig;
-use polymesh_runtime_develop::{
-    self as general, config as GeneralConfig, constants::time as GeneralTime,
-};
+use polymesh_runtime_develop::{self as general, constants::time as GeneralTime};
 use polymesh_runtime_testnet_v1::{
     self as v1,
     config::{self as V1Config, GenesisConfig},

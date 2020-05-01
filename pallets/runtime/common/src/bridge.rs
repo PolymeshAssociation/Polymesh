@@ -14,8 +14,10 @@ use frame_system::{self as system, ensure_signed};
 use pallet_balances as balances;
 use pallet_identity as identity;
 use pallet_multisig as multisig;
-use polymesh_common_utilities::traits::{balances::CheckCdd, CommonTrait};
-use polymesh_common_utilities::Context;
+use polymesh_common_utilities::{
+    traits::{balances::CheckCdd, identity::Trait as IdentityTrait, CommonTrait},
+    Context,
+};
 
 use polymesh_primitives::{AccountKey, IdentityId, Signatory};
 use sp_core::H256;
@@ -24,7 +26,7 @@ use sp_std::{convert::TryFrom, prelude::*};
 
 pub trait Trait: multisig::Trait {
     type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
-    type Proposal: From<Call<Self>> + Into<<Self as identity::Trait>::Proposal>;
+    type Proposal: From<Call<Self>> + Into<<Self as IdentityTrait>::Proposal>;
     /// The maximum number of timelocked bridge transactions that can be scheduled to be
     /// executed in a single block. Any excess bridge transactions are scheduled in later
     /// blocks.
