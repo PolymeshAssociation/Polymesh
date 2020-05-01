@@ -117,7 +117,7 @@ async function main() {
   claim_keys = await reqImports.generateKeys(api, n_accounts, "claim");
 
   // Amount to seed each key with
-  let transfer_amount = 10 * 10**12;
+  let transfer_amount = 25000 * 10**6;
   updateStorageSize(STORAGE_DIR);
 
   // Execute each stats collection stage

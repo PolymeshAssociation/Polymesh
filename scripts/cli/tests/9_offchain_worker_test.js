@@ -60,7 +60,7 @@ async function main() {
 
 
 async function getValidCddProvider(api, alice) {
-    let transfer_amount = new BN(1000).mul(new BN(10).pow(new BN(12)));
+    let transfer_amount = new BN(1000).mul(new BN(10).pow(new BN(6)));
     // Fetch the cdd providers key and provide them right fuel to spent for
     // cdd creation
     let service_providers = await api.query.cddServiceProviders.activeMembers();
@@ -111,9 +111,9 @@ async function getExpiries(api, length) {
 }
 
 async function addNominator(api, controller, stash, from, validator) {
-    let transfer_amount = new BN(1).mul(new BN(10).pow(new BN(12)));
+    let transfer_amount = new BN(1).mul(new BN(10).pow(new BN(6)));
     let operators = [validator[0].address, validator[1].address];
-    let bond_amount = new BN(3).mul(new BN(10).pow(new BN(12)));
+    let bond_amount = new BN(3).mul(new BN(10).pow(new BN(6)));
 
     // bond nominator first
     for (let i = 0; i < stash.length; i++) {
