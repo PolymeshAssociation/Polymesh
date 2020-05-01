@@ -1,6 +1,6 @@
 use pallet_identity as identity;
 use pallet_multisig as multisig;
-use polymesh_common_utilities::traits::balances::CheckCdd;
+use polymesh_common_utilities::traits::{balances::CheckCdd, identity::Trait as IdentityTrait};
 use polymesh_primitives::{AccountKey, IdentityId};
 
 use codec::Encode;
@@ -11,7 +11,7 @@ pub struct CddChecker<R>(sp_std::marker::PhantomData<R>);
 
 impl<R> CheckCdd for CddChecker<R>
 where
-    R: identity::Trait + multisig::Trait,
+    R: IdentityTrait + multisig::Trait,
 {
     fn check_key_cdd(key: &AccountKey) -> bool {
         Self::get_key_cdd_did(key).is_some()

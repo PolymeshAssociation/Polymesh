@@ -42,13 +42,15 @@
 //! ### Public Functions
 //!
 //! - `verify_restriction` - Checks if a transfer is a valid transfer and returns the result
-
-use crate::asset::{self, AssetTrait};
+#![cfg_attr(not(feature = "std"), no_std)]
+#![recursion_limit = "256"]
 
 use pallet_identity as identity;
 use polymesh_common_utilities::{
+    asset::Trait as AssetTrait,
     balances::Trait as BalancesTrait,
     constants::*,
+    general_tm::Trait as GeneralTmTrait,
     identity::Trait as IdentityTrait,
     protocol_fee::{ChargeProtocolFee, ProtocolOp},
     Context,
@@ -79,7 +81,7 @@ pub trait Trait:
     type Event: From<Event> + Into<<Self as frame_system::Trait>::Event>;
 
     /// Asset module
-    type Asset: asset::AssetTrait<Self::Balance, Self::AccountId>;
+    type Asset: AssetTrait<Self::Balance, Self::AccountId>;
 }
 
 /// An asset rule.
@@ -431,43 +433,6 @@ impl<T: Trait> Module<T> {
         })
     }
 
-    ///  Sender restriction verification
-    pub fn verify_restriction(
-        ticker: &Ticker,
-        from_did_opt: Option<IdentityId>,
-        to_did_opt: Option<IdentityId>,
-        _value: T::Balance,
-    ) -> StdResult<u8, &'static str> {
-        // Transfer is valid if ALL receiver AND sender rules of ANY asset rule are valid.
-        let asset_rules = Self::asset_rules(ticker);
-        if asset_rules.is_paused {
-            return Ok(ERC1400_TRANSFER_SUCCESS);
-        }
-
-        for active_rule in asset_rules.rules {
-            let mut rule_broken = false;
-
-            if let Some(from_did) = from_did_opt {
-                rule_broken = Self::is_any_rule_broken(ticker, from_did, active_rule.sender_rules);
-                if rule_broken {
-                    // Skips checking receiver rules because sender rules are not satisfied.
-                    continue;
-                }
-            }
-
-            if let Some(to_did) = to_did_opt {
-                rule_broken = Self::is_any_rule_broken(ticker, to_did, active_rule.receiver_rules)
-            }
-
-            if !rule_broken {
-                return Ok(ERC1400_TRANSFER_SUCCESS);
-            }
-        }
-
-        sp_runtime::print("Identity TM restrictions not satisfied");
-        Ok(ERC1400_TRANSFER_FAILURE)
-    }
-
     pub fn pause_resume_rules(origin: T::Origin, ticker: Ticker, pause: bool) -> DispatchResult {
         let sender_key = AccountKey::try_from(ensure_signed(origin)?.encode())?;
         let did = Context::current_identity_or::<Identity<T>>(&sender_key)?;
@@ -579,5 +544,44 @@ impl<T: Trait> Module<T> {
             true => Self::asset_rules(ticker).rules[length - 1].rule_id,
             false => 0u32,
         }
+    }
+}
+
+impl<T: Trait> GeneralTmTrait<T::Balance> for Module<T> {
+    ///  Sender restriction verification
+    fn verify_restriction(
+        ticker: &Ticker,
+        from_did_opt: Option<IdentityId>,
+        to_did_opt: Option<IdentityId>,
+        _value: T::Balance,
+    ) -> StdResult<u8, &'static str> {
+        // Transfer is valid if ALL receiver AND sender rules of ANY asset rule are valid.
+        let asset_rules = Self::asset_rules(ticker);
+        if asset_rules.is_paused {
+            return Ok(ERC1400_TRANSFER_SUCCESS);
+        }
+
+        for active_rule in asset_rules.rules {
+            let mut rule_broken = false;
+
+            if let Some(from_did) = from_did_opt {
+                rule_broken = Self::is_any_rule_broken(ticker, from_did, active_rule.sender_rules);
+                if rule_broken {
+                    // Skips checking receiver rules because sender rules are not satisfied.
+                    continue;
+                }
+            }
+
+            if let Some(to_did) = to_did_opt {
+                rule_broken = Self::is_any_rule_broken(ticker, to_did, active_rule.receiver_rules)
+            }
+
+            if !rule_broken {
+                return Ok(ERC1400_TRANSFER_SUCCESS);
+            }
+        }
+
+        sp_runtime::print("Identity TM restrictions not satisfied");
+        Ok(ERC1400_TRANSFER_FAILURE)
     }
 }

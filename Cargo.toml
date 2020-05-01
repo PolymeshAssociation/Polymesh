@@ -39,14 +39,30 @@ members = [
     "pallets/protocol-fee/rpc",
     "pallets/protocol-fee/rpc/runtime-api",
     "pallets/treasury",
+    "pallets/cdd-offchain-worker",
+    "pallets/asset",
+    "pallets/asset/rpc",
+    "pallets/asset/rpc/runtime-api",
+    "pallets/general-tm",
+    "pallets/statistics",
+    "pallets/percentage-tm",
 ]
 
 [dependencies]
+# Common
 polymesh-primitives = { path = "primitives" }
 polymesh-common-utilities = { package = "polymesh-common-utilities", path = "pallets/common", default-features = false }
 polymesh-runtime-common = { package = "polymesh-runtime-common", path = "pallets/runtime/common", default-features = false }
+
+# Runtimes
 polymesh-runtime-develop = { package = "polymesh-runtime-develop", path = "pallets/runtime/develop" }
 polymesh-runtime-testnet-v1 = { package = "polymesh-runtime-testnet-v1", path = "pallets/runtime/testnet-v1" }
+
+# Out pallets
+pallet-asset = { package = "pallet-asset", path = "pallets/asset", default-features = false }
+pallet-treasury = { package = "pallet-treasury", path = "pallets/treasury", default-features = false }
+
+# RPC
 pallet-transaction-payment-rpc = { package = "pallet-transaction-payment-rpc", path = "pallets/transaction-payment/rpc", default-features = false }
 pallet-transaction-payment-rpc-runtime-api = { package = "pallet-transaction-payment-rpc-runtime-api", path = "pallets/transaction-payment/rpc/runtime-api", default-features = false }
 pallet-protocol-fee-rpc-runtime-api = { package = "pallet-protocol-fee-rpc-runtime-api", path = "pallets/protocol-fee/rpc/runtime-api", default-features = false }
@@ -60,8 +76,10 @@ pallet-identity-rpc-runtime-api = { package = "pallet-identity-rpc-runtime-api",
 im-online = { package = "pallet-im-online", path = "pallets/im-online", default-features = false }
 pallet-protocol-fee = { package = "pallet-protocol-fee", path = "pallets/protocol-fee", default-features = false }
 pallet-protocol-fee-rpc = { package = "pallet-protocol-fee-rpc", path = "pallets/protocol-fee/rpc", default-features = false }
-pallet-treasury = { package = "pallet-treasury", path = "pallets/treasury", default-features = false }
+pallet-asset-rpc = { package = "pallet-asset-rpc", path = "pallets/asset/rpc", default-features = false }
+pallet-asset-rpc-runtime-api = { package = "pallet-asset-rpc-runtime-api", path = "pallets/asset/rpc/runtime-api", default-features = false }
 
+# Others
 parking_lot = "0.10.0"
 tokio = "0.2.13"
 ctrlc = { version = "3.1.4", features = ["termination"] }
@@ -75,6 +93,7 @@ structopt = "0.3.12"
 chrono = { version = "0.4.11", default-features = false }
 linregress = { version = "0.1", optional = true }
 
+# Substrate
 codec = { version = "1.2.0", package = "parity-scale-codec" }
 frame-benchmarking = { package = "frame-benchmarking", git = "https://github.com/paritytech/substrate", rev = "a439a7aa5a9a3df2a42d9b25ea04288d3a0866e8" }
 sc-rpc = { git = "https://github.com/paritytech/substrate", rev = "a439a7aa5a9a3df2a42d9b25ea04288d3a0866e8" }

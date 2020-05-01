@@ -1,15 +1,12 @@
 [package]
-name = "polymesh-common-utilities"
+name = "pallet-statistics"
 version = "0.1.0"
 authors = ["Polymath"]
 edition = "2018"
 
 [dependencies]
-# Common
 polymesh-primitives = { package = "polymesh-primitives", path = "../../primitives", default-features = false }
-
-# Our Pallets
-pallet-transaction-payment = { package = "pallet-transaction-payment", path = "../transaction-payment", default-features = false  }
+polymesh-common-utilities = { package = "polymesh-common-utilities", path = "../common", default-features = false }
 
 # Other
 serde = { version = "1.0.104", default-features = false }
@@ -54,5 +51,4 @@ std = [
 	"pallet-timestamp/std",
 	"polymesh-primitives/std",
 	"pallet-session/std",
-	"pallet-transaction-payment/std"
 ]
