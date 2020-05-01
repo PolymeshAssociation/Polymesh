@@ -47,7 +47,7 @@ async function createIdentities(api, accounts, alice) {
         const d = await api.query.identity.keyToIdentityIds(accounts[i].publicKey);
         dids.push(d.raw.asUnique);
       }
-      let did_balance = 10 * 10**12;
+      let did_balance = 1000 * 10**6;
       for (let i = 0; i < dids.length; i++) {
         let nonceObjTwo = {nonce: reqImports.nonces.get(alice.address)};
         const transactionTwo = api.tx.balances.topUpIdentityBalance(dids[i], did_balance);

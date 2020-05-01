@@ -138,7 +138,7 @@ decl_module! {
         /// # Arguments
         /// * `origin` Origin representing `AddOrigin` or root
         /// * `who` IdentityId to be added to the group.
-        #[weight = SimpleDispatchInfo::FixedNormal(50_000)]
+        #[weight = SimpleDispatchInfo::FixedOperational(500_000)]
         pub fn add_member(origin, who: IdentityId) {
             T::AddOrigin::try_origin(origin).map_err(|_| Error::<T, I>::BadOrigin)?;
 
@@ -162,7 +162,7 @@ decl_module! {
         /// # Arguments
         /// * `origin` Origin representing `RemoveOrigin` or root
         /// * `who` IdentityId to be removed from the group.
-        #[weight = SimpleDispatchInfo::FixedNormal(50_000)]
+        #[weight = SimpleDispatchInfo::FixedOperational(500_000)]
         pub fn remove_member(origin, who: IdentityId) -> DispatchResult {
             T::RemoveOrigin::try_origin(origin).map_err(|_| Error::<T, I>::BadOrigin)?;
             Self::unsafe_remove_member(who)
@@ -175,7 +175,7 @@ decl_module! {
         /// * `origin` Origin representing `SwapOrigin` or root
         /// * `remove` IdentityId to be removed from the group.
         /// * `add` IdentityId to be added in place of `remove`.
-        #[weight = SimpleDispatchInfo::FixedNormal(50_000)]
+        #[weight = SimpleDispatchInfo::FixedOperational(500_000)]
         pub fn swap_member(origin, remove: IdentityId, add: IdentityId) {
             T::SwapOrigin::try_origin(origin).map_err(|_| Error::<T, I>::BadOrigin)?;
 
@@ -203,7 +203,7 @@ decl_module! {
         /// # Arguments
         /// * `origin` Origin representing `ResetOrigin` or root
         /// * `members` New set of identities
-        #[weight = SimpleDispatchInfo::FixedNormal(50_000)]
+        #[weight = SimpleDispatchInfo::FixedOperational(500_000)]
         pub fn reset_members(origin, members: Vec<IdentityId>) {
             T::ResetOrigin::try_origin(origin).map_err(|_| Error::<T, I>::BadOrigin)?;
 
@@ -226,7 +226,7 @@ decl_module! {
         /// # Error
         /// * Only master key can abdicate.
         /// * Last member of a group
-        #[weight = SimpleDispatchInfo::FixedOperational(100_000)]
+        #[weight = SimpleDispatchInfo::FixedOperational(500_000)]
         pub fn abdicate_membership(origin) -> DispatchResult {
             let who = AccountKey::try_from(ensure_signed(origin)?.encode())?;
             let remove_id = Context::current_identity_or::<Identity<T>>(&who)?;
@@ -253,7 +253,7 @@ decl_module! {
         }
 
         /// Set the prime member. Must be a current member.
-        #[weight = SimpleDispatchInfo::FixedNormal(50_000)]
+        #[weight = SimpleDispatchInfo::FixedNormal(500_000)]
         fn set_prime(origin, who: IdentityId) {
             T::PrimeOrigin::try_origin(origin).map_err(|_| Error::<T, I>::BadOrigin)?;
             <ActiveMembers<I>>::get().binary_search(&who).ok().ok_or(Error::<T, I>::NoSuchMember)?;
@@ -262,7 +262,7 @@ decl_module! {
         }
 
         /// Remove the prime member if it exists.
-        #[weight = SimpleDispatchInfo::FixedNormal(50_000)]
+        #[weight = SimpleDispatchInfo::FixedNormal(500_000)]
         fn clear_prime(origin) {
             T::PrimeOrigin::try_origin(origin).map_err(|_| Error::<T, I>::BadOrigin)?;
             Prime::<I>::kill();

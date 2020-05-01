@@ -3,7 +3,7 @@ use super::{
     ExtBuilder,
 };
 use pallet_asset::{self as asset, AssetType, SecurityToken};
-use pallet_general_tm as general_tm;
+use pallet_compliance_manager as compliance_manager;
 use polymesh_primitives::Ticker;
 use polymesh_runtime_common::voting::{self, Ballot, Motion};
 
@@ -13,7 +13,7 @@ use std::convert::TryFrom;
 use test_client::AccountKeyring;
 
 type Asset = asset::Module<TestStorage>;
-type GeneralTM = general_tm::Module<TestStorage>;
+type ComplianceManager = compliance_manager::Module<TestStorage>;
 type Voting = voting::Module<TestStorage>;
 type Error = voting::Error<TestStorage>;
 
@@ -298,7 +298,7 @@ fn vote() {
         let receiver_rules = vec![];
 
         // Allow all transfers
-        assert_ok!(GeneralTM::add_active_rule(
+        assert_ok!(ComplianceManager::add_active_rule(
             token_owner_acc.clone(),
             ticker,
             sender_rules,

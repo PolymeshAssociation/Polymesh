@@ -158,7 +158,7 @@ async function main() {
     nonces.set(claim_keys[i].address, account_nonce);
   }
   // Amount to seed each key with
-  let transfer_amount = 10 * 10**12;
+  let transfer_amount = 25000 * 10**6;
   updateStorageSize(STORAGE_DIR);
 
   // Execute each stats collection stage

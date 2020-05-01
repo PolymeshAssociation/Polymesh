@@ -42,8 +42,8 @@ pub use imbalances::{NegativeImbalance, PositiveImbalance};
 
 pub mod asset;
 pub mod balances;
+pub mod compliance_manager;
 pub mod exemption;
-pub mod general_tm;
 pub mod governance_group;
 pub mod group;
 pub mod identity;
