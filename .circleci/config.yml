@@ -184,7 +184,7 @@ jobs:
             - "18:42:5f:ad:c2:b0:71:f0:c6:fe:27:0a:e6:48:5e:8c"
       - run:
           name: Deploy docs to gh-pages branch
-          command: gh-pages --message "[skip ci] Updates" -d dist --repo "git@github.com:JMoore96/polymesh-ghpages-test.git"
+          command: gh-pages --message "[skip ci] Updates" --dist target/doc --repo "git@github.com:JMoore96/polymesh-ghpages-test.git"
      
 workflows:
   version: 2
