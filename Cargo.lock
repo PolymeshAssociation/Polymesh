@@ -2825,6 +2825,79 @@ dependencies = [
 ]
 
 [[package]]
+name = "pallet-asset"
+version = "0.1.0"
+dependencies = [
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
+ "hex-literal",
+ "pallet-asset-rpc-runtime-api",
+ "pallet-balances 0.1.0",
+ "pallet-contracts",
+ "pallet-identity",
+ "pallet-protocol-fee",
+ "pallet-session",
+ "pallet-statistics",
+ "pallet-timestamp",
+ "parity-scale-codec",
+ "polymesh-common-utilities",
+ "polymesh-primitives",
+ "rustc-hex",
+ "serde",
+ "serde_derive",
+ "sp-api",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+ "sp-serializer",
+ "sp-std",
+ "sp-version",
+ "substrate-test-runtime-client",
+]
+
+[[package]]
+name = "pallet-asset-rpc"
+version = "0.1.0"
+dependencies = [
+ "frame-support",
+ "frame-system",
+ "jsonrpc-core",
+ "jsonrpc-core-client",
+ "jsonrpc-derive",
+ "pallet-asset-rpc-runtime-api",
+ "pallet-balances 0.1.0",
+ "parity-scale-codec",
+ "polymesh-common-utilities",
+ "polymesh-primitives",
+ "serde",
+ "serde_derive",
+ "sp-api",
+ "sp-blockchain",
+ "sp-core",
+ "sp-rpc",
+ "sp-runtime",
+ "sp-std",
+]
+
+[[package]]
+name = "pallet-asset-rpc-runtime-api"
+version = "0.1.0"
+dependencies = [
+ "frame-support",
+ "frame-system",
+ "pallet-balances 0.1.0",
+ "parity-scale-codec",
+ "polymesh-common-utilities",
+ "polymesh-primitives",
+ "serde",
+ "serde_json",
+ "sp-api",
+ "sp-core",
+ "sp-std",
+]
+
+[[package]]
 name = "pallet-authority-discovery"
 version = "2.0.0-alpha.3"
 source = "git+https://github.com/paritytech/substrate?rev=a439a7aa5a9a3df2a42d9b25ea04288d3a0866e8#a439a7aa5a9a3df2a42d9b25ea04288d3a0866e8"
@@ -3091,6 +3164,30 @@ dependencies = [
 ]
 
 [[package]]
+name = "pallet-general-tm"
+version = "0.1.0"
+dependencies = [
+ "frame-support",
+ "frame-system",
+ "pallet-identity",
+ "pallet-protocol-fee",
+ "pallet-timestamp",
+ "parity-scale-codec",
+ "polymesh-common-utilities",
+ "polymesh-primitives",
+ "serde",
+ "serde_derive",
+ "sp-api",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+ "sp-serializer",
+ "sp-std",
+ "sp-version",
+ "substrate-test-runtime-client",
+]
+
+[[package]]
 name = "pallet-grandpa"
 version = "2.0.0-alpha.3"
 source = "git+https://github.com/paritytech/substrate?rev=a439a7aa5a9a3df2a42d9b25ea04288d3a0866e8#a439a7aa5a9a3df2a42d9b25ea04288d3a0866e8"
@@ -3266,6 +3363,30 @@ dependencies = [
  "sp-runtime",
  "sp-staking",
  "sp-std",
+]
+
+[[package]]
+name = "pallet-percentage-tm"
+version = "0.1.0"
+dependencies = [
+ "frame-support",
+ "frame-system",
+ "pallet-asset",
+ "pallet-identity",
+ "pallet-session",
+ "pallet-timestamp",
+ "parity-scale-codec",
+ "polymesh-common-utilities",
+ "polymesh-primitives",
+ "serde",
+ "serde_derive",
+ "sp-api",
+ "sp-arithmetic",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+ "sp-std",
+ "substrate-test-runtime-client",
 ]
 
 [[package]]
@@ -3476,6 +3597,29 @@ dependencies = [
  "serde_json",
  "sp-api",
  "sp-runtime",
+]
+
+[[package]]
+name = "pallet-statistics"
+version = "0.1.0"
+dependencies = [
+ "frame-support",
+ "frame-system",
+ "lazy_static",
+ "pallet-session",
+ "pallet-timestamp",
+ "parity-scale-codec",
+ "polymesh-common-utilities",
+ "polymesh-primitives",
+ "serde",
+ "serde_derive",
+ "sp-api",
+ "sp-arithmetic",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+ "sp-std",
+ "substrate-test-runtime-client",
 ]
 
 [[package]]
@@ -3885,6 +4029,9 @@ dependencies = [
  "lazy_static",
  "linregress",
  "log",
+ "pallet-asset",
+ "pallet-asset-rpc",
+ "pallet-asset-rpc-runtime-api",
  "pallet-contracts",
  "pallet-contracts-rpc",
  "pallet-contracts-rpc-runtime-api",
@@ -3996,17 +4143,21 @@ dependencies = [
  "hex-literal",
  "ink_primitives",
  "lazy_static",
+ "pallet-asset",
  "pallet-authorship",
  "pallet-balances 0.1.0",
  "pallet-committee",
  "pallet-contracts",
+ "pallet-general-tm",
  "pallet-group",
  "pallet-identity",
  "pallet-multisig",
+ "pallet-percentage-tm",
  "pallet-pips",
  "pallet-protocol-fee",
  "pallet-randomness-collective-flip",
  "pallet-session",
+ "pallet-statistics",
  "pallet-timestamp",
  "pallet-transaction-payment",
  "pallet-treasury",
@@ -4039,6 +4190,8 @@ dependencies = [
  "ink_primitives",
  "lazy_static",
  "log",
+ "pallet-asset",
+ "pallet-asset-rpc-runtime-api",
  "pallet-authority-discovery",
  "pallet-authorship",
  "pallet-babe",
@@ -4052,6 +4205,7 @@ dependencies = [
  "pallet-elections",
  "pallet-elections-phragmen",
  "pallet-finality-tracker",
+ "pallet-general-tm",
  "pallet-grandpa",
  "pallet-group",
  "pallet-identity",
@@ -4061,6 +4215,7 @@ dependencies = [
  "pallet-membership",
  "pallet-multisig",
  "pallet-offences",
+ "pallet-percentage-tm",
  "pallet-pips",
  "pallet-pips-rpc-runtime-api",
  "pallet-protocol-fee",
@@ -4070,6 +4225,7 @@ dependencies = [
  "pallet-staking",
  "pallet-staking-reward-curve",
  "pallet-staking-rpc-runtime-api",
+ "pallet-statistics",
  "pallet-sudo",
  "pallet-timestamp",
  "pallet-transaction-payment",
@@ -4120,6 +4276,8 @@ dependencies = [
  "ink_primitives",
  "lazy_static",
  "log",
+ "pallet-asset",
+ "pallet-asset-rpc-runtime-api",
  "pallet-authority-discovery",
  "pallet-authorship",
  "pallet-babe",
@@ -4132,6 +4290,7 @@ dependencies = [
  "pallet-elections",
  "pallet-elections-phragmen",
  "pallet-finality-tracker",
+ "pallet-general-tm",
  "pallet-grandpa",
  "pallet-group",
  "pallet-identity",
@@ -4141,6 +4300,7 @@ dependencies = [
  "pallet-membership",
  "pallet-multisig",
  "pallet-offences",
+ "pallet-percentage-tm",
  "pallet-pips",
  "pallet-pips-rpc-runtime-api",
  "pallet-protocol-fee",
@@ -4150,6 +4310,7 @@ dependencies = [
  "pallet-staking",
  "pallet-staking-reward-curve",
  "pallet-staking-rpc-runtime-api",
+ "pallet-statistics",
  "pallet-sudo",
  "pallet-timestamp",
  "pallet-transaction-payment",

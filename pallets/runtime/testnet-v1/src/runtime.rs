@@ -4,23 +4,30 @@ use crate::{
     fee_details::CddHandler,
 };
 use polymesh_runtime_common::{
-    asset, bridge,
+    bridge,
     cdd_check::CddChecker,
-    contracts_wrapper, dividend, exemption, general_tm,
+    contracts_wrapper, dividend, exemption,
     impls::{Author, CurrencyToVoteHandler, LinearWeightToFee, TargetedFeeAdjustment},
-    percentage_tm, simple_token, statistics, sto_capped, voting, AvailableBlockRatio,
-    BlockHashCount, MaximumBlockLength, MaximumBlockWeight, NegativeImbalance,
+    simple_token, sto_capped, voting, AvailableBlockRatio, BlockHashCount, MaximumBlockLength,
+    MaximumBlockWeight, NegativeImbalance,
 };
 
+use pallet_asset as asset;
 use pallet_balances as balances;
 use pallet_committee as committee;
+use pallet_general_tm as general_tm;
 use pallet_group as group;
 use pallet_identity as identity;
 use pallet_multisig as multisig;
+use pallet_percentage_tm as percentage_tm;
 use pallet_protocol_fee as protocol_fee;
+use pallet_statistics as statistics;
 use pallet_treasury as treasury;
 use polymesh_common_utilities::{
-    constants::currency::*, protocol_fee::ProtocolOp, traits::balances::AccountData, CommonTrait,
+    constants::currency::*,
+    protocol_fee::ProtocolOp,
+    traits::{balances::AccountData, identity::Trait as IdentityTrait},
+    CommonTrait,
 };
 use polymesh_primitives::{
     AccountId, AccountIndex, AccountKey, Balance, BlockNumber, Hash, IdentityId, Index, Moment,
@@ -502,6 +509,7 @@ impl bridge::Trait for Runtime {
 impl asset::Trait for Runtime {
     type Event = Event;
     type Currency = Balances;
+    type GeneralTm = general_tm::Module<Runtime>;
 }
 
 impl simple_token::Trait for Runtime {
@@ -525,9 +533,11 @@ impl sto_capped::Trait for Runtime {
 
 impl percentage_tm::Trait for Runtime {
     type Event = Event;
+    type Asset = asset::Module<Runtime>;
+    type Exemption = exemption::Module<Runtime>;
 }
 
-impl identity::Trait for Runtime {
+impl IdentityTrait for Runtime {
     type Event = Event;
     type Proposal = Call;
     type AddSignerMultiSigTarget = MultiSig;
@@ -871,6 +881,20 @@ impl_runtime_apis! {
         /// Retrieve master key and signing keys for a given IdentityId
         fn get_did_records(did: IdentityId) -> DidRecords<AccountKey, SigningItem> {
             Identity::get_did_records(did)
+        }
+    }
+
+    impl pallet_asset_rpc_runtime_api::AssetApi<Block, AccountId, Balance> for Runtime {
+        #[inline]
+        fn can_transfer(
+            sender: AccountId,
+            ticker: Ticker,
+            from_did: IdentityId,
+            to_did: IdentityId,
+            value: Balance) -> pallet_asset_rpc_runtime_api::CanTransferResult
+        {
+            Asset::unsafe_can_transfer(sender, ticker, from_did, to_did, value)
+                .map_err(|(_code, msg)| msg.as_bytes().to_vec())
         }
     }
 

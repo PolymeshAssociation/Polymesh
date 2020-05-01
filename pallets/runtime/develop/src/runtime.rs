@@ -4,51 +4,62 @@ use crate::{
     fee_details::CddHandler,
 };
 use polymesh_runtime_common::{
-    asset, bridge,
+    bridge,
     cdd_check::CddChecker,
-    contracts_wrapper, dividend, exemption, general_tm,
+    contracts_wrapper, dividend, exemption,
     impls::{Author, CurrencyToVoteHandler, LinearWeightToFee, TargetedFeeAdjustment},
-    percentage_tm, simple_token, statistics, sto_capped, voting, AvailableBlockRatio,
-    BlockHashCount, MaximumBlockLength, MaximumBlockWeight, NegativeImbalance,
+    simple_token, sto_capped, voting, AvailableBlockRatio, BlockHashCount, MaximumBlockLength,
+    MaximumBlockWeight, NegativeImbalance,
 };
 
-use frame_support::{
-    construct_runtime, debug, parameter_types,
-    traits::{Randomness, SplitTwoWays},
-};
+use pallet_asset as asset;
 use pallet_balances as balances;
 use pallet_committee as committee;
+use pallet_general_tm as general_tm;
 use pallet_group as group;
 use pallet_identity as identity;
 use pallet_multisig as multisig;
+use pallet_percentage_tm as percentage_tm;
 use pallet_protocol_fee as protocol_fee;
+use pallet_statistics as statistics;
 use pallet_treasury as treasury;
 use polymesh_common_utilities::{
-    constants::currency::*, protocol_fee::ProtocolOp, traits::balances::AccountData, CommonTrait,
+    constants::currency::*,
+    protocol_fee::ProtocolOp,
+    traits::{balances::AccountData, identity::Trait as IdentityTrait},
+    CommonTrait,
 };
 use polymesh_primitives::{
     AccountId, AccountIndex, AccountKey, Balance, BlockNumber, Hash, IdentityId, Index, Moment,
     Signature, SigningItem, Ticker,
 };
+
 use sp_api::impl_runtime_apis;
-use sp_core::u32_trait::{_1, _2, _4};
-use sp_runtime::curve::PiecewiseLinear;
-use sp_runtime::transaction_validity::TransactionValidity;
-use sp_runtime::{
-    create_runtime_str, generic, impl_opaque_keys, ApplyExtrinsicResult, Perbill, Percent, Permill,
+use sp_core::{
+    u32_trait::{_1, _2, _4},
+    OpaqueMetadata,
 };
 use sp_runtime::{
+    create_runtime_str,
+    curve::PiecewiseLinear,
+    generic, impl_opaque_keys,
     traits::{
         BlakeTwo256, Block as BlockT, Extrinsic, OpaqueKeys, SaturatedConversion, StaticLookup,
         Verify,
     },
-    MultiSignature,
+    transaction_validity::TransactionValidity,
+    ApplyExtrinsicResult, MultiSignature, Perbill, Percent, Permill,
 };
 use sp_std::prelude::*;
 use sp_version::RuntimeVersion;
 
 // Comment in the favour of not using the Offchain worker
 //use pallet_cdd_offchain_worker::crypto::SignerId as CddOffchainWorkerId;
+use frame_support::{
+    construct_runtime, debug, parameter_types,
+    traits::{Randomness, SplitTwoWays},
+};
+
 use frame_system::offchain::TransactionSubmitter;
 use pallet_contracts_rpc_runtime_api::ContractExecResult;
 use pallet_grandpa::{fg_primitives, AuthorityList as GrandpaAuthorityList};
@@ -57,7 +68,6 @@ use pallet_im_online::sr25519::AuthorityId as ImOnlineId;
 use pallet_protocol_fee_rpc_runtime_api::CappedFee;
 use pallet_transaction_payment_rpc_runtime_api::RuntimeDispatchInfo;
 use sp_authority_discovery::AuthorityId as AuthorityDiscoveryId;
-use sp_core::OpaqueMetadata;
 use sp_inherents::{CheckInherentsResult, InherentData};
 #[cfg(feature = "std")]
 use sp_version::NativeVersion;
@@ -506,6 +516,7 @@ impl bridge::Trait for Runtime {
 impl asset::Trait for Runtime {
     type Event = Event;
     type Currency = Balances;
+    type GeneralTm = general_tm::Module<Runtime>;
 }
 
 impl simple_token::Trait for Runtime {
@@ -529,9 +540,11 @@ impl sto_capped::Trait for Runtime {
 
 impl percentage_tm::Trait for Runtime {
     type Event = Event;
+    type Asset = asset::Module<Runtime>;
+    type Exemption = exemption::Module<Runtime>;
 }
 
-impl identity::Trait for Runtime {
+impl IdentityTrait for Runtime {
     type Event = Event;
     type Proposal = Call;
     type AddSignerMultiSigTarget = MultiSig;
@@ -946,6 +959,20 @@ impl_runtime_apis! {
         /// Retrieve master key and signing keys for a given IdentityId
         fn get_did_records(did: IdentityId) -> DidRecords<AccountKey, SigningItem> {
             Identity::get_did_records(did)
+        }
+    }
+
+    impl pallet_asset_rpc_runtime_api::AssetApi<Block, AccountId, Balance> for Runtime {
+        #[inline]
+        fn can_transfer(
+            sender: AccountId,
+            ticker: Ticker,
+            from_did: IdentityId,
+            to_did: IdentityId,
+            value: Balance) -> pallet_asset_rpc_runtime_api::CanTransferResult
+        {
+            Asset::unsafe_can_transfer(sender, ticker, from_did, to_did, value)
+                .map_err(|(_code, msg)| msg.as_bytes().to_vec())
         }
     }
 
