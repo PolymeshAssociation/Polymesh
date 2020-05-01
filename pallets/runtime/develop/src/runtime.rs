@@ -8,8 +8,8 @@ use polymesh_runtime_common::{
     cdd_check::CddChecker,
     contracts_wrapper, dividend, exemption, general_tm,
     impls::{Author, CurrencyToVoteHandler, LinearWeightToFee, TargetedFeeAdjustment},
-    percentage_tm, simple_token, statistics, sto_capped, voting, AvailableBlockRatio,
-    BlockHashCount, MaximumBlockLength, MaximumBlockWeight, NegativeImbalance,
+    merge_active_and_inactive, percentage_tm, simple_token, statistics, sto_capped, voting,
+    AvailableBlockRatio, BlockHashCount, MaximumBlockLength, MaximumBlockWeight, NegativeImbalance,
 };
 
 use frame_support::{
@@ -23,6 +23,7 @@ use pallet_identity as identity;
 use pallet_multisig as multisig;
 use pallet_protocol_fee as protocol_fee;
 use pallet_treasury as treasury;
+
 use polymesh_common_utilities::{
     constants::currency::*, protocol_fee::ProtocolOp, traits::balances::AccountData, CommonTrait,
 };
@@ -946,6 +947,21 @@ impl_runtime_apis! {
         /// Retrieve master key and signing keys for a given IdentityId
         fn get_did_records(did: IdentityId) -> DidRecords<AccountKey, SigningItem> {
             Identity::get_did_records(did)
+        }
+    }
+
+
+    impl pallet_group_rpc_runtime_api::GroupApi<Block> for Runtime {
+        fn get_cdd_valid_members() -> Vec<pallet_group_rpc_runtime_api::Member> {
+            merge_active_and_inactive::<Block>(
+                CddServiceProviders::active_members(),
+                CddServiceProviders::inactive_members())
+        }
+
+        fn get_gc_valid_members() -> Vec<pallet_group_rpc_runtime_api::Member> {
+            merge_active_and_inactive::<Block>(
+                CommitteeMembership::active_members(),
+                CommitteeMembership::inactive_members())
         }
     }
 
