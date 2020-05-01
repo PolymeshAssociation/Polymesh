@@ -3106,48 +3106,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "pallet-democracy"
-version = "2.0.0-alpha.3"
-source = "git+https://github.com/paritytech/substrate?rev=a439a7aa5a9a3df2a42d9b25ea04288d3a0866e8#a439a7aa5a9a3df2a42d9b25ea04288d3a0866e8"
-dependencies = [
- "frame-support",
- "frame-system",
- "parity-scale-codec",
- "serde",
- "sp-io",
- "sp-runtime",
- "sp-std",
-]
-
-[[package]]
-name = "pallet-elections"
-version = "2.0.0-alpha.3"
-source = "git+https://github.com/paritytech/substrate?rev=a439a7aa5a9a3df2a42d9b25ea04288d3a0866e8#a439a7aa5a9a3df2a42d9b25ea04288d3a0866e8"
-dependencies = [
- "frame-support",
- "frame-system",
- "parity-scale-codec",
- "serde",
- "sp-core",
- "sp-io",
- "sp-runtime",
- "sp-std",
-]
-
-[[package]]
-name = "pallet-elections-phragmen"
-version = "2.0.0-alpha.3"
-source = "git+https://github.com/paritytech/substrate?rev=a439a7aa5a9a3df2a42d9b25ea04288d3a0866e8#a439a7aa5a9a3df2a42d9b25ea04288d3a0866e8"
-dependencies = [
- "frame-support",
- "frame-system",
- "parity-scale-codec",
- "sp-phragmen",
- "sp-runtime",
- "sp-std",
-]
-
-[[package]]
 name = "pallet-finality-tracker"
 version = "2.0.0-alpha.3"
 source = "git+https://github.com/paritytech/substrate?rev=a439a7aa5a9a3df2a42d9b25ea04288d3a0866e8#a439a7aa5a9a3df2a42d9b25ea04288d3a0866e8"
@@ -3315,20 +3273,6 @@ dependencies = [
  "sp-core",
  "sp-io",
  "sp-keyring",
- "sp-runtime",
- "sp-std",
-]
-
-[[package]]
-name = "pallet-membership"
-version = "2.0.0-alpha.3"
-source = "git+https://github.com/paritytech/substrate?rev=a439a7aa5a9a3df2a42d9b25ea04288d3a0866e8#a439a7aa5a9a3df2a42d9b25ea04288d3a0866e8"
-dependencies = [
- "frame-support",
- "frame-system",
- "parity-scale-codec",
- "serde",
- "sp-io",
  "sp-runtime",
  "sp-std",
 ]
@@ -4201,9 +4145,6 @@ dependencies = [
  "pallet-contracts",
  "pallet-contracts-primitives",
  "pallet-contracts-rpc-runtime-api",
- "pallet-democracy",
- "pallet-elections",
- "pallet-elections-phragmen",
  "pallet-finality-tracker",
  "pallet-general-tm",
  "pallet-grandpa",
@@ -4212,7 +4153,6 @@ dependencies = [
  "pallet-identity-rpc-runtime-api",
  "pallet-im-online",
  "pallet-indices",
- "pallet-membership",
  "pallet-multisig",
  "pallet-offences",
  "pallet-percentage-tm",
@@ -4250,7 +4190,6 @@ dependencies = [
  "sp-inherents",
  "sp-io",
  "sp-offchain",
- "sp-phragmen",
  "sp-runtime",
  "sp-serializer",
  "sp-session",
@@ -4286,9 +4225,6 @@ dependencies = [
  "pallet-contracts",
  "pallet-contracts-primitives",
  "pallet-contracts-rpc-runtime-api",
- "pallet-democracy",
- "pallet-elections",
- "pallet-elections-phragmen",
  "pallet-finality-tracker",
  "pallet-general-tm",
  "pallet-grandpa",
@@ -4297,7 +4233,6 @@ dependencies = [
  "pallet-identity-rpc-runtime-api",
  "pallet-im-online",
  "pallet-indices",
- "pallet-membership",
  "pallet-multisig",
  "pallet-offences",
  "pallet-percentage-tm",
