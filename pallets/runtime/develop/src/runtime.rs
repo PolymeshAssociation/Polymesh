@@ -174,8 +174,6 @@ impl pallet_indices::Trait for Runtime {
 
 parameter_types! {
     pub const ExistentialDeposit: Balance = 0u128;
-    pub const TransferFee: Balance = 1 * CENTS;
-    pub const CreationFee: Balance = 1 * CENTS;
 }
 
 /// Splits fees 80/20 between treasury and block author.
@@ -248,11 +246,6 @@ impl pallet_authorship::Trait for Runtime {
     type UncleGenerations = UncleGenerations;
     type FilterUncle = ();
     type EventHandler = (Staking, ImOnline);
-}
-
-parameter_types! {
-    pub const Period: BlockNumber = 10 * MINUTES;
-    pub const Offset: BlockNumber = 0;
 }
 
 impl_opaque_keys! {
@@ -367,15 +360,6 @@ impl pallet_pips::Trait for Runtime {
 }
 
 parameter_types! {
-    pub const LaunchPeriod: BlockNumber = 28 * 24 * 60 * MINUTES;
-    pub const VotingPeriod: BlockNumber = 28 * 24 * 60 * MINUTES;
-    pub const EmergencyVotingPeriod: BlockNumber = 3 * 24 * 60 * MINUTES;
-    pub const MinimumDeposit: Balance = 100 * DOLLARS;
-    pub const EnactmentPeriod: BlockNumber = 30 * 24 * 60 * MINUTES;
-    pub const CooloffPeriod: BlockNumber = 28 * 24 * 60 * MINUTES;
-}
-
-parameter_types! {
     pub const ContractTransactionBaseFee: Balance = 1 * CENTS;
     pub const ContractTransactionByteFee: Balance = 10 * MILLICENTS;
     pub const ContractFee: Balance = 1 * CENTS;
@@ -410,17 +394,6 @@ impl pallet_contracts::Trait for Runtime {
     type MaxDepth = pallet_contracts::DefaultMaxDepth;
     type MaxValueSize = pallet_contracts::DefaultMaxValueSize;
     type BlockGasLimit = pallet_contracts::DefaultBlockGasLimit;
-}
-
-parameter_types! {
-    pub const ProposalBond: Permill = Permill::from_percent(5);
-    pub const ProposalBondMinimum: Balance = 100 * DOLLARS;
-    pub const SpendPeriod: BlockNumber = 24 * DAYS;
-    pub const Burn: Permill = Permill::from_percent(5);
-    pub const TipCountdown: BlockNumber = 1 * DAYS;
-    pub const TipFindersFee: Percent = Percent::from_percent(20);
-    pub const TipReportDepositBase: Balance = 1 * DOLLARS;
-    pub const TipReportDepositPerByte: Balance = 1 * CENTS;
 }
 
 impl treasury::Trait for Runtime {
@@ -474,29 +447,6 @@ parameter_types! {
 impl pallet_sudo::Trait for Runtime {
     type Event = Event;
     type Call = Call;
-}
-
-parameter_types! {
-    pub const CandidacyBond: Balance = 10 * DOLLARS;
-    pub const VotingBond: Balance = 1 * DOLLARS;
-    pub const TermDuration: BlockNumber = 7 * DAYS;
-    pub const DesiredMembers: u32 = 13;
-    pub const DesiredRunnersUp: u32 = 7;
-}
-
-impl pallet_elections_phragmen::Trait for Runtime {
-    type Event = Event;
-    type Currency = Balances;
-    type ChangeMembers = ();
-    type CurrencyToVote = CurrencyToVoteHandler<Self>;
-    type CandidacyBond = CandidacyBond;
-    type VotingBond = VotingBond;
-    type LoserCandidate = ();
-    type BadReport = ();
-    type KickedMember = ();
-    type DesiredMembers = DesiredMembers;
-    type DesiredRunnersUp = DesiredRunnersUp;
-    type TermDuration = TermDuration;
 }
 
 impl multisig::Trait for Runtime {
@@ -668,7 +618,6 @@ construct_runtime!(
         // Consensus frame_support.
         Authorship: pallet_authorship::{Module, Call, Storage, Inherent},
         Staking: pallet_staking::{Module, Call, Config<T>, Storage, Event<T>},
-        Elections: pallet_elections_phragmen::{Module, Call, Storage, Event<T>},
         Offences: pallet_offences::{Module, Call, Storage, Event},
         Session: pallet_session::{Module, Call, Storage, Event, Config<T>},
         FinalityTracker: pallet_finality_tracker::{Module, Call, Inherent},
