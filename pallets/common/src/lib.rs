@@ -34,16 +34,18 @@ use polymesh_primitives::IdentityId;
 pub enum SystematicIssuers {
     Committee,
     CDDProvider,
+    TreasuryModule,
 }
 
 impl SystematicIssuers {
     /// It returns the representation of this issuer as a raw public key.
     pub fn as_bytes(self) -> &'static [u8; 32] {
-        use constants::did::{CDD_PROVIDERS_ID, GOVERNANCE_COMMITTEE_ID};
+        use constants::did::{CDD_PROVIDERS_ID, GOVERNANCE_COMMITTEE_ID, TREASURY_MODULE_ID};
 
         match self {
             SystematicIssuers::Committee => GOVERNANCE_COMMITTEE_ID,
             SystematicIssuers::CDDProvider => CDD_PROVIDERS_ID,
+            SystematicIssuers::TreasuryModule => TREASURY_MODULE_ID,
         }
     }
 

@@ -4,6 +4,7 @@ use super::{
 };
 
 use pallet_balances as balances;
+use pallet_identity as identity;
 use pallet_treasury::{self as treasury, TreasuryTrait};
 use polymesh_primitives::Beneficiary;
 
@@ -13,6 +14,7 @@ use test_client::AccountKeyring;
 
 pub type Balances = balances::Module<TestStorage>;
 pub type Treasury = treasury::Module<TestStorage>;
+type Identity = identity::Module<TestStorage>;
 
 type Origin = <TestStorage as frame_system::Trait>::Origin;
 
@@ -29,6 +31,9 @@ fn reimbursement_and_disbursement_we() {
     let alice = register_keyring_account(AccountKeyring::Alice).unwrap();
     let alice_acc = Origin::signed(AccountKeyring::Alice.public());
     let bob = register_keyring_account(AccountKeyring::Bob).unwrap();
+
+    // Registering did for treasury module. Done in genesis block automatically on live networks.
+    Identity::cdd_register_did(alice_acc.clone(), Treasury::account_id(), None, vec![]);
 
     let total_issuance = Balances::total_issuance();
 
