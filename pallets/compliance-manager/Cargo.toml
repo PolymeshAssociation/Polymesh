@@ -1,5 +1,5 @@
 [package]
-name = "pallet-general-tm"
+name = "pallet-compliance-manager"
 version = "0.1.0"
 authors = ["Polymath"]
 edition = "2018"
