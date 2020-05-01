@@ -10,18 +10,18 @@ use frame_support::{
     weights::{DispatchInfo, Weight},
 };
 use frame_system::EnsureSignedBy;
+use pallet_group as group;
+use pallet_identity::{self as identity};
+use pallet_protocol_fee as protocol_fee;
 use pallet_staking::{EraIndex, Exposure, ExposureOf, StakerStatus, StashOf};
-use polymesh_protocol_fee as protocol_fee;
-use polymesh_runtime_balances as pallet_balances;
-use polymesh_runtime_common::traits::{
+use polymesh_common_utilities::traits::{
     asset::AcceptTransfer,
     balances::{AccountData, CheckCdd},
     group::{GroupTrait, InactiveMember},
+    identity::Trait as IdentityTrait,
     multisig::AddSignerMultiSig,
     CommonTrait,
 };
-use polymesh_runtime_group as group;
-use polymesh_runtime_identity::{self as identity};
 use primitives::{AccountKey, IdentityId, Signatory};
 use sp_core::{
     crypto::{key_types, Pair as PairTrait},
@@ -259,7 +259,7 @@ impl protocol_fee::Trait for Test {
     type OnProtocolFeePayment = ();
 }
 
-impl identity::Trait for Test {
+impl IdentityTrait for Test {
     type Event = ();
     type Proposal = Call;
     type AddSignerMultiSigTarget = Test;
@@ -357,6 +357,9 @@ impl AddSignerMultiSig for Test {
 impl CheckCdd for Test {
     fn check_key_cdd(key: &AccountKey) -> bool {
         true
+    }
+    fn get_key_cdd_did(key: &AccountKey) -> Option<IdentityId> {
+        None
     }
 }
 
@@ -610,7 +613,6 @@ impl ExtBuilder {
         .assimilate_storage(&mut storage);
 
         let _ = identity::GenesisConfig::<Test> {
-            owner: AccountKeyring::Alice.public().into(),
             identities: vec![
                 /// (master_account_id, service provider did, target did, expiry time of CustomerDueDiligence claim i.e 10 days is ms)
                 /// Provide Identity

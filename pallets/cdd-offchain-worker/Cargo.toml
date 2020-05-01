@@ -15,17 +15,17 @@ frame-support = { package = "frame-support", git = "https://github.com/paritytec
 sp-runtime = { git = "https://github.com/paritytech/substrate", default-features = false, rev = "a439a7aa5a9a3df2a42d9b25ea04288d3a0866e8" }
 sp-application-crypto = { git = "https://github.com/paritytech/substrate", default-features = false, rev = "a439a7aa5a9a3df2a42d9b25ea04288d3a0866e8" }
 
-polymesh-runtime-common = {package = "polymesh-runtime-common", path = "../common", default-features = false}
+polymesh-common-utilities = {package = "polymesh-common-utilities", path = "../common", default-features = false}
 pallet-staking = {package = "pallet-staking", path = "../staking", default-features = false }
 
 [dev-dependencies]
 test-client = { package = "substrate-test-runtime-client", git = "https://github.com/paritytech/substrate", default-features = false, rev = "a439a7aa5a9a3df2a42d9b25ea04288d3a0866e8" }
 chrono = { version = "0.4.10", default-features = false }
 pallet-timestamp = { git = "https://github.com/paritytech/substrate", default-features = false, rev = "a439a7aa5a9a3df2a42d9b25ea04288d3a0866e8" }
-polymesh-runtime-balances = {package = "polymesh-runtime-balances", path = "../balances"}
-polymesh-protocol-fee = {package = "polymesh-protocol-fee", path = "../protocol-fee"}
-polymesh-runtime-group = {package = "polymesh-runtime-group", path = "../group"}
-polymesh-runtime-identity = {package = "polymesh-runtime-identity", path = "../identity", default-features = false}
+pallet-balances = {package = "pallet-balances", path = "../balances"}
+pallet-protocol-fee = {package = "pallet-protocol-fee", path = "../protocol-fee"}
+pallet-group = {package = "pallet-group", path = "../group"}
+pallet-identity = {package = "pallet-identity", path = "../identity", default-features = false}
 pallet-staking-reward-curve = {package = "pallet-staking-reward-curve", path = "../staking/reward-curve", default-features = false}
 pallet-session = { git = "https://github.com/paritytech/substrate", default-features = false, rev = "a439a7aa5a9a3df2a42d9b25ea04288d3a0866e8" }
 pallet-transaction-payment = {package = "pallet-transaction-payment", path = "../transaction-payment", default-features = false}
@@ -48,6 +48,6 @@ std = [
 	"frame-support/std",
 	"frame-system/std",
 	"sp-runtime/std",
-    "polymesh-runtime-common/std",
+    "polymesh-common-utilities/std",
 	"pallet-staking/std",
 ]

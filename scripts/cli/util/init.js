@@ -17,7 +17,8 @@ let synced_block = 0;
 let synced_block_ts = 0;
 
 // Amount to seed each key with
-let transfer_amount = new BN(10).mul(new BN(10).pow(new BN(12)));
+let transfer_amount = new BN(25000).mul(new BN(10).pow(new BN(6)));
+
 let prepend = "demo";
 
 // Used for creating a single ticker 
@@ -55,8 +56,12 @@ async function initMain(api) {
   let entities = [];
   let alice = await generateEntity(api, "Alice");
   let bob = await generateEntity(api, "Bob");
+  let charlie = await generateEntity(api, "Charlie");
+  let dave = await generateEntity(api, "Dave");
   entities.push(alice);
   entities.push(bob);
+  entities.push(charlie);
+  entities.push(dave);
 
   return entities;
 }
@@ -163,7 +168,7 @@ const createIdentitiesWithExpiry = async function(api, accounts, alice, expiries
     const d = await api.query.identity.keyToIdentityIds(accounts[i].publicKey);
     dids.push(d.raw.asUnique);
   }
-  let did_balance = 10 * 10**12;
+  let did_balance = 1000 * 10**6;
   for (let i = 0; i < dids.length; i++) {
     // let nonceObjTwo = {nonce: nonces.get(alice.address)};
     // const transactionTwo = api.tx.balances.topUpIdentityBalance(dids[i], did_balance);
@@ -173,12 +178,12 @@ const createIdentitiesWithExpiry = async function(api, accounts, alice, expiries
       .topUpIdentityBalance(dids[i], did_balance)
       .signAndSend(
         alice,
-        { nonce: reqImports["nonces"].get(alice.address) }
+        { nonce: nonces.get(alice.address) }
       );
 
-    reqImports["nonces"].set(
+    nonces.set(
       alice.address,
-      reqImports["nonces"].get(alice.address).addn(1)
+      nonces.get(alice.address).addn(1)
     );
   }
   return dids;
@@ -191,12 +196,9 @@ async function distributePoly(api, to, amount, from) {
     const transaction = api.tx.balances.transfer(to.address, amount);
     await sendTransaction(transaction, from, nonceObj); 
 
-    // await api.tx.balances
-    //   .transfer(accounts.address, transfer_amount)
-    //   .signAndSend(signingEntity, { nonce: nonces.get(signingEntity.address) });
-
-    nonces.set(from.address, nonces.get(from.address).addn(1));
+    nonces.set( from.address, nonces.get(from.address).addn(1));
 }
+   
 
 async function distributePolyBatch(api, to, amount, from) {
   // Perform the transfers
@@ -210,13 +212,13 @@ async function addSigningKeys(api, accounts, dids, signing_accounts) {
   for (let i = 0; i < accounts.length; i++) {
     // 1. Add Signing Item to identity.
 
-    // let nonceObj = {nonce: nonces.get(accounts[i].address)};
-    // const transaction = api.tx.identity.addAuthorizationAsKey({AccountKey: signing_accounts[i].publicKey}, {JoinIdentity: dids[i]}, null);
-    // await sendTransaction(transaction, accounts[i], nonceObj); 
+    let nonceObj = {nonce: nonces.get(accounts[i].address)};
+    const transaction = api.tx.identity.addAuthorizationAsKey({AccountKey: signing_accounts[i].publicKey}, {JoinIdentity: dids[i]}, null);
+    await sendTransaction(transaction, accounts[i], nonceObj); 
 
-    const unsub = await api.tx.identity
-    .addAuthorizationAsKey({AccountKey: signing_accounts[i].publicKey}, {JoinIdentity: dids[i]}, null)
-    .signAndSend(accounts[i], { nonce: nonces.get(accounts[i].address) });
+    // const unsub = await api.tx.identity
+    // .addAuthorizationAsKey({AccountKey: signing_accounts[i].publicKey}, {JoinIdentity: dids[i]}, null)
+    // .signAndSend(accounts[i], { nonce: nonces.get(accounts[i].address) });
 
     nonces.set(accounts[i].address, nonces.get(accounts[i].address).addn(1));
   }
@@ -237,14 +239,14 @@ async function authorizeJoinToIdentities(api, accounts, dids, signing_accounts) 
       }
     }
 
-    // let nonceObj = {nonce: nonces.get(signing_accounts[i].address)};
-    // const transaction = api.tx.identity.joinIdentityAsKey([last_auth_id]);
-    // await sendTransaction(transaction, signing_accounts[i], nonceObj); 
+    let nonceObj = {nonce: nonces.get(signing_accounts[i].address)};
+    const transaction = api.tx.identity.joinIdentityAsKey([last_auth_id]);
+    await sendTransaction(transaction, signing_accounts[i], nonceObj); 
 
-    const unsub = await api.tx.identity
-      .joinIdentityAsKey([last_auth_id])
-      .signAndSend(signing_accounts[i], { nonce: nonces.get(signing_accounts[i].address) });
-    nonces.set(signing_accounts[i].address, nonces.get(signing_accounts[i].address).addn(1));
+    // const unsub = await api.tx.identity
+    //   .joinIdentityAsKey([last_auth_id])
+    //   .signAndSend(signing_accounts[i], { nonce: nonces.get(signing_accounts[i].address) });
+    // nonces.set(signing_accounts[i].address, nonces.get(signing_accounts[i].address).addn(1));
   }
 
   return dids;
@@ -281,7 +283,7 @@ async function createClaimRules(api, accounts, dids) {
     let receiverRules = receiverRules1(dids[1], asset_did);
 
     let nonceObj = {nonce: nonces.get(accounts[0].address)};
-    const transaction = api.tx.generalTm.addActiveRule(ticker, senderRules, receiverRules);
+    const transaction = api.tx.complianceManager.addActiveRule(ticker, senderRules, receiverRules);
     await sendTransaction(transaction, accounts[0], nonceObj); 
 
       nonces.set(accounts[0].address, nonces.get(accounts[0].address).addn(1));

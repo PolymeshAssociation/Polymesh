@@ -5,8 +5,8 @@ authors = ["Polymath"]
 edition = "2018"
 
 [dependencies]
-polymesh-runtime-identity = { package = "polymesh-runtime-identity", path = "../identity", default-features = false  }
-polymesh-runtime-common = { package = "polymesh-runtime-common", path = "../common", default-features = false  }
+pallet-identity = { package = "pallet-identity", path = "../identity", default-features = false  }
+polymesh-common-utilities = { package = "polymesh-common-utilities", path = "../common", default-features = false  }
 polymesh-primitives = { package = "polymesh-primitives", path = "../../primitives", default-features = false  }
 
 serde = { version = "1.0.104", default-features = false }
@@ -48,5 +48,5 @@ std = [
 	"frame-support/std",
 	"pallet-timestamp/std",
 	"polymesh-primitives/std",
-	"polymesh-runtime-identity/std",
+	"pallet-identity/std",
 ]

@@ -3,7 +3,10 @@
 pub mod constants;
 
 pub mod traits;
-pub use traits::{asset, balances, governance_group, group, identity, multisig, CommonTrait};
+pub use traits::{
+    asset, balances, compliance_manager, exemption, governance_group, group, identity, multisig,
+    CommonTrait,
+};
 
 pub mod context;
 pub use context::Context;

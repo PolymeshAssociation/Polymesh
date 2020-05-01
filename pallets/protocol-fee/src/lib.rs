@@ -10,7 +10,7 @@ use frame_support::{
     weights::SimpleDispatchInfo,
 };
 use frame_system::{self as system, ensure_root};
-use polymesh_runtime_common::protocol_fee::{ChargeProtocolFee, ProtocolOp};
+use polymesh_common_utilities::protocol_fee::{ChargeProtocolFee, ProtocolOp};
 use primitives::{traits::IdentityCurrency, PosRatio, Signatory};
 use sp_runtime::{
     traits::{Saturating, Zero},
@@ -61,9 +61,9 @@ decl_storage! {
 decl_event! {
     pub enum Event<T> where Balance = BalanceOf<T> {
         /// The protocol fee of an operation.
-        Fee(Balance),
+        FeeSet(Balance),
         /// The fee coefficient.
-        Coefficient(PosRatio),
+        CoefficientSet(PosRatio),
     }
 }
 
@@ -74,37 +74,25 @@ decl_module! {
         fn deposit_event() = default;
 
         /// Changes the fee coefficient for the root origin.
-        #[weight = SimpleDispatchInfo::FixedOperational(5_000)]
+        #[weight = SimpleDispatchInfo::FixedOperational(500_000)]
         pub fn change_coefficient(origin, coefficient: PosRatio) -> DispatchResult {
             ensure_root(origin)?;
-            <Coefficient>::put(coefficient);
+            <Coefficient>::put(&coefficient);
+            Self::deposit_event(RawEvent::CoefficientSet(coefficient));
             Ok(())
         }
 
         /// Changes the a base fee for the root origin.
-        #[weight = SimpleDispatchInfo::FixedOperational(5_000)]
+        #[weight = SimpleDispatchInfo::FixedOperational(500_000)]
         pub fn change_base_fee(origin, op: ProtocolOp, base_fee: BalanceOf<T>) ->
             DispatchResult
         {
             ensure_root(origin)?;
-            <BaseFees<T>>::insert(op, base_fee);
+            <BaseFees<T>>::insert(op, &base_fee);
+            Self::deposit_event(RawEvent::FeeSet(base_fee));
             Ok(())
         }
 
-        /// Emits an event with the fee of the operation.
-        #[weight = SimpleDispatchInfo::FixedNormal(100_000)]
-        pub fn get_fee(_origin, op: ProtocolOp) -> DispatchResult {
-            let fee = Self::compute_fee(op);
-            Self::deposit_event(RawEvent::Fee(fee));
-            Ok(())
-        }
-
-        /// Emits an event with the fee coefficient.
-        #[weight = SimpleDispatchInfo::FixedNormal(50_000)]
-        pub fn get_coefficient(_origin) -> DispatchResult {
-            Self::deposit_event(RawEvent::Coefficient(Self::coefficient()));
-            Ok(())
-        }
     }
 }
 
