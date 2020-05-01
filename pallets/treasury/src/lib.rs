@@ -3,6 +3,7 @@
 
 use pallet_identity as identity;
 use polymesh_common_utilities::{
+    constants::TREASURY_MODULE_ID,
     traits::{balances::Trait as BalancesTrait, identity::Trait as IdentityTrait, CommonTrait},
     Context,
 };
@@ -16,10 +17,7 @@ use frame_support::{
     traits::{Currency, ExistenceRequirement, Imbalance, OnUnbalanced, WithdrawReason},
 };
 use frame_system::{self as system, ensure_root, ensure_signed};
-use sp_runtime::{
-    traits::{AccountIdConversion, Saturating},
-    ModuleId,
-};
+use sp_runtime::traits::{AccountIdConversion, Saturating};
 use sp_std::{convert::TryFrom, prelude::*};
 
 pub type ProposalIndex = u32;
@@ -29,9 +27,6 @@ type BalanceOf<T> =
     <<T as Trait>::Currency as Currency<<T as frame_system::Trait>::AccountId>>::Balance;
 type NegativeImbalanceOf<T> =
     <<T as Trait>::Currency as Currency<<T as frame_system::Trait>::AccountId>>::NegativeImbalance;
-
-/// The treasury's module id, used for deriving its sovereign account ID.
-const MODULE_ID: ModuleId = ModuleId(*b"py/trsry");
 
 pub trait Trait: frame_system::Trait + CommonTrait + BalancesTrait + IdentityTrait {
     // The overarching event type.
@@ -124,7 +119,7 @@ impl<T: Trait> Module<T> {
     /// This actually does computation. If you need to keep using it, then make sure you cache the
     /// value and only call this once.
     pub fn account_id() -> T::AccountId {
-        MODULE_ID.into_account()
+        TREASURY_MODULE_ID.into_account()
     }
 
     pub fn unsafe_disbursement(target: IdentityId, amount: BalanceOf<T>) {

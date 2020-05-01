@@ -48,7 +48,7 @@ use sp_runtime::{
         Verify,
     },
     transaction_validity::TransactionValidity,
-    ApplyExtrinsicResult, MultiSignature, Perbill, Percent, Permill,
+    ApplyExtrinsicResult, MultiSignature, Perbill,
 };
 use sp_std::prelude::*;
 use sp_version::RuntimeVersion;

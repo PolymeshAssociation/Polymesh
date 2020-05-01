@@ -72,7 +72,10 @@ pub mod benchmarking;
 use pallet_identity_rpc_runtime_api::DidRecords as RpcDidRecords;
 use pallet_transaction_payment::{CddAndFeeDetails, ChargeTxFee};
 use polymesh_common_utilities::{
-    constants::did::{CDD_PROVIDERS_ID, GOVERNANCE_COMMITTEE_ID, SECURITY_TOKEN, USER},
+    constants::{
+        did::{CDD_PROVIDERS_ID, GOVERNANCE_COMMITTEE_ID, SECURITY_TOKEN, USER},
+        TREASURY_MODULE_ID,
+    },
     protocol_fee::{ChargeProtocolFee, ProtocolOp},
     traits::{
         asset::AcceptTransfer,
@@ -102,7 +105,7 @@ use sp_runtime::{
     traits::{
         AccountIdConversion, CheckedAdd, Dispatchable, Hash, SaturatedConversion, Verify, Zero,
     },
-    AnySignature, ModuleId,
+    AnySignature,
 };
 use sp_std::{convert::TryFrom, mem::swap, prelude::*, vec};
 
@@ -191,7 +194,7 @@ decl_storage! {
         config(identities): Vec<(T::AccountId, IdentityId, IdentityId, Option<u64>)>;
         build(|config: &GenesisConfig<T>| {
             // Add systematic CDD for the Treasury module
-            let treasury_account_id: T::AccountId = ModuleId(*b"py/trsry").into_account();
+            let treasury_account_id: T::AccountId = TREASURY_MODULE_ID.into_account();
             let treasury_master_key = AccountKey::try_from(treasury_account_id.encode()).unwrap();
             let treasury_did = SystematicIssuers::TreasuryModule.as_id();
             <Module<T>>::link_key_to_did(&treasury_master_key, SignatoryType::External, treasury_did);

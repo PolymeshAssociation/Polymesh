@@ -1,3 +1,4 @@
+use sp_runtime::ModuleId;
 /// Money matters.
 pub mod currency {
     use polymesh_primitives::Balance;
@@ -48,3 +49,6 @@ pub const APP_INVALID_GRANULARITY: u8 = 0xa8;
 
 // PIP pallet constants.
 pub const PIP_MAX_REPORTING_SIZE: usize = 1024;
+
+/// Module ids, used for deriving sovereign account IDs for modules.
+pub const TREASURY_MODULE_ID: ModuleId = ModuleId(*b"pm/trsry");
