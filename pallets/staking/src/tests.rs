@@ -20,13 +20,12 @@ use super::*;
 use crate::Store;
 use chrono::prelude::Utc;
 use frame_support::{
-    assert_err, assert_noop, assert_ok,
-    dispatch::DispatchError,
+    assert_noop, assert_ok,
     traits::{Currency, ReservableCurrency},
     StorageMap,
 };
 use mock::*;
-use pallet_balances::{self as balances, Error as BalancesError};
+use pallet_balances::Error as BalancesError;
 use sp_runtime::{
     assert_eq_error_rate,
     traits::{BadOrigin, OnInitialize},
@@ -4265,7 +4264,6 @@ fn check_whether_nominator_selected_or_not_when_its_cdd_claim_expired() {
         .nominate(true)
         .build()
         .execute_with(|| {
-            use pallet_session::SessionManager;
             let bonding_duration: u64 = 90;
 
             start_era(1);

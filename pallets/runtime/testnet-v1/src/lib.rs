@@ -6,7 +6,6 @@ pub mod fee_details;
 pub mod runtime;
 pub use fee_details::CddHandler;
 pub mod constants;
-
 #[cfg(feature = "std")]
 pub use pallet_staking::{Commission, StakerStatus};
 
@@ -23,12 +22,13 @@ pub use runtime::{
 #[cfg(feature = "std")]
 pub mod config {
 
+    use pallet_asset as asset;
     use pallet_balances as balances;
     use pallet_committee as committee;
     use pallet_identity as identity;
     use pallet_protocol_fee as protocol_fee;
 
-    pub type AssetConfig = polymesh_runtime_common::asset::GenesisConfig<crate::Runtime>;
+    pub type AssetConfig = asset::GenesisConfig<crate::Runtime>;
     pub type BalancesConfig = balances::GenesisConfig<crate::Runtime>;
     pub type BridgeConfig = polymesh_runtime_common::bridge::GenesisConfig<crate::Runtime>;
     pub type IdentityConfig = identity::GenesisConfig<crate::Runtime>;
