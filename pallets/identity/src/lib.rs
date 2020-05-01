@@ -405,7 +405,7 @@ decl_module! {
         ///
         /// # Arguments
         /// * `auth_required` CDD Authorization required or not
-        #[weight = SimpleDispatchInfo::FixedNormal(20_000)]
+        #[weight = SimpleDispatchInfo::FixedNormal(200_000)]
         pub fn change_cdd_requirement_for_mk_rotation(
             origin,
             auth_required: bool,

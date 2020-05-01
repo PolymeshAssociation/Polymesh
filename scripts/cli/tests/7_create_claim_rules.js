@@ -49,7 +49,7 @@ async function createClaimRules(api, accounts, dids, prepend) {
     let receiverRules = reqImports.receiverRules1(accounts[0].address);
     
     let nonceObj = {nonce: reqImports.nonces.get(accounts[0].address)};
-    const transaction = await api.tx.generalTm.addActiveRule(ticker, senderRules, receiverRules);
+    const transaction = await api.tx.complianceManager.addActiveRule(ticker, senderRules, receiverRules);
     const result = await reqImports.sendTransaction(transaction, accounts[0], nonceObj);  
     const passed = result.findRecord('system', 'ExtrinsicSuccess');
     if (passed) reqImports.fail_count--;

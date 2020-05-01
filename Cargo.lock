@@ -3045,6 +3045,30 @@ dependencies = [
 ]
 
 [[package]]
+name = "pallet-compliance-manager"
+version = "0.1.0"
+dependencies = [
+ "frame-support",
+ "frame-system",
+ "pallet-identity",
+ "pallet-protocol-fee",
+ "pallet-timestamp",
+ "parity-scale-codec",
+ "polymesh-common-utilities",
+ "polymesh-primitives",
+ "serde",
+ "serde_derive",
+ "sp-api",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+ "sp-serializer",
+ "sp-std",
+ "sp-version",
+ "substrate-test-runtime-client",
+]
+
+[[package]]
 name = "pallet-contracts"
 version = "2.0.0-alpha.3"
 source = "git+https://github.com/paritytech/substrate?rev=a439a7aa5a9a3df2a42d9b25ea04288d3a0866e8#a439a7aa5a9a3df2a42d9b25ea04288d3a0866e8"
@@ -3119,30 +3143,6 @@ dependencies = [
  "sp-inherents",
  "sp-runtime",
  "sp-std",
-]
-
-[[package]]
-name = "pallet-general-tm"
-version = "0.1.0"
-dependencies = [
- "frame-support",
- "frame-system",
- "pallet-identity",
- "pallet-protocol-fee",
- "pallet-timestamp",
- "parity-scale-codec",
- "polymesh-common-utilities",
- "polymesh-primitives",
- "serde",
- "serde_derive",
- "sp-api",
- "sp-core",
- "sp-io",
- "sp-runtime",
- "sp-serializer",
- "sp-std",
- "sp-version",
- "substrate-test-runtime-client",
 ]
 
 [[package]]
@@ -4091,8 +4091,8 @@ dependencies = [
  "pallet-authorship",
  "pallet-balances 0.1.0",
  "pallet-committee",
+ "pallet-compliance-manager",
  "pallet-contracts",
- "pallet-general-tm",
  "pallet-group",
  "pallet-identity",
  "pallet-multisig",
@@ -4142,11 +4142,11 @@ dependencies = [
  "pallet-balances 0.1.0",
  "pallet-cdd-offchain-worker",
  "pallet-committee",
+ "pallet-compliance-manager",
  "pallet-contracts",
  "pallet-contracts-primitives",
  "pallet-contracts-rpc-runtime-api",
  "pallet-finality-tracker",
- "pallet-general-tm",
  "pallet-grandpa",
  "pallet-group",
  "pallet-identity",
@@ -4222,11 +4222,11 @@ dependencies = [
  "pallet-babe",
  "pallet-balances 0.1.0",
  "pallet-committee",
+ "pallet-compliance-manager",
  "pallet-contracts",
  "pallet-contracts-primitives",
  "pallet-contracts-rpc-runtime-api",
  "pallet-finality-tracker",
- "pallet-general-tm",
  "pallet-grandpa",
  "pallet-group",
  "pallet-identity",

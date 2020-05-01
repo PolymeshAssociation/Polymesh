@@ -15,7 +15,7 @@ use polymesh_runtime_common::{
 use pallet_asset as asset;
 use pallet_balances as balances;
 use pallet_committee as committee;
-use pallet_general_tm as general_tm;
+use pallet_compliance_manager as compliance_manager;
 use pallet_group as group;
 use pallet_identity as identity;
 use pallet_multisig as multisig;
@@ -196,7 +196,7 @@ parameter_types! {
     pub const TransactionBaseFee: Balance = 1 * CENTS;
     pub const TransactionByteFee: Balance = 10 * MILLICENTS;
     // setting this to zero will disable the weight fee.
-    pub const WeightFeeCoefficient: Balance = 1_000;
+    pub const WeightFeeCoefficient: Balance = 1;
     // for a sane configuration, this should always be less than `AvailableBlockRatio`.
     pub const TargetBlockFullness: Perbill = TARGET_BLOCK_FULLNESS;
 }
@@ -275,9 +275,9 @@ impl pallet_session::historical::Trait for Runtime {
 
 pallet_staking_reward_curve::build! {
     const REWARD_CURVE: PiecewiseLinear<'static> = curve!(
-        min_inflation: 0_500_000,
-        max_inflation: 1_000_000,
-        ideal_stake: 0_100_000,
+        min_inflation: 0_025_000,
+        max_inflation: 0_200_000,
+        ideal_stake: 0_700_000,
         falloff: 0_050_000,
         max_piece_count: 40,
         test_precision: 0_005_000,
@@ -457,14 +457,14 @@ impl bridge::Trait for Runtime {
 impl asset::Trait for Runtime {
     type Event = Event;
     type Currency = Balances;
-    type GeneralTm = general_tm::Module<Runtime>;
+    type ComplianceManager = compliance_manager::Module<Runtime>;
 }
 
 impl simple_token::Trait for Runtime {
     type Event = Event;
 }
 
-impl general_tm::Trait for Runtime {
+impl compliance_manager::Trait for Runtime {
     type Event = Event;
     type Asset = Asset;
 }
@@ -569,7 +569,7 @@ construct_runtime!(
         Dividend: dividend::{Module, Call, Storage, Event<T>},
         Identity: identity::{Module, Call, Storage, Event<T>, Config<T>},
         Bridge: bridge::{Module, Call, Storage, Config<T>, Event<T>},
-        GeneralTM: general_tm::{Module, Call, Storage, Event},
+        ComplianceManager: compliance_manager::{Module, Call, Storage, Event},
         Voting: voting::{Module, Call, Storage, Event<T>},
         StoCapped: sto_capped::{Module, Call, Storage, Event<T>},
         PercentageTM: percentage_tm::{Module, Call, Storage, Event<T>},
