@@ -28,7 +28,7 @@ sp_api::decl_runtime_apis! {
          /// In this example we are checking if Alice can transfere 500 of ticket 0x01
          /// from herself (Id=0x2a) to Bob (Id=0x3905)
          ///
-         /// ```ignore
+         /// ```text
          ///  curl \
          ///    -H "Content-Type: application/json" \
          ///    -d '{
