@@ -500,10 +500,10 @@ decl_module! {
             };
             <Tokens<T>>::insert(&ticker, token);
             <BalanceOf<T>>::insert(ticker, did, total_supply);
-            Self::deposit_event(RawEvent::IssuedToken(
+            Self::deposit_event(RawEvent::TokenIssued(
+                did,
                 ticker,
                 total_supply,
-                did,
                 divisible,
                 asset_type,
             ));
@@ -514,7 +514,7 @@ decl_module! {
             if let Some(round) = funding_round {
                 <FundingRound>::insert(ticker, round);
             }
-            Self::deposit_event(RawEvent::IdentifiersUpdated(ticker, identifiers));
+            Self::deposit_event(RawEvent::IdentifiersUpdated(did, ticker, identifiers));
 
             Ok(())
         }
@@ -611,7 +611,7 @@ decl_module! {
                 Error::<T>::InvalidTransfer
             );
 
-            Self::_transfer(&ticker, did, to_did, value)
+            Self::_transfer(did, &ticker, did, to_did, value)
         }
 
         /// Forces a transfer between two DIDs & This can only be called by security token owner.
@@ -638,9 +638,9 @@ decl_module! {
             );
             ensure!(Self::is_owner(&ticker, did), Error::<T>::Unauthorized);
 
-            Self::_transfer(&ticker, from_did, to_did, value)?;
+            Self::_transfer(did, &ticker, from_did, to_did, value)?;
 
-            Self::deposit_event(RawEvent::ControllerTransfer(ticker, did, from_did, to_did, value, data, operator_data));
+            Self::deposit_event(RawEvent::ControllerTransfer(did, ticker, from_did, to_did, value, data, operator_data));
 
             Ok(())
         }
@@ -669,7 +669,7 @@ decl_module! {
                 .ok_or(Error::<T>::AllowanceOverflow)?;
             <Allowance<T>>::insert((ticker, did, spender_did), updated_allowance);
 
-            Self::deposit_event(RawEvent::Approval(ticker, did, spender_did, value));
+            Self::deposit_event(RawEvent::Approval(did, ticker, did, spender_did, value));
 
             Ok(())
         }
@@ -709,12 +709,12 @@ decl_module! {
                 Self::_is_valid_transfer(&ticker, sender, Some(from_did), Some(to_did), value)? == ERC1400_TRANSFER_SUCCESS,
                 Error::<T>::InvalidTransfer
             );
-            Self::_transfer(&ticker, from_did, to_did, value)?;
+            Self::_transfer(did, &ticker, from_did, to_did, value)?;
 
             // Change allowance afterwards
             <Allowance<T>>::insert(&ticker_from_did_did, updated_allowance);
 
-            Self::deposit_event(RawEvent::Approval(ticker, from_did, did, value));
+            Self::deposit_event(RawEvent::Approval(did, ticker, from_did, did, value));
             Ok(())
         }
 
@@ -857,6 +857,7 @@ decl_module! {
                 <BalanceOf<T>>::insert(ticker, investor_dids[i], updated_balances[i]);
                 <statistics::Module<T>>::update_transfer_stats(&ticker, None, Some(updated_balances[i]), values[i]);
                 Self::deposit_event(RawEvent::Issued(
+                    did,
                     ticker,
                     investor_dids[i],
                     values[i],
@@ -915,7 +916,7 @@ decl_module! {
             <Tokens<T>>::insert(&ticker, token);
             <statistics::Module<T>>::update_transfer_stats(&ticker, Some(updated_burner_balance), None, value);
 
-            Self::deposit_event(RawEvent::Redeemed(ticker, did, value));
+            Self::deposit_event(RawEvent::Redeemed(did, ticker, did, value));
             Ok(())
         }
 
@@ -976,8 +977,8 @@ decl_module! {
             <Tokens<T>>::insert(&ticker, token);
             <statistics::Module<T>>::update_transfer_stats( &ticker, Some(updated_burner_balance), None, value);
 
-            Self::deposit_event(RawEvent::Redeemed(ticker, did, value));
-            Self::deposit_event(RawEvent::Approval(ticker, from_did, did, value));
+            Self::deposit_event(RawEvent::Redeemed(did, ticker, from_did, value));
+            Self::deposit_event(RawEvent::Approval(did, ticker, from_did, did, value));
 
             Ok(())
         }
@@ -1021,7 +1022,7 @@ decl_module! {
             <Tokens<T>>::insert(&ticker, token);
             <statistics::Module<T>>::update_transfer_stats( &ticker, Some(updated_burner_balance), None, value);
 
-            Self::deposit_event(RawEvent::ControllerRedemption(ticker, did, token_holder_did, value, data, operator_data));
+            Self::deposit_event(RawEvent::ControllerRedemption(did, ticker, token_holder_did, value, data, operator_data));
 
             Ok(())
         }
@@ -1045,7 +1046,7 @@ decl_module! {
             ensure!(!token.divisible, Error::<T>::TokenAlreadyDivisible);
             token.divisible = true;
             <Tokens<T>>::insert(&ticker, token);
-            Self::deposit_event(RawEvent::DivisibilityChanged(ticker, true));
+            Self::deposit_event(RawEvent::DivisibilityChanged(did, ticker, true));
             Ok(())
         }
 
@@ -1069,8 +1070,8 @@ decl_module! {
                 data: Vec<u8>) -> DispatchResult
         {
             let sender = ensure_signed(origin)?;
-
-            let transfer_result = Self::unsafe_can_transfer(sender, ticker, from_did, to_did, value);
+            
+            let transfer_result = Self::unsafe_can_transfer(sender.clone(), ticker, from_did, to_did, value);
             let code: u32 = match transfer_result {
                 Ok(ref code) => *code as u32,
                 Err(ref err) => match err {
@@ -1078,7 +1079,7 @@ decl_module! {
                     (_, _msg) => ERC1400_TRANSFER_FAILURE as u32,
                 },
             };
-            let event = RawEvent::CanTransfer(ticker, from_did, to_did, value, data, code);
+            let event = RawEvent::CanTransfer(Context::current_identity_or::<Identity<T>>(&(AccountKey::try_from(sender.encode())?))?, ticker, from_did, to_did, value, data, code);
             Self::deposit_event(event);
 
             transfer_result
@@ -1104,7 +1105,7 @@ decl_module! {
 
             Self::transfer(origin, ticker, to_did, value)?;
 
-            Self::deposit_event(RawEvent::TransferWithData(ticker, did, to_did, value, data));
+            Self::deposit_event(RawEvent::TransferWithData(did, ticker, did, to_did, value, data));
             Ok(())
         }
 
@@ -1121,9 +1122,12 @@ decl_module! {
         /// * `data` Off chain data blob to validate the transfer.
         #[weight = SimpleDispatchInfo::FixedNormal(550_000)]
         pub fn transfer_from_with_data(origin, ticker: Ticker, from_did: IdentityId, to_did: IdentityId, value: T::Balance, data: Vec<u8>) -> DispatchResult {
+            let sender_key = AccountKey::try_from(ensure_signed(origin.clone())?.encode())?;
+            let did = Context::current_identity_or::<Identity<T>>(&sender_key)?;
+
             Self::transfer_from(origin, ticker, from_did,  to_did, value)?;
 
-            Self::deposit_event(RawEvent::TransferWithData(ticker, from_did, to_did, value, data));
+            Self::deposit_event(RawEvent::TransferWithData(did, ticker, from_did, to_did, value, data));
             Ok(())
         }
 
@@ -1254,20 +1258,13 @@ decl_module! {
         /// # Arguments
         /// * `origin` Signing key of the token holder.
         /// * `ticker` Ticker of the token.
-        /// * `holder_did` DID of the token holder (i.e who wants to increase the custody allowance).
         /// * `custodian_did` DID of the custodian (i.e whom allowance provided).
         /// * `value` Allowance amount.
         #[weight = SimpleDispatchInfo::FixedNormal(300_000)]
-        pub fn increase_custody_allowance(origin, ticker: Ticker, holder_did: IdentityId, custodian_did: IdentityId, value: T::Balance) -> DispatchResult {
-            let sender = ensure_signed(origin)?;
-            let sender_signer = Signatory::AccountKey(AccountKey::try_from(sender.encode())?);
-
-            // Check that sender is allowed to act on behalf of `did`
-            ensure!(
-                <identity::Module<T>>::is_signer_authorized(holder_did, &sender_signer),
-                Error::<T>::SenderMustBeSigningKeyForDid
-            );
-            Self::_increase_custody_allowance(ticker, holder_did, custodian_did, value)?;
+        pub fn increase_custody_allowance(origin, ticker: Ticker, custodian_did: IdentityId, value: T::Balance) -> DispatchResult {
+            let sender_key = AccountKey::try_from((ensure_signed(origin)?).encode())?;
+            let sender_did = Context::current_identity_or::<Identity<T>>(&sender_key)?;
+            Self::_increase_custody_allowance(sender_did, ticker, sender_did, custodian_did, value)?;
             Ok(())
         }
 
@@ -1279,7 +1276,6 @@ decl_module! {
         /// * `holder_did` DID of the token holder (i.e who wants to increase the custody allowance).
         /// * `holder_account_id` Signing key which signs the off chain data blob.
         /// * `custodian_did` DID of the custodian (i.e whom allowance provided).
-        /// * `caller_did` DID of the caller.
         /// * `value` Allowance amount.
         /// * `nonce` A u16 number which avoid the replay attack.
         /// * `signature` Signature provided by the holder_did.
@@ -1290,12 +1286,13 @@ decl_module! {
             holder_did: IdentityId,
             holder_account_id: T::AccountId,
             custodian_did: IdentityId,
-            caller_did: IdentityId,
             value: T::Balance,
             nonce: u16,
             signature: T::OffChainSignature
         ) -> DispatchResult {
             let sender = ensure_signed(origin)?;
+            let sender_key = AccountKey::try_from(sender.encode())?;
+            let caller_did = Context::current_identity_or::<Identity<T>>(&sender_key)?;
             ensure!(
                 !Self::authentication_nonce((ticker, holder_did, nonce)),
                 Error::<T>::SignatureAlreadyUsed
@@ -1313,18 +1310,13 @@ decl_module! {
                 signature.verify(&msg.encode()[..], &holder_account_id),
                 Error::<T>::InvalidSignature
             );
-            let sender_signer = Signatory::AccountKey(AccountKey::try_from(sender.encode())?);
-            ensure!(
-                <identity::Module<T>>::is_signer_authorized(caller_did, &sender_signer),
-                Error::<T>::SenderMustBeSigningKeyForDid
-            );
             // Validate the holder signing key
             let holder_signer = Signatory::AccountKey(AccountKey::try_from(holder_account_id.encode())?);
             ensure!(
                 <identity::Module<T>>::is_signer_authorized(holder_did, &holder_signer),
                 Error::<T>::HolderMustBeSigningKeyForHolderDid
             );
-            Self::_increase_custody_allowance(ticker, holder_did, custodian_did, value)?;
+            Self::_increase_custody_allowance(caller_did, ticker, holder_did, custodian_did, value)?;
             <AuthenticationNonce>::insert((ticker, holder_did, nonce), true);
             Ok(())
         }
@@ -1335,7 +1327,6 @@ decl_module! {
         /// * `origin` Signing key of the custodian.
         /// * `ticker` Ticker of the token.
         /// * `holder_did` DID of the token holder (i.e whom balance get reduced).
-        /// * `custodian_did` DID of the custodian (i.e who has the valid approved allowance).
         /// * `receiver_did` DID of the receiver.
         /// * `value` Amount of tokens need to transfer.
         #[weight = SimpleDispatchInfo::FixedNormal(750_000)]
@@ -1343,17 +1334,13 @@ decl_module! {
             origin,
             ticker: Ticker,
             holder_did: IdentityId,
-            custodian_did: IdentityId,
             receiver_did: IdentityId,
             value: T::Balance
         ) -> DispatchResult {
             let sender = ensure_signed(origin)?;
-            let sender_signer = Signatory::AccountKey( AccountKey::try_from(sender.encode())?);
-            // Check that sender is allowed to act on behalf of `did`
-            ensure!(
-                <identity::Module<T>>::is_signer_authorized(custodian_did, &sender_signer),
-                Error::<T>::SenderMustBeSigningKeyForDid
-            );
+            let sender_key = AccountKey::try_from(sender.encode())?;
+            let custodian_did = Context::current_identity_or::<Identity<T>>(&sender_key)?;
+            
             let mut custodian_allowance = Self::custodian_allowance((ticker, holder_did, custodian_did));
             // Check whether the custodian has enough allowance or not
             ensure!(custodian_allowance >= value, Error::<T>::InsufficientAllowance);
@@ -1369,11 +1356,11 @@ decl_module! {
                 Self::_is_valid_transfer(&ticker, sender, Some(holder_did), Some(receiver_did), value)? == ERC1400_TRANSFER_SUCCESS,
                 Error::<T>::InvalidTransfer
             );
-            Self::_transfer(&ticker, holder_did, receiver_did, value)?;
+            Self::_transfer(custodian_did, &ticker, holder_did, receiver_did, value)?;
             // Update Storage of allowance
             <CustodianAllowance<T>>::insert((ticker, custodian_did, holder_did), &custodian_allowance);
             <TotalCustodyAllowance<T>>::insert((ticker, holder_did), new_total_allowance);
-            Self::deposit_event(RawEvent::CustodyTransfer(ticker, custodian_did, holder_did, receiver_did, value));
+            Self::deposit_event(RawEvent::CustodyTransfer(custodian_did, ticker, holder_did, receiver_did, value));
             Ok(())
         }
 
@@ -1434,7 +1421,7 @@ decl_module! {
             for (typ, val) in &identifiers {
                 <Identifiers>::insert((ticker, typ.clone()), val.clone());
             }
-            Self::deposit_event(RawEvent::IdentifiersUpdated(ticker, identifiers));
+            Self::deposit_event(RawEvent::IdentifiersUpdated(did, ticker, identifiers));
             Ok(())
         }
 
@@ -1520,55 +1507,52 @@ decl_event! {
         AccountId = <T as frame_system::Trait>::AccountId,
     {
         /// Event for transfer of tokens.
-        /// ticker, from DID, to DID, value
-        Transfer(Ticker, IdentityId, IdentityId, Balance),
+        /// caller DID, ticker, from DID, to DID, value
+        Transfer(IdentityId, Ticker, IdentityId, IdentityId, Balance),
         /// Event when an approval is made.
-        /// ticker, owner DID, spender DID, value
-        Approval(Ticker, IdentityId, IdentityId, Balance),
+        /// caller DID, ticker, owner DID, spender DID, value
+        Approval(IdentityId, Ticker, IdentityId, IdentityId, Balance),
         /// Emit when tokens get issued.
-        /// ticker, beneficiary DID, value, funding round, total issued in this funding round
-        Issued(Ticker, IdentityId, Balance, FundingRoundName, Balance),
+        /// caller DID, ticker, beneficiary DID, value, funding round, total issued in this funding round
+        Issued(IdentityId, Ticker, IdentityId, Balance, FundingRoundName, Balance),
         /// Emit when tokens get redeemed.
-        /// ticker, DID, value
-        Redeemed(Ticker, IdentityId, Balance),
+        /// caller DID, ticker,  from DID, value
+        Redeemed(IdentityId, Ticker, IdentityId, Balance),
         /// Event for forced transfer of tokens.
-        /// ticker, controller DID, from DID, to DID, value, data, operator data
-        ControllerTransfer(Ticker, IdentityId, IdentityId, IdentityId, Balance, Vec<u8>, Vec<u8>),
+        /// caller DID/ controller DID, ticker, from DID, to DID, value, data, operator data
+        ControllerTransfer(IdentityId, Ticker, IdentityId, IdentityId, Balance, Vec<u8>, Vec<u8>),
         /// Event for when a forced redemption takes place.
-        /// ticker, controller DID, token holder DID, value, data, operator data
-        ControllerRedemption(Ticker, IdentityId, IdentityId, Balance, Vec<u8>, Vec<u8>),
+        /// caller DID/ controller DID, ticker, token holder DID, value, data, operator data
+        ControllerRedemption(IdentityId, Ticker, IdentityId, Balance, Vec<u8>, Vec<u8>),
         /// Event for creation of the asset.
-        /// ticker, total supply, owner DID, divisibility, asset type
-        IssuedToken(Ticker, Balance, IdentityId, bool, AssetType),
+        /// caller DID/ owner DID, ticker, total supply, divisibility, asset type
+        TokenIssued(IdentityId, Ticker, Balance, bool, AssetType),
         /// Event emitted when a token identifiers are updated.
-        /// ticker, a vector of (identifier type, identifier value)
-        IdentifiersUpdated(Ticker, Vec<(IdentifierType, AssetIdentifier)>),
+        /// caller DID, ticker, a vector of (identifier type, identifier value)
+        IdentifiersUpdated(IdentityId, Ticker, Vec<(IdentifierType, AssetIdentifier)>),
         /// Event for change in divisibility.
-        /// ticker, divisibility
-        DivisibilityChanged(Ticker, bool),
+        /// caller DID, ticker, divisibility
+        DivisibilityChanged(IdentityId, Ticker, bool),
         /// can_transfer() output
         /// ticker, from_did, to_did, value, data, ERC1066 status
         /// 0 - OK
         /// 1,2... - Error
-        CanTransfer(Ticker, IdentityId, IdentityId, Balance, Vec<u8>, u32),
+        CanTransfer(IdentityId, Ticker, IdentityId, IdentityId, Balance, Vec<u8>, u32),
         /// An additional event to Transfer; emitted when transfer_with_data is called.
-        /// ticker, from DID, to DID, value, data
-        TransferWithData(Ticker, IdentityId, IdentityId, Balance, Vec<u8>),
+        /// caller DID , ticker, from DID, to DID, value, data
+        TransferWithData(IdentityId, Ticker, IdentityId, IdentityId, Balance, Vec<u8>),
         /// is_issuable() output
         /// ticker, return value (true if issuable)
         IsIssuable(Ticker, bool),
-        /// get_document() output
-        /// ticker, name, uri, content_hash, last modification date
-        GetDocument(Ticker, DocumentName, DocumentUri, DocumentHash, Moment),
         /// Emit when tokens transferred by the custodian.
-        /// ticker, custodian did, holder/from did, to did, amount
-        CustodyTransfer(Ticker, IdentityId, IdentityId, IdentityId, Balance),
+        /// caller DID / custodian DID , ticker, holder/from did, to did, amount
+        CustodyTransfer(IdentityId, Ticker, IdentityId, IdentityId, Balance),
         /// Emit when allowance get increased.
-        /// ticker, holder did, custodian did, oldAllowance, newAllowance
-        CustodyAllowanceChanged(Ticker, IdentityId, IdentityId, Balance, Balance),
+        /// caller DID, ticker, holder did, custodian did, oldAllowance, newAllowance
+        CustodyAllowanceChanged(IdentityId, Ticker, IdentityId, IdentityId, Balance, Balance),
         /// Emit when ticker is registered.
-        /// ticker, ticker owner, expiry
-        TickerRegistered(Ticker, IdentityId, Option<Moment>),
+        /// caller DID / ticker owner did, ticker, ticker owner, expiry
+        TickerRegistered(IdentityId, Ticker, Option<Moment>),
         /// Emit when ticker is transferred.
         /// ticker, from, to
         TickerTransferred(Ticker, IdentityId, IdentityId),
@@ -1843,7 +1827,7 @@ impl<T: Trait> Module<T> {
         // Store ticker registration details
         <Tickers<T>>::insert(ticker, ticker_registration);
 
-        Self::deposit_event(RawEvent::TickerRegistered(*ticker, to_did, expiry));
+        Self::deposit_event(RawEvent::TickerRegistered(to_did, *ticker, expiry));
         Ok(())
     }
 
@@ -1967,6 +1951,7 @@ impl<T: Trait> Module<T> {
     // The SimpleToken standard transfer function
     // internal
     fn _transfer(
+        sender: IdentityId,
         ticker: &Ticker,
         from_did: IdentityId,
         to_did: IdentityId,
@@ -2008,7 +1993,7 @@ impl<T: Trait> Module<T> {
             value,
         );
 
-        Self::deposit_event(RawEvent::Transfer(*ticker, from_did, to_did, value));
+        Self::deposit_event(RawEvent::Transfer(sender, *ticker, from_did, to_did, value));
         Ok(())
     }
 
@@ -2069,7 +2054,7 @@ impl<T: Trait> Module<T> {
             .ok_or(Error::<T>::BalanceOverflow)?;
         // verify transfer check
         ensure!(
-            Self::_is_valid_transfer(ticker, caller, None, Some(to_did), value)?
+            Self::_is_valid_transfer(ticker, caller.clone(), None, Some(to_did), value)?
                 == ERC1400_TRANSFER_SUCCESS,
             Error::<T>::InvalidTransfer
         );
@@ -2102,6 +2087,7 @@ impl<T: Trait> Module<T> {
             .ok_or(Error::<T>::FundingRoundTotalOverflow)?;
         <IssuedInFundingRound<T>>::insert(&ticker_round, issued_in_this_round);
         Self::deposit_event(RawEvent::Issued(
+            Context::current_identity_or::<Identity<T>>(&AccountKey::try_from(caller.encode())?)?,
             *ticker,
             to_did,
             value,
@@ -2134,6 +2120,7 @@ impl<T: Trait> Module<T> {
     }
 
     fn _increase_custody_allowance(
+        caller_did: IdentityId,
         ticker: Ticker,
         holder_did: IdentityId,
         custodian_did: IdentityId,
@@ -2164,6 +2151,7 @@ impl<T: Trait> Module<T> {
         );
         <TotalCustodyAllowance<T>>::insert((ticker, holder_did), new_custody_allowance);
         Self::deposit_event(RawEvent::CustodyAllowanceChanged(
+            caller_did,
             ticker,
             holder_did,
             custodian_did,

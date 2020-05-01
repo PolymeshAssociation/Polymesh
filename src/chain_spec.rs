@@ -194,13 +194,13 @@ fn general_testnet_genesis(
                 // Alice and bob
                 (
                     get_account_id_from_seed::<sr25519::Public>("Alice"),
-                    IdentityId::from(42),
+                    IdentityId::from(2),
                     IdentityId::from(42),
                     None,
                 ),
                 (
                     get_account_id_from_seed::<sr25519::Public>("Bob"),
-                    IdentityId::from(42),
+                    IdentityId::from(1),
                     IdentityId::from(1337),
                     None,
                 ),
