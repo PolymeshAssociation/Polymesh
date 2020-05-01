@@ -1,17 +1,13 @@
-use pallet_group_rpc_runtime_api::{self as runtime_api, GroupApi as GroupRuntimeApi, Member};
+use pallet_group_rpc_runtime_api::{GroupApi as GroupRuntimeApi, Member};
 
 #[cfg(feature = "std")]
 use serde::{Deserialize, Serialize};
 
-use codec::Codec;
 use jsonrpc_core::{Error as RpcError, ErrorCode, Result};
 use jsonrpc_derive::rpc;
 use sp_api::ProvideRuntimeApi;
 use sp_blockchain::HeaderBackend;
-use sp_runtime::{
-    generic::BlockId,
-    traits::{Block as BlockT, UniqueSaturatedInto},
-};
+use sp_runtime::{generic::BlockId, traits::Block as BlockT};
 use sp_std::prelude::*;
 use std::{marker::PhantomData, sync::Arc};
 
