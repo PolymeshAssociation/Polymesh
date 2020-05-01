@@ -29,9 +29,9 @@ sp_api::decl_runtime_apis! {
          /// from herself (Id=0x2a) to Bob (Id=0x3905)
          ///
          /// ```ignore
-         ///  curl \
-         ///    -H "Content-Type: application/json" \
-         ///    -d '{
+         ///  curl
+         ///    -H "Content-Type: application/json"
+         ///    -d {
          ///        "id":1, "jsonrpc":"2.0",
          ///        "method": "asset_canTransfer",
          ///        "params":[
@@ -39,7 +39,7 @@ sp_api::decl_runtime_apis! {
          ///            "0x010000000000000000000000",
          ///            "0x2a00000000000000000000000000000000000000000000000000000000000000",
          ///            "0x3905000000000000000000000000000000000000000000000000000000000000",
-         ///            500]}' \
+         ///            500]}
          ///    http://localhost:9933 | python3 -m json.tool
          /// ```
          fn can_transfer(
