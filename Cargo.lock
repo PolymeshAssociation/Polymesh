@@ -3210,6 +3210,41 @@ name = "pallet-group-rpc-runtime-api"
 version = "2.0.0"
 dependencies = [
  "frame-support",
+ "pallet-group-rpc-runtime-api",
+ "parity-scale-codec",
+ "polymesh-common-utilities",
+ "polymesh-primitives",
+ "serde",
+ "serde_json",
+ "sp-api",
+ "sp-runtime",
+ "sp-std",
+]
+
+[[package]]
+name = "pallet-group-rpc"
+version = "2.0.0"
+dependencies = [
+ "jsonrpc-core",
+ "jsonrpc-core-client",
+ "jsonrpc-derive",
+ "pallet-group-rpc-runtime-api",
+ "parity-scale-codec",
+ "polymesh-primitives",
+ "serde",
+ "sp-api",
+ "sp-blockchain",
+ "sp-rpc",
+ "sp-runtime",
+ "sp-std",
+ "substrate-test-runtime-client",
+]
+
+[[package]]
+name = "pallet-group-rpc-runtime-api"
+version = "2.0.0"
+dependencies = [
+ "frame-support",
  "parity-scale-codec",
  "polymesh-common-utilities",
  "polymesh-primitives",
