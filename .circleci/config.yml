@@ -177,11 +177,11 @@ jobs:
           name: Install and configure dependencies
           command: |
             npm install -g --silent gh-pages@2.2.0
-            git config user.email " ci-build@JMoore96"
-            git config user.name "ci-build"
+            git config user.email "47923231+JMoore96@users.noreply.github.com"
+            git config user.name "JMoore96"
       - add_ssh_keys:
           fingerprints:
-            - "18:42:5f:ad:c2:b0:71:f0:c6:fe:27:0a:e6:48:5e:8c"
+            - "c5:42:5c:ed:a6:78:8e:6d:7a:b0:8a:79:72:3e:9e:0b"
       - run:
           name: Deploy docs to gh-pages branch
           command: gh-pages --message "[skip ci] Updates" --dist target/doc --repo "git@github.com:JMoore96/polymesh-ghpages-test.git"
