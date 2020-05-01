@@ -106,7 +106,7 @@
 //! a set of validators  to be elected. Once interest in nomination is stated by an account, it
 //! takes effect at the next election round. The funds in the nominator's stash account indicate the
 //! _weight_ of its vote. Both the rewards and any punishment that a validator earns are shared
-//! between the validator and its nominators. This rule incentive's the nominators to NOT vote for
+//! between the validator and its nominators. This rule incentivizes the nominators to NOT vote for
 //! the misbehaving/offline validators as much as possible, simply because the nominators will also
 //! lose funds if they vote poorly.
 //!
