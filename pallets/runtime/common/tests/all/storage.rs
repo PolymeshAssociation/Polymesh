@@ -1,7 +1,7 @@
 use pallet_asset as asset;
 use pallet_balances as balances;
 use pallet_committee as committee;
-use pallet_general_tm as general_tm;
+use pallet_compliance_manager as compliance_manager;
 use pallet_group as group;
 use pallet_identity as identity;
 use pallet_multisig as multisig;
@@ -79,7 +79,7 @@ impl_outer_event! {
         pips<T>,
         pallet_contracts<T>,
         pallet_session,
-        general_tm,
+        compliance_manager,
         exemption,
         group Instance1<T>,
         group Instance2<T>,
@@ -352,7 +352,7 @@ impl percentage_tm::Trait for TestStorage {
     type Exemption = exemption::Module<TestStorage>;
 }
 
-impl general_tm::Trait for TestStorage {
+impl compliance_manager::Trait for TestStorage {
     type Event = Event;
     type Asset = asset::Module<TestStorage>;
 }
@@ -366,7 +366,7 @@ impl protocol_fee::Trait for TestStorage {
 impl asset::Trait for TestStorage {
     type Event = Event;
     type Currency = balances::Module<TestStorage>;
-    type GeneralTm = general_tm::Module<TestStorage>;
+    type ComplianceManager = compliance_manager::Module<TestStorage>;
 }
 
 parameter_types! {

@@ -30,7 +30,7 @@
 use crate::simple_token::{self, SimpleTokenTrait};
 
 use pallet_balances as balances;
-use pallet_general_tm as general_tm;
+use pallet_compliance_manager as compliance_manager;
 use pallet_identity as identity;
 use polymesh_common_utilities::{
     asset::Trait as AssetTrait, balances::Trait as BalancesTrait, CommonTrait, Context,
@@ -49,7 +49,7 @@ use sp_std::{convert::TryFrom, prelude::*};
 
 /// The module's configuration trait.
 pub trait Trait:
-    pallet_timestamp::Trait + frame_system::Trait + BalancesTrait + general_tm::Trait
+    pallet_timestamp::Trait + frame_system::Trait + BalancesTrait + compliance_manager::Trait
 {
     /// The overarching event type.
     type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;

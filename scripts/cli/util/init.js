@@ -17,7 +17,8 @@ let synced_block = 0;
 let synced_block_ts = 0;
 
 // Amount to seed each key with
-let transfer_amount = new BN(10).mul(new BN(10).pow(new BN(12)));
+let transfer_amount = new BN(25000).mul(new BN(10).pow(new BN(6)));
+
 let prepend = "demo";
 
 // Used for creating a single ticker 
@@ -167,7 +168,7 @@ const createIdentitiesWithExpiry = async function(api, accounts, alice, expiries
     const d = await api.query.identity.keyToIdentityIds(accounts[i].publicKey);
     dids.push(d.raw.asUnique);
   }
-  let did_balance = 10 * 10**12;
+  let did_balance = 1000 * 10**6;
   for (let i = 0; i < dids.length; i++) {
     // let nonceObjTwo = {nonce: nonces.get(alice.address)};
     // const transactionTwo = api.tx.balances.topUpIdentityBalance(dids[i], did_balance);
@@ -282,7 +283,7 @@ async function createClaimRules(api, accounts, dids) {
     let receiverRules = receiverRules1(dids[1], asset_did);
 
     let nonceObj = {nonce: nonces.get(accounts[0].address)};
-    const transaction = api.tx.generalTm.addActiveRule(ticker, senderRules, receiverRules);
+    const transaction = api.tx.complianceManager.addActiveRule(ticker, senderRules, receiverRules);
     await sendTransaction(transaction, accounts[0], nonceObj); 
 
       nonces.set(accounts[0].address, nonces.get(accounts[0].address).addn(1));

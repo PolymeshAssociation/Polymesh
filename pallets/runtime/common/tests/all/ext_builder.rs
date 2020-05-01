@@ -43,7 +43,7 @@ impl Default for MockProtocolBaseFees {
             ProtocolOp::AssetAddDocument,
             ProtocolOp::AssetCreateToken,
             ProtocolOp::DividendNew,
-            ProtocolOp::GeneralTmAddActiveRule,
+            ProtocolOp::ComplianceManagerAddActiveRule,
             ProtocolOp::IdentityRegisterDid,
             ProtocolOp::IdentityCddRegisterDid,
             ProtocolOp::IdentityAddClaim,
