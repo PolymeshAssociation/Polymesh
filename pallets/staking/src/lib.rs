@@ -96,6 +96,9 @@
 //!
 //! An account can become a validator candidate via the
 //! [`validate`](./enum.Call.html#variant.validate) call.
+//! But only those validators are in effect whose compliance status is active via
+//! [`add_potential_validator`](./enum.Call.html#variant.validate) call & there _stash_ accounts has valid CDD claim.
+//! Compliance status can only provided by the [`T::RequiredAddOrigin`].
 //!
 //! #### Nomination
 //!
@@ -107,7 +110,9 @@
 //! the misbehaving/offline validators as much as possible, simply because the nominators will also
 //! lose funds if they vote poorly.
 //!
-//! An account can become a nominator via the [`nominate`](enum.Call.html#variant.nominate) call.
+//! An account can become a nominator via the [`nominate`](enum.Call.html#variant.nominate) call
+//! & potential account should posses a valid CDD claim having an expiry greater
+//! than the [`BondingDuration`](./struct.BondingDuration.html).
 //!
 //! #### Rewards and Slash
 //!
@@ -388,7 +393,9 @@ impl Default for ValidatorPrefs {
 #[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 pub enum Commission {
+    /// Flag that allow every validator to have individual commission.
     Individual,
+    /// Every validator has same commission that set globally.
     Global(Perbill),
 }
 
@@ -610,10 +617,10 @@ impl Default for Compliance {
     }
 }
 
-/// Represents a requirement that must be met to be eligible to become a validator
+/// Represents a requirement that must be met to be eligible to become a validator.
 #[derive(PartialEq, Eq, PartialOrd, Ord, Clone, Encode, Decode, RuntimeDebug)]
 pub struct PermissionedValidator {
-    /// Indicates the status of CDD compliance
+    /// Indicates the status of CDD compliance.
     pub compliance: Compliance,
 }
 
@@ -627,7 +634,7 @@ impl Default for PermissionedValidator {
 
 /// Means for interacting with a specialized version of the `session` trait.
 ///
-/// This is needed because `Staking` sets the `ValidatorIdOf` of the `pallet_session::Trait`
+/// This is needed because `Staking` sets the `ValidatorIdOf` of the `pallet_session::Trait`.
 pub trait SessionInterface<AccountId>: frame_system::Trait {
     /// Disable a given validator by stash ID.
     ///
@@ -736,7 +743,7 @@ pub trait Trait: frame_system::Trait + pallet_babe::Trait + IdentityTrait {
     /// Required origin for changing validator commission.
     type RequiredCommissionOrigin: EnsureOrigin<Self::Origin>;
 
-    /// Required origin for changing the history depth
+    /// Required origin for changing the history depth.
     type RequiredChangeHistoryDepthOrigin: EnsureOrigin<Self::Origin>;
 }
 
@@ -815,7 +822,7 @@ decl_storage! {
         /// Validator set of this era must be equal to `SessionInterface::validators`.
         pub ActiveEra get(fn active_era): Option<ActiveEraInfo<MomentOf<T>>>;
 
-        /// The session index at which the era start for the last `HISTORY_DEPTH` eras
+        /// The session index at which the era start for the last `HISTORY_DEPTH` eras.
         pub ErasStartSessionIndex get(fn eras_start_session_index):
             map hasher(twox_64_concat) EraIndex => Option<SessionIndex>;
 
@@ -914,7 +921,7 @@ decl_storage! {
         /// The earliest era for which we have a pending, unapplied slash.
         EarliestUnappliedSlash: Option<EraIndex>;
 
-        /// The map from (wannabe) validators to the status of compliance
+        /// The map from (wannabe) validators to the status of compliance.
         pub PermissionedValidators get(permissioned_validators):
             linked_map hasher(twox_64_concat) T::AccountId => Option<PermissionedValidator>;
 
@@ -983,15 +990,15 @@ decl_event!(
         PermissionedValidatorRemoved(AccountId),
         /// The given member was removed. See the transaction for who.
         PermissionedValidatorStatusChanged(AccountId),
-        /// Remove the nominators from the valid nominators when there CDD expired
+        /// Remove the nominators from the valid nominators when there CDD expired.
         /// Caller, Stash accountId of nominators
         InvalidatedNominators(AccountId, Vec<AccountId>),
         /// Individual commissions are enabled.
         IndividualCommissionInEffect,
-        /// When changes to commission are made and global commission is in effect
+        /// When changes to commission are made and global commission is in effect.
         /// (old value, new value)
         GlobalCommissionInEffect(Perbill, Perbill),
-        /// Min bond threshold was updated (new value)
+        /// Min bond threshold was updated (new value).
         MinimumBondThreshold(Balance),
     }
 );
@@ -1017,21 +1024,21 @@ decl_error! {
         InsufficientValue,
         /// Can not schedule more unlock chunks.
         NoMoreChunks,
-        /// Can not rebond without unlocking chunks.
+        /// Can not re-bond without unlocking chunks.
         NoUnlockChunk,
-        /// Not complaint with the compliance rules
+        /// Not complaint with the compliance rules.
         NotCompliant,
-        /// Permissioned validator already exists
+        /// Permissioned validator already exists.
         AlreadyExists,
-        /// Bad origin
+        /// Bad origin.
         NotAuthorised,
-        /// Permissioned validator not exists
+        /// Permissioned validator not exists.
         NotExists,
-        /// Individual commissions already enabled
+        /// Individual commissions already enabled.
         AlreadyEnabled,
-        /// Updates with same value
+        /// Updates with same value.
         NoChange,
-        /// Updates with same value
+        /// Updates with same value.
         InvalidCommission,
         /// Attempting to target a stash that still has funds.
         FundedTarget,
@@ -1079,6 +1086,11 @@ decl_module! {
         /// NOTE: Two of the storage writes (`Self::bonded`, `Self::payee`) are _never_ cleaned unless
         /// the `origin` falls below _existential deposit_ and gets removed as dust.
         /// # </weight>
+        ///
+        /// # Arguments
+        /// * origin Stash account (signer of the extrinsic).
+        /// * controller Account that controls the operation of stash.
+        /// * payee Destination where reward can be transferred.
         #[weight = SimpleDispatchInfo::FixedNormal(500_000)]
         pub fn bond(origin,
             controller: <T::Lookup as StaticLookup>::Source,
@@ -1097,8 +1109,9 @@ decl_module! {
                 Err(Error::<T>::AlreadyPaired)?
             }
 
-            // reject a bond which is considered to be _dust_.
-            // Not needed this check as we removes the Exestential deposit concept
+            // Reject a bond which is considered to be _dust_.
+            // Not needed this check as we removes the Existential deposit concept
+            // but keeping this to be defensive.
             if value < <T as Trait>::Currency::minimum_balance() {
                 Err(Error::<T>::InsufficientValue)?
             }
@@ -1134,6 +1147,10 @@ decl_module! {
         /// - O(1).
         /// - One DB entry.
         /// # </weight>
+        ///
+        /// # Arguments
+        /// * origin Stash account (signer of the extrinsic).
+        /// * max_additional Extra amount that need to be bonded.
         #[weight = SimpleDispatchInfo::FixedNormal(500_000)]
         pub fn bond_extra(origin, #[compact] max_additional: BalanceOf<T>) {
             let stash = ensure_signed(origin)?;
@@ -1174,6 +1191,10 @@ decl_module! {
         ///   The only way to clean the aforementioned storage item is also user-controlled via `withdraw_unbonded`.
         /// - One DB entry.
         /// </weight>
+        ///
+        /// # Arguments
+        /// * origin Controller (Signer of the extrinsic).
+        /// * value Balance needs to be unbonded.
         #[weight = SimpleDispatchInfo::FixedNormal(400_000)]
         pub fn unbond(origin, #[compact] value: BalanceOf<T>) {
             let controller = ensure_signed(origin)?;
@@ -1235,16 +1256,19 @@ decl_module! {
         /// - Contains a limited number of reads.
         /// - Writes are limited to the `origin` account key.
         /// # </weight>
+        ///
+        /// # Arguments
+        /// * origin Controller (signer of the extrinsic).
+        /// * prefs Amount of commission a potential validator proposes.
         #[weight = SimpleDispatchInfo::FixedNormal(750_000)]
         pub fn validate(origin, prefs: ValidatorPrefs) {
-            //Self::ensure_storage_upgraded();
 
             let controller = ensure_signed(origin)?;
             let ledger = Self::ledger(&controller).ok_or(Error::<T>::NotController)?;
             let stash = &ledger.stash;
 
             ensure!(ledger.active >= <MinimumBondThreshold<T>>::get(), Error::<T>::InsufficientValue);
-
+            // Polymesh-Note - It is used to check whether the passed commission is same as global.
             if let Commission::Global(commission) = <ValidatorCommission>::get() {
                 ensure!(prefs.commission == commission, Error::<T>::InvalidCommission);
             }
@@ -1265,6 +1289,10 @@ decl_module! {
         /// - It also depends upon the no. of claim issuers for a given stash account.
         /// - Both the reads and writes follow a similar pattern.
         /// # </weight>
+        ///
+        /// # Arguments
+        /// * origin Controller (Signer of the extrinsic).
+        /// * targets List of stash AccountId of the validators whom nominator wants to nominate.
         #[weight = SimpleDispatchInfo::FixedNormal(950_000)]
         pub fn nominate(origin, targets: Vec<<T::Lookup as StaticLookup>::Source>) {
             let controller = ensure_signed(origin)?;
@@ -1272,9 +1300,9 @@ decl_module! {
             let stash = &ledger.stash;
             ensure!(!targets.is_empty(), Error::<T>::EmptyTargets);
             // A Claim_key can have multiple claim value provided by different claim issuers.
-            // So here we iterate every claim value of the "CDDExpiryTimestamp" claim key. If
-            // any key value will be greater than the threshold value of timestamp i.e current_timestamp + Bonding duration
-            // then it break the loop and the given nominator in the nominator pool.
+            // So here we iterate every CDD claim provided to the nominator If any claim is greater than
+            // the threshold value of timestamp i.e current_timestamp + Bonding duration
+            // then nominator is added into the nominator pool.
 
             if let Some(nominate_identity) = <identity::Module<T>>::get_identity(&(AccountKey::try_from(stash.encode())?)) {
                 let leeway = Self::get_bonding_duration_period() as u32;
@@ -1347,6 +1375,10 @@ decl_module! {
         /// - Contains a limited number of reads.
         /// - Writes are limited to the `origin` account key.
         /// # </weight>
+        ///
+        /// # Arguments
+        /// * origin Stash AccountId (signer of the extrinsic).
+        /// * controller New AccountId that act as the controller of the stash account.
         #[weight = SimpleDispatchInfo::FixedNormal(750_000)]
         pub fn set_controller(origin, controller: <T::Lookup as StaticLookup>::Source) {
             let stash = ensure_signed(origin)?;
@@ -1373,6 +1405,10 @@ decl_module! {
         /// Governance committee on 2/3 rds majority can introduce a new potential validator
         /// to the pool of validators. Staking module uses `PermissionedValidators` to ensure
         /// validators have completed KYB compliance and considers them for validation.
+        ///
+        /// # Arguments
+        /// * origin Required origin for adding a potential validator.
+        /// * validator Stash AccountId of the validator.
         #[weight = SimpleDispatchInfo::FixedNormal(50_000)]
         pub fn add_potential_validator(origin, validator: T::AccountId) {
             T::RequiredAddOrigin::try_origin(origin)
@@ -1390,6 +1426,10 @@ decl_module! {
         /// Remove a validator from the pool of validators. Effects are known in the next session.
         /// Staking module checks `PermissionedValidators` to ensure validators have
         /// completed KYB compliance
+        ///
+        /// # Arguments
+        /// * origin Required origin for removing a potential validator.
+        /// * validator Stash AccountId of the validator.
         #[weight = SimpleDispatchInfo::FixedNormal(50_000)]
         pub fn remove_validator(origin, validator: T::AccountId) {
             T::RequiredRemoveOrigin::try_origin(origin)
@@ -1404,6 +1444,10 @@ decl_module! {
 
         /// Governance committee on 2/3 rds majority can update the compliance status of a validator
         /// as `Pending`.
+        ///
+        /// # Arguments
+        /// * origin Required origin for providing compliance to a potential validator.
+        /// * validator Stash AccountId of the validator.
         #[weight = SimpleDispatchInfo::FixedNormal(50_000)]
         pub fn compliance_failed(origin, validator: T::AccountId) {
             T::RequiredComplianceOrigin::try_origin(origin)
@@ -1421,6 +1465,10 @@ decl_module! {
 
         /// Governance committee on 2/3 rds majority can update the compliance status of a validator
         /// as `Active`.
+        ///
+        /// # Arguments
+        /// * origin Required origin for providing compliance to a potential validator.
+        /// * validator Stash AccountId of the validator.
         #[weight = SimpleDispatchInfo::FixedNormal(50_000)]
         pub fn compliance_passed(origin, validator: T::AccountId) {
             T::RequiredComplianceOrigin::try_origin(origin)
@@ -1436,24 +1484,24 @@ decl_module! {
             Self::deposit_event(RawEvent::PermissionedValidatorStatusChanged(validator));
         }
 
-        /// Validate the nominators CDD expiry time
+        /// Validate the nominators CDD expiry time.
         ///
         /// If an account from a given set of address is nominating then
         /// check the CDD expiry time of it and if it is expired
         /// then the account should be unbonded and removed from the nominating process.
         ///
         /// #<weight>
-        /// - Depends on passed list of AccountId
-        /// - Depends on the no. of claim issuers an accountId has for the CDD expiry
+        /// - Depends on passed list of AccountId.
+        /// - Depends on the no. of claim issuers an accountId has for the CDD expiry.
         /// #</weight>
         #[weight = SimpleDispatchInfo::FixedNormal(950_000)]
         pub fn validate_cdd_expiry_nominators(origin, targets: Vec<T::AccountId>) {
             let caller = ensure_signed(origin)?;
             let mut expired_nominators = Vec::new();
             ensure!(!targets.is_empty(), "targets cannot be empty");
-            // Iterate provided list of accountIds (These accountIds should be stash type account)
+            // Iterate provided list of accountIds (These accountIds should be stash type account).
             for target in targets.iter() {
-                // Check whether given nominator is vouching for someone or not
+                // Check whether given nominator is vouching for someone or not.
 
                 if let Some(_) = Self::nominators(target) {
                     // Access the identity of the nominator
@@ -1464,9 +1512,9 @@ decl_module! {
                         // valid CDD otherwise it will be removed from the pool of the nominators.
                         let is_cdded = <identity::Module<T>>::has_valid_cdd(nominate_identity);
                         if !is_cdded {
-                            // Unbonding the balance that bonded with the controller account of a Stash account
+                            // Un-bonding the balance that bonded with the controller account of a Stash account
                             // This unbonded amount only be accessible after completion of the BondingDuration
-                            // Controller account need to call the dispatchable function `withdraw_unbond` to use fund
+                            // Controller account need to call the dispatchable function `withdraw_unbond` to withdraw fund.
 
                             let controller = Self::bonded(target).ok_or("not a stash")?;
                             let mut ledger = Self::ledger(&controller).ok_or("not a controller")?;
@@ -1552,7 +1600,7 @@ decl_module! {
         }
 
         /// Force there to be a new era at the end of the next session. After this, it will be
-        /// reset to normal (non-forced) behaviour.
+        /// reset to normal (non-forced) behavior.
         ///
         /// # <weight>
         /// - No arguments.
@@ -1570,7 +1618,7 @@ decl_module! {
             <Invulnerables<T>>::put(validators);
         }
 
-        /// Force a current staker to become completely unstaked, immediately.
+        /// Force a current staker to become completely un-staked, immediately.
         #[weight = SimpleDispatchInfo::FixedNormal(10_000)]
         pub fn force_unstake(origin, stash: T::AccountId) {
             ensure_root(origin)?;
@@ -1678,7 +1726,7 @@ decl_module! {
             Self::do_payout_validator(who, era)
         }
 
-        /// Rebond a portion of the stash scheduled to be unlocked.
+        /// Re-bond a portion of the stash scheduled to be unlocked.
         ///
         /// # <weight>
         /// - Time complexity: O(1). Bounded by `MAX_UNLOCKING_CHUNKS`.
@@ -1735,8 +1783,8 @@ impl<T: Trait> Module<T> {
     // PUBLIC IMMUTABLES
 
     /// POLYMESH-NOTE: This change is polymesh specific to query the list of all invalidate nominators
-    /// It is recommended to not call this function onchain. It is a non-deterministic function that is
-    /// suitable for offchain workers only.
+    /// It is recommended to not call this function on-chain. It is a non-deterministic function that is
+    /// suitable for off-chain workers only.
     pub fn fetch_invalid_cdd_nominators(buffer: u64) -> Vec<T::AccountId> {
         let invalid_nominators = <Nominators<T>>::enumerate()
             .into_iter()
@@ -1760,15 +1808,15 @@ impl<T: Trait> Module<T> {
         return invalid_nominators;
     }
 
-    /// POLYMESH-NOTE: This is Polymesh specific change
+    /// POLYMESH-NOTE: This is Polymesh specific change.
     /// Here we are assuming that passed targets are always be a those nominators whose cdd
     /// claim get expired or going to expire after the `buffer_time`.
     pub fn unsafe_validate_cdd_expiry_nominators(targets: Vec<T::AccountId>) -> DispatchResult {
-        // Iterate provided list of accountIds (These accountIds should be stash type account)
+        // Iterate provided list of accountIds (These accountIds should be stash type account).
         for target in targets.iter() {
-            // Unbonding the balance that bonded with the controller account of a Stash account
+            // Un-bonding the balance that bonded with the controller account of a Stash account
             // This unbonded amount only be accessible after completion of the BondingDuration
-            // Controller account need to call the dispatchable function `withdraw_unbond` to use fund
+            // Controller account need to call the dispatchable function `withdraw_unbond` to use fund.
 
             let controller = Self::bonded(target).ok_or("not a stash")?;
             let mut ledger = Self::ledger(&controller).ok_or("not a controller")?;
@@ -2398,7 +2446,9 @@ impl<T: Trait> Module<T> {
     pub fn get_bonding_duration_period() -> u64 {
         let total_session = (T::SessionsPerEra::get() as u32) * (T::BondingDuration::get() as u32);
         let session_length = <T as pallet_babe::Trait>::EpochDuration::get();
-        total_session as u64 * session_length
+        total_session as u64
+            * session_length
+            * (<T as pallet_babe::Trait>::ExpectedBlockTime::get()).saturated_into::<u64>()
     }
 
     /// Update commision in ValidatorPrefs to given value
