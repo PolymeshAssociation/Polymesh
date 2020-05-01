@@ -9,7 +9,7 @@ use polymesh_runtime_common::{
     contracts_wrapper, dividend, exemption,
     impls::{Author, CurrencyToVoteHandler, LinearWeightToFee, TargetedFeeAdjustment},
     merge_active_and_inactive, simple_token, sto_capped, voting, AvailableBlockRatio,
-    AvailableBlockRatio, BlockHashCount, MaximumBlockLength, MaximumBlockWeight, NegativeImbalance,
+    BlockHashCount, MaximumBlockLength, MaximumBlockWeight, NegativeImbalance,
 };
 
 use pallet_asset as asset;
