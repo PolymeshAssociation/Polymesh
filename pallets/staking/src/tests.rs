@@ -387,7 +387,7 @@ fn staking_should_work() {
             ));
             let current_era_at_bond = Staking::current_era();
             // Add validator in the potential validator list
-            assert_ok!(Staking::add_potential_validator(
+            assert_ok!(Staking::add_permissioned_validator(
                 Origin::system(frame_system::RawOrigin::Root),
                 account_from(3)
             ));
@@ -2110,7 +2110,7 @@ fn switching_roles() {
             // create identity and add cdd claim
             create_did_and_add_claim(account_from(5));
             // add in to potential validator list
-            assert_ok!(Staking::add_potential_validator(
+            assert_ok!(Staking::add_permissioned_validator(
                 Origin::system(frame_system::RawOrigin::Root),
                 account_from(5)
             ));
@@ -2130,7 +2130,7 @@ fn switching_roles() {
 
             // 2 decides to be a validator. Consequences:
             // add in to potential validator list
-            assert_ok!(Staking::add_potential_validator(
+            assert_ok!(Staking::add_permissioned_validator(
                 Origin::system(frame_system::RawOrigin::Root),
                 account_from(1)
             ));
@@ -2235,7 +2235,7 @@ fn bond_with_little_staked_value_bounded() {
             // create identity and add provide valid claim
             create_did_and_add_claim(account_from(1));
             // add validator in potential validator list
-            assert_ok!(Staking::add_potential_validator(
+            assert_ok!(Staking::add_permissioned_validator(
                 Origin::system(frame_system::RawOrigin::Root),
                 account_from(1)
             ));
@@ -4128,7 +4128,7 @@ fn should_initialize_stakers_and_validators() {
 }
 
 #[test]
-fn should_add_potential_validators() {
+fn should_add_permissioned_validators() {
     ExtBuilder::default()
         .minimum_validator_count(2)
         .validator_count(2)
@@ -4140,22 +4140,17 @@ fn should_add_potential_validators() {
             let acc_10 = account_from(10);
             let acc_20 = account_from(20);
 
-            assert_ok!(Staking::add_potential_validator(
+            assert_ok!(Staking::add_permissioned_validator(
                 Origin::system(frame_system::RawOrigin::Root),
                 acc_10.clone()
             ));
-            assert_ok!(Staking::add_potential_validator(
+            assert_ok!(Staking::add_permissioned_validator(
                 Origin::system(frame_system::RawOrigin::Root),
-                acc_20.clone()
-            ));
-
-            assert_ok!(Staking::compliance_failed(
-                Origin::signed(account_from(3000)),
                 acc_20.clone()
             ));
             assert_eq!(
                 Staking::permissioned_validators(acc_10).unwrap().compliance,
-                Compliance::Active
+                Compliance::Pending
             );
             assert_eq!(
                 Staking::permissioned_validators(acc_20).unwrap().compliance,
@@ -4165,7 +4160,7 @@ fn should_add_potential_validators() {
 }
 
 #[test]
-fn should_remove_validators() {
+fn should_remove_permissioned_validators() {
     ExtBuilder::default()
         .minimum_validator_count(2)
         .validator_count(2)
@@ -4178,21 +4173,16 @@ fn should_remove_validators() {
             let acc_20 = account_from(20);
             let acc_30 = account_from(30);
 
-            assert_ok!(Staking::add_potential_validator(
+            assert_ok!(Staking::add_permissioned_validator(
                 Origin::system(frame_system::RawOrigin::Root),
                 acc_10.clone()
             ));
-            assert_ok!(Staking::add_potential_validator(
+            assert_ok!(Staking::add_permissioned_validator(
                 Origin::system(frame_system::RawOrigin::Root),
                 acc_20.clone()
             ));
 
-            assert_ok!(Staking::compliance_failed(
-                Origin::signed(account_from(3000)),
-                acc_20.clone()
-            ));
-
-            assert_ok!(Staking::remove_validator(
+            assert_ok!(Staking::remove_permissioned_validator(
                 Origin::signed(account_from(2000)),
                 acc_20.clone()
             ));
@@ -4200,7 +4190,7 @@ fn should_remove_validators() {
             assert_eq!(
                 Staking::permissioned_validators(&acc_10),
                 Some(PermissionedValidator {
-                    compliance: Compliance::Active
+                    compliance: Compliance::Pending
                 })
             );
             assert_eq!(Staking::permissioned_validators(&acc_20), None);
