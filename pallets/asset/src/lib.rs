@@ -73,7 +73,7 @@
 //! - `is_ticker_available_or_registered_to` - It provides the status of a given ticker.
 //! - `total_supply` - It provides the total supply of a ticker.
 //! - `get_balance_at` - It provides the balance of a DID at a certain checkpoint.
-//! - `verify_restriction` - It is use to verify the restriction implied by the smart extension and the generalTM.
+//! - `verify_restriction` - It is use to verify the restriction implied by the smart extension and the Compliance Manager.
 //! - `call_extension` - A helper function that is used to call the smart extension function.
 #![cfg_attr(not(feature = "std"), no_std)]
 #![recursion_limit = "256"]
@@ -85,8 +85,8 @@ use pallet_statistics as statistics;
 use polymesh_common_utilities::{
     asset::{AcceptTransfer, Trait as AssetTrait},
     balances::Trait as BalancesTrait,
+    compliance_manager::Trait as ComplianceManagerTrait,
     constants::*,
-    general_tm::Trait as GeneralTmTrait,
     identity::Trait as IdentityTrait,
     protocol_fee::{ChargeProtocolFee, ProtocolOp},
     CommonTrait, Context,
@@ -128,7 +128,7 @@ pub trait Trait:
     /// The overarching event type.
     type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
     type Currency: Currency<Self::AccountId>;
-    type GeneralTm: GeneralTmTrait<Self::Balance>;
+    type ComplianceManager: ComplianceManagerTrait<Self::Balance>;
 }
 
 /// The type of an asset represented by a token.
@@ -1925,7 +1925,7 @@ impl<T: Trait> Module<T> {
     ) -> StdResult<u8, &'static str> {
         ensure!(!Self::frozen(ticker), Error::<T>::Frozen);
         let general_status_code =
-            T::GeneralTm::verify_restriction(ticker, from_did, to_did, value)?;
+            T::ComplianceManager::verify_restriction(ticker, from_did, to_did, value)?;
         Ok(if general_status_code != ERC1400_TRANSFER_SUCCESS {
             general_status_code
         } else {

@@ -3,7 +3,7 @@ use super::{
     ExtBuilder,
 };
 use pallet_asset::{self as asset, IdentifierType, SecurityToken};
-use pallet_general_tm as general_tm;
+use pallet_compliance_manager as compliance_manager;
 use pallet_statistics as statistics;
 use polymesh_primitives::Ticker;
 
@@ -14,7 +14,7 @@ use test_client::AccountKeyring;
 type Origin = <TestStorage as frame_system::Trait>::Origin;
 type Asset = asset::Module<TestStorage>;
 type Statistic = statistics::Module<TestStorage>;
-type GeneralTM = general_tm::Module<TestStorage>;
+type ComplianceManager = compliance_manager::Module<TestStorage>;
 
 #[test]
 fn investor_count_per_asset() {
@@ -53,7 +53,7 @@ fn investor_count_per_asset_with_ext() {
     ));
 
     let ticker = Ticker::try_from(token.name.as_slice()).unwrap();
-    assert_ok!(GeneralTM::add_active_rule(
+    assert_ok!(ComplianceManager::add_active_rule(
         alice_signed.clone(),
         ticker,
         vec![],
