@@ -181,7 +181,7 @@ jobs:
             git config user.name "ci-build-polymesh-ghpages-test"
       - add_ssh_keys:
           fingerprints:
-            - "3c:35:5d:5a:a6:49:0b:58:62:a5:13:ec:19:00:be:ec"
+            - "c5:42:5c:ed:a6:78:8e:6d:7a:b0:8a:79:72:3e:9e:0b"
       - run:
           name: Deploy docs to gh-pages branch
           command: gh-pages --message "[skip ci] Updates" --dist target/doc --repo "git@github.com:JMoore96/polymesh-ghpages-test.git"
