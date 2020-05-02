@@ -419,29 +419,59 @@ fn staking_should_work() {
             // --- Block 5: the validators are still in queue.
             start_session(5);
 
-            // --- Block 6: the validators will now be changed.
+            // --- Block 6: the validators will potentially be changed but
+            // since account_from(3) has no CDD claim, it will be ignored
             start_session(6);
 
             assert_eq_uvec!(
                 validator_controllers(),
-                vec![account_from(20), account_from(4)]
+                vec![account_from(20), account_from(10)]
             );
-            // --- Block 6: Unstake 4 as a validator, freeing up the balance stashed in 3
-            // 4 will chill
-            Staking::chill(Origin::signed(account_from(4))).unwrap();
 
-            // --- Block 7: nothing. 4 is still there.
+            // Add a CDD claim for accounts 3 (stash)
+            create_did_and_add_claim(account_from(3));
+
+            // --- Block 7:
             start_session(7);
+
+            // No effects will be seen so far. Era has not been yet triggered.
+            assert_eq_uvec!(
+                validator_controllers(),
+                vec![account_from(20), account_from(10)]
+            );
+
+            // --- Block 8: the validators will now be queued.
+            start_session(8);
+            assert_eq!(Staking::active_era().unwrap().index, 2);
+
+            // --- Block 9: the validators are still in queue.
+            start_session(9);
+
+            // --- Block 10: the validators will potentially be changed but
+            // since account_from(3) has no CDD claim, it will be ignored
+            start_session(10);
+
             assert_eq_uvec!(
                 validator_controllers(),
                 vec![account_from(20), account_from(4)]
             );
 
-            // --- Block 8:
-            start_session(8);
+            // --- Block 11: Unstake 4 as a validator, freeing up the balance stashed in 3
+            // 4 will chill
+            Staking::chill(Origin::signed(account_from(4))).unwrap();
 
-            // --- Block 9: 4 will not be a validator.
-            start_session(9);
+            // --- Block 11: nothing. 4 is still there.
+            start_session(11);
+            assert_eq_uvec!(
+                validator_controllers(),
+                vec![account_from(20), account_from(4)]
+            );
+
+            // --- Block 12:
+            start_session(12);
+
+            // --- Block 13: 4 will not be a validator.
+            start_session(13);
             assert_eq_uvec!(
                 validator_controllers(),
                 vec![account_from(20), account_from(10)]
