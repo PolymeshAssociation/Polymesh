@@ -16,9 +16,11 @@ jobs:
         target: wasm32-unknown-unknown
         override: true
         default: true
-    - name: Index file
+    - name: Build docs
+      run: cargo doc --no-deps --workspace --release --verbose
+    - name: Add index file
       run: mkdir target && mkdir target/doc && echo "<html lang='en'><head><meta http-equiv='refresh' content='0; URL=./polymesh'></head></html>" > ./target/doc/index.html
-    - name: Publish
+    - name: Publish to Cloudflare workers
       uses: cloudflare/wrangler-action@1.1.0
       with:
         apiToken: ${{ secrets.CF_API_TOKEN }}
