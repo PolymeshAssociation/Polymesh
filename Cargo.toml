@@ -33,6 +33,8 @@ members = [
     "pallets/balances",
     "pallets/committee",
     "pallets/group",
+    "pallets/group/rpc",
+    "pallets/group/rpc/runtime-api",
     "pallets/protocol-fee",
     "pallets/multisig",
     "pallets/cdd-offchain-worker",
@@ -78,6 +80,10 @@ pallet-protocol-fee = { package = "pallet-protocol-fee", path = "pallets/protoco
 pallet-protocol-fee-rpc = { package = "pallet-protocol-fee-rpc", path = "pallets/protocol-fee/rpc", default-features = false }
 pallet-asset-rpc = { package = "pallet-asset-rpc", path = "pallets/asset/rpc", default-features = false }
 pallet-asset-rpc-runtime-api = { package = "pallet-asset-rpc-runtime-api", path = "pallets/asset/rpc/runtime-api", default-features = false }
+pallet-group-rpc = { package = "pallet-group-rpc", path = "pallets/group/rpc", default-features = false }
+pallet-group-rpc-runtime-api = { package = "pallet-group-rpc-runtime-api", path = "pallets/group/rpc/runtime-api", default-features = false }
+
+
 
 # Others
 parking_lot = "0.10.0"
