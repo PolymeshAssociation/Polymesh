@@ -17,7 +17,7 @@ jobs:
         override: true
         default: true
     - name: Index file
-      run: echo "<html lang='en'><head><meta http-equiv='refresh' content='0; URL=./polymesh'></head></html>" > ./target/doc/index.html
+      run: mkdir ./target/doc && echo "<html lang='en'><head><meta http-equiv='refresh' content='0; URL=./polymesh'></head></html>" > ./target/doc/index.html
     - name: Publish
       uses: cloudflare/wrangler-action@1.1.0
       with:
