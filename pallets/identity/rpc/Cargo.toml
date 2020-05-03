@@ -1,5 +1,5 @@
 [package]
-name = "polymesh-runtime-identity-rpc"
+name = "pallet-identity-rpc"
 version = "0.1.0"
 authors = ["Anonymous"]
 edition = "2018"
@@ -15,5 +15,5 @@ sp-rpc = { git = 'https://github.com/paritytech/substrate.git', default-features
 sp-runtime = { git = 'https://github.com/paritytech/substrate.git', default-features = false, rev = 'a439a7aa5a9a3df2a42d9b25ea04288d3a0866e8'}
 sp-blockchain = { git = 'https://github.com/paritytech/substrate.git', default-features = false, rev = 'a439a7aa5a9a3df2a42d9b25ea04288d3a0866e8'}
 sp-api = { git = 'https://github.com/paritytech/substrate.git', default-features = false, rev = 'a439a7aa5a9a3df2a42d9b25ea04288d3a0866e8'}
-polymesh-runtime-identity-rpc-runtime-api = { version = "0.1.0", path = "./runtime-api" }
+pallet-identity-rpc-runtime-api = { version = "0.1.0", path = "./runtime-api" }
 polymesh-primitives = { package = "polymesh-primitives", path = "../../../primitives", default-features = false }

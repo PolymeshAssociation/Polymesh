@@ -359,10 +359,10 @@ mod tests {
     };
     use pallet_balances::Call as BalancesCall;
     use pallet_transaction_payment_rpc_runtime_api::RuntimeDispatchInfo;
-    use polymesh_runtime_common::{
+    use polymesh_common_utilities::{
         traits::{
             asset::AcceptTransfer,
-            balances::{self, AccountData, CheckCdd},
+            balances::{self, CheckCdd},
             identity::IdentityTrait,
             CommonTrait,
         },
@@ -451,8 +451,12 @@ mod tests {
     }
 
     impl CheckCdd for Runtime {
-        fn check_key_cdd(key: &AccountKey) -> bool {
+        fn check_key_cdd(_key: &AccountKey) -> bool {
             true
+        }
+
+        fn get_key_cdd_did(_key: &AccountKey) -> Option<IdentityId> {
+            None
         }
     }
 

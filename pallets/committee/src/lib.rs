@@ -54,13 +54,14 @@ use frame_support::{
     weights::SimpleDispatchInfo,
 };
 use frame_system::{self as system, ensure_signed};
-use polymesh_primitives::{AccountKey, IdentityId, Signatory};
-use polymesh_runtime_common::{
+use pallet_identity as identity;
+use polymesh_common_utilities::{
+    governance_group::GovernanceGroupTrait,
     group::{GroupTrait, InactiveMember},
     identity::{IdentityTrait, Trait as IdentityModuleTrait},
     Context, SystematicIssuers,
 };
-use polymesh_runtime_identity as identity;
+use polymesh_primitives::{AccountKey, IdentityId, Signatory};
 use sp_core::u32_trait::Value as U32;
 use sp_runtime::traits::{EnsureOrigin, Hash, Zero};
 use sp_std::{convert::TryFrom, prelude::*, vec};
@@ -131,6 +132,9 @@ decl_storage! {
         /// The member who provides the default vote for any other members that do not vote before
         /// the timeout. If None, then no member has that privilege.
         pub Prime get(fn prime): Option<IdentityId>;
+
+        /// Release coordinator.
+        pub ReleaseCoordinator get(fn release_coordinator): Option<IdentityId>;
     }
     add_extra_genesis {
         config(phantom): sp_std::marker::PhantomData<(T, I)>;
@@ -157,6 +161,8 @@ decl_event!(
         Executed(Hash, bool),
         /// A proposal was closed after its duration was up.
         Closed(Hash, MemberCount, MemberCount),
+        /// Release coordinator has been updated.
+        ReleaseCoordinatorUpdated(Option<IdentityId>),
     }
 );
 
@@ -205,7 +211,7 @@ decl_module! {
         /// * `match_criteria` One of {AtLeast, MoreThan}
         /// * `n` Numerator of the fraction representing vote threshold
         /// * `d` Denominator of the fraction representing vote threshold
-        #[weight = SimpleDispatchInfo::FixedOperational(100_000)]
+        #[weight = SimpleDispatchInfo::FixedOperational(500_000)]
         pub fn set_vote_threshold(origin, n: u32, d: u32) {
             T::CommitteeOrigin::ensure_origin(origin)?;
 
@@ -262,7 +268,7 @@ decl_module! {
         /// * `proposal` Hash of proposal to be voted on
         /// * `index` Proposal index
         /// * `approve` Represents a `for` or `against` vote
-        #[weight = SimpleDispatchInfo::FixedOperational(200_000)]
+        #[weight = SimpleDispatchInfo::FixedOperational(5_000_000)]
         pub fn vote(origin, proposal: T::Hash, #[compact] index: ProposalIndex, approve: bool) -> DispatchResult {
             let who_key = AccountKey::try_from(ensure_signed(origin)?.encode())?;
             let did = Context::current_identity_or::<Identity<T>>(&who_key)?;
@@ -317,7 +323,7 @@ decl_module! {
         ///   - `M` is number of members,
         ///   - `P` is number of active proposals,
         ///   - `L` is the encoded length of `proposal` preimage.
-        #[weight = SimpleDispatchInfo::FixedOperational(200_000)]
+        #[weight = SimpleDispatchInfo::FixedOperational(2_000_000)]
         fn close(origin, proposal: T::Hash, #[compact] index: ProposalIndex) {
             let _ = ensure_signed(origin)?;
 
@@ -350,6 +356,19 @@ decl_module! {
             if approved || rejected {
                 Self::finalize_proposal(approved, seats, yes_votes, no_votes, proposal);
             }
+        }
+
+        /// It changes the release coordinator.
+        ///
+        /// # Errors
+        /// * `MemberNotFound`, If the new coordinator `id` is not part of the committee.
+        #[weight = SimpleDispatchInfo::FixedOperational(500_000)]
+        pub fn set_release_coordinator(origin, id: IdentityId ) {
+            T::CommitteeOrigin::ensure_origin(origin)?;
+            ensure!( Self::members().contains(&id), Error::<T, I>::MemberNotFound);
+
+            <ReleaseCoordinator<I>>::put(id);
+            Self::deposit_event(RawEvent::ReleaseCoordinatorUpdated(Some(id)));
         }
     }
 }
@@ -468,6 +487,12 @@ impl<T: Trait<I>, I: Instance> GroupTrait<T::Moment> for Module<T, I> {
     }
 }
 
+impl<T: Trait<I>, I: Instance> GovernanceGroupTrait<T::Moment> for Module<T, I> {
+    fn release_coordinator() -> Option<IdentityId> {
+        Self::release_coordinator()
+    }
+}
+
 impl<T: Trait<I>, I: Instance> ChangeMembers<IdentityId> for Module<T, I> {
     /// This function is called when the group updates its members, and it executes the following
     /// actions:
@@ -485,6 +510,14 @@ impl<T: Trait<I>, I: Instance> ChangeMembers<IdentityId> for Module<T, I> {
                 })
             })
             .for_each(Self::check_proposal_threshold);
+
+        // Double check if any `outgoing` is the Release coordinator.
+        if let Some(curr_rc) = Self::release_coordinator() {
+            if outgoing.contains(&curr_rc) {
+                <ReleaseCoordinator<I>>::kill();
+                Self::deposit_event(RawEvent::ReleaseCoordinatorUpdated(None));
+            }
+        }
 
         // Add/remove Systematic CDD claims for new/removed members.
         let issuer = SystematicIssuers::Committee;

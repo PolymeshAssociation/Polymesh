@@ -36,6 +36,7 @@ async function distributePoly( api, accounts, transfer_amount, signingEntity ) {
   for (let i = 0; i < accounts.length; i++) {
    
     let nonceObj = {nonce: reqImports.nonces.get(signingEntity.address)};
+    //console.log(accounts[i].address, transfer_amount.toString());
     const transaction = api.tx.balances.transfer(accounts[i].address, transfer_amount);
     const result = await reqImports.sendTransaction(transaction, signingEntity, nonceObj);  
     const passed = result.findRecord('system', 'ExtrinsicSuccess');

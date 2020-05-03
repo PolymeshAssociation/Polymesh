@@ -23,17 +23,11 @@ async function main() {
 
   let issuer_dids = await reqImports.createIdentities(api, master_keys, testEntities[0]);
 
-  await reqImports.distributePoly( api, master_keys.concat(signing_keys).concat(claim_keys), reqImports.transfer_amount, testEntities[0] );
-
-  await reqImports.blockTillPoolEmpty(api);
+  await reqImports.distributePolyBatch( api, master_keys.concat(claim_keys), reqImports.transfer_amount, testEntities[0] );
 
   await reqImports.addSigningKeys( api, master_keys, issuer_dids, signing_keys );
 
-  await reqImports.blockTillPoolEmpty(api);
-
   await reqImports.authorizeJoinToIdentities( api, master_keys, issuer_dids, signing_keys);
-
-  await reqImports.blockTillPoolEmpty(api);
 
   await addClaimsToDids(api, claim_keys, issuer_dids, claim_issuer_dids);
 

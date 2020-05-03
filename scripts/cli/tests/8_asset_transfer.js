@@ -19,25 +19,21 @@ async function main() {
 
   let signing_keys = await reqImports.generateKeys( api, 3, "signing" );
 
-  await reqImports.distributePoly( api, master_keys.concat(signing_keys), reqImports.transfer_amount, testEntities[0] );
-
-  await reqImports.blockTillPoolEmpty(api);
-
   let issuer_dids = await reqImports.createIdentities( api, master_keys, testEntities[0] );
+
+  await reqImports.distributePolyBatch( api, master_keys, reqImports.transfer_amount, testEntities[0] );
 
   await reqImports.addSigningKeys( api, master_keys, issuer_dids, signing_keys );
 
   await reqImports.authorizeJoinToIdentities( api, master_keys, issuer_dids, signing_keys );
 
-  await reqImports.blockTillPoolEmpty(api);
-
   await reqImports.issueTokenPerDid( api, master_keys );
 
   // receiverRules Claim
-  await reqImports.addClaimsToDids( api, master_keys, issuer_dids[2], "Whitelisted", asset_did );
+  await reqImports.addClaimsToDids( api, master_keys, issuer_dids[2], "Whitelisted", asset_did, null );
 
   // senderRules Claim
-  await reqImports.addClaimsToDids( api, master_keys, issuer_dids[0], "Whitelisted", asset_did );
+  await reqImports.addClaimsToDids( api, master_keys, issuer_dids[0], "Whitelisted", asset_did, null );
 
   await reqImports.createClaimRules( api, master_keys, issuer_dids );
 
