@@ -125,7 +125,7 @@ fn issuers_can_create_and_rename_tokens() {
         let (eve_signed, _eve_did) = make_account(AccountKeyring::Eve.public()).unwrap();
         assert_err!(
             Asset::rename_token(eve_signed, ticker, vec![0xde, 0xad, 0xbe, 0xef].into()),
-            AssetError::SenderMustBeSigningKeyForDid
+            AssetError::Unauthorized
         );
         // The token should remain unchanged in storage.
         assert_eq!(Asset::token_details(ticker), token);
@@ -309,7 +309,6 @@ fn valid_custodian_allowance() {
             Asset::increase_custody_allowance(
                 investor1_signed.clone(),
                 ticker,
-                investor1_did,
                 custodian_did,
                 250_00_00 as u128
             ),
@@ -322,7 +321,6 @@ fn valid_custodian_allowance() {
             Asset::increase_custody_allowance(
                 investor1_signed.clone(),
                 ticker,
-                investor1_did,
                 custodian_did_not_register,
                 50_00_00 as u128
             ),
@@ -333,7 +331,6 @@ fn valid_custodian_allowance() {
         assert_ok!(Asset::increase_custody_allowance(
             investor1_signed.clone(),
             ticker,
-            investor1_did,
             custodian_did,
             50_00_00 as u128
         ));
@@ -369,26 +366,12 @@ fn valid_custodian_allowance() {
             AssetError::InsufficientBalance
         );
 
-        // Should fail to transfer the token by the custodian because of invalid signing key
-        assert_noop!(
-            Asset::transfer_by_custodian(
-                investor2_signed.clone(),
-                ticker,
-                investor1_did,
-                custodian_did,
-                investor2_did,
-                45_00_00 as u128
-            ),
-            AssetError::SenderMustBeSigningKeyForDid
-        );
-
         // Should fail to transfer the token by the custodian because of insufficient allowance
         assert_noop!(
             Asset::transfer_by_custodian(
                 custodian_signed.clone(),
                 ticker,
                 investor1_did,
-                custodian_did,
                 investor2_did,
                 55_00_00 as u128
             ),
@@ -400,7 +383,6 @@ fn valid_custodian_allowance() {
             custodian_signed.clone(),
             ticker,
             investor1_did,
-            custodian_did,
             investor2_did,
             45_00_00 as u128
         ));
@@ -484,7 +466,6 @@ fn valid_custodian_allowance_of() {
             investor1_did,
             AccountKeyring::Bob.public(),
             custodian_did,
-            investor2_did,
             50_00_00 as u128,
             1,
             OffChainSignature::from(investor1_key.sign(&msg.encode()))
@@ -508,7 +489,6 @@ fn valid_custodian_allowance_of() {
                 investor1_did,
                 AccountKeyring::Bob.public(),
                 custodian_did,
-                investor2_did,
                 50_00_00 as u128,
                 1,
                 OffChainSignature::from(investor1_key.sign(&msg.encode()))
@@ -524,7 +504,6 @@ fn valid_custodian_allowance_of() {
                 investor1_did,
                 AccountKeyring::Bob.public(),
                 custodian_did,
-                investor2_did,
                 50_00_00 as u128,
                 3,
                 OffChainSignature::from(investor1_key.sign(&msg.encode()))
@@ -553,26 +532,12 @@ fn valid_custodian_allowance_of() {
             AssetError::InsufficientBalance
         );
 
-        // Should fail to transfer the token by the custodian because of invalid signing key
-        assert_noop!(
-            Asset::transfer_by_custodian(
-                investor2_signed.clone(),
-                ticker,
-                investor1_did,
-                custodian_did,
-                investor2_did,
-                45_00_00 as u128
-            ),
-            AssetError::SenderMustBeSigningKeyForDid
-        );
-
         // Should fail to transfer the token by the custodian because of insufficient allowance
         assert_noop!(
             Asset::transfer_by_custodian(
                 custodian_signed.clone(),
                 ticker,
                 investor1_did,
-                custodian_did,
                 investor2_did,
                 55_00_00 as u128
             ),
@@ -584,7 +549,6 @@ fn valid_custodian_allowance_of() {
             custodian_signed.clone(),
             ticker,
             investor1_did,
-            custodian_did,
             investor2_did,
             45_00_00 as u128
         ));
@@ -1739,7 +1703,7 @@ fn freeze_unfreeze_asset() {
         ));
         assert_err!(
             Asset::freeze(bob_signed.clone(), ticker),
-            AssetError::SenderMustBeSigningKeyForDid
+            AssetError::Unauthorized
         );
         assert_err!(
             Asset::unfreeze(alice_signed.clone(), ticker),
