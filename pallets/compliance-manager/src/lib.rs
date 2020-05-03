@@ -1,10 +1,10 @@
-//! # General Transfer Manager Module
+//! # Compliance Manager Module
 //!
-//! The GTM module provides functionality for setting whitelisting rules for transfers
+//! The Compliance Manager module provides functionality for setting whitelisting rules for transfers
 //!
 //! ## Overview
 //!
-//! The GTM module provides functions for:
+//! The Compliance Manager module provides functions for:
 //!
 //! - Adding rules for allowing transfers
 //! - Removing rules that allow transfers
@@ -49,8 +49,8 @@ use pallet_identity as identity;
 use polymesh_common_utilities::{
     asset::Trait as AssetTrait,
     balances::Trait as BalancesTrait,
+    compliance_manager::Trait as ComplianceManagerTrait,
     constants::*,
-    general_tm::Trait as GeneralTmTrait,
     identity::Trait as IdentityTrait,
     protocol_fee::{ChargeProtocolFee, ProtocolOp},
     Context,
@@ -103,7 +103,7 @@ pub struct AssetTransferRules {
 type Identity<T> = identity::Module<T>;
 
 decl_storage! {
-    trait Store for Module<T: Trait> as GeneralTM {
+    trait Store for Module<T: Trait> as ComplianceManager {
         /// List of active rules for a ticker (Ticker -> Array of AssetTransferRules)
         pub AssetRulesMap get(fn asset_rules): map hasher(blake2_128_concat) Ticker => AssetTransferRules;
         /// List of trusted claim issuer Ticker -> Issuer Identity
@@ -149,7 +149,7 @@ decl_module! {
             ensure!(Self::is_owner(&ticker, did), Error::<T>::Unauthorized);
             <<T as IdentityTrait>::ProtocolFee>::charge_fee(
                 &Signatory::AccountKey(sender_key),
-                ProtocolOp::GeneralTmAddActiveRule
+                ProtocolOp::ComplianceManagerAddActiveRule
             )?;
             let new_rule = AssetTransferRule {
                 sender_rules: sender_rules,
@@ -547,7 +547,7 @@ impl<T: Trait> Module<T> {
     }
 }
 
-impl<T: Trait> GeneralTmTrait<T::Balance> for Module<T> {
+impl<T: Trait> ComplianceManagerTrait<T::Balance> for Module<T> {
     ///  Sender restriction verification
     fn verify_restriction(
         ticker: &Ticker,
