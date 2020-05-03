@@ -16,11 +16,11 @@ jobs:
         target: wasm32-unknown-unknown
         override: true
         default: true
-    - name: Build
-      run: cargo doc --no-deps --workspace --release --verbose
     - name: Index file
       run: echo "<html lang='en'><head><meta http-equiv='refresh' content='0; URL=./polymesh'></head></html>" > ./target/doc/index.html
     - name: Publish
       uses: cloudflare/wrangler-action@1.1.0
       with:
         apiToken: ${{ secrets.CF_API_TOKEN }}
+      env:
+        CF_ACCOUNT_ID: ${{ secrets.CF_ACCOUNT_ID }}
