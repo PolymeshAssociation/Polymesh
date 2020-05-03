@@ -362,7 +362,7 @@ mod tests {
     use polymesh_common_utilities::{
         traits::{
             asset::AcceptTransfer,
-            balances::{self, AccountData, CheckCdd},
+            balances::{self, CheckCdd},
             identity::IdentityTrait,
             CommonTrait,
         },
@@ -451,11 +451,11 @@ mod tests {
     }
 
     impl CheckCdd for Runtime {
-        fn check_key_cdd(key: &AccountKey) -> bool {
+        fn check_key_cdd(_key: &AccountKey) -> bool {
             true
         }
 
-        fn get_key_cdd_did(key: &AccountKey) -> Option<IdentityId> {
+        fn get_key_cdd_did(_key: &AccountKey) -> Option<IdentityId> {
             None
         }
     }
