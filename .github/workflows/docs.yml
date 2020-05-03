@@ -17,7 +17,7 @@ jobs:
         override: true
         default: true
     - name: Build docs
-      run: cargo doc --no-deps --workspace --release --verbose
+      run: BUILD_DUMMY_WASM_BINARY=true cargo doc --no-deps --workspace --release --verbose
     - name: Add index file
       run: echo "<html lang='en'><head><meta http-equiv='refresh' content='0; URL=./polymesh'></head></html>" > ./target/doc/index.html
     - name: Publish to Cloudflare workers
