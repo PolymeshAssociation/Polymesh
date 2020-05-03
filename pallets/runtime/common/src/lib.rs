@@ -18,7 +18,7 @@ pub use sp_runtime::{Perbill, Permill};
 use frame_support::{parameter_types, traits::Currency, weights::Weight};
 use frame_system::{self as system};
 use pallet_balances as balances;
-use polymesh_primitives::BlockNumber;
+use polymesh_primitives::{BlockNumber, IdentityId, Moment};
 
 pub use impls::{Author, CurrencyToVoteHandler, TargetedFeeAdjustment};
 
@@ -30,4 +30,22 @@ parameter_types! {
     pub const MaximumBlockWeight: Weight = 100_000_000;
     pub const AvailableBlockRatio: Perbill = Perbill::from_percent(75);
     pub const MaximumBlockLength: u32 = 5 * 1024 * 1024;
+}
+
+use pallet_group_rpc_runtime_api::Member;
+use polymesh_common_utilities::traits::group::InactiveMember;
+use sp_std::{convert::From, prelude::*};
+
+/// It merges actives and inactives members.
+pub fn merge_active_and_inactive<Block>(
+    active: Vec<IdentityId>,
+    inactive: Vec<InactiveMember<Moment>>,
+) -> Vec<Member> {
+    let active_members = active.into_iter().map(Member::from).collect::<Vec<_>>();
+    let inactive_members = inactive.into_iter().map(Member::from).collect::<Vec<_>>();
+
+    active_members
+        .into_iter()
+        .chain(inactive_members.into_iter())
+        .collect::<Vec<_>>()
 }
