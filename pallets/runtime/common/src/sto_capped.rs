@@ -27,15 +27,14 @@
 //! - `pause_sto` - Used to pause the STO of a given token
 //! - `unpause_sto` - Used to un pause the STO of a given token.
 
-use crate::{
-    asset::AssetTrait,
-    general_tm,
-    simple_token::{self, SimpleTokenTrait},
-};
+use crate::simple_token::{self, SimpleTokenTrait};
 
 use pallet_balances as balances;
+use pallet_compliance_manager as compliance_manager;
 use pallet_identity as identity;
-use polymesh_common_utilities::{balances::Trait as BalancesTrait, CommonTrait, Context};
+use polymesh_common_utilities::{
+    asset::Trait as AssetTrait, balances::Trait as BalancesTrait, CommonTrait, Context,
+};
 use polymesh_primitives::{AccountKey, IdentityId, Signatory, Ticker};
 
 use codec::Encode;
@@ -50,7 +49,7 @@ use sp_std::{convert::TryFrom, prelude::*};
 
 /// The module's configuration trait.
 pub trait Trait:
-    pallet_timestamp::Trait + frame_system::Trait + BalancesTrait + general_tm::Trait
+    pallet_timestamp::Trait + frame_system::Trait + BalancesTrait + compliance_manager::Trait
 {
     /// The overarching event type.
     type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;

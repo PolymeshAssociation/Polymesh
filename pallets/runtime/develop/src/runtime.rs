@@ -4,51 +4,63 @@ use crate::{
     fee_details::CddHandler,
 };
 use polymesh_runtime_common::{
-    asset, bridge,
+    bridge,
     cdd_check::CddChecker,
-    contracts_wrapper, dividend, exemption, general_tm,
+    contracts_wrapper, dividend, exemption,
     impls::{Author, CurrencyToVoteHandler, LinearWeightToFee, TargetedFeeAdjustment},
-    percentage_tm, simple_token, statistics, sto_capped, voting, AvailableBlockRatio,
+    merge_active_and_inactive, simple_token, sto_capped, voting, AvailableBlockRatio,
     BlockHashCount, MaximumBlockLength, MaximumBlockWeight, NegativeImbalance,
 };
 
-use frame_support::{
-    construct_runtime, debug, parameter_types,
-    traits::{Randomness, SplitTwoWays},
-};
+use pallet_asset as asset;
 use pallet_balances as balances;
 use pallet_committee as committee;
+use pallet_compliance_manager as compliance_manager;
 use pallet_group as group;
 use pallet_identity as identity;
 use pallet_multisig as multisig;
+use pallet_percentage_tm as percentage_tm;
 use pallet_protocol_fee as protocol_fee;
+use pallet_statistics as statistics;
 use pallet_treasury as treasury;
+
 use polymesh_common_utilities::{
-    constants::currency::*, protocol_fee::ProtocolOp, traits::balances::AccountData, CommonTrait,
+    constants::currency::*,
+    protocol_fee::ProtocolOp,
+    traits::{balances::AccountData, identity::Trait as IdentityTrait},
+    CommonTrait,
 };
 use polymesh_primitives::{
     AccountId, AccountIndex, AccountKey, Balance, BlockNumber, Hash, IdentityId, Index, Moment,
     Signature, SigningItem, Ticker,
 };
+
 use sp_api::impl_runtime_apis;
-use sp_core::u32_trait::{_1, _2, _4};
-use sp_runtime::curve::PiecewiseLinear;
-use sp_runtime::transaction_validity::TransactionValidity;
-use sp_runtime::{
-    create_runtime_str, generic, impl_opaque_keys, ApplyExtrinsicResult, Perbill, Percent, Permill,
+use sp_core::{
+    u32_trait::{_1, _2, _4},
+    OpaqueMetadata,
 };
 use sp_runtime::{
+    create_runtime_str,
+    curve::PiecewiseLinear,
+    generic, impl_opaque_keys,
     traits::{
         BlakeTwo256, Block as BlockT, Extrinsic, OpaqueKeys, SaturatedConversion, StaticLookup,
         Verify,
     },
-    MultiSignature,
+    transaction_validity::TransactionValidity,
+    ApplyExtrinsicResult, MultiSignature, Perbill,
 };
 use sp_std::prelude::*;
 use sp_version::RuntimeVersion;
 
 // Comment in the favour of not using the Offchain worker
 //use pallet_cdd_offchain_worker::crypto::SignerId as CddOffchainWorkerId;
+use frame_support::{
+    construct_runtime, debug, parameter_types,
+    traits::{Randomness, SplitTwoWays},
+};
+
 use frame_system::offchain::TransactionSubmitter;
 use pallet_contracts_rpc_runtime_api::ContractExecResult;
 use pallet_grandpa::{fg_primitives, AuthorityList as GrandpaAuthorityList};
@@ -57,7 +69,6 @@ use pallet_im_online::sr25519::AuthorityId as ImOnlineId;
 use pallet_protocol_fee_rpc_runtime_api::CappedFee;
 use pallet_transaction_payment_rpc_runtime_api::RuntimeDispatchInfo;
 use sp_authority_discovery::AuthorityId as AuthorityDiscoveryId;
-use sp_core::OpaqueMetadata;
 use sp_inherents::{CheckInherentsResult, InherentData};
 #[cfg(feature = "std")]
 use sp_version::NativeVersion;
@@ -164,8 +175,6 @@ impl pallet_indices::Trait for Runtime {
 
 parameter_types! {
     pub const ExistentialDeposit: Balance = 0u128;
-    pub const TransferFee: Balance = 1 * CENTS;
-    pub const CreationFee: Balance = 1 * CENTS;
 }
 
 /// Splits fees 80/20 between treasury and block author.
@@ -197,7 +206,7 @@ parameter_types! {
     pub const TransactionBaseFee: Balance = 1 * CENTS;
     pub const TransactionByteFee: Balance = 10 * MILLICENTS;
     // setting this to zero will disable the weight fee.
-    pub const WeightFeeCoefficient: Balance = 1_000;
+    pub const WeightFeeCoefficient: Balance = 1;
     // for a sane configuration, this should always be less than `AvailableBlockRatio`.
     pub const TargetBlockFullness: Perbill = TARGET_BLOCK_FULLNESS;
 }
@@ -240,11 +249,6 @@ impl pallet_authorship::Trait for Runtime {
     type EventHandler = (Staking, ImOnline);
 }
 
-parameter_types! {
-    pub const Period: BlockNumber = 10 * MINUTES;
-    pub const Offset: BlockNumber = 0;
-}
-
 impl_opaque_keys! {
     pub struct SessionKeys {
         pub grandpa: Grandpa,
@@ -281,9 +285,9 @@ impl pallet_session::historical::Trait for Runtime {
 
 pallet_staking_reward_curve::build! {
     const REWARD_CURVE: PiecewiseLinear<'static> = curve!(
-        min_inflation: 0_500_000,
-        max_inflation: 1_000_000,
-        ideal_stake: 0_100_000,
+        min_inflation: 0_025_000,
+        max_inflation: 0_200_000,
+        ideal_stake: 0_700_000,
         falloff: 0_050_000,
         max_piece_count: 40,
         test_precision: 0_005_000,
@@ -294,7 +298,7 @@ parameter_types! {
     // Six sessions in an era (24 hours).
     pub const SessionsPerEra: sp_staking::SessionIndex = 6;
     // 28 eras for unbonding (28 days).
-    pub const BondingDuration: pallet_staking::EraIndex = 28;
+    pub const BondingDuration: pallet_staking::EraIndex = 7;
     pub const SlashDeferDuration: pallet_staking::EraIndex = 24 * 7; // 1/4 the bonding duration.
     pub const RewardCurve: &'static PiecewiseLinear<'static> = &REWARD_CURVE;
     pub const MaxNominatorRewardedPerValidator: u32 = 64;
@@ -357,15 +361,6 @@ impl pallet_pips::Trait for Runtime {
 }
 
 parameter_types! {
-    pub const LaunchPeriod: BlockNumber = 28 * 24 * 60 * MINUTES;
-    pub const VotingPeriod: BlockNumber = 28 * 24 * 60 * MINUTES;
-    pub const EmergencyVotingPeriod: BlockNumber = 3 * 24 * 60 * MINUTES;
-    pub const MinimumDeposit: Balance = 100 * DOLLARS;
-    pub const EnactmentPeriod: BlockNumber = 30 * 24 * 60 * MINUTES;
-    pub const CooloffPeriod: BlockNumber = 28 * 24 * 60 * MINUTES;
-}
-
-parameter_types! {
     pub const ContractTransactionBaseFee: Balance = 1 * CENTS;
     pub const ContractTransactionByteFee: Balance = 10 * MILLICENTS;
     pub const ContractFee: Balance = 1 * CENTS;
@@ -400,17 +395,6 @@ impl pallet_contracts::Trait for Runtime {
     type MaxDepth = pallet_contracts::DefaultMaxDepth;
     type MaxValueSize = pallet_contracts::DefaultMaxValueSize;
     type BlockGasLimit = pallet_contracts::DefaultBlockGasLimit;
-}
-
-parameter_types! {
-    pub const ProposalBond: Permill = Permill::from_percent(5);
-    pub const ProposalBondMinimum: Balance = 100 * DOLLARS;
-    pub const SpendPeriod: BlockNumber = 24 * DAYS;
-    pub const Burn: Permill = Permill::from_percent(5);
-    pub const TipCountdown: BlockNumber = 1 * DAYS;
-    pub const TipFindersFee: Percent = Percent::from_percent(20);
-    pub const TipReportDepositBase: Balance = 1 * DOLLARS;
-    pub const TipReportDepositPerByte: Balance = 1 * CENTS;
 }
 
 impl treasury::Trait for Runtime {
@@ -466,29 +450,6 @@ impl pallet_sudo::Trait for Runtime {
     type Call = Call;
 }
 
-parameter_types! {
-    pub const CandidacyBond: Balance = 10 * DOLLARS;
-    pub const VotingBond: Balance = 1 * DOLLARS;
-    pub const TermDuration: BlockNumber = 7 * DAYS;
-    pub const DesiredMembers: u32 = 13;
-    pub const DesiredRunnersUp: u32 = 7;
-}
-
-impl pallet_elections_phragmen::Trait for Runtime {
-    type Event = Event;
-    type Currency = Balances;
-    type ChangeMembers = ();
-    type CurrencyToVote = CurrencyToVoteHandler<Self>;
-    type CandidacyBond = CandidacyBond;
-    type VotingBond = VotingBond;
-    type LoserCandidate = ();
-    type BadReport = ();
-    type KickedMember = ();
-    type DesiredMembers = DesiredMembers;
-    type DesiredRunnersUp = DesiredRunnersUp;
-    type TermDuration = TermDuration;
-}
-
 impl multisig::Trait for Runtime {
     type Event = Event;
 }
@@ -506,13 +467,14 @@ impl bridge::Trait for Runtime {
 impl asset::Trait for Runtime {
     type Event = Event;
     type Currency = Balances;
+    type ComplianceManager = compliance_manager::Module<Runtime>;
 }
 
 impl simple_token::Trait for Runtime {
     type Event = Event;
 }
 
-impl general_tm::Trait for Runtime {
+impl compliance_manager::Trait for Runtime {
     type Event = Event;
     type Asset = Asset;
 }
@@ -529,9 +491,11 @@ impl sto_capped::Trait for Runtime {
 
 impl percentage_tm::Trait for Runtime {
     type Event = Event;
+    type Asset = asset::Module<Runtime>;
+    type Exemption = exemption::Module<Runtime>;
 }
 
-impl identity::Trait for Runtime {
+impl IdentityTrait for Runtime {
     type Event = Event;
     type Proposal = Call;
     type AddSignerMultiSigTarget = MultiSig;
@@ -655,7 +619,6 @@ construct_runtime!(
         // Consensus frame_support.
         Authorship: pallet_authorship::{Module, Call, Storage, Inherent},
         Staking: pallet_staking::{Module, Call, Config<T>, Storage, Event<T>},
-        Elections: pallet_elections_phragmen::{Module, Call, Storage, Event<T>},
         Offences: pallet_offences::{Module, Call, Storage, Event},
         Session: pallet_session::{Module, Call, Storage, Event, Config<T>},
         FinalityTracker: pallet_finality_tracker::{Module, Call, Inherent},
@@ -685,7 +648,7 @@ construct_runtime!(
         Dividend: dividend::{Module, Call, Storage, Event<T>},
         Identity: identity::{Module, Call, Storage, Event<T>, Config<T>},
         Bridge: bridge::{Module, Call, Storage, Config<T>, Event<T>},
-        GeneralTM: general_tm::{Module, Call, Storage, Event},
+        ComplianceManager: compliance_manager::{Module, Call, Storage, Event},
         Voting: voting::{Module, Call, Storage, Event<T>},
         StoCapped: sto_capped::{Module, Call, Storage, Event<T>},
         PercentageTM: percentage_tm::{Module, Call, Storage, Event<T>},
@@ -946,6 +909,34 @@ impl_runtime_apis! {
         /// Retrieve master key and signing keys for a given IdentityId
         fn get_did_records(did: IdentityId) -> DidRecords<AccountKey, SigningItem> {
             Identity::get_did_records(did)
+        }
+    }
+
+    impl pallet_asset_rpc_runtime_api::AssetApi<Block, AccountId, Balance> for Runtime {
+        #[inline]
+        fn can_transfer(
+            sender: AccountId,
+            ticker: Ticker,
+            from_did: IdentityId,
+            to_did: IdentityId,
+            value: Balance) -> pallet_asset_rpc_runtime_api::CanTransferResult
+        {
+            Asset::unsafe_can_transfer(sender, ticker, from_did, to_did, value)
+                .map_err(|(_code, msg)| msg.as_bytes().to_vec())
+        }
+    }
+
+    impl pallet_group_rpc_runtime_api::GroupApi<Block> for Runtime {
+        fn get_cdd_valid_members() -> Vec<pallet_group_rpc_runtime_api::Member> {
+            merge_active_and_inactive::<Block>(
+                CddServiceProviders::active_members(),
+                CddServiceProviders::inactive_members())
+        }
+
+        fn get_gc_valid_members() -> Vec<pallet_group_rpc_runtime_api::Member> {
+            merge_active_and_inactive::<Block>(
+                CommitteeMembership::active_members(),
+                CommitteeMembership::inactive_members())
         }
     }
 

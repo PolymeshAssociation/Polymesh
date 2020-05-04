@@ -39,6 +39,7 @@ use polymesh_common_utilities::traits::{
     asset::AcceptTransfer,
     balances::{AccountData, CheckCdd},
     group::{GroupTrait, InactiveMember},
+    identity::Trait as IdentityTrait,
     multisig::AddSignerMultiSig,
     CommonTrait,
 };
@@ -245,7 +246,7 @@ impl protocol_fee::Trait for Test {
     type OnProtocolFeePayment = ();
 }
 
-impl identity::Trait for Test {
+impl IdentityTrait for Test {
     type Event = ();
     type Proposal = Call;
     type AddSignerMultiSigTarget = Test;
@@ -822,7 +823,7 @@ pub fn bond_validator(acc: u64, val: u128) {
         RewardDestination::Controller
     ));
     create_did_and_add_claim(stash);
-    assert_ok!(Staking::add_potential_validator(
+    assert_ok!(Staking::add_permissioned_validator(
         Origin::system(frame_system::RawOrigin::Root),
         stash
     ));

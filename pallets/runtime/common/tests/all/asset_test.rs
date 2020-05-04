@@ -3,15 +3,16 @@ use super::{
     ExtBuilder,
 };
 
+use pallet_asset::{
+    self as asset, AssetType, FundingRoundName, IdentifierType, SecurityToken, SignData,
+};
 use pallet_balances as balances;
+use pallet_compliance_manager as compliance_manager;
 use pallet_identity as identity;
+
 use polymesh_primitives::{
     AuthorizationData, Document, IdentityId, LinkData, Signatory, SmartExtension,
     SmartExtensionType, Ticker,
-};
-use polymesh_runtime_common::{
-    asset::{self, AssetType, FundingRoundName, IdentifierType, SecurityToken, SignData},
-    general_tm,
 };
 
 use chrono::prelude::Utc;
@@ -33,7 +34,7 @@ type Identity = identity::Module<TestStorage>;
 type Balances = balances::Module<TestStorage>;
 type Asset = asset::Module<TestStorage>;
 type Timestamp = pallet_timestamp::Module<TestStorage>;
-type GeneralTM = general_tm::Module<TestStorage>;
+type ComplianceManager = compliance_manager::Module<TestStorage>;
 type AssetError = asset::Error<TestStorage>;
 
 type OffChainSignature = AnySignature;
@@ -208,7 +209,7 @@ fn valid_transfers_pass() {
         ));
 
         // Allow all transfers
-        assert_ok!(GeneralTM::add_active_rule(
+        assert_ok!(ComplianceManager::add_active_rule(
             owner_signed.clone(),
             ticker,
             vec![],
@@ -272,7 +273,7 @@ fn valid_custodian_allowance() {
         );
 
         // Allow all transfers
-        assert_ok!(GeneralTM::add_active_rule(
+        assert_ok!(ComplianceManager::add_active_rule(
             owner_signed.clone(),
             ticker,
             vec![],
@@ -448,7 +449,7 @@ fn valid_custodian_allowance_of() {
         );
 
         // Allow all transfers
-        assert_ok!(GeneralTM::add_active_rule(
+        assert_ok!(ComplianceManager::add_active_rule(
             owner_signed.clone(),
             ticker,
             vec![],
@@ -626,7 +627,7 @@ fn checkpoints_fuzz_test() {
             ));
 
             // Allow all transfers
-            assert_ok!(GeneralTM::add_active_rule(
+            assert_ok!(ComplianceManager::add_active_rule(
                 owner_signed.clone(),
                 ticker,
                 vec![],
@@ -1730,7 +1731,7 @@ fn freeze_unfreeze_asset() {
         ));
 
         // Allow all transfers.
-        assert_ok!(GeneralTM::add_active_rule(
+        assert_ok!(ComplianceManager::add_active_rule(
             alice_signed.clone(),
             ticker,
             vec![],
@@ -1957,7 +1958,7 @@ fn freeze_unfreeze_asset() {
  *                                ticker, investor
  *                            );
  *
- *                            general_tm::Module::<Test>::add_to_whitelist(
+ *                            compliance_manager::Module::<Test>::add_to_whitelist(
  *                                Origin::signed(owner_id),
  *                                *ticker.into_bytes(),
  *                                wl_id,

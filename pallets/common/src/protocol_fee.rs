@@ -13,7 +13,7 @@ pub enum ProtocolOp {
     AssetAddDocument,
     AssetCreateToken,
     DividendNew,
-    GeneralTmAddActiveRule,
+    ComplianceManagerAddActiveRule,
     IdentityRegisterDid,
     IdentityCddRegisterDid,
     IdentityAddClaim,
