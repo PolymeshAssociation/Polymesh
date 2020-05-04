@@ -1,7 +1,56 @@
-//! Bridge from Ethereum to Polymesh
+//! # Bridge from Ethereum to Polymesh
 //!
 //! This module implements a one-way bridge between Polymath Classic on the Ethereum side, and
-//! Polymesh native. It mints POLYX on Polymesh in return for permanently locked ERC20 POLYX tokens.
+//! Polymesh native. It mints POLYX on Polymesh in return for permanently locked ERC20 POLY tokens.
+//!
+//! ## Overview
+//!
+//! The bridge module provides extrinsics that - when used in conjunction with the sudo or
+//! [multisig](../../pallet_multisig/index.html) pallets - allow issuing tokens on Polymesh in
+//! response to [bridge transactions](BridgeTx).
+//!
+//! ### Terminology
+//!
+//! - **bridge transaction**: an immutable data structure constructed by bridge signers containing a
+//! unique nonce, the recipient account, the transaction value and the Ethereum transaction hash.
+//!
+//! - **bridge transaction status**: any bridge transaction has a unique status which is one of the
+//! following:
+//!   - **absent**: No such transaction is recorded in the bridge module.
+//!   - **pending**: The transaction is pending a valid CDD check after a set amount of blocks.
+//!   - **frozen**: The transaction has been frozen by the admin.
+//!   - **timelocked**: The transaction has been added to the bridge processing queue and is
+//!   currently pending its first execution. During this wait the admin can freeze the transaction.
+//!   - **handled**: The transaction has been handled successfully and the tokens have been credited
+//!   to the recipient account.
+//!
+//! - **bridge transaction queue**: a single queue of transactions, each identified with the block
+//! number at which the transaction will be retried.
+//!
+//! - **bridge limit**: The maximum number of bridged POLYX per identity within a set window of
+//! blocks.
+//!
+//! - **bridge limit whitelist**: Identities not constrained by the bridge limit.
+//!
+//! ## Interface
+//!
+//! ### Dispatchable Functions
+//!
+//! - `change_controller`: Changes the controller account as admin.
+//! - `change_admin`: Changes the bridge admin key.
+//! - `change_timelock`: Changes the timelock period.
+//! - `freeze`: Freezes transaction handling in the bridge module if it is not already frozen.
+//! - `unfreeze`: Unfreezes transaction handling in the bridge module if it is frozen.
+//! - `change_bridge_limit`: Changes the bridge limits.
+//! - `change_bridge_whitelist`: Changes the bridge limit whitelist.
+//! - `force_handle_bridge_tx`: Forces handling a transaction by bypassing the bridge limit and
+//! timelock.
+//! - `propose_bridge_tx`: Proposes a bridge transaction, which amounts to making a multisig
+//! proposal for the bridge transaction if the transaction is new or approving an existing proposal
+//! if the transaction has already been proposed.
+//! - `handle_bridge_tx`: Handles an approved bridge transaction proposal.
+//! - `freeze_txs`: Freezes given bridge transactions.
+//! - `unfreeze_txs`: Unfreezes given bridge transactions.
 
 use codec::{Decode, Encode};
 use frame_support::dispatch::DispatchResult;
@@ -33,20 +82,21 @@ pub trait Trait: multisig::Trait {
     type MaxTimelockedTxsPerBlock: Get<u32>;
 }
 
-/// The status of a bridge tx
+/// The status of a bridge transaction.
 #[derive(Encode, Decode, Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub enum BridgeTxStatus {
-    /// No such tx in the system.
+    /// No such transaction in the system.
     Absent,
-    /// Tx missing cdd or bridge module frozen.
-    /// u8 represents number of times the module tried processing this tx.
-    /// It will be retried automatically. Anyone can manually retry these.
+    /// The transaction is missing a CDD or the bridge module is frozen.  The `u8` parameter is the
+    /// capped number of times the module tried processing this transaction.  It will be retried
+    /// automatically. Anyone can retry these manually.
     Pending(u8),
-    /// Tx frozen by admin. It will not be retried automatically.
+    /// The transaction is frozen by the admin. It will not be retried automatically.
     Frozen,
-    /// Tx pending first execution. These can not be manually triggered by normal accounts.
+    /// The transaction is pending its first execution. These can not be manually triggered by
+    /// normal accounts.
     Timelocked,
-    /// Tx has been credited.
+    /// The transaction has been successfully credited.
     Handled,
 }
 
@@ -56,32 +106,32 @@ impl Default for BridgeTxStatus {
     }
 }
 
-/// A unique lock-and-mint bridge transaction
+/// A unique lock-and-mint bridge transaction.
 #[derive(Encode, Decode, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Default)]
 pub struct BridgeTx<Account, Balance> {
-    /// A single tx hash can have multiple locks. This nonce differentiates between them.
+    /// A single transaction hash can have multiple locks. This nonce differentiates between them.
     pub nonce: u32,
-    /// Recipient of POLYX on Polymesh: the deposit address or identity.
+    /// The recipient account of POLYX on Polymesh.
     pub recipient: Account,
     /// Amount of POLYX tokens to credit.
     pub amount: Balance,
-    /// Ethereum token lock transaction hash.
+    /// Ethereum token lock transaction hash. It is not used internally in the bridge and is kept
+    /// here for compatibility reasons only.
     pub tx_hash: H256,
-    // NB: The bridge module no longer uses eth tx hash. It's here for compatibility reasons.
 }
 
-/// Additional details about a bridge tx
+/// Additional details of a bridge transaction.
 #[derive(Encode, Decode, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Default)]
 pub struct BridgeTxDetail<Balance, BlockNumber> {
     /// Amount of POLYX tokens to credit.
     pub amount: Balance,
-    /// Status of the bridge tx.
+    /// Status of the bridge transaction.
     pub status: BridgeTxStatus,
-    /// Block number at which this tx was executed or is planned to be executed.
+    /// Block number at which this transaction was executed or is planned to be executed.
     pub execution_block: BlockNumber,
-    /// Ethereum token lock transaction hash.
+    /// Ethereum token lock transaction hash. It is not used internally in the bridge and is kept
+    /// here for compatibility reasons only.
     pub tx_hash: H256,
-    // NB: The bridge module no longer uses eth tx hash. It's here for compatibility reasons.
 }
 
 decl_error! {
@@ -114,13 +164,13 @@ decl_error! {
         NoSuchProposal,
         /// All the blocks in the timelock block range are full.
         TimelockBlockRangeFull,
-        /// The did reached the bridge limit
+        /// The identity's minted total has reached the bridge limit.
         BridgeLimitReached,
-        /// Something Overflowed
+        /// The identity's minted total has overflowed.
         Overflow,
-        /// Need I say more?
+        /// The block duration is zero. Cannot divide.
         DivisionByZero,
-        /// The transaction is time locked
+        /// The transaction is timelocked.
         TimelockedTx,
     }
 }
@@ -172,17 +222,19 @@ decl_storage! {
         Timelock get(fn timelock) config(): T::BlockNumber;
 
         /// The list of timelocked transactions with the block numbers in which those transactions
-        /// become unlocked. Pending transactions are also included here if they will be tried automatically.
+        /// become unlocked. Pending transactions are also included here to be retried
+        /// automatically.
         TimelockedTxs get(fn timelocked_txs):
             map hasher(twox_64_concat) T::BlockNumber => Vec<BridgeTx<T::AccountId, T::Balance>>;
 
-        /// limit on bridged POLYX per identity for the testnet. (POLYX, LIMIT_REST_BLOCK)
+        /// The maximum number of bridged POLYX per identity within a set window of
+        /// blocks. Parameters: amount and the block window size.
         BridgeLimit get(fn bridge_limit) config(): (T::Balance, T::BlockNumber);
 
         /// Amount of POLYX bridged by the identity in last limit bucket (AMOUNT_BRIDGED, LAST_BUCKET)
         PolyxBridged get(fn polyx_bridged): map hasher(twox_64_concat) IdentityId => (T::Balance, T::BlockNumber);
 
-        /// Identity whitelist that are not limited by the bridge limit
+        /// Identities not constrained by the bridge limit.
         BridgeLimitWhitelist get(fn bridge_whitelist): map hasher(twox_64_concat) IdentityId => bool;
     }
     add_extra_genesis {
@@ -238,12 +290,12 @@ decl_module! {
 
         fn deposit_event() = default;
 
-        /// Issue tokens in timelocked transactions.
+        /// Issues tokens in timelocked transactions.
         fn on_initialize(block_number: T::BlockNumber) {
             Self::handle_timelocked_txs(block_number);
         }
 
-        /// Change the controller account as admin.
+        /// Changes the controller account as admin.
         #[weight = SimpleDispatchInfo::FixedOperational(20_000)]
         pub fn change_controller(origin, controller: T::AccountId) -> DispatchResult {
             let sender = ensure_signed(origin)?;
@@ -253,7 +305,7 @@ decl_module! {
             Ok(())
         }
 
-        /// Change the bridge admin key.
+        /// Changes the bridge admin key.
         #[weight = SimpleDispatchInfo::FixedOperational(20_000)]
         pub fn change_admin(origin, admin: T::AccountId) -> DispatchResult {
             let sender = ensure_signed(origin)?;
@@ -263,7 +315,7 @@ decl_module! {
             Ok(())
         }
 
-        /// Change the timelock period.
+        /// Changes the timelock period.
         #[weight = SimpleDispatchInfo::FixedOperational(20_000)]
         pub fn change_timelock(origin, timelock: T::BlockNumber) -> DispatchResult {
             let sender = ensure_signed(origin)?;
@@ -273,15 +325,8 @@ decl_module! {
             Ok(())
         }
 
-        /// Freezes the entire operation of the bridge module if it is not already frozen. The only
-        /// available operations in the frozen state are the following admin methods:
-        ///
-        /// * `change_controller`,
-        /// * `change_admin`,
-        /// * `change_timelock`,
-        /// * `unfreeze`,
-        /// * `freeze_bridge_txs`,
-        /// * `unfreeze_bridge_txs`.
+        /// Freezes transaction handling in the bridge module if it is not already frozen. When the
+        /// bridge is frozen, attempted transactions get postponed instead of getting handled.
         #[weight = SimpleDispatchInfo::FixedOperational(50_000)]
         pub fn freeze(origin) -> DispatchResult {
             let sender = ensure_signed(origin)?;
@@ -292,7 +337,7 @@ decl_module! {
             Ok(())
         }
 
-        /// Unfreezes the operation of the bridge module if it is frozen.
+        /// Unfreezes transaction handling in the bridge module if it is frozen.
         #[weight = SimpleDispatchInfo::FixedOperational(50_000)]
         pub fn unfreeze(origin) -> DispatchResult {
             let sender = ensure_signed(origin)?;
@@ -303,7 +348,7 @@ decl_module! {
             Ok(())
         }
 
-        /// Change the bridge limits.
+        /// Changes the bridge limits.
         #[weight = SimpleDispatchInfo::FixedOperational(20_000)]
         pub fn change_bridge_limit(origin, amount: T::Balance, duration: T::BlockNumber) -> DispatchResult {
             let sender = ensure_signed(origin)?;
@@ -313,7 +358,7 @@ decl_module! {
             Ok(())
         }
 
-        /// Change the bridge limits.
+        /// Changes the bridge limit whitelist.
         #[weight = SimpleDispatchInfo::FixedOperational(20_000)]
         pub fn change_bridge_whitelist(origin, whitelist: Vec<(IdentityId, bool)>) -> DispatchResult {
             let sender = ensure_signed(origin)?;
@@ -325,7 +370,7 @@ decl_module! {
             Ok(())
         }
 
-        /// Force handle a tx (bypasses bridge limit and timelock)
+        /// Forces handling a transaction by bypassing the bridge limit and timelock.
         #[weight = SimpleDispatchInfo::FixedOperational(20_000)]
         pub fn force_handle_bridge_tx(origin, bridge_tx: BridgeTx<T::AccountId, T::Balance>) -> DispatchResult {
             // NB: To avoid code duplication, this uses a hacky approach of temporarily whitelisting the did
