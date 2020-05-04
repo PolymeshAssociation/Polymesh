@@ -262,6 +262,9 @@ fn general_testnet_genesis(
         pallet_staking: Some(V1Config::StakingConfig {
             minimum_validator_count: 1,
             validator_count: 2,
+            validator_commission: v1::Commission::Global(PerThing::from_rational_approximation(
+                1u64, 4u64,
+            )),
             stakers: initial_authorities
                 .iter()
                 .map(|x| {
@@ -275,9 +278,6 @@ fn general_testnet_genesis(
                 .collect(),
             invulnerables: initial_authorities.iter().map(|x| x.0.clone()).collect(),
             slash_reward_fraction: general::Perbill::from_percent(10),
-            validator_commission: general::Commission::Global(
-                PerThing::from_rational_approximation(1u64, 4u64),
-            ),
             min_bond_threshold: 5_000_000_000_000,
             ..Default::default()
         }),
@@ -614,13 +614,13 @@ fn v1_live_testnet_genesis() -> GenesisConfig {
         pallet_staking: Some(V1Config::StakingConfig {
             minimum_validator_count: 1,
             validator_count: 8,
+            validator_commission: v1::Commission::Global(PerThing::zero()),
             stakers: initial_authorities
                 .iter()
                 .map(|x| (x.0.clone(), x.1.clone(), STASH, v1::StakerStatus::Validator))
                 .collect(),
             invulnerables: initial_authorities.iter().map(|x| x.0.clone()).collect(),
             slash_reward_fraction: v1::Perbill::from_percent(10),
-            validator_commission: v1::Commission::Global(PerThing::zero()),
             min_bond_threshold: 5_000_000_000_000,
             ..Default::default()
         }),
@@ -915,15 +915,13 @@ fn v1_testnet_genesis(
         pallet_staking: Some(V1Config::StakingConfig {
             minimum_validator_count: 1,
             validator_count: 2,
+            validator_commission: v1::Commission::Global(PerThing::zero()),
             stakers: initial_authorities
                 .iter()
                 .map(|x| (x.0.clone(), x.1.clone(), STASH, v1::StakerStatus::Validator))
                 .collect(),
             invulnerables: initial_authorities.iter().map(|x| x.0.clone()).collect(),
             slash_reward_fraction: v1::Perbill::from_percent(10),
-            validator_commission: v1::Commission::Global(PerThing::from_rational_approximation(
-                1u64, 4u64,
-            )),
             min_bond_threshold: 5_000_000_000_000,
             ..Default::default()
         }),
