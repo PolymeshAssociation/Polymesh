@@ -31,9 +31,6 @@ use sp_staking::{
     SessionIndex,
 };
 
-use frame_system::EnsureSignedBy;
-use frame_system::{self as system};
-
 impl_outer_origin! {
     pub enum Origin for Runtime where system = frame_system {}
 }

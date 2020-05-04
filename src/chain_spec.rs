@@ -1,6 +1,6 @@
 use grandpa::AuthorityId as GrandpaId;
 use im_online::sr25519::AuthorityId as ImOnlineId;
-use pallet_treasury as treasury;
+use pallet_asset::TickerRegistrationConfig;
 use polymesh_common_utilities::{
     constants::currency::{MILLICENTS, POLY},
     protocol_fee::ProtocolOp,
@@ -8,10 +8,7 @@ use polymesh_common_utilities::{
 use polymesh_primitives::{AccountId, AccountKey, IdentityId, PosRatio, Signatory, Signature};
 use std::convert::TryFrom;
 
-use polymesh_runtime_common::asset::TickerRegistrationConfig;
-use polymesh_runtime_develop::{
-    self as general, config as GeneralConfig, constants::time as GeneralTime,
-};
+use polymesh_runtime_develop::{self as general, constants::time as GeneralTime};
 use polymesh_runtime_testnet_v1::{
     self as v1,
     config::{self as V1Config, GenesisConfig},
@@ -127,7 +124,8 @@ fn general_testnet_genesis(
     endowed_accounts: Vec<AccountId>,
     enable_println: bool,
 ) -> GenesisConfig {
-    const STASH: u128 = 30_000_000_000 * POLY; //30G Poly
+    const STASH: u128 = 5_000_000 * POLY;
+    const ENDOWMENT: u128 = 100_000_000 * POLY;
 
     GenesisConfig {
         frame_system: Some(V1Config::SystemConfig {
@@ -242,8 +240,8 @@ fn general_testnet_genesis(
         balances: Some(V1Config::BalancesConfig {
             balances: endowed_accounts
                 .iter()
-                .cloned()
-                .map(|k| (k, 1 << 55))
+                .map(|k: &AccountId| (k.clone(), ENDOWMENT))
+                .chain(initial_authorities.iter().map(|x| (x.0.clone(), STASH)))
                 .collect(),
         }),
         treasury: Some(v1::runtime::TreasuryConfig { balance: 0 }),
@@ -264,6 +262,9 @@ fn general_testnet_genesis(
         pallet_staking: Some(V1Config::StakingConfig {
             minimum_validator_count: 1,
             validator_count: 2,
+            validator_commission: v1::Commission::Global(PerThing::from_rational_approximation(
+                1u64, 4u64,
+            )),
             stakers: initial_authorities
                 .iter()
                 .map(|x| {
@@ -277,15 +278,12 @@ fn general_testnet_genesis(
                 .collect(),
             invulnerables: initial_authorities.iter().map(|x| x.0.clone()).collect(),
             slash_reward_fraction: general::Perbill::from_percent(10),
-            validator_commission: general::Commission::Global(
-                PerThing::from_rational_approximation(1u64, 4u64),
-            ),
-            min_bond_threshold: 0,
+            min_bond_threshold: 5_000_000_000_000,
             ..Default::default()
         }),
         pallet_pips: Some(V1Config::PipsConfig {
             prune_historical_pips: false,
-            min_proposal_deposit: 5000,
+            min_proposal_deposit: 5_000 * POLY,
             quorum_threshold: 100_000,
             proposal_duration: 50,
             proposal_cool_off_period: GeneralTime::HOURS * 6,
@@ -473,8 +471,8 @@ fn v1_live_testnet_genesis() -> GenesisConfig {
         get_account_id_from_seed::<sr25519::Public>("relay_5"),
     ];
 
-    const STASH: u128 = 300 * POLY; //300 Poly
-    const ENDOWMENT: u128 = 1_00_000 * POLY;
+    const STASH: u128 = 5_000_000 * POLY;
+    const ENDOWMENT: u128 = 100_000_000 * POLY;
 
     GenesisConfig {
         frame_system: Some(V1Config::SystemConfig {
@@ -616,19 +614,19 @@ fn v1_live_testnet_genesis() -> GenesisConfig {
         pallet_staking: Some(V1Config::StakingConfig {
             minimum_validator_count: 1,
             validator_count: 8,
+            validator_commission: v1::Commission::Global(PerThing::zero()),
             stakers: initial_authorities
                 .iter()
                 .map(|x| (x.0.clone(), x.1.clone(), STASH, v1::StakerStatus::Validator))
                 .collect(),
             invulnerables: initial_authorities.iter().map(|x| x.0.clone()).collect(),
             slash_reward_fraction: v1::Perbill::from_percent(10),
-            validator_commission: v1::Commission::Global(PerThing::zero()),
-            min_bond_threshold: 0,
+            min_bond_threshold: 5_000_000_000_000,
             ..Default::default()
         }),
         pallet_pips: Some(V1Config::PipsConfig {
             prune_historical_pips: false,
-            min_proposal_deposit: 5_000_000_000,
+            min_proposal_deposit: 5_000 * POLY,
             quorum_threshold: 100_000_000_000,
             proposal_duration: V1Time::DAYS * 7,
             proposal_cool_off_period: V1Time::HOURS * 6,
@@ -774,8 +772,8 @@ fn v1_testnet_genesis(
     endowed_accounts: Vec<AccountId>,
     enable_println: bool,
 ) -> GenesisConfig {
-    const STASH: u128 = 300 * POLY; //300 Poly
-    const ENDOWMENT: u128 = 1_00_000 * POLY;
+    const STASH: u128 = 5_000_000 * POLY;
+    const ENDOWMENT: u128 = 100_000_000 * POLY;
 
     GenesisConfig {
         frame_system: Some(V1Config::SystemConfig {
@@ -917,21 +915,19 @@ fn v1_testnet_genesis(
         pallet_staking: Some(V1Config::StakingConfig {
             minimum_validator_count: 1,
             validator_count: 2,
+            validator_commission: v1::Commission::Global(PerThing::zero()),
             stakers: initial_authorities
                 .iter()
                 .map(|x| (x.0.clone(), x.1.clone(), STASH, v1::StakerStatus::Validator))
                 .collect(),
             invulnerables: initial_authorities.iter().map(|x| x.0.clone()).collect(),
             slash_reward_fraction: v1::Perbill::from_percent(10),
-            validator_commission: v1::Commission::Global(PerThing::from_rational_approximation(
-                1u64, 4u64,
-            )),
-            min_bond_threshold: 0,
+            min_bond_threshold: 5_000_000_000_000,
             ..Default::default()
         }),
         pallet_pips: Some(V1Config::PipsConfig {
             prune_historical_pips: false,
-            min_proposal_deposit: 5000,
+            min_proposal_deposit: 5_000 * POLY,
             quorum_threshold: 100_000,
             proposal_duration: 50,
             proposal_cool_off_period: V1Time::HOURS * 6,

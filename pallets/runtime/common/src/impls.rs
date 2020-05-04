@@ -88,7 +88,9 @@ pub struct LinearWeightToFee<C>(sp_std::marker::PhantomData<C>);
 
 impl<C: Get<Balance>> Convert<Weight, Balance> for LinearWeightToFee<C> {
     fn convert(w: Weight) -> Balance {
-        Balance::from(w)
+        // setting this to zero will disable the weight fee.
+        let coefficient = C::get();
+        Balance::from(w).saturating_mul(coefficient)
     }
 }
 
@@ -407,7 +409,9 @@ mod tests {
                     Fixed64::default(),
                 );
                 let truth = fee_multiplier_update(i, Fixed64::default());
-                assert_eq_error_rate!(truth.into_inner(), next.into_inner(), 5);
+                //The error is a function of the MaximumBlockWeight
+                //In Polymesh we are reducing the MaximumBlockWeight, so we increase the error term
+                assert_eq_error_rate!(truth.into_inner(), next.into_inner(), 2000);
             });
         });
 

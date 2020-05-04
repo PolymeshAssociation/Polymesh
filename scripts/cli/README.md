@@ -23,7 +23,56 @@ $ ./node_modules/.bin/pm2 log pmesh-peer-node-1
 $ ./node_modules/.bin/pm2 log pmesh-peer-node-2
 ```
 
-To run the script and execute transactions:
+To run the scripts and execute transactions:
+
+```shell
+$ npm test
+```
+
+
+The test scripts include those named below, and most make up `npm test`:
+
+
+ - 0_create_identities
+ - 1_poly_transfer
+ - 2_key_management
+ - 3_auth_join_did
+ - 4_permission_management
+ - 5_claim_management
+ - 6_create_assets
+ - 7_create_claim_rules
+ - 8_asset_transfer
+ - 9_offchain_worker_test
+ - schema_test
+
+ The scripts either give a result of Passed or Failed.
+
+ To run a single script:
+ ```shell
+$ npm run -s 0-create-identities
+```
+
+## Output
+
+### Normal Run
+
+```
+$ npm test
++ node ./util/schema_check.js args...
+Passed
+Passed
+Passed
+Passed
+Passed
+Passed
+Passed
+Passed
+Passed
+Passed
+
+```
+
+To run the index.js script and execute transactions:
 
 ```shell
 $ node ./index.js -n 30 -t 5 -c 10 -p demo -d /tmp/pmesh-primary-node -f
@@ -89,6 +138,9 @@ Transactions processed:
 	Block Number: 8		Processed: 32	Time (ms): 6004
 	Block Number: 9		Processed: 32	Time (ms): 5998
 DONE
+Claims Batch Test
+Claims length: 10
+Claim Batch Test Completed
 ```
 
 ### Fast Run
@@ -132,4 +184,7 @@ Transactions processed:
 	Block Number: 20		Processed: 2	Time (ms): 6004
 	Block Number: 21		Processed: 32	Time (ms): 5995
 DONE
+Claims Batch Test
+Claim Batch Test Completed
 ```
+

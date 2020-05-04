@@ -31,8 +31,9 @@
 //!
 //! - `get_dividend` - Returns details about a dividend
 
-use crate::{asset, simple_token};
+use crate::simple_token;
 
+use pallet_asset as asset;
 use pallet_identity as identity;
 use polymesh_common_utilities::{
     balances::Trait as BalancesTrait,
