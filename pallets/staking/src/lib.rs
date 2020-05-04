@@ -97,7 +97,7 @@
 //! An account can become a validator candidate via the
 //! [`validate`](./enum.Call.html#variant.validate) call.
 //! But only those validators are in effect whose compliance status is active via
-//! [`add_potential_validator`](./enum.Call.html#variant.validate) call & there _stash_ accounts has valid CDD claim.
+//! [`add_permissioned_validator`](./enum.Call.html#variant.validate) call & there _stash_ accounts has valid CDD claim.
 //! Compliance status can only provided by the [`T::RequiredAddOrigin`].
 //!
 //! #### Nomination
@@ -948,17 +948,15 @@ decl_storage! {
                 );
                 let _ = match status {
                     StakerStatus::Validator => {
+                        let mut prefs = ValidatorPrefs::default();
+                        if let Commission::Global(commission) = config.validator_commission {
+                            prefs.commission = commission;
+                        }
                         <Module<T>>::validate(
                             T::Origin::from(Some(controller.clone()).into()),
-                            Default::default(),
-                        ).ok();
-                        <Module<T>>::add_potential_validator(
-                            // TODO: change origin to committee
-                            frame_system::RawOrigin::Root.into(),
-                            stash.clone()
-                        ).ok();
-                        <Module<T>>::compliance_passed(
-                            // TODO: change origin to committee
+                            prefs,
+                        ).expect("Unable to add to Validator list");
+                        <Module<T>>::add_permissioned_validator(
                             frame_system::RawOrigin::Root.into(),
                             stash.clone()
                         )
@@ -1410,14 +1408,14 @@ decl_module! {
         /// * origin Required origin for adding a potential validator.
         /// * validator Stash AccountId of the validator.
         #[weight = SimpleDispatchInfo::FixedNormal(50_000)]
-        pub fn add_potential_validator(origin, validator: T::AccountId) {
+        pub fn add_permissioned_validator(origin, validator: T::AccountId) {
             T::RequiredAddOrigin::try_origin(origin)
                 .map_err(|_| Error::<T>::NotAuthorised)?;
 
             ensure!(!<PermissionedValidators<T>>::contains_key(&validator), Error::<T>::AlreadyExists);
 
             <PermissionedValidators<T>>::insert(&validator, PermissionedValidator {
-                compliance: Compliance::Active
+                compliance: Compliance::Pending
             });
 
             Self::deposit_event(RawEvent::PermissionedValidatorAdded(validator));
@@ -1431,7 +1429,7 @@ decl_module! {
         /// * origin Required origin for removing a potential validator.
         /// * validator Stash AccountId of the validator.
         #[weight = SimpleDispatchInfo::FixedNormal(50_000)]
-        pub fn remove_validator(origin, validator: T::AccountId) {
+        pub fn remove_permissioned_validator(origin, validator: T::AccountId) {
             T::RequiredRemoveOrigin::try_origin(origin)
                 .map_err(|_| Error::<T>::NotAuthorised)?;
 
@@ -1439,49 +1437,7 @@ decl_module! {
 
             <PermissionedValidators<T>>::remove(&validator);
 
-            Self::deposit_event(RawEvent::PermissionedValidatorAdded(validator));
-        }
-
-        /// Governance committee on 2/3 rds majority can update the compliance status of a validator
-        /// as `Pending`.
-        ///
-        /// # Arguments
-        /// * origin Required origin for providing compliance to a potential validator.
-        /// * validator Stash AccountId of the validator.
-        #[weight = SimpleDispatchInfo::FixedNormal(50_000)]
-        pub fn compliance_failed(origin, validator: T::AccountId) {
-            T::RequiredComplianceOrigin::try_origin(origin)
-                .map_err(|_| Error::<T>::NotAuthorised)?;
-
-            ensure!(<PermissionedValidators<T>>::contains_key(&validator), Error::<T>::NotExists);
-
-            <PermissionedValidators<T>>::mutate(&validator, |entry| {
-                if let Some(validator) = entry {
-                    validator.compliance = Compliance::Pending
-                }
-            });
-            Self::deposit_event(RawEvent::PermissionedValidatorStatusChanged(validator));
-        }
-
-        /// Governance committee on 2/3 rds majority can update the compliance status of a validator
-        /// as `Active`.
-        ///
-        /// # Arguments
-        /// * origin Required origin for providing compliance to a potential validator.
-        /// * validator Stash AccountId of the validator.
-        #[weight = SimpleDispatchInfo::FixedNormal(50_000)]
-        pub fn compliance_passed(origin, validator: T::AccountId) {
-            T::RequiredComplianceOrigin::try_origin(origin)
-                .map_err(|_| Error::<T>::NotAuthorised)?;
-
-            ensure!(<PermissionedValidators<T>>::contains_key(&validator), Error::<T>::NotExists);
-
-            <PermissionedValidators<T>>::mutate(&validator, |entry| {
-                if let Some(validator) = entry {
-                    validator.compliance = Compliance::Active
-                }
-            });
-            Self::deposit_event(RawEvent::PermissionedValidatorStatusChanged(validator));
+            Self::deposit_event(RawEvent::PermissionedValidatorRemoved(validator));
         }
 
         /// Validate the nominators CDD expiry time.
@@ -2182,6 +2138,7 @@ impl<T: Trait> Module<T> {
         let mut all_nominators: Vec<(T::AccountId, Vec<T::AccountId>)> = Vec::new();
         let mut all_validators_and_prefs = BTreeMap::new();
         let mut all_validators = Vec::new();
+        Self::refresh_compliance_statuses();
 
         // Select only valid validators who has bond minimum balance and has the cdd compliant
         for (validator, preference) in <Validators<T>>::enumerate() {
@@ -2380,7 +2337,7 @@ impl<T: Trait> Module<T> {
         }
     }
 
-    /// Non-deterministic method that checks CDD status of each validator and persists
+    /// Method that checks CDD status of each validator and persists
     /// any changes to compliance status.
     pub fn refresh_compliance_statuses() {
         let accounts = <PermissionedValidators<T>>::enumerate()

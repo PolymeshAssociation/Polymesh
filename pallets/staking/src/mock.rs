@@ -823,7 +823,7 @@ pub fn bond_validator(acc: u64, val: u128) {
         RewardDestination::Controller
     ));
     create_did_and_add_claim(stash);
-    assert_ok!(Staking::add_potential_validator(
+    assert_ok!(Staking::add_permissioned_validator(
         Origin::system(frame_system::RawOrigin::Root),
         stash
     ));
