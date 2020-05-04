@@ -1,8 +1,8 @@
 use super::{
     ext_builder::PROTOCOL_OP_BASE_FEE,
     storage::{
-        add_signing_item, get_identity_id, register_keyring_account, GovernanceCommittee,
-        TestStorage,
+        add_signing_item, get_identity_id, register_keyring_account,
+        register_keyring_account_with_balance, GovernanceCommittee, TestStorage,
     },
     ExtBuilder,
 };
@@ -454,6 +454,71 @@ fn remove_frozen_signing_keys_with_externalities() {
     // Check DidRecord.
     let did_rec = Identity::did_records(alice_did);
     assert_eq!(did_rec.signing_items, vec![charlie_signing_key]);
+}
+
+/// It double-checks that frozen keys are removed too.
+#[test]
+fn frozen_signing_keys_test() {
+    ExtBuilder::default()
+        .monied(true)
+        .build()
+        .execute_with(&frozen_signing_keys_test_we);
+}
+
+fn frozen_signing_keys_test_we() {
+    // 0. Create identity for Alice and signing key from Bob.
+    let alice = AccountKeyring::Alice.public();
+    let alice_id = register_keyring_account(AccountKeyring::Alice).unwrap();
+    let charlie = AccountKeyring::Charlie.public();
+    let charlie_id = register_keyring_account_with_balance(AccountKeyring::Charlie, 100).unwrap();
+    let bob = Origin::signed(AccountKeyring::Bob.public());
+
+    // 1. Add Bob as signatory to Alice ID.
+    let bob_signatory = Signatory::from(AccountKey::from(AccountKeyring::Bob.public().0));
+    assert_ok!(Balances::top_up_identity_balance(
+        Origin::signed(alice),
+        alice_id,
+        100_000
+    ));
+    add_signing_item(alice_id, bob_signatory);
+
+    // 2. Bob can transfer some funds to Charlie ID.
+    assert_ok!(Balances::transfer_with_memo(
+        bob.clone(),
+        AccountKeyring::Charlie.public(),
+        1_000,
+        None
+    ));
+    // assert_eq!( Balances::free_balance(charlie), 1_100);
+
+    // 3. Alice freezes her signing keys.
+    assert_ok!(Identity::freeze_signing_keys(Origin::signed(alice)));
+
+    // 4. Bob should NOT transfer any amount.
+    assert_err!(
+        Balances::transfer_with_memo(bob.clone(), AccountKeyring::Charlie.public(), 1_000, None),
+        Error::<TestStorage>::AlreadyLinked
+    );
+    assert_eq!(Balances::free_balance(charlie), 1_100);
+
+    // 5. Alice still can make transfers.
+    assert_ok!(Balances::transfer_with_memo(
+        Origin::signed(alice),
+        AccountKeyring::Charlie.public(),
+        1_000,
+        None
+    ));
+    assert_eq!(Balances::free_balance(charlie), 2_100);
+
+    // 6. Unfreeze signatory keys, and Bob should be able to transfer again.
+    assert_ok!(Identity::unfreeze_signing_keys(Origin::signed(alice)));
+    assert_ok!(Balances::transfer_with_memo(
+        bob,
+        AccountKeyring::Charlie.public(),
+        1_000,
+        None
+    ));
+    assert_eq!(Balances::free_balance(charlie), 3_100);
 }
 
 #[test]
