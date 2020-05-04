@@ -223,7 +223,9 @@ decl_error! {
         /// AccountId is not attached with Identity
         UnAuthorized,
         /// Receiver does not have a valid CDD
-        ReceiverCddMissing
+        ReceiverCddMissing,
+        /// Sender does not have a valid CDD. It could be a frozen signer of an Identity.
+        SenderCddMissing,
     }
 }
 
@@ -622,9 +624,18 @@ impl<T: Trait> Module<T> {
         memo: Option<Memo>,
         existence_requirement: ExistenceRequirement,
     ) -> DispatchResult {
-        if !T::CddChecker::check_key_cdd(&AccountKey::try_from((*dest).encode())?) {
-            return Err(Error::<T>::ReceiverCddMissing.into());
-        }
+        let src_key = AccountKey::try_from((*transactor).encode())?;
+        ensure!(
+            T::CddChecker::check_key_cdd(&src_key),
+            Error::<T>::SenderCddMissing
+        );
+
+        let dest_key = AccountKey::try_from((*transactor).encode())?;
+        ensure!(
+            T::CddChecker::check_key_cdd(&dest_key),
+            Error::<T>::ReceiverCddMissing
+        );
+
         Self::transfer_core(transactor, dest, value, memo, existence_requirement)
     }
 

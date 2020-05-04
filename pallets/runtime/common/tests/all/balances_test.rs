@@ -1,5 +1,7 @@
 use super::{
-    storage::{make_account, make_account_with_balance, EventTest, TestStorage},
+    storage::{
+        make_account, make_account_with_balance, register_keyring_account, EventTest, TestStorage,
+    },
     ExtBuilder,
 };
 use pallet_balances as balances;
@@ -178,7 +180,7 @@ fn issue_must_work() {
                     500,
                     ExistenceRequirement::AllowDeath
                 ),
-                Error::ReceiverCddMissing
+                Error::SenderCddMissing
             );
             let eve_signed = Origin::signed(AccountKeyring::Eve.public());
             assert_ok!(Balances::top_up_brr_balance(eve_signed, 500,));
@@ -324,9 +326,15 @@ fn transfer_with_memo() {
 
 fn transfer_with_memo_we() {
     let alice = AccountKeyring::Alice.public();
+    let _alice_id = register_keyring_account(AccountKeyring::Alice).unwrap();
     let bob = AccountKeyring::Bob.public();
     let memo_1 = Some(Memo([7u8; 32]));
-    assert!(Balances::transfer_with_memo(Origin::signed(alice), bob, 100, memo_1.clone()).is_err());
+    assert_ok!(Balances::transfer_with_memo(
+        Origin::signed(alice),
+        bob,
+        100,
+        memo_1.clone()
+    ),);
     let _ = make_account_with_balance(bob, 0);
     assert_ok!(Balances::transfer_with_memo(
         Origin::signed(alice),
@@ -379,10 +387,11 @@ fn transfer_with_memo_we() {
     ];
     // Ignoring `frame_system` events
     let system_events = System::events();
+
     let emitted_events = vec![
-        system_events[12].clone(),
-        system_events[13].clone(),
-        system_events[14].clone(),
+        system_events[17].clone(),
+        system_events[18].clone(),
+        system_events[19].clone(),
     ];
     assert_eq!(emitted_events, expected_events);
 }

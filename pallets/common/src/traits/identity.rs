@@ -24,7 +24,8 @@ use sp_std::vec::Vec;
 #[derive(codec::Encode, codec::Decode, Clone, PartialEq, Eq, Debug)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 pub enum LinkedKeyInfo {
-    Unique(IdentityId),
+    Master(IdentityId),
+    Signer(IdentityId),
     Group(Vec<IdentityId>),
 }
 

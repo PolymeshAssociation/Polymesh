@@ -206,7 +206,7 @@ decl_storage! {
                 let master_key = AccountKey::try_from(master_account_id.encode()).unwrap();
                 assert!(!<DidRecords>::contains_key(did), "Identity already exist");
                 <MultiPurposeNonce>::mutate(|n| *n += 1_u64);
-                <Module<T>>::link_key_to_did(&master_key, SignatoryType::External, did);
+                <Module<T>>::link_key_to_did(&master_key, SignatoryType::Master, did);
                 let record = DidRecord {
                     master_key,
                     ..Default::default()
@@ -1603,14 +1603,21 @@ impl<T: Trait> Module<T> {
         Ok(record)
     }
 
-    /// It checks if `key` is the master key or signing key of any did
+    /// It checks if `key` is the master key or signing key of any IdentityId.
+    /// Please note that _frozen signing keys_ are not lined to the frozen identity temporary.
+    ///
     /// # Return
-    /// An Option object containing the `did` that belongs to the key.
+    ///
+    /// An Option object containing the `IdentityId` that belongs to the key.
     pub fn get_identity(key: &AccountKey) -> Option<IdentityId> {
         if let Some(linked_key_info) = <KeyToIdentityIds>::get(key) {
-            if let LinkedKeyInfo::Unique(linked_id) = linked_key_info {
-                return Some(linked_id);
-            }
+            let id = match linked_key_info {
+                LinkedKeyInfo::Master(id) => Some(id),
+                LinkedKeyInfo::Signer(id) if !Self::is_did_frozen(id) => Some(id),
+                _ => None,
+            };
+
+            return id;
         }
         None
     }
@@ -1637,7 +1644,7 @@ impl<T: Trait> Module<T> {
     pub fn can_key_be_linked_to_did(key: &AccountKey, signer_type: SignatoryType) -> bool {
         if let Some(linked_key_info) = <KeyToIdentityIds>::get(key) {
             match linked_key_info {
-                LinkedKeyInfo::Unique(..) => false,
+                LinkedKeyInfo::Master(..) | LinkedKeyInfo::Signer(..) => false,
                 LinkedKeyInfo::Group(..) => signer_type != SignatoryType::External,
             }
         } else {
@@ -1662,7 +1669,8 @@ impl<T: Trait> Module<T> {
         } else {
             // AccountKey is not yet linked to any identity, so no constraints.
             let linked_key_info = match key_type {
-                SignatoryType::External => LinkedKeyInfo::Unique(did),
+                SignatoryType::Master => LinkedKeyInfo::Master(did),
+                SignatoryType::External => LinkedKeyInfo::Signer(did),
                 _ => LinkedKeyInfo::Group(vec![did]),
             };
             <KeyToIdentityIds>::insert(key, linked_key_info);
@@ -1674,7 +1682,9 @@ impl<T: Trait> Module<T> {
     fn unlink_key_to_did(key: &AccountKey, did: IdentityId) {
         if let Some(linked_key_info) = <KeyToIdentityIds>::get(key) {
             match linked_key_info {
-                LinkedKeyInfo::Unique(..) => <KeyToIdentityIds>::remove(key),
+                LinkedKeyInfo::Master(..) | LinkedKeyInfo::Signer(..) => {
+                    <KeyToIdentityIds>::remove(key)
+                }
                 LinkedKeyInfo::Group(mut dids) => {
                     dids.retain(|ref_did| *ref_did != did);
                     if dids.is_empty() {
@@ -1793,7 +1803,7 @@ impl<T: Trait> Module<T> {
 
         // 2. Apply changes to our extrinsics.
         // 2.1. Link  master key and add pre-authorized signing keys
-        Self::link_key_to_did(&master_key, SignatoryType::External, did);
+        Self::link_key_to_did(&master_key, SignatoryType::Master, did);
         signing_items
             .iter()
             .for_each(|s_item| Self::add_pre_join_identity(s_item, did));

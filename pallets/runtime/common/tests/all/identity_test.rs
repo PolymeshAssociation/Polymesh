@@ -19,11 +19,11 @@ use polymesh_primitives::{
     LinkData, Permission, Scope, Signatory, SigningItem, Ticker,
 };
 
-use pallet_balances as balances;
+use pallet_balances::{self as balances, Error as BalanceError};
 use pallet_identity::{self as identity, BatchAddClaimItem, BatchRevokeClaimItem, Error};
 
 use codec::Encode;
-use frame_support::{assert_err, assert_ok, StorageDoubleMap};
+use frame_support::{assert_err, assert_ok, dispatch::DispatchError, StorageDoubleMap};
 use sp_core::H512;
 use test_client::AccountKeyring;
 
@@ -399,7 +399,7 @@ fn freeze_signing_keys_with_externalities() {
     // unfreeze all
     assert_err!(
         Identity::unfreeze_signing_keys(bob.clone()),
-        Error::<TestStorage>::KeyNotAllowed
+        DispatchError::Other("Current identity is none and key is not linked to any identity")
     );
     assert_ok!(Identity::unfreeze_signing_keys(alice.clone()));
 
@@ -460,7 +460,6 @@ fn remove_frozen_signing_keys_with_externalities() {
 #[test]
 fn frozen_signing_keys_test() {
     ExtBuilder::default()
-        .monied(true)
         .build()
         .execute_with(&frozen_signing_keys_test_we);
 }
@@ -470,8 +469,9 @@ fn frozen_signing_keys_test_we() {
     let alice = AccountKeyring::Alice.public();
     let alice_id = register_keyring_account(AccountKeyring::Alice).unwrap();
     let charlie = AccountKeyring::Charlie.public();
-    let charlie_id = register_keyring_account_with_balance(AccountKeyring::Charlie, 100).unwrap();
-    let bob = Origin::signed(AccountKeyring::Bob.public());
+    let _charlie_id = register_keyring_account_with_balance(AccountKeyring::Charlie, 100).unwrap();
+    let bob = AccountKeyring::Bob.public();
+    assert_eq!(Balances::free_balance(charlie), 59);
 
     // 1. Add Bob as signatory to Alice ID.
     let bob_signatory = Signatory::from(AccountKey::from(AccountKeyring::Bob.public().0));
@@ -481,44 +481,51 @@ fn frozen_signing_keys_test_we() {
         100_000
     ));
     add_signing_item(alice_id, bob_signatory);
+    assert_ok!(Balances::transfer_with_memo(
+        Origin::signed(alice),
+        bob,
+        25_000,
+        None
+    ));
+    assert_eq!(Balances::free_balance(bob), 25_000);
 
     // 2. Bob can transfer some funds to Charlie ID.
     assert_ok!(Balances::transfer_with_memo(
-        bob.clone(),
-        AccountKeyring::Charlie.public(),
+        Origin::signed(bob),
+        charlie,
         1_000,
         None
     ));
-    // assert_eq!( Balances::free_balance(charlie), 1_100);
+    assert_eq!(Balances::free_balance(charlie), 1_059);
 
     // 3. Alice freezes her signing keys.
     assert_ok!(Identity::freeze_signing_keys(Origin::signed(alice)));
 
     // 4. Bob should NOT transfer any amount.
     assert_err!(
-        Balances::transfer_with_memo(bob.clone(), AccountKeyring::Charlie.public(), 1_000, None),
-        Error::<TestStorage>::AlreadyLinked
+        Balances::transfer_with_memo(Origin::signed(bob), charlie, 1_000, None),
+        BalanceError::<TestStorage>::SenderCddMissing
     );
-    assert_eq!(Balances::free_balance(charlie), 1_100);
+    assert_eq!(Balances::free_balance(charlie), 1_059);
 
     // 5. Alice still can make transfers.
     assert_ok!(Balances::transfer_with_memo(
         Origin::signed(alice),
-        AccountKeyring::Charlie.public(),
+        charlie,
         1_000,
         None
     ));
-    assert_eq!(Balances::free_balance(charlie), 2_100);
+    assert_eq!(Balances::free_balance(charlie), 2_059);
 
     // 6. Unfreeze signatory keys, and Bob should be able to transfer again.
     assert_ok!(Identity::unfreeze_signing_keys(Origin::signed(alice)));
     assert_ok!(Balances::transfer_with_memo(
-        bob,
-        AccountKeyring::Charlie.public(),
+        Origin::signed(bob),
+        charlie,
         1_000,
         None
     ));
-    assert_eq!(Balances::free_balance(charlie), 3_100);
+    assert_eq!(Balances::free_balance(charlie), 3_059);
 }
 
 #[test]

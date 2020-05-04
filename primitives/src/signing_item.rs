@@ -31,6 +31,7 @@ pub enum Permission {
 #[derive(Encode, Decode, Copy, Clone, PartialEq, Eq, Debug)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 pub enum SignatoryType {
+    Master,
     External,
     Identity,
     MultiSig,

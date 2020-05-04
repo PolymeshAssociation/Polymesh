@@ -206,7 +206,7 @@ impl ExtBuilder {
             .map(|(idx, key)| {
                 (
                     key,
-                    LinkedKeyInfo::Unique(IdentityId::from((idx + 1) as u128)),
+                    LinkedKeyInfo::Master(IdentityId::from((idx + 1) as u128)),
                 )
             })
             .collect::<Vec<_>>();
