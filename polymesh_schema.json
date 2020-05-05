@@ -490,7 +490,13 @@
                 "Handled": ""
             }
         },
-        "CappedFee": "u64"
+        "CappedFee": "u64",
+        "CanTransferResult": {
+            "_enum": {
+                "Ok": "u8",
+                "Err": "Vec<u8>"
+            }
+        }
     },
     "rpc": {
         "identity": {
@@ -627,6 +633,44 @@
                     }
                 ],
                 "type": "Vec<(Perbill, Perbill)>"
+            }
+        },
+        "asset" : {
+            "canTransfer": {
+                "description": "Checks whether a transaction with given parameters can take place or not",
+                "params": [
+                    {
+                        "name": "blockHash",
+                        "type": "Hash",
+                        "isOptional": true   
+                    },
+                    {
+                        "name": "sender",
+                        "type": "AccountId",
+                        "isOptional": false   
+                    },
+                    {
+                        "name": "ticker",
+                        "type": "Ticker",
+                        "isOptional": false   
+                    },
+                    {
+                        "name": "from_did",
+                        "type": "IdentityId",
+                        "isOptional": false   
+                    },
+                    {
+                        "name": "to_did",
+                        "type": "IdentityId",
+                        "isOptional": false   
+                    },
+                    {
+                        "name": "value",
+                        "type": "Balance",
+                        "isOptional": false   
+                    }
+                ],
+                "type": "CanTransferResult"
             }
         }
     }
