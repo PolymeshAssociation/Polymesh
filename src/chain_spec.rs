@@ -24,6 +24,11 @@ use sp_runtime::{
     PerThing,
 };
 
+//use substrate_telemetry::TelemetryEndpoints;
+use sc_telemetry::TelemetryEndpoints;
+
+const STAGING_TELEMETRY_URL: &str = "wss://telemetry.polymesh.live/submit/";
+
 // TODO: Different chainspec can be used once we have new version of substrate
 pub type ChainSpec = sc_service::ChainSpec<GenesisConfig>;
 //pub type GeneralChainSpec = sc_service::ChainSpec<V1Config::GenesisConfig>;
@@ -97,10 +102,10 @@ pub fn get_authority_keys_from_seed(
     (
         get_account_id_from_seed::<sr25519::Public>(&format!("{}//stash", seed)),
         get_account_id_from_seed::<sr25519::Public>(seed),
-        get_from_seed::<GrandpaId>(seed),
-        get_from_seed::<BabeId>(seed),
-        get_from_seed::<ImOnlineId>(seed),
-        get_from_seed::<AuthorityDiscoveryId>(seed),
+        get_from_seed::<GrandpaId>(&format!("{}//gran", seed)),
+        get_from_seed::<BabeId>(&format!("{}//babe", seed)),
+        get_from_seed::<ImOnlineId>(&format!("{}//imon", seed)),
+        get_from_seed::<AuthorityDiscoveryId>(&format!("{}//auth", seed)),
     )
 }
 
@@ -687,7 +692,10 @@ pub fn v1_live_testnet_config() -> ChainSpec {
         "alberbaran-testnet",
         v1_live_testnet_genesis,
         boot_nodes,
-        None, // TODO: Need to provide telemetry URL where every validator telemetry can be seen
+        Some(TelemetryEndpoints::new(vec![(
+            STAGING_TELEMETRY_URL.to_string(),
+            0,
+        )])),        
         Some(&*"/polymath/alberbaran/0"),
         Some(polymath_props()),
         Default::default(),
