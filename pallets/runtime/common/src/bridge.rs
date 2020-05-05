@@ -27,10 +27,39 @@
 //! - **bridge transaction queue**: a single queue of transactions, each identified with the block
 //! number at which the transaction will be retried.
 //!
-//! - **bridge limit**: The maximum number of bridged POLYX per identity within a set window of
+//! - **bridge limit**: The maximum number of bridged POLYX per identity within a set interval of
 //! blocks.
 //!
 //! - **bridge limit whitelist**: Identities not constrained by the bridge limit.
+//!
+//! ### Transaction State Transitions
+//!
+//! Although the bridge is not implemented as a state machine in the strict sense, the status of a
+//! bridge transition can be viewed as its state in the abstract state machine diagram below:
+//!
+//! ```ignore
+//!         +------------+      timelock == 0       +------------+
+//!         |            |      happy path          |            |
+//!         |   absent   +-------------------------->  handled   |
+//!         |            +------------+             |            |
+//!         +-----+--^---+   admin    |             +------^-----+
+//!               |  |                |                    |
+//!               |  |          +-----v------+             |
+//! timelock != 0 |  | admin    |            |             |
+//! or no CDD or  |  +----------+   frozen   |             | happy path
+//! limit reached |             |            |             |
+//!               |             +----^-^-----+             |
+//!               |                  | |                   |
+//!         +-----v------+   admin   | |   admin    +------+-----+
+//!         |            +-----------+ +------------+            <-----+
+//!         | timelocked +-------------------------->  pending   |     |retry
+//!         |            |                          |            +-----+
+//!         +------------+                          +------------+
+//! ```
+//!
+//! **Absent** is the initial state. **Handled** is the final state. Note that there is a feature
+//! allowing the admin to introduce new transactions by freezing them since there is an admin
+//! transition from **absent** to **frozen**.
 //!
 //! ## Interface
 //!
@@ -168,7 +197,7 @@ decl_error! {
         BridgeLimitReached,
         /// The identity's minted total has overflowed.
         Overflow,
-        /// The block duration is zero. Cannot divide.
+        /// The block interval duration is zero. Cannot divide.
         DivisionByZero,
         /// The transaction is timelocked.
         TimelockedTx,
@@ -203,7 +232,8 @@ decl_storage! {
             multisig_id
         }): T::AccountId;
 
-        /// Status of bridge transactions
+        /// Details of bridge transactions identified with pairs of the recipient account and the
+        /// bridge transaction nonce.
         BridgeTxDetails get(fn bridge_tx_details):
             double_map
                 hasher(blake2_128_concat) T::AccountId,
@@ -227,11 +257,12 @@ decl_storage! {
         TimelockedTxs get(fn timelocked_txs):
             map hasher(twox_64_concat) T::BlockNumber => Vec<BridgeTx<T::AccountId, T::Balance>>;
 
-        /// The maximum number of bridged POLYX per identity within a set window of
-        /// blocks. Parameters: amount and the block window size.
+        /// The maximum number of bridged POLYX per identity within a set interval of
+        /// blocks. Fields: POLYX amount and the block interval duration.
         BridgeLimit get(fn bridge_limit) config(): (T::Balance, T::BlockNumber);
 
-        /// Amount of POLYX bridged by the identity in last limit bucket (AMOUNT_BRIDGED, LAST_BUCKET)
+        /// Amount of POLYX bridged by the identity in last block interval. Fields: the bridged
+        /// amount and the last interval number.
         PolyxBridged get(fn polyx_bridged): map hasher(twox_64_concat) IdentityId => (T::Balance, T::BlockNumber);
 
         /// Identities not constrained by the bridge limit.
@@ -239,7 +270,7 @@ decl_storage! {
     }
     add_extra_genesis {
         // TODO: Remove multisig creator and add systematic CDD for the bridge multisig.
-        /// AccountId of the multisig creator. Set to Alice for easier testing.
+        /// AccountId of the multisig creator.
         config(creator): T::AccountId;
         /// The set of initial signers from which a multisig address is created at genesis time.
         config(signers): Vec<Signatory>;
@@ -512,25 +543,25 @@ decl_module! {
 }
 
 impl<T: Trait> Module<T> {
-    /// Issues the transacted amount to the recipient or returns a pending transaction.
+    /// Issues the transacted amount to the recipient.
     fn issue(recipient: &T::AccountId, amount: &T::Balance) -> DispatchResult {
         if let Some(did) =
             T::CddChecker::get_key_cdd_did(&AccountKey::try_from(recipient.encode())?)
         {
             if !Self::bridge_whitelist(did) {
                 let current_block_number = <system::Module<T>>::block_number();
-                let (limit, block_duration) = Self::bridge_limit();
-                ensure!(!block_duration.is_zero(), Error::<T>::DivisionByZero);
-                let current_bucket = current_block_number / block_duration;
-                let (bridged, last_bucket) = Self::polyx_bridged(did);
+                let (limit, interval_duration) = Self::bridge_limit();
+                ensure!(!interval_duration.is_zero(), Error::<T>::DivisionByZero);
+                let current_interval = current_block_number / interval_duration;
+                let (bridged, last_interval) = Self::polyx_bridged(did);
                 let mut total_mint = *amount;
-                if last_bucket == current_bucket {
+                if last_interval == current_interval {
                     total_mint = total_mint
                         .checked_add(&bridged)
                         .ok_or(Error::<T>::Overflow)?;
                 }
                 ensure!(total_mint <= limit, Error::<T>::BridgeLimitReached);
-                <PolyxBridged<T>>::insert(did, (total_mint, current_bucket))
+                <PolyxBridged<T>>::insert(did, (total_mint, current_interval))
             }
         } else {
             return Err(Error::<T>::NoValidCdd.into());
