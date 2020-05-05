@@ -399,6 +399,7 @@ impl pallet_contracts::Trait for Runtime {
 
 impl treasury::Trait for Runtime {
     type Event = Event;
+    type Currency = Balances;
 }
 
 impl pallet_offences::Trait for Runtime {
@@ -638,7 +639,7 @@ construct_runtime!(
         // ContractsWrapper: contracts_wrapper::{Module, Call, Storage},
 
         // Polymesh Governance Committees
-        Treasury: treasury::{Module, Call, Storage, Config<T>, Event<T>},
+        Treasury: treasury::{Module, Call, Event<T>},
         PolymeshCommittee: committee::<Instance1>::{Module, Call, Storage, Origin<T>, Event<T>, Config<T>},
         CommitteeMembership: group::<Instance1>::{Module, Call, Storage, Event<T>, Config<T>},
         Pips: pallet_pips::{Module, Call, Storage, Event<T>, Config<T>},
