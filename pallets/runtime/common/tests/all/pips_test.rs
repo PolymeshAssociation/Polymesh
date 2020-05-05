@@ -825,7 +825,6 @@ fn update_referendum_enactment_period_we() {
 fn proposal_with_beneficiares() {
     let committee = [AccountKeyring::Alice.public(), AccountKeyring::Bob.public()].to_vec();
     ExtBuilder::default()
-        .treasury(100_000_000)
         .governance_committee(committee)
         .governance_committee_vote_threshold((2, 3))
         .build()

@@ -298,7 +298,7 @@ parameter_types! {
     // Six sessions in an era (24 hours).
     pub const SessionsPerEra: sp_staking::SessionIndex = 6;
     // 28 eras for unbonding (28 days).
-    pub const BondingDuration: pallet_staking::EraIndex = 28;
+    pub const BondingDuration: pallet_staking::EraIndex = 7;
     pub const SlashDeferDuration: pallet_staking::EraIndex = 24 * 7; // 1/4 the bonding duration.
     pub const RewardCurve: &'static PiecewiseLinear<'static> = &REWARD_CURVE;
     pub const MaxNominatorRewardedPerValidator: u32 = 64;
@@ -399,6 +399,7 @@ impl pallet_contracts::Trait for Runtime {
 
 impl treasury::Trait for Runtime {
     type Event = Event;
+    type Currency = Balances;
 }
 
 impl pallet_offences::Trait for Runtime {
@@ -638,7 +639,7 @@ construct_runtime!(
         // ContractsWrapper: contracts_wrapper::{Module, Call, Storage},
 
         // Polymesh Governance Committees
-        Treasury: treasury::{Module, Call, Storage, Config<T>, Event<T>},
+        Treasury: treasury::{Module, Call, Event<T>},
         PolymeshCommittee: committee::<Instance1>::{Module, Call, Storage, Origin<T>, Event<T>, Config<T>},
         CommitteeMembership: group::<Instance1>::{Module, Call, Storage, Event<T>, Config<T>},
         Pips: pallet_pips::{Module, Call, Storage, Event<T>, Config<T>},

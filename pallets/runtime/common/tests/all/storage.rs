@@ -392,6 +392,7 @@ impl voting::Trait for TestStorage {
 
 impl treasury::Trait for TestStorage {
     type Event = Event;
+    type Currency = Balances;
 }
 
 thread_local! {
