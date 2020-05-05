@@ -73,7 +73,7 @@ use pallet_identity_rpc_runtime_api::DidRecords as RpcDidRecords;
 use pallet_transaction_payment::{CddAndFeeDetails, ChargeTxFee};
 use polymesh_common_utilities::{
     constants::{
-        did::{CDD_PROVIDERS_ID, GOVERNANCE_COMMITTEE_ID, SECURITY_TOKEN, USER},
+        did::{CDD_PROVIDERS_DID, GOVERNANCE_COMMITTEE_DID, SECURITY_TOKEN, USER},
         TREASURY_MODULE_ID,
     },
     protocol_fee::{ChargeProtocolFee, ProtocolOp},
@@ -220,7 +220,7 @@ decl_storage! {
             <Module<T>>::deposit_event(RawEvent::NewClaim(treasury_did, id_claim));
 
             // Add System DID: Governance committee && CDD providers
-            [GOVERNANCE_COMMITTEE_ID, CDD_PROVIDERS_ID, ].iter()
+            [GOVERNANCE_COMMITTEE_DID, CDD_PROVIDERS_DID, ].iter()
                 .for_each(|raw_id| {
                     let id = IdentityId::from(**raw_id);
                     let master_key = AccountKey::from(**raw_id);
