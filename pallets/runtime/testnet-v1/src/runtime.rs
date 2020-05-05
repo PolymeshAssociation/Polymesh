@@ -8,8 +8,8 @@ use polymesh_runtime_common::{
     cdd_check::CddChecker,
     contracts_wrapper, dividend, exemption,
     impls::{Author, CurrencyToVoteHandler, LinearWeightToFee, TargetedFeeAdjustment},
-    simple_token, sto_capped, voting, AvailableBlockRatio, BlockHashCount, MaximumBlockLength,
-    MaximumBlockWeight, NegativeImbalance,
+    merge_active_and_inactive, simple_token, sto_capped, voting, AvailableBlockRatio,
+    BlockHashCount, MaximumBlockLength, MaximumBlockWeight, NegativeImbalance,
 };
 
 use pallet_asset as asset;
@@ -389,6 +389,7 @@ impl pallet_contracts::Trait for Runtime {
 
 impl treasury::Trait for Runtime {
     type Event = Event;
+    type Currency = Balances;
 }
 
 impl pallet_offences::Trait for Runtime {
@@ -559,7 +560,7 @@ construct_runtime!(
         // ContractsWrapper: contracts_wrapper::{Module, Call, Storage},
 
         // Polymesh Governance Committees
-        Treasury: treasury::{Module, Call, Storage, Config<T>, Event<T>},
+        Treasury: treasury::{Module, Call, Event<T>},
         PolymeshCommittee: committee::<Instance1>::{Module, Call, Storage, Origin<T>, Event<T>, Config<T>},
         CommitteeMembership: group::<Instance1>::{Module, Call, Storage, Event<T>, Config<T>},
         Pips: pallet_pips::{Module, Call, Storage, Event<T>, Config<T>},
@@ -842,6 +843,20 @@ impl_runtime_apis! {
         {
             Asset::unsafe_can_transfer(sender, ticker, from_did, to_did, value)
                 .map_err(|(_code, msg)| msg.as_bytes().to_vec())
+        }
+    }
+
+    impl pallet_group_rpc_runtime_api::GroupApi<Block> for Runtime {
+        fn get_cdd_valid_members() -> Vec<pallet_group_rpc_runtime_api::Member> {
+            merge_active_and_inactive::<Block>(
+                CddServiceProviders::active_members(),
+                CddServiceProviders::inactive_members())
+        }
+
+        fn get_gc_valid_members() -> Vec<pallet_group_rpc_runtime_api::Member> {
+            merge_active_and_inactive::<Block>(
+                CommitteeMembership::active_members(),
+                CommitteeMembership::inactive_members())
         }
     }
 

@@ -8,8 +8,8 @@ use polymesh_runtime_common::{
     cdd_check::CddChecker,
     contracts_wrapper, dividend, exemption,
     impls::{Author, CurrencyToVoteHandler, LinearWeightToFee, TargetedFeeAdjustment},
-    simple_token, sto_capped, voting, AvailableBlockRatio, BlockHashCount, MaximumBlockLength,
-    MaximumBlockWeight, NegativeImbalance,
+    merge_active_and_inactive, simple_token, sto_capped, voting, AvailableBlockRatio,
+    BlockHashCount, MaximumBlockLength, MaximumBlockWeight, NegativeImbalance,
 };
 
 use pallet_asset as asset;
@@ -23,6 +23,7 @@ use pallet_percentage_tm as percentage_tm;
 use pallet_protocol_fee as protocol_fee;
 use pallet_statistics as statistics;
 use pallet_treasury as treasury;
+
 use polymesh_common_utilities::{
     constants::currency::*,
     protocol_fee::ProtocolOp,
@@ -48,7 +49,7 @@ use sp_runtime::{
         Verify,
     },
     transaction_validity::TransactionValidity,
-    ApplyExtrinsicResult, MultiSignature, Perbill, Percent, Permill,
+    ApplyExtrinsicResult, MultiSignature, Perbill,
 };
 use sp_std::prelude::*;
 use sp_version::RuntimeVersion;
@@ -297,7 +298,7 @@ parameter_types! {
     // Six sessions in an era (24 hours).
     pub const SessionsPerEra: sp_staking::SessionIndex = 6;
     // 28 eras for unbonding (28 days).
-    pub const BondingDuration: pallet_staking::EraIndex = 28;
+    pub const BondingDuration: pallet_staking::EraIndex = 7;
     pub const SlashDeferDuration: pallet_staking::EraIndex = 24 * 7; // 1/4 the bonding duration.
     pub const RewardCurve: &'static PiecewiseLinear<'static> = &REWARD_CURVE;
     pub const MaxNominatorRewardedPerValidator: u32 = 64;
@@ -398,6 +399,7 @@ impl pallet_contracts::Trait for Runtime {
 
 impl treasury::Trait for Runtime {
     type Event = Event;
+    type Currency = Balances;
 }
 
 impl pallet_offences::Trait for Runtime {
@@ -637,7 +639,7 @@ construct_runtime!(
         // ContractsWrapper: contracts_wrapper::{Module, Call, Storage},
 
         // Polymesh Governance Committees
-        Treasury: treasury::{Module, Call, Storage, Config<T>, Event<T>},
+        Treasury: treasury::{Module, Call, Event<T>},
         PolymeshCommittee: committee::<Instance1>::{Module, Call, Storage, Origin<T>, Event<T>, Config<T>},
         CommitteeMembership: group::<Instance1>::{Module, Call, Storage, Event<T>, Config<T>},
         Pips: pallet_pips::{Module, Call, Storage, Event<T>, Config<T>},
@@ -922,6 +924,20 @@ impl_runtime_apis! {
         {
             Asset::unsafe_can_transfer(sender, ticker, from_did, to_did, value)
                 .map_err(|(_code, msg)| msg.as_bytes().to_vec())
+        }
+    }
+
+    impl pallet_group_rpc_runtime_api::GroupApi<Block> for Runtime {
+        fn get_cdd_valid_members() -> Vec<pallet_group_rpc_runtime_api::Member> {
+            merge_active_and_inactive::<Block>(
+                CddServiceProviders::active_members(),
+                CddServiceProviders::inactive_members())
+        }
+
+        fn get_gc_valid_members() -> Vec<pallet_group_rpc_runtime_api::Member> {
+            merge_active_and_inactive::<Block>(
+                CommitteeMembership::active_members(),
+                CommitteeMembership::inactive_members())
         }
     }
 

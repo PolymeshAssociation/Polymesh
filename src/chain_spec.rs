@@ -54,7 +54,7 @@ fn v1_session_keys(
     }
 }
 
-fn general_session_keys(
+fn _general_session_keys(
     grandpa: GrandpaId,
     babe: BabeId,
     im_online: ImOnlineId,
@@ -244,7 +244,6 @@ fn general_testnet_genesis(
                 .chain(initial_authorities.iter().map(|x| (x.0.clone(), STASH)))
                 .collect(),
         }),
-        treasury: Some(v1::runtime::TreasuryConfig { balance: 0 }),
         pallet_indices: Some(V1Config::IndicesConfig { indices: vec![] }),
         pallet_sudo: Some(V1Config::SudoConfig { key: root_key }),
         pallet_session: Some(V1Config::SessionConfig {
@@ -596,7 +595,6 @@ fn v1_live_testnet_genesis() -> GenesisConfig {
                 .chain(initial_authorities.iter().map(|x| (x.0.clone(), STASH)))
                 .collect(),
         }),
-        treasury: Some(v1::runtime::TreasuryConfig { balance: 0 }),
         pallet_indices: Some(V1Config::IndicesConfig { indices: vec![] }),
         pallet_sudo: Some(V1Config::SudoConfig { key: root_key }),
         pallet_session: Some(V1Config::SessionConfig {
@@ -614,13 +612,13 @@ fn v1_live_testnet_genesis() -> GenesisConfig {
         pallet_staking: Some(V1Config::StakingConfig {
             minimum_validator_count: 1,
             validator_count: 8,
+            validator_commission: v1::Commission::Global(PerThing::zero()),
             stakers: initial_authorities
                 .iter()
                 .map(|x| (x.0.clone(), x.1.clone(), STASH, v1::StakerStatus::Validator))
                 .collect(),
             invulnerables: initial_authorities.iter().map(|x| x.0.clone()).collect(),
             slash_reward_fraction: v1::Perbill::from_percent(10),
-            validator_commission: v1::Commission::Global(PerThing::zero()),
             min_bond_threshold: 5_000_000_000_000,
             ..Default::default()
         }),
@@ -897,7 +895,6 @@ fn v1_testnet_genesis(
                 .chain(initial_authorities.iter().map(|x| (x.0.clone(), STASH)))
                 .collect(),
         }),
-        treasury: Some(v1::runtime::TreasuryConfig { balance: 0 }),
         pallet_indices: Some(V1Config::IndicesConfig { indices: vec![] }),
         pallet_sudo: Some(V1Config::SudoConfig { key: root_key }),
         pallet_session: Some(V1Config::SessionConfig {
