@@ -39,7 +39,7 @@ use frame_support::{
     traits::{Randomness, SplitTwoWays},
 };
 use sp_api::impl_runtime_apis;
-use sp_core::u32_trait::{_1, _2, _4};
+use sp_core::u32_trait::{_1, _2, _3, _4};
 use sp_runtime::curve::PiecewiseLinear;
 use sp_runtime::transaction_validity::TransactionValidity;
 use sp_runtime::{create_runtime_str, generic, impl_opaque_keys, ApplyExtrinsicResult, Perbill};

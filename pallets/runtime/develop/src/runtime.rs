@@ -37,7 +37,7 @@ use polymesh_primitives::{
 
 use sp_api::impl_runtime_apis;
 use sp_core::{
-    u32_trait::{_1, _2, _4},
+    u32_trait::{_1, _2, _3, _4},
     OpaqueMetadata,
 };
 use sp_runtime::{

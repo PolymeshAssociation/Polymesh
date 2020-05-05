@@ -585,7 +585,7 @@ fn v1_live_testnet_genesis() -> GenesisConfig {
                         .unwrap(),
                 ),
             ],
-            timelock: V1Time::HOURS * 6,
+            timelock: V1Time::MINUTES * 15,
             bridge_limit: (25_000_000_000, V1Time::DAYS * 1),
         }),
         balances: Some(V1Config::BalancesConfig {
@@ -683,12 +683,12 @@ pub fn v1_live_testnet_config() -> ChainSpec {
     // provide boot nodes
     let boot_nodes = vec![];
     ChainSpec::from_genesis(
-        "Polymesh V1 Live Testnet",
-        "live-testnet",
+        "Polymesh V1 Testnet",
+        "alberbaran-testnet",
         v1_live_testnet_genesis,
         boot_nodes,
         None, // TODO: Need to provide telemetry URL where every validator telemetry can be seen
-        None,
+        Some(&*"/polymath/alberbaran/0"),
         Some(polymath_props()),
         Default::default(),
     )
