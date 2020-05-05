@@ -265,7 +265,7 @@ fn general_testnet_genesis(
         }),
         pallet_staking: Some(V1Config::StakingConfig {
             minimum_validator_count: 1,
-            validator_count: 5,
+            validator_count: 2,
             validator_commission: v1::Commission::Global(PerThing::from_rational_approximation(
                 1u64, 4u64,
             )),
@@ -616,7 +616,7 @@ fn v1_live_testnet_genesis() -> GenesisConfig {
         }),
         pallet_staking: Some(V1Config::StakingConfig {
             minimum_validator_count: 1,
-            validator_count: 8,
+            validator_count: 5,
             validator_commission: v1::Commission::Global(PerThing::zero()),
             stakers: initial_authorities
                 .iter()
@@ -733,18 +733,17 @@ pub fn v1_develop_testnet_config() -> ChainSpec {
 fn v1_local_testnet_genesis() -> GenesisConfig {
     v1_testnet_genesis(
         vec![
-            get_authority_keys_from_seed("Alice"),
-            get_authority_keys_from_seed("Bob"),
+            get_authority_keys_from_seed("operator_1"),
+            get_authority_keys_from_seed("operator_2"),
         ],
-        get_account_id_from_seed::<sr25519::Public>("Alice"),
+        get_account_id_from_seed::<sr25519::Public>("polymath_1"),
         vec![
-            get_account_id_from_seed::<sr25519::Public>("Alice"),
-            get_account_id_from_seed::<sr25519::Public>("Bob"),
-            get_account_id_from_seed::<sr25519::Public>("Charlie"),
-            get_account_id_from_seed::<sr25519::Public>("Dave"),
-            get_account_id_from_seed::<sr25519::Public>("Alice//stash"),
-            get_account_id_from_seed::<sr25519::Public>("Bob//stash"),
-            get_account_id_from_seed::<sr25519::Public>("Charlie//stash"),
+            get_account_id_from_seed::<sr25519::Public>("polymath_1"),
+            get_account_id_from_seed::<sr25519::Public>("polymath_2"),
+            get_account_id_from_seed::<sr25519::Public>("operator_1"),
+            get_account_id_from_seed::<sr25519::Public>("operator_2"),
+            get_account_id_from_seed::<sr25519::Public>("operator_1//stash"),
+            get_account_id_from_seed::<sr25519::Public>("operator_2//stash"),
         ],
         true,
     )
@@ -868,8 +867,8 @@ fn v1_testnet_genesis(
             ..Default::default()
         }),
         bridge: Some(V1Config::BridgeConfig {
-            admin: get_account_id_from_seed::<sr25519::Public>("Alice"),
-            creator: get_account_id_from_seed::<sr25519::Public>("Alice"),
+            admin: get_account_id_from_seed::<sr25519::Public>("polymath_1"),
+            creator: get_account_id_from_seed::<sr25519::Public>("polymath_1"),
             signatures_required: 3,
             signers: vec![
                 Signatory::AccountKey(
@@ -919,7 +918,7 @@ fn v1_testnet_genesis(
         }),
         pallet_staking: Some(V1Config::StakingConfig {
             minimum_validator_count: 1,
-            validator_count: 5,
+            validator_count: 2,
             validator_commission: v1::Commission::Global(PerThing::zero()),
             stakers: initial_authorities
                 .iter()
