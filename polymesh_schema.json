@@ -193,8 +193,8 @@
         "Dividend": {
             "amount": "Balance",
             "active": "bool",
-            "maturates_at": "Option<u64>",
-            "expires_at": "Option<u64>",
+            "matures_at": "Option<Moment>",
+            "expires_at": "Option<Moment>",
             "payout_currency": "Option<Ticker>",
             "checkpoint_id": "u64"
         },
@@ -408,7 +408,7 @@
         "BatchAddClaimItem": {
             "target": "IdentityId",
             "claim": "Claim",
-            "expiry": "Option<u64>"
+            "expiry": "Option<Moment>"
         },
         "BatchRevokeClaimItem": {
             "target": "IdentityId",
