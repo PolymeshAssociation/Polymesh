@@ -72,7 +72,10 @@ pub mod benchmarking;
 use pallet_identity_rpc_runtime_api::DidRecords as RpcDidRecords;
 use pallet_transaction_payment::{CddAndFeeDetails, ChargeTxFee};
 use polymesh_common_utilities::{
-    constants::did::{CDD_PROVIDERS_ID, GOVERNANCE_COMMITTEE_ID, SECURITY_TOKEN, USER},
+    constants::{
+        did::{CDD_PROVIDERS_DID, GOVERNANCE_COMMITTEE_DID, SECURITY_TOKEN, USER},
+        TREASURY_MODULE_ID,
+    },
     protocol_fee::{ChargeProtocolFee, ProtocolOp},
     traits::{
         asset::AcceptTransfer,
@@ -99,7 +102,9 @@ use core::{
 use sp_core::sr25519::{Public, Signature};
 use sp_io::hashing::blake2_256;
 use sp_runtime::{
-    traits::{CheckedAdd, Dispatchable, Hash, SaturatedConversion, Verify, Zero},
+    traits::{
+        AccountIdConversion, CheckedAdd, Dispatchable, Hash, SaturatedConversion, Verify, Zero,
+    },
     AnySignature,
 };
 use sp_std::{convert::TryFrom, mem::swap, prelude::*, vec};
@@ -188,8 +193,34 @@ decl_storage! {
     add_extra_genesis {
         config(identities): Vec<(T::AccountId, IdentityId, IdentityId, Option<u64>)>;
         build(|config: &GenesisConfig<T>| {
+            // Add systematic CDD for the Treasury module
+            let treasury_account_id: T::AccountId = TREASURY_MODULE_ID.into_account();
+            let treasury_master_key = AccountKey::try_from(treasury_account_id.encode()).unwrap();
+            let treasury_did = SystematicIssuers::TreasuryModule.as_id();
+            <Module<T>>::link_key_to_did(&treasury_master_key, SignatoryType::External, treasury_did);
+            let record = DidRecord {
+                master_key: treasury_master_key,
+                ..Default::default()
+            };
+            <DidRecords>::insert(&treasury_did, record);
+
+            // Add the claim data for the CustomerDueDiligence type claim for Treasury module
+            let claim_type = ClaimType::CustomerDueDiligence;
+            let pk = Claim1stKey{ target: treasury_did, claim_type };
+            let sk = Claim2ndKey{ issuer: treasury_did, scope: None };
+            let id_claim = IdentityClaim {
+                claim_issuer: treasury_did,
+                issuance_date: 0_u64,
+                last_update_date: 0_u64,
+                expiry: None,
+                claim: Claim::CustomerDueDiligence,
+            };
+
+            <Claims>::insert(&pk, &sk, id_claim.clone());
+            <Module<T>>::deposit_event(RawEvent::NewClaim(treasury_did, id_claim));
+
             // Add System DID: Governance committee && CDD providers
-            [GOVERNANCE_COMMITTEE_ID, CDD_PROVIDERS_ID].iter()
+            [GOVERNANCE_COMMITTEE_DID, CDD_PROVIDERS_DID, ].iter()
                 .for_each(|raw_id| {
                     let id = IdentityId::from(**raw_id);
                     let master_key = AccountKey::from(**raw_id);
@@ -1551,8 +1582,14 @@ impl<T: Trait> Module<T> {
         active_cdds: &[IdentityId],
         inactive_not_expired_cdds: &[InactiveMember<T::Moment>],
     ) -> bool {
+        let systematic_cdds = [
+            SystematicIssuers::TreasuryModule.as_id(),
+            SystematicIssuers::Committee.as_id(),
+            SystematicIssuers::CDDProvider.as_id(),
+        ];
         Self::is_identity_claim_not_expired_at(id_claim, exp_with_leeway)
             && (active_cdds.contains(&id_claim.claim_issuer)
+                || systematic_cdds.contains(&id_claim.claim_issuer)
                 || inactive_not_expired_cdds
                     .iter()
                     .filter(|cdd| cdd.id == id_claim.claim_issuer)
