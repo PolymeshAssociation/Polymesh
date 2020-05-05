@@ -1,5 +1,5 @@
 use super::{
-    storage::{make_account, TestStorage},
+    storage::{add_signing_item, make_account, register_keyring_account, TestStorage},
     ExtBuilder,
 };
 
@@ -10,15 +10,17 @@ use pallet_balances as balances;
 use pallet_compliance_manager as compliance_manager;
 use pallet_identity as identity;
 
+use polymesh_common_utilities::traits::balances::Memo;
 use polymesh_primitives::{
-    AuthorizationData, Document, IdentityId, LinkData, Signatory, SmartExtension,
+    AccountKey, AuthorizationData, Document, IdentityId, LinkData, Signatory, SmartExtension,
     SmartExtensionType, Ticker,
 };
 
 use chrono::prelude::Utc;
 use codec::Encode;
 use frame_support::{
-    assert_err, assert_noop, assert_ok, traits::Currency, StorageDoubleMap, StorageMap,
+    assert_err, assert_noop, assert_ok, dispatch::DispatchError, traits::Currency,
+    StorageDoubleMap, StorageMap,
 };
 use hex_literal::hex;
 use ink_primitives::hash as FunctionSelectorHasher;
@@ -38,6 +40,7 @@ type ComplianceManager = compliance_manager::Module<TestStorage>;
 type AssetError = asset::Error<TestStorage>;
 
 type OffChainSignature = AnySignature;
+type Origin = <TestStorage as frame_system::Trait>::Origin;
 
 #[test]
 fn check_the_test_hex() {
@@ -1791,6 +1794,86 @@ fn freeze_unfreeze_asset() {
         // Transfer some balance.
         assert_ok!(Asset::transfer(alice_signed.clone(), ticker, bob_did, 1));
     });
+}
+#[test]
+fn frozen_signing_keys_create_asset() {
+    ExtBuilder::default()
+        .build()
+        .execute_with(frozen_signing_keys_create_asset_we);
+}
+
+fn frozen_signing_keys_create_asset_we() {
+    // 0. Create identities.
+    let alice = AccountKeyring::Alice.public();
+    let alice_id = register_keyring_account(AccountKeyring::Alice).unwrap();
+    let _charlie_id = register_keyring_account(AccountKeyring::Charlie).unwrap();
+    let bob = AccountKeyring::Bob.public();
+
+    // 1. Add Bob as signatory to Alice ID.
+    assert_ok!(Balances::top_up_identity_balance(
+        Origin::signed(alice),
+        alice_id,
+        100_000
+    ));
+    let bob_signatory = Signatory::from(AccountKey::from(AccountKeyring::Bob.public().0));
+    add_signing_item(alice_id, bob_signatory);
+    assert_ok!(Balances::transfer_with_memo(
+        Origin::signed(alice),
+        bob,
+        1_000,
+        Some(Memo::from("Bob funding"))
+    ));
+
+    // 2. Bob can create token
+    let token_1 = SecurityToken {
+        name: vec![0x01].into(),
+        owner_did: alice_id,
+        total_supply: 1_000_000,
+        divisible: true,
+        asset_type: AssetType::default(),
+        link_id: 18,
+        ..Default::default()
+    };
+    let ticker_1 = Ticker::try_from(token_1.name.as_slice()).unwrap();
+    assert_ok!(Asset::create_token(
+        Origin::signed(bob),
+        token_1.name.clone(),
+        ticker_1,
+        token_1.total_supply,
+        true,
+        token_1.asset_type.clone(),
+        vec![],
+        None,
+    ));
+    assert_eq!(Asset::token_details(ticker_1), token_1);
+
+    // 3. Alice freezes her signing keys.
+    assert_ok!(Identity::freeze_signing_keys(Origin::signed(alice)));
+
+    // 4. Bob cannot create a token.
+    let token_2 = SecurityToken {
+        name: vec![0x01].into(),
+        owner_did: alice_id,
+        total_supply: 1_000_000,
+        divisible: true,
+        asset_type: AssetType::default(),
+        ..Default::default()
+    };
+    let ticker_2 = Ticker::try_from(token_2.name.as_slice()).unwrap();
+    let create_token_result = Asset::create_token(
+        Origin::signed(bob),
+        token_2.name.clone(),
+        ticker_2,
+        token_2.total_supply,
+        true,
+        token_2.asset_type.clone(),
+        vec![],
+        None,
+    );
+    assert_err!(
+        create_token_result,
+        DispatchError::Other("Current identity is none and key is not linked to any identity")
+    );
 }
 
 /*

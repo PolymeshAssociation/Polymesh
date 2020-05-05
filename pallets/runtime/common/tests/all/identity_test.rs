@@ -458,13 +458,13 @@ fn remove_frozen_signing_keys_with_externalities() {
 
 /// It double-checks that frozen keys are removed too.
 #[test]
-fn frozen_signing_keys_test() {
+fn frozen_signing_keys_cdd_verification_test() {
     ExtBuilder::default()
         .build()
-        .execute_with(&frozen_signing_keys_test_we);
+        .execute_with(&frozen_signing_keys_cdd_verification_test_we);
 }
 
-fn frozen_signing_keys_test_we() {
+fn frozen_signing_keys_cdd_verification_test_we() {
     // 0. Create identity for Alice and signing key from Bob.
     let alice = AccountKeyring::Alice.public();
     let alice_id = register_keyring_account(AccountKeyring::Alice).unwrap();
