@@ -102,10 +102,14 @@ pub fn get_authority_keys_from_seed(
     (
         get_account_id_from_seed::<sr25519::Public>(&format!("{}//stash", seed)),
         get_account_id_from_seed::<sr25519::Public>(seed),
-        get_from_seed::<GrandpaId>(&format!("{}//gran", seed)),
-        get_from_seed::<BabeId>(&format!("{}//babe", seed)),
-        get_from_seed::<ImOnlineId>(&format!("{}//imon", seed)),
-        get_from_seed::<AuthorityDiscoveryId>(&format!("{}//auth", seed)),
+        // get_from_seed::<GrandpaId>(&format!("{}//gran", seed)),
+        // get_from_seed::<BabeId>(&format!("{}//babe", seed)),
+        // get_from_seed::<ImOnlineId>(&format!("{}//imon", seed)),
+        // get_from_seed::<AuthorityDiscoveryId>(&format!("{}//auth", seed)),
+        get_from_seed::<GrandpaId>(seed),
+        get_from_seed::<BabeId>(seed),
+        get_from_seed::<ImOnlineId>(seed),
+        get_from_seed::<AuthorityDiscoveryId>(seed),
     )
 }
 
@@ -143,18 +147,18 @@ fn general_testnet_genesis(
                 registration_length: Some(5_184_000_000),
             },
         }),
-        identity: Some(V1Config::IdentityConfig {
-            identities: vec![
+        identity: {
+            let initial_identities = vec![
                 // (master_account_id, service provider did, target did, expiry time of CustomerDueDiligence claim i.e 10 days is ms)
                 // Service providers
                 (
-                    get_account_id_from_seed::<sr25519::Public>("service_provider_1"),
+                    get_account_id_from_seed::<sr25519::Public>("cdd_provider_1"),
                     IdentityId::from(1),
                     IdentityId::from(1),
                     None,
                 ),
                 (
-                    get_account_id_from_seed::<sr25519::Public>("service_provider_2"),
+                    get_account_id_from_seed::<sr25519::Public>("cdd_provider_2"),
                     IdentityId::from(2),
                     IdentityId::from(2),
                     None,
@@ -174,48 +178,47 @@ fn general_testnet_genesis(
                 ),
                 (
                     get_account_id_from_seed::<sr25519::Public>("governance_committee_3"),
-                    IdentityId::from(2),
+                    IdentityId::from(1),
                     IdentityId::from(5),
                     None,
-                ),
-                // Validators
-                (
-                    get_account_id_from_seed::<sr25519::Public>("Alice//stash"),
-                    IdentityId::from(2),
-                    IdentityId::from(6),
-                    None,
-                ),
-                (
-                    get_account_id_from_seed::<sr25519::Public>("Bob//stash"),
-                    IdentityId::from(1),
-                    IdentityId::from(7),
-                    None,
-                ),
-                (
-                    get_account_id_from_seed::<sr25519::Public>("Charlie//stash"),
-                    IdentityId::from(1),
-                    IdentityId::from(8),
-                    None,
-                ),
-                // Alice and bob
-                (
-                    get_account_id_from_seed::<sr25519::Public>("Alice"),
-                    IdentityId::from(42),
-                    IdentityId::from(42),
-                    None,
-                ),
-                (
-                    get_account_id_from_seed::<sr25519::Public>("Bob"),
-                    IdentityId::from(42),
-                    IdentityId::from(1337),
-                    None,
-                ),
-            ],
-            ..Default::default()
-        }),
+                )
+            ];
+            let mut identity_counter = 5;
+            let authority_identities = initial_authorities
+                .iter()
+                .map(|x| {
+                    identity_counter = identity_counter + 1;
+                    (
+                        x.1.clone(),
+                        IdentityId::from(1),
+                        IdentityId::from(identity_counter),
+                        None,
+                    )
+                })
+                .collect::<Vec<_>>();
+
+            let all_identities = initial_identities.iter().cloned().chain(authority_identities.iter().cloned()).collect::<Vec<_>>();
+            identity_counter = 5;
+            let signing_keys = initial_authorities
+                .iter()
+                .map(|x| {
+                    identity_counter = identity_counter + 1;
+                    (
+                        x.0.clone(),
+                        IdentityId::from(identity_counter),
+                    )
+                })
+                .collect::<Vec<_>>();
+        
+            Some(V1Config::IdentityConfig {
+                identities: all_identities,
+                signing_keys: signing_keys,
+                ..Default::default()
+            })
+        },
         bridge: Some(V1Config::BridgeConfig {
-            admin: get_account_id_from_seed::<sr25519::Public>("Alice"),
-            creator: get_account_id_from_seed::<sr25519::Public>("Alice"),
+            admin: initial_authorities[0].0.clone(),
+            creator: initial_authorities[0].0.clone(),
             signatures_required: 3,
             signers: vec![
                 Signatory::AccountKey(
@@ -246,6 +249,7 @@ fn general_testnet_genesis(
             balances: endowed_accounts
                 .iter()
                 .map(|k: &AccountId| (k.clone(), ENDOWMENT))
+                .chain(initial_authorities.iter().map(|x| (x.1.clone(), ENDOWMENT)))
                 .chain(initial_authorities.iter().map(|x| (x.0.clone(), STASH)))
                 .collect(),
         }),
@@ -325,11 +329,11 @@ fn general_testnet_genesis(
             phantom: Default::default(),
         }),
         group_Instance2: Some(v1::runtime::CddServiceProvidersConfig {
-            // sp1, sp2, alice
+            // sp1, sp2, first authority
             active_members: vec![
                 IdentityId::from(1),
                 IdentityId::from(2),
-                IdentityId::from(42),
+                IdentityId::from(5),
             ],
             phantom: Default::default(),
         }),
@@ -348,9 +352,7 @@ fn general_development_genesis() -> GenesisConfig {
         vec![get_authority_keys_from_seed("Alice")],
         get_account_id_from_seed::<sr25519::Public>("Alice"),
         vec![
-            get_account_id_from_seed::<sr25519::Public>("Alice"),
             get_account_id_from_seed::<sr25519::Public>("Bob"),
-            get_account_id_from_seed::<sr25519::Public>("Alice//stash"),
         ],
         true,
     )
@@ -377,12 +379,8 @@ fn general_local_genesis() -> GenesisConfig {
         ],
         get_account_id_from_seed::<sr25519::Public>("Alice"),
         vec![
-            get_account_id_from_seed::<sr25519::Public>("Alice"),
-            get_account_id_from_seed::<sr25519::Public>("Bob"),
             get_account_id_from_seed::<sr25519::Public>("Charlie"),
             get_account_id_from_seed::<sr25519::Public>("Dave"),
-            get_account_id_from_seed::<sr25519::Public>("Alice//stash"),
-            get_account_id_from_seed::<sr25519::Public>("Bob//stash"),
             get_account_id_from_seed::<sr25519::Public>("Charlie//stash"),
         ],
         true,
@@ -411,15 +409,9 @@ fn general_live_genesis() -> GenesisConfig {
         ],
         get_account_id_from_seed::<sr25519::Public>("Alice"),
         vec![
-            get_account_id_from_seed::<sr25519::Public>("Alice"),
-            get_account_id_from_seed::<sr25519::Public>("Bob"),
-            get_account_id_from_seed::<sr25519::Public>("Charlie"),
             get_account_id_from_seed::<sr25519::Public>("Dave"),
             get_account_id_from_seed::<sr25519::Public>("Eve"),
             get_account_id_from_seed::<sr25519::Public>("Ferdie"),
-            get_account_id_from_seed::<sr25519::Public>("Alice//stash"),
-            get_account_id_from_seed::<sr25519::Public>("Bob//stash"),
-            get_account_id_from_seed::<sr25519::Public>("Charlie//stash"),
             get_account_id_from_seed::<sr25519::Public>("Dave//stash"),
             get_account_id_from_seed::<sr25519::Public>("Eve//stash"),
             get_account_id_from_seed::<sr25519::Public>("Ferdie//stash"),
@@ -689,14 +681,14 @@ pub fn v1_live_testnet_config() -> ChainSpec {
     let boot_nodes = vec![];
     ChainSpec::from_genesis(
         "Polymesh V1 Testnet",
-        "alberbaran-testnet",
+        "aldebaran-testnet",
         v1_live_testnet_genesis,
         boot_nodes,
         Some(TelemetryEndpoints::new(vec![(
             STAGING_TELEMETRY_URL.to_string(),
             0,
         )])),        
-        Some(&*"/polymath/alberbaran/0"),
+        Some(&*"/polymath/aldebaran/0"),
         Some(polymath_props()),
         Default::default(),
     )
