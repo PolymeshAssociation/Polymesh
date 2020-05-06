@@ -7,17 +7,18 @@ use super::{
 use pallet_committee::{self as committee, PolymeshVotes, RawEvent as CommitteeRawEvent};
 use pallet_group::{self as group};
 use pallet_identity as identity;
-
+use polymesh_common_utilities::Context;
 use frame_support::{assert_err, assert_noop, assert_ok, dispatch::DispatchError, Hashable};
 use frame_system::{EventRecord, Phase};
 use test_client::AccountKeyring;
-
+use std::convert::TryFrom;
 use sp_core::H256;
 use sp_runtime::traits::{BlakeTwo256, Hash};
 
 type Committee = committee::Module<TestStorage, committee::Instance1>;
 type CommitteeGroup = group::Module<TestStorage, group::Instance1>;
 type System = frame_system::Module<TestStorage>;
+type Identity = identity::Module<TestStorage>;
 type Origin = <TestStorage as frame_system::Trait>::Origin;
 
 #[test]
@@ -107,7 +108,7 @@ fn single_member_committee_works_we() {
 
     let expected_event = EventRecord {
         phase: Phase::ApplyExtrinsic(0),
-        event: EventTest::committee_Instance1(CommitteeRawEvent::Executed(hash.clone(), false)),
+        event: EventTest::committee_Instance1(CommitteeRawEvent::Executed(alice_did, hash.clone(), false)),
         topics: vec![],
     };
 
@@ -345,7 +346,7 @@ fn rage_quit_we() {
 
     let root = Origin::system(frame_system::RawOrigin::Root);
     CommitteeGroup::reset_members(root.clone(), committee).unwrap();
-
+    assert_ok!(u32::try_from((Committee::members()).len()) , 4);
     // Ferdie is NOT a member
     assert_eq!(Committee::is_member(&ferdie_did), false);
     assert_err!(
@@ -376,9 +377,11 @@ fn rage_quit_we() {
     );
 
     // Bob quits, its vote should be removed.
+    assert_ok!(u32::try_from((Committee::members()).len()) , 4);
     assert_eq!(Committee::is_member(&bob_did), true);
     assert_ok!(CommitteeGroup::abdicate_membership(bob_signer.clone()));
     assert_eq!(Committee::is_member(&bob_did), false);
+    assert_ok!(u32::try_from((Committee::members()).len()) , 3);
     let block_number = System::block_number();
     assert_eq!(
         Committee::voting(&proposal_hash),
@@ -393,7 +396,10 @@ fn rage_quit_we() {
     // Charlie quits, its vote should be removed and
     // propose should be accepted.
     assert_eq!(Committee::is_member(&charlie_did), true);
+    Context::set_current_identity::<Identity>(Some(charlie_did));
     assert_ok!(CommitteeGroup::abdicate_membership(charlie_signer.clone()));
+    Context::set_current_identity::<Identity>(None);
+    assert_ok!(u32::try_from((Committee::members()).len()) , 2);
     assert_eq!(Committee::is_member(&charlie_did), false);
     // TODO: Only one member, voting should be approved.
     let block_number = System::block_number();
@@ -409,7 +415,9 @@ fn rage_quit_we() {
 
     let committee = vec![alice_did, bob_did, charlie_did];
     CommitteeGroup::reset_members(root, committee).unwrap();
+    Context::set_current_identity::<Identity>(Some(bob_did));
     assert_ok!(Committee::vote(bob_signer.clone(), proposal_hash, 0, true));
+    Context::set_current_identity::<Identity>(None);
     assert_eq!(Committee::voting(&proposal_hash), None);
 
     // Alice should not quit because she is the last member.

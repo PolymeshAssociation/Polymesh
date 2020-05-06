@@ -3209,7 +3209,6 @@ dependencies = [
 name = "pallet-group-rpc-runtime-api"
 version = "2.0.0"
 dependencies = [
- "frame-support",
  "parity-scale-codec",
  "polymesh-common-utilities",
  "polymesh-primitives",
