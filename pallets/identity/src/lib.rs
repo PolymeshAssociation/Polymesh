@@ -233,7 +233,7 @@ decl_storage! {
                     });
                     <Module<T>>::deposit_event(RawEvent::NewDid(id.clone(), T::AccountId::decode(&mut master_key.as_slice()).unwrap(), vec![]));
                 });
-            
+
             //  Other
             for &(ref master_account_id, issuer, did, expiry) in &config.identities {
                 // Direct storage change for registering the DID and providing the claim
@@ -278,7 +278,7 @@ decl_storage! {
                 <Module<T>>::deposit_event(RawEvent::NewSigningItems(
                     did,
                     [SigningItem::from(signer_key.clone())].to_vec(),
-                ));        
+                ));
             }
         });
     }

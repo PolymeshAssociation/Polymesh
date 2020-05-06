@@ -1,5 +1,5 @@
 // PM2 config file
-let chain = "live";
+let chain = "v1-local";
 module.exports = {
   apps: [
     {

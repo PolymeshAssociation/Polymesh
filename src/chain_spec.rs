@@ -181,7 +181,7 @@ fn general_testnet_genesis(
                     IdentityId::from(1),
                     IdentityId::from(5),
                     None,
-                )
+                ),
             ];
             let mut identity_counter = 5;
             let authority_identities = initial_authorities
@@ -197,19 +197,20 @@ fn general_testnet_genesis(
                 })
                 .collect::<Vec<_>>();
 
-            let all_identities = initial_identities.iter().cloned().chain(authority_identities.iter().cloned()).collect::<Vec<_>>();
+            let all_identities = initial_identities
+                .iter()
+                .cloned()
+                .chain(authority_identities.iter().cloned())
+                .collect::<Vec<_>>();
             identity_counter = 5;
             let signing_keys = initial_authorities
                 .iter()
                 .map(|x| {
                     identity_counter = identity_counter + 1;
-                    (
-                        x.0.clone(),
-                        IdentityId::from(identity_counter),
-                    )
+                    (x.0.clone(), IdentityId::from(identity_counter))
                 })
                 .collect::<Vec<_>>();
-        
+
             Some(V1Config::IdentityConfig {
                 identities: all_identities,
                 signing_keys: signing_keys,
@@ -351,9 +352,7 @@ fn general_development_genesis() -> GenesisConfig {
     general_testnet_genesis(
         vec![get_authority_keys_from_seed("Alice")],
         get_account_id_from_seed::<sr25519::Public>("Alice"),
-        vec![
-            get_account_id_from_seed::<sr25519::Public>("Bob"),
-        ],
+        vec![get_account_id_from_seed::<sr25519::Public>("Bob")],
         true,
     )
 }
@@ -434,246 +433,27 @@ pub fn general_live_testnet_config() -> ChainSpec {
 }
 
 fn v1_live_testnet_genesis() -> GenesisConfig {
-    // Need to provide authorities
-    let initial_authorities: Vec<(
-        AccountId,
-        AccountId,
-        GrandpaId,
-        BabeId,
-        ImOnlineId,
-        AuthorityDiscoveryId,
-    )> = vec![
-        get_authority_keys_from_seed("operator_1"),
-        get_authority_keys_from_seed("operator_2"),
-        get_authority_keys_from_seed("operator_3"),
-        get_authority_keys_from_seed("operator_4"),
-        get_authority_keys_from_seed("operator_5"),
-    ];
-    let root_key: AccountId = get_account_id_from_seed::<sr25519::Public>("polymath_1");
-    // Need endowed accounts address
-    let endowed_accounts: Vec<AccountId> = vec![
+    v1_testnet_genesis(
+        vec![
+            get_authority_keys_from_seed("operator_1"),
+            get_authority_keys_from_seed("operator_2"),
+            get_authority_keys_from_seed("operator_3"),
+            get_authority_keys_from_seed("operator_4"),
+            get_authority_keys_from_seed("operator_5"),
+        ],
         get_account_id_from_seed::<sr25519::Public>("polymath_1"),
-        get_account_id_from_seed::<sr25519::Public>("polymath_2"),
-        get_account_id_from_seed::<sr25519::Public>("polymath_3"),
-        get_account_id_from_seed::<sr25519::Public>("operator_1"),
-        get_account_id_from_seed::<sr25519::Public>("operator_2"),
-        get_account_id_from_seed::<sr25519::Public>("operator_3"),
-        get_account_id_from_seed::<sr25519::Public>("operator_4"),
-        get_account_id_from_seed::<sr25519::Public>("operator_5"),
-        get_account_id_from_seed::<sr25519::Public>("relay_1"),
-        get_account_id_from_seed::<sr25519::Public>("relay_2"),
-        get_account_id_from_seed::<sr25519::Public>("relay_3"),
-        get_account_id_from_seed::<sr25519::Public>("relay_4"),
-        get_account_id_from_seed::<sr25519::Public>("relay_5"),
-    ];
-
-    const STASH: u128 = 5_000_000 * POLY;
-    const ENDOWMENT: u128 = 100_000_000 * POLY;
-
-    GenesisConfig {
-        frame_system: Some(V1Config::SystemConfig {
-            code: v1::WASM_BINARY.to_vec(),
-            changes_trie_config: Default::default(),
-        }),
-        asset: Some(V1Config::AssetConfig {
-            ticker_registration_config: TickerRegistrationConfig {
-                max_ticker_length: 12,
-                registration_length: Some(5_184_000_000),
-            },
-        }),
-        identity: Some(V1Config::IdentityConfig {
-            identities: vec![
-                // (master_account_id, service provider did, target did, expiry time of CustomerDueDiligence claim i.e 10 days is ms)
-                // Service providers
-                (
-                    get_account_id_from_seed::<sr25519::Public>("cdd_provider_1"),
-                    IdentityId::from(1),
-                    IdentityId::from(1),
-                    None,
-                ),
-                (
-                    get_account_id_from_seed::<sr25519::Public>("cdd_provider_2"),
-                    IdentityId::from(2),
-                    IdentityId::from(2),
-                    None,
-                ),
-                (
-                    get_account_id_from_seed::<sr25519::Public>("cdd_provider_3"),
-                    IdentityId::from(3),
-                    IdentityId::from(3),
-                    None,
-                ),
-                // Governance committee members
-                (
-                    get_account_id_from_seed::<sr25519::Public>("polymath_1"),
-                    IdentityId::from(1),
-                    IdentityId::from(4),
-                    None,
-                ),
-                (
-                    get_account_id_from_seed::<sr25519::Public>("polymath_2"),
-                    IdentityId::from(2),
-                    IdentityId::from(5),
-                    None,
-                ),
-                (
-                    get_account_id_from_seed::<sr25519::Public>("polymath_3"),
-                    IdentityId::from(3),
-                    IdentityId::from(6),
-                    None,
-                ),
-                // Validators
-                (
-                    get_account_id_from_seed::<sr25519::Public>("operator_1//stash"),
-                    IdentityId::from(2),
-                    IdentityId::from(7),
-                    None,
-                ),
-                (
-                    get_account_id_from_seed::<sr25519::Public>("operator_2//stash"),
-                    IdentityId::from(2),
-                    IdentityId::from(8),
-                    None,
-                ),
-                (
-                    get_account_id_from_seed::<sr25519::Public>("operator_3//stash"),
-                    IdentityId::from(3),
-                    IdentityId::from(9),
-                    None,
-                ),
-                (
-                    get_account_id_from_seed::<sr25519::Public>("operator_4//stash"),
-                    IdentityId::from(1),
-                    IdentityId::from(10),
-                    None,
-                ),
-                (
-                    get_account_id_from_seed::<sr25519::Public>("operator_5//stash"),
-                    IdentityId::from(2),
-                    IdentityId::from(11),
-                    None,
-                ),
-            ],
-            ..Default::default()
-        }),
-        bridge: Some(V1Config::BridgeConfig {
-            admin: get_account_id_from_seed::<sr25519::Public>("polymath_1"),
-            creator: get_account_id_from_seed::<sr25519::Public>("polymath_1"),
-            signatures_required: 3,
-            signers: vec![
-                Signatory::AccountKey(
-                    AccountKey::try_from(&get_from_seed::<sr25519::Public>("relay_1").to_vec())
-                        .unwrap(),
-                ),
-                Signatory::AccountKey(
-                    AccountKey::try_from(&get_from_seed::<sr25519::Public>("relay_2").to_vec())
-                        .unwrap(),
-                ),
-                Signatory::AccountKey(
-                    AccountKey::try_from(&get_from_seed::<sr25519::Public>("relay_3").to_vec())
-                        .unwrap(),
-                ),
-                Signatory::AccountKey(
-                    AccountKey::try_from(&get_from_seed::<sr25519::Public>("relay_4").to_vec())
-                        .unwrap(),
-                ),
-                Signatory::AccountKey(
-                    AccountKey::try_from(&get_from_seed::<sr25519::Public>("relay_5").to_vec())
-                        .unwrap(),
-                ),
-            ],
-            timelock: V1Time::MINUTES * 15,
-            bridge_limit: (25_000_000_000, V1Time::DAYS * 1),
-        }),
-        balances: Some(V1Config::BalancesConfig {
-            balances: endowed_accounts
-                .iter()
-                .map(|k: &AccountId| (k.clone(), ENDOWMENT))
-                .chain(initial_authorities.iter().map(|x| (x.0.clone(), STASH)))
-                .collect(),
-        }),
-        pallet_indices: Some(V1Config::IndicesConfig { indices: vec![] }),
-        pallet_sudo: Some(V1Config::SudoConfig { key: root_key }),
-        pallet_session: Some(V1Config::SessionConfig {
-            keys: initial_authorities
-                .iter()
-                .map(|x| {
-                    (
-                        x.0.clone(),
-                        x.0.clone(),
-                        v1_session_keys(x.2.clone(), x.3.clone(), x.4.clone(), x.5.clone()),
-                    )
-                })
-                .collect::<Vec<_>>(),
-        }),
-        pallet_staking: Some(V1Config::StakingConfig {
-            minimum_validator_count: 1,
-            validator_count: 5,
-            validator_commission: v1::Commission::Global(PerThing::zero()),
-            stakers: initial_authorities
-                .iter()
-                .map(|x| (x.0.clone(), x.1.clone(), STASH, v1::StakerStatus::Validator))
-                .collect(),
-            invulnerables: initial_authorities.iter().map(|x| x.0.clone()).collect(),
-            slash_reward_fraction: v1::Perbill::from_percent(10),
-            min_bond_threshold: 5_000_000_000_000,
-            ..Default::default()
-        }),
-        pallet_pips: Some(V1Config::PipsConfig {
-            prune_historical_pips: false,
-            min_proposal_deposit: 5_000 * POLY,
-            quorum_threshold: 100_000_000_000,
-            proposal_duration: V1Time::DAYS * 7,
-            proposal_cool_off_period: V1Time::HOURS * 6,
-            default_enactment_period: V1Time::DAYS * 7,
-        }),
-        pallet_im_online: Some(V1Config::ImOnlineConfig {
-            slashing_params: v1::OfflineSlashingParams {
-                max_offline_percent: 10u32,
-                constant: 3u32,
-                max_slash_percent: 7u32,
-            },
-            ..Default::default()
-        }),
-        pallet_authority_discovery: Some(Default::default()),
-        pallet_babe: Some(Default::default()),
-        pallet_grandpa: Some(Default::default()),
-        pallet_contracts: Some(V1Config::ContractsConfig {
-            current_schedule: contracts::Schedule {
-                ..Default::default()
-            },
-            gas_price: 1 * MILLICENTS,
-        }),
-        group_Instance1: Some(v1::runtime::CommitteeMembershipConfig {
-            active_members: vec![
-                IdentityId::from(4),
-                IdentityId::from(5),
-                IdentityId::from(6),
-            ],
-            phantom: Default::default(),
-        }),
-        committee_Instance1: Some(V1Config::PolymeshCommitteeConfig {
-            vote_threshold: (2, 3),
-            members: vec![],
-            phantom: Default::default(),
-        }),
-        group_Instance2: Some(v1::runtime::CddServiceProvidersConfig {
-            // sp1, sp2, alice
-            active_members: vec![
-                IdentityId::from(1),
-                IdentityId::from(2),
-                IdentityId::from(3),
-            ],
-            phantom: Default::default(),
-        }),
-        protocol_fee: Some(V1Config::ProtocolFeeConfig {
-            base_fees: vec![
-                (ProtocolOp::AssetCreateToken, 10_000 * 1_000_000),
-                (ProtocolOp::AssetRegisterTicker, 2_500 * 1_000_000),
-            ],
-            coefficient: PosRatio(1, 1),
-        }),
-    }
+        vec![
+            get_account_id_from_seed::<sr25519::Public>("polymath_1"),
+            get_account_id_from_seed::<sr25519::Public>("polymath_2"),
+            get_account_id_from_seed::<sr25519::Public>("polymath_3"),
+            get_account_id_from_seed::<sr25519::Public>("relay_1"),
+            get_account_id_from_seed::<sr25519::Public>("relay_2"),
+            get_account_id_from_seed::<sr25519::Public>("relay_3"),
+            get_account_id_from_seed::<sr25519::Public>("relay_4"),
+            get_account_id_from_seed::<sr25519::Public>("relay_5"),
+        ],
+        true,
+    )
 }
 
 pub fn v1_live_testnet_config() -> ChainSpec {
@@ -687,7 +467,7 @@ pub fn v1_live_testnet_config() -> ChainSpec {
         Some(TelemetryEndpoints::new(vec![(
             STAGING_TELEMETRY_URL.to_string(),
             0,
-        )])),        
+        )])),
         Some(&*"/polymath/aldebaran/0"),
         Some(polymath_props()),
         Default::default(),
@@ -699,9 +479,8 @@ fn v1_develop_testnet_genesis() -> GenesisConfig {
         vec![get_authority_keys_from_seed("Alice")],
         get_account_id_from_seed::<sr25519::Public>("Alice"),
         vec![
-            get_account_id_from_seed::<sr25519::Public>("Alice"),
             get_account_id_from_seed::<sr25519::Public>("Bob"),
-            get_account_id_from_seed::<sr25519::Public>("Alice//stash"),
+            get_account_id_from_seed::<sr25519::Public>("Bob//stash"),
         ],
         true,
     )
@@ -725,17 +504,14 @@ pub fn v1_develop_testnet_config() -> ChainSpec {
 fn v1_local_testnet_genesis() -> GenesisConfig {
     v1_testnet_genesis(
         vec![
-            get_authority_keys_from_seed("operator_1"),
-            get_authority_keys_from_seed("operator_2"),
+            get_authority_keys_from_seed("Alice"),
+            get_authority_keys_from_seed("Bob"),
         ],
-        get_account_id_from_seed::<sr25519::Public>("polymath_1"),
+        get_account_id_from_seed::<sr25519::Public>("Alice"),
         vec![
-            get_account_id_from_seed::<sr25519::Public>("polymath_1"),
-            get_account_id_from_seed::<sr25519::Public>("polymath_2"),
-            get_account_id_from_seed::<sr25519::Public>("operator_1"),
-            get_account_id_from_seed::<sr25519::Public>("operator_2"),
-            get_account_id_from_seed::<sr25519::Public>("operator_1//stash"),
-            get_account_id_from_seed::<sr25519::Public>("operator_2//stash"),
+            get_account_id_from_seed::<sr25519::Public>("Charlie"),
+            get_account_id_from_seed::<sr25519::Public>("Dave"),
+            get_account_id_from_seed::<sr25519::Public>("Charlie//stash"),
         ],
         true,
     )
@@ -783,8 +559,8 @@ fn v1_testnet_genesis(
                 registration_length: Some(5_184_000_000),
             },
         }),
-        identity: Some(V1Config::IdentityConfig {
-            identities: vec![
+        identity: {
+            let initial_identities = vec![
                 // (master_account_id, service provider did, target did, expiry time of CustomerDueDiligence claim i.e 10 days is ms)
                 // Service providers
                 (
@@ -801,63 +577,64 @@ fn v1_testnet_genesis(
                 ),
                 (
                     get_account_id_from_seed::<sr25519::Public>("cdd_provider_3"),
-                    IdentityId::from(22),
-                    IdentityId::from(22),
+                    IdentityId::from(3),
+                    IdentityId::from(3),
                     None,
                 ),
                 // Governance committee members
                 (
                     get_account_id_from_seed::<sr25519::Public>("polymath_1"),
                     IdentityId::from(1),
-                    IdentityId::from(3),
-                    None,
-                ),
-                (
-                    get_account_id_from_seed::<sr25519::Public>("polymath_2"),
-                    IdentityId::from(1),
                     IdentityId::from(4),
                     None,
                 ),
                 (
-                    get_account_id_from_seed::<sr25519::Public>("polymath_3"),
+                    get_account_id_from_seed::<sr25519::Public>("polymath_2"),
                     IdentityId::from(2),
                     IdentityId::from(5),
                     None,
                 ),
-                // Validators
                 (
-                    get_account_id_from_seed::<sr25519::Public>("operator_1//stash"),
-                    IdentityId::from(2),
+                    get_account_id_from_seed::<sr25519::Public>("polymath_3"),
+                    IdentityId::from(3),
                     IdentityId::from(6),
                     None,
                 ),
-                (
-                    get_account_id_from_seed::<sr25519::Public>("operator_2//stash"),
-                    IdentityId::from(1),
-                    IdentityId::from(7),
-                    None,
-                ),
-                (
-                    get_account_id_from_seed::<sr25519::Public>("operator_3//stash"),
-                    IdentityId::from(1),
-                    IdentityId::from(8),
-                    None,
-                ),
-                (
-                    get_account_id_from_seed::<sr25519::Public>("operator_4//stash"),
-                    IdentityId::from(1),
-                    IdentityId::from(9),
-                    None,
-                ),
-                (
-                    get_account_id_from_seed::<sr25519::Public>("operator_5//stash"),
-                    IdentityId::from(1),
-                    IdentityId::from(10),
-                    None,
-                ),
-            ],
-            ..Default::default()
-        }),
+            ];
+            let mut identity_counter = 6;
+            let authority_identities = initial_authorities
+                .iter()
+                .map(|x| {
+                    identity_counter = identity_counter + 1;
+                    (
+                        x.1.clone(),
+                        IdentityId::from(1),
+                        IdentityId::from(identity_counter),
+                        None,
+                    )
+                })
+                .collect::<Vec<_>>();
+
+            let all_identities = initial_identities
+                .iter()
+                .cloned()
+                .chain(authority_identities.iter().cloned())
+                .collect::<Vec<_>>();
+            identity_counter = 5;
+            let signing_keys = initial_authorities
+                .iter()
+                .map(|x| {
+                    identity_counter = identity_counter + 1;
+                    (x.0.clone(), IdentityId::from(identity_counter))
+                })
+                .collect::<Vec<_>>();
+
+            Some(V1Config::IdentityConfig {
+                identities: all_identities,
+                signing_keys: signing_keys,
+                ..Default::default()
+            })
+        },
         bridge: Some(V1Config::BridgeConfig {
             admin: get_account_id_from_seed::<sr25519::Public>("polymath_1"),
             creator: get_account_id_from_seed::<sr25519::Public>("polymath_1"),
@@ -884,13 +661,14 @@ fn v1_testnet_genesis(
                         .unwrap(),
                 ),
             ],
-            timelock: 10,
-            bridge_limit: (100_000_000, 1000),
+            timelock: V1Time::MINUTES * 15,
+            bridge_limit: (25_000_000_000, V1Time::DAYS * 1),
         }),
         balances: Some(V1Config::BalancesConfig {
             balances: endowed_accounts
                 .iter()
                 .map(|k: &AccountId| (k.clone(), ENDOWMENT))
+                .chain(initial_authorities.iter().map(|x| (x.1.clone(), ENDOWMENT)))
                 .chain(initial_authorities.iter().map(|x| (x.0.clone(), STASH)))
                 .collect(),
         }),
@@ -910,7 +688,7 @@ fn v1_testnet_genesis(
         }),
         pallet_staking: Some(V1Config::StakingConfig {
             minimum_validator_count: 1,
-            validator_count: 2,
+            validator_count: initial_authorities.len() as u32,
             validator_commission: v1::Commission::Global(PerThing::zero()),
             stakers: initial_authorities
                 .iter()
@@ -924,8 +702,8 @@ fn v1_testnet_genesis(
         pallet_pips: Some(V1Config::PipsConfig {
             prune_historical_pips: false,
             min_proposal_deposit: 5_000 * POLY,
-            quorum_threshold: 100_000,
-            proposal_duration: 50,
+            quorum_threshold: 100_000_000_000,
+            proposal_duration: V1Time::DAYS * 7,
             proposal_cool_off_period: V1Time::HOURS * 6,
             default_enactment_period: V1Time::DAYS * 7,
         }),
@@ -949,23 +727,23 @@ fn v1_testnet_genesis(
         }),
         group_Instance1: Some(v1::runtime::CommitteeMembershipConfig {
             active_members: vec![
-                IdentityId::from(3),
                 IdentityId::from(4),
                 IdentityId::from(5),
+                IdentityId::from(6),
             ],
             phantom: Default::default(),
         }),
         committee_Instance1: Some(v1::runtime::PolymeshCommitteeConfig {
-            vote_threshold: (1, 2),
+            vote_threshold: (2, 3),
             members: vec![],
             phantom: Default::default(),
         }),
         group_Instance2: Some(v1::runtime::CddServiceProvidersConfig {
-            // sp1, sp2, alice
+            // sp1, sp2, sp3
             active_members: vec![
                 IdentityId::from(1),
                 IdentityId::from(2),
-                IdentityId::from(42),
+                IdentityId::from(3),
             ],
             phantom: Default::default(),
         }),
