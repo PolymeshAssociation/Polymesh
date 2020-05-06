@@ -15,17 +15,17 @@ pub trait Trait: frame_system::Trait {
 
 sp_api::decl_runtime_apis! {
 
-     /// The API to interact with Asset.
-     pub trait AssetApi<AccountId, Balance>
-     where
-         AccountId: Codec,
-         Balance: Codec
-     {
-         /// Retrieve votes for a proposal for a given `mips_index`.
+    /// The API to interact with Asset.
+    pub trait AssetApi<AccountId, Balance>
+    where
+        AccountId: Codec,
+        Balance: Codec
+    {
+         /// Checks whether a transaction with given parameters can take place or not.
          ///
          /// # Example
          ///
-         /// In this example we are checking if Alice can transfere 500 of ticket 0x01
+         /// In this example we are checking if Alice can transfer 500 of ticket 0x01
          /// from herself (Id=0x2a) to Bob (Id=0x3905)
          ///
          /// ```ignore
@@ -42,11 +42,12 @@ sp_api::decl_runtime_apis! {
          ///            500]}
          ///    http://localhost:9933 | python3 -m json.tool
          /// ```
-         fn can_transfer(
-             sender: AccountId,
-             ticker: Ticker,
-             from_did: IdentityId,
-             to_did: IdentityId,
-             value: Balance) -> CanTransferResult;
+        fn can_transfer(
+            sender: AccountId,
+            ticker: Ticker,
+            from_did: IdentityId,
+            to_did: IdentityId,
+            value: Balance
+        ) -> CanTransferResult;
     }
 }
