@@ -1,3 +1,6 @@
+// Copyright 2020 Polymath Inc
+//
+// This module centralizes any statistic information of any element of the system.
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use polymesh_common_utilities::balances::Trait as BalancesTrait;
@@ -11,6 +14,7 @@ pub trait Trait: BalancesTrait {}
 
 decl_storage! {
     trait Store for Module<T: Trait> as statistics {
+        /// Number of investor per asset.
         pub InvestorCountPerAsset get(fn investor_count_per_asset): map hasher(blake2_256) Ticker => Counter ;
     }
 }
