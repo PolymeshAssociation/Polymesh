@@ -237,7 +237,7 @@ decl_storage! {
                 let master_key = AccountKey::try_from(master_account_id.encode()).unwrap();
                 assert!(!<DidRecords>::contains_key(did), "Identity already exist");
                 <MultiPurposeNonce>::mutate(|n| *n += 1_u64);
-                <Module<T>>::link_key_to_did(&master_key, SignatoryType::Master, did);
+                <Module<T>>::link_key_to_did(&master_key, SignatoryType::External, did);
                 let record = DidRecord {
                     master_key,
                     ..Default::default()
@@ -1709,7 +1709,7 @@ impl<T: Trait> Module<T> {
         } else {
             // AccountKey is not yet linked to any identity, so no constraints.
             let linked_key_info = match key_type {
-                SignatoryType::Master | SignatoryType::External => LinkedKeyInfo::Unique(did),
+                SignatoryType::External => LinkedKeyInfo::Unique(did),
                 _ => LinkedKeyInfo::Group(vec![did]),
             };
             <KeyToIdentityIds>::insert(key, linked_key_info);
@@ -1840,7 +1840,7 @@ impl<T: Trait> Module<T> {
 
         // 2. Apply changes to our extrinsics.
         // 2.1. Link  master key and add pre-authorized signing keys
-        Self::link_key_to_did(&master_key, SignatoryType::Master, did);
+        Self::link_key_to_did(&master_key, SignatoryType::External, did);
         signing_items
             .iter()
             .for_each(|s_item| Self::add_pre_join_identity(s_item, did));

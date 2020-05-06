@@ -223,9 +223,7 @@ decl_error! {
         /// AccountId is not attached with Identity
         UnAuthorized,
         /// Receiver does not have a valid CDD
-        ReceiverCddMissing,
-        /// Sender does not have a valid CDD. It could be a frozen signer of an Identity.
-        SenderCddMissing,
+        ReceiverCddMissing
     }
 }
 
