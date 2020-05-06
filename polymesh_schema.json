@@ -502,12 +502,7 @@
         "identity": {
             "isIdentityHasValidCdd" : {
                 "description": "use to tell whether the given did has valid cdd claim or not",
-                "params": [
-                    {
-                        "name": "blockHash",
-                        "type": "Hash",
-                        "isOptional": true
-                    },
+                "params": [                    
                     {
                         "name": "did",
                         "type": "IdentityId",
@@ -517,38 +512,43 @@
                         "name": "buffer_time",
                         "type": "u64",
                         "isOptional": true
+                    },
+                    {
+                        "name": "blockHash",
+                        "type": "Hash",
+                        "isOptional": true
                     }
                 ],
                 "type": "CddStatus"
             },
             "getAssetDid": {
                 "description": "function is used to query the given ticker DID",
-                "params": [
-                    {
-                        "name": "blockHash",
-                        "type": "Hash",
-                        "isOptional": true
-                    },
+                "params": [                    
                     {
                         "name": "ticker",
                         "type": "Ticker",
                         "isOptional": false
+                    },
+                    {
+                        "name": "blockHash",
+                        "type": "Hash",
+                        "isOptional": true
                     }
                 ],
                 "type": "AssetDidResult"
             },
             "getDidRecords": {
                 "description": "Used to get the did record values for a given DID",
-                "params": [
-                    {
-                        "name": "blockHash",
-                        "type": "Hash",
-                        "isOptional": true
-                    },
+                "params": [                    
                     {
                         "name": "did",
                         "type": "IdentityId",
                         "isOptional": false
+                    },
+                    {
+                        "name": "blockHash",
+                        "type": "Hash",
+                        "isOptional": true
                     }
                 ],
                 "type": "DidRecords"
@@ -557,48 +557,48 @@
         "pips":{
             "getVotes": {
                 "description": "Summary of votes of a proposal given by index",
-                "params": [
-                    {
-                        "name": "blockHash",
-                        "type": "Hash",
-                        "isOptional": true
-                    },
+                "params": [                    
                     {
                         "name": "index",
                         "type": "u32",
                         "isOptional": false
+                    },
+                    {
+                        "name": "blockHash",
+                        "type": "Hash",
+                        "isOptional": true
                     }
                 ],
                 "type": "CappedVoteCount"
             },
             "proposedBy": {
                 "description": "Retrieves proposal indices started by address",
-                "params": [
-                    {
-                        "name": "blockHash",
-                        "type": "Hash",
-                        "isOptional": true
-                    },
+                "params": [                    
                     {
                         "name": "address",
                         "type": "AccountId",
                         "isOptional": false
+                    },
+                    {
+                        "name": "blockHash",
+                        "type": "Hash",
+                        "isOptional": true
                     }
                 ],
                 "type": "Vec<u32>"
             },
             "votedOn": {
                 "description": "Retrieves proposal address indices voted on",
-                "params": [
-                    {
-                        "name": "blockHash",
-                        "type": "Hash",
-                        "isOptional": true
-                    },
+                "params": [                    
                     {
                         "name": "address",
                         "type": "AccountId",
                         "isOptional": false
+                    },
+                    {
+                        "name": "blockHash",
+                        "type": "Hash",
+                        "isOptional": true
                     }
                 ],
                 "type": "Vec<u32>"
@@ -607,16 +607,16 @@
         "protocolFee": {
             "computeFee": {
                 "description": "Gets the fee of a chargeable extrinsic operation",
-                "params": [
-                    {
-                        "name": "blockHash",
-                        "type": "Hash",
-                        "isOptional": true
-                    },
+                "params": [                    
                     {
                         "name": "op",
                         "type": "ProtocolOp",
                         "isOptional": false
+                    },
+                    {
+                        "name": "blockHash",
+                        "type": "Hash",
+                        "isOptional": true
                     }
                 ],
                 "type": "CappedFee"
@@ -638,12 +638,7 @@
         "asset" : {
             "canTransfer": {
                 "description": "Checks whether a transaction with given parameters can take place or not",
-                "params": [
-                    {
-                        "name": "blockHash",
-                        "type": "Hash",
-                        "isOptional": true   
-                    },
+                "params": [                    
                     {
                         "name": "sender",
                         "type": "AccountId",
@@ -668,6 +663,11 @@
                         "name": "value",
                         "type": "Balance",
                         "isOptional": false   
+                    },
+                    {
+                        "name": "blockHash",
+                        "type": "Hash",
+                        "isOptional": true   
                     }
                 ],
                 "type": "CanTransferResult"
