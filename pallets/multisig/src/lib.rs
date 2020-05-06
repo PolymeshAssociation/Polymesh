@@ -629,7 +629,7 @@ impl<T: Trait> Module<T> {
         <MultiSigCreator<T>>::insert(&account_id, &sender_did);
         <identity::KeyToIdentityIds>::insert(
             AccountKey::try_from(account_id.encode())?,
-            LinkedKeyInfo::Master(sender_did),
+            LinkedKeyInfo::Unique(sender_did),
         );
         Ok(account_id)
     }

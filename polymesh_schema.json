@@ -40,8 +40,7 @@
         },
         "LinkedKeyInfo": {
             "_enum": {
-                "Master": "IdentityId",
-                "Signer": "IdentityId",
+                "Unique": "IdentityId",
                 "Group": "Vec<IdentityId>"
             }
         },

@@ -624,13 +624,7 @@ impl<T: Trait> Module<T> {
         memo: Option<Memo>,
         existence_requirement: ExistenceRequirement,
     ) -> DispatchResult {
-        let src_key = AccountKey::try_from((*transactor).encode())?;
-        ensure!(
-            T::CddChecker::check_key_cdd(&src_key),
-            Error::<T>::SenderCddMissing
-        );
-
-        let dest_key = AccountKey::try_from((*transactor).encode())?;
+        let dest_key = AccountKey::try_from((*dest).encode())?;
         ensure!(
             T::CddChecker::check_key_cdd(&dest_key),
             Error::<T>::ReceiverCddMissing

@@ -166,7 +166,7 @@ const createIdentitiesWithExpiry = async function(api, accounts, alice, expiries
   await blockTillPoolEmpty(api);
   for (let i = 0; i < accounts.length; i++) {
     const d = await api.query.identity.keyToIdentityIds(accounts[i].publicKey);
-    dids.push(d.raw.asMaster);
+    dids.push(d.raw.asUnique);
   }
   let did_balance = 1000 * 10**6;
   for (let i = 0; i < dids.length; i++) {

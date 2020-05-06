@@ -16,20 +16,25 @@ use polymesh_common_utilities::{
 };
 use polymesh_primitives::{
     AccountKey, AuthorizationData, AuthorizationError, Claim, ClaimType, IdentityClaim, IdentityId,
-    LinkData, Permission, Scope, Signatory, SigningItem, Ticker,
+    LinkData, Permission, Scope, Signatory, SigningItem, Ticker, TransactionError,
 };
+use polymesh_runtime_develop::{fee_details::CddHandler, runtime::Call};
 
 use pallet_balances::{self as balances, Error as BalanceError};
 use pallet_identity::{self as identity, BatchAddClaimItem, BatchRevokeClaimItem, Error};
+use pallet_transaction_payment::CddAndFeeDetails;
 
 use codec::Encode;
 use frame_support::{assert_err, assert_ok, dispatch::DispatchError, StorageDoubleMap};
 use sp_core::H512;
+use sp_runtime::transaction_validity::InvalidTransaction;
 use test_client::AccountKeyring;
 
-use std::convert::TryFrom;
+use std::convert::{From, TryFrom};
 
 type Balances = balances::Module<TestStorage>;
+// type BalancesCall = <balances::Module<TestStorage> as BTrait>::Call;
+
 type Identity = identity::Module<TestStorage>;
 type System = frame_system::Module<TestStorage>;
 type Timestamp = pallet_timestamp::Module<TestStorage>;
@@ -501,11 +506,21 @@ fn frozen_signing_keys_cdd_verification_test_we() {
     // 3. Alice freezes her signing keys.
     assert_ok!(Identity::freeze_signing_keys(Origin::signed(alice)));
 
-    // 4. Bob should NOT transfer any amount.
-    assert_err!(
-        Balances::transfer_with_memo(Origin::signed(bob), charlie, 1_000, None),
-        BalanceError::<TestStorage>::SenderCddMissing
+    // 4. Bob should NOT transfer any amount. SE is simulated.
+    // Balances::transfer_with_memo(Origin::signed(bob), charlie, 1_000, None),
+    let payer = CddHandler::get_valid_payer(
+        &Call::Balances(balances::Call::transfer_with_memo(
+            AccountKeyring::Charlie.to_account_id().into(),
+            1_000,
+            None,
+        )),
+        &Signatory::from(AccountKey::from(bob.0)),
     );
+    assert_err!(
+        payer,
+        InvalidTransaction::Custom(TransactionError::MissingIdentity as u8)
+    );
+
     assert_eq!(Balances::free_balance(charlie), 1_059);
 
     // 5. Alice still can make transfers.

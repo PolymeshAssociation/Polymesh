@@ -180,7 +180,7 @@ fn issue_must_work() {
                     500,
                     ExistenceRequirement::AllowDeath
                 ),
-                Error::SenderCddMissing
+                Error::ReceiverCddMissing
             );
             let eve_signed = Origin::signed(AccountKeyring::Eve.public());
             assert_ok!(Balances::top_up_brr_balance(eve_signed, 500,));
@@ -328,6 +328,8 @@ fn transfer_with_memo_we() {
     let alice = AccountKeyring::Alice.public();
     let _alice_id = register_keyring_account(AccountKeyring::Alice).unwrap();
     let bob = AccountKeyring::Bob.public();
+    let _bob_id = register_keyring_account(AccountKeyring::Bob).unwrap();
+
     let memo_1 = Some(Memo([7u8; 32]));
     assert_ok!(Balances::transfer_with_memo(
         Origin::signed(alice),
