@@ -622,9 +622,12 @@ impl<T: Trait> Module<T> {
         memo: Option<Memo>,
         existence_requirement: ExistenceRequirement,
     ) -> DispatchResult {
-        if !T::CddChecker::check_key_cdd(&AccountKey::try_from((*dest).encode())?) {
-            return Err(Error::<T>::ReceiverCddMissing.into());
-        }
+        let dest_key = AccountKey::try_from((*dest).encode())?;
+        ensure!(
+            T::CddChecker::check_key_cdd(&dest_key),
+            Error::<T>::ReceiverCddMissing
+        );
+
         Self::transfer_core(transactor, dest, value, memo, existence_requirement)
     }
 
