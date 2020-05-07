@@ -1640,14 +1640,24 @@ impl<T: Trait> Module<T> {
         Ok(record)
     }
 
-    /// It checks if `key` is the master key or signing key of any did
+    /// It checks if `key` is the master key or signing key of any IdentityId.
+    /// Please note that _frozen signing keys_ are not lined to the frozen identity temporary.
+    ///
     /// # Return
-    /// An Option object containing the `did` that belongs to the key.
+    ///
+    /// An Option object containing the `IdentityId` that belongs to the key.
     pub fn get_identity(key: &AccountKey) -> Option<IdentityId> {
         if let Some(linked_key_info) = <KeyToIdentityIds>::get(key) {
-            if let LinkedKeyInfo::Unique(linked_id) = linked_key_info {
-                return Some(linked_id);
-            }
+            let id = match linked_key_info {
+                LinkedKeyInfo::Unique(id)
+                    if !Self::is_did_frozen(id) || Self::is_master_key(id, key) =>
+                {
+                    Some(id)
+                }
+                _ => None,
+            };
+
+            return id;
         }
         None
     }
