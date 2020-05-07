@@ -526,7 +526,6 @@ fn should_change_all_signers_and_sigs_required() {
                 .unwrap()
                 .auth_id;
 
-        Context::set_current_identity::<Identity>(Some(alice_did));
         assert_ok!(MultiSig::accept_multisig_signer_as_identity(
             alice.clone(),
             alice_auth_id
@@ -587,13 +586,11 @@ fn should_change_all_signers_and_sigs_required() {
                 .unwrap()
                 .authorized_by;
 
-        Context::set_current_identity::<Identity>(None);
         assert_ok!(MultiSig::accept_multisig_signer_as_identity(
             charlie,
             charlie_auth_id
         ));
 
-        Context::set_current_identity::<Identity>(None);
         assert_ok!(MultiSig::accept_multisig_signer_as_identity(
             dave,
             dave_auth_id
@@ -718,7 +715,6 @@ fn remove_multisig_signers_via_creator() {
             .unwrap()
             .auth_id;
 
-        Context::set_current_identity::<Identity>(Some(alice_did));
         assert_ok!(MultiSig::accept_multisig_signer_as_identity(
             alice.clone(),
             alice_auth_id
@@ -816,7 +812,6 @@ fn add_multisig_signers_via_creator() {
                 .unwrap()
                 .auth_id;
 
-        Context::set_current_identity::<Identity>(Some(alice_did));
         assert_ok!(MultiSig::accept_multisig_signer_as_identity(
             alice.clone(),
             alice_auth_id

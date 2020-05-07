@@ -10,10 +10,7 @@ use pallet_committee::{self as committee, PolymeshVotes, RawEvent as CommitteeRa
 use pallet_group::{self as group};
 use pallet_identity as identity;
 use polymesh_common_utilities::Context;
-<<<<<<< HEAD
 use polymesh_primitives::IdentityId;
-=======
->>>>>>> a958f779f8e7ce9938a9f6eb5a055d44d2c868d7
 use sp_core::H256;
 use sp_runtime::traits::{BlakeTwo256, Hash};
 use std::convert::TryFrom;
