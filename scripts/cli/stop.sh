@@ -1,1 +1,1 @@
-./node_modules/.bin/pm2 stop all
+npx pm2 stop all
