@@ -90,7 +90,7 @@ where
 
 /// Helper function to generate stash, controller and session key from seed
 pub fn get_authority_keys_from_seed(
-    seed: &str,
+    seed: &str, uniq: bool,
 ) -> (
     AccountId,
     AccountId,
@@ -99,18 +99,21 @@ pub fn get_authority_keys_from_seed(
     ImOnlineId,
     AuthorityDiscoveryId,
 ) {
-    (
-        get_account_id_from_seed::<sr25519::Public>(&format!("{}//stash", seed)),
+    if uniq {
+        (get_account_id_from_seed::<sr25519::Public>(&format!("{}//stash", seed)),
         get_account_id_from_seed::<sr25519::Public>(seed),
-        // get_from_seed::<GrandpaId>(&format!("{}//gran", seed)),
-        // get_from_seed::<BabeId>(&format!("{}//babe", seed)),
-        // get_from_seed::<ImOnlineId>(&format!("{}//imon", seed)),
-        // get_from_seed::<AuthorityDiscoveryId>(&format!("{}//auth", seed)),
+        get_from_seed::<GrandpaId>(&format!("{}//gran", seed)),
+        get_from_seed::<BabeId>(&format!("{}//babe", seed)),
+        get_from_seed::<ImOnlineId>(&format!("{}//imon", seed)),
+        get_from_seed::<AuthorityDiscoveryId>(&format!("{}//auth", seed)))
+    } else {
+        (get_account_id_from_seed::<sr25519::Public>(&format!("{}//stash", seed)),
+        get_account_id_from_seed::<sr25519::Public>(seed),
         get_from_seed::<GrandpaId>(seed),
         get_from_seed::<BabeId>(seed),
         get_from_seed::<ImOnlineId>(seed),
-        get_from_seed::<AuthorityDiscoveryId>(seed),
-    )
+        get_from_seed::<AuthorityDiscoveryId>(seed))
+    }
 }
 
 fn polymath_props() -> Properties {
@@ -350,7 +353,7 @@ fn general_testnet_genesis(
 
 fn general_development_genesis() -> GenesisConfig {
     general_testnet_genesis(
-        vec![get_authority_keys_from_seed("Alice")],
+        vec![get_authority_keys_from_seed("Alice", false)],
         get_account_id_from_seed::<sr25519::Public>("Alice"),
         vec![get_account_id_from_seed::<sr25519::Public>("Bob")],
         true,
@@ -373,8 +376,8 @@ pub fn general_development_testnet_config() -> ChainSpec {
 fn general_local_genesis() -> GenesisConfig {
     general_testnet_genesis(
         vec![
-            get_authority_keys_from_seed("Alice"),
-            get_authority_keys_from_seed("Bob"),
+            get_authority_keys_from_seed("Alice", false),
+            get_authority_keys_from_seed("Bob", false),
         ],
         get_account_id_from_seed::<sr25519::Public>("Alice"),
         vec![
@@ -402,9 +405,9 @@ pub fn general_local_testnet_config() -> ChainSpec {
 fn general_live_genesis() -> GenesisConfig {
     general_testnet_genesis(
         vec![
-            get_authority_keys_from_seed("Alice"),
-            get_authority_keys_from_seed("Bob"),
-            get_authority_keys_from_seed("Charlie"),
+            get_authority_keys_from_seed("Alice", false),
+            get_authority_keys_from_seed("Bob", false),
+            get_authority_keys_from_seed("Charlie", false),
         ],
         get_account_id_from_seed::<sr25519::Public>("Alice"),
         vec![
@@ -435,11 +438,11 @@ pub fn general_live_testnet_config() -> ChainSpec {
 fn v1_live_testnet_genesis() -> GenesisConfig {
     v1_testnet_genesis(
         vec![
-            get_authority_keys_from_seed("operator_1"),
-            get_authority_keys_from_seed("operator_2"),
-            get_authority_keys_from_seed("operator_3"),
-            get_authority_keys_from_seed("operator_4"),
-            get_authority_keys_from_seed("operator_5"),
+            get_authority_keys_from_seed("operator_1", true),
+            get_authority_keys_from_seed("operator_2", true),
+            get_authority_keys_from_seed("operator_3", true),
+            get_authority_keys_from_seed("operator_4", true),
+            get_authority_keys_from_seed("operator_5", true),
         ],
         get_account_id_from_seed::<sr25519::Public>("polymath_1"),
         vec![
@@ -452,7 +455,7 @@ fn v1_live_testnet_genesis() -> GenesisConfig {
             get_account_id_from_seed::<sr25519::Public>("relay_4"),
             get_account_id_from_seed::<sr25519::Public>("relay_5"),
         ],
-        true,
+        false,
     )
 }
 
@@ -476,7 +479,7 @@ pub fn v1_live_testnet_config() -> ChainSpec {
 
 fn v1_develop_testnet_genesis() -> GenesisConfig {
     v1_testnet_genesis(
-        vec![get_authority_keys_from_seed("Alice")],
+        vec![get_authority_keys_from_seed("Alice", false)],
         get_account_id_from_seed::<sr25519::Public>("Alice"),
         vec![
             get_account_id_from_seed::<sr25519::Public>("Bob"),
@@ -509,8 +512,8 @@ pub fn v1_develop_testnet_config() -> ChainSpec {
 fn v1_local_testnet_genesis() -> GenesisConfig {
     v1_testnet_genesis(
         vec![
-            get_authority_keys_from_seed("Alice"),
-            get_authority_keys_from_seed("Bob"),
+            get_authority_keys_from_seed("Alice", false),
+            get_authority_keys_from_seed("Bob", false),
         ],
         get_account_id_from_seed::<sr25519::Public>("Alice"),
         vec![
