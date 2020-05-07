@@ -41,7 +41,7 @@ pub trait IsV1Network {
 
 impl IsV1Network for ChainSpec {
     fn is_v1_network(&self) -> bool {
-        self.name().starts_with("Polymesh V1")
+        self.name().starts_with("Polymesh Aldebaran")
     }
 }
 
