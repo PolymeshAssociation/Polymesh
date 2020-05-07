@@ -388,8 +388,8 @@ fn general_local_genesis() -> GenesisConfig {
 
 pub fn general_local_testnet_config() -> ChainSpec {
     ChainSpec::from_genesis(
-        "Local Testnet",
-        "local_testnet",
+        "Local Development",
+        "local_dev",
         general_local_genesis,
         vec![],
         None,
@@ -421,8 +421,8 @@ fn general_live_genesis() -> GenesisConfig {
 
 pub fn general_live_testnet_config() -> ChainSpec {
     ChainSpec::from_genesis(
-        "Live Testnet",
-        "live-testnet",
+        "Live Development",
+        "live_dev",
         general_live_genesis,
         vec![],
         None,
@@ -460,8 +460,8 @@ pub fn v1_live_testnet_config() -> ChainSpec {
     // provide boot nodes
     let boot_nodes = vec![];
     ChainSpec::from_genesis(
-        "Polymesh V1 Testnet",
-        "aldebaran-testnet",
+        "Polymesh Aldebaran Testnet",
+        "aldebaran",
         v1_live_testnet_genesis,
         boot_nodes,
         Some(TelemetryEndpoints::new(vec![(
@@ -481,6 +481,11 @@ fn v1_develop_testnet_genesis() -> GenesisConfig {
         vec![
             get_account_id_from_seed::<sr25519::Public>("Bob"),
             get_account_id_from_seed::<sr25519::Public>("Bob//stash"),
+            get_account_id_from_seed::<sr25519::Public>("relay_1"),
+            get_account_id_from_seed::<sr25519::Public>("relay_2"),
+            get_account_id_from_seed::<sr25519::Public>("relay_3"),
+            get_account_id_from_seed::<sr25519::Public>("relay_4"),
+            get_account_id_from_seed::<sr25519::Public>("relay_5"),
         ],
         true,
     )
@@ -490,8 +495,8 @@ pub fn v1_develop_testnet_config() -> ChainSpec {
     // provide boot nodes
     let boot_nodes = vec![];
     ChainSpec::from_genesis(
-        "Polymesh V1 Develop Testnet",
-        "development-testnet",
+        "Polymesh Aldebaran Develop",
+        "dev_aldebaran",
         v1_develop_testnet_genesis,
         boot_nodes,
         None,
@@ -512,6 +517,11 @@ fn v1_local_testnet_genesis() -> GenesisConfig {
             get_account_id_from_seed::<sr25519::Public>("Charlie"),
             get_account_id_from_seed::<sr25519::Public>("Dave"),
             get_account_id_from_seed::<sr25519::Public>("Charlie//stash"),
+            get_account_id_from_seed::<sr25519::Public>("relay_1"),
+            get_account_id_from_seed::<sr25519::Public>("relay_2"),
+            get_account_id_from_seed::<sr25519::Public>("relay_3"),
+            get_account_id_from_seed::<sr25519::Public>("relay_4"),
+            get_account_id_from_seed::<sr25519::Public>("relay_5"),
         ],
         true,
     )
@@ -521,8 +531,8 @@ pub fn v1_local_testnet_config() -> ChainSpec {
     // provide boot nodes
     let boot_nodes = vec![];
     ChainSpec::from_genesis(
-        "Polymesh V1 Local Testnet",
-        "local-testnet",
+        "Polymesh Aldebaran Local",
+        "local_aldebaran",
         v1_local_testnet_genesis,
         boot_nodes,
         None,
