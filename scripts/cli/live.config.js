@@ -14,7 +14,7 @@ module.exports = {
       name: "pmesh-peer-node-1",
       script:
         "../../target/release/polymesh",
-      args: "-d /tmp/pmesh-peer-node-1 --ws-port 9945 --validator --chain ../../chain_spec.json",
+      args: "-d /tmp/pmesh-peer-node-1 --ws-port 9945 --validator --chain ../../chain_spec.json --force-authoring",
       env: {
         RUST_BACKTRACE: "1"
       }
@@ -23,7 +23,7 @@ module.exports = {
       name: "pmesh-peer-node-2",
       script:
         "../../target/release/polymesh",
-      args: "-d /tmp/pmesh-peer-node-2 --ws-port 9946 --validator --chain ../../chain_spec.json",
+      args: "-d /tmp/pmesh-peer-node-2 --ws-port 9946 --validator --chain ../../chain_spec.json --force-authoring",
       env: {
         RUST_BACKTRACE: "1"
       }
@@ -32,7 +32,7 @@ module.exports = {
       name: "pmesh-peer-node-3",
       script:
         "../../target/release/polymesh",
-      args: "-d /tmp/pmesh-peer-node-2 --ws-port 9947 --validator --chain ../../chain_spec.json",
+      args: "-d /tmp/pmesh-peer-node-3 --ws-port 9947 --validator --chain ../../chain_spec.json --force-authoring",
       env: {
         RUST_BACKTRACE: "1"
       }
@@ -41,7 +41,7 @@ module.exports = {
       name: "pmesh-peer-node-4",
       script:
         "../../target/release/polymesh",
-      args: "-d /tmp/pmesh-peer-node-2 --ws-port 9948 --validator --chain ../../chain_spec.json",
+      args: "-d /tmp/pmesh-peer-node-4 --ws-port 9948 --validator --chain ../../chain_spec.json --force-authoring",
       env: {
         RUST_BACKTRACE: "1"
       }
