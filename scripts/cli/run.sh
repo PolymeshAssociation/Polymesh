@@ -21,4 +21,5 @@ cleanup
 
 sleep 2
 
-./node_modules/.bin/pm2 start environment.config.js --only "pmesh-peer-node-1,pmesh-peer-node-2"
+npx pm2 start environment.config.js --only "pmesh-peer-node-1,pmesh-peer-node-2"
+#,pmesh-peer-node-3,pmesh-peer-node-4"

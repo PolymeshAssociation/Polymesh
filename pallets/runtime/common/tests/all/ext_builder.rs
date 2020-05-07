@@ -236,6 +236,7 @@ impl ExtBuilder {
             did_records: system_identities.clone(),
             key_to_identity_ids: system_links,
             identities: vec![],
+            ..Default::default()
         }
         .assimilate_storage(&mut storage)
         .unwrap();
