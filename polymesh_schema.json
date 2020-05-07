@@ -13,10 +13,15 @@
         },
         "AssetType": {
             "_enum": {
-                "Equity": "",
-                "Debt": "",
+                "EquityCommon": "",
+                "EquityPreferred": "",
                 "Commodity": "",
+                "FixedIncome": "",
+                "REIT": "",
+                "Fund": "",
+                "RevenueShareAgreement": "",
                 "StructuredProduct": "",
+                "Derivative": "",
                 "Custom": "Vec<u8>"
             }
         },
