@@ -2602,6 +2602,8 @@ where
 
             if let Some(mut unapplied) = unapplied {
                 unapplied.reporters = details.reporters.clone();
+                // Empty the other stakers array so that only the validator is slashed and not its nominators.
+                unapplied.others = vec![];
                 if slash_defer_duration == 0 {
                     // apply right away.
                     slashing::apply_slash::<T>(unapplied);

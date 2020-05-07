@@ -21,6 +21,8 @@ use sp_std::vec::Vec;
 /// Keys could be linked to several identities (`IdentityId`) as master key or signing key.
 /// Master key or external type signing key are restricted to be linked to just one identity.
 /// Other types of signing key could be associated with more than one identity.
+/// # TODO
+/// * Use of `Master` and `Signer` (instead of `Unique`) will optimize the access.
 #[derive(codec::Encode, codec::Decode, Clone, PartialEq, Eq, Debug)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 pub enum LinkedKeyInfo {
