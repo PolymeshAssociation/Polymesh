@@ -389,7 +389,6 @@ fn transfer_with_memo_we() {
     ];
     // Ignoring `frame_system` events
     let system_events = System::events();
-
     expected_events.into_iter().for_each(|expected| {
         assert!(system_events.contains(&expected));
     });

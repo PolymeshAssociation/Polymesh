@@ -708,6 +708,9 @@ where
 impl<T: Trait> BlockRewardsReserveCurrency<T::Balance, NegativeImbalance<T>> for Module<T> {
     // Polymesh modified code. Drop behavious modified to reduce BRR balance instead of inflating total supply.
     fn drop_positive_imbalance(mut amount: T::Balance) {
+        if amount.is_zero() {
+            return;
+        }
         let brr = <BlockRewardsReserve<T>>::get();
         let _ = Self::try_mutate_account(&brr, |account| -> DispatchResult {
             if account.free > Zero::zero() {
@@ -730,6 +733,9 @@ impl<T: Trait> BlockRewardsReserveCurrency<T::Balance, NegativeImbalance<T>> for
     // Polymesh modified code. Instead of minting new tokens, this function tries to transfer tokens from BRR to the beneficiary.
     // If BRR does not have enough free funds, new tokens are issued.
     fn issue_using_block_rewards_reserve(mut amount: T::Balance) -> NegativeImbalance<T> {
+        if amount.is_zero() {
+            return NegativeImbalance::zero();
+        }
         let brr = <BlockRewardsReserve<T>>::get();
         Self::try_mutate_account(&brr, |account| -> Result<NegativeImbalance<T>, ()> {
             let amount_to_mint = if account.free > Zero::zero() {
