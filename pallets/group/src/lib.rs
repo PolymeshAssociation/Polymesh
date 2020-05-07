@@ -329,7 +329,8 @@ impl<T: Trait<I>, I: Instance> Module<T, I> {
         members.swap_remove(position);
 
         <InactiveMembers<T, I>>::put(&members);
-        let current_did = Context::current_identity::<Identity<T>>().ok_or_else(|| Error::<T, I>::MissingCurrentIdentity)?;
+        let current_did = Context::current_identity::<Identity<T>>()
+            .ok_or_else(|| Error::<T, I>::MissingCurrentIdentity)?;
         Self::deposit_event(RawEvent::MemberRemoved(current_did, who));
         Ok(())
     }
@@ -350,7 +351,8 @@ impl<T: Trait<I>, I: Instance> Module<T, I> {
 
         T::MembershipChanged::change_members_sorted(&[], &[who], &members[..]);
         Self::rejig_prime(&members);
-        let current_did = Context::current_identity::<Identity<T>>().ok_or_else(|| Error::<T, I>::MissingCurrentIdentity)?;
+        let current_did = Context::current_identity::<Identity<T>>()
+            .ok_or_else(|| Error::<T, I>::MissingCurrentIdentity)?;
         Self::deposit_event(RawEvent::MemberRemoved(current_did, who));
         Ok(())
     }
@@ -381,7 +383,8 @@ impl<T: Trait<I>, I: Instance> GroupTrait<T::Moment> for Module<T, I> {
         at: Option<T::Moment>,
     ) -> DispatchResult {
         Self::unsafe_remove_active_member(who)?;
-        let current_did = Context::current_identity::<Identity<T>>().ok_or_else(|| Error::<T, I>::MissingCurrentIdentity)?;
+        let current_did = Context::current_identity::<Identity<T>>()
+            .ok_or_else(|| Error::<T, I>::MissingCurrentIdentity)?;
         let deactivated_at = at.unwrap_or_else(|| <pallet_timestamp::Module<T>>::get());
         let inactive_member = InactiveMember {
             id: who,
@@ -412,6 +415,5 @@ impl<T: Trait<I>, I: Instance> GroupTrait<T::Moment> for Module<T, I> {
 
         Self::deposit_event(RawEvent::MemberRevoked(current_did, who));
         Ok(())
-        
     }
 }

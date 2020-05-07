@@ -528,19 +528,19 @@ decl_event!(
         /// Event emitted after adding a proposal.
         /// Arguments: caller DID, multisig, proposal ID.
         ProposalAdded(IdentityId, AccountId, u64),
-        /// Event emitted when a proposal is executed. 
+        /// Event emitted when a proposal is executed.
         /// Arguments: caller DID, multisig, proposal ID, result.
         ProposalExecuted(IdentityId, AccountId, u64, bool),
-        /// Event emitted when a signatory is added. 
+        /// Event emitted when a signatory is added.
         /// Arguments: caller DID, multisig, added signer.
         MultiSigSignerAdded(IdentityId, AccountId, Signatory),
-        /// Event emitted when a multisig signatory is authorized to be added. 
+        /// Event emitted when a multisig signatory is authorized to be added.
         /// Arguments: caller DID, multisig, authorized signer.
         MultiSigSignerAuthorized(IdentityId, AccountId, Signatory),
         /// Event emitted when a multisig signatory is removed.
         /// Arguments: caller DID, multisig, removed signer.
         MultiSigSignerRemoved(IdentityId, AccountId, Signatory),
-        /// Event emitted when the number of required signatures is changed. 
+        /// Event emitted when the number of required signatures is changed.
         /// Arguments: caller DID, multisig, new required signatures.
         MultiSigSignaturesRequiredChanged(IdentityId, AccountId, u64),
     }
@@ -593,7 +593,7 @@ impl<T: Trait> Module<T> {
         Self::deposit_event(RawEvent::MultiSigSignerAuthorized(
             Context::current_identity::<Identity<T>>().unwrap_or_default(),
             authorizer,
-            target
+            target,
         ));
     }
 
@@ -605,7 +605,9 @@ impl<T: Trait> Module<T> {
         <MultiSigSigners<T>>::remove(&multisig, signer);
         Self::deposit_event(RawEvent::MultiSigSignerRemoved(
             Context::current_identity::<Identity<T>>().unwrap_or_default(),
-            multisig, *signer));
+            multisig,
+            *signer,
+        ));
     }
 
     /// Changes the required signature count for a given multisig.
@@ -665,8 +667,13 @@ impl<T: Trait> Module<T> {
         // Since proposal_ids are always only incremented by 1, they can not overflow.
         let next_proposal_id: u64 = proposal_id + 1u64;
         <MultiSigTxDone<T>>::insert(multisig.clone(), next_proposal_id);
-        let caller_did = Context::current_identity::<Identity<T>>().ok_or_else(|| Error::<T>::MissingCurrentIdentity)?;
-        Self::deposit_event(RawEvent::ProposalAdded(caller_did, multisig.clone(), proposal_id));
+        let caller_did = Context::current_identity::<Identity<T>>()
+            .ok_or_else(|| Error::<T>::MissingCurrentIdentity)?;
+        Self::deposit_event(RawEvent::ProposalAdded(
+            caller_did,
+            multisig.clone(),
+            proposal_id,
+        ));
         Self::approve_for(multisig, sender_signer, proposal_id)?;
         Ok(proposal_id)
     }
@@ -712,10 +719,7 @@ impl<T: Trait> Module<T> {
             if approvals >= approvals_needed {
                 let ms_key = AccountKey::try_from(multisig.clone().encode())?;
                 if let Some(did) = <Identity<T>>::get_identity(&ms_key) {
-                    ensure!(
-                        <Identity<T>>::has_valid_cdd(did),
-                        Error::<T>::CddMissing
-                    );
+                    ensure!(<Identity<T>>::has_valid_cdd(did), Error::<T>::CddMissing);
                     T::CddHandler::set_current_identity(&did);
                 } else {
                     let creator_identity = Self::ms_creator(&multisig);
@@ -743,12 +747,13 @@ impl<T: Trait> Module<T> {
                         false
                     }
                 };
-                let current_did = Context::current_identity::<Identity<T>>().ok_or_else(|| Error::<T>::MissingCurrentIdentity)?;
+                let current_did = Context::current_identity::<Identity<T>>()
+                    .ok_or_else(|| Error::<T>::MissingCurrentIdentity)?;
                 Self::deposit_event(RawEvent::ProposalExecuted(
                     current_did,
                     multisig,
                     proposal_id,
-                    res
+                    res,
                 ));
                 Ok(())
             } else {
@@ -808,7 +813,8 @@ impl<T: Trait> Module<T> {
 
         <MultiSigSigners<T>>::insert(wallet_id.clone(), signer, signer);
         <NumberOfSigners<T>>::mutate(wallet_id.clone(), |x| *x += 1u64);
-        let caller_did = Context::current_identity::<Identity<T>>().ok_or_else(|| Error::<T>::MissingCurrentIdentity)?;
+        let caller_did = Context::current_identity::<Identity<T>>()
+            .ok_or_else(|| Error::<T>::MissingCurrentIdentity)?;
         Self::deposit_event(RawEvent::MultiSigSignerAdded(caller_did, wallet_id, signer));
 
         Ok(())

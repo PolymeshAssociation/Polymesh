@@ -472,7 +472,11 @@ impl<T: Trait> Module<T> {
             } else {
                 // New trusted issuer addition case
                 identity_list.push(trusted_issuer);
-                Self::deposit_event(Event::TrustedDefaultClaimIssuerAdd(caller_did, ticker, trusted_issuer));
+                Self::deposit_event(Event::TrustedDefaultClaimIssuerAdd(
+                    caller_did,
+                    ticker,
+                    trusted_issuer,
+                ));
             }
         });
     }
@@ -529,12 +533,21 @@ impl<T: Trait> Module<T> {
 
         // iterate all the trusted issuer and modify the data of those.
         trusted_issuers.into_iter().for_each(|default_issuer| {
-            Self::unsafe_modify_default_trusted_claim_issuer(did, ticker, default_issuer, is_add_call);
+            Self::unsafe_modify_default_trusted_claim_issuer(
+                did,
+                ticker,
+                default_issuer,
+                is_add_call,
+            );
         });
         Ok(())
     }
 
-    fn unsafe_change_asset_rule(caller_did: IdentityId, ticker: Ticker, new_asset_rule: AssetTransferRule) {
+    fn unsafe_change_asset_rule(
+        caller_did: IdentityId,
+        ticker: Ticker,
+        new_asset_rule: AssetTransferRule,
+    ) {
         <AssetRulesMap>::mutate(&ticker, |asset_rules| {
             if let Some(index) = asset_rules
                 .rules

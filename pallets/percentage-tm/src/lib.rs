@@ -53,8 +53,7 @@ pub trait Trait: frame_system::Trait + CommonTrait + IdentityTrait {
 }
 
 decl_event!(
-    pub enum Event
-    {
+    pub enum Event {
         /// Emitted when percentage restriction change
         /// caller DID, Ticker, percentage amount, toggled status
         PercentageRestrictionToggled(IdentityId, Ticker, u16, bool),

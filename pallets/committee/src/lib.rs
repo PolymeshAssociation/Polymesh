@@ -447,7 +447,13 @@ impl<T: Trait<I>, I: Instance> Module<T, I> {
     ) {
         let current_did = Context::current_identity::<Identity<T>>().unwrap_or_default();
         if approved {
-            Self::deposit_event(RawEvent::Approved(current_did, proposal, yes_votes, no_votes, seats));
+            Self::deposit_event(RawEvent::Approved(
+                current_did,
+                proposal,
+                yes_votes,
+                no_votes,
+                seats,
+            ));
 
             // execute motion, assuming it exists.
             if let Some(p) = <ProposalOf<T, I>>::take(&proposal) {
@@ -457,7 +463,13 @@ impl<T: Trait<I>, I: Instance> Module<T, I> {
             }
         } else {
             // rejected
-            Self::deposit_event(RawEvent::Rejected(current_did, proposal, yes_votes, no_votes, seats));
+            Self::deposit_event(RawEvent::Rejected(
+                current_did,
+                proposal,
+                yes_votes,
+                no_votes,
+                seats,
+            ));
         }
 
         // remove vote
@@ -515,7 +527,7 @@ impl<T: Trait<I>, I: Instance> ChangeMembers<IdentityId> for Module<T, I> {
                 <ReleaseCoordinator<I>>::kill();
                 Self::deposit_event(RawEvent::ReleaseCoordinatorUpdated(
                     Context::current_identity::<Identity<T>>().unwrap_or_default(),
-                    None
+                    None,
                 ));
             }
         }
