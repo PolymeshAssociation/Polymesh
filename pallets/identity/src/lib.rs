@@ -299,16 +299,11 @@ decl_module! {
         pub fn register_did(origin, signing_items: Vec<SigningItem>) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             let signer = Signatory::from(AccountKey::try_from(sender.encode())?);
-            let new_id = Self::_register_did(
+            Self::_register_did(
                 sender,
                 signing_items,
                 Some((&signer, ProtocolOp::IdentityRegisterDid))
             )?;
-            // Added for easier testing. To be removed before production
-            let cdd_providers = T::CddServiceProviders::get_members();
-            if cdd_providers.len() > 0 {
-                Self::unsafe_add_claim(new_id, Claim::CustomerDueDiligence, cdd_providers[0], None);
-            }
             Ok(())
         }
 
