@@ -334,7 +334,7 @@ fn general_testnet_genesis(
             active_members: vec![
                 IdentityId::from(1),
                 IdentityId::from(2),
-                IdentityId::from(5),
+                IdentityId::from(6),
             ],
             phantom: Default::default(),
         }),
