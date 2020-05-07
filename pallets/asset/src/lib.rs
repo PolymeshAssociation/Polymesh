@@ -2233,25 +2233,16 @@ impl<T: Trait> Module<T> {
         from_did: IdentityId,
         to_did: IdentityId,
         amount: T::Balance,
-    ) -> StdResult<u8, (Error<T>, &'static str)> {
-        let new_from_balance = Self::balance(&ticker, &from_did).saturating_sub(amount);
-
-        if new_from_balance < Self::total_custody_allowance((ticker, from_did)) {
-            return Err((Error::<T>::InsufficientBalance, "Insufficient balance"));
+    ) -> StdResult<u8, &'static str> {
+        let balance = Self::balance(&ticker, &from_did);
+        if balance < amount || balance - amount < Self::total_custody_allowance((ticker, from_did))
+        {
+            return Ok(ERC1400_INSUFFICIENT_BALANCE);
         }
 
-        Self::_is_valid_transfer(&ticker, sender, Some(from_did), Some(to_did), amount).map_err(
-            |msg| {
-                debug::error!(
-                    "Invalid transfer of ticker {:?} from {} to {} with amount {:?}: {}",
-                    ticker,
-                    from_did,
-                    to_did,
-                    amount,
-                    msg
-                );
-                (Error::InvalidTransfer, msg)
-            },
+        Ok(
+            Self::_is_valid_transfer(&ticker, sender, Some(from_did), Some(to_did), amount)
+                .unwrap_or(ERC1400_TRANSFER_FAILURE),
         )
     }
 }
