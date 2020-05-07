@@ -596,7 +596,7 @@ fn do_slash<T: Trait>(
         <Module<T>>::update_ledger(&controller, &ledger);
 
         // trigger the event
-        <Module<T>>::deposit_event(super::RawEvent::Slash(stash.clone(), value));
+        <Module<T>>::deposit_event(super::RawEvent::Slashed(stash.clone(), value));
     }
 }
 
