@@ -167,7 +167,8 @@ decl_event!(
         /// caller DID, Proposal hash, yay vote count, nay vote count.
         Closed(IdentityId, Hash, MemberCount, MemberCount),
         /// Release coordinator has been updated.
-        ReleaseCoordinatorUpdated(Option<IdentityId>),
+        /// caller DID, DID of Release coordinator.
+        ReleaseCoordinatorUpdated(IdentityId, Option<IdentityId>),
     }
 );
 
@@ -194,7 +195,9 @@ decl_error! {
         /// The close call is made too early, before the end of the voting.
         TooEarly,
         /// When MotionDuration is set to 0
-        NotAllowed
+        NotAllowed,
+        /// Missing current DID
+        MissingCurrentIdentity
     }
 }
 
@@ -361,7 +364,8 @@ decl_module! {
             ensure!( Self::members().contains(&id), Error::<T, I>::MemberNotFound);
 
             <ReleaseCoordinator<I>>::put(id);
-            Self::deposit_event(RawEvent::ReleaseCoordinatorUpdated(Some(id)));
+            let caller_did = Context::current_identity::<Identity<T>>().ok_or_else(|| Error::<T, I>::MissingCurrentIdentity)?;
+            Self::deposit_event(RawEvent::ReleaseCoordinatorUpdated(caller_did, Some(id)));
         }
     }
 }
@@ -441,26 +445,24 @@ impl<T: Trait<I>, I: Instance> Module<T, I> {
         no_votes: MemberCount,
         proposal: T::Hash,
     ) {
-        if let Some(current_did) = Context::current_identity::<Identity<T>>() {
-            if approved {
-                Self::deposit_event(RawEvent::Approved(current_did, proposal, yes_votes, no_votes, seats));
-    
-                // execute motion, assuming it exists.
-                if let Some(p) = <ProposalOf<T, I>>::take(&proposal) {
-                    let origin = RawOrigin::Members(yes_votes, seats).into();
-                    let ok = p.dispatch(origin).is_ok();
-                    Self::deposit_event(RawEvent::Executed(current_did, proposal, ok));
-                }
-            } else {
-                // rejected
-                Self::deposit_event(RawEvent::Rejected(current_did, proposal, yes_votes, no_votes, seats));
+        let current_did = Context::current_identity::<Identity<T>>().unwrap_or_default();
+        if approved {
+            Self::deposit_event(RawEvent::Approved(current_did, proposal, yes_votes, no_votes, seats));
+
+            // execute motion, assuming it exists.
+            if let Some(p) = <ProposalOf<T, I>>::take(&proposal) {
+                let origin = RawOrigin::Members(yes_votes, seats).into();
+                let ok = p.dispatch(origin).is_ok();
+                Self::deposit_event(RawEvent::Executed(current_did, proposal, ok));
             }
-    
-            // remove vote
-            <Voting<T, I>>::remove(&proposal);
-            <Proposals<T, I>>::mutate(|proposals| proposals.retain(|h| h != &proposal));
+        } else {
+            // rejected
+            Self::deposit_event(RawEvent::Rejected(current_did, proposal, yes_votes, no_votes, seats));
         }
-        
+
+        // remove vote
+        <Voting<T, I>>::remove(&proposal);
+        <Proposals<T, I>>::mutate(|proposals| proposals.retain(|h| h != &proposal));
     }
 }
 
@@ -511,7 +513,10 @@ impl<T: Trait<I>, I: Instance> ChangeMembers<IdentityId> for Module<T, I> {
         if let Some(curr_rc) = Self::release_coordinator() {
             if outgoing.contains(&curr_rc) {
                 <ReleaseCoordinator<I>>::kill();
-                Self::deposit_event(RawEvent::ReleaseCoordinatorUpdated(None));
+                Self::deposit_event(RawEvent::ReleaseCoordinatorUpdated(
+                    Context::current_identity::<Identity<T>>().unwrap_or_default(),
+                    None
+                ));
             }
         }
 

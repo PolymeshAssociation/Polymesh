@@ -651,7 +651,7 @@ construct_runtime!(
         ComplianceManager: compliance_manager::{Module, Call, Storage, Event},
         Voting: voting::{Module, Call, Storage, Event<T>},
         StoCapped: sto_capped::{Module, Call, Storage, Event<T>},
-        PercentageTM: percentage_tm::{Module, Call, Storage, Event<T>},
+        PercentageTM: percentage_tm::{Module, Call, Storage, Event},
         Exemption: exemption::{Module, Call, Storage, Event},
         SimpleToken: simple_token::{Module, Call, Storage, Event<T>},
         CddServiceProviders: group::<Instance2>::{Module, Call, Storage, Event<T>, Config<T>},

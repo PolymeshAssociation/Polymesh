@@ -49,10 +49,10 @@ decl_event!(
     {
         /// Disbursement to a target Identity.
         /// (target identity, amount)
-        TreasuryDisbursement(IdentityId, Balance),
+        TreasuryDisbursement(IdentityId, IdentityId, Balance),
 
         /// Treasury reimbursement.
-        TreasuryReimbursement(Balance),
+        TreasuryReimbursement(IdentityId, Balance),
     }
 );
 
@@ -61,6 +61,8 @@ decl_error! {
     pub enum Error for Module<T: Trait> {
         /// Proposer's balance is too low.
         InsufficientBalance,
+        /// Missing current DID.
+        MissingCurrentIdentity
     }
 }
 
@@ -85,10 +87,10 @@ decl_module! {
             ensure!(
                 Self::balance() >= total_amount,
                 Error::<T>::InsufficientBalance);
-
+            let current_did = Context::current_identity::<Identity<T>>().ok_or_else(|| Error::<T>::MissingCurrentIdentity)?;
             beneficiaries.into_iter().for_each( |b| {
                 Self::unsafe_disbursement(b.id, b.amount);
-                Self::deposit_event(RawEvent::TreasuryDisbursement(b.id, b.amount));
+                Self::deposit_event(RawEvent::TreasuryDisbursement(current_did, b.id, b.amount));
             });
             Ok(())
         }
@@ -99,7 +101,7 @@ decl_module! {
         pub fn reimbursement(origin, amount: T::Balance) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             let sender_key = AccountKey::try_from(sender.encode())?;
-            let _did = Context::current_identity_or::<Identity<T>>(&sender_key)?;
+            let did = Context::current_identity_or::<Identity<T>>(&sender_key)?;
 
             let _ = balances::Module::<T>::withdraw(
                 &sender,
@@ -109,7 +111,7 @@ decl_module! {
             )?;
 
             Self::unsafe_reimbursement(amount);
-            Self::deposit_event(RawEvent::TreasuryReimbursement(amount));
+            Self::deposit_event(RawEvent::TreasuryReimbursement(did, amount));
             Ok(())
         }
     }

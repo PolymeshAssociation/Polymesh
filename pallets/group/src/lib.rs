@@ -148,8 +148,8 @@ decl_module! {
             <ActiveMembers<I>>::put(&members);
 
             T::MembershipChanged::change_members_sorted(&[who], &[], &members[..]);
-
-            Self::deposit_event(RawEvent::MemberAdded(who));
+            let current_did = Context::current_identity::<Identity<T>>().ok_or_else(|| Error::<T, I>::MissingCurrentIdentity)?;
+            Self::deposit_event(RawEvent::MemberAdded(current_did, who));
         }
 
         /// Remove a member `who` from the set. May only be called from `RemoveOrigin` or root.
@@ -194,7 +194,8 @@ decl_module! {
                 &members[..],
             );
             Self::rejig_prime(&members);
-            Self::deposit_event(RawEvent::MembersSwapped(remove, add));
+            let current_did = Context::current_identity::<Identity<T>>().ok_or_else(|| Error::<T, I>::MissingCurrentIdentity)?;
+            Self::deposit_event(RawEvent::MembersSwapped(current_did, remove, add));
         }
 
         /// Change the membership to a new set, disregarding the existing membership.
@@ -214,8 +215,8 @@ decl_module! {
                 Self::rejig_prime(&new_members);
                 *m = new_members;
             });
-
-            Self::deposit_event(RawEvent::MembersReset(members));
+            let current_did = Context::current_identity::<Identity<T>>().ok_or_else(|| Error::<T, I>::MissingCurrentIdentity)?;
+            Self::deposit_event(RawEvent::MembersReset(current_did, members));
         }
 
         /// It allows a caller member to unilaterally quit without this
@@ -283,6 +284,8 @@ decl_error! {
         NoSuchMember,
         /// Last member of the committee can not quit.
         LastMemberCannotQuit,
+        /// Missing current DID
+        MissingCurrentIdentity
     }
 }
 
@@ -326,7 +329,8 @@ impl<T: Trait<I>, I: Instance> Module<T, I> {
         members.swap_remove(position);
 
         <InactiveMembers<T, I>>::put(&members);
-        Self::deposit_event(RawEvent::MemberRemoved(who));
+        let current_did = Context::current_identity::<Identity<T>>().ok_or_else(|| Error::<T, I>::MissingCurrentIdentity)?;
+        Self::deposit_event(RawEvent::MemberRemoved(current_did, who));
         Ok(())
     }
 
@@ -346,7 +350,8 @@ impl<T: Trait<I>, I: Instance> Module<T, I> {
 
         T::MembershipChanged::change_members_sorted(&[], &[who], &members[..]);
         Self::rejig_prime(&members);
-        Self::deposit_event(RawEvent::MemberRemoved(who));
+        let current_did = Context::current_identity::<Identity<T>>().ok_or_else(|| Error::<T, I>::MissingCurrentIdentity)?;
+        Self::deposit_event(RawEvent::MemberRemoved(current_did, who));
         Ok(())
     }
 }
@@ -376,7 +381,7 @@ impl<T: Trait<I>, I: Instance> GroupTrait<T::Moment> for Module<T, I> {
         at: Option<T::Moment>,
     ) -> DispatchResult {
         Self::unsafe_remove_active_member(who)?;
-
+        let current_did = Context::current_identity::<Identity<T>>().ok_or_else(|| Error::<T, I>::MissingCurrentIdentity)?;
         let deactivated_at = at.unwrap_or_else(|| <pallet_timestamp::Module<T>>::get());
         let inactive_member = InactiveMember {
             id: who,
@@ -391,7 +396,7 @@ impl<T: Trait<I>, I: Instance> GroupTrait<T::Moment> for Module<T, I> {
                 if !Self::is_member_expired(m, now) {
                     true
                 } else {
-                    Self::deposit_event(RawEvent::MemberRemoved(who));
+                    Self::deposit_event(RawEvent::MemberRemoved(current_did, who));
                     false
                 }
             });
@@ -405,7 +410,8 @@ impl<T: Trait<I>, I: Instance> GroupTrait<T::Moment> for Module<T, I> {
             }
         });
 
-        Self::deposit_event(RawEvent::MemberRevoked(who));
+        Self::deposit_event(RawEvent::MemberRevoked(current_did, who));
         Ok(())
+        
     }
 }

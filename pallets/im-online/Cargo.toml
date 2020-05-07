@@ -18,6 +18,9 @@ sp-runtime = { git = "https://github.com/paritytech/substrate", default-features
 sp-staking = { git = "https://github.com/paritytech/substrate", default-features = false, rev = "a439a7aa5a9a3df2a42d9b25ea04288d3a0866e8" }
 frame-support = { git = "https://github.com/paritytech/substrate", default-features = false, rev = "a439a7aa5a9a3df2a42d9b25ea04288d3a0866e8" }
 frame-system = { package = "frame-system", git = "https://github.com/paritytech/substrate", default-features = false, rev = "a439a7aa5a9a3df2a42d9b25ea04288d3a0866e8" }
+polymesh-primitives = { package = "polymesh-primitives", path = "../../primitives", default-features = false }
+pallet-identity = { pacakge = "pallet-identity", path = "../identity", default-features = false }
+polymesh-common-utilities = { pacakge = "polymesh-common-utilities", path = "../common", default-features = false }
 
 [features]
 default = ["std", "pallet-session/historical"]
@@ -34,4 +37,7 @@ std = [
 	"sp-staking/std",
 	"frame-support/std",
 	"frame-system/std",
+	"polymesh-primitives/std",
+	"pallet-identity/std",
+	"polymesh-common-utilities/std"
 ]

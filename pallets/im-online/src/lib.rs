@@ -78,6 +78,9 @@ use frame_support::{
     debug, decl_error, decl_event, decl_module, decl_storage, ensure, traits::Get,
     weights::SimpleDispatchInfo, Parameter,
 };
+use pallet_identity as identity;
+use polymesh_primitives::IdentityId;
+use polymesh_common_utilities::{ Context, traits::identity::{ IdentityTrait, Trait as IdentityModuleTrait} };
 use frame_system::offchain::SubmitUnsignedTransaction;
 use frame_system::{self as system, ensure_none};
 use pallet_session::historical::IdentificationTuple;
@@ -98,6 +101,7 @@ use sp_staking::{
     SessionIndex,
 };
 use sp_std::{convert::TryInto, marker::PhantomData, prelude::*};
+type Identity<T> = identity::Module<T>;
 
 pub mod sr25519 {
     mod app_sr25519 {
@@ -241,7 +245,7 @@ pub struct OfflineSlashingParams {
     pub max_slash_percent: u32,
 }
 
-pub trait Trait: frame_system::Trait + pallet_session::historical::Trait {
+pub trait Trait: frame_system::Trait + pallet_session::historical::Trait + IdentityModuleTrait {
     /// The identifier type for an authority.
     type AuthorityId: Member + Parameter + RuntimeAppPublic + Default + Ord;
 
@@ -285,7 +289,8 @@ decl_event!(
         /// At the end of the session, at least once validator was found to be offline.
         SomeOffline(Vec<IdentificationTuple>),
         /// Newly updated slashing params.
-        SlashingParamsUpdated(OfflineSlashingParams),
+        /// caller DID, OfflineSlashingParams
+        SlashingParamsUpdated(IdentityId, OfflineSlashingParams),
     }
 );
 
@@ -331,7 +336,9 @@ decl_error! {
         ///Invalid slashing params
         InvalidSlashingParam,
         /// Unauthorized origin
-        NotAuthorised
+        NotAuthorised,
+        /// Missing Caller DID
+        MissingCurrentIdentity
     }
 }
 
@@ -383,8 +390,8 @@ decl_module! {
             T::CommitteeOrigin::try_origin(origin).map_err(|_| Error::<T>::NotAuthorised)?;
 
             SlashingParams::put(&params);
-
-            Self::deposit_event(RawEvent::SlashingParamsUpdated(params));
+            let caller_did = Context::current_identity::<Identity<T>>().ok_or_else(|| Error::<T>::MissingCurrentIdentity)?;
+            Self::deposit_event(RawEvent::SlashingParamsUpdated(caller_did, params));
         }
 
         // Runs after every block.
