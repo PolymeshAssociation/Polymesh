@@ -78,12 +78,15 @@ use frame_support::{
     debug, decl_error, decl_event, decl_module, decl_storage, ensure, traits::Get,
     weights::SimpleDispatchInfo, Parameter,
 };
-use pallet_identity as identity;
-use polymesh_primitives::IdentityId;
-use polymesh_common_utilities::{ Context, traits::identity::{ IdentityTrait, Trait as IdentityModuleTrait} };
 use frame_system::offchain::SubmitUnsignedTransaction;
 use frame_system::{self as system, ensure_none};
+use pallet_identity as identity;
 use pallet_session::historical::IdentificationTuple;
+use polymesh_common_utilities::{
+    traits::identity::{IdentityTrait, Trait as IdentityModuleTrait},
+    Context,
+};
+use polymesh_primitives::IdentityId;
 use sp_application_crypto::RuntimeAppPublic;
 use sp_core::offchain::OpaqueNetworkState;
 use sp_runtime::{
@@ -245,7 +248,9 @@ pub struct OfflineSlashingParams {
     pub max_slash_percent: u32,
 }
 
-pub trait Trait: frame_system::Trait + pallet_session::historical::Trait + IdentityModuleTrait {
+pub trait Trait:
+    frame_system::Trait + pallet_session::historical::Trait + IdentityModuleTrait
+{
     /// The identifier type for an authority.
     type AuthorityId: Member + Parameter + RuntimeAppPublic + Default + Ord;
 

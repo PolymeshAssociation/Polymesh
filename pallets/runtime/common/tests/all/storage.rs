@@ -73,7 +73,7 @@ impl_outer_event! {
         identity<T>,
         balances<T>,
         multisig<T>,
-        percentage_tm<T>,
+        percentage_tm,
         bridge<T>,
         asset<T>,
         pips<T>,

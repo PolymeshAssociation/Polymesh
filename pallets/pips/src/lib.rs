@@ -56,7 +56,7 @@ use polymesh_common_utilities::{
     traits::{governance_group::GovernanceGroupTrait, group::GroupTrait},
     CommonTrait, Context,
 };
-use polymesh_primitives::{AccountKey, Beneficiary, Signatory, IdentityId};
+use polymesh_primitives::{AccountKey, Beneficiary, IdentityId, Signatory};
 use sp_core::H256;
 use sp_runtime::traits::{
     BlakeTwo256, CheckedAdd, CheckedSub, Dispatchable, EnsureOrigin, Hash, Saturating, Zero,
@@ -1022,7 +1022,11 @@ impl<T: Trait> Module<T> {
         <Referendums<T>>::insert(id, referendum);
         Self::update_proposal_state(id, ProposalState::Referendum);
         let current_did = Context::current_identity::<Identity<T>>().unwrap_or_default();
-        Self::deposit_event(RawEvent::ReferendumCreated(current_did, id, referendum_type));
+        Self::deposit_event(RawEvent::ReferendumCreated(
+            current_did,
+            id,
+            referendum_type,
+        ));
     }
 
     /// Refunds any tokens used to vote or bond a proposal
@@ -1077,7 +1081,8 @@ impl<T: Trait> Module<T> {
             }
         });
         <ScheduledReferendumsAt<T>>::mutate(enactment_period, |ids| ids.push(id));
-        let current_did = Context::current_identity::<Identity<T>>().ok_or_else(|| Error::<T>::MissingCurrentIdentity)?;
+        let current_did = Context::current_identity::<Identity<T>>()
+            .ok_or_else(|| Error::<T>::MissingCurrentIdentity)?;
         Self::deposit_event(RawEvent::ReferendumScheduled(
             current_did,
             id,
@@ -1132,7 +1137,7 @@ impl<T: Trait> Module<T> {
                 referendum.state = new_state;
             }
         });
-        let current_did =  Context::current_identity::<Identity<T>>().unwrap_or_default();
+        let current_did = Context::current_identity::<Identity<T>>().unwrap_or_default();
         Self::deposit_event(RawEvent::ReferendumStateUpdated(current_did, id, new_state));
     }
 
