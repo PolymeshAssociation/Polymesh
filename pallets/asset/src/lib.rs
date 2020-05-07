@@ -134,10 +134,15 @@ pub trait Trait:
 /// The type of an asset represented by a token.
 #[derive(Encode, Decode, Clone, Debug, PartialEq, Eq)]
 pub enum AssetType {
-    Equity,
-    Debt,
+    EquityCommon,
+    EquityPreferred,
     Commodity,
+    FixedIncome,
+    REIT,
+    Fund,
+    RevenueShareAgreement,
     StructuredProduct,
+    Derivative,
     Custom(Vec<u8>),
 }
 
