@@ -1177,13 +1177,25 @@ impl<T: Trait> Module<T> {
         <Authorizations<T>>::insert(target, new_nonce, auth);
         <AuthorizationsGiven>::insert(from, new_nonce, target);
 
-        Self::deposit_event(RawEvent::AuthorizationAdded(
-            from,
-            target,
-            new_nonce,
-            authorization_data,
-            expiry,
-        ));
+        // This event is split in order to help the event harvesters.
+        match from {
+            Signatory::Identity(id) => Self::deposit_event(RawEvent::AuthorizationAddedByIdentity(
+                id,
+                target.as_identity().cloned(),
+                target.as_account_key().cloned(),
+                new_nonce,
+                authorization_data,
+                expiry,
+            )),
+            Signatory::AccountKey(key) => Self::deposit_event(RawEvent::AuthorizationAddedByKey(
+                key,
+                target.as_identity().cloned(),
+                target.as_account_key().cloned(),
+                new_nonce,
+                authorization_data,
+                expiry,
+            )),
+        };
 
         new_nonce
     }
@@ -1199,9 +1211,17 @@ impl<T: Trait> Module<T> {
         <Authorizations<T>>::remove(target, auth_id);
         <AuthorizationsGiven>::remove(authorizer, auth_id);
         if revoked {
-            Self::deposit_event(RawEvent::AuthorizationRevoked(target, auth_id));
+            Self::deposit_event(RawEvent::AuthorizationRevoked(
+                target.as_identity().cloned(),
+                target.as_account_key().cloned(),
+                auth_id,
+            ));
         } else {
-            Self::deposit_event(RawEvent::AuthorizationRejected(target, auth_id));
+            Self::deposit_event(RawEvent::AuthorizationRejected(
+                target.as_identity().cloned(),
+                target.as_account_key().cloned(),
+                auth_id,
+            ));
         }
     }
 
@@ -1222,7 +1242,11 @@ impl<T: Trait> Module<T> {
         <Authorizations<T>>::remove(target, auth_id);
         <AuthorizationsGiven>::remove(auth.authorized_by, auth_id);
 
-        Self::deposit_event(RawEvent::AuthorizationConsumed(target, auth_id));
+        Self::deposit_event(RawEvent::AuthorizationConsumed(
+            target.as_identity().cloned(),
+            target.as_account_key().cloned(),
+            auth_id,
+        ));
         Ok(())
     }
 
@@ -1250,7 +1274,13 @@ impl<T: Trait> Module<T> {
 
         <Links<T>>::insert(target, new_nonce, link);
 
-        Self::deposit_event(RawEvent::LinkAdded(target, new_nonce, link_data, expiry));
+        Self::deposit_event(RawEvent::LinkAdded(
+            target.as_identity().cloned(),
+            target.as_account_key().cloned(),
+            new_nonce,
+            link_data,
+            expiry,
+        ));
         new_nonce
     }
 
@@ -1259,7 +1289,11 @@ impl<T: Trait> Module<T> {
     pub fn remove_link(target: Signatory, link_id: u64) {
         if <Links<T>>::contains_key(target, link_id) {
             <Links<T>>::remove(target, link_id);
-            Self::deposit_event(RawEvent::LinkRemoved(target, link_id));
+            Self::deposit_event(RawEvent::LinkRemoved(
+                target.as_identity().cloned(),
+                target.as_account_key().cloned(),
+                link_id,
+            ));
         }
     }
 
@@ -1268,7 +1302,11 @@ impl<T: Trait> Module<T> {
     pub fn update_link(target: Signatory, link_id: u64, link_data: LinkData) {
         if <Links<T>>::contains_key(target, link_id) {
             <Links<T>>::mutate(target, link_id, |link| link.link_data = link_data);
-            Self::deposit_event(RawEvent::LinkUpdated(target, link_id));
+            Self::deposit_event(RawEvent::LinkUpdated(
+                target.as_identity().cloned(),
+                target.as_account_key().cloned(),
+                link_id,
+            ));
         }
     }
 

@@ -97,6 +97,22 @@ impl Signatory {
             Signatory::Identity(ref id) => id == other_identity,
         }
     }
+
+    /// This signatory as `IdentityId` or None.
+    pub fn as_identity(&self) -> Option<&IdentityId> {
+        match self {
+            Signatory::Identity(id) => Some(id),
+            _ => None,
+        }
+    }
+
+    /// This signatory as `AccountKey` or None.
+    pub fn as_account_key(&self) -> Option<&AccountKey> {
+        match self {
+            Signatory::AccountKey(key) => Some(key),
+            _ => None,
+        }
+    }
 }
 
 impl PartialOrd for Signatory {
