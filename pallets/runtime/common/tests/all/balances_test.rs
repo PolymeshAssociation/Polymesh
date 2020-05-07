@@ -379,11 +379,7 @@ fn transfer_with_memo_we() {
     ];
     // Ignoring `frame_system` events
     let system_events = System::events();
-    let emitted_events = vec![
-        system_events[num_events - 3].clone(),
-        system_events[num_events - 2].clone(),
-        system_events[num_events - 1].clone(),
-    ];
-
-    assert_eq!(emitted_events, expected_events);
+    expected_events.into_iter().for_each(|expected| {
+        assert!(system_events.contains(&expected));
+    });
 }
