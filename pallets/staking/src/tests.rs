@@ -796,94 +796,6 @@ fn nominating_and_rewards_should_work() {
 }
 
 #[test]
-fn nominators_also_get_slashed() {
-    // A nominator should be slashed if the validator they nominated is slashed
-    // Here is the breakdown of roles:
-    // 10 - is the controller of 11
-    // 11 - is the stash.
-    // 2 - is the nominator of 20, 10
-    ExtBuilder::default()
-        .nominate(false)
-        .build()
-        .execute_with(|| {
-            assert_eq!(Staking::validator_count(), 2);
-
-            // Set payee to controller
-            assert_ok!(Staking::set_payee(
-                Origin::signed(account_from(10)),
-                RewardDestination::Controller
-            ));
-
-            // give the man some money.
-            let initial_balance = 1000;
-            for i in [1, 2, 3, 10].iter() {
-                let _ = Balances::make_free_balance_be(&account_from(*i), initial_balance);
-            }
-
-            // 2 will nominate for 10, 20
-            let nominator_stake = 500;
-            assert_ok!(Staking::bond(
-                Origin::signed(account_from(1)),
-                account_from(2),
-                nominator_stake,
-                RewardDestination::default()
-            ));
-            // Add identity to the stash 1
-            create_did_and_add_claim(account_from(1));
-            // nominate after did has the valid claim
-            assert_ok!(Staking::nominate(
-                Origin::signed(account_from(2)),
-                vec![account_from(20), account_from(10)]
-            ));
-
-            let total_payout = current_total_payout_for_duration(3000);
-            assert!(total_payout > 100); // Test is meaningful if reward something
-            <Module<Test>>::reward_by_ids(vec![(account_from(11), 1)]);
-
-            // new era, pay rewards,
-            start_era(1);
-
-            // Nominator stash didn't collect any.
-            assert_eq!(Balances::total_balance(&account_from(2)), initial_balance);
-
-            // 10 goes offline
-            on_offence_now(
-                &[OffenceDetails {
-                    offender: (
-                        account_from(11),
-                        Staking::eras_stakers(
-                            Staking::active_era().unwrap().index,
-                            account_from(11),
-                        ),
-                    ),
-                    reporters: vec![],
-                }],
-                &[Perbill::from_percent(5)],
-            );
-            let expo =
-                Staking::eras_stakers(Staking::active_era().unwrap().index, account_from(11));
-            let slash_value = 50;
-            let total_slash = expo.total.min(slash_value);
-            let validator_slash = expo.own.min(total_slash);
-            let nominator_slash = nominator_stake.min(total_slash - validator_slash);
-
-            // initial + first era reward + slash
-            assert_eq!(
-                Balances::total_balance(&account_from(11)),
-                initial_balance - validator_slash
-            );
-            assert_eq!(
-                Balances::total_balance(&account_from(2)),
-                initial_balance - nominator_slash
-            );
-            check_exposure_all(Staking::active_era().unwrap().index);
-            check_nominator_all(Staking::active_era().unwrap().index);
-            // Because slashing happened.
-            assert!(is_disabled(account_from(10)));
-        });
-}
-
-#[test]
 fn double_staking_should_fail() {
     // should test (in the same order):
     // * an account already bonded as stash cannot be be stashed again.
@@ -2504,10 +2416,7 @@ fn reward_validator_slashing_validator_doesnt_overflow() {
             Exposure {
                 total: stake,
                 own: 1,
-                others: vec![IndividualExposure {
-                    who: account_from(2),
-                    value: stake - 1,
-                }],
+                others: vec![],
             },
         );
 
@@ -2524,7 +2433,8 @@ fn reward_validator_slashing_validator_doesnt_overflow() {
         );
 
         assert_eq!(Balances::total_balance(&account_from(11)), stake - 1);
-        assert_eq!(Balances::total_balance(&account_from(2)), 1);
+        // Nominator not slashed
+        assert_eq!(Balances::total_balance(&account_from(2)), stake);
     })
 }
 
@@ -2947,12 +2857,9 @@ fn invulnerables_are_not_slashed() {
                 2000 - (2 * initial_balance / 10)
             );
 
-            // ensure that nominators were slashed as well.
+            // ensure that nominators were not slashed
             for (initial_balance, other) in nominator_balances.into_iter().zip(exposure.others) {
-                assert_eq!(
-                    Balances::free_balance(&other.who),
-                    initial_balance - (2 * other.value / 10),
-                );
+                assert_eq!(Balances::free_balance(&other.who), initial_balance,);
             }
             assert_ledger_consistent(11);
             assert_ledger_consistent(21);
@@ -3123,10 +3030,8 @@ fn garbage_collection_on_window_pruning() {
         let now = Staking::active_era().unwrap().index;
 
         assert_eq!(Balances::free_balance(account_from(11)), 900);
-        assert_eq!(
-            Balances::free_balance(account_from(101)),
-            2000 - (nominated_value / 10)
-        );
+        // Nominator not slashed
+        assert_eq!(Balances::free_balance(account_from(101)), 2000);
 
         assert!(
             <Staking as crate::Store>::ValidatorSlashInEra::get(&now, &account_from(11)).is_some()
@@ -3203,10 +3108,8 @@ fn slashing_nominators_by_span_max() {
         assert_eq!(Balances::free_balance(account_from(11)), 900);
 
         let slash_1_amount = Perbill::from_percent(10) * nominated_value_11;
-        assert_eq!(
-            Balances::free_balance(account_from(101)),
-            2000 - slash_1_amount
-        );
+        // Nominator not slashed
+        assert_eq!(Balances::free_balance(account_from(101)), 2000);
 
         let expected_spans = vec![
             slashing::SlashingSpan {
@@ -3253,11 +3156,8 @@ fn slashing_nominators_by_span_max() {
         let slash_2_amount = Perbill::from_percent(30) * nominated_value_21;
         assert!(slash_2_amount > slash_1_amount);
 
-        // only the maximum slash in a single span is taken.
-        assert_eq!(
-            Balances::free_balance(account_from(101)),
-            2000 - slash_2_amount
-        );
+        // Nominator not slashed
+        assert_eq!(Balances::free_balance(account_from(101)), 2000);
 
         // third slash: in same era and on same validator as first, higher
         // in-era value, but lower slash value than slash 2.
@@ -3281,11 +3181,8 @@ fn slashing_nominators_by_span_max() {
         assert!(slash_3_amount < slash_2_amount);
         assert!(slash_3_amount > slash_1_amount);
 
-        // only the maximum slash in a single span is taken.
-        assert_eq!(
-            Balances::free_balance(account_from(101)),
-            2000 - slash_2_amount
-        );
+        // Nominator not slashed
+        assert_eq!(Balances::free_balance(account_from(101)), 2000);
     });
 }
 
@@ -3427,10 +3324,8 @@ fn deferred_slashes_are_deferred() {
             start_era(4);
 
             assert_eq!(Balances::free_balance(account_from(11)), 900);
-            assert_eq!(
-                Balances::free_balance(account_from(101)),
-                2000 - (nominated_value / 10)
-            );
+            // Nominator not slashed
+            assert_eq!(Balances::free_balance(account_from(101)), 2000);
         })
 }
 
@@ -3505,10 +3400,8 @@ fn remove_deferred() {
 
             // 5% slash (15 - 10) processed now.
             assert_eq!(Balances::free_balance(account_from(11)), 950);
-            assert_eq!(
-                Balances::free_balance(account_from(101)),
-                2000 - actual_slash
-            );
+            // Nominator not slashed
+            assert_eq!(Balances::free_balance(account_from(101)), 2000);
         })
 }
 
@@ -3591,10 +3484,8 @@ fn slash_kicks_validators_not_nominators() {
         );
 
         assert_eq!(Balances::free_balance(account_from(11)), 900);
-        assert_eq!(
-            Balances::free_balance(account_from(101)),
-            2000 - (nominated_value / 10)
-        );
+        // Nominator not slashed
+        assert_eq!(Balances::free_balance(account_from(101)), 2000);
 
         // This is the best way to check that the validator was chilled; `get` will
         // return default value.
