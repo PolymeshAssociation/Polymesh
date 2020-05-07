@@ -90,7 +90,8 @@ where
 
 /// Helper function to generate stash, controller and session key from seed
 pub fn get_authority_keys_from_seed(
-    seed: &str, uniq: bool,
+    seed: &str,
+    uniq: bool,
 ) -> (
     AccountId,
     AccountId,
@@ -100,19 +101,23 @@ pub fn get_authority_keys_from_seed(
     AuthorityDiscoveryId,
 ) {
     if uniq {
-        (get_account_id_from_seed::<sr25519::Public>(&format!("{}//stash", seed)),
-        get_account_id_from_seed::<sr25519::Public>(seed),
-        get_from_seed::<GrandpaId>(&format!("{}//gran", seed)),
-        get_from_seed::<BabeId>(&format!("{}//babe", seed)),
-        get_from_seed::<ImOnlineId>(&format!("{}//imon", seed)),
-        get_from_seed::<AuthorityDiscoveryId>(&format!("{}//auth", seed)))
+        (
+            get_account_id_from_seed::<sr25519::Public>(&format!("{}//stash", seed)),
+            get_account_id_from_seed::<sr25519::Public>(seed),
+            get_from_seed::<GrandpaId>(&format!("{}//gran", seed)),
+            get_from_seed::<BabeId>(&format!("{}//babe", seed)),
+            get_from_seed::<ImOnlineId>(&format!("{}//imon", seed)),
+            get_from_seed::<AuthorityDiscoveryId>(&format!("{}//auth", seed)),
+        )
     } else {
-        (get_account_id_from_seed::<sr25519::Public>(&format!("{}//stash", seed)),
-        get_account_id_from_seed::<sr25519::Public>(seed),
-        get_from_seed::<GrandpaId>(seed),
-        get_from_seed::<BabeId>(seed),
-        get_from_seed::<ImOnlineId>(seed),
-        get_from_seed::<AuthorityDiscoveryId>(seed))
+        (
+            get_account_id_from_seed::<sr25519::Public>(&format!("{}//stash", seed)),
+            get_account_id_from_seed::<sr25519::Public>(seed),
+            get_from_seed::<GrandpaId>(seed),
+            get_from_seed::<BabeId>(seed),
+            get_from_seed::<ImOnlineId>(seed),
+            get_from_seed::<AuthorityDiscoveryId>(seed),
+        )
     }
 }
 
