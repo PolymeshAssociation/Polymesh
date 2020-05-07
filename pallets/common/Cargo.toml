@@ -37,6 +37,7 @@ lazy_static = "1.4.0"
 [features]
 equalize = []
 default = ["std", "equalize"]
+default_identity = []
 no_std = []
 only-staking = []
 std = [
