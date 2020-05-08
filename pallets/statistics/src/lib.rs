@@ -26,6 +26,7 @@ pub trait Trait: BalancesTrait {}
 
 decl_storage! {
     trait Store for Module<T: Trait> as statistics {
+        /// Number of investor per asset.
         pub InvestorCountPerAsset get(fn investor_count_per_asset): map hasher(blake2_256) Ticker => Counter ;
     }
 }
