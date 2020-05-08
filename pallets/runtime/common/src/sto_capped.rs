@@ -491,8 +491,8 @@ decl_event!(
     {
         ModifyAllowedTokens(Ticker, Ticker, u32, bool),
         /// Emit when Asset get purchased by the investor
-        /// Ticker, SimpleToken token, sto_id, investor DID, amount invested, amount of token purchased
-        AssetPurchase(Ticker, Ticker, u32, IdentityId, Balance, Balance),
+        /// caller DID/investor DID, Ticker, SimpleToken token, sto_id, amount invested, amount of token purchased
+        AssetPurchased(IdentityId, Ticker, Ticker, u32, Balance, Balance),
     }
 );
 
@@ -576,11 +576,11 @@ impl<T: Trait> Module<T> {
         }
         <StosByToken<T>>::insert((ticker, sto_id), selected_sto);
         // Emit Event
-        Self::deposit_event(RawEvent::AssetPurchase(
+        Self::deposit_event(RawEvent::AssetPurchased(
+            did,
             ticker,
             simple_token_ticker,
             sto_id,
-            did,
             investment_amount,
             new_tokens_minted,
         ));
