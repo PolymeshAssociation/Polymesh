@@ -13,7 +13,7 @@ use std::{marker::PhantomData, sync::Arc};
 
 /// Group RPC methods.
 #[rpc]
-pub trait GroupApi<Block, BlockHash> {
+pub trait GroupApi<BlockHash> {
     /// Valid members: active member and inactive who are not yet expired.
     #[rpc(name = "group_getCDDValidMembers")]
     fn get_cdd_valid_members(&self, at: Option<BlockHash>) -> Result<Vec<Member>>;
@@ -44,7 +44,7 @@ pub enum Error {
     RuntimeError,
 }
 
-impl<C, Block> GroupApi<Block, <Block as BlockT>::Hash> for Group<C, Block>
+impl<C, Block> GroupApi<<Block as BlockT>::Hash> for Group<C, Block>
 where
     Block: BlockT,
     C: Send + Sync + 'static,

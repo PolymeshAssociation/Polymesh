@@ -9,7 +9,7 @@ use frame_support::{
 use frame_system::{self as system};
 use polymesh_primitives::{AccountKey, IdentityId};
 use sp_runtime::{traits::Saturating, RuntimeDebug};
-use sp_std::ops::BitOr;
+use sp_std::{cmp::min, ops::BitOr};
 
 #[derive(Encode, Decode, Clone, PartialEq, Eq, RuntimeDebug)]
 pub struct Memo(pub [u8; 32]);
@@ -17,6 +17,23 @@ pub struct Memo(pub [u8; 32]);
 impl Default for Memo {
     fn default() -> Self {
         Memo([0u8; 32])
+    }
+}
+
+impl From<&[u8]> for Memo {
+    fn from(src: &[u8]) -> Memo {
+        let mut value = [0u8; 32];
+        let limit = min(src.len(), value.len());
+        value[..limit].copy_from_slice(&src[..limit]);
+
+        Memo(value)
+    }
+}
+
+#[cfg(feature = "std")]
+impl From<&str> for Memo {
+    fn from(src: &str) -> Memo {
+        Memo::from(src.as_bytes())
     }
 }
 
@@ -104,17 +121,17 @@ decl_event!(
     <T as CommonTrait>::Balance
     {
         /// An account was created with some free balance.
-        Endowed(AccountId, Balance),
-        /// Some amount was deposited (e.g. for transaction fees).
-        Deposit(AccountId, Balance),
+        Endowed(Option<IdentityId>, AccountId, Balance),
         /// Transfer succeeded (from, to, value).
-        Transfer(AccountId, AccountId, Balance),
+        Transfer(Option<IdentityId>, AccountId, Option<IdentityId>, AccountId, Balance),
         /// A balance was set by root (who, free, reserved).
-        BalanceSet(AccountId, Balance, Balance),
+        BalanceSet(IdentityId, AccountId, Balance, Balance),
         /// Transfer succeded with a memo.
-        TransferWithMemo(AccountId, AccountId, Balance, Memo),
+        /// ( source Id, source Account, target Id, target Account, amount, Text)
+        TransferWithMemo(Option<IdentityId>, AccountId, Option<IdentityId>, AccountId, Balance, Memo),
         /// The account and the amount of unlocked balance of that account that was burned.
-        AccountBalanceBurned(AccountId, Balance),
+        /// (caller Id, caller account, amount)
+        AccountBalanceBurned(IdentityId, AccountId, Balance),
     }
 );
 

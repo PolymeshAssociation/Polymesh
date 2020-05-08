@@ -46,7 +46,7 @@ fn make_token<T: Trait>(
         .take(identifiers_len as usize)
         .collect();
     let fundr = FundingRoundName::from(vec![b'F'; funding_round_len as usize].as_slice());
-    Module::<T>::create_token(
+    Module::<T>::create_asset(
         origin.into(),
         name,
         ticker,
@@ -98,7 +98,7 @@ benchmarks! {
         );
     }: _(bob_origin, bob_auth_id)
 
-    accept_token_ownership_transfer {
+    accept_asset_ownership_transfer {
         let u in ...;
         <TickerConfig<T>>::put(TickerRegistrationConfig {
             max_ticker_length: MAX_TICKER_LENGTH,
@@ -113,12 +113,12 @@ benchmarks! {
         let bob_auth_id = identity::Module::<T>::add_auth(
             Signatory::from(alice_did),
             Signatory::from(bob_did),
-            AuthorizationData::TransferTokenOwnership(ticker),
+            AuthorizationData::TransferAssetOwnership(ticker),
             None,
         );
     }: _(bob_origin, bob_auth_id)
 
-    create_token {
+    create_asset {
         let u in ...;
         // Token name length.
         let n in 1 .. MAX_NAME_LENGTH;
@@ -169,7 +169,7 @@ benchmarks! {
         Module::<T>::freeze(origin.clone().into(), ticker).unwrap();
     }: _(origin, ticker)
 
-    rename_token {
+    rename_asset {
         let u in ...;
         // Old token name length.
         let n in 1 .. MAX_NAME_LENGTH;

@@ -3,7 +3,8 @@ use super::{
     ExtBuilder,
 };
 use pallet_group::{self as group};
-use polymesh_common_utilities::traits::group::GroupTrait;
+use pallet_identity as identity;
+use polymesh_common_utilities::{traits::group::GroupTrait, Context};
 use polymesh_primitives::IdentityId;
 
 use frame_support::{assert_err, assert_noop, assert_ok};
@@ -11,6 +12,7 @@ use test_client::AccountKeyring;
 
 type CommitteeGroup = group::Module<TestStorage, group::Instance1>;
 type Origin = <TestStorage as frame_system::Trait>::Origin;
+type Identity = identity::Module<TestStorage>;
 
 #[test]
 fn query_membership_works() {
@@ -42,13 +44,18 @@ fn add_member_works() {
 fn add_member_works_we() {
     let root = Origin::system(frame_system::RawOrigin::Root);
     let non_root = Origin::signed(AccountKeyring::Bob.public());
+    let non_root_did = get_identity_id(AccountKeyring::Alice).unwrap();
 
+    Context::set_current_identity::<Identity>(Some(non_root_did));
     assert_noop!(
         CommitteeGroup::add_member(non_root, IdentityId::from(3)),
         group::Error::<TestStorage, group::Instance1>::BadOrigin
     );
 
     let alice_id = get_identity_id(AccountKeyring::Alice).unwrap();
+    // Assigning random DID but in Production root will have DID
+    Context::set_current_identity::<Identity>(Some(IdentityId::from(999)));
+
     assert_noop!(
         CommitteeGroup::add_member(root.clone(), alice_id),
         group::Error::<TestStorage, group::Instance1>::DuplicateMember
@@ -74,10 +81,16 @@ fn remove_member_works_we() {
     let root = Origin::system(frame_system::RawOrigin::Root);
     let non_root = Origin::signed(AccountKeyring::Charlie.public());
 
+    let non_root_did = get_identity_id(AccountKeyring::Alice).unwrap();
+
+    Context::set_current_identity::<Identity>(Some(non_root_did));
+
     assert_noop!(
         CommitteeGroup::remove_member(non_root, IdentityId::from(3)),
         group::Error::<TestStorage, group::Instance1>::BadOrigin
     );
+    // Assigning random DID but in Production root will have DID
+    Context::set_current_identity::<Identity>(Some(IdentityId::from(999)));
     assert_noop!(
         CommitteeGroup::remove_member(root.clone(), IdentityId::from(5)),
         group::Error::<TestStorage, group::Instance1>::NoSuchMember
@@ -104,11 +117,15 @@ fn swap_member_works_we() {
     let alice_id = get_identity_id(AccountKeyring::Alice).unwrap();
     let bob_id = get_identity_id(AccountKeyring::Bob).unwrap();
     let charlie_id = register_keyring_account(AccountKeyring::Charlie).unwrap();
+    let non_root_did = get_identity_id(AccountKeyring::Charlie).unwrap();
 
+    Context::set_current_identity::<Identity>(Some(non_root_did));
     assert_noop!(
         CommitteeGroup::swap_member(non_root, alice_id, IdentityId::from(5)),
         group::Error::<TestStorage, group::Instance1>::BadOrigin
     );
+    // Assigning random DID but in Production root will have DID
+    Context::set_current_identity::<Identity>(Some(IdentityId::from(999)));
     assert_noop!(
         CommitteeGroup::swap_member(root.clone(), IdentityId::from(5), IdentityId::from(6)),
         group::Error::<TestStorage, group::Instance1>::NoSuchMember
@@ -145,6 +162,8 @@ fn reset_members_works_we() {
         CommitteeGroup::reset_members(non_root, new_committee.clone()),
         group::Error::<TestStorage, group::Instance1>::BadOrigin
     );
+    // Assigning random DID but in Production root will have DID
+    Context::set_current_identity::<Identity>(Some(IdentityId::from(999)));
     assert_ok!(CommitteeGroup::reset_members(root, new_committee.clone()));
     assert_eq!(CommitteeGroup::get_members(), new_committee);
 }
@@ -167,12 +186,16 @@ fn rage_quit_we() {
     let ferdie_acc = AccountKeyring::Ferdie.public();
     let (ferdie_signer, ferdie_did) = make_account(ferdie_acc).unwrap();
 
+    // Assigning random DID but in Production root will have DID
+    Context::set_current_identity::<Identity>(Some(IdentityId::from(999)));
+
     // 0. Threshold is 2/3
     let committee = vec![alice_did, bob_did, charlie_did];
     assert_ok!(CommitteeGroup::reset_members(root.clone(), committee));
 
     // Ferdie is NOT a member
     assert_eq!(CommitteeGroup::is_member(&ferdie_did), false);
+    Context::set_current_identity::<Identity>(Some(ferdie_did));
     assert_err!(
         CommitteeGroup::abdicate_membership(ferdie_signer),
         group::Error::<TestStorage, group::Instance1>::NoSuchMember
@@ -180,17 +203,20 @@ fn rage_quit_we() {
 
     // Bob quits, its vote should be removed.
     assert_eq!(CommitteeGroup::is_member(&bob_did), true);
+    Context::set_current_identity::<Identity>(Some(bob_did));
     assert_ok!(CommitteeGroup::abdicate_membership(bob_signer.clone()));
     assert_eq!(CommitteeGroup::is_member(&bob_did), false);
 
     // Charlie quits, its vote should be removed and
     // propose should be accepted.
     assert_eq!(CommitteeGroup::is_member(&charlie_did), true);
+    Context::set_current_identity::<Identity>(Some(charlie_did));
     assert_ok!(CommitteeGroup::abdicate_membership(charlie_signer.clone()));
     assert_eq!(CommitteeGroup::is_member(&charlie_did), false);
 
     // Alice should not quit because she is the last member.
     assert_eq!(CommitteeGroup::is_member(&alice_did), true);
+    Context::set_current_identity::<Identity>(Some(alice_did));
     assert_err!(
         CommitteeGroup::abdicate_membership(alice_signer),
         group::Error::<TestStorage, group::Instance1>::LastMemberCannotQuit
@@ -218,6 +244,7 @@ fn disable_member_we() {
     // 0. Create group
     let mut committee = vec![alice_id, bob_id, charlie_id];
     committee.sort();
+    Context::set_current_identity::<Identity>(Some(IdentityId::from(999)));
     assert_ok!(CommitteeGroup::reset_members(
         root.clone(),
         committee.clone()

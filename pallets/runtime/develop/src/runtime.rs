@@ -37,7 +37,7 @@ use polymesh_primitives::{
 
 use sp_api::impl_runtime_apis;
 use sp_core::{
-    u32_trait::{_1, _2, _4},
+    u32_trait::{_1, _2, _3, _4},
     OpaqueMetadata,
 };
 use sp_runtime::{
@@ -345,7 +345,7 @@ impl group::Trait<group::Instance1> for Runtime {
     type RemoveOrigin = frame_system::EnsureRoot<AccountId>;
     type SwapOrigin = frame_system::EnsureRoot<AccountId>;
     type ResetOrigin = frame_system::EnsureRoot<AccountId>;
-    type PrimeOrigin = frame_system::EnsureRoot<AccountId>;
+    type PrimeOrigin = frame_system::EnsureNever<AccountId>;
     type MembershipInitialized = PolymeshCommittee;
     type MembershipChanged = PolymeshCommittee;
 }
@@ -354,7 +354,7 @@ impl pallet_pips::Trait for Runtime {
     type Currency = Balances;
     type CommitteeOrigin = frame_system::EnsureRoot<AccountId>;
     type VotingMajorityOrigin =
-        committee::EnsureProportionAtLeast<_1, _2, AccountId, GovernanceCommittee>;
+        committee::EnsureProportionAtLeast<_2, _3, AccountId, GovernanceCommittee>;
     type GovernanceCommittee = PolymeshCommittee;
     type Treasury = Treasury;
     type Event = Event;
@@ -652,7 +652,7 @@ construct_runtime!(
         ComplianceManager: compliance_manager::{Module, Call, Storage, Event},
         Voting: voting::{Module, Call, Storage, Event<T>},
         StoCapped: sto_capped::{Module, Call, Storage, Event<T>},
-        PercentageTM: percentage_tm::{Module, Call, Storage, Event<T>},
+        PercentageTM: percentage_tm::{Module, Call, Storage, Event},
         Exemption: exemption::{Module, Call, Storage, Event},
         SimpleToken: simple_token::{Module, Call, Storage, Event<T>},
         CddServiceProviders: group::<Instance2>::{Module, Call, Storage, Event<T>, Config<T>},
@@ -923,7 +923,7 @@ impl_runtime_apis! {
             value: Balance) -> pallet_asset_rpc_runtime_api::CanTransferResult
         {
             Asset::unsafe_can_transfer(sender, ticker, from_did, to_did, value)
-                .map_err(|(_code, msg)| msg.as_bytes().to_vec())
+                .map_err(|msg| msg.as_bytes().to_vec())
         }
     }
 

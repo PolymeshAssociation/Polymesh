@@ -194,7 +194,7 @@ decl_module! {
             let initial_results = vec![T::Balance::from(0); total_choices];
             <Results<T>>::insert(&ticker_ballot_name, initial_results);
 
-            Self::deposit_event(RawEvent::BallotCreated(ticker, ballot_name, ballot_details));
+            Self::deposit_event(RawEvent::BallotCreated(did, ticker, ballot_name, ballot_details));
 
             Ok(())
         }
@@ -266,7 +266,7 @@ decl_module! {
             // Storing users' vote onchain. This is needed when user wants to their change vote
             <Votes<T>>::insert(&ticker_ballot_name_did, votes.clone());
 
-            Self::deposit_event(RawEvent::VoteCast(ticker, ballot_name, votes));
+            Self::deposit_event(RawEvent::VoteCast(did, ticker, ballot_name, votes));
 
             Ok(())
         }
@@ -310,7 +310,7 @@ decl_module! {
                 ballot_details.voting_end = now;
             });
 
-            Self::deposit_event(RawEvent::BallotCancelled(ticker, ballot_name));
+            Self::deposit_event(RawEvent::BallotCancelled(did, ticker, ballot_name));
 
             Ok(())
         }
@@ -323,14 +323,14 @@ decl_event!(
         Balance = <T as CommonTrait>::Balance,
         Moment = <T as pallet_timestamp::Trait>::Moment,
     {
-        /// A new ballot is created (Ticker, BallotName, BallotDetails)
-        BallotCreated(Ticker, Vec<u8>, Ballot<Moment>),
+        /// A new ballot is created (caller DID, Ticker, BallotName, BallotDetails)
+        BallotCreated(IdentityId, Ticker, Vec<u8>, Ballot<Moment>),
 
-        /// A vote is cast (Ticker, BallotName, Vote)
-        VoteCast(Ticker, Vec<u8>, Vec<Balance>),
+        /// A vote is cast (caller DID, Ticker, BallotName, Vote)
+        VoteCast(IdentityId, Ticker, Vec<u8>, Vec<Balance>),
 
-        /// An existing ballot is cancelled (Ticker, BallotName)
-        BallotCancelled(Ticker, Vec<u8>),
+        /// An existing ballot is cancelled (caller DID, Ticker, BallotName)
+        BallotCancelled(IdentityId, Ticker, Vec<u8>),
     }
 );
 

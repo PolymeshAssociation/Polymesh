@@ -189,7 +189,7 @@ decl_module! {
             let dividend_id = Self::add_dividend_entry(&ticker, new_dividend)?;
 
             // Dispatch event
-            Self::deposit_event(RawEvent::DividendCreated(ticker, amount, dividend_id));
+            Self::deposit_event(RawEvent::DividendCreated(did, ticker, amount, dividend_id));
 
             Ok(())
         }
@@ -231,7 +231,7 @@ decl_module! {
 
             <Dividends<T>>::remove((ticker, dividend_id));
 
-            Self::deposit_event(RawEvent::DividendCanceled(ticker, dividend_id));
+            Self::deposit_event(RawEvent::DividendCanceled(did, ticker, dividend_id));
 
             Ok(())
         }
@@ -349,7 +349,7 @@ decl_module! {
                 Ok(())
             })?;
 
-            Self::deposit_event(RawEvent::DividendRemainingClaimed(ticker, dividend_id, entry.amount_left));
+            Self::deposit_event(RawEvent::DividendRemainingClaimed(did, ticker, dividend_id, entry.amount_left));
 
             Ok(())
         }
@@ -362,16 +362,16 @@ decl_event!(
         Balance = <T as CommonTrait>::Balance,
     {
         /// A new dividend was created (ticker, amount, dividend ID)
-        DividendCreated(Ticker, Balance, u32),
+        DividendCreated(IdentityId, Ticker, Balance, u32),
 
         /// A dividend was canceled (ticker, dividend ID)
-        DividendCanceled(Ticker, u32),
+        DividendCanceled(IdentityId, Ticker, u32),
 
         /// Dividend was paid to a user (who, ticker, dividend ID, share)
         DividendPaidOutToUser(IdentityId, Ticker, u32, Balance),
 
         /// Unclaimed dividend was claimed back (ticker, dividend ID, amount)
-        DividendRemainingClaimed(Ticker, u32, Balance),
+        DividendRemainingClaimed(IdentityId, Ticker, u32, Balance),
     }
 );
 

@@ -14,7 +14,7 @@ pub trait AcceptTransfer {
     /// # Arguments
     /// * `to_did` did of the receiver
     /// * `auth_id` Authorization id of the authorization created by current token owner
-    fn accept_token_ownership_transfer(to_did: IdentityId, auth_id: u64) -> DispatchResult;
+    fn accept_asset_ownership_transfer(to_did: IdentityId, auth_id: u64) -> DispatchResult;
 }
 
 pub trait Trait<V, U> {

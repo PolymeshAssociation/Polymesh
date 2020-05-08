@@ -8,7 +8,7 @@ use pallet_balances as balances;
 use pallet_identity as identity;
 use pallet_multisig as multisig;
 use polymesh_common_utilities::Context;
-use polymesh_primitives::{AccountKey, Signatory};
+use polymesh_primitives::{AccountKey, IdentityId, Signatory};
 
 use codec::Encode;
 use frame_support::{assert_err, assert_ok, StorageDoubleMap};
@@ -100,7 +100,7 @@ fn join_multisig() {
                 .next()
                 .unwrap()
                 .auth_id;
-
+        Context::set_current_identity::<Identity>(Some(alice_did));
         assert_ok!(MultiSig::accept_multisig_signer_as_identity(
             alice.clone(),
             alice_auth_id
@@ -110,7 +110,7 @@ fn join_multisig() {
             .next()
             .unwrap()
             .auth_id;
-
+        Context::set_current_identity::<Identity>(Some(alice_did));
         assert_ok!(MultiSig::accept_multisig_signer_as_key(
             bob.clone(),
             bob_auth_id
@@ -124,7 +124,7 @@ fn join_multisig() {
             MultiSig::ms_signers(musig_address.clone(), bob_signer),
             true
         );
-
+        Context::set_current_identity::<Identity>(None);
         assert_ok!(MultiSig::create_multisig(
             alice.clone(),
             vec![Signatory::from(alice_did), bob_signer],
@@ -135,7 +135,7 @@ fn join_multisig() {
             .next()
             .unwrap()
             .auth_id;
-
+        Context::set_current_identity::<Identity>(Some(alice_did));
         assert_err!(
             MultiSig::accept_multisig_signer_as_key(bob.clone(), bob_auth_id2),
             Error::SignerAlreadyLinked
@@ -165,7 +165,7 @@ fn change_multisig_sigs_required() {
                 .next()
                 .unwrap()
                 .auth_id;
-
+        Context::set_current_identity::<Identity>(Some(alice_did));
         assert_ok!(MultiSig::accept_multisig_signer_as_identity(
             alice.clone(),
             alice_auth_id
@@ -176,6 +176,7 @@ fn change_multisig_sigs_required() {
             .unwrap()
             .auth_id;
 
+        Context::set_current_identity::<Identity>(Some(alice_did));
         assert_ok!(MultiSig::accept_multisig_signer_as_key(
             bob.clone(),
             bob_auth_id
@@ -193,6 +194,7 @@ fn change_multisig_sigs_required() {
 
         let call = Box::new(Call::MultiSig(multisig::Call::change_sigs_required(1)));
 
+        Context::set_current_identity::<Identity>(Some(alice_did));
         assert_ok!(MultiSig::create_proposal_as_key(
             bob.clone(),
             musig_address.clone(),
@@ -201,6 +203,7 @@ fn change_multisig_sigs_required() {
 
         assert_eq!(MultiSig::ms_signs_required(musig_address.clone()), 2);
 
+        Context::set_current_identity::<Identity>(Some(alice_did));
         assert_ok!(MultiSig::approve_as_identity(
             alice.clone(),
             musig_address.clone(),
@@ -230,6 +233,8 @@ fn create_or_approve_change_multisig_sigs_required() {
                 .next()
                 .unwrap()
                 .auth_id;
+
+        Context::set_current_identity::<Identity>(Some(alice_did));
         assert_ok!(MultiSig::accept_multisig_signer_as_identity(
             alice.clone(),
             alice_auth_id
@@ -291,6 +296,7 @@ fn remove_multisig_signer() {
             .unwrap()
             .auth_id;
 
+        Context::set_current_identity::<Identity>(Some(alice_did));
         assert_ok!(MultiSig::accept_multisig_signer_as_identity(
             alice.clone(),
             alice_auth_id
@@ -389,6 +395,7 @@ fn add_multisig_signer() {
                 .unwrap()
                 .auth_id;
 
+        Context::set_current_identity::<Identity>(Some(alice_did));
         assert_ok!(MultiSig::accept_multisig_signer_as_identity(
             alice.clone(),
             alice_auth_id
@@ -460,16 +467,18 @@ fn add_multisig_signer() {
             MultiSig::ms_signers(musig_address.clone(), charlie_signer),
             true
         );
-
+        Context::set_current_identity::<Identity>(Some(IdentityId::from(999)));
         assert!(Identity::change_cdd_requirement_for_mk_rotation(root.clone(), true).is_ok());
 
+        Context::set_current_identity::<Identity>(Some(alice_did));
         assert_err!(
             MultiSig::accept_multisig_signer_as_key(bob.clone(), bob_auth_id),
             Error::ChangeNotAllowed
         );
-
+        Context::set_current_identity::<Identity>(Some(IdentityId::from(999)));
         assert!(Identity::change_cdd_requirement_for_mk_rotation(root.clone(), false).is_ok());
 
+        Context::set_current_identity::<Identity>(Some(alice_did));
         assert_ok!(MultiSig::accept_multisig_signer_as_key(
             bob.clone(),
             bob_auth_id
@@ -577,13 +586,11 @@ fn should_change_all_signers_and_sigs_required() {
                 .unwrap()
                 .authorized_by;
 
-        Context::set_current_identity::<Identity>(None);
         assert_ok!(MultiSig::accept_multisig_signer_as_identity(
             charlie,
             charlie_auth_id
         ));
 
-        Context::set_current_identity::<Identity>(None);
         assert_ok!(MultiSig::accept_multisig_signer_as_identity(
             dave,
             dave_auth_id

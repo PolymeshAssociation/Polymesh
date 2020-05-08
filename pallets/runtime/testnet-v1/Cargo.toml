@@ -131,6 +131,7 @@ std = [
 	"pallet-executive/std",
 	"pallet-finality-tracker/std",
 	"pallet-contracts-rpc-runtime-api/std",
+	"pallet-group-rpc-runtime-api/std",
 	"pallet-transaction-payment-rpc-runtime-api/std",
 	"pallet-protocol-fee-rpc-runtime-api/std",
 	"pallet-identity-rpc-runtime-api/std",
