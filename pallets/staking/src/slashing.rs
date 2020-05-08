@@ -603,7 +603,7 @@ fn do_slash<T: Trait>(
             .try_into()
             .map(|key| <identity::Module<T>>::get_identity(&key))
             .unwrap_or_default();
-        <Module<T>>::deposit_event(super::RawEvent::Slash(stash_id, stash.clone(), value));
+        <Module<T>>::deposit_event(super::RawEvent::Slashed(stash_id, stash.clone(), value));
     }
 }
 
