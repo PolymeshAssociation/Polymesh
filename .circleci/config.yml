@@ -55,7 +55,6 @@ jobs:
             --package polymesh-runtime-common
             --package pallet-staking
             --package pallet-group
-            --package pallet-im-online
             --package polymesh-primitives
             --package pallet-pips-rpc
             --package pallet-transaction-payment
@@ -65,7 +64,6 @@ jobs:
             --package polymesh-runtime-common
             --package pallet-staking
             --package pallet-group
-            --package pallet-im-online
             --package polymesh-primitives
             --package pallet-pips-rpc
             --package pallet-transaction-payment
