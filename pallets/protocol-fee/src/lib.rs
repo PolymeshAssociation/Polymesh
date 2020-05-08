@@ -2,6 +2,8 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
+use pallet_identity as identity;
+
 use codec::{Decode, Encode};
 use frame_support::{
     decl_error, decl_event, decl_module, decl_storage,
@@ -10,8 +12,12 @@ use frame_support::{
     weights::SimpleDispatchInfo,
 };
 use frame_system::{self as system, ensure_root};
-use polymesh_common_utilities::protocol_fee::{ChargeProtocolFee, ProtocolOp};
-use primitives::{traits::IdentityCurrency, PosRatio, Signatory};
+use polymesh_common_utilities::{
+    identity::Trait as IdentityTrait,
+    protocol_fee::{ChargeProtocolFee, ProtocolOp},
+    Context,
+};
+use primitives::{traits::IdentityCurrency, IdentityId, PosRatio, Signatory};
 use sp_runtime::{
     traits::{Saturating, Zero},
     PerThing, Perbill,
@@ -23,8 +29,9 @@ type NegativeImbalanceOf<T> =
     <<T as Trait>::Currency as Currency<<T as frame_system::Trait>::AccountId>>::NegativeImbalance;
 /// Either an imbalance or an error.
 type WithdrawFeeResult<T> = sp_std::result::Result<NegativeImbalanceOf<T>, DispatchError>;
+type Identity<T> = identity::Module<T>;
 
-pub trait Trait: frame_system::Trait {
+pub trait Trait: frame_system::Trait + IdentityTrait {
     type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
     /// The currency type in which fees will be paid.
     type Currency: Currency<Self::AccountId> + Send + Sync + IdentityCurrency<Self::AccountId>;
@@ -40,6 +47,8 @@ decl_error! {
         InsufficientAccountBalance,
         /// Account ID decoding failed.
         AccountIdDecode,
+        /// Missing current DID
+        MissingCurrentIdentity,
     }
 }
 
@@ -61,9 +70,11 @@ decl_storage! {
 decl_event! {
     pub enum Event<T> where Balance = BalanceOf<T> {
         /// The protocol fee of an operation.
-        FeeSet(Balance),
+        FeeSet(IdentityId, Balance),
         /// The fee coefficient.
-        CoefficientSet(PosRatio),
+        CoefficientSet(IdentityId, PosRatio),
+        /// Fee charged.
+        FeeCharged(IdentityId, Balance),
     }
 }
 
@@ -77,8 +88,11 @@ decl_module! {
         #[weight = SimpleDispatchInfo::FixedOperational(500_000)]
         pub fn change_coefficient(origin, coefficient: PosRatio) -> DispatchResult {
             ensure_root(origin)?;
+            let id = Context::current_identity::<Identity<T>>()
+                    .ok_or_else(|| Error::<T>::MissingCurrentIdentity)?;
+
             <Coefficient>::put(&coefficient);
-            Self::deposit_event(RawEvent::CoefficientSet(coefficient));
+            Self::deposit_event(RawEvent::CoefficientSet(id, coefficient));
             Ok(())
         }
 
@@ -88,8 +102,11 @@ decl_module! {
             DispatchResult
         {
             ensure_root(origin)?;
+            let id = Context::current_identity::<Identity<T>>()
+                .ok_or_else(|| Error::<T>::MissingCurrentIdentity)?;
+
             <BaseFees<T>>::insert(op, &base_fee);
-            Self::deposit_event(RawEvent::FeeSet(base_fee));
+            Self::deposit_event(RawEvent::FeeSet(id, base_fee));
             Ok(())
         }
 
@@ -116,6 +133,9 @@ impl<T: Trait> Module<T> {
         // Pay the fee to the intended recipients depending on the implementation of
         // `OnProtocolFeePayment`.
         T::OnProtocolFeePayment::on_unbalanced(imbalance);
+        let id = Context::current_identity::<Identity<T>>()
+            .ok_or_else(|| Error::<T>::MissingCurrentIdentity)?;
+        Self::deposit_event(RawEvent::FeeCharged(id, fee));
         Ok(())
     }
 

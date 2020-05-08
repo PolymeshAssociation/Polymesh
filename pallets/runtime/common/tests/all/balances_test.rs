@@ -326,9 +326,9 @@ fn transfer_with_memo() {
 
 fn transfer_with_memo_we() {
     let alice = AccountKeyring::Alice.public();
-    let _alice_id = register_keyring_account(AccountKeyring::Alice).unwrap();
+    let alice_id = register_keyring_account(AccountKeyring::Alice).unwrap();
     let bob = AccountKeyring::Bob.public();
-    let _bob_id = register_keyring_account(AccountKeyring::Bob).unwrap();
+    let bob_id = register_keyring_account(AccountKeyring::Bob).unwrap();
 
     let memo_1 = Some(Memo([7u8; 32]));
     assert_ok!(Balances::transfer_with_memo(
@@ -364,7 +364,9 @@ fn transfer_with_memo_we() {
         EventRecord {
             phase: Phase::ApplyExtrinsic(0),
             event: EventTest::balances(BalancesRawEvent::TransferWithMemo(
+                Some(alice_id),
                 alice.clone(),
+                Some(bob_id),
                 bob.clone(),
                 100,
                 memo_1.unwrap(),
@@ -374,7 +376,9 @@ fn transfer_with_memo_we() {
         EventRecord {
             phase: Phase::ApplyExtrinsic(0),
             event: EventTest::balances(BalancesRawEvent::TransferWithMemo(
+                Some(alice_id),
                 alice,
+                Some(bob_id),
                 bob,
                 200,
                 memo_2.unwrap(),
@@ -383,7 +387,13 @@ fn transfer_with_memo_we() {
         },
         EventRecord {
             phase: Phase::ApplyExtrinsic(0),
-            event: EventTest::balances(BalancesRawEvent::Transfer(alice, bob, 300)),
+            event: EventTest::balances(BalancesRawEvent::Transfer(
+                Some(alice_id),
+                alice,
+                Some(bob_id),
+                bob,
+                300,
+            )),
             topics: vec![],
         },
     ];

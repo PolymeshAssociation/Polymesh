@@ -3209,7 +3209,6 @@ dependencies = [
 name = "pallet-group-rpc-runtime-api"
 version = "2.0.0"
 dependencies = [
- "frame-support",
  "parity-scale-codec",
  "polymesh-common-utilities",
  "polymesh-primitives",
@@ -3229,7 +3228,6 @@ dependencies = [
  "frame-system",
  "pallet-balances 0.1.0",
  "pallet-identity-rpc-runtime-api",
- "pallet-protocol-fee",
  "pallet-timestamp",
  "pallet-transaction-payment",
  "parity-scale-codec",
@@ -3436,6 +3434,7 @@ version = "0.1.0"
 dependencies = [
  "frame-support",
  "frame-system",
+ "pallet-identity",
  "parity-scale-codec",
  "polymesh-common-utilities",
  "polymesh-primitives",

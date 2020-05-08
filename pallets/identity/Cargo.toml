@@ -11,7 +11,7 @@ polymesh-primitives = { package = "polymesh-primitives", path = "../../primitive
 
 # Out pallets
 pallet-balances = { package = "pallet-balances", path = "../balances", default-features = false, optional = true }
-pallet-protocol-fee = { package = "pallet-protocol-fee", path = "../protocol-fee", default-features = false }
+# pallet-protocol-fee = { package = "pallet-protocol-fee", path = "../protocol-fee", default-features = false }
 pallet-transaction-payment = { package = "pallet-transaction-payment", path = "../transaction-payment", default-features = false}
 
 # RPC

@@ -29,7 +29,7 @@
 //! - **sender rules:** These are rules that the sender of security tokens must follow
 //! - **receiver rules:** These are rules that the receiver of security tokens must follow
 //! - **Valid transfer:** For a transfer to be valid,
-//!     All reciever and sender rules of any of the active asset rule must be followed.
+//!     All receiver and sender rules of any of the active asset rule must be followed.
 //!
 //! ## Interface
 //!
@@ -37,7 +37,7 @@
 //!
 //! - `add_active_rule` - Adds a new asset rule to ticker's active rules
 //! - `remove_active_rule` - Removes an asset rule from ticker's active rules
-//! - `reset_active_rules` - Reset(remove) all active rules of a tikcer
+//! - `reset_active_rules` - Reset(remove) all active rules of a ticker
 //!
 //! ### Public Functions
 //!
@@ -124,7 +124,9 @@ decl_error! {
         /// Rule id doesn't exist
         InvalidRuleId,
         /// Issuer exist but trying to add it again
-        IncorrectOperationOnTrustedIssuer
+        IncorrectOperationOnTrustedIssuer,
+        /// Missing current DID
+        MissingCurrentIdentity
     }
 }
 
@@ -160,7 +162,7 @@ decl_module! {
             <AssetRulesMap>::mutate(ticker, |old_asset_rules| {
                 if !old_asset_rules.rules.iter().position(|rule| rule.sender_rules == new_rule.sender_rules && rule.receiver_rules == new_rule.receiver_rules).is_some() {
                     old_asset_rules.rules.push(new_rule.clone());
-                    Self::deposit_event(Event::NewAssetRule(ticker, new_rule));
+                    Self::deposit_event(Event::NewAssetRuleCreated(did, ticker, new_rule));
                 }
             });
 
@@ -184,7 +186,7 @@ decl_module! {
                 old_asset_rules.rules.retain( |rule| { rule.rule_id != asset_rule_id });
             });
 
-            Self::deposit_event(Event::RemoveAssetRule(ticker, asset_rule_id));
+            Self::deposit_event(Event::AssetRuleRemoved(did, ticker, asset_rule_id));
 
             Ok(())
         }
@@ -202,7 +204,7 @@ decl_module! {
 
             <AssetRulesMap>::remove(ticker);
 
-            Self::deposit_event(Event::ResetAssetRules(ticker));
+            Self::deposit_event(Event::AssetRulesReset(did, ticker));
 
             Ok(())
         }
@@ -215,8 +217,8 @@ decl_module! {
         #[weight = SimpleDispatchInfo::FixedNormal(100_000)]
         pub fn pause_asset_rules(origin, ticker: Ticker) -> DispatchResult {
             Self::pause_resume_rules(origin, ticker, true)?;
-
-            Self::deposit_event(Event::PauseAssetRules(ticker));
+            let current_did = Context::current_identity::<Identity<T>>().ok_or_else(|| Error::<T>::MissingCurrentIdentity)?;
+            Self::deposit_event(Event::AssetRulesPaused(current_did, ticker));
             Ok(())
         }
 
@@ -228,8 +230,8 @@ decl_module! {
         #[weight = SimpleDispatchInfo::FixedNormal(100_000)]
         pub fn resume_asset_rules(origin, ticker: Ticker) -> DispatchResult {
             Self::pause_resume_rules(origin, ticker, false)?;
-
-            Self::deposit_event(Event::ResumeAssetRules(ticker));
+            let current_did = Context::current_identity::<Identity<T>>().ok_or_else(|| Error::<T>::MissingCurrentIdentity)?;
+            Self::deposit_event(Event::AssetRulesResumed(current_did, ticker));
             Ok(())
         }
 
@@ -318,7 +320,7 @@ decl_module! {
 
             ensure!(Self::is_owner(&ticker, did), Error::<T>::Unauthorized);
             ensure!(Self::get_latest_rule_id(ticker) >= asset_rule.rule_id, Error::<T>::InvalidRuleId);
-            Self::unsafe_change_asset_rule(ticker, asset_rule);
+            Self::unsafe_change_asset_rule(did, ticker, asset_rule);
             Ok(())
         }
 
@@ -350,7 +352,7 @@ decl_module! {
             ensure!(asset_rules.iter().any(|rule| latest_rule_id >= rule.rule_id), Error::<T>::InvalidRuleId);
 
             asset_rules.into_iter().for_each(|asset_rule| {
-                Self::unsafe_change_asset_rule(ticker, asset_rule);
+                Self::unsafe_change_asset_rule(did, ticker, asset_rule);
             });
             Ok(())
         }
@@ -359,24 +361,30 @@ decl_module! {
 
 decl_event!(
     pub enum Event {
-        /// Emitted when new asset rule is created
-        /// (Ticker, AssetRule)
-        NewAssetRule(Ticker, AssetTransferRule),
-        /// Emitted when asset rule is removed
-        /// (Ticker, Asset_rule_id)
-        RemoveAssetRule(Ticker, u32),
-        /// Emitted when all asset rules of a ticker get reset
-        ResetAssetRules(Ticker),
+        /// Emitted when new asset rule is created.
+        /// (caller DID, Ticker, AssetRule).
+        NewAssetRuleCreated(IdentityId, Ticker, AssetTransferRule),
+        /// Emitted when asset rule is removed.
+        /// (caller DID, Ticker, Asset_rule_id).
+        AssetRuleRemoved(IdentityId, Ticker, u32),
+        /// Emitted when all asset rules of a ticker get reset.
+        /// (caller DID, Ticker).
+        AssetRulesReset(IdentityId, Ticker),
         /// Emitted when asset rules for a given ticker gets resume.
-        ResumeAssetRules(Ticker),
+        /// (caller DID, Ticker).
+        AssetRulesResumed(IdentityId, Ticker),
         /// Emitted when asset rules for a given ticker gets paused.
-        PauseAssetRules(Ticker),
-        /// Emitted when asset rule get modified/change
-        ChangeAssetRule(Ticker, AssetTransferRule),
-        /// Emitted when default claim issuer list for a given ticker gets added
-        AddTrustedDefaultClaimIssuer(Ticker, IdentityId),
-        /// Emitted when default claim issuer list for a given ticker get removed
-        RemoveTrustedDefaultClaimIssuer(Ticker, IdentityId),
+        /// (caller DID, Ticker).
+        AssetRulesPaused(IdentityId, Ticker),
+        /// Emitted when asset rule get modified/change.
+        /// (caller DID, Ticker, AssetTransferRule).
+        AssetRuleChanged(IdentityId, Ticker, AssetTransferRule),
+        /// Emitted when default claim issuer list for a given ticker gets added.
+        /// (caller DID, Ticker, New Claim issuer DID).
+        TrustedDefaultClaimIssuerAdded(IdentityId, Ticker, IdentityId),
+        /// Emitted when default claim issuer list for a given ticker get removed.
+        /// (caller DID, Ticker, Removed Claim issuer DID).
+        TrustedDefaultClaimIssuerRemoved(IdentityId, Ticker, IdentityId),
     }
 );
 
@@ -447,6 +455,7 @@ impl<T: Trait> Module<T> {
     }
 
     fn unsafe_modify_default_trusted_claim_issuer(
+        caller_did: IdentityId,
         ticker: Ticker,
         trusted_issuer: IdentityId,
         is_add_call: bool,
@@ -455,14 +464,19 @@ impl<T: Trait> Module<T> {
             if !is_add_call {
                 // remove the old one
                 identity_list.retain(|&ti| ti != trusted_issuer);
-                Self::deposit_event(Event::RemoveTrustedDefaultClaimIssuer(
+                Self::deposit_event(Event::TrustedDefaultClaimIssuerRemoved(
+                    caller_did,
                     ticker,
                     trusted_issuer,
                 ));
             } else {
                 // New trusted issuer addition case
                 identity_list.push(trusted_issuer);
-                Self::deposit_event(Event::AddTrustedDefaultClaimIssuer(ticker, trusted_issuer));
+                Self::deposit_event(Event::TrustedDefaultClaimIssuerAdded(
+                    caller_did,
+                    ticker,
+                    trusted_issuer,
+                ));
             }
         });
     }
@@ -486,7 +500,7 @@ impl<T: Trait> Module<T> {
             Self::trusted_claim_issuer(&ticker).contains(&trusted_issuer) == !is_add_call,
             Error::<T>::IncorrectOperationOnTrustedIssuer
         );
-        Self::unsafe_modify_default_trusted_claim_issuer(ticker, trusted_issuer, is_add_call);
+        Self::unsafe_modify_default_trusted_claim_issuer(did, ticker, trusted_issuer, is_add_call);
         Ok(())
     }
 
@@ -519,12 +533,21 @@ impl<T: Trait> Module<T> {
 
         // iterate all the trusted issuer and modify the data of those.
         trusted_issuers.into_iter().for_each(|default_issuer| {
-            Self::unsafe_modify_default_trusted_claim_issuer(ticker, default_issuer, is_add_call);
+            Self::unsafe_modify_default_trusted_claim_issuer(
+                did,
+                ticker,
+                default_issuer,
+                is_add_call,
+            );
         });
         Ok(())
     }
 
-    fn unsafe_change_asset_rule(ticker: Ticker, new_asset_rule: AssetTransferRule) {
+    fn unsafe_change_asset_rule(
+        caller_did: IdentityId,
+        ticker: Ticker,
+        new_asset_rule: AssetTransferRule,
+    ) {
         <AssetRulesMap>::mutate(&ticker, |asset_rules| {
             if let Some(index) = asset_rules
                 .rules
@@ -534,7 +557,7 @@ impl<T: Trait> Module<T> {
                 asset_rules.rules[index] = new_asset_rule.clone();
             }
         });
-        Self::deposit_event(Event::ChangeAssetRule(ticker, new_asset_rule));
+        Self::deposit_event(Event::AssetRuleChanged(caller_did, ticker, new_asset_rule));
     }
 
     // TODO: Cache the latest_rule_id to avoid loading of all asset_rules in memory.

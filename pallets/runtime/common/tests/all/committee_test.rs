@@ -4,20 +4,22 @@ use super::{
     },
     ExtBuilder,
 };
+use frame_support::{assert_err, assert_noop, assert_ok, dispatch::DispatchError, Hashable};
+use frame_system::{EventRecord, Phase};
 use pallet_committee::{self as committee, PolymeshVotes, RawEvent as CommitteeRawEvent};
 use pallet_group::{self as group};
 use pallet_identity as identity;
-
-use frame_support::{assert_err, assert_noop, assert_ok, dispatch::DispatchError, Hashable};
-use frame_system::{EventRecord, Phase};
-use test_client::AccountKeyring;
-
+use polymesh_common_utilities::Context;
+use polymesh_primitives::IdentityId;
 use sp_core::H256;
 use sp_runtime::traits::{BlakeTwo256, Hash};
+use std::convert::TryFrom;
+use test_client::AccountKeyring;
 
 type Committee = committee::Module<TestStorage, committee::Instance1>;
 type CommitteeGroup = group::Module<TestStorage, group::Instance1>;
 type System = frame_system::Module<TestStorage>;
+type Identity = identity::Module<TestStorage>;
 type Origin = <TestStorage as frame_system::Trait>::Origin;
 
 #[test]
@@ -58,10 +60,14 @@ fn propose_works_we() {
     let (_, bob_did) = make_account(bob_acc).unwrap();
 
     let root = Origin::system(frame_system::RawOrigin::Root);
+    // Assigning random DID but in Production root will have DID
+    Context::set_current_identity::<Identity>(Some(IdentityId::from(999)));
     CommitteeGroup::reset_members(root, vec![alice_did, bob_did]).unwrap();
+    Context::set_current_identity::<Identity>(None);
 
     let proposal = make_proposal(42);
     let hash = proposal.blake2_256().into();
+
     assert_ok!(Committee::propose(
         alice_signer.clone(),
         Box::new(proposal.clone())
@@ -94,7 +100,10 @@ fn single_member_committee_works_we() {
     let (alice_signer, alice_did) = make_account(alice_acc).unwrap();
 
     let root = Origin::system(frame_system::RawOrigin::Root);
+    // Assigning random DID but in Production root will have DID
+    Context::set_current_identity::<Identity>(Some(IdentityId::from(999)));
     CommitteeGroup::reset_members(root, vec![alice_did]).unwrap();
+    Context::set_current_identity::<Identity>(None);
 
     // Proposal is executed if committee is comprised of a single member
     let proposal = make_proposal(42);
@@ -107,7 +116,11 @@ fn single_member_committee_works_we() {
 
     let expected_event = EventRecord {
         phase: Phase::ApplyExtrinsic(0),
-        event: EventTest::committee_Instance1(CommitteeRawEvent::Executed(hash.clone(), false)),
+        event: EventTest::committee_Instance1(CommitteeRawEvent::Executed(
+            alice_did,
+            hash.clone(),
+            false,
+        )),
         topics: vec![],
     };
 
@@ -150,7 +163,10 @@ fn preventing_voting_from_non_members_works_we() {
     let bob_acc = AccountKeyring::Bob.public();
     let (bob_signer, _) = make_account(bob_acc).unwrap();
 
+    // Assigning random DID but in Production root will have DID
+    Context::set_current_identity::<Identity>(Some(IdentityId::from(999)));
     CommitteeGroup::reset_members(root, vec![alice_did]).unwrap();
+    Context::set_current_identity::<Identity>(None);
 
     let proposal = make_proposal(42);
     let hash: H256 = proposal.blake2_256().into();
@@ -180,7 +196,10 @@ fn motions_ignoring_bad_index_vote_works_we() {
     let bob_acc = AccountKeyring::Bob.public();
     let (bob_signer, bob_did) = make_account(bob_acc).unwrap();
 
+    // Assigning random DID but in Production root will have DID
+    Context::set_current_identity::<Identity>(Some(IdentityId::from(999)));
     CommitteeGroup::reset_members(root, vec![alice_did, bob_did]).unwrap();
+    Context::set_current_identity::<Identity>(None);
 
     let proposal = make_proposal(42);
     let hash: H256 = proposal.blake2_256().into();
@@ -212,7 +231,10 @@ fn motions_revoting_works_we() {
     let charlie_acc = AccountKeyring::Charlie.public();
     let (_charlie_signer, charlie_did) = make_account(charlie_acc).unwrap();
 
+    // Assigning random DID but in Production root will have DID
+    Context::set_current_identity::<Identity>(Some(IdentityId::from(999)));
     CommitteeGroup::reset_members(root, vec![alice_did, bob_did, charlie_did]).unwrap();
+    Context::set_current_identity::<Identity>(None);
 
     let proposal = make_proposal(42);
     let hash: H256 = proposal.blake2_256().into();
@@ -272,7 +294,10 @@ fn voting_works_we() {
     let charlie_acc = AccountKeyring::Charlie.public();
     let (charlie_signer, charlie_did) = make_account(charlie_acc).unwrap();
 
+    // Assigning random DID but in Production root will have DID
+    Context::set_current_identity::<Identity>(Some(IdentityId::from(999)));
     CommitteeGroup::reset_members(root, vec![alice_did, bob_did, charlie_did]).unwrap();
+    Context::set_current_identity::<Identity>(None);
 
     let proposal = make_proposal(69);
     let hash = BlakeTwo256::hash_of(&proposal);
@@ -313,6 +338,8 @@ fn changing_vote_threshold_works() {
 
 fn changing_vote_threshold_works_we() {
     assert_eq!(Committee::vote_threshold(), (1, 1));
+    // Assigning random DID but in Production root will have DID
+    Context::set_current_identity::<Identity>(Some(IdentityId::from(999)));
     assert_ok!(Committee::set_vote_threshold(
         Origin::system(frame_system::RawOrigin::Root),
         4,
@@ -344,14 +371,21 @@ fn rage_quit_we() {
     let committee = vec![alice_did, bob_did, charlie_did, dave_did];
 
     let root = Origin::system(frame_system::RawOrigin::Root);
+    // Assigning random DID but in Production root will have DID
+    Context::set_current_identity::<Identity>(Some(IdentityId::from(999)));
     CommitteeGroup::reset_members(root.clone(), committee).unwrap();
+    // Assigning random DID but in Production root will have DID
+    Context::set_current_identity::<Identity>(None);
 
+    assert_ok!(u32::try_from((Committee::members()).len()), 4);
     // Ferdie is NOT a member
     assert_eq!(Committee::is_member(&ferdie_did), false);
+    Context::set_current_identity::<Identity>(Some(ferdie_did));
     assert_err!(
         CommitteeGroup::abdicate_membership(ferdie_signer),
         group::Error::<TestStorage, group::Instance1>::NoSuchMember
     );
+    Context::set_current_identity::<Identity>(None);
 
     // Make a proposal... only Alice & Bob approve it.
     let proposal = make_proposal(42);
@@ -376,9 +410,13 @@ fn rage_quit_we() {
     );
 
     // Bob quits, its vote should be removed.
+    assert_ok!(u32::try_from((Committee::members()).len()), 4);
     assert_eq!(Committee::is_member(&bob_did), true);
+    Context::set_current_identity::<Identity>(Some(bob_did));
     assert_ok!(CommitteeGroup::abdicate_membership(bob_signer.clone()));
+    Context::set_current_identity::<Identity>(None);
     assert_eq!(Committee::is_member(&bob_did), false);
+    assert_ok!(u32::try_from((Committee::members()).len()), 3);
     let block_number = System::block_number();
     assert_eq!(
         Committee::voting(&proposal_hash),
@@ -393,7 +431,10 @@ fn rage_quit_we() {
     // Charlie quits, its vote should be removed and
     // propose should be accepted.
     assert_eq!(Committee::is_member(&charlie_did), true);
+    Context::set_current_identity::<Identity>(Some(charlie_did));
     assert_ok!(CommitteeGroup::abdicate_membership(charlie_signer.clone()));
+    Context::set_current_identity::<Identity>(None);
+    assert_ok!(u32::try_from((Committee::members()).len()), 2);
     assert_eq!(Committee::is_member(&charlie_did), false);
     // TODO: Only one member, voting should be approved.
     let block_number = System::block_number();
@@ -407,9 +448,13 @@ fn rage_quit_we() {
         })
     );
 
+    // Assigning random DID but in Production root will have DID
+    Context::set_current_identity::<Identity>(Some(IdentityId::from(999)));
     let committee = vec![alice_did, bob_did, charlie_did];
     CommitteeGroup::reset_members(root, committee).unwrap();
+    Context::set_current_identity::<Identity>(Some(bob_did));
     assert_ok!(Committee::vote(bob_signer.clone(), proposal_hash, 0, true));
+    Context::set_current_identity::<Identity>(None);
     assert_eq!(Committee::voting(&proposal_hash), None);
 
     // Alice should not quit because she is the last member.
@@ -443,11 +488,15 @@ fn release_coordinator_we() {
 
     assert_eq!(Committee::release_coordinator(), None);
 
+    Context::set_current_identity::<Identity>(Some(alice_id));
     assert_err!(
         Committee::set_release_coordinator(alice.clone(), bob_id),
         DispatchError::BadOrigin
     );
+    Context::set_current_identity::<Identity>(None);
 
+    // Assigning the random DID to the Root, In Production Root has valid DID
+    Context::set_current_identity::<Identity>(Some(IdentityId::from(999)));
     assert_err!(
         Committee::set_release_coordinator(root.clone(), charlie_id),
         committee::Error::<TestStorage, committee::Instance1>::MemberNotFound
@@ -457,9 +506,12 @@ fn release_coordinator_we() {
     assert_eq!(Committee::release_coordinator(), Some(bob_id));
 
     // Bob abdicates
+    Context::set_current_identity::<Identity>(Some(bob_id));
     assert_ok!(CommitteeGroup::abdicate_membership(bob));
     assert_eq!(Committee::release_coordinator(), None);
 
+    // Assigning the random DID to the Root, In Production Root has valid DID
+    Context::set_current_identity::<Identity>(Some(IdentityId::from(999)));
     assert_ok!(Committee::set_release_coordinator(root.clone(), alice_id));
     assert_eq!(Committee::release_coordinator(), Some(alice_id));
 }

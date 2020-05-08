@@ -67,7 +67,7 @@ decl_module! {
             ensure!(is_exempted != exempted, Error::<T>::NoChange);
 
             <ExemptionList>::insert(&ticker_asset_holder_did, exempted);
-            Self::deposit_event(Event::ModifyExemptionList(ticker, _tm, asset_holder_did, exempted));
+            Self::deposit_event(Event::ExemptionListModified(did, ticker, _tm, asset_holder_did, exempted));
 
             Ok(())
         }
@@ -76,7 +76,7 @@ decl_module! {
 
 decl_event!(
     pub enum Event {
-        ModifyExemptionList(Ticker, u16, IdentityId, bool),
+        ExemptionListModified(IdentityId, Ticker, u16, IdentityId, bool),
     }
 );
 

@@ -61,7 +61,7 @@ use polymesh_common_utilities::{
     identity::{IdentityTrait, Trait as IdentityModuleTrait},
     Context, SystematicIssuers,
 };
-use polymesh_primitives::{AccountKey, IdentityId, Signatory};
+use polymesh_primitives::{AccountKey, IdentityId};
 use sp_core::u32_trait::Value as U32;
 use sp_runtime::traits::{EnsureOrigin, Hash, Zero};
 use sp_std::{convert::TryFrom, prelude::*, vec};
@@ -145,24 +145,30 @@ decl_event!(
     pub enum Event<T, I> where
         <T as frame_system::Trait>::Hash,
     {
-        /// A motion (given hash) has been proposed (by given account) with a threshold (given
-        /// `MemberCount`).
+        /// A motion (given hash) has been proposed (by given account) with a threshold (given `MemberCount`).
+        /// caller DID, ProposalIndex, Proposal hash.
         Proposed(IdentityId, ProposalIndex, Hash),
         /// A motion (given hash) has been voted on by given account, leaving
         /// a tally (yes votes, no votes and total seats given respectively as `MemberCount`).
-        Voted(IdentityId, Hash, bool, MemberCount, MemberCount, MemberCount),
+        /// caller DID, Proposal hash, yay vote count, nay vote count, total seats.
+        Voted(IdentityId, Hash, MemberCount, MemberCount, MemberCount),
         /// A motion was approved by the required threshold with the following
         /// tally (yes votes, no votes and total seats given respectively as `MemberCount`).
-        Approved(Hash, MemberCount, MemberCount, MemberCount),
+        /// caller DID, Proposal hash, yay vote count, nay vote count, total seats.
+        Approved(IdentityId, Hash, MemberCount, MemberCount, MemberCount),
         /// A motion was rejected by the required threshold with the following
         /// tally (yes votes, no votes and total seats given respectively as `MemberCount`).
-        Rejected(Hash, MemberCount, MemberCount, MemberCount),
+        /// caller DID, Proposal hash, yay vote count, nay vote count, total seats.
+        Rejected(IdentityId, Hash, MemberCount, MemberCount, MemberCount),
         /// A motion was executed; `bool` is true if returned without error.
-        Executed(Hash, bool),
+        /// caller DID, Proposal hash, status of proposal dispatch.
+        Executed(IdentityId, Hash, bool),
         /// A proposal was closed after its duration was up.
-        Closed(Hash, MemberCount, MemberCount),
+        /// caller DID, Proposal hash, yay vote count, nay vote count.
+        Closed(IdentityId, Hash, MemberCount, MemberCount),
         /// Release coordinator has been updated.
-        ReleaseCoordinatorUpdated(Option<IdentityId>),
+        /// caller DID, DID of Release coordinator.
+        ReleaseCoordinatorUpdated(IdentityId, Option<IdentityId>),
     }
 );
 
@@ -176,8 +182,6 @@ decl_error! {
         MemberNotFound,
         /// Last member of the committee can not quit.
         LastMemberCannotQuit,
-        /// The sender must be a signing key for the DID.
-        SenderMustBeSigningKeyForDid,
         /// The proposer or voter is not a committee member.
         BadOrigin,
         /// No such proposal.
@@ -191,7 +195,9 @@ decl_error! {
         /// The close call is made too early, before the end of the voting.
         TooEarly,
         /// When MotionDuration is set to 0
-        NotAllowed
+        NotAllowed,
+        /// Missing current DID
+        MissingCurrentIdentity
     }
 }
 
@@ -205,7 +211,7 @@ decl_module! {
         fn deposit_event() = default;
 
         /// Change the vote threshold the determines the winning proposal. For e.g., for a simple
-        /// majority use (1, 2) which represents the inequation ">= 1/2"
+        /// majority use (1, 2) which represents the in-equation ">= 1/2"
         ///
         /// # Arguments
         /// * `match_criteria` One of {AtLeast, MoreThan}
@@ -215,7 +221,7 @@ decl_module! {
         pub fn set_vote_threshold(origin, n: u32, d: u32) {
             T::CommitteeOrigin::ensure_origin(origin)?;
 
-            // Proportion must be a nrational number
+            // Proportion must be a rational number
             ensure!(d > 0 && n <= d, Error::<T, I>::InvalidProportion);
 
             <VoteThreshold<I>>::put((n, d));
@@ -229,13 +235,6 @@ decl_module! {
         pub fn propose(origin, proposal: Box<<T as Trait<I>>::Proposal>) {
             let who_key = AccountKey::try_from(ensure_signed(origin)?.encode())?;
             let did = Context::current_identity_or::<Identity<T>>(&who_key)?;
-            let signer = Signatory::AccountKey(who_key);
-
-            // Ensure sender can sign for the given identity
-            ensure!(
-                <identity::Module<T>>::is_signer_authorized(did, &signer),
-                Error::<T, I>::SenderMustBeSigningKeyForDid
-            );
 
             // Only committee members can propose
             ensure!(Self::is_member(&did), Error::<T, I>::BadOrigin);
@@ -248,7 +247,7 @@ decl_module! {
             let seats = Self::members().len() as MemberCount;
             if seats < 2 {
                 let ok = proposal.dispatch(RawOrigin::Members(1, seats).into()).is_ok();
-                Self::deposit_event(RawEvent::Executed(proposal_hash, ok));
+                Self::deposit_event(RawEvent::Executed(did, proposal_hash, ok));
             } else {
                 let index = Self::proposal_count();
                 <ProposalCount<I>>::mutate(|i| *i += 1);
@@ -272,13 +271,6 @@ decl_module! {
         pub fn vote(origin, proposal: T::Hash, #[compact] index: ProposalIndex, approve: bool) -> DispatchResult {
             let who_key = AccountKey::try_from(ensure_signed(origin)?.encode())?;
             let did = Context::current_identity_or::<Identity<T>>(&who_key)?;
-            let signer = Signatory::AccountKey(who_key);
-
-            // Ensure sender can sign for the given identity
-            ensure!(
-                <identity::Module<T>>::is_signer_authorized(did, &signer),
-                Error::<T, I>::SenderMustBeSigningKeyForDid
-            );
 
             // Only committee members can vote
             ensure!(Self::is_member(&did), Error::<T, I>::BadOrigin);
@@ -304,8 +296,11 @@ decl_module! {
                     voting.ayes.swap_remove(pos);
                 }
             }
+            let yes_votes = voting.ayes.len() as MemberCount;
+            let no_votes = voting.nays.len() as MemberCount;
 
             <Voting<T, I>>::insert(&proposal, voting);
+            Self::deposit_event(RawEvent::Voted(did, T::Hashing::hash_of(&proposal), yes_votes, no_votes, Self::members().len() as MemberCount));
             Self::check_proposal_threshold(proposal);
             Ok(())
         }
@@ -325,7 +320,8 @@ decl_module! {
         ///   - `L` is the encoded length of `proposal` preimage.
         #[weight = SimpleDispatchInfo::FixedOperational(2_000_000)]
         fn close(origin, proposal: T::Hash, #[compact] index: ProposalIndex) {
-            let _ = ensure_signed(origin)?;
+            let who_key = AccountKey::try_from(ensure_signed(origin)?.encode())?;
+            let did = Context::current_identity_or::<Identity<T>>(&who_key)?;
 
             let voting = Self::voting(&proposal).ok_or(Error::<T, I>::NoSuchProposal)?;
             // POLYMESH-NOTE- Change specific to Polymesh
@@ -348,7 +344,7 @@ decl_module! {
                 false => no_votes += abstentions,
             }
 
-            Self::deposit_event(RawEvent::Closed(proposal, yes_votes, no_votes));
+            Self::deposit_event(RawEvent::Closed(did, proposal, yes_votes, no_votes));
             let threshold = <VoteThreshold<I>>::get();
 
             let approved = Self::is_threshold_satisfied(yes_votes, seats, threshold);
@@ -368,7 +364,8 @@ decl_module! {
             ensure!( Self::members().contains(&id), Error::<T, I>::MemberNotFound);
 
             <ReleaseCoordinator<I>>::put(id);
-            Self::deposit_event(RawEvent::ReleaseCoordinatorUpdated(Some(id)));
+            let caller_did = Context::current_identity::<Identity<T>>().ok_or_else(|| Error::<T, I>::MissingCurrentIdentity)?;
+            Self::deposit_event(RawEvent::ReleaseCoordinatorUpdated(caller_did, Some(id)));
         }
     }
 }
@@ -448,18 +445,31 @@ impl<T: Trait<I>, I: Instance> Module<T, I> {
         no_votes: MemberCount,
         proposal: T::Hash,
     ) {
+        let current_did = Context::current_identity::<Identity<T>>().unwrap_or_default();
         if approved {
-            Self::deposit_event(RawEvent::Approved(proposal, yes_votes, no_votes, seats));
+            Self::deposit_event(RawEvent::Approved(
+                current_did,
+                proposal,
+                yes_votes,
+                no_votes,
+                seats,
+            ));
 
             // execute motion, assuming it exists.
             if let Some(p) = <ProposalOf<T, I>>::take(&proposal) {
                 let origin = RawOrigin::Members(yes_votes, seats).into();
                 let ok = p.dispatch(origin).is_ok();
-                Self::deposit_event(RawEvent::Executed(proposal, ok));
+                Self::deposit_event(RawEvent::Executed(current_did, proposal, ok));
             }
         } else {
             // rejected
-            Self::deposit_event(RawEvent::Rejected(proposal, yes_votes, no_votes, seats));
+            Self::deposit_event(RawEvent::Rejected(
+                current_did,
+                proposal,
+                yes_votes,
+                no_votes,
+                seats,
+            ));
         }
 
         // remove vote
@@ -515,7 +525,10 @@ impl<T: Trait<I>, I: Instance> ChangeMembers<IdentityId> for Module<T, I> {
         if let Some(curr_rc) = Self::release_coordinator() {
             if outgoing.contains(&curr_rc) {
                 <ReleaseCoordinator<I>>::kill();
-                Self::deposit_event(RawEvent::ReleaseCoordinatorUpdated(None));
+                Self::deposit_event(RawEvent::ReleaseCoordinatorUpdated(
+                    Context::current_identity::<Identity<T>>().unwrap_or_default(),
+                    None,
+                ));
             }
         }
 

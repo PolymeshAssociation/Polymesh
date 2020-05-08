@@ -143,6 +143,9 @@ vergen = "3.1.0"
 
 [features]
 default = []
+default_identity = [
+	"polymesh-common-utilities/default_identity"
+]
 runtime-benchmarks = [
     "linregress",
     "polymesh-runtime-common/runtime-benchmarks",

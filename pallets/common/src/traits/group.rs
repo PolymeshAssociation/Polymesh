@@ -96,15 +96,20 @@ decl_event!(
     <T as Trait<I>>::Event,
     {
         /// The given member was added; see the transaction for who.
-        MemberAdded(IdentityId),
+        /// caller DID, New member DID.
+        MemberAdded(IdentityId, IdentityId),
         /// The given member was removed; see the transaction for who.
-        MemberRemoved(IdentityId),
+        /// caller DID, member DID that get removed.
+        MemberRemoved(IdentityId, IdentityId),
         /// The given member has been revoked at specific time-stamp.
-        MemberRevoked(IdentityId),
+        /// caller DID, member DID that get revoked.
+        MemberRevoked(IdentityId, IdentityId),
         /// Two members were swapped; see the transaction for who.
-        MembersSwapped(IdentityId, IdentityId),
+        /// caller DID, Removed DID, New add DID.
+        MembersSwapped(IdentityId, IdentityId, IdentityId),
         /// The membership was reset; see the transaction for who the new set is.
-        MembersReset(Vec<IdentityId>),
+        /// caller DID, List of new members.
+        MembersReset(IdentityId, Vec<IdentityId>),
         /// Phantom member, never used.
         Dummy(sp_std::marker::PhantomData<(AccountId, Event)>),
     }

@@ -102,84 +102,103 @@ decl_event!(
         Moment = <T as pallet_timestamp::Trait>::Moment,
     {
         /// DID, master key account ID, signing keys
-        NewDid(IdentityId, AccountId, Vec<SigningItem>),
+        DidCreated(IdentityId, AccountId, Vec<SigningItem>),
 
         /// DID, new keys
-        NewSigningItems(IdentityId, Vec<SigningItem>),
+        SigningItemsAdded(IdentityId, Vec<SigningItem>),
 
         /// DID, the keys that got removed
-        RevokedSigningItems(IdentityId, Vec<Signatory>),
+        SigningItemsRemoved(IdentityId, Vec<Signatory>),
 
         /// DID, updated signing key, previous permissions
         SigningPermissionsUpdated(IdentityId, SigningItem, Vec<Permission>),
 
+
         /// DID, old master key account ID, new key
-        NewMasterKey(IdentityId, AccountId, AccountKey),
-
-        /// DID, claim issuer DID
-        NewClaimIssuer(IdentityId, IdentityId),
-
-        /// DID, removed claim issuer DID
-        RemovedClaimIssuer(IdentityId, IdentityId),
+        MasterKeyUpdated(IdentityId, AccountKey, AccountKey),
 
         /// DID, claims
-        NewClaim(IdentityId, IdentityClaim),
+        ClaimAdded(IdentityId, IdentityClaim),
 
         /// DID, ClaimType, Claim Issuer
-        RevokedClaim(IdentityId, IdentityClaim),
-
-        /// DID
-        NewIssuer(IdentityId),
+        ClaimRevoked(IdentityId, IdentityClaim),
 
         /// DID queried
-        DidQuery(AccountKey, IdentityId),
+        DidStatus(IdentityId, AccountKey),
 
         /// CDD queried
-        CddQuery(AccountKey, IdentityId, bool),
+        CddStatus(Option<IdentityId>, AccountKey, bool),
 
-        /// Asset DID queried
-        AssetDid(Ticker, IdentityId),
+        /// Asset DID
+        AssetDidRegistered(IdentityId, Ticker),
 
-        /// New authorization added (auth_id, from, to, authorization_data, expiry)
-        NewAuthorization(
+        /// New authorization added.
+        /// (from, to, auth_id, authorization_data, expiry)
+        AuthorizationAddedByIdentity(
+            IdentityId,
+            Option<IdentityId>,
+            Option<AccountKey>,
             u64,
-            Signatory,
-            Signatory,
             AuthorizationData,
             Option<Moment>
         ),
 
-        /// Authorization revoked by the authorizer (auth_id, authorized_identity)
-        AuthorizationRevoked(u64, Signatory),
-
-        /// Authorization rejected by the user who was authorized (auth_id, authorized_identity)
-        AuthorizationRejected(u64, Signatory),
-
-        /// Authorization consumed. (auth_id, authorized_identity)
-        AuthorizationConsumed(u64, Signatory),
-
-        /// MasterKey changed (Requestor DID, New MasterKey)
-        MasterKeyChanged(IdentityId, AccountKey),
-
-        /// New link added (link_id, associated identity or key, link_data, expiry)
-        NewLink(
+        AuthorizationAddedByKey(
+            AccountKey,
+            Option<IdentityId>,
+            Option<AccountKey>,
             u64,
-            Signatory,
+            AuthorizationData,
+            Option<Moment>
+        ),
+
+        /// Authorization revoked by the authorizer.
+        /// (authorized_identity, authorized_key, auth_id)
+        AuthorizationRevoked(Option<IdentityId>, Option<AccountKey>, u64),
+
+        /// Authorization rejected by the user who was authorized.
+        /// (authorized_identity, authorized_key, auth_id)
+        AuthorizationRejected(Option<IdentityId>, Option<AccountKey>, u64),
+
+        /// Authorization consumed.
+        /// (authorized_identity, authorized_key, auth_id)
+        AuthorizationConsumed(Option<IdentityId>, Option<AccountKey>, u64),
+
+        /// Off-chain Authorization has been revoked.
+        /// (Target Identity, Signatory)
+        OffChainAuthorizationRevoked(IdentityId, Signatory),
+
+        /// CDD requirement for updating master key changed. (new_requirement)
+        CddRequirementForMasterKeyUpdated(bool),
+
+        /// New link added
+        /// (associated identity or key, link_id, link_data, expiry)
+        LinkAdded(
+            Option<IdentityId>,
+            Option<AccountKey>,
+            u64,
             LinkData,
             Option<Moment>
         ),
 
-        /// Link removed. (link_id, associated identity or key)
-        LinkRemoved(u64, Signatory),
+        /// Link removed.
+        /// (associated identity or key, link_id)
+        LinkRemoved(Option<IdentityId>, Option<AccountKey>, u64),
 
-        /// Link contents updated. (link_id, associated identity or key)
-        LinkUpdated(u64, Signatory),
+        /// Link contents updated.
+        /// (associated identity or key, link_id)
+        LinkUpdated(Option<IdentityId>, Option<AccountKey>, u64),
 
-        /// Signatory approved a previous request to join to a target identity.
-        SignerJoinedToIdentityApproved( Signatory, IdentityId),
 
-        /// CDD requirement for updating master key changed. (new_requirment)
-        CddRequirementForMasterKeyUpdated(bool),
+        /// CDD claims generated by `IdentityId` (a CDD Provider) have been invalidated from
+        /// `Moment`.
+        CddClaimsInvalidated(IdentityId, Moment),
+
+        /// All Signing keys of the identity ID are frozen.
+        SigningKeysFrozen(IdentityId),
+
+        /// All Signing keys of the identity ID are unfrozen.
+        SigningKeysUnfrozen(IdentityId),
     }
 );
 
