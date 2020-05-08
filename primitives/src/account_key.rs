@@ -57,6 +57,7 @@ impl<'de> Deserialize<'de> for AccountKey {
 
 impl AccountKey {
     /// It returns this key as a byte slice.
+    #[inline]
     pub fn as_slice(&self) -> &[u8] {
         &self.0
     }
@@ -65,6 +66,7 @@ impl AccountKey {
 impl TryFrom<Vec<u8>> for AccountKey {
     type Error = &'static str;
 
+    #[inline]
     fn try_from(v: Vec<u8>) -> Result<Self, Self::Error> {
         AccountKey::try_from(v.as_slice())
     }
@@ -73,6 +75,7 @@ impl TryFrom<Vec<u8>> for AccountKey {
 impl TryFrom<&Vec<u8>> for AccountKey {
     type Error = &'static str;
 
+    #[inline]
     fn try_from(v: &Vec<u8>) -> Result<Self, Self::Error> {
         AccountKey::try_from(v.as_slice())
     }
@@ -81,6 +84,7 @@ impl TryFrom<&Vec<u8>> for AccountKey {
 impl TryFrom<&str> for AccountKey {
     type Error = &'static str;
 
+    #[inline]
     fn try_from(s: &str) -> Result<Self, Self::Error> {
         AccountKey::try_from(s.as_bytes())
     }
@@ -101,12 +105,21 @@ impl TryFrom<&[u8]> for AccountKey {
 }
 
 impl From<[u8; KEY_SIZE]> for AccountKey {
+    #[inline]
     fn from(s: [u8; KEY_SIZE]) -> Self {
         AccountKey(s)
     }
 }
 
+impl From<Public> for AccountKey {
+    #[inline]
+    fn from(k: Public) -> Self {
+        AccountKey(k.0)
+    }
+}
+
 impl PartialEq for AccountKey {
+    #[inline]
     fn eq(&self, other: &Self) -> bool {
         self.0 == other.0
     }
@@ -126,12 +139,14 @@ impl PartialEq<&[u8]> for AccountKey {
 }
 
 impl PartialEq<Vec<u8>> for AccountKey {
+    #[inline]
     fn eq(&self, other: &Vec<u8>) -> bool {
         self == &other.as_slice()
     }
 }
 
 impl PartialEq<Public> for AccountKey {
+    #[inline]
     fn eq(&self, other: &Public) -> bool {
         self == &&other.0[..]
     }

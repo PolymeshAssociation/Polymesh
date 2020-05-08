@@ -41,7 +41,7 @@ fn investor_count_per_asset_with_ext() {
 
     let identifiers = vec![(IdentifierType::default(), b"undefined".into())];
     let ticker = Ticker::try_from(token.name.as_slice()).unwrap();
-    assert_ok!(Asset::create_token(
+    assert_ok!(Asset::create_asset(
         alice_signed.clone(),
         token.name.clone(),
         ticker,

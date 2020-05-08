@@ -25,7 +25,7 @@ pub enum LinkData {
     /// Represents a ticker ownership
     TickerOwned(Ticker),
     /// Represents a token ownership
-    TokenOwned(Ticker),
+    AssetOwned(Ticker),
     /// No linked data.
     NoData,
 }

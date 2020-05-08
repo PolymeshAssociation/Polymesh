@@ -171,10 +171,13 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use polymesh_common_utilities::traits::{
-    balances::{AccountData, BalancesTrait, CheckCdd, Memo, RawEvent, Reasons},
-    identity::IdentityTrait,
-    NegativeImbalance, PositiveImbalance,
+use polymesh_common_utilities::{
+    traits::{
+        balances::{AccountData, BalancesTrait, CheckCdd, Memo, RawEvent, Reasons},
+        identity::IdentityTrait,
+        NegativeImbalance, PositiveImbalance,
+    },
+    Context,
 };
 use polymesh_primitives::{
     traits::{BlockRewardsReserveCurrency, IdentityCurrency},
@@ -202,7 +205,12 @@ use sp_runtime::{
 };
 
 use sp_std::{
-    cmp, convert::Infallible, convert::TryFrom, fmt::Debug, mem, prelude::*, result, vec,
+    cmp,
+    convert::{Infallible, TryFrom, TryInto},
+    fmt::Debug,
+    mem,
+    prelude::*,
+    result, vec,
 };
 
 pub use polymesh_common_utilities::traits::balances::Trait;
@@ -427,6 +435,8 @@ decl_module! {
         ) {
             ensure_root(origin)?;
             let who = T::Lookup::lookup(who)?;
+            let caller = who.encode().try_into()?;
+            let caller_id = Context::current_identity_or::<T::Identity>(&caller)?;
 
             let (free, reserved) = Self::mutate_account(&who, |account| {
                 if new_free > account.free {
@@ -446,7 +456,7 @@ decl_module! {
 
                 (account.free, account.reserved)
             });
-            Self::deposit_event(RawEvent::BalanceSet(who, free, reserved));
+            Self::deposit_event(RawEvent::BalanceSet(caller_id, who, free, reserved));
         }
 
         /// Exactly as `transfer`, except the origin must be root and the source account may be
@@ -471,6 +481,8 @@ decl_module! {
         #[weight = SimpleDispatchInfo::FixedNormal(200_000)]
         pub fn burn_account_balance(origin, amount: T::Balance) -> DispatchResult {
             let who = ensure_signed(origin)?;
+            let caller_key = who.encode().try_into()?;
+            let caller_id = Context::current_identity_or::<T::Identity>(&caller_key)?;
             // Withdraw the account balance and burn the resulting imbalance by dropping it.
             let _ = <Self as Currency<T::AccountId>>::withdraw(
                 &who,
@@ -480,7 +492,7 @@ decl_module! {
                 WithdrawReason::Transfer.into(),
                 ExistenceRequirement::AllowDeath,
             )?;
-            Self::deposit_event(RawEvent::AccountBalanceBurned(who, amount));
+            Self::deposit_event(RawEvent::AccountBalanceBurned(caller_id, who, amount));
             Ok(())
         }
     }
@@ -576,7 +588,9 @@ impl<T: Trait> Module<T> {
         })
         .map(|(maybe_endowed, result)| {
             if let Some(endowed) = maybe_endowed {
-                Self::deposit_event(RawEvent::Endowed(who.clone(), endowed));
+                let who_key = who.encode().try_into().unwrap_or_default();
+                let who_id = T::Identity::get_identity(&who_key);
+                Self::deposit_event(RawEvent::Endowed(who_id, who.clone(), endowed));
             }
             result
         })
@@ -674,17 +688,30 @@ impl<T: Trait> Module<T> {
             })
         })?;
 
+        let transactor_key = transactor.encode().try_into()?;
+        let transactor_id = T::Identity::get_identity(&transactor_key);
+        let dest_key = dest.encode().try_into()?;
+        let dest_id = T::Identity::get_identity(&dest_key);
+
         if let Some(memo) = memo {
             // Emit TransferWithMemo event.
             Self::deposit_event(RawEvent::TransferWithMemo(
+                transactor_id,
                 transactor.clone(),
+                dest_id,
                 dest.clone(),
                 value,
                 memo,
             ));
         } else {
             // Emit transfer event.
-            Self::deposit_event(RawEvent::Transfer(transactor.clone(), dest.clone(), value));
+            Self::deposit_event(RawEvent::Transfer(
+                transactor_id,
+                transactor.clone(),
+                dest_id,
+                dest.clone(),
+                value,
+            ));
         }
         Ok(())
     }

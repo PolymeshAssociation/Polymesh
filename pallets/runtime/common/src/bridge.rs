@@ -116,6 +116,7 @@ use polymesh_primitives::{AccountKey, IdentityId, Signatory};
 use sp_core::H256;
 use sp_runtime::traits::{CheckedAdd, One, Zero};
 use sp_std::{convert::TryFrom, prelude::*};
+type Identity<T> = identity::Module<T>;
 
 pub trait Trait: multisig::Trait {
     type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
@@ -216,6 +217,8 @@ decl_error! {
         DivisionByZero,
         /// The transaction is timelocked.
         TimelockedTx,
+        /// Missing Current Identity
+        MissingCurrentIdentity
     }
 }
 
@@ -302,29 +305,26 @@ decl_event! {
         BlockNumber = <T as frame_system::Trait>::BlockNumber,
     {
         /// Confirmation of a signer set change.
-        ControllerChanged(AccountId),
+        ControllerChanged(IdentityId, AccountId),
         /// Confirmation of Admin change.
-        AdminChanged(AccountId),
+        AdminChanged(IdentityId, AccountId),
         /// Confirmation of default timelock change.
-        TimelockChanged(BlockNumber),
+        TimelockChanged(IdentityId, BlockNumber),
         /// Confirmation of minting POLYX on Polymesh in return for the locked ERC20 tokens on
         /// Ethereum.
-        Bridged(BridgeTx<AccountId, Balance>),
+        Bridged(IdentityId, BridgeTx<AccountId, Balance>),
         /// Notification of freezing the bridge.
-        Frozen,
+        Frozen(IdentityId),
         /// Notification of unfreezing the bridge.
-        Unfrozen,
+        Unfrozen(IdentityId),
         /// Notification of freezing a transaction.
-        FrozenTx(BridgeTx<AccountId, Balance>),
+        FrozenTx(IdentityId, BridgeTx<AccountId, Balance>),
         /// Notification of unfreezing a transaction.
-        UnfrozenTx(BridgeTx<AccountId, Balance>),
-        /// A vector of timelocked balances of a recipient, each with the number of the block in
-        /// which the balance gets unlocked.
-        TimelockedBalancesOfRecipient(Vec<(BlockNumber, Balance)>),
+        UnfrozenTx(IdentityId, BridgeTx<AccountId, Balance>),
         /// Whitelist status of an identity has been updated.
-        WhiteListUpdated(IdentityId, bool),
+        WhiteListUpdated(IdentityId, IdentityId, bool),
         /// Bridge limit has been updated
-        BridgeLimitUpdated(Balance, BlockNumber),
+        BridgeLimitUpdated(IdentityId, Balance, BlockNumber),
     }
 }
 
@@ -347,7 +347,8 @@ decl_module! {
             let sender = ensure_signed(origin)?;
             ensure!(sender == Self::admin(), Error::<T>::BadAdmin);
             <Controller<T>>::put(controller.clone());
-            Self::deposit_event(RawEvent::ControllerChanged(controller));
+            let current_did = Context::current_identity_or::<Identity<T>>(&(AccountKey::try_from(sender.encode())?))?;
+            Self::deposit_event(RawEvent::ControllerChanged(current_did, controller));
             Ok(())
         }
 
@@ -357,7 +358,8 @@ decl_module! {
             let sender = ensure_signed(origin)?;
             ensure!(sender == Self::admin(), Error::<T>::BadAdmin);
             <Admin<T>>::put(admin.clone());
-            Self::deposit_event(RawEvent::AdminChanged(admin));
+            let current_did = Context::current_identity_or::<Identity<T>>(&(AccountKey::try_from(sender.encode())?))?;
+            Self::deposit_event(RawEvent::AdminChanged(current_did, admin));
             Ok(())
         }
 
@@ -367,7 +369,8 @@ decl_module! {
             let sender = ensure_signed(origin)?;
             ensure!(sender == Self::admin(), Error::<T>::BadAdmin);
             <Timelock<T>>::put(timelock.clone());
-            Self::deposit_event(RawEvent::TimelockChanged(timelock));
+            let current_did = Context::current_identity_or::<Identity<T>>(&(AccountKey::try_from(sender.encode())?))?;
+            Self::deposit_event(RawEvent::TimelockChanged(current_did, timelock));
             Ok(())
         }
 
@@ -376,10 +379,11 @@ decl_module! {
         #[weight = SimpleDispatchInfo::FixedOperational(50_000)]
         pub fn freeze(origin) -> DispatchResult {
             let sender = ensure_signed(origin)?;
+            let current_did = Context::current_identity_or::<Identity<T>>(&(AccountKey::try_from(sender.encode())?))?;
             ensure!(sender == Self::admin(), Error::<T>::BadAdmin);
             ensure!(!Self::frozen(), Error::<T>::Frozen);
             <Frozen>::put(true);
-            Self::deposit_event(RawEvent::Frozen);
+            Self::deposit_event(RawEvent::Frozen(current_did));
             Ok(())
         }
 
@@ -387,10 +391,11 @@ decl_module! {
         #[weight = SimpleDispatchInfo::FixedOperational(50_000)]
         pub fn unfreeze(origin) -> DispatchResult {
             let sender = ensure_signed(origin)?;
+            let current_did = Context::current_identity_or::<Identity<T>>(&(AccountKey::try_from(sender.encode())?))?;
             ensure!(sender == Self::admin(), Error::<T>::BadAdmin);
             ensure!(Self::frozen(), Error::<T>::NotFrozen);
             <Frozen>::put(false);
-            Self::deposit_event(RawEvent::Unfrozen);
+            Self::deposit_event(RawEvent::Unfrozen(current_did));
             Ok(())
         }
 
@@ -398,9 +403,10 @@ decl_module! {
         #[weight = SimpleDispatchInfo::FixedOperational(20_000)]
         pub fn change_bridge_limit(origin, amount: T::Balance, duration: T::BlockNumber) -> DispatchResult {
             let sender = ensure_signed(origin)?;
+            let current_did = Context::current_identity_or::<Identity<T>>(&(AccountKey::try_from(sender.encode())?))?;
             ensure!(sender == Self::admin(), Error::<T>::BadAdmin);
             <BridgeLimit<T>>::put((amount.clone(), duration.clone()));
-            Self::deposit_event(RawEvent::BridgeLimitUpdated(amount, duration));
+            Self::deposit_event(RawEvent::BridgeLimitUpdated(current_did, amount, duration));
             Ok(())
         }
 
@@ -408,10 +414,11 @@ decl_module! {
         #[weight = SimpleDispatchInfo::FixedOperational(20_000)]
         pub fn change_bridge_whitelist(origin, whitelist: Vec<(IdentityId, bool)>) -> DispatchResult {
             let sender = ensure_signed(origin)?;
+            let current_did = Context::current_identity_or::<Identity<T>>(&(AccountKey::try_from(sender.encode())?))?;
             ensure!(sender == Self::admin(), Error::<T>::BadAdmin);
             for (did, exempt) in whitelist {
                 <BridgeLimitWhitelist>::insert(did, exempt);
-                Self::deposit_event(RawEvent::WhiteListUpdated(did, exempt));
+                Self::deposit_event(RawEvent::WhiteListUpdated(current_did, did, exempt));
             }
             Ok(())
         }
@@ -513,12 +520,13 @@ decl_module! {
             DispatchResult
         {
             let sender = ensure_signed(origin)?;
+            let current_did = Context::current_identity_or::<Identity<T>>(&(AccountKey::try_from(sender.encode())?))?;
             ensure!(sender == Self::admin(), Error::<T>::BadAdmin);
             for bridge_tx in bridge_txs {
                 let tx_details = Self::bridge_tx_details(&bridge_tx.recipient, &bridge_tx.nonce);
                 ensure!(tx_details.status != BridgeTxStatus::Handled, Error::<T>::ProposalAlreadyHandled);
                 <BridgeTxDetails<T>>::mutate(&bridge_tx.recipient, &bridge_tx.nonce, |tx_detail| tx_detail.status = BridgeTxStatus::Frozen);
-                Self::deposit_event(RawEvent::FrozenTx(bridge_tx));
+                Self::deposit_event(RawEvent::FrozenTx(current_did, bridge_tx));
             }
             Ok(())
         }
@@ -541,12 +549,13 @@ decl_module! {
         {
             // NB: An admin can call Freeze + Unfreeze on a transaction to bypass the timelock
             let sender = ensure_signed(origin)?;
+            let current_did = Context::current_identity_or::<Identity<T>>(&(AccountKey::try_from(sender.encode())?))?;
             ensure!(sender == Self::admin(), Error::<T>::BadAdmin);
             for bridge_tx in bridge_txs {
                 let tx_details = Self::bridge_tx_details(&bridge_tx.recipient, &bridge_tx.nonce);
                 ensure!(tx_details.status == BridgeTxStatus::Frozen, Error::<T>::NoSuchFrozenTx);
                 <BridgeTxDetails<T>>::mutate(&bridge_tx.recipient, &bridge_tx.nonce, |tx_detail| tx_detail.status = BridgeTxStatus::Absent);
-                Self::deposit_event(RawEvent::UnfrozenTx(bridge_tx.clone()));
+                Self::deposit_event(RawEvent::UnfrozenTx(current_did, bridge_tx.clone()));
                 if let Err(e) = Self::handle_bridge_tx_now(bridge_tx, true) {
                     sp_runtime::print(e);
                 }
@@ -622,7 +631,9 @@ impl<T: Trait> Module<T> {
             tx_details.status = BridgeTxStatus::Handled;
             tx_details.execution_block = <system::Module<T>>::block_number();
             <BridgeTxDetails<T>>::insert(&bridge_tx.recipient, &bridge_tx.nonce, tx_details);
-            Self::deposit_event(RawEvent::Bridged(bridge_tx));
+            let current_did = Context::current_identity::<Identity<T>>()
+                .ok_or_else(|| Error::<T>::MissingCurrentIdentity)?;
+            Self::deposit_event(RawEvent::Bridged(current_did, bridge_tx));
         } else if !untrusted_manual_retry {
             // NB: If this was a manual retry, tx's automated retry schedule is not updated.
             // Recipient missing CDD or limit reached. Retry this tx again later.

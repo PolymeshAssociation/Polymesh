@@ -285,6 +285,7 @@ decl_event!(
         /// At the end of the session, at least once validator was found to be offline.
         SomeOffline(Vec<IdentificationTuple>),
         /// Newly updated slashing params.
+        /// OfflineSlashingParams
         SlashingParamsUpdated(OfflineSlashingParams),
     }
 );
@@ -331,7 +332,9 @@ decl_error! {
         ///Invalid slashing params
         InvalidSlashingParam,
         /// Unauthorized origin
-        NotAuthorised
+        NotAuthorised,
+        /// Missing Caller DID
+        MissingCurrentIdentity
     }
 }
 
@@ -383,7 +386,6 @@ decl_module! {
             T::CommitteeOrigin::try_origin(origin).map_err(|_| Error::<T>::NotAuthorised)?;
 
             SlashingParams::put(&params);
-
             Self::deposit_event(RawEvent::SlashingParamsUpdated(params));
         }
 
