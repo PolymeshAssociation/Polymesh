@@ -214,7 +214,7 @@ impl<T: AsRef<[u8]>> From<T> for FundingRoundName {
 
 impl Default for FundingRoundName {
     fn default() -> Self {
-        FundingRoundName("GenesisRound".as_bytes().to_vec())
+        FundingRoundName("".as_bytes().to_vec())
     }
 }
 
@@ -594,7 +594,7 @@ decl_module! {
             ensure!(<Tokens<T>>::contains_key(&ticker), Error::<T>::NoSuchAsset);
 
             <Tokens<T>>::mutate(&ticker, |token| token.name = name.clone());
-            Self::deposit_event(RawEvent::TokenRenamed(sender_did, ticker, name));
+            Self::deposit_event(RawEvent::AssetRenamed(sender_did, ticker, name));
             Ok(())
         }
 
@@ -1454,7 +1454,7 @@ decl_event! {
         TickerTransferred(IdentityId, Ticker, IdentityId),
         /// Emit when token ownership is transferred.
         /// caller DID / token ownership transferred to DID, ticker, from
-        TokenOwnershipTransferred(IdentityId, Ticker, IdentityId),
+        AssetOwnershipTransferred(IdentityId, Ticker, IdentityId),
         /// An event emitted when an asset is frozen.
         /// Parameter: caller DID, ticker.
         AssetFrozen(IdentityId, Ticker),
@@ -1463,7 +1463,7 @@ decl_event! {
         AssetUnfrozen(IdentityId, Ticker),
         /// An event emitted when a token is renamed.
         /// Parameters: caller DID, ticker, new token name.
-        TokenRenamed(IdentityId, Ticker, TokenName),
+        AssetRenamed(IdentityId, Ticker, TokenName),
         /// An event carrying the name of the current funding round of a ticker.
         /// Parameters: caller DID, ticker, funding round name.
         FundingRoundSet(IdentityId, Ticker, FundingRoundName),
@@ -2157,7 +2157,7 @@ impl<T: Trait> Module<T> {
             tr.link_id = token_link;
         });
 
-        Self::deposit_event(RawEvent::TokenOwnershipTransferred(
+        Self::deposit_event(RawEvent::AssetOwnershipTransferred(
             to_did,
             ticker,
             token_details.owner_did,
