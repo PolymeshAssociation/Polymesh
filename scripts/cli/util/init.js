@@ -256,7 +256,7 @@ async function authorizeJoinToIdentities(api, accounts, dids, signing_accounts) 
 async function issueTokenPerDid(api, accounts) {
 
   // let nonceObj = {nonce: nonces.get(accounts[0].address)};
-  // const transaction = api.tx.asset.createToken(ticker, ticker, 1000000, true, 0, [], "abc");
+  // const transaction = api.tx.asset.createAsset(ticker, ticker, 1000000, true, 0, [], "abc");
   // await sendTransaction(transaction, accounts[0], nonceObj); 
 
     const unsub = await api.tx.asset

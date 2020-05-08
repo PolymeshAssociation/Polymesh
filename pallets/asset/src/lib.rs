@@ -496,7 +496,7 @@ decl_module! {
 
             <<T as IdentityTrait>::ProtocolFee>::charge_fee(
                 &signer,
-                ProtocolOp::AssetCreateToken,
+                ProtocolOp::AssetCreateAsset,
             )?;
             <identity::Module<T>>::register_asset_did(&ticker)?;
 
