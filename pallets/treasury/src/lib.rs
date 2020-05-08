@@ -59,8 +59,6 @@ decl_error! {
     pub enum Error for Module<T: Trait> {
         /// Proposer's balance is too low.
         InsufficientBalance,
-        /// Missing current DID.
-        MissingCurrentIdentity
     }
 }
 
@@ -86,10 +84,8 @@ decl_module! {
                 Self::balance() >= total_amount,
                 Error::<T>::InsufficientBalance
             );
-            let current_did = Context::current_identity::<Identity<T>>().ok_or_else(|| Error::<T>::MissingCurrentIdentity)?;
             beneficiaries.into_iter().for_each( |b| {
                 Self::unsafe_disbursement(b.id, b.amount);
-                Self::deposit_event(RawEvent::TreasuryDisbursement(current_did, b.id, b.amount));
             });
             Ok(())
         }
@@ -132,7 +128,8 @@ impl<T: Trait> Module<T> {
             ExistenceRequirement::AllowDeath,
         );
         let _ = T::Currency::deposit_into_existing_identity(&target, amount);
-        Self::deposit_event(RawEvent::TreasuryDisbursement(target, amount));
+        let current_did = Context::current_identity::<Identity<T>>().unwrap_or_default();
+        Self::deposit_event(RawEvent::TreasuryDisbursement(current_did, target, amount));
     }
 
     fn balance() -> BalanceOf<T> {
@@ -157,7 +154,7 @@ impl<T: Trait> OnUnbalanced<NegativeImbalanceOf<T>> for Module<T> {
         let numeric_amount = amount.peek();
 
         let _ = T::Currency::resolve_creating(&Self::account_id(), amount);
-
-        Self::deposit_event(RawEvent::TreasuryReimbursement(numeric_amount));
+        let current_did = Context::current_identity::<Identity<T>>().unwrap_or_default();
+        Self::deposit_event(RawEvent::TreasuryReimbursement(current_did, numeric_amount));
     }
 }
