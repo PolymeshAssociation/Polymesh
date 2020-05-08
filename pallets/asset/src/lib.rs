@@ -92,9 +92,8 @@ use polymesh_common_utilities::{
     CommonTrait, Context,
 };
 use polymesh_primitives::{
-    AccountKey, AuthorizationData, AuthorizationError, Document,
-    IdentityId, LinkData, Signatory, SmartExtension, SmartExtensionName,
-    SmartExtensionType, Ticker,
+    AccountKey, AuthorizationData, AuthorizationError, Document, IdentityId, LinkData, Signatory,
+    SmartExtension, SmartExtensionName, SmartExtensionType, Ticker,
 };
 
 use codec::{Decode, Encode};
