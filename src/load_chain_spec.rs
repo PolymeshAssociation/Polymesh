@@ -5,6 +5,8 @@ use polymesh_runtime_testnet_v1::config::GenesisConfig;
 /// specification).
 #[derive(Clone, Debug)]
 pub enum ChainType {
+    // Latest config for Aldebaran
+    Aldebaran,
     /// Whatever the current runtime is, with just Alice as an auth.
     Development,
     /// Whatever the current runtime is, with simple Alice/Bob auths.
@@ -21,7 +23,7 @@ pub enum ChainType {
 
 impl Default for ChainType {
     fn default() -> Self {
-        ChainType::Development
+        ChainType::Aldebaran
     }
 }
 
@@ -29,6 +31,9 @@ impl Default for ChainType {
 impl ChainType {
     pub(crate) fn load(self) -> Result<sc_service::ChainSpec<GenesisConfig>, String> {
         match self {
+            ChainType::Aldebaran => Ok(sc_service::ChainSpec::<GenesisConfig>::from_json_bytes(
+                &include_bytes!("./chain_specs/aldebaran.json")[..],
+            )?),
             ChainType::Development => Ok(chain_spec::general_development_testnet_config()),
             ChainType::Local => Ok(chain_spec::general_local_testnet_config()),
             ChainType::Live => Ok(chain_spec::general_live_testnet_config()),
@@ -40,13 +45,13 @@ impl ChainType {
 
     pub(crate) fn from(s: &str) -> Option<Self> {
         match s {
+            "aldebaran" | "" => Some(ChainType::Aldebaran),
             "dev" => Some(ChainType::Development),
             "local" => Some(ChainType::Local),
             "live" => Some(ChainType::Live),
             "v1-dev" => Some(ChainType::V1Development),
             "v1-local" => Some(ChainType::V1Local),
             "v1-live" => Some(ChainType::V1Live),
-            "" => Some(ChainType::default()),
             _ => None,
         }
     }
