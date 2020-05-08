@@ -90,7 +90,7 @@ fn correct_dividend_must_work() {
         ));
 
         // Issuance for payout token is successful
-        assert_ok!(SimpleToken::create_asset(
+        assert_ok!(SimpleToken::create_token(
             payout_owner_acc.clone(),
             payout_token.ticker,
             payout_token.total_supply
