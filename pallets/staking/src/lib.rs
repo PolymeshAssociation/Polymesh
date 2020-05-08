@@ -285,9 +285,9 @@ use frame_support::{
 };
 use pallet_identity as identity;
 use pallet_session::historical::SessionManager;
-use polymesh_common_utilities::identity::Trait as IdentityTrait;
-use primitives::traits::BlockRewardsReserveCurrency;
-use primitives::AccountKey;
+use polymesh_common_utilities::{identity::Trait as IdentityTrait, Context};
+use primitives::{traits::BlockRewardsReserveCurrency, AccountKey, IdentityId};
+
 use sp_phragmen::ExtendedBalance;
 use sp_runtime::{
     curve::PiecewiseLinear,
@@ -301,7 +301,12 @@ use sp_staking::{
     offence::{Offence, OffenceDetails, OffenceError, OnOffenceHandler, ReportOffence},
     SessionIndex,
 };
-use sp_std::{collections::btree_map::BTreeMap, convert::TryFrom, prelude::*, result};
+use sp_std::{
+    collections::btree_map::BTreeMap,
+    convert::{TryFrom, TryInto},
+    prelude::*,
+    result,
+};
 
 use frame_system::{self as system, ensure_root, ensure_signed};
 #[cfg(feature = "std")]
@@ -976,28 +981,28 @@ decl_storage! {
 decl_event!(
     pub enum Event<T> where Balance = BalanceOf<T>, <T as frame_system::Trait>::AccountId {
         /// The staker has been rewarded by this amount. AccountId is controller account.
-        Rewarded(AccountId, Balance),
+        Rewarded(Option<IdentityId>, AccountId, Balance),
         /// One validator (and its nominators) has been slashed by the given amount.
-        Slashed(AccountId, Balance),
+        Slashed(Option<IdentityId>, AccountId, Balance),
         /// An old slashing report from a prior era was discarded because it could
         /// not be processed.
         OldSlashingReportDiscarded(SessionIndex),
         /// An entity has issued a candidacy. See the transaction for who.
-        PermissionedValidatorAdded(AccountId),
+        PermissionedValidatorAdded(Option<IdentityId>, AccountId),
         /// The given member was removed. See the transaction for who.
-        PermissionedValidatorRemoved(AccountId),
+        PermissionedValidatorRemoved(Option<IdentityId>, AccountId),
         /// The given member was removed. See the transaction for who.
-        PermissionedValidatorStatusChanged(AccountId),
+        PermissionedValidatorStatusChanged(IdentityId, AccountId),
         /// Remove the nominators from the valid nominators when there CDD expired.
         /// Caller, Stash accountId of nominators
-        NominatorsInvalidated(AccountId, Vec<AccountId>),
+        InvalidatedNominators(IdentityId, AccountId, Vec<AccountId>),
         /// Individual commissions are enabled.
-        IndividualCommissionEnabled,
+        IndividualCommissionEnabled(Option<IdentityId>),
         /// When changes to commission are made and global commission is in effect.
         /// (old value, new value)
-        GlobalCommissionUpdated(Perbill, Perbill),
+        GlobalCommissionUpdated(Option<IdentityId>, Perbill, Perbill),
         /// Min bond threshold was updated (new value).
-        MinimumBondThresholdUpdated(Balance),
+        MinimumBondThresholdUpdated(Option<IdentityId>, Balance),
     }
 );
 
@@ -1295,7 +1300,8 @@ decl_module! {
             // the threshold value of timestamp i.e current_timestamp + Bonding duration
             // then nominator is added into the nominator pool.
 
-            if let Some(nominate_identity) = <identity::Module<T>>::get_identity(&(AccountKey::try_from(stash.encode())?)) {
+            let stash_key = stash.encode().try_into()?;
+            if let Some(nominate_identity) = <identity::Module<T>>::get_identity(&stash_key) {
                 let leeway = Self::get_bonding_duration_period() as u32;
                 let is_cdded = <identity::Module<T>>::fetch_cdd(nominate_identity, leeway.into()).is_some();
 
@@ -1410,7 +1416,9 @@ decl_module! {
                 compliance: Compliance::Pending
             });
 
-            Self::deposit_event(RawEvent::PermissionedValidatorAdded(validator));
+            let validator_key = validator.encode().try_into()?;
+            let validator_id = <identity::Module<T>>::get_identity(&validator_key);
+            Self::deposit_event(RawEvent::PermissionedValidatorAdded(validator_id, validator));
         }
 
         /// Remove a validator from the pool of validators. Effects are known in the next session.
@@ -1422,14 +1430,15 @@ decl_module! {
         /// * validator Stash AccountId of the validator.
         #[weight = SimpleDispatchInfo::FixedNormal(50_000)]
         pub fn remove_permissioned_validator(origin, validator: T::AccountId) {
-            T::RequiredRemoveOrigin::try_origin(origin)
+            T::RequiredRemoveOrigin::try_origin(origin.clone())
                 .map_err(|_| Error::<T>::NotAuthorised)?;
-
+            let caller = ensure_signed(origin)?.encode().try_into()?;
+            let caller_id = Context::current_identity_or::<T::Identity>(&caller).ok();
             ensure!(<PermissionedValidators<T>>::contains_key(&validator), Error::<T>::NotExists);
 
             <PermissionedValidators<T>>::remove(&validator);
 
-            Self::deposit_event(RawEvent::PermissionedValidatorRemoved(validator));
+            Self::deposit_event(RawEvent::PermissionedValidatorRemoved(caller_id, validator));
         }
 
         /// Validate the nominators CDD expiry time.
@@ -1445,6 +1454,9 @@ decl_module! {
         #[weight = SimpleDispatchInfo::FixedNormal(950_000)]
         pub fn validate_cdd_expiry_nominators(origin, targets: Vec<T::AccountId>) {
             let caller = ensure_signed(origin)?;
+            let caller_key = caller.encode().try_into()?;
+            let caller_id = Context::current_identity_or::<T::Identity>(&caller_key)?;
+
             let mut expired_nominators = Vec::new();
             ensure!(!targets.is_empty(), "targets cannot be empty");
             // Iterate provided list of accountIds (These accountIds should be stash type account).
@@ -1478,7 +1490,7 @@ decl_module! {
                     }
                 }
             }
-            Self::deposit_event(RawEvent::NominatorsInvalidated(caller, expired_nominators));
+            Self::deposit_event(RawEvent::InvalidatedNominators(caller_id, caller, expired_nominators));
         }
 
         /// Enables individual commissions. This can be set only once. Once individual commission
@@ -1486,13 +1498,15 @@ decl_module! {
         /// change this value.
         #[weight = SimpleDispatchInfo::FixedOperational(100_000)]
         pub fn enable_individual_commissions(origin) {
-            T::RequiredCommissionOrigin::try_origin(origin)
+            T::RequiredCommissionOrigin::try_origin(origin.clone())
                 .map_err(|_| Error::<T>::NotAuthorised)?;
+            let key = ensure_signed(origin).encode().try_into()?;
+            let id = <identity::Module<T>>::get_identity(&key);
 
             // Ensure individual commissions are not already enabled
             if let Commission::Global(_) = <ValidatorCommission>::get() {
                 <ValidatorCommission>::put(Commission::Individual);
-                Self::deposit_event(RawEvent::IndividualCommissionEnabled);
+                Self::deposit_event(RawEvent::IndividualCommissionEnabled(id));
             } else {
                 Err(Error::<T>::AlreadyEnabled)?
             }
@@ -1505,15 +1519,17 @@ decl_module! {
         /// * `new_value` the new commission to be used for reward calculations
         #[weight = SimpleDispatchInfo::FixedOperational(100_000)]
         pub fn set_global_commission(origin, new_value: Perbill) {
-            T::RequiredCommissionOrigin::try_origin(origin)
+            T::RequiredCommissionOrigin::try_origin(origin.clone())
                 .map_err(|_| Error::<T>::NotAuthorised)?;
+            let key = ensure_signed(origin).encode().try_into()?;
+            let id = <identity::Module<T>>::get_identity(&key);
 
             // Ensure individual commissions are not already enabled
             if let Commission::Global(old_value) = <ValidatorCommission>::get() {
                 ensure!(old_value != new_value, Error::<T>::NoChange);
                 <ValidatorCommission>::put(Commission::Global(new_value));
                 Self::update_validator_prefs(new_value);
-                Self::deposit_event(RawEvent::GlobalCommissionUpdated(old_value, new_value));
+                Self::deposit_event(RawEvent::GlobalCommissionUpdated(id, old_value, new_value));
             } else {
                 Err(Error::<T>::AlreadyEnabled)?
             }
@@ -1526,11 +1542,13 @@ decl_module! {
         /// * `new_value` the new minimum
         #[weight = SimpleDispatchInfo::FixedOperational(100_000)]
         pub fn set_min_bond_threshold(origin, new_value: BalanceOf<T>) {
-            T::RequiredCommissionOrigin::try_origin(origin)
+            T::RequiredCommissionOrigin::try_origin(origin.clone())
                 .map_err(|_| Error::<T>::NotAuthorised)?;
+            let key = ensure_signed(origin).encode().try_into()?;
+            let id = <identity::Module<T>>::get_identity(&key);
 
             <MinimumBondThreshold<T>>::put(new_value);
-            Self::deposit_event(RawEvent::MinimumBondThresholdUpdated(new_value));
+            Self::deposit_event(RawEvent::MinimumBondThresholdUpdated(id, new_value));
         }
 
         // ----- Root calls.
@@ -1852,7 +1870,9 @@ impl<T: Trait> Module<T> {
         }
 
         if let Some(imbalance) = Self::make_payout(&nominator_ledger.stash, reward * era_payout) {
-            Self::deposit_event(RawEvent::Rewarded(who, imbalance.peek()));
+            let who_key = who.encode().try_into()?;
+            let who_id = <identity::Module<T>>::get_identity(&who_key);
+            Self::deposit_event(RawEvent::Rewarded(who_id, who, imbalance.peek()));
         }
 
         Ok(())
@@ -1897,7 +1917,9 @@ impl<T: Trait> Module<T> {
         );
 
         if let Some(imbalance) = Self::make_payout(&ledger.stash, reward * era_payout) {
-            Self::deposit_event(RawEvent::Rewarded(who, imbalance.peek()));
+            let who_key = who.encode().try_into()?;
+            let who_id = <identity::Module<T>>::get_identity(&who_key);
+            Self::deposit_event(RawEvent::Rewarded(who_id, who, imbalance.peek()));
         }
 
         Ok(())
