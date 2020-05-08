@@ -80,10 +80,7 @@ use frame_support::{
 };
 use frame_system::offchain::SubmitUnsignedTransaction;
 use frame_system::{self as system, ensure_none};
-use pallet_identity as identity;
 use pallet_session::historical::IdentificationTuple;
-use polymesh_common_utilities::{traits::identity::Trait as IdentityModuleTrait, Context};
-use polymesh_primitives::IdentityId;
 use sp_application_crypto::RuntimeAppPublic;
 use sp_core::offchain::OpaqueNetworkState;
 use sp_runtime::{
@@ -101,7 +98,6 @@ use sp_staking::{
     SessionIndex,
 };
 use sp_std::{convert::TryInto, marker::PhantomData, prelude::*};
-type Identity<T> = identity::Module<T>;
 
 pub mod sr25519 {
     mod app_sr25519 {
@@ -245,9 +241,7 @@ pub struct OfflineSlashingParams {
     pub max_slash_percent: u32,
 }
 
-pub trait Trait:
-    frame_system::Trait + pallet_session::historical::Trait + IdentityModuleTrait
-{
+pub trait Trait: frame_system::Trait + pallet_session::historical::Trait {
     /// The identifier type for an authority.
     type AuthorityId: Member + Parameter + RuntimeAppPublic + Default + Ord;
 
@@ -291,8 +285,8 @@ decl_event!(
         /// At the end of the session, at least once validator was found to be offline.
         SomeOffline(Vec<IdentificationTuple>),
         /// Newly updated slashing params.
-        /// caller DID, OfflineSlashingParams
-        SlashingParamsUpdated(IdentityId, OfflineSlashingParams),
+        /// OfflineSlashingParams
+        SlashingParamsUpdated(OfflineSlashingParams),
     }
 );
 
@@ -392,8 +386,7 @@ decl_module! {
             T::CommitteeOrigin::try_origin(origin).map_err(|_| Error::<T>::NotAuthorised)?;
 
             SlashingParams::put(&params);
-            let caller_did = Context::current_identity::<Identity<T>>().ok_or_else(|| Error::<T>::MissingCurrentIdentity)?;
-            Self::deposit_event(RawEvent::SlashingParamsUpdated(caller_did, params));
+            Self::deposit_event(RawEvent::SlashingParamsUpdated(params));
         }
 
         // Runs after every block.

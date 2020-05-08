@@ -552,7 +552,7 @@ decl_module! {
 
             ensure!(!Self::frozen(&ticker), Error::<T>::AlreadyFrozen);
             <Frozen>::insert(&ticker, true);
-            Self::deposit_event(RawEvent::TokenFrozen(sender_did, ticker));
+            Self::deposit_event(RawEvent::AssetFrozen(sender_did, ticker));
             Ok(())
         }
 
@@ -573,7 +573,7 @@ decl_module! {
 
             ensure!(Self::frozen(&ticker), Error::<T>::NotFrozen);
             <Frozen>::insert(&ticker, false);
-            Self::deposit_event(RawEvent::TokenUnfrozen(sender_did, ticker));
+            Self::deposit_event(RawEvent::AssetUnfrozen(sender_did, ticker));
             Ok(())
         }
 
@@ -1457,10 +1457,10 @@ decl_event! {
         TokenOwnershipTransferred(IdentityId, Ticker, IdentityId),
         /// An event emitted when an asset is frozen.
         /// Parameter: caller DID, ticker.
-        TokenFrozen(IdentityId, Ticker),
+        AssetFrozen(IdentityId, Ticker),
         /// An event emitted when an asset is unfrozen.
         /// Parameter: caller DID, ticker.
-        TokenUnfrozen(IdentityId, Ticker),
+        AssetUnfrozen(IdentityId, Ticker),
         /// An event emitted when a token is renamed.
         /// Parameters: caller DID, ticker, new token name.
         TokenRenamed(IdentityId, Ticker, TokenName),
