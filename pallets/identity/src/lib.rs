@@ -192,6 +192,7 @@ decl_storage! {
     }
     add_extra_genesis {
         config(identities): Vec<(T::AccountId, IdentityId, IdentityId, Option<u64>)>;
+        config(signing_keys): Vec<(T::AccountId, IdentityId)>;
         build(|config: &GenesisConfig<T>| {
             // Add systematic CDD for the Treasury module
             let treasury_account_id: T::AccountId = TREASURY_MODULE_ID.into_account();
@@ -203,6 +204,7 @@ decl_storage! {
                 ..Default::default()
             };
             <DidRecords>::insert(&treasury_did, record);
+            <Module<T>>::deposit_event(RawEvent::NewDid(treasury_did.clone(), treasury_account_id.clone(), vec![]));
 
             // Add the claim data for the CustomerDueDiligence type claim for Treasury module
             let claim_type = ClaimType::CustomerDueDiligence;
@@ -229,6 +231,7 @@ decl_storage! {
                         master_key,
                         ..Default::default()
                     });
+                    <Module<T>>::deposit_event(RawEvent::NewDid(id.clone(), T::AccountId::decode(&mut master_key.as_slice()).unwrap(), vec![]));
                 });
 
             //  Other
@@ -243,7 +246,7 @@ decl_storage! {
                     ..Default::default()
                 };
                 <DidRecords>::insert(&did, record);
-
+                <Module<T>>::deposit_event(RawEvent::NewDid(did.clone(), master_account_id.clone(), vec![]));
                 // Add the claim data for the CustomerDueDiligence type claim
                 let claim_type = ClaimType::CustomerDueDiligence;
                 let pk = Claim1stKey{ target: did, claim_type };
@@ -259,7 +262,24 @@ decl_storage! {
                 <Claims>::insert(&pk, &sk, id_claim.clone());
                 <Module<T>>::deposit_event(RawEvent::NewClaim(did, id_claim));
             }
-            // TODO: Generate CDD for BRR
+            for &(ref signer_id, did) in &config.signing_keys {
+                // Direct storage change for attaching some signing keys to identities
+                let signer_key = AccountKey::try_from(signer_id.encode()).unwrap();
+                assert!(<DidRecords>::contains_key(did), "Identity does not exist");
+                assert!(
+                    <Module<T>>::can_key_be_linked_to_did(&signer_key, SignatoryType::External),
+                    "Signing key already linked"
+                );
+                <MultiPurposeNonce>::mutate(|n| *n += 1_u64);
+                <Module<T>>::link_key_to_did(&signer_key, SignatoryType::External, did);
+                <DidRecords>::mutate(did, |record| {
+                    (*record).add_signing_items(&[SigningItem::from(signer_key.clone())]);
+                });
+                <Module<T>>::deposit_event(RawEvent::NewSigningItems(
+                    did,
+                    [SigningItem::from(signer_key.clone())].to_vec(),
+                ));
+            }
         });
     }
 }
@@ -279,16 +299,11 @@ decl_module! {
         pub fn register_did(origin, signing_items: Vec<SigningItem>) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             let signer = Signatory::from(AccountKey::try_from(sender.encode())?);
-            let new_id = Self::_register_did(
+            Self::_register_did(
                 sender,
                 signing_items,
                 Some((&signer, ProtocolOp::IdentityRegisterDid))
             )?;
-            // Added for easier testing. To be removed before production
-            let cdd_providers = T::CddServiceProviders::get_members();
-            if cdd_providers.len() > 0 {
-                Self::unsafe_add_claim(new_id, Claim::CustomerDueDiligence, cdd_providers[0], None);
-            }
             Ok(())
         }
 
@@ -989,7 +1004,7 @@ decl_module! {
                 nonce: Self::offchain_authorization_nonce(id),
                 expires_at
             };
-            let auth_encoded= authorization.encode();
+            let auth_encoded = authorization.encode();
 
             // 1. Verify signatures.
             for si_with_auth in additional_keys.iter() {

@@ -39,7 +39,7 @@ use frame_support::{
     traits::{Randomness, SplitTwoWays},
 };
 use sp_api::impl_runtime_apis;
-use sp_core::u32_trait::{_1, _2, _4};
+use sp_core::u32_trait::{_1, _2, _3, _4};
 use sp_runtime::curve::PiecewiseLinear;
 use sp_runtime::transaction_validity::TransactionValidity;
 use sp_runtime::{create_runtime_str, generic, impl_opaque_keys, ApplyExtrinsicResult, Perbill};
@@ -335,7 +335,7 @@ impl group::Trait<group::Instance1> for Runtime {
     type RemoveOrigin = frame_system::EnsureRoot<AccountId>;
     type SwapOrigin = frame_system::EnsureRoot<AccountId>;
     type ResetOrigin = frame_system::EnsureRoot<AccountId>;
-    type PrimeOrigin = frame_system::EnsureRoot<AccountId>;
+    type PrimeOrigin = frame_system::EnsureNever<AccountId>;
     type MembershipInitialized = PolymeshCommittee;
     type MembershipChanged = PolymeshCommittee;
 }
@@ -344,7 +344,7 @@ impl pallet_pips::Trait for Runtime {
     type Currency = Balances;
     type CommitteeOrigin = frame_system::EnsureRoot<AccountId>;
     type VotingMajorityOrigin =
-        committee::EnsureProportionAtLeast<_1, _2, AccountId, GovernanceCommittee>;
+        committee::EnsureProportionAtLeast<_2, _3, AccountId, GovernanceCommittee>;
     type GovernanceCommittee = PolymeshCommittee;
     type Treasury = Treasury;
     type Event = Event;
