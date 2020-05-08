@@ -32,7 +32,7 @@ impl ChainType {
     pub(crate) fn load(self) -> Result<sc_service::ChainSpec<GenesisConfig>, String> {
         match self {
             ChainType::Aldebaran => Ok(sc_service::ChainSpec::<GenesisConfig>::from_json_bytes(
-                &include_bytes!("./chain_specs/aldebaran.json")[..],
+                &include_bytes!("./chain_specs/aldebaran_raw.json")[..],
             )?),
             ChainType::Development => Ok(chain_spec::general_development_testnet_config()),
             ChainType::Local => Ok(chain_spec::general_local_testnet_config()),

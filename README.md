@@ -30,6 +30,7 @@ Build Wasm and native code:
 ```bash
 cargo build --release
 ```
+
 # Debug
 
 ## Environment
@@ -81,8 +82,6 @@ Using host libthread_db library "/lib/x86_64-linux-gnu/libthread_db.so.1".
 ...
 ```
 
-
-
 # Run
 
 ## Single node development chain
@@ -93,14 +92,13 @@ You can start a development chain with:
 ./target/release/polymesh --dev --pool-limit 100000 -d /tmp/pmesh-primary-node
 ```
 
-
 Detailed logs may be shown by running the node with the following environment variables set:
 `RUST_LOG=debug RUST_BACKTRACE=1 ./target/release/polymesh --dev --pool-limit 100000 -d /tmp/pmesh-primary-node`.
 
-To access the Polymesh Chain using the [Polkadot JS Apps Interface](https://polkadot.js.org/apps/#/explorer) do the following:
+To access the Polymesh Chain using the [Web Interface](https://app.polymesh.live/#/explorer) do the following:
 
-1. In [Settings](https://polkadot.js.org/apps/#/settings) tab under the `General` section select `Local Node (Own, 127.0.0.1:9944)` as remote endpoint.
-2. In [Settings](https://polkadot.js.org/apps/#/settings) tab under the `Developer` section copy paste the [custom types definitions](https://github.com/PolymathNetwork/Polymesh/blob/master/polymesh_schema.json) into the interface and click the "Save" button.
+1. In [Settings](https://app.polymesh.live/#/settings) tab under the `General` section select `Local Node (Own, 127.0.0.1:9944)` as remote endpoint.
+2. If you have [custom types definitions](https://github.com/PolymathNetwork/Polymesh/blob/master/polymesh_schema.json) that differ from the V1 Aldebaran Testnet, you can update these in [Settings](https://app.polymesh.live/#/settings) tab under the `Developer` section.
 3. Reload the page.
 
 ## Multi-node local testnet
@@ -113,7 +111,24 @@ npm install
 ./run.sh
 ```
 
-This uses pm2 to run a local three node network to demonstrate simple consensus.
+This uses pm2 to run a local three node network for demonstrate simple consensus.
+
+To stop the chain you can use:  
+```bash
+./stop.sh
+```
+and to display log files you can use:  
+```bash
+./log.sh
+```
+
+## Aldebaran Public Testnet
+
+Specifying no chain at the command line defaults to the Aldebaran Public Testnet (e.g. --chain aldebaran), so to run a node which connects to the Aldebaran Public Testnet, you can start your node with:
+
+```bash
+./target/release/polymesh --pool-limit 100000 -d /tmp/pmesh-primary-node
+```
 
 # Unit Tests
 
