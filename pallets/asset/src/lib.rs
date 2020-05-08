@@ -552,7 +552,7 @@ decl_module! {
 
             ensure!(!Self::frozen(&ticker), Error::<T>::AlreadyFrozen);
             <Frozen>::insert(&ticker, true);
-            Self::deposit_event(RawEvent::TokenFrozen(sender_did, ticker));
+            Self::deposit_event(RawEvent::AssetFrozen(sender_did, ticker));
             Ok(())
         }
 
@@ -573,7 +573,7 @@ decl_module! {
 
             ensure!(Self::frozen(&ticker), Error::<T>::NotFrozen);
             <Frozen>::insert(&ticker, false);
-            Self::deposit_event(RawEvent::TokenUnfrozen(sender_did, ticker));
+            Self::deposit_event(RawEvent::AssetUnfrozen(sender_did, ticker));
             Ok(())
         }
 
@@ -594,7 +594,7 @@ decl_module! {
             ensure!(<Tokens<T>>::contains_key(&ticker), Error::<T>::NoSuchAsset);
 
             <Tokens<T>>::mutate(&ticker, |token| token.name = name.clone());
-            Self::deposit_event(RawEvent::TokenRenamed(sender_did, ticker, name));
+            Self::deposit_event(RawEvent::AssetRenamed(sender_did, ticker, name));
             Ok(())
         }
 
@@ -1454,16 +1454,16 @@ decl_event! {
         TickerTransferred(IdentityId, Ticker, IdentityId),
         /// Emit when token ownership is transferred.
         /// caller DID / token ownership transferred to DID, ticker, from
-        TokenOwnershipTransferred(IdentityId, Ticker, IdentityId),
+        AssetOwnershipTransferred(IdentityId, Ticker, IdentityId),
         /// An event emitted when an asset is frozen.
         /// Parameter: caller DID, ticker.
-        TokenFrozen(IdentityId, Ticker),
+        AssetFrozen(IdentityId, Ticker),
         /// An event emitted when an asset is unfrozen.
         /// Parameter: caller DID, ticker.
-        TokenUnfrozen(IdentityId, Ticker),
+        AssetUnfrozen(IdentityId, Ticker),
         /// An event emitted when a token is renamed.
         /// Parameters: caller DID, ticker, new token name.
-        TokenRenamed(IdentityId, Ticker, TokenName),
+        AssetRenamed(IdentityId, Ticker, TokenName),
         /// An event carrying the name of the current funding round of a ticker.
         /// Parameters: caller DID, ticker, funding round name.
         FundingRoundSet(IdentityId, Ticker, FundingRoundName),
@@ -2157,7 +2157,7 @@ impl<T: Trait> Module<T> {
             tr.link_id = token_link;
         });
 
-        Self::deposit_event(RawEvent::TokenOwnershipTransferred(
+        Self::deposit_event(RawEvent::AssetOwnershipTransferred(
             to_did,
             ticker,
             token_details.owner_did,
