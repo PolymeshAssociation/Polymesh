@@ -382,7 +382,7 @@ impl<T: Trait<I>, I: Instance> Module<T, I> {
     /// Given `votes` number of votes out of `total` votes, this function compares`votes`/`total`
     /// in relation to the threshold proporion `n`/`d`.
     fn is_threshold_satisfied(votes: u32, total: u32, (n, d): (u32, u32)) -> bool {
-        (total < 2) || (votes * d >= n * total)
+        votes * d >= n * total
     }
 
     /// It removes the `id`'s vote from `proposal` if it exists.
