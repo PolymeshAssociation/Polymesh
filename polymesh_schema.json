@@ -435,7 +435,7 @@
                 "AssetRegisterTicker",
                 "AssetIssue",
                 "AssetAddDocument",
-                "AssetCreateToken",
+                "AssetCreateAsset",
                 "DividendNew",
                 "ComplianceManagerAddActiveRule",
                 "IdentityRegisterDid",
