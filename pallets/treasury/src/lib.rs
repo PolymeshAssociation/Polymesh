@@ -1,3 +1,18 @@
+// This file is part of the Polymesh distribution (https://github.com/PolymathNetwork/Polymesh).
+// Copyright (c) 2020 Polymath
+
+// This program is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, version 3.
+
+// This program is distributed in the hope that it will be useful, but
+// WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+// General Public License for more details.
+
+// You should have received a copy of the GNU General Public License
+// along with this program. If not, see <http://www.gnu.org/licenses/>.
+
 #![cfg_attr(not(feature = "std"), no_std)]
 #![recursion_limit = "256"]
 
@@ -47,10 +62,10 @@ decl_event!(
     {
         /// Disbursement to a target Identity.
         /// (target identity, amount)
-        TreasuryDisbursement(IdentityId, Balance),
+        TreasuryDisbursement(IdentityId, IdentityId, Balance),
 
         /// Treasury reimbursement.
-        TreasuryReimbursement(Balance),
+        TreasuryReimbursement(IdentityId, Balance),
     }
 );
 
@@ -84,10 +99,8 @@ decl_module! {
                 Self::balance() >= total_amount,
                 Error::<T>::InsufficientBalance
             );
-
             beneficiaries.into_iter().for_each( |b| {
                 Self::unsafe_disbursement(b.id, b.amount);
-                Self::deposit_event(RawEvent::TreasuryDisbursement(b.id, b.amount));
             });
             Ok(())
         }
@@ -98,7 +111,7 @@ decl_module! {
         pub fn reimbursement(origin, amount: BalanceOf<T>) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             let sender_key = AccountKey::try_from(sender.encode())?;
-            let _did = Context::current_identity_or::<Identity<T>>(&sender_key)?;
+            let did = Context::current_identity_or::<Identity<T>>(&sender_key)?;
 
             let _ = T::Currency::transfer(
                 &sender,
@@ -107,7 +120,7 @@ decl_module! {
                 ExistenceRequirement::AllowDeath,
             )?;
 
-            Self::deposit_event(RawEvent::TreasuryReimbursement(amount));
+            Self::deposit_event(RawEvent::TreasuryReimbursement(did, amount));
             Ok(())
         }
     }
@@ -130,7 +143,8 @@ impl<T: Trait> Module<T> {
             ExistenceRequirement::AllowDeath,
         );
         let _ = T::Currency::deposit_into_existing_identity(&target, amount);
-        Self::deposit_event(RawEvent::TreasuryDisbursement(target, amount));
+        let current_did = Context::current_identity::<Identity<T>>().unwrap_or_default();
+        Self::deposit_event(RawEvent::TreasuryDisbursement(current_did, target, amount));
     }
 
     fn balance() -> BalanceOf<T> {
@@ -155,7 +169,7 @@ impl<T: Trait> OnUnbalanced<NegativeImbalanceOf<T>> for Module<T> {
         let numeric_amount = amount.peek();
 
         let _ = T::Currency::resolve_creating(&Self::account_id(), amount);
-
-        Self::deposit_event(RawEvent::TreasuryReimbursement(numeric_amount));
+        let current_did = Context::current_identity::<Identity<T>>().unwrap_or_default();
+        Self::deposit_event(RawEvent::TreasuryReimbursement(current_did, numeric_amount));
     }
 }

@@ -1,3 +1,18 @@
+// This file is part of the Polymesh distribution (https://github.com/PolymathNetwork/Polymesh).
+// Copyright (c) 2020 Polymath
+
+// This program is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, version 3.
+
+// This program is distributed in the hope that it will be useful, but
+// WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+// General Public License for more details.
+
+// You should have received a copy of the GNU General Public License
+// along with this program. If not, see <http://www.gnu.org/licenses/>.
+
 //! # Simple Token Module
 //!
 //! The Simple Token module provides functionality for issuing and managing tokens which do not have transfer restrictions.
@@ -95,6 +110,8 @@ decl_error! {
         BalanceOverflow,
         /// Insufficient balance.
         InsufficientBalance,
+        /// Missing current Identity
+        MissingCurrentIdentity
     }
 }
 
@@ -133,7 +150,7 @@ decl_module! {
 
             sp_runtime::print("Initialized a new token");
 
-            Self::deposit_event(RawEvent::TokenCreated(ticker, did, total_supply));
+            Self::deposit_event(RawEvent::TokenCreated(did, ticker, did, total_supply));
 
             Ok(())
         }
@@ -159,7 +176,7 @@ decl_module! {
             let updated_allowance = allowance.checked_add(&value).ok_or(Error::<T>::AllowanceOverflow)?;
             <Allowance<T>>::insert(&ticker_did_spender_did, updated_allowance);
 
-            Self::deposit_event(RawEvent::Approval(ticker, did, spender_did, value));
+            Self::deposit_event(RawEvent::Approval(did, ticker, did, spender_did, value));
 
             Ok(())
         }
@@ -205,7 +222,7 @@ decl_module! {
                 .ok_or(Error::<T>::AllowanceOverflow)?;
             <Allowance<T>>::insert((ticker, from_did, did), updated_allowance);
 
-            Self::deposit_event(RawEvent::Approval(ticker, from_did, did, updated_allowance));
+            Self::deposit_event(RawEvent::Approval(did, ticker, from_did, did, updated_allowance));
 
             Ok(())
         }
@@ -217,12 +234,12 @@ decl_event!(
     where
         Balance = <T as CommonTrait>::Balance,
     {
-        /// ticker, from DID, spender DID, amount
-        Approval(Ticker, IdentityId, IdentityId, Balance),
-        /// ticker, owner DID, supply
-        TokenCreated(Ticker, IdentityId, Balance),
-        /// ticker, from DID, to DID, amount
-        Transfer(Ticker, IdentityId, IdentityId, Balance),
+        /// caller DID, ticker, from DID, spender DID, amount
+        Approval(IdentityId, Ticker, IdentityId, IdentityId, Balance),
+        /// caller DID, ticker, owner DID, supply
+        TokenCreated(IdentityId, Ticker, IdentityId, Balance),
+        /// caller DID, ticker, from DID, to DID, amount
+        Transfer(IdentityId, Ticker, IdentityId, IdentityId, Balance),
     }
 );
 
@@ -280,8 +297,15 @@ impl<T: Trait> Module<T> {
 
         <BalanceOf<T>>::insert(&ticker_from_did, new_from_balance);
         <BalanceOf<T>>::insert(&ticker_to_did, new_to_balance);
-
-        Self::deposit_event(RawEvent::Transfer(*ticker, from_did, to_did, amount));
+        let current_did = Context::current_identity::<Identity<T>>()
+            .ok_or_else(|| Error::<T>::MissingCurrentIdentity)?;
+        Self::deposit_event(RawEvent::Transfer(
+            current_did,
+            *ticker,
+            from_did,
+            to_did,
+            amount,
+        ));
         Ok(())
     }
 }

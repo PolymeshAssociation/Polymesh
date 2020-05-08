@@ -1,3 +1,18 @@
+// This file is part of the Polymesh distribution (https://github.com/PolymathNetwork/Polymesh).
+// Copyright (c) 2020 Polymath
+
+// This program is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, version 3.
+
+// This program is distributed in the hope that it will be useful, but
+// WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+// General Public License for more details.
+
+// You should have received a copy of the GNU General Public License
+// along with this program. If not, see <http://www.gnu.org/licenses/>.
+
 //! # SecurityToken offering Module
 //!
 //! The STO module provides the way of investing into an asset.
@@ -491,8 +506,8 @@ decl_event!(
     {
         ModifyAllowedTokens(Ticker, Ticker, u32, bool),
         /// Emit when Asset get purchased by the investor
-        /// Ticker, SimpleToken token, sto_id, investor DID, amount invested, amount of token purchased
-        AssetPurchase(Ticker, Ticker, u32, IdentityId, Balance, Balance),
+        /// caller DID/investor DID, Ticker, SimpleToken token, sto_id, amount invested, amount of token purchased
+        AssetPurchased(IdentityId, Ticker, Ticker, u32, Balance, Balance),
     }
 );
 
@@ -576,11 +591,11 @@ impl<T: Trait> Module<T> {
         }
         <StosByToken<T>>::insert((ticker, sto_id), selected_sto);
         // Emit Event
-        Self::deposit_event(RawEvent::AssetPurchase(
+        Self::deposit_event(RawEvent::AssetPurchased(
+            did,
             ticker,
             simple_token_ticker,
             sto_id,
-            did,
             investment_amount,
             new_tokens_minted,
         ));

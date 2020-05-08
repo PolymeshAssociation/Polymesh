@@ -1,3 +1,18 @@
+// This file is part of the Polymesh distribution (https://github.com/PolymathNetwork/Polymesh).
+// Copyright (c) 2020 Polymath
+
+// This program is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, version 3.
+
+// This program is distributed in the hope that it will be useful, but
+// WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+// General Public License for more details.
+
+// You should have received a copy of the GNU General Public License
+// along with this program. If not, see <http://www.gnu.org/licenses/>.
+
 //! # Dividend Module
 //!
 //! The Dividend module provides functionality for distributing dividends to tokenholders.
@@ -189,7 +204,7 @@ decl_module! {
             let dividend_id = Self::add_dividend_entry(&ticker, new_dividend)?;
 
             // Dispatch event
-            Self::deposit_event(RawEvent::DividendCreated(ticker, amount, dividend_id));
+            Self::deposit_event(RawEvent::DividendCreated(did, ticker, amount, dividend_id));
 
             Ok(())
         }
@@ -231,7 +246,7 @@ decl_module! {
 
             <Dividends<T>>::remove((ticker, dividend_id));
 
-            Self::deposit_event(RawEvent::DividendCanceled(ticker, dividend_id));
+            Self::deposit_event(RawEvent::DividendCanceled(did, ticker, dividend_id));
 
             Ok(())
         }
@@ -349,7 +364,7 @@ decl_module! {
                 Ok(())
             })?;
 
-            Self::deposit_event(RawEvent::DividendRemainingClaimed(ticker, dividend_id, entry.amount_left));
+            Self::deposit_event(RawEvent::DividendRemainingClaimed(did, ticker, dividend_id, entry.amount_left));
 
             Ok(())
         }
@@ -362,16 +377,16 @@ decl_event!(
         Balance = <T as CommonTrait>::Balance,
     {
         /// A new dividend was created (ticker, amount, dividend ID)
-        DividendCreated(Ticker, Balance, u32),
+        DividendCreated(IdentityId, Ticker, Balance, u32),
 
         /// A dividend was canceled (ticker, dividend ID)
-        DividendCanceled(Ticker, u32),
+        DividendCanceled(IdentityId, Ticker, u32),
 
         /// Dividend was paid to a user (who, ticker, dividend ID, share)
         DividendPaidOutToUser(IdentityId, Ticker, u32, Balance),
 
         /// Unclaimed dividend was claimed back (ticker, dividend ID, amount)
-        DividendRemainingClaimed(Ticker, u32, Balance),
+        DividendRemainingClaimed(IdentityId, Ticker, u32, Balance),
     }
 );
 

@@ -1,3 +1,18 @@
+// This file is part of the Polymesh distribution (https://github.com/PolymathNetwork/Polymesh).
+// Copyright (c) 2020 Polymath
+
+// This program is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, version 3.
+
+// This program is distributed in the hope that it will be useful, but
+// WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+// General Public License for more details.
+
+// You should have received a copy of the GNU General Public License
+// along with this program. If not, see <http://www.gnu.org/licenses/>.
+
 use crate::*;
 use pallet_balances as balances;
 use pallet_identity as identity;
@@ -46,7 +61,7 @@ fn make_token<T: Trait>(
         .take(identifiers_len as usize)
         .collect();
     let fundr = FundingRoundName::from(vec![b'F'; funding_round_len as usize].as_slice());
-    Module::<T>::create_token(
+    Module::<T>::create_asset(
         origin.into(),
         name,
         ticker,
@@ -98,7 +113,7 @@ benchmarks! {
         );
     }: _(bob_origin, bob_auth_id)
 
-    accept_token_ownership_transfer {
+    accept_asset_ownership_transfer {
         let u in ...;
         <TickerConfig<T>>::put(TickerRegistrationConfig {
             max_ticker_length: MAX_TICKER_LENGTH,
@@ -113,12 +128,12 @@ benchmarks! {
         let bob_auth_id = identity::Module::<T>::add_auth(
             Signatory::from(alice_did),
             Signatory::from(bob_did),
-            AuthorizationData::TransferTokenOwnership(ticker),
+            AuthorizationData::TransferAssetOwnership(ticker),
             None,
         );
     }: _(bob_origin, bob_auth_id)
 
-    create_token {
+    create_asset {
         let u in ...;
         // Token name length.
         let n in 1 .. MAX_NAME_LENGTH;
@@ -169,7 +184,7 @@ benchmarks! {
         Module::<T>::freeze(origin.clone().into(), ticker).unwrap();
     }: _(origin, ticker)
 
-    rename_token {
+    rename_asset {
         let u in ...;
         // Old token name length.
         let n in 1 .. MAX_NAME_LENGTH;

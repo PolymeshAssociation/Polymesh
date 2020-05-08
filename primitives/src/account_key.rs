@@ -1,3 +1,18 @@
+// This file is part of the Polymesh distribution (https://github.com/PolymathNetwork/Polymesh).
+// Copyright (c) 2020 Polymath
+
+// This program is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, version 3.
+
+// This program is distributed in the hope that it will be useful, but
+// WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+// General Public License for more details.
+
+// You should have received a copy of the GNU General Public License
+// along with this program. If not, see <http://www.gnu.org/licenses/>.
+
 use codec::{Decode, Encode};
 #[cfg(feature = "std")]
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
@@ -42,6 +57,7 @@ impl<'de> Deserialize<'de> for AccountKey {
 
 impl AccountKey {
     /// It returns this key as a byte slice.
+    #[inline]
     pub fn as_slice(&self) -> &[u8] {
         &self.0
     }
@@ -50,6 +66,7 @@ impl AccountKey {
 impl TryFrom<Vec<u8>> for AccountKey {
     type Error = &'static str;
 
+    #[inline]
     fn try_from(v: Vec<u8>) -> Result<Self, Self::Error> {
         AccountKey::try_from(v.as_slice())
     }
@@ -58,6 +75,7 @@ impl TryFrom<Vec<u8>> for AccountKey {
 impl TryFrom<&Vec<u8>> for AccountKey {
     type Error = &'static str;
 
+    #[inline]
     fn try_from(v: &Vec<u8>) -> Result<Self, Self::Error> {
         AccountKey::try_from(v.as_slice())
     }
@@ -66,6 +84,7 @@ impl TryFrom<&Vec<u8>> for AccountKey {
 impl TryFrom<&str> for AccountKey {
     type Error = &'static str;
 
+    #[inline]
     fn try_from(s: &str) -> Result<Self, Self::Error> {
         AccountKey::try_from(s.as_bytes())
     }
@@ -86,12 +105,21 @@ impl TryFrom<&[u8]> for AccountKey {
 }
 
 impl From<[u8; KEY_SIZE]> for AccountKey {
+    #[inline]
     fn from(s: [u8; KEY_SIZE]) -> Self {
         AccountKey(s)
     }
 }
 
+impl From<Public> for AccountKey {
+    #[inline]
+    fn from(k: Public) -> Self {
+        AccountKey(k.0)
+    }
+}
+
 impl PartialEq for AccountKey {
+    #[inline]
     fn eq(&self, other: &Self) -> bool {
         self.0 == other.0
     }
@@ -111,12 +139,14 @@ impl PartialEq<&[u8]> for AccountKey {
 }
 
 impl PartialEq<Vec<u8>> for AccountKey {
+    #[inline]
     fn eq(&self, other: &Vec<u8>) -> bool {
         self == &other.as_slice()
     }
 }
 
 impl PartialEq<Public> for AccountKey {
+    #[inline]
     fn eq(&self, other: &Public) -> bool {
         self == &&other.0[..]
     }

@@ -1,3 +1,18 @@
+// This file is part of the Polymesh distribution (https://github.com/PolymathNetwork/Polymesh).
+// Copyright (c) 2020 Polymath
+
+// This program is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, version 3.
+
+// This program is distributed in the hope that it will be useful, but
+// WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+// General Public License for more details.
+
+// You should have received a copy of the GNU General Public License
+// along with this program. If not, see <http://www.gnu.org/licenses/>.
+
 use frame_support::dispatch::DispatchResult;
 use polymesh_primitives::{IdentityId, Ticker};
 
@@ -14,7 +29,7 @@ pub trait AcceptTransfer {
     /// # Arguments
     /// * `to_did` did of the receiver
     /// * `auth_id` Authorization id of the authorization created by current token owner
-    fn accept_token_ownership_transfer(to_did: IdentityId, auth_id: u64) -> DispatchResult;
+    fn accept_asset_ownership_transfer(to_did: IdentityId, auth_id: u64) -> DispatchResult;
 }
 
 pub trait Trait<V, U> {

@@ -1,3 +1,18 @@
+// This file is part of the Polymesh distribution (https://github.com/PolymathNetwork/Polymesh).
+// Copyright (c) 2020 Polymath
+
+// This program is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, version 3.
+
+// This program is distributed in the hope that it will be useful, but
+// WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+// General Public License for more details.
+
+// You should have received a copy of the GNU General Public License
+// along with this program. If not, see <http://www.gnu.org/licenses/>.
+
 use pallet_identity as identity;
 use polymesh_common_utilities::{
     asset::Trait as AssetTrait, balances::Trait as BalancesTrait,
@@ -67,7 +82,7 @@ decl_module! {
             ensure!(is_exempted != exempted, Error::<T>::NoChange);
 
             <ExemptionList>::insert(&ticker_asset_holder_did, exempted);
-            Self::deposit_event(Event::ModifyExemptionList(ticker, _tm, asset_holder_did, exempted));
+            Self::deposit_event(Event::ExemptionListModified(did, ticker, _tm, asset_holder_did, exempted));
 
             Ok(())
         }
@@ -76,7 +91,7 @@ decl_module! {
 
 decl_event!(
     pub enum Event {
-        ModifyExemptionList(Ticker, u16, IdentityId, bool),
+        ExemptionListModified(IdentityId, Ticker, u16, IdentityId, bool),
     }
 );
 

@@ -11,18 +11,29 @@ use sp_runtime::DispatchError;
 pub struct Context {}
 
 impl Context {
+    #[inline]
+    #[cfg(not(feature = "default_identity"))]
     pub fn current_identity<I: IdentityTrait>() -> Option<IdentityId> {
         I::current_identity()
     }
 
+    #[inline]
+    #[cfg(feature = "default_identity")]
+    pub fn current_identity<I: IdentityTrait>() -> Option<IdentityId> {
+        I::current_identity().or_else(|| Some(IdentityId::default()))
+    }
+
+    #[inline]
     pub fn set_current_identity<I: IdentityTrait>(id: Option<IdentityId>) {
         I::set_current_identity(id)
     }
 
+    #[inline]
     pub fn current_payer<I: IdentityTrait>() -> Option<Signatory> {
         I::current_payer()
     }
 
+    #[inline]
     pub fn set_current_payer<I: IdentityTrait>(payer: Option<Signatory>) {
         I::set_current_payer(payer)
     }
@@ -30,6 +41,7 @@ impl Context {
     /// It gets the current identity and if it is none, it will use the identity from `key`.
     /// This function is a helper tool for testing where SignedExtension is not used and
     /// `current_identity` is always none.
+    #[cfg(not(feature = "default_identity"))]
     pub fn current_identity_or<I: IdentityTrait>(
         key: &AccountKey,
     ) -> Result<IdentityId, DispatchError> {
@@ -40,6 +52,16 @@ impl Context {
                     "Current identity is none and key is not linked to any identity",
                 )
             })
+    }
+
+    #[cfg(feature = "default_identity")]
+    pub fn current_identity_or<I: IdentityTrait>(
+        key: &AccountKey,
+    ) -> Result<IdentityId, DispatchError> {
+        I::current_identity()
+            .or_else(|| I::get_identity(key))
+            .or_else(|| Some(IdentityId::default()))
+            .ok_or_else(|| DispatchError::Other("Unreachable code"))
     }
 }
 

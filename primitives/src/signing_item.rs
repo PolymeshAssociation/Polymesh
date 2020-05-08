@@ -1,3 +1,18 @@
+// This file is part of the Polymesh distribution (https://github.com/PolymathNetwork/Polymesh).
+// Copyright (c) 2020 Polymath
+
+// This program is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, version 3.
+
+// This program is distributed in the hope that it will be useful, but
+// WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+// General Public License for more details.
+
+// You should have received a copy of the GNU General Public License
+// along with this program. If not, see <http://www.gnu.org/licenses/>.
+
 use crate::{AccountKey, IdentityId};
 use codec::{Decode, Encode};
 #[cfg(feature = "std")]
@@ -95,6 +110,22 @@ impl Signatory {
         match self {
             Signatory::AccountKey(ref key) => key == other_key,
             Signatory::Identity(ref id) => id == other_identity,
+        }
+    }
+
+    /// This signatory as `IdentityId` or None.
+    pub fn as_identity(&self) -> Option<&IdentityId> {
+        match self {
+            Signatory::Identity(id) => Some(id),
+            _ => None,
+        }
+    }
+
+    /// This signatory as `AccountKey` or None.
+    pub fn as_account_key(&self) -> Option<&AccountKey> {
+        match self {
+            Signatory::AccountKey(key) => Some(key),
+            _ => None,
         }
     }
 }

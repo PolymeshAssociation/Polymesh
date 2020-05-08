@@ -3,13 +3,13 @@ use super::{
     ExtBuilder,
 };
 
+use pallet_asset::{self as asset, AssetType, Error as AssetError, SecurityToken, TokenName};
 use pallet_balances as balances;
+use pallet_compliance_manager::{self as compliance_manager, AssetTransferRule, Error as CMError};
 use pallet_group::{self as group};
 use pallet_identity::{self as identity, BatchAddClaimItem};
+use polymesh_common_utilities::Context;
 use polymesh_primitives::{Claim, IdentityId, Rule, RuleType, Scope, Ticker};
-
-use pallet_asset::{self as asset, AssetType, Error as AssetError, SecurityToken, TokenName};
-use pallet_compliance_manager::{self as compliance_manager, AssetTransferRule, Error as CMError};
 
 use chrono::prelude::Utc;
 use frame_support::{assert_err, assert_ok, traits::Currency};
@@ -39,7 +39,7 @@ fn make_ticker_env(owner: AccountKeyring, token_name: TokenName) -> Ticker {
     };
 
     let ticker = Ticker::try_from(token.name.0.as_slice()).unwrap();
-    assert_ok!(Asset::create_token(
+    assert_ok!(Asset::create_asset(
         Origin::signed(owner.public()),
         token.name.clone(),
         ticker,
@@ -68,7 +68,10 @@ fn should_add_and_verify_asset_rule_we() {
     let cdd_provider = AccountKeyring::Eve.public();
     let (cdd_signed, cdd_id) = make_account(cdd_provider).unwrap();
 
+    // Providing an random DID to root, In production root should posses a DID
+    Context::set_current_identity::<Identity>(Some(IdentityId::from(999)));
     assert_ok!(CDDGroup::reset_members(root, vec![cdd_id]));
+    Context::set_current_identity::<Identity>(None);
 
     // A token representing 1M shares
     let token = SecurityToken {
@@ -83,7 +86,7 @@ fn should_add_and_verify_asset_rule_we() {
     Balances::make_free_balance_be(&token_owner_acc, 1_000_000);
 
     // Share issuance is successful
-    assert_ok!(Asset::create_token(
+    assert_ok!(Asset::create_asset(
         token_owner_signed.clone(),
         token.name.clone(),
         ticker,
@@ -203,7 +206,7 @@ fn should_reset_assetrules_we() {
     Balances::make_free_balance_be(&token_owner_acc, 1_000_000);
 
     // Share issuance is successful
-    assert_ok!(Asset::create_token(
+    assert_ok!(Asset::create_asset(
         token_owner_signed.clone(),
         token.name.clone(),
         ticker,
@@ -260,7 +263,7 @@ fn pause_resume_asset_rules_we() {
     Balances::make_free_balance_be(&token_owner_acc, 1_000_000);
 
     // 2. Share issuance is successful
-    assert_ok!(Asset::create_token(
+    assert_ok!(Asset::create_asset(
         token_owner_signed.clone(),
         token.name.clone(),
         ticker,
@@ -301,11 +304,13 @@ fn pause_resume_asset_rules_we() {
         AssetError::<TestStorage>::InvalidTransfer
     );
 
+    Context::set_current_identity::<Identity>(Some(token_owner_did));
     // 5.2. Pause asset rules, and run the transaction.
     assert_ok!(ComplianceManager::pause_asset_rules(
         token_owner_signed.clone(),
         ticker
     ));
+    Context::set_current_identity::<Identity>(None);
     assert_ok!(Asset::transfer(
         token_owner_signed.clone(),
         ticker,
@@ -313,11 +318,13 @@ fn pause_resume_asset_rules_we() {
         10
     ));
 
+    Context::set_current_identity::<Identity>(Some(token_owner_did));
     // 5.3. Resume asset rules, and new transfer should fail again.
     assert_ok!(ComplianceManager::resume_asset_rules(
         token_owner_signed.clone(),
         ticker
     ));
+    Context::set_current_identity::<Identity>(None);
     assert_err!(
         Asset::transfer(token_owner_signed.clone(), ticker, receiver_did, 10),
         AssetError::<TestStorage>::InvalidTransfer
@@ -341,7 +348,9 @@ fn should_successfully_add_and_use_default_issuers_we() {
     let receiver_acc = AccountKeyring::Dave.public();
     let (_, receiver_did) = make_account(receiver_acc).unwrap();
 
+    Context::set_current_identity::<Identity>(Some(IdentityId::from(999)));
     assert_ok!(CDDGroup::reset_members(root, vec![trusted_issuer_did]));
+    Context::set_current_identity::<Identity>(None);
 
     // 1. A token representing 1M shares
     let token = SecurityToken {
@@ -355,7 +364,7 @@ fn should_successfully_add_and_use_default_issuers_we() {
     let ticker = Ticker::try_from(token.name.0.as_slice()).unwrap();
 
     // 2. Share issuance is successful
-    assert_ok!(Asset::create_token(
+    assert_ok!(Asset::create_asset(
         token_owner_signed.clone(),
         token.name.clone(),
         ticker,
@@ -461,11 +470,13 @@ fn should_modify_vector_of_trusted_issuer_we() {
     let receiver_acc = AccountKeyring::Dave.public();
     let (receiver_signed, receiver_did) = make_account(receiver_acc).unwrap();
 
+    // Providing a random DID to root but in real world Root should posses a DID
+    Context::set_current_identity::<Identity>(Some(IdentityId::from(999)));
     assert_ok!(CDDGroup::reset_members(
         root,
         vec![trusted_issuer_did_1, trusted_issuer_did_2]
     ));
-
+    Context::set_current_identity::<Identity>(None);
     // 1. A token representing 1M shares
     let token = SecurityToken {
         name: vec![0x01].into(),
@@ -478,7 +489,7 @@ fn should_modify_vector_of_trusted_issuer_we() {
     let ticker = Ticker::try_from(token.name.0.as_slice()).unwrap();
 
     // 2. Share issuance is successful
-    assert_ok!(Asset::create_token(
+    assert_ok!(Asset::create_asset(
         token_owner_signed.clone(),
         token.name.clone(),
         ticker,
@@ -698,7 +709,7 @@ fn jurisdiction_asset_rules_we() {
         ..Default::default()
     };
     let ticker = Ticker::try_from(token.name.0.as_slice()).unwrap();
-    assert_ok!(Asset::create_token(
+    assert_ok!(Asset::create_asset(
         token_owner_signed.clone(),
         token.name.clone(),
         ticker,

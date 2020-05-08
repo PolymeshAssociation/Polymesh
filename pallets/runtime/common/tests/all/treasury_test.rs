@@ -3,19 +3,18 @@ use super::{
     ExtBuilder,
 };
 
+use frame_support::{assert_err, assert_ok};
 use pallet_balances as balances;
 use pallet_identity as identity;
 use pallet_treasury::{self as treasury, TreasuryTrait};
-use polymesh_primitives::Beneficiary;
-
-use frame_support::{assert_err, assert_ok};
+use polymesh_common_utilities::Context;
+use polymesh_primitives::{Beneficiary, IdentityId};
 use sp_runtime::DispatchError;
 use test_client::AccountKeyring;
 
 pub type Balances = balances::Module<TestStorage>;
 pub type Treasury = treasury::Module<TestStorage>;
 type Identity = identity::Module<TestStorage>;
-
 type Origin = <TestStorage as frame_system::Trait>::Origin;
 
 #[test]
@@ -52,7 +51,10 @@ fn reimbursement_and_disbursement_we() {
         },
     ];
 
+    // Providing a random DID to Root, In an ideal world root will have a valid DID
+    Context::set_current_identity::<Identity>(Some(IdentityId::from(999)));
     assert_ok!(Treasury::disbursement(root.clone(), beneficiaries));
+    Context::set_current_identity::<Identity>(None);
     assert_eq!(Treasury::balance(), 400);
     assert_eq!(Balances::identity_balance(alice), 100);
     assert_eq!(Balances::identity_balance(bob), 500);

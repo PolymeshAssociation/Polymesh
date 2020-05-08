@@ -73,7 +73,7 @@ impl_outer_event! {
         identity<T>,
         balances<T>,
         multisig<T>,
-        percentage_tm<T>,
+        percentage_tm,
         bridge<T>,
         asset<T>,
         pips<T>,
@@ -293,7 +293,7 @@ impl AcceptTransfer for TestStorage {
     fn accept_ticker_transfer(_: IdentityId, _: u64) -> DispatchResult {
         Ok(())
     }
-    fn accept_token_ownership_transfer(_: IdentityId, _: u64) -> DispatchResult {
+    fn accept_asset_ownership_transfer(_: IdentityId, _: u64) -> DispatchResult {
         Ok(())
     }
 }
