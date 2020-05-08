@@ -82,10 +82,7 @@ use frame_system::offchain::SubmitUnsignedTransaction;
 use frame_system::{self as system, ensure_none};
 use pallet_identity as identity;
 use pallet_session::historical::IdentificationTuple;
-use polymesh_common_utilities::{
-    traits::identity::{IdentityTrait, Trait as IdentityModuleTrait},
-    Context,
-};
+use polymesh_common_utilities::{traits::identity::Trait as IdentityModuleTrait, Context};
 use polymesh_primitives::IdentityId;
 use sp_application_crypto::RuntimeAppPublic;
 use sp_core::offchain::OpaqueNetworkState;

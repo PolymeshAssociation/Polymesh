@@ -61,7 +61,7 @@ use polymesh_common_utilities::{
     identity::{IdentityTrait, Trait as IdentityModuleTrait},
     Context, SystematicIssuers,
 };
-use polymesh_primitives::{AccountKey, IdentityId, Signatory};
+use polymesh_primitives::{AccountKey, IdentityId};
 use sp_core::u32_trait::Value as U32;
 use sp_runtime::traits::{EnsureOrigin, Hash, Zero};
 use sp_std::{convert::TryFrom, prelude::*, vec};

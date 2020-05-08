@@ -23,13 +23,22 @@ use std::cell::RefCell;
 use crate::{Module, Trait};
 use frame_support::{impl_outer_dispatch, impl_outer_origin, parameter_types, weights::Weight};
 use sp_core::H256;
-use sp_runtime::testing::{Header, TestXt, UintAuthorityId};
-use sp_runtime::traits::{BlakeTwo256, ConvertInto, IdentityLookup};
-use sp_runtime::Perbill;
+use sp_runtime::{
+    testing::{Header, TestXt, UintAuthorityId},
+    traits::{BlakeTwo256, ConvertInto, IdentityLookup, Verify},
+    AnySignature, Perbill,
+};
 use sp_staking::{
     offence::{OffenceError, ReportOffence},
     SessionIndex,
 };
+
+use pallet_balances as balances;
+use pallet_group as group;
+use pallet_identity::{self as identity};
+use polymesh_common_utilities::traits::{identity::Trait as IdentityTrait, CommonTrait};
+
+type OffChainSignature = AnySignature;
 
 impl_outer_origin! {
     pub enum Origin for Runtime where system = frame_system {}
@@ -71,7 +80,7 @@ pub type Extrinsic = TestXt<Call, ()>;
 type SubmitTransaction = frame_system::offchain::TransactionSubmitter<(), Call, Extrinsic>;
 type IdentificationTuple = (u64, u64);
 type Offence = crate::UnresponsivenessOffence<Runtime, IdentificationTuple>;
-pub type AccountId = u64;
+pub type AccountId = <AnySignature as Verify>::Signer;
 
 thread_local! {
     pub static OFFENCES: RefCell<Vec<(Vec<u64>, Offence)>> = RefCell::new(vec![]);
@@ -139,7 +148,7 @@ impl pallet_session::Trait for Runtime {
     type SessionManager =
         pallet_session::historical::NoteHistoricalRoot<Runtime, TestSessionManager>;
     type SessionHandler = (ImOnline,);
-    type ValidatorId = u64;
+    type ValidatorId = AccountId;
     type ValidatorIdOf = ConvertInto;
     type Keys = UintAuthorityId;
     type Event = ();
@@ -174,6 +183,43 @@ impl Trait for Runtime {
     type ReportUnresponsiveness = OffenceHandler;
     type SessionDuration = Period;
     type CommitteeOrigin = frame_system::EnsureRoot<AccountId>;
+}
+
+impl IdentityTrait for Runtime {
+    type Event = ();
+    type Proposal = Call;
+    type AddSignerMultiSigTarget = Runtime;
+    type CddServiceProviders = group::Module<Runtime, group::Instance2>;
+    type Balances = balances::Module<Runtime>;
+    type ChargeTxFeeTarget = Runtime;
+    type CddHandler = Runtime;
+    type Public = AccountId;
+    type OffChainSignature = OffChainSignature;
+}
+
+parameter_types! {
+    pub const MinimumPeriod: u64 = 5;
+}
+
+impl pallet_timestamp::Trait for Runtime {
+    type Moment = u64;
+    type OnTimestampSet = ();
+    type MinimumPeriod = MinimumPeriod;
+}
+
+impl balances::Trait for Runtime {
+    type DustRemoval = ();
+    type Event = ();
+    type ExistentialDeposit = ExistentialDeposit;
+    type AccountStore = frame_system::Module<Runtime>;
+    type Identity = identity::Module<Runtime>;
+    type CddChecker = Runtime;
+}
+pub type Balance = u128;
+impl CommonTrait for Runtime {
+    type Balance = Balance;
+    type AcceptTransferTarget = Runtime;
+    type BlockRewardsReserve = balances::Module<Runtime>;
 }
 
 /// Im Online module.
