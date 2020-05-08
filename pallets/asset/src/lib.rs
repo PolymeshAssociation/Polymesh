@@ -214,7 +214,7 @@ impl<T: AsRef<[u8]>> From<T> for FundingRoundName {
 
 impl Default for FundingRoundName {
     fn default() -> Self {
-        FundingRoundName("GenesisRound".as_bytes().to_vec())
+        FundingRoundName("".as_bytes().to_vec())
     }
 }
 
