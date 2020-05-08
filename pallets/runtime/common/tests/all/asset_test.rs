@@ -700,7 +700,7 @@ fn register_ticker() {
 
         assert_err!(
             Asset::register_ticker(owner_signed.clone(), Ticker::try_from(&[0x01][..]).unwrap()),
-            AssetError::TokenAlreadyCreated
+            AssetError::AssetAlreadyCreated
         );
 
         assert_err!(
@@ -965,7 +965,7 @@ fn transfer_token_ownership() {
 
         assert_err!(
             Asset::accept_asset_ownership_transfer(bob_signed.clone(), auth_id),
-            AssetError::NoSuchToken
+            AssetError::NoSuchAsset
         );
 
         auth_id = Identity::add_auth(
