@@ -687,7 +687,7 @@ decl_module! {
             let sender_key = AccountKey::try_from(ensure_signed(origin)?.encode())?;
             let did = Context::current_identity_or::<Self>(&sender_key)?;
 
-            Self::deposit_event(RawEvent::MyDidRequested(did, sender_key));
+            Self::deposit_event(RawEvent::DidStatus(did, sender_key));
             Ok(())
         }
 
@@ -703,7 +703,7 @@ decl_module! {
                 .next()
                 .unwrap_or_default();
 
-            Self::deposit_event(RawEvent::CddValidRequired(did_opt, key, has_cdd));
+            Self::deposit_event(RawEvent::CddStatus(did_opt, key, has_cdd));
             Ok(())
         }
 

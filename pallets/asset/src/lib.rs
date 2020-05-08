@@ -92,8 +92,8 @@ use polymesh_common_utilities::{
     CommonTrait, Context,
 };
 use polymesh_primitives::{
-    AccountKey, AuthorizationData, AuthorizationError, Document, DocumentHash, DocumentName,
-    DocumentUri, IdentityId, LinkData, Signatory, SmartExtension, SmartExtensionName,
+    AccountKey, AuthorizationData, AuthorizationError, Document,
+    IdentityId, LinkData, Signatory, SmartExtension, SmartExtensionName,
     SmartExtensionType, Ticker,
 };
 
@@ -101,7 +101,7 @@ use codec::{Decode, Encode};
 use core::result::Result as StdResult;
 use currency::*;
 use frame_support::{
-    debug, decl_error, decl_event, decl_module, decl_storage,
+    decl_error, decl_event, decl_module, decl_storage,
     dispatch::DispatchResult,
     ensure,
     traits::Currency,
@@ -110,7 +110,7 @@ use frame_support::{
 use frame_system::{self as system, ensure_signed};
 use hex_literal::hex;
 use pallet_contracts::{ExecReturnValue, Gas};
-use sp_runtime::traits::{CheckedAdd, CheckedSub, Saturating, Verify};
+use sp_runtime::traits::{CheckedAdd, CheckedSub, Verify};
 
 #[cfg(feature = "std")]
 use sp_runtime::{Deserialize, Serialize};

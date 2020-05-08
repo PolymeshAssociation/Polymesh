@@ -124,10 +124,10 @@ decl_event!(
         ClaimRevoked(IdentityId, IdentityClaim),
 
         /// DID queried
-        MyDidRequested(IdentityId, AccountKey),
+        DidStatus(IdentityId, AccountKey),
 
         /// CDD queried
-        CddValidRequired(Option<IdentityId>, AccountKey, bool),
+        CddStatus(Option<IdentityId>, AccountKey, bool),
 
         /// Asset DID
         AssetDidRegistered(IdentityId, Ticker),
