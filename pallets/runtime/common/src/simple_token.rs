@@ -22,7 +22,7 @@
 //!
 //! ### Dispatchable Functions
 //!
-//! - `create_asset` - Creates a new simple token and mints a balance to the issuer
+//! - `create_token` - Creates a new simple token and mints a balance to the issuer
 //! - `approve` - Approves another identity to transfer tokens on behalf of the caller
 //! - `transfer` - Transfers simple tokens to another identity
 //! - `transfer_from` - Transfers simple tokens to another identity using the approval process
@@ -110,7 +110,7 @@ decl_module! {
 
         /// Create a new token and mint a balance to the issuing identity
         #[weight = SimpleDispatchInfo::FixedNormal(200_000)]
-        pub fn create_asset(origin, ticker: Ticker, total_supply: T::Balance) -> DispatchResult {
+        pub fn create_token(origin, ticker: Ticker, total_supply: T::Balance) -> DispatchResult {
             let sender_key = AccountKey::try_from(ensure_signed(origin)?.encode())?;
             let did = Context::current_identity_or::<Identity<T>>(&sender_key)?;
             let sender = Signatory::AccountKey(sender_key);

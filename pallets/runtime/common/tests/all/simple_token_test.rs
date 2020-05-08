@@ -23,7 +23,7 @@ fn create_token_works() {
         let total_supply = 1_000_000;
 
         // Issuance is successful
-        assert_ok!(SimpleToken::create_asset(
+        assert_ok!(SimpleToken::create_token(
             owner_signed.clone(),
             ticker,
             total_supply
@@ -39,11 +39,11 @@ fn create_token_works() {
         );
 
         assert_err!(
-            SimpleToken::create_asset(owner_signed.clone(), ticker, total_supply),
+            SimpleToken::create_token(owner_signed.clone(), ticker, total_supply),
             Error::TickerAlreadyExists
         );
 
-        assert_ok!(SimpleToken::create_asset(
+        assert_ok!(SimpleToken::create_token(
             owner_signed.clone(),
             Ticker::try_from("0123456789AB".as_bytes()).unwrap(),
             total_supply,
@@ -58,7 +58,7 @@ fn create_token_works() {
         );
 
         assert_err!(
-            SimpleToken::create_asset(
+            SimpleToken::create_token(
                 owner_signed.clone(),
                 Ticker::try_from(&[0x02][..]).unwrap(),
                 MAX_SUPPLY + 1
@@ -78,7 +78,7 @@ fn transfer_works() {
         let total_supply = 1_000_000;
 
         // Issuance is successful
-        assert_ok!(SimpleToken::create_asset(
+        assert_ok!(SimpleToken::create_token(
             owner_signed.clone(),
             ticker,
             total_supply
@@ -115,7 +115,7 @@ fn approve_transfer_works() {
         let total_supply = 1_000_000;
 
         // Issuance is successful
-        assert_ok!(SimpleToken::create_asset(
+        assert_ok!(SimpleToken::create_token(
             owner_signed.clone(),
             ticker,
             total_supply
