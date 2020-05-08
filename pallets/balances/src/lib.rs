@@ -695,7 +695,7 @@ impl<T: Trait> Module<T> {
 
         if let Some(memo) = memo {
             // Emit TransferWithMemo event.
-            Self::deposit_event(RawEvent::TransferedWithMemo(
+            Self::deposit_event(RawEvent::TransferWithMemo(
                 transactor_id,
                 transactor.clone(),
                 dest_id,
@@ -705,7 +705,7 @@ impl<T: Trait> Module<T> {
             ));
         } else {
             // Emit transfer event.
-            Self::deposit_event(RawEvent::Transfered(
+            Self::deposit_event(RawEvent::Transfer(
                 transactor_id,
                 transactor.clone(),
                 dest_id,
