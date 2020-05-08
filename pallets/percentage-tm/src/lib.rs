@@ -46,19 +46,17 @@ use sp_std::{convert::TryFrom, prelude::*};
 /// The module's configuration trait.
 pub trait Trait: frame_system::Trait + CommonTrait + IdentityTrait {
     /// The overarching event type.
-    type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
+    type Event: From<Event> + Into<<Self as frame_system::Trait>::Event>;
 
     type Exemption: ExemptionTrait;
     type Asset: AssetTrait<Self::Balance, Self::AccountId>;
 }
 
 decl_event!(
-    pub enum Event<T>
-    where
-        Balance = <T as CommonTrait>::Balance,
-    {
-        TogglePercentageRestriction(Ticker, u16, bool),
-        DoSomething(Balance),
+    pub enum Event {
+        /// Emitted when percentage restriction change
+        /// caller DID, Ticker, percentage amount, toggled status
+        PercentageRestrictionToggled(IdentityId, Ticker, u16, bool),
     }
 );
 
@@ -112,7 +110,7 @@ decl_module! {
             //SATYAM: TODO: Add the decimal restriction
             <MaximumPercentageEnabledForToken>::insert(&ticker, max_percentage);
             // Emit an event with values (Ticker of asset, max percentage, restriction enabled or not)
-            Self::deposit_event(RawEvent::TogglePercentageRestriction(ticker, max_percentage, max_percentage != 0));
+            Self::deposit_event(Event::PercentageRestrictionToggled(did, ticker, max_percentage, max_percentage != 0));
 
             if max_percentage != 0 {
                 sp_runtime::print("Maximum percentage restriction enabled!");

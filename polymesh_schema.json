@@ -67,7 +67,7 @@
             "_enum": {
                 "DocumentOwned": "Document",
                 "TickerOwned": "Ticker",
-                "TokenOwned": "Ticker"
+                "AssetOwned": "Ticker"
             }
         },
         "SignatoryType": {
@@ -325,7 +325,7 @@
                 "RotateMasterKey": "IdentityId",
                 "TransferTicker": "Ticker",
                 "AddMultiSigSigner": "",
-                "TransferTokenOwnership": "Ticker",
+                "TransferAssetOwnership": "Ticker",
                 "JoinIdentity": "IdentityId",
                 "Custom": "Vec<u8>",
                 "NoData": ""

@@ -52,6 +52,8 @@ use super::{
     BalanceOf, EraIndex, Exposure, Module, NegativeImbalanceOf, Perbill, SessionInterface, Store,
     Trait, UnappliedSlash,
 };
+use pallet_identity as identity;
+
 use codec::{Decode, Encode};
 use frame_support::{
     traits::{Currency, Imbalance, OnUnbalanced},
@@ -61,7 +63,7 @@ use sp_runtime::{
     traits::{Saturating, Zero},
     PerThing,
 };
-use sp_std::vec::Vec;
+use sp_std::{convert::TryInto, vec::Vec};
 
 /// The proportion of the slashing reward to be paid out on the first slashing detection.
 /// This is f_1 in the paper.
@@ -596,7 +598,12 @@ fn do_slash<T: Trait>(
         <Module<T>>::update_ledger(&controller, &ledger);
 
         // trigger the event
-        <Module<T>>::deposit_event(super::RawEvent::Slash(stash.clone(), value));
+        let stash_id = stash
+            .encode()
+            .try_into()
+            .map(|key| <identity::Module<T>>::get_identity(&key))
+            .unwrap_or_default();
+        <Module<T>>::deposit_event(super::RawEvent::Slashed(stash_id, stash.clone(), value));
     }
 }
 

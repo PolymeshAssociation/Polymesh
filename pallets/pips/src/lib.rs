@@ -56,7 +56,7 @@ use polymesh_common_utilities::{
     traits::{governance_group::GovernanceGroupTrait, group::GroupTrait},
     CommonTrait, Context,
 };
-use polymesh_primitives::{AccountKey, Beneficiary, Signatory};
+use polymesh_primitives::{AccountKey, Beneficiary, IdentityId, Signatory};
 use sp_core::H256;
 use sp_runtime::traits::{
     BlakeTwo256, CheckedAdd, CheckedSub, Dispatchable, EnsureOrigin, Hash, Saturating, Zero,
@@ -326,15 +326,16 @@ decl_event!(
         <T as frame_system::Trait>::AccountId,
         <T as frame_system::Trait>::BlockNumber,
     {
-        /// Pruning Historical PIPs is enabled or disabled (old value, new value)
-        PruningHistoricalPips(bool, bool),
+        /// Pruning Historical PIPs is enabled or disabled (caller DID, old value, new value)
+        HistoricalPipsPruned(IdentityId, bool, bool),
         /// A Mesh Improvement Proposal was made with a `Balance` stake.
         ///
         /// # Parameters:
         ///
-        /// Proposer, PIP ID, deposit, URL, description, cool-off period end, proposal end, proposal
+        /// Caller DID, Proposer, PIP ID, deposit, URL, description, cool-off period end, proposal end, proposal
         /// data.
         ProposalCreated(
+            IdentityId,
             AccountId,
             PipId,
             Balance,
@@ -346,37 +347,34 @@ decl_event!(
         ),
         /// A Mesh Improvement Proposal was amended with a possible change to the bond
         /// bool is +ve when bond is added, -ve when removed
-        ProposalAmended(AccountId, PipId, bool, Balance),
+        ProposalAmended(IdentityId, AccountId, PipId, bool, Balance),
         /// Triggered each time the state of a proposal is amended
-        ProposalStateUpdated(PipId, ProposalState),
+        ProposalStateUpdated(IdentityId, PipId, ProposalState),
         /// `AccountId` voted `bool` on the proposal referenced by `PipId`
-        Voted(AccountId, PipId, bool, Balance),
+        Voted(IdentityId, AccountId, PipId, bool, Balance),
         /// Pip has been closed, bool indicates whether data is pruned
-        PipClosed(PipId, bool),
+        PipClosed(IdentityId, PipId, bool),
         /// Referendum created for proposal.
-        ReferendumCreated(PipId, ReferendumType),
+        ReferendumCreated(IdentityId, PipId, ReferendumType),
         /// Referendum execution has been scheduled at specific block.
-        ReferendumScheduled(PipId, BlockNumber, BlockNumber),
+        ReferendumScheduled(IdentityId, PipId, BlockNumber, BlockNumber),
         /// Triggered each time the state of a referendum is amended
-        ReferendumStateUpdated(PipId, ReferendumState),
+        ReferendumStateUpdated(IdentityId, PipId, ReferendumState),
         /// Default enactment period (in blocks) has been changed.
-        /// (old period, new period)
-        DefaultEnactmentPeriodChanged(BlockNumber, BlockNumber),
+        /// (caller DID, old period, new period)
+        DefaultEnactmentPeriodChanged(IdentityId, BlockNumber, BlockNumber),
         /// Minimum deposit amount modified
-        /// (old amount, new amount)
-        MinimumProposalDepositChanged(Balance, Balance),
-        /// Quorum threshold changed
-        /// (old value, new value)
-        QuorumThresholdChanged(Balance, Balance),
+        /// (caller DID, old amount, new amount)
+        MinimumProposalDepositChanged(IdentityId, Balance, Balance),
         /// Proposal duration changed
         /// (old value, new value)
-        ProposalDurationChanged(BlockNumber, BlockNumber),
+        ProposalDurationChanged(IdentityId, BlockNumber, BlockNumber),
         /// Refund proposal
         /// (id, total amount)
-        ProposalRefund(PipId, Balance),
+        ProposalRefund(IdentityId, PipId, Balance),
         /// Proposal has beneficiaries.
         /// (id, total amount)
-        ProposalPayment(PipId, Balance),
+        ProposalPayment(IdentityId, PipId, Balance),
     }
 );
 
@@ -410,6 +408,8 @@ decl_error! {
         NumberOfVotesExceeded,
         /// When stake amount of a vote overflows.
         StakeAmountOfVotesExceeded,
+        /// Missing current DID
+        MissingCurrentIdentity
     }
 }
 
@@ -428,7 +428,8 @@ decl_module! {
         #[weight = SimpleDispatchInfo::FixedOperational(100_000)]
         pub fn set_prune_historical_pips(origin, new_value: bool) {
             T::CommitteeOrigin::try_origin(origin).map_err(|_| Error::<T>::BadOrigin)?;
-            Self::deposit_event(RawEvent::PruningHistoricalPips(Self::prune_historical_pips(), new_value));
+            let current_did = Context::current_identity::<Identity<T>>().ok_or_else(|| Error::<T>::MissingCurrentIdentity)?;
+            Self::deposit_event(RawEvent::HistoricalPipsPruned(current_did, Self::prune_historical_pips(), new_value));
             <PruneHistoricalPips>::put(new_value);
         }
 
@@ -440,7 +441,8 @@ decl_module! {
         #[weight = SimpleDispatchInfo::FixedOperational(100_000)]
         pub fn set_min_proposal_deposit(origin, deposit: BalanceOf<T>) {
             T::CommitteeOrigin::try_origin(origin).map_err(|_| Error::<T>::BadOrigin)?;
-            Self::deposit_event(RawEvent::MinimumProposalDepositChanged(Self::min_proposal_deposit(), deposit));
+            let current_did = Context::current_identity::<Identity<T>>().ok_or_else(|| Error::<T>::MissingCurrentIdentity)?;
+            Self::deposit_event(RawEvent::MinimumProposalDepositChanged(current_did, Self::min_proposal_deposit(), deposit));
             <MinimumProposalDeposit<T>>::put(deposit);
         }
 
@@ -453,7 +455,8 @@ decl_module! {
         #[weight = SimpleDispatchInfo::FixedOperational(100_000)]
         pub fn set_quorum_threshold(origin, threshold: BalanceOf<T>) {
             T::CommitteeOrigin::try_origin(origin).map_err(|_| Error::<T>::BadOrigin)?;
-            Self::deposit_event(RawEvent::MinimumProposalDepositChanged(Self::quorum_threshold(), threshold));
+            let current_did = Context::current_identity::<Identity<T>>().ok_or_else(|| Error::<T>::MissingCurrentIdentity)?;
+            Self::deposit_event(RawEvent::MinimumProposalDepositChanged(current_did, Self::quorum_threshold(), threshold));
             <QuorumThreshold<T>>::put(threshold);
         }
 
@@ -465,7 +468,8 @@ decl_module! {
         #[weight = SimpleDispatchInfo::FixedOperational(100_000)]
         pub fn set_proposal_duration(origin, duration: T::BlockNumber) {
             T::CommitteeOrigin::try_origin(origin).map_err(|_| Error::<T>::BadOrigin)?;
-            Self::deposit_event(RawEvent::ProposalDurationChanged(Self::proposal_duration(), duration));
+            let current_did = Context::current_identity::<Identity<T>>().ok_or_else(|| Error::<T>::MissingCurrentIdentity)?;
+            Self::deposit_event(RawEvent::ProposalDurationChanged(current_did, Self::proposal_duration(), duration));
             <ProposalDuration<T>>::put(duration);
         }
 
@@ -475,7 +479,8 @@ decl_module! {
             T::CommitteeOrigin::try_origin(origin).map_err(|_| Error::<T>::BadOrigin)?;
             let previous_duration = <DefaultEnactmentPeriod<T>>::get();
             <DefaultEnactmentPeriod<T>>::put(duration);
-            Self::deposit_event(RawEvent::DefaultEnactmentPeriodChanged(duration, previous_duration));
+            let current_did = Context::current_identity::<Identity<T>>().ok_or_else(|| Error::<T>::MissingCurrentIdentity)?;
+            Self::deposit_event(RawEvent::DefaultEnactmentPeriodChanged(current_did, duration, previous_duration));
         }
 
         /// A network member creates a Mesh Improvement Proposal by submitting a dispatchable which
@@ -547,7 +552,9 @@ decl_module! {
                     debug::error!("The counters of voting (id={}) have an overflow during the 1st vote", id);
                     vote_error
                 })?;
+            let current_did = Context::current_identity::<Identity<T>>().ok_or_else(|| Error::<T>::MissingCurrentIdentity)?;
             Self::deposit_event(RawEvent::ProposalCreated(
+                current_did,
                 proposer,
                 id,
                 deposit,
@@ -594,7 +601,8 @@ decl_module! {
                     meta.description = description;
                 }
             });
-            Self::deposit_event(RawEvent::ProposalAmended(proposer, id, true, Zero::zero()));
+            let current_did = Context::current_identity::<Identity<T>>().ok_or_else(|| Error::<T>::MissingCurrentIdentity)?;
+            Self::deposit_event(RawEvent::ProposalAmended(current_did, proposer, id, true, Zero::zero()));
 
             Ok(())
         }
@@ -671,8 +679,8 @@ decl_module! {
                 |stats| stats.ayes_stake += max_additional_deposit
             );
             <ProposalVotes<T>>::insert(id, &proposer, Vote::Yes(curr_deposit + max_additional_deposit));
-
-            Self::deposit_event(RawEvent::ProposalAmended(proposer, id, true, max_additional_deposit));
+            let current_did = Context::current_identity::<Identity<T>>().ok_or_else(|| Error::<T>::MissingCurrentIdentity)?;
+            Self::deposit_event(RawEvent::ProposalAmended(current_did, proposer, id, true, max_additional_deposit));
 
             Ok(())
         }
@@ -723,8 +731,8 @@ decl_module! {
             );
             <ProposalVotes<T>>::insert(id, &proposer, Vote::Yes(new_deposit));
 
-
-            Self::deposit_event(RawEvent::ProposalAmended(proposer, id, false, amount));
+            let current_did = Context::current_identity::<Identity<T>>().ok_or_else(|| Error::<T>::MissingCurrentIdentity)?;
+            Self::deposit_event(RawEvent::ProposalAmended(current_did, proposer, id, false, amount));
             Ok(())
         }
 
@@ -776,8 +784,8 @@ decl_module! {
                 amount: deposit,
             };
             <Deposits<T>>::insert(id, &proposer, depo_info);
-
-            Self::deposit_event(RawEvent::Voted(proposer, id, aye_or_nay, deposit));
+            let current_did = Context::current_identity::<Identity<T>>().ok_or_else(|| Error::<T>::MissingCurrentIdentity)?;
+            Self::deposit_event(RawEvent::Voted(current_did, proposer, id, aye_or_nay, deposit));
         }
 
         /// An emergency stop measure to kill a proposal. Governance committee can kill
@@ -856,6 +864,7 @@ decl_module! {
             };
             <ProposalMetadata<T>>::insert(id, proposal_metadata);
             Self::deposit_event(RawEvent::ProposalCreated(
+                did,
                 proposer,
                 id,
                 Zero::zero(),
@@ -938,7 +947,7 @@ decl_module! {
             <ScheduledReferendumsAt<T>>::mutate( old_until, |ids| ids.retain( |i| *i != mid));
             <ScheduledReferendumsAt<T>>::mutate( new_until, |ids| ids.push(mid));
 
-            Self::deposit_event(RawEvent::ReferendumScheduled(mid, old_until, new_until));
+            Self::deposit_event(RawEvent::ReferendumScheduled(id, mid, old_until, new_until));
             Ok(())
         }
 
@@ -1012,7 +1021,12 @@ impl<T: Trait> Module<T> {
         };
         <Referendums<T>>::insert(id, referendum);
         Self::update_proposal_state(id, ProposalState::Referendum);
-        Self::deposit_event(RawEvent::ReferendumCreated(id, referendum_type));
+        let current_did = Context::current_identity::<Identity<T>>().unwrap_or_default();
+        Self::deposit_event(RawEvent::ReferendumCreated(
+            current_did,
+            id,
+            referendum_type,
+        ));
     }
 
     /// Refunds any tokens used to vote or bond a proposal
@@ -1022,8 +1036,8 @@ impl<T: Trait> Module<T> {
             amount.saturating_add(acc)
         });
         <Deposits<T>>::remove_prefix(id);
-
-        Self::deposit_event(RawEvent::ProposalRefund(id, total_refund));
+        let current_did = Context::current_identity::<Identity<T>>().unwrap_or_default();
+        Self::deposit_event(RawEvent::ProposalRefund(current_did, id, total_refund));
     }
 
     /// Close a proposal.
@@ -1037,15 +1051,16 @@ impl<T: Trait> Module<T> {
     /// # TODO
     /// * Should we remove the proposal when it is Cancelled?, killed?, rejected?
     fn prune_data(id: PipId, prune: bool) {
+        let current_did = Context::current_identity::<Identity<T>>().unwrap_or_default();
         if prune {
             <ProposalResult<T>>::remove(id);
             <ProposalVotes<T>>::remove_prefix(id);
             <ProposalMetadata<T>>::remove(id);
             <Proposals<T>>::remove(id);
             <Referendums<T>>::remove(id);
-            Self::deposit_event(RawEvent::PipClosed(id, true));
+            Self::deposit_event(RawEvent::PipClosed(current_did, id, true));
         } else {
-            Self::deposit_event(RawEvent::PipClosed(id, false));
+            Self::deposit_event(RawEvent::PipClosed(current_did, id, false));
         }
     }
 
@@ -1066,8 +1081,10 @@ impl<T: Trait> Module<T> {
             }
         });
         <ScheduledReferendumsAt<T>>::mutate(enactment_period, |ids| ids.push(id));
-
+        let current_did = Context::current_identity::<Identity<T>>()
+            .ok_or_else(|| Error::<T>::MissingCurrentIdentity)?;
         Self::deposit_event(RawEvent::ReferendumScheduled(
+            current_did,
             id,
             Zero::zero(),
             enactment_period,
@@ -1099,7 +1116,8 @@ impl<T: Trait> Module<T> {
                 T::Treasury::disbursement(b.id, b.amount);
                 b.amount.saturating_add(acc)
             });
-            // Self::deposit_event(RawEvent::ProposalPayment(id, total_amount));
+            //let current_did = Context::current_identity::<Identity<T>>().unwrap_or_default();
+            //Self::deposit_event(RawEvent::ProposalPayment(current_did, id, total_amount));
         }
     }
 
@@ -1109,7 +1127,8 @@ impl<T: Trait> Module<T> {
                 proposal.state = new_state;
             }
         });
-        Self::deposit_event(RawEvent::ProposalStateUpdated(id, new_state));
+        let current_did = Context::current_identity::<Identity<T>>().unwrap_or_default();
+        Self::deposit_event(RawEvent::ProposalStateUpdated(current_did, id, new_state));
     }
 
     fn update_referendum_state(id: PipId, new_state: ReferendumState) {
@@ -1118,7 +1137,8 @@ impl<T: Trait> Module<T> {
                 referendum.state = new_state;
             }
         });
-        Self::deposit_event(RawEvent::ReferendumStateUpdated(id, new_state));
+        let current_did = Context::current_identity::<Identity<T>>().unwrap_or_default();
+        Self::deposit_event(RawEvent::ReferendumStateUpdated(current_did, id, new_state));
     }
 
     fn is_proposal_pending(id: PipId) -> DispatchResult {

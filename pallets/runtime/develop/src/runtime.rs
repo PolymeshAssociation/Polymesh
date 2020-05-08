@@ -652,7 +652,7 @@ construct_runtime!(
         ComplianceManager: compliance_manager::{Module, Call, Storage, Event},
         Voting: voting::{Module, Call, Storage, Event<T>},
         StoCapped: sto_capped::{Module, Call, Storage, Event<T>},
-        PercentageTM: percentage_tm::{Module, Call, Storage, Event<T>},
+        PercentageTM: percentage_tm::{Module, Call, Storage, Event},
         Exemption: exemption::{Module, Call, Storage, Event},
         SimpleToken: simple_token::{Module, Call, Storage, Event<T>},
         CddServiceProviders: group::<Instance2>::{Module, Call, Storage, Event<T>, Config<T>},
@@ -923,7 +923,7 @@ impl_runtime_apis! {
             value: Balance) -> pallet_asset_rpc_runtime_api::CanTransferResult
         {
             Asset::unsafe_can_transfer(sender, ticker, from_did, to_did, value)
-                .map_err(|(_code, msg)| msg.as_bytes().to_vec())
+                .map_err(|msg| msg.as_bytes().to_vec())
         }
     }
 

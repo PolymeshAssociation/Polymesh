@@ -121,17 +121,17 @@ decl_event!(
     <T as CommonTrait>::Balance
     {
         /// An account was created with some free balance.
-        Endowed(AccountId, Balance),
-        /// Some amount was deposited (e.g. for transaction fees).
-        Deposit(AccountId, Balance),
+        Endowed(Option<IdentityId>, AccountId, Balance),
         /// Transfer succeeded (from, to, value).
-        Transfer(AccountId, AccountId, Balance),
+        Transfer(Option<IdentityId>, AccountId, Option<IdentityId>, AccountId, Balance),
         /// A balance was set by root (who, free, reserved).
-        BalanceSet(AccountId, Balance, Balance),
+        BalanceSet(IdentityId, AccountId, Balance, Balance),
         /// Transfer succeded with a memo.
-        TransferWithMemo(AccountId, AccountId, Balance, Memo),
+        /// ( source Id, source Account, target Id, target Account, amount, Text)
+        TransferWithMemo(Option<IdentityId>, AccountId, Option<IdentityId>, AccountId, Balance, Memo),
         /// The account and the amount of unlocked balance of that account that was burned.
-        AccountBalanceBurned(AccountId, Balance),
+        /// (caller Id, caller account, amount)
+        AccountBalanceBurned(IdentityId, AccountId, Balance),
     }
 );
 

@@ -204,7 +204,7 @@ decl_storage! {
                 ..Default::default()
             };
             <DidRecords>::insert(&treasury_did, record);
-            <Module<T>>::deposit_event(RawEvent::NewDid(treasury_did.clone(), treasury_account_id.clone(), vec![]));
+            <Module<T>>::deposit_event(RawEvent::DidCreated(treasury_did.clone(), treasury_account_id.clone(), vec![]));
 
             // Add the claim data for the CustomerDueDiligence type claim for Treasury module
             let claim_type = ClaimType::CustomerDueDiligence;
@@ -219,7 +219,7 @@ decl_storage! {
             };
 
             <Claims>::insert(&pk, &sk, id_claim.clone());
-            <Module<T>>::deposit_event(RawEvent::NewClaim(treasury_did, id_claim));
+            <Module<T>>::deposit_event(RawEvent::ClaimAdded(treasury_did, id_claim));
 
             // Add System DID: Governance committee && CDD providers
             [GOVERNANCE_COMMITTEE_DID, CDD_PROVIDERS_DID, ].iter()
@@ -231,7 +231,7 @@ decl_storage! {
                         master_key,
                         ..Default::default()
                     });
-                    <Module<T>>::deposit_event(RawEvent::NewDid(id.clone(), T::AccountId::decode(&mut master_key.as_slice()).unwrap(), vec![]));
+                    <Module<T>>::deposit_event(RawEvent::DidCreated(id.clone(), T::AccountId::decode(&mut master_key.as_slice()).unwrap(), vec![]));
                 });
 
             //  Other
@@ -246,7 +246,7 @@ decl_storage! {
                     ..Default::default()
                 };
                 <DidRecords>::insert(&did, record);
-                <Module<T>>::deposit_event(RawEvent::NewDid(did.clone(), master_account_id.clone(), vec![]));
+                <Module<T>>::deposit_event(RawEvent::DidCreated(did.clone(), master_account_id.clone(), vec![]));
                 // Add the claim data for the CustomerDueDiligence type claim
                 let claim_type = ClaimType::CustomerDueDiligence;
                 let pk = Claim1stKey{ target: did, claim_type };
@@ -260,7 +260,7 @@ decl_storage! {
                 };
 
                 <Claims>::insert(&pk, &sk, id_claim.clone());
-                <Module<T>>::deposit_event(RawEvent::NewClaim(did, id_claim));
+                <Module<T>>::deposit_event(RawEvent::ClaimAdded(did, id_claim));
             }
             for &(ref signer_id, did) in &config.signing_keys {
                 // Direct storage change for attaching some signing keys to identities
@@ -275,7 +275,7 @@ decl_storage! {
                 <DidRecords>::mutate(did, |record| {
                     (*record).add_signing_items(&[SigningItem::from(signer_key.clone())]);
                 });
-                <Module<T>>::deposit_event(RawEvent::NewSigningItems(
+                <Module<T>>::deposit_event(RawEvent::SigningItemsAdded(
                     did,
                     [SigningItem::from(signer_key.clone())].to_vec(),
                 ));
@@ -365,7 +365,9 @@ decl_module! {
                 T::CddServiceProviders::get_valid_members_at(now).contains(&cdd),
                 Error::<T>::UnAuthorizedCddProvider);
 
-            T::CddServiceProviders::disable_member(cdd, expiry, Some(disable_from))
+            T::CddServiceProviders::disable_member(cdd, expiry, Some(disable_from))?;
+            Self::deposit_event(RawEvent::CddClaimsInvalidated(cdd, disable_from));
+            Ok(())
         }
 
         /// Removes specified signing keys of a DID if present.
@@ -400,7 +402,7 @@ decl_module! {
                 (*record).remove_signing_items(&signers_to_remove);
             });
 
-            Self::deposit_event(RawEvent::RevokedSigningItems(did, signers_to_remove));
+            Self::deposit_event(RawEvent::SigningItemsRemoved(did, signers_to_remove));
             Ok(())
         }
 
@@ -425,10 +427,10 @@ decl_module! {
             )?;
             <DidRecords>::mutate(did,
             |record| {
-                (*record).master_key = new_key;
+                (*record).master_key = new_key.clone();
             });
 
-            Self::deposit_event(RawEvent::NewMasterKey(did, sender, new_key));
+            Self::deposit_event(RawEvent::MasterKeyUpdated(did, sender_key, new_key));
             Ok(())
         }
 
@@ -565,28 +567,23 @@ decl_module! {
 
             // 1. Constraints.
             // 1.1. A valid current identity.
-            if let Some(current_did) = Context::current_identity::<Self>() {
-                // 1.2. Check that current_did is a signing key of target_did
-                ensure!(
-                    Self::is_signer_authorized(current_did, &Signatory::Identity(target_did)),
-                    Error::<T>::CurrentIdentityCannotBeForwarded
-                );
-            } else {
-                return Err(Error::<T>::MissingCurrentIdentity.into());
-            }
+            let current_did = Context::current_identity::<Self>()
+                .ok_or_else(||Error::<T>::MissingCurrentIdentity)?;
+
+            // 1.2. Check that current_did is a signing key of target_did
+            ensure!(
+                Self::is_signer_authorized(current_did, &Signatory::Identity(target_did)),
+                Error::<T>::CurrentIdentityCannotBeForwarded
+            );
 
             // 1.3. Check that target_did has a CDD.
             ensure!(Self::has_valid_cdd(target_did), Error::<T>::TargetHasNoCdd);
 
             // 1.4 charge fee
-            ensure!(
-                T::ChargeTxFeeTarget::charge_fee(
-                    proposal.encode().len().try_into().unwrap_or_default(),
-                    proposal.get_dispatch_info(),
-                )
-                .is_ok(),
-                Error::<T>::FailedToChargeFee
-            );
+            let _ = T::ChargeTxFeeTarget::charge_fee(
+                proposal.encode().len().try_into().unwrap_or_default(),
+                proposal.get_dispatch_info())
+                    .map_err(|_| Error::<T>::FailedToChargeFee)?;
 
             // 2. Actions
             T::CddHandler::set_current_identity(&target_did);
@@ -595,16 +592,7 @@ decl_module! {
             // Re-dispatch call - e.g. to asset::doSomething...
             let new_origin = frame_system::RawOrigin::Signed(sender).into();
 
-            let _res = match proposal.dispatch(new_origin) {
-                Ok(_) => true,
-                Err(e) => {
-                    let e: DispatchError = e;
-                    sp_runtime::print(e);
-                    false
-                }
-            };
-
-            Ok(())
+            proposal.dispatch(new_origin)
         }
 
         /// Marks the specified claim as revoked.
@@ -670,17 +658,10 @@ decl_module! {
             let record = Self::grant_check_only_master_key( &sender_key, did)?;
 
             // You are trying to add a permission to did's master key. It is not needed.
-            if let Signatory::AccountKey(ref key) = signer {
-                if record.master_key == *key {
-                    return Ok(());
-                }
-            }
-
-            // Find key in `DidRecord::signing_keys`
-            if record.signing_items.iter().any(|si| si.signer == signer) {
-                Self::update_signing_item_permissions(did, &signer, permissions)
-            } else {
-                Err(Error::<T>::InvalidSender.into())
+            match signer {
+                Signatory::AccountKey(ref key) if record.master_key == *key => Ok(()),
+                _ if record.signing_items.iter().any(|si| si.signer == signer) => Self::update_signing_item_permissions(did, &signer, permissions),
+                _ => Err(Error::<T>::InvalidSender.into()),
             }
         }
 
@@ -706,7 +687,7 @@ decl_module! {
             let sender_key = AccountKey::try_from(ensure_signed(origin)?.encode())?;
             let did = Context::current_identity_or::<Self>(&sender_key)?;
 
-            Self::deposit_event(RawEvent::DidQuery(sender_key, did));
+            Self::deposit_event(RawEvent::DidStatus(did, sender_key));
             Ok(())
         }
 
@@ -715,10 +696,14 @@ decl_module! {
         #[weight = SimpleDispatchInfo::FixedNormal(200_000)]
         pub fn get_cdd_of(_origin, of: T::AccountId) -> DispatchResult {
             let key = AccountKey::try_from(of.encode())?;
-            if let Some(did) = Self::get_identity(&key) {
-                let cdd = Self::has_valid_cdd(did);
-                Self::deposit_event(RawEvent::CddQuery(key, did, cdd));
-            }
+
+            let did_opt = Self::get_identity(&key);
+            let has_cdd = did_opt.iter()
+                .map(|did| Self::has_valid_cdd(*did))
+                .next()
+                .unwrap_or_default();
+
+            Self::deposit_event(RawEvent::CddStatus(did_opt, key, has_cdd));
             Ok(())
         }
 
@@ -802,7 +787,7 @@ decl_module! {
                 revoked || target.eq_either(&from_did, &sender_key),
                 Error::<T>::Unauthorized
             );
-            Self::remove_auth(target, auth_id, auth.authorized_by, revoked);
+            Self::unsafe_remove_auth(target, auth_id, auth.authorized_by, revoked);
 
             Ok(())
         }
@@ -842,7 +827,7 @@ decl_module! {
 
             for i in 0..auth_identifiers.len() {
                 let auth_identifier = &auth_identifiers[i];
-                Self::remove_auth(auth_identifier.0, auth_identifier.1, auths[i].authorized_by, revoked[i]);
+                Self::unsafe_remove_auth(auth_identifier.0, auth_identifier.1, auths[i].authorized_by, revoked[i]);
 
             }
 
@@ -870,8 +855,8 @@ decl_module! {
                     match auth.authorization_data {
                         AuthorizationData::TransferTicker(_) =>
                             T::AcceptTransferTarget::accept_ticker_transfer(did, auth_id),
-                        AuthorizationData::TransferTokenOwnership(_) =>
-                            T::AcceptTransferTarget::accept_token_ownership_transfer(did, auth_id),
+                        AuthorizationData::TransferAssetOwnership(_) =>
+                            T::AcceptTransferTarget::accept_asset_ownership_transfer(did, auth_id),
                         AuthorizationData::AddMultiSigSigner =>
                             T::AddSignerMultiSigTarget::accept_multisig_signer(Signatory::from(did), auth_id),
                         AuthorizationData::JoinIdentity(_) =>
@@ -927,8 +912,8 @@ decl_module! {
                             let _result = match auth.authorization_data {
                                 AuthorizationData::TransferTicker(_) =>
                                     T::AcceptTransferTarget::accept_ticker_transfer(did, auth_id),
-                                AuthorizationData::TransferTokenOwnership(_) =>
-                                    T::AcceptTransferTarget::accept_token_ownership_transfer(did, auth_id),
+                                AuthorizationData::TransferAssetOwnership(_) =>
+                                    T::AcceptTransferTarget::accept_asset_ownership_transfer(did, auth_id),
                                 AuthorizationData::AddMultiSigSigner =>
                                     T::AddSignerMultiSigTarget::accept_multisig_signer(Signatory::from(did), auth_id),
                                 AuthorizationData::JoinIdentity(_) =>
@@ -1051,23 +1036,24 @@ decl_module! {
                 additional_keys.len()
             )?;
             // 2.1. Link keys to identity
-            additional_keys.iter().for_each( |si_with_auth| {
-                let si = &si_with_auth.signing_item;
+            let additional_keys_si = additional_keys.into_iter()
+                .map( |si_with_auth| si_with_auth.signing_item)
+                .collect::<Vec<_>>();
+
+            additional_keys_si.iter().for_each( |si| {
                 if let Signatory::AccountKey(ref key) = si.signer {
                     Self::link_key_to_did( key, si.signer_type, id);
                 }
             });
             // 2.2. Update that identity information and its offchain authorization nonce.
             <DidRecords>::mutate(id, |record| {
-                let keys = additional_keys
-                    .iter()
-                    .map(|si_with_auth| si_with_auth.signing_item.clone())
-                    .collect::<Vec<_>>();
-                (*record).add_signing_items(&keys[..]);
+                (*record).add_signing_items(&additional_keys_si[..]);
             });
             <OffChainAuthorizationNonce>::mutate(id, |offchain_nonce| {
                 *offchain_nonce = authorization.nonce + 1;
             });
+
+            Self::deposit_event(RawEvent::SigningItemsAdded(id, additional_keys_si));
 
             Ok(())
         }
@@ -1087,6 +1073,7 @@ decl_module! {
                 }
             }
 
+            Self::deposit_event(RawEvent::OffChainAuthorizationRevoked(auth.target_id, signer));
             <RevokeOffChainAuthorization<T>>::insert((signer,auth), true);
             Ok(())
         }
@@ -1208,7 +1195,7 @@ impl<T: Trait> Module<T> {
             identity.add_signing_items(&[SigningItem::new(signer, vec![])]);
         });
 
-        Self::deposit_event(RawEvent::NewSigningItems(
+        Self::deposit_event(RawEvent::SigningItemsAdded(
             identity_to_join,
             [SigningItem::new(signer, vec![])].to_vec(),
         ));
@@ -1236,26 +1223,51 @@ impl<T: Trait> Module<T> {
         <Authorizations<T>>::insert(target, new_nonce, auth);
         <AuthorizationsGiven>::insert(from, new_nonce, target);
 
-        Self::deposit_event(RawEvent::NewAuthorization(
-            new_nonce,
-            from,
-            target,
-            authorization_data,
-            expiry,
-        ));
+        // This event is split in order to help the event harvesters.
+        match from {
+            Signatory::Identity(id) => Self::deposit_event(RawEvent::AuthorizationAddedByIdentity(
+                id,
+                target.as_identity().cloned(),
+                target.as_account_key().cloned(),
+                new_nonce,
+                authorization_data,
+                expiry,
+            )),
+            Signatory::AccountKey(key) => Self::deposit_event(RawEvent::AuthorizationAddedByKey(
+                key,
+                target.as_identity().cloned(),
+                target.as_account_key().cloned(),
+                new_nonce,
+                authorization_data,
+                expiry,
+            )),
+        };
 
         new_nonce
     }
 
     /// Removes any authorization. No questions asked.
     /// NB: Please do all the required checks before calling this function.
-    pub fn remove_auth(target: Signatory, auth_id: u64, authorizer: Signatory, revoked: bool) {
+    pub fn unsafe_remove_auth(
+        target: Signatory,
+        auth_id: u64,
+        authorizer: Signatory,
+        revoked: bool,
+    ) {
         <Authorizations<T>>::remove(target, auth_id);
         <AuthorizationsGiven>::remove(authorizer, auth_id);
         if revoked {
-            Self::deposit_event(RawEvent::AuthorizationRevoked(auth_id, target));
+            Self::deposit_event(RawEvent::AuthorizationRevoked(
+                target.as_identity().cloned(),
+                target.as_account_key().cloned(),
+                auth_id,
+            ));
         } else {
-            Self::deposit_event(RawEvent::AuthorizationRejected(auth_id, target));
+            Self::deposit_event(RawEvent::AuthorizationRejected(
+                target.as_identity().cloned(),
+                target.as_account_key().cloned(),
+                auth_id,
+            ));
         }
     }
 
@@ -1276,7 +1288,11 @@ impl<T: Trait> Module<T> {
         <Authorizations<T>>::remove(target, auth_id);
         <AuthorizationsGiven>::remove(auth.authorized_by, auth_id);
 
-        Self::deposit_event(RawEvent::AuthorizationConsumed(auth_id, target));
+        Self::deposit_event(RawEvent::AuthorizationConsumed(
+            target.as_identity().cloned(),
+            target.as_account_key().cloned(),
+            auth_id,
+        ));
         Ok(())
     }
 
@@ -1304,7 +1320,13 @@ impl<T: Trait> Module<T> {
 
         <Links<T>>::insert(target, new_nonce, link);
 
-        Self::deposit_event(RawEvent::NewLink(new_nonce, target, link_data, expiry));
+        Self::deposit_event(RawEvent::LinkAdded(
+            target.as_identity().cloned(),
+            target.as_account_key().cloned(),
+            new_nonce,
+            link_data,
+            expiry,
+        ));
         new_nonce
     }
 
@@ -1313,7 +1335,11 @@ impl<T: Trait> Module<T> {
     pub fn remove_link(target: Signatory, link_id: u64) {
         if <Links<T>>::contains_key(target, link_id) {
             <Links<T>>::remove(target, link_id);
-            Self::deposit_event(RawEvent::LinkRemoved(link_id, target));
+            Self::deposit_event(RawEvent::LinkRemoved(
+                target.as_identity().cloned(),
+                target.as_account_key().cloned(),
+                link_id,
+            ));
         }
     }
 
@@ -1322,7 +1348,11 @@ impl<T: Trait> Module<T> {
     pub fn update_link(target: Signatory, link_id: u64, link_data: LinkData) {
         if <Links<T>>::contains_key(target, link_id) {
             <Links<T>>::mutate(target, link_id, |link| link.link_data = link_data);
-            Self::deposit_event(RawEvent::LinkUpdated(link_id, target));
+            Self::deposit_event(RawEvent::LinkUpdated(
+                target.as_identity().cloned(),
+                target.as_account_key().cloned(),
+                link_id,
+            ));
         }
     }
 
@@ -1369,55 +1399,55 @@ impl<T: Trait> Module<T> {
     ) -> DispatchResult {
         // Aceept authorization from CDD service provider
         if Self::cdd_auth_for_master_key_rotation() {
-            if let Some(cdd_auth_id) = optional_cdd_auth_id {
-                let signer = Signatory::from(sender_key);
-                ensure!(
-                    <Authorizations<T>>::contains_key(signer, cdd_auth_id),
-                    Error::<T>::InvalidAuthorizationFromCddProvider
-                );
-                let cdd_auth = <Authorizations<T>>::get(signer, cdd_auth_id);
+            let cdd_auth_id = optional_cdd_auth_id
+                .ok_or_else(|| Error::<T>::InvalidAuthorizationFromCddProvider)?;
 
-                if let AuthorizationData::AttestMasterKeyRotation(attestation_for_did) =
-                    cdd_auth.authorization_data
-                {
+            let signer = Signatory::from(sender_key);
+            ensure!(
+                <Authorizations<T>>::contains_key(signer, cdd_auth_id),
+                Error::<T>::InvalidAuthorizationFromCddProvider
+            );
+            let cdd_auth = <Authorizations<T>>::get(signer, cdd_auth_id);
+
+            match cdd_auth.authorization_data {
+                AuthorizationData::AttestMasterKeyRotation(ref attestation_for_did) => {
                     // Attestor must be a CDD service provider
                     let cdd_provider_did = match cdd_auth.authorized_by {
                         Signatory::AccountKey(ref key) => Self::get_identity(key),
                         Signatory::Identity(id) => Some(id),
                     };
 
-                    if let Some(id) = cdd_provider_did {
-                        ensure!(
-                            T::CddServiceProviders::is_member(&id),
-                            Error::<T>::NotCddProviderAttestation
-                        );
-                    } else {
-                        return Err(Error::<T>::NoDIDFound.into());
-                    }
+                    let id = cdd_provider_did.ok_or_else(|| Error::<T>::NoDIDFound)?;
+                    ensure!(
+                        T::CddServiceProviders::is_member(&id),
+                        Error::<T>::NotCddProviderAttestation
+                    );
 
                     // Make sure authorizations are for the same DID
                     ensure!(
-                        rotation_for_did == attestation_for_did,
+                        rotation_for_did == *attestation_for_did,
                         Error::<T>::AuthorizationsNotForSameDids
                     );
 
                     // consume CDD service provider's authorization
                     Self::consume_auth(cdd_auth.authorized_by, signer, cdd_auth_id)?;
-                } else {
-                    return Err(Error::<T>::UnknownAuthorization.into());
                 }
-            } else {
-                return Err(Error::<T>::InvalidAuthorizationFromCddProvider.into());
+                _ => return Err(Error::<T>::UnknownAuthorization.into()),
             }
         }
 
         // Replace master key of the owner that initiated key rotation
-        <DidRecords>::mutate(rotation_for_did, |record| {
+        let old_master_key = Self::did_records(&rotation_for_did).master_key;
+        <DidRecords>::mutate(&rotation_for_did, |record| {
             Self::unlink_key_to_did(&(*record).master_key, rotation_for_did);
             (*record).master_key = sender_key;
         });
 
-        Self::deposit_event(RawEvent::MasterKeyChanged(rotation_for_did, sender_key));
+        Self::deposit_event(RawEvent::MasterKeyUpdated(
+            rotation_for_did,
+            old_master_key,
+            sender_key,
+        ));
         Ok(())
     }
 
@@ -1687,9 +1717,11 @@ impl<T: Trait> Module<T> {
         let _grants_checked = Self::grant_check_only_master_key(&sender_key, did)?;
 
         if freeze {
-            <IsDidFrozen>::insert(did, true);
+            <IsDidFrozen>::insert(&did, true);
+            Self::deposit_event(RawEvent::SigningKeysFrozen(did));
         } else {
-            <IsDidFrozen>::remove(did);
+            <IsDidFrozen>::remove(&did);
+            Self::deposit_event(RawEvent::SigningKeysUnfrozen(did));
         }
         Ok(())
     }
@@ -1777,10 +1809,9 @@ impl<T: Trait> Module<T> {
         }
     }
 
-    /// It registers a did for a new asset. Only called by create_token function.
+    /// It registers a did for a new asset. Only called by create_asset function.
     pub fn register_asset_did(ticker: &Ticker) -> DispatchResult {
         let did = Self::get_token_did(ticker)?;
-        Self::deposit_event(RawEvent::AssetDid(*ticker, did));
         // Making sure there's no pre-existing entry for the DID
         // This should never happen but just being defensive here
         ensure!(
@@ -1788,6 +1819,7 @@ impl<T: Trait> Module<T> {
             Error::<T>::DidAlreadyExists
         );
         <DidRecords>::insert(did, DidRecord::default());
+        Self::deposit_event(RawEvent::AssetDidRegistered(did, *ticker));
         Ok(())
     }
 
@@ -1867,7 +1899,7 @@ impl<T: Trait> Module<T> {
         };
         <DidRecords>::insert(&did, record);
 
-        Self::deposit_event(RawEvent::NewDid(did, sender, signing_items));
+        Self::deposit_event(RawEvent::DidCreated(did, sender, signing_items));
         Ok(did)
     }
 
@@ -1896,7 +1928,7 @@ impl<T: Trait> Module<T> {
         };
 
         <Claims>::insert(&pk, &sk, id_claim.clone());
-        Self::deposit_event(RawEvent::NewClaim(target, id_claim));
+        Self::deposit_event(RawEvent::ClaimAdded(target, id_claim));
     }
 
     /// It ensures that CDD claim issuer is a valid CDD provider before add the claim.
@@ -1934,7 +1966,7 @@ impl<T: Trait> Module<T> {
         let sk = Claim2ndKey { scope, issuer };
         let claim = <Claims>::get(&pk, &sk);
         <Claims>::remove(&pk, &sk);
-        Self::deposit_event(RawEvent::RevokedClaim(target, claim));
+        Self::deposit_event(RawEvent::ClaimRevoked(target, claim));
     }
 
     /// Returns an auth id if it is present and not expired.
