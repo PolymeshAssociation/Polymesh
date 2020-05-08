@@ -348,7 +348,7 @@ fn general_testnet_genesis(
         }),
         protocol_fee: Some(V1Config::ProtocolFeeConfig {
             base_fees: vec![
-                (ProtocolOp::AssetCreateToken, 10_000 * 1_000_000),
+                (ProtocolOp::AssetCreateAsset, 10_000 * 1_000_000),
                 (ProtocolOp::AssetRegisterTicker, 2_500 * 1_000_000),
             ],
             coefficient: PosRatio(1, 1),
@@ -767,7 +767,7 @@ fn v1_testnet_genesis(
         }),
         protocol_fee: Some(V1Config::ProtocolFeeConfig {
             base_fees: vec![
-                (ProtocolOp::AssetCreateToken, 10_000 * 1_000_000),
+                (ProtocolOp::AssetCreateAsset, 10_000 * 1_000_000),
                 (ProtocolOp::AssetRegisterTicker, 2_500 * 1_000_000),
             ],
             coefficient: PosRatio(1, 1),
