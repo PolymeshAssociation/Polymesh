@@ -976,9 +976,9 @@ decl_storage! {
 decl_event!(
     pub enum Event<T> where Balance = BalanceOf<T>, <T as frame_system::Trait>::AccountId {
         /// The staker has been rewarded by this amount. AccountId is controller account.
-        Reward(AccountId, Balance),
+        Rewarded(AccountId, Balance),
         /// One validator (and its nominators) has been slashed by the given amount.
-        Slash(AccountId, Balance),
+        Slashed(AccountId, Balance),
         /// An old slashing report from a prior era was discarded because it could
         /// not be processed.
         OldSlashingReportDiscarded(SessionIndex),
@@ -990,14 +990,14 @@ decl_event!(
         PermissionedValidatorStatusChanged(AccountId),
         /// Remove the nominators from the valid nominators when there CDD expired.
         /// Caller, Stash accountId of nominators
-        InvalidatedNominators(AccountId, Vec<AccountId>),
+        NominatorsInvalidated(AccountId, Vec<AccountId>),
         /// Individual commissions are enabled.
-        IndividualCommissionInEffect,
+        IndividualCommissionEnabled,
         /// When changes to commission are made and global commission is in effect.
         /// (old value, new value)
-        GlobalCommissionInEffect(Perbill, Perbill),
+        GlobalCommissionUpdated(Perbill, Perbill),
         /// Min bond threshold was updated (new value).
-        MinimumBondThreshold(Balance),
+        MinimumBondThresholdUpdated(Balance),
     }
 );
 
@@ -1096,23 +1096,16 @@ decl_module! {
             payee: RewardDestination
         ) {
             let stash = ensure_signed(origin)?;
-
-            if <Bonded<T>>::contains_key(&stash) {
-                Err(Error::<T>::AlreadyBonded)?
-            }
+            ensure!(!<Bonded<T>>::contains_key(&stash), Error::<T>::AlreadyBonded);
 
             let controller = T::Lookup::lookup(controller)?;
-
-            if <Ledger<T>>::contains_key(&controller) {
-                Err(Error::<T>::AlreadyPaired)?
-            }
+            ensure!(!<Ledger<T>>::contains_key(&controller), Error::<T>::AlreadyPaired);
 
             // Reject a bond which is considered to be _dust_.
             // Not needed this check as we removes the Existential deposit concept
             // but keeping this to be defensive.
-            if value < <T as Trait>::Currency::minimum_balance() {
-                Err(Error::<T>::InsufficientValue)?
-            }
+            let min_balance = <T as Trait>::Currency::minimum_balance();
+            ensure!( value >= min_balance, Error::<T>::InsufficientValue);
 
             // You're auto-bonded forever, here. We might improve this by only bonding when
             // you actually validate/nominate and remove once you unbond __everything__.
@@ -1382,9 +1375,8 @@ decl_module! {
             let stash = ensure_signed(origin)?;
             let old_controller = Self::bonded(&stash).ok_or(Error::<T>::NotStash)?;
             let controller = T::Lookup::lookup(controller)?;
-            if <Ledger<T>>::contains_key(&controller) {
-                Err(Error::<T>::AlreadyPaired)?
-            }
+            ensure!(!<Ledger<T>>::contains_key(&controller), Error::<T>::AlreadyPaired);
+
             if controller != old_controller {
                 <Bonded<T>>::insert(&stash, &controller);
                 if let Some(l) = <Ledger<T>>::take(&old_controller) {
@@ -1483,11 +1475,10 @@ decl_module! {
                                 <Nominators<T>>::remove(target);
                             }
                         }
-
                     }
                 }
             }
-            Self::deposit_event(RawEvent::InvalidatedNominators(caller, expired_nominators));
+            Self::deposit_event(RawEvent::NominatorsInvalidated(caller, expired_nominators));
         }
 
         /// Enables individual commissions. This can be set only once. Once individual commission
@@ -1501,7 +1492,7 @@ decl_module! {
             // Ensure individual commissions are not already enabled
             if let Commission::Global(_) = <ValidatorCommission>::get() {
                 <ValidatorCommission>::put(Commission::Individual);
-                Self::deposit_event(RawEvent::IndividualCommissionInEffect);
+                Self::deposit_event(RawEvent::IndividualCommissionEnabled);
             } else {
                 Err(Error::<T>::AlreadyEnabled)?
             }
@@ -1522,7 +1513,7 @@ decl_module! {
                 ensure!(old_value != new_value, Error::<T>::NoChange);
                 <ValidatorCommission>::put(Commission::Global(new_value));
                 Self::update_validator_prefs(new_value);
-                Self::deposit_event(RawEvent::GlobalCommissionInEffect(old_value, new_value));
+                Self::deposit_event(RawEvent::GlobalCommissionUpdated(old_value, new_value));
             } else {
                 Err(Error::<T>::AlreadyEnabled)?
             }
@@ -1539,7 +1530,7 @@ decl_module! {
                 .map_err(|_| Error::<T>::NotAuthorised)?;
 
             <MinimumBondThreshold<T>>::put(new_value);
-            Self::deposit_event(RawEvent::MinimumBondThreshold(new_value));
+            Self::deposit_event(RawEvent::MinimumBondThresholdUpdated(new_value));
         }
 
         // ----- Root calls.
@@ -1803,9 +1794,10 @@ impl<T: Trait> Module<T> {
     ) -> DispatchResult {
         // validators len must not exceed `MAX_NOMINATIONS` to avoid querying more validator
         // exposure than necessary.
-        if validators.len() > MAX_NOMINATIONS {
-            return Err(Error::<T>::InvalidNumberOfNominations.into());
-        }
+        ensure!(
+            validators.len() <= MAX_NOMINATIONS,
+            Error::<T>::InvalidNumberOfNominations
+        );
 
         // Note: if era has no reward to be claimed, era may be future. better not to update
         // `nominator_ledger.last_reward` in this case.
@@ -1860,7 +1852,7 @@ impl<T: Trait> Module<T> {
         }
 
         if let Some(imbalance) = Self::make_payout(&nominator_ledger.stash, reward * era_payout) {
-            Self::deposit_event(RawEvent::Reward(who, imbalance.peek()));
+            Self::deposit_event(RawEvent::Rewarded(who, imbalance.peek()));
         }
 
         Ok(())
@@ -1905,7 +1897,7 @@ impl<T: Trait> Module<T> {
         );
 
         if let Some(imbalance) = Self::make_payout(&ledger.stash, reward * era_payout) {
-            Self::deposit_event(RawEvent::Reward(who, imbalance.peek()));
+            Self::deposit_event(RawEvent::Rewarded(who, imbalance.peek()));
         }
 
         Ok(())
