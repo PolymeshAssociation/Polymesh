@@ -381,7 +381,7 @@ decl_event!(
         AssetRuleChanged(IdentityId, Ticker, AssetTransferRule),
         /// Emitted when default claim issuer list for a given ticker gets added.
         /// (caller DID, Ticker, New Claim issuer DID).
-        TrustedDefaultClaimIssuerAdd(IdentityId, Ticker, IdentityId),
+        TrustedDefaultClaimIssuerAdded(IdentityId, Ticker, IdentityId),
         /// Emitted when default claim issuer list for a given ticker get removed.
         /// (caller DID, Ticker, Removed Claim issuer DID).
         TrustedDefaultClaimIssuerRemoved(IdentityId, Ticker, IdentityId),
@@ -472,7 +472,7 @@ impl<T: Trait> Module<T> {
             } else {
                 // New trusted issuer addition case
                 identity_list.push(trusted_issuer);
-                Self::deposit_event(Event::TrustedDefaultClaimIssuerAdd(
+                Self::deposit_event(Event::TrustedDefaultClaimIssuerAdded(
                     caller_did,
                     ticker,
                     trusted_issuer,
