@@ -113,6 +113,15 @@ npm install
 
 This uses pm2 to run a local three node network for demonstrate simple consensus.
 
+To stop the chain you can use:  
+```bash
+./stop.sh
+```
+and to display log files you can use:  
+```bash
+./log.sh
+```
+
 ## Aldebaran Public Testnet
 
 Specifying no chain at the command line defaults to the Aldebaran Public Testnet (e.g. --chain aldebaran), so to run a node which connects to the Aldebaran Public Testnet, you can start your node with:
