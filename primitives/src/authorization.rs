@@ -16,7 +16,7 @@ pub enum AuthorizationData {
     /// Add a signer to multisig
     AddMultiSigSigner,
     /// Authorization to transfer a token's ownership
-    TransferTokenOwnership(Ticker),
+    TransferAssetOwnership(Ticker),
     /// Authorization to join an Identity
     JoinIdentity(IdentityId),
     /// Any other authorization

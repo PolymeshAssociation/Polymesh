@@ -73,6 +73,8 @@ decl_event! {
         FeeSet(IdentityId, Balance),
         /// The fee coefficient.
         CoefficientSet(IdentityId, PosRatio),
+        /// Fee charged.
+        FeeCharged(IdentityId, Balance),
     }
 }
 
@@ -131,6 +133,9 @@ impl<T: Trait> Module<T> {
         // Pay the fee to the intended recipients depending on the implementation of
         // `OnProtocolFeePayment`.
         T::OnProtocolFeePayment::on_unbalanced(imbalance);
+        let id = Context::current_identity::<Identity<T>>()
+            .ok_or_else(|| Error::<T>::MissingCurrentIdentity)?;
+        Self::deposit_event(RawEvent::FeeCharged(id, fee));
         Ok(())
     }
 

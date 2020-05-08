@@ -855,8 +855,8 @@ decl_module! {
                     match auth.authorization_data {
                         AuthorizationData::TransferTicker(_) =>
                             T::AcceptTransferTarget::accept_ticker_transfer(did, auth_id),
-                        AuthorizationData::TransferTokenOwnership(_) =>
-                            T::AcceptTransferTarget::accept_token_ownership_transfer(did, auth_id),
+                        AuthorizationData::TransferAssetOwnership(_) =>
+                            T::AcceptTransferTarget::accept_asset_ownership_transfer(did, auth_id),
                         AuthorizationData::AddMultiSigSigner =>
                             T::AddSignerMultiSigTarget::accept_multisig_signer(Signatory::from(did), auth_id),
                         AuthorizationData::JoinIdentity(_) =>
@@ -912,8 +912,8 @@ decl_module! {
                             let _result = match auth.authorization_data {
                                 AuthorizationData::TransferTicker(_) =>
                                     T::AcceptTransferTarget::accept_ticker_transfer(did, auth_id),
-                                AuthorizationData::TransferTokenOwnership(_) =>
-                                    T::AcceptTransferTarget::accept_token_ownership_transfer(did, auth_id),
+                                AuthorizationData::TransferAssetOwnership(_) =>
+                                    T::AcceptTransferTarget::accept_asset_ownership_transfer(did, auth_id),
                                 AuthorizationData::AddMultiSigSigner =>
                                     T::AddSignerMultiSigTarget::accept_multisig_signer(Signatory::from(did), auth_id),
                                 AuthorizationData::JoinIdentity(_) =>
@@ -1809,7 +1809,7 @@ impl<T: Trait> Module<T> {
         }
     }
 
-    /// It registers a did for a new asset. Only called by create_token function.
+    /// It registers a did for a new asset. Only called by create_asset function.
     pub fn register_asset_did(ticker: &Ticker) -> DispatchResult {
         let did = Self::get_token_did(ticker)?;
         // Making sure there's no pre-existing entry for the DID

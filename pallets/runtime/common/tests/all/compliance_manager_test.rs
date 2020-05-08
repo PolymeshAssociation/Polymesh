@@ -39,7 +39,7 @@ fn make_ticker_env(owner: AccountKeyring, token_name: TokenName) -> Ticker {
     };
 
     let ticker = Ticker::try_from(token.name.0.as_slice()).unwrap();
-    assert_ok!(Asset::create_token(
+    assert_ok!(Asset::create_asset(
         Origin::signed(owner.public()),
         token.name.clone(),
         ticker,
@@ -86,7 +86,7 @@ fn should_add_and_verify_asset_rule_we() {
     Balances::make_free_balance_be(&token_owner_acc, 1_000_000);
 
     // Share issuance is successful
-    assert_ok!(Asset::create_token(
+    assert_ok!(Asset::create_asset(
         token_owner_signed.clone(),
         token.name.clone(),
         ticker,
@@ -206,7 +206,7 @@ fn should_reset_assetrules_we() {
     Balances::make_free_balance_be(&token_owner_acc, 1_000_000);
 
     // Share issuance is successful
-    assert_ok!(Asset::create_token(
+    assert_ok!(Asset::create_asset(
         token_owner_signed.clone(),
         token.name.clone(),
         ticker,
@@ -263,7 +263,7 @@ fn pause_resume_asset_rules_we() {
     Balances::make_free_balance_be(&token_owner_acc, 1_000_000);
 
     // 2. Share issuance is successful
-    assert_ok!(Asset::create_token(
+    assert_ok!(Asset::create_asset(
         token_owner_signed.clone(),
         token.name.clone(),
         ticker,
@@ -364,7 +364,7 @@ fn should_successfully_add_and_use_default_issuers_we() {
     let ticker = Ticker::try_from(token.name.0.as_slice()).unwrap();
 
     // 2. Share issuance is successful
-    assert_ok!(Asset::create_token(
+    assert_ok!(Asset::create_asset(
         token_owner_signed.clone(),
         token.name.clone(),
         ticker,
@@ -489,7 +489,7 @@ fn should_modify_vector_of_trusted_issuer_we() {
     let ticker = Ticker::try_from(token.name.0.as_slice()).unwrap();
 
     // 2. Share issuance is successful
-    assert_ok!(Asset::create_token(
+    assert_ok!(Asset::create_asset(
         token_owner_signed.clone(),
         token.name.clone(),
         ticker,
@@ -709,7 +709,7 @@ fn jurisdiction_asset_rules_we() {
         ..Default::default()
     };
     let ticker = Ticker::try_from(token.name.0.as_slice()).unwrap();
-    assert_ok!(Asset::create_token(
+    assert_ok!(Asset::create_asset(
         token_owner_signed.clone(),
         token.name.clone(),
         ticker,

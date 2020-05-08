@@ -78,7 +78,7 @@ fn correct_dividend_must_work() {
         let payout_owner_account = ensure_signed(payout_owner_acc.clone()).ok().unwrap();
         Balances::make_free_balance_be(&payout_owner_account, 1_000_000);
         // Share issuance is successful
-        assert_ok!(Asset::create_token(
+        assert_ok!(Asset::create_asset(
             token_owner_acc.clone(),
             token.name.clone(),
             ticker,
@@ -90,7 +90,7 @@ fn correct_dividend_must_work() {
         ));
 
         // Issuance for payout token is successful
-        assert_ok!(SimpleToken::create_token(
+        assert_ok!(SimpleToken::create_asset(
             payout_owner_acc.clone(),
             payout_token.ticker,
             payout_token.total_supply

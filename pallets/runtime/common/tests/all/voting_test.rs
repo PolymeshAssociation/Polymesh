@@ -35,7 +35,7 @@ fn add_ballot() {
         };
         let ticker = Ticker::try_from(token.name.as_slice()).unwrap();
         // Share issuance is successful
-        assert_ok!(Asset::create_token(
+        assert_ok!(Asset::create_asset(
             token_owner_acc.clone(),
             token.name.clone(),
             ticker,
@@ -193,7 +193,7 @@ fn cancel_ballot() {
         };
         let ticker = Ticker::try_from(token.name.as_slice()).unwrap();
         // Share issuance is successful
-        assert_ok!(Asset::create_token(
+        assert_ok!(Asset::create_asset(
             token_owner_acc.clone(),
             token.name.clone(),
             ticker,
@@ -283,7 +283,7 @@ fn vote() {
         };
         let ticker = Ticker::try_from(token.name.as_slice()).unwrap();
         // Share issuance is successful
-        assert_ok!(Asset::create_token(
+        assert_ok!(Asset::create_asset(
             token_owner_acc.clone(),
             token.name.clone(),
             ticker,
