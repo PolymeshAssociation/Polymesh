@@ -1,0 +1,10 @@
+{
+  "private": true,
+  "name": "polymesh-docs",
+  "version": "1.0.0",
+  "description": "A template for deploying Polymesh docs to Cloudflare Workers",
+  "main": "index.js",
+  "dependencies": {
+    "@cloudflare/kv-asset-handler": "^0.0.5"
+  }
+}

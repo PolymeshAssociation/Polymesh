@@ -1,0 +1,31 @@
+name: Publish docs
+
+on:
+  push:
+    branches:
+      - master
+
+jobs:
+  docs:
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v2
+    - name: Install rust toolchain
+      uses: actions-rs/toolchain@v1
+      with:
+        toolchain: nightly
+        target: wasm32-unknown-unknown
+        override: true
+        default: true
+    - name: Build docs
+      run: BUILD_DUMMY_WASM_BINARY=true cargo doc --no-deps --workspace --release --verbose
+    - name: Add index file
+      run: echo "<html lang='en'><head><meta http-equiv='refresh' content='0; URL=./polymesh/index.html'></head></html>" > ./target/doc/index.html
+    - name: Publish to Cloudflare workers
+      uses: cloudflare/wrangler-action@1.1.0
+      with:
+        apiToken: ${{ secrets.CF_API_TOKEN }}
+      env:
+        CF_ACCOUNT_ID: ${{ secrets.CF_ACCOUNT_ID }}
