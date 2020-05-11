@@ -509,7 +509,10 @@ impl<T: Trait> Module<T> {
 
     // Polymesh modified code. New public function to increase balance of an Identity.
     /// It tops up the identity balance.
-    pub fn unsafe_top_up_identity_balance(did: &IdentityId, value: T::Balance) -> PositiveImbalance<T>  {
+    pub fn unsafe_top_up_identity_balance(
+        did: &IdentityId,
+        value: T::Balance,
+    ) -> PositiveImbalance<T> {
         let new_balance = Self::identity_balance(did).saturating_add(value);
         <IdentityBalance<T>>::insert(did, new_balance);
         PositiveImbalance::<T>::new(value)
