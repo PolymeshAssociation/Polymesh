@@ -54,7 +54,7 @@ fn make_token<T: Trait>(
         registration_length: None,
     });
     let ticker = Ticker::try_from(vec![b'T'; ticker_len as usize].as_slice()).unwrap();
-    let name = TokenName::from(vec![b'N'; token_name_len as usize].as_slice());
+    let name = AssetName::from(vec![b'N'; token_name_len as usize].as_slice());
     let total_supply: T::Balance = 1_000_000_000.into();
     let asset_type = AssetType::default();
     let identifiers: Vec<(IdentifierType, AssetIdentifier)> = iter::repeat(Default::default())
@@ -147,7 +147,7 @@ benchmarks! {
             max_ticker_length: MAX_TICKER_LENGTH,
             registration_length: None,
         });
-        let name = TokenName::from(vec![b'N'; n as usize].as_slice());
+        let name = AssetName::from(vec![b'N'; n as usize].as_slice());
         let ticker = Ticker::try_from(vec![b'T'; t as usize].as_slice()).unwrap();
         let total_supply: T::Balance = 1_000_000.into();
         let asset_type = AssetType::default();
@@ -196,8 +196,8 @@ benchmarks! {
         let i in 1 .. 100;
         // Funding round name length.
         let f in 1 .. MAX_NAME_LENGTH;
-        let old_name = TokenName::from(vec![b'N'; n as usize].as_slice());
-        let new_name = TokenName::from(vec![b'M'; m as usize].as_slice());
+        let old_name = AssetName::from(vec![b'N'; n as usize].as_slice());
+        let new_name = AssetName::from(vec![b'M'; m as usize].as_slice());
         let origin = make_account::<T>("caller", u).1;
         let ticker = make_token::<T>(origin.clone(), t, n, i, f);
     }: _(origin, ticker, new_name)
