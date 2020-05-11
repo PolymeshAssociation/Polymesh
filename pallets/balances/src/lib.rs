@@ -373,7 +373,7 @@ decl_module! {
             let positive_imbalance = Self::unsafe_top_up_identity_balance(&did, value);
             // In Ideal coding standards: Should not emit an error as storage is already gets changed
             // but use this hack to avoid automatic drop functionality which consumes more operations than this
-            // It will never spit an error as because `negative_imbalance = positive_imbalance`.
+            // It will never spit an error because negative_imbalance always equal to positive_imbalance.
             let _ = negative_imbalance.offset(positive_imbalance).map_err(|_| Error::<T>::UnHandledImbalances)?;
             Ok(())
         }
