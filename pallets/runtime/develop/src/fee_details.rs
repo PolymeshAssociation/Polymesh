@@ -28,7 +28,7 @@ use sp_runtime::transaction_validity::InvalidTransaction;
 
 use codec::{Decode, Encode};
 use core::convert::TryFrom;
-use frame_support::{StorageDoubleMap, StorageMap};
+use frame_support::StorageMap;
 
 type Identity = identity::Module<Runtime>;
 type Balances = balances::Module<Runtime>;
