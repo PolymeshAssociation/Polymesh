@@ -616,6 +616,7 @@ impl<T: Trait> Module<T> {
     fn unsafe_signer_removal(multisig: T::AccountId, signer: &Signatory) {
         if let Signatory::AccountKey(key) = signer {
             <KeyToMultiSig<T>>::remove(key);
+            <identity::KeyToIdentityIds>::remove(key);
         }
         <MultiSigSigners<T>>::remove(&multisig, signer);
         Self::deposit_event(RawEvent::MultiSigSignerRemoved(
@@ -820,7 +821,16 @@ impl<T: Trait> Module<T> {
                 !<KeyToMultiSig<T>>::contains_key(&key),
                 Error::<T>::SignerAlreadyLinked
             );
-            <KeyToMultiSig<T>>::insert(key, wallet_id.clone())
+            ensure!(
+                !<identity::KeyToIdentityIds>::contains_key(&key),
+                Error::<T>::SignerAlreadyLinked
+            );
+
+            <KeyToMultiSig<T>>::insert(key, wallet_id.clone());
+            <identity::KeyToIdentityIds>::insert(
+                key,
+                LinkedKeyInfo::Unique(<MultiSigCreator<T>>::get(&wallet_id)),
+            );
         }
 
         let wallet_signer = Signatory::from(AccountKey::try_from(wallet_id.encode())?);
