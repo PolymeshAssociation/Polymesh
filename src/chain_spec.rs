@@ -228,29 +228,11 @@ fn general_testnet_genesis(
         bridge: Some(V1Config::BridgeConfig {
             admin: initial_authorities[0].1.clone(),
             creator: initial_authorities[0].1.clone(),
-            signatures_required: 3,
-            signers: vec![
-                Signatory::AccountKey(
-                    AccountKey::try_from(&get_from_seed::<sr25519::Public>("relay_1").to_vec())
-                        .unwrap(),
-                ),
-                Signatory::AccountKey(
-                    AccountKey::try_from(&get_from_seed::<sr25519::Public>("relay_2").to_vec())
-                        .unwrap(),
-                ),
-                Signatory::AccountKey(
-                    AccountKey::try_from(&get_from_seed::<sr25519::Public>("relay_3").to_vec())
-                        .unwrap(),
-                ),
-                Signatory::AccountKey(
-                    AccountKey::try_from(&get_from_seed::<sr25519::Public>("relay_4").to_vec())
-                        .unwrap(),
-                ),
-                Signatory::AccountKey(
-                    AccountKey::try_from(&get_from_seed::<sr25519::Public>("relay_5").to_vec())
-                        .unwrap(),
-                ),
-            ],
+            signatures_required: 1,
+            signers: vec![Signatory::AccountKey(
+                AccountKey::try_from(&get_from_seed::<sr25519::Public>("relay_1").to_vec())
+                    .unwrap(),
+            )],
             timelock: 10,
             bridge_limit: (100_000_000, 1000),
         }),
