@@ -57,7 +57,7 @@ use frame_support::{
     dispatch::DispatchResult,
     ensure,
     traits::{Currency, LockableCurrency, ReservableCurrency},
-    weights::SimpleDispatchInfo,
+    weights::{DispatchClass, FunctionOf, SimpleDispatchInfo},
     Parameter,
 };
 use frame_system::{self as system, ensure_signed};
@@ -439,7 +439,7 @@ decl_module! {
         /// Change whether completed PIPs are pruned. Can only be called by governance council
         ///
         /// # Arguments
-        /// * `deposit` the new min deposit required to start a proposal
+        /// * `deposit` - the new min deposit required to start a proposal
         #[weight = SimpleDispatchInfo::FixedOperational(100_000)]
         pub fn set_prune_historical_pips(origin, new_value: bool) {
             T::CommitteeOrigin::try_origin(origin).map_err(|_| Error::<T>::BadOrigin)?;
@@ -452,7 +452,7 @@ decl_module! {
         /// committee is allowed to change this value.
         ///
         /// # Arguments
-        /// * `deposit` the new min deposit required to start a proposal
+        /// * `deposit` - the new min deposit required to start a proposal
         #[weight = SimpleDispatchInfo::FixedOperational(100_000)]
         pub fn set_min_proposal_deposit(origin, deposit: BalanceOf<T>) {
             T::CommitteeOrigin::try_origin(origin).map_err(|_| Error::<T>::BadOrigin)?;
@@ -466,7 +466,7 @@ decl_module! {
         /// this value.
         ///
         /// # Arguments
-        /// * `threshold` the new quorum threshold amount value
+        /// * `threshold` - the new quorum threshold amount value
         #[weight = SimpleDispatchInfo::FixedOperational(100_000)]
         pub fn set_quorum_threshold(origin, threshold: BalanceOf<T>) {
             T::CommitteeOrigin::try_origin(origin).map_err(|_| Error::<T>::BadOrigin)?;
@@ -479,7 +479,7 @@ decl_module! {
         /// accepted on a proposal. Only Governance committee is allowed to change this value.
         ///
         /// # Arguments
-        /// * `duration` proposal duration in blocks
+        /// * `duration` - proposal duration in blocks
         #[weight = SimpleDispatchInfo::FixedOperational(100_000)]
         pub fn set_proposal_duration(origin, duration: T::BlockNumber) {
             T::CommitteeOrigin::try_origin(origin).map_err(|_| Error::<T>::BadOrigin)?;
@@ -502,10 +502,25 @@ decl_module! {
         /// changes the network in someway. A minimum deposit is required to open a new proposal.
         ///
         /// # Arguments
-        /// * `proposal` a dispatchable call
-        /// * `deposit` minimum deposit value
-        /// * `url` a link to a website for proposal discussion
-        #[weight = SimpleDispatchInfo::FixedNormal(5_000_000)]
+        /// * `proposal` - a dispatchable call
+        /// * `deposit` - minimum deposit value
+        /// * `url` - a link to a website for proposal discussion
+        ///
+        /// # Weight
+        /// `5_000_000 + 100 * proposal.len()`
+        #[weight = FunctionOf(
+            |(proposal, _, _, _, _): (
+                &Box<T::Proposal>,
+                &BalanceOf<T>,
+                &Option<Url>,
+                &Option<PipDescription>,
+                &Vec<Beneficiary<T::Balance>>
+            )| {
+                5_000_000 + 100 * u32::try_from(proposal.encode().len()).unwrap_or_default()
+            },
+            DispatchClass::Normal,
+            true
+        )]
         pub fn propose(
             origin,
             proposal: Box<T::Proposal>,
@@ -755,10 +770,10 @@ decl_module! {
         /// corresponds ot the dispatchable action and vote with some balance.
         ///
         /// # Arguments
-        /// * `proposal` a dispatchable call
-        /// * `id` proposal id
-        /// * `aye_or_nay` a bool representing for or against vote
-        /// * `deposit` minimum deposit value
+        /// * `proposal` - a dispatchable call
+        /// * `id` - proposal id
+        /// * `aye_or_nay` - a bool representing for or against vote
+        /// * `deposit` - minimum deposit value
         #[weight = SimpleDispatchInfo::FixedNormal(200_000)]
         pub fn vote(origin, id: PipId, aye_or_nay: bool, deposit: BalanceOf<T>) {
             let proposer = ensure_signed(origin)?;
@@ -843,7 +858,21 @@ decl_module! {
 
         /// Governance committee can make a proposal that automatically becomes a referendum on
         /// which the committee can vote on.
-        #[weight = SimpleDispatchInfo::FixedOperational(200_000)]
+        ///
+        /// # Weight
+        /// `3_000_000 + 100 * proposal.len()`
+        #[weight = FunctionOf(
+            |(proposal, _, _, _): (
+                &Box<T::Proposal>,
+                &Option<Url>,
+                &Option<PipDescription>,
+                &Vec<Beneficiary<T::Balance>>
+            )| {
+                3_000_000 + 100 * u32::try_from(proposal.encode().len()).unwrap_or_default()
+            },
+            DispatchClass::Normal,
+            true
+        )]
         pub fn emergency_referendum(
             origin,
             proposal: Box<T::Proposal>,
@@ -922,47 +951,47 @@ decl_module! {
         /// It updates the enactment period of a specific referendum.
         ///
         /// # Arguments
-        /// * `until`, It defines the future block where the enactment period will finished.  A
+        /// * `pid` - proposal ID
+        /// * `until` - the future block where the enactment period will finished.  A
         /// `None` value means that enactment period is going to finish in the next block.
         ///
         /// # Errors
         /// * `BadOrigin`, Only the release coordinator can update the enactment period.
         /// * ``,
         #[weight = SimpleDispatchInfo::FixedOperational(100_000)]
-        pub fn set_referendum_enactment_period(origin, mid: PipId, until: Option<T::BlockNumber>) -> DispatchResult {
+        pub fn set_referendum_enactment_period(origin, pid: PipId, until: Option<T::BlockNumber>) -> DispatchResult {
             let sender_key = AccountKey::try_from(ensure_signed(origin)?.encode())?;
-            let id = Context::current_identity_or::<Identity<T>>(&sender_key)?;
-
-            // 1. Only release coordinator
+            let did = Context::current_identity_or::<Identity<T>>(&sender_key)?;
+            // Only release coordinator
             ensure!(
-                Some(id) == T::GovernanceCommittee::release_coordinator(),
-                Error::<T>::BadOrigin);
-
-            // 2. New value should be valid block number.
+                Some(did) == T::GovernanceCommittee::release_coordinator(),
+                Error::<T>::BadOrigin
+            );
+            // New value should be valid block number.
             let next_block = <system::Module<T>>::block_number() + 1.into();
             let new_until = until.unwrap_or(next_block);
             ensure!( new_until >= next_block, Error::<T>::InvalidFutureBlockNumber);
 
-            // 2. Valid referendum: check mid & state == Scheduled
-            let referendum = Self::referendums(mid)
+            // Valid referendum: check pid & state == Scheduled
+            let referendum = Self::referendums(pid)
                 .ok_or_else(|| Error::<T>::MismatchedProposalId)?;
             ensure!( referendum.state == ReferendumState::Scheduled, Error::<T>::ReferendumIsImmutable);
 
-            // 3. Update enactment period.
-            // 3.1 Update referendum.
+            // Update enactment period.
+            // Update referendum.
             let old_until = referendum.enactment_period;
 
-            <Referendums<T>>::mutate( mid, |referendum| {
+            <Referendums<T>>::mutate(pid, |referendum| {
                 if let Some(ref mut referendum) = referendum {
                     referendum.enactment_period = new_until;
                 }
             });
 
-            // 3.1. Re-schedule it
-            <ScheduledReferendumsAt<T>>::mutate( old_until, |ids| ids.retain( |i| *i != mid));
-            <ScheduledReferendumsAt<T>>::mutate( new_until, |ids| ids.push(mid));
+            // Re-schedule it
+            <ScheduledReferendumsAt<T>>::mutate( old_until, |ids| ids.retain( |i| *i != pid));
+            <ScheduledReferendumsAt<T>>::mutate( new_until, |ids| ids.push(pid));
 
-            Self::deposit_event(RawEvent::ReferendumScheduled(id, mid, old_until, new_until));
+            Self::deposit_event(RawEvent::ReferendumScheduled(did, pid, old_until, new_until));
             Ok(())
         }
 
