@@ -20,7 +20,7 @@ use pallet_identity as identity;
 use polymesh_common_utilities::{
     constants::TREASURY_MODULE_ID,
     traits::{balances::Trait as BalancesTrait, identity::Trait as IdentityTrait, CommonTrait},
-    Context,
+    Context, SystematicIssuers,
 };
 use polymesh_primitives::{traits::IdentityCurrency, AccountKey, Beneficiary, IdentityId};
 
@@ -143,7 +143,8 @@ impl<T: Trait> Module<T> {
             ExistenceRequirement::AllowDeath,
         );
         let _ = T::Currency::deposit_into_existing_identity(&target, amount);
-        let current_did = Context::current_identity::<Identity<T>>().unwrap_or_default();
+        let current_did = Context::current_identity::<Identity<T>>()
+            .unwrap_or(SystematicIssuers::Committee.as_id());
         Self::deposit_event(RawEvent::TreasuryDisbursement(current_did, target, amount));
     }
 

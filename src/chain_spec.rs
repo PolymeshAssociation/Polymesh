@@ -226,8 +226,8 @@ fn general_testnet_genesis(
             })
         },
         bridge: Some(V1Config::BridgeConfig {
-            admin: initial_authorities[0].0.clone(),
-            creator: initial_authorities[0].0.clone(),
+            admin: initial_authorities[0].1.clone(),
+            creator: initial_authorities[0].1.clone(),
             signatures_required: 3,
             signers: vec![
                 Signatory::AccountKey(
@@ -476,7 +476,7 @@ pub fn v1_live_testnet_config() -> ChainSpec {
             STAGING_TELEMETRY_URL.to_string(),
             0,
         )])),
-        Some(&*"/polymath/aldebaran/0"),
+        Some(&*"/polymath/aldebaran/1"),
         Some(polymath_props()),
         Default::default(),
     )
