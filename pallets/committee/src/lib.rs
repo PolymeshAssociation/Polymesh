@@ -150,11 +150,11 @@ decl_event!(
         Proposed(IdentityId, ProposalIndex, Hash),
         /// A motion (given hash) has been voted on by given account, leaving
         /// a tally (yes votes, no votes and total seats given respectively as `MemberCount`).
-        /// caller DID, Proposal index, Proposal hash, yay vote count, nay vote count, total seats.
-        Voted(IdentityId, ProposalIndex, Hash, MemberCount, MemberCount, MemberCount),
+        /// caller DID, Proposal index, Proposal hash, current vote, yay vote count, nay vote count, total seats.
+        Voted(IdentityId, ProposalIndex, Hash, bool, MemberCount, MemberCount, MemberCount),
         /// A vote on a motion (given hash) has been retracted.
-        /// caller DID, ProposalIndex, Proposal hash.
-        VoteRetracted(IdentityId, ProposalIndex, Hash),
+        /// caller DID, ProposalIndex, Proposal hash, vote that was retracted
+        VoteRetracted(IdentityId, ProposalIndex, Hash, bool),
         /// Final votes on a motion (given hash)
         /// caller DID, ProposalIndex, Proposal hash, yes voters, no voter
         FinalVotes(IdentityId, ProposalIndex, Hash, Vec<IdentityId>, Vec<IdentityId>),
@@ -310,7 +310,8 @@ decl_module! {
                 RawEvent::Voted(
                     did,
                     index,
-                    T::Hashing::hash_of(&proposal),
+                    proposal,
+                    approve,
                     yes_votes,
                     no_votes,
                     Self::members().len() as MemberCount
@@ -413,15 +414,26 @@ impl<T: Trait<I>, I: Instance> Module<T, I> {
         if let Some(mut voting) = Self::voting(&proposal) {
             // If any element is removed, we have to update `voting`.
             is_id_removed = if let Some(idx) = voting.ayes.iter().position(|a| *a == id) {
+                Self::deposit_event(RawEvent::VoteRetracted(
+                    id,
+                    voting.index.clone(),
+                    proposal,
+                    true,
+                ));
                 Some(voting.ayes.swap_remove(idx))
             } else if let Some(idx) = voting.nays.iter().position(|a| *a == id) {
+                Self::deposit_event(RawEvent::VoteRetracted(
+                    id,
+                    voting.index.clone(),
+                    proposal,
+                    false,
+                ));
                 Some(voting.nays.swap_remove(idx))
             } else {
                 None
             };
 
             if is_id_removed.is_some() {
-                Self::deposit_event(RawEvent::VoteRetracted(id, voting.index.clone(), proposal));
                 <Voting<T, I>>::insert(&proposal, voting);
             }
         }
