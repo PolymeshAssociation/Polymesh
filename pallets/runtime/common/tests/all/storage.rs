@@ -5,7 +5,6 @@ use pallet_compliance_manager as compliance_manager;
 use pallet_group as group;
 use pallet_identity as identity;
 use pallet_multisig as multisig;
-use pallet_percentage_tm as percentage_tm;
 use pallet_pips as pips;
 use pallet_protocol_fee as protocol_fee;
 use pallet_statistics as statistics;
@@ -73,7 +72,6 @@ impl_outer_event! {
         identity<T>,
         balances<T>,
         multisig<T>,
-        percentage_tm,
         bridge<T>,
         asset<T>,
         pips<T>,
@@ -345,12 +343,6 @@ impl pallet_contracts::Trait for TestStorage {
 }
 
 impl statistics::Trait for TestStorage {}
-
-impl percentage_tm::Trait for TestStorage {
-    type Event = Event;
-    type Asset = asset::Module<TestStorage>;
-    type Exemption = exemption::Module<TestStorage>;
-}
 
 impl compliance_manager::Trait for TestStorage {
     type Event = Event;
