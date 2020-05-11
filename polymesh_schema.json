@@ -32,11 +32,11 @@
                 "Isin": ""
             }
         },
-        "TokenName": "Text",
+        "AssetName": "Text",
         "AssetIdentifier": "Text",
         "FundingRoundName": "Text",
         "SecurityToken": {
-            "name": "TokenName",
+            "name": "AssetName",
             "total_supply": "Balance",
             "owner_did": "IdentityId",
             "divisible": "bool",
@@ -186,7 +186,7 @@
         "Investment": {
             "investor_did": "IdentityId",
             "amount_paid": "Balance",
-            "tokens_purchased": "Balance",
+            "assets_purchased": "Balance",
             "last_purchase_date": "Moment"
         },
         "SimpleTokenRecord": {
@@ -657,12 +657,12 @@
                     {
                         "name": "from_did",
                         "type": "IdentityId",
-                        "isOptional": false   
+                        "isOptional": true   
                     },
                     {
                         "name": "to_did",
                         "type": "IdentityId",
-                        "isOptional": false   
+                        "isOptional": true   
                     },
                     {
                         "name": "value",
