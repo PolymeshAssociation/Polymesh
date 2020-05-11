@@ -1,7 +1,7 @@
 use super::{
     ext_builder::PROTOCOL_OP_BASE_FEE,
     storage::{
-        add_signing_item, get_identity_id, register_keyring_account,
+        add_signing_item, authorizations_to, get_identity_id, register_keyring_account,
         register_keyring_account_with_balance, GovernanceCommittee, TestStorage,
     },
     ExtBuilder,
@@ -12,7 +12,7 @@ use polymesh_common_utilities::{
         group::GroupTrait,
         identity::{SigningItemWithAuth, TargetIdAuthorization, Trait as IdentityTrait},
     },
-    Context, SystematicIssuers,
+    SystematicIssuers,
 };
 use polymesh_primitives::{
     AccountKey, AuthorizationData, AuthorizationError, Claim, ClaimType, IdentityClaim, IdentityId,
@@ -20,12 +20,12 @@ use polymesh_primitives::{
 };
 use polymesh_runtime_develop::{fee_details::CddHandler, runtime::Call};
 
-use pallet_balances::{self as balances, Error as BalanceError};
+use pallet_balances as balances;
 use pallet_identity::{self as identity, BatchAddClaimItem, BatchRevokeClaimItem, Error};
 use pallet_transaction_payment::CddAndFeeDetails;
 
 use codec::Encode;
-use frame_support::{assert_err, assert_ok, dispatch::DispatchError, StorageDoubleMap};
+use frame_support::{assert_err, assert_ok, traits::Currency, StorageDoubleMap};
 use sp_core::H512;
 use sp_runtime::transaction_validity::InvalidTransaction;
 use test_client::AccountKeyring;
@@ -987,17 +987,17 @@ fn cdd_register_did_test() {
 }
 
 fn cdd_register_did_test_we() {
-    let cdd_1_acc = AccountKeyring::Eve.public();
-    let cdd_2_acc = AccountKeyring::Ferdie.public();
+    let cdd1 = Origin::signed(AccountKeyring::Eve.public());
+    let cdd2 = Origin::signed(AccountKeyring::Ferdie.public());
     let non_id = Origin::signed(AccountKeyring::Charlie.public());
 
-    let alice_acc = AccountKeyring::Alice.public();
+    let alice = AccountKeyring::Alice.public();
     let bob_acc = AccountKeyring::Bob.public();
 
     // CDD 1 registers correctly the Alice's ID.
     assert_ok!(Identity::cdd_register_did(
-        Origin::signed(cdd_1_acc),
-        alice_acc,
+        cdd1.clone(),
+        alice,
         Some(10),
         vec![]
     ));
@@ -1009,19 +1009,73 @@ fn cdd_register_did_test_we() {
     // Error case: Try account without ID.
     assert!(Identity::cdd_register_did(non_id, bob_acc, Some(10), vec![]).is_err(),);
     // Error case: Try account with ID but it is not part of CDD providers.
-    assert!(
-        Identity::cdd_register_did(Origin::signed(alice_acc), bob_acc, Some(10), vec![]).is_err()
-    );
+    assert!(Identity::cdd_register_did(Origin::signed(alice), bob_acc, Some(10), vec![]).is_err());
 
     // CDD 2 registers properly Bob's ID.
-    assert_ok!(Identity::cdd_register_did(
-        Origin::signed(cdd_2_acc),
-        bob_acc,
-        Some(10),
-        vec![]
-    ));
+    assert_ok!(Identity::cdd_register_did(cdd2, bob_acc, Some(10), vec![]));
     let bob_id = get_identity_id(AccountKeyring::Bob).unwrap();
     assert_eq!(Identity::has_valid_cdd(bob_id), true);
+
+    // Register with signing_keys
+    // ==============================================
+    // Register Charlie with signing keys.
+    let charlie = AccountKeyring::Charlie.public();
+    let dave = AccountKeyring::Dave.public();
+    let dave_si = SigningItem::from(AccountKey::from(dave.clone()));
+    let alice_si = SigningItem::from(alice_id);
+    let signing_keys = vec![dave_si.clone(), alice_si.clone()];
+    assert_ok!(Identity::cdd_register_did(
+        cdd1.clone(),
+        charlie,
+        Some(10),
+        signing_keys
+    ));
+
+    Balances::make_free_balance_be(&charlie, 10_000_000_000);
+    let charlie_id = get_identity_id(AccountKeyring::Charlie).unwrap();
+    assert_eq!(Identity::has_valid_cdd(charlie_id), true);
+    assert_eq!(
+        Identity::did_records(charlie_id).signing_items.is_empty(),
+        true
+    );
+    assert_ok!(Balances::top_up_identity_balance(
+        Origin::signed(charlie),
+        charlie_id,
+        10_000_000
+    ));
+
+    // Dave authorizes to be joined to Charlie.
+    let dave_auth_list = authorizations_to(&dave_si.signer);
+    let dave_auth_id = dave_auth_list
+        .iter()
+        .map(|auth| auth.auth_id)
+        .next()
+        .unwrap();
+
+    assert_ok!(Identity::accept_authorization(
+        Origin::signed(dave),
+        dave_auth_id
+    ));
+    assert_eq!(
+        Identity::did_records(charlie_id).signing_items,
+        vec![dave_si.clone()]
+    );
+
+    let alice_auth_list = authorizations_to(&alice_si.signer);
+    let alice_auth_id = alice_auth_list
+        .iter()
+        .map(|auth| auth.auth_id)
+        .next()
+        .unwrap();
+
+    assert_ok!(Identity::accept_authorization(
+        Origin::signed(alice),
+        alice_auth_id
+    ));
+    assert_eq!(
+        Identity::did_records(charlie_id).signing_items,
+        vec![dave_si, alice_si]
+    );
 }
 
 #[test]
