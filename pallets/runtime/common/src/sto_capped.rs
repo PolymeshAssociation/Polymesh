@@ -86,7 +86,7 @@ pub struct STO<V, W> {
 pub struct Investment<V, W> {
     investor_did: IdentityId,
     amount_paid: V,
-    tokens_purchased: V,
+    assets_purchased: V,
     last_purchase_date: W,
 }
 
@@ -572,8 +572,8 @@ impl<T: Trait> Module<T> {
         if investor_holder.investor_did == IdentityId::default() {
             investor_holder.investor_did = did;
         }
-        investor_holder.tokens_purchased = investor_holder
-            .tokens_purchased
+        investor_holder.assets_purchased = investor_holder
+            .assets_purchased
             .checked_add(&new_tokens_minted)
             .ok_or(Error::<T>::InvestmentOverflow)?;
         investor_holder.last_purchase_date = <pallet_timestamp::Module<T>>::get();
