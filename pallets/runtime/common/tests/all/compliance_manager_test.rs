@@ -3,7 +3,7 @@ use super::{
     ExtBuilder,
 };
 
-use pallet_asset::{self as asset, AssetType, Error as AssetError, SecurityToken, TokenName};
+use pallet_asset::{self as asset, AssetName, AssetType, Error as AssetError, SecurityToken};
 use pallet_balances as balances;
 use pallet_compliance_manager::{self as compliance_manager, AssetTransferRule, Error as CMError};
 use pallet_group::{self as group};
@@ -26,7 +26,7 @@ type CDDGroup = group::Module<TestStorage, group::Instance2>;
 type Moment = u64;
 type Origin = <TestStorage as frame_system::Trait>::Origin;
 
-fn make_ticker_env(owner: AccountKeyring, token_name: TokenName) -> Ticker {
+fn make_ticker_env(owner: AccountKeyring, token_name: AssetName) -> Ticker {
     let owner_id = register_keyring_account(owner.clone()).unwrap();
 
     // 1. Create a token.
