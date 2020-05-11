@@ -10,7 +10,7 @@ use pallet_balances as balances;
 use pallet_compliance_manager as compliance_manager;
 use pallet_identity as identity;
 
-use polymesh_common_utilities::{traits::balances::Memo, Context};
+use polymesh_common_utilities::traits::balances::Memo;
 use polymesh_primitives::{
     AccountKey, AuthorizationData, Document, IdentityId, LinkData, Signatory, SmartExtension,
     SmartExtensionType, Ticker,
@@ -19,8 +19,7 @@ use polymesh_primitives::{
 use chrono::prelude::Utc;
 use codec::Encode;
 use frame_support::{
-    assert_err, assert_noop, assert_ok, dispatch::DispatchError, traits::Currency,
-    StorageDoubleMap, StorageMap,
+    assert_err, assert_noop, assert_ok, traits::Currency, StorageDoubleMap, StorageMap,
 };
 use hex_literal::hex;
 use ink_primitives::hash as FunctionSelectorHasher;
@@ -254,8 +253,7 @@ fn valid_custodian_allowance() {
         let ticker = Ticker::try_from(token.name.as_slice()).unwrap();
 
         let (investor1_signed, investor1_did) = make_account(AccountKeyring::Bob.public()).unwrap();
-        let (investor2_signed, investor2_did) =
-            make_account(AccountKeyring::Charlie.public()).unwrap();
+        let (_, investor2_did) = make_account(AccountKeyring::Charlie.public()).unwrap();
         let (custodian_signed, custodian_did) = make_account(AccountKeyring::Eve.public()).unwrap();
 
         // Issuance is successful
@@ -1823,7 +1821,7 @@ fn frozen_signing_keys_create_asset_we() {
         asset_type: AssetType::default(),
         ..Default::default()
     };
-    let ticker_2 = Ticker::try_from(token_2.name.as_slice()).unwrap();
+    let _ticker_2 = Ticker::try_from(token_2.name.as_slice()).unwrap();
     // commenting this because `default_identity` feature is not allowing to access None identity.
     // let create_token_result = Asset::create_asset(
     //     Origin::signed(bob),

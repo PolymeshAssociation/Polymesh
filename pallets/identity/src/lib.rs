@@ -875,15 +875,26 @@ decl_module! {
             auth_id: u64
         ) -> DispatchResult {
             let sender_key = AccountKey::try_from(ensure_signed(origin)?.encode())?;
-            let signer = Context::current_identity_or::<Self>(&sender_key)
+            let signer_by_key = Signatory::from(sender_key.clone());
+            let signer_by_id = Context::current_identity_or::<Self>(&sender_key)
                 .map_or_else(
                     |_error| Signatory::from(sender_key),
                     Signatory::from);
-            ensure!(
-                <Authorizations<T>>::contains_key(signer, auth_id),
-                Error::<T>::AuthorizationDoesNotExist
-            );
-            let auth = <Authorizations<T>>::get(signer, auth_id);
+
+            // Get auth by key or by id.
+            let auth_signer_opt = if <Authorizations<T>>::contains_key(&signer_by_id, auth_id) {
+                let auth = <Authorizations<T>>::get(&signer_by_id, auth_id);
+                Some((auth, signer_by_id))
+            } else if <Authorizations<T>>::contains_key(signer_by_key, auth_id) {
+                let auth = <Authorizations<T>>::get(signer_by_key, auth_id);
+                Some((auth, signer_by_key))
+            } else {
+                None
+            };
+
+            let (auth, signer) = auth_signer_opt
+                    .ok_or_else(||Error::<T>::AuthorizationDoesNotExist)?;
+
             match signer {
                 Signatory::Identity(did) => {
                     match auth.authorization_data {
@@ -1894,16 +1905,19 @@ impl<T: Trait> Module<T> {
         // 2. Apply changes to our extrinsics.
         // 2.1. Link master key and add pre-authorized signing keys.
         let join_auth_data = AuthorizationData::JoinIdentity(did);
-        let did_signatory = Signatory::from(did);
+        let master_key_signatory = Signatory::from(master_key);
         Self::link_key_to_did(&master_key, SignatoryType::External, did);
-        let _auth_ids = signing_items.iter().map(|s_item| {
-            Self::add_auth(
-                did_signatory,
-                s_item.signer.clone(),
-                join_auth_data.clone(),
-                None,
-            )
-        });
+        let _auth_ids = signing_items
+            .iter()
+            .map(|s_item| {
+                Self::add_auth(
+                    master_key_signatory.clone(),
+                    s_item.signer.clone(),
+                    join_auth_data.clone(),
+                    None,
+                )
+            })
+            .collect::<Vec<_>>();
 
         // 2.2. Create a new identity record.
         let record = DidRecord {
