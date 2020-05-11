@@ -354,6 +354,7 @@ decl_module! {
                 <MultiSigCreator<T>>::get(&multisig) == sender_did,
                 Error::<T>::IdentityNotCreator
             );
+            ensure!(<Identity<T>>::is_master_key(sender_did, &sender_key), Error::<T>::NotMasterKey);
             let multisig_signer = Signatory::from(AccountKey::try_from(multisig.encode())?);
             for signer in signers {
                 Self::unsafe_add_auth_for_signers(multisig_signer, signer, multisig.clone());
@@ -389,6 +390,7 @@ decl_module! {
                 <MultiSigCreator<T>>::get(&multisig) == sender_did,
                 Error::<T>::IdentityNotCreator
             );
+            ensure!(<Identity<T>>::is_master_key(sender_did, &sender_key), Error::<T>::NotMasterKey);
             ensure!(Self::is_changing_signers_allowed(&multisig), Error::<T>::ChangeNotAllowed);
             let signers_len:u64 = u64::try_from(signers.len()).unwrap_or_default();
 
@@ -502,6 +504,7 @@ decl_module! {
                 <MultiSigCreator<T>>::get(&multi_sig) == sender_did,
                 Error::<T>::IdentityNotCreator
             );
+            ensure!(<Identity<T>>::is_master_key(sender_did, &sender_key), Error::<T>::NotMasterKey);
             <Identity<T>>::unsafe_join_identity(
                 sender_did,
                 Signatory::from(AccountKey::try_from(multi_sig.encode())?)
@@ -523,6 +526,7 @@ decl_module! {
                 <MultiSigCreator<T>>::get(&multi_sig) == sender_did,
                 Error::<T>::IdentityNotCreator
             );
+            ensure!(<Identity<T>>::is_master_key(sender_did, &sender_key), Error::<T>::NotMasterKey);
             <Identity<T>>::unsafe_master_key_rotation(
                 AccountKey::try_from(multi_sig.encode())?,
                 sender_did,
@@ -597,7 +601,9 @@ decl_error! {
         /// Signer is an account key that is already associated with a multisig.
         SignerAlreadyLinked,
         /// Current DID is missing
-        MissingCurrentIdentity
+        MissingCurrentIdentity,
+        /// The function can only be called by the master key of the did
+        NotMasterKey,
     }
 }
 
@@ -616,6 +622,7 @@ impl<T: Trait> Module<T> {
     fn unsafe_signer_removal(multisig: T::AccountId, signer: &Signatory) {
         if let Signatory::AccountKey(key) = signer {
             <KeyToMultiSig<T>>::remove(key);
+            <identity::KeyToIdentityIds>::remove(key);
         }
         <MultiSigSigners<T>>::remove(&multisig, signer);
         Self::deposit_event(RawEvent::MultiSigSignerRemoved(
@@ -820,7 +827,16 @@ impl<T: Trait> Module<T> {
                 !<KeyToMultiSig<T>>::contains_key(&key),
                 Error::<T>::SignerAlreadyLinked
             );
-            <KeyToMultiSig<T>>::insert(key, wallet_id.clone())
+            ensure!(
+                !<identity::KeyToIdentityIds>::contains_key(&key),
+                Error::<T>::SignerAlreadyLinked
+            );
+
+            <KeyToMultiSig<T>>::insert(key, wallet_id.clone());
+            <identity::KeyToIdentityIds>::insert(
+                key,
+                LinkedKeyInfo::Unique(<MultiSigCreator<T>>::get(&wallet_id)),
+            );
         }
 
         let wallet_signer = Signatory::from(AccountKey::try_from(wallet_id.encode())?);

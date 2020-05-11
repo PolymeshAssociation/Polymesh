@@ -124,6 +124,13 @@ fn join_multisig() {
             MultiSig::ms_signers(musig_address.clone(), bob_signer),
             true
         );
+        assert_eq!(
+            Identity::get_identity(
+                &AccountKey::try_from(AccountKeyring::Bob.public().encode()).unwrap()
+            ),
+            Some(alice_did)
+        );
+
         Context::set_current_identity::<Identity>(None);
         assert_ok!(MultiSig::create_multisig(
             alice.clone(),
@@ -326,6 +333,13 @@ fn remove_multisig_signer() {
             true
         );
 
+        assert_eq!(
+            Identity::get_identity(
+                &AccountKey::try_from(AccountKeyring::Bob.public().encode()).unwrap()
+            ),
+            Some(alice_did)
+        );
+
         let call = Box::new(Call::MultiSig(multisig::Call::remove_multisig_signer(
             bob_signer,
         )));
@@ -346,6 +360,13 @@ fn remove_multisig_signer() {
         assert_eq!(
             MultiSig::ms_signers(musig_address.clone(), bob_signer),
             false
+        );
+
+        assert_eq!(
+            Identity::get_identity(
+                &AccountKey::try_from(AccountKeyring::Bob.public().encode()).unwrap()
+            ),
+            None
         );
 
         Context::set_current_identity::<Identity>(None);
@@ -693,7 +714,6 @@ fn make_multisig_signer() {
 fn remove_multisig_signers_via_creator() {
     ExtBuilder::default().build().execute_with(|| {
         let alice_did = register_keyring_account(AccountKeyring::Alice).unwrap();
-        let _bob_did = register_keyring_account(AccountKeyring::Bob).unwrap();
         let alice = Origin::signed(AccountKeyring::Alice.public());
         let alice_signer = Signatory::from(alice_did);
         let bob = Origin::signed(AccountKeyring::Bob.public());
@@ -750,7 +770,7 @@ fn remove_multisig_signers_via_creator() {
                 musig_address.clone(),
                 vec![bob_signer]
             ),
-            Error::IdentityNotCreator
+            Error::NotMasterKey
         );
 
         assert_ok!(MultiSig::remove_multisig_signers_via_creator(
@@ -792,7 +812,6 @@ fn remove_multisig_signers_via_creator() {
 fn add_multisig_signers_via_creator() {
     ExtBuilder::default().build().execute_with(|| {
         let alice_did = register_keyring_account(AccountKeyring::Alice).unwrap();
-        let _bob_did = register_keyring_account(AccountKeyring::Bob).unwrap();
         let alice = Origin::signed(AccountKeyring::Alice.public());
         let bob = Origin::signed(AccountKeyring::Bob.public());
         let bob_signer =

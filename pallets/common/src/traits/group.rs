@@ -93,9 +93,6 @@ pub trait Trait<I>: frame_system::Trait + pallet_timestamp::Trait + IdentityTrai
     /// Required origin for resetting membership.
     type ResetOrigin: EnsureOrigin<<Self as frame_system::Trait>::Origin>;
 
-    /// Required origin for setting or resetting the prime member.
-    type PrimeOrigin: EnsureOrigin<<Self as frame_system::Trait>::Origin>;
-
     /// The receiver of the signal for when the membership has been initialized. This happens pre-
     /// genesis and will usually be the same as `MembershipChanged`. If you need to do something
     /// different on initialization, then you can change this accordingly.

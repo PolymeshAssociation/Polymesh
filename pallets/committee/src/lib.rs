@@ -21,7 +21,7 @@
 // -`set_members()` dispatchable get removed and members are maintained by the group module
 // - New instance of the group module is being added and assigned committee instance to
 // `MembershipInitialized` & `MembershipChanged` trait
-// - If MotionDuration > 0 then only the `close()` dispatchable or Prime member functionality will be used.
+// - If MotionDuration > 0 then only the `close()` dispatchable will be used.
 
 //! # Committee Module
 //!
@@ -129,10 +129,6 @@ decl_storage! {
         pub Members get(fn members) config(): Vec<IdentityId>;
         /// Vote threshold for an approval.
         pub VoteThreshold get(fn vote_threshold) config(): (u32, u32);
-        /// The member who provides the default vote for any other members that do not vote before
-        /// the timeout. If None, then no member has that privilege.
-        pub Prime get(fn prime): Option<IdentityId>;
-
         /// Release coordinator.
         pub ReleaseCoordinator get(fn release_coordinator): Option<IdentityId>;
     }
@@ -324,8 +320,7 @@ decl_module! {
         /// May be called by any signed account after the voting duration has ended in order to
         /// finish voting and close the proposal.
         ///
-        /// Abstentions are counted as rejections unless there is a prime member set and the prime
-        /// member cast an approval.
+        /// Abstentions are counted as rejections.
         ///
         /// - the weight of `proposal` preimage.
         /// - up to three events deposited.
@@ -345,20 +340,11 @@ decl_module! {
             ensure!(voting.index == index, Error::<T, I>::MismatchedVotingIndex);
             ensure!(system::Module::<T>::block_number() >= voting.end, Error::<T, I>::TooEarly);
 
-            // default to true only if there's a prime and they voted in favour.
-            let default = Self::prime().map_or(
-                false,
-                |who| voting.ayes.iter().any(|a| a == &who),
-            );
-
             let mut no_votes = voting.nays.len() as MemberCount;
             let mut yes_votes = voting.ayes.len() as MemberCount;
             let seats = Self::members().len() as MemberCount;
             let abstentions = seats - (yes_votes + no_votes);
-            match default {
-                true => yes_votes += abstentions,
-                false => no_votes += abstentions,
-            }
+            no_votes += abstentions;
 
             Self::deposit_event(RawEvent::Closed(did, proposal, yes_votes, no_votes));
             let threshold = <VoteThreshold<I>>::get();
