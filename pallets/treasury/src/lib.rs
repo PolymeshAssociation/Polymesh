@@ -89,7 +89,7 @@ decl_module! {
         /// # Error
         /// * `BadOrigin`: Only root can execute transaction.
         /// * `InsufficientBalance`: If treasury balances is not enough to cover all beneficiaries.
-        pub fn disbursement(origin, beneficiaries: Vec< Beneficiary<BalanceOf<T>>>) -> DispatchResult
+        pub fn disbursement(origin, beneficiaries: Vec<Beneficiary<BalanceOf<T>>>) -> DispatchResult
         {
             ensure_root(origin)?;
 
