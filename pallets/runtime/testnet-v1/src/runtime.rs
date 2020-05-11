@@ -19,7 +19,6 @@ use pallet_compliance_manager as compliance_manager;
 use pallet_group as group;
 use pallet_identity as identity;
 use pallet_multisig as multisig;
-use pallet_percentage_tm as percentage_tm;
 use pallet_protocol_fee as protocol_fee;
 use pallet_statistics as statistics;
 use pallet_treasury as treasury;
@@ -480,12 +479,6 @@ impl sto_capped::Trait for Runtime {
     type SimpleTokenTrait = SimpleToken;
 }
 
-impl percentage_tm::Trait for Runtime {
-    type Event = Event;
-    type Asset = asset::Module<Runtime>;
-    type Exemption = exemption::Module<Runtime>;
-}
-
 impl IdentityTrait for Runtime {
     type Event = Event;
     type Proposal = Call;
@@ -573,7 +566,6 @@ construct_runtime!(
         ComplianceManager: compliance_manager::{Module, Call, Storage, Event},
         Voting: voting::{Module, Call, Storage, Event<T>},
         StoCapped: sto_capped::{Module, Call, Storage, Event<T>},
-        PercentageTM: percentage_tm::{Module, Call, Storage, Event},
         Exemption: exemption::{Module, Call, Storage, Event},
         SimpleToken: simple_token::{Module, Call, Storage, Event<T>},
         CddServiceProviders: group::<Instance2>::{Module, Call, Storage, Event<T>, Config<T>},

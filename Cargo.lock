@@ -3343,30 +3343,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "pallet-percentage-tm"
-version = "0.1.0"
-dependencies = [
- "frame-support",
- "frame-system",
- "pallet-asset",
- "pallet-identity",
- "pallet-session",
- "pallet-timestamp",
- "parity-scale-codec",
- "polymesh-common-utilities",
- "polymesh-primitives",
- "serde",
- "serde_derive",
- "sp-api",
- "sp-arithmetic",
- "sp-core",
- "sp-io",
- "sp-runtime",
- "sp-std",
- "substrate-test-runtime-client",
-]
-
-[[package]]
 name = "pallet-pips"
 version = "0.1.0"
 dependencies = [
@@ -4133,7 +4109,6 @@ dependencies = [
  "pallet-group-rpc-runtime-api",
  "pallet-identity",
  "pallet-multisig",
- "pallet-percentage-tm",
  "pallet-pips",
  "pallet-protocol-fee",
  "pallet-randomness-collective-flip",
@@ -4193,7 +4168,6 @@ dependencies = [
  "pallet-indices",
  "pallet-multisig",
  "pallet-offences",
- "pallet-percentage-tm",
  "pallet-pips",
  "pallet-pips-rpc-runtime-api",
  "pallet-protocol-fee",
@@ -4274,7 +4248,6 @@ dependencies = [
  "pallet-indices",
  "pallet-multisig",
  "pallet-offences",
- "pallet-percentage-tm",
  "pallet-pips",
  "pallet-pips-rpc-runtime-api",
  "pallet-protocol-fee",
