@@ -918,8 +918,8 @@ impl_runtime_apis! {
         fn can_transfer(
             sender: AccountId,
             ticker: Ticker,
-            from_did: IdentityId,
-            to_did: IdentityId,
+            from_did: Option<IdentityId>,
+            to_did: Option<IdentityId>,
             value: Balance) -> pallet_asset_rpc_runtime_api::CanTransferResult
         {
             Asset::unsafe_can_transfer(sender, ticker, from_did, to_did, value)
