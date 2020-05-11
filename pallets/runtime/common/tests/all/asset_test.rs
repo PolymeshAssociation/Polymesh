@@ -1744,7 +1744,7 @@ fn freeze_unfreeze_asset() {
         // `batch_issue` fails when the vector of recipients is not empty.
         assert_err!(
             Asset::batch_issue(bob_signed.clone(), ticker, vec![bob_did], vec![1]),
-            "InvalidTransfer"
+            AssetError::InvalidTransfer
         );
         // `batch_issue` fails with the empty vector of investors with a different error message.
         assert_err!(
@@ -1920,6 +1920,8 @@ fn test_can_transfer_rpc() {
                 .unwrap(),
                 ERC1400_INSUFFICIENT_BALANCE
             );
+
+            // Comment below test case, These will be un-commented when we improved the DID check.
 
             // // Case 4: When sender doesn't posses a valid cdd
             // // 4.1: Create Identity who doesn't posses cdd
