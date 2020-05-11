@@ -39,7 +39,7 @@ pub trait Trait<V, U> {
         ticker: &Ticker,
         caller: U,
         sender_did: IdentityId,
-        tokens_purchased: V,
+        assets_purchased: V,
     ) -> DispatchResult;
     fn is_owner(ticker: &Ticker, did: IdentityId) -> bool;
     fn get_balance_at(ticker: &Ticker, did: IdentityId, at: u64) -> V;

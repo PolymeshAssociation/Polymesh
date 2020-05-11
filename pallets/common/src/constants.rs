@@ -37,15 +37,15 @@ pub const ERC1400_INVALID_RECEIVER: u8 = 0x57;
 pub const ERC1400_INVALID_OPERATOR: u8 = 0x58;
 
 // Application-specific status codes
-pub const APP_NOT_AFFECTED: u8 = 0xa0;
-pub const APP_SUCCESS: u8 = 0xa1;
-pub const APP_MAX_HOLDERS_REACHED: u8 = 0xa2;
-pub const APP_MANUAL_APPROVAL_EXPIRED: u8 = 0xa3;
-pub const APP_FUNDS_LIMIT_REACHED: u8 = 0xa4;
+pub const INVALID_SENDER_DID: u8 = 0xa0;
+pub const INVALID_RECEIVER_DID: u8 = 0xa1;
+pub const COMPLIANCE_MANAGER_FAILURE: u8 = 0xa2;
+pub const SMART_EXTENSION_FAILURE: u8 = 0xa3;
+pub const INVALID_GRANULARITY: u8 = 0xa4;
 pub const APP_TX_VOLUME_LIMIT_REACHED: u8 = 0xa5;
 pub const APP_BLACKLISTED_TX: u8 = 0xa6;
 pub const APP_FUNDS_LOCKED: u8 = 0xa7;
-pub const APP_INVALID_GRANULARITY: u8 = 0xa8;
+pub const APP_FUNDS_LIMIT_REACHED: u8 = 0xa8;
 
 // PIP pallet constants.
 pub const PIP_MAX_REPORTING_SIZE: usize = 1024;

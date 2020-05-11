@@ -38,8 +38,8 @@ pub trait AssetApi<BlockHash, AccountId, T> {
         &self,
         sender: AccountId,
         ticker: Ticker,
-        from_did: IdentityId,
-        to_did: IdentityId,
+        from_did: Option<IdentityId>,
+        to_did: Option<IdentityId>,
         value: T,
         at: Option<BlockHash>,
     ) -> Result<CanTransferResult>;
@@ -83,8 +83,8 @@ where
         &self,
         sender: AccountId,
         ticker: Ticker,
-        from_did: IdentityId,
-        to_did: IdentityId,
+        from_did: Option<IdentityId>,
+        to_did: Option<IdentityId>,
         value: T,
         at: Option<<Block as BlockT>::Hash>,
     ) -> Result<CanTransferResult> {
