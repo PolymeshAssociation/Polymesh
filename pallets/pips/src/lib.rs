@@ -15,12 +15,12 @@
 
 //! # Pips Module
 //!
-//! MESH Improvement Proposals (PIPs) are proposals (ballots) that can then be proposed and voted on
-//! by all MESH token holders. If a ballot passes this community vote it is then passed to the
+//! Polymesh Improvement Proposals (PIPs) are proposals (ballots) that can be proposed and voted on
+//! by all POLYX token holders. If a ballot passes this community token holder vote it is then passed to the
 //! governance council to ratify (or reject).
-//! - minimum of 5,000 MESH needs to be staked by the proposer of the ballot
+//! - minimum of 5,000 POLYX needs to be staked by the proposer of the ballot
 //! in order to create a new ballot.
-//! - minimum of 100,000 MESH (quorum) needs to vote in favour of the ballot in order for the
+//! - minimum of 100,000 POLYX (quorum) needs to vote in favour of the ballot in order for the
 //! ballot to be considered by the governing committee.
 //! - ballots run for 1 week
 //! - a simple majority is needed to pass the ballot so that it heads for the
@@ -38,17 +38,28 @@
 //!
 //! ### Dispatchable Functions
 //!
+//! - `set_prune_historical_pips` change whether historical PIPs are pruned
 //! - `set_min_proposal_deposit` change min deposit to create a proposal
 //! - `set_quorum_threshold` change stake required to make a proposal into a referendum
 //! - `set_proposal_duration` change duration in blocks for which proposal stays active
-//! - `propose` - Token holders can propose a new ballot.
+//! - `set_proposal_cool_off_period` change duration in blocks for which a proposal can be amended
+//! - `set_default_enact_period` change the period after enactment after which the proposal is executed
+//! - `propose` - token holders can propose a new ballot.
+//! - `amend_proposal` - allows the creator of a proposal to amend the proposal details
+//! - `cancel_proposal` - allows the creator of a proposal to cancel the proposal
+//! - `bond_additional_deposit` - allows the creator of a proposal to bond additional POLYX to it
+//! - `unbond_deposit` - allows the creator of a proposal to unbond POLYX from it
 //! - `vote` - Token holders can vote on a ballot.
 //! - `kill_proposal` - close a proposal and refund all deposits
+//! - `fast_track_proposal` - move a proposal to a referendum stage
+//! - `emergency_referendum` - create an emergency referndum, bypassing the token holder vote
+//! - `reject_referendum` - reject a referendum which will be closed without executing
+//! - `override_referendum_enactment_period` - release coordinator can reschedule a referendum
 //! - `enact_referendum` committee calls to execute a referendum
 //!
 //! ### Public Functions
 //!
-//! - `end_block` - Returns details of the token
+//! - `end_block` - processes pending proposals and referendums
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use codec::{Decode, Encode};
@@ -493,7 +504,6 @@ decl_module! {
         #[weight = SimpleDispatchInfo::FixedOperational(100_000)]
         pub fn set_proposal_duration(origin, duration: T::BlockNumber) {
             T::CommitteeOrigin::try_origin(origin).map_err(|_| Error::<T>::BadOrigin)?;
-            ensure!(duration > Self::proposal_cool_off_period(), Error::<T>::BadProposalDuration);
             let current_did = Context::current_identity::<Identity<T>>().ok_or_else(|| Error::<T>::MissingCurrentIdentity)?;
             Self::deposit_event(RawEvent::ProposalDurationChanged(current_did, Self::proposal_duration(), duration));
             <ProposalDuration<T>>::put(duration);
@@ -508,7 +518,6 @@ decl_module! {
         #[weight = SimpleDispatchInfo::FixedOperational(100_000)]
         pub fn set_proposal_cool_off_period(origin, duration: T::BlockNumber) {
             T::CommitteeOrigin::try_origin(origin).map_err(|_| Error::<T>::BadOrigin)?;
-            ensure!(duration < Self::proposal_duration(), Error::<T>::BadCoolOffPeriod);
             let current_did = Context::current_identity::<Identity<T>>().ok_or_else(|| Error::<T>::MissingCurrentIdentity)?;
             Self::deposit_event(RawEvent::ProposalDurationChanged(current_did, Self::proposal_cool_off_period(), duration));
             <ProposalCoolOffPeriod<T>>::put(duration);
@@ -516,7 +525,7 @@ decl_module! {
 
         /// Change the default enact period.
         #[weight = SimpleDispatchInfo::FixedOperational(100_000)]
-        pub fn set_default_enact_period(origin, duration: T::BlockNumber) {
+        pub fn set_default_enactment_period(origin, duration: T::BlockNumber) {
             T::CommitteeOrigin::try_origin(origin).map_err(|_| Error::<T>::BadOrigin)?;
             let previous_duration = <DefaultEnactmentPeriod<T>>::get();
             <DefaultEnactmentPeriod<T>>::put(duration);
@@ -621,7 +630,7 @@ decl_module! {
                 id: PipId,
                 url: Option<Url>,
                 description: Option<PipDescription>
-                ) -> DispatchResult {
+        ) -> DispatchResult {
             // 0. Initial info.
             let proposer = ensure_signed(origin)?;
             let meta = Self::proposal_metadata(id)
@@ -1140,8 +1149,8 @@ impl<T: Trait> Module<T> {
                     Ok(_) => {
                         match proposal.proposal.dispatch(system::RawOrigin::Root.into()) {
                             Ok(_) => {
-                                Self::update_referendum_state(id, ReferendumState::Executed);
                                 Self::pay_to_beneficiaries(id);
+                                Self::update_referendum_state(id, ReferendumState::Executed);
                             }
                             Err(e) => {
                                 Self::update_referendum_state(id, ReferendumState::Failed);
