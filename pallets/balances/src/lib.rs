@@ -231,7 +231,9 @@ decl_error! {
         /// AccountId is not attached with Identity
         UnAuthorized,
         /// Receiver does not have a valid CDD
-        ReceiverCddMissing
+        ReceiverCddMissing,
+        /// Un handled imbalances
+        UnHandledImbalances
     }
 }
 
@@ -362,13 +364,17 @@ decl_module! {
             if value.is_zero() { return Ok(()) }
 
             let transactor = ensure_signed(origin)?;
-            let _ = <Self as Currency<_>>::withdraw(
+            let negative_imbalance = <Self as Currency<_>>::withdraw(
                 &transactor,
                 value,
                 WithdrawReason::TransactionPayment.into(),
                 ExistenceRequirement::KeepAlive,
             )?;
-            Self::unsafe_top_up_identity_balance(&did, value);
+            let positive_imbalance = Self::unsafe_top_up_identity_balance(&did, value);
+            // In Ideal coding standards: Should not emit an error as storage is already gets changed
+            // but use this hack to avoid automatic drop functionality which consumes more operations than this
+            // It will never spit an error because negative_imbalance always equal to positive_imbalance.
+            let _ = negative_imbalance.offset(positive_imbalance).map_err(|_| Error::<T>::UnHandledImbalances)?;
             Ok(())
         }
 
@@ -503,9 +509,13 @@ impl<T: Trait> Module<T> {
 
     // Polymesh modified code. New public function to increase balance of an Identity.
     /// It tops up the identity balance.
-    pub fn unsafe_top_up_identity_balance(did: &IdentityId, value: T::Balance) {
+    pub fn unsafe_top_up_identity_balance(
+        did: &IdentityId,
+        value: T::Balance,
+    ) -> PositiveImbalance<T> {
         let new_balance = Self::identity_balance(did).saturating_add(value);
         <IdentityBalance<T>>::insert(did, new_balance);
+        PositiveImbalance::<T>::new(value)
     }
 
     /// Get the free balance of an account.
