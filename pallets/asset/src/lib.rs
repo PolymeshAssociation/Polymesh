@@ -182,18 +182,18 @@ impl Default for IdentifierType {
 
 /// A wrapper for a token name.
 #[derive(Decode, Encode, Clone, Debug, Default, Hash, PartialEq, Eq, PartialOrd, Ord)]
-pub struct TokenName(pub Vec<u8>);
+pub struct AssetName(pub Vec<u8>);
 
-impl<T: AsRef<[u8]>> From<T> for TokenName {
+impl<T: AsRef<[u8]>> From<T> for AssetName {
     fn from(s: T) -> Self {
         let s = s.as_ref();
         let mut v = Vec::with_capacity(s.len());
         v.extend_from_slice(s);
-        TokenName(v)
+        AssetName(v)
     }
 }
 
-impl TokenName {
+impl AssetName {
     /// Returns a reference to the token name.
     pub fn as_slice(&self) -> &[u8] {
         self.0.as_slice()
@@ -235,7 +235,7 @@ impl Default for FundingRoundName {
 /// struct to store the token details.
 #[derive(Encode, Decode, Default, Clone, PartialEq, Debug)]
 pub struct SecurityToken<U> {
-    pub name: TokenName,
+    pub name: AssetName,
     pub total_supply: U,
     pub owner_did: IdentityId,
     pub divisible: bool,
@@ -440,7 +440,7 @@ decl_module! {
         /// `400_000 + 20_000 * identifiers.len()`
         #[weight = FunctionOf(
             |(_, _, _, _, _, identifiers, _): (
-                &TokenName,
+                &AssetName,
                 &Ticker,
                 &T::Balance,
                 &bool,
@@ -455,7 +455,7 @@ decl_module! {
         )]
         pub fn create_asset(
             origin,
-            name: TokenName,
+            name: AssetName,
             ticker: Ticker,
             total_supply: T::Balance,
             divisible: bool,
@@ -598,7 +598,7 @@ decl_module! {
         /// * `ticker` - the ticker of the token.
         /// * `name` - the new name of the token.
         #[weight = SimpleDispatchInfo::FixedNormal(150_000)]
-        pub fn rename_asset(origin, ticker: Ticker, name: TokenName) -> DispatchResult {
+        pub fn rename_asset(origin, ticker: Ticker, name: AssetName) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             let signer = AccountKey::try_from(sender.encode())?;
             let sender_did = Context::current_identity_or::<Identity<T>>(&signer)?;
@@ -979,7 +979,7 @@ decl_module! {
             ensure!(Self::is_owner(&ticker, did), Error::<T>::NotAnOwner);
             // Granularity check
             ensure!(Self::check_granularity(&ticker, value), Error::<T>::InvalidGranularity);
-            ensure!(<BalanceOf<T>>::contains_key(&ticker, &token_holder_did), Error::<T>::NotATokenHolder);
+            ensure!(<BalanceOf<T>>::contains_key(&ticker, &token_holder_did), Error::<T>::NotAAssetHolder);
             let burner_balance = Self::balance(&ticker, &token_holder_did);
             ensure!(burner_balance >= value, Error::<T>::InsufficientBalance);
 
@@ -1016,7 +1016,7 @@ decl_module! {
             ensure!(Self::is_owner(&ticker, did), Error::<T>::Unauthorized);
             // Read the token details
             let mut token = Self::token_details(&ticker);
-            ensure!(!token.divisible, Error::<T>::TokenAlreadyDivisible);
+            ensure!(!token.divisible, Error::<T>::AssetAlreadyDivisible);
             token.divisible = true;
             <Tokens<T>>::insert(&ticker, token);
             Self::deposit_event(RawEvent::DivisibilityChanged(did, ticker, true));
@@ -1477,7 +1477,7 @@ decl_event! {
         AssetUnfrozen(IdentityId, Ticker),
         /// An event emitted when a token is renamed.
         /// Parameters: caller DID, ticker, new token name.
-        AssetRenamed(IdentityId, Ticker, TokenName),
+        AssetRenamed(IdentityId, Ticker, AssetName),
         /// An event carrying the name of the current funding round of a ticker.
         /// Parameters: caller DID, ticker, funding round name.
         FundingRoundSet(IdentityId, Ticker, FundingRoundName),
@@ -1563,9 +1563,7 @@ decl_error! {
         /// An invalid granularity.
         InvalidGranularity,
         /// The account does not hold this token.
-        NotATokenHolder,
-        /// The asset must not be frozen.
-        Frozen,
+        NotAAssetHolder,
         /// The asset must be frozen.
         NotFrozen,
         /// No such smart extension.
@@ -1579,7 +1577,7 @@ decl_error! {
         /// The signature is already in use.
         SignatureAlreadyUsed,
         /// The token is already divisible.
-        TokenAlreadyDivisible,
+        AssetAlreadyDivisible,
         /// An invalid custodian DID.
         InvalidCustodianDid,
     }
@@ -1590,9 +1588,9 @@ impl<T: Trait> AssetTrait<T::Balance, T::AccountId> for Module<T> {
         ticker: &Ticker,
         caller: T::AccountId,
         sender: IdentityId,
-        tokens_purchased: T::Balance,
+        assets_purchased: T::Balance,
     ) -> DispatchResult {
-        Self::_mint(ticker, caller, sender, tokens_purchased, None)
+        Self::_mint(ticker, caller, sender, assets_purchased, None)
     }
 
     fn is_owner(ticker: &Ticker, did: IdentityId) -> bool {
@@ -1812,11 +1810,13 @@ impl<T: Trait> Module<T> {
         to_did: Option<IdentityId>,
         value: T::Balance,
     ) -> StdResult<u8, &'static str> {
-        ensure!(!Self::frozen(ticker), Error::<T>::Frozen);
+        if Self::frozen(ticker) {
+            return Ok(ERC1400_TRANSFERS_HALTED);
+        }
         let general_status_code =
             T::ComplianceManager::verify_restriction(ticker, from_did, to_did, value)?;
         Ok(if general_status_code != ERC1400_TRANSFER_SUCCESS {
-            general_status_code
+            COMPLIANCE_MANAGER_FAILURE
         } else {
             let mut final_result = true;
             let mut is_valid = false;
@@ -1848,7 +1848,7 @@ impl<T: Trait> Module<T> {
             if final_result {
                 return Ok(ERC1400_TRANSFER_SUCCESS);
             } else {
-                return Ok(ERC1400_TRANSFER_FAILURE);
+                return Ok(SMART_EXTENSION_FAILURE);
             }
         })
     }
@@ -1869,7 +1869,7 @@ impl<T: Trait> Module<T> {
         );
         ensure!(
             <BalanceOf<T>>::contains_key(ticker, &from_did),
-            Error::<T>::NotATokenHolder
+            Error::<T>::NotAAssetHolder
         );
         let sender_balance = Self::balance(ticker, &from_did);
         ensure!(sender_balance >= value, Error::<T>::InsufficientBalance);
@@ -2267,21 +2267,41 @@ impl<T: Trait> Module<T> {
         }
     }
 
+    /// RPC: Function allows external users to know wether the transfer extrinsic
+    /// will be valid or not beforehand.
     pub fn unsafe_can_transfer(
         sender: T::AccountId,
         ticker: Ticker,
-        from_did: IdentityId,
-        to_did: IdentityId,
+        from_did: Option<IdentityId>,
+        to_did: Option<IdentityId>,
         amount: T::Balance,
     ) -> StdResult<u8, &'static str> {
-        let balance = Self::balance(&ticker, &from_did);
-        if balance < amount || balance - amount < Self::total_custody_allowance((ticker, from_did))
-        {
-            return Ok(ERC1400_INSUFFICIENT_BALANCE);
+        // Granularity check
+        if !Self::check_granularity(&ticker, amount) {
+            return Ok(INVALID_GRANULARITY);
         }
-
+        // Non-Issuance case check
+        if let Some(from_id) = from_did {
+            if Identity::<T>::has_valid_cdd(from_id) {
+                let balance = Self::balance(&ticker, &from_id);
+                if balance < amount
+                    || balance - amount < Self::total_custody_allowance((ticker, from_id))
+                {
+                    return Ok(ERC1400_INSUFFICIENT_BALANCE);
+                }
+            } else {
+                return Ok(INVALID_SENDER_DID);
+            }
+        }
+        // Non-Redeem case check
+        if let Some(to_id) = to_did {
+            if !Identity::<T>::has_valid_cdd(to_id) {
+                return Ok(INVALID_RECEIVER_DID);
+            }
+        }
+        // Compliance manager & Smart Extension check
         Ok(
-            Self::_is_valid_transfer(&ticker, sender, Some(from_did), Some(to_did), amount)
+            Self::_is_valid_transfer(&ticker, sender, from_did, to_did, amount)
                 .unwrap_or(ERC1400_TRANSFER_FAILURE),
         )
     }
