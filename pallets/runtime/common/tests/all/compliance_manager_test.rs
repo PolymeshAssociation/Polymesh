@@ -3,7 +3,7 @@ use super::{
     ExtBuilder,
 };
 
-use pallet_asset::{self as asset, AssetType, Error as AssetError, SecurityToken, AssetName};
+use pallet_asset::{self as asset, AssetName, AssetType, Error as AssetError, SecurityToken};
 use pallet_balances as balances;
 use pallet_compliance_manager::{self as compliance_manager, AssetTransferRule, Error as CMError};
 use pallet_group::{self as group};
