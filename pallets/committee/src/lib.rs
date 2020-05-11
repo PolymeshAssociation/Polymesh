@@ -150,8 +150,14 @@ decl_event!(
         Proposed(IdentityId, ProposalIndex, Hash),
         /// A motion (given hash) has been voted on by given account, leaving
         /// a tally (yes votes, no votes and total seats given respectively as `MemberCount`).
-        /// caller DID, Proposal hash, yay vote count, nay vote count, total seats.
-        Voted(IdentityId, Hash, MemberCount, MemberCount, MemberCount),
+        /// caller DID, Proposal index, Proposal hash, yay vote count, nay vote count, total seats.
+        Voted(IdentityId, ProposalIndex, Hash, MemberCount, MemberCount, MemberCount),
+        /// A vote on a motion (given hash) has been retracted.
+        /// caller DID, ProposalIndex, Proposal hash.
+        VoteRetracted(IdentityId, ProposalIndex, Hash),
+        /// Final votes on a motion (given hash)
+        /// caller DID, ProposalIndex, Proposal hash, yes voters, no voter
+        FinalVotes(IdentityId, ProposalIndex, Hash, Vec<IdentityId>, Vec<IdentityId>),
         /// A motion was approved by the required threshold with the following
         /// tally (yes votes, no votes and total seats given respectively as `MemberCount`).
         /// caller DID, Proposal hash, yay vote count, nay vote count, total seats.
@@ -300,7 +306,16 @@ decl_module! {
             let no_votes = voting.nays.len() as MemberCount;
 
             <Voting<T, I>>::insert(&proposal, voting);
-            Self::deposit_event(RawEvent::Voted(did, T::Hashing::hash_of(&proposal), yes_votes, no_votes, Self::members().len() as MemberCount));
+            Self::deposit_event(
+                RawEvent::Voted(
+                    did,
+                    index,
+                    T::Hashing::hash_of(&proposal),
+                    yes_votes,
+                    no_votes,
+                    Self::members().len() as MemberCount
+                )
+            );
             Self::check_proposal_threshold(proposal);
             Ok(())
         }
@@ -350,7 +365,14 @@ decl_module! {
             let approved = Self::is_threshold_satisfied(yes_votes, seats, threshold);
             let rejected = Self::is_threshold_satisfied(no_votes, seats, threshold);
             if approved || rejected {
-                Self::finalize_proposal(approved, seats, yes_votes, no_votes, proposal);
+                Self::finalize_proposal(approved, seats, yes_votes, no_votes, proposal, did);
+                Self::deposit_event(RawEvent::FinalVotes(
+                    did,
+                    voting.index,
+                    proposal,
+                    voting.ayes,
+                    voting.nays,
+                ));
             }
         }
 
@@ -399,6 +421,7 @@ impl<T: Trait<I>, I: Instance> Module<T, I> {
             };
 
             if is_id_removed.is_some() {
+                Self::deposit_event(RawEvent::VoteRetracted(id, voting.index.clone(), proposal));
                 <Voting<T, I>>::insert(&proposal, voting);
             }
         }
@@ -419,7 +442,22 @@ impl<T: Trait<I>, I: Instance> Module<T, I> {
             let rejected = Self::is_threshold_satisfied(no_votes, seats, threshold);
 
             if approved || rejected {
-                Self::finalize_proposal(approved, seats, yes_votes, no_votes, proposal);
+                let current_did = Context::current_identity::<Identity<T>>().unwrap_or_default();
+                Self::finalize_proposal(
+                    approved,
+                    seats,
+                    yes_votes,
+                    no_votes,
+                    proposal,
+                    current_did,
+                );
+                Self::deposit_event(RawEvent::FinalVotes(
+                    current_did,
+                    voting.index,
+                    proposal,
+                    voting.ayes,
+                    voting.nays,
+                ));
             }
         }
     }
@@ -444,8 +482,8 @@ impl<T: Trait<I>, I: Instance> Module<T, I> {
         yes_votes: MemberCount,
         no_votes: MemberCount,
         proposal: T::Hash,
+        current_did: IdentityId,
     ) {
-        let current_did = Context::current_identity::<Identity<T>>().unwrap_or_default();
         if approved {
             Self::deposit_event(RawEvent::Approved(
                 current_did,
