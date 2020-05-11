@@ -329,6 +329,7 @@ fn general_testnet_genesis(
                 IdentityId::from(3),
                 IdentityId::from(4),
                 IdentityId::from(5),
+                IdentityId::from(6),
             ],
             phantom: Default::default(),
         }),

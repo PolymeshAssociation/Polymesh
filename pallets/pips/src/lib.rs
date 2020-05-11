@@ -113,13 +113,15 @@ impl<T: AsRef<[u8]>> From<T> for PipDescription {
 
 /// Represents a proposal
 #[derive(Encode, Decode, Clone, PartialEq, Eq)]
-pub struct Pip<Proposal> {
+pub struct Pip<Proposal, Balance> {
     /// The proposal's unique id.
     id: PipId,
     /// The proposal being voted on.
     proposal: Proposal,
     /// The latest state
     state: ProposalState,
+    /// Beneficiaries of this Pips
+    pub beneficiaries: Option<Vec<Beneficiary<Balance>>>,
 }
 
 /// Either the entire proposal encoded as a byte vector or its hash. The latter represents large
@@ -148,8 +150,6 @@ pub struct PipsMetadata<T: Trait> {
     /// This proposal allows any changes
     /// During Cool-off period, proposal owner can amend any PIP detail or cancel the entire
     pub cool_off_until: T::BlockNumber,
-    /// Beneficiaries of this Pips
-    pub beneficiaries: Vec<Beneficiary<T::Balance>>,
 }
 
 /// For keeping track of proposal being voted on.
@@ -311,7 +311,7 @@ decl_storage! {
 
         /// Actual proposal for a given id, if it's current.
         /// proposal id -> proposal
-        pub Proposals get(fn proposals): map hasher(twox_64_concat) PipId => Option<Pip<T::Proposal>>;
+        pub Proposals get(fn proposals): map hasher(twox_64_concat) PipId => Option<Pip<T::Proposal, T::Balance>>;
 
         /// PolymeshVotes on a given proposal, if it is ongoing.
         /// proposal id -> vote count
@@ -381,15 +381,15 @@ decl_event!(
         /// Minimum deposit amount modified
         /// (caller DID, old amount, new amount)
         MinimumProposalDepositChanged(IdentityId, Balance, Balance),
+        /// Cool off period for proposals modified
+        /// (caller DID, old period, new period)
+        ProposalCoolOffPeriodChanged(IdentityId, BlockNumber, BlockNumber),
         /// Proposal duration changed
         /// (old value, new value)
         ProposalDurationChanged(IdentityId, BlockNumber, BlockNumber),
         /// Refund proposal
         /// (id, total amount)
         ProposalRefund(IdentityId, PipId, Balance),
-        /// Proposal has beneficiaries.
-        /// (id, total amount)
-        ProposalPayment(IdentityId, PipId, Balance),
     }
 );
 
@@ -424,7 +424,17 @@ decl_error! {
         /// When stake amount of a vote overflows.
         StakeAmountOfVotesExceeded,
         /// Missing current DID
-        MissingCurrentIdentity
+        MissingCurrentIdentity,
+        /// Cool off period is too large relative to the proposal duration
+        BadCoolOffPeriod,
+        /// The proposal duration is too small relative to the cool off period
+        BadProposalDuration,
+        /// Referendum is not in the correct state
+        IncorrectReferendumState,
+        /// Proposal is not in the correct state
+        IncorrectProposalState,
+        /// Insufficient treasury funds to pay beneficiaries
+        InsufficientTreasuryFunds,
     }
 }
 
@@ -483,9 +493,25 @@ decl_module! {
         #[weight = SimpleDispatchInfo::FixedOperational(100_000)]
         pub fn set_proposal_duration(origin, duration: T::BlockNumber) {
             T::CommitteeOrigin::try_origin(origin).map_err(|_| Error::<T>::BadOrigin)?;
+            ensure!(duration > Self::proposal_cool_off_period(), Error::<T>::BadProposalDuration);
             let current_did = Context::current_identity::<Identity<T>>().ok_or_else(|| Error::<T>::MissingCurrentIdentity)?;
             Self::deposit_event(RawEvent::ProposalDurationChanged(current_did, Self::proposal_duration(), duration));
             <ProposalDuration<T>>::put(duration);
+        }
+
+
+        /// Change the proposal cool off period value. This is the number of blocks after which the proposer of a pip
+        /// can modify or cancel their proposal, and other voting is prohibited
+        ///
+        /// # Arguments
+        /// * `duration` proposal cool off period duration in blocks
+        #[weight = SimpleDispatchInfo::FixedOperational(100_000)]
+        pub fn set_proposal_cool_off_period(origin, duration: T::BlockNumber) {
+            T::CommitteeOrigin::try_origin(origin).map_err(|_| Error::<T>::BadOrigin)?;
+            ensure!(duration < Self::proposal_duration(), Error::<T>::BadCoolOffPeriod);
+            let current_did = Context::current_identity::<Identity<T>>().ok_or_else(|| Error::<T>::MissingCurrentIdentity)?;
+            Self::deposit_event(RawEvent::ProposalDurationChanged(current_did, Self::proposal_cool_off_period(), duration));
+            <ProposalCoolOffPeriod<T>>::put(duration);
         }
 
         /// Change the default enact period.
@@ -512,7 +538,7 @@ decl_module! {
             deposit: BalanceOf<T>,
             url: Option<Url>,
             description: Option<PipDescription>,
-            beneficiaries: Vec<Beneficiary<T::Balance>>
+            beneficiaries: Option<Vec<Beneficiary<T::Balance>>>
         ) -> DispatchResult {
             let proposer = ensure_signed(origin)?;
             let proposer_key = AccountKey::try_from(proposer.encode())?;
@@ -542,7 +568,6 @@ decl_module! {
                 url: url.clone(),
                 description: description.clone(),
                 cool_off_until: cool_off_until.clone(),
-                beneficiaries,
             };
             let _ = <ProposalsMaturingAt<T>>::append(end, [id].iter())?;
             <ProposalMetadata<T>>::insert(id, proposal_metadata);
@@ -557,6 +582,7 @@ decl_module! {
                 id,
                 proposal: *proposal,
                 state: ProposalState::Pending,
+                beneficiaries,
             };
             <Proposals<T>>::insert(id, pip);
 
@@ -578,6 +604,7 @@ decl_module! {
                 cool_off_until,
                 end,
                 proposal_data,
+                //beneficiaries,
             ));
             Ok(())
         }
@@ -603,7 +630,7 @@ decl_module! {
             // 1. Only owner can cancel it.
             ensure!( meta.proposer == proposer, Error::<T>::BadOrigin);
             // Check that the proposal is pending
-            Self::is_proposal_pending(id)?;
+            Self::is_proposal_state(id, ProposalState::Pending)?;
 
             // 2. Proposal can be cancelled *ONLY* during its cool-off period.
             let curr_block_number = <system::Module<T>>::block_number();
@@ -638,7 +665,7 @@ decl_module! {
                 .ok_or_else(|| Error::<T>::MismatchedProposalId)?;
             ensure!( meta.proposer == proposer, Error::<T>::BadOrigin);
             // Check that the proposal is pending
-            Self::is_proposal_pending(id)?;
+            Self::is_proposal_state(id, ProposalState::Pending)?;
             // 2. Proposal can be cancelled *ONLY* during its cool-off period.
             let curr_block_number = <system::Module<T>>::block_number();
             ensure!( meta.cool_off_until > curr_block_number, Error::<T>::ProposalIsImmutable);
@@ -671,7 +698,7 @@ decl_module! {
             // 1. Only owner can add additional deposit.
             ensure!( meta.proposer == proposer, Error::<T>::BadOrigin);
             // Check that the proposal is pending
-            Self::is_proposal_pending(id)?;
+            Self::is_proposal_state(id, ProposalState::Pending)?;
 
             // 2. Proposal can be amended *ONLY* during its cool-off period.
             let curr_block_number = <system::Module<T>>::block_number();
@@ -719,7 +746,7 @@ decl_module! {
             // 1. Only owner can cancel it.
             ensure!( meta.proposer == proposer, Error::<T>::BadOrigin);
             // Check that the proposal is pending
-            Self::is_proposal_pending(id)?;
+            Self::is_proposal_state(id, ProposalState::Pending)?;
 
             // 2. Proposal can be cancelled *ONLY* during its cool-off period.
             let curr_block_number = <system::Module<T>>::block_number();
@@ -770,7 +797,7 @@ decl_module! {
             ensure!( meta.cool_off_until <= curr_block_number, Error::<T>::ProposalOnCoolOffPeriod);
 
             // Check that the proposal is pending
-            Self::is_proposal_pending(id)?;
+            Self::is_proposal_state(id, ProposalState::Pending)?;
 
             // Valid PipId
             ensure!(<ProposalResult<T>>::contains_key(id), Error::<T>::NoSuchProposal);
@@ -810,7 +837,7 @@ decl_module! {
             T::CommitteeOrigin::try_origin(origin).map_err(|_| Error::<T>::BadOrigin)?;
             ensure!(<Proposals<T>>::contains_key(id), Error::<T>::NoSuchProposal);
             // Check that the proposal is pending
-            Self::is_proposal_pending(id)?;
+            Self::is_proposal_state(id, ProposalState::Pending)?;
             Self::refund_proposal(id);
             Self::update_proposal_state(id, ProposalState::Killed);
             Self::prune_data(id, Self::prune_historical_pips());
@@ -830,7 +857,7 @@ decl_module! {
 
             ensure!(<Proposals<T>>::contains_key(id), Error::<T>::MismatchedProposalId);
             // Check that the proposal is pending
-            Self::is_proposal_pending(id)?;
+            Self::is_proposal_state(id, ProposalState::Pending)?;
             Self::create_referendum(
                 id,
                 ReferendumState::Pending,
@@ -849,7 +876,7 @@ decl_module! {
             proposal: Box<T::Proposal>,
             url: Option<Url>,
             description: Option<PipDescription>,
-            beneficiaries: Vec<Beneficiary<T::Balance>>
+            beneficiaries: Option<Vec<Beneficiary<T::Balance>>>
         ) -> DispatchResult {
             let proposer = ensure_signed(origin)?;
             let proposer_key = AccountKey::try_from(proposer.encode())?;
@@ -865,6 +892,7 @@ decl_module! {
                 id,
                 proposal: *proposal,
                 state: ProposalState::Pending,
+                beneficiaries,
             };
             <Proposals<T>>::insert(id, pip);
 
@@ -875,7 +903,6 @@ decl_module! {
                 url: url.clone(),
                 description: description.clone(),
                 cool_off_until: Zero::zero(),
-                beneficiaries
             };
             <ProposalMetadata<T>>::insert(id, proposal_metadata);
             Self::deposit_event(RawEvent::ProposalCreated(
@@ -888,6 +915,7 @@ decl_module! {
                 Zero::zero(),
                 Zero::zero(),
                 proposal_data,
+                //beneficiaries,
             ));
             Self::create_referendum(
                 id,
@@ -902,7 +930,7 @@ decl_module! {
         pub fn enact_referendum(origin, id: PipId) -> DispatchResult {
             T::VotingMajorityOrigin::try_origin(origin).map_err(|_| Error::<T>::BadOrigin)?;
             // Check that referendum is Pending
-            Self::is_referendum_pending(id)?;
+            Self::is_referendum_state(id, ReferendumState::Pending)?;
             Self::prepare_to_dispatch(id)
         }
 
@@ -911,7 +939,7 @@ decl_module! {
         pub fn reject_referendum(origin, id: PipId) -> DispatchResult {
             T::VotingMajorityOrigin::try_origin(origin).map_err(|_| Error::<T>::BadOrigin)?;
             // Check that referendum is Pending
-            Self::is_referendum_pending(id)?;
+            Self::is_referendum_state(id, ReferendumState::Pending)?;
 
             // Close proposal
             Self::update_referendum_state(id, ReferendumState::Rejected);
@@ -929,40 +957,40 @@ decl_module! {
         /// * `BadOrigin`, Only the release coordinator can update the enactment period.
         /// * ``,
         #[weight = SimpleDispatchInfo::FixedOperational(100_000)]
-        pub fn set_referendum_enactment_period(origin, mid: PipId, until: Option<T::BlockNumber>) -> DispatchResult {
+        pub fn override_referendum_enactment_period(origin, id: PipId, until: Option<T::BlockNumber>) -> DispatchResult {
             let sender_key = AccountKey::try_from(ensure_signed(origin)?.encode())?;
-            let id = Context::current_identity_or::<Identity<T>>(&sender_key)?;
+            let current_did = Context::current_identity_or::<Identity<T>>(&sender_key)?;
 
             // 1. Only release coordinator
             ensure!(
-                Some(id) == T::GovernanceCommittee::release_coordinator(),
+                Some(current_did) == T::GovernanceCommittee::release_coordinator(),
                 Error::<T>::BadOrigin);
+
+            Self::is_referendum_state(id, ReferendumState::Scheduled)?;
 
             // 2. New value should be valid block number.
             let next_block = <system::Module<T>>::block_number() + 1.into();
             let new_until = until.unwrap_or(next_block);
             ensure!( new_until >= next_block, Error::<T>::InvalidFutureBlockNumber);
 
-            // 2. Valid referendum: check mid & state == Scheduled
-            let referendum = Self::referendums(mid)
-                .ok_or_else(|| Error::<T>::MismatchedProposalId)?;
-            ensure!( referendum.state == ReferendumState::Scheduled, Error::<T>::ReferendumIsImmutable);
-
             // 3. Update enactment period.
             // 3.1 Update referendum.
+            let referendum = Self::referendums(id)
+                .ok_or_else(|| Error::<T>::MismatchedProposalId)?;
+
             let old_until = referendum.enactment_period;
 
-            <Referendums<T>>::mutate( mid, |referendum| {
+            <Referendums<T>>::mutate( id, |referendum| {
                 if let Some(ref mut referendum) = referendum {
                     referendum.enactment_period = new_until;
                 }
             });
 
             // 3.1. Re-schedule it
-            <ScheduledReferendumsAt<T>>::mutate( old_until, |ids| ids.retain( |i| *i != mid));
-            <ScheduledReferendumsAt<T>>::mutate( new_until, |ids| ids.push(mid));
+            <ScheduledReferendumsAt<T>>::mutate( old_until, |ids| ids.retain( |i| *i != id));
+            <ScheduledReferendumsAt<T>>::mutate( new_until, |ids| ids.push(id));
 
-            Self::deposit_event(RawEvent::ReferendumScheduled(id, mid, old_until, new_until));
+            Self::deposit_event(RawEvent::ReferendumScheduled(current_did, id, old_until, new_until));
             Ok(())
         }
 
@@ -1073,10 +1101,8 @@ impl<T: Trait> Module<T> {
             <ProposalMetadata<T>>::remove(id);
             <Proposals<T>>::remove(id);
             <Referendums<T>>::remove(id);
-            Self::deposit_event(RawEvent::PipClosed(current_did, id, true));
-        } else {
-            Self::deposit_event(RawEvent::PipClosed(current_did, id, false));
         }
+        Self::deposit_event(RawEvent::PipClosed(current_did, id, prune));
     }
 
     fn prepare_to_dispatch(id: PipId) -> DispatchResult {
@@ -1110,29 +1136,51 @@ impl<T: Trait> Module<T> {
     fn execute_referendum(id: PipId) {
         if let Some(proposal) = Self::proposals(id) {
             if proposal.state == ProposalState::Referendum {
-                match proposal.proposal.dispatch(system::RawOrigin::Root.into()) {
+                match Self::check_beneficiaries(id) {
                     Ok(_) => {
-                        Self::update_referendum_state(id, ReferendumState::Executed);
-                        Self::pay_to_beneficiaries(id);
+                        match proposal.proposal.dispatch(system::RawOrigin::Root.into()) {
+                            Ok(_) => {
+                                Self::update_referendum_state(id, ReferendumState::Executed);
+                                Self::pay_to_beneficiaries(id);
+                            }
+                            Err(e) => {
+                                Self::update_referendum_state(id, ReferendumState::Failed);
+                                debug::error!("Referendum {}, its execution fails: {:?}", id, e);
+                            }
+                        };
                     }
                     Err(e) => {
                         Self::update_referendum_state(id, ReferendumState::Failed);
-                        debug::error!("Referendum {}, its execution fails: {:?}", id, e);
+                        debug::error!("Referendum {}, its beneficiaries fails: {:?}", id, e);
                     }
-                };
+                }
                 Self::prune_data(id, Self::prune_historical_pips());
             }
         }
     }
 
+    fn check_beneficiaries(id: PipId) -> DispatchResult {
+        if let Some(proposal) = Self::proposals(id) {
+            if let Some(beneficiaries) = proposal.beneficiaries {
+                let total_amount = beneficiaries
+                    .iter()
+                    .fold(0.into(), |acc, b| b.amount.saturating_add(acc));
+                ensure!(
+                    T::Treasury::balance() >= total_amount,
+                    Error::<T>::InsufficientTreasuryFunds
+                );
+            }
+        }
+        Ok(())
+    }
+
     fn pay_to_beneficiaries(id: PipId) {
-        if let Some(meta) = Self::proposal_metadata(id) {
-            let _total_amount = meta.beneficiaries.into_iter().fold(0.into(), |acc, b| {
-                T::Treasury::disbursement(b.id, b.amount);
-                b.amount.saturating_add(acc)
-            });
-            //let current_did = Context::current_identity::<Identity<T>>().unwrap_or_default();
-            //Self::deposit_event(RawEvent::ProposalPayment(current_did, id, total_amount));
+        if let Some(proposal) = Self::proposals(id) {
+            if let Some(beneficiaries) = proposal.beneficiaries {
+                let _ = beneficiaries.into_iter().map(|b| {
+                    T::Treasury::disbursement(b.id, b.amount);
+                });
+            }
         }
     }
 
@@ -1156,21 +1204,18 @@ impl<T: Trait> Module<T> {
         Self::deposit_event(RawEvent::ReferendumStateUpdated(current_did, id, new_state));
     }
 
-    fn is_proposal_pending(id: PipId) -> DispatchResult {
-        let proposal = Self::proposals(id).ok_or_else(|| Error::<T>::MismatchedProposalId)?;
+    fn is_referendum_state(id: PipId, state: ReferendumState) -> DispatchResult {
+        let referendum = Self::referendums(id).ok_or_else(|| Error::<T>::MismatchedProposalId)?;
         ensure!(
-            proposal.state == ProposalState::Pending,
-            Error::<T>::ProposalIsImmutable
+            referendum.state == state,
+            Error::<T>::IncorrectReferendumState
         );
         Ok(())
     }
 
-    fn is_referendum_pending(id: PipId) -> DispatchResult {
-        let referundum = Self::referendums(id).ok_or_else(|| Error::<T>::MismatchedProposalId)?;
-        ensure!(
-            referundum.state == ReferendumState::Pending,
-            Error::<T>::ReferendumIsImmutable
-        );
+    fn is_proposal_state(id: PipId, state: ProposalState) -> DispatchResult {
+        let proposal = Self::proposals(id).ok_or_else(|| Error::<T>::MismatchedProposalId)?;
+        ensure!(proposal.state == state, Error::<T>::IncorrectProposalState);
         Ok(())
     }
 }
