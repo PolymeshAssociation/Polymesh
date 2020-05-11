@@ -303,7 +303,7 @@ fn general_testnet_genesis(
             min_proposal_deposit: 5_000 * POLY,
             quorum_threshold: 100_000,
             proposal_duration: 50,
-            proposal_cool_off_period: GeneralTime::HOURS * 6,
+            proposal_cool_off_period: GeneralTime::DAYS * 0,
             default_enactment_period: GeneralTime::DAYS * 7,
         }),
         pallet_im_online: Some(V1Config::ImOnlineConfig {
