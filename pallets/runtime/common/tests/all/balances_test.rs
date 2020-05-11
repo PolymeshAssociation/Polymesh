@@ -403,3 +403,34 @@ fn transfer_with_memo_we() {
         assert!(system_events.contains(&expected));
     });
 }
+
+#[test]
+fn check_top_up_identity_balance() {
+    ExtBuilder::default()
+        .existential_deposit(0)
+        .monied(true)
+        .cdd_providers(vec![AccountKeyring::Ferdie.public()])
+        .build()
+        .execute_with(|| {
+            let dave_pub = AccountKeyring::Dave.public();
+            let dave_id = AccountKeyring::Dave.to_account_id();
+            let (signed_acc_id, acc_did) = make_account(dave_pub).unwrap();
+            let old_total_issuance = Balances::total_issuance();
+            assert_ok!(Balances::top_up_identity_balance(
+                signed_acc_id.clone(),
+                acc_did,
+                300
+            ));
+            assert_eq!(old_total_issuance, Balances::total_issuance());
+            assert_eq!(Balances::identity_balance(acc_did), 300);
+
+            // If transfer amount is 0 then operation should be no-op
+            assert_ok!(Balances::top_up_identity_balance(
+                signed_acc_id.clone(),
+                acc_did,
+                0
+            ));
+            assert_eq!(old_total_issuance, Balances::total_issuance());
+            assert_eq!(Balances::identity_balance(acc_did), 300);
+        });
+}
