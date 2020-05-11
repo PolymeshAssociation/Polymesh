@@ -1564,8 +1564,6 @@ decl_error! {
         InvalidGranularity,
         /// The account does not hold this token.
         NotATokenHolder,
-        /// The asset must not be frozen.
-        Frozen,
         /// The asset must be frozen.
         NotFrozen,
         /// No such smart extension.
@@ -1812,11 +1810,13 @@ impl<T: Trait> Module<T> {
         to_did: Option<IdentityId>,
         value: T::Balance,
     ) -> StdResult<u8, &'static str> {
-        ensure!(!Self::frozen(ticker), Error::<T>::Frozen);
+        if Self::frozen(ticker) {
+            return Ok(ERC1400_TRANSFERS_HALTED);
+        }
         let general_status_code =
             T::ComplianceManager::verify_restriction(ticker, from_did, to_did, value)?;
         Ok(if general_status_code != ERC1400_TRANSFER_SUCCESS {
-            general_status_code
+            COMPLIANCE_MANAGER_FAILURE
         } else {
             let mut final_result = true;
             let mut is_valid = false;
@@ -1848,7 +1848,7 @@ impl<T: Trait> Module<T> {
             if final_result {
                 return Ok(ERC1400_TRANSFER_SUCCESS);
             } else {
-                return Ok(ERC1400_TRANSFER_FAILURE);
+                return Ok(SMART_EXTENSION_FAILURE);
             }
         })
     }
@@ -2267,21 +2267,40 @@ impl<T: Trait> Module<T> {
         }
     }
 
+    /// RPC: Function allows external users to know wether the transfer extrinsic
+    /// will be valid or not beforehand.
     pub fn unsafe_can_transfer(
         sender: T::AccountId,
         ticker: Ticker,
-        from_did: IdentityId,
-        to_did: IdentityId,
+        from_did: Option<IdentityId>,
+        to_did: Option<IdentityId>,
         amount: T::Balance,
     ) -> StdResult<u8, &'static str> {
-        let balance = Self::balance(&ticker, &from_did);
-        if balance < amount || balance - amount < Self::total_custody_allowance((ticker, from_did))
-        {
-            return Ok(ERC1400_INSUFFICIENT_BALANCE);
+        // Granularity check
+        if !Self::check_granularity(&ticker, amount) {
+            return Ok(INVALID_GRANULARITY);
         }
-
+        // Non-Issuance case check
+        if let Some(from_id) = from_did {
+            if Identity::<T>::has_valid_cdd(from_id) {
+                let balance = Self::balance(&ticker, &from_id);
+                if balance < amount
+                    || balance - amount < Self::total_custody_allowance((ticker, from_id))
+                {
+                    return Ok(ERC1400_INSUFFICIENT_BALANCE);
+                }
+            }
+            return Ok(INVALID_SENDER_DID);
+        }
+        // Non-Redeem case check
+        if let Some(to_id) = to_did {
+            if !Identity::<T>::has_valid_cdd(to_id) {
+                return Ok(INVALID_SENDER_DID);
+            }
+        }
+        // Compliance manager & Smart Extension check
         Ok(
-            Self::_is_valid_transfer(&ticker, sender, Some(from_did), Some(to_did), amount)
+            Self::_is_valid_transfer(&ticker, sender, from_did, to_did, amount)
                 .unwrap_or(ERC1400_TRANSFER_FAILURE),
         )
     }

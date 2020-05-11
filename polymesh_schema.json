@@ -657,12 +657,12 @@
                     {
                         "name": "from_did",
                         "type": "IdentityId",
-                        "isOptional": false   
+                        "isOptional": true   
                     },
                     {
                         "name": "to_did",
                         "type": "IdentityId",
-                        "isOptional": false   
+                        "isOptional": true   
                     },
                     {
                         "name": "value",
