@@ -117,10 +117,6 @@ pub use account_key::AccountKey;
 pub mod signing_item;
 pub use signing_item::{Permission, Signatory, SignatoryType, SigningItem};
 
-/// This module defines the needed information to add a pre-authorized key into an identity.
-pub mod pre_authorized_key_info;
-pub use pre_authorized_key_info::PreAuthorizedKeyInfo;
-
 /// Generic authorization data types for all two step processes
 pub mod authorization;
 /// Pub Traits
