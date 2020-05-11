@@ -60,8 +60,8 @@ sp_api::decl_runtime_apis! {
         fn can_transfer(
             sender: AccountId,
             ticker: Ticker,
-            from_did: IdentityId,
-            to_did: IdentityId,
+            from_did: Option<IdentityId>,
+            to_did: Option<IdentityId>,
             value: Balance
         ) -> CanTransferResult;
     }

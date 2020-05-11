@@ -21,7 +21,7 @@
 // -`set_members()` dispatchable get removed and members are maintained by the group module
 // - New instance of the group module is being added and assigned committee instance to
 // `MembershipInitialized` & `MembershipChanged` trait
-// - If MotionDuration > 0 then only the `close()` dispatchable or Prime member functionality will be used.
+// - If MotionDuration > 0 then only the `close()` dispatchable will be used.
 
 //! # Committee Module
 //!
@@ -129,10 +129,6 @@ decl_storage! {
         pub Members get(fn members) config(): Vec<IdentityId>;
         /// Vote threshold for an approval.
         pub VoteThreshold get(fn vote_threshold) config(): (u32, u32);
-        /// The member who provides the default vote for any other members that do not vote before
-        /// the timeout. If None, then no member has that privilege.
-        pub Prime get(fn prime): Option<IdentityId>;
-
         /// Release coordinator.
         pub ReleaseCoordinator get(fn release_coordinator): Option<IdentityId>;
     }
@@ -150,8 +146,14 @@ decl_event!(
         Proposed(IdentityId, ProposalIndex, Hash),
         /// A motion (given hash) has been voted on by given account, leaving
         /// a tally (yes votes, no votes and total seats given respectively as `MemberCount`).
-        /// caller DID, Proposal hash, yay vote count, nay vote count, total seats.
-        Voted(IdentityId, Hash, MemberCount, MemberCount, MemberCount),
+        /// caller DID, Proposal index, Proposal hash, current vote, yay vote count, nay vote count, total seats.
+        Voted(IdentityId, ProposalIndex, Hash, bool, MemberCount, MemberCount, MemberCount),
+        /// A vote on a motion (given hash) has been retracted.
+        /// caller DID, ProposalIndex, Proposal hash, vote that was retracted
+        VoteRetracted(IdentityId, ProposalIndex, Hash, bool),
+        /// Final votes on a motion (given hash)
+        /// caller DID, ProposalIndex, Proposal hash, yes voters, no voter
+        FinalVotes(IdentityId, ProposalIndex, Hash, Vec<IdentityId>, Vec<IdentityId>),
         /// A motion was approved by the required threshold with the following
         /// tally (yes votes, no votes and total seats given respectively as `MemberCount`).
         /// caller DID, Proposal hash, yay vote count, nay vote count, total seats.
@@ -300,7 +302,17 @@ decl_module! {
             let no_votes = voting.nays.len() as MemberCount;
 
             <Voting<T, I>>::insert(&proposal, voting);
-            Self::deposit_event(RawEvent::Voted(did, T::Hashing::hash_of(&proposal), yes_votes, no_votes, Self::members().len() as MemberCount));
+            Self::deposit_event(
+                RawEvent::Voted(
+                    did,
+                    index,
+                    proposal,
+                    approve,
+                    yes_votes,
+                    no_votes,
+                    Self::members().len() as MemberCount
+                )
+            );
             Self::check_proposal_threshold(proposal);
             Ok(())
         }
@@ -308,8 +320,7 @@ decl_module! {
         /// May be called by any signed account after the voting duration has ended in order to
         /// finish voting and close the proposal.
         ///
-        /// Abstentions are counted as rejections unless there is a prime member set and the prime
-        /// member cast an approval.
+        /// Abstentions are counted as rejections.
         ///
         /// - the weight of `proposal` preimage.
         /// - up to three events deposited.
@@ -329,20 +340,11 @@ decl_module! {
             ensure!(voting.index == index, Error::<T, I>::MismatchedVotingIndex);
             ensure!(system::Module::<T>::block_number() >= voting.end, Error::<T, I>::TooEarly);
 
-            // default to true only if there's a prime and they voted in favour.
-            let default = Self::prime().map_or(
-                false,
-                |who| voting.ayes.iter().any(|a| a == &who),
-            );
-
             let mut no_votes = voting.nays.len() as MemberCount;
             let mut yes_votes = voting.ayes.len() as MemberCount;
             let seats = Self::members().len() as MemberCount;
             let abstentions = seats - (yes_votes + no_votes);
-            match default {
-                true => yes_votes += abstentions,
-                false => no_votes += abstentions,
-            }
+            no_votes += abstentions;
 
             Self::deposit_event(RawEvent::Closed(did, proposal, yes_votes, no_votes));
             let threshold = <VoteThreshold<I>>::get();
@@ -350,7 +352,14 @@ decl_module! {
             let approved = Self::is_threshold_satisfied(yes_votes, seats, threshold);
             let rejected = Self::is_threshold_satisfied(no_votes, seats, threshold);
             if approved || rejected {
-                Self::finalize_proposal(approved, seats, yes_votes, no_votes, proposal);
+                Self::finalize_proposal(approved, seats, yes_votes, no_votes, proposal, did);
+                Self::deposit_event(RawEvent::FinalVotes(
+                    did,
+                    voting.index,
+                    proposal,
+                    voting.ayes,
+                    voting.nays,
+                ));
             }
         }
 
@@ -391,8 +400,20 @@ impl<T: Trait<I>, I: Instance> Module<T, I> {
         if let Some(mut voting) = Self::voting(&proposal) {
             // If any element is removed, we have to update `voting`.
             is_id_removed = if let Some(idx) = voting.ayes.iter().position(|a| *a == id) {
+                Self::deposit_event(RawEvent::VoteRetracted(
+                    id,
+                    voting.index.clone(),
+                    proposal,
+                    true,
+                ));
                 Some(voting.ayes.swap_remove(idx))
             } else if let Some(idx) = voting.nays.iter().position(|a| *a == id) {
+                Self::deposit_event(RawEvent::VoteRetracted(
+                    id,
+                    voting.index.clone(),
+                    proposal,
+                    false,
+                ));
                 Some(voting.nays.swap_remove(idx))
             } else {
                 None
@@ -419,7 +440,22 @@ impl<T: Trait<I>, I: Instance> Module<T, I> {
             let rejected = Self::is_threshold_satisfied(no_votes, seats, threshold);
 
             if approved || rejected {
-                Self::finalize_proposal(approved, seats, yes_votes, no_votes, proposal);
+                let current_did = Context::current_identity::<Identity<T>>().unwrap_or_default();
+                Self::finalize_proposal(
+                    approved,
+                    seats,
+                    yes_votes,
+                    no_votes,
+                    proposal,
+                    current_did,
+                );
+                Self::deposit_event(RawEvent::FinalVotes(
+                    current_did,
+                    voting.index,
+                    proposal,
+                    voting.ayes,
+                    voting.nays,
+                ));
             }
         }
     }
@@ -444,8 +480,8 @@ impl<T: Trait<I>, I: Instance> Module<T, I> {
         yes_votes: MemberCount,
         no_votes: MemberCount,
         proposal: T::Hash,
+        current_did: IdentityId,
     ) {
-        let current_did = Context::current_identity::<Identity<T>>().unwrap_or_default();
         if approved {
             Self::deposit_event(RawEvent::Approved(
                 current_did,
