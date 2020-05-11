@@ -69,7 +69,7 @@ use polymesh_common_utilities::{
     identity::Trait as IdentityTrait,
     protocol_fee::{ChargeProtocolFee, ProtocolOp},
     traits::{governance_group::GovernanceGroupTrait, group::GroupTrait},
-    CommonTrait, Context,
+    CommonTrait, Context, SystematicIssuers,
 };
 use polymesh_primitives::{AccountKey, Beneficiary, IdentityId, Signatory};
 use sp_core::H256;
@@ -443,8 +443,7 @@ decl_module! {
         #[weight = SimpleDispatchInfo::FixedOperational(100_000)]
         pub fn set_prune_historical_pips(origin, new_value: bool) {
             T::CommitteeOrigin::try_origin(origin).map_err(|_| Error::<T>::BadOrigin)?;
-            let current_did = Context::current_identity::<Identity<T>>().ok_or_else(|| Error::<T>::MissingCurrentIdentity)?;
-            Self::deposit_event(RawEvent::HistoricalPipsPruned(current_did, Self::prune_historical_pips(), new_value));
+            Self::deposit_event(RawEvent::HistoricalPipsPruned(SystematicIssuers::Committee.as_id(), Self::prune_historical_pips(), new_value));
             <PruneHistoricalPips>::put(new_value);
         }
 
@@ -456,8 +455,7 @@ decl_module! {
         #[weight = SimpleDispatchInfo::FixedOperational(100_000)]
         pub fn set_min_proposal_deposit(origin, deposit: BalanceOf<T>) {
             T::CommitteeOrigin::try_origin(origin).map_err(|_| Error::<T>::BadOrigin)?;
-            let current_did = Context::current_identity::<Identity<T>>().ok_or_else(|| Error::<T>::MissingCurrentIdentity)?;
-            Self::deposit_event(RawEvent::MinimumProposalDepositChanged(current_did, Self::min_proposal_deposit(), deposit));
+            Self::deposit_event(RawEvent::MinimumProposalDepositChanged(SystematicIssuers::Committee.as_id(), Self::min_proposal_deposit(), deposit));
             <MinimumProposalDeposit<T>>::put(deposit);
         }
 
@@ -470,8 +468,7 @@ decl_module! {
         #[weight = SimpleDispatchInfo::FixedOperational(100_000)]
         pub fn set_quorum_threshold(origin, threshold: BalanceOf<T>) {
             T::CommitteeOrigin::try_origin(origin).map_err(|_| Error::<T>::BadOrigin)?;
-            let current_did = Context::current_identity::<Identity<T>>().ok_or_else(|| Error::<T>::MissingCurrentIdentity)?;
-            Self::deposit_event(RawEvent::MinimumProposalDepositChanged(current_did, Self::quorum_threshold(), threshold));
+            Self::deposit_event(RawEvent::MinimumProposalDepositChanged(SystematicIssuers::Committee.as_id(), Self::quorum_threshold(), threshold));
             <QuorumThreshold<T>>::put(threshold);
         }
 
@@ -483,8 +480,7 @@ decl_module! {
         #[weight = SimpleDispatchInfo::FixedOperational(100_000)]
         pub fn set_proposal_duration(origin, duration: T::BlockNumber) {
             T::CommitteeOrigin::try_origin(origin).map_err(|_| Error::<T>::BadOrigin)?;
-            let current_did = Context::current_identity::<Identity<T>>().ok_or_else(|| Error::<T>::MissingCurrentIdentity)?;
-            Self::deposit_event(RawEvent::ProposalDurationChanged(current_did, Self::proposal_duration(), duration));
+            Self::deposit_event(RawEvent::ProposalDurationChanged(SystematicIssuers::Committee.as_id(), Self::proposal_duration(), duration));
             <ProposalDuration<T>>::put(duration);
         }
 
@@ -494,8 +490,7 @@ decl_module! {
             T::CommitteeOrigin::try_origin(origin).map_err(|_| Error::<T>::BadOrigin)?;
             let previous_duration = <DefaultEnactmentPeriod<T>>::get();
             <DefaultEnactmentPeriod<T>>::put(duration);
-            let current_did = Context::current_identity::<Identity<T>>().ok_or_else(|| Error::<T>::MissingCurrentIdentity)?;
-            Self::deposit_event(RawEvent::DefaultEnactmentPeriodChanged(current_did, duration, previous_duration));
+            Self::deposit_event(RawEvent::DefaultEnactmentPeriodChanged(SystematicIssuers::Committee.as_id(), duration, previous_duration));
         }
 
         /// A network member creates a Mesh Improvement Proposal by submitting a dispatchable which

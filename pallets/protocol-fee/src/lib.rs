@@ -30,7 +30,7 @@ use frame_system::{self as system, ensure_root};
 use polymesh_common_utilities::{
     identity::Trait as IdentityTrait,
     protocol_fee::{ChargeProtocolFee, ProtocolOp},
-    Context,
+    Context, SystematicIssuers,
 };
 use primitives::{traits::IdentityCurrency, IdentityId, PosRatio, Signatory};
 use sp_runtime::{
@@ -103,8 +103,7 @@ decl_module! {
         #[weight = SimpleDispatchInfo::FixedOperational(500_000)]
         pub fn change_coefficient(origin, coefficient: PosRatio) -> DispatchResult {
             ensure_root(origin)?;
-            let id = Context::current_identity::<Identity<T>>()
-                    .ok_or_else(|| Error::<T>::MissingCurrentIdentity)?;
+            let id = Context::current_identity::<Identity<T>>().unwrap_or(SystematicIssuers::Committee.as_id());
 
             <Coefficient>::put(&coefficient);
             Self::deposit_event(RawEvent::CoefficientSet(id, coefficient));
@@ -117,8 +116,7 @@ decl_module! {
             DispatchResult
         {
             ensure_root(origin)?;
-            let id = Context::current_identity::<Identity<T>>()
-                .ok_or_else(|| Error::<T>::MissingCurrentIdentity)?;
+            let id = Context::current_identity::<Identity<T>>().unwrap_or(SystematicIssuers::Committee.as_id());
 
             <BaseFees<T>>::insert(op, &base_fee);
             Self::deposit_event(RawEvent::FeeSet(id, base_fee));
