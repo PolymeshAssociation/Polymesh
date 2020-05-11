@@ -1186,8 +1186,9 @@ impl<T: Trait> Module<T> {
     fn pay_to_beneficiaries(id: PipId) {
         if let Some(proposal) = Self::proposals(id) {
             if let Some(beneficiaries) = proposal.beneficiaries {
-                let _ = beneficiaries.into_iter().map(|b| {
+                let _ = beneficiaries.into_iter().fold(0.into(), |acc, b| {
                     T::Treasury::disbursement(b.id, b.amount);
+                    b.amount.saturating_add(acc)
                 });
             }
         }
