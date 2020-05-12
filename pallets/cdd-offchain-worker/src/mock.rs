@@ -263,7 +263,6 @@ impl group::Trait<group::Instance2> for Test {
     type RemoveOrigin = EnsureSignedBy<Two, AccountId>;
     type SwapOrigin = EnsureSignedBy<Three, AccountId>;
     type ResetOrigin = EnsureSignedBy<Four, AccountId>;
-    type PrimeOrigin = frame_system::EnsureRoot<AccountId>;
     type MembershipInitialized = ();
     type MembershipChanged = ();
 }
