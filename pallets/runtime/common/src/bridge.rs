@@ -568,7 +568,6 @@ decl_module! {
 }
 
 impl<T: Trait> Module<T> {
-
     pub fn controller_key() -> T::AccountId {
         Self::controller()
     }
