@@ -128,7 +128,7 @@ fn can_issue_to_identity_we() {
     assert_ok!(Bridge::propose_bridge_tx(bob.clone(), bridge_tx.clone()));
     assert_tx_approvals!(controller, 0, 1);
     assert_tx_approvals!(controller, 1, 0);
-    let alices_balance = Balances::total_balance(&AccountKeyring::Bob.public());
+    let alices_balance = Balances::total_balance(&AccountKeyring::Alice.public());
 
     assert_eq!(
         MultiSig::proposal_ids(&controller, proposal.clone()),
@@ -139,11 +139,11 @@ fn can_issue_to_identity_we() {
     assert_eq!(MultiSig::tx_approvals(&(controller, 1)), 0);
 
     assert_eq!(MultiSig::proposal_ids(&controller, proposal), Some(0));
-    let new_alices_balance = Balances::total_balance(&AccountKeyring::Bob.public());
+    let new_alices_balance = Balances::total_balance(&AccountKeyring::Alice.public());
     assert_eq!(new_alices_balance, alices_balance + amount);
     // Attempt to handle the same transaction again.
     assert_eq!(
-        Bridge::bridge_tx_details(AccountKeyring::Bob.public(), &1).status,
+        Bridge::bridge_tx_details(AccountKeyring::Alice.public(), &1).status,
         BridgeTxStatus::Handled
     );
     assert_err!(
@@ -342,7 +342,7 @@ fn do_freeze_and_unfreeze_bridge() {
     assert_ok!(Bridge::freeze(admin.clone()));
     assert!(Bridge::frozen());
     assert_tx_approvals!(controller, 0, 1);
-    let alices_balance = || Balances::total_balance(&AccountKeyring::Bob.public());
+    let alices_balance = || Balances::total_balance(&AccountKeyring::Alice.public());
     let starting_alices_balance = alices_balance();
     assert_eq!(
         MultiSig::proposal_ids(&controller, proposal.clone()),
@@ -355,7 +355,7 @@ fn do_freeze_and_unfreeze_bridge() {
     // The tokens were not issued because the transaction is frozen.
     assert_eq!(alices_balance(), starting_alices_balance);
     assert_eq!(
-        Bridge::bridge_tx_details(AccountKeyring::Bob.public(), &1).status,
+        Bridge::bridge_tx_details(AccountKeyring::Alice.public(), &1).status,
         BridgeTxStatus::Timelocked
     );
     // Unfreeze the bridge.
@@ -364,7 +364,7 @@ fn do_freeze_and_unfreeze_bridge() {
     // Still no issue. The transaction needs to be processed.
     assert_eq!(alices_balance(), starting_alices_balance);
     assert_eq!(
-        Bridge::bridge_tx_details(AccountKeyring::Bob.public(), &1).status,
+        Bridge::bridge_tx_details(AccountKeyring::Alice.public(), &1).status,
         BridgeTxStatus::Timelocked
     );
     next_block();
@@ -374,7 +374,7 @@ fn do_freeze_and_unfreeze_bridge() {
     // Now the tokens are issued.
     assert_eq!(alices_balance(), starting_alices_balance + amount);
     assert_eq!(
-        Bridge::bridge_tx_details(AccountKeyring::Bob.public(), &1).status,
+        Bridge::bridge_tx_details(AccountKeyring::Alice.public(), &1).status,
         BridgeTxStatus::Handled
     );
     // Attempt to handle the same transaction again.
@@ -467,7 +467,7 @@ fn do_timelock_txs() {
     let proposal = Box::new(Call::Bridge(bridge::Call::handle_bridge_tx(
         bridge_tx.clone(),
     )));
-    let alices_balance = || Balances::total_balance(&AccountKeyring::Bob.public());
+    let alices_balance = || Balances::total_balance(&AccountKeyring::Alice.public());
     let starting_alices_balance = alices_balance();
     assert_eq!(MultiSig::proposal_ids(&controller, proposal.clone()), None);
     assert_tx_approvals!(controller, 0, 0);
@@ -476,7 +476,7 @@ fn do_timelock_txs() {
     let first_block_number = System::block_number();
     let unlock_block_number = first_block_number + timelock + 1;
     assert_eq!(
-        Bridge::bridge_tx_details(AccountKeyring::Bob.public(), &1).status,
+        Bridge::bridge_tx_details(AccountKeyring::Alice.public(), &1).status,
         BridgeTxStatus::Timelocked
     );
     assert_eq!(
@@ -484,11 +484,11 @@ fn do_timelock_txs() {
         vec![bridge_tx.clone()]
     );
     assert_eq!(
-        Bridge::bridge_tx_details(AccountKeyring::Bob.public(), &1).status,
+        Bridge::bridge_tx_details(AccountKeyring::Alice.public(), &1).status,
         BridgeTxStatus::Timelocked
     );
     assert_eq!(
-        Bridge::bridge_tx_details(AccountKeyring::Bob.public(), &1).execution_block,
+        Bridge::bridge_tx_details(AccountKeyring::Alice.public(), &1).execution_block,
         unlock_block_number
     );
     next_block();
@@ -502,11 +502,11 @@ fn do_timelock_txs() {
     assert!(Bridge::timelocked_txs(unlock_block_number).is_empty());
     assert_eq!(alices_balance(), starting_alices_balance + amount);
     assert_eq!(
-        Bridge::bridge_tx_details(AccountKeyring::Bob.public(), &1).execution_block,
+        Bridge::bridge_tx_details(AccountKeyring::Alice.public(), &1).execution_block,
         unlock_block_number
     );
     assert_eq!(
-        Bridge::bridge_tx_details(AccountKeyring::Bob.public(), &1).status,
+        Bridge::bridge_tx_details(AccountKeyring::Alice.public(), &1).status,
         BridgeTxStatus::Handled
     );
 }
@@ -583,7 +583,7 @@ fn do_rate_limit() {
     let proposal = Box::new(Call::Bridge(bridge::Call::handle_bridge_tx(
         bridge_tx.clone(),
     )));
-    let alices_balance = || Balances::total_balance(&AccountKeyring::Bob.public());
+    let alices_balance = || Balances::total_balance(&AccountKeyring::Alice.public());
     let starting_alices_balance = alices_balance();
     assert_eq!(MultiSig::proposal_ids(&controller, proposal.clone()), None);
     assert_tx_approvals!(controller, 0, 0);
@@ -592,7 +592,7 @@ fn do_rate_limit() {
     let first_block_number = System::block_number();
     let unlock_block_number = first_block_number + timelock + 1;
     assert_eq!(
-        Bridge::bridge_tx_details(AccountKeyring::Bob.public(), &1).status,
+        Bridge::bridge_tx_details(AccountKeyring::Alice.public(), &1).status,
         BridgeTxStatus::Timelocked
     );
     assert_eq!(
@@ -600,11 +600,11 @@ fn do_rate_limit() {
         vec![bridge_tx.clone()]
     );
     assert_eq!(
-        Bridge::bridge_tx_details(AccountKeyring::Bob.public(), &1).status,
+        Bridge::bridge_tx_details(AccountKeyring::Alice.public(), &1).status,
         BridgeTxStatus::Timelocked
     );
     assert_eq!(
-        Bridge::bridge_tx_details(AccountKeyring::Bob.public(), &1).execution_block,
+        Bridge::bridge_tx_details(AccountKeyring::Alice.public(), &1).execution_block,
         unlock_block_number
     );
     next_block();
@@ -632,7 +632,7 @@ fn do_rate_limit() {
     assert!(Bridge::timelocked_txs(unlock_block_number).is_empty());
     assert_eq!(alices_balance(), starting_alices_balance + amount);
     assert_eq!(
-        Bridge::bridge_tx_details(AccountKeyring::Bob.public(), &1).status,
+        Bridge::bridge_tx_details(AccountKeyring::Alice.public(), &1).status,
         BridgeTxStatus::Handled
     );
 }
@@ -708,7 +708,7 @@ fn do_whitelist() {
     let proposal = Box::new(Call::Bridge(bridge::Call::handle_bridge_tx(
         bridge_tx.clone(),
     )));
-    let alices_balance = || Balances::total_balance(&AccountKeyring::Bob.public());
+    let alices_balance = || Balances::total_balance(&AccountKeyring::Alice.public());
     let starting_alices_balance = alices_balance();
     assert_eq!(MultiSig::proposal_ids(&controller, proposal.clone()), None);
     assert_tx_approvals!(controller, 0, 0);
@@ -717,7 +717,7 @@ fn do_whitelist() {
     let first_block_number = System::block_number();
     let unlock_block_number = first_block_number + timelock + 1;
     assert_eq!(
-        Bridge::bridge_tx_details(AccountKeyring::Bob.public(), &1).status,
+        Bridge::bridge_tx_details(AccountKeyring::Alice.public(), &1).status,
         BridgeTxStatus::Timelocked
     );
     assert_eq!(
@@ -725,11 +725,11 @@ fn do_whitelist() {
         vec![bridge_tx.clone()]
     );
     assert_eq!(
-        Bridge::bridge_tx_details(AccountKeyring::Bob.public(), &1).status,
+        Bridge::bridge_tx_details(AccountKeyring::Alice.public(), &1).status,
         BridgeTxStatus::Timelocked
     );
     assert_eq!(
-        Bridge::bridge_tx_details(AccountKeyring::Bob.public(), &1).execution_block,
+        Bridge::bridge_tx_details(AccountKeyring::Alice.public(), &1).execution_block,
         unlock_block_number
     );
     next_block();
@@ -756,7 +756,7 @@ fn do_whitelist() {
     assert!(Bridge::timelocked_txs(unlock_block_number).is_empty());
     assert_eq!(alices_balance(), starting_alices_balance + amount);
     assert_eq!(
-        Bridge::bridge_tx_details(AccountKeyring::Bob.public(), &1).status,
+        Bridge::bridge_tx_details(AccountKeyring::Alice.public(), &1).status,
         BridgeTxStatus::Handled
     );
 }
