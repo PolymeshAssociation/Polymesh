@@ -18,6 +18,7 @@ use crate::{runtime, Runtime};
 use pallet_balances as balances;
 use pallet_identity as identity;
 use pallet_multisig as multisig;
+use polymesh_runtime_common::bridge as bridge;
 use pallet_transaction_payment::CddAndFeeDetails;
 use polymesh_common_utilities::Context;
 use polymesh_primitives::{
@@ -32,6 +33,7 @@ use frame_support::{StorageDoubleMap, StorageMap};
 
 type Identity = identity::Module<Runtime>;
 type Balances = balances::Module<Runtime>;
+type Bridge = bridge::Module<Runtime>;
 
 type Call = runtime::Call;
 
@@ -99,6 +101,21 @@ impl CddAndFeeDetails<Call> for CddHandler {
                 }
                 Err(InvalidTransaction::Custom(TransactionError::MissingIdentity as u8).into())
             }
+            // Call made by an Account key to propose or approve a multisig transaction via the bridge helper
+            // The multisig must have valid CDD and the caller must be a signer of the multisig.
+            Call::Bridge(bridge::Call::propose_bridge_tx(..)) => {
+                sp_runtime::print("multisig stuff via bridge");
+                let multisig = Bridge::controller_key();
+                if <multisig::MultiSigSigners<Runtime>>::contains_key(&multisig, caller) {
+                    if let Some(did) = Identity::get_identity(
+                        &AccountKey::try_from(multisig.encode())
+                            .map_err(|_| InvalidTransaction::Payment)?,
+                    ) {
+                        return check_cdd(&did);
+                    }
+                }
+                Err(InvalidTransaction::Custom(TransactionError::MissingIdentity as u8).into())
+            }            
             // Call to set fee payer
             Call::Balances(balances::Call::change_charge_did_flag(charge_did)) => match caller {
                 Signatory::AccountKey(key) => {

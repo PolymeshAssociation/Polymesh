@@ -234,7 +234,7 @@ fn general_testnet_genesis(
                     .unwrap(),
             )],
             timelock: 10,
-            bridge_limit: (100_000_000, 1000),
+            bridge_limit: (100_000_000 * POLY, 1000),
         }),
         balances: Some(V1Config::BalancesConfig {
             balances: endowed_accounts
