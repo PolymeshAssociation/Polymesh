@@ -288,10 +288,10 @@ fn do_freeze_and_unfreeze_bridge() {
     assert_ok!(MultiSig::create_multisig(
         alice.clone(),
         vec![Signatory::from(bob_key), Signatory::from(charlie_key),],
-        1,
+        2,
     ));
 
-    assert_eq!(MultiSig::ms_signs_required(controller), 1);
+    assert_eq!(MultiSig::ms_signs_required(controller), 2);
     let last_authorization = |account: AccountKey| {
         <Authorizations>::iter_prefix(Signatory::from(account))
             .next()
