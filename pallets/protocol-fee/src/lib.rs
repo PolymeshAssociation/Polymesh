@@ -14,7 +14,25 @@
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
 //! # Protocol Fee Module
-
+//!
+//! This module stores the fee of each protocol operation, and a common coefficient which is applied on
+//! fee computation.
+//!
+//! It also provides helper functions to calculate and charge fees on each protocol operation.
+//!
+//! ## Interface
+//!
+//! ### Dispatchable Functions
+//!
+//! - [change_coefficient](Module::change_coefficient) - It changes the fee coefficient.
+//! - [change_base_fee](Module::change_base_fee) - It changes the base fee.
+//!
+//! ### Public Functions
+//!
+//! - [compute_fee](Module::compute_fee) - It computes the fee of the operation.
+//! - [charge_fee](Module::charge_fee) - It calculates the fee and charges it.
+//! - [charge_fee_batch](Module::charge_fee_batch) - It calculates the fee and charges it on a batch operation.
+//!
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use pallet_identity as identity;
@@ -100,6 +118,9 @@ decl_module! {
         fn deposit_event() = default;
 
         /// Changes the fee coefficient for the root origin.
+        ///
+        /// # Errors
+        /// * `BadOrigin` - Only root allowed.
         #[weight = SimpleDispatchInfo::FixedOperational(500_000)]
         pub fn change_coefficient(origin, coefficient: PosRatio) -> DispatchResult {
             ensure_root(origin)?;
@@ -112,6 +133,9 @@ decl_module! {
         }
 
         /// Changes the a base fee for the root origin.
+        ///
+        /// # Errors
+        /// * `BadOrigin` - Only root allowed.
         #[weight = SimpleDispatchInfo::FixedOperational(500_000)]
         pub fn change_base_fee(origin, op: ProtocolOp, base_fee: BalanceOf<T>) ->
             DispatchResult
