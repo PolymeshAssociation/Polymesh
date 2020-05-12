@@ -18,7 +18,7 @@ use crate::{runtime, Runtime};
 use pallet_balances as balances;
 use pallet_identity as identity;
 use pallet_multisig as multisig;
-use polymesh_runtime_common::bridge as bridge;
+use polymesh_runtime_common::bridge;
 
 use pallet_transaction_payment::CddAndFeeDetails;
 use polymesh_common_utilities::Context;

@@ -18,13 +18,13 @@ use crate::{runtime, Runtime};
 use pallet_balances as balances;
 use pallet_identity as identity;
 use pallet_multisig as multisig;
-use polymesh_runtime_common::bridge as bridge;
 use pallet_transaction_payment::CddAndFeeDetails;
 use polymesh_common_utilities::Context;
 use polymesh_primitives::{
     traits::IdentityCurrency, AccountId, AccountKey, AuthorizationData, IdentityId, Signatory,
     TransactionError,
 };
+use polymesh_runtime_common::bridge;
 use sp_runtime::transaction_validity::InvalidTransaction;
 
 use codec::{Decode, Encode};
@@ -115,7 +115,7 @@ impl CddAndFeeDetails<Call> for CddHandler {
                     }
                 }
                 Err(InvalidTransaction::Custom(TransactionError::MissingIdentity as u8).into())
-            }            
+            }
             // Call to set fee payer
             Call::Balances(balances::Call::change_charge_did_flag(charge_did)) => match caller {
                 Signatory::AccountKey(key) => {
