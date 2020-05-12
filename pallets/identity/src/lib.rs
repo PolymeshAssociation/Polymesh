@@ -105,8 +105,8 @@ use polymesh_common_utilities::{
 };
 use polymesh_primitives::{
     AccountKey, AuthIdentifier, Authorization, AuthorizationData, AuthorizationError, Claim,
-    ClaimType, Identity as DidRecord, IdentityClaim, IdentityId, Link, LinkData, Permission,
-    PreAuthorizedKeyInfo, Scope, Signatory, SignatoryType, SigningItem, Ticker,
+    ClaimType, Identity as DidRecord, IdentityClaim, IdentityId, Link, LinkData, Permission, Scope,
+    Signatory, SignatoryType, SigningItem, Ticker,
 };
 
 use codec::{Decode, Encode};
@@ -130,6 +130,7 @@ use frame_support::{
     ensure,
     traits::{ChangeMembers, InitializeMembers},
     weights::{DispatchClass, FunctionOf, GetDispatchInfo, SimpleDispatchInfo},
+    StorageDoubleMap,
 };
 use frame_system::{self as system, ensure_root, ensure_signed};
 
@@ -183,9 +184,6 @@ decl_storage! {
 
         /// Nonce to ensure unique actions. starts from 1.
         pub MultiPurposeNonce get(fn multi_purpose_nonce) build(|_| 1u64): u64;
-
-        /// Pre-authorize join to Identity.
-        pub PreAuthorizedJoinDid get(fn pre_authorized_join_did): map hasher(blake2_128_concat) Signatory => Vec<PreAuthorizedKeyInfo>;
 
         /// Authorization nonce per Identity. Initially is 0.
         pub OffChainAuthorizationNonce get(fn offchain_authorization_nonce): map hasher(twox_64_concat) IdentityId => AuthorizationNonce;
@@ -403,13 +401,34 @@ decl_module! {
             let sender_key = AccountKey::try_from(ensure_signed(origin)?.encode())?;
             let did = Context::current_identity_or::<Self>(&sender_key)?;
             let _grants_checked = Self::grant_check_only_master_key(&sender_key, did)?;
+            let did_sig = Signatory::from(did);
 
-            // Remove any Pre-Authentication & link
-            signers_to_remove.iter().for_each(|signer| {
-                Self::remove_pre_join_identity(signer, did);
-                if let Signatory::AccountKey(ref key) = signer {
-                    Self::unlink_key_to_did(key, did);
-                }
+            // Remove links and get all authorization IDs per signer.
+            let signer_and_auth_id_list = signers_to_remove.iter().map(|signer| {
+                match signer {
+                    Signatory::AccountKey(ref key) => Self::unlink_key_to_did(key, did),
+                    _ => {}
+                };
+
+                // It returns the list of `auth_id` from `did`.
+                let auth_ids = <Authorizations<T>>::iter_prefix(signer)
+                    .filter_map( |authorization| {
+                        if authorization.authorized_by == did_sig {
+                            Some(authorization.auth_id)
+                        } else {
+                            None
+                        }
+                    })
+                    .collect::<Vec<_>>();
+
+                (signer, auth_ids)
+            })
+            .collect::<Vec<_>>();
+
+            // Remove authorizations
+            signer_and_auth_id_list.into_iter().for_each( |(signer, auth_ids)| {
+                auth_ids.into_iter().for_each( |auth_id|
+                        Self::unsafe_remove_auth( signer, auth_id, &did_sig, true));
             });
 
             // Update signing keys at Identity.
@@ -802,7 +821,7 @@ decl_module! {
                 revoked || target.eq_either(&from_did, &sender_key),
                 Error::<T>::Unauthorized
             );
-            Self::unsafe_remove_auth(target, auth_id, auth.authorized_by, revoked);
+            Self::unsafe_remove_auth(&target, auth_id, &auth.authorized_by, revoked);
 
             Ok(())
         }
@@ -842,7 +861,7 @@ decl_module! {
 
             for i in 0..auth_identifiers.len() {
                 let auth_identifier = &auth_identifiers[i];
-                Self::unsafe_remove_auth(auth_identifier.0, auth_identifier.1, auths[i].authorized_by, revoked[i]);
+                Self::unsafe_remove_auth(&auth_identifier.0, auth_identifier.1, &auths[i].authorized_by, revoked[i]);
 
             }
 
@@ -856,15 +875,26 @@ decl_module! {
             auth_id: u64
         ) -> DispatchResult {
             let sender_key = AccountKey::try_from(ensure_signed(origin)?.encode())?;
-            let signer = Context::current_identity_or::<Self>(&sender_key)
+            let signer_by_key = Signatory::from(sender_key.clone());
+            let signer_by_id = Context::current_identity_or::<Self>(&sender_key)
                 .map_or_else(
                     |_error| Signatory::from(sender_key),
                     Signatory::from);
-            ensure!(
-                <Authorizations<T>>::contains_key(signer, auth_id),
-                Error::<T>::AuthorizationDoesNotExist
-            );
-            let auth = <Authorizations<T>>::get(signer, auth_id);
+
+            // Get auth by key or by id.
+            let auth_signer_opt = if <Authorizations<T>>::contains_key(&signer_by_id, auth_id) {
+                let auth = <Authorizations<T>>::get(&signer_by_id, auth_id);
+                Some((auth, signer_by_id))
+            } else if <Authorizations<T>>::contains_key(signer_by_key, auth_id) {
+                let auth = <Authorizations<T>>::get(signer_by_key, auth_id);
+                Some((auth, signer_by_key))
+            } else {
+                None
+            };
+
+            let (auth, signer) = auth_signer_opt
+                    .ok_or_else(||Error::<T>::AuthorizationDoesNotExist)?;
+
             match signer {
                 Signatory::Identity(did) => {
                     match auth.authorization_data {
@@ -1264,9 +1294,9 @@ impl<T: Trait> Module<T> {
     /// Removes any authorization. No questions asked.
     /// NB: Please do all the required checks before calling this function.
     pub fn unsafe_remove_auth(
-        target: Signatory,
+        target: &Signatory,
         auth_id: u64,
-        authorizer: Signatory,
+        authorizer: &Signatory,
         revoked: bool,
     ) {
         <Authorizations<T>>::remove(target, auth_id);
@@ -1796,34 +1826,6 @@ impl<T: Trait> Module<T> {
         }
     }
 
-    /// It adds `signing_item` to pre authorized items for `id` identity.
-    fn add_pre_join_identity(signing_item: &SigningItem, id: IdentityId) {
-        let signer = &signing_item.signer;
-        let new_pre_auth = PreAuthorizedKeyInfo::new(signing_item.clone(), id);
-
-        if !<PreAuthorizedJoinDid>::contains_key(signer) {
-            <PreAuthorizedJoinDid>::insert(signer, vec![new_pre_auth]);
-        } else {
-            <PreAuthorizedJoinDid>::mutate(signer, |pre_auth_list| {
-                pre_auth_list.retain(|pre_auth| *pre_auth != id);
-                pre_auth_list.push(new_pre_auth);
-            });
-        }
-    }
-
-    /// It removes `signing_item` to pre authorized items for `id` identity.
-    fn remove_pre_join_identity(signer: &Signatory, id: IdentityId) {
-        let mut is_pre_auth_list_empty = false;
-        <PreAuthorizedJoinDid>::mutate(signer, |pre_auth_list| {
-            pre_auth_list.retain(|pre_auth| pre_auth.target_id != id);
-            is_pre_auth_list_empty = pre_auth_list.is_empty();
-        });
-
-        if is_pre_auth_list_empty {
-            <PreAuthorizedJoinDid>::remove(signer);
-        }
-    }
-
     /// It registers a did for a new asset. Only called by create_asset function.
     pub fn register_asset_did(ticker: &Ticker) -> DispatchResult {
         let did = Self::get_token_did(ticker)?;
@@ -1876,7 +1878,6 @@ impl<T: Trait> Module<T> {
         );
 
         let block_hash = <system::Module<T>>::block_hash(<system::Module<T>>::block_number());
-
         let did = IdentityId::from(blake2_256(&(USER, block_hash, new_nonce).encode()));
 
         // 1.3. Make sure there's no pre-existing entry for the DID
@@ -1885,6 +1886,7 @@ impl<T: Trait> Module<T> {
             !<DidRecords>::contains_key(did),
             Error::<T>::DidAlreadyExists
         );
+
         // 1.4. Signing keys can be linked to the new identity.
         for s_item in &signing_items {
             if let Signatory::AccountKey(ref key) = s_item.signer {
@@ -1901,11 +1903,21 @@ impl<T: Trait> Module<T> {
         }
 
         // 2. Apply changes to our extrinsics.
-        // 2.1. Link  master key and add pre-authorized signing keys
+        // 2.1. Link master key and add pre-authorized signing keys.
+        let join_auth_data = AuthorizationData::JoinIdentity(did);
+        let master_key_signatory = Signatory::from(master_key);
         Self::link_key_to_did(&master_key, SignatoryType::External, did);
-        signing_items
+        let _auth_ids = signing_items
             .iter()
-            .for_each(|s_item| Self::add_pre_join_identity(s_item, did));
+            .map(|s_item| {
+                Self::add_auth(
+                    master_key_signatory.clone(),
+                    s_item.signer.clone(),
+                    join_auth_data.clone(),
+                    None,
+                )
+            })
+            .collect::<Vec<_>>();
 
         // 2.2. Create a new identity record.
         let record = DidRecord {

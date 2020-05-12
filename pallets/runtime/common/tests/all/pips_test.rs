@@ -14,6 +14,7 @@ use pallet_pips::{
     self as pips, DepositInfo, Error, PipDescription, PipsMetadata, Referendum, ReferendumState,
     ReferendumType, Url, VotingResult,
 };
+use pallet_treasury::{self as treasury, TreasuryTrait};
 use polymesh_primitives::Beneficiary;
 use test_client::AccountKeyring;
 
@@ -22,6 +23,7 @@ type Balances = balances::Module<TestStorage>;
 type Pips = pips::Module<TestStorage>;
 type Group = group::Module<TestStorage, group::Instance1>;
 type Committee = committee::Module<TestStorage, committee::Instance1>;
+type Treasury = treasury::Module<TestStorage>;
 
 type Origin = <TestStorage as frame_system::Trait>::Origin;
 
@@ -61,7 +63,7 @@ fn starting_a_proposal_works_we() {
             40,
             Some(proposal_url.clone()),
             Some(proposal_desc.clone()),
-            vec![],
+            None,
         ),
         Error::<TestStorage>::InsufficientDeposit
     );
@@ -73,7 +75,7 @@ fn starting_a_proposal_works_we() {
         60,
         Some(proposal_url),
         Some(proposal_desc),
-        vec![],
+        None,
     ));
 
     assert_eq!(Balances::free_balance(&alice_acc), 158);
@@ -118,7 +120,7 @@ fn closing_a_proposal_works_we() {
         50,
         Some(proposal_url.clone()),
         Some(proposal_desc),
-        vec![]
+        None
     ));
 
     assert_eq!(Balances::free_balance(&alice_acc), 168);
@@ -161,7 +163,7 @@ fn creating_a_referendum_works_we() {
         50,
         Some(proposal_url),
         Some(proposal_desc),
-        vec![]
+        None
     ));
 
     assert_err!(
@@ -228,7 +230,7 @@ fn enacting_a_referendum_works_we() {
         50,
         Some(proposal_url.clone()),
         Some(proposal_desc),
-        vec![]
+        None
     ));
 
     assert_err!(
@@ -326,7 +328,7 @@ fn fast_tracking_a_proposal_works_we() {
         50,
         Some(proposal_url.clone()),
         Some(proposal_desc),
-        vec![]
+        None
     ));
 
     assert_err!(
@@ -412,7 +414,7 @@ fn emergency_referendum_works_we() {
         Box::new(proposal.clone()),
         Some(proposal_url.clone()),
         Some(proposal_desc),
-        vec![],
+        None,
     ));
 
     fast_forward_to(20);
@@ -486,7 +488,7 @@ fn reject_referendum_works_we() {
         Box::new(proposal.clone()),
         Some(proposal_url.clone()),
         Some(proposal_desc),
-        vec![],
+        None,
     ));
 
     fast_forward_to(20);
@@ -549,6 +551,14 @@ fn updating_pips_variables_works_we() {
     assert_eq!(Pips::proposal_duration(), 10);
     assert_ok!(Pips::set_proposal_duration(root.clone(), 100));
     assert_eq!(Pips::proposal_duration(), 100);
+
+    assert_eq!(Pips::proposal_cool_off_period(), 100);
+    assert_ok!(Pips::set_proposal_cool_off_period(root.clone(), 10));
+    assert_eq!(Pips::proposal_cool_off_period(), 10);
+
+    assert_eq!(Pips::default_enactment_period(), 100);
+    assert_ok!(Pips::set_default_enactment_period(root.clone(), 10));
+    assert_eq!(Pips::default_enactment_period(), 10);
 }
 
 #[test]
@@ -574,7 +584,7 @@ fn amend_pips_details_during_cool_off_period_we() {
         60,
         Some(proposal_url),
         Some(proposal_desc),
-        vec![]
+        None
     ));
     fast_forward_to(50);
 
@@ -602,7 +612,6 @@ fn amend_pips_details_during_cool_off_period_we() {
             end: 111,
             url: Some(new_url),
             description: Some(new_desc),
-            beneficiaries: vec![],
         })
     );
 
@@ -667,7 +676,7 @@ fn cancel_pips_during_cool_off_period_we() {
         60,
         Some(proposal_url),
         Some(proposal_desc),
-        vec![]
+        None
     ));
 
     assert_ok!(Pips::propose(
@@ -676,7 +685,7 @@ fn cancel_pips_during_cool_off_period_we() {
         60,
         None,
         None,
-        vec![]
+        None
     ));
 
     // 2. Cancel Alice's proposal during cool-off period.
@@ -700,7 +709,6 @@ fn cancel_pips_during_cool_off_period_we() {
             end: 111,
             url: None,
             description: None,
-            beneficiaries: vec![],
         })
     );
 }
@@ -737,7 +745,7 @@ fn update_referendum_enactment_period_we() {
         Box::new(proposal_a.clone()),
         None,
         None,
-        vec![],
+        None,
     ));
     assert_ok!(Pips::enact_referendum(root.clone(), 0));
     assert_eq!(
@@ -757,7 +765,7 @@ fn update_referendum_enactment_period_we() {
         Box::new(proposal_b.clone()),
         Some(proposal_url),
         Some(proposal_desc),
-        vec![],
+        None,
     ));
     assert_ok!(Pips::enact_referendum(root.clone(), 1));
     assert_eq!(
@@ -772,12 +780,16 @@ fn update_referendum_enactment_period_we() {
 
     // Alice cannot update the enact period.
     assert_err!(
-        Pips::set_referendum_enactment_period(alice.clone(), 0, Some(200)),
+        Pips::override_referendum_enactment_period(alice.clone(), 0, Some(200)),
         Error::<TestStorage>::BadOrigin
     );
 
     // Bob updates referendum to execute `b` now(next block), and `a` in the future.
-    assert_ok!(Pips::set_referendum_enactment_period(bob.clone(), 1, None));
+    assert_ok!(Pips::override_referendum_enactment_period(
+        bob.clone(),
+        1,
+        None
+    ));
     fast_forward_to(52);
     assert_eq!(
         Pips::referendums(1),
@@ -789,7 +801,7 @@ fn update_referendum_enactment_period_we() {
         })
     );
 
-    assert_ok!(Pips::set_referendum_enactment_period(
+    assert_ok!(Pips::override_referendum_enactment_period(
         bob.clone(),
         0,
         Some(200)
@@ -816,8 +828,8 @@ fn update_referendum_enactment_period_we() {
         })
     );
     assert_err!(
-        Pips::set_referendum_enactment_period(bob.clone(), 0, Some(300)),
-        Error::<TestStorage>::ReferendumIsImmutable
+        Pips::override_referendum_enactment_period(bob.clone(), 0, Some(300)),
+        Error::<TestStorage>::IncorrectReferendumState
     );
 }
 
@@ -827,6 +839,7 @@ fn proposal_with_beneficiares() {
     ExtBuilder::default()
         .governance_committee(committee)
         .governance_committee_vote_threshold((2, 3))
+        .existential_deposit(10)
         .build()
         .execute_with(proposal_with_beneficiares_we);
 }
@@ -836,10 +849,14 @@ fn proposal_with_beneficiares_we() {
     System::set_block_number(1);
     let root = Origin::system(frame_system::RawOrigin::Root);
     let alice = AccountKeyring::Alice.public();
+    let alice_acc = Origin::signed(AccountKeyring::Alice.public());
     let charlie = AccountKeyring::Charlie.public();
     let dave = AccountKeyring::Dave.public();
+    let eve = AccountKeyring::Eve.public();
     let charlie_id = register_keyring_account_with_balance(AccountKeyring::Charlie, 200).unwrap();
     let dave_id = register_keyring_account_with_balance(AccountKeyring::Dave, 200).unwrap();
+    let _ = register_keyring_account_with_balance(AccountKeyring::Eve, 1_000_000).unwrap();
+    let eve_acc = Origin::signed(AccountKeyring::Eve.public());
 
     // 2. Charlie creates a new proposal with 2 beneificiares
     let proposal = make_proposal(42);
@@ -848,11 +865,11 @@ fn proposal_with_beneficiares_we() {
     let beneficiaries = vec![
         Beneficiary {
             id: charlie_id,
-            amount: 10_000,
+            amount: 200,
         },
         Beneficiary {
             id: dave_id,
-            amount: 5_000,
+            amount: 800,
         },
     ];
 
@@ -862,7 +879,7 @@ fn proposal_with_beneficiares_we() {
         60,
         Some(proposal_url),
         Some(proposal_desc),
-        beneficiaries,
+        Some(beneficiaries),
     ));
 
     // 2. Alice can fast track because she is a GC member
@@ -882,6 +899,9 @@ fn proposal_with_beneficiares_we() {
     assert_eq!(Balances::free_balance(&charlie), 118);
     assert_eq!(Balances::free_balance(&dave), 159);
 
+    // Top up the treasury account so it can disburse
+    assert_ok!(Treasury::reimbursement(eve_acc.clone(), 1_000));
+
     fast_forward_to(120);
     assert_eq!(
         Pips::referendums(0),
@@ -893,6 +913,6 @@ fn proposal_with_beneficiares_we() {
         })
     );
 
-    assert_eq!(Balances::identity_balance(charlie_id), 10_000);
-    assert_eq!(Balances::identity_balance(dave_id), 5_000);
+    assert_eq!(Balances::identity_balance(charlie_id), 200);
+    assert_eq!(Balances::identity_balance(dave_id), 800);
 }

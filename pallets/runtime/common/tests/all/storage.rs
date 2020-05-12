@@ -5,7 +5,6 @@ use pallet_compliance_manager as compliance_manager;
 use pallet_group as group;
 use pallet_identity as identity;
 use pallet_multisig as multisig;
-use pallet_percentage_tm as percentage_tm;
 use pallet_pips as pips;
 use pallet_protocol_fee as protocol_fee;
 use pallet_statistics as statistics;
@@ -14,7 +13,7 @@ use polymesh_common_utilities::traits::{
     asset::AcceptTransfer, balances::AccountData, group::GroupTrait,
     identity::Trait as IdentityTrait, multisig::AddSignerMultiSig, CommonTrait,
 };
-use polymesh_primitives::{AccountKey, AuthorizationData, IdentityId, Signatory};
+use polymesh_primitives::{AccountKey, Authorization, AuthorizationData, IdentityId, Signatory};
 use polymesh_runtime_common::{
     bridge, cdd_check::CddChecker, dividend, exemption, simple_token, voting,
 };
@@ -22,7 +21,7 @@ use polymesh_runtime_common::{
 use codec::Encode;
 use frame_support::{
     assert_ok, dispatch::DispatchResult, impl_outer_dispatch, impl_outer_event, impl_outer_origin,
-    parameter_types, traits::Currency, weights::DispatchInfo,
+    parameter_types, traits::Currency, weights::DispatchInfo, StorageDoubleMap,
 };
 use frame_system::{self as system};
 
@@ -73,7 +72,6 @@ impl_outer_event! {
         identity<T>,
         balances<T>,
         multisig<T>,
-        percentage_tm,
         bridge<T>,
         asset<T>,
         pips<T>,
@@ -213,7 +211,6 @@ impl group::Trait<group::DefaultInstance> for TestStorage {
     type RemoveOrigin = frame_system::EnsureRoot<AccountId>;
     type SwapOrigin = frame_system::EnsureRoot<AccountId>;
     type ResetOrigin = frame_system::EnsureRoot<AccountId>;
-    type PrimeOrigin = frame_system::EnsureRoot<AccountId>;
     type MembershipInitialized = committee::Module<TestStorage, committee::Instance1>;
     type MembershipChanged = committee::Module<TestStorage, committee::Instance1>;
 }
@@ -225,7 +222,6 @@ impl group::Trait<group::Instance1> for TestStorage {
     type RemoveOrigin = frame_system::EnsureRoot<AccountId>;
     type SwapOrigin = frame_system::EnsureRoot<AccountId>;
     type ResetOrigin = frame_system::EnsureRoot<AccountId>;
-    type PrimeOrigin = frame_system::EnsureRoot<AccountId>;
     type MembershipInitialized = committee::Module<TestStorage, committee::Instance1>;
     type MembershipChanged = committee::Module<TestStorage, committee::Instance1>;
 }
@@ -236,7 +232,6 @@ impl group::Trait<group::Instance2> for TestStorage {
     type RemoveOrigin = frame_system::EnsureRoot<AccountId>;
     type SwapOrigin = frame_system::EnsureRoot<AccountId>;
     type ResetOrigin = frame_system::EnsureRoot<AccountId>;
-    type PrimeOrigin = frame_system::EnsureRoot<AccountId>;
     type MembershipInitialized = identity::Module<TestStorage>;
     type MembershipChanged = identity::Module<TestStorage>;
 }
@@ -345,12 +340,6 @@ impl pallet_contracts::Trait for TestStorage {
 }
 
 impl statistics::Trait for TestStorage {}
-
-impl percentage_tm::Trait for TestStorage {
-    type Event = Event;
-    type Asset = asset::Module<TestStorage>;
-    type Exemption = exemption::Module<TestStorage>;
-}
 
 impl compliance_manager::Trait for TestStorage {
     type Event = Event;
@@ -561,4 +550,8 @@ pub fn account_from(id: u64) -> AccountId {
 pub fn get_identity_id(acc: AccountKeyring) -> Option<IdentityId> {
     let key = AccountKey::from(acc.public().0);
     Identity::get_identity(&key)
+}
+
+pub fn authorizations_to(to: &Signatory) -> Vec<Authorization<u64>> {
+    identity::Authorizations::<TestStorage>::iter_prefix(to).collect::<Vec<_>>()
 }
