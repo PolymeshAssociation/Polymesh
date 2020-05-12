@@ -77,7 +77,7 @@
 use pallet_identity as identity;
 pub use polymesh_common_utilities::{
     group::{GroupTrait, InactiveMember, RawEvent, Trait},
-    Context,
+    Context, SystematicIssuers,
 };
 use polymesh_primitives::{AccountKey, IdentityId};
 
@@ -163,7 +163,7 @@ decl_module! {
             <ActiveMembers<I>>::put(&members);
 
             T::MembershipChanged::change_members_sorted(&[who], &[], &members[..]);
-            let current_did = Context::current_identity::<Identity<T>>().ok_or_else(|| Error::<T, I>::MissingCurrentIdentity)?;
+            let current_did = Context::current_identity::<Identity<T>>().unwrap_or(SystematicIssuers::Committee.as_id());
             Self::deposit_event(RawEvent::MemberAdded(current_did, who));
         }
 
@@ -209,7 +209,7 @@ decl_module! {
                 &[remove],
                 &members[..],
             );
-            let current_did = Context::current_identity::<Identity<T>>().ok_or_else(|| Error::<T, I>::MissingCurrentIdentity)?;
+            let current_did = Context::current_identity::<Identity<T>>().unwrap_or(SystematicIssuers::Committee.as_id());
             Self::deposit_event(RawEvent::MembersSwapped(current_did, remove, add));
         }
 
@@ -229,7 +229,7 @@ decl_module! {
                 T::MembershipChanged::set_members_sorted(&new_members[..], m);
                 *m = new_members;
             });
-            let current_did = Context::current_identity::<Identity<T>>().ok_or_else(|| Error::<T, I>::MissingCurrentIdentity)?;
+            let current_did = Context::current_identity::<Identity<T>>().unwrap_or(SystematicIssuers::Committee.as_id());
             Self::deposit_event(RawEvent::MembersReset(current_did, members));
         }
 
@@ -341,7 +341,7 @@ impl<T: Trait<I>, I: Instance> Module<T, I> {
 
         T::MembershipChanged::change_members_sorted(&[], &[who], &members[..]);
         let current_did = Context::current_identity::<Identity<T>>()
-            .ok_or_else(|| Error::<T, I>::MissingCurrentIdentity)?;
+            .unwrap_or(SystematicIssuers::Committee.as_id());
         Self::deposit_event(RawEvent::MemberRemoved(current_did, who));
         Ok(())
     }
@@ -381,7 +381,8 @@ impl<T: Trait<I>, I: Instance> GroupTrait<T::Moment> for Module<T, I> {
     ) -> DispatchResult {
         Self::unsafe_remove_active_member(who)?;
         let current_did = Context::current_identity::<Identity<T>>()
-            .ok_or_else(|| Error::<T, I>::MissingCurrentIdentity)?;
+            .unwrap_or(SystematicIssuers::Committee.as_id());
+
         let deactivated_at = at.unwrap_or_else(|| <pallet_timestamp::Module<T>>::get());
         let inactive_member = InactiveMember {
             id: who,

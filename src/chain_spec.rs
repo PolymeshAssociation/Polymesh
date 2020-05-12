@@ -226,33 +226,15 @@ fn general_testnet_genesis(
             })
         },
         bridge: Some(V1Config::BridgeConfig {
-            admin: initial_authorities[0].0.clone(),
-            creator: initial_authorities[0].0.clone(),
-            signatures_required: 3,
-            signers: vec![
-                Signatory::AccountKey(
-                    AccountKey::try_from(&get_from_seed::<sr25519::Public>("relay_1").to_vec())
-                        .unwrap(),
-                ),
-                Signatory::AccountKey(
-                    AccountKey::try_from(&get_from_seed::<sr25519::Public>("relay_2").to_vec())
-                        .unwrap(),
-                ),
-                Signatory::AccountKey(
-                    AccountKey::try_from(&get_from_seed::<sr25519::Public>("relay_3").to_vec())
-                        .unwrap(),
-                ),
-                Signatory::AccountKey(
-                    AccountKey::try_from(&get_from_seed::<sr25519::Public>("relay_4").to_vec())
-                        .unwrap(),
-                ),
-                Signatory::AccountKey(
-                    AccountKey::try_from(&get_from_seed::<sr25519::Public>("relay_5").to_vec())
-                        .unwrap(),
-                ),
-            ],
+            admin: initial_authorities[0].1.clone(),
+            creator: initial_authorities[0].1.clone(),
+            signatures_required: 1,
+            signers: vec![Signatory::AccountKey(
+                AccountKey::try_from(&get_from_seed::<sr25519::Public>("relay_1").to_vec())
+                    .unwrap(),
+            )],
             timelock: 10,
-            bridge_limit: (100_000_000, 1000),
+            bridge_limit: (100_000_000 * POLY, 1000),
         }),
         balances: Some(V1Config::BalancesConfig {
             balances: endowed_accounts
@@ -477,7 +459,7 @@ pub fn v1_live_testnet_config() -> ChainSpec {
             STAGING_TELEMETRY_URL.to_string(),
             0,
         )])),
-        Some(&*"/polymath/aldebaran/0"),
+        Some(&*"/polymath/aldebaran/1"),
         Some(polymath_props()),
         Default::default(),
     )
