@@ -356,7 +356,7 @@ decl_module! {
             ensure!(system::Module::<T>::block_number() >= voting.end, Error::<T, I>::TooEarly);
 
             let mut no_votes = voting.nays.len() as MemberCount;
-            let mut yes_votes = voting.ayes.len() as MemberCount;
+            let yes_votes = voting.ayes.len() as MemberCount;
             let seats = Self::members().len() as MemberCount;
             let abstentions = seats - (yes_votes + no_votes);
             no_votes += abstentions;

@@ -36,7 +36,7 @@ use polymesh_primitives::{
 
 use sp_api::impl_runtime_apis;
 use sp_core::{
-    u32_trait::{_1, _2, _3, _4},
+    u32_trait::{_1, _2, _4},
     OpaqueMetadata,
 };
 use sp_runtime::{
@@ -352,7 +352,7 @@ impl pallet_pips::Trait for Runtime {
     type Currency = Balances;
     type CommitteeOrigin = frame_system::EnsureRoot<AccountId>;
     type VotingMajorityOrigin =
-        committee::EnsureProportionAtLeast<_2, _3, AccountId, GovernanceCommittee>;
+        committee::EnsureProportionAtLeast<_1, _2, AccountId, GovernanceCommittee>;
     type GovernanceCommittee = PolymeshCommittee;
     type Treasury = Treasury;
     type Event = Event;

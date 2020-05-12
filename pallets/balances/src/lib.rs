@@ -177,7 +177,7 @@ use polymesh_common_utilities::{
         identity::IdentityTrait,
         NegativeImbalance, PositiveImbalance,
     },
-    Context,
+    Context, SystematicIssuers,
 };
 use polymesh_primitives::{
     traits::{BlockRewardsReserveCurrency, IdentityCurrency},
@@ -442,7 +442,7 @@ decl_module! {
             ensure_root(origin)?;
             let who = T::Lookup::lookup(who)?;
             let caller = who.encode().try_into()?;
-            let caller_id = Context::current_identity_or::<T::Identity>(&caller)?;
+            let caller_id = Context::current_identity_or::<T::Identity>(&caller).unwrap_or(SystematicIssuers::Committee.as_id());
 
             let (free, reserved) = Self::mutate_account(&who, |account| {
                 if new_free > account.free {

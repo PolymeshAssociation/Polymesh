@@ -116,6 +116,7 @@ use polymesh_primitives::{AccountKey, IdentityId, Signatory};
 use sp_core::H256;
 use sp_runtime::traits::{CheckedAdd, One, Zero};
 use sp_std::{convert::TryFrom, prelude::*};
+
 type Identity<T> = identity::Module<T>;
 
 pub trait Trait: multisig::Trait {
@@ -456,7 +457,7 @@ decl_module! {
             ensure!(controller != Default::default(), Error::<T>::ControllerNotSet);
             let proposal = <T as Trait>::Proposal::from(Call::<T>::handle_bridge_tx(bridge_tx));
             let boxed_proposal = Box::new(proposal.into());
-            <multisig::Module<T>>::create_or_approve_proposal_as_identity(
+            <multisig::Module<T>>::create_or_approve_proposal_as_key(
                 origin,
                 controller,
                 boxed_proposal
@@ -567,6 +568,10 @@ decl_module! {
 }
 
 impl<T: Trait> Module<T> {
+    pub fn controller_key() -> T::AccountId {
+        Self::controller()
+    }
+
     /// Issues the transacted amount to the recipient.
     fn issue(recipient: &T::AccountId, amount: &T::Balance) -> DispatchResult {
         if let Some(did) =
@@ -631,8 +636,7 @@ impl<T: Trait> Module<T> {
             tx_details.status = BridgeTxStatus::Handled;
             tx_details.execution_block = <system::Module<T>>::block_number();
             <BridgeTxDetails<T>>::insert(&bridge_tx.recipient, &bridge_tx.nonce, tx_details);
-            let current_did = Context::current_identity::<Identity<T>>()
-                .ok_or_else(|| Error::<T>::MissingCurrentIdentity)?;
+            let current_did = Context::current_identity::<Identity<T>>().unwrap_or_default();
             Self::deposit_event(RawEvent::Bridged(current_did, bridge_tx));
         } else if !untrusted_manual_retry {
             // NB: If this was a manual retry, tx's automated retry schedule is not updated.

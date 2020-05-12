@@ -24,14 +24,16 @@ use polymesh_primitives::{
     traits::IdentityCurrency, AccountId, AccountKey, AuthorizationData, IdentityId, Signatory,
     TransactionError,
 };
+use polymesh_runtime_common::bridge;
 use sp_runtime::transaction_validity::InvalidTransaction;
 
 use codec::{Decode, Encode};
 use core::convert::TryFrom;
-use frame_support::StorageMap;
+use frame_support::{StorageDoubleMap, StorageMap};
 
 type Identity = identity::Module<Runtime>;
 type Balances = balances::Module<Runtime>;
+type Bridge = bridge::Module<Runtime>;
 
 type Call = runtime::Call;
 
@@ -82,6 +84,37 @@ impl CddAndFeeDetails<Call> for CddHandler {
             Call::Identity(identity::Call::accept_master_key(rotation_auth_id, ..)) => {
                 sp_runtime::print("accept_master_key");
                 is_auth_valid(caller, rotation_auth_id, CallType::AcceptIdentityMaster)
+            }
+            // Call made by an Account key to propose or approve a multisig transaction.
+            // The multisig must have valid CDD and the caller must be a signer of the multisig.
+            Call::MultiSig(multisig::Call::create_or_approve_proposal_as_key(multisig, ..))
+            | Call::MultiSig(multisig::Call::create_proposal_as_key(multisig, ..))
+            | Call::MultiSig(multisig::Call::approve_as_key(multisig, ..)) => {
+                sp_runtime::print("multisig stuff");
+                if <multisig::MultiSigSigners<Runtime>>::contains_key(multisig, caller) {
+                    if let Some(did) = Identity::get_identity(
+                        &AccountKey::try_from(multisig.encode())
+                            .map_err(|_| InvalidTransaction::Payment)?,
+                    ) {
+                        return check_cdd(&did);
+                    }
+                }
+                Err(InvalidTransaction::Custom(TransactionError::MissingIdentity as u8).into())
+            }
+            // Call made by an Account key to propose or approve a multisig transaction via the bridge helper
+            // The multisig must have valid CDD and the caller must be a signer of the multisig.
+            Call::Bridge(bridge::Call::propose_bridge_tx(..)) => {
+                sp_runtime::print("multisig stuff via bridge");
+                let multisig = Bridge::controller_key();
+                if <multisig::MultiSigSigners<Runtime>>::contains_key(&multisig, caller) {
+                    if let Some(did) = Identity::get_identity(
+                        &AccountKey::try_from(multisig.encode())
+                            .map_err(|_| InvalidTransaction::Payment)?,
+                    ) {
+                        return check_cdd(&did);
+                    }
+                }
+                Err(InvalidTransaction::Custom(TransactionError::MissingIdentity as u8).into())
             }
             // Call to set fee payer
             Call::Balances(balances::Call::change_charge_did_flag(charge_did)) => match caller {
