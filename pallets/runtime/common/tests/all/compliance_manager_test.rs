@@ -236,10 +236,10 @@ fn should_replace_asset_rules_we() {
         })
         .take(3)
         .enumerate()
-        .map(|(n, f)| f(n.try_into().unwrap()))
+        .map(|(n, f)| f(n as u32))
         .collect();
 
-    assert_ok!(ComplianceManager::replace_active_rules(
+    assert_ok!(ComplianceManager::replace_asset_rules(
         token_owner_signed.clone(),
         ticker,
         new_asset_rules.clone(),
