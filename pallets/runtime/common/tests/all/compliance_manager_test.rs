@@ -236,7 +236,7 @@ fn should_replace_asset_rules_we() {
         })
         .take(3)
         .enumerate()
-        .map(|(f, n)| f(n))
+        .map(|(n, f)| f(n))
         .collect();
 
     assert_ok!(ComplianceManager::replace_active_rules(
