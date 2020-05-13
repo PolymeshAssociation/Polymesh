@@ -45,14 +45,6 @@ fn impl_vec_u8_strong_typed(ast: &syn::DeriveInput) -> TokenStream {
             }
         }
 
-        /*
-        impl AsRef<[u8]> for #name {
-            #[inline]
-            fn as_ref(&self) -> &[u8] {
-                self.0.as_ref()
-            }
-        }*/
-
         impl sp_std::ops::Deref for #name {
             type Target = [u8];
 
@@ -128,20 +120,6 @@ fn impl_slice_u8_strong_typed(ast: &syn::DeriveInput) -> TokenStream {
             }
         }
     };
-
-    /*
-        #[cfg(feature = "std")]
-        impl From<&str> for #name {
-            #name::from(src.as_bytes())
-        }
-
-        impl AsRef<[u8]> for #name {
-            #[inline]
-            fn as_ref(&self) -> &[u8] {
-                #name.0
-            }
-        }
-    */
 
     gen.into()
 }

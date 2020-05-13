@@ -23,14 +23,10 @@ frame-support = { git = "https://github.com/paritytech/substrate", default-featu
 frame-system = { git = "https://github.com/paritytech/substrate", default-features = false, rev = "a439a7aa5a9a3df2a42d9b25ea04288d3a0866e8" }
 
 [dev-dependencies]
-polymesh-primitives-derive = { path = "../primitives_derive" }
 hex = { version = "^0.4.0", default-features = false }
 serde_json = "1.0.48"
 
 [features]
-# Provide derive(VecU8StrongTyped, SliceU8StrongTyped) macros.
-# derive = ["polymesh-primitives-derive"]
-
 default = ["std"]
 std = [
 	"codec/std",
