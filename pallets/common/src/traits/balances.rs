@@ -15,6 +15,9 @@
 
 use crate::traits::{identity::IdentityTrait, CommonTrait, NegativeImbalance};
 
+use polymesh_primitives::{AccountKey, IdentityId};
+use polymesh_primitives_derive::SliceU8StrongTyped;
+
 use codec::{Decode, Encode};
 use frame_support::{
     decl_event,
@@ -22,35 +25,11 @@ use frame_support::{
     traits::{ExistenceRequirement, Get, OnUnbalanced, StoredMap, WithdrawReason, WithdrawReasons},
 };
 use frame_system::{self as system};
-use polymesh_primitives::{AccountKey, IdentityId};
 use sp_runtime::{traits::Saturating, RuntimeDebug};
-use sp_std::{cmp::min, ops::BitOr};
+use sp_std::ops::BitOr;
 
-#[derive(Encode, Decode, Clone, PartialEq, Eq, RuntimeDebug)]
+#[derive(Encode, Default, Decode, Clone, PartialEq, Eq, RuntimeDebug, SliceU8StrongTyped)]
 pub struct Memo(pub [u8; 32]);
-
-impl Default for Memo {
-    fn default() -> Self {
-        Memo([0u8; 32])
-    }
-}
-
-impl From<&[u8]> for Memo {
-    fn from(src: &[u8]) -> Memo {
-        let mut value = [0u8; 32];
-        let limit = min(src.len(), value.len());
-        value[..limit].copy_from_slice(&src[..limit]);
-
-        Memo(value)
-    }
-}
-
-#[cfg(feature = "std")]
-impl From<&str> for Memo {
-    fn from(src: &str) -> Memo {
-        Memo::from(src.as_bytes())
-    }
-}
 
 // POLYMESH-NOTE: Make `AccountData` public to access it from the outside module.
 /// All balance information for an account.
