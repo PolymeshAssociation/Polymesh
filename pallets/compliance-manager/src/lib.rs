@@ -234,18 +234,17 @@ decl_module! {
             let sender_key = AccountKey::try_from(ensure_signed(origin)?.encode())?;
             let did = Context::current_identity_or::<Identity<T>>(&sender_key)?;
             ensure!(Self::is_owner(&ticker, did), Error::<T>::Unauthorized);
-            let len = asset_rules.len();
             let mut asset_rules_dedup = asset_rules.clone();
             asset_rules_dedup.dedup_by_key(|r| r.rule_id);
-            ensure!(len != asset_rules_dedup.len(), Error::<T>::DuplicateAssetRules);
+            ensure!(asset_rules.len() != asset_rules_dedup.len(), Error::<T>::DuplicateAssetRules);
             <AssetRulesMap>::mutate(ticker, |old_asset_rules| {
                 let is_paused = old_asset_rules.is_paused;
                 AssetTransferRules {
                     is_paused,
-                    rules: asset_rules_dedup.clone()
+                    rules: asset_rules_dedup
                 }
             });
-            Self::deposit_event(Event::AssetRulesReplaced(did, ticker, asset_rules_dedup));
+            Self::deposit_event(Event::AssetRulesReplaced(did, ticker, asset_rules));
             Ok(())
         }
 
