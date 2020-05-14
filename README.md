@@ -11,6 +11,12 @@ Polymesh is a blockchain for regulated securities and open finance.
 
 https://polymath.network/polymesh-whitepaper
 
+# Testing Community
+
+If you'd like to get involved in the Polymesh stampede as part of our developer and testing community, please use the link below to sign up!
+
+https://polymath.network/testing-community-github
+
 # Build
 
 Install Rust:
