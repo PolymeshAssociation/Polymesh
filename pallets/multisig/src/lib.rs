@@ -129,7 +129,7 @@ decl_storage! {
         pub MultiSigSignsRequired get(fn ms_signs_required): map hasher(twox_64_concat) T::AccountId => u64;
         /// Number of transactions proposed in a multisig. Used as tx id; starts from 0.
         pub MultiSigTxDone get(fn ms_tx_done): map hasher(twox_64_concat) T::AccountId => u64;
-        /// Proposals presented for voting to a multisig (multisig, proposal id) => Option<proposal>.
+        /// Proposals presented for voting to a multisig (multisig, proposal id) => Option<T::Proposal>.
         pub Proposals get(fn proposals): map hasher(twox_64_concat) (T::AccountId, u64) => Option<T::Proposal>;
         /// A mapping of proposals to their IDs.
         pub ProposalIds get(fn proposal_ids):
@@ -142,6 +142,8 @@ decl_storage! {
         pub MultiSigCreator get(fn ms_creator): map hasher(twox_64_concat) T::AccountId => IdentityId;
         /// Maps a key to a multisig address.
         pub KeyToMultiSig get(fn key_to_ms): map hasher(blake2_128_concat) AccountKey => T::AccountId;
+        /// Know whether the proposal is closed or not
+        pub ProposalClosed get(fn is_proposal_closed): map hasher(twox_64_concat) (T::AccountId, u64) => bool;
     }
 }
 
@@ -604,6 +606,8 @@ decl_error! {
         MissingCurrentIdentity,
         /// The function can only be called by the master key of the did
         NotMasterKey,
+        /// Proposal already meet the required signer approvals
+        ProposalAlreadyClosed
     }
 }
 
@@ -733,6 +737,11 @@ impl<T: Trait> Module<T> {
             Error::<T>::AlreadyApproved
         );
         if let Some(proposal) = Self::proposals(&multisig_proposal) {
+            // Check whether the proposal is already closed or not.
+            ensure!(
+                !Self::is_proposal_closed(&multisig_proposal),
+                Error::<T>::ProposalAlreadyClosed
+            );
             <Votes<T>>::insert(&multisig_signer_proposal, true);
             // Since approvals are always only incremented by 1, they can not overflow.
             let approvals: u64 = Self::tx_approvals(&multisig_proposal) + 1u64;
@@ -759,6 +768,8 @@ impl<T: Trait> Module<T> {
                     .is_ok(),
                     Error::<T>::FailedToChargeFee
                 );
+
+                <ProposalClosed<T>>::insert(multisig_proposal, true);
                 let res = match proposal
                     .dispatch(frame_system::RawOrigin::Signed(multisig.clone()).into())
                 {
