@@ -13,7 +13,6 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
-
 //! # Treasury Module
 //!
 //! Treasury module contains a couple of functions to manage the treasury through the governance
