@@ -15,9 +15,9 @@
 
 //! # Compliance Manager Module
 //!
-//! The Compliance Manager module provides functionality for setting and evaluating a list of rules
-//! for sender and receiver of the transfers. For instance, you can limit your asset to investors
-//! of certain jurisdictions.
+//! The Compliance Manager module provides functionality to set and evaluate a list of rules.
+//! Those rules define transfer restrictions for the sender and receiver. For instance, you can limit your asset to investors
+//! of specific jurisdictions.
 //!
 //!
 //! ## Overview
@@ -36,9 +36,9 @@
 //! - Only accredited investors should be able to trade.
 //! - Only valid CDD holders should be able to trade.
 //! - Only those with credit score of greater than 800 should be able to purchase this token.
-//! - People from Wakanda should only be able to trade with people from Wakanda.
-//! - People from Gryffindor should not be able to trade with people from Slytherin (But allowed to trade with anyone else).
-//! - Only marvel supporters should be allowed to buy avengers token.
+//! - People from "Wakanda" should only be able to trade with people from "Wakanda".
+//! - People from "Gryffindor" should not be able to trade with people from "Slytherin" (But allowed to trade with anyone else).
+//! - Only "Marvel" supporters should be allowed to buy "Avengers" token.
 //!
 //! ### Terminology
 //!
