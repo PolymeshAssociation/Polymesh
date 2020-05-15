@@ -67,7 +67,7 @@ fn impl_vec_u8_strong_typed(ast: &syn::DeriveInput) -> TokenStream {
 
 /// Parses the AST to generate the code associated.
 #[proc_macro_derive(SliceU8StrongTyped)]
-pub fn slice_u8strong_typed_derive(input: TokenStream) -> TokenStream {
+pub fn slice_u8_strong_typed_derive(input: TokenStream) -> TokenStream {
     let ast = syn::parse(input).unwrap();
 
     impl_slice_u8_strong_typed(&ast)
