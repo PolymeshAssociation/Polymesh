@@ -311,8 +311,7 @@ decl_event! {
         AdminChanged(IdentityId, AccountId),
         /// Confirmation of default timelock change.
         TimelockChanged(IdentityId, BlockNumber),
-        /// Confirmation of minting POLYX on Polymesh in return for the locked ERC20 tokens on
-        /// Ethereum.
+        /// Confirmation of POLYX upgrade on Polymesh of the locked ERC20 tokens on Ethereum
         Bridged(IdentityId, BridgeTx<AccountId, Balance>),
         /// Notification of freezing the bridge.
         Frozen(IdentityId),
