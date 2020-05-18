@@ -327,6 +327,10 @@ decl_event! {
         WhiteListUpdated(IdentityId, IdentityId, bool),
         /// Bridge limit has been updated
         BridgeLimitUpdated(IdentityId, Balance, BlockNumber),
+        /// An event emitted after a vector of transactions is handled. The parameter is a vector of
+        /// failed transactions, each with its failure reason. If there are no failed transactions
+        /// then the vector has been successfully handled.
+        TxsHandled(Vec<(BridgeTx<AccountId, Balance>, Vec<u8>)>),
     }
 }
 
@@ -452,9 +456,13 @@ decl_module! {
             DispatchResult
         {
             let sender = ensure_signed(origin)?;
+            let mut failed_txs = Vec::new();
             for tx in bridge_txs {
-                Self::handle_signed_bridge_tx(&sender, tx)?;
+                if let Err(e) = Self::force_handle_signed_bridge_tx(&sender, tx.clone()) {
+                    failed_txs.push((tx, e.encode()));
+                }
             }
+            Self::deposit_event(RawEvent::TxsHandled(failed_txs));
             Ok(())
         }
 
@@ -467,8 +475,7 @@ decl_module! {
         {
             ensure!(Self::controller() != Default::default(), Error::<T>::ControllerNotSet);
             let sender = ensure_signed(origin)?;
-            let sender_signer = Signatory::from(AccountKey::try_from(sender.encode())?);
-            Self::propose_signed_bridge_tx(sender_signer, bridge_tx)
+            Self::propose_signed_bridge_tx(&sender, bridge_tx)
         }
 
         /// Proposes a vector of bridge transactions. The vector is processed until the first
@@ -491,11 +498,7 @@ decl_module! {
         {
             ensure!(Self::controller() != Default::default(), Error::<T>::ControllerNotSet);
             let sender = ensure_signed(origin)?;
-            let sender_signer = Signatory::from(AccountKey::try_from(sender.encode())?);
-            for tx in bridge_txs {
-                Self::propose_signed_bridge_tx(sender_signer, tx)?;
-            }
-            Ok(())
+            Self::propose_signed_bridge_txs(&sender, bridge_txs)
         }
 
         /// Handles an approved bridge transaction proposal.
@@ -526,9 +529,13 @@ decl_module! {
             DispatchResult
         {
             let sender = ensure_signed(origin)?;
+            let mut failed_txs = Vec::new();
             for tx in bridge_txs {
-                Self::handle_signed_bridge_tx(&sender, tx)?;
+                if let Err(e) = Self::handle_signed_bridge_tx(&sender, tx.clone()) {
+                    failed_txs.push((tx, e.encode()));
+                }
             }
+            Self::deposit_event(RawEvent::TxsHandled(failed_txs));
             Ok(())
         }
 
@@ -736,10 +743,26 @@ impl<T: Trait> Module<T> {
 
     /// Proposes a bridge transaction. The bridge controller must be set.
     fn propose_signed_bridge_tx(
-        sender_signer: Signatory,
+        sender: &T::AccountId,
         bridge_tx: BridgeTx<T::AccountId, T::Balance>,
     ) -> DispatchResult {
+        let sender_signer = Signatory::from(AccountKey::try_from(sender.encode())?);
         let proposal = <T as Trait>::Proposal::from(Call::<T>::handle_bridge_tx(bridge_tx));
+        let boxed_proposal = Box::new(proposal.into());
+        <multisig::Module<T>>::create_or_approve_proposal(
+            Self::controller(),
+            sender_signer,
+            boxed_proposal,
+        )
+    }
+
+    /// Proposes a vector of bridge transaction. The bridge controller must be set.
+    fn propose_signed_bridge_txs(
+        sender: &T::AccountId,
+        bridge_txs: Vec<BridgeTx<T::AccountId, T::Balance>>,
+    ) -> DispatchResult {
+        let sender_signer = Signatory::from(AccountKey::try_from(sender.encode())?);
+        let proposal = <T as Trait>::Proposal::from(Call::<T>::handle_bridge_txs(bridge_txs));
         let boxed_proposal = Box::new(proposal.into());
         <multisig::Module<T>>::create_or_approve_proposal(
             Self::controller(),
