@@ -12,6 +12,7 @@ path = "src/main.rs"
 [workspace]
 members = [
     "primitives",
+    "primitives_derive",
     "pallets/runtime/common",
     "pallets/runtime/develop",
     "pallets/runtime/testnet-v1",
