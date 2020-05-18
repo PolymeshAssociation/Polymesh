@@ -1074,7 +1074,7 @@ decl_module! {
             let signer = Signatory::from(ticker_did);
             <<T as IdentityTrait>::ProtocolFee>::charge_fee_batch(
                 &Signatory::AccountKey(sender_key),
-                ProtocolOp::AssetAddDocument,
+                ProtocolOp::AssetAddDocuments,
                 documents.len()
             )?;
             documents.into_iter().for_each(|doc| {
