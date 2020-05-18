@@ -959,12 +959,25 @@ fn check_for_approval_closure() {
             call.clone()
         ));
         let proposal_id = MultiSig::proposal_ids(musig_address.clone(), call).unwrap();
+        let mut auth = <identity::Authorizations<TestStorage>>::iter_prefix(bob_signer);
+        let bob_auth_id = auth.next().unwrap().auth_id;
+        let multi_purpose_nonce = Identity::multi_purpose_nonce();
+
         Context::set_current_identity::<Identity>(Some(eve_did));
         assert_ok!(MultiSig::approve_as_identity(
             eve.clone(),
             musig_address.clone(),
             proposal_id
-        ),);
+        ));
+        auth = <identity::Authorizations<TestStorage>>::iter_prefix(bob_signer);
+        let after_extra_approval_auth_id = auth.next().unwrap().auth_id;
+        let after_extra_approval_multi_purpose_nonce = Identity::multi_purpose_nonce();
+        // To validate that no new auth is created
+        assert_eq!(bob_auth_id, after_extra_approval_auth_id);
+        assert_eq!(
+            multi_purpose_nonce,
+            after_extra_approval_multi_purpose_nonce
+        );
         assert_eq!(
             MultiSig::tx_approvals(&(musig_address.clone(), proposal_id)),
             2
