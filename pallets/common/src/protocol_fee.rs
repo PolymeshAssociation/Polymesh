@@ -25,7 +25,7 @@ use sp_runtime::{Deserialize, Serialize};
 pub enum ProtocolOp {
     AssetRegisterTicker,
     AssetIssue,
-    AssetAddDocument,
+    AssetAddDocuments,
     AssetCreateAsset,
     DividendNew,
     ComplianceManagerAddActiveRule,
@@ -33,7 +33,7 @@ pub enum ProtocolOp {
     IdentityCddRegisterDid,
     IdentityAddClaim,
     IdentitySetMasterKey,
-    IdentityAddSigningItem,
+    IdentityAddSigningItemsWithAuthorization,
     PipsPropose,
     VotingAddBallot,
 }
