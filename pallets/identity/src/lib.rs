@@ -2127,6 +2127,11 @@ impl<T: Trait> IdentityTrait for Module<T> {
             )
         });
     }
+
+    // Provides the DID status for the given DID
+    fn has_valid_cdd(target_did: IdentityId) -> bool {
+        Self::has_valid_cdd(target_did)
+    }
 }
 
 impl<T: Trait> ChangeMembers<IdentityId> for Module<T> {

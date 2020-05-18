@@ -1,6 +1,7 @@
 use super::{
     storage::{
-        make_account, make_account_with_balance, register_keyring_account, EventTest, TestStorage,
+        make_account, make_account_with_balance, make_account_without_cdd,
+        register_keyring_account, EventTest, TestStorage,
     },
     ExtBuilder,
 };
@@ -16,12 +17,13 @@ use frame_support::{
 };
 use frame_system::{EventRecord, Phase};
 use pallet_transaction_payment::ChargeTransactionPayment;
-use polymesh_primitives::traits::BlockRewardsReserveCurrency;
+use polymesh_primitives::{traits::BlockRewardsReserveCurrency, Claim};
 use sp_runtime::traits::SignedExtension;
 use test_client::AccountKeyring;
 
 pub type Balances = balances::Module<TestStorage>;
 pub type System = frame_system::Module<TestStorage>;
+type Identity = identity::Module<TestStorage>;
 type Origin = <TestStorage as frame_system::Trait>::Origin;
 type Error = balances::Error<TestStorage>;
 
@@ -414,8 +416,21 @@ fn check_top_up_identity_balance() {
         .execute_with(|| {
             let dave_pub = AccountKeyring::Dave.public();
             let dave_id = AccountKeyring::Dave.to_account_id();
-            let (signed_acc_id, acc_did) = make_account(dave_pub).unwrap();
+            let (signed_acc_id, acc_did) = make_account_without_cdd(dave_pub).unwrap();
             let old_total_issuance = Balances::total_issuance();
+
+            assert_err!(
+                Balances::top_up_identity_balance(signed_acc_id.clone(), acc_did, 300),
+                Error::ReceiverCddMissing
+            );
+
+            assert_ok!(Identity::add_claim(
+                Origin::signed(AccountKeyring::Ferdie.public()),
+                acc_did,
+                Claim::CustomerDueDiligence,
+                None
+            ));
+
             assert_ok!(Balances::top_up_identity_balance(
                 signed_acc_id.clone(),
                 acc_did,
