@@ -296,7 +296,7 @@ pallet_staking_reward_curve::build! {
 parameter_types! {
     pub const SessionsPerEra: sp_staking::SessionIndex = 3;
     pub const BondingDuration: pallet_staking::EraIndex = 7;
-    pub const SlashDeferDuration: pallet_staking::EraIndex = 7;
+    pub const SlashDeferDuration: pallet_staking::EraIndex = 4;
     pub const RewardCurve: &'static PiecewiseLinear<'static> = &REWARD_CURVE;
     pub const MaxNominatorRewardedPerValidator: u32 = 64;
 }

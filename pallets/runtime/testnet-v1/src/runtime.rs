@@ -289,7 +289,7 @@ parameter_types! {
     // 28 eras for unbonding (7 days).
     pub const BondingDuration: pallet_staking::EraIndex = 28;
     // 28 eras in which slashes can be cancelled (7 days).
-    pub const SlashDeferDuration: pallet_staking::EraIndex = 28;
+    pub const SlashDeferDuration: pallet_staking::EraIndex = 14;
     pub const RewardCurve: &'static PiecewiseLinear<'static> = &REWARD_CURVE;
     pub const MaxNominatorRewardedPerValidator: u32 = 64;
 }
