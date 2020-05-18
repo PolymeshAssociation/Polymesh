@@ -434,6 +434,7 @@ decl_module! {
         pub fn force_handle_bridge_tx(origin, bridge_tx: BridgeTx<T::AccountId, T::Balance>) -> DispatchResult {
             // NB: To avoid code duplication, this uses a hacky approach of temporarily whitelisting the did
             let sender = ensure_signed(origin)?;
+            ensure!(sender == &Self::admin(), Error::<T>::BadAdmin);
             Self::force_handle_signed_bridge_tx(&sender, bridge_tx)
         }
 
@@ -456,6 +457,7 @@ decl_module! {
             DispatchResult
         {
             let sender = ensure_signed(origin)?;
+            ensure!(sender == &Self::admin(), Error::<T>::BadAdmin);
             let mut failed_txs = Vec::new();
             for tx in bridge_txs {
                 if let Err(e) = Self::force_handle_signed_bridge_tx(&sender, tx.clone()) {
@@ -822,7 +824,6 @@ impl<T: Trait> Module<T> {
         bridge_tx: BridgeTx<T::AccountId, T::Balance>,
     ) -> DispatchResult {
         // NB: To avoid code duplication, this uses a hacky approach of temporarily whitelisting the did
-        ensure!(sender == &Self::admin(), Error::<T>::BadAdmin);
         if let Some(did) = T::CddChecker::get_key_cdd_did(&AccountKey::try_from(
             bridge_tx.recipient.clone().encode(),
         )?) {
