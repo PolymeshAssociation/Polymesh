@@ -22,7 +22,7 @@ pub struct IgnoredCaseString(Vec<u8>);
 
 impl IgnoredCaseString {
     /// It returns a reference to internal data.
-    pub fn as_vec(&self) -> &Vec<u8> {
+    pub fn as_slice(&self) -> &[u8] {
         &self.0
     }
 }
@@ -70,10 +70,10 @@ mod tests {
     #[test]
     fn from_with_upper_test() {
         let ics_from_str = IgnoredCaseString::from("lower case str");
-        assert_eq!(ics_from_str.as_vec().as_slice(), b"LOWER CASE STR");
+        assert_eq!(ics_from_str.as_slice(), b"LOWER CASE STR");
 
         let ics_from_u8 = IgnoredCaseString::from("lower case u8".as_bytes());
-        assert_eq!(ics_from_u8.as_vec().as_slice(), "LOWER CASE U8".as_bytes());
+        assert_eq!(ics_from_u8.as_slice(), "LOWER CASE U8".as_bytes());
     }
 
     #[test]
