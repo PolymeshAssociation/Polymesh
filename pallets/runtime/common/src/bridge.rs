@@ -181,6 +181,21 @@ pub struct BridgeTxDetail<Balance, BlockNumber> {
     pub tx_hash: H256,
 }
 
+/// The status of a handled transaction for reporting purposes.
+#[derive(Encode, Decode, Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
+pub enum HandledTxStatus {
+    /// The transaction has been successfully handled.
+    Success,
+    /// Handling the transaction has failed, with the encoding of the error.
+    Error(Vec<u8>),
+}
+
+impl Default for HandledTxStatus {
+    fn default() -> Self {
+        HandledTxStatus::Success
+    }
+}
+
 decl_error! {
     pub enum Error for Module<T: Trait> {
         /// The bridge controller address is not set.
@@ -328,9 +343,9 @@ decl_event! {
         /// Bridge limit has been updated
         BridgeLimitUpdated(IdentityId, Balance, BlockNumber),
         /// An event emitted after a vector of transactions is handled. The parameter is a vector of
-        /// nonces of failed transactions, each with its failure reason. If there are no failed
-        /// transactions then the vector has been successfully handled.
-        TxsHandled(Vec<(u32, Vec<u8>)>),
+        /// nonces of all processed transactions, each with either the "success" code 0 or its
+        /// failure reason (greater than 0).
+        TxsHandled(Vec<(u32, HandledTxStatus)>),
         /// Bridge Tx Scheduled
         BridgeTxScheduled(IdentityId, BridgeTx<AccountId, Balance>, BlockNumber),
     }
@@ -460,14 +475,11 @@ decl_module! {
         {
             let sender = ensure_signed(origin)?;
             ensure!(sender == Self::admin(), Error::<T>::BadAdmin);
-            let mut failed_txs = Vec::new();
-            for tx in bridge_txs {
-                let nonce = tx.nonce;
-                if let Err(e) = Self::force_handle_signed_bridge_tx(&sender, tx) {
-                    failed_txs.push((nonce, e.encode()));
-                }
-            }
-            Self::deposit_event(RawEvent::TxsHandled(failed_txs));
+            let stati = Self::apply_handler(
+                |tx| Self::force_handle_signed_bridge_tx(&sender, tx),
+                bridge_txs
+            );
+            Self::deposit_event(RawEvent::TxsHandled(stati));
             Ok(())
         }
 
@@ -534,14 +546,11 @@ decl_module! {
             DispatchResult
         {
             let sender = ensure_signed(origin)?;
-            let mut failed_txs = Vec::new();
-            for tx in bridge_txs {
-                let nonce = tx.nonce;
-                if let Err(e) = Self::handle_signed_bridge_tx(&sender, tx) {
-                    failed_txs.push((nonce, e.encode()));
-                }
-            }
-            Self::deposit_event(RawEvent::TxsHandled(failed_txs));
+            let stati = Self::apply_handler(
+                |tx| Self::handle_signed_bridge_tx(&sender, tx),
+                bridge_txs
+            );
+            Self::deposit_event(RawEvent::TxsHandled(stati));
             Ok(())
         }
 
@@ -833,7 +842,6 @@ impl<T: Trait> Module<T> {
 
     /// Forces handling a transaction by bypassing the bridge limit and timelock.
     fn force_handle_signed_bridge_tx(
-        sender: &T::AccountId,
         bridge_tx: BridgeTx<T::AccountId, T::Balance>,
     ) -> DispatchResult {
         // NB: To avoid code duplication, this uses a hacky approach of temporarily whitelisting the did
@@ -853,5 +861,28 @@ impl<T: Trait> Module<T> {
             return Err(Error::<T>::NoValidCdd.into());
         }
         Ok(())
+    }
+
+    /// Applies a handler `f` to a vector of transactions `bridge_txs` and outputs a vector of
+    /// processing results.
+    fn apply_handler<F>(
+        f: F,
+        bridge_txs: Vec<BridgeTx<T::AccountId, T::Balance>>,
+    ) -> Vec<(u32, HandledTxStatus)>
+    where
+        F: Fn(BridgeTx<T::AccountId, T::Balance>) -> DispatchResult,
+    {
+        let g = |tx: BridgeTx<T::AccountId, T::Balance>| {
+            let nonce = tx.nonce;
+            (
+                nonce,
+                if let Err(e) = f(tx) {
+                    HandledTxStatus::Error(e.encode())
+                } else {
+                    HandledTxStatus::Success
+                },
+            )
+        };
+        bridge_txs.into_iter().map(g).collect()
     }
 }
