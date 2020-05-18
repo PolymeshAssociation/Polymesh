@@ -106,7 +106,7 @@ use polymesh_common_utilities::{
 use polymesh_primitives::{
     AccountKey, AuthIdentifier, Authorization, AuthorizationData, AuthorizationError, Claim,
     ClaimType, Identity as DidRecord, IdentityClaim, IdentityId, Link, LinkData, Permission, Scope,
-    Signatory, SignatoryType, SigningItem, Ticker,
+    Signatory, SignatoryType, SigningItem, Ticker, JoinIdentityData
 };
 
 use codec::{Decode, Encode};
@@ -1198,51 +1198,51 @@ impl<T: Trait> Module<T> {
 
         let auth = <Authorizations<T>>::get(signer, auth_id);
 
-        let identity_to_join = match auth.authorization_data {
-            AuthorizationData::JoinIdentity(identity) => Ok(identity),
+        let identity_data_to_join = match auth.authorization_data {
+            AuthorizationData::JoinIdentity(data) => Ok(data),
             _ => Err(AuthorizationError::Invalid),
         }?;
 
         ensure!(
-            <DidRecords>::contains_key(&identity_to_join),
+            <DidRecords>::contains_key(&identity_data_to_join.target_did),
             "Identity does not exist"
         );
 
-        let master = Self::did_records(&identity_to_join).master_key;
+        let master = Self::did_records(&identity_data_to_join.target_did).master_key;
 
         Self::consume_auth(Signatory::from(master), signer, auth_id)?;
 
-        Self::unsafe_join_identity(identity_to_join, signer)
+        Self::unsafe_join_identity(identity_data_to_join, signer)
     }
 
     /// Joins an identity as signer
-    pub fn unsafe_join_identity(identity_to_join: IdentityId, signer: Signatory) -> DispatchResult {
+    pub fn unsafe_join_identity(identity_data_to_join: JoinIdentityData, signer: Signatory) -> DispatchResult {
         if let Signatory::AccountKey(key) = signer {
             if !Self::can_key_be_linked_to_did(&key, SignatoryType::External) {
                 ensure!(
-                    Self::get_identity(&key) == Some(identity_to_join),
+                    Self::get_identity(&key) == Some(identity_data_to_join.target_did),
                     Error::<T>::AlreadyLinked
                 )
             } else {
                 T::ProtocolFee::charge_fee(
-                    &Signatory::Identity(identity_to_join),
+                    &Signatory::Identity(identity_data_to_join.target_did),
                     ProtocolOp::IdentityAddSigningItem,
                 )?;
-                Self::link_key_to_did(&key, SignatoryType::External, identity_to_join);
+                Self::link_key_to_did(&key, SignatoryType::External, identity_data_to_join.target_did);
             }
         } else {
             T::ProtocolFee::charge_fee(
-                &Signatory::Identity(identity_to_join),
+                &Signatory::Identity(identity_data_to_join.target_did),
                 ProtocolOp::IdentityAddSigningItem,
             )?;
         }
-        <DidRecords>::mutate(identity_to_join, |identity| {
-            identity.add_signing_items(&[SigningItem::new(signer, vec![])]);
+        <DidRecords>::mutate(identity_data_to_join.target_did, |identity| {
+            identity.add_signing_items(&[SigningItem::new(signer, identity_data_to_join.permissions)]);
         });
 
         Self::deposit_event(RawEvent::SigningItemsAdded(
-            identity_to_join,
-            [SigningItem::new(signer, vec![])].to_vec(),
+            identity_data_to_join,
+            [SigningItem::new(signer, identity_data_to_join.permissions])].to_vec(),
         ));
 
         Ok(())
@@ -1904,7 +1904,6 @@ impl<T: Trait> Module<T> {
 
         // 2. Apply changes to our extrinsic.
         // 2.1. Link master key and add pre-authorized signing keys.
-        let join_auth_data = AuthorizationData::JoinIdentity(did);
         let master_key_signatory = Signatory::from(master_key);
         Self::link_key_to_did(&master_key, SignatoryType::External, did);
         let _auth_ids = signing_items
@@ -1913,7 +1912,10 @@ impl<T: Trait> Module<T> {
                 Self::add_auth(
                     master_key_signatory.clone(),
                     s_item.signer.clone(),
-                    join_auth_data.clone(),
+                    AuthorizationData::JoinIdentity(JoinIdentityData {
+                        did,
+                        s_item
+                    }),
                     None,
                 )
             })

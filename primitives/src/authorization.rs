@@ -87,8 +87,13 @@ pub struct Authorization<U> {
     pub auth_id: u64,
 }
 
+/// Authorization Identity data
+#[derive(Encode, Decode, Default, Clone, PartialEq, Eq, Debug, PartialOrd, Ord)]
 pub struct JoinIdentityData {
+    /// Target DID under which signing_item need to be added
     pub target_did: IdentityId,
+
+    /// Signing Item
     pub signing_item: SigningItem
 }
 
