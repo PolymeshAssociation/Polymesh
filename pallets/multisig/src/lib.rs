@@ -99,7 +99,7 @@ use polymesh_common_utilities::{
     Context,
 };
 use polymesh_primitives::{
-    AccountKey, AuthorizationData, AuthorizationError, IdentityId, Signatory,
+    AccountKey, AuthorizationData, AuthorizationError, IdentityId, Signatory, JoinIdentityData
 };
 use sp_runtime::traits::{Dispatchable, Hash};
 use sp_std::{convert::TryFrom, prelude::*};
@@ -506,7 +506,10 @@ decl_module! {
             );
             ensure!(<Identity<T>>::is_master_key(sender_did, &sender_key), Error::<T>::NotMasterKey);
             <Identity<T>>::unsafe_join_identity(
-                sender_did,
+                JoinIdentityData {
+                    target_did: sender_did,
+                    ..Default::default()
+                },
                 Signatory::from(AccountKey::try_from(multi_sig.encode())?)
             )
         }

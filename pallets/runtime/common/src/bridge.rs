@@ -112,7 +112,7 @@ use polymesh_common_utilities::{
     Context,
 };
 
-use polymesh_primitives::{AccountKey, IdentityId, Signatory};
+use polymesh_primitives::{AccountKey, IdentityId, Signatory, JoinIdentityData};
 use sp_core::H256;
 use sp_runtime::traits::{CheckedAdd, One, Zero};
 use sp_std::{convert::TryFrom, prelude::*};
@@ -245,7 +245,10 @@ decl_storage! {
                 config.signatures_required
             ).expect("cannot create the bridge multisig");
             <identity::Module<T>>::unsafe_join_identity(
-                creator_did.clone(),
+                JoinIdentityData {
+                    target_did: creator_did.clone(),
+                    ..Default::default()
+                },
                 Signatory::from(AccountKey::try_from(multisig_id.clone().encode()).unwrap())
             ).expect("cannot link the bridge multisig");
             multisig_id
