@@ -23,7 +23,7 @@
 //! Treasury balance is filled by fees of each operation, but it also accepts donations
 //! through [reimbursement](Module::reimbursement) method.
 //!
-//! The disbursement mechanism is designed to incentive Polymesh Improvement Proposals.
+//! The disbursement mechanism is designed to incentivize Polymesh Improvement Proposals.
 //!
 //! ## Dispatchable Functions
 //!
