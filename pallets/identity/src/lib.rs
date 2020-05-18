@@ -1237,12 +1237,12 @@ impl<T: Trait> Module<T> {
             )?;
         }
         <DidRecords>::mutate(identity_data_to_join.target_did, |identity| {
-            identity.add_signing_items(&[SigningItem::new(signer, identity_data_to_join.permissions)]);
+            identity.add_signing_items(&[SigningItem::new(signer, identity_data_to_join.signing_item.permissions)]);
         });
 
         Self::deposit_event(RawEvent::SigningItemsAdded(
-            identity_data_to_join,
-            [SigningItem::new(signer, identity_data_to_join.permissions])].to_vec(),
+            identity_data_to_join.target_did,
+            [SigningItem::new(signer, identity_data_to_join.signing_item.permissions)].to_vec(),
         ));
 
         Ok(())
@@ -1907,14 +1907,14 @@ impl<T: Trait> Module<T> {
         let master_key_signatory = Signatory::from(master_key);
         Self::link_key_to_did(&master_key, SignatoryType::External, did);
         let _auth_ids = signing_items
-            .iter()
+            .into_iter()
             .map(|s_item| {
                 Self::add_auth(
                     master_key_signatory.clone(),
                     s_item.signer.clone(),
                     AuthorizationData::JoinIdentity(JoinIdentityData {
-                        did,
-                        s_item
+                        target_did: did,
+                        signing_item: s_item
                     }),
                     None,
                 )
