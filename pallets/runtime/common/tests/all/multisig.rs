@@ -960,9 +960,14 @@ fn check_for_approval_closure() {
         ));
         let proposal_id = MultiSig::proposal_ids(musig_address.clone(), call).unwrap();
         Context::set_current_identity::<Identity>(Some(eve_did));
-        assert_err!(
-            MultiSig::approve_as_identity(eve.clone(), musig_address.clone(), proposal_id),
-            Error::ProposalAlreadyClosed
+        assert_ok!(MultiSig::approve_as_identity(
+            eve.clone(),
+            musig_address.clone(),
+            proposal_id
+        ),);
+        assert_eq!(
+            MultiSig::tx_approvals(&(musig_address.clone(), proposal_id)),
+            2
         );
     });
 }

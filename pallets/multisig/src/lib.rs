@@ -564,6 +564,9 @@ decl_event!(
         /// Event emitted when the number of required signatures is changed.
         /// Arguments: caller DID, multisig, new required signatures.
         MultiSigSignaturesRequiredChanged(IdentityId, AccountId, u64),
+        /// Event emitted when the proposal get approved.
+        /// Arguments: caller DID, multisig, authorized signer, proposal id.
+        ProposalApproved(IdentityId, AccountId, Signatory, u64),
     }
 );
 
@@ -605,9 +608,7 @@ decl_error! {
         /// Current DID is missing
         MissingCurrentIdentity,
         /// The function can only be called by the master key of the did
-        NotMasterKey,
-        /// Proposal already meet the required signer approvals
-        ProposalAlreadyClosed
+        NotMasterKey
     }
 }
 
@@ -737,15 +738,23 @@ impl<T: Trait> Module<T> {
             Error::<T>::AlreadyApproved
         );
         if let Some(proposal) = Self::proposals(&multisig_proposal) {
-            // Check whether the proposal is already closed or not.
-            ensure!(
-                !Self::is_proposal_closed(&multisig_proposal),
-                Error::<T>::ProposalAlreadyClosed
-            );
             <Votes<T>>::insert(&multisig_signer_proposal, true);
             // Since approvals are always only incremented by 1, they can not overflow.
             let approvals: u64 = Self::tx_approvals(&multisig_proposal) + 1u64;
             <TxApprovals<T>>::insert(&multisig_proposal, approvals);
+            let current_did = Context::current_identity::<Identity<T>>().unwrap_or_default();
+            // Emit ProposalApproved event
+            Self::deposit_event(RawEvent::ProposalApproved(
+                current_did,
+                multisig.clone(),
+                signer,
+                proposal_id,
+            ));
+            // Check whether the proposal is already closed or not, Instead of return an `Err`
+            // return `Ok(())`
+            if Self::is_proposal_closed(&multisig_proposal) {
+                return Ok(());
+            }
             let approvals_needed = Self::ms_signs_required(multisig.clone());
             if approvals >= approvals_needed {
                 let ms_key = AccountKey::try_from(multisig.clone().encode())?;
