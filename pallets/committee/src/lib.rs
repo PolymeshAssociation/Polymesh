@@ -181,6 +181,9 @@ decl_event!(
         /// Release coordinator has been updated.
         /// Parameters: caller DID, DID of the release coordinator.
         ReleaseCoordinatorUpdated(IdentityId, Option<IdentityId>),
+        /// Voting threshold has been updated
+        /// Parameters: caller DID, numerator, denominator
+        VoteThresholdUpdated(IdentityId, u32, u32),
     }
 );
 
@@ -232,11 +235,12 @@ decl_module! {
         #[weight = SimpleDispatchInfo::FixedOperational(500_000)]
         pub fn set_vote_threshold(origin, n: u32, d: u32) {
             T::CommitteeOrigin::ensure_origin(origin)?;
-
             // Proportion must be a rational number
             ensure!(d > 0 && n <= d, Error::<T, I>::InvalidProportion);
-
             <VoteThreshold<I>>::put((n, d));
+            let current_did = Context::current_identity::<Identity<T>>()
+                .unwrap_or(SystematicIssuers::Committee.as_id());
+            Self::deposit_event(RawEvent::VoteThresholdUpdated(current_did, n, d));
         }
 
         /// Any committee member proposes a dispatchable.
@@ -389,10 +393,10 @@ decl_module! {
         pub fn set_release_coordinator(origin, id: IdentityId ) {
             T::CommitteeOrigin::ensure_origin(origin)?;
             ensure!( Self::members().contains(&id), Error::<T, I>::MemberNotFound);
-
             <ReleaseCoordinator<I>>::put(id);
-            let caller_did = Context::current_identity::<Identity<T>>().ok_or_else(|| Error::<T, I>::MissingCurrentIdentity)?;
-            Self::deposit_event(RawEvent::ReleaseCoordinatorUpdated(caller_did, Some(id)));
+            let current_did = Context::current_identity::<Identity<T>>()
+                .unwrap_or(SystematicIssuers::Committee.as_id());
+            Self::deposit_event(RawEvent::ReleaseCoordinatorUpdated(current_did, Some(id)));
         }
     }
 }
