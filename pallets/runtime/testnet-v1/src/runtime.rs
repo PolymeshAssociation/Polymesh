@@ -79,8 +79,8 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     spec_name: create_runtime_str!("polymesh"),
     impl_name: create_runtime_str!("polymath-polymesh"),
     authoring_version: 1,
-    spec_version: 1003,
-    impl_version: 1003,
+    spec_version: 1004,
+    impl_version: 1004,
     apis: RUNTIME_API_VERSIONS,
 };
 
@@ -284,11 +284,12 @@ pallet_staking_reward_curve::build! {
 }
 
 parameter_types! {
-    // Six sessions in an era (24 hours).
+    // Six sessions in an era (6 hours).
     pub const SessionsPerEra: sp_staking::SessionIndex = 6;
-    // 28 eras for unbonding (28 days).
+    // 28 eras for unbonding (7 days).
     pub const BondingDuration: pallet_staking::EraIndex = 28;
-    pub const SlashDeferDuration: pallet_staking::EraIndex = 24 * 7; // 1/4 the bonding duration.
+    // 14 eras in which slashes can be cancelled (3.5 days).
+    pub const SlashDeferDuration: pallet_staking::EraIndex = 14;
     pub const RewardCurve: &'static PiecewiseLinear<'static> = &REWARD_CURVE;
     pub const MaxNominatorRewardedPerValidator: u32 = 64;
 }

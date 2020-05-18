@@ -362,8 +362,10 @@ decl_module! {
             #[compact] value: T::Balance
         ) -> DispatchResult {
             if value.is_zero() { return Ok(()) }
-
             let transactor = ensure_signed(origin)?;
+            // Check whether the receiver DID has valid cdd or not.
+            ensure!(T::Identity::has_valid_cdd(did), Error::<T>::ReceiverCddMissing);
+
             let negative_imbalance = <Self as Currency<_>>::withdraw(
                 &transactor,
                 value,
