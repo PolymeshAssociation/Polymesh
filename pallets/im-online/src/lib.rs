@@ -15,7 +15,7 @@
 // along with Substrate.  If not, see <http://www.gnu.org/licenses/>.
 
 // Modified by Polymath Inc - 23rd Febuary 2020
-// Added ability to update slashing parameters by introducing `set_slashing_params()` dispatchable
+// - Added ability to update slashing parameters by introducing `set_slashing_params()` dispatchable
 
 //! # I'm online Module
 //!
@@ -38,6 +38,9 @@
 //!
 //! ## Interface
 //!
+//! ### Dispatchable functions
+//! * [set_slashing_params](Module::set_slashing_params) - Set slashing params.
+//!
 //! ### Public Functions
 //!
 //! - `is_online` - True if the validator sent a heartbeat in the current session.
@@ -58,7 +61,6 @@
 //!         let _is_online = <im_online::Module<T>>::is_online(authority_index);
 //!         Ok(())
 //! 	}
-//! }
 //! }
 //! # fn main() { }
 //! ```
