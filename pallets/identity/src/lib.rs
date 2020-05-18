@@ -1077,7 +1077,7 @@ decl_module! {
             // 1.999. Charge the fee.
             T::ProtocolFee::charge_fee_batch(
                 &Signatory::AccountKey(sender_key),
-                ProtocolOp::IdentityAddSigningItem,
+                ProtocolOp::IdentityAddSigningItemsWithAuthorization,
                 additional_keys.len()
             )?;
             // 2.1. Link keys to identity
@@ -1226,14 +1226,14 @@ impl<T: Trait> Module<T> {
             } else {
                 T::ProtocolFee::charge_fee(
                     &Signatory::Identity(identity_to_join),
-                    ProtocolOp::IdentityAddSigningItem,
+                    ProtocolOp::IdentityAddSigningItemsWithAuthorization,
                 )?;
                 Self::link_key_to_did(&key, SignatoryType::External, identity_to_join);
             }
         } else {
             T::ProtocolFee::charge_fee(
                 &Signatory::Identity(identity_to_join),
-                ProtocolOp::IdentityAddSigningItem,
+                ProtocolOp::IdentityAddSigningItemsWithAuthorization,
             )?;
         }
         <DidRecords>::mutate(identity_to_join, |identity| {

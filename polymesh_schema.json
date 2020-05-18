@@ -434,7 +434,7 @@
             "_enum": [
                 "AssetRegisterTicker",
                 "AssetIssue",
-                "AssetAddDocument",
+                "AssetAddDocuments",
                 "AssetCreateAsset",
                 "DividendNew",
                 "ComplianceManagerAddActiveRule",
@@ -442,7 +442,7 @@
                 "IdentityCddRegisterDid",
                 "IdentityAddClaim",
                 "IdentitySetMasterKey",
-                "IdentityAddSigningItem",
+                "IdentityAddSigningItemsWithAuthorization",
                 "PipsPropose",
                 "VotingAddBallot"
             ]
