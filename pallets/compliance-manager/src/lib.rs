@@ -141,7 +141,9 @@ decl_error! {
         /// Issuer exist but trying to add it again
         IncorrectOperationOnTrustedIssuer,
         /// Missing current DID
-        MissingCurrentIdentity
+        MissingCurrentIdentity,
+        /// There are dulpicate asset rules.
+        DuplicateAssetRules,
     }
 }
 
@@ -203,6 +205,42 @@ decl_module! {
 
             Self::deposit_event(Event::AssetRuleRemoved(did, ticker, asset_rule_id));
 
+            Ok(())
+        }
+
+        /// Replaces asset rules of a ticker with new rules.
+        ///
+        /// # Arguments
+        /// * `ticker` - the asset ticker,
+        /// * `asset_rules - the new asset rules.
+        ///
+        /// # Errors
+        /// * `Unauthorized` if `origin` is not the owner of the ticker.
+        /// * `DuplicateAssetRules` if `asset_rules` contains multiple entries with the same `rule_id`.
+        ///
+        /// # Weight
+        /// `150_000 + 50_000 * asset_rules.len()`
+        #[weight = FunctionOf(
+            |(_, asset_rules): (
+                &Ticker,
+                &Vec<AssetTransferRule>,
+            )| {
+                150_000 + 50_000 * u32::try_from(asset_rules.len()).unwrap_or_default()
+            },
+            DispatchClass::Normal,
+            true
+        )]
+        pub fn replace_asset_rules(origin, ticker: Ticker, asset_rules: Vec<AssetTransferRule>) -> DispatchResult {
+            let sender_key = AccountKey::try_from(ensure_signed(origin)?.encode())?;
+            let did = Context::current_identity_or::<Identity<T>>(&sender_key)?;
+            ensure!(Self::is_owner(&ticker, did), Error::<T>::Unauthorized);
+            let mut asset_rules_dedup = asset_rules.clone();
+            asset_rules_dedup.dedup_by_key(|r| r.rule_id);
+            ensure!(asset_rules.len() == asset_rules_dedup.len(), Error::<T>::DuplicateAssetRules);
+            <AssetRulesMap>::mutate(&ticker, |old_asset_rules| {
+                old_asset_rules.rules = asset_rules_dedup
+            });
+            Self::deposit_event(Event::AssetRulesReplaced(did, ticker, asset_rules));
             Ok(())
         }
 
@@ -382,6 +420,9 @@ decl_event!(
         /// Emitted when asset rule is removed.
         /// (caller DID, Ticker, Asset_rule_id).
         AssetRuleRemoved(IdentityId, Ticker, u32),
+        /// Emitted when all asset rules of a ticker get replaced.
+        /// Parameters: caller DID, ticker, new asset rules.
+        AssetRulesReplaced(IdentityId, Ticker, Vec<AssetTransferRule>),
         /// Emitted when all asset rules of a ticker get reset.
         /// (caller DID, Ticker).
         AssetRulesReset(IdentityId, Ticker),

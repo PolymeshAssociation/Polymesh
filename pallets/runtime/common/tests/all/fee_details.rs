@@ -6,11 +6,12 @@ use super::{
 
 use codec::Encode;
 use frame_support::{assert_err, assert_ok, StorageDoubleMap};
+use frame_system;
 use pallet_balances as balances;
 use pallet_identity as identity;
 use pallet_multisig as multisig;
 use pallet_transaction_payment::CddAndFeeDetails;
-use polymesh_primitives::{AccountKey, Signatory, TransactionError};
+use polymesh_primitives::{AccountKey, Claim, Signatory, TransactionError};
 use polymesh_runtime_develop::{fee_details::CddHandler, runtime::Call};
 use sp_runtime::transaction_validity::InvalidTransaction;
 use std::convert::TryFrom;
@@ -42,11 +43,7 @@ fn cdd_checks() {
                 AccountKey::try_from(AccountKeyring::Charlie.public().encode()).unwrap(),
             );
             let charlie_did_signatory = Signatory::from(charlie_did);
-            assert_ok!(Balances::top_up_identity_balance(
-                alice_signed.clone(),
-                alice_did,
-                PROTOCOL_OP_BASE_FEE * 2
-            ));
+
             assert_ok!(Balances::top_up_identity_balance(
                 alice_signed.clone(),
                 charlie_did,
