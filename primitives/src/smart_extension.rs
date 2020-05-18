@@ -14,6 +14,7 @@
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
 use codec::{Decode, Encode};
+use polymesh_primitives_derive::VecU8StrongTyped;
 use sp_std::prelude::Vec;
 
 /// Smart Extension types
@@ -32,17 +33,10 @@ impl Default for SmartExtensionType {
 }
 
 /// A wrapper for a smart extension name.
-#[derive(Decode, Encode, Clone, Debug, Default, Hash, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(
+    Decode, Encode, Clone, Debug, Default, Hash, PartialEq, Eq, PartialOrd, Ord, VecU8StrongTyped,
+)]
 pub struct SmartExtensionName(pub Vec<u8>);
-
-impl<T: AsRef<[u8]>> From<T> for SmartExtensionName {
-    fn from(s: T) -> Self {
-        let s = s.as_ref();
-        let mut v = Vec::with_capacity(s.len());
-        v.extend_from_slice(s);
-        SmartExtensionName(v)
-    }
-}
 
 #[derive(Encode, Decode, Default, Clone, PartialEq, Debug)]
 /// U type refers to the AccountId which will act

@@ -183,13 +183,80 @@ fn should_add_and_verify_asset_rule_we() {
 }
 
 #[test]
+fn should_replace_asset_rules() {
+    ExtBuilder::default()
+        .build()
+        .execute_with(should_replace_asset_rules_we);
+}
+
+fn should_replace_asset_rules_we() {
+    let token_owner_acc = AccountKeyring::Alice.public();
+    let (token_owner_signed, token_owner_did) = make_account(token_owner_acc).unwrap();
+
+    // A token representing 1M shares
+    let token = SecurityToken {
+        name: vec![0x01].into(),
+        owner_did: token_owner_did,
+        total_supply: 1_000_000,
+        divisible: true,
+        asset_type: AssetType::default(),
+        ..Default::default()
+    };
+    let ticker = Ticker::try_from(token.name.0.as_slice()).unwrap();
+    Balances::make_free_balance_be(&token_owner_acc, 1_000_000);
+
+    // Share issuance is successful
+    assert_ok!(Asset::create_asset(
+        token_owner_signed.clone(),
+        token.name.clone(),
+        ticker,
+        token.total_supply,
+        true,
+        token.asset_type.clone(),
+        vec![],
+        None
+    ));
+
+    assert_ok!(ComplianceManager::add_active_rule(
+        token_owner_signed.clone(),
+        ticker,
+        vec![],
+        vec![]
+    ));
+
+    let asset_rules = ComplianceManager::asset_rules(ticker);
+    assert_eq!(asset_rules.rules.len(), 1);
+
+    // Create three rules with different rule IDs.
+    let new_asset_rules: Vec<AssetTransferRule> =
+        std::iter::repeat(|rule_id: u32| AssetTransferRule {
+            sender_rules: vec![],
+            receiver_rules: vec![],
+            rule_id,
+        })
+        .take(3)
+        .enumerate()
+        .map(|(n, f)| f(n as u32))
+        .collect();
+
+    assert_ok!(ComplianceManager::replace_asset_rules(
+        token_owner_signed.clone(),
+        ticker,
+        new_asset_rules.clone(),
+    ));
+
+    let asset_rules = ComplianceManager::asset_rules(ticker);
+    assert_eq!(asset_rules.rules, new_asset_rules);
+}
+
+#[test]
 fn should_reset_asset_rules() {
     ExtBuilder::default()
         .build()
-        .execute_with(should_reset_assetrules_we);
+        .execute_with(should_reset_asset_rules_we);
 }
 
-fn should_reset_assetrules_we() {
+fn should_reset_asset_rules_we() {
     let token_owner_acc = AccountKeyring::Alice.public();
     let (token_owner_signed, token_owner_did) = make_account(token_owner_acc).unwrap();
 

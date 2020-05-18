@@ -6,7 +6,8 @@ edition = "2018"
 
 [dependencies]
 # Common
-polymesh-primitives = { package = "polymesh-primitives", path = "../../primitives", default-features = false }
+polymesh-primitives = { path = "../../primitives", default-features = false }
+polymesh-primitives-derive = { path = "../../primitives_derive", default-features = false }
 
 # Our Pallets
 pallet-transaction-payment = { package = "pallet-transaction-payment", path = "../transaction-payment", default-features = false  }

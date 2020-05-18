@@ -83,6 +83,7 @@ use polymesh_common_utilities::{
     CommonTrait, Context, SystematicIssuers,
 };
 use polymesh_primitives::{AccountKey, Beneficiary, IdentityId, Signatory};
+use polymesh_primitives_derive::VecU8StrongTyped;
 use sp_core::H256;
 use sp_runtime::traits::{
     BlakeTwo256, CheckedAdd, CheckedSub, Dispatchable, EnsureOrigin, Hash, Saturating, Zero,
@@ -97,30 +98,16 @@ type BalanceOf<T> =
     <<T as Trait>::Currency as Currency<<T as frame_system::Trait>::AccountId>>::Balance;
 
 /// A wrapper for a proposal url.
-#[derive(Decode, Encode, Clone, Debug, Default, Hash, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(
+    Decode, Encode, Clone, Debug, Default, Hash, PartialEq, Eq, PartialOrd, Ord, VecU8StrongTyped,
+)]
 pub struct Url(pub Vec<u8>);
 
-impl<T: AsRef<[u8]>> From<T> for Url {
-    fn from(s: T) -> Self {
-        let s = s.as_ref();
-        let mut v = Vec::with_capacity(s.len());
-        v.extend_from_slice(s);
-        Url(v)
-    }
-}
-
 /// A wrapper for a proposal description.
-#[derive(Decode, Encode, Clone, Debug, Default, Hash, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(
+    Decode, Encode, Clone, Debug, Default, Hash, PartialEq, Eq, PartialOrd, Ord, VecU8StrongTyped,
+)]
 pub struct PipDescription(pub Vec<u8>);
-
-impl<T: AsRef<[u8]>> From<T> for PipDescription {
-    fn from(s: T) -> Self {
-        let s = s.as_ref();
-        let mut v = Vec::with_capacity(s.len());
-        v.extend_from_slice(s);
-        PipDescription(v)
-    }
-}
 
 /// Represents a proposal
 #[derive(Encode, Decode, Clone, PartialEq, Eq)]

@@ -53,6 +53,7 @@ use polymesh_common_utilities::{
     CommonTrait, Context,
 };
 use polymesh_primitives::{AccountKey, IdentityId, Signatory, Ticker};
+use polymesh_primitives_derive::VecU8StrongTyped;
 
 use codec::{Decode, Encode};
 use frame_support::{
@@ -69,30 +70,16 @@ pub trait Trait: pallet_timestamp::Trait + frame_system::Trait + IdentityTrait {
 }
 
 /// A wrapper for a motion title.
-#[derive(Decode, Encode, Clone, Debug, Default, Hash, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(
+    Decode, Encode, Clone, Debug, Default, Hash, PartialEq, Eq, PartialOrd, Ord, VecU8StrongTyped,
+)]
 pub struct MotionTitle(pub Vec<u8>);
 
-impl<T: AsRef<[u8]>> From<T> for MotionTitle {
-    fn from(s: T) -> Self {
-        let s = s.as_ref();
-        let mut v = Vec::with_capacity(s.len());
-        v.extend_from_slice(s);
-        MotionTitle(v)
-    }
-}
-
 /// A wrapper for a motion info link.
-#[derive(Decode, Encode, Clone, Debug, Default, Hash, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(
+    Decode, Encode, Clone, Debug, Default, Hash, PartialEq, Eq, PartialOrd, Ord, VecU8StrongTyped,
+)]
 pub struct MotionInfoLink(pub Vec<u8>);
-
-impl<T: AsRef<[u8]>> From<T> for MotionInfoLink {
-    fn from(s: T) -> Self {
-        let s = s.as_ref();
-        let mut v = Vec::with_capacity(s.len());
-        v.extend_from_slice(s);
-        MotionInfoLink(v)
-    }
-}
 
 /// Details about ballots
 #[derive(Encode, Decode, Default, Clone, PartialEq, Eq, Debug)]
