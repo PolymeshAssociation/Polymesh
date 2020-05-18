@@ -1771,7 +1771,7 @@ impl<T: Trait> Module<T> {
         Ok(())
     }
 
-    /// It checks that any sternal account can only be associated with at most one.
+    /// It checks that any external account can only be associated with at most one.
     /// Master keys are considered as external accounts.
     pub fn can_key_be_linked_to_did(key: &AccountKey, signer_type: SignatoryType) -> bool {
         if let Some(linked_key_info) = <KeyToIdentityIds>::get(key) {
@@ -1897,12 +1897,12 @@ impl<T: Trait> Module<T> {
             }
         }
 
-        // 1.999. Charge the given fee.
+        // 1.5. Charge the given fee.
         if let Some((payee, op)) = protocol_fee_data {
             T::ProtocolFee::charge_fee(payee, op)?;
         }
 
-        // 2. Apply changes to our extrinsics.
+        // 2. Apply changes to our extrinsic.
         // 2.1. Link master key and add pre-authorized signing keys.
         let join_auth_data = AuthorizationData::JoinIdentity(did);
         let master_key_signatory = Signatory::from(master_key);

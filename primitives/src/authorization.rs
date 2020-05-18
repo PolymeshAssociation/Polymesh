@@ -15,6 +15,7 @@
 
 use crate::identity_id::IdentityId;
 use crate::signing_item::Signatory;
+use crate::signing_item::SigningItem;
 use crate::Ticker;
 use codec::{Decode, Encode};
 use frame_support::dispatch::DispatchError;
@@ -33,7 +34,7 @@ pub enum AuthorizationData {
     /// Authorization to transfer a token's ownership
     TransferAssetOwnership(Ticker),
     /// Authorization to join an Identity
-    JoinIdentity(IdentityId),
+    JoinIdentity(JoinIdentityData),
     /// Any other authorization
     Custom(Ticker),
     /// No authorization data
@@ -84,6 +85,11 @@ pub struct Authorization<U> {
 
     /// Authorization id of this authorization
     pub auth_id: u64,
+}
+
+pub struct JoinIdentityData {
+    pub target_did: IdentityId,
+    pub signing_item: SigningItem
 }
 
 /// Data required to fetch and authorization
