@@ -452,7 +452,7 @@ decl_module! {
             // NB: To avoid code duplication, this uses a hacky approach of temporarily whitelisting the did
             let sender = ensure_signed(origin)?;
             ensure!(sender == Self::admin(), Error::<T>::BadAdmin);
-            Self::force_handle_signed_bridge_tx(&sender, bridge_tx)
+            Self::force_handle_signed_bridge_tx(bridge_tx)
         }
 
         /// Forces handling a vector of transactions by bypassing the bridge limit and timelock.
@@ -476,7 +476,7 @@ decl_module! {
             let sender = ensure_signed(origin)?;
             ensure!(sender == Self::admin(), Error::<T>::BadAdmin);
             let stati = Self::apply_handler(
-                |tx| Self::force_handle_signed_bridge_tx(&sender, tx),
+                |tx| Self::force_handle_signed_bridge_tx(tx),
                 bridge_txs
             );
             Self::deposit_event(RawEvent::TxsHandled(stati));
