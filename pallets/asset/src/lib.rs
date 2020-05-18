@@ -110,6 +110,7 @@ use polymesh_primitives::{
     AccountKey, AuthorizationData, AuthorizationError, Document, IdentityId, LinkData, Signatory,
     SmartExtension, SmartExtensionName, SmartExtensionType, Ticker,
 };
+use polymesh_primitives_derive::VecU8StrongTyped;
 
 use codec::{Decode, Encode};
 use core::result::Result as StdResult;
@@ -181,50 +182,20 @@ impl Default for IdentifierType {
 }
 
 /// A wrapper for a token name.
-#[derive(Decode, Encode, Clone, Debug, Default, Hash, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(
+    Decode, Encode, Clone, Debug, Default, Hash, PartialEq, Eq, PartialOrd, Ord, VecU8StrongTyped,
+)]
 pub struct AssetName(pub Vec<u8>);
 
-impl<T: AsRef<[u8]>> From<T> for AssetName {
-    fn from(s: T) -> Self {
-        let s = s.as_ref();
-        let mut v = Vec::with_capacity(s.len());
-        v.extend_from_slice(s);
-        AssetName(v)
-    }
-}
-
-impl AssetName {
-    /// Returns a reference to the token name.
-    pub fn as_slice(&self) -> &[u8] {
-        self.0.as_slice()
-    }
-}
-
 /// A wrapper for an asset ID.
-#[derive(Decode, Encode, Clone, Debug, Default, Hash, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(
+    Decode, Encode, Clone, Debug, Default, Hash, PartialEq, Eq, PartialOrd, Ord, VecU8StrongTyped,
+)]
 pub struct AssetIdentifier(pub Vec<u8>);
 
-impl<T: AsRef<[u8]>> From<T> for AssetIdentifier {
-    fn from(s: T) -> Self {
-        let s = s.as_ref();
-        let mut v = Vec::with_capacity(s.len());
-        v.extend_from_slice(s);
-        AssetIdentifier(v)
-    }
-}
-
 /// A wrapper for a funding round name.
-#[derive(Decode, Encode, Clone, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Decode, Encode, Clone, Debug, Hash, PartialEq, Eq, PartialOrd, Ord, VecU8StrongTyped)]
 pub struct FundingRoundName(pub Vec<u8>);
-
-impl<T: AsRef<[u8]>> From<T> for FundingRoundName {
-    fn from(s: T) -> Self {
-        let s = s.as_ref();
-        let mut v = Vec::with_capacity(s.len());
-        v.extend_from_slice(s);
-        FundingRoundName(v)
-    }
-}
 
 impl Default for FundingRoundName {
     fn default() -> Self {

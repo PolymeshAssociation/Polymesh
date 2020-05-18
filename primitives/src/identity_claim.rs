@@ -14,6 +14,8 @@
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
 use crate::{identity_id::IdentityId, Moment};
+use polymesh_primitives_derive::VecU8StrongTyped;
+
 use codec::{Decode, Encode};
 use sp_std::prelude::*;
 
@@ -117,17 +119,10 @@ impl Default for ClaimType {
 }
 
 /// A wrapper for Jurisdiction name.
-#[derive(Decode, Encode, Clone, Debug, Default, Hash, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(
+    Decode, Encode, Clone, Debug, Default, Hash, PartialEq, Eq, PartialOrd, Ord, VecU8StrongTyped,
+)]
 pub struct JurisdictionName(pub Vec<u8>);
-
-impl<T: AsRef<[u8]>> From<T> for JurisdictionName {
-    fn from(s: T) -> Self {
-        let s = s.as_ref();
-        let mut v = Vec::with_capacity(s.len());
-        v.extend_from_slice(s);
-        JurisdictionName(v)
-    }
-}
 
 /// All information of a particular claim
 #[derive(Encode, Decode, Clone, Default, PartialEq, Eq, Debug, PartialOrd, Ord)]
