@@ -886,3 +886,101 @@ fn add_multisig_signers_via_creator() {
         );
     });
 }
+
+#[test]
+fn check_for_approval_closure() {
+    ExtBuilder::default().build().execute_with(|| {
+        let alice_did = register_keyring_account(AccountKeyring::Alice).unwrap();
+        let eve_did = register_keyring_account(AccountKeyring::Eve).unwrap();
+        let alice = Origin::signed(AccountKeyring::Alice.public());
+        let eve = Origin::signed(AccountKeyring::Eve.public());
+        let bob = Origin::signed(AccountKeyring::Bob.public());
+        let bob_signer =
+            Signatory::from(AccountKey::try_from(AccountKeyring::Bob.public().encode()).unwrap());
+        let charlie = Origin::signed(AccountKeyring::Charlie.public());
+        let charlie_signer = Signatory::from(
+            AccountKey::try_from(AccountKeyring::Charlie.public().encode()).unwrap(),
+        );
+
+        let musig_address = MultiSig::get_next_multisig_address(AccountKeyring::Alice.public());
+
+        assert_ok!(MultiSig::create_multisig(
+            alice.clone(),
+            vec![Signatory::from(alice_did), Signatory::from(eve_did)],
+            1,
+        ));
+
+        let alice_auth_id =
+            <identity::Authorizations<TestStorage>>::iter_prefix(Signatory::from(alice_did))
+                .next()
+                .unwrap()
+                .auth_id;
+
+        Context::set_current_identity::<Identity>(Some(alice_did));
+        assert_ok!(MultiSig::accept_multisig_signer_as_identity(
+            alice.clone(),
+            alice_auth_id
+        ));
+
+        assert_eq!(
+            MultiSig::ms_signers(musig_address.clone(), Signatory::from(alice_did)),
+            true
+        );
+
+        let eve_auth_id =
+            <identity::Authorizations<TestStorage>>::iter_prefix(Signatory::from(eve_did))
+                .next()
+                .unwrap()
+                .auth_id;
+
+        Context::set_current_identity::<Identity>(Some(eve_did));
+        assert_ok!(MultiSig::accept_multisig_signer_as_identity(
+            eve.clone(),
+            eve_auth_id
+        ));
+
+        assert_eq!(
+            MultiSig::ms_signers(musig_address.clone(), Signatory::from(eve_did)),
+            true
+        );
+
+        assert_eq!(
+            MultiSig::ms_signers(musig_address.clone(), bob_signer),
+            false
+        );
+
+        let call = Box::new(Call::MultiSig(multisig::Call::add_multisig_signer(
+            bob_signer,
+        )));
+        Context::set_current_identity::<Identity>(Some(alice_did));
+        assert_ok!(MultiSig::create_proposal_as_identity(
+            alice.clone(),
+            musig_address.clone(),
+            call.clone()
+        ));
+        let proposal_id = MultiSig::proposal_ids(musig_address.clone(), call).unwrap();
+        let mut auth = <identity::Authorizations<TestStorage>>::iter_prefix(bob_signer);
+        let bob_auth_id = auth.next().unwrap().auth_id;
+        let multi_purpose_nonce = Identity::multi_purpose_nonce();
+
+        Context::set_current_identity::<Identity>(Some(eve_did));
+        assert_ok!(MultiSig::approve_as_identity(
+            eve.clone(),
+            musig_address.clone(),
+            proposal_id
+        ));
+        auth = <identity::Authorizations<TestStorage>>::iter_prefix(bob_signer);
+        let after_extra_approval_auth_id = auth.next().unwrap().auth_id;
+        let after_extra_approval_multi_purpose_nonce = Identity::multi_purpose_nonce();
+        // To validate that no new auth is created
+        assert_eq!(bob_auth_id, after_extra_approval_auth_id);
+        assert_eq!(
+            multi_purpose_nonce,
+            after_extra_approval_multi_purpose_nonce
+        );
+        assert_eq!(
+            MultiSig::tx_approvals(&(musig_address.clone(), proposal_id)),
+            2
+        );
+    });
+}

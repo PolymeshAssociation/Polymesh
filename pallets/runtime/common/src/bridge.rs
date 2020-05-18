@@ -109,7 +109,7 @@ use pallet_identity as identity;
 use pallet_multisig as multisig;
 use polymesh_common_utilities::{
     traits::{balances::CheckCdd, identity::Trait as IdentityTrait, CommonTrait},
-    Context,
+    Context, SystematicIssuers,
 };
 
 use polymesh_primitives::{AccountKey, IdentityId, Signatory};
@@ -326,6 +326,8 @@ decl_event! {
         WhiteListUpdated(IdentityId, IdentityId, bool),
         /// Bridge limit has been updated
         BridgeLimitUpdated(IdentityId, Balance, BlockNumber),
+        /// Bridge Tx Scheduled
+        BridgeTxScheduled(IdentityId, BridgeTx<AccountId, Balance>, BlockNumber),
     }
 }
 
@@ -636,7 +638,8 @@ impl<T: Trait> Module<T> {
             tx_details.status = BridgeTxStatus::Handled;
             tx_details.execution_block = <system::Module<T>>::block_number();
             <BridgeTxDetails<T>>::insert(&bridge_tx.recipient, &bridge_tx.nonce, tx_details);
-            let current_did = Context::current_identity::<Identity<T>>().unwrap_or_default();
+            let current_did = Context::current_identity::<Identity<T>>()
+                .unwrap_or(SystematicIssuers::Committee.as_id());
             Self::deposit_event(RawEvent::Bridged(current_did, bridge_tx));
         } else if !untrusted_manual_retry {
             // NB: If this was a manual retry, tx's automated retry schedule is not updated.
@@ -690,9 +693,17 @@ impl<T: Trait> Module<T> {
 
         tx_details.execution_block = unlock_block_number;
         <BridgeTxDetails<T>>::insert(&bridge_tx.recipient, &bridge_tx.nonce, tx_details);
-        <TimelockedTxs<T>>::mutate(unlock_block_number, |txs| {
-            txs.push(bridge_tx);
+        <TimelockedTxs<T>>::mutate(&unlock_block_number, |txs| {
+            txs.push(bridge_tx.clone());
         });
+        let current_did = Context::current_identity::<Identity<T>>()
+            .unwrap_or(SystematicIssuers::Committee.as_id());
+        Self::deposit_event(RawEvent::BridgeTxScheduled(
+            current_did,
+            bridge_tx,
+            unlock_block_number,
+        ));
+
         Ok(())
     }
 
