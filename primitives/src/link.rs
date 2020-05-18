@@ -16,9 +16,12 @@
 use crate::Document;
 use crate::Ticker;
 use codec::{Decode, Encode};
+#[cfg(feature = "std")]
+use serde::{Deserialize, Serialize};
 
-/// Authorization data for two step prcoesses.
+/// Authorization data for two step processes.
 #[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, PartialOrd, Ord)]
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 pub enum LinkData {
     /// Represents a document (name, URI, content_hash)
     DocumentOwned(Document),
@@ -38,6 +41,8 @@ impl Default for LinkData {
 
 /// Link struct. Connects an Identity to some data.
 #[derive(Encode, Decode, Default, Clone, PartialEq, Debug)]
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "std", serde(rename_all = "camelCase"))]
 pub struct Link<U> {
     /// Enum that contains the link data
     pub link_data: LinkData,

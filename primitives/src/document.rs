@@ -16,10 +16,13 @@
 //! Document type
 
 use codec::{Decode, Encode};
+#[cfg(feature = "std")]
+use serde::{Deserialize, Serialize};
 use sp_std::prelude::Vec;
 
 /// A wrapper for a document name.
 #[derive(Decode, Encode, Clone, Debug, Default, Hash, PartialEq, Eq, PartialOrd, Ord)]
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 pub struct DocumentName(pub Vec<u8>);
 
 impl<T: AsRef<[u8]>> From<T> for DocumentName {
@@ -33,6 +36,7 @@ impl<T: AsRef<[u8]>> From<T> for DocumentName {
 
 /// A wrapper for a document URI.
 #[derive(Decode, Encode, Clone, Debug, Default, Hash, PartialEq, Eq, PartialOrd, Ord)]
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 pub struct DocumentUri(pub Vec<u8>);
 
 impl<T: AsRef<[u8]>> From<T> for DocumentUri {
@@ -46,6 +50,7 @@ impl<T: AsRef<[u8]>> From<T> for DocumentUri {
 
 /// A wrapper for a document hash.
 #[derive(Decode, Encode, Clone, Debug, Default, Hash, PartialEq, Eq, PartialOrd, Ord)]
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 pub struct DocumentHash(pub Vec<u8>);
 
 impl<T: AsRef<[u8]>> From<T> for DocumentHash {
@@ -59,6 +64,8 @@ impl<T: AsRef<[u8]>> From<T> for DocumentHash {
 
 /// Represents a document associated with an asset
 #[derive(Decode, Encode, Clone, Debug, Default, Hash, PartialEq, Eq, PartialOrd, Ord)]
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "std", serde(rename_all = "camelCase"))]
 pub struct Document {
     /// Document name
     pub name: DocumentName,

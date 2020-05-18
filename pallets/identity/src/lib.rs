@@ -84,7 +84,7 @@
 #[cfg(feature = "runtime-benchmarks")]
 pub mod benchmarking;
 
-use pallet_identity_rpc_runtime_api::DidRecords as RpcDidRecords;
+use pallet_identity_rpc_runtime_api::{DidRecords as RpcDidRecords, LinkType};
 use pallet_transaction_payment::{CddAndFeeDetails, ChargeTxFee};
 use polymesh_common_utilities::{
     constants::{
@@ -2047,6 +2047,77 @@ impl<T: Trait> Module<T> {
             }
         } else {
             RpcDidRecords::IdNotFound
+        }
+    }
+
+    /// Use to get the filtered link data for a given signatory
+    /// - if link_type is None then return links data on the basis of the `allow_expired` boolean
+    /// - if link_type is Some(value) then return filtered links on the value basis type in conjunction
+    ///   with `allow_expired` boolean condition
+    pub fn get_filtered_links(
+        signatory: Signatory,
+        allow_expired: bool,
+        link_type: Option<LinkType>,
+    ) -> Vec<Link<T::Moment>> {
+        let now = <pallet_timestamp::Module<T>>::get();
+
+        if let Some(type_of_link) = link_type {
+            <Links<T>>::iter_prefix(signatory)
+                .filter(|link| {
+                    if !allow_expired {
+                        if let Some(expiry) = link.expiry {
+                            if expiry < now {
+                                return false;
+                            }
+                        }
+                    }
+                    match link.link_data {
+                        LinkData::DocumentOwned(..) => {
+                            if type_of_link == LinkType::DocumentOwnership {
+                                true
+                            } else {
+                                false
+                            }
+                        }
+                        LinkData::TickerOwned(..) => {
+                            if type_of_link == LinkType::TickerOwnership {
+                                true
+                            } else {
+                                false
+                            }
+                        }
+                        LinkData::AssetOwned(..) => {
+                            if type_of_link == LinkType::AssetOwnership {
+                                true
+                            } else {
+                                false
+                            }
+                        }
+                        LinkData::NoData => {
+                            if type_of_link == LinkType::NoData {
+                                true
+                            } else {
+                                false
+                            }
+                        }
+                    }
+                })
+                .map(|l| l)
+                .collect::<Vec<Link<T::Moment>>>()
+        } else {
+            <Links<T>>::iter_prefix(signatory)
+                .filter(|l| {
+                    if !allow_expired {
+                        if let Some(expiry) = l.expiry {
+                            if expiry < now {
+                                return false;
+                            }
+                        }
+                    }
+                    return true;
+                })
+                .map(|l| l)
+                .collect::<Vec<Link<T::Moment>>>()
         }
     }
 }
