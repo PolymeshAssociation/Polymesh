@@ -6,7 +6,8 @@ edition = "2018"
 
 [dependencies]
 polymesh-common-utilities = { package = "polymesh-common-utilities", path = "../common", default-features = false }
-polymesh-primitives = { package = "polymesh-primitives", path = "../../primitives", default-features = false }
+polymesh-primitives = { path = "../../primitives", default-features = false }
+polymesh-primitives-derive = { path = "../../primitives_derive", default-features = false }
 pallet-transaction-payment = { package = "pallet-transaction-payment", path = "../transaction-payment", default-features = false }
 
 serde = { version = "1.0.104", default-features = false }

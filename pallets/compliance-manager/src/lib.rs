@@ -15,31 +15,34 @@
 
 //! # Compliance Manager Module
 //!
-//! The Compliance Manager module provides functionality for setting whitelisting rules for transfers
+//! The Compliance Manager module provides functionality to set and evaluate a list of rules.
+//! Those rules define transfer restrictions for the sender and receiver. For instance, you can limit your asset to investors
+//! of specific jurisdictions.
+//!
 //!
 //! ## Overview
 //!
 //! The Compliance Manager module provides functions for:
 //!
-//! - Adding rules for allowing transfers
-//! - Removing rules that allow transfers
-//! - Resetting all rules
+//! - Adding rules for allowing transfers.
+//! - Removing rules that allow transfers.
+//! - Resetting all rules.
 //!
 //! ### Use case
 //!
 //! This module is very versatile and offers infinite possibilities.
 //! The rules can dictate various requirements like:
 //!
-//! - Only accredited investors should be able to trade
-//! - Only valid CDD holders should be able to trade
-//! - Only those with credit score of greater than 800 should be able to purchase this token
-//! - People from Wakanda should only be able to trade with people from Wakanda
-//! - People from Gryffindor should not be able to trade with people from Slytherin (But allowed to trade with anyone else)
-//! - Only marvel supporters should be allowed to buy avengers token
+//! - Only accredited investors should be able to trade.
+//! - Only valid CDD holders should be able to trade.
+//! - Only those with credit score of greater than 800 should be able to purchase this token.
+//! - People from "Wakanda" should only be able to trade with people from "Wakanda".
+//! - People from "Gryffindor" should not be able to trade with people from "Slytherin" (But allowed to trade with anyone else).
+//! - Only "Marvel" supporters should be allowed to buy "Avengers" token.
 //!
 //! ### Terminology
 //!
-//! - **Active rules:** It is an array of Asset rules that are currently enforced for a ticker
+//! - **Active rules:** It is an array of Asset rules that are currently enforced for a ticker.
 //! - **Asset rule:** Every asset rule contains an array for sender rules and an array for receiver rules
 //! - **sender rules:** These are rules that the sender of security tokens must follow
 //! - **receiver rules:** These are rules that the receiver of security tokens must follow
@@ -50,13 +53,26 @@
 //!
 //! ### Dispatchable Functions
 //!
-//! - `add_active_rule` - Adds a new asset rule to ticker's active rules
-//! - `remove_active_rule` - Removes an asset rule from ticker's active rules
-//! - `reset_active_rules` - Reset(remove) all active rules of a ticker
+//! - [add_active_rule](Module::add_active_rule) - Adds a new asset rule to ticker's active rules.
+//! - [remove_active_rule](Module::remove_active_rule) - Removes an asset rule from ticker's active rules.
+//! - [reset_active_rules](Module::reset_active_rules) - Resets(remove) all active rules of a ticker.
+//! - [pause_asset_rules](Module::pause_asset_rules) - Pauses the evaluation of the rules of a ticker before execute a
+//! transaction.
+//! - [resume_asset_rules](Module::resume_asset_rules) - Resumes a previous paused rules of a ticket.
+//! - [add_default_trusted_claim_issuer](Module::add_default_trusted_claim_issuer) - Adds a default
+//!  trusted claim issuer for a given asset.
+//!  - [add_default_trusted_claim_issuers_batch](Module::add_default_trusted_claim_issuers_batch) -
+//!  Adds a list of claim issuer to the default trusted claim issuers for a given asset.
+//! - [remove_default_trusted_claim_issuer](Module::remove_default_trusted_claim_issuer) - Removes
+//!  the default claim issuer.
+//! - [change_asset_rule](Module::change_asset_rule) - Updates an asset rule, based on its id.
+//! - [change_asset_rule_batch](Module::change_asset_rule_batch) - Updates a list of asset rules,
+//! based on its id for a given asset.
 //!
 //! ### Public Functions
 //!
-//! - `verify_restriction` - Checks if a transfer is a valid transfer and returns the result
+//! - [verify_restriction](Module::verify_restriction) - Checks if a transfer is a valid transfer and returns the result
+//!
 #![cfg_attr(not(feature = "std"), no_std)]
 #![recursion_limit = "256"]
 
@@ -99,8 +115,8 @@ pub trait Trait:
     type Asset: AssetTrait<Self::Balance, Self::AccountId>;
 }
 
-/// An asset rule.
-/// All sender and receiver rules of the same asset rule must be true for transfer to be valid
+/// An asset transfer rule.
+/// All sender and receiver rule of the same asset rule must be true in order to execute the transfer.
 #[derive(codec::Encode, codec::Decode, Default, Clone, PartialEq, Eq, Debug)]
 pub struct AssetTransferRule {
     pub sender_rules: Vec<Rule>,
@@ -109,9 +125,12 @@ pub struct AssetTransferRule {
     pub rule_id: u32,
 }
 
+/// List of rules associated to an asset.
 #[derive(codec::Encode, codec::Decode, Default, Clone, PartialEq, Eq, Debug)]
 pub struct AssetTransferRules {
+    /// This flag indicates if asset transfer rules are active or paused.
     pub is_paused: bool,
+    /// List of rules.
     pub rules: Vec<AssetTransferRule>,
 }
 
@@ -134,7 +153,7 @@ decl_error! {
         Unauthorized,
         /// Did not exist
         DidNotExist,
-        /// When param has length < 1
+        /// When parameter has length < 1
         InvalidLength,
         /// Rule id doesn't exist
         InvalidRuleId,
@@ -154,7 +173,8 @@ decl_module! {
 
         fn deposit_event() = default;
 
-        /// Adds an asset rule to active rules for a ticker
+        /// Adds an asset rule to active rules for a ticker.
+        /// If rules are duplicated, it does nothing.
         ///
         /// # Arguments
         /// * origin - Signer of the dispatchable. It should be the owner of the ticker
@@ -186,7 +206,7 @@ decl_module! {
             Ok(())
         }
 
-        /// Removes a rule from active asset rules
+        /// Removes a rule from asset rules.
         ///
         /// # Arguments
         /// * origin - Signer of the dispatchable. It should be the owner of the ticker
@@ -312,7 +332,7 @@ decl_module! {
             Self::modify_default_trusted_claim_issuer(origin, ticker, trusted_issuer, false)
         }
 
-        /// To add the default trusted claim issuer for a given asset
+        /// To add a list of default trusted claim issuers for a given asset
         /// Addition - When the given element is not exist
         ///
         /// # Arguments
@@ -445,6 +465,7 @@ decl_event!(
 );
 
 impl<T: Trait> Module<T> {
+    /// Returns true if `sender_did` is the owner of `ticker` asset.
     fn is_owner(ticker: &Ticker, sender_did: IdentityId) -> bool {
         T::Asset::is_owner(ticker, sender_did)
     }
@@ -465,6 +486,9 @@ impl<T: Trait> Module<T> {
     }
 
     /// It fetches the predicate context for target `id` and specific `rule`.
+    ///
+    /// If `rule` does not define trusted issuers, it will use the default trusted issuer for
+    /// `ticker` asset.
     fn fetch_context(ticker: &Ticker, id: IdentityId, rule: &Rule) -> predicate::Context {
         let issuers = if !rule.issuers.is_empty() {
             rule.issuers.clone()
@@ -497,7 +521,8 @@ impl<T: Trait> Module<T> {
         })
     }
 
-    pub fn pause_resume_rules(origin: T::Origin, ticker: Ticker, pause: bool) -> DispatchResult {
+    /// Pauses or resumes the asset rules.
+    fn pause_resume_rules(origin: T::Origin, ticker: Ticker, pause: bool) -> DispatchResult {
         let sender_key = AccountKey::try_from(ensure_signed(origin)?.encode())?;
         let did = Context::current_identity_or::<Identity<T>>(&sender_key)?;
 
@@ -510,6 +535,7 @@ impl<T: Trait> Module<T> {
         Ok(())
     }
 
+    /// Updates the default trusted claim issuer for a given ticket.
     fn unsafe_modify_default_trusted_claim_issuer(
         caller_did: IdentityId,
         ticker: Ticker,
