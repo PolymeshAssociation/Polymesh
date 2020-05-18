@@ -328,9 +328,9 @@ decl_event! {
         /// Bridge limit has been updated
         BridgeLimitUpdated(IdentityId, Balance, BlockNumber),
         /// An event emitted after a vector of transactions is handled. The parameter is a vector of
-        /// failed transactions, each with its failure reason. If there are no failed transactions
-        /// then the vector has been successfully handled.
-        TxsHandled(Vec<(BridgeTx<AccountId, Balance>, Vec<u8>)>),
+        /// nonces of failed transactions, each with its failure reason. If there are no failed
+        /// transactions then the vector has been successfully handled.
+        TxsHandled(Vec<(u32, Vec<u8>)>),
     }
 }
 
@@ -460,8 +460,9 @@ decl_module! {
             ensure!(sender == Self::admin(), Error::<T>::BadAdmin);
             let mut failed_txs = Vec::new();
             for tx in bridge_txs {
-                if let Err(e) = Self::force_handle_signed_bridge_tx(&sender, tx.clone()) {
-                    failed_txs.push((tx, e.encode()));
+                let nonce = tx.nonce;
+                if let Err(e) = Self::force_handle_signed_bridge_tx(&sender, tx) {
+                    failed_txs.push((nonce, e.encode()));
                 }
             }
             Self::deposit_event(RawEvent::TxsHandled(failed_txs));
@@ -533,8 +534,9 @@ decl_module! {
             let sender = ensure_signed(origin)?;
             let mut failed_txs = Vec::new();
             for tx in bridge_txs {
-                if let Err(e) = Self::handle_signed_bridge_tx(&sender, tx.clone()) {
-                    failed_txs.push((tx, e.encode()));
+                let nonce = tx.nonce;
+                if let Err(e) = Self::handle_signed_bridge_tx(&sender, tx) {
+                    failed_txs.push((nonce, e.encode()));
                 }
             }
             Self::deposit_event(RawEvent::TxsHandled(failed_txs));
