@@ -13,6 +13,23 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
+//! # Treasury Module
+//!
+//! Treasury module contains a couple of functions to manage the treasury through the governance
+//! module.
+//!
+//! ## Overview
+//!
+//! Treasury balance is filled by fees of each operation, but it also accepts donations
+//! through [reimbursement](Module::reimbursement) method.
+//!
+//! The disbursement mechanism is designed to incentivize Polymesh Improvement Proposals.
+//!
+//! ## Dispatchable Functions
+//!
+//! - [disbursement](Module::disbursement) - Transfers from the treasury to the given benericiaries.
+//! - [reimbursement](Module::reimbursement) - Transfers to the treasury.
+//!
 #![cfg_attr(not(feature = "std"), no_std)]
 #![recursion_limit = "256"]
 
@@ -165,6 +182,7 @@ impl<T: Trait> TreasuryTrait<BalanceOf<T>> for Module<T> {
     }
 }
 
+/// That trait implementation is needed to receive a portion of the fees from transactions.
 impl<T: Trait> OnUnbalanced<NegativeImbalanceOf<T>> for Module<T> {
     fn on_nonzero_unbalanced(amount: NegativeImbalanceOf<T>) {
         let numeric_amount = amount.peek();
