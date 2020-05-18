@@ -589,7 +589,8 @@
                         "type": "Hash",
                         "isOptional": true
                     }
-                ]
+                ],
+                "type": "Vec<Link<Moment>>"
             }
         },
         "pips":{
