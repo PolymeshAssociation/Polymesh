@@ -170,3 +170,72 @@ pub struct Beneficiary<Balance> {
     /// Amount requested to this beneficiary.
     pub amount: Balance,
 }
+
+#[cfg(test)]
+mod tests {
+    use polymesh_primitives_derive::{SliceU8StrongTyped, VecU8StrongTyped};
+
+    #[derive(VecU8StrongTyped)]
+    struct A(Vec<u8>);
+    #[derive(VecU8StrongTyped)]
+    struct B(Vec<u8>);
+
+    #[derive(Default, SliceU8StrongTyped)]
+    struct C([u8; 16]);
+    #[derive(Default, SliceU8StrongTyped)]
+    struct D([u8; 16]);
+
+    #[test]
+    fn vec_strong_typed() {
+        let text1 = &b"Lorem Ipsum ";
+        let text2 = &b"dolor sit amet";
+        // let text3 = &b"Lorem Ipsum dolor sit amet";
+
+        // From traits.
+        let mut a1 = A::from(text1);
+        let a2: A = text1.into();
+        let _b1 = B::from(text2.to_vec());
+        let _b2: B = text2.to_vec().into();
+
+        // Deref & DerefMut
+        assert_eq!(*a1, text1[..]);
+        a1[6] = b'i';
+        assert_eq!(a1.as_slice(), &b"Lorem ipsum "[..]);
+
+        // Other methods.
+        assert_eq!(a2.len(), text1.len());
+        assert_eq!(a2.as_slice(), &text1[..]);
+        assert_eq!(a2.as_vec().clone(), text1.to_vec());
+
+        // Strong types are not equal.
+        // The below line does NOT compile.
+        // let a3 :A = _b1;
+    }
+
+    #[test]
+    fn slice_strong_typed() {
+        let text1 = &b"lorem Ipsum ";
+        let text2 = &b"dolor sit amet";
+        // let text3 = &b"Lorem Ipsum dolor sit amet";
+
+        // From traits.
+        let mut c1 = C::from(text1);
+        let c2: C = text1.into();
+        let _d1 = D::from(text2.to_vec());
+        let _d2: D = text2.to_vec().into();
+
+        // Deref & DerefMut
+        let text1_with_zeros = &b"lorem Ipsum \0\0\0\0";
+        assert_eq!(*c1, text1_with_zeros[..]);
+        c1[6] = b'i';
+        assert_eq!(c1.as_slice(), &b"lorem ipsum \0\0\0\0"[..]);
+
+        // Other methods.
+        assert_eq!(c2.len(), text1_with_zeros.len());
+        assert_eq!(c2.as_slice(), &text1_with_zeros[..]);
+
+        // Strong types are not equal.
+        // The below line does NOT compile.
+        // let c3 :C = _d1;
+    }
+}
