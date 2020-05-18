@@ -590,7 +590,7 @@
                         "isOptional": true
                     }
                 ],
-                "type": "Vec<Link<Moment>>"
+                "type": "Vec<Link>"
             }
         },
         "pips":{
