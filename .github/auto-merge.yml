@@ -1,5 +1,5 @@
 minApprovals:
-  MEMBER: 2
+  MEMBER: 1
 
 maxRequestedChanges:
   COLLABORATOR: 0
