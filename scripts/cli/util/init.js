@@ -397,6 +397,29 @@ async function generateOffchainKeys(api, keyType) {
   await api.rpc.author.insertKey(keyType, PHRASE, u8aToHex(newPair.publicKey));
 }
 
+// Creates a Signatory Object
+async function signatory(api, entity, signer) {
+  let entityKey = entity.publicKey;
+  let entityDid = await createIdentities(api, [entity], signer);
+  
+  let signatoryObj = {
+      "Identity": entityDid,
+      "AccountKey": entityKey
+  }
+  return signatoryObj;
+}
+
+// Creates a multiSig Key
+async function createMultiSig( api, alice, dids, numOfSigners ) {
+
+  let nonceObj = {nonce: nonces.get(alice.address)};
+  const transaction = api.tx.multiSig.createMultisig(dids, numOfSigners);
+  await sendTransaction(transaction, alice, nonceObj);  
+  
+  nonces.set(alice.address, nonces.get(alice.address).addn(1));
+
+}
+
 async function jumpLightYears() {
 
   await api.tx.timestamp.set()
@@ -434,7 +457,9 @@ let reqImports = {
   signAndSendTransaction,
   distributePolyBatch,
   createIdentitiesWithExpiry,
-  generateOffchainKeys
+  generateOffchainKeys,
+  signatory,
+  createMultiSig
 };
 
 export { reqImports };
