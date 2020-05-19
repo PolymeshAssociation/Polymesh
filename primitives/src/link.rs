@@ -53,3 +53,33 @@ pub struct Link<U> {
     /// Link id of this link
     pub link_id: u64,
 }
+
+#[cfg(test)]
+mod tests {
+
+    use super::*;
+    use crate::Moment;
+    use frame_support::assert_err;
+    use std::convert::TryFrom;
+
+    #[test]
+    fn serialize_and_deserialize_link() {
+        let link_to_serialize = Link::<Moment> {
+            link_data: LinkData::DocumentOwned(Document {
+                name: b"abc".into(),
+                uri: b"abc.com".into(),
+                content_hash: b"hash".into()
+            }),
+            expiry: None,
+            link_id: 5
+        };
+        let serialize_link = serde_json::to_string(&link_to_serialize).unwrap();
+        let serialize_data = "{\"linkData\":{\"DocumentOwned\":{\"name\":[97,98,99],\"uri\":[97,98,99,46,99,111,109],\"contentHash\":[104,97,115,104]}},\"expiry\":null,\"linkId\":5}";
+        assert_eq!(serialize_link, serialize_data);
+        println!("Serialize link: {:?}", serialize_link);
+        let deserialize_data = serde_json::from_str::<Link<Moment>>(&serialize_link).unwrap();
+        println!("Print the deserialize data {:?}", deserialize_data);
+        assert_eq!(link_to_serialize, deserialize_data);
+    }
+
+}
