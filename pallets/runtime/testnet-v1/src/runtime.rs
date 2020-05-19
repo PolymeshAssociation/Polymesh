@@ -837,6 +837,18 @@ impl_runtime_apis! {
         }
     }
 
+    impl pallet_compliance_manager_rpc_runtime_api::ComplianceManagerApi<Block, AccountId, Balance> for Runtime {
+        #[inline]
+        fn can_transfer(
+            ticker: Ticker,
+            from_did: Option<IdentityId>,
+            to_did: Option<IdentityId>,
+        ) -> Vec<bool>
+        {
+            ComplianceManager::granular_verify_restriction(&ticker, from_did, to_did)
+        }
+    }
+
     impl pallet_group_rpc_runtime_api::GroupApi<Block> for Runtime {
         fn get_cdd_valid_members() -> Vec<pallet_group_rpc_runtime_api::Member> {
             merge_active_and_inactive::<Block>(

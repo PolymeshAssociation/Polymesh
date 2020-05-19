@@ -640,7 +640,7 @@ impl<T: Trait> Module<T> {
     /// verifies all rules and returns the result in an array of bools.
     /// this does not care if the rules are paused or not. It is meant to be
     /// called only in failure conditions (rules active)
-    fn granular_verify_restriction(
+    pub fn granular_verify_restriction(
         ticker: &Ticker,
         from_did_opt: Option<IdentityId>,
         to_did_opt: Option<IdentityId>,
