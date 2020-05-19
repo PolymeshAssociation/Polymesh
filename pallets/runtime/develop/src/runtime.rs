@@ -16,6 +16,7 @@ use pallet_asset as asset;
 use pallet_balances as balances;
 use pallet_committee as committee;
 use pallet_compliance_manager as compliance_manager;
+use pallet_confidential as confidential;
 use pallet_group as group;
 use pallet_identity as identity;
 use pallet_multisig as multisig;
@@ -523,6 +524,10 @@ impl group::Trait<group::Instance2> for Runtime {
 
 impl statistics::Trait for Runtime {}
 
+impl confidential::Trait for Runtime {
+    type Event = Event;
+}
+
 /// A runtime transaction submitter for the cdd_offchain_worker
 // Comment it in the favour of Testnet v1 release
 //type SubmitTransactionCdd = TransactionSubmitter<CddOffchainWorkerId, Runtime, UncheckedExtrinsic>;
@@ -648,6 +653,7 @@ construct_runtime!(
         ProtocolFee: protocol_fee::{Module, Call, Storage, Event<T>, Config<T>},
         // Comment it in the favour of Testnet v1 release
         // CddOffchainWorker: pallet_cdd_offchain_worker::{Module, Call, Storage, ValidateUnsigned, Event<T>}
+        Confidential: confidential::{Module, Call, Storage, Event },
     }
 );
 
