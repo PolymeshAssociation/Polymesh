@@ -497,6 +497,15 @@ impl<T: Trait> Module<T> {
         })
     }
 
+    /// It loads a context for each rule in `rules` and evaluates them.
+    /// It returns a vector of bool as the result of the rules.
+    fn evaluate_rules(ticker: &Ticker, did: IdentityId, rules: Vec<Rule>) -> Vec<bool> {
+        rules.iter().map(|rule| {
+            let context = Self::fetch_context(ticker, did, &rule);
+            predicate::run(*rule, &context)
+        }).collect::<Vec<bool>>()
+    }
+
     pub fn pause_resume_rules(origin: T::Origin, ticker: Ticker, pause: bool) -> DispatchResult {
         let sender_key = AccountKey::try_from(ensure_signed(origin)?.encode())?;
         let did = Context::current_identity_or::<Identity<T>>(&sender_key)?;
@@ -623,6 +632,33 @@ impl<T: Trait> Module<T> {
             true => Self::asset_rules(ticker).rules[length - 1].rule_id,
             false => 0u32,
         }
+    }
+
+    /// verifies all rules and returns the result in an array of bools.
+    /// this does not check if the rules are paused or not. It is meant to be
+    /// called only in failure conditions (rules active)
+    fn granular_verify_restriction(
+        ticker: &Ticker,
+        from_did_opt: Option<IdentityId>,
+        to_did_opt: Option<IdentityId>,
+    ) -> Vec<bool> {
+        let asset_rules = Self::asset_rules(ticker);
+        let mut result = Vec::new();
+        for active_rule in asset_rules.rules {
+            if let Some(from_did) = from_did_opt {
+                result.append(&mut Self::evaluate_rules(ticker, from_did, active_rule.sender_rules));
+            } else {
+                result.resize(result.len() +  active_rule.sender_rules.len(), true);
+            }
+
+            if let Some(to_did) = to_did_opt {
+                result.append(&mut Self::evaluate_rules(ticker, to_did, active_rule.receiver_rules));
+            } else {
+                result.resize(result.len() +  active_rule.receiver_rules.len(), true);
+            }
+        }
+
+        result
     }
 }
 
