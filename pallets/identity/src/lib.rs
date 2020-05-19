@@ -752,7 +752,7 @@ decl_module! {
         ) -> DispatchResult {
             let sender_key = AccountKey::try_from(ensure_signed(origin)?.encode())?;
             let from_did = Context::current_identity_or::<Self>(&sender_key)?;
-
+            ensure!(Self::is_auth_data_valid(&target, &authorization_data), Error::<T>::SignerNotMatchWithAuthData);
             Self::add_auth(Signatory::from(from_did), target, authorization_data, expiry);
 
             Ok(())
@@ -768,7 +768,7 @@ decl_module! {
             expiry: Option<T::Moment>
         ) -> DispatchResult {
             let sender_key = AccountKey::try_from(ensure_signed(origin)?.encode())?;
-
+            ensure!(Self::is_auth_data_valid(&target, &authorization_data), Error::<T>::SignerNotMatchWithAuthData);
             Self::add_auth(Signatory::from(sender_key), target, authorization_data, expiry);
 
             Ok(())
@@ -794,10 +794,17 @@ decl_module! {
             let sender_key = AccountKey::try_from(ensure_signed(origin)?.encode())?;
             let from_did = Context::current_identity_or::<Self>(&sender_key)?;
 
-            for auth in auths {
+            let valid_auths = auths.clone().into_iter().filter(|a| Self::is_auth_data_valid(&a.0, &a.1)).collect::<Vec<(Signatory, AuthorizationData, Option<T::Moment>)>>();
+            let invalid_auths = if valid_auths.len() != auths.len() {
+                auths.into_iter().filter(|a| !Self::is_auth_data_valid(&a.0, &a.1)).collect::<Vec<(Signatory, AuthorizationData, Option<T::Moment>)>>()
+            } else {
+                vec![]
+            };
+
+            for auth in valid_auths {
                 Self::add_auth(Signatory::from(from_did), auth.0, auth.1, auth.2);
             }
-
+            Self::deposit_event(RawEvent::BatchAuthAdded(from_did, invalid_auths));
             Ok(())
         }
 
@@ -1183,8 +1190,10 @@ decl_error! {
         DidAlreadyExists,
         /// The signing keys contain the master key.
         SigningKeysContainMasterKey,
-        /// Couldn't charge fee for the transaction
+        /// Couldn't charge fee for the transaction.
         FailedToChargeFee,
+        /// When Signer of Auth data doesn't match with the target signer.
+        SignerNotMatchWithAuthData
     }
 }
 
@@ -1244,23 +1253,32 @@ impl<T: Trait> Module<T> {
             )?;
         }
         // Access the permission
-        // if sg_item is present then return list of permission applied on signing key
-        // else return empty array of permissions
-        let sg_item_permissions = match identity_data_to_join.signing_item {
-            Some(sg_item) => sg_item.permissions,
-            None => vec![],
+        // if sg_item is present then return the sg_item
+        // else create the SigningItem with empty permission
+        let sg_item = match identity_data_to_join.signing_item {
+            Some(sg_item) => sg_item,
+            None => SigningItem::new(signer, vec![]),
         };
 
         <DidRecords>::mutate(identity_data_to_join.target_did, |identity| {
-            identity.add_signing_items(&[SigningItem::new(signer, sg_item_permissions.clone())]);
+            identity.add_signing_items(&[sg_item.clone()]);
         });
 
         Self::deposit_event(RawEvent::SigningItemsAdded(
             identity_data_to_join.target_did,
-            [SigningItem::new(signer, sg_item_permissions)].to_vec(),
+            [sg_item].to_vec(),
         ));
 
         Ok(())
+    }
+
+    pub fn is_auth_data_valid(target: &Signatory, authorization_data: &AuthorizationData) -> bool {
+        if let AuthorizationData::JoinIdentity(identity_data_to_join) = authorization_data {
+            if let Some(sg_item) = &identity_data_to_join.signing_item {
+                return &sg_item.signer == target;
+            }
+        }
+        true
     }
 
     /// Adds an authorization.

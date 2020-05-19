@@ -214,6 +214,10 @@ decl_event!(
 
         /// All Signing keys of the identity ID are unfrozen.
         SigningKeysUnfrozen(IdentityId),
+
+        /// Authorization added in batch.
+        /// Arguments: caller DID, Invalid authorization data
+        BatchAuthAdded(IdentityId, Vec<(Signatory, AuthorizationData, Option<Moment>)>),
     }
 );
 
