@@ -94,7 +94,7 @@ pub struct JoinIdentityData {
     pub target_did: IdentityId,
 
     /// Signing Item
-    pub signing_item: SigningItem
+    pub signing_item: Option<SigningItem>,
 }
 
 /// Data required to fetch and authorization

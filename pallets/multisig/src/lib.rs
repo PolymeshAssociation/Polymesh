@@ -99,7 +99,7 @@ use polymesh_common_utilities::{
     Context,
 };
 use polymesh_primitives::{
-    AccountKey, AuthorizationData, AuthorizationError, IdentityId, Signatory, JoinIdentityData
+    AccountKey, AuthorizationData, AuthorizationError, IdentityId, JoinIdentityData, Signatory,
 };
 use sp_runtime::traits::{Dispatchable, Hash};
 use sp_std::{convert::TryFrom, prelude::*};
@@ -510,7 +510,7 @@ decl_module! {
             <Identity<T>>::unsafe_join_identity(
                 JoinIdentityData {
                     target_did: sender_did,
-                    ..Default::default()
+                    signing_item: None  // so signing item added
                 },
                 Signatory::from(AccountKey::try_from(multi_sig.encode())?)
             )

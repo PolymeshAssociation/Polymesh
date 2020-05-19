@@ -105,8 +105,8 @@ use polymesh_common_utilities::{
 };
 use polymesh_primitives::{
     AccountKey, AuthIdentifier, Authorization, AuthorizationData, AuthorizationError, Claim,
-    ClaimType, Identity as DidRecord, IdentityClaim, IdentityId, Link, LinkData, Permission, Scope,
-    Signatory, SignatoryType, SigningItem, Ticker, JoinIdentityData
+    ClaimType, Identity as DidRecord, IdentityClaim, IdentityId, JoinIdentityData, Link, LinkData,
+    Permission, Scope, Signatory, SignatoryType, SigningItem, Ticker,
 };
 
 use codec::{Decode, Encode};
@@ -1216,7 +1216,10 @@ impl<T: Trait> Module<T> {
     }
 
     /// Joins an identity as signer
-    pub fn unsafe_join_identity(identity_data_to_join: JoinIdentityData, signer: Signatory) -> DispatchResult {
+    pub fn unsafe_join_identity(
+        identity_data_to_join: JoinIdentityData,
+        signer: Signatory,
+    ) -> DispatchResult {
         if let Signatory::AccountKey(key) = signer {
             if !Self::can_key_be_linked_to_did(&key, SignatoryType::External) {
                 ensure!(
@@ -1228,7 +1231,11 @@ impl<T: Trait> Module<T> {
                     &Signatory::Identity(identity_data_to_join.target_did),
                     ProtocolOp::IdentityAddSigningItemsWithAuthorization,
                 )?;
-                Self::link_key_to_did(&key, SignatoryType::External, identity_data_to_join.target_did);
+                Self::link_key_to_did(
+                    &key,
+                    SignatoryType::External,
+                    identity_data_to_join.target_did,
+                );
             }
         } else {
             T::ProtocolFee::charge_fee(
@@ -1236,13 +1243,21 @@ impl<T: Trait> Module<T> {
                 ProtocolOp::IdentityAddSigningItemsWithAuthorization,
             )?;
         }
+        // Access the permission
+        // if sg_item is present then return list of permission applied on signing key
+        // else return empty array of permissions
+        let sg_item_permissions = match identity_data_to_join.signing_item {
+            Some(sg_item) => sg_item.permissions,
+            None => vec![],
+        };
+
         <DidRecords>::mutate(identity_data_to_join.target_did, |identity| {
-            identity.add_signing_items(&[SigningItem::new(signer, identity_data_to_join.signing_item.permissions.clone())]);
+            identity.add_signing_items(&[SigningItem::new(signer, sg_item_permissions.clone())]);
         });
 
         Self::deposit_event(RawEvent::SigningItemsAdded(
             identity_data_to_join.target_did,
-            [SigningItem::new(signer, identity_data_to_join.signing_item.permissions)].to_vec(),
+            [SigningItem::new(signer, sg_item_permissions)].to_vec(),
         ));
 
         Ok(())
@@ -1915,7 +1930,7 @@ impl<T: Trait> Module<T> {
                     s_item.signer.clone(),
                     AuthorizationData::JoinIdentity(JoinIdentityData {
                         target_did: did,
-                        signing_item: s_item
+                        signing_item: Some(s_item),
                     }),
                     None,
                 )

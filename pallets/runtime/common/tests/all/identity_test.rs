@@ -16,7 +16,8 @@ use polymesh_common_utilities::{
 };
 use polymesh_primitives::{
     AccountKey, AuthorizationData, AuthorizationError, Claim, ClaimType, IdentityClaim, IdentityId,
-    LinkData, Permission, Scope, Signatory, SigningItem, Ticker, TransactionError,
+    JoinIdentityData, LinkData, Permission, Scope, Signatory, SigningItem, Ticker,
+    TransactionError,
 };
 use polymesh_runtime_develop::{fee_details::CddHandler, runtime::Call};
 
@@ -569,7 +570,10 @@ fn enforce_uniqueness_keys_in_identity() {
     let auth_id = Identity::add_auth(
         Signatory::from(AccountKey::from(AccountKeyring::Alice.public().0)),
         Signatory::from(AccountKey::from(AccountKeyring::Bob.public().0)),
-        AuthorizationData::JoinIdentity(alice_id),
+        AuthorizationData::JoinIdentity(JoinIdentityData {
+            target_did: alice_id,
+            signing_item: None,
+        }),
         None,
     );
     assert_err!(
@@ -1099,7 +1103,10 @@ fn add_identity_signers() {
         let auth_id_for_id_to_id = Identity::add_auth(
             alice_identity_signer,
             bob_identity_signer,
-            AuthorizationData::JoinIdentity(alice_did),
+            AuthorizationData::JoinIdentity(JoinIdentityData {
+                target_did: alice_did,
+                signing_item: None,
+            }),
             None,
         );
 
@@ -1111,7 +1118,10 @@ fn add_identity_signers() {
         let auth_id_for_acc_to_id = Identity::add_auth(
             alice_acc_signer,
             bob_identity_signer,
-            AuthorizationData::JoinIdentity(alice_did),
+            AuthorizationData::JoinIdentity(JoinIdentityData {
+                target_did: alice_did,
+                signing_item: None,
+            }),
             None,
         );
 
@@ -1128,7 +1138,10 @@ fn add_identity_signers() {
         let auth_id_for_acc2_to_id = Identity::add_auth(
             charlie_acc_signer,
             bob_identity_signer,
-            AuthorizationData::JoinIdentity(charlie_did),
+            AuthorizationData::JoinIdentity(JoinIdentityData {
+                target_did: charlie_did,
+                signing_item: None,
+            }),
             None,
         );
 
@@ -1145,7 +1158,10 @@ fn add_identity_signers() {
         let auth_id_for_acc1_to_acc = Identity::add_auth(
             alice_acc_signer,
             dave_acc_signer,
-            AuthorizationData::JoinIdentity(alice_did),
+            AuthorizationData::JoinIdentity(JoinIdentityData {
+                target_did: alice_did,
+                signing_item: None,
+            }),
             None,
         );
 
@@ -1162,7 +1178,10 @@ fn add_identity_signers() {
         let auth_id_for_acc2_to_acc = Identity::add_auth(
             charlie_acc_signer,
             dave_acc_signer,
-            AuthorizationData::JoinIdentity(charlie_did),
+            AuthorizationData::JoinIdentity(JoinIdentityData {
+                target_did: charlie_did,
+                signing_item: None,
+            }),
             None,
         );
 

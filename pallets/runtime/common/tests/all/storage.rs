@@ -13,7 +13,9 @@ use polymesh_common_utilities::traits::{
     asset::AcceptTransfer, balances::AccountData, group::GroupTrait,
     identity::Trait as IdentityTrait, multisig::AddSignerMultiSig, CommonTrait,
 };
-use polymesh_primitives::{AccountKey, Authorization, AuthorizationData, IdentityId, Signatory};
+use polymesh_primitives::{
+    AccountKey, Authorization, AuthorizationData, IdentityId, JoinIdentityData, Signatory,
+};
 use polymesh_runtime_common::{
     bridge, cdd_check::CddChecker, dividend, exemption, simple_token, voting,
 };
@@ -531,7 +533,10 @@ pub fn add_signing_item(did: IdentityId, signer: Signatory) {
     let auth_id = Identity::add_auth(
         Signatory::from(master_key),
         signer,
-        AuthorizationData::JoinIdentity(did),
+        AuthorizationData::JoinIdentity(JoinIdentityData {
+            target_did: did,
+            signing_item: None,
+        }),
         None,
     );
     assert_ok!(Identity::join_identity(signer, auth_id));
