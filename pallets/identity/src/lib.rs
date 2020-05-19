@@ -2072,37 +2072,12 @@ impl<T: Trait> Module<T> {
                         }
                     }
                     match link.link_data {
-                        LinkData::DocumentOwned(..) => {
-                            if type_of_link == LinkType::DocumentOwnership {
-                                true
-                            } else {
-                                false
-                            }
-                        }
-                        LinkData::TickerOwned(..) => {
-                            if type_of_link == LinkType::TickerOwnership {
-                                true
-                            } else {
-                                false
-                            }
-                        }
-                        LinkData::AssetOwned(..) => {
-                            if type_of_link == LinkType::AssetOwnership {
-                                true
-                            } else {
-                                false
-                            }
-                        }
-                        LinkData::NoData => {
-                            if type_of_link == LinkType::NoData {
-                                true
-                            } else {
-                                false
-                            }
-                        }
+                        LinkData::DocumentOwned(..) => type_of_link == LinkType::DocumentOwnership,
+                        LinkData::TickerOwned(..) => type_of_link == LinkType::TickerOwnership,
+                        LinkData::AssetOwned(..) => type_of_link == LinkType::AssetOwnership,
+                        LinkData::NoData => type_of_link == LinkType::NoData,
                     }
                 })
-                .map(|l| l)
                 .collect::<Vec<Link<T::Moment>>>()
         } else {
             <Links<T>>::iter_prefix(signatory)
@@ -2116,7 +2091,6 @@ impl<T: Trait> Module<T> {
                     }
                     return true;
                 })
-                .map(|l| l)
                 .collect::<Vec<Link<T::Moment>>>()
         }
     }
