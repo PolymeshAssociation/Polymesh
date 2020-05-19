@@ -5,8 +5,13 @@ authors = ["Polymath"]
 edition = "2018"
 
 [dependencies]
+# Ours
+polymesh-primitives-derive = { path = "../primitives_derive" }
+
+# Other 
 serde = { version = "1.0.104", optional = true, features = ["derive"] }
 
+# Substrate
 codec = { package = "parity-scale-codec", version = "1.2.0", default-features = false, features = ["derive"] }
 
 sp-core = { package = "sp-core", git = "https://github.com/paritytech/substrate", default-features = false, rev = "a439a7aa5a9a3df2a42d9b25ea04288d3a0866e8" }
@@ -14,7 +19,6 @@ sp-version = { git = "https://github.com/paritytech/substrate", default-features
 sp-std = { package = "sp-std", git = "https://github.com/paritytech/substrate", default-features = false, rev = "a439a7aa5a9a3df2a42d9b25ea04288d3a0866e8" }
 sp-runtime = { package = "sp-runtime", git = "https://github.com/paritytech/substrate", default-features = false, rev = "a439a7aa5a9a3df2a42d9b25ea04288d3a0866e8" }
 sp-io = { git = "https://github.com/paritytech/substrate", default-features = false, rev = "a439a7aa5a9a3df2a42d9b25ea04288d3a0866e8" }
-
 frame-support = { git = "https://github.com/paritytech/substrate", default-features = false, rev = "a439a7aa5a9a3df2a42d9b25ea04288d3a0866e8" }
 frame-system = { git = "https://github.com/paritytech/substrate", default-features = false, rev = "a439a7aa5a9a3df2a42d9b25ea04288d3a0866e8" }
 

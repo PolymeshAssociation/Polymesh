@@ -7,7 +7,8 @@ edition = "2018"
 [dependencies]
 # Common
 polymesh-common-utilities = { package = "polymesh-common-utilities", path = "../../common", default-features = false }
-polymesh-primitives = { package = "polymesh-primitives", path = "../../../primitives", default-features = false }
+polymesh-primitives = { path = "../../../primitives", default-features = false }
+polymesh-primitives-derive = { path = "../../../primitives_derive", default-features = false }
 
 # Our pallets
 pallet-protocol-fee = { package = "pallet-protocol-fee", path = "../../protocol-fee", default-features = false }
