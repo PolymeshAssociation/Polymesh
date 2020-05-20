@@ -42,7 +42,6 @@ impl Default for LinkData {
 /// Link struct. Connects an Identity to some data.
 #[derive(Encode, Decode, Default, Clone, PartialEq, Debug)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[cfg_attr(feature = "std", serde(rename_all = "camelCase"))]
 pub struct Link<U> {
     /// Enum that contains the link data
     pub link_data: LinkData,
@@ -68,10 +67,10 @@ mod tests {
             link_data: LinkData::DocumentOwned(Document {
                 name: b"abc".into(),
                 uri: b"abc.com".into(),
-                content_hash: b"hash".into()
+                content_hash: b"hash".into(),
             }),
             expiry: None,
-            link_id: 5
+            link_id: 5,
         };
         let serialize_link = serde_json::to_string(&link_to_serialize).unwrap();
         let serialize_data = "{\"linkData\":{\"DocumentOwned\":{\"name\":[97,98,99],\"uri\":[97,98,99,46,99,111,109],\"contentHash\":[104,97,115,104]}},\"expiry\":null,\"linkId\":5}";
@@ -81,5 +80,4 @@ mod tests {
         println!("Print the deserialize data {:?}", deserialize_data);
         assert_eq!(link_to_serialize, deserialize_data);
     }
-
 }

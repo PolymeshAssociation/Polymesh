@@ -44,7 +44,6 @@ pub struct DocumentHash(pub Vec<u8>);
 /// Represents a document associated with an asset
 #[derive(Decode, Encode, Clone, Debug, Default, Hash, PartialEq, Eq, PartialOrd, Ord)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[cfg_attr(feature = "std", serde(rename_all = "camelCase"))]
 pub struct Document {
     /// Document name
     pub name: DocumentName,
