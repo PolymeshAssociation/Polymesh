@@ -73,7 +73,7 @@ mod tests {
             link_id: 5,
         };
         let serialize_link = serde_json::to_string(&link_to_serialize).unwrap();
-        let serialize_data = "{\"linkData\":{\"DocumentOwned\":{\"name\":[97,98,99],\"uri\":[97,98,99,46,99,111,109],\"contentHash\":[104,97,115,104]}},\"expiry\":null,\"linkId\":5}";
+        let serialize_data = "{\"link_data\":{\"DocumentOwned\":{\"name\":[97,98,99],\"uri\":[97,98,99,46,99,111,109],\"content_hash\":[104,97,115,104]}},\"expiry\":null,\"link_id\":5}";
         assert_eq!(serialize_link, serialize_data);
         println!("Serialize link: {:?}", serialize_link);
         let deserialize_data = serde_json::from_str::<Link<Moment>>(&serialize_link).unwrap();
