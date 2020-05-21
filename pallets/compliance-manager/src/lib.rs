@@ -125,6 +125,54 @@ pub struct AssetTransferRule {
     pub rule_id: u32,
 }
 
+/// An asset transfer rule along with its evaluation result
+#[derive(codec::Encode, codec::Decode, Clone, PartialEq, Eq, Debug)]
+pub struct AssetTransferRuleResult {
+    pub sender_rules: Vec<RuleResult>,
+    pub receiver_rules: Vec<RuleResult>,
+    /// Unique identifier of the asset rule
+    pub rule_id: u32,
+    /// Result of this transfer rule's evaluation
+    pub transfer_rule_result: bool,
+}
+
+impl From<AssetTransferRule> for AssetTransferRuleResult {
+    fn from(asset_rule: AssetTransferRule) -> Self {
+        Self {
+            sender_rules: asset_rule
+                .sender_rules
+                .iter()
+                .map(|rule| RuleResult::from(rule.clone()))
+                .collect(),
+            receiver_rules: asset_rule
+                .receiver_rules
+                .iter()
+                .map(|rule| RuleResult::from(rule.clone()))
+                .collect(),
+            rule_id: asset_rule.rule_id,
+            transfer_rule_result: false,
+        }
+    }
+}
+
+/// An individual rule along with its evaluation result
+#[derive(codec::Encode, codec::Decode, Clone, PartialEq, Eq, Debug)]
+pub struct RuleResult {
+    // Rule being evaluated
+    pub rule: Rule,
+    // Result of evaluation
+    pub result: bool,
+}
+
+impl From<Rule> for RuleResult {
+    fn from(rule: Rule) -> Self {
+        Self {
+            rule,
+            result: false,
+        }
+    }
+}
+
 /// List of rules associated to an asset.
 #[derive(codec::Encode, codec::Decode, Default, Clone, PartialEq, Eq, Debug)]
 pub struct AssetTransferRules {
@@ -135,6 +183,31 @@ pub struct AssetTransferRules {
 }
 
 type Identity<T> = identity::Module<T>;
+
+/// Rules evaluation result
+#[derive(codec::Encode, codec::Decode, Clone, PartialEq, Eq, Debug)]
+pub struct AssetTransferRulesResult {
+    /// This flag indicates if asset transfer rules are active or paused.
+    pub is_paused: bool,
+    /// List of rules.
+    pub rules: Vec<AssetTransferRuleResult>,
+    // Final evaluation result of all rules
+    pub final_result: bool,
+}
+
+impl From<AssetTransferRules> for AssetTransferRulesResult {
+    fn from(asset_rules: AssetTransferRules) -> Self {
+        Self {
+            is_paused: asset_rules.is_paused,
+            rules: asset_rules
+                .rules
+                .iter()
+                .map(|rule| AssetTransferRuleResult::from(rule.clone()))
+                .collect(),
+            final_result: false,
+        }
+    }
+}
 
 decl_storage! {
     trait Store for Module<T: Trait> as ComplianceManager {
@@ -672,6 +745,7 @@ impl<T: Trait> Module<T> {
         to_did_opt: Option<IdentityId>,
     ) -> Vec<bool> {
         let asset_rules = Self::asset_rules(ticker);
+        let asset_rules_results = AssetTransferRulesResult::from(asset_rules);
         let mut result = Vec::new();
         for active_rule in asset_rules.rules {
             if let Some(from_did) = from_did_opt {
