@@ -410,13 +410,13 @@ async function signatory(api, entity, signer) {
 }
 
 // Creates a multiSig Key
-async function createMultiSig( api, alice, dids, numOfSigners ) {
+async function createMultiSig( api, signer, dids, numOfSigners ) {
 
-  let nonceObj = {nonce: nonces.get(alice.address)};
+  let nonceObj = {nonce: nonces.get(signer.address)};
   const transaction = api.tx.multiSig.createMultisig(dids, numOfSigners);
-  await sendTransaction(transaction, alice, nonceObj);  
+  await sendTransaction(transaction, signer, nonceObj);  
   
-  nonces.set(alice.address, nonces.get(alice.address).addn(1));
+  nonces.set(signer.address, nonces.get(signer.address).addn(1));
 
 }
 
@@ -459,7 +459,8 @@ let reqImports = {
   createIdentitiesWithExpiry,
   generateOffchainKeys,
   signatory,
-  createMultiSig
+  createMultiSig,
+  u8aToHex
 };
 
 export { reqImports };
