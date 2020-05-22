@@ -1,0 +1,20 @@
+minApprovals:
+  MEMBER: 2
+
+maxRequestedChanges:
+  COLLABORATOR: 0
+  MEMBER: 0
+
+updateBranch: true
+
+mergeMethod: squash
+
+blockingLabels:
+  - blocked
+
+requiredLabels:
+  - merge-after-ci
+
+blockingTitleRegex: '\bwip\b'
+
+reportStatus: true
