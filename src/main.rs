@@ -35,15 +35,45 @@ fn main() -> sc_cli::Result<()> {
 mod test {
     use crate::{ cli::Cli, load_chain_spec::load_spec };
     use super::*;
-    use sp_core::H256;
+
     use std::{ thread, sync::{Arc, Weak}};
     use sc_service::{ AbstractService, Configuration };
     use tokio::sync::{ mpsc::{self, Receiver, Sender } };
-    use futures::{Future, future, select, pin_mut, future::FutureExt};
+    use futures::{future::{ self, Future, FutureExt, TryFutureExt }, select, pin_mut, };
 
+    use polymesh_runtime_common::{ BlockHashCount };
+    use polymesh_runtime_develop::{ Runtime };
+    use pallet_asset as asset;
+    use polymesh_primitives::{ IdentityId, AccountKey, Ticker, Index };
 
-    use polymesh_runtime_develop::Runtime;
-    use polymesh_primitives::IdentityId;
+    use test_client::AccountKeyring;
+    use pallet_identity_rpc_runtime_api::DidRecords as RpcDidRecords;
+    use frame_system_rpc_runtime_api::runtime_decl_for_AccountNonceApi::AccountNonceApi;
+    use frame_system::offchain::CreateTransaction;
+    use sp_runtime::{
+        MultiSigner, MultiSignature,
+        traits::{ Extrinsic, Block as BlockTT, Verify },
+        generic::BlockId,
+        testing::TestXt,
+    };
+    use codec::Encode;
+    use frame_support::{ debug };
+
+    use sp_core::sr25519::Signature;
+    use sp_core::H256;
+    use sp_arithmetic::traits::SaturatedConversion;
+
+    use sp_application_crypto::RuntimePublic;
+    use sp_runtime::traits::StaticLookup;
+    // use sp_transaction_pool::TransactionSource;
+
+    use std::convert::TryFrom;
+
+    pub type Indices = pallet_indices::Module<Runtime>;
+    pub type System = frame_system::Module<Runtime>;
+
+    type SignedExtra = ();
+    type SignedPayload = sp_runtime::generic::SignedPayload<polymesh_runtime_develop::runtime::Call, SignedExtra>;
 
 
     type PolymeshBlock = sp_runtime::generic::Block<
@@ -90,6 +120,7 @@ mod test {
     struct Node
     {
         client: Arc<PolymeshClient<PolymeshBlock>>,
+        // transaction_pool: Arc<PolymeshTransactionPool<PolymeshBlock>>,
         exit_tx: Sender<usize>,
     }
 
@@ -154,6 +185,7 @@ mod test {
 
             let service = service_builder(config).map_err(|e| e.to_string())?;
 
+
             // let informant_future = sc_informant::build(&service, sc_informant::OutputFormat::Coloured);
             // let _informant_handle = runtime.spawn(informant_future);
 
@@ -179,6 +211,7 @@ mod test {
             None => {
                 let (exit_tx, exit_rx) = mpsc::channel(10);
                 let (client_tx, client_rx) = std::sync::mpsc::channel();
+                let (transaction_pool_tx, transaction_pool_rx) = std::sync::mpsc::channel();
 
                 let _node_main_thread = thread::spawn( move || {
                     let version = sc_cli::VersionInfo {
@@ -208,15 +241,18 @@ mod test {
                             >(config).unwrap();
 
                         let _ = client_tx.send( service.client().clone());
+                        let _ = transaction_pool_tx.send( service.transaction_pool().clone());
 
                         Ok(service)
                     })
                 });
 
                 let client = client_rx.recv().unwrap();
+                let transaction_pool = transaction_pool_rx.recv().unwrap();
 
                 Arc::new(Node{
                     client,
+                    // transaction_pool,
                     // service: box(service),
                     // thread: Some(child)
                     exit_tx
@@ -237,19 +273,107 @@ mod test {
 
         let rpc_identity = pallet_identity_rpc::Identity::<PolymeshClient<PolymeshBlock>, PolymeshBlock>::new( node_guard.client.clone()) ;
         let alice_id = IdentityId::from(2u128);
-        let alice_info = rpc_identity.get_did_records( alice_id, None);
+        let alice_info = rpc_identity.get_did_records( alice_id, None).unwrap();
 
-        let _alice_info = alice_info.unwrap();
-        // assert_ok!(alice_info);
+        match alice_info {
+            RpcDidRecords::Success{ master_key, signing_items } => {
+                let expected_master_key = AccountKey::from([120, 146, 52, 0, 78, 45, 225, 240, 2, 28, 95, 151, 117, 76, 229, 243, 216, 140, 121, 42, 6, 204, 168, 233, 102, 231, 87, 97, 81, 153, 13, 41]);
 
+                assert_eq!( master_key, expected_master_key);
+            },
+            _ => panic!( "Invalid DID")
+        }
 
         Ok(())
     }
 
-    #[test]
-    fn it_2() -> Result<(), u8> {
-        // let _node_guard = init();
+    // type Extrinsic = TestXt<Call<Runtime>, ()>;
+    // type Signer = <MultiSignature as Verify>::Signer;
+    type TSigner = <Signature as Verify>::Signer;
+    // type Signature = Signature;
 
+    #[test]
+    fn it_2() -> Result<(), String> {
+        let node_guard = init();
+        let client = node_guard.client.clone();
+
+        // fn sign_and_submit(call: impl Into<Call>, public: PublicOf<T, Call, Self>) -> Result<(), ()> {
+        let ticker = Ticker::try_from( &b"4242"[..]).map_err(|e| e.to_string())?;
+        let call = polymesh_runtime_develop::runtime::Call::Asset( asset::Call::register_ticker( ticker));
+
+        let id = AccountKeyring::Alice.to_account_id();
+        // let pub_key = MultiSigner::Sr25519(AccountKeyring::Alice.public());
+        let alice = AccountKeyring::Alice;
+        // let mut account = Account::<Runtime>::get(&id);
+        // let nonce = Runtime::account_nonce(id.clone());
+        let nonce :Index = 0;
+
+        // Runtime::CreateTransaction
+        /*let (call, signature_data) = Runtime::create_transaction::<Signer>(call, pub_key, id.clone(), nonce)
+            .ok_or(())
+            .map_err(|_| "Create transaction error")?;
+        let (address, signature, extra) = signature_data;*/
+        let (call, signature_data) = {
+		// take the biggest period possible.
+		let extra: SignedExtra = SignedExtra::default();
+		let raw_payload = SignedPayload::new(call, extra)
+                    .map_err(|e| {
+			debug::warn!("Unable to create signed payload: {:?}", e);
+                    "Transaction validity error".to_string()
+		})?;
+		// let signature = TSigner::sign(pub_key, &raw_payload)?;
+                let signature = alice.sign( &raw_payload.encode());
+		let address = Indices::unlookup(id);
+		let (call, extra, _) = raw_payload.deconstruct();
+
+		(call, (address, signature, extra))
+        };
+
+        // increment the nonce. This is fine, since the code should always
+        // be running in off-chain context, so we NEVER persists data.
+        // account.nonce += One::one();
+        // Account::<Runtime>::insert(&id, account);
+
+        // let xt = <PolymeshBlock as BlockTT>::Extrinsic::new(call, Some(signature_data)).ok_or(())
+        //     .map_err( |_| "Extrinsic new error".to_owned())?;
+        // let xt = TestXt::new( call, Some((signature, extra)));
+        // let xt = (call, signature_data).encode();
+
+        /*sp_io::offchain::submit_transaction(xt)
+            .map_err(|_| "Submit transaction error".to_owned())
+        */
+        /*let tp = node_guard.transaction_pool.clone();
+        let at = BlockId::number(0);
+        let result_fut = tp.submit_one(&at, TransactionSource::External, xt);*/
         Ok(())
+    }
+
+    use hyper::rt;
+    use node_primitives::Hash;
+    use sc_rpc::author::{
+        AuthorClient,
+        hash::ExtrinsicOrHash,
+    };
+    use jsonrpc_core_client::{
+        transports::http,
+        RpcError,
+    };
+
+    fn it_3() {
+        let node_guard = init();
+
+        rt::run(rt::lazy(async || {
+            let uri = "http://localhost:9933";
+
+            let conn = http::connect(uri).await;
+            // conn.and_then(|client: AuthorClient<Hash, Hash>| {
+                let extrinsic = b"abcd".to_vec();
+                // client.submit_extrinsic( extrinsic.into());
+                conn.submit_extrinsic( extrinsic.into());
+            // })
+            // .map_err(|e| {
+                println!("Error: {:?}", e);
+            // })
+        }))
     }
 }

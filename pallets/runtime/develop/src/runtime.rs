@@ -951,8 +951,7 @@ impl_runtime_apis! {
                     steps,
                     repeat,
                 ),
-                b"runtime-asset" | b"asset" => Asset::run_benchmark(
-                    extrinsic,
+                b"runtime-asset" | b"asset" => Asset::run_benchmark( extrinsic,
                     lowest_range_values,
                     highest_range_values,
                     steps,
@@ -964,3 +963,52 @@ impl_runtime_apis! {
         }
     }
 }
+
+/*
+sc_executor::native_executor_instance! {
+    pub LocalExecutor,
+    api::dispatch,
+    native_version,
+}*/
+/*
+#[cfg(test)]
+mod test {
+    use super::{ Runtime, Block, LocalExecutor, Origin };
+    use frame_support::{assert_err, assert_ok};
+    use sc_client::{Client, in_mem::Backend, LocalCallExecutor};
+    use sp_runtime::Storage;
+    use sc_executor::{NativeExecutor, WasmExecutionMethod};
+    use test_client::AccountKeyring;
+
+    use std::sync::Arc;
+
+
+    #[test]
+    fn it_1() -> Result<(),&'static str> {
+        let backend = Arc::new(Backend::<Block>::new());
+
+        let client = Client::<_, _, _, Runtime>::new(
+            backend.clone(),
+            LocalCallExecutor::new(
+                backend.clone(),
+                NativeExecutor::<LocalExecutor>::new(WasmExecutionMethod::Interpreted, None),
+            ),
+            // This parameter provides the storage for the chain genesis.
+            &<Storage>::default(),
+            Default::default(),
+            Default::default(),
+            Default::default(),
+            None,
+        ).expect("Client expected");
+
+        // let api = client.runtime_api();
+
+        let alice = Origin::signed(AccountKeyring::Alice.to_account_id());
+
+       // let alice_id = Module<Runtime._register_did(alice.clone(), vec![], None).expect("did");
+       // assert_ok!(api.top_up_identity_balance( alice, alice_id, 10_000_000));
+
+        Ok(())
+    }
+}*/
+

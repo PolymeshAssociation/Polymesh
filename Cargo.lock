@@ -2809,6 +2809,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "node-primitives"
+version = "2.0.0-alpha.3"
+source = "git+https://github.com/paritytech/substrate?rev=a439a7aa5a9a3df2a42d9b25ea04288d3a0866e8#a439a7aa5a9a3df2a42d9b25ea04288d3a0866e8"
+dependencies = [
+ "sp-core",
+ "sp-runtime",
+]
+
+[[package]]
 name = "nodrop"
 version = "0.1.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4113,14 +4122,17 @@ dependencies = [
  "ctrlc",
  "frame-benchmarking",
  "frame-support",
+ "frame-system",
  "frame-system-rpc-runtime-api",
  "futures 0.3.5",
  "hex-literal",
+ "hyper 0.12.35",
  "jsonrpc-core",
  "jsonrpc-core-client",
  "lazy_static",
  "linregress",
  "log 0.4.8",
+ "node-primitives",
  "pallet-asset",
  "pallet-asset-rpc",
  "pallet-asset-rpc-runtime-api",
@@ -4132,6 +4144,7 @@ dependencies = [
  "pallet-identity-rpc",
  "pallet-identity-rpc-runtime-api",
  "pallet-im-online",
+ "pallet-indices",
  "pallet-pips-rpc",
  "pallet-pips-rpc-runtime-api",
  "pallet-protocol-fee",
@@ -4168,6 +4181,8 @@ dependencies = [
  "sc-transaction-pool",
  "serde_json",
  "sp-api",
+ "sp-application-crypto",
+ "sp-arithmetic",
  "sp-authority-discovery",
  "sp-block-builder",
  "sp-blockchain",
@@ -4183,6 +4198,7 @@ dependencies = [
  "sp-transaction-pool",
  "structopt",
  "substrate-prometheus-endpoint",
+ "substrate-test-runtime-client",
  "tokio 0.2.20",
  "vergen",
 ]
@@ -7388,7 +7404,7 @@ version = "1.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3bfd5b7557925ce778ff9b9ef90e3ade34c524b5ff10e239c69a42d546d2af56"
 dependencies = [
- "rand 0.7.3",
+ "rand 0.5.6",
 ]
 
 [[package]]
