@@ -198,8 +198,8 @@ use frame_support::{
 use frame_system::{self as system, ensure_root, ensure_signed};
 use sp_runtime::{
     traits::{
-        Bounded, CheckedAdd, CheckedSub, Hash, MaybeSerializeDeserialize, Saturating, StaticLookup,
-        Zero, AccountIdConversion,
+        AccountIdConversion, Bounded, CheckedAdd, CheckedSub, Hash, MaybeSerializeDeserialize,
+        Saturating, StaticLookup, Zero,
     },
     DispatchError, DispatchResult, RuntimeDebug,
 };
@@ -536,7 +536,9 @@ impl<T: Trait> Module<T> {
     }
 
     pub fn block_rewards_reserve() -> T::AccountId {
-        SystematicIssuers::BlockRewardReserve.as_module_id().into_account()
+        SystematicIssuers::BlockRewardReserve
+            .as_module_id()
+            .into_account()
     }
 
     /// Get both the free and reserved balances of an account.
