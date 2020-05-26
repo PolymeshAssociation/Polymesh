@@ -122,7 +122,7 @@ use sp_runtime::{
 use sp_std::{convert::TryFrom, mem::swap, prelude::*, vec};
 
 use frame_support::{
-    decl_error, decl_module, decl_storage,
+    debug, decl_error, decl_module, decl_storage,
     dispatch::{DispatchError, DispatchResult},
     ensure,
     traits::{ChangeMembers, InitializeMembers},
@@ -208,10 +208,13 @@ decl_storage! {
                 .for_each(|s| <Module<T>>::register_systematic_id(*s));
 
             // Add CDD claims to Treasury & BRR
-            let sys_issuers_with_cdd = [
-                SystematicIssuers::Treasury.as_id(),
-                SystematicIssuers::BlockRewardReserve.as_id()];
-            <Module<T>>::unsafe_add_systematic_cdd_claims( &sys_issuers_with_cdd, SystematicIssuers::CDDProvider);
+            let sys_issuers_with_cdd = [ SystematicIssuers::Treasury, SystematicIssuers::BlockRewardReserve];
+            let id_with_cdd = sys_issuers_with_cdd.iter()
+                .inspect(|iss| debug::info!( "Add Systematic CDD Claims to {}", iss))
+                .map(|iss| iss.as_id())
+                .collect::<Vec<_>>();
+
+            <Module<T>>::unsafe_add_systematic_cdd_claims( &id_with_cdd, SystematicIssuers::CDDProvider);
 
             //  Other
             for &(ref master_account_id, issuer, did, expiry) in &config.identities {
@@ -1993,9 +1996,18 @@ impl<T: Trait> Module<T> {
     }
 
     /// Registers the systematic issuer with its DID.
-    fn register_systematic_id(issuer: SystematicIssuers) {
+    fn register_systematic_id(issuer: SystematicIssuers)
+    where
+        <T as frame_system::Trait>::AccountId: core::fmt::Display,
+    {
         let acc = issuer.as_module_id().into_account();
         let id = issuer.as_id();
+        debug::info!(
+            "Register Systematic id {} with account {} as {}",
+            issuer,
+            acc,
+            id
+        );
 
         Self::unsafe_register_id(acc, id);
     }

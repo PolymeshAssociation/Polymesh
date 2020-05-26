@@ -57,6 +57,19 @@ pub enum SystematicIssuers {
     BlockRewardReserve,
 }
 
+impl core::fmt::Display for SystematicIssuers {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        let value = match self {
+            SystematicIssuers::Committee => "Governance Committee",
+            SystematicIssuers::CDDProvider => "CDD Trusted Providers",
+            SystematicIssuers::Treasury => "Treasury",
+            SystematicIssuers::BlockRewardReserve => "Block Reward Reserve",
+        };
+
+        write!(f, "'{}'", value)
+    }
+}
+
 pub const SYSTEMATIC_ISSUERS: &[SystematicIssuers] = &[
     SystematicIssuers::Treasury,
     SystematicIssuers::Committee,
