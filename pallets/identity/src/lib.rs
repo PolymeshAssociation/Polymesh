@@ -794,12 +794,10 @@ decl_module! {
             let sender_key = AccountKey::try_from(ensure_signed(origin)?.encode())?;
             let from_did = Context::current_identity_or::<Self>(&sender_key)?;
 
-            let valid_auths = auths.clone().into_iter().filter(|a| Self::is_auth_data_valid(&a.0, &a.1)).collect::<Vec<(Signatory, AuthorizationData, Option<T::Moment>)>>();
-            let invalid_auths = if valid_auths.len() != auths.len() {
-                auths.into_iter().filter(|a| !Self::is_auth_data_valid(&a.0, &a.1)).collect::<Vec<(Signatory, AuthorizationData, Option<T::Moment>)>>()
-            } else {
-                vec![]
-            };
+            let (valid_auths, invalid_auths): (Vec<(Signatory, AuthorizationData, Option<T::Moment>)>, Vec<(Signatory, AuthorizationData, Option<T::Moment>)>) = auths
+                .clone()
+                .into_iter()
+                .partition(|a| Self::is_auth_data_valid(&a.0, &a.1));
 
             for auth in valid_auths {
                 Self::add_auth(Signatory::from(from_did), auth.0, auth.1, auth.2);
