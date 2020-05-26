@@ -18,6 +18,7 @@
 
 use codec::Codec;
 use frame_support::traits::Currency;
+use pallet_compliance_manager::AssetTransferRulesResult;
 use polymesh_primitives::{IdentityId, Ticker};
 use sp_std::vec::Vec;
 
@@ -58,6 +59,6 @@ sp_api::decl_runtime_apis! {
             ticker: Ticker,
             from_did: Option<IdentityId>,
             to_did: Option<IdentityId>,
-        ) -> Vec<bool>;
+        ) -> AssetTransferRulesResult;
     }
 }

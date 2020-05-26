@@ -16,6 +16,7 @@
 use codec::Codec;
 use jsonrpc_core::{Error as RpcError, ErrorCode, Result};
 use jsonrpc_derive::rpc;
+use pallet_compliance_manager::AssetTransferRulesResult;
 use pallet_compliance_manager_rpc_runtime_api::ComplianceManagerApi as ComplianceManagerApiRuntimeApi;
 use polymesh_primitives::{IdentityId, Ticker};
 use sp_api::ProvideRuntimeApi;
@@ -40,7 +41,7 @@ pub trait ComplianceManagerApi<BlockHash, AccountId, T> {
         from_did: Option<IdentityId>,
         to_did: Option<IdentityId>,
         at: Option<BlockHash>,
-    ) -> Result<Vec<bool>>;
+    ) -> Result<AssetTransferRulesResult>;
 }
 
 /// An implementation of Compliance manager specific RPC methods.
@@ -76,7 +77,7 @@ where
         from_did: Option<IdentityId>,
         to_did: Option<IdentityId>,
         at: Option<<Block as BlockT>::Hash>,
-    ) -> Result<Vec<bool>> {
+    ) -> Result<AssetTransferRulesResult> {
         let api = self.client.runtime_api();
         let at = BlockId::hash(at.unwrap_or_else(||
                 // If the block hash is not supplied assume the best block.

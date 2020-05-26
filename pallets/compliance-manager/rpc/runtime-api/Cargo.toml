@@ -11,6 +11,7 @@ polymesh-common-utilities = { package = "polymesh-common-utilities", path = "../
 
 # Our pallets
 pallet-balances = { package = "pallet-balances", path = "../../../balances", default-features = false  }
+pallet-compliance-manager = { package = "pallet-compliance-manager", path = "../../", default-features = false  }
 
 # Others
 serde = { version = "1.0.101", optional = true, features = ["derive"] }

@@ -15,7 +15,7 @@ use polymesh_runtime_common::{
 use pallet_asset as asset;
 use pallet_balances as balances;
 use pallet_committee as committee;
-use pallet_compliance_manager as compliance_manager;
+use pallet_compliance_manager::{self as compliance_manager, AssetTransferRulesResult};
 use pallet_group as group;
 use pallet_identity as identity;
 use pallet_multisig as multisig;
@@ -843,7 +843,7 @@ impl_runtime_apis! {
             ticker: Ticker,
             from_did: Option<IdentityId>,
             to_did: Option<IdentityId>,
-        ) -> Vec<bool>
+        ) -> AssetTransferRulesResult
         {
             ComplianceManager::granular_verify_restriction(&ticker, from_did, to_did)
         }

@@ -15,8 +15,11 @@
 
 use crate::{Claim, ClaimType, IdentityId};
 use codec::{Decode, Encode};
+#[cfg(feature = "std")]
+use sp_runtime::{Deserialize, Serialize};
 use sp_std::prelude::*;
 
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[derive(Encode, Decode, Clone, PartialEq, Eq, Debug)]
 /// It defines the type of rule supported, and the filter information we will use to evaluate as a
 /// predicate.
@@ -58,6 +61,7 @@ impl RuleType {
 }
 
 /// Type of claim requirements that a rule can have
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[derive(Encode, Decode, Clone, PartialEq, Eq, Debug)]
 pub struct Rule {
     /// Type of rule.

@@ -99,6 +99,8 @@ use frame_support::{
     weights::{DispatchClass, FunctionOf, SimpleDispatchInfo},
 };
 use frame_system::{self as system, ensure_signed};
+#[cfg(feature = "std")]
+use sp_runtime::{Deserialize, Serialize};
 use sp_std::{
     convert::{From, TryFrom},
     prelude::*,
@@ -117,6 +119,7 @@ pub trait Trait:
 
 /// An asset transfer rule.
 /// All sender and receiver rule of the same asset rule must be true in order to execute the transfer.
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[derive(codec::Encode, codec::Decode, Default, Clone, PartialEq, Eq, Debug)]
 pub struct AssetTransferRule {
     pub sender_rules: Vec<Rule>,
@@ -126,6 +129,7 @@ pub struct AssetTransferRule {
 }
 
 /// An asset transfer rule along with its evaluation result
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[derive(codec::Encode, codec::Decode, Clone, PartialEq, Eq, Debug)]
 pub struct AssetTransferRuleResult {
     pub sender_rules: Vec<RuleResult>,
@@ -150,12 +154,13 @@ impl From<AssetTransferRule> for AssetTransferRuleResult {
                 .map(|rule| RuleResult::from(rule.clone()))
                 .collect(),
             rule_id: asset_rule.rule_id,
-            transfer_rule_result: false,
+            transfer_rule_result: true,
         }
     }
 }
 
 /// An individual rule along with its evaluation result
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[derive(codec::Encode, codec::Decode, Clone, PartialEq, Eq, Debug)]
 pub struct RuleResult {
     // Rule being evaluated
@@ -166,14 +171,12 @@ pub struct RuleResult {
 
 impl From<Rule> for RuleResult {
     fn from(rule: Rule) -> Self {
-        Self {
-            rule,
-            result: false,
-        }
+        Self { rule, result: true }
     }
 }
 
 /// List of rules associated to an asset.
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[derive(codec::Encode, codec::Decode, Default, Clone, PartialEq, Eq, Debug)]
 pub struct AssetTransferRules {
     /// This flag indicates if asset transfer rules are active or paused.
@@ -185,6 +188,7 @@ pub struct AssetTransferRules {
 type Identity<T> = identity::Module<T>;
 
 /// Rules evaluation result
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[derive(codec::Encode, codec::Decode, Clone, PartialEq, Eq, Debug)]
 pub struct AssetTransferRulesResult {
     /// This flag indicates if asset transfer rules are active or paused.
@@ -595,15 +599,18 @@ impl<T: Trait> Module<T> {
     }
 
     /// It loads a context for each rule in `rules` and evaluates them.
-    /// It returns a vector of bool as the result of the rules.
-    fn evaluate_rules(ticker: &Ticker, did: IdentityId, rules: Vec<Rule>) -> Vec<bool> {
-        rules
-            .iter()
-            .map(|rule| {
-                let context = Self::fetch_context(ticker, did, &rule);
-                predicate::run(rule.clone(), &context)
-            })
-            .collect::<Vec<bool>>()
+    /// It updates the internal result variable of every rule.
+    /// It returns the final result of all rules combined.
+    fn evaluate_rules(ticker: &Ticker, did: IdentityId, rules: &mut Vec<RuleResult>) -> bool {
+        let mut result = true;
+        for rule in rules {
+            let context = Self::fetch_context(ticker, did, &rule.rule);
+            rule.result = predicate::run(rule.rule.clone(), &context);
+            if !rule.result {
+                result = false;
+            }
+        }
+        result
     }
 
     /// Pauses or resumes the asset rules.
@@ -743,33 +750,31 @@ impl<T: Trait> Module<T> {
         ticker: &Ticker,
         from_did_opt: Option<IdentityId>,
         to_did_opt: Option<IdentityId>,
-    ) -> Vec<bool> {
+    ) -> AssetTransferRulesResult {
         let asset_rules = Self::asset_rules(ticker);
-        let asset_rules_results = AssetTransferRulesResult::from(asset_rules);
-        let mut result = Vec::new();
-        for active_rule in asset_rules.rules {
+        let mut asset_rules_with_results = AssetTransferRulesResult::from(asset_rules);
+        for active_rule in &mut asset_rules_with_results.rules {
+            let mut result = true;
             if let Some(from_did) = from_did_opt {
-                result.append(&mut Self::evaluate_rules(
-                    ticker,
-                    from_did,
-                    active_rule.sender_rules,
-                ));
-            } else {
-                result.resize(result.len() + active_rule.sender_rules.len(), true);
+                // Evaluate all sender rules
+                if Self::evaluate_rules(ticker, from_did, &mut active_rule.sender_rules) {
+                    result = false;
+                }
             }
-
             if let Some(to_did) = to_did_opt {
-                result.append(&mut Self::evaluate_rules(
-                    ticker,
-                    to_did,
-                    active_rule.receiver_rules,
-                ));
-            } else {
-                result.resize(result.len() + active_rule.receiver_rules.len(), true);
+                // Evaluate all receiver rules
+                if Self::evaluate_rules(ticker, to_did, &mut active_rule.receiver_rules) {
+                    result = false;
+                }
+            }
+            // Update transfer rule result
+            active_rule.transfer_rule_result = result;
+            // If the transfer rule result is positive, update the final result to be positive
+            if result {
+                asset_rules_with_results.final_result = true;
             }
         }
-
-        result
+        asset_rules_with_results
     }
 }
 
