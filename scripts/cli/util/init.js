@@ -58,10 +58,12 @@ async function initMain(api) {
   let bob = await generateEntity(api, "Bob");
   let charlie = await generateEntity(api, "Charlie");
   let dave = await generateEntity(api, "Dave");
+  let relay = await generateEntity(api, "relay_1");
   entities.push(alice);
   entities.push(bob);
   entities.push(charlie);
   entities.push(dave);
+  entities.push(relay);
 
   return entities;
 }
@@ -90,6 +92,8 @@ let generateEntity = async function (api, name) {
 
   return entity;
 };
+
+
 
 const generateKeys = async function (api, numberOfKeys, keyPrepend) {
   let keys = [];
@@ -174,19 +178,25 @@ const createIdentitiesWithExpiry = async function(api, accounts, alice, expiries
     // const transactionTwo = api.tx.balances.topUpIdentityBalance(dids[i], did_balance);
     // await sendTransaction(transactionTwo, alice, nonceObjTwo);
 
-    await api.tx.balances
-      .topUpIdentityBalance(dids[i], did_balance)
-      .signAndSend(
-        alice,
-        { nonce: nonces.get(alice.address) }
-      );
-
-    nonces.set(
-      alice.address,
-      nonces.get(alice.address).addn(1)
-    );
+    await topUpIdentityBalance(api, alice, dids[i], did_balance);
+   
   }
   return dids;
+}
+
+// Top up identity balance
+async function topUpIdentityBalance(api, signer, did, did_balance) {
+  let nonceObj = {nonce: nonces.get(signer.address)};
+  const transaction = api.tx.balances.topUpIdentityBalance(did, did_balance);
+  await sendTransaction(transaction, signer, nonceObj);
+
+  nonces.set( signer.address, nonces.get(signer.address).addn(1));
+}
+
+// Fetches DID that belongs to the Account Key  
+async function keyToIdentityIds(api, accountKey) {
+  let account_did = await api.query.identity.keyToIdentityIds(accountKey);
+  return account_did;
 }
 
 // Sends transfer_amount to accounts[] from alice
@@ -460,7 +470,9 @@ let reqImports = {
   generateOffchainKeys,
   signatory,
   createMultiSig,
-  u8aToHex
+  u8aToHex,
+  topUpIdentityBalance,
+  keyToIdentityIds
 };
 
 export { reqImports };

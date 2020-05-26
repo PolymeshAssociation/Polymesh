@@ -8,29 +8,38 @@ let { reqImports } = require("../util/init.js");
 process.exitCode = 1;
 
 async function main() {
- 
   const api = await reqImports.createApi();
 
   const testEntities = await reqImports.initMain(api);
 
   let alice = testEntities[0];
-  let bob = testEntities[1];
-  let charlie = testEntities[2];
-  let dave = testEntities[3];
+  let relay = testEntities[4];
 
-  let bob_signatory = await reqImports.signatory(api, bob, alice);
-  let charlie_signatory = await reqImports.signatory(api, charlie, alice);
-  let dave_signatory = await reqImports.signatory(api, dave, alice);
-  
-  let signatory_array = [bob_signatory, charlie_signatory, dave_signatory];
+  let alice_did = JSON.parse(
+    await reqImports.keyToIdentityIds(api, alice.publicKey)
+  );
 
-  await reqImports.distributePolyBatch( api, bob, reqImports.transfer_amount, alice );
+  let did_balance = 1000 * 10 ** 6;
 
-  await reqImports.createMultiSig( api, alice, signatory_array, 1 );
+  await reqImports.topUpIdentityBalance(
+    api,
+    alice,
+    alice_did.Unique,
+    did_balance
+  );
 
-  await bridgeTransfer(api, alice, bob);
+  await acceptMultisigSignerAsKey(api, relay, 9);
  
+  await reqImports.distributePolyBatch( api, [relay], reqImports.transfer_amount, alice );
+  
+  await bridgeTransfer(api, relay, alice);
+  
+  await freezeTransaction(api, alice);
+  
+  await sleep(50000).then(async() => { await unfreezeTransaction(api, alice); });
+  
 
+  console.log("done");
   if (reqImports.fail_count > 0) {
     console.log("Failed");
   } else {
@@ -41,24 +50,98 @@ async function main() {
   process.exit();
 }
 
-// Proposing a Bridge Transaction
-async function bridgeTransfer( api, signer, bob ) {
+async function sleep(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
 
-  let amount = 1_000_000_000_000_000_000_000;
+async function acceptMultisigSignerAsKey(api, signer, authId) {
+  // 1. Change Controller
+  let nonceObj = { nonce: reqImports.nonces.get(signer.address) };
+
+  const transaction = api.tx.multiSig.acceptMultisigSignerAsKey(authId);
+
+  const result = await reqImports.sendTransaction(
+    transaction,
+    signer,
+    nonceObj
+  );
+
+  const passed = result.findRecord("system", "ExtrinsicSuccess");
+  if (passed) reqImports.fail_count--;
+
+  reqImports.nonces.set(
+    signer.address,
+    reqImports.nonces.get(signer.address).addn(1)
+  );
+}
+
+//  Propose Bridge Transaction
+async function bridgeTransfer(api, signer, alice) {
+  let amount = 10;
   let bridge_tx = {
-        nonce: 1,
-        recipient: bob.publicKey,
-        amount,
-        tx_hash: reqImports.u8aToHex(1,256),
-    }
+    nonce: 2,
+    recipient: alice.publicKey,
+    amount,
+    tx_hash: reqImports.u8aToHex(1, 256),
+  };
 
-    let nonceObjTwo = {nonce: reqImports.nonces.get(signer.address)};
-    const transactionTwo = api.tx.bridge.proposeBridgeTx(bridge_tx);
-    const resultTwo = await reqImports.sendTransaction(transactionTwo, signer, nonceObjTwo);  
-    const passedTwo = resultTwo.findRecord('system', 'ExtrinsicSuccess');
-    if (passedTwo) reqImports.fail_count--;
+  let nonceObj = { nonce: reqImports.nonces.get(signer.address) };
+  const transaction = api.tx.bridge.proposeBridgeTx(bridge_tx);
 
-    reqImports.nonces.set(signer.address, reqImports.nonces.get(signer.address).addn(1));
+  const result = await reqImports.sendTransaction(
+    transaction,
+    signer,
+    nonceObj
+  );
+
+  const passed = result.findRecord("system", "ExtrinsicSuccess");
+  if (passed) reqImports.fail_count--;
+
+  reqImports.nonces.set(
+    signer.address,
+    reqImports.nonces.get(signer.address).addn(1)
+  );
+}
+
+async function freezeTransaction(api, signer, alice) {
+
+  let nonceObj = { nonce: reqImports.nonces.get(signer.address) };
+  const transaction = api.tx.bridge.freeze();
+
+  const result = await reqImports.sendTransaction(
+    transaction,
+    signer,
+    nonceObj
+  );
+
+  const passed = result.findRecord("system", "ExtrinsicSuccess");
+  if (passed) reqImports.fail_count--;
+
+  reqImports.nonces.set(
+    signer.address,
+    reqImports.nonces.get(signer.address).addn(1)
+  );
+
+}
+
+async function unfreezeTransaction(api, signer) {
+
+  let nonceObj = { nonce: reqImports.nonces.get(signer.address) };
+  const transaction = api.tx.bridge.unfreeze();
+
+  const result = await reqImports.sendTransaction(
+    transaction,
+    signer,
+    nonceObj
+  );
+
+  const passed = result.findRecord("system", "ExtrinsicSuccess");
+  if (passed) reqImports.fail_count--;
+
+  reqImports.nonces.set(
+    signer.address,
+    reqImports.nonces.get(signer.address).addn(1)
+  );
 
 }
 
