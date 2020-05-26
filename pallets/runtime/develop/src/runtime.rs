@@ -22,6 +22,7 @@ use pallet_multisig as multisig;
 use pallet_protocol_fee as protocol_fee;
 use pallet_statistics as statistics;
 use pallet_treasury as treasury;
+use pallet_utility as utility;
 
 use polymesh_common_utilities::{
     constants::currency::*,
@@ -523,6 +524,11 @@ impl group::Trait<group::Instance2> for Runtime {
 
 impl statistics::Trait for Runtime {}
 
+impl pallet_utility::Trait for Runtime {
+    type Event = Event;
+    type Call = Call;
+}
+
 /// A runtime transaction submitter for the cdd_offchain_worker
 // Comment it in the favour of Testnet v1 release
 //type SubmitTransactionCdd = TransactionSubmitter<CddOffchainWorkerId, Runtime, UncheckedExtrinsic>;
@@ -648,6 +654,7 @@ construct_runtime!(
         ProtocolFee: protocol_fee::{Module, Call, Storage, Event<T>, Config<T>},
         // Comment it in the favour of Testnet v1 release
         // CddOffchainWorker: pallet_cdd_offchain_worker::{Module, Call, Storage, ValidateUnsigned, Event<T>}
+        Utility: utility::{Module, Call, Storage, Event},
     }
 );
 
