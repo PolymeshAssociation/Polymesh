@@ -38,8 +38,6 @@ async function main() {
   
   await sleep(50000).then(async() => { await unfreezeTransaction(api, alice); });
   
-
-  console.log("done");
   if (reqImports.fail_count > 0) {
     console.log("Failed");
   } else {
