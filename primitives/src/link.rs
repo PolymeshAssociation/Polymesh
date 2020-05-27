@@ -16,9 +16,12 @@
 use crate::Document;
 use crate::Ticker;
 use codec::{Decode, Encode};
+#[cfg(feature = "std")]
+use serde::{Deserialize, Serialize};
 
-/// Authorization data for two step prcoesses.
+/// Authorization data for two step processes.
 #[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, PartialOrd, Ord)]
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 pub enum LinkData {
     /// Represents a document (name, URI, content_hash)
     DocumentOwned(Document),
@@ -38,6 +41,7 @@ impl Default for LinkData {
 
 /// Link struct. Connects an Identity to some data.
 #[derive(Encode, Decode, Default, Clone, PartialEq, Debug)]
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 pub struct Link<U> {
     /// Enum that contains the link data
     pub link_data: LinkData,
@@ -47,4 +51,33 @@ pub struct Link<U> {
 
     /// Link id of this link
     pub link_id: u64,
+}
+
+#[cfg(test)]
+mod tests {
+
+    use super::*;
+    use crate::Moment;
+    use frame_support::assert_err;
+    use std::convert::TryFrom;
+
+    #[test]
+    fn serialize_and_deserialize_link() {
+        let link_to_serialize = Link::<Moment> {
+            link_data: LinkData::DocumentOwned(Document {
+                name: b"abc".into(),
+                uri: b"abc.com".into(),
+                content_hash: b"hash".into(),
+            }),
+            expiry: None,
+            link_id: 5,
+        };
+        let serialize_link = serde_json::to_string(&link_to_serialize).unwrap();
+        let serialize_data = "{\"link_data\":{\"DocumentOwned\":{\"name\":[97,98,99],\"uri\":[97,98,99,46,99,111,109],\"content_hash\":[104,97,115,104]}},\"expiry\":null,\"link_id\":5}";
+        assert_eq!(serialize_link, serialize_data);
+        println!("Serialize link: {:?}", serialize_link);
+        let deserialize_data = serde_json::from_str::<Link<Moment>>(&serialize_link).unwrap();
+        println!("Print the deserialize data {:?}", deserialize_data);
+        assert_eq!(link_to_serialize, deserialize_data);
+    }
 }

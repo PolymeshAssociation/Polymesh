@@ -84,7 +84,7 @@
 #[cfg(feature = "runtime-benchmarks")]
 pub mod benchmarking;
 
-use pallet_identity_rpc_runtime_api::DidRecords as RpcDidRecords;
+use pallet_identity_rpc_runtime_api::{DidRecords as RpcDidRecords, LinkType};
 use pallet_transaction_payment::{CddAndFeeDetails, ChargeTxFee};
 use polymesh_common_utilities::{
     constants::{
@@ -2048,6 +2048,81 @@ impl<T: Trait> Module<T> {
         } else {
             RpcDidRecords::IdNotFound
         }
+    }
+
+    /// Use to get the filtered link data for a given signatory
+    /// - if link_type is None then return links data on the basis of the `allow_expired` boolean
+    /// - if link_type is Some(value) then return filtered links on the value basis type in conjunction
+    ///   with `allow_expired` boolean condition
+    pub fn get_filtered_links(
+        signatory: Signatory,
+        allow_expired: bool,
+        link_type: Option<LinkType>,
+    ) -> Vec<Link<T::Moment>> {
+        let now = <pallet_timestamp::Module<T>>::get();
+
+        if let Some(type_of_link) = link_type {
+            <Links<T>>::iter_prefix(signatory)
+                .filter(|link| {
+                    if !allow_expired {
+                        if let Some(expiry) = link.expiry {
+                            if expiry < now {
+                                return false;
+                            }
+                        }
+                    }
+                    match link.link_data {
+                        LinkData::DocumentOwned(..) => type_of_link == LinkType::DocumentOwnership,
+                        LinkData::TickerOwned(..) => type_of_link == LinkType::TickerOwnership,
+                        LinkData::AssetOwned(..) => type_of_link == LinkType::AssetOwnership,
+                        LinkData::NoData => type_of_link == LinkType::NoData,
+                    }
+                })
+                .collect::<Vec<Link<T::Moment>>>()
+        } else {
+            <Links<T>>::iter_prefix(signatory)
+                .filter(|l| {
+                    if !allow_expired {
+                        if let Some(expiry) = l.expiry {
+                            if expiry < now {
+                                return false;
+                            }
+                        }
+                    }
+                    return true;
+                })
+                .collect::<Vec<Link<T::Moment>>>()
+        }
+    }
+
+    /// Registers the systematic issuer with its DID.
+    fn register_systematic_id(issuer: SystematicIssuers)
+    where
+        <T as frame_system::Trait>::AccountId: core::fmt::Display,
+    {
+        let acc = issuer.as_module_id().into_account();
+        let id = issuer.as_id();
+        debug::info!(
+            "Register Systematic id {} with account {} as {}",
+            issuer,
+            acc,
+            id
+        );
+
+        Self::unsafe_register_id(acc, id);
+    }
+
+    /// Registers `master_key` as `id` identity.
+    fn unsafe_register_id(acc: T::AccountId, id: IdentityId) {
+        let master_key = AccountKey::try_from(acc.encode()).unwrap();
+        <Module<T>>::link_key_to_did(&master_key, SignatoryType::External, id);
+        let record = DidRecord {
+            master_key,
+            ..Default::default()
+        };
+        <DidRecords>::insert(&id, record);
+
+        Self::deposit_event(RawEvent::DidCreated(id, acc, vec![]));
     }
 }
 

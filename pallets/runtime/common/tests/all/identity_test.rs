@@ -7,6 +7,7 @@ use super::{
     ExtBuilder,
 };
 
+use pallet_identity_rpc_runtime_api::LinkType;
 use polymesh_common_utilities::{
     traits::{
         group::GroupTrait,
@@ -15,8 +16,9 @@ use polymesh_common_utilities::{
     SystematicIssuers,
 };
 use polymesh_primitives::{
-    AccountKey, AuthorizationData, AuthorizationError, Claim, ClaimType, IdentityClaim, IdentityId,
-    LinkData, Permission, Scope, Signatory, SigningItem, Ticker, TransactionError,
+    AccountKey, AuthorizationData, AuthorizationError, Claim, ClaimType, Document, DocumentHash,
+    DocumentName, DocumentUri, IdentityClaim, IdentityId, LinkData, Permission, Scope, Signatory,
+    SigningItem, Ticker, TransactionError,
 };
 use polymesh_runtime_develop::{fee_details::CddHandler, runtime::Call};
 
@@ -847,6 +849,50 @@ fn adding_links() {
         link = Identity::get_link(bob_did, link_id);
         assert_eq!(link.expiry, Some(100));
         assert_eq!(link.link_data, LinkData::TickerOwned(ticker50));
+
+        // Testing the list of filtered links
+        Timestamp::set_timestamp(120);
+
+        // Getting expired and non-expired both
+        let mut links =
+            Identity::get_filtered_links(bob_did, true, Some(LinkType::TickerOwnership));
+        assert_eq!(links.len(), 4);
+        links = Identity::get_filtered_links(bob_did, false, Some(LinkType::TickerOwnership));
+        // Two links are expired
+        assert_eq!(links.len(), 2);
+        // Add other type of link
+        // 1.1 : Add document type
+        let doc = Document {
+            name: b"D".into(),
+            uri: b"www.d.com".into(),
+            content_hash: b"0x4".into(),
+        };
+
+        Identity::add_link(bob_did, LinkData::DocumentOwned(doc.clone()), None);
+        // 1.2 : Add AssetOwned type
+        Identity::add_link(bob_did, LinkData::AssetOwned(ticker51), None);
+        Identity::add_link(bob_did, LinkData::AssetOwned(ticker50), Some(200));
+
+        // Query DocumentOwnership type link
+        links = Identity::get_filtered_links(bob_did, true, Some(LinkType::DocumentOwnership));
+        assert_eq!(links.len(), 1);
+
+        // Query AssetOwnership type
+        links = Identity::get_filtered_links(bob_did, true, Some(LinkType::AssetOwnership));
+        assert_eq!(links.len(), 2);
+
+        // Increase time
+        Timestamp::set_timestamp(220);
+        links = Identity::get_filtered_links(bob_did, false, Some(LinkType::AssetOwnership));
+        assert_eq!(links.len(), 1);
+
+        // Query all links without providing link type and allow expired ones as well
+        links = Identity::get_filtered_links(bob_did, true, None);
+        assert_eq!(links.len(), 7);
+
+        // Query all links without providing link type and not allow the expired ones
+        links = Identity::get_filtered_links(bob_did, false, None);
+        assert_eq!(links.len(), 4);
     });
 }
 
