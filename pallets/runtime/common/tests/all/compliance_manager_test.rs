@@ -128,8 +128,8 @@ fn should_add_and_verify_asset_rule_we() {
     assert_ok!(ComplianceManager::add_active_rule(
         token_owner_signed.clone(),
         ticker,
-        vec![sender_rule],
-        vec![receiver_rule1, receiver_rule2]
+        vec![sender_rule.clone()],
+        vec![receiver_rule1.clone(), receiver_rule2.clone()]
     ));
 
     assert_ok!(Identity::add_claim(
@@ -149,6 +149,19 @@ fn should_add_and_verify_asset_rule_we() {
         ),
         AssetError::<TestStorage>::InvalidTransfer
     );
+    let result = ComplianceManager::granular_verify_restriction(
+        &ticker,
+        Some(token_owner_did),
+        Some(token_owner_did),
+    );
+    assert!(!result.final_result);
+    assert!(!result.rules[0].transfer_rule_result);
+    assert!(result.rules[0].sender_rules[0].result);
+    assert!(result.rules[0].receiver_rules[0].result);
+    assert!(!result.rules[0].receiver_rules[1].result);
+    assert_eq!(result.rules[0].sender_rules[0].rule, sender_rule);
+    assert_eq!(result.rules[0].receiver_rules[0].rule, receiver_rule1);
+    assert_eq!(result.rules[0].receiver_rules[1].rule, receiver_rule2);
 
     assert_ok!(Identity::add_claim(
         claim_issuer_signed.clone(),
@@ -163,6 +176,19 @@ fn should_add_and_verify_asset_rule_we() {
         token_owner_did.clone(),
         token.total_supply
     ));
+    let result = ComplianceManager::granular_verify_restriction(
+        &ticker,
+        Some(token_owner_did),
+        Some(token_owner_did),
+    );
+    assert!(result.final_result);
+    assert!(result.rules[0].transfer_rule_result);
+    assert!(result.rules[0].sender_rules[0].result);
+    assert!(result.rules[0].receiver_rules[0].result);
+    assert!(result.rules[0].receiver_rules[1].result);
+    assert_eq!(result.rules[0].sender_rules[0].rule, sender_rule);
+    assert_eq!(result.rules[0].receiver_rules[0].rule, receiver_rule1);
+    assert_eq!(result.rules[0].receiver_rules[1].rule, receiver_rule2);
 
     assert_ok!(Identity::add_claim(
         cdd_signed.clone(),
@@ -180,6 +206,19 @@ fn should_add_and_verify_asset_rule_we() {
         ),
         AssetError::<TestStorage>::InvalidTransfer
     );
+    let result = ComplianceManager::granular_verify_restriction(
+        &ticker,
+        Some(token_owner_did),
+        Some(token_owner_did),
+    );
+    assert!(!result.final_result);
+    assert!(!result.rules[0].transfer_rule_result);
+    assert!(result.rules[0].sender_rules[0].result);
+    assert!(!result.rules[0].receiver_rules[0].result);
+    assert!(result.rules[0].receiver_rules[1].result);
+    assert_eq!(result.rules[0].sender_rules[0].rule, sender_rule);
+    assert_eq!(result.rules[0].receiver_rules[0].rule, receiver_rule1);
+    assert_eq!(result.rules[0].receiver_rules[1].rule, receiver_rule2);
 }
 
 #[test]
@@ -920,6 +959,7 @@ fn cm_test_case_9_we() {
     let charlie = register_keyring_account(AccountKeyring::Charlie).unwrap();
     let dave = register_keyring_account(AccountKeyring::Dave).unwrap();
     let eve = register_keyring_account(AccountKeyring::Eve).unwrap();
+    let ferdie = register_keyring_account(AccountKeyring::Ferdie).unwrap();
 
     // 3.1. Charlie has a 'KnowYourCustomer' Claim.
     assert_ok!(Identity::add_claim(
@@ -929,6 +969,10 @@ fn cm_test_case_9_we() {
         None
     ));
     assert_ok!(Asset::transfer(owner.clone(), ticker, charlie, 100));
+    let result = ComplianceManager::granular_verify_restriction(&ticker, None, Some(charlie));
+    assert!(result.final_result);
+    assert!(result.rules[0].transfer_rule_result);
+    assert!(result.rules[0].receiver_rules[0].result);
 
     // 3.2. Dave has a 'Affiliate' Claim
     assert_ok!(Identity::add_claim(
@@ -938,6 +982,10 @@ fn cm_test_case_9_we() {
         None
     ));
     assert_ok!(Asset::transfer(owner.clone(), ticker, dave, 100));
+    let result = ComplianceManager::granular_verify_restriction(&ticker, None, Some(dave));
+    assert!(result.final_result);
+    assert!(result.rules[0].transfer_rule_result);
+    assert!(result.rules[0].receiver_rules[0].result);
 
     // 3.3. Eve has a 'Whitelisted' Claim
     assert_ok!(Identity::add_claim(
@@ -947,6 +995,20 @@ fn cm_test_case_9_we() {
         None
     ));
     assert_ok!(Asset::transfer(owner.clone(), ticker, eve, 100));
+    let result = ComplianceManager::granular_verify_restriction(&ticker, None, Some(eve));
+    assert!(result.final_result);
+    assert!(result.rules[0].transfer_rule_result);
+    assert!(result.rules[0].receiver_rules[0].result);
+
+    // 3.4 Ferdie has none of the required claims
+    assert_err!(
+        Asset::transfer(owner.clone(), ticker, ferdie, 100),
+        AssetError::<TestStorage>::InvalidTransfer
+    );
+    let result = ComplianceManager::granular_verify_restriction(&ticker, None, Some(ferdie));
+    assert!(!result.final_result);
+    assert!(!result.rules[0].transfer_rule_result);
+    assert!(!result.rules[0].receiver_rules[0].result);
 }
 
 #[test]
@@ -1005,6 +1067,11 @@ fn cm_test_case_11_we() {
         None
     ));
     assert_ok!(Asset::transfer(owner.clone(), ticker, charlie, 100));
+    let result = ComplianceManager::granular_verify_restriction(&ticker, None, Some(charlie));
+    assert!(result.final_result);
+    assert!(result.rules[0].transfer_rule_result);
+    assert!(result.rules[0].receiver_rules[0].result);
+    assert!(result.rules[0].receiver_rules[1].result);
 
     // 3.2. Dave has a 'Affiliate' Claim but he is from USA
     assert_ok!(Identity::add_claim(
@@ -1023,6 +1090,11 @@ fn cm_test_case_11_we() {
         Asset::transfer(owner.clone(), ticker, dave, 100),
         AssetError::<TestStorage>::InvalidTransfer
     );
+    let result = ComplianceManager::granular_verify_restriction(&ticker, None, Some(dave));
+    assert!(!result.final_result);
+    assert!(!result.rules[0].transfer_rule_result);
+    assert!(result.rules[0].receiver_rules[0].result);
+    assert!(!result.rules[0].receiver_rules[1].result);
 
     // 3.3. Eve has a 'Whitelisted' Claim
     assert_ok!(Identity::add_claim(
@@ -1038,6 +1110,11 @@ fn cm_test_case_11_we() {
         None
     ));
     assert_ok!(Asset::transfer(owner.clone(), ticker, eve, 100));
+    let result = ComplianceManager::granular_verify_restriction(&ticker, None, Some(eve));
+    assert!(result.final_result);
+    assert!(result.rules[0].transfer_rule_result);
+    assert!(result.rules[0].receiver_rules[0].result);
+    assert!(result.rules[0].receiver_rules[1].result);
 }
 
 #[test]
@@ -1103,6 +1180,12 @@ fn cm_test_case_13_we() {
         Asset::transfer(owner.clone(), ticker, charlie, 100),
         AssetError::<TestStorage>::InvalidTransfer
     );
+    let result = ComplianceManager::granular_verify_restriction(&ticker, None, Some(charlie));
+    assert!(!result.final_result);
+    assert!(!result.rules[0].transfer_rule_result);
+    assert!(result.rules[0].receiver_rules[0].result);
+    assert!(!result.rules[0].receiver_rules[1].result);
+    assert!(result.rules[0].receiver_rules[2].result);
 
     // 3.2. Dave has a 'Affiliate' Claim but he is from USA
     let dave_claims = vec![
@@ -1128,6 +1211,12 @@ fn cm_test_case_13_we() {
         Asset::transfer(owner.clone(), ticker, dave, 100),
         AssetError::<TestStorage>::InvalidTransfer
     );
+    let result = ComplianceManager::granular_verify_restriction(&ticker, None, Some(dave));
+    assert!(!result.final_result);
+    assert!(!result.rules[0].transfer_rule_result);
+    assert!(result.rules[0].receiver_rules[0].result);
+    assert!(result.rules[0].receiver_rules[1].result);
+    assert!(!result.rules[0].receiver_rules[2].result);
 
     // 3.3. Eve has a 'Whitelisted' Claim
     let eve_claims = vec![
@@ -1150,4 +1239,10 @@ fn cm_test_case_13_we() {
 
     assert_ok!(Identity::add_claims_batch(issuer.clone(), eve_claims));
     assert_ok!(Asset::transfer(owner.clone(), ticker, eve, 100));
+    let result = ComplianceManager::granular_verify_restriction(&ticker, None, Some(eve));
+    assert!(result.final_result);
+    assert!(result.rules[0].transfer_rule_result);
+    assert!(result.rules[0].receiver_rules[0].result);
+    assert!(result.rules[0].receiver_rules[1].result);
+    assert!(result.rules[0].receiver_rules[2].result);
 }
