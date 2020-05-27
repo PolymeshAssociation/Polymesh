@@ -34,6 +34,7 @@ pub use protocol_fee::ChargeProtocolFee;
 
 use core::convert::From;
 use polymesh_primitives::IdentityId;
+use sp_runtime::ModuleId;
 
 /// It defines the valid issuers for Systematic Claims.
 ///
@@ -52,23 +53,58 @@ use polymesh_primitives::IdentityId;
 pub enum SystematicIssuers {
     Committee,
     CDDProvider,
-    TreasuryModule,
+    Treasury,
+    BlockRewardReserve,
 }
+
+impl core::fmt::Display for SystematicIssuers {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        let value = match self {
+            SystematicIssuers::Committee => "Governance Committee",
+            SystematicIssuers::CDDProvider => "CDD Trusted Providers",
+            SystematicIssuers::Treasury => "Treasury",
+            SystematicIssuers::BlockRewardReserve => "Block Reward Reserve",
+        };
+
+        write!(f, "'{}'", value)
+    }
+}
+
+pub const SYSTEMATIC_ISSUERS: &[SystematicIssuers] = &[
+    SystematicIssuers::Treasury,
+    SystematicIssuers::Committee,
+    SystematicIssuers::CDDProvider,
+    SystematicIssuers::BlockRewardReserve,
+];
 
 impl SystematicIssuers {
     /// It returns the representation of this issuer as a raw public key.
     pub fn as_bytes(self) -> &'static [u8; 32] {
-        use constants::did::{CDD_PROVIDERS_DID, GOVERNANCE_COMMITTEE_DID, TREASURY_MODULE_DID};
+        use constants::did::{
+            BLOCK_REWARD_RESERVE_DID, CDD_PROVIDERS_DID, GOVERNANCE_COMMITTEE_DID, TREASURY_DID,
+        };
 
         match self {
             SystematicIssuers::Committee => GOVERNANCE_COMMITTEE_DID,
             SystematicIssuers::CDDProvider => CDD_PROVIDERS_DID,
-            SystematicIssuers::TreasuryModule => TREASURY_MODULE_DID,
+            SystematicIssuers::Treasury => TREASURY_DID,
+            SystematicIssuers::BlockRewardReserve => BLOCK_REWARD_RESERVE_DID,
         }
     }
 
     /// It returns the Identity Identifier of this issuer.
     pub fn as_id(self) -> IdentityId {
         IdentityId::from(*self.as_bytes())
+    }
+
+    pub fn as_module_id(self) -> ModuleId {
+        use constants::{BRR_MODULE_ID, CDD_MODULE_ID, GC_MODULE_ID, TREASURY_MODULE_ID};
+
+        match self {
+            SystematicIssuers::Committee => GC_MODULE_ID,
+            SystematicIssuers::CDDProvider => CDD_MODULE_ID,
+            SystematicIssuers::Treasury => TREASURY_MODULE_ID,
+            SystematicIssuers::BlockRewardReserve => BRR_MODULE_ID,
+        }
     }
 }
