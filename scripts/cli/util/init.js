@@ -21,7 +21,7 @@ let transfer_amount = new BN(25000).mul(new BN(10).pow(new BN(6)));
 
 let prepend = "demo";
 
-// Used for creating a single ticker 
+// Used for creating a single ticker
 const ticker = `token${prepend}0`.toUpperCase();
 assert( ticker.length <= 12, "Ticker cannot be longer than 12 characters");
 
@@ -30,7 +30,7 @@ const senderRules1 = function(trusted_did, asset_did) {
     {
       "rule_type": {
         "IsPresent": {
-          "Whitelisted": asset_did 
+          "Whitelisted": asset_did
         }
       },
       "issuers": [trusted_did]
@@ -105,6 +105,15 @@ const generateKeys = async function (api, numberOfKeys, keyPrepend) {
     nonces.set(keys[i].address, account_nonce);
   }
   return keys;
+};
+
+const generateEntityFromUri = async function (api, uri) {
+  await cryptoWaitReady();
+  let entity = new Keyring({ type: "sr25519" }).addFromUri(uri);
+  let accountRawNonce = (await api.query.system.account(entity.address)).nonce;
+  let account_nonce = new BN(accountRawNonce.toString());
+  nonces.set(entity.address, account_nonce);
+  return entity;
 };
 
 const blockTillPoolEmpty = async function (api) {
@@ -194,11 +203,11 @@ async function distributePoly(api, to, amount, from) {
     // Perform the transfers
     let nonceObj = {nonce: nonces.get(from.address)};
     const transaction = api.tx.balances.transfer(to.address, amount);
-    await sendTransaction(transaction, from, nonceObj); 
+    await sendTransaction(transaction, from, nonceObj);
 
     nonces.set( from.address, nonces.get(from.address).addn(1));
 }
-   
+
 
 async function distributePolyBatch(api, to, amount, from) {
   // Perform the transfers
@@ -214,7 +223,7 @@ async function addSigningKeys(api, accounts, dids, signing_accounts) {
 
     let nonceObj = {nonce: nonces.get(accounts[i].address)};
     const transaction = api.tx.identity.addAuthorizationAsKey({AccountKey: signing_accounts[i].publicKey}, {JoinIdentity: dids[i]}, null);
-    await sendTransaction(transaction, accounts[i], nonceObj); 
+    await sendTransaction(transaction, accounts[i], nonceObj);
 
     // const unsub = await api.tx.identity
     // .addAuthorizationAsKey({AccountKey: signing_accounts[i].publicKey}, {JoinIdentity: dids[i]}, null)
@@ -241,7 +250,7 @@ async function authorizeJoinToIdentities(api, accounts, dids, signing_accounts) 
 
     let nonceObj = {nonce: nonces.get(signing_accounts[i].address)};
     const transaction = api.tx.identity.joinIdentityAsKey([last_auth_id]);
-    await sendTransaction(transaction, signing_accounts[i], nonceObj); 
+    await sendTransaction(transaction, signing_accounts[i], nonceObj);
 
     // const unsub = await api.tx.identity
     //   .joinIdentityAsKey([last_auth_id])
@@ -257,17 +266,17 @@ async function issueTokenPerDid(api, accounts) {
 
   // let nonceObj = {nonce: nonces.get(accounts[0].address)};
   // const transaction = api.tx.asset.createAsset(ticker, ticker, 1000000, true, 0, [], "abc");
-  // await sendTransaction(transaction, accounts[0], nonceObj); 
+  // await sendTransaction(transaction, accounts[0], nonceObj);
 
     const unsub = await api.tx.asset
       .createAsset(ticker, ticker, 1000000, true, 0, [], "abc")
       .signAndSend(accounts[0], { nonce: nonces.get(accounts[0].address) });
 
     nonces.set(accounts[0].address, nonces.get(accounts[0].address).addn(1));
-  
+
 }
 
-// Returns the asset did 
+// Returns the asset did
 function tickerToDid(ticker) {
     return blake2AsHex(
       u8aConcat(stringToU8a("SECURITY_TOKEN:"), u8aFixLength(stringToU8a(ticker), 96, true)
@@ -276,19 +285,19 @@ function tickerToDid(ticker) {
 
 // Creates claim rules for an asset
 async function createClaimRules(api, accounts, dids) {
-    
+
     const asset_did = tickerToDid(ticker);
-  
+
     let senderRules = senderRules1(dids[1], asset_did);
     let receiverRules = receiverRules1(dids[1], asset_did);
 
     let nonceObj = {nonce: nonces.get(accounts[0].address)};
     const transaction = api.tx.complianceManager.addActiveRule(ticker, senderRules, receiverRules);
-    await sendTransaction(transaction, accounts[0], nonceObj); 
+    await sendTransaction(transaction, accounts[0], nonceObj);
 
       nonces.set(accounts[0].address, nonces.get(accounts[0].address).addn(1));
-    
-  
+
+
 }
 
 // Adds claim to did
@@ -297,14 +306,14 @@ async function addClaimsToDids(api, accounts, did, claimType, claimValue, expiry
   // Receieving Rules Claim
   let claim = {[claimType]: claimValue};
 
-      
+
     let nonceObj = {nonce: nonces.get(accounts[1].address)};
     expiry = expiry == 0 ? null : expiry;
     const transaction = api.tx.identity.addClaim(did, claim, expiry);
-    await sendTransaction(transaction, accounts[1], nonceObj);  
+    await sendTransaction(transaction, accounts[1], nonceObj);
 
     nonces.set(accounts[1].address, nonces.get(accounts[1].address).addn(1));
-    
+
 }
 
 const generateStashKeys = async function(api, accounts) {
@@ -324,69 +333,69 @@ const generateStashKeys = async function(api, accounts) {
 
 function sendTransaction(transaction, signer, nonceObj) {
   return new Promise((resolve, reject) => {
-    
+
     const gettingUnsub = transaction.signAndSend(signer, nonceObj, receipt => {
-     
+
       const { status } = receipt;
-     
+
       if (receipt.isCompleted) {
-       
+
         /*
          * isCompleted === isFinalized || isError, which means
          * no further updates, so we unsubscribe
          */
         gettingUnsub.then(unsub => {
-         
+
           unsub();
-         
+
         });
-       
+
         if (receipt.isInBlock) {
-          
+
           // tx included in a block and finalized
           const failed = receipt.findRecord('system', 'ExtrinsicFailed');
-          
+
           if (failed) {
-            
+
             // get revert message from event
             let message = "";
             const dispatchError = failed.event.data[0];
-            
+
             if (dispatchError.isModule) {
-              
+
               // known error
               const mod = dispatchError.asModule;
               const { section, name, documentation } = mod.registry.findMetaError(
                 new Uint8Array([mod.index.toNumber(), mod.error.toNumber()])
               );
-              
+
               message = `${section}.${name}: ${documentation.join(' ')}`;
-            } else if (dispatchError.isBadOrigin) {  
+            } else if (dispatchError.isBadOrigin) {
               message = 'Bad origin';
-            } else if (dispatchError.isCannotLookup) {  
+            } else if (dispatchError.isCannotLookup) {
               message = 'Could not lookup information required to validate the transaction';
             } else {
               message = 'Unknown error';
             }
-            
+
             reject(new Error(message));
           } else {
-            
+
             resolve(receipt);
           }
         } else if (receipt.isError) {
-          
+
           reject(new Error('Transaction Aborted'));
-          
+
         }
       }
     });
   });
-} 
+}
 
 async function signAndSendTransaction(transaction, signer) {
   let nonceObj = {nonce: nonces.get(signer.address)};
-  await sendTransaction(transaction, signer, nonceObj);  
+  await sendTransaction(transaction, signer, nonceObj);
   nonces.set(signer.address, nonces.get(signer.address).addn(1));
 }
 
@@ -419,6 +428,7 @@ let reqImports = {
   initMain,
   blockTillPoolEmpty,
   generateKeys,
+  generateEntityFromUri,
   distributePoly,
   addSigningKeys,
   authorizeJoinToIdentities,
