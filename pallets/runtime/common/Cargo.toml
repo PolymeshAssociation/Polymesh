@@ -24,6 +24,7 @@ pallet-treasury = { package = "pallet-treasury", path = "../../treasury", defaul
 pallet-asset = { package = "pallet-asset", path = "../../asset", default-features = false }
 pallet-compliance-manager = { package = "pallet-compliance-manager", path = "../../compliance-manager", default-features = false }
 pallet-statistics = { package = "pallet-statistics", path = "../../statistics", default-features = false }
+pallet-identity-rpc-runtime-api = { package = "pallet-identity-rpc-runtime-api", path = "../../identity/rpc/runtime-api", default-features = false }
 
 # Other
 chrono = { version = "0.4.11", default-features = false }
@@ -82,6 +83,7 @@ std = [
 	"pallet-treasury/std",
 	"pallet-transaction-payment/std",
 	"pallet-randomness-collective-flip/std",
+	"pallet-identity-rpc-runtime-api/std",
 	"frame-benchmarking/std",
 	"frame-support/std",
 	"frame-system/std",

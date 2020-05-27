@@ -5,8 +5,8 @@ use grandpa::{
     self, FinalityProofProvider as GrandpaFinalityProofProvider, StorageAndProofProvider,
 };
 pub use polymesh_primitives::{
-    AccountId, AccountKey, Balance, Block, BlockNumber, Hash, IdentityId, Index as Nonce,
-    SigningItem, Ticker,
+    AccountId, AccountKey, Balance, Block, BlockNumber, Hash, IdentityId, Index as Nonce, Moment,
+    Signatory, SigningItem, Ticker,
 };
 pub use polymesh_runtime_develop;
 pub use polymesh_runtime_testnet_v1;
@@ -64,8 +64,15 @@ pub trait RuntimeApiCollection<Extrinsic: codec::Codec + Send + Sync + 'static>:
     + pallet_contracts_rpc_runtime_api::ContractsApi<Block, AccountId, Balance, BlockNumber>
     + pallet_staking_rpc_runtime_api::StakingApi<Block>
     + pallet_pips_rpc_runtime_api::PipsApi<Block, AccountId, Balance>
-    + pallet_identity_rpc_runtime_api::IdentityApi<Block, IdentityId, Ticker, AccountKey, SigningItem>
-    + pallet_protocol_fee_rpc_runtime_api::ProtocolFeeApi<Block>
+    + pallet_identity_rpc_runtime_api::IdentityApi<
+        Block,
+        IdentityId,
+        Ticker,
+        AccountKey,
+        SigningItem,
+        Signatory,
+        Moment,
+    > + pallet_protocol_fee_rpc_runtime_api::ProtocolFeeApi<Block>
     + pallet_asset_rpc_runtime_api::AssetApi<Block, AccountId, Balance>
     + pallet_group_rpc_runtime_api::GroupApi<Block>
 where
@@ -95,6 +102,8 @@ where
             Ticker,
             AccountKey,
             SigningItem,
+            Signatory,
+            Moment,
         > + pallet_protocol_fee_rpc_runtime_api::ProtocolFeeApi<Block>
         + pallet_asset_rpc_runtime_api::AssetApi<Block, AccountId, Balance>
         + pallet_group_rpc_runtime_api::GroupApi<Block>,

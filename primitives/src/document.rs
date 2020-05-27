@@ -16,28 +16,34 @@
 //! Document type
 use codec::{Decode, Encode};
 use polymesh_primitives_derive::VecU8StrongTyped;
+#[cfg(feature = "std")]
+use serde::{Deserialize, Serialize};
 use sp_std::prelude::Vec;
 
 /// A wrapper for a document name.
 #[derive(
     Decode, Encode, Clone, Debug, Default, Hash, PartialEq, Eq, PartialOrd, Ord, VecU8StrongTyped,
 )]
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 pub struct DocumentName(pub Vec<u8>);
 
 /// A wrapper for a document URI.
 #[derive(
     Decode, Encode, Clone, Debug, Default, Hash, PartialEq, Eq, PartialOrd, Ord, VecU8StrongTyped,
 )]
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 pub struct DocumentUri(pub Vec<u8>);
 
 /// A wrapper for a document hash.
 #[derive(
     Decode, Encode, Clone, Debug, Default, Hash, PartialEq, Eq, PartialOrd, Ord, VecU8StrongTyped,
 )]
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 pub struct DocumentHash(pub Vec<u8>);
 
 /// Represents a document associated with an asset
 #[derive(Decode, Encode, Clone, Debug, Default, Hash, PartialEq, Eq, PartialOrd, Ord)]
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 pub struct Document {
     /// Document name
     pub name: DocumentName,
