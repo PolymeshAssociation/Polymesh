@@ -2,10 +2,11 @@
 #
 # Build from the repo root with `docker build -t polymesh -f deploy/Dockerfile .`
 
-FROM rust:1.43.1-slim-buster
+FROM cimg/rust:1.43.0
 
-RUN apt-get update && apt-get upgrade -y && \
-    apt-get install -y \
+RUN sudo apt-get update && \
+    sudo apt-get upgrade -y && \
+    sudo apt-get install -y \
         gcc \
         g++ \
         pkg-config \
@@ -20,16 +21,15 @@ RUN rustup install nightly-2020-04-17 && \
     cargo +nightly-2020-04-17 install --git https://github.com/alexcrichton/wasm-gc --force
 
 # Hack to use an older version of nightly
-RUN mv /usr/local/rustup/toolchains/nightly-2020-04-17-x86_64-unknown-linux-gnu /usr/local/rustup/toolchains/nightly-x86_64-unknown-linux-gnu
-
+RUN mv ~/.rustup/toolchains/nightly-2020-04-17-x86_64-unknown-linux-gnu ~/.rustup/toolchains/nightly-x86_64-unknown-linux-gnu
 RUN rustup default nightly
 
-COPY . /home/polymesh
-
-WORKDIR /home/polymesh
-
+COPY --chown=circleci:circleci . polymesh/
+WORKDIR polymesh
 RUN cargo build --release
-
+RUN cd ./scripts/cli && npm i
 EXPOSE 9944
 
-CMD [ "./target/release/polymesh", "--dev", "--unsafe-ws-external" ]
+CMD ./target/release/polymesh --dev --unsafe-ws-external && \
+    cd ./scripts/cli && \
+    node run dev
