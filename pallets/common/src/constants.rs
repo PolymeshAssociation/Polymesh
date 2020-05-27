@@ -17,12 +17,15 @@ pub mod did {
     pub const USER: &[u8; 5] = b"USER:";
     /// prefix for security token dids
     pub const SECURITY_TOKEN: &[u8; 15] = b"SECURITY_TOKEN:";
+
     /// Governance Committee DID. It is used in systematic CDD claim for Governance Committee members.
     pub const GOVERNANCE_COMMITTEE_DID: &[u8; 32] = b"system:governance_committee\0\0\0\0\0";
     /// CDD Providers DID. It is used in systematic CDD claim for CDD Providers.
     pub const CDD_PROVIDERS_DID: &[u8; 32] = b"system:customer_due_diligence\0\0\0";
     /// Treasury module DID. It is used in systematic CDD claim for the Treasury module.
-    pub const TREASURY_MODULE_DID: &[u8; 32] = b"system:treasury_module_did\0\0\0\0\0\0";
+    pub const TREASURY_DID: &[u8; 32] = b"system:treasury_module_did\0\0\0\0\0\0";
+    /// Block Reward Reserve DID.
+    pub const BLOCK_REWARD_RESERVE_DID: &[u8; 32] = b"system:block_reward_reserve_did\0";
 }
 
 // ERC1400 transfer status codes
@@ -52,3 +55,6 @@ pub const PIP_MAX_REPORTING_SIZE: usize = 1024;
 
 /// Module ids, used for deriving sovereign account IDs for modules.
 pub const TREASURY_MODULE_ID: ModuleId = ModuleId(*b"pm/trsry");
+pub const BRR_MODULE_ID: ModuleId = ModuleId(*b"pm/blrwr");
+pub const GC_MODULE_ID: ModuleId = ModuleId(*b"pm/govcm");
+pub const CDD_MODULE_ID: ModuleId = ModuleId(*b"pm/cusdd");
