@@ -285,7 +285,7 @@ fn general_testnet_genesis(
             min_proposal_deposit: 5_000 * POLY,
             quorum_threshold: 100_000,
             proposal_duration: 50,
-            proposal_cool_off_period: GeneralTime::DAYS * 0,
+            proposal_cool_off_period: GeneralTime::HOURS * 6,
             default_enactment_period: GeneralTime::DAYS * 7,
         }),
         pallet_im_online: Some(V1Config::ImOnlineConfig {
@@ -621,7 +621,7 @@ fn v1_testnet_genesis(
                 .cloned()
                 .chain(authority_identities.iter().cloned())
                 .collect::<Vec<_>>();
-            identity_counter = 5;
+            identity_counter = 6;
             let signing_keys = initial_authorities
                 .iter()
                 .map(|x| {
