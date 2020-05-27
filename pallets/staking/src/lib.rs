@@ -269,6 +269,7 @@ mod mock;
 mod slashing;
 #[cfg(test)]
 mod tests;
+mod migration;
 
 pub mod inflation;
 
@@ -743,6 +744,18 @@ impl Default for Forcing {
     }
 }
 
+#[derive(Copy, Clone, PartialEq, Eq, Encode, Decode, RuntimeDebug)]
+pub enum Releases {
+    V1_0_0,
+    V1_1_0
+}
+
+impl Default for Releases {
+    fn default() -> Self {
+        Releases::V1_0_0
+    }
+}
+
 decl_storage! {
     trait Store for Module<T: Trait> as Staking {
 
@@ -906,6 +919,9 @@ decl_storage! {
 
         /// The minimum amount with which a validator can bond.
         pub MinimumBondThreshold get(fn min_bond_threshold) config(): BalanceOf<T>;
+
+        /// Maintain the storage version
+        pub StorageVersion build(|_: &GenesisConfig<T>| Releases::V1_1_0): Releases;
     }
     add_extra_genesis {
         config(stakers):
@@ -1034,6 +1050,10 @@ decl_module! {
         type Error = Error<T>;
 
         fn deposit_event() = default;
+
+        fn on_runtime_upgrade() {
+			migration::on_runtime_upgrade::<T>();
+		}
 
         fn on_finalize() {
             // Set the start of the first era.
