@@ -1,5 +1,5 @@
-use crate::{Trait};
-use codec::{Encode, Decode};
+use crate::Trait;
+use codec::{Decode, Encode};
 use frame_support::{decl_module, decl_storage};
 use sp_std::prelude::*;
 

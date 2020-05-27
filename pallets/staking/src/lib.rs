@@ -264,12 +264,12 @@
 #![recursion_limit = "128"]
 #![cfg_attr(not(feature = "std"), no_std)]
 
+mod migration;
 #[cfg(test)]
 mod mock;
 mod slashing;
 #[cfg(test)]
 mod tests;
-mod migration;
 
 pub mod inflation;
 
@@ -747,7 +747,7 @@ impl Default for Forcing {
 #[derive(Copy, Clone, PartialEq, Eq, Encode, Decode, RuntimeDebug)]
 pub enum Releases {
     V1_0_0,
-    V1_1_0
+    V1_1_0,
 }
 
 impl Default for Releases {
@@ -1052,8 +1052,8 @@ decl_module! {
         fn deposit_event() = default;
 
         fn on_runtime_upgrade() {
-			migration::on_runtime_upgrade::<T>();
-		}
+            migration::on_runtime_upgrade::<T>();
+        }
 
         fn on_finalize() {
             // Set the start of the first era.
