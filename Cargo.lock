@@ -4217,6 +4217,7 @@ dependencies = [
  "pallet-balances 0.1.0",
  "pallet-committee",
  "pallet-compliance-manager",
+ "pallet-confidential",
  "pallet-contracts",
  "pallet-group",
  "pallet-group-rpc-runtime-api",
