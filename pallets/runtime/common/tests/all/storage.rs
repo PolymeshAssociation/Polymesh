@@ -2,6 +2,7 @@ use pallet_asset as asset;
 use pallet_balances as balances;
 use pallet_committee as committee;
 use pallet_compliance_manager as compliance_manager;
+use pallet_confidential as confidential;
 use pallet_group as group;
 use pallet_identity as identity;
 use pallet_multisig as multisig;
@@ -9,6 +10,7 @@ use pallet_pips as pips;
 use pallet_protocol_fee as protocol_fee;
 use pallet_statistics as statistics;
 use pallet_treasury as treasury;
+
 use polymesh_common_utilities::traits::{
     asset::AcceptTransfer, balances::AccountData, group::GroupTrait,
     identity::Trait as IdentityTrait, multisig::AddSignerMultiSig, CommonTrait,
@@ -90,6 +92,7 @@ impl_outer_event! {
         frame_system<T>,
         protocol_fee<T>,
         treasury<T>,
+        confidential,
     }
 }
 
@@ -453,6 +456,10 @@ impl pips::Trait for TestStorage {
     type VotingMajorityOrigin = frame_system::EnsureRoot<AccountId>;
     type GovernanceCommittee = Committee;
     type Treasury = treasury::Module<Self>;
+    type Event = Event;
+}
+
+impl confidential::Trait for TestStorage {
     type Event = Event;
 }
 
