@@ -754,23 +754,22 @@ impl<T: Trait> Module<T> {
         let asset_rules = Self::asset_rules(ticker);
         let mut asset_rules_with_results = AssetTransferRulesResult::from(asset_rules);
         for active_rule in &mut asset_rules_with_results.rules {
-            let mut result = true;
             if let Some(from_did) = from_did_opt {
                 // Evaluate all sender rules
-                if Self::evaluate_rules(ticker, from_did, &mut active_rule.sender_rules) {
-                    result = false;
+                if !Self::evaluate_rules(ticker, from_did, &mut active_rule.sender_rules) {
+                    // If the result of any of the sender rules was false, set this asset rule result to false.
+                    active_rule.transfer_rule_result = false;
                 }
             }
             if let Some(to_did) = to_did_opt {
                 // Evaluate all receiver rules
-                if Self::evaluate_rules(ticker, to_did, &mut active_rule.receiver_rules) {
-                    result = false;
+                if !Self::evaluate_rules(ticker, to_did, &mut active_rule.receiver_rules) {
+                    // If the result of any of the receiver rules was false, set this asset rule result to false.
+                    active_rule.transfer_rule_result = false;
                 }
             }
-            // Update transfer rule result
-            active_rule.transfer_rule_result = result;
-            // If the transfer rule result is positive, update the final result to be positive
-            if result {
+            // If the asset rule result is positive, update the final result to be positive
+            if active_rule.transfer_rule_result {
                 asset_rules_with_results.final_result = true;
             }
         }
