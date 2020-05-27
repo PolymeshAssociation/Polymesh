@@ -522,8 +522,7 @@
                 "Ok": "u8",
                 "Err": "Vec<u8>"
             }
-        },
-
+        }
     },
     "rpc": {
         "compliance": {
