@@ -198,8 +198,8 @@ use frame_support::{
 use frame_system::{self as system, ensure_root, ensure_signed};
 use sp_runtime::{
     traits::{
-        Bounded, CheckedAdd, CheckedSub, Hash, MaybeSerializeDeserialize, Saturating, StaticLookup,
-        Zero,
+        AccountIdConversion, Bounded, CheckedAdd, CheckedSub, Hash, MaybeSerializeDeserialize,
+        Saturating, StaticLookup, Zero,
     },
     DispatchError, DispatchResult, RuntimeDebug,
 };
@@ -275,13 +275,6 @@ decl_storage! {
         // Polymesh-Note : Change to facilitate the DID charging
         /// Signing key => Charge Fee to did?. Default is false i.e. the fee will be charged from user balance
         pub ChargeDid get(charge_did): map hasher(twox_64_concat) AccountKey => bool;
-
-        // Polymesh-Note : Change to facilitate the BRR functionality
-        /// AccountId of the block rewards reserve
-        pub BlockRewardsReserve get(block_rewards_reserve) build(|_| {
-            let h: T::Hash = T::Hashing::hash(&(b"BLOCK_REWARDS_RESERVE").encode());
-            T::AccountId::decode(&mut &h.encode()[..]).unwrap_or_default()
-        }): T::AccountId;
     }
     add_extra_genesis {
         config(balances): Vec<(T::AccountId, T::Balance)>;
@@ -542,6 +535,12 @@ impl<T: Trait> Module<T> {
         Self::account(who.borrow()).reserved
     }
 
+    pub fn block_rewards_reserve() -> T::AccountId {
+        SystematicIssuers::BlockRewardReserve
+            .as_module_id()
+            .into_account()
+    }
+
     /// Get both the free and reserved balances of an account.
     fn account(who: &T::AccountId) -> AccountData<T::Balance> {
         T::AccountStore::get(&who)
@@ -750,7 +749,7 @@ impl<T: Trait> BlockRewardsReserveCurrency<T::Balance, NegativeImbalance<T>> for
         if amount.is_zero() {
             return;
         }
-        let brr = <BlockRewardsReserve<T>>::get();
+        let brr = Self::block_rewards_reserve();
         let _ = Self::try_mutate_account(&brr, |account| -> DispatchResult {
             if account.free > Zero::zero() {
                 let old_brr_free_balance = account.free;
@@ -775,7 +774,7 @@ impl<T: Trait> BlockRewardsReserveCurrency<T::Balance, NegativeImbalance<T>> for
         if amount.is_zero() {
             return NegativeImbalance::zero();
         }
-        let brr = <BlockRewardsReserve<T>>::get();
+        let brr = Self::block_rewards_reserve();
         Self::try_mutate_account(&brr, |account| -> Result<NegativeImbalance<T>, ()> {
             let amount_to_mint = if account.free > Zero::zero() {
                 let old_brr_free_balance = account.free;
