@@ -4309,6 +4309,7 @@ dependencies = [
  "pallet-transaction-payment",
  "pallet-transaction-payment-rpc-runtime-api",
  "pallet-treasury",
+ "pallet-utility",
  "parity-scale-codec",
  "polymesh-common-utilities",
  "polymesh-primitives",
