@@ -19,8 +19,8 @@ use polymesh_common_utilities::{
 };
 use polymesh_primitives::{
     AccountKey, AuthorizationData, AuthorizationError, Claim, ClaimType, Document, DocumentHash,
-    DocumentName, DocumentUri, IdentityClaim, IdentityId, LinkData, Permission, Scope, Signatory,
-    SigningItem, Ticker, TransactionError, JoinIdentityData, SignatoryType
+    DocumentName, DocumentUri, IdentityClaim, IdentityId, JoinIdentityData, LinkData, Permission,
+    Scope, Signatory, SignatoryType, SigningItem, Ticker, TransactionError,
 };
 use polymesh_runtime_develop::{fee_details::CddHandler, runtime::Call};
 
