@@ -13,17 +13,28 @@ async function main() {
 
   const testEntities = await reqImports.initMain(api);
 
+  let alice = testEntities[0];
+  let bob = testEntities[1];
+  let charlie = testEntities[2];
+  let dave = testEntities[3];
+
   let master_keys = await reqImports.generateKeys(api,5, "master");
 
   let signing_keys = await reqImports.generateKeys(api, 5, "signing");
 
-  let issuer_dids = await reqImports["createIdentities"](api, master_keys, testEntities[0]);
+  let issuer_dids = await reqImports.createIdentities(api, master_keys, alice);
 
-  await reqImports["distributePolyBatch"]( api, master_keys, reqImports["transfer_amount"], testEntities[0] );
-
-  await reqImports["blockTillPoolEmpty"](api);
+  await reqImports.distributePolyBatch( api, master_keys, reqImports.transfer_amount, alice );
 
   await addSigningKeys( api, master_keys, issuer_dids, signing_keys );
+
+  let bob_signatory = await reqImports.signatory(api, bob, alice);
+  let charlie_signatory = await reqImports.signatory(api, charlie, alice);
+  let dave_signatory = await reqImports.signatory(api, dave, alice);
+
+  let signatory_array = [bob_signatory, charlie_signatory, dave_signatory];
+
+  await createMultiSig( api, alice, signatory_array, 2 );
 
   if (reqImports.fail_count > 0) {
     console.log("Failed");
@@ -51,5 +62,21 @@ async function addSigningKeys( api, accounts, dids, signing_accounts ) {
     reqImports.nonces.set(accounts[i].address, reqImports.nonces.get(accounts[i].address).addn(1));
   }
 }
+
+// Creates a multiSig Key
+async function createMultiSig( api, alice, dids, numOfSigners ) {
+
+    let nonceObj = {nonce: reqImports.nonces.get(alice.address)};
+    const transaction = api.tx.multiSig.createMultisig(dids, numOfSigners);
+    const result = await reqImports.sendTransaction(transaction, alice, nonceObj);  
+    const passed = result.findRecord('system', 'ExtrinsicSuccess');
+    if (passed) reqImports.fail_count--;
+
+    if (!passed) console.log('multiSig Failed');
+    reqImports.nonces.set(alice.address, reqImports.nonces.get(alice.address).addn(1));
+
+}
+
+
 
 main().catch(console.error);
