@@ -30,8 +30,8 @@ use polymesh_common_utilities::{
     CommonTrait,
 };
 use polymesh_primitives::{
-    AccountId, AccountIndex, AccountKey, Balance, BlockNumber, Hash, IdentityId, Index, Moment,
-    Signature, SigningItem, Ticker,
+    AccountId, AccountIndex, AccountKey, Balance, BlockNumber, Hash, IdentityId, Index, Link,
+    Moment, Signatory, Signature, SigningItem, Ticker,
 };
 
 use sp_api::impl_runtime_apis;
@@ -63,7 +63,7 @@ use frame_support::{
 use frame_system::offchain::TransactionSubmitter;
 use pallet_contracts_rpc_runtime_api::ContractExecResult;
 use pallet_grandpa::{fg_primitives, AuthorityList as GrandpaAuthorityList};
-use pallet_identity_rpc_runtime_api::{AssetDidResult, CddStatus, DidRecords};
+use pallet_identity_rpc_runtime_api::{AssetDidResult, CddStatus, DidRecords, LinkType};
 use pallet_im_online::sr25519::AuthorityId as ImOnlineId;
 use pallet_protocol_fee_rpc_runtime_api::CappedFee;
 use pallet_transaction_payment_rpc_runtime_api::RuntimeDispatchInfo;
@@ -879,6 +879,8 @@ impl_runtime_apis! {
             Ticker,
             AccountKey,
             SigningItem,
+            Signatory,
+            Moment
         > for Runtime
     {
         /// RPC call to know whether the given did has valid cdd claim or not
@@ -898,6 +900,11 @@ impl_runtime_apis! {
         /// Retrieve master key and signing keys for a given IdentityId
         fn get_did_records(did: IdentityId) -> DidRecords<AccountKey, SigningItem> {
             Identity::get_did_records(did)
+        }
+
+        /// Retrieve list of a link for a given signatory
+        fn get_filtered_links(signatory: Signatory, allow_expired: bool, link_type: Option<LinkType>) -> Vec<Link<Moment>> {
+            Identity::get_filtered_links(signatory, allow_expired, link_type)
         }
     }
 
