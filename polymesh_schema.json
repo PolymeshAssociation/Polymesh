@@ -162,6 +162,12 @@
             "receiver_rules":"Vec<Rule>",
             "rule_id": "u32"
         },
+        "AssetTransferRuleResult": {
+            "sender_rules": "Vec<Rule>",
+            "receiver_rules":"Vec<Rule>",
+            "rule_id": "u32",
+            "transfer_rule_result": "bool"
+        },
         "RuleType": {
             "_enum": {
                 "IsPresent" : "Claim",
@@ -173,6 +179,10 @@
         "Rule": {
             "rule_type": "RuleType",
             "issuers": "Vec<IdentityId>"
+        },
+        "RuleResult": {
+            "rule": "Rule",
+            "result": "bool"
         },
         "STO": {
             "beneficiary_did": "IdentityId",
@@ -393,6 +403,11 @@
             "is_paused": "bool",
             "rules": "Vec<AssetTransferRule>"
         },
+        "AssetTransferRulesResult": {
+            "is_paused": "bool",
+            "rules": "Vec<AssetTransferRule>",
+            "final_result": "bool"
+        },
         "Claim1stKey": {
             "target": "IdentityId",
             "claim_type": "ClaimType"
@@ -509,6 +524,34 @@
         }
     },
     "rpc": {
+        "compliance": {
+            "canTransfer": {
+                "description": "Checks whether a transaction with given parameters is compliant to the compliance manager rules",
+                "params": [
+                    {
+                        "name": "ticker",
+                        "type": "Ticker",
+                        "isOptional": false
+                    },
+                    {
+                        "name": "from_did",
+                        "type": "IdentityId",
+                        "isOptional": true
+                    },
+                    {
+                        "name": "to_did",
+                        "type": "IdentityId",
+                        "isOptional": true
+                    },
+                    {
+                        "name": "blockHash",
+                        "type": "Hash",
+                        "isOptional": true
+                    }
+                ],
+                "type": "AssetTransferRulesResult"
+            }
+        },
         "identity": {
             "isIdentityHasValidCdd" : {
                 "description": "use to tell whether the given did has valid cdd claim or not",

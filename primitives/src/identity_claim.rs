@@ -17,12 +17,15 @@ use crate::{identity_id::IdentityId, Moment};
 use polymesh_primitives_derive::VecU8StrongTyped;
 
 use codec::{Decode, Encode};
+#[cfg(feature = "std")]
+use sp_runtime::{Deserialize, Serialize};
 use sp_std::prelude::*;
 
 /// Scope: Almost all claim needs a valid scope identity.
 pub type Scope = IdentityId;
 
 /// All possible claims in polymesh
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, PartialOrd, Ord)]
 pub enum Claim {
     /// User is Accredited
@@ -119,6 +122,7 @@ impl Default for ClaimType {
 }
 
 /// A wrapper for Jurisdiction name.
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[derive(
     Decode, Encode, Clone, Debug, Default, Hash, PartialEq, Eq, PartialOrd, Ord, VecU8StrongTyped,
 )]
