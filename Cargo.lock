@@ -3697,6 +3697,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "pallet-utility"
+version = "0.1.0"
+dependencies = [
+ "frame-support",
+ "frame-system",
+ "parity-scale-codec",
+ "serde",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+ "sp-std",
+]
+
+[[package]]
 name = "parity-bytes"
 version = "0.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4147,6 +4161,7 @@ dependencies = [
  "pallet-timestamp",
  "pallet-transaction-payment",
  "pallet-treasury",
+ "pallet-utility",
  "parity-scale-codec",
  "polymesh-common-utilities",
  "polymesh-primitives",
@@ -4214,6 +4229,7 @@ dependencies = [
  "pallet-transaction-payment",
  "pallet-transaction-payment-rpc-runtime-api",
  "pallet-treasury",
+ "pallet-utility",
  "parity-scale-codec",
  "polymesh-common-utilities",
  "polymesh-primitives",
@@ -4294,6 +4310,7 @@ dependencies = [
  "pallet-transaction-payment",
  "pallet-transaction-payment-rpc-runtime-api",
  "pallet-treasury",
+ "pallet-utility",
  "parity-scale-codec",
  "polymesh-common-utilities",
  "polymesh-primitives",
