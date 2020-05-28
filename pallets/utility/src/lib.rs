@@ -15,7 +15,12 @@
 // along with Substrate.  If not, see <http://www.gnu.org/licenses/>.
 //
 // Modified by Polymath Inc - 2020
-// TODO
+// This module is inspired from the `pallet-utility`.
+// https://github.com/paritytech/substrate/tree/a439a7aa5a9a3df2a42d9b25ea04288d3a0866e8/frame/utility
+//
+// Polymesh changes:
+// - Pseudonymal dispatch has been removed.
+// - Multisig dispatch has been removed.
 
 //! # Utility Module
 //! A module with helpers for dispatch management.
@@ -43,29 +48,18 @@
 //! #### For batch dispatch
 //! * `batch` - Dispatch multiple calls from the sender's origin.
 //!
-//! #### For pseudonymal dispatch
-//! * `as_sub` - Dispatch a call from a secondary ("sub") signed origin.
-//!
-//! #### For multisig dispatch
-//! * `as_multi` - Approve and if possible dispatch a call from a composite origin formed from a
-//!   number of signed origins.
-//! * `approve_as_multi` - Approve a call from a composite origin.
-//! * `cancel_as_multi` - Cancel a call from a composite origin.
-//!
 //! [`Call`]: ./enum.Call.html
 //! [`Trait`]: ./trait.Trait.html
 
 // Ensure we're `no_std` when compiling for Wasm.
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use codec::{Decode, Encode};
 use frame_support::{
     decl_error, decl_event, decl_module, decl_storage,
     weights::{DispatchClass, FunctionOf, GetDispatchInfo},
     Parameter,
 };
 use frame_system as system;
-use sp_core::TypeId;
 use sp_runtime::{traits::Dispatchable, DispatchError, DispatchResult};
 use sp_std::prelude::*;
 
@@ -84,24 +78,6 @@ decl_storage! {
 
 decl_error! {
     pub enum Error for Module<T: Trait> {
-        /// Threshold is too low (zero).
-        ZeroThreshold,
-        /// Call is already approved by this signatory.
-        AlreadyApproved,
-        /// Call doesn't need any (more) approvals.
-        NoApprovalsNeeded,
-        /// There are too few signatories in the list.
-        TooFewSignatories,
-        /// There are too many signatories in the list.
-        TooManySignatories,
-        /// The signatories were provided out of order; they should be ordered.
-        SignatoriesOutOfOrder,
-        /// The sender was contained in the other signatories; it shouldn't be.
-        SenderInSignatories,
-        /// Multisig operation not found when attempting to cancel.
-        NotFound,
-        /// Only the account that originally created the multisig is able to cancel it.
-        NotOwner,
     }
 }
 
@@ -115,14 +91,6 @@ decl_event! {
         /// Batch of dispatches completed fully with no error.
         BatchCompleted,
     }
-}
-
-/// A module identifier. These are per module and should be stored in a registry somewhere.
-#[derive(Clone, Copy, Eq, PartialEq, Encode, Decode)]
-struct IndexedUtilityModuleId(u16);
-
-impl TypeId for IndexedUtilityModuleId {
-    const TYPE_ID: [u8; 4] = *b"suba";
 }
 
 decl_module! {
