@@ -511,6 +511,14 @@
         "JoinIdentityData": {
             "target_did": "IdentityId",
             "signing_item": "Option<SigningItem>"
+        },
+        "LinkType": {
+            "_enum": {
+                "DocumentOwnership": "",
+                "TickerOwnership": "",
+                "AssetOwnership": "",
+                "NoData":""
+            }
         }
     },
     "rpc": {
@@ -567,6 +575,32 @@
                     }
                 ],
                 "type": "DidRecords"
+            },
+            "getFilteredLinks": {
+                "description": "Retrieve links data for a given signatory and filtered using the given Link type",
+                "params": [
+                    {
+                        "name": "signatory",
+                        "type": "Signatory",
+                        "isOptional": false
+                    },
+                    {
+                        "name": "allow_expired",
+                        "type": "bool",
+                        "isOptional": false
+                    },
+                    {
+                        "name": "link_type",
+                        "type": "LinkType",
+                        "isOptional": true
+                    },
+                    {
+                        "name": "blockHash",
+                        "type": "Hash",
+                        "isOptional": true
+                    }
+                ],
+                "type": "Vec<Link>"
             }
         },
         "pips":{
