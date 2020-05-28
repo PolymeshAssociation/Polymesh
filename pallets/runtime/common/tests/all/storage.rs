@@ -67,7 +67,6 @@ impl_outer_dispatch! {
         pallet_contracts::Contracts,
         bridge::Bridge,
         asset::Asset,
-        // utility::Utility,
     }
 }
 
