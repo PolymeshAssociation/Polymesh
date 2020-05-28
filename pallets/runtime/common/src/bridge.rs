@@ -263,7 +263,7 @@ decl_storage! {
             <identity::Module<T>>::unsafe_join_identity(
                 JoinIdentityData {
                     target_did: creator_did.clone(),
-                    permissions: None
+                    permissions: vec![]
                 },
                 Signatory::from(AccountKey::try_from(multisig_id.clone().encode()).unwrap())
             ).expect("cannot link the bridge multisig");

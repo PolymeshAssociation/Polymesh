@@ -535,7 +535,7 @@ pub fn add_signing_item(did: IdentityId, signer: Signatory) {
         signer,
         AuthorizationData::JoinIdentity(JoinIdentityData {
             target_did: did,
-            permissions: None,
+            permissions: vec![],
         }),
         None,
     );

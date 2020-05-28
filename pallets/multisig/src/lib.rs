@@ -510,7 +510,7 @@ decl_module! {
             <Identity<T>>::unsafe_join_identity(
                 JoinIdentityData {
                     target_did: sender_did,
-                    permissions: None  // so permissions provided
+                    permissions: vec![]  // no permissions provided
                 },
                 Signatory::from(AccountKey::try_from(multi_sig.encode())?)
             )

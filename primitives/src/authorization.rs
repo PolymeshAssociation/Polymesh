@@ -95,7 +95,7 @@ pub struct JoinIdentityData {
     pub target_did: IdentityId,
 
     /// Signing Item
-    pub permissions: Option<Vec<Permission>>,
+    pub permissions: Vec<Permission>,
 }
 
 /// Data required to fetch and authorization

@@ -510,7 +510,7 @@
         },
         "JoinIdentityData": {
             "target_did": "IdentityId",
-            "permissions": "Option<Vec<Permission>>"
+            "permissions": "Vec<Permission>"
         },
         "LinkType": {
             "_enum": {

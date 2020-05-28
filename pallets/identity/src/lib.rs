@@ -1191,13 +1191,9 @@ impl<T: Trait> Module<T> {
                 ProtocolOp::IdentityAddSigningItemsWithAuthorization,
             )?;
         }
-        // Access the permission
-        // if permissions is present then create the signing_item using those permissions
-        // else pass the empty vector for permissions
-        let sg_item = match identity_data_to_join.permissions {
-            Some(perm) => SigningItem::new(signer, perm),
-            None => SigningItem::new(signer, vec![]),
-        };
+
+        // create the SigningItem
+        let sg_item = SigningItem::new(signer, identity_data_to_join.permissions);
 
         <DidRecords>::mutate(identity_data_to_join.target_did, |identity| {
             identity.add_signing_items(&[sg_item.clone()]);
@@ -1872,7 +1868,7 @@ impl<T: Trait> Module<T> {
                     s_item.signer.clone(),
                     AuthorizationData::JoinIdentity(JoinIdentityData {
                         target_did: did,
-                        permissions: Some(s_item.permissions),
+                        permissions: s_item.permissions,
                     }),
                     None,
                 )
