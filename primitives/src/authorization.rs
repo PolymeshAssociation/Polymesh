@@ -15,12 +15,13 @@
 
 use crate::identity_id::IdentityId;
 use crate::signing_item::Signatory;
-use crate::signing_item::SigningItem;
+use crate::signing_item::{Permission, SigningItem};
 use crate::Ticker;
 use codec::{Decode, Encode};
 use frame_support::dispatch::DispatchError;
+use sp_std::prelude::*;
 
-/// Authorization data for two step prcoesses.
+/// Authorization data for two step processes.
 #[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, PartialOrd, Ord)]
 pub enum AuthorizationData {
     /// CDD provider's attestation to change master key
@@ -94,7 +95,7 @@ pub struct JoinIdentityData {
     pub target_did: IdentityId,
 
     /// Signing Item
-    pub signing_item: Option<SigningItem>,
+    pub permissions: Option<Vec<Permission>>,
 }
 
 /// Data required to fetch and authorization

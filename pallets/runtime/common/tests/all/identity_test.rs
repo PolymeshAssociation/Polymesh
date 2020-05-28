@@ -575,7 +575,7 @@ fn enforce_uniqueness_keys_in_identity() {
         Signatory::from(AccountKey::from(AccountKeyring::Bob.public().0)),
         AuthorizationData::JoinIdentity(JoinIdentityData {
             target_did: alice_id,
-            signing_item: None,
+            permissions: None,
         }),
         None,
     );
@@ -1152,7 +1152,7 @@ fn add_identity_signers() {
             bob_identity_signer,
             AuthorizationData::JoinIdentity(JoinIdentityData {
                 target_did: alice_did,
-                signing_item: None,
+                permissions: None,
             }),
             None,
         );
@@ -1167,7 +1167,7 @@ fn add_identity_signers() {
             bob_identity_signer,
             AuthorizationData::JoinIdentity(JoinIdentityData {
                 target_did: alice_did,
-                signing_item: None,
+                permissions: None,
             }),
             None,
         );
@@ -1187,7 +1187,7 @@ fn add_identity_signers() {
             bob_identity_signer,
             AuthorizationData::JoinIdentity(JoinIdentityData {
                 target_did: charlie_did,
-                signing_item: None,
+                permissions: None,
             }),
             None,
         );
@@ -1207,7 +1207,7 @@ fn add_identity_signers() {
             dave_acc_signer,
             AuthorizationData::JoinIdentity(JoinIdentityData {
                 target_did: alice_did,
-                signing_item: None,
+                permissions: None,
             }),
             None,
         );
@@ -1227,7 +1227,7 @@ fn add_identity_signers() {
             dave_acc_signer,
             AuthorizationData::JoinIdentity(JoinIdentityData {
                 target_did: charlie_did,
-                signing_item: None,
+                permissions: None,
             }),
             None,
         );

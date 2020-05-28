@@ -510,7 +510,7 @@
         },
         "JoinIdentityData": {
             "target_did": "IdentityId",
-            "signing_item": "Option<SigningItem>"
+            "permissions": "Option<Vec<Permission>>"
         },
         "LinkType": {
             "_enum": {
