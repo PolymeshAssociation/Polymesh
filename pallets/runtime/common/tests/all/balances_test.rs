@@ -415,7 +415,6 @@ fn check_top_up_identity_balance() {
         .build()
         .execute_with(|| {
             let dave_pub = AccountKeyring::Dave.public();
-            let dave_id = AccountKeyring::Dave.to_account_id();
             let (signed_acc_id, acc_did) = make_account_without_cdd(dave_pub).unwrap();
             let old_total_issuance = Balances::total_issuance();
 
