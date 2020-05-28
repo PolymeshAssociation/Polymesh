@@ -2,7 +2,7 @@
 #
 # Build from the repo root with `docker build -t polymesh -f deploy/Dockerfile .`
 
-FROM cimg/rust:1.43.0
+FROM cimg/rust:1.43.0-node
 
 RUN sudo apt-get update && \
     sudo apt-get upgrade -y && \
