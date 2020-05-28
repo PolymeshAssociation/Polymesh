@@ -1,8 +1,5 @@
 use super::{
-    storage::{
-        add_signing_item, make_account, make_account_without_cdd, register_keyring_account,
-        TestStorage,
-    },
+    storage::{add_signing_item, make_account, register_keyring_account, TestStorage},
     ExtBuilder,
 };
 
@@ -12,7 +9,7 @@ use pallet_asset::{
 use pallet_balances as balances;
 use pallet_compliance_manager as compliance_manager;
 use pallet_identity as identity;
-use polymesh_common_utilities::{constants::*, traits::balances::Memo, Context};
+use polymesh_common_utilities::{constants::*, traits::balances::Memo};
 use polymesh_primitives::{
     AccountKey, AuthorizationData, Document, IdentityId, LinkData, Signatory, SmartExtension,
     SmartExtensionType, Ticker,
@@ -1849,8 +1846,8 @@ fn test_can_transfer_rpc() {
         .build()
         .execute_with(|| {
             let (alice_signed, alice_did) = make_account(AccountKeyring::Alice.public()).unwrap();
-            let (bob_signed, bob_did) = make_account(AccountKeyring::Bob.public()).unwrap();
-            let (custodian_signed, custodian_did) =
+            let (_bob_signed, bob_did) = make_account(AccountKeyring::Bob.public()).unwrap();
+            let (_custodian_signed, custodian_did) =
                 make_account(AccountKeyring::Charlie.public()).unwrap();
             let token_name = b"COOL";
             let ticker = Ticker::try_from(&token_name[..]).unwrap();

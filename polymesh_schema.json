@@ -310,9 +310,6 @@
             "previous_ticker": "Option<Ticker>"
         },
         "OffChainSignature": "H512",
-        "PermissionedValidator": {
-            "compliance": "Compliance"
-        },
         "Authorization": {
             "authorization_data": "AuthorizationData",
             "authorized_by": "Signatory",
@@ -334,12 +331,6 @@
         "AuthIdentifier": {
             "signatory": "Signatory",
             "auth_id": "u64"
-        },
-        "Compliance": {
-            "_enum": [
-                "Pending",
-                "Active"
-            ]
         },
         "SmartExtensionType": {
             "_enum": {

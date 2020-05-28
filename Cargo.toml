@@ -48,6 +48,7 @@ members = [
     "pallets/asset/rpc/runtime-api",
     "pallets/compliance-manager",
     "pallets/statistics",
+    "pallets/utility",
 ]
 
 [dependencies]
