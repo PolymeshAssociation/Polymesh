@@ -3087,6 +3087,50 @@ dependencies = [
 ]
 
 [[package]]
+name = "pallet-compliance-manager-rpc"
+version = "0.1.0"
+dependencies = [
+ "frame-support",
+ "frame-system",
+ "jsonrpc-core",
+ "jsonrpc-core-client",
+ "jsonrpc-derive",
+ "pallet-balances 0.1.0",
+ "pallet-compliance-manager",
+ "pallet-compliance-manager-rpc-runtime-api",
+ "parity-scale-codec",
+ "polymesh-common-utilities",
+ "polymesh-primitives",
+ "serde",
+ "serde_derive",
+ "sp-api",
+ "sp-blockchain",
+ "sp-core",
+ "sp-rpc",
+ "sp-runtime",
+ "sp-std",
+]
+
+[[package]]
+name = "pallet-compliance-manager-rpc-runtime-api"
+version = "0.1.0"
+dependencies = [
+ "frame-support",
+ "frame-system",
+ "jsonrpc-core",
+ "pallet-balances 0.1.0",
+ "pallet-compliance-manager",
+ "parity-scale-codec",
+ "polymesh-common-utilities",
+ "polymesh-primitives",
+ "serde",
+ "serde_json",
+ "sp-api",
+ "sp-core",
+ "sp-std",
+]
+
+[[package]]
 name = "pallet-contracts"
 version = "2.0.0-alpha.3"
 source = "git+https://github.com/paritytech/substrate?rev=a439a7aa5a9a3df2a42d9b25ea04288d3a0866e8#a439a7aa5a9a3df2a42d9b25ea04288d3a0866e8"
@@ -4019,6 +4063,8 @@ dependencies = [
  "pallet-asset",
  "pallet-asset-rpc",
  "pallet-asset-rpc-runtime-api",
+ "pallet-compliance-manager-rpc",
+ "pallet-compliance-manager-rpc-runtime-api",
  "pallet-contracts",
  "pallet-contracts-rpc",
  "pallet-contracts-rpc-runtime-api",
@@ -4201,6 +4247,7 @@ dependencies = [
  "pallet-cdd-offchain-worker",
  "pallet-committee",
  "pallet-compliance-manager",
+ "pallet-compliance-manager-rpc-runtime-api",
  "pallet-contracts",
  "pallet-contracts-primitives",
  "pallet-contracts-rpc-runtime-api",
@@ -4282,6 +4329,7 @@ dependencies = [
  "pallet-balances 0.1.0",
  "pallet-committee",
  "pallet-compliance-manager",
+ "pallet-compliance-manager-rpc-runtime-api",
  "pallet-contracts",
  "pallet-contracts-primitives",
  "pallet-contracts-rpc-runtime-api",
