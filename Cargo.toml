@@ -48,7 +48,9 @@ members = [
     "pallets/asset/rpc/runtime-api",
     "pallets/compliance-manager",
     "pallets/statistics",
-    "pallets/utility",
+    "pallets/compliance-manager/rpc",
+    "pallets/compliance-manager/rpc/runtime-api",
+    "pallets/utility"
 ]
 
 [dependencies]
@@ -83,8 +85,8 @@ pallet-asset-rpc = { package = "pallet-asset-rpc", path = "pallets/asset/rpc", d
 pallet-asset-rpc-runtime-api = { package = "pallet-asset-rpc-runtime-api", path = "pallets/asset/rpc/runtime-api", default-features = false }
 pallet-group-rpc = { package = "pallet-group-rpc", path = "pallets/group/rpc", default-features = false }
 pallet-group-rpc-runtime-api = { package = "pallet-group-rpc-runtime-api", path = "pallets/group/rpc/runtime-api", default-features = false }
-
-
+pallet-compliance-manager-rpc = { package = "pallet-compliance-manager-rpc", path = "pallets/compliance-manager/rpc", default-features = false }
+pallet-compliance-manager-rpc-runtime-api = { package = "pallet-compliance-manager-rpc-runtime-api", path = "pallets/compliance-manager/rpc/runtime-api", default-features = false }
 
 # Others
 parking_lot = "0.10.0"
