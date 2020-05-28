@@ -99,6 +99,8 @@ use frame_support::{
     weights::{DispatchClass, FunctionOf, SimpleDispatchInfo},
 };
 use frame_system::{self as system, ensure_signed};
+#[cfg(feature = "std")]
+use sp_runtime::{Deserialize, Serialize};
 use sp_std::{
     convert::{From, TryFrom},
     prelude::*,
@@ -117,6 +119,7 @@ pub trait Trait:
 
 /// An asset transfer rule.
 /// All sender and receiver rule of the same asset rule must be true in order to execute the transfer.
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[derive(codec::Encode, codec::Decode, Default, Clone, PartialEq, Eq, Debug)]
 pub struct AssetTransferRule {
     pub sender_rules: Vec<Rule>,
@@ -125,7 +128,55 @@ pub struct AssetTransferRule {
     pub rule_id: u32,
 }
 
+/// An asset transfer rule along with its evaluation result
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+#[derive(codec::Encode, codec::Decode, Clone, PartialEq, Eq, Debug)]
+pub struct AssetTransferRuleResult {
+    pub sender_rules: Vec<RuleResult>,
+    pub receiver_rules: Vec<RuleResult>,
+    /// Unique identifier of the asset rule
+    pub rule_id: u32,
+    /// Result of this transfer rule's evaluation
+    pub transfer_rule_result: bool,
+}
+
+impl From<AssetTransferRule> for AssetTransferRuleResult {
+    fn from(asset_rule: AssetTransferRule) -> Self {
+        Self {
+            sender_rules: asset_rule
+                .sender_rules
+                .iter()
+                .map(|rule| RuleResult::from(rule.clone()))
+                .collect(),
+            receiver_rules: asset_rule
+                .receiver_rules
+                .iter()
+                .map(|rule| RuleResult::from(rule.clone()))
+                .collect(),
+            rule_id: asset_rule.rule_id,
+            transfer_rule_result: true,
+        }
+    }
+}
+
+/// An individual rule along with its evaluation result
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+#[derive(codec::Encode, codec::Decode, Clone, PartialEq, Eq, Debug)]
+pub struct RuleResult {
+    // Rule being evaluated
+    pub rule: Rule,
+    // Result of evaluation
+    pub result: bool,
+}
+
+impl From<Rule> for RuleResult {
+    fn from(rule: Rule) -> Self {
+        Self { rule, result: true }
+    }
+}
+
 /// List of rules associated to an asset.
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[derive(codec::Encode, codec::Decode, Default, Clone, PartialEq, Eq, Debug)]
 pub struct AssetTransferRules {
     /// This flag indicates if asset transfer rules are active or paused.
@@ -135,6 +186,32 @@ pub struct AssetTransferRules {
 }
 
 type Identity<T> = identity::Module<T>;
+
+/// Rules evaluation result
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+#[derive(codec::Encode, codec::Decode, Clone, PartialEq, Eq, Debug)]
+pub struct AssetTransferRulesResult {
+    /// This flag indicates if asset transfer rules are active or paused.
+    pub is_paused: bool,
+    /// List of rules.
+    pub rules: Vec<AssetTransferRuleResult>,
+    // Final evaluation result of all rules
+    pub final_result: bool,
+}
+
+impl From<AssetTransferRules> for AssetTransferRulesResult {
+    fn from(asset_rules: AssetTransferRules) -> Self {
+        Self {
+            is_paused: asset_rules.is_paused,
+            rules: asset_rules
+                .rules
+                .iter()
+                .map(|rule| AssetTransferRuleResult::from(rule.clone()))
+                .collect(),
+            final_result: false,
+        }
+    }
+}
 
 decl_storage! {
     trait Store for Module<T: Trait> as ComplianceManager {
@@ -521,6 +598,21 @@ impl<T: Trait> Module<T> {
         })
     }
 
+    /// It loads a context for each rule in `rules` and evaluates them.
+    /// It updates the internal result variable of every rule.
+    /// It returns the final result of all rules combined.
+    fn evaluate_rules(ticker: &Ticker, did: IdentityId, rules: &mut Vec<RuleResult>) -> bool {
+        let mut result = true;
+        for rule in rules {
+            let context = Self::fetch_context(ticker, did, &rule.rule);
+            rule.result = predicate::run(rule.rule.clone(), &context);
+            if !rule.result {
+                result = false;
+            }
+        }
+        result
+    }
+
     /// Pauses or resumes the asset rules.
     fn pause_resume_rules(origin: T::Origin, ticker: Ticker, pause: bool) -> DispatchResult {
         let sender_key = AccountKey::try_from(ensure_signed(origin)?.encode())?;
@@ -649,6 +741,39 @@ impl<T: Trait> Module<T> {
             true => Self::asset_rules(ticker).rules[length - 1].rule_id,
             false => 0u32,
         }
+    }
+
+    /// verifies all rules and returns the result in an array of bools.
+    /// this does not care if the rules are paused or not. It is meant to be
+    /// called only in failure conditions (rules active)
+    pub fn granular_verify_restriction(
+        ticker: &Ticker,
+        from_did_opt: Option<IdentityId>,
+        to_did_opt: Option<IdentityId>,
+    ) -> AssetTransferRulesResult {
+        let asset_rules = Self::asset_rules(ticker);
+        let mut asset_rules_with_results = AssetTransferRulesResult::from(asset_rules);
+        for active_rule in &mut asset_rules_with_results.rules {
+            if let Some(from_did) = from_did_opt {
+                // Evaluate all sender rules
+                if !Self::evaluate_rules(ticker, from_did, &mut active_rule.sender_rules) {
+                    // If the result of any of the sender rules was false, set this asset rule result to false.
+                    active_rule.transfer_rule_result = false;
+                }
+            }
+            if let Some(to_did) = to_did_opt {
+                // Evaluate all receiver rules
+                if !Self::evaluate_rules(ticker, to_did, &mut active_rule.receiver_rules) {
+                    // If the result of any of the receiver rules was false, set this asset rule result to false.
+                    active_rule.transfer_rule_result = false;
+                }
+            }
+            // If the asset rule result is positive, update the final result to be positive
+            if active_rule.transfer_rule_result {
+                asset_rules_with_results.final_result = true;
+            }
+        }
+        asset_rules_with_results
     }
 }
 

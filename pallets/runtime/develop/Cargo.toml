@@ -40,6 +40,7 @@ pallet-staking-rpc-runtime-api = { path = "../../staking/rpc/runtime-api", defau
 pallet-transaction-payment-rpc-runtime-api = { path = "../../transaction-payment/rpc/runtime-api", default-features = false }
 pallet-protocol-fee-rpc-runtime-api = { path = "../../protocol-fee/rpc/runtime-api", default-features = false }
 pallet-asset-rpc-runtime-api = { path = "../../asset/rpc/runtime-api", default-features = false  }
+pallet-compliance-manager-rpc-runtime-api = { path = "../../compliance-manager/rpc/runtime-api", default-features = false  }
 
 # Others
 chrono = { version = "0.4.11", default-features = false }
@@ -137,6 +138,7 @@ std = [
 	"pallet-protocol-fee-rpc-runtime-api/std",
 	"pallet-identity-rpc-runtime-api/std",
 	"pallet-staking-rpc-runtime-api/std",
+	"pallet-compliance-manager-rpc-runtime-api/std",
 	"pallet-grandpa/std",
 	"pallet-im-online/std",
 	"pallet-indices/std",
