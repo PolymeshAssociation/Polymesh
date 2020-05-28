@@ -608,35 +608,6 @@ type NegativeImbalanceOf<T> =
     <<T as Trait>::Currency as Currency<<T as frame_system::Trait>::AccountId>>::NegativeImbalance;
 type MomentOf<T> = <<T as Trait>::Time as Time>::Moment;
 
-#[derive(Encode, Decode, Clone, PartialOrd, Ord, Eq, PartialEq, Debug)]
-pub enum Compliance {
-    /// Compliance requirements not met.
-    Pending,
-    /// CDD compliant. Eligible to participate in validation.
-    Active,
-}
-
-impl Default for Compliance {
-    fn default() -> Self {
-        Compliance::Pending
-    }
-}
-
-/// Represents a requirement that must be met to be eligible to become a validator.
-#[derive(PartialEq, Eq, PartialOrd, Ord, Clone, Encode, Decode, RuntimeDebug)]
-pub struct PermissionedValidator {
-    /// Indicates the status of CDD compliance.
-    pub compliance: Compliance,
-}
-
-impl Default for PermissionedValidator {
-    fn default() -> Self {
-        Self {
-            compliance: Compliance::default(),
-        }
-    }
-}
-
 /// Means for interacting with a specialized version of the `session` trait.
 ///
 /// This is needed because `Staking` sets the `ValidatorIdOf` of the `pallet_session::Trait`.
@@ -928,7 +899,7 @@ decl_storage! {
 
         /// The map from (wannabe) validators to the status of compliance.
         pub PermissionedValidators get(permissioned_validators):
-            linked_map hasher(twox_64_concat) T::AccountId => Option<PermissionedValidator>;
+            linked_map hasher(twox_64_concat) T::AccountId => bool;
 
         /// Commision rate to be used by all validators.
         pub ValidatorCommission get(fn validator_commission) config(): Commission;
@@ -1410,12 +1381,9 @@ decl_module! {
             T::RequiredAddOrigin::try_origin(origin)
                 .map_err(|_| Error::<T>::NotAuthorised)?;
 
-            ensure!(!<PermissionedValidators<T>>::contains_key(&validator), Error::<T>::AlreadyExists);
-
-            <PermissionedValidators<T>>::insert(&validator, PermissionedValidator {
-                compliance: Compliance::Pending
-            });
-
+            ensure!(!Self::permissioned_validators(&validator), Error::<T>::AlreadyExists);
+            // Change validator status to be Permissioned
+            <PermissionedValidators<T>>::insert(&validator, true);
             let validator_key = validator.encode().try_into()?;
             let validator_id = <identity::Module<T>>::get_identity(&validator_key);
             Self::deposit_event(RawEvent::PermissionedValidatorAdded(validator_id, validator));
@@ -1434,9 +1402,9 @@ decl_module! {
                 .map_err(|_| Error::<T>::NotAuthorised)?;
             let caller = ensure_signed(origin)?.encode().try_into()?;
             let caller_id = Context::current_identity_or::<T::Identity>(&caller).ok();
-            ensure!(<PermissionedValidators<T>>::contains_key(&validator), Error::<T>::NotExists);
-
-            <PermissionedValidators<T>>::remove(&validator);
+            ensure!(Self::permissioned_validators(&validator), Error::<T>::NotExists);
+            // Change validator status to be Non-Permissioned
+            <PermissionedValidators<T>>::insert(&validator, false);
 
             Self::deposit_event(RawEvent::PermissionedValidatorRemoved(caller_id, validator));
         }
@@ -2152,12 +2120,12 @@ impl<T: Trait> Module<T> {
         let mut all_nominators: Vec<(T::AccountId, Vec<T::AccountId>)> = Vec::new();
         let mut all_validators_and_prefs = BTreeMap::new();
         let mut all_validators = Vec::new();
-        Self::refresh_compliance_statuses();
 
-        // Select only valid validators who has bond minimum balance and has the cdd compliant
+        // Select only valid validators who has bond minimum balance, has the cdd compliant and should be a part of permissioned validator pool
         for (validator, preference) in <Validators<T>>::enumerate() {
             if Self::is_active_balance_above_min_bond(&validator)
-                && Self::is_validator_cdd_compliant(&validator)
+                && Self::is_validator_or_nominator_compliant(&validator)
+                && Self::permissioned_validators(&validator)
             {
                 let self_vote = (validator.clone(), vec![validator.clone()]);
                 all_nominators.push(self_vote);
@@ -2340,35 +2308,6 @@ impl<T: Trait> Module<T> {
             }
         }
         false
-    }
-
-    /// Does the given account id have compliance status `Active`
-    pub fn is_validator_cdd_compliant(who: &T::AccountId) -> bool {
-        if let Some(validator) = Self::permissioned_validators(who) {
-            validator.compliance == Compliance::Active
-        } else {
-            false
-        }
-    }
-
-    /// Method that checks CDD status of each validator and persists
-    /// any changes to compliance status.
-    pub fn refresh_compliance_statuses() {
-        let accounts = <PermissionedValidators<T>>::enumerate()
-            .map(|(who, _)| who)
-            .collect::<Vec<T::AccountId>>();
-
-        for account in accounts {
-            <PermissionedValidators<T>>::mutate(account.clone(), |v| {
-                if let Some(validator) = v {
-                    validator.compliance = if Self::is_validator_or_nominator_compliant(&account) {
-                        Compliance::Active
-                    } else {
-                        Compliance::Pending
-                    };
-                }
-            });
-        }
     }
 
     /// Is the stash account one of the permissioned validators?
