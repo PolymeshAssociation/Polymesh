@@ -22,6 +22,8 @@ use pallet_multisig as multisig;
 use pallet_protocol_fee as protocol_fee;
 use pallet_statistics as statistics;
 use pallet_treasury as treasury;
+use pallet_utility as utility;
+
 use polymesh_common_utilities::{
     constants::currency::*,
     protocol_fee::ProtocolOp,
@@ -29,8 +31,8 @@ use polymesh_common_utilities::{
     CommonTrait,
 };
 use polymesh_primitives::{
-    AccountId, AccountIndex, AccountKey, Balance, BlockNumber, Hash, IdentityId, Index, Moment,
-    Signature, SigningItem, Ticker,
+    AccountId, AccountIndex, AccountKey, Balance, BlockNumber, Hash, IdentityId, Index, Link,
+    Moment, Signatory, Signature, SigningItem, Ticker,
 };
 
 use frame_support::{
@@ -52,7 +54,7 @@ use sp_version::RuntimeVersion;
 use frame_system::offchain::TransactionSubmitter;
 use pallet_contracts_rpc_runtime_api::ContractExecResult;
 use pallet_grandpa::{fg_primitives, AuthorityList as GrandpaAuthorityList};
-use pallet_identity_rpc_runtime_api::{AssetDidResult, CddStatus, DidRecords};
+use pallet_identity_rpc_runtime_api::{AssetDidResult, CddStatus, DidRecords, LinkType};
 use pallet_im_online::sr25519::AuthorityId as ImOnlineId;
 use pallet_protocol_fee_rpc_runtime_api::CappedFee;
 use pallet_transaction_payment_rpc_runtime_api::RuntimeDispatchInfo;
@@ -516,6 +518,11 @@ impl group::Trait<group::Instance2> for Runtime {
 
 impl statistics::Trait for Runtime {}
 
+impl pallet_utility::Trait for Runtime {
+    type Event = Event;
+    type Call = Call;
+}
+
 construct_runtime!(
     pub enum Runtime where
         Block = Block,
@@ -570,6 +577,7 @@ construct_runtime!(
         CddServiceProviders: group::<Instance2>::{Module, Call, Storage, Event<T>, Config<T>},
         Statistic: statistics::{Module, Call, Storage},
         ProtocolFee: protocol_fee::{Module, Call, Storage, Event<T>, Config<T>},
+        Utility: utility::{Module, Call, Storage, Event},
     }
 );
 
@@ -801,6 +809,8 @@ impl_runtime_apis! {
             Ticker,
             AccountKey,
             SigningItem,
+            Signatory,
+            Moment
         > for Runtime
     {
         /// RPC call to know whether the given did has valid cdd claim or not
@@ -820,6 +830,11 @@ impl_runtime_apis! {
         /// Retrieve master key and signing keys for a given IdentityId
         fn get_did_records(did: IdentityId) -> DidRecords<AccountKey, SigningItem> {
             Identity::get_did_records(did)
+        }
+
+         /// Retrieve list of a link for a given signatory
+        fn get_filtered_links(signatory: Signatory, allow_expired: bool, link_type: Option<LinkType>) -> Vec<Link<Moment>> {
+            Identity::get_filtered_links(signatory, allow_expired, link_type)
         }
     }
 

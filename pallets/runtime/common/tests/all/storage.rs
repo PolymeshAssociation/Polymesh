@@ -9,6 +9,8 @@ use pallet_pips as pips;
 use pallet_protocol_fee as protocol_fee;
 use pallet_statistics as statistics;
 use pallet_treasury as treasury;
+use pallet_utility as utility;
+
 use polymesh_common_utilities::traits::{
     asset::AcceptTransfer, balances::AccountData, group::GroupTrait,
     identity::Trait as IdentityTrait, multisig::AddSignerMultiSig, CommonTrait,
@@ -59,6 +61,7 @@ impl_outer_origin! {
 impl_outer_dispatch! {
     pub enum Call for TestStorage where origin: Origin {
         identity::Identity,
+        balances::Balances,
         pips::Pips,
         multisig::MultiSig,
         pallet_contracts::Contracts,
@@ -90,6 +93,7 @@ impl_outer_event! {
         frame_system<T>,
         protocol_fee<T>,
         treasury<T>,
+        utility,
     }
 }
 
@@ -454,6 +458,11 @@ impl pips::Trait for TestStorage {
     type GovernanceCommittee = Committee;
     type Treasury = treasury::Module<Self>;
     type Event = Event;
+}
+
+impl utility::Trait for TestStorage {
+    type Event = Event;
+    type Call = Call;
 }
 
 // Publish type alias for each module
