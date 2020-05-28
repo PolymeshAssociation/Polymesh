@@ -30,6 +30,4 @@ RUN cargo build --release
 RUN cd ./scripts/cli && npm i
 EXPOSE 9944
 
-CMD ./target/release/polymesh --dev --unsafe-ws-external && \
-    cd ./scripts/cli && \
-    node run dev
+CMD ./deploy/start.sh
