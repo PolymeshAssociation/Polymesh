@@ -4069,14 +4069,8 @@ fn should_add_permissioned_validators() {
                 Origin::system(frame_system::RawOrigin::Root),
                 acc_20.clone()
             ));
-            assert_eq!(
-                Staking::permissioned_validators(acc_10).unwrap().compliance,
-                Compliance::Pending
-            );
-            assert_eq!(
-                Staking::permissioned_validators(acc_20).unwrap().compliance,
-                Compliance::Pending
-            );
+            assert_eq!(Staking::permissioned_validators(acc_10), true);
+            assert_eq!(Staking::permissioned_validators(acc_20), true);
         });
 }
 
@@ -4108,15 +4102,10 @@ fn should_remove_permissioned_validators() {
                 acc_20.clone()
             ));
 
-            assert_eq!(
-                Staking::permissioned_validators(&acc_10),
-                Some(PermissionedValidator {
-                    compliance: Compliance::Pending
-                })
-            );
-            assert_eq!(Staking::permissioned_validators(&acc_20), None);
+            assert_eq!(Staking::permissioned_validators(&acc_10), true);
+            assert_eq!(Staking::permissioned_validators(&acc_20), false);
 
-            assert_eq!(Staking::permissioned_validators(&acc_30), None);
+            assert_eq!(Staking::permissioned_validators(&acc_30), false);
         });
 }
 
