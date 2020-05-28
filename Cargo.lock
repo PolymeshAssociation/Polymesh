@@ -4137,6 +4137,7 @@ dependencies = [
  "pallet-group",
  "pallet-group-rpc-runtime-api",
  "pallet-identity",
+ "pallet-identity-rpc-runtime-api",
  "pallet-multisig",
  "pallet-pips",
  "pallet-protocol-fee",
