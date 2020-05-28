@@ -29,6 +29,7 @@ pallet-im-online = { package = "pallet-im-online",  path = "../../im-online", de
 pallet-group-rpc-runtime-api = { path = "../../group/rpc/runtime-api", default-features = false }
 pallet-compliance-manager = { package = "pallet-compliance-manager",  path = "../../compliance-manager", default-features = false }
 pallet-statistics = { package = "pallet-statistics",  path = "../../statistics", default-features = false }
+pallet-utility = { path = "../../utility", default-features = false}
 
 # RPC
 pallet-identity-rpc-runtime-api = { package = "pallet-identity-rpc-runtime-api", path = "../../identity/rpc/runtime-api", default-features = false }
