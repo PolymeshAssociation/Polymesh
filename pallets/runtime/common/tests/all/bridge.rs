@@ -7,7 +7,7 @@ use frame_support::{assert_err, assert_ok, traits::Currency, StorageDoubleMap};
 use pallet_balances as balances;
 use pallet_identity as identity;
 use pallet_multisig as multisig;
-use polymesh_primitives::{AccountKey, IdentityId, Signatory};
+use polymesh_primitives::{AccountKey, Signatory};
 use polymesh_runtime_common::bridge::{self, BridgeTx, BridgeTxStatus};
 use sp_runtime::traits::OnInitialize;
 use test_client::AccountKeyring;

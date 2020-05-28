@@ -320,9 +320,6 @@
             "previous_ticker": "Option<Ticker>"
         },
         "OffChainSignature": "H512",
-        "PermissionedValidator": {
-            "compliance": "Compliance"
-        },
         "Authorization": {
             "authorization_data": "AuthorizationData",
             "authorized_by": "Signatory",
@@ -344,12 +341,6 @@
         "AuthIdentifier": {
             "signatory": "Signatory",
             "auth_id": "u64"
-        },
-        "Compliance": {
-            "_enum": [
-                "Pending",
-                "Active"
-            ]
         },
         "SmartExtensionType": {
             "_enum": {
@@ -522,6 +513,14 @@
                 "Ok": "u8",
                 "Err": "Vec<u8>"
             }
+        },
+        "LinkType": {
+            "_enum": {
+                "DocumentOwnership": "",
+                "TickerOwnership": "",
+                "AssetOwnership": "",
+                "NoData":""
+            }
         }
     },
     "rpc": {
@@ -606,6 +605,32 @@
                     }
                 ],
                 "type": "DidRecords"
+            },
+            "getFilteredLinks": {
+                "description": "Retrieve links data for a given signatory and filtered using the given Link type",
+                "params": [
+                    {
+                        "name": "signatory",
+                        "type": "Signatory",
+                        "isOptional": false
+                    },
+                    {
+                        "name": "allow_expired",
+                        "type": "bool",
+                        "isOptional": false
+                    },
+                    {
+                        "name": "link_type",
+                        "type": "LinkType",
+                        "isOptional": true
+                    },
+                    {
+                        "name": "blockHash",
+                        "type": "Hash",
+                        "isOptional": true
+                    }
+                ],
+                "type": "Vec<Link>"
             }
         },
         "pips":{

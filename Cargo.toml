@@ -50,6 +50,7 @@ members = [
     "pallets/statistics",
     "pallets/compliance-manager/rpc",
     "pallets/compliance-manager/rpc/runtime-api"
+    "pallets/utility",
 ]
 
 [dependencies]
