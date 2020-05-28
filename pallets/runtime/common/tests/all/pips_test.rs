@@ -14,7 +14,7 @@ use pallet_pips::{
     self as pips, DepositInfo, Error, PipDescription, PipsMetadata, Referendum, ReferendumState,
     ReferendumType, Url, VotingResult,
 };
-use pallet_treasury::{self as treasury, TreasuryTrait};
+use pallet_treasury as treasury;
 use polymesh_primitives::Beneficiary;
 use test_client::AccountKeyring;
 
@@ -849,10 +849,8 @@ fn proposal_with_beneficiares_we() {
     System::set_block_number(1);
     let root = Origin::system(frame_system::RawOrigin::Root);
     let alice = AccountKeyring::Alice.public();
-    let alice_acc = Origin::signed(AccountKeyring::Alice.public());
     let charlie = AccountKeyring::Charlie.public();
     let dave = AccountKeyring::Dave.public();
-    let eve = AccountKeyring::Eve.public();
     let charlie_id = register_keyring_account_with_balance(AccountKeyring::Charlie, 200).unwrap();
     let dave_id = register_keyring_account_with_balance(AccountKeyring::Dave, 200).unwrap();
     let _ = register_keyring_account_with_balance(AccountKeyring::Eve, 1_000_000).unwrap();
