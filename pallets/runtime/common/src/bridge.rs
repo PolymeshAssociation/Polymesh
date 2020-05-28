@@ -112,7 +112,6 @@ use polymesh_common_utilities::{
     traits::{balances::CheckCdd, identity::Trait as IdentityTrait, CommonTrait},
     Context, SystematicIssuers,
 };
-
 use polymesh_primitives::{AccountKey, IdentityId, Signatory};
 use sp_core::H256;
 use sp_runtime::traits::{CheckedAdd, One, Zero};
@@ -241,8 +240,9 @@ decl_error! {
 
 decl_storage! {
     trait Store for Module<T: Trait> as Bridge {
-        /// The multisig account of the bridge controller. The genesis signers must accept their
-        /// authorizations to be able to get their proposals delivered.
+        /// The multisig account of the bridge controller. The genesis signers accept their
+        /// authorizations and are able to get their proposals delivered. The bridge creator
+        /// transfers some POLY to their identity.
         Controller get(fn controller) build(|config: &GenesisConfig<T>| {
             if config.signatures_required > u64::try_from(config.signers.len()).unwrap_or_default()
             {
@@ -254,12 +254,24 @@ decl_storage! {
             }
             let creator_key = AccountKey::try_from(config.creator.clone().encode()).expect("cannot create the bridge creator account");
             let creator_did = Context::current_identity_or::<identity::Module<T>>(&creator_key).expect("bridge creator account has no identity");
-
             let multisig_id = <multisig::Module<T>>::create_multisig_account(
                 config.creator.clone(),
                 config.signers.as_slice(),
                 config.signatures_required
             ).expect("cannot create the bridge multisig");
+            <balances::Module<T>>::top_up_identity_balance(
+                frame_system::RawOrigin::Signed(multisig_id.clone()).into(),
+                creator_did,
+                One::one()
+            );
+            for signer in &config.signers {
+                let last_auth = <identity::Authorizations<T>>::iter_prefix(signer)
+                    .next()
+                    .expect("cannot find bridge signer auth")
+                    .auth_id;
+                <multisig::Module<T>>::_accept_multisig_signer(signer.clone(), last_auth)
+                    .expect("cannot accept bridge signer auth");
+            }
             <identity::Module<T>>::unsafe_join_identity(
                 creator_did.clone(),
                 Signatory::from(AccountKey::try_from(multisig_id.clone().encode()).unwrap())
