@@ -464,6 +464,24 @@ decl_module! {
             Self::join_identity(Signatory::from(sender_did), auth_id)
         }
 
+        /// Leave the signing key's identity.
+        #[weight = SimpleDispatchInfo::FixedNormal(300_000)]
+        pub fn leave_identity_as_key(origin) -> DispatchResult {
+            let sender_key = AccountKey::try_from(ensure_signed(origin)?.encode())?;
+            if let Some(did) = Self::get_identity(&sender_key) {
+                return Self::leave_identity(Signatory::from(sender_key), did);
+            }
+            Ok(())
+        }
+
+        /// Leave an identity as a signing identity.
+        #[weight = SimpleDispatchInfo::FixedNormal(300_000)]
+        pub fn leave_identity_as_identity(origin, did: IdentityId) -> DispatchResult {
+            let sender_key = AccountKey::try_from(ensure_signed(origin)?.encode())?;
+            let sender_did = Context::current_identity_or::<Self>(&sender_key)?;
+            Self::leave_identity(Signatory::from(sender_did), did)
+        }
+
         /// Adds a new claim record or edits an existing one. Only called by did_issuer's signing key.
         #[weight = SimpleDispatchInfo::FixedNormal(400_000)]
         pub fn add_claim(
@@ -1133,6 +1151,8 @@ decl_error! {
         SigningKeysContainMasterKey,
         /// Couldn't charge fee for the transaction.
         FailedToChargeFee,
+        /// Signer is not a signing key of the provided identity
+        NotASigner,
     }
 }
 
@@ -1512,6 +1532,12 @@ impl<T: Trait> Module<T> {
         }
     }
 
+    /// It checks if `key` is a signing key of `did` identity.
+    pub fn is_signer(did: IdentityId, signer: &Signatory) -> bool {
+        let record = <DidRecords>::get(did);
+        record.signing_items.iter().any(|si| si.signer == *signer)
+    }
+
     /// Checks if signer has correct permissions.
     fn is_signer_authorized_with_permissions(
         did: IdentityId,
@@ -1766,7 +1792,11 @@ impl<T: Trait> Module<T> {
     fn unlink_key_to_did(key: &AccountKey, did: IdentityId) {
         if let Some(linked_key_info) = <KeyToIdentityIds>::get(key) {
             match linked_key_info {
-                LinkedKeyInfo::Unique(..) => <KeyToIdentityIds>::remove(key),
+                LinkedKeyInfo::Unique(did_linked) => {
+                    if did_linked == did {
+                        <KeyToIdentityIds>::remove(key)
+                    }
+                }
                 LinkedKeyInfo::Group(mut dids) => {
                     dids.retain(|ref_did| *ref_did != did);
                     if dids.is_empty() {
@@ -1975,6 +2005,22 @@ impl<T: Trait> Module<T> {
             Signatory::AccountKey(key) => Self::get_identity(&key),
             Signatory::Identity(did) => Some(*did),
         }
+    }
+
+    fn leave_identity(signer: Signatory, did: IdentityId) -> DispatchResult {
+        ensure!(Self::is_signer(did, &signer), Error::<T>::NotASigner);
+
+        if let Signatory::AccountKey(key) = signer {
+            Self::unlink_key_to_did(&key, did)
+        }
+
+        // Update signing keys at Identity.
+        <DidRecords>::mutate(did, |record| {
+            (*record).remove_signing_items(&[signer]);
+        });
+
+        Self::deposit_event(RawEvent::SignerLeft(did, signer));
+        Ok(())
     }
 }
 
