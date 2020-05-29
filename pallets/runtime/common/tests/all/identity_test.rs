@@ -11,14 +11,16 @@ use pallet_identity_rpc_runtime_api::LinkType;
 use polymesh_common_utilities::{
     traits::{
         group::GroupTrait,
-        identity::{SigningItemWithAuth, TargetIdAuthorization, Trait as IdentityTrait},
+        identity::{
+            LinkedKeyInfo, SigningItemWithAuth, TargetIdAuthorization, Trait as IdentityTrait,
+        },
     },
     SystematicIssuers,
 };
 use polymesh_primitives::{
     AccountKey, AuthorizationData, AuthorizationError, Claim, ClaimType, Document, DocumentHash,
-    DocumentName, DocumentUri, IdentityClaim, IdentityId, LinkData, Permission, Scope, Signatory,
-    SigningItem, Ticker, TransactionError,
+    DocumentName, DocumentUri, IdentityClaim, IdentityId, JoinIdentityData, LinkData, Permission,
+    Scope, Signatory, SignatoryType, SigningItem, Ticker, TransactionError,
 };
 use polymesh_runtime_develop::{fee_details::CddHandler, runtime::Call};
 
@@ -571,7 +573,7 @@ fn enforce_uniqueness_keys_in_identity() {
     let auth_id = Identity::add_auth(
         Signatory::from(AccountKey::from(AccountKeyring::Alice.public().0)),
         Signatory::from(AccountKey::from(AccountKeyring::Bob.public().0)),
-        AuthorizationData::JoinIdentity(alice_id),
+        AuthorizationData::JoinIdentity(JoinIdentityData::new(alice_id, vec![])),
         None,
     );
     assert_err!(
@@ -1145,7 +1147,7 @@ fn add_identity_signers() {
         let auth_id_for_id_to_id = Identity::add_auth(
             alice_identity_signer,
             bob_identity_signer,
-            AuthorizationData::JoinIdentity(alice_did),
+            AuthorizationData::JoinIdentity(JoinIdentityData::new(alice_did, vec![])),
             None,
         );
 
@@ -1157,7 +1159,7 @@ fn add_identity_signers() {
         let auth_id_for_acc_to_id = Identity::add_auth(
             alice_acc_signer,
             bob_identity_signer,
-            AuthorizationData::JoinIdentity(alice_did),
+            AuthorizationData::JoinIdentity(JoinIdentityData::new(alice_did, vec![])),
             None,
         );
 
@@ -1174,7 +1176,7 @@ fn add_identity_signers() {
         let auth_id_for_acc2_to_id = Identity::add_auth(
             charlie_acc_signer,
             bob_identity_signer,
-            AuthorizationData::JoinIdentity(charlie_did),
+            AuthorizationData::JoinIdentity(JoinIdentityData::new(charlie_did, vec![])),
             None,
         );
 
@@ -1191,7 +1193,7 @@ fn add_identity_signers() {
         let auth_id_for_acc1_to_acc = Identity::add_auth(
             alice_acc_signer,
             dave_acc_signer,
-            AuthorizationData::JoinIdentity(alice_did),
+            AuthorizationData::JoinIdentity(JoinIdentityData::new(alice_did, vec![])),
             None,
         );
 
@@ -1208,7 +1210,7 @@ fn add_identity_signers() {
         let auth_id_for_acc2_to_acc = Identity::add_auth(
             charlie_acc_signer,
             dave_acc_signer,
-            AuthorizationData::JoinIdentity(charlie_did),
+            AuthorizationData::JoinIdentity(JoinIdentityData::new(charlie_did, vec![])),
             None,
         );
 
@@ -1455,4 +1457,92 @@ fn gc_and_cdd_with_systematic_cdd_claims_we() {
     // 3. Remove Alice from GC.
     assert_ok!(GovernanceCommittee::remove_member(root, alice_id));
     assert_eq!(fetch_systematic_cdd(alice_id).is_none(), true);
+}
+
+#[test]
+fn add_permission_with_signing_item() {
+    ExtBuilder::default()
+        .existential_deposit(1_000)
+        .monied(true)
+        .cdd_providers(vec![
+            AccountKeyring::Eve.public(),
+            AccountKeyring::Ferdie.public(),
+        ])
+        .build()
+        .execute_with(|| {
+            let root = Origin::system(frame_system::RawOrigin::Root);
+            let cdd_1_acc = AccountKeyring::Eve.public();
+            let cdd_1_key = AccountKey::try_from(cdd_1_acc.0).unwrap();
+            let alice_acc = AccountKeyring::Alice.public();
+            let bob_acc = AccountKeyring::Bob.public();
+            let charlie_acc = AccountKeyring::Charlie.public();
+
+            // SigningItem added
+            let sig_1 = SigningItem {
+                signer: Signatory::from(AccountKey::try_from(bob_acc.encode()).unwrap()),
+                signer_type: SignatoryType::External,
+                permissions: vec![Permission::Admin, Permission::Operator],
+            };
+
+            let sig_2 = SigningItem {
+                signer: Signatory::from(AccountKey::try_from(charlie_acc.encode()).unwrap()),
+                signer_type: SignatoryType::External,
+                permissions: vec![Permission::Full],
+            };
+
+            assert_ok!(Identity::cdd_register_did(
+                Origin::signed(cdd_1_acc),
+                alice_acc,
+                Some(10),
+                vec![sig_1.clone(), sig_2.clone()]
+            ));
+
+            let did = match Identity::key_to_identity_ids(
+                AccountKey::try_from(alice_acc.encode()).unwrap(),
+            )
+            .unwrap()
+            {
+                LinkedKeyInfo::Unique(did) => did,
+                _ => Default::default(),
+            };
+
+            let bob_auth_id = <identity::Authorizations<TestStorage>>::iter_prefix(
+                Signatory::from(AccountKey::try_from(bob_acc.encode()).unwrap()),
+            )
+            .next()
+            .unwrap()
+            .auth_id;
+            let charlie_auth_id = <identity::Authorizations<TestStorage>>::iter_prefix(
+                Signatory::from(AccountKey::try_from(charlie_acc.encode()).unwrap()),
+            )
+            .next()
+            .unwrap()
+            .auth_id;
+
+            println!("Print the protocol base fee: {:?}", PROTOCOL_OP_BASE_FEE);
+
+            // Fund the identity
+            assert_ok!(Balances::top_up_identity_balance(
+                Origin::signed(alice_acc),
+                did,
+                PROTOCOL_OP_BASE_FEE * 3
+            ));
+
+            // accept the auth_id
+            assert_ok!(Identity::accept_authorization(
+                Origin::signed(bob_acc),
+                bob_auth_id
+            ));
+
+            // accept the auth_id
+            assert_ok!(Identity::accept_authorization(
+                Origin::signed(charlie_acc),
+                charlie_auth_id
+            ));
+
+            // check for permissions
+            let sig_items = (Identity::did_records(did)).signing_items;
+            assert_eq!(sig_items[0], sig_1);
+            assert_eq!(sig_items[1], sig_2);
+        });
 }
