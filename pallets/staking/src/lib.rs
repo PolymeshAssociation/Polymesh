@@ -1003,6 +1003,12 @@ decl_event!(
         GlobalCommissionUpdated(Option<IdentityId>, Perbill, Perbill),
         /// Min bond threshold was updated (new value).
         MinimumBondThresholdUpdated(Option<IdentityId>, Balance),
+        /// User has bonded funds for staking
+        Bonded(IdentityId, AccountId, Balance),
+        /// User has unbonded their funds
+        Unbonded(IdentityId, AccountId, Balance),
+        /// User has updated their nominations
+        Nominated(IdentityId, AccountId, Vec<AccountId>),
     }
 );
 
@@ -1120,12 +1126,14 @@ decl_module! {
             let stash_balance = <T as Trait>::Currency::free_balance(&stash);
             let value = value.min(stash_balance);
             let item = StakingLedger {
-                stash,
+                stash: stash.clone(),
                 total: value,
                 active: value,
                 unlocking: vec![],
                 last_reward: Self::current_era(),
             };
+            let did = Context::current_identity::<T::Identity>().unwrap_or_default();
+            Self::deposit_event(RawEvent::Bonded(did, stash, value));
             Self::update_ledger(&controller, &item);
         }
 
@@ -1160,6 +1168,8 @@ decl_module! {
                 let extra = extra.min(max_additional);
                 ledger.total += extra;
                 ledger.active += extra;
+                let did = Context::current_identity::<T::Identity>().unwrap_or_default();
+                Self::deposit_event(RawEvent::Bonded(did, stash, extra));
                 Self::update_ledger(&controller, &ledger);
             }
         }
@@ -1312,7 +1322,7 @@ decl_module! {
                     .collect::<result::Result<Vec<T::AccountId>, _>>()?;
 
                     let nominations = Nominations {
-                        targets,
+                        targets: targets.clone(),
                         // initial nominations are considered submitted at era 0. See `Nominations` doc
                         submitted_in: Self::current_era().unwrap_or(0),
                         suppressed: false,
@@ -1320,6 +1330,7 @@ decl_module! {
 
                     <Validators<T>>::remove(stash);
                     <Nominators<T>>::insert(stash, &nominations);
+                    Self::deposit_event(RawEvent::Nominated(nominate_identity, stash.clone(), targets));
                 }
             }
         }
@@ -1705,8 +1716,10 @@ decl_module! {
                 ledger.unlocking.len() > 0,
                 Error::<T>::NoUnlockChunk,
             );
-
+            let initial_bonded = ledger.active;
             let ledger = ledger.rebond(value);
+            let did = Context::current_identity::<T::Identity>().unwrap_or_default();
+            Self::deposit_event(RawEvent::Bonded(did, ledger.stash.clone(), ledger.active - initial_bonded));
             Self::update_ledger(&controller, &ledger);
         }
 
@@ -2410,6 +2423,8 @@ impl<T: Trait> Module<T> {
             // Note: in case there is no current era it is fine to bond one era more.
             let era = Self::current_era().unwrap_or(0) + T::BondingDuration::get();
             ledger.unlocking.push(UnlockChunk { value, era });
+            let did = Context::current_identity::<T::Identity>().unwrap_or_default();
+            Self::deposit_event(RawEvent::Unbonded(did, ledger.stash.clone(), value));
             Self::update_ledger(&controller, &ledger);
         }
     }
