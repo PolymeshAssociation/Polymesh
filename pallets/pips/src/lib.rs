@@ -79,7 +79,7 @@ use polymesh_common_utilities::{
     constants::PIP_MAX_REPORTING_SIZE,
     identity::Trait as IdentityTrait,
     protocol_fee::{ChargeProtocolFee, ProtocolOp},
-    traits::{governance_group::GovernanceGroupTrait, group::GroupTrait},
+    traits::{governance_group::GovernanceGroupTrait, group::GroupTrait, pip::PipId},
     CommonTrait, Context, SystematicIssuers,
 };
 use polymesh_primitives::{AccountKey, Beneficiary, IdentityId, Signatory};
@@ -89,9 +89,6 @@ use sp_runtime::traits::{
     BlakeTwo256, CheckedAdd, CheckedSub, Dispatchable, EnsureOrigin, Hash, Saturating, Zero,
 };
 use sp_std::{convert::TryFrom, prelude::*};
-
-/// Mesh Improvement Proposal id. Used offchain.
-pub type PipId = u32;
 
 /// Balance
 type BalanceOf<T> =
