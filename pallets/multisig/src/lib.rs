@@ -508,10 +508,7 @@ decl_module! {
             );
             ensure!(<Identity<T>>::is_master_key(sender_did, &sender_key), Error::<T>::NotMasterKey);
             <Identity<T>>::unsafe_join_identity(
-                JoinIdentityData {
-                    target_did: sender_did,
-                    permissions: vec![]  // no permissions provided
-                },
+                JoinIdentityData::new(sender_did, vec![]),
                 Signatory::from(AccountKey::try_from(multi_sig.encode())?)
             )
         }

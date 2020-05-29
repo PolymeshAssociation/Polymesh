@@ -98,6 +98,16 @@ pub struct JoinIdentityData {
     pub permissions: Vec<Permission>,
 }
 
+impl JoinIdentityData {
+    /// Use to create the new Self object by providing target_did and permission
+    pub fn new(target_did: IdentityId, permissions: Vec<Permission>) -> Self {
+        Self {
+            target_did: target_did,
+            permissions: permissions,
+        }
+    }
+}
+
 /// Data required to fetch and authorization
 #[derive(Encode, Decode, Clone, Default, PartialEq, Eq, Debug, PartialOrd, Ord)]
 pub struct AuthIdentifier(pub Signatory, pub u64);

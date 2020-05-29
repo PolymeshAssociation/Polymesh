@@ -261,10 +261,7 @@ decl_storage! {
                 config.signatures_required
             ).expect("cannot create the bridge multisig");
             <identity::Module<T>>::unsafe_join_identity(
-                JoinIdentityData {
-                    target_did: creator_did.clone(),
-                    permissions: vec![]
-                },
+                JoinIdentityData::new(creator_did.clone(), vec![]),
                 Signatory::from(AccountKey::try_from(multisig_id.clone().encode()).unwrap())
             ).expect("cannot link the bridge multisig");
             multisig_id

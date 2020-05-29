@@ -1860,16 +1860,15 @@ impl<T: Trait> Module<T> {
         let master_key_signatory = Signatory::from(master_key);
         Self::link_key_to_did(&master_key, SignatoryType::External, did);
         let _auth_ids = signing_items
-            .clone()
-            .into_iter()
+            .iter()
             .map(|s_item| {
                 Self::add_auth(
                     master_key_signatory.clone(),
                     s_item.signer.clone(),
-                    AuthorizationData::JoinIdentity(JoinIdentityData {
-                        target_did: did,
-                        permissions: s_item.permissions,
-                    }),
+                    AuthorizationData::JoinIdentity(JoinIdentityData::new(
+                        did,
+                        s_item.permissions.clone(),
+                    )),
                     None,
                 )
             })

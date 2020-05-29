@@ -573,10 +573,7 @@ fn enforce_uniqueness_keys_in_identity() {
     let auth_id = Identity::add_auth(
         Signatory::from(AccountKey::from(AccountKeyring::Alice.public().0)),
         Signatory::from(AccountKey::from(AccountKeyring::Bob.public().0)),
-        AuthorizationData::JoinIdentity(JoinIdentityData {
-            target_did: alice_id,
-            permissions: vec![],
-        }),
+        AuthorizationData::JoinIdentity(JoinIdentityData::new(alice_id, vec![])),
         None,
     );
     assert_err!(
@@ -1150,10 +1147,7 @@ fn add_identity_signers() {
         let auth_id_for_id_to_id = Identity::add_auth(
             alice_identity_signer,
             bob_identity_signer,
-            AuthorizationData::JoinIdentity(JoinIdentityData {
-                target_did: alice_did,
-                permissions: vec![],
-            }),
+            AuthorizationData::JoinIdentity(JoinIdentityData::new(alice_did, vec![])),
             None,
         );
 
@@ -1165,10 +1159,7 @@ fn add_identity_signers() {
         let auth_id_for_acc_to_id = Identity::add_auth(
             alice_acc_signer,
             bob_identity_signer,
-            AuthorizationData::JoinIdentity(JoinIdentityData {
-                target_did: alice_did,
-                permissions: vec![],
-            }),
+            AuthorizationData::JoinIdentity(JoinIdentityData::new(alice_did, vec![])),
             None,
         );
 
@@ -1185,10 +1176,7 @@ fn add_identity_signers() {
         let auth_id_for_acc2_to_id = Identity::add_auth(
             charlie_acc_signer,
             bob_identity_signer,
-            AuthorizationData::JoinIdentity(JoinIdentityData {
-                target_did: charlie_did,
-                permissions: vec![],
-            }),
+            AuthorizationData::JoinIdentity(JoinIdentityData::new(charlie_did, vec![])),
             None,
         );
 
@@ -1205,10 +1193,7 @@ fn add_identity_signers() {
         let auth_id_for_acc1_to_acc = Identity::add_auth(
             alice_acc_signer,
             dave_acc_signer,
-            AuthorizationData::JoinIdentity(JoinIdentityData {
-                target_did: alice_did,
-                permissions: vec![],
-            }),
+            AuthorizationData::JoinIdentity(JoinIdentityData::new(alice_did, vec![])),
             None,
         );
 
@@ -1225,10 +1210,7 @@ fn add_identity_signers() {
         let auth_id_for_acc2_to_acc = Identity::add_auth(
             charlie_acc_signer,
             dave_acc_signer,
-            AuthorizationData::JoinIdentity(JoinIdentityData {
-                target_did: charlie_did,
-                permissions: vec![],
-            }),
+            AuthorizationData::JoinIdentity(JoinIdentityData::new(charlie_did, vec![])),
             None,
         );
 

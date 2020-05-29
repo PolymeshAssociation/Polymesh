@@ -542,10 +542,7 @@ pub fn add_signing_item(did: IdentityId, signer: Signatory) {
     let auth_id = Identity::add_auth(
         Signatory::from(master_key),
         signer,
-        AuthorizationData::JoinIdentity(JoinIdentityData {
-            target_did: did,
-            permissions: vec![],
-        }),
+        AuthorizationData::JoinIdentity(JoinIdentityData::new(did, vec![])),
         None,
     );
     assert_ok!(Identity::join_identity(signer, auth_id));
