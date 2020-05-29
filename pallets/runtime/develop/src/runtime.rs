@@ -65,6 +65,7 @@ use frame_support::{
     dispatch::DispatchResult,
     parameter_types,
     traits::{Randomness, SplitTwoWays},
+    Hashable,
 };
 
 use frame_system::offchain::TransactionSubmitter;
@@ -537,17 +538,20 @@ impl pallet_utility::Trait for Runtime {
 }
 
 type RuntimeHash = <Runtime as frame_system::Trait>::Hash;
-impl EnactProposalMaker<RuntimeHash> for Runtime {
+
+impl EnactProposalMaker<Origin, RuntimeHash> for Runtime {
     fn is_pip_id_valid(id: PipId) -> bool {
-        false
+        Pips::is_proposal_id_valid(id)
     }
 
-    fn propose(id: PipId) -> DispatchResult {
-        Ok(())
+    fn propose(origin: Origin, id: PipId) -> DispatchResult {
+        let enact_call = Call::Pips(pallet_pips::Call::enact_referendum(id));
+        PolymeshCommittee::propose(origin, Box::new(enact_call))
     }
 
-    fn enact_referendum_hash(id: PipId) -> Option<RuntimeHash> {
-        None
+    fn enact_referendum_hash(id: PipId) -> RuntimeHash {
+        let enact_call = Call::Pips(pallet_pips::Call::enact_referendum(id));
+        enact_call.blake2_256().into()
     }
 }
 
