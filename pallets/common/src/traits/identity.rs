@@ -125,6 +125,9 @@ decl_event!(
         /// DID, the keys that got removed
         SigningItemsRemoved(IdentityId, Vec<Signatory>),
 
+        /// A signer left their identity. (did, signer)
+        SignerLeft(IdentityId, Signatory),
+
         /// DID, updated signing key, previous permissions
         SigningPermissionsUpdated(IdentityId, SigningItem, Vec<Permission>),
 
