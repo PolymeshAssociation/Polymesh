@@ -101,7 +101,7 @@ use codec::{Decode, Encode};
 use frame_support::dispatch::DispatchResult;
 use frame_support::traits::{Currency, Get};
 use frame_support::{
-    decl_error, decl_event, decl_module, decl_storage, ensure,
+    debug, decl_error, decl_event, decl_module, decl_storage, ensure,
     weights::{DispatchClass, FunctionOf, SimpleDispatchInfo},
 };
 use frame_system::{self as system, ensure_signed};
@@ -259,12 +259,15 @@ decl_storage! {
                 creator_did,
                 One::one()
             ).expect("cannot top up multisig creator identity balance");
+            debug::info!("Topped up identity balance of {}", config.creator);
             let multisig_id = <multisig::Module<T>>::create_multisig_account(
                 config.creator.clone(),
                 config.signers.as_slice(),
                 config.signatures_required
             ).expect("cannot create the bridge multisig");
+            debug::info!("Created bridge multisig {}", multisig_id);
             for signer in &config.signers {
+                debug::info!("Accepting bridge signer auth for {:?}", signer);
                 let last_auth = <identity::Authorizations<T>>::iter_prefix(signer)
                     .next()
                     .expect("cannot find bridge signer auth")
@@ -276,6 +279,7 @@ decl_storage! {
                 creator_did.clone(),
                 Signatory::from(AccountKey::try_from(multisig_id.clone().encode()).unwrap())
             ).expect("cannot link the bridge multisig");
+            debug::info!("Joined identity {} as signer {}", creator_did, multisig_id);
             multisig_id
         }): T::AccountId;
 
