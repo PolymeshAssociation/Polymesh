@@ -27,7 +27,11 @@ use pallet_utility as utility;
 use polymesh_common_utilities::{
     constants::currency::*,
     protocol_fee::ProtocolOp,
-    traits::{balances::AccountData, identity::Trait as IdentityTrait},
+    traits::{
+        balances::AccountData,
+        identity::Trait as IdentityTrait,
+        pip::{EnactProposalMaker, PipId},
+    },
     CommonTrait,
 };
 use polymesh_primitives::{
@@ -57,7 +61,9 @@ use sp_version::RuntimeVersion;
 // Comment in the favour of not using the Offchain worker
 //use pallet_cdd_offchain_worker::crypto::SignerId as CddOffchainWorkerId;
 use frame_support::{
-    construct_runtime, debug, parameter_types,
+    construct_runtime, debug,
+    dispatch::DispatchResult,
+    parameter_types,
     traits::{Randomness, SplitTwoWays},
 };
 
@@ -334,6 +340,7 @@ impl committee::Trait<GovernanceCommittee> for Runtime {
     type CommitteeOrigin = frame_system::EnsureRoot<AccountId>;
     type Event = Event;
     type MotionDuration = MotionDuration;
+    type EnactProposalMaker = Runtime;
 }
 
 /// PolymeshCommittee as an instance of group
@@ -527,6 +534,21 @@ impl statistics::Trait for Runtime {}
 impl pallet_utility::Trait for Runtime {
     type Event = Event;
     type Call = Call;
+}
+
+type RuntimeHash = <Runtime as frame_system::Trait>::Hash;
+impl EnactProposalMaker<RuntimeHash> for Runtime {
+    fn is_pip_id_valid(id: PipId) -> bool {
+        false
+    }
+
+    fn propose(id: PipId) -> DispatchResult {
+        Ok(())
+    }
+
+    fn enact_referendum_hash(id: PipId) -> Option<RuntimeHash> {
+        None
+    }
 }
 
 /// A runtime transaction submitter for the cdd_offchain_worker

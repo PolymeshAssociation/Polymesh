@@ -68,6 +68,7 @@ use polymesh_common_utilities::{
     governance_group::GovernanceGroupTrait,
     group::{GroupTrait, InactiveMember},
     identity::{IdentityTrait, Trait as IdentityModuleTrait},
+    pip::{EnactProposalMaker, PipId},
     Context, SystematicIssuers,
 };
 use polymesh_primitives::{AccountKey, IdentityId};
@@ -94,9 +95,10 @@ pub trait Trait<I>: frame_system::Trait + IdentityModuleTrait {
 
     /// The outer event type.
     type Event: From<Event<Self, I>> + Into<<Self as frame_system::Trait>::Event>;
-
     /// The time-out for council motions.
     type MotionDuration: Get<Self::BlockNumber>;
+
+    type EnactProposalMaker: EnactProposalMaker<<Self as frame_system::Trait>::Hash>;
 }
 
 /// Origin for the committee module.
@@ -212,7 +214,7 @@ decl_error! {
         /// When `MotionDuration` is set to 0.
         NotAllowed,
         /// The urrent DID is missing.
-        MissingCurrentIdentity
+        MissingCurrentIdentity,
     }
 }
 
@@ -398,6 +400,32 @@ decl_module! {
                 .unwrap_or(SystematicIssuers::Committee.as_id());
             Self::deposit_event(RawEvent::ReleaseCoordinatorUpdated(current_did, Some(id)));
         }
+
+        #[weight = SimpleDispatchInfo::FixedOperational(5_000_000)]
+        pub fn vote_enact_referendum(origin, id: PipId) -> DispatchResult {
+            T::CommitteeOrigin::ensure_origin(origin.clone())?;
+
+            if T::EnactProposalMaker::is_pip_id_valid(id) {
+                let (hash,index) = Self::hash_and_index_from_pip(id)
+                    .ok_or_else(|| Error::<T,I>::NoSuchProposal)?;
+
+                Self::vote(origin, hash, index, true)
+            } else {
+                T::EnactProposalMaker::propose(id)
+            }
+        }
+
+        #[weight = SimpleDispatchInfo::FixedOperational(5_000_000)]
+        pub fn vote_reject_referendum(origin, id: PipId) -> DispatchResult {
+            T::CommitteeOrigin::ensure_origin(origin.clone())?;
+
+            ensure!(T::EnactProposalMaker::is_pip_id_valid(id), Error::<T,I>::NoSuchProposal);
+
+            let (hash,index) = Self::hash_and_index_from_pip(id)
+                .ok_or_else(|| Error::<T,I>::NoSuchProposal)?;
+
+            Self::vote(origin, hash, index, false)
+        }
     }
 }
 
@@ -535,6 +563,17 @@ impl<T: Trait<I>, I: Instance> Module<T, I> {
         // remove vote
         <Voting<T, I>>::remove(&proposal);
         <Proposals<T, I>>::mutate(|proposals| proposals.retain(|h| h != &proposal));
+    }
+
+    fn hash_and_index_from_pip(id: PipId) -> Option<(T::Hash, ProposalIndex)> {
+        if let Some(e_hash) = T::EnactProposalMaker::enact_referendum_hash(id) {
+            let p_hash = e_hash.into();
+            if let Some(voting) = Self::voting(p_hash) {
+                return Some((p_hash, voting.index));
+            }
+        }
+
+        None
     }
 }
 
