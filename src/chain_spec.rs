@@ -229,10 +229,28 @@ fn general_testnet_genesis(
             admin: initial_authorities[0].1.clone(),
             creator: initial_authorities[0].1.clone(),
             signatures_required: 1,
-            signers: vec![Signatory::AccountKey(
-                AccountKey::try_from(&get_from_seed::<sr25519::Public>("relay_1").to_vec())
-                    .unwrap(),
-            )],
+            signers: vec![
+                Signatory::AccountKey(
+                    AccountKey::try_from(&get_from_seed::<sr25519::Public>("relay_1").to_vec())
+                        .unwrap(),
+                ),
+                Signatory::AccountKey(
+                    AccountKey::try_from(&get_from_seed::<sr25519::Public>("relay_2").to_vec())
+                        .unwrap(),
+                ),
+                Signatory::AccountKey(
+                    AccountKey::try_from(&get_from_seed::<sr25519::Public>("relay_3").to_vec())
+                        .unwrap(),
+                ),
+                Signatory::AccountKey(
+                    AccountKey::try_from(&get_from_seed::<sr25519::Public>("relay_4").to_vec())
+                        .unwrap(),
+                ),
+                Signatory::AccountKey(
+                    AccountKey::try_from(&get_from_seed::<sr25519::Public>("relay_5").to_vec())
+                        .unwrap(),
+                ),
+            ],
             timelock: 10,
             bridge_limit: (100_000_000 * POLY, 1000),
         }),
@@ -343,7 +361,14 @@ fn general_development_genesis() -> GenesisConfig {
     general_testnet_genesis(
         vec![get_authority_keys_from_seed("Alice", false)],
         get_account_id_from_seed::<sr25519::Public>("Alice"),
-        vec![get_account_id_from_seed::<sr25519::Public>("Bob")],
+        vec![
+            get_account_id_from_seed::<sr25519::Public>("Bob"),
+            get_account_id_from_seed::<sr25519::Public>("relay_1"),
+            get_account_id_from_seed::<sr25519::Public>("relay_2"),
+            get_account_id_from_seed::<sr25519::Public>("relay_3"),
+            get_account_id_from_seed::<sr25519::Public>("relay_4"),
+            get_account_id_from_seed::<sr25519::Public>("relay_5"),
+        ],
         true,
     )
 }
@@ -372,6 +397,11 @@ fn general_local_genesis() -> GenesisConfig {
             get_account_id_from_seed::<sr25519::Public>("Charlie"),
             get_account_id_from_seed::<sr25519::Public>("Dave"),
             get_account_id_from_seed::<sr25519::Public>("Charlie//stash"),
+            get_account_id_from_seed::<sr25519::Public>("relay_1"),
+            get_account_id_from_seed::<sr25519::Public>("relay_2"),
+            get_account_id_from_seed::<sr25519::Public>("relay_3"),
+            get_account_id_from_seed::<sr25519::Public>("relay_4"),
+            get_account_id_from_seed::<sr25519::Public>("relay_5"),
         ],
         true,
     )
@@ -405,6 +435,11 @@ fn general_live_genesis() -> GenesisConfig {
             get_account_id_from_seed::<sr25519::Public>("Dave//stash"),
             get_account_id_from_seed::<sr25519::Public>("Eve//stash"),
             get_account_id_from_seed::<sr25519::Public>("Ferdie//stash"),
+            get_account_id_from_seed::<sr25519::Public>("relay_1"),
+            get_account_id_from_seed::<sr25519::Public>("relay_2"),
+            get_account_id_from_seed::<sr25519::Public>("relay_3"),
+            get_account_id_from_seed::<sr25519::Public>("relay_4"),
+            get_account_id_from_seed::<sr25519::Public>("relay_5"),
         ],
         false,
     )
