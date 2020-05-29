@@ -98,7 +98,10 @@ pub trait Trait<I>: frame_system::Trait + IdentityModuleTrait {
     /// The time-out for council motions.
     type MotionDuration: Get<Self::BlockNumber>;
 
-    type EnactProposalMaker: EnactProposalMaker<<Self as frame_system::Trait>::Hash>;
+    type EnactProposalMaker: EnactProposalMaker<
+        <Self as frame_system::Trait>::Origin,
+        <Self as frame_system::Trait>::Hash,
+    >;
 }
 
 /// Origin for the committee module.
@@ -411,7 +414,7 @@ decl_module! {
 
                 Self::vote(origin, hash, index, true)
             } else {
-                T::EnactProposalMaker::propose(id)
+                T::EnactProposalMaker::propose(origin.clone(), id)
             }
         }
 
@@ -566,14 +569,9 @@ impl<T: Trait<I>, I: Instance> Module<T, I> {
     }
 
     fn hash_and_index_from_pip(id: PipId) -> Option<(T::Hash, ProposalIndex)> {
-        if let Some(e_hash) = T::EnactProposalMaker::enact_referendum_hash(id) {
-            let p_hash = e_hash.into();
-            if let Some(voting) = Self::voting(p_hash) {
-                return Some((p_hash, voting.index));
-            }
-        }
+        let hash = T::EnactProposalMaker::enact_referendum_hash(id);
 
-        None
+        Self::voting(hash).map(|voting| (hash, voting.index))
     }
 }
 

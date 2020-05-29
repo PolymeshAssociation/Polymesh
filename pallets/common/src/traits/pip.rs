@@ -14,16 +14,14 @@
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
 use frame_support::dispatch::DispatchResult;
-use frame_system;
 
 /// Mesh Improvement Proposal id. Used offchain.
 pub type PipId = u32;
 
-// pub trait EnactProposalMaker: frame_system::Trait {
-pub trait EnactProposalMaker<Hash> {
+pub trait EnactProposalMaker<Origin, Hash> {
     fn is_pip_id_valid(id: PipId) -> bool;
-    fn propose(id: PipId) -> DispatchResult;
 
-    // fn enact_referendum_hash(id: PipId) -> Option< <Self as frame_system::Trait>::Hash >;
-    fn enact_referendum_hash(id: PipId) -> Option<Hash>;
+    fn propose(origin: Origin, id: PipId) -> DispatchResult;
+
+    fn enact_referendum_hash(id: PipId) -> Hash;
 }

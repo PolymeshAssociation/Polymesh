@@ -1299,4 +1299,8 @@ impl<T: Trait> Module<T> {
         };
         proposal_data
     }
+
+    pub fn is_proposal_id_valid(id: PipId) -> bool {
+        <Proposals<T>>::contains_key(id)
+    }
 }
