@@ -93,6 +93,7 @@ where
             info!("Chain specification: {}", config.expect_chain_spec().name());
             info!("Node name: {}", config.name);
             info!("Roles: {}", config.display_role());
+            info!("Reserved nodes: {:?}", config.network.reserved_nodes);
 
             let is_v1_network = config
                 .chain_spec
