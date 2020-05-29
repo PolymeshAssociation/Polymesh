@@ -842,30 +842,28 @@ impl<T: Trait> Module<T> {
             Error::<T>::AlreadyASigner
         );
 
-        if let Signatory::AccountKey(key) = signer {
-            ensure!(
-                !<KeyToMultiSig<T>>::contains_key(&key),
-                Error::<T>::SignerAlreadyLinked
-            );
-            ensure!(
-                !<identity::KeyToIdentityIds>::contains_key(&key),
-                Error::<T>::SignerAlreadyLinked
-            );
+        let caller_did = match signer {
+            Signatory::AccountKey(key) => {
+                ensure!(
+                    !<KeyToMultiSig<T>>::contains_key(&key),
+                    Error::<T>::SignerAlreadyLinked
+                );
+                ensure!(
+                    !<identity::KeyToIdentityIds>::contains_key(&key),
+                    Error::<T>::SignerAlreadyLinked
+                );
 
-            <KeyToMultiSig<T>>::insert(key, wallet_id.clone());
-            <identity::KeyToIdentityIds>::insert(
-                key,
-                LinkedKeyInfo::Unique(<MultiSigCreator<T>>::get(&wallet_id)),
-            );
-        }
-
+                <KeyToMultiSig<T>>::insert(key, wallet_id.clone());
+                let did = <MultiSigCreator<T>>::get(&wallet_id);
+                <identity::KeyToIdentityIds>::insert(key, LinkedKeyInfo::Unique(did));
+                did
+            }
+            Signatory::Identity(did) => did,
+        };
         let wallet_signer = Signatory::from(AccountKey::try_from(wallet_id.encode())?);
         <Identity<T>>::consume_auth(wallet_signer, signer, auth_id)?;
-
         <MultiSigSigners<T>>::insert(wallet_id.clone(), signer, signer);
         <NumberOfSigners<T>>::mutate(wallet_id.clone(), |x| *x += 1u64);
-        let caller_did = Context::current_identity::<Identity<T>>()
-            .ok_or_else(|| Error::<T>::MissingCurrentIdentity)?;
         Self::deposit_event(RawEvent::MultiSigSignerAdded(caller_did, wallet_id, signer));
 
         Ok(())

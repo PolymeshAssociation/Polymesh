@@ -254,16 +254,16 @@ decl_storage! {
             }
             let creator_key = AccountKey::try_from(config.creator.clone().encode()).expect("cannot create the bridge creator account");
             let creator_did = Context::current_identity_or::<identity::Module<T>>(&creator_key).expect("bridge creator account has no identity");
+            <balances::Module<T>>::top_up_identity_balance(
+                frame_system::RawOrigin::Signed(config.creator.clone()).into(),
+                creator_did,
+                One::one()
+            ).expect("cannot top up multisig creator identity balance");
             let multisig_id = <multisig::Module<T>>::create_multisig_account(
                 config.creator.clone(),
                 config.signers.as_slice(),
                 config.signatures_required
             ).expect("cannot create the bridge multisig");
-            <balances::Module<T>>::top_up_identity_balance(
-                frame_system::RawOrigin::Signed(multisig_id.clone()).into(),
-                creator_did,
-                One::one()
-            );
             for signer in &config.signers {
                 let last_auth = <identity::Authorizations<T>>::iter_prefix(signer)
                     .next()
