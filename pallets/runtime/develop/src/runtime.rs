@@ -15,7 +15,7 @@ use polymesh_runtime_common::{
 use pallet_asset as asset;
 use pallet_balances as balances;
 use pallet_committee as committee;
-use pallet_compliance_manager as compliance_manager;
+use pallet_compliance_manager::{self as compliance_manager, AssetTransferRulesResult};
 use pallet_group as group;
 use pallet_identity as identity;
 use pallet_multisig as multisig;
@@ -926,6 +926,18 @@ impl_runtime_apis! {
         {
             Asset::unsafe_can_transfer(sender, ticker, from_did, to_did, value)
                 .map_err(|msg| msg.as_bytes().to_vec())
+        }
+    }
+
+    impl pallet_compliance_manager_rpc_runtime_api::ComplianceManagerApi<Block, AccountId, Balance> for Runtime {
+        #[inline]
+        fn can_transfer(
+            ticker: Ticker,
+            from_did: Option<IdentityId>,
+            to_did: Option<IdentityId>,
+        ) -> AssetTransferRulesResult
+        {
+            ComplianceManager::granular_verify_restriction(&ticker, from_did, to_did)
         }
     }
 
