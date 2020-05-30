@@ -83,7 +83,9 @@ where
         }
         None => {
             opt.run.base.init(&version)?;
-            opt.run.base.update_config(&mut config, load_spec, &version)?;
+            opt.run
+                .base
+                .update_config(&mut config, load_spec, &version)?;
 
             info!("{}", version.name);
             info!("  version {}", config.full_version());

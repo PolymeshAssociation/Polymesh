@@ -17,10 +17,10 @@ pub struct RunCmd {
     #[structopt(flatten)]
     pub base: sc_cli::RunCmd,
     /// Enable validator mode.
-    /// 
+    ///
     /// It is an alias of the `--validator` flag. User has the choice to use either `--validator` or `--operator` flag both works same.
     #[structopt(long)]
-    pub operator: bool
+    pub operator: bool,
 }
 
 /// Possible subcommands of the main binary.
