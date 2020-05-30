@@ -1,6 +1,5 @@
 #[cfg(feature = "runtime-benchmarks")]
 use crate::benchmarking_cli;
-use sc_cli::RunCmd;
 use structopt::StructOpt;
 
 #[derive(Clone, Debug, StructOpt)]
@@ -11,6 +10,17 @@ pub struct Cli {
     #[allow(missing_docs)]
     #[structopt(flatten)]
     pub run: RunCmd,
+}
+#[derive(Clone, Debug, StructOpt)]
+pub struct RunCmd {
+    #[allow(missing_docs)]
+    #[structopt(flatten)]
+    pub base: sc_cli::RunCmd,
+    /// Enable validator mode.
+    /// 
+    /// It works same as the --validator flag
+    #[structopt(long)]
+    pub operator: bool
 }
 
 /// Possible subcommands of the main binary.
