@@ -19,6 +19,7 @@ use crate::load_chain_spec::{load_spec, IsV1Network};
 use crate::service;
 use chrono::prelude::*;
 use log::info;
+
 #[cfg(feature = "runtime-benchmarks")]
 use polymesh_runtime::runtime;
 use sc_cli::VersionInfo;
@@ -30,8 +31,10 @@ where
     T: Into<std::ffi::OsString> + Clone,
 {
     let args: Vec<_> = args.collect();
-    let opt = sc_cli::from_iter::<Cli, _>(args.clone(), &version);
-
+    let mut opt = sc_cli::from_iter::<Cli, _>(args.clone(), &version);
+    if opt.run.operator {
+        opt.run.base.validator = true;
+    }
     let mut config = sc_service::Configuration::<polymesh_runtime_testnet_v1::config::GenesisConfig>::from_version(&version);
 
     match opt.subcommand {
@@ -79,8 +82,10 @@ where
             }
         }
         None => {
-            opt.run.init(&version)?;
-            opt.run.update_config(&mut config, load_spec, &version)?;
+            opt.run.base.init(&version)?;
+            opt.run
+                .base
+                .update_config(&mut config, load_spec, &version)?;
 
             info!("{}", version.name);
             info!("  version {}", config.full_version());
