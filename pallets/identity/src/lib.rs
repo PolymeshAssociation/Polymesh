@@ -406,7 +406,7 @@ decl_module! {
             // Remove links and get all authorization IDs per signer.
             let signer_and_auth_id_list = signers_to_remove.iter().map(|signer| {
                 match signer {
-                    Signatory::AccountKey(ref key) => Self::unlink_key_to_did(key, did),
+                    Signatory::AccountKey(ref key) => Self::unlink_key_from_did(key, did),
                     _ => {}
                 };
 
@@ -1504,7 +1504,7 @@ impl<T: Trait> Module<T> {
         // Replace master key of the owner that initiated key rotation
         let old_master_key = Self::did_records(&rotation_for_did).master_key;
         <DidRecords>::mutate(&rotation_for_did, |record| {
-            Self::unlink_key_to_did(&(*record).master_key, rotation_for_did);
+            Self::unlink_key_from_did(&(*record).master_key, rotation_for_did);
             (*record).master_key = sender_key;
         });
 
@@ -1836,7 +1836,7 @@ impl<T: Trait> Module<T> {
 
     /// It unlinks the `key` key from `did`.
     /// If there is no more associated identities, its full entry is removed.
-    fn unlink_key_to_did(key: &AccountKey, did: IdentityId) {
+    fn unlink_key_from_did(key: &AccountKey, did: IdentityId) {
         if let Some(linked_key_info) = <KeyToIdentityIds>::get(key) {
             match linked_key_info {
                 LinkedKeyInfo::Unique(did_linked) => {
@@ -2056,7 +2056,7 @@ impl<T: Trait> Module<T> {
         ensure!(Self::is_signer(did, &signer), Error::<T>::NotASigner);
 
         if let Signatory::AccountKey(key) = signer {
-            Self::unlink_key_to_did(&key, did)
+            Self::unlink_key_from_did(&key, did)
         }
 
         // Update signing keys at Identity.

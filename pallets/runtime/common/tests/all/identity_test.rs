@@ -559,8 +559,8 @@ fn remove_signing_keys_test_with_externalities() {
 
     let alice_did = register_keyring_account(AccountKeyring::Alice).unwrap();
     let alice = Origin::signed(AccountKeyring::Alice.public());
-    let charlie_did = register_keyring_account(AccountKeyring::Charlie).unwrap();
     let charlie = Origin::signed(AccountKeyring::Charlie.public());
+    let _charlie_did = register_keyring_account(AccountKeyring::Charlie).unwrap();
 
     assert_ok!(Balances::top_up_identity_balance(
         alice.clone(),
@@ -633,7 +633,7 @@ fn leave_identity_test_with_externalities() {
     assert_eq!(Identity::get_identity(&bob_key), Some(alice_did));
 
     // Bob leaves
-    assert_ok!(Identity::leave_identity_as_key(bob,));
+    assert_ok!(Identity::leave_identity_as_key(bob));
 
     // Check DidRecord.
     let did_rec = Identity::did_records(alice_did);
