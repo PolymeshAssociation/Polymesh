@@ -89,6 +89,7 @@ pub trait Trait<I>: frame_system::Trait + IdentityModuleTrait {
 
     /// The outer call dispatch type.
     type Proposal: Parameter + Dispatchable<Origin = <Self as Trait<I>>::Origin>;
+    // + Into<<Self as frame_system::Trait>::Hash>;
 
     /// Required origin for changing behaviour of this module.
     type CommitteeOrigin: EnsureOrigin<<Self as frame_system::Trait>::Origin>;
@@ -100,7 +101,8 @@ pub trait Trait<I>: frame_system::Trait + IdentityModuleTrait {
 
     type EnactProposalMaker: EnactProposalMaker<
         <Self as frame_system::Trait>::Origin,
-        <Self as frame_system::Trait>::Hash,
+        // <Self as frame_system::Trait>::Hash,
+        <Self as Trait<I>>::Proposal,
     >;
 }
 
@@ -406,28 +408,40 @@ decl_module! {
 
         #[weight = SimpleDispatchInfo::FixedOperational(5_000_000)]
         pub fn vote_enact_referendum(origin, id: PipId) -> DispatchResult {
-            T::CommitteeOrigin::ensure_origin(origin.clone())?;
+            // Only committee members can use this function.
+            let who_key = AccountKey::try_from(ensure_signed(origin.clone())?.encode())?;
+            let who_id = Context::current_identity_or::<Identity<T>>(&who_key)?;
+            ensure!( Self::is_member(&who_id), Error::<T,I>::BadOrigin);
 
-            if T::EnactProposalMaker::is_pip_id_valid(id) {
-                let (hash,index) = Self::hash_and_index_from_pip(id)
-                    .ok_or_else(|| Error::<T,I>::NoSuchProposal)?;
+            ensure!( T::EnactProposalMaker::is_pip_id_valid(id), Error::<T,I>::NoSuchProposal);
 
-                Self::vote(origin, hash, index, true)
+            // It creates the proposal if it does not exists or vote that proposal.
+            let call = T::EnactProposalMaker::enact_referendum_call(id);
+            let hash = T::Hashing ::hash_of(&call);
+
+            if let Some(voting) = Self::voting(hash) {
+                Self::vote(origin, hash, voting.index, true)
             } else {
-                T::EnactProposalMaker::propose(origin.clone(), id)
+                Self::propose(origin, Box::new(call))
             }
         }
 
         #[weight = SimpleDispatchInfo::FixedOperational(5_000_000)]
         pub fn vote_reject_referendum(origin, id: PipId) -> DispatchResult {
-            T::CommitteeOrigin::ensure_origin(origin.clone())?;
+            // Only committee members can use this function.
+            let who_key = AccountKey::try_from(ensure_signed(origin.clone())?.encode())?;
+            let who_id = Context::current_identity_or::<Identity<T>>(&who_key)?;
+            ensure!( Self::is_member(&who_id), Error::<T,I>::BadOrigin);
 
             ensure!(T::EnactProposalMaker::is_pip_id_valid(id), Error::<T,I>::NoSuchProposal);
+            let call = T::EnactProposalMaker::enact_referendum_call(id);
+            let hash = T::Hashing::hash_of(&call);
 
-            let (hash,index) = Self::hash_and_index_from_pip(id)
+            let _ = Self::voting(hash)
+                .map(|voting| Self::vote(origin, hash, voting.index, false))
                 .ok_or_else(|| Error::<T,I>::NoSuchProposal)?;
 
-            Self::vote(origin, hash, index, false)
+            Ok(())
         }
     }
 }
@@ -566,12 +580,6 @@ impl<T: Trait<I>, I: Instance> Module<T, I> {
         // remove vote
         <Voting<T, I>>::remove(&proposal);
         <Proposals<T, I>>::mutate(|proposals| proposals.retain(|h| h != &proposal));
-    }
-
-    fn hash_and_index_from_pip(id: PipId) -> Option<(T::Hash, ProposalIndex)> {
-        let hash = T::EnactProposalMaker::enact_referendum_hash(id);
-
-        Self::voting(hash).map(|voting| (hash, voting.index))
     }
 }
 

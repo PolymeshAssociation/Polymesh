@@ -107,14 +107,14 @@ pub struct Url(pub Vec<u8>);
 pub struct PipDescription(pub Vec<u8>);
 
 /// Represents a proposal
-#[derive(Encode, Decode, Clone, PartialEq, Eq)]
+#[derive(Encode, Decode, Clone, PartialEq, Eq, Debug)]
 pub struct Pip<Proposal, Balance> {
     /// The proposal's unique id.
-    id: PipId,
+    pub id: PipId,
     /// The proposal being voted on.
-    proposal: Proposal,
+    pub proposal: Proposal,
     /// The latest state
-    state: ProposalState,
+    pub state: ProposalState,
     /// Beneficiaries of this Pips
     pub beneficiaries: Option<Vec<Beneficiary<Balance>>>,
 }
