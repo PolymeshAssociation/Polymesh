@@ -252,14 +252,6 @@ decl_storage! {
                 // Default to the empty signer set.
                 return Default::default();
             }
-            let creator_key = AccountKey::try_from(config.creator.clone().encode()).expect("cannot create the bridge creator account");
-            let creator_did = Context::current_identity_or::<identity::Module<T>>(&creator_key).expect("bridge creator account has no identity");
-            <balances::Module<T>>::top_up_identity_balance(
-                frame_system::RawOrigin::Signed(config.creator.clone()).into(),
-                creator_did,
-                One::one()
-            ).expect("cannot top up multisig creator identity balance");
-            debug::info!("Topped up identity balance of {}", config.creator);
             let multisig_id = <multisig::Module<T>>::create_multisig_account(
                 config.creator.clone(),
                 config.signers.as_slice(),
@@ -275,6 +267,8 @@ decl_storage! {
                 <multisig::Module<T>>::_accept_multisig_signer(signer.clone(), last_auth)
                     .expect("cannot accept bridge signer auth");
             }
+            let creator_key = AccountKey::try_from(config.creator.clone().encode()).expect("cannot create the bridge creator account");
+            let creator_did = Context::current_identity_or::<identity::Module<T>>(&creator_key).expect("bridge creator account has no identity");
             <identity::Module<T>>::unsafe_join_identity(
                 JoinIdentityData::new(creator_did.clone(), vec![]),
                 Signatory::from(AccountKey::try_from(multisig_id.clone().encode()).unwrap())
