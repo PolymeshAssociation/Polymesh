@@ -474,20 +474,6 @@ impl utility::Trait for TestStorage {
     type Call = Call;
 }
 
-type TestStorageHash = <TestStorage as frame_system::Trait>::Hash;
-
-impl EnactProposalMaker<Origin, Call> for TestStorage {
-    fn is_pip_id_valid(id: PipId) -> bool {
-        Pips::is_proposal_id_valid(id)
-    }
-
-    fn enact_referendum_call(id: PipId) -> Call {
-        Call::Pips(pallet_pips::Call::enact_referendum(id))
-    }
-}
-
-type TestStorageHash = <TestStorage as frame_system::Trait>::Hash;
-
 impl EnactProposalMaker<Origin, Call> for TestStorage {
     fn is_pip_id_valid(id: PipId) -> bool {
         Pips::is_proposal_id_valid(id)

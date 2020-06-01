@@ -19,7 +19,8 @@ use polymesh_common_utilities::{
 };
 use polymesh_primitives::{
     AccountKey, AuthorizationData, AuthorizationError, Claim, ClaimType, Document, IdentityClaim,
-    IdentityId, LinkData, Permission, Scope, Signatory, SigningItem, Ticker, TransactionError,
+    IdentityId, JoinIdentityData, LinkData, Permission, Scope, Signatory, SignatoryType,
+    SigningItem, Ticker, TransactionError,
 };
 use polymesh_runtime_develop::{fee_details::CddHandler, runtime::Call};
 
@@ -1574,9 +1575,7 @@ fn add_permission_with_signing_item() {
         ])
         .build()
         .execute_with(|| {
-            let root = Origin::system(frame_system::RawOrigin::Root);
             let cdd_1_acc = AccountKeyring::Eve.public();
-            let cdd_1_key = AccountKey::try_from(cdd_1_acc.0).unwrap();
             let alice_acc = AccountKeyring::Alice.public();
             let bob_acc = AccountKeyring::Bob.public();
             let charlie_acc = AccountKeyring::Charlie.public();
