@@ -549,6 +549,111 @@ fn frozen_signing_keys_cdd_verification_test_we() {
 }
 
 #[test]
+fn remove_signing_keys_test() {
+    ExtBuilder::default()
+        .monied(true)
+        .build()
+        .execute_with(&remove_signing_keys_test_with_externalities);
+}
+
+fn remove_signing_keys_test_with_externalities() {
+    let bob_key = AccountKey::from(AccountKeyring::Bob.public().0);
+
+    let bob_signing_key = SigningItem::new(Signatory::AccountKey(bob_key), vec![]);
+
+    let alice_did = register_keyring_account(AccountKeyring::Alice).unwrap();
+    let alice = Origin::signed(AccountKeyring::Alice.public());
+    let charlie = Origin::signed(AccountKeyring::Charlie.public());
+    let _charlie_did = register_keyring_account(AccountKeyring::Charlie).unwrap();
+
+    assert_ok!(Balances::top_up_identity_balance(
+        alice.clone(),
+        alice_did,
+        PROTOCOL_OP_BASE_FEE
+    ));
+
+    add_signing_item(alice_did, Signatory::from(bob_key));
+
+    // Check DidRecord.
+    let did_rec = Identity::did_records(alice_did);
+    assert_eq!(did_rec.signing_items, vec![bob_signing_key.clone()]);
+    assert_eq!(Identity::get_identity(&bob_key), Some(alice_did));
+
+    // Try removing bob using charlie
+    assert_ok!(Identity::remove_signing_items(
+        charlie.clone(),
+        vec![Signatory::AccountKey(bob_key)]
+    ));
+
+    // Check DidRecord.
+    let did_rec = Identity::did_records(alice_did);
+    assert_eq!(did_rec.signing_items, vec![bob_signing_key]);
+    assert_eq!(Identity::get_identity(&bob_key), Some(alice_did));
+
+    // Try remove bob using alice
+    assert_ok!(Identity::remove_signing_items(
+        alice.clone(),
+        vec![Signatory::AccountKey(bob_key)]
+    ));
+
+    // Check DidRecord.
+    let did_rec = Identity::did_records(alice_did);
+    assert_eq!(did_rec.signing_items.len(), 0);
+    assert_eq!(Identity::get_identity(&bob_key), None);
+}
+
+#[test]
+fn leave_identity_test() {
+    ExtBuilder::default()
+        .monied(true)
+        .build()
+        .execute_with(&leave_identity_test_with_externalities);
+}
+
+fn leave_identity_test_with_externalities() {
+    let bob_key = AccountKey::from(AccountKeyring::Bob.public().0);
+    let bob = Origin::signed(AccountKeyring::Bob.public());
+    let alice_did = register_keyring_account(AccountKeyring::Alice).unwrap();
+    let alice = Origin::signed(AccountKeyring::Alice.public());
+    let charlie_did = register_keyring_account(AccountKeyring::Charlie).unwrap();
+    let charlie = Origin::signed(AccountKeyring::Charlie.public());
+
+    let bob_signing_key = SigningItem::new(Signatory::AccountKey(bob_key), vec![]);
+    let charlie_signing_key = SigningItem::new(Signatory::Identity(charlie_did), vec![]);
+    let alice_signing_items = vec![bob_signing_key, charlie_signing_key.clone()];
+
+    assert_ok!(Balances::top_up_identity_balance(
+        alice,
+        alice_did,
+        2 * PROTOCOL_OP_BASE_FEE
+    ));
+
+    add_signing_item(alice_did, Signatory::from(bob_key));
+    add_signing_item(alice_did, Signatory::from(charlie_did));
+
+    // Check DidRecord.
+    let did_rec = Identity::did_records(alice_did);
+    assert_eq!(did_rec.signing_items, alice_signing_items);
+    assert_eq!(Identity::get_identity(&bob_key), Some(alice_did));
+
+    // Bob leaves
+    assert_ok!(Identity::leave_identity_as_key(bob));
+
+    // Check DidRecord.
+    let did_rec = Identity::did_records(alice_did);
+    assert_eq!(did_rec.signing_items, vec![charlie_signing_key]);
+    assert_eq!(Identity::get_identity(&bob_key), None);
+
+    // Charlie leaves
+    assert_ok!(Identity::leave_identity_as_identity(charlie, alice_did));
+
+    // Check DidRecord.
+    let did_rec = Identity::did_records(alice_did);
+    assert_eq!(did_rec.signing_items.len(), 0);
+    assert_eq!(Identity::get_identity(&bob_key), None);
+}
+
+#[test]
 fn enforce_uniqueness_keys_in_identity_tests() {
     ExtBuilder::default()
         .monied(true)
