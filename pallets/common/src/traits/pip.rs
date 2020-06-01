@@ -13,15 +13,14 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
-use frame_support::dispatch::DispatchResult;
-
 /// Mesh Improvement Proposal id. Used offchain.
 pub type PipId = u32;
 
-pub trait EnactProposalMaker<Origin, Hash> {
+/// Utility maker used to link `Call` type, defined at `Runtime` level, from inside any module.
+pub trait EnactProposalMaker<Origin, Call> {
+    /// Checks if `id` is a valid PIP identifier.
     fn is_pip_id_valid(id: PipId) -> bool;
 
-    fn propose(origin: Origin, id: PipId) -> DispatchResult;
-
-    fn enact_referendum_hash(id: PipId) -> Hash;
+    /// It creates the call for the given `id`.
+    fn enact_referendum_call(id: PipId) -> Call;
 }

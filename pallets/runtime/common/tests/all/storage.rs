@@ -30,7 +30,7 @@ use polymesh_runtime_common::{
 use codec::Encode;
 use frame_support::{
     assert_ok, dispatch::DispatchResult, impl_outer_dispatch, impl_outer_event, impl_outer_origin,
-    parameter_types, traits::Currency, weights::DispatchInfo, Hashable, StorageDoubleMap,
+    parameter_types, traits::Currency, weights::DispatchInfo, StorageDoubleMap,
 };
 use frame_system::{self as system};
 
@@ -476,19 +476,13 @@ impl utility::Trait for TestStorage {
 
 type TestStorageHash = <TestStorage as frame_system::Trait>::Hash;
 
-impl EnactProposalMaker<Origin, TestStorageHash> for TestStorage {
+impl EnactProposalMaker<Origin, Call> for TestStorage {
     fn is_pip_id_valid(id: PipId) -> bool {
         Pips::is_proposal_id_valid(id)
     }
 
-    fn propose(origin: Origin, id: PipId) -> DispatchResult {
-        let enact_call = Call::Pips(pallet_pips::Call::enact_referendum(id));
-        Committee::propose(origin, Box::new(enact_call))
-    }
-
-    fn enact_referendum_hash(id: PipId) -> TestStorageHash {
-        let enact_call = Call::Pips(pallet_pips::Call::enact_referendum(id));
-        enact_call.blake2_256().into()
+    fn enact_referendum_call(id: PipId) -> Call {
+        Call::Pips(pallet_pips::Call::enact_referendum(id))
     }
 }
 
