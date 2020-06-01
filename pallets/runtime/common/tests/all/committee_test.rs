@@ -542,14 +542,16 @@ fn enact_referendum_we() {
     let _alice_id = register_keyring_account(AccountKeyring::Alice);
     let bob = AccountKeyring::Bob.public();
     let _bob_id = register_keyring_account(AccountKeyring::Bob);
+    let dave = AccountKeyring::Dave.public();
+    let _dave_id = register_keyring_account(AccountKeyring::Dave);
 
     // 1. Create the PIP.
     assert_ok!(Pips::propose(
         Origin::signed(alice),
         Box::new(proposal.clone()),
         50,
-        Some(proposal_url),
-        Some(proposal_desc),
+        Some(proposal_url.clone()),
+        Some(proposal_desc.clone()),
         None
     ));
     assert_eq!(
@@ -564,12 +566,33 @@ fn enact_referendum_we() {
 
     // 2. Alice vote to enact that pip.
     assert_ok!(Committee::vote_enact_referendum(Origin::signed(alice), 0));
-
+    assert_err!(
+        Committee::vote_enact_referendum(Origin::signed(dave), 0),
+        committee::Error::<TestStorage, committee::Instance1>::BadOrigin,
+    );
     assert_ok!(Committee::vote_enact_referendum(Origin::signed(bob), 0));
 
     // 3. Invalid referendum.
     assert_err!(
         Committee::vote_enact_referendum(Origin::signed(alice), 1),
         committee::Error::<TestStorage, committee::Instance1>::NoSuchProposal,
+    );
+
+    // 4. Reject referendums.
+    let proposal_rej = make_proposal(101);
+    assert_ok!(Pips::propose(
+        Origin::signed(alice),
+        Box::new(proposal_rej.clone()),
+        50,
+        Some(proposal_url),
+        Some(proposal_desc),
+        None
+    ));
+
+    assert_ok!(Committee::vote_enact_referendum(Origin::signed(alice), 1));
+    assert_ok!(Committee::vote_reject_referendum(Origin::signed(bob), 1));
+    assert_err!(
+        Committee::vote_enact_referendum(Origin::signed(dave), 1),
+        committee::Error::<TestStorage, committee::Instance1>::BadOrigin,
     );
 }

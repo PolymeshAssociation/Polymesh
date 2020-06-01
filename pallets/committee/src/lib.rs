@@ -89,7 +89,6 @@ pub trait Trait<I>: frame_system::Trait + IdentityModuleTrait {
 
     /// The outer call dispatch type.
     type Proposal: Parameter + Dispatchable<Origin = <Self as Trait<I>>::Origin>;
-    // + Into<<Self as frame_system::Trait>::Hash>;
 
     /// Required origin for changing behaviour of this module.
     type CommitteeOrigin: EnsureOrigin<<Self as frame_system::Trait>::Origin>;
@@ -101,7 +100,6 @@ pub trait Trait<I>: frame_system::Trait + IdentityModuleTrait {
 
     type EnactProposalMaker: EnactProposalMaker<
         <Self as frame_system::Trait>::Origin,
-        // <Self as frame_system::Trait>::Hash,
         <Self as Trait<I>>::Proposal,
     >;
 }
