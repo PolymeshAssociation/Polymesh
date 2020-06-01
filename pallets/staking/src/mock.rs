@@ -590,6 +590,7 @@ impl ExtBuilder {
                     1_000_000_000_000,
                 ),
             ],
+            identity_balances: vec![],
         }
         .assimilate_storage(&mut storage);
 
