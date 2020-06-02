@@ -68,6 +68,7 @@ use polymesh_common_utilities::{
     governance_group::GovernanceGroupTrait,
     group::{GroupTrait, InactiveMember},
     identity::{IdentityTrait, Trait as IdentityModuleTrait},
+    pip::{EnactProposalMaker, PipId},
     Context, SystematicIssuers,
 };
 use polymesh_primitives::{AccountKey, IdentityId};
@@ -94,9 +95,13 @@ pub trait Trait<I>: frame_system::Trait + IdentityModuleTrait {
 
     /// The outer event type.
     type Event: From<Event<Self, I>> + Into<<Self as frame_system::Trait>::Event>;
-
     /// The time-out for council motions.
     type MotionDuration: Get<Self::BlockNumber>;
+
+    type EnactProposalMaker: EnactProposalMaker<
+        <Self as frame_system::Trait>::Origin,
+        <Self as Trait<I>>::Proposal,
+    >;
 }
 
 /// Origin for the committee module.
@@ -184,6 +189,12 @@ decl_event!(
         /// Voting threshold has been updated
         /// Parameters: caller DID, numerator, denominator
         VoteThresholdUpdated(IdentityId, u32, u32),
+        /// Vote enact referendum.
+        /// Parameters: caller DID, target Pip Id.
+        VoteEnactReferendum(IdentityId, PipId),
+        /// Vote reject referendum.
+        /// Parameters: caller DID, target Pip Id.
+        VoteRejectReferendum(IdentityId, PipId),
     }
 );
 
@@ -212,7 +223,7 @@ decl_error! {
         /// When `MotionDuration` is set to 0.
         NotAllowed,
         /// The urrent DID is missing.
-        MissingCurrentIdentity
+        MissingCurrentIdentity,
     }
 }
 
@@ -397,6 +408,47 @@ decl_module! {
             let current_did = Context::current_identity::<Identity<T>>()
                 .unwrap_or(SystematicIssuers::Committee.as_id());
             Self::deposit_event(RawEvent::ReleaseCoordinatorUpdated(current_did, Some(id)));
+        }
+
+        #[weight = SimpleDispatchInfo::FixedOperational(5_000_000)]
+        pub fn vote_enact_referendum(origin, id: PipId) -> DispatchResult {
+            // Only committee members can use this function.
+            let who_key = AccountKey::try_from(ensure_signed(origin.clone())?.encode())?;
+            let who_id = Context::current_identity_or::<Identity<T>>(&who_key)?;
+            ensure!( Self::is_member(&who_id), Error::<T,I>::BadOrigin);
+
+            ensure!( T::EnactProposalMaker::is_pip_id_valid(id), Error::<T,I>::NoSuchProposal);
+
+            // It creates the proposal if it does not exists or vote that proposal.
+            let call = T::EnactProposalMaker::enact_referendum_call(id);
+            let hash = T::Hashing ::hash_of(&call);
+
+            Self::deposit_event( RawEvent::VoteEnactReferendum(who_id, id));
+
+            if let Some(voting) = Self::voting(hash) {
+                Self::vote(origin, hash, voting.index, true)
+            } else {
+                Self::propose(origin, Box::new(call))
+            }
+        }
+
+        #[weight = SimpleDispatchInfo::FixedOperational(5_000_000)]
+        pub fn vote_reject_referendum(origin, id: PipId) -> DispatchResult {
+            // Only committee members can use this function.
+            let who_key = AccountKey::try_from(ensure_signed(origin.clone())?.encode())?;
+            let who_id = Context::current_identity_or::<Identity<T>>(&who_key)?;
+            ensure!( Self::is_member(&who_id), Error::<T,I>::BadOrigin);
+
+            ensure!(T::EnactProposalMaker::is_pip_id_valid(id), Error::<T,I>::NoSuchProposal);
+            let call = T::EnactProposalMaker::enact_referendum_call(id);
+            let hash = T::Hashing::hash_of(&call);
+
+            let _ = Self::voting(hash)
+                .map(|voting| Self::vote(origin, hash, voting.index, false))
+                .ok_or_else(|| Error::<T,I>::NoSuchProposal)?;
+
+            Self::deposit_event( RawEvent::VoteRejectReferendum(who_id, id));
+            Ok(())
         }
     }
 }

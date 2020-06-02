@@ -198,7 +198,7 @@ use frame_support::{
 use frame_system::{self as system, ensure_root, ensure_signed};
 use sp_runtime::{
     traits::{
-        AccountIdConversion, Bounded, CheckedAdd, CheckedSub, Hash, MaybeSerializeDeserialize,
+        AccountIdConversion, Bounded, CheckedAdd, CheckedSub, MaybeSerializeDeserialize,
         Saturating, StaticLookup, Zero,
     },
     DispatchError, DispatchResult, RuntimeDebug,

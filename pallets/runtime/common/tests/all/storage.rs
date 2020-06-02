@@ -12,8 +12,13 @@ use pallet_treasury as treasury;
 use pallet_utility as utility;
 
 use polymesh_common_utilities::traits::{
-    asset::AcceptTransfer, balances::AccountData, group::GroupTrait,
-    identity::Trait as IdentityTrait, multisig::AddSignerMultiSig, CommonTrait,
+    asset::AcceptTransfer,
+    balances::AccountData,
+    group::GroupTrait,
+    identity::Trait as IdentityTrait,
+    multisig::AddSignerMultiSig,
+    pip::{EnactProposalMaker, PipId},
+    CommonTrait,
 };
 use polymesh_primitives::{
     AccountKey, Authorization, AuthorizationData, IdentityId, JoinIdentityData, Signatory,
@@ -261,6 +266,7 @@ impl committee::Trait<committee::Instance1> for TestStorage {
     type CommitteeOrigin = frame_system::EnsureRoot<AccountId>;
     type Event = Event;
     type MotionDuration = MotionDuration;
+    type EnactProposalMaker = TestStorage;
 }
 
 impl committee::Trait<committee::DefaultInstance> for TestStorage {
@@ -269,6 +275,7 @@ impl committee::Trait<committee::DefaultInstance> for TestStorage {
     type CommitteeOrigin = frame_system::EnsureRoot<AccountId>;
     type Event = Event;
     type MotionDuration = MotionDuration;
+    type EnactProposalMaker = TestStorage;
 }
 
 impl IdentityTrait for TestStorage {
@@ -465,6 +472,16 @@ impl pips::Trait for TestStorage {
 impl utility::Trait for TestStorage {
     type Event = Event;
     type Call = Call;
+}
+
+impl EnactProposalMaker<Origin, Call> for TestStorage {
+    fn is_pip_id_valid(id: PipId) -> bool {
+        Pips::is_proposal_id_valid(id)
+    }
+
+    fn enact_referendum_call(id: PipId) -> Call {
+        Call::Pips(pallet_pips::Call::enact_referendum(id))
+    }
 }
 
 // Publish type alias for each module
