@@ -4,6 +4,9 @@ module.exports = require("../util/init.js");
 
 let { reqImports } = require("../util/init.js");
 
+// Import the test keyring (already has dev keys for Alice, Bob, Charlie, Eve & Ferdie)
+const testKeyring = require('@polkadot/keyring/testing');
+
 // Sets the default exit code to fail unless the script runs successfully
 process.exitCode = 1;
 
@@ -26,6 +29,8 @@ async function main() {
 
   await fastTrackProposal(api, 0, alice);
 
+  await enactReferendum(api, 0);
+
   if (reqImports.fail_count > 0) {
     console.log("Failed");
   } else {
@@ -34,6 +39,28 @@ async function main() {
   }
 
   process.exit();
+}
+
+async function enactReferendum(api, proposalId) {
+
+  // Get the current sudo key in the system
+  const sudoKey = await api.query.sudo.key();
+
+  const keyring = testKeyring.default();
+
+  // Lookup from keyring (assuming we have added all, on --dev this would be `//Alice`)
+  const sudoPair = keyring.getPair(sudoKey.toString());
+  
+  // Send the actual sudo transaction
+   const transaction = await api.tx.sudo
+   .sudo(
+     await api.tx.pips.enactReferendum(proposalId)
+   );
+
+   const result = await reqImports.sendTransaction(transaction, sudoPair, 0);  
+   const passed = result.findRecord('system', 'ExtrinsicSuccess');
+   if (passed) reqImports.fail_count--;
+
 }
 
 async function fastTrackProposal(api, proposalId, signer) {
