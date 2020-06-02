@@ -189,6 +189,12 @@ decl_event!(
         /// Voting threshold has been updated
         /// Parameters: caller DID, numerator, denominator
         VoteThresholdUpdated(IdentityId, u32, u32),
+        /// Vote enact referendum.
+        /// Parameters: caller DID, target Pip Id.
+        VoteEnactReferendum(IdentityId, PipId),
+        /// Vote reject referendum.
+        /// Parameters: caller DID, target Pip Id.
+        VoteRejectReferendum(IdentityId, PipId),
     }
 );
 
@@ -417,6 +423,8 @@ decl_module! {
             let call = T::EnactProposalMaker::enact_referendum_call(id);
             let hash = T::Hashing ::hash_of(&call);
 
+            Self::deposit_event( RawEvent::VoteEnactReferendum(who_id, id));
+
             if let Some(voting) = Self::voting(hash) {
                 Self::vote(origin, hash, voting.index, true)
             } else {
@@ -439,6 +447,7 @@ decl_module! {
                 .map(|voting| Self::vote(origin, hash, voting.index, false))
                 .ok_or_else(|| Error::<T,I>::NoSuchProposal)?;
 
+            Self::deposit_event( RawEvent::VoteRejectReferendum(who_id, id));
             Ok(())
         }
     }
