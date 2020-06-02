@@ -117,6 +117,40 @@ pub trait Trait: frame_system::Trait + IdentityTrait {
     type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
 }
 
+/// Details of a multisig proposal
+#[derive(Encode, Decode, Default, Clone, PartialEq, Eq, Debug)]
+pub struct ProposalDetails<U> {
+    /// Number of yes votes
+    pub approvals: u64,
+    /// Number of no votes
+    pub rejections: u64,
+    /// Status of the proposal
+    pub status: ProposalStatus,
+    /// Expiry of the proposal
+    pub expiry: Option<U>,
+    /// Should the proposal be closed after getting inverse of sign required reject votes
+    pub auto_close: bool
+}
+
+#[derive(Encode, Decode, Clone, Debug, PartialEq, Eq)]
+/// Status of a multisig proposal
+pub enum ProposalStatus {
+    /// Proposal does not exist
+    Invalid,
+    /// Proposal has not been closed yet. This means that it's either expired or open for voting.
+    ActiveOrExpired,
+    /// Proposal was accepted and executed
+    Executed,
+    /// Proposal was rejected
+    Rejected,
+}
+
+impl Default for ProposalStatus {
+    fn default() -> Self {
+        Self::Invalid
+    }
+}
+
 decl_storage! {
     trait Store for Module<T: Trait> as MultiSig {
         /// Nonce to ensure unique MultiSig addresses are generated; starts from 1.
@@ -134,16 +168,14 @@ decl_storage! {
         /// A mapping of proposals to their IDs.
         pub ProposalIds get(fn proposal_ids):
             double_map hasher(twox_64_concat) T::AccountId, hasher(blake2_256) T::Proposal => Option<u64>;
-        /// Number of votes in favor of a tx. Mapping from (multisig, tx id) => no. of approvals.
-        pub TxApprovals get(fn tx_approvals): map hasher(twox_64_concat) (T::AccountId, u64) => u64;
         /// Individual multisig signer votes. (multi sig, signer, proposal) => vote.
         pub Votes get(fn votes): map hasher(blake2_128_concat) (T::AccountId, Signatory, u64) => bool;
         /// Maps a multisig to its creator's identity.
         pub MultiSigCreator get(fn ms_creator): map hasher(twox_64_concat) T::AccountId => IdentityId;
         /// Maps a key to a multisig address.
         pub KeyToMultiSig get(fn key_to_ms): map hasher(blake2_128_concat) AccountKey => T::AccountId;
-        /// Know whether the proposal is closed or not
-        pub ProposalClosed get(fn is_proposal_closed): map hasher(twox_64_concat) (T::AccountId, u64) => bool;
+        /// Details of a multisig proposal
+        pub ProposalDetail get(fn proposal_detail): map hasher(twox_64_concat) (T::AccountId, u64) => ProposalDetails<T::Moment>;
     }
 }
 
@@ -740,8 +772,8 @@ impl<T: Trait> Module<T> {
         if let Some(proposal) = Self::proposals(&multisig_proposal) {
             <Votes<T>>::insert(&multisig_signer_proposal, true);
             // Since approvals are always only incremented by 1, they can not overflow.
-            let approvals: u64 = Self::tx_approvals(&multisig_proposal) + 1u64;
-            <TxApprovals<T>>::insert(&multisig_proposal, approvals);
+            //let approvals: u64 = Self::tx_approvals(&multisig_proposal) + 1u64;
+            //<TxApprovals<T>>::insert(&multisig_proposal, approvals);
             let current_did = Context::current_identity::<Identity<T>>().unwrap_or_default();
             // Emit ProposalApproved event
             Self::deposit_event(RawEvent::ProposalApproved(
@@ -752,11 +784,11 @@ impl<T: Trait> Module<T> {
             ));
             // Check whether the proposal is already closed or not, Instead of return an `Err`
             // return `Ok(())`
-            if Self::is_proposal_closed(&multisig_proposal) {
-                return Ok(());
-            }
+            // if Self::is_proposal_closed(&multisig_proposal) {
+            //     return Ok(());
+            // }
             let approvals_needed = Self::ms_signs_required(multisig.clone());
-            if approvals >= approvals_needed {
+            //if approvals >= approvals_needed {
                 let ms_key = AccountKey::try_from(multisig.clone().encode())?;
                 if let Some(did) = <Identity<T>>::get_identity(&ms_key) {
                     ensure!(<Identity<T>>::has_valid_cdd(did), Error::<T>::CddMissing);
@@ -778,7 +810,7 @@ impl<T: Trait> Module<T> {
                     Error::<T>::FailedToChargeFee
                 );
 
-                <ProposalClosed<T>>::insert(multisig_proposal, true);
+                //<ProposalClosed<T>>::insert(multisig_proposal, true);
                 let res = match proposal
                     .dispatch(frame_system::RawOrigin::Signed(multisig.clone()).into())
                 {
@@ -798,9 +830,9 @@ impl<T: Trait> Module<T> {
                     res,
                 ));
                 Ok(())
-            } else {
-                Ok(())
-            }
+            // } else {
+            //     Ok(())
+            // }
         } else {
             Err(Error::<T>::ProposalMissing.into())
         }
