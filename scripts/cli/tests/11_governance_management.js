@@ -15,12 +15,16 @@ async function main() {
   
   let alice = testEntities[0];
   let bob = testEntities[1];
- 
+  
   await reqImports.createIdentities( api, [bob], alice );
- 
+
   await bondPoly(api, alice, bob);
 
   await proposePIP( api, bob );
+
+  await amendProposal(api, bob);
+
+  await fastTrackProposal(api, 0, alice);
 
   if (reqImports.fail_count > 0) {
     console.log("Failed");
@@ -32,6 +36,29 @@ async function main() {
   process.exit();
 }
 
+async function fastTrackProposal(api, proposalId, signer) {
+
+  let nonceObj = {nonce: reqImports.nonces.get(signer.address)};
+  const transaction = await api.tx.pips.fastTrackProposal(proposalId);
+  const result = await reqImports.sendTransaction(transaction, signer, nonceObj);  
+  const passed = result.findRecord('system', 'ExtrinsicSuccess');
+  if (passed) reqImports.fail_count--;
+
+  reqImports.nonces.set( signer.address, reqImports.nonces.get(signer.address).addn(1));
+}
+
+async function amendProposal(api, signer) {
+
+  let nonceObj = {nonce: reqImports.nonces.get(signer.address)};
+  const transaction = await api.tx.pips.amendProposal(0, "www.facebook.com", null);
+  const result = await reqImports.sendTransaction(transaction, signer, nonceObj);  
+  const passed = result.findRecord('system', 'ExtrinsicSuccess');
+  if (passed) reqImports.fail_count--;
+
+  reqImports.nonces.set( signer.address, reqImports.nonces.get(signer.address).addn(1));
+}
+
+
 async function bondPoly(api, signer, bob) {
 
   let nonceObj = {nonce: reqImports.nonces.get(signer.address)};
@@ -42,6 +69,7 @@ async function bondPoly(api, signer, bob) {
 
   reqImports.nonces.set( signer.address, reqImports.nonces.get(signer.address).addn(1));
 }
+
 
 async function proposePIP(api, signer) {
 
