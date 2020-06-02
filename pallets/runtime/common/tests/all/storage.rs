@@ -9,11 +9,15 @@ use pallet_pips as pips;
 use pallet_protocol_fee as protocol_fee;
 use pallet_statistics as statistics;
 use pallet_treasury as treasury;
+use pallet_utility as utility;
+
 use polymesh_common_utilities::traits::{
     asset::AcceptTransfer, balances::AccountData, group::GroupTrait,
     identity::Trait as IdentityTrait, multisig::AddSignerMultiSig, CommonTrait,
 };
-use polymesh_primitives::{AccountKey, Authorization, AuthorizationData, IdentityId, Signatory};
+use polymesh_primitives::{
+    AccountKey, Authorization, AuthorizationData, IdentityId, JoinIdentityData, Signatory,
+};
 use polymesh_runtime_common::{
     bridge, cdd_check::CddChecker, dividend, exemption, simple_token, voting,
 };
@@ -59,6 +63,7 @@ impl_outer_origin! {
 impl_outer_dispatch! {
     pub enum Call for TestStorage where origin: Origin {
         identity::Identity,
+        balances::Balances,
         pips::Pips,
         multisig::MultiSig,
         pallet_contracts::Contracts,
@@ -90,6 +95,7 @@ impl_outer_event! {
         frame_system<T>,
         protocol_fee<T>,
         treasury<T>,
+        utility,
     }
 }
 
@@ -456,6 +462,11 @@ impl pips::Trait for TestStorage {
     type Event = Event;
 }
 
+impl utility::Trait for TestStorage {
+    type Event = Event;
+    type Call = Call;
+}
+
 // Publish type alias for each module
 pub type Identity = identity::Module<TestStorage>;
 pub type Pips = pips::Module<TestStorage>;
@@ -531,7 +542,7 @@ pub fn add_signing_item(did: IdentityId, signer: Signatory) {
     let auth_id = Identity::add_auth(
         Signatory::from(master_key),
         signer,
-        AuthorizationData::JoinIdentity(did),
+        AuthorizationData::JoinIdentity(JoinIdentityData::new(did, vec![])),
         None,
     );
     assert_ok!(Identity::join_identity(signer, auth_id));

@@ -162,6 +162,12 @@
             "receiver_rules":"Vec<Rule>",
             "rule_id": "u32"
         },
+        "AssetTransferRuleResult": {
+            "sender_rules": "Vec<Rule>",
+            "receiver_rules":"Vec<Rule>",
+            "rule_id": "u32",
+            "transfer_rule_result": "bool"
+        },
         "RuleType": {
             "_enum": {
                 "IsPresent" : "Claim",
@@ -173,6 +179,10 @@
         "Rule": {
             "rule_type": "RuleType",
             "issuers": "Vec<IdentityId>"
+        },
+        "RuleResult": {
+            "rule": "Rule",
+            "result": "bool"
         },
         "STO": {
             "beneficiary_did": "IdentityId",
@@ -310,9 +320,6 @@
             "previous_ticker": "Option<Ticker>"
         },
         "OffChainSignature": "H512",
-        "PermissionedValidator": {
-            "compliance": "Compliance"
-        },
         "Authorization": {
             "authorization_data": "AuthorizationData",
             "authorized_by": "Signatory",
@@ -326,7 +333,7 @@
                 "TransferTicker": "Ticker",
                 "AddMultiSigSigner": "",
                 "TransferAssetOwnership": "Ticker",
-                "JoinIdentity": "IdentityId",
+                "JoinIdentity": "JoinIdentityData",
                 "Custom": "Vec<u8>",
                 "NoData": ""
             }
@@ -334,12 +341,6 @@
         "AuthIdentifier": {
             "signatory": "Signatory",
             "auth_id": "u64"
-        },
-        "Compliance": {
-            "_enum": [
-                "Pending",
-                "Active"
-            ]
         },
         "SmartExtensionType": {
             "_enum": {
@@ -401,6 +402,11 @@
         "AssetTransferRules": {
             "is_paused": "bool",
             "rules": "Vec<AssetTransferRule>"
+        },
+        "AssetTransferRulesResult": {
+            "is_paused": "bool",
+            "rules": "Vec<AssetTransferRule>",
+            "final_result": "bool"
         },
         "Claim1stKey": {
             "target": "IdentityId",
@@ -507,9 +513,49 @@
                 "Ok": "u8",
                 "Err": "Vec<u8>"
             }
+        },
+        "JoinIdentityData": {
+            "target_did": "IdentityId",
+            "permissions": "Vec<Permission>"
+        },
+        "LinkType": {
+            "_enum": {
+                "DocumentOwnership": "",
+                "TickerOwnership": "",
+                "AssetOwnership": "",
+                "NoData":""
+            }
         }
     },
     "rpc": {
+        "compliance": {
+            "canTransfer": {
+                "description": "Checks whether a transaction with given parameters is compliant to the compliance manager rules",
+                "params": [
+                    {
+                        "name": "ticker",
+                        "type": "Ticker",
+                        "isOptional": false
+                    },
+                    {
+                        "name": "from_did",
+                        "type": "Option<IdentityId>",
+                        "isOptional": false
+                    },
+                    {
+                        "name": "to_did",
+                        "type": "Option<IdentityId>",
+                        "isOptional": false
+                    },
+                    {
+                        "name": "blockHash",
+                        "type": "Hash",
+                        "isOptional": true
+                    }
+                ],
+                "type": "AssetTransferRulesResult"
+            }
+        },
         "identity": {
             "isIdentityHasValidCdd" : {
                 "description": "use to tell whether the given did has valid cdd claim or not",
@@ -563,6 +609,32 @@
                     }
                 ],
                 "type": "DidRecords"
+            },
+            "getFilteredLinks": {
+                "description": "Retrieve links data for a given signatory and filtered using the given Link type",
+                "params": [
+                    {
+                        "name": "signatory",
+                        "type": "Signatory",
+                        "isOptional": false
+                    },
+                    {
+                        "name": "allow_expired",
+                        "type": "bool",
+                        "isOptional": false
+                    },
+                    {
+                        "name": "link_type",
+                        "type": "LinkType",
+                        "isOptional": true
+                    },
+                    {
+                        "name": "blockHash",
+                        "type": "Hash",
+                        "isOptional": true
+                    }
+                ],
+                "type": "Vec<Link>"
             }
         },
         "pips":{
@@ -662,13 +734,13 @@
                     },
                     {
                         "name": "from_did",
-                        "type": "IdentityId",
-                        "isOptional": true
+                        "type": "Option<IdentityId>",
+                        "isOptional": false
                     },
                     {
                         "name": "to_did",
-                        "type": "IdentityId",
-                        "isOptional": true
+                        "type": "Option<IdentityId>",
+                        "isOptional": false
                     },
                     {
                         "name": "value",

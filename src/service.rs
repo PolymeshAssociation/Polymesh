@@ -5,8 +5,8 @@ use grandpa::{
     self, FinalityProofProvider as GrandpaFinalityProofProvider, StorageAndProofProvider,
 };
 pub use polymesh_primitives::{
-    AccountId, AccountKey, Balance, Block, BlockNumber, Hash, IdentityId, Index as Nonce,
-    SigningItem, Ticker,
+    AccountId, AccountKey, Balance, Block, BlockNumber, Hash, IdentityId, Index as Nonce, Moment,
+    Signatory, SigningItem, Ticker,
 };
 pub use polymesh_runtime_develop;
 pub use polymesh_runtime_testnet_v1;
@@ -64,10 +64,18 @@ pub trait RuntimeApiCollection<Extrinsic: codec::Codec + Send + Sync + 'static>:
     + pallet_contracts_rpc_runtime_api::ContractsApi<Block, AccountId, Balance, BlockNumber>
     + pallet_staking_rpc_runtime_api::StakingApi<Block>
     + pallet_pips_rpc_runtime_api::PipsApi<Block, AccountId, Balance>
-    + pallet_identity_rpc_runtime_api::IdentityApi<Block, IdentityId, Ticker, AccountKey, SigningItem>
-    + pallet_protocol_fee_rpc_runtime_api::ProtocolFeeApi<Block>
+    + pallet_identity_rpc_runtime_api::IdentityApi<
+        Block,
+        IdentityId,
+        Ticker,
+        AccountKey,
+        SigningItem,
+        Signatory,
+        Moment,
+    > + pallet_protocol_fee_rpc_runtime_api::ProtocolFeeApi<Block>
     + pallet_asset_rpc_runtime_api::AssetApi<Block, AccountId, Balance>
     + pallet_group_rpc_runtime_api::GroupApi<Block>
+    + pallet_compliance_manager_rpc_runtime_api::ComplianceManagerApi<Block, AccountId, Balance>
 where
     Extrinsic: RuntimeExtrinsic,
     <Self as sp_api::ApiExt<Block>>::StateBackend: sp_api::StateBackend<BlakeTwo256>,
@@ -95,9 +103,12 @@ where
             Ticker,
             AccountKey,
             SigningItem,
+            Signatory,
+            Moment,
         > + pallet_protocol_fee_rpc_runtime_api::ProtocolFeeApi<Block>
         + pallet_asset_rpc_runtime_api::AssetApi<Block, AccountId, Balance>
-        + pallet_group_rpc_runtime_api::GroupApi<Block>,
+        + pallet_group_rpc_runtime_api::GroupApi<Block>
+        + pallet_compliance_manager_rpc_runtime_api::ComplianceManagerApi<Block, AccountId, Balance>,
     Extrinsic: RuntimeExtrinsic,
     <Self as sp_api::ApiExt<Block>>::StateBackend: sp_api::StateBackend<BlakeTwo256>,
 {
@@ -173,6 +184,7 @@ macro_rules! new_full_start {
         .with_rpc_extensions(|builder| -> Result<RpcExtension, _> {
             use contracts_rpc::{Contracts, ContractsApi};
             use pallet_asset_rpc::{Asset, AssetApi};
+            use pallet_compliance_manager_rpc::{ComplianceManager, ComplianceManagerApi};
             use pallet_group_rpc::{Group, GroupApi};
             use pallet_identity_rpc::{Identity, IdentityApi};
             use pallet_pips_rpc::{Pips, PipsApi};
@@ -200,6 +212,9 @@ macro_rules! new_full_start {
             )));
             io.extend_with(AssetApi::to_delegate(Asset::new(builder.client().clone())));
             io.extend_with(GroupApi::to_delegate(Group::from(builder.client().clone())));
+            io.extend_with(ComplianceManagerApi::to_delegate(ComplianceManager::new(
+                builder.client().clone(),
+            )));
 
             Ok(io)
         })?;
