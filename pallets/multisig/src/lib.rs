@@ -340,6 +340,34 @@ decl_module! {
             Self::approve_for(multisig, signer, proposal_id)
         }
 
+        /// Rejects a multisig proposal using the caller's identity.
+        ///
+        /// # Arguments
+        /// * `multisig` - MultiSig address.
+        /// * `proposal_id` - Proposal id to reject.
+        /// If quorum is reached, the proposal will be immediately executed.
+        #[weight = SimpleDispatchInfo::FixedNormal(750_000)]
+        pub fn reject_as_identity(origin, multisig: T::AccountId, proposal_id: u64) -> DispatchResult {
+            let sender = ensure_signed(origin)?;
+            let sender_key = AccountKey::try_from(sender.encode())?;
+            let sender_did = Context::current_identity_or::<Identity<T>>(&sender_key)?;
+            let signer = Signatory::from(sender_did);
+            Self::reject_for(multisig, signer, proposal_id)
+        }
+
+        /// Rejects a multisig proposal using the caller's signing key (`AccountId`).
+        ///
+        /// # Arguments
+        /// * `multisig` - MultiSig address.
+        /// * `proposal_id` - Proposal id to reject.
+        /// If quorum is reached, the proposal will be immediately executed.
+        #[weight = SimpleDispatchInfo::FixedNormal(750_000)]
+        pub fn reject_as_key(origin, multisig: T::AccountId, proposal_id: u64) -> DispatchResult {
+            let sender = ensure_signed(origin)?;
+            let signer = Signatory::from(AccountKey::try_from(sender.encode())?);
+            Self::reject_for(multisig, signer, proposal_id)
+        }
+
         /// Accepts a multisig signer authorization given to signer's identity.
         ///
         /// # Arguments
@@ -636,6 +664,12 @@ decl_event!(
         /// Event emitted when the proposal get approved.
         /// Arguments: caller DID, multisig, authorized signer, proposal id.
         ProposalApproved(IdentityId, AccountId, Signatory, u64),
+        /// Event emitted when a vote is cast in favor of rejecting a proposal.
+        /// Arguments: caller DID, multisig, authorized signer, proposal id.
+        ProposalRejectionVote(IdentityId, AccountId, Signatory, u64),
+        /// Event emitted when a proposal is rejected.
+        /// Arguments: caller DID, multisig, proposal ID.
+        ProposalRejected(IdentityId, AccountId, u64),
     }
 );
 
@@ -662,8 +696,8 @@ decl_error! {
         NotEnoughSigners,
         /// A nonce overflow.
         NonceOverflow,
-        /// Already approved.
-        AlreadyApproved,
+        /// Already voted.
+        AlreadyVoted,
         /// Already a signer.
         AlreadyASigner,
         /// Couldn't charge fee for the transaction.
@@ -678,10 +712,12 @@ decl_error! {
         MissingCurrentIdentity,
         /// The function can only be called by the master key of the did
         NotMasterKey,
-        /// Proposal was rejected
-        ProposalRejected,
+        /// Proposal was rejected earlier
+        ProposalAlreadyRejected,
         /// Proposal has expired
-        ProposalExpired
+        ProposalExpired,
+        /// Proposal was executed earlier
+        ProposalAlreadyExecuted
     }
 }
 
@@ -816,7 +852,7 @@ impl<T: Trait> Module<T> {
         let multisig_proposal = (multisig.clone(), proposal_id);
         ensure!(
             !Self::votes(&multisig_signer_proposal),
-            Error::<T>::AlreadyApproved
+            Error::<T>::AlreadyVoted
         );
         if let Some(proposal) = Self::proposals(&multisig_proposal) {
             let mut proposal_details = Self::proposal_detail(&multisig_proposal);
@@ -824,7 +860,7 @@ impl<T: Trait> Module<T> {
             let current_did = Context::current_identity::<Identity<T>>().unwrap_or_default();
             match proposal_details.status {
                 ProposalStatus::Invalid => return Err(Error::<T>::ProposalMissing.into()),
-                ProposalStatus::Rejected => return Err(Error::<T>::ProposalRejected.into()),
+                ProposalStatus::Rejected => return Err(Error::<T>::ProposalAlreadyRejected.into()),
                 ProposalStatus::ExecutionSuccessful | ProposalStatus::ExecutionFailed => {}
                 ProposalStatus::ActiveOrExpired => {
                     // Ensure proposal is not expired
@@ -910,6 +946,64 @@ impl<T: Trait> Module<T> {
                 res,
             ));
         }
+        Ok(())
+    }
+
+    /// Rejects a multisig proposal
+    pub fn reject_for(
+        multisig: T::AccountId,
+        signer: Signatory,
+        proposal_id: u64,
+    ) -> DispatchResult {
+        ensure!(
+            <MultiSigSigners<T>>::contains_key(&multisig, &signer),
+            Error::<T>::NotASigner
+        );
+        let multisig_signer_proposal = (multisig.clone(), signer, proposal_id);
+        let multisig_proposal = (multisig.clone(), proposal_id);
+        ensure!(
+            !Self::votes(&multisig_signer_proposal),
+            Error::<T>::AlreadyVoted
+        );
+        let mut proposal_details = Self::proposal_detail(&multisig_proposal);
+        proposal_details.rejections += 1u64;
+        let current_did = Context::current_identity::<Identity<T>>().unwrap_or_default();
+        match proposal_details.status {
+            ProposalStatus::Invalid => return Err(Error::<T>::ProposalMissing.into()),
+            ProposalStatus::Rejected => return Err(Error::<T>::ProposalAlreadyRejected.into()),
+            ProposalStatus::ExecutionSuccessful | ProposalStatus::ExecutionFailed => {
+                return Err(Error::<T>::ProposalAlreadyExecuted.into())
+            }
+            ProposalStatus::ActiveOrExpired => {
+                // Ensure proposal is not expired
+                if let Some(expiry) = proposal_details.expiry {
+                    ensure!(
+                        expiry > <pallet_timestamp::Module<T>>::get(),
+                        Error::<T>::ProposalExpired
+                    );
+                }
+                let approvals_needed = Self::ms_signs_required(multisig.clone());
+                let ms_signers = Self::number_of_signers(multisig.clone());
+                if proposal_details.rejections > ms_signers.saturating_sub(approvals_needed) {
+                    proposal_details.status = ProposalStatus::Rejected;
+                    Self::deposit_event(RawEvent::ProposalRejected(
+                        current_did,
+                        multisig.clone(),
+                        proposal_id,
+                    ));
+                }
+            }
+        }
+        // Update storage
+        <Votes<T>>::insert(&multisig_signer_proposal, true);
+        <ProposalDetail<T>>::insert(&multisig_proposal, proposal_details);
+        // emit proposal rejected event
+        Self::deposit_event(RawEvent::ProposalRejectionVote(
+            current_did,
+            multisig,
+            signer,
+            proposal_id,
+        ));
         Ok(())
     }
 
