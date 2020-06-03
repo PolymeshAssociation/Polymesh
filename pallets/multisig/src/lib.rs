@@ -29,7 +29,7 @@
 //!
 //! ### Terminology
 //!
-//! - **multisig**: a special type of account that can do tranaction only if at least `n` of its `m`
+//! - **multisig**: a special type of account that can do transaction only if at least `n` of its `m`
 //! signers approve.
 //! - **proposal**: a general transaction that the multisig can vote on and accept.
 //!
@@ -129,7 +129,7 @@ pub struct ProposalDetails<U> {
     /// Expiry of the proposal
     pub expiry: Option<U>,
     /// Should the proposal be closed after getting inverse of sign required reject votes
-    pub auto_close: bool
+    pub auto_close: bool,
 }
 
 #[derive(Encode, Decode, Clone, Debug, PartialEq, Eq)]
@@ -213,18 +213,22 @@ decl_module! {
         /// # Arguments
         /// * `multisig` - MultiSig address.
         /// * `proposal` - Proposal to be voted on.
+        /// * `expiry` - Optional proposal expiry time.
+        /// * `auto_close` - Close proposal on receiving enough reject votes.
         /// If this is 1 out of `m` multisig, the proposal will be immediately executed.
         #[weight = SimpleDispatchInfo::FixedNormal(750_000)]
         pub fn create_or_approve_proposal_as_identity(
             origin,
             multisig: T::AccountId,
-            proposal: Box<T::Proposal>
+            proposal: Box<T::Proposal>,
+            expiry: Option<T::Moment>,
+            auto_close: bool
         ) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             let sender_key = AccountKey::try_from(sender.encode())?;
             let sender_did = Context::current_identity_or::<Identity<T>>(&sender_key)?;
             let sender_signer = Signatory::from(sender_did);
-            Self::create_or_approve_proposal(multisig, sender_signer, proposal)
+            Self::create_or_approve_proposal(multisig, sender_signer, proposal, expiry, auto_close)
         }
 
         /// Creates a multisig proposal if it hasn't been created or approves it if it has.
@@ -232,16 +236,20 @@ decl_module! {
         /// # Arguments
         /// * `multisig` - MultiSig address.
         /// * `proposal` - Proposal to be voted on.
+        /// * `expiry` - Optional proposal expiry time.
+        /// * `auto_close` - Close proposal on receiving enough reject votes.
         /// If this is 1 out of `m` multisig, the proposal will be immediately executed.
         #[weight = SimpleDispatchInfo::FixedNormal(750_000)]
         pub fn create_or_approve_proposal_as_key(
             origin,
             multisig: T::AccountId,
-            proposal: Box<T::Proposal>
+            proposal: Box<T::Proposal>,
+            expiry: Option<T::Moment>,
+            auto_close: bool
         ) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             let sender_signer = Signatory::from(AccountKey::try_from(sender.encode())?);
-            Self::create_or_approve_proposal(multisig, sender_signer, proposal)
+            Self::create_or_approve_proposal(multisig, sender_signer, proposal, expiry, auto_close)
         }
 
         /// Creates a multisig proposal
@@ -249,15 +257,23 @@ decl_module! {
         /// # Arguments
         /// * `multisig` - MultiSig address.
         /// * `proposal` - Proposal to be voted on.
+        /// * `expiry` - Optional proposal expiry time.
+        /// * `auto_close` - Close proposal on receiving enough reject votes.
         /// If this is 1 out of `m` multisig, the proposal will be immediately executed.
         #[weight = SimpleDispatchInfo::FixedNormal(250_000)]
-        pub fn create_proposal_as_identity(origin, multisig: T::AccountId, proposal: Box<T::Proposal>) -> DispatchResult {
+        pub fn create_proposal_as_identity(
+            origin,
+            multisig: T::AccountId,
+            proposal: Box<T::Proposal>,
+            expiry: Option<T::Moment>,
+            auto_close: bool
+        ) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             let sender_key = AccountKey::try_from(sender.encode())?;
             let sender_did = Context::current_identity_or::<Identity<T>>(&sender_key)?;
 
             let sender_signer = Signatory::from(sender_did);
-            Self::create_proposal(multisig, sender_signer, proposal)?;
+            Self::create_proposal(multisig, sender_signer, proposal, expiry, auto_close)?;
             Ok(())
         }
 
@@ -266,12 +282,20 @@ decl_module! {
         /// # Arguments
         /// * `multisig` - MultiSig address.
         /// * `proposal` - Proposal to be voted on.
+        /// * `expiry` - Optional proposal expiry time.
+        /// * `auto_close` - Close proposal on receiving enough reject votes.
         /// If this is 1 out of `m` multisig, the proposal will be immediately executed.
         #[weight = SimpleDispatchInfo::FixedNormal(250_000)]
-        pub fn create_proposal_as_key(origin, multisig: T::AccountId, proposal: Box<T::Proposal>) -> DispatchResult {
+        pub fn create_proposal_as_key(
+            origin,
+            multisig: T::AccountId,
+            proposal: Box<T::Proposal>,
+            expiry: Option<T::Moment>,
+            auto_close: bool
+        ) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             let sender_signer = Signatory::from(AccountKey::try_from(sender.encode())?);
-            Self::create_proposal(multisig, sender_signer, proposal)?;
+            Self::create_proposal(multisig, sender_signer, proposal, expiry, auto_close)?;
             Ok(())
         }
 
@@ -715,6 +739,8 @@ impl<T: Trait> Module<T> {
         multisig: T::AccountId,
         sender_signer: Signatory,
         proposal: Box<T::Proposal>,
+        expiry: Option<T::Moment>,
+        auto_close: bool,
     ) -> CreateProposalResult {
         ensure!(
             <MultiSigSigners<T>>::contains_key(&multisig, &sender_signer),
@@ -742,13 +768,15 @@ impl<T: Trait> Module<T> {
         multisig: T::AccountId,
         sender_signer: Signatory,
         proposal: Box<T::Proposal>,
+        expiry: Option<T::Moment>,
+        auto_close: bool,
     ) -> DispatchResult {
         if let Some(proposal_id) = Self::proposal_ids(&multisig, &*proposal) {
             // This is an existing proposal.
             Self::approve_for(multisig, sender_signer, proposal_id)?;
         } else {
             // The proposal is new.
-            Self::create_proposal(multisig, sender_signer, proposal)?;
+            Self::create_proposal(multisig, sender_signer, proposal, expiry, auto_close)?;
         }
         Ok(())
     }
@@ -789,31 +817,30 @@ impl<T: Trait> Module<T> {
             // }
             let approvals_needed = Self::ms_signs_required(multisig.clone());
             //if approvals >= approvals_needed {
-                let ms_key = AccountKey::try_from(multisig.clone().encode())?;
-                if let Some(did) = <Identity<T>>::get_identity(&ms_key) {
-                    ensure!(<Identity<T>>::has_valid_cdd(did), Error::<T>::CddMissing);
-                    T::CddHandler::set_current_identity(&did);
-                } else {
-                    let creator_identity = Self::ms_creator(&multisig);
-                    ensure!(
-                        <Identity<T>>::has_valid_cdd(creator_identity),
-                        Error::<T>::CddMissing
-                    );
-                    T::CddHandler::set_current_identity(&creator_identity);
-                }
+            let ms_key = AccountKey::try_from(multisig.clone().encode())?;
+            if let Some(did) = <Identity<T>>::get_identity(&ms_key) {
+                ensure!(<Identity<T>>::has_valid_cdd(did), Error::<T>::CddMissing);
+                T::CddHandler::set_current_identity(&did);
+            } else {
+                let creator_identity = Self::ms_creator(&multisig);
                 ensure!(
-                    T::ChargeTxFeeTarget::charge_fee(
-                        proposal.encode().len().try_into().unwrap_or_default(),
-                        proposal.get_dispatch_info(),
-                    )
-                    .is_ok(),
-                    Error::<T>::FailedToChargeFee
+                    <Identity<T>>::has_valid_cdd(creator_identity),
+                    Error::<T>::CddMissing
                 );
+                T::CddHandler::set_current_identity(&creator_identity);
+            }
+            ensure!(
+                T::ChargeTxFeeTarget::charge_fee(
+                    proposal.encode().len().try_into().unwrap_or_default(),
+                    proposal.get_dispatch_info(),
+                )
+                .is_ok(),
+                Error::<T>::FailedToChargeFee
+            );
 
-                //<ProposalClosed<T>>::insert(multisig_proposal, true);
-                let res = match proposal
-                    .dispatch(frame_system::RawOrigin::Signed(multisig.clone()).into())
-                {
+            //<ProposalClosed<T>>::insert(multisig_proposal, true);
+            let res =
+                match proposal.dispatch(frame_system::RawOrigin::Signed(multisig.clone()).into()) {
                     Ok(_) => true,
                     Err(e) => {
                         let e: DispatchError = e;
@@ -821,18 +848,18 @@ impl<T: Trait> Module<T> {
                         false
                     }
                 };
-                let current_did = Context::current_identity::<Identity<T>>()
-                    .ok_or_else(|| Error::<T>::MissingCurrentIdentity)?;
-                Self::deposit_event(RawEvent::ProposalExecuted(
-                    current_did,
-                    multisig,
-                    proposal_id,
-                    res,
-                ));
-                Ok(())
-            // } else {
-            //     Ok(())
-            // }
+            let current_did = Context::current_identity::<Identity<T>>()
+                .ok_or_else(|| Error::<T>::MissingCurrentIdentity)?;
+            Self::deposit_event(RawEvent::ProposalExecuted(
+                current_did,
+                multisig,
+                proposal_id,
+                res,
+            ));
+            Ok(())
+        // } else {
+        //     Ok(())
+        // }
         } else {
             Err(Error::<T>::ProposalMissing.into())
         }

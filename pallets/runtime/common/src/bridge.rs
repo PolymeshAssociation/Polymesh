@@ -776,6 +776,8 @@ impl<T: Trait> Module<T> {
             Self::controller(),
             sender_signer,
             boxed_proposal,
+            None,
+            true,
         )
     }
 
@@ -791,6 +793,8 @@ impl<T: Trait> Module<T> {
             Self::controller(),
             sender_signer,
             boxed_proposal,
+            None,
+            true,
         )
     }
 
