@@ -396,7 +396,7 @@ decl_module! {
             ensure!(Self::is_changing_signers_allowed(&multisig), Error::<T>::ChangeNotAllowed);
             let signers_len:u64 = u64::try_from(signers.len()).unwrap_or_default();
 
-            // NB: the below check can be underflowed but that doesnt matter
+            // NB: the below check can be underflow but that doesn't matter
             // because the checks in the next loop will fail in that case.
             ensure!(
                 <NumberOfSigners<T>>::get(&multisig) - signers_len >= <MultiSigSignsRequired<T>>::get(&multisig),
