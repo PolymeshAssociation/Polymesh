@@ -119,7 +119,7 @@ pub trait Trait: frame_system::Trait + IdentityTrait {
 
 /// Details of a multisig proposal
 #[derive(Encode, Decode, Default, Clone, PartialEq, Eq, Debug)]
-pub struct ProposalDetails<U> {
+pub struct ProposalDetails<T> {
     /// Number of yes votes
     pub approvals: u64,
     /// Number of no votes
@@ -127,9 +127,20 @@ pub struct ProposalDetails<U> {
     /// Status of the proposal
     pub status: ProposalStatus,
     /// Expiry of the proposal
-    pub expiry: Option<U>,
+    pub expiry: Option<T>,
     /// Should the proposal be closed after getting inverse of sign required reject votes
     pub auto_close: bool,
+}
+
+impl<T: core::default::Default> ProposalDetails<T> {
+    /// Create new `Asset` with the given reference to the client.
+    pub fn new(expiry: Option<T>, auto_close: bool) -> Self {
+        Self {
+            expiry,
+            auto_close,
+            ..Default::default()
+        }
+    }
 }
 
 #[derive(Encode, Decode, Clone, Debug, PartialEq, Eq)]
@@ -139,8 +150,10 @@ pub enum ProposalStatus {
     Invalid,
     /// Proposal has not been closed yet. This means that it's either expired or open for voting.
     ActiveOrExpired,
-    /// Proposal was accepted and executed
-    Executed,
+    /// Proposal was accepted and executed successfully
+    ExecutionSuccessful,
+    /// Proposal was accepted and execution was tried but it failed
+    ExecutionFailed,
     /// Proposal was rejected
     Rejected,
 }
@@ -664,7 +677,11 @@ decl_error! {
         /// Current DID is missing
         MissingCurrentIdentity,
         /// The function can only be called by the master key of the did
-        NotMasterKey
+        NotMasterKey,
+        /// Proposal was rejected
+        ProposalRejected,
+        /// Proposal has expired
+        ProposalExpired
     }
 }
 
@@ -749,6 +766,10 @@ impl<T: Trait> Module<T> {
         let proposal_id = Self::ms_tx_done(multisig.clone());
         <Proposals<T>>::insert((multisig.clone(), proposal_id), proposal.clone());
         <ProposalIds<T>>::insert(multisig.clone(), *proposal, proposal_id);
+        <ProposalDetail<T>>::insert(
+            (multisig.clone(), proposal_id),
+            ProposalDetails::new(expiry, auto_close),
+        );
         // Since proposal_ids are always only incremented by 1, they can not overflow.
         let next_proposal_id: u64 = proposal_id + 1u64;
         <MultiSigTxDone<T>>::insert(multisig.clone(), next_proposal_id);
@@ -798,25 +819,56 @@ impl<T: Trait> Module<T> {
             Error::<T>::AlreadyApproved
         );
         if let Some(proposal) = Self::proposals(&multisig_proposal) {
-            <Votes<T>>::insert(&multisig_signer_proposal, true);
-            // Since approvals are always only incremented by 1, they can not overflow.
-            //let approvals: u64 = Self::tx_approvals(&multisig_proposal) + 1u64;
-            //<TxApprovals<T>>::insert(&multisig_proposal, approvals);
+            let mut proposal_details = Self::proposal_detail(&multisig_proposal);
+            proposal_details.approvals += 1u64;
             let current_did = Context::current_identity::<Identity<T>>().unwrap_or_default();
-            // Emit ProposalApproved event
+            match proposal_details.status {
+                ProposalStatus::Invalid => return Err(Error::<T>::ProposalMissing.into()),
+                ProposalStatus::Rejected => return Err(Error::<T>::ProposalRejected.into()),
+                ProposalStatus::ExecutionSuccessful | ProposalStatus::ExecutionFailed => {}
+                ProposalStatus::ActiveOrExpired => {
+                    // Ensure proposal is not expired
+                    if let Some(expiry) = proposal_details.expiry {
+                        ensure!(
+                            expiry > <pallet_timestamp::Module<T>>::get(),
+                            Error::<T>::ProposalExpired
+                        );
+                    }
+                    Self::execute_proposal(
+                        multisig.clone(),
+                        proposal_id,
+                        proposal,
+                        &mut proposal_details,
+                        current_did,
+                    )?;
+                }
+            }
+            // Update storage
+            <Votes<T>>::insert(&multisig_signer_proposal, true);
+            <ProposalDetail<T>>::insert(&multisig_proposal, proposal_details);
+            // emit proposal approved event
             Self::deposit_event(RawEvent::ProposalApproved(
                 current_did,
-                multisig.clone(),
+                multisig,
                 signer,
                 proposal_id,
             ));
-            // Check whether the proposal is already closed or not, Instead of return an `Err`
-            // return `Ok(())`
-            // if Self::is_proposal_closed(&multisig_proposal) {
-            //     return Ok(());
-            // }
-            let approvals_needed = Self::ms_signs_required(multisig.clone());
-            //if approvals >= approvals_needed {
+            Ok(())
+        } else {
+            Err(Error::<T>::ProposalMissing.into())
+        }
+    }
+
+    /// Executes a proposal if it has enough approvals
+    fn execute_proposal(
+        multisig: T::AccountId,
+        proposal_id: u64,
+        proposal: T::Proposal,
+        proposal_details: &mut ProposalDetails<T::Moment>,
+        current_did: IdentityId,
+    ) -> DispatchResult {
+        let approvals_needed = Self::ms_signs_required(multisig.clone());
+        if proposal_details.approvals >= approvals_needed {
             let ms_key = AccountKey::try_from(multisig.clone().encode())?;
             if let Some(did) = <Identity<T>>::get_identity(&ms_key) {
                 ensure!(<Identity<T>>::has_valid_cdd(did), Error::<T>::CddMissing);
@@ -838,31 +890,27 @@ impl<T: Trait> Module<T> {
                 Error::<T>::FailedToChargeFee
             );
 
-            //<ProposalClosed<T>>::insert(multisig_proposal, true);
             let res =
                 match proposal.dispatch(frame_system::RawOrigin::Signed(multisig.clone()).into()) {
-                    Ok(_) => true,
+                    Ok(_) => {
+                        proposal_details.status = ProposalStatus::ExecutionSuccessful;
+                        true
+                    }
                     Err(e) => {
                         let e: DispatchError = e;
                         sp_runtime::print(e);
+                        proposal_details.status = ProposalStatus::ExecutionFailed;
                         false
                     }
                 };
-            let current_did = Context::current_identity::<Identity<T>>()
-                .ok_or_else(|| Error::<T>::MissingCurrentIdentity)?;
             Self::deposit_event(RawEvent::ProposalExecuted(
                 current_did,
                 multisig,
                 proposal_id,
                 res,
             ));
-            Ok(())
-        // } else {
-        //     Ok(())
-        // }
-        } else {
-            Err(Error::<T>::ProposalMissing.into())
         }
+        Ok(())
     }
 
     /// Accepts and processed an addition of a signer to a multisig.
