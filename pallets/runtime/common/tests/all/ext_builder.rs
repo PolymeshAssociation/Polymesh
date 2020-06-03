@@ -306,7 +306,8 @@ impl ExtBuilder {
                 self.governance_committee_vote_threshold.numerator,
                 self.governance_committee_vote_threshold.denominator,
             ),
-            release_coordinator: Some(IdentityId::from(999))..Default::default(),
+            release_coordinator: Some(IdentityId::from(999)),
+            ..Default::default(),
         }
         .assimilate_storage(&mut storage)
         .unwrap();
