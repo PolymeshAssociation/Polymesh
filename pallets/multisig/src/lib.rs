@@ -136,6 +136,7 @@ impl<T: core::default::Default> ProposalDetails<T> {
     /// Create new `Asset` with the given reference to the client.
     pub fn new(expiry: Option<T>, auto_close: bool) -> Self {
         Self {
+            status: ProposalStatus::ActiveOrExpired,
             expiry,
             auto_close,
             ..Default::default()
@@ -982,15 +983,17 @@ impl<T: Trait> Module<T> {
                         Error::<T>::ProposalExpired
                     );
                 }
-                let approvals_needed = Self::ms_signs_required(multisig.clone());
-                let ms_signers = Self::number_of_signers(multisig.clone());
-                if proposal_details.rejections > ms_signers.saturating_sub(approvals_needed) {
-                    proposal_details.status = ProposalStatus::Rejected;
-                    Self::deposit_event(RawEvent::ProposalRejected(
-                        current_did,
-                        multisig.clone(),
-                        proposal_id,
-                    ));
+                if proposal_details.auto_close {
+                    let approvals_needed = Self::ms_signs_required(multisig.clone());
+                    let ms_signers = Self::number_of_signers(multisig.clone());
+                    if proposal_details.rejections > ms_signers.saturating_sub(approvals_needed) {
+                        proposal_details.status = ProposalStatus::Rejected;
+                        Self::deposit_event(RawEvent::ProposalRejected(
+                            current_did,
+                            multisig.clone(),
+                            proposal_id,
+                        ));
+                    }
                 }
             }
         }
