@@ -91,7 +91,7 @@
 //! timelock.
 //! - `batch_force_handle_bridge_tx`: Forces handling a vector of transactions.
 //! - `propose_bridge_tx`: Proposes a bridge transaction, which amounts to making a multisig
-//! - `propose_bridge_txs`: Proposes a vector of bridge transactions.
+//! - `batch_propose_bridge_tx`: Proposes a vector of bridge transactions.
 //! - `handle_bridge_tx`: Handles an approved bridge transaction proposal.
 //! - `batch_handle_bridge_tx`: Handles a vector of approved bridge transaction proposals.
 //! - `freeze_txs`: Freezes given bridge transactions.
@@ -507,12 +507,12 @@ decl_module! {
             DispatchClass::Operational,
             true
         )]
-        pub fn propose_bridge_txs(origin, bridge_txs: Vec<BridgeTx<T::AccountId, T::Balance>>) ->
+        pub fn batch_propose_bridge_tx(origin, bridge_txs: Vec<BridgeTx<T::AccountId, T::Balance>>) ->
             DispatchResult
         {
             ensure!(Self::controller() != Default::default(), Error::<T>::ControllerNotSet);
             let sender = ensure_signed(origin)?;
-            Self::propose_signed_bridge_txs(&sender, bridge_txs)
+            Self::batch_propose_signed_bridge_tx(&sender, bridge_txs)
         }
 
         /// Handles an approved bridge transaction proposal.
@@ -525,9 +525,7 @@ decl_module! {
         }
 
         /// Handles a vector of approved bridge transaction proposals.
-        /// Forces handling a vector of transactions by bypassing the bridge limit and timelock.
-        /// It collects results of processing every transaction in the given vector and outputs
-        /// the vector of results (In event) which has the same length as the `bridge_txs` have
+        /// It deposits an event (i.e TxsHandled) which consist the result of every BridgeTx.
         ///
         /// # Weight
         /// `50_000 + 200_000 * bridge_txs.len()`
@@ -783,7 +781,7 @@ impl<T: Trait> Module<T> {
     }
 
     /// Proposes a vector of bridge transaction. The bridge controller must be set.
-    fn propose_signed_bridge_txs(
+    fn batch_propose_signed_bridge_tx(
         sender: &T::AccountId,
         bridge_txs: Vec<BridgeTx<T::AccountId, T::Balance>>,
     ) -> DispatchResult {
