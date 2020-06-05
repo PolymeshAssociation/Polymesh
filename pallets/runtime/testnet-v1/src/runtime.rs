@@ -536,6 +536,10 @@ impl EnactProposalMaker<Origin, Call> for Runtime {
     fn enact_referendum_call(id: PipId) -> Call {
         Call::Pips(pallet_pips::Call::enact_referendum(id))
     }
+
+    fn reject_referendum_call(id: PipId) -> Call {
+        Call::Pips(pallet_pips::Call::reject_referendum(id))
+    }
 }
 
 construct_runtime!(
