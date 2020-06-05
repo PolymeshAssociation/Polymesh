@@ -69,9 +69,9 @@
 //! an event.
 //! - `create_proposal` - Creates a proposal for a multisig transaction.
 //! - `create_or_approve_proposal` - Creates or approves a multisig proposal.
-//! - `approve_for` - Approves a multisig proposal and executes it if enough signatures have been
+//! - `unsafe_approve` - Approves a multisig proposal and executes it if enough signatures have been
 //! received.
-//! - `_accept_multisig_signer` - Accepts and processes an addition of a signer to a multisig.
+//! - `unsafe_accept_multisig_signer` - Accepts and processes an addition of a signer to a multisig.
 //! - `get_next_multisig_address` - Gets the next available multisig account ID.
 //! - `get_multisig_address` - Constructs a multisig account given a nonce.
 //! - `ms_signers` - Helper function that checks if someone is an authorized signer of a multisig or
@@ -325,7 +325,7 @@ decl_module! {
             let sender_key = AccountKey::try_from(sender.encode())?;
             let sender_did = Context::current_identity_or::<Identity<T>>(&sender_key)?;
             let signer = Signatory::from(sender_did);
-            Self::approve_for(multisig, signer, proposal_id)
+            Self::unsafe_approve(multisig, signer, proposal_id)
         }
 
         /// Approves a multisig proposal using the caller's signing key (`AccountId`).
@@ -338,7 +338,7 @@ decl_module! {
         pub fn approve_as_key(origin, multisig: T::AccountId, proposal_id: u64) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             let signer = Signatory::from(AccountKey::try_from(sender.encode())?);
-            Self::approve_for(multisig, signer, proposal_id)
+            Self::unsafe_approve(multisig, signer, proposal_id)
         }
 
         /// Rejects a multisig proposal using the caller's identity.
@@ -353,7 +353,7 @@ decl_module! {
             let sender_key = AccountKey::try_from(sender.encode())?;
             let sender_did = Context::current_identity_or::<Identity<T>>(&sender_key)?;
             let signer = Signatory::from(sender_did);
-            Self::reject_for(multisig, signer, proposal_id)
+            Self::unsafe_reject(multisig, signer, proposal_id)
         }
 
         /// Rejects a multisig proposal using the caller's signing key (`AccountId`).
@@ -366,7 +366,7 @@ decl_module! {
         pub fn reject_as_key(origin, multisig: T::AccountId, proposal_id: u64) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             let signer = Signatory::from(AccountKey::try_from(sender.encode())?);
-            Self::reject_for(multisig, signer, proposal_id)
+            Self::unsafe_reject(multisig, signer, proposal_id)
         }
 
         /// Accepts a multisig signer authorization given to signer's identity.
@@ -380,7 +380,7 @@ decl_module! {
             let sender_did = Context::current_identity_or::<Identity<T>>(&sender_key)?;
 
             let signer = Signatory::from(sender_did);
-            Self::_accept_multisig_signer(signer, auth_id)
+            Self::unsafe_accept_multisig_signer(signer, auth_id)
         }
 
         /// Accepts a multisig signer authorization given to signer's key (AccountId).
@@ -391,7 +391,7 @@ decl_module! {
         pub fn accept_multisig_signer_as_key(origin, auth_id: u64) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             let signer = Signatory::from(AccountKey::try_from(sender.encode())?);
-            Self::_accept_multisig_signer(signer, auth_id)
+            Self::unsafe_accept_multisig_signer(signer, auth_id)
         }
 
         /// Adds a signer to the multisig. This must be called by the multisig itself.
@@ -817,7 +817,7 @@ impl<T: Trait> Module<T> {
             multisig.clone(),
             proposal_id,
         ));
-        Self::approve_for(multisig, sender_signer, proposal_id)?;
+        Self::unsafe_approve(multisig, sender_signer, proposal_id)?;
         Ok(proposal_id)
     }
 
@@ -831,7 +831,7 @@ impl<T: Trait> Module<T> {
     ) -> DispatchResult {
         if let Some(proposal_id) = Self::proposal_ids(&multisig, &*proposal) {
             // This is an existing proposal.
-            Self::approve_for(multisig, sender_signer, proposal_id)?;
+            Self::unsafe_approve(multisig, sender_signer, proposal_id)?;
         } else {
             // The proposal is new.
             Self::create_proposal(multisig, sender_signer, proposal, expiry, auto_close)?;
@@ -840,7 +840,7 @@ impl<T: Trait> Module<T> {
     }
 
     /// Approves a multisig proposal and executes it if enough signatures have been received.
-    pub fn approve_for(
+    fn unsafe_approve(
         multisig: T::AccountId,
         signer: Signatory,
         proposal_id: u64,
@@ -951,7 +951,7 @@ impl<T: Trait> Module<T> {
     }
 
     /// Rejects a multisig proposal
-    pub fn reject_for(
+    fn unsafe_reject(
         multisig: T::AccountId,
         signer: Signatory,
         proposal_id: u64,
@@ -1011,7 +1011,7 @@ impl<T: Trait> Module<T> {
     }
 
     /// Accepts and processed an addition of a signer to a multisig.
-    pub fn _accept_multisig_signer(signer: Signatory, auth_id: u64) -> DispatchResult {
+    pub fn unsafe_accept_multisig_signer(signer: Signatory, auth_id: u64) -> DispatchResult {
         ensure!(
             <identity::Authorizations<T>>::contains_key(signer, auth_id),
             AuthorizationError::Invalid
@@ -1116,6 +1116,6 @@ impl<T: Trait> Module<T> {
 
 impl<T: Trait> AddSignerMultiSig for Module<T> {
     fn accept_multisig_signer(signer: Signatory, auth_id: u64) -> DispatchResult {
-        Self::_accept_multisig_signer(signer, auth_id)
+        Self::unsafe_accept_multisig_signer(signer, auth_id)
     }
 }

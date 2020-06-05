@@ -18,6 +18,7 @@ use test_client::AccountKeyring;
 type Balances = balances::Module<TestStorage>;
 type Identity = identity::Module<TestStorage>;
 type MultiSig = multisig::Module<TestStorage>;
+type Timestamp = pallet_timestamp::Module<TestStorage>;
 type Origin = <TestStorage as frame_system::Trait>::Origin;
 type Error = multisig::Error<TestStorage>;
 
@@ -1116,6 +1117,95 @@ fn reject_proposals() {
     });
 }
 
+fn expired_proposals() {
+    ExtBuilder::default().build().execute_with(|| {
+        let alice_did = register_keyring_account(AccountKeyring::Alice).unwrap();
+        let alice = Origin::signed(AccountKeyring::Alice.public());
+
+        let bob_did = register_keyring_account(AccountKeyring::Bob).unwrap();
+        let bob = Origin::signed(AccountKeyring::Bob.public());
+
+        let charlie_did = register_keyring_account(AccountKeyring::Charlie).unwrap();
+        let charlie = Origin::signed(AccountKeyring::Charlie.public());
+
+        let musig_address = MultiSig::get_next_multisig_address(AccountKeyring::Alice.public());
+
+        setup_multisig(
+            alice.clone(),
+            3,
+            vec![
+                Signatory::from(alice_did),
+                Signatory::from(bob_did),
+                Signatory::from(charlie_did),
+            ],
+        );
+
+        let expires_at = 100u64;
+        let call = Box::new(Call::MultiSig(multisig::Call::change_sigs_required(2)));
+
+        Context::set_current_identity::<Identity>(Some(alice_did));
+        assert_ok!(MultiSig::create_proposal_as_identity(
+            alice.clone(),
+            musig_address.clone(),
+            call.clone(),
+            Some(100u64),
+            false
+        ));
+
+        let proposal_id = MultiSig::proposal_ids(musig_address.clone(), call).unwrap();
+        let mut proposal_details = MultiSig::proposal_detail(&(musig_address.clone(), proposal_id));
+        assert_eq!(proposal_details.approvals, 1);
+        assert_eq!(
+            proposal_details.status,
+            multisig::ProposalStatus::ActiveOrExpired
+        );
+
+        Context::set_current_identity::<Identity>(Some(bob_did));
+        assert_ok!(MultiSig::approve_as_identity(
+            bob.clone(),
+            musig_address.clone(),
+            proposal_id
+        ));
+
+        proposal_details = MultiSig::proposal_detail(&(musig_address.clone(), proposal_id));
+        assert_eq!(proposal_details.approvals, 2);
+        assert_eq!(
+            proposal_details.status,
+            multisig::ProposalStatus::ActiveOrExpired
+        );
+
+        // Approval fails when proposal has expired
+        Timestamp::set_timestamp(expires_at);
+        Context::set_current_identity::<Identity>(Some(charlie_did));
+        assert_err!(
+            MultiSig::approve_as_identity(charlie.clone(), musig_address.clone(), proposal_id),
+            Error::ProposalExpired
+        );
+
+        proposal_details = MultiSig::proposal_detail(&(musig_address.clone(), proposal_id));
+        assert_eq!(proposal_details.approvals, 2);
+        assert_eq!(
+            proposal_details.status,
+            multisig::ProposalStatus::ActiveOrExpired
+        );
+
+        // Approval works when time is expiry - 1
+        Timestamp::set_timestamp(expires_at - 1);
+        assert_ok!(MultiSig::approve_as_identity(
+            charlie.clone(),
+            musig_address.clone(),
+            proposal_id
+        ));
+
+        proposal_details = MultiSig::proposal_detail(&(musig_address.clone(), proposal_id));
+        assert_eq!(proposal_details.approvals, 3);
+        assert_eq!(
+            proposal_details.status,
+            multisig::ProposalStatus::ExecutionSuccessful
+        );
+    });
+}
+
 fn setup_multisig(creator_origin: Origin, sigs_required: u64, signers: Vec<Signatory>) {
     assert_ok!(MultiSig::create_multisig(
         creator_origin,
@@ -1128,6 +1218,6 @@ fn setup_multisig(creator_origin: Origin, sigs_required: u64, signers: Vec<Signa
             .next()
             .unwrap()
             .auth_id;
-        assert_ok!(MultiSig::_accept_multisig_signer(signer, auth_id));
+        assert_ok!(MultiSig::unsafe_accept_multisig_signer(signer, auth_id));
     }
 }
