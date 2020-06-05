@@ -14,8 +14,8 @@
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
 use crate::identity_id::IdentityId;
+use crate::signing_item::Permission;
 use crate::signing_item::Signatory;
-use crate::signing_item::{Permission, SigningItem};
 use crate::Ticker;
 use codec::{Decode, Encode};
 use frame_support::dispatch::DispatchError;

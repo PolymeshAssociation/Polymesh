@@ -88,7 +88,7 @@ use frame_support::{
     dispatch::{DispatchError, DispatchResult},
     ensure,
     weights::{DispatchClass, FunctionOf, GetDispatchInfo, SimpleDispatchInfo},
-    StorageValue,
+    StorageDoubleMap, StorageValue,
 };
 use frame_system::{self as system, ensure_signed};
 use pallet_identity as identity;
@@ -1122,9 +1122,19 @@ impl<T: Trait> MultiSigSubTrait for Module<T> {
         Self::unsafe_accept_multisig_signer(signer, auth_id)
     }
     fn get_key_signers(multisig: AccountKey) -> Vec<AccountKey> {
-        unimplemented!()
+        let ms = T::AccountId::decode(&mut &multisig.as_slice()[..]).unwrap_or_default();
+        <MultiSigSigners<T>>::iter_prefix(ms)
+            .filter_map(|signer| {
+                if let Signatory::AccountKey(key) = signer {
+                    Some(key)
+                } else {
+                    None
+                }
+            })
+            .collect()
     }
     fn is_multisig(account: AccountKey) -> bool {
-        unimplemented!()
+        let ms = T::AccountId::decode(&mut &account.as_slice()[..]).unwrap_or_default();
+        <NumberOfSigners<T>>::contains_key(ms)
     }
 }

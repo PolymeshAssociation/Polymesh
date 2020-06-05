@@ -14,9 +14,7 @@
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
 use crate::{
-    traits::{
-        balances, group::GroupTrait, multisig::MultiSigSubTrait, CommonTrait, NegativeImbalance,
-    },
+    traits::{balances, group::GroupTrait, multisig::MultiSigSubTrait, CommonTrait},
     ChargeProtocolFee, SystematicIssuers,
 };
 use polymesh_primitives::{
