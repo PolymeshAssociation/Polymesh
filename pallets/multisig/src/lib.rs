@@ -1121,10 +1121,10 @@ impl<T: Trait> MultiSigSubTrait for Module<T> {
     fn accept_multisig_signer(signer: Signatory, auth_id: u64) -> DispatchResult {
         Self::unsafe_accept_multisig_signer(signer, auth_id)
     }
-    fn get_key_signers(multisig: AccountKey) -> Vec<Signatory> {
+    fn get_key_signers(multisig: AccountKey) -> Vec<AccountKey> {
         unimplemented!()
     }
-    fn is_multisig(signatory: AccountKey) -> bool {
+    fn is_multisig(account: AccountKey) -> bool {
         unimplemented!()
     }
 }

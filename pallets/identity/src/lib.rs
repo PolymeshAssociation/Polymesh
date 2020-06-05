@@ -125,7 +125,7 @@ use frame_support::{
     debug, decl_error, decl_module, decl_storage,
     dispatch::{DispatchError, DispatchResult},
     ensure,
-    traits::{ChangeMembers, InitializeMembers},
+    traits::{ChangeMembers, Currency, InitializeMembers},
     weights::{DispatchClass, FunctionOf, GetDispatchInfo, SimpleDispatchInfo},
     StorageDoubleMap,
 };
@@ -355,9 +355,17 @@ decl_module! {
             let did_sig = Signatory::from(did);
 
             // Remove links and get all authorization IDs per signer.
-            let signer_and_auth_id_list = signers_to_remove.iter().map(|signer| {
+            let signer_and_auth_id_list = signers_to_remove.iter().filter_map(|signer| {
                 match signer {
-                    Signatory::AccountKey(ref key) => Self::unlink_key_from_did(key, did),
+                    Signatory::AccountKey(ref key) => {
+                        if T::MultiSig::is_multisig(*key) {
+                            let multisig = T::AccountId::decode(&mut &key.as_slice()[..]).unwrap_or_default();
+                            if !T::Balances::total_balance(&multisig).is_zero() { return None; }
+                            // Unlink multisig signers from the identity.
+                            Self::unlink_multisig_signers_from_did(T::MultiSig::get_key_signers(*key), did);
+                        }
+                        Self::unlink_key_from_did(key, did)
+                    }
                     _ => {}
                 };
 
@@ -372,7 +380,7 @@ decl_module! {
                     })
                     .collect::<Vec<_>>();
 
-                (signer, auth_ids)
+                Some((signer, auth_ids))
             })
             .collect::<Vec<_>>();
 
@@ -1154,7 +1162,9 @@ decl_error! {
         /// Signer is not a signing key of the provided identity
         NotASigner,
         /// Decoding error. Should never happen in practice
-        DecodingError
+        DecodingError,
+        /// Multisig can not be unlinked from an identity while it still holds POLYX
+        MultiSigHasBalance
     }
 }
 
@@ -2016,8 +2026,12 @@ impl<T: Trait> Module<T> {
             if T::MultiSig::is_multisig(key) {
                 let multisig = T::AccountId::decode(&mut &key.as_slice()[..])
                     .map_err(|_| Error::<T>::DecodingError)?;
+                ensure!(
+                    T::Balances::total_balance(&multisig).is_zero(),
+                    Error::<T>::MultiSigHasBalance
+                );
                 // Unlink multisig signers from the identity.
-                Self::unlink_multisig_signers_from_did(T::MultiSig::get_key_signers(key));
+                Self::unlink_multisig_signers_from_did(T::MultiSig::get_key_signers(key), did);
             }
             Self::unlink_key_from_did(&key, did)
         }
@@ -2031,7 +2045,11 @@ impl<T: Trait> Module<T> {
         Ok(())
     }
 
-    fn unlink_multisig_signers_from_did(signers: Vec<Signatory>) {}
+    fn unlink_multisig_signers_from_did(signers: Vec<AccountKey>, did: IdentityId) {
+        for signer in signers {
+            Self::unlink_key_from_did(&signer, did)
+        }
+    }
 }
 
 impl<T: Trait> Module<T> {

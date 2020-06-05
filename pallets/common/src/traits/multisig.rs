@@ -35,13 +35,13 @@ pub trait MultiSigSubTrait {
     ///
     /// # Arguments
     /// * `multisig` - multisig AccountKey object
-    fn get_key_signers(multisig: AccountKey) -> Vec<Signatory>;
+    fn get_key_signers(multisig: AccountKey) -> Vec<AccountKey>;
 
     /// Checks if the
     ///
     /// # Arguments
     /// * `signatory` - AccountKey object to check
-    fn is_multisig(signatory: AccountKey) -> bool {
+    fn is_multisig(account: AccountKey) -> bool {
         unimplemented!()
     }
 }

@@ -338,10 +338,10 @@ impl MultiSigSubTrait for Test {
     fn accept_multisig_signer(_: Signatory, _: u64) -> DispatchResult {
         unimplemented!()
     }
-    fn get_key_signers(multisig: AccountKey) -> Vec<Signatory> {
+    fn get_key_signers(multisig: AccountKey) -> Vec<AccountKey> {
         unimplemented!()
     }
-    fn is_multisig(signatory: AccountKey) -> bool {
+    fn is_multisig(account: AccountKey) -> bool {
         unimplemented!()
     }
 }
