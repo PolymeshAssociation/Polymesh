@@ -212,7 +212,7 @@ fn is_auth_valid(
                     if let Signatory::AccountKey(multisig) = auth.authorized_by {
                         let ms = AccountId::decode(&mut &multisig.as_slice()[..])
                             .map_err(|_| InvalidTransaction::Payment)?;
-                        if <multisig::MultiSigCreator<Runtime>>::contains_key(&ms) {
+                        if <multisig::MultiSigSignsRequired<Runtime>>::contains_key(&ms) {
                             // make sure that the multisig is attached to an identity with valid CDD
                             if let Some(did) = Identity::get_identity(
                                 &AccountKey::try_from(ms.encode())
