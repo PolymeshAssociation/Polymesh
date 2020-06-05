@@ -490,7 +490,7 @@ impl sto_capped::Trait for Runtime {
 impl IdentityTrait for Runtime {
     type Event = Event;
     type Proposal = Call;
-    type AddSignerMultiSigTarget = MultiSig;
+    type MultiSig = MultiSig;
     type CddServiceProviders = CddServiceProviders;
     type Balances = balances::Module<Runtime>;
     type ChargeTxFeeTarget = TransactionPayment;

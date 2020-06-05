@@ -15,7 +15,7 @@
 
 use crate::{
     traits::{
-        balances, group::GroupTrait, multisig::AddSignerMultiSig, CommonTrait, NegativeImbalance,
+        balances, group::GroupTrait, multisig::MultiSigSubTrait, CommonTrait, NegativeImbalance,
     },
     ChargeProtocolFee, SystematicIssuers,
 };
@@ -89,7 +89,7 @@ pub trait Trait: CommonTrait + pallet_timestamp::Trait + balances::Trait {
         + Dispatchable<Origin = <Self as frame_system::Trait>::Origin>
         + GetDispatchInfo;
     /// MultiSig module
-    type AddSignerMultiSigTarget: AddSignerMultiSig;
+    type MultiSig: MultiSigSubTrait;
     /// Group module
     type CddServiceProviders: GroupTrait<<Self as pallet_timestamp::Trait>::Moment>;
 

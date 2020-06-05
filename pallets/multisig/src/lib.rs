@@ -95,7 +95,7 @@ use pallet_identity as identity;
 use pallet_transaction_payment::{CddAndFeeDetails, ChargeTxFee};
 use polymesh_common_utilities::{
     identity::{LinkedKeyInfo, Trait as IdentityTrait},
-    multisig::AddSignerMultiSig,
+    multisig::MultiSigSubTrait,
     Context,
 };
 use polymesh_primitives::{
@@ -1117,8 +1117,14 @@ impl<T: Trait> Module<T> {
     }
 }
 
-impl<T: Trait> AddSignerMultiSig for Module<T> {
+impl<T: Trait> MultiSigSubTrait for Module<T> {
     fn accept_multisig_signer(signer: Signatory, auth_id: u64) -> DispatchResult {
         Self::unsafe_accept_multisig_signer(signer, auth_id)
+    }
+    fn get_key_signers(multisig: AccountKey) -> Vec<Signatory> {
+        unimplemented!()
+    }
+    fn is_multisig(signatory: AccountKey) -> bool {
+        unimplemented!()
     }
 }
