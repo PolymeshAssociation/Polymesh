@@ -54,16 +54,22 @@ const receiverRules1 = function(trusted_did, asset_did) {
 // Initialization Main is used to generate all entities e.g (Alice, Bob, Dave)
 async function initMain(api) {
   let entities = [];
+  
   let alice = await generateEntity(api, "Alice");
   let bob = await generateEntity(api, "Bob");
   let charlie = await generateEntity(api, "Charlie");
   let dave = await generateEntity(api, "Dave");
   let relay = await generateEntity(api, "relay_1");
+  let govCommittee1 = await generateEntity(api, "governance_committee_1");
+  let govCommittee2 = await generateEntity(api, "governance_committee_2");
+
   entities.push(alice);
   entities.push(bob);
   entities.push(charlie);
   entities.push(dave);
   entities.push(relay);
+  entities.push(govCommittee1);
+  entities.push(govCommittee2);
 
   return entities;
 }

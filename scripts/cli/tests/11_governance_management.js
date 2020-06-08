@@ -18,8 +18,12 @@ async function main() {
   
   let alice = testEntities[0];
   let bob = testEntities[1];
+  let govCommittee1 = testEntities[5];
+  let govCommittee2 = testEntities[6];
+
+  let proposalId = 0;
   
-  await reqImports.createIdentities( api, [bob], alice );
+  await reqImports.createIdentities( api, [bob, govCommittee1, govCommittee2], alice );
 
   await bondPoly(api, alice, bob);
 
@@ -27,9 +31,15 @@ async function main() {
 
   await amendProposal(api, bob);
 
-  await fastTrackProposal(api, 0, alice);
+  await fastTrackProposal(api, proposalId, alice);
+ 
+  await reqImports.distributePolyBatch( api, [govCommittee1, govCommittee2], reqImports.transfer_amount, alice );
 
-  await enactReferendum(api, 0);
+  await voteEnactReferendum(api, proposalId, govCommittee1);
+  
+  await voteEnactReferendum(api, proposalId, govCommittee2);
+
+  await overrideReferendumEnactmentPeriod(api, proposalId, null, alice);
 
   if (reqImports.fail_count > 0) {
     console.log("Failed");
@@ -41,26 +51,26 @@ async function main() {
   process.exit();
 }
 
-async function enactReferendum(api, proposalId) {
+async function voteEnactReferendum(api, proposalId, signer) {
 
-  // Get the current sudo key in the system
-  const sudoKey = await api.query.sudo.key();
+  let nonceObj = {nonce: reqImports.nonces.get(signer.address)};
+  const transaction = await api.tx.polymeshCommittee.voteEnactReferendum(proposalId);
+  const result = await reqImports.sendTransaction(transaction, signer, nonceObj);  
+  const passed = result.findRecord('system', 'ExtrinsicSuccess');
+  if (passed) reqImports.fail_count--;
 
-  const keyring = testKeyring.default();
+  reqImports.nonces.set( signer.address, reqImports.nonces.get(signer.address).addn(1));
+}
 
-  // Lookup from keyring (assuming we have added all, on --dev this would be `//Alice`)
-  const sudoPair = keyring.getPair(sudoKey.toString());
-  
-  // Send the actual sudo transaction
-   const transaction = await api.tx.sudo
-   .sudo(
-     await api.tx.pips.enactReferendum(proposalId)
-   );
+async function overrideReferendumEnactmentPeriod(api, proposalId, until, signer) {
 
-   const result = await reqImports.sendTransaction(transaction, sudoPair, 0);  
-   const passed = result.findRecord('system', 'ExtrinsicSuccess');
-   if (passed) reqImports.fail_count--;
+  let nonceObj = {nonce: reqImports.nonces.get(signer.address)};
+  const transaction = await api.tx.pips.overrideReferendumEnactmentPeriod(proposalId, until);
+  const result = await reqImports.sendTransaction(transaction, signer, nonceObj);  
+  const passed = result.findRecord('system', 'ExtrinsicSuccess');
+  if (passed) reqImports.fail_count--;
 
+  reqImports.nonces.set( signer.address, reqImports.nonces.get(signer.address).addn(1));
 }
 
 async function fastTrackProposal(api, proposalId, signer) {
