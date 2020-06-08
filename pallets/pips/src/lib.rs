@@ -73,7 +73,6 @@ use frame_support::{
 };
 use frame_system::{self as system, ensure_signed};
 use pallet_identity as identity;
-use pallet_pips_rpc_runtime_api::VoteCount;
 use pallet_treasury::TreasuryTrait;
 use polymesh_common_utilities::{
     constants::PIP_MAX_REPORTING_SIZE,
@@ -89,6 +88,9 @@ use sp_runtime::traits::{
     BlakeTwo256, CheckedAdd, CheckedSub, Dispatchable, EnsureOrigin, Hash, Saturating, Zero,
 };
 use sp_std::{convert::TryFrom, prelude::*};
+
+#[cfg(feature = "std")]
+use serde::{Deserialize, Serialize};
 
 /// Balance
 type BalanceOf<T> =
@@ -117,6 +119,21 @@ pub struct Pip<Proposal, Balance> {
     pub state: ProposalState,
     /// Beneficiaries of this Pips
     pub beneficiaries: Option<Vec<Beneficiary<Balance>>>,
+}
+
+/// A result of execution of get_votes.
+#[derive(Eq, PartialEq, Encode, Decode)]
+#[cfg_attr(feature = "std", derive(Debug))]
+pub enum VoteCount<Balance> {
+    /// Proposal was found and has the following votes.
+    Success {
+        /// Stake for
+        ayes: Balance,
+        /// Stake against
+        nays: Balance,
+    },
+    /// Proposal was not for given index.
+    ProposalNotFound,
 }
 
 /// Either the entire proposal encoded as a byte vector or its hash. The latter represents large
@@ -160,11 +177,18 @@ pub struct VotingResult<Balance: Parameter> {
 }
 
 #[derive(PartialEq, Eq, Clone, Encode, Decode)]
-#[cfg_attr(feature = "std", derive(Debug))]
+#[cfg_attr(feature = "std", derive(Debug, Serialize, Deserialize))]
 pub enum Vote<Balance> {
     None,
     Yes(Balance),
     No(Balance),
+}
+
+#[derive(PartialEq, Eq, Clone, Encode, Decode)]
+#[cfg_attr(feature = "std", derive(Debug, Serialize, Deserialize))]
+pub struct HistoricalVotingItem<Balance> {
+    pub pip: PipId,
+    pub vote: Vote<Balance>,
 }
 
 impl<Balance> Default for Vote<Balance> {
@@ -193,8 +217,7 @@ impl Default for ProposalState {
     }
 }
 
-#[derive(Encode, Decode, Copy, Clone, Eq, PartialEq)]
-#[cfg_attr(feature = "std", derive(Debug))]
+#[derive(Encode, Decode, Copy, Clone, Eq, PartialEq, Debug)]
 pub enum ReferendumState {
     /// Pending GC ratification
     Pending,
@@ -208,8 +231,7 @@ pub enum ReferendumState {
     Executed,
 }
 
-#[derive(Encode, Decode, Copy, Clone, Eq, PartialEq)]
-#[cfg_attr(feature = "std", derive(Debug))]
+#[derive(Encode, Decode, Copy, Clone, Eq, PartialEq, Debug)]
 pub enum ReferendumType {
     /// Referendum pushed by GC (fast-tracked)
     FastTracked,
@@ -1240,6 +1262,16 @@ impl<T: Trait> Module<T> {
             .filter_map(|meta| match Self::proposal_vote(meta.id, &address) {
                 Vote::None => None,
                 _ => Some(meta.id),
+            })
+            .collect::<Vec<_>>()
+    }
+
+    /// Retrieve historical voting of `who` account.
+    pub fn voting_history_by_address(who: T::AccountId) -> Vec<HistoricalVotingItem<BalanceOf<T>>> {
+        <ProposalMetadata<T>>::iter()
+            .map(|meta| HistoricalVotingItem {
+                pip: meta.id,
+                vote: Self::proposal_vote(meta.id, &who),
             })
             .collect::<Vec<_>>()
     }

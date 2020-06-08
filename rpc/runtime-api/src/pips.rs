@@ -14,29 +14,13 @@
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
 //! Runtime API definition for pips module.
-
-#![cfg_attr(not(feature = "std"), no_std)]
+use pallet_pips::{HistoricalVotingItem, VoteCount};
 
 use codec::{Codec, Decode, Encode};
 #[cfg(feature = "std")]
 use serde::{Deserialize, Serialize};
 use sp_runtime::traits::{SaturatedConversion, UniqueSaturatedInto};
 use sp_std::{prelude::*, vec::Vec};
-
-/// A result of execution of get_votes.
-#[derive(Eq, PartialEq, Encode, Decode)]
-#[cfg_attr(feature = "std", derive(Debug))]
-pub enum VoteCount<Balance> {
-    /// Proposal was found and has the following votes.
-    Success {
-        /// Stake for
-        ayes: Balance,
-        /// Stake against
-        nays: Balance,
-    },
-    /// Proposal was not for given index.
-    ProposalNotFound,
-}
 
 /// A capped version of `VoteCount`.
 ///
@@ -84,6 +68,9 @@ sp_api::decl_runtime_apis! {
 
         /// Retrieve proposals `address` voted on.
         fn voted_on(address: AccountId) -> Vec<u32>;
+
+        /// Retrieve referendums voted on by `address`.
+        fn voting_history_by_address(address: AccountId) -> Vec<HistoricalVotingItem<Balance>>;
     }
 }
 

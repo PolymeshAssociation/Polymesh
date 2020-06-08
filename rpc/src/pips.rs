@@ -13,12 +13,14 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
+pub use node_rpc_runtime_api::pips::{
+    self as runtime_api, CappedVoteCount, PipsApi as PipsRuntimeApi,
+};
+use pallet_pips::HistoricalVotingItem;
+
 use codec::Codec;
 use jsonrpc_core::{Error as RpcError, ErrorCode, Result};
 use jsonrpc_derive::rpc;
-pub use pallet_pips_rpc_runtime_api::{
-    self as runtime_api, CappedVoteCount, PipsApi as PipsRuntimeApi, VoteCount,
-};
 use sp_api::ProvideRuntimeApi;
 use sp_blockchain::HeaderBackend;
 use sp_runtime::{
@@ -42,6 +44,14 @@ pub trait PipsApi<BlockHash, AccountId, Balance> {
     /// Retrieves proposal `address` indices voted on
     #[rpc(name = "pips_votedOn")]
     fn voted_on(&self, address: AccountId, at: Option<BlockHash>) -> Result<Vec<u32>>;
+
+    /// Retrieve historical voting of `who` account.
+    #[rpc(name = "pips_votingHistory")]
+    fn voting_history_by_address(
+        &self,
+        address: AccountId,
+        at: Option<BlockHash>,
+    ) -> Result<Vec<HistoricalVotingItem<Balance>>>;
 }
 
 /// An implementation of pips specific RPC methods.
@@ -126,6 +136,25 @@ where
             message: "Unable to query voted_on.".into(),
             data: Some(format!("{:?}", e).into()),
         })?;
+
+        Ok(result)
+    }
+
+    fn voting_history_by_address(
+        &self,
+        address: AccountId,
+        at: Option<<Block as BlockT>::Hash>,
+    ) -> Result<Vec<HistoricalVotingItem<Balance>>> {
+        let api = self.client.runtime_api();
+        let at = BlockId::hash(at.unwrap_or_else(|| self.client.info().best_hash));
+
+        let result = api
+            .voting_history_by_address(&at, address)
+            .map_err(|e| RpcError {
+                code: ErrorCode::ServerError(Error::RuntimeError as i64),
+                message: "Unable to query `referendum_voted_on`.".into(),
+                data: Some(format!("{:?}", e).into()),
+            })?;
 
         Ok(result)
     }
