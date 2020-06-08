@@ -40,6 +40,6 @@ pub trait MultiSigSubTrait {
     /// Checks if the
     ///
     /// # Arguments
-    /// * `signatory` - AccountKey object to check
+    /// * `account` - AccountKey object to check
     fn is_multisig(account: AccountKey) -> bool;
 }
