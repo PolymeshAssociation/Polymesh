@@ -42,7 +42,6 @@ pallet-identity-rpc-runtime-api = { path = "../../identity/rpc/runtime-api", def
 pallet-staking-rpc-runtime-api = { path = "../../staking/rpc/runtime-api", default-features = false }
 pallet-transaction-payment-rpc-runtime-api = { path = "../../transaction-payment/rpc/runtime-api", default-features = false }
 pallet-protocol-fee-rpc-runtime-api = { path = "../../protocol-fee/rpc/runtime-api", default-features = false }
-pallet-asset-rpc-runtime-api = { path = "../../asset/rpc/runtime-api", default-features = false  }
 pallet-compliance-manager-rpc-runtime-api = { path = "../../compliance-manager/rpc/runtime-api", default-features = false  }
 
 # Others

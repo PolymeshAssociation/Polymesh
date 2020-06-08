@@ -6,6 +6,7 @@ edition = "2018"
 
 [dependencies]
 # Our pallets
+polymesh-primitives = { path = "../../primitives", default-features = false }
 pallet-pips = { path = "../../pallets/pips", default-features = false  }
 
 # Other
@@ -29,4 +30,5 @@ std = [
 	"codec/std",
 	"sp-std/std",
 	"sp-runtime/std",
+	"polymesh-primitives/std",
 ]

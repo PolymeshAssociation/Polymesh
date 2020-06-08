@@ -16,5 +16,5 @@
 //! Runtime API definition for Runtime RPC module.
 #![cfg_attr(not(feature = "std"), no_std)]
 
+pub mod asset;
 pub mod pips;
-// pub use pips::PipsApi;

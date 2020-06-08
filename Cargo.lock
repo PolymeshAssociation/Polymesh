@@ -2707,6 +2707,7 @@ dependencies = [
  "node-rpc-runtime-api",
  "pallet-pips",
  "parity-scale-codec",
+ "polymesh-primitives",
  "serde",
  "sp-api",
  "sp-blockchain",
@@ -2722,6 +2723,7 @@ dependencies = [
  "frame-support",
  "pallet-pips",
  "parity-scale-codec",
+ "polymesh-primitives",
  "serde",
  "serde_json",
  "sp-api",
@@ -2868,7 +2870,6 @@ dependencies = [
  "frame-support",
  "frame-system",
  "hex-literal",
- "pallet-asset-rpc-runtime-api",
  "pallet-balances 0.1.0",
  "pallet-contracts",
  "pallet-identity",
@@ -2891,47 +2892,6 @@ dependencies = [
  "sp-std",
  "sp-version",
  "substrate-test-runtime-client",
-]
-
-[[package]]
-name = "pallet-asset-rpc"
-version = "0.1.0"
-dependencies = [
- "frame-support",
- "frame-system",
- "jsonrpc-core",
- "jsonrpc-core-client",
- "jsonrpc-derive",
- "pallet-asset-rpc-runtime-api",
- "pallet-balances 0.1.0",
- "parity-scale-codec",
- "polymesh-common-utilities",
- "polymesh-primitives",
- "serde",
- "serde_derive",
- "sp-api",
- "sp-blockchain",
- "sp-core",
- "sp-rpc",
- "sp-runtime",
- "sp-std",
-]
-
-[[package]]
-name = "pallet-asset-rpc-runtime-api"
-version = "0.1.0"
-dependencies = [
- "frame-support",
- "frame-system",
- "pallet-balances 0.1.0",
- "parity-scale-codec",
- "polymesh-common-utilities",
- "polymesh-primitives",
- "serde",
- "serde_json",
- "sp-api",
- "sp-core",
- "sp-std",
 ]
 
 [[package]]
@@ -4063,8 +4023,6 @@ dependencies = [
  "node-rpc",
  "node-rpc-runtime-api",
  "pallet-asset",
- "pallet-asset-rpc",
- "pallet-asset-rpc-runtime-api",
  "pallet-compliance-manager-rpc",
  "pallet-compliance-manager-rpc-runtime-api",
  "pallet-contracts",
@@ -4240,7 +4198,6 @@ dependencies = [
  "log",
  "node-rpc-runtime-api",
  "pallet-asset",
- "pallet-asset-rpc-runtime-api",
  "pallet-authority-discovery",
  "pallet-authorship",
  "pallet-babe",
@@ -4323,7 +4280,6 @@ dependencies = [
  "log",
  "node-rpc-runtime-api",
  "pallet-asset",
- "pallet-asset-rpc-runtime-api",
  "pallet-authority-discovery",
  "pallet-authorship",
  "pallet-babe",

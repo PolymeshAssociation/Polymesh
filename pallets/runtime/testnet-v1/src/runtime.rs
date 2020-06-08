@@ -862,14 +862,14 @@ impl_runtime_apis! {
         }
     }
 
-    impl pallet_asset_rpc_runtime_api::AssetApi<Block, AccountId, Balance> for Runtime {
+    impl node_rpc_runtime_api::asset::AssetApi<Block, AccountId, Balance> for Runtime {
         #[inline]
         fn can_transfer(
             sender: AccountId,
             ticker: Ticker,
             from_did: Option<IdentityId>,
             to_did: Option<IdentityId>,
-            value: Balance) -> pallet_asset_rpc_runtime_api::CanTransferResult
+            value: Balance) -> node_rpc_runtime_api::asset::CanTransferResult
         {
             Asset::unsafe_can_transfer(sender, ticker, from_did, to_did, value)
                 .map_err(|msg| msg.as_bytes().to_vec())

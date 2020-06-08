@@ -16,20 +16,12 @@
 use codec::Codec;
 use jsonrpc_core::{Error as RpcError, ErrorCode, Result};
 use jsonrpc_derive::rpc;
-use pallet_asset_rpc_runtime_api::{AssetApi as AssetRuntimeApi, CanTransferResult};
+pub use node_rpc_runtime_api::asset::{AssetApi as AssetRuntimeApi, CanTransferResult};
 use polymesh_primitives::{IdentityId, Ticker};
 use sp_api::ProvideRuntimeApi;
 use sp_blockchain::HeaderBackend;
 use sp_runtime::{generic::BlockId, traits::Block as BlockT};
 use std::sync::Arc;
-
-use frame_support::traits::Currency;
-pub trait Trait: frame_system::Trait {
-    type Currency: Currency<Self::AccountId>;
-}
-
-pub type BalanceOf<T> =
-    <<T as Trait>::Currency as Currency<<T as frame_system::Trait>::AccountId>>::Balance;
 
 #[rpc]
 pub trait AssetApi<BlockHash, AccountId, T> {

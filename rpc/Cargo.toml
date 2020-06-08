@@ -7,6 +7,7 @@ edition = "2018"
 [dependencies]
 node-rpc-runtime-api = { path = "./runtime-api" }
 
+polymesh-primitives = { path = "../primitives", default-features = false }
 pallet-pips = { path = "../pallets/pips", default-features = false }
 
 # Substrate
@@ -23,4 +24,8 @@ jsonrpc-core = "14.0.5"
 jsonrpc-core-client = "14.0.5"
 jsonrpc-derive = "14.0.5"
 
-
+[features]
+default = ["std"]
+std = [
+	"polymesh-primitives/std",
+]
