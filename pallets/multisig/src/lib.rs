@@ -46,6 +46,8 @@
 //! - `create_proposal_as_key` - Creates a multisig proposal given the signer's account key.
 //! - `approve_as_identity` - Approves a multisig proposal given the signer's identity.
 //! - `approve_as_key` - Approves a multisig proposal given the signer's account key.
+//! - `reject_as_identity` - Rejects a multisig proposal using the caller's identity.
+//! - `reject_as_key` - Rejects a multisig proposal using the caller's signing key (`AccountId`).
 //! - `accept_multisig_signer_as_identity` - Accepts a multisig signer authorization given the
 //! signer's identity.
 //! - `accept_multisig_signer_as_key` - Accepts a multisig signer authorization given the signer's
@@ -69,8 +71,6 @@
 //! an event.
 //! - `create_proposal` - Creates a proposal for a multisig transaction.
 //! - `create_or_approve_proposal` - Creates or approves a multisig proposal.
-//! - `unsafe_approve` - Approves a multisig proposal and executes it if enough signatures have been
-//! received.
 //! - `unsafe_accept_multisig_signer` - Accepts and processes an addition of a signer to a multisig.
 //! - `get_next_multisig_address` - Gets the next available multisig account ID.
 //! - `get_multisig_address` - Constructs a multisig account given a nonce.
@@ -133,7 +133,7 @@ pub struct ProposalDetails<T> {
 }
 
 impl<T: core::default::Default> ProposalDetails<T> {
-    /// Create new `Asset` with the given reference to the client.
+    /// Create new `ProposalDetails` object with the given config.
     pub fn new(expiry: Option<T>, auto_close: bool) -> Self {
         Self {
             status: ProposalStatus::ActiveOrExpired,
