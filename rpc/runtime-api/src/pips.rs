@@ -80,7 +80,7 @@ mod tests {
 
     #[test]
     fn should_serialize_pips_votes() {
-        let votes = PipsVotes::Success {
+        let votes = VoteCount::Success {
             ayes: 3141u64,
             nays: 5926u64,
         };

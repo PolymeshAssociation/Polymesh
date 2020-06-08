@@ -123,7 +123,7 @@ pub struct Pip<Proposal, Balance> {
 
 /// A result of execution of get_votes.
 #[derive(Eq, PartialEq, Encode, Decode)]
-#[cfg_attr(feature = "std", derive(Debug))]
+#[cfg_attr(feature = "std", derive(Debug, Serialize, Deserialize))]
 pub enum VoteCount<Balance> {
     /// Proposal was found and has the following votes.
     Success {
