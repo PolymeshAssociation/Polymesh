@@ -20,7 +20,7 @@ pub mod constants;
 pub mod traits;
 pub use traits::{
     asset, balances, compliance_manager, exemption, governance_group, group, identity, multisig,
-    CommonTrait,
+    pip, CommonTrait,
 };
 
 pub mod context;
