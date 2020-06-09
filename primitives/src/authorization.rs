@@ -13,11 +13,7 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
-use crate::{
-    identity_id::IdentityId,
-    signing_item::{Permission, Signatory},
-    Ticker,
-};
+use crate::{identity_id::IdentityId, signing_item::Signatory, Ticker};
 use codec::{Decode, Encode};
 use frame_support::dispatch::DispatchError;
 
