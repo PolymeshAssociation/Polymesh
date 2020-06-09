@@ -2094,36 +2094,6 @@ impl<T: Trait> Module<T> {
                 .collect::<Vec<Link<T::Moment>>>()
         }
     }
-
-    /// Registers the systematic issuer with its DID.
-    fn register_systematic_id(issuer: SystematicIssuers)
-    where
-        <T as frame_system::Trait>::AccountId: core::fmt::Display,
-    {
-        let acc = issuer.as_module_id().into_account();
-        let id = issuer.as_id();
-        debug::info!(
-            "Register Systematic id {} with account {} as {}",
-            issuer,
-            acc,
-            id
-        );
-
-        Self::unsafe_register_id(acc, id);
-    }
-
-    /// Registers `master_key` as `id` identity.
-    fn unsafe_register_id(acc: T::AccountId, id: IdentityId) {
-        let master_key = AccountKey::try_from(acc.encode()).unwrap();
-        <Module<T>>::link_key_to_did(&master_key, SignatoryType::External, id);
-        let record = DidRecord {
-            master_key,
-            ..Default::default()
-        };
-        <DidRecords>::insert(&id, record);
-
-        Self::deposit_event(RawEvent::DidCreated(id, acc, vec![]));
-    }
 }
 
 impl<T: Trait> IdentityTrait for Module<T> {
