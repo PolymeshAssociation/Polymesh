@@ -68,6 +68,7 @@ use polymesh_common_utilities::{
     governance_group::GovernanceGroupTrait,
     group::{GroupTrait, InactiveMember},
     identity::{IdentityTrait, Trait as IdentityModuleTrait},
+    pip::{EnactProposalMaker, PipId},
     Context, SystematicIssuers,
 };
 use polymesh_primitives::{AccountKey, IdentityId};
@@ -94,9 +95,13 @@ pub trait Trait<I>: frame_system::Trait + IdentityModuleTrait {
 
     /// The outer event type.
     type Event: From<Event<Self, I>> + Into<<Self as frame_system::Trait>::Event>;
-
     /// The time-out for council motions.
     type MotionDuration: Get<Self::BlockNumber>;
+
+    type EnactProposalMaker: EnactProposalMaker<
+        <Self as frame_system::Trait>::Origin,
+        <Self as Trait<I>>::Proposal,
+    >;
 }
 
 /// Origin for the committee module.
@@ -184,6 +189,12 @@ decl_event!(
         /// Voting threshold has been updated
         /// Parameters: caller DID, numerator, denominator
         VoteThresholdUpdated(IdentityId, u32, u32),
+        /// Vote enact referendum.
+        /// Parameters: caller DID, target Pip Id.
+        VoteEnactReferendum(IdentityId, PipId),
+        /// Vote reject referendum.
+        /// Parameters: caller DID, target Pip Id.
+        VoteRejectReferendum(IdentityId, PipId),
     }
 );
 
@@ -212,7 +223,7 @@ decl_error! {
         /// When `MotionDuration` is set to 0.
         NotAllowed,
         /// The urrent DID is missing.
-        MissingCurrentIdentity
+        MissingCurrentIdentity,
     }
 }
 
@@ -398,6 +409,26 @@ decl_module! {
                 .unwrap_or(SystematicIssuers::Committee.as_id());
             Self::deposit_event(RawEvent::ReleaseCoordinatorUpdated(current_did, Some(id)));
         }
+
+        #[weight = SimpleDispatchInfo::FixedOperational(5_000_000)]
+        pub fn vote_enact_referendum(origin, id: PipId) -> DispatchResult {
+            Self::vote_referendum( origin, id,
+                || {
+                    let aye_call = T::EnactProposalMaker::enact_referendum_call(id);
+                    let nay_call = T::EnactProposalMaker::reject_referendum_call(id);
+                    (aye_call, nay_call)
+                })
+        }
+
+        #[weight = SimpleDispatchInfo::FixedOperational(5_000_000)]
+        pub fn vote_reject_referendum(origin, id: PipId) -> DispatchResult {
+            Self::vote_referendum( origin, id,
+                || {
+                    let aye_call = T::EnactProposalMaker::enact_referendum_call(id);
+                    let nay_call = T::EnactProposalMaker::reject_referendum_call(id);
+                    (nay_call, aye_call)
+                })
+        }
     }
 }
 
@@ -535,6 +566,49 @@ impl<T: Trait<I>, I: Instance> Module<T, I> {
         // remove vote
         <Voting<T, I>>::remove(&proposal);
         <Proposals<T, I>>::mutate(|proposals| proposals.retain(|h| h != &proposal));
+    }
+
+    fn vote_referendum<F>(
+        origin: <T as frame_system::Trait>::Origin,
+        id: PipId,
+        call_maker: F,
+    ) -> DispatchResult
+    where
+        F: Fn() -> (<T as Trait<I>>::Proposal, <T as Trait<I>>::Proposal),
+    {
+        // Only committee members can use this function.
+        let who_key = AccountKey::try_from(ensure_signed(origin.clone())?.encode())?;
+        let who_id = Context::current_identity_or::<Identity<T>>(&who_key)?;
+        ensure!(Self::is_member(&who_id), Error::<T, I>::BadOrigin);
+
+        ensure!(
+            T::EnactProposalMaker::is_pip_id_valid(id),
+            Error::<T, I>::NoSuchProposal
+        );
+
+        // It creates the proposal if it does not exists or vote that proposal.
+        // let enact_call = T::EnactProposalMaker::enact_referendum_call(id);
+        let (aye_call, nay_call) = call_maker();
+        let hash = T::Hashing::hash_of(&aye_call);
+        // Self::deposit_event( RawEvent::VoteEnactReferendum(who_id, id));
+
+        if let Some(voting) = Self::voting(hash) {
+            Self::vote(origin, hash, voting.index, true)?;
+        } else {
+            Self::propose(origin, Box::new(aye_call))?;
+        }
+
+        // If voting info has been removed, the vote has finished.
+        // Then we have to clean Pip & the other call.
+        if !<Voting<T, I>>::contains_key(hash) {
+            // Clean proposal
+            let nay_hash = T::Hashing::hash_of(&nay_call);
+
+            <Voting<T, I>>::remove(&nay_hash);
+            <Proposals<T, I>>::mutate(|proposals| proposals.retain(|h| h != &nay_hash));
+        }
+
+        Ok(())
     }
 }
 

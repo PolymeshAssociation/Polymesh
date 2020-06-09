@@ -1,6 +1,7 @@
 use super::{
     storage::{
-        get_identity_id, make_account, register_keyring_account, Call, EventTest, TestStorage,
+        fast_forward_to_block, get_identity_id, make_account, register_keyring_account, Call,
+        EventTest, TestStorage,
     },
     ExtBuilder,
 };
@@ -9,6 +10,10 @@ use frame_system::{EventRecord, Phase};
 use pallet_committee::{self as committee, PolymeshVotes, RawEvent as CommitteeRawEvent};
 use pallet_group::{self as group};
 use pallet_identity as identity;
+use pallet_pips::{
+    self as pips, Pip, PipDescription, ProposalState, Referendum, ReferendumState, ReferendumType,
+    Url,
+};
 use polymesh_common_utilities::Context;
 use polymesh_primitives::IdentityId;
 use sp_core::H256;
@@ -20,6 +25,7 @@ type Committee = committee::Module<TestStorage, committee::Instance1>;
 type CommitteeGroup = group::Module<TestStorage, group::Instance1>;
 type System = frame_system::Module<TestStorage>;
 type Identity = identity::Module<TestStorage>;
+type Pips = pips::Module<TestStorage>;
 type Origin = <TestStorage as frame_system::Trait>::Origin;
 
 #[test]
@@ -514,4 +520,139 @@ fn release_coordinator_we() {
     Context::set_current_identity::<Identity>(Some(IdentityId::from(999)));
     assert_ok!(Committee::set_release_coordinator(root.clone(), alice_id));
     assert_eq!(Committee::release_coordinator(), Some(alice_id));
+}
+
+#[test]
+fn enact_referendum() {
+    let committee = vec![
+        AccountKeyring::Alice.public(),
+        AccountKeyring::Bob.public(),
+        AccountKeyring::Charlie.public(),
+    ];
+    ExtBuilder::default()
+        .governance_committee(committee)
+        .build()
+        .execute_with(enact_referendum_we);
+}
+
+fn enact_referendum_we() {
+    System::set_block_number(1);
+
+    let proposal = make_proposal(42);
+    let proposal_url: Url = b"www.abc.com".into();
+    let proposal_desc: PipDescription = b"Test description".into();
+
+    let alice = AccountKeyring::Alice.public();
+    let _alice_id = register_keyring_account(AccountKeyring::Alice);
+    let bob = AccountKeyring::Bob.public();
+    let _bob_id = register_keyring_account(AccountKeyring::Bob);
+    let charlie = AccountKeyring::Charlie.public();
+    let _charlie_id = register_keyring_account(AccountKeyring::Charlie);
+    let dave = AccountKeyring::Dave.public();
+    let _dave_id = register_keyring_account(AccountKeyring::Dave);
+
+    // 1. Create the PIP.
+    assert_ok!(Pips::propose(
+        Origin::signed(alice),
+        Box::new(proposal.clone()),
+        50,
+        Some(proposal_url.clone()),
+        Some(proposal_desc.clone()),
+        None
+    ));
+    assert_eq!(
+        Pips::proposals(0),
+        Some(Pip {
+            id: 0,
+            proposal: proposal.clone(),
+            state: ProposalState::Pending,
+            beneficiaries: None,
+        })
+    );
+    assert_ok!(Pips::fast_track_proposal(Origin::signed(alice), 0));
+
+    // 2. Alice and Bob vote to enact that pip, they are 2/3 of committee.
+    assert_ok!(Committee::vote_enact_referendum(Origin::signed(alice), 0));
+    assert_err!(
+        Committee::vote_enact_referendum(Origin::signed(dave), 0),
+        committee::Error::<TestStorage, committee::Instance1>::BadOrigin,
+    );
+    assert_ok!(Committee::vote_enact_referendum(Origin::signed(bob), 0));
+    assert_eq!(
+        Pips::proposals(0),
+        Some(Pip {
+            id: 0,
+            proposal,
+            state: ProposalState::Referendum,
+            beneficiaries: None,
+        })
+    );
+    assert_eq!(
+        Pips::referendums(0),
+        Some(Referendum {
+            id: 0,
+            state: ReferendumState::Scheduled,
+            referendum_type: ReferendumType::FastTracked,
+            enactment_period: 101,
+        })
+    );
+    // Execute referendum
+    fast_forward_to_block(102);
+    /*assert_eq!(
+        Pips::referendums(0),
+        Some(Referendum {
+            id: 0,
+            state: ReferendumState::Executed,
+            referendum_type: ReferendumType::FastTracked,
+            enactment_period: 101,
+        })
+    );*/
+
+    // 3. Invalid referendum.
+    assert_err!(
+        Committee::vote_enact_referendum(Origin::signed(alice), 1),
+        committee::Error::<TestStorage, committee::Instance1>::NoSuchProposal,
+    );
+
+    // 4. Reject referendums.
+    // Bob and Chalie reject the referendum.
+    let proposal_rej = make_proposal(1);
+    assert_ok!(Pips::propose(
+        Origin::signed(alice),
+        Box::new(proposal_rej.clone()),
+        50,
+        Some(proposal_url),
+        Some(proposal_desc),
+        None
+    ));
+    assert_ok!(Pips::fast_track_proposal(Origin::signed(alice), 1));
+
+    assert_ok!(Committee::vote_reject_referendum(Origin::signed(bob), 1));
+    assert_ok!(Committee::vote_reject_referendum(
+        Origin::signed(charlie),
+        1
+    ));
+    assert_eq!(
+        Pips::proposals(1),
+        Some(Pip {
+            id: 1,
+            proposal: proposal_rej,
+            state: ProposalState::Referendum,
+            beneficiaries: None
+        })
+    );
+    assert_eq!(
+        Pips::referendums(1),
+        Some(Referendum {
+            id: 1,
+            state: ReferendumState::Rejected,
+            referendum_type: ReferendumType::FastTracked,
+            enactment_period: 0,
+        })
+    );
+
+    assert_err!(
+        Committee::vote_enact_referendum(Origin::signed(dave), 1),
+        committee::Error::<TestStorage, committee::Instance1>::BadOrigin,
+    );
 }
