@@ -198,7 +198,7 @@ use frame_support::{
 use frame_system::{self as system, ensure_root, ensure_signed};
 use sp_runtime::{
     traits::{
-        AccountIdConversion, Bounded, CheckedAdd, CheckedSub, Hash, MaybeSerializeDeserialize,
+        AccountIdConversion, Bounded, CheckedAdd, CheckedSub, MaybeSerializeDeserialize,
         Saturating, StaticLookup, Zero,
     },
     DispatchError, DispatchResult, RuntimeDebug,
@@ -253,7 +253,16 @@ decl_storage! {
     trait Store for Module<T: Trait> as Balances {
         /// The total units issued in the system.
         pub TotalIssuance get(fn total_issuance) build(|config: &GenesisConfig<T>| {
-            config.balances.iter().fold(Zero::zero(), |acc: T::Balance, &(_, n)| acc + n)
+            let f = |u: T::Balance, &v| u + v;
+            let account_total = config.balances
+                .iter()
+                .map(|(_, v)| v)
+                .fold(Zero::zero(), f);
+            let identity_total = config.identity_balances
+                .iter()
+                .map(|(_, v)| v)
+                .fold(Zero::zero(), f);
+            account_total.saturating_add(identity_total)
         }): T::Balance;
 
         /// The balance of an account.
@@ -277,11 +286,16 @@ decl_storage! {
         pub ChargeDid get(charge_did): map hasher(twox_64_concat) AccountKey => bool;
     }
     add_extra_genesis {
+        /// Account balances at genesis.
         config(balances): Vec<(T::AccountId, T::Balance)>;
-        // ^^ begin, length, amount liquid at genesis
+        /// Identity balances at genesis.
+        config(identity_balances): Vec<(IdentityId, T::Balance)>;
         build(|config: &GenesisConfig<T>| {
-            for &(ref who, free) in config.balances.iter() {
-                T::AccountStore::insert(who, AccountData { free, .. Default::default() });
+            for (who, free) in &config.balances {
+                T::AccountStore::insert(who, AccountData { free: *free, .. Default::default() });
+            }
+            for (id, v) in &config.identity_balances {
+                <IdentityBalance<T>>::mutate(id, |u| *u = u.saturating_add(*v));
             }
         });
     }
