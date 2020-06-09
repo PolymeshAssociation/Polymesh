@@ -244,6 +244,7 @@ impl ExtBuilder {
         // Balances genesis.
         balances::GenesisConfig::<TestStorage> {
             balances: self.make_balances(),
+            identity_balances: vec![],
         }
         .assimilate_storage(&mut storage)
         .unwrap();

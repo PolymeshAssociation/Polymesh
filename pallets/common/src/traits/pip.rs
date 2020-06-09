@@ -21,6 +21,9 @@ pub trait EnactProposalMaker<Origin, Call> {
     /// Checks if `id` is a valid PIP identifier.
     fn is_pip_id_valid(id: PipId) -> bool;
 
-    /// It creates the call for the given `id`.
+    /// It creates the call to enactment the Pip given by `id`.
     fn enact_referendum_call(id: PipId) -> Call;
+
+    /// It creates the call to reject the Pip, given by `id`.
+    fn reject_referendum_call(id: PipId) -> Call;
 }

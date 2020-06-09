@@ -1299,7 +1299,9 @@ impl<T: Trait> Module<T> {
         proposal_data
     }
 
+    /// A proposal is valid if there is an associated proposal and it is in pending state.
     pub fn is_proposal_id_valid(id: PipId) -> bool {
         <Proposals<T>>::contains_key(id)
+            && Self::is_referendum_state(id, ReferendumState::Pending).is_ok()
     }
 }

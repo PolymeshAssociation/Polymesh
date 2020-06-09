@@ -482,6 +482,10 @@ impl EnactProposalMaker<Origin, Call> for TestStorage {
     fn enact_referendum_call(id: PipId) -> Call {
         Call::Pips(pallet_pips::Call::enact_referendum(id))
     }
+
+    fn reject_referendum_call(id: PipId) -> Call {
+        Call::Pips(pallet_pips::Call::reject_referendum(id))
+    }
 }
 
 // Publish type alias for each module
@@ -582,4 +586,12 @@ pub fn get_identity_id(acc: AccountKeyring) -> Option<IdentityId> {
 
 pub fn authorizations_to(to: &Signatory) -> Vec<Authorization<u64>> {
     identity::Authorizations::<TestStorage>::iter_prefix(to).collect::<Vec<_>>()
+}
+
+pub fn fast_forward_to_block(n: u64) {
+    let block_number = frame_system::Module::<TestStorage>::block_number();
+    (block_number..n).for_each(|block| {
+        assert_ok!(pips::Module::<TestStorage>::end_block(block));
+        frame_system::Module::<TestStorage>::set_block_number(block + 1);
+    });
 }
