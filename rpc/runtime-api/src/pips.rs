@@ -14,7 +14,8 @@
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
 //! Runtime API definition for pips module.
-use pallet_pips::{HistoricalVotingItem, VoteCount};
+use pallet_pips::{HistoricalVoting, HistoricalVotingByAddress, VoteCount};
+use polymesh_primitives::IdentityId;
 
 use codec::{Codec, Decode, Encode};
 #[cfg(feature = "std")]
@@ -69,8 +70,11 @@ sp_api::decl_runtime_apis! {
         /// Retrieve proposals `address` voted on.
         fn voted_on(address: AccountId) -> Vec<u32>;
 
-        /// Retrieve referendums voted on by `address`.
-        fn voting_history_by_address(address: AccountId) -> Vec<HistoricalVotingItem<Balance>>;
+        /// Retrieve referendums voted on information by `address` account.
+        fn voting_history_by_address(address: AccountId) -> HistoricalVoting<Balance>;
+
+        /// Retrieve referendums voted on information by `id` identity (and its signing items).
+        fn voting_history_by_id(id: IdentityId) -> HistoricalVotingByAddress<Balance>;
     }
 }
 

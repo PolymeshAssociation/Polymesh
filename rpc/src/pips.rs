@@ -16,18 +16,21 @@
 pub use node_rpc_runtime_api::pips::{
     self as runtime_api, CappedVoteCount, PipsApi as PipsRuntimeApi,
 };
-use pallet_pips::HistoricalVotingItem;
+use pallet_pips::{HistoricalVoting, HistoricalVotingByAddress, HistoricalVotingItem};
+use polymesh_primitives::IdentityId;
 
 use codec::Codec;
 use jsonrpc_core::{Error as RpcError, ErrorCode, Result};
 use jsonrpc_derive::rpc;
-use sp_api::ProvideRuntimeApi;
+
+use sp_api::{ApiRef, ProvideRuntimeApi};
 use sp_blockchain::HeaderBackend;
 use sp_runtime::{
     generic::BlockId,
     traits::{Block as BlockT, UniqueSaturatedInto},
 };
 use sp_std::{prelude::*, vec::Vec};
+
 use std::sync::Arc;
 
 /// Pips RPC methods.
@@ -46,12 +49,20 @@ pub trait PipsApi<BlockHash, AccountId, Balance> {
     fn voted_on(&self, address: AccountId, at: Option<BlockHash>) -> Result<Vec<u32>>;
 
     /// Retrieve historical voting of `who` account.
-    #[rpc(name = "pips_votingHistory")]
+    #[rpc(name = "pips_votingHistoryByAddress")]
     fn voting_history_by_address(
         &self,
         address: AccountId,
         at: Option<BlockHash>,
-    ) -> Result<Vec<HistoricalVotingItem<Balance>>>;
+    ) -> Result<HistoricalVoting<Balance>>;
+
+    /// Retrieve historical voting of `id` identity.
+    #[rpc(name = "pips_votingHistoryById")]
+    fn voting_history_by_id(
+        &self,
+        id: IdentityId,
+        at: Option<BlockHash>,
+    ) -> Result<HistoricalVotingByAddress<Balance>>;
 }
 
 /// An implementation of pips specific RPC methods.
@@ -70,14 +81,6 @@ impl<T, U> Pips<T, U> {
     }
 }
 
-/// Error type of this RPC api.
-pub enum Error {
-    /// The transaction was not decodable.
-    DecodeError,
-    /// The call to runtime failed.
-    RuntimeError,
-}
-
 impl<C, Block, AccountId, Balance> PipsApi<<Block as BlockT>::Hash, AccountId, Balance>
     for Pips<C, Block>
 where
@@ -94,16 +97,13 @@ where
         index: u32,
         at: Option<<Block as BlockT>::Hash>,
     ) -> Result<CappedVoteCount> {
-        let api = self.client.runtime_api();
-        let at = BlockId::hash(at.unwrap_or_else(|| self.client.info().best_hash));
-
-        api.get_votes(&at, index)
-            .map_err(|e| RpcError {
-                code: ErrorCode::ServerError(Error::RuntimeError as i64),
-                message: "Unable to query get_votes.".into(),
-                data: Some(format!("{:?}", e).into()),
-            })
-            .map(CappedVoteCount::new)
+        rpc_forward_call!(
+            self,
+            at,
+            |api: ApiRef<<C as ProvideRuntimeApi<Block>>::Api>, at| api.get_votes(at, index),
+            "Unable to query `get_votes`."
+        )
+        .map(CappedVoteCount::new)
     }
 
     fn proposed_by(
@@ -111,16 +111,12 @@ where
         address: AccountId,
         at: Option<<Block as BlockT>::Hash>,
     ) -> Result<Vec<u32>> {
-        let api = self.client.runtime_api();
-        let at = BlockId::hash(at.unwrap_or_else(|| self.client.info().best_hash));
-
-        let result = api.proposed_by(&at, address).map_err(|e| RpcError {
-            code: ErrorCode::ServerError(Error::RuntimeError as i64),
-            message: "Unable to query proposed_by.".into(),
-            data: Some(format!("{:?}", e).into()),
-        })?;
-
-        Ok(result)
+        rpc_forward_call!(
+            self,
+            at,
+            |api: ApiRef<<C as ProvideRuntimeApi<Block>>::Api>, at| api.proposed_by(at, address),
+            "Unable to query `proposed_by`."
+        )
     }
 
     fn voted_on(
@@ -128,16 +124,12 @@ where
         address: AccountId,
         at: Option<<Block as BlockT>::Hash>,
     ) -> Result<Vec<u32>> {
-        let api = self.client.runtime_api();
-        let at = BlockId::hash(at.unwrap_or_else(|| self.client.info().best_hash));
-
-        let result = api.voted_on(&at, address).map_err(|e| RpcError {
-            code: ErrorCode::ServerError(Error::RuntimeError as i64),
-            message: "Unable to query voted_on.".into(),
-            data: Some(format!("{:?}", e).into()),
-        })?;
-
-        Ok(result)
+        rpc_forward_call!(
+            self,
+            at,
+            |api: ApiRef<<C as ProvideRuntimeApi<Block>>::Api>, at| api.voted_on(at, address),
+            "Unable to query `voted_on`."
+        )
     }
 
     fn voting_history_by_address(
@@ -145,17 +137,26 @@ where
         address: AccountId,
         at: Option<<Block as BlockT>::Hash>,
     ) -> Result<Vec<HistoricalVotingItem<Balance>>> {
-        let api = self.client.runtime_api();
-        let at = BlockId::hash(at.unwrap_or_else(|| self.client.info().best_hash));
+        rpc_forward_call!(
+            self,
+            at,
+            |api: ApiRef<<C as ProvideRuntimeApi<Block>>::Api>, at| api
+                .voting_history_by_address(at, address),
+            "Unable to query `voting_history_by_address`."
+        )
+    }
 
-        let result = api
-            .voting_history_by_address(&at, address)
-            .map_err(|e| RpcError {
-                code: ErrorCode::ServerError(Error::RuntimeError as i64),
-                message: "Unable to query `referendum_voted_on`.".into(),
-                data: Some(format!("{:?}", e).into()),
-            })?;
-
-        Ok(result)
+    fn voting_history_by_id(
+        &self,
+        id: IdentityId,
+        at: Option<<Block as BlockT>::Hash>,
+    ) -> Result<HistoricalVotingByAddress<Balance>> {
+        rpc_forward_call!(
+            self,
+            at,
+            |api: ApiRef<<C as ProvideRuntimeApi<Block>>::Api>, at| api
+                .voting_history_by_id(at, id),
+            "Unable to query `voting_history_by_id`."
+        )
     }
 }

@@ -13,14 +13,17 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
-use codec::Codec;
-use jsonrpc_core::{Error as RpcError, ErrorCode, Result};
-use jsonrpc_derive::rpc;
 pub use node_rpc_runtime_api::asset::{AssetApi as AssetRuntimeApi, CanTransferResult};
 use polymesh_primitives::{IdentityId, Ticker};
-use sp_api::ProvideRuntimeApi;
+
+use jsonrpc_core::{Error as RpcError, ErrorCode, Result};
+use jsonrpc_derive::rpc;
+
+use codec::Codec;
+use sp_api::{ApiRef, ProvideRuntimeApi};
 use sp_blockchain::HeaderBackend;
 use sp_runtime::{generic::BlockId, traits::Block as BlockT};
+
 use std::sync::Arc;
 
 #[rpc]
@@ -53,14 +56,6 @@ impl<T, U> Asset<T, U> {
     }
 }
 
-/// Error type of this RPC api.
-pub enum Error {
-    /// The transaction was not decodable.
-    DecodeError,
-    /// The call to runtime failed.
-    RuntimeError,
-}
-
 impl<C, Block, AccountId, T> AssetApi<<Block as BlockT>::Hash, AccountId, T> for Asset<C, Block>
 where
     Block: BlockT,
@@ -80,16 +75,12 @@ where
         value: T,
         at: Option<<Block as BlockT>::Hash>,
     ) -> Result<CanTransferResult> {
-        let api = self.client.runtime_api();
-        let at = BlockId::hash(at.unwrap_or_else(||
-                // If the block hash is not supplied assume the best block.
-                self.client.info().best_hash));
-
-        api.can_transfer(&at, sender, ticker, from_did, to_did, value)
-            .map_err(|e| RpcError {
-                code: ErrorCode::ServerError(Error::RuntimeError as i64),
-                message: "Unable to check trnsfer".into(),
-                data: Some(format!("{:?}", e).into()),
-            })
+        rpc_forward_call!(
+            self,
+            at,
+            |api: ApiRef<<C as ProvideRuntimeApi<Block>>::Api>, at| api
+                .can_transfer(at, sender, ticker, from_did, to_did, value),
+            "Unable to check transfer"
+        )
     }
 }

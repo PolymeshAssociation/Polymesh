@@ -190,6 +190,8 @@ pub struct HistoricalVotingItem<Balance> {
     pub pip: PipId,
     pub vote: Vote<Balance>,
 }
+pub type HistoricalVoting<Balance> = Vec<HistoricalVotingItem<Balance>>;
+pub type HistoricalVotingByAddress<Balance> = Vec<(AccountKey, HistoricalVoting<Balance>)>;
 
 impl<Balance> Default for Vote<Balance> {
     fn default() -> Self {
@@ -1267,13 +1269,29 @@ impl<T: Trait> Module<T> {
     }
 
     /// Retrieve historical voting of `who` account.
-    pub fn voting_history_by_address(who: T::AccountId) -> Vec<HistoricalVotingItem<BalanceOf<T>>> {
+    pub fn voting_history_by_address(who: T::AccountId) -> HistoricalVoting<BalanceOf<T>> {
         <ProposalMetadata<T>>::iter()
             .map(|meta| HistoricalVotingItem {
                 pip: meta.id,
                 vote: Self::proposal_vote(meta.id, &who),
             })
             .collect::<Vec<_>>()
+    }
+
+    /// Retrieve historical voting of `who` identity.
+    /// It fetches all its keys recursively and it returns the voting history for each of them.
+    pub fn voting_history_by_id(who: IdentityId) -> HistoricalVotingByAddress<BalanceOf<T>> {
+        let flatten_keys = <Identity<T>>::flatten_keys(who);
+        flatten_keys
+            .into_iter()
+            .filter_map(|key| {
+                if let Ok(address) = T::AccountId::decode(&mut key.as_slice()) {
+                    Some((key, Self::voting_history_by_address(address)))
+                } else {
+                    None
+                }
+            })
+            .collect::<HistoricalVotingByAddress<_>>()
     }
 
     /// It generates the next id for proposals and referendums.
