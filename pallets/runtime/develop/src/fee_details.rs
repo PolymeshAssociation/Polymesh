@@ -38,6 +38,7 @@ type Bridge = bridge::Module<Runtime>;
 
 type Call = runtime::Call;
 
+#[derive(Encode, Decode)]
 enum CallType {
     AcceptMultiSigSigner,
     AcceptIdentitySigner,
