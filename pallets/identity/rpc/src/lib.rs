@@ -7,9 +7,12 @@ use pallet_identity_rpc_runtime_api::{
 };
 use sp_api::ProvideRuntimeApi;
 use sp_blockchain::HeaderBackend;
-use sp_runtime::{generic::BlockId, traits::{ Block as BlockT, Zero}};
-use std::sync::Arc;
+use sp_runtime::{
+    generic::BlockId,
+    traits::{Block as BlockT, Zero},
+};
 use std::convert::TryInto;
+use std::sync::Arc;
 
 const MAX_IDENTITIES_ALLOWED_TO_QUERY: u32 = 500;
 
@@ -176,12 +179,21 @@ where
         dids: Vec<IdentityId>,
         at: Option<<Block as BlockT>::Hash>,
     ) -> Result<Vec<DidStatus>> {
-
-        if dids.len() > MAX_IDENTITIES_ALLOWED_TO_QUERY.try_into().unwrap_or(Zero::zero()) {
+        if dids.len()
+            > MAX_IDENTITIES_ALLOWED_TO_QUERY
+                .try_into()
+                .unwrap_or(Zero::zero())
+        {
             return Err(RpcError {
                 code: ErrorCode::ServerError(Error::RuntimeError as i64),
                 message: "Unable to fetch dids status".into(),
-                data: Some(format!("Provided vector length is more than the maximum allowed length i.e {:?}", MAX_IDENTITIES_ALLOWED_TO_QUERY).into()),
+                data: Some(
+                    format!(
+                        "Provided vector length is more than the maximum allowed length i.e {:?}",
+                        MAX_IDENTITIES_ALLOWED_TO_QUERY
+                    )
+                    .into(),
+                ),
             });
         }
         let api = self.client.runtime_api();
