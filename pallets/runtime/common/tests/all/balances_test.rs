@@ -365,25 +365,25 @@ fn transfer_with_memo_we() {
     let expected_events = vec![
         EventRecord {
             phase: Phase::ApplyExtrinsic(0),
-            event: EventTest::balances(BalancesRawEvent::TransferWithMemo(
+            event: EventTest::balances(BalancesRawEvent::Transfer(
                 Some(alice_id),
                 alice.clone(),
                 Some(bob_id),
                 bob.clone(),
                 100,
-                memo_1.unwrap(),
+                memo_1,
             )),
             topics: vec![],
         },
         EventRecord {
             phase: Phase::ApplyExtrinsic(0),
-            event: EventTest::balances(BalancesRawEvent::TransferWithMemo(
+            event: EventTest::balances(BalancesRawEvent::Transfer(
                 Some(alice_id),
                 alice,
                 Some(bob_id),
                 bob,
                 200,
-                memo_2.unwrap(),
+                memo_2,
             )),
             topics: vec![],
         },
@@ -395,6 +395,7 @@ fn transfer_with_memo_we() {
                 Some(bob_id),
                 bob,
                 300,
+                None,
             )),
             topics: vec![],
         },

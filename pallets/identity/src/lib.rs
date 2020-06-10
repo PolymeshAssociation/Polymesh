@@ -84,7 +84,7 @@
 #[cfg(feature = "runtime-benchmarks")]
 pub mod benchmarking;
 
-use pallet_identity_rpc_runtime_api::{DidRecords as RpcDidRecords, LinkType};
+use pallet_identity_rpc_runtime_api::{DidRecords as RpcDidRecords, DidStatus, LinkType};
 use pallet_transaction_payment::{CddAndFeeDetails, ChargeTxFee};
 use polymesh_common_utilities::{
     constants::did::{SECURITY_TOKEN, USER},
@@ -2095,6 +2095,23 @@ impl<T: Trait> Module<T> {
         }
     }
 
+    pub fn get_did_status(dids: Vec<IdentityId>) -> Vec<DidStatus> {
+        let mut result = Vec::with_capacity(dids.len());
+        dids.into_iter().for_each(|did| {
+            // is DID exist in the ecosystem
+            if !<DidRecords>::contains_key(did) {
+                result.push(DidStatus::Unknown);
+            }
+            // DID exist but whether it has valid cdd or not
+            else if Self::fetch_cdd(did, T::Moment::zero()).is_some() {
+                result.push(DidStatus::CddVerified);
+            } else {
+                result.push(DidStatus::Exists);
+            }
+        });
+        result
+    }
+
     /// Registers the systematic issuer with its DID.
     fn register_systematic_id(issuer: SystematicIssuers)
     where
@@ -2123,6 +2140,49 @@ impl<T: Trait> Module<T> {
         <DidRecords>::insert(&id, record);
 
         Self::deposit_event(RawEvent::DidCreated(id, acc, vec![]));
+    }
+
+    /// It returns the list of flatten identities of the given identity.
+    /// It runs recursively over all signing items.
+    pub fn flatten_identities(id: IdentityId, max_depth: u8) -> Vec<IdentityId> {
+        if <DidRecords>::contains_key(id) {
+            let identity = <DidRecords>::get(id);
+
+            identity
+                .signing_items
+                .into_iter()
+                .flat_map(|si| match si.signer {
+                    Signatory::Identity(sub_id) if max_depth > 0 => {
+                        Self::flatten_identities(sub_id, max_depth - 1)
+                    }
+                    _ => vec![],
+                })
+                .chain([id].iter().cloned())
+                .collect::<Vec<_>>()
+        } else {
+            vec![]
+        }
+    }
+
+    /// Get the list of flatten keys fo the given identity.
+    /// It runs recursively over all signing items.
+    pub fn flatten_keys(id: IdentityId, max_depth: u8) -> Vec<AccountKey> {
+        let sub_identities = Self::flatten_identities(id, max_depth);
+        sub_identities
+            .into_iter()
+            .flat_map(|sub_id| {
+                let identity = <DidRecords>::get(sub_id);
+                identity
+                    .signing_items
+                    .iter()
+                    .filter_map(|si| match si.signer {
+                        Signatory::AccountKey(key) => Some(key),
+                        _ => None,
+                    })
+                    .chain([identity.master_key].iter().cloned())
+                    .collect::<Vec<_>>()
+            })
+            .collect::<Vec<_>>()
     }
 }
 

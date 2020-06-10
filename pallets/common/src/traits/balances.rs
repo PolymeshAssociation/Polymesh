@@ -116,13 +116,10 @@ decl_event!(
     {
         /// An account was created with some free balance.
         Endowed(Option<IdentityId>, AccountId, Balance),
-        /// Transfer succeeded (from, to, value).
-        Transfer(Option<IdentityId>, AccountId, Option<IdentityId>, AccountId, Balance),
+        /// Transfer succeeded (from_did, from, to_did, to, value, memo).
+        Transfer(Option<IdentityId>, AccountId, Option<IdentityId>, AccountId, Balance, Option<Memo>),
         /// A balance was set by root (who, free, reserved).
         BalanceSet(IdentityId, AccountId, Balance, Balance),
-        /// Transfer succeded with a memo.
-        /// ( source Id, source Account, target Id, target Account, amount, Text)
-        TransferWithMemo(Option<IdentityId>, AccountId, Option<IdentityId>, AccountId, Balance, Memo),
         /// The account and the amount of unlocked balance of that account that was burned.
         /// (caller Id, caller account, amount)
         AccountBalanceBurned(IdentityId, AccountId, Balance),
