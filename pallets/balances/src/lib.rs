@@ -718,26 +718,15 @@ impl<T: Trait> Module<T> {
         let dest_key = dest.encode().try_into()?;
         let dest_id = T::Identity::get_identity(&dest_key);
 
-        if let Some(memo) = memo {
-            // Emit TransferWithMemo event.
-            Self::deposit_event(RawEvent::TransferWithMemo(
-                transactor_id,
-                transactor.clone(),
-                dest_id,
-                dest.clone(),
-                value,
-                memo,
-            ));
-        } else {
-            // Emit transfer event.
-            Self::deposit_event(RawEvent::Transfer(
-                transactor_id,
-                transactor.clone(),
-                dest_id,
-                dest.clone(),
-                value,
-            ));
-        }
+        Self::deposit_event(RawEvent::Transfer(
+            transactor_id,
+            transactor.clone(),
+            dest_id,
+            dest.clone(),
+            value,
+            memo,
+        ));
+
         Ok(())
     }
 }
