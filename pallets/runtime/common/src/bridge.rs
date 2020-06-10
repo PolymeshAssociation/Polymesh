@@ -89,11 +89,11 @@
 //! - `change_bridge_whitelist`: Changes the bridge limit whitelist.
 //! - `force_handle_bridge_tx`: Forces handling a transaction by bypassing the bridge limit and
 //! timelock.
-//! - `force_handle_bridge_txs`: Forces handling a vector of transactions.
+//! - `batch_force_handle_bridge_tx`: Forces handling a vector of transactions.
 //! - `propose_bridge_tx`: Proposes a bridge transaction, which amounts to making a multisig
-//! - `propose_bridge_txs`: Proposes a vector of bridge transactions.
+//! - `batch_propose_bridge_tx`: Proposes a vector of bridge transactions.
 //! - `handle_bridge_tx`: Handles an approved bridge transaction proposal.
-//! - `handle_bridge_txs`: Handles a vector of approved bridge transaction proposals.
+//! - `batch_handle_bridge_tx`: Handles a vector of approved bridge transaction proposals.
 //! - `freeze_txs`: Freezes given bridge transactions.
 //! - `unfreeze_txs`: Unfreezes given bridge transactions.
 
@@ -101,7 +101,7 @@ use codec::{Decode, Encode};
 use frame_support::dispatch::DispatchResult;
 use frame_support::traits::{Currency, Get};
 use frame_support::{
-    decl_error, decl_event, decl_module, decl_storage, ensure,
+    debug, decl_error, decl_event, decl_module, decl_storage, ensure,
     weights::{DispatchClass, FunctionOf, SimpleDispatchInfo},
 };
 use frame_system::{self as system, ensure_signed};
@@ -112,7 +112,6 @@ use polymesh_common_utilities::{
     traits::{balances::CheckCdd, identity::Trait as IdentityTrait, CommonTrait},
     Context, SystematicIssuers,
 };
-
 use polymesh_primitives::{AccountKey, IdentityId, JoinIdentityData, Signatory};
 use sp_core::H256;
 use sp_runtime::traits::{CheckedAdd, One, Zero};
@@ -220,8 +219,6 @@ decl_error! {
         NotFrozen,
         /// The transaction is frozen.
         FrozenTx,
-        /// There is no such frozen transaction.
-        NoSuchFrozenTx,
         /// There is no proposal corresponding to a given bridge transaction.
         NoSuchProposal,
         /// All the blocks in the timelock block range are full.
@@ -241,8 +238,9 @@ decl_error! {
 
 decl_storage! {
     trait Store for Module<T: Trait> as Bridge {
-        /// The multisig account of the bridge controller. The genesis signers must accept their
-        /// authorizations to be able to get their proposals delivered.
+        /// The multisig account of the bridge controller. The genesis signers accept their
+        /// authorizations and are able to get their proposals delivered. The bridge creator
+        /// transfers some POLY to their identity.
         Controller get(fn controller) build(|config: &GenesisConfig<T>| {
             if config.signatures_required > u64::try_from(config.signers.len()).unwrap_or_default()
             {
@@ -252,18 +250,28 @@ decl_storage! {
                 // Default to the empty signer set.
                 return Default::default();
             }
-            let creator_key = AccountKey::try_from(config.creator.clone().encode()).expect("cannot create the bridge creator account");
-            let creator_did = Context::current_identity_or::<identity::Module<T>>(&creator_key).expect("bridge creator account has no identity");
-
             let multisig_id = <multisig::Module<T>>::create_multisig_account(
                 config.creator.clone(),
                 config.signers.as_slice(),
                 config.signatures_required
             ).expect("cannot create the bridge multisig");
+            debug::info!("Created bridge multisig {}", multisig_id);
+            for signer in &config.signers {
+                debug::info!("Accepting bridge signer auth for {:?}", signer);
+                let last_auth = <identity::Authorizations<T>>::iter_prefix(signer)
+                    .next()
+                    .expect("cannot find bridge signer auth")
+                    .auth_id;
+                <multisig::Module<T>>::_accept_multisig_signer(signer.clone(), last_auth)
+                    .expect("cannot accept bridge signer auth");
+            }
+            let creator_key = AccountKey::try_from(config.creator.clone().encode()).expect("cannot create the bridge creator account");
+            let creator_did = Context::current_identity_or::<identity::Module<T>>(&creator_key).expect("bridge creator account has no identity");
             <identity::Module<T>>::unsafe_join_identity(
                 JoinIdentityData::new(creator_did.clone(), vec![]),
                 Signatory::from(AccountKey::try_from(multisig_id.clone().encode()).unwrap())
             ).expect("cannot link the bridge multisig");
+            debug::info!("Joined identity {} as signer {}", creator_did, multisig_id);
             multisig_id
         }): T::AccountId;
 
@@ -455,8 +463,8 @@ decl_module! {
         }
 
         /// Forces handling a vector of transactions by bypassing the bridge limit and timelock.
-        /// The vector is processed until the first proposal which causes an error, in which case
-        /// the error is returned and the rest of proposals are not processed.
+        /// It collects results of processing every transaction in the given vector and outputs
+        /// the vector of results (In event) which has the same length as the `bridge_txs` have
         ///
         /// # Weight
         /// `50_000 + 200_000 * bridge_txs.len()`
@@ -469,7 +477,7 @@ decl_module! {
             DispatchClass::Operational,
             true
         )]
-        pub fn force_handle_bridge_txs(origin, bridge_txs: Vec<BridgeTx<T::AccountId, T::Balance>>) ->
+        pub fn batch_force_handle_bridge_tx(origin, bridge_txs: Vec<BridgeTx<T::AccountId, T::Balance>>) ->
             DispatchResult
         {
             let sender = ensure_signed(origin)?;
@@ -509,12 +517,12 @@ decl_module! {
             DispatchClass::Operational,
             true
         )]
-        pub fn propose_bridge_txs(origin, bridge_txs: Vec<BridgeTx<T::AccountId, T::Balance>>) ->
+        pub fn batch_propose_bridge_tx(origin, bridge_txs: Vec<BridgeTx<T::AccountId, T::Balance>>) ->
             DispatchResult
         {
             ensure!(Self::controller() != Default::default(), Error::<T>::ControllerNotSet);
             let sender = ensure_signed(origin)?;
-            Self::propose_signed_bridge_txs(&sender, bridge_txs)
+            Self::batch_propose_signed_bridge_tx(&sender, bridge_txs)
         }
 
         /// Handles an approved bridge transaction proposal.
@@ -526,9 +534,8 @@ decl_module! {
             Self::handle_signed_bridge_tx(&sender, bridge_tx)
         }
 
-        /// Handles a vector of approved bridge transaction proposals. The vector is processed until
-        /// the first proposal which causes an error, in which case the error is returned and the
-        /// rest of proposals are not processed.
+        /// Handles a vector of approved bridge transaction proposals.
+        /// It deposits an event (i.e TxsHandled) which consist the result of every BridgeTx.
         ///
         /// # Weight
         /// `50_000 + 200_000 * bridge_txs.len()`
@@ -541,7 +548,7 @@ decl_module! {
             DispatchClass::Operational,
             true
         )]
-        pub fn handle_bridge_txs(origin, bridge_txs: Vec<BridgeTx<T::AccountId, T::Balance>>) ->
+        pub fn batch_handle_bridge_tx(origin, bridge_txs: Vec<BridgeTx<T::AccountId, T::Balance>>) ->
             DispatchResult
         {
             let sender = ensure_signed(origin)?;
@@ -554,6 +561,7 @@ decl_module! {
         }
 
         /// Freezes given bridge transactions.
+        /// If any bridge txn is already handled then this function will just ignore it and process next one.
         ///
         /// # Weight
         /// `50_000 + 200_000 * bridge_txs.len()`
@@ -566,7 +574,7 @@ decl_module! {
             DispatchClass::Operational,
             true
         )]
-        pub fn freeze_txs(origin, bridge_txs: Vec<BridgeTx<T::AccountId, T::Balance>>) ->
+        pub fn batch_freeze_tx(origin, bridge_txs: Vec<BridgeTx<T::AccountId, T::Balance>>) ->
             DispatchResult
         {
             let sender = ensure_signed(origin)?;
@@ -574,14 +582,16 @@ decl_module! {
             ensure!(sender == Self::admin(), Error::<T>::BadAdmin);
             for bridge_tx in bridge_txs {
                 let tx_details = Self::bridge_tx_details(&bridge_tx.recipient, &bridge_tx.nonce);
-                ensure!(tx_details.status != BridgeTxStatus::Handled, Error::<T>::ProposalAlreadyHandled);
-                <BridgeTxDetails<T>>::mutate(&bridge_tx.recipient, &bridge_tx.nonce, |tx_detail| tx_detail.status = BridgeTxStatus::Frozen);
-                Self::deposit_event(RawEvent::FrozenTx(current_did, bridge_tx));
+                if tx_details.status != BridgeTxStatus::Handled {
+                    <BridgeTxDetails<T>>::mutate(&bridge_tx.recipient, &bridge_tx.nonce, |tx_detail| tx_detail.status = BridgeTxStatus::Frozen);
+                    Self::deposit_event(RawEvent::FrozenTx(current_did, bridge_tx));
+                }
             }
             Ok(())
         }
 
         /// Unfreezes given bridge transactions.
+        /// If any bridge txn is already handled then this function will just ignore it and process next one.
         ///
         /// # Weight
         /// `50_000 + 700_000 * bridge_txs.len()`
@@ -594,7 +604,7 @@ decl_module! {
             DispatchClass::Operational,
             true
         )]
-        pub fn unfreeze_txs(origin, bridge_txs: Vec<BridgeTx<T::AccountId, T::Balance>>) ->
+        pub fn batch_unfreeze_tx(origin, bridge_txs: Vec<BridgeTx<T::AccountId, T::Balance>>) ->
             DispatchResult
         {
             // NB: An admin can call Freeze + Unfreeze on a transaction to bypass the timelock
@@ -603,11 +613,12 @@ decl_module! {
             ensure!(sender == Self::admin(), Error::<T>::BadAdmin);
             for bridge_tx in bridge_txs {
                 let tx_details = Self::bridge_tx_details(&bridge_tx.recipient, &bridge_tx.nonce);
-                ensure!(tx_details.status == BridgeTxStatus::Frozen, Error::<T>::NoSuchFrozenTx);
-                <BridgeTxDetails<T>>::mutate(&bridge_tx.recipient, &bridge_tx.nonce, |tx_detail| tx_detail.status = BridgeTxStatus::Absent);
-                Self::deposit_event(RawEvent::UnfrozenTx(current_did, bridge_tx.clone()));
-                if let Err(e) = Self::handle_bridge_tx_now(bridge_tx, true) {
-                    sp_runtime::print(e);
+                if tx_details.status == BridgeTxStatus::Frozen {
+                    <BridgeTxDetails<T>>::mutate(&bridge_tx.recipient, &bridge_tx.nonce, |tx_detail| tx_detail.status = BridgeTxStatus::Absent);
+                    Self::deposit_event(RawEvent::UnfrozenTx(current_did, bridge_tx.clone()));
+                    if let Err(e) = Self::handle_bridge_tx_now(bridge_tx, true) {
+                        sp_runtime::print(e);
+                    }
                 }
             }
             Ok(())
@@ -780,12 +791,12 @@ impl<T: Trait> Module<T> {
     }
 
     /// Proposes a vector of bridge transaction. The bridge controller must be set.
-    fn propose_signed_bridge_txs(
+    fn batch_propose_signed_bridge_tx(
         sender: &T::AccountId,
         bridge_txs: Vec<BridgeTx<T::AccountId, T::Balance>>,
     ) -> DispatchResult {
         let sender_signer = Signatory::from(AccountKey::try_from(sender.encode())?);
-        let proposal = <T as Trait>::Proposal::from(Call::<T>::handle_bridge_txs(bridge_txs));
+        let proposal = <T as Trait>::Proposal::from(Call::<T>::batch_handle_bridge_tx(bridge_txs));
         let boxed_proposal = Box::new(proposal.into());
         <multisig::Module<T>>::create_or_approve_proposal(
             Self::controller(),

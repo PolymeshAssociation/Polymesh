@@ -94,7 +94,6 @@ use sp_std::{
 
 #[cfg(feature = "std")]
 use serde::{Deserialize, Serialize};
-
 /// Balance
 type BalanceOf<T> =
     <<T as Trait>::Currency as Currency<<T as frame_system::Trait>::AccountId>>::Balance;
@@ -204,8 +203,7 @@ pub struct VoteByPip<VoteType> {
 pub type HistoricalVoting<VoteType> = Vec<VoteByPip<VoteType>>;
 pub type HistoricalVotingByAddress<VoteType> = Vec<(AccountKey, HistoricalVoting<VoteType>)>;
 
-#[derive(Encode, Decode, Copy, Clone, Eq, PartialEq)]
-#[cfg_attr(feature = "std", derive(Debug))]
+#[derive(Encode, Decode, Copy, Clone, Eq, PartialEq, Debug)]
 pub enum ProposalState {
     /// Proposal is created and either in the cool-down period or open to voting
     Pending,

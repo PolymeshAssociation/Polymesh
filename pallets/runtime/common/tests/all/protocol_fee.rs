@@ -31,13 +31,13 @@ fn can_charge_fee_batch() {
                 .unwrap();
         let alice_signer =
             Signatory::from(AccountKey::try_from(AccountKeyring::Alice.public().encode()).unwrap());
-        assert_ok!(ProtocolFee::charge_fee_batch(
+        assert_ok!(ProtocolFee::batch_charge_fee(
             &alice_signer,
             ProtocolOp::AssetIssue,
             7,
         ));
         assert_err!(
-            ProtocolFee::charge_fee_batch(&alice_signer, ProtocolOp::AssetIssue, 7,),
+            ProtocolFee::batch_charge_fee(&alice_signer, ProtocolOp::AssetIssue, 7,),
             Error::InsufficientAccountBalance
         );
     });
