@@ -82,7 +82,7 @@ use polymesh_common_utilities::{
     traits::{governance_group::GovernanceGroupTrait, group::GroupTrait, pip::PipId},
     CommonTrait, Context, SystematicIssuers,
 };
-use polymesh_primitives::{AccountKey, Beneficiary, IdentityId, Signatory};
+use polymesh_primitives::{Beneficiary, IdentityId, Signatory};
 use polymesh_primitives_derive::VecU8StrongTyped;
 use sp_core::H256;
 use sp_runtime::traits::{
@@ -528,8 +528,7 @@ decl_module! {
             beneficiaries: Option<Vec<Beneficiary<T::Balance>>>
         ) -> DispatchResult {
             let proposer = ensure_signed(origin)?;
-            let proposer_key = AccountKey::try_from(proposer.encode())?;
-            let signer = Signatory::from(proposer_key);
+            let signer = Signatory::Account(proposer.clone());
 
             // Pre conditions: caller must have min balance
             ensure!(
@@ -834,8 +833,8 @@ decl_module! {
         /// that will be voted on by the committee.
         #[weight = SimpleDispatchInfo::FixedOperational(200_000)]
         pub fn fast_track_proposal(origin, id: PipId) -> DispatchResult {
-            let sender_key = AccountKey::try_from(ensure_signed(origin)?.encode())?;
-            let did = Context::current_identity_or::<Identity<T>>(&sender_key)?;
+            let sender = ensure_signed(origin)?;
+            let did = Context::current_identity_or::<Identity<T>>(&sender)?;
 
             ensure!(
                 T::GovernanceCommittee::is_member(&did),
@@ -866,8 +865,7 @@ decl_module! {
             beneficiaries: Option<Vec<Beneficiary<T::Balance>>>
         ) -> DispatchResult {
             let proposer = ensure_signed(origin)?;
-            let proposer_key = AccountKey::try_from(proposer.encode())?;
-            let did = Context::current_identity_or::<Identity<T>>(&proposer_key)?;
+            let did = Context::current_identity_or::<Identity<T>>(&proposer)?;
 
             ensure!(
                 T::GovernanceCommittee::is_member(&did),
@@ -945,8 +943,8 @@ decl_module! {
         /// * ``,
         #[weight = SimpleDispatchInfo::FixedOperational(100_000)]
         pub fn override_referendum_enactment_period(origin, id: PipId, until: Option<T::BlockNumber>) -> DispatchResult {
-            let sender_key = AccountKey::try_from(ensure_signed(origin)?.encode())?;
-            let current_did = Context::current_identity_or::<Identity<T>>(&sender_key)?;
+            let sender = ensure_signed(origin)?;
+            let current_did = Context::current_identity_or::<Identity<T>>(&sender)?;
 
             // 1. Only release coordinator
             ensure!(

@@ -71,7 +71,7 @@ use polymesh_common_utilities::{
     pip::{EnactProposalMaker, PipId},
     Context, SystematicIssuers,
 };
-use polymesh_primitives::{AccountKey, IdentityId};
+use polymesh_primitives::IdentityId;
 use sp_core::u32_trait::Value as U32;
 use sp_runtime::traits::{EnsureOrigin, Hash, Zero};
 use sp_std::{convert::TryFrom, prelude::*, vec};
@@ -260,8 +260,8 @@ decl_module! {
         /// * `proposal` - A dispatchable call.
         #[weight = SimpleDispatchInfo::FixedOperational(5_000_000)]
         pub fn propose(origin, proposal: Box<<T as Trait<I>>::Proposal>) {
-            let who_key = AccountKey::try_from(ensure_signed(origin)?.encode())?;
-            let did = Context::current_identity_or::<Identity<T>>(&who_key)?;
+            let who = ensure_signed(origin)?;
+            let did = Context::current_identity_or::<Identity<T>>(&who)?;
 
             // Only committee members can propose
             ensure!(Self::is_member(&did), Error::<T, I>::BadOrigin);
@@ -296,8 +296,8 @@ decl_module! {
         /// * `approve` - If `true` than this is a `for` vote, and `against` otherwise.
         #[weight = SimpleDispatchInfo::FixedOperational(5_000_000)]
         pub fn vote(origin, proposal: T::Hash, #[compact] index: ProposalIndex, approve: bool) -> DispatchResult {
-            let who_key = AccountKey::try_from(ensure_signed(origin)?.encode())?;
-            let did = Context::current_identity_or::<Identity<T>>(&who_key)?;
+            let who = ensure_signed(origin)?;
+            let did = Context::current_identity_or::<Identity<T>>(&who)?;
 
             // Only committee members can vote
             ensure!(Self::is_member(&did), Error::<T, I>::BadOrigin);
@@ -361,7 +361,7 @@ decl_module! {
         ///   - `L` is the encoded length of `proposal` preimage.
         #[weight = SimpleDispatchInfo::FixedOperational(2_000_000)]
         fn close(origin, proposal: T::Hash, #[compact] index: ProposalIndex) {
-            let who_key = AccountKey::try_from(ensure_signed(origin)?.encode())?;
+            let who = ensure_signed(origin)?;
             let did = Context::current_identity_or::<Identity<T>>(&who_key)?;
 
             let voting = Self::voting(&proposal).ok_or(Error::<T, I>::NoSuchProposal)?;
@@ -577,8 +577,8 @@ impl<T: Trait<I>, I: Instance> Module<T, I> {
         F: Fn() -> (<T as Trait<I>>::Proposal, <T as Trait<I>>::Proposal),
     {
         // Only committee members can use this function.
-        let who_key = AccountKey::try_from(ensure_signed(origin.clone())?.encode())?;
-        let who_id = Context::current_identity_or::<Identity<T>>(&who_key)?;
+        let who = ensure_signed(origin.clone())?;
+        let who_id = Context::current_identity_or::<Identity<T>>(&who)?;
         ensure!(Self::is_member(&who_id), Error::<T, I>::BadOrigin);
 
         ensure!(

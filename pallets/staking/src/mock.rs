@@ -44,7 +44,7 @@ use polymesh_common_utilities::traits::{
     CommonTrait,
 };
 use primitives::traits::BlockRewardsReserveCurrency;
-use primitives::{AccountKey, Claim, IdentityId, Signatory};
+use primitives::{Claim, IdentityId, Signatory};
 use sp_core::{
     crypto::{key_types, Pair as PairTrait},
     sr25519::Pair,
@@ -341,10 +341,10 @@ impl AddSignerMultiSig for Test {
 }
 
 impl CheckCdd for Test {
-    fn check_key_cdd(key: &AccountKey) -> bool {
+    fn check_key_cdd(key: &AccountId) -> bool {
         true
     }
-    fn get_key_cdd_did(key: &AccountKey) -> Option<IdentityId> {
+    fn get_key_cdd_did(key: &AccountId) -> Option<IdentityId> {
         None
     }
 }
@@ -951,13 +951,13 @@ pub fn make_account_with_balance(
     Balances::make_free_balance_be(&id, balance);
 
     Identity::register_did(signed_id.clone(), vec![]).map_err(|_| "Register DID failed")?;
-    let did = Identity::get_identity(&AccountKey::try_from(id.encode())?).unwrap();
+    let did = Identity::get_identity(&id).unwrap();
 
     Ok((signed_id, did))
 }
 
 pub fn check_cdd(id: AccountId) -> Result<bool, &'static str> {
-    let did = Identity::get_identity(&AccountKey::try_from(id.encode())?).unwrap();
+    let did = Identity::get_identity(&id).unwrap();
     let is_cdd = Identity::fetch_cdd(did, Zero::zero()).is_some();
     Ok(is_cdd)
 }

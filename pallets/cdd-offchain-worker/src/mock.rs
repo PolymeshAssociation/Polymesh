@@ -37,7 +37,7 @@ use polymesh_common_utilities::traits::{
     multisig::AddSignerMultiSig,
     CommonTrait,
 };
-use primitives::{AccountKey, IdentityId, Signatory};
+use primitives::{IdentityId, Signatory};
 use sp_core::{
     crypto::{key_types, Pair as PairTrait},
     offchain::{testing, OffchainExt, TransactionPoolExt},
@@ -369,10 +369,10 @@ impl AddSignerMultiSig for Test {
 }
 
 impl CheckCdd for Test {
-    fn check_key_cdd(key: &AccountKey) -> bool {
+    fn check_key_cdd(key: &AccountId) -> bool {
         true
     }
-    fn get_key_cdd_did(key: &AccountKey) -> Option<IdentityId> {
+    fn get_key_cdd_did(key: &AccountId) -> Option<IdentityId> {
         None
     }
 }

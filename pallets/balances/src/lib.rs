@@ -181,7 +181,7 @@ use polymesh_common_utilities::{
 };
 use polymesh_primitives::{
     traits::{BlockRewardsReserveCurrency, IdentityCurrency},
-    AccountKey, IdentityId, Permission, Signatory,
+    IdentityId, Permission, Signatory,
 };
 
 use codec::{Decode, Encode};
@@ -283,7 +283,7 @@ decl_storage! {
 
         // Polymesh-Note : Change to facilitate the DID charging
         /// Signing key => Charge Fee to did?. Default is false i.e. the fee will be charged from user balance
-        pub ChargeDid get(charge_did): map hasher(twox_64_concat) AccountKey => bool;
+        pub ChargeDid get(charge_did): map hasher(twox_64_concat) T::AccountId => bool;
     }
     add_extra_genesis {
         /// Account balances at genesis.
@@ -399,8 +399,7 @@ decl_module! {
         ) {
             if value.is_zero() { return Ok(()) }
             let transactor = ensure_signed(origin)?;
-            let encoded_transactor = AccountKey::try_from(transactor.encode())?;
-            ensure!(<T::Identity>::is_master_key(did, &encoded_transactor), Error::<T>::UnAuthorized);
+            ensure!(<T::Identity>::is_master_key(did, &transactor), Error::<T>::UnAuthorized);
             // Not managing imbalances because they will cancel out.
             // withdraw function will create negative imbalance and
             // deposit function will create positive imbalance
@@ -414,8 +413,7 @@ decl_module! {
         #[weight = SimpleDispatchInfo::FixedNormal(500_000)]
         pub fn change_charge_did_flag(origin, charge_did: bool) {
             let transactor = ensure_signed(origin)?;
-            let encoded_transactor = AccountKey::try_from(transactor.encode())?;
-            <ChargeDid>::insert(encoded_transactor, charge_did);
+            <ChargeDid>::insert(transactor, charge_did);
         }
 
         // Polymesh specific change. New function to transfer balance to BRR.
@@ -661,9 +659,8 @@ impl<T: Trait> Module<T> {
         memo: Option<Memo>,
         existence_requirement: ExistenceRequirement,
     ) -> DispatchResult {
-        let dest_key = AccountKey::try_from((*dest).encode())?;
         ensure!(
-            T::CddChecker::check_key_cdd(&dest_key),
+            T::CddChecker::check_key_cdd(dest),
             Error::<T>::ReceiverCddMissing
         );
 
@@ -1063,12 +1060,12 @@ where
         }
     }
 
-    fn charge_fee_to_identity(who: &AccountKey) -> Option<IdentityId> {
+    fn charge_fee_to_identity(who: &T::AccountId) -> Option<IdentityId> {
         if <Module<T>>::charge_did(who) {
             if let Some(did) = <T::Identity>::get_identity(&who) {
                 if <T::Identity>::is_signer_authorized_with_permissions(
                     did,
-                    &Signatory::AccountKey(who.clone()),
+                    &Signatory::Account(who.clone()),
                     vec![Permission::SpendFunds],
                 ) {
                     return Some(did);

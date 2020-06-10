@@ -39,7 +39,7 @@ use polymesh_common_utilities::{
     traits::{balances::Trait as BalancesTrait, identity::Trait as IdentityTrait, CommonTrait},
     Context, SystematicIssuers,
 };
-use polymesh_primitives::{traits::IdentityCurrency, AccountKey, Beneficiary, IdentityId};
+use polymesh_primitives::{traits::IdentityCurrency, Beneficiary, IdentityId};
 
 use codec::Encode;
 use frame_support::{
@@ -127,8 +127,7 @@ decl_module! {
         /// Only accounts which are associated to an identity can make a donation to treasury.
         pub fn reimbursement(origin, amount: BalanceOf<T>) -> DispatchResult {
             let sender = ensure_signed(origin)?;
-            let sender_key = AccountKey::try_from(sender.encode())?;
-            let did = Context::current_identity_or::<Identity<T>>(&sender_key)?;
+            let did = Context::current_identity_or::<Identity<T>>(&sender)?;
 
             let _ = T::Currency::transfer(
                 &sender,

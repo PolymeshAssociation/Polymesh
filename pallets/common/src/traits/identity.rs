@@ -20,8 +20,8 @@ use crate::{
     ChargeProtocolFee, SystematicIssuers,
 };
 use polymesh_primitives::{
-    AccountKey, AuthorizationData, IdentityClaim, IdentityId, LinkData, Permission, Signatory,
-    SigningItem, Ticker,
+    AuthorizationData, IdentityClaim, IdentityId, LinkData, Permission, Signatory, SigningItem,
+    Ticker,
 };
 
 use codec::{Decode, Encode};
@@ -73,9 +73,9 @@ pub struct TargetIdAuthorization<Moment> {
 ///  - Replace `H512` type by a template type which represents explicitly the relation with
 ///  `TargetIdAuthorization`.
 #[derive(codec::Encode, codec::Decode, Clone, PartialEq, Eq, Debug)]
-pub struct SigningItemWithAuth {
+pub struct SigningItemWithAuth<AccountId> {
     /// Signing item to be added.
-    pub signing_item: SigningItem,
+    pub signing_item: SigningItem<AccountId>,
     /// Off-chain authorization signature.
     pub auth_signature: H512,
 }

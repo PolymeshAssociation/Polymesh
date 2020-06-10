@@ -42,7 +42,7 @@ use frame_support::{
     weights::{DispatchInfo, GetDispatchInfo, Weight},
 };
 use pallet_transaction_payment_rpc_runtime_api::RuntimeDispatchInfo;
-use primitives::{traits::IdentityCurrency, AccountKey, IdentityId, Signatory, TransactionError};
+use primitives::{traits::IdentityCurrency, IdentityId, Signatory, TransactionError};
 use sp_runtime::{
     traits::{Convert, SaturatedConversion, Saturating, SignedExtension, Zero},
     transaction_validity::{
@@ -241,19 +241,14 @@ where
             // This is enforced to curb front running.
             return InvalidTransaction::Custom(TransactionError::ZeroTip as u8).into();
         }
-        let encoded_transactor =
-            AccountKey::try_from(who.encode()).map_err(|_| InvalidTransaction::BadProof)?;
         let fee = Self::compute_fee(len as u32, info, 0u32.into());
-        if let Some(payer) =
-            T::CddHandler::get_valid_payer(call, &Signatory::from(encoded_transactor))?
+        if let Some(payer) = T::CddHandler::get_valid_payer(call, &Signatory::Account(who.clone()))?
         {
             let imbalance;
             match payer {
-                Signatory::AccountKey(key) => {
-                    let payer_key = T::AccountId::decode(&mut &key.as_slice()[..])
-                        .map_err(|_| InvalidTransaction::Payment)?;
+                Signatory::Account(key) => {
                     imbalance = T::Currency::withdraw(
-                        &payer_key,
+                        &key,
                         fee,
                         WithdrawReason::TransactionPayment.into(),
                         ExistenceRequirement::KeepAlive,
@@ -333,9 +328,8 @@ impl<T: Trait> ChargeTxFee for Module<T> {
             let imbalance = match who {
                 Signatory::Identity(did) => T::Currency::withdraw_identity_balance(&did, fee)
                     .map_err(|_| InvalidTransaction::Payment),
-                Signatory::AccountKey(account) => T::Currency::withdraw(
-                    &T::AccountId::decode(&mut &account.encode()[..])
-                        .map_err(|_| InvalidTransaction::Payment)?,
+                Signatory::Account(account) => T::Currency::withdraw(
+                    &account,
                     fee,
                     WithdrawReason::TransactionPayment.into(),
                     ExistenceRequirement::KeepAlive,
@@ -451,11 +445,11 @@ mod tests {
     }
 
     impl CheckCdd for Runtime {
-        fn check_key_cdd(_key: &AccountKey) -> bool {
+        fn check_key_cdd(_key: &AccountId) -> bool {
             true
         }
 
-        fn get_key_cdd_did(_key: &AccountKey) -> Option<IdentityId> {
+        fn get_key_cdd_did(_key: &AccountId) -> Option<IdentityId> {
             None
         }
     }
@@ -482,7 +476,7 @@ mod tests {
     }
 
     impl IdentityTrait for Runtime {
-        fn get_identity(_key: &AccountKey) -> Option<IdentityId> {
+        fn get_identity(_key: &AccountId) -> Option<IdentityId> {
             unimplemented!()
         }
         fn current_payer() -> Option<Signatory> {
@@ -505,7 +499,7 @@ mod tests {
         ) -> bool {
             unimplemented!()
         }
-        fn is_master_key(_did: IdentityId, _key: &AccountKey) -> bool {
+        fn is_master_key(_did: IdentityId, _key: &AccountId) -> bool {
             unimplemented!()
         }
 

@@ -79,7 +79,7 @@ pub use polymesh_common_utilities::{
     group::{GroupTrait, InactiveMember, RawEvent, Trait},
     Context, SystematicIssuers,
 };
-use polymesh_primitives::{AccountKey, IdentityId};
+use polymesh_primitives::IdentityId;
 
 use frame_support::{
     codec::Encode, decl_error, decl_module, decl_storage, dispatch::DispatchResult, ensure,
@@ -245,7 +245,7 @@ decl_module! {
         /// * Last member of a group cannot abdicate.
         #[weight = SimpleDispatchInfo::FixedOperational(100_000)]
         pub fn abdicate_membership(origin) -> DispatchResult {
-            let who = AccountKey::try_from(ensure_signed(origin)?.encode())?;
+            let who = ensure_signed(origin)?;
             let remove_id = Context::current_identity_or::<Identity<T>>(&who)?;
 
             ensure!(<Identity<T>>::is_master_key(remove_id, &who),

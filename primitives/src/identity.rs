@@ -14,7 +14,7 @@
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
 use codec::{Decode, Encode};
-use sp_core::sr25519::Public;
+use sp_core::{sr25519::Public, Public as PublicType};
 #[cfg(feature = "std")]
 use sp_runtime::{Deserialize, Serialize};
 use sp_std::{convert::From, prelude::Vec};
@@ -63,8 +63,8 @@ impl<AccountId> Identity<AccountId> {
     }
 }
 
-impl From<AccountKey> for Identity {
-    fn from(acc: AccountKey) -> Self {
+impl<AccountId> From<AccountId> for Identity<AccountId> {
+    fn from(acc: AccountId) -> Self {
         Identity {
             master_key: acc,
             ..Default::default()
@@ -72,10 +72,10 @@ impl From<AccountKey> for Identity {
     }
 }
 
-impl From<Public> for Identity {
+impl<AccountId: PublicType> From<Public> for Identity<AccountId> {
     fn from(p: Public) -> Self {
         Identity {
-            master_key: AccountKey::from(p.0),
+            master_key: AccountId::from_slice(&p.0[..]),
             ..Default::default()
         }
     }
