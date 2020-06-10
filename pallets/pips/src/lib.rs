@@ -129,7 +129,7 @@ pub struct Pip<Proposal, Balance> {
 #[cfg_attr(feature = "std", derive(Debug, Serialize, Deserialize))]
 pub enum VoteCount<Balance> {
     /// Proposal was found and has the following votes.
-    Success {
+    ProposalFound {
         /// Stake for
         ayes: Balance,
         /// Stake against
@@ -1250,7 +1250,7 @@ impl<T: Trait> Module<T> {
         }
 
         let voting = Self::proposal_result(id);
-        VoteCount::Success {
+        VoteCount::ProposalFound {
             ayes: voting.ayes_stake,
             nays: voting.nays_stake,
         }
@@ -1287,7 +1287,7 @@ impl<T: Trait> Module<T> {
     /// Retrieve historical voting of `who` identity.
     /// It fetches all its keys recursively and it returns the voting history for each of them.
     pub fn voting_history_by_id(who: IdentityId) -> HistoricalVotingByAddress<Vote<BalanceOf<T>>> {
-        let flatten_keys = <Identity<T>>::flatten_keys(who);
+        let flatten_keys = <Identity<T>>::flatten_keys(who, 1);
         flatten_keys
             .into_iter()
             .filter_map(|key| {

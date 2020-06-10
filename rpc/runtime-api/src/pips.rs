@@ -37,7 +37,7 @@ pub mod capped {
     #[cfg_attr(feature = "std", serde(rename_all = "camelCase"))]
     pub enum VoteCount {
         /// Proposal was found and has the following votes.
-        Success {
+        ProposalFound {
             /// Stake for
             ayes: u64,
             /// Stake against
@@ -53,7 +53,7 @@ pub mod capped {
     {
         fn from(vote_count: CoreVoteCount<Balance>) -> Self {
             match vote_count {
-                CoreVoteCount::Success { ayes, nays } => VoteCount::Success {
+                CoreVoteCount::ProposalFound { ayes, nays } => VoteCount::ProposalFound {
                     ayes: ayes.saturated_into(),
                     nays: nays.saturated_into(),
                 },

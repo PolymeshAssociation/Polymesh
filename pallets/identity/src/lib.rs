@@ -2127,7 +2127,7 @@ impl<T: Trait> Module<T> {
 
     /// It returns the list of flatten identities of the given identity.
     /// It runs recursively over all signing items.
-    pub fn flatten_identities(id: IdentityId) -> Vec<IdentityId> {
+    pub fn flatten_identities(id: IdentityId, max_depth: u8) -> Vec<IdentityId> {
         if <DidRecords>::contains_key(id) {
             let identity = <DidRecords>::get(id);
 
@@ -2135,7 +2135,9 @@ impl<T: Trait> Module<T> {
                 .signing_items
                 .into_iter()
                 .flat_map(|si| match si.signer {
-                    Signatory::Identity(sub_id) => Self::flatten_identities(sub_id),
+                    Signatory::Identity(sub_id) if max_depth > 0 => {
+                        Self::flatten_identities(sub_id, max_depth - 1)
+                    }
                     _ => vec![],
                 })
                 .chain([id].iter().cloned())
@@ -2147,8 +2149,8 @@ impl<T: Trait> Module<T> {
 
     /// Get the list of flatten keys fo the given identity.
     /// It runs recursively over all signing items.
-    pub fn flatten_keys(id: IdentityId) -> Vec<AccountKey> {
-        let sub_identities = Self::flatten_identities(id);
+    pub fn flatten_keys(id: IdentityId, max_depth: u8) -> Vec<AccountKey> {
+        let sub_identities = Self::flatten_identities(id, max_depth);
         sub_identities
             .into_iter()
             .flat_map(|sub_id| {

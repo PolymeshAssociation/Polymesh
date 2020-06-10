@@ -475,13 +475,13 @@
                 "IdNotFound": "Vec<u8>"
             }
         },
-        "VoteCountSuccess": {
+        "VoteCountProposalFound": {
             "ayes": "u64",
             "nays": "u64"
         },
         "VoteCount": {
             "_enum": {
-                "Success": "VoteCountSuccess",
+                "ProposalFound": "VoteCountProposalFound",
                 "ProposalNotFound": "Vec<u8>"
             }
         },
