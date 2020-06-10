@@ -73,7 +73,6 @@ use frame_support::{
 };
 use frame_system::{self as system, ensure_signed};
 use pallet_identity as identity;
-use pallet_pips_rpc_runtime_api::VoteCount;
 use pallet_treasury::TreasuryTrait;
 use polymesh_common_utilities::{
     constants::PIP_MAX_REPORTING_SIZE,
@@ -88,8 +87,13 @@ use sp_core::H256;
 use sp_runtime::traits::{
     BlakeTwo256, CheckedAdd, CheckedSub, Dispatchable, EnsureOrigin, Hash, Saturating, Zero,
 };
-use sp_std::{convert::TryFrom, prelude::*};
+use sp_std::{
+    convert::{From, TryFrom},
+    prelude::*,
+};
 
+#[cfg(feature = "std")]
+use serde::{Deserialize, Serialize};
 /// Balance
 type BalanceOf<T> =
     <<T as Trait>::Currency as Currency<<T as frame_system::Trait>::AccountId>>::Balance;
@@ -107,7 +111,8 @@ pub struct Url(pub Vec<u8>);
 pub struct PipDescription(pub Vec<u8>);
 
 /// Represents a proposal
-#[derive(Encode, Decode, Clone, PartialEq, Eq, Debug)]
+#[derive(Encode, Decode, Clone, PartialEq, Eq)]
+#[cfg_attr(feature = "std", derive(Debug))]
 pub struct Pip<Proposal, Balance> {
     /// The proposal's unique id.
     pub id: PipId,
@@ -117,6 +122,21 @@ pub struct Pip<Proposal, Balance> {
     pub state: ProposalState,
     /// Beneficiaries of this Pips
     pub beneficiaries: Option<Vec<Beneficiary<Balance>>>,
+}
+
+/// A result of execution of get_votes.
+#[derive(Eq, PartialEq, Encode, Decode)]
+#[cfg_attr(feature = "std", derive(Debug, Serialize, Deserialize))]
+pub enum VoteCount<Balance> {
+    /// Proposal was found and has the following votes.
+    ProposalFound {
+        /// Stake for
+        ayes: Balance,
+        /// Stake against
+        nays: Balance,
+    },
+    /// Proposal was not for given index.
+    ProposalNotFound,
 }
 
 /// Either the entire proposal encoded as a byte vector or its hash. The latter represents large
@@ -160,7 +180,7 @@ pub struct VotingResult<Balance: Parameter> {
 }
 
 #[derive(PartialEq, Eq, Clone, Encode, Decode)]
-#[cfg_attr(feature = "std", derive(Debug))]
+#[cfg_attr(feature = "std", derive(Debug, Serialize, Deserialize))]
 pub enum Vote<Balance> {
     None,
     Yes(Balance),
@@ -172,6 +192,16 @@ impl<Balance> Default for Vote<Balance> {
         Vote::None
     }
 }
+
+#[derive(PartialEq, Eq, Clone, Encode, Decode)]
+#[cfg_attr(feature = "std", derive(Debug, Serialize, Deserialize))]
+pub struct VoteByPip<VoteType> {
+    pub pip: PipId,
+    pub vote: VoteType,
+}
+
+pub type HistoricalVotingByAddress<VoteType> = Vec<VoteByPip<VoteType>>;
+pub type HistoricalVotingById<VoteType> = Vec<(AccountKey, HistoricalVotingByAddress<VoteType>)>;
 
 #[derive(Encode, Decode, Copy, Clone, Eq, PartialEq, Debug)]
 pub enum ProposalState {
@@ -1220,7 +1250,7 @@ impl<T: Trait> Module<T> {
         }
 
         let voting = Self::proposal_result(id);
-        VoteCount::Success {
+        VoteCount::ProposalFound {
             ayes: voting.ayes_stake,
             nays: voting.nays_stake,
         }
@@ -1242,6 +1272,34 @@ impl<T: Trait> Module<T> {
                 _ => Some(meta.id),
             })
             .collect::<Vec<_>>()
+    }
+
+    /// Retrieve historical voting of `who` account.
+    pub fn voting_history_by_address(
+        who: T::AccountId,
+    ) -> HistoricalVotingByAddress<Vote<BalanceOf<T>>> {
+        <ProposalMetadata<T>>::iter()
+            .map(|meta| VoteByPip {
+                pip: meta.id,
+                vote: Self::proposal_vote(meta.id, &who),
+            })
+            .collect::<Vec<_>>()
+    }
+
+    /// Retrieve historical voting of `who` identity.
+    /// It fetches all its keys recursively and it returns the voting history for each of them.
+    pub fn voting_history_by_id(who: IdentityId) -> HistoricalVotingById<Vote<BalanceOf<T>>> {
+        let flatten_keys = <Identity<T>>::flatten_keys(who, 1);
+        flatten_keys
+            .into_iter()
+            .filter_map(|key| {
+                if let Ok(address) = T::AccountId::decode(&mut key.as_slice()) {
+                    Some((key, Self::voting_history_by_address(address)))
+                } else {
+                    None
+                }
+            })
+            .collect::<HistoricalVotingById<_>>()
     }
 
     /// It generates the next id for proposals and referendums.

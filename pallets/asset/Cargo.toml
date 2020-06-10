@@ -16,9 +16,6 @@ pallet-identity = { package = "pallet-identity", path = "../identity", default-f
 pallet-statistics = { package = "pallet-statistics", path = "../statistics", default-features = false  }
 pallet-protocol-fee = { package = "pallet-protocol-fee", path = "../protocol-fee", default-features = false }
 
-# RPC
-pallet-asset-rpc-runtime-api = { package = "pallet-asset-rpc-runtime-api", version = "0.1.0", path = "./rpc/runtime-api", default-features = false }
-
 # Other
 serde = { version = "1.0.104", default-features = false }
 serde_derive = { version = "1.0.104", optional = true, default-features = false  }
@@ -67,7 +64,6 @@ std = [
     "pallet-session/std",
     "polymesh-common-utilities/std",
     "polymesh-primitives/std",
-    "pallet-asset-rpc-runtime-api/std",
     "pallet-balances/std",
 ]
 runtime-benchmarks = [
