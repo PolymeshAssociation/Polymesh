@@ -25,8 +25,6 @@ members = [
     "pallets/staking/rpc/runtime-api",
     "pallets/staking/reward-curve",
     "pallets/pips",
-    "pallets/pips/rpc",
-    "pallets/pips/rpc/runtime-api",
     "pallets/identity",
     "pallets/identity/rpc",
     "pallets/identity/rpc/runtime-api",
@@ -44,13 +42,13 @@ members = [
     "pallets/treasury",
     "pallets/cdd-offchain-worker",
     "pallets/asset",
-    "pallets/asset/rpc",
-    "pallets/asset/rpc/runtime-api",
     "pallets/compliance-manager",
     "pallets/statistics",
     "pallets/compliance-manager/rpc",
     "pallets/compliance-manager/rpc/runtime-api",
-    "pallets/utility"
+    "pallets/utility",
+    "rpc/runtime-api",
+    "rpc",
 ]
 
 [dependencies]
@@ -68,21 +66,21 @@ pallet-asset = { package = "pallet-asset", path = "pallets/asset", default-featu
 pallet-treasury = { package = "pallet-treasury", path = "pallets/treasury", default-features = false }
 
 # RPC
+node-rpc = { path = "rpc", default-features = false }
+node-rpc-runtime-api = { path = "rpc/runtime-api", default-features = false }
+
+
 pallet-transaction-payment-rpc = { package = "pallet-transaction-payment-rpc", path = "pallets/transaction-payment/rpc", default-features = false }
 pallet-transaction-payment-rpc-runtime-api = { package = "pallet-transaction-payment-rpc-runtime-api", path = "pallets/transaction-payment/rpc/runtime-api", default-features = false }
 pallet-protocol-fee-rpc-runtime-api = { package = "pallet-protocol-fee-rpc-runtime-api", path = "pallets/protocol-fee/rpc/runtime-api", default-features = false }
 pallet-contracts-rpc-runtime-api = { package = "pallet-contracts-rpc-runtime-api", git = "https://github.com/paritytech/substrate", rev = "a439a7aa5a9a3df2a42d9b25ea04288d3a0866e8", default-features = false }
 pallet-staking-rpc = { package = "pallet-staking-rpc", path = "pallets/staking/rpc", default-features = false }
 pallet-staking-rpc-runtime-api = { package = "pallet-staking-rpc-runtime-api", path = "pallets/staking/rpc/runtime-api", default-features = false }
-pallet-pips-rpc = { package = "pallet-pips-rpc", path = "pallets/pips/rpc", default-features = false }
-pallet-pips-rpc-runtime-api = { package = "pallet-pips-rpc-runtime-api", path = "pallets/pips/rpc/runtime-api", default-features = false }
 pallet-identity-rpc = { package = "pallet-identity-rpc", path = "pallets/identity/rpc", default-features = false }
 pallet-identity-rpc-runtime-api = { package = "pallet-identity-rpc-runtime-api", path = "pallets/identity/rpc/runtime-api", default-features = false }
 im-online = { package = "pallet-im-online", path = "pallets/im-online", default-features = false }
 pallet-protocol-fee = { package = "pallet-protocol-fee", path = "pallets/protocol-fee", default-features = false }
 pallet-protocol-fee-rpc = { package = "pallet-protocol-fee-rpc", path = "pallets/protocol-fee/rpc", default-features = false }
-pallet-asset-rpc = { package = "pallet-asset-rpc", path = "pallets/asset/rpc", default-features = false }
-pallet-asset-rpc-runtime-api = { package = "pallet-asset-rpc-runtime-api", path = "pallets/asset/rpc/runtime-api", default-features = false }
 pallet-group-rpc = { package = "pallet-group-rpc", path = "pallets/group/rpc", default-features = false }
 pallet-group-rpc-runtime-api = { package = "pallet-group-rpc-runtime-api", path = "pallets/group/rpc/runtime-api", default-features = false }
 pallet-compliance-manager-rpc = { package = "pallet-compliance-manager-rpc", path = "pallets/compliance-manager/rpc", default-features = false }

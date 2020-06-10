@@ -34,12 +34,14 @@ pallet-cdd-offchain-worker = { path = "../../cdd-offchain-worker", default-featu
 pallet-utility = { path = "../../utility", default-features = false}
 
 # RPC
+node-rpc-runtime-api = { path = "../../../rpc/runtime-api", default-features = false }
+
+
+
 pallet-identity-rpc-runtime-api = { path = "../../identity/rpc/runtime-api", default-features = false }
-pallet-pips-rpc-runtime-api = { path = "../../pips/rpc/runtime-api", default-features = false }
 pallet-staking-rpc-runtime-api = { path = "../../staking/rpc/runtime-api", default-features = false }
 pallet-transaction-payment-rpc-runtime-api = { path = "../../transaction-payment/rpc/runtime-api", default-features = false }
 pallet-protocol-fee-rpc-runtime-api = { path = "../../protocol-fee/rpc/runtime-api", default-features = false }
-pallet-asset-rpc-runtime-api = { path = "../../asset/rpc/runtime-api", default-features = false  }
 pallet-compliance-manager-rpc-runtime-api = { path = "../../compliance-manager/rpc/runtime-api", default-features = false  }
 
 # Others
@@ -153,7 +155,6 @@ std = [
 	"pallet-pips/std",
 	"pallet-committee/std",
 	"pallet-multisig/std",
-	"pallet-pips-rpc-runtime-api/std",
 	"frame-support/std",
 	"frame-system/std",
 	"frame-system-rpc-runtime-api/std",
@@ -166,5 +167,6 @@ std = [
 	"pallet-compliance-manager/std",
 	"pallet-statistics/std",
 	"pallet-asset/runtime-benchmarks",
-	"ink_primitives/std"
+	"ink_primitives/std",
+	"node-rpc-runtime-api/std",
 ]
