@@ -496,8 +496,8 @@
             "pip": "PipId",
             "vote": "Vote"
         },
-        "HistoricalVoting": "Vec<VoteByPip>",
-        "HistoricalVotingByAddress": "Vec<(AccountKey, HistoricalVoting)>",
+        "HistoricalVotingByAddress": "Vec<VoteByPip>",
+        "HistoricalVotingById": "Vec<(AccountKey, HistoricalVotingByAddress)>",
         "Weight": "u32",
         "BridgeTxDetail": {
             "amount": "Balance",

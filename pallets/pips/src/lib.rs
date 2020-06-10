@@ -200,8 +200,8 @@ pub struct VoteByPip<VoteType> {
     pub vote: VoteType,
 }
 
-pub type HistoricalVoting<VoteType> = Vec<VoteByPip<VoteType>>;
-pub type HistoricalVotingByAddress<VoteType> = Vec<(AccountKey, HistoricalVoting<VoteType>)>;
+pub type HistoricalVotingByAddress<VoteType> = Vec<VoteByPip<VoteType>>;
+pub type HistoricalVotingById<VoteType> = Vec<(AccountKey, HistoricalVotingByAddress<VoteType>)>;
 
 #[derive(Encode, Decode, Copy, Clone, Eq, PartialEq, Debug)]
 pub enum ProposalState {
@@ -1275,7 +1275,7 @@ impl<T: Trait> Module<T> {
     }
 
     /// Retrieve historical voting of `who` account.
-    pub fn voting_history_by_address(who: T::AccountId) -> HistoricalVoting<Vote<BalanceOf<T>>> {
+    pub fn voting_history_by_address(who: T::AccountId) -> HistoricalVotingByAddress<Vote<BalanceOf<T>>> {
         <ProposalMetadata<T>>::iter()
             .map(|meta| VoteByPip {
                 pip: meta.id,
@@ -1286,7 +1286,7 @@ impl<T: Trait> Module<T> {
 
     /// Retrieve historical voting of `who` identity.
     /// It fetches all its keys recursively and it returns the voting history for each of them.
-    pub fn voting_history_by_id(who: IdentityId) -> HistoricalVotingByAddress<Vote<BalanceOf<T>>> {
+    pub fn voting_history_by_id(who: IdentityId) -> HistoricalVotingById<Vote<BalanceOf<T>>> {
         let flatten_keys = <Identity<T>>::flatten_keys(who, 1);
         flatten_keys
             .into_iter()
@@ -1297,7 +1297,7 @@ impl<T: Trait> Module<T> {
                     None
                 }
             })
-            .collect::<HistoricalVotingByAddress<_>>()
+            .collect::<HistoricalVotingById<_>>()
     }
 
     /// It generates the next id for proposals and referendums.

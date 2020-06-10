@@ -18,7 +18,7 @@ pub use node_rpc_runtime_api::pips::{
     capped::{Vote, VoteCount},
     PipsApi as PipsRuntimeApi,
 };
-use pallet_pips::{HistoricalVoting, HistoricalVotingByAddress, VoteByPip};
+use pallet_pips::{HistoricalVotingById, HistoricalVotingByAddress, VoteByPip};
 use polymesh_primitives::IdentityId;
 
 use codec::Codec;
@@ -56,7 +56,7 @@ pub trait PipsApi<BlockHash, AccountId, Balance> {
         &self,
         address: AccountId,
         at: Option<BlockHash>,
-    ) -> Result<HistoricalVoting<Vote>>;
+    ) -> Result<HistoricalVotingByAddress<Vote>>;
 
     /// Retrieve historical voting of `id` identity.
     #[rpc(name = "pips_votingHistoryById")]
@@ -64,7 +64,7 @@ pub trait PipsApi<BlockHash, AccountId, Balance> {
         &self,
         id: IdentityId,
         at: Option<BlockHash>,
-    ) -> Result<HistoricalVotingByAddress<Vote>>;
+    ) -> Result<HistoricalVotingById<Vote>>;
 }
 
 /// An implementation of pips specific RPC methods.
@@ -134,7 +134,7 @@ where
         &self,
         address: AccountId,
         at: Option<<Block as BlockT>::Hash>,
-    ) -> Result<HistoricalVoting<Vote>> {
+    ) -> Result<HistoricalVotingByAddress<Vote>> {
         let history = rpc_forward_call!(
             self,
             at,
@@ -149,7 +149,7 @@ where
                 pip: hvi.pip,
                 vote: Vote::from(hvi.vote),
             })
-            .collect::<HistoricalVoting<_>>();
+            .collect::<HistoricalVotingByAddress<_>>();
 
         Ok(history)
     }
@@ -158,7 +158,7 @@ where
         &self,
         id: IdentityId,
         at: Option<<Block as BlockT>::Hash>,
-    ) -> Result<HistoricalVotingByAddress<Vote>> {
+    ) -> Result<HistoricalVotingById<Vote>> {
         let history = rpc_forward_call!(
             self,
             at,
@@ -176,11 +176,11 @@ where
                         pip: hvi.pip,
                         vote: Vote::from(hvi.vote),
                     })
-                    .collect::<HistoricalVoting<_>>();
+                    .collect::<Vec<_>>();
 
                 (address, history)
             })
-            .collect::<HistoricalVotingByAddress<_>>();
+            .collect::<HistoricalVotingById<_>>();
 
         Ok(history)
     }

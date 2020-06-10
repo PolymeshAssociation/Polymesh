@@ -15,7 +15,7 @@
 
 //! Runtime API definition for pips module.
 use codec::Codec;
-use pallet_pips::{HistoricalVoting, HistoricalVotingByAddress, Vote, VoteCount};
+use pallet_pips::{HistoricalVotingById, HistoricalVotingByAddress, Vote, VoteCount};
 use polymesh_primitives::IdentityId;
 
 use sp_std::{prelude::*, vec::Vec};
@@ -102,10 +102,10 @@ sp_api::decl_runtime_apis! {
         fn voted_on(address: AccountId) -> Vec<u32>;
 
         /// Retrieve referendums voted on information by `address` account.
-        fn voting_history_by_address(address: AccountId) -> HistoricalVoting<Vote<Balance>>;
+        fn voting_history_by_address(address: AccountId) -> HistoricalVotingByAddress<Vote<Balance>>;
 
         /// Retrieve referendums voted on information by `id` identity (and its signing items).
-        fn voting_history_by_id(id: IdentityId) -> HistoricalVotingByAddress<Vote<Balance>>;
+        fn voting_history_by_id(id: IdentityId) -> HistoricalVotingById<Vote<Balance>>;
     }
 }
 
