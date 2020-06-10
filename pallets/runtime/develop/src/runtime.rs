@@ -68,7 +68,7 @@ use frame_support::{
 use frame_system::offchain::TransactionSubmitter;
 use pallet_contracts_rpc_runtime_api::ContractExecResult;
 use pallet_grandpa::{fg_primitives, AuthorityList as GrandpaAuthorityList};
-use pallet_identity_rpc_runtime_api::{AssetDidResult, CddStatus, DidRecords, LinkType};
+use pallet_identity_rpc_runtime_api::{AssetDidResult, CddStatus, DidRecords, DidStatus, LinkType};
 use pallet_im_online::sr25519::AuthorityId as ImOnlineId;
 use pallet_protocol_fee_rpc_runtime_api::CappedFee;
 use pallet_transaction_payment_rpc_runtime_api::RuntimeDispatchInfo;
@@ -931,6 +931,11 @@ impl_runtime_apis! {
         /// Retrieve list of a link for a given signatory
         fn get_filtered_links(signatory: Signatory, allow_expired: bool, link_type: Option<LinkType>) -> Vec<Link<Moment>> {
             Identity::get_filtered_links(signatory, allow_expired, link_type)
+        }
+
+        /// Retrieve the status of the DIDs
+        fn get_did_status(dids: Vec<IdentityId>) -> Vec<DidStatus> {
+            Identity::get_did_status(dids)
         }
     }
 
