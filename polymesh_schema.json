@@ -537,10 +537,6 @@
                 "Exists": "",
                 "CddVerified": ""
             }
-        },
-        "IssueAssetItem": {
-            "identity_did": "IdentityId",
-            "value": "Balance"
         }
     },
     "rpc": {
