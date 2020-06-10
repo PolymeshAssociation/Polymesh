@@ -157,6 +157,10 @@ impl<AccountId> SigningItem<AccountId> {
         }
     }
 
+    pub fn from_account_id(s: AccountId) -> Self {
+        Self::new(Signatory::Account(s), vec![])
+    }
+
     /// It checks if this key has specified `permission` permission.
     /// permission `Permission::Full` is special and denotates that this key can be used for any permission.
     pub fn has_permission(&self, permission: Permission) -> bool {

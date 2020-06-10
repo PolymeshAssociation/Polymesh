@@ -1,6 +1,6 @@
 use crate::traits::identity::IdentityTrait;
 
-use polymesh_primitives::{AccountKey, IdentityId, Signatory};
+use polymesh_primitives::{IdentityId, Signatory};
 use sp_runtime::DispatchError;
 
 /// Helper class to access to some context information.
@@ -43,7 +43,7 @@ impl Context {
     /// `current_identity` is always none.
     #[cfg(not(feature = "default_identity"))]
     pub fn current_identity_or<I: IdentityTrait>(
-        key: &AccountKey,
+        key: &I::AccountId,
     ) -> Result<IdentityId, DispatchError> {
         Self::current_identity::<I>()
             .or_else(|| I::get_identity(key))
@@ -55,8 +55,8 @@ impl Context {
     }
 
     #[cfg(feature = "default_identity")]
-    pub fn current_identity_or<I: IdentityTrait>(
-        key: &AccountKey,
+    pub fn current_identity_or<I: IdentityTrait + frame_system::Trait>(
+        key: &I::AccountId,
     ) -> Result<IdentityId, DispatchError> {
         I::current_identity()
             .or_else(|| I::get_identity(key))
@@ -68,7 +68,7 @@ impl Context {
 #[cfg(test)]
 mod test {
     use super::*;
-    use polymesh_primitives::{Permission, Signatory};
+    use polymesh_primitives::{AccountId, Permission, Signatory};
 
     use lazy_static::lazy_static;
     use std::{collections::BTreeMap, convert::From, sync::RwLock, thread};
@@ -81,11 +81,13 @@ mod test {
     struct IdentityTest {}
 
     impl IdentityTrait for IdentityTest {
-        fn get_identity(key: &AccountKey) -> Option<IdentityId> {
-            let keys: BTreeMap<AccountKey, u128> = vec![
-                (AccountKey::from(AccountKeyring::Alice.public().0), 1u128),
-                (AccountKey::from(AccountKeyring::Bob.public().0), 2u128),
-                (AccountKey::from(AccountKeyring::Charlie.public().0), 3u128),
+        type AccountId = AccountId;
+
+        fn get_identity(key: &AccountId) -> Option<IdentityId> {
+            let keys: BTreeMap<AccountId, u128> = vec![
+                (AccountId::from(AccountKeyring::Alice.public().0), 1u128),
+                (AccountId::from(AccountKeyring::Bob.public().0), 2u128),
+                (AccountId::from(AccountKeyring::Charlie.public().0), 3u128),
             ]
             .into_iter()
             .collect();
@@ -111,7 +113,7 @@ mod test {
             false
         }
 
-        fn is_master_key(_did: IdentityId, _key: &AccountKey) -> bool {
+        fn is_master_key(_did: IdentityId, _key: &AccountId) -> bool {
             false
         }
 
@@ -156,7 +158,7 @@ mod test {
         );
 
         // Check "or" option.
-        let alice = AccountKey::from(AccountKeyring::Alice.public().0);
+        let alice = AccountId::from(AccountKeyring::Alice.public().0);
         assert_eq!(
             Context::current_identity_or::<IdentityTest>(&alice),
             Ok(IdentityId::from(15))
@@ -167,7 +169,7 @@ mod test {
             Ok(IdentityId::from(1))
         );
 
-        let eve = AccountKey::from(AccountKeyring::Eve.public().0);
+        let eve = AccountId::from(AccountKeyring::Eve.public().0);
         assert_eq!(
             Context::current_identity_or::<IdentityTest>(&eve),
             Err(DispatchError::Other(

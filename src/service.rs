@@ -5,8 +5,8 @@ use grandpa::{
     self, FinalityProofProvider as GrandpaFinalityProofProvider, StorageAndProofProvider,
 };
 pub use polymesh_primitives::{
-    AccountId, AccountKey, Balance, Block, BlockNumber, Hash, IdentityId, Index as Nonce, Moment,
-    Signatory, SigningItem, Ticker,
+    AccountId, Balance, Block, BlockNumber, Hash, IdentityId, Index as Nonce, Moment, Signatory,
+    SigningItem, Ticker,
 };
 pub use polymesh_runtime_develop;
 pub use polymesh_runtime_testnet_v1;
@@ -68,7 +68,7 @@ pub trait RuntimeApiCollection<Extrinsic: codec::Codec + Send + Sync + 'static>:
         Block,
         IdentityId,
         Ticker,
-        AccountKey,
+        AccountId,
         SigningItem,
         Signatory,
         Moment,
@@ -101,7 +101,7 @@ where
             Block,
             IdentityId,
             Ticker,
-            AccountKey,
+            AccountId,
             SigningItem,
             Signatory,
             Moment,
