@@ -15,7 +15,7 @@
 
 //! Runtime API definition for pips module.
 use codec::Codec;
-use pallet_pips::{HistoricalVotingById, HistoricalVotingByAddress, Vote, VoteCount};
+use pallet_pips::{HistoricalVotingByAddress, HistoricalVotingById, Vote, VoteCount};
 use polymesh_primitives::IdentityId;
 
 use sp_std::{prelude::*, vec::Vec};

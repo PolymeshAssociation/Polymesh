@@ -18,7 +18,7 @@ pub use node_rpc_runtime_api::pips::{
     capped::{Vote, VoteCount},
     PipsApi as PipsRuntimeApi,
 };
-use pallet_pips::{HistoricalVotingById, HistoricalVotingByAddress, VoteByPip};
+use pallet_pips::{HistoricalVotingByAddress, HistoricalVotingById, VoteByPip};
 use polymesh_primitives::IdentityId;
 
 use codec::Codec;

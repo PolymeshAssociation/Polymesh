@@ -19,7 +19,7 @@ use pallet_compliance_manager::{self as compliance_manager, AssetTransferRulesRe
 use pallet_group as group;
 use pallet_identity as identity;
 use pallet_multisig as multisig;
-use pallet_pips::{HistoricalVotingById, HistoricalVotingByAddress, Vote, VoteCount};
+use pallet_pips::{HistoricalVotingByAddress, HistoricalVotingById, Vote, VoteCount};
 use pallet_protocol_fee as protocol_fee;
 use pallet_statistics as statistics;
 use pallet_treasury as treasury;

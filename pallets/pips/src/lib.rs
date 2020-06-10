@@ -1275,7 +1275,9 @@ impl<T: Trait> Module<T> {
     }
 
     /// Retrieve historical voting of `who` account.
-    pub fn voting_history_by_address(who: T::AccountId) -> HistoricalVotingByAddress<Vote<BalanceOf<T>>> {
+    pub fn voting_history_by_address(
+        who: T::AccountId,
+    ) -> HistoricalVotingByAddress<Vote<BalanceOf<T>>> {
         <ProposalMetadata<T>>::iter()
             .map(|meta| VoteByPip {
                 pip: meta.id,
