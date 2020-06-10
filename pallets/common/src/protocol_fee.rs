@@ -25,7 +25,7 @@ use sp_runtime::{Deserialize, Serialize};
 pub enum ProtocolOp {
     AssetRegisterTicker,
     AssetIssue,
-    AssetAddDocuments,
+    AssetAddDocument,
     AssetCreateAsset,
     DividendNew,
     ComplianceManagerAddActiveRule,
@@ -45,5 +45,5 @@ pub trait ChargeProtocolFee<AccountId> {
 
     /// Computes the fee for `count` similar operations, and charges that fee to the given
     /// signatory.
-    fn charge_fee_batch(signatory: &Signatory, op: ProtocolOp, count: usize) -> DispatchResult;
+    fn batch_charge_fee(signatory: &Signatory, op: ProtocolOp, count: usize) -> DispatchResult;
 }

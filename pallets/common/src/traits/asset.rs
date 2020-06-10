@@ -13,6 +13,7 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
+use codec::{Decode, Encode};
 use frame_support::dispatch::DispatchResult;
 use polymesh_primitives::{IdentityId, Ticker};
 
@@ -30,6 +31,11 @@ pub trait AcceptTransfer {
     /// * `to_did` did of the receiver
     /// * `auth_id` Authorization id of the authorization created by current token owner
     fn accept_asset_ownership_transfer(to_did: IdentityId, auth_id: u64) -> DispatchResult;
+}
+#[derive(Encode, Decode, Default, Clone, PartialEq, Debug)]
+pub struct IssueAssetItem<U> {
+    pub investor_did: IdentityId,
+    pub value: U,
 }
 
 pub trait Trait<V, U> {

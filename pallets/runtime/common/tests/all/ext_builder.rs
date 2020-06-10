@@ -40,7 +40,7 @@ impl Default for MockProtocolBaseFees {
         let ops = vec![
             ProtocolOp::AssetRegisterTicker,
             ProtocolOp::AssetIssue,
-            ProtocolOp::AssetAddDocuments,
+            ProtocolOp::AssetAddDocument,
             ProtocolOp::AssetCreateAsset,
             ProtocolOp::DividendNew,
             ProtocolOp::ComplianceManagerAddActiveRule,
