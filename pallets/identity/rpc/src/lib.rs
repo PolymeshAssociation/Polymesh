@@ -2,12 +2,19 @@ use codec::Codec;
 use jsonrpc_core::{Error as RpcError, ErrorCode, Result};
 use jsonrpc_derive::rpc;
 use pallet_identity_rpc_runtime_api::{
-    AssetDidResult, CddStatus, DidRecords, IdentityApi as IdentityRuntimeApi, Link, LinkType,
+    AssetDidResult, CddStatus, DidRecords, DidStatus, IdentityApi as IdentityRuntimeApi, Link,
+    LinkType,
 };
 use sp_api::ProvideRuntimeApi;
 use sp_blockchain::HeaderBackend;
-use sp_runtime::{generic::BlockId, traits::Block as BlockT};
+use sp_runtime::{
+    generic::BlockId,
+    traits::{Block as BlockT, Zero},
+};
+use std::convert::TryInto;
 use std::sync::Arc;
+
+const MAX_IDENTITIES_ALLOWED_TO_QUERY: u32 = 500;
 
 /// Identity RPC methods
 #[rpc]
@@ -42,6 +49,14 @@ pub trait IdentityApi<BlockHash, IdentityId, Ticker, AccountKey, SigningItem, Si
         link_type: Option<LinkType>,
         at: Option<BlockHash>,
     ) -> Result<Vec<Link<Moment>>>;
+
+    /// Provide the status of a given DID
+    #[rpc(name = "identity_getDidStatus")]
+    fn get_did_status(
+        &self,
+        dids: Vec<IdentityId>,
+        at: Option<BlockHash>,
+    ) -> Result<Vec<DidStatus>>;
 }
 
 /// A struct that implements the [`IdentityApi`].
@@ -157,5 +172,37 @@ where
                 message: "Unable to fetch Links data".into(),
                 data: Some(format!("{:?}", e).into()),
             })
+    }
+
+    fn get_did_status(
+        &self,
+        dids: Vec<IdentityId>,
+        at: Option<<Block as BlockT>::Hash>,
+    ) -> Result<Vec<DidStatus>> {
+        if dids.len()
+            > MAX_IDENTITIES_ALLOWED_TO_QUERY
+                .try_into()
+                .unwrap_or(Zero::zero())
+        {
+            return Err(RpcError {
+                code: ErrorCode::ServerError(Error::RuntimeError as i64),
+                message: "Unable to fetch dids status".into(),
+                data: Some(
+                    format!(
+                        "Provided vector length is more than the maximum allowed length i.e {:?}",
+                        MAX_IDENTITIES_ALLOWED_TO_QUERY
+                    )
+                    .into(),
+                ),
+            });
+        }
+        let api = self.client.runtime_api();
+        let at = BlockId::hash(at.unwrap_or_else(|| self.client.info().best_hash));
+
+        api.get_did_status(&at, dids).map_err(|e| RpcError {
+            code: ErrorCode::ServerError(Error::RuntimeError as i64),
+            message: "Unable to fetch dids status".into(),
+            data: Some(format!("{:?}", e).into()),
+        })
     }
 }
