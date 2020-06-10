@@ -27,7 +27,11 @@ use pallet_utility as utility;
 use polymesh_common_utilities::{
     constants::currency::*,
     protocol_fee::ProtocolOp,
-    traits::{balances::AccountData, identity::Trait as IdentityTrait},
+    traits::{
+        balances::AccountData,
+        identity::Trait as IdentityTrait,
+        pip::{EnactProposalMaker, PipId},
+    },
     CommonTrait,
 };
 use polymesh_primitives::{
@@ -54,7 +58,7 @@ use sp_version::RuntimeVersion;
 use frame_system::offchain::TransactionSubmitter;
 use pallet_contracts_rpc_runtime_api::ContractExecResult;
 use pallet_grandpa::{fg_primitives, AuthorityList as GrandpaAuthorityList};
-use pallet_identity_rpc_runtime_api::{AssetDidResult, CddStatus, DidRecords, LinkType};
+use pallet_identity_rpc_runtime_api::{AssetDidResult, CddStatus, DidRecords, DidStatus, LinkType};
 use pallet_im_online::sr25519::AuthorityId as ImOnlineId;
 use pallet_protocol_fee_rpc_runtime_api::CappedFee;
 use pallet_transaction_payment_rpc_runtime_api::RuntimeDispatchInfo;
@@ -328,6 +332,7 @@ impl committee::Trait<GovernanceCommittee> for Runtime {
     type CommitteeOrigin = frame_system::EnsureRoot<AccountId>;
     type Event = Event;
     type MotionDuration = MotionDuration;
+    type EnactProposalMaker = Runtime;
 }
 
 /// PolymeshCommittee as an instance of group
@@ -521,6 +526,20 @@ impl statistics::Trait for Runtime {}
 impl pallet_utility::Trait for Runtime {
     type Event = Event;
     type Call = Call;
+}
+
+impl EnactProposalMaker<Origin, Call> for Runtime {
+    fn is_pip_id_valid(id: PipId) -> bool {
+        Pips::is_proposal_id_valid(id)
+    }
+
+    fn enact_referendum_call(id: PipId) -> Call {
+        Call::Pips(pallet_pips::Call::enact_referendum(id))
+    }
+
+    fn reject_referendum_call(id: PipId) -> Call {
+        Call::Pips(pallet_pips::Call::reject_referendum(id))
+    }
 }
 
 construct_runtime!(
@@ -835,6 +854,11 @@ impl_runtime_apis! {
          /// Retrieve list of a link for a given signatory
         fn get_filtered_links(signatory: Signatory, allow_expired: bool, link_type: Option<LinkType>) -> Vec<Link<Moment>> {
             Identity::get_filtered_links(signatory, allow_expired, link_type)
+        }
+
+        /// Retrieve the status of the DIDs
+        fn get_did_status(dids: Vec<IdentityId>) -> Vec<DidStatus> {
+            Identity::get_did_status(dids)
         }
     }
 

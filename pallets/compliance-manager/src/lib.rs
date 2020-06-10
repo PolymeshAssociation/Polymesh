@@ -61,12 +61,12 @@
 //! - [resume_asset_rules](Module::resume_asset_rules) - Resumes a previous paused rules of a ticket.
 //! - [add_default_trusted_claim_issuer](Module::add_default_trusted_claim_issuer) - Adds a default
 //!  trusted claim issuer for a given asset.
-//!  - [add_default_trusted_claim_issuers_batch](Module::add_default_trusted_claim_issuers_batch) -
+//!  - [batch_add_default_trusted_claim_issuer](Module::batch_add_default_trusted_claim_issuer) -
 //!  Adds a list of claim issuer to the default trusted claim issuers for a given asset.
 //! - [remove_default_trusted_claim_issuer](Module::remove_default_trusted_claim_issuer) - Removes
 //!  the default claim issuer.
 //! - [change_asset_rule](Module::change_asset_rule) - Updates an asset rule, based on its id.
-//! - [change_asset_rule_batch](Module::change_asset_rule_batch) - Updates a list of asset rules,
+//! - [batch_change_asset_rule](Module::batch_change_asset_rule) - Updates a list of asset rules,
 //! based on its id for a given asset.
 //!
 //! ### Public Functions
@@ -420,17 +420,17 @@ decl_module! {
         /// # Weight
         /// `50_000 + 250_000 * trusted_issuers.len().max(values.len())`
         #[weight = FunctionOf(
-            |(_, trusted_issuers): (
-                &Ticker,
+            |(trusted_issuers, _): (
                 &Vec<IdentityId>,
+                &Ticker,
             )| {
                 50_000 + 250_000 * u32::try_from(trusted_issuers.len()).unwrap_or_default()
             },
             DispatchClass::Normal,
             true
         )]
-        pub fn add_default_trusted_claim_issuers_batch(origin, ticker: Ticker, trusted_issuers: Vec<IdentityId>) -> DispatchResult {
-            Self::modify_default_trusted_claim_issuers_batch(origin, ticker, trusted_issuers, true)
+        pub fn batch_add_default_trusted_claim_issuer(origin, trusted_issuers: Vec<IdentityId>, ticker: Ticker) -> DispatchResult {
+            Self::batch_modify_default_trusted_claim_issuer(origin, ticker, trusted_issuers, true)
         }
 
         /// To remove the default trusted claim issuer for a given asset
@@ -444,17 +444,17 @@ decl_module! {
         /// # Weight
         /// `50_000 + 250_000 * trusted_issuers.len().max(values.len())`
         #[weight = FunctionOf(
-            |(_, trusted_issuers): (
-                &Ticker,
+            |(trusted_issuers, _): (
                 &Vec<IdentityId>,
+                &Ticker,
             )| {
                 50_000 + 250_000 * u32::try_from(trusted_issuers.len()).unwrap_or_default()
             },
             DispatchClass::Normal,
             true
         )]
-        pub fn remove_default_trusted_claim_issuers_batch(origin, ticker: Ticker, trusted_issuers: Vec<IdentityId>) -> DispatchResult {
-            Self::modify_default_trusted_claim_issuers_batch(origin, ticker, trusted_issuers, false)
+        pub fn batch_remove_default_trusted_claim_issuer(origin, trusted_issuers: Vec<IdentityId>, ticker: Ticker) -> DispatchResult {
+            Self::batch_modify_default_trusted_claim_issuer(origin, ticker, trusted_issuers, false)
         }
 
         /// Change/Modify the existing asset rule of a given ticker
@@ -478,22 +478,22 @@ decl_module! {
         ///
         /// # Arguments
         /// * origin - Signer of the dispatchable. It should be the owner of the ticker.
-        /// * ticker - Symbol of the asset.
         /// * asset_rules - Vector of asset rule.
+        /// * ticker - Symbol of the asset.
         ///
         /// # Weight
         /// `100_000 + 100_000 * asset_rules.len().max(values.len())`
         #[weight = FunctionOf(
-            |(_, asset_rules): (
-                &Ticker,
+            |(asset_rules, _): (
                 &Vec<AssetTransferRule>,
+                &Ticker,
             )| {
                 100_000 + 100_000 * u32::try_from(asset_rules.len()).unwrap_or_default()
             },
             DispatchClass::Normal,
             true
         )]
-        pub fn change_asset_rule_batch(origin, ticker: Ticker, asset_rules: Vec<AssetTransferRule>) -> DispatchResult {
+        pub fn batch_change_asset_rule(origin, asset_rules: Vec<AssetTransferRule> , ticker: Ticker) -> DispatchResult {
             let sender_key = AccountKey::try_from(ensure_signed(origin)?.encode())?;
             let did = Context::current_identity_or::<Identity<T>>(&sender_key)?;
 
@@ -678,7 +678,7 @@ impl<T: Trait> Module<T> {
         Ok(())
     }
 
-    fn modify_default_trusted_claim_issuers_batch(
+    fn batch_modify_default_trusted_claim_issuer(
         origin: T::Origin,
         ticker: Ticker,
         trusted_issuers: Vec<IdentityId>,

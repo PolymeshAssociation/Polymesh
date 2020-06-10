@@ -440,7 +440,7 @@
             "_enum": [
                 "AssetRegisterTicker",
                 "AssetIssue",
-                "AssetAddDocuments",
+                "AssetAddDocument",
                 "AssetCreateAsset",
                 "DividendNew",
                 "ComplianceManagerAddActiveRule",
@@ -525,6 +525,17 @@
                 "AssetOwnership": "",
                 "NoData":""
             }
+        },
+        "DidStatus": {
+            "_enum": {
+                "Unknown": "",
+                "Exists": "",
+                "CddVerified": ""
+            }
+        },
+        "IssueAssetItem": {
+            "identity_did": "IdentityId",
+            "value": "Balance"
         }
     },
     "rpc": {
@@ -635,6 +646,22 @@
                     }
                 ],
                 "type": "Vec<Link>"
+            },
+            "getDidStatus": {
+                "description": "Retrieve status of the DID",
+                "params": [
+                    {
+                        "name":"did",
+                        "type":"Vec<IdentityId>",
+                        "isOptional": false
+                    },
+                    {
+                        "name":"blockHash",
+                        "type":"Hash",
+                        "isOptional":true
+                    }
+                ],
+                "type": "Vec<DidStatus>"
             }
         },
         "pips":{

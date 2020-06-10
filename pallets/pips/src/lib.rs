@@ -79,7 +79,7 @@ use polymesh_common_utilities::{
     constants::PIP_MAX_REPORTING_SIZE,
     identity::Trait as IdentityTrait,
     protocol_fee::{ChargeProtocolFee, ProtocolOp},
-    traits::{governance_group::GovernanceGroupTrait, group::GroupTrait},
+    traits::{governance_group::GovernanceGroupTrait, group::GroupTrait, pip::PipId},
     CommonTrait, Context, SystematicIssuers,
 };
 use polymesh_primitives::{AccountKey, Beneficiary, IdentityId, Signatory};
@@ -89,9 +89,6 @@ use sp_runtime::traits::{
     BlakeTwo256, CheckedAdd, CheckedSub, Dispatchable, EnsureOrigin, Hash, Saturating, Zero,
 };
 use sp_std::{convert::TryFrom, prelude::*};
-
-/// Mesh Improvement Proposal id. Used offchain.
-pub type PipId = u32;
 
 /// Balance
 type BalanceOf<T> =
@@ -110,14 +107,14 @@ pub struct Url(pub Vec<u8>);
 pub struct PipDescription(pub Vec<u8>);
 
 /// Represents a proposal
-#[derive(Encode, Decode, Clone, PartialEq, Eq)]
+#[derive(Encode, Decode, Clone, PartialEq, Eq, Debug)]
 pub struct Pip<Proposal, Balance> {
     /// The proposal's unique id.
-    id: PipId,
+    pub id: PipId,
     /// The proposal being voted on.
-    proposal: Proposal,
+    pub proposal: Proposal,
     /// The latest state
-    state: ProposalState,
+    pub state: ProposalState,
     /// Beneficiaries of this Pips
     pub beneficiaries: Option<Vec<Beneficiary<Balance>>>,
 }
@@ -176,8 +173,7 @@ impl<Balance> Default for Vote<Balance> {
     }
 }
 
-#[derive(Encode, Decode, Copy, Clone, Eq, PartialEq)]
-#[cfg_attr(feature = "std", derive(Debug))]
+#[derive(Encode, Decode, Copy, Clone, Eq, PartialEq, Debug)]
 pub enum ProposalState {
     /// Proposal is created and either in the cool-down period or open to voting
     Pending,
@@ -1301,5 +1297,11 @@ impl<T: Trait> Module<T> {
             ProposalData::Proposal(encoded_proposal)
         };
         proposal_data
+    }
+
+    /// A proposal is valid if there is an associated proposal and it is in pending state.
+    pub fn is_proposal_id_valid(id: PipId) -> bool {
+        <Proposals<T>>::contains_key(id)
+            && Self::is_referendum_state(id, ReferendumState::Pending).is_ok()
     }
 }

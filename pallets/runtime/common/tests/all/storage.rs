@@ -12,8 +12,13 @@ use pallet_treasury as treasury;
 use pallet_utility as utility;
 
 use polymesh_common_utilities::traits::{
-    asset::AcceptTransfer, balances::AccountData, group::GroupTrait,
-    identity::Trait as IdentityTrait, multisig::AddSignerMultiSig, CommonTrait,
+    asset::AcceptTransfer,
+    balances::AccountData,
+    group::GroupTrait,
+    identity::Trait as IdentityTrait,
+    multisig::AddSignerMultiSig,
+    pip::{EnactProposalMaker, PipId},
+    CommonTrait,
 };
 use polymesh_primitives::{
     AccountKey, Authorization, AuthorizationData, IdentityId, JoinIdentityData, Signatory,
@@ -261,6 +266,7 @@ impl committee::Trait<committee::Instance1> for TestStorage {
     type CommitteeOrigin = frame_system::EnsureRoot<AccountId>;
     type Event = Event;
     type MotionDuration = MotionDuration;
+    type EnactProposalMaker = TestStorage;
 }
 
 impl committee::Trait<committee::DefaultInstance> for TestStorage {
@@ -269,6 +275,7 @@ impl committee::Trait<committee::DefaultInstance> for TestStorage {
     type CommitteeOrigin = frame_system::EnsureRoot<AccountId>;
     type Event = Event;
     type MotionDuration = MotionDuration;
+    type EnactProposalMaker = TestStorage;
 }
 
 impl IdentityTrait for TestStorage {
@@ -467,6 +474,20 @@ impl utility::Trait for TestStorage {
     type Call = Call;
 }
 
+impl EnactProposalMaker<Origin, Call> for TestStorage {
+    fn is_pip_id_valid(id: PipId) -> bool {
+        Pips::is_proposal_id_valid(id)
+    }
+
+    fn enact_referendum_call(id: PipId) -> Call {
+        Call::Pips(pallet_pips::Call::enact_referendum(id))
+    }
+
+    fn reject_referendum_call(id: PipId) -> Call {
+        Call::Pips(pallet_pips::Call::reject_referendum(id))
+    }
+}
+
 // Publish type alias for each module
 pub type Identity = identity::Module<TestStorage>;
 pub type Pips = pips::Module<TestStorage>;
@@ -565,4 +586,12 @@ pub fn get_identity_id(acc: AccountKeyring) -> Option<IdentityId> {
 
 pub fn authorizations_to(to: &Signatory) -> Vec<Authorization<u64>> {
     identity::Authorizations::<TestStorage>::iter_prefix(to).collect::<Vec<_>>()
+}
+
+pub fn fast_forward_to_block(n: u64) {
+    let block_number = frame_system::Module::<TestStorage>::block_number();
+    (block_number..n).for_each(|block| {
+        assert_ok!(pips::Module::<TestStorage>::end_block(block));
+        frame_system::Module::<TestStorage>::set_block_number(block + 1);
+    });
 }

@@ -31,7 +31,7 @@
 //!
 //! - [compute_fee](Module::compute_fee) - It computes the fee of the operation.
 //! - [charge_fee](Module::charge_fee) - It calculates the fee and charges it.
-//! - [charge_fee_batch](Module::charge_fee_batch) - It calculates the fee and charges it on a batch operation.
+//! - [batch_charge_fee](Module::batch_charge_fee) - It calculates the fee and charges it on a batch operation.
 //!
 #![cfg_attr(not(feature = "std"), no_std)]
 
@@ -178,7 +178,7 @@ impl<T: Trait> Module<T> {
 
     /// Computes the fee for `count` similar operations, and charges that fee to the given
     /// signatory.
-    pub fn charge_fee_batch(signatory: &Signatory, op: ProtocolOp, count: usize) -> DispatchResult {
+    pub fn batch_charge_fee(signatory: &Signatory, op: ProtocolOp, count: usize) -> DispatchResult {
         let fee = Self::compute_fee(op).saturating_mul(<BalanceOf<T>>::from(count as u32));
         let imbalance = Self::withdraw_fee(signatory, fee)?;
         T::OnProtocolFeePayment::on_unbalanced(imbalance);
@@ -207,7 +207,7 @@ impl<T: Trait> ChargeProtocolFee<T::AccountId> for Module<T> {
         Self::charge_fee(signatory, op)
     }
 
-    fn charge_fee_batch(signatory: &Signatory, op: ProtocolOp, count: usize) -> DispatchResult {
-        Self::charge_fee_batch(signatory, op, count)
+    fn batch_charge_fee(signatory: &Signatory, op: ProtocolOp, count: usize) -> DispatchResult {
+        Self::batch_charge_fee(signatory, op, count)
     }
 }

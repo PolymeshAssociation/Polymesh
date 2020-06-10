@@ -18,9 +18,9 @@ use polymesh_common_utilities::{
     SystematicIssuers,
 };
 use polymesh_primitives::{
-    AccountKey, AuthorizationData, AuthorizationError, Claim, ClaimType, Document, DocumentHash,
-    DocumentName, DocumentUri, IdentityClaim, IdentityId, JoinIdentityData, LinkData, Permission,
-    Scope, Signatory, SignatoryType, SigningItem, Ticker, TransactionError,
+    AccountKey, AuthorizationData, AuthorizationError, Claim, ClaimType, Document, IdentityClaim,
+    IdentityId, JoinIdentityData, LinkData, Permission, Scope, Signatory, SignatoryType,
+    SigningItem, Ticker, TransactionError,
 };
 use polymesh_runtime_develop::{fee_details::CddHandler, runtime::Call};
 
@@ -102,14 +102,14 @@ fn add_claims_batch() {
         },
     ];
 
-    assert_ok!(Identity::add_claims_batch(
+    assert_ok!(Identity::batch_add_claim(
         Origin::signed(cdd_claim_issuer),
         claim_records.clone(),
     ));
 
     // Using Bob as the singer who is not a CDD Provider to check if the transaction fails
     assert_err!(
-        Identity::add_claims_batch(Origin::signed(bob_issuer), claim_records.clone(),),
+        Identity::batch_add_claim(Origin::signed(bob_issuer), claim_records.clone(),),
         Error::<TestStorage>::UnAuthorizedCddProvider
     );
 
@@ -251,7 +251,7 @@ fn revoking_batch_claims() {
         )
         .is_some());
 
-        assert_ok!(Identity::revoke_claims_batch(
+        assert_ok!(Identity::batch_revoke_claim(
             claim_issuer.clone(),
             vec![
                 BatchRevokeClaimItem {
@@ -777,25 +777,25 @@ fn one_step_join_id_with_ext() {
         },
     ];
 
-    assert_ok!(Identity::add_signing_items_with_authorization(
+    assert_ok!(Identity::batch_add_signing_item_with_authorization(
         a.clone(),
-        expires_at,
-        signing_items_with_auth[..2].to_owned()
+        signing_items_with_auth[..2].to_owned(),
+        expires_at
     ));
 
     let signing_items = Identity::did_records(a_id).signing_items;
     assert_eq!(signing_items.iter().find(|si| **si == b_id).is_some(), true);
     assert_eq!(signing_items.iter().find(|si| **si == c_id).is_some(), true);
 
-    // Check reply atack. Alice's nonce is different now.
+    // Check reply attack. Alice's nonce is different now.
     // NOTE: We need to force the increment of account's nonce manually.
     System::inc_account_nonce(&a_pub);
 
     assert_err!(
-        Identity::add_signing_items_with_authorization(
+        Identity::batch_add_signing_item_with_authorization(
             a.clone(),
-            expires_at,
-            signing_items_with_auth[2..].to_owned()
+            signing_items_with_auth[2..].to_owned(),
+            expires_at
         ),
         Error::<TestStorage>::InvalidAuthorizationSignature
     );
@@ -821,10 +821,10 @@ fn one_step_join_id_with_ext() {
         eve_auth
     ));
     assert_err!(
-        Identity::add_signing_items_with_authorization(
+        Identity::batch_add_signing_item_with_authorization(
             a,
-            expires_at,
-            vec![eve_signing_item_with_auth]
+            vec![eve_signing_item_with_auth],
+            expires_at
         ),
         Error::<TestStorage>::AuthorizationHasBeenRevoked
     );
@@ -846,10 +846,10 @@ fn one_step_join_id_with_ext() {
     };
 
     assert_err!(
-        Identity::add_signing_items_with_authorization(
+        Identity::batch_add_signing_item_with_authorization(
             f,
-            expires_at,
-            vec![ferdie_signing_item_with_auth]
+            vec![ferdie_signing_item_with_auth],
+            expires_at
         ),
         Error::<TestStorage>::AuthorizationExpired
     );
@@ -1575,9 +1575,7 @@ fn add_permission_with_signing_item() {
         ])
         .build()
         .execute_with(|| {
-            let root = Origin::system(frame_system::RawOrigin::Root);
             let cdd_1_acc = AccountKeyring::Eve.public();
-            let cdd_1_key = AccountKey::try_from(cdd_1_acc.0).unwrap();
             let alice_acc = AccountKeyring::Alice.public();
             let bob_acc = AccountKeyring::Bob.public();
             let charlie_acc = AccountKeyring::Charlie.public();
