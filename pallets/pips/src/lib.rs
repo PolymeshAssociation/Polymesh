@@ -87,7 +87,10 @@ use sp_core::H256;
 use sp_runtime::traits::{
     BlakeTwo256, CheckedAdd, CheckedSub, Dispatchable, EnsureOrigin, Hash, Saturating, Zero,
 };
-use sp_std::{convert::TryFrom, prelude::*};
+use sp_std::{
+    convert::{From, TryFrom},
+    prelude::*,
+};
 
 #[cfg(feature = "std")]
 use serde::{Deserialize, Serialize};
@@ -109,7 +112,8 @@ pub struct Url(pub Vec<u8>);
 pub struct PipDescription(pub Vec<u8>);
 
 /// Represents a proposal
-#[derive(Encode, Decode, Clone, PartialEq, Eq, Debug)]
+#[derive(Encode, Decode, Clone, PartialEq, Eq)]
+#[cfg_attr(feature = "std", derive(Debug))]
 pub struct Pip<Proposal, Balance> {
     /// The proposal's unique id.
     pub id: PipId,
@@ -184,22 +188,24 @@ pub enum Vote<Balance> {
     No(Balance),
 }
 
-#[derive(PartialEq, Eq, Clone, Encode, Decode)]
-#[cfg_attr(feature = "std", derive(Debug, Serialize, Deserialize))]
-pub struct HistoricalVotingItem<Balance> {
-    pub pip: PipId,
-    pub vote: Vote<Balance>,
-}
-pub type HistoricalVoting<Balance> = Vec<HistoricalVotingItem<Balance>>;
-pub type HistoricalVotingByAddress<Balance> = Vec<(AccountKey, HistoricalVoting<Balance>)>;
-
 impl<Balance> Default for Vote<Balance> {
     fn default() -> Self {
         Vote::None
     }
 }
 
-#[derive(Encode, Decode, Copy, Clone, Eq, PartialEq, Debug)]
+#[derive(PartialEq, Eq, Clone, Encode, Decode)]
+#[cfg_attr(feature = "std", derive(Debug, Serialize, Deserialize))]
+pub struct VoteByPip<VoteType> {
+    pub pip: PipId,
+    pub vote: VoteType,
+}
+
+pub type HistoricalVoting<VoteType> = Vec<VoteByPip<VoteType>>;
+pub type HistoricalVotingByAddress<VoteType> = Vec<(AccountKey, HistoricalVoting<VoteType>)>;
+
+#[derive(Encode, Decode, Copy, Clone, Eq, PartialEq)]
+#[cfg_attr(feature = "std", derive(Debug))]
 pub enum ProposalState {
     /// Proposal is created and either in the cool-down period or open to voting
     Pending,
@@ -219,7 +225,8 @@ impl Default for ProposalState {
     }
 }
 
-#[derive(Encode, Decode, Copy, Clone, Eq, PartialEq, Debug)]
+#[derive(Encode, Decode, Copy, Clone, Eq, PartialEq)]
+#[cfg_attr(feature = "std", derive(Debug))]
 pub enum ReferendumState {
     /// Pending GC ratification
     Pending,
@@ -233,7 +240,8 @@ pub enum ReferendumState {
     Executed,
 }
 
-#[derive(Encode, Decode, Copy, Clone, Eq, PartialEq, Debug)]
+#[derive(Encode, Decode, Copy, Clone, Eq, PartialEq)]
+#[cfg_attr(feature = "std", derive(Debug))]
 pub enum ReferendumType {
     /// Referendum pushed by GC (fast-tracked)
     FastTracked,
@@ -1269,9 +1277,9 @@ impl<T: Trait> Module<T> {
     }
 
     /// Retrieve historical voting of `who` account.
-    pub fn voting_history_by_address(who: T::AccountId) -> HistoricalVoting<BalanceOf<T>> {
+    pub fn voting_history_by_address(who: T::AccountId) -> HistoricalVoting<Vote<BalanceOf<T>>> {
         <ProposalMetadata<T>>::iter()
-            .map(|meta| HistoricalVotingItem {
+            .map(|meta| VoteByPip {
                 pip: meta.id,
                 vote: Self::proposal_vote(meta.id, &who),
             })
@@ -1280,7 +1288,7 @@ impl<T: Trait> Module<T> {
 
     /// Retrieve historical voting of `who` identity.
     /// It fetches all its keys recursively and it returns the voting history for each of them.
-    pub fn voting_history_by_id(who: IdentityId) -> HistoricalVotingByAddress<BalanceOf<T>> {
+    pub fn voting_history_by_id(who: IdentityId) -> HistoricalVotingByAddress<Vote<BalanceOf<T>>> {
         let flatten_keys = <Identity<T>>::flatten_keys(who);
         flatten_keys
             .into_iter()

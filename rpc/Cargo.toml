@@ -1,7 +1,7 @@
 [package]
 name = "node-rpc"
-version = "2.0.0"
-authors = ["Anonymous"]
+version = "0.1.0"
+authors = ["Polymath"]
 edition = "2018"
 
 [dependencies]
@@ -17,6 +17,7 @@ sp-runtime = { git = "https://github.com/paritytech/substrate", default-features
 sp-blockchain = { git = 'https://github.com/paritytech/substrate.git', default_features = false, rev = 'a439a7aa5a9a3df2a42d9b25ea04288d3a0866e8'}
 sp-std = {git = 'https://github.com/paritytech/substrate.git', default_features = false, rev = 'a439a7aa5a9a3df2a42d9b25ea04288d3a0866e8' }
 sp-api = {git = 'https://github.com/paritytech/substrate.git', default_features = false, rev = 'a439a7aa5a9a3df2a42d9b25ea04288d3a0866e8' }
+frame-support = { git = "https://github.com/paritytech/substrate", default-features = false, rev = 'a439a7aa5a9a3df2a42d9b25ea04288d3a0866e8'}
 
 # Others
 serde = { version = "1.0.104", features = ["derive"] }
@@ -28,4 +29,5 @@ jsonrpc-derive = "14.0.5"
 default = ["std"]
 std = [
 	"polymesh-primitives/std",
+	"pallet-pips/std",
 ]

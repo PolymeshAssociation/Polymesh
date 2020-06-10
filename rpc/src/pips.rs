@@ -14,9 +14,11 @@
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
 pub use node_rpc_runtime_api::pips::{
-    self as runtime_api, CappedVoteCount, PipsApi as PipsRuntimeApi,
+    self as runtime_api,
+    capped::{Vote, VoteCount},
+    PipsApi as PipsRuntimeApi,
 };
-use pallet_pips::{HistoricalVoting, HistoricalVotingByAddress, HistoricalVotingItem};
+use pallet_pips::{HistoricalVoting, HistoricalVotingByAddress, VoteByPip};
 use polymesh_primitives::IdentityId;
 
 use codec::Codec;
@@ -38,7 +40,7 @@ use std::sync::Arc;
 pub trait PipsApi<BlockHash, AccountId, Balance> {
     /// Summary of votes of a proposal given by `index`
     #[rpc(name = "pips_getVotes")]
-    fn get_votes(&self, index: u32, at: Option<BlockHash>) -> Result<CappedVoteCount>;
+    fn get_votes(&self, index: u32, at: Option<BlockHash>) -> Result<VoteCount>;
 
     /// Retrieves proposal indices started by `address`
     #[rpc(name = "pips_proposedBy")]
@@ -54,7 +56,7 @@ pub trait PipsApi<BlockHash, AccountId, Balance> {
         &self,
         address: AccountId,
         at: Option<BlockHash>,
-    ) -> Result<HistoricalVoting<Balance>>;
+    ) -> Result<HistoricalVoting<Vote>>;
 
     /// Retrieve historical voting of `id` identity.
     #[rpc(name = "pips_votingHistoryById")]
@@ -62,7 +64,7 @@ pub trait PipsApi<BlockHash, AccountId, Balance> {
         &self,
         id: IdentityId,
         at: Option<BlockHash>,
-    ) -> Result<HistoricalVotingByAddress<Balance>>;
+    ) -> Result<HistoricalVotingByAddress<Vote>>;
 }
 
 /// An implementation of pips specific RPC methods.
@@ -92,18 +94,14 @@ where
     AccountId: Codec,
     Balance: Codec + UniqueSaturatedInto<u64>,
 {
-    fn get_votes(
-        &self,
-        index: u32,
-        at: Option<<Block as BlockT>::Hash>,
-    ) -> Result<CappedVoteCount> {
+    fn get_votes(&self, index: u32, at: Option<<Block as BlockT>::Hash>) -> Result<VoteCount> {
         rpc_forward_call!(
             self,
             at,
             |api: ApiRef<<C as ProvideRuntimeApi<Block>>::Api>, at| api.get_votes(at, index),
             "Unable to query `get_votes`."
         )
-        .map(CappedVoteCount::new)
+        .map(VoteCount::from)
     }
 
     fn proposed_by(
@@ -136,27 +134,54 @@ where
         &self,
         address: AccountId,
         at: Option<<Block as BlockT>::Hash>,
-    ) -> Result<Vec<HistoricalVotingItem<Balance>>> {
-        rpc_forward_call!(
+    ) -> Result<HistoricalVoting<Vote>> {
+        let history = rpc_forward_call!(
             self,
             at,
             |api: ApiRef<<C as ProvideRuntimeApi<Block>>::Api>, at| api
                 .voting_history_by_address(at, address),
             "Unable to query `voting_history_by_address`."
-        )
+        )?;
+
+        let history = history
+            .into_iter()
+            .map(|hvi| VoteByPip {
+                pip: hvi.pip,
+                vote: Vote::from(hvi.vote),
+            })
+            .collect::<HistoricalVoting<_>>();
+
+        Ok(history)
     }
 
     fn voting_history_by_id(
         &self,
         id: IdentityId,
         at: Option<<Block as BlockT>::Hash>,
-    ) -> Result<HistoricalVotingByAddress<Balance>> {
-        rpc_forward_call!(
+    ) -> Result<HistoricalVotingByAddress<Vote>> {
+        let history = rpc_forward_call!(
             self,
             at,
             |api: ApiRef<<C as ProvideRuntimeApi<Block>>::Api>, at| api
                 .voting_history_by_id(at, id),
             "Unable to query `voting_history_by_id`."
-        )
+        )?;
+
+        let history = history
+            .into_iter()
+            .map(|(address, history)| {
+                let history = history
+                    .into_iter()
+                    .map(|hvi| VoteByPip {
+                        pip: hvi.pip,
+                        vote: Vote::from(hvi.vote),
+                    })
+                    .collect::<HistoricalVoting<_>>();
+
+                (address, history)
+            })
+            .collect::<HistoricalVotingByAddress<_>>();
+
+        Ok(history)
     }
 }

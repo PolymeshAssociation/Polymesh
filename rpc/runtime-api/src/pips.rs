@@ -14,42 +14,73 @@
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
 //! Runtime API definition for pips module.
-use pallet_pips::{HistoricalVoting, HistoricalVotingByAddress, VoteCount};
+use codec::Codec;
+use pallet_pips::{HistoricalVoting, HistoricalVotingByAddress, Vote, VoteCount};
 use polymesh_primitives::IdentityId;
 
-use codec::{Codec, Decode, Encode};
-#[cfg(feature = "std")]
-use serde::{Deserialize, Serialize};
-use sp_runtime::traits::{SaturatedConversion, UniqueSaturatedInto};
 use sp_std::{prelude::*, vec::Vec};
 
-/// A capped version of `VoteCount`.
-///
-/// The `Balance` is capped (or expanded) to `u64` to avoid serde issues with `u128`.
-#[derive(Eq, PartialEq, Encode, Decode)]
-#[cfg_attr(feature = "std", derive(Debug, Serialize, Deserialize))]
-#[cfg_attr(feature = "std", serde(rename_all = "camelCase"))]
-pub enum CappedVoteCount {
-    /// Proposal was found and has the following votes.
-    Success {
-        /// Stake for
-        ayes: u64,
-        /// Stake against
-        nays: u64,
-    },
-    /// Proposal was not for given index.
-    ProposalNotFound,
-}
+/// This module contains some types which require transformations to avoid serde issues with
+/// `u128` type.
+/// For instance, `Balance` is capped (or expanded) to `u64` in `VoteCount`.
+pub mod capped {
+    use pallet_pips::{Vote as CoreVote, VoteCount as CoreVoteCount};
 
-impl CappedVoteCount {
-    /// Create a new `CappedVoteCount` from `VoteCount`.
-    pub fn new<Balance: UniqueSaturatedInto<u64>>(count: VoteCount<Balance>) -> Self {
-        match count {
-            VoteCount::Success { ayes, nays } => CappedVoteCount::Success {
-                ayes: ayes.saturated_into(),
-                nays: nays.saturated_into(),
-            },
-            VoteCount::ProposalNotFound => CappedVoteCount::ProposalNotFound,
+    use codec::{Decode, Encode};
+    use sp_runtime::traits::{SaturatedConversion, UniqueSaturatedInto};
+
+    #[cfg(feature = "std")]
+    use serde::{Deserialize, Serialize};
+
+    #[derive(Eq, PartialEq, Encode, Decode)]
+    #[cfg_attr(feature = "std", derive(Debug, Serialize, Deserialize))]
+    #[cfg_attr(feature = "std", serde(rename_all = "camelCase"))]
+    pub enum VoteCount {
+        /// Proposal was found and has the following votes.
+        Success {
+            /// Stake for
+            ayes: u64,
+            /// Stake against
+            nays: u64,
+        },
+        /// Proposal was not for given index.
+        ProposalNotFound,
+    }
+
+    impl<Balance> From<CoreVoteCount<Balance>> for VoteCount
+    where
+        Balance: UniqueSaturatedInto<u64>,
+    {
+        fn from(vote_count: CoreVoteCount<Balance>) -> Self {
+            match vote_count {
+                CoreVoteCount::Success { ayes, nays } => VoteCount::Success {
+                    ayes: ayes.saturated_into(),
+                    nays: nays.saturated_into(),
+                },
+                CoreVoteCount::ProposalNotFound => VoteCount::ProposalNotFound,
+            }
+        }
+    }
+
+    #[derive(Eq, PartialEq)]
+    #[cfg_attr(feature = "std", derive(Debug, Serialize, Deserialize))]
+    #[cfg_attr(feature = "std", serde(rename_all = "camelCase"))]
+    pub enum Vote {
+        None,
+        Yes(u64),
+        No(u64),
+    }
+
+    impl<Balance> From<CoreVote<Balance>> for Vote
+    where
+        Balance: UniqueSaturatedInto<u64>,
+    {
+        fn from(core_vote: CoreVote<Balance>) -> Self {
+            match core_vote {
+                CoreVote::None => Vote::None,
+                CoreVote::Yes(amount) => Vote::Yes(amount.saturated_into()),
+                CoreVote::No(amount) => Vote::No(amount.saturated_into()),
+            }
         }
     }
 }
@@ -59,7 +90,7 @@ sp_api::decl_runtime_apis! {
     pub trait PipsApi<AccountId, Balance>
     where
         AccountId: Codec,
-        Balance: Codec,
+        Balance: Codec // + UniqueSaturatedInto<u128>
     {
         /// Retrieve votes for a proposal for a given `pips_index`.
         fn get_votes(pips_index: u32) -> VoteCount<Balance>;
@@ -71,10 +102,10 @@ sp_api::decl_runtime_apis! {
         fn voted_on(address: AccountId) -> Vec<u32>;
 
         /// Retrieve referendums voted on information by `address` account.
-        fn voting_history_by_address(address: AccountId) -> HistoricalVoting<Balance>;
+        fn voting_history_by_address(address: AccountId) -> HistoricalVoting<Vote<Balance>>;
 
         /// Retrieve referendums voted on information by `id` identity (and its signing items).
-        fn voting_history_by_id(id: IdentityId) -> HistoricalVotingByAddress<Balance>;
+        fn voting_history_by_id(id: IdentityId) -> HistoricalVotingByAddress<Vote<Balance>>;
     }
 }
 

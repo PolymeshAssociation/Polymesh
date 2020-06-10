@@ -19,7 +19,7 @@ use pallet_compliance_manager::{self as compliance_manager, AssetTransferRulesRe
 use pallet_group as group;
 use pallet_identity as identity;
 use pallet_multisig as multisig;
-use pallet_pips::{HistoricalVoting, HistoricalVotingByAddress, VoteCount};
+use pallet_pips::{HistoricalVoting, HistoricalVotingByAddress, Vote, VoteCount};
 use pallet_protocol_fee as protocol_fee;
 use pallet_statistics as statistics;
 use pallet_treasury as treasury;
@@ -814,12 +814,12 @@ impl_runtime_apis! {
         }
 
         /// Retrieve referendums voted on information by `address` account.
-        fn voting_history_by_address(address: AccountId) -> HistoricalVoting<Balance> {
+        fn voting_history_by_address(address: AccountId) -> HistoricalVoting<Vote<Balance>> {
             Pips::voting_history_by_address(address)
         }
 
         /// Retrieve referendums voted on information by `id` identity (and its signing items).
-        fn voting_history_by_id(id: IdentityId) -> HistoricalVotingByAddress<Balance> {
+        fn voting_history_by_id(id: IdentityId) -> HistoricalVotingByAddress<Vote<Balance>> {
             Pips::voting_history_by_id(id)
         }
     }
