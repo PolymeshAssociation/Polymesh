@@ -440,7 +440,7 @@
             "_enum": [
                 "AssetRegisterTicker",
                 "AssetIssue",
-                "AssetAddDocuments",
+                "AssetAddDocument",
                 "AssetCreateAsset",
                 "DividendNew",
                 "ComplianceManagerAddActiveRule",
@@ -532,6 +532,10 @@
                 "Exists": "",
                 "CddVerified": ""
             }
+        },
+        "IssueAssetItem": {
+            "identity_did": "IdentityId",
+            "value": "Balance"
         }
     },
     "rpc": {
