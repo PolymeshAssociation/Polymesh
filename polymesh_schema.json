@@ -475,16 +475,29 @@
                 "IdNotFound": "Vec<u8>"
             }
         },
-        "CappedVoteCountSuccess": {
+        "VoteCountProposalFound": {
             "ayes": "u64",
             "nays": "u64"
         },
-        "CappedVoteCount": {
+        "VoteCount": {
             "_enum": {
-                "Success": "CappedVoteCountSuccess",
+                "ProposalFound": "VoteCountProposalFound",
                 "ProposalNotFound": "Vec<u8>"
             }
         },
+        "Vote": {
+            "_enum": {
+                "None": "",
+                "Yes": "Balance",
+                "No": "Balance"
+            }
+        },
+        "VoteByPip": {
+            "pip": "PipId",
+            "vote": "Vote"
+        },
+        "HistoricalVotingByAddress": "Vec<VoteByPip>",
+        "HistoricalVotingById": "Vec<(AccountKey, HistoricalVotingByAddress)>",
         "Weight": "u32",
         "BridgeTxDetail": {
             "amount": "Balance",
@@ -679,7 +692,7 @@
                         "isOptional": true
                     }
                 ],
-                "type": "CappedVoteCount"
+                "type": "VoteCount"
             },
             "proposedBy": {
                 "description": "Retrieves proposal indices started by address",
@@ -712,6 +725,38 @@
                     }
                 ],
                 "type": "Vec<u32>"
+            },
+            "votingHistoryByAddress": {
+                "description": "Retrieves proposal `address` indices voted on",
+                "params": [
+                    {
+                        "name": "address",
+                        "type": "AccountId",
+                        "isOptional": false
+                    },
+                    {
+                        "name": "blockHash",
+                        "type": "Hash",
+                        "isOptional": true
+                    }
+                ],
+                "type": "HistoricalVoting"
+            },
+            "votingHistoryById": {
+                "description": "Retrieve historical voting of `id` identity",
+                "params": [
+                    {
+                        "name": "id",
+                        "type": "IdentityId",
+                        "isOptional": false
+                    },
+                    {
+                        "name": "blockHash",
+                        "type": "Hash",
+                        "isOptional": true
+                    }
+                ],
+                "type": "HistoricalVotingByAddress"
             }
         },
         "protocolFee": {
