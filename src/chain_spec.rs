@@ -6,8 +6,6 @@ use polymesh_common_utilities::{
     protocol_fee::ProtocolOp,
 };
 use polymesh_primitives::{AccountId, AccountKey, IdentityId, PosRatio, Signatory, Signature};
-use std::convert::TryFrom;
-
 use polymesh_runtime_develop::{self as general, constants::time as GeneralTime};
 use polymesh_runtime_testnet_v1::{
     self as v1,
@@ -15,6 +13,7 @@ use polymesh_runtime_testnet_v1::{
     constants::time as V1Time,
 };
 use sc_service::Properties;
+use sc_telemetry::TelemetryEndpoints;
 use serde_json::json;
 use sp_authority_discovery::AuthorityId as AuthorityDiscoveryId;
 use sp_consensus_babe::AuthorityId as BabeId;
@@ -23,9 +22,8 @@ use sp_runtime::{
     traits::{IdentifyAccount, Verify},
     PerThing,
 };
-
-//use substrate_telemetry::TelemetryEndpoints;
-use sc_telemetry::TelemetryEndpoints;
+use std::convert::TryFrom;
+use std::iter;
 
 const STAGING_TELEMETRY_URL: &str = "wss://telemetry.polymesh.live/submit/";
 
@@ -143,6 +141,8 @@ fn general_testnet_genesis(
 ) -> GenesisConfig {
     const STASH: u128 = 5_000_000 * POLY;
     const ENDOWMENT: u128 = 100_000_000 * POLY;
+    const BRIDGE_CREATOR_ID: u128 = 6;
+    const BRIDGE_CREATOR_ID_BALANCE: u128 = 1_000 * POLY;
 
     GenesisConfig {
         frame_system: Some(V1Config::SystemConfig {
@@ -191,7 +191,8 @@ fn general_testnet_genesis(
                     None,
                 ),
             ];
-            let mut identity_counter = 5;
+            let num_initial_identities = initial_identities.len() as u128;
+            let mut identity_counter = num_initial_identities;
             let authority_identities = initial_authorities
                 .iter()
                 .map(|x| {
@@ -210,7 +211,7 @@ fn general_testnet_genesis(
                 .cloned()
                 .chain(authority_identities.iter().cloned())
                 .collect::<Vec<_>>();
-            identity_counter = 5;
+            identity_counter = num_initial_identities;
             let signing_keys = initial_authorities
                 .iter()
                 .map(|x| {
@@ -221,10 +222,23 @@ fn general_testnet_genesis(
 
             Some(V1Config::IdentityConfig {
                 identities: all_identities,
-                signing_keys: signing_keys,
+                signing_keys,
                 ..Default::default()
             })
         },
+        balances: Some(V1Config::BalancesConfig {
+            balances: endowed_accounts
+                .iter()
+                .map(|k: &AccountId| (k.clone(), ENDOWMENT))
+                .chain(initial_authorities.iter().map(|x| (x.1.clone(), ENDOWMENT)))
+                .chain(initial_authorities.iter().map(|x| (x.0.clone(), STASH)))
+                .collect(),
+            identity_balances: iter::once((
+                IdentityId::from(BRIDGE_CREATOR_ID),
+                BRIDGE_CREATOR_ID_BALANCE,
+            ))
+            .collect(),
+        }),
         bridge: Some(V1Config::BridgeConfig {
             admin: initial_authorities[0].1.clone(),
             creator: initial_authorities[0].1.clone(),
@@ -253,14 +267,6 @@ fn general_testnet_genesis(
             ],
             timelock: 10,
             bridge_limit: (100_000_000 * POLY, 1000),
-        }),
-        balances: Some(V1Config::BalancesConfig {
-            balances: endowed_accounts
-                .iter()
-                .map(|k: &AccountId| (k.clone(), ENDOWMENT))
-                .chain(initial_authorities.iter().map(|x| (x.1.clone(), ENDOWMENT)))
-                .chain(initial_authorities.iter().map(|x| (x.0.clone(), STASH)))
-                .collect(),
         }),
         pallet_indices: Some(V1Config::IndicesConfig { indices: vec![] }),
         pallet_sudo: Some(V1Config::SudoConfig { key: root_key }),
@@ -637,7 +643,8 @@ fn v1_testnet_genesis(
                     None,
                 ),
             ];
-            let mut identity_counter = 6;
+            let num_initial_identities = initial_identities.len() as u128;
+            let mut identity_counter = num_initial_identities;
             let authority_identities = initial_authorities
                 .iter()
                 .map(|x| {
@@ -656,7 +663,7 @@ fn v1_testnet_genesis(
                 .cloned()
                 .chain(authority_identities.iter().cloned())
                 .collect::<Vec<_>>();
-            identity_counter = 6;
+            identity_counter = num_initial_identities;
             let signing_keys = initial_authorities
                 .iter()
                 .map(|x| {
@@ -667,10 +674,19 @@ fn v1_testnet_genesis(
 
             Some(V1Config::IdentityConfig {
                 identities: all_identities,
-                signing_keys: signing_keys,
+                signing_keys,
                 ..Default::default()
             })
         },
+        balances: Some(V1Config::BalancesConfig {
+            balances: endowed_accounts
+                .iter()
+                .map(|k: &AccountId| (k.clone(), ENDOWMENT))
+                .chain(initial_authorities.iter().map(|x| (x.1.clone(), ENDOWMENT)))
+                .chain(initial_authorities.iter().map(|x| (x.0.clone(), STASH)))
+                .collect(),
+            identity_balances: vec![],
+        }),
         bridge: Some(V1Config::BridgeConfig {
             admin: get_account_id_from_seed::<sr25519::Public>("polymath_1"),
             creator: get_account_id_from_seed::<sr25519::Public>("polymath_1"),
@@ -699,14 +715,6 @@ fn v1_testnet_genesis(
             ],
             timelock: V1Time::MINUTES * 15,
             bridge_limit: (25_000_000_000, V1Time::DAYS * 1),
-        }),
-        balances: Some(V1Config::BalancesConfig {
-            balances: endowed_accounts
-                .iter()
-                .map(|k: &AccountId| (k.clone(), ENDOWMENT))
-                .chain(initial_authorities.iter().map(|x| (x.1.clone(), ENDOWMENT)))
-                .chain(initial_authorities.iter().map(|x| (x.0.clone(), STASH)))
-                .collect(),
         }),
         pallet_indices: Some(V1Config::IndicesConfig { indices: vec![] }),
         pallet_sudo: Some(V1Config::SudoConfig { key: root_key }),
