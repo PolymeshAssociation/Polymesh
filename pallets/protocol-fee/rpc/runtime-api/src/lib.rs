@@ -18,7 +18,6 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use codec::{Decode, Encode};
-use frame_support::dispatch::Vec;
 use polymesh_common_utilities::protocol_fee::ProtocolOp;
 #[cfg(feature = "std")]
 use serde::{Deserialize, Serialize};
