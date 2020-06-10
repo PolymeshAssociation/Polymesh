@@ -84,7 +84,7 @@
 #[cfg(feature = "runtime-benchmarks")]
 pub mod benchmarking;
 
-use pallet_identity_rpc_runtime_api::{DidRecords as RpcDidRecords, LinkType};
+use pallet_identity_rpc_runtime_api::{DidRecords as RpcDidRecords, DidStatus, LinkType};
 use pallet_transaction_payment::{CddAndFeeDetails, ChargeTxFee};
 use polymesh_common_utilities::{
     constants::did::{SECURITY_TOKEN, USER},
@@ -2093,6 +2093,23 @@ impl<T: Trait> Module<T> {
                 })
                 .collect::<Vec<Link<T::Moment>>>()
         }
+    }
+
+    pub fn get_did_status(dids: Vec<IdentityId>) -> Vec<DidStatus> {
+        let mut result = Vec::with_capacity(dids.len());
+        dids.into_iter().for_each(|did| {
+            // is DID exist in the ecosystem
+            if !<DidRecords>::contains_key(did) {
+                result.push(DidStatus::Unknown);
+            }
+            // DID exist but whether it has valid cdd or not
+            else if Self::fetch_cdd(did, T::Moment::zero()).is_some() {
+                result.push(DidStatus::CddVerified);
+            } else {
+                result.push(DidStatus::Exists);
+            }
+        });
+        result
     }
 
     /// Registers the systematic issuer with its DID.
