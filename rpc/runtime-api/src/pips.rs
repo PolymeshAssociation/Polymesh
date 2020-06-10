@@ -115,14 +115,14 @@ mod tests {
 
     #[test]
     fn should_serialize_pips_votes() {
-        let votes = VoteCount::Success {
+        let votes = VoteCount::ProposalFound {
             ayes: 3141u64,
             nays: 5926u64,
         };
 
         assert_eq!(
             serde_json::to_string(&votes).unwrap(),
-            r#"{"Success":{"ayes":3141,"nays":5926}}"#,
+            r#"{"ProposalFound":{"ayes":3141,"nays":5926}}"#,
         );
 
         // should not panic
