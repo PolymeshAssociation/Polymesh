@@ -38,7 +38,7 @@ pub enum LinkType {
 #[cfg_attr(feature = "std", derive(Debug, Serialize, Deserialize))]
 pub enum DidStatus {
     Unknown,
-    Valid,
+    Exists,
     CddVerified,
 }
 

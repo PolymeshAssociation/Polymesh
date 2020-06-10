@@ -529,7 +529,7 @@
         "DidStatus": {
             "_enum": {
                 "Unknown": "",
-                "Valid": "",
+                "Exists": "",
                 "CddVerified": ""
             }
         }

@@ -2104,12 +2104,10 @@ impl<T: Trait> Module<T> {
                 result.push(DidStatus::Unknown);
             }
             // DID exist but whether it has valid cdd or not
-            else {
-                if Self::fetch_cdd(did, T::Moment::zero()).is_some() {
-                    result.push(DidStatus::CddVerified);
-                } else {
-                    result.push(DidStatus::Valid);
-                }
+            else if Self::fetch_cdd(did, T::Moment::zero()).is_some() {
+                result.push(DidStatus::CddVerified);
+            } else {
+                result.push(DidStatus::Exists);
             }
         });
         result
