@@ -2157,7 +2157,6 @@ impl<T: Trait> Module<T> {
         });
         result
     }
-
 }
 
 impl<T: Trait> IdentityTrait for Module<T> {
