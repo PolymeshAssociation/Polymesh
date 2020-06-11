@@ -23,8 +23,7 @@ use polymesh_runtime_common::bridge;
 use pallet_transaction_payment::CddAndFeeDetails;
 use polymesh_common_utilities::Context;
 use polymesh_primitives::{
-    traits::IdentityCurrency, AccountId, AccountKey, AuthorizationData, IdentityId, Signatory,
-    TransactionError,
+    traits::IdentityCurrency, AccountId, AuthorizationData, IdentityId, Signatory, TransactionError,
 };
 use sp_runtime::transaction_validity::InvalidTransaction;
 
@@ -49,6 +48,8 @@ enum CallType {
 pub struct CddHandler;
 
 impl CddAndFeeDetails<Call> for CddHandler {
+    type AccountId = <Runtime as frame_system::Trait>::AccountId;
+
     /// Check if there's an eligible payer with valid CDD.
     /// Return the payer if found or else an error.
     /// Can also return Ok(none) to represent the case where
@@ -58,7 +59,7 @@ impl CddAndFeeDetails<Call> for CddHandler {
     /// throughout the transaction. This function can also be used to simply check CDD and update identity context.
     fn get_valid_payer(
         call: &Call,
-        caller: &Signatory,
+        caller: &Signatory<Self::AccountId>,
     ) -> Result<Option<Signatory>, InvalidTransaction> {
         // The CDD check and fee payer varies depending on the transaction.
         // This match covers all possible scenarios.
@@ -73,19 +74,23 @@ impl CddAndFeeDetails<Call> for CddHandler {
             // of an existing multisig that has a valid CDD. The auth should be valid.
             Call::MultiSig(multisig::Call::accept_multisig_signer_as_key(auth_id)) => {
                 sp_runtime::print("accept_multisig_signer_as_key");
-                is_auth_valid(caller, auth_id, CallType::AcceptMultiSigSigner)
+                is_auth_valid::<Self::AccountId>(caller, auth_id, CallType::AcceptMultiSigSigner)
             }
             // Call made by a new Account key to accept invitation to become a signing key
             // of an existing identity that has a valid CDD. The auth should be valid.
             Call::Identity(identity::Call::join_identity_as_key(auth_id, ..)) => {
                 sp_runtime::print("join_identity_as_key");
-                is_auth_valid(caller, auth_id, CallType::AcceptIdentitySigner)
+                is_auth_valid::<Self::AccountId>(caller, auth_id, CallType::AcceptIdentitySigner)
             }
             // Call made by a new Account key to accept invitation to become the master key
             // of an existing identity that has a valid CDD. The auth should be valid.
             Call::Identity(identity::Call::accept_master_key(rotation_auth_id, ..)) => {
                 sp_runtime::print("accept_master_key");
-                is_auth_valid(caller, rotation_auth_id, CallType::AcceptIdentityMaster)
+                is_auth_valid::<Self::AccountId>(
+                    caller,
+                    rotation_auth_id,
+                    CallType::AcceptIdentityMaster,
+                )
             }
             // Call made by an Account key to propose or approve a multisig transaction.
             // The multisig must have valid CDD and the caller must be a signer of the multisig.
@@ -94,11 +99,8 @@ impl CddAndFeeDetails<Call> for CddHandler {
             | Call::MultiSig(multisig::Call::approve_as_key(multisig, ..)) => {
                 sp_runtime::print("multisig stuff");
                 if <multisig::MultiSigSigners<Runtime>>::contains_key(multisig, caller) {
-                    if let Some(did) = Identity::get_identity(
-                        &AccountKey::try_from(multisig.encode())
-                            .map_err(|_| InvalidTransaction::Payment)?,
-                    ) {
-                        return check_cdd(&did);
+                    if let Some(did) = Identity::get_identity(&multisig) {
+                        return check_cdd::<Self::AccountId>(&did);
                     }
                 }
                 Err(InvalidTransaction::Custom(TransactionError::MissingIdentity as u8).into())
@@ -110,18 +112,15 @@ impl CddAndFeeDetails<Call> for CddHandler {
                 sp_runtime::print("multisig stuff via bridge");
                 let multisig = Bridge::controller_key();
                 if <multisig::MultiSigSigners<Runtime>>::contains_key(&multisig, caller) {
-                    if let Some(did) = Identity::get_identity(
-                        &AccountKey::try_from(multisig.encode())
-                            .map_err(|_| InvalidTransaction::Payment)?,
-                    ) {
-                        return check_cdd(&did);
+                    if let Some(did) = Identity::get_identity(&multisig) {
+                        return check_cdd::<Self::AccountId>(&did);
                     }
                 }
                 Err(InvalidTransaction::Custom(TransactionError::MissingIdentity as u8).into())
             }
             // Call to set fee payer
             Call::Balances(balances::Call::change_charge_did_flag(charge_did)) => match caller {
-                Signatory::AccountKey(key) => {
+                Signatory::Account(key) => {
                     if let Some(did) = Identity::get_identity(key) {
                         if Identity::has_valid_cdd(did) {
                             Context::set_current_identity::<Identity>(Some(did));
@@ -141,7 +140,7 @@ impl CddAndFeeDetails<Call> for CddHandler {
                 }
                 // A did was passed as the caller. The did should be charged the fee.
                 // This will never happen during an external call.
-                Signatory::Identity(did) => check_cdd(did),
+                Signatory::Identity(did) => check_cdd::<Self::AccountId>(did),
             },
             // All other calls
             _ => match caller {
@@ -149,7 +148,7 @@ impl CddAndFeeDetails<Call> for CddHandler {
                 // If the account has enabled charging fee to identity then the identity should be charged
                 // otherwise, the account should be charged. In any case, the external account
                 // must directly be linked to an identity with valid CDD.
-                Signatory::AccountKey(key) => {
+                Signatory::Account(key) => {
                     if let Some(did) = Identity::get_identity(key) {
                         if Identity::has_valid_cdd(did) {
                             Context::set_current_identity::<Identity>(Some(did));
@@ -171,7 +170,7 @@ impl CddAndFeeDetails<Call> for CddHandler {
                 }
                 // A did was passed as the caller. The did should be charged the fee.
                 // This will never happen during an external call.
-                Signatory::Identity(did) => check_cdd(did),
+                Signatory::Identity(did) => check_cdd::<Self::AccountId>(did),
             },
         }
     }
@@ -183,12 +182,12 @@ impl CddAndFeeDetails<Call> for CddHandler {
     }
 
     /// Sets payer in context. Should be called by the signed extension that first charges fee.
-    fn set_payer_context(payer: Option<Signatory>) {
+    fn set_payer_context(payer: Option<Signatory<Self::AccountId>>) {
         Context::set_current_payer::<Identity>(payer);
     }
 
     /// Fetches fee payer for further payements (forwareded calls)
-    fn get_payer_from_context() -> Option<Signatory> {
+    fn get_payer_from_context() -> Option<Signatory<Self::AccountId>> {
         Context::current_payer::<Identity>()
     }
 
@@ -198,8 +197,8 @@ impl CddAndFeeDetails<Call> for CddHandler {
 }
 
 /// Returns signatory to charge fee if auth is valid.
-fn is_auth_valid(
-    singer: &Signatory,
+fn is_auth_valid<AccountId>(
+    singer: &Signatory<AccountId>,
     auth_id: &u64,
     call_type: CallType,
 ) -> Result<Option<Signatory>, InvalidTransaction> {
@@ -211,16 +210,11 @@ fn is_auth_valid(
             CallType::AcceptMultiSigSigner => {
                 if auth.authorization_data == AuthorizationData::AddMultiSigSigner {
                     // make sure that the auth was created by a valid multisig
-                    if let Signatory::AccountKey(multisig) = auth.authorized_by {
-                        let ms = AccountId::decode(&mut &multisig.as_slice()[..])
-                            .map_err(|_| InvalidTransaction::Payment)?;
-                        if <multisig::MultiSigCreator<Runtime>>::contains_key(&ms) {
+                    if let Signatory::Account(multisig) = auth.authorized_by {
+                        if <multisig::MultiSigCreator<Runtime>>::contains_key(&multisig) {
                             // make sure that the multisig is attached to an identity with valid CDD
-                            if let Some(did) = Identity::get_identity(
-                                &AccountKey::try_from(ms.encode())
-                                    .map_err(|_| InvalidTransaction::Payment)?,
-                            ) {
-                                return check_cdd(&did);
+                            if let Some(did) = Identity::get_identity(&multisig) {
+                                return check_cdd::<AccountId>(&did);
                             } else {
                                 return Err(InvalidTransaction::Custom(
                                     TransactionError::MissingIdentity as u8,
@@ -238,8 +232,8 @@ fn is_auth_valid(
                     // make sure that the auth was created by the master key of an identity with valid CDD
                     let master =
                         Identity::did_records(&identity_data_to_join.target_did).master_key;
-                    if auth.authorized_by == Signatory::from(master) {
-                        return check_cdd(&identity_data_to_join.target_did);
+                    if auth.authorized_by == Signatory::Account(master) {
+                        return check_cdd::<AccountId>(&identity_data_to_join.target_did);
                     }
                 }
             }
@@ -247,8 +241,8 @@ fn is_auth_valid(
                 if let AuthorizationData::RotateMasterKey(did) = auth.authorization_data {
                     // make sure that the auth was created by the master key of an identity with valid CDD
                     let master = Identity::did_records(&did).master_key;
-                    if auth.authorized_by == Signatory::from(master) {
-                        return check_cdd(&did);
+                    if auth.authorized_by == Signatory::Account(master) {
+                        return check_cdd::<AccountId>(&did);
                     }
                 }
             }
@@ -259,7 +253,9 @@ fn is_auth_valid(
 }
 
 /// Returns signatory to charge fee if cdd is valid.
-fn check_cdd(did: &IdentityId) -> Result<Option<Signatory>, InvalidTransaction> {
+fn check_cdd<AccountId>(
+    did: &IdentityId,
+) -> Result<Option<Signatory<AccountId>>, InvalidTransaction> {
     if Identity::has_valid_cdd(*did) {
         Context::set_current_identity::<Identity>(Some(*did));
         return Ok(Some(Signatory::from(*did)));

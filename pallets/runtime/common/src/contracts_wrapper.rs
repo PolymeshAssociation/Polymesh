@@ -30,7 +30,7 @@
 
 use pallet_identity as identity;
 use polymesh_common_utilities::{identity::Trait as IdentityTrait, Context};
-use polymesh_primitives::{AccountKey, IdentityId, Signatory};
+use polymesh_primitives::{IdentityId, Signatory};
 
 use codec::Encode;
 use frame_support::traits::Currency;
@@ -81,9 +81,8 @@ decl_module! {
             code: Vec<u8>
         ) -> DispatchResult {
             let sender = ensure_signed(origin)?;
-            let sender_key = AccountKey::try_from(sender.encode())?;
-            let did = Context::current_identity_or::<Identity<T>>(&sender_key)?;
-            let signer = Signatory::AccountKey(sender_key);
+            let did = Context::current_identity_or::<Identity<T>>(&sender)?;
+            let signer = Signatory::Account(sender);
 
             // Check that sender is allowed to act on behalf of `did`
             ensure!(

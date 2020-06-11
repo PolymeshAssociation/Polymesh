@@ -201,7 +201,8 @@ pub struct VoteByPip<VoteType> {
 }
 
 pub type HistoricalVotingByAddress<VoteType> = Vec<VoteByPip<VoteType>>;
-pub type HistoricalVotingById<VoteType> = Vec<(AccountKey, HistoricalVotingByAddress<VoteType>)>;
+pub type HistoricalVotingById<AccountId, VoteType> =
+    Vec<(AccountId, HistoricalVotingByAddress<VoteType>)>;
 
 #[derive(Encode, Decode, Copy, Clone, Eq, PartialEq, Debug)]
 pub enum ProposalState {
@@ -1290,12 +1291,8 @@ impl<T: Trait> Module<T> {
         let flatten_keys = <Identity<T>>::flatten_keys(who, 1);
         flatten_keys
             .into_iter()
-            .filter_map(|key| {
-                if let Ok(address) = T::AccountId::decode(&mut key.as_slice()) {
-                    Some((key, Self::voting_history_by_address(address)))
-                } else {
-                    None
-                }
+            .map(|key| {
+                (key, Self::voting_history_by_address(key))
             })
             .collect::<HistoricalVotingById<_>>()
     }

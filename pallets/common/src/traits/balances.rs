@@ -15,7 +15,7 @@
 
 use crate::traits::{identity::IdentityTrait, CommonTrait, NegativeImbalance};
 
-use polymesh_primitives::{AccountKey, IdentityId};
+use polymesh_primitives::IdentityId;
 use polymesh_primitives_derive::SliceU8StrongTyped;
 
 use codec::{Decode, Encode};
@@ -157,6 +157,7 @@ pub trait BalancesTrait<A, B, NI> {
 }
 
 pub trait CheckCdd {
-    fn check_key_cdd(key: &AccountKey) -> bool;
-    fn get_key_cdd_did(key: &AccountKey) -> Option<IdentityId>;
+    type AccountId;
+    fn check_key_cdd(key: &Self::AccountId) -> bool;
+    fn get_key_cdd_did(key: &Self::AccountId) -> Option<IdentityId>;
 }

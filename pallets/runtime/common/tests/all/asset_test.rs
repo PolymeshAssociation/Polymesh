@@ -13,7 +13,7 @@ use polymesh_common_utilities::{
     constants::*, traits::asset::IssueAssetItem, traits::balances::Memo,
 };
 use polymesh_primitives::{
-    AccountKey, AuthorizationData, Document, IdentityId, LinkData, Signatory, SmartExtension,
+    AuthorizationData, Document, IdentityId, LinkData, Signatory, SmartExtension,
     SmartExtensionType, Ticker,
 };
 
@@ -1784,7 +1784,7 @@ fn frozen_signing_keys_create_asset_we() {
         alice_id,
         100_000
     ));
-    let bob_signatory = Signatory::from(AccountKey::from(AccountKeyring::Bob.public().0));
+    let bob_signatory = Signatory::Account(AccountKeyring::Bob.public().0);
     add_signing_item(alice_id, bob_signatory);
     assert_ok!(Balances::transfer_with_memo(
         Origin::signed(alice),

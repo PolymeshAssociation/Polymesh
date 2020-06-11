@@ -278,13 +278,14 @@ where
 
 // Polymesh note: This was specifically added for Polymesh
 pub trait CddAndFeeDetails<Call> {
+    type AccountId;
     fn get_valid_payer(
         call: &Call,
-        caller: &Signatory,
-    ) -> Result<Option<Signatory>, InvalidTransaction>;
+        caller: &Signatory<Self::AccountId>,
+    ) -> Result<Option<Signatory<Self::AccountId>>, InvalidTransaction>;
     fn clear_context();
-    fn set_payer_context(payer: Option<Signatory>);
-    fn get_payer_from_context() -> Option<Signatory>;
+    fn set_payer_context(payer: Option<Signatory<Self::AccountId>>);
+    fn get_payer_from_context() -> Option<Signatory<Self::AccountId>>;
     fn set_current_identity(did: &IdentityId);
 }
 
@@ -445,6 +446,8 @@ mod tests {
     }
 
     impl CheckCdd for Runtime {
+        type AccountId = AccountId;
+
         fn check_key_cdd(_key: &AccountId) -> bool {
             true
         }
@@ -461,15 +464,17 @@ mod tests {
     }
 
     impl CddAndFeeDetails<Call> for Runtime {
+        type AccountId = AccountId;
+
         fn get_valid_payer(
             _: &Call,
-            caller: &Signatory,
-        ) -> Result<Option<Signatory>, InvalidTransaction> {
+            caller: &Signatory<AccountId>,
+        ) -> Result<Option<Signatory<AccountId>>, InvalidTransaction> {
             Ok(Some(*caller))
         }
         fn clear_context() {}
-        fn set_payer_context(_: Option<Signatory>) {}
-        fn get_payer_from_context() -> Option<Signatory> {
+        fn set_payer_context(_: Option<Signatory<AccountId>>) {}
+        fn get_payer_from_context() -> Option<Signatory<AccountId>> {
             None
         }
         fn set_current_identity(_: &IdentityId) {}

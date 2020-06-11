@@ -50,7 +50,7 @@ use pallet_identity as identity;
 use polymesh_common_utilities::{
     asset::Trait as AssetTrait, balances::Trait as BalancesTrait, CommonTrait, Context,
 };
-use polymesh_primitives::{AccountKey, IdentityId, Signatory, Ticker};
+use polymesh_primitives::{IdentityId, Signatory, Ticker};
 
 use codec::Encode;
 use frame_support::traits::Currency;
@@ -190,9 +190,9 @@ decl_module! {
             end_date: T::Moment,
             simple_token_ticker: Ticker
         ) -> DispatchResult {
-            let sender_key = AccountKey::try_from(ensure_signed(origin)?.encode())?;
-            let did = Context::current_identity_or::<Identity<T>>(&sender_key)?;
-            let sender = Signatory::AccountKey(sender_key);
+            let sender = ensure_signed(origin)?;
+            let did = Context::current_identity_or::<Identity<T>>(&sender)?;
+            let sender = Signatory::Account(sender);
 
             // Check that sender is allowed to act on behalf of `did`
             ensure!(
@@ -247,9 +247,8 @@ decl_module! {
         #[weight = SimpleDispatchInfo::FixedNormal(500_000)]
         pub fn buy_tokens(origin, ticker: Ticker, sto_id: u32, value: T::Balance) -> DispatchResult {
             let sender = ensure_signed(origin)?;
-            let sender_key = AccountKey::try_from(sender.encode())?;
-            let did = Context::current_identity_or::<Identity<T>>(&sender_key)?;
-            let sender_signer = Signatory::AccountKey(sender_key);
+            let did = Context::current_identity_or::<Identity<T>>(&sender)?;
+            let sender_signer = Signatory::Account(sender);
 
 
             // Check that sender is allowed to act on behalf of `did`
@@ -316,9 +315,9 @@ decl_module! {
         /// * `modify_status` Boolean to know whether the provided simple token ticker will be used or not.
         #[weight = SimpleDispatchInfo::FixedNormal(400_000)]
         pub fn modify_allowed_tokens(origin, ticker: Ticker, sto_id: u32, simple_token_ticker: Ticker, modify_status: bool) -> DispatchResult {
-            let sender_key = AccountKey::try_from(ensure_signed(origin)?.encode())?;
-            let did = Context::current_identity_or::<Identity<T>>(&sender_key)?;
-            let sender = Signatory::AccountKey(sender_key);
+            let sender = ensure_signed(origin)?;
+            let did = Context::current_identity_or::<Identity<T>>(&sender)?;
+            let sender = Signatory::Account(sender);
 
             // Check that sender is allowed to act on behalf of `did`
             ensure!(
@@ -374,9 +373,8 @@ decl_module! {
         #[weight = SimpleDispatchInfo::FixedNormal(1_000_000)]
         pub fn buy_tokens_by_simple_token(origin, ticker: Ticker, sto_id: u32, value: T::Balance, simple_token_ticker: Ticker) -> DispatchResult {
             let sender = ensure_signed(origin)?;
-            let sender_key = AccountKey::try_from(sender.encode())?;
-            let did = Context::current_identity_or::<Identity<T>>(&sender_key)?;
-            let spender = Signatory::AccountKey(sender_key);
+            let did = Context::current_identity_or::<Identity<T>>(&sender)?;
+            let spender = Signatory::Account(sender);
 
             // Check that spender is allowed to act on behalf of `did`
             ensure!(
@@ -443,9 +441,9 @@ decl_module! {
         /// * `sto_id` A unique identifier to know which STO needs to paused
         #[weight = SimpleDispatchInfo::FixedNormal(150_000)]
         pub fn pause_sto(origin, ticker: Ticker, sto_id: u32) -> DispatchResult {
-            let sender_key = AccountKey::try_from(ensure_signed(origin)?.encode())?;
-            let did = Context::current_identity_or::<Identity<T>>(&sender_key)?;
-            let sender = Signatory::AccountKey(sender_key);
+            let sender = ensure_signed(origin)?;
+            let did = Context::current_identity_or::<Identity<T>>(&sender)?;
+            let sender = Signatory::Account(sender);
 
             // Check that sender is allowed to act on behalf of `did`
             ensure!(
@@ -474,9 +472,9 @@ decl_module! {
         /// * `sto_id` A unique identifier to know which STO needs to un paused
         #[weight = SimpleDispatchInfo::FixedNormal(150_000)]
         pub fn unpause_sto(origin, ticker: Ticker, sto_id: u32) -> DispatchResult {
-            let sender_key = AccountKey::try_from(ensure_signed(origin)?.encode())?;
-            let did = Context::current_identity_or::<Identity<T>>(&sender_key)?;
-            let sender = Signatory::AccountKey(sender_key);
+            let sender = ensure_signed(origin)?;
+            let did = Context::current_identity_or::<Identity<T>>(&sender)?;
+            let sender = Signatory::Account(sender);
 
             // Check that sender is allowed to act on behalf of `did`
             ensure!(

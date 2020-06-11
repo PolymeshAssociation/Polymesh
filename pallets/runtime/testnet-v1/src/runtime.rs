@@ -36,8 +36,8 @@ use polymesh_common_utilities::{
     CommonTrait,
 };
 use polymesh_primitives::{
-    AccountId, AccountIndex, AccountKey, Balance, BlockNumber, Hash, IdentityId, Index, Link,
-    Moment, Signatory, Signature, SigningItem, Ticker,
+    AccountId, AccountIndex, Balance, BlockNumber, Hash, IdentityId, Index, Link, Moment,
+    Signatory, Signature, SigningItem, Ticker,
 };
 
 use frame_support::{
@@ -837,7 +837,7 @@ impl_runtime_apis! {
             Block,
             IdentityId,
             Ticker,
-            AccountKey,
+            AccountId,
             SigningItem,
             Signatory,
             Moment
@@ -858,7 +858,7 @@ impl_runtime_apis! {
         }
 
         /// Retrieve master key and signing keys for a given IdentityId
-        fn get_did_records(did: IdentityId) -> DidRecords<AccountKey, SigningItem> {
+        fn get_did_records(did: IdentityId) -> DidRecords<AccountId, SigningItem> {
             Identity::get_did_records(did)
         }
 

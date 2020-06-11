@@ -190,9 +190,8 @@ impl<T: Trait> Module<T> {
         match signatory {
             Signatory::Identity(did) => T::Currency::withdraw_identity_balance(did, fee)
                 .map_err(|_| Error::<T>::InsufficientIdentityBalance.into()),
-            Signatory::AccountKey(account) => T::Currency::withdraw(
-                &T::AccountId::decode(&mut &account.encode()[..])
-                    .map_err(|_| Error::<T>::AccountIdDecode)?,
+            Signatory::Account(account) => T::Currency::withdraw(
+                &account,
                 fee,
                 WithdrawReason::Fee.into(),
                 ExistenceRequirement::KeepAlive,

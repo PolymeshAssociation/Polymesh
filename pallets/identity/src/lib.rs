@@ -2162,7 +2162,7 @@ impl<T: Trait> Module<T> {
                     .signing_items
                     .iter()
                     .filter_map(|si| match si.signer {
-                        Signatory::AccountKey(key) => Some(key),
+                        Signatory::Account(key) => Some(key),
                         _ => None,
                     })
                     .chain([identity.master_key].iter().cloned())

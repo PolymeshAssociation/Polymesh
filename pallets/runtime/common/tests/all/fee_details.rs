@@ -10,7 +10,7 @@ use pallet_balances as balances;
 use pallet_identity as identity;
 use pallet_multisig as multisig;
 use pallet_transaction_payment::CddAndFeeDetails;
-use polymesh_primitives::{AccountKey, Signatory, TransactionError};
+use polymesh_primitives::{Signatory, TransactionError};
 use polymesh_runtime_develop::{fee_details::CddHandler, runtime::Call};
 use sp_runtime::transaction_validity::InvalidTransaction;
 use std::convert::TryFrom;
@@ -29,18 +29,14 @@ fn cdd_checks() {
             // alice does not have cdd
             let (alice_signed, alice_did) =
                 make_account_without_cdd(AccountKeyring::Alice.public()).unwrap();
-            let alice_key_signatory = Signatory::from(
-                AccountKey::try_from(AccountKeyring::Alice.public().encode()).unwrap(),
-            );
+            let alice_key_signatory = Signatory::Account(AccountKeyring::Alice.public());
             let alice_did_signatory = Signatory::from(alice_did);
             let musig_address = MultiSig::get_next_multisig_address(AccountKeyring::Alice.public());
 
             // charlie has valid cdd
             let (charlie_signed, charlie_did) =
                 make_account(AccountKeyring::Charlie.public()).unwrap();
-            let charlie_key_signatory = Signatory::from(
-                AccountKey::try_from(AccountKeyring::Charlie.public().encode()).unwrap(),
-            );
+            let charlie_key_signatory = Signatory::Account(AccountKeyring::Charlie.public());
             let charlie_did_signatory = Signatory::from(charlie_did);
 
             assert_ok!(Balances::top_up_identity_balance(

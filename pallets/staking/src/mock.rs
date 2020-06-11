@@ -259,12 +259,16 @@ impl IdentityTrait for Test {
 }
 
 impl pallet_transaction_payment::CddAndFeeDetails<Call> for Test {
-    fn get_valid_payer(_: &Call, _: &Signatory) -> Result<Option<Signatory>, InvalidTransaction> {
+    type AccountId = AccountId;
+    fn get_valid_payer(
+        _: &Call,
+        _: &Signatory<AccountId>,
+    ) -> Result<Option<Signatory<AccountId>>, InvalidTransaction> {
         Ok(None)
     }
     fn clear_context() {}
-    fn set_payer_context(_: Option<Signatory>) {}
-    fn get_payer_from_context() -> Option<Signatory> {
+    fn set_payer_context(_: Option<Signatory<AccountId>>) {}
+    fn get_payer_from_context() -> Option<Signatory<AccountId>> {
         None
     }
     fn set_current_identity(_: &IdentityId) {}
@@ -341,6 +345,8 @@ impl AddSignerMultiSig for Test {
 }
 
 impl CheckCdd for Test {
+    type AccountId = AccountId;
+
     fn check_key_cdd(key: &AccountId) -> bool {
         true
     }

@@ -21,7 +21,7 @@ use polymesh_common_utilities::traits::{
     CommonTrait,
 };
 use polymesh_primitives::{
-    AccountKey, Authorization, AuthorizationData, IdentityId, JoinIdentityData, Signatory,
+    Authorization, AuthorizationData, IdentityId, JoinIdentityData, Signatory,
 };
 use polymesh_runtime_common::{
     bridge, cdd_check::CddChecker, dividend, exemption, simple_token, voting,
@@ -197,12 +197,16 @@ impl pallet_transaction_payment::ChargeTxFee for TestStorage {
 }
 
 impl pallet_transaction_payment::CddAndFeeDetails<Call> for TestStorage {
-    fn get_valid_payer(_: &Call, _: &Signatory) -> Result<Option<Signatory>, InvalidTransaction> {
+    type AccountId = AccountId;
+    fn get_valid_payer(
+        _: &Call,
+        _: &Signatory<AccountId>,
+    ) -> Result<Option<Signatory<AccountId>>, InvalidTransaction> {
         Ok(None)
     }
     fn clear_context() {}
-    fn set_payer_context(_: Option<Signatory>) {}
-    fn get_payer_from_context() -> Option<Signatory> {
+    fn set_payer_context(_: Option<Signatory<AccountId>>) {}
+    fn get_payer_from_context() -> Option<Signatory<AccountId>> {
         None
     }
     fn set_current_identity(_: &IdentityId) {}
@@ -525,7 +529,7 @@ pub fn make_account_with_balance(
         Identity::register_did(signed_id.clone(), vec![])
     };
     let _ = did_registration.map_err(|_| "Register DID failed")?;
-    let did = Identity::get_identity(&AccountKey::try_from(id.encode())?).unwrap();
+    let did = Identity::get_identity(&id).unwrap();
 
     Ok((signed_id, did))
 }
@@ -580,7 +584,7 @@ pub fn account_from(id: u64) -> AccountId {
 }
 
 pub fn get_identity_id(acc: AccountKeyring) -> Option<IdentityId> {
-    let key = AccountKey::from(acc.public().0);
+    let key = acc.public().0;
     Identity::get_identity(&key)
 }
 
