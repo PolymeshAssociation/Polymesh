@@ -8,7 +8,7 @@ use pallet_balances as balances;
 use pallet_identity as identity;
 use pallet_multisig as multisig;
 use polymesh_common_utilities::Context;
-use polymesh_primitives::{AccountKey, IdentityId, Signatory};
+use polymesh_primitives::{IdentityId, Signatory};
 
 use codec::Encode;
 use frame_support::{assert_err, assert_ok, StorageDoubleMap};
@@ -38,10 +38,7 @@ fn create_multisig() {
 
         assert_eq!(MultiSig::ms_signs_required(musig_address), 1);
         assert_eq!(MultiSig::ms_creator(musig_address), alice_did);
-        assert_eq!(
-            Identity::get_identity(&AccountKey::try_from(musig_address.encode()).unwrap()),
-            Some(alice_did)
-        );
+        assert_eq!(Identity::get_identity(&musig_address), Some(alice_did));
 
         assert_err!(
             MultiSig::create_multisig(alice.clone(), vec![], 10,),
@@ -74,8 +71,7 @@ fn join_multisig() {
         let alice_did = register_keyring_account(AccountKeyring::Alice).unwrap();
         let alice = Origin::signed(AccountKeyring::Alice.public());
         let bob = Origin::signed(AccountKeyring::Bob.public());
-        let bob_signer =
-            Signatory::from(AccountKey::try_from(AccountKeyring::Bob.public().encode()).unwrap());
+        let bob_signer = Signatory::Account(AccountKeyring::Bob.public());
 
         let musig_address = MultiSig::get_next_multisig_address(AccountKeyring::Alice.public());
 
@@ -125,9 +121,7 @@ fn join_multisig() {
             true
         );
         assert_eq!(
-            Identity::get_identity(
-                &AccountKey::try_from(AccountKeyring::Bob.public().encode()).unwrap()
-            ),
+            Identity::get_identity(&AccountKeyring::Bob.public()),
             Some(alice_did)
         );
 
@@ -156,8 +150,7 @@ fn change_multisig_sigs_required() {
         let alice_did = register_keyring_account(AccountKeyring::Alice).unwrap();
         let alice = Origin::signed(AccountKeyring::Alice.public());
         let bob = Origin::signed(AccountKeyring::Bob.public());
-        let bob_signer =
-            Signatory::from(AccountKey::try_from(AccountKeyring::Bob.public().encode()).unwrap());
+        let bob_signer = Signatory::Account(AccountKeyring::Bob.public());
 
         let musig_address = MultiSig::get_next_multisig_address(AccountKeyring::Alice.public());
 
@@ -227,8 +220,7 @@ fn create_or_approve_change_multisig_sigs_required() {
         let alice_did = register_keyring_account(AccountKeyring::Alice).unwrap();
         let alice = Origin::signed(AccountKeyring::Alice.public());
         let bob = Origin::signed(AccountKeyring::Bob.public());
-        let bob_signer =
-            Signatory::from(AccountKey::try_from(AccountKeyring::Bob.public().encode()).unwrap());
+        let bob_signer = Signatory::Account(AccountKeyring::Bob.public());
         let musig_address = MultiSig::get_next_multisig_address(AccountKeyring::Alice.public());
         assert_ok!(MultiSig::create_multisig(
             alice.clone(),
@@ -285,8 +277,7 @@ fn remove_multisig_signer() {
         let alice = Origin::signed(AccountKeyring::Alice.public());
         let alice_signer = Signatory::from(alice_did);
         let bob = Origin::signed(AccountKeyring::Bob.public());
-        let bob_signer =
-            Signatory::from(AccountKey::try_from(AccountKeyring::Bob.public().encode()).unwrap());
+        let bob_signer = Signatory::Account(AccountKeyring::Bob.public());
 
         let musig_address = MultiSig::get_next_multisig_address(AccountKeyring::Alice.public());
 
@@ -334,9 +325,7 @@ fn remove_multisig_signer() {
         );
 
         assert_eq!(
-            Identity::get_identity(
-                &AccountKey::try_from(AccountKeyring::Bob.public().encode()).unwrap()
-            ),
+            Identity::get_identity(&AccountKeyring::Bob.public()),
             Some(alice_did)
         );
 
@@ -362,12 +351,7 @@ fn remove_multisig_signer() {
             false
         );
 
-        assert_eq!(
-            Identity::get_identity(
-                &AccountKey::try_from(AccountKeyring::Bob.public().encode()).unwrap()
-            ),
-            None
-        );
+        assert_eq!(Identity::get_identity(&AccountKeyring::Bob.public()), None);
 
         Context::set_current_identity::<Identity>(None);
 
@@ -395,12 +379,9 @@ fn add_multisig_signer() {
         let alice_did = register_keyring_account(AccountKeyring::Alice).unwrap();
         let alice = Origin::signed(AccountKeyring::Alice.public());
         let bob = Origin::signed(AccountKeyring::Bob.public());
-        let bob_signer =
-            Signatory::from(AccountKey::try_from(AccountKeyring::Bob.public().encode()).unwrap());
+        let bob_signer = Signatory::Account(AccountKeyring::Bob.public().encode());
         let charlie = Origin::signed(AccountKeyring::Charlie.public());
-        let charlie_signer = Signatory::from(
-            AccountKey::try_from(AccountKeyring::Charlie.public().encode()).unwrap(),
-        );
+        let charlie_signer = Signatory::Account(AccountKeyring::Charlie.public());
 
         let musig_address = MultiSig::get_next_multisig_address(AccountKeyring::Alice.public());
 
@@ -649,7 +630,7 @@ fn make_multisig_master() {
 
         assert_eq!(
             Identity::did_records(alice_did).master_key,
-            AccountKey::try_from(AccountKeyring::Alice.public().encode()).unwrap()
+            AccountKeyring::Alice.public()
         );
 
         assert_err!(
@@ -665,7 +646,7 @@ fn make_multisig_master() {
 
         assert_eq!(
             Identity::did_records(alice_did).master_key,
-            AccountKey::try_from(musig_address.encode()).unwrap()
+            musig_address.encode()
         );
     });
 }
@@ -679,7 +660,6 @@ fn make_multisig_signer() {
         let bob = Origin::signed(AccountKeyring::Bob.public());
 
         let musig_address = MultiSig::get_next_multisig_address(AccountKeyring::Alice.public());
-        let ms_key = AccountKey::try_from(musig_address.encode()).unwrap();
 
         assert_ok!(MultiSig::create_multisig(
             alice.clone(),
@@ -688,7 +668,10 @@ fn make_multisig_signer() {
         ));
 
         let signing_items = Identity::did_records(alice_did).signing_items;
-        assert!(signing_items.iter().find(|si| **si == ms_key).is_none());
+        assert!(signing_items
+            .iter()
+            .find(|si| **si == musig_address)
+            .is_none());
 
         assert_err!(
             MultiSig::make_multisig_signer(bob.clone(), musig_address.clone()),
@@ -706,7 +689,10 @@ fn make_multisig_signer() {
         ));
 
         let signing_items2 = Identity::did_records(alice_did).signing_items;
-        assert!(signing_items2.iter().find(|si| **si == ms_key).is_some());
+        assert!(signing_items2
+            .iter()
+            .find(|si| **si == musig_address)
+            .is_some());
     });
 }
 
@@ -717,8 +703,7 @@ fn remove_multisig_signers_via_creator() {
         let alice = Origin::signed(AccountKeyring::Alice.public());
         let alice_signer = Signatory::from(alice_did);
         let bob = Origin::signed(AccountKeyring::Bob.public());
-        let bob_signer =
-            Signatory::from(AccountKey::try_from(AccountKeyring::Bob.public().encode()).unwrap());
+        let bob_signer = Signatory::Account(AccountKeyring::Bob.public());
 
         let musig_address = MultiSig::get_next_multisig_address(AccountKeyring::Alice.public());
 
@@ -814,8 +799,7 @@ fn add_multisig_signers_via_creator() {
         let alice_did = register_keyring_account(AccountKeyring::Alice).unwrap();
         let alice = Origin::signed(AccountKeyring::Alice.public());
         let bob = Origin::signed(AccountKeyring::Bob.public());
-        let bob_signer =
-            Signatory::from(AccountKey::try_from(AccountKeyring::Bob.public().encode()).unwrap());
+        let bob_signer = Signatory::Account(AccountKeyring::Bob.public());
 
         let musig_address = MultiSig::get_next_multisig_address(AccountKeyring::Alice.public());
 
@@ -894,8 +878,7 @@ fn check_for_approval_closure() {
         let eve_did = register_keyring_account(AccountKeyring::Eve).unwrap();
         let alice = Origin::signed(AccountKeyring::Alice.public());
         let eve = Origin::signed(AccountKeyring::Eve.public());
-        let bob_signer =
-            Signatory::from(AccountKey::try_from(AccountKeyring::Bob.public().encode()).unwrap());
+        let bob_signer = Signatory::Account(AccountKeyring::Bob.public());
 
         let musig_address = MultiSig::get_next_multisig_address(AccountKeyring::Alice.public());
 

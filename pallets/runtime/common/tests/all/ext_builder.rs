@@ -1,7 +1,7 @@
 use crate::TestStorage;
 
 use polymesh_common_utilities::{protocol_fee::ProtocolOp, traits::identity::LinkedKeyInfo};
-use polymesh_primitives::{AccountKey, Identity, IdentityId, PosRatio};
+use polymesh_primitives::{Identity, IdentityId, PosRatio};
 
 use pallet_asset::{self as asset, TickerRegistrationConfig};
 use pallet_balances as balances;
@@ -175,12 +175,12 @@ impl ExtBuilder {
         accounts: &[Public],
     ) -> (
         Vec<(IdentityId, Identity)>,
-        Vec<(AccountKey, LinkedKeyInfo)>,
+        Vec<(
+            <TestStorage as frame_system::Trait>::AccountId,
+            LinkedKeyInfo,
+        )>,
     ) {
-        let keys = accounts
-            .iter()
-            .map(|p| AccountKey::from(p.clone().0))
-            .collect::<Vec<_>>();
+        let keys = accounts.iter().map(|p| p.clone().0).collect::<Vec<_>>();
 
         let identities = keys
             .iter()

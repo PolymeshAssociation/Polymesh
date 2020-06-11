@@ -273,8 +273,8 @@ fn do_freeze_and_unfreeze_bridge() {
     let alice_did = register_keyring_account_with_balance(AccountKeyring::Alice, 1_000).unwrap();
     let alice = Origin::signed(AccountKeyring::Alice.public());
 
-    let bob_key = AccountKey::from(AccountKeyring::Bob.public());
-    let charlie_key = AccountKey::from(AccountKeyring::Charlie.public());
+    let bob_key = AccountKeyring::Bob.public();
+    let charlie_key = AccountKeyring::Charlie.public();
     let bob = Origin::signed(AccountKeyring::Bob.public());
     let charlie = Origin::signed(AccountKeyring::Charlie.public());
 

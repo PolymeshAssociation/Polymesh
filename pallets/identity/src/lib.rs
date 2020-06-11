@@ -2152,7 +2152,7 @@ impl<T: Trait> Module<T> {
 
     /// Get the list of flatten keys fo the given identity.
     /// It runs recursively over all signing items.
-    pub fn flatten_keys(id: IdentityId, max_depth: u8) -> Vec<AccountKey> {
+    pub fn flatten_keys(id: IdentityId, max_depth: u8) -> Vec<T::AccountId> {
         let sub_identities = Self::flatten_identities(id, max_depth);
         sub_identities
             .into_iter()

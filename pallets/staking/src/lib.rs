@@ -286,7 +286,7 @@ use frame_support::{
 use pallet_identity as identity;
 use pallet_session::historical::SessionManager;
 use polymesh_common_utilities::{identity::Trait as IdentityTrait, Context};
-use primitives::{traits::BlockRewardsReserveCurrency, AccountKey, IdentityId};
+use primitives::{traits::BlockRewardsReserveCurrency, IdentityId};
 
 use sp_phragmen::ExtendedBalance;
 use sp_runtime::{
@@ -1444,7 +1444,7 @@ decl_module! {
 
                 if let Some(_) = Self::nominators(target) {
                     // Access the identity of the nominator
-                    if let Some(nominate_identity) = <identity::Module<T>>::get_identity(&(AccountKey::try_from(target.encode())?)) {
+                    if let Some(nominate_identity) = <identity::Module<T>>::get_identity(&target) {
                         // Fetch all the claim values provided by the trusted service providers
                         // There is a possibility that nominator will have more than one claim for the same key,
                         // So we iterate all of them and if any one of the claim value doesn't expire then nominator posses
@@ -1734,18 +1734,17 @@ impl<T: Trait> Module<T> {
     pub fn fetch_invalid_cdd_nominators(buffer: u64) -> Vec<T::AccountId> {
         let invalid_nominators = <Nominators<T>>::enumerate()
             .into_iter()
-            .filter_map(|(nominator_stash_key, _nominations)| {
-                if let Ok(key_id) = AccountKey::try_from(nominator_stash_key.encode()) {
-                    if let Some(nominate_identity) = <identity::Module<T>>::get_identity(&(key_id))
+            .map(|(nominator_stash_key, _nominations)| {
+                if let Some(nominate_identity) =
+                    <identity::Module<T>>::get_identity(&(nominator_stash_key))
+                {
+                    if !(<identity::Module<T>>::fetch_cdd(
+                        nominate_identity,
+                        buffer.saturated_into::<T::Moment>(),
+                    ))
+                    .is_some()
                     {
-                        if !(<identity::Module<T>>::fetch_cdd(
-                            nominate_identity,
-                            buffer.saturated_into::<T::Moment>(),
-                        ))
-                        .is_some()
-                        {
-                            return Some(nominator_stash_key);
-                        }
+                        return Some(nominator_stash_key);
                     }
                 }
                 return None;
@@ -2325,10 +2324,8 @@ impl<T: Trait> Module<T> {
 
     /// Is the stash account one of the permissioned validators?
     pub fn is_validator_or_nominator_compliant(stash: &T::AccountId) -> bool {
-        if let Some(account_key) = AccountKey::try_from(stash.encode()).ok() {
-            if let Some(validator_identity) = <identity::Module<T>>::get_identity(&(account_key)) {
-                return <identity::Module<T>>::has_valid_cdd(validator_identity);
-            }
+        if let Some(validator_identity) = <identity::Module<T>>::get_identity(&stash) {
+            return <identity::Module<T>>::has_valid_cdd(validator_identity);
         }
         false
     }
