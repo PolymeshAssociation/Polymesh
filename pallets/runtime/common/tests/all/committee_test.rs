@@ -492,7 +492,10 @@ fn release_coordinator_we() {
     let bob_id = get_identity_id(AccountKeyring::Bob).expect("Bob is part of the committee");
     let charlie_id = register_keyring_account(AccountKeyring::Charlie).unwrap();
 
-    assert_eq!(Committee::release_coordinator(), None);
+    assert_eq!(
+        Committee::release_coordinator(),
+        Some(IdentityId::from(999))
+    );
 
     Context::set_current_identity::<Identity>(Some(alice_id));
     assert_err!(

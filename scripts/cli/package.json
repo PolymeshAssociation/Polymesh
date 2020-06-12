@@ -15,8 +15,9 @@
     "8_asset_transfer": "node ./tests/8_asset_transfer.js",
     "9_offchain_worker_test": "node ./tests/9_offchain_worker_test.js",
     "10_bridge_transfer": "node ./tests/10_bridge_transfer.js",
+    "11_governance_management": "node ./tests/11_governance_management.js",
     "schema_test": "./util/schema_test.sh",
-    "test": "npm run -s schema_test && npm run -s 0_create_identities && npm run -s 1_poly_transfer && npm run -s 2_key_management && npm run -s 3_auth_join_did && npm run -s 4_permission_management && npm run -s 5_claim_management && npm run -s 6_create_assets && npm run -s 7_create_claim_rules && npm run -s 8_asset_transfer"
+    "test": "npm run -s schema_test && npm run -s 0_create_identities && npm run -s 1_poly_transfer && npm run -s 2_key_management && npm run -s 3_auth_join_did && npm run -s 4_permission_management && npm run -s 5_claim_management && npm run -s 6_create_assets && npm run -s 7_create_claim_rules && npm run -s 8_asset_transfer  npm run -s 10_bridge_transfer && npm run -s 11_governance_management"
   },
   "author": "Polymath Network",
   "license": "UNLICENSED",
