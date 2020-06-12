@@ -20,3 +20,6 @@ node_modules
 # GDB history(used for debugging)
 .gdb_history
 ./pallets/runtime/common/gdb_history
+
+# Temporary files
+tmp/

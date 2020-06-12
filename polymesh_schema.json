@@ -539,6 +539,22 @@
                 "NoData":""
             }
         },
+        "ProposalDetails": {
+            "approvals": "u64",
+            "rejections": "u64",
+            "status": "ProposalStatus",
+            "expiry": "Option<Moment>",
+            "auto_close": "bool"
+        },
+        "ProposalStatus": {
+            "_enum": {
+                "Invalid": "",
+                "ActiveOrExpired": "",
+                "ExecutionSuccessful": "",
+                "ExecutionFailed": "",
+                "Rejected":""
+            }
+        },
         "DidStatus": {
             "_enum": {
                 "Unknown": "",

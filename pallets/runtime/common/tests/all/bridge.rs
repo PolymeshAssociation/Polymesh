@@ -23,7 +23,7 @@ type System = frame_system::Module<TestStorage>;
 macro_rules! assert_tx_approvals {
     ($address:expr, $proposal_id:expr, $num_approvals:expr) => {{
         assert_eq!(
-            MultiSig::tx_approvals(&($address, $proposal_id)),
+            MultiSig::proposal_detail(&($address, $proposal_id)).approvals,
             $num_approvals
         );
     }};
@@ -135,8 +135,8 @@ fn can_issue_to_identity_we() {
         Some(0)
     );
     assert_ok!(Bridge::propose_bridge_tx(charlie, bridge_tx.clone()));
-    assert_eq!(MultiSig::tx_approvals(&(controller, 0)), 2);
-    assert_eq!(MultiSig::tx_approvals(&(controller, 1)), 0);
+    assert_tx_approvals!(controller, 0, 2);
+    assert_tx_approvals!(controller, 1, 0);
 
     assert_eq!(MultiSig::proposal_ids(&controller, proposal), Some(0));
     let new_alices_balance = Balances::total_balance(&AccountKeyring::Alice.public());
@@ -350,7 +350,7 @@ fn do_freeze_and_unfreeze_bridge() {
     );
     // Approve the transaction bypassing the bridge API. The transaction will be handled but scheduled for later
     assert_ok!(MultiSig::approve_as_key(charlie, controller, 0));
-    assert_eq!(MultiSig::tx_approvals(&(controller, 0)), 2);
+    assert_tx_approvals!(controller, 0, 2);
     assert_eq!(MultiSig::proposal_ids(&controller, proposal), Some(0));
     // The tokens were not issued because the transaction is frozen.
     assert_eq!(alices_balance(), starting_alices_balance);
