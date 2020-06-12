@@ -1048,6 +1048,9 @@ impl<T: Trait> Module<T> {
             Error::<T>::AlreadyASigner
         );
 
+        let caller_did = Context::current_identity::<Identity<T>>()
+            .ok_or_else(|| Error::<T>::MissingCurrentIdentity)?;
+
         if let Signatory::AccountKey(key) = signer {
             ensure!(
                 !<KeyToMultiSig<T>>::contains_key(&key),
