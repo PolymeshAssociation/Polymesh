@@ -449,11 +449,7 @@ decl_module! {
             let sender_key = AccountKey::try_from(sender.encode())?;
             let sender_did = Context::current_identity_or::<Identity<T>>(&sender_key)?;
             let ms_key = AccountKey::try_from(multisig.clone().encode())?;
-            if let Some(ms_identity) = <Identity<T>>::get_identity(&ms_key) {
-                ensure!(ms_identity == sender_did, Error::<T>::IdentityNotCreator);
-            } else {
-                return Err(Error::<T>::MultisigMissingIdentity.into());
-            }
+            Self::verify_sender_is_creator(sender_did, ms_key)?;
             ensure!(<Identity<T>>::is_master_key(sender_did, &sender_key), Error::<T>::NotMasterKey);
             let multisig_signer = Signatory::from(AccountKey::try_from(multisig.encode())?);
             for signer in signers {
@@ -487,11 +483,7 @@ decl_module! {
             let sender_key = AccountKey::try_from(sender.encode())?;
             let sender_did = Context::current_identity_or::<Identity<T>>(&sender_key)?;
             let ms_key = AccountKey::try_from(multisig.clone().encode())?;
-            if let Some(ms_identity) = <Identity<T>>::get_identity(&ms_key) {
-                ensure!(ms_identity == sender_did, Error::<T>::IdentityNotCreator);
-            } else {
-                return Err(Error::<T>::MultisigMissingIdentity.into());
-            }
+            Self::verify_sender_is_creator(sender_did, ms_key)?;
             ensure!(<Identity<T>>::is_master_key(sender_did, &sender_key), Error::<T>::NotMasterKey);
             ensure!(Self::is_changing_signers_allowed(&multisig), Error::<T>::ChangeNotAllowed);
             let signers_len:u64 = u64::try_from(signers.len()).unwrap_or_default();
@@ -1040,9 +1032,6 @@ impl<T: Trait> Module<T> {
             Error::<T>::AlreadyASigner
         );
 
-        let caller_did = Context::current_identity::<Identity<T>>()
-            .ok_or_else(|| Error::<T>::MissingCurrentIdentity)?;
-
         if let Signatory::AccountKey(key) = signer {
             ensure!(
                 !<KeyToMultiSig<T>>::contains_key(&key),
@@ -1055,6 +1044,11 @@ impl<T: Trait> Module<T> {
             let ms_key = AccountKey::try_from(wallet_id.clone().encode())?;
             if let Some(ms_identity) = <Identity<T>>::get_identity(&ms_key) {
                 <identity::KeyToIdentityIds>::insert(key, LinkedKeyInfo::Unique(ms_identity));
+                Self::deposit_event(RawEvent::MultiSigSignerAdded(
+                    ms_identity,
+                    wallet_id.clone(),
+                    signer,
+                ));
             } else {
                 return Err(Error::<T>::MultisigMissingIdentity.into());
             }
@@ -1064,8 +1058,7 @@ impl<T: Trait> Module<T> {
         let wallet_signer = Signatory::from(AccountKey::try_from(wallet_id.encode())?);
         <Identity<T>>::consume_auth(wallet_signer, signer, auth_id)?;
         <MultiSigSigners<T>>::insert(wallet_id.clone(), signer, signer);
-        <NumberOfSigners<T>>::mutate(wallet_id.clone(), |x| *x += 1u64);
-        Self::deposit_event(RawEvent::MultiSigSignerAdded(caller_did, wallet_id, signer));
+        <NumberOfSigners<T>>::mutate(wallet_id, |x| *x += 1u64);
 
         Ok(())
     }
@@ -1111,10 +1104,10 @@ impl<T: Trait> Module<T> {
     pub fn verify_sender_is_creator(sender_did: IdentityId, ms_key: AccountKey) -> DispatchResult {
         if let Some(ms_identity) = <Identity<T>>::get_identity(&ms_key) {
             ensure!(ms_identity == sender_did, Error::<T>::IdentityNotCreator);
+            Ok(())
         } else {
-            return Err(Error::<T>::MultisigMissingIdentity.into());
+            Err(Error::<T>::MultisigMissingIdentity.into())
         }
-        Ok(())
     }
 }
 
