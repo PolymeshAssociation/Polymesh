@@ -111,4 +111,4 @@ impl JoinIdentityData {
 
 /// Data required to fetch and authorization
 #[derive(Encode, Decode, Clone, Default, PartialEq, Eq, Debug, PartialOrd, Ord)]
-pub struct AuthIdentifier<AccountId>(pub Signatory<AccountId>, pub u64);
+pub struct AuthIdentifier<AccountId: Ord>(pub Signatory<AccountId>, pub u64);

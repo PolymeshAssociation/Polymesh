@@ -89,7 +89,10 @@ impl<AccountId> PartialEq<IdentityId> for Signatory<AccountId> {
     }
 }
 
-impl<AccountId> Signatory<AccountId> {
+impl<AccountId> Signatory<AccountId>
+where
+    AccountId: PartialEq,
+{
     /// Checks if Signatory is either a particular Identity or a particular key
     pub fn eq_either(&self, other_identity: &IdentityId, other_key: &AccountId) -> bool {
         match self {
@@ -117,7 +120,7 @@ impl<AccountId> Signatory<AccountId> {
 
 impl<AccountId> PartialOrd for Signatory<AccountId>
 where
-    AccountId: PartialEq,
+    AccountId: Ord,
 {
     /// Any key is less than any Identity.
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
@@ -127,7 +130,7 @@ where
 
 impl<AccountId> Ord for Signatory<AccountId>
 where
-    AccountId: Eq,
+    AccountId: Ord,
 {
     fn cmp(&self, other: &Self) -> Ordering {
         match self {
@@ -205,7 +208,7 @@ impl<AccountId> PartialEq<IdentityId> for SigningItem<AccountId> {
 
 impl<AccountId> PartialOrd for SigningItem<AccountId>
 where
-    AccountId: PartialEq,
+    AccountId: Ord,
 {
     /// Any key is less than any Identity.
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {

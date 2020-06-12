@@ -62,7 +62,7 @@ sp_api::decl_runtime_apis! {
 
         /// Retrieve list of a link for a given signatory
         fn get_filtered_links(
-            signatory: Signatory<AccountId>,
+            signatory: Signatory,
             allow_expired: bool,
             link_type: Option<LinkType>
         ) -> Vec<Link<Moment>>;
