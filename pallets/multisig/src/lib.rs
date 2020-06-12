@@ -603,11 +603,7 @@ decl_module! {
             let sender_key = AccountKey::try_from(sender.encode())?;
             let sender_did = Context::current_identity_or::<Identity<T>>(&sender_key)?;
             let ms_key = AccountKey::try_from(multi_sig.encode())?;
-            if let Some(ms_identity) = <Identity<T>>::get_identity(&ms_key) {
-                ensure!(ms_identity == sender_did, Error::<T>::IdentityNotCreator);
-            } else {
-                return Err(Error::<T>::MultisigMissingIdentity.into());
-            }
+            Self::verify_sender_is_creator(sender_did, ms_key)?;
             ensure!(<Identity<T>>::is_master_key(sender_did, &sender_key), Error::<T>::NotMasterKey);
             <Identity<T>>::unsafe_join_identity(
                 JoinIdentityData::new(sender_did, vec![]),
@@ -627,11 +623,7 @@ decl_module! {
             let sender_key = AccountKey::try_from(sender.encode())?;
             let sender_did = Context::current_identity_or::<Identity<T>>(&sender_key)?;
             let ms_key = AccountKey::try_from(multi_sig.encode())?;
-            if let Some(ms_identity) = <Identity<T>>::get_identity(&ms_key) {
-                ensure!(ms_identity == sender_did, Error::<T>::IdentityNotCreator);
-            } else {
-                return Err(Error::<T>::MultisigMissingIdentity.into());
-            }
+            Self::verify_sender_is_creator(sender_did, ms_key)?;
             ensure!(<Identity<T>>::is_master_key(sender_did, &sender_key), Error::<T>::NotMasterKey);
             <Identity<T>>::unsafe_master_key_rotation(
                 ms_key,
@@ -1114,6 +1106,15 @@ impl<T: Trait> Module<T> {
             }
         }
         true
+    }
+
+    pub fn verify_sender_is_creator(sender_did: IdentityId, ms_key: AccountKey) -> DispatchResult {
+        if let Some(ms_identity) = <Identity<T>>::get_identity(&ms_key) {
+            ensure!(ms_identity == sender_did, Error::<T>::IdentityNotCreator);
+        } else {
+            return Err(Error::<T>::MultisigMissingIdentity.into());
+        }
+        Ok(())
     }
 }
 

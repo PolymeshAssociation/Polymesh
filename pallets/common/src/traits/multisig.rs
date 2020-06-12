@@ -37,7 +37,7 @@ pub trait MultiSigSubTrait {
     /// * `multisig` - multisig AccountKey object
     fn get_key_signers(multisig: AccountKey) -> Vec<AccountKey>;
 
-    /// Checks if the
+    /// Checks if the account is a multisig
     ///
     /// # Arguments
     /// * `account` - AccountKey object to check
