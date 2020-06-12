@@ -63,7 +63,7 @@ pub trait RuntimeApiCollection<Extrinsic: codec::Codec + Send + Sync + 'static>:
     + sp_authority_discovery::AuthorityDiscoveryApi<Block>
     + pallet_contracts_rpc_runtime_api::ContractsApi<Block, AccountId, Balance, BlockNumber>
     + pallet_staking_rpc_runtime_api::StakingApi<Block>
-    + pallet_pips_rpc_runtime_api::PipsApi<Block, AccountId, Balance>
+    + node_rpc_runtime_api::pips::PipsApi<Block, AccountId, Balance>
     + pallet_identity_rpc_runtime_api::IdentityApi<
         Block,
         IdentityId,
@@ -73,7 +73,7 @@ pub trait RuntimeApiCollection<Extrinsic: codec::Codec + Send + Sync + 'static>:
         Signatory,
         Moment,
     > + pallet_protocol_fee_rpc_runtime_api::ProtocolFeeApi<Block>
-    + pallet_asset_rpc_runtime_api::AssetApi<Block, AccountId, Balance>
+    + node_rpc_runtime_api::asset::AssetApi<Block, AccountId, Balance>
     + pallet_group_rpc_runtime_api::GroupApi<Block>
     + pallet_compliance_manager_rpc_runtime_api::ComplianceManagerApi<Block, AccountId, Balance>
 where
@@ -96,7 +96,7 @@ where
         + sp_authority_discovery::AuthorityDiscoveryApi<Block>
         + pallet_contracts_rpc_runtime_api::ContractsApi<Block, AccountId, Balance, BlockNumber>
         + pallet_staking_rpc_runtime_api::StakingApi<Block>
-        + pallet_pips_rpc_runtime_api::PipsApi<Block, AccountId, Balance>
+        + node_rpc_runtime_api::pips::PipsApi<Block, AccountId, Balance>
         + pallet_identity_rpc_runtime_api::IdentityApi<
             Block,
             IdentityId,
@@ -106,7 +106,7 @@ where
             Signatory,
             Moment,
         > + pallet_protocol_fee_rpc_runtime_api::ProtocolFeeApi<Block>
-        + pallet_asset_rpc_runtime_api::AssetApi<Block, AccountId, Balance>
+        + node_rpc_runtime_api::asset::AssetApi<Block, AccountId, Balance>
         + pallet_group_rpc_runtime_api::GroupApi<Block>
         + pallet_compliance_manager_rpc_runtime_api::ComplianceManagerApi<Block, AccountId, Balance>,
     Extrinsic: RuntimeExtrinsic,
@@ -183,11 +183,13 @@ macro_rules! new_full_start {
         })?
         .with_rpc_extensions(|builder| -> Result<RpcExtension, _> {
             use contracts_rpc::{Contracts, ContractsApi};
-            use pallet_asset_rpc::{Asset, AssetApi};
+            use node_rpc::{
+                asset::{Asset, AssetApi},
+                pips::{Pips, PipsApi},
+            };
             use pallet_compliance_manager_rpc::{ComplianceManager, ComplianceManagerApi};
             use pallet_group_rpc::{Group, GroupApi};
             use pallet_identity_rpc::{Identity, IdentityApi};
-            use pallet_pips_rpc::{Pips, PipsApi};
             use pallet_protocol_fee_rpc::{ProtocolFee, ProtocolFeeApi};
             use pallet_staking_rpc::{Staking, StakingApi};
             use pallet_transaction_payment_rpc::{TransactionPayment, TransactionPaymentApi};

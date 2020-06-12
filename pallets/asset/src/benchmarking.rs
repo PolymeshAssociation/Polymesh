@@ -248,12 +248,13 @@ benchmarks! {
         let f in 1 .. MAX_NAME_LENGTH;
         let alice_origin = make_account::<T>("alice", u).1;
         let ticker = make_token::<T>(alice_origin.clone(), t, n, i, f);
-        let mut investor_dids = Vec::new();
-        let mut values = Vec::new();
+        let mut issue_asset_item = Vec::new();
         for j in 1 .. i {
             let did = make_account::<T>("investor", u + j).2;
-            investor_dids.push(did);
-            values.push(1_000.into());
+            issue_asset_item.push(IssueAssetItem {
+                investor_did: did,
+                value: 1_000.into()
+            });
         }
-    }: _(alice_origin, ticker, investor_dids, values)
+    }: _(alice_origin, issue_asset_item, ticker)
 }

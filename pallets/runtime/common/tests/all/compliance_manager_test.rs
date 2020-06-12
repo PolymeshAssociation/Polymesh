@@ -608,38 +608,38 @@ fn should_modify_vector_of_trusted_issuer_we() {
 
     // Failed because caller is not the owner of the ticker
     assert_err!(
-        ComplianceManager::add_default_trusted_claim_issuers_batch(
+        ComplianceManager::batch_add_default_trusted_claim_issuer(
             receiver_signed.clone(),
+            vec![trusted_issuer_did_1, trusted_issuer_did_2],
             ticker,
-            vec![trusted_issuer_did_1, trusted_issuer_did_2]
         ),
         CMError::<TestStorage>::Unauthorized
     );
 
     // Failed because trusted issuer identity not exist
     assert_err!(
-        ComplianceManager::add_default_trusted_claim_issuers_batch(
+        ComplianceManager::batch_add_default_trusted_claim_issuer(
             token_owner_signed.clone(),
+            vec![IdentityId::from(1), IdentityId::from(2)],
             ticker,
-            vec![IdentityId::from(1), IdentityId::from(2)]
         ),
         CMError::<TestStorage>::DidNotExist
     );
 
     // Failed because trusted issuers length < 0
     assert_err!(
-        ComplianceManager::add_default_trusted_claim_issuers_batch(
+        ComplianceManager::batch_add_default_trusted_claim_issuer(
             token_owner_signed.clone(),
+            vec![],
             ticker,
-            vec![]
         ),
         CMError::<TestStorage>::InvalidLength
     );
 
-    assert_ok!(ComplianceManager::add_default_trusted_claim_issuers_batch(
+    assert_ok!(ComplianceManager::batch_add_default_trusted_claim_issuer(
         token_owner_signed.clone(),
+        vec![trusted_issuer_did_1, trusted_issuer_did_2],
         ticker,
-        vec![trusted_issuer_did_1, trusted_issuer_did_2]
     ));
 
     assert_eq!(ComplianceManager::trusted_claim_issuer(ticker).len(), 2);
@@ -709,10 +709,10 @@ fn should_modify_vector_of_trusted_issuer_we() {
 
     // Remove the trusted issuer 1 from the list
     assert_ok!(
-        ComplianceManager::remove_default_trusted_claim_issuers_batch(
+        ComplianceManager::batch_remove_default_trusted_claim_issuer(
             token_owner_signed.clone(),
+            vec![trusted_issuer_did_1],
             ticker,
-            vec![trusted_issuer_did_1]
         )
     );
 
@@ -1206,7 +1206,7 @@ fn cm_test_case_13_we() {
         },
     ];
 
-    assert_ok!(Identity::add_claims_batch(issuer.clone(), dave_claims));
+    assert_ok!(Identity::batch_add_claim(issuer.clone(), dave_claims));
     assert_err!(
         Asset::transfer(owner.clone(), ticker, dave, 100),
         AssetError::<TestStorage>::InvalidTransfer
@@ -1237,7 +1237,7 @@ fn cm_test_case_13_we() {
         },
     ];
 
-    assert_ok!(Identity::add_claims_batch(issuer.clone(), eve_claims));
+    assert_ok!(Identity::batch_add_claim(issuer.clone(), eve_claims));
     assert_ok!(Asset::transfer(owner.clone(), ticker, eve, 100));
     let result = ComplianceManager::granular_verify_restriction(&ticker, None, Some(eve));
     assert!(result.final_result);

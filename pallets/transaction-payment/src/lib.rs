@@ -628,6 +628,7 @@ mod tests {
                 } else {
                     vec![]
                 },
+                identity_balances: vec![],
             }
             .assimilate_storage(&mut t)
             .unwrap();

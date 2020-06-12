@@ -46,6 +46,8 @@
 //! - `create_proposal_as_key` - Creates a multisig proposal given the signer's account key.
 //! - `approve_as_identity` - Approves a multisig proposal given the signer's identity.
 //! - `approve_as_key` - Approves a multisig proposal given the signer's account key.
+//! - `reject_as_identity` - Rejects a multisig proposal using the caller's identity.
+//! - `reject_as_key` - Rejects a multisig proposal using the caller's signing key (`AccountId`).
 //! - `accept_multisig_signer_as_identity` - Accepts a multisig signer authorization given the
 //! signer's identity.
 //! - `accept_multisig_signer_as_key` - Accepts a multisig signer authorization given the signer's
@@ -69,8 +71,6 @@
 //! an event.
 //! - `create_proposal` - Creates a proposal for a multisig transaction.
 //! - `create_or_approve_proposal` - Creates or approves a multisig proposal.
-//! - `unsafe_approve` - Approves a multisig proposal and executes it if enough signatures have been
-//! received.
 //! - `unsafe_accept_multisig_signer` - Accepts and processes an addition of a signer to a multisig.
 //! - `get_next_multisig_address` - Gets the next available multisig account ID.
 //! - `get_multisig_address` - Constructs a multisig account given a nonce.
@@ -133,7 +133,7 @@ pub struct ProposalDetails<T> {
 }
 
 impl<T: core::default::Default> ProposalDetails<T> {
-    /// Create new `Asset` with the given reference to the client.
+    /// Create new `ProposalDetails` object with the given config.
     pub fn new(expiry: Option<T>, auto_close: bool) -> Self {
         Self {
             status: ProposalStatus::ActiveOrExpired,
@@ -210,12 +210,12 @@ decl_module! {
             ensure!(u64::try_from(signers.len()).unwrap_or_default() >= sigs_required && sigs_required > 0,
                 Error::<T>::RequiredSignaturesOutOfBounds
             );
+            let caller_did = Context::current_identity_or::<Identity<T>>(&(AccountKey::try_from(sender.encode())?))?;
             let account_id = Self::create_multisig_account(
                 sender.clone(),
                 signers.as_slice(),
                 sigs_required
             )?;
-            let caller_did = Context::current_identity_or::<Identity<T>>(&(AccountKey::try_from(sender.encode())?))?;
             Self::deposit_event(RawEvent::MultiSigCreated(caller_did, account_id, sender, signers, sigs_required));
             Ok(())
         }
@@ -496,7 +496,7 @@ decl_module! {
             ensure!(Self::is_changing_signers_allowed(&multisig), Error::<T>::ChangeNotAllowed);
             let signers_len:u64 = u64::try_from(signers.len()).unwrap_or_default();
 
-            // NB: the below check can be underflowed but that doesnt matter
+            // NB: the below check can be underflow but that doesn't matter
             // because the checks in the next loop will fail in that case.
             ensure!(
                 <NumberOfSigners<T>>::get(&multisig) - signers_len >= <MultiSigSignsRequired<T>>::get(&multisig),
@@ -807,6 +807,8 @@ impl<T: Trait> Module<T> {
             <MultiSigSigners<T>>::contains_key(&multisig, &sender_signer),
             Error::<T>::NotASigner
         );
+        let caller_did = Context::current_identity::<Identity<T>>()
+            .ok_or_else(|| Error::<T>::MissingCurrentIdentity)?;
         let proposal_id = Self::ms_tx_done(multisig.clone());
         <Proposals<T>>::insert((multisig.clone(), proposal_id), proposal.clone());
         <ProposalIds<T>>::insert(multisig.clone(), *proposal, proposal_id);
@@ -817,8 +819,6 @@ impl<T: Trait> Module<T> {
         // Since proposal_ids are always only incremented by 1, they can not overflow.
         let next_proposal_id: u64 = proposal_id + 1u64;
         <MultiSigTxDone<T>>::insert(multisig.clone(), next_proposal_id);
-        let caller_did = Context::current_identity::<Identity<T>>()
-            .ok_or_else(|| Error::<T>::MissingCurrentIdentity)?;
         Self::deposit_event(RawEvent::ProposalAdded(
             caller_did,
             multisig.clone(),
@@ -1068,11 +1068,8 @@ impl<T: Trait> Module<T> {
 
         let wallet_signer = Signatory::from(AccountKey::try_from(wallet_id.encode())?);
         <Identity<T>>::consume_auth(wallet_signer, signer, auth_id)?;
-
         <MultiSigSigners<T>>::insert(wallet_id.clone(), signer, signer);
         <NumberOfSigners<T>>::mutate(wallet_id.clone(), |x| *x += 1u64);
-        let caller_did = Context::current_identity::<Identity<T>>()
-            .ok_or_else(|| Error::<T>::MissingCurrentIdentity)?;
         Self::deposit_event(RawEvent::MultiSigSignerAdded(caller_did, wallet_id, signer));
 
         Ok(())

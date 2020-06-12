@@ -19,6 +19,7 @@ use pallet_compliance_manager::{self as compliance_manager, AssetTransferRulesRe
 use pallet_group as group;
 use pallet_identity as identity;
 use pallet_multisig as multisig;
+use pallet_pips::{HistoricalVotingByAddress, HistoricalVotingById, Vote, VoteCount};
 use pallet_protocol_fee as protocol_fee;
 use pallet_statistics as statistics;
 use pallet_treasury as treasury;
@@ -27,7 +28,11 @@ use pallet_utility as utility;
 use polymesh_common_utilities::{
     constants::currency::*,
     protocol_fee::ProtocolOp,
-    traits::{balances::AccountData, identity::Trait as IdentityTrait},
+    traits::{
+        balances::AccountData,
+        identity::Trait as IdentityTrait,
+        pip::{EnactProposalMaker, PipId},
+    },
     CommonTrait,
 };
 use polymesh_primitives::{
@@ -64,7 +69,7 @@ use frame_support::{
 use frame_system::offchain::TransactionSubmitter;
 use pallet_contracts_rpc_runtime_api::ContractExecResult;
 use pallet_grandpa::{fg_primitives, AuthorityList as GrandpaAuthorityList};
-use pallet_identity_rpc_runtime_api::{AssetDidResult, CddStatus, DidRecords, LinkType};
+use pallet_identity_rpc_runtime_api::{AssetDidResult, CddStatus, DidRecords, DidStatus, LinkType};
 use pallet_im_online::sr25519::AuthorityId as ImOnlineId;
 use pallet_protocol_fee_rpc_runtime_api::CappedFee;
 use pallet_transaction_payment_rpc_runtime_api::RuntimeDispatchInfo;
@@ -334,6 +339,7 @@ impl committee::Trait<GovernanceCommittee> for Runtime {
     type CommitteeOrigin = frame_system::EnsureRoot<AccountId>;
     type Event = Event;
     type MotionDuration = MotionDuration;
+    type EnactProposalMaker = Runtime;
 }
 
 /// PolymeshCommittee as an instance of group
@@ -527,6 +533,20 @@ impl statistics::Trait for Runtime {}
 impl pallet_utility::Trait for Runtime {
     type Event = Event;
     type Call = Call;
+}
+
+impl EnactProposalMaker<Origin, Call> for Runtime {
+    fn is_pip_id_valid(id: PipId) -> bool {
+        Pips::is_proposal_id_valid(id)
+    }
+
+    fn enact_referendum_call(id: PipId) -> Call {
+        Call::Pips(pallet_pips::Call::enact_referendum(id))
+    }
+
+    fn reject_referendum_call(id: PipId) -> Call {
+        Call::Pips(pallet_pips::Call::reject_referendum(id))
+    }
 }
 
 /// A runtime transaction submitter for the cdd_offchain_worker
@@ -854,9 +874,11 @@ impl_runtime_apis! {
         }
     }
 
-    impl pallet_pips_rpc_runtime_api::PipsApi<Block, AccountId, Balance> for Runtime {
+    impl node_rpc_runtime_api::pips::PipsApi<Block, AccountId, Balance>
+    for Runtime
+    {
         /// Get vote count for a given proposal index
-        fn get_votes(index: u32) -> pallet_pips_rpc_runtime_api::VoteCount<Balance> {
+        fn get_votes(index: u32) -> VoteCount<Balance> {
             Pips::get_votes(index)
         }
 
@@ -868,6 +890,17 @@ impl_runtime_apis! {
         /// Proposals `address` voted on
         fn voted_on(address: AccountId) -> Vec<u32> {
             Pips::voted_on(address)
+        }
+
+        /// Retrieve referendums voted on information by `address` account.
+        fn voting_history_by_address(address: AccountId) -> HistoricalVotingByAddress<Vote<Balance>> {
+            Pips::voting_history_by_address(address)
+
+        }
+
+        /// Retrieve referendums voted on information by `id` identity (and its signing items).
+        fn voting_history_by_id(id: IdentityId) -> HistoricalVotingById<Vote<Balance>> {
+            Pips::voting_history_by_id(id)
         }
     }
 
@@ -913,16 +946,21 @@ impl_runtime_apis! {
         fn get_filtered_links(signatory: Signatory, allow_expired: bool, link_type: Option<LinkType>) -> Vec<Link<Moment>> {
             Identity::get_filtered_links(signatory, allow_expired, link_type)
         }
+
+        /// Retrieve the status of the DIDs
+        fn get_did_status(dids: Vec<IdentityId>) -> Vec<DidStatus> {
+            Identity::get_did_status(dids)
+        }
     }
 
-    impl pallet_asset_rpc_runtime_api::AssetApi<Block, AccountId, Balance> for Runtime {
+    impl node_rpc_runtime_api::asset::AssetApi<Block, AccountId, Balance> for Runtime {
         #[inline]
         fn can_transfer(
             sender: AccountId,
             ticker: Ticker,
             from_did: Option<IdentityId>,
             to_did: Option<IdentityId>,
-            value: Balance) -> pallet_asset_rpc_runtime_api::CanTransferResult
+            value: Balance) -> node_rpc_runtime_api::asset::CanTransferResult
         {
             Asset::unsafe_can_transfer(sender, ticker, from_did, to_did, value)
                 .map_err(|msg| msg.as_bytes().to_vec())

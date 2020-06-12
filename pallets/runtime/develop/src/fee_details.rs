@@ -38,6 +38,7 @@ type Bridge = bridge::Module<Runtime>;
 
 type Call = runtime::Call;
 
+#[derive(Encode, Decode)]
 enum CallType {
     AcceptMultiSigSigner,
     AcceptIdentitySigner,
@@ -105,7 +106,7 @@ impl CddAndFeeDetails<Call> for CddHandler {
             // Call made by an Account key to propose or approve a multisig transaction via the bridge helper
             // The multisig must have valid CDD and the caller must be a signer of the multisig.
             Call::Bridge(bridge::Call::propose_bridge_tx(..))
-            | Call::Bridge(bridge::Call::propose_bridge_txs(..)) => {
+            | Call::Bridge(bridge::Call::batch_propose_bridge_tx(..)) => {
                 sp_runtime::print("multisig stuff via bridge");
                 let multisig = Bridge::controller_key();
                 if <multisig::MultiSigSigners<Runtime>>::contains_key(&multisig, caller) {

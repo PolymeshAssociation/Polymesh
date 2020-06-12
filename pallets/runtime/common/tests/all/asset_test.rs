@@ -9,7 +9,9 @@ use pallet_asset::{
 use pallet_balances as balances;
 use pallet_compliance_manager as compliance_manager;
 use pallet_identity as identity;
-use polymesh_common_utilities::{constants::*, traits::balances::Memo};
+use polymesh_common_utilities::{
+    constants::*, traits::asset::IssueAssetItem, traits::balances::Memo,
+};
 use polymesh_primitives::{
     AccountKey, AuthorizationData, Document, IdentityId, LinkData, Signatory, SmartExtension,
     SmartExtensionType, Ticker,
@@ -1081,10 +1083,10 @@ fn adding_removing_documents() {
             },
         ];
 
-        assert_ok!(Asset::add_documents(
+        assert_ok!(Asset::batch_add_document(
             owner_signed.clone(),
-            ticker,
-            documents
+            documents,
+            ticker
         ));
 
         let mut docs = <identity::Links<TestStorage>>::iter_prefix(Signatory::from(ticker_did));
@@ -1115,9 +1117,8 @@ fn adding_removing_documents() {
 
         assert_eq!(doc2.expiry, None);
 
-        assert_ok!(Asset::update_documents(
+        assert_ok!(Asset::batch_update_document(
             owner_signed.clone(),
-            ticker,
             vec![
                 (
                     doc1.link_id,
@@ -1135,7 +1136,8 @@ fn adding_removing_documents() {
                         content_hash: b"0x4".into(),
                     }
                 ),
-            ]
+            ],
+            ticker
         ));
 
         docs = <identity::Links<TestStorage>>::iter_prefix(Signatory::from(ticker_did));
@@ -1738,12 +1740,19 @@ fn freeze_unfreeze_asset() {
 
         // `batch_issue` fails when the vector of recipients is not empty.
         assert_err!(
-            Asset::batch_issue(bob_signed.clone(), ticker, vec![bob_did], vec![1]),
+            Asset::batch_issue(
+                bob_signed.clone(),
+                vec![IssueAssetItem {
+                    investor_did: bob_did,
+                    value: 1
+                }],
+                ticker
+            ),
             AssetError::InvalidTransfer
         );
         // `batch_issue` fails with the empty vector of investors with a different error message.
         assert_err!(
-            Asset::batch_issue(bob_signed.clone(), ticker, vec![], vec![]),
+            Asset::batch_issue(bob_signed.clone(), vec![], ticker),
             AssetError::NoInvestors
         );
         assert_ok!(Asset::unfreeze(bob_signed.clone(), ticker));
