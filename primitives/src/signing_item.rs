@@ -115,14 +115,20 @@ impl<AccountId> Signatory<AccountId> {
     }
 }
 
-impl<AccountId> PartialOrd for Signatory<AccountId> {
+impl<AccountId> PartialOrd for Signatory<AccountId>
+where
+    AccountId: PartialEq,
+{
     /// Any key is less than any Identity.
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         Some(self.cmp(other))
     }
 }
 
-impl<AccountId> Ord for Signatory<AccountId> {
+impl<AccountId> Ord for Signatory<AccountId>
+where
+    AccountId: Eq,
+{
     fn cmp(&self, other: &Self) -> Ordering {
         match self {
             Signatory::Identity(id) => match other {
@@ -176,7 +182,10 @@ impl<AccountId> From<IdentityId> for SigningItem<AccountId> {
     }
 }
 
-impl<AccountId> PartialEq for SigningItem<AccountId> {
+impl<AccountId> PartialEq for SigningItem<AccountId>
+where
+    AccountId: PartialEq,
+{
     fn eq(&self, other: &Self) -> bool {
         self.signer == other.signer
             && self.signer_type == other.signer_type
@@ -186,18 +195,28 @@ impl<AccountId> PartialEq for SigningItem<AccountId> {
 
 impl<AccountId> PartialEq<IdentityId> for SigningItem<AccountId> {
     fn eq(&self, other: &IdentityId) -> bool {
-        self.signer == *other
+        if let Signatory::Identity(id) = self.signer {
+            id == *other
+        } else {
+            false
+        }
     }
 }
 
-impl<AccountId> PartialOrd for SigningItem<AccountId> {
+impl<AccountId> PartialOrd for SigningItem<AccountId>
+where
+    AccountId: PartialEq,
+{
     /// Any key is less than any Identity.
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         self.signer.partial_cmp(&other.signer)
     }
 }
 
-impl<AccountId> Ord for SigningItem<AccountId> {
+impl<AccountId> Ord for SigningItem<AccountId>
+where
+    AccountId: Ord,
+{
     fn cmp(&self, other: &Self) -> Ordering {
         self.signer.cmp(&other.signer)
     }
