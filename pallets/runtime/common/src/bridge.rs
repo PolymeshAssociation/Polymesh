@@ -262,7 +262,7 @@ decl_storage! {
                     .next()
                     .expect("cannot find bridge signer auth")
                     .auth_id;
-                <multisig::Module<T>>::_accept_multisig_signer(signer.clone(), last_auth)
+                <multisig::Module<T>>::unsafe_accept_multisig_signer(signer.clone(), last_auth)
                     .expect("cannot accept bridge signer auth");
             }
             let creator_key = AccountKey::try_from(config.creator.clone().encode()).expect("cannot create the bridge creator account");
@@ -787,6 +787,8 @@ impl<T: Trait> Module<T> {
             Self::controller(),
             sender_signer,
             boxed_proposal,
+            None,
+            true,
         )
     }
 
@@ -802,6 +804,8 @@ impl<T: Trait> Module<T> {
             Self::controller(),
             sender_signer,
             boxed_proposal,
+            None,
+            true,
         )
     }
 

@@ -29,7 +29,7 @@
 //!
 //! ### Terminology
 //!
-//! - **multisig**: a special type of account that can do tranaction only if at least `n` of its `m`
+//! - **multisig**: a special type of account that can do transaction only if at least `n` of its `m`
 //! signers approve.
 //! - **proposal**: a general transaction that the multisig can vote on and accept.
 //!
@@ -46,6 +46,8 @@
 //! - `create_proposal_as_key` - Creates a multisig proposal given the signer's account key.
 //! - `approve_as_identity` - Approves a multisig proposal given the signer's identity.
 //! - `approve_as_key` - Approves a multisig proposal given the signer's account key.
+//! - `reject_as_identity` - Rejects a multisig proposal using the caller's identity.
+//! - `reject_as_key` - Rejects a multisig proposal using the caller's signing key (`AccountId`).
 //! - `accept_multisig_signer_as_identity` - Accepts a multisig signer authorization given the
 //! signer's identity.
 //! - `accept_multisig_signer_as_key` - Accepts a multisig signer authorization given the signer's
@@ -69,9 +71,7 @@
 //! an event.
 //! - `create_proposal` - Creates a proposal for a multisig transaction.
 //! - `create_or_approve_proposal` - Creates or approves a multisig proposal.
-//! - `approve_for` - Approves a multisig proposal and executes it if enough signatures have been
-//! received.
-//! - `_accept_multisig_signer` - Accepts and processes an addition of a signer to a multisig.
+//! - `unsafe_accept_multisig_signer` - Accepts and processes an addition of a signer to a multisig.
 //! - `get_next_multisig_address` - Gets the next available multisig account ID.
 //! - `get_multisig_address` - Constructs a multisig account given a nonce.
 //! - `ms_signers` - Helper function that checks if someone is an authorized signer of a multisig or
@@ -117,6 +117,54 @@ pub trait Trait: frame_system::Trait + IdentityTrait {
     type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
 }
 
+/// Details of a multisig proposal
+#[derive(Encode, Decode, Default, Clone, PartialEq, Eq, Debug)]
+pub struct ProposalDetails<T> {
+    /// Number of yes votes
+    pub approvals: u64,
+    /// Number of no votes
+    pub rejections: u64,
+    /// Status of the proposal
+    pub status: ProposalStatus,
+    /// Expiry of the proposal
+    pub expiry: Option<T>,
+    /// Should the proposal be closed after getting inverse of sign required reject votes
+    pub auto_close: bool,
+}
+
+impl<T: core::default::Default> ProposalDetails<T> {
+    /// Create new `ProposalDetails` object with the given config.
+    pub fn new(expiry: Option<T>, auto_close: bool) -> Self {
+        Self {
+            status: ProposalStatus::ActiveOrExpired,
+            expiry,
+            auto_close,
+            ..Default::default()
+        }
+    }
+}
+
+#[derive(Encode, Decode, Clone, Debug, PartialEq, Eq)]
+/// Status of a multisig proposal
+pub enum ProposalStatus {
+    /// Proposal does not exist
+    Invalid,
+    /// Proposal has not been closed yet. This means that it's either expired or open for voting.
+    ActiveOrExpired,
+    /// Proposal was accepted and executed successfully
+    ExecutionSuccessful,
+    /// Proposal was accepted and execution was tried but it failed
+    ExecutionFailed,
+    /// Proposal was rejected
+    Rejected,
+}
+
+impl Default for ProposalStatus {
+    fn default() -> Self {
+        Self::Invalid
+    }
+}
+
 decl_storage! {
     trait Store for Module<T: Trait> as MultiSig {
         /// Nonce to ensure unique MultiSig addresses are generated; starts from 1.
@@ -134,16 +182,14 @@ decl_storage! {
         /// A mapping of proposals to their IDs.
         pub ProposalIds get(fn proposal_ids):
             double_map hasher(twox_64_concat) T::AccountId, hasher(blake2_256) T::Proposal => Option<u64>;
-        /// Number of votes in favor of a tx. Mapping from (multisig, tx id) => no. of approvals.
-        pub TxApprovals get(fn tx_approvals): map hasher(twox_64_concat) (T::AccountId, u64) => u64;
         /// Individual multisig signer votes. (multi sig, signer, proposal) => vote.
         pub Votes get(fn votes): map hasher(blake2_128_concat) (T::AccountId, Signatory, u64) => bool;
         /// Maps a multisig to its creator's identity.
         pub MultiSigCreator get(fn ms_creator): map hasher(twox_64_concat) T::AccountId => IdentityId;
         /// Maps a key to a multisig address.
         pub KeyToMultiSig get(fn key_to_ms): map hasher(blake2_128_concat) AccountKey => T::AccountId;
-        /// Know whether the proposal is closed or not
-        pub ProposalClosed get(fn is_proposal_closed): map hasher(twox_64_concat) (T::AccountId, u64) => bool;
+        /// Details of a multisig proposal
+        pub ProposalDetail get(fn proposal_detail): map hasher(twox_64_concat) (T::AccountId, u64) => ProposalDetails<T::Moment>;
     }
 }
 
@@ -181,18 +227,22 @@ decl_module! {
         /// # Arguments
         /// * `multisig` - MultiSig address.
         /// * `proposal` - Proposal to be voted on.
+        /// * `expiry` - Optional proposal expiry time.
+        /// * `auto_close` - Close proposal on receiving enough reject votes.
         /// If this is 1 out of `m` multisig, the proposal will be immediately executed.
         #[weight = SimpleDispatchInfo::FixedNormal(750_000)]
         pub fn create_or_approve_proposal_as_identity(
             origin,
             multisig: T::AccountId,
-            proposal: Box<T::Proposal>
+            proposal: Box<T::Proposal>,
+            expiry: Option<T::Moment>,
+            auto_close: bool
         ) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             let sender_key = AccountKey::try_from(sender.encode())?;
             let sender_did = Context::current_identity_or::<Identity<T>>(&sender_key)?;
             let sender_signer = Signatory::from(sender_did);
-            Self::create_or_approve_proposal(multisig, sender_signer, proposal)
+            Self::create_or_approve_proposal(multisig, sender_signer, proposal, expiry, auto_close)
         }
 
         /// Creates a multisig proposal if it hasn't been created or approves it if it has.
@@ -200,16 +250,20 @@ decl_module! {
         /// # Arguments
         /// * `multisig` - MultiSig address.
         /// * `proposal` - Proposal to be voted on.
+        /// * `expiry` - Optional proposal expiry time.
+        /// * `auto_close` - Close proposal on receiving enough reject votes.
         /// If this is 1 out of `m` multisig, the proposal will be immediately executed.
         #[weight = SimpleDispatchInfo::FixedNormal(750_000)]
         pub fn create_or_approve_proposal_as_key(
             origin,
             multisig: T::AccountId,
-            proposal: Box<T::Proposal>
+            proposal: Box<T::Proposal>,
+            expiry: Option<T::Moment>,
+            auto_close: bool
         ) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             let sender_signer = Signatory::from(AccountKey::try_from(sender.encode())?);
-            Self::create_or_approve_proposal(multisig, sender_signer, proposal)
+            Self::create_or_approve_proposal(multisig, sender_signer, proposal, expiry, auto_close)
         }
 
         /// Creates a multisig proposal
@@ -217,15 +271,23 @@ decl_module! {
         /// # Arguments
         /// * `multisig` - MultiSig address.
         /// * `proposal` - Proposal to be voted on.
+        /// * `expiry` - Optional proposal expiry time.
+        /// * `auto_close` - Close proposal on receiving enough reject votes.
         /// If this is 1 out of `m` multisig, the proposal will be immediately executed.
         #[weight = SimpleDispatchInfo::FixedNormal(250_000)]
-        pub fn create_proposal_as_identity(origin, multisig: T::AccountId, proposal: Box<T::Proposal>) -> DispatchResult {
+        pub fn create_proposal_as_identity(
+            origin,
+            multisig: T::AccountId,
+            proposal: Box<T::Proposal>,
+            expiry: Option<T::Moment>,
+            auto_close: bool
+        ) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             let sender_key = AccountKey::try_from(sender.encode())?;
             let sender_did = Context::current_identity_or::<Identity<T>>(&sender_key)?;
 
             let sender_signer = Signatory::from(sender_did);
-            Self::create_proposal(multisig, sender_signer, proposal)?;
+            Self::create_proposal(multisig, sender_signer, proposal, expiry, auto_close)?;
             Ok(())
         }
 
@@ -234,12 +296,20 @@ decl_module! {
         /// # Arguments
         /// * `multisig` - MultiSig address.
         /// * `proposal` - Proposal to be voted on.
+        /// * `expiry` - Optional proposal expiry time.
+        /// * `auto_close` - Close proposal on receiving enough reject votes.
         /// If this is 1 out of `m` multisig, the proposal will be immediately executed.
         #[weight = SimpleDispatchInfo::FixedNormal(250_000)]
-        pub fn create_proposal_as_key(origin, multisig: T::AccountId, proposal: Box<T::Proposal>) -> DispatchResult {
+        pub fn create_proposal_as_key(
+            origin,
+            multisig: T::AccountId,
+            proposal: Box<T::Proposal>,
+            expiry: Option<T::Moment>,
+            auto_close: bool
+        ) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             let sender_signer = Signatory::from(AccountKey::try_from(sender.encode())?);
-            Self::create_proposal(multisig, sender_signer, proposal)?;
+            Self::create_proposal(multisig, sender_signer, proposal, expiry, auto_close)?;
             Ok(())
         }
 
@@ -255,7 +325,7 @@ decl_module! {
             let sender_key = AccountKey::try_from(sender.encode())?;
             let sender_did = Context::current_identity_or::<Identity<T>>(&sender_key)?;
             let signer = Signatory::from(sender_did);
-            Self::approve_for(multisig, signer, proposal_id)
+            Self::unsafe_approve(multisig, signer, proposal_id)
         }
 
         /// Approves a multisig proposal using the caller's signing key (`AccountId`).
@@ -268,7 +338,35 @@ decl_module! {
         pub fn approve_as_key(origin, multisig: T::AccountId, proposal_id: u64) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             let signer = Signatory::from(AccountKey::try_from(sender.encode())?);
-            Self::approve_for(multisig, signer, proposal_id)
+            Self::unsafe_approve(multisig, signer, proposal_id)
+        }
+
+        /// Rejects a multisig proposal using the caller's identity.
+        ///
+        /// # Arguments
+        /// * `multisig` - MultiSig address.
+        /// * `proposal_id` - Proposal id to reject.
+        /// If quorum is reached, the proposal will be immediately executed.
+        #[weight = SimpleDispatchInfo::FixedNormal(750_000)]
+        pub fn reject_as_identity(origin, multisig: T::AccountId, proposal_id: u64) -> DispatchResult {
+            let sender = ensure_signed(origin)?;
+            let sender_key = AccountKey::try_from(sender.encode())?;
+            let sender_did = Context::current_identity_or::<Identity<T>>(&sender_key)?;
+            let signer = Signatory::from(sender_did);
+            Self::unsafe_reject(multisig, signer, proposal_id)
+        }
+
+        /// Rejects a multisig proposal using the caller's signing key (`AccountId`).
+        ///
+        /// # Arguments
+        /// * `multisig` - MultiSig address.
+        /// * `proposal_id` - Proposal id to reject.
+        /// If quorum is reached, the proposal will be immediately executed.
+        #[weight = SimpleDispatchInfo::FixedNormal(750_000)]
+        pub fn reject_as_key(origin, multisig: T::AccountId, proposal_id: u64) -> DispatchResult {
+            let sender = ensure_signed(origin)?;
+            let signer = Signatory::from(AccountKey::try_from(sender.encode())?);
+            Self::unsafe_reject(multisig, signer, proposal_id)
         }
 
         /// Accepts a multisig signer authorization given to signer's identity.
@@ -282,7 +380,7 @@ decl_module! {
             let sender_did = Context::current_identity_or::<Identity<T>>(&sender_key)?;
 
             let signer = Signatory::from(sender_did);
-            Self::_accept_multisig_signer(signer, auth_id)
+            Self::unsafe_accept_multisig_signer(signer, auth_id)
         }
 
         /// Accepts a multisig signer authorization given to signer's key (AccountId).
@@ -293,7 +391,7 @@ decl_module! {
         pub fn accept_multisig_signer_as_key(origin, auth_id: u64) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             let signer = Signatory::from(AccountKey::try_from(sender.encode())?);
-            Self::_accept_multisig_signer(signer, auth_id)
+            Self::unsafe_accept_multisig_signer(signer, auth_id)
         }
 
         /// Adds a signer to the multisig. This must be called by the multisig itself.
@@ -567,6 +665,12 @@ decl_event!(
         /// Event emitted when the proposal get approved.
         /// Arguments: caller DID, multisig, authorized signer, proposal id.
         ProposalApproved(IdentityId, AccountId, Signatory, u64),
+        /// Event emitted when a vote is cast in favor of rejecting a proposal.
+        /// Arguments: caller DID, multisig, authorized signer, proposal id.
+        ProposalRejectionVote(IdentityId, AccountId, Signatory, u64),
+        /// Event emitted when a proposal is rejected.
+        /// Arguments: caller DID, multisig, proposal ID.
+        ProposalRejected(IdentityId, AccountId, u64),
     }
 );
 
@@ -593,8 +697,8 @@ decl_error! {
         NotEnoughSigners,
         /// A nonce overflow.
         NonceOverflow,
-        /// Already approved.
-        AlreadyApproved,
+        /// Already voted.
+        AlreadyVoted,
         /// Already a signer.
         AlreadyASigner,
         /// Couldn't charge fee for the transaction.
@@ -608,7 +712,13 @@ decl_error! {
         /// Current DID is missing
         MissingCurrentIdentity,
         /// The function can only be called by the master key of the did
-        NotMasterKey
+        NotMasterKey,
+        /// Proposal was rejected earlier
+        ProposalAlreadyRejected,
+        /// Proposal has expired
+        ProposalExpired,
+        /// Proposal was executed earlier
+        ProposalAlreadyExecuted
     }
 }
 
@@ -683,6 +793,8 @@ impl<T: Trait> Module<T> {
         multisig: T::AccountId,
         sender_signer: Signatory,
         proposal: Box<T::Proposal>,
+        expiry: Option<T::Moment>,
+        auto_close: bool,
     ) -> CreateProposalResult {
         ensure!(
             <MultiSigSigners<T>>::contains_key(&multisig, &sender_signer),
@@ -693,6 +805,10 @@ impl<T: Trait> Module<T> {
         let proposal_id = Self::ms_tx_done(multisig.clone());
         <Proposals<T>>::insert((multisig.clone(), proposal_id), proposal.clone());
         <ProposalIds<T>>::insert(multisig.clone(), *proposal, proposal_id);
+        <ProposalDetail<T>>::insert(
+            (multisig.clone(), proposal_id),
+            ProposalDetails::new(expiry, auto_close),
+        );
         // Since proposal_ids are always only incremented by 1, they can not overflow.
         let next_proposal_id: u64 = proposal_id + 1u64;
         <MultiSigTxDone<T>>::insert(multisig.clone(), next_proposal_id);
@@ -701,7 +817,7 @@ impl<T: Trait> Module<T> {
             multisig.clone(),
             proposal_id,
         ));
-        Self::approve_for(multisig, sender_signer, proposal_id)?;
+        Self::unsafe_approve(multisig, sender_signer, proposal_id)?;
         Ok(proposal_id)
     }
 
@@ -710,19 +826,21 @@ impl<T: Trait> Module<T> {
         multisig: T::AccountId,
         sender_signer: Signatory,
         proposal: Box<T::Proposal>,
+        expiry: Option<T::Moment>,
+        auto_close: bool,
     ) -> DispatchResult {
         if let Some(proposal_id) = Self::proposal_ids(&multisig, &*proposal) {
             // This is an existing proposal.
-            Self::approve_for(multisig, sender_signer, proposal_id)?;
+            Self::unsafe_approve(multisig, sender_signer, proposal_id)?;
         } else {
             // The proposal is new.
-            Self::create_proposal(multisig, sender_signer, proposal)?;
+            Self::create_proposal(multisig, sender_signer, proposal, expiry, auto_close)?;
         }
         Ok(())
     }
 
     /// Approves a multisig proposal and executes it if enough signatures have been received.
-    pub fn approve_for(
+    fn unsafe_approve(
         multisig: T::AccountId,
         signer: Signatory,
         proposal_id: u64,
@@ -735,79 +853,165 @@ impl<T: Trait> Module<T> {
         let multisig_proposal = (multisig.clone(), proposal_id);
         ensure!(
             !Self::votes(&multisig_signer_proposal),
-            Error::<T>::AlreadyApproved
+            Error::<T>::AlreadyVoted
         );
         if let Some(proposal) = Self::proposals(&multisig_proposal) {
-            <Votes<T>>::insert(&multisig_signer_proposal, true);
-            // Since approvals are always only incremented by 1, they can not overflow.
-            let approvals: u64 = Self::tx_approvals(&multisig_proposal) + 1u64;
-            <TxApprovals<T>>::insert(&multisig_proposal, approvals);
+            let mut proposal_details = Self::proposal_detail(&multisig_proposal);
+            proposal_details.approvals += 1u64;
             let current_did = Context::current_identity::<Identity<T>>().unwrap_or_default();
-            // Emit ProposalApproved event
+            match proposal_details.status {
+                ProposalStatus::Invalid => return Err(Error::<T>::ProposalMissing.into()),
+                ProposalStatus::Rejected => return Err(Error::<T>::ProposalAlreadyRejected.into()),
+                ProposalStatus::ExecutionSuccessful | ProposalStatus::ExecutionFailed => {}
+                ProposalStatus::ActiveOrExpired => {
+                    // Ensure proposal is not expired
+                    if let Some(expiry) = proposal_details.expiry {
+                        ensure!(
+                            expiry > <pallet_timestamp::Module<T>>::get(),
+                            Error::<T>::ProposalExpired
+                        );
+                    }
+                    Self::execute_proposal(
+                        multisig.clone(),
+                        proposal_id,
+                        proposal,
+                        &mut proposal_details,
+                        current_did,
+                    )?;
+                }
+            }
+            // Update storage
+            <Votes<T>>::insert(&multisig_signer_proposal, true);
+            <ProposalDetail<T>>::insert(&multisig_proposal, proposal_details);
+            // emit proposal approved event
             Self::deposit_event(RawEvent::ProposalApproved(
                 current_did,
-                multisig.clone(),
+                multisig,
                 signer,
                 proposal_id,
             ));
-            // Check whether the proposal is already closed or not, Instead of return an `Err`
-            // return `Ok(())`
-            if Self::is_proposal_closed(&multisig_proposal) {
-                return Ok(());
-            }
-            let approvals_needed = Self::ms_signs_required(multisig.clone());
-            if approvals >= approvals_needed {
-                let ms_key = AccountKey::try_from(multisig.clone().encode())?;
-                if let Some(did) = <Identity<T>>::get_identity(&ms_key) {
-                    ensure!(<Identity<T>>::has_valid_cdd(did), Error::<T>::CddMissing);
-                    T::CddHandler::set_current_identity(&did);
-                } else {
-                    let creator_identity = Self::ms_creator(&multisig);
-                    ensure!(
-                        <Identity<T>>::has_valid_cdd(creator_identity),
-                        Error::<T>::CddMissing
-                    );
-                    T::CddHandler::set_current_identity(&creator_identity);
-                }
-                let current_did = Context::current_identity::<Identity<T>>()
-                    .ok_or_else(|| Error::<T>::MissingCurrentIdentity)?;
-                ensure!(
-                    T::ChargeTxFeeTarget::charge_fee(
-                        proposal.encode().len().try_into().unwrap_or_default(),
-                        proposal.get_dispatch_info(),
-                    )
-                    .is_ok(),
-                    Error::<T>::FailedToChargeFee
-                );
-
-                <ProposalClosed<T>>::insert(multisig_proposal, true);
-                let res = match proposal
-                    .dispatch(frame_system::RawOrigin::Signed(multisig.clone()).into())
-                {
-                    Ok(_) => true,
-                    Err(e) => {
-                        let e: DispatchError = e;
-                        sp_runtime::print(e);
-                        false
-                    }
-                };
-                Self::deposit_event(RawEvent::ProposalExecuted(
-                    current_did,
-                    multisig,
-                    proposal_id,
-                    res,
-                ));
-                Ok(())
-            } else {
-                Ok(())
-            }
+            Ok(())
         } else {
             Err(Error::<T>::ProposalMissing.into())
         }
     }
 
+    /// Executes a proposal if it has enough approvals
+    fn execute_proposal(
+        multisig: T::AccountId,
+        proposal_id: u64,
+        proposal: T::Proposal,
+        proposal_details: &mut ProposalDetails<T::Moment>,
+        current_did: IdentityId,
+    ) -> DispatchResult {
+        let approvals_needed = Self::ms_signs_required(multisig.clone());
+        if proposal_details.approvals >= approvals_needed {
+            let ms_key = AccountKey::try_from(multisig.clone().encode())?;
+            if let Some(did) = <Identity<T>>::get_identity(&ms_key) {
+                ensure!(<Identity<T>>::has_valid_cdd(did), Error::<T>::CddMissing);
+                T::CddHandler::set_current_identity(&did);
+            } else {
+                let creator_identity = Self::ms_creator(&multisig);
+                ensure!(
+                    <Identity<T>>::has_valid_cdd(creator_identity),
+                    Error::<T>::CddMissing
+                );
+                T::CddHandler::set_current_identity(&creator_identity);
+            }
+            ensure!(
+                T::ChargeTxFeeTarget::charge_fee(
+                    proposal.encode().len().try_into().unwrap_or_default(),
+                    proposal.get_dispatch_info(),
+                )
+                .is_ok(),
+                Error::<T>::FailedToChargeFee
+            );
+
+            let res =
+                match proposal.dispatch(frame_system::RawOrigin::Signed(multisig.clone()).into()) {
+                    Ok(_) => {
+                        proposal_details.status = ProposalStatus::ExecutionSuccessful;
+                        true
+                    }
+                    Err(e) => {
+                        let e: DispatchError = e;
+                        sp_runtime::print(e);
+                        proposal_details.status = ProposalStatus::ExecutionFailed;
+                        false
+                    }
+                };
+            Self::deposit_event(RawEvent::ProposalExecuted(
+                current_did,
+                multisig,
+                proposal_id,
+                res,
+            ));
+        }
+        Ok(())
+    }
+
+    /// Rejects a multisig proposal
+    fn unsafe_reject(
+        multisig: T::AccountId,
+        signer: Signatory,
+        proposal_id: u64,
+    ) -> DispatchResult {
+        ensure!(
+            <MultiSigSigners<T>>::contains_key(&multisig, &signer),
+            Error::<T>::NotASigner
+        );
+        let multisig_signer_proposal = (multisig.clone(), signer, proposal_id);
+        let multisig_proposal = (multisig.clone(), proposal_id);
+        ensure!(
+            !Self::votes(&multisig_signer_proposal),
+            Error::<T>::AlreadyVoted
+        );
+        let mut proposal_details = Self::proposal_detail(&multisig_proposal);
+        proposal_details.rejections += 1u64;
+        let current_did = Context::current_identity::<Identity<T>>().unwrap_or_default();
+        match proposal_details.status {
+            ProposalStatus::Invalid => return Err(Error::<T>::ProposalMissing.into()),
+            ProposalStatus::Rejected => return Err(Error::<T>::ProposalAlreadyRejected.into()),
+            ProposalStatus::ExecutionSuccessful | ProposalStatus::ExecutionFailed => {
+                return Err(Error::<T>::ProposalAlreadyExecuted.into())
+            }
+            ProposalStatus::ActiveOrExpired => {
+                // Ensure proposal is not expired
+                if let Some(expiry) = proposal_details.expiry {
+                    ensure!(
+                        expiry > <pallet_timestamp::Module<T>>::get(),
+                        Error::<T>::ProposalExpired
+                    );
+                }
+                if proposal_details.auto_close {
+                    let approvals_needed = Self::ms_signs_required(multisig.clone());
+                    let ms_signers = Self::number_of_signers(multisig.clone());
+                    if proposal_details.rejections > ms_signers.saturating_sub(approvals_needed) {
+                        proposal_details.status = ProposalStatus::Rejected;
+                        Self::deposit_event(RawEvent::ProposalRejected(
+                            current_did,
+                            multisig.clone(),
+                            proposal_id,
+                        ));
+                    }
+                }
+            }
+        }
+        // Update storage
+        <Votes<T>>::insert(&multisig_signer_proposal, true);
+        <ProposalDetail<T>>::insert(&multisig_proposal, proposal_details);
+        // emit proposal rejected event
+        Self::deposit_event(RawEvent::ProposalRejectionVote(
+            current_did,
+            multisig,
+            signer,
+            proposal_id,
+        ));
+        Ok(())
+    }
+
     /// Accepts and processed an addition of a signer to a multisig.
-    pub fn _accept_multisig_signer(signer: Signatory, auth_id: u64) -> DispatchResult {
+    pub fn unsafe_accept_multisig_signer(signer: Signatory, auth_id: u64) -> DispatchResult {
         ensure!(
             <identity::Authorizations<T>>::contains_key(signer, auth_id),
             AuthorizationError::Invalid
@@ -910,6 +1114,6 @@ impl<T: Trait> Module<T> {
 
 impl<T: Trait> AddSignerMultiSig for Module<T> {
     fn accept_multisig_signer(signer: Signatory, auth_id: u64) -> DispatchResult {
-        Self::_accept_multisig_signer(signer, auth_id)
+        Self::unsafe_accept_multisig_signer(signer, auth_id)
     }
 }
