@@ -863,7 +863,11 @@ impl_runtime_apis! {
         }
 
          /// Retrieve list of a link for a given signatory
-        fn get_filtered_links(signatory: Signatory, allow_expired: bool, link_type: Option<LinkType>) -> Vec<Link<Moment>> {
+        fn get_filtered_links(
+            signatory: Signatory<AccountId>,
+            allow_expired: bool,
+            link_type: Option<LinkType>
+        ) -> Vec<Link<Moment>> {
             Identity::get_filtered_links(signatory, allow_expired, link_type)
         }
 

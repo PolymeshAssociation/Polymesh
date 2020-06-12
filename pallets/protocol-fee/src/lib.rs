@@ -161,7 +161,7 @@ impl<T: Trait> Module<T> {
     /// Computes the fee of the operation and charges it to the given signatory. The fee is then
     /// credited to the intended recipients according to the implementation of
     /// `OnProtocolFeePayment`.
-    pub fn charge_fee(signatory: &Signatory, op: ProtocolOp) -> DispatchResult {
+    pub fn charge_fee(signatory: &Signatory<T::AccountId>, op: ProtocolOp) -> DispatchResult {
         let fee = Self::compute_fee(op);
         if fee.is_zero() {
             return Ok(());
@@ -178,7 +178,11 @@ impl<T: Trait> Module<T> {
 
     /// Computes the fee for `count` similar operations, and charges that fee to the given
     /// signatory.
-    pub fn batch_charge_fee(signatory: &Signatory, op: ProtocolOp, count: usize) -> DispatchResult {
+    pub fn batch_charge_fee(
+        signatory: &Signatory<T::AccountId>,
+        op: ProtocolOp,
+        count: usize
+    ) -> DispatchResult {
         let fee = Self::compute_fee(op).saturating_mul(<BalanceOf<T>>::from(count as u32));
         let imbalance = Self::withdraw_fee(signatory, fee)?;
         T::OnProtocolFeePayment::on_unbalanced(imbalance);
@@ -186,7 +190,7 @@ impl<T: Trait> Module<T> {
     }
 
     /// Withdraws a precomputed fee.
-    fn withdraw_fee(signatory: &Signatory, fee: BalanceOf<T>) -> WithdrawFeeResult<T> {
+    fn withdraw_fee(signatory: &Signatory<T::AccountId>, fee: BalanceOf<T>) -> WithdrawFeeResult<T> {
         match signatory {
             Signatory::Identity(did) => T::Currency::withdraw_identity_balance(did, fee)
                 .map_err(|_| Error::<T>::InsufficientIdentityBalance.into()),
@@ -202,11 +206,15 @@ impl<T: Trait> Module<T> {
 }
 
 impl<T: Trait> ChargeProtocolFee<T::AccountId> for Module<T> {
-    fn charge_fee(signatory: &Signatory, op: ProtocolOp) -> DispatchResult {
+    fn charge_fee(signatory: &Signatory<T::AccountId>, op: ProtocolOp) -> DispatchResult {
         Self::charge_fee(signatory, op)
     }
 
-    fn batch_charge_fee(signatory: &Signatory, op: ProtocolOp, count: usize) -> DispatchResult {
+    fn batch_charge_fee(
+        signatory: &Signatory<T::AccountId>,
+        op: ProtocolOp,
+        count: usize
+    ) -> DispatchResult {
         Self::batch_charge_fee(signatory, op, count)
     }
 }

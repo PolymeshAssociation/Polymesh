@@ -61,7 +61,11 @@ sp_api::decl_runtime_apis! {
         fn get_did_records(did: IdentityId) -> DidRecords<AccountId, SigningItem>;
 
         /// Retrieve list of a link for a given signatory
-        fn get_filtered_links(signatory: Signatory, allow_expired: bool, link_type: Option<LinkType>) -> Vec<Link<Moment>>;
+        fn get_filtered_links(
+            signatory: Signatory<AccountId>,
+            allow_expired: bool,
+            link_type: Option<LinkType>
+        ) -> Vec<Link<Moment>>;
 
         /// Retrieve the status of the DID
         fn get_did_status(dids: Vec<IdentityId>) -> Vec<DidStatus>;

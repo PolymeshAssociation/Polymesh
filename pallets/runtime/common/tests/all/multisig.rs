@@ -997,7 +997,7 @@ fn reject_proposals() {
         let dave_did = register_keyring_account(AccountKeyring::Dave).unwrap();
         let dave = Origin::signed(AccountKeyring::Dave.public());
 
-        let eve_key = AccountKey::try_from(AccountKeyring::Eve.public().encode()).unwrap();
+        let eve_key = AccountKeyring::Eve.public();
         let eve = Origin::signed(AccountKeyring::Eve.public());
 
         let musig_address = MultiSig::get_next_multisig_address(AccountKeyring::Alice.public());
@@ -1010,7 +1010,7 @@ fn reject_proposals() {
                 Signatory::from(bob_did),
                 Signatory::from(charlie_did),
                 Signatory::from(dave_did),
-                Signatory::from(eve_key),
+                Signatory::Account(eve_key),
             ],
         );
 
@@ -1189,7 +1189,7 @@ fn expired_proposals() {
     });
 }
 
-fn setup_multisig(creator_origin: Origin, sigs_required: u64, signers: Vec<Signatory>) {
+fn setup_multisig(creator_origin: Origin, sigs_required: u64, signers: Vec<Signatory<AccountId>>) {
     assert_ok!(MultiSig::create_multisig(
         creator_origin,
         signers.clone(),

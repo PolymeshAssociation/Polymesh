@@ -89,7 +89,7 @@ pub trait Trait: CommonTrait + pallet_timestamp::Trait + balances::Trait {
         + Dispatchable<Origin = <Self as frame_system::Trait>::Origin>
         + GetDispatchInfo;
     /// MultiSig module
-    type AddSignerMultiSigTarget: AddSignerMultiSig;
+    type AddSignerMultiSigTarget: AddSignerMultiSig<<Self as frame_system::Trait>::AccountId>;
     /// Group module
     type CddServiceProviders: GroupTrait<<Self as pallet_timestamp::Trait>::Moment>;
 

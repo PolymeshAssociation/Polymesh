@@ -663,7 +663,7 @@ decl_event!(
         ProposalApproved(IdentityId, AccountId, Signatory<AccountId>, u64),
         /// Event emitted when a vote is cast in favor of rejecting a proposal.
         /// Arguments: caller DID, multisig, authorized signer, proposal id.
-        ProposalRejectionVote(IdentityId, AccountId, Signatory, u64),
+        ProposalRejectionVote(IdentityId, AccountId, Signatory<AccountId>, u64),
         /// Event emitted when a proposal is rejected.
         /// Arguments: caller DID, multisig, proposal ID.
         ProposalRejected(IdentityId, AccountId, u64),
@@ -948,7 +948,7 @@ impl<T: Trait> Module<T> {
     /// Rejects a multisig proposal
     fn unsafe_reject(
         multisig: T::AccountId,
-        signer: Signatory,
+        signer: Signatory<T::AccountId>,
         proposal_id: u64,
     ) -> DispatchResult {
         ensure!(
@@ -1105,8 +1105,11 @@ impl<T: Trait> Module<T> {
     }
 }
 
-impl<T: Trait> AddSignerMultiSig for Module<T> {
-    fn accept_multisig_signer(signer: Signatory<T::AccountId>, auth_id: u64) -> DispatchResult {
+impl<T: Trait> AddSignerMultiSig<<T as frame_system::Trait>::AccountId> for Module<T> {
+    fn accept_multisig_signer(
+        signer: Signatory<<T as frame_system::Trait>::AccountId>,
+        auth_id: u64
+    ) -> DispatchResult {
         Self::unsafe_accept_multisig_signer(signer, auth_id)
     }
 }

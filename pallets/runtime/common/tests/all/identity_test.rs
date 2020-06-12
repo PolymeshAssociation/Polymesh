@@ -305,8 +305,8 @@ fn only_master_key_can_add_signing_key_permissions_with_externalities() {
         alice_did,
         PROTOCOL_OP_BASE_FEE * 2
     ));
-    add_signing_item(alice_did, Signatory::from(charlie_key));
-    add_signing_item(alice_did, Signatory::from(bob_key));
+    add_signing_item(alice_did, Signatory::Account(charlie_key));
+    add_signing_item(alice_did, Signatory::Account(bob_key));
 
     // Only `alice` is able to update `bob`'s permissions and `charlie`'s permissions.
     assert_ok!(Identity::set_permission_to_signer(
@@ -395,7 +395,7 @@ fn freeze_signing_keys_with_externalities() {
         alice_did,
         PROTOCOL_OP_BASE_FEE
     ));
-    add_signing_item(alice_did, Signatory::from(dave_key));
+    add_signing_item(alice_did, Signatory::Account(dave_key));
 
     // update permission of frozen keys.
     assert_ok!(Identity::set_permission_to_signer(
@@ -444,13 +444,13 @@ fn remove_frozen_signing_keys_with_externalities() {
         alice_did,
         PROTOCOL_OP_BASE_FEE
     ));
-    add_signing_item(alice_did, Signatory::from(bob_key));
+    add_signing_item(alice_did, Signatory::Account(bob_key));
     assert_ok!(Balances::top_up_identity_balance(
         alice.clone(),
         alice_did,
         PROTOCOL_OP_BASE_FEE
     ));
-    add_signing_item(alice_did, Signatory::from(charlie_key));
+    add_signing_item(alice_did, Signatory::Account(charlie_key));
 
     // Freeze all signing keys
     assert_ok!(Identity::freeze_signing_keys(alice.clone()));
@@ -571,7 +571,7 @@ fn remove_signing_keys_test_with_externalities() {
         PROTOCOL_OP_BASE_FEE
     ));
 
-    add_signing_item(alice_did, Signatory::from(bob_key));
+    add_signing_item(alice_did, Signatory::Account(bob_key));
 
     // Check DidRecord.
     let did_rec = Identity::did_records(alice_did);
@@ -627,8 +627,8 @@ fn leave_identity_test_with_externalities() {
         2 * PROTOCOL_OP_BASE_FEE
     ));
 
-    add_signing_item(alice_did, Signatory::from(bob_key));
-    add_signing_item(alice_did, Signatory::from(charlie_did));
+    add_signing_item(alice_did, Signatory::Account(bob_key));
+    add_signing_item(alice_did, Signatory::Identity(charlie_did));
 
     // Check DidRecord.
     let did_rec = Identity::did_records(alice_did);
@@ -673,7 +673,7 @@ fn enforce_uniqueness_keys_in_identity() {
         alice_id,
         PROTOCOL_OP_BASE_FEE
     ));
-    add_signing_item(alice_id, Signatory::from(charlie_key));
+    add_signing_item(alice_id, Signatory::Account(charlie_key));
     let auth_id = Identity::add_auth(
         Signatory::Account(AccountKeyring::Alice.public().0),
         Signatory::Account(AccountKeyring::Bob.public().0),

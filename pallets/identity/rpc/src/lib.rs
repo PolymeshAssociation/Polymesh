@@ -44,7 +44,7 @@ pub trait IdentityApi<BlockHash, IdentityId, Ticker, AccountId, SigningItem, Sig
     #[rpc(name = "identity_getFilteredLinks")]
     fn get_filtered_links(
         &self,
-        signatory: Signatory,
+        signatory: Signatory<AccountId>,
         allow_expired: bool,
         link_type: Option<LinkType>,
         at: Option<BlockHash>,
@@ -158,7 +158,7 @@ where
 
     fn get_filtered_links(
         &self,
-        signatory: Signatory,
+        signatory: Signatory<AccountId>,
         allow_expired: bool,
         link_type: Option<LinkType>,
         at: Option<<Block as BlockT>::Hash>,

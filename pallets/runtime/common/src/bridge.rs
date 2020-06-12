@@ -316,7 +316,7 @@ decl_storage! {
         /// AccountId of the multisig creator.
         config(creator): T::AccountId;
         /// The set of initial signers from which a multisig address is created at genesis time.
-        config(signers): Vec<Signatory>;
+        config(signers): Vec<Signatory<T::AccountId>>;
         /// The number of required signatures in the genesis signer set.
         config(signatures_required): u64;
     }
@@ -795,7 +795,7 @@ impl<T: Trait> Module<T> {
         sender: &T::AccountId,
         bridge_txs: Vec<BridgeTx<T::AccountId, T::Balance>>,
     ) -> DispatchResult {
-        let sender_signer = Signatory::from(sender);
+        let sender_signer = Signatory::Account(sender);
         let proposal = <T as Trait>::Proposal::from(Call::<T>::batch_handle_bridge_tx(bridge_txs));
         let boxed_proposal = Box::new(proposal.into());
         <multisig::Module<T>>::create_or_approve_proposal(

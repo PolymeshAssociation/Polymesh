@@ -29,12 +29,12 @@ impl Context {
     }
 
     #[inline]
-    pub fn current_payer<I: IdentityTrait>() -> Option<Signatory> {
+    pub fn current_payer<I: IdentityTrait>() -> Option<Signatory<I::AccountId>> {
         I::current_payer()
     }
 
     #[inline]
-    pub fn set_current_payer<I: IdentityTrait>(payer: Option<Signatory>) {
+    pub fn set_current_payer<I: IdentityTrait>(payer: Option<Signatory<I::AccountId>>) {
         I::set_current_payer(payer)
     }
 
@@ -109,7 +109,7 @@ mod test {
             *w = id;
         }
 
-        fn is_signer_authorized(_did: IdentityId, _signer: &Signatory) -> bool {
+        fn is_signer_authorized(_did: IdentityId, _signer: &Signatory<AccountId>) -> bool {
             false
         }
 
@@ -119,7 +119,7 @@ mod test {
 
         fn is_signer_authorized_with_permissions(
             _did: IdentityId,
-            _signer: &Signatory,
+            _signer: &Signatory<AccountId>,
             _permissions: Vec<Permission>,
         ) -> bool {
             false

@@ -484,7 +484,7 @@ mod tests {
         fn get_identity(_key: &AccountId) -> Option<IdentityId> {
             unimplemented!()
         }
-        fn current_payer() -> Option<Signatory> {
+        fn current_payer() -> Option<Signatory<AccountId>> {
             None
         }
         fn current_identity() -> Option<IdentityId> {
@@ -493,13 +493,13 @@ mod tests {
         fn set_current_identity(_id: Option<IdentityId>) {
             unimplemented!()
         }
-        fn set_current_payer(_payer: Option<Signatory>) {}
-        fn is_signer_authorized(_did: IdentityId, _signer: &Signatory) -> bool {
+        fn set_current_payer(_payer: Option<Signatory<AccountId>>) {}
+        fn is_signer_authorized(_did: IdentityId, _signer: &Signatory<AccountId>) -> bool {
             unimplemented!()
         }
         fn is_signer_authorized_with_permissions(
             _did: IdentityId,
-            _signer: &Signatory,
+            _signer: &Signatory<AccountId>,
             _permissions: Vec<Permission>,
         ) -> bool {
             unimplemented!()

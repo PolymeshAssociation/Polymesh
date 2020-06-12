@@ -171,7 +171,7 @@ decl_storage! {
         pub CurrentDid: Option<IdentityId>;
 
         /// It stores the current gas fee payer for the current transaction
-        pub CurrentPayer: Option<Signatory>;
+        pub CurrentPayer: Option<Signatory<T::AccountId>>;
 
         /// (Target ID, claim type) (issuer,scope) -> Associated claims
         pub Claims: double_map hasher(blake2_128_concat) Claim1stKey, hasher(blake2_128_concat) Claim2ndKey => IdentityClaim;
@@ -186,16 +186,20 @@ decl_storage! {
         pub OffChainAuthorizationNonce get(fn offchain_authorization_nonce): map hasher(twox_64_concat) IdentityId => AuthorizationNonce;
 
         /// Inmediate revoke of any off-chain authorization.
-        pub RevokeOffChainAuthorization get(fn is_offchain_authorization_revoked): map hasher(blake2_128_concat) (Signatory, TargetIdAuthorization<T::Moment>) => bool;
+        pub RevokeOffChainAuthorization get(fn is_offchain_authorization_revoked):
+            map hasher(blake2_128_concat) (Signatory<T::AccountId>, TargetIdAuthorization<T::Moment>) => bool;
 
         /// All authorizations that an identity/key has
-        pub Authorizations: double_map hasher(blake2_128_concat) Signatory, hasher(twox_64_concat) u64 => Authorization<T::Moment>;
+        pub Authorizations: double_map hasher(blake2_128_concat)
+            Signatory<T::AccountId>, hasher(twox_64_concat) u64 => Authorization<T::Moment>;
 
         /// All links that an identity/key has
-        pub Links: double_map hasher(blake2_128_concat) Signatory, hasher(twox_64_concat) u64 => Link<T::Moment>;
+        pub Links: double_map hasher(blake2_128_concat)
+            Signatory<T::AccountId>, hasher(twox_64_concat) u64 => Link<T::Moment>;
 
         /// All authorizations that an identity/key has given. (Authorizer, auth_id -> authorized)
-        pub AuthorizationsGiven: double_map hasher(blake2_128_concat) Signatory, hasher(twox_64_concat) u64 => Signatory;
+        pub AuthorizationsGiven: double_map hasher(blake2_128_concat)
+            Signatory<T::AccountId>, hasher(twox_64_concat) u64 => Signatory<T::AccountId>;
 
         /// It defines if authorization from a CDD provider is needed to change master key of an identity
         pub CddAuthForMasterKeyRotation get(fn cdd_auth_for_master_key_rotation): bool;
@@ -340,13 +344,13 @@ decl_module! {
         /// # Weight
         /// `400_000 + 60_000 * signers_to_remove.len()`
         #[weight = FunctionOf(
-            |(items,): (&Vec<Signatory>,)| {
+            |(items,): (&Vec<Signatory<T::AccountId>>,)| {
                 400_000 + 60_000 * u32::try_from(items.len()).unwrap_or_default()
             },
             DispatchClass::Normal,
             true
         )]
-        pub fn remove_signing_items(origin, signers_to_remove: Vec<Signatory>) -> DispatchResult {
+        pub fn remove_signing_items(origin, signers_to_remove: Vec<Signatory<T::AccountId>>) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             let did = Context::current_identity_or::<Self>(&sender)?;
             let _grants_checked = Self::grant_check_only_master_key(&sender, did)?;
@@ -646,13 +650,17 @@ decl_module! {
         /// # Weight
         /// `400_000 + 30_000 * permissions.len()`
         #[weight = FunctionOf(
-            |(_, permissions): (&Signatory, &Vec<Permission>)| {
+            |(_, permissions): (&Signatory<T::AccountId>, &Vec<Permission>)| {
                 400_000 + 30_000 * u32::try_from(permissions.len()).unwrap_or_default()
             },
             DispatchClass::Normal,
             true
         )]
-        pub fn set_permission_to_signer(origin, signer: Signatory, permissions: Vec<Permission>) -> DispatchResult {
+        pub fn set_permission_to_signer(
+            origin,
+            signer: Signatory<T::AccountId>,
+            permissions: Vec<Permission>
+        ) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             let did = Context::current_identity_or::<Self>(&sender)?;
             let record = Self::grant_check_only_master_key(&sender, did)?;
@@ -740,7 +748,7 @@ decl_module! {
         /// # Weight
         /// `150_000 + 50_000 * auths.len()`
         #[weight = FunctionOf(
-            |(auths,): (&Vec<(Signatory, AuthorizationData, Option<T::Moment>)>,)| {
+            |(auths,): (&Vec<(Signatory<T::AccountId>, AuthorizationData, Option<T::Moment>)>,)| {
                 150_000 + 50_000 * u32::try_from(auths.len()).unwrap_or_default()
             },
             DispatchClass::Normal,
@@ -763,7 +771,7 @@ decl_module! {
         #[weight = SimpleDispatchInfo::FixedNormal(250_000)]
         pub fn remove_authorization(
             origin,
-            target: Signatory,
+            target: Signatory<T::AccountId>,
             auth_id: u64
         ) -> DispatchResult {
             let sender = ensure_signed(origin)?;
@@ -1060,7 +1068,11 @@ decl_module! {
         /// It revokes the `auth` off-chain authorization of `signer`. It only takes effect if
         /// the authorized transaction is not yet executed.
         #[weight = SimpleDispatchInfo::FixedNormal(100_000)]
-        pub fn revoke_offchain_authorization(origin, signer: Signatory, auth: TargetIdAuthorization<T::Moment>) -> DispatchResult {
+        pub fn revoke_offchain_authorization(
+            origin,
+            signer: Signatory<T::AccountId>,
+            auth: TargetIdAuthorization<T::Moment>
+        ) -> DispatchResult {
             let sender = ensure_signed(origin)?;
 
             match signer {
@@ -1146,7 +1158,7 @@ decl_error! {
 
 impl<T: Trait> Module<T> {
     /// Accepts an auth to join an identity as a signer
-    pub fn join_identity(signer: Signatory, auth_id: u64) -> DispatchResult {
+    pub fn join_identity(signer: Signatory<T::AccountId>, auth_id: u64) -> DispatchResult {
         ensure!(
             <Authorizations<T>>::contains_key(signer, auth_id),
             AuthorizationError::Invalid
@@ -1166,7 +1178,7 @@ impl<T: Trait> Module<T> {
 
         let master = Self::did_records(&identity_data_to_join.target_did).master_key;
 
-        Self::consume_auth(Signatory::from(master), signer, auth_id)?;
+        Self::consume_auth(Signatory::Account(master), signer, auth_id)?;
 
         Self::unsafe_join_identity(identity_data_to_join, signer)
     }
@@ -1174,7 +1186,7 @@ impl<T: Trait> Module<T> {
     /// Joins an identity as signer
     pub fn unsafe_join_identity(
         identity_data_to_join: JoinIdentityData,
-        signer: Signatory,
+        signer: Signatory<T::AccountId>,
     ) -> DispatchResult {
         if let Signatory::Account(key) = signer {
             if !Self::can_key_be_linked_to_did(&key, SignatoryType::External) {
@@ -1217,8 +1229,8 @@ impl<T: Trait> Module<T> {
 
     /// Adds an authorization.
     pub fn add_auth(
-        from: Signatory,
-        target: Signatory,
+        from: Signatory<T::AccountId>,
+        target: Signatory<T::AccountId>,
         authorization_data: AuthorizationData,
         expiry: Option<T::Moment>,
     ) -> u64 {
@@ -1261,9 +1273,9 @@ impl<T: Trait> Module<T> {
     /// Removes any authorization. No questions asked.
     /// NB: Please do all the required checks before calling this function.
     pub fn unsafe_remove_auth(
-        target: &Signatory,
+        target: &Signatory<T::AccountId>,
         auth_id: u64,
-        authorizer: &Signatory,
+        authorizer: &Signatory<T::AccountId>,
         revoked: bool,
     ) {
         <Authorizations<T>>::remove(target, auth_id);
@@ -1285,7 +1297,11 @@ impl<T: Trait> Module<T> {
 
     /// Consumes an authorization.
     /// Checks if the auth has not expired and the caller is authorized to consume this auth.
-    pub fn consume_auth(from: Signatory, target: Signatory, auth_id: u64) -> DispatchResult {
+    pub fn consume_auth(
+        from: Signatory<T::AccountId>,
+        target: Signatory<T::AccountId>,
+        auth_id: u64
+    ) -> DispatchResult {
         ensure!(
             <Authorizations<T>>::contains_key(target, auth_id),
             AuthorizationError::Invalid
@@ -1309,18 +1325,25 @@ impl<T: Trait> Module<T> {
     }
 
     /// Fetches a particular authorization.
-    pub fn get_authorization(target: Signatory, auth_id: u64) -> Authorization<T::Moment> {
+    pub fn get_authorization(
+        target: Signatory<T::AccountId>,
+        auth_id: u64
+    ) -> Authorization<T::AccountId, T::Moment> {
         <Authorizations<T>>::get(target, auth_id)
     }
 
     /// Fetches a particular link.
-    pub fn get_link(target: Signatory, link_id: u64) -> Link<T::Moment> {
+    pub fn get_link(target: Signatory<T::AccountId>, link_id: u64) -> Link<T::Moment> {
         <Links<T>>::get(target, link_id)
     }
 
     /// Adds a link to a key or an identity.
     /// NB: Please do all the required checks before calling this function.
-    pub fn add_link(target: Signatory, link_data: LinkData, expiry: Option<T::Moment>) -> u64 {
+    pub fn add_link(
+        target: Signatory<T::AccountId>,
+        link_data: LinkData,
+        expiry: Option<T::Moment>
+    ) -> u64 {
         let new_nonce = Self::multi_purpose_nonce() + 1u64;
         <MultiPurposeNonce>::put(&new_nonce);
 
@@ -1344,7 +1367,7 @@ impl<T: Trait> Module<T> {
 
     /// Remove a link (if it exists) from a key or identity.
     /// NB: Please do all the required checks before calling this function.
-    pub fn remove_link(target: Signatory, link_id: u64) {
+    pub fn remove_link(target: Signatory<T::AccountId>, link_id: u64) {
         if <Links<T>>::contains_key(target, link_id) {
             <Links<T>>::remove(target, link_id);
             Self::deposit_event(RawEvent::LinkRemoved(
@@ -1357,7 +1380,7 @@ impl<T: Trait> Module<T> {
 
     /// Update link data (if it exists) from a key or identity.
     /// NB: Please do all the required checks before calling this function.
-    pub fn update_link(target: Signatory, link_id: u64, link_data: LinkData) {
+    pub fn update_link(target: Signatory<T::AccountId>, link_id: u64, link_data: LinkData) {
         if <Links<T>>::contains_key(target, link_id) {
             <Links<T>>::mutate(target, link_id, |link| link.link_data = link_data);
             Self::deposit_event(RawEvent::LinkUpdated(
@@ -1468,7 +1491,7 @@ impl<T: Trait> Module<T> {
     /// others sanitezed functions.
     fn update_signing_item_permissions(
         target_did: IdentityId,
-        signer: &Signatory,
+        signer: &Signatory<T::AccountId>,
         mut permissions: Vec<Permission>,
     ) -> DispatchResult {
         // Remove duplicates.
@@ -1505,7 +1528,7 @@ impl<T: Trait> Module<T> {
     /// # IMPORTANT
     /// If signing keys are frozen this function always returns false.
     /// Master key cannot be frozen.
-    pub fn is_signer_authorized(did: IdentityId, signer: &Signatory) -> bool {
+    pub fn is_signer_authorized(did: IdentityId, signer: &Signatory<T::AccountId>) -> bool {
         let record = <DidRecords>::get(did);
 
         // Check master id or key
@@ -1521,7 +1544,7 @@ impl<T: Trait> Module<T> {
     }
 
     /// It checks if `key` is a signing key of `did` identity.
-    pub fn is_signer(did: IdentityId, signer: &Signatory) -> bool {
+    pub fn is_signer(did: IdentityId, signer: &Signatory<T::AccountId>) -> bool {
         let record = <DidRecords>::get(did);
         record.signing_items.iter().any(|si| si.signer == *signer)
     }
@@ -1529,7 +1552,7 @@ impl<T: Trait> Module<T> {
     /// Checks if signer has correct permissions.
     fn is_signer_authorized_with_permissions(
         did: IdentityId,
-        signer: &Signatory,
+        signer: &Signatory<T::AccountId>,
         permissions: Vec<Permission>,
     ) -> bool {
         let record = <DidRecords>::get(did);
@@ -1825,7 +1848,7 @@ impl<T: Trait> Module<T> {
     pub fn _register_did(
         sender: T::AccountId,
         signing_items: Vec<SigningItem>,
-        protocol_fee_data: Option<(&Signatory, ProtocolOp)>,
+        protocol_fee_data: Option<(&Signatory<T::AccountId>, ProtocolOp)>,
     ) -> Result<IdentityId, DispatchError> {
         // Adding extrensic count to did nonce for some unpredictability
         // NB: this does not guarantee randomness
@@ -1969,9 +1992,9 @@ impl<T: Trait> Module<T> {
 
     /// Returns an auth id if it is present and not expired.
     pub fn get_non_expired_auth(
-        target: &Signatory,
+        target: &Signatory<T::AccountId>,
         auth_id: &u64,
-    ) -> Option<Authorization<T::Moment>> {
+    ) -> Option<Authorization<T::AccountId, T::Moment>> {
         if !<Authorizations<T>>::contains_key(target, auth_id) {
             return None;
         }
@@ -1986,14 +2009,14 @@ impl<T: Trait> Module<T> {
     }
 
     /// Returns identity of a signatory
-    pub fn get_identity_of_signatory(signer: &Signatory) -> Option<IdentityId> {
+    pub fn get_identity_of_signatory(signer: &Signatory<T::AccountId>) -> Option<IdentityId> {
         match signer {
             Signatory::Account(key) => Self::get_identity(&key),
             Signatory::Identity(did) => Some(*did),
         }
     }
 
-    fn leave_identity(signer: Signatory, did: IdentityId) -> DispatchResult {
+    fn leave_identity(signer: Signatory<T::AccountId>, did: IdentityId) -> DispatchResult {
         ensure!(Self::is_signer(did, &signer), Error::<T>::NotASigner);
 
         if let Signatory::Account(key) = signer {
@@ -2042,7 +2065,7 @@ impl<T: Trait> Module<T> {
     /// - if link_type is Some(value) then return filtered links on the value basis type in conjunction
     ///   with `allow_expired` boolean condition
     pub fn get_filtered_links(
-        signatory: Signatory,
+        signatory: Signatory<T::AccountId>,
         allow_expired: bool,
         link_type: Option<LinkType>,
     ) -> Vec<Link<T::Moment>> {
@@ -2193,12 +2216,12 @@ impl<T: Trait> IdentityTrait for Module<T> {
     }
 
     /// Fetches the fee payer from the context.
-    fn current_payer() -> Option<Signatory> {
+    fn current_payer() -> Option<Signatory<T::AccountId>> {
         <CurrentPayer>::get()
     }
 
     /// Sets the fee payer in the context.
-    fn set_current_payer(payer: Option<Signatory>) {
+    fn set_current_payer(payer: Option<Signatory<T::AccountId>>) {
         if let Some(payer) = payer {
             <CurrentPayer>::put(payer);
         } else {
@@ -2207,7 +2230,7 @@ impl<T: Trait> IdentityTrait for Module<T> {
     }
 
     /// Checks if the signer is authorized.
-    fn is_signer_authorized(did: IdentityId, signer: &Signatory) -> bool {
+    fn is_signer_authorized(did: IdentityId, signer: &Signatory<T::AccountId>) -> bool {
         Self::is_signer_authorized(did, signer)
     }
 
@@ -2219,7 +2242,7 @@ impl<T: Trait> IdentityTrait for Module<T> {
     /// Checks if the signer is authorized and has certain permissions.
     fn is_signer_authorized_with_permissions(
         did: IdentityId,
-        signer: &Signatory,
+        signer: &Signatory<T::AccountId>,
         permissions: Vec<Permission>,
     ) -> bool {
         Self::is_signer_authorized_with_permissions(did, signer, permissions)

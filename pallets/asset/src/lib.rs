@@ -1651,7 +1651,7 @@ impl<T: Trait> Module<T> {
 
     fn _register_ticker(
         ticker: &Ticker,
-        signer: &Signatory,
+        signer: &Signatory<T::AccountId>,
         to_did: IdentityId,
         expiry: Option<T::Moment>,
     ) -> DispatchResult {
@@ -1895,7 +1895,7 @@ impl<T: Trait> Module<T> {
         caller: T::AccountId,
         to_did: IdentityId,
         value: T::Balance,
-        protocol_fee_data: Option<(&Signatory, ProtocolOp)>,
+        protocol_fee_data: Option<(&Signatory<T::AccountId>, ProtocolOp)>,
     ) -> DispatchResult {
         // Granularity check
         ensure!(

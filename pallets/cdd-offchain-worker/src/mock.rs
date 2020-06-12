@@ -366,8 +366,8 @@ impl AcceptTransfer for Test {
     }
 }
 
-impl AddSignerMultiSig for Test {
-    fn accept_multisig_signer(_: Signatory, _: u64) -> DispatchResult {
+impl AddSignerMultiSig<AccountId> for Test {
+    fn accept_multisig_signer(_: Signatory<AccountId>, _: u64) -> DispatchResult {
         unimplemented!()
     }
 }

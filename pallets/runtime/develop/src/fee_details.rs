@@ -60,7 +60,7 @@ impl CddAndFeeDetails<Call> for CddHandler {
     fn get_valid_payer(
         call: &Call,
         caller: &Signatory<Self::AccountId>,
-    ) -> Result<Option<Signatory>, InvalidTransaction> {
+    ) -> Result<Option<Signatory<Self::AccountId>>, InvalidTransaction> {
         // The CDD check and fee payer varies depending on the transaction.
         // This match covers all possible scenarios.
         match call {
@@ -201,7 +201,7 @@ fn is_auth_valid<AccountId>(
     singer: &Signatory<AccountId>,
     auth_id: &u64,
     call_type: CallType,
-) -> Result<Option<Signatory>, InvalidTransaction> {
+) -> Result<Option<Signatory<Self::AccountId>>, InvalidTransaction> {
     // Fetches the auth if it exists and has not expired
     if let Some(auth) = Identity::get_non_expired_auth(singer, auth_id) {
         // Different auths have different authorization data requirements and hence we match call type

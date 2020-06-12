@@ -295,8 +295,8 @@ impl IdentityTrait for TestStorage {
     type ProtocolFee = protocol_fee::Module<TestStorage>;
 }
 
-impl AddSignerMultiSig for TestStorage {
-    fn accept_multisig_signer(_: Signatory, _: u64) -> DispatchResult {
+impl AddSignerMultiSig<AccountId> for TestStorage {
+    fn accept_multisig_signer(_: Signatory<AccountId>, _: u64) -> DispatchResult {
         unimplemented!()
     }
 }
@@ -562,10 +562,10 @@ pub fn register_keyring_account_without_cdd(
     make_account_without_cdd(acc_pub).map(|(_, id)| id)
 }
 
-pub fn add_signing_item(did: IdentityId, signer: Signatory) {
+pub fn add_signing_item(did: IdentityId, signer: Signatory<AccountId>) {
     let master_key = Identity::did_records(&did).master_key;
     let auth_id = Identity::add_auth(
-        Signatory::from(master_key),
+        Signatory::Account(master_key),
         signer,
         AuthorizationData::JoinIdentity(JoinIdentityData::new(did, vec![])),
         None,
@@ -588,7 +588,7 @@ pub fn get_identity_id(acc: AccountKeyring) -> Option<IdentityId> {
     Identity::get_identity(&key)
 }
 
-pub fn authorizations_to(to: &Signatory) -> Vec<Authorization<u64>> {
+pub fn authorizations_to(to: &Signatory<AccountId>) -> Vec<Authorization<AccountId, u64>> {
     identity::Authorizations::<TestStorage>::iter_prefix(to).collect::<Vec<_>>()
 }
 

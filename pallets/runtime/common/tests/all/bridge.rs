@@ -59,16 +59,16 @@ fn can_issue_to_identity_we() {
     assert_ok!(MultiSig::create_multisig(
         alice.clone(),
         vec![
-            Signatory::from(bob_key),
-            Signatory::from(charlie_key),
-            Signatory::from(dave_key)
+            Signatory::Account(bob_key),
+            Signatory::Account(charlie_key),
+            Signatory::Account(dave_key)
         ],
         2,
     ));
 
     assert_eq!(MultiSig::ms_signs_required(controller), 2);
     let last_authorization = |account| {
-        <Authorizations>::iter_prefix(Signatory::from(account))
+        <Authorizations>::iter_prefix(Signatory::Account(account))
             .next()
             .unwrap()
             .auth_id
@@ -88,15 +88,15 @@ fn can_issue_to_identity_we() {
     ));
 
     assert_eq!(
-        MultiSig::ms_signers(controller, Signatory::from(bob_key)),
+        MultiSig::ms_signers(controller, Signatory::Account(bob_key)),
         true
     );
     assert_eq!(
-        MultiSig::ms_signers(controller, Signatory::from(charlie_key)),
+        MultiSig::ms_signers(controller, Signatory::Account(charlie_key)),
         true
     );
     assert_eq!(
-        MultiSig::ms_signers(controller, Signatory::from(dave_key)),
+        MultiSig::ms_signers(controller, Signatory::Account(dave_key)),
         true
     );
 
@@ -176,16 +176,16 @@ fn can_change_controller() {
         assert_ok!(MultiSig::create_multisig(
             alice.clone(),
             vec![
-                Signatory::from(bob_key),
-                Signatory::from(charlie_key),
-                Signatory::from(dave_key)
+                Signatory::Account(bob_key),
+                Signatory::Account(charlie_key),
+                Signatory::Account(dave_key)
             ],
             2,
         ));
 
         assert_eq!(MultiSig::ms_signs_required(controller), 2);
         let last_authorization = |account| {
-            <Authorizations>::iter_prefix(Signatory::from(account))
+            <Authorizations>::iter_prefix(Signatory::Account(account))
                 .next()
                 .unwrap()
                 .auth_id
@@ -205,15 +205,15 @@ fn can_change_controller() {
         ));
 
         assert_eq!(
-            MultiSig::ms_signers(controller, Signatory::from(bob_key)),
+            MultiSig::ms_signers(controller, Signatory::Account(bob_key)),
             true
         );
         assert_eq!(
-            MultiSig::ms_signers(controller, Signatory::from(charlie_key)),
+            MultiSig::ms_signers(controller, Signatory::Account(charlie_key)),
             true
         );
         assert_eq!(
-            MultiSig::ms_signers(controller, Signatory::from(dave_key)),
+            MultiSig::ms_signers(controller, Signatory::Account(dave_key)),
             true
         );
         let admin = frame_system::RawOrigin::Signed(Default::default());
@@ -287,13 +287,13 @@ fn do_freeze_and_unfreeze_bridge() {
     let controller = MultiSig::get_next_multisig_address(AccountKeyring::Alice.public());
     assert_ok!(MultiSig::create_multisig(
         alice.clone(),
-        vec![Signatory::from(bob_key), Signatory::from(charlie_key),],
+        vec![Signatory::Account(bob_key), Signatory::Account(charlie_key),],
         2,
     ));
 
     assert_eq!(MultiSig::ms_signs_required(controller), 2);
     let last_authorization = |account| {
-        <Authorizations>::iter_prefix(Signatory::from(account))
+        <Authorizations>::iter_prefix(Signatory::Account(account))
             .next()
             .unwrap()
             .auth_id
@@ -309,11 +309,11 @@ fn do_freeze_and_unfreeze_bridge() {
     ));
 
     assert_eq!(
-        MultiSig::ms_signers(controller, Signatory::from(bob_key)),
+        MultiSig::ms_signers(controller, Signatory::Account(bob_key)),
         true
     );
     assert_eq!(
-        MultiSig::ms_signers(controller, Signatory::from(charlie_key)),
+        MultiSig::ms_signers(controller, Signatory::Account(charlie_key)),
         true
     );
     let admin = Origin::system(frame_system::RawOrigin::Signed(Default::default()));
@@ -418,13 +418,13 @@ fn do_timelock_txs() {
     let controller = MultiSig::get_next_multisig_address(AccountKeyring::Alice.public());
     assert_ok!(MultiSig::create_multisig(
         alice.clone(),
-        vec![Signatory::from(bob_key), Signatory::from(charlie_key),],
+        vec![Signatory::Account(bob_key), Signatory::Account(charlie_key)],
         1,
     ));
 
     assert_eq!(MultiSig::ms_signs_required(controller), 1);
     let last_authorization = |account| {
-        <Authorizations>::iter_prefix(Signatory::from(account))
+        <Authorizations>::iter_prefix(Signatory::Account(account))
             .next()
             .unwrap()
             .auth_id
@@ -440,11 +440,11 @@ fn do_timelock_txs() {
     ));
 
     assert_eq!(
-        MultiSig::ms_signers(controller, Signatory::from(bob_key)),
+        MultiSig::ms_signers(controller, Signatory::Account(bob_key)),
         true
     );
     assert_eq!(
-        MultiSig::ms_signers(controller, Signatory::from(charlie_key)),
+        MultiSig::ms_signers(controller, Signatory::Account(charlie_key)),
         true
     );
     let admin = Origin::system(frame_system::RawOrigin::Signed(Default::default()));
@@ -538,13 +538,13 @@ fn do_rate_limit() {
     let controller = MultiSig::get_next_multisig_address(AccountKeyring::Alice.public());
     assert_ok!(MultiSig::create_multisig(
         alice.clone(),
-        vec![Signatory::from(bob_key), Signatory::from(charlie_key),],
+        vec![Signatory::Account(bob_key), Signatory::Account(charlie_key)],
         1,
     ));
 
     assert_eq!(MultiSig::ms_signs_required(controller), 1);
     let last_authorization = |account| {
-        <Authorizations>::iter_prefix(Signatory::from(account))
+        <Authorizations>::iter_prefix(Signatory::Account(account))
             .next()
             .unwrap()
             .auth_id
@@ -560,11 +560,11 @@ fn do_rate_limit() {
     ));
 
     assert_eq!(
-        MultiSig::ms_signers(controller, Signatory::from(bob_key)),
+        MultiSig::ms_signers(controller, Signatory::Account(bob_key)),
         true
     );
     assert_eq!(
-        MultiSig::ms_signers(controller, Signatory::from(charlie_key)),
+        MultiSig::ms_signers(controller, Signatory::Account(charlie_key)),
         true
     );
     let admin = Origin::system(frame_system::RawOrigin::Signed(Default::default()));
@@ -665,13 +665,13 @@ fn do_whitelist() {
     let controller = MultiSig::get_next_multisig_address(AccountKeyring::Alice.public());
     assert_ok!(MultiSig::create_multisig(
         alice.clone(),
-        vec![Signatory::from(bob_key), Signatory::from(charlie_key),],
+        vec![Signatory::Account(bob_key), Signatory::Account(charlie_key)],
         1,
     ));
 
     assert_eq!(MultiSig::ms_signs_required(controller), 1);
     let last_authorization = |account| {
-        <Authorizations>::iter_prefix(Signatory::from(account))
+        <Authorizations>::iter_prefix(Signatory::Account(account))
             .next()
             .unwrap()
             .auth_id
@@ -686,11 +686,11 @@ fn do_whitelist() {
         last_authorization(charlie_key)
     ));
     assert_eq!(
-        MultiSig::ms_signers(controller, Signatory::from(bob_key)),
+        MultiSig::ms_signers(controller, Signatory::Account(bob_key)),
         true
     );
     assert_eq!(
-        MultiSig::ms_signers(controller, Signatory::from(charlie_key)),
+        MultiSig::ms_signers(controller, Signatory::Account(charlie_key)),
         true
     );
     assert_ok!(Bridge::change_controller(admin.clone(), controller));
@@ -789,13 +789,13 @@ fn do_force_mint() {
     let controller = MultiSig::get_next_multisig_address(AccountKeyring::Alice.public());
     assert_ok!(MultiSig::create_multisig(
         alice.clone(),
-        vec![Signatory::from(bob_key), Signatory::from(charlie_key),],
+        vec![Signatory::Account(bob_key), Signatory::Account(charlie_key)],
         1,
     ));
 
     assert_eq!(MultiSig::ms_signs_required(controller), 1);
     let last_authorization = |account| {
-        <Authorizations>::iter_prefix(Signatory::from(account))
+        <Authorizations>::iter_prefix(Signatory::Account(account))
             .next()
             .unwrap()
             .auth_id
@@ -811,11 +811,11 @@ fn do_force_mint() {
     ));
 
     assert_eq!(
-        MultiSig::ms_signers(controller, Signatory::from(bob_key)),
+        MultiSig::ms_signers(controller, Signatory::Account(bob_key)),
         true
     );
     assert_eq!(
-        MultiSig::ms_signers(controller, Signatory::from(charlie_key)),
+        MultiSig::ms_signers(controller, Signatory::Account(charlie_key)),
         true
     );
 
