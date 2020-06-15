@@ -42,10 +42,10 @@ pub enum Claim {
     KnowYourCustomer(Scope),
     /// This claim contains a string that represents the jurisdiction of the user
     Jurisdiction(JurisdictionName, Scope),
-    /// User is whitelisted
-    Whitelisted(Scope),
-    /// User is Blacklisted
-    BlackListed(Scope),
+    /// User is exempted
+    Exempted(Scope),
+    /// User is Blocked
+    Blocked(Scope),
     /// Empty claim
     NoData,
 }
@@ -67,8 +67,8 @@ impl Claim {
             Claim::CustomerDueDiligence => ClaimType::CustomerDueDiligence,
             Claim::KnowYourCustomer(..) => ClaimType::KnowYourCustomer,
             Claim::Jurisdiction(..) => ClaimType::Jurisdiction,
-            Claim::Whitelisted(..) => ClaimType::Whitelisted,
-            Claim::BlackListed(..) => ClaimType::BlackListed,
+            Claim::Exempted(..) => ClaimType::Exempted,
+            Claim::Blocked(..) => ClaimType::Blocked,
             Claim::NoData => ClaimType::NoType,
         }
     }
@@ -83,8 +83,8 @@ impl Claim {
             Claim::CustomerDueDiligence => None,
             Claim::KnowYourCustomer(ref scope) => Some(scope),
             Claim::Jurisdiction(.., ref scope) => Some(scope),
-            Claim::Whitelisted(ref scope) => Some(scope),
-            Claim::BlackListed(ref scope) => Some(scope),
+            Claim::Exempted(ref scope) => Some(scope),
+            Claim::Blocked(ref scope) => Some(scope),
             Claim::NoData => None,
         }
     }
@@ -107,10 +107,10 @@ pub enum ClaimType {
     KnowYourCustomer,
     /// This claim contains a string that represents the jurisdiction of the user
     Jurisdiction,
-    /// User is whitelisted
-    Whitelisted,
-    /// User is BlackListed.
-    BlackListed,
+    /// User is exempted
+    Exempted,
+    /// User is Blocked.
+    Blocked,
     /// Empty type
     NoType,
 }

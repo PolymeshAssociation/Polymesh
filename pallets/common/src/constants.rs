@@ -46,7 +46,7 @@ pub const COMPLIANCE_MANAGER_FAILURE: u8 = 0xa2;
 pub const SMART_EXTENSION_FAILURE: u8 = 0xa3;
 pub const INVALID_GRANULARITY: u8 = 0xa4;
 pub const APP_TX_VOLUME_LIMIT_REACHED: u8 = 0xa5;
-pub const APP_BLACKLISTED_TX: u8 = 0xa6;
+pub const APP_BLOCKED_TX: u8 = 0xa6;
 pub const APP_FUNDS_LOCKED: u8 = 0xa7;
 pub const APP_FUNDS_LIMIT_REACHED: u8 = 0xa8;
 

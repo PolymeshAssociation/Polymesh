@@ -30,10 +30,10 @@ async function main() {
   await reqImports.issueTokenPerDid( api, master_keys );
 
   // receiverRules Claim
-  await reqImports.addClaimsToDids( api, master_keys, issuer_dids[2], "Whitelisted", asset_did, null );
+  await reqImports.addClaimsToDids( api, master_keys, issuer_dids[2], "Exempted", asset_did, null );
 
   // senderRules Claim
-  await reqImports.addClaimsToDids( api, master_keys, issuer_dids[0], "Whitelisted", asset_did, null );
+  await reqImports.addClaimsToDids( api, master_keys, issuer_dids[0], "Exempted", asset_did, null );
 
   await reqImports.createClaimRules( api, master_keys, issuer_dids );
 

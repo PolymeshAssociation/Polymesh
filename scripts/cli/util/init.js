@@ -30,7 +30,7 @@ const senderRules1 = function(trusted_did, asset_did) {
     {
       "rule_type": {
         "IsPresent": {
-          "Whitelisted": asset_did
+          "Exempted": asset_did
         }
       },
       "issuers": [trusted_did]
@@ -43,7 +43,7 @@ const receiverRules1 = function(trusted_did, asset_did) {
     {
       "rule_type": {
         "IsPresent": {
-          "Whitelisted": asset_did
+          "Exempted": asset_did
         }
       },
       "issuers": [trusted_did]
