@@ -18,6 +18,7 @@ use test_client::AccountKeyring;
 type Balances = balances::Module<TestStorage>;
 type Identity = identity::Module<TestStorage>;
 type MultiSig = multisig::Module<TestStorage>;
+type Timestamp = pallet_timestamp::Module<TestStorage>;
 type Origin = <TestStorage as frame_system::Trait>::Origin;
 type Error = multisig::Error<TestStorage>;
 
@@ -205,7 +206,9 @@ fn change_multisig_sigs_required() {
         assert_ok!(MultiSig::create_proposal_as_key(
             bob.clone(),
             musig_address.clone(),
-            call
+            call,
+            None,
+            false
         ));
 
         assert_eq!(MultiSig::ms_signs_required(musig_address.clone()), 2);
@@ -266,13 +269,17 @@ fn create_or_approve_change_multisig_sigs_required() {
         assert_ok!(MultiSig::create_or_approve_proposal_as_key(
             bob.clone(),
             musig_address.clone(),
-            call.clone()
+            call.clone(),
+            None,
+            false
         ));
         assert_eq!(MultiSig::ms_signs_required(musig_address.clone()), 2);
         assert_ok!(MultiSig::create_or_approve_proposal_as_identity(
             alice.clone(),
             musig_address.clone(),
-            call
+            call,
+            None,
+            false
         ));
         assert_eq!(MultiSig::ms_signs_required(musig_address), 1);
     });
@@ -347,7 +354,9 @@ fn remove_multisig_signer() {
         assert_ok!(MultiSig::create_proposal_as_identity(
             alice.clone(),
             musig_address.clone(),
-            call
+            call,
+            None,
+            false
         ));
 
         assert_eq!(MultiSig::number_of_signers(musig_address.clone()), 1);
@@ -378,7 +387,9 @@ fn remove_multisig_signer() {
         assert_ok!(MultiSig::create_proposal_as_identity(
             alice.clone(),
             musig_address.clone(),
-            remove_alice
+            remove_alice,
+            None,
+            false
         ));
 
         // Alice not removed since that would've broken the multi sig.
@@ -438,7 +449,9 @@ fn add_multisig_signer() {
         assert_ok!(MultiSig::create_proposal_as_identity(
             alice.clone(),
             musig_address.clone(),
-            call
+            call,
+            None,
+            false
         ));
 
         let call2 = Box::new(Call::MultiSig(multisig::Call::add_multisig_signer(
@@ -448,7 +461,9 @@ fn add_multisig_signer() {
         assert_ok!(MultiSig::create_proposal_as_identity(
             alice.clone(),
             musig_address.clone(),
-            call2
+            call2,
+            None,
+            false
         ));
 
         assert_eq!(
@@ -576,7 +591,9 @@ fn should_change_all_signers_and_sigs_required() {
         assert_ok!(MultiSig::create_proposal_as_identity(
             alice.clone(),
             musig_address.clone(),
-            call
+            call,
+            None,
+            false
         ));
 
         assert_eq!(
@@ -951,7 +968,9 @@ fn check_for_approval_closure() {
         assert_ok!(MultiSig::create_proposal_as_identity(
             alice.clone(),
             musig_address.clone(),
-            call.clone()
+            call.clone(),
+            None,
+            false
         ));
         let proposal_id = MultiSig::proposal_ids(musig_address.clone(), call).unwrap();
         let mut auth = <identity::Authorizations<TestStorage>>::iter_prefix(bob_signer);
@@ -974,8 +993,231 @@ fn check_for_approval_closure() {
             after_extra_approval_multi_purpose_nonce
         );
         assert_eq!(
-            MultiSig::tx_approvals(&(musig_address.clone(), proposal_id)),
+            MultiSig::proposal_detail(&(musig_address.clone(), proposal_id)).approvals,
             2
         );
     });
+}
+
+#[test]
+fn reject_proposals() {
+    ExtBuilder::default().build().execute_with(|| {
+        let alice_did = register_keyring_account(AccountKeyring::Alice).unwrap();
+        let alice = Origin::signed(AccountKeyring::Alice.public());
+
+        let bob_did = register_keyring_account(AccountKeyring::Bob).unwrap();
+        let bob = Origin::signed(AccountKeyring::Bob.public());
+
+        let charlie_did = register_keyring_account(AccountKeyring::Charlie).unwrap();
+        let charlie = Origin::signed(AccountKeyring::Charlie.public());
+
+        let dave_did = register_keyring_account(AccountKeyring::Dave).unwrap();
+        let dave = Origin::signed(AccountKeyring::Dave.public());
+
+        let eve_key = AccountKey::try_from(AccountKeyring::Eve.public().encode()).unwrap();
+        let eve = Origin::signed(AccountKeyring::Eve.public());
+
+        let musig_address = MultiSig::get_next_multisig_address(AccountKeyring::Alice.public());
+
+        setup_multisig(
+            alice.clone(),
+            3,
+            vec![
+                Signatory::from(alice_did),
+                Signatory::from(bob_did),
+                Signatory::from(charlie_did),
+                Signatory::from(dave_did),
+                Signatory::from(eve_key),
+            ],
+        );
+
+        let call1 = Box::new(Call::MultiSig(multisig::Call::change_sigs_required(4)));
+        let call2 = Box::new(Call::MultiSig(multisig::Call::change_sigs_required(5)));
+        Context::set_current_identity::<Identity>(Some(alice_did));
+        assert_ok!(MultiSig::create_proposal_as_identity(
+            alice.clone(),
+            musig_address.clone(),
+            call1.clone(),
+            None,
+            false
+        ));
+        assert_ok!(MultiSig::create_proposal_as_identity(
+            alice.clone(),
+            musig_address.clone(),
+            call2.clone(),
+            None,
+            true
+        ));
+
+        let proposal_id1 = MultiSig::proposal_ids(musig_address.clone(), call1).unwrap();
+        let proposal_id2 = MultiSig::proposal_ids(musig_address.clone(), call2).unwrap();
+
+        // Proposal with auto close disabled can be voted on even after rejection.
+        Context::set_current_identity::<Identity>(Some(bob_did));
+        assert_ok!(MultiSig::reject_as_identity(
+            bob.clone(),
+            musig_address.clone(),
+            proposal_id1
+        ));
+        Context::set_current_identity::<Identity>(Some(charlie_did));
+        assert_ok!(MultiSig::reject_as_identity(
+            charlie.clone(),
+            musig_address.clone(),
+            proposal_id1
+        ));
+        assert_ok!(MultiSig::reject_as_key(
+            eve.clone(),
+            musig_address.clone(),
+            proposal_id1
+        ));
+        Context::set_current_identity::<Identity>(Some(dave_did));
+        assert_ok!(MultiSig::approve_as_identity(
+            dave.clone(),
+            musig_address.clone(),
+            proposal_id1
+        ));
+        let proposal_details1 = MultiSig::proposal_detail(&(musig_address.clone(), proposal_id1));
+        assert_eq!(proposal_details1.approvals, 2);
+        assert_eq!(proposal_details1.rejections, 3);
+        assert_eq!(
+            proposal_details1.status,
+            multisig::ProposalStatus::ActiveOrExpired
+        );
+        assert_eq!(proposal_details1.auto_close, false);
+
+        // Proposal with auto close enabled can not be voted on after rejection.
+        Context::set_current_identity::<Identity>(Some(bob_did));
+        assert_ok!(MultiSig::reject_as_identity(
+            bob.clone(),
+            musig_address.clone(),
+            proposal_id2
+        ));
+        Context::set_current_identity::<Identity>(Some(charlie_did));
+        assert_ok!(MultiSig::reject_as_identity(
+            charlie.clone(),
+            musig_address.clone(),
+            proposal_id2
+        ));
+        assert_ok!(MultiSig::reject_as_key(
+            eve.clone(),
+            musig_address.clone(),
+            proposal_id2
+        ));
+        Context::set_current_identity::<Identity>(Some(dave_did));
+        assert_err!(
+            MultiSig::approve_as_identity(dave.clone(), musig_address.clone(), proposal_id2),
+            Error::ProposalAlreadyRejected
+        );
+
+        let proposal_details2 = MultiSig::proposal_detail(&(musig_address.clone(), proposal_id2));
+        assert_eq!(proposal_details2.approvals, 1);
+        assert_eq!(proposal_details2.rejections, 3);
+        assert_eq!(proposal_details2.status, multisig::ProposalStatus::Rejected);
+        assert_eq!(proposal_details2.auto_close, true);
+    });
+}
+
+fn expired_proposals() {
+    ExtBuilder::default().build().execute_with(|| {
+        let alice_did = register_keyring_account(AccountKeyring::Alice).unwrap();
+        let alice = Origin::signed(AccountKeyring::Alice.public());
+
+        let bob_did = register_keyring_account(AccountKeyring::Bob).unwrap();
+        let bob = Origin::signed(AccountKeyring::Bob.public());
+
+        let charlie_did = register_keyring_account(AccountKeyring::Charlie).unwrap();
+        let charlie = Origin::signed(AccountKeyring::Charlie.public());
+
+        let musig_address = MultiSig::get_next_multisig_address(AccountKeyring::Alice.public());
+
+        setup_multisig(
+            alice.clone(),
+            3,
+            vec![
+                Signatory::from(alice_did),
+                Signatory::from(bob_did),
+                Signatory::from(charlie_did),
+            ],
+        );
+
+        let expires_at = 100u64;
+        let call = Box::new(Call::MultiSig(multisig::Call::change_sigs_required(2)));
+
+        Context::set_current_identity::<Identity>(Some(alice_did));
+        assert_ok!(MultiSig::create_proposal_as_identity(
+            alice.clone(),
+            musig_address.clone(),
+            call.clone(),
+            Some(100u64),
+            false
+        ));
+
+        let proposal_id = MultiSig::proposal_ids(musig_address.clone(), call).unwrap();
+        let mut proposal_details = MultiSig::proposal_detail(&(musig_address.clone(), proposal_id));
+        assert_eq!(proposal_details.approvals, 1);
+        assert_eq!(
+            proposal_details.status,
+            multisig::ProposalStatus::ActiveOrExpired
+        );
+
+        Context::set_current_identity::<Identity>(Some(bob_did));
+        assert_ok!(MultiSig::approve_as_identity(
+            bob.clone(),
+            musig_address.clone(),
+            proposal_id
+        ));
+
+        proposal_details = MultiSig::proposal_detail(&(musig_address.clone(), proposal_id));
+        assert_eq!(proposal_details.approvals, 2);
+        assert_eq!(
+            proposal_details.status,
+            multisig::ProposalStatus::ActiveOrExpired
+        );
+
+        // Approval fails when proposal has expired
+        Timestamp::set_timestamp(expires_at);
+        Context::set_current_identity::<Identity>(Some(charlie_did));
+        assert_err!(
+            MultiSig::approve_as_identity(charlie.clone(), musig_address.clone(), proposal_id),
+            Error::ProposalExpired
+        );
+
+        proposal_details = MultiSig::proposal_detail(&(musig_address.clone(), proposal_id));
+        assert_eq!(proposal_details.approvals, 2);
+        assert_eq!(
+            proposal_details.status,
+            multisig::ProposalStatus::ActiveOrExpired
+        );
+
+        // Approval works when time is expiry - 1
+        Timestamp::set_timestamp(expires_at - 1);
+        assert_ok!(MultiSig::approve_as_identity(
+            charlie.clone(),
+            musig_address.clone(),
+            proposal_id
+        ));
+
+        proposal_details = MultiSig::proposal_detail(&(musig_address.clone(), proposal_id));
+        assert_eq!(proposal_details.approvals, 3);
+        assert_eq!(
+            proposal_details.status,
+            multisig::ProposalStatus::ExecutionSuccessful
+        );
+    });
+}
+
+fn setup_multisig(creator_origin: Origin, sigs_required: u64, signers: Vec<Signatory>) {
+    assert_ok!(MultiSig::create_multisig(
+        creator_origin,
+        signers.clone(),
+        sigs_required,
+    ));
+
+    for signer in signers {
+        let auth_id = <identity::Authorizations<TestStorage>>::iter_prefix(signer)
+            .next()
+            .unwrap()
+            .auth_id;
+        assert_ok!(MultiSig::unsafe_accept_multisig_signer(signer, auth_id));
+    }
 }
