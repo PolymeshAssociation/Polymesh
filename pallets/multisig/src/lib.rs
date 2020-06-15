@@ -1108,7 +1108,7 @@ impl<T: Trait> Module<T> {
 impl<T: Trait> AddSignerMultiSig<<T as frame_system::Trait>::AccountId> for Module<T> {
     fn accept_multisig_signer(
         signer: Signatory<<T as frame_system::Trait>::AccountId>,
-        auth_id: u64
+        auth_id: u64,
     ) -> DispatchResult {
         Self::unsafe_accept_multisig_signer(signer, auth_id)
     }

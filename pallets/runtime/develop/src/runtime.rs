@@ -36,8 +36,8 @@ use polymesh_common_utilities::{
     CommonTrait,
 };
 use polymesh_primitives::{
-    AccountId, AccountIndex, Balance, BlockNumber, Hash, IdentityId, Index, Link,
-    Moment, Signatory, Signature, SigningItem, Ticker,
+    AccountId, AccountIndex, Balance, BlockNumber, Hash, IdentityId, Index, Link, Moment,
+    Signatory, Signature, SigningItem, Ticker,
 };
 
 use sp_api::impl_runtime_apis;

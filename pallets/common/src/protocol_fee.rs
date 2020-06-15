@@ -48,6 +48,6 @@ pub trait ChargeProtocolFee<AccountId> {
     fn batch_charge_fee(
         signatory: &Signatory<AccountId>,
         op: ProtocolOp,
-        count: usize
+        count: usize,
     ) -> DispatchResult;
 }

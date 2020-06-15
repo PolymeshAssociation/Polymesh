@@ -181,7 +181,7 @@ impl<T: Trait> Module<T> {
     pub fn batch_charge_fee(
         signatory: &Signatory<T::AccountId>,
         op: ProtocolOp,
-        count: usize
+        count: usize,
     ) -> DispatchResult {
         let fee = Self::compute_fee(op).saturating_mul(<BalanceOf<T>>::from(count as u32));
         let imbalance = Self::withdraw_fee(signatory, fee)?;
@@ -190,7 +190,10 @@ impl<T: Trait> Module<T> {
     }
 
     /// Withdraws a precomputed fee.
-    fn withdraw_fee(signatory: &Signatory<T::AccountId>, fee: BalanceOf<T>) -> WithdrawFeeResult<T> {
+    fn withdraw_fee(
+        signatory: &Signatory<T::AccountId>,
+        fee: BalanceOf<T>,
+    ) -> WithdrawFeeResult<T> {
         match signatory {
             Signatory::Identity(did) => T::Currency::withdraw_identity_balance(did, fee)
                 .map_err(|_| Error::<T>::InsufficientIdentityBalance.into()),
@@ -213,7 +216,7 @@ impl<T: Trait> ChargeProtocolFee<T::AccountId> for Module<T> {
     fn batch_charge_fee(
         signatory: &Signatory<T::AccountId>,
         op: ProtocolOp,
-        count: usize
+        count: usize,
     ) -> DispatchResult {
         Self::batch_charge_fee(signatory, op, count)
     }

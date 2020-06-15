@@ -1291,9 +1291,7 @@ impl<T: Trait> Module<T> {
         let flatten_keys = <Identity<T>>::flatten_keys(who, 1);
         flatten_keys
             .into_iter()
-            .map(|key| {
-                (key, Self::voting_history_by_address(key))
-            })
+            .map(|key| (key, Self::voting_history_by_address(key)))
             .collect::<HistoricalVotingById<_>>()
     }
 

@@ -240,7 +240,7 @@ decl_storage! {
                 <MultiPurposeNonce>::mutate(|n| *n += 1_u64);
                 <Module<T>>::link_key_to_did(&signer_id, SignatoryType::External, did);
                 <DidRecords<T>>::mutate(did, |record| {
-                    (*record).add_signing_items(&[SigningItem::Account(signer_id.clone())]);
+                    (*record).add_signing_items(&[SigningItem::from_account_id(signer_id.clone())]);
                 });
                 <Module<T>>::deposit_event(RawEvent::SigningItemsAdded(
                     did,
@@ -1716,7 +1716,10 @@ impl<T: Trait> Module<T> {
         sender: &T::AccountId,
         did: IdentityId,
     ) -> sp_std::result::Result<DidRecord<T::AccountId>, Error<T>> {
-        ensure!(<DidRecords<T>>::contains_key(did), Error::<T>::DidDoesNotExist);
+        ensure!(
+            <DidRecords<T>>::contains_key(did),
+            Error::<T>::DidDoesNotExist
+        );
         let record = <DidRecords<T>>::get(did);
         ensure!(*sender == record.master_key, Error::<T>::KeyNotAllowed);
         Ok(record)

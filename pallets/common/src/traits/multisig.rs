@@ -29,8 +29,5 @@ pub trait AddSignerMultiSig<AccountId> {
     /// # Arguments
     /// * `signer` - DID/key of the signer
     /// * `auth_id` - Authorization ID of the authorization created by the multisig.
-    fn accept_multisig_signer(
-        signer: Signatory<AccountId>,
-        auth_id: u64,
-    ) -> DispatchResult;
+    fn accept_multisig_signer(signer: Signatory<AccountId>, auth_id: u64) -> DispatchResult;
 }
