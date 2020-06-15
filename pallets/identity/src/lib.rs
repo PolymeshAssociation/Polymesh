@@ -266,7 +266,7 @@ decl_module! {
         /// Register a new did with a CDD claim for the caller.
         pub fn register_did(origin, signing_items: Vec<SigningItem<T::AccountId>>) -> DispatchResult {
             let sender = ensure_signed(origin)?;
-            let signer = Signatory::Account(sender);
+            let signer = Signatory::Account(sender.clone());
             Self::_register_did(
                 sender,
                 signing_items,
@@ -409,7 +409,7 @@ decl_module! {
                 Error::<T>::AlreadyLinked
             );
             T::ProtocolFee::charge_fee(
-                &Signatory::Account(sender),
+                &Signatory::Account(sender.clone()),
                 ProtocolOp::IdentitySetMasterKey
             )?;
             <DidRecords<T>>::mutate(did,
@@ -779,10 +779,10 @@ decl_module! {
             let from_did = Context::current_identity_or::<Self>(&sender)?;
 
             ensure!(
-                <Authorizations<T>>::contains_key(target, auth_id),
+                <Authorizations<T>>::contains_key(&target, auth_id),
                 Error::<T>::AuthorizationDoesNotExist
             );
-            let auth = <Authorizations<T>>::get(target, auth_id);
+            let auth = <Authorizations<T>>::get(&target, auth_id);
             let revoked = auth.authorized_by.eq_either(&from_did, &sender);
             ensure!(
                 revoked || target.eq_either(&from_did, &sender),
@@ -853,7 +853,7 @@ decl_module! {
                 let auth = <Authorizations<T>>::get(&signer_by_id, auth_id);
                 Some((auth, signer_by_id))
             } else if <Authorizations<T>>::contains_key(signer_by_key, auth_id) {
-                let auth = <Authorizations<T>>::get(signer_by_key, auth_id);
+                let auth = <Authorizations<T>>::get(&signer_by_key, auth_id);
                 Some((auth, signer_by_key))
             } else {
                 None
@@ -917,8 +917,8 @@ decl_module! {
                 Signatory::Identity(did) => {
                     for auth_id in auth_ids {
 
-                        if <Authorizations<T>>::contains_key(signer, auth_id) {
-                            let auth = <Authorizations<T>>::get(signer, auth_id);
+                        if <Authorizations<T>>::contains_key(&signer, auth_id) {
+                            let auth = <Authorizations<T>>::get(&signer, auth_id);
 
                             // NB: Result is not handled, invalid auths are just ignored to let the batch function continue.
                             let _result = match auth.authorization_data {
@@ -938,8 +938,8 @@ decl_module! {
                 Signatory::Account(key) => {
                     for auth_id in auth_ids {
 
-                        if <Authorizations<T>>::contains_key(signer, auth_id) {
-                            let auth = <Authorizations<T>>::get(signer, auth_id);
+                        if <Authorizations<T>>::contains_key(&signer, auth_id) {
+                            let auth = <Authorizations<T>>::get(&signer, auth_id);
 
                             //NB: Result is not handled, invalid auths are just ignored to let the batch function continue.
                             let _result = match auth.authorization_data {
@@ -1005,8 +1005,8 @@ decl_module! {
                 let si = &si_with_auth.signing_item;
 
                 // Get account_id from signer
-                let account_id_found = match si.signer {
-                    Signatory::Account(key) => Some(key.clone()),
+                let account_id_found = match si.signer.clone() {
+                    Signatory::Account(key) => Some(key),
                     Signatory::Identity(id)
                         if <DidRecords<T>>::contains_key(id) =>
                     {
@@ -1016,10 +1016,10 @@ decl_module! {
                 };
 
                 if let Some(account_id) = account_id_found {
-                    if let Signatory::Account(key) = si.signer {
+                    if let Signatory::Account(key) = &si.signer {
                         // 1.1. Constraint 1-to-1 account to DID
                         ensure!(
-                            Self::can_key_be_linked_to_did(&key, si.signer_type),
+                            Self::can_key_be_linked_to_did(key, si.signer_type),
                             Error::<T>::AlreadyLinked
                         );
                     }
@@ -1169,11 +1169,11 @@ impl<T: Trait> Module<T> {
     /// Accepts an auth to join an identity as a signer
     pub fn join_identity(signer: Signatory<T::AccountId>, auth_id: u64) -> DispatchResult {
         ensure!(
-            <Authorizations<T>>::contains_key(signer, auth_id),
+            <Authorizations<T>>::contains_key(&signer, auth_id),
             AuthorizationError::Invalid
         );
 
-        let auth = <Authorizations<T>>::get(signer, auth_id);
+        let auth = <Authorizations<T>>::get(&signer, auth_id);
 
         let identity_data_to_join = match auth.authorization_data {
             AuthorizationData::JoinIdentity(data) => Ok(data),
@@ -1187,7 +1187,7 @@ impl<T: Trait> Module<T> {
 
         let master = Self::did_records(&identity_data_to_join.target_did).master_key;
 
-        Self::consume_auth(Signatory::Account(master), signer, auth_id)?;
+        Self::consume_auth(Signatory::Account(master), signer.clone(), auth_id)?;
 
         Self::unsafe_join_identity(identity_data_to_join, signer)
     }
@@ -1197,10 +1197,10 @@ impl<T: Trait> Module<T> {
         identity_data_to_join: JoinIdentityData,
         signer: Signatory<T::AccountId>,
     ) -> DispatchResult {
-        if let Signatory::Account(key) = signer {
-            if !Self::can_key_be_linked_to_did(&key, SignatoryType::External) {
+        if let Signatory::Account(key) = &signer {
+            if !Self::can_key_be_linked_to_did(key, SignatoryType::External) {
                 ensure!(
-                    Self::get_identity(&key) == Some(identity_data_to_join.target_did),
+                    Self::get_identity(key) == Some(identity_data_to_join.target_did),
                     Error::<T>::AlreadyLinked
                 )
             } else {
@@ -1209,7 +1209,7 @@ impl<T: Trait> Module<T> {
                     ProtocolOp::IdentityAddSigningItemsWithAuthorization,
                 )?;
                 Self::link_key_to_did(
-                    &key,
+                    key,
                     SignatoryType::External,
                     identity_data_to_join.target_did,
                 );
@@ -1248,13 +1248,13 @@ impl<T: Trait> Module<T> {
 
         let auth = Authorization {
             authorization_data: authorization_data.clone(),
-            authorized_by: from,
+            authorized_by: from.clone(),
             expiry,
             auth_id: new_nonce,
         };
 
-        <Authorizations<T>>::insert(target, new_nonce, auth);
-        <AuthorizationsGiven<T>>::insert(from, new_nonce, target);
+        <Authorizations<T>>::insert(target.clone(), new_nonce, auth);
+        <AuthorizationsGiven<T>>::insert(from.clone(), new_nonce, target.clone());
 
         // This event is split in order to help the event harvesters.
         match from {
@@ -1312,17 +1312,17 @@ impl<T: Trait> Module<T> {
         auth_id: u64,
     ) -> DispatchResult {
         ensure!(
-            <Authorizations<T>>::contains_key(target, auth_id),
+            <Authorizations<T>>::contains_key(&target, auth_id),
             AuthorizationError::Invalid
         );
-        let auth = <Authorizations<T>>::get(target, auth_id);
+        let auth = <Authorizations<T>>::get(&target, auth_id);
         ensure!(auth.authorized_by == from, AuthorizationError::Unauthorized);
         if let Some(expiry) = auth.expiry {
             let now = <pallet_timestamp::Module<T>>::get();
             ensure!(expiry > now, AuthorizationError::Expired);
         }
 
-        <Authorizations<T>>::remove(target, auth_id);
+        <Authorizations<T>>::remove(&target, auth_id);
         <AuthorizationsGiven<T>>::remove(auth.authorized_by, auth_id);
 
         Self::deposit_event(RawEvent::AuthorizationConsumed(
@@ -1362,7 +1362,7 @@ impl<T: Trait> Module<T> {
             link_id: new_nonce,
         };
 
-        <Links<T>>::insert(target, new_nonce, link);
+        <Links<T>>::insert(target.clone(), new_nonce, link);
 
         Self::deposit_event(RawEvent::LinkAdded(
             target.as_identity().cloned(),
@@ -1377,8 +1377,8 @@ impl<T: Trait> Module<T> {
     /// Remove a link (if it exists) from a key or identity.
     /// NB: Please do all the required checks before calling this function.
     pub fn remove_link(target: Signatory<T::AccountId>, link_id: u64) {
-        if <Links<T>>::contains_key(target, link_id) {
-            <Links<T>>::remove(target, link_id);
+        if <Links<T>>::contains_key(&target, link_id) {
+            <Links<T>>::remove(&target, link_id);
             Self::deposit_event(RawEvent::LinkRemoved(
                 target.as_identity().cloned(),
                 target.as_account().cloned(),
@@ -1390,8 +1390,8 @@ impl<T: Trait> Module<T> {
     /// Update link data (if it exists) from a key or identity.
     /// NB: Please do all the required checks before calling this function.
     pub fn update_link(target: Signatory<T::AccountId>, link_id: u64, link_data: LinkData) {
-        if <Links<T>>::contains_key(target, link_id) {
-            <Links<T>>::mutate(target, link_id, |link| link.link_data = link_data);
+        if <Links<T>>::contains_key(&target, link_id) {
+            <Links<T>>::mutate(target.clone(), link_id, |link| link.link_data = link_data);
             Self::deposit_event(RawEvent::LinkUpdated(
                 target.as_identity().cloned(),
                 target.as_account().cloned(),
@@ -1406,24 +1406,24 @@ impl<T: Trait> Module<T> {
         rotation_auth_id: u64,
         optional_cdd_auth_id: Option<u64>,
     ) -> DispatchResult {
-        let signer = Signatory::Account(sender);
+        let signer = Signatory::Account(sender.clone());
         // ensure authorization is present
         ensure!(
-            <Authorizations<T>>::contains_key(signer, rotation_auth_id),
+            <Authorizations<T>>::contains_key(&signer, rotation_auth_id),
             Error::<T>::InvalidAuthorizationFromOwner
         );
 
         // Accept authorization from the owner
-        let rotation_auth = <Authorizations<T>>::get(signer, rotation_auth_id);
+        let rotation_auth = <Authorizations<T>>::get(&signer, rotation_auth_id);
 
         if let AuthorizationData::RotateMasterKey(rotation_for_did) =
             rotation_auth.authorization_data
         {
             // Ensure the request was made by the owner of master key
-            match rotation_auth.authorized_by {
+            match &rotation_auth.authorized_by {
                 Signatory::Account(key) => {
-                    let master_key = <DidRecords<T>>::get(rotation_for_did).master_key;
-                    ensure!(key == master_key, Error::<T>::KeyChangeUnauthorized);
+                    let master_key = <DidRecords<T>>::get(&rotation_for_did).master_key;
+                    ensure!(key == &master_key, Error::<T>::KeyChangeUnauthorized);
                 }
                 _ => return Err(Error::<T>::UnknownAuthorization.into()),
             };
@@ -1446,12 +1446,12 @@ impl<T: Trait> Module<T> {
             let cdd_auth_id = optional_cdd_auth_id
                 .ok_or_else(|| Error::<T>::InvalidAuthorizationFromCddProvider)?;
 
-            let signer = Signatory::Account(sender);
+            let signer = Signatory::Account(sender.clone());
             ensure!(
-                <Authorizations<T>>::contains_key(signer, cdd_auth_id),
+                <Authorizations<T>>::contains_key(&signer, cdd_auth_id),
                 Error::<T>::InvalidAuthorizationFromCddProvider
             );
-            let cdd_auth = <Authorizations<T>>::get(signer, cdd_auth_id);
+            let cdd_auth = <Authorizations<T>>::get(&signer, cdd_auth_id);
 
             match cdd_auth.authorization_data {
                 AuthorizationData::AttestMasterKeyRotation(ref attestation_for_did) => {
@@ -1483,8 +1483,8 @@ impl<T: Trait> Module<T> {
         // Replace master key of the owner that initiated key rotation
         let old_master_key = Self::did_records(&rotation_for_did).master_key;
         <DidRecords<T>>::mutate(&rotation_for_did, |record| {
-            Self::unlink_key_from_did(&(*record).master_key, rotation_for_did);
-            (*record).master_key = sender.clone();
+            Self::unlink_key_from_did(&record.master_key, rotation_for_did);
+            record.master_key = sender.clone();
         });
 
         Self::deposit_event(RawEvent::MasterKeyUpdated(
@@ -1927,7 +1927,7 @@ impl<T: Trait> Module<T> {
 
         // 2.2. Create a new identity record.
         let record = DidRecord {
-            master_key: sender,
+            master_key: sender.clone(),
             ..Default::default()
         };
         <DidRecords<T>>::insert(&did, record);
@@ -2031,13 +2031,13 @@ impl<T: Trait> Module<T> {
     fn leave_identity(signer: Signatory<T::AccountId>, did: IdentityId) -> DispatchResult {
         ensure!(Self::is_signer(did, &signer), Error::<T>::NotASigner);
 
-        if let Signatory::Account(key) = signer {
-            Self::unlink_key_from_did(&key, did)
+        if let Signatory::Account(key) = &signer {
+            Self::unlink_key_from_did(key, did)
         }
 
         // Update signing keys at Identity.
         <DidRecords<T>>::mutate(did, |record| {
-            (*record).remove_signing_items(&[signer]);
+            record.remove_signing_items(&[signer.clone()]);
         });
 
         Self::deposit_event(RawEvent::SignerLeft(did, signer));
@@ -2198,7 +2198,7 @@ impl<T: Trait> Module<T> {
                 identity
                     .signing_items
                     .iter()
-                    .filter_map(|si| match si.signer {
+                    .filter_map(|si| match si.signer.clone() {
                         Signatory::Account(key) => Some(key),
                         _ => None,
                     })
