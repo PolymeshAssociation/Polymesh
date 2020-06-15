@@ -115,7 +115,8 @@ use sp_core::sr25519::{Public, Signature};
 use sp_io::hashing::blake2_256;
 use sp_runtime::{
     traits::{
-        AccountIdConversion, CheckedAdd, Dispatchable, Hash, SaturatedConversion, Verify, Zero,
+        AccountIdConversion, CheckedAdd, Dispatchable, Hash, IdentifyAccount, SaturatedConversion,
+        Verify, Zero,
     },
     AnySignature,
 };
@@ -1030,8 +1031,12 @@ decl_module! {
                     );
                     // 1.3. Verify the signature.
                     let signature = AnySignature::from(Signature::from_h512(si_with_auth.auth_signature));
+                    let signer: <<AnySignature as Verify>::Signer as IdentifyAccount>::AccountId =
+                        Decode::decode(&mut &account_id.encode()[..]).map_err(|_| {
+                            Error::<T>::CannotDecodeSignerAccountId
+                        })?;
                     ensure!(
-                        signature.verify(auth_encoded.as_slice(), &account_id),
+                        signature.verify(auth_encoded.as_slice(), &signer),
                         Error::<T>::InvalidAuthorizationSignature
                     );
                 } else {
@@ -1155,6 +1160,8 @@ decl_error! {
         FailedToChargeFee,
         /// Signer is not a signing key of the provided identity
         NotASigner,
+        /// Cannot convert a `T::AccountId` to `AnySignature::Signer::AccountId`.
+        CannotDecodeSignerAccountId,
     }
 }
 
