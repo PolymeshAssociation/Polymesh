@@ -35,7 +35,7 @@ impl<AccountId> Identity<AccountId>
 where
     AccountId: Clone + Default + Eq + Ord,
 {
-    fn new(master_key: AccountId) -> Self {
+    pub fn new(master_key: AccountId) -> Self {
         Identity {
             master_key,
             ..Default::default()

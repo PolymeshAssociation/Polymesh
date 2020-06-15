@@ -286,8 +286,7 @@ impl IdentityTrait for Test {
     type ProtocolFee = protocol_fee::Module<Test>;
 }
 
-impl pallet_transaction_payment::CddAndFeeDetails<Call> for Test {
-    type AccountId = AccountId;
+impl pallet_transaction_payment::CddAndFeeDetails<AccountId, Call> for Test {
     fn get_valid_payer(
         _: &Call,
         _: &Signatory<AccountId>,
@@ -372,9 +371,7 @@ impl AddSignerMultiSig<AccountId> for Test {
     }
 }
 
-impl CheckCdd for Test {
-    type AccountId = AccountId;
-
+impl CheckCdd<AccountId> for Test {
     fn check_key_cdd(key: &AccountId) -> bool {
         true
     }

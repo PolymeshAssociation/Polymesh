@@ -1,40 +1,42 @@
 use crate::traits::identity::IdentityTrait;
-
 use polymesh_primitives::{IdentityId, Signatory};
 use sp_runtime::DispatchError;
+use sp_std::marker::PhantomData;
 
 /// Helper class to access to some context information.
 /// Currently it allows to access to
 ///     - `current_identity` throught an `IdentityTrait`, because it is stored using extrinsics.
 ///     .
 #[derive(Default)]
-pub struct Context {}
+pub struct Context<AccountId> {
+    _marker: PhantomData<AccountId>,
+}
 
-impl Context {
+impl<AccountId> Context<AccountId> {
     #[inline]
     #[cfg(not(feature = "default_identity"))]
-    pub fn current_identity<I: IdentityTrait>() -> Option<IdentityId> {
+    pub fn current_identity<I: IdentityTrait<AccountId>>() -> Option<IdentityId> {
         I::current_identity()
     }
 
     #[inline]
     #[cfg(feature = "default_identity")]
-    pub fn current_identity<I: IdentityTrait>() -> Option<IdentityId> {
+    pub fn current_identity<I: IdentityTrait<AccountId>>() -> Option<IdentityId> {
         I::current_identity().or_else(|| Some(IdentityId::default()))
     }
 
     #[inline]
-    pub fn set_current_identity<I: IdentityTrait>(id: Option<IdentityId>) {
+    pub fn set_current_identity<I: IdentityTrait<AccountId>>(id: Option<IdentityId>) {
         I::set_current_identity(id)
     }
 
     #[inline]
-    pub fn current_payer<I: IdentityTrait>() -> Option<Signatory<I::AccountId>> {
+    pub fn current_payer<I: IdentityTrait<AccountId>>() -> Option<Signatory<AccountId>> {
         I::current_payer()
     }
 
     #[inline]
-    pub fn set_current_payer<I: IdentityTrait>(payer: Option<Signatory<I::AccountId>>) {
+    pub fn set_current_payer<I: IdentityTrait<AccountId>>(payer: Option<Signatory<AccountId>>) {
         I::set_current_payer(payer)
     }
 
@@ -42,8 +44,8 @@ impl Context {
     /// This function is a helper tool for testing where SignedExtension is not used and
     /// `current_identity` is always none.
     #[cfg(not(feature = "default_identity"))]
-    pub fn current_identity_or<I: IdentityTrait>(
-        key: &I::AccountId,
+    pub fn current_identity_or<I: IdentityTrait<AccountId>>(
+        key: &AccountId,
     ) -> Result<IdentityId, DispatchError> {
         Self::current_identity::<I>()
             .or_else(|| I::get_identity(key))
@@ -55,8 +57,8 @@ impl Context {
     }
 
     #[cfg(feature = "default_identity")]
-    pub fn current_identity_or<I: IdentityTrait + frame_system::Trait>(
-        key: &I::AccountId,
+    pub fn current_identity_or<I: IdentityTrait<AccountId>>(
+        key: &AccountId,
     ) -> Result<IdentityId, DispatchError> {
         I::current_identity()
             .or_else(|| I::get_identity(key))
@@ -80,9 +82,7 @@ mod test {
 
     struct IdentityTest {}
 
-    impl IdentityTrait for IdentityTest {
-        type AccountId = AccountId;
-
+    impl IdentityTrait<AccountId> for IdentityTest {
         fn get_identity(key: &AccountId) -> Option<IdentityId> {
             let keys: BTreeMap<AccountId, u128> = vec![
                 (AccountId::from(AccountKeyring::Alice.public().0), 1u128),

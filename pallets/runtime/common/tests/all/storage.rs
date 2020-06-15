@@ -196,8 +196,7 @@ impl pallet_transaction_payment::ChargeTxFee for TestStorage {
     }
 }
 
-impl pallet_transaction_payment::CddAndFeeDetails<Call> for TestStorage {
-    type AccountId = AccountId;
+impl pallet_transaction_payment::CddAndFeeDetails<AccountId, Call> for TestStorage {
     fn get_valid_payer(
         _: &Call,
         _: &Signatory<AccountId>,

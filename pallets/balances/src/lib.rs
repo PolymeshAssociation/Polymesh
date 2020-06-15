@@ -206,7 +206,7 @@ use sp_runtime::{
 
 use sp_std::{
     cmp,
-    convert::{Infallible, TryFrom, TryInto},
+    convert::{Infallible, TryInto},
     fmt::Debug,
     mem,
     prelude::*,
@@ -413,7 +413,7 @@ decl_module! {
         #[weight = SimpleDispatchInfo::FixedNormal(500_000)]
         pub fn change_charge_did_flag(origin, charge_did: bool) {
             let transactor = ensure_signed(origin)?;
-            <ChargeDid>::insert(transactor, charge_did);
+            <ChargeDid<T>>::insert(transactor, charge_did);
         }
 
         // Polymesh specific change. New function to transfer balance to BRR.
@@ -448,8 +448,8 @@ decl_module! {
         ) {
             ensure_root(origin)?;
             let who = T::Lookup::lookup(who)?;
-            let caller = who.encode().try_into()?;
-            let caller_id = Context::current_identity_or::<T::Identity>(&caller).unwrap_or(SystematicIssuers::Committee.as_id());
+            let caller_id = Context::current_identity_or::<T::Identity>(&who)
+                .unwrap_or(SystematicIssuers::Committee.as_id());
 
             let (free, reserved) = Self::mutate_account(&who, |account| {
                 if new_free > account.free {
@@ -494,8 +494,7 @@ decl_module! {
         #[weight = SimpleDispatchInfo::FixedNormal(200_000)]
         pub fn burn_account_balance(origin, amount: T::Balance) -> DispatchResult {
             let who = ensure_signed(origin)?;
-            let caller_key = who.encode().try_into()?;
-            let caller_id = Context::current_identity_or::<T::Identity>(&caller_key)?;
+            let caller_id = Context::current_identity_or::<T::Identity>(&who)?;
             // Withdraw the account balance and burn the resulting imbalance by dropping it.
             let _ = <Self as Currency<T::AccountId>>::withdraw(
                 &who,
@@ -611,8 +610,7 @@ impl<T: Trait> Module<T> {
         })
         .map(|(maybe_endowed, result)| {
             if let Some(endowed) = maybe_endowed {
-                let who_key = who.encode().try_into().unwrap_or_default();
-                let who_id = T::Identity::get_identity(&who_key);
+                let who_id = T::Identity::get_identity(who);
                 Self::deposit_event(RawEvent::Endowed(who_id, who.clone(), endowed));
             }
             result
@@ -710,10 +708,8 @@ impl<T: Trait> Module<T> {
             })
         })?;
 
-        let transactor_key = transactor.encode().try_into()?;
-        let transactor_id = T::Identity::get_identity(&transactor_key);
-        let dest_key = dest.encode().try_into()?;
-        let dest_id = T::Identity::get_identity(&dest_key);
+        let transactor_id = T::Identity::get_identity(transactor);
+        let dest_id = T::Identity::get_identity(dest);
 
         Self::deposit_event(RawEvent::Transfer(
             transactor_id,
@@ -1062,7 +1058,7 @@ where
 
     fn charge_fee_to_identity(who: &T::AccountId) -> Option<IdentityId> {
         if <Module<T>>::charge_did(who) {
-            if let Some(did) = <T::Identity>::get_identity(&who) {
+            if let Some(did) = <T::Identity>::get_identity(who) {
                 if <T::Identity>::is_signer_authorized_with_permissions(
                     did,
                     &Signatory::Account(who.clone()),

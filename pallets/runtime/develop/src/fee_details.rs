@@ -36,6 +36,7 @@ type Balances = balances::Module<Runtime>;
 type Bridge = bridge::Module<Runtime>;
 
 type Call = runtime::Call;
+type AccountId = <Runtime as frame_system::Trait>::AccountId;
 
 #[derive(Encode, Decode)]
 enum CallType {
@@ -48,8 +49,6 @@ enum CallType {
 pub struct CddHandler;
 
 impl CddAndFeeDetails<Call> for CddHandler {
-    type AccountId = <Runtime as frame_system::Trait>::AccountId;
-
     /// Check if there's an eligible payer with valid CDD.
     /// Return the payer if found or else an error.
     /// Can also return Ok(none) to represent the case where

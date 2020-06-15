@@ -51,7 +51,7 @@ use sp_runtime::{
     },
     Fixed64,
 };
-use sp_std::{convert::TryFrom, prelude::*};
+use sp_std::prelude::*;
 
 type Multiplier = Fixed64;
 type BalanceOf<T> =
@@ -80,7 +80,7 @@ pub trait Trait: frame_system::Trait {
 
     // Polymesh note: This was specifically added for Polymesh
     /// Fetch the signatory to charge fee from. Also sets fee payer and identity in context.
-    type CddHandler: CddAndFeeDetails<Self::Call>;
+    type CddHandler: CddAndFeeDetails<Self::AccountId, Self::Call>;
 }
 
 decl_storage! {
@@ -245,7 +245,7 @@ where
         if let Some(payer) = T::CddHandler::get_valid_payer(call, &Signatory::Account(who.clone()))?
         {
             let imbalance;
-            match payer {
+            match payer.clone() {
                 Signatory::Account(key) => {
                     imbalance = T::Currency::withdraw(
                         &key,
@@ -277,15 +277,14 @@ where
 }
 
 // Polymesh note: This was specifically added for Polymesh
-pub trait CddAndFeeDetails<Call> {
-    type AccountId;
+pub trait CddAndFeeDetails<AccountId, Call> {
     fn get_valid_payer(
         call: &Call,
-        caller: &Signatory<Self::AccountId>,
-    ) -> Result<Option<Signatory<Self::AccountId>>, InvalidTransaction>;
+        caller: &Signatory<AccountId>,
+    ) -> Result<Option<Signatory<AccountId>>, InvalidTransaction>;
     fn clear_context();
-    fn set_payer_context(payer: Option<Signatory<Self::AccountId>>);
-    fn get_payer_from_context() -> Option<Signatory<Self::AccountId>>;
+    fn set_payer_context(payer: Option<Signatory<AccountId>>);
+    fn get_payer_from_context() -> Option<Signatory<AccountId>>;
     fn set_current_identity(did: &IdentityId);
 }
 
@@ -445,9 +444,7 @@ mod tests {
         type CddChecker = Runtime;
     }
 
-    impl CheckCdd for Runtime {
-        type AccountId = AccountId;
-
+    impl CheckCdd<AccountId> for Runtime {
         fn check_key_cdd(_key: &AccountId) -> bool {
             true
         }
@@ -463,9 +460,7 @@ mod tests {
         static WEIGHT_TO_FEE: RefCell<u128> = RefCell::new(1);
     }
 
-    impl CddAndFeeDetails<Call> for Runtime {
-        type AccountId = AccountId;
-
+    impl CddAndFeeDetails<AccountId, Call> for Runtime {
         fn get_valid_payer(
             _: &Call,
             caller: &Signatory<AccountId>,
@@ -480,7 +475,7 @@ mod tests {
         fn set_current_identity(_: &IdentityId) {}
     }
 
-    impl IdentityTrait for Runtime {
+    impl IdentityTrait<AccountId> for Runtime {
         fn get_identity(_key: &AccountId) -> Option<IdentityId> {
             unimplemented!()
         }

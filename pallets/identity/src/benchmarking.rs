@@ -55,7 +55,7 @@ benchmarks! {
         // Number of signing items.
         let i in 0 .. 50;
         let origin = make_account_without_did::<T>("caller", u).1;
-        let signing_items: Vec<SigningItem> = iter::repeat(Default::default())
+        let signing_items: Vec<SigningItem<T::AccountId>> = iter::repeat(Default::default())
             .take(i as usize)
             .collect();
     }: _(origin, signing_items)
