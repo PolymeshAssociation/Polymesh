@@ -65,7 +65,7 @@
 //! - `transfer_by_custodian` - Used to transfer the tokens by the approved custodian.
 //! - `set_funding_round` - Sets the name of the current funding round.
 //! - `update_identifiers` - Updates the asset identifiers. Only called by the token owner.
-//! - `add_extension` - It is used to whitelist the Smart-Extension address for a given ticker.
+//! - `add_extension` - It is used to permission the Smart-Extension address for a given ticker.
 //! - `archive_extension` - Extension gets archived it means extension is no more use to verify the compliance or any smart logic it posses.
 //! - `unarchive_extension` - Extension gets un-archived it means extension is use to verify the compliance or any smart logic it posses.
 //!
@@ -1308,7 +1308,7 @@ decl_module! {
             Ok(())
         }
 
-        /// Whitelisting the Smart-Extension address for a given ticker.
+        /// Permissioning the Smart-Extension address for a given ticker.
         ///
         /// # Arguments
         /// * `origin` - Signatory who owns to ticker/asset.

@@ -127,8 +127,8 @@
                 "CustomerDueDiligence": "",
                 "KnowYourCustomer": "Scope",
                 "Jurisdiction": "(JurisdictionName, Scope)",
-                "Whitelisted": "Scope",
-                "Blacklisted": "Scope",
+                "Exempted": "Scope",
+                "Blocked": "Scope",
                 "NoData": ""
             }
         },
@@ -141,8 +141,8 @@
                 "CustomerDueDiligence": "",
                 "KnowYourCustomer": "",
                 "Jurisdiction": "",
-                "Whitelisted": "",
-                "Blacklisted": "",
+                "Exempted": "",
+                "Blocked": "",
                 "NoType": ""
             }
         },

@@ -45,7 +45,7 @@
 //! - **bridge limit**: The maximum number of bridged POLYX per identity within a set interval of
 //! blocks.
 //!
-//! - **bridge limit whitelist**: Identities not constrained by the bridge limit.
+//! - **bridge limit exempted**: Identities not constrained by the bridge limit.
 //!
 //! ### Transaction State Transitions
 //!
@@ -86,7 +86,7 @@
 //! - `freeze`: Freezes transaction handling in the bridge module if it is not already frozen.
 //! - `unfreeze`: Unfreezes transaction handling in the bridge module if it is frozen.
 //! - `change_bridge_limit`: Changes the bridge limits.
-//! - `change_bridge_whitelist`: Changes the bridge limit whitelist.
+//! - `change_bridge_exempted`: Changes the bridge limit exempted.
 //! - `force_handle_bridge_tx`: Forces handling a transaction by bypassing the bridge limit and
 //! timelock.
 //! - `batch_force_handle_bridge_tx`: Forces handling a vector of transactions.
@@ -309,7 +309,7 @@ decl_storage! {
         PolyxBridged get(fn polyx_bridged): map hasher(twox_64_concat) IdentityId => (T::Balance, T::BlockNumber);
 
         /// Identities not constrained by the bridge limit.
-        BridgeLimitWhitelist get(fn bridge_whitelist): map hasher(twox_64_concat) IdentityId => bool;
+        BridgeLimitExempted get(fn bridge_exempted): map hasher(twox_64_concat) IdentityId => bool;
     }
     add_extra_genesis {
         // TODO: Remove multisig creator and add systematic CDD for the bridge multisig.
@@ -345,8 +345,8 @@ decl_event! {
         FrozenTx(IdentityId, BridgeTx<AccountId, Balance>),
         /// Notification of unfreezing a transaction.
         UnfrozenTx(IdentityId, BridgeTx<AccountId, Balance>),
-        /// Whitelist status of an identity has been updated.
-        WhiteListUpdated(IdentityId, IdentityId, bool),
+        /// Exemption status of an identity has been updated.
+        ExemptedUpdated(IdentityId, IdentityId, bool),
         /// Bridge limit has been updated
         BridgeLimitUpdated(IdentityId, Balance, BlockNumber),
         /// An event emitted after a vector of transactions is handled. The parameter is a vector of
@@ -440,15 +440,15 @@ decl_module! {
             Ok(())
         }
 
-        /// Changes the bridge limit whitelist.
+        /// Changes the bridge limit exempted list.
         #[weight = SimpleDispatchInfo::FixedOperational(50_000)]
-        pub fn change_bridge_whitelist(origin, whitelist: Vec<(IdentityId, bool)>) -> DispatchResult {
+        pub fn change_bridge_exempted(origin, exempted: Vec<(IdentityId, bool)>) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             let current_did = Context::current_identity_or::<Identity<T>>(&(AccountKey::try_from(sender.encode())?))?;
             ensure!(sender == Self::admin(), Error::<T>::BadAdmin);
-            for (did, exempt) in whitelist {
-                <BridgeLimitWhitelist>::insert(did, exempt);
-                Self::deposit_event(RawEvent::WhiteListUpdated(current_did, did, exempt));
+            for (did, exempt) in exempted {
+                <BridgeLimitExempted>::insert(did, exempt);
+                Self::deposit_event(RawEvent::ExemptedUpdated(current_did, did, exempt));
             }
             Ok(())
         }
@@ -456,7 +456,7 @@ decl_module! {
         /// Forces handling a transaction by bypassing the bridge limit and timelock.
         #[weight = SimpleDispatchInfo::FixedOperational(250_000)]
         pub fn force_handle_bridge_tx(origin, bridge_tx: BridgeTx<T::AccountId, T::Balance>) -> DispatchResult {
-            // NB: To avoid code duplication, this uses a hacky approach of temporarily whitelisting the did
+            // NB: To avoid code duplication, this uses a hacky approach of temporarily exempting the did
             let sender = ensure_signed(origin)?;
             ensure!(sender == Self::admin(), Error::<T>::BadAdmin);
             Self::force_handle_signed_bridge_tx(bridge_tx)
@@ -637,7 +637,7 @@ impl<T: Trait> Module<T> {
         if let Some(did) =
             T::CddChecker::get_key_cdd_did(&AccountKey::try_from(recipient.encode())?)
         {
-            if !Self::bridge_whitelist(did) {
+            if !Self::bridge_exempted(did) {
                 let current_block_number = <system::Module<T>>::block_number();
                 let (limit, interval_duration) = Self::bridge_limit();
                 ensure!(!interval_duration.is_zero(), Error::<T>::DivisionByZero);
@@ -858,17 +858,17 @@ impl<T: Trait> Module<T> {
     fn force_handle_signed_bridge_tx(
         bridge_tx: BridgeTx<T::AccountId, T::Balance>,
     ) -> DispatchResult {
-        // NB: To avoid code duplication, this uses a hacky approach of temporarily whitelisting the did
+        // NB: To avoid code duplication, this uses a hacky approach of temporarily exempting the did
         if let Some(did) = T::CddChecker::get_key_cdd_did(&AccountKey::try_from(
             bridge_tx.recipient.clone().encode(),
         )?) {
-            if !Self::bridge_whitelist(did) {
-                // Whitelist the did temporarily
-                <BridgeLimitWhitelist>::insert(did, true);
+            if !Self::bridge_exempted(did) {
+                // Exempt the did temporarily
+                <BridgeLimitExempted>::insert(did, true);
                 Self::handle_bridge_tx_now(bridge_tx, false)?;
-                <BridgeLimitWhitelist>::insert(did, false);
+                <BridgeLimitExempted>::insert(did, false);
             } else {
-                // Already whitelisted
+                // Already exempted
                 return Self::handle_bridge_tx_now(bridge_tx, false);
             }
         } else {
