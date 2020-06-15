@@ -1877,7 +1877,7 @@ impl<T: Trait> Module<T> {
         );
         // 1.2. Master key is not part of signing keys.
         ensure!(
-            signing_items.iter().find(|sk| **sk == sender).is_none(),
+            signing_items.iter().find(|sk| sk.signer.as_account() == Some(&sender)).is_none(),
             Error::<T>::SigningKeysContainMasterKey
         );
 
