@@ -342,6 +342,7 @@ fn general_testnet_genesis(
         committee_Instance1: Some(V1Config::PolymeshCommitteeConfig {
             vote_threshold: (1, 2),
             members: vec![],
+            release_coordinator: IdentityId::from(6),
             phantom: Default::default(),
         }),
         group_Instance2: Some(v1::runtime::CddServiceProvidersConfig {
@@ -780,6 +781,7 @@ fn v1_testnet_genesis(
         committee_Instance1: Some(v1::runtime::PolymeshCommitteeConfig {
             vote_threshold: (2, 3),
             members: vec![],
+            release_coordinator: IdentityId::from(6),
             phantom: Default::default(),
         }),
         group_Instance2: Some(v1::runtime::CddServiceProvidersConfig {
