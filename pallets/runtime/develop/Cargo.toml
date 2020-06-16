@@ -3,7 +3,6 @@ name = "polymesh-runtime-develop"
 version = "0.1.0"
 authors = ["Polymath Inc."]
 edition = "2018"
-build = "build.rs"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
@@ -46,7 +45,7 @@ pallet-asset-rpc-runtime-api = { path = "../../asset/rpc/runtime-api", default-f
 chrono = { version = "0.4.11", default-features = false }
 lazy_static = { version = "1.4.0", default-features = false }
 log = { version = "0.4.8", default-features = false }
-rand = { version = "0.7.3", default-features = false }
+# rand = { version = "0.7.3", default-features = false }
 rustc-hex = { version = "2.1.0", default-features = false }
 safe-mix = { version = "1.0.1", default-features = false }
 serde = { version = "1.0.104", default-features = false }
@@ -58,7 +57,7 @@ yaml-rust = { version = "0.4.3", default-features = false }
 codec = { package = "parity-scale-codec", version = "1.2.0", default-features = false, features = ["derive"] }
 sp-core = { git = "https://github.com/paritytech/substrate", default-features = false, rev = "a439a7aa5a9a3df2a42d9b25ea04288d3a0866e8" }
 sp-std = { package = "sp-std", git = "https://github.com/paritytech/substrate", default-features = false, rev = "a439a7aa5a9a3df2a42d9b25ea04288d3a0866e8" }
-sp-io = { git = "https://github.com/paritytech/substrate", default-features = false, rev = "a439a7aa5a9a3df2a42d9b25ea04288d3a0866e8" }
+sp-io = { git = "https://github.com/paritytech/substrate", default-features = false, rev = "a439a7aa5a9a3df2a42d9b25ea04288d3a0866e8", optional = true }
 sp-serializer = { git = "https://github.com/paritytech/substrate", default-features = false, rev = "a439a7aa5a9a3df2a42d9b25ea04288d3a0866e8" }
 sp-runtime = { git = "https://github.com/paritytech/substrate", default-features = false, rev = "a439a7aa5a9a3df2a42d9b25ea04288d3a0866e8" }
 sp-version = { package = "sp-version", git = "https://github.com/paritytech/substrate", default-features = false, rev = "a439a7aa5a9a3df2a42d9b25ea04288d3a0866e8" }
@@ -99,18 +98,22 @@ hex-literal = "0.2.1"
 [dev-dependencies]
 test-client = { package = "substrate-test-runtime-client", git = "https://github.com/paritytech/substrate", rev = "a439a7aa5a9a3df2a42d9b25ea04288d3a0866e8" }
 
-[build-dependencies]
-wasm-builder-runner = { package = "substrate-wasm-builder-runner", git = "https://github.com/paritytech/substrate", default-features = false, rev = "a439a7aa5a9a3df2a42d9b25ea04288d3a0866e8"}
-
 [features]
 equalize = []
-default = ["std", "equalize"]
-no_std = []
+default = ["std", "equalize" ]
+no_std = [
+	"pallet-confidential/no_std",
+#	"rand/wasm-bindgen"
+	"sp-io/disable_panic_handler", 
+	"sp-io/disable_oom", 
+	"sp-io/disable_allocator", 
+]
+
 only-staking = []
 std = [
 	"rustc-hex/std",
 	"serde_derive",
-	"rand/std",
+#	"rand/std",
 	"serde/std",
 	"codec/std",
 	"sp-std/std",
@@ -165,5 +168,6 @@ std = [
 	"pallet-compliance-manager/std",
 	"pallet-statistics/std",
 	"pallet-asset/runtime-benchmarks",
+	"pallet-confidential/std",
 	"ink_primitives/std"
 ]

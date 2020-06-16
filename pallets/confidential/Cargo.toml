@@ -9,20 +9,11 @@ polymesh-primitives = { path = "../../primitives", default-features = false }
 polymesh-primitives-derive = { path = "../../primitives_derive", default-features = false }
 polymesh-common-utilities = { path = "../common", default-features = false }
 
-
 pallet-identity = { path = "../identity", default-features = false }
-
-# cryptography = { package = "cryptography", git = "https://github.com/PolymathNetwork/cryptography.git", tag = "v0.1.0", default-features = false }
-cryptography = { path = "../../../cryptography/cryptography",  default-features = false }
-
 
 # Other
 serde = { version = "1.0.104", default-features = false }
 serde_derive = { version = "1.0.104", optional = true, default-features = false}
-
-bulletproofs = { version = "2.0.0", features = ["std"], default-features = false }
-curve25519-dalek = { version = "2.0.0", features = ["u64_backend", "alloc", "serde"], default-features = false }
-rand = { version = "0.7", features = ["wasm-bindgen"] }
 
 # Substrate
 codec = { package = "parity-scale-codec", version = "1.2.0", default-features = false, features = ["derive"] }
@@ -39,17 +30,28 @@ frame-system = { git = "https://github.com/paritytech/substrate", default-featur
 pallet-timestamp = { git = "https://github.com/paritytech/substrate", default-features = false, rev = "a439a7aa5a9a3df2a42d9b25ea04288d3a0866e8" }
 pallet-session = { git = "https://github.com/paritytech/substrate", default-features = false, rev = "a439a7aa5a9a3df2a42d9b25ea04288d3a0866e8" }
 
+# Crypto
+rand_core = { version = "0.5", default-features = false }
+cryptography = { path = "../../../cryptography/cryptography", default-features = false }
+
 [dev-dependencies]
 test-client = { package = "substrate-test-runtime-client", git = "https://github.com/paritytech/substrate", rev = "a439a7aa5a9a3df2a42d9b25ea04288d3a0866e8" }
 lazy_static = "1.4.0"
 
 [features]
 equalize = []
-default = ["std", "equalize"]
-no_std = []
 only-staking = []
+default = ["std", "equalize"]
+
+no_std = [
+	"cryptography/no_std",
+	"rand_core/alloc",
+	"rand_core/getrandom",
+]
 std = [
 	"serde_derive",
+	"cryptography/std",
+	"rand_core/std",
 	"codec/std",
 	"serde/std",
 	"sp-core/std",

@@ -87,10 +87,7 @@ pub mod benchmarking;
 use pallet_identity_rpc_runtime_api::DidRecords as RpcDidRecords;
 use pallet_transaction_payment::{CddAndFeeDetails, ChargeTxFee};
 use polymesh_common_utilities::{
-    constants::{
-        did::{CDD_PROVIDERS_DID, GOVERNANCE_COMMITTEE_DID, SECURITY_TOKEN, USER},
-        TREASURY_MODULE_ID,
-    },
+    constants::did::{SECURITY_TOKEN, USER},
     protocol_fee::{ChargeProtocolFee, ProtocolOp},
     traits::{
         asset::AcceptTransfer,
@@ -117,9 +114,7 @@ use core::{
 use sp_core::sr25519::{Public, Signature};
 use sp_io::hashing::blake2_256;
 use sp_runtime::{
-    traits::{
-        AccountIdConversion, CheckedAdd, Dispatchable, Hash, SaturatedConversion, Verify, Zero,
-    },
+    traits::{ CheckedAdd, Dispatchable, Hash, SaturatedConversion, Verify, Zero, },
     AnySignature,
 };
 use sp_std::{convert::TryFrom, mem::swap, prelude::*, vec};
@@ -204,9 +199,17 @@ decl_storage! {
         pub CddAuthForMasterKeyRotation get(fn cdd_auth_for_master_key_rotation): bool;
     }
     add_extra_genesis {
+
+
         config(identities): Vec<(T::AccountId, IdentityId, IdentityId, Option<u64>)>;
         config(signing_keys): Vec<(T::AccountId, IdentityId)>;
         build(|config: &GenesisConfig<T>| {
+            use polymesh_common_utilities::constants::{
+                did::{ CDD_PROVIDERS_DID, GOVERNANCE_COMMITTEE_DID},
+                TREASURY_MODULE_ID
+            };
+            use sp_runtime::traits::AccountIdConversion;
+
             // Add systematic CDD for the Treasury module
             let treasury_account_id: T::AccountId = TREASURY_MODULE_ID.into_account();
             let treasury_master_key = AccountKey::try_from(treasury_account_id.encode()).unwrap();
