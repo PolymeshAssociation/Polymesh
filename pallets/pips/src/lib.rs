@@ -1287,12 +1287,14 @@ impl<T: Trait> Module<T> {
 
     /// Retrieve historical voting of `who` identity.
     /// It fetches all its keys recursively and it returns the voting history for each of them.
-    pub fn voting_history_by_id(who: IdentityId) -> HistoricalVotingById<Vote<BalanceOf<T>>> {
+    pub fn voting_history_by_id(who: IdentityId) ->
+        HistoricalVotingById<T::AccountId, Vote<BalanceOf<T>>>
+    {
         let flatten_keys = <Identity<T>>::flatten_keys(who, 1);
         flatten_keys
             .into_iter()
-            .map(|key| (key, Self::voting_history_by_address(key)))
-            .collect::<HistoricalVotingById<_>>()
+            .map(|key| (key.clone(), Self::voting_history_by_address(key)))
+            .collect::<HistoricalVotingById<_, _>>()
     }
 
     /// It generates the next id for proposals and referendums.

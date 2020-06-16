@@ -922,7 +922,7 @@ decl_module! {
                     |_error| Signatory::Account(sender),
                     Signatory::from);
 
-            match signer {
+            match &signer {
                 Signatory::Identity(did) => {
                     for auth_id in auth_ids {
 
@@ -932,13 +932,13 @@ decl_module! {
                             // NB: Result is not handled, invalid auths are just ignored to let the batch function continue.
                             let _result = match auth.authorization_data {
                                 AuthorizationData::TransferTicker(_) =>
-                                    T::AcceptTransferTarget::accept_ticker_transfer(did, auth_id),
+                                    T::AcceptTransferTarget::accept_ticker_transfer(*did, auth_id),
                                 AuthorizationData::TransferAssetOwnership(_) =>
-                                    T::AcceptTransferTarget::accept_asset_ownership_transfer(did, auth_id),
+                                    T::AcceptTransferTarget::accept_asset_ownership_transfer(*did, auth_id),
                                 AuthorizationData::AddMultiSigSigner =>
-                                    T::MultiSig::accept_multisig_signer(Signatory::from(did), auth_id),
+                                    T::MultiSig::accept_multisig_signer(Signatory::from(*did), auth_id),
                                 AuthorizationData::JoinIdentity(_) =>
-                                    Self::join_identity(Signatory::from(did), auth_id),
+                                    Self::join_identity(Signatory::from(*did), auth_id),
                                 _ => Err(Error::<T>::UnknownAuthorization.into())
                             };
                         }
@@ -954,13 +954,13 @@ decl_module! {
                             let _result = match auth.authorization_data {
                                 AuthorizationData::AddMultiSigSigner =>
                                     T::MultiSig::accept_multisig_signer(
-                                        Signatory::Account(key),
+                                        Signatory::Account(key.clone()),
                                         auth_id
                                     ),
                                 AuthorizationData::RotateMasterKey(_identityid) =>
-                                    Self::accept_master_key_rotation(key, auth_id, None),
+                                    Self::accept_master_key_rotation(key.clone(), auth_id, None),
                                 AuthorizationData::JoinIdentity(_) =>
-                                    Self::join_identity(Signatory::Account(key), auth_id),
+                                    Self::join_identity(Signatory::Account(key.clone()), auth_id),
                                 _ => Err(Error::<T>::UnknownAuthorization.into())
                             };
                         }
@@ -1036,7 +1036,7 @@ decl_module! {
                         );
                     }
                     // 1.2. Offchain authorization is not revoked explicitly.
-                    let si_signer_authorization = &(si.signer, authorization.clone());
+                    let si_signer_authorization = &(si.signer.clone(), authorization.clone());
                     ensure!(
                         !Self::is_offchain_authorization_revoked(si_signer_authorization),
                         Error::<T>::AuthorizationHasBeenRevoked
@@ -1094,17 +1094,22 @@ decl_module! {
         ) -> DispatchResult {
             let sender = ensure_signed(origin)?;
 
-            match signer {
-                Signatory::Account(ref key) => {
-                    ensure!(sender == *key, Error::<T>::KeyNotAllowed);
+            match &signer {
+                Signatory::Account(key) => {
+                    ensure!(&sender == key, Error::<T>::KeyNotAllowed);
                 }
                 Signatory::Identity(id) => {
-                    ensure!(Self::is_master_key(id, &sender), Error::<T>::NotMasterKey);
+                    ensure!(Self::is_master_key(*id, &sender), Error::<T>::NotMasterKey);
                 }
             }
 
-            Self::deposit_event(RawEvent::OffChainAuthorizationRevoked(auth.target_id, signer));
-            <RevokeOffChainAuthorization<T>>::insert((signer,auth), true);
+            Self::deposit_event(
+                RawEvent::OffChainAuthorizationRevoked(
+                    auth.target_id,
+                    signer.clone()
+                )
+            );
+            <RevokeOffChainAuthorization<T>>::insert((signer, auth), true);
             Ok(())
         }
     }

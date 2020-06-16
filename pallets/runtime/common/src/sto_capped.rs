@@ -248,8 +248,7 @@ decl_module! {
         pub fn buy_tokens(origin, ticker: Ticker, sto_id: u32, value: T::Balance) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             let did = Context::current_identity_or::<Identity<T>>(&sender)?;
-            let sender_signer = Signatory::Account(sender);
-
+            let sender_signer = Signatory::Account(sender.clone());
 
             // Check that sender is allowed to act on behalf of `did`
             ensure!(
@@ -374,7 +373,7 @@ decl_module! {
         pub fn buy_tokens_by_simple_token(origin, ticker: Ticker, sto_id: u32, value: T::Balance, simple_token_ticker: Ticker) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             let did = Context::current_identity_or::<Identity<T>>(&sender)?;
-            let spender = Signatory::Account(sender);
+            let spender = Signatory::Account(sender.clone());
 
             // Check that spender is allowed to act on behalf of `did`
             ensure!(

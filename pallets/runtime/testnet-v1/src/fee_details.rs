@@ -35,7 +35,6 @@ type Balances = balances::Module<Runtime>;
 type Bridge = bridge::Module<Runtime>;
 
 type Call = runtime::Call;
-type AccountId = <Runtime as frame_system::Trait>::AccountId;
 
 enum CallType {
     AcceptMultiSigSigner,
@@ -56,8 +55,8 @@ impl CddAndFeeDetails<AccountId, Call> for CddHandler {
     /// throughout the transaction. This function can also be used to simply check CDD and update identity context.
     fn get_valid_payer(
         call: &Call,
-        caller: &Signatory<Self::AccountId>,
-    ) -> Result<Option<Signatory<Self::AccountId>>, InvalidTransaction> {
+        caller: &Signatory<AccountId>,
+    ) -> Result<Option<Signatory<AccountId>>, InvalidTransaction> {
         // The CDD check and fee payer varies depending on the transaction.
         // This match covers all possible scenarios.
         match call {
@@ -71,19 +70,19 @@ impl CddAndFeeDetails<AccountId, Call> for CddHandler {
             // of an existing multisig that has a valid CDD. The auth should be valid.
             Call::MultiSig(multisig::Call::accept_multisig_signer_as_key(auth_id)) => {
                 sp_runtime::print("accept_multisig_signer_as_key");
-                is_auth_valid::<Self::AccountId>(caller, auth_id, CallType::AcceptMultiSigSigner)
+                is_auth_valid::<AccountId>(caller, auth_id, CallType::AcceptMultiSigSigner)
             }
             // Call made by a new Account key to accept invitation to become a signing key
             // of an existing identity that has a valid CDD. The auth should be valid.
             Call::Identity(identity::Call::join_identity_as_key(auth_id, ..)) => {
                 sp_runtime::print("join_identity_as_key");
-                is_auth_valid::<Self::AccountId>(caller, auth_id, CallType::AcceptIdentitySigner)
+                is_auth_valid::<AccountId>(caller, auth_id, CallType::AcceptIdentitySigner)
             }
             // Call made by a new Account key to accept invitation to become the master key
             // of an existing identity that has a valid CDD. The auth should be valid.
             Call::Identity(identity::Call::accept_master_key(rotation_auth_id, ..)) => {
                 sp_runtime::print("accept_master_key");
-                is_auth_valid::<Self::AccountId>(
+                is_auth_valid::<AccountId>(
                     caller,
                     rotation_auth_id,
                     CallType::AcceptIdentityMaster,
@@ -97,7 +96,7 @@ impl CddAndFeeDetails<AccountId, Call> for CddHandler {
                 sp_runtime::print("multisig stuff");
                 if <multisig::MultiSigSigners<Runtime>>::contains_key(multisig, caller) {
                     if let Some(did) = Identity::get_identity(&multisig) {
-                        return check_cdd::<Self::AccountId>(&did);
+                        return check_cdd::<AccountId>(&did);
                     }
                 }
                 Err(InvalidTransaction::Custom(TransactionError::MissingIdentity as u8).into())
@@ -110,7 +109,7 @@ impl CddAndFeeDetails<AccountId, Call> for CddHandler {
                 let multisig = Bridge::controller_key();
                 if <multisig::MultiSigSigners<Runtime>>::contains_key(&multisig, caller) {
                     if let Some(did) = Identity::get_identity(&multisig) {
-                        return check_cdd::<Self::AccountId>(&did);
+                        return check_cdd::<AccountId>(&did);
                     }
                 }
                 Err(InvalidTransaction::Custom(TransactionError::MissingIdentity as u8).into())
@@ -137,7 +136,7 @@ impl CddAndFeeDetails<AccountId, Call> for CddHandler {
                 }
                 // A did was passed as the caller. The did should be charged the fee.
                 // This will never happen during an external call.
-                Signatory::Identity(did) => check_cdd::<Self::AccountId>(did),
+                Signatory::Identity(did) => check_cdd::<AccountId>(did),
             },
             // All other calls
             _ => match caller {
@@ -167,7 +166,7 @@ impl CddAndFeeDetails<AccountId, Call> for CddHandler {
                 }
                 // A did was passed as the caller. The did should be charged the fee.
                 // This will never happen during an external call.
-                Signatory::Identity(did) => check_cdd::<Self::AccountId>(did),
+                Signatory::Identity(did) => check_cdd::<AccountId>(did),
             },
         }
     }
@@ -179,12 +178,12 @@ impl CddAndFeeDetails<AccountId, Call> for CddHandler {
     }
 
     /// Sets payer in context. Should be called by the signed extension that first charges fee.
-    fn set_payer_context(payer: Option<Signatory<Self::AccountId>>) {
+    fn set_payer_context(payer: Option<Signatory<AccountId>>) {
         Context::set_current_payer::<Identity>(payer);
     }
 
     /// Fetches fee payer for further payements (forwareded calls)
-    fn get_payer_from_context() -> Option<Signatory<Self::AccountId>> {
+    fn get_payer_from_context() -> Option<Signatory<AccountId>> {
         Context::current_payer::<Identity>()
     }
 

@@ -499,7 +499,7 @@ decl_module! {
         {
             ensure!(Self::controller() != Default::default(), Error::<T>::ControllerNotSet);
             let sender = ensure_signed(origin)?;
-            Self::propose_signed_bridge_tx(&sender, bridge_tx)
+            Self::propose_signed_bridge_tx(sender, bridge_tx)
         }
 
         /// Proposes a vector of bridge transactions. The vector is processed until the first
@@ -522,7 +522,7 @@ decl_module! {
         {
             ensure!(Self::controller() != Default::default(), Error::<T>::ControllerNotSet);
             let sender = ensure_signed(origin)?;
-            Self::batch_propose_signed_bridge_tx(&sender, bridge_txs)
+            Self::batch_propose_signed_bridge_tx(sender, bridge_txs)
         }
 
         /// Handles an approved bridge transaction proposal.
@@ -775,7 +775,7 @@ impl<T: Trait> Module<T> {
 
     /// Proposes a bridge transaction. The bridge controller must be set.
     fn propose_signed_bridge_tx(
-        sender: &T::AccountId,
+        sender: T::AccountId,
         bridge_tx: BridgeTx<T::AccountId, T::Balance>,
     ) -> DispatchResult {
         let sender_signer = Signatory::Account(sender);
@@ -792,7 +792,7 @@ impl<T: Trait> Module<T> {
 
     /// Proposes a vector of bridge transaction. The bridge controller must be set.
     fn batch_propose_signed_bridge_tx(
-        sender: &T::AccountId,
+        sender: T::AccountId,
         bridge_txs: Vec<BridgeTx<T::AccountId, T::Balance>>,
     ) -> DispatchResult {
         let sender_signer = Signatory::Account(sender);
@@ -857,7 +857,7 @@ impl<T: Trait> Module<T> {
         bridge_tx: BridgeTx<T::AccountId, T::Balance>,
     ) -> DispatchResult {
         // NB: To avoid code duplication, this uses a hacky approach of temporarily exempting the did
-        if let Some(did) = T::CddChecker::get_key_cdd_did(bridge_tx.recipient.clone()) {
+        if let Some(did) = T::CddChecker::get_key_cdd_did(&bridge_tx.recipient) {
             if !Self::bridge_exempted(did) {
                 // Exempt the did temporarily
                 <BridgeLimitExempted>::insert(did, true);

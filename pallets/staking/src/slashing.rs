@@ -598,11 +598,7 @@ fn do_slash<T: Trait>(
         <Module<T>>::update_ledger(&controller, &ledger);
 
         // trigger the event
-        let stash_id = stash
-            .encode()
-            .try_into()
-            .map(|key| <identity::Module<T>>::get_identity(&key))
-            .unwrap_or_default();
+        let stash_id = <identity::Module<T>>::get_identity(stash);
         <Module<T>>::deposit_event(super::RawEvent::Slashed(stash_id, stash.clone(), value));
     }
 }

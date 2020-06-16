@@ -82,7 +82,7 @@ decl_module! {
         ) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             let did = Context::current_identity_or::<Identity<T>>(&sender)?;
-            let signer = Signatory::Account(sender);
+            let signer = Signatory::Account(sender.clone());
 
             // Check that sender is allowed to act on behalf of `did`
             ensure!(

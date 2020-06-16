@@ -74,7 +74,7 @@ use polymesh_common_utilities::{
 use polymesh_primitives::IdentityId;
 use sp_core::u32_trait::Value as U32;
 use sp_runtime::traits::{EnsureOrigin, Hash, Zero};
-use sp_std::{convert::TryFrom, prelude::*, vec};
+use sp_std::{prelude::*, vec};
 
 /// Simple index type for proposal counting.
 pub type ProposalIndex = u32;
@@ -362,7 +362,7 @@ decl_module! {
         #[weight = SimpleDispatchInfo::FixedOperational(2_000_000)]
         fn close(origin, proposal: T::Hash, #[compact] index: ProposalIndex) {
             let who = ensure_signed(origin)?;
-            let did = Context::current_identity_or::<Identity<T>>(&who_key)?;
+            let did = Context::current_identity_or::<Identity<T>>(&who)?;
 
             let voting = Self::voting(&proposal).ok_or(Error::<T, I>::NoSuchProposal)?;
             // POLYMESH-NOTE- Change specific to Polymesh

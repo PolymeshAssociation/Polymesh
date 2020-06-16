@@ -339,7 +339,7 @@ decl_module! {
         #[weight = SimpleDispatchInfo::FixedNormal(500_000)]
         pub fn register_ticker(origin, ticker: Ticker) -> DispatchResult {
             let sender = ensure_signed(origin)?;
-            let signer = Signatory::Account(sender);
+            let signer = Signatory::Account(sender.clone());
             let to_did = Context::current_identity_or::<Identity<T>>(&sender)?;
 
             ensure!(!<Tokens<T>>::contains_key(&ticker), Error::<T>::AssetAlreadyCreated);
@@ -526,7 +526,7 @@ decl_module! {
         #[weight = SimpleDispatchInfo::FixedNormal(150_000)]
         pub fn freeze(origin, ticker: Ticker) -> DispatchResult {
             let sender = ensure_signed(origin)?;
-            let sender_did = Context::current_identity_or::<Identity<T>>(&signer)?;
+            let sender_did = Context::current_identity_or::<Identity<T>>(&sender)?;
 
             // verify the ownership of the token
             ensure!(Self::is_owner(&ticker, sender_did), Error::<T>::Unauthorized);
@@ -546,7 +546,7 @@ decl_module! {
         #[weight = SimpleDispatchInfo::FixedNormal(150_000)]
         pub fn unfreeze(origin, ticker: Ticker) -> DispatchResult {
             let sender = ensure_signed(origin)?;
-            let sender_did = Context::current_identity_or::<Identity<T>>(&signer)?;
+            let sender_did = Context::current_identity_or::<Identity<T>>(&sender)?;
 
             // verify the ownership of the token
             ensure!(Self::is_owner(&ticker, sender_did), Error::<T>::Unauthorized);
@@ -567,7 +567,7 @@ decl_module! {
         #[weight = SimpleDispatchInfo::FixedNormal(150_000)]
         pub fn rename_asset(origin, ticker: Ticker, name: AssetName) -> DispatchResult {
             let sender = ensure_signed(origin)?;
-            let sender_did = Context::current_identity_or::<Identity<T>>(&signer)?;
+            let sender_did = Context::current_identity_or::<Identity<T>>(&sender)?;
 
             // verify the ownership of the token
             ensure!(Self::is_owner(&ticker, sender_did), Error::<T>::Unauthorized);
@@ -1064,7 +1064,7 @@ decl_module! {
                 documents.len()
             )?;
             documents.into_iter().for_each(|doc| {
-                <identity::Module<T>>::add_link(signer, LinkData::DocumentOwned(doc), None);
+                <identity::Module<T>>::add_link(signer.clone(), LinkData::DocumentOwned(doc), None);
             });
 
             Ok(())
@@ -1094,7 +1094,7 @@ decl_module! {
             let ticker_did = <identity::Module<T>>::get_token_did(&ticker)?;
             let signer = Signatory::from(ticker_did);
             doc_ids.into_iter().for_each(|doc_id| {
-                <identity::Module<T>>::remove_link(signer, doc_id)
+                <identity::Module<T>>::remove_link(signer.clone(), doc_id)
             });
 
             Ok(())
@@ -1125,7 +1125,7 @@ decl_module! {
             let ticker_did = <identity::Module<T>>::get_token_did(&ticker)?;
             let signer = Signatory::from(ticker_did);
             docs.into_iter().for_each(|(doc_id, doc)| {
-                <identity::Module<T>>::update_link(signer, doc_id, LinkData::DocumentOwned(doc))
+                <identity::Module<T>>::update_link(signer.clone(), doc_id, LinkData::DocumentOwned(doc))
             });
 
             Ok(())
@@ -1991,7 +1991,7 @@ impl<T: Trait> Module<T> {
         );
         // Ensure the valid DID
         ensure!(
-            <identity::DidRecords>::contains_key(custodian_did),
+            <identity::DidRecords<T>>::contains_key(custodian_did),
             Error::<T>::InvalidCustodianDid
         );
 

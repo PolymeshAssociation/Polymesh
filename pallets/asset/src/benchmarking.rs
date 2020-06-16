@@ -18,7 +18,6 @@ use pallet_balances as balances;
 use pallet_identity as identity;
 use polymesh_primitives::{AuthorizationData, IdentityId, Signatory, Ticker};
 
-use codec::Encode;
 use frame_benchmarking::{account, benchmarks};
 use frame_support::{traits::Currency, StorageValue};
 use frame_system::RawOrigin;
@@ -37,7 +36,7 @@ fn make_account<T: Trait>(
     let origin = RawOrigin::Signed(account.clone());
     let _ = balances::Module::<T>::make_free_balance_be(&account, 1_000_000.into());
     let _ = identity::Module::<T>::register_did(origin.clone().into(), vec![]);
-    let did = identity::Module::<T>::get_identity(&account);
+    let did = identity::Module::<T>::get_identity(&account).unwrap_or_default();
     (account, origin, did)
 }
 

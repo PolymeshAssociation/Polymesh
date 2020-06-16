@@ -1281,8 +1281,7 @@ decl_module! {
             // the threshold value of timestamp i.e current_timestamp + Bonding duration
             // then nominator is added into the nominator pool.
 
-            let stash_key = stash.encode().try_into()?;
-            if let Some(nominate_identity) = <identity::Module<T>>::get_identity(&stash_key) {
+            if let Some(nominate_identity) = <identity::Module<T>>::get_identity(stash) {
                 let leeway = Self::get_bonding_duration_period() as u32;
                 let is_cdded = <identity::Module<T>>::fetch_cdd(nominate_identity, leeway.into()).is_some();
 
@@ -1300,7 +1299,7 @@ decl_module! {
                     };
 
                     <Validators<T>>::remove(stash);
-                    <Nominators<T>>::insert(stash, &nominations);
+                    <Nominators<T>>::insert(stash.clone(), &nominations);
                     Self::deposit_event(RawEvent::Nominated(nominate_identity, stash.clone(), targets));
                 }
             }
@@ -1395,8 +1394,7 @@ decl_module! {
             ensure!(!Self::permissioned_validators(&validator), Error::<T>::AlreadyExists);
             // Change validator status to be Permissioned
             <PermissionedValidators<T>>::insert(&validator, true);
-            let validator_key = validator.encode().try_into()?;
-            let validator_id = <identity::Module<T>>::get_identity(&validator_key);
+            let validator_id = <identity::Module<T>>::get_identity(&validator);
             Self::deposit_event(RawEvent::PermissionedValidatorAdded(validator_id, validator));
         }
 
@@ -1411,7 +1409,7 @@ decl_module! {
         pub fn remove_permissioned_validator(origin, validator: T::AccountId) {
             T::RequiredRemoveOrigin::try_origin(origin.clone())
                 .map_err(|_| Error::<T>::NotAuthorised)?;
-            let caller = ensure_signed(origin)?.encode().try_into()?;
+            let caller = ensure_signed(origin)?;
             let caller_id = Context::current_identity_or::<T::Identity>(&caller).ok();
             ensure!(Self::permissioned_validators(&validator), Error::<T>::NotExists);
             // Change validator status to be Non-Permissioned
@@ -1433,8 +1431,7 @@ decl_module! {
         #[weight = SimpleDispatchInfo::FixedNormal(950_000)]
         pub fn validate_cdd_expiry_nominators(origin, targets: Vec<T::AccountId>) {
             let caller = ensure_signed(origin)?;
-            let caller_key = caller.encode().try_into()?;
-            let caller_id = Context::current_identity_or::<T::Identity>(&caller_key)?;
+            let caller_id = Context::current_identity_or::<T::Identity>(&caller)?;
 
             let mut expired_nominators = Vec::new();
             ensure!(!targets.is_empty(), "targets cannot be empty");
@@ -1479,7 +1476,7 @@ decl_module! {
         pub fn enable_individual_commissions(origin) {
             T::RequiredCommissionOrigin::try_origin(origin.clone())
                 .map_err(|_| Error::<T>::NotAuthorised)?;
-            let key = ensure_signed(origin).encode().try_into()?;
+            let key = ensure_signed(origin)?;
             let id = <identity::Module<T>>::get_identity(&key);
 
             // Ensure individual commissions are not already enabled
@@ -1500,7 +1497,7 @@ decl_module! {
         pub fn set_global_commission(origin, new_value: Perbill) {
             T::RequiredCommissionOrigin::try_origin(origin.clone())
                 .map_err(|_| Error::<T>::NotAuthorised)?;
-            let key = ensure_signed(origin).encode().try_into()?;
+            let key = ensure_signed(origin)?;
             let id = <identity::Module<T>>::get_identity(&key);
 
             // Ensure individual commissions are not already enabled
@@ -1523,7 +1520,7 @@ decl_module! {
         pub fn set_min_bond_threshold(origin, new_value: BalanceOf<T>) {
             T::RequiredCommissionOrigin::try_origin(origin.clone())
                 .map_err(|_| Error::<T>::NotAuthorised)?;
-            let key = ensure_signed(origin).encode().try_into()?;
+            let key = ensure_signed(origin)?;
             let id = <identity::Module<T>>::get_identity(&key);
 
             <MinimumBondThreshold<T>>::put(new_value);
@@ -1734,7 +1731,7 @@ impl<T: Trait> Module<T> {
     pub fn fetch_invalid_cdd_nominators(buffer: u64) -> Vec<T::AccountId> {
         let invalid_nominators = <Nominators<T>>::enumerate()
             .into_iter()
-            .map(|(nominator_stash_key, _nominations)| {
+            .filter_map(|(nominator_stash_key, _nominations)| {
                 if let Some(nominate_identity) =
                     <identity::Module<T>>::get_identity(&(nominator_stash_key))
                 {
@@ -1850,8 +1847,7 @@ impl<T: Trait> Module<T> {
         }
 
         if let Some(imbalance) = Self::make_payout(&nominator_ledger.stash, reward * era_payout) {
-            let who_key = who.encode().try_into()?;
-            let who_id = <identity::Module<T>>::get_identity(&who_key);
+            let who_id = <identity::Module<T>>::get_identity(&who);
             Self::deposit_event(RawEvent::Rewarded(who_id, who, imbalance.peek()));
         }
 
@@ -1897,8 +1893,7 @@ impl<T: Trait> Module<T> {
         );
 
         if let Some(imbalance) = Self::make_payout(&ledger.stash, reward * era_payout) {
-            let who_key = who.encode().try_into()?;
-            let who_id = <identity::Module<T>>::get_identity(&who_key);
+            let who_id = <identity::Module<T>>::get_identity(&who);
             Self::deposit_event(RawEvent::Rewarded(who_id, who, imbalance.peek()));
         }
 
