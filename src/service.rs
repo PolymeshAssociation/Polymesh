@@ -69,8 +69,8 @@ pub trait RuntimeApiCollection<Extrinsic: codec::Codec + Send + Sync + 'static>:
         IdentityId,
         Ticker,
         AccountId,
-        SigningItem,
-        Signatory,
+        SigningItem<AccountId>,
+        Signatory<AccountId>,
         Moment,
     > + pallet_protocol_fee_rpc_runtime_api::ProtocolFeeApi<Block>
     + node_rpc_runtime_api::asset::AssetApi<Block, AccountId, Balance>
@@ -102,8 +102,8 @@ where
             IdentityId,
             Ticker,
             AccountId,
-            SigningItem,
-            Signatory,
+            SigningItem<AccountId>,
+            Signatory<AccountId>,
             Moment,
         > + pallet_protocol_fee_rpc_runtime_api::ProtocolFeeApi<Block>
         + node_rpc_runtime_api::asset::AssetApi<Block, AccountId, Balance>

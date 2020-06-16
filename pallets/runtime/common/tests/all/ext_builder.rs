@@ -174,7 +174,7 @@ impl ExtBuilder {
     fn make_identities(
         accounts: &[Public],
     ) -> (
-        Vec<(IdentityId, Identity)>,
+        Vec<(IdentityId, Identity<<TestStorage as frame_system::Trait>::AccountId>)>,
         Vec<(
             <TestStorage as frame_system::Trait>::AccountId,
             LinkedKeyInfo,

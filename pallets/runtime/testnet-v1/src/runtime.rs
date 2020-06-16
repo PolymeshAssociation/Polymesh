@@ -819,7 +819,7 @@ impl_runtime_apis! {
         }
 
         /// Retrieve referendums voted on information by `id` identity (and its signing items).
-        fn voting_history_by_id(id: IdentityId) -> HistoricalVotingById<Vote<Balance>> {
+        fn voting_history_by_id(id: IdentityId) -> HistoricalVotingById<AccountId, Vote<Balance>> {
             Pips::voting_history_by_id(id)
         }
     }
@@ -838,8 +838,8 @@ impl_runtime_apis! {
             IdentityId,
             Ticker,
             AccountId,
-            SigningItem,
-            Signatory,
+            SigningItem<AccountId>,
+            Signatory<AccountId>,
             Moment
         > for Runtime
     {
@@ -858,7 +858,7 @@ impl_runtime_apis! {
         }
 
         /// Retrieve master key and signing keys for a given IdentityId
-        fn get_did_records(did: IdentityId) -> DidRecords<AccountId, SigningItem> {
+        fn get_did_records(did: IdentityId) -> DidRecords<AccountId, SigningItem<AccountId>> {
             Identity::get_did_records(did)
         }
 

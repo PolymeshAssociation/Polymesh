@@ -17,7 +17,6 @@
 use codec::Codec;
 use pallet_pips::{HistoricalVotingByAddress, HistoricalVotingById, Vote, VoteCount};
 use polymesh_primitives::IdentityId;
-
 use sp_std::vec::Vec;
 
 /// This module contains some types which require transformations to avoid serde issues with

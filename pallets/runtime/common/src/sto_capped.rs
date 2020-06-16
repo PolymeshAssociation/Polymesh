@@ -43,7 +43,12 @@
 //! - `unpause_sto` - Used to un pause the STO of a given token.
 
 use crate::simple_token::{self, SimpleTokenTrait};
-
+use frame_support::traits::Currency;
+use frame_support::{
+    decl_error, decl_event, decl_module, decl_storage, dispatch::DispatchResult, ensure,
+    weights::SimpleDispatchInfo,
+};
+use frame_system::{self as system, ensure_signed};
 use pallet_balances as balances;
 use pallet_compliance_manager as compliance_manager;
 use pallet_identity as identity;
@@ -51,16 +56,8 @@ use polymesh_common_utilities::{
     asset::Trait as AssetTrait, balances::Trait as BalancesTrait, CommonTrait, Context,
 };
 use polymesh_primitives::{IdentityId, Signatory, Ticker};
-
-use codec::Encode;
-use frame_support::traits::Currency;
-use frame_support::{
-    decl_error, decl_event, decl_module, decl_storage, dispatch::DispatchResult, ensure,
-    weights::SimpleDispatchInfo,
-};
-use frame_system::{self as system, ensure_signed};
 use sp_runtime::traits::{CheckedAdd, CheckedDiv, CheckedMul, CheckedSub};
-use sp_std::{convert::TryFrom, prelude::*};
+use sp_std::prelude::*;
 
 /// The module's configuration trait.
 pub trait Trait:

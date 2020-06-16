@@ -84,6 +84,20 @@
 #[cfg(feature = "runtime-benchmarks")]
 pub mod benchmarking;
 
+use codec::{Decode, Encode};
+use core::{
+    convert::{From, TryInto},
+    result::Result as StdResult,
+};
+use frame_support::{
+    debug, decl_error, decl_module, decl_storage,
+    dispatch::{DispatchError, DispatchResult},
+    ensure,
+    traits::{ChangeMembers, Currency, InitializeMembers},
+    weights::{DispatchClass, FunctionOf, GetDispatchInfo, SimpleDispatchInfo},
+    StorageDoubleMap,
+};
+use frame_system::{self as system, ensure_root, ensure_signed};
 use pallet_identity_rpc_runtime_api::{DidRecords as RpcDidRecords, DidStatus, LinkType};
 use pallet_transaction_payment::{CddAndFeeDetails, ChargeTxFee};
 use polymesh_common_utilities::{
@@ -105,13 +119,7 @@ use polymesh_primitives::{
     Identity as DidRecord, IdentityClaim, IdentityId, JoinIdentityData, Link, LinkData, Permission,
     Scope, Signatory, SignatoryType, SigningItem, Ticker,
 };
-
-use codec::{Decode, Encode};
-use core::{
-    convert::{From, TryInto},
-    result::Result as StdResult,
-};
-use sp_core::sr25519::{Public, Signature};
+use sp_core::sr25519::Signature;
 use sp_io::hashing::blake2_256;
 use sp_runtime::{
     traits::{
@@ -121,16 +129,6 @@ use sp_runtime::{
     AnySignature,
 };
 use sp_std::{convert::TryFrom, mem::swap, prelude::*, vec};
-
-use frame_support::{
-    debug, decl_error, decl_module, decl_storage,
-    dispatch::{DispatchError, DispatchResult},
-    ensure,
-    traits::{ChangeMembers, Currency, InitializeMembers},
-    weights::{DispatchClass, FunctionOf, GetDispatchInfo, SimpleDispatchInfo},
-    StorageDoubleMap,
-};
-use frame_system::{self as system, ensure_root, ensure_signed};
 
 pub type Event<T> = polymesh_common_utilities::traits::identity::Event<T>;
 

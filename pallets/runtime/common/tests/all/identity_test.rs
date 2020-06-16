@@ -566,7 +566,7 @@ fn remove_signing_keys_test_with_externalities() {
     let charlie = Origin::signed(AccountKeyring::Charlie.public());
     let charlie_did = register_keyring_account(AccountKeyring::Charlie).unwrap();
 
-    let dave_key = AccountKey::from(AccountKeyring::Dave.public().0);
+    let dave_key = AccountKeyring::Dave.public().0;
 
     assert_ok!(Balances::top_up_identity_balance(
         alice.clone(),
@@ -599,7 +599,7 @@ fn remove_signing_keys_test_with_externalities() {
 
     // Check DidRecord.
     assert_eq!(Identity::get_identity(&dave_key), Some(alice_did));
-    assert_eq!(Identity::get_identity(&musig_account_key), Some(alice_did));
+    assert_eq!(Identity::get_identity(&musig_address), Some(alice_did));
     assert_eq!(Identity::get_identity(&bob_key), Some(alice_did));
 
     // Try removing bob using charlie
@@ -610,7 +610,7 @@ fn remove_signing_keys_test_with_externalities() {
 
     // Check DidRecord.
     assert_eq!(Identity::get_identity(&dave_key), Some(alice_did));
-    assert_eq!(Identity::get_identity(&musig_account_key), Some(alice_did));
+    assert_eq!(Identity::get_identity(&musig_address), Some(alice_did));
     assert_eq!(Identity::get_identity(&bob_key), Some(alice_did));
 
     // Try remove bob using alice
@@ -621,18 +621,18 @@ fn remove_signing_keys_test_with_externalities() {
 
     // Check DidRecord.
     assert_eq!(Identity::get_identity(&dave_key), Some(alice_did));
-    assert_eq!(Identity::get_identity(&musig_account_key), Some(alice_did));
+    assert_eq!(Identity::get_identity(&musig_address), Some(alice_did));
     assert_eq!(Identity::get_identity(&bob_key), None);
 
     // Try removing multisig while it has funds
     assert_ok!(Identity::remove_signing_items(
         alice.clone(),
-        vec![Signatory::AccountKey(musig_account_key)]
+        vec![Signatory::AccountKey(musig_address.clone())]
     ));
 
     // Check DidRecord.
     assert_eq!(Identity::get_identity(&dave_key), Some(alice_did));
-    assert_eq!(Identity::get_identity(&musig_account_key), Some(alice_did));
+    assert_eq!(Identity::get_identity(&musig_address), Some(alice_did));
     assert_eq!(Identity::get_identity(&bob_key), None);
 
     // Check multisig's signer
@@ -649,12 +649,12 @@ fn remove_signing_keys_test_with_externalities() {
     ));
     assert_ok!(Identity::remove_signing_items(
         alice.clone(),
-        vec![Signatory::AccountKey(musig_account_key)]
+        vec![Signatory::AccountKey(musig_address.clone())]
     ));
 
     // Check DidRecord.
     assert_eq!(Identity::get_identity(&dave_key), None);
-    assert_eq!(Identity::get_identity(&musig_account_key), None);
+    assert_eq!(Identity::get_identity(&musig_address), None);
     assert_eq!(Identity::get_identity(&bob_key), None);
 
     // Check multisig's signer
@@ -684,7 +684,7 @@ fn leave_identity_test_with_externalities() {
     let charlie_signing_key = SigningItem::new(Signatory::Identity(charlie_did), vec![]);
     let alice_signing_items = vec![bob_signing_key, charlie_signing_key.clone()];
 
-    let dave_key = AccountKey::from(AccountKeyring::Dave.public().0);
+    let dave_key = AccountKeyring::Dave.public().0;
 
     assert_ok!(Balances::top_up_identity_balance(
         alice.clone(),
