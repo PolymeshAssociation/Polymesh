@@ -16,7 +16,7 @@ use polymesh_common_utilities::traits::{
     balances::AccountData,
     group::GroupTrait,
     identity::Trait as IdentityTrait,
-    multisig::AddSignerMultiSig,
+    multisig::MultiSigSubTrait,
     pip::{EnactProposalMaker, PipId},
     CommonTrait,
 };
@@ -281,7 +281,7 @@ impl committee::Trait<committee::DefaultInstance> for TestStorage {
 impl IdentityTrait for TestStorage {
     type Event = Event;
     type Proposal = Call;
-    type AddSignerMultiSigTarget = TestStorage;
+    type MultiSig = multisig::Module<TestStorage>;
     type CddServiceProviders = group::Module<TestStorage, group::Instance2>;
     type Balances = balances::Module<TestStorage>;
     type ChargeTxFeeTarget = TestStorage;
@@ -289,12 +289,6 @@ impl IdentityTrait for TestStorage {
     type Public = AccountId;
     type OffChainSignature = OffChainSignature;
     type ProtocolFee = protocol_fee::Module<TestStorage>;
-}
-
-impl AddSignerMultiSig for TestStorage {
-    fn accept_multisig_signer(_: Signatory, _: u64) -> DispatchResult {
-        unimplemented!()
-    }
 }
 
 impl AcceptTransfer for TestStorage {

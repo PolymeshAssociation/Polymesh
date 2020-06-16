@@ -181,7 +181,7 @@ impl<T: Trait> Module<T> {
                 Call::take_off_invalidate_nominators(block, invalid_nominators.clone(), signature);
 
             // Now let's create an unsigned transaction out of this call and submit it to the pool.
-            // By default unsigned transactions are disallowed, so we need to whitelist this case
+            // By default unsigned transactions are disallowed, so we need to exempt this case
             // by writing `UnsignedValidator`. Note that it's EXTREMELY important to carefully
             // implement unsigned validation logic, as any mistakes can lead to opening DoS or spam
             // attack vectors. See validation logic docs for more details.
@@ -208,7 +208,7 @@ impl<T: Trait> frame_support::unsigned::ValidateUnsigned for Module<T> {
     ///
     /// By default unsigned transactions are disallowed, but implementing the validator
     /// here we make sure that some particular calls (the ones produced by offchain worker)
-    /// are being whitelisted and marked as valid.
+    /// are being exempted and marked as valid.
     fn validate_unsigned(call: &Self::Call) -> TransactionValidity {
         // Firstly let's check that we call the right function.
         if let Call::take_off_invalidate_nominators(block_number, target, signature) = call {
