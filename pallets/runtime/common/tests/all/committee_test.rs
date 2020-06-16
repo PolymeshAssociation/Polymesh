@@ -15,6 +15,7 @@ use pallet_pips::{
     Url,
 };
 use polymesh_common_utilities::traits::pip::{EnactProposalMaker, PipId};
+use polymesh_primitives::IdentityId;
 use sp_core::H256;
 use sp_runtime::traits::Hash;
 use std::convert::TryFrom;
