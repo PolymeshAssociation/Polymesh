@@ -638,15 +638,15 @@ fn do_rate_limit() {
 }
 
 #[test]
-fn can_whitelist() {
+fn is_exempted() {
     ExtBuilder::default()
         .existential_deposit(1_000)
         .monied(true)
         .build()
-        .execute_with(do_whitelist);
+        .execute_with(do_exempted);
 }
 
-fn do_whitelist() {
+fn do_exempted() {
     let admin = Origin::system(frame_system::RawOrigin::Signed(Default::default()));
     let alice_did = register_keyring_account_with_balance(AccountKeyring::Alice, 1_000).unwrap();
     let alice = Origin::signed(AccountKeyring::Alice.public());
@@ -742,7 +742,7 @@ fn do_whitelist() {
     assert_eq!(System::block_number(), unlock_block_number);
     // Still no issue, rate limit reached
     assert_eq!(alices_balance(), starting_alices_balance);
-    assert_ok!(Bridge::change_bridge_whitelist(
+    assert_ok!(Bridge::change_bridge_exempted(
         admin.clone(),
         vec![(alice_did, true)]
     ));
@@ -752,7 +752,7 @@ fn do_whitelist() {
     next_block();
     next_block();
     next_block();
-    // Mint successful after whitelisting
+    // Mint successful after exemption
     assert!(Bridge::timelocked_txs(unlock_block_number).is_empty());
     assert_eq!(alices_balance(), starting_alices_balance + amount);
     assert_eq!(

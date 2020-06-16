@@ -38,7 +38,6 @@ fn create_multisig() {
         ));
 
         assert_eq!(MultiSig::ms_signs_required(musig_address), 1);
-        assert_eq!(MultiSig::ms_creator(musig_address), alice_did);
         assert_eq!(Identity::get_identity(&musig_address), Some(alice_did));
 
         assert_err!(

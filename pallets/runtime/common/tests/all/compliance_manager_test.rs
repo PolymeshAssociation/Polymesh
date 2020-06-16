@@ -836,7 +836,7 @@ fn jurisdiction_asset_rules_we() {
             issuers: vec![cdd_id],
         },
         Rule {
-            rule_type: RuleType::IsAbsent(Claim::BlackListed(scope)),
+            rule_type: RuleType::IsAbsent(Claim::Blocked(scope)),
             issuers: vec![token_owner_id],
         },
     ];
@@ -865,11 +865,11 @@ fn jurisdiction_asset_rules_we() {
         user_id,
         100
     ));
-    // 3.3. Add user to blacklist
+    // 3.3. Add user to Blocked
     assert_ok!(Identity::add_claim(
         token_owner_signed.clone(),
         user_id,
-        Claim::BlackListed(scope),
+        Claim::Blocked(scope),
         None,
     ));
     assert_err!(
@@ -928,7 +928,7 @@ fn cm_test_case_9() {
         .build()
         .execute_with(cm_test_case_9_we);
 }
-/// Is any of: KYC’d, Affiliate, Accredited, Whitelisted
+/// Is any of: KYC’d, Affiliate, Accredited, Exempted
 fn cm_test_case_9_we() {
     // 0. Create accounts
     let owner = Origin::signed(AccountKeyring::Alice.public());
@@ -944,7 +944,7 @@ fn cm_test_case_9_we() {
             Claim::KnowYourCustomer(scope),
             Claim::Affiliate(scope),
             Claim::Accredited(scope),
-            Claim::Whitelisted(scope),
+            Claim::Exempted(scope),
         ]),
         issuers: vec![issuer_id],
     }];
@@ -987,11 +987,11 @@ fn cm_test_case_9_we() {
     assert!(result.rules[0].transfer_rule_result);
     assert!(result.rules[0].receiver_rules[0].result);
 
-    // 3.3. Eve has a 'Whitelisted' Claim
+    // 3.3. Eve has a 'Exempted' Claim
     assert_ok!(Identity::add_claim(
         issuer.clone(),
         eve,
-        Claim::Whitelisted(scope),
+        Claim::Exempted(scope),
         None
     ));
     assert_ok!(Asset::transfer(owner.clone(), ticker, eve, 100));
@@ -1018,7 +1018,7 @@ fn cm_test_case_11() {
         .execute_with(cm_test_case_11_we);
 }
 
-// Is any of: KYC’d, Affiliate, Accredited, Whitelisted, is none of: Jurisdiction=x, y, z,
+// Is any of: KYC’d, Affiliate, Accredited, Exempted, is none of: Jurisdiction=x, y, z,
 fn cm_test_case_11_we() {
     // 0. Create accounts
     let owner = Origin::signed(AccountKeyring::Alice.public());
@@ -1035,7 +1035,7 @@ fn cm_test_case_11_we() {
                 Claim::KnowYourCustomer(scope),
                 Claim::Affiliate(scope),
                 Claim::Accredited(scope),
-                Claim::Whitelisted(scope),
+                Claim::Exempted(scope),
             ]),
             issuers: vec![issuer_id],
         },
@@ -1096,11 +1096,11 @@ fn cm_test_case_11_we() {
     assert!(result.rules[0].receiver_rules[0].result);
     assert!(!result.rules[0].receiver_rules[1].result);
 
-    // 3.3. Eve has a 'Whitelisted' Claim
+    // 3.3. Eve has a 'Exempted' Claim
     assert_ok!(Identity::add_claim(
         issuer.clone(),
         eve,
-        Claim::Whitelisted(scope),
+        Claim::Exempted(scope),
         None
     ));
     assert_ok!(Identity::add_claim(
@@ -1124,7 +1124,7 @@ fn cm_test_case_13() {
         .execute_with(cm_test_case_13_we);
 }
 
-// Must be KYC’d, is any of: Affiliate, Whitelisted, Accredited, is none of: Jurisdiction=x, y, z, etc.
+// Must be KYC’d, is any of: Affiliate, Exempted, Accredited, is none of: Jurisdiction=x, y, z, etc.
 fn cm_test_case_13_we() {
     // 0. Create accounts
     let owner = Origin::signed(AccountKeyring::Alice.public());
@@ -1144,7 +1144,7 @@ fn cm_test_case_13_we() {
             rule_type: RuleType::IsAnyOf(vec![
                 Claim::Affiliate(scope),
                 Claim::Accredited(scope),
-                Claim::Whitelisted(scope),
+                Claim::Exempted(scope),
             ]),
             issuers: vec![issuer_id],
         },
@@ -1169,7 +1169,7 @@ fn cm_test_case_13_we() {
     let eve = register_keyring_account(AccountKeyring::Eve).unwrap();
 
     // 3.1. Charlie has a 'KnowYourCustomer' Claim BUT he does not have any of { 'Affiliate',
-    //   'Accredited', 'Whitelisted'}.
+    //   'Accredited', 'Exempted'}.
     assert_ok!(Identity::add_claim(
         issuer.clone(),
         charlie,
@@ -1191,7 +1191,7 @@ fn cm_test_case_13_we() {
     let dave_claims = vec![
         BatchAddClaimItem::<Moment> {
             target: dave,
-            claim: Claim::Whitelisted(scope),
+            claim: Claim::Exempted(scope),
             expiry: None,
         },
         BatchAddClaimItem::<Moment> {
@@ -1218,11 +1218,11 @@ fn cm_test_case_13_we() {
     assert!(result.rules[0].receiver_rules[1].result);
     assert!(!result.rules[0].receiver_rules[2].result);
 
-    // 3.3. Eve has a 'Whitelisted' Claim
+    // 3.3. Eve has a 'Exempted' Claim
     let eve_claims = vec![
         BatchAddClaimItem::<Moment> {
             target: eve,
-            claim: Claim::Whitelisted(scope),
+            claim: Claim::Exempted(scope),
             expiry: None,
         },
         BatchAddClaimItem::<Moment> {

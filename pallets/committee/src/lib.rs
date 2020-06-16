@@ -145,7 +145,7 @@ decl_storage! {
         /// Vote threshold for an approval.
         pub VoteThreshold get(fn vote_threshold) config(): (u32, u32);
         /// Release coordinator.
-        pub ReleaseCoordinator get(fn release_coordinator): Option<IdentityId>;
+        pub ReleaseCoordinator get(fn release_coordinator) config(): Option<IdentityId>;
     }
     add_extra_genesis {
         config(phantom): sp_std::marker::PhantomData<(T, I)>;

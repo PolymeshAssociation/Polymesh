@@ -34,7 +34,7 @@ use polymesh_common_utilities::traits::{
     balances::{AccountData, CheckCdd},
     group::{GroupTrait, InactiveMember},
     identity::Trait as IdentityTrait,
-    multisig::AddSignerMultiSig,
+    multisig::MultiSigSubTrait,
     CommonTrait,
 };
 use primitives::{IdentityId, Signatory};
@@ -276,7 +276,7 @@ impl protocol_fee::Trait for Test {
 impl IdentityTrait for Test {
     type Event = ();
     type Proposal = Call;
-    type AddSignerMultiSigTarget = Test;
+    type MultiSig = Test;
     type CddServiceProviders = group::Module<Test, group::Instance2>;
     type Balances = pallet_balances::Module<Test>;
     type ChargeTxFeeTarget = Test;
@@ -365,8 +365,14 @@ impl AcceptTransfer for Test {
     }
 }
 
-impl AddSignerMultiSig<AccountId> for Test {
+impl MultiSigSubTrait for Test {
     fn accept_multisig_signer(_: Signatory<AccountId>, _: u64) -> DispatchResult {
+        unimplemented!()
+    }
+    fn get_key_signers(multisig: &AccountId) -> Vec<AccountId> {
+        unimplemented!()
+    }
+    fn is_multisig(account: &AccountId) -> bool {
         unimplemented!()
     }
 }

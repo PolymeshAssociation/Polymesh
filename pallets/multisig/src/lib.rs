@@ -87,14 +87,14 @@ use frame_support::{
     dispatch::{DispatchError, DispatchResult},
     ensure,
     weights::{DispatchClass, FunctionOf, GetDispatchInfo, SimpleDispatchInfo},
-    StorageValue,
+    StorageDoubleMap, StorageValue,
 };
 use frame_system::{self as system, ensure_signed};
 use pallet_identity as identity;
 use pallet_transaction_payment::{CddAndFeeDetails, ChargeTxFee};
 use polymesh_common_utilities::{
     identity::{LinkedKeyInfo, Trait as IdentityTrait},
-    multisig::AddSignerMultiSig,
+    multisig::MultiSigSubTrait,
     Context,
 };
 use polymesh_primitives::{
@@ -183,8 +183,7 @@ decl_storage! {
             double_map hasher(twox_64_concat) T::AccountId, hasher(blake2_256) T::Proposal => Option<u64>;
         /// Individual multisig signer votes. (multi sig, signer, proposal) => vote.
         pub Votes get(fn votes): map hasher(blake2_128_concat) (T::AccountId, Signatory<T::AccountId>, u64) => bool;
-        /// Maps a multisig to its creator's identity.
-        pub MultiSigCreator get(fn ms_creator): map hasher(twox_64_concat) T::AccountId => IdentityId;
+>>>>>>> origin/develop
         /// Maps a key to a multisig address.
         pub KeyToMultiSig get(fn key_to_ms): map hasher(blake2_128_concat) T::AccountId => T::AccountId;
         /// Details of a multisig proposal
@@ -443,10 +442,7 @@ decl_module! {
             let sender = ensure_signed(origin)?;
             ensure!(<MultiSigSignsRequired<T>>::contains_key(&multisig), Error::<T>::NoSuchMultisig);
             let sender_did = Context::current_identity_or::<Identity<T>>(&sender)?;
-            ensure!(
-                <MultiSigCreator<T>>::get(&multisig) == sender_did,
-                Error::<T>::IdentityNotCreator
-            );
+            Self::verify_sender_is_creator(sender_did, &multisig)?;
             ensure!(<Identity<T>>::is_master_key(sender_did, &sender_key), Error::<T>::NotMasterKey);
             let multisig_signer = Signatory::Account(multisig);
             for signer in signers {
@@ -478,10 +474,7 @@ decl_module! {
             let sender = ensure_signed(origin)?;
             ensure!(<MultiSigSignsRequired<T>>::contains_key(&multisig), Error::<T>::NoSuchMultisig);
             let sender_did = Context::current_identity_or::<Identity<T>>(&sender)?;
-            ensure!(
-                <MultiSigCreator<T>>::get(&multisig) == sender_did,
-                Error::<T>::IdentityNotCreator
-            );
+            Self::verify_sender_is_creator(sender_did, &multisig)?;
             ensure!(<Identity<T>>::is_master_key(sender_did, &sender), Error::<T>::NotMasterKey);
             ensure!(Self::is_changing_signers_allowed(&multisig), Error::<T>::ChangeNotAllowed);
             let signers_len:u64 = u64::try_from(signers.len()).unwrap_or_default();
@@ -587,18 +580,14 @@ decl_module! {
         /// # Arguments
         /// * `multi_sig` - multi sig address
         #[weight = SimpleDispatchInfo::FixedNormal(250_000)]
-        pub fn make_multisig_signer(origin, multi_sig: T::AccountId) -> DispatchResult {
+        pub fn make_multisig_signer(origin, multisig: T::AccountId) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             ensure!(<MultiSigSignsRequired<T>>::contains_key(&multi_sig), Error::<T>::NoSuchMultisig);
             let sender_did = Context::current_identity_or::<Identity<T>>(&sender)?;
-            ensure!(
-                <MultiSigCreator<T>>::get(&multi_sig) == sender_did,
-                Error::<T>::IdentityNotCreator
-            );
-            ensure!(<Identity<T>>::is_master_key(sender_did, &sender), Error::<T>::NotMasterKey);
+            Self::verify_sender_is_creator(sender_did, &multisig)?;
             <Identity<T>>::unsafe_join_identity(
                 JoinIdentityData::new(sender_did, vec![]),
-                Signatory::Account(multi_sig)
+                Signatory::Account(multisig)
             )
         }
 
@@ -608,17 +597,14 @@ decl_module! {
         /// # Arguments
         /// * `multi_sig` - multi sig address
         #[weight = SimpleDispatchInfo::FixedNormal(250_000)]
-        pub fn make_multisig_master(origin, multi_sig: T::AccountId, optional_cdd_auth_id: Option<u64>) -> DispatchResult {
+        pub fn make_multisig_master(origin, multisig: T::AccountId, optional_cdd_auth_id: Option<u64>) -> DispatchResult {
             let sender = ensure_signed(origin)?;
-            ensure!(<MultiSigSignsRequired<T>>::contains_key(&multi_sig), Error::<T>::NoSuchMultisig);
+            ensure!(<MultiSigSignsRequired<T>>::contains_key(&multisig), Error::<T>::NoSuchMultisig);
             let sender_did = Context::current_identity_or::<Identity<T>>(&sender)?;
-            ensure!(
-                <MultiSigCreator<T>>::get(&multi_sig) == sender_did,
-                Error::<T>::IdentityNotCreator
-            );
+            Self::verify_sender_is_creator(sender_did, multisig)?;
             ensure!(<Identity<T>>::is_master_key(sender_did, &sender), Error::<T>::NotMasterKey);
             <Identity<T>>::unsafe_master_key_rotation(
-                multi_sig,
+                multisig,
                 sender_did,
                 optional_cdd_auth_id
             )
@@ -714,7 +700,9 @@ decl_error! {
         /// Proposal has expired
         ProposalExpired,
         /// Proposal was executed earlier
-        ProposalAlreadyExecuted
+        ProposalAlreadyExecuted,
+        /// Multisig is not attached to an identity
+        MultisigMissingIdentity
     }
 }
 
@@ -779,8 +767,10 @@ impl<T: Trait> Module<T> {
             );
         }
         <MultiSigSignsRequired<T>>::insert(&account_id, &sigs_required);
-        <MultiSigCreator<T>>::insert(&account_id, &sender_did);
-        <identity::KeyToIdentityIds>::insert(account_id, LinkedKeyInfo::Unique(sender_did));
+        <identity::KeyToIdentityIds>::insert(
+            AccountKey::try_from(account_id.clone()),
+            LinkedKeyInfo::Unique(sender_did),
+        );
         Ok(account_id)
     }
 
@@ -906,12 +896,7 @@ impl<T: Trait> Module<T> {
                 ensure!(<Identity<T>>::has_valid_cdd(did), Error::<T>::CddMissing);
                 T::CddHandler::set_current_identity(&did);
             } else {
-                let creator_identity = Self::ms_creator(&multisig);
-                ensure!(
-                    <Identity<T>>::has_valid_cdd(creator_identity),
-                    Error::<T>::CddMissing
-                );
-                T::CddHandler::set_current_identity(&creator_identity);
+                return Err(Error::<T>::MultisigMissingIdentity.into());
             }
             ensure!(
                 T::ChargeTxFeeTarget::charge_fee(
@@ -1043,29 +1028,35 @@ impl<T: Trait> Module<T> {
             Error::<T>::AlreadyASigner
         );
 
-        let caller_did = match signer {
-            Signatory::Account(key) => {
-                ensure!(
-                    !<KeyToMultiSig<T>>::contains_key(&key),
-                    Error::<T>::SignerAlreadyLinked
+        if let Signatory::Account(key) = signer {
+            ensure!(
+                !<KeyToMultiSig<T>>::contains_key(&key),
+                Error::<T>::SignerAlreadyLinked
+            );
+            ensure!(
+                !<identity::KeyToIdentityIds>::contains_key(&key),
+                Error::<T>::SignerAlreadyLinked
+            );
+            if let Some(ms_identity) = <Identity<T>>::get_identity(&wallet_id) {
+                <identity::KeyToIdentityIds>::insert(
+                    key.clone(),
+                    LinkedKeyInfo::Unique(ms_identity),
                 );
-                ensure!(
-                    !<identity::KeyToIdentityIds>::contains_key(&key),
-                    Error::<T>::SignerAlreadyLinked
-                );
-
-                <KeyToMultiSig<T>>::insert(key, wallet_id.clone());
-                let did = <MultiSigCreator<T>>::get(&wallet_id);
-                <identity::KeyToIdentityIds>::insert(key, LinkedKeyInfo::Unique(did));
-                did
+                Self::deposit_event(RawEvent::MultiSigSignerAdded(
+                    ms_identity,
+                    wallet_id.clone(),
+                    signer,
+                ));
+            } else {
+                return Err(Error::<T>::MultisigMissingIdentity.into());
             }
-            Signatory::Identity(did) => did,
-        };
+            <KeyToMultiSig<T>>::insert(key, wallet_id.clone());
+        }
+
         let wallet_signer = Signatory::Account(wallet_id.clone());
         <Identity<T>>::consume_auth(wallet_signer, signer, auth_id)?;
         <MultiSigSigners<T>>::insert(wallet_id.clone(), signer, signer);
-        <NumberOfSigners<T>>::mutate(wallet_id.clone(), |x| *x += 1u64);
-        Self::deposit_event(RawEvent::MultiSigSignerAdded(caller_did, wallet_id, signer));
+        <NumberOfSigners<T>>::mutate(wallet_id, |x| *x += 1u64);
 
         Ok(())
     }
@@ -1103,13 +1094,36 @@ impl<T: Trait> Module<T> {
         }
         true
     }
+
+    pub fn verify_sender_is_creator(sender_did: IdentityId, ms_key: AccountKey) -> DispatchResult {
+        if let Some(ms_identity) = <Identity<T>>::get_identity(&ms_key) {
+            ensure!(ms_identity == sender_did, Error::<T>::IdentityNotCreator);
+            Ok(())
+        } else {
+            Err(Error::<T>::MultisigMissingIdentity.into())
+        }
+    }
 }
 
-impl<T: Trait> AddSignerMultiSig<<T as frame_system::Trait>::AccountId> for Module<T> {
-    fn accept_multisig_signer(
-        signer: Signatory<<T as frame_system::Trait>::AccountId>,
-        auth_id: u64,
-    ) -> DispatchResult {
+impl<T: Trait> MultiSigSubTrait<T::AccountId> for Module<T> {
+    fn accept_multisig_signer(signer: Signatory<T::AccountId>, auth_id: u64) -> DispatchResult {
         Self::unsafe_accept_multisig_signer(signer, auth_id)
+    }
+
+    fn get_key_signers(multisig: &T::AccountId) -> Vec<T::AccountId> {
+        <MultiSigSigners<T>>::iter_prefix(multisig)
+            .filter_map(|signer| {
+                if let Signatory::Account(key) = signer {
+                    Some(key)
+                } else {
+                    None
+                }
+            })
+            .cloned()
+            .collect()
+    }
+
+    fn is_multisig(account: &T::AccountId) -> bool {
+        <NumberOfSigners<T>>::contains_key(account)
     }
 }

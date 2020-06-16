@@ -208,7 +208,7 @@ fn is_auth_valid<AccountId>(
                 if auth.authorization_data == AuthorizationData::AddMultiSigSigner {
                     // make sure that the auth was created by a valid multisig
                     if let Signatory::Account(multisig) = auth.authorized_by {
-                        if <multisig::MultiSigCreator<Runtime>>::contains_key(&multisig) {
+                        if <multisig::MultiSigSignsRequired<Runtime>>::contains_key(&multisig) {
                             // make sure that the multisig is attached to an identity with valid CDD
                             if let Some(did) = Identity::get_identity(&multisig) {
                                 return check_cdd::<AccountId>(&did);
