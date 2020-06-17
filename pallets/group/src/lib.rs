@@ -74,20 +74,19 @@
 // Ensure we're `no_std` when compiling for Wasm.
 #![cfg_attr(not(feature = "std"), no_std)]
 
+use frame_support::{
+    codec::Encode, decl_error, decl_module, decl_storage, dispatch::DispatchResult, ensure,
+    traits::ChangeMembers, weights::SimpleDispatchInfo, StorageValue,
+};
+use frame_system::{self as system, ensure_signed};
 use pallet_identity as identity;
 pub use polymesh_common_utilities::{
     group::{GroupTrait, InactiveMember, RawEvent, Trait},
     Context, SystematicIssuers,
 };
 use polymesh_primitives::IdentityId;
-
-use frame_support::{
-    codec::Encode, decl_error, decl_module, decl_storage, dispatch::DispatchResult, ensure,
-    traits::ChangeMembers, weights::SimpleDispatchInfo, StorageValue,
-};
-use frame_system::{self as system, ensure_signed};
 use sp_runtime::traits::EnsureOrigin;
-use sp_std::{convert::TryFrom, prelude::*};
+use sp_std::prelude::*;
 
 pub type Event<T, I> = polymesh_common_utilities::group::Event<T, I>;
 type Identity<T> = identity::Module<T>;

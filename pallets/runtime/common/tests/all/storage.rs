@@ -1,3 +1,9 @@
+use codec::Encode;
+use frame_support::{
+    assert_ok, dispatch::DispatchResult, impl_outer_dispatch, impl_outer_event, impl_outer_origin,
+    parameter_types, traits::Currency, weights::DispatchInfo, StorageDoubleMap,
+};
+use frame_system::{self as system};
 use pallet_asset as asset;
 use pallet_balances as balances;
 use pallet_committee as committee;
@@ -10,13 +16,11 @@ use pallet_protocol_fee as protocol_fee;
 use pallet_statistics as statistics;
 use pallet_treasury as treasury;
 use pallet_utility as utility;
-
 use polymesh_common_utilities::traits::{
     asset::AcceptTransfer,
     balances::AccountData,
     group::GroupTrait,
     identity::Trait as IdentityTrait,
-    multisig::MultiSigSubTrait,
     pip::{EnactProposalMaker, PipId},
     CommonTrait,
 };
@@ -26,14 +30,6 @@ use polymesh_primitives::{
 use polymesh_runtime_common::{
     bridge, cdd_check::CddChecker, dividend, exemption, simple_token, voting,
 };
-
-use codec::Encode;
-use frame_support::{
-    assert_ok, dispatch::DispatchResult, impl_outer_dispatch, impl_outer_event, impl_outer_origin,
-    parameter_types, traits::Currency, weights::DispatchInfo, StorageDoubleMap,
-};
-use frame_system::{self as system};
-
 use sp_core::{
     crypto::{key_types, Pair as PairTrait},
     sr25519::{Pair, Public},
@@ -46,7 +42,7 @@ use sp_runtime::{
     transaction_validity::{InvalidTransaction, TransactionValidity, ValidTransaction},
     AnySignature, KeyTypeId, Perbill,
 };
-use std::{cell::RefCell, convert::TryFrom};
+use std::cell::RefCell;
 use test_client::AccountKeyring;
 
 impl_opaque_keys! {

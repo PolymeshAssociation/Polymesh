@@ -76,6 +76,14 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 #![recursion_limit = "256"]
 
+use core::result::Result as StdResult;
+use frame_support::{
+    decl_error, decl_event, decl_module, decl_storage,
+    dispatch::DispatchResult,
+    ensure,
+    weights::{DispatchClass, FunctionOf, SimpleDispatchInfo},
+};
+use frame_system::{self as system, ensure_signed};
 use pallet_identity as identity;
 use polymesh_common_utilities::{
     asset::Trait as AssetTrait,
@@ -87,16 +95,6 @@ use polymesh_common_utilities::{
     Context,
 };
 use polymesh_primitives::{predicate, Claim, IdentityId, Rule, RuleType, Signatory, Ticker};
-
-use codec::Encode;
-use core::result::Result as StdResult;
-use frame_support::{
-    decl_error, decl_event, decl_module, decl_storage,
-    dispatch::DispatchResult,
-    ensure,
-    weights::{DispatchClass, FunctionOf, SimpleDispatchInfo},
-};
-use frame_system::{self as system, ensure_signed};
 #[cfg(feature = "std")]
 use sp_runtime::{Deserialize, Serialize};
 use sp_std::{

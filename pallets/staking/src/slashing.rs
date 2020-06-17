@@ -63,7 +63,7 @@ use sp_runtime::{
     traits::{Saturating, Zero},
     PerThing,
 };
-use sp_std::{convert::TryInto, vec::Vec};
+use sp_std::vec::Vec;
 
 /// The proportion of the slashing reward to be paid out on the first slashing detection.
 /// This is f_1 in the paper.

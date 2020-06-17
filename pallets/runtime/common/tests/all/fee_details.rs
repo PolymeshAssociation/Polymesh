@@ -1,9 +1,8 @@
 use super::{
     ext_builder::PROTOCOL_OP_BASE_FEE,
-    storage::{make_account, make_account_without_cdd, AccountId, TestStorage},
+    storage::{make_account, make_account_without_cdd, TestStorage},
     ExtBuilder,
 };
-use codec::Encode;
 use frame_support::{assert_err, assert_ok, StorageDoubleMap};
 use pallet_balances as balances;
 use pallet_identity as identity;
@@ -53,7 +52,7 @@ fn cdd_checks() {
                     &Call::Identity(identity::Call::register_did(Default::default())),
                     &alice_did_signatory
                 ),
-                Ok(Some(alice_did_signatory))
+                Ok(Some(alice_did_signatory.clone()))
             );
 
             // normal tx without cdd should fail
@@ -122,7 +121,7 @@ fn cdd_checks() {
                     &Call::MultiSig(multisig::Call::accept_multisig_signer_as_key(alice_auth_id)),
                     &alice_account_signatory
                 ),
-                Ok(Some(charlie_did_signatory))
+                Ok(Some(charlie_did_signatory.clone()))
             );
 
             // normal tx with cdd should succeed
@@ -131,7 +130,7 @@ fn cdd_checks() {
                     &Call::MultiSig(multisig::Call::change_sigs_required(1)),
                     &charlie_account_signatory
                 ),
-                Ok(Some(charlie_account_signatory))
+                Ok(Some(charlie_account_signatory.clone()))
             );
 
             // tx to set did as fee payer should charge fee to did

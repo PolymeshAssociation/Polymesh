@@ -3,15 +3,13 @@ use super::{
     storage::{register_keyring_account, Call, TestStorage},
     ExtBuilder,
 };
-use codec::Encode;
 use frame_support::{assert_err, assert_ok, StorageDoubleMap};
 use pallet_balances as balances;
 use pallet_identity as identity;
 use pallet_multisig as multisig;
 use polymesh_common_utilities::Context;
-use polymesh_primitives::{IdentityId, Signatory};
+use polymesh_primitives::{IdentityId, Signatory, SigningItem};
 use sp_core::sr25519::Public;
-use std::convert::TryFrom;
 use test_client::AccountKeyring;
 
 type Balances = balances::Module<TestStorage>;
@@ -659,10 +657,7 @@ fn make_multisig_master() {
             None
         ));
 
-        assert_eq!(
-            Identity::did_records(alice_did).master_key,
-            musig_address
-        );
+        assert_eq!(Identity::did_records(alice_did).master_key, musig_address);
     });
 }
 

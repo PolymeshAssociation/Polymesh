@@ -35,6 +35,7 @@ impl<AccountId> Identity<AccountId>
 where
     AccountId: Clone + Default + Eq + Ord,
 {
+    /// Creates an [`Identity`] from an `AccountId`.
     pub fn new(master_key: AccountId) -> Self {
         Identity {
             master_key,

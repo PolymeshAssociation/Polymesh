@@ -13,20 +13,18 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
+use frame_support::{
+    decl_error, decl_event, decl_module, decl_storage, dispatch::DispatchResult, ensure,
+    weights::SimpleDispatchInfo,
+};
+use frame_system::{self as system, ensure_signed};
 use pallet_identity as identity;
 use polymesh_common_utilities::{
     asset::Trait as AssetTrait, balances::Trait as BalancesTrait,
     exemption::Trait as ExemptionTrait, identity::Trait as IdentityTrait, Context,
 };
 use polymesh_primitives::{IdentityId, Signatory, Ticker};
-
-use codec::Encode;
-use frame_support::{
-    decl_error, decl_event, decl_module, decl_storage, dispatch::DispatchResult, ensure,
-    weights::SimpleDispatchInfo,
-};
-use frame_system::{self as system, ensure_signed};
-use sp_std::{convert::TryFrom, prelude::*};
+use sp_std::prelude::*;
 
 /// The module's configuration trait.
 pub trait Trait: frame_system::Trait + BalancesTrait + IdentityTrait {

@@ -47,7 +47,11 @@
 //! - `get_dividend` - Returns details about a dividend
 
 use crate::simple_token;
-
+use frame_support::{
+    decl_error, decl_event, decl_module, decl_storage, dispatch::DispatchResult, ensure,
+    weights::SimpleDispatchInfo,
+};
+use frame_system::{self as system, ensure_signed};
 use pallet_asset as asset;
 use pallet_identity as identity;
 use polymesh_common_utilities::{
@@ -57,15 +61,8 @@ use polymesh_common_utilities::{
     CommonTrait, Context,
 };
 use polymesh_primitives::{IdentityId, Signatory, Ticker};
-
-use codec::Encode;
-use frame_support::{
-    decl_error, decl_event, decl_module, decl_storage, dispatch::DispatchResult, ensure,
-    weights::SimpleDispatchInfo,
-};
-use frame_system::{self as system, ensure_signed};
 use sp_runtime::traits::{CheckedAdd, CheckedDiv, CheckedMul, CheckedSub, Zero};
-use sp_std::{convert::TryFrom, prelude::*};
+use sp_std::prelude::*;
 
 /// The module's configuration trait.
 pub trait Trait:

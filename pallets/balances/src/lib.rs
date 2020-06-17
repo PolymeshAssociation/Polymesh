@@ -171,19 +171,6 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use polymesh_common_utilities::{
-    traits::{
-        balances::{AccountData, BalancesTrait, CheckCdd, Memo, RawEvent, Reasons},
-        identity::IdentityTrait,
-        NegativeImbalance, PositiveImbalance,
-    },
-    Context, SystematicIssuers,
-};
-use polymesh_primitives::{
-    traits::{BlockRewardsReserveCurrency, IdentityCurrency},
-    IdentityId, Permission, Signatory,
-};
-
 use codec::{Decode, Encode};
 use frame_support::{
     decl_error, decl_module, decl_storage, ensure,
@@ -196,6 +183,18 @@ use frame_support::{
     StorageValue,
 };
 use frame_system::{self as system, ensure_root, ensure_signed};
+use polymesh_common_utilities::{
+    traits::{
+        balances::{AccountData, BalancesTrait, CheckCdd, Memo, RawEvent, Reasons},
+        identity::IdentityTrait,
+        NegativeImbalance, PositiveImbalance,
+    },
+    Context, SystematicIssuers,
+};
+use polymesh_primitives::{
+    traits::{BlockRewardsReserveCurrency, IdentityCurrency},
+    IdentityId, Permission, Signatory,
+};
 use sp_runtime::{
     traits::{
         AccountIdConversion, Bounded, CheckedAdd, CheckedSub, MaybeSerializeDeserialize,
@@ -203,17 +202,10 @@ use sp_runtime::{
     },
     DispatchError, DispatchResult, RuntimeDebug,
 };
-
-use sp_std::{
-    cmp,
-    convert::{Infallible, TryInto},
-    fmt::Debug,
-    mem,
-    prelude::*,
-    result, vec,
-};
+use sp_std::{cmp, convert::Infallible, fmt::Debug, mem, prelude::*, result, vec};
 
 pub use polymesh_common_utilities::traits::balances::Trait;
+
 pub type Event<T> = polymesh_common_utilities::traits::balances::Event<T>;
 
 decl_error! {

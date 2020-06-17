@@ -283,11 +283,12 @@ use frame_support::{
     },
     weights::SimpleDispatchInfo,
 };
+use frame_system::{self as system, ensure_root, ensure_signed};
+use pallet_babe;
 use pallet_identity as identity;
 use pallet_session::historical::SessionManager;
 use polymesh_common_utilities::{identity::Trait as IdentityTrait, Context};
 use primitives::{traits::BlockRewardsReserveCurrency, IdentityId};
-
 use sp_phragmen::ExtendedBalance;
 use sp_runtime::{
     curve::PiecewiseLinear,
@@ -297,22 +298,13 @@ use sp_runtime::{
     },
     PerThing, Perbill, RuntimeDebug,
 };
+#[cfg(feature = "std")]
+use sp_runtime::{Deserialize, Serialize};
 use sp_staking::{
     offence::{Offence, OffenceDetails, OffenceError, OnOffenceHandler, ReportOffence},
     SessionIndex,
 };
-use sp_std::{
-    collections::btree_map::BTreeMap,
-    convert::{TryFrom, TryInto},
-    prelude::*,
-    result,
-};
-
-use frame_system::{self as system, ensure_root, ensure_signed};
-#[cfg(feature = "std")]
-use sp_runtime::{Deserialize, Serialize};
-
-use pallet_babe;
+use sp_std::{collections::btree_map::BTreeMap, prelude::*, result};
 
 const DEFAULT_MINIMUM_VALIDATOR_COUNT: u32 = 4;
 const MAX_NOMINATIONS: usize = 16;

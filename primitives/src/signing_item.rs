@@ -166,6 +166,7 @@ impl<AccountId> SigningItem<AccountId> {
         }
     }
 
+    /// Creates a [`SigningItem`] from an `AccountId`.
     pub fn from_account_id(s: AccountId) -> Self {
         Self::new(Signatory::Account(s), vec![])
     }

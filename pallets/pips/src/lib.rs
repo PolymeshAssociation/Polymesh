@@ -83,17 +83,14 @@ use polymesh_common_utilities::{
 };
 use polymesh_primitives::{Beneficiary, IdentityId, Signatory};
 use polymesh_primitives_derive::VecU8StrongTyped;
+#[cfg(feature = "std")]
+use serde::{Deserialize, Serialize};
 use sp_core::H256;
 use sp_runtime::traits::{
     BlakeTwo256, CheckedAdd, CheckedSub, Dispatchable, EnsureOrigin, Hash, Saturating, Zero,
 };
-use sp_std::{
-    convert::{From, TryFrom},
-    prelude::*,
-};
+use sp_std::{convert::From, prelude::*};
 
-#[cfg(feature = "std")]
-use serde::{Deserialize, Serialize};
 /// Balance
 type BalanceOf<T> =
     <<T as Trait>::Currency as Currency<<T as frame_system::Trait>::AccountId>>::Balance;
@@ -1287,9 +1284,9 @@ impl<T: Trait> Module<T> {
 
     /// Retrieve historical voting of `who` identity.
     /// It fetches all its keys recursively and it returns the voting history for each of them.
-    pub fn voting_history_by_id(who: IdentityId) ->
-        HistoricalVotingById<T::AccountId, Vote<BalanceOf<T>>>
-    {
+    pub fn voting_history_by_id(
+        who: IdentityId,
+    ) -> HistoricalVotingById<T::AccountId, Vote<BalanceOf<T>>> {
         let flatten_keys = <Identity<T>>::flatten_keys(who, 1);
         flatten_keys
             .into_iter()

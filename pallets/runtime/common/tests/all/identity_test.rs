@@ -6,8 +6,12 @@ use super::{
     },
     ExtBuilder,
 };
-
+use codec::Encode;
+use frame_support::{assert_err, assert_ok, traits::Currency, StorageDoubleMap};
+use pallet_balances as balances;
+use pallet_identity::{self as identity, BatchAddClaimItem, BatchRevokeClaimItem, Error};
 use pallet_identity_rpc_runtime_api::LinkType;
+use pallet_transaction_payment::CddAndFeeDetails;
 use polymesh_common_utilities::{
     traits::{
         group::GroupTrait,
@@ -23,18 +27,11 @@ use polymesh_primitives::{
     TransactionError,
 };
 use polymesh_runtime_develop::{fee_details::CddHandler, runtime::Call};
-
-use pallet_balances as balances;
-use pallet_identity::{self as identity, BatchAddClaimItem, BatchRevokeClaimItem, Error};
-use pallet_transaction_payment::CddAndFeeDetails;
-
-use codec::Encode;
-use frame_support::{assert_err, assert_ok, traits::Currency, StorageDoubleMap};
+use sp_core::crypto::AccountId32;
 use sp_core::H512;
 use sp_runtime::transaction_validity::InvalidTransaction;
-use test_client::AccountKeyring;
-
 use std::convert::{From, TryFrom};
+use test_client::AccountKeyring;
 
 type AuthorizationsGiven = identity::AuthorizationsGiven<TestStorage>;
 type Balances = balances::Module<TestStorage>;
@@ -519,7 +516,7 @@ fn frozen_signing_keys_cdd_verification_test_we() {
             1_000,
             None,
         )),
-        &Signatory::Account(bob),
+        &Signatory::Account(AccountId32::from(AccountKeyring::Bob.public().0)),
     );
     assert_err!(
         payer,
@@ -558,11 +555,9 @@ fn remove_signing_keys_test() {
 
 fn remove_signing_keys_test_with_externalities() {
     let bob_key = AccountKeyring::Bob.public();
-    let bob_signing_key = SigningItem::new(Signatory::Account(bob_key), vec![]);
     let alice_did = register_keyring_account(AccountKeyring::Alice).unwrap();
     let alice = Origin::signed(AccountKeyring::Alice.public());
     let charlie = Origin::signed(AccountKeyring::Charlie.public());
-    let charlie_did = register_keyring_account(AccountKeyring::Charlie).unwrap();
     let dave_key = AccountKeyring::Dave.public();
 
     assert_ok!(Balances::top_up_identity_balance(
@@ -984,10 +979,7 @@ fn adding_authorizations() {
             AuthorizationData::TransferTicker(ticker50),
             None,
         );
-        assert_eq!(
-            <AuthorizationsGiven>::get(alice_did, auth_id),
-            bob_did
-        );
+        assert_eq!(<AuthorizationsGiven>::get(alice_did, auth_id), bob_did);
         let mut auth = Identity::get_authorization(bob_did, auth_id);
         assert_eq!(auth.authorized_by, alice_did);
         assert_eq!(auth.expiry, None);
@@ -1001,10 +993,7 @@ fn adding_authorizations() {
             AuthorizationData::TransferTicker(ticker50),
             Some(100),
         );
-        assert_eq!(
-            <AuthorizationsGiven>::get(alice_did, auth_id),
-            bob_did
-        );
+        assert_eq!(<AuthorizationsGiven>::get(alice_did, auth_id), bob_did);
         auth = Identity::get_authorization(bob_did, auth_id);
         assert_eq!(auth.authorized_by, alice_did);
         assert_eq!(auth.expiry, Some(100));
@@ -1028,10 +1017,7 @@ fn removing_authorizations() {
             AuthorizationData::TransferTicker(ticker50),
             None,
         );
-        assert_eq!(
-            <AuthorizationsGiven>::get(alice_did, auth_id),
-            bob_did
-        );
+        assert_eq!(<AuthorizationsGiven>::get(alice_did, auth_id), bob_did);
         let auth = Identity::get_authorization(bob_did, auth_id);
         assert_eq!(
             auth.authorization_data,
@@ -1042,9 +1028,7 @@ fn removing_authorizations() {
             bob_did,
             auth_id
         ));
-        assert!(!<AuthorizationsGiven>::contains_key(
-            alice_did, auth_id
-        ));
+        assert!(!<AuthorizationsGiven>::contains_key(alice_did, auth_id));
         assert!(!<identity::Authorizations<TestStorage>>::contains_key(
             bob_did, auth_id
         ));
