@@ -10,8 +10,8 @@ use pallet_identity as identity;
 use pallet_multisig as multisig;
 use polymesh_common_utilities::Context;
 use polymesh_primitives::{IdentityId, Signatory};
+use sp_core::sr25519::Public;
 use std::convert::TryFrom;
-use sp_runtime::AccountId32;
 use test_client::AccountKeyring;
 
 type Balances = balances::Module<TestStorage>;
@@ -388,7 +388,7 @@ fn add_multisig_signer() {
         let alice_did = register_keyring_account(AccountKeyring::Alice).unwrap();
         let alice = Origin::signed(AccountKeyring::Alice.public());
         let bob = Origin::signed(AccountKeyring::Bob.public());
-        let bob_signer = Signatory::Account(AccountKeyring::Bob.public().encode());
+        let bob_signer = Signatory::Account(AccountKeyring::Bob.public());
         let charlie = Origin::signed(AccountKeyring::Charlie.public());
         let charlie_signer = Signatory::Account(AccountKeyring::Charlie.public());
 
@@ -661,7 +661,7 @@ fn make_multisig_master() {
 
         assert_eq!(
             Identity::did_records(alice_did).master_key,
-            musig_address.encode()
+            musig_address
         );
     });
 }
@@ -685,7 +685,7 @@ fn make_multisig_signer() {
         let signing_items = Identity::did_records(alice_did).signing_items;
         assert!(signing_items
             .iter()
-            .find(|si| **si == musig_address)
+            .find(|si| **si == SigningItem::from_account_id(musig_address))
             .is_none());
 
         assert_err!(
@@ -706,7 +706,7 @@ fn make_multisig_signer() {
         let signing_items2 = Identity::did_records(alice_did).signing_items;
         assert!(signing_items2
             .iter()
-            .find(|si| **si == musig_address)
+            .find(|si| **si == SigningItem::from_account_id(musig_address))
             .is_some());
     });
 }
@@ -1187,7 +1187,7 @@ fn expired_proposals() {
     });
 }
 
-fn setup_multisig(creator_origin: Origin, sigs_required: u64, signers: Vec<Signatory<AccountId32>>) {
+fn setup_multisig(creator_origin: Origin, sigs_required: u64, signers: Vec<Signatory<Public>>) {
     assert_ok!(MultiSig::create_multisig(
         creator_origin,
         signers.clone(),
