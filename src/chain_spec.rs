@@ -22,8 +22,6 @@ use sp_runtime::{
     traits::{IdentifyAccount, Verify},
     PerThing,
 };
-use std::convert::TryFrom;
-use std::iter;
 
 const STAGING_TELEMETRY_URL: &str = "wss://telemetry.polymesh.live/submit/";
 

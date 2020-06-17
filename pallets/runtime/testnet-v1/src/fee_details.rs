@@ -14,7 +14,8 @@
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
 use crate::{runtime, Runtime};
-
+use codec::{Decode, Encode};
+use frame_support::{StorageDoubleMap, StorageMap};
 use pallet_balances as balances;
 use pallet_identity as identity;
 use pallet_multisig as multisig;
@@ -25,10 +26,6 @@ use polymesh_primitives::{
 };
 use polymesh_runtime_common::bridge;
 use sp_runtime::transaction_validity::InvalidTransaction;
-
-use codec::{Decode, Encode};
-use core::convert::TryFrom;
-use frame_support::{StorageDoubleMap, StorageMap};
 
 type Identity = identity::Module<Runtime>;
 type Balances = balances::Module<Runtime>;
@@ -82,11 +79,7 @@ impl CddAndFeeDetails<AccountId, Call> for CddHandler {
             // of an existing identity that has a valid CDD. The auth should be valid.
             Call::Identity(identity::Call::accept_master_key(rotation_auth_id, ..)) => {
                 sp_runtime::print("accept_master_key");
-                is_auth_valid(
-                    caller,
-                    rotation_auth_id,
-                    CallType::AcceptIdentityMaster,
-                )
+                is_auth_valid(caller, rotation_auth_id, CallType::AcceptIdentityMaster)
             }
             // Call made by an Account key to propose or approve a multisig transaction.
             // The multisig must have valid CDD and the caller must be a signer of the multisig.
@@ -249,9 +242,7 @@ fn is_auth_valid(
 }
 
 /// Returns signatory to charge fee if cdd is valid.
-fn check_cdd(
-    did: &IdentityId,
-) -> Result<Option<Signatory<AccountId>>, InvalidTransaction> {
+fn check_cdd(did: &IdentityId) -> Result<Option<Signatory<AccountId>>, InvalidTransaction> {
     if Identity::has_valid_cdd(*did) {
         Context::set_current_identity::<Identity>(Some(*did));
         return Ok(Some(Signatory::from(*did)));

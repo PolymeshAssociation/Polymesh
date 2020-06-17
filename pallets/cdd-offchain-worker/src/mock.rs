@@ -14,7 +14,6 @@
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
 use crate::*;
-
 use chrono::prelude::Utc;
 use codec::Encode;
 use frame_support::{
@@ -47,6 +46,7 @@ use sp_core::{
     H256,
 };
 use sp_runtime::curve::PiecewiseLinear;
+use sp_runtime::transaction_validity::{InvalidTransaction, TransactionValidity, ValidTransaction};
 use sp_runtime::{
     testing::{sr25519::Public, Header, TestXt, UintAuthorityId},
     traits::{
@@ -55,8 +55,6 @@ use sp_runtime::{
     },
     AnySignature, KeyTypeId, Perbill,
 };
-
-use sp_runtime::transaction_validity::{InvalidTransaction, TransactionValidity, ValidTransaction};
 use sp_staking::SessionIndex;
 use std::{
     cell::RefCell,

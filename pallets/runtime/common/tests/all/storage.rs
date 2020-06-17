@@ -110,7 +110,8 @@ impl_outer_event! {
 #[derive(Clone, Eq, PartialEq, Debug)]
 pub struct TestStorage;
 
-type AccountId = <AnySignature as Verify>::Signer;
+pub type AccountId = <AnySignature as Verify>::Signer;
+
 type Index = u64;
 type BlockNumber = u64;
 type Hash = H256;
@@ -577,7 +578,7 @@ pub fn account_from(id: u64) -> AccountId {
 }
 
 pub fn get_identity_id(acc: AccountKeyring) -> Option<IdentityId> {
-    let key = acc.public().0;
+    let key = acc.public();
     Identity::get_identity(&key)
 }
 

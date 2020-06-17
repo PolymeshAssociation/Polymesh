@@ -1,9 +1,8 @@
 use super::{
     ext_builder::PROTOCOL_OP_BASE_FEE,
-    storage::{make_account, make_account_without_cdd, TestStorage},
+    storage::{make_account, make_account_without_cdd, AccountId, TestStorage},
     ExtBuilder,
 };
-
 use codec::Encode;
 use frame_support::{assert_err, assert_ok, StorageDoubleMap};
 use pallet_balances as balances;
@@ -12,8 +11,8 @@ use pallet_multisig as multisig;
 use pallet_transaction_payment::CddAndFeeDetails;
 use polymesh_primitives::{Signatory, TransactionError};
 use polymesh_runtime_develop::{fee_details::CddHandler, runtime::Call};
+use sp_core::crypto::AccountId32;
 use sp_runtime::transaction_validity::InvalidTransaction;
-use std::convert::TryFrom;
 use test_client::AccountKeyring;
 
 type MultiSig = multisig::Module<TestStorage>;
@@ -30,13 +29,16 @@ fn cdd_checks() {
             let (alice_signed, alice_did) =
                 make_account_without_cdd(AccountKeyring::Alice.public()).unwrap();
             let alice_key_signatory = Signatory::Account(AccountKeyring::Alice.public());
+            let alice_account_signatory =
+                Signatory::Account(AccountId32::from(AccountKeyring::Alice.public().0));
             let alice_did_signatory = Signatory::from(alice_did);
             let musig_address = MultiSig::get_next_multisig_address(AccountKeyring::Alice.public());
 
             // charlie has valid cdd
             let (charlie_signed, charlie_did) =
                 make_account(AccountKeyring::Charlie.public()).unwrap();
-            let charlie_key_signatory = Signatory::Account(AccountKeyring::Charlie.public());
+            let charlie_account_signatory =
+                Signatory::Account(AccountId32::from(AccountKeyring::Charlie.public().0));
             let charlie_did_signatory = Signatory::from(charlie_did);
 
             assert_ok!(Balances::top_up_identity_balance(
@@ -67,7 +69,7 @@ fn cdd_checks() {
             assert_err!(
                 CddHandler::get_valid_payer(
                     &Call::MultiSig(multisig::Call::accept_multisig_signer_as_key(0)),
-                    &alice_key_signatory
+                    &alice_account_signatory
                 ),
                 InvalidTransaction::Custom(TransactionError::InvalidAuthorization as u8)
             );
@@ -82,16 +84,15 @@ fn cdd_checks() {
                 alice_signed.clone(),
                 musig_address.clone(),
             ));
-            let alice_auth_id = <identity::Authorizations<TestStorage>>::iter_prefix(
-                Signatory::from(alice_key_signatory),
-            )
-            .next()
-            .unwrap()
-            .auth_id;
+            let alice_auth_id =
+                <identity::Authorizations<TestStorage>>::iter_prefix(alice_key_signatory)
+                    .next()
+                    .unwrap()
+                    .auth_id;
             assert_err!(
                 CddHandler::get_valid_payer(
                     &Call::MultiSig(multisig::Call::accept_multisig_signer_as_key(alice_auth_id)),
-                    &alice_key_signatory
+                    &alice_account_signatory
                 ),
                 InvalidTransaction::Custom(TransactionError::CddRequired as u8)
             );
@@ -102,15 +103,14 @@ fn cdd_checks() {
                 MultiSig::get_next_multisig_address(AccountKeyring::Charlie.public());
             assert_ok!(MultiSig::create_multisig(
                 charlie_signed.clone(),
-                vec![alice_key_signatory],
+                vec![Signatory::Account(AccountKeyring::Alice.public())],
                 1,
             ));
-            let alice_auth_id = <identity::Authorizations<TestStorage>>::iter_prefix(
-                Signatory::from(alice_key_signatory),
-            )
-            .next()
-            .unwrap()
-            .auth_id;
+            let alice_auth_id =
+                <identity::Authorizations<TestStorage>>::iter_prefix(alice_key_signatory)
+                    .next()
+                    .unwrap()
+                    .auth_id;
 
             assert_ok!(MultiSig::make_multisig_signer(
                 charlie_signed.clone(),
@@ -120,7 +120,7 @@ fn cdd_checks() {
             assert_eq!(
                 CddHandler::get_valid_payer(
                     &Call::MultiSig(multisig::Call::accept_multisig_signer_as_key(alice_auth_id)),
-                    &alice_key_signatory
+                    &alice_account_signatory
                 ),
                 Ok(Some(charlie_did_signatory))
             );
@@ -129,16 +129,16 @@ fn cdd_checks() {
             assert_eq!(
                 CddHandler::get_valid_payer(
                     &Call::MultiSig(multisig::Call::change_sigs_required(1)),
-                    &charlie_key_signatory
+                    &charlie_account_signatory
                 ),
-                Ok(Some(charlie_key_signatory))
+                Ok(Some(charlie_account_signatory))
             );
 
             // tx to set did as fee payer should charge fee to did
             assert_eq!(
                 CddHandler::get_valid_payer(
                     &Call::Balances(balances::Call::change_charge_did_flag(true)),
-                    &charlie_key_signatory
+                    &charlie_account_signatory
                 ),
                 Ok(Some(charlie_did_signatory))
             );
