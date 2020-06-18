@@ -3,40 +3,42 @@ name = "polymesh-runtime-testnet-v1"
 version = "0.1.0"
 authors = ["Polymath Inc."]
 edition = "2018"
+build = "build.rs"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
 # Common
-polymesh-common-utilities = { package = "polymesh-common-utilities", path = "../../common", default-features = false }
-polymesh-runtime-common = {package = "polymesh-runtime-common", path = "../common", default-features = false}
-polymesh-primitives = { package = "polymesh-primitives", path = "../../../primitives", default-features = false }
+polymesh-common-utilities = { path = "../../common", default-features = false }
+polymesh-runtime-common = { path = "../common", default-features = false}
+polymesh-primitives = { path = "../../../primitives", default-features = false }
 
 # Our pallets
-pallet-protocol-fee = { package = "pallet-protocol-fee", path = "../../protocol-fee", default-features = false }
-pallet-group = { package = "pallet-group", path = "../../group", default-features = false }
-pallet-identity = { package = "pallet-identity", path = "../../identity", default-features = false  }
-pallet-balances = { package = "pallet-balances", path = "../../balances", default-features = false  }
-pallet-asset = { package = "pallet-asset", path = "../../asset", default-features = false }
-pallet-transaction-payment = { package = "pallet-transaction-payment", path = "../../transaction-payment", default-features = false  }
-pallet-staking = { package = "pallet-staking", path = "../../staking", default-features = false  }
+pallet-protocol-fee = { path = "../../protocol-fee", default-features = false }
+pallet-group = { path = "../../group", default-features = false }
+pallet-identity = { path = "../../identity", default-features = false  }
+pallet-balances = { path = "../../balances", default-features = false  }
+pallet-asset = { path = "../../asset", default-features = false }
+pallet-transaction-payment = { path = "../../transaction-payment", default-features = false  }
+pallet-staking = { path = "../../staking", default-features = false  }
 pallet-staking-reward-curve = { version = "2.0.0",  path = "../../staking/reward-curve", default-features = false  }
-pallet-pips = { package = "pallet-pips", path = "../../pips", default-features = false  }
-pallet-committee = { package = "pallet-committee", path = "../../committee", default-features = false }
-pallet-multisig = { package = "pallet-multisig", path = "../../multisig", default-features = false }
-pallet-treasury = { package = "pallet-treasury", path = "../../treasury", default-features = false }
-pallet-im-online = { package = "pallet-im-online",  path = "../../im-online", default-features = false }
+pallet-pips = { path = "../../pips", default-features = false  }
+pallet-committee = { path = "../../committee", default-features = false }
+pallet-multisig = { path = "../../multisig", default-features = false }
+pallet-treasury = { path = "../../treasury", default-features = false }
+pallet-im-online = { path = "../../im-online", default-features = false }
 pallet-group-rpc-runtime-api = { path = "../../group/rpc/runtime-api", default-features = false }
 pallet-compliance-manager = { package = "pallet-compliance-manager",  path = "../../compliance-manager", default-features = false }
-pallet-statistics = { package = "pallet-statistics",  path = "../../statistics", default-features = false }
+pallet-statistics = { path = "../../statistics", default-features = false }
+pallet-confidential = { path = "../../confidential", default-features = false }
 
 # RPC
-pallet-identity-rpc-runtime-api = { package = "pallet-identity-rpc-runtime-api", path = "../../identity/rpc/runtime-api", default-features = false }
-pallet-pips-rpc-runtime-api = { package = "pallet-pips-rpc-runtime-api", path = "../../pips/rpc/runtime-api", default-features = false }
-pallet-staking-rpc-runtime-api = { package = "pallet-staking-rpc-runtime-api", path = "../../staking/rpc/runtime-api", default-features = false }
-pallet-transaction-payment-rpc-runtime-api = { package = "pallet-transaction-payment-rpc-runtime-api", path = "../../transaction-payment/rpc/runtime-api", default-features = false }
-pallet-protocol-fee-rpc-runtime-api = { package = "pallet-protocol-fee-rpc-runtime-api", path = "../../protocol-fee/rpc/runtime-api", default-features = false }
-pallet-asset-rpc-runtime-api = { package = "pallet-asset-rpc-runtime-api", path = "../../asset/rpc/runtime-api", default-features = false  }
+pallet-identity-rpc-runtime-api = { path = "../../identity/rpc/runtime-api", default-features = false }
+pallet-pips-rpc-runtime-api = { path = "../../pips/rpc/runtime-api", default-features = false }
+pallet-staking-rpc-runtime-api = { path = "../../staking/rpc/runtime-api", default-features = false }
+pallet-transaction-payment-rpc-runtime-api = { path = "../../transaction-payment/rpc/runtime-api", default-features = false }
+pallet-protocol-fee-rpc-runtime-api = {path = "../../protocol-fee/rpc/runtime-api", default-features = false }
+pallet-asset-rpc-runtime-api = { path = "../../asset/rpc/runtime-api", default-features = false  }
 
 # Others
 chrono = { version = "0.4.11", default-features = false }
@@ -54,7 +56,7 @@ yaml-rust = { version = "0.4.3", default-features = false }
 codec = { package = "parity-scale-codec", version = "1.2.0", default-features = false, features = ["derive"] }
 sp-core = { git = "https://github.com/paritytech/substrate", default-features = false, rev = "a439a7aa5a9a3df2a42d9b25ea04288d3a0866e8" }
 sp-std = { package = "sp-std", git = "https://github.com/paritytech/substrate", default-features = false, rev = "a439a7aa5a9a3df2a42d9b25ea04288d3a0866e8" }
-sp-io = { git = "https://github.com/paritytech/substrate", default-features = false, rev = "a439a7aa5a9a3df2a42d9b25ea04288d3a0866e8" }
+sp-io = { git = "https://github.com/paritytech/substrate", default-features = false, rev = "a439a7aa5a9a3df2a42d9b25ea04288d3a0866e8", optional = true }
 sp-serializer = { git = "https://github.com/paritytech/substrate", default-features = false, rev = "a439a7aa5a9a3df2a42d9b25ea04288d3a0866e8" }
 sp-runtime = { git = "https://github.com/paritytech/substrate", default-features = false, rev = "a439a7aa5a9a3df2a42d9b25ea04288d3a0866e8" }
 sp-version = { package = "sp-version", git = "https://github.com/paritytech/substrate", default-features = false, rev = "a439a7aa5a9a3df2a42d9b25ea04288d3a0866e8" }
@@ -101,12 +103,17 @@ wasm-builder-runner = { package = "substrate-wasm-builder-runner", git = "https:
 [features]
 equalize = []
 default = ["std", "equalize"]
-no_std = []
+no_std = [ 
+	"pallet-confidential/no_std",
+	"sp-io/disable_panic_handler", 
+	"sp-io/disable_oom", 
+	"sp-io/disable_allocator", 
+]
+
 only-staking = []
 std = [
 	"rustc-hex/std",
 	"serde_derive",
-	"rand/std",
 	"serde/std",
 	"codec/std",
 	"sp-std/std",
@@ -161,5 +168,6 @@ std = [
 	"pallet-compliance-manager/std",
 	"pallet-statistics/std",
 	"pallet-asset/runtime-benchmarks",
+	"pallet-confidential/std",
 	"ink_primitives/std"
 ]
