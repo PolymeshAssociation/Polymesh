@@ -114,7 +114,7 @@ use core::{
 use sp_core::sr25519::{Public, Signature};
 use sp_io::hashing::blake2_256;
 use sp_runtime::{
-    traits::{ CheckedAdd, Dispatchable, Hash, SaturatedConversion, Verify, Zero, },
+    traits::{CheckedAdd, Dispatchable, Hash, SaturatedConversion, Verify, Zero},
     AnySignature,
 };
 use sp_std::{convert::TryFrom, mem::swap, prelude::*, vec};

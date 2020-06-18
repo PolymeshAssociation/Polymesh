@@ -20,8 +20,8 @@ use polymesh_primitives::{AccountKey, IdentityId, Ticker};
 use polymesh_primitives_derive::{SliceU8StrongTyped, VecU8StrongTyped};
 
 use cryptography::{
-    BRangeProof, Scalar, CompressedRistretto,
-    asset_proofs::range_proof::{prove_within_range, verify_within_range }
+    asset_proofs::range_proof::{prove_within_range, verify_within_range},
+    BRangeProof, CompressedRistretto, Scalar,
 };
 use pallet_identity as identity;
 
@@ -37,7 +37,7 @@ use frame_system::{self as system, ensure_signed};
 use sp_std::prelude::*;
 
 #[derive(Encode, Decode, Clone, Debug, Default, PartialEq, Eq, SliceU8StrongTyped)]
-pub struct RangeProofInitialMessageWrapper(pub [u8;32]);
+pub struct RangeProofInitialMessageWrapper(pub [u8; 32]);
 
 #[derive(Encode, Decode, Clone, Debug, PartialEq, Eq, VecU8StrongTyped)]
 pub struct RangeProofFinalResponseWrapper(pub Vec<u8>);
@@ -158,9 +158,9 @@ impl<T: Trait> Module<T> {
 
         let initial_message = CompressedRistretto::from_slice(trp.initial_message.as_slice());
         let final_response = BRangeProof::from_bytes(trp.final_response.as_slice())
-                .map_err(|_| Error::<T>::InvalidRangeProof)?;
+            .map_err(|_| Error::<T>::InvalidRangeProof)?;
 
-       verify_within_range(initial_message, final_response, trp.max_two_exp, &mut rng)
-           .map_err(|_| Error::<T>::InvalidRangeProof.into())
+        verify_within_range(initial_message, final_response, trp.max_two_exp, &mut rng)
+            .map_err(|_| Error::<T>::InvalidRangeProof.into())
     }
 }

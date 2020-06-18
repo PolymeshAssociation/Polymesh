@@ -49,6 +49,7 @@ members = [
     "pallets/compliance-manager",
     "pallets/statistics",
     "pallets/confidential",
+    "utils/wasm-builder",
 ]
 
 [dependencies]
