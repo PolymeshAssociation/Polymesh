@@ -235,7 +235,7 @@ mod tests {
 
     #[test]
     fn build_test() {
-        let key = Public::try_from("ABCDABCD".as_bytes()).unwrap();
+        let key = Public::from_raw([b'A'; 32]);
         let rk1 = SigningItem::new(Signatory::Account(key.clone()), vec![]);
         let rk2 = SigningItem::from_account_id(key.clone());
         assert_eq!(rk1, rk2);
@@ -262,7 +262,7 @@ mod tests {
 
     #[test]
     fn full_permission_test() {
-        let key = Public::try_from("ABCDABCD".as_bytes()).unwrap();
+        let key = Public::from_raw([b'A'; 32]);
         let full_key = SigningItem::new(Signatory::Account(key.clone()), vec![Permission::Full]);
         let not_full_key = SigningItem::new(Signatory::Account(key), vec![Permission::Operator]);
         assert_eq!(full_key.has_permission(Permission::Operator), true);
@@ -274,8 +274,7 @@ mod tests {
 
     #[test]
     fn signer_build_and_eq_tests() {
-        let k = "ABCDABCD".as_bytes().to_vec();
-        let key = Public::try_from(k.as_slice()).unwrap();
+        let key = Public::from_raw([b'A'; 32]);
         let iden = IdentityId::try_from(
             "did:poly:f1d273950ddaf693db228084d63ef18282e00f91997ae9df4f173f09e86d0976",
         )
