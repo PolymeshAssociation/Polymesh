@@ -558,6 +558,7 @@ fn remove_signing_keys_test_with_externalities() {
     let alice_did = register_keyring_account(AccountKeyring::Alice).unwrap();
     let alice = Origin::signed(AccountKeyring::Alice.public());
     let charlie = Origin::signed(AccountKeyring::Charlie.public());
+    let _charlie_did = register_keyring_account(AccountKeyring::Charlie).unwrap();
     let dave_key = AccountKeyring::Dave.public();
 
     assert_ok!(Balances::top_up_identity_balance(
