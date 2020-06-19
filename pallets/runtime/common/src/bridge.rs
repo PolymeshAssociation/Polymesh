@@ -792,8 +792,6 @@ impl<T: Trait> Module<T> {
                 Self::controller(),
                 sender_signer.clone(),
                 boxed_proposal,
-                None,
-                true,
             )
         };
         let stati = Self::apply_handler(propose, bridge_txs);
