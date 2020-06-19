@@ -798,15 +798,20 @@ impl<T: Trait> Module<T> {
         bridge_txs: Vec<BridgeTx<T::AccountId, T::Balance>>,
     ) -> DispatchResult {
         let sender_signer = Signatory::from(AccountKey::try_from(sender.encode())?);
-        let proposal = <T as Trait>::Proposal::from(Call::<T>::batch_handle_bridge_tx(bridge_txs));
-        let boxed_proposal = Box::new(proposal.into());
-        <multisig::Module<T>>::create_or_approve_proposal(
-            Self::controller(),
-            sender_signer,
-            boxed_proposal,
-            None,
-            true,
-        )
+        let propose = |tx| {
+            let proposal = <T as Trait>::Proposal::from(Call::<T>::handle_bridge_tx(tx));
+            let boxed_proposal = Box::new(proposal.into());
+            <multisig::Module<T>>::create_or_approve_proposal(
+                Self::controller(),
+                sender_signer.clone(),
+                boxed_proposal,
+                None,
+                true,
+            )
+        };
+        let stati = Self::apply_handler(propose, bridge_txs);
+        Self::deposit_event(RawEvent::TxsHandled(stati));
+        Ok(())
     }
 
     /// Handles an approved bridge transaction proposal.
