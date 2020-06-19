@@ -720,7 +720,12 @@ impl<T: Trait> Module<T> {
         target: Signatory<T::AccountId>,
         authorizer: T::AccountId,
     ) {
-        <Identity<T>>::add_auth(from, target.clone(), AuthorizationData::AddMultiSigSigner, None);
+        <Identity<T>>::add_auth(
+            from,
+            target.clone(),
+            AuthorizationData::AddMultiSigSigner,
+            None,
+        );
         Self::deposit_event(RawEvent::MultiSigSignerAuthorized(
             Context::current_identity::<Identity<T>>().unwrap_or_default(),
             authorizer,
@@ -774,7 +779,10 @@ impl<T: Trait> Module<T> {
             );
         }
         <MultiSigSignsRequired<T>>::insert(&account_id, &sigs_required);
-        <identity::KeyToIdentityIds<T>>::insert(account_id.clone(), LinkedKeyInfo::Unique(sender_did));
+        <identity::KeyToIdentityIds<T>>::insert(
+            account_id.clone(),
+            LinkedKeyInfo::Unique(sender_did),
+        );
         Ok(account_id)
     }
 

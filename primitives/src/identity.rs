@@ -66,13 +66,7 @@ where
         self.signing_items.retain(|curr_si| {
             signers_to_remove
                 .iter()
-                .find(|&signer| {
-                    if let Signatory::Identity(id) = signer {
-                        curr_si.signer == *id
-                    } else {
-                        false
-                    }
-                })
+                .find(|&signer| curr_si.signer == *signer)
                 .is_none()
         });
 

@@ -75,8 +75,8 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use frame_support::{
-    codec::Encode, decl_error, decl_module, decl_storage, dispatch::DispatchResult, ensure,
-    traits::ChangeMembers, weights::SimpleDispatchInfo, StorageValue,
+    decl_error, decl_module, decl_storage, dispatch::DispatchResult, ensure, traits::ChangeMembers,
+    weights::SimpleDispatchInfo, StorageValue,
 };
 use frame_system::{self as system, ensure_signed};
 use pallet_identity as identity;
