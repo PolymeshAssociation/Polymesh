@@ -34,12 +34,12 @@ pub trait MultiSigSubTrait<AccountId> {
     /// Fetches signers of a multisig
     ///
     /// # Arguments
-    /// * `multisig` - multisig AccountKey object
+    /// * `multisig` - multisig AccountId
     fn get_key_signers(multisig: &AccountId) -> Vec<AccountId>;
 
     /// Checks if the account is a multisig
     ///
     /// # Arguments
-    /// * `account` - AccountKey object to check
+    /// * `account` - AccountId to check
     fn is_multisig(account: &AccountId) -> bool;
 }
