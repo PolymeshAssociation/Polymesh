@@ -715,7 +715,7 @@ fn v1_testnet_genesis(
                 ),
             ],
             timelock: V1Time::MINUTES * 15,
-            bridge_limit: (25_000_000_000, V1Time::DAYS * 1),
+            bridge_limit: (30_000_000_000, V1Time::DAYS * 1),
         }),
         pallet_indices: Some(V1Config::IndicesConfig { indices: vec![] }),
         pallet_sudo: Some(V1Config::SudoConfig { key: root_key }),
