@@ -198,8 +198,8 @@ use frame_support::{
 use frame_system::{self as system, ensure_root, ensure_signed};
 use sp_runtime::{
     traits::{
-        Bounded, CheckedAdd, CheckedSub, Hash, MaybeSerializeDeserialize, Saturating, StaticLookup,
-        Zero,
+        AccountIdConversion, Bounded, CheckedAdd, CheckedSub, MaybeSerializeDeserialize,
+        Saturating, StaticLookup, Zero,
     },
     DispatchError, DispatchResult, RuntimeDebug,
 };
@@ -253,7 +253,16 @@ decl_storage! {
     trait Store for Module<T: Trait> as Balances {
         /// The total units issued in the system.
         pub TotalIssuance get(fn total_issuance) build(|config: &GenesisConfig<T>| {
-            config.balances.iter().fold(Zero::zero(), |acc: T::Balance, &(_, n)| acc + n)
+            let f = |u: T::Balance, &v| u + v;
+            let account_total = config.balances
+                .iter()
+                .map(|(_, v)| v)
+                .fold(Zero::zero(), f);
+            let identity_total = config.identity_balances
+                .iter()
+                .map(|(_, v)| v)
+                .fold(Zero::zero(), f);
+            account_total.saturating_add(identity_total)
         }): T::Balance;
 
         /// The balance of an account.
@@ -275,20 +284,18 @@ decl_storage! {
         // Polymesh-Note : Change to facilitate the DID charging
         /// Signing key => Charge Fee to did?. Default is false i.e. the fee will be charged from user balance
         pub ChargeDid get(charge_did): map hasher(twox_64_concat) AccountKey => bool;
-
-        // Polymesh-Note : Change to facilitate the BRR functionality
-        /// AccountId of the block rewards reserve
-        pub BlockRewardsReserve get(block_rewards_reserve) build(|_| {
-            let h: T::Hash = T::Hashing::hash(&(b"BLOCK_REWARDS_RESERVE").encode());
-            T::AccountId::decode(&mut &h.encode()[..]).unwrap_or_default()
-        }): T::AccountId;
     }
     add_extra_genesis {
+        /// Account balances at genesis.
         config(balances): Vec<(T::AccountId, T::Balance)>;
-        // ^^ begin, length, amount liquid at genesis
+        /// Identity balances at genesis.
+        config(identity_balances): Vec<(IdentityId, T::Balance)>;
         build(|config: &GenesisConfig<T>| {
-            for &(ref who, free) in config.balances.iter() {
-                T::AccountStore::insert(who, AccountData { free, .. Default::default() });
+            for (who, free) in &config.balances {
+                T::AccountStore::insert(who, AccountData { free: *free, .. Default::default() });
+            }
+            for (id, v) in &config.identity_balances {
+                <IdentityBalance<T>>::mutate(id, |u| *u = u.saturating_add(*v));
             }
         });
     }
@@ -542,6 +549,12 @@ impl<T: Trait> Module<T> {
         Self::account(who.borrow()).reserved
     }
 
+    pub fn block_rewards_reserve() -> T::AccountId {
+        SystematicIssuers::BlockRewardReserve
+            .as_module_id()
+            .into_account()
+    }
+
     /// Get both the free and reserved balances of an account.
     fn account(who: &T::AccountId) -> AccountData<T::Balance> {
         T::AccountStore::get(&who)
@@ -705,26 +718,15 @@ impl<T: Trait> Module<T> {
         let dest_key = dest.encode().try_into()?;
         let dest_id = T::Identity::get_identity(&dest_key);
 
-        if let Some(memo) = memo {
-            // Emit TransferWithMemo event.
-            Self::deposit_event(RawEvent::TransferWithMemo(
-                transactor_id,
-                transactor.clone(),
-                dest_id,
-                dest.clone(),
-                value,
-                memo,
-            ));
-        } else {
-            // Emit transfer event.
-            Self::deposit_event(RawEvent::Transfer(
-                transactor_id,
-                transactor.clone(),
-                dest_id,
-                dest.clone(),
-                value,
-            ));
-        }
+        Self::deposit_event(RawEvent::Transfer(
+            transactor_id,
+            transactor.clone(),
+            dest_id,
+            dest.clone(),
+            value,
+            memo,
+        ));
+
         Ok(())
     }
 }
@@ -750,7 +752,7 @@ impl<T: Trait> BlockRewardsReserveCurrency<T::Balance, NegativeImbalance<T>> for
         if amount.is_zero() {
             return;
         }
-        let brr = <BlockRewardsReserve<T>>::get();
+        let brr = Self::block_rewards_reserve();
         let _ = Self::try_mutate_account(&brr, |account| -> DispatchResult {
             if account.free > Zero::zero() {
                 let old_brr_free_balance = account.free;
@@ -775,7 +777,7 @@ impl<T: Trait> BlockRewardsReserveCurrency<T::Balance, NegativeImbalance<T>> for
         if amount.is_zero() {
             return NegativeImbalance::zero();
         }
-        let brr = <BlockRewardsReserve<T>>::get();
+        let brr = Self::block_rewards_reserve();
         Self::try_mutate_account(&brr, |account| -> Result<NegativeImbalance<T>, ()> {
             let amount_to_mint = if account.free > Zero::zero() {
                 let old_brr_free_balance = account.free;

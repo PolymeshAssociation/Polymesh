@@ -608,35 +608,6 @@ type NegativeImbalanceOf<T> =
     <<T as Trait>::Currency as Currency<<T as frame_system::Trait>::AccountId>>::NegativeImbalance;
 type MomentOf<T> = <<T as Trait>::Time as Time>::Moment;
 
-#[derive(Encode, Decode, Clone, PartialOrd, Ord, Eq, PartialEq, Debug)]
-pub enum Compliance {
-    /// Compliance requirements not met.
-    Pending,
-    /// CDD compliant. Eligible to participate in validation.
-    Active,
-}
-
-impl Default for Compliance {
-    fn default() -> Self {
-        Compliance::Pending
-    }
-}
-
-/// Represents a requirement that must be met to be eligible to become a validator.
-#[derive(PartialEq, Eq, PartialOrd, Ord, Clone, Encode, Decode, RuntimeDebug)]
-pub struct PermissionedValidator {
-    /// Indicates the status of CDD compliance.
-    pub compliance: Compliance,
-}
-
-impl Default for PermissionedValidator {
-    fn default() -> Self {
-        Self {
-            compliance: Compliance::default(),
-        }
-    }
-}
-
 /// Means for interacting with a specialized version of the `session` trait.
 ///
 /// This is needed because `Staking` sets the `ValidatorIdOf` of the `pallet_session::Trait`.
@@ -928,7 +899,7 @@ decl_storage! {
 
         /// The map from (wannabe) validators to the status of compliance.
         pub PermissionedValidators get(permissioned_validators):
-            linked_map hasher(twox_64_concat) T::AccountId => Option<PermissionedValidator>;
+            linked_map hasher(twox_64_concat) T::AccountId => bool;
 
         /// Commision rate to be used by all validators.
         pub ValidatorCommission get(fn validator_commission) config(): Commission;
@@ -1003,6 +974,12 @@ decl_event!(
         GlobalCommissionUpdated(Option<IdentityId>, Perbill, Perbill),
         /// Min bond threshold was updated (new value).
         MinimumBondThresholdUpdated(Option<IdentityId>, Balance),
+        /// User has bonded funds for staking
+        Bonded(IdentityId, AccountId, Balance),
+        /// User has unbonded their funds
+        Unbonded(IdentityId, AccountId, Balance),
+        /// User has updated their nominations
+        Nominated(IdentityId, AccountId, Vec<AccountId>),
     }
 );
 
@@ -1120,12 +1097,14 @@ decl_module! {
             let stash_balance = <T as Trait>::Currency::free_balance(&stash);
             let value = value.min(stash_balance);
             let item = StakingLedger {
-                stash,
+                stash: stash.clone(),
                 total: value,
                 active: value,
                 unlocking: vec![],
                 last_reward: Self::current_era(),
             };
+            let did = Context::current_identity::<T::Identity>().unwrap_or_default();
+            Self::deposit_event(RawEvent::Bonded(did, stash, value));
             Self::update_ledger(&controller, &item);
         }
 
@@ -1160,6 +1139,8 @@ decl_module! {
                 let extra = extra.min(max_additional);
                 ledger.total += extra;
                 ledger.active += extra;
+                let did = Context::current_identity::<T::Identity>().unwrap_or_default();
+                Self::deposit_event(RawEvent::Bonded(did, stash, extra));
                 Self::update_ledger(&controller, &ledger);
             }
         }
@@ -1312,7 +1293,7 @@ decl_module! {
                     .collect::<result::Result<Vec<T::AccountId>, _>>()?;
 
                     let nominations = Nominations {
-                        targets,
+                        targets: targets.clone(),
                         // initial nominations are considered submitted at era 0. See `Nominations` doc
                         submitted_in: Self::current_era().unwrap_or(0),
                         suppressed: false,
@@ -1320,6 +1301,7 @@ decl_module! {
 
                     <Validators<T>>::remove(stash);
                     <Nominators<T>>::insert(stash, &nominations);
+                    Self::deposit_event(RawEvent::Nominated(nominate_identity, stash.clone(), targets));
                 }
             }
         }
@@ -1410,12 +1392,9 @@ decl_module! {
             T::RequiredAddOrigin::try_origin(origin)
                 .map_err(|_| Error::<T>::NotAuthorised)?;
 
-            ensure!(!<PermissionedValidators<T>>::contains_key(&validator), Error::<T>::AlreadyExists);
-
-            <PermissionedValidators<T>>::insert(&validator, PermissionedValidator {
-                compliance: Compliance::Pending
-            });
-
+            ensure!(!Self::permissioned_validators(&validator), Error::<T>::AlreadyExists);
+            // Change validator status to be Permissioned
+            <PermissionedValidators<T>>::insert(&validator, true);
             let validator_key = validator.encode().try_into()?;
             let validator_id = <identity::Module<T>>::get_identity(&validator_key);
             Self::deposit_event(RawEvent::PermissionedValidatorAdded(validator_id, validator));
@@ -1434,9 +1413,9 @@ decl_module! {
                 .map_err(|_| Error::<T>::NotAuthorised)?;
             let caller = ensure_signed(origin)?.encode().try_into()?;
             let caller_id = Context::current_identity_or::<T::Identity>(&caller).ok();
-            ensure!(<PermissionedValidators<T>>::contains_key(&validator), Error::<T>::NotExists);
-
-            <PermissionedValidators<T>>::remove(&validator);
+            ensure!(Self::permissioned_validators(&validator), Error::<T>::NotExists);
+            // Change validator status to be Non-Permissioned
+            <PermissionedValidators<T>>::insert(&validator, false);
 
             Self::deposit_event(RawEvent::PermissionedValidatorRemoved(caller_id, validator));
         }
@@ -1705,8 +1684,10 @@ decl_module! {
                 ledger.unlocking.len() > 0,
                 Error::<T>::NoUnlockChunk,
             );
-
+            let initial_bonded = ledger.active;
             let ledger = ledger.rebond(value);
+            let did = Context::current_identity::<T::Identity>().unwrap_or_default();
+            Self::deposit_event(RawEvent::Bonded(did, ledger.stash.clone(), ledger.active - initial_bonded));
             Self::update_ledger(&controller, &ledger);
         }
 
@@ -2152,12 +2133,12 @@ impl<T: Trait> Module<T> {
         let mut all_nominators: Vec<(T::AccountId, Vec<T::AccountId>)> = Vec::new();
         let mut all_validators_and_prefs = BTreeMap::new();
         let mut all_validators = Vec::new();
-        Self::refresh_compliance_statuses();
 
-        // Select only valid validators who has bond minimum balance and has the cdd compliant
+        // Select only valid validators who has bond minimum balance, has the cdd compliant and should be a part of permissioned validator pool
         for (validator, preference) in <Validators<T>>::enumerate() {
             if Self::is_active_balance_above_min_bond(&validator)
-                && Self::is_validator_cdd_compliant(&validator)
+                && Self::is_validator_or_nominator_compliant(&validator)
+                && Self::permissioned_validators(&validator)
             {
                 let self_vote = (validator.clone(), vec![validator.clone()]);
                 all_nominators.push(self_vote);
@@ -2342,35 +2323,6 @@ impl<T: Trait> Module<T> {
         false
     }
 
-    /// Does the given account id have compliance status `Active`
-    pub fn is_validator_cdd_compliant(who: &T::AccountId) -> bool {
-        if let Some(validator) = Self::permissioned_validators(who) {
-            validator.compliance == Compliance::Active
-        } else {
-            false
-        }
-    }
-
-    /// Method that checks CDD status of each validator and persists
-    /// any changes to compliance status.
-    pub fn refresh_compliance_statuses() {
-        let accounts = <PermissionedValidators<T>>::enumerate()
-            .map(|(who, _)| who)
-            .collect::<Vec<T::AccountId>>();
-
-        for account in accounts {
-            <PermissionedValidators<T>>::mutate(account.clone(), |v| {
-                if let Some(validator) = v {
-                    validator.compliance = if Self::is_validator_or_nominator_compliant(&account) {
-                        Compliance::Active
-                    } else {
-                        Compliance::Pending
-                    };
-                }
-            });
-        }
-    }
-
     /// Is the stash account one of the permissioned validators?
     pub fn is_validator_or_nominator_compliant(stash: &T::AccountId) -> bool {
         if let Some(account_key) = AccountKey::try_from(stash.encode()).ok() {
@@ -2410,6 +2362,8 @@ impl<T: Trait> Module<T> {
             // Note: in case there is no current era it is fine to bond one era more.
             let era = Self::current_era().unwrap_or(0) + T::BondingDuration::get();
             ledger.unlocking.push(UnlockChunk { value, era });
+            let did = Context::current_identity::<T::Identity>().unwrap_or_default();
+            Self::deposit_event(RawEvent::Unbonded(did, ledger.stash.clone(), value));
             Self::update_ledger(&controller, &ledger);
         }
     }

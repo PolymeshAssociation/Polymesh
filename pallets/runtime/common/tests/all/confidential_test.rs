@@ -53,13 +53,11 @@ fn range_proof_we() {
 
     // 2. X add a range proof
     let secret_value = 42;
-    let max_two_exp = 32;
     assert_ok!(Confidential::add_range_proof(
         Origin::signed(prover),
         alice_id,
         ticker.clone(),
         secret_value,
-        max_two_exp
     ));
 
     assert_ok!(Confidential::add_verify_range_proof(

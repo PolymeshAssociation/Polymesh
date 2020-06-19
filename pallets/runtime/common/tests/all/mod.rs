@@ -25,6 +25,7 @@ mod protocol_fee;
 mod simple_token_test;
 mod statistics_test;
 mod treasury_test;
+mod utility_test;
 mod voting_test;
 
 mod confidential_test;

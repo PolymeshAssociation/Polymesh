@@ -13,13 +13,16 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
-use crate::identity_id::IdentityId;
-use crate::signing_item::Signatory;
-use crate::Ticker;
+use crate::{
+    identity_id::IdentityId,
+    signing_item::{Permission, Signatory},
+    Ticker,
+};
 use codec::{Decode, Encode};
 use frame_support::dispatch::DispatchError;
+use sp_std::prelude::*;
 
-/// Authorization data for two step prcoesses.
+/// Authorization data for two step processes.
 #[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, PartialOrd, Ord)]
 pub enum AuthorizationData {
     /// CDD provider's attestation to change master key
@@ -33,7 +36,7 @@ pub enum AuthorizationData {
     /// Authorization to transfer a token's ownership
     TransferAssetOwnership(Ticker),
     /// Authorization to join an Identity
-    JoinIdentity(IdentityId),
+    JoinIdentity(JoinIdentityData),
     /// Any other authorization
     Custom(Ticker),
     /// No authorization data
@@ -84,6 +87,26 @@ pub struct Authorization<U> {
 
     /// Authorization id of this authorization
     pub auth_id: u64,
+}
+
+/// Authorization Identity data
+#[derive(Encode, Decode, Default, Clone, PartialEq, Eq, Debug, PartialOrd, Ord)]
+pub struct JoinIdentityData {
+    /// Target DID under which signing_item need to be added
+    pub target_did: IdentityId,
+
+    /// Signing Item
+    pub permissions: Vec<Permission>,
+}
+
+impl JoinIdentityData {
+    /// Use to create the new Self object by providing target_did and permission
+    pub fn new(target_did: IdentityId, permissions: Vec<Permission>) -> Self {
+        Self {
+            target_did: target_did,
+            permissions: permissions,
+        }
+    }
 }
 
 /// Data required to fetch and authorization

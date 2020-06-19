@@ -18,11 +18,9 @@
 
 use codec::Codec;
 use frame_support::traits::Currency;
+use pallet_compliance_manager::AssetTransferRulesResult;
 use polymesh_primitives::{IdentityId, Ticker};
 use sp_std::vec::Vec;
-
-pub type Error = Vec<u8>;
-pub type CanTransferResult = Result<u8, Error>;
 
 pub trait Trait: frame_system::Trait {
     type Currency: Currency<Self::AccountId>;
@@ -30,8 +28,8 @@ pub trait Trait: frame_system::Trait {
 
 sp_api::decl_runtime_apis! {
 
-    /// The API to interact with Asset.
-    pub trait AssetApi<AccountId, Balance>
+    /// The API to interact with Compliance manager.
+    pub trait ComplianceManagerApi<AccountId, Balance>
     where
         AccountId: Codec,
         Balance: Codec
@@ -48,21 +46,19 @@ sp_api::decl_runtime_apis! {
          ///    -H "Content-Type: application/json"
          ///    -d {
          ///        "id":1, "jsonrpc":"2.0",
-         ///        "method": "asset_canTransfer",
+         ///        "method": "compliance_canTransfer",
          ///        "params":[
-         ///            "5CoRaw9Ex4DUjGcnPbPBnc2nez5ZeTmM5WL3ZDVLZzM6eEgE",
          ///            "0x010000000000000000000000",
          ///            "0x2a00000000000000000000000000000000000000000000000000000000000000",
-         ///            "0x3905000000000000000000000000000000000000000000000000000000000000",
-         ///            500]}
+         ///            "0x3905000000000000000000000000000000000000000000000000000000000000"
+         ///            ]
+         ///       }
          ///    http://localhost:9933 | python3 -m json.tool
          /// ```
         fn can_transfer(
-            sender: AccountId,
             ticker: Ticker,
             from_did: Option<IdentityId>,
             to_did: Option<IdentityId>,
-            value: Balance
-        ) -> CanTransferResult;
+        ) -> AssetTransferRulesResult;
     }
 }

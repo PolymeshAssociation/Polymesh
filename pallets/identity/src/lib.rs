@@ -61,10 +61,10 @@
 //! - `join_identity_as_key` - Join an identity as a signing key.
 //! - `join_identity_as_identity` - Join an identity as a signing identity.
 //! - `add_claim` - Adds a new claim record or edits an existing one.
-//! - `add_claims_batch` - Adds a new batch of claim records or edits an existing one.
+//! - `batch_add_claim` - Adds a new batch of claim records or edits an existing one.
 //! - `forwarded_call` - Creates a call on behalf of another DID.
 //! - `revoke_claim` - Marks the specified claim as revoked.
-//! - `revoke_claims_batch` - Revokes multiple claims in a batch.
+//! - `batch_revoke_claim` - Revokes multiple claims in a batch.
 //! - `set_permission_to_signer` - Sets permissions for an specific `target_key` key.
 //! - `freeze_signing_keys` - Disables all signing keys at `did` identity.
 //! - `unfreeze_signing_keys` - Re-enables all signing keys of the caller's identity.
@@ -75,7 +75,7 @@
 //! - `batch_remove_authorization` - Removes an array of authorizations.
 //! - `accept_authorization` - Accepts an authorization.
 //! - `batch_accept_authorization` - Accepts an array of authorizations.
-//! - `add_signing_items_with_authorization` - Adds signing keys to target identity `id`.
+//! - `batch_add_signing_item_with_authorization` - Adds signing keys to target identity `id`.
 //! - `revoke_offchain_authorization` - Revokes the `auth` off-chain authorization of `signer`.
 
 #![cfg_attr(not(feature = "std"), no_std)]
@@ -84,7 +84,7 @@
 #[cfg(feature = "runtime-benchmarks")]
 pub mod benchmarking;
 
-use pallet_identity_rpc_runtime_api::DidRecords as RpcDidRecords;
+use pallet_identity_rpc_runtime_api::{DidRecords as RpcDidRecords, DidStatus, LinkType};
 use pallet_transaction_payment::{CddAndFeeDetails, ChargeTxFee};
 use polymesh_common_utilities::{
     constants::did::{SECURITY_TOKEN, USER},
@@ -96,14 +96,14 @@ use polymesh_common_utilities::{
             AuthorizationNonce, IdentityTrait, LinkedKeyInfo, RawEvent, SigningItemWithAuth,
             TargetIdAuthorization, Trait,
         },
-        multisig::AddSignerMultiSig,
+        multisig::MultiSigSubTrait,
     },
-    Context, SystematicIssuers,
+    Context, SystematicIssuers, SYSTEMATIC_ISSUERS,
 };
 use polymesh_primitives::{
     AccountKey, AuthIdentifier, Authorization, AuthorizationData, AuthorizationError, Claim,
-    ClaimType, Identity as DidRecord, IdentityClaim, IdentityId, Link, LinkData, Permission, Scope,
-    Signatory, SignatoryType, SigningItem, Ticker,
+    ClaimType, Identity as DidRecord, IdentityClaim, IdentityId, JoinIdentityData, Link, LinkData,
+    Permission, Scope, Signatory, SignatoryType, SigningItem, Ticker,
 };
 
 use codec::{Decode, Encode};
@@ -114,16 +114,18 @@ use core::{
 use sp_core::sr25519::{Public, Signature};
 use sp_io::hashing::blake2_256;
 use sp_runtime::{
-    traits::{CheckedAdd, Dispatchable, Hash, SaturatedConversion, Verify, Zero},
+    traits::{
+        AccountIdConversion, CheckedAdd, Dispatchable, Hash, SaturatedConversion, Verify, Zero,
+    },
     AnySignature,
 };
 use sp_std::{convert::TryFrom, mem::swap, prelude::*, vec};
 
 use frame_support::{
-    decl_error, decl_module, decl_storage,
+    debug, decl_error, decl_module, decl_storage,
     dispatch::{DispatchError, DispatchResult},
     ensure,
-    traits::{ChangeMembers, InitializeMembers},
+    traits::{ChangeMembers, Currency, InitializeMembers},
     weights::{DispatchClass, FunctionOf, GetDispatchInfo, SimpleDispatchInfo},
     StorageDoubleMap,
 };
@@ -199,85 +201,31 @@ decl_storage! {
         pub CddAuthForMasterKeyRotation get(fn cdd_auth_for_master_key_rotation): bool;
     }
     add_extra_genesis {
-
-
         config(identities): Vec<(T::AccountId, IdentityId, IdentityId, Option<u64>)>;
         config(signing_keys): Vec<(T::AccountId, IdentityId)>;
         build(|config: &GenesisConfig<T>| {
-            use polymesh_common_utilities::constants::{
-                did::{ CDD_PROVIDERS_DID, GOVERNANCE_COMMITTEE_DID},
-                TREASURY_MODULE_ID
-            };
-            use sp_runtime::traits::AccountIdConversion;
+            SYSTEMATIC_ISSUERS.iter()
+                .for_each(|s| <Module<T>>::register_systematic_id(*s));
 
-            // Add systematic CDD for the Treasury module
-            let treasury_account_id: T::AccountId = TREASURY_MODULE_ID.into_account();
-            let treasury_master_key = AccountKey::try_from(treasury_account_id.encode()).unwrap();
-            let treasury_did = SystematicIssuers::TreasuryModule.as_id();
-            <Module<T>>::link_key_to_did(&treasury_master_key, SignatoryType::External, treasury_did);
-            let record = DidRecord {
-                master_key: treasury_master_key,
-                ..Default::default()
-            };
-            <DidRecords>::insert(&treasury_did, record);
-            <Module<T>>::deposit_event(RawEvent::DidCreated(treasury_did.clone(), treasury_account_id.clone(), vec![]));
+            // Add CDD claims to Treasury & BRR
+            let sys_issuers_with_cdd = [ SystematicIssuers::Treasury, SystematicIssuers::BlockRewardReserve];
+            let id_with_cdd = sys_issuers_with_cdd.iter()
+                .inspect(|iss| debug::info!( "Add Systematic CDD Claims to {}", iss))
+                .map(|iss| iss.as_id())
+                .collect::<Vec<_>>();
 
-            // Add the claim data for the CustomerDueDiligence type claim for Treasury module
-            let claim_type = ClaimType::CustomerDueDiligence;
-            let pk = Claim1stKey{ target: treasury_did, claim_type };
-            let sk = Claim2ndKey{ issuer: treasury_did, scope: None };
-            let id_claim = IdentityClaim {
-                claim_issuer: treasury_did,
-                issuance_date: 0_u64,
-                last_update_date: 0_u64,
-                expiry: None,
-                claim: Claim::CustomerDueDiligence,
-            };
-
-            <Claims>::insert(&pk, &sk, id_claim.clone());
-            <Module<T>>::deposit_event(RawEvent::ClaimAdded(treasury_did, id_claim));
-
-            // Add System DID: Governance committee && CDD providers
-            [GOVERNANCE_COMMITTEE_DID, CDD_PROVIDERS_DID, ].iter()
-                .for_each(|raw_id| {
-                    let id = IdentityId::from(**raw_id);
-                    let master_key = AccountKey::from(**raw_id);
-
-                    <DidRecords>::insert( id, DidRecord {
-                        master_key,
-                        ..Default::default()
-                    });
-                    <Module<T>>::deposit_event(RawEvent::DidCreated(id.clone(), T::AccountId::decode(&mut master_key.as_slice()).unwrap(), vec![]));
-                });
+            <Module<T>>::unsafe_add_systematic_cdd_claims( &id_with_cdd, SystematicIssuers::CDDProvider);
 
             //  Other
             for &(ref master_account_id, issuer, did, expiry) in &config.identities {
                 // Direct storage change for registering the DID and providing the claim
-                let master_key = AccountKey::try_from(master_account_id.encode()).unwrap();
                 assert!(!<DidRecords>::contains_key(did), "Identity already exist");
                 <MultiPurposeNonce>::mutate(|n| *n += 1_u64);
-                <Module<T>>::link_key_to_did(&master_key, SignatoryType::External, did);
-                let record = DidRecord {
-                    master_key,
-                    ..Default::default()
-                };
-                <DidRecords>::insert(&did, record);
-                <Module<T>>::deposit_event(RawEvent::DidCreated(did.clone(), master_account_id.clone(), vec![]));
-                // Add the claim data for the CustomerDueDiligence type claim
-                let claim_type = ClaimType::CustomerDueDiligence;
-                let pk = Claim1stKey{ target: did, claim_type };
-                let sk = Claim2ndKey{ issuer, scope: None };
-                let id_claim = IdentityClaim {
-                    claim_issuer: issuer,
-                    issuance_date: 0_u64,
-                    last_update_date: 0_u64,
-                    expiry: expiry,
-                    claim: Claim::CustomerDueDiligence,
-                };
-
-                <Claims>::insert(&pk, &sk, id_claim.clone());
-                <Module<T>>::deposit_event(RawEvent::ClaimAdded(did, id_claim));
+                let expiry = expiry.iter().map(|m| T::Moment::from(*m as u32)).next();
+                <Module<T>>::unsafe_register_id(master_account_id.clone(), did);
+                <Module<T>>::unsafe_add_claim( did, Claim::CustomerDueDiligence, issuer, expiry);
             }
+
             for &(ref signer_id, did) in &config.signing_keys {
                 // Direct storage change for attaching some signing keys to identities
                 let signer_key = AccountKey::try_from(signer_id.encode()).unwrap();
@@ -407,9 +355,17 @@ decl_module! {
             let did_sig = Signatory::from(did);
 
             // Remove links and get all authorization IDs per signer.
-            let signer_and_auth_id_list = signers_to_remove.iter().map(|signer| {
+            let signer_and_auth_id_list = signers_to_remove.iter().filter_map(|signer| {
                 match signer {
-                    Signatory::AccountKey(ref key) => Self::unlink_key_to_did(key, did),
+                    Signatory::AccountKey(ref key) => {
+                        if T::MultiSig::is_multisig(*key) {
+                            let multisig = T::AccountId::decode(&mut &key.as_slice()[..]).unwrap_or_default();
+                            if !T::Balances::total_balance(&multisig).is_zero() { return None; }
+                            // Unlink multisig signers from the identity.
+                            Self::unlink_multisig_signers_from_did(T::MultiSig::get_key_signers(*key), did);
+                        }
+                        Self::unlink_key_from_did(key, did)
+                    }
                     _ => {}
                 };
 
@@ -424,7 +380,7 @@ decl_module! {
                     })
                     .collect::<Vec<_>>();
 
-                (signer, auth_ids)
+                Some((signer, auth_ids))
             })
             .collect::<Vec<_>>();
 
@@ -516,6 +472,24 @@ decl_module! {
             Self::join_identity(Signatory::from(sender_did), auth_id)
         }
 
+        /// Leave the signing key's identity.
+        #[weight = SimpleDispatchInfo::FixedNormal(300_000)]
+        pub fn leave_identity_as_key(origin) -> DispatchResult {
+            let sender_key = AccountKey::try_from(ensure_signed(origin)?.encode())?;
+            if let Some(did) = Self::get_identity(&sender_key) {
+                return Self::leave_identity(Signatory::from(sender_key), did);
+            }
+            Ok(())
+        }
+
+        /// Leave an identity as a signing identity.
+        #[weight = SimpleDispatchInfo::FixedNormal(300_000)]
+        pub fn leave_identity_as_identity(origin, did: IdentityId) -> DispatchResult {
+            let sender_key = AccountKey::try_from(ensure_signed(origin)?.encode())?;
+            let sender_did = Context::current_identity_or::<Self>(&sender_key)?;
+            Self::leave_identity(Signatory::from(sender_did), did)
+        }
+
         /// Adds a new claim record or edits an existing one. Only called by did_issuer's signing key.
         #[weight = SimpleDispatchInfo::FixedNormal(400_000)]
         pub fn add_claim(
@@ -553,7 +527,7 @@ decl_module! {
             DispatchClass::Normal,
             true
         )]
-        pub fn add_claims_batch(
+        pub fn batch_add_claim(
             origin,
             claims: Vec<BatchAddClaimItem<T::Moment>>
         ) -> DispatchResult {
@@ -576,7 +550,7 @@ decl_module! {
                 ensure!(cdd_providers.contains(&issuer), Error::<T>::UnAuthorizedCddProvider);
             }
 
-            T::ProtocolFee::charge_fee_batch(
+            T::ProtocolFee::batch_charge_fee(
                 &Signatory::AccountKey(sender_key),
                 ProtocolOp::IdentityAddClaim,
                 claims.len() - cdd_count
@@ -662,7 +636,8 @@ decl_module! {
             DispatchClass::Normal,
             true
         )]
-        pub fn revoke_claims_batch(origin,
+        pub fn batch_revoke_claim(
+            origin,
             claims: Vec<BatchRevokeClaimItem>
         ) -> DispatchResult {
             let sender_key = AccountKey::try_from( ensure_signed(origin)?.encode())?;
@@ -755,7 +730,6 @@ decl_module! {
         ) -> DispatchResult {
             let sender_key = AccountKey::try_from(ensure_signed(origin)?.encode())?;
             let from_did = Context::current_identity_or::<Self>(&sender_key)?;
-
             Self::add_auth(Signatory::from(from_did), target, authorization_data, expiry);
 
             Ok(())
@@ -771,7 +745,6 @@ decl_module! {
             expiry: Option<T::Moment>
         ) -> DispatchResult {
             let sender_key = AccountKey::try_from(ensure_signed(origin)?.encode())?;
-
             Self::add_auth(Signatory::from(sender_key), target, authorization_data, expiry);
 
             Ok(())
@@ -800,7 +773,6 @@ decl_module! {
             for auth in auths {
                 Self::add_auth(Signatory::from(from_did), auth.0, auth.1, auth.2);
             }
-
             Ok(())
         }
 
@@ -906,7 +878,7 @@ decl_module! {
                         AuthorizationData::TransferAssetOwnership(_) =>
                             T::AcceptTransferTarget::accept_asset_ownership_transfer(did, auth_id),
                         AuthorizationData::AddMultiSigSigner =>
-                            T::AddSignerMultiSigTarget::accept_multisig_signer(Signatory::from(did), auth_id),
+                            T::MultiSig::accept_multisig_signer(Signatory::from(did), auth_id),
                         AuthorizationData::JoinIdentity(_) =>
                             Self::join_identity(Signatory::from(did), auth_id),
                         _ => Err(Error::<T>::UnknownAuthorization.into())
@@ -915,7 +887,7 @@ decl_module! {
                 Signatory::AccountKey(key) => {
                     match auth.authorization_data {
                         AuthorizationData::AddMultiSigSigner =>
-                            T::AddSignerMultiSigTarget::accept_multisig_signer(Signatory::from(key), auth_id),
+                            T::MultiSig::accept_multisig_signer(Signatory::from(key), auth_id),
                         AuthorizationData::RotateMasterKey(_identityid) =>
                             Self::accept_master_key_rotation(key , auth_id, None),
                         AuthorizationData::JoinIdentity(_) =>
@@ -927,6 +899,8 @@ decl_module! {
         }
 
         /// Accepts an array of authorizations.
+        /// NB: Even if an auth is invalid (due to any reason), this batch function does NOT return an error.
+        /// It will just skip that particular authorization.
         ///
         /// # Weight
         /// `100_000 + 500_000 * auth_ids.len()`
@@ -950,8 +924,6 @@ decl_module! {
             match signer {
                 Signatory::Identity(did) => {
                     for auth_id in auth_ids {
-                        // NB: Even if an auth is invalid (due to any reason), this batch function does NOT return an error.
-                        // It will just skip that particular authorization.
 
                         if <Authorizations<T>>::contains_key(signer, auth_id) {
                             let auth = <Authorizations<T>>::get(signer, auth_id);
@@ -963,7 +935,7 @@ decl_module! {
                                 AuthorizationData::TransferAssetOwnership(_) =>
                                     T::AcceptTransferTarget::accept_asset_ownership_transfer(did, auth_id),
                                 AuthorizationData::AddMultiSigSigner =>
-                                    T::AddSignerMultiSigTarget::accept_multisig_signer(Signatory::from(did), auth_id),
+                                    T::MultiSig::accept_multisig_signer(Signatory::from(did), auth_id),
                                 AuthorizationData::JoinIdentity(_) =>
                                     Self::join_identity(Signatory::from(did), auth_id),
                                 _ => Err(Error::<T>::UnknownAuthorization.into())
@@ -973,8 +945,6 @@ decl_module! {
                 },
                 Signatory::AccountKey(key) => {
                     for auth_id in auth_ids {
-                        // NB: Even if an auth is invalid (due to any reason), this batch function does NOT return an error.
-                        // It will just skip that particular authorization.
 
                         if <Authorizations<T>>::contains_key(signer, auth_id) {
                             let auth = <Authorizations<T>>::get(signer, auth_id);
@@ -982,7 +952,7 @@ decl_module! {
                             //NB: Result is not handled, invalid auths are just ignored to let the batch function continue.
                             let _result = match auth.authorization_data {
                                 AuthorizationData::AddMultiSigSigner =>
-                                    T::AddSignerMultiSigTarget::accept_multisig_signer(Signatory::from(key), auth_id),
+                                    T::MultiSig::accept_multisig_signer(Signatory::from(key), auth_id),
                                 AuthorizationData::RotateMasterKey(_identityid) =>
                                     Self::accept_master_key_rotation(key , auth_id, None),
                                 AuthorizationData::JoinIdentity(_) =>
@@ -1013,16 +983,16 @@ decl_module! {
         /// # Weight
         /// `400_000 + 200_000 * auths.len()`
         #[weight = FunctionOf(
-            |(_, additional_keys): (&T::Moment, &Vec<SigningItemWithAuth>)| {
+            |(additional_keys, _): (&Vec<SigningItemWithAuth>, &T::Moment)| {
                 400_000 + 200_000 * u32::try_from(additional_keys.len()).unwrap_or_default()
             },
             DispatchClass::Normal,
             true
         )]
-        pub fn add_signing_items_with_authorization(
+        pub fn batch_add_signing_item_with_authorization(
             origin,
-            expires_at: T::Moment,
-            additional_keys: Vec<SigningItemWithAuth>
+            additional_keys: Vec<SigningItemWithAuth>,
+            expires_at: T::Moment
         ) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             let sender_key = AccountKey::try_from(sender.encode())?;
@@ -1078,7 +1048,7 @@ decl_module! {
                 }
             }
             // 1.999. Charge the fee.
-            T::ProtocolFee::charge_fee_batch(
+            T::ProtocolFee::batch_charge_fee(
                 &Signatory::AccountKey(sender_key),
                 ProtocolOp::IdentityAddSigningItemsWithAuthorization,
                 additional_keys.len()
@@ -1186,8 +1156,14 @@ decl_error! {
         DidAlreadyExists,
         /// The signing keys contain the master key.
         SigningKeysContainMasterKey,
-        /// Couldn't charge fee for the transaction
+        /// Couldn't charge fee for the transaction.
         FailedToChargeFee,
+        /// Signer is not a signing key of the provided identity
+        NotASigner,
+        /// Decoding error. Should never happen in practice
+        DecodingError,
+        /// Multisig can not be unlinked from an identity while it still holds POLYX
+        MultiSigHasBalance
     }
 }
 
@@ -1201,51 +1177,62 @@ impl<T: Trait> Module<T> {
 
         let auth = <Authorizations<T>>::get(signer, auth_id);
 
-        let identity_to_join = match auth.authorization_data {
-            AuthorizationData::JoinIdentity(identity) => Ok(identity),
+        let identity_data_to_join = match auth.authorization_data {
+            AuthorizationData::JoinIdentity(data) => Ok(data),
             _ => Err(AuthorizationError::Invalid),
         }?;
 
         ensure!(
-            <DidRecords>::contains_key(&identity_to_join),
+            <DidRecords>::contains_key(&identity_data_to_join.target_did),
             "Identity does not exist"
         );
 
-        let master = Self::did_records(&identity_to_join).master_key;
+        let master = Self::did_records(&identity_data_to_join.target_did).master_key;
 
         Self::consume_auth(Signatory::from(master), signer, auth_id)?;
 
-        Self::unsafe_join_identity(identity_to_join, signer)
+        Self::unsafe_join_identity(identity_data_to_join, signer)
     }
 
     /// Joins an identity as signer
-    pub fn unsafe_join_identity(identity_to_join: IdentityId, signer: Signatory) -> DispatchResult {
+    pub fn unsafe_join_identity(
+        identity_data_to_join: JoinIdentityData,
+        signer: Signatory,
+    ) -> DispatchResult {
         if let Signatory::AccountKey(key) = signer {
             if !Self::can_key_be_linked_to_did(&key, SignatoryType::External) {
                 ensure!(
-                    Self::get_identity(&key) == Some(identity_to_join),
+                    Self::get_identity(&key) == Some(identity_data_to_join.target_did),
                     Error::<T>::AlreadyLinked
                 )
             } else {
                 T::ProtocolFee::charge_fee(
-                    &Signatory::Identity(identity_to_join),
+                    &Signatory::Identity(identity_data_to_join.target_did),
                     ProtocolOp::IdentityAddSigningItemsWithAuthorization,
                 )?;
-                Self::link_key_to_did(&key, SignatoryType::External, identity_to_join);
+                Self::link_key_to_did(
+                    &key,
+                    SignatoryType::External,
+                    identity_data_to_join.target_did,
+                );
             }
         } else {
             T::ProtocolFee::charge_fee(
-                &Signatory::Identity(identity_to_join),
+                &Signatory::Identity(identity_data_to_join.target_did),
                 ProtocolOp::IdentityAddSigningItemsWithAuthorization,
             )?;
         }
-        <DidRecords>::mutate(identity_to_join, |identity| {
-            identity.add_signing_items(&[SigningItem::new(signer, vec![])]);
+
+        // create the SigningItem
+        let sg_item = SigningItem::new(signer, identity_data_to_join.permissions);
+
+        <DidRecords>::mutate(identity_data_to_join.target_did, |identity| {
+            identity.add_signing_items(&[sg_item.clone()]);
         });
 
         Self::deposit_event(RawEvent::SigningItemsAdded(
-            identity_to_join,
-            [SigningItem::new(signer, vec![])].to_vec(),
+            identity_data_to_join.target_did,
+            [sg_item].to_vec(),
         ));
 
         Ok(())
@@ -1487,7 +1474,7 @@ impl<T: Trait> Module<T> {
         // Replace master key of the owner that initiated key rotation
         let old_master_key = Self::did_records(&rotation_for_did).master_key;
         <DidRecords>::mutate(&rotation_for_did, |record| {
-            Self::unlink_key_to_did(&(*record).master_key, rotation_for_did);
+            Self::unlink_key_from_did(&(*record).master_key, rotation_for_did);
             (*record).master_key = sender_key;
         });
 
@@ -1554,6 +1541,12 @@ impl<T: Trait> Module<T> {
                     && record.signing_items.iter().any(|si| si.signer == *signer)
             }
         }
+    }
+
+    /// It checks if `key` is a signing key of `did` identity.
+    pub fn is_signer(did: IdentityId, signer: &Signatory) -> bool {
+        let record = <DidRecords>::get(did);
+        record.signing_items.iter().any(|si| si.signer == *signer)
     }
 
     /// Checks if signer has correct permissions.
@@ -1675,14 +1668,8 @@ impl<T: Trait> Module<T> {
         active_cdds: &[IdentityId],
         inactive_not_expired_cdds: &[InactiveMember<T::Moment>],
     ) -> bool {
-        let systematic_cdds = [
-            SystematicIssuers::TreasuryModule.as_id(),
-            SystematicIssuers::Committee.as_id(),
-            SystematicIssuers::CDDProvider.as_id(),
-        ];
         Self::is_identity_claim_not_expired_at(id_claim, exp_with_leeway)
             && (active_cdds.contains(&id_claim.claim_issuer)
-                || systematic_cdds.contains(&id_claim.claim_issuer)
                 || inactive_not_expired_cdds
                     .iter()
                     .filter(|cdd| cdd.id == id_claim.claim_issuer)
@@ -1774,7 +1761,7 @@ impl<T: Trait> Module<T> {
         Ok(())
     }
 
-    /// It checks that any sternal account can only be associated with at most one.
+    /// It checks that any external account can only be associated with at most one.
     /// Master keys are considered as external accounts.
     pub fn can_key_be_linked_to_did(key: &AccountKey, signer_type: SignatoryType) -> bool {
         if let Some(linked_key_info) = <KeyToIdentityIds>::get(key) {
@@ -1813,10 +1800,14 @@ impl<T: Trait> Module<T> {
 
     /// It unlinks the `key` key from `did`.
     /// If there is no more associated identities, its full entry is removed.
-    fn unlink_key_to_did(key: &AccountKey, did: IdentityId) {
+    fn unlink_key_from_did(key: &AccountKey, did: IdentityId) {
         if let Some(linked_key_info) = <KeyToIdentityIds>::get(key) {
             match linked_key_info {
-                LinkedKeyInfo::Unique(..) => <KeyToIdentityIds>::remove(key),
+                LinkedKeyInfo::Unique(did_linked) => {
+                    if did_linked == did {
+                        <KeyToIdentityIds>::remove(key)
+                    }
+                }
                 LinkedKeyInfo::Group(mut dids) => {
                     dids.retain(|ref_did| *ref_did != did);
                     if dids.is_empty() {
@@ -1900,14 +1891,13 @@ impl<T: Trait> Module<T> {
             }
         }
 
-        // 1.999. Charge the given fee.
+        // 1.5. Charge the given fee.
         if let Some((payee, op)) = protocol_fee_data {
             T::ProtocolFee::charge_fee(payee, op)?;
         }
 
-        // 2. Apply changes to our extrinsics.
+        // 2. Apply changes to our extrinsic.
         // 2.1. Link master key and add pre-authorized signing keys.
-        let join_auth_data = AuthorizationData::JoinIdentity(did);
         let master_key_signatory = Signatory::from(master_key);
         Self::link_key_to_did(&master_key, SignatoryType::External, did);
         let _auth_ids = signing_items
@@ -1916,7 +1906,10 @@ impl<T: Trait> Module<T> {
                 Self::add_auth(
                     master_key_signatory.clone(),
                     s_item.signer.clone(),
-                    join_auth_data.clone(),
+                    AuthorizationData::JoinIdentity(JoinIdentityData::new(
+                        did,
+                        s_item.permissions.clone(),
+                    )),
                     None,
                 )
             })
@@ -2024,6 +2017,38 @@ impl<T: Trait> Module<T> {
             Signatory::Identity(did) => Some(*did),
         }
     }
+
+    fn leave_identity(signer: Signatory, did: IdentityId) -> DispatchResult {
+        ensure!(Self::is_signer(did, &signer), Error::<T>::NotASigner);
+
+        if let Signatory::AccountKey(key) = signer {
+            if T::MultiSig::is_multisig(key) {
+                let multisig = T::AccountId::decode(&mut &key.as_slice()[..])
+                    .map_err(|_| Error::<T>::DecodingError)?;
+                ensure!(
+                    T::Balances::total_balance(&multisig).is_zero(),
+                    Error::<T>::MultiSigHasBalance
+                );
+                // Unlink multisig signers from the identity.
+                Self::unlink_multisig_signers_from_did(T::MultiSig::get_key_signers(key), did);
+            }
+            Self::unlink_key_from_did(&key, did)
+        }
+
+        // Update signing keys at Identity.
+        <DidRecords>::mutate(did, |record| {
+            (*record).remove_signing_items(&[signer]);
+        });
+
+        Self::deposit_event(RawEvent::SignerLeft(did, signer));
+        Ok(())
+    }
+
+    fn unlink_multisig_signers_from_did(signers: Vec<AccountKey>, did: IdentityId) {
+        for signer in signers {
+            Self::unlink_key_from_did(&signer, did)
+        }
+    }
 }
 
 impl<T: Trait> Module<T> {
@@ -2051,6 +2076,141 @@ impl<T: Trait> Module<T> {
         } else {
             RpcDidRecords::IdNotFound
         }
+    }
+
+    /// Use to get the filtered link data for a given signatory
+    /// - if link_type is None then return links data on the basis of the `allow_expired` boolean
+    /// - if link_type is Some(value) then return filtered links on the value basis type in conjunction
+    ///   with `allow_expired` boolean condition
+    pub fn get_filtered_links(
+        signatory: Signatory,
+        allow_expired: bool,
+        link_type: Option<LinkType>,
+    ) -> Vec<Link<T::Moment>> {
+        let now = <pallet_timestamp::Module<T>>::get();
+
+        if let Some(type_of_link) = link_type {
+            <Links<T>>::iter_prefix(signatory)
+                .filter(|link| {
+                    if !allow_expired {
+                        if let Some(expiry) = link.expiry {
+                            if expiry < now {
+                                return false;
+                            }
+                        }
+                    }
+                    match link.link_data {
+                        LinkData::DocumentOwned(..) => type_of_link == LinkType::DocumentOwnership,
+                        LinkData::TickerOwned(..) => type_of_link == LinkType::TickerOwnership,
+                        LinkData::AssetOwned(..) => type_of_link == LinkType::AssetOwnership,
+                        LinkData::NoData => type_of_link == LinkType::NoData,
+                    }
+                })
+                .collect::<Vec<Link<T::Moment>>>()
+        } else {
+            <Links<T>>::iter_prefix(signatory)
+                .filter(|l| {
+                    if !allow_expired {
+                        if let Some(expiry) = l.expiry {
+                            if expiry < now {
+                                return false;
+                            }
+                        }
+                    }
+                    return true;
+                })
+                .collect::<Vec<Link<T::Moment>>>()
+        }
+    }
+
+    pub fn get_did_status(dids: Vec<IdentityId>) -> Vec<DidStatus> {
+        let mut result = Vec::with_capacity(dids.len());
+        dids.into_iter().for_each(|did| {
+            // is DID exist in the ecosystem
+            if !<DidRecords>::contains_key(did) {
+                result.push(DidStatus::Unknown);
+            }
+            // DID exist but whether it has valid cdd or not
+            else if Self::fetch_cdd(did, T::Moment::zero()).is_some() {
+                result.push(DidStatus::CddVerified);
+            } else {
+                result.push(DidStatus::Exists);
+            }
+        });
+        result
+    }
+
+    /// Registers the systematic issuer with its DID.
+    fn register_systematic_id(issuer: SystematicIssuers)
+    where
+        <T as frame_system::Trait>::AccountId: core::fmt::Display,
+    {
+        let acc = issuer.as_module_id().into_account();
+        let id = issuer.as_id();
+        debug::info!(
+            "Register Systematic id {} with account {} as {}",
+            issuer,
+            acc,
+            id
+        );
+
+        Self::unsafe_register_id(acc, id);
+    }
+
+    /// Registers `master_key` as `id` identity.
+    fn unsafe_register_id(acc: T::AccountId, id: IdentityId) {
+        let master_key = AccountKey::try_from(acc.encode()).unwrap();
+        <Module<T>>::link_key_to_did(&master_key, SignatoryType::External, id);
+        let record = DidRecord {
+            master_key,
+            ..Default::default()
+        };
+        <DidRecords>::insert(&id, record);
+
+        Self::deposit_event(RawEvent::DidCreated(id, acc, vec![]));
+    }
+
+    /// It returns the list of flatten identities of the given identity.
+    /// It runs recursively over all signing items.
+    pub fn flatten_identities(id: IdentityId, max_depth: u8) -> Vec<IdentityId> {
+        if <DidRecords>::contains_key(id) {
+            let identity = <DidRecords>::get(id);
+
+            identity
+                .signing_items
+                .into_iter()
+                .flat_map(|si| match si.signer {
+                    Signatory::Identity(sub_id) if max_depth > 0 => {
+                        Self::flatten_identities(sub_id, max_depth - 1)
+                    }
+                    _ => vec![],
+                })
+                .chain([id].iter().cloned())
+                .collect::<Vec<_>>()
+        } else {
+            vec![]
+        }
+    }
+
+    /// Get the list of flatten keys fo the given identity.
+    /// It runs recursively over all signing items.
+    pub fn flatten_keys(id: IdentityId, max_depth: u8) -> Vec<AccountKey> {
+        let sub_identities = Self::flatten_identities(id, max_depth);
+        sub_identities
+            .into_iter()
+            .flat_map(|sub_id| {
+                let identity = <DidRecords>::get(sub_id);
+                identity
+                    .signing_items
+                    .iter()
+                    .filter_map(|si| match si.signer {
+                        Signatory::AccountKey(key) => Some(key),
+                        _ => None,
+                    })
+                    .chain([identity.master_key].iter().cloned())
+                    .collect::<Vec<_>>()
+            })
+            .collect::<Vec<_>>()
     }
 }
 

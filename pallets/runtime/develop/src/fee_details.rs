@@ -38,6 +38,7 @@ type Bridge = bridge::Module<Runtime>;
 
 type Call = runtime::Call;
 
+#[derive(Encode, Decode)]
 enum CallType {
     AcceptMultiSigSigner,
     AcceptIdentitySigner,
@@ -104,7 +105,8 @@ impl CddAndFeeDetails<Call> for CddHandler {
             }
             // Call made by an Account key to propose or approve a multisig transaction via the bridge helper
             // The multisig must have valid CDD and the caller must be a signer of the multisig.
-            Call::Bridge(bridge::Call::propose_bridge_tx(..)) => {
+            Call::Bridge(bridge::Call::propose_bridge_tx(..))
+            | Call::Bridge(bridge::Call::batch_propose_bridge_tx(..)) => {
                 sp_runtime::print("multisig stuff via bridge");
                 let multisig = Bridge::controller_key();
                 if <multisig::MultiSigSigners<Runtime>>::contains_key(&multisig, caller) {
@@ -212,7 +214,7 @@ fn is_auth_valid(
                     if let Signatory::AccountKey(multisig) = auth.authorized_by {
                         let ms = AccountId::decode(&mut &multisig.as_slice()[..])
                             .map_err(|_| InvalidTransaction::Payment)?;
-                        if <multisig::MultiSigCreator<Runtime>>::contains_key(&ms) {
+                        if <multisig::MultiSigSignsRequired<Runtime>>::contains_key(&ms) {
                             // make sure that the multisig is attached to an identity with valid CDD
                             if let Some(did) = Identity::get_identity(
                                 &AccountKey::try_from(ms.encode())
@@ -230,11 +232,14 @@ fn is_auth_valid(
                 }
             }
             CallType::AcceptIdentitySigner => {
-                if let AuthorizationData::JoinIdentity(did) = auth.authorization_data {
+                if let AuthorizationData::JoinIdentity(identity_data_to_join) =
+                    auth.authorization_data
+                {
                     // make sure that the auth was created by the master key of an identity with valid CDD
-                    let master = Identity::did_records(&did).master_key;
+                    let master =
+                        Identity::did_records(&identity_data_to_join.target_did).master_key;
                     if auth.authorized_by == Signatory::from(master) {
-                        return check_cdd(&did);
+                        return check_cdd(&identity_data_to_join.target_did);
                     }
                 }
             }

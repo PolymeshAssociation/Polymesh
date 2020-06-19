@@ -7,7 +7,7 @@ use frame_support::{assert_err, assert_ok, traits::Currency, StorageDoubleMap};
 use pallet_balances as balances;
 use pallet_identity as identity;
 use pallet_multisig as multisig;
-use polymesh_primitives::{AccountKey, IdentityId, Signatory};
+use polymesh_primitives::{AccountKey, Signatory};
 use polymesh_runtime_common::bridge::{self, BridgeTx, BridgeTxStatus};
 use sp_runtime::traits::OnInitialize;
 use test_client::AccountKeyring;
@@ -23,7 +23,7 @@ type System = frame_system::Module<TestStorage>;
 macro_rules! assert_tx_approvals {
     ($address:expr, $proposal_id:expr, $num_approvals:expr) => {{
         assert_eq!(
-            MultiSig::tx_approvals(&($address, $proposal_id)),
+            MultiSig::proposal_detail(&($address, $proposal_id)).approvals,
             $num_approvals
         );
     }};
@@ -135,8 +135,8 @@ fn can_issue_to_identity_we() {
         Some(0)
     );
     assert_ok!(Bridge::propose_bridge_tx(charlie, bridge_tx.clone()));
-    assert_eq!(MultiSig::tx_approvals(&(controller, 0)), 2);
-    assert_eq!(MultiSig::tx_approvals(&(controller, 1)), 0);
+    assert_tx_approvals!(controller, 0, 2);
+    assert_tx_approvals!(controller, 1, 0);
 
     assert_eq!(MultiSig::proposal_ids(&controller, proposal), Some(0));
     let new_alices_balance = Balances::total_balance(&AccountKeyring::Alice.public());
@@ -350,7 +350,7 @@ fn do_freeze_and_unfreeze_bridge() {
     );
     // Approve the transaction bypassing the bridge API. The transaction will be handled but scheduled for later
     assert_ok!(MultiSig::approve_as_key(charlie, controller, 0));
-    assert_eq!(MultiSig::tx_approvals(&(controller, 0)), 2);
+    assert_tx_approvals!(controller, 0, 2);
     assert_eq!(MultiSig::proposal_ids(&controller, proposal), Some(0));
     // The tokens were not issued because the transaction is frozen.
     assert_eq!(alices_balance(), starting_alices_balance);
@@ -638,15 +638,15 @@ fn do_rate_limit() {
 }
 
 #[test]
-fn can_whitelist() {
+fn is_exempted() {
     ExtBuilder::default()
         .existential_deposit(1_000)
         .monied(true)
         .build()
-        .execute_with(do_whitelist);
+        .execute_with(do_exempted);
 }
 
-fn do_whitelist() {
+fn do_exempted() {
     let admin = Origin::system(frame_system::RawOrigin::Signed(Default::default()));
     let alice_did = register_keyring_account_with_balance(AccountKeyring::Alice, 1_000).unwrap();
     let alice = Origin::signed(AccountKeyring::Alice.public());
@@ -742,7 +742,7 @@ fn do_whitelist() {
     assert_eq!(System::block_number(), unlock_block_number);
     // Still no issue, rate limit reached
     assert_eq!(alices_balance(), starting_alices_balance);
-    assert_ok!(Bridge::change_bridge_whitelist(
+    assert_ok!(Bridge::change_bridge_exempted(
         admin.clone(),
         vec![(alice_did, true)]
     ));
@@ -752,7 +752,7 @@ fn do_whitelist() {
     next_block();
     next_block();
     next_block();
-    // Mint successful after whitelisting
+    // Mint successful after exemption
     assert!(Bridge::timelocked_txs(unlock_block_number).is_empty());
     assert_eq!(alices_balance(), starting_alices_balance + amount);
     assert_eq!(

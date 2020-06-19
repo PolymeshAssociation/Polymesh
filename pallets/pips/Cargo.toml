@@ -13,7 +13,6 @@ pallet-group = { package = "pallet-group", path = "../group", default-features =
 pallet-identity = { package = "pallet-identity", path = "../identity", default-features = false  }
 pallet-balances = { package = "pallet-balances", path = "../balances", default-features = false  }
 pallet-treasury = { package = "pallet-treasury", path = "../treasury", default-features = false  }
-pallet-pips-rpc-runtime-api = { default-features = false, path = "./rpc/runtime-api" }
 
 serde = { version = "1.0.104", default-features = false }
 serde_derive = { version = "1.0.104", optional = true, default-features = false }
@@ -62,7 +61,6 @@ std = [
 	"pallet-balances/std",
 	"pallet-group/std",
 	"pallet-identity/std",
-	"pallet-pips-rpc-runtime-api/std",
 	"pallet-committee/std",
 	"pallet-treasury/std",
 ]

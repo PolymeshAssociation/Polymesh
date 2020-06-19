@@ -362,12 +362,12 @@ async function addSigningKeys(api, accounts, dids, signing_accounts, submitBar, 
     // 1. Add Signing Item to identity.
     if (fast) {
       let nonceObj = {nonce: reqImports.nonces.get(accounts[i].address)};
-      const transaction = api.tx.identity.addAuthorizationAsKey({AccountKey: signing_accounts[i].publicKey}, {JoinIdentity: dids[i]}, null);
+      const transaction = api.tx.identity.addAuthorizationAsKey({AccountKey: signing_accounts[i].publicKey}, {JoinIdentity: { target_did: dids[i], signing_item: null }}, null);
       await reqImports.sendTransaction(transaction, accounts[i], nonceObj);  
     } else {
 
       let nonceObj = {nonce: reqImports.nonces.get(accounts[i].address)};
-      const transaction = api.tx.identity.addAuthorizationAsKey({AccountKey: signing_accounts[i].publicKey}, {JoinIdentity: dids[i]}, null);
+      const transaction = api.tx.identity.addAuthorizationAsKey({AccountKey: signing_accounts[i].publicKey}, {JoinIdentity: { target_did: dids[i], signing_item: null }}, null);
       const result = await reqImports.sendTransaction(transaction, accounts[i], nonceObj);  
       const passed = result.findRecord('system', 'ExtrinsicSuccess');
       if (!passed) {
@@ -494,7 +494,7 @@ async function addClaimsBatchToDid(api, accounts, dids, n_claims, fast) {
 
     // Stores the value of each claim
     let claim_record = {target: dids[0], 
-                        claim: { Whitelisted: asset_did },
+                        claim: { Exempted: asset_did },
                         expiry: null};
   
     // This fills the claims array with claim_values up to n_claims amount

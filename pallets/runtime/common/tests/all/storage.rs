@@ -10,12 +10,20 @@ use pallet_pips as pips;
 use pallet_protocol_fee as protocol_fee;
 use pallet_statistics as statistics;
 use pallet_treasury as treasury;
+use pallet_utility as utility;
 
 use polymesh_common_utilities::traits::{
-    asset::AcceptTransfer, balances::AccountData, group::GroupTrait,
-    identity::Trait as IdentityTrait, multisig::AddSignerMultiSig, CommonTrait,
+    asset::AcceptTransfer,
+    balances::AccountData,
+    group::GroupTrait,
+    identity::Trait as IdentityTrait,
+    multisig::MultiSigSubTrait,
+    pip::{EnactProposalMaker, PipId},
+    CommonTrait,
 };
-use polymesh_primitives::{AccountKey, Authorization, AuthorizationData, IdentityId, Signatory};
+use polymesh_primitives::{
+    AccountKey, Authorization, AuthorizationData, IdentityId, JoinIdentityData, Signatory,
+};
 use polymesh_runtime_common::{
     bridge, cdd_check::CddChecker, dividend, exemption, simple_token, voting,
 };
@@ -61,6 +69,7 @@ impl_outer_origin! {
 impl_outer_dispatch! {
     pub enum Call for TestStorage where origin: Origin {
         identity::Identity,
+        balances::Balances,
         pips::Pips,
         multisig::MultiSig,
         pallet_contracts::Contracts,
@@ -92,6 +101,7 @@ impl_outer_event! {
         frame_system<T>,
         protocol_fee<T>,
         treasury<T>,
+        utility,
         confidential,
     }
 }
@@ -258,6 +268,7 @@ impl committee::Trait<committee::Instance1> for TestStorage {
     type CommitteeOrigin = frame_system::EnsureRoot<AccountId>;
     type Event = Event;
     type MotionDuration = MotionDuration;
+    type EnactProposalMaker = TestStorage;
 }
 
 impl committee::Trait<committee::DefaultInstance> for TestStorage {
@@ -266,12 +277,13 @@ impl committee::Trait<committee::DefaultInstance> for TestStorage {
     type CommitteeOrigin = frame_system::EnsureRoot<AccountId>;
     type Event = Event;
     type MotionDuration = MotionDuration;
+    type EnactProposalMaker = TestStorage;
 }
 
 impl IdentityTrait for TestStorage {
     type Event = Event;
     type Proposal = Call;
-    type AddSignerMultiSigTarget = TestStorage;
+    type MultiSig = multisig::Module<TestStorage>;
     type CddServiceProviders = group::Module<TestStorage, group::Instance2>;
     type Balances = balances::Module<TestStorage>;
     type ChargeTxFeeTarget = TestStorage;
@@ -279,12 +291,6 @@ impl IdentityTrait for TestStorage {
     type Public = AccountId;
     type OffChainSignature = OffChainSignature;
     type ProtocolFee = protocol_fee::Module<TestStorage>;
-}
-
-impl AddSignerMultiSig for TestStorage {
-    fn accept_multisig_signer(_: Signatory, _: u64) -> DispatchResult {
-        unimplemented!()
-    }
 }
 
 impl AcceptTransfer for TestStorage {
@@ -463,6 +469,25 @@ impl confidential::Trait for TestStorage {
     type Event = Event;
 }
 
+impl utility::Trait for TestStorage {
+    type Event = Event;
+    type Call = Call;
+}
+
+impl EnactProposalMaker<Origin, Call> for TestStorage {
+    fn is_pip_id_valid(id: PipId) -> bool {
+        Pips::is_proposal_id_valid(id)
+    }
+
+    fn enact_referendum_call(id: PipId) -> Call {
+        Call::Pips(pallet_pips::Call::enact_referendum(id))
+    }
+
+    fn reject_referendum_call(id: PipId) -> Call {
+        Call::Pips(pallet_pips::Call::reject_referendum(id))
+    }
+}
+
 // Publish type alias for each module
 pub type Identity = identity::Module<TestStorage>;
 pub type Pips = pips::Module<TestStorage>;
@@ -538,7 +563,7 @@ pub fn add_signing_item(did: IdentityId, signer: Signatory) {
     let auth_id = Identity::add_auth(
         Signatory::from(master_key),
         signer,
-        AuthorizationData::JoinIdentity(did),
+        AuthorizationData::JoinIdentity(JoinIdentityData::new(did, vec![])),
         None,
     );
     assert_ok!(Identity::join_identity(signer, auth_id));
@@ -561,4 +586,12 @@ pub fn get_identity_id(acc: AccountKeyring) -> Option<IdentityId> {
 
 pub fn authorizations_to(to: &Signatory) -> Vec<Authorization<u64>> {
     identity::Authorizations::<TestStorage>::iter_prefix(to).collect::<Vec<_>>()
+}
+
+pub fn fast_forward_to_block(n: u64) {
+    let block_number = frame_system::Module::<TestStorage>::block_number();
+    (block_number..n).for_each(|block| {
+        assert_ok!(pips::Module::<TestStorage>::end_block(block));
+        frame_system::Module::<TestStorage>::set_block_number(block + 1);
+    });
 }

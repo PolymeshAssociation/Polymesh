@@ -40,7 +40,7 @@ impl Default for MockProtocolBaseFees {
         let ops = vec![
             ProtocolOp::AssetRegisterTicker,
             ProtocolOp::AssetIssue,
-            ProtocolOp::AssetAddDocuments,
+            ProtocolOp::AssetAddDocument,
             ProtocolOp::AssetCreateAsset,
             ProtocolOp::DividendNew,
             ProtocolOp::ComplianceManagerAddActiveRule,
@@ -244,6 +244,7 @@ impl ExtBuilder {
         // Balances genesis.
         balances::GenesisConfig::<TestStorage> {
             balances: self.make_balances(),
+            identity_balances: vec![],
         }
         .assimilate_storage(&mut storage)
         .unwrap();
@@ -306,6 +307,7 @@ impl ExtBuilder {
                 self.governance_committee_vote_threshold.numerator,
                 self.governance_committee_vote_threshold.denominator,
             ),
+            release_coordinator: IdentityId::from(999),
             ..Default::default()
         }
         .assimilate_storage(&mut storage)

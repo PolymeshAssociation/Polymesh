@@ -7,16 +7,20 @@ use super::{
     ExtBuilder,
 };
 
+use pallet_identity_rpc_runtime_api::LinkType;
 use polymesh_common_utilities::{
     traits::{
         group::GroupTrait,
-        identity::{SigningItemWithAuth, TargetIdAuthorization, Trait as IdentityTrait},
+        identity::{
+            LinkedKeyInfo, SigningItemWithAuth, TargetIdAuthorization, Trait as IdentityTrait,
+        },
     },
     SystematicIssuers,
 };
 use polymesh_primitives::{
-    AccountKey, AuthorizationData, AuthorizationError, Claim, ClaimType, IdentityClaim, IdentityId,
-    LinkData, Permission, Scope, Signatory, SigningItem, Ticker, TransactionError,
+    AccountKey, AuthorizationData, AuthorizationError, Claim, ClaimType, Document, IdentityClaim,
+    IdentityId, JoinIdentityData, LinkData, Permission, Scope, Signatory, SignatoryType,
+    SigningItem, Ticker, TransactionError,
 };
 use polymesh_runtime_develop::{fee_details::CddHandler, runtime::Call};
 
@@ -36,6 +40,7 @@ type Balances = balances::Module<TestStorage>;
 // type BalancesCall = <balances::Module<TestStorage> as BTrait>::Call;
 
 type Identity = identity::Module<TestStorage>;
+type MultiSig = pallet_multisig::Module<TestStorage>;
 type System = frame_system::Module<TestStorage>;
 type Timestamp = pallet_timestamp::Module<TestStorage>;
 
@@ -98,14 +103,14 @@ fn add_claims_batch() {
         },
     ];
 
-    assert_ok!(Identity::add_claims_batch(
+    assert_ok!(Identity::batch_add_claim(
         Origin::signed(cdd_claim_issuer),
         claim_records.clone(),
     ));
 
     // Using Bob as the singer who is not a CDD Provider to check if the transaction fails
     assert_err!(
-        Identity::add_claims_batch(Origin::signed(bob_issuer), claim_records.clone(),),
+        Identity::batch_add_claim(Origin::signed(bob_issuer), claim_records.clone(),),
         Error::<TestStorage>::UnAuthorizedCddProvider
     );
 
@@ -247,7 +252,7 @@ fn revoking_batch_claims() {
         )
         .is_some());
 
-        assert_ok!(Identity::revoke_claims_batch(
+        assert_ok!(Identity::batch_revoke_claim(
             claim_issuer.clone(),
             vec![
                 BatchRevokeClaimItem {
@@ -545,6 +550,236 @@ fn frozen_signing_keys_cdd_verification_test_we() {
 }
 
 #[test]
+fn remove_signing_keys_test() {
+    ExtBuilder::default()
+        .monied(true)
+        .build()
+        .execute_with(&remove_signing_keys_test_with_externalities);
+}
+
+fn remove_signing_keys_test_with_externalities() {
+    let bob_key = AccountKey::from(AccountKeyring::Bob.public().0);
+
+    let bob_signing_key = SigningItem::new(Signatory::AccountKey(bob_key), vec![]);
+
+    let alice_did = register_keyring_account(AccountKeyring::Alice).unwrap();
+    let alice = Origin::signed(AccountKeyring::Alice.public());
+    let charlie = Origin::signed(AccountKeyring::Charlie.public());
+    let charlie_did = register_keyring_account(AccountKeyring::Charlie).unwrap();
+
+    let dave_key = AccountKey::from(AccountKeyring::Dave.public().0);
+
+    assert_ok!(Balances::top_up_identity_balance(
+        alice.clone(),
+        alice_did,
+        PROTOCOL_OP_BASE_FEE
+    ));
+
+    let musig_address = MultiSig::get_next_multisig_address(AccountKeyring::Alice.public());
+    let musig_account_key = AccountKey::from(musig_address.clone());
+
+    assert_ok!(MultiSig::create_multisig(
+        alice.clone(),
+        vec![Signatory::from(alice_did), Signatory::from(dave_key)],
+        1,
+    ));
+    let auth_id = <identity::Authorizations<TestStorage>>::iter_prefix(Signatory::from(dave_key))
+        .next()
+        .unwrap()
+        .auth_id;
+    assert_ok!(MultiSig::unsafe_accept_multisig_signer(
+        Signatory::from(dave_key),
+        auth_id
+    ));
+
+    add_signing_item(alice_did, Signatory::from(bob_key));
+    add_signing_item(alice_did, Signatory::from(musig_account_key));
+
+    // Fund the multisig
+    assert_ok!(Balances::transfer(alice.clone(), musig_address.clone(), 1));
+
+    // Check DidRecord.
+    assert_eq!(Identity::get_identity(&dave_key), Some(alice_did));
+    assert_eq!(Identity::get_identity(&musig_account_key), Some(alice_did));
+    assert_eq!(Identity::get_identity(&bob_key), Some(alice_did));
+
+    // Try removing bob using charlie
+    assert_ok!(Identity::remove_signing_items(
+        charlie.clone(),
+        vec![Signatory::AccountKey(bob_key)]
+    ));
+
+    // Check DidRecord.
+    assert_eq!(Identity::get_identity(&dave_key), Some(alice_did));
+    assert_eq!(Identity::get_identity(&musig_account_key), Some(alice_did));
+    assert_eq!(Identity::get_identity(&bob_key), Some(alice_did));
+
+    // Try remove bob using alice
+    assert_ok!(Identity::remove_signing_items(
+        alice.clone(),
+        vec![Signatory::AccountKey(bob_key)]
+    ));
+
+    // Check DidRecord.
+    assert_eq!(Identity::get_identity(&dave_key), Some(alice_did));
+    assert_eq!(Identity::get_identity(&musig_account_key), Some(alice_did));
+    assert_eq!(Identity::get_identity(&bob_key), None);
+
+    // Try removing multisig while it has funds
+    assert_ok!(Identity::remove_signing_items(
+        alice.clone(),
+        vec![Signatory::AccountKey(musig_account_key)]
+    ));
+
+    // Check DidRecord.
+    assert_eq!(Identity::get_identity(&dave_key), Some(alice_did));
+    assert_eq!(Identity::get_identity(&musig_account_key), Some(alice_did));
+    assert_eq!(Identity::get_identity(&bob_key), None);
+
+    // Check multisig's signer
+    assert_eq!(
+        MultiSig::ms_signers(musig_address.clone(), Signatory::from(dave_key)),
+        true
+    );
+
+    // Empty multisig's funds and remove as signer
+    assert_ok!(Balances::top_up_identity_balance(
+        Origin::signed(musig_address.clone()),
+        alice_did,
+        1
+    ));
+    assert_ok!(Identity::remove_signing_items(
+        alice.clone(),
+        vec![Signatory::AccountKey(musig_account_key)]
+    ));
+
+    // Check DidRecord.
+    assert_eq!(Identity::get_identity(&dave_key), None);
+    assert_eq!(Identity::get_identity(&musig_account_key), None);
+    assert_eq!(Identity::get_identity(&bob_key), None);
+
+    // Check multisig's signer
+    assert_eq!(
+        MultiSig::ms_signers(musig_address.clone(), Signatory::from(dave_key)),
+        true
+    );
+}
+
+#[test]
+fn leave_identity_test() {
+    ExtBuilder::default()
+        .monied(true)
+        .build()
+        .execute_with(&leave_identity_test_with_externalities);
+}
+
+fn leave_identity_test_with_externalities() {
+    let bob_key = AccountKey::from(AccountKeyring::Bob.public().0);
+    let bob = Origin::signed(AccountKeyring::Bob.public());
+    let alice_did = register_keyring_account(AccountKeyring::Alice).unwrap();
+    let alice = Origin::signed(AccountKeyring::Alice.public());
+    let charlie_did = register_keyring_account(AccountKeyring::Charlie).unwrap();
+    let charlie = Origin::signed(AccountKeyring::Charlie.public());
+
+    let bob_signing_key = SigningItem::new(Signatory::AccountKey(bob_key), vec![]);
+    let charlie_signing_key = SigningItem::new(Signatory::Identity(charlie_did), vec![]);
+    let alice_signing_items = vec![bob_signing_key, charlie_signing_key.clone()];
+
+    let dave_key = AccountKey::from(AccountKeyring::Dave.public().0);
+
+    assert_ok!(Balances::top_up_identity_balance(
+        alice.clone(),
+        alice_did,
+        2 * PROTOCOL_OP_BASE_FEE
+    ));
+
+    let musig_address = MultiSig::get_next_multisig_address(AccountKeyring::Alice.public());
+    let musig_account_key = AccountKey::from(musig_address.clone());
+
+    assert_ok!(MultiSig::create_multisig(
+        alice.clone(),
+        vec![Signatory::from(alice_did), Signatory::from(dave_key)],
+        1,
+    ));
+    let auth_id = <identity::Authorizations<TestStorage>>::iter_prefix(Signatory::from(dave_key))
+        .next()
+        .unwrap()
+        .auth_id;
+    assert_ok!(MultiSig::unsafe_accept_multisig_signer(
+        Signatory::from(dave_key),
+        auth_id
+    ));
+
+    add_signing_item(alice_did, Signatory::from(bob_key));
+    add_signing_item(alice_did, Signatory::from(charlie_did));
+
+    // Fund the multisig
+    assert_ok!(Balances::transfer(alice.clone(), musig_address.clone(), 1));
+
+    // Check DidRecord.
+    let did_rec = Identity::did_records(alice_did);
+    assert_eq!(did_rec.signing_items, alice_signing_items);
+    assert_eq!(Identity::get_identity(&bob_key), Some(alice_did));
+
+    // Bob leaves
+    assert_ok!(Identity::leave_identity_as_key(bob));
+
+    // Check DidRecord.
+    let did_rec = Identity::did_records(alice_did);
+    assert_eq!(did_rec.signing_items, vec![charlie_signing_key]);
+    assert_eq!(Identity::get_identity(&bob_key), None);
+
+    // Charlie leaves
+    assert_ok!(Identity::leave_identity_as_identity(charlie, alice_did));
+
+    // Check DidRecord.
+    let did_rec = Identity::did_records(alice_did);
+    assert_eq!(did_rec.signing_items.len(), 0);
+    assert_eq!(Identity::get_identity(&bob_key), None);
+
+    add_signing_item(alice_did, Signatory::from(musig_account_key));
+    // Check DidRecord.
+    assert_eq!(Identity::get_identity(&dave_key), Some(alice_did));
+    assert_eq!(Identity::get_identity(&musig_account_key), Some(alice_did));
+
+    // multisig tries leaving identity while it has funds
+    assert_err!(
+        Identity::leave_identity_as_key(Origin::signed(musig_address.clone())),
+        Error::<TestStorage>::MultiSigHasBalance
+    );
+
+    // Check DidRecord.
+    assert_eq!(Identity::get_identity(&dave_key), Some(alice_did));
+    assert_eq!(Identity::get_identity(&musig_account_key), Some(alice_did));
+
+    // Check multisig's signer
+    assert_eq!(
+        MultiSig::ms_signers(musig_address.clone(), Signatory::from(dave_key)),
+        true
+    );
+
+    // Empty multisig's funds and remove as signer
+    assert_ok!(Balances::top_up_identity_balance(
+        Origin::signed(musig_address.clone()),
+        alice_did,
+        1
+    ));
+    assert_ok!(Identity::leave_identity_as_key(Origin::signed(
+        musig_address.clone()
+    )));
+
+    // Check DidRecord.
+    assert_eq!(Identity::get_identity(&dave_key), None);
+    assert_eq!(Identity::get_identity(&musig_account_key), None);
+
+    // Check multisig's signer
+    assert_eq!(
+        MultiSig::ms_signers(musig_address.clone(), Signatory::from(dave_key)),
+        true
+    );
+}
+
+#[test]
 fn enforce_uniqueness_keys_in_identity_tests() {
     ExtBuilder::default()
         .monied(true)
@@ -569,7 +804,7 @@ fn enforce_uniqueness_keys_in_identity() {
     let auth_id = Identity::add_auth(
         Signatory::from(AccountKey::from(AccountKeyring::Alice.public().0)),
         Signatory::from(AccountKey::from(AccountKeyring::Bob.public().0)),
-        AuthorizationData::JoinIdentity(alice_id),
+        AuthorizationData::JoinIdentity(JoinIdentityData::new(alice_id, vec![])),
         None,
     );
     assert_err!(
@@ -668,25 +903,25 @@ fn one_step_join_id_with_ext() {
         },
     ];
 
-    assert_ok!(Identity::add_signing_items_with_authorization(
+    assert_ok!(Identity::batch_add_signing_item_with_authorization(
         a.clone(),
-        expires_at,
-        signing_items_with_auth[..2].to_owned()
+        signing_items_with_auth[..2].to_owned(),
+        expires_at
     ));
 
     let signing_items = Identity::did_records(a_id).signing_items;
     assert_eq!(signing_items.iter().find(|si| **si == b_id).is_some(), true);
     assert_eq!(signing_items.iter().find(|si| **si == c_id).is_some(), true);
 
-    // Check reply atack. Alice's nonce is different now.
+    // Check reply attack. Alice's nonce is different now.
     // NOTE: We need to force the increment of account's nonce manually.
     System::inc_account_nonce(&a_pub);
 
     assert_err!(
-        Identity::add_signing_items_with_authorization(
+        Identity::batch_add_signing_item_with_authorization(
             a.clone(),
-            expires_at,
-            signing_items_with_auth[2..].to_owned()
+            signing_items_with_auth[2..].to_owned(),
+            expires_at
         ),
         Error::<TestStorage>::InvalidAuthorizationSignature
     );
@@ -712,10 +947,10 @@ fn one_step_join_id_with_ext() {
         eve_auth
     ));
     assert_err!(
-        Identity::add_signing_items_with_authorization(
+        Identity::batch_add_signing_item_with_authorization(
             a,
-            expires_at,
-            vec![eve_signing_item_with_auth]
+            vec![eve_signing_item_with_auth],
+            expires_at
         ),
         Error::<TestStorage>::AuthorizationHasBeenRevoked
     );
@@ -737,10 +972,10 @@ fn one_step_join_id_with_ext() {
     };
 
     assert_err!(
-        Identity::add_signing_items_with_authorization(
+        Identity::batch_add_signing_item_with_authorization(
             f,
-            expires_at,
-            vec![ferdie_signing_item_with_auth]
+            vec![ferdie_signing_item_with_auth],
+            expires_at
         ),
         Error::<TestStorage>::AuthorizationExpired
     );
@@ -847,6 +1082,50 @@ fn adding_links() {
         link = Identity::get_link(bob_did, link_id);
         assert_eq!(link.expiry, Some(100));
         assert_eq!(link.link_data, LinkData::TickerOwned(ticker50));
+
+        // Testing the list of filtered links
+        Timestamp::set_timestamp(120);
+
+        // Getting expired and non-expired both
+        let mut links =
+            Identity::get_filtered_links(bob_did, true, Some(LinkType::TickerOwnership));
+        assert_eq!(links.len(), 4);
+        links = Identity::get_filtered_links(bob_did, false, Some(LinkType::TickerOwnership));
+        // Two links are expired
+        assert_eq!(links.len(), 2);
+        // Add other type of link
+        // 1.1 : Add document type
+        let doc = Document {
+            name: b"D".into(),
+            uri: b"www.d.com".into(),
+            content_hash: b"0x4".into(),
+        };
+
+        Identity::add_link(bob_did, LinkData::DocumentOwned(doc.clone()), None);
+        // 1.2 : Add AssetOwned type
+        Identity::add_link(bob_did, LinkData::AssetOwned(ticker51), None);
+        Identity::add_link(bob_did, LinkData::AssetOwned(ticker50), Some(200));
+
+        // Query DocumentOwnership type link
+        links = Identity::get_filtered_links(bob_did, true, Some(LinkType::DocumentOwnership));
+        assert_eq!(links.len(), 1);
+
+        // Query AssetOwnership type
+        links = Identity::get_filtered_links(bob_did, true, Some(LinkType::AssetOwnership));
+        assert_eq!(links.len(), 2);
+
+        // Increase time
+        Timestamp::set_timestamp(220);
+        links = Identity::get_filtered_links(bob_did, false, Some(LinkType::AssetOwnership));
+        assert_eq!(links.len(), 1);
+
+        // Query all links without providing link type and allow expired ones as well
+        links = Identity::get_filtered_links(bob_did, true, None);
+        assert_eq!(links.len(), 7);
+
+        // Query all links without providing link type and not allow the expired ones
+        links = Identity::get_filtered_links(bob_did, false, None);
+        assert_eq!(links.len(), 4);
     });
 }
 
@@ -1099,7 +1378,7 @@ fn add_identity_signers() {
         let auth_id_for_id_to_id = Identity::add_auth(
             alice_identity_signer,
             bob_identity_signer,
-            AuthorizationData::JoinIdentity(alice_did),
+            AuthorizationData::JoinIdentity(JoinIdentityData::new(alice_did, vec![])),
             None,
         );
 
@@ -1111,7 +1390,7 @@ fn add_identity_signers() {
         let auth_id_for_acc_to_id = Identity::add_auth(
             alice_acc_signer,
             bob_identity_signer,
-            AuthorizationData::JoinIdentity(alice_did),
+            AuthorizationData::JoinIdentity(JoinIdentityData::new(alice_did, vec![])),
             None,
         );
 
@@ -1128,7 +1407,7 @@ fn add_identity_signers() {
         let auth_id_for_acc2_to_id = Identity::add_auth(
             charlie_acc_signer,
             bob_identity_signer,
-            AuthorizationData::JoinIdentity(charlie_did),
+            AuthorizationData::JoinIdentity(JoinIdentityData::new(charlie_did, vec![])),
             None,
         );
 
@@ -1145,7 +1424,7 @@ fn add_identity_signers() {
         let auth_id_for_acc1_to_acc = Identity::add_auth(
             alice_acc_signer,
             dave_acc_signer,
-            AuthorizationData::JoinIdentity(alice_did),
+            AuthorizationData::JoinIdentity(JoinIdentityData::new(alice_did, vec![])),
             None,
         );
 
@@ -1162,7 +1441,7 @@ fn add_identity_signers() {
         let auth_id_for_acc2_to_acc = Identity::add_auth(
             charlie_acc_signer,
             dave_acc_signer,
-            AuthorizationData::JoinIdentity(charlie_did),
+            AuthorizationData::JoinIdentity(JoinIdentityData::new(charlie_did, vec![])),
             None,
         );
 
@@ -1409,4 +1688,90 @@ fn gc_and_cdd_with_systematic_cdd_claims_we() {
     // 3. Remove Alice from GC.
     assert_ok!(GovernanceCommittee::remove_member(root, alice_id));
     assert_eq!(fetch_systematic_cdd(alice_id).is_none(), true);
+}
+
+#[test]
+fn add_permission_with_signing_item() {
+    ExtBuilder::default()
+        .existential_deposit(1_000)
+        .monied(true)
+        .cdd_providers(vec![
+            AccountKeyring::Eve.public(),
+            AccountKeyring::Ferdie.public(),
+        ])
+        .build()
+        .execute_with(|| {
+            let cdd_1_acc = AccountKeyring::Eve.public();
+            let alice_acc = AccountKeyring::Alice.public();
+            let bob_acc = AccountKeyring::Bob.public();
+            let charlie_acc = AccountKeyring::Charlie.public();
+
+            // SigningItem added
+            let sig_1 = SigningItem {
+                signer: Signatory::from(AccountKey::try_from(bob_acc.encode()).unwrap()),
+                signer_type: SignatoryType::External,
+                permissions: vec![Permission::Admin, Permission::Operator],
+            };
+
+            let sig_2 = SigningItem {
+                signer: Signatory::from(AccountKey::try_from(charlie_acc.encode()).unwrap()),
+                signer_type: SignatoryType::External,
+                permissions: vec![Permission::Full],
+            };
+
+            assert_ok!(Identity::cdd_register_did(
+                Origin::signed(cdd_1_acc),
+                alice_acc,
+                Some(10),
+                vec![sig_1.clone(), sig_2.clone()]
+            ));
+
+            let did = match Identity::key_to_identity_ids(
+                AccountKey::try_from(alice_acc.encode()).unwrap(),
+            )
+            .unwrap()
+            {
+                LinkedKeyInfo::Unique(did) => did,
+                _ => Default::default(),
+            };
+
+            let bob_auth_id = <identity::Authorizations<TestStorage>>::iter_prefix(
+                Signatory::from(AccountKey::try_from(bob_acc.encode()).unwrap()),
+            )
+            .next()
+            .unwrap()
+            .auth_id;
+            let charlie_auth_id = <identity::Authorizations<TestStorage>>::iter_prefix(
+                Signatory::from(AccountKey::try_from(charlie_acc.encode()).unwrap()),
+            )
+            .next()
+            .unwrap()
+            .auth_id;
+
+            println!("Print the protocol base fee: {:?}", PROTOCOL_OP_BASE_FEE);
+
+            // Fund the identity
+            assert_ok!(Balances::top_up_identity_balance(
+                Origin::signed(alice_acc),
+                did,
+                PROTOCOL_OP_BASE_FEE * 3
+            ));
+
+            // accept the auth_id
+            assert_ok!(Identity::accept_authorization(
+                Origin::signed(bob_acc),
+                bob_auth_id
+            ));
+
+            // accept the auth_id
+            assert_ok!(Identity::accept_authorization(
+                Origin::signed(charlie_acc),
+                charlie_auth_id
+            ));
+
+            // check for permissions
+            let sig_items = (Identity::did_records(did)).signing_items;
+            assert_eq!(sig_items[0], sig_1);
+            assert_eq!(sig_items[1], sig_2);
+        });
 }

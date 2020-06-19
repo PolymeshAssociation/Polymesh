@@ -57,15 +57,15 @@
 //! - `transfer_with_data` - This function can be used by the exchanges of other third parties to dynamically validate the transaction by passing the data blob.
 //! - `transfer_from_with_data` - This function can be used by the exchanges of other third parties to dynamically validate the transaction by passing the data blob.
 //! - `is_issuable` - Used to know whether the given token will issue new tokens or not.
-//! - `add_documents` - Add documents for a given token, Only be called by the token owner.
-//! - `remove_documents` - Remove documents for a given token, Only be called by the token owner.
-//! - `update_documents` - Update documents for the given token, Only be called by the token owner.
+//! - `batch_add_document` - Add documents for a given token, Only be called by the token owner.
+//! - `batch_remove_document` - Remove documents for a given token, Only be called by the token owner.
+//! - `batch_update_document` - Update documents for the given token, Only be called by the token owner.
 //! - `increase_custody_allowance` - Used to increase the allowance for a given custodian.
 //! - `increase_custody_allowance_of` - Used to increase the allowance for a given custodian by providing the off chain signature.
 //! - `transfer_by_custodian` - Used to transfer the tokens by the approved custodian.
 //! - `set_funding_round` - Sets the name of the current funding round.
 //! - `update_identifiers` - Updates the asset identifiers. Only called by the token owner.
-//! - `add_extension` - It is used to whitelist the Smart-Extension address for a given ticker.
+//! - `add_extension` - It is used to permission the Smart-Extension address for a given ticker.
 //! - `archive_extension` - Extension gets archived it means extension is no more use to verify the compliance or any smart logic it posses.
 //! - `unarchive_extension` - Extension gets un-archived it means extension is use to verify the compliance or any smart logic it posses.
 //!
@@ -98,7 +98,7 @@ pub mod benchmarking;
 use pallet_identity as identity;
 use pallet_statistics as statistics;
 use polymesh_common_utilities::{
-    asset::{AcceptTransfer, Trait as AssetTrait},
+    asset::{AcceptTransfer, IssueAssetItem, Trait as AssetTrait},
     balances::Trait as BalancesTrait,
     compliance_manager::Trait as ComplianceManagerTrait,
     constants::*,
@@ -738,88 +738,85 @@ decl_module! {
         /// * `values` Array of the Amount of tokens that get issued.
         ///
         /// # Weight
-        /// `300_000 + 400_000 * idvestor_dids.len().max(values.len())`
+        /// `300_000 + 400_000 * issue_asset_items.len().max(values.len())`
         #[weight = FunctionOf(
-            |(_, investor_dids, values): (
+            |(issue_asset_items, _): (
+                &Vec<IssueAssetItem<T::Balance>>,
                 &Ticker,
-                &Vec<IdentityId>,
-                &Vec<T::Balance>,
             )| {
-                let n = u32::try_from(investor_dids.len())
-                    .unwrap_or_default()
-                    .max(u32::try_from(values.len()).unwrap_or_default());
+                let n = u32::try_from(issue_asset_items.len())
+                    .unwrap_or_default();
                 300_000 + 400_000 * n
             },
             DispatchClass::Normal,
             true
         )]
-        pub fn batch_issue(origin, ticker: Ticker, investor_dids: Vec<IdentityId>, values: Vec<T::Balance>) -> DispatchResult {
+        pub fn batch_issue(origin, issue_asset_items: Vec<IssueAssetItem<T::Balance>>, ticker: Ticker) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             let sender_key = AccountKey::try_from(sender.encode())?;
             let did = Context::current_identity_or::<Identity<T>>(&sender_key)?;
 
-            ensure!(!investor_dids.is_empty(), Error::<T>::NoInvestors);
-            ensure!(investor_dids.len() == values.len(), Error::<T>::InvestorListLengthInconsistent);
+            ensure!(!issue_asset_items.is_empty(), Error::<T>::NoInvestors);
             ensure!(Self::is_owner(&ticker, did), Error::<T>::Unauthorized);
 
             // A helper vec for calculated new investor balances
-            let mut updated_balances = Vec::with_capacity(investor_dids.len());
+            let mut updated_balances = Vec::with_capacity(issue_asset_items.len());
             // A helper vec for calculated new investor balances
-            let mut current_balances = Vec::with_capacity(investor_dids.len());
+            let mut current_balances = Vec::with_capacity(issue_asset_items.len());
             // Get current token details for supply update
             let mut token = Self::token_details(ticker);
 
-            // A round of per-investor checks
-            for i in 0..investor_dids.len() {
-                ensure!(
-                    Self::check_granularity(&ticker, values[i]),
-                    Error::<T>::InvalidGranularity
-                );
-                let updated_total_supply = token
-                    .total_supply
-                    .checked_add(&values[i])
-                    .ok_or(Error::<T>::TotalSupplyOverflow)?;
-                ensure!(updated_total_supply <= MAX_SUPPLY.into(), Error::<T>::TotalSupplyAboveLimit);
-
-                current_balances.push(Self::balance(&ticker, &investor_dids[i]));
-                updated_balances.push(current_balances[i]
-                    .checked_add(&values[i])
-                    .ok_or(Error::<T>::BalanceOverflow)?);
-
-                // verify transfer check
-                ensure!(
-                    Self::_is_valid_transfer(&ticker, sender.clone(),  None, Some(investor_dids[i]), values[i])? == ERC1400_TRANSFER_SUCCESS,
-                    Error::<T>::InvalidTransfer
-                );
-
-                // New total supply must be valid
-                token.total_supply = updated_total_supply;
-            }
             let round = Self::funding_round(&ticker);
             let ticker_round = (ticker, round.clone());
             // Update the total token balance issued in this funding round.
             let mut issued_in_this_round = Self::issued_in_funding_round(&ticker_round);
-            for v in &values {
+
+            // A round of per-investor checks
+            for i in 0..issue_asset_items.len() {
+                ensure!(
+                    Self::check_granularity(&ticker, issue_asset_items[i].value),
+                    Error::<T>::InvalidGranularity
+                );
+                let updated_total_supply = token
+                    .total_supply
+                    .checked_add(&issue_asset_items[i].value)
+                    .ok_or(Error::<T>::TotalSupplyOverflow)?;
+                ensure!(updated_total_supply <= MAX_SUPPLY.into(), Error::<T>::TotalSupplyAboveLimit);
+
+                current_balances.push(Self::balance(&ticker, &issue_asset_items[i].investor_did));
+                updated_balances.push(current_balances[i]
+                    .checked_add(&issue_asset_items[i].value)
+                    .ok_or(Error::<T>::BalanceOverflow)?);
+
+                // verify transfer check
+                ensure!(
+                    Self::_is_valid_transfer(&ticker, sender.clone(),  None, Some(issue_asset_items[i].investor_did), issue_asset_items[i].value)? == ERC1400_TRANSFER_SUCCESS,
+                    Error::<T>::InvalidTransfer
+                );
+
                 issued_in_this_round = issued_in_this_round
-                    .checked_add(v)
+                    .checked_add(&issue_asset_items[i].value)
                     .ok_or(Error::<T>::FundingRoundTotalOverflow)?;
+
+                // New total supply must be valid
+                token.total_supply = updated_total_supply;
             }
-            <<T as IdentityTrait>::ProtocolFee>::charge_fee_batch(
+            <<T as IdentityTrait>::ProtocolFee>::batch_charge_fee(
                 &Signatory::AccountKey(sender_key),
                 ProtocolOp::AssetIssue,
-                investor_dids.len()
+                issue_asset_items.len()
             )?;
             <IssuedInFundingRound<T>>::insert(&ticker_round, issued_in_this_round);
             // Update investor balances and emit events quoting the updated total token balance issued.
-            for i in 0..investor_dids.len() {
-                Self::_update_checkpoint(&ticker, investor_dids[i], current_balances[i]);
-                <BalanceOf<T>>::insert(ticker, investor_dids[i], updated_balances[i]);
-                <statistics::Module<T>>::update_transfer_stats(&ticker, None, Some(updated_balances[i]), values[i]);
+            for i in 0..issue_asset_items.len() {
+                Self::_update_checkpoint(&ticker, issue_asset_items[i].investor_did, current_balances[i]);
+                <BalanceOf<T>>::insert(ticker, issue_asset_items[i].investor_did, updated_balances[i]);
+                <statistics::Module<T>>::update_transfer_stats(&ticker, None, Some(updated_balances[i]), issue_asset_items[i].value);
                 Self::deposit_event(RawEvent::Issued(
                     did,
                     ticker,
-                    investor_dids[i],
-                    values[i],
+                    issue_asset_items[i].investor_did,
+                    issue_asset_items[i].value,
                     round.clone(),
                     issued_in_this_round
                 ));
@@ -1058,13 +1055,13 @@ decl_module! {
         /// # Weight
         /// `200_000 + 60_000 * documents.len()`
         #[weight = FunctionOf(
-            |(_, documents): (&Ticker, &Vec<Document>)| {
+            |(documents, _): (&Vec<Document>, &Ticker)| {
                 200_000 + 60_000 * u32::try_from(documents.len()).unwrap_or_default()
             },
             DispatchClass::Normal,
             true
         )]
-        pub fn add_documents(origin, ticker: Ticker, documents: Vec<Document>) -> DispatchResult {
+        pub fn batch_add_document(origin, documents: Vec<Document>, ticker: Ticker) -> DispatchResult {
             let sender_key = AccountKey::try_from(ensure_signed(origin)?.encode())?;
             let did = Context::current_identity_or::<Identity<T>>(&sender_key)?;
 
@@ -1072,9 +1069,9 @@ decl_module! {
 
             let ticker_did = <identity::Module<T>>::get_token_did(&ticker)?;
             let signer = Signatory::from(ticker_did);
-            <<T as IdentityTrait>::ProtocolFee>::charge_fee_batch(
+            <<T as IdentityTrait>::ProtocolFee>::batch_charge_fee(
                 &Signatory::AccountKey(sender_key),
-                ProtocolOp::AssetAddDocuments,
+                ProtocolOp::AssetAddDocument,
                 documents.len()
             )?;
             documents.into_iter().for_each(|doc| {
@@ -1094,13 +1091,13 @@ decl_module! {
         /// # Weight
         /// `200_000 + 60_000 * do_ids.len()`
         #[weight = FunctionOf(
-            |(_, doc_ids): (&Ticker, &Vec<u64>)| {
+            |(doc_ids, _): (&Vec<u64>, &Ticker)| {
                 200_000 + 60_000 * u32::try_from(doc_ids.len()).unwrap_or_default()
             },
             DispatchClass::Normal,
             true
         )]
-        pub fn remove_documents(origin, ticker: Ticker, doc_ids: Vec<u64>) -> DispatchResult {
+        pub fn batch_remove_document(origin, doc_ids: Vec<u64>, ticker: Ticker) -> DispatchResult {
             let sender_key = AccountKey::try_from(ensure_signed(origin)?.encode())?;
             let did = Context::current_identity_or::<Identity<T>>(&sender_key)?;
             ensure!(Self::is_owner(&ticker, did), Error::<T>::NotAnOwner);
@@ -1124,13 +1121,13 @@ decl_module! {
         /// # Weight
         /// `200_000 + 60_000 * docs.len()`
         #[weight = FunctionOf(
-            |(_, docs): (&Ticker, &Vec<(u64, Document)>)| {
+            |(docs, _): (&Vec<(u64, Document)>, &Ticker)| {
                 200_000 + 60_000 * u32::try_from(docs.len()).unwrap_or_default()
             },
             DispatchClass::Normal,
             true
         )]
-        pub fn update_documents(origin, ticker: Ticker, docs: Vec<(u64, Document)>) -> DispatchResult {
+        pub fn batch_update_document(origin, docs: Vec<(u64, Document)>, ticker: Ticker) -> DispatchResult {
             let sender_key = AccountKey::try_from(ensure_signed(origin)?.encode())?;
             let did = Context::current_identity_or::<Identity<T>>(&sender_key)?;
 
@@ -1311,7 +1308,7 @@ decl_module! {
             Ok(())
         }
 
-        /// Whitelisting the Smart-Extension address for a given ticker.
+        /// Permissioning the Smart-Extension address for a given ticker.
         ///
         /// # Arguments
         /// * `origin` - Signatory who owns to ticker/asset.
@@ -1529,8 +1526,6 @@ decl_error! {
         InsufficientAllowance,
         /// The list of investors is empty.
         NoInvestors,
-        /// The investor list length is inconsistent.
-        InvestorListLengthInconsistent,
         /// An invalid granularity.
         InvalidGranularity,
         /// The account does not hold this token.
