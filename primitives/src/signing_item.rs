@@ -237,7 +237,7 @@ mod tests {
     fn build_test() {
         let key = Public::try_from("ABCDABCD".as_bytes()).unwrap();
         let rk1 = SigningItem::new(Signatory::Account(key.clone()), vec![]);
-        let rk2 = SigningItem::from(key.clone());
+        let rk2 = SigningItem::from_account_id(key.clone());
         assert_eq!(rk1, rk2);
 
         let rk3 = SigningItem::new(
@@ -246,7 +246,7 @@ mod tests {
         );
         assert_ne!(rk1, rk3);
 
-        let mut rk4 = SigningItem::from(key);
+        let mut rk4 = SigningItem::from_account_id(key);
         rk4.permissions = vec![Permission::Operator, Permission::Admin];
         assert_eq!(rk3, rk4);
 
@@ -280,9 +280,9 @@ mod tests {
             "did:poly:f1d273950ddaf693db228084d63ef18282e00f91997ae9df4f173f09e86d0976",
         )
         .unwrap();
-        assert_eq!(Signatory::from(key), key);
-        assert_ne!(Signatory::from(key), iden);
-        assert_eq!(Signatory::from(iden), iden);
-        assert_ne!(Signatory::from(iden), key);
+        let iden_sig: Signatory<sp_core::sr25519::Public> = Signatory::from(iden);
+        assert_ne!(Signatory::Account(key), iden_sig);
+        assert_eq!(iden_sig, iden);
+        assert_ne!(iden_sig, Signatory::Account(key));
     }
 }

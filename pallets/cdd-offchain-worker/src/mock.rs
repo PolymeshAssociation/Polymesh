@@ -363,7 +363,7 @@ impl AcceptTransfer for Test {
     }
 }
 
-impl MultiSigSubTrait for Test {
+impl MultiSigSubTrait<AccountId> for Test {
     fn accept_multisig_signer(_: Signatory<AccountId>, _: u64) -> DispatchResult {
         unimplemented!()
     }
