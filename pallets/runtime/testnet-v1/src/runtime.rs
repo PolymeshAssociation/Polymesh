@@ -213,7 +213,7 @@ impl pallet_transaction_payment::Trait for Runtime {
     type TransactionBaseFee = TransactionBaseFee;
     type TransactionByteFee = TransactionByteFee;
     type WeightToFee = LinearWeightToFee<WeightFeeCoefficient>;
-    type FeeMultiplierUpdate = TargetedFeeAdjustment<TargetBlockFullness, Self>;
+    type FeeMultiplierUpdate = ();
     type CddHandler = CddHandler;
 }
 
