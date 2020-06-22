@@ -199,7 +199,7 @@ impl balances::Trait for Runtime {
 }
 
 parameter_types! {
-    pub const TransactionBaseFee: Balance = 1 * CENTS;
+    pub const TransactionBaseFee: Balance = 1 * DOLLARS;
     pub const TransactionByteFee: Balance = 10 * MILLICENTS;
     // setting this to zero will disable the weight fee.
     pub const WeightFeeCoefficient: Balance = 1;
