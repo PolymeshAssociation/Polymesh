@@ -7,7 +7,7 @@ use polymesh_runtime_common::{
     bridge,
     cdd_check::CddChecker,
     contracts_wrapper, dividend, exemption,
-    impls::{Author, CurrencyToVoteHandler, LinearWeightToFee, TargetedFeeAdjustment},
+    impls::{Author, CurrencyToVoteHandler, LinearWeightToFee},
     merge_active_and_inactive, simple_token, sto_capped, voting, AvailableBlockRatio,
     BlockHashCount, MaximumBlockLength, MaximumBlockWeight, NegativeImbalance,
 };

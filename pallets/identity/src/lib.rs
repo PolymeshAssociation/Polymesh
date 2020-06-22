@@ -1408,7 +1408,7 @@ impl<T: Trait> Module<T> {
     /// NB: Please do all the required checks before calling this function.
     pub fn update_link(target: Signatory<T::AccountId>, link_id: u64, link_data: LinkData) {
         if <Links<T>>::contains_key(&target, link_id) {
-            <Links<T>>::mutate(target.clone(), link_id, |link| link.link_data = link_data);
+            <Links<T>>::mutate(&target, link_id, |link| link.link_data = link_data);
             Self::deposit_event(RawEvent::LinkUpdated(
                 target.as_identity().cloned(),
                 target.as_account().cloned(),
