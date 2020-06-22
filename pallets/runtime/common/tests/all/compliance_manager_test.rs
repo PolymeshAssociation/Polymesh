@@ -2,20 +2,21 @@ use super::{
     storage::{make_account, register_keyring_account, TestStorage},
     ExtBuilder,
 };
-
+use chrono::prelude::Utc;
+use frame_support::{assert_err, assert_ok, traits::Currency};
 use pallet_asset::{self as asset, AssetName, AssetType, Error as AssetError, SecurityToken};
 use pallet_balances as balances;
 use pallet_compliance_manager::{self as compliance_manager, AssetTransferRule, Error as CMError};
-use pallet_group::{self as group};
+use pallet_group as group;
 use pallet_identity::{self as identity, BatchAddClaimItem};
-use polymesh_common_utilities::Context;
+use polymesh_common_utilities::traits::compliance_manager::Trait as ComplianceManagerTrait;
+use polymesh_common_utilities::{
+    constants::{ERC1400_TRANSFER_FAILURE, ERC1400_TRANSFER_SUCCESS},
+    Context,
+};
 use polymesh_primitives::{Claim, IdentityId, Rule, RuleType, Scope, Ticker};
-
-use chrono::prelude::Utc;
-use frame_support::{assert_err, assert_ok, traits::Currency};
-use test_client::AccountKeyring;
-
 use sp_std::{convert::TryFrom, prelude::*};
+use test_client::AccountKeyring;
 
 type Identity = identity::Module<TestStorage>;
 type Balances = balances::Module<TestStorage>;
@@ -1253,4 +1254,115 @@ fn cm_test_case_13_we() {
     assert!(result.rules[0].receiver_rules[0].result);
     assert!(result.rules[0].receiver_rules[1].result);
     assert!(result.rules[0].receiver_rules[2].result);
+}
+
+#[test]
+fn can_verify_restriction_with_treasury_did() {
+    ExtBuilder::default()
+        .build()
+        .execute_with(can_verify_restriction_with_treasury_did_we);
+}
+
+fn can_verify_restriction_with_treasury_did_we() {
+    let owner = AccountKeyring::Alice.public();
+    let owner_origin = Origin::signed(owner);
+    let owner_id = register_keyring_account(AccountKeyring::Alice).unwrap();
+    let issuer = AccountKeyring::Bob.public();
+    let issuer_id = register_keyring_account(AccountKeyring::Bob).unwrap();
+    let random_guy = AccountKeyring::Charlie.public();
+    let random_guy_id = register_keyring_account(AccountKeyring::Charlie).unwrap();
+    let token_name: AssetName = vec![0x01].into();
+    let ticker = Ticker::try_from(token_name.0.as_slice()).unwrap();
+    assert_ok!(Asset::create_asset(
+        owner_origin,
+        token_name,
+        ticker,
+        1_000_000,
+        true,
+        Default::default(),
+        vec![],
+        None,
+        Some(issuer_id),
+    ));
+    let amount = 1_000;
+    assert_ok!(
+        ComplianceManager::verify_restriction(
+            &ticker,
+            Some(owner_id),
+            Some(issuer_id),
+            amount,
+            Some(issuer_id)
+        ),
+        ERC1400_TRANSFER_SUCCESS
+    );
+    assert_ok!(
+        ComplianceManager::verify_restriction(
+            &ticker,
+            Some(issuer_id),
+            Some(owner_id),
+            amount,
+            Some(issuer_id)
+        ),
+        ERC1400_TRANSFER_SUCCESS
+    );
+    assert_ok!(
+        ComplianceManager::verify_restriction(
+            &ticker,
+            Some(random_guy_id),
+            Some(issuer_id),
+            amount,
+            Some(issuer_id)
+        ),
+        ERC1400_TRANSFER_SUCCESS
+    );
+    assert_ok!(
+        ComplianceManager::verify_restriction(
+            &ticker,
+            Some(issuer_id),
+            Some(random_guy_id),
+            amount,
+            Some(issuer_id)
+        ),
+        ERC1400_TRANSFER_SUCCESS
+    );
+    assert_ok!(
+        ComplianceManager::verify_restriction(
+            &ticker,
+            Some(random_guy_id),
+            Some(owner_id),
+            amount,
+            Some(issuer_id)
+        ),
+        ERC1400_TRANSFER_FAILURE
+    );
+    assert_ok!(
+        ComplianceManager::verify_restriction(
+            &ticker,
+            Some(owner_id),
+            Some(random_guy_id),
+            amount,
+            Some(issuer_id)
+        ),
+        ERC1400_TRANSFER_FAILURE
+    );
+    assert_ok!(
+        ComplianceManager::verify_restriction(
+            &ticker,
+            Some(random_guy_id),
+            None,
+            amount,
+            Some(issuer_id)
+        ),
+        ERC1400_TRANSFER_FAILURE
+    );
+    assert_ok!(
+        ComplianceManager::verify_restriction(
+            &ticker,
+            None,
+            Some(random_guy_id),
+            amount,
+            Some(issuer_id)
+        ),
+        ERC1400_TRANSFER_FAILURE
+    );
 }
