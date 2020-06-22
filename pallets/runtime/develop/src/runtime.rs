@@ -95,8 +95,8 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     spec_name: create_runtime_str!("polymesh"),
     impl_name: create_runtime_str!("polymath-polymesh"),
     authoring_version: 1,
-    spec_version: 1005,
-    impl_version: 1005,
+    spec_version: 1006,
+    impl_version: 1006,
     apis: RUNTIME_API_VERSIONS,
 };
 
@@ -208,7 +208,7 @@ impl balances::Trait for Runtime {
 }
 
 parameter_types! {
-    pub const TransactionBaseFee: Balance = 1 * CENTS;
+    pub const TransactionBaseFee: Balance = 1 * DOLLARS;
     pub const TransactionByteFee: Balance = 10 * MILLICENTS;
     // setting this to zero will disable the weight fee.
     pub const WeightFeeCoefficient: Balance = 1;
@@ -222,7 +222,7 @@ impl pallet_transaction_payment::Trait for Runtime {
     type TransactionBaseFee = TransactionBaseFee;
     type TransactionByteFee = TransactionByteFee;
     type WeightToFee = LinearWeightToFee<WeightFeeCoefficient>;
-    type FeeMultiplierUpdate = TargetedFeeAdjustment<TargetBlockFullness, Self>;
+    type FeeMultiplierUpdate = ();
     type CddHandler = CddHandler;
 }
 
