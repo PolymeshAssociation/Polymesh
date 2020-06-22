@@ -212,6 +212,7 @@ pub struct SecurityToken<U> {
     pub divisible: bool,
     pub asset_type: AssetType,
     pub link_id: u64,
+    pub treasury_did: Option<IdentityId>,
 }
 
 /// struct to store the signed data.
@@ -408,14 +409,15 @@ decl_module! {
         /// # Weight
         /// `400_000 + 20_000 * identifiers.len()`
         #[weight = FunctionOf(
-            |(_, _, _, _, _, identifiers, _): (
+            |(_, _, _, _, _, identifiers, _, _): (
                 &AssetName,
                 &Ticker,
                 &T::Balance,
                 &bool,
                 &AssetType,
                 &Vec<(IdentifierType, AssetIdentifier)>,
-                &Option<FundingRoundName>
+                &Option<FundingRoundName>,
+                &Option<IdentityId>,
             )| {
                 400_000 + 20_000 * u32::try_from(identifiers.len()).unwrap_or_default()
             },
@@ -430,7 +432,8 @@ decl_module! {
             divisible: bool,
             asset_type: AssetType,
             identifiers: Vec<(IdentifierType, AssetIdentifier)>,
-            funding_round: Option<FundingRoundName>
+            funding_round: Option<FundingRoundName>,
+            treasury_did: Option<IdentityId>,
         ) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             let did = Context::current_identity_or::<Identity<T>>(&sender)?;
@@ -486,6 +489,7 @@ decl_module! {
                 divisible,
                 asset_type: asset_type.clone(),
                 link_id: link,
+                treasury_did,
             };
             <Tokens<T>>::insert(&ticker, token);
             <BalanceOf<T>>::insert(ticker, did, total_supply);
@@ -1763,8 +1767,14 @@ impl<T: Trait> Module<T> {
         if Self::frozen(ticker) {
             return Ok(ERC1400_TRANSFERS_HALTED);
         }
-        let general_status_code =
-            T::ComplianceManager::verify_restriction(ticker, from_did, to_did, value)?;
+        let treasury_did = <Tokens<T>>::get(ticker).treasury_did;
+        let general_status_code = T::ComplianceManager::verify_restriction(
+            ticker,
+            from_did,
+            to_did,
+            value,
+            treasury_did,
+        )?;
         Ok(if general_status_code != ERC1400_TRANSFER_SUCCESS {
             COMPLIANCE_MANAGER_FAILURE
         } else {

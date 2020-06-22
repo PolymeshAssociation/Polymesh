@@ -47,7 +47,8 @@ fn make_ticker_env(owner: AccountKeyring, token_name: AssetName) -> Ticker {
         true,
         token.asset_type.clone(),
         vec![],
-        None
+        None,
+        None,
     ));
 
     ticker
@@ -94,7 +95,8 @@ fn should_add_and_verify_asset_rule_we() {
         true,
         token.asset_type.clone(),
         vec![],
-        None
+        None,
+        None,
     ));
     let claim_issuer_acc = AccountKeyring::Bob.public();
     Balances::make_free_balance_be(&claim_issuer_acc, 1_000_000);
@@ -253,7 +255,8 @@ fn should_replace_asset_rules_we() {
         true,
         token.asset_type.clone(),
         vec![],
-        None
+        None,
+        None,
     ));
 
     assert_ok!(ComplianceManager::add_active_rule(
@@ -320,7 +323,8 @@ fn should_reset_asset_rules_we() {
         true,
         token.asset_type.clone(),
         vec![],
-        None
+        None,
+        None,
     ));
 
     assert_ok!(ComplianceManager::add_active_rule(
@@ -377,7 +381,8 @@ fn pause_resume_asset_rules_we() {
         true,
         token.asset_type.clone(),
         vec![],
-        None
+        None,
+        None,
     ));
 
     assert_ok!(Identity::add_claim(
@@ -478,7 +483,8 @@ fn should_successfully_add_and_use_default_issuers_we() {
         true,
         token.asset_type.clone(),
         vec![],
-        None
+        None,
+        None,
     ));
 
     // Failed because trusted issuer identity not exist
@@ -603,7 +609,8 @@ fn should_modify_vector_of_trusted_issuer_we() {
         true,
         token.asset_type.clone(),
         vec![],
-        None
+        None,
+        None,
     ));
 
     // Failed because caller is not the owner of the ticker
@@ -823,7 +830,8 @@ fn jurisdiction_asset_rules_we() {
         true,
         token.asset_type.clone(),
         vec![],
-        None
+        None,
+        None,
     ));
     // 2. Set up rules for Asset transfer.
     let scope = Scope::from(0);

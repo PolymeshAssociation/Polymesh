@@ -780,7 +780,11 @@ impl<T: Trait> ComplianceManagerTrait<T::Balance> for Module<T> {
         from_did_opt: Option<IdentityId>,
         to_did_opt: Option<IdentityId>,
         _value: T::Balance,
+        treasury_did: Option<IdentityId>,
     ) -> StdResult<u8, &'static str> {
+        if treasury_did.is_some() && (treasury_did == from_did_opt || treasury_did == to_did_opt) {
+            return Ok(ERC1400_TRANSFER_SUCCESS);
+        }
         // Transfer is valid if ALL receiver AND sender rules of ANY asset rule are valid.
         let asset_rules = Self::asset_rules(ticker);
         if asset_rules.is_paused {

@@ -86,7 +86,8 @@ fn correct_dividend_must_work() {
             true,
             token.asset_type.clone(),
             vec![],
-            None
+            None,
+            None,
         ));
 
         // Issuance for payout token is successful
