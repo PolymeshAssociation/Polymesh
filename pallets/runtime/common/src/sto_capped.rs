@@ -92,7 +92,7 @@ pub struct Investment<V, W> {
 
 decl_storage! {
     trait Store for Module<T: Trait> as StoCapped {
-        /// Tokens can have multiple whitelists that (for now) check entries individually within each other
+        /// Tokens can have multiple exemptions that (for now) check entries individually within each other
         /// (ticker, sto_id) -> STO
         StosByToken get(fn stos_by_token): map hasher(blake2_128_concat) (Ticker, u32) => STO<T::Balance,T::Moment>;
         /// It returns the sto count corresponds to its ticker
@@ -521,7 +521,7 @@ impl<T: Trait> Module<T> {
         _did: IdentityId,
         selected_sto: STO<T::Balance, T::Moment>,
     ) -> DispatchResult {
-        // TODO: Validate that buyer is whitelisted for primary issuance.
+        // TODO: Validate that buyer is exempted for primary issuance.
         // Check whether the sto is un-paused or not
         ensure!(selected_sto.active, Error::<T>::Paused);
         // Check whether the sto is already ended

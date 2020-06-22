@@ -96,7 +96,7 @@ fn correct_dividend_must_work() {
             payout_token.total_supply
         ));
 
-        // Prepare a whitelisted investor
+        // Prepare an exempted investor
         let (investor_acc, investor_did) = make_account(AccountKeyring::Charlie.public()).unwrap();
         let investor_account_id = ensure_signed(investor_acc.clone()).ok().unwrap();
         Balances::make_free_balance_be(&investor_account_id, 1_000_000);

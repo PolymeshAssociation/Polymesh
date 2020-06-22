@@ -14,9 +14,7 @@
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
 use crate::{
-    traits::{
-        balances, group::GroupTrait, multisig::AddSignerMultiSig, CommonTrait, NegativeImbalance,
-    },
+    traits::{balances, group::GroupTrait, multisig::MultiSigSubTrait, CommonTrait},
     ChargeProtocolFee, SystematicIssuers,
 };
 use polymesh_primitives::{
@@ -25,7 +23,7 @@ use polymesh_primitives::{
 };
 
 use codec::{Decode, Encode};
-use frame_support::{decl_event, weights::GetDispatchInfo, Parameter};
+use frame_support::{decl_event, traits::Currency, weights::GetDispatchInfo, Parameter};
 use pallet_transaction_payment::{CddAndFeeDetails, ChargeTxFee};
 use sp_core::H512;
 use sp_runtime::traits::{Dispatchable, IdentifyAccount, Member, Verify};
@@ -89,15 +87,11 @@ pub trait Trait: CommonTrait + pallet_timestamp::Trait + balances::Trait {
         + Dispatchable<Origin = <Self as frame_system::Trait>::Origin>
         + GetDispatchInfo;
     /// MultiSig module
-    type AddSignerMultiSigTarget: AddSignerMultiSig;
+    type MultiSig: MultiSigSubTrait;
     /// Group module
     type CddServiceProviders: GroupTrait<<Self as pallet_timestamp::Trait>::Moment>;
-
-    type Balances: balances::BalancesTrait<
-        <Self as frame_system::Trait>::AccountId,
-        <Self as CommonTrait>::Balance,
-        NegativeImbalance<Self>,
-    >;
+    /// Balances module
+    type Balances: Currency<<Self as frame_system::Trait>::AccountId>;
     /// Charges fee for forwarded call
     type ChargeTxFeeTarget: ChargeTxFee;
     /// Used to check and update CDD

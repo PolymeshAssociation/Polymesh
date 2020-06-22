@@ -208,7 +208,7 @@ impl balances::Trait for Runtime {
 }
 
 parameter_types! {
-    pub const TransactionBaseFee: Balance = 1 * CENTS;
+    pub const TransactionBaseFee: Balance = 1 * DOLLARS;
     pub const TransactionByteFee: Balance = 10 * MILLICENTS;
     // setting this to zero will disable the weight fee.
     pub const WeightFeeCoefficient: Balance = 1;
@@ -222,7 +222,7 @@ impl pallet_transaction_payment::Trait for Runtime {
     type TransactionBaseFee = TransactionBaseFee;
     type TransactionByteFee = TransactionByteFee;
     type WeightToFee = LinearWeightToFee<WeightFeeCoefficient>;
-    type FeeMultiplierUpdate = TargetedFeeAdjustment<TargetBlockFullness, Self>;
+    type FeeMultiplierUpdate = ();
     type CddHandler = CddHandler;
 }
 
@@ -496,7 +496,7 @@ impl sto_capped::Trait for Runtime {
 impl IdentityTrait for Runtime {
     type Event = Event;
     type Proposal = Call;
-    type AddSignerMultiSigTarget = MultiSig;
+    type MultiSig = MultiSig;
     type CddServiceProviders = CddServiceProviders;
     type Balances = balances::Module<Runtime>;
     type ChargeTxFeeTarget = TransactionPayment;

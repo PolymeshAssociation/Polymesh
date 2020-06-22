@@ -96,7 +96,7 @@ use polymesh_common_utilities::{
             AuthorizationNonce, IdentityTrait, LinkedKeyInfo, RawEvent, SigningItemWithAuth,
             TargetIdAuthorization, Trait,
         },
-        multisig::AddSignerMultiSig,
+        multisig::MultiSigSubTrait,
     },
     Context, SystematicIssuers, SYSTEMATIC_ISSUERS,
 };
@@ -125,7 +125,7 @@ use frame_support::{
     debug, decl_error, decl_module, decl_storage,
     dispatch::{DispatchError, DispatchResult},
     ensure,
-    traits::{ChangeMembers, InitializeMembers},
+    traits::{ChangeMembers, Currency, InitializeMembers},
     weights::{DispatchClass, FunctionOf, GetDispatchInfo, SimpleDispatchInfo},
     StorageDoubleMap,
 };
@@ -355,9 +355,17 @@ decl_module! {
             let did_sig = Signatory::from(did);
 
             // Remove links and get all authorization IDs per signer.
-            let signer_and_auth_id_list = signers_to_remove.iter().map(|signer| {
+            let signer_and_auth_id_list = signers_to_remove.iter().filter_map(|signer| {
                 match signer {
-                    Signatory::AccountKey(ref key) => Self::unlink_key_from_did(key, did),
+                    Signatory::AccountKey(ref key) => {
+                        if T::MultiSig::is_multisig(*key) {
+                            let multisig = T::AccountId::decode(&mut &key.as_slice()[..]).unwrap_or_default();
+                            if !T::Balances::total_balance(&multisig).is_zero() { return None; }
+                            // Unlink multisig signers from the identity.
+                            Self::unlink_multisig_signers_from_did(T::MultiSig::get_key_signers(*key), did);
+                        }
+                        Self::unlink_key_from_did(key, did)
+                    }
                     _ => {}
                 };
 
@@ -372,7 +380,7 @@ decl_module! {
                     })
                     .collect::<Vec<_>>();
 
-                (signer, auth_ids)
+                Some((signer, auth_ids))
             })
             .collect::<Vec<_>>();
 
@@ -870,7 +878,7 @@ decl_module! {
                         AuthorizationData::TransferAssetOwnership(_) =>
                             T::AcceptTransferTarget::accept_asset_ownership_transfer(did, auth_id),
                         AuthorizationData::AddMultiSigSigner =>
-                            T::AddSignerMultiSigTarget::accept_multisig_signer(Signatory::from(did), auth_id),
+                            T::MultiSig::accept_multisig_signer(Signatory::from(did), auth_id),
                         AuthorizationData::JoinIdentity(_) =>
                             Self::join_identity(Signatory::from(did), auth_id),
                         _ => Err(Error::<T>::UnknownAuthorization.into())
@@ -879,7 +887,7 @@ decl_module! {
                 Signatory::AccountKey(key) => {
                     match auth.authorization_data {
                         AuthorizationData::AddMultiSigSigner =>
-                            T::AddSignerMultiSigTarget::accept_multisig_signer(Signatory::from(key), auth_id),
+                            T::MultiSig::accept_multisig_signer(Signatory::from(key), auth_id),
                         AuthorizationData::RotateMasterKey(_identityid) =>
                             Self::accept_master_key_rotation(key , auth_id, None),
                         AuthorizationData::JoinIdentity(_) =>
@@ -927,7 +935,7 @@ decl_module! {
                                 AuthorizationData::TransferAssetOwnership(_) =>
                                     T::AcceptTransferTarget::accept_asset_ownership_transfer(did, auth_id),
                                 AuthorizationData::AddMultiSigSigner =>
-                                    T::AddSignerMultiSigTarget::accept_multisig_signer(Signatory::from(did), auth_id),
+                                    T::MultiSig::accept_multisig_signer(Signatory::from(did), auth_id),
                                 AuthorizationData::JoinIdentity(_) =>
                                     Self::join_identity(Signatory::from(did), auth_id),
                                 _ => Err(Error::<T>::UnknownAuthorization.into())
@@ -944,7 +952,7 @@ decl_module! {
                             //NB: Result is not handled, invalid auths are just ignored to let the batch function continue.
                             let _result = match auth.authorization_data {
                                 AuthorizationData::AddMultiSigSigner =>
-                                    T::AddSignerMultiSigTarget::accept_multisig_signer(Signatory::from(key), auth_id),
+                                    T::MultiSig::accept_multisig_signer(Signatory::from(key), auth_id),
                                 AuthorizationData::RotateMasterKey(_identityid) =>
                                     Self::accept_master_key_rotation(key , auth_id, None),
                                 AuthorizationData::JoinIdentity(_) =>
@@ -1152,6 +1160,10 @@ decl_error! {
         FailedToChargeFee,
         /// Signer is not a signing key of the provided identity
         NotASigner,
+        /// Decoding error. Should never happen in practice
+        DecodingError,
+        /// Multisig can not be unlinked from an identity while it still holds POLYX
+        MultiSigHasBalance
     }
 }
 
@@ -2010,6 +2022,16 @@ impl<T: Trait> Module<T> {
         ensure!(Self::is_signer(did, &signer), Error::<T>::NotASigner);
 
         if let Signatory::AccountKey(key) = signer {
+            if T::MultiSig::is_multisig(key) {
+                let multisig = T::AccountId::decode(&mut &key.as_slice()[..])
+                    .map_err(|_| Error::<T>::DecodingError)?;
+                ensure!(
+                    T::Balances::total_balance(&multisig).is_zero(),
+                    Error::<T>::MultiSigHasBalance
+                );
+                // Unlink multisig signers from the identity.
+                Self::unlink_multisig_signers_from_did(T::MultiSig::get_key_signers(key), did);
+            }
             Self::unlink_key_from_did(&key, did)
         }
 
@@ -2020,6 +2042,12 @@ impl<T: Trait> Module<T> {
 
         Self::deposit_event(RawEvent::SignerLeft(did, signer));
         Ok(())
+    }
+
+    fn unlink_multisig_signers_from_did(signers: Vec<AccountKey>, did: IdentityId) {
+        for signer in signers {
+            Self::unlink_key_from_did(&signer, did)
+        }
     }
 }
 

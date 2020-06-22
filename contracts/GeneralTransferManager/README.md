@@ -2,7 +2,7 @@
 
 General Transfer Manager implemented in Ink! smart contract.
 
-Designed to be attached to a regulated asset to allow transfers of the asset to be controlled through a whitelist.
+Designed to be attached to a regulated asset to allow transfers of the asset to be controlled through an exemption list.
 
 # Pre-Requisites
 

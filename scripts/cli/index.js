@@ -494,7 +494,7 @@ async function addClaimsBatchToDid(api, accounts, dids, n_claims, fast) {
 
     // Stores the value of each claim
     let claim_record = {target: dids[0], 
-                        claim: { Whitelisted: asset_did },
+                        claim: { Exempted: asset_did },
                         expiry: null};
   
     // This fills the claims array with claim_values up to n_claims amount
