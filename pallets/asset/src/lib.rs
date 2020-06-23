@@ -1367,6 +1367,26 @@ decl_module! {
             Self::deposit_event(RawEvent::ExtensionUnArchived(my_did, ticker, extension_id));
             Ok(())
         }
+
+        /// Sets the treasury DID to a given value. The caller must be the ticker owner.
+        ///
+        /// # Arguments
+        /// * `origin` - Signatory who owns the ticker/asset.
+        /// * `ticker` - Ticker symbol of the asset.
+        /// * `treasury_did` - The treasury DID wrapped in a value of type [`Option`].
+        #[weight = SimpleDispatchInfo::FixedNormal(250_000)]
+        pub fn set_treasury_did(
+            origin,
+            ticker: Ticker,
+            treasury_did: Option<IdentityId>,
+        ) -> DispatchResult {
+            let sender = ensure_signed(origin)?;
+            let did = Context::current_identity_or::<Identity<T>>(&sender)?;
+            ensure!(Self::is_owner(&ticker, did), Error::<T>::Unauthorized);
+            <Tokens<T>>::mutate(&ticker, |token| token.treasury_did = treasury_did);
+            Self::deposit_event(RawEvent::TreasuryDidSet(did, ticker, treasury_did));
+            Ok(())
+        }
     }
 }
 
@@ -1449,6 +1469,8 @@ decl_event! {
         /// Emitted event for Checkpoint creation.
         /// caller DID. ticker, checkpoint count.
         CheckpointCreated(IdentityId, Ticker, u64),
+        /// An event emitted when the treasury DID of an asset is set.
+        TreasuryDidSet(IdentityId, Ticker, Option<IdentityId>),
     }
 }
 
