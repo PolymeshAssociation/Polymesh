@@ -51,10 +51,7 @@ use polymesh_common_utilities::{
     balances::Trait as BalancesTrait, constants::currency::MAX_SUPPLY,
     identity::Trait as IdentityTrait, CommonTrait, Context,
 };
-use polymesh_primitives::{AccountKey, IdentityId, Signatory, Ticker};
-
-use codec::Encode;
-use sp_std::{convert::TryFrom, prelude::*};
+use polymesh_primitives::{IdentityId, Signatory, Ticker};
 
 use frame_support::{
     decl_error, decl_event, decl_module, decl_storage, dispatch::DispatchResult, ensure,
@@ -62,6 +59,7 @@ use frame_support::{
 };
 use frame_system::{self as system, ensure_signed};
 use sp_runtime::traits::{CheckedAdd, CheckedSub};
+use sp_std::prelude::*;
 
 /// The module's configuration trait.
 pub trait Trait: frame_system::Trait + BalancesTrait + IdentityTrait {
@@ -126,9 +124,9 @@ decl_module! {
         /// Create a new token and mint a balance to the issuing identity
         #[weight = SimpleDispatchInfo::FixedNormal(200_000)]
         pub fn create_token(origin, ticker: Ticker, total_supply: T::Balance) -> DispatchResult {
-            let sender_key = AccountKey::try_from(ensure_signed(origin)?.encode())?;
-            let did = Context::current_identity_or::<Identity<T>>(&sender_key)?;
-            let sender = Signatory::AccountKey(sender_key);
+            let sender = ensure_signed(origin)?;
+            let did = Context::current_identity_or::<Identity<T>>(&sender)?;
+            let sender = Signatory::Account(sender);
 
             // Check that sender is allowed to act on behalf of `did`
             ensure!(
@@ -158,9 +156,9 @@ decl_module! {
         /// Approve another identity to transfer tokens on behalf of the caller
         #[weight = SimpleDispatchInfo::FixedNormal(150_000)]
         pub fn approve(origin, ticker: Ticker, spender_did: IdentityId, value: T::Balance) -> DispatchResult {
-            let sender_key = AccountKey::try_from(ensure_signed(origin)?.encode())?;
-            let did = Context::current_identity_or::<Identity<T>>(&sender_key)?;
-            let sender = Signatory::AccountKey(sender_key);
+            let sender = ensure_signed(origin)?;
+            let did = Context::current_identity_or::<Identity<T>>(&sender)?;
+            let sender = Signatory::Account(sender);
 
             let ticker_did = (ticker, did);
             ensure!(<BalanceOf<T>>::contains_key(&ticker_did), Error::<T>::NotAnOwner);
@@ -184,9 +182,9 @@ decl_module! {
         /// Transfer tokens to another identity
         #[weight = SimpleDispatchInfo::FixedNormal(300_000)]
         pub fn transfer(origin, ticker: Ticker, to_did: IdentityId, amount: T::Balance) -> DispatchResult {
-            let sender_key = AccountKey::try_from(ensure_signed(origin)?.encode())?;
-            let did = Context::current_identity_or::<Identity<T>>(&sender_key)?;
-            let sender = Signatory::AccountKey(sender_key);
+            let sender = ensure_signed(origin)?;
+            let did = Context::current_identity_or::<Identity<T>>(&sender)?;
+            let sender = Signatory::Account(sender);
 
             // Check that sender is allowed to act on behalf of `did`
             ensure!(
@@ -200,9 +198,9 @@ decl_module! {
         /// Transfer tokens to another identity using the approval mechanic
         #[weight = SimpleDispatchInfo::FixedNormal(400_000)]
         pub fn transfer_from(origin, ticker: Ticker, from_did: IdentityId, to_did: IdentityId, amount: T::Balance) -> DispatchResult {
-            let sender_key = AccountKey::try_from(ensure_signed(origin)?.encode())?;
-            let did = Context::current_identity_or::<Identity<T>>(&sender_key)?;
-            let spender = Signatory::AccountKey(sender_key);
+            let sender = ensure_signed(origin)?;
+            let did = Context::current_identity_or::<Identity<T>>(&sender)?;
+            let spender = Signatory::Account(sender);
 
             // Check that spender is allowed to act on behalf of `did`
             ensure!(

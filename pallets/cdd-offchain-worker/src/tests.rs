@@ -21,7 +21,7 @@ use codec::{Decode, Encode};
 use frame_support::{assert_err, assert_noop, assert_ok, dispatch::DispatchError};
 use mock::*;
 use pallet_staking::RewardDestination;
-use primitives::{AccountKey, IdentityId, Signatory};
+use primitives::{IdentityId, Signatory};
 use sp_core::{
     offchain::{testing, OffchainExt, TransactionPoolExt},
     testing::KeyStore,

@@ -52,7 +52,7 @@ use polymesh_common_utilities::{
     protocol_fee::{ChargeProtocolFee, ProtocolOp},
     CommonTrait, Context,
 };
-use polymesh_primitives::{AccountKey, IdentityId, Signatory, Ticker};
+use polymesh_primitives::{IdentityId, Signatory, Ticker};
 use polymesh_primitives_derive::VecU8StrongTyped;
 
 use codec::{Decode, Encode};
@@ -152,12 +152,12 @@ decl_module! {
         /// * `ballot_details` - Other details of the ballot
         #[weight = SimpleDispatchInfo::FixedNormal(300_000)]
         pub fn add_ballot(origin, ticker: Ticker, ballot_name: Vec<u8>, ballot_details: Ballot<T::Moment>) -> DispatchResult {
-            let sender_key = AccountKey::try_from(ensure_signed(origin)?.encode())?;
-            let did = Context::current_identity_or::<Identity<T>>(&sender_key)?;
-            let sender = Signatory::AccountKey(sender_key);
+            let sender = ensure_signed(origin)?;
+            let did = Context::current_identity_or::<Identity<T>>(&sender)?;
+            let signer = Signatory::Account(sender);
 
             // Check that sender is allowed to act on behalf of `did`
-            ensure!(<identity::Module<T>>::is_signer_authorized(did, &sender), Error::<T>::InvalidSigner);
+            ensure!(<identity::Module<T>>::is_signer_authorized(did, &signer), Error::<T>::InvalidSigner);
             ensure!(Self::is_owner(&ticker, did), Error::<T>::InvalidOwner);
 
             // This avoids cloning the variables to make the same tupple again and again.
@@ -182,7 +182,7 @@ decl_module! {
                 total_choices += motion.choices.len();
             }
             <<T as IdentityTrait>::ProtocolFee>::charge_fee(
-                &sender,
+                &signer,
                 ProtocolOp::VotingAddBallot
             )?;
             if let Ok(total_choices_u64) = u64::try_from(total_choices) {
@@ -209,12 +209,12 @@ decl_module! {
         /// * `votes` - The actual vote to be cast
         #[weight = SimpleDispatchInfo::FixedNormal(500_000)]
         pub fn vote(origin, ticker: Ticker, ballot_name: Vec<u8>, votes: Vec<T::Balance>) -> DispatchResult {
-            let sender_key = AccountKey::try_from(ensure_signed(origin)?.encode())?;
-            let did = Context::current_identity_or::<Identity<T>>(&sender_key)?;
-            let sender = Signatory::AccountKey(sender_key);
+            let sender = ensure_signed(origin)?;
+            let did = Context::current_identity_or::<Identity<T>>(&sender)?;
+            let signer = Signatory::Account(sender);
 
             // Check that sender is allowed to act on behalf of `did`
-            ensure!(<identity::Module<T>>::is_signer_authorized(did, &sender), Error::<T>::InvalidSigner);
+            ensure!(<identity::Module<T>>::is_signer_authorized(did, &signer), Error::<T>::InvalidSigner);
 
             // This avoids cloning the variables to make the same tupple again and again
             let ticker_ballot_name = (ticker, ballot_name.clone());
@@ -280,12 +280,12 @@ decl_module! {
         /// * `ballot_name` - Name of the ballot
         #[weight = SimpleDispatchInfo::FixedNormal(300_000)]
         pub fn cancel_ballot(origin, ticker: Ticker, ballot_name: Vec<u8>) -> DispatchResult {
-            let sender_key = AccountKey::try_from(ensure_signed(origin)?.encode())?;
-            let did = Context::current_identity_or::<Identity<T>>(&sender_key)?;
-            let sender = Signatory::AccountKey(sender_key);
+            let sender = ensure_signed(origin)?;
+            let did = Context::current_identity_or::<Identity<T>>(&sender)?;
+            let signer = Signatory::Account(sender);
 
             // Check that sender is allowed to act on behalf of `did`
-            ensure!(<identity::Module<T>>::is_signer_authorized(did, &sender), Error::<T>::InvalidSigner);
+            ensure!(<identity::Module<T>>::is_signer_authorized(did, &signer), Error::<T>::InvalidSigner);
             ensure!(Self::is_owner(&ticker, did), Error::<T>::InvalidOwner);
 
             // This avoids cloning the variables to make the same tupple again and again

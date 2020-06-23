@@ -63,7 +63,7 @@ use sp_runtime::{
     traits::{Saturating, Zero},
     PerThing,
 };
-use sp_std::{convert::TryInto, vec::Vec};
+use sp_std::vec::Vec;
 
 /// The proportion of the slashing reward to be paid out on the first slashing detection.
 /// This is f_1 in the paper.
@@ -598,11 +598,7 @@ fn do_slash<T: Trait>(
         <Module<T>>::update_ledger(&controller, &ledger);
 
         // trigger the event
-        let stash_id = stash
-            .encode()
-            .try_into()
-            .map(|key| <identity::Module<T>>::get_identity(&key))
-            .unwrap_or_default();
+        let stash_id = <identity::Module<T>>::get_identity(stash);
         <Module<T>>::deposit_event(super::RawEvent::Slashed(stash_id, stash.clone(), value));
     }
 }

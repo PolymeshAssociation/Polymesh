@@ -13,7 +13,7 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
-use crate::{account_key::AccountKey, identity_id::IdentityId};
+use crate::identity_id::IdentityId;
 
 use frame_support::{dispatch::DispatchError, traits::Currency};
 use sp_std::result;
@@ -25,7 +25,7 @@ pub trait IdentityCurrency<AccountId>: Currency<AccountId> {
         value: Self::Balance,
     ) -> result::Result<Self::NegativeImbalance, DispatchError>;
 
-    fn charge_fee_to_identity(who: &AccountKey) -> Option<IdentityId>;
+    fn charge_fee_to_identity(who: &AccountId) -> Option<IdentityId>;
 
     /// Mints `value` to the free balance of `who`.
     ///

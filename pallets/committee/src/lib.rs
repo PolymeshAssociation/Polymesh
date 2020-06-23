@@ -71,7 +71,7 @@ use polymesh_common_utilities::{
     pip::{EnactProposalMaker, PipId},
     Context, SystematicIssuers,
 };
-use polymesh_primitives::{AccountKey, IdentityId};
+use polymesh_primitives::IdentityId;
 use sp_core::u32_trait::Value as U32;
 use sp_runtime::traits::{Hash, Zero};
 use sp_std::{convert::TryFrom, prelude::*, vec};
@@ -254,94 +254,6 @@ decl_module! {
             Self::deposit_event(RawEvent::VoteThresholdUpdated(current_did, n, d));
         }
 
-        /// Any committee member proposes a dispatchable.
-        ///
-        /// # Arguments
-        /// * `proposal` - A dispatchable call.
-        #[weight = (5_000_000, Operational, Pays::Yes)]
-        pub fn propose(origin, proposal: Box<<T as Trait<I>>::Proposal>) {
-            let who_key = AccountKey::try_from(ensure_signed(origin)?.encode())?;
-            let did = Context::current_identity_or::<Identity<T>>(&who_key)?;
-
-            // Only committee members can propose
-            ensure!(Self::is_member(&did), Error::<T, I>::BadOrigin);
-
-            // Reject duplicate proposals
-            let proposal_hash = T::Hashing::hash_of(&proposal);
-            ensure!(!<ProposalOf<T, I>>::contains_key(proposal_hash), Error::<T, I>::DuplicateProposal);
-
-            // If committee is composed of a single member, execute the proposal
-            let seats = Self::members().len() as MemberCount;
-            if seats < 2 {
-                let ok = proposal.dispatch(RawOrigin::Members(1, seats).into()).is_ok();
-                Self::deposit_event(RawEvent::Executed(did, proposal_hash, ok));
-            } else {
-                let index = Self::proposal_count();
-                <ProposalCount<I>>::mutate(|i| *i += 1);
-                <Proposals<T, I>>::mutate(|proposals| proposals.push(proposal_hash));
-                <ProposalOf<T, I>>::insert(proposal_hash, *proposal);
-                let end = system::Module::<T>::block_number() + T::MotionDuration::get();
-                let votes = PolymeshVotes { index, ayes: vec![did], nays: vec![], end: end };
-                <Voting<T, I>>::insert(proposal_hash, votes);
-
-                Self::deposit_event(RawEvent::Proposed(did, index, proposal_hash));
-            }
-        }
-
-        /// Member casts a vote.
-        ///
-        /// # Arguments
-        /// * `proposal` - A hash of the proposal to be voted on.
-        /// * `index` - The proposal index.
-        /// * `approve` - If `true` than this is a `for` vote, and `against` otherwise.
-        #[weight = (5_000_000, Operational, Pays::Yes)]
-        pub fn vote(origin, proposal: T::Hash, #[compact] index: ProposalIndex, approve: bool) -> DispatchResult {
-            let who_key = AccountKey::try_from(ensure_signed(origin)?.encode())?;
-            let did = Context::current_identity_or::<Identity<T>>(&who_key)?;
-
-            // Only committee members can vote
-            ensure!(Self::is_member(&did), Error::<T, I>::BadOrigin);
-
-            let mut voting = Self::voting(&proposal).ok_or(Error::<T, I>::NoSuchProposal)?;
-            ensure!(voting.index == index, Error::<T, I>::MismatchedVotingIndex);
-
-            let position_yes = voting.ayes.iter().position(|a| a == &did);
-            let position_no = voting.nays.iter().position(|a| a == &did);
-
-            if approve {
-                ensure!( position_yes.is_none(), Error::<T, I>::DuplicateVote);
-                voting.ayes.push(did.clone());
-
-                if let Some(pos) = position_no {
-                    voting.nays.swap_remove(pos);
-                }
-            } else {
-                ensure!(position_no.is_none(),  Error::<T, I>::DuplicateVote);
-                voting.nays.push(did.clone());
-
-                if let Some(pos) = position_yes {
-                    voting.ayes.swap_remove(pos);
-                }
-            }
-            let yes_votes = voting.ayes.len() as MemberCount;
-            let no_votes = voting.nays.len() as MemberCount;
-
-            <Voting<T, I>>::insert(&proposal, voting);
-            Self::deposit_event(
-                RawEvent::Voted(
-                    did,
-                    index,
-                    proposal,
-                    approve,
-                    yes_votes,
-                    no_votes,
-                    Self::members().len() as MemberCount
-                )
-            );
-            Self::check_proposal_threshold(proposal);
-            Ok(())
-        }
-
         /// May be called by any signed account after the voting duration has ended in order to
         /// finish voting and close the proposal.
         ///
@@ -361,8 +273,8 @@ decl_module! {
         ///   - `L` is the encoded length of `proposal` preimage.
         #[weight = (2_000_000, Operational, Pays::Yes)]
         fn close(origin, proposal: T::Hash, #[compact] index: ProposalIndex) {
-            let who_key = AccountKey::try_from(ensure_signed(origin)?.encode())?;
-            let did = Context::current_identity_or::<Identity<T>>(&who_key)?;
+            let who = ensure_signed(origin)?;
+            let did = Context::current_identity_or::<Identity<T>>(&who)?;
 
             let voting = Self::voting(&proposal).ok_or(Error::<T, I>::NoSuchProposal)?;
             // POLYMESH-NOTE- Change specific to Polymesh
@@ -577,8 +489,8 @@ impl<T: Trait<I>, I: Instance> Module<T, I> {
         F: Fn() -> (<T as Trait<I>>::Proposal, <T as Trait<I>>::Proposal),
     {
         // Only committee members can use this function.
-        let who_key = AccountKey::try_from(ensure_signed(origin.clone())?.encode())?;
-        let who_id = Context::current_identity_or::<Identity<T>>(&who_key)?;
+        let who = ensure_signed(origin.clone())?;
+        let who_id = Context::current_identity_or::<Identity<T>>(&who)?;
         ensure!(Self::is_member(&who_id), Error::<T, I>::BadOrigin);
 
         ensure!(
@@ -593,9 +505,9 @@ impl<T: Trait<I>, I: Instance> Module<T, I> {
         // Self::deposit_event( RawEvent::VoteEnactReferendum(who_id, id));
 
         if let Some(voting) = Self::voting(hash) {
-            Self::vote(origin, hash, voting.index, true)?;
+            Self::vote(who_id, hash, voting.index, true)?;
         } else {
-            Self::propose(origin, Box::new(aye_call))?;
+            Self::propose(who_id, Box::new(aye_call))?;
         }
 
         // If voting info has been removed, the vote has finished.
@@ -608,6 +520,101 @@ impl<T: Trait<I>, I: Instance> Module<T, I> {
             <Proposals<T, I>>::mutate(|proposals| proposals.retain(|h| h != &nay_hash));
         }
 
+        Ok(())
+    }
+
+    /// Any committee member proposes a dispatchable.
+    ///
+    /// # Arguments
+    /// * `proposal` - A dispatchable call.
+    fn propose(did: IdentityId, proposal: Box<<T as Trait<I>>::Proposal>) -> DispatchResult {
+        // Only committee members can propose
+        ensure!(Self::is_member(&did), Error::<T, I>::BadOrigin);
+
+        // Reject duplicate proposals
+        let proposal_hash = T::Hashing::hash_of(&proposal);
+        ensure!(
+            !<ProposalOf<T, I>>::contains_key(proposal_hash),
+            Error::<T, I>::DuplicateProposal
+        );
+
+        // If committee is composed of a single member, execute the proposal
+        let seats = Self::members().len() as MemberCount;
+        if seats < 2 {
+            let ok = proposal
+                .dispatch(RawOrigin::Members(1, seats).into())
+                .is_ok();
+            Self::deposit_event(RawEvent::Executed(did, proposal_hash, ok));
+        } else {
+            let index = Self::proposal_count();
+            <ProposalCount<I>>::mutate(|i| *i += 1);
+            <Proposals<T, I>>::mutate(|proposals| proposals.push(proposal_hash));
+            <ProposalOf<T, I>>::insert(proposal_hash, *proposal);
+            let end = system::Module::<T>::block_number() + T::MotionDuration::get();
+            let votes = PolymeshVotes {
+                index,
+                ayes: vec![did],
+                nays: vec![],
+                end: end,
+            };
+            <Voting<T, I>>::insert(proposal_hash, votes);
+
+            Self::deposit_event(RawEvent::Proposed(did, index, proposal_hash));
+        }
+
+        Ok(())
+    }
+
+    /// Member casts a vote.
+    ///
+    /// # Arguments
+    /// * `proposal` - A hash of the proposal to be voted on.
+    /// * `index` - The proposal index.
+    /// * `approve` - If `true` than this is a `for` vote, and `against` otherwise.
+    fn vote(
+        did: IdentityId,
+        proposal: T::Hash,
+        index: ProposalIndex,
+        approve: bool,
+    ) -> DispatchResult {
+        // Only committee members can vote
+        ensure!(Self::is_member(&did), Error::<T, I>::BadOrigin);
+
+        let mut voting = Self::voting(&proposal).ok_or(Error::<T, I>::NoSuchProposal)?;
+        ensure!(voting.index == index, Error::<T, I>::MismatchedVotingIndex);
+
+        let position_yes = voting.ayes.iter().position(|a| a == &did);
+        let position_no = voting.nays.iter().position(|a| a == &did);
+
+        if approve {
+            ensure!(position_yes.is_none(), Error::<T, I>::DuplicateVote);
+            voting.ayes.push(did.clone());
+
+            if let Some(pos) = position_no {
+                voting.nays.swap_remove(pos);
+            }
+        } else {
+            ensure!(position_no.is_none(), Error::<T, I>::DuplicateVote);
+            voting.nays.push(did.clone());
+
+            if let Some(pos) = position_yes {
+                voting.ayes.swap_remove(pos);
+            }
+        }
+        let yes_votes = voting.ayes.len() as MemberCount;
+        let no_votes = voting.nays.len() as MemberCount;
+
+        <Voting<T, I>>::insert(&proposal, voting);
+        Self::deposit_event(RawEvent::Voted(
+            did,
+            index,
+            proposal,
+            approve,
+            yes_votes,
+            no_votes,
+            Self::members().len() as MemberCount,
+        ));
+        Self::check_proposal_threshold(proposal);
         Ok(())
     }
 }

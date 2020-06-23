@@ -8,7 +8,7 @@ let { reqImports } = require("../util/init.js");
 process.exitCode = 1;
 
 async function main() {
-  
+
   const api = await reqImports.createApi();
 
   const testEntities = await reqImports.initMain(api);
@@ -18,7 +18,7 @@ async function main() {
   let signing_keys = await reqImports.generateKeys(api, 5, "signing");
 
   let issuer_dids = await reqImports.createIdentities(api, master_keys, testEntities[0]);
-  
+
   await reqImports.distributePolyBatch( api, master_keys, reqImports.transfer_amount, testEntities[0] );
 
   await reqImports.addSigningKeys( api, master_keys, issuer_dids, signing_keys );
@@ -40,17 +40,17 @@ async function authorizeJoinToIdentities(api, accounts, dids, signing_accounts) 
 
   for (let i = 0; i < accounts.length; i++) {
     // 1. Authorize
-    const auths = await api.query.identity.authorizations.entries({AccountKey: signing_accounts[i].publicKey});
+    const auths = await api.query.identity.authorizations.entries({Account: signing_accounts[i].publicKey});
     let last_auth_id = 0;
     for (let i = 0; i < auths.length; i++) {
       if (auths[i][1].auth_id.toNumber() > last_auth_id) {
         last_auth_id = auths[i][1].auth_id.toNumber()
       }
     }
-    
+
     let nonceObj = {nonce: reqImports.nonces.get(signing_accounts[i].address)};
     const transaction = api.tx.identity.joinIdentityAsKey(last_auth_id);
-    const result = await reqImports.sendTransaction(transaction, signing_accounts[i], nonceObj);  
+    const result = await reqImports.sendTransaction(transaction, signing_accounts[i], nonceObj);
     const passed = result.findRecord('system', 'ExtrinsicSuccess');
     if (passed) reqImports.fail_count--;
   }

@@ -1,20 +1,17 @@
+use super::storage::AccountId;
 use crate::TestStorage;
-
-use polymesh_common_utilities::{protocol_fee::ProtocolOp, traits::identity::LinkedKeyInfo};
-use polymesh_primitives::{AccountKey, Identity, IdentityId, PosRatio};
-
 use pallet_asset::{self as asset, TickerRegistrationConfig};
 use pallet_balances as balances;
 use pallet_committee as committee;
 use pallet_group as group;
 use pallet_identity as identity;
 use pallet_pips as pips;
-
+use polymesh_common_utilities::{protocol_fee::ProtocolOp, traits::identity::LinkedKeyInfo};
+use polymesh_primitives::{Identity, IdentityId, PosRatio};
 use sp_core::sr25519::Public;
 use sp_io::TestExternalities;
-use test_client::AccountKeyring;
-
 use std::{cell::RefCell, convert::From, iter};
+use test_client::AccountKeyring;
 
 /// A prime number fee to test the split between multiple recipients.
 pub const PROTOCOL_OP_BASE_FEE: u128 = 41;
@@ -174,30 +171,20 @@ impl ExtBuilder {
     fn make_identities(
         accounts: &[Public],
     ) -> (
-        Vec<(IdentityId, Identity)>,
-        Vec<(AccountKey, LinkedKeyInfo)>,
+        Vec<(IdentityId, Identity<AccountId>)>,
+        Vec<(AccountId, LinkedKeyInfo)>,
     ) {
-        let keys = accounts
-            .iter()
-            .map(|p| AccountKey::from(p.clone().0))
-            .collect::<Vec<_>>();
-
-        let identities = keys
+        let identities = accounts
             .iter()
             .enumerate()
-            .map(|(idx, key)| {
-                (
-                    IdentityId::from((idx + 1) as u128),
-                    Identity::from(key.clone()),
-                )
-            })
+            .map(|(idx, key)| (IdentityId::from((idx + 1) as u128), Identity::from(*key)))
             .collect::<Vec<_>>();
-        let key_links = keys
+        let key_links = accounts
             .into_iter()
             .enumerate()
             .map(|(idx, key)| {
                 (
-                    key,
+                    *key,
                     LinkedKeyInfo::Unique(IdentityId::from((idx + 1) as u128)),
                 )
             })

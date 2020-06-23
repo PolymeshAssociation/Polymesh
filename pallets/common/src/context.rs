@@ -1,40 +1,42 @@
 use crate::traits::identity::IdentityTrait;
-
-use polymesh_primitives::{AccountKey, IdentityId, Signatory};
+use polymesh_primitives::{IdentityId, Signatory};
 use sp_runtime::DispatchError;
+use sp_std::marker::PhantomData;
 
 /// Helper class to access to some context information.
 /// Currently it allows to access to
 ///     - `current_identity` throught an `IdentityTrait`, because it is stored using extrinsics.
 ///     .
 #[derive(Default)]
-pub struct Context {}
+pub struct Context<AccountId> {
+    _marker: PhantomData<AccountId>,
+}
 
-impl Context {
+impl<AccountId> Context<AccountId> {
     #[inline]
     #[cfg(not(feature = "default_identity"))]
-    pub fn current_identity<I: IdentityTrait>() -> Option<IdentityId> {
+    pub fn current_identity<I: IdentityTrait<AccountId>>() -> Option<IdentityId> {
         I::current_identity()
     }
 
     #[inline]
     #[cfg(feature = "default_identity")]
-    pub fn current_identity<I: IdentityTrait>() -> Option<IdentityId> {
+    pub fn current_identity<I: IdentityTrait<AccountId>>() -> Option<IdentityId> {
         I::current_identity().or_else(|| Some(IdentityId::default()))
     }
 
     #[inline]
-    pub fn set_current_identity<I: IdentityTrait>(id: Option<IdentityId>) {
+    pub fn set_current_identity<I: IdentityTrait<AccountId>>(id: Option<IdentityId>) {
         I::set_current_identity(id)
     }
 
     #[inline]
-    pub fn current_payer<I: IdentityTrait>() -> Option<Signatory> {
+    pub fn current_payer<I: IdentityTrait<AccountId>>() -> Option<Signatory<AccountId>> {
         I::current_payer()
     }
 
     #[inline]
-    pub fn set_current_payer<I: IdentityTrait>(payer: Option<Signatory>) {
+    pub fn set_current_payer<I: IdentityTrait<AccountId>>(payer: Option<Signatory<AccountId>>) {
         I::set_current_payer(payer)
     }
 
@@ -42,8 +44,8 @@ impl Context {
     /// This function is a helper tool for testing where SignedExtension is not used and
     /// `current_identity` is always none.
     #[cfg(not(feature = "default_identity"))]
-    pub fn current_identity_or<I: IdentityTrait>(
-        key: &AccountKey,
+    pub fn current_identity_or<I: IdentityTrait<AccountId>>(
+        key: &AccountId,
     ) -> Result<IdentityId, DispatchError> {
         Self::current_identity::<I>()
             .or_else(|| I::get_identity(key))
@@ -55,8 +57,8 @@ impl Context {
     }
 
     #[cfg(feature = "default_identity")]
-    pub fn current_identity_or<I: IdentityTrait>(
-        key: &AccountKey,
+    pub fn current_identity_or<I: IdentityTrait<AccountId>>(
+        key: &AccountId,
     ) -> Result<IdentityId, DispatchError> {
         I::current_identity()
             .or_else(|| I::get_identity(key))
@@ -68,7 +70,7 @@ impl Context {
 #[cfg(test)]
 mod test {
     use super::*;
-    use polymesh_primitives::{Permission, Signatory};
+    use polymesh_primitives::{AccountId, Permission, Signatory};
 
     use lazy_static::lazy_static;
     use std::{collections::BTreeMap, convert::From, sync::RwLock, thread};
@@ -80,12 +82,12 @@ mod test {
 
     struct IdentityTest {}
 
-    impl IdentityTrait for IdentityTest {
-        fn get_identity(key: &AccountKey) -> Option<IdentityId> {
-            let keys: BTreeMap<AccountKey, u128> = vec![
-                (AccountKey::from(AccountKeyring::Alice.public().0), 1u128),
-                (AccountKey::from(AccountKeyring::Bob.public().0), 2u128),
-                (AccountKey::from(AccountKeyring::Charlie.public().0), 3u128),
+    impl IdentityTrait<AccountId> for IdentityTest {
+        fn get_identity(key: &AccountId) -> Option<IdentityId> {
+            let keys: BTreeMap<AccountId, u128> = vec![
+                (AccountId::from(AccountKeyring::Alice.public().0), 1u128),
+                (AccountId::from(AccountKeyring::Bob.public().0), 2u128),
+                (AccountId::from(AccountKeyring::Charlie.public().0), 3u128),
             ]
             .into_iter()
             .collect();
@@ -107,17 +109,17 @@ mod test {
             *w = id;
         }
 
-        fn is_signer_authorized(_did: IdentityId, _signer: &Signatory) -> bool {
+        fn is_signer_authorized(_did: IdentityId, _signer: &Signatory<AccountId>) -> bool {
             false
         }
 
-        fn is_master_key(_did: IdentityId, _key: &AccountKey) -> bool {
+        fn is_master_key(_did: IdentityId, _key: &AccountId) -> bool {
             false
         }
 
         fn is_signer_authorized_with_permissions(
             _did: IdentityId,
-            _signer: &Signatory,
+            _signer: &Signatory<AccountId>,
             _permissions: Vec<Permission>,
         ) -> bool {
             false
@@ -156,7 +158,7 @@ mod test {
         );
 
         // Check "or" option.
-        let alice = AccountKey::from(AccountKeyring::Alice.public().0);
+        let alice = AccountId::from(AccountKeyring::Alice.public().0);
         assert_eq!(
             Context::current_identity_or::<IdentityTest>(&alice),
             Ok(IdentityId::from(15))
@@ -167,7 +169,7 @@ mod test {
             Ok(IdentityId::from(1))
         );
 
-        let eve = AccountKey::from(AccountKeyring::Eve.public().0);
+        let eve = AccountId::from(AccountKeyring::Eve.public().0);
         assert_eq!(
             Context::current_identity_or::<IdentityTest>(&eve),
             Err(DispatchError::Other(

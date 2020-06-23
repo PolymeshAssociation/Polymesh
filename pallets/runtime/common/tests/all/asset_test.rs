@@ -13,7 +13,7 @@ use polymesh_common_utilities::{
     constants::*, traits::asset::IssueAssetItem, traits::balances::Memo,
 };
 use polymesh_primitives::{
-    AccountKey, AuthorizationData, Document, IdentityId, LinkData, Signatory, SmartExtension,
+    AuthorizationData, Document, IdentityId, LinkData, Signatory, SmartExtension,
     SmartExtensionType, Ticker,
 };
 
@@ -40,6 +40,7 @@ type ComplianceManager = compliance_manager::Module<TestStorage>;
 type AssetError = asset::Error<TestStorage>;
 type OffChainSignature = AnySignature;
 type Origin = <TestStorage as frame_system::Trait>::Origin;
+type DidRecords = identity::DidRecords<TestStorage>;
 
 #[test]
 fn check_the_test_hex() {
@@ -69,7 +70,7 @@ fn issuers_can_create_and_rename_tokens() {
             ..Default::default()
         };
         let ticker = Ticker::try_from(token.name.as_slice()).unwrap();
-        assert!(!<identity::DidRecords>::contains_key(
+        assert!(!<DidRecords>::contains_key(
             Identity::get_token_did(&ticker).unwrap()
         ));
         let identifiers = vec![(IdentifierType::default(), b"undefined".into())];
@@ -118,7 +119,7 @@ fn issuers_can_create_and_rename_tokens() {
         token.link_id = Asset::token_details(ticker).link_id;
         // A correct entry is added
         assert_eq!(Asset::token_details(ticker), token);
-        assert!(<identity::DidRecords>::contains_key(
+        assert!(<DidRecords>::contains_key(
             Identity::get_token_did(&ticker).unwrap()
         ));
         assert_eq!(Asset::funding_round(ticker), funding_round_name.clone());
@@ -996,7 +997,7 @@ fn update_identifiers() {
             ..Default::default()
         };
         let ticker = Ticker::try_from(token.name.as_slice()).unwrap();
-        assert!(!<identity::DidRecords>::contains_key(
+        assert!(!<DidRecords>::contains_key(
             Identity::get_token_did(&ticker).unwrap()
         ));
         let identifier_value1 = b"ABC123";
@@ -1051,7 +1052,7 @@ fn adding_removing_documents() {
 
         let ticker = Ticker::try_from(token.name.as_slice()).unwrap();
 
-        assert!(!<identity::DidRecords>::contains_key(
+        assert!(!<DidRecords>::contains_key(
             Identity::get_token_did(&ticker).unwrap()
         ));
 
@@ -1185,7 +1186,7 @@ fn add_extension_successfully() {
         };
 
         let ticker = Ticker::try_from(token.name.as_slice()).unwrap();
-        assert!(!<identity::DidRecords>::contains_key(
+        assert!(!<DidRecords>::contains_key(
             Identity::get_token_did(&ticker).unwrap()
         ));
         let identifier_value1 = b"ABC123";
@@ -1250,7 +1251,7 @@ fn add_same_extension_should_fail() {
         };
 
         let ticker = Ticker::try_from(token.name.as_slice()).unwrap();
-        assert!(!<identity::DidRecords>::contains_key(
+        assert!(!<DidRecords>::contains_key(
             Identity::get_token_did(&ticker).unwrap()
         ));
         let identifier_value1 = b"ABC123";
@@ -1320,7 +1321,7 @@ fn should_successfully_archive_extension() {
         };
 
         let ticker = Ticker::try_from(token.name.as_slice()).unwrap();
-        assert!(!<identity::DidRecords>::contains_key(
+        assert!(!<DidRecords>::contains_key(
             Identity::get_token_did(&ticker).unwrap()
         ));
         let identifier_value1 = b"ABC123";
@@ -1395,7 +1396,7 @@ fn should_fail_to_archive_an_already_archived_extension() {
         };
 
         let ticker = Ticker::try_from(token.name.as_slice()).unwrap();
-        assert!(!<identity::DidRecords>::contains_key(
+        assert!(!<DidRecords>::contains_key(
             Identity::get_token_did(&ticker).unwrap()
         ));
         let identifier_value1 = b"ABC123";
@@ -1475,7 +1476,7 @@ fn should_fail_to_archive_a_non_existent_extension() {
         };
 
         let ticker = Ticker::try_from(token.name.as_slice()).unwrap();
-        assert!(!<identity::DidRecords>::contains_key(
+        assert!(!<DidRecords>::contains_key(
             Identity::get_token_did(&ticker).unwrap()
         ));
         let identifier_value1 = b"ABC123";
@@ -1516,7 +1517,7 @@ fn should_successfuly_unarchive_an_extension() {
         };
 
         let ticker = Ticker::try_from(token.name.as_slice()).unwrap();
-        assert!(!<identity::DidRecords>::contains_key(
+        assert!(!<DidRecords>::contains_key(
             Identity::get_token_did(&ticker).unwrap()
         ));
         let identifier_value1 = b"ABC123";
@@ -1601,7 +1602,7 @@ fn should_fail_to_unarchive_an_already_unarchived_extension() {
         };
 
         let ticker = Ticker::try_from(token.name.as_slice()).unwrap();
-        assert!(!<identity::DidRecords>::contains_key(
+        assert!(!<DidRecords>::contains_key(
             Identity::get_token_did(&ticker).unwrap()
         ));
         let identifier_value1 = b"ABC123";
@@ -1784,7 +1785,7 @@ fn frozen_signing_keys_create_asset_we() {
         alice_id,
         100_000
     ));
-    let bob_signatory = Signatory::from(AccountKey::from(AccountKeyring::Bob.public().0));
+    let bob_signatory = Signatory::Account(AccountKeyring::Bob.public());
     add_signing_item(alice_id, bob_signatory);
     assert_ok!(Balances::transfer_with_memo(
         Origin::signed(alice),
