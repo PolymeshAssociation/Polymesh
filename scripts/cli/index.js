@@ -172,17 +172,17 @@ async function main() {
   let issuer_dids = await createIdentities(api, master_keys, alice, init_bars[4], init_bars[5], fast);
 
   let claim_issuer_dids = await createIdentities(api, claim_keys, alice, init_bars[12], init_bars[13], fast);
-                      
+
   await tps(api, [alice, bob], n_accounts, init_bars[0], init_bars[1], fast); // base currency transfer sanity-check
 
   await distributePoly(api, alice, master_keys.concat(claim_keys), transfer_amount, init_bars[2], init_bars[3], fast);
 
   await addSigningKeys(api, master_keys, issuer_dids, signing_keys, init_bars[6], init_bars[7], fast);
- 
+
   await authorizeJoinToIdentities( api, master_keys, issuer_dids, signing_keys, init_bars[16], init_bars[17], fast);
 
   await addSigningKeyRoles(api, master_keys, issuer_dids, signing_keys, init_bars[8], init_bars[9], fast);
-  
+
   await issueTokenPerDid(api, master_keys, issuer_dids, prepend, init_bars[10], init_bars[11], fast);
 
   await addClaimsToDids(api, claim_keys, issuer_dids, claim_issuer_dids, init_bars[14], init_bars[15], fast);
@@ -232,7 +232,7 @@ async function tps(api, accounts, n_accounts, submitBar, completeBar, fast) {
 
       let nonceObj = {nonce: reqImports.nonces.get(alice.address)};
       const transaction = api.tx.balances.transfer(bob.address, 10);
-      const result = await reqImports.sendTransaction(transaction, alice, nonceObj);  
+      const result = await reqImports.sendTransaction(transaction, alice, nonceObj);
       const passed = result.findRecord('system', 'ExtrinsicSuccess');
       if (!passed) {
             fail_count++;
@@ -258,14 +258,14 @@ async function tps(api, accounts, n_accounts, submitBar, completeBar, fast) {
 
       let nonceObjTwo = {nonce: reqImports.nonces.get(bob.address)};
       const transactionTwo = api.tx.balances.transfer(alice.address, 10);
-      const resultTwo = await reqImports.sendTransaction(transactionTwo, bob, nonceObjTwo);  
+      const resultTwo = await reqImports.sendTransaction(transactionTwo, bob, nonceObjTwo);
       const passedTwo = resultTwo.findRecord('system', 'ExtrinsicSuccess');
       if (!passedTwo) {
             fail_count++;
             completeBar.increment();
             fail_type["TPS"]++;
       } else {  completeBar.increment(); }
-    
+
     }
 
     reqImports.nonces.set(bob.address, reqImports.nonces.get(bob.address).addn(1));
@@ -283,12 +283,12 @@ async function distributePoly(api, alice, accounts, transfer_amount, submitBar, 
     if (fast) {
       let nonceObj = {nonce: reqImports.nonces.get(alice.address)};
       const transaction = api.tx.balances.transfer(accounts[i].address, transfer_amount);
-      await reqImports.sendTransaction(transaction, alice, nonceObj);  
+      await reqImports.sendTransaction(transaction, alice, nonceObj);
     } else {
 
       let nonceObj = {nonce: reqImports.nonces.get(alice.address)};
       const transaction = api.tx.balances.transfer(accounts[i].address, transfer_amount);
-      const result = await reqImports.sendTransaction(transaction, alice, nonceObj);  
+      const result = await reqImports.sendTransaction(transaction, alice, nonceObj);
       const passed = result.findRecord('system', 'ExtrinsicSuccess');
       if (!passed) {
             fail_count++;
@@ -328,7 +328,7 @@ for (let i = 0; i < accounts.length; i++) {
     else {
       let nonceObj = {nonce: reqImports.nonces.get(alice.address)};
         const transaction = api.tx.identity.cddRegisterDid(accounts[i].address, null, []);
-        const result = await reqImports.sendTransaction(transaction, alice, nonceObj);  
+        const result = await reqImports.sendTransaction(transaction, alice, nonceObj);
         const passed = result.findRecord('system', 'ExtrinsicSuccess');
         if (!passed) {
               fail_count++;
@@ -362,13 +362,13 @@ async function addSigningKeys(api, accounts, dids, signing_accounts, submitBar, 
     // 1. Add Signing Item to identity.
     if (fast) {
       let nonceObj = {nonce: reqImports.nonces.get(accounts[i].address)};
-      const transaction = api.tx.identity.addAuthorizationAsKey({AccountKey: signing_accounts[i].publicKey}, {JoinIdentity: { target_did: dids[i], signing_item: null }}, null);
-      await reqImports.sendTransaction(transaction, accounts[i], nonceObj);  
+      const transaction = api.tx.identity.addAuthorizationAsKey({Account: signing_accounts[i].publicKey}, {JoinIdentity: { target_did: dids[i], signing_item: null }}, null);
+      await reqImports.sendTransaction(transaction, accounts[i], nonceObj);
     } else {
 
       let nonceObj = {nonce: reqImports.nonces.get(accounts[i].address)};
-      const transaction = api.tx.identity.addAuthorizationAsKey({AccountKey: signing_accounts[i].publicKey}, {JoinIdentity: { target_did: dids[i], signing_item: null }}, null);
-      const result = await reqImports.sendTransaction(transaction, accounts[i], nonceObj);  
+      const transaction = api.tx.identity.addAuthorizationAsKey({Account: signing_accounts[i].publicKey}, {JoinIdentity: { target_did: dids[i], signing_item: null }}, null);
+      const result = await reqImports.sendTransaction(transaction, accounts[i], nonceObj);
       const passed = result.findRecord('system', 'ExtrinsicSuccess');
       if (!passed) {
             fail_count++;
@@ -386,7 +386,7 @@ async function authorizeJoinToIdentities(api, accounts, dids, signing_accounts, 
   fail_type["AUTH SIGNING KEY"] = 0;
   for (let i = 0; i < accounts.length; i++) {
     // 1. Authorize
-    const auths = await api.query.identity.authorizations.entries({AccountKey: signing_accounts[i].publicKey});
+    const auths = await api.query.identity.authorizations.entries({Account: signing_accounts[i].publicKey});
     let last_auth_id = 0;
     for (let i = 0; i < auths.length; i++) {
       if (auths[i][1].auth_id.toNumber() > last_auth_id) {
@@ -397,14 +397,14 @@ async function authorizeJoinToIdentities(api, accounts, dids, signing_accounts, 
     if (fast) {
       let nonceObj = {nonce: reqImports.nonces.get(signing_accounts[i].address)};
       const transaction = api.tx.identity.joinIdentityAsKey(last_auth_id);
-      await reqImports.sendTransaction(transaction, signing_accounts[i], nonceObj);  
+      await reqImports.sendTransaction(transaction, signing_accounts[i], nonceObj);
 
       reqImports.nonces.set(signing_accounts[i].address, reqImports.nonces.get(signing_accounts[i].address).addn(1));
     } else {
 
       let nonceObj = {nonce: reqImports.nonces.get(signing_accounts[i].address)};
       const transaction = api.tx.identity.joinIdentityAsKey(last_auth_id);
-      const result = await reqImports.sendTransaction(transaction, signing_accounts[i], nonceObj);  
+      const result = await reqImports.sendTransaction(transaction, signing_accounts[i], nonceObj);
       const passed = result.findRecord('system', 'ExtrinsicSuccess');
 
       if (!passed) {
@@ -425,16 +425,16 @@ async function authorizeJoinToIdentities(api, accounts, dids, signing_accounts, 
 async function addSigningKeyRoles(api, accounts, dids, signing_accounts, submitBar, completeBar, fast) {
   fail_type["SET SIGNING KEY ROLES"] = 0;
   for (let i = 0; i < accounts.length; i++) {
-    let signer = { AccountKey: signing_accounts[i].publicKey };
+    let signer = { Account: signing_accounts[i].publicKey };
     if (fast) {
       let nonceObj = {nonce: reqImports.nonces.get(accounts[i].address)};
       const transaction = api.tx.identity.setPermissionToSigner( signer, sk_roles[i%sk_roles.length]);
-      await reqImports.sendTransaction(transaction, accounts[i], nonceObj);  
+      await reqImports.sendTransaction(transaction, accounts[i], nonceObj);
     } else {
 
       let nonceObj = {nonce: reqImports.nonces.get(accounts[i].address)};
       const transaction = api.tx.identity.setPermissionToSigner( signer, sk_roles[i%sk_roles.length]);
-      const result = await reqImports.sendTransaction(transaction, accounts[i], nonceObj);  
+      const result = await reqImports.sendTransaction(transaction, accounts[i], nonceObj);
       const passed = result.findRecord('system', 'ExtrinsicSuccess');
 
       if (!passed) {
@@ -462,12 +462,12 @@ async function issueTokenPerDid(api, accounts, dids, prepend, submitBar, complet
     if (fast) {
       let nonceObj = {nonce: reqImports.nonces.get(accounts[i].address)};
       const transaction = api.tx.asset.createAsset(ticker, ticker, 1000000, true, 0, [], "abc");
-      await reqImports.sendTransaction(transaction, accounts[i], nonceObj);  
+      await reqImports.sendTransaction(transaction, accounts[i], nonceObj);
     } else {
 
       let nonceObj = {nonce: reqImports.nonces.get(accounts[i].address)};
       const transaction = api.tx.asset.createAsset(ticker, ticker, 1000000, true, 0, [], "abc");
-      const result = await reqImports.sendTransaction(transaction, accounts[i], nonceObj);  
+      const result = await reqImports.sendTransaction(transaction, accounts[i], nonceObj);
       const passed = result.findRecord('system', 'ExtrinsicSuccess');
 
       if (!passed) {
@@ -493,10 +493,10 @@ async function addClaimsBatchToDid(api, accounts, dids, n_claims, fast) {
     const asset_did = reqImports.tickerToDid(reqImports.ticker);
 
     // Stores the value of each claim
-    let claim_record = {target: dids[0], 
+    let claim_record = {target: dids[0],
                         claim: { Exempted: asset_did },
                         expiry: null};
-  
+
     // This fills the claims array with claim_values up to n_claims amount
     for (let i = 0; i < n_claims; i++) {
       claims.push( claim_record );
@@ -506,7 +506,7 @@ async function addClaimsBatchToDid(api, accounts, dids, n_claims, fast) {
 
     let nonceObj = {nonce: reqImports.nonces.get(accounts[1].address)};
     const transaction = api.tx.identity.addClaimsBatch(claims);
-    await reqImports.sendTransaction(transaction, accounts[1], nonceObj);  
+    await reqImports.sendTransaction(transaction, accounts[1], nonceObj);
   }
 
 }
@@ -519,12 +519,12 @@ async function addClaimsToDids(api, accounts, dids, claim_dids, submitBar, compl
     if (fast) {
       let nonceObj = {nonce: reqImports.nonces.get(accounts[i%claim_dids.length].address)};
       const transaction = api.tx.identity.addClaim(dids[i], 0, 0);
-      await reqImports.sendTransaction(transaction, accounts[i], nonceObj);  
+      await reqImports.sendTransaction(transaction, accounts[i], nonceObj);
     } else {
 
       let nonceObj = {nonce: reqImports.nonces.get(accounts[i%claim_dids.length].address)};
       const transaction = api.tx.identity.addClaim(dids[i], 0, 0);
-      const result = await reqImports.sendTransaction(transaction, accounts[i], nonceObj);  
+      const result = await reqImports.sendTransaction(transaction, accounts[i], nonceObj);
       const passed = result.findRecord('system', 'ExtrinsicSuccess');
 
       if (!passed) {

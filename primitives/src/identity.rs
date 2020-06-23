@@ -14,24 +14,35 @@
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
 use codec::{Decode, Encode};
-use sp_core::sr25519::Public;
+use sp_core::{crypto::Public as PublicType, sr25519::Public};
 #[cfg(feature = "std")]
 use sp_runtime::{Deserialize, Serialize};
 use sp_std::{convert::From, prelude::Vec};
 
-use crate::{AccountKey, IdentityRole, Signatory, SigningItem};
+use crate::{IdentityRole, Signatory, SigningItem};
 
 /// Identity information.
 #[allow(missing_docs)]
 #[derive(Encode, Decode, Default, Clone, PartialEq, Debug)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-pub struct Identity {
+pub struct Identity<AccountId> {
     pub roles: Vec<IdentityRole>,
-    pub master_key: AccountKey,
-    pub signing_items: Vec<SigningItem>,
+    pub master_key: AccountId,
+    pub signing_items: Vec<SigningItem<AccountId>>,
 }
 
-impl Identity {
+impl<AccountId> Identity<AccountId>
+where
+    AccountId: Clone + Default + Eq + Ord,
+{
+    /// Creates an [`Identity`] from an `AccountId`.
+    pub fn new(master_key: AccountId) -> Self {
+        Identity {
+            master_key,
+            ..Default::default()
+        }
+    }
+
     /// It checks if this entity contains IdentityRole `role`.
     pub fn has_role(&self, role: IdentityRole) -> bool {
         self.roles.contains(&role)
@@ -39,7 +50,7 @@ impl Identity {
 
     /// It adds `new_signing_keys` to `self`.
     /// It also keeps its internal list sorted and removes duplicate elements.
-    pub fn add_signing_items(&mut self, new_signing_items: &[SigningItem]) -> &mut Self {
+    pub fn add_signing_items(&mut self, new_signing_items: &[SigningItem<AccountId>]) -> &mut Self {
         self.signing_items.extend_from_slice(new_signing_items);
         self.signing_items.sort();
         self.signing_items.dedup();
@@ -48,7 +59,10 @@ impl Identity {
     }
 
     /// It removes `keys_to_remove` from signing keys.
-    pub fn remove_signing_items(&mut self, signers_to_remove: &[Signatory]) -> &mut Self {
+    pub fn remove_signing_items(
+        &mut self,
+        signers_to_remove: &[Signatory<AccountId>],
+    ) -> &mut Self {
         self.signing_items.retain(|curr_si| {
             signers_to_remove
                 .iter()
@@ -60,19 +74,13 @@ impl Identity {
     }
 }
 
-impl From<AccountKey> for Identity {
-    fn from(acc: AccountKey) -> Self {
-        Identity {
-            master_key: acc,
-            ..Default::default()
-        }
-    }
-}
-
-impl From<Public> for Identity {
+impl<AccountId> From<Public> for Identity<AccountId>
+where
+    AccountId: PublicType,
+{
     fn from(p: Public) -> Self {
         Identity {
-            master_key: AccountKey::from(p.0),
+            master_key: AccountId::from_slice(&p.0[..]),
             ..Default::default()
         }
     }

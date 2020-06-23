@@ -44,7 +44,7 @@ use polymesh_common_utilities::traits::{
     CommonTrait,
 };
 use primitives::traits::BlockRewardsReserveCurrency;
-use primitives::{AccountKey, Claim, IdentityId, Signatory};
+use primitives::{Claim, IdentityId, Signatory};
 use sp_core::{
     crypto::{key_types, Pair as PairTrait},
     sr25519::Pair,
@@ -258,13 +258,16 @@ impl IdentityTrait for Test {
     type ProtocolFee = protocol_fee::Module<Test>;
 }
 
-impl pallet_transaction_payment::CddAndFeeDetails<Call> for Test {
-    fn get_valid_payer(_: &Call, _: &Signatory) -> Result<Option<Signatory>, InvalidTransaction> {
+impl pallet_transaction_payment::CddAndFeeDetails<AccountId, Call> for Test {
+    fn get_valid_payer(
+        _: &Call,
+        _: &Signatory<AccountId>,
+    ) -> Result<Option<Signatory<AccountId>>, InvalidTransaction> {
         Ok(None)
     }
     fn clear_context() {}
-    fn set_payer_context(_: Option<Signatory>) {}
-    fn get_payer_from_context() -> Option<Signatory> {
+    fn set_payer_context(_: Option<Signatory<AccountId>>) {}
+    fn get_payer_from_context() -> Option<Signatory<AccountId>> {
         None
     }
     fn set_current_identity(_: &IdentityId) {}
@@ -334,23 +337,23 @@ impl AcceptTransfer for Test {
     }
 }
 
-impl MultiSigSubTrait for Test {
-    fn accept_multisig_signer(_: Signatory, _: u64) -> DispatchResult {
+impl MultiSigSubTrait<AccountId> for Test {
+    fn accept_multisig_signer(_: Signatory<AccountId>, _: u64) -> DispatchResult {
         unimplemented!()
     }
-    fn get_key_signers(multisig: AccountKey) -> Vec<AccountKey> {
+    fn get_key_signers(multisig: &AccountId) -> Vec<AccountId> {
         unimplemented!()
     }
-    fn is_multisig(account: AccountKey) -> bool {
+    fn is_multisig(account: &AccountId) -> bool {
         unimplemented!()
     }
 }
 
-impl CheckCdd for Test {
-    fn check_key_cdd(key: &AccountKey) -> bool {
+impl CheckCdd<AccountId> for Test {
+    fn check_key_cdd(key: &AccountId) -> bool {
         true
     }
-    fn get_key_cdd_did(key: &AccountKey) -> Option<IdentityId> {
+    fn get_key_cdd_did(key: &AccountId) -> Option<IdentityId> {
         None
     }
 }
@@ -957,13 +960,13 @@ pub fn make_account_with_balance(
     Balances::make_free_balance_be(&id, balance);
 
     Identity::register_did(signed_id.clone(), vec![]).map_err(|_| "Register DID failed")?;
-    let did = Identity::get_identity(&AccountKey::try_from(id.encode())?).unwrap();
+    let did = Identity::get_identity(&id).unwrap();
 
     Ok((signed_id, did))
 }
 
 pub fn check_cdd(id: AccountId) -> Result<bool, &'static str> {
-    let did = Identity::get_identity(&AccountKey::try_from(id.encode())?).unwrap();
+    let did = Identity::get_identity(&id).unwrap();
     let is_cdd = Identity::fetch_cdd(did, Zero::zero()).is_some();
     Ok(is_cdd)
 }

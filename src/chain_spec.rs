@@ -5,7 +5,7 @@ use polymesh_common_utilities::{
     constants::currency::{MILLICENTS, POLY},
     protocol_fee::ProtocolOp,
 };
-use polymesh_primitives::{AccountId, AccountKey, IdentityId, PosRatio, Signatory, Signature};
+use polymesh_primitives::{AccountId, IdentityId, PosRatio, Signatory, Signature};
 use polymesh_runtime_develop::{self as general, constants::time as GeneralTime};
 use polymesh_runtime_testnet_v1::{
     self as v1,
@@ -22,7 +22,6 @@ use sp_runtime::{
     traits::{IdentifyAccount, Verify},
     PerThing,
 };
-use std::convert::TryFrom;
 use std::iter;
 
 const STAGING_TELEMETRY_URL: &str = "wss://telemetry.polymesh.live/submit/";
@@ -244,26 +243,21 @@ fn general_testnet_genesis(
             creator: initial_authorities[0].1.clone(),
             signatures_required: 1,
             signers: vec![
-                Signatory::AccountKey(
-                    AccountKey::try_from(&get_from_seed::<sr25519::Public>("relay_1").to_vec())
-                        .unwrap(),
-                ),
-                Signatory::AccountKey(
-                    AccountKey::try_from(&get_from_seed::<sr25519::Public>("relay_2").to_vec())
-                        .unwrap(),
-                ),
-                Signatory::AccountKey(
-                    AccountKey::try_from(&get_from_seed::<sr25519::Public>("relay_3").to_vec())
-                        .unwrap(),
-                ),
-                Signatory::AccountKey(
-                    AccountKey::try_from(&get_from_seed::<sr25519::Public>("relay_4").to_vec())
-                        .unwrap(),
-                ),
-                Signatory::AccountKey(
-                    AccountKey::try_from(&get_from_seed::<sr25519::Public>("relay_5").to_vec())
-                        .unwrap(),
-                ),
+                Signatory::Account(AccountId::from(
+                    get_from_seed::<sr25519::Public>("relay_1").0,
+                )),
+                Signatory::Account(AccountId::from(
+                    get_from_seed::<sr25519::Public>("relay_2").0,
+                )),
+                Signatory::Account(AccountId::from(
+                    get_from_seed::<sr25519::Public>("relay_3").0,
+                )),
+                Signatory::Account(AccountId::from(
+                    get_from_seed::<sr25519::Public>("relay_4").0,
+                )),
+                Signatory::Account(AccountId::from(
+                    get_from_seed::<sr25519::Public>("relay_5").0,
+                )),
             ],
             timelock: 10,
             bridge_limit: (100_000_000 * POLY, 1000),
@@ -693,26 +687,21 @@ fn v1_testnet_genesis(
             creator: get_account_id_from_seed::<sr25519::Public>("polymath_1"),
             signatures_required: 3,
             signers: vec![
-                Signatory::AccountKey(
-                    AccountKey::try_from(&get_from_seed::<sr25519::Public>("relay_1").to_vec())
-                        .unwrap(),
-                ),
-                Signatory::AccountKey(
-                    AccountKey::try_from(&get_from_seed::<sr25519::Public>("relay_2").to_vec())
-                        .unwrap(),
-                ),
-                Signatory::AccountKey(
-                    AccountKey::try_from(&get_from_seed::<sr25519::Public>("relay_3").to_vec())
-                        .unwrap(),
-                ),
-                Signatory::AccountKey(
-                    AccountKey::try_from(&get_from_seed::<sr25519::Public>("relay_4").to_vec())
-                        .unwrap(),
-                ),
-                Signatory::AccountKey(
-                    AccountKey::try_from(&get_from_seed::<sr25519::Public>("relay_5").to_vec())
-                        .unwrap(),
-                ),
+                Signatory::Account(AccountId::from(
+                    get_from_seed::<sr25519::Public>("relay_1").0,
+                )),
+                Signatory::Account(AccountId::from(
+                    get_from_seed::<sr25519::Public>("relay_2").0,
+                )),
+                Signatory::Account(AccountId::from(
+                    get_from_seed::<sr25519::Public>("relay_3").0,
+                )),
+                Signatory::Account(AccountId::from(
+                    get_from_seed::<sr25519::Public>("relay_4").0,
+                )),
+                Signatory::Account(AccountId::from(
+                    get_from_seed::<sr25519::Public>("relay_5").0,
+                )),
             ],
             timelock: V1Time::MINUTES * 15,
             bridge_limit: (30_000_000_000, V1Time::DAYS * 1),

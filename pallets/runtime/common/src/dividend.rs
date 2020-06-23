@@ -47,7 +47,11 @@
 //! - `get_dividend` - Returns details about a dividend
 
 use crate::simple_token;
-
+use frame_support::{
+    decl_error, decl_event, decl_module, decl_storage, dispatch::DispatchResult, ensure,
+    weights::SimpleDispatchInfo,
+};
+use frame_system::{self as system, ensure_signed};
 use pallet_asset as asset;
 use pallet_identity as identity;
 use polymesh_common_utilities::{
@@ -56,16 +60,9 @@ use polymesh_common_utilities::{
     protocol_fee::{ChargeProtocolFee, ProtocolOp},
     CommonTrait, Context,
 };
-use polymesh_primitives::{AccountKey, IdentityId, Signatory, Ticker};
-
-use codec::Encode;
-use frame_support::{
-    decl_error, decl_event, decl_module, decl_storage, dispatch::DispatchResult, ensure,
-    weights::SimpleDispatchInfo,
-};
-use frame_system::{self as system, ensure_signed};
+use polymesh_primitives::{IdentityId, Signatory, Ticker};
 use sp_runtime::traits::{CheckedAdd, CheckedDiv, CheckedMul, CheckedSub, Zero};
-use sp_std::{convert::TryFrom, prelude::*};
+use sp_std::prelude::*;
 
 /// The module's configuration trait.
 pub trait Trait:
@@ -129,9 +126,9 @@ decl_module! {
             payout_ticker: Ticker,
             checkpoint_id: u64
         ) -> DispatchResult {
-            let sender_key = AccountKey::try_from( ensure_signed(origin)?.encode())?;
-            let did = Context::current_identity_or::<Identity<T>>(&sender_key)?;
-            let sender = Signatory::AccountKey(sender_key);
+            let sender = ensure_signed(origin)?;
+            let did = Context::current_identity_or::<Identity<T>>(&sender)?;
+            let sender = Signatory::Account(sender);
 
             // Check that sender is allowed to act on behalf of `did`
             ensure!(
@@ -212,9 +209,9 @@ decl_module! {
         /// Lets the owner cancel a dividend before start/maturity date
         #[weight = SimpleDispatchInfo::FixedNormal(300_000)]
         pub fn cancel(origin, ticker: Ticker, dividend_id: u32) -> DispatchResult {
-            let sender_key = AccountKey::try_from(ensure_signed(origin)?.encode())?;
-            let did = Context::current_identity_or::<Identity<T>>(&sender_key)?;
-            let sender = Signatory::AccountKey(sender_key);
+            let sender = ensure_signed(origin)?;
+            let did = Context::current_identity_or::<Identity<T>>(&sender)?;
+            let sender = Signatory::Account(sender);
 
             // Check that sender is allowed to act on behalf of `did`
             ensure!(
@@ -255,9 +252,9 @@ decl_module! {
         /// are rounded by truncation (down to first integer below)
         #[weight = SimpleDispatchInfo::FixedNormal(500_000)]
         pub fn claim(origin, ticker: Ticker, dividend_id: u32) -> DispatchResult {
-            let sender_key = AccountKey::try_from(ensure_signed(origin)?.encode())?;
-            let did = Context::current_identity_or::<Identity<T>>(&sender_key)?;
-            let sender = Signatory::AccountKey(sender_key);
+            let sender = ensure_signed(origin)?;
+            let did = Context::current_identity_or::<Identity<T>>(&sender)?;
+            let sender = Signatory::Account(sender);
 
             // Check that sender is allowed to act on behalf of `did`
             ensure!(
@@ -329,9 +326,9 @@ decl_module! {
         /// After a dividend had expired, collect the remaining amount to owner address
         #[weight = SimpleDispatchInfo::FixedNormal(300_000)]
         pub fn claim_unclaimed(origin, ticker: Ticker, dividend_id: u32) -> DispatchResult {
-            let sender_key = AccountKey::try_from(ensure_signed(origin)?.encode())?;
-            let did = Context::current_identity_or::<Identity<T>>(&sender_key)?;
-            let sender = Signatory::AccountKey(sender_key);
+            let sender = ensure_signed(origin)?;
+            let did = Context::current_identity_or::<Identity<T>>(&sender)?;
+            let sender = Signatory::Account(sender);
 
             // Check that sender is allowed to act on behalf of `did`
             ensure!(

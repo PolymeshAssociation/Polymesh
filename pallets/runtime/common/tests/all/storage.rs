@@ -1,3 +1,9 @@
+use codec::Encode;
+use frame_support::{
+    assert_ok, dispatch::DispatchResult, impl_outer_dispatch, impl_outer_event, impl_outer_origin,
+    parameter_types, traits::Currency, weights::DispatchInfo, StorageDoubleMap,
+};
+use frame_system::{self as system};
 use pallet_asset as asset;
 use pallet_balances as balances;
 use pallet_committee as committee;
@@ -10,30 +16,20 @@ use pallet_protocol_fee as protocol_fee;
 use pallet_statistics as statistics;
 use pallet_treasury as treasury;
 use pallet_utility as utility;
-
 use polymesh_common_utilities::traits::{
     asset::AcceptTransfer,
     balances::AccountData,
     group::GroupTrait,
     identity::Trait as IdentityTrait,
-    multisig::MultiSigSubTrait,
     pip::{EnactProposalMaker, PipId},
     CommonTrait,
 };
 use polymesh_primitives::{
-    AccountKey, Authorization, AuthorizationData, IdentityId, JoinIdentityData, Signatory,
+    Authorization, AuthorizationData, IdentityId, JoinIdentityData, Signatory,
 };
 use polymesh_runtime_common::{
     bridge, cdd_check::CddChecker, dividend, exemption, simple_token, voting,
 };
-
-use codec::Encode;
-use frame_support::{
-    assert_ok, dispatch::DispatchResult, impl_outer_dispatch, impl_outer_event, impl_outer_origin,
-    parameter_types, traits::Currency, weights::DispatchInfo, StorageDoubleMap,
-};
-use frame_system::{self as system};
-
 use sp_core::{
     crypto::{key_types, Pair as PairTrait},
     sr25519::{Pair, Public},
@@ -46,7 +42,7 @@ use sp_runtime::{
     transaction_validity::{InvalidTransaction, TransactionValidity, ValidTransaction},
     AnySignature, KeyTypeId, Perbill,
 };
-use std::{cell::RefCell, convert::TryFrom};
+use std::cell::RefCell;
 use test_client::AccountKeyring;
 
 impl_opaque_keys! {
@@ -110,7 +106,8 @@ impl_outer_event! {
 #[derive(Clone, Eq, PartialEq, Debug)]
 pub struct TestStorage;
 
-type AccountId = <AnySignature as Verify>::Signer;
+pub type AccountId = <AnySignature as Verify>::Signer;
+
 type Index = u64;
 type BlockNumber = u64;
 type Hash = H256;
@@ -196,13 +193,16 @@ impl pallet_transaction_payment::ChargeTxFee for TestStorage {
     }
 }
 
-impl pallet_transaction_payment::CddAndFeeDetails<Call> for TestStorage {
-    fn get_valid_payer(_: &Call, _: &Signatory) -> Result<Option<Signatory>, InvalidTransaction> {
+impl pallet_transaction_payment::CddAndFeeDetails<AccountId, Call> for TestStorage {
+    fn get_valid_payer(
+        _: &Call,
+        _: &Signatory<AccountId>,
+    ) -> Result<Option<Signatory<AccountId>>, InvalidTransaction> {
         Ok(None)
     }
     fn clear_context() {}
-    fn set_payer_context(_: Option<Signatory>) {}
-    fn get_payer_from_context() -> Option<Signatory> {
+    fn set_payer_context(_: Option<Signatory<AccountId>>) {}
+    fn get_payer_from_context() -> Option<Signatory<AccountId>> {
         None
     }
     fn set_current_identity(_: &IdentityId) {}
@@ -519,7 +519,7 @@ pub fn make_account_with_balance(
         Identity::register_did(signed_id.clone(), vec![])
     };
     let _ = did_registration.map_err(|_| "Register DID failed")?;
-    let did = Identity::get_identity(&AccountKey::try_from(id.encode())?).unwrap();
+    let did = Identity::get_identity(&id).unwrap();
 
     Ok((signed_id, did))
 }
@@ -552,10 +552,10 @@ pub fn register_keyring_account_without_cdd(
     make_account_without_cdd(acc_pub).map(|(_, id)| id)
 }
 
-pub fn add_signing_item(did: IdentityId, signer: Signatory) {
+pub fn add_signing_item(did: IdentityId, signer: Signatory<AccountId>) {
     let master_key = Identity::did_records(&did).master_key;
     let auth_id = Identity::add_auth(
-        Signatory::from(master_key),
+        Signatory::Account(master_key),
         signer,
         AuthorizationData::JoinIdentity(JoinIdentityData::new(did, vec![])),
         None,
@@ -574,11 +574,11 @@ pub fn account_from(id: u64) -> AccountId {
 }
 
 pub fn get_identity_id(acc: AccountKeyring) -> Option<IdentityId> {
-    let key = AccountKey::from(acc.public().0);
+    let key = acc.public();
     Identity::get_identity(&key)
 }
 
-pub fn authorizations_to(to: &Signatory) -> Vec<Authorization<u64>> {
+pub fn authorizations_to(to: &Signatory<AccountId>) -> Vec<Authorization<AccountId, u64>> {
     identity::Authorizations::<TestStorage>::iter_prefix(to).collect::<Vec<_>>()
 }
 

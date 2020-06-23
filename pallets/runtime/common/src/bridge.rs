@@ -112,7 +112,7 @@ use polymesh_common_utilities::{
     traits::{balances::CheckCdd, identity::Trait as IdentityTrait, CommonTrait},
     Context, SystematicIssuers,
 };
-use polymesh_primitives::{AccountKey, IdentityId, JoinIdentityData, Signatory};
+use polymesh_primitives::{IdentityId, JoinIdentityData, Signatory};
 use sp_core::H256;
 use sp_runtime::traits::{CheckedAdd, One, Zero};
 use sp_std::{convert::TryFrom, prelude::*};
@@ -265,11 +265,11 @@ decl_storage! {
                 <multisig::Module<T>>::unsafe_accept_multisig_signer(signer.clone(), last_auth)
                     .expect("cannot accept bridge signer auth");
             }
-            let creator_key = AccountKey::try_from(config.creator.clone().encode()).expect("cannot create the bridge creator account");
-            let creator_did = Context::current_identity_or::<identity::Module<T>>(&creator_key).expect("bridge creator account has no identity");
+            let creator_did = Context::current_identity_or::<identity::Module<T>>(&config.creator)
+                .expect("bridge creator account has no identity");
             <identity::Module<T>>::unsafe_join_identity(
                 JoinIdentityData::new(creator_did.clone(), vec![]),
-                Signatory::from(AccountKey::try_from(multisig_id.clone().encode()).unwrap())
+                Signatory::Account(multisig_id.clone())
             ).expect("cannot link the bridge multisig");
             debug::info!("Joined identity {} as signer {}", creator_did, multisig_id);
             multisig_id
@@ -316,7 +316,7 @@ decl_storage! {
         /// AccountId of the multisig creator.
         config(creator): T::AccountId;
         /// The set of initial signers from which a multisig address is created at genesis time.
-        config(signers): Vec<Signatory>;
+        config(signers): Vec<Signatory<T::AccountId>>;
         /// The number of required signatures in the genesis signer set.
         config(signatures_required): u64;
     }
@@ -377,7 +377,7 @@ decl_module! {
             let sender = ensure_signed(origin)?;
             ensure!(sender == Self::admin(), Error::<T>::BadAdmin);
             <Controller<T>>::put(controller.clone());
-            let current_did = Context::current_identity_or::<Identity<T>>(&(AccountKey::try_from(sender.encode())?))?;
+            let current_did = Context::current_identity_or::<Identity<T>>(&sender)?;
             Self::deposit_event(RawEvent::ControllerChanged(current_did, controller));
             Ok(())
         }
@@ -388,7 +388,7 @@ decl_module! {
             let sender = ensure_signed(origin)?;
             ensure!(sender == Self::admin(), Error::<T>::BadAdmin);
             <Admin<T>>::put(admin.clone());
-            let current_did = Context::current_identity_or::<Identity<T>>(&(AccountKey::try_from(sender.encode())?))?;
+            let current_did = Context::current_identity_or::<Identity<T>>(&sender)?;
             Self::deposit_event(RawEvent::AdminChanged(current_did, admin));
             Ok(())
         }
@@ -399,7 +399,7 @@ decl_module! {
             let sender = ensure_signed(origin)?;
             ensure!(sender == Self::admin(), Error::<T>::BadAdmin);
             <Timelock<T>>::put(timelock.clone());
-            let current_did = Context::current_identity_or::<Identity<T>>(&(AccountKey::try_from(sender.encode())?))?;
+            let current_did = Context::current_identity_or::<Identity<T>>(&sender)?;
             Self::deposit_event(RawEvent::TimelockChanged(current_did, timelock));
             Ok(())
         }
@@ -409,7 +409,7 @@ decl_module! {
         #[weight = SimpleDispatchInfo::FixedOperational(50_000)]
         pub fn freeze(origin) -> DispatchResult {
             let sender = ensure_signed(origin)?;
-            let current_did = Context::current_identity_or::<Identity<T>>(&(AccountKey::try_from(sender.encode())?))?;
+            let current_did = Context::current_identity_or::<Identity<T>>(&sender)?;
             ensure!(sender == Self::admin(), Error::<T>::BadAdmin);
             ensure!(!Self::frozen(), Error::<T>::Frozen);
             <Frozen>::put(true);
@@ -421,7 +421,7 @@ decl_module! {
         #[weight = SimpleDispatchInfo::FixedOperational(50_000)]
         pub fn unfreeze(origin) -> DispatchResult {
             let sender = ensure_signed(origin)?;
-            let current_did = Context::current_identity_or::<Identity<T>>(&(AccountKey::try_from(sender.encode())?))?;
+            let current_did = Context::current_identity_or::<Identity<T>>(&sender)?;
             ensure!(sender == Self::admin(), Error::<T>::BadAdmin);
             ensure!(Self::frozen(), Error::<T>::NotFrozen);
             <Frozen>::put(false);
@@ -433,7 +433,7 @@ decl_module! {
         #[weight = SimpleDispatchInfo::FixedOperational(50_000)]
         pub fn change_bridge_limit(origin, amount: T::Balance, duration: T::BlockNumber) -> DispatchResult {
             let sender = ensure_signed(origin)?;
-            let current_did = Context::current_identity_or::<Identity<T>>(&(AccountKey::try_from(sender.encode())?))?;
+            let current_did = Context::current_identity_or::<Identity<T>>(&sender)?;
             ensure!(sender == Self::admin(), Error::<T>::BadAdmin);
             <BridgeLimit<T>>::put((amount.clone(), duration.clone()));
             Self::deposit_event(RawEvent::BridgeLimitUpdated(current_did, amount, duration));
@@ -444,7 +444,7 @@ decl_module! {
         #[weight = SimpleDispatchInfo::FixedOperational(50_000)]
         pub fn change_bridge_exempted(origin, exempted: Vec<(IdentityId, bool)>) -> DispatchResult {
             let sender = ensure_signed(origin)?;
-            let current_did = Context::current_identity_or::<Identity<T>>(&(AccountKey::try_from(sender.encode())?))?;
+            let current_did = Context::current_identity_or::<Identity<T>>(&sender)?;
             ensure!(sender == Self::admin(), Error::<T>::BadAdmin);
             for (did, exempt) in exempted {
                 <BridgeLimitExempted>::insert(did, exempt);
@@ -499,7 +499,7 @@ decl_module! {
         {
             ensure!(Self::controller() != Default::default(), Error::<T>::ControllerNotSet);
             let sender = ensure_signed(origin)?;
-            Self::propose_signed_bridge_tx(&sender, bridge_tx)
+            Self::propose_signed_bridge_tx(sender, bridge_tx)
         }
 
         /// Proposes a vector of bridge transactions. The vector is processed until the first
@@ -522,7 +522,7 @@ decl_module! {
         {
             ensure!(Self::controller() != Default::default(), Error::<T>::ControllerNotSet);
             let sender = ensure_signed(origin)?;
-            Self::batch_propose_signed_bridge_tx(&sender, bridge_txs)
+            Self::batch_propose_signed_bridge_tx(sender, bridge_txs)
         }
 
         /// Handles an approved bridge transaction proposal.
@@ -578,7 +578,7 @@ decl_module! {
             DispatchResult
         {
             let sender = ensure_signed(origin)?;
-            let current_did = Context::current_identity_or::<Identity<T>>(&(AccountKey::try_from(sender.encode())?))?;
+            let current_did = Context::current_identity_or::<Identity<T>>(&sender)?;
             ensure!(sender == Self::admin(), Error::<T>::BadAdmin);
             for bridge_tx in bridge_txs {
                 let tx_details = Self::bridge_tx_details(&bridge_tx.recipient, &bridge_tx.nonce);
@@ -609,7 +609,7 @@ decl_module! {
         {
             // NB: An admin can call Freeze + Unfreeze on a transaction to bypass the timelock
             let sender = ensure_signed(origin)?;
-            let current_did = Context::current_identity_or::<Identity<T>>(&(AccountKey::try_from(sender.encode())?))?;
+            let current_did = Context::current_identity_or::<Identity<T>>(&sender)?;
             ensure!(sender == Self::admin(), Error::<T>::BadAdmin);
             for bridge_tx in bridge_txs {
                 let tx_details = Self::bridge_tx_details(&bridge_tx.recipient, &bridge_tx.nonce);
@@ -634,9 +634,7 @@ impl<T: Trait> Module<T> {
 
     /// Issues the transacted amount to the recipient.
     fn issue(recipient: &T::AccountId, amount: &T::Balance) -> DispatchResult {
-        if let Some(did) =
-            T::CddChecker::get_key_cdd_did(&AccountKey::try_from(recipient.encode())?)
-        {
+        if let Some(did) = T::CddChecker::get_key_cdd_did(&recipient) {
             if !Self::bridge_exempted(did) {
                 let current_block_number = <system::Module<T>>::block_number();
                 let (limit, interval_duration) = Self::bridge_limit();
@@ -777,10 +775,10 @@ impl<T: Trait> Module<T> {
 
     /// Proposes a bridge transaction. The bridge controller must be set.
     fn propose_signed_bridge_tx(
-        sender: &T::AccountId,
+        sender: T::AccountId,
         bridge_tx: BridgeTx<T::AccountId, T::Balance>,
     ) -> DispatchResult {
-        let sender_signer = Signatory::from(AccountKey::try_from(sender.encode())?);
+        let sender_signer = Signatory::Account(sender);
         let proposal = <T as Trait>::Proposal::from(Call::<T>::handle_bridge_tx(bridge_tx));
         let boxed_proposal = Box::new(proposal.into());
         <multisig::Module<T>>::create_or_approve_proposal(
@@ -794,10 +792,10 @@ impl<T: Trait> Module<T> {
 
     /// Proposes a vector of bridge transaction. The bridge controller must be set.
     fn batch_propose_signed_bridge_tx(
-        sender: &T::AccountId,
+        sender: T::AccountId,
         bridge_txs: Vec<BridgeTx<T::AccountId, T::Balance>>,
     ) -> DispatchResult {
-        let sender_signer = Signatory::from(AccountKey::try_from(sender.encode())?);
+        let sender_signer = Signatory::Account(sender);
         let propose = |tx| {
             let proposal = <T as Trait>::Proposal::from(Call::<T>::handle_bridge_tx(tx));
             let boxed_proposal = Box::new(proposal.into());
@@ -864,9 +862,7 @@ impl<T: Trait> Module<T> {
         bridge_tx: BridgeTx<T::AccountId, T::Balance>,
     ) -> DispatchResult {
         // NB: To avoid code duplication, this uses a hacky approach of temporarily exempting the did
-        if let Some(did) = T::CddChecker::get_key_cdd_did(&AccountKey::try_from(
-            bridge_tx.recipient.clone().encode(),
-        )?) {
+        if let Some(did) = T::CddChecker::get_key_cdd_did(&bridge_tx.recipient) {
             if !Self::bridge_exempted(did) {
                 // Exempt the did temporarily
                 <BridgeLimitExempted>::insert(did, true);

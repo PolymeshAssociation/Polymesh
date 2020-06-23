@@ -76,6 +76,14 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 #![recursion_limit = "256"]
 
+use core::result::Result as StdResult;
+use frame_support::{
+    decl_error, decl_event, decl_module, decl_storage,
+    dispatch::DispatchResult,
+    ensure,
+    weights::{DispatchClass, FunctionOf, SimpleDispatchInfo},
+};
+use frame_system::{self as system, ensure_signed};
 use pallet_identity as identity;
 use polymesh_common_utilities::{
     asset::Trait as AssetTrait,
@@ -86,19 +94,7 @@ use polymesh_common_utilities::{
     protocol_fee::{ChargeProtocolFee, ProtocolOp},
     Context,
 };
-use polymesh_primitives::{
-    predicate, AccountKey, Claim, IdentityId, Rule, RuleType, Signatory, Ticker,
-};
-
-use codec::Encode;
-use core::result::Result as StdResult;
-use frame_support::{
-    decl_error, decl_event, decl_module, decl_storage,
-    dispatch::DispatchResult,
-    ensure,
-    weights::{DispatchClass, FunctionOf, SimpleDispatchInfo},
-};
-use frame_system::{self as system, ensure_signed};
+use polymesh_primitives::{predicate, Claim, IdentityId, Rule, RuleType, Signatory, Ticker};
 #[cfg(feature = "std")]
 use sp_runtime::{Deserialize, Serialize};
 use sp_std::{
@@ -259,12 +255,12 @@ decl_module! {
         /// * sender_rules - Sender transfer rule.
         /// * receiver_rules - Receiver transfer rule.
         pub fn add_active_rule(origin, ticker: Ticker, sender_rules: Vec<Rule>, receiver_rules: Vec<Rule>) -> DispatchResult {
-            let sender_key = AccountKey::try_from(ensure_signed(origin)?.encode())?;
-            let did = Context::current_identity_or::<Identity<T>>(&sender_key)?;
+            let sender = ensure_signed(origin)?;
+            let did = Context::current_identity_or::<Identity<T>>(&sender)?;
 
             ensure!(Self::is_owner(&ticker, did), Error::<T>::Unauthorized);
             <<T as IdentityTrait>::ProtocolFee>::charge_fee(
-                &Signatory::AccountKey(sender_key),
+                &Signatory::Account(sender),
                 ProtocolOp::ComplianceManagerAddActiveRule
             )?;
             let new_rule = AssetTransferRule {
@@ -291,8 +287,8 @@ decl_module! {
         /// * asset_rule_id - Rule id which is need to be removed
         #[weight = SimpleDispatchInfo::FixedNormal(200_000)]
         pub fn remove_active_rule(origin, ticker: Ticker, asset_rule_id: u32) -> DispatchResult {
-            let sender_key = AccountKey::try_from( ensure_signed(origin)?.encode())?;
-            let did = Context::current_identity_or::<Identity<T>>(&sender_key)?;
+            let sender = ensure_signed(origin)?;
+            let did = Context::current_identity_or::<Identity<T>>(&sender)?;
 
             ensure!(Self::is_owner(&ticker, did), Error::<T>::Unauthorized);
 
@@ -328,8 +324,8 @@ decl_module! {
             true
         )]
         pub fn replace_asset_rules(origin, ticker: Ticker, asset_rules: Vec<AssetTransferRule>) -> DispatchResult {
-            let sender_key = AccountKey::try_from(ensure_signed(origin)?.encode())?;
-            let did = Context::current_identity_or::<Identity<T>>(&sender_key)?;
+            let sender = ensure_signed(origin)?;
+            let did = Context::current_identity_or::<Identity<T>>(&sender)?;
             ensure!(Self::is_owner(&ticker, did), Error::<T>::Unauthorized);
             let mut asset_rules_dedup = asset_rules.clone();
             asset_rules_dedup.dedup_by_key(|r| r.rule_id);
@@ -348,8 +344,8 @@ decl_module! {
         /// * ticker - Symbol of the asset
         #[weight = SimpleDispatchInfo::FixedNormal(100_000)]
         pub fn reset_active_rules(origin, ticker: Ticker) -> DispatchResult {
-            let sender_key = AccountKey::try_from(ensure_signed(origin)?.encode())?;
-            let did = Context::current_identity_or::<Identity<T>>(&sender_key)?;
+            let sender = ensure_signed(origin)?;
+            let did = Context::current_identity_or::<Identity<T>>(&sender)?;
             ensure!(Self::is_owner(&ticker, did), Error::<T>::Unauthorized);
 
             <AssetRulesMap>::remove(ticker);
@@ -465,8 +461,8 @@ decl_module! {
         /// * asset_rule - Asset rule.
         #[weight = SimpleDispatchInfo::FixedNormal(150_000)]
         pub fn change_asset_rule(origin, ticker: Ticker, asset_rule: AssetTransferRule) -> DispatchResult {
-            let sender_key = AccountKey::try_from(ensure_signed(origin)?.encode())?;
-            let did = Context::current_identity_or::<Identity<T>>(&sender_key)?;
+            let sender = ensure_signed(origin)?;
+            let did = Context::current_identity_or::<Identity<T>>(&sender)?;
 
             ensure!(Self::is_owner(&ticker, did), Error::<T>::Unauthorized);
             ensure!(Self::get_latest_rule_id(ticker) >= asset_rule.rule_id, Error::<T>::InvalidRuleId);
@@ -494,8 +490,8 @@ decl_module! {
             true
         )]
         pub fn batch_change_asset_rule(origin, asset_rules: Vec<AssetTransferRule> , ticker: Ticker) -> DispatchResult {
-            let sender_key = AccountKey::try_from(ensure_signed(origin)?.encode())?;
-            let did = Context::current_identity_or::<Identity<T>>(&sender_key)?;
+            let sender = ensure_signed(origin)?;
+            let did = Context::current_identity_or::<Identity<T>>(&sender)?;
 
             ensure!(Self::is_owner(&ticker, did), Error::<T>::Unauthorized);
             let latest_rule_id = Self::get_latest_rule_id(ticker);
@@ -615,8 +611,8 @@ impl<T: Trait> Module<T> {
 
     /// Pauses or resumes the asset rules.
     fn pause_resume_rules(origin: T::Origin, ticker: Ticker, pause: bool) -> DispatchResult {
-        let sender_key = AccountKey::try_from(ensure_signed(origin)?.encode())?;
-        let did = Context::current_identity_or::<Identity<T>>(&sender_key)?;
+        let sender = ensure_signed(origin)?;
+        let did = Context::current_identity_or::<Identity<T>>(&sender)?;
 
         ensure!(Self::is_owner(&ticker, did), Error::<T>::Unauthorized);
 
@@ -661,8 +657,8 @@ impl<T: Trait> Module<T> {
         trusted_issuer: IdentityId,
         is_add_call: bool,
     ) -> DispatchResult {
-        let sender_key = AccountKey::try_from(ensure_signed(origin)?.encode())?;
-        let did = Context::current_identity_or::<Identity<T>>(&sender_key)?;
+        let sender = ensure_signed(origin)?;
+        let did = Context::current_identity_or::<Identity<T>>(&sender)?;
 
         ensure!(Self::is_owner(&ticker, did), Error::<T>::Unauthorized);
         // ensure whether the trusted issuer's did is register did or not
@@ -684,8 +680,8 @@ impl<T: Trait> Module<T> {
         trusted_issuers: Vec<IdentityId>,
         is_add_call: bool,
     ) -> DispatchResult {
-        let sender_key = AccountKey::try_from(ensure_signed(origin)?.encode())?;
-        let did = Context::current_identity_or::<Identity<T>>(&sender_key)?;
+        let sender = ensure_signed(origin)?;
+        let did = Context::current_identity_or::<Identity<T>>(&sender)?;
 
         ensure!(trusted_issuers.len() >= 1, Error::<T>::InvalidLength);
         ensure!(Self::is_owner(&ticker, did), Error::<T>::Unauthorized);

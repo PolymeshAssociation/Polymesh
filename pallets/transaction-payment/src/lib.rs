@@ -42,7 +42,7 @@ use frame_support::{
     weights::{DispatchInfo, GetDispatchInfo, Weight},
 };
 use pallet_transaction_payment_rpc_runtime_api::RuntimeDispatchInfo;
-use primitives::{traits::IdentityCurrency, AccountKey, IdentityId, Signatory, TransactionError};
+use primitives::{traits::IdentityCurrency, IdentityId, Signatory, TransactionError};
 use sp_runtime::{
     traits::{Convert, SaturatedConversion, Saturating, SignedExtension, Zero},
     transaction_validity::{
@@ -51,7 +51,7 @@ use sp_runtime::{
     },
     Fixed64,
 };
-use sp_std::{convert::TryFrom, prelude::*};
+use sp_std::prelude::*;
 
 type Multiplier = Fixed64;
 type BalanceOf<T> =
@@ -80,7 +80,7 @@ pub trait Trait: frame_system::Trait {
 
     // Polymesh note: This was specifically added for Polymesh
     /// Fetch the signatory to charge fee from. Also sets fee payer and identity in context.
-    type CddHandler: CddAndFeeDetails<Self::Call>;
+    type CddHandler: CddAndFeeDetails<Self::AccountId, Self::Call>;
 }
 
 decl_storage! {
@@ -241,19 +241,14 @@ where
             // This is enforced to curb front running.
             return InvalidTransaction::Custom(TransactionError::ZeroTip as u8).into();
         }
-        let encoded_transactor =
-            AccountKey::try_from(who.encode()).map_err(|_| InvalidTransaction::BadProof)?;
         let fee = Self::compute_fee(len as u32, info, 0u32.into());
-        if let Some(payer) =
-            T::CddHandler::get_valid_payer(call, &Signatory::from(encoded_transactor))?
+        if let Some(payer) = T::CddHandler::get_valid_payer(call, &Signatory::Account(who.clone()))?
         {
             let imbalance;
-            match payer {
-                Signatory::AccountKey(key) => {
-                    let payer_key = T::AccountId::decode(&mut &key.as_slice()[..])
-                        .map_err(|_| InvalidTransaction::Payment)?;
+            match payer.clone() {
+                Signatory::Account(key) => {
                     imbalance = T::Currency::withdraw(
-                        &payer_key,
+                        &key,
                         fee,
                         WithdrawReason::TransactionPayment.into(),
                         ExistenceRequirement::KeepAlive,
@@ -282,14 +277,14 @@ where
 }
 
 // Polymesh note: This was specifically added for Polymesh
-pub trait CddAndFeeDetails<Call> {
+pub trait CddAndFeeDetails<AccountId, Call> {
     fn get_valid_payer(
         call: &Call,
-        caller: &Signatory,
-    ) -> Result<Option<Signatory>, InvalidTransaction>;
+        caller: &Signatory<AccountId>,
+    ) -> Result<Option<Signatory<AccountId>>, InvalidTransaction>;
     fn clear_context();
-    fn set_payer_context(payer: Option<Signatory>);
-    fn get_payer_from_context() -> Option<Signatory>;
+    fn set_payer_context(payer: Option<Signatory<AccountId>>);
+    fn get_payer_from_context() -> Option<Signatory<AccountId>>;
     fn set_current_identity(did: &IdentityId);
 }
 
@@ -333,9 +328,8 @@ impl<T: Trait> ChargeTxFee for Module<T> {
             let imbalance = match who {
                 Signatory::Identity(did) => T::Currency::withdraw_identity_balance(&did, fee)
                     .map_err(|_| InvalidTransaction::Payment),
-                Signatory::AccountKey(account) => T::Currency::withdraw(
-                    &T::AccountId::decode(&mut &account.encode()[..])
-                        .map_err(|_| InvalidTransaction::Payment)?,
+                Signatory::Account(account) => T::Currency::withdraw(
+                    &account,
                     fee,
                     WithdrawReason::TransactionPayment.into(),
                     ExistenceRequirement::KeepAlive,
@@ -450,12 +444,12 @@ mod tests {
         type CddChecker = Runtime;
     }
 
-    impl CheckCdd for Runtime {
-        fn check_key_cdd(_key: &AccountKey) -> bool {
+    impl CheckCdd<AccountId> for Runtime {
+        fn check_key_cdd(_key: &AccountId) -> bool {
             true
         }
 
-        fn get_key_cdd_did(_key: &AccountKey) -> Option<IdentityId> {
+        fn get_key_cdd_did(_key: &AccountId) -> Option<IdentityId> {
             None
         }
     }
@@ -466,26 +460,26 @@ mod tests {
         static WEIGHT_TO_FEE: RefCell<u128> = RefCell::new(1);
     }
 
-    impl CddAndFeeDetails<Call> for Runtime {
+    impl CddAndFeeDetails<AccountId, Call> for Runtime {
         fn get_valid_payer(
             _: &Call,
-            caller: &Signatory,
-        ) -> Result<Option<Signatory>, InvalidTransaction> {
+            caller: &Signatory<AccountId>,
+        ) -> Result<Option<Signatory<AccountId>>, InvalidTransaction> {
             Ok(Some(*caller))
         }
         fn clear_context() {}
-        fn set_payer_context(_: Option<Signatory>) {}
-        fn get_payer_from_context() -> Option<Signatory> {
+        fn set_payer_context(_: Option<Signatory<AccountId>>) {}
+        fn get_payer_from_context() -> Option<Signatory<AccountId>> {
             None
         }
         fn set_current_identity(_: &IdentityId) {}
     }
 
-    impl IdentityTrait for Runtime {
-        fn get_identity(_key: &AccountKey) -> Option<IdentityId> {
+    impl IdentityTrait<AccountId> for Runtime {
+        fn get_identity(_key: &AccountId) -> Option<IdentityId> {
             unimplemented!()
         }
-        fn current_payer() -> Option<Signatory> {
+        fn current_payer() -> Option<Signatory<AccountId>> {
             None
         }
         fn current_identity() -> Option<IdentityId> {
@@ -494,18 +488,18 @@ mod tests {
         fn set_current_identity(_id: Option<IdentityId>) {
             unimplemented!()
         }
-        fn set_current_payer(_payer: Option<Signatory>) {}
-        fn is_signer_authorized(_did: IdentityId, _signer: &Signatory) -> bool {
+        fn set_current_payer(_payer: Option<Signatory<AccountId>>) {}
+        fn is_signer_authorized(_did: IdentityId, _signer: &Signatory<AccountId>) -> bool {
             unimplemented!()
         }
         fn is_signer_authorized_with_permissions(
             _did: IdentityId,
-            _signer: &Signatory,
+            _signer: &Signatory<AccountId>,
             _permissions: Vec<Permission>,
         ) -> bool {
             unimplemented!()
         }
-        fn is_master_key(_did: IdentityId, _key: &AccountKey) -> bool {
+        fn is_master_key(_did: IdentityId, _key: &AccountId) -> bool {
             unimplemented!()
         }
 
@@ -515,7 +509,7 @@ mod tests {
             _issuer: SystematicIssuers,
         ) {
         }
-        fn has_valid_cdd(target_did: IdentityId) -> bool {
+        fn has_valid_cdd(_target_did: IdentityId) -> bool {
             unimplemented!()
         }
     }

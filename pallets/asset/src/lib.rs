@@ -107,7 +107,7 @@ use polymesh_common_utilities::{
     CommonTrait, Context,
 };
 use polymesh_primitives::{
-    AccountKey, AuthorizationData, AuthorizationError, Document, IdentityId, LinkData, Signatory,
+    AuthorizationData, AuthorizationError, Document, IdentityId, LinkData, Signatory,
     SmartExtension, SmartExtensionName, SmartExtensionType, Ticker,
 };
 use polymesh_primitives_derive::VecU8StrongTyped;
@@ -338,9 +338,9 @@ decl_module! {
         /// * `ticker` ticker to register.
         #[weight = SimpleDispatchInfo::FixedNormal(500_000)]
         pub fn register_ticker(origin, ticker: Ticker) -> DispatchResult {
-            let sender_key = AccountKey::try_from((ensure_signed(origin)?).encode())?;
-            let signer = Signatory::AccountKey(sender_key);
-            let to_did = Context::current_identity_or::<Identity<T>>(&sender_key)?;
+            let sender = ensure_signed(origin)?;
+            let signer = Signatory::Account(sender.clone());
+            let to_did = Context::current_identity_or::<Identity<T>>(&sender)?;
 
             ensure!(!<Tokens<T>>::contains_key(&ticker), Error::<T>::AssetAlreadyCreated);
 
@@ -372,8 +372,7 @@ decl_module! {
         #[weight = SimpleDispatchInfo::FixedNormal(500_000)]
         pub fn accept_ticker_transfer(origin, auth_id: u64) -> DispatchResult {
             let sender = ensure_signed(origin)?;
-            let sender_key = AccountKey::try_from(sender.encode())?;
-            let to_did = Context::current_identity_or::<Identity<T>>(&sender_key)?;
+            let to_did = Context::current_identity_or::<Identity<T>>(&sender)?;
 
             Self::_accept_ticker_transfer(to_did, auth_id)
         }
@@ -387,8 +386,7 @@ decl_module! {
         #[weight = SimpleDispatchInfo::FixedNormal(500_000)]
         pub fn accept_asset_ownership_transfer(origin, auth_id: u64) -> DispatchResult {
             let sender = ensure_signed(origin)?;
-            let sender_key = AccountKey::try_from(sender.encode())?;
-            let to_did = Context::current_identity_or::<Identity<T>>(&sender_key)?;
+            let to_did = Context::current_identity_or::<Identity<T>>(&sender)?;
 
             Self::_accept_token_ownership_transfer(to_did, auth_id)
         }
@@ -434,9 +432,9 @@ decl_module! {
             identifiers: Vec<(IdentifierType, AssetIdentifier)>,
             funding_round: Option<FundingRoundName>
         ) -> DispatchResult {
-            let sender_key = AccountKey::try_from((ensure_signed(origin)?).encode())?;
-            let did = Context::current_identity_or::<Identity<T>>(&sender_key)?;
-            let signer = Signatory::AccountKey(sender_key);
+            let sender = ensure_signed(origin)?;
+            let did = Context::current_identity_or::<Identity<T>>(&sender)?;
+            let signer = Signatory::Account(sender);
 
             // Check that sender is allowed to act on behalf of `did`
             ensure!(!<Tokens<T>>::contains_key(&ticker), Error::<T>::AssetAlreadyCreated);
@@ -528,8 +526,7 @@ decl_module! {
         #[weight = SimpleDispatchInfo::FixedNormal(150_000)]
         pub fn freeze(origin, ticker: Ticker) -> DispatchResult {
             let sender = ensure_signed(origin)?;
-            let signer_key = AccountKey::try_from(sender.encode())?;
-            let sender_did = Context::current_identity_or::<Identity<T>>(&signer_key)?;
+            let sender_did = Context::current_identity_or::<Identity<T>>(&sender)?;
 
             // verify the ownership of the token
             ensure!(Self::is_owner(&ticker, sender_did), Error::<T>::Unauthorized);
@@ -549,8 +546,7 @@ decl_module! {
         #[weight = SimpleDispatchInfo::FixedNormal(150_000)]
         pub fn unfreeze(origin, ticker: Ticker) -> DispatchResult {
             let sender = ensure_signed(origin)?;
-            let signer_key = AccountKey::try_from(sender.encode())?;
-            let sender_did = Context::current_identity_or::<Identity<T>>(&signer_key)?;
+            let sender_did = Context::current_identity_or::<Identity<T>>(&sender)?;
 
             // verify the ownership of the token
             ensure!(Self::is_owner(&ticker, sender_did), Error::<T>::Unauthorized);
@@ -571,8 +567,7 @@ decl_module! {
         #[weight = SimpleDispatchInfo::FixedNormal(150_000)]
         pub fn rename_asset(origin, ticker: Ticker, name: AssetName) -> DispatchResult {
             let sender = ensure_signed(origin)?;
-            let signer = AccountKey::try_from(sender.encode())?;
-            let sender_did = Context::current_identity_or::<Identity<T>>(&signer)?;
+            let sender_did = Context::current_identity_or::<Identity<T>>(&sender)?;
 
             // verify the ownership of the token
             ensure!(Self::is_owner(&ticker, sender_did), Error::<T>::Unauthorized);
@@ -593,8 +588,7 @@ decl_module! {
         #[weight = SimpleDispatchInfo::FixedNormal(400_000)]
         pub fn transfer(origin, ticker: Ticker, to_did: IdentityId, value: T::Balance) -> DispatchResult {
             let sender = ensure_signed(origin)?;
-            let sender_key = AccountKey::try_from(sender.encode())?;
-            let did = Context::current_identity_or::<Identity<T>>(&sender_key)?;
+            let did = Context::current_identity_or::<Identity<T>>(&sender)?;
 
             // Check whether the custody allowance remain intact or not
             Self::_check_custody_allowance(&ticker, did, value)?;
@@ -619,8 +613,8 @@ decl_module! {
         /// * `operator_data` It is a string which describes the reason of this control transfer call.
         #[weight = SimpleDispatchInfo::FixedNormal(400_000)]
         pub fn controller_transfer(origin, ticker: Ticker, from_did: IdentityId, to_did: IdentityId, value: T::Balance, data: Vec<u8>, operator_data: Vec<u8>) -> DispatchResult {
-            let sender_key = AccountKey::try_from(ensure_signed(origin)?.encode())?;
-            let did = Context::current_identity_or::<Identity<T>>(&sender_key)?;
+            let sender = ensure_signed(origin)?;
+            let did = Context::current_identity_or::<Identity<T>>(&sender)?;
 
             ensure!(Self::is_owner(&ticker, did), Error::<T>::Unauthorized);
 
@@ -640,8 +634,8 @@ decl_module! {
         /// * `value` Amount of the tokens approved.
         #[weight = SimpleDispatchInfo::FixedNormal(200_000)]
         fn approve(origin, ticker: Ticker, spender_did: IdentityId, value: T::Balance) -> DispatchResult {
-            let sender_key = AccountKey::try_from(ensure_signed(origin)?.encode())?;
-            let did = Context::current_identity_or::<Identity<T>>(&sender_key)?;
+            let sender = ensure_signed(origin)?;
+            let did = Context::current_identity_or::<Identity<T>>(&sender)?;
 
             ensure!(<BalanceOf<T>>::contains_key(ticker, did), Error::<T>::NotAnOwner);
             let allowance = Self::allowance((ticker, did, spender_did));
@@ -665,8 +659,7 @@ decl_module! {
         #[weight = SimpleDispatchInfo::FixedNormal(500_000)]
         pub fn transfer_from(origin, ticker: Ticker, from_did: IdentityId, to_did: IdentityId, value: T::Balance) -> DispatchResult {
             let sender = ensure_signed(origin)?;
-            let sender_key = AccountKey::try_from(sender.encode())?;
-            let did = Context::current_identity_or::<Identity<T>>(&sender_key)?;
+            let did = Context::current_identity_or::<Identity<T>>(&sender)?;
 
             let ticker_from_did_did = (ticker, from_did, did);
             ensure!(<Allowance<T>>::contains_key(&ticker_from_did_did), Error::<T>::NoSuchAllowance);
@@ -700,8 +693,8 @@ decl_module! {
         /// * `ticker` Ticker of the token.
         #[weight = SimpleDispatchInfo::FixedNormal(300_000)]
         pub fn create_checkpoint(origin, ticker: Ticker) -> DispatchResult {
-            let sender_key = AccountKey::try_from(ensure_signed(origin)?.encode())?;
-            let did = Context::current_identity_or::<Identity<T>>(&sender_key)?;
+            let sender = ensure_signed(origin)?;
+            let did = Context::current_identity_or::<Identity<T>>(&sender)?;
 
             ensure!(Self::is_owner(&ticker, did), Error::<T>::Unauthorized);
             let _ = Self::_create_checkpoint(&ticker)?;
@@ -720,9 +713,8 @@ decl_module! {
         #[weight = SimpleDispatchInfo::FixedNormal(700_000)]
         pub fn issue(origin, ticker: Ticker, to_did: IdentityId, value: T::Balance, _data: Vec<u8>) -> DispatchResult {
             let sender = ensure_signed(origin)?;
-            let sender_key = AccountKey::try_from(sender.encode())?;
-            let did = Context::current_identity_or::<Identity<T>>(&sender_key)?;
-            let signer = Signatory::AccountKey(sender_key);
+            let did = Context::current_identity_or::<Identity<T>>(&sender)?;
+            let signer = Signatory::Account(sender.clone());
 
             ensure!(Self::is_owner(&ticker, did), Error::<T>::Unauthorized);
             Self::_mint(&ticker, sender, to_did, value, Some((&signer, ProtocolOp::AssetIssue)))
@@ -753,8 +745,7 @@ decl_module! {
         )]
         pub fn batch_issue(origin, issue_asset_items: Vec<IssueAssetItem<T::Balance>>, ticker: Ticker) -> DispatchResult {
             let sender = ensure_signed(origin)?;
-            let sender_key = AccountKey::try_from(sender.encode())?;
-            let did = Context::current_identity_or::<Identity<T>>(&sender_key)?;
+            let did = Context::current_identity_or::<Identity<T>>(&sender)?;
 
             ensure!(!issue_asset_items.is_empty(), Error::<T>::NoInvestors);
             ensure!(Self::is_owner(&ticker, did), Error::<T>::Unauthorized);
@@ -802,7 +793,7 @@ decl_module! {
                 token.total_supply = updated_total_supply;
             }
             <<T as IdentityTrait>::ProtocolFee>::batch_charge_fee(
-                &Signatory::AccountKey(sender_key),
+                &Signatory::Account(sender),
                 ProtocolOp::AssetIssue,
                 issue_asset_items.len()
             )?;
@@ -836,8 +827,7 @@ decl_module! {
         #[weight = SimpleDispatchInfo::FixedNormal(500_000)]
         pub fn redeem(origin, ticker: Ticker, value: T::Balance, _data: Vec<u8>) -> DispatchResult {
             let sender = ensure_signed(origin)?;
-            let sender_key = AccountKey::try_from(sender.encode())?;
-            let did = Context::current_identity_or::<Identity<T>>(&sender_key)?;
+            let did = Context::current_identity_or::<Identity<T>>(&sender)?;
 
             // Granularity check
             ensure!(Self::check_granularity(&ticker, value), Error::<T>::InvalidGranularity);
@@ -884,8 +874,7 @@ decl_module! {
         #[weight = SimpleDispatchInfo::FixedNormal(500_000)]
         pub fn redeem_from(origin, ticker: Ticker, from_did: IdentityId, value: T::Balance, _data: Vec<u8>) -> DispatchResult {
             let sender = ensure_signed(origin)?;
-            let sender_key = AccountKey::try_from(sender.encode())?;
-            let did = Context::current_identity_or::<Identity<T>>(&sender_key)?;
+            let did = Context::current_identity_or::<Identity<T>>(&sender)?;
 
             // Granularity check
             ensure!(Self::check_granularity(&ticker, value), Error::<T>::InvalidGranularity);
@@ -941,8 +930,8 @@ decl_module! {
         /// * `operator_data` Any data blob that defines the reason behind the force redeem.
         #[weight = SimpleDispatchInfo::FixedNormal(400_000)]
         pub fn controller_redeem(origin, ticker: Ticker, token_holder_did: IdentityId, value: T::Balance, data: Vec<u8>, operator_data: Vec<u8>) -> DispatchResult {
-            let sender_key = AccountKey::try_from(ensure_signed(origin)?.encode())?;
-            let did = Context::current_identity_or::<Identity<T>>(&sender_key)?;
+            let sender = ensure_signed(origin)?;
+            let did = Context::current_identity_or::<Identity<T>>(&sender)?;
 
             ensure!(Self::is_owner(&ticker, did), Error::<T>::NotAnOwner);
             // Granularity check
@@ -978,8 +967,8 @@ decl_module! {
         /// * `ticker` Ticker of the token.
         #[weight = SimpleDispatchInfo::FixedNormal(150_000)]
         pub fn make_divisible(origin, ticker: Ticker) -> DispatchResult {
-            let sender_key = AccountKey::try_from(ensure_signed(origin)?.encode())?;
-            let did = Context::current_identity_or::<Identity<T>>(&sender_key)?;
+            let sender = ensure_signed(origin)?;
+            let did = Context::current_identity_or::<Identity<T>>(&sender)?;
 
             ensure!(Self::is_owner(&ticker, did), Error::<T>::Unauthorized);
             // Read the token details
@@ -1004,8 +993,8 @@ decl_module! {
         #[weight = SimpleDispatchInfo::FixedNormal(450_000)]
         pub fn transfer_with_data(origin, ticker: Ticker, to_did: IdentityId, value: T::Balance, data: Vec<u8>) -> DispatchResult {
 
-            let sender_key = AccountKey::try_from(ensure_signed(origin.clone())?.encode())?;
-            let did = Context::current_identity_or::<Identity<T>>(&sender_key)?;
+            let sender = ensure_signed(origin.clone())?;
+            let did = Context::current_identity_or::<Identity<T>>(&sender)?;
 
             Self::transfer(origin, ticker, to_did, value)?;
 
@@ -1026,8 +1015,8 @@ decl_module! {
         /// * `data` Off chain data blob to validate the transfer.
         #[weight = SimpleDispatchInfo::FixedNormal(550_000)]
         pub fn transfer_from_with_data(origin, ticker: Ticker, from_did: IdentityId, to_did: IdentityId, value: T::Balance, data: Vec<u8>) -> DispatchResult {
-            let sender_key = AccountKey::try_from(ensure_signed(origin.clone())?.encode())?;
-            let did = Context::current_identity_or::<Identity<T>>(&sender_key)?;
+            let sender = ensure_signed(origin.clone())?;
+            let did = Context::current_identity_or::<Identity<T>>(&sender)?;
 
             Self::transfer_from(origin, ticker, from_did,  to_did, value)?;
 
@@ -1062,20 +1051,20 @@ decl_module! {
             true
         )]
         pub fn batch_add_document(origin, documents: Vec<Document>, ticker: Ticker) -> DispatchResult {
-            let sender_key = AccountKey::try_from(ensure_signed(origin)?.encode())?;
-            let did = Context::current_identity_or::<Identity<T>>(&sender_key)?;
+            let sender = ensure_signed(origin)?;
+            let did = Context::current_identity_or::<Identity<T>>(&sender)?;
 
             ensure!(Self::is_owner(&ticker, did), Error::<T>::NotAnOwner);
 
             let ticker_did = <identity::Module<T>>::get_token_did(&ticker)?;
             let signer = Signatory::from(ticker_did);
             <<T as IdentityTrait>::ProtocolFee>::batch_charge_fee(
-                &Signatory::AccountKey(sender_key),
+                &Signatory::Account(sender),
                 ProtocolOp::AssetAddDocument,
                 documents.len()
             )?;
             documents.into_iter().for_each(|doc| {
-                <identity::Module<T>>::add_link(signer, LinkData::DocumentOwned(doc), None);
+                <identity::Module<T>>::add_link(signer.clone(), LinkData::DocumentOwned(doc), None);
             });
 
             Ok(())
@@ -1098,14 +1087,14 @@ decl_module! {
             true
         )]
         pub fn batch_remove_document(origin, doc_ids: Vec<u64>, ticker: Ticker) -> DispatchResult {
-            let sender_key = AccountKey::try_from(ensure_signed(origin)?.encode())?;
-            let did = Context::current_identity_or::<Identity<T>>(&sender_key)?;
+            let sender = ensure_signed(origin)?;
+            let did = Context::current_identity_or::<Identity<T>>(&sender)?;
             ensure!(Self::is_owner(&ticker, did), Error::<T>::NotAnOwner);
 
             let ticker_did = <identity::Module<T>>::get_token_did(&ticker)?;
             let signer = Signatory::from(ticker_did);
             doc_ids.into_iter().for_each(|doc_id| {
-                <identity::Module<T>>::remove_link(signer, doc_id)
+                <identity::Module<T>>::remove_link(signer.clone(), doc_id)
             });
 
             Ok(())
@@ -1128,15 +1117,15 @@ decl_module! {
             true
         )]
         pub fn batch_update_document(origin, docs: Vec<(u64, Document)>, ticker: Ticker) -> DispatchResult {
-            let sender_key = AccountKey::try_from(ensure_signed(origin)?.encode())?;
-            let did = Context::current_identity_or::<Identity<T>>(&sender_key)?;
+            let sender = ensure_signed(origin)?;
+            let did = Context::current_identity_or::<Identity<T>>(&sender)?;
 
             ensure!(Self::is_owner(&ticker, did), Error::<T>::NotAnOwner);
 
             let ticker_did = <identity::Module<T>>::get_token_did(&ticker)?;
             let signer = Signatory::from(ticker_did);
             docs.into_iter().for_each(|(doc_id, doc)| {
-                <identity::Module<T>>::update_link(signer, doc_id, LinkData::DocumentOwned(doc))
+                <identity::Module<T>>::update_link(signer.clone(), doc_id, LinkData::DocumentOwned(doc))
             });
 
             Ok(())
@@ -1156,8 +1145,8 @@ decl_module! {
         /// * `value` Allowance amount.
         #[weight = SimpleDispatchInfo::FixedNormal(300_000)]
         pub fn increase_custody_allowance(origin, ticker: Ticker, custodian_did: IdentityId, value: T::Balance) -> DispatchResult {
-            let sender_key = AccountKey::try_from((ensure_signed(origin)?).encode())?;
-            let sender_did = Context::current_identity_or::<Identity<T>>(&sender_key)?;
+            let sender = ensure_signed(origin)?;
+            let sender_did = Context::current_identity_or::<Identity<T>>(&sender)?;
             Self::_increase_custody_allowance(sender_did, ticker, sender_did, custodian_did, value)?;
             Ok(())
         }
@@ -1185,8 +1174,7 @@ decl_module! {
             signature: T::OffChainSignature
         ) -> DispatchResult {
             let sender = ensure_signed(origin)?;
-            let sender_key = AccountKey::try_from(sender.encode())?;
-            let caller_did = Context::current_identity_or::<Identity<T>>(&sender_key)?;
+            let caller_did = Context::current_identity_or::<Identity<T>>(&sender)?;
             ensure!(
                 !Self::authentication_nonce((ticker, holder_did, nonce)),
                 Error::<T>::SignatureAlreadyUsed
@@ -1205,7 +1193,7 @@ decl_module! {
                 Error::<T>::InvalidSignature
             );
             // Validate the holder signing key
-            let holder_signer = Signatory::AccountKey(AccountKey::try_from(holder_account_id.encode())?);
+            let holder_signer = Signatory::Account(holder_account_id);
             ensure!(
                 <identity::Module<T>>::is_signer_authorized(holder_did, &holder_signer),
                 Error::<T>::HolderMustBeSigningKeyForHolderDid
@@ -1232,8 +1220,7 @@ decl_module! {
             value: T::Balance
         ) -> DispatchResult {
             let sender = ensure_signed(origin)?;
-            let sender_key = AccountKey::try_from(sender.encode())?;
-            let custodian_did = Context::current_identity_or::<Identity<T>>(&sender_key)?;
+            let custodian_did = Context::current_identity_or::<Identity<T>>(&sender)?;
 
             let mut custodian_allowance = Self::custodian_allowance((ticker, holder_did, custodian_did));
             // Check whether the custodian has enough allowance or not
@@ -1268,8 +1255,8 @@ decl_module! {
         pub fn set_funding_round(origin, ticker: Ticker, name: FundingRoundName) ->
             DispatchResult
         {
-            let sender_key = AccountKey::try_from(ensure_signed(origin)?.encode())?;
-            let did = Context::current_identity_or::<Identity<T>>(&sender_key)?;
+            let sender = ensure_signed(origin)?;
+            let did = Context::current_identity_or::<Identity<T>>(&sender)?;
             ensure!(Self::is_owner(&ticker, did), Error::<T>::NotAnOwner);
             <FundingRound>::insert(ticker, name.clone());
             Self::deposit_event(RawEvent::FundingRoundSet(did, ticker, name));
@@ -1298,8 +1285,8 @@ decl_module! {
             ticker: Ticker,
             identifiers: Vec<(IdentifierType, AssetIdentifier)>
         ) -> DispatchResult {
-            let sender_key = AccountKey::try_from(ensure_signed(origin)?.encode())?;
-            let did = Context::current_identity_or::<Identity<T>>(&sender_key)?;
+            let sender = ensure_signed(origin)?;
+            let did = Context::current_identity_or::<Identity<T>>(&sender)?;
             ensure!(Self::is_owner(&ticker, did), Error::<T>::Unauthorized);
             for (typ, val) in &identifiers {
                 <Identifiers>::insert((ticker, typ.clone()), val.clone());
@@ -1317,8 +1304,7 @@ decl_module! {
         #[weight = SimpleDispatchInfo::FixedNormal(250_000)]
         pub fn add_extension(origin, ticker: Ticker, extension_details: SmartExtension<T::AccountId>) -> DispatchResult {
             let sender = ensure_signed(origin)?;
-            let sender_key = AccountKey::try_from(sender.encode())?;
-            let my_did = Context::current_identity_or::<identity::Module<T>>(&sender_key)?;
+            let my_did = Context::current_identity_or::<identity::Module<T>>(&sender)?;
 
             ensure!(Self::is_owner(&ticker, my_did), Error::<T>::Unauthorized);
 
@@ -1341,8 +1327,7 @@ decl_module! {
         #[weight = SimpleDispatchInfo::FixedNormal(250_000)]
         pub fn archive_extension(origin, ticker: Ticker, extension_id: T::AccountId) -> DispatchResult {
             let sender = ensure_signed(origin)?;
-            let sender_key = AccountKey::try_from(sender.encode())?;
-            let my_did =  Context::current_identity_or::<identity::Module<T>>(&sender_key)?;
+            let my_did =  Context::current_identity_or::<identity::Module<T>>(&sender)?;
 
             ensure!(Self::is_owner(&ticker, my_did), Error::<T>::Unauthorized);
             ensure!(
@@ -1365,8 +1350,7 @@ decl_module! {
         #[weight = SimpleDispatchInfo::FixedNormal(250_000)]
         pub fn unarchive_extension(origin, ticker: Ticker, extension_id: T::AccountId) -> DispatchResult {
             let sender = ensure_signed(origin)?;
-            let sender_key = AccountKey::try_from(sender.encode())?;
-            let my_did = Context::current_identity_or::<identity::Module<T>>(&sender_key)?;
+            let my_did = Context::current_identity_or::<identity::Module<T>>(&sender)?;
 
             ensure!(Self::is_owner(&ticker, my_did), Error::<T>::Unauthorized);
             ensure!(
@@ -1667,7 +1651,7 @@ impl<T: Trait> Module<T> {
 
     fn _register_ticker(
         ticker: &Ticker,
-        signer: &Signatory,
+        signer: &Signatory<T::AccountId>,
         to_did: IdentityId,
         expiry: Option<T::Moment>,
     ) -> DispatchResult {
@@ -1911,7 +1895,7 @@ impl<T: Trait> Module<T> {
         caller: T::AccountId,
         to_did: IdentityId,
         value: T::Balance,
-        protocol_fee_data: Option<(&Signatory, ProtocolOp)>,
+        protocol_fee_data: Option<(&Signatory<T::AccountId>, ProtocolOp)>,
     ) -> DispatchResult {
         // Granularity check
         ensure!(
@@ -1958,7 +1942,7 @@ impl<T: Trait> Module<T> {
             .ok_or(Error::<T>::FundingRoundTotalOverflow)?;
         <IssuedInFundingRound<T>>::insert(&ticker_round, issued_in_this_round);
         Self::deposit_event(RawEvent::Issued(
-            Context::current_identity_or::<Identity<T>>(&AccountKey::try_from(caller.encode())?)?,
+            Context::current_identity_or::<Identity<T>>(&caller)?,
             *ticker,
             to_did,
             value,
@@ -2007,7 +1991,7 @@ impl<T: Trait> Module<T> {
         );
         // Ensure the valid DID
         ensure!(
-            <identity::DidRecords>::contains_key(custodian_did),
+            <identity::DidRecords<T>>::contains_key(custodian_did),
             Error::<T>::InvalidCustodianDid
         );
 

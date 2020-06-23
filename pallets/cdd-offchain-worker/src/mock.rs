@@ -14,7 +14,6 @@
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
 use crate::*;
-
 use chrono::prelude::Utc;
 use codec::Encode;
 use frame_support::{
@@ -37,7 +36,7 @@ use polymesh_common_utilities::traits::{
     multisig::MultiSigSubTrait,
     CommonTrait,
 };
-use primitives::{AccountKey, IdentityId, Signatory};
+use primitives::{IdentityId, Signatory};
 use sp_core::{
     crypto::{key_types, Pair as PairTrait},
     offchain::{testing, OffchainExt, TransactionPoolExt},
@@ -47,6 +46,7 @@ use sp_core::{
     H256,
 };
 use sp_runtime::curve::PiecewiseLinear;
+use sp_runtime::transaction_validity::{InvalidTransaction, TransactionValidity, ValidTransaction};
 use sp_runtime::{
     testing::{sr25519::Public, Header, TestXt, UintAuthorityId},
     traits::{
@@ -55,8 +55,6 @@ use sp_runtime::{
     },
     AnySignature, KeyTypeId, Perbill,
 };
-
-use sp_runtime::transaction_validity::{InvalidTransaction, TransactionValidity, ValidTransaction};
 use sp_staking::SessionIndex;
 use std::{
     cell::RefCell,
@@ -286,13 +284,16 @@ impl IdentityTrait for Test {
     type ProtocolFee = protocol_fee::Module<Test>;
 }
 
-impl pallet_transaction_payment::CddAndFeeDetails<Call> for Test {
-    fn get_valid_payer(_: &Call, _: &Signatory) -> Result<Option<Signatory>, InvalidTransaction> {
+impl pallet_transaction_payment::CddAndFeeDetails<AccountId, Call> for Test {
+    fn get_valid_payer(
+        _: &Call,
+        _: &Signatory<AccountId>,
+    ) -> Result<Option<Signatory<AccountId>>, InvalidTransaction> {
         Ok(None)
     }
     fn clear_context() {}
-    fn set_payer_context(_: Option<Signatory>) {}
-    fn get_payer_from_context() -> Option<Signatory> {
+    fn set_payer_context(_: Option<Signatory<AccountId>>) {}
+    fn get_payer_from_context() -> Option<Signatory<AccountId>> {
         None
     }
     fn set_current_identity(_: &IdentityId) {}
@@ -362,23 +363,23 @@ impl AcceptTransfer for Test {
     }
 }
 
-impl MultiSigSubTrait for Test {
-    fn accept_multisig_signer(_: Signatory, _: u64) -> DispatchResult {
+impl MultiSigSubTrait<AccountId> for Test {
+    fn accept_multisig_signer(_: Signatory<AccountId>, _: u64) -> DispatchResult {
         unimplemented!()
     }
-    fn get_key_signers(multisig: AccountKey) -> Vec<AccountKey> {
+    fn get_key_signers(multisig: &AccountId) -> Vec<AccountId> {
         unimplemented!()
     }
-    fn is_multisig(account: AccountKey) -> bool {
+    fn is_multisig(account: &AccountId) -> bool {
         unimplemented!()
     }
 }
 
-impl CheckCdd for Test {
-    fn check_key_cdd(key: &AccountKey) -> bool {
+impl CheckCdd<AccountId> for Test {
+    fn check_key_cdd(key: &AccountId) -> bool {
         true
     }
-    fn get_key_cdd_did(key: &AccountKey) -> Option<IdentityId> {
+    fn get_key_cdd_did(key: &AccountId) -> Option<IdentityId> {
         None
     }
 }

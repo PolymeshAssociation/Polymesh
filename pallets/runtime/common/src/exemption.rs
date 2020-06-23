@@ -13,20 +13,18 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
-use pallet_identity as identity;
-use polymesh_common_utilities::{
-    asset::Trait as AssetTrait, balances::Trait as BalancesTrait,
-    exemption::Trait as ExemptionTrait, identity::Trait as IdentityTrait, Context,
-};
-use polymesh_primitives::{AccountKey, IdentityId, Signatory, Ticker};
-
-use codec::Encode;
 use frame_support::{
     decl_error, decl_event, decl_module, decl_storage, dispatch::DispatchResult, ensure,
     weights::SimpleDispatchInfo,
 };
 use frame_system::{self as system, ensure_signed};
-use sp_std::{convert::TryFrom, prelude::*};
+use pallet_identity as identity;
+use polymesh_common_utilities::{
+    asset::Trait as AssetTrait, balances::Trait as BalancesTrait,
+    exemption::Trait as ExemptionTrait, identity::Trait as IdentityTrait, Context,
+};
+use polymesh_primitives::{IdentityId, Signatory, Ticker};
+use sp_std::prelude::*;
 
 /// The module's configuration trait.
 pub trait Trait: frame_system::Trait + BalancesTrait + IdentityTrait {
@@ -66,9 +64,9 @@ decl_module! {
 
         #[weight = SimpleDispatchInfo::FixedNormal(200_000)]
         fn modify_exemption_list(origin, ticker: Ticker, _tm: u16, asset_holder_did: IdentityId, exempted: bool) -> DispatchResult {
-            let sender_key = AccountKey::try_from(ensure_signed(origin)?.encode())?;
-            let did = Context::current_identity_or::<Identity<T>>(&sender_key)?;
-            let sender = Signatory::AccountKey(sender_key);
+            let sender = ensure_signed(origin)?;
+            let did = Context::current_identity_or::<Identity<T>>(&sender)?;
+            let sender = Signatory::Account(sender);
 
             // Check that sender is allowed to act on behalf of `did`
             ensure!(
