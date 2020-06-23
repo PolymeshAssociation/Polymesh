@@ -83,10 +83,9 @@ use polymesh_primitives::{AccountKey, IdentityId};
 
 use frame_support::{
     codec::Encode, decl_error, decl_module, decl_storage, dispatch::DispatchResult, ensure,
-    traits::ChangeMembers, weights::SimpleDispatchInfo, StorageValue,
+    traits::{ ChangeMembers, EnsureOrigin }, weights::{ DispatchClass, Pays }, StorageValue,
 };
 use frame_system::{self as system, ensure_signed};
-use sp_runtime::traits::EnsureOrigin;
 use sp_std::{convert::TryFrom, prelude::*};
 
 pub type Event<T, I> = polymesh_common_utilities::group::Event<T, I>;
@@ -137,7 +136,7 @@ decl_module! {
         /// * `who` - Target member of the group.
         /// * `expiry` - Time-stamp when `who` is removed from CDD. As soon as it is expired, the
         /// generated claims will be "invalid" as `who` is not considered a member of the group.
-        #[weight = SimpleDispatchInfo::FixedOperational(500_000)]
+        #[weight = (500_000, DispatchClass::Operational, Pays::Yes)]
         pub fn disable_member( origin,
             who: IdentityId,
             expiry: Option<T::Moment>,
@@ -153,7 +152,7 @@ decl_module! {
         /// # Arguments
         /// * `origin` - Origin representing `AddOrigin` or root
         /// * `who` - IdentityId to be added to the group.
-        #[weight = SimpleDispatchInfo::FixedOperational(500_000)]
+        #[weight = (500_000, DispatchClass::Operational, Pays::Yes)]
         pub fn add_member(origin, who: IdentityId) {
             T::AddOrigin::try_origin(origin).map_err(|_| Error::<T, I>::BadOrigin)?;
 
@@ -177,7 +176,7 @@ decl_module! {
         /// # Arguments
         /// * `origin` - Origin representing `RemoveOrigin` or root
         /// * `who` - IdentityId to be removed from the group.
-        #[weight = SimpleDispatchInfo::FixedOperational(500_000)]
+        #[weight = (500_000, DispatchClass::Operational, Pays::Yes)]
         pub fn remove_member(origin, who: IdentityId) -> DispatchResult {
             T::RemoveOrigin::try_origin(origin).map_err(|_| Error::<T, I>::BadOrigin)?;
             Self::unsafe_remove_member(who)
@@ -191,7 +190,7 @@ decl_module! {
         /// * `origin` - Origin representing `SwapOrigin` or root
         /// * `remove` - IdentityId to be removed from the group.
         /// * `add` - IdentityId to be added in place of `remove`.
-        #[weight = SimpleDispatchInfo::FixedOperational(500_000)]
+        #[weight = (500_000, DispatchClass::Operational, Pays::Yes)]
         pub fn swap_member(origin, remove: IdentityId, add: IdentityId) {
             T::SwapOrigin::try_origin(origin).map_err(|_| Error::<T, I>::BadOrigin)?;
 
@@ -219,7 +218,7 @@ decl_module! {
         /// # Arguments
         /// * `origin` - Origin representing `ResetOrigin` or root
         /// * `members` - New set of identities
-        #[weight = SimpleDispatchInfo::FixedOperational(500_000)]
+        #[weight = (500_000, DispatchClass::Operational, Pays::Yes)]
         pub fn reset_members(origin, members: Vec<IdentityId>) {
             T::ResetOrigin::try_origin(origin).map_err(|_| Error::<T, I>::BadOrigin)?;
 
@@ -243,7 +242,7 @@ decl_module! {
         ///
         /// * Only master key can abdicate.
         /// * Last member of a group cannot abdicate.
-        #[weight = SimpleDispatchInfo::FixedOperational(100_000)]
+        #[weight = (100_000, DispatchClass::Operational, Pays::Yes)]
         pub fn abdicate_membership(origin) -> DispatchResult {
             let who = AccountKey::try_from(ensure_signed(origin)?.encode())?;
             let remove_id = Context::current_identity_or::<Identity<T>>(&who)?;

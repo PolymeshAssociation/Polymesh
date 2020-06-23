@@ -22,7 +22,7 @@ use codec::{Decode, Encode};
 use frame_support::{
     decl_event,
     dispatch::DispatchError,
-    traits::{ExistenceRequirement, Get, OnUnbalanced, StoredMap, WithdrawReason, WithdrawReasons},
+    traits::{ExistenceRequirement, Get, OnUnbalanced, StoredMap, WithdrawReason, WithdrawReasons, BalanceStatus as Status,},
 };
 use frame_system::{self as system};
 use sp_runtime::{traits::Saturating, RuntimeDebug};
@@ -123,6 +123,13 @@ decl_event!(
         /// The account and the amount of unlocked balance of that account that was burned.
         /// (caller Id, caller account, amount)
         AccountBalanceBurned(IdentityId, AccountId, Balance),
+        /// Some balance was reserved (moved from free to reserved).
+		Reserved(AccountId, Balance),
+		/// Some balance was unreserved (moved from reserved to free).
+		Unreserved(AccountId, Balance),
+		/// Some balance was moved from the reserve of the first account to the second account.
+		/// Final argument indicates the destination balance type.
+		ReserveRepatriated(AccountId, AccountId, Balance, Status),
     }
 );
 

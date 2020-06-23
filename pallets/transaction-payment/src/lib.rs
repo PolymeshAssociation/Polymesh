@@ -141,7 +141,7 @@ impl<T: Trait> Module<T> where
         let dispatch_info = <Extrinsic as GetDispatchInfo>::get_dispatch_info(&unchecked_extrinsic);
 
         let partial_fee =
-            Self::compute_fee(len, dispatch_info, 0u32.into());
+            Self::compute_fee(len, &dispatch_info, 0u32.into());
         let DispatchInfo { weight, class, .. } = dispatch_info;
 
         RuntimeDispatchInfo {
@@ -286,18 +286,18 @@ impl<T: Trait + Send + Sync> ChargeTransactionPayment<T> where
             match payer {
                 Signatory::AccountKey(key) => {
                     let payer_key = T::AccountId::decode(&mut &key.as_slice()[..])
-                        .map_err(|_| InvalidTransaction::Payment.into())?;
+                        .map_err(|_| InvalidTransaction::Payment)?;
                     imbalance = T::Currency::withdraw(
                         &payer_key,
                         fee,
                         WithdrawReason::TransactionPayment.into(),
                         ExistenceRequirement::KeepAlive,
                     )
-                    .map_err(|_| InvalidTransaction::Payment.into())?;
+                    .map_err(|_| InvalidTransaction::Payment)?;
                 }
                 Signatory::Identity(did) => {
                     imbalance = T::Currency::withdraw_identity_balance(&did, fee)
-                        .map_err(|_| InvalidTransaction::Payment.into())?;
+                        .map_err(|_| InvalidTransaction::Payment)?;
                 }
             }
             T::CddHandler::set_payer_context(Some(payer));
@@ -362,7 +362,7 @@ impl<T: Trait + Send + Sync> SignedExtension for ChargeTransactionPayment<T> whe
         if self.0 != Zero::zero() {
             // Tip must be set to zero.
             // This is enforced to curb front running.
-            return InvalidTransaction::Custom(TransactionError::ZeroTip as u8).into();
+            return Err(TransactionValidityError::Invalid(InvalidTransaction::Custom(TransactionError::ZeroTip as u8)));
         }
 		let (fee, imbalance) = self.withdraw_fee(call, who, info, len)?;
 		Ok((Zero::zero(), who.clone(), imbalance, fee))
@@ -384,12 +384,14 @@ impl<T: Trait + Send + Sync> SignedExtension for ChargeTransactionPayment<T> whe
 				tip,
 			);
             let refund = fee.saturating_sub(actual_fee);
-            let actual_payment;
             let encoded_transactor = AccountKey::try_from(who.encode()).map_err(|_| InvalidTransaction::BadProof)?;
-            if let Some(payer) = T::CddHandler::get_valid_payer(call, &Signatory::from(encoded_transactor))? {
+            if let Some(payer) = T::CddHandler::get_payer_from_context() {
+                let actual_payment;
                 match payer {
                     Signatory::AccountKey(key) => {
-                        actual_payment = match T::Currency::deposit_into_existing(&key, refund) {
+                        let payer_key = T::AccountId::decode(&mut &key.as_slice()[..])
+                        .map_err(|_| InvalidTransaction::Payment)?;
+                        actual_payment = match T::Currency::deposit_into_existing(&payer_key, refund) {
                             Ok(refund_imbalance) => {
                                 // The refund cannot be larger than the up front payed max weight.
                                 // `PostDispatchInfo::calc_unspent` guards against such a case.
@@ -419,9 +421,8 @@ impl<T: Trait + Send + Sync> SignedExtension for ChargeTransactionPayment<T> whe
                         };
                     }
                 }
+                T::OnTransactionPayment::on_unbalanced(actual_payment);
             }
-            let imbalances = actual_payment.split(tip);
-            T::OnTransactionPayment::on_unbalanced(actual_payment);
         }
         // It clears the identity and payer in the context after transaction.
         T::CddHandler::clear_context();
@@ -447,55 +448,30 @@ pub trait ChargeTxFee {
     fn charge_fee(len: u32, info: DispatchInfo) -> TransactionValidity;
 }
 
-// // Polymesh note: This was specifically added for Polymesh
-// impl<T: Trait> ChargeTxFee for Module<T> {
-//     fn charge_fee(len: u32, info: DispatchInfo) -> TransactionValidity {
-//         let fee = if info.pays_fee {
-//             let len = <BalanceOf<T>>::from(len);
-//             let per_byte = T::TransactionByteFee::get();
-//             let len_fee = per_byte.saturating_mul(len);
-
-//             let weight_fee = {
-//                 // cap the weight to the maximum defined in runtime, otherwise it will be the `Bounded`
-//                 // maximum of its data type, which is not desired.
-//                 let capped_weight = info
-//                     .weight
-//                     .min(<T as frame_system::Trait>::MaximumBlockWeight::get());
-//                 T::WeightToFee::convert(capped_weight)
-//             };
-
-//             // the adjustable part of the fee
-//             let adjustable_fee = len_fee.saturating_add(weight_fee);
-//             let targeted_fee_adjustment = NextFeeMultiplier::get();
-//             // adjusted_fee = adjustable_fee + (adjustable_fee * targeted_fee_adjustment)
-//             let adjusted_fee =
-//                 targeted_fee_adjustment.saturated_multiply_accumulate(adjustable_fee);
-
-//             let base_fee = T::TransactionBaseFee::get();
-//             let final_fee = base_fee.saturating_add(adjusted_fee);
-
-//             final_fee
-//         } else {
-//             Zero::zero()
-//         };
-//         if let Some(who) = T::CddHandler::get_payer_from_context() {
-//             let imbalance = match who {
-//                 Signatory::Identity(did) => T::Currency::withdraw_identity_balance(&did, fee)
-//                     .map_err(|_| InvalidTransaction::Payment),
-//                 Signatory::AccountKey(account) => T::Currency::withdraw(
-//                     &T::AccountId::decode(&mut &account.encode()[..])
-//                         .map_err(|_| InvalidTransaction::Payment)?,
-//                     fee,
-//                     WithdrawReason::TransactionPayment.into(),
-//                     ExistenceRequirement::KeepAlive,
-//                 )
-//                 .map_err(|_| InvalidTransaction::Payment),
-//             }?;
-//             T::OnTransactionPayment::on_unbalanced(imbalance);
-//         }
-//         Ok(ValidTransaction::default())
-//     }
-// }
+// Polymesh note: This was specifically added for Polymesh
+impl<T: Trait> ChargeTxFee for Module<T>  where
+    BalanceOf<T>: FixedPointOperand
+{
+    fn charge_fee(len: u32, info: DispatchInfo) -> TransactionValidity {
+        // let fee = Self::compute_fee(len as u32, info, 0u32.into());
+        // if let Some(who) = T::CddHandler::get_payer_from_context() {
+        //     let imbalance = match who {
+        //         Signatory::Identity(did) => T::Currency::withdraw_identity_balance(&did, fee)
+        //             .map_err(|_| InvalidTransaction::Payment),
+        //         Signatory::AccountKey(account) => T::Currency::withdraw(
+        //             &T::AccountId::decode(&mut &account.encode()[..])
+        //                 .map_err(|_| InvalidTransaction::Payment)?,
+        //             fee,
+        //             WithdrawReason::TransactionPayment.into(),
+        //             ExistenceRequirement::KeepAlive,
+        //         )
+        //         .map_err(|_| InvalidTransaction::Payment),
+        //     }?;
+        //     T::OnTransactionPayment::on_unbalanced(imbalance);
+        // }
+        Ok(ValidTransaction::default())
+    }
+}
 
 #[cfg(test)]
 mod tests {
