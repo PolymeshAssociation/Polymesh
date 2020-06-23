@@ -40,20 +40,20 @@ async function main() {
 
 async function issueTokenPerDid(api, accounts, dids, prepend) {
 
-    for (let i = 0; i < dids.length; i++) {
-        const ticker = `token${prepend}${i}`.toUpperCase();
-        assert( ticker.length <= 12, "Ticker cannot be longer than 12 characters");
+  for (let i = 0; i < dids.length; i++) {
+    const ticker = `token${prepend}${i}`.toUpperCase();
+    assert( ticker.length <= 12, "Ticker cannot be longer than 12 characters");
 
-        let nonceObj = {nonce: reqImports.nonces.get(accounts[i].address)};
-        const transaction = api.tx.asset.createAsset(
-            ticker, ticker, 1000000, true, 0, [], "abc", dids[i]
-        );
-        const result = await reqImports.sendTransaction(transaction, accounts[i], nonceObj);
-        const passed = result.findRecord('system', 'ExtrinsicSuccess');
-        if (passed) reqImports.fail_count--;
+    let nonceObj = {nonce: reqImports.nonces.get(accounts[i].address)};
+    const transaction = api.tx.asset.createAsset(
+      ticker, ticker, 1000000, true, 0, [], "abc", dids[i]
+    );
+    const result = await reqImports.sendTransaction(transaction, accounts[i], nonceObj);
+    const passed = result.findRecord('system', 'ExtrinsicSuccess');
+    if (passed) reqImports.fail_count--;
 
-        reqImports.nonces.set(accounts[i].address, reqImports.nonces.get(accounts[i].address).addn(1));
-    }
+    reqImports.nonces.set(accounts[i].address, reqImports.nonces.get(accounts[i].address).addn(1));
+  }
 }
 
 main().catch(console.error);
