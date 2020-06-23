@@ -285,7 +285,7 @@ async function issueTokenPerDid(api, accounts) {
   // await sendTransaction(transaction, accounts[0], nonceObj);
 
   const unsub = await api.tx.asset
-        .createAsset(ticker, ticker, 1000000, true, 0, [], "abc", None)
+        .createAsset(ticker, ticker, 1000000, true, 0, [], "abc", null)
         .signAndSend(accounts[0], { nonce: nonces.get(accounts[0].address) });
 
   nonces.set(accounts[0].address, nonces.get(accounts[0].address).addn(1));
