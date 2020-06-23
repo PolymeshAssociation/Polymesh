@@ -787,7 +787,9 @@ impl<T: Trait> ComplianceManagerTrait<T::Balance> for Module<T> {
         } else {
             (false, false)
         };
-        // Transfer is valid if ALL receiver AND sender rules of ANY asset rule are valid.
+        // Transfer is valid if ALL receiver AND sender rules of ANY asset rule are valid. An
+        // exception is made for the cases when either the sender or the receiver is the treasury
+        // DID.
         let asset_rules = Self::asset_rules(ticker);
         if asset_rules.is_paused
             || (asset_rules.rules.len() == 0 && (treasury_sender || treasury_receiver))
@@ -796,16 +798,20 @@ impl<T: Trait> ComplianceManagerTrait<T::Balance> for Module<T> {
         }
         for active_rule in asset_rules.rules {
             let mut rule_satisfied = false;
-            if !treasury_sender {
-                if let Some(from_did) = from_did_opt {
-                    rule_satisfied =
-                        !Self::is_any_rule_broken(ticker, from_did, active_rule.sender_rules);
-                }
+            if let Some(from_did) = from_did_opt {
+                rule_satisfied = if treasury_sender {
+                    true
+                } else {
+                    !Self::is_any_rule_broken(ticker, from_did, active_rule.sender_rules)
+                };
             }
-            if rule_satisfied && !treasury_receiver {
+            if rule_satisfied {
                 if let Some(to_did) = to_did_opt {
-                    rule_satisfied =
+                    rule_satisfied = if treasury_receiver {
+                        true
+                    } else {
                         !Self::is_any_rule_broken(ticker, to_did, active_rule.receiver_rules)
+                    };
                 }
             }
             if rule_satisfied {
