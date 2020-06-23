@@ -806,11 +806,7 @@ impl<T: Trait> ComplianceManagerTrait<T::Balance> for Module<T> {
             }
             if let Some(to_did) = to_did_opt {
                 rule_satisfied = treasury_receiver
-                    || Self::are_all_rules_satisfied(
-                        ticker,
-                        to_did,
-                        &active_rule.receiver_rules,
-                    );
+                    || Self::are_all_rules_satisfied(ticker, to_did, &active_rule.receiver_rules);
             }
             if rule_satisfied {
                 return Ok(ERC1400_TRANSFER_SUCCESS);
