@@ -585,12 +585,11 @@ impl<T: Trait> Module<T> {
         predicate::Context::from(claims)
     }
 
-    /// It loads a context for each rule in `rules` and verify if any of them is evaluated as a
-    /// false predicate. In that case, rule is considered as a "broken rule".
-    fn is_any_rule_broken(ticker: &Ticker, did: IdentityId, rules: &Vec<Rule>) -> bool {
-        rules.into_iter().any(|rule| {
+    /// Loads the context for each rule in `rules` and verifies that all of them evaluate to `true`.
+    fn are_all_rules_satisfied(ticker: &Ticker, did: IdentityId, rules: &Vec<Rule>) -> bool {
+        rules.into_iter().all(|rule| {
             let context = Self::fetch_context(ticker, did, &rule);
-            !predicate::run(&rule, &context)
+            predicate::run(&rule, &context)
         })
     }
 
@@ -799,20 +798,19 @@ impl<T: Trait> ComplianceManagerTrait<T::Balance> for Module<T> {
         for active_rule in asset_rules.rules {
             let mut rule_satisfied = false;
             if let Some(from_did) = from_did_opt {
-                rule_satisfied = if treasury_sender {
-                    true
-                } else {
-                    !Self::is_any_rule_broken(ticker, from_did, &active_rule.sender_rules)
-                };
-            }
-            if rule_satisfied {
-                if let Some(to_did) = to_did_opt {
-                    rule_satisfied = if treasury_receiver {
-                        true
-                    } else {
-                        !Self::is_any_rule_broken(ticker, to_did, &active_rule.receiver_rules)
-                    };
+                rule_satisfied = treasury_sender
+                    || Self::are_all_rules_satisfied(ticker, from_did, &active_rule.sender_rules);
+                if !rule_satisfied {
+                    continue;
                 }
+            }
+            if let Some(to_did) = to_did_opt {
+                rule_satisfied = treasury_receiver
+                    || Self::are_all_rules_satisfied(
+                        ticker,
+                        to_did,
+                        &active_rule.receiver_rules,
+                    );
             }
             if rule_satisfied {
                 return Ok(ERC1400_TRANSFER_SUCCESS);
