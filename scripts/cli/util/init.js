@@ -182,7 +182,7 @@ const createIdentitiesWithExpiry = async function(api, accounts, alice, expiries
 
     nonces.set(alice.address, nonces.get(alice.address).addn(1));
   }
-  //await blockTillPoolEmpty(api);
+  await blockTillPoolEmpty(api);
   for (let i = 0; i < accounts.length; i++) {
     const d = await api.query.identity.keyToIdentityIds(accounts[i].publicKey);
     dids.push(d.raw.asUnique);
