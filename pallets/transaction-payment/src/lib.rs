@@ -509,7 +509,7 @@ mod tests {
             _issuer: SystematicIssuers,
         ) {
         }
-        fn has_valid_cdd(target_did: IdentityId) -> bool {
+        fn has_valid_cdd(_target_did: IdentityId) -> bool {
             unimplemented!()
         }
     }

@@ -36,9 +36,7 @@ use pallet_identity as identity;
 use polymesh_common_utilities::{identity::Trait as IdentityTrait, Context};
 use polymesh_primitives::{IdentityId, Signatory};
 use sp_runtime::traits::StaticLookup;
-use sp_std::prelude::*;
-
-// pub type CodeHash<T> = <T as frame_system::Trait>::Hash;
+use sp_std::prelude::Vec;
 
 pub type BalanceOf<T> = <<T as pallet_contracts::Trait>::Currency as Currency<
     <T as frame_system::Trait>::AccountId,
