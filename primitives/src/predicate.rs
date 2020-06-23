@@ -323,9 +323,7 @@ mod tests {
         ]
         .into();
 
-        let out = !rules
-            .iter()
-            .any(|rule| !predicate::run(&rule, &context));
+        let out = !rules.iter().any(|rule| !predicate::run(&rule, &context));
         assert_eq!(out, true);
 
         // Invalid case: `BuyLockup` is present.
@@ -336,9 +334,7 @@ mod tests {
         ]
         .into();
 
-        let out = !rules
-            .iter()
-            .any(|rule| !predicate::run(&rule, &context));
+        let out = !rules.iter().any(|rule| !predicate::run(&rule, &context));
         assert_eq!(out, false);
 
         // Invalid case: Missing `Accredited`
@@ -348,9 +344,7 @@ mod tests {
         ]
         .into();
 
-        let out = !rules
-            .iter()
-            .any(|rule| !predicate::run(&rule, &context));
+        let out = !rules.iter().any(|rule| !predicate::run(&rule, &context));
         assert_eq!(out, false);
 
         // Invalid case: Missing `Jurisdiction`
@@ -360,9 +354,7 @@ mod tests {
         ]
         .into();
 
-        let out = !rules
-            .iter()
-            .any(|rule| !predicate::run(&rule, &context));
+        let out = !rules.iter().any(|rule| !predicate::run(&rule, &context));
         assert_eq!(out, false);
 
         // Check NoneOf
@@ -371,9 +363,7 @@ mod tests {
             Claim::Jurisdiction(b"Cuba".into(), scope),
         ]
         .into();
-        let out = !rules
-            .iter()
-            .any(|rule| !predicate::run(&rule, &context));
+        let out = !rules.iter().any(|rule| !predicate::run(&rule, &context));
         assert_eq!(out, false);
     }
 }

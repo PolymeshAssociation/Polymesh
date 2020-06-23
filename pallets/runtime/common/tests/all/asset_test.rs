@@ -2063,7 +2063,11 @@ fn can_set_treasury_did_we() {
     ));
     assert_eq!(Asset::token_details(ticker_1), token_1);
     let treasury_did = Some(alice_id);
-    assert_ok!(Asset::set_treasury_did(Origin::signed(bob), ticker_1, treasury_did));
+    assert_ok!(Asset::set_treasury_did(
+        Origin::signed(bob),
+        ticker_1,
+        treasury_did
+    ));
     let token_2 = SecurityToken {
         name: token_1.name,
         owner_did: token_1.owner_did,
