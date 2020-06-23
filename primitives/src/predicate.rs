@@ -101,7 +101,7 @@ where
 }
 
 /// Helper function to run predicates from a context.
-pub fn run(rule: Rule, context: &Context) -> bool {
+pub fn run(rule: &Rule, context: &Context) -> bool {
     match rule.rule_type {
         RuleType::IsPresent(ref claim) => exists(claim).evaluate(context),
         RuleType::IsAbsent(ref claim) => not(exists(claim)).evaluate(context),
@@ -325,7 +325,7 @@ mod tests {
 
         let out = !rules
             .iter()
-            .any(|rule| !predicate::run(rule.clone(), &context));
+            .any(|rule| !predicate::run(&rule, &context));
         assert_eq!(out, true);
 
         // Invalid case: `BuyLockup` is present.
@@ -338,7 +338,7 @@ mod tests {
 
         let out = !rules
             .iter()
-            .any(|rule| !predicate::run(rule.clone(), &context));
+            .any(|rule| !predicate::run(&rule, &context));
         assert_eq!(out, false);
 
         // Invalid case: Missing `Accredited`
@@ -350,7 +350,7 @@ mod tests {
 
         let out = !rules
             .iter()
-            .any(|rule| !predicate::run(rule.clone(), &context));
+            .any(|rule| !predicate::run(&rule, &context));
         assert_eq!(out, false);
 
         // Invalid case: Missing `Jurisdiction`
@@ -362,7 +362,7 @@ mod tests {
 
         let out = !rules
             .iter()
-            .any(|rule| !predicate::run(rule.clone(), &context));
+            .any(|rule| !predicate::run(&rule, &context));
         assert_eq!(out, false);
 
         // Check NoneOf
@@ -373,7 +373,7 @@ mod tests {
         .into();
         let out = !rules
             .iter()
-            .any(|rule| !predicate::run(rule.clone(), &context));
+            .any(|rule| !predicate::run(&rule, &context));
         assert_eq!(out, false);
     }
 }

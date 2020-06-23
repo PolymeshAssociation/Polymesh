@@ -590,7 +590,7 @@ impl<T: Trait> Module<T> {
     fn is_any_rule_broken(ticker: &Ticker, did: IdentityId, rules: Vec<Rule>) -> bool {
         rules.into_iter().any(|rule| {
             let context = Self::fetch_context(ticker, did, &rule);
-            !predicate::run(rule, &context)
+            !predicate::run(&rule, &context)
         })
     }
 
@@ -601,7 +601,7 @@ impl<T: Trait> Module<T> {
         let mut result = true;
         for rule in rules {
             let context = Self::fetch_context(ticker, did, &rule.rule);
-            rule.result = predicate::run(rule.rule.clone(), &context);
+            rule.result = predicate::run(&rule.rule, &context);
             if !rule.result {
                 result = false;
             }
@@ -782,35 +782,36 @@ impl<T: Trait> ComplianceManagerTrait<T::Balance> for Module<T> {
         _value: T::Balance,
         treasury_did: Option<IdentityId>,
     ) -> StdResult<u8, &'static str> {
-        if treasury_did.is_some() && (treasury_did == from_did_opt || treasury_did == to_did_opt) {
-            return Ok(ERC1400_TRANSFER_SUCCESS);
-        }
+        let (treasury_sender, treasury_receiver) = if treasury_did.is_some() {
+            (treasury_did == from_did_opt, treasury_did == to_did_opt)
+        } else {
+            (false, false)
+        };
         // Transfer is valid if ALL receiver AND sender rules of ANY asset rule are valid.
         let asset_rules = Self::asset_rules(ticker);
-        if asset_rules.is_paused {
+        if asset_rules.is_paused
+            || (asset_rules.rules.len() == 0 && (treasury_sender || treasury_receiver))
+        {
             return Ok(ERC1400_TRANSFER_SUCCESS);
         }
-
         for active_rule in asset_rules.rules {
-            let mut rule_broken = false;
-
-            if let Some(from_did) = from_did_opt {
-                rule_broken = Self::is_any_rule_broken(ticker, from_did, active_rule.sender_rules);
-                if rule_broken {
-                    // Skips checking receiver rules because sender rules are not satisfied.
-                    continue;
+            let mut rule_satisfied = false;
+            if !treasury_sender {
+                if let Some(from_did) = from_did_opt {
+                    rule_satisfied =
+                        !Self::is_any_rule_broken(ticker, from_did, active_rule.sender_rules);
                 }
             }
-
-            if let Some(to_did) = to_did_opt {
-                rule_broken = Self::is_any_rule_broken(ticker, to_did, active_rule.receiver_rules)
+            if rule_satisfied && !treasury_receiver {
+                if let Some(to_did) = to_did_opt {
+                    rule_satisfied =
+                        !Self::is_any_rule_broken(ticker, to_did, active_rule.receiver_rules)
+                }
             }
-
-            if !rule_broken {
+            if rule_satisfied {
                 return Ok(ERC1400_TRANSFER_SUCCESS);
             }
         }
-
         sp_runtime::print("Identity TM restrictions not satisfied");
         Ok(ERC1400_TRANSFER_FAILURE)
     }

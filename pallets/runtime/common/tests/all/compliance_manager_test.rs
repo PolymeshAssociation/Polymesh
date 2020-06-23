@@ -1269,7 +1269,6 @@ fn can_verify_restriction_with_treasury_did_we() {
     let owner_id = register_keyring_account(AccountKeyring::Alice).unwrap();
     let issuer = AccountKeyring::Bob.public();
     let issuer_id = register_keyring_account(AccountKeyring::Bob).unwrap();
-    let random_guy = AccountKeyring::Charlie.public();
     let random_guy_id = register_keyring_account(AccountKeyring::Charlie).unwrap();
     let token_name: AssetName = vec![0x01].into();
     let ticker = Ticker::try_from(token_name.0.as_slice()).unwrap();
