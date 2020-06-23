@@ -587,7 +587,7 @@ impl<T: Trait> Module<T> {
 
     /// It loads a context for each rule in `rules` and verify if any of them is evaluated as a
     /// false predicate. In that case, rule is considered as a "broken rule".
-    fn is_any_rule_broken(ticker: &Ticker, did: IdentityId, rules: Vec<Rule>) -> bool {
+    fn is_any_rule_broken(ticker: &Ticker, did: IdentityId, rules: &Vec<Rule>) -> bool {
         rules.into_iter().any(|rule| {
             let context = Self::fetch_context(ticker, did, &rule);
             !predicate::run(&rule, &context)
@@ -802,7 +802,7 @@ impl<T: Trait> ComplianceManagerTrait<T::Balance> for Module<T> {
                 rule_satisfied = if treasury_sender {
                     true
                 } else {
-                    !Self::is_any_rule_broken(ticker, from_did, active_rule.sender_rules)
+                    !Self::is_any_rule_broken(ticker, from_did, &active_rule.sender_rules)
                 };
             }
             if rule_satisfied {
@@ -810,7 +810,7 @@ impl<T: Trait> ComplianceManagerTrait<T::Balance> for Module<T> {
                     rule_satisfied = if treasury_receiver {
                         true
                     } else {
-                        !Self::is_any_rule_broken(ticker, to_did, active_rule.receiver_rules)
+                        !Self::is_any_rule_broken(ticker, to_did, &active_rule.receiver_rules)
                     };
                 }
             }
