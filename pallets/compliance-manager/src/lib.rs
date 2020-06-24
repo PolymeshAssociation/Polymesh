@@ -801,6 +801,7 @@ impl<T: Trait> ComplianceManagerTrait<T::Balance> for Module<T> {
                 rule_satisfied = treasury_sender
                     || Self::are_all_rules_satisfied(ticker, from_did, &active_rule.sender_rules);
                 if !rule_satisfied {
+                    // Skips checking receiver rules because sender rules are not satisfied.
                     continue;
                 }
             }

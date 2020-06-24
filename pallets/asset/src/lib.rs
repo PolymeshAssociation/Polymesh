@@ -1368,10 +1368,11 @@ decl_module! {
             Ok(())
         }
 
-        /// Sets the treasury DID to a given value. The caller must be the ticker owner.
+        /// Sets the treasury DID to a given value. The caller must be the asset issuer. The asset
+        /// issuer can always update the treasury DID, including setting it to `None`.
         ///
         /// # Arguments
-        /// * `origin` - Signatory who owns the ticker/asset.
+        /// * `origin` - The asset issuer.
         /// * `ticker` - Ticker symbol of the asset.
         /// * `treasury_did` - The treasury DID wrapped in a value of type [`Option`].
         #[weight = SimpleDispatchInfo::FixedNormal(250_000)]
