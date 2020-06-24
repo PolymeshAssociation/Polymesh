@@ -1369,7 +1369,10 @@ decl_module! {
         }
 
         /// Sets the treasury DID to a given value. The caller must be the asset issuer. The asset
-        /// issuer can always update the treasury DID, including setting it to `None`.
+        /// issuer can always update the treasury DID, including setting it to `None`. If the issuer
+        /// modifies their treasury DID to `None` then it will be immovable until either they change
+        /// the treasury DID to `Some` DID, or they add a claim to allow that DID to move the
+        /// asset.
         ///
         /// # Arguments
         /// * `origin` - The asset issuer.

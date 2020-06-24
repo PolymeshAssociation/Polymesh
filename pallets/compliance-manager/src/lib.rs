@@ -788,10 +788,11 @@ impl<T: Trait> ComplianceManagerTrait<T::Balance> for Module<T> {
         };
         // Transfer is valid if ALL receiver AND sender rules of ANY asset rule are valid. An
         // exception is made for the cases when either the sender or the receiver is the treasury
-        // DID.
+        // DID, which covers issuance and redemption transactions.
         let asset_rules = Self::asset_rules(ticker);
         if asset_rules.is_paused
-            || (asset_rules.rules.len() == 0 && (treasury_sender || treasury_receiver))
+            || (asset_rules.rules.len() == 0 && (from_did_opt == None && treasury_receiver)
+                || (treasury_sender && to_did_opt == None))
         {
             return Ok(ERC1400_TRANSFER_SUCCESS);
         }
