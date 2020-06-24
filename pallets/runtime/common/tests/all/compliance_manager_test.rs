@@ -1287,7 +1287,7 @@ fn can_verify_restriction_with_treasury_did_we() {
     assert_ok!(
         ComplianceManager::verify_restriction(
             &ticker,
-            Some(owner_id),
+            None,
             Some(issuer_id),
             amount,
             Some(issuer_id)
@@ -1298,7 +1298,7 @@ fn can_verify_restriction_with_treasury_did_we() {
         ComplianceManager::verify_restriction(
             &ticker,
             Some(issuer_id),
-            Some(owner_id),
+            None,
             amount,
             Some(issuer_id)
         ),
@@ -1312,7 +1312,7 @@ fn can_verify_restriction_with_treasury_did_we() {
             amount,
             Some(issuer_id)
         ),
-        ERC1400_TRANSFER_SUCCESS
+        ERC1400_TRANSFER_FAILURE
     );
     assert_ok!(
         ComplianceManager::verify_restriction(
@@ -1322,7 +1322,7 @@ fn can_verify_restriction_with_treasury_did_we() {
             amount,
             Some(issuer_id)
         ),
-        ERC1400_TRANSFER_SUCCESS
+        ERC1400_TRANSFER_FAILURE
     );
     assert_ok!(
         ComplianceManager::verify_restriction(
