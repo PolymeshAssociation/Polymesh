@@ -37,6 +37,7 @@ use polymesh_common_utilities::{identity::Trait as IdentityTrait, Context};
 use polymesh_primitives::{IdentityId, Signatory};
 use sp_runtime::traits::StaticLookup;
 use sp_std::prelude::Vec;
+use sp_std::TryFrom;
 
 pub type BalanceOf<T> = <<T as pallet_contracts::Trait>::Currency as Currency<
     <T as frame_system::Trait>::AccountId,
@@ -66,11 +67,13 @@ decl_module! {
         type Error = Error<T>;
 
         // Simply forwards to the `update_schedule` function in the Contract module.
+        #[weight = 500_000]
         pub fn update_schedule(origin, schedule: Schedule) -> DispatchResult {
             <pallet_contracts::Module<T>>::update_schedule(origin, schedule)
         }
 
         // Simply forwards to the `put_code` function in the Contract module.
+        #[weight = 500_000 + 100_00 * u64::try_from(code.len()).unwrap_or_default()]
         pub fn put_code(
             origin,
             #[compact] gas_limit: Gas,
@@ -92,6 +95,7 @@ decl_module! {
         }
 
         // Simply forwards to the `call` function in the Contract module.
+        #[weight = 700_000]
         pub fn call(
             origin,
             dest: <T::Lookup as StaticLookup>::Source,
@@ -103,6 +107,7 @@ decl_module! {
         }
 
         // Simply forwards to the `instantiate` function in the Contract module.
+        #[weight = 500_000 + 100_00 * u64::try_from(data.len()).unwrap_or_default()]
         pub fn instantiate(
             origin,
             #[compact] endowment: BalanceOf<T>,

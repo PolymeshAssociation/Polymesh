@@ -82,11 +82,11 @@ pub use polymesh_common_utilities::{
 use polymesh_primitives::IdentityId;
 
 use frame_support::{
-    codec::Encode, decl_error, decl_module, decl_storage, dispatch::DispatchResult, ensure,
+    decl_error, decl_module, decl_storage, dispatch::DispatchResult, ensure,
     traits::{ ChangeMembers, EnsureOrigin }, weights::{ DispatchClass, Pays }, StorageValue,
 };
 use frame_system::{self as system, ensure_signed};
-use sp_std::{convert::TryFrom, prelude::*};
+use sp_std::prelude::*;
 
 pub type Event<T, I> = polymesh_common_utilities::group::Event<T, I>;
 type Identity<T> = identity::Module<T>;
@@ -142,7 +142,7 @@ decl_module! {
             expiry: Option<T::Moment>,
             at: Option<T::Moment>
         ) -> DispatchResult {
-            T::RemoveOrigin::try_origin(origin).map_err(|_| Error::<T, I>::BadOrigin)?;
+            T::RemoveOrigin::ensure_origin(origin)?;
 
             <Self as GroupTrait<T::Moment>>::disable_member(who, expiry, at)
         }
@@ -154,7 +154,7 @@ decl_module! {
         /// * `who` - IdentityId to be added to the group.
         #[weight = (500_000, DispatchClass::Operational, Pays::Yes)]
         pub fn add_member(origin, who: IdentityId) {
-            T::AddOrigin::try_origin(origin).map_err(|_| Error::<T, I>::BadOrigin)?;
+            T::AddOrigin::ensure_origin(origin)?;
 
             let mut members = <ActiveMembers<I>>::get();
             let location = members.binary_search(&who).err().ok_or(Error::<T, I>::DuplicateMember)?;
@@ -178,7 +178,7 @@ decl_module! {
         /// * `who` - IdentityId to be removed from the group.
         #[weight = (500_000, DispatchClass::Operational, Pays::Yes)]
         pub fn remove_member(origin, who: IdentityId) -> DispatchResult {
-            T::RemoveOrigin::try_origin(origin).map_err(|_| Error::<T, I>::BadOrigin)?;
+            T::RemoveOrigin::ensure_origin(origin)?;
             Self::unsafe_remove_member(who)
         }
 
@@ -192,7 +192,7 @@ decl_module! {
         /// * `add` - IdentityId to be added in place of `remove`.
         #[weight = (500_000, DispatchClass::Operational, Pays::Yes)]
         pub fn swap_member(origin, remove: IdentityId, add: IdentityId) {
-            T::SwapOrigin::try_origin(origin).map_err(|_| Error::<T, I>::BadOrigin)?;
+            T::SwapOrigin::ensure_origin(origin)?;
 
             if remove == add { return Ok(()) }
 
@@ -220,7 +220,7 @@ decl_module! {
         /// * `members` - New set of identities
         #[weight = (500_000, DispatchClass::Operational, Pays::Yes)]
         pub fn reset_members(origin, members: Vec<IdentityId>) {
-            T::ResetOrigin::try_origin(origin).map_err(|_| Error::<T, I>::BadOrigin)?;
+            T::ResetOrigin::ensure_origin(origin)?;
 
             let mut new_members = members.clone();
             new_members.sort();
@@ -274,8 +274,6 @@ decl_error! {
     pub enum Error for Module<T: Trait<I>, I: Instance> {
         /// Only master key of the identity is allowed.
         OnlyMasterKeyAllowed,
-        /// Incorrect origin.
-        BadOrigin,
         /// Group member was added already.
         DuplicateMember,
         /// Can't remove a member that doesn't exist.

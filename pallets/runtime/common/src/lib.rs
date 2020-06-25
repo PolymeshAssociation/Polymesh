@@ -51,7 +51,7 @@ use pallet_group_rpc_runtime_api::Member;
 use polymesh_common_utilities::traits::group::InactiveMember;
 use sp_std::{convert::From, prelude::*};
 
-/// It merges actives and inactives members.
+/// It merges actives and in-actives members.
 pub fn merge_active_and_inactive<Block>(
     active: Vec<IdentityId>,
     inactive: Vec<InactiveMember<Moment>>,
