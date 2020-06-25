@@ -192,7 +192,7 @@ decl_module! {
                 Error::<T>::SenderMustBeSigningKeyForDid
             );
 
-            Self::_transfer(&ticker, did, to_did, amount)
+            Self::unsafe_transfer(&ticker, did, to_did, amount)
         }
 
         /// Transfer tokens to another identity using the approval mechanic
@@ -213,7 +213,7 @@ decl_module! {
             ensure!(allowance >= amount, Error::<T>::InsufficientAllowance);
 
             // Needs to happen before allowance subtraction so that the from balance is checked in _transfer
-            Self::_transfer(&ticker, from_did, to_did, amount)?;
+            Self::unsafe_transfer(&ticker, from_did, to_did, amount)?;
 
             // using checked_sub (safe math) to avoid overflow
             let updated_allowance = allowance.checked_sub(&amount)
@@ -261,7 +261,7 @@ impl<T: Trait> SimpleTokenTrait<T::Balance> for Module<T> {
         to_did: IdentityId,
         amount: T::Balance,
     ) -> DispatchResult {
-        Self::_transfer(ticker, sender_did, to_did, amount)
+        Self::unsafe_transfer(ticker, sender_did, to_did, amount)
     }
     /// Returns the balance associated with an identity and ticker
     fn balance_of(ticker: Ticker, owner_did: IdentityId) -> T::Balance {
@@ -270,7 +270,7 @@ impl<T: Trait> SimpleTokenTrait<T::Balance> for Module<T> {
 }
 
 impl<T: Trait> Module<T> {
-    fn _transfer(
+    fn unsafe_transfer(
         ticker: &Ticker,
         from_did: IdentityId,
         to_did: IdentityId,
