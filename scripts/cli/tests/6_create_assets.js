@@ -9,7 +9,7 @@ let { reqImports } = require("../util/init.js");
 process.exitCode = 1;
 
 async function main() {
-  
+
   const api = await reqImports.createApi();
 
   const testEntities = await reqImports.initMain(api);
@@ -19,7 +19,7 @@ async function main() {
   let signing_keys = await reqImports.generateKeys(api, 5, "signing");
 
   let issuer_dids = await reqImports.createIdentities(api, master_keys, testEntities[0]);
-  
+
   await reqImports.distributePolyBatch( api, master_keys, reqImports.transfer_amount, testEntities[0] );
 
   await reqImports.addSigningKeys( api, master_keys, issuer_dids, signing_keys );
@@ -40,19 +40,20 @@ async function main() {
 
 async function issueTokenPerDid(api, accounts, dids, prepend) {
 
-    for (let i = 0; i < dids.length; i++) {
-      const ticker = `token${prepend}${i}`.toUpperCase();
-      assert( ticker.length <= 12, "Ticker cannot be longer than 12 characters");
+  for (let i = 0; i < dids.length; i++) {
+    const ticker = `token${prepend}${i}`.toUpperCase();
+    assert( ticker.length <= 12, "Ticker cannot be longer than 12 characters");
 
-        
-        let nonceObj = {nonce: reqImports.nonces.get(accounts[i].address)};
-        const transaction = api.tx.asset.createAsset(ticker, ticker, 1000000, true, 0, [], "abc");
-        const result = await reqImports.sendTransaction(transaction, accounts[i], nonceObj);  
-        const passed = result.findRecord('system', 'ExtrinsicSuccess');
-        if (passed) reqImports.fail_count--;
-      
-      reqImports.nonces.set(accounts[i].address, reqImports.nonces.get(accounts[i].address).addn(1));
-    }
+    let nonceObj = {nonce: reqImports.nonces.get(accounts[i].address)};
+    const transaction = api.tx.asset.createAsset(
+      ticker, ticker, 1000000, true, 0, [], "abc", dids[i]
+    );
+    const result = await reqImports.sendTransaction(transaction, accounts[i], nonceObj);
+    const passed = result.findRecord('system', 'ExtrinsicSuccess');
+    if (passed) reqImports.fail_count--;
+
+    reqImports.nonces.set(accounts[i].address, reqImports.nonces.get(accounts[i].address).addn(1));
   }
+}
 
 main().catch(console.error);
