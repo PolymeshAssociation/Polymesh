@@ -48,7 +48,7 @@ jobs:
     steps:
       - run:
           name: Install ssh
-          command: apt install ssh -y
+          command: apt install openssh-client -y
       - checkout
       - add_ssh_keys:
           fingerprints:
