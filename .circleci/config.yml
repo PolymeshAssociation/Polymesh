@@ -46,6 +46,9 @@ jobs:
     environment:
       VERBOSE: "1"
     steps:
+      - run:
+          name: Install ssh
+          command: sudo apt install ssh -y
       - checkout
       - add_ssh_keys:
           fingerprints:
@@ -59,7 +62,7 @@ jobs:
             - v8-test-cache-{{ checksum "./rust.version" }}
       - run:
           name: Pull submodules
-          command: ssh -T git@github.com && git submodule update --init --recursive
+          command: git submodule update --init --recursive
       - run:
           name: Tests
           command: >-
