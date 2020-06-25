@@ -1,37 +1,29 @@
 var readlineSync = require('readline-sync');
 
-function readAddress(message, defaultValue) {
+function readAddress(message: string, defaultValue: string) {
   return readlineSync.question(message, {
-    limit: function (input) {
-      return web3.utils.isAddress(input);
+    limit: function (input: string) {
+      // return web3.utils.isAddress(input);
+      return ;
     },
     limitMessage: "Must be a valid address",
     defaultInput: defaultValue
   });
 }
 
-function readMultipleAddresses(message) {
+function readMultipleAddresses(message: string) {
   return readlineSync.question(message, {
-    limit: function (input) {
-      return input === '' || input.split(",").every(a => web3.utils.isAddress(a));
+    limit: function (input: string) {
+      // return input === '' || input.split(",").every(a => web3.utils.isAddress(a));
+      return ;
     },
     limitMessage: `All addresses must be valid`
   });
 }
 
-function readPercentage(message, defaultValue) {
-  return readlineSync.question(`${message} (number between 0-100): `, {
-    limit: function (input) {
-      return (parseFloat(input) >= 0 && parseFloat(input) <= 100);
-    },
-    limitMessage: 'Must be a value between 0 and 100',
-    defaultInput: defaultValue
-  });
-}
-
-function readNumberGreaterThan(minValue, message, defaultValue) {
+function readNumberGreaterThan(minValue: number, message: string, defaultValue: number) {
   return readlineSync.question(message, {
-    limit: function (input) {
+    limit: function (input: any) {
       return parseFloat(input) > minValue;
     },
     limitMessage: `Must be greater than ${minValue}`,
@@ -39,9 +31,9 @@ function readNumberGreaterThan(minValue, message, defaultValue) {
   });
 }
 
-function readNumberGreaterThanOrEqual(minValue, message, defaultValue) {
+function readNumberGreaterThanOrEqual(minValue: number, message: string, defaultValue: number) {
   return readlineSync.question(message, {
-    limit: function (input) {
+    limit: function (input: any) {
       return parseFloat(input) >= minValue;
     },
     limitMessage: `Must be greater than or equal ${minValue}`,
@@ -49,9 +41,9 @@ function readNumberGreaterThanOrEqual(minValue, message, defaultValue) {
   });
 }
 
-function readNumberLessThan(maxValue, message, defaultValue) {
+function readNumberLessThan(maxValue: number, message: string, defaultValue: number) {
   return readlineSync.question(message, {
-    limit: function (input) {
+    limit: function (input: any) {
       return parseFloat(input) < maxValue;
     },
     limitMessage: `Must be less than ${maxValue}`,
@@ -59,9 +51,9 @@ function readNumberLessThan(maxValue, message, defaultValue) {
   });
 }
 
-function readNumberLessThanOrEqual(maxValue, message, defaultValue) {
+function readNumberLessThanOrEqual(maxValue: number, message: string, defaultValue: number) {
   return readlineSync.question(message, {
-    limit: function (input) {
+    limit: function (input: any) {
       return parseFloat(input) < maxValue;
     },
     limitMessage: `Must be less than or equal ${maxValue}`,
@@ -69,9 +61,9 @@ function readNumberLessThanOrEqual(maxValue, message, defaultValue) {
   });
 }
   
-function readNumberBetween(minValue, maxValue, message, defaultValue) {
+function readNumberBetween(minValue: number, maxValue: number, message: string, defaultValue: number) {
   return readlineSync.question(message, {
-    limit: function (input) {
+    limit: function (input: any) {
       return parseFloat(input) >= minValue && parseFloat(input) <= maxValue;
     },
     limitMessage: `Must be betwwen ${minValue} and ${maxValue}`,
@@ -79,9 +71,9 @@ function readNumberBetween(minValue, maxValue, message, defaultValue) {
   });
 }
 
-function readStringNonEmpty(message, defaultValue) {
+function readStringNonEmpty(message: string, defaultValue: string) {
   return readlineSync.question(message, {
-    limit: function (input) {
+    limit: function (input: any) {
       return input.length > 0;
     },
     limitMessage: "Must be a valid string",
@@ -89,9 +81,9 @@ function readStringNonEmpty(message, defaultValue) {
   });
 }
 
-function readStringNonEmptyWithMaxBinarySize(maxBinarySize, message, defaultValue) {
+function readStringNonEmptyWithMaxBinarySize(maxBinarySize: number, message: string, defaultValue: string) {
   return readlineSync.question(message, {
-    limit: function (input) {
+    limit: function (input: any) {
       return input.length > 0 && Buffer.byteLength(input, 'utf8') < maxBinarySize
     },
     limitMessage: `Must be a valid string with binary size less than ${maxBinarySize}`,
@@ -99,10 +91,10 @@ function readStringNonEmptyWithMaxBinarySize(maxBinarySize, message, defaultValu
   });
 }
 
-function readDateInTheFuture(message, defaultValue) {
+function readDateInTheFuture(message: string, defaultValue:any) {
   const now = Math.floor(Date.now() / 1000);
   return readlineSync.question(message, {
-    limit: function (input) {
+    limit: function (input: any) {
       return parseInt(input) >= now;
     },
     limitMessage: `Must be a future date`,
@@ -113,7 +105,6 @@ function readDateInTheFuture(message, defaultValue) {
 module.exports = {
   readAddress,
   readMultipleAddresses,
-  readPercentage,
   readNumberGreaterThan,
   readNumberGreaterThanOrEqual,
   readNumberLessThan,

@@ -1,8 +1,15 @@
-import { AccountId, Address } from "@polkadot/types/interfaces/runtime"
-import { Type } from "@polkadot/types"
+import { AccountId, Address } from "@polkadot/types/interfaces/runtime";
+import { Type } from "@polkadot/types";
 import { SubmittableExtrinsic } from '@polkadot/api/types';
 import { IKeyringPair , ISubmittableResult } from '@polkadot/types/types';
+import { cryptoWaitReady, blake2AsHex, mnemonicGenerate } from "@polkadot/util-crypto";
+import { ApiPromise, WsProvider, Keyring } from "@polkadot/api";
+import BN from "bn.js";
+import fs from "fs";
+import path from "path";
+import { KeyringPair } from '@polkadot/keyring/types';
 
+let api: ApiPromise;
 
 export type Account = {
     address: Address,
@@ -14,7 +21,53 @@ export type Account = {
 
 export let nonces = new Map();
 
-export function sendTransaction(transaction: SubmittableExtrinsic<"promise">, signer: IKeyringPair, nonceObj:any) {
+export async function setAPI(endpoint: string) {
+
+   // Schema path
+   const filePath = path.join(__dirname + "/../../../polymesh_schema.json");
+   const { types } = JSON.parse(fs.readFileSync(filePath, "utf8"));
+ 
+   // Start node instance
+   const ws_provider = new WsProvider(endpoint);
+    api = await ApiPromise.create({
+     types,
+     provider: ws_provider
+   });
+
+}
+
+export function getAPI() {
+  return api;
+}
+
+export async function generateEntity(name: string) {
+  let entity: KeyringPair;
+  await cryptoWaitReady();
+  entity = new Keyring({ type: "sr25519" }).addFromUri(`//${name}`, { name: `${name}` });
+  let entityRawNonce = (await api.query.system.account(entity.address)).nonce;
+  let entity_nonce = new BN(entityRawNonce.toString());
+  nonces.set(entity.address, entity_nonce);
+
+  return entity;
+}
+
+export async function generateKeys (api: ApiPromise, numberOfKeys: number, keyPrepend: string) {
+  let keys: KeyringPair[] = [];
+  await cryptoWaitReady();
+  for (let i = 0; i < numberOfKeys; i++) {
+    keys.push(
+      new Keyring({ type: "sr25519" }).addFromUri("//" + keyPrepend + i.toString(), {
+        name: i.toString()
+      })
+    );
+    let accountRawNonce = (await api.query.system.account(keys[i].address)).nonce;
+    let account_nonce = new BN(accountRawNonce.toString());
+    nonces.set(keys[i].address, account_nonce);
+  }
+  return keys;
+};
+
+export function sendTransaction(transaction: SubmittableExtrinsic<"promise">, signer: IKeyringPair, nonceObj: {}) {
     return new Promise((resolve, reject) => {
     
         let receipt: ISubmittableResult;
