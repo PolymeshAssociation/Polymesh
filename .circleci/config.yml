@@ -48,7 +48,7 @@ jobs:
     steps:
       - run:
           name: Install ssh
-          command: sudo apt install ssh -y
+          command: apt install ssh -y
       - checkout
       - add_ssh_keys:
           fingerprints:
