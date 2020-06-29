@@ -78,9 +78,7 @@
 
 use core::result::Result as StdResult;
 use frame_support::{
-    decl_error, decl_event, decl_module, decl_storage,
-    dispatch::DispatchResult,
-    ensure,
+    decl_error, decl_event, decl_module, decl_storage, dispatch::DispatchResult, ensure,
 };
 use frame_system::{self as system, ensure_signed};
 use pallet_identity as identity;
@@ -97,9 +95,9 @@ use polymesh_primitives::{predicate, Claim, IdentityId, Rule, RuleType, Signator
 #[cfg(feature = "std")]
 use sp_runtime::{Deserialize, Serialize};
 use sp_std::{
+    cmp::max,
     convert::{From, TryFrom},
     prelude::*,
-    cmp::max as max
 };
 
 /// The module's configuration trait.

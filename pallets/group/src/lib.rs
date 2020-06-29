@@ -82,8 +82,12 @@ pub use polymesh_common_utilities::{
 use polymesh_primitives::IdentityId;
 
 use frame_support::{
-    decl_error, decl_module, decl_storage, dispatch::DispatchResult, ensure,
-    traits::{ ChangeMembers, EnsureOrigin }, weights::{ DispatchClass, Pays }, StorageValue,
+    decl_error, decl_module, decl_storage,
+    dispatch::DispatchResult,
+    ensure,
+    traits::{ChangeMembers, EnsureOrigin},
+    weights::{DispatchClass, Pays},
+    StorageValue,
 };
 use frame_system::{self as system, ensure_signed};
 use sp_std::prelude::*;

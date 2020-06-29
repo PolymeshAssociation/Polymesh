@@ -116,9 +116,7 @@ use codec::{Decode, Encode};
 use core::result::Result as StdResult;
 use currency::*;
 use frame_support::{
-    decl_error, decl_event, decl_module, decl_storage,
-    dispatch::DispatchResult,
-    ensure,
+    decl_error, decl_event, decl_module, decl_storage, dispatch::DispatchResult, ensure,
     traits::Currency,
 };
 use frame_system::{self as system, ensure_signed};
@@ -716,7 +714,7 @@ decl_module! {
         ///
         /// # Weight
         /// `300_000 + 400_000 * issue_asset_items.len().max(values.len())`
-        #[weight = 
+        #[weight =
             300_000 + 400_000 * u64::try_from(issue_asset_items.len()).unwrap_or_default()
         ]
         pub fn batch_issue(origin, issue_asset_items: Vec<IssueAssetItem<T::Balance>>, ticker: Ticker) -> DispatchResult {

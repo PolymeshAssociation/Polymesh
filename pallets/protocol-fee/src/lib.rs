@@ -39,7 +39,7 @@ use frame_support::{
     decl_error, decl_event, decl_module, decl_storage,
     dispatch::{DispatchError, DispatchResult},
     traits::{Currency, ExistenceRequirement, OnUnbalanced, WithdrawReason},
-    weights::{ DispatchClass, Pays }
+    weights::{DispatchClass, Pays},
 };
 use frame_system::{self as system, ensure_root};
 use pallet_identity as identity;

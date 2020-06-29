@@ -56,11 +56,12 @@
 
 use frame_support::{
     decl_error, decl_event, decl_module, decl_storage,
-    traits::{UnfilteredDispatchable},
-    weights::{Weight, DispatchClass, GetDispatchInfo}, dispatch::PostDispatchInfo,
+    dispatch::PostDispatchInfo,
+    traits::UnfilteredDispatchable,
+    weights::{DispatchClass, GetDispatchInfo, Weight},
     Parameter,
 };
-use frame_system::{self as system,  ensure_root};
+use frame_system::{self as system, ensure_root};
 use sp_runtime::{traits::Dispatchable, DispatchError, DispatchResult};
 use sp_std::prelude::*;
 
@@ -70,9 +71,11 @@ pub trait Trait: frame_system::Trait {
     type Event: From<Event> + Into<<Self as frame_system::Trait>::Event>;
 
     /// The overarching call type.
-    type Call: Parameter + Dispatchable<Origin=Self::Origin, PostInfo=PostDispatchInfo>
-		+ GetDispatchInfo + From<frame_system::Call<Self>>
-		+ UnfilteredDispatchable<Origin=Self::Origin>;
+    type Call: Parameter
+        + Dispatchable<Origin = Self::Origin, PostInfo = PostDispatchInfo>
+        + GetDispatchInfo
+        + From<frame_system::Call<Self>>
+        + UnfilteredDispatchable<Origin = Self::Origin>;
 }
 
 decl_storage! {
@@ -138,12 +141,12 @@ decl_module! {
         )]
         pub fn batch(origin, calls: Vec<<T as Trait>::Call>) -> DispatchResult {
             let is_root = ensure_root(origin.clone()).is_ok();
-			for (index, call) in calls.into_iter().enumerate() {
-				let result = if is_root {
-					call.dispatch_bypass_filter(origin.clone())
-				} else {
-					call.dispatch(origin.clone())
-				};
+            for (index, call) in calls.into_iter().enumerate() {
+                let result = if is_root {
+                    call.dispatch_bypass_filter(origin.clone())
+                } else {
+                    call.dispatch(origin.clone())
+                };
                 if let Err(e) = result {
                     Self::deposit_event(Event::BatchInterrupted(index as u32, e.error));
                     return Ok(());

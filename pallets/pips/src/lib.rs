@@ -67,10 +67,10 @@ use frame_support::{
     debug, decl_error, decl_event, decl_module, decl_storage,
     dispatch::DispatchResult,
     ensure,
-    traits::{Currency, LockableCurrency, ReservableCurrency, EnsureOrigin},
+    storage::IterableStorageMap,
+    traits::{Currency, EnsureOrigin, LockableCurrency, ReservableCurrency},
     weights::{DispatchClass, Pays, Weight},
     Parameter,
-    storage::IterableStorageMap
 };
 use frame_system::{self as system, ensure_signed};
 use pallet_identity as identity;
@@ -1089,10 +1089,11 @@ impl<T: Trait> Module<T> {
 
     /// Refunds any tokens used to vote or bond a proposal
     fn refund_proposal(id: PipId) {
-        let total_refund = <Deposits<T>>::iter_prefix_values(id).fold(0.into(), |acc, depo_info| {
-            let amount = <T as Trait>::Currency::unreserve(&depo_info.owner, depo_info.amount);
-            amount.saturating_add(acc)
-        });
+        let total_refund =
+            <Deposits<T>>::iter_prefix_values(id).fold(0.into(), |acc, depo_info| {
+                let amount = <T as Trait>::Currency::unreserve(&depo_info.owner, depo_info.amount);
+                amount.saturating_add(acc)
+            });
         <Deposits<T>>::remove_prefix(id);
         let current_did = Context::current_identity::<Identity<T>>().unwrap_or_default();
         Self::deposit_event(RawEvent::ProposalRefund(current_did, id, total_refund));
@@ -1160,7 +1161,11 @@ impl<T: Trait> Module<T> {
                             }
                             Err(e) => {
                                 Self::update_referendum_state(id, ReferendumState::Failed);
-                                debug::error!("Referendum {}, its execution fails: {:?}", id, e.error);
+                                debug::error!(
+                                    "Referendum {}, its execution fails: {:?}",
+                                    id,
+                                    e.error
+                                );
                             }
                         };
                     }

@@ -38,7 +38,7 @@ use frame_support::{
     dispatch::DispatchResult,
     ensure,
     traits::{Currency, ExistenceRequirement, Imbalance, OnUnbalanced, WithdrawReason},
-    weights::{DispatchClass, Pays}
+    weights::{DispatchClass, Pays},
 };
 use frame_system::{self as system, ensure_root, ensure_signed};
 use pallet_identity as identity;

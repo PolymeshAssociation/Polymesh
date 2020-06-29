@@ -1,6 +1,6 @@
 use polymesh_primitives::IdentityId;
 
-use frame_support::weights::{ClassifyDispatch, DispatchClass, PaysFee, WeighData, Weight, Pays};
+use frame_support::weights::{ClassifyDispatch, DispatchClass, Pays, PaysFee, WeighData, Weight};
 use sp_std::{cmp::max, vec::Vec};
 
 /// It supports fee calculation when a transaction is made in batch mode (for a group of items).

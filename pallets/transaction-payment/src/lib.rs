@@ -37,26 +37,26 @@
 
 use codec::{Decode, Encode};
 use frame_support::{
-	decl_storage, decl_module,
-	traits::{Currency, Get, OnUnbalanced, ExistenceRequirement, WithdrawReason, Imbalance},
-	weights::{
-		Weight, DispatchInfo, PostDispatchInfo, GetDispatchInfo, Pays, WeightToFeePolynomial,
-		WeightToFeeCoefficient,
-	},
-	dispatch::DispatchResult,
+    decl_module, decl_storage,
+    dispatch::DispatchResult,
+    traits::{Currency, ExistenceRequirement, Get, Imbalance, OnUnbalanced, WithdrawReason},
+    weights::{
+        DispatchInfo, GetDispatchInfo, Pays, PostDispatchInfo, Weight, WeightToFeeCoefficient,
+        WeightToFeePolynomial,
+    },
 };
 use pallet_transaction_payment_rpc_runtime_api::RuntimeDispatchInfo;
 use primitives::{traits::IdentityCurrency, IdentityId, Signatory, TransactionError};
 use sp_runtime::{
-	FixedI128, FixedPointNumber, FixedPointOperand,
-	transaction_validity::{
-		TransactionPriority, ValidTransaction, InvalidTransaction, TransactionValidityError,
-		TransactionValidity,
-	},
-	traits::{
-		Zero, Saturating, SignedExtension, SaturatedConversion, Convert, Dispatchable,
-		DispatchInfoOf, PostDispatchInfoOf, UniqueSaturatedFrom, UniqueSaturatedInto,
-	},
+    traits::{
+        Convert, DispatchInfoOf, Dispatchable, PostDispatchInfoOf, SaturatedConversion, Saturating,
+        SignedExtension, UniqueSaturatedFrom, UniqueSaturatedInto, Zero,
+    },
+    transaction_validity::{
+        InvalidTransaction, TransactionPriority, TransactionValidity, TransactionValidityError,
+        ValidTransaction,
+    },
+    FixedI128, FixedPointNumber, FixedPointOperand,
 };
 use sp_std::prelude::*;
 
@@ -79,7 +79,7 @@ pub trait Trait: frame_system::Trait {
     type TransactionByteFee: Get<BalanceOf<Self>>;
 
     /// Convert a weight value into a deductible fee based on the currency type.
-	type WeightToFee: WeightToFeePolynomial<Balance=BalanceOf<Self>>;
+    type WeightToFee: WeightToFeePolynomial<Balance = BalanceOf<Self>>;
 
     /// Update the multiplier of the next block, based on the previous block's weight.
     type FeeMultiplierUpdate: Convert<Multiplier, Multiplier>;
@@ -102,7 +102,7 @@ decl_module! {
         const TransactionByteFee: BalanceOf<T> = T::TransactionByteFee::get();
 
         /// The polynomial that is applied in order to derive fee from weight.
-		const WeightToFee: Vec<WeightToFeeCoefficient<BalanceOf<T>>> =
+        const WeightToFee: Vec<WeightToFeeCoefficient<BalanceOf<T>>> =
         T::WeightToFee::polynomial().to_vec();
 
         fn on_finalize() {
@@ -113,14 +113,15 @@ decl_module! {
     }
 }
 
-impl<T: Trait> Module<T> where
-    BalanceOf<T>: FixedPointOperand
+impl<T: Trait> Module<T>
+where
+    BalanceOf<T>: FixedPointOperand,
 {
     /// Query the data that we know about the fee of a given `call`.
     ///
-    /// As this module is not and cannot be aware of the internals of a signed extension, It only 
+    /// As this module is not and cannot be aware of the internals of a signed extension, It only
     /// interprets the extrinsic as some encoded value and accounts for its weight
-	/// and length, the runtime's extrinsic base weight, and the current fee multiplier.
+    /// and length, the runtime's extrinsic base weight, and the current fee multiplier.
     ///
     /// All dispatchables must be annotated with weight and will have some fee info. This function
     /// always returns.
@@ -131,8 +132,8 @@ impl<T: Trait> Module<T> where
     where
         T: Send + Sync,
         BalanceOf<T>: Send + Sync,
-        T::Call: Dispatchable<Info=DispatchInfo>,
-    {   
+        T::Call: Dispatchable<Info = DispatchInfo>,
+    {
         // NOTE: we can actually make it understand `ChargeTransactionPayment`, but would be some hassle
         // for sure. We have to make it aware of the index of `ChargeTransactionPayment` in `Extra`.
         // Alternatively, we could actually execute the tx's per-dispatch and record the balance of the
@@ -140,8 +141,7 @@ impl<T: Trait> Module<T> where
         // potential gain in the future.
         let dispatch_info = <Extrinsic as GetDispatchInfo>::get_dispatch_info(&unchecked_extrinsic);
 
-        let partial_fee =
-            Self::compute_fee(len, &dispatch_info, 0u32.into());
+        let partial_fee = Self::compute_fee(len, &dispatch_info, 0u32.into());
         let DispatchInfo { weight, class, .. } = dispatch_info;
 
         RuntimeDispatchInfo {
@@ -152,100 +152,98 @@ impl<T: Trait> Module<T> where
     }
 
     /// Compute the final fee value for a particular transaction.
-	///
-	/// The final fee is composed of:
-	///   - `base_fee`: This is the minimum amount a user pays for a transaction. It is declared
-	///     as a base _weight_ in the runtime and converted to a fee using `WeightToFee`.
-	///   - `len_fee`: The length fee, the amount paid for the encoded length (in bytes) of the
-	///     transaction.
-	///   - `weight_fee`: This amount is computed based on the weight of the transaction. Weight
-	///     accounts for the execution time of a transaction.
-	///   - `targeted_fee_adjustment`: This is a multiplier that can tune the final fee based on
-	///     the congestion of the network.
-	///   - (Optional) `tip`: If included in the transaction, the tip will be added on top. Only
+    ///
+    /// The final fee is composed of:
+    ///   - `base_fee`: This is the minimum amount a user pays for a transaction. It is declared
+    ///     as a base _weight_ in the runtime and converted to a fee using `WeightToFee`.
+    ///   - `len_fee`: The length fee, the amount paid for the encoded length (in bytes) of the
+    ///     transaction.
+    ///   - `weight_fee`: This amount is computed based on the weight of the transaction. Weight
+    ///     accounts for the execution time of a transaction.
+    ///   - `targeted_fee_adjustment`: This is a multiplier that can tune the final fee based on
+    ///     the congestion of the network.
+    ///   - (Optional) `tip`: If included in the transaction, the tip will be added on top. Only
     ///     signed transactions can have a tip. Although it will always be zero in Polymesh, keeping
     ///     the tip as parameter to reduce the change in the apis.
-	///
-	/// The base fee and adjusted weight and length fees constitute the _inclusion fee,_ which is
-	/// the minimum fee for a transaction to be included in a block.
-	///
-	/// ```ignore
-	/// inclusion_fee = base_fee + targeted_fee_adjustment * (len_fee + weight_fee);
+    ///
+    /// The base fee and adjusted weight and length fees constitute the _inclusion fee,_ which is
+    /// the minimum fee for a transaction to be included in a block.
+    ///
+    /// ```ignore
+    /// inclusion_fee = base_fee + targeted_fee_adjustment * (len_fee + weight_fee);
     /// final_fee = inclusion_fee + tip;
-	/// ```
-	pub fn compute_fee(
-		len: u32,
-		info: &DispatchInfoOf<T::Call>,
-		tip: BalanceOf<T>,
-	) -> BalanceOf<T> where
-		T::Call: Dispatchable<Info=DispatchInfo>,
-	{
-		Self::compute_fee_raw(len, info.weight, tip, info.pays_fee)
-	}
+    /// ```
+    pub fn compute_fee(len: u32, info: &DispatchInfoOf<T::Call>, tip: BalanceOf<T>) -> BalanceOf<T>
+    where
+        T::Call: Dispatchable<Info = DispatchInfo>,
+    {
+        Self::compute_fee_raw(len, info.weight, tip, info.pays_fee)
+    }
 
-	/// Compute the actual post dispatch fee for a particular transaction.
-	///
-	/// Identical to `compute_fee` with the only difference that the post dispatch corrected
-	/// weight is used for the weight fee calculation.
-	pub fn compute_actual_fee(
-		len: u32,
-		info: &DispatchInfoOf<T::Call>,
-		post_info: &PostDispatchInfoOf<T::Call>,
-		tip: BalanceOf<T>,
-	) -> BalanceOf<T> where
-		T::Call: Dispatchable<Info=DispatchInfo,PostInfo=PostDispatchInfo>,
-	{
-		Self::compute_fee_raw(len, post_info.calc_actual_weight(info), tip, info.pays_fee)
-	}
+    /// Compute the actual post dispatch fee for a particular transaction.
+    ///
+    /// Identical to `compute_fee` with the only difference that the post dispatch corrected
+    /// weight is used for the weight fee calculation.
+    pub fn compute_actual_fee(
+        len: u32,
+        info: &DispatchInfoOf<T::Call>,
+        post_info: &PostDispatchInfoOf<T::Call>,
+        tip: BalanceOf<T>,
+    ) -> BalanceOf<T>
+    where
+        T::Call: Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>,
+    {
+        Self::compute_fee_raw(len, post_info.calc_actual_weight(info), tip, info.pays_fee)
+    }
 
-	fn compute_fee_raw(
-		len: u32,
-		weight: Weight,
-		tip: BalanceOf<T>,
-		pays_fee: Pays,
-	) -> BalanceOf<T> {
-		if pays_fee == Pays::Yes {
-			let len = <BalanceOf<T>>::from(len);
-			let per_byte = T::TransactionByteFee::get();
-			let len_fee = per_byte.saturating_mul(len);
-			let unadjusted_weight_fee = Self::weight_to_fee(weight);
+    fn compute_fee_raw(
+        len: u32,
+        weight: Weight,
+        tip: BalanceOf<T>,
+        pays_fee: Pays,
+    ) -> BalanceOf<T> {
+        if pays_fee == Pays::Yes {
+            let len = <BalanceOf<T>>::from(len);
+            let per_byte = T::TransactionByteFee::get();
+            let len_fee = per_byte.saturating_mul(len);
+            let unadjusted_weight_fee = Self::weight_to_fee(weight);
 
-			// the adjustable part of the fee
-			let adjustable_fee = len_fee.saturating_add(unadjusted_weight_fee);
-			let targeted_fee_adjustment = NextFeeMultiplier::get();
-			let adjusted_fee = targeted_fee_adjustment.saturating_mul_acc_int(adjustable_fee);
+            // the adjustable part of the fee
+            let adjustable_fee = len_fee.saturating_add(unadjusted_weight_fee);
+            let targeted_fee_adjustment = NextFeeMultiplier::get();
+            let adjusted_fee = targeted_fee_adjustment.saturating_mul_acc_int(adjustable_fee);
 
-			let base_fee = Self::weight_to_fee(T::ExtrinsicBaseWeight::get());
-			base_fee.saturating_add(adjusted_fee).saturating_add(tip)
-		} else {
-			tip
-		}
-	}
+            let base_fee = Self::weight_to_fee(T::ExtrinsicBaseWeight::get());
+            base_fee.saturating_add(adjusted_fee).saturating_add(tip)
+        } else {
+            tip
+        }
+    }
 }
 
-
 impl<T: Trait> Module<T> {
-	/// Compute the fee for the specified weight.
-	///
-	/// This fee is already adjusted by the per block fee adjustment factor and is therefore
-	/// the share that the weight contributes to the overall fee of a transaction.
-	///
-	/// This function is generic in order to supply the contracts module with a way
-	/// to calculate the gas price. The contracts module is not able to put the necessary
-	/// `BalanceOf<T>` contraints on its trait. This function is not to be used by this module.
-	pub fn weight_to_fee_with_adjustment<Balance>(weight: Weight) -> Balance where
-		Balance: UniqueSaturatedFrom<u128>
-	{
-		let fee: u128 = Self::weight_to_fee(weight).unique_saturated_into();
-		Balance::unique_saturated_from(NextFeeMultiplier::get().saturating_mul_acc_int(fee))
-	}
+    /// Compute the fee for the specified weight.
+    ///
+    /// This fee is already adjusted by the per block fee adjustment factor and is therefore
+    /// the share that the weight contributes to the overall fee of a transaction.
+    ///
+    /// This function is generic in order to supply the contracts module with a way
+    /// to calculate the gas price. The contracts module is not able to put the necessary
+    /// `BalanceOf<T>` contraints on its trait. This function is not to be used by this module.
+    pub fn weight_to_fee_with_adjustment<Balance>(weight: Weight) -> Balance
+    where
+        Balance: UniqueSaturatedFrom<u128>,
+    {
+        let fee: u128 = Self::weight_to_fee(weight).unique_saturated_into();
+        Balance::unique_saturated_from(NextFeeMultiplier::get().saturating_mul_acc_int(fee))
+    }
 
-	fn weight_to_fee(weight: Weight) -> BalanceOf<T> {
-		// cap the weight to the maximum defined in runtime, otherwise it will be the
-		// `Bounded` maximum of its data type, which is not desired.
-		let capped_weight = weight.min(<T as frame_system::Trait>::MaximumBlockWeight::get());
-		T::WeightToFee::calc(&capped_weight)
-	}
+    fn weight_to_fee(weight: Weight) -> BalanceOf<T> {
+        // cap the weight to the maximum defined in runtime, otherwise it will be the
+        // `Bounded` maximum of its data type, which is not desired.
+        let capped_weight = weight.min(<T as frame_system::Trait>::MaximumBlockWeight::get());
+        T::WeightToFee::calc(&capped_weight)
+    }
 }
 
 /// Require the transactor pay for themselves and maybe include a tip to gain additional priority
@@ -253,32 +251,31 @@ impl<T: Trait> Module<T> {
 #[derive(Encode, Decode, Clone, Eq, PartialEq)]
 pub struct ChargeTransactionPayment<T: Trait + Send + Sync>(#[codec(compact)] BalanceOf<T>);
 
-impl<T: Trait + Send + Sync> ChargeTransactionPayment<T> where
-	T::Call: Dispatchable<Info=DispatchInfo, PostInfo=PostDispatchInfo>,
-	BalanceOf<T>: Send + Sync + FixedPointOperand,
+impl<T: Trait + Send + Sync> ChargeTransactionPayment<T>
+where
+    T::Call: Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>,
+    BalanceOf<T>: Send + Sync + FixedPointOperand,
 {
-	/// utility constructor. Used only in client/factory code.
-	pub fn from(fee: BalanceOf<T>) -> Self {
-		Self(fee)
-	}
+    /// utility constructor. Used only in client/factory code.
+    pub fn from(fee: BalanceOf<T>) -> Self {
+        Self(fee)
+    }
 
     fn withdraw_fee(
         &self,
         call: &T::Call,
-		who: &T::AccountId,
-		info: &DispatchInfoOf<T::Call>,
-		len: usize,
-	) -> Result<(BalanceOf<T>, Option<NegativeImbalanceOf<T>>), TransactionValidityError> {
-        
+        who: &T::AccountId,
+        info: &DispatchInfoOf<T::Call>,
+        len: usize,
+    ) -> Result<(BalanceOf<T>, Option<NegativeImbalanceOf<T>>), TransactionValidityError> {
         let fee = Module::<T>::compute_fee(len as u32, info, 0u32.into());
 
         // Only mess with balances if fee is not zero.
-		if fee.is_zero() {
-			return Ok((fee, None));
-		}
+        if fee.is_zero() {
+            return Ok((fee, None));
+        }
 
-        if let Some(payer) =
-            T::CddHandler::get_valid_payer(call, &Signatory::Account(who.clone()))?
+        if let Some(payer) = T::CddHandler::get_valid_payer(call, &Signatory::Account(who.clone()))?
         {
             let imbalance;
             match payer.clone() {
@@ -301,29 +298,35 @@ impl<T: Trait + Send + Sync> ChargeTransactionPayment<T> where
         } else {
             Err(InvalidTransaction::Payment.into())
         }
-	}
+    }
 }
 
 impl<T: Trait + Send + Sync> sp_std::fmt::Debug for ChargeTransactionPayment<T> {
-	#[cfg(feature = "std")]
-	fn fmt(&self, f: &mut sp_std::fmt::Formatter) -> sp_std::fmt::Result {
-		write!(f, "ChargeTransactionPayment<{:?}>", self.0)
-	}
-	#[cfg(not(feature = "std"))]
-	fn fmt(&self, _: &mut sp_std::fmt::Formatter) -> sp_std::fmt::Result {
-		Ok(())
-	}
+    #[cfg(feature = "std")]
+    fn fmt(&self, f: &mut sp_std::fmt::Formatter) -> sp_std::fmt::Result {
+        write!(f, "ChargeTransactionPayment<{:?}>", self.0)
+    }
+    #[cfg(not(feature = "std"))]
+    fn fmt(&self, _: &mut sp_std::fmt::Formatter) -> sp_std::fmt::Result {
+        Ok(())
+    }
 }
 
-impl<T: Trait + Send + Sync> SignedExtension for ChargeTransactionPayment<T> where
-	BalanceOf<T>: Send + Sync + From<u64> + FixedPointOperand,
-	T::Call: Dispatchable<Info=DispatchInfo, PostInfo=PostDispatchInfo>,
+impl<T: Trait + Send + Sync> SignedExtension for ChargeTransactionPayment<T>
+where
+    BalanceOf<T>: Send + Sync + From<u64> + FixedPointOperand,
+    T::Call: Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>,
 {
     const IDENTIFIER: &'static str = "ChargeTransactionPayment";
     type AccountId = T::AccountId;
     type Call = T::Call;
     type AdditionalSigned = ();
-    type Pre = (BalanceOf<T>, Self::AccountId, Option<NegativeImbalanceOf<T>>, BalanceOf<T>);
+    type Pre = (
+        BalanceOf<T>,
+        Self::AccountId,
+        Option<NegativeImbalanceOf<T>>,
+        BalanceOf<T>,
+    );
     fn additional_signed(&self) -> sp_std::result::Result<(), TransactionValidityError> {
         Ok(())
     }
@@ -349,69 +352,68 @@ impl<T: Trait + Send + Sync> SignedExtension for ChargeTransactionPayment<T> whe
     }
 
     fn pre_dispatch(
-		self,
-		who: &Self::AccountId,
-		call: &Self::Call,
-		info: &DispatchInfoOf<Self::Call>,
-		len: usize
-	) -> Result<Self::Pre, TransactionValidityError> {
+        self,
+        who: &Self::AccountId,
+        call: &Self::Call,
+        info: &DispatchInfoOf<Self::Call>,
+        len: usize,
+    ) -> Result<Self::Pre, TransactionValidityError> {
         if self.0 != Zero::zero() {
             // Tip must be set to zero.
             // This is enforced to curb front running.
-            return Err(TransactionValidityError::Invalid(InvalidTransaction::Custom(TransactionError::ZeroTip as u8)));
+            return Err(TransactionValidityError::Invalid(
+                InvalidTransaction::Custom(TransactionError::ZeroTip as u8),
+            ));
         }
-		let (fee, imbalance) = self.withdraw_fee(call, who, info, len)?;
-		Ok((Zero::zero(), who.clone(), imbalance, fee))
-	}
+        let (fee, imbalance) = self.withdraw_fee(call, who, info, len)?;
+        Ok((Zero::zero(), who.clone(), imbalance, fee))
+    }
 
-	fn post_dispatch(
-		pre: Self::Pre,
-		info: &DispatchInfoOf<Self::Call>,
-		post_info: &PostDispatchInfoOf<Self::Call>,
-		len: usize,
-		_result: &DispatchResult,
-	) -> Result<(), TransactionValidityError> {
-		let (tip, who, imbalance, fee) = pre;
-		if let Some(payed) = imbalance {
-			let actual_fee = Module::<T>::compute_actual_fee(
-				len as u32,
-				info,
-				post_info,
-				tip,
-			);
+    fn post_dispatch(
+        pre: Self::Pre,
+        info: &DispatchInfoOf<Self::Call>,
+        post_info: &PostDispatchInfoOf<Self::Call>,
+        len: usize,
+        _result: &DispatchResult,
+    ) -> Result<(), TransactionValidityError> {
+        let (tip, who, imbalance, fee) = pre;
+        if let Some(payed) = imbalance {
+            let actual_fee = Module::<T>::compute_actual_fee(len as u32, info, post_info, tip);
             let refund = fee.saturating_sub(actual_fee);
             if let Some(payer) = T::CddHandler::get_payer_from_context() {
                 let actual_payment;
                 match payer {
                     Signatory::Account(payer_account) => {
-                        actual_payment = match T::Currency::deposit_into_existing(&payer_account, refund) {
-                            Ok(refund_imbalance) => {
-                                // The refund cannot be larger than the up front payed max weight.
-                                // `PostDispatchInfo::calc_unspent` guards against such a case.
-                                match payed.offset(refund_imbalance) {
-                                    Ok(actual_payment) => actual_payment,
-                                    Err(_) => return Err(InvalidTransaction::Payment.into()),
+                        actual_payment =
+                            match T::Currency::deposit_into_existing(&payer_account, refund) {
+                                Ok(refund_imbalance) => {
+                                    // The refund cannot be larger than the up front payed max weight.
+                                    // `PostDispatchInfo::calc_unspent` guards against such a case.
+                                    match payed.offset(refund_imbalance) {
+                                        Ok(actual_payment) => actual_payment,
+                                        Err(_) => return Err(InvalidTransaction::Payment.into()),
+                                    }
                                 }
-                            }
-                            // We do not recreate the account using the refund. The up front payment
-                            // is gone in that case.
-                            Err(_) => payed,
-                        };
-                    },
+                                // We do not recreate the account using the refund. The up front payment
+                                // is gone in that case.
+                                Err(_) => payed,
+                            };
+                    }
                     Signatory::Identity(id) => {
-                        actual_payment = match T::Currency::deposit_into_existing_identity(&id, refund) {
-                            Ok(refund_imbalance) => {
-                                // The refund cannot be larger than the up front payed max weight.
-                                // `PostDispatchInfo::calc_unspent` guards against such a case.
-                                match payed.offset(refund_imbalance) {
-                                    Ok(actual_payment) => actual_payment,
-                                    Err(_) => return Err(InvalidTransaction::Payment.into()),
+                        actual_payment =
+                            match T::Currency::deposit_into_existing_identity(&id, refund) {
+                                Ok(refund_imbalance) => {
+                                    // The refund cannot be larger than the up front payed max weight.
+                                    // `PostDispatchInfo::calc_unspent` guards against such a case.
+                                    match payed.offset(refund_imbalance) {
+                                        Ok(actual_payment) => actual_payment,
+                                        Err(_) => return Err(InvalidTransaction::Payment.into()),
+                                    }
                                 }
-                            }
-                            // We do not recreate the account using the refund. The up front payment
-                            // is gone in that case.
-                            Err(_) => payed,
-                        };
+                                // We do not recreate the account using the refund. The up front payment
+                                // is gone in that case.
+                                Err(_) => payed,
+                            };
                     }
                 }
                 T::OnTransactionPayment::on_unbalanced(actual_payment);
@@ -419,9 +421,8 @@ impl<T: Trait + Send + Sync> SignedExtension for ChargeTransactionPayment<T> whe
         }
         // It clears the identity and payer in the context after transaction.
         T::CddHandler::clear_context();
-		Ok(())
+        Ok(())
     }
-    
 }
 
 // Polymesh note: This was specifically added for Polymesh
@@ -442,8 +443,9 @@ pub trait ChargeTxFee {
 }
 
 // Polymesh note: This was specifically added for Polymesh
-impl<T: Trait> ChargeTxFee for Module<T>  where
-    BalanceOf<T>: FixedPointOperand
+impl<T: Trait> ChargeTxFee for Module<T>
+where
+    BalanceOf<T>: FixedPointOperand,
 {
     fn charge_fee(len: u32, info: DispatchInfo) -> TransactionValidity {
         // let fee = Self::compute_fee(len as u32, info, 0u32.into());

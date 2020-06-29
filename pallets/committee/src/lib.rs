@@ -59,8 +59,8 @@ use frame_support::{
     decl_error, decl_event, decl_module, decl_storage,
     dispatch::{DispatchResult, Dispatchable, Parameter},
     ensure,
-    traits::{ChangeMembers, Get, InitializeMembers, EnsureOrigin},
-    weights::{DispatchClass::Operational as Operational, Pays},
+    traits::{ChangeMembers, EnsureOrigin, Get, InitializeMembers},
+    weights::{DispatchClass::Operational, Pays},
 };
 use frame_system::{self as system, ensure_signed};
 use pallet_identity as identity;

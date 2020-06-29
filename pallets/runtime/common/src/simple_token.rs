@@ -54,7 +54,7 @@ use polymesh_common_utilities::{
 use polymesh_primitives::{IdentityId, Signatory, Ticker};
 
 use frame_support::{
-    decl_error, decl_event, decl_module, decl_storage, dispatch::DispatchResult, ensure
+    decl_error, decl_event, decl_module, decl_storage, dispatch::DispatchResult, ensure,
 };
 use frame_system::{self as system, ensure_signed};
 use sp_runtime::traits::{CheckedAdd, CheckedSub};

@@ -286,7 +286,7 @@ decl_module! {
         ///
         /// # Weight
         /// `400_000 + 60_000 * signing_items.len()`
-        #[weight = ( 
+        #[weight = (
             (400_000 + 60_000 * u64::try_from(signing_items.len()).unwrap_or_default()),
             DispatchClass::Normal,
             Pays::Yes
@@ -518,7 +518,7 @@ decl_module! {
         ///
         /// # Weight
         /// `300_000 + 100_000 * claims.len()`
-        #[weight =( 
+        #[weight =(
             300_000 + 100_000 * u64::try_from(claims.len()).unwrap_or_default(),
             DispatchClass::Normal,
             Pays::Yes
@@ -560,7 +560,7 @@ decl_module! {
         }
 
         /// Creates a call on behalf of another DID.
-        #[weight =( 
+        #[weight =(
             500_000 + proposal.get_dispatch_info().weight,
             proposal.get_dispatch_info().class,
             Pays::Yes
@@ -594,7 +594,7 @@ decl_module! {
             // Also set current_did roles when acting as a signing key for target_did
             // Re-dispatch call - e.g. to asset::doSomething...
             // let new_origin = frame_system::RawOrigin::Signed(sender).into();
-            
+
             // TODO: Handle dispatch properly
             //proposal.dispatch(new_origin)
             Ok(())
@@ -649,7 +649,7 @@ decl_module! {
         ///
         /// # Weight
         /// `400_000 + 30_000 * permissions.len()`
-        #[weight =( 
+        #[weight =(
             400_000 + 30_000 * u64::try_from(permissions.len()).unwrap_or_default(),
             DispatchClass::Normal,
             Pays::Yes
@@ -745,7 +745,7 @@ decl_module! {
         ///
         /// # Weight
         /// `150_000 + 50_000 * auths.len()`
-        #[weight =( 
+        #[weight =(
             150_000 + 50_000 * u64::try_from(auths.len()).unwrap_or_default(),
             DispatchClass::Normal,
             Pays::Yes
@@ -792,7 +792,7 @@ decl_module! {
         ///
         /// # Weight
         /// `150_000 + 50_000 * auths.len()`
-        #[weight =( 
+        #[weight =(
             150_000 + 100_000 * u64::try_from(auth_identifiers.len()).unwrap_or_default(),
             DispatchClass::Normal,
             Pays::Yes
@@ -889,7 +889,7 @@ decl_module! {
         ///
         /// # Weight
         /// `100_000 + 500_000 * auth_ids.len()`
-        #[weight =( 
+        #[weight =(
             100_000 + 500_000 * u64::try_from(auth_ids.len()).unwrap_or_default(),
             DispatchClass::Normal,
             Pays::Yes

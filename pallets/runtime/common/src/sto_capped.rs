@@ -45,7 +45,7 @@
 use crate::simple_token::{self, SimpleTokenTrait};
 use frame_support::traits::Currency;
 use frame_support::{
-    decl_error, decl_event, decl_module, decl_storage, dispatch::DispatchResult, ensure
+    decl_error, decl_event, decl_module, decl_storage, dispatch::DispatchResult, ensure,
 };
 use frame_system::{self as system, ensure_signed};
 use pallet_balances as balances;

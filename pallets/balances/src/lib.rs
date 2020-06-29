@@ -175,9 +175,9 @@ use codec::{Decode, Encode};
 use frame_support::{
     decl_error, decl_module, decl_storage, ensure,
     traits::{
-        BalanceStatus as Status, Currency, ExistenceRequirement, Imbalance, IsDeadAccount,
+        BalanceStatus as Status, Currency, ExistenceRequirement, Get, Imbalance, IsDeadAccount,
         LockIdentifier, LockableCurrency, OnKilledAccount, ReservableCurrency, SignedImbalance,
-        StoredMap, WithdrawReason, WithdrawReasons, Get
+        StoredMap, WithdrawReason, WithdrawReasons,
     },
     StorageValue,
 };
@@ -322,9 +322,9 @@ decl_module! {
         ///   - Transferring balances to accounts that did not exist before will cause
         ///      `T::OnNewAccount::on_new_account` to be called.
         /// ---------------------------------
-		/// - Base Weight: 73.64 µs, worst case scenario (account created, account removed)
-		/// - DB Weight: 1 Read and 1 Write to destination account.
-		/// - Origin account is already in memory, so no DB operations for them.
+        /// - Base Weight: 73.64 µs, worst case scenario (account created, account removed)
+        /// - DB Weight: 1 Read and 1 Write to destination account.
+        /// - Origin account is already in memory, so no DB operations for them.
         /// # </weight>
         #[weight = T::DbWeight::get().reads_writes(1, 1) + 70_000_000]
         pub fn transfer(
@@ -345,8 +345,8 @@ decl_module! {
         ///
         /// # <weight>
         /// - Base Weight: 73.64 µs, worst case scenario (account created, account removed)
-		/// - DB Weight: 1 Read and 1 Write to destination account.
-		/// - Origin account is already in memory, so no DB operations for them.
+        /// - DB Weight: 1 Read and 1 Write to destination account.
+        /// - Origin account is already in memory, so no DB operations for them.
         /// # </weight>
         #[weight = T::DbWeight::get().reads_writes(1, 1) + 70_000_000]
         pub fn transfer_with_memo(
@@ -452,14 +452,14 @@ decl_module! {
         /// The dispatch origin for this call is `root`.
         ///
         /// # <weight>
-		/// - Independent of the arguments.
-		/// - Contains a limited number of reads and writes.
-		/// ---------------------
-		/// - Base Weight:
-		///     - Creating: 27.56 µs
-		///     - Killing: 35.11 µs
-		/// - DB Weight: 1 Read, 1 Write to `who`
-		/// # </weight>
+        /// - Independent of the arguments.
+        /// - Contains a limited number of reads and writes.
+        /// ---------------------
+        /// - Base Weight:
+        ///     - Creating: 27.56 µs
+        ///     - Killing: 35.11 µs
+        /// - DB Weight: 1 Read, 1 Write to `who`
+        /// # </weight>
         #[weight = T::DbWeight::get().reads_writes(1, 1) + 35_000_000]
         fn set_balance(
             origin,
@@ -497,9 +497,9 @@ decl_module! {
         /// specified.
         ///
         /// # <weight>
-		/// - Same as transfer, but additional read and write because the source account is
-		///   not assumed to be in the overlay.
-		/// # </weight>
+        /// - Same as transfer, but additional read and write because the source account is
+        ///   not assumed to be in the overlay.
+        /// # </weight>
         #[weight = T::DbWeight::get().reads_writes(2, 2) + 70_000_000]
         pub fn force_transfer(
             origin,
@@ -603,12 +603,12 @@ impl<T: Trait> Module<T> {
     /// NOTE: LOW-LEVEL: This will not attempt to maintain total issuance. It is expected that
     /// the caller will do this.
     pub fn mutate_account<R>(
-		who: &T::AccountId,
-		f: impl FnOnce(&mut AccountData<T::Balance>) -> R
-	) -> R {
-		Self::try_mutate_account(who, |a, _| -> Result<R, Infallible> { Ok(f(a)) })
-			.expect("Error is infallible; qed")
-	}
+        who: &T::AccountId,
+        f: impl FnOnce(&mut AccountData<T::Balance>) -> R,
+    ) -> R {
+        Self::try_mutate_account(who, |a, _| -> Result<R, Infallible> { Ok(f(a)) })
+            .expect("Error is infallible; qed")
+    }
 
     /// Mutate an account to some new value, or delete it entirely with `None`.
     /// This will do nothing if the result of `f` is an `Err`.
@@ -624,7 +624,7 @@ impl<T: Trait> Module<T> {
     ) -> Result<R, E> {
         T::AccountStore::try_mutate_exists(who, |maybe_account| {
             let is_new = maybe_account.is_none();
-			let mut account = maybe_account.take().unwrap_or_default();
+            let mut account = maybe_account.take().unwrap_or_default();
             f(&mut account, is_new).map(move |result| {
                 let maybe_endowed = if is_new { Some(account.free) } else { None };
                 // `post_mutation` always return the same account store
@@ -926,36 +926,37 @@ where
     }
 
     /// Slash a target account `who`, returning the negative imbalance created and any left over
-	/// amount that could not be slashed.
-	///
-	/// Is a no-op if `value` to be slashed is zero.
-	///
-	/// NOTE: `slash()` prefers free balance, but assumes that reserve balance can be drawn
-	/// from in extreme circumstances. `can_slash()` should be used prior to `slash()` to avoid having
-	/// to draw from reserved funds, however we err on the side of punishment if things are inconsistent
-	/// or `can_slash` wasn't used appropriately.
-	fn slash(
-		who: &T::AccountId,
-		value: Self::Balance
-	) -> (Self::NegativeImbalance, Self::Balance) {
-		if value.is_zero() { return (NegativeImbalance::zero(), Zero::zero()) }
+    /// amount that could not be slashed.
+    ///
+    /// Is a no-op if `value` to be slashed is zero.
+    ///
+    /// NOTE: `slash()` prefers free balance, but assumes that reserve balance can be drawn
+    /// from in extreme circumstances. `can_slash()` should be used prior to `slash()` to avoid having
+    /// to draw from reserved funds, however we err on the side of punishment if things are inconsistent
+    /// or `can_slash` wasn't used appropriately.
+    fn slash(who: &T::AccountId, value: Self::Balance) -> (Self::NegativeImbalance, Self::Balance) {
+        if value.is_zero() {
+            return (NegativeImbalance::zero(), Zero::zero());
+        }
 
-		Self::mutate_account(who, |account| {
-			let free_slash = cmp::min(account.free, value);
-			account.free -= free_slash;
+        Self::mutate_account(who, |account| {
+            let free_slash = cmp::min(account.free, value);
+            account.free -= free_slash;
 
-			let remaining_slash = value - free_slash;
-			if !remaining_slash.is_zero() {
-				let reserved_slash = cmp::min(account.reserved, remaining_slash);
-				account.reserved -= reserved_slash;
-				(NegativeImbalance::new(free_slash + reserved_slash), remaining_slash - reserved_slash)
-			} else {
-				(NegativeImbalance::new(value), Zero::zero())
-			}
-		})
+            let remaining_slash = value - free_slash;
+            if !remaining_slash.is_zero() {
+                let reserved_slash = cmp::min(account.reserved, remaining_slash);
+                account.reserved -= reserved_slash;
+                (
+                    NegativeImbalance::new(free_slash + reserved_slash),
+                    remaining_slash - reserved_slash,
+                )
+            } else {
+                (NegativeImbalance::new(value), Zero::zero())
+            }
+        })
     }
-    
-    
+
     /// Deposit some `value` into the free balance of an existing target account `who`.
     ///
     /// Is a no-op if the `value` to be deposited is zero.
@@ -1155,45 +1156,49 @@ where
             Self::ensure_can_withdraw(who, value, WithdrawReason::Reserve.into(), account.free)
         })?;
         Self::deposit_event(RawEvent::Reserved(who.clone(), value));
-		Ok(())
+        Ok(())
     }
 
     /// Unreserve some funds, returning any amount that was unable to be unreserved.
-	///
-	/// Is a no-op if the value to be unreserved is zero.
-	fn unreserve(who: &T::AccountId, value: Self::Balance) -> Self::Balance {
-		if value.is_zero() { return Zero::zero() }
+    ///
+    /// Is a no-op if the value to be unreserved is zero.
+    fn unreserve(who: &T::AccountId, value: Self::Balance) -> Self::Balance {
+        if value.is_zero() {
+            return Zero::zero();
+        }
 
-		let actual = Self::mutate_account(who, |account| {
-			let actual = cmp::min(account.reserved, value);
-			account.reserved -= actual;
-			// defensive only: this can never fail since total issuance which is at least free+reserved
-			// fits into the same data type.
-			account.free = account.free.saturating_add(actual);
-			actual
-		});
+        let actual = Self::mutate_account(who, |account| {
+            let actual = cmp::min(account.reserved, value);
+            account.reserved -= actual;
+            // defensive only: this can never fail since total issuance which is at least free+reserved
+            // fits into the same data type.
+            account.free = account.free.saturating_add(actual);
+            actual
+        });
 
-		Self::deposit_event(RawEvent::Unreserved(who.clone(), actual.clone()));
-		value - actual
-	}
+        Self::deposit_event(RawEvent::Unreserved(who.clone(), actual.clone()));
+        value - actual
+    }
 
     /// Slash from reserved balance, returning the negative imbalance created,
-	/// and any amount that was unable to be slashed.
-	///
-	/// Is a no-op if the value to be slashed is zero.
-	fn slash_reserved(
-		who: &T::AccountId,
-		value: Self::Balance
-	) -> (Self::NegativeImbalance, Self::Balance) {
-		if value.is_zero() { return (NegativeImbalance::zero(), Zero::zero()) }
+    /// and any amount that was unable to be slashed.
+    ///
+    /// Is a no-op if the value to be slashed is zero.
+    fn slash_reserved(
+        who: &T::AccountId,
+        value: Self::Balance,
+    ) -> (Self::NegativeImbalance, Self::Balance) {
+        if value.is_zero() {
+            return (NegativeImbalance::zero(), Zero::zero());
+        }
 
-		Self::mutate_account(who, |account| {
-			// underflow should never happen, but it if does, there's nothing to be done here.
-			let actual = cmp::min(account.reserved, value);
-			account.reserved -= actual;
-			(NegativeImbalance::new(actual), value - actual)
-		})
-	}
+        Self::mutate_account(who, |account| {
+            // underflow should never happen, but it if does, there's nothing to be done here.
+            let actual = cmp::min(account.reserved, value);
+            account.reserved -= actual;
+            (NegativeImbalance::new(actual), value - actual)
+        })
+    }
 
     /// Move the reserved balance of one account into the balance of another, according to `status`.
     ///
@@ -1245,8 +1250,13 @@ where
                 )
             },
         )?;
-        Self::deposit_event(RawEvent::ReserveRepatriated(slashed.clone(), beneficiary.clone(), actual, status));
-		Ok(value - actual)
+        Self::deposit_event(RawEvent::ReserveRepatriated(
+            slashed.clone(),
+            beneficiary.clone(),
+            actual,
+            status,
+        ));
+        Ok(value - actual)
     }
 }
 
@@ -1268,60 +1278,72 @@ where
     type Moment = T::BlockNumber;
 
     // Set a lock on the balance of `who`.
-	// Is a no-op if lock amount is zero or `reasons` `is_none()`.
-	fn set_lock(
-		id: LockIdentifier,
-		who: &T::AccountId,
-		amount: T::Balance,
-		reasons: WithdrawReasons,
-	) {
-		if amount.is_zero() || reasons.is_none() { return }
-		let mut new_lock = Some(BalanceLock { id, amount, reasons: reasons.into() });
-		let mut locks = Self::locks(who).into_iter()
-			.filter_map(|l| if l.id == id { new_lock.take() } else { Some(l) })
-			.collect::<Vec<_>>();
-		if let Some(lock) = new_lock {
-			locks.push(lock)
-		}
-		Self::update_locks(who, &locks[..]);
-	}
+    // Is a no-op if lock amount is zero or `reasons` `is_none()`.
+    fn set_lock(
+        id: LockIdentifier,
+        who: &T::AccountId,
+        amount: T::Balance,
+        reasons: WithdrawReasons,
+    ) {
+        if amount.is_zero() || reasons.is_none() {
+            return;
+        }
+        let mut new_lock = Some(BalanceLock {
+            id,
+            amount,
+            reasons: reasons.into(),
+        });
+        let mut locks = Self::locks(who)
+            .into_iter()
+            .filter_map(|l| if l.id == id { new_lock.take() } else { Some(l) })
+            .collect::<Vec<_>>();
+        if let Some(lock) = new_lock {
+            locks.push(lock)
+        }
+        Self::update_locks(who, &locks[..]);
+    }
 
     // Extend a lock on the balance of `who`.
-	// Is a no-op if lock amount is zero or `reasons` `is_none()`.
-	fn extend_lock(
-		id: LockIdentifier,
-		who: &T::AccountId,
-		amount: T::Balance,
-		reasons: WithdrawReasons,
-	) {
-		if amount.is_zero() || reasons.is_none() { return }
-		let mut new_lock = Some(BalanceLock { id, amount, reasons: reasons.into() });
-		let mut locks = Self::locks(who).into_iter().filter_map(|l|
-			if l.id == id {
-				new_lock.take().map(|nl| {
-					BalanceLock {
-						id: l.id,
-						amount: l.amount.max(nl.amount),
-						reasons: l.reasons | nl.reasons,
-					}
-				})
-			} else {
-				Some(l)
-			}).collect::<Vec<_>>();
-		if let Some(lock) = new_lock {
-			locks.push(lock)
-		}
-		Self::update_locks(who, &locks[..]);
-	}
+    // Is a no-op if lock amount is zero or `reasons` `is_none()`.
+    fn extend_lock(
+        id: LockIdentifier,
+        who: &T::AccountId,
+        amount: T::Balance,
+        reasons: WithdrawReasons,
+    ) {
+        if amount.is_zero() || reasons.is_none() {
+            return;
+        }
+        let mut new_lock = Some(BalanceLock {
+            id,
+            amount,
+            reasons: reasons.into(),
+        });
+        let mut locks = Self::locks(who)
+            .into_iter()
+            .filter_map(|l| {
+                if l.id == id {
+                    new_lock.take().map(|nl| BalanceLock {
+                        id: l.id,
+                        amount: l.amount.max(nl.amount),
+                        reasons: l.reasons | nl.reasons,
+                    })
+                } else {
+                    Some(l)
+                }
+            })
+            .collect::<Vec<_>>();
+        if let Some(lock) = new_lock {
+            locks.push(lock)
+        }
+        Self::update_locks(who, &locks[..]);
+    }
 
-	fn remove_lock(
-		id: LockIdentifier,
-		who: &T::AccountId,
-	) {
-		let mut locks = Self::locks(who);
-		locks.retain(|l| l.id != id);
-		Self::update_locks(who, &locks[..]);
-	}
+    fn remove_lock(id: LockIdentifier, who: &T::AccountId) {
+        let mut locks = Self::locks(who);
+        locks.retain(|l| l.id != id);
+        Self::update_locks(who, &locks[..]);
+    }
 }
 
 impl<T: Trait> IsDeadAccount<T::AccountId> for Module<T>

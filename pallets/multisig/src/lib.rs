@@ -86,7 +86,7 @@ use frame_support::{
     decl_error, decl_event, decl_module, decl_storage,
     dispatch::{DispatchError, DispatchResult},
     ensure,
-    weights::{GetDispatchInfo},
+    weights::GetDispatchInfo,
     StorageDoubleMap, StorageValue,
 };
 use frame_system::{self as system, ensure_signed};

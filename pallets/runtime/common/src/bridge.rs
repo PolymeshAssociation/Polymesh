@@ -102,7 +102,7 @@ use frame_support::dispatch::DispatchResult;
 use frame_support::traits::{Currency, Get};
 use frame_support::{
     debug, decl_error, decl_event, decl_module, decl_storage, ensure,
-    weights::{ DispatchClass, Weight, Pays},
+    weights::{DispatchClass, Pays, Weight},
 };
 use frame_system::{self as system, ensure_signed};
 use pallet_balances as balances;
@@ -369,7 +369,7 @@ decl_module! {
         /// Issues tokens in timelocked transactions.
         fn on_initialize(block_number: T::BlockNumber) -> Weight {
             Self::handle_timelocked_txs(block_number);
-            0 // TODO: Need to return the right weight used by the on_initialize() function 
+            0 // TODO: Need to return the right weight used by the on_initialize() function
         }
 
         /// Changes the controller account as admin.
@@ -550,7 +550,7 @@ decl_module! {
         ///
         /// # Weight
         /// `50_000 + 200_000 * bridge_txs.len()`
-        #[weight = ( 
+        #[weight = (
             50_000 + 200_000 * u32::try_from(bridge_txs.len()).unwrap_or_default(),
             DispatchClass::Operational,
             Pays::Yes
@@ -576,7 +576,7 @@ decl_module! {
         ///
         /// # Weight
         /// `50_000 + 700_000 * bridge_txs.len()`
-        #[weight = ( 
+        #[weight = (
             50_000 + 700_000 * u32::try_from(bridge_txs.len()).unwrap_or_default(),
             DispatchClass::Operational,
             Pays::Yes

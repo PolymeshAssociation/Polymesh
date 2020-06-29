@@ -21,7 +21,7 @@ use codec::{Decode, Encode};
 use frame_support::{
     decl_event,
     dispatch::DispatchResult,
-    traits::{ChangeMembers, InitializeMembers, EnsureOrigin},
+    traits::{ChangeMembers, EnsureOrigin, InitializeMembers},
 };
 use sp_std::{
     cmp::{Eq, Ordering, PartialEq},
