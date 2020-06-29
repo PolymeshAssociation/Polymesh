@@ -96,7 +96,10 @@
 //! by nominators and their votes.
 //!
 //! An account can become a validator candidate via the
-//! [`validate`](./enum.Call.html#variant.validate) call.
+//! [`validate`](./enum.Call.html#variant.validate) call
+//! But only those validators are in effect whose compliance status is active via
+//! [`add_permissioned_validator`](./enum.Call.html#variant.validate) call & there _stash_ accounts has valid CDD claim.
+//! Compliance status can only provided by the [`T::RequiredAddOrigin`].
 //!
 //! #### Nomination
 //!
@@ -108,7 +111,9 @@
 //! the misbehaving/offline validators as much as possible, simply because the nominators will also
 //! lose funds if they vote poorly.
 //!
-//! An account can become a nominator via the [`nominate`](enum.Call.html#variant.nominate) call.
+//! An account can become a nominator via the [`nominate`](enum.Call.html#variant.nominate) call
+//! & potential account should posses a valid CDD claim having an expiry greater
+//! than the [`BondingDuration`](./struct.BondingDuration.html).
 //!
 //! #### Rewards and Slash
 //!
@@ -1507,15 +1512,11 @@ decl_module! {
         ) {
             let stash = ensure_signed(origin)?;
 
-            if <Bonded<T>>::contains_key(&stash) {
-                Err(Error::<T>::AlreadyBonded)?
-            }
+            ensure!(!<Bonded<T>>::contains_key(&stash), Error::<T>::AlreadyBonded);
 
             let controller = T::Lookup::lookup(controller)?;
 
-            if <Ledger<T>>::contains_key(&controller) {
-                Err(Error::<T>::AlreadyPaired)?
-            }
+            ensure!(!<Ledger<T>>::contains_key(&controller), Error::<T>::AlreadyPaired);
 
             // Reject a bond which is considered to be _dust_.
             // Not needed this check as we removes the Existential deposit concept
@@ -1640,24 +1641,6 @@ decl_module! {
                 Error::<T>::NoMoreChunks,
             );
             Self::unbond_balance(controller, &mut ledger, value);
-
-            // let mut value = value.min(ledger.active);
-
-            // if !value.is_zero() {
-            // 	ledger.active -= value;
-
-            // 	// Avoid there being a dust balance left in the staking system.
-            // 	if ledger.active < T::Currency::minimum_balance() {
-            // 		value += ledger.active;
-            // 		ledger.active = Zero::zero();
-            // 	}
-
-            // 	// Note: in case there is no current era it is fine to bond one era more.
-            // 	let era = Self::current_era().unwrap_or(0) + T::BondingDuration::get();
-            // 	ledger.unlocking.push(UnlockChunk { value, era });
-            // 	Self::update_ledger(&controller, &ledger);
-            // 	Self::deposit_event(RawEvent::Unbonded(ledger.stash.clone(), value));
-            // }
         }
 
         /// Remove any unlocked chunks from the `unlocking` queue from our management.
@@ -3257,32 +3240,39 @@ impl<T: Trait> Module<T> {
         let mut all_nominators: Vec<(T::AccountId, VoteWeight, Vec<T::AccountId>)> = Vec::new();
         let mut all_validators = Vec::new();
         for (validator, _) in <Validators<T>>::iter() {
-            // append self vote
-            let self_vote = (
-                validator.clone(),
-                Self::slashable_balance_of_vote_weight(&validator),
-                vec![validator.clone()],
-            );
-            all_nominators.push(self_vote);
-            all_validators.push(validator);
+            if Self::is_active_balance_above_min_bond(&validator)
+                && Self::is_validator_or_nominator_compliant(&validator)
+                && Self::permissioned_validators(&validator)
+            {
+                // append self vote
+                let self_vote = (
+                    validator.clone(),
+                    Self::slashable_balance_of_vote_weight(&validator),
+                    vec![validator.clone()],
+                );
+                all_nominators.push(self_vote);
+                all_validators.push(validator);
+            }
         }
 
-        let nominator_votes = <Nominators<T>>::iter().map(|(nominator, nominations)| {
-            let Nominations {
-                submitted_in,
-                mut targets,
-                suppressed: _,
-            } = nominations;
+        let nominator_votes = <Nominators<T>>::iter()
+            .filter(|(nominator, _)| Self::is_validator_or_nominator_compliant(&nominator))
+            .map(|(nominator, nominations)| {
+                let Nominations {
+                    submitted_in,
+                    mut targets,
+                    suppressed: _,
+                } = nominations;
 
-            // Filter out nomination targets which were nominated before the most recent
-            // slashing span.
-            targets.retain(|stash| {
-                <Self as Store>::SlashingSpans::get(&stash)
-                    .map_or(true, |spans| submitted_in >= spans.last_nonzero_slash())
+                // Filter out nomination targets which were nominated before the most recent
+                // slashing span.
+                targets.retain(|stash| {
+                    <Self as Store>::SlashingSpans::get(&stash)
+                        .map_or(true, |spans| submitted_in >= spans.last_nonzero_slash())
+                });
+
+                (nominator, targets)
             });
-
-            (nominator, targets)
-        });
         all_nominators.extend(nominator_votes.map(|(n, ns)| {
             let s = Self::slashable_balance_of_vote_weight(&n);
             (n, s, ns)
@@ -3726,6 +3716,9 @@ where
                     add_db_reads_writes(rw, rw);
                 }
                 unapplied.reporters = details.reporters.clone();
+                // Polymesh-Note
+                // Empty the other stakers array so that only the validator is slashed and not its nominators.
+                unapplied.others = vec![];
                 if slash_defer_duration == 0 {
                     // apply right away.
                     slashing::apply_slash::<T>(unapplied);
