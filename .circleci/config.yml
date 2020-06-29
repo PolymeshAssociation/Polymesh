@@ -16,9 +16,6 @@ jobs:
     environment:
       VERBOSE: "1"
     steps:
-      - run:
-          name: Install ssh
-          command: apt update && apt install openssh-client -y
       - checkout
       - add_ssh_keys:
           fingerprints:
@@ -33,7 +30,7 @@ jobs:
             - v2-cli-cache-{{ checksum "./rust.version" }}
       - run:
           name: Pull submodules
-          command: ssh -T git@github.com && git submodule update --init --recursive
+          command: git submodule update --init --recursive
       - run:
           name: Build release
           command: cargo build --release || cargo build -j 1 --release
@@ -49,9 +46,6 @@ jobs:
     environment:
       VERBOSE: "1"
     steps:
-      - run:
-          name: Install ssh
-          command: apt update && apt install openssh-client -y
       - checkout
       - add_ssh_keys:
           fingerprints:
@@ -99,9 +93,6 @@ jobs:
     environment:
       VERBOSE: "1"
     steps:
-      - run:
-          name: Install ssh
-          command: apt update && apt install openssh-client -y
       - checkout
       - add_ssh_keys:
           fingerprints:
@@ -145,9 +136,6 @@ jobs:
     environment:
       VERBOSE: "1"
     steps:
-      - run:
-          name: Install ssh
-          command: apt update && apt install openssh-client -y
       - checkout
       - add_ssh_keys:
           fingerprints:
