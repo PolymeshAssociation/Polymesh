@@ -9,7 +9,7 @@ import fs from "fs";
 import path from "path";
 import { KeyringPair } from '@polkadot/keyring/types';
 
-let api: ApiPromise;
+export let api: ApiPromise;
 
 export type Account = {
     address: Address,
@@ -40,7 +40,7 @@ export function getAPI() {
   return api;
 }
 
-export async function generateEntity(name: string) {
+export async function generateEntity(api: ApiPromise, name: string) {
   let entity: KeyringPair;
   await cryptoWaitReady();
   entity = new Keyring({ type: "sr25519" }).addFromUri(`//${name}`, { name: `${name}` });

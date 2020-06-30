@@ -4,7 +4,7 @@ import { IKeyringPair } from '@polkadot/types/types'
 import { ApiPromise } from "@polkadot/api"
 import { SigningItem } from "../types"
 
-export const createIdentities = async function(api: ApiPromise, accounts: IKeyringPair[], alice: IKeyringPair) {
+export default async function createIdentities(api: ApiPromise, accounts: IKeyringPair[], alice: IKeyringPair) {
     return await createIdentitiesWithExpiry(api, accounts, alice, []);
 };
 
