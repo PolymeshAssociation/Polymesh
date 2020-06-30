@@ -30,9 +30,14 @@ frame-system = { git = "https://github.com/paritytech/substrate", default-featur
 pallet-timestamp = { git = "https://github.com/paritytech/substrate", default-features = false, rev = "a439a7aa5a9a3df2a42d9b25ea04288d3a0866e8" }
 pallet-session = { git = "https://github.com/paritytech/substrate", default-features = false, rev = "a439a7aa5a9a3df2a42d9b25ea04288d3a0866e8" }
 
+sp-runtime-interface = { git = "https://github.com/paritytech/substrate", default-features = false, rev = "a439a7aa5a9a3df2a42d9b25ea04288d3a0866e8" }
+
 # Crypto
 rand_core = { version = "0.5", default-features = false }
-cryptography = { package = "cryptography", git = "ssh://git@github.com/PolymathNetwork/cryptography.git", branch = "CRYP-92/integration_test", default-features = false }
+rand = { version = "0.7.3", default-features = false, optional = true } 
+cryptography = { path = "../../../cryptography/cryptography", default-features = false }
+curve25519-dalek = { version = "2", default-features = false, features = ["nightly"] }
+bulletproofs = { git = "https://github.com/fmiguelgarcia/bulletproofs.git", tag = "2.0.0-polymath-1", default-features = false }
 
 [dev-dependencies]
 test-client = { package = "substrate-test-runtime-client", git = "https://github.com/paritytech/substrate", rev = "a439a7aa5a9a3df2a42d9b25ea04288d3a0866e8" }
@@ -41,15 +46,20 @@ lazy_static = "1.4.0"
 [features]
 equalize = []
 only-staking = []
-default = ["std", "equalize"]
+default = ["std", "equalize", "avx2_backend"]
+
+# Backends
+u32_backend = [ "cryptography/u32_backend"]
+u64_backend = [ "cryptography/u64_backend"]
+avx2_backend = [ "cryptography/avx2_backend"]
 
 no_std = [
-	"cryptography/no_std",
-	"rand_core/alloc",
-	"rand_core/getrandom",
+	"cryptography/no_std"
 ]
+
 std = [
 	"serde_derive",
+	"rand/std",
 	"cryptography/std",
 	"rand_core/std",
 	"codec/std",
@@ -65,4 +75,5 @@ std = [
 	"pallet-timestamp/std",
 	"polymesh-primitives/std",
 	"pallet-session/std",
+	"sp-runtime-interface/std",
 ]

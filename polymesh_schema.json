@@ -565,6 +565,15 @@
         "IssueAssetItem": {
             "identity_did": "IdentityId",
             "value": "Balance"
+        },
+        "ProberTickerKey": {
+            "prover": "IdentityId",
+            "ticker": "Ticker"
+        },
+        "TickerRangeProof": {
+            "initial_message": "[u8; 32]",
+            "final_response": "Vec<u8>",
+            "max_two_exp": "u32"
         }
     },
     "rpc": {

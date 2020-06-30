@@ -106,9 +106,7 @@ equalize = []
 default = ["std", "equalize"]
 no_std = [ 
 	"pallet-confidential/no_std",
-	"sp-io/disable_panic_handler", 
-	"sp-io/disable_oom", 
-	"sp-io/disable_allocator", 
+	"pallet-confidential/u32_backend",
 ]
 
 only-staking = []

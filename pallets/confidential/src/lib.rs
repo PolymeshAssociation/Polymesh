@@ -12,20 +12,18 @@
 
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
-
 #![cfg_attr(not(feature = "std"), no_std)]
+#![feature(box_syntax)]
 
 use polymesh_common_utilities::{identity::Trait as IdentityTrait, Context};
 use polymesh_primitives::{AccountKey, IdentityId, Ticker};
 use polymesh_primitives_derive::{SliceU8StrongTyped, VecU8StrongTyped};
 
-use cryptography::{
-    asset_proofs::range_proof::{prove_within_range, verify_within_range},
-    BRangeProof, CompressedRistretto, Scalar,
-};
 use pallet_identity as identity;
 
-use rand_core::OsRng;
+use bulletproofs::RangeProof;
+use cryptography::asset_proofs::range_proof::{prove_within_range, verify_within_range};
+use curve25519_dalek::{ristretto::CompressedRistretto, scalar::Scalar};
 
 use codec::{Decode, Encode};
 use core::convert::TryFrom;
@@ -35,6 +33,9 @@ use frame_support::{
 };
 use frame_system::{self as system, ensure_signed};
 use sp_std::prelude::*;
+
+pub mod rng;
+pub use rng::native_rng;
 
 #[derive(Encode, Decode, Clone, Debug, Default, PartialEq, Eq, SliceU8StrongTyped)]
 pub struct RangeProofInitialMessageWrapper(pub [u8; 32]);
@@ -89,7 +90,7 @@ decl_module! {
             let prover = Context::current_identity_or::<Identity<T>>(&prover_key)?;
 
             // Create proof
-            let mut rng = OsRng::default();
+            let mut rng = rng::Rng::default();
             let rand_blind = Scalar::random(&mut rng);
             let (init_message, final_response, _range) = prove_within_range( secret_value, rand_blind, 32, &mut rng)
                 .map_err(|e| {
@@ -151,13 +152,13 @@ impl<T: Trait> Module<T> {
         ticker: Ticker,
     ) -> DispatchResult {
         let prover_ticker_key = ProberTickerKey { prover, ticker };
-        let mut rng = OsRng::default();
+        let mut rng = rng::Rng::default();
 
         let trp = Self::range_proof(&target, &prover_ticker_key)
             .ok_or_else(|| Error::<T>::MissingRangeProof)?;
 
         let initial_message = CompressedRistretto::from_slice(trp.initial_message.as_slice());
-        let final_response = BRangeProof::from_bytes(trp.final_response.as_slice())
+        let final_response = RangeProof::from_bytes(trp.final_response.as_slice())
             .map_err(|_| Error::<T>::InvalidRangeProof)?;
 
         verify_within_range(initial_message, final_response, trp.max_two_exp, &mut rng)

@@ -4,10 +4,12 @@ pub use codec::Codec;
 use grandpa::{
     self, FinalityProofProvider as GrandpaFinalityProofProvider, StorageAndProofProvider,
 };
+pub use pallet_confidential::native_rng;
 pub use polymesh_primitives::{
     AccountId, AccountKey, Balance, Block, BlockNumber, Hash, IdentityId, Index as Nonce, Moment,
     Signatory, SigningItem, Ticker,
 };
+
 pub use polymesh_runtime_develop;
 pub use polymesh_runtime_testnet_v1;
 use prometheus_endpoint::Registry;
@@ -46,7 +48,7 @@ native_executor_instance!(
     pub GeneralExecutor,
     polymesh_runtime_develop::api::dispatch,
     polymesh_runtime_develop::native_version,
-    frame_benchmarking::benchmarking::HostFunctions,
+    (frame_benchmarking::benchmarking::HostFunctions, native_rng::HostFunctions)
 );
 
 /// A set of APIs that polkadot-like runtimes must implement.
