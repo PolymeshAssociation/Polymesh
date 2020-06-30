@@ -3529,7 +3529,6 @@ dependencies = [
  "sp-serializer",
  "sp-std",
  "sp-version",
- "substrate-test-runtime-client",
 ]
 
 [[package]]

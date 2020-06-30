@@ -377,7 +377,7 @@ fn valid_custodian_allowance() {
                 investor2_did,
                 55_00_00 as u128
             ),
-            AssetError::InsufficientAllowance
+            AssetError::AllowanceUnderflow
         );
 
         // Successfully transfer by the custodian
@@ -543,7 +543,7 @@ fn valid_custodian_allowance_of() {
                 investor2_did,
                 55_00_00 as u128
             ),
-            AssetError::InsufficientAllowance
+            AssetError::AllowanceUnderflow
         );
 
         // Successfully transfer by the custodian
