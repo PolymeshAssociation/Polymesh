@@ -17,8 +17,7 @@
 use codec::Codec;
 use pallet_pips::{HistoricalVotingByAddress, HistoricalVotingById, Vote, VoteCount};
 use polymesh_primitives::IdentityId;
-
-use sp_std::{prelude::*, vec::Vec};
+use sp_std::vec::Vec;
 
 /// This module contains some types which require transformations to avoid serde issues with
 /// `u128` type.
@@ -105,7 +104,7 @@ sp_api::decl_runtime_apis! {
         fn voting_history_by_address(address: AccountId) -> HistoricalVotingByAddress<Vote<Balance>>;
 
         /// Retrieve referendums voted on information by `id` identity (and its signing items).
-        fn voting_history_by_id(id: IdentityId) -> HistoricalVotingById<Vote<Balance>>;
+        fn voting_history_by_id(id: IdentityId) -> HistoricalVotingById<AccountId, Vote<Balance>>;
     }
 }
 

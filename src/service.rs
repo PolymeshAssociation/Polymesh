@@ -6,8 +6,8 @@ use grandpa::{
 };
 pub use pallet_confidential::native_rng;
 pub use polymesh_primitives::{
-    AccountId, AccountKey, Balance, Block, BlockNumber, Hash, IdentityId, Index as Nonce, Moment,
-    Signatory, SigningItem, Ticker,
+    AccountId, Balance, Block, BlockNumber, Hash, IdentityId, Index as Nonce, Moment, Signatory,
+    SigningItem, Ticker,
 };
 
 pub use polymesh_runtime_develop;
@@ -70,9 +70,9 @@ pub trait RuntimeApiCollection<Extrinsic: codec::Codec + Send + Sync + 'static>:
         Block,
         IdentityId,
         Ticker,
-        AccountKey,
-        SigningItem,
-        Signatory,
+        AccountId,
+        SigningItem<AccountId>,
+        Signatory<AccountId>,
         Moment,
     > + pallet_protocol_fee_rpc_runtime_api::ProtocolFeeApi<Block>
     + node_rpc_runtime_api::asset::AssetApi<Block, AccountId, Balance>
@@ -103,9 +103,9 @@ where
             Block,
             IdentityId,
             Ticker,
-            AccountKey,
-            SigningItem,
-            Signatory,
+            AccountId,
+            SigningItem<AccountId>,
+            Signatory<AccountId>,
             Moment,
         > + pallet_protocol_fee_rpc_runtime_api::ProtocolFeeApi<Block>
         + node_rpc_runtime_api::asset::AssetApi<Block, AccountId, Balance>

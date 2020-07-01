@@ -18,7 +18,7 @@ use frame_benchmarking::{account, benchmarks};
 use frame_support::traits::Currency;
 use frame_system::RawOrigin;
 use pallet_balances as balances;
-use polymesh_primitives::{AccountKey, Claim, IdentityId, SigningItem};
+use polymesh_primitives::{Claim, IdentityId, SigningItem};
 use sp_std::{iter, prelude::*};
 
 const SEED: u32 = 0;
@@ -40,7 +40,7 @@ fn make_account<T: Trait>(
 ) -> (T::AccountId, RawOrigin<T::AccountId>, IdentityId) {
     let (account, origin) = make_account_without_did::<T>(name, u);
     let _ = Module::<T>::register_did(origin.clone().into(), vec![]);
-    let did = Module::<T>::get_identity(&AccountKey::try_from(account.encode()).unwrap()).unwrap();
+    let did = Module::<T>::get_identity(&account).unwrap();
     (account, origin, did)
 }
 
@@ -55,7 +55,7 @@ benchmarks! {
         // Number of signing items.
         let i in 0 .. 50;
         let origin = make_account_without_did::<T>("caller", u).1;
-        let signing_items: Vec<SigningItem> = iter::repeat(Default::default())
+        let signing_items: Vec<SigningItem<T::AccountId>> = iter::repeat(Default::default())
             .take(i as usize)
             .collect();
     }: _(origin, signing_items)

@@ -74,20 +74,19 @@
 // Ensure we're `no_std` when compiling for Wasm.
 #![cfg_attr(not(feature = "std"), no_std)]
 
+use frame_support::{
+    decl_error, decl_module, decl_storage, dispatch::DispatchResult, ensure, traits::ChangeMembers,
+    weights::SimpleDispatchInfo, StorageValue,
+};
+use frame_system::{self as system, ensure_signed};
 use pallet_identity as identity;
 pub use polymesh_common_utilities::{
     group::{GroupTrait, InactiveMember, RawEvent, Trait},
     Context, SystematicIssuers,
 };
-use polymesh_primitives::{AccountKey, IdentityId};
-
-use frame_support::{
-    codec::Encode, decl_error, decl_module, decl_storage, dispatch::DispatchResult, ensure,
-    traits::ChangeMembers, weights::SimpleDispatchInfo, StorageValue,
-};
-use frame_system::{self as system, ensure_signed};
+use polymesh_primitives::IdentityId;
 use sp_runtime::traits::EnsureOrigin;
-use sp_std::{convert::TryFrom, prelude::*};
+use sp_std::prelude::*;
 
 pub type Event<T, I> = polymesh_common_utilities::group::Event<T, I>;
 type Identity<T> = identity::Module<T>;
@@ -245,7 +244,7 @@ decl_module! {
         /// * Last member of a group cannot abdicate.
         #[weight = SimpleDispatchInfo::FixedOperational(100_000)]
         pub fn abdicate_membership(origin) -> DispatchResult {
-            let who = AccountKey::try_from(ensure_signed(origin)?.encode())?;
+            let who = ensure_signed(origin)?;
             let remove_id = Context::current_identity_or::<Identity<T>>(&who)?;
 
             ensure!(<Identity<T>>::is_master_key(remove_id, &who),

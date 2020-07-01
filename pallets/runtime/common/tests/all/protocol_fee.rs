@@ -3,11 +3,9 @@ use super::{
     storage::{register_keyring_account_with_balance, TestStorage},
     ExtBuilder,
 };
-use codec::Encode;
 use frame_support::{assert_err, assert_ok};
 use polymesh_common_utilities::protocol_fee::ProtocolOp;
-use polymesh_primitives::{AccountKey, Signatory};
-use std::convert::TryFrom;
+use polymesh_primitives::Signatory;
 use test_client::AccountKeyring;
 
 type Error = pallet_protocol_fee::Error<TestStorage>;
@@ -29,8 +27,7 @@ fn can_charge_fee_batch() {
         let _ =
             register_keyring_account_with_balance(AccountKeyring::Alice, PROTOCOL_OP_BASE_FEE * 10)
                 .unwrap();
-        let alice_signer =
-            Signatory::from(AccountKey::try_from(AccountKeyring::Alice.public().encode()).unwrap());
+        let alice_signer = Signatory::Account(AccountKeyring::Alice.public());
         assert_ok!(ProtocolFee::batch_charge_fee(
             &alice_signer,
             ProtocolOp::AssetIssue,

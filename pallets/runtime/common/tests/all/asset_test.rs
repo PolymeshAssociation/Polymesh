@@ -13,7 +13,7 @@ use polymesh_common_utilities::{
     constants::*, traits::asset::IssueAssetItem, traits::balances::Memo,
 };
 use polymesh_primitives::{
-    AccountKey, AuthorizationData, Document, IdentityId, LinkData, Signatory, SmartExtension,
+    AuthorizationData, Document, IdentityId, LinkData, Signatory, SmartExtension,
     SmartExtensionType, Ticker,
 };
 
@@ -40,6 +40,7 @@ type ComplianceManager = compliance_manager::Module<TestStorage>;
 type AssetError = asset::Error<TestStorage>;
 type OffChainSignature = AnySignature;
 type Origin = <TestStorage as frame_system::Trait>::Origin;
+type DidRecords = identity::DidRecords<TestStorage>;
 
 #[test]
 fn check_the_test_hex() {
@@ -69,7 +70,7 @@ fn issuers_can_create_and_rename_tokens() {
             ..Default::default()
         };
         let ticker = Ticker::try_from(token.name.as_slice()).unwrap();
-        assert!(!<identity::DidRecords>::contains_key(
+        assert!(!<DidRecords>::contains_key(
             Identity::get_token_did(&ticker).unwrap()
         ));
         let identifiers = vec![(IdentifierType::default(), b"undefined".into())];
@@ -84,6 +85,7 @@ fn issuers_can_create_and_rename_tokens() {
                 token.asset_type.clone(),
                 identifiers.clone(),
                 Some(funding_round_name.clone()),
+                None,
             ),
             AssetError::TotalSupplyAboveLimit
         );
@@ -97,7 +99,8 @@ fn issuers_can_create_and_rename_tokens() {
             true,
             token.asset_type.clone(),
             identifiers.clone(),
-            Some(funding_round_name.clone())
+            Some(funding_round_name.clone()),
+            None,
         ));
 
         let token_link = Identity::get_link(
@@ -118,7 +121,7 @@ fn issuers_can_create_and_rename_tokens() {
         token.link_id = Asset::token_details(ticker).link_id;
         // A correct entry is added
         assert_eq!(Asset::token_details(ticker), token);
-        assert!(<identity::DidRecords>::contains_key(
+        assert!(<DidRecords>::contains_key(
             Identity::get_token_did(&ticker).unwrap()
         ));
         assert_eq!(Asset::funding_round(ticker), funding_round_name.clone());
@@ -139,6 +142,7 @@ fn issuers_can_create_and_rename_tokens() {
             divisible: token.divisible,
             asset_type: token.asset_type.clone(),
             link_id: Asset::token_details(ticker).link_id,
+            ..Default::default()
         };
         assert_ok!(Asset::rename_asset(
             owner_signed.clone(),
@@ -207,7 +211,8 @@ fn valid_transfers_pass() {
             true,
             token.asset_type.clone(),
             vec![],
-            None
+            None,
+            None,
         ));
 
         // Allow all transfers
@@ -265,7 +270,8 @@ fn valid_custodian_allowance() {
             true,
             token.asset_type.clone(),
             vec![],
-            None
+            None,
+            None,
         ));
 
         assert_eq!(
@@ -423,7 +429,8 @@ fn valid_custodian_allowance_of() {
             true,
             token.asset_type.clone(),
             vec![],
-            None
+            None,
+            None,
         ));
 
         assert_eq!(
@@ -588,7 +595,8 @@ fn checkpoints_fuzz_test() {
                 true,
                 token.asset_type.clone(),
                 vec![],
-                None
+                None,
+                None,
             ));
 
             // Allow all transfers
@@ -685,7 +693,8 @@ fn register_ticker() {
             true,
             token.asset_type.clone(),
             identifiers.clone(),
-            None
+            None,
+            None,
         ));
 
         assert_eq!(Asset::is_ticker_registry_valid(&ticker, owner_did), true);
@@ -864,7 +873,8 @@ fn transfer_token_ownership() {
             true,
             AssetType::default(),
             vec![],
-            None
+            None,
+            None,
         ));
 
         let auth_id_alice = Identity::add_auth(
@@ -996,7 +1006,7 @@ fn update_identifiers() {
             ..Default::default()
         };
         let ticker = Ticker::try_from(token.name.as_slice()).unwrap();
-        assert!(!<identity::DidRecords>::contains_key(
+        assert!(!<DidRecords>::contains_key(
             Identity::get_token_did(&ticker).unwrap()
         ));
         let identifier_value1 = b"ABC123";
@@ -1009,7 +1019,8 @@ fn update_identifiers() {
             true,
             token.asset_type.clone(),
             identifiers.clone(),
-            None
+            None,
+            None,
         ));
 
         token.link_id = Asset::token_details(ticker).link_id;
@@ -1051,7 +1062,7 @@ fn adding_removing_documents() {
 
         let ticker = Ticker::try_from(token.name.as_slice()).unwrap();
 
-        assert!(!<identity::DidRecords>::contains_key(
+        assert!(!<DidRecords>::contains_key(
             Identity::get_token_did(&ticker).unwrap()
         ));
 
@@ -1067,7 +1078,8 @@ fn adding_removing_documents() {
             true,
             token.asset_type.clone(),
             identifiers.clone(),
-            None
+            None,
+            None,
         ));
 
         let documents = vec![
@@ -1185,7 +1197,7 @@ fn add_extension_successfully() {
         };
 
         let ticker = Ticker::try_from(token.name.as_slice()).unwrap();
-        assert!(!<identity::DidRecords>::contains_key(
+        assert!(!<DidRecords>::contains_key(
             Identity::get_token_did(&ticker).unwrap()
         ));
         let identifier_value1 = b"ABC123";
@@ -1198,7 +1210,8 @@ fn add_extension_successfully() {
             true,
             token.asset_type.clone(),
             identifiers.clone(),
-            None
+            None,
+            None,
         ));
 
         // Add smart extension
@@ -1250,7 +1263,7 @@ fn add_same_extension_should_fail() {
         };
 
         let ticker = Ticker::try_from(token.name.as_slice()).unwrap();
-        assert!(!<identity::DidRecords>::contains_key(
+        assert!(!<DidRecords>::contains_key(
             Identity::get_token_did(&ticker).unwrap()
         ));
         let identifier_value1 = b"ABC123";
@@ -1263,7 +1276,8 @@ fn add_same_extension_should_fail() {
             true,
             token.asset_type.clone(),
             identifiers.clone(),
-            None
+            None,
+            None,
         ));
 
         // Add smart extension
@@ -1320,7 +1334,7 @@ fn should_successfully_archive_extension() {
         };
 
         let ticker = Ticker::try_from(token.name.as_slice()).unwrap();
-        assert!(!<identity::DidRecords>::contains_key(
+        assert!(!<DidRecords>::contains_key(
             Identity::get_token_did(&ticker).unwrap()
         ));
         let identifier_value1 = b"ABC123";
@@ -1333,7 +1347,8 @@ fn should_successfully_archive_extension() {
             true,
             token.asset_type.clone(),
             identifiers.clone(),
-            None
+            None,
+            None,
         ));
         // Add smart extension
         let extension_name = b"STO".into();
@@ -1395,7 +1410,7 @@ fn should_fail_to_archive_an_already_archived_extension() {
         };
 
         let ticker = Ticker::try_from(token.name.as_slice()).unwrap();
-        assert!(!<identity::DidRecords>::contains_key(
+        assert!(!<DidRecords>::contains_key(
             Identity::get_token_did(&ticker).unwrap()
         ));
         let identifier_value1 = b"ABC123";
@@ -1408,7 +1423,8 @@ fn should_fail_to_archive_an_already_archived_extension() {
             true,
             token.asset_type.clone(),
             identifiers.clone(),
-            None
+            None,
+            None,
         ));
         // Add smart extension
         let extension_name = b"STO".into();
@@ -1475,7 +1491,7 @@ fn should_fail_to_archive_a_non_existent_extension() {
         };
 
         let ticker = Ticker::try_from(token.name.as_slice()).unwrap();
-        assert!(!<identity::DidRecords>::contains_key(
+        assert!(!<DidRecords>::contains_key(
             Identity::get_token_did(&ticker).unwrap()
         ));
         let identifier_value1 = b"ABC123";
@@ -1488,7 +1504,8 @@ fn should_fail_to_archive_a_non_existent_extension() {
             true,
             token.asset_type.clone(),
             identifiers.clone(),
-            None
+            None,
+            None,
         ));
         // Add smart extension
         let extension_id = AccountKeyring::Bob.public();
@@ -1516,7 +1533,7 @@ fn should_successfuly_unarchive_an_extension() {
         };
 
         let ticker = Ticker::try_from(token.name.as_slice()).unwrap();
-        assert!(!<identity::DidRecords>::contains_key(
+        assert!(!<DidRecords>::contains_key(
             Identity::get_token_did(&ticker).unwrap()
         ));
         let identifier_value1 = b"ABC123";
@@ -1529,7 +1546,8 @@ fn should_successfuly_unarchive_an_extension() {
             true,
             token.asset_type.clone(),
             identifiers.clone(),
-            None
+            None,
+            None,
         ));
         // Add smart extension
         let extension_name = b"STO".into();
@@ -1601,7 +1619,7 @@ fn should_fail_to_unarchive_an_already_unarchived_extension() {
         };
 
         let ticker = Ticker::try_from(token.name.as_slice()).unwrap();
-        assert!(!<identity::DidRecords>::contains_key(
+        assert!(!<DidRecords>::contains_key(
             Identity::get_token_did(&ticker).unwrap()
         ));
         let identifier_value1 = b"ABC123";
@@ -1614,7 +1632,8 @@ fn should_fail_to_unarchive_an_already_unarchived_extension() {
             true,
             token.asset_type.clone(),
             identifiers.clone(),
-            None
+            None,
+            None,
         ));
         // Add smart extension
         let extension_name = b"STO".into();
@@ -1692,7 +1711,8 @@ fn freeze_unfreeze_asset() {
             true,
             AssetType::default(),
             vec![],
-            None
+            None,
+            None,
         ));
 
         // Allow all transfers.
@@ -1784,7 +1804,7 @@ fn frozen_signing_keys_create_asset_we() {
         alice_id,
         100_000
     ));
-    let bob_signatory = Signatory::from(AccountKey::from(AccountKeyring::Bob.public().0));
+    let bob_signatory = Signatory::Account(AccountKeyring::Bob.public());
     add_signing_item(alice_id, bob_signatory);
     assert_ok!(Balances::transfer_with_memo(
         Origin::signed(alice),
@@ -1812,6 +1832,7 @@ fn frozen_signing_keys_create_asset_we() {
         true,
         token_1.asset_type.clone(),
         vec![],
+        None,
         None,
     ));
     assert_eq!(Asset::token_details(ticker_1), token_1);
@@ -1868,7 +1889,8 @@ fn test_can_transfer_rpc() {
                 false, // Asset divisibility is false
                 AssetType::default(),
                 vec![],
-                None
+                None,
+                None,
             ));
 
             // check the balance of the alice Identity
@@ -1991,4 +2013,70 @@ fn test_can_transfer_rpc() {
                 ERC1400_TRANSFER_SUCCESS
             );
         })
+}
+
+#[test]
+fn can_set_treasury_did() {
+    ExtBuilder::default()
+        .build()
+        .execute_with(can_set_treasury_did_we);
+}
+
+fn can_set_treasury_did_we() {
+    let alice = AccountKeyring::Alice.public();
+    let alice_id = register_keyring_account(AccountKeyring::Alice).unwrap();
+    let _charlie_id = register_keyring_account(AccountKeyring::Charlie).unwrap();
+    let bob = AccountKeyring::Bob.public();
+    assert_ok!(Balances::top_up_identity_balance(
+        Origin::signed(alice),
+        alice_id,
+        100_000
+    ));
+    let bob_signatory = Signatory::Account(AccountKeyring::Bob.public());
+    add_signing_item(alice_id, bob_signatory);
+    assert_ok!(Balances::transfer_with_memo(
+        Origin::signed(alice),
+        bob,
+        1_000,
+        Some(Memo::from("Bob funding"))
+    ));
+    let token_1 = SecurityToken {
+        name: vec![0x01].into(),
+        owner_did: alice_id,
+        total_supply: 1_000_000,
+        divisible: true,
+        asset_type: AssetType::default(),
+        link_id: 18,
+        ..Default::default()
+    };
+    let ticker_1 = Ticker::try_from(token_1.name.as_slice()).unwrap();
+    assert_ok!(Asset::create_asset(
+        Origin::signed(bob),
+        token_1.name.clone(),
+        ticker_1,
+        token_1.total_supply,
+        true,
+        token_1.asset_type.clone(),
+        vec![],
+        None,
+        None,
+    ));
+    assert_eq!(Asset::token_details(ticker_1), token_1);
+    let treasury_did = Some(alice_id);
+    assert_ok!(Asset::set_treasury_did(
+        Origin::signed(bob),
+        ticker_1,
+        treasury_did
+    ));
+    let token_2 = SecurityToken {
+        name: token_1.name,
+        owner_did: token_1.owner_did,
+        total_supply: token_1.total_supply,
+        divisible: token_1.divisible,
+        asset_type: token_1.asset_type,
+        link_id: token_1.link_id,
+        treasury_did,
+        ..Default::default()
+    };
+    assert_eq!(Asset::token_details(ticker_1), token_2);
 }
