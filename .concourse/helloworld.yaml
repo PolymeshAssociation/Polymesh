@@ -8,5 +8,5 @@ jobs:
         type: registry-image
         source: { repository: busybox }
       run:
-        path: echo
-        args: ["Hello, world!"]
+        path: ls
+        args: ["-a"]
