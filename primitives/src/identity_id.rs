@@ -16,6 +16,7 @@
 use codec::{Decode, Encode};
 use core::fmt::{Display, Formatter};
 use core::str;
+use polymesh_primitives_derive::VecU8StrongTyped;
 #[cfg(feature = "std")]
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use sp_runtime::traits::Printable;
@@ -162,6 +163,29 @@ impl Printable for IdentityId {
     fn print(&self) {
         sp_io::misc::print_utf8(b"did:poly:");
         sp_io::misc::print_hex(&self.0);
+    }
+}
+
+/// A wrapper for a portfolio name. The name of the default portfolio is the empty byte vector `b""`.
+#[derive(
+    Decode, Encode, Clone, Debug, Default, Hash, PartialEq, Eq, PartialOrd, Ord, VecU8StrongTyped,
+)]
+pub struct PortfolioName(pub Vec<u8>);
+
+/// The compound ID of a portfolio.
+#[derive(Decode, Encode, Clone, Debug, Default, Hash, PartialEq, Eq, PartialOrd, Ord)]
+pub struct PortfolioId {
+    pub did: IdentityId,
+    pub name: PortfolioName,
+}
+
+impl Printable for PortfolioId {
+    fn print(&self) {
+        self.did.print();
+        if !self.name.0.is_empty() {
+            sp_io::misc::print_utf8(b"/");
+            sp_io::misc::print_utf8(&self.name);
+        }
     }
 }
 

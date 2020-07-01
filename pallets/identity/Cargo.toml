@@ -8,6 +8,7 @@ edition = "2018"
 # Common
 polymesh-common-utilities = { package = "polymesh-common-utilities", path = "../common", default-features = false }
 polymesh-primitives = { package = "polymesh-primitives", path = "../../primitives", default-features = false }
+polymesh-primitives-derive = { path = "../../primitives_derive", default-features = false }
 
 # Out pallets
 pallet-balances = { package = "pallet-balances", path = "../balances", default-features = false, optional = true }

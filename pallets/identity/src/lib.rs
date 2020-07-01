@@ -157,6 +157,10 @@ pub struct BatchRevokeClaimItem {
     pub claim: Claim,
 }
 
+/// Details of a portfolio.
+#[derive(Decode, Encode, Clone, Debug, Default, Hash, PartialEq, Eq, PartialOrd, Ord)]
+pub struct PortfolioDetails;
+
 decl_storage! {
     trait Store for Module<T: Trait> as identity {
 
@@ -202,6 +206,10 @@ decl_storage! {
 
         /// It defines if authorization from a CDD provider is needed to change master key of an identity
         pub CddAuthForMasterKeyRotation get(fn cdd_auth_for_master_key_rotation): bool;
+
+        /// The asset portfolios of each identity.
+        pub Portfolios: double_map hasher(twox_64_concat) IdentityId, hasher(twox_64_concat) PortfolioName => PortfolioDetails;
+
     }
     add_extra_genesis {
         config(identities): Vec<(T::AccountId, IdentityId, IdentityId, Option<u64>)>;

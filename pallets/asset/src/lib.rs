@@ -95,7 +95,7 @@
 #[cfg(feature = "runtime-benchmarks")]
 pub mod benchmarking;
 
-use pallet_identity as identity;
+use pallet_identity::{self as identity, PortfolioId, PortfolioName};
 use pallet_statistics as statistics;
 use polymesh_common_utilities::{
     asset::{AcceptTransfer, IssueAssetItem, Trait as AssetTrait},
@@ -126,7 +126,6 @@ use frame_system::{self as system, ensure_signed};
 use hex_literal::hex;
 use pallet_contracts::{ExecReturnValue, Gas};
 use sp_runtime::traits::{CheckedAdd, CheckedSub, Verify};
-
 #[cfg(feature = "std")]
 use sp_runtime::{Deserialize, Serialize};
 use sp_std::{convert::TryFrom, prelude::*};
@@ -159,7 +158,7 @@ pub enum AssetType {
     StructuredProduct,
     Derivative,
     Custom(Vec<u8>),
-}
+33}
 
 impl Default for AssetType {
     fn default() -> Self {
@@ -274,9 +273,12 @@ decl_storage! {
         /// Details of the token corresponding to the token ticker.
         /// (ticker) -> SecurityToken details [returns SecurityToken struct]
         pub Tokens get(fn token_details): map hasher(blake2_128_concat) Ticker => SecurityToken<T::Balance>;
-        /// Used to store the securityToken balance corresponds to ticker and Identity.
+        /// The total asset ticker balance per identity.
         /// (ticker, DID) -> Balance
         pub BalanceOf get(fn balance_of): double_map hasher(blake2_128_concat) Ticker, hasher(blake2_128_concat) IdentityId => T::Balance;
+        /// The detailed asset ticker balance per portfolio. Maps `(Ticker, PortfolioId)` to `T::Balance`.
+        pub BalanceOfPortfolio get(fn balance_of_portfolio):
+            double_map hasher(blake2_128_concat) Ticker, hasher(blake2_128_concat) PortfolioId => T::Balance;
         /// A map of pairs of a ticker name and an `IdentifierType` to asset identifiers.
         pub Identifiers get(fn identifiers): map hasher(blake2_128_concat) (Ticker, IdentifierType) => AssetIdentifier;
         /// (ticker, sender (DID), spender(DID)) -> allowance amount
@@ -288,11 +290,11 @@ decl_storage! {
         /// (ticker, checkpointId) -> total supply at given checkpoint
         pub CheckpointTotalSupply get(fn total_supply_at): map hasher(blake2_128_concat) (Ticker, u64) => T::Balance;
         /// Balance of a DID at a checkpoint.
-        /// (ticker, DID, checkpoint ID) -> Balance of a DID at a checkpoint
-        CheckpointBalance get(fn balance_at_checkpoint): map hasher(blake2_128_concat) (Ticker, IdentityId, u64) => T::Balance;
+        /// (ticker, portfolio, checkpoint ID) -> Balance of a DID at a checkpoint
+        CheckpointBalance get(fn balance_at_checkpoint): map hasher(blake2_128_concat) (Ticker, PortfolioId, u64) => T::Balance;
         /// Last checkpoint updated for a DID's balance.
-        /// (ticker, DID) -> List of checkpoints where user balance changed
-        UserCheckpoints get(fn user_checkpoints): map hasher(blake2_128_concat) (Ticker, IdentityId) => Vec<u64>;
+        /// (ticker, portfolio) -> List of checkpoints where user balance changed
+        UserCheckpoints get(fn user_checkpoints): map hasher(blake2_128_concat) (Ticker, PortfolioId) => Vec<u64>;
         /// Allowance provided to the custodian.
         /// (ticker, token holder, custodian) -> balance
         pub CustodianAllowance get(fn custodian_allowance): map hasher(blake2_128_concat) (Ticker, IdentityId, IdentityId) => T::Balance;
@@ -590,7 +592,13 @@ decl_module! {
         /// * `to_did` DID of the `to` token holder, to whom token needs to transferred.
         /// * `value` Value that needs to transferred.
         #[weight = SimpleDispatchInfo::FixedNormal(400_000)]
-        pub fn transfer(origin, ticker: Ticker, to_did: IdentityId, value: T::Balance) -> DispatchResult {
+        pub fn transfer(
+            origin,
+            ticker: Ticker,
+            from_portfolio: PortfolioName,
+            to_did: IdentityId,
+            value: T::Balance
+        ) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             let did = Context::current_identity_or::<Identity<T>>(&sender)?;
 
@@ -940,7 +948,7 @@ decl_module! {
             ensure!(Self::is_owner(&ticker, did), Error::<T>::NotAnOwner);
             // Granularity check
             ensure!(Self::check_granularity(&ticker, value), Error::<T>::InvalidGranularity);
-            ensure!(<BalanceOf<T>>::contains_key(&ticker, &token_holder_did), Error::<T>::NotAAssetHolder);
+            ensure!(<BalanceOf<T>>::contains_key(&ticker, &token_holder_did), Error::<T>::NotAnAssetHolder);
             let burner_balance = Self::balance(&ticker, &token_holder_did);
             ensure!(burner_balance >= value, Error::<T>::InsufficientBalance);
 
@@ -1543,7 +1551,7 @@ decl_error! {
         /// An invalid granularity.
         InvalidGranularity,
         /// The account does not hold this token.
-        NotAAssetHolder,
+        NotAnAssetHolder,
         /// The asset must be frozen.
         NotFrozen,
         /// No such smart extension.
@@ -1855,7 +1863,7 @@ impl<T: Trait> Module<T> {
         );
         ensure!(
             <BalanceOf<T>>::contains_key(ticker, &from_did),
-            Error::<T>::NotAAssetHolder
+            Error::<T>::NotAnAssetHolder
         );
         let sender_balance = Self::balance(ticker, &from_did);
         ensure!(sender_balance >= value, Error::<T>::InsufficientBalance);
