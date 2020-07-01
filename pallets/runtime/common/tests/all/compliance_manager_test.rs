@@ -72,10 +72,7 @@ fn should_add_and_verify_asset_rule_we() {
     let cdd_provider = AccountKeyring::Eve.public();
     let (cdd_signed, cdd_id) = make_account(cdd_provider).unwrap();
 
-    // Providing an random DID to root, In production root should posses a DID
-    //Context::set_current_identity::<Identity>(Some(IdentityId::from(999)));
     assert_ok!(CDDGroup::reset_members(root, vec![cdd_id]));
-    //Context::set_current_identity::<Identity>(None);
 
     // A token representing 1M shares
     let token = SecurityToken {
@@ -469,9 +466,7 @@ fn should_successfully_add_and_use_default_issuers_we() {
     let receiver_acc = AccountKeyring::Dave.public();
     let (_, receiver_did) = make_account(receiver_acc).unwrap();
 
-    Context::set_current_identity::<Identity>(Some(IdentityId::from(999)));
     assert_ok!(CDDGroup::reset_members(root, vec![trusted_issuer_did]));
-    Context::set_current_identity::<Identity>(None);
 
     // 1. A token representing 1M shares
     let token = SecurityToken {
@@ -593,12 +588,11 @@ fn should_modify_vector_of_trusted_issuer_we() {
     let (receiver_signed, receiver_did) = make_account(receiver_acc).unwrap();
 
     // Providing a random DID to root but in real world Root should posses a DID
-    Context::set_current_identity::<Identity>(Some(IdentityId::from(999)));
     assert_ok!(CDDGroup::reset_members(
         root,
         vec![trusted_issuer_did_1, trusted_issuer_did_2]
     ));
-    Context::set_current_identity::<Identity>(None);
+
     // 1. A token representing 1M shares
     let token = SecurityToken {
         name: vec![0x01].into(),
