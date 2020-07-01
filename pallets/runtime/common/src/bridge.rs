@@ -103,6 +103,7 @@ use frame_support::traits::{Currency, Get};
 use frame_support::{
     debug, decl_error, decl_event, decl_module, decl_storage, ensure,
     weights::{DispatchClass, Pays, Weight},
+    storage::StorageDoubleMap
 };
 use frame_system::{self as system, ensure_signed};
 use pallet_balances as balances;
@@ -258,7 +259,7 @@ decl_storage! {
             debug::info!("Created bridge multisig {}", multisig_id);
             for signer in &config.signers {
                 debug::info!("Accepting bridge signer auth for {:?}", signer);
-                let last_auth = <identity::Authorizations<T>>::iter_prefix(signer)
+                let last_auth = <identity::Authorizations<T>>::iter_prefix_values(signer)
                     .next()
                     .expect("cannot find bridge signer auth")
                     .auth_id;
@@ -502,7 +503,7 @@ decl_module! {
         /// # Weight
         /// `100_000 + 700_000 * bridge_txs.len()`
         #[weight =(
-            100_000 + 700_000 * u32::try_from(bridge_txs.len()).unwrap_or_default(),
+            100_000 + 700_000 * u64::try_from(bridge_txs.len()).unwrap_or_default(),
             DispatchClass::Operational,
             Pays::Yes
         )]
@@ -529,7 +530,7 @@ decl_module! {
         /// # Weight
         /// `50_000 + 200_000 * bridge_txs.len()`
         #[weight = (
-            50_000 + 200_000 * u32::try_from(bridge_txs.len()).unwrap_or_default(),
+            50_000 + 200_000 * u64::try_from(bridge_txs.len()).unwrap_or_default(),
             DispatchClass::Operational,
             Pays::Yes
         )]
@@ -551,7 +552,7 @@ decl_module! {
         /// # Weight
         /// `50_000 + 200_000 * bridge_txs.len()`
         #[weight = (
-            50_000 + 200_000 * u32::try_from(bridge_txs.len()).unwrap_or_default(),
+            50_000 + 200_000 * u64::try_from(bridge_txs.len()).unwrap_or_default(),
             DispatchClass::Operational,
             Pays::Yes
         )]
@@ -577,7 +578,7 @@ decl_module! {
         /// # Weight
         /// `50_000 + 700_000 * bridge_txs.len()`
         #[weight = (
-            50_000 + 700_000 * u32::try_from(bridge_txs.len()).unwrap_or_default(),
+            50_000 + 700_000 * u64::try_from(bridge_txs.len()).unwrap_or_default(),
             DispatchClass::Operational,
             Pays::Yes
         )]

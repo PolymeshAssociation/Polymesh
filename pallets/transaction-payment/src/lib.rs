@@ -35,6 +35,7 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
+use sp_std::prelude::*;
 use codec::{Decode, Encode};
 use frame_support::{
     decl_module, decl_storage,
@@ -56,9 +57,8 @@ use sp_runtime::{
         InvalidTransaction, TransactionPriority, TransactionValidity, TransactionValidityError,
         ValidTransaction,
     },
-    FixedI128, FixedPointNumber, FixedPointOperand,
+    FixedI128, FixedPointNumber, FixedPointOperand, Perquintill
 };
-use sp_std::prelude::*;
 
 /// Fee multiplier.
 pub type Multiplier = FixedI128;
@@ -67,6 +67,104 @@ type BalanceOf<T> =
     <<T as Trait>::Currency as Currency<<T as frame_system::Trait>::AccountId>>::Balance;
 type NegativeImbalanceOf<T> =
     <<T as Trait>::Currency as Currency<<T as frame_system::Trait>::AccountId>>::NegativeImbalance;
+
+
+/// A struct to update the weight multiplier per block. It implements `Convert<Multiplier,
+/// Multiplier>`, meaning that it can convert the previous multiplier to the next one. This should
+/// be called on `on_finalize` of a block, prior to potentially cleaning the weight data from the
+/// system module.
+///
+/// given:
+/// 	s = previous block weight
+/// 	s'= ideal block weight
+/// 	m = maximum block weight
+///		diff = (s - s')/m
+///		v = 0.00001
+///		t1 = (v * diff)
+///		t2 = (v * diff)^2 / 2
+///	then:
+/// 	next_multiplier = prev_multiplier * (1 + t1 + t2)
+///
+/// Where `(s', v)` must be given as the `Get` implementation of the `T` generic type. Moreover, `M`
+/// must provide the minimum allowed value for the multiplier. Note that a runtime should ensure
+/// with tests that the combination of this `M` and `V` is not such that the multiplier can drop to
+/// zero and never recover.
+///
+/// note that `s'` is interpreted as a portion in the _normal transaction_ capacity of the block.
+/// For example, given `s' == 0.25` and `AvailableBlockRatio = 0.75`, then the target fullness is
+/// _0.25 of the normal capacity_ and _0.1875 of the entire block_.
+///
+/// This implementation implies the bound:
+/// - `v ≤ p / k * (s − s')`
+/// - or, solving for `p`: `p >= v * k * (s - s')`
+///
+/// where `p` is the amount of change over `k` blocks.
+///
+/// Hence:
+/// - in a fully congested chain: `p >= v * k * (1 - s')`.
+/// - in an empty chain: `p >= v * k * (-s')`.
+///
+/// For example, when all blocks are full and there are 28800 blocks per day (default in `substrate-node`)
+/// and v == 0.00001, s' == 0.1875, we'd have:
+///
+/// p >= 0.00001 * 28800 * 0.8125
+/// p >= 0.234
+///
+/// Meaning that fees can change by around ~23% per day, given extreme congestion.
+///
+/// More info can be found at:
+/// https://w3f-research.readthedocs.io/en/latest/polkadot/Token%20Economics.html
+pub struct TargetedFeeAdjustment<T, S, V, M>(sp_std::marker::PhantomData<(T, S, V, M)>);
+
+impl<T, S, V, M> Convert<Multiplier, Multiplier> for TargetedFeeAdjustment<T, S, V, M>
+	where T: frame_system::Trait, S: Get<Perquintill>, V: Get<Multiplier>, M: Get<Multiplier>,
+{
+	fn convert(previous: Multiplier) -> Multiplier {
+		// Defensive only. The multiplier in storage should always be at most positive. Nonetheless
+		// we recover here in case of errors, because any value below this would be stale and can
+		// never change.
+		let min_multiplier = M::get();
+		let previous = previous.max(min_multiplier);
+
+		// the computed ratio is only among the normal class.
+		let normal_max_weight =
+			<T as frame_system::Trait>::AvailableBlockRatio::get() *
+			<T as frame_system::Trait>::MaximumBlockWeight::get();
+		let normal_block_weight =
+			<frame_system::Module<T>>::block_weight()
+			.get(frame_support::weights::DispatchClass::Normal)
+			.min(normal_max_weight);
+
+		let s = S::get();
+		let v = V::get();
+
+		let target_weight = (s * normal_max_weight) as u128;
+		let block_weight = normal_block_weight as u128;
+
+		// determines if the first_term is positive
+		let positive = block_weight >= target_weight;
+		let diff_abs = block_weight.max(target_weight) - block_weight.min(target_weight);
+
+		// defensive only, a test case assures that the maximum weight diff can fit in Multiplier
+		// without any saturation.
+		let diff = Multiplier::saturating_from_rational(diff_abs, normal_max_weight.max(1));
+		let diff_squared = diff.saturating_mul(diff);
+
+		let v_squared_2 = v.saturating_mul(v) / Multiplier::saturating_from_integer(2);
+
+		let first_term = v.saturating_mul(diff);
+		let second_term = v_squared_2.saturating_mul(diff_squared);
+
+		if positive {
+			let excess = first_term.saturating_add(second_term).saturating_mul(previous);
+			previous.saturating_add(excess).max(min_multiplier)
+		} else {
+			// Defensive-only: first_term > second_term. Safe subtraction.
+			let negative = first_term.saturating_sub(second_term).saturating_mul(previous);
+			previous.saturating_sub(negative).max(min_multiplier)
+		}
+	}
+}
 
 pub trait Trait: frame_system::Trait {
     /// The currency type in which fees will be paid.
@@ -90,27 +188,39 @@ pub trait Trait: frame_system::Trait {
 }
 
 decl_storage! {
-    trait Store for Module<T: Trait> as Balances {
-        NextFeeMultiplier get(fn next_fee_multiplier): Multiplier = Multiplier::from_inner(0);
-    }
+	trait Store for Module<T: Trait> as TransactionPayment {
+		pub NextFeeMultiplier get(fn next_fee_multiplier): Multiplier = Multiplier::saturating_from_integer(1);
+	}
 }
 
 decl_module! {
-    pub struct Module<T: Trait> for enum Call where origin: T::Origin {
+	pub struct Module<T: Trait> for enum Call where origin: T::Origin {
+		/// The fee to be paid for making a transaction; the per-byte portion.
+		const TransactionByteFee: BalanceOf<T> = T::TransactionByteFee::get();
 
-        /// The fee to be paid for making a transaction; the per-byte portion.
-        const TransactionByteFee: BalanceOf<T> = T::TransactionByteFee::get();
+		/// The polynomial that is applied in order to derive fee from weight.
+		const WeightToFee: Vec<WeightToFeeCoefficient<BalanceOf<T>>> =
+			T::WeightToFee::polynomial().to_vec();
 
-        /// The polynomial that is applied in order to derive fee from weight.
-        const WeightToFee: Vec<WeightToFeeCoefficient<BalanceOf<T>>> =
-        T::WeightToFee::polynomial().to_vec();
+		fn on_finalize() {
+			NextFeeMultiplier::mutate(|fm| {
+				*fm = T::FeeMultiplierUpdate::convert(*fm);
+			});
+		}
 
-        fn on_finalize() {
-            NextFeeMultiplier::mutate(|fm| {
-                *fm = T::FeeMultiplierUpdate::convert(*fm)
-            });
-        }
-    }
+		fn integrity_test() {
+			// given weight == u64, we build multipliers from `diff` of two weight values, which can
+			// at most be MaximumBlockWeight. Make sure that this can fit in a multiplier without
+			// loss.
+			use sp_std::convert::TryInto;
+			assert!(
+				<Multiplier as sp_runtime::traits::Bounded>::max_value() >=
+				Multiplier::checked_from_integer(
+					<T as frame_system::Trait>::MaximumBlockWeight::get().try_into().unwrap()
+				).unwrap(),
+			);
+		}
+	}
 }
 
 impl<T: Trait> Module<T>
@@ -204,17 +314,22 @@ where
     ) -> BalanceOf<T> {
         if pays_fee == Pays::Yes {
             let len = <BalanceOf<T>>::from(len);
-            let per_byte = T::TransactionByteFee::get();
-            let len_fee = per_byte.saturating_mul(len);
-            let unadjusted_weight_fee = Self::weight_to_fee(weight);
+			let per_byte = T::TransactionByteFee::get();
 
-            // the adjustable part of the fee
-            let adjustable_fee = len_fee.saturating_add(unadjusted_weight_fee);
-            let targeted_fee_adjustment = NextFeeMultiplier::get();
-            let adjusted_fee = targeted_fee_adjustment.saturating_mul_acc_int(adjustable_fee);
+			// length fee. this is not adjusted.
+			let fixed_len_fee = per_byte.saturating_mul(len);
 
-            let base_fee = Self::weight_to_fee(T::ExtrinsicBaseWeight::get());
-            base_fee.saturating_add(adjusted_fee).saturating_add(tip)
+			// the adjustable part of the fee.
+			let unadjusted_weight_fee = Self::weight_to_fee(weight);
+			let multiplier = Self::next_fee_multiplier();
+			// final adjusted weight fee.
+			let adjusted_weight_fee = multiplier.saturating_mul_int(unadjusted_weight_fee);
+
+			let base_fee = Self::weight_to_fee(T::ExtrinsicBaseWeight::get());
+			base_fee
+				.saturating_add(fixed_len_fee)
+				.saturating_add(adjusted_weight_fee)
+				.saturating_add(tip)
         } else {
             tip
         }

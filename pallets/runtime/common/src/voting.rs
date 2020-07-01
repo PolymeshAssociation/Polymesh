@@ -58,6 +58,7 @@ use polymesh_primitives_derive::VecU8StrongTyped;
 use codec::{Decode, Encode};
 use frame_support::{
     decl_error, decl_event, decl_module, decl_storage, dispatch::DispatchResult, ensure,
+    storage::StorageMap
 };
 use frame_system::{self as system, ensure_signed};
 use sp_std::{convert::TryFrom, prelude::*, vec};
@@ -115,7 +116,7 @@ type Identity<T> = identity::Module<T>;
 decl_storage! {
     trait Store for Module<T: Trait> as Voting {
         /// Mapping of ticker and ballot name -> ballot details
-        pub Ballots get(fn ballots): linked_map hasher(blake2_128_concat) (Ticker, Vec<u8>) => Ballot<T::Moment>;
+        pub Ballots get(fn ballots): map hasher(blake2_128_concat) (Ticker, Vec<u8>) => Ballot<T::Moment>;
 
         /// Helper data to make voting cheaper.
         /// (ticker, BallotName) -> NoOfChoices

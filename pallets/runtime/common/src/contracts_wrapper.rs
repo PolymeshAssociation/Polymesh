@@ -29,19 +29,15 @@
 //!   - When code is instantiated enforce a POLYX fee to the DID owning the code (i.e. that executed put_code)
 
 use frame_support::traits::Currency;
-use frame_support::{decl_error, decl_module, decl_storage, dispatch::DispatchResult, ensure};
+use frame_support::{decl_error, decl_module, decl_storage, dispatch::{ DispatchResult, DispatchResultWithPostInfo }, ensure};
 use frame_system::ensure_signed;
-use pallet_contracts::{CodeHash, Gas, Schedule};
+use pallet_contracts::{CodeHash, Gas, Schedule, BalanceOf};
 use pallet_identity as identity;
 use polymesh_common_utilities::{identity::Trait as IdentityTrait, Context};
 use polymesh_primitives::{IdentityId, Signatory};
 use sp_runtime::traits::StaticLookup;
 use sp_std::prelude::Vec;
-use sp_std::TryFrom;
-
-pub type BalanceOf<T> = <<T as pallet_contracts::Trait>::Currency as Currency<
-    <T as frame_system::Trait>::AccountId,
->>::Balance;
+use sp_std::convert::TryFrom;
 
 pub trait Trait: pallet_contracts::Trait + IdentityTrait {}
 
@@ -76,7 +72,6 @@ decl_module! {
         #[weight = 500_000 + 100_00 * u64::try_from(code.len()).unwrap_or_default()]
         pub fn put_code(
             origin,
-            #[compact] gas_limit: Gas,
             code: Vec<u8>
         ) -> DispatchResult {
             let sender = ensure_signed(origin)?;
@@ -91,7 +86,7 @@ decl_module! {
 
             // Call underlying function
             let new_origin = frame_system::RawOrigin::Signed(sender).into();
-            <pallet_contracts::Module<T>>::put_code(new_origin, gas_limit, code)
+            <pallet_contracts::Module<T>>::put_code(new_origin, code)
         }
 
         // Simply forwards to the `call` function in the Contract module.
@@ -102,7 +97,7 @@ decl_module! {
             #[compact] value: BalanceOf<T>,
             #[compact] gas_limit: Gas,
             data: Vec<u8>
-        ) -> DispatchResult {
+        ) -> DispatchResultWithPostInfo {
             <pallet_contracts::Module<T>>::call(origin, dest, value, gas_limit, data)
         }
 
@@ -114,7 +109,7 @@ decl_module! {
             #[compact] gas_limit: Gas,
             code_hash: CodeHash<T>,
             data: Vec<u8>
-        ) -> DispatchResult {
+        ) -> DispatchResultWithPostInfo {
             <pallet_contracts::Module<T>>::instantiate(origin, endowment, gas_limit, code_hash, data)
         }
     }
