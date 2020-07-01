@@ -1842,6 +1842,7 @@ impl<T: Trait> Module<T> {
             <BalanceOf<T>>::contains_key(ticker, &from_did),
             Error::<T>::NotAAssetHolder
         );
+        ensure!(from_did != to_did, Error::<T>::InvalidTransfer);
         let sender_balance = Self::balance(ticker, &from_did);
         ensure!(sender_balance >= value, Error::<T>::InsufficientBalance);
 
@@ -2250,6 +2251,9 @@ impl<T: Trait> Module<T> {
         // Granularity check
         if !Self::check_granularity(&ticker, amount) {
             return Ok(INVALID_GRANULARITY);
+        }
+        if from_did == to_did {
+            return Ok(INVALID_RECEIVER_DID);
         }
         // Non-Issuance case check
         if let Some(from_id) = from_did {
