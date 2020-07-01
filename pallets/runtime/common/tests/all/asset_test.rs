@@ -225,12 +225,7 @@ fn valid_transfers_pass() {
 
         // Should fail as sender matches receiver
         assert_noop!(
-            Asset::transfer(
-                owner_signed.clone(),
-                ticker,
-                owner_did,
-                500
-            ),
+            Asset::transfer(owner_signed.clone(), ticker, owner_did, 500),
             AssetError::InvalidTransfer
         );
 
