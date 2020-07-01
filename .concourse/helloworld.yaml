@@ -1,0 +1,12 @@
+jobs:
+- name: test
+  plan:
+  - task: run-unit
+    config:
+      platform: linux
+      image_resource:
+        type: registry-image
+        source: { repository: busybox }
+      run:
+        path: echo
+        args: ["Hello, world!"]
