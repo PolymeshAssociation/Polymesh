@@ -4186,6 +4186,7 @@ dependencies = [
  "pallet-protocol-fee",
  "pallet-randomness-collective-flip",
  "pallet-session",
+ "pallet-settlement",
  "pallet-statistics",
  "pallet-timestamp",
  "pallet-transaction-payment",

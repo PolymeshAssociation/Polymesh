@@ -13,6 +13,7 @@ use pallet_identity as identity;
 use pallet_multisig as multisig;
 use pallet_pips as pips;
 use pallet_protocol_fee as protocol_fee;
+use pallet_settlement as settlement;
 use pallet_statistics as statistics;
 use pallet_treasury as treasury;
 use pallet_utility as utility;
@@ -97,6 +98,7 @@ impl_outer_event! {
         protocol_fee<T>,
         treasury<T>,
         utility,
+        settlement<T>,
     }
 }
 
@@ -181,6 +183,16 @@ impl pallet_timestamp::Trait for TestStorage {
 
 impl multisig::Trait for TestStorage {
     type Event = Event;
+}
+
+parameter_types! {
+    pub const MaxScheduledInstructionLegsPerBlock: u32 = 500;
+}
+
+impl settlement::Trait for TestStorage {
+    type Event = Event;
+    type Asset = asset::Module<TestStorage>;
+    type MaxScheduledInstructionLegsPerBlock = MaxScheduledInstructionLegsPerBlock;
 }
 
 impl simple_token::Trait for TestStorage {
