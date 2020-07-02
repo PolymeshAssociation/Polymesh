@@ -40,7 +40,7 @@ const UUID_LEN: usize = 32usize;
 ///  - "did:poly:ab01"
 ///  - "did:poly:1"
 ///  - "DID:poly:..."
-#[derive(Encode, Decode, Default, PartialOrd, Ord, PartialEq, Eq, Clone, Copy, Debug)]
+#[derive(Encode, Decode, Default, PartialOrd, Ord, PartialEq, Eq, Clone, Copy, Debug, Hash)]
 pub struct IdentityId([u8; UUID_LEN]);
 
 impl IdentityId {
@@ -175,7 +175,9 @@ pub struct PortfolioName(pub Vec<u8>);
 /// The compound ID of a portfolio.
 #[derive(Decode, Encode, Clone, Debug, Default, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub struct PortfolioId {
+    /// DID
     pub did: IdentityId,
+    /// Portfolio name
     pub name: PortfolioName,
 }
 
@@ -185,6 +187,16 @@ impl Printable for PortfolioId {
         if !self.name.0.is_empty() {
             sp_io::misc::print_utf8(b"/");
             sp_io::misc::print_utf8(&self.name);
+        }
+    }
+}
+
+impl PortfolioId {
+    /// Returns the ID of the default portfolio of a given identity.
+    pub fn default_portfolio(did: IdentityId) -> Self {
+        PortfolioId {
+            did,
+            ..Default::default()
         }
     }
 }

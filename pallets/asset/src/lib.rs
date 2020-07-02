@@ -94,8 +94,9 @@
 #![recursion_limit = "256"]
 #[cfg(feature = "runtime-benchmarks")]
 pub mod benchmarking;
+pub mod portfolio;
 
-use pallet_identity::{self as identity, PortfolioId, PortfolioName};
+use pallet_identity::identity;
 use pallet_statistics as statistics;
 use polymesh_common_utilities::{
     asset::{AcceptTransfer, IssueAssetItem, Trait as AssetTrait},
@@ -107,8 +108,8 @@ use polymesh_common_utilities::{
     CommonTrait, Context,
 };
 use polymesh_primitives::{
-    AuthorizationData, AuthorizationError, Document, IdentityId, LinkData, Signatory,
-    SmartExtension, SmartExtensionName, SmartExtensionType, Ticker,
+    AuthorizationData, AuthorizationError, Document, IdentityId, LinkData, PortfolioId,
+    PortfolioName, Signatory, SmartExtension, SmartExtensionName, SmartExtensionType, Ticker,
 };
 use polymesh_primitives_derive::VecU8StrongTyped;
 
@@ -138,6 +139,7 @@ pub trait Trait:
     + pallet_session::Trait
     + statistics::Trait
     + pallet_contracts::Trait
+    + crate::portfolio::Trait
 {
     /// The overarching event type.
     type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
@@ -158,7 +160,7 @@ pub enum AssetType {
     StructuredProduct,
     Derivative,
     Custom(Vec<u8>),
-33}
+}
 
 impl Default for AssetType {
     fn default() -> Self {
@@ -291,10 +293,10 @@ decl_storage! {
         pub CheckpointTotalSupply get(fn total_supply_at): map hasher(blake2_128_concat) (Ticker, u64) => T::Balance;
         /// Balance of a DID at a checkpoint.
         /// (ticker, portfolio, checkpoint ID) -> Balance of a DID at a checkpoint
-        CheckpointBalance get(fn balance_at_checkpoint): map hasher(blake2_128_concat) (Ticker, PortfolioId, u64) => T::Balance;
+        CheckpointBalance get(fn balance_at_checkpoint): map hasher(blake2_128_concat) (Ticker, IdentityId, u64) => T::Balance;
         /// Last checkpoint updated for a DID's balance.
         /// (ticker, portfolio) -> List of checkpoints where user balance changed
-        UserCheckpoints get(fn user_checkpoints): map hasher(blake2_128_concat) (Ticker, PortfolioId) => Vec<u64>;
+        UserCheckpoints get(fn user_checkpoints): map hasher(blake2_128_concat) (Ticker, IdentityId) => Vec<u64>;
         /// Allowance provided to the custodian.
         /// (ticker, token holder, custodian) -> balance
         pub CustodianAllowance get(fn custodian_allowance): map hasher(blake2_128_concat) (Ticker, IdentityId, IdentityId) => T::Balance;
