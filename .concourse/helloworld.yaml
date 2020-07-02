@@ -1,6 +1,17 @@
+resources:
+- name: Polymesh
+  type: git
+  icon: github
+  source:
+    uri: git@github.com:cwsatpolymath/Polymesh.git
+    branch: ((helloworld_branch))
+    private_key: ((polymesh-github.id_concourse_rsa))
+
 jobs:
 - name: test
   plan:
+  - get: Polymesh
+    trigger: true
   - task: run-unit
     config:
       platform: linux
