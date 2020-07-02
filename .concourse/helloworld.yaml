@@ -11,7 +11,7 @@ jobs:
 - name: test
   plan:
   - get: Polymesh
-    trigger: true
+    trigger: false
   - task: run-unit
     config:
       platform: linux
