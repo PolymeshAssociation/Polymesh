@@ -212,6 +212,7 @@ pub struct SecurityToken<U> {
     pub divisible: bool,
     pub asset_type: AssetType,
     pub link_id: u64,
+    pub treasury_did: Option<IdentityId>,
 }
 
 /// struct to store the signed data.
@@ -408,14 +409,15 @@ decl_module! {
         /// # Weight
         /// `400_000 + 20_000 * identifiers.len()`
         #[weight = FunctionOf(
-            |(_, _, _, _, _, identifiers, _): (
+            |(_, _, _, _, _, identifiers, _, _): (
                 &AssetName,
                 &Ticker,
                 &T::Balance,
                 &bool,
                 &AssetType,
                 &Vec<(IdentifierType, AssetIdentifier)>,
-                &Option<FundingRoundName>
+                &Option<FundingRoundName>,
+                &Option<IdentityId>,
             )| {
                 400_000 + 20_000 * u32::try_from(identifiers.len()).unwrap_or_default()
             },
@@ -430,7 +432,8 @@ decl_module! {
             divisible: bool,
             asset_type: AssetType,
             identifiers: Vec<(IdentifierType, AssetIdentifier)>,
-            funding_round: Option<FundingRoundName>
+            funding_round: Option<FundingRoundName>,
+            treasury_did: Option<IdentityId>,
         ) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             let did = Context::current_identity_or::<Identity<T>>(&sender)?;
@@ -486,6 +489,7 @@ decl_module! {
                 divisible,
                 asset_type: asset_type.clone(),
                 link_id: link,
+                treasury_did,
             };
             <Tokens<T>>::insert(&ticker, token);
             <BalanceOf<T>>::insert(ticker, did, total_supply);
@@ -1343,6 +1347,30 @@ decl_module! {
             Self::deposit_event(RawEvent::ExtensionUnArchived(my_did, ticker, extension_id));
             Ok(())
         }
+
+        /// Sets the treasury DID to a given value. The caller must be the asset issuer. The asset
+        /// issuer can always update the treasury DID, including setting it to `None`. If the issuer
+        /// modifies their treasury DID to `None` then it will be immovable until either they change
+        /// the treasury DID to `Some` DID, or they add a claim to allow that DID to move the
+        /// asset.
+        ///
+        /// # Arguments
+        /// * `origin` - The asset issuer.
+        /// * `ticker` - Ticker symbol of the asset.
+        /// * `treasury_did` - The treasury DID wrapped in a value of type [`Option`].
+        #[weight = SimpleDispatchInfo::FixedNormal(250_000)]
+        pub fn set_treasury_did(
+            origin,
+            ticker: Ticker,
+            treasury_did: Option<IdentityId>,
+        ) -> DispatchResult {
+            let sender = ensure_signed(origin)?;
+            let did = Context::current_identity_or::<Identity<T>>(&sender)?;
+            ensure!(Self::is_owner(&ticker, did), Error::<T>::Unauthorized);
+            <Tokens<T>>::mutate(&ticker, |token| token.treasury_did = treasury_did);
+            Self::deposit_event(RawEvent::TreasuryDidSet(did, ticker, treasury_did));
+            Ok(())
+        }
     }
 }
 
@@ -1425,6 +1453,8 @@ decl_event! {
         /// Emitted event for Checkpoint creation.
         /// caller DID. ticker, checkpoint count.
         CheckpointCreated(IdentityId, Ticker, u64),
+        /// An event emitted when the treasury DID of an asset is set.
+        TreasuryDidSet(IdentityId, Ticker, Option<IdentityId>),
     }
 }
 
@@ -1795,8 +1825,14 @@ impl<T: Trait> Module<T> {
         if Self::frozen(ticker) {
             return Ok(ERC1400_TRANSFERS_HALTED);
         }
-        let general_status_code =
-            T::ComplianceManager::verify_restriction(ticker, from_did, to_did, value)?;
+        let treasury_did = <Tokens<T>>::get(ticker).treasury_did;
+        let general_status_code = T::ComplianceManager::verify_restriction(
+            ticker,
+            from_did,
+            to_did,
+            value,
+            treasury_did,
+        )?;
         Ok(if general_status_code != ERC1400_TRANSFER_SUCCESS {
             COMPLIANCE_MANAGER_FAILURE
         } else {
@@ -1853,6 +1889,7 @@ impl<T: Trait> Module<T> {
             <BalanceOf<T>>::contains_key(ticker, &from_did),
             Error::<T>::NotAAssetHolder
         );
+        ensure!(from_did != to_did, Error::<T>::InvalidTransfer);
         let sender_balance = Self::balance(ticker, &from_did);
         ensure!(sender_balance >= value, Error::<T>::InsufficientBalance);
 
@@ -2291,6 +2328,9 @@ impl<T: Trait> Module<T> {
         if !Self::check_granularity(&ticker, amount) {
             return Ok(INVALID_GRANULARITY);
         }
+        if from_did == to_did {
+            return Ok(INVALID_RECEIVER_DID);
+        }
         // Non-Issuance case check
         if let Some(from_id) = from_did {
             if Identity::<T>::has_valid_cdd(from_id) {
@@ -2348,7 +2388,7 @@ impl<T: Trait> Module<T> {
         );
         Self::unsafe_transfer(custodian_did, &ticker, holder_did, receiver_did, value)?;
         // Update Storage of allowance
-        <CustodianAllowance<T>>::insert((ticker, custodian_did, holder_did), &custodian_allowance);
+        <CustodianAllowance<T>>::insert((ticker, holder_did, custodian_did), &custodian_allowance);
         <TotalCustodyAllowance<T>>::insert((ticker, holder_did), new_total_allowance);
         Self::deposit_event(RawEvent::CustodyTransfer(
             custodian_did,

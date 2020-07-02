@@ -68,6 +68,7 @@ fn make_token<T: Trait>(
         asset_type,
         identifiers,
         Some(fundr),
+        None,
     )
     .unwrap();
     ticker
@@ -153,7 +154,7 @@ benchmarks! {
             iter::repeat(Default::default()).take(i as usize).collect();
         let fundr = FundingRoundName::from(vec![b'F'; f as usize].as_slice());
         let origin = make_account::<T>("caller", u).1;
-    }: _(origin, name, ticker, total_supply, true, asset_type, identifiers, Some(fundr))
+    }: _(origin, name, ticker, total_supply, true, asset_type, identifiers, Some(fundr), None)
 
     freeze {
         let u in ...;

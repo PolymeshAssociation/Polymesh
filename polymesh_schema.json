@@ -41,7 +41,8 @@
             "owner_did": "IdentityId",
             "divisible": "bool",
             "asset_type": "AssetType",
-            "link_id": "u64"
+            "link_id": "u64",
+            "treasury_did": "Option<IdentityId>"
         },
         "LinkedKeyInfo": {
             "_enum": {

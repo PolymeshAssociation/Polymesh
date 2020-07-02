@@ -329,7 +329,10 @@ decl_module! {
                     let aye_call = T::EnactProposalMaker::enact_referendum_call(id);
                     let nay_call = T::EnactProposalMaker::reject_referendum_call(id);
                     (aye_call, nay_call)
-                })
+                })?;
+            let current_did = Context::current_identity::<Identity<T>>().unwrap_or_default();
+            Self::deposit_event(RawEvent::VoteEnactReferendum(current_did, id));
+            Ok(())
         }
 
         #[weight = SimpleDispatchInfo::FixedOperational(5_000_000)]
@@ -339,7 +342,10 @@ decl_module! {
                     let aye_call = T::EnactProposalMaker::enact_referendum_call(id);
                     let nay_call = T::EnactProposalMaker::reject_referendum_call(id);
                     (nay_call, aye_call)
-                })
+                })?;
+            let current_did = Context::current_identity::<Identity<T>>().unwrap_or_default();
+            Self::deposit_event(RawEvent::VoteRejectReferendum(current_did, id));
+            Ok(())
         }
     }
 }
@@ -499,10 +505,8 @@ impl<T: Trait<I>, I: Instance> Module<T, I> {
         );
 
         // It creates the proposal if it does not exists or vote that proposal.
-        // let enact_call = T::EnactProposalMaker::enact_referendum_call(id);
         let (aye_call, nay_call) = call_maker();
         let hash = T::Hashing::hash_of(&aye_call);
-        // Self::deposit_event( RawEvent::VoteEnactReferendum(who_id, id));
 
         if let Some(voting) = Self::voting(hash) {
             Self::vote(who_id, hash, voting.index, true)?;
