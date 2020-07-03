@@ -16,7 +16,7 @@
 #![feature(box_syntax)]
 
 use polymesh_common_utilities::{identity::Trait as IdentityTrait, Context};
-use polymesh_primitives::{AccountKey, IdentityId, Ticker};
+use polymesh_primitives::{AccountId, IdentityId, Ticker};
 use polymesh_primitives_derive::{SliceU8StrongTyped, VecU8StrongTyped};
 
 use pallet_identity as identity;
@@ -86,8 +86,8 @@ decl_module! {
             secret_value: u64,
         ) -> DispatchResult
         {
-            let prover_key = AccountKey::try_from(ensure_signed(origin)?.encode())?;
-            let prover = Context::current_identity_or::<Identity<T>>(&prover_key)?;
+            let prover_acc = ensure_signed(origin)?;
+            let prover = Context::current_identity_or::<Identity<T>>(&prover_acc)?;
 
             // Create proof
             let mut rng = rng::Rng::default();
@@ -103,10 +103,7 @@ decl_module! {
                 final_response: final_response.to_bytes().into(),
                 max_two_exp: 32,
             };
-            let prover_ticker_key = ProberTickerKey {
-                prover,
-                ticker
-            };
+            let prover_ticker_key = ProberTickerKey { prover, ticker };
             <RangeProofs>::insert(&target_id, &prover_ticker_key, ticker_range_proof);
             Ok(())
         }
@@ -117,12 +114,12 @@ decl_module! {
             prover: IdentityId,
             ticker: Ticker) -> DispatchResult
         {
-            let verifier_key = AccountKey::try_from(ensure_signed(origin)?.encode())?;
-            let verifier = Context::current_identity_or::<Identity<T>>(&verifier_key)?;
+            let verifier = ensure_signed(origin)?;
+            let verifier_id = Context::current_identity_or::<Identity<T>>(&verifier)?;
 
             Self::verify_range_proof(target, prover, ticker.clone())?;
 
-            <RangeProofVerifications>::insert((target,ticker), verifier, true);
+            <RangeProofVerifications>::insert((target,ticker), verifier_id, true);
             Ok(())
         }
     }

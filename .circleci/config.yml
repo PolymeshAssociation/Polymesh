@@ -33,7 +33,7 @@ jobs:
           command: git submodule update --init --recursive
       - run:
           name: Build release
-          command: cargo +nightly build --release || cargo +nightly build -j 1 --release
+          command: cargo build --release || cargo build -j 1 --release
           no_output_timeout: 4h
       - save_cache:
           key: v2-release-cache-{{ checksum "./rust.version" }}-{{ checksum "./Cargo.lock" }}
@@ -63,7 +63,7 @@ jobs:
       - run:
           name: Tests
           command: >-
-            cargo +nightly test
+            cargo test
             --package polymesh-runtime-common
             --package pallet-staking
             --package pallet-group
@@ -72,7 +72,7 @@ jobs:
             --package pallet-transaction-payment
             --package pallet-cdd-offchain-worker
             --features default_identity ||
-            cargo +nightly test -j 1
+            cargo test -j 1
             --package polymesh-runtime-common
             --package pallet-staking
             --package pallet-group
@@ -108,7 +108,7 @@ jobs:
           command: git submodule update --init --recursive
       - run:
           name: Build release
-          command: cargo +nightly build --release || cargo +nightly build -j 1 --release
+          command: cargo build --release || cargo build -j 1 --release
           no_output_timeout: 4h
       - run:
           name: cli node instance
