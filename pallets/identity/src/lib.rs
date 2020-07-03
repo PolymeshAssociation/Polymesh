@@ -103,7 +103,7 @@ use polymesh_common_utilities::{
 use polymesh_primitives::{
     AccountKey, AuthIdentifier, Authorization, AuthorizationData, AuthorizationError, Claim,
     ClaimType, Identity as DidRecord, IdentityClaim, IdentityId, JoinIdentityData, Link, LinkData,
-    Permission, Scope, Signatory, SignatoryType, SigningItem, Ticker,
+    Permission, Scope, Signatory, SignatoryType, SigningItem, Ticker, CddId, InvestorUID,
 };
 
 use codec::{Decode, Encode};
@@ -292,23 +292,25 @@ decl_module! {
         pub fn cdd_register_did(
             origin,
             target_account: T::AccountId,
+            cdd_id: CddId,
             cdd_claim_expiry: Option<T::Moment>,
             signing_items: Vec<SigningItem>
         ) -> DispatchResult {
             // Sender has to be part of CDDProviders
-            let cdd_sender = ensure_signed(origin)?;
-            let cdd_key = AccountKey::try_from(cdd_sender.encode())?;
-            let cdd_id = Context::current_identity_or::<Self>(&cdd_key)?;
+            let sender = ensure_signed(origin)?;
+            let sender_key = AccountKey::try_from(sender.encode())?;
+            let trusted_cdd_id = Context::current_identity_or::<Self>(&sender_key)?;
 
-            let cdd_providers = T::CddServiceProviders::get_members();
-            ensure!(cdd_providers.contains(&cdd_id), Error::<T>::UnAuthorizedCddProvider);
+            // Double check that sender is a trusted CDD provider.
+            let trusted_cdd_providers = T::CddServiceProviders::get_members();
+            ensure!(trusted_cdd_providers.contains(&trusted_cdd_id), Error::<T>::UnAuthorizedCddProvider);
             // Register Identity and add claim.
             let new_id = Self::_register_did(
                 target_account,
                 signing_items,
-                Some((&Signatory::AccountKey(cdd_key), ProtocolOp::IdentityCddRegisterDid))
+                Some((&Signatory::AccountKey(sender_key), ProtocolOp::IdentityCddRegisterDid))
             )?;
-            Self::unsafe_add_claim(new_id, Claim::CustomerDueDiligence, cdd_id, cdd_claim_expiry);
+            Self::unsafe_add_claim(new_id, Claim::CustomerDueDiligence(cdd_id), trusted_cdd_id, cdd_claim_expiry);
             Ok(())
         }
 
@@ -502,8 +504,8 @@ decl_module! {
             let issuer = Context::current_identity_or::<Self>(&sender_key)?;
             ensure!(<DidRecords>::contains_key(target), Error::<T>::DidMustAlreadyExist);
 
-            match claim {
-                Claim::CustomerDueDiligence => Self::unsafe_add_cdd_claim(target, claim, issuer, expiry)?,
+            match &claim {
+                Claim::CustomerDueDiligence(..) => Self::unsafe_add_cdd_claim(target, claim, issuer, expiry)?,
                 _ => {
                     T::ProtocolFee::charge_fee(
                     &Signatory::AccountKey(sender_key),
@@ -541,7 +543,7 @@ decl_module! {
             let cdd_count: usize = claims
                 .iter()
                 .filter(|batch_claim_item| match batch_claim_item.claim {
-                    Claim::CustomerDueDiligence => true,
+                    Claim::CustomerDueDiligence(..) => true,
                     _ => false,
                 })
                 .count();
@@ -2269,14 +2271,22 @@ impl<T: Trait> IdentityTrait for Module<T> {
 
     /// Adds systematic CDD claims.
     fn unsafe_add_systematic_cdd_claims(targets: &[IdentityId], issuer: SystematicIssuers) {
-        targets.iter().for_each(|new_member| {
-            Self::unsafe_add_claim(
-                *new_member,
-                Claim::CustomerDueDiligence,
-                issuer.as_id(),
-                None,
-            )
-        });
+        // Generate Investor UID for systematic identities.
+        let cdd_ids = targets.iter()
+            .map(|sys_id| CddId::new(sys_id.clone(), InvestorUID::from(&sys_id)))
+            .collect::<Vec<_>>();
+
+        // Add a CDD claim with its systematic UID for each sytematic identity.
+        targets.iter()
+            .zip(cdd_ids.into_iter())
+            .for_each(|(new_member, cdd_id)| {
+                Self::unsafe_add_claim(
+                    *new_member,
+                    Claim::CustomerDueDiligence(cdd_id),
+                    issuer.as_id(),
+                    None,
+                )
+            });
     }
 
     /// Removes systematic CDD claims.

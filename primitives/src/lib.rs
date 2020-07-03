@@ -104,6 +104,12 @@ pub use identity_id::IdentityId;
 pub mod identity;
 pub use identity::Identity;
 
+/// CDD Identity is an ID to link the encrypted investor UID with one Identity ID.
+/// That keeps the privacy of a real investor and its global portfolio split in several Polymesh
+/// Identities.
+pub mod cdd_id;
+pub use cdd_id::{CddId, InvestorUID};
+
 /// Claim information.
 /// Each claim is associated with this kind of record.
 pub mod identity_claim;

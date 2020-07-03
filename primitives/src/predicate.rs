@@ -23,7 +23,8 @@ use sp_std::prelude::*;
 /// # TODO
 ///  - Use a lazy access to claims. It could be part of the optimization
 ///  process of CDD claims.
-#[derive(Encode, Decode, Clone, Debug, Default)]
+#[derive(Encode, Decode, Clone, Default)]
+#[cfg_attr(feature = "std", derive(Debug))]
 pub struct Context {
     /// Predicate evaluation will use those claims.
     pub claims: Vec<Claim>,
@@ -114,7 +115,8 @@ pub fn run(rule: Rule, context: &Context) -> bool {
 // ======================================================
 
 /// It checks the existential of a claim.
-#[derive(Clone, Debug)]
+#[derive(Clone)]
+#[cfg_attr(feature = "std", derive(Debug))]
 pub struct ExistentialPredicate<'a> {
     /// Claims we want to check if it exists in context.
     pub claim: &'a Claim,
@@ -134,7 +136,8 @@ impl<'a> Predicate for ExistentialPredicate<'a> {
 // ======================================================
 
 /// A composition predicate of two others using logical AND operator.
-#[derive(Encode, Decode, Clone, Debug)]
+#[derive(Encode, Decode, Clone)]
+#[cfg_attr(feature = "std", derive(Debug))]
 pub struct AndPredicate<P1, P2>
 where
     P1: Predicate + Sized,
@@ -172,7 +175,8 @@ where
 // ======================================================
 
 /// A composition predicate of two others using logical OR operator.
-#[derive(Encode, Decode, Clone, Debug)]
+#[derive(Encode, Decode, Clone)]
+#[cfg_attr(feature = "std", derive(Debug))]
 pub struct OrPredicate<P1, P2>
 where
     P1: Predicate + Sized,
@@ -210,7 +214,8 @@ where
 // ======================================================
 
 /// Predicate that returns a logical NOT of other predicate.
-#[derive(Encode, Decode, Clone, Debug)]
+#[derive(Encode, Decode, Clone)]
+#[cfg_attr(feature = "std", derive(Debug))]
 pub struct NotPredicate<P: Predicate + Sized> {
     predicate: P,
 }
@@ -238,7 +243,8 @@ impl<P: Predicate + Sized> Predicate for NotPredicate<P> {
 // =========================================================
 
 /// Predicate that checks if any of its internal claims exists in context.
-#[derive(Clone, Debug)]
+#[derive(Clone)]
+#[cfg_attr(feature = "std", derive(Debug))]
 pub struct AnyPredicate<'a> {
     /// List of claims to find in context.
     pub claims: &'a [Claim],
@@ -259,18 +265,21 @@ impl<'a> Predicate for AnyPredicate<'a> {
 mod tests {
     use crate::{
         predicate::{self, Context, Predicate},
-        Claim, Rule, RuleType, Scope,
+        CddId, Claim, IdentityId, InvestorUID, Rule, RuleType, Scope,
     };
     use std::convert::From;
 
     #[test]
     fn existential_operators_test() {
         let scope = Scope::from(0);
-        let context = Context::from(vec![Claim::CustomerDueDiligence, Claim::Affiliate(scope)]);
+        let cdd_claim = Claim::CustomerDueDiligence(CddId::new(
+            IdentityId::from(1),
+            InvestorUID::from(b"UID1"),
+        ));
+        let context = Context::from(vec![cdd_claim.clone(), Claim::Affiliate(scope)]);
 
         // Affiliate && CustommerDueDiligenge
         let affiliate_claim = Claim::Affiliate(scope);
-        let cdd_claim = Claim::CustomerDueDiligence;
         let affiliate_and_cdd_pred =
             predicate::exists(&affiliate_claim).and(predicate::exists(&cdd_claim));
 
