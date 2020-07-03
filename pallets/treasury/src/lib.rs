@@ -33,15 +33,6 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 #![recursion_limit = "256"]
 
-use pallet_identity as identity;
-use polymesh_common_utilities::{
-    constants::TREASURY_MODULE_ID,
-    traits::{balances::Trait as BalancesTrait, identity::Trait as IdentityTrait, CommonTrait},
-    Context, SystematicIssuers,
-};
-use polymesh_primitives::{traits::IdentityCurrency, AccountKey, Beneficiary, IdentityId};
-
-use codec::Encode;
 use frame_support::{
     decl_error, decl_event, decl_module,
     dispatch::DispatchResult,
@@ -49,8 +40,15 @@ use frame_support::{
     traits::{Currency, ExistenceRequirement, Imbalance, OnUnbalanced, WithdrawReason},
 };
 use frame_system::{self as system, ensure_root, ensure_signed};
+use pallet_identity as identity;
+use polymesh_common_utilities::{
+    constants::TREASURY_MODULE_ID,
+    traits::{balances::Trait as BalancesTrait, identity::Trait as IdentityTrait, CommonTrait},
+    Context, SystematicIssuers,
+};
+use polymesh_primitives::{traits::IdentityCurrency, Beneficiary, IdentityId};
 use sp_runtime::traits::{AccountIdConversion, Saturating};
-use sp_std::{convert::TryFrom, prelude::*};
+use sp_std::prelude::*;
 
 pub type ProposalIndex = u32;
 
@@ -127,8 +125,7 @@ decl_module! {
         /// Only accounts which are associated to an identity can make a donation to treasury.
         pub fn reimbursement(origin, amount: BalanceOf<T>) -> DispatchResult {
             let sender = ensure_signed(origin)?;
-            let sender_key = AccountKey::try_from(sender.encode())?;
-            let did = Context::current_identity_or::<Identity<T>>(&sender_key)?;
+            let did = Context::current_identity_or::<Identity<T>>(&sender)?;
 
             let _ = T::Currency::transfer(
                 &sender,

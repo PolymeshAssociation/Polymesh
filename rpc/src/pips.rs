@@ -13,6 +13,9 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
+use codec::Codec;
+use jsonrpc_core::{Error as RpcError, ErrorCode, Result};
+use jsonrpc_derive::rpc;
 pub use node_rpc_runtime_api::pips::{
     self as runtime_api,
     capped::{Vote, VoteCount},
@@ -20,11 +23,6 @@ pub use node_rpc_runtime_api::pips::{
 };
 use pallet_pips::{HistoricalVotingByAddress, HistoricalVotingById, VoteByPip};
 use polymesh_primitives::IdentityId;
-
-use codec::Codec;
-use jsonrpc_core::{Error as RpcError, ErrorCode, Result};
-use jsonrpc_derive::rpc;
-
 use sp_api::{ApiRef, ProvideRuntimeApi};
 use sp_blockchain::HeaderBackend;
 use sp_runtime::{
@@ -32,7 +30,6 @@ use sp_runtime::{
     traits::{Block as BlockT, UniqueSaturatedInto},
 };
 use sp_std::{prelude::*, vec::Vec};
-
 use std::sync::Arc;
 
 /// Pips RPC methods.
@@ -64,7 +61,7 @@ pub trait PipsApi<BlockHash, AccountId, Balance> {
         &self,
         id: IdentityId,
         at: Option<BlockHash>,
-    ) -> Result<HistoricalVotingById<Vote>>;
+    ) -> Result<HistoricalVotingById<AccountId, Vote>>;
 }
 
 /// An implementation of pips specific RPC methods.
@@ -158,7 +155,7 @@ where
         &self,
         id: IdentityId,
         at: Option<<Block as BlockT>::Hash>,
-    ) -> Result<HistoricalVotingById<Vote>> {
+    ) -> Result<HistoricalVotingById<AccountId, Vote>> {
         let history = rpc_forward_call!(
             self,
             at,
@@ -180,7 +177,7 @@ where
 
                 (address, history)
             })
-            .collect::<HistoricalVotingById<_>>();
+            .collect::<HistoricalVotingById<_, _>>();
 
         Ok(history)
     }

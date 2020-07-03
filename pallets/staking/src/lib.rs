@@ -283,11 +283,12 @@ use frame_support::{
     },
     weights::SimpleDispatchInfo,
 };
+use frame_system::{self as system, ensure_root, ensure_signed};
+use pallet_babe;
 use pallet_identity as identity;
 use pallet_session::historical::SessionManager;
 use polymesh_common_utilities::{identity::Trait as IdentityTrait, Context};
-use primitives::{traits::BlockRewardsReserveCurrency, AccountKey, IdentityId};
-
+use primitives::{traits::BlockRewardsReserveCurrency, IdentityId};
 use sp_phragmen::ExtendedBalance;
 use sp_runtime::{
     curve::PiecewiseLinear,
@@ -297,22 +298,13 @@ use sp_runtime::{
     },
     PerThing, Perbill, RuntimeDebug,
 };
+#[cfg(feature = "std")]
+use sp_runtime::{Deserialize, Serialize};
 use sp_staking::{
     offence::{Offence, OffenceDetails, OffenceError, OnOffenceHandler, ReportOffence},
     SessionIndex,
 };
-use sp_std::{
-    collections::btree_map::BTreeMap,
-    convert::{TryFrom, TryInto},
-    prelude::*,
-    result,
-};
-
-use frame_system::{self as system, ensure_root, ensure_signed};
-#[cfg(feature = "std")]
-use sp_runtime::{Deserialize, Serialize};
-
-use pallet_babe;
+use sp_std::{collections::btree_map::BTreeMap, prelude::*, result};
 
 const DEFAULT_MINIMUM_VALIDATOR_COUNT: u32 = 4;
 const MAX_NOMINATIONS: usize = 16;
@@ -1281,8 +1273,7 @@ decl_module! {
             // the threshold value of timestamp i.e current_timestamp + Bonding duration
             // then nominator is added into the nominator pool.
 
-            let stash_key = stash.encode().try_into()?;
-            if let Some(nominate_identity) = <identity::Module<T>>::get_identity(&stash_key) {
+            if let Some(nominate_identity) = <identity::Module<T>>::get_identity(stash) {
                 let leeway = Self::get_bonding_duration_period() as u32;
                 let is_cdded = <identity::Module<T>>::fetch_cdd(nominate_identity, leeway.into()).is_some();
 
@@ -1300,7 +1291,7 @@ decl_module! {
                     };
 
                     <Validators<T>>::remove(stash);
-                    <Nominators<T>>::insert(stash, &nominations);
+                    <Nominators<T>>::insert(stash.clone(), &nominations);
                     Self::deposit_event(RawEvent::Nominated(nominate_identity, stash.clone(), targets));
                 }
             }
@@ -1395,8 +1386,7 @@ decl_module! {
             ensure!(!Self::permissioned_validators(&validator), Error::<T>::AlreadyExists);
             // Change validator status to be Permissioned
             <PermissionedValidators<T>>::insert(&validator, true);
-            let validator_key = validator.encode().try_into()?;
-            let validator_id = <identity::Module<T>>::get_identity(&validator_key);
+            let validator_id = <identity::Module<T>>::get_identity(&validator);
             Self::deposit_event(RawEvent::PermissionedValidatorAdded(validator_id, validator));
         }
 
@@ -1411,7 +1401,7 @@ decl_module! {
         pub fn remove_permissioned_validator(origin, validator: T::AccountId) {
             T::RequiredRemoveOrigin::try_origin(origin.clone())
                 .map_err(|_| Error::<T>::NotAuthorised)?;
-            let caller = ensure_signed(origin)?.encode().try_into()?;
+            let caller = ensure_signed(origin)?;
             let caller_id = Context::current_identity_or::<T::Identity>(&caller).ok();
             ensure!(Self::permissioned_validators(&validator), Error::<T>::NotExists);
             // Change validator status to be Non-Permissioned
@@ -1433,8 +1423,7 @@ decl_module! {
         #[weight = SimpleDispatchInfo::FixedNormal(950_000)]
         pub fn validate_cdd_expiry_nominators(origin, targets: Vec<T::AccountId>) {
             let caller = ensure_signed(origin)?;
-            let caller_key = caller.encode().try_into()?;
-            let caller_id = Context::current_identity_or::<T::Identity>(&caller_key)?;
+            let caller_id = Context::current_identity_or::<T::Identity>(&caller)?;
 
             let mut expired_nominators = Vec::new();
             ensure!(!targets.is_empty(), "targets cannot be empty");
@@ -1444,7 +1433,7 @@ decl_module! {
 
                 if let Some(_) = Self::nominators(target) {
                     // Access the identity of the nominator
-                    if let Some(nominate_identity) = <identity::Module<T>>::get_identity(&(AccountKey::try_from(target.encode())?)) {
+                    if let Some(nominate_identity) = <identity::Module<T>>::get_identity(&target) {
                         // Fetch all the claim values provided by the trusted service providers
                         // There is a possibility that nominator will have more than one claim for the same key,
                         // So we iterate all of them and if any one of the claim value doesn't expire then nominator posses
@@ -1479,7 +1468,7 @@ decl_module! {
         pub fn enable_individual_commissions(origin) {
             T::RequiredCommissionOrigin::try_origin(origin.clone())
                 .map_err(|_| Error::<T>::NotAuthorised)?;
-            let key = ensure_signed(origin).encode().try_into()?;
+            let key = ensure_signed(origin)?;
             let id = <identity::Module<T>>::get_identity(&key);
 
             // Ensure individual commissions are not already enabled
@@ -1500,7 +1489,7 @@ decl_module! {
         pub fn set_global_commission(origin, new_value: Perbill) {
             T::RequiredCommissionOrigin::try_origin(origin.clone())
                 .map_err(|_| Error::<T>::NotAuthorised)?;
-            let key = ensure_signed(origin).encode().try_into()?;
+            let key = ensure_signed(origin)?;
             let id = <identity::Module<T>>::get_identity(&key);
 
             // Ensure individual commissions are not already enabled
@@ -1523,7 +1512,7 @@ decl_module! {
         pub fn set_min_bond_threshold(origin, new_value: BalanceOf<T>) {
             T::RequiredCommissionOrigin::try_origin(origin.clone())
                 .map_err(|_| Error::<T>::NotAuthorised)?;
-            let key = ensure_signed(origin).encode().try_into()?;
+            let key = ensure_signed(origin)?;
             let id = <identity::Module<T>>::get_identity(&key);
 
             <MinimumBondThreshold<T>>::put(new_value);
@@ -1735,17 +1724,16 @@ impl<T: Trait> Module<T> {
         let invalid_nominators = <Nominators<T>>::enumerate()
             .into_iter()
             .filter_map(|(nominator_stash_key, _nominations)| {
-                if let Ok(key_id) = AccountKey::try_from(nominator_stash_key.encode()) {
-                    if let Some(nominate_identity) = <identity::Module<T>>::get_identity(&(key_id))
+                if let Some(nominate_identity) =
+                    <identity::Module<T>>::get_identity(&(nominator_stash_key))
+                {
+                    if !(<identity::Module<T>>::fetch_cdd(
+                        nominate_identity,
+                        buffer.saturated_into::<T::Moment>(),
+                    ))
+                    .is_some()
                     {
-                        if !(<identity::Module<T>>::fetch_cdd(
-                            nominate_identity,
-                            buffer.saturated_into::<T::Moment>(),
-                        ))
-                        .is_some()
-                        {
-                            return Some(nominator_stash_key);
-                        }
+                        return Some(nominator_stash_key);
                     }
                 }
                 return None;
@@ -1851,8 +1839,7 @@ impl<T: Trait> Module<T> {
         }
 
         if let Some(imbalance) = Self::make_payout(&nominator_ledger.stash, reward * era_payout) {
-            let who_key = who.encode().try_into()?;
-            let who_id = <identity::Module<T>>::get_identity(&who_key);
+            let who_id = <identity::Module<T>>::get_identity(&who);
             Self::deposit_event(RawEvent::Rewarded(who_id, who, imbalance.peek()));
         }
 
@@ -1898,8 +1885,7 @@ impl<T: Trait> Module<T> {
         );
 
         if let Some(imbalance) = Self::make_payout(&ledger.stash, reward * era_payout) {
-            let who_key = who.encode().try_into()?;
-            let who_id = <identity::Module<T>>::get_identity(&who_key);
+            let who_id = <identity::Module<T>>::get_identity(&who);
             Self::deposit_event(RawEvent::Rewarded(who_id, who, imbalance.peek()));
         }
 
@@ -2325,10 +2311,8 @@ impl<T: Trait> Module<T> {
 
     /// Is the stash account one of the permissioned validators?
     pub fn is_validator_or_nominator_compliant(stash: &T::AccountId) -> bool {
-        if let Some(account_key) = AccountKey::try_from(stash.encode()).ok() {
-            if let Some(validator_identity) = <identity::Module<T>>::get_identity(&(account_key)) {
-                return <identity::Module<T>>::has_valid_cdd(validator_identity);
-            }
+        if let Some(validator_identity) = <identity::Module<T>>::get_identity(&stash) {
+            return <identity::Module<T>>::has_valid_cdd(validator_identity);
         }
         false
     }

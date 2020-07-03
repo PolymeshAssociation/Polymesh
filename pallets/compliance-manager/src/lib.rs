@@ -76,6 +76,14 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 #![recursion_limit = "256"]
 
+use core::result::Result as StdResult;
+use frame_support::{
+    decl_error, decl_event, decl_module, decl_storage,
+    dispatch::DispatchResult,
+    ensure,
+    weights::{DispatchClass, FunctionOf, SimpleDispatchInfo},
+};
+use frame_system::{self as system, ensure_signed};
 use pallet_identity as identity;
 use polymesh_common_utilities::{
     asset::Trait as AssetTrait,
@@ -86,19 +94,7 @@ use polymesh_common_utilities::{
     protocol_fee::{ChargeProtocolFee, ProtocolOp},
     Context,
 };
-use polymesh_primitives::{
-    predicate, AccountKey, Claim, IdentityId, Rule, RuleType, Signatory, Ticker,
-};
-
-use codec::Encode;
-use core::result::Result as StdResult;
-use frame_support::{
-    decl_error, decl_event, decl_module, decl_storage,
-    dispatch::DispatchResult,
-    ensure,
-    weights::{DispatchClass, FunctionOf, SimpleDispatchInfo},
-};
-use frame_system::{self as system, ensure_signed};
+use polymesh_primitives::{predicate, Claim, IdentityId, Rule, RuleType, Signatory, Ticker};
 #[cfg(feature = "std")]
 use sp_runtime::{Deserialize, Serialize};
 use sp_std::{
@@ -259,12 +255,12 @@ decl_module! {
         /// * sender_rules - Sender transfer rule.
         /// * receiver_rules - Receiver transfer rule.
         pub fn add_active_rule(origin, ticker: Ticker, sender_rules: Vec<Rule>, receiver_rules: Vec<Rule>) -> DispatchResult {
-            let sender_key = AccountKey::try_from(ensure_signed(origin)?.encode())?;
-            let did = Context::current_identity_or::<Identity<T>>(&sender_key)?;
+            let sender = ensure_signed(origin)?;
+            let did = Context::current_identity_or::<Identity<T>>(&sender)?;
 
             ensure!(Self::is_owner(&ticker, did), Error::<T>::Unauthorized);
             <<T as IdentityTrait>::ProtocolFee>::charge_fee(
-                &Signatory::AccountKey(sender_key),
+                &Signatory::Account(sender),
                 ProtocolOp::ComplianceManagerAddActiveRule
             )?;
             let new_rule = AssetTransferRule {
@@ -291,8 +287,8 @@ decl_module! {
         /// * asset_rule_id - Rule id which is need to be removed
         #[weight = SimpleDispatchInfo::FixedNormal(200_000)]
         pub fn remove_active_rule(origin, ticker: Ticker, asset_rule_id: u32) -> DispatchResult {
-            let sender_key = AccountKey::try_from( ensure_signed(origin)?.encode())?;
-            let did = Context::current_identity_or::<Identity<T>>(&sender_key)?;
+            let sender = ensure_signed(origin)?;
+            let did = Context::current_identity_or::<Identity<T>>(&sender)?;
 
             ensure!(Self::is_owner(&ticker, did), Error::<T>::Unauthorized);
 
@@ -328,8 +324,8 @@ decl_module! {
             true
         )]
         pub fn replace_asset_rules(origin, ticker: Ticker, asset_rules: Vec<AssetTransferRule>) -> DispatchResult {
-            let sender_key = AccountKey::try_from(ensure_signed(origin)?.encode())?;
-            let did = Context::current_identity_or::<Identity<T>>(&sender_key)?;
+            let sender = ensure_signed(origin)?;
+            let did = Context::current_identity_or::<Identity<T>>(&sender)?;
             ensure!(Self::is_owner(&ticker, did), Error::<T>::Unauthorized);
             let mut asset_rules_dedup = asset_rules.clone();
             asset_rules_dedup.dedup_by_key(|r| r.rule_id);
@@ -348,8 +344,8 @@ decl_module! {
         /// * ticker - Symbol of the asset
         #[weight = SimpleDispatchInfo::FixedNormal(100_000)]
         pub fn reset_active_rules(origin, ticker: Ticker) -> DispatchResult {
-            let sender_key = AccountKey::try_from(ensure_signed(origin)?.encode())?;
-            let did = Context::current_identity_or::<Identity<T>>(&sender_key)?;
+            let sender = ensure_signed(origin)?;
+            let did = Context::current_identity_or::<Identity<T>>(&sender)?;
             ensure!(Self::is_owner(&ticker, did), Error::<T>::Unauthorized);
 
             <AssetRulesMap>::remove(ticker);
@@ -465,8 +461,8 @@ decl_module! {
         /// * asset_rule - Asset rule.
         #[weight = SimpleDispatchInfo::FixedNormal(150_000)]
         pub fn change_asset_rule(origin, ticker: Ticker, asset_rule: AssetTransferRule) -> DispatchResult {
-            let sender_key = AccountKey::try_from(ensure_signed(origin)?.encode())?;
-            let did = Context::current_identity_or::<Identity<T>>(&sender_key)?;
+            let sender = ensure_signed(origin)?;
+            let did = Context::current_identity_or::<Identity<T>>(&sender)?;
 
             ensure!(Self::is_owner(&ticker, did), Error::<T>::Unauthorized);
             ensure!(Self::get_latest_rule_id(ticker) >= asset_rule.rule_id, Error::<T>::InvalidRuleId);
@@ -494,8 +490,8 @@ decl_module! {
             true
         )]
         pub fn batch_change_asset_rule(origin, asset_rules: Vec<AssetTransferRule> , ticker: Ticker) -> DispatchResult {
-            let sender_key = AccountKey::try_from(ensure_signed(origin)?.encode())?;
-            let did = Context::current_identity_or::<Identity<T>>(&sender_key)?;
+            let sender = ensure_signed(origin)?;
+            let did = Context::current_identity_or::<Identity<T>>(&sender)?;
 
             ensure!(Self::is_owner(&ticker, did), Error::<T>::Unauthorized);
             let latest_rule_id = Self::get_latest_rule_id(ticker);
@@ -589,12 +585,11 @@ impl<T: Trait> Module<T> {
         predicate::Context::from(claims)
     }
 
-    /// It loads a context for each rule in `rules` and verify if any of them is evaluated as a
-    /// false predicate. In that case, rule is considered as a "broken rule".
-    fn is_any_rule_broken(ticker: &Ticker, did: IdentityId, rules: Vec<Rule>) -> bool {
-        rules.into_iter().any(|rule| {
+    /// Loads the context for each rule in `rules` and verifies that all of them evaluate to `true`.
+    fn are_all_rules_satisfied(ticker: &Ticker, did: IdentityId, rules: &Vec<Rule>) -> bool {
+        rules.into_iter().all(|rule| {
             let context = Self::fetch_context(ticker, did, &rule);
-            !predicate::run(rule, &context)
+            predicate::run(&rule, &context)
         })
     }
 
@@ -605,7 +600,7 @@ impl<T: Trait> Module<T> {
         let mut result = true;
         for rule in rules {
             let context = Self::fetch_context(ticker, did, &rule.rule);
-            rule.result = predicate::run(rule.rule.clone(), &context);
+            rule.result = predicate::run(&rule.rule, &context);
             if !rule.result {
                 result = false;
             }
@@ -615,8 +610,8 @@ impl<T: Trait> Module<T> {
 
     /// Pauses or resumes the asset rules.
     fn pause_resume_rules(origin: T::Origin, ticker: Ticker, pause: bool) -> DispatchResult {
-        let sender_key = AccountKey::try_from(ensure_signed(origin)?.encode())?;
-        let did = Context::current_identity_or::<Identity<T>>(&sender_key)?;
+        let sender = ensure_signed(origin)?;
+        let did = Context::current_identity_or::<Identity<T>>(&sender)?;
 
         ensure!(Self::is_owner(&ticker, did), Error::<T>::Unauthorized);
 
@@ -661,8 +656,8 @@ impl<T: Trait> Module<T> {
         trusted_issuer: IdentityId,
         is_add_call: bool,
     ) -> DispatchResult {
-        let sender_key = AccountKey::try_from(ensure_signed(origin)?.encode())?;
-        let did = Context::current_identity_or::<Identity<T>>(&sender_key)?;
+        let sender = ensure_signed(origin)?;
+        let did = Context::current_identity_or::<Identity<T>>(&sender)?;
 
         ensure!(Self::is_owner(&ticker, did), Error::<T>::Unauthorized);
         // ensure whether the trusted issuer's did is register did or not
@@ -684,8 +679,8 @@ impl<T: Trait> Module<T> {
         trusted_issuers: Vec<IdentityId>,
         is_add_call: bool,
     ) -> DispatchResult {
-        let sender_key = AccountKey::try_from(ensure_signed(origin)?.encode())?;
-        let did = Context::current_identity_or::<Identity<T>>(&sender_key)?;
+        let sender = ensure_signed(origin)?;
+        let did = Context::current_identity_or::<Identity<T>>(&sender)?;
 
         ensure!(trusted_issuers.len() >= 1, Error::<T>::InvalidLength);
         ensure!(Self::is_owner(&ticker, did), Error::<T>::Unauthorized);
@@ -784,33 +779,41 @@ impl<T: Trait> ComplianceManagerTrait<T::Balance> for Module<T> {
         from_did_opt: Option<IdentityId>,
         to_did_opt: Option<IdentityId>,
         _value: T::Balance,
+        treasury_did: Option<IdentityId>,
     ) -> StdResult<u8, &'static str> {
-        // Transfer is valid if ALL receiver AND sender rules of ANY asset rule are valid.
+        let (treasury_sender, treasury_receiver) = if treasury_did.is_some() {
+            (treasury_did == from_did_opt, treasury_did == to_did_opt)
+        } else {
+            (false, false)
+        };
+        // Transfer is valid if ALL receiver AND sender rules of ANY asset rule are valid. An
+        // exception is made for the cases when either the sender or the receiver is the treasury
+        // DID, which covers issuance and redemption transactions.
         let asset_rules = Self::asset_rules(ticker);
-        if asset_rules.is_paused {
+        if asset_rules.is_paused
+            || (asset_rules.rules.len() == 0 && (from_did_opt == None && treasury_receiver)
+                || (treasury_sender && to_did_opt == None))
+        {
             return Ok(ERC1400_TRANSFER_SUCCESS);
         }
-
         for active_rule in asset_rules.rules {
-            let mut rule_broken = false;
-
+            let mut rule_satisfied = false;
             if let Some(from_did) = from_did_opt {
-                rule_broken = Self::is_any_rule_broken(ticker, from_did, active_rule.sender_rules);
-                if rule_broken {
+                rule_satisfied = treasury_sender
+                    || Self::are_all_rules_satisfied(ticker, from_did, &active_rule.sender_rules);
+                if !rule_satisfied {
                     // Skips checking receiver rules because sender rules are not satisfied.
                     continue;
                 }
             }
-
             if let Some(to_did) = to_did_opt {
-                rule_broken = Self::is_any_rule_broken(ticker, to_did, active_rule.receiver_rules)
+                rule_satisfied = treasury_receiver
+                    || Self::are_all_rules_satisfied(ticker, to_did, &active_rule.receiver_rules);
             }
-
-            if !rule_broken {
+            if rule_satisfied {
                 return Ok(ERC1400_TRANSFER_SUCCESS);
             }
         }
-
         sp_runtime::print("Identity TM restrictions not satisfied");
         Ok(ERC1400_TRANSFER_FAILURE)
     }

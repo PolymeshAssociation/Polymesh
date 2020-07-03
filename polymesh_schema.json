@@ -41,7 +41,8 @@
             "owner_did": "IdentityId",
             "divisible": "bool",
             "asset_type": "AssetType",
-            "link_id": "u64"
+            "link_id": "u64",
+            "treasury_did": "Option<IdentityId>"
         },
         "LinkedKeyInfo": {
             "_enum": {
@@ -49,7 +50,6 @@
                 "Group": "Vec<IdentityId>"
             }
         },
-        "AccountKey": "[u8;32]",
         "Permission": {
             "_enum": [
                 "Full",
@@ -81,7 +81,7 @@
         "Signatory":{
             "_enum": {
                 "Identity": "IdentityId",
-                "AccountKey": "AccountKey"
+                "Account": "AccountId"
             }
         },
         "SigningItem": {
@@ -113,7 +113,7 @@
         },
         "DidRecord": {
             "roles": "Vec<IdentityRole>",
-            "master_key": "AccountKey",
+            "master_key": "AccountId",
             "signing_items": "Vec<SigningItem>"
         },
         "JurisdictionName": "Text",
@@ -250,7 +250,7 @@
         "Url": "Text",
         "PipDescription": "Text",
         "PipsMetadata": {
-            "proposer": "AccountKey",
+            "proposer": "AccountId",
             "id": "PipId",
             "end": "u32",
             "url": "Option<Url>",
@@ -263,7 +263,7 @@
             "amount": "Balance"
         },
         "DepositInfo": {
-            "owner": "AccountKey",
+            "owner": "AccountId",
             "amount": "Balance"
         },
         "PolymeshVotes": {
@@ -380,7 +380,7 @@
         "Memo": "[u8;32]",
         "IssueRecipient": {
             "_enum": {
-                "Account": "AccountKey",
+                "Account": "AccountId",
                 "Identity": "IdentityId"
             }
         },
@@ -466,7 +466,7 @@
             }
         },
         "DidRecordsSuccess": {
-            "master_key" : "AccountKey",
+            "master_key" : "AccountId",
             "signing_items": "Vec<SigningItem>"
         },
         "DidRecords": {
@@ -497,7 +497,7 @@
             "vote": "Vote"
         },
         "HistoricalVotingByAddress": "Vec<VoteByPip>",
-        "HistoricalVotingById": "Vec<(AccountKey, HistoricalVotingByAddress)>",
+        "HistoricalVotingById": "Vec<(AccountId, HistoricalVotingByAddress)>",
         "Weight": "u32",
         "BridgeTxDetail": {
             "amount": "Balance",

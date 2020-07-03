@@ -53,8 +53,6 @@ fn add_member_works_we() {
     );
 
     let alice_id = get_identity_id(AccountKeyring::Alice).unwrap();
-    // Assigning random DID but in Production root will have DID
-    Context::set_current_identity::<Identity>(Some(IdentityId::from(999)));
 
     assert_noop!(
         CommitteeGroup::add_member(root.clone(), alice_id),
@@ -89,8 +87,6 @@ fn remove_member_works_we() {
         CommitteeGroup::remove_member(non_root, IdentityId::from(3)),
         group::Error::<TestStorage, group::Instance1>::BadOrigin
     );
-    // Assigning random DID but in Production root will have DID
-    Context::set_current_identity::<Identity>(Some(IdentityId::from(999)));
     assert_noop!(
         CommitteeGroup::remove_member(root.clone(), IdentityId::from(5)),
         group::Error::<TestStorage, group::Instance1>::NoSuchMember
@@ -124,8 +120,6 @@ fn swap_member_works_we() {
         CommitteeGroup::swap_member(non_root, alice_id, IdentityId::from(5)),
         group::Error::<TestStorage, group::Instance1>::BadOrigin
     );
-    // Assigning random DID but in Production root will have DID
-    Context::set_current_identity::<Identity>(Some(IdentityId::from(999)));
     assert_noop!(
         CommitteeGroup::swap_member(root.clone(), IdentityId::from(5), IdentityId::from(6)),
         group::Error::<TestStorage, group::Instance1>::NoSuchMember
@@ -162,8 +156,6 @@ fn reset_members_works_we() {
         CommitteeGroup::reset_members(non_root, new_committee.clone()),
         group::Error::<TestStorage, group::Instance1>::BadOrigin
     );
-    // Assigning random DID but in Production root will have DID
-    Context::set_current_identity::<Identity>(Some(IdentityId::from(999)));
     assert_ok!(CommitteeGroup::reset_members(root, new_committee.clone()));
     assert_eq!(CommitteeGroup::get_members(), new_committee);
 }
@@ -185,9 +177,6 @@ fn rage_quit_we() {
     let (charlie_signer, charlie_did) = make_account(charlie_acc).unwrap();
     let ferdie_acc = AccountKeyring::Ferdie.public();
     let (ferdie_signer, ferdie_did) = make_account(ferdie_acc).unwrap();
-
-    // Assigning random DID but in Production root will have DID
-    Context::set_current_identity::<Identity>(Some(IdentityId::from(999)));
 
     // 0. Threshold is 2/3
     let committee = vec![alice_did, bob_did, charlie_did];
@@ -244,7 +233,6 @@ fn disable_member_we() {
     // 0. Create group
     let mut committee = vec![alice_id, bob_id, charlie_id];
     committee.sort();
-    Context::set_current_identity::<Identity>(Some(IdentityId::from(999)));
     assert_ok!(CommitteeGroup::reset_members(
         root.clone(),
         committee.clone()
