@@ -1243,7 +1243,7 @@ decl_module! {
             );
             Self::_transfer(custodian_did, &ticker, holder_did, receiver_did, value)?;
             // Update Storage of allowance
-            <CustodianAllowance<T>>::insert((ticker, custodian_did, holder_did), &custodian_allowance);
+            <CustodianAllowance<T>>::insert((ticker, holder_did, custodian_did), &custodian_allowance);
             <TotalCustodyAllowance<T>>::insert((ticker, holder_did), new_total_allowance);
             Self::deposit_event(RawEvent::CustodyTransfer(custodian_did, ticker, holder_did, receiver_did, value));
             Ok(())
