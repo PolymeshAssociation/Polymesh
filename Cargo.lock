@@ -4115,6 +4115,8 @@ dependencies = [
  "serde",
  "serde_derive",
  "serde_json",
+ "smallvec 1.4.0",
+ "sp-arithmetic",
  "sp-core",
  "sp-io",
  "sp-runtime",

@@ -3,13 +3,16 @@ use super::{
     ExtBuilder,
 };
 
-use frame_support::{assert_err, assert_ok, traits::Currency, StorageDoubleMap};
+use frame_support::{
+    assert_err, assert_ok,
+    traits::{Currency, OnInitialize},
+    StorageDoubleMap,
+};
 use pallet_balances as balances;
 use pallet_identity as identity;
 use pallet_multisig as multisig;
 use polymesh_primitives::Signatory;
 use polymesh_runtime_common::bridge::{self, BridgeTx, BridgeTxStatus};
-use sp_runtime::traits::OnInitialize;
 use test_client::AccountKeyring;
 
 type Bridge = bridge::Module<TestStorage>;
@@ -68,7 +71,7 @@ fn can_issue_to_identity_we() {
 
     assert_eq!(MultiSig::ms_signs_required(controller), 2);
     let last_authorization = |account| {
-        <Authorizations>::iter_prefix(Signatory::Account(account))
+        <Authorizations>::iter_prefix_values(Signatory::Account(account))
             .next()
             .unwrap()
             .auth_id
@@ -102,12 +105,12 @@ fn can_issue_to_identity_we() {
 
     let admin = frame_system::RawOrigin::Signed(Default::default());
     assert_ok!(Bridge::change_bridge_limit(
-        Origin::system(admin.clone()),
+        Origin::from(admin.clone()),
         1_000_000_000_000_000_000_000_000,
         1
     ));
     assert_ok!(Bridge::change_controller(
-        Origin::system(admin.clone()),
+        Origin::from(admin.clone()),
         controller
     ));
     assert_eq!(Bridge::controller(), controller);
@@ -185,7 +188,7 @@ fn can_change_controller() {
 
         assert_eq!(MultiSig::ms_signs_required(controller), 2);
         let last_authorization = |account| {
-            <Authorizations>::iter_prefix(Signatory::Account(account))
+            <Authorizations>::iter_prefix_values(Signatory::Account(account))
                 .next()
                 .unwrap()
                 .auth_id
@@ -217,7 +220,7 @@ fn can_change_controller() {
             true
         );
         let admin = frame_system::RawOrigin::Signed(Default::default());
-        assert_ok!(Bridge::change_controller(Origin::system(admin), controller));
+        assert_ok!(Bridge::change_controller(Origin::from(admin), controller));
         assert_eq!(Bridge::controller(), controller);
     });
 }
@@ -293,7 +296,7 @@ fn do_freeze_and_unfreeze_bridge() {
 
     assert_eq!(MultiSig::ms_signs_required(controller), 2);
     let last_authorization = |account| {
-        <Authorizations>::iter_prefix(Signatory::Account(account))
+        <Authorizations>::iter_prefix_values(Signatory::Account(account))
             .next()
             .unwrap()
             .auth_id
@@ -316,7 +319,7 @@ fn do_freeze_and_unfreeze_bridge() {
         MultiSig::ms_signers(controller, Signatory::Account(charlie_key)),
         true
     );
-    let admin = Origin::system(frame_system::RawOrigin::Signed(Default::default()));
+    let admin = Origin::from(frame_system::RawOrigin::Signed(Default::default()));
     assert_ok!(Bridge::change_controller(admin.clone(), controller));
     assert_eq!(Bridge::controller(), controller);
     let amount = 1_000_000_000_000_000_000_000;
@@ -424,7 +427,7 @@ fn do_timelock_txs() {
 
     assert_eq!(MultiSig::ms_signs_required(controller), 1);
     let last_authorization = |account| {
-        <Authorizations>::iter_prefix(Signatory::Account(account))
+        <Authorizations>::iter_prefix_values(Signatory::Account(account))
             .next()
             .unwrap()
             .auth_id
@@ -447,7 +450,7 @@ fn do_timelock_txs() {
         MultiSig::ms_signers(controller, Signatory::Account(charlie_key)),
         true
     );
-    let admin = Origin::system(frame_system::RawOrigin::Signed(Default::default()));
+    let admin = Origin::from(frame_system::RawOrigin::Signed(Default::default()));
     assert_ok!(Bridge::change_controller(admin.clone(), controller));
     assert_eq!(Bridge::controller(), controller);
     assert_ok!(Bridge::change_bridge_limit(
@@ -544,7 +547,7 @@ fn do_rate_limit() {
 
     assert_eq!(MultiSig::ms_signs_required(controller), 1);
     let last_authorization = |account| {
-        <Authorizations>::iter_prefix(Signatory::Account(account))
+        <Authorizations>::iter_prefix_values(Signatory::Account(account))
             .next()
             .unwrap()
             .auth_id
@@ -567,7 +570,7 @@ fn do_rate_limit() {
         MultiSig::ms_signers(controller, Signatory::Account(charlie_key)),
         true
     );
-    let admin = Origin::system(frame_system::RawOrigin::Signed(Default::default()));
+    let admin = Origin::from(frame_system::RawOrigin::Signed(Default::default()));
     assert_ok!(Bridge::change_controller(admin.clone(), controller));
     assert_eq!(Bridge::controller(), controller);
     assert_ok!(Bridge::change_bridge_limit(admin.clone(), 1_000_000_000, 1));
@@ -647,7 +650,7 @@ fn is_exempted() {
 }
 
 fn do_exempted() {
-    let admin = Origin::system(frame_system::RawOrigin::Signed(Default::default()));
+    let admin = Origin::from(frame_system::RawOrigin::Signed(Default::default()));
     let alice_did = register_keyring_account_with_balance(AccountKeyring::Alice, 1_000).unwrap();
     let alice = Origin::signed(AccountKeyring::Alice.public());
 
@@ -671,7 +674,7 @@ fn do_exempted() {
 
     assert_eq!(MultiSig::ms_signs_required(controller), 1);
     let last_authorization = |account| {
-        <Authorizations>::iter_prefix(Signatory::Account(account))
+        <Authorizations>::iter_prefix_values(Signatory::Account(account))
             .next()
             .unwrap()
             .auth_id
@@ -771,7 +774,7 @@ fn can_force_mint() {
 }
 
 fn do_force_mint() {
-    let admin = Origin::system(frame_system::RawOrigin::Signed(Default::default()));
+    let admin = Origin::from(frame_system::RawOrigin::Signed(Default::default()));
     let alice_did = register_keyring_account_with_balance(AccountKeyring::Alice, 1_000).unwrap();
     let alice = Origin::signed(AccountKeyring::Alice.public());
 
@@ -795,7 +798,7 @@ fn do_force_mint() {
 
     assert_eq!(MultiSig::ms_signs_required(controller), 1);
     let last_authorization = |account| {
-        <Authorizations>::iter_prefix(Signatory::Account(account))
+        <Authorizations>::iter_prefix_values(Signatory::Account(account))
             .next()
             .unwrap()
             .auth_id

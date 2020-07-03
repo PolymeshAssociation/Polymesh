@@ -29,15 +29,19 @@
 //!   - When code is instantiated enforce a POLYX fee to the DID owning the code (i.e. that executed put_code)
 
 use frame_support::traits::Currency;
-use frame_support::{decl_error, decl_module, decl_storage, dispatch::{ DispatchResult, DispatchResultWithPostInfo }, ensure};
+use frame_support::{
+    decl_error, decl_module, decl_storage,
+    dispatch::{DispatchResult, DispatchResultWithPostInfo},
+    ensure,
+};
 use frame_system::ensure_signed;
-use pallet_contracts::{CodeHash, Gas, Schedule, BalanceOf};
+use pallet_contracts::{BalanceOf, CodeHash, Gas, Schedule};
 use pallet_identity as identity;
 use polymesh_common_utilities::{identity::Trait as IdentityTrait, Context};
 use polymesh_primitives::{IdentityId, Signatory};
 use sp_runtime::traits::StaticLookup;
-use sp_std::prelude::Vec;
 use sp_std::convert::TryFrom;
+use sp_std::prelude::Vec;
 
 pub trait Trait: pallet_contracts::Trait + IdentityTrait {}
 

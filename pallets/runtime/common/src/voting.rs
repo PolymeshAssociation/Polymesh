@@ -58,7 +58,7 @@ use polymesh_primitives_derive::VecU8StrongTyped;
 use codec::{Decode, Encode};
 use frame_support::{
     decl_error, decl_event, decl_module, decl_storage, dispatch::DispatchResult, ensure,
-    storage::StorageMap
+    storage::StorageMap,
 };
 use frame_system::{self as system, ensure_signed};
 use sp_std::{convert::TryFrom, prelude::*, vec};

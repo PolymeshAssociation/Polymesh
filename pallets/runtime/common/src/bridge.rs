@@ -102,8 +102,8 @@ use frame_support::dispatch::DispatchResult;
 use frame_support::traits::{Currency, Get};
 use frame_support::{
     debug, decl_error, decl_event, decl_module, decl_storage, ensure,
+    storage::StorageDoubleMap,
     weights::{DispatchClass, Pays, Weight},
-    storage::StorageDoubleMap
 };
 use frame_system::{self as system, ensure_signed};
 use pallet_balances as balances;

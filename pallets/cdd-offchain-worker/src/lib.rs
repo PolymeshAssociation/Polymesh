@@ -18,18 +18,26 @@
 
 use codec::Encode;
 use frame_support::{
-    debug, decl_error, decl_event, decl_module, decl_storage, dispatch::DispatchResult, ensure,
-    traits::Get, weights::{ DispatchClass, Pays}, Parameter,
+    debug, decl_error, decl_event, decl_module, decl_storage,
+    dispatch::DispatchResult,
+    ensure,
+    traits::Get,
+    weights::{DispatchClass, Pays},
+    Parameter,
 };
-use frame_system::{self as system, ensure_none, offchain::{
-    AppCrypto, CreateSignedTransaction, SendUnsignedTransaction, SendSignedTransaction,
-    SignedPayload, SigningTypes, Signer, SubmitTransaction,
-}};
+use frame_system::{
+    self as system, ensure_none,
+    offchain::{
+        AppCrypto, CreateSignedTransaction, SendSignedTransaction, SendUnsignedTransaction,
+        SignedPayload, Signer, SigningTypes, SubmitTransaction,
+    },
+};
 use sp_application_crypto::RuntimeAppPublic;
 use sp_core::crypto::KeyTypeId;
 use sp_runtime::traits::{Member, SaturatedConversion};
 use sp_runtime::transaction_validity::{
-    InvalidTransaction, TransactionPriority, TransactionValidity, ValidTransaction, TransactionSource
+    InvalidTransaction, TransactionPriority, TransactionSource, TransactionValidity,
+    ValidTransaction,
 };
 use sp_std::prelude::*;
 
@@ -72,10 +80,10 @@ pub trait Trait: CreateSignedTransaction<Call<Self>> + pallet_staking::Trait {
     /// Buffer given to check the validity of the cdd claim. It is in block numbers.
     type BufferInterval: Get<Self::BlockNumber>;
     /// A configuration for base priority of unsigned transactions.
-	///
-	/// This is exposed so that it can be tuned for particular runtime, when
-	/// multiple pallets send unsigned transactions.
-	type UnsignedPriority: Get<TransactionPriority>;
+    ///
+    /// This is exposed so that it can be tuned for particular runtime, when
+    /// multiple pallets send unsigned transactions.
+    type UnsignedPriority: Get<TransactionPriority>;
 }
 
 decl_storage! {

@@ -35,7 +35,6 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use sp_std::prelude::*;
 use codec::{Decode, Encode};
 use frame_support::{
     decl_module, decl_storage,
@@ -57,8 +56,9 @@ use sp_runtime::{
         InvalidTransaction, TransactionPriority, TransactionValidity, TransactionValidityError,
         ValidTransaction,
     },
-    FixedI128, FixedPointNumber, FixedPointOperand, Perquintill
+    FixedI128, FixedPointNumber, FixedPointOperand, Perquintill,
 };
+use sp_std::prelude::*;
 
 /// Fee multiplier.
 pub type Multiplier = FixedI128;
@@ -67,7 +67,6 @@ type BalanceOf<T> =
     <<T as Trait>::Currency as Currency<<T as frame_system::Trait>::AccountId>>::Balance;
 type NegativeImbalanceOf<T> =
     <<T as Trait>::Currency as Currency<<T as frame_system::Trait>::AccountId>>::NegativeImbalance;
-
 
 /// A struct to update the weight multiplier per block. It implements `Convert<Multiplier,
 /// Multiplier>`, meaning that it can convert the previous multiplier to the next one. This should
@@ -117,53 +116,59 @@ type NegativeImbalanceOf<T> =
 pub struct TargetedFeeAdjustment<T, S, V, M>(sp_std::marker::PhantomData<(T, S, V, M)>);
 
 impl<T, S, V, M> Convert<Multiplier, Multiplier> for TargetedFeeAdjustment<T, S, V, M>
-	where T: frame_system::Trait, S: Get<Perquintill>, V: Get<Multiplier>, M: Get<Multiplier>,
+where
+    T: frame_system::Trait,
+    S: Get<Perquintill>,
+    V: Get<Multiplier>,
+    M: Get<Multiplier>,
 {
-	fn convert(previous: Multiplier) -> Multiplier {
-		// Defensive only. The multiplier in storage should always be at most positive. Nonetheless
-		// we recover here in case of errors, because any value below this would be stale and can
-		// never change.
-		let min_multiplier = M::get();
-		let previous = previous.max(min_multiplier);
+    fn convert(previous: Multiplier) -> Multiplier {
+        // Defensive only. The multiplier in storage should always be at most positive. Nonetheless
+        // we recover here in case of errors, because any value below this would be stale and can
+        // never change.
+        let min_multiplier = M::get();
+        let previous = previous.max(min_multiplier);
 
-		// the computed ratio is only among the normal class.
-		let normal_max_weight =
-			<T as frame_system::Trait>::AvailableBlockRatio::get() *
-			<T as frame_system::Trait>::MaximumBlockWeight::get();
-		let normal_block_weight =
-			<frame_system::Module<T>>::block_weight()
-			.get(frame_support::weights::DispatchClass::Normal)
-			.min(normal_max_weight);
+        // the computed ratio is only among the normal class.
+        let normal_max_weight = <T as frame_system::Trait>::AvailableBlockRatio::get()
+            * <T as frame_system::Trait>::MaximumBlockWeight::get();
+        let normal_block_weight = <frame_system::Module<T>>::block_weight()
+            .get(frame_support::weights::DispatchClass::Normal)
+            .min(normal_max_weight);
 
-		let s = S::get();
-		let v = V::get();
+        let s = S::get();
+        let v = V::get();
 
-		let target_weight = (s * normal_max_weight) as u128;
-		let block_weight = normal_block_weight as u128;
+        let target_weight = (s * normal_max_weight) as u128;
+        let block_weight = normal_block_weight as u128;
 
-		// determines if the first_term is positive
-		let positive = block_weight >= target_weight;
-		let diff_abs = block_weight.max(target_weight) - block_weight.min(target_weight);
+        // determines if the first_term is positive
+        let positive = block_weight >= target_weight;
+        let diff_abs = block_weight.max(target_weight) - block_weight.min(target_weight);
 
-		// defensive only, a test case assures that the maximum weight diff can fit in Multiplier
-		// without any saturation.
-		let diff = Multiplier::saturating_from_rational(diff_abs, normal_max_weight.max(1));
-		let diff_squared = diff.saturating_mul(diff);
+        // defensive only, a test case assures that the maximum weight diff can fit in Multiplier
+        // without any saturation.
+        let diff = Multiplier::saturating_from_rational(diff_abs, normal_max_weight.max(1));
+        let diff_squared = diff.saturating_mul(diff);
 
-		let v_squared_2 = v.saturating_mul(v) / Multiplier::saturating_from_integer(2);
+        let v_squared_2 = v.saturating_mul(v) / Multiplier::saturating_from_integer(2);
 
-		let first_term = v.saturating_mul(diff);
-		let second_term = v_squared_2.saturating_mul(diff_squared);
+        let first_term = v.saturating_mul(diff);
+        let second_term = v_squared_2.saturating_mul(diff_squared);
 
-		if positive {
-			let excess = first_term.saturating_add(second_term).saturating_mul(previous);
-			previous.saturating_add(excess).max(min_multiplier)
-		} else {
-			// Defensive-only: first_term > second_term. Safe subtraction.
-			let negative = first_term.saturating_sub(second_term).saturating_mul(previous);
-			previous.saturating_sub(negative).max(min_multiplier)
-		}
-	}
+        if positive {
+            let excess = first_term
+                .saturating_add(second_term)
+                .saturating_mul(previous);
+            previous.saturating_add(excess).max(min_multiplier)
+        } else {
+            // Defensive-only: first_term > second_term. Safe subtraction.
+            let negative = first_term
+                .saturating_sub(second_term)
+                .saturating_mul(previous);
+            previous.saturating_sub(negative).max(min_multiplier)
+        }
+    }
 }
 
 pub trait Trait: frame_system::Trait {
@@ -188,39 +193,39 @@ pub trait Trait: frame_system::Trait {
 }
 
 decl_storage! {
-	trait Store for Module<T: Trait> as TransactionPayment {
-		pub NextFeeMultiplier get(fn next_fee_multiplier): Multiplier = Multiplier::saturating_from_integer(1);
-	}
+    trait Store for Module<T: Trait> as TransactionPayment {
+        pub NextFeeMultiplier get(fn next_fee_multiplier): Multiplier = Multiplier::saturating_from_integer(1);
+    }
 }
 
 decl_module! {
-	pub struct Module<T: Trait> for enum Call where origin: T::Origin {
-		/// The fee to be paid for making a transaction; the per-byte portion.
-		const TransactionByteFee: BalanceOf<T> = T::TransactionByteFee::get();
+    pub struct Module<T: Trait> for enum Call where origin: T::Origin {
+        /// The fee to be paid for making a transaction; the per-byte portion.
+        const TransactionByteFee: BalanceOf<T> = T::TransactionByteFee::get();
 
-		/// The polynomial that is applied in order to derive fee from weight.
-		const WeightToFee: Vec<WeightToFeeCoefficient<BalanceOf<T>>> =
-			T::WeightToFee::polynomial().to_vec();
+        /// The polynomial that is applied in order to derive fee from weight.
+        const WeightToFee: Vec<WeightToFeeCoefficient<BalanceOf<T>>> =
+            T::WeightToFee::polynomial().to_vec();
 
-		fn on_finalize() {
-			NextFeeMultiplier::mutate(|fm| {
-				*fm = T::FeeMultiplierUpdate::convert(*fm);
-			});
-		}
+        fn on_finalize() {
+            NextFeeMultiplier::mutate(|fm| {
+                *fm = T::FeeMultiplierUpdate::convert(*fm);
+            });
+        }
 
-		fn integrity_test() {
-			// given weight == u64, we build multipliers from `diff` of two weight values, which can
-			// at most be MaximumBlockWeight. Make sure that this can fit in a multiplier without
-			// loss.
-			use sp_std::convert::TryInto;
-			assert!(
-				<Multiplier as sp_runtime::traits::Bounded>::max_value() >=
-				Multiplier::checked_from_integer(
-					<T as frame_system::Trait>::MaximumBlockWeight::get().try_into().unwrap()
-				).unwrap(),
-			);
-		}
-	}
+        fn integrity_test() {
+            // given weight == u64, we build multipliers from `diff` of two weight values, which can
+            // at most be MaximumBlockWeight. Make sure that this can fit in a multiplier without
+            // loss.
+            use sp_std::convert::TryInto;
+            assert!(
+                <Multiplier as sp_runtime::traits::Bounded>::max_value() >=
+                Multiplier::checked_from_integer(
+                    <T as frame_system::Trait>::MaximumBlockWeight::get().try_into().unwrap()
+                ).unwrap(),
+            );
+        }
+    }
 }
 
 impl<T: Trait> Module<T>
@@ -314,22 +319,22 @@ where
     ) -> BalanceOf<T> {
         if pays_fee == Pays::Yes {
             let len = <BalanceOf<T>>::from(len);
-			let per_byte = T::TransactionByteFee::get();
+            let per_byte = T::TransactionByteFee::get();
 
-			// length fee. this is not adjusted.
-			let fixed_len_fee = per_byte.saturating_mul(len);
+            // length fee. this is not adjusted.
+            let fixed_len_fee = per_byte.saturating_mul(len);
 
-			// the adjustable part of the fee.
-			let unadjusted_weight_fee = Self::weight_to_fee(weight);
-			let multiplier = Self::next_fee_multiplier();
-			// final adjusted weight fee.
-			let adjusted_weight_fee = multiplier.saturating_mul_int(unadjusted_weight_fee);
+            // the adjustable part of the fee.
+            let unadjusted_weight_fee = Self::weight_to_fee(weight);
+            let multiplier = Self::next_fee_multiplier();
+            // final adjusted weight fee.
+            let adjusted_weight_fee = multiplier.saturating_mul_int(unadjusted_weight_fee);
 
-			let base_fee = Self::weight_to_fee(T::ExtrinsicBaseWeight::get());
-			base_fee
-				.saturating_add(fixed_len_fee)
-				.saturating_add(adjusted_weight_fee)
-				.saturating_add(tip)
+            let base_fee = Self::weight_to_fee(T::ExtrinsicBaseWeight::get());
+            base_fee
+                .saturating_add(fixed_len_fee)
+                .saturating_add(adjusted_weight_fee)
+                .saturating_add(tip)
         } else {
             tip
         }

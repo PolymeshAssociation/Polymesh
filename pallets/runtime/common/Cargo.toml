@@ -43,6 +43,7 @@ sp-io = { git = "https://github.com/paritytech/substrate", default-features = fa
 sp-runtime = { git = "https://github.com/paritytech/substrate", default-features = false, rev = "c771821cae2dcb5a8808a19fae8122c0b9ae8499" }
 
 pallet-contracts = { path = "../../contracts", default-features = false }
+sp-arithmetic = { git = "https://github.com/paritytech/substrate", default-features = false, rev = "c771821cae2dcb5a8808a19fae8122c0b9ae8499" }
 pallet-timestamp = { package = "pallet-timestamp", git = "https://github.com/paritytech/substrate", default-features = false, rev = "c771821cae2dcb5a8808a19fae8122c0b9ae8499" }
 pallet-authorship = { package = "pallet-authorship", git = "https://github.com/paritytech/substrate", default-features = false, rev = "c771821cae2dcb5a8808a19fae8122c0b9ae8499" }
 pallet-session = { package = "pallet-session", git = "https://github.com/paritytech/substrate", default-features = false, rev = "c771821cae2dcb5a8808a19fae8122c0b9ae8499" }
@@ -53,6 +54,7 @@ frame-system = { package = "frame-system", git = "https://github.com/paritytech/
 frame-support = { git = "https://github.com/paritytech/substrate", default-features = false, rev = "c771821cae2dcb5a8808a19fae8122c0b9ae8499" }
 ink_primitives = { git = "https://github.com/paritytech/ink", package = "ink_primitives", default-features = false }
 hex-literal = "0.2.1"
+smallvec = "1.4.0"
 
 [dev-dependencies]
 test-client = { package = "substrate-test-runtime-client", git = "https://github.com/paritytech/substrate", rev = "c771821cae2dcb5a8808a19fae8122c0b9ae8499" }
@@ -91,7 +93,8 @@ std = [
 	"frame-system/std",
 	"polymesh-common-utilities/std",
 	"pallet-protocol-fee/std",
-	"ink_primitives/std"
+	"ink_primitives/std",
+	"sp-arithmetic/std"
 ]
 
 runtime-benchmarks = [

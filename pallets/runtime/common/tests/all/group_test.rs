@@ -42,14 +42,14 @@ fn add_member_works() {
 }
 
 fn add_member_works_we() {
-    let root = Origin::system(frame_system::RawOrigin::Root);
+    let root = Origin::from(frame_system::RawOrigin::Root);
     let non_root = Origin::signed(AccountKeyring::Bob.public());
     let non_root_did = get_identity_id(AccountKeyring::Alice).unwrap();
 
     Context::set_current_identity::<Identity>(Some(non_root_did));
-    assert_noop!(
-        CommitteeGroup::add_member(non_root, IdentityId::from(3)),
-        group::Error::<TestStorage, group::Instance1>::BadOrigin
+    assert_eq!(
+        (CommitteeGroup::add_member(non_root, IdentityId::from(3))).is_err(),
+        true
     );
 
     let alice_id = get_identity_id(AccountKeyring::Alice).unwrap();
@@ -78,16 +78,16 @@ fn remove_member_works() {
 }
 
 fn remove_member_works_we() {
-    let root = Origin::system(frame_system::RawOrigin::Root);
+    let root = Origin::from(frame_system::RawOrigin::Root);
     let non_root = Origin::signed(AccountKeyring::Charlie.public());
 
     let non_root_did = get_identity_id(AccountKeyring::Alice).unwrap();
 
     Context::set_current_identity::<Identity>(Some(non_root_did));
 
-    assert_noop!(
-        CommitteeGroup::remove_member(non_root, IdentityId::from(3)),
-        group::Error::<TestStorage, group::Instance1>::BadOrigin
+    assert_eq!(
+        (CommitteeGroup::remove_member(non_root, IdentityId::from(3))).is_err(),
+        true
     );
     // Assigning random DID but in Production root will have DID
     Context::set_current_identity::<Identity>(Some(IdentityId::from(999)));
@@ -112,7 +112,7 @@ fn swap_member_works() {
 }
 
 fn swap_member_works_we() {
-    let root = Origin::system(frame_system::RawOrigin::Root);
+    let root = Origin::from(frame_system::RawOrigin::Root);
     let non_root = Origin::signed(AccountKeyring::Charlie.public());
     let alice_id = get_identity_id(AccountKeyring::Alice).unwrap();
     let bob_id = get_identity_id(AccountKeyring::Bob).unwrap();
@@ -120,10 +120,11 @@ fn swap_member_works_we() {
     let non_root_did = get_identity_id(AccountKeyring::Charlie).unwrap();
 
     Context::set_current_identity::<Identity>(Some(non_root_did));
-    assert_noop!(
-        CommitteeGroup::swap_member(non_root, alice_id, IdentityId::from(5)),
-        group::Error::<TestStorage, group::Instance1>::BadOrigin
+    assert_eq!(
+        (CommitteeGroup::swap_member(non_root, alice_id, IdentityId::from(5))).is_err(),
+        true
     );
+
     // Assigning random DID but in Production root will have DID
     Context::set_current_identity::<Identity>(Some(IdentityId::from(999)));
     assert_noop!(
@@ -154,13 +155,12 @@ fn reset_members_works() {
 }
 
 fn reset_members_works_we() {
-    let root = Origin::system(frame_system::RawOrigin::Root);
+    let root = Origin::from(frame_system::RawOrigin::Root);
     let non_root = Origin::signed(AccountKeyring::Bob.public());
     let new_committee = (4..=6).map(IdentityId::from).collect::<Vec<_>>();
-
-    assert_noop!(
-        CommitteeGroup::reset_members(non_root, new_committee.clone()),
-        group::Error::<TestStorage, group::Instance1>::BadOrigin
+    assert_eq!(
+        (CommitteeGroup::reset_members(non_root, new_committee.clone())).is_err(),
+        true
     );
     // Assigning random DID but in Production root will have DID
     Context::set_current_identity::<Identity>(Some(IdentityId::from(999)));
@@ -174,7 +174,7 @@ fn rage_quit() {
 }
 
 fn rage_quit_we() {
-    let root = Origin::system(frame_system::RawOrigin::Root);
+    let root = Origin::from(frame_system::RawOrigin::Root);
 
     // 1. Add members to committee
     let alice_acc = AccountKeyring::Alice.public();
@@ -232,7 +232,7 @@ fn disable_member() {
 }
 
 fn disable_member_we() {
-    let root = Origin::system(frame_system::RawOrigin::Root);
+    let root = Origin::from(frame_system::RawOrigin::Root);
 
     let alice_acc = AccountKeyring::Alice.public();
     let (_, alice_id) = make_account(alice_acc).unwrap();
@@ -279,6 +279,6 @@ fn disable_member_we() {
     );
     assert_eq!(
         CommitteeGroup::get_valid_members_at(9),
-        vec![alice_id, charlie_id, bob_id]
+        vec![alice_id, bob_id, charlie_id]
     );
 }
