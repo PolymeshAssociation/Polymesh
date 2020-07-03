@@ -2,7 +2,7 @@
   "name": "polymesh-cli",
   "version": "1.0.0",
   "description": "CLI for Polymesh",
-  "main": "./dist/polymesh_cli.js",
+  "main": "/dist/polymesh_cli.js",
   "bin": {
     "polymesh-cli": "./dist/polymesh_cli.js"
   },
@@ -10,7 +10,7 @@
     "start": "npm run build && npm run global",
     "create": "npm run build && npm run test",
     "build": "npm run clean:some && tsc -p .",
-    "global": "sudo yarn global add && polymesh-cli",
+    "global": "sudo npm i -g && polymesh-cli",
     "clean:some": "sudo rm -rf ./dist ./docs",
     "clean:all": "sudo rm -rf ./node_modules ./yarn.lock ./dist ./docs",
     "tscov": "tscov --min-coverage 90",

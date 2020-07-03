@@ -6,9 +6,10 @@ import figlet from 'figlet';
 import path from 'path';
 import program from 'commander';
 import { setAPI } from './commands/util/init';
-import createIdentity from "./commands/create_identities";
+import createAccountIdentity from "./commands/create_account_identity";
+import createKeyIdentity from "./commands/create_key_identity";
 
-clear();
+
 console.log(
   chalk.blue(
     figlet.textSync('Polymesh-CLI', { horizontalLayout: 'full' })
@@ -22,15 +23,34 @@ program
   
 
 program
-  .command('createIdentity')
-  .alias('ci')
-  .option('-e, --entityName <entityName>', 'polymesh account name')
-  .option('-k, --keyNumber <keyNumber>', 'The amount of account keys to create')
-  .option('-K, --keyPrepend <keyPrepend>', 'The prepend of the keys')
-  .description('Wizard-like script that will guide technical users in the creation of an identity')
+  .command('createAccountIdentity')
+  .alias('cai')
+  .requiredOption('-e, --entityName <entityName>', 'polymesh account name')
+  .description('Wizard-like script that will guide technical users in the creation of an account identity')
   .action(async function (cmd) {
+    
     await setAPI(program.remoteNode);
-    console.log(`api url ${program.remoteNode}`);
-    await createIdentity(cmd.entityName, cmd.keyNumber, cmd.keyPrepend);
-    console.log(`create identity finished`);
+    await createAccountIdentity(cmd.entityName);
+    process.exit(0);
   });
+
+program
+  .command('createKeyIdentity')
+  .alias('cki')
+  .requiredOption('-k, --keyAmount <keyAmount>', 'The amount of account keys to create')
+  .requiredOption('-K, --keyPrepend <keyPrepend>', 'The prepend of the keys')
+  .description('Wizard-like script that will guide technical users in the creation of a keys identity')
+  .action(async function (cmd) {
+    
+    await setAPI(program.remoteNode);
+    await createKeyIdentity(cmd.keyAmount, cmd.keyPrepend);
+    process.exit(0);
+  });
+
+  //await program.parseAsync(process.argv);
+  program.parse(process.argv);
+
+  if (program.commands.length == 0) {
+    console.error('No command given!');
+    process.exit(1);
+  }

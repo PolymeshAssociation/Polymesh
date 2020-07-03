@@ -24,7 +24,7 @@ export let nonces = new Map();
 export async function setAPI(endpoint: string) {
 
    // Schema path
-   const filePath = path.join(__dirname + "/../../../polymesh_schema.json");
+   const filePath = path.join(__dirname + "/../../../../../polymesh_schema.json");
    const { types } = JSON.parse(fs.readFileSync(filePath, "utf8"));
  
    // Start node instance
