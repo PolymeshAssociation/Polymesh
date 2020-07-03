@@ -18,8 +18,8 @@ use crate::{
     ChargeProtocolFee, SystematicIssuers,
 };
 use polymesh_primitives::{
-    AccountKey, AuthorizationData, IdentityClaim, IdentityId, LinkData, Permission, Signatory,
-    SigningItem, Ticker,
+    AuthorizationData, IdentityClaim, IdentityId, LinkData, Permission, Signatory, SigningItem,
+    Ticker,
 };
 
 use codec::{Decode, Encode};
@@ -71,9 +71,9 @@ pub struct TargetIdAuthorization<Moment> {
 ///  - Replace `H512` type by a template type which represents explicitly the relation with
 ///  `TargetIdAuthorization`.
 #[derive(codec::Encode, codec::Decode, Clone, PartialEq, Eq, Debug)]
-pub struct SigningItemWithAuth {
+pub struct SigningItemWithAuth<AccountId> {
     /// Signing item to be added.
-    pub signing_item: SigningItem,
+    pub signing_item: SigningItem<AccountId>,
     /// Off-chain authorization signature.
     pub auth_signature: H512,
 }
@@ -87,19 +87,19 @@ pub trait Trait: CommonTrait + pallet_timestamp::Trait + balances::Trait {
         + Dispatchable<Origin = <Self as frame_system::Trait>::Origin>
         + GetDispatchInfo;
     /// MultiSig module
-    type MultiSig: MultiSigSubTrait;
+    type MultiSig: MultiSigSubTrait<Self::AccountId>;
     /// Group module
-    type CddServiceProviders: GroupTrait<<Self as pallet_timestamp::Trait>::Moment>;
+    type CddServiceProviders: GroupTrait<Self::Moment>;
     /// Balances module
-    type Balances: Currency<<Self as frame_system::Trait>::AccountId>;
+    type Balances: Currency<Self::AccountId>;
     /// Charges fee for forwarded call
     type ChargeTxFeeTarget: ChargeTxFee;
     /// Used to check and update CDD
-    type CddHandler: CddAndFeeDetails<<Self as frame_system::Trait>::Call>;
+    type CddHandler: CddAndFeeDetails<Self::AccountId, Self::Call>;
 
-    type Public: IdentifyAccount<AccountId = <Self as frame_system::Trait>::AccountId>;
+    type Public: IdentifyAccount<AccountId = Self::AccountId>;
     type OffChainSignature: Verify<Signer = Self::Public> + Member + Decode + Encode;
-    type ProtocolFee: ChargeProtocolFee<<Self as frame_system::Trait>::AccountId>;
+    type ProtocolFee: ChargeProtocolFee<Self::AccountId>;
 }
 
 // rustfmt adds a comma after Option<Moment> in NewAuthorization and it breaks compilation
@@ -111,23 +111,23 @@ decl_event!(
         Moment = <T as pallet_timestamp::Trait>::Moment,
     {
         /// DID, master key account ID, signing keys
-        DidCreated(IdentityId, AccountId, Vec<SigningItem>),
+        DidCreated(IdentityId, AccountId, Vec<SigningItem<AccountId>>),
 
         /// DID, new keys
-        SigningItemsAdded(IdentityId, Vec<SigningItem>),
+        SigningItemsAdded(IdentityId, Vec<SigningItem<AccountId>>),
 
         /// DID, the keys that got removed
-        SigningItemsRemoved(IdentityId, Vec<Signatory>),
+        SigningItemsRemoved(IdentityId, Vec<Signatory<AccountId>>),
 
         /// A signer left their identity. (did, signer)
-        SignerLeft(IdentityId, Signatory),
+        SignerLeft(IdentityId, Signatory<AccountId>),
 
         /// DID, updated signing key, previous permissions
-        SigningPermissionsUpdated(IdentityId, SigningItem, Vec<Permission>),
+        SigningPermissionsUpdated(IdentityId, SigningItem<AccountId>, Vec<Permission>),
 
 
-        /// DID, old master key account ID, new key
-        MasterKeyUpdated(IdentityId, AccountKey, AccountKey),
+        /// DID, old master key account ID, new ID
+        MasterKeyUpdated(IdentityId, AccountId, AccountId),
 
         /// DID, claims
         ClaimAdded(IdentityId, IdentityClaim),
@@ -136,10 +136,10 @@ decl_event!(
         ClaimRevoked(IdentityId, IdentityClaim),
 
         /// DID queried
-        DidStatus(IdentityId, AccountKey),
+        DidStatus(IdentityId, AccountId),
 
         /// CDD queried
-        CddStatus(Option<IdentityId>, AccountKey, bool),
+        CddStatus(Option<IdentityId>, AccountId, bool),
 
         /// Asset DID
         AssetDidRegistered(IdentityId, Ticker),
@@ -149,16 +149,16 @@ decl_event!(
         AuthorizationAddedByIdentity(
             IdentityId,
             Option<IdentityId>,
-            Option<AccountKey>,
+            Option<AccountId>,
             u64,
             AuthorizationData,
             Option<Moment>
         ),
 
         AuthorizationAddedByKey(
-            AccountKey,
+            AccountId,
             Option<IdentityId>,
-            Option<AccountKey>,
+            Option<AccountId>,
             u64,
             AuthorizationData,
             Option<Moment>
@@ -166,19 +166,19 @@ decl_event!(
 
         /// Authorization revoked by the authorizer.
         /// (authorized_identity, authorized_key, auth_id)
-        AuthorizationRevoked(Option<IdentityId>, Option<AccountKey>, u64),
+        AuthorizationRevoked(Option<IdentityId>, Option<AccountId>, u64),
 
         /// Authorization rejected by the user who was authorized.
         /// (authorized_identity, authorized_key, auth_id)
-        AuthorizationRejected(Option<IdentityId>, Option<AccountKey>, u64),
+        AuthorizationRejected(Option<IdentityId>, Option<AccountId>, u64),
 
         /// Authorization consumed.
         /// (authorized_identity, authorized_key, auth_id)
-        AuthorizationConsumed(Option<IdentityId>, Option<AccountKey>, u64),
+        AuthorizationConsumed(Option<IdentityId>, Option<AccountId>, u64),
 
         /// Off-chain Authorization has been revoked.
         /// (Target Identity, Signatory)
-        OffChainAuthorizationRevoked(IdentityId, Signatory),
+        OffChainAuthorizationRevoked(IdentityId, Signatory<AccountId>),
 
         /// CDD requirement for updating master key changed. (new_requirement)
         CddRequirementForMasterKeyUpdated(bool),
@@ -187,7 +187,7 @@ decl_event!(
         /// (associated identity or key, link_id, link_data, expiry)
         LinkAdded(
             Option<IdentityId>,
-            Option<AccountKey>,
+            Option<AccountId>,
             u64,
             LinkData,
             Option<Moment>
@@ -195,11 +195,11 @@ decl_event!(
 
         /// Link removed.
         /// (associated identity or key, link_id)
-        LinkRemoved(Option<IdentityId>, Option<AccountKey>, u64),
+        LinkRemoved(Option<IdentityId>, Option<AccountId>, u64),
 
         /// Link contents updated.
         /// (associated identity or key, link_id)
-        LinkUpdated(Option<IdentityId>, Option<AccountKey>, u64),
+        LinkUpdated(Option<IdentityId>, Option<AccountId>, u64),
 
 
         /// CDD claims generated by `IdentityId` (a CDD Provider) have been invalidated from
@@ -214,20 +214,20 @@ decl_event!(
     }
 );
 
-pub trait IdentityTrait {
-    fn get_identity(key: &AccountKey) -> Option<IdentityId>;
+pub trait IdentityTrait<AccountId> {
+    fn get_identity(key: &AccountId) -> Option<IdentityId>;
     fn current_identity() -> Option<IdentityId>;
     fn set_current_identity(id: Option<IdentityId>);
-    fn current_payer() -> Option<Signatory>;
-    fn set_current_payer(payer: Option<Signatory>);
+    fn current_payer() -> Option<Signatory<AccountId>>;
+    fn set_current_payer(payer: Option<Signatory<AccountId>>);
 
-    fn is_signer_authorized(did: IdentityId, signer: &Signatory) -> bool;
+    fn is_signer_authorized(did: IdentityId, signer: &Signatory<AccountId>) -> bool;
     fn is_signer_authorized_with_permissions(
         did: IdentityId,
-        signer: &Signatory,
+        signer: &Signatory<AccountId>,
         permissions: Vec<Permission>,
     ) -> bool;
-    fn is_master_key(did: IdentityId, key: &AccountKey) -> bool;
+    fn is_master_key(did: IdentityId, key: &AccountId) -> bool;
 
     /// It adds a systematic CDD claim for each `target` identity.
     ///

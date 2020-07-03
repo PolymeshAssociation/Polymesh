@@ -35,9 +35,6 @@
 //!
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use pallet_identity as identity;
-
-use codec::{Decode, Encode};
 use frame_support::{
     decl_error, decl_event, decl_module, decl_storage,
     dispatch::{DispatchError, DispatchResult},
@@ -45,6 +42,7 @@ use frame_support::{
     weights::SimpleDispatchInfo,
 };
 use frame_system::{self as system, ensure_root};
+use pallet_identity as identity;
 use polymesh_common_utilities::{
     identity::Trait as IdentityTrait,
     protocol_fee::{ChargeProtocolFee, ProtocolOp},
@@ -161,7 +159,7 @@ impl<T: Trait> Module<T> {
     /// Computes the fee of the operation and charges it to the given signatory. The fee is then
     /// credited to the intended recipients according to the implementation of
     /// `OnProtocolFeePayment`.
-    pub fn charge_fee(signatory: &Signatory, op: ProtocolOp) -> DispatchResult {
+    pub fn charge_fee(signatory: &Signatory<T::AccountId>, op: ProtocolOp) -> DispatchResult {
         let fee = Self::compute_fee(op);
         if fee.is_zero() {
             return Ok(());
@@ -178,7 +176,11 @@ impl<T: Trait> Module<T> {
 
     /// Computes the fee for `count` similar operations, and charges that fee to the given
     /// signatory.
-    pub fn batch_charge_fee(signatory: &Signatory, op: ProtocolOp, count: usize) -> DispatchResult {
+    pub fn batch_charge_fee(
+        signatory: &Signatory<T::AccountId>,
+        op: ProtocolOp,
+        count: usize,
+    ) -> DispatchResult {
         let fee = Self::compute_fee(op).saturating_mul(<BalanceOf<T>>::from(count as u32));
         let imbalance = Self::withdraw_fee(signatory, fee)?;
         T::OnProtocolFeePayment::on_unbalanced(imbalance);
@@ -186,13 +188,15 @@ impl<T: Trait> Module<T> {
     }
 
     /// Withdraws a precomputed fee.
-    fn withdraw_fee(signatory: &Signatory, fee: BalanceOf<T>) -> WithdrawFeeResult<T> {
+    fn withdraw_fee(
+        signatory: &Signatory<T::AccountId>,
+        fee: BalanceOf<T>,
+    ) -> WithdrawFeeResult<T> {
         match signatory {
             Signatory::Identity(did) => T::Currency::withdraw_identity_balance(did, fee)
                 .map_err(|_| Error::<T>::InsufficientIdentityBalance.into()),
-            Signatory::AccountKey(account) => T::Currency::withdraw(
-                &T::AccountId::decode(&mut &account.encode()[..])
-                    .map_err(|_| Error::<T>::AccountIdDecode)?,
+            Signatory::Account(account) => T::Currency::withdraw(
+                &account,
                 fee,
                 WithdrawReason::Fee.into(),
                 ExistenceRequirement::KeepAlive,
@@ -203,11 +207,15 @@ impl<T: Trait> Module<T> {
 }
 
 impl<T: Trait> ChargeProtocolFee<T::AccountId> for Module<T> {
-    fn charge_fee(signatory: &Signatory, op: ProtocolOp) -> DispatchResult {
+    fn charge_fee(signatory: &Signatory<T::AccountId>, op: ProtocolOp) -> DispatchResult {
         Self::charge_fee(signatory, op)
     }
 
-    fn batch_charge_fee(signatory: &Signatory, op: ProtocolOp, count: usize) -> DispatchResult {
+    fn batch_charge_fee(
+        signatory: &Signatory<T::AccountId>,
+        op: ProtocolOp,
+        count: usize,
+    ) -> DispatchResult {
         Self::batch_charge_fee(signatory, op, count)
     }
 }

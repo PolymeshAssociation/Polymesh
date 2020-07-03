@@ -17,7 +17,7 @@ use frame_support::{
 };
 use frame_system::{EventRecord, Phase};
 use pallet_transaction_payment::ChargeTransactionPayment;
-use polymesh_primitives::{traits::BlockRewardsReserveCurrency, Claim};
+use polymesh_primitives::{traits::BlockRewardsReserveCurrency, CddId, Claim, InvestorUID};
 use sp_runtime::traits::SignedExtension;
 use test_client::AccountKeyring;
 
@@ -424,10 +424,11 @@ fn check_top_up_identity_balance() {
                 Error::ReceiverCddMissing
             );
 
+            let cdd_id = CddId::new(acc_id, InvestorUID::from(&acc_id));
             assert_ok!(Identity::add_claim(
                 Origin::signed(AccountKeyring::Ferdie.public()),
                 acc_did,
-                Claim::CustomerDueDiligence,
+                Claim::CustomerDueDiligence(cdd_id),
                 None
             ));
 

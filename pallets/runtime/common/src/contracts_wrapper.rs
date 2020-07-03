@@ -28,19 +28,15 @@
 //!   - Initially restrict list of accounts that can put_code
 //!   - When code is instantiated enforce a POLYX fee to the DID owning the code (i.e. that executed put_code)
 
-use pallet_identity as identity;
-use polymesh_common_utilities::{identity::Trait as IdentityTrait, Context};
-use polymesh_primitives::{AccountKey, IdentityId, Signatory};
-
-use codec::Encode;
 use frame_support::traits::Currency;
 use frame_support::{decl_error, decl_module, decl_storage, dispatch::DispatchResult, ensure};
 use frame_system::ensure_signed;
 use pallet_contracts::{CodeHash, Gas, Schedule};
+use pallet_identity as identity;
+use polymesh_common_utilities::{identity::Trait as IdentityTrait, Context};
+use polymesh_primitives::{IdentityId, Signatory};
 use sp_runtime::traits::StaticLookup;
-use sp_std::{convert::TryFrom, prelude::*};
-
-// pub type CodeHash<T> = <T as frame_system::Trait>::Hash;
+use sp_std::prelude::Vec;
 
 pub type BalanceOf<T> = <<T as pallet_contracts::Trait>::Currency as Currency<
     <T as frame_system::Trait>::AccountId,
@@ -81,9 +77,8 @@ decl_module! {
             code: Vec<u8>
         ) -> DispatchResult {
             let sender = ensure_signed(origin)?;
-            let sender_key = AccountKey::try_from(sender.encode())?;
-            let did = Context::current_identity_or::<Identity<T>>(&sender_key)?;
-            let signer = Signatory::AccountKey(sender_key);
+            let did = Context::current_identity_or::<Identity<T>>(&sender)?;
+            let signer = Signatory::Account(sender.clone());
 
             // Check that sender is allowed to act on behalf of `did`
             ensure!(

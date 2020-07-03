@@ -14,8 +14,6 @@
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
 use crate::*;
-
-use chrono::prelude::Utc;
 use codec::Encode;
 use frame_support::{
     assert_ok,
@@ -26,37 +24,32 @@ use frame_support::{
 };
 use frame_system::EnsureSignedBy;
 use pallet_group as group;
-use pallet_identity::{self as identity};
+use pallet_identity as identity;
 use pallet_protocol_fee as protocol_fee;
 use pallet_staking::{EraIndex, Exposure, ExposureOf, StakerStatus, StashOf};
 use polymesh_common_utilities::traits::{
     asset::AcceptTransfer,
     balances::{AccountData, CheckCdd},
     group::{GroupTrait, InactiveMember},
-    identity::Trait as IdentityTrait,
+    identity::{LinkedKeyInfo, Trait as IdentityTrait},
     multisig::MultiSigSubTrait,
     CommonTrait,
 };
-use primitives::{AccountKey, IdentityId, Signatory};
+use primitives::{CddId, Claim, IdentityId, InvestorUID, Signatory};
 use sp_core::{
     crypto::{key_types, Pair as PairTrait},
-    offchain::{testing, OffchainExt, TransactionPoolExt},
     sr25519::Pair,
-    testing::KeyStore,
-    traits::KeystoreExt,
     H256,
 };
 use sp_runtime::curve::PiecewiseLinear;
+use sp_runtime::transaction_validity::{InvalidTransaction, TransactionValidity, ValidTransaction};
 use sp_runtime::{
     testing::{sr25519::Public, Header, TestXt, UintAuthorityId},
     traits::{
         Convert, Extrinsic as ExtrinsicsT, IdentityLookup, OpaqueKeys, SaturatedConversion, Verify,
-        Zero,
     },
     AnySignature, KeyTypeId, Perbill,
 };
-
-use sp_runtime::transaction_validity::{InvalidTransaction, TransactionValidity, ValidTransaction};
 use sp_staking::SessionIndex;
 use std::{
     cell::RefCell,
@@ -286,13 +279,16 @@ impl IdentityTrait for Test {
     type ProtocolFee = protocol_fee::Module<Test>;
 }
 
-impl pallet_transaction_payment::CddAndFeeDetails<Call> for Test {
-    fn get_valid_payer(_: &Call, _: &Signatory) -> Result<Option<Signatory>, InvalidTransaction> {
+impl pallet_transaction_payment::CddAndFeeDetails<AccountId, Call> for Test {
+    fn get_valid_payer(
+        _: &Call,
+        _: &Signatory<AccountId>,
+    ) -> Result<Option<Signatory<AccountId>>, InvalidTransaction> {
         Ok(None)
     }
     fn clear_context() {}
-    fn set_payer_context(_: Option<Signatory>) {}
-    fn get_payer_from_context() -> Option<Signatory> {
+    fn set_payer_context(_: Option<Signatory<AccountId>>) {}
+    fn get_payer_from_context() -> Option<Signatory<AccountId>> {
         None
     }
     fn set_current_identity(_: &IdentityId) {}
@@ -362,23 +358,23 @@ impl AcceptTransfer for Test {
     }
 }
 
-impl MultiSigSubTrait for Test {
-    fn accept_multisig_signer(_: Signatory, _: u64) -> DispatchResult {
+impl MultiSigSubTrait<AccountId> for Test {
+    fn accept_multisig_signer(_: Signatory<AccountId>, _: u64) -> DispatchResult {
         unimplemented!()
     }
-    fn get_key_signers(multisig: AccountKey) -> Vec<AccountKey> {
+    fn get_key_signers(multisig: &AccountId) -> Vec<AccountId> {
         unimplemented!()
     }
-    fn is_multisig(account: AccountKey) -> bool {
+    fn is_multisig(account: &AccountId) -> bool {
         unimplemented!()
     }
 }
 
-impl CheckCdd for Test {
-    fn check_key_cdd(key: &AccountKey) -> bool {
+impl CheckCdd<AccountId> for Test {
+    fn check_key_cdd(key: &AccountId) -> bool {
         true
     }
-    fn get_key_cdd_did(key: &AccountKey) -> Option<IdentityId> {
+    fn get_key_cdd_did(key: &AccountId) -> Option<IdentityId> {
         None
     }
 }
@@ -641,36 +637,42 @@ impl ExtBuilder {
                     account_key_ring.get(&1005).unwrap().clone(),
                     IdentityId::from(1),
                     IdentityId::from(1),
+                    InvestorUID::from(b"uid1"),
                     None,
                 ),
                 (
                     account_key_ring.get(&11).unwrap().clone(),
                     IdentityId::from(1),
                     IdentityId::from(11),
+                    InvestorUID::from(b"uid11"),
                     None,
                 ),
                 (
                     account_key_ring.get(&21).unwrap().clone(),
                     IdentityId::from(1),
                     IdentityId::from(21),
+                    InvestorUID::from(b"uid21"),
                     None,
                 ),
                 (
                     account_key_ring.get(&31).unwrap().clone(),
                     IdentityId::from(1),
                     IdentityId::from(31),
+                    InvestorUID::from(b"uid31"),
                     None,
                 ),
                 (
                     account_key_ring.get(&41).unwrap().clone(),
                     IdentityId::from(1),
                     IdentityId::from(41),
+                    InvestorUID::from(b"uid41"),
                     None,
                 ),
                 (
                     account_key_ring.get(&101).unwrap().clone(),
                     IdentityId::from(1),
                     IdentityId::from(101),
+                    InvestorUID::from(b"uid101"),
                     None,
                 ),
             ],
@@ -772,11 +774,22 @@ pub fn account_from(id: u64) -> AccountId {
 }
 
 pub fn create_did_and_add_claim(stash: AccountId, expiry: u64) {
-    Balances::make_free_balance_be(&account_from(1005), 1_000_000);
+    let acc = account_from(1005);
+    Balances::make_free_balance_be(&acc, 1_000_000);
     assert_ok!(Identity::cdd_register_did(
-        Origin::signed(account_from(1005)),
+        Origin::signed(acc),
         stash,
-        Some(expiry.saturated_into::<Moment>()),
         vec![]
     ));
+
+    if let Some(stash_id) = Identity::get_identity(&stash) {
+        let investor_uid = InvestorUID::from(&stash_id);
+        let cdd_claim = Claim::CustomerDueDiligence(CddId::new(stash_id, investor_uid));
+        assert_ok!(Identity::add_claim(
+            Origin::signed(acc),
+            stash_id,
+            cdd_claim,
+            Some(expiry.saturated_into::<Moment>())
+        ));
+    }
 }

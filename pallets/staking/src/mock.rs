@@ -44,7 +44,7 @@ use polymesh_common_utilities::traits::{
     CommonTrait,
 };
 use primitives::traits::BlockRewardsReserveCurrency;
-use primitives::{AccountKey, Claim, IdentityId, Signatory};
+use primitives::{CddId, Claim, IdentityId, InvestorUID, Signatory};
 use sp_core::{
     crypto::{key_types, Pair as PairTrait},
     sr25519::Pair,
@@ -66,7 +66,6 @@ use sp_staking::{
 use std::{
     cell::RefCell,
     collections::{BTreeMap, HashMap, HashSet},
-    convert::TryFrom,
 };
 use test_client::AccountKeyring;
 
@@ -258,13 +257,16 @@ impl IdentityTrait for Test {
     type ProtocolFee = protocol_fee::Module<Test>;
 }
 
-impl pallet_transaction_payment::CddAndFeeDetails<Call> for Test {
-    fn get_valid_payer(_: &Call, _: &Signatory) -> Result<Option<Signatory>, InvalidTransaction> {
+impl pallet_transaction_payment::CddAndFeeDetails<AccountId, Call> for Test {
+    fn get_valid_payer(
+        _: &Call,
+        _: &Signatory<AccountId>,
+    ) -> Result<Option<Signatory<AccountId>>, InvalidTransaction> {
         Ok(None)
     }
     fn clear_context() {}
-    fn set_payer_context(_: Option<Signatory>) {}
-    fn get_payer_from_context() -> Option<Signatory> {
+    fn set_payer_context(_: Option<Signatory<AccountId>>) {}
+    fn get_payer_from_context() -> Option<Signatory<AccountId>> {
         None
     }
     fn set_current_identity(_: &IdentityId) {}
@@ -334,23 +336,23 @@ impl AcceptTransfer for Test {
     }
 }
 
-impl MultiSigSubTrait for Test {
-    fn accept_multisig_signer(_: Signatory, _: u64) -> DispatchResult {
+impl MultiSigSubTrait<AccountId> for Test {
+    fn accept_multisig_signer(_: Signatory<AccountId>, _: u64) -> DispatchResult {
         unimplemented!()
     }
-    fn get_key_signers(multisig: AccountKey) -> Vec<AccountKey> {
+    fn get_key_signers(multisig: &AccountId) -> Vec<AccountId> {
         unimplemented!()
     }
-    fn is_multisig(account: AccountKey) -> bool {
+    fn is_multisig(account: &AccountId) -> bool {
         unimplemented!()
     }
 }
 
-impl CheckCdd for Test {
-    fn check_key_cdd(key: &AccountKey) -> bool {
+impl CheckCdd<AccountId> for Test {
+    fn check_key_cdd(key: &AccountId) -> bool {
         true
     }
-    fn get_key_cdd_did(key: &AccountKey) -> Option<IdentityId> {
+    fn get_key_cdd_did(key: &AccountId) -> Option<IdentityId> {
         None
     }
 }
@@ -614,36 +616,42 @@ impl ExtBuilder {
                     account_key_ring.get(&1005).unwrap().clone(),
                     IdentityId::from(1),
                     IdentityId::from(1),
+                    InvestorUID::from(b"uid1"),
                     None,
                 ),
                 (
                     account_key_ring.get(&11).unwrap().clone(),
                     IdentityId::from(1),
                     IdentityId::from(11),
+                    InvestorUID::from(b"uid11"),
                     None,
                 ),
                 (
                     account_key_ring.get(&21).unwrap().clone(),
                     IdentityId::from(1),
                     IdentityId::from(21),
+                    InvestorUID::from(b"uid21"),
                     None,
                 ),
                 (
                     account_key_ring.get(&31).unwrap().clone(),
                     IdentityId::from(1),
                     IdentityId::from(31),
+                    InvestorUID::from(b"uid31"),
                     None,
                 ),
                 (
                     account_key_ring.get(&41).unwrap().clone(),
                     IdentityId::from(1),
                     IdentityId::from(41),
+                    InvestorUID::from(b"uid41"),
                     None,
                 ),
                 (
                     account_key_ring.get(&101).unwrap().clone(),
                     IdentityId::from(1),
                     IdentityId::from(101),
+                    InvestorUID::from(b"uid101"),
                     None,
                 ),
             ],
@@ -881,7 +889,7 @@ pub fn add_nominator_claim(
     assert_ok!(Identity::add_claim(
         signed_claim_issuer_id,
         idendity_id,
-        Claim::CustomerDueDiligence,
+        Claim::CustomerDueDiligence(CddId::default()),
         Some((now.timestamp() as u64 + 10000_u64).into()),
     ));
 }
@@ -896,7 +904,7 @@ pub fn add_nominator_claim_with_expiry(
     assert_ok!(Identity::add_claim(
         signed_claim_issuer_id,
         idendity_id,
-        Claim::CustomerDueDiligence,
+        Claim::CustomerDueDiligence(CddId::default()),
         Some(expiry.into()),
     ));
 }
@@ -927,19 +935,30 @@ pub fn create_did_and_add_claim(stash: AccountId) {
     assert_ok!(Identity::cdd_register_did(
         Origin::signed(account_from(1005)),
         stash,
-        None,
         vec![]
     ));
 }
 
 pub fn create_did_and_add_claim_with_expiry(stash: AccountId, expiry: u64) {
-    Balances::make_free_balance_be(&account_from(1005), 1_000_000);
+    let acc = account_from(1005);
+    Balances::make_free_balance_be(&acc, 1_000_000);
     assert_ok!(Identity::cdd_register_did(
-        Origin::signed(account_from(1005)),
+        Origin::signed(acc.clone()),
         stash,
-        Some(expiry.into()),
         vec![]
     ));
+
+    if let Some(new_did) = Identity::get_identity(&stash) {
+        let investor_uid = InvestorUID::from(&new_did);
+        let cdd_claim = Claim::CustomerDueDiligence(CddId::new(new_did, investor_uid));
+
+        assert_ok!(Identity::add_claim(
+            Origin::signed(acc),
+            new_did,
+            cdd_claim,
+            Some(expiry.into())
+        ));
+    }
 }
 
 pub fn make_account(
@@ -957,13 +976,13 @@ pub fn make_account_with_balance(
     Balances::make_free_balance_be(&id, balance);
 
     Identity::register_did(signed_id.clone(), vec![]).map_err(|_| "Register DID failed")?;
-    let did = Identity::get_identity(&AccountKey::try_from(id.encode())?).unwrap();
+    let did = Identity::get_identity(&id).unwrap();
 
     Ok((signed_id, did))
 }
 
 pub fn check_cdd(id: AccountId) -> Result<bool, &'static str> {
-    let did = Identity::get_identity(&AccountKey::try_from(id.encode())?).unwrap();
+    let did = Identity::get_identity(&id).unwrap();
     let is_cdd = Identity::fetch_cdd(did, Zero::zero()).is_some();
     Ok(is_cdd)
 }

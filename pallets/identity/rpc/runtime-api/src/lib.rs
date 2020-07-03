@@ -16,10 +16,10 @@ pub type AssetDidResult = Result<IdentityId, Error>;
 #[derive(Eq, PartialEq, Encode, Decode)]
 #[cfg_attr(feature = "std", derive(Debug, Serialize, Deserialize))]
 #[cfg_attr(feature = "std", serde(rename_all = "camelCase"))]
-pub enum DidRecords<AccountKey, SigningItem> {
+pub enum DidRecords<AccountId, SigningItem> {
     /// Id was found and has the following master key and signing keys.
     Success {
-        master_key: AccountKey,
+        master_key: AccountId,
         signing_items: Vec<SigningItem>,
     },
     /// Error.
@@ -43,10 +43,10 @@ pub enum DidStatus {
 }
 
 sp_api::decl_runtime_apis! {
-    pub trait IdentityApi<IdentityId, Ticker, AccountKey, SigningItem, Signatory, Moment> where
+    pub trait IdentityApi<IdentityId, Ticker, AccountId, SigningItem, Signatory, Moment> where
         IdentityId: Codec,
         Ticker: Codec,
-        AccountKey: Codec,
+        AccountId: Codec,
         SigningItem: Codec,
         Signatory: Codec,
         Moment: Codec
@@ -58,10 +58,14 @@ sp_api::decl_runtime_apis! {
         fn get_asset_did(ticker: Ticker) -> AssetDidResult;
 
         /// Retrieve DidRecord for a given `did`.
-        fn get_did_records(did: IdentityId) -> DidRecords<AccountKey, SigningItem>;
+        fn get_did_records(did: IdentityId) -> DidRecords<AccountId, SigningItem>;
 
         /// Retrieve list of a link for a given signatory
-        fn get_filtered_links(signatory: Signatory, allow_expired: bool, link_type: Option<LinkType>) -> Vec<Link<Moment>>;
+        fn get_filtered_links(
+            signatory: Signatory,
+            allow_expired: bool,
+            link_type: Option<LinkType>
+        ) -> Vec<Link<Moment>>;
 
         /// Retrieve the status of the DID
         fn get_did_status(dids: Vec<IdentityId>) -> Vec<DidStatus>;

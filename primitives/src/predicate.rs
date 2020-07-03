@@ -102,7 +102,7 @@ where
 }
 
 /// Helper function to run predicates from a context.
-pub fn run(rule: Rule, context: &Context) -> bool {
+pub fn run(rule: &Rule, context: &Context) -> bool {
     match rule.rule_type {
         RuleType::IsPresent(ref claim) => exists(claim).evaluate(context),
         RuleType::IsAbsent(ref claim) => not(exists(claim)).evaluate(context),
@@ -115,6 +115,14 @@ pub fn run(rule: Rule, context: &Context) -> bool {
 // ======================================================
 
 /// It checks the existential of a claim.
+///
+/// # `CustomerDueDiligence` wildcard search
+/// The `CustomerDueDiligence` claim supports wildcard search if you use the default `CddId` (a zero filled data).
+/// For instance:
+///     - The `exists(Claim::CustomerDueDiligence(CddId::default()))` matches with any CDD claim.
+///     - The `exists(Claim::CustomerDueDiligence(a_valid_cdd_id))` matches only for the given
+///     `a_valid_cdd_id`.
+///
 #[derive(Clone)]
 #[cfg_attr(feature = "std", derive(Debug))]
 pub struct ExistentialPredicate<'a> {
@@ -123,8 +131,27 @@ pub struct ExistentialPredicate<'a> {
 }
 
 impl<'a> Predicate for ExistentialPredicate<'a> {
-    #[inline]
     fn evaluate(&self, context: &Context) -> bool {
+        match &self.claim {
+            Claim::CustomerDueDiligence(ref cdd_id) if !cdd_id.is_valid() => {
+                self.evaluate_cdd_claim_wildcard(context)
+            }
+            _ => self.evaluate_regular_claim(context),
+        }
+    }
+}
+
+impl<'a> ExistentialPredicate<'a> {
+    /// The wildcard search only double-checks if any CDD claim is in the context.
+    fn evaluate_cdd_claim_wildcard(&self, context: &Context) -> bool {
+        context.claims.iter().any(|ctx_claim| match ctx_claim {
+            Claim::CustomerDueDiligence(..) => true,
+            _ => false,
+        })
+    }
+
+    /// In regular claim evaluation, the data of the claim has to math too.
+    fn evaluate_regular_claim(&self, context: &Context) -> bool {
         context
             .claims
             .iter()
@@ -332,9 +359,7 @@ mod tests {
         ]
         .into();
 
-        let out = !rules
-            .iter()
-            .any(|rule| !predicate::run(rule.clone(), &context));
+        let out = !rules.iter().any(|rule| !predicate::run(&rule, &context));
         assert_eq!(out, true);
 
         // Invalid case: `BuyLockup` is present.
@@ -345,9 +370,7 @@ mod tests {
         ]
         .into();
 
-        let out = !rules
-            .iter()
-            .any(|rule| !predicate::run(rule.clone(), &context));
+        let out = !rules.iter().any(|rule| !predicate::run(&rule, &context));
         assert_eq!(out, false);
 
         // Invalid case: Missing `Accredited`
@@ -357,9 +380,7 @@ mod tests {
         ]
         .into();
 
-        let out = !rules
-            .iter()
-            .any(|rule| !predicate::run(rule.clone(), &context));
+        let out = !rules.iter().any(|rule| !predicate::run(&rule, &context));
         assert_eq!(out, false);
 
         // Invalid case: Missing `Jurisdiction`
@@ -369,9 +390,7 @@ mod tests {
         ]
         .into();
 
-        let out = !rules
-            .iter()
-            .any(|rule| !predicate::run(rule.clone(), &context));
+        let out = !rules.iter().any(|rule| !predicate::run(&rule, &context));
         assert_eq!(out, false);
 
         // Check NoneOf
@@ -380,9 +399,7 @@ mod tests {
             Claim::Jurisdiction(b"Cuba".into(), scope),
         ]
         .into();
-        let out = !rules
-            .iter()
-            .any(|rule| !predicate::run(rule.clone(), &context));
+        let out = !rules.iter().any(|rule| !predicate::run(&rule, &context));
         assert_eq!(out, false);
     }
 }

@@ -75,15 +75,15 @@ impl From<AuthorizationError> for DispatchError {
 
 /// Authorization struct
 #[derive(Encode, Decode, Default, Clone, PartialEq, Debug)]
-pub struct Authorization<U> {
+pub struct Authorization<AccountId, Moment> {
     /// Enum that contains authorization type and data
     pub authorization_data: AuthorizationData,
 
     /// Identity of the organization/individual that added this authorization
-    pub authorized_by: Signatory,
+    pub authorized_by: Signatory<AccountId>,
 
     /// time when this authorization expires. optional.
-    pub expiry: Option<U>,
+    pub expiry: Option<Moment>,
 
     /// Authorization id of this authorization
     pub auth_id: u64,
@@ -103,12 +103,12 @@ impl JoinIdentityData {
     /// Use to create the new Self object by providing target_did and permission
     pub fn new(target_did: IdentityId, permissions: Vec<Permission>) -> Self {
         Self {
-            target_did: target_did,
-            permissions: permissions,
+            target_did,
+            permissions,
         }
     }
 }
 
 /// Data required to fetch and authorization
 #[derive(Encode, Decode, Clone, Default, PartialEq, Eq, Debug, PartialOrd, Ord)]
-pub struct AuthIdentifier(pub Signatory, pub u64);
+pub struct AuthIdentifier<AccountId: Ord>(pub Signatory<AccountId>, pub u64);

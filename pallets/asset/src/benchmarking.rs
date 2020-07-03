@@ -16,9 +16,8 @@
 use crate::*;
 use pallet_balances as balances;
 use pallet_identity as identity;
-use polymesh_primitives::{AccountKey, AuthorizationData, IdentityId, Signatory, Ticker};
+use polymesh_primitives::{AuthorizationData, IdentityId, Signatory, Ticker};
 
-use codec::Encode;
 use frame_benchmarking::{account, benchmarks};
 use frame_support::{traits::Currency, StorageValue};
 use frame_system::RawOrigin;
@@ -37,8 +36,7 @@ fn make_account<T: Trait>(
     let origin = RawOrigin::Signed(account.clone());
     let _ = balances::Module::<T>::make_free_balance_be(&account, 1_000_000.into());
     let _ = identity::Module::<T>::register_did(origin.clone().into(), vec![]);
-    let did = identity::Module::<T>::get_identity(&AccountKey::try_from(account.encode()).unwrap())
-        .unwrap();
+    let did = identity::Module::<T>::get_identity(&account).unwrap_or_default();
     (account, origin, did)
 }
 
@@ -70,6 +68,7 @@ fn make_token<T: Trait>(
         asset_type,
         identifiers,
         Some(fundr),
+        None,
     )
     .unwrap();
     ticker
@@ -155,7 +154,7 @@ benchmarks! {
             iter::repeat(Default::default()).take(i as usize).collect();
         let fundr = FundingRoundName::from(vec![b'F'; f as usize].as_slice());
         let origin = make_account::<T>("caller", u).1;
-    }: _(origin, name, ticker, total_supply, true, asset_type, identifiers, Some(fundr))
+    }: _(origin, name, ticker, total_supply, true, asset_type, identifiers, Some(fundr), None)
 
     freeze {
         let u in ...;

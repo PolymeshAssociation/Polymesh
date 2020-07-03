@@ -54,7 +54,7 @@ const receiverRules1 = function(trusted_did, asset_did) {
 // Initialization Main is used to generate all entities e.g (Alice, Bob, Dave)
 async function initMain(api) {
   let entities = [];
-  
+
   let alice = await generateEntity(api, "Alice");
   let bob = await generateEntity(api, "Bob");
   let charlie = await generateEntity(api, "Charlie");
@@ -238,11 +238,11 @@ async function addSigningKeys(api, accounts, dids, signing_accounts) {
     // 1. Add Signing Item to identity.
 
     let nonceObj = {nonce: nonces.get(accounts[i].address)};
-    const transaction = api.tx.identity.addAuthorizationAsKey({AccountKey: signing_accounts[i].publicKey}, {JoinIdentity: { target_did: dids[i], signing_item: null }}, null);
+    const transaction = api.tx.identity.addAuthorizationAsKey({Account: signing_accounts[i].publicKey}, {JoinIdentity: { target_did: dids[i], signing_item: null }}, null);
     await sendTransaction(transaction, accounts[i], nonceObj);
 
     // const unsub = await api.tx.identity
-    // .addAuthorizationAsKey({AccountKey: signing_accounts[i].publicKey}, {JoinIdentity: { target_did: dids[i], signing_item: null }}, null)
+    // .addAuthorizationAsKey({Account: signing_accounts[i].publicKey}, {JoinIdentity: { target_did: dids[i], signing_item: null }}, null)
     // .signAndSend(accounts[i], { nonce: nonces.get(accounts[i].address) });
 
     nonces.set(accounts[i].address, nonces.get(accounts[i].address).addn(1));
@@ -255,7 +255,7 @@ async function authorizeJoinToIdentities(api, accounts, dids, signing_accounts) 
   for (let i = 0; i < accounts.length; i++) {
     // 1. Authorize
     const auths = await api.query.identity.authorizations.entries({
-      AccountKey: signing_accounts[i].publicKey
+      Account: signing_accounts[i].publicKey
     });
     let last_auth_id = 0;
     for (let i = 0; i < auths.length; i++) {
@@ -284,12 +284,11 @@ async function issueTokenPerDid(api, accounts) {
   // const transaction = api.tx.asset.createAsset(ticker, ticker, 1000000, true, 0, [], "abc");
   // await sendTransaction(transaction, accounts[0], nonceObj);
 
-    const unsub = await api.tx.asset
-      .createAsset(ticker, ticker, 1000000, true, 0, [], "abc")
-      .signAndSend(accounts[0], { nonce: nonces.get(accounts[0].address) });
+  const unsub = await api.tx.asset
+        .createAsset(ticker, ticker, 1000000, true, 0, [], "abc", null)
+        .signAndSend(accounts[0], { nonce: nonces.get(accounts[0].address) });
 
-    nonces.set(accounts[0].address, nonces.get(accounts[0].address).addn(1));
-
+  nonces.set(accounts[0].address, nonces.get(accounts[0].address).addn(1));
 }
 
 // Returns the asset did
@@ -429,7 +428,7 @@ async function signatory(api, entity, signer) {
 
   let signatoryObj = {
       "Identity": entityDid,
-      "AccountKey": entityKey
+      "Account": entityKey
   }
   return signatoryObj;
 }

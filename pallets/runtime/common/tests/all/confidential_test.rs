@@ -48,6 +48,7 @@ fn range_proof_we() {
         true,
         token.asset_type.clone(),
         identifiers.clone(),
+        None,
         None
     ));
 

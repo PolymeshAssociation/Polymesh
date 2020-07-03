@@ -88,6 +88,10 @@ impl Claim {
             Claim::NoData => None,
         }
     }
+
+    pub fn make_cdd_wildcard() -> Claim {
+        Claim::CustomerDueDiligence(CddId::default())
+    }
 }
 
 /// Claim type represent the claim without its data.

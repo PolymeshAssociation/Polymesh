@@ -15,7 +15,7 @@
 
 use crate::traits::{identity::IdentityTrait, CommonTrait, NegativeImbalance};
 
-use polymesh_primitives::{AccountKey, IdentityId};
+use polymesh_primitives::IdentityId;
 use polymesh_primitives_derive::SliceU8StrongTyped;
 
 use codec::{Decode, Encode};
@@ -141,10 +141,10 @@ pub trait Trait: CommonTrait {
     type ExistentialDeposit: Get<<Self as CommonTrait>::Balance>;
 
     /// Used to charge fee to identity rather than user directly
-    type Identity: IdentityTrait;
+    type Identity: IdentityTrait<Self::AccountId>;
 
     /// Used to check if an account is linked to a CDD'd identity
-    type CddChecker: CheckCdd;
+    type CddChecker: CheckCdd<Self::AccountId>;
 }
 
 pub trait BalancesTrait<A, B, NI> {
@@ -156,7 +156,7 @@ pub trait BalancesTrait<A, B, NI> {
     ) -> sp_std::result::Result<NI, DispatchError>;
 }
 
-pub trait CheckCdd {
-    fn check_key_cdd(key: &AccountKey) -> bool;
-    fn get_key_cdd_did(key: &AccountKey) -> Option<IdentityId>;
+pub trait CheckCdd<AccountId> {
+    fn check_key_cdd(key: &AccountId) -> bool;
+    fn get_key_cdd_did(key: &AccountId) -> Option<IdentityId>;
 }

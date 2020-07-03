@@ -17,20 +17,18 @@
 
 use crate::*;
 use chrono::prelude::Utc;
-use codec::{Decode, Encode};
-use frame_support::{assert_err, assert_noop, assert_ok, dispatch::DispatchError};
+use codec::Decode;
+use frame_support::assert_ok;
 use mock::*;
 use pallet_staking::RewardDestination;
-use primitives::{AccountKey, IdentityId, Signatory};
+use primitives::IdentityId;
 use sp_core::{
     offchain::{testing, OffchainExt, TransactionPoolExt},
     testing::KeyStore,
     traits::KeystoreExt,
-    H256,
 };
 use sp_runtime::testing::UintAuthorityId;
 use sp_runtime::RuntimeAppPublic;
-use test_client::AccountKeyring;
 
 #[test]
 fn check_the_initial_nominators_of_chain() {

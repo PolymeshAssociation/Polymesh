@@ -115,10 +115,6 @@ pub use cdd_id::{CddId, InvestorUID};
 pub mod identity_claim;
 pub use identity_claim::{Claim, ClaimType, IdentityClaim, JurisdictionName, Scope};
 
-/// Key is strong type which stores bytes representing the key.
-pub mod account_key;
-pub use account_key::AccountKey;
-
 /// This module contains entities related with signing keys.
 pub mod signing_item;
 pub use signing_item::{Permission, Signatory, SignatoryType, SigningItem};

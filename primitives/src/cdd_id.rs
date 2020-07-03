@@ -67,6 +67,11 @@ impl CddId {
 
         CddId(commitment_compressed)
     }
+
+    /// Only the zero-filled `CddId` is considered as invalid.
+    pub fn is_valid(&self) -> bool {
+        self.0 != [0u8; 32]
+    }
 }
 
 #[cfg(test)]
@@ -74,7 +79,7 @@ mod tests {
     use crate::{CddId, IdentityId, InvestorUID};
 
     #[test]
-    fn CddId_generation() {
+    fn cdd_id_generation() {
         let alice_id_1 = IdentityId::from(1);
         let alice_id_2 = IdentityId::from(2);
         let alice_uid = InvestorUID::from(b"alice_uid");
@@ -83,5 +88,6 @@ mod tests {
         let alice_cdd_id_2 = CddId::new(alice_id_2, alice_uid);
 
         assert!(alice_id_1 != alice_id_2);
+        assert!(alice_cdd_id_1 != alice_cdd_id_2);
     }
 }

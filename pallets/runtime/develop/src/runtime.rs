@@ -7,7 +7,7 @@ use polymesh_runtime_common::{
     bridge,
     cdd_check::CddChecker,
     contracts_wrapper, dividend, exemption,
-    impls::{Author, CurrencyToVoteHandler, LinearWeightToFee, TargetedFeeAdjustment},
+    impls::{Author, CurrencyToVoteHandler, LinearWeightToFee},
     merge_active_and_inactive, simple_token, sto_capped, voting, AvailableBlockRatio,
     BlockHashCount, MaximumBlockLength, MaximumBlockWeight, NegativeImbalance,
 };
@@ -37,8 +37,8 @@ use polymesh_common_utilities::{
     CommonTrait,
 };
 use polymesh_primitives::{
-    AccountId, AccountIndex, AccountKey, Balance, BlockNumber, Hash, IdentityId, Index, Link,
-    Moment, Signatory, Signature, SigningItem, Ticker,
+    AccountId, AccountIndex, Balance, BlockNumber, Hash, IdentityId, Index, Link, Moment,
+    Signatory, Signature, SigningItem, Ticker,
 };
 
 use sp_api::impl_runtime_apis;
@@ -209,7 +209,7 @@ impl balances::Trait for Runtime {
 }
 
 parameter_types! {
-    pub const TransactionBaseFee: Balance = 1 * CENTS;
+    pub const TransactionBaseFee: Balance = 1 * DOLLARS;
     pub const TransactionByteFee: Balance = 10 * MILLICENTS;
     // setting this to zero will disable the weight fee.
     pub const WeightFeeCoefficient: Balance = 1;
@@ -223,7 +223,7 @@ impl pallet_transaction_payment::Trait for Runtime {
     type TransactionBaseFee = TransactionBaseFee;
     type TransactionByteFee = TransactionByteFee;
     type WeightToFee = LinearWeightToFee<WeightFeeCoefficient>;
-    type FeeMultiplierUpdate = TargetedFeeAdjustment<TargetBlockFullness, Self>;
+    type FeeMultiplierUpdate = ();
     type CddHandler = CddHandler;
 }
 
@@ -904,7 +904,7 @@ impl_runtime_apis! {
         }
 
         /// Retrieve referendums voted on information by `id` identity (and its signing items).
-        fn voting_history_by_id(id: IdentityId) -> HistoricalVotingById<Vote<Balance>> {
+        fn voting_history_by_id(id: IdentityId) -> HistoricalVotingById<AccountId, Vote<Balance>> {
             Pips::voting_history_by_id(id)
         }
     }
@@ -922,9 +922,9 @@ impl_runtime_apis! {
             Block,
             IdentityId,
             Ticker,
-            AccountKey,
-            SigningItem,
-            Signatory,
+            AccountId,
+            SigningItem<AccountId>,
+            Signatory<AccountId>,
             Moment
         > for Runtime
     {
@@ -943,12 +943,16 @@ impl_runtime_apis! {
         }
 
         /// Retrieve master key and signing keys for a given IdentityId
-        fn get_did_records(did: IdentityId) -> DidRecords<AccountKey, SigningItem> {
+        fn get_did_records(did: IdentityId) -> DidRecords<AccountId, SigningItem<AccountId>> {
             Identity::get_did_records(did)
         }
 
         /// Retrieve list of a link for a given signatory
-        fn get_filtered_links(signatory: Signatory, allow_expired: bool, link_type: Option<LinkType>) -> Vec<Link<Moment>> {
+        fn get_filtered_links(
+            signatory: Signatory<AccountId>,
+            allow_expired: bool,
+            link_type: Option<LinkType>
+        ) -> Vec<Link<Moment>> {
             Identity::get_filtered_links(signatory, allow_expired, link_type)
         }
 

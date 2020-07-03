@@ -71,10 +71,10 @@ use polymesh_common_utilities::{
     pip::{EnactProposalMaker, PipId},
     Context, SystematicIssuers,
 };
-use polymesh_primitives::{AccountKey, IdentityId};
+use polymesh_primitives::IdentityId;
 use sp_core::u32_trait::Value as U32;
 use sp_runtime::traits::{EnsureOrigin, Hash, Zero};
-use sp_std::{convert::TryFrom, prelude::*, vec};
+use sp_std::{prelude::*, vec};
 
 /// Simple index type for proposal counting.
 pub type ProposalIndex = u32;
@@ -273,8 +273,8 @@ decl_module! {
         ///   - `L` is the encoded length of `proposal` preimage.
         #[weight = SimpleDispatchInfo::FixedOperational(2_000_000)]
         fn close(origin, proposal: T::Hash, #[compact] index: ProposalIndex) {
-            let who_key = AccountKey::try_from(ensure_signed(origin)?.encode())?;
-            let did = Context::current_identity_or::<Identity<T>>(&who_key)?;
+            let who = ensure_signed(origin)?;
+            let did = Context::current_identity_or::<Identity<T>>(&who)?;
 
             let voting = Self::voting(&proposal).ok_or(Error::<T, I>::NoSuchProposal)?;
             // POLYMESH-NOTE- Change specific to Polymesh
@@ -329,7 +329,10 @@ decl_module! {
                     let aye_call = T::EnactProposalMaker::enact_referendum_call(id);
                     let nay_call = T::EnactProposalMaker::reject_referendum_call(id);
                     (aye_call, nay_call)
-                })
+                })?;
+            let current_did = Context::current_identity::<Identity<T>>().unwrap_or_default();
+            Self::deposit_event(RawEvent::VoteEnactReferendum(current_did, id));
+            Ok(())
         }
 
         #[weight = SimpleDispatchInfo::FixedOperational(5_000_000)]
@@ -339,7 +342,10 @@ decl_module! {
                     let aye_call = T::EnactProposalMaker::enact_referendum_call(id);
                     let nay_call = T::EnactProposalMaker::reject_referendum_call(id);
                     (nay_call, aye_call)
-                })
+                })?;
+            let current_did = Context::current_identity::<Identity<T>>().unwrap_or_default();
+            Self::deposit_event(RawEvent::VoteRejectReferendum(current_did, id));
+            Ok(())
         }
     }
 }
@@ -489,8 +495,8 @@ impl<T: Trait<I>, I: Instance> Module<T, I> {
         F: Fn() -> (<T as Trait<I>>::Proposal, <T as Trait<I>>::Proposal),
     {
         // Only committee members can use this function.
-        let who_key = AccountKey::try_from(ensure_signed(origin.clone())?.encode())?;
-        let who_id = Context::current_identity_or::<Identity<T>>(&who_key)?;
+        let who = ensure_signed(origin.clone())?;
+        let who_id = Context::current_identity_or::<Identity<T>>(&who)?;
         ensure!(Self::is_member(&who_id), Error::<T, I>::BadOrigin);
 
         ensure!(
@@ -499,10 +505,8 @@ impl<T: Trait<I>, I: Instance> Module<T, I> {
         );
 
         // It creates the proposal if it does not exists or vote that proposal.
-        // let enact_call = T::EnactProposalMaker::enact_referendum_call(id);
         let (aye_call, nay_call) = call_maker();
         let hash = T::Hashing::hash_of(&aye_call);
-        // Self::deposit_event( RawEvent::VoteEnactReferendum(who_id, id));
 
         if let Some(voting) = Self::voting(hash) {
             Self::vote(who_id, hash, voting.index, true)?;

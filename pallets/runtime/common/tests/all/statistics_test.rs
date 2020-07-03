@@ -50,6 +50,7 @@ fn investor_count_per_asset_with_ext() {
         token.asset_type.clone(),
         identifiers.clone(),
         None,
+        None,
     ));
 
     let ticker = Ticker::try_from(token.name.as_slice()).unwrap();

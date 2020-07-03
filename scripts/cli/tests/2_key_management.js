@@ -8,7 +8,7 @@ let { reqImports } = require("../util/init.js");
 process.exitCode = 1;
 
 async function main() {
- 
+
   const api = await reqImports.createApi();
 
   const testEntities = await reqImports.initMain(api);
@@ -54,8 +54,8 @@ async function addSigningKeys( api, accounts, dids, signing_accounts ) {
 
     // 1. Add Signing Item to identity.
     let nonceObj = {nonce: reqImports.nonces.get(accounts[i].address)};
-    const transaction = api.tx.identity.addAuthorizationAsKey({AccountKey: signing_accounts[i].publicKey}, {JoinIdentity: { target_did: dids[i], signing_item: null }}, null);
-    const result = await reqImports.sendTransaction(transaction, accounts[i], nonceObj);  
+    const transaction = api.tx.identity.addAuthorizationAsKey({Account: signing_accounts[i].publicKey}, {JoinIdentity: { target_did: dids[i], signing_item: null }}, null);
+    const result = await reqImports.sendTransaction(transaction, accounts[i], nonceObj);
     const passed = result.findRecord('system', 'ExtrinsicSuccess');
     if (passed) reqImports.fail_count--;
 
@@ -68,7 +68,7 @@ async function createMultiSig( api, alice, dids, numOfSigners ) {
 
     let nonceObj = {nonce: reqImports.nonces.get(alice.address)};
     const transaction = api.tx.multiSig.createMultisig(dids, numOfSigners);
-    const result = await reqImports.sendTransaction(transaction, alice, nonceObj);  
+    const result = await reqImports.sendTransaction(transaction, alice, nonceObj);
     const passed = result.findRecord('system', 'ExtrinsicSuccess');
     if (passed) reqImports.fail_count--;
 
