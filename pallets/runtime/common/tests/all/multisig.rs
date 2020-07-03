@@ -480,7 +480,6 @@ fn add_multisig_signer() {
             MultiSig::ms_signers(musig_address.clone(), charlie_signer),
             true
         );
-        Context::set_current_identity::<Identity>(Some(IdentityId::from(999)));
         assert!(Identity::change_cdd_requirement_for_mk_rotation(root.clone(), true).is_ok());
 
         Context::set_current_identity::<Identity>(Some(alice_did));
@@ -488,7 +487,6 @@ fn add_multisig_signer() {
             MultiSig::accept_multisig_signer_as_key(bob.clone(), bob_auth_id),
             Error::ChangeNotAllowed
         );
-        Context::set_current_identity::<Identity>(Some(IdentityId::from(999)));
         assert!(Identity::change_cdd_requirement_for_mk_rotation(root.clone(), false).is_ok());
 
         Context::set_current_identity::<Identity>(Some(alice_did));

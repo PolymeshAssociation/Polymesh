@@ -223,6 +223,12 @@ fn valid_transfers_pass() {
             vec![]
         ));
 
+        // Should fail as sender matches receiver
+        assert_noop!(
+            Asset::transfer(owner_signed.clone(), ticker, owner_did, 500),
+            AssetError::InvalidTransfer
+        );
+
         assert_ok!(Asset::transfer(
             owner_signed.clone(),
             ticker,
