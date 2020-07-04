@@ -555,7 +555,7 @@ pub fn register_keyring_account_without_cdd(
 pub fn add_signing_item(did: IdentityId, signer: Signatory<AccountId>) {
     let master_key = Identity::did_records(&did).master_key;
     let auth_id = Identity::add_auth(
-        Signatory::Account(master_key),
+        did.clone(),
         signer,
         AuthorizationData::JoinIdentity(JoinIdentityData::new(did, vec![])),
         None,

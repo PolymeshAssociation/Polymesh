@@ -197,42 +197,20 @@ fn is_auth_valid(
         // to make sure proper authorization data is present.
         match call_type {
             CallType::AcceptMultiSigSigner => {
-                if auth.authorization_data == AuthorizationData::AddMultiSigSigner {
-                    // make sure that the auth was created by a valid multisig
-                    if let Signatory::Account(multisig) = auth.authorized_by {
-                        if <multisig::MultiSigSignsRequired<Runtime>>::contains_key(&multisig) {
-                            // make sure that the multisig is attached to an identity with valid CDD
-                            if let Some(did) = Identity::get_identity(&multisig) {
-                                return check_cdd(&did);
-                            } else {
-                                return Err(InvalidTransaction::Custom(
-                                    TransactionError::MissingIdentity as u8,
-                                )
-                                .into());
-                            }
-                        }
-                    }
+                if let AuthorizationData::AddMultiSigSigner(multisig) = auth.authorization_data {
+                    return check_cdd(&auth.authorized_by);
                 }
             }
             CallType::AcceptIdentitySigner => {
                 if let AuthorizationData::JoinIdentity(identity_data_to_join) =
                     auth.authorization_data
                 {
-                    // make sure that the auth was created by the master key of an identity with valid CDD
-                    let master =
-                        Identity::did_records(&identity_data_to_join.target_did).master_key;
-                    if auth.authorized_by == Signatory::Account(master) {
-                        return check_cdd(&identity_data_to_join.target_did);
-                    }
+                    return check_cdd(&auth.authorized_by);
                 }
             }
             CallType::AcceptIdentityMaster => {
                 if let AuthorizationData::RotateMasterKey(did) = auth.authorization_data {
-                    // make sure that the auth was created by the master key of an identity with valid CDD
-                    let master = Identity::did_records(&did).master_key;
-                    if auth.authorized_by == Signatory::Account(master) {
-                        return check_cdd(&did);
-                    }
+                    return check_cdd(&auth.authorized_by);
                 }
             }
         }

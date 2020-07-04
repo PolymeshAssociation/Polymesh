@@ -24,7 +24,7 @@ use sp_std::prelude::*;
 
 /// Authorization data for two step processes.
 #[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, PartialOrd, Ord)]
-pub enum AuthorizationData {
+pub enum AuthorizationData<AccountId> {
     /// CDD provider's attestation to change master key
     AttestMasterKeyRotation(IdentityId),
     /// Authorization to change master key
@@ -32,7 +32,7 @@ pub enum AuthorizationData {
     /// Authorization to transfer a ticker
     TransferTicker(Ticker),
     /// Add a signer to multisig
-    AddMultiSigSigner,
+    AddMultiSigSigner(AccountId),
     /// Authorization to transfer a token's ownership
     TransferAssetOwnership(Ticker),
     /// Authorization to join an Identity
@@ -43,7 +43,7 @@ pub enum AuthorizationData {
     NoData,
 }
 
-impl Default for AuthorizationData {
+impl<AccountId> Default for AuthorizationData<AccountId> {
     fn default() -> Self {
         AuthorizationData::NoData
     }
@@ -77,10 +77,10 @@ impl From<AuthorizationError> for DispatchError {
 #[derive(Encode, Decode, Default, Clone, PartialEq, Debug)]
 pub struct Authorization<AccountId, Moment> {
     /// Enum that contains authorization type and data
-    pub authorization_data: AuthorizationData,
+    pub authorization_data: AuthorizationData<AccountId>,
 
     /// Identity of the organization/individual that added this authorization
-    pub authorized_by: Signatory<AccountId>,
+    pub authorized_by: IdentityId,
 
     /// time when this authorization expires. optional.
     pub expiry: Option<Moment>,
