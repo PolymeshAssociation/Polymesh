@@ -30,14 +30,19 @@ pub enum AuthorizationData<AccountId> {
     /// Authorization to change master key
     RotateMasterKey(IdentityId),
     /// Authorization to transfer a ticker
+    /// Must be issued by the current owner of the ticker
     TransferTicker(Ticker),
     /// Add a signer to multisig
+    /// Must be issued to the identity that created the ms (and therefore owns it permanently)
     AddMultiSigSigner(AccountId),
     /// Authorization to transfer a token's ownership
+    /// Must be issued by the current owner of the asset
     TransferAssetOwnership(Ticker),
     /// Authorization to join an Identity
-    JoinIdentity(JoinIdentityData),
+    /// Must be issued by the identity which is being joined
+    JoinIdentity(Vec<Permission>),
     /// Any other authorization
+    /// TODO: Is this used?
     Custom(Ticker),
     /// No authorization data
     NoData,
@@ -87,26 +92,6 @@ pub struct Authorization<AccountId, Moment> {
 
     /// Authorization id of this authorization
     pub auth_id: u64,
-}
-
-/// Authorization Identity data
-#[derive(Encode, Decode, Default, Clone, PartialEq, Eq, Debug, PartialOrd, Ord)]
-pub struct JoinIdentityData {
-    /// Target DID under which signing_item need to be added
-    pub target_did: IdentityId,
-
-    /// Signing Item
-    pub permissions: Vec<Permission>,
-}
-
-impl JoinIdentityData {
-    /// Use to create the new Self object by providing target_did and permission
-    pub fn new(target_did: IdentityId, permissions: Vec<Permission>) -> Self {
-        Self {
-            target_did,
-            permissions,
-        }
-    }
 }
 
 /// Data required to fetch and authorization

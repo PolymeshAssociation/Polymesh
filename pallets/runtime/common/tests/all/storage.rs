@@ -24,9 +24,7 @@ use polymesh_common_utilities::traits::{
     pip::{EnactProposalMaker, PipId},
     CommonTrait,
 };
-use polymesh_primitives::{
-    Authorization, AuthorizationData, IdentityId, JoinIdentityData, Signatory,
-};
+use polymesh_primitives::{Authorization, AuthorizationData, IdentityId, Signatory};
 use polymesh_runtime_common::{
     bridge, cdd_check::CddChecker, dividend, exemption, simple_token, voting,
 };
@@ -557,7 +555,7 @@ pub fn add_signing_item(did: IdentityId, signer: Signatory<AccountId>) {
     let auth_id = Identity::add_auth(
         did.clone(),
         signer,
-        AuthorizationData::JoinIdentity(JoinIdentityData::new(did, vec![])),
+        AuthorizationData::JoinIdentity(vec![]),
         None,
     );
     assert_ok!(Identity::join_identity(signer, auth_id));

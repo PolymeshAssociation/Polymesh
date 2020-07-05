@@ -19,7 +19,8 @@
 //! multisig module itself.
 
 use frame_support::dispatch::DispatchResult;
-use polymesh_primitives::Signatory;
+use polymesh_primitives::{IdentityId, Signatory};
+
 use sp_std::vec::Vec;
 
 /// This trait is used to add a signer to a multisig and enable unlinking multisig from an identity
@@ -42,4 +43,9 @@ pub trait MultiSigSubTrait<AccountId> {
     /// # Arguments
     /// * `account` - AccountId to check
     fn is_multisig(account: &AccountId) -> bool;
+    /// Helper function that returns if a key is a multisig signer
+    fn is_signer(key: &AccountId) -> bool;
+
+    /// Helper function that returns if a key is a multisig signer
+    fn did_of_signer(key: &AccountId) -> IdentityId;
 }

@@ -23,8 +23,7 @@ use polymesh_common_utilities::{
 };
 use polymesh_primitives::{
     AuthorizationData, AuthorizationError, Claim, ClaimType, Document, IdentityClaim, IdentityId,
-    JoinIdentityData, LinkData, Permission, Scope, Signatory, SignatoryType, SigningItem, Ticker,
-    TransactionError,
+    LinkData, Permission, Scope, Signatory, SignatoryType, SigningItem, Ticker, TransactionError,
 };
 use polymesh_runtime_develop::{fee_details::CddHandler, runtime::Call};
 use sp_core::crypto::AccountId32;
@@ -794,7 +793,7 @@ fn enforce_uniqueness_keys_in_identity() {
     let auth_id = Identity::add_auth(
         alice_id,
         Signatory::Account(AccountKeyring::Bob.public()),
-        AuthorizationData::JoinIdentity(JoinIdentityData::new(alice_id, vec![])),
+        AuthorizationData::JoinIdentity(vec![]),
         None,
     );
     assert_err!(
@@ -1349,7 +1348,7 @@ fn add_identity_signers() {
         let auth_id_for_acc_to_id = Identity::add_auth(
             alice_did,
             bob_identity_signer,
-            AuthorizationData::JoinIdentity(JoinIdentityData::new(alice_did, vec![])),
+            AuthorizationData::JoinIdentity(vec![]),
             None,
         );
 
@@ -1366,7 +1365,7 @@ fn add_identity_signers() {
         let auth_id_for_acc2_to_id = Identity::add_auth(
             charlie_did,
             bob_identity_signer,
-            AuthorizationData::JoinIdentity(JoinIdentityData::new(charlie_did, vec![])),
+            AuthorizationData::JoinIdentity(vec![]),
             None,
         );
 
@@ -1375,6 +1374,7 @@ fn add_identity_signers() {
             charlie_did,
             PROTOCOL_OP_BASE_FEE
         ));
+        //TODO: Should this fail?
         assert_ok!(Identity::join_identity(
             bob_identity_signer,
             auth_id_for_acc2_to_id
@@ -1383,7 +1383,7 @@ fn add_identity_signers() {
         let auth_id_for_acc1_to_acc = Identity::add_auth(
             alice_did,
             dave_acc_signer,
-            AuthorizationData::JoinIdentity(JoinIdentityData::new(alice_did, vec![])),
+            AuthorizationData::JoinIdentity(vec![]),
             None,
         );
 
@@ -1400,7 +1400,7 @@ fn add_identity_signers() {
         let auth_id_for_acc2_to_acc = Identity::add_auth(
             charlie_did,
             dave_acc_signer,
-            AuthorizationData::JoinIdentity(JoinIdentityData::new(charlie_did, vec![])),
+            AuthorizationData::JoinIdentity(vec![]),
             None,
         );
 

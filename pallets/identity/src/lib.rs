@@ -116,8 +116,8 @@ use polymesh_common_utilities::{
 };
 use polymesh_primitives::{
     AuthIdentifier, Authorization, AuthorizationData, AuthorizationError, Claim, ClaimType,
-    Identity as DidRecord, IdentityClaim, IdentityId, JoinIdentityData, Link, LinkData, Permission,
-    Scope, Signatory, SignatoryType, SigningItem, Ticker,
+    Identity as DidRecord, IdentityClaim, IdentityId, Link, LinkData, Permission, Scope, Signatory,
+    SignatoryType, SigningItem, Ticker,
 };
 use sp_core::sr25519::Signature;
 use sp_io::hashing::blake2_256;
@@ -1177,61 +1177,48 @@ impl<T: Trait> Module<T> {
 
         let auth = <Authorizations<T>>::get(&signer, auth_id);
 
-        let identity_data_to_join = match auth.authorization_data {
-            AuthorizationData::JoinIdentity(data) => Ok(data),
+        let permissions = match auth.authorization_data {
+            AuthorizationData::JoinIdentity(permissions) => Ok(permissions),
             _ => Err(AuthorizationError::Invalid),
         }?;
 
+        //Not really needed unless we allow identities to be deleted
         ensure!(
-            <DidRecords<T>>::contains_key(&identity_data_to_join.target_did),
+            <DidRecords<T>>::contains_key(&auth.authorized_by),
             "Identity does not exist"
         );
 
-        Self::consume_auth(identity_data_to_join.target_did, signer.clone(), auth_id)?;
+        Self::consume_auth(auth.authorized_by.clone(), signer.clone(), auth_id)?;
 
-        Self::unsafe_join_identity(identity_data_to_join, signer)
+        Self::unsafe_join_identity(auth.authorized_by, permissions, signer)
     }
 
     /// Joins an identity as signer
     pub fn unsafe_join_identity(
-        identity_data_to_join: JoinIdentityData,
+        target_did: IdentityId,
+        permissions: Vec<Permission>,
         signer: Signatory<T::AccountId>,
     ) -> DispatchResult {
+        T::ProtocolFee::charge_fee(
+            &Signatory::Identity(target_did),
+            ProtocolOp::IdentityAddSigningItemsWithAuthorization,
+        )?;
         if let Signatory::Account(key) = &signer {
-            if !Self::can_key_be_linked_to_did(key, SignatoryType::External) {
-                ensure!(
-                    Self::get_identity(key) == Some(identity_data_to_join.target_did),
-                    Error::<T>::AlreadyLinked
-                )
-            } else {
-                T::ProtocolFee::charge_fee(
-                    &Signatory::Identity(identity_data_to_join.target_did),
-                    ProtocolOp::IdentityAddSigningItemsWithAuthorization,
-                )?;
-                Self::link_key_to_did(
-                    key,
-                    SignatoryType::External,
-                    identity_data_to_join.target_did,
-                );
-            }
-        } else {
-            T::ProtocolFee::charge_fee(
-                &Signatory::Identity(identity_data_to_join.target_did),
-                ProtocolOp::IdentityAddSigningItemsWithAuthorization,
-            )?;
+            ensure!(
+                Self::can_key_be_linked_to_did(key, SignatoryType::External),
+                Error::<T>::AlreadyLinked
+            );
+            Self::link_key_to_did(key, SignatoryType::External, target_did);
         }
 
         // create the SigningItem
-        let sg_item = SigningItem::new(signer, identity_data_to_join.permissions);
+        let sg_item = SigningItem::new(signer, permissions);
 
-        <DidRecords<T>>::mutate(identity_data_to_join.target_did, |identity| {
+        <DidRecords<T>>::mutate(target_did, |identity| {
             identity.add_signing_items(&[sg_item.clone()]);
         });
 
-        Self::deposit_event(RawEvent::SigningItemsAdded(
-            identity_data_to_join.target_did,
-            [sg_item].to_vec(),
-        ));
+        Self::deposit_event(RawEvent::SigningItemsAdded(target_did, [sg_item].to_vec()));
 
         Ok(())
     }
@@ -1465,6 +1452,7 @@ impl<T: Trait> Module<T> {
         <DidRecords<T>>::mutate(&rotation_for_did, |record| {
             Self::unlink_key_from_did(&record.master_key, rotation_for_did);
             record.master_key = sender.clone();
+            Self::link_key_to_did(&sender, SignatoryType::External, rotation_for_did);
         });
 
         Self::deposit_event(RawEvent::MasterKeyUpdated(
@@ -1719,6 +1707,14 @@ impl<T: Trait> Module<T> {
     ///
     /// An Option object containing the `IdentityId` that belongs to the key.
     pub fn get_identity(key: &T::AccountId) -> Option<IdentityId> {
+        if T::MultiSig::is_signer(&key) {
+            // Take identity from multisig creator
+            let ms_did = T::MultiSig::did_of_signer(&key);
+            if !Self::is_did_frozen(ms_did.clone()) {
+                return Some(ms_did);
+            }
+            return None;
+        }
         if let Some(linked_key_info) = <KeyToIdentityIds<T>>::get(key) {
             let id = match linked_key_info {
                 LinkedKeyInfo::Unique(id)
@@ -1898,10 +1894,7 @@ impl<T: Trait> Module<T> {
                 Self::add_auth(
                     did.clone(),
                     s_item.signer.clone(),
-                    AuthorizationData::JoinIdentity(JoinIdentityData::new(
-                        did,
-                        s_item.permissions.clone(),
-                    )),
+                    AuthorizationData::JoinIdentity(s_item.permissions.clone()),
                     None,
                 )
             })
