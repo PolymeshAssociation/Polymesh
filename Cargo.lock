@@ -919,6 +919,24 @@ dependencies = [
 ]
 
 [[package]]
+name = "frame-benchmarking-cli"
+version = "2.0.0-rc3"
+source = "git+https://github.com/paritytech/substrate?rev=c771821cae2dcb5a8808a19fae8122c0b9ae8499#c771821cae2dcb5a8808a19fae8122c0b9ae8499"
+dependencies = [
+ "frame-benchmarking",
+ "parity-scale-codec",
+ "sc-cli",
+ "sc-client-db",
+ "sc-executor",
+ "sc-service",
+ "sp-core",
+ "sp-externalities",
+ "sp-runtime",
+ "sp-state-machine",
+ "structopt",
+]
+
+[[package]]
 name = "frame-executive"
 version = "2.0.0-rc3"
 source = "git+https://github.com/paritytech/substrate?rev=c771821cae2dcb5a8808a19fae8122c0b9ae8499#c771821cae2dcb5a8808a19fae8122c0b9ae8499"
@@ -3953,6 +3971,7 @@ dependencies = [
  "chrono",
  "ctrlc",
  "frame-benchmarking",
+ "frame-benchmarking-cli",
  "frame-system-rpc-runtime-api",
  "futures 0.3.5",
  "hex-literal",
@@ -3984,6 +4003,7 @@ dependencies = [
  "parity-scale-codec",
  "parking_lot 0.10.2",
  "polymesh-common-utilities",
+ "polymesh-node-rpc",
  "polymesh-primitives",
  "polymesh-runtime-common",
  "polymesh-runtime-develop",
@@ -3994,6 +4014,7 @@ dependencies = [
  "sc-cli",
  "sc-client-api",
  "sc-client-db",
+ "sc-consensus",
  "sc-consensus-babe",
  "sc-executor",
  "sc-finality-grandpa",
@@ -4046,6 +4067,39 @@ dependencies = [
  "sp-runtime",
  "sp-std",
  "substrate-test-runtime-client",
+]
+
+[[package]]
+name = "polymesh-node-rpc"
+version = "0.1.0"
+dependencies = [
+ "jsonrpc-core",
+ "node-rpc",
+ "pallet-compliance-manager-rpc",
+ "pallet-contracts-rpc",
+ "pallet-group-rpc",
+ "pallet-identity-rpc",
+ "pallet-protocol-fee-rpc",
+ "pallet-staking-rpc",
+ "pallet-transaction-payment-rpc",
+ "parity-scale-codec",
+ "polymesh-primitives",
+ "sc-client-api",
+ "sc-consensus-babe",
+ "sc-consensus-babe-rpc",
+ "sc-consensus-epochs",
+ "sc-finality-grandpa",
+ "sc-finality-grandpa-rpc",
+ "sc-keystore",
+ "sc-rpc",
+ "sp-api",
+ "sp-block-builder",
+ "sp-blockchain",
+ "sp-consensus",
+ "sp-consensus-babe",
+ "sp-runtime",
+ "sp-transaction-pool",
+ "substrate-frame-rpc-system",
 ]
 
 [[package]]
@@ -5216,6 +5270,30 @@ dependencies = [
 ]
 
 [[package]]
+name = "sc-consensus-babe-rpc"
+version = "0.8.0-rc3"
+source = "git+https://github.com/paritytech/substrate?rev=c771821cae2dcb5a8808a19fae8122c0b9ae8499#c771821cae2dcb5a8808a19fae8122c0b9ae8499"
+dependencies = [
+ "derive_more",
+ "futures 0.3.5",
+ "jsonrpc-core",
+ "jsonrpc-core-client",
+ "jsonrpc-derive",
+ "sc-consensus-babe",
+ "sc-consensus-epochs",
+ "sc-keystore",
+ "sc-rpc-api",
+ "serde",
+ "sp-api",
+ "sp-application-crypto",
+ "sp-blockchain",
+ "sp-consensus",
+ "sp-consensus-babe",
+ "sp-core",
+ "sp-runtime",
+]
+
+[[package]]
 name = "sc-consensus-epochs"
 version = "0.8.0-rc3"
 source = "git+https://github.com/paritytech/substrate?rev=c771821cae2dcb5a8808a19fae8122c0b9ae8499#c771821cae2dcb5a8808a19fae8122c0b9ae8499"
@@ -5359,6 +5437,23 @@ dependencies = [
  "sp-runtime",
  "sp-utils",
  "substrate-prometheus-endpoint",
+]
+
+[[package]]
+name = "sc-finality-grandpa-rpc"
+version = "0.8.0-rc3"
+source = "git+https://github.com/paritytech/substrate?rev=c771821cae2dcb5a8808a19fae8122c0b9ae8499#c771821cae2dcb5a8808a19fae8122c0b9ae8499"
+dependencies = [
+ "derive_more",
+ "finality-grandpa",
+ "futures 0.3.5",
+ "jsonrpc-core",
+ "jsonrpc-core-client",
+ "jsonrpc-derive",
+ "log",
+ "sc-finality-grandpa",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]
@@ -6720,9 +6815,9 @@ checksum = "8ea5119cdb4c55b55d432abb513a0429384878c15dde60cc77b1c99de1a95a6a"
 
 [[package]]
 name = "structopt"
-version = "0.3.14"
+version = "0.3.15"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "863246aaf5ddd0d6928dfeb1a9ca65f505599e4e1b399935ef7e75107516b4ef"
+checksum = "de2f5e239ee807089b62adce73e48c625e0ed80df02c7ab3f068f5db5281065c"
 dependencies = [
  "clap",
  "lazy_static",
@@ -6731,9 +6826,9 @@ dependencies = [
 
 [[package]]
 name = "structopt-derive"
-version = "0.4.7"
+version = "0.4.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d239ca4b13aee7a2142e6795cbd69e457665ff8037aed33b3effdc430d2f927a"
+checksum = "510413f9de616762a4fbeab62509bf15c729603b72d7cd71280fbca431b1c118"
 dependencies = [
  "heck",
  "proc-macro-error",
@@ -6773,6 +6868,29 @@ dependencies = [
  "pbkdf2",
  "schnorrkel",
  "sha2",
+]
+
+[[package]]
+name = "substrate-frame-rpc-system"
+version = "2.0.0-rc3"
+source = "git+https://github.com/paritytech/substrate?rev=c771821cae2dcb5a8808a19fae8122c0b9ae8499#c771821cae2dcb5a8808a19fae8122c0b9ae8499"
+dependencies = [
+ "frame-system-rpc-runtime-api",
+ "futures 0.3.5",
+ "jsonrpc-core",
+ "jsonrpc-core-client",
+ "jsonrpc-derive",
+ "log",
+ "parity-scale-codec",
+ "sc-client-api",
+ "sc-rpc-api",
+ "serde",
+ "sp-api",
+ "sp-block-builder",
+ "sp-blockchain",
+ "sp-core",
+ "sp-runtime",
+ "sp-transaction-pool",
 ]
 
 [[package]]

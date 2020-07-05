@@ -48,6 +48,7 @@ members = [
     "pallets/compliance-manager/rpc/runtime-api",
     "pallets/utility",
     "rpc/runtime-api",
+    "node-rpc",
     "rpc",
 ]
 
@@ -85,6 +86,7 @@ pallet-group-rpc = { package = "pallet-group-rpc", path = "pallets/group/rpc", d
 pallet-group-rpc-runtime-api = { package = "pallet-group-rpc-runtime-api", path = "pallets/group/rpc/runtime-api", default-features = false }
 pallet-compliance-manager-rpc = { package = "pallet-compliance-manager-rpc", path = "pallets/compliance-manager/rpc", default-features = false }
 pallet-compliance-manager-rpc-runtime-api = { package = "pallet-compliance-manager-rpc-runtime-api", path = "pallets/compliance-manager/rpc/runtime-api", default-features = false }
+polymesh-node-rpc = { package = "polymesh-node-rpc", path = "node-rpc"}
 
 # Others
 parking_lot = "0.10.0"
@@ -96,7 +98,7 @@ futures = "0.3.4"
 hex-literal = "0.2.1"
 jsonrpc-core = "14.0.5"
 serde_json = '1.0.48'
-structopt = "0.3.12"
+structopt = "0.3.15"
 chrono = { version = "0.4.11", default-features = false }
 linregress = { version = "0.1", optional = true }
 
@@ -129,6 +131,7 @@ sp-transaction-pool = { package = "sp-transaction-pool", git = "https://github.c
 sc-keystore = { git = "https://github.com/paritytech/substrate", rev = "c771821cae2dcb5a8808a19fae8122c0b9ae8499" }
 sc-consensus-babe = { package = "sc-consensus-babe", git = "https://github.com/paritytech/substrate", rev = "c771821cae2dcb5a8808a19fae8122c0b9ae8499" }
 sp-consensus-babe = { package = "sp-consensus-babe", git = "https://github.com/paritytech/substrate", default-features = false, rev = "c771821cae2dcb5a8808a19fae8122c0b9ae8499" }
+sc-consensus = {git = "https://github.com/paritytech/substrate", rev = "c771821cae2dcb5a8808a19fae8122c0b9ae8499" }
 sc-basic-authorship = { package = "sc-basic-authorship", git = "https://github.com/paritytech/substrate", rev = "c771821cae2dcb5a8808a19fae8122c0b9ae8499" }
 contracts = { package = "pallet-contracts", path = "pallets/contracts" }
 sc-authority-discovery = { package = "sc-authority-discovery", git = "https://github.com/paritytech/substrate", rev = "c771821cae2dcb5a8808a19fae8122c0b9ae8499" }
@@ -136,7 +139,7 @@ sp-authority-discovery = { package = "sp-authority-discovery", git = "https://gi
 contracts-rpc = { package = "pallet-contracts-rpc", path = "pallets/contracts/rpc" }
 prometheus-endpoint = { package = "substrate-prometheus-endpoint", git = "https://github.com/paritytech/substrate", rev = "c771821cae2dcb5a8808a19fae8122c0b9ae8499" }
 frame-system-rpc-runtime-api = { package = "frame-system-rpc-runtime-api", git = "https://github.com/paritytech/substrate", rev = "c771821cae2dcb5a8808a19fae8122c0b9ae8499" }
-
+frame-benchmarking-cli = { git = "https://github.com/paritytech/substrate", rev = "c771821cae2dcb5a8808a19fae8122c0b9ae8499" }
 
 [build-dependencies]
 vergen = "3.1.0"
