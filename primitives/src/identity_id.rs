@@ -166,37 +166,35 @@ impl Printable for IdentityId {
     }
 }
 
-/// A wrapper for a portfolio name. The name of the default portfolio is the empty byte vector `b""`.
+/// A wrapper for a portfolio name. It is used for non-default (aka "user") portfolios only since
+/// default ones are nameless.
 #[derive(
     Decode, Encode, Clone, Debug, Default, Hash, PartialEq, Eq, PartialOrd, Ord, VecU8StrongTyped,
 )]
 pub struct PortfolioName(pub Vec<u8>);
 
-/// The compound ID of a portfolio.
-#[derive(Decode, Encode, Clone, Debug, Default, Hash, PartialEq, Eq, PartialOrd, Ord)]
-pub struct PortfolioId {
-    /// DID
-    pub did: IdentityId,
-    /// Portfolio name
-    pub name: PortfolioName,
+type PortfolioNumber = u128;
+
+/// The ID of a portfolio.
+#[derive(Decode, Encode, Clone, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
+pub enum PortfolioId {
+    /// The default portfolio of the DID.
+    Default(IdentityId),
+    /// A non-default portfolio identified with a unique sequence number.
+    User(IdentityId, PortfolioNumber),
 }
 
 impl Printable for PortfolioId {
     fn print(&self) {
-        self.did.print();
-        if !self.name.0.is_empty() {
-            sp_io::misc::print_utf8(b"/");
-            sp_io::misc::print_utf8(&self.name);
-        }
-    }
-}
-
-impl PortfolioId {
-    /// Returns the ID of the default portfolio of a given identity.
-    pub fn default_portfolio(did: IdentityId) -> Self {
-        PortfolioId {
-            did,
-            ..Default::default()
+        match self {
+            PortfolioId::Default(did) => {
+                did.print();
+                sp_io::misc::print_utf8(b"/default");
+            }
+            PortfolioId::User(did, num) => {
+                did.print();
+                sp_io::misc::print_utf8(format!("/{}", num).as_bytes());
+            }
         }
     }
 }
