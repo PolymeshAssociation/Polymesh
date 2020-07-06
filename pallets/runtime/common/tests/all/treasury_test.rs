@@ -52,7 +52,6 @@ fn reimbursement_and_disbursement_we() {
     ];
 
     // Providing a random DID to Root, In an ideal world root will have a valid DID
-    Context::set_current_identity::<Identity>(Some(IdentityId::from(999)));
     assert_ok!(Treasury::disbursement(root.clone(), beneficiaries));
     Context::set_current_identity::<Identity>(None);
     assert_eq!(Treasury::balance(), 400);
