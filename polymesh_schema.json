@@ -565,6 +565,66 @@
         "IssueAssetItem": {
             "identity_did": "IdentityId",
             "value": "Balance"
+        },
+        "InstructionStatus": {
+            "_enum": {
+                "Unknown": "",
+                "Pending": ""
+            }
+        },
+        "LegStatus": {
+            "_enum": {
+                "PendingTokenLock": "",
+                "ExecutionPending": "",
+                "ExecutionToBeSkipped": "(AccountId, u64)"
+            }
+        },
+        "AuthorizationStatus": {
+            "_enum": {
+                "Unknown": "",
+                "Pending": "",
+                "Authorized": "",
+                "Rejected": ""
+            }
+        },
+        "SettlementType": {
+            "_enum": {
+                "SettleOnAuthorization": "",
+                "SettleOnBlock": "BlockNumber"
+            }
+        },
+        "Instruction": {
+            "instruction_id": "u64",
+            "venue_id": "u64",
+            "status": "InstructionStatus",
+            "settlement_type": "SettlementType",
+            "created_at": "Option<Moment>",
+            "valid_from": "Option<Moment>"
+        },
+        "LegDetails": {
+            "from": "IdentityId",
+            "to": "IdentityId",
+            "asset": "Ticker",
+            "amount": "Balance"
+        },
+        "Leg": {
+            "leg_number": "u64",
+            "from": "IdentityId",
+            "to": "IdentityId",
+            "asset": "Ticker",
+            "amount": "Balance"
+        },
+        "Venue": {
+            "creator": "IdentityId",
+            "instructions": "Vec<u64>",
+            "details": "Vec<u8>"
+        },
+        "Receipt": {
+            "receipt_uid": "u64",
+            "from": "IdentityId",
+            "to": "IdentityId",
+            "asset": "Ticker",
+            "amount": "Balance"
         }
     },
     "rpc": {
