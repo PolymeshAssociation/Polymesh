@@ -399,6 +399,16 @@ fn valid_custodian_allowance() {
             investor2_did,
             45_00_00 as u128
         ));
+
+        assert_eq!(
+            Asset::custodian_allowance((ticker, investor1_did, custodian_did)),
+            50_000 as u128
+        );
+
+        assert_eq!(
+            Asset::total_custody_allowance((ticker, investor1_did)),
+            50_000 as u128
+        );
     });
 }
 

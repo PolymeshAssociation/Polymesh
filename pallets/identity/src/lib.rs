@@ -298,17 +298,16 @@ decl_module! {
             signing_items: Vec<SigningItem<T::AccountId>>
         ) -> DispatchResult {
             // Sender has to be part of CDDProviders
-            let sender = ensure_signed(origin)?;
-            let sender_id = Context::current_identity_or::<Self>(&sender)?;
+            let cdd_sender = ensure_signed(origin)?;
+            let cdd_id = Context::current_identity_or::<Self>(&cdd_sender)?;
 
-            // Double check that sender is a trusted CDD provider.
-            let trusted_cdd_providers = T::CddServiceProviders::get_members();
-            ensure!(trusted_cdd_providers.contains(&sender_id), Error::<T>::UnAuthorizedCddProvider);
+            let cdd_providers = T::CddServiceProviders::get_members();
+            ensure!(cdd_providers.contains(&cdd_id), Error::<T>::UnAuthorizedCddProvider);
             // Register Identity and add claim.
             let _new_id = Self::_register_did(
                 target_account,
                 signing_items,
-                Some((&Signatory::Account(sender), ProtocolOp::IdentityCddRegisterDid))
+                Some((&Signatory::Account(cdd_sender), ProtocolOp::IdentityCddRegisterDid))
             )?;
             Ok(())
         }
