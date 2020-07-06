@@ -8,7 +8,7 @@ use pallet_balances as balances;
 use pallet_identity as identity;
 use pallet_treasury::{self as treasury, TreasuryTrait};
 use polymesh_common_utilities::Context;
-use polymesh_primitives::{Beneficiary, IdentityId};
+use polymesh_primitives::Beneficiary;
 use sp_runtime::DispatchError;
 use test_client::AccountKeyring;
 

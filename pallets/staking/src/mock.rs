@@ -55,7 +55,6 @@ use sp_runtime::curve::PiecewiseLinear;
 use sp_runtime::testing::{sr25519::Public, Header, UintAuthorityId};
 use sp_runtime::traits::{
     Convert, IdentityLookup, OnFinalize, OnInitialize, OpaqueKeys, SaturatedConversion, Verify,
-    Zero,
 };
 use sp_runtime::transaction_validity::{InvalidTransaction, TransactionValidity, ValidTransaction};
 use sp_runtime::{AnySignature, KeyTypeId, Perbill};
@@ -126,11 +125,6 @@ impl pallet_session::SessionHandler<AccountId> for TestSessionHandler {
             d.1.insert(value);
         })
     }
-}
-
-pub fn is_disabled(controller: AccountId) -> bool {
-    let stash = Staking::ledger(&controller).unwrap().stash;
-    SESSION.with(|d| d.borrow().1.contains(&stash))
 }
 
 pub struct ExistentialDeposit;
@@ -322,7 +316,7 @@ impl GroupTrait<Moment> for Test {
             .collect::<Vec<_>>()
     }
 
-    fn is_member_expired(member: &InactiveMember<Moment>, now: Moment) -> bool {
+    fn is_member_expired(_member: &InactiveMember<Moment>, _now: Moment) -> bool {
         false
     }
 }
@@ -340,19 +334,19 @@ impl MultiSigSubTrait<AccountId> for Test {
     fn accept_multisig_signer(_: Signatory<AccountId>, _: u64) -> DispatchResult {
         unimplemented!()
     }
-    fn get_key_signers(multisig: &AccountId) -> Vec<AccountId> {
+    fn get_key_signers(_multisig: &AccountId) -> Vec<AccountId> {
         unimplemented!()
     }
-    fn is_multisig(account: &AccountId) -> bool {
+    fn is_multisig(_account: &AccountId) -> bool {
         unimplemented!()
     }
 }
 
 impl CheckCdd<AccountId> for Test {
-    fn check_key_cdd(key: &AccountId) -> bool {
+    fn check_key_cdd(_key: &AccountId) -> bool {
         true
     }
-    fn get_key_cdd_did(key: &AccountId) -> Option<IdentityId> {
+    fn get_key_cdd_did(_key: &AccountId) -> Option<IdentityId> {
         None
     }
 }
@@ -602,7 +596,7 @@ impl ExtBuilder {
         }
         .assimilate_storage(&mut storage);
 
-        group::GenesisConfig::<Test, group::Instance2> {
+        let _ = group::GenesisConfig::<Test, group::Instance2> {
             active_members: vec![IdentityId::from(1), IdentityId::from(2)],
             phantom: Default::default(),
         }
@@ -610,8 +604,8 @@ impl ExtBuilder {
 
         let _ = identity::GenesisConfig::<Test> {
             identities: vec![
-                /// (master_account_id, service provider did, target did, expiry time of CustomerDueDiligence claim i.e 10 days is ms)
-                /// Provide Identity
+                // (master_account_id, service provider did, target did, expiry time of CustomerDueDiligence claim i.e 10 days is ms)
+                // Provide Identity
                 (
                     account_key_ring.get(&1005).unwrap().clone(),
                     IdentityId::from(1),
@@ -816,14 +810,6 @@ pub fn assert_ledger_consistent(stash_acc: u64) {
     assert_eq!(real_total, ledger.total);
 }
 
-pub fn get_account_key_ring(acc: u64) -> Public {
-    let account_key_ring: BTreeMap<u64, Public> = [10, 11, 20, 21, 30, 31, 40, 41, 100, 101, 999]
-        .iter()
-        .map(|id| (*id, account_from(*id)))
-        .collect();
-    account_key_ring.get(&(acc)).unwrap().clone()
-}
-
 pub fn bond_validator(acc: u64, val: u128) {
     // a = controller
     // a + 1 = stash
@@ -880,7 +866,7 @@ pub fn bond_nominator_with_expiry(acc: u64, val: u128, claim_expiry: u64, target
 }
 
 pub fn add_nominator_claim(
-    claim_issuer: IdentityId,
+    _claim_issuer: IdentityId,
     idendity_id: IdentityId,
     claim_issuer_account_id: AccountId,
 ) {
@@ -895,7 +881,7 @@ pub fn add_nominator_claim(
 }
 
 pub fn add_nominator_claim_with_expiry(
-    claim_issuer: IdentityId,
+    _claim_issuer: IdentityId,
     idendity_id: IdentityId,
     claim_issuer_account_id: AccountId,
     expiry: u64,
@@ -914,32 +900,15 @@ pub fn add_trusted_cdd_provider(cdd_sp: IdentityId) {
     assert_ok!(Group::add_member(signed_id, cdd_sp));
 }
 
-pub fn fix_nominator_genesis(cdd_sp: IdentityId, did: IdentityId, acc: u64) {
-    let controller = account_from(acc);
-    let stash = account_from(acc + 1);
-    let signed_id = Origin::signed(AccountId::from(AccountKeyring::Dave));
-    let now = Utc::now();
-    add_nominator_claim(cdd_sp, did, AccountId::from(AccountKeyring::Dave));
-    assert_ok!(Staking::nominate(
-        Origin::signed(controller),
-        vec![account_from(11), account_from(21)]
-    ));
-    assert_eq!(
-        Staking::nominators(stash).unwrap().targets,
-        vec![account_from(11), account_from(21)]
-    );
-}
-
 pub fn create_did_and_add_claim(stash: AccountId) {
-    Balances::make_free_balance_be(&account_from(1005), 1_000_000);
-    assert_ok!(Identity::cdd_register_did(
-        Origin::signed(account_from(1005)),
-        stash,
-        vec![]
-    ));
+    create_did_and_add_claim_base(stash, None)
 }
 
 pub fn create_did_and_add_claim_with_expiry(stash: AccountId, expiry: u64) {
+    create_did_and_add_claim_base(stash, Some(expiry))
+}
+
+pub fn create_did_and_add_claim_base(stash: AccountId, expiry: Option<u64>) {
     let acc = account_from(1005);
     Balances::make_free_balance_be(&acc, 1_000_000);
     assert_ok!(Identity::cdd_register_did(
@@ -951,12 +920,13 @@ pub fn create_did_and_add_claim_with_expiry(stash: AccountId, expiry: u64) {
     if let Some(new_did) = Identity::get_identity(&stash) {
         let investor_uid = InvestorUID::from(&new_did);
         let cdd_claim = Claim::CustomerDueDiligence(CddId::new(new_did, investor_uid));
+        let expiry = expiry.map(|e| e.into());
 
         assert_ok!(Identity::add_claim(
             Origin::signed(acc),
             new_did,
             cdd_claim,
-            Some(expiry.into())
+            expiry
         ));
     }
 }
@@ -979,12 +949,6 @@ pub fn make_account_with_balance(
     let did = Identity::get_identity(&id).unwrap();
 
     Ok((signed_id, did))
-}
-
-pub fn check_cdd(id: AccountId) -> Result<bool, &'static str> {
-    let did = Identity::get_identity(&id).unwrap();
-    let is_cdd = Identity::fetch_cdd(did, Zero::zero()).is_some();
-    Ok(is_cdd)
 }
 
 pub fn advance_session() {
@@ -1108,41 +1072,4 @@ pub fn make_all_reward_payment(era: EraIndex) {
             era
         ));
     }
-}
-
-pub fn fix_nominator_genesis_problem(value: u128) {
-    let nominator_controller_account = 100;
-    let nominator_stash_account = 101;
-    let (_nominator_signed, nominator_did) =
-        make_account_with_balance(account_from(nominator_stash_account), value).unwrap();
-
-    let service_provider_account = AccountId::from(AccountKeyring::Dave);
-    let (service_provider_signed, service_provider_did) =
-        make_account(service_provider_account.clone()).unwrap();
-    add_trusted_cdd_provider(service_provider_did);
-
-    fix_nominator_genesis(
-        service_provider_did,
-        nominator_did,
-        nominator_controller_account,
-    );
-}
-
-pub fn add_claim_for_nominator(
-    stash: AccountId,
-    service_provider_account: AccountId,
-    balance: u128,
-) {
-    let (nominator_signed, nominator_did) = make_account_with_balance(stash, 1_000_000).unwrap();
-
-    let (service_provider_signed, service_provider_did) =
-        make_account(service_provider_account.clone()).unwrap();
-    add_trusted_cdd_provider(service_provider_did);
-
-    let now = Utc::now();
-    add_nominator_claim(
-        service_provider_did,
-        nominator_did,
-        service_provider_account,
-    );
 }

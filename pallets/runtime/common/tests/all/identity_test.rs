@@ -87,10 +87,12 @@ fn add_claims_batch() {
 
     let scope = Scope::from(0);
 
+    let alice_cdd =
+        Claim::CustomerDueDiligence(CddId::new(alice_did, InvestorUID::from(&alice_did)));
     let claim_records = vec![
         BatchAddClaimItem {
             target: alice_did,
-            claim: Claim::CustomerDueDiligence,
+            claim: alice_cdd.clone(),
             expiry: None,
         },
         BatchAddClaimItem {
@@ -125,7 +127,7 @@ fn add_claims_batch() {
     assert_eq!(claim1.expiry, None);
     assert_eq!(claim2.expiry, None);
 
-    assert_eq!(claim1.claim, Claim::CustomerDueDiligence);
+    assert_eq!(claim1.claim, alice_cdd);
     assert_eq!(claim2.claim, Claim::Affiliate(scope));
 }
 
@@ -1265,13 +1267,21 @@ fn cdd_register_did_test_we() {
     assert_eq!(Identity::has_valid_cdd(alice_id), true);
 
     // Error case: Try account without ID.
-    assert!(Identity::cdd_register_did(non_id, bob_acc, Some(10), vec![]).is_err(),);
+    assert!(Identity::cdd_register_did(non_id, bob_acc, vec![]).is_err());
     // Error case: Try account with ID but it is not part of CDD providers.
-    assert!(Identity::cdd_register_did(Origin::signed(alice), bob_acc, Some(10), vec![]).is_err());
+    assert!(Identity::cdd_register_did(Origin::signed(alice), bob_acc, vec![]).is_err());
 
     // CDD 2 registers properly Bob's ID.
-    assert_ok!(Identity::cdd_register_did(cdd2, bob_acc, Some(10), vec![]));
+    assert_ok!(Identity::cdd_register_did(cdd2.clone(), bob_acc, vec![]));
     let bob_id = get_identity_id(AccountKeyring::Bob).unwrap();
+    let bob_cdd_id = CddId::new(bob_id, InvestorUID::from(&bob_id));
+    assert_ok!(Identity::add_claim(
+        cdd2,
+        bob_id,
+        Claim::CustomerDueDiligence(bob_cdd_id),
+        Some(10)
+    ));
+
     assert_eq!(Identity::has_valid_cdd(bob_id), true);
 
     // Register with signing_keys
@@ -1285,8 +1295,15 @@ fn cdd_register_did_test_we() {
     assert_ok!(Identity::cdd_register_did(
         cdd1.clone(),
         charlie,
-        Some(10),
         signing_keys
+    ));
+    let charlie_id = get_identity_id(AccountKeyring::Charlie).unwrap();
+    let charlie_cdd_id = CddId::new(charlie_id, InvestorUID::from(&charlie_id));
+    assert_ok!(Identity::add_claim(
+        cdd1.clone(),
+        charlie_id,
+        Claim::CustomerDueDiligence(charlie_cdd_id),
+        Some(10)
     ));
 
     Balances::make_free_balance_be(&charlie, 10_000_000_000);
@@ -1467,12 +1484,19 @@ fn invalidate_cdd_claims_we() {
     assert_ok!(Identity::cdd_register_did(
         Origin::signed(cdd_1_acc),
         alice_acc,
-        Some(10),
         vec![]
     ));
 
     // Check that Alice's ID is attested by CDD 1.
     let alice_id = get_identity_id(AccountKeyring::Alice).unwrap();
+    let alice_cdd = Claim::CustomerDueDiligence(CddId::new(alice_id, InvestorUID::from(&alice_id)));
+    assert_ok!(Identity::add_claim(
+        Origin::signed(cdd_1_acc),
+        alice_id,
+        alice_cdd,
+        Some(10)
+    ));
+
     let cdd_1_id = Identity::get_identity(&cdd_1_acc).unwrap();
     assert_eq!(Identity::has_valid_cdd(alice_id), true);
 
@@ -1484,7 +1508,7 @@ fn invalidate_cdd_claims_we() {
     Timestamp::set_timestamp(8);
     assert_eq!(Identity::has_valid_cdd(alice_id), true);
     assert_err!(
-        Identity::cdd_register_did(Origin::signed(cdd_1_acc), bob_acc, Some(10), vec![]),
+        Identity::cdd_register_did(Origin::signed(cdd_1_acc), bob_acc, vec![]),
         Error::<TestStorage>::UnAuthorizedCddProvider
     );
 
@@ -1492,7 +1516,7 @@ fn invalidate_cdd_claims_we() {
     Timestamp::set_timestamp(11);
     assert_eq!(Identity::has_valid_cdd(alice_id), false);
     assert_err!(
-        Identity::cdd_register_did(Origin::signed(cdd_1_acc), bob_acc, Some(20), vec![]),
+        Identity::cdd_register_did(Origin::signed(cdd_1_acc), bob_acc, vec![]),
         Error::<TestStorage>::UnAuthorizedCddProvider
     );
 }
@@ -1537,11 +1561,20 @@ fn cdd_provider_with_systematic_cdd_claims_we() {
 
     // 3.1. Add CDD claim to Charlie, by Alice.
     assert_ok!(Identity::cdd_register_did(
-        alice,
+        alice.clone(),
         charlie_acc.clone(),
-        None,
         vec![]
     ));
+    let charlie_id = get_identity_id(AccountKeyring::Charlie).unwrap();
+    let charlie_cdd =
+        Claim::CustomerDueDiligence(CddId::new(charlie_id, InvestorUID::from(&charlie_id)));
+    assert_ok!(Identity::add_claim(
+        alice,
+        charlie_id,
+        charlie_cdd,
+        Some(10)
+    ));
+
     let charlie_id =
         get_identity_id(AccountKeyring::Charlie).expect("Charlie should have an Identity Id");
     let charlie_cdd_claim =
@@ -1605,11 +1638,15 @@ fn gc_with_systematic_cdd_claims_we() {
 
     // 3.1. Add CDD claim to Ferdie, by Alice.
     assert_ok!(Identity::cdd_register_did(
-        alice,
+        alice.clone(),
         ferdie_acc.clone(),
-        None,
         vec![]
     ));
+    let ferdie_id = get_identity_id(AccountKeyring::Ferdie).unwrap();
+    let ferdie_cdd =
+        Claim::CustomerDueDiligence(CddId::new(ferdie_id, InvestorUID::from(&ferdie_id)));
+    assert_ok!(Identity::add_claim(alice, ferdie_id, ferdie_cdd, Some(10)));
+
     let ferdie_id =
         get_identity_id(AccountKeyring::Ferdie).expect("Ferdie should have an Identity Id");
     let ferdie_cdd_claim =
@@ -1690,8 +1727,16 @@ fn add_permission_with_signing_item() {
             assert_ok!(Identity::cdd_register_did(
                 Origin::signed(cdd_1_acc),
                 alice_acc,
-                Some(10),
                 vec![sig_1.clone(), sig_2.clone()]
+            ));
+            let alice_id = get_identity_id(AccountKeyring::Alice).unwrap();
+            let alice_cdd =
+                Claim::CustomerDueDiligence(CddId::new(alice_id, InvestorUID::from(&alice_id)));
+            assert_ok!(Identity::add_claim(
+                Origin::signed(cdd_1_acc),
+                alice_id,
+                alice_cdd,
+                Some(10)
             ));
 
             let did = match Identity::key_to_identity_ids(alice_acc).unwrap() {

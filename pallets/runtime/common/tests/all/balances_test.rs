@@ -424,7 +424,7 @@ fn check_top_up_identity_balance() {
                 Error::ReceiverCddMissing
             );
 
-            let cdd_id = CddId::new(acc_id, InvestorUID::from(&acc_id));
+            let cdd_id = CddId::new(acc_did, InvestorUID::from(&acc_did));
             assert_ok!(Identity::add_claim(
                 Origin::signed(AccountKeyring::Ferdie.public()),
                 acc_did,

@@ -50,7 +50,7 @@ fn should_submit_unsigned_transaction_on_chain() {
     const PHRASE: &str =
         "foster nation swing usage bread mind donor door whisper lyrics token enroll";
 
-    let (offchain, offchain_state) = testing::TestOffchainExt::new();
+    let (offchain, _offchain_state) = testing::TestOffchainExt::new();
     let (pool, pool_state) = testing::TestTransactionPoolExt::new();
     let keystore = KeyStore::new();
     keystore

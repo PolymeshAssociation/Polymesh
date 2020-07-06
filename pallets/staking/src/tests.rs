@@ -3009,7 +3009,7 @@ fn garbage_collection_on_window_pruning() {
         let exposure =
             Staking::eras_stakers(Staking::active_era().unwrap().index, account_from(11));
         assert_eq!(Balances::free_balance(account_from(101)), 2000);
-        let nominated_value = exposure
+        let _nominated_value = exposure
             .others
             .iter()
             .find(|o| o.who == account_from(101))
@@ -3285,7 +3285,7 @@ fn deferred_slashes_are_deferred() {
             let exposure =
                 Staking::eras_stakers(Staking::active_era().unwrap().index, account_from(11));
             assert_eq!(Balances::free_balance(account_from(101)), 2000);
-            let nominated_value = exposure
+            let _nominated_value = exposure
                 .others
                 .iter()
                 .find(|o| o.who == account_from(101))
@@ -3396,7 +3396,7 @@ fn remove_deferred() {
             let initial_slash = slash_10 * nominated_value;
 
             let total_slash = slash_15 * nominated_value;
-            let actual_slash = total_slash - initial_slash;
+            let _actual_slash = total_slash - initial_slash;
 
             // 5% slash (15 - 10) processed now.
             assert_eq!(Balances::free_balance(account_from(11)), 950);
@@ -3468,7 +3468,7 @@ fn slash_kicks_validators_not_nominators() {
         let exposure =
             Staking::eras_stakers(Staking::active_era().unwrap().index, account_from(11));
         assert_eq!(Balances::free_balance(account_from(101)), 2000);
-        let nominated_value = exposure
+        let _nominated_value = exposure
             .others
             .iter()
             .find(|o| o.who == account_from(101))
@@ -3822,14 +3822,14 @@ fn add_nominator_with_invalid_expiry() {
         .build()
         .execute_with(|| {
             let account_alice = AccountId::from(AccountKeyring::Alice);
-            let (alice_signed, alice_did) =
+            let (_alice_signed, alice_did) =
                 make_account_with_balance(account_alice.clone(), 1_000_000).unwrap();
             let account_alice_controller = AccountId::from(AccountKeyring::Dave);
             let controller_signed = Origin::signed(account_alice_controller.clone());
 
             // For valid trusted CDD service providers
             let account_bob = AccountId::from(AccountKeyring::Bob);
-            let (bob_signed, bob_did) = make_account(account_bob.clone()).unwrap();
+            let (_bob_signed, bob_did) = make_account(account_bob.clone()).unwrap();
             add_trusted_cdd_provider(bob_did);
 
             let now = Utc::now();
@@ -3865,14 +3865,14 @@ fn add_valid_nominator_with_multiple_claims() {
         .build()
         .execute_with(|| {
             let account_alice = AccountId::from(AccountKeyring::Alice);
-            let (alice_signed, alice_did) =
+            let (_alice_signed, alice_did) =
                 make_account_with_balance(account_alice.clone(), 1_000_000).unwrap();
 
             let account_alice_controller = AccountId::from(AccountKeyring::Dave);
             let controller_signed = Origin::signed(account_alice_controller.clone());
 
             let claim_issuer_1 = AccountId::from(AccountKeyring::Bob);
-            let (claim_issuer_1_signed, claim_issuer_1_did) =
+            let (_claim_issuer_1_signed, claim_issuer_1_did) =
                 make_account(claim_issuer_1.clone()).unwrap();
             add_trusted_cdd_provider(claim_issuer_1_did);
 
@@ -3882,7 +3882,7 @@ fn add_valid_nominator_with_multiple_claims() {
 
             // add one more claim issuer
             let claim_issuer_2 = AccountId::from(AccountKeyring::Charlie);
-            let (claim_issuer_2_signed, claim_issuer_2_did) =
+            let (_claim_issuer_2_signed, claim_issuer_2_did) =
                 make_account(claim_issuer_2.clone()).unwrap();
             add_trusted_cdd_provider(claim_issuer_2_did);
 
@@ -3912,26 +3912,26 @@ fn validate_nominators_with_valid_cdd() {
         .build()
         .execute_with(|| {
             let account_alice = AccountId::from(AccountKeyring::Alice);
-            let (alice_signed, alice_did) =
+            let (_alice_signed, alice_did) =
                 make_account_with_balance(account_alice.clone(), 1_000_000).unwrap();
 
             let account_alice_controller = AccountId::from(AccountKeyring::Dave);
             let controller_signed_alice = Origin::signed(account_alice_controller.clone());
 
             let claim_issuer_1 = AccountId::from(AccountKeyring::Bob);
-            let (claim_issuer_1_signed, claim_issuer_1_did) =
+            let (_claim_issuer_1_signed, claim_issuer_1_did) =
                 make_account(claim_issuer_1.clone()).unwrap();
             add_trusted_cdd_provider(claim_issuer_1_did);
 
             let account_eve = AccountId::from(AccountKeyring::Eve);
-            let (eve_signed, eve_did) =
+            let (_eve_signed, eve_did) =
                 make_account_with_balance(account_eve.clone(), 1_000_000).unwrap();
 
             let account_eve_controller = AccountId::from(AccountKeyring::Ferdie);
             let controller_signed_eve = Origin::signed(account_eve_controller.clone());
 
             let claim_issuer_2 = AccountId::from(AccountKeyring::Charlie);
-            let (claim_issuer_2_signed, claim_issuer_2_did) =
+            let (_claim_issuer_2_signed, claim_issuer_2_did) =
                 make_account(claim_issuer_2.clone()).unwrap();
             add_trusted_cdd_provider(claim_issuer_2_did);
 

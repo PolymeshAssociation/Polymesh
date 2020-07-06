@@ -89,6 +89,7 @@ impl Claim {
         }
     }
 
+    /// It returns a CDD claim with a wildcard as CddId.
     pub fn make_cdd_wildcard() -> Claim {
         Claim::CustomerDueDiligence(CddId::default())
     }

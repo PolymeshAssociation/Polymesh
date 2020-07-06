@@ -8,7 +8,7 @@ use pallet_balances as balances;
 use pallet_identity as identity;
 use pallet_multisig as multisig;
 use polymesh_common_utilities::Context;
-use polymesh_primitives::{IdentityId, Signatory, SigningItem};
+use polymesh_primitives::{Signatory, SigningItem};
 use sp_core::sr25519::Public;
 use test_client::AccountKeyring;
 

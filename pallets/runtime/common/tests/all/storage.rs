@@ -529,11 +529,12 @@ pub fn make_account_with_balance(
         let investor_uid = InvestorUID::from(&did);
         let cdd_claim = Claim::CustomerDueDiligence(CddId::new(did, investor_uid));
 
-        Identity::add_claim(Origin::signed(cdd_acc), did, cdd_claim, None);
+        Identity::add_claim(Origin::signed(cdd_acc), did, cdd_claim, None)
+            .map_err(|_| "Add CDD claim failed")?;
+
         did
     } else {
         Identity::register_did(signed_id.clone(), vec![]).map_err(|_| "Register DID failed")?;
-
         Identity::get_identity(&id).unwrap()
     };
 

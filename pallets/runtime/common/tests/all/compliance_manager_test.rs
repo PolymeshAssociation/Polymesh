@@ -14,7 +14,7 @@ use polymesh_common_utilities::{
     constants::{ERC1400_TRANSFER_FAILURE, ERC1400_TRANSFER_SUCCESS},
     Context,
 };
-use polymesh_primitives::{Claim, IdentityId, Rule, RuleType, Scope, Ticker};
+use polymesh_primitives::{CddId, Claim, IdentityId, InvestorUID, Rule, RuleType, Scope, Ticker};
 use sp_std::{convert::TryFrom, prelude::*};
 use test_client::AccountKeyring;
 
@@ -554,7 +554,7 @@ fn should_successfully_add_and_use_default_issuers_we() {
         AssetError::<TestStorage>::InvalidTransfer
     );
 
-    let cdd_id = CddId::new(token_owner_id, InvestorUID::from(&token_owner_id));
+    let cdd_id = CddId::new(token_owner_did, InvestorUID::from(&token_owner_did));
     assert_ok!(Identity::add_claim(
         trusted_issuer_signed.clone(),
         token_owner_did.clone(),
