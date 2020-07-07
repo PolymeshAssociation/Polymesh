@@ -1,30 +1,45 @@
-use frame_support::{decl_error, decl_event, decl_module, decl_storage};
+use frame_support::{
+    decl_error, decl_event, decl_module, decl_storage, dispatch::DispatchResult, ensure,
+    StorageDoubleMap, StorageMap,
+};
 use frame_system::{self as system, ensure_signed};
-use polymesh_common_utilities::balances;
-use polymesh_primitives::{PortfolioId, PortfolioName, PortfolioNumber};
+use polymesh_common_utilities::{CommonTrait, Context};
+use polymesh_primitives::{IdentityId, PortfolioId, PortfolioName, PortfolioNumber, Ticker};
 use sp_std::prelude::Vec;
 
-pub trait Trait: balances::Trait {}
+type Identity<T> = pallet_identity::Module<T>;
+
+pub trait Trait: CommonTrait + pallet_identity::Trait {}
 
 decl_storage! {
     trait Store for Module<T: Trait> as Session {
         /// The set of existing portfolios with their names. If a certain pair of a DID and
         /// portfolio number maps to `None` then such a portfolio doesn't exist. Conversely, if a
         /// pair maps to `Some(name)` then such a portfolio exists and is called `name`.
+        ///
+        /// The portfolio number is both the key and part of the value due to a limitation of the
+        /// iterator on `StorageDoubleMap`.
         pub Portfolios get(portfolios):
-            double_map hasher(blake2_128_concat) IdentityId, hasher(twox_128_concat) PortfolioNumber =>
-            Option<PortfolioName>;
+            double_map hasher(blake2_128_concat) IdentityId, hasher(blake2_128_concat) PortfolioNumber =>
+            Option<(PortfolioNumber, PortfolioName)>;
         /// Asset balances of portfolios.
+        ///
+        /// The ticker is both the key and part of the value due to a limitation of the iterator on
+        /// `StorageDoubleMap`.
         pub PortfolioAssetBalances get(portfolio_asset_balances):
             double_map hasher(blake2_128_concat) PortfolioId, hasher(blake2_128_concat) Ticker =>
-            T::Balance;
+            (Ticker, T::Balance);
         /// The next portfolio sequence number.
         pub NextPortfolioNumber get(next_portfolio_number) build(|_| 1): u128;
     }
 }
 
 decl_event! {
-    pub enum Event<T> {
+    pub enum Event<T> where
+        Balance = <T as CommonTrait>::Balance,
+        // Moment = <T as pallet_timestamp::Trait>::Moment,
+        // AccountId = <T as frame_system::Trait>::AccountId,
+    {
         /// The portfolio has been successfully created.
         PortfolioCreated(IdentityId, PortfolioNumber, PortfolioName),
         /// The portfolio has been successfully removed.
@@ -36,7 +51,7 @@ decl_event! {
             Option<PortfolioNumber>,
             Option<PortfolioNumber>,
             Ticker,
-            T::Balance
+            Balance
         ),
         /// The portfolio identified with `num` has been renamed to `name`.
         PortfolioRenamed(IdentityId, PortfolioNumber, PortfolioName),
@@ -46,14 +61,16 @@ decl_event! {
 }
 
 decl_error! {
-    /// The portfolio doesn't exist.
-    PortfolioDoesNotExist,
-    /// Insufficient balance for a transaction.
-    InsufficientBalance,
-    /// The source and destination portfolios should be different.
-    DestinationIsSamePortfolio,
-    /// The portfolio couldn't be renamed because the chosen name is already in use.
-    PortfolioNameAlreadyInUse,
+    pub enum Error for Module<T: Trait> {
+        /// The portfolio doesn't exist.
+        PortfolioDoesNotExist,
+        /// Insufficient balance for a transaction.
+        InsufficientBalance,
+        /// The source and destination portfolios should be different.
+        DestinationIsSamePortfolio,
+        /// The portfolio couldn't be renamed because the chosen name is already in use.
+        PortfolioNameAlreadyInUse,
+    }
 }
 
 decl_module! {
@@ -67,11 +84,10 @@ decl_module! {
         pub fn create_portfolio(origin, name: PortfolioName) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             let did = Context::current_identity_or::<Identity<T>>(&sender)?;
-            let name_uniq = <Portfolios<T>>::iter_prefix(&did).all(|(_, n)| n != &name);
+            let name_uniq = <Portfolios>::iter_prefix(&did).all(|n| n.1 != name);
             ensure!(name_uniq, Error::<T>::PortfolioNameAlreadyInUse);
             let num = Self::get_next_portfolio_number();
-            <Portfolios<T>>::insert(&did, &num, Some(name.clone()));
-            let portfolio_id = PortfolioId::User();
+            <Portfolios>::insert(&did, &num, Some((num, name.clone())));
             Self::deposit_event(RawEvent::PortfolioCreated(did, num, name));
             Ok(())
         }
@@ -80,26 +96,23 @@ decl_module! {
         pub fn delete_portfolio(origin, num: PortfolioNumber) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             let did = Context::current_identity_or::<Identity<T>>(&sender)?;
-            ensure!(Self::portfolios(&did, &num), Error::<T>::PortfolioDoesNotExist);
-            let portfolio_id = PortfolioId {
-                did,
-                num,
-            };
-            let def_portfolio_id = PortfolioId::default_portfolio(did);
+            ensure!(Self::portfolios(&did, &num).is_some(), Error::<T>::PortfolioDoesNotExist);
+            let portfolio_id = PortfolioId::User(did, num);
+            let def_portfolio_id = PortfolioId::Default(did);
             for (ticker, balance) in <PortfolioAssetBalances<T>>::iter_prefix(&portfolio_id) {
-                <PortfolioAssetBalances<T>>::mutate(&def_portfolio_id, ticker, |v| {
+                <PortfolioAssetBalances<T>>::mutate(&def_portfolio_id, ticker, |(_, v)| {
                     *v = *v.saturating_add(balance)
                 });
                 Self::deposit_event(RawEvent::MovedBetweenPortfolios(
                     did,
                     Some(num),
                     None,
-                    *ticker,
-                    *balance,
+                    ticker,
+                    balance,
                 ));
             }
             <PortfolioAssetBalances<T>>::remove_prefix(&portfolio_id);
-            <Portfolios<T>>::remove(&did, &num);
+            <Portfolios>::remove(&did, &num);
             Self::deposit_event(RawEvent::PortfolioDeleted(did, num));
             Ok(())
         }
@@ -116,24 +129,27 @@ decl_module! {
             let sender = ensure_signed(origin)?;
             let did = Context::current_identity_or::<Identity<T>>(&sender)?;
             ensure!(from_num != to_num, Error::<T>::DestinationIsSamePortfolio);
-            let did_name = &(did, name.clone());
-            ensure!(Self::portfolios(&did, &from_num), Error::<T>::PortfolioDoesNotExist);
-            ensure!(Self::portfolios(&did, &to_num), Error::<T>::PortfolioDoesNotExist);
+            ensure!(Self::portfolios(&did, from_num), Error::<T>::PortfolioDoesNotExist);
+            ensure!(Self::portfolios(&did, to_num), Error::<T>::PortfolioDoesNotExist);
             let from_portfolio_id = from_num
-                .and_then(|num| PortfolioId::User(did, num))
-                .unwrap_or_else(|| Portfolio::Default(did));
+                .and_then(|num| Some(PortfolioId::User(did, num)))
+                .unwrap_or_else(|| PortfolioId::Default(did));
             let to_portfolio_id = to_num
-                .and_then(|num| PortfolioId::User(did, num))
-                .unwrap_or_else(|| Portfolio::Default(did));
-            let balance = Self::portfolio_asset_balances(&from_portfolio_id, &ticker);
+                .and_then(|num| Some(PortfolioId::User(did, num)))
+                .unwrap_or_else(|| PortfolioId::Default(did));
+            let (_, balance) = Self::portfolio_asset_balances(&from_portfolio_id, &ticker);
             ensure!(balance >= amount, Error::<T>::InsufficientBalance);
-            <PortfolioAssetBalances<T>>::insert(&from_portfolio_id, &ticker, balance - amount);
+            <PortfolioAssetBalances<T>>::insert(
+                &from_portfolio_id,
+                &ticker,
+                (ticker, balance - amount)
+            );
             <PortfolioAssetBalances<T>>::insert(
                 &to_portfolio_id,
                 &ticker,
-                balance.saturating_add(amount)
+                (ticker, balance.saturating_add(amount))
             );
-            deposit_event(RawEvent::MovedBetweenPortfolios(
+            Self::deposit_event(RawEvent::MovedBetweenPortfolios(
                 did,
                 from_num,
                 to_num,
@@ -152,10 +168,10 @@ decl_module! {
             let sender = ensure_signed(origin)?;
             let did = Context::current_identity_or::<Identity<T>>(&sender)?;
             ensure!(Self::portfolios(&did, &num), Error::<T>::PortfolioDoesNotExist);
-            let name_uniq = <Portfolios<T>>::iter_prefix(&did).all(|(_, name)| name != to_name);
+            let name_uniq = <Portfolios>::iter_prefix(&did).all(|n| n.1 != to_name);
             ensure!(name_uniq, Error::<T>::PortfolioNameAlreadyInUse);
-            <Portfolios<T>>::mutate(&did, &num, |name| *name = Some(to_name));
-            deposit_event(RawEvent::PortfolioRenamed(
+            <Portfolios>::mutate(&did, &num, |name| *name = Some((num, to_name)));
+            Self::deposit_event(RawEvent::PortfolioRenamed(
                 did,
                 num,
                 to_name,
@@ -167,8 +183,8 @@ decl_module! {
         pub fn get_portfolios(origin) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             let did = Context::current_identity_or::<Identity<T>>(&sender)?;
-            let portfolios = <Portfolios<T>>::iter_prefix(&did).collect();
-            deposit_event(RawEvent::UserPortfolios(
+            let portfolios = <Portfolios>::iter_prefix(&did).collect();
+            Self::deposit_event(RawEvent::UserPortfolios(
                 did,
                 portfolios,
             ));

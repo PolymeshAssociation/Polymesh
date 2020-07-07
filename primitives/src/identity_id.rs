@@ -20,7 +20,7 @@ use polymesh_primitives_derive::VecU8StrongTyped;
 #[cfg(feature = "std")]
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use sp_runtime::traits::Printable;
-use sp_std::prelude::*;
+use sp_std::prelude::Vec;
 
 const _POLY_DID_PREFIX: &str = "did:poly:";
 const POLY_DID_PREFIX_LEN: usize = 9; // _POLY_DID_PREFIX.len(); // CI does not support: #![feature(const_str_len)]
@@ -173,7 +173,7 @@ impl Printable for IdentityId {
 )]
 pub struct PortfolioName(pub Vec<u8>);
 
-type PortfolioNumber = u128;
+pub type PortfolioNumber = u128;
 
 /// The ID of a portfolio.
 #[derive(Decode, Encode, Clone, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
@@ -193,7 +193,8 @@ impl Printable for PortfolioId {
             }
             PortfolioId::User(did, num) => {
                 did.print();
-                sp_io::misc::print_utf8(format!("/{}", num).as_bytes());
+                sp_io::misc::print_utf8(b"/");
+                sp_io::misc::print_hex(&num.to_be_bytes());
             }
         }
     }
