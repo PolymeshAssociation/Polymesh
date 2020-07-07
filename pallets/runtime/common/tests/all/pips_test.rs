@@ -65,7 +65,7 @@ fn starting_a_proposal_works_we() {
             Some(proposal_desc.clone()),
             None,
         ),
-        Error::<TestStorage>::InsufficientDeposit
+        Error::<TestStorage>::IncorrectDeposit
     );
 
     // Account 6 starts a proposal with min deposit
@@ -642,7 +642,7 @@ fn amend_pips_details_during_cool_off_period_we() {
     );
     assert_err!(
         Pips::unbond_deposit(alice.clone(), 0, 90),
-        Error::<TestStorage>::InsufficientDeposit
+        Error::<TestStorage>::IncorrectDeposit
     );
 
     // 4. Move out the cool-off period and ensure Pips is inmutable.

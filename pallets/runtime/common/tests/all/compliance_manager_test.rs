@@ -65,13 +65,12 @@ fn should_add_and_verify_asset_rule_we() {
     let root = Origin::system(frame_system::RawOrigin::Root);
     let token_owner_acc = AccountKeyring::Alice.public();
     let (token_owner_signed, token_owner_did) = make_account(token_owner_acc).unwrap();
+    let token_rec_acc = AccountKeyring::Charlie.public();
+    let (_token_rec_signed, token_rec_did) = make_account(token_rec_acc).unwrap();
     let cdd_provider = AccountKeyring::Eve.public();
     let (cdd_signed, cdd_id) = make_account(cdd_provider).unwrap();
 
-    // Providing an random DID to root, In production root should posses a DID
-    Context::set_current_identity::<Identity>(Some(IdentityId::from(999)));
     assert_ok!(CDDGroup::reset_members(root, vec![cdd_id]));
-    Context::set_current_identity::<Identity>(None);
 
     // A token representing 1M shares
     let token = SecurityToken {
@@ -107,6 +106,13 @@ fn should_add_and_verify_asset_rule_we() {
         None,
     ));
 
+    assert_ok!(Identity::add_claim(
+        claim_issuer_signed.clone(),
+        token_rec_did,
+        Claim::NoData,
+        None,
+    ));
+
     let now = Utc::now();
     Timestamp::set_timestamp(now.timestamp() as u64);
 
@@ -134,17 +140,17 @@ fn should_add_and_verify_asset_rule_we() {
 
     assert_ok!(Identity::add_claim(
         claim_issuer_signed.clone(),
-        token_owner_did,
+        token_rec_did,
         Claim::Accredited(claim_issuer_did),
         None,
     ));
 
-    //Transfer tokens to investor
+    //Transfer tokens to investor - fails wrong Accredited scope
     assert_err!(
         Asset::transfer(
             token_owner_signed.clone(),
             ticker,
-            token_owner_did.clone(),
+            token_rec_did.clone(),
             token.total_supply
         ),
         AssetError::<TestStorage>::InvalidTransfer
@@ -152,7 +158,7 @@ fn should_add_and_verify_asset_rule_we() {
     let result = ComplianceManager::granular_verify_restriction(
         &ticker,
         Some(token_owner_did),
-        Some(token_owner_did),
+        Some(token_rec_did),
     );
     assert!(!result.final_result);
     assert!(!result.rules[0].transfer_rule_result);
@@ -165,7 +171,7 @@ fn should_add_and_verify_asset_rule_we() {
 
     assert_ok!(Identity::add_claim(
         claim_issuer_signed.clone(),
-        token_owner_did,
+        token_rec_did,
         Claim::Accredited(token_owner_did),
         None,
     ));
@@ -173,13 +179,13 @@ fn should_add_and_verify_asset_rule_we() {
     assert_ok!(Asset::transfer(
         token_owner_signed.clone(),
         ticker,
-        token_owner_did.clone(),
-        token.total_supply
+        token_rec_did.clone(),
+        10
     ));
     let result = ComplianceManager::granular_verify_restriction(
         &ticker,
         Some(token_owner_did),
-        Some(token_owner_did),
+        Some(token_rec_did),
     );
     assert!(result.final_result);
     assert!(result.rules[0].transfer_rule_result);
@@ -192,7 +198,7 @@ fn should_add_and_verify_asset_rule_we() {
 
     assert_ok!(Identity::add_claim(
         cdd_signed.clone(),
-        token_owner_did,
+        token_rec_did,
         Claim::CustomerDueDiligence,
         None,
     ));
@@ -201,15 +207,15 @@ fn should_add_and_verify_asset_rule_we() {
         Asset::transfer(
             token_owner_signed.clone(),
             ticker,
-            token_owner_did.clone(),
-            token.total_supply
+            token_rec_did.clone(),
+            10
         ),
         AssetError::<TestStorage>::InvalidTransfer
     );
     let result = ComplianceManager::granular_verify_restriction(
         &ticker,
         Some(token_owner_did),
-        Some(token_owner_did),
+        Some(token_rec_did),
     );
     assert!(!result.final_result);
     assert!(!result.rules[0].transfer_rule_result);
@@ -454,9 +460,7 @@ fn should_successfully_add_and_use_default_issuers_we() {
     let receiver_acc = AccountKeyring::Dave.public();
     let (_, receiver_did) = make_account(receiver_acc).unwrap();
 
-    Context::set_current_identity::<Identity>(Some(IdentityId::from(999)));
     assert_ok!(CDDGroup::reset_members(root, vec![trusted_issuer_did]));
-    Context::set_current_identity::<Identity>(None);
 
     // 1. A token representing 1M shares
     let token = SecurityToken {
@@ -577,12 +581,11 @@ fn should_modify_vector_of_trusted_issuer_we() {
     let (receiver_signed, receiver_did) = make_account(receiver_acc).unwrap();
 
     // Providing a random DID to root but in real world Root should posses a DID
-    Context::set_current_identity::<Identity>(Some(IdentityId::from(999)));
     assert_ok!(CDDGroup::reset_members(
         root,
         vec![trusted_issuer_did_1, trusted_issuer_did_2]
     ));
-    Context::set_current_identity::<Identity>(None);
+
     // 1. A token representing 1M shares
     let token = SecurityToken {
         name: vec![0x01].into(),

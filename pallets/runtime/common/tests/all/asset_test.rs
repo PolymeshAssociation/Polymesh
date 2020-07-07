@@ -216,6 +216,12 @@ fn valid_transfers_pass() {
             vec![]
         ));
 
+        // Should fail as sender matches receiver
+        assert_noop!(
+            Asset::transfer(owner_signed.clone(), ticker, owner_did, 500),
+            AssetError::InvalidTransfer
+        );
+
         assert_ok!(Asset::transfer(
             owner_signed.clone(),
             ticker,
@@ -385,6 +391,16 @@ fn valid_custodian_allowance() {
             investor2_did,
             45_00_00 as u128
         ));
+
+        assert_eq!(
+            Asset::custodian_allowance((ticker, investor1_did, custodian_did)),
+            50_000 as u128
+        );
+
+        assert_eq!(
+            Asset::total_custody_allowance((ticker, investor1_did)),
+            50_000 as u128
+        );
     });
 }
 
