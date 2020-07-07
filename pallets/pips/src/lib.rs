@@ -420,6 +420,8 @@ decl_error! {
     pub enum Error for Module<T: Trait> {
         /// Incorrect origin
         BadOrigin,
+        /// Proposer specifies an incorrect deposit
+        IncorrectDeposit,
         /// Proposer can't afford to lock minimum deposit
         InsufficientDeposit,
         /// when voter vote gain
@@ -428,8 +430,6 @@ decl_error! {
         DuplicateProposal,
         /// The proposal does not exist.
         NoSuchProposal,
-        /// Mismatched proposal id.
-        MismatchedProposalId,
         /// Not part of governance committee.
         NotACommitteeMember,
         /// After Cool-off period, proposals are not cancelable.
@@ -526,8 +526,7 @@ decl_module! {
         #[weight = (100_000, DispatchClass::Operational, Pays::Yes)]
         pub fn set_proposal_cool_off_period(origin, duration: T::BlockNumber) {
             T::CommitteeOrigin::ensure_origin(origin)?;
-            let current_did = Context::current_identity::<Identity<T>>().ok_or_else(|| Error::<T>::MissingCurrentIdentity)?;
-            Self::deposit_event(RawEvent::ProposalDurationChanged(current_did, Self::proposal_cool_off_period(), duration));
+            Self::deposit_event(RawEvent::ProposalDurationChanged(SystematicIssuers::Committee.as_id(), Self::proposal_cool_off_period(), duration));
             <ProposalCoolOffPeriod<T>>::put(duration);
         }
 
@@ -562,7 +561,7 @@ decl_module! {
             // Pre conditions: caller must have min balance
             ensure!(
                 deposit >= Self::min_proposal_deposit(),
-                Error::<T>::InsufficientDeposit
+                Error::<T>::IncorrectDeposit
             );
 
             // Reserve the minimum deposit
@@ -640,7 +639,7 @@ decl_module! {
             // 0. Initial info.
             let proposer = ensure_signed(origin)?;
             let meta = Self::proposal_metadata(id)
-                .ok_or_else(|| Error::<T>::MismatchedProposalId)?;
+                .ok_or_else(|| Error::<T>::NoSuchProposal)?;
 
             // 1. Only owner can cancel it.
             ensure!( meta.proposer == proposer, Error::<T>::BadOrigin);
@@ -677,7 +676,7 @@ decl_module! {
             let proposer = ensure_signed(origin)?;
             // 1. Only owner can cancel it.
             let meta = Self::proposal_metadata(id)
-                .ok_or_else(|| Error::<T>::MismatchedProposalId)?;
+                .ok_or_else(|| Error::<T>::NoSuchProposal)?;
             ensure!( meta.proposer == proposer, Error::<T>::BadOrigin);
             // Check that the proposal is pending
             Self::is_proposal_state(id, ProposalState::Pending)?;
@@ -708,7 +707,7 @@ decl_module! {
         ) -> DispatchResult {
             let proposer = ensure_signed(origin)?;
             let meta = Self::proposal_metadata(id)
-                .ok_or_else(|| Error::<T>::MismatchedProposalId)?;
+                .ok_or_else(|| Error::<T>::NoSuchProposal)?;
 
             // 1. Only owner can add additional deposit.
             ensure!( meta.proposer == proposer, Error::<T>::BadOrigin);
@@ -756,7 +755,7 @@ decl_module! {
         ) -> DispatchResult {
             let proposer = ensure_signed(origin)?;
             let meta = Self::proposal_metadata(id)
-                .ok_or_else(|| Error::<T>::MismatchedProposalId)?;
+                .ok_or_else(|| Error::<T>::NoSuchProposal)?;
 
             // 1. Only owner can cancel it.
             ensure!( meta.proposer == proposer, Error::<T>::BadOrigin);
@@ -773,7 +772,7 @@ decl_module! {
                     .ok_or_else(|| Error::<T>::InsufficientDeposit)?;
             ensure!(
                 new_deposit >= Self::min_proposal_deposit(),
-                Error::<T>::InsufficientDeposit);
+                Error::<T>::IncorrectDeposit);
             let diff_amount = depo_info.amount - new_deposit;
             depo_info.amount = new_deposit;
 
@@ -805,7 +804,7 @@ decl_module! {
         pub fn vote(origin, id: PipId, aye_or_nay: bool, deposit: BalanceOf<T>) {
             let proposer = ensure_signed(origin)?;
             let meta = Self::proposal_metadata(id)
-                .ok_or_else(|| Error::<T>::MismatchedProposalId)?;
+                .ok_or_else(|| Error::<T>::NoSuchProposal)?;
 
             // No one should be able to vote during the proposal cool-off period.
             let curr_block_number = <system::Module<T>>::block_number();
@@ -849,7 +848,7 @@ decl_module! {
         /// a proposal at any time.
         #[weight = (100_000, DispatchClass::Operational, Pays::Yes)]
         pub fn kill_proposal(origin, id: PipId) {
-            T::CommitteeOrigin::ensure_origin(origin)?;
+            T::VotingMajorityOrigin::ensure_origin(origin)?;
             ensure!(<Proposals<T>>::contains_key(id), Error::<T>::NoSuchProposal);
             // Check that the proposal is pending
             Self::is_proposal_state(id, ProposalState::Pending)?;
@@ -870,7 +869,7 @@ decl_module! {
                 Error::<T>::NotACommitteeMember
             );
 
-            ensure!(<Proposals<T>>::contains_key(id), Error::<T>::MismatchedProposalId);
+            ensure!(<Proposals<T>>::contains_key(id), Error::<T>::NoSuchProposal);
             // Check that the proposal is pending
             Self::is_proposal_state(id, ProposalState::Pending)?;
             Self::create_referendum(
@@ -990,7 +989,7 @@ decl_module! {
             // 3. Update enactment period.
             // 3.1 Update referendum.
             let referendum = Self::referendums(id)
-                .ok_or_else(|| Error::<T>::MismatchedProposalId)?;
+                .ok_or_else(|| Error::<T>::NoSuchProposal)?;
 
             let old_until = referendum.enactment_period;
 
@@ -1124,7 +1123,7 @@ impl<T: Trait> Module<T> {
     fn prepare_to_dispatch(id: PipId) -> DispatchResult {
         ensure!(
             <Referendums<T>>::contains_key(id),
-            Error::<T>::MismatchedProposalId
+            Error::<T>::NoSuchProposal
         );
 
         // Set the default enactment period and move it to `Scheduled`
@@ -1226,7 +1225,7 @@ impl<T: Trait> Module<T> {
     }
 
     fn is_referendum_state(id: PipId, state: ReferendumState) -> DispatchResult {
-        let referendum = Self::referendums(id).ok_or_else(|| Error::<T>::MismatchedProposalId)?;
+        let referendum = Self::referendums(id).ok_or_else(|| Error::<T>::NoSuchProposal)?;
         ensure!(
             referendum.state == state,
             Error::<T>::IncorrectReferendumState
@@ -1235,7 +1234,7 @@ impl<T: Trait> Module<T> {
     }
 
     fn is_proposal_state(id: PipId, state: ProposalState) -> DispatchResult {
-        let proposal = Self::proposals(id).ok_or_else(|| Error::<T>::MismatchedProposalId)?;
+        let proposal = Self::proposals(id).ok_or_else(|| Error::<T>::NoSuchProposal)?;
         ensure!(proposal.state == state, Error::<T>::IncorrectProposalState);
         Ok(())
     }
