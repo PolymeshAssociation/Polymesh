@@ -1,4 +1,9 @@
 #!/usr/bin/env bash
+
+set -e
+set -x
+set -o pipefail
+
 if [ -z "$(find . -name "Cargo.toml" -not -path "*/target/*" -execdir bash -c "cargo +nightly fmt -- --check" \;)" ]; then
 	echo "rustfmt ok"
 	exit 0
