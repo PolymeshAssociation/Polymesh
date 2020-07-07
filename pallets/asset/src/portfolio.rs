@@ -1,21 +1,24 @@
 use frame_support::{
     decl_error, decl_event, decl_module, decl_storage, dispatch::DispatchResult, ensure,
-    StorageDoubleMap, StorageMap,
+    StorageDoubleMap,
 };
 use frame_system::{self as system, ensure_signed};
-use polymesh_common_utilities::{CommonTrait, Context};
+use polymesh_common_utilities::{identity::Trait as IdentityTrait, CommonTrait, Context};
 use polymesh_primitives::{IdentityId, PortfolioId, PortfolioName, PortfolioNumber, Ticker};
+use sp_arithmetic::traits::Saturating;
 use sp_std::prelude::Vec;
 
 type Identity<T> = pallet_identity::Module<T>;
 
-pub trait Trait: CommonTrait + pallet_identity::Trait {}
+pub trait Trait: CommonTrait + IdentityTrait {
+    type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
+}
 
 decl_storage! {
     trait Store for Module<T: Trait> as Session {
         /// The set of existing portfolios with their names. If a certain pair of a DID and
         /// portfolio number maps to `None` then such a portfolio doesn't exist. Conversely, if a
-        /// pair maps to `Some(name)` then such a portfolio exists and is called `name`.
+        /// pair maps to `Some((num, name))` then such a portfolio exists and is called `name`.
         ///
         /// The portfolio number is both the key and part of the value due to a limitation of the
         /// iterator on `StorageDoubleMap`.
@@ -87,7 +90,7 @@ decl_module! {
             let name_uniq = <Portfolios>::iter_prefix(&did).all(|n| n.1 != name);
             ensure!(name_uniq, Error::<T>::PortfolioNameAlreadyInUse);
             let num = Self::get_next_portfolio_number();
-            <Portfolios>::insert(&did, &num, Some((num, name.clone())));
+            <Portfolios>::insert(&did, &num, (num, name.clone()));
             Self::deposit_event(RawEvent::PortfolioCreated(did, num, name));
             Ok(())
         }
@@ -101,7 +104,7 @@ decl_module! {
             let def_portfolio_id = PortfolioId::Default(did);
             for (ticker, balance) in <PortfolioAssetBalances<T>>::iter_prefix(&portfolio_id) {
                 <PortfolioAssetBalances<T>>::mutate(&def_portfolio_id, ticker, |(_, v)| {
-                    *v = *v.saturating_add(balance)
+                    *v = v.saturating_add(balance)
                 });
                 Self::deposit_event(RawEvent::MovedBetweenPortfolios(
                     did,
@@ -129,8 +132,12 @@ decl_module! {
             let sender = ensure_signed(origin)?;
             let did = Context::current_identity_or::<Identity<T>>(&sender)?;
             ensure!(from_num != to_num, Error::<T>::DestinationIsSamePortfolio);
-            ensure!(Self::portfolios(&did, from_num), Error::<T>::PortfolioDoesNotExist);
-            ensure!(Self::portfolios(&did, to_num), Error::<T>::PortfolioDoesNotExist);
+            if let Some(from_num) = from_num {
+                ensure!(Self::portfolios(&did, from_num).is_some(), Error::<T>::PortfolioDoesNotExist);
+            }
+            if let Some(to_num) = to_num {
+                ensure!(Self::portfolios(&did, to_num).is_some(), Error::<T>::PortfolioDoesNotExist);
+            }
             let from_portfolio_id = from_num
                 .and_then(|num| Some(PortfolioId::User(did, num)))
                 .unwrap_or_else(|| PortfolioId::Default(did));
@@ -167,10 +174,10 @@ decl_module! {
         ) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             let did = Context::current_identity_or::<Identity<T>>(&sender)?;
-            ensure!(Self::portfolios(&did, &num), Error::<T>::PortfolioDoesNotExist);
+            ensure!(Self::portfolios(&did, &num).is_some(), Error::<T>::PortfolioDoesNotExist);
             let name_uniq = <Portfolios>::iter_prefix(&did).all(|n| n.1 != to_name);
             ensure!(name_uniq, Error::<T>::PortfolioNameAlreadyInUse);
-            <Portfolios>::mutate(&did, &num, |name| *name = Some((num, to_name)));
+            <Portfolios>::mutate(&did, &num, |p| *p = Some((num, to_name.clone())));
             Self::deposit_event(RawEvent::PortfolioRenamed(
                 did,
                 num,
@@ -197,7 +204,7 @@ impl<T: Trait> Module<T> {
     /// Returns the next portfolio number and increments the stored number.
     fn get_next_portfolio_number() -> PortfolioNumber {
         let num = Self::next_portfolio_number();
-        <NextPortfolioNumber>::insert(num + 1);
+        <NextPortfolioNumber>::put(num + 1);
         num
     }
 }

@@ -2898,6 +2898,7 @@ dependencies = [
  "serde",
  "serde_derive",
  "sp-api",
+ "sp-arithmetic",
  "sp-core",
  "sp-io",
  "sp-runtime",

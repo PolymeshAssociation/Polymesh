@@ -468,6 +468,10 @@ impl bridge::Trait for Runtime {
     type MaxTimelockedTxsPerBlock = MaxTimelockedTxsPerBlock;
 }
 
+impl asset::portfolio::Trait for Runtime {
+    type Event = Event;
+}
+
 impl asset::Trait for Runtime {
     type Event = Event;
     type Currency = Balances;

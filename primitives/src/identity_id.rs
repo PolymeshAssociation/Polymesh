@@ -173,6 +173,7 @@ impl Printable for IdentityId {
 )]
 pub struct PortfolioName(pub Vec<u8>);
 
+/// The unique ID of a non-default portfolio.
 pub type PortfolioNumber = u128;
 
 /// The ID of a portfolio.
@@ -182,6 +183,12 @@ pub enum PortfolioId {
     Default(IdentityId),
     /// A non-default portfolio identified with a unique sequence number.
     User(IdentityId, PortfolioNumber),
+}
+
+impl Default for PortfolioId {
+    fn default() -> Self {
+        PortfolioId::Default(IdentityId::default())
+    }
 }
 
 impl Printable for PortfolioId {
