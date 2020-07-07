@@ -37,29 +37,14 @@ jobs:
       - get: r-git-polymesh
         trigger: true
         version: every
-      - task: t-rustc-version
-        config:
-          inputs:
-            - name: r-git-polymesh
-          platform: linux
-          image_resource:
-            type: registry-image
-            source:
-              repository: polymathnetwork/rust
-              aws_access_key_id: ((polymath-ecr.aws-access-id))
-              aws_secret_access_key: ((polymath-ecr.aws-access-secret))
-              aws_region: us-east-1
-          run:
-            path: bash
-            args: ["r-git-polymesh/.concourse/scripts/t-rustc-version.sh"]
-          outputs:
-            - name: t-rustc-version
       - task: t-cargo-build
         config:
           inputs:
             - name: r-git-polymesh
-            - name: t-rustc-version
           platform: linux
+          caches:
+            - path: r-git-polymesh/target
+            - path: $HOME/.cargo
           image_resource:
             type: registry-image
             source:
@@ -68,6 +53,7 @@ jobs:
               aws_secret_access_key: ((polymath-ecr.aws-access-secret))
               aws_region: us-east-1
           run:
+            dir: r-git-polymesh
             path: bash
-            args: ["r-git-polymesh/.concourse/scripts/t-cargo-build.sh", "t-rustc-version/version"]
+            args: ["r-git-polymesh/.concourse/scripts/t-cargo-build.sh"]
 

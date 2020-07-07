@@ -4,12 +4,5 @@ set -e
 set -x
 set -o pipefail
 
-CARGO_VERSION=$1
-
-pwd
-ls -a
-ls -a $CARGO_VERSION
-
-cat $CARGO_VERSION
-
+cargo build --release || cargo build -j 1 --release
 
