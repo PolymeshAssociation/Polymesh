@@ -1,0 +1,34 @@
+---
+
+resources:
+  - name: r-git-polymesh
+    type: git
+    icon: github
+    check_every: 5m
+    source:
+      uri: git@github.com:cwsatpolymath/Polymesh.git
+      branch: master
+      private_key: ((polymesh-github.id_concourse_rsa))
+
+jobs:
+  - name: j-build
+    plan:
+      - get: r-git-polymesh
+        trigger: true
+        version: every
+      - task: run-unit
+        config:
+          inputs:
+            - name: r-git-polymesh
+          platform: linux
+          image_resource:
+            type: registry-image
+            source:
+              repository: 414255671868.dkr.ecr.us-east-1.amazonaws.com/polymathnetwork/rust
+              aws_access_key_id: ((polymath-ecr.aws-access-id))
+              aws_secret_access_key: ((polymath-ecr.aws-access-secret))
+          run:
+            dir: r-git-polymesh
+            path: bash
+            args: ["./scripts/rustfmt.sh"]
+
