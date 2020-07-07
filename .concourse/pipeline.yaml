@@ -11,12 +11,12 @@ resources:
       private_key: ((polymesh-github.id_concourse_rsa))
 
 jobs:
-  - name: j-build
+  - name: j-lint
     plan:
       - get: r-git-polymesh
         trigger: true
         version: every
-      - task: run-unit
+      - task: t-run-lint
         config:
           inputs:
             - name: r-git-polymesh
@@ -24,11 +24,50 @@ jobs:
           image_resource:
             type: registry-image
             source:
-              repository: 414255671868.dkr.ecr.us-east-1.amazonaws.com/polymathnetwork/rust
+              repository: polymathnetwork/rust
               aws_access_key_id: ((polymath-ecr.aws-access-id))
               aws_secret_access_key: ((polymath-ecr.aws-access-secret))
+              aws_region: us-east-1
           run:
             dir: r-git-polymesh
             path: bash
-            args: ["./scripts/rustfmt.sh"]
+            args: ["./.concourse/scripts/t-rustfmt-lint.sh"]
+  - name: j-build
+    plan:
+      - get: r-git-polymesh
+        trigger: true
+        version: every
+      - task: t-rustc-version
+        config:
+          inputs:
+            - name: r-git-polymesh
+          platform: linux
+          image_resource:
+            type: registry-image
+            source:
+              repository: polymathnetwork/rust
+              aws_access_key_id: ((polymath-ecr.aws-access-id))
+              aws_secret_access_key: ((polymath-ecr.aws-access-secret))
+              aws_region: us-east-1
+          run:
+            path: bash
+            args: ["./r-git-polymesh/.concourse/scripts/t-rustc-version.sh"]
+          outputs:
+            - name: rust-version
+      - task: t-cargo-build
+        config:
+          inputs:
+            - name: r-git-polymesh
+            - name: rust-version
+          platform: linux
+          image_resource:
+            type: registry-image
+            source:
+              repository: polymathnetwork/rust
+              aws_access_key_id: ((polymath-ecr.aws-access-id))
+              aws_secret_access_key: ((polymath-ecr.aws-access-secret))
+              aws_region: us-east-1
+          run:
+            path: bash
+            args: ["./r-git-polymesh/.concourse/scripts/t-rustc-version.sh", "rust-version"]
 
