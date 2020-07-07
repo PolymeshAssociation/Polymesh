@@ -7,7 +7,7 @@ use pallet_identity as identity;
 use polymesh_common_utilities::{traits::group::GroupTrait, Context};
 use polymesh_primitives::IdentityId;
 
-use frame_support::{assert_err, assert_noop, assert_ok};
+use frame_support::{assert_err, assert_noop, assert_ok, dispatch::DispatchError};
 use test_client::AccountKeyring;
 
 type CommitteeGroup = group::Module<TestStorage, group::Instance1>;
@@ -47,9 +47,9 @@ fn add_member_works_we() {
     let non_root_did = get_identity_id(AccountKeyring::Alice).unwrap();
 
     Context::set_current_identity::<Identity>(Some(non_root_did));
-    assert_eq!(
-        (CommitteeGroup::add_member(non_root, IdentityId::from(3))).is_err(),
-        true
+    assert_err!(
+        CommitteeGroup::add_member(non_root, IdentityId::from(3)),
+        DispatchError::BadOrigin
     );
 
     let alice_id = get_identity_id(AccountKeyring::Alice).unwrap();
@@ -83,9 +83,9 @@ fn remove_member_works_we() {
 
     Context::set_current_identity::<Identity>(Some(non_root_did));
 
-    assert_eq!(
-        (CommitteeGroup::remove_member(non_root, IdentityId::from(3))).is_err(),
-        true
+    assert_err!(
+        CommitteeGroup::remove_member(non_root, IdentityId::from(3)),
+        DispatchError::BadOrigin
     );
     assert_noop!(
         CommitteeGroup::remove_member(root.clone(), IdentityId::from(5)),
@@ -116,9 +116,9 @@ fn swap_member_works_we() {
     let non_root_did = get_identity_id(AccountKeyring::Charlie).unwrap();
 
     Context::set_current_identity::<Identity>(Some(non_root_did));
-    assert_eq!(
-        (CommitteeGroup::swap_member(non_root, alice_id, IdentityId::from(5))).is_err(),
-        true
+    assert_err!(
+        CommitteeGroup::swap_member(non_root, alice_id, IdentityId::from(5)),
+        DispatchError::BadOrigin
     );
     assert_noop!(
         CommitteeGroup::swap_member(root.clone(), IdentityId::from(5), IdentityId::from(6)),
@@ -151,9 +151,9 @@ fn reset_members_works_we() {
     let root = Origin::from(frame_system::RawOrigin::Root);
     let non_root = Origin::signed(AccountKeyring::Bob.public());
     let new_committee = (4..=6).map(IdentityId::from).collect::<Vec<_>>();
-    assert_eq!(
-        (CommitteeGroup::reset_members(non_root, new_committee.clone())).is_err(),
-        true
+    assert_err!(
+        CommitteeGroup::reset_members(non_root, new_committee.clone()),
+        DispatchError::BadOrigin
     );
     assert_ok!(CommitteeGroup::reset_members(root, new_committee.clone()));
     assert_eq!(CommitteeGroup::get_members(), new_committee);
