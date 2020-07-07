@@ -8,6 +8,7 @@ CARGO_VERSION=$1
 
 pwd
 ls -a
+ls -a $CARGO_VERSION
 
 cat $CARGO_VERSION
 
