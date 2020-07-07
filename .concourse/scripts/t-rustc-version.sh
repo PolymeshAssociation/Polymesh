@@ -4,5 +4,6 @@ set -e
 set -x
 set -o pipefail
 
-rustc --version > rust-version
+mkdir -p t-rustc-version
+rustc --version > t-rustc-version/version
 
