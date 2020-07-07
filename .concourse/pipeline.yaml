@@ -7,7 +7,7 @@ resources:
     check_every: 5m
     source:
       uri: git@github.com:cwsatpolymath/Polymesh.git
-      branch: master
+      branch: concourse-test
       private_key: ((polymesh-github.id_concourse_rsa))
 
 jobs:
