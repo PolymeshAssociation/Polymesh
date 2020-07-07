@@ -1,5 +1,6 @@
 //! Service and ServiceFactory implementation. Specialized wrapper over substrate service.
 
+pub use crate::chain_spec::{AldebaranChainSpec, GeneralChainSpec};
 pub use codec::Codec;
 use grandpa::{
     self, FinalityProofProvider as GrandpaFinalityProofProvider, StorageAndProofProvider,
@@ -12,24 +13,22 @@ pub use polymesh_runtime_develop;
 pub use polymesh_runtime_testnet_v1;
 use prometheus_endpoint::Registry;
 pub use sc_client_api::backend::Backend;
+pub use sc_consensus::LongestChain;
 use sc_consensus_babe;
 use sc_executor::native_executor_instance;
 pub use sc_executor::{NativeExecutionDispatch, NativeExecutor};
 pub use sc_service::{
     config::{DatabaseConfig, PrometheusConfig},
     error::Error as ServiceError,
-    AbstractService, Error, PruningMode, RuntimeGenesis, ServiceBuilder,
+    AbstractService, ChainSpec, Configuration, Error, PruningMode, RuntimeGenesis, ServiceBuilder,
     ServiceBuilderCommand, TFullBackend, TFullCallExecutor, TFullClient, TLightBackend,
-    TLightCallExecutor, TLightClient, TransactionPoolOptions, Configuration, ChainSpec
+    TLightCallExecutor, TLightClient, TransactionPoolOptions,
 };
-pub use sc_consensus::LongestChain;
-pub use crate::chain_spec::{ AldebaranChainSpec, GeneralChainSpec };
 pub use sp_api::{ConstructRuntimeApi, Core as CoreApi, ProvideRuntimeApi, StateBackend};
 pub use sp_consensus::SelectChain;
 use sp_inherents::InherentDataProviders;
 pub use sp_runtime::traits::BlakeTwo256;
 use std::{convert::From, sync::Arc};
-
 
 pub trait IsAldebaranNetwork {
     fn is_aldebaran_network(&self) -> bool;
@@ -167,37 +166,44 @@ macro_rules! new_full_start {
             );
             Ok(pool)
         })?
-        .with_import_queue(|config, client, mut select_chain, _, spawn_task_handle, registry| {
-            let select_chain = select_chain
-                .take()
-                .ok_or_else(|| sc_service::Error::SelectChainRequired)?;
-            let (grandpa_block_import, grandpa_link) =
-                grandpa::block_import(client.clone(), &(client.clone() as Arc<_>), select_chain)?;
+        .with_import_queue(
+            |config, client, mut select_chain, _, spawn_task_handle, registry| {
+                let select_chain = select_chain
+                    .take()
+                    .ok_or_else(|| sc_service::Error::SelectChainRequired)?;
+                let (grandpa_block_import, grandpa_link) = grandpa::block_import(
+                    client.clone(),
+                    &(client.clone() as Arc<_>),
+                    select_chain,
+                )?;
 
-            let justification_import = grandpa_block_import.clone();
+                let justification_import = grandpa_block_import.clone();
 
-            let (block_import, babe_link) = sc_consensus_babe::block_import(
-                sc_consensus_babe::Config::get_or_compute(&*client)?,
-                grandpa_block_import,
-                client.clone(),
-            )?;
+                let (block_import, babe_link) = sc_consensus_babe::block_import(
+                    sc_consensus_babe::Config::get_or_compute(&*client)?,
+                    grandpa_block_import,
+                    client.clone(),
+                )?;
 
-            let import_queue = sc_consensus_babe::import_queue(
-                babe_link.clone(),
-                block_import.clone(),
-                Some(Box::new(justification_import)),
-                None,
-                client,
-                inherent_data_providers.clone(),
-                spawn_task_handle,
-				registry,
-            )?;
+                let import_queue = sc_consensus_babe::import_queue(
+                    babe_link.clone(),
+                    block_import.clone(),
+                    Some(Box::new(justification_import)),
+                    None,
+                    client,
+                    inherent_data_providers.clone(),
+                    spawn_task_handle,
+                    registry,
+                )?;
 
-            import_setup = Some((block_import, grandpa_link, babe_link));
-            Ok(import_queue)
-        })?
+                import_setup = Some((block_import, grandpa_link, babe_link));
+                Ok(import_queue)
+            },
+        )?
         .with_rpc_extensions_builder(|builder| {
-            let grandpa_link = import_setup.as_ref().map(|s| &s.1)
+            let grandpa_link = import_setup
+                .as_ref()
+                .map(|s| &s.1)
                 .expect("GRANDPA LinkHalf is present for full services or set up failed; qed.");
 
             let shared_authority_set = grandpa_link.shared_authority_set().clone();
@@ -205,7 +211,9 @@ macro_rules! new_full_start {
 
             rpc_setup = Some((shared_voter_state.clone()));
 
-            let babe_link = import_setup.as_ref().map(|s| &s.2)
+            let babe_link = import_setup
+                .as_ref()
+                .map(|s| &s.2)
                 .expect("BabeLink is present for full services or set up failed; qed.");
 
             let babe_config = babe_link.config().clone();
@@ -213,7 +221,9 @@ macro_rules! new_full_start {
 
             let client = builder.client().clone();
             let pool = builder.pool().clone();
-            let select_chain = builder.select_chain().cloned()
+            let select_chain = builder
+                .select_chain()
+                .cloned()
                 .expect("SelectChain is present for full services or set up failed; qed.");
             let keystore = builder.keystore().clone();
 
@@ -234,15 +244,13 @@ macro_rules! new_full_start {
                     },
                 };
 
-                polymesh_node_rpc
-                ::create_full(deps)
+                polymesh_node_rpc::create_full(deps)
             })
         })?;
 
         (builder, import_setup, inherent_data_providers, rpc_setup)
     }};
 }
-
 
 /// Builds a new service for a full client.
 #[macro_export]
@@ -256,7 +264,7 @@ macro_rules! new_full {
 		use sc_client_api::ExecutorProvider;
 		use futures::stream::StreamExt;
         use sp_core::traits::BareCryptoStorePtr;
-        
+
 
         let (
 			role,
@@ -300,14 +308,14 @@ macro_rules! new_full {
                     service.transaction_pool(),
                     service.prometheus_registry().as_ref(),
                 );
-    
+
                 let client = service.client();
                 let select_chain = service.select_chain()
                     .ok_or(sc_service::Error::SelectChainRequired)?;
-    
+
                 let can_author_with =
                     sp_consensus::CanAuthorWithNativeVersion::new(client.executor().clone());
-    
+
                 let babe_config = sc_consensus_babe::BabeParams {
                     keystore: service.keystore(),
                     client,
@@ -320,11 +328,11 @@ macro_rules! new_full {
                     babe_link,
                     can_author_with,
                 };
-    
+
                 let babe = sc_consensus_babe::start_babe(babe_config)?;
                 service.spawn_essential_task_handle().spawn_blocking("babe-proposer", babe);
             }
-    
+
             // Spawn authority discovery module.
             if matches!(role, sc_service::config::Role::Authority{..} | sc_service::config::Role::Sentry {..}) {
                 let (sentries, authority_discovery_role) = match role {
@@ -340,7 +348,7 @@ macro_rules! new_full {
                     ),
                     _ => unreachable!("Due to outer matches! constraint; qed.")
                 };
-    
+
                 let network = service.network();
                 let dht_event_stream = network.event_stream("authority-discovery").filter_map(|e| async move { match e {
                     Event::Dht(e) => Some(e),
@@ -354,10 +362,10 @@ macro_rules! new_full {
                     authority_discovery_role,
                     service.prometheus_registry(),
                 );
-    
+
                 service.spawn_task_handle().spawn("authority-discovery", authority_discovery);
             }
-    
+
             // if the node isn't actively participating in consensus then it doesn't
             // need a keystore, regardless of which protocol we use below.
             let keystore = if role.is_authority() {
@@ -365,7 +373,7 @@ macro_rules! new_full {
             } else {
                 None
             };
-    
+
             let config = grandpa::Config {
                 // FIXME #1578 make this available through chainspec
                 gossip_duration: std::time::Duration::from_millis(333),
@@ -375,7 +383,7 @@ macro_rules! new_full {
                 keystore,
                 is_authority: role.is_network_authority(),
             };
-    
+
             let enable_grandpa = !disable_grandpa;
             if enable_grandpa {
                 // start the full GRANDPA voter
@@ -394,7 +402,7 @@ macro_rules! new_full {
                     prometheus_registry: service.prometheus_registry(),
                     shared_voter_state,
                 };
-    
+
                 // the GRANDPA voter task is considered infallible, i.e.
                 // if it fails we take down the service with it.
                 service.spawn_essential_task_handle().spawn_blocking(
@@ -408,47 +416,47 @@ macro_rules! new_full {
                     service.network(),
                 )?;
             }
-    
+
             Ok((service, inherent_data_providers))
         }};
 }
 
 /// Create a new Aldebaran service for a full node.
 pub fn aldebaran_new_full(
-	mut config: Configuration,
-)
-	-> Result<
+    mut config: Configuration,
+) -> Result<
     impl AbstractService<
         Block = Block,
         RuntimeApi = polymesh_runtime_testnet_v1::RuntimeApi,
-        Backend = TFullBackend<Block>
+        Backend = TFullBackend<Block>,
     >,
-    ServiceError>
-{
-	new_full!(
-		config,
-		polymesh_runtime_testnet_v1::RuntimeApi,
-		AldebaranExecutor,
-	).map(|(service, _)| service)
+    ServiceError,
+> {
+    new_full!(
+        config,
+        polymesh_runtime_testnet_v1::RuntimeApi,
+        AldebaranExecutor,
+    )
+    .map(|(service, _)| service)
 }
 
 /// Create a new General node service for a full node.
 pub fn general_new_full(
-	mut config: Configuration,
-)
-	-> Result<
+    mut config: Configuration,
+) -> Result<
     impl AbstractService<
         Block = Block,
         RuntimeApi = polymesh_runtime_develop::RuntimeApi,
-        Backend = TFullBackend<Block>
+        Backend = TFullBackend<Block>,
     >,
-    ServiceError>
-{
-	new_full!(
-		config,
-		polymesh_runtime_develop::RuntimeApi,
-		GeneralExecutor,
-	).map(|(service, _)| service)
+    ServiceError,
+> {
+    new_full!(
+        config,
+        polymesh_runtime_develop::RuntimeApi,
+        GeneralExecutor,
+    )
+    .map(|(service, _)| service)
 }
 
 /// Builds a new object suitable for chain operations.
@@ -560,28 +568,41 @@ macro_rules! new_light {
 }
 
 /// Create a new Polymesh service for a light client.
-pub fn aldebaran_new_light(mut config: Configuration) -> Result<
-	impl AbstractService<
-		Block = Block,
-		RuntimeApi = polymesh_runtime_testnet_v1::RuntimeApi,
-		Backend = TLightBackend<Block>,
-		SelectChain = LongestChain<TLightBackend<Block>, Block>,
-		CallExecutor = TLightCallExecutor<Block, AldebaranExecutor>,
-	>, ServiceError>
-{
-	new_light!(config, polymesh_runtime_testnet_v1::RuntimeApi, AldebaranExecutor)
+pub fn aldebaran_new_light(
+    mut config: Configuration,
+) -> Result<
+    impl AbstractService<
+        Block = Block,
+        RuntimeApi = polymesh_runtime_testnet_v1::RuntimeApi,
+        Backend = TLightBackend<Block>,
+        SelectChain = LongestChain<TLightBackend<Block>, Block>,
+        CallExecutor = TLightCallExecutor<Block, AldebaranExecutor>,
+    >,
+    ServiceError,
+> {
+    new_light!(
+        config,
+        polymesh_runtime_testnet_v1::RuntimeApi,
+        AldebaranExecutor
+    )
 }
 
-
 /// Create a new Polymesh service for a light client.
-pub fn general_new_light(mut config: Configuration) -> Result<
-	impl AbstractService<
-		Block = Block,
-		RuntimeApi = polymesh_runtime_develop::RuntimeApi,
-		Backend = TLightBackend<Block>,
-		SelectChain = LongestChain<TLightBackend<Block>, Block>,
-		CallExecutor = TLightCallExecutor<Block, GeneralExecutor>,
-	>, ServiceError>
-{
-	new_light!(config, polymesh_runtime_develop::RuntimeApi, GeneralExecutor)
+pub fn general_new_light(
+    mut config: Configuration,
+) -> Result<
+    impl AbstractService<
+        Block = Block,
+        RuntimeApi = polymesh_runtime_develop::RuntimeApi,
+        Backend = TLightBackend<Block>,
+        SelectChain = LongestChain<TLightBackend<Block>, Block>,
+        CallExecutor = TLightCallExecutor<Block, GeneralExecutor>,
+    >,
+    ServiceError,
+> {
+    new_light!(
+        config,
+        polymesh_runtime_develop::RuntimeApi,
+        GeneralExecutor
+    )
 }

@@ -18,10 +18,14 @@
 //! Testing utils for staking. Provides some common functions to setup staking state, such as
 //! bonding validators, nominators, and generating different types of solutions.
 
+use crate::mock::*;
 use crate::Module as Staking;
 use crate::*;
 use frame_benchmarking::account;
+use frame_support::traits::Currency;
 use frame_system::RawOrigin;
+use polymesh_common_utilities::traits::identity::LinkedKeyInfo;
+use primitives::{IdentityId, Signatory, SigningItem};
 use rand_chacha::{
     rand_core::{RngCore, SeedableRng},
     ChaChaRng,
@@ -30,6 +34,30 @@ use sp_io::hashing::blake2_256;
 use sp_npos_elections::*;
 
 const SEED: u32 = 0;
+pub type Balance<T> =
+    <<T as Trait>::Currency as Currency<<T as frame_system::Trait>::AccountId>>::Balance;
+
+pub fn get_minimum_balance<T: Trait>() -> Balance<T> {
+    return 100.into();
+}
+
+/// Provide the identity to the account key
+pub fn provide_did_to_user<T: Trait>(
+    account: T::AccountId,
+    controller_account: Option<T::AccountId>,
+) -> Result<IdentityId, &'static str> {
+    let signing_items = if let Some(controller) = controller_account {
+        vec![SigningItem::new(Signatory::Account(controller), vec![])]
+    } else {
+        vec![]
+    };
+    Identity::cdd_register_did(RawOrigin::Signed(1005).into(), account, None, signing_items);
+    if let LinkedKeyInfo::Unique(did) = Identity::key_to_identity_ids(account).unwrap() {
+        Ok(did)
+    } else {
+        return Err("Error in providing the IdentityId");
+    }
+}
 
 /// Grab a funded user.
 pub fn create_funded_user<T: Trait>(
@@ -38,7 +66,7 @@ pub fn create_funded_user<T: Trait>(
     balance_factor: u32,
 ) -> T::AccountId {
     let user = account(string, n, SEED);
-    let balance = T::Currency::minimum_balance() * balance_factor.into();
+    let balance = get_minimum_balance::<T>() * balance_factor.into();
     T::Currency::make_free_balance_be(&user, balance);
     // ensure T::CurrencyToVote will work correctly.
     T::Currency::issue(balance);
@@ -52,10 +80,12 @@ pub fn create_stash_controller<T: Trait>(
 ) -> Result<(T::AccountId, T::AccountId), &'static str> {
     let stash = create_funded_user::<T>("stash", n, balance_factor);
     let controller = create_funded_user::<T>("controller", n, balance_factor);
+    let did = provide_did_to_user::<T>(stash, Some(controller))?;
+    print!("Print the DID : {:?}", did);
     let controller_lookup: <T::Lookup as StaticLookup>::Source =
         T::Lookup::unlookup(controller.clone());
     let reward_destination = RewardDestination::Staked;
-    let amount = T::Currency::minimum_balance() * (balance_factor / 10).max(1).into();
+    let amount = get_minimum_balance::<T>() * (balance_factor / 10).max(1).into();
     Staking::<T>::bond(
         RawOrigin::Signed(stash.clone()).into(),
         controller_lookup,

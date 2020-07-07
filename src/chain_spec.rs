@@ -6,12 +6,17 @@ use polymesh_common_utilities::{
     protocol_fee::ProtocolOp,
 };
 use polymesh_primitives::{AccountId, IdentityId, PosRatio, Signatory, Signature};
-use polymesh_runtime_develop::{self as general, config::{self as GeneralConfig}, constants::time as generalTime};
+use polymesh_runtime_develop::{
+    self as general,
+    config::{self as GeneralConfig},
+    constants::time as generalTime,
+};
 use polymesh_runtime_testnet_v1::{
     self as aldebaran,
     config::{self as AldebaranConfig},
     constants::time as aldebaranTime,
 };
+use sc_chain_spec::ChainType;
 use sc_service::Properties;
 use sc_telemetry::TelemetryEndpoints;
 use serde_json::json;
@@ -22,7 +27,6 @@ use sp_runtime::{
     traits::{IdentifyAccount, Verify},
     PerThing,
 };
-use sc_chain_spec::ChainType;
 use std::iter;
 
 const STAGING_TELEMETRY_URL: &str = "wss://telemetry.polymesh.live/submit/";
@@ -269,9 +273,9 @@ fn general_testnet_genesis(
         pallet_staking: Some(GeneralConfig::StakingConfig {
             minimum_validator_count: 1,
             validator_count: 2,
-            validator_commission: aldebaran::Commission::Global(PerThing::from_rational_approximation(
-                1u64, 4u64,
-            )),
+            validator_commission: aldebaran::Commission::Global(
+                PerThing::from_rational_approximation(1u64, 4u64),
+            ),
             stakers: initial_authorities
                 .iter()
                 .map(|x| {
@@ -311,7 +315,7 @@ fn general_testnet_genesis(
             current_schedule: contracts::Schedule {
                 enable_println, // this should only be enabled on development chains
                 ..Default::default()
-            }
+            },
         }),
         group_Instance1: Some(general::runtime::CommitteeMembershipConfig {
             active_members: vec![
@@ -484,8 +488,10 @@ pub fn aldebaran_live_testnet_config() -> AldebaranChainSpec {
         ChainType::Live,
         aldebaran_live_testnet_genesis,
         boot_nodes,
-        Some(TelemetryEndpoints::new(vec![(STAGING_TELEMETRY_URL.to_string(), 0)])
-			.expect("Aldebaran live telemetry url is valid; qed")),
+        Some(
+            TelemetryEndpoints::new(vec![(STAGING_TELEMETRY_URL.to_string(), 0)])
+                .expect("Aldebaran live telemetry url is valid; qed"),
+        ),
         Some(&*"/polymath/aldebaran/1"),
         Some(polymath_props()),
         Default::default(),
@@ -719,7 +725,14 @@ fn aldebaran_testnet_genesis(
             validator_commission: aldebaran::Commission::Global(PerThing::zero()),
             stakers: initial_authorities
                 .iter()
-                .map(|x| (x.0.clone(), x.1.clone(), STASH, aldebaran::StakerStatus::Validator))
+                .map(|x| {
+                    (
+                        x.0.clone(),
+                        x.1.clone(),
+                        STASH,
+                        aldebaran::StakerStatus::Validator,
+                    )
+                })
                 .collect(),
             invulnerables: initial_authorities.iter().map(|x| x.0.clone()).collect(),
             slash_reward_fraction: aldebaran::Perbill::from_percent(10),
@@ -749,7 +762,7 @@ fn aldebaran_testnet_genesis(
             current_schedule: contracts::Schedule {
                 enable_println, // this should only be enabled on development chains
                 ..Default::default()
-            }
+            },
         }),
         group_Instance1: Some(aldebaran::runtime::CommitteeMembershipConfig {
             active_members: vec![
