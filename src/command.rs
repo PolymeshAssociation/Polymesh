@@ -58,9 +58,9 @@ impl SubstrateCli for Cli {
 
     fn load_spec(&self, id: &str) -> std::result::Result<Box<dyn sc_service::ChainSpec>, String> {
         Ok(match id {
-            "general-dev" | "dev" => Box::new(chain_spec::general_development_testnet_config()),
-            "general-local" => Box::new(chain_spec::general_local_testnet_config()),
-            "general-live" => Box::new(chain_spec::general_live_testnet_config()),
+            "dev" => Box::new(chain_spec::general_development_testnet_config()),
+            "local" => Box::new(chain_spec::general_local_testnet_config()),
+            "live" => Box::new(chain_spec::general_live_testnet_config()),
             "aldebaran-dev" => Box::new(chain_spec::aldebaran_develop_testnet_config()),
             "aldebaran-local" => Box::new(chain_spec::aldebaran_local_testnet_config()),
             "aldebaran-live" => Box::new(chain_spec::aldebaran_live_testnet_config()),
