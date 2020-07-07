@@ -53,12 +53,12 @@ jobs:
             path: bash
             args: ["r-git-polymesh/.concourse/scripts/t-rustc-version.sh"]
           outputs:
-            - name: rust-version
+            - name: t-rustc-version
       - task: t-cargo-build
         config:
           inputs:
             - name: r-git-polymesh
-            - name: rust-version
+            - name: t-rustc-version
           platform: linux
           image_resource:
             type: registry-image
