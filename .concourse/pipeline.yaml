@@ -55,5 +55,5 @@ jobs:
           run:
             dir: r-git-polymesh
             path: bash
-            args: ["r-git-polymesh/.concourse/scripts/t-cargo-build.sh"]
+            args: [".concourse/scripts/t-cargo-build.sh"]
 
