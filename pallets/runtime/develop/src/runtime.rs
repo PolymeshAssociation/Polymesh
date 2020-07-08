@@ -20,6 +20,7 @@ use pallet_group as group;
 use pallet_identity as identity;
 use pallet_multisig as multisig;
 use pallet_pips::{HistoricalVotingByAddress, HistoricalVotingById, Vote, VoteCount};
+use pallet_portfolio as portfolio;
 use pallet_protocol_fee as protocol_fee;
 use pallet_statistics as statistics;
 use pallet_treasury as treasury;
@@ -468,7 +469,7 @@ impl bridge::Trait for Runtime {
     type MaxTimelockedTxsPerBlock = MaxTimelockedTxsPerBlock;
 }
 
-impl asset::portfolio::Trait for Runtime {
+impl portfolio::Trait for Runtime {
     type Event = Event;
 }
 

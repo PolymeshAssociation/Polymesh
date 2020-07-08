@@ -1,3 +1,5 @@
+#![cfg_attr(not(feature = "std"), no_std)]
+
 use frame_support::{
     decl_error, decl_event, decl_module, decl_storage, dispatch::DispatchResult, ensure,
     StorageDoubleMap,
@@ -33,21 +35,19 @@ decl_storage! {
             double_map hasher(blake2_128_concat) PortfolioId, hasher(blake2_128_concat) Ticker =>
             (Ticker, T::Balance);
         /// The next portfolio sequence number.
-        pub NextPortfolioNumber get(next_portfolio_number) build(|_| 1): u128;
+        pub NextPortfolioNumber get(next_portfolio_number) build(|_| 1): u64;
     }
 }
 
 decl_event! {
     pub enum Event<T> where
         Balance = <T as CommonTrait>::Balance,
-        // Moment = <T as pallet_timestamp::Trait>::Moment,
-        // AccountId = <T as frame_system::Trait>::AccountId,
     {
         /// The portfolio has been successfully created.
         PortfolioCreated(IdentityId, PortfolioNumber, PortfolioName),
         /// The portfolio has been successfully removed.
         PortfolioDeleted(IdentityId, PortfolioNumber),
-        /// A token amount has been moved from one portfoliio to another. `None` denotes the default
+        /// A token amount has been moved from one portfolio to another. `None` denotes the default
         /// portfolio of the DID.
         MovedBetweenPortfolios(
             IdentityId,
@@ -106,17 +106,17 @@ decl_module! {
                 <PortfolioAssetBalances<T>>::mutate(&def_portfolio_id, ticker, |(_, v)| {
                     *v = v.saturating_add(balance)
                 });
-                Self::deposit_event(RawEvent::MovedBetweenPortfolios(
-                    did,
-                    Some(num),
-                    None,
-                    ticker,
-                    balance,
-                ));
+                // Self::deposit_event(RawEvent::MovedBetweenPortfolios(
+                //     did,
+                //     Some(num),
+                //     None,
+                //     ticker,
+                //     balance,
+                // ));
             }
             <PortfolioAssetBalances<T>>::remove_prefix(&portfolio_id);
             <Portfolios>::remove(&did, &num);
-            Self::deposit_event(RawEvent::PortfolioDeleted(did, num));
+//            Self::deposit_event(RawEvent::PortfolioDeleted(did, num));
             Ok(())
         }
 
@@ -156,13 +156,13 @@ decl_module! {
                 &ticker,
                 (ticker, balance.saturating_add(amount))
             );
-            Self::deposit_event(RawEvent::MovedBetweenPortfolios(
-                did,
-                from_num,
-                to_num,
-                ticker,
-                amount
-            ));
+//            Self::deposit_event(RawEvent::MovedBetweenPortfolios(
+//                 did,
+//                 from_num,
+//                 to_num,
+//                 ticker,
+// //                amount
+//             ));
             Ok(())
         }
 
@@ -178,11 +178,11 @@ decl_module! {
             let name_uniq = <Portfolios>::iter_prefix(&did).all(|n| n.1 != to_name);
             ensure!(name_uniq, Error::<T>::PortfolioNameAlreadyInUse);
             <Portfolios>::mutate(&did, &num, |p| *p = Some((num, to_name.clone())));
-            Self::deposit_event(RawEvent::PortfolioRenamed(
-                did,
-                num,
-                to_name,
-            ));
+            // Self::deposit_event(RawEvent::PortfolioRenamed(
+            //     did,
+            //     num,
+            //     to_name,
+            // ));
             Ok(())
         }
 
@@ -190,11 +190,12 @@ decl_module! {
         pub fn get_portfolios(origin) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             let did = Context::current_identity_or::<Identity<T>>(&sender)?;
-            let portfolios = <Portfolios>::iter_prefix(&did).collect();
-            Self::deposit_event(RawEvent::UserPortfolios(
-                did,
-                portfolios,
-            ));
+            let portfolios: Vec<(PortfolioNumber, PortfolioName)> =
+                <Portfolios>::iter_prefix(&did).collect();
+            // Self::deposit_event(RawEvent::UserPortfolios(
+            //     did,
+            //     portfolios,
+            // ));
             Ok(())
         }
     }

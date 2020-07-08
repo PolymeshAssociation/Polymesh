@@ -174,7 +174,7 @@ impl Printable for IdentityId {
 pub struct PortfolioName(pub Vec<u8>);
 
 /// The unique ID of a non-default portfolio.
-pub type PortfolioNumber = u128;
+pub type PortfolioNumber = u64;
 
 /// The ID of a portfolio.
 #[derive(Decode, Encode, Clone, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]

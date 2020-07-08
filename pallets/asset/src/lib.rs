@@ -94,7 +94,6 @@
 #![recursion_limit = "256"]
 #[cfg(feature = "runtime-benchmarks")]
 pub mod benchmarking;
-pub mod portfolio;
 
 use pallet_identity as identity;
 use pallet_statistics as statistics;
@@ -140,7 +139,7 @@ pub trait Trait:
     + pallet_session::Trait
     + statistics::Trait
     + pallet_contracts::Trait
-    + crate::portfolio::Trait
+    + pallet_portfolio::Trait
 {
     /// The overarching event type.
     type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
