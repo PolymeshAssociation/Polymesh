@@ -131,6 +131,8 @@ use sp_runtime::traits::{CheckedAdd, CheckedSub, Verify};
 use sp_runtime::{Deserialize, Serialize};
 use sp_std::{convert::TryFrom, prelude::*};
 
+type Portfolio<T> = pallet_portfolio::Module<T>;
+
 /// The module's configuration trait.
 pub trait Trait:
     frame_system::Trait
@@ -1864,30 +1866,40 @@ impl<T: Trait> Module<T> {
             Error::<T>::NotAnAssetHolder
         );
         ensure!(from_did != to_did, Error::<T>::InvalidTransfer);
-        let sender_balance = Self::balance(ticker, &from_did);
-        ensure!(sender_balance >= value, Error::<T>::InsufficientBalance);
-
-        let updated_from_balance = sender_balance
+        let from_total_balance = Self::balance(ticker, &from_did);
+        let from_def_balance = Portfolio::<T>::default_portfolio_balance(from_did, ticker);
+        ensure!(from_def_balance >= value, Error::<T>::InsufficientBalance);
+        let updated_from_total_balance = from_total_balance
             .checked_sub(&value)
             .ok_or(Error::<T>::BalanceOverflow)?;
-        let receiver_balance = Self::balance(ticker, &to_did);
-        let updated_to_balance = receiver_balance
-            .checked_add(&value)
+        let updated_from_def_balance = from_def_balance
+            .checked_sub(&value)
             .ok_or(Error::<T>::BalanceOverflow)?;
 
-        Self::_update_checkpoint(ticker, from_did, sender_balance);
-        Self::_update_checkpoint(ticker, to_did, receiver_balance);
+        let to_total_balance = Self::balance(ticker, &to_did);
+        let to_def_balance = Portfolio::<T>::default_portfolio_balance(to_did, ticker);
+        let updated_to_total_balance = to_total_balance
+            .checked_add(&value)
+            .ok_or(Error::<T>::BalanceOverflow)?;
+        let updated_to_def_balance = to_def_balance
+            .checked_sub(&value)
+            .ok_or(Error::<T>::BalanceOverflow)?;
+
+        Self::_update_checkpoint(ticker, from_did, from_total_balance);
+        Self::_update_checkpoint(ticker, to_did, to_total_balance);
         // reduce sender's balance
-        <BalanceOf<T>>::insert(ticker, &from_did, updated_from_balance);
+        <BalanceOf<T>>::insert(ticker, &from_did, updated_from_total_balance);
+        Portfolio::<T>::set_default_portfolio_balance(from_did, ticker, updated_from_def_balance);
 
         // increase receiver's balance
-        <BalanceOf<T>>::insert(ticker, &to_did, updated_to_balance);
+        <BalanceOf<T>>::insert(ticker, &to_did, updated_to_total_balance);
+        Portfolio::<T>::set_default_portfolio_balance(to_did, ticker, updated_to_def_balance);
 
         // Update statistic info.
         <statistics::Module<T>>::update_transfer_stats(
             ticker,
-            Some(updated_from_balance),
-            Some(updated_to_balance),
+            Some(updated_from_total_balance),
+            Some(updated_to_total_balance),
             value,
         );
 

@@ -202,6 +202,23 @@ decl_module! {
 }
 
 impl<T: Trait> Module<T> {
+    /// Returns the ticker balance of the identity's default portfolio.
+    pub fn default_portfolio_balance(
+        did: IdentityId,
+        ticker: &Ticker,
+    ) -> <T as CommonTrait>::Balance {
+        Self::portfolio_asset_balances(PortfolioId::Default(did), ticker).1
+    }
+
+    /// Sets the ticker balance of the identity's default portfolio to the given value.
+    pub fn set_default_portfolio_balance(
+        did: IdentityId,
+        ticker: &Ticker,
+        balance: <T as CommonTrait>::Balance,
+    ) {
+        <PortfolioAssetBalances<T>>::insert(PortfolioId::Default(did), ticker, (ticker, balance));
+    }
+
     /// Returns the next portfolio number and increments the stored number.
     fn get_next_portfolio_number() -> PortfolioNumber {
         let num = Self::next_portfolio_number();
