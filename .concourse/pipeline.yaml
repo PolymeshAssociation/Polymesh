@@ -11,7 +11,7 @@ resources:
       private_key: ((polymesh-github.id_concourse_rsa))
 
 jobs:
-  - name: j-lint
+  - name: j-lint-rustfmt
     plan:
       - get: r-git-polymesh
         trigger: true
@@ -43,8 +43,7 @@ jobs:
             - name: r-git-polymesh
           platform: linux
           caches:
-            - path: r-git-polymesh/target
-            - path: $HOME/.cargo
+            - path: job-cache
           image_resource:
             type: registry-image
             source:
@@ -55,5 +54,59 @@ jobs:
           run:
             dir: r-git-polymesh
             path: bash
-            args: [".concourse/scripts/t-cargo-build.sh"]
+            args: [".concourse/scripts/t-cargo-build.sh", "r-git-polymesh", "job-cache"]
+          outputs:
+            - name: job-cache
+  - name: j-test
+    plan:
+      - get: r-git-polymesh
+        passed:
+          - j-build
+        trigger: true
+        version: every
+      - task: t-cargo-test
+        config:
+          inputs:
+            - name: r-git-polymesh
+            - name: job-cache
+          platform: linux
+          caches:
+            - path: job-cache
+          image_resource:
+            type: registry-image
+            source:
+              repository: polymathnetwork/rust
+              aws_access_key_id: ((polymath-ecr.aws-access-id))
+              aws_secret_access_key: ((polymath-ecr.aws-access-secret))
+              aws_region: us-east-1
+          run:
+            dir: r-git-polymesh
+            path: bash
+            args: [".concourse/scripts/t-cargo-test.sh", "r-git-polymesh", "job-cache"]
+  - name: j-lint-clippy
+    plan:
+      - get: r-git-polymesh
+        passed:
+          - j-build
+        trigger: true
+        version: every
+      - task: t-cargo-clippy
+        config:
+          inputs:
+            - name: r-git-polymesh
+            - name: job-cache
+          platform: linux
+          caches:
+            - path: job-cache
+          image_resource:
+            type: registry-image
+            source:
+              repository: polymathnetwork/rust
+              aws_access_key_id: ((polymath-ecr.aws-access-id))
+              aws_secret_access_key: ((polymath-ecr.aws-access-secret))
+              aws_region: us-east-1
+          run:
+            dir: r-git-polymesh
+            path: bash
+            args: [".concourse/scripts/t-lint-clippy.sh", "r-git-polymesh", "job-cache"]
 

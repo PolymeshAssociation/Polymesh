@@ -11,13 +11,10 @@ mkdir -p ${CACHE_DIR}/.cargo
 mkdir -p ${GIT_DIR}/target
 mkdir -p $HOME/.cargo
 
-rsync -auv ${CACHE_DIR}/.cargo/ $HOME/.cargo
-rsync -auv ${CACHE_DIR}/target/ ${GIT_DIR}/target
-
 pushd .
 cd $GIT_DIR
 
-cargo build --release || cargo build -j 1 --release
+cargo +nightly clippy -j 1
 
 popd
 
