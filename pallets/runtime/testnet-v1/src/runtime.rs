@@ -603,6 +603,7 @@ construct_runtime!(
         Statistic: statistics::{Module, Call, Storage},
         ProtocolFee: protocol_fee::{Module, Call, Storage, Event<T>, Config<T>},
         Utility: utility::{Module, Call, Storage, Event},
+        Portfolio: portfolio::{Module, Call, Storage, Event<T>},
     }
 );
 

@@ -106,17 +106,17 @@ decl_module! {
                 <PortfolioAssetBalances<T>>::mutate(&def_portfolio_id, ticker, |(_, v)| {
                     *v = v.saturating_add(balance)
                 });
-                // Self::deposit_event(RawEvent::MovedBetweenPortfolios(
-                //     did,
-                //     Some(num),
-                //     None,
-                //     ticker,
-                //     balance,
-                // ));
+                Self::deposit_event(RawEvent::MovedBetweenPortfolios(
+                    did,
+                    Some(num),
+                    None,
+                    ticker,
+                    balance,
+                ));
             }
             <PortfolioAssetBalances<T>>::remove_prefix(&portfolio_id);
             <Portfolios>::remove(&did, &num);
-//            Self::deposit_event(RawEvent::PortfolioDeleted(did, num));
+            Self::deposit_event(RawEvent::PortfolioDeleted(did, num));
             Ok(())
         }
 
@@ -156,13 +156,13 @@ decl_module! {
                 &ticker,
                 (ticker, balance.saturating_add(amount))
             );
-//            Self::deposit_event(RawEvent::MovedBetweenPortfolios(
-//                 did,
-//                 from_num,
-//                 to_num,
-//                 ticker,
-// //                amount
-//             ));
+           Self::deposit_event(RawEvent::MovedBetweenPortfolios(
+                did,
+                from_num,
+                to_num,
+                ticker,
+                amount
+            ));
             Ok(())
         }
 
@@ -178,11 +178,11 @@ decl_module! {
             let name_uniq = <Portfolios>::iter_prefix(&did).all(|n| n.1 != to_name);
             ensure!(name_uniq, Error::<T>::PortfolioNameAlreadyInUse);
             <Portfolios>::mutate(&did, &num, |p| *p = Some((num, to_name.clone())));
-            // Self::deposit_event(RawEvent::PortfolioRenamed(
-            //     did,
-            //     num,
-            //     to_name,
-            // ));
+            Self::deposit_event(RawEvent::PortfolioRenamed(
+                did,
+                num,
+                to_name,
+            ));
             Ok(())
         }
 
@@ -192,10 +192,10 @@ decl_module! {
             let did = Context::current_identity_or::<Identity<T>>(&sender)?;
             let portfolios: Vec<(PortfolioNumber, PortfolioName)> =
                 <Portfolios>::iter_prefix(&did).collect();
-            // Self::deposit_event(RawEvent::UserPortfolios(
-            //     did,
-            //     portfolios,
-            // ));
+            Self::deposit_event(RawEvent::UserPortfolios(
+                did,
+                portfolios,
+            ));
             Ok(())
         }
     }

@@ -680,6 +680,7 @@ construct_runtime!(
         Utility: utility::{Module, Call, Storage, Event},
         // Comment it in the favour of Testnet v1 release
         // CddOffchainWorker: pallet_cdd_offchain_worker::{Module, Call, Storage, ValidateUnsigned, Event<T>}
+        Portfolio: portfolio::{Module, Call, Storage, Event<T>},
     }
 );
 
