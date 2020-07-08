@@ -8,8 +8,9 @@ GIT_DIR=$1
 CACHE_DIR=$2
 
 mkdir -p ${CACHE_DIR}/.cargo
-mkdir -p ${GIT_DIR}/target
+mkdir -p ${CACHE_DIR}/target
 mkdir -p $HOME/.cargo
+mkdir -p ${GIT_DIR}/target
 
 pushd .
 cd $GIT_DIR
