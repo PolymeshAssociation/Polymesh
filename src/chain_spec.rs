@@ -162,14 +162,14 @@ fn general_testnet_genesis(
                     get_account_id_from_seed::<sr25519::Public>("cdd_provider_1"),
                     IdentityId::from(1),
                     IdentityId::from(1),
-                    InvestorUID::from(b"uid1"),
+                    InvestorUID::from(b"uid1".as_ref()),
                     None,
                 ),
                 (
                     get_account_id_from_seed::<sr25519::Public>("cdd_provider_2"),
                     IdentityId::from(2),
                     IdentityId::from(2),
-                    InvestorUID::from(b"uid2"),
+                    InvestorUID::from(b"uid2".as_ref()),
                     None,
                 ),
                 // Governance committee members
@@ -177,21 +177,21 @@ fn general_testnet_genesis(
                     get_account_id_from_seed::<sr25519::Public>("governance_committee_1"),
                     IdentityId::from(1),
                     IdentityId::from(3),
-                    InvestorUID::from(b"uid3"),
+                    InvestorUID::from(b"uid3".as_ref()),
                     None,
                 ),
                 (
                     get_account_id_from_seed::<sr25519::Public>("governance_committee_2"),
                     IdentityId::from(1),
                     IdentityId::from(4),
-                    InvestorUID::from(b"uid4"),
+                    InvestorUID::from(b"uid4".as_ref()),
                     None,
                 ),
                 (
                     get_account_id_from_seed::<sr25519::Public>("governance_committee_3"),
                     IdentityId::from(1),
                     IdentityId::from(5),
-                    InvestorUID::from(b"uid4"),
+                    InvestorUID::from(b"uid4".as_ref()),
                     None,
                 ),
             ];
@@ -202,7 +202,7 @@ fn general_testnet_genesis(
                 .map(|x| {
                     identity_counter = identity_counter + 1;
                     let did = IdentityId::from(identity_counter);
-                    let investor_uid = InvestorUID::from(&did);
+                    let investor_uid = InvestorUID::from(did.as_ref());
                     (x.1.clone(), IdentityId::from(1), did, investor_uid, None)
                 })
                 .collect::<Vec<_>>();
@@ -606,21 +606,21 @@ fn v1_testnet_genesis(
                     get_account_id_from_seed::<sr25519::Public>("cdd_provider_1"),
                     IdentityId::from(1),
                     IdentityId::from(1),
-                    InvestorUID::from(b"uid1"),
+                    InvestorUID::from(b"uid1".as_ref()),
                     None,
                 ),
                 (
                     get_account_id_from_seed::<sr25519::Public>("cdd_provider_2"),
                     IdentityId::from(2),
                     IdentityId::from(2),
-                    InvestorUID::from(b"uid2"),
+                    InvestorUID::from(b"uid2".as_ref()),
                     None,
                 ),
                 (
                     get_account_id_from_seed::<sr25519::Public>("cdd_provider_3"),
                     IdentityId::from(3),
                     IdentityId::from(3),
-                    InvestorUID::from(b"uid3"),
+                    InvestorUID::from(b"uid3".as_ref()),
                     None,
                 ),
                 // Governance committee members
@@ -628,21 +628,21 @@ fn v1_testnet_genesis(
                     get_account_id_from_seed::<sr25519::Public>("polymath_1"),
                     IdentityId::from(1),
                     IdentityId::from(4),
-                    InvestorUID::from(b"uid4"),
+                    InvestorUID::from(b"uid4".as_ref()),
                     None,
                 ),
                 (
                     get_account_id_from_seed::<sr25519::Public>("polymath_2"),
                     IdentityId::from(2),
                     IdentityId::from(5),
-                    InvestorUID::from(b"uid5"),
+                    InvestorUID::from(b"uid5".as_ref()),
                     None,
                 ),
                 (
                     get_account_id_from_seed::<sr25519::Public>("polymath_3"),
                     IdentityId::from(3),
                     IdentityId::from(6),
-                    InvestorUID::from(b"uid6"),
+                    InvestorUID::from(b"uid6".as_ref()),
                     None,
                 ),
             ];
@@ -653,7 +653,7 @@ fn v1_testnet_genesis(
                 .map(|x| {
                     identity_counter = identity_counter + 1;
                     let did = IdentityId::from(identity_counter);
-                    let investor_uid = InvestorUID::from(&did);
+                    let investor_uid = InvestorUID::from(did.as_ref());
                     (x.1.clone(), IdentityId::from(1), did, investor_uid, None)
                 })
                 .collect::<Vec<_>>();

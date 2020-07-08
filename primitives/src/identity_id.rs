@@ -17,7 +17,7 @@ use codec::{Decode, Encode};
 use core::fmt::{Display, Formatter};
 use core::str;
 #[cfg(feature = "std")]
-use serde::{Deserialize, Deserializer, Serialize, Serializer};
+use polymesh_primitives_derive::{DeserializeU8StrongTyped, SerializeU8StrongTyped};
 use sp_runtime::traits::Printable;
 use sp_std::prelude::*;
 
@@ -39,7 +39,11 @@ const UUID_LEN: usize = 32usize;
 ///  - "did:poly:ab01"
 ///  - "did:poly:1"
 ///  - "DID:poly:..."
-#[derive(Encode, Decode, Default, PartialOrd, Ord, PartialEq, Eq, Clone, Copy, Debug)]
+#[derive(Encode, Decode, Default, PartialOrd, Ord, PartialEq, Eq, Clone, Copy)]
+#[cfg_attr(
+    feature = "std",
+    derive(SerializeU8StrongTyped, DeserializeU8StrongTyped)
+)]
 pub struct IdentityId([u8; UUID_LEN]);
 
 impl IdentityId {
@@ -54,37 +58,27 @@ impl IdentityId {
     pub fn as_fixed_bytes(&self) -> &[u8; UUID_LEN] {
         &self.0
     }
-}
 
-#[cfg(feature = "std")]
-impl Serialize for IdentityId {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        self.using_encoded(|bytes| sp_core::bytes::serialize(bytes, serializer))
-    }
-}
-
-#[cfg(feature = "std")]
-impl<'de> Deserialize<'de> for IdentityId {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        let r = sp_core::bytes::deserialize(deserializer)?;
-        Decode::decode(&mut &r[..])
-            .map_err(|e| serde::de::Error::custom(format!("Decode error: {}", e)))
-    }
-}
-
-impl Display for IdentityId {
     fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
         write!(f, "did:poly:")?;
         for byte in &self.0 {
             f.write_fmt(format_args!("{:02x}", byte))?;
         }
         Ok(())
+    }
+}
+
+impl Display for IdentityId {
+    #[inline]
+    fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
+        self.fmt(f)
+    }
+}
+
+impl sp_std::fmt::Debug for IdentityId {
+    #[inline]
+    fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
+        self.fmt(f)
     }
 }
 

@@ -1669,6 +1669,13 @@ impl<T: Trait> Module<T> {
             .collect::<Vec<_>>();
 
         Self::fetch_base_claims(claim_for, ClaimType::CustomerDueDiligence)
+            .inspect(|id_claim| {
+                debug::warn!(
+                    "[fetch_cdd::pre_filter for {:?}]: {:?}",
+                    claim_for,
+                    id_claim
+                )
+            })
             .filter(|id_claim| {
                 Self::is_identity_cdd_claim_valid(
                     id_claim,
@@ -1678,6 +1685,13 @@ impl<T: Trait> Module<T> {
                 )
             })
             .map(|id_claim| id_claim.claim_issuer)
+            .inspect(|issuer| {
+                debug::warn!(
+                    "[fetch_cdd::post_filter for {:?}]: issuer {:?}",
+                    claim_for,
+                    issuer
+                )
+            })
             .next()
     }
 
@@ -2297,24 +2311,11 @@ impl<T: Trait> IdentityTrait<T::AccountId> for Module<T> {
 
     /// Adds systematic CDD claims.
     fn unsafe_add_systematic_cdd_claims(targets: &[IdentityId], issuer: SystematicIssuers) {
-        // Generate Investor UID for systematic identities.
-        let cdd_ids = targets
-            .iter()
-            .map(|sys_id| CddId::new(sys_id.clone(), InvestorUID::from(&sys_id)))
-            .collect::<Vec<_>>();
-
-        // Add a CDD claim with its systematic UID for each sytematic identity.
-        targets
-            .iter()
-            .zip(cdd_ids.into_iter())
-            .for_each(|(new_member, cdd_id)| {
-                Self::unsafe_add_claim(
-                    *new_member,
-                    Claim::CustomerDueDiligence(cdd_id),
-                    issuer.as_id(),
-                    None,
-                )
-            });
+        for new_member in targets {
+            let cdd_id = CddId::new(new_member.clone(), InvestorUID::from(new_member.as_ref()));
+            let cdd_claim = Claim::CustomerDueDiligence(cdd_id);
+            Self::unsafe_add_claim(*new_member, cdd_claim, issuer.as_id(), None);
+        }
     }
 
     /// Removes systematic CDD claims.

@@ -150,7 +150,7 @@ impl<'a> ExistentialPredicate<'a> {
         })
     }
 
-    /// In regular claim evaluation, the data of the claim has to math too.
+    /// In regular claim evaluation, the data of the claim has to match too.
     fn evaluate_regular_claim(&self, context: &Context) -> bool {
         context
             .claims

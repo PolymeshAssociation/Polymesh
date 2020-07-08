@@ -36,7 +36,7 @@ use sp_std::prelude::*;
 pub mod rng;
 pub use rng::native_rng;
 
-#[derive(Encode, Decode, Clone, Debug, Default, PartialEq, Eq, SliceU8StrongTyped)]
+#[derive(Encode, Decode, Clone, Default, PartialEq, Eq, SliceU8StrongTyped)]
 pub struct RangeProofInitialMessageWrapper(pub [u8; 32]);
 
 #[derive(Encode, Decode, Clone, Debug, PartialEq, Eq, VecU8StrongTyped)]
@@ -58,7 +58,7 @@ pub trait Trait: frame_system::Trait + IdentityTrait {
 type Identity<T> = identity::Module<T>;
 
 #[derive(Encode, Decode, Clone, Debug, PartialEq, Eq)]
-pub struct ProberTickerKey {
+pub struct ProverTickerKey {
     prover: IdentityId,
     ticker: Ticker,
 }
@@ -66,7 +66,7 @@ pub struct ProberTickerKey {
 decl_storage! {
     trait Store for Module<T: Trait> as Confidential {
         /// Number of investor per asset.
-        pub RangeProofs get(fn range_proof): double_map hasher(twox_64_concat) IdentityId, hasher(blake2_128_concat) ProberTickerKey => Option<TickerRangeProof>;
+        pub RangeProofs get(fn range_proof): double_map hasher(twox_64_concat) IdentityId, hasher(blake2_128_concat) ProverTickerKey => Option<TickerRangeProof>;
 
         pub RangeProofVerifications get(fn range_proof_verification): double_map hasher(blake2_128_concat) (IdentityId, Ticker), hasher(twox_64_concat) IdentityId => bool;
     }
@@ -98,11 +98,11 @@ decl_module! {
                 })?;
 
             let ticker_range_proof = TickerRangeProof {
-                initial_message: init_message.as_bytes().into(),
+                initial_message: RangeProofInitialMessageWrapper(*init_message.as_bytes()),
                 final_response: final_response.to_bytes().into(),
                 max_two_exp: 32,
             };
-            let prover_ticker_key = ProberTickerKey { prover, ticker };
+            let prover_ticker_key = ProverTickerKey { prover, ticker };
             <RangeProofs>::insert(&target_id, &prover_ticker_key, ticker_range_proof);
             Ok(())
         }
@@ -147,7 +147,7 @@ impl<T: Trait> Module<T> {
         prover: IdentityId,
         ticker: Ticker,
     ) -> DispatchResult {
-        let prover_ticker_key = ProberTickerKey { prover, ticker };
+        let prover_ticker_key = ProverTickerKey { prover, ticker };
         let mut rng = rng::Rng::default();
 
         let trp = Self::range_proof(&target, &prover_ticker_key)
