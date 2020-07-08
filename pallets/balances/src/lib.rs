@@ -169,6 +169,9 @@
 //!
 //! * Total issued balanced of all accounts should be less than `Trait::Balance::max_value()`.
 
+// TODO: Because of Polymesh custom changes upstream weight calculation get affected to get the right figures
+// need to benchmark the module by keeping custom changes in mind. Specifically CDD check.
+
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use codec::{Decode, Encode};
@@ -303,7 +306,6 @@ decl_module! {
 
         fn deposit_event() = default;
 
-        // TODO: X Read of the cdd check for destination account.
         /// Transfer some liquid free balance to another account.
         ///
         /// `transfer` will set the `FreeBalance` of the sender and receiver.
@@ -338,7 +340,6 @@ decl_module! {
             Self::safe_transfer_core(&transactor, &dest, value, None, ExistenceRequirement::AllowDeath)?;
         }
 
-        // TODO: X Read of the cdd check for destination account.
         // Polymesh modified code. New function to transfer with a memo.
         /// Transfer the native currency with the help of identifier string
         /// this functionality can help to differentiate the transfers.
@@ -360,13 +361,12 @@ decl_module! {
             Self::safe_transfer_core(&transactor, &dest, value, memo, ExistenceRequirement::AllowDeath)?;
         }
 
-        // TODO: X Read of the cdd check for destination account.
         // Polymesh modified code. New function to transfer balance to an identity.
         /// Move some POLYX from balance of self to balance of an identity.
         /// no-op when,
         /// - value is zero
         /// # <weight>
-        /// - Base Weight : TODO
+        /// - Base Weight : 1_000_000
         /// - DB Weight: 1 Read and 1 Write to the destination identityId,
         /// - Origin account is already in memory, so no DB operations for them.
         /// #</weight>
@@ -395,14 +395,12 @@ decl_module! {
             Ok(())
         }
 
-        // TODO: Base weight
-        // TODO: Right DB Weight
         // Polymesh modified code. New function to withdraw balance from an identity.
         /// Claim back POLYX from an identity. Can only be called by master key of the identity.
         /// no-op when,
         /// - value is zero
         /// # <weight>
-        /// - Base Weight : TODO
+        /// - Base Weight : 1_000_000
         /// - DB Weight: 1 Read and 1 Write to the destination identityId.
         /// - Origin account is already in memory, so no DB operations for them.
         /// #</weight>
@@ -673,7 +671,7 @@ impl<T: Trait> Module<T> {
         }
     }
 
-    // Polymesh modified code. New wrapper function for the transfer_core fuction that checks for CDD.
+    // Polymesh modified code. New wrapper function for the transfer_core function that checks for CDD.
     /// Checks CDD and then only performs the transfer
     fn safe_transfer_core(
         transactor: &T::AccountId,
