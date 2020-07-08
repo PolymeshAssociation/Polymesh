@@ -43,7 +43,8 @@ jobs:
             - name: r-git-polymesh
           platform: linux
           caches:
-            - path: job-cache
+            - path: r-git-polymesh/target
+            - path: $HOME/.cargo
           image_resource:
             type: registry-image
             source:
@@ -54,24 +55,20 @@ jobs:
           run:
             dir: r-git-polymesh
             path: bash
-            args: [".concourse/scripts/t-cargo-build.sh", "r-git-polymesh", "job-cache"]
-          outputs:
-            - name: job-cache
+            args: [".concourse/scripts/t-cargo-build.sh"]
   - name: j-test
     plan:
       - get: r-git-polymesh
-        passed:
-          - j-build
         trigger: true
         version: every
       - task: t-cargo-test
         config:
           inputs:
             - name: r-git-polymesh
-            - name: job-cache
           platform: linux
           caches:
-            - path: job-cache
+            - path: r-git-polymesh/target
+            - path: $HOME/.cargo
           image_resource:
             type: registry-image
             source:
@@ -82,22 +79,20 @@ jobs:
           run:
             dir: r-git-polymesh
             path: bash
-            args: [".concourse/scripts/t-cargo-test.sh", "r-git-polymesh", "job-cache"]
+            args: [".concourse/scripts/t-cargo-test.sh"]
   - name: j-lint-clippy
     plan:
       - get: r-git-polymesh
-        passed:
-          - j-build
         trigger: true
         version: every
       - task: t-cargo-clippy
         config:
           inputs:
             - name: r-git-polymesh
-            - name: job-cache
           platform: linux
           caches:
-            - path: job-cache
+            - path: r-git-polymesh/target
+            - path: $HOME/.cargo
           image_resource:
             type: registry-image
             source:
@@ -108,5 +103,5 @@ jobs:
           run:
             dir: r-git-polymesh
             path: bash
-            args: [".concourse/scripts/t-lint-clippy.sh", "r-git-polymesh", "job-cache"]
+            args: [".concourse/scripts/t-lint-clippy.sh"]
 
