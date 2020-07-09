@@ -323,7 +323,7 @@ fn remove_multisig_signer() {
         );
 
         // No direct identity for Bob as he is only a signer
-        assert_eq!(Identity::get_identity(&AccountKeyring::Bob.public()), Some(alice_did));
+        assert_eq!(Identity::get_identity(&AccountKeyring::Bob.public()), None);
         // No identity as multisig has not been set as a signing / master key
         assert_eq!(Identity::get_identity(&musig_address), None);
 
@@ -758,7 +758,7 @@ fn remove_multisig_signers_via_creator() {
                 musig_address.clone(),
                 vec![bob_signer]
             ),
-            Error::NotMasterKey
+            Error::ChangeNotAllowed
         );
 
         assert_ok!(MultiSig::remove_multisig_signers_via_creator(

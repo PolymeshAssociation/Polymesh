@@ -1707,14 +1707,6 @@ impl<T: Trait> Module<T> {
     ///
     /// An Option object containing the `IdentityId` that belongs to the key.
     pub fn get_identity(key: &T::AccountId) -> Option<IdentityId> {
-        if T::MultiSig::is_signer(&key) {
-            // Take identity from multisig creator
-            let ms_did = T::MultiSig::did_of_signer(&key);
-            if !Self::is_did_frozen(ms_did.clone()) {
-                return Some(ms_did);
-            }
-            return None;
-        }
         if let Some(linked_key_info) = <KeyToIdentityIds<T>>::get(key) {
             let id = match linked_key_info {
                 LinkedKeyInfo::Unique(id)

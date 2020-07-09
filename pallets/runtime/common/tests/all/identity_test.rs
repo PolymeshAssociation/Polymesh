@@ -7,7 +7,9 @@ use super::{
     ExtBuilder,
 };
 use codec::Encode;
-use frame_support::{assert_err, assert_ok, traits::Currency, StorageDoubleMap};
+use frame_support::{
+    assert_err, assert_ok, dispatch::DispatchError, traits::Currency, StorageDoubleMap,
+};
 use pallet_balances as balances;
 use pallet_identity::{self as identity, BatchAddClaimItem, BatchRevokeClaimItem, Error};
 use pallet_identity_rpc_runtime_api::LinkType;
@@ -584,13 +586,19 @@ fn remove_signing_keys_test_with_externalities() {
     ));
 
     add_signing_item(alice_did, Signatory::Account(bob_key));
+
+    assert_ok!(Balances::top_up_identity_balance(
+        alice.clone(),
+        alice_did,
+        PROTOCOL_OP_BASE_FEE
+    ));
     add_signing_item(alice_did, Signatory::Account(musig_address));
 
     // Fund the multisig
     assert_ok!(Balances::transfer(alice.clone(), musig_address.clone(), 1));
 
     // Check DidRecord.
-    assert_eq!(Identity::get_identity(&dave_key), Some(alice_did));
+    assert_eq!(Identity::get_identity(&dave_key), None);
     assert_eq!(Identity::get_identity(&musig_address), Some(alice_did));
     assert_eq!(Identity::get_identity(&bob_key), Some(alice_did));
 
@@ -601,7 +609,7 @@ fn remove_signing_keys_test_with_externalities() {
     ));
 
     // Check DidRecord.
-    assert_eq!(Identity::get_identity(&dave_key), Some(alice_did));
+    assert_eq!(Identity::get_identity(&dave_key), None);
     assert_eq!(Identity::get_identity(&musig_address), Some(alice_did));
     assert_eq!(Identity::get_identity(&bob_key), Some(alice_did));
 
@@ -612,7 +620,7 @@ fn remove_signing_keys_test_with_externalities() {
     ));
 
     // Check DidRecord.
-    assert_eq!(Identity::get_identity(&dave_key), Some(alice_did));
+    assert_eq!(Identity::get_identity(&dave_key), None);
     assert_eq!(Identity::get_identity(&musig_address), Some(alice_did));
     assert_eq!(Identity::get_identity(&bob_key), None);
 
@@ -623,7 +631,7 @@ fn remove_signing_keys_test_with_externalities() {
     ));
 
     // Check DidRecord.
-    assert_eq!(Identity::get_identity(&dave_key), Some(alice_did));
+    assert_eq!(Identity::get_identity(&dave_key), None);
     assert_eq!(Identity::get_identity(&musig_address), Some(alice_did));
     assert_eq!(Identity::get_identity(&bob_key), None);
 
@@ -702,9 +710,6 @@ fn leave_identity_test_with_externalities() {
     add_signing_item(alice_did, Signatory::Account(bob_key));
     add_signing_item(alice_did, Signatory::from(charlie_did));
 
-    // Fund the multisig
-    assert_ok!(Balances::transfer(alice.clone(), musig_address.clone(), 1));
-
     // Check DidRecord.
     let did_rec = Identity::did_records(alice_did);
     assert_eq!(did_rec.signing_items, alice_signing_items);
@@ -727,10 +732,18 @@ fn leave_identity_test_with_externalities() {
     assert_eq!(Identity::get_identity(&bob_key), None);
 
     // Check DidRecord.
-    assert_eq!(Identity::get_identity(&dave_key), Some(alice_did));
-    assert_eq!(Identity::get_identity(&musig_address), Some(alice_did));
+    assert_eq!(Identity::get_identity(&dave_key), None);
+    assert_eq!(Identity::get_identity(&musig_address), None);
+
+    assert_ok!(Balances::top_up_identity_balance(
+        alice.clone(),
+        alice_did,
+        PROTOCOL_OP_BASE_FEE
+    ));
 
     add_signing_item(alice_did, Signatory::Account(musig_address));
+    // send funds to multisig
+    assert_ok!(Balances::transfer(alice.clone(), musig_address.clone(), 1));
     // multisig tries leaving identity while it has funds
     assert_err!(
         Identity::leave_identity_as_key(Origin::signed(musig_address.clone())),
@@ -738,7 +751,7 @@ fn leave_identity_test_with_externalities() {
     );
 
     // Check DidRecord.
-    assert_eq!(Identity::get_identity(&dave_key), Some(alice_did));
+    assert_eq!(Identity::get_identity(&dave_key), None);
     assert_eq!(Identity::get_identity(&musig_address), Some(alice_did));
 
     // Check multisig's signer
@@ -796,6 +809,11 @@ fn enforce_uniqueness_keys_in_identity() {
         AuthorizationData::JoinIdentity(vec![]),
         None,
     );
+    assert_ok!(Balances::top_up_identity_balance(
+        alice.clone(),
+        alice_id,
+        PROTOCOL_OP_BASE_FEE
+    ));
     assert_err!(
         Identity::join_identity(Signatory::Account(AccountKeyring::Bob.public()), auth_id),
         Error::<TestStorage>::AlreadyLinked
@@ -1374,7 +1392,7 @@ fn add_identity_signers() {
             charlie_did,
             PROTOCOL_OP_BASE_FEE
         ));
-        //TODO: Should this fail?
+
         assert_ok!(Identity::join_identity(
             bob_identity_signer,
             auth_id_for_acc2_to_id
@@ -1392,6 +1410,7 @@ fn add_identity_signers() {
             alice_did,
             PROTOCOL_OP_BASE_FEE
         ));
+
         assert_ok!(Identity::join_identity(
             dave_acc_signer,
             auth_id_for_acc1_to_acc
@@ -1403,6 +1422,12 @@ fn add_identity_signers() {
             AuthorizationData::JoinIdentity(vec![]),
             None,
         );
+
+        assert_ok!(Balances::top_up_identity_balance(
+            charlie.clone(),
+            charlie_did,
+            PROTOCOL_OP_BASE_FEE
+        ));
 
         assert_err!(
             Identity::join_identity(dave_acc_signer, auth_id_for_acc2_to_acc),

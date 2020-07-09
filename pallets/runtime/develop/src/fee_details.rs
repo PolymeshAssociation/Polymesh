@@ -92,9 +92,8 @@ impl CddAndFeeDetails<AccountId, Call> for CddHandler {
             | Call::MultiSig(multisig::Call::approve_as_key(multisig, ..)) => {
                 sp_runtime::print("multisig stuff");
                 if <multisig::MultiSigSigners<Runtime>>::contains_key(multisig, caller) {
-                    if let Some(did) = Identity::get_identity(&multisig) {
-                        return check_cdd(&did);
-                    }
+                    let did = <multisig::MultiSigToIdentity<Runtime>>::get(multisig);
+                    return check_cdd(&did);
                 }
                 Err(InvalidTransaction::Custom(TransactionError::MissingIdentity as u8).into())
             }
@@ -105,9 +104,8 @@ impl CddAndFeeDetails<AccountId, Call> for CddHandler {
                 sp_runtime::print("multisig stuff via bridge");
                 let multisig = Bridge::controller_key();
                 if <multisig::MultiSigSigners<Runtime>>::contains_key(&multisig, caller) {
-                    if let Some(did) = Identity::get_identity(&multisig) {
-                        return check_cdd(&did);
-                    }
+                    let did = <multisig::MultiSigToIdentity<Runtime>>::get(multisig);
+                    return check_cdd(&did);
                 }
                 Err(InvalidTransaction::Custom(TransactionError::MissingIdentity as u8).into())
             }
@@ -203,19 +201,17 @@ fn is_auth_valid(
         // TODO: clean up into a single match case
         match call_type {
             CallType::AcceptMultiSigSigner => {
-                if let AuthorizationData::AddMultiSigSigner(multisig) = auth.authorization_data {
+                if let AuthorizationData::AddMultiSigSigner(_) = auth.authorization_data {
                     return check_cdd(&auth.authorized_by);
                 }
             }
             CallType::AcceptIdentitySigner => {
-                if let AuthorizationData::JoinIdentity(identity_data_to_join) =
-                    auth.authorization_data
-                {
+                if let AuthorizationData::JoinIdentity(_) = auth.authorization_data {
                     return check_cdd(&auth.authorized_by);
                 }
             }
             CallType::AcceptIdentityMaster => {
-                if let AuthorizationData::RotateMasterKey(did) = auth.authorization_data {
+                if let AuthorizationData::RotateMasterKey(_) = auth.authorization_data {
                     return check_cdd(&auth.authorized_by);
                 }
             }

@@ -141,7 +141,7 @@ impl CddAndFeeDetails<AccountId, Call> for CddHandler {
                     if let Some(did) = Identity::get_identity(key) {
                         if Identity::has_valid_cdd(did) {
                             // TODO: Don't set current identity if key is ms signer, and ms signer is not attached to anything
-                            
+
                             Context::set_current_identity::<Identity>(Some(did));
                             if let Some(fee_did) = Balances::charge_fee_to_identity(key) {
                                 sp_runtime::print("charging identity");
