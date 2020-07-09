@@ -319,7 +319,13 @@
             "next_ticker": "Option<Ticker>",
             "previous_ticker": "Option<Ticker>"
         },
-        "OffChainSignature": "H512",
+        "OffChainSignature": {
+            "_enum": {
+                "Ed25519": "H512",
+                "Sr25519": "H512",
+                "Ecdsa": "H512"
+            }
+        },
         "Authorization": {
             "authorization_data": "AuthorizationData",
             "authorized_by": "Signatory",
