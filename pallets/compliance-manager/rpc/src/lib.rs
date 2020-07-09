@@ -17,7 +17,7 @@ use codec::Codec;
 use jsonrpc_core::{Error as RpcError, ErrorCode, Result};
 use jsonrpc_derive::rpc;
 use pallet_compliance_manager::AssetTransferRulesResult;
-use pallet_compliance_manager_rpc_runtime_api::ComplianceManagerApi as ComplianceManagerApiRuntimeApi;
+pub use pallet_compliance_manager_rpc_runtime_api::ComplianceManagerApi as ComplianceManagerRuntimeApi;
 use polymesh_primitives::{IdentityId, Ticker};
 use sp_api::ProvideRuntimeApi;
 use sp_blockchain::HeaderBackend;
@@ -67,7 +67,7 @@ where
     C: Send + Sync + 'static,
     C: ProvideRuntimeApi<Block>,
     C: HeaderBackend<Block>,
-    C::Api: ComplianceManagerApiRuntimeApi<Block, AccountId, T>,
+    C::Api: ComplianceManagerRuntimeApi<Block, AccountId, T>,
     AccountId: Codec,
     T: Codec,
 {

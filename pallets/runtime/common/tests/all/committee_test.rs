@@ -75,7 +75,7 @@ fn single_member_committee_works_we() {
     let alice_acc = AccountKeyring::Alice.public();
     let (alice_signer, alice_did) = make_account(alice_acc).unwrap();
 
-    let root = Origin::system(frame_system::RawOrigin::Root);
+    let root = Origin::from(frame_system::RawOrigin::Root);
     CommitteeGroup::reset_members(root, vec![alice_did]).unwrap();
 
     // Proposal is executed if committee is comprised of a single member
@@ -106,7 +106,7 @@ fn single_member_committee_works_we() {
 
     let hash = hash_enact_referendum(0);
     let expected_event = EventRecord {
-        phase: Phase::ApplyExtrinsic(0),
+        phase: Phase::Initialization,
         event: EventTest::committee_Instance1(CommitteeRawEvent::Executed(alice_did, hash, true)),
         topics: vec![],
     };
@@ -159,7 +159,7 @@ fn preventing_voting_from_non_members_works() {
 fn preventing_voting_from_non_members_works_we() {
     System::set_block_number(1);
 
-    let root = Origin::system(frame_system::RawOrigin::Root);
+    let root = Origin::from(frame_system::RawOrigin::Root);
     let alice_acc = AccountKeyring::Alice.public();
     let (alice_signer, alice_did) = make_account(alice_acc).unwrap();
     let bob_acc = AccountKeyring::Bob.public();
@@ -195,7 +195,7 @@ fn motions_revoting_works() {
 fn motions_revoting_works_we() {
     System::set_block_number(1);
 
-    let root = Origin::system(frame_system::RawOrigin::Root);
+    let root = Origin::from(frame_system::RawOrigin::Root);
     let alice_acc = AccountKeyring::Alice.public();
     let (alice_signer, alice_did) = make_account(alice_acc).unwrap();
     let bob_acc = AccountKeyring::Bob.public();
@@ -259,7 +259,7 @@ fn voting_works() {
 fn voting_works_we() {
     System::set_block_number(1);
 
-    let root = Origin::system(frame_system::RawOrigin::Root);
+    let root = Origin::from(frame_system::RawOrigin::Root);
     let alice_acc = AccountKeyring::Alice.public();
     let (alice_signer, alice_did) = make_account(alice_acc).unwrap();
     let bob_acc = AccountKeyring::Bob.public();
@@ -308,7 +308,7 @@ fn changing_vote_threshold_works() {
 fn changing_vote_threshold_works_we() {
     assert_eq!(Committee::vote_threshold(), (1, 1));
     assert_ok!(Committee::set_vote_threshold(
-        Origin::system(frame_system::RawOrigin::Root),
+        Origin::from(frame_system::RawOrigin::Root),
         4,
         17
     ));
@@ -337,7 +337,7 @@ fn rage_quit_we() {
     let (ferdie_signer, ferdie_did) = make_account(ferdie_acc).unwrap();
     let committee = vec![alice_did, bob_did, charlie_did, dave_did];
 
-    let root = Origin::system(frame_system::RawOrigin::Root);
+    let root = Origin::from(frame_system::RawOrigin::Root);
     CommitteeGroup::reset_members(root.clone(), committee).unwrap();
     // Assigning random DID but in Production root will have DID
 
@@ -473,7 +473,7 @@ fn release_coordinator() {
 }
 
 fn release_coordinator_we() {
-    let root = Origin::system(frame_system::RawOrigin::Root);
+    let root = Origin::from(frame_system::RawOrigin::Root);
     let alice = Origin::signed(AccountKeyring::Alice.public());
     let alice_id = get_identity_id(AccountKeyring::Alice).expect("Alice is part of the committee");
     let bob = Origin::signed(AccountKeyring::Bob.public());

@@ -56,10 +56,12 @@
 
 use frame_support::{
     decl_error, decl_event, decl_module, decl_storage,
-    weights::{DispatchClass, FunctionOf, GetDispatchInfo},
+    dispatch::PostDispatchInfo,
+    traits::UnfilteredDispatchable,
+    weights::{DispatchClass, GetDispatchInfo, Weight},
     Parameter,
 };
-use frame_system as system;
+use frame_system::{self as system, ensure_root};
 use sp_runtime::{traits::Dispatchable, DispatchError, DispatchResult};
 use sp_std::prelude::*;
 
@@ -69,7 +71,11 @@ pub trait Trait: frame_system::Trait {
     type Event: From<Event> + Into<<Self as frame_system::Trait>::Event>;
 
     /// The overarching call type.
-    type Call: Parameter + Dispatchable<Origin = Self::Origin> + GetDispatchInfo;
+    type Call: Parameter
+        + Dispatchable<Origin = Self::Origin, PostInfo = PostDispatchInfo>
+        + GetDispatchInfo
+        + From<frame_system::Call<Self>>
+        + UnfilteredDispatchable<Origin = Self::Origin>;
 }
 
 decl_storage! {
@@ -118,14 +124,12 @@ decl_module! {
         /// `BatchInterrupted` event is deposited, along with the number of successful calls made
         /// and the error of the failed call. If all were successful, then the `BatchCompleted`
         /// event is deposited.
-        #[weight = FunctionOf(
-            |args: (&Vec<<T as Trait>::Call>,)| {
-                args.0.iter()
-                    .map(|call| call.get_dispatch_info().weight)
-                    .fold(10_000, |a, n| a + n)
-            },
-            |args: (&Vec<<T as Trait>::Call>,)| {
-                let all_operational = args.0.iter()
+        #[weight = (
+            calls.iter()
+                .map(|call| call.get_dispatch_info().weight)
+                .fold(10_000, |a: Weight, n| a.saturating_add(n)),
+            {
+                let all_operational = calls.iter()
                     .map(|call| call.get_dispatch_info().class)
                     .all(|class| class == DispatchClass::Operational);
                 if all_operational {
@@ -134,13 +138,17 @@ decl_module! {
                     DispatchClass::Normal
                 }
             },
-            true
         )]
         pub fn batch(origin, calls: Vec<<T as Trait>::Call>) -> DispatchResult {
+            let is_root = ensure_root(origin.clone()).is_ok();
             for (index, call) in calls.into_iter().enumerate() {
-                let result = call.dispatch(origin.clone());
+                let result = if is_root {
+                    call.dispatch_bypass_filter(origin.clone())
+                } else {
+                    call.dispatch(origin.clone())
+                };
                 if let Err(e) = result {
-                    Self::deposit_event(Event::BatchInterrupted(index as u32, e));
+                    Self::deposit_event(Event::BatchInterrupted(index as u32, e.error));
                     return Ok(());
                 }
             }

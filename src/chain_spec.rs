@@ -6,12 +6,17 @@ use polymesh_common_utilities::{
     protocol_fee::ProtocolOp,
 };
 use polymesh_primitives::{AccountId, IdentityId, PosRatio, Signatory, Signature};
-use polymesh_runtime_develop::{self as general, constants::time as GeneralTime};
-use polymesh_runtime_testnet_v1::{
-    self as v1,
-    config::{self as V1Config, GenesisConfig},
-    constants::time as V1Time,
+use polymesh_runtime_develop::{
+    self as general,
+    config::{self as GeneralConfig},
+    constants::time as generalTime,
 };
+use polymesh_runtime_testnet_v1::{
+    self as aldebaran,
+    config::{self as AldebaranConfig},
+    constants::time as aldebaranTime,
+};
+use sc_chain_spec::ChainType;
 use sc_service::Properties;
 use sc_telemetry::TelemetryEndpoints;
 use serde_json::json;
@@ -26,29 +31,18 @@ use std::iter;
 
 const STAGING_TELEMETRY_URL: &str = "wss://telemetry.polymesh.live/submit/";
 
-// TODO: Different chainspec can be used once we have new version of substrate
-pub type ChainSpec = sc_service::ChainSpec<GenesisConfig>;
-//pub type GeneralChainSpec = sc_service::ChainSpec<V1Config::GenesisConfig>;
+pub type AldebaranChainSpec = sc_service::GenericChainSpec<AldebaranConfig::GenesisConfig>;
+pub type GeneralChainSpec = sc_service::GenericChainSpec<GeneralConfig::GenesisConfig>;
 
 type AccountPublic = <Signature as Verify>::Signer;
 
-pub trait IsV1Network {
-    fn is_v1_network(&self) -> bool;
-}
-
-impl IsV1Network for ChainSpec {
-    fn is_v1_network(&self) -> bool {
-        self.name().starts_with("Polymesh Aldebaran")
-    }
-}
-
-fn v1_session_keys(
+fn aldebaran_session_keys(
     grandpa: GrandpaId,
     babe: BabeId,
     im_online: ImOnlineId,
     authority_discovery: AuthorityDiscoveryId,
-) -> v1::SessionKeys {
-    v1::SessionKeys {
+) -> aldebaran::SessionKeys {
+    aldebaran::SessionKeys {
         babe,
         grandpa,
         im_online,
@@ -56,7 +50,7 @@ fn v1_session_keys(
     }
 }
 
-fn _general_session_keys(
+fn general_session_keys(
     grandpa: GrandpaId,
     babe: BabeId,
     im_online: ImOnlineId,
@@ -137,18 +131,18 @@ fn general_testnet_genesis(
     root_key: AccountId,
     endowed_accounts: Vec<AccountId>,
     enable_println: bool,
-) -> GenesisConfig {
+) -> GeneralConfig::GenesisConfig {
     const STASH: u128 = 5_000_000 * POLY;
     const ENDOWMENT: u128 = 100_000_000 * POLY;
     const BRIDGE_CREATOR_ID: u128 = 6;
     const BRIDGE_CREATOR_ID_BALANCE: u128 = 1_000 * POLY;
 
-    GenesisConfig {
-        frame_system: Some(V1Config::SystemConfig {
+    GeneralConfig::GenesisConfig {
+        frame_system: Some(GeneralConfig::SystemConfig {
             code: general::WASM_BINARY.to_vec(),
             changes_trie_config: Default::default(),
         }),
-        asset: Some(V1Config::AssetConfig {
+        asset: Some(GeneralConfig::AssetConfig {
             ticker_registration_config: TickerRegistrationConfig {
                 max_ticker_length: 12,
                 registration_length: Some(5_184_000_000),
@@ -219,13 +213,13 @@ fn general_testnet_genesis(
                 })
                 .collect::<Vec<_>>();
 
-            Some(V1Config::IdentityConfig {
+            Some(GeneralConfig::IdentityConfig {
                 identities: all_identities,
                 signing_keys,
                 ..Default::default()
             })
         },
-        balances: Some(V1Config::BalancesConfig {
+        balances: Some(GeneralConfig::BalancesConfig {
             balances: endowed_accounts
                 .iter()
                 .map(|k: &AccountId| (k.clone(), ENDOWMENT))
@@ -238,7 +232,7 @@ fn general_testnet_genesis(
             ))
             .collect(),
         }),
-        bridge: Some(V1Config::BridgeConfig {
+        bridge: Some(GeneralConfig::BridgeConfig {
             admin: initial_authorities[0].1.clone(),
             creator: initial_authorities[0].1.clone(),
             signatures_required: 1,
@@ -262,26 +256,26 @@ fn general_testnet_genesis(
             timelock: 10,
             bridge_limit: (100_000_000 * POLY, 1000),
         }),
-        pallet_indices: Some(V1Config::IndicesConfig { indices: vec![] }),
-        pallet_sudo: Some(V1Config::SudoConfig { key: root_key }),
-        pallet_session: Some(V1Config::SessionConfig {
+        pallet_indices: Some(GeneralConfig::IndicesConfig { indices: vec![] }),
+        pallet_sudo: Some(GeneralConfig::SudoConfig { key: root_key }),
+        pallet_session: Some(GeneralConfig::SessionConfig {
             keys: initial_authorities
                 .iter()
                 .map(|x| {
                     (
                         x.0.clone(),
                         x.0.clone(),
-                        v1_session_keys(x.2.clone(), x.3.clone(), x.4.clone(), x.5.clone()),
+                        general_session_keys(x.2.clone(), x.3.clone(), x.4.clone(), x.5.clone()),
                     )
                 })
                 .collect::<Vec<_>>(),
         }),
-        pallet_staking: Some(V1Config::StakingConfig {
+        pallet_staking: Some(GeneralConfig::StakingConfig {
             minimum_validator_count: 1,
             validator_count: 2,
-            validator_commission: v1::Commission::Global(PerThing::from_rational_approximation(
-                1u64, 4u64,
-            )),
+            validator_commission: aldebaran::Commission::Global(
+                PerThing::from_rational_approximation(1u64, 4u64),
+            ),
             stakers: initial_authorities
                 .iter()
                 .map(|x| {
@@ -298,15 +292,15 @@ fn general_testnet_genesis(
             min_bond_threshold: 5_000_000_000_000,
             ..Default::default()
         }),
-        pallet_pips: Some(V1Config::PipsConfig {
+        pallet_pips: Some(GeneralConfig::PipsConfig {
             prune_historical_pips: false,
             min_proposal_deposit: 5_000 * POLY,
             quorum_threshold: 100_000,
-            proposal_duration: GeneralTime::MINUTES * 1,
-            proposal_cool_off_period: GeneralTime::MINUTES * 1,
-            default_enactment_period: GeneralTime::MINUTES * 1,
+            proposal_duration: generalTime::MINUTES * 1,
+            proposal_cool_off_period: generalTime::MINUTES * 1,
+            default_enactment_period: generalTime::MINUTES * 1,
         }),
-        pallet_im_online: Some(V1Config::ImOnlineConfig {
+        pallet_im_online: Some(GeneralConfig::ImOnlineConfig {
             slashing_params: general::OfflineSlashingParams {
                 max_offline_percent: 10u32,
                 constant: 3u32,
@@ -317,14 +311,13 @@ fn general_testnet_genesis(
         pallet_authority_discovery: Some(Default::default()),
         pallet_babe: Some(Default::default()),
         pallet_grandpa: Some(Default::default()),
-        pallet_contracts: Some(V1Config::ContractsConfig {
+        pallet_contracts: Some(GeneralConfig::ContractsConfig {
             current_schedule: contracts::Schedule {
                 enable_println, // this should only be enabled on development chains
                 ..Default::default()
             },
-            gas_price: 1 * MILLICENTS,
         }),
-        group_Instance1: Some(v1::runtime::CommitteeMembershipConfig {
+        group_Instance1: Some(general::runtime::CommitteeMembershipConfig {
             active_members: vec![
                 IdentityId::from(3),
                 IdentityId::from(4),
@@ -333,13 +326,13 @@ fn general_testnet_genesis(
             ],
             phantom: Default::default(),
         }),
-        committee_Instance1: Some(V1Config::PolymeshCommitteeConfig {
+        committee_Instance1: Some(GeneralConfig::PolymeshCommitteeConfig {
             vote_threshold: (1, 2),
             members: vec![],
             release_coordinator: IdentityId::from(6),
             phantom: Default::default(),
         }),
-        group_Instance2: Some(v1::runtime::CddServiceProvidersConfig {
+        group_Instance2: Some(general::runtime::CddServiceProvidersConfig {
             // sp1, sp2, first authority
             active_members: vec![
                 IdentityId::from(1),
@@ -348,7 +341,7 @@ fn general_testnet_genesis(
             ],
             phantom: Default::default(),
         }),
-        protocol_fee: Some(V1Config::ProtocolFeeConfig {
+        protocol_fee: Some(GeneralConfig::ProtocolFeeConfig {
             base_fees: vec![
                 (ProtocolOp::AssetCreateAsset, 10_000 * 1_000_000),
                 (ProtocolOp::AssetRegisterTicker, 2_500 * 1_000_000),
@@ -358,7 +351,7 @@ fn general_testnet_genesis(
     }
 }
 
-fn general_development_genesis() -> GenesisConfig {
+fn general_development_genesis() -> GeneralConfig::GenesisConfig {
     general_testnet_genesis(
         vec![get_authority_keys_from_seed("Alice", false)],
         get_account_id_from_seed::<sr25519::Public>("Alice"),
@@ -374,10 +367,11 @@ fn general_development_genesis() -> GenesisConfig {
     )
 }
 
-pub fn general_development_testnet_config() -> ChainSpec {
-    ChainSpec::from_genesis(
+pub fn general_development_testnet_config() -> GeneralChainSpec {
+    GeneralChainSpec::from_genesis(
         "Development",
         "dev",
+        ChainType::Development,
         general_development_genesis,
         vec![],
         None,
@@ -387,7 +381,7 @@ pub fn general_development_testnet_config() -> ChainSpec {
     )
 }
 
-fn general_local_genesis() -> GenesisConfig {
+fn general_local_genesis() -> GeneralConfig::GenesisConfig {
     general_testnet_genesis(
         vec![
             get_authority_keys_from_seed("Alice", false),
@@ -408,10 +402,11 @@ fn general_local_genesis() -> GenesisConfig {
     )
 }
 
-pub fn general_local_testnet_config() -> ChainSpec {
-    ChainSpec::from_genesis(
+pub fn general_local_testnet_config() -> GeneralChainSpec {
+    GeneralChainSpec::from_genesis(
         "Local Development",
         "local_dev",
+        ChainType::Local,
         general_local_genesis,
         vec![],
         None,
@@ -421,7 +416,7 @@ pub fn general_local_testnet_config() -> ChainSpec {
     )
 }
 
-fn general_live_genesis() -> GenesisConfig {
+fn general_live_genesis() -> GeneralConfig::GenesisConfig {
     general_testnet_genesis(
         vec![
             get_authority_keys_from_seed("Alice", false),
@@ -446,10 +441,11 @@ fn general_live_genesis() -> GenesisConfig {
     )
 }
 
-pub fn general_live_testnet_config() -> ChainSpec {
-    ChainSpec::from_genesis(
+pub fn general_live_testnet_config() -> GeneralChainSpec {
+    GeneralChainSpec::from_genesis(
         "Live Development",
         "live_dev",
+        ChainType::Live,
         general_live_genesis,
         vec![],
         None,
@@ -459,8 +455,8 @@ pub fn general_live_testnet_config() -> ChainSpec {
     )
 }
 
-fn v1_live_testnet_genesis() -> GenesisConfig {
-    v1_testnet_genesis(
+fn aldebaran_live_testnet_genesis() -> AldebaranConfig::GenesisConfig {
+    aldebaran_testnet_genesis(
         vec![
             get_authority_keys_from_seed("operator_1", true),
             get_authority_keys_from_seed("operator_2", true),
@@ -483,26 +479,27 @@ fn v1_live_testnet_genesis() -> GenesisConfig {
     )
 }
 
-pub fn v1_live_testnet_config() -> ChainSpec {
+pub fn aldebaran_live_testnet_config() -> AldebaranChainSpec {
     // provide boot nodes
     let boot_nodes = vec![];
-    ChainSpec::from_genesis(
+    AldebaranChainSpec::from_genesis(
         "Polymesh Aldebaran Testnet",
         "aldebaran",
-        v1_live_testnet_genesis,
+        ChainType::Live,
+        aldebaran_live_testnet_genesis,
         boot_nodes,
-        Some(TelemetryEndpoints::new(vec![(
-            STAGING_TELEMETRY_URL.to_string(),
-            0,
-        )])),
+        Some(
+            TelemetryEndpoints::new(vec![(STAGING_TELEMETRY_URL.to_string(), 0)])
+                .expect("Aldebaran live telemetry url is valid; qed"),
+        ),
         Some(&*"/polymath/aldebaran/1"),
         Some(polymath_props()),
         Default::default(),
     )
 }
 
-fn v1_develop_testnet_genesis() -> GenesisConfig {
-    v1_testnet_genesis(
+fn aldebaran_develop_testnet_genesis() -> AldebaranConfig::GenesisConfig {
+    aldebaran_testnet_genesis(
         vec![get_authority_keys_from_seed("Alice", false)],
         get_account_id_from_seed::<sr25519::Public>("Alice"),
         vec![
@@ -518,13 +515,14 @@ fn v1_develop_testnet_genesis() -> GenesisConfig {
     )
 }
 
-pub fn v1_develop_testnet_config() -> ChainSpec {
+pub fn aldebaran_develop_testnet_config() -> AldebaranChainSpec {
     // provide boot nodes
     let boot_nodes = vec![];
-    ChainSpec::from_genesis(
+    AldebaranChainSpec::from_genesis(
         "Polymesh Aldebaran Develop",
         "dev_aldebaran",
-        v1_develop_testnet_genesis,
+        ChainType::Development,
+        aldebaran_develop_testnet_genesis,
         boot_nodes,
         None,
         None,
@@ -533,8 +531,8 @@ pub fn v1_develop_testnet_config() -> ChainSpec {
     )
 }
 
-fn v1_local_testnet_genesis() -> GenesisConfig {
-    v1_testnet_genesis(
+fn aldebaran_local_testnet_genesis() -> AldebaranConfig::GenesisConfig {
+    aldebaran_testnet_genesis(
         vec![
             get_authority_keys_from_seed("Alice", false),
             get_authority_keys_from_seed("Bob", false),
@@ -554,13 +552,14 @@ fn v1_local_testnet_genesis() -> GenesisConfig {
     )
 }
 
-pub fn v1_local_testnet_config() -> ChainSpec {
+pub fn aldebaran_local_testnet_config() -> AldebaranChainSpec {
     // provide boot nodes
     let boot_nodes = vec![];
-    ChainSpec::from_genesis(
+    AldebaranChainSpec::from_genesis(
         "Polymesh Aldebaran Local",
         "local_aldebaran",
-        v1_local_testnet_genesis,
+        ChainType::Local,
+        aldebaran_local_testnet_genesis,
         boot_nodes,
         None,
         None,
@@ -569,7 +568,7 @@ pub fn v1_local_testnet_config() -> ChainSpec {
     )
 }
 
-fn v1_testnet_genesis(
+fn aldebaran_testnet_genesis(
     initial_authorities: Vec<(
         AccountId,
         AccountId,
@@ -581,16 +580,16 @@ fn v1_testnet_genesis(
     root_key: AccountId,
     endowed_accounts: Vec<AccountId>,
     enable_println: bool,
-) -> GenesisConfig {
+) -> AldebaranConfig::GenesisConfig {
     const STASH: u128 = 5_000_000 * POLY;
     const ENDOWMENT: u128 = 100_000_000 * POLY;
 
-    GenesisConfig {
-        frame_system: Some(V1Config::SystemConfig {
-            code: v1::WASM_BINARY.to_vec(),
+    AldebaranConfig::GenesisConfig {
+        frame_system: Some(AldebaranConfig::SystemConfig {
+            code: aldebaran::WASM_BINARY.to_vec(),
             changes_trie_config: Default::default(),
         }),
-        asset: Some(V1Config::AssetConfig {
+        asset: Some(AldebaranConfig::AssetConfig {
             ticker_registration_config: TickerRegistrationConfig {
                 max_ticker_length: 12,
                 registration_length: Some(5_184_000_000),
@@ -667,13 +666,13 @@ fn v1_testnet_genesis(
                 })
                 .collect::<Vec<_>>();
 
-            Some(V1Config::IdentityConfig {
+            Some(AldebaranConfig::IdentityConfig {
                 identities: all_identities,
                 signing_keys,
                 ..Default::default()
             })
         },
-        balances: Some(V1Config::BalancesConfig {
+        balances: Some(AldebaranConfig::BalancesConfig {
             balances: endowed_accounts
                 .iter()
                 .map(|k: &AccountId| (k.clone(), ENDOWMENT))
@@ -682,7 +681,7 @@ fn v1_testnet_genesis(
                 .collect(),
             identity_balances: vec![],
         }),
-        bridge: Some(V1Config::BridgeConfig {
+        bridge: Some(AldebaranConfig::BridgeConfig {
             admin: get_account_id_from_seed::<sr25519::Public>("polymath_1"),
             creator: get_account_id_from_seed::<sr25519::Public>("polymath_1"),
             signatures_required: 3,
@@ -703,46 +702,53 @@ fn v1_testnet_genesis(
                     get_from_seed::<sr25519::Public>("relay_5").0,
                 )),
             ],
-            timelock: V1Time::MINUTES * 15,
-            bridge_limit: (30_000_000_000, V1Time::DAYS * 1),
+            timelock: aldebaranTime::MINUTES * 15,
+            bridge_limit: (30_000_000_000, aldebaranTime::DAYS * 1),
         }),
-        pallet_indices: Some(V1Config::IndicesConfig { indices: vec![] }),
-        pallet_sudo: Some(V1Config::SudoConfig { key: root_key }),
-        pallet_session: Some(V1Config::SessionConfig {
+        pallet_indices: Some(AldebaranConfig::IndicesConfig { indices: vec![] }),
+        pallet_sudo: Some(AldebaranConfig::SudoConfig { key: root_key }),
+        pallet_session: Some(AldebaranConfig::SessionConfig {
             keys: initial_authorities
                 .iter()
                 .map(|x| {
                     (
                         x.0.clone(),
                         x.0.clone(),
-                        v1_session_keys(x.2.clone(), x.3.clone(), x.4.clone(), x.5.clone()),
+                        aldebaran_session_keys(x.2.clone(), x.3.clone(), x.4.clone(), x.5.clone()),
                     )
                 })
                 .collect::<Vec<_>>(),
         }),
-        pallet_staking: Some(V1Config::StakingConfig {
+        pallet_staking: Some(AldebaranConfig::StakingConfig {
             minimum_validator_count: 1,
             validator_count: initial_authorities.len() as u32,
-            validator_commission: v1::Commission::Global(PerThing::zero()),
+            validator_commission: aldebaran::Commission::Global(PerThing::zero()),
             stakers: initial_authorities
                 .iter()
-                .map(|x| (x.0.clone(), x.1.clone(), STASH, v1::StakerStatus::Validator))
+                .map(|x| {
+                    (
+                        x.0.clone(),
+                        x.1.clone(),
+                        STASH,
+                        aldebaran::StakerStatus::Validator,
+                    )
+                })
                 .collect(),
             invulnerables: initial_authorities.iter().map(|x| x.0.clone()).collect(),
-            slash_reward_fraction: v1::Perbill::from_percent(10),
+            slash_reward_fraction: aldebaran::Perbill::from_percent(10),
             min_bond_threshold: 5_000_000_000_000,
             ..Default::default()
         }),
-        pallet_pips: Some(V1Config::PipsConfig {
+        pallet_pips: Some(AldebaranConfig::PipsConfig {
             prune_historical_pips: false,
             min_proposal_deposit: 5_000 * POLY,
             quorum_threshold: 100_000_000_000,
-            proposal_duration: V1Time::DAYS * 7,
-            proposal_cool_off_period: V1Time::HOURS * 6,
-            default_enactment_period: V1Time::DAYS * 7,
+            proposal_duration: aldebaranTime::DAYS * 7,
+            proposal_cool_off_period: aldebaranTime::HOURS * 6,
+            default_enactment_period: aldebaranTime::DAYS * 7,
         }),
-        pallet_im_online: Some(V1Config::ImOnlineConfig {
-            slashing_params: v1::OfflineSlashingParams {
+        pallet_im_online: Some(AldebaranConfig::ImOnlineConfig {
+            slashing_params: aldebaran::OfflineSlashingParams {
                 max_offline_percent: 10u32,
                 constant: 3u32,
                 max_slash_percent: 7u32,
@@ -752,14 +758,13 @@ fn v1_testnet_genesis(
         pallet_authority_discovery: Some(Default::default()),
         pallet_babe: Some(Default::default()),
         pallet_grandpa: Some(Default::default()),
-        pallet_contracts: Some(V1Config::ContractsConfig {
+        pallet_contracts: Some(AldebaranConfig::ContractsConfig {
             current_schedule: contracts::Schedule {
                 enable_println, // this should only be enabled on development chains
                 ..Default::default()
             },
-            gas_price: 1 * MILLICENTS,
         }),
-        group_Instance1: Some(v1::runtime::CommitteeMembershipConfig {
+        group_Instance1: Some(aldebaran::runtime::CommitteeMembershipConfig {
             active_members: vec![
                 IdentityId::from(4),
                 IdentityId::from(5),
@@ -767,13 +772,13 @@ fn v1_testnet_genesis(
             ],
             phantom: Default::default(),
         }),
-        committee_Instance1: Some(v1::runtime::PolymeshCommitteeConfig {
+        committee_Instance1: Some(aldebaran::runtime::PolymeshCommitteeConfig {
             vote_threshold: (2, 3),
             members: vec![],
             release_coordinator: IdentityId::from(6),
             phantom: Default::default(),
         }),
-        group_Instance2: Some(v1::runtime::CddServiceProvidersConfig {
+        group_Instance2: Some(aldebaran::runtime::CddServiceProvidersConfig {
             // sp1, sp2, sp3
             active_members: vec![
                 IdentityId::from(1),
@@ -782,7 +787,7 @@ fn v1_testnet_genesis(
             ],
             phantom: Default::default(),
         }),
-        protocol_fee: Some(V1Config::ProtocolFeeConfig {
+        protocol_fee: Some(AldebaranConfig::ProtocolFeeConfig {
             base_fees: vec![
                 (ProtocolOp::AssetCreateAsset, 10_000 * 1_000_000),
                 (ProtocolOp::AssetRegisterTicker, 2_500 * 1_000_000),

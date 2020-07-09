@@ -39,7 +39,7 @@ use frame_support::{
     decl_error, decl_event, decl_module, decl_storage,
     dispatch::{DispatchError, DispatchResult},
     traits::{Currency, ExistenceRequirement, OnUnbalanced, WithdrawReason},
-    weights::SimpleDispatchInfo,
+    weights::{DispatchClass, Pays},
 };
 use frame_system::{self as system, ensure_root};
 use pallet_identity as identity;
@@ -86,9 +86,9 @@ decl_error! {
 decl_storage! {
     trait Store for Module<T: Trait> as ProtocolFee {
         /// The mapping of operation names to the base fees of those operations.
-        pub BaseFees get(base_fees) config(): map hasher(twox_64_concat) ProtocolOp => BalanceOf<T>;
+        pub BaseFees get(fn base_fees) config(): map hasher(twox_64_concat) ProtocolOp => BalanceOf<T>;
         /// The fee coefficient as a positive rational (numerator, denominator).
-        pub Coefficient get(coefficient) config() build(|config: &GenesisConfig<T>| {
+        pub Coefficient get(fn coefficient) config() build(|config: &GenesisConfig<T>| {
             if config.coefficient.1 == 0 {
                 PosRatio(1, 1)
             } else {
@@ -119,7 +119,7 @@ decl_module! {
         ///
         /// # Errors
         /// * `BadOrigin` - Only root allowed.
-        #[weight = SimpleDispatchInfo::FixedOperational(500_000)]
+        #[weight = (500_000, DispatchClass::Operational, Pays::Yes)]
         pub fn change_coefficient(origin, coefficient: PosRatio) -> DispatchResult {
             ensure_root(origin)?;
             let id = Context::current_identity::<Identity<T>>().unwrap_or(SystematicIssuers::Committee.as_id());
@@ -133,7 +133,7 @@ decl_module! {
         ///
         /// # Errors
         /// * `BadOrigin` - Only root allowed.
-        #[weight = SimpleDispatchInfo::FixedOperational(500_000)]
+        #[weight = (500_000, DispatchClass::Operational, Pays::Yes)]
         pub fn change_base_fee(origin, op: ProtocolOp, base_fee: BalanceOf<T>) ->
             DispatchResult
         {

@@ -1,4 +1,4 @@
-use pallet_group_rpc_runtime_api::{GroupApi as GroupRuntimeApi, Member};
+pub use pallet_group_rpc_runtime_api::{GroupApi as GroupRuntimeApi, Member};
 
 #[cfg(feature = "std")]
 use serde::{Deserialize, Serialize};

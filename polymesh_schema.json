@@ -498,7 +498,6 @@
         },
         "HistoricalVotingByAddress": "Vec<VoteByPip>",
         "HistoricalVotingById": "Vec<(AccountId, HistoricalVotingByAddress)>",
-        "Weight": "u32",
         "BridgeTxDetail": {
             "amount": "Balance",
             "status": "BridgeTxStatus",

@@ -575,7 +575,7 @@ fn remove_signing_keys_test_with_externalities() {
         1,
     ));
     let auth_id =
-        <identity::Authorizations<TestStorage>>::iter_prefix(Signatory::Account(dave_key))
+        <identity::Authorizations<TestStorage>>::iter_prefix_values(Signatory::Account(dave_key))
             .next()
             .unwrap()
             .auth_id;
@@ -691,7 +691,7 @@ fn leave_identity_test_with_externalities() {
         1,
     ));
     let auth_id =
-        <identity::Authorizations<TestStorage>>::iter_prefix(Signatory::Account(dave_key))
+        <identity::Authorizations<TestStorage>>::iter_prefix_values(Signatory::Account(dave_key))
             .next()
             .unwrap()
             .auth_id;
@@ -1457,7 +1457,7 @@ fn invalidate_cdd_claims() {
 }
 
 fn invalidate_cdd_claims_we() {
-    let root = Origin::system(frame_system::RawOrigin::Root);
+    let root = Origin::from(frame_system::RawOrigin::Root);
     let cdd_1_acc = AccountKeyring::Eve.public();
     let alice_acc = AccountKeyring::Alice.public();
     let bob_acc = AccountKeyring::Bob.public();
@@ -1507,7 +1507,7 @@ fn cdd_provider_with_systematic_cdd_claims() {
 
 fn cdd_provider_with_systematic_cdd_claims_we() {
     // 0. Get Bob & Alice IDs.
-    let root = Origin::system(frame_system::RawOrigin::Root);
+    let root = Origin::from(frame_system::RawOrigin::Root);
     let bob_id = get_identity_id(AccountKeyring::Bob).expect("Bob should be one of CDD providers");
     let alice_id =
         get_identity_id(AccountKeyring::Alice).expect("Bob should be one of CDD providers");
@@ -1574,7 +1574,7 @@ fn gc_with_systematic_cdd_claims() {
 
 fn gc_with_systematic_cdd_claims_we() {
     // 0.
-    let root = Origin::system(frame_system::RawOrigin::Root);
+    let root = Origin::from(frame_system::RawOrigin::Root);
     let charlie_id = get_identity_id(AccountKeyring::Charlie)
         .expect("Charlie should be a Governance Committee member");
     let dave_id = get_identity_id(AccountKeyring::Dave)
@@ -1638,7 +1638,7 @@ fn gc_and_cdd_with_systematic_cdd_claims() {
 
 fn gc_and_cdd_with_systematic_cdd_claims_we() {
     // 0. Accounts
-    let root = Origin::system(frame_system::RawOrigin::Root);
+    let root = Origin::from(frame_system::RawOrigin::Root);
     let alice_id = get_identity_id(AccountKeyring::Alice)
         .expect("Charlie should be a Governance Committee member");
 
@@ -1696,12 +1696,13 @@ fn add_permission_with_signing_item() {
                 _ => Default::default(),
             };
 
-            let bob_auth_id =
-                <identity::Authorizations<TestStorage>>::iter_prefix(Signatory::Account(bob_acc))
-                    .next()
-                    .unwrap()
-                    .auth_id;
-            let charlie_auth_id = <identity::Authorizations<TestStorage>>::iter_prefix(
+            let bob_auth_id = <identity::Authorizations<TestStorage>>::iter_prefix_values(
+                Signatory::Account(bob_acc),
+            )
+            .next()
+            .unwrap()
+            .auth_id;
+            let charlie_auth_id = <identity::Authorizations<TestStorage>>::iter_prefix_values(
                 Signatory::Account(charlie_acc),
             )
             .next()
