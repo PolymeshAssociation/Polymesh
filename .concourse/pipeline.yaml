@@ -37,10 +37,10 @@ jobs:
           config:
             inputs:
               - name: r-git-polymesh
-            platform: linux
             caches:
               - path: r-git-polymesh/target
               - path: /usr/local/cargo
+            platform: linux
             image_resource:
               type: registry-image
               source:
@@ -59,6 +59,8 @@ jobs:
             inputs:
               - name: r-git-polymesh
               - name: build-caches
+            caches:
+              - path: r-git-polymesh/target
             platform: linux
             image_resource:
               type: registry-image
