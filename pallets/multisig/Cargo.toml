@@ -15,12 +15,12 @@ pallet-transaction-payment = { package = "pallet-transaction-payment", path = ".
 polymesh-common-utilities = { package = "polymesh-common-utilities", path = "../common", default-features = false}
 polymesh-primitives = { package = "polymesh-primitives", path = "../../primitives", default-features = false}
 
-frame-system = { git = "https://github.com/paritytech/substrate", default-features = false, rev = "a439a7aa5a9a3df2a42d9b25ea04288d3a0866e8" }
-frame-support = { git = "https://github.com/paritytech/substrate", default-features = false, rev = "a439a7aa5a9a3df2a42d9b25ea04288d3a0866e8" }
-sp-runtime = { git = "https://github.com/paritytech/substrate", default-features = false, rev = "a439a7aa5a9a3df2a42d9b25ea04288d3a0866e8" }
-sp-std = { git = "https://github.com/paritytech/substrate", default-features = false, rev = "a439a7aa5a9a3df2a42d9b25ea04288d3a0866e8" }
-sp-core = { git = "https://github.com/paritytech/substrate", default-features = false, rev = "a439a7aa5a9a3df2a42d9b25ea04288d3a0866e8" }
-pallet-timestamp = { package = "pallet-timestamp", git = "https://github.com/paritytech/substrate", default-features = false, rev = "a439a7aa5a9a3df2a42d9b25ea04288d3a0866e8" }
+frame-system = { git = "https://github.com/paritytech/substrate", default-features = false, rev = "c771821cae2dcb5a8808a19fae8122c0b9ae8499" }
+frame-support = { git = "https://github.com/paritytech/substrate", default-features = false, rev = "c771821cae2dcb5a8808a19fae8122c0b9ae8499" }
+sp-runtime = { git = "https://github.com/paritytech/substrate", default-features = false, rev = "c771821cae2dcb5a8808a19fae8122c0b9ae8499" }
+sp-std = { git = "https://github.com/paritytech/substrate", default-features = false, rev = "c771821cae2dcb5a8808a19fae8122c0b9ae8499" }
+sp-core = { git = "https://github.com/paritytech/substrate", default-features = false, rev = "c771821cae2dcb5a8808a19fae8122c0b9ae8499" }
+pallet-timestamp = { package = "pallet-timestamp", git = "https://github.com/paritytech/substrate", default-features = false, rev = "c771821cae2dcb5a8808a19fae8122c0b9ae8499" }
 
 [features]
 equalize = []

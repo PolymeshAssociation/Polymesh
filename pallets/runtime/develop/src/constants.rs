@@ -10,6 +10,11 @@ pub mod time {
     // pub const EPOCH_DURATION_IN_BLOCKS: BlockNumber = 4 * HOURS;
     // Testnet
     pub const EPOCH_DURATION_IN_BLOCKS: BlockNumber = 1 * MINUTES;
+    pub const EPOCH_DURATION_IN_SLOTS: u64 = {
+        const SLOT_FILL_RATE: f64 = MILLISECS_PER_BLOCK as f64 / SLOT_DURATION as f64;
+
+        (EPOCH_DURATION_IN_BLOCKS as f64 * SLOT_FILL_RATE) as u64
+    };
 
     // These time units are defined in number of blocks.
     pub const MINUTES: BlockNumber = 60_000 / (MILLISECS_PER_BLOCK as BlockNumber);

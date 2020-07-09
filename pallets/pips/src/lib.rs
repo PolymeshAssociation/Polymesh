@@ -67,8 +67,9 @@ use frame_support::{
     debug, decl_error, decl_event, decl_module, decl_storage,
     dispatch::DispatchResult,
     ensure,
-    traits::{Currency, LockableCurrency, ReservableCurrency},
-    weights::SimpleDispatchInfo,
+    storage::IterableStorageMap,
+    traits::{Currency, EnsureOrigin, LockableCurrency, ReservableCurrency},
+    weights::{DispatchClass, Pays, Weight},
     Parameter,
 };
 use frame_system::{self as system, ensure_signed};
@@ -87,7 +88,7 @@ use polymesh_primitives_derive::VecU8StrongTyped;
 use serde::{Deserialize, Serialize};
 use sp_core::H256;
 use sp_runtime::traits::{
-    BlakeTwo256, CheckedAdd, CheckedSub, Dispatchable, EnsureOrigin, Hash, Saturating, Zero,
+    BlakeTwo256, CheckedAdd, CheckedSub, Dispatchable, Hash, Saturating, Zero,
 };
 use sp_std::{convert::From, prelude::*};
 
@@ -325,7 +326,7 @@ decl_storage! {
         /// The metadata of the active proposals.
         pub ProposalMetadata get(fn proposal_metadata): map hasher(twox_64_concat) PipId => Option<PipsMetadata<T>>;
         /// It maps the block number where a list of proposal are considered as matured.
-        pub ProposalsMaturingAt get(proposals_maturing_at): map hasher(twox_64_concat) T::BlockNumber => Vec<PipId>;
+        pub ProposalsMaturingAt get(fn proposals_maturing_at): map hasher(twox_64_concat) T::BlockNumber => Vec<PipId>;
 
         /// Those who have locked a deposit.
         /// proposal (id, proposer) -> deposit
@@ -472,9 +473,9 @@ decl_module! {
         ///
         /// # Arguments
         /// * `deposit` the new min deposit required to start a proposal
-        #[weight = SimpleDispatchInfo::FixedOperational(100_000)]
+        #[weight = (100_000, DispatchClass::Operational, Pays::Yes)]
         pub fn set_prune_historical_pips(origin, new_value: bool) {
-            T::CommitteeOrigin::try_origin(origin).map_err(|_| Error::<T>::BadOrigin)?;
+            T::CommitteeOrigin::ensure_origin(origin)?;
             Self::deposit_event(RawEvent::HistoricalPipsPruned(SystematicIssuers::Committee.as_id(), Self::prune_historical_pips(), new_value));
             <PruneHistoricalPips>::put(new_value);
         }
@@ -484,9 +485,9 @@ decl_module! {
         ///
         /// # Arguments
         /// * `deposit` the new min deposit required to start a proposal
-        #[weight = SimpleDispatchInfo::FixedOperational(100_000)]
+        #[weight = (100_000, DispatchClass::Operational, Pays::Yes)]
         pub fn set_min_proposal_deposit(origin, deposit: BalanceOf<T>) {
-            T::CommitteeOrigin::try_origin(origin).map_err(|_| Error::<T>::BadOrigin)?;
+            T::CommitteeOrigin::ensure_origin(origin)?;
             Self::deposit_event(RawEvent::MinimumProposalDepositChanged(SystematicIssuers::Committee.as_id(), Self::min_proposal_deposit(), deposit));
             <MinimumProposalDeposit<T>>::put(deposit);
         }
@@ -497,9 +498,9 @@ decl_module! {
         ///
         /// # Arguments
         /// * `threshold` the new quorum threshold amount value
-        #[weight = SimpleDispatchInfo::FixedOperational(100_000)]
+        #[weight = (100_000, DispatchClass::Operational, Pays::Yes)]
         pub fn set_quorum_threshold(origin, threshold: BalanceOf<T>) {
-            T::CommitteeOrigin::try_origin(origin).map_err(|_| Error::<T>::BadOrigin)?;
+            T::CommitteeOrigin::ensure_origin(origin)?;
             Self::deposit_event(RawEvent::MinimumProposalDepositChanged(SystematicIssuers::Committee.as_id(), Self::quorum_threshold(), threshold));
             <QuorumThreshold<T>>::put(threshold);
         }
@@ -509,9 +510,9 @@ decl_module! {
         ///
         /// # Arguments
         /// * `duration` proposal duration in blocks
-        #[weight = SimpleDispatchInfo::FixedOperational(100_000)]
+        #[weight = (100_000, DispatchClass::Operational, Pays::Yes)]
         pub fn set_proposal_duration(origin, duration: T::BlockNumber) {
-            T::CommitteeOrigin::try_origin(origin).map_err(|_| Error::<T>::BadOrigin)?;
+            T::CommitteeOrigin::ensure_origin(origin)?;
             Self::deposit_event(RawEvent::ProposalDurationChanged(SystematicIssuers::Committee.as_id(), Self::proposal_duration(), duration));
             <ProposalDuration<T>>::put(duration);
         }
@@ -522,17 +523,17 @@ decl_module! {
         ///
         /// # Arguments
         /// * `duration` proposal cool off period duration in blocks
-        #[weight = SimpleDispatchInfo::FixedOperational(100_000)]
+        #[weight = (100_000, DispatchClass::Operational, Pays::Yes)]
         pub fn set_proposal_cool_off_period(origin, duration: T::BlockNumber) {
-            T::CommitteeOrigin::try_origin(origin).map_err(|_| Error::<T>::BadOrigin)?;
+            T::CommitteeOrigin::ensure_origin(origin)?;
             Self::deposit_event(RawEvent::ProposalDurationChanged(SystematicIssuers::Committee.as_id(), Self::proposal_cool_off_period(), duration));
             <ProposalCoolOffPeriod<T>>::put(duration);
         }
 
         /// Change the default enact period.
-        #[weight = SimpleDispatchInfo::FixedOperational(100_000)]
+        #[weight = (100_000, DispatchClass::Operational, Pays::Yes)]
         pub fn set_default_enactment_period(origin, duration: T::BlockNumber) {
-            T::CommitteeOrigin::try_origin(origin).map_err(|_| Error::<T>::BadOrigin)?;
+            T::CommitteeOrigin::ensure_origin(origin)?;
             let previous_duration = <DefaultEnactmentPeriod<T>>::get();
             <DefaultEnactmentPeriod<T>>::put(duration);
             Self::deposit_event(RawEvent::DefaultEnactmentPeriodChanged(SystematicIssuers::Committee.as_id(), duration, previous_duration));
@@ -545,7 +546,7 @@ decl_module! {
         /// * `proposal` a dispatchable call
         /// * `deposit` minimum deposit value
         /// * `url` a link to a website for proposal discussion
-        #[weight = SimpleDispatchInfo::FixedNormal(5_000_000)]
+        #[weight = (5_000_000, DispatchClass::Operational, Pays::Yes)]
         pub fn propose(
             origin,
             proposal: Box<T::Proposal>,
@@ -582,7 +583,7 @@ decl_module! {
                 description: description.clone(),
                 cool_off_until: cool_off_until.clone(),
             };
-            let _ = <ProposalsMaturingAt<T>>::append(end, [id].iter())?;
+            <ProposalsMaturingAt<T>>::append(end, id);
             <ProposalMetadata<T>>::insert(id, proposal_metadata);
 
             let deposit_info = DepositInfo {
@@ -628,7 +629,7 @@ decl_module! {
         /// * `BadOrigin`: Only the owner of the proposal can amend it.
         /// * `ProposalIsImmutable`: A proposals is mutable only during its cool off period.
         ///
-        #[weight = SimpleDispatchInfo::FixedNormal(1_000_000)]
+        #[weight = (1_000_000, DispatchClass::Operational, Pays::Yes)]
         pub fn amend_proposal(
                 origin,
                 id: PipId,
@@ -669,7 +670,7 @@ decl_module! {
         /// # Errors
         /// * `BadOrigin`: Only the owner of the proposal can amend it.
         /// * `ProposalIsImmutable`: A Proposal is mutable only during its cool off period.
-        #[weight = SimpleDispatchInfo::FixedNormal(1_000_000)]
+        #[weight = (1_000_000, DispatchClass::Operational, Pays::Yes)]
         pub fn cancel_proposal(origin, id: PipId) -> DispatchResult {
             // 0. Initial info.
             let proposer = ensure_signed(origin)?;
@@ -699,7 +700,7 @@ decl_module! {
         /// # Errors
         /// * `BadOrigin`: Only the owner of the proposal can bond an additional deposit.
         /// * `ProposalIsImmutable`: A Proposal is mutable only during its cool off period.
-        #[weight = SimpleDispatchInfo::FixedNormal(200_000)]
+        #[weight = 200_000]
         pub fn bond_additional_deposit(origin,
             id: PipId,
             additional_deposit: BalanceOf<T>
@@ -747,7 +748,7 @@ decl_module! {
         /// * `ProposalIsImmutable`: A Proposal is mutable only during its cool off period.
         /// * `InsufficientDeposit`: If the final deposit will be less that the minimum deposit for
         /// a proposal.
-        #[weight = SimpleDispatchInfo::FixedNormal(200_000)]
+        #[weight = 200_000]
         pub fn unbond_deposit(origin,
             id: PipId,
             amount: BalanceOf<T>
@@ -799,7 +800,7 @@ decl_module! {
         /// * `id` proposal id
         /// * `aye_or_nay` a bool representing for or against vote
         /// * `deposit` minimum deposit value
-        #[weight = SimpleDispatchInfo::FixedNormal(200_000)]
+        #[weight = 200_000]
         pub fn vote(origin, id: PipId, aye_or_nay: bool, deposit: BalanceOf<T>) {
             let proposer = ensure_signed(origin)?;
             let meta = Self::proposal_metadata(id)
@@ -845,9 +846,9 @@ decl_module! {
 
         /// An emergency stop measure to kill a proposal. Governance committee can kill
         /// a proposal at any time.
-        #[weight = SimpleDispatchInfo::FixedOperational(100_000)]
+        #[weight = (100_000, DispatchClass::Operational, Pays::Yes)]
         pub fn kill_proposal(origin, id: PipId) {
-            T::VotingMajorityOrigin::try_origin(origin).map_err(|_| Error::<T>::BadOrigin)?;
+            T::VotingMajorityOrigin::ensure_origin(origin)?;
             ensure!(<Proposals<T>>::contains_key(id), Error::<T>::NoSuchProposal);
             // Check that the proposal is pending
             Self::is_proposal_state(id, ProposalState::Pending)?;
@@ -858,7 +859,7 @@ decl_module! {
 
         /// Any governance committee member can fast track a proposal and turn it into a referendum
         /// that will be voted on by the committee.
-        #[weight = SimpleDispatchInfo::FixedOperational(200_000)]
+        #[weight = (200_000, DispatchClass::Operational, Pays::Yes)]
         pub fn fast_track_proposal(origin, id: PipId) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             let did = Context::current_identity_or::<Identity<T>>(&sender)?;
@@ -883,7 +884,7 @@ decl_module! {
 
         /// Governance committee can make a proposal that automatically becomes a referendum on
         /// which the committee can vote on.
-        #[weight = SimpleDispatchInfo::FixedOperational(200_000)]
+        #[weight = (200_000, DispatchClass::Operational, Pays::Yes)]
         pub fn emergency_referendum(
             origin,
             proposal: Box<T::Proposal>,
@@ -938,18 +939,18 @@ decl_module! {
         }
 
         /// Moves a referendum instance into dispatch queue.
-        #[weight = SimpleDispatchInfo::FixedOperational(100_000)]
+        #[weight = (100_000, DispatchClass::Operational, Pays::Yes)]
         pub fn enact_referendum(origin, id: PipId) -> DispatchResult {
-            T::VotingMajorityOrigin::try_origin(origin).map_err(|_| Error::<T>::BadOrigin)?;
+            T::VotingMajorityOrigin::ensure_origin(origin)?;
             // Check that referendum is Pending
             Self::is_referendum_state(id, ReferendumState::Pending)?;
             Self::prepare_to_dispatch(id)
         }
 
         /// Moves a referendum instance into rejected state.
-        #[weight = SimpleDispatchInfo::FixedOperational(100_000)]
+        #[weight = (100_000, DispatchClass::Operational, Pays::Yes)]
         pub fn reject_referendum(origin, id: PipId) -> DispatchResult {
-            T::VotingMajorityOrigin::try_origin(origin).map_err(|_| Error::<T>::BadOrigin)?;
+            T::VotingMajorityOrigin::ensure_origin(origin)?;
             // Check that referendum is Pending
             Self::is_referendum_state(id, ReferendumState::Pending)?;
 
@@ -968,7 +969,7 @@ decl_module! {
         /// # Errors
         /// * `BadOrigin`, Only the release coordinator can update the enactment period.
         /// * ``,
-        #[weight = SimpleDispatchInfo::FixedOperational(100_000)]
+        #[weight = (100_000, DispatchClass::Operational, Pays::Yes)]
         pub fn override_referendum_enactment_period(origin, id: PipId, until: Option<T::BlockNumber>) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             let current_did = Context::current_identity_or::<Identity<T>>(&sender)?;
@@ -1008,10 +1009,11 @@ decl_module! {
 
         /// When constructing a block check if it's time for a ballot to end. If ballot ends,
         /// proceed to ratification process.
-        fn on_initialize(n: T::BlockNumber) {
+        fn on_initialize(n: T::BlockNumber) -> Weight {
             if let Err(e) = Self::end_block(n) {
                 sp_runtime::print(e);
             }
+            0
         }
 
     }
@@ -1086,10 +1088,11 @@ impl<T: Trait> Module<T> {
 
     /// Refunds any tokens used to vote or bond a proposal
     fn refund_proposal(id: PipId) {
-        let total_refund = <Deposits<T>>::iter_prefix(id).fold(0.into(), |acc, depo_info| {
-            let amount = <T as Trait>::Currency::unreserve(&depo_info.owner, depo_info.amount);
-            amount.saturating_add(acc)
-        });
+        let total_refund =
+            <Deposits<T>>::iter_prefix_values(id).fold(0.into(), |acc, depo_info| {
+                let amount = <T as Trait>::Currency::unreserve(&depo_info.owner, depo_info.amount);
+                amount.saturating_add(acc)
+            });
         <Deposits<T>>::remove_prefix(id);
         let current_did = Context::current_identity::<Identity<T>>().unwrap_or_default();
         Self::deposit_event(RawEvent::ProposalRefund(current_did, id, total_refund));
@@ -1157,7 +1160,11 @@ impl<T: Trait> Module<T> {
                             }
                             Err(e) => {
                                 Self::update_referendum_state(id, ReferendumState::Failed);
-                                debug::error!("Referendum {}, its execution fails: {:?}", id, e);
+                                debug::error!(
+                                    "Referendum {}, its execution fails: {:?}",
+                                    id,
+                                    e.error
+                                );
                             }
                         };
                     }
@@ -1254,15 +1261,15 @@ impl<T: Trait> Module<T> {
     /// Retrieve proposals made by `address`.
     pub fn proposed_by(address: T::AccountId) -> Vec<PipId> {
         <ProposalMetadata<T>>::iter()
-            .filter(|meta| meta.proposer == address)
-            .map(|meta| meta.id)
+            .filter(|(_, meta)| meta.proposer == address)
+            .map(|(_, meta)| meta.id)
             .collect()
     }
 
     /// Retrieve proposals `address` voted on
     pub fn voted_on(address: T::AccountId) -> Vec<PipId> {
         <ProposalMetadata<T>>::iter()
-            .filter_map(|meta| match Self::proposal_vote(meta.id, &address) {
+            .filter_map(|(_, meta)| match Self::proposal_vote(meta.id, &address) {
                 Vote::None => None,
                 _ => Some(meta.id),
             })
@@ -1274,7 +1281,7 @@ impl<T: Trait> Module<T> {
         who: T::AccountId,
     ) -> HistoricalVotingByAddress<Vote<BalanceOf<T>>> {
         <ProposalMetadata<T>>::iter()
-            .map(|meta| VoteByPip {
+            .map(|(_, meta)| VoteByPip {
                 pip: meta.id,
                 vote: Self::proposal_vote(meta.id, &who),
             })

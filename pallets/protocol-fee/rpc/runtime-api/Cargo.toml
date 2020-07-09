@@ -7,9 +7,9 @@ edition = "2018"
 [dependencies]
 serde = { version = "1.0.104", optional = true, features = ["derive"] }
 codec = { package = "parity-scale-codec", version = "1.2.0", default-features = false, features = ["derive"] }
-sp-api = { git = 'https://github.com/paritytech/substrate.git', default_features = false, rev = 'a439a7aa5a9a3df2a42d9b25ea04288d3a0866e8'}
-sp-runtime = { git = 'https://github.com/paritytech/substrate.git', default_features = false,  rev = 'a439a7aa5a9a3df2a42d9b25ea04288d3a0866e8'}
-frame-support = { git = "https://github.com/paritytech/substrate", default-features = false, rev = "a439a7aa5a9a3df2a42d9b25ea04288d3a0866e8" }
+sp-api = { git = 'https://github.com/paritytech/substrate.git', default_features = false, rev = 'c771821cae2dcb5a8808a19fae8122c0b9ae8499'}
+sp-runtime = { git = 'https://github.com/paritytech/substrate.git', default_features = false,  rev = 'c771821cae2dcb5a8808a19fae8122c0b9ae8499'}
+frame-support = { git = "https://github.com/paritytech/substrate", default-features = false, rev = "c771821cae2dcb5a8808a19fae8122c0b9ae8499" }
 polymesh-common-utilities = { package = "polymesh-common-utilities", path = "../../../common", default-features = false }
 
 [dev-dependencies]

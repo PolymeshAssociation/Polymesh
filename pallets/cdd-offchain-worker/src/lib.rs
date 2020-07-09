@@ -18,15 +18,26 @@
 
 use codec::Encode;
 use frame_support::{
-    debug, decl_error, decl_event, decl_module, decl_storage, dispatch::DispatchResult, ensure,
-    traits::Get, weights::SimpleDispatchInfo, Parameter,
+    debug, decl_error, decl_event, decl_module, decl_storage,
+    dispatch::DispatchResult,
+    ensure,
+    traits::Get,
+    weights::{DispatchClass, Pays},
+    Parameter,
 };
-use frame_system::{self as system, ensure_none, offchain};
+use frame_system::{
+    self as system, ensure_none,
+    offchain::{
+        AppCrypto, CreateSignedTransaction, SendSignedTransaction, SendUnsignedTransaction,
+        SignedPayload, Signer, SigningTypes, SubmitTransaction,
+    },
+};
 use sp_application_crypto::RuntimeAppPublic;
 use sp_core::crypto::KeyTypeId;
 use sp_runtime::traits::{Member, SaturatedConversion};
 use sp_runtime::transaction_validity::{
-    InvalidTransaction, TransactionPriority, TransactionValidity, ValidTransaction,
+    InvalidTransaction, TransactionPriority, TransactionSource, TransactionValidity,
+    ValidTransaction,
 };
 use sp_std::prelude::*;
 
@@ -58,7 +69,7 @@ pub mod crypto {
     pub type SignerId = app_crypto_sr25519::Public;
 }
 
-pub trait Trait: frame_system::Trait + pallet_staking::Trait {
+pub trait Trait: CreateSignedTransaction<Call<Self>> + pallet_staking::Trait {
     type SignerId: Member + Parameter + RuntimeAppPublic + Default + Ord;
     /// The overarching event type.
     type Event: From<Event<Self>> + Into<<Self as system::Trait>::Event>;
@@ -68,14 +79,17 @@ pub trait Trait: frame_system::Trait + pallet_staking::Trait {
     type CoolingInterval: Get<Self::BlockNumber>;
     /// Buffer given to check the validity of the cdd claim. It is in block numbers.
     type BufferInterval: Get<Self::BlockNumber>;
-    /// The type to sign and submit transactions.
-    type SubmitUnsignedTransaction: offchain::SubmitUnsignedTransaction<Self, <Self as Trait>::Call>;
+    /// A configuration for base priority of unsigned transactions.
+    ///
+    /// This is exposed so that it can be tuned for particular runtime, when
+    /// multiple pallets send unsigned transactions.
+    type UnsignedPriority: Get<TransactionPriority>;
 }
 
 decl_storage! {
     trait Store for Module<T: Trait> as CddOffchainWorker {
         /// Last block at which unsigned transaction get submitted with in the transaction pool
-        pub LastExtSubmittedAt get(last_extrinsic_submitted_at): T::BlockNumber;
+        pub LastExtSubmittedAt get(fn last_extrinsic_submitted_at): T::BlockNumber;
     }
 }
 
@@ -110,7 +124,7 @@ decl_module! {
         /// It's important to specify `weight` for unsigned calls as well, because even though
         /// they don't charge fees, we still don't want a single block to contain unlimited
         /// number of such transactions.
-        #[weight = SimpleDispatchInfo::FixedOperational(10_000_000)]
+        #[weight = (10_000_000, DispatchClass::Operational, Pays::Yes)]
         fn take_off_invalidate_nominators(origin, _block_number: T::BlockNumber, target: Vec<T::AccountId>, _signature: <T::SignerId as RuntimeAppPublic>::Signature) -> DispatchResult {
             // This is an unsigned transaction so origin should be none
             ensure_none(origin)?;
@@ -164,7 +178,6 @@ impl<T: Trait> Module<T> {
         invalid_nominators: Vec<T::AccountId>,
     ) -> Result<(), &'static str> {
         debug::native::info!("Enter into remove invalidate nominators functions");
-        use frame_system::offchain::SubmitUnsignedTransaction;
         // First we validate whether the transaction proposer is validator or not.
         // if yes then only the transaction get proposed otherwise not.
         ensure!(sp_io::offchain::is_validator(), "Not a validator");
@@ -185,7 +198,7 @@ impl<T: Trait> Module<T> {
             // by writing `UnsignedValidator`. Note that it's EXTREMELY important to carefully
             // implement unsigned validation logic, as any mistakes can lead to opening DoS or spam
             // attack vectors. See validation logic docs for more details.
-            let _ = T::SubmitUnsignedTransaction::submit_unsigned(call)
+            let _ = SubmitTransaction::<T, Call<T>>::submit_unsigned_transaction(call.into())
                 .map_err(|()| "Unable to submit unsigned transaction.")?;
         }
         Ok(())
@@ -209,7 +222,7 @@ impl<T: Trait> frame_support::unsigned::ValidateUnsigned for Module<T> {
     /// By default unsigned transactions are disallowed, but implementing the validator
     /// here we make sure that some particular calls (the ones produced by offchain worker)
     /// are being exempted and marked as valid.
-    fn validate_unsigned(call: &Self::Call) -> TransactionValidity {
+    fn validate_unsigned(_source: TransactionSource, call: &Self::Call) -> TransactionValidity {
         // Firstly let's check that we call the right function.
         if let Call::take_off_invalidate_nominators(block_number, target, signature) = call {
             // Now let's check if the transaction has any chance to succeed.
