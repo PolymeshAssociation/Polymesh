@@ -46,7 +46,6 @@ use crate::simple_token::{self, SimpleTokenTrait};
 use frame_support::traits::Currency;
 use frame_support::{
     decl_error, decl_event, decl_module, decl_storage, dispatch::DispatchResult, ensure,
-    weights::SimpleDispatchInfo,
 };
 use frame_system::{self as system, ensure_signed};
 use pallet_balances as balances;
@@ -176,7 +175,7 @@ decl_module! {
         /// * `start_date` Unix timestamp at when STO starts
         /// * `end_date` Unix timestamp at when STO ends
         /// * `simple_token_ticker` Ticker of the simple token
-        #[weight = SimpleDispatchInfo::FixedNormal(300_000)]
+        #[weight = 300_000]
         pub fn launch_sto(
             origin,
             ticker: Ticker,
@@ -241,7 +240,7 @@ decl_module! {
         /// * `ticker` Ticker of the token
         /// * `sto_id` A unique identifier to know which STO investor wants to invest in
         /// * `value` Amount of POLYX wants to invest in
-        #[weight = SimpleDispatchInfo::FixedNormal(500_000)]
+        #[weight = 500_000]
         pub fn buy_tokens(origin, ticker: Ticker, sto_id: u32, value: T::Balance) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             let did = Context::current_identity_or::<Identity<T>>(&sender)?;
@@ -309,7 +308,7 @@ decl_module! {
         /// * `sto_id` A unique identifier to know which STO investor wants to invest in.
         /// * `simple_token_ticker` Ticker of the stable coin
         /// * `modify_status` Boolean to know whether the provided simple token ticker will be used or not.
-        #[weight = SimpleDispatchInfo::FixedNormal(400_000)]
+        #[weight = 400_000]
         pub fn modify_allowed_tokens(origin, ticker: Ticker, sto_id: u32, simple_token_ticker: Ticker, modify_status: bool) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             let did = Context::current_identity_or::<Identity<T>>(&sender)?;
@@ -366,7 +365,7 @@ decl_module! {
         /// * `sto_id` A unique identifier to know which STO investor wants to invest in
         /// * `value` Amount of POLYX wants to invest in
         /// * `simple_token_ticker` Ticker of the simple token
-        #[weight = SimpleDispatchInfo::FixedNormal(1_000_000)]
+        #[weight = 1_000_000]
         pub fn buy_tokens_by_simple_token(origin, ticker: Ticker, sto_id: u32, value: T::Balance, simple_token_ticker: Ticker) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             let did = Context::current_identity_or::<Identity<T>>(&sender)?;
@@ -435,7 +434,7 @@ decl_module! {
         /// * `origin` Signing key of the token owner
         /// * `ticker` Ticker of the token
         /// * `sto_id` A unique identifier to know which STO needs to paused
-        #[weight = SimpleDispatchInfo::FixedNormal(150_000)]
+        #[weight = 150_000]
         pub fn pause_sto(origin, ticker: Ticker, sto_id: u32) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             let did = Context::current_identity_or::<Identity<T>>(&sender)?;
@@ -466,7 +465,7 @@ decl_module! {
         /// * `origin` Signing key of the token owner
         /// * `ticker` Ticker of the token
         /// * `sto_id` A unique identifier to know which STO needs to un paused
-        #[weight = SimpleDispatchInfo::FixedNormal(150_000)]
+        #[weight = 150_000]
         pub fn unpause_sto(origin, ticker: Ticker, sto_id: u32) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             let did = Context::current_identity_or::<Identity<T>>(&sender)?;

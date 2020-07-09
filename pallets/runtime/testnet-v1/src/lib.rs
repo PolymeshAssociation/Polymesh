@@ -36,7 +36,7 @@ pub mod config {
     pub type PolymeshCommitteeConfig =
         committee::GenesisConfig<crate::Runtime, committee::Instance1>;
     pub type PipsConfig = pallet_pips::GenesisConfig<crate::Runtime>;
-    pub type ContractsConfig = pallet_contracts::GenesisConfig<crate::Runtime>;
+    pub type ContractsConfig = pallet_contracts::GenesisConfig;
     pub type IndicesConfig = pallet_indices::GenesisConfig<crate::Runtime>;
     pub type ImOnlineConfig = pallet_im_online::GenesisConfig<crate::Runtime>;
     pub type SudoConfig = pallet_sudo::GenesisConfig<crate::Runtime>;

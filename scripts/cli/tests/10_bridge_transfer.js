@@ -27,13 +27,13 @@ async function main() {
     alice_did.Unique,
     did_balance
   );
-
+  
   await acceptMultisigSignerAsKey(api, relay, 9);
- 
+
   await reqImports.distributePolyBatch( api, [relay], reqImports.transfer_amount, alice );
-  
+
   await bridgeTransfer(api, relay, alice);
-  
+
   await freezeTransaction(api, alice);
   
   await sleep(50000).then(async() => { await unfreezeTransaction(api, alice); });
