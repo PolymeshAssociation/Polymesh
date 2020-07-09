@@ -17,16 +17,12 @@ popd
 mkdir -p artifact
 
 POLYMESH_VERSION=""
-if [[ -f "${GIT_DIR}/.git/resource/head_sha" ]]; then
+if [[ -f ${GIT_DIR}/.git/short_ref ]]; then
+    POLYMESH_VERSION=$(cat ${GIT_DIR}/.git/short_ref)
+elif [[ -f "${GIT_DIR}/.git/resource/head_sha" ]]; then
     POLYMESH_VERSION=$(cat ${GIT_DIR}/.git/resource/head_sha)
-elif [[ -f ${GIT_DIR}/.git/describe_ref ]]; then
-    POLYMESH_VERSION=$(cat ${GIT_DIR}/.git/describe_ref)
 else
     echo "no reference for the polymesh version found"
-    ls -al ${GIT_DIR}/.git
-    cat ${GIT_DIR}/.git/description
-    cat ${GIT_DIR}/.git/short_ref
-    cat ${GIT_DIR}/.git/ref
     exit 1
 fi
 
