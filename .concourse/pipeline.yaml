@@ -60,6 +60,9 @@ jobs:
               - name: r-git-polymesh
               - name: build-caches
             platform: linux
+            caches:
+              - path: r-git-polymesh/target
+              - path: /usr/local/cargo
             image_resource:
               type: registry-image
               source:
@@ -76,6 +79,9 @@ jobs:
               - name: r-git-polymesh
               - name: build-caches
             platform: linux
+            caches:
+              - path: r-git-polymesh/target
+              - path: /usr/local/cargo
             image_resource:
               type: registry-image
               source:
