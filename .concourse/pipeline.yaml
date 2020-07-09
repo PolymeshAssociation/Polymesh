@@ -1,7 +1,7 @@
 ---
 
 resources:
-  - name: r-git-polymesh
+  - name: git-polymesh
     type: git
     icon: github
     check_every: 5m
@@ -9,18 +9,26 @@ resources:
       uri: git@github.com:cwsatpolymath/Polymesh.git
       branch: concourse-test
       private_key: ((polymesh-github.id_concourse_rsa))
+  - name: s3-polymesh
+    type: s3
+    source:
+      bucket: polymesh-testnet-artifacts
+      region_name: ca-central-1
+      regexp: concourse/polymesh/release-(.*)
+      access_key_id: ((s3-polymath-concourse.access_key_id))
+      secret_access_key: ((s3-polymath-concourse.secret_access_key))
 
 jobs:
-  - name: j-build-polymesh
+  - name: build-polymesh
     plan:
-      - get: r-git-polymesh
+      - get: git-polymesh
         trigger: true
         version: every
       - in_parallel:
-        - task: t-run-lint
+        - task: run-lint
           config:
             inputs:
-              - name: r-git-polymesh
+              - name: git-polymesh
             platform: linux
             image_resource:
               type: registry-image
@@ -30,15 +38,15 @@ jobs:
                 aws_secret_access_key: ((polymath-ecr.aws-access-secret))
                 aws_region: us-east-1
             run:
-              dir: r-git-polymesh
+              dir: git-polymesh
               path: bash
               args: [".concourse/scripts/t-rustfmt-lint.sh"]
-        - task: t-cargo-build
+        - task: cargo-build
           config:
             inputs:
-              - name: r-git-polymesh
+              - name: git-polymesh
             caches:
-              - path: r-git-polymesh/target
+              - path: git-polymesh/target
               - path: /usr/local/cargo
             platform: linux
             image_resource:
@@ -54,13 +62,13 @@ jobs:
             outputs:
               - name: build-caches
       - in_parallel:
-        - task: t-cargo-test
+        - task: cargo-test
           config:
             inputs:
-              - name: r-git-polymesh
+              - name: git-polymesh
               - name: build-caches
             caches:
-              - path: r-git-polymesh/target
+              - path: git-polymesh/target
             platform: linux
             image_resource:
               type: registry-image
@@ -72,10 +80,14 @@ jobs:
             run:
               path: bash
               args: ["r-git-polymesh/.concourse/scripts/t-cargo-test.sh", "r-git-polymesh", "build-caches"]
-#        - task: t-cargo-clippy
+      - put: s3-polymesh
+        params:
+          file: artifact/polymesh-*
+          acl: public-read
+#        - task: cargo-clippy
 #          config:
 #            inputs:
-#              - name: r-git-polymesh
+#              - name: git-polymesh
 #              - name: build-caches
 #            platform: linux
 #            image_resource:
