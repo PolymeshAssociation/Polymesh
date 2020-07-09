@@ -26,7 +26,7 @@ fn reimbursement_and_disbursement() {
 }
 
 fn reimbursement_and_disbursement_we() {
-    let root = Origin::system(frame_system::RawOrigin::Root);
+    let root = Origin::from(frame_system::RawOrigin::Root);
     let alice = register_keyring_account(AccountKeyring::Alice).unwrap();
     let alice_acc = Origin::signed(AccountKeyring::Alice.public());
     let bob = register_keyring_account(AccountKeyring::Bob).unwrap();

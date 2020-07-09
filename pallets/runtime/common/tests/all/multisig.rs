@@ -89,7 +89,7 @@ fn join_multisig() {
         );
 
         let alice_auth_id =
-            <identity::Authorizations<TestStorage>>::iter_prefix(Signatory::from(alice_did))
+            <identity::Authorizations<TestStorage>>::iter_prefix_values(Signatory::from(alice_did))
                 .next()
                 .unwrap()
                 .auth_id;
@@ -99,7 +99,7 @@ fn join_multisig() {
             alice_auth_id
         ));
 
-        let bob_auth_id = <identity::Authorizations<TestStorage>>::iter_prefix(bob_signer)
+        let bob_auth_id = <identity::Authorizations<TestStorage>>::iter_prefix_values(bob_signer)
             .next()
             .unwrap()
             .auth_id;
@@ -129,7 +129,7 @@ fn join_multisig() {
             1,
         ));
 
-        let bob_auth_id2 = <identity::Authorizations<TestStorage>>::iter_prefix(bob_signer)
+        let bob_auth_id2 = <identity::Authorizations<TestStorage>>::iter_prefix_values(bob_signer)
             .next()
             .unwrap()
             .auth_id;
@@ -158,7 +158,7 @@ fn change_multisig_sigs_required() {
         ));
 
         let alice_auth_id =
-            <identity::Authorizations<TestStorage>>::iter_prefix(Signatory::from(alice_did))
+            <identity::Authorizations<TestStorage>>::iter_prefix_values(Signatory::from(alice_did))
                 .next()
                 .unwrap()
                 .auth_id;
@@ -168,7 +168,7 @@ fn change_multisig_sigs_required() {
             alice_auth_id
         ));
 
-        let bob_auth_id = <identity::Authorizations<TestStorage>>::iter_prefix(bob_signer)
+        let bob_auth_id = <identity::Authorizations<TestStorage>>::iter_prefix_values(bob_signer)
             .next()
             .unwrap()
             .auth_id;
@@ -227,7 +227,7 @@ fn create_or_approve_change_multisig_sigs_required() {
             2,
         ));
         let alice_auth_id =
-            <identity::Authorizations<TestStorage>>::iter_prefix(Signatory::from(alice_did))
+            <identity::Authorizations<TestStorage>>::iter_prefix_values(Signatory::from(alice_did))
                 .next()
                 .unwrap()
                 .auth_id;
@@ -237,7 +237,7 @@ fn create_or_approve_change_multisig_sigs_required() {
             alice.clone(),
             alice_auth_id
         ));
-        let bob_auth_id = <identity::Authorizations<TestStorage>>::iter_prefix(bob_signer)
+        let bob_auth_id = <identity::Authorizations<TestStorage>>::iter_prefix_values(bob_signer)
             .next()
             .unwrap()
             .auth_id;
@@ -292,10 +292,11 @@ fn remove_multisig_signer() {
 
         assert_eq!(MultiSig::number_of_signers(musig_address.clone()), 0);
 
-        let alice_auth_id = <identity::Authorizations<TestStorage>>::iter_prefix(alice_signer)
-            .next()
-            .unwrap()
-            .auth_id;
+        let alice_auth_id =
+            <identity::Authorizations<TestStorage>>::iter_prefix_values(alice_signer)
+                .next()
+                .unwrap()
+                .auth_id;
 
         Context::set_current_identity::<Identity>(Some(alice_did));
         assert_ok!(MultiSig::accept_multisig_signer_as_identity(
@@ -305,7 +306,7 @@ fn remove_multisig_signer() {
 
         assert_eq!(MultiSig::number_of_signers(musig_address.clone()), 1);
 
-        let bob_auth_id = <identity::Authorizations<TestStorage>>::iter_prefix(bob_signer)
+        let bob_auth_id = <identity::Authorizations<TestStorage>>::iter_prefix_values(bob_signer)
             .next()
             .unwrap()
             .auth_id;
@@ -399,7 +400,7 @@ fn add_multisig_signer() {
         ));
 
         let alice_auth_id =
-            <identity::Authorizations<TestStorage>>::iter_prefix(Signatory::from(alice_did))
+            <identity::Authorizations<TestStorage>>::iter_prefix_values(Signatory::from(alice_did))
                 .next()
                 .unwrap()
                 .auth_id;
@@ -453,17 +454,18 @@ fn add_multisig_signer() {
             false
         );
 
-        let bob_auth_id = <identity::Authorizations<TestStorage>>::iter_prefix(bob_signer)
+        let bob_auth_id = <identity::Authorizations<TestStorage>>::iter_prefix_values(bob_signer)
             .next()
             .unwrap()
             .auth_id;
 
-        let charlie_auth_id = <identity::Authorizations<TestStorage>>::iter_prefix(charlie_signer)
-            .next()
-            .unwrap()
-            .auth_id;
+        let charlie_auth_id =
+            <identity::Authorizations<TestStorage>>::iter_prefix_values(charlie_signer)
+                .next()
+                .unwrap()
+                .auth_id;
 
-        let root = Origin::system(frame_system::RawOrigin::Root);
+        let root = Origin::from(frame_system::RawOrigin::Root);
 
         assert_ok!(MultiSig::make_multisig_master(
             alice.clone(),
@@ -526,13 +528,13 @@ fn should_change_all_signers_and_sigs_required() {
         ));
 
         let alice_auth_id =
-            <identity::Authorizations<TestStorage>>::iter_prefix(Signatory::from(alice_did))
+            <identity::Authorizations<TestStorage>>::iter_prefix_values(Signatory::from(alice_did))
                 .next()
                 .unwrap()
                 .auth_id;
 
         let bob_auth_id =
-            <identity::Authorizations<TestStorage>>::iter_prefix(Signatory::from(bob_did))
+            <identity::Authorizations<TestStorage>>::iter_prefix_values(Signatory::from(bob_did))
                 .next()
                 .unwrap()
                 .auth_id;
@@ -581,23 +583,25 @@ fn should_change_all_signers_and_sigs_required() {
             false
         );
 
-        let charlie_auth_id =
-            <identity::Authorizations<TestStorage>>::iter_prefix(Signatory::from(charlie_did))
-                .next()
-                .unwrap()
-                .auth_id;
+        let charlie_auth_id = <identity::Authorizations<TestStorage>>::iter_prefix_values(
+            Signatory::from(charlie_did),
+        )
+        .next()
+        .unwrap()
+        .auth_id;
 
         let dave_auth_id =
-            <identity::Authorizations<TestStorage>>::iter_prefix(Signatory::from(dave_did))
+            <identity::Authorizations<TestStorage>>::iter_prefix_values(Signatory::from(dave_did))
                 .next()
                 .unwrap()
                 .auth_id;
 
-        let _by =
-            <identity::Authorizations<TestStorage>>::iter_prefix(Signatory::from(charlie_did))
-                .next()
-                .unwrap()
-                .authorized_by;
+        let _by = <identity::Authorizations<TestStorage>>::iter_prefix_values(Signatory::from(
+            charlie_did,
+        ))
+        .next()
+        .unwrap()
+        .authorized_by;
 
         assert_ok!(MultiSig::accept_multisig_signer_as_identity(
             charlie,
@@ -723,10 +727,11 @@ fn remove_multisig_signers_via_creator() {
 
         assert_eq!(MultiSig::number_of_signers(musig_address.clone()), 0);
 
-        let alice_auth_id = <identity::Authorizations<TestStorage>>::iter_prefix(alice_signer)
-            .next()
-            .unwrap()
-            .auth_id;
+        let alice_auth_id =
+            <identity::Authorizations<TestStorage>>::iter_prefix_values(alice_signer)
+                .next()
+                .unwrap()
+                .auth_id;
 
         assert_ok!(MultiSig::accept_multisig_signer_as_identity(
             alice.clone(),
@@ -735,7 +740,7 @@ fn remove_multisig_signers_via_creator() {
 
         assert_eq!(MultiSig::number_of_signers(musig_address.clone()), 1);
 
-        let bob_auth_id = <identity::Authorizations<TestStorage>>::iter_prefix(bob_signer)
+        let bob_auth_id = <identity::Authorizations<TestStorage>>::iter_prefix_values(bob_signer)
             .next()
             .unwrap()
             .auth_id;
@@ -818,7 +823,7 @@ fn add_multisig_signers_via_creator() {
         ));
 
         let alice_auth_id =
-            <identity::Authorizations<TestStorage>>::iter_prefix(Signatory::from(alice_did))
+            <identity::Authorizations<TestStorage>>::iter_prefix_values(Signatory::from(alice_did))
                 .next()
                 .unwrap()
                 .auth_id;
@@ -862,7 +867,7 @@ fn add_multisig_signers_via_creator() {
             false
         );
 
-        let bob_auth_id = <identity::Authorizations<TestStorage>>::iter_prefix(bob_signer)
+        let bob_auth_id = <identity::Authorizations<TestStorage>>::iter_prefix_values(bob_signer)
             .next()
             .unwrap()
             .auth_id;
@@ -897,7 +902,7 @@ fn check_for_approval_closure() {
         ));
 
         let alice_auth_id =
-            <identity::Authorizations<TestStorage>>::iter_prefix(Signatory::from(alice_did))
+            <identity::Authorizations<TestStorage>>::iter_prefix_values(Signatory::from(alice_did))
                 .next()
                 .unwrap()
                 .auth_id;
@@ -914,7 +919,7 @@ fn check_for_approval_closure() {
         );
 
         let eve_auth_id =
-            <identity::Authorizations<TestStorage>>::iter_prefix(Signatory::from(eve_did))
+            <identity::Authorizations<TestStorage>>::iter_prefix_values(Signatory::from(eve_did))
                 .next()
                 .unwrap()
                 .auth_id;
@@ -947,7 +952,7 @@ fn check_for_approval_closure() {
             false
         ));
         let proposal_id = MultiSig::proposal_ids(musig_address.clone(), call).unwrap();
-        let mut auth = <identity::Authorizations<TestStorage>>::iter_prefix(bob_signer);
+        let mut auth = <identity::Authorizations<TestStorage>>::iter_prefix_values(bob_signer);
         let bob_auth_id = auth.next().unwrap().auth_id;
         let multi_purpose_nonce = Identity::multi_purpose_nonce();
 
@@ -957,7 +962,7 @@ fn check_for_approval_closure() {
             musig_address.clone(),
             proposal_id
         ));
-        auth = <identity::Authorizations<TestStorage>>::iter_prefix(bob_signer);
+        auth = <identity::Authorizations<TestStorage>>::iter_prefix_values(bob_signer);
         let after_extra_approval_auth_id = auth.next().unwrap().auth_id;
         let after_extra_approval_multi_purpose_nonce = Identity::multi_purpose_nonce();
         // To validate that no new auth is created
@@ -1188,7 +1193,7 @@ fn setup_multisig(creator_origin: Origin, sigs_required: u64, signers: Vec<Signa
     ));
 
     for signer in signers {
-        let auth_id = <identity::Authorizations<TestStorage>>::iter_prefix(signer)
+        let auth_id = <identity::Authorizations<TestStorage>>::iter_prefix_values(signer)
             .next()
             .unwrap()
             .auth_id;
