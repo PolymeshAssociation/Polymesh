@@ -23,7 +23,7 @@ elif [[ -f ${GIT_DIR}/.git/describe_ref ]]; then
     POLYMESH_VERSION=$(cat ${GIT_DIR}/.git/describe_ref)
 else
     echo "no reference for the polymesh version found"
-    ls -al ${GIT_DIR}
+    ls -al ${GIT_DIR}/.git
     exit 1
 fi
 
