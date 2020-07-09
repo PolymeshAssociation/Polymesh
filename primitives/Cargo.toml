@@ -13,7 +13,7 @@ serde = { version = "1.0.104", optional = true, features = ["derive"] }
 blake2 = { version = "0.9.0", default-features = false }
 
 # Crypto
-cryptography = { path = "../3rdParty/cryptography", default-features = false }
+cryptography = { path = "../external/cryptography", default-features = false }
 curve25519-dalek = { version = "2", default-features = false, features = ["nightly"] }
 
 # Substrate
