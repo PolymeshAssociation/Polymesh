@@ -92,8 +92,13 @@ jobs:
             run:
               path: bash
               args: ["r-git-polymesh/.concourse/scripts/t-lint-clippy.sh", "r-git-polymesh", "build-caches"]
-            on_failure:
-              task: ignore_clippy
+          on_failure:
+            task: ignore_clippy
+            config:
+              platform: linux
+              image_resource:
+                type: registry-image
+                source: { repository: busybox }
               run:
                 path: echo
                 args:
