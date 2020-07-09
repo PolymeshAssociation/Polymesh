@@ -1,4 +1,4 @@
 [submodule "3rdParty/cryptography"]
 	path = 3rdParty/cryptography
 	url = git@github.com:PolymathNetwork/cryptography.git
-	branch = CRYP-119/split_crypto
+	branch = master
