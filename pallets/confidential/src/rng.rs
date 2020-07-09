@@ -19,11 +19,11 @@ use rand::rngs::OsRng;
 ///  multi-threading environment.
 #[runtime_interface]
 pub trait NativeRng {
-    fn os_next_u32() -> u32 {
+    fn next_u32() -> u32 {
         OsRng::default().next_u32()
     }
 
-    fn os_next_u64() -> u64 {
+    fn next_u64() -> u64 {
         OsRng::default().next_u64()
     }
 
@@ -69,7 +69,7 @@ impl RngCore for Rng {
     #[inline]
     #[cfg(not(feature = "std"))]
     fn next_u32(&mut self) -> u32 {
-        native_rng::os_next_u32()
+        native_rng::next_u32()
     }
 
     #[inline]
@@ -81,7 +81,7 @@ impl RngCore for Rng {
     #[inline]
     #[cfg(not(feature = "std"))]
     fn next_u64(&mut self) -> u64 {
-        native_rng::os_next_u64()
+        native_rng::next_u64()
     }
 
     #[inline]

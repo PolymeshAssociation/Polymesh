@@ -88,7 +88,7 @@ fn add_claims_batch() {
     let scope = Scope::from(0);
 
     let alice_cdd =
-        Claim::CustomerDueDiligence(CddId::new(alice_did, InvestorUID::from(&alice_did)));
+        Claim::CustomerDueDiligence(CddId::new(alice_did, InvestorUID::from(alice_did.as_ref())));
     let claim_records = vec![
         BatchAddClaimItem {
             target: alice_did,
@@ -1256,7 +1256,7 @@ fn cdd_register_did_test_we() {
 
     // Check that Alice's ID is attested by CDD 1.
     let alice_id = get_identity_id(AccountKeyring::Alice).unwrap();
-    let alice_cdd_id = CddId::new(alice_id, InvestorUID::from(&alice_id));
+    let alice_cdd_id = CddId::new(alice_id, InvestorUID::from(alice_id.as_ref()));
     assert_ok!(Identity::add_claim(
         cdd1.clone(),
         alice_id,
@@ -1274,7 +1274,7 @@ fn cdd_register_did_test_we() {
     // CDD 2 registers properly Bob's ID.
     assert_ok!(Identity::cdd_register_did(cdd2.clone(), bob_acc, vec![]));
     let bob_id = get_identity_id(AccountKeyring::Bob).unwrap();
-    let bob_cdd_id = CddId::new(bob_id, InvestorUID::from(&bob_id));
+    let bob_cdd_id = CddId::new(bob_id, InvestorUID::from(bob_id.as_ref()));
     assert_ok!(Identity::add_claim(
         cdd2,
         bob_id,
@@ -1298,7 +1298,7 @@ fn cdd_register_did_test_we() {
         signing_keys
     ));
     let charlie_id = get_identity_id(AccountKeyring::Charlie).unwrap();
-    let charlie_cdd_id = CddId::new(charlie_id, InvestorUID::from(&charlie_id));
+    let charlie_cdd_id = CddId::new(charlie_id, InvestorUID::from(charlie_id.as_ref()));
     assert_ok!(Identity::add_claim(
         cdd1.clone(),
         charlie_id,
@@ -1489,7 +1489,8 @@ fn invalidate_cdd_claims_we() {
 
     // Check that Alice's ID is attested by CDD 1.
     let alice_id = get_identity_id(AccountKeyring::Alice).unwrap();
-    let alice_cdd = Claim::CustomerDueDiligence(CddId::new(alice_id, InvestorUID::from(&alice_id)));
+    let alice_cdd =
+        Claim::CustomerDueDiligence(CddId::new(alice_id, InvestorUID::from(alice_id.as_ref())));
     assert_ok!(Identity::add_claim(
         Origin::signed(cdd_1_acc),
         alice_id,
@@ -1566,8 +1567,10 @@ fn cdd_provider_with_systematic_cdd_claims_we() {
         vec![]
     ));
     let charlie_id = get_identity_id(AccountKeyring::Charlie).unwrap();
-    let charlie_cdd =
-        Claim::CustomerDueDiligence(CddId::new(charlie_id, InvestorUID::from(&charlie_id)));
+    let charlie_cdd = Claim::CustomerDueDiligence(CddId::new(
+        charlie_id,
+        InvestorUID::from(charlie_id.as_ref()),
+    ));
     assert_ok!(Identity::add_claim(
         alice,
         charlie_id,
@@ -1644,7 +1647,7 @@ fn gc_with_systematic_cdd_claims_we() {
     ));
     let ferdie_id = get_identity_id(AccountKeyring::Ferdie).unwrap();
     let ferdie_cdd =
-        Claim::CustomerDueDiligence(CddId::new(ferdie_id, InvestorUID::from(&ferdie_id)));
+        Claim::CustomerDueDiligence(CddId::new(ferdie_id, InvestorUID::from(ferdie_id.as_ref())));
     assert_ok!(Identity::add_claim(alice, ferdie_id, ferdie_cdd, Some(10)));
 
     let ferdie_id =
@@ -1730,8 +1733,10 @@ fn add_permission_with_signing_item() {
                 vec![sig_1.clone(), sig_2.clone()]
             ));
             let alice_id = get_identity_id(AccountKeyring::Alice).unwrap();
-            let alice_cdd =
-                Claim::CustomerDueDiligence(CddId::new(alice_id, InvestorUID::from(&alice_id)));
+            let alice_cdd = Claim::CustomerDueDiligence(CddId::new(
+                alice_id,
+                InvestorUID::from(alice_id.as_ref()),
+            ));
             assert_ok!(Identity::add_claim(
                 Origin::signed(cdd_1_acc),
                 alice_id,

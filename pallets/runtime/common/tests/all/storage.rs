@@ -526,7 +526,7 @@ pub fn make_account_with_balance(
         let did = Identity::get_identity(&id).unwrap();
 
         // Add CDD claim with CDD_ID.
-        let investor_uid = InvestorUID::from(&did);
+        let investor_uid = InvestorUID::from(did.as_ref());
         let cdd_claim = Claim::CustomerDueDiligence(CddId::new(did, investor_uid));
 
         Identity::add_claim(Origin::signed(cdd_acc), did, cdd_claim, None)

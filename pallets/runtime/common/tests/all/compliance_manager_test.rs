@@ -199,7 +199,7 @@ fn should_add_and_verify_asset_rule_we() {
     assert_eq!(result.rules[0].receiver_rules[0].rule, receiver_rule1);
     assert_eq!(result.rules[0].receiver_rules[1].rule, receiver_rule2);
 
-    let cdd_id = CddId::new(token_rec_did, InvestorUID::from(&token_rec_did));
+    let cdd_id = CddId::new(token_rec_did, InvestorUID::from(token_rec_did.as_ref()));
     assert_ok!(Identity::add_claim(
         cdd_signed.clone(),
         token_rec_did,
@@ -515,7 +515,7 @@ fn should_successfully_add_and_use_default_issuers_we() {
         vec![trusted_issuer_did]
     );
 
-    let cdd_id = CddId::new(receiver_did, InvestorUID::from(&receiver_did));
+    let cdd_id = CddId::new(receiver_did, InvestorUID::from(receiver_did.as_ref()));
     assert_ok!(Identity::add_claim(
         trusted_issuer_signed.clone(),
         receiver_did.clone(),
@@ -554,7 +554,7 @@ fn should_successfully_add_and_use_default_issuers_we() {
         AssetError::<TestStorage>::InvalidTransfer
     );
 
-    let cdd_id = CddId::new(token_owner_did, InvestorUID::from(&token_owner_did));
+    let cdd_id = CddId::new(token_owner_did, InvestorUID::from(token_owner_did.as_ref()));
     assert_ok!(Identity::add_claim(
         trusted_issuer_signed.clone(),
         token_owner_did.clone(),
@@ -663,7 +663,7 @@ fn should_modify_vector_of_trusted_issuer_we() {
     );
 
     // adding claim by trusted issuer 1
-    let cdd_id = CddId::new(receiver_did, InvestorUID::from(&receiver_did));
+    let cdd_id = CddId::new(receiver_did, InvestorUID::from(receiver_did.as_ref()));
     assert_ok!(Identity::add_claim(
         trusted_issuer_signed_1.clone(),
         receiver_did.clone(),
@@ -680,7 +680,7 @@ fn should_modify_vector_of_trusted_issuer_we() {
     ));
 
     // adding claim by trusted issuer 2
-    let cdd_id = CddId::new(token_owner_did, InvestorUID::from(&token_owner_did));
+    let cdd_id = CddId::new(token_owner_did, InvestorUID::from(token_owner_did.as_ref()));
     assert_ok!(Identity::add_claim(
         trusted_issuer_signed_2.clone(),
         token_owner_did.clone(),

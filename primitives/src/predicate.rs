@@ -301,7 +301,7 @@ mod tests {
         let scope = Scope::from(0);
         let cdd_claim = Claim::CustomerDueDiligence(CddId::new(
             IdentityId::from(1),
-            InvestorUID::from(b"UID1"),
+            InvestorUID::from(b"UID1".as_ref()),
         ));
         let context = Context::from(vec![cdd_claim.clone(), Claim::Affiliate(scope)]);
 

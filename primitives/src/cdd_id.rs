@@ -88,7 +88,7 @@ mod tests {
     fn cdd_id_generation() {
         let alice_id_1 = IdentityId::from(1);
         let alice_id_2 = IdentityId::from(2);
-        let alice_uid = InvestorUID::from(b"alice_uid");
+        let alice_uid = InvestorUID::from(b"alice_uid".as_ref());
 
         let alice_cdd_id_1 = CddId::new(alice_id_1, alice_uid);
         let alice_cdd_id_2 = CddId::new(alice_id_2, alice_uid);

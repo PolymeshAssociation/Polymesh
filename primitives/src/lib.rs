@@ -222,10 +222,9 @@ mod tests {
         // let text3 = &b"Lorem Ipsum dolor sit amet";
 
         // From traits.
-        let mut c1 = C::from(text1);
-        let c2: C = text1.into();
-        let _d1 = D::from(text2.to_vec());
-        let _d2: D = text2.to_vec().into();
+        let mut c1 = C::from(text1.as_ref());
+        let c2: C = C::from(text1.as_ref());
+        let _d1 = D::from(text2.as_ref());
 
         // Deref & DerefMut
         let text1_with_zeros = &b"lorem Ipsum \0\0\0\0";

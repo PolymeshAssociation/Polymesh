@@ -38,6 +38,13 @@ pub(crate) fn impl_slice_u8_strong_typed(ast: &syn::DeriveInput) -> TokenStream 
             }
         }
 
+        impl From<&str> for #name {
+            #[inline]
+            fn from(s: &str) -> Self {
+                Self::from(s.as_bytes())
+            }
+        }
+
         impl AsRef<[u8]> for #name {
             #[inline]
             fn as_ref(&self) -> &[u8] {

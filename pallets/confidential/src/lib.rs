@@ -22,7 +22,9 @@ use polymesh_primitives_derive::{SliceU8StrongTyped, VecU8StrongTyped};
 use pallet_identity as identity;
 
 use bulletproofs::RangeProof;
-use cryptography::asset_proofs::range_proof::{prove_within_range, verify_within_range};
+use cryptography::asset_proofs::range_proof::{
+    prove_within_range, verify_within_range, InRangeProof,
+};
 use curve25519_dalek::{ristretto::CompressedRistretto, scalar::Scalar};
 
 use codec::{Decode, Encode};
@@ -91,15 +93,15 @@ decl_module! {
             // Create proof
             let mut rng = rng::Rng::default();
             let rand_blind = Scalar::random(&mut rng);
-            let (init_message, final_response, _range) = prove_within_range( secret_value, rand_blind, 32, &mut rng)
+            let in_range_proof = prove_within_range( secret_value, rand_blind, 32, &mut rng)
                 .map_err(|e| {
                     debug::error!("Confidential error: {:?}", e);
                     Error::<T>::InvalidRangeProof
                 })?;
 
             let ticker_range_proof = TickerRangeProof {
-                initial_message: RangeProofInitialMessageWrapper(*init_message.as_bytes()),
-                final_response: final_response.to_bytes().into(),
+                initial_message: RangeProofInitialMessageWrapper(*in_range_proof.init.as_bytes()),
+                final_response: in_range_proof.response.to_bytes().into(),
                 max_two_exp: 32,
             };
             let prover_ticker_key = ProverTickerKey { prover, ticker };
@@ -153,11 +155,15 @@ impl<T: Trait> Module<T> {
         let trp = Self::range_proof(&target, &prover_ticker_key)
             .ok_or_else(|| Error::<T>::MissingRangeProof)?;
 
-        let initial_message = CompressedRistretto::from_slice(trp.initial_message.as_slice());
-        let final_response = RangeProof::from_bytes(trp.final_response.as_slice())
+        let init = CompressedRistretto::from_slice(trp.initial_message.as_slice());
+        let response = RangeProof::from_bytes(trp.final_response.as_slice())
             .map_err(|_| Error::<T>::InvalidRangeProof)?;
+        let proof = InRangeProof {
+            init,
+            response,
+            range: 32,
+        };
 
-        verify_within_range(initial_message, final_response, trp.max_two_exp, &mut rng)
-            .map_err(|_| Error::<T>::InvalidRangeProof.into())
+        verify_within_range(&proof, &mut rng).map_err(|_| Error::<T>::InvalidRangeProof.into())
     }
 }

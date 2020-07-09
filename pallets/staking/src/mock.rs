@@ -610,42 +610,42 @@ impl ExtBuilder {
                     account_key_ring.get(&1005).unwrap().clone(),
                     IdentityId::from(1),
                     IdentityId::from(1),
-                    InvestorUID::from(b"uid1"),
+                    InvestorUID::from("uid1"),
                     None,
                 ),
                 (
                     account_key_ring.get(&11).unwrap().clone(),
                     IdentityId::from(1),
                     IdentityId::from(11),
-                    InvestorUID::from(b"uid11"),
+                    InvestorUID::from("uid11"),
                     None,
                 ),
                 (
                     account_key_ring.get(&21).unwrap().clone(),
                     IdentityId::from(1),
                     IdentityId::from(21),
-                    InvestorUID::from(b"uid21"),
+                    InvestorUID::from("uid21"),
                     None,
                 ),
                 (
                     account_key_ring.get(&31).unwrap().clone(),
                     IdentityId::from(1),
                     IdentityId::from(31),
-                    InvestorUID::from(b"uid31"),
+                    InvestorUID::from("uid31"),
                     None,
                 ),
                 (
                     account_key_ring.get(&41).unwrap().clone(),
                     IdentityId::from(1),
                     IdentityId::from(41),
-                    InvestorUID::from(b"uid41"),
+                    InvestorUID::from("uid41"),
                     None,
                 ),
                 (
                     account_key_ring.get(&101).unwrap().clone(),
                     IdentityId::from(1),
                     IdentityId::from(101),
-                    InvestorUID::from(b"uid101"),
+                    InvestorUID::from("uid101"),
                     None,
                 ),
             ],
@@ -918,7 +918,7 @@ pub fn create_did_and_add_claim_base(stash: AccountId, expiry: Option<u64>) {
     ));
 
     if let Some(new_did) = Identity::get_identity(&stash) {
-        let investor_uid = InvestorUID::from(&new_did);
+        let investor_uid = InvestorUID::from(new_did.as_ref());
         let cdd_claim = Claim::CustomerDueDiligence(CddId::new(new_did, investor_uid));
         let expiry = expiry.map(|e| e.into());
 
