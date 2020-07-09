@@ -566,7 +566,7 @@
             "identity_did": "IdentityId",
             "value": "Balance"
         },
-        "ProberTickerKey": {
+        "ProverTickerKey": {
             "prover": "IdentityId",
             "ticker": "Ticker"
         },

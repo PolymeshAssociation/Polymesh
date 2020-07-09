@@ -1,4 +1,4 @@
-[submodule "3rdParty/cryptography"]
-	path = 3rdParty/cryptography
+[submodule "external/cryptography"]
+	path = external/cryptography
 	url = git@github.com:PolymathNetwork/cryptography.git
 	branch = master
