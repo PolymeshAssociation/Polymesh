@@ -1,20 +1,19 @@
-// Copyright 2019 Parity Technologies (UK) Ltd.
 // This file is part of Substrate.
 
-// Substrate is free software: you can redistribute it and/or modify
-// it under the terms of the GNU General Public License as published by
-// the Free Software Foundation, either version 3 of the License, or
-// (at your option) any later version.
+// Copyright (C) 2019-2020 Parity Technologies (UK) Ltd.
+// SPDX-License-Identifier: Apache-2.0
 
-// Substrate is distributed in the hope that it will be useful,
-// but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-// GNU General Public License for more details.
-
-// You should have received a copy of the GNU General Public License
-// along with Substrate.  If not, see <http://www.gnu.org/licenses/>.
-
-// Modified by Polymath Inc - 23rd Febuary 2020
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// 	http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
 //! Test utilities
 
@@ -24,6 +23,7 @@ use std::cell::RefCell;
 
 use crate::{Module, Trait};
 use frame_support::{impl_outer_dispatch, impl_outer_origin, parameter_types, weights::Weight};
+use frame_system as system;
 use sp_core::H256;
 use sp_runtime::testing::{Header, TestXt, UintAuthorityId};
 use sp_runtime::traits::{BlakeTwo256, ConvertInto, IdentityLookup};
@@ -32,9 +32,8 @@ use sp_staking::{
     offence::{OffenceError, ReportOffence},
     SessionIndex,
 };
-
 impl_outer_origin! {
-    pub enum Origin for Runtime where system = frame_system {}
+    pub enum Origin for Runtime {}
 }
 
 impl_outer_dispatch! {
@@ -44,7 +43,11 @@ impl_outer_dispatch! {
 }
 
 thread_local! {
-    pub static VALIDATORS: RefCell<Option<Vec<u64>>> = RefCell::new(Some(vec![1, 2, 3]));
+    pub static VALIDATORS: RefCell<Option<Vec<u64>>> = RefCell::new(Some(vec![
+        1,
+        2,
+        3,
+    ]));
 }
 
 pub struct TestSessionManager;
@@ -70,10 +73,8 @@ impl pallet_session::historical::SessionManager<u64, u64> for TestSessionManager
 
 /// An extrinsic type used for tests.
 pub type Extrinsic = TestXt<Call, ()>;
-type SubmitTransaction = frame_system::offchain::TransactionSubmitter<(), Call, Extrinsic>;
 type IdentificationTuple = (u64, u64);
-type Offence = crate::UnresponsivenessOffence<Runtime, IdentificationTuple>;
-pub type AccountId = u64;
+type Offence = crate::UnresponsivenessOffence<IdentificationTuple>;
 
 thread_local! {
     pub static OFFENCES: RefCell<Vec<(Vec<u64>, Offence)>> = RefCell::new(vec![]);
@@ -106,18 +107,23 @@ parameter_types! {
 }
 
 impl frame_system::Trait for Runtime {
+    type BaseCallFilter = ();
     type Origin = Origin;
     type Index = u64;
     type BlockNumber = u64;
     type Call = Call;
     type Hash = H256;
     type Hashing = BlakeTwo256;
-    type AccountId = AccountId;
+    type AccountId = u64;
     type Lookup = IdentityLookup<Self::AccountId>;
     type Header = Header;
     type Event = ();
     type BlockHashCount = BlockHashCount;
     type MaximumBlockWeight = MaximumBlockWeight;
+    type DbWeight = ();
+    type BlockExecutionWeight = ();
+    type ExtrinsicBaseWeight = ();
+    type MaximumExtrinsicWeight = MaximumBlockWeight;
     type MaximumBlockLength = MaximumBlockLength;
     type AvailableBlockRatio = AvailableBlockRatio;
     type Version = ();
@@ -146,6 +152,7 @@ impl pallet_session::Trait for Runtime {
     type Keys = UintAuthorityId;
     type Event = ();
     type DisabledValidatorsThreshold = DisabledValidatorsThreshold;
+    type NextSessionRotation = pallet_session::PeriodicSessions<Period, Offset>;
 }
 
 impl pallet_session::historical::Trait for Runtime {
@@ -165,17 +172,23 @@ impl pallet_authorship::Trait for Runtime {
 }
 
 parameter_types! {
-    pub const OneThousand: AccountId = 1000;
+    pub const UnsignedPriority: u64 = 1 << 20;
 }
 
 impl Trait for Runtime {
     type AuthorityId = UintAuthorityId;
     type Event = ();
-    type Call = Call;
-    type SubmitTransaction = SubmitTransaction;
     type ReportUnresponsiveness = OffenceHandler;
     type SessionDuration = Period;
     type CommitteeOrigin = frame_system::EnsureRoot<AccountId>;
+}
+
+impl<LocalCall> frame_system::offchain::SendTransactionTypes<LocalCall> for Runtime
+where
+    Call: From<LocalCall>,
+{
+    type OverarchingCall = Call;
+    type Extrinsic = Extrinsic;
 }
 
 /// Im Online module.
@@ -184,8 +197,13 @@ pub type System = frame_system::Module<Runtime>;
 pub type Session = pallet_session::Module<Runtime>;
 
 pub fn advance_session() {
-    let now = System::block_number();
+    let now = System::block_number().max(1);
     System::set_block_number(now + 1);
     Session::rotate_session();
+    let keys = Session::validators()
+        .into_iter()
+        .map(UintAuthorityId)
+        .collect();
+    ImOnline::set_keys(keys);
     assert_eq!(Session::current_index(), (now / Period::get()) as u32);
 }

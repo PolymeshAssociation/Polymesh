@@ -64,7 +64,7 @@ fn should_add_and_verify_asset_rule() {
 
 fn should_add_and_verify_asset_rule_we() {
     // 0. Create accounts
-    let root = Origin::system(frame_system::RawOrigin::Root);
+    let root = Origin::from(frame_system::RawOrigin::Root);
     let token_owner_acc = AccountKeyring::Alice.public();
     let (token_owner_signed, token_owner_did) = make_account(token_owner_acc).unwrap();
     let token_rec_acc = AccountKeyring::Charlie.public();
@@ -458,7 +458,7 @@ fn should_successfully_add_and_use_default_issuers() {
 
 fn should_successfully_add_and_use_default_issuers_we() {
     // 0. Create accounts
-    let root = Origin::system(frame_system::RawOrigin::Root);
+    let root = Origin::from(frame_system::RawOrigin::Root);
     let token_owner_acc = AccountKeyring::Alice.public();
     let (token_owner_signed, token_owner_did) = make_account(token_owner_acc).unwrap();
     let trusted_issuer_acc = AccountKeyring::Charlie.public();
@@ -575,7 +575,7 @@ fn should_modify_vector_of_trusted_issuer() {
 
 fn should_modify_vector_of_trusted_issuer_we() {
     // 0. Create accounts
-    let root = Origin::system(frame_system::RawOrigin::Root);
+    let root = Origin::from(frame_system::RawOrigin::Root);
     let token_owner_acc = AccountKeyring::Alice.public();
     let (token_owner_signed, token_owner_did) = make_account(token_owner_acc).unwrap();
     let trusted_issuer_acc_1 = AccountKeyring::Charlie.public();

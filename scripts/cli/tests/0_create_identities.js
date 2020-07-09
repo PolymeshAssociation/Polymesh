@@ -45,7 +45,7 @@ async function createIdentities(api, accounts, alice) {
       await reqImports.blockTillPoolEmpty(api);
       for (let i = 0; i < accounts.length; i++) {
         const d = await api.query.identity.keyToIdentityIds(accounts[i].publicKey);
-        dids.push(d.raw.asUnique);
+        dids.push(d.toHuman().Unique);
       }
       let did_balance = 1000 * 10**6;
       for (let i = 0; i < dids.length; i++) {

@@ -84,7 +84,7 @@ fn cdd_checks() {
                 musig_address.clone(),
             ));
             let alice_auth_id =
-                <identity::Authorizations<TestStorage>>::iter_prefix(alice_key_signatory)
+                <identity::Authorizations<TestStorage>>::iter_prefix_values(alice_key_signatory)
                     .next()
                     .unwrap()
                     .auth_id;
@@ -106,7 +106,7 @@ fn cdd_checks() {
                 1,
             ));
             let alice_auth_id =
-                <identity::Authorizations<TestStorage>>::iter_prefix(alice_key_signatory)
+                <identity::Authorizations<TestStorage>>::iter_prefix_values(alice_key_signatory)
                     .next()
                     .unwrap()
                     .auth_id;

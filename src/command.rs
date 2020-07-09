@@ -14,130 +14,129 @@
 // You should have received a copy of the GNU General Public License
 // along with Substrate.  If not, see <http://www.gnu.org/licenses/>.
 
+use crate::chain_spec;
 use crate::cli::{Cli, Subcommand};
-use crate::load_chain_spec::{load_spec, IsV1Network};
 use crate::service;
+use crate::service::IsAldebaranNetwork;
 use chrono::prelude::*;
 use log::info;
+use polymesh_primitives::Block;
+pub use sc_cli::{Result, SubstrateCli};
+use sc_executor::NativeExecutionDispatch;
 
 #[cfg(feature = "runtime-benchmarks")]
 use polymesh_runtime::runtime;
-use sc_cli::VersionInfo;
 
-/// Parse command line arguments into service configuration.
-pub fn run<I, T>(args: I, version: VersionInfo) -> sc_cli::Result<()>
-where
-    I: Iterator<Item = T>,
-    T: Into<std::ffi::OsString> + Clone,
-{
-    let args: Vec<_> = args.collect();
-    let mut opt = sc_cli::from_iter::<Cli, _>(args.clone(), &version);
-    if opt.run.operator {
-        opt.run.base.validator = true;
+impl SubstrateCli for Cli {
+    fn impl_name() -> &'static str {
+        "Polymesh Node"
     }
-    let mut config = sc_service::Configuration::<polymesh_runtime_testnet_v1::config::GenesisConfig>::from_version(&version);
 
-    match opt.subcommand {
-        Some(Subcommand::Base(subcommand)) => {
-            subcommand.init(&version)?;
-            subcommand.update_config(&mut config, load_spec, &version)?;
+    fn impl_version() -> &'static str {
+        env!("CARGO_PKG_VERSION")
+    }
 
-            let is_v1_network = config
-                .chain_spec
-                .as_ref()
-                .map_or(false, |s| s.is_v1_network());
+    fn description() -> &'static str {
+        env!("CARGO_PKG_DESCRIPTION")
+    }
 
-            if is_v1_network {
-                subcommand.run(
-                    config,
-                    service::chain_ops::<
-                        service::polymesh_runtime_testnet_v1::RuntimeApi,
-                        service::V1Executor,
-                        service::polymesh_runtime_testnet_v1::UncheckedExtrinsic,
-                    >,
+    fn author() -> &'static str {
+        env!("CARGO_PKG_AUTHORS")
+    }
+
+    fn support_url() -> &'static str {
+        "https://github.com/PolymathNetwork/polymesh/issues/new"
+    }
+
+    fn copyright_start_year() -> i32 {
+        2017
+    }
+
+    fn executable_name() -> &'static str {
+        "polymesh"
+    }
+
+    fn load_spec(&self, id: &str) -> std::result::Result<Box<dyn sc_service::ChainSpec>, String> {
+        Ok(match id {
+            "dev" => Box::new(chain_spec::general_development_testnet_config()),
+            "local" => Box::new(chain_spec::general_local_testnet_config()),
+            "live" => Box::new(chain_spec::general_live_testnet_config()),
+            "aldebaran-dev" => Box::new(chain_spec::aldebaran_develop_testnet_config()),
+            "aldebaran-local" => Box::new(chain_spec::aldebaran_local_testnet_config()),
+            "aldebaran-live" => Box::new(chain_spec::aldebaran_live_testnet_config()),
+            "Aldebaran" | "aldebaran" | "" => {
+                Box::new(chain_spec::AldebaranChainSpec::from_json_bytes(
+                    &include_bytes!("./chain_specs/aldebaran_raw.json")[..],
+                )?)
+            }
+            path => Box::new(chain_spec::GeneralChainSpec::from_json_file(
+                std::path::PathBuf::from(path),
+            )?),
+        })
+    }
+}
+
+/// Parses Polymesh specific CLI arguments and run the service.
+pub fn run() -> Result<()> {
+    let mut cli = Cli::from_args();
+    if cli.run.operator {
+        cli.run.base.validator = true;
+    }
+    match &cli.subcommand {
+        None => {
+            let runtime = cli.create_runner(&cli.run.base)?;
+            let chain_spec = &runtime.config().chain_spec;
+
+            //let authority_discovery_enabled = cli.run.authority_discovery_enabled;
+            info!(
+                "Reserved nodes: {:?}",
+                cli.run.base.network_params.reserved_nodes
+            );
+
+            if chain_spec.is_aldebaran_network() {
+                runtime.run_node(
+                    |config| service::aldebaran_new_light(config),
+                    |config| service::aldebaran_new_full(config),
+                    service::AldebaranExecutor::native_version().runtime_version,
                 )
             } else {
-                subcommand.run(
-                    config,
+                runtime.run_node(
+                    |config| service::general_new_light(config),
+                    |config| service::general_new_full(config),
+                    service::GeneralExecutor::native_version().runtime_version,
+                )
+            }
+        }
+        Some(Subcommand::Base(subcommand)) => {
+            let runtime = cli.create_runner(subcommand)?;
+            let chain_spec = &runtime.config().chain_spec;
+
+            if chain_spec.is_aldebaran_network() {
+                runtime.run_subcommand(subcommand, |config| {
+                    service::chain_ops::<
+                        service::polymesh_runtime_testnet_v1::RuntimeApi,
+                        service::AldebaranExecutor,
+                        service::polymesh_runtime_testnet_v1::UncheckedExtrinsic,
+                    >(config)
+                })
+            } else {
+                runtime.run_subcommand(subcommand, |config| {
                     service::chain_ops::<
                         service::polymesh_runtime_develop::RuntimeApi,
                         service::GeneralExecutor,
                         service::polymesh_runtime_develop::UncheckedExtrinsic,
-                    >,
-                )
+                    >(config)
+                })
             }
         }
-        #[cfg(feature = "runtime-benchmarks")]
         Some(Subcommand::Benchmark(cmd)) => {
-            cmd.init(&version)?;
-            cmd.update_config(&mut config, load_spec, &version)?;
-            let is_v1_network = config
-                .chain_spec
-                .as_ref()
-                .map_or(false, |s| s.is_v1_network());
-            if is_v1_network {
-                cmd.run::<_, _, service::Block, service::V1Executor>(config)
-            } else {
-                cmd.run::<_, _, service::Block, service::GeneralExecutor>(config)
-            }
-        }
-        None => {
-            opt.run.base.init(&version)?;
-            opt.run
-                .base
-                .update_config(&mut config, load_spec, &version)?;
+            let runtime = cli.create_runner(cmd)?;
+            let chain_spec = &runtime.config().chain_spec;
 
-            info!("{}", version.name);
-            info!("  version {}", config.full_version());
-            info!(
-                "  by {}, {}-{}",
-                version.author,
-                version.copyright_start_year,
-                Local::today().year()
-            );
-            info!("Chain specification: {}", config.expect_chain_spec().name());
-            info!("Node name: {}", config.name);
-            info!("Roles: {}", config.display_role());
-            info!("Reserved nodes: {:?}", config.network.reserved_nodes);
-
-            let is_v1_network = config
-                .chain_spec
-                .as_ref()
-                .map_or(false, |s| s.is_v1_network());
-            if is_v1_network {
-                match config.roles {
-                    service::Roles::LIGHT => sc_cli::run_service_until_exit(config, |config| {
-                        service::new_light::<
-                            service::polymesh_runtime_testnet_v1::RuntimeApi,
-                            service::V1Executor,
-                            service::polymesh_runtime_testnet_v1::UncheckedExtrinsic,
-                        >(config)
-                    }),
-                    _ => sc_cli::run_service_until_exit(config, |config| {
-                        service::new_full::<
-                            service::polymesh_runtime_testnet_v1::RuntimeApi,
-                            service::V1Executor,
-                            service::polymesh_runtime_testnet_v1::UncheckedExtrinsic,
-                        >(config)
-                    }),
-                }
+            if chain_spec.is_aldebaran_network() {
+                runtime.sync_run(|config| cmd.run::<Block, service::AldebaranExecutor>(config))
             } else {
-                match config.roles {
-                    service::Roles::LIGHT => sc_cli::run_service_until_exit(config, |config| {
-                        service::new_light::<
-                            service::polymesh_runtime_develop::RuntimeApi,
-                            service::GeneralExecutor,
-                            service::polymesh_runtime_develop::UncheckedExtrinsic,
-                        >(config)
-                    }),
-                    _ => sc_cli::run_service_until_exit(config, |config| {
-                        service::new_full::<
-                            service::polymesh_runtime_develop::RuntimeApi,
-                            service::GeneralExecutor,
-                            service::polymesh_runtime_develop::UncheckedExtrinsic,
-                        >(config)
-                    }),
-                }
+                runtime.sync_run(|config| cmd.run::<Block, service::GeneralExecutor>(config))
             }
         }
     }

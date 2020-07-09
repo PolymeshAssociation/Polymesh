@@ -38,6 +38,7 @@ use frame_support::{
     dispatch::DispatchResult,
     ensure,
     traits::{Currency, ExistenceRequirement, Imbalance, OnUnbalanced, WithdrawReason},
+    weights::{DispatchClass, Pays},
 };
 use frame_system::{self as system, ensure_root, ensure_signed};
 use pallet_identity as identity;
@@ -104,6 +105,7 @@ decl_module! {
         /// # Error
         /// * `BadOrigin`: Only root can execute transaction.
         /// * `InsufficientBalance`: If treasury balances is not enough to cover all beneficiaries.
+        #[weight = (500_000, DispatchClass::Operational, Pays::Yes)]
         pub fn disbursement(origin, beneficiaries: Vec<Beneficiary<BalanceOf<T>>>) -> DispatchResult
         {
             ensure_root(origin)?;
@@ -123,6 +125,7 @@ decl_module! {
         /// It transfers the specific `amount` from `origin` account into treasury.
         ///
         /// Only accounts which are associated to an identity can make a donation to treasury.
+        #[weight = (500_000, DispatchClass::Operational, Pays::Yes)]
         pub fn reimbursement(origin, amount: BalanceOf<T>) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             let did = Context::current_identity_or::<Identity<T>>(&sender)?;

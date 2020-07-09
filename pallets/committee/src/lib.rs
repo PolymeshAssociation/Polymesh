@@ -59,8 +59,8 @@ use frame_support::{
     decl_error, decl_event, decl_module, decl_storage,
     dispatch::{DispatchResult, Dispatchable, Parameter},
     ensure,
-    traits::{ChangeMembers, Get, InitializeMembers},
-    weights::SimpleDispatchInfo,
+    traits::{ChangeMembers, EnsureOrigin, Get, InitializeMembers},
+    weights::{DispatchClass::Operational, Pays},
 };
 use frame_system::{self as system, ensure_signed};
 use pallet_identity as identity;
@@ -73,8 +73,8 @@ use polymesh_common_utilities::{
 };
 use polymesh_primitives::IdentityId;
 use sp_core::u32_trait::Value as U32;
-use sp_runtime::traits::{EnsureOrigin, Hash, Zero};
-use sp_std::{prelude::*, vec};
+use sp_runtime::traits::{Hash, Zero};
+use sp_std::{convert::TryFrom, prelude::*, vec};
 
 /// Simple index type for proposal counting.
 pub type ProposalIndex = u32;
@@ -222,7 +222,7 @@ decl_error! {
         TooEarly,
         /// When `MotionDuration` is set to 0.
         NotAllowed,
-        /// The urrent DID is missing.
+        /// The current DID is missing.
         MissingCurrentIdentity,
     }
 }
@@ -243,7 +243,7 @@ decl_module! {
         /// * `match_criteria` - One of {AtLeast, MoreThan}.
         /// * `n` - Numerator of the fraction representing vote threshold.
         /// * `d` - Denominator of the fraction representing vote threshold.
-        #[weight = SimpleDispatchInfo::FixedOperational(500_000)]
+        #[weight = (500_000, Operational, Pays::Yes)]
         pub fn set_vote_threshold(origin, n: u32, d: u32) {
             T::CommitteeOrigin::ensure_origin(origin)?;
             // Proportion must be a rational number
@@ -271,7 +271,7 @@ decl_module! {
         ///   - `M` is number of members,
         ///   - `P` is number of active proposals,
         ///   - `L` is the encoded length of `proposal` preimage.
-        #[weight = SimpleDispatchInfo::FixedOperational(2_000_000)]
+        #[weight = (2_000_000, Operational, Pays::Yes)]
         fn close(origin, proposal: T::Hash, #[compact] index: ProposalIndex) {
             let who = ensure_signed(origin)?;
             let did = Context::current_identity_or::<Identity<T>>(&who)?;
@@ -312,7 +312,7 @@ decl_module! {
         ///
         /// # Errors
         /// * `MemberNotFound`, If the new coordinator `id` is not part of the committee.
-        #[weight = SimpleDispatchInfo::FixedOperational(500_000)]
+        #[weight = (500_000, Operational, Pays::Yes)]
         pub fn set_release_coordinator(origin, id: IdentityId ) {
             T::CommitteeOrigin::ensure_origin(origin)?;
             ensure!( Self::members().contains(&id), Error::<T, I>::MemberNotFound);
@@ -322,7 +322,7 @@ decl_module! {
             Self::deposit_event(RawEvent::ReleaseCoordinatorUpdated(current_did, Some(id)));
         }
 
-        #[weight = SimpleDispatchInfo::FixedOperational(5_000_000)]
+        #[weight = (5_000_000, Operational, Pays::Yes)]
         pub fn vote_enact_referendum(origin, id: PipId) -> DispatchResult {
             Self::vote_referendum( origin, id,
                 || {
@@ -335,7 +335,7 @@ decl_module! {
             Ok(())
         }
 
-        #[weight = SimpleDispatchInfo::FixedOperational(5_000_000)]
+        #[weight = (5_000_000, Operational, Pays::Yes)]
         pub fn vote_reject_referendum(origin, id: PipId) -> DispatchResult {
             Self::vote_referendum( origin, id,
                 || {
