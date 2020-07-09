@@ -49,7 +49,6 @@
 use crate::simple_token;
 use frame_support::{
     decl_error, decl_event, decl_module, decl_storage, dispatch::DispatchResult, ensure,
-    weights::SimpleDispatchInfo,
 };
 use frame_system::{self as system, ensure_signed};
 use pallet_asset as asset;
@@ -117,7 +116,7 @@ decl_module! {
         fn deposit_event() = default;
 
         /// Creates a new dividend entry without payout. Token must have at least one checkpoint.
-        #[weight = SimpleDispatchInfo::FixedNormal(400_000)]
+        #[weight = 400_000]
         pub fn new(origin,
             amount: T::Balance,
             ticker: Ticker,
@@ -207,7 +206,7 @@ decl_module! {
         }
 
         /// Lets the owner cancel a dividend before start/maturity date
-        #[weight = SimpleDispatchInfo::FixedNormal(300_000)]
+        #[weight = 300_000]
         pub fn cancel(origin, ticker: Ticker, dividend_id: u32) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             let did = Context::current_identity_or::<Identity<T>>(&sender)?;
@@ -250,7 +249,7 @@ decl_module! {
 
         /// Withdraws from a dividend the adequate share of the `amount` field. All dividend shares
         /// are rounded by truncation (down to first integer below)
-        #[weight = SimpleDispatchInfo::FixedNormal(500_000)]
+        #[weight = 500_000]
         pub fn claim(origin, ticker: Ticker, dividend_id: u32) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             let did = Context::current_identity_or::<Identity<T>>(&sender)?;
@@ -324,7 +323,7 @@ decl_module! {
         }
 
         /// After a dividend had expired, collect the remaining amount to owner address
-        #[weight = SimpleDispatchInfo::FixedNormal(300_000)]
+        #[weight = 300_000]
         pub fn claim_unclaimed(origin, ticker: Ticker, dividend_id: u32) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             let did = Context::current_identity_or::<Identity<T>>(&sender)?;

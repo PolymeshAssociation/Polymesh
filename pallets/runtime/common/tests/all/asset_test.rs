@@ -236,7 +236,7 @@ fn valid_transfers_pass() {
             500
         ));
 
-        let mut cap_table = <asset::BalanceOf<TestStorage>>::iter_prefix(ticker);
+        let mut cap_table = <asset::BalanceOf<TestStorage>>::iter_prefix_values(ticker);
         let balance_alice = cap_table.next().unwrap();
         let balance_owner = cap_table.next().unwrap();
         assert_eq!(balance_owner, 1_000_000 - 500);
@@ -1117,7 +1117,8 @@ fn adding_removing_documents() {
             ticker
         ));
 
-        let mut docs = <identity::Links<TestStorage>>::iter_prefix(Signatory::from(ticker_did));
+        let mut docs =
+            <identity::Links<TestStorage>>::iter_prefix_values(Signatory::from(ticker_did));
         let mut doc1 = docs.next().unwrap();
         let mut doc2 = docs.next().unwrap();
         if doc1.link_id > doc2.link_id {
@@ -1168,7 +1169,7 @@ fn adding_removing_documents() {
             ticker
         ));
 
-        docs = <identity::Links<TestStorage>>::iter_prefix(Signatory::from(ticker_did));
+        docs = <identity::Links<TestStorage>>::iter_prefix_values(Signatory::from(ticker_did));
         doc1 = docs.next().unwrap();
         doc2 = docs.next().unwrap();
         if doc1.link_id > doc2.link_id {

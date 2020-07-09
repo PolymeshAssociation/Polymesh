@@ -15,7 +15,7 @@
 
 use jsonrpc_core::{Error as RpcError, ErrorCode, Result};
 use jsonrpc_derive::rpc;
-use pallet_protocol_fee_rpc_runtime_api::{CappedFee, ProtocolFeeApi as ProtocolFeeRuntimeApi};
+pub use pallet_protocol_fee_rpc_runtime_api::{CappedFee, ProtocolFeeApi as ProtocolFeeRuntimeApi};
 use polymesh_common_utilities::protocol_fee::ProtocolOp;
 use sp_api::ProvideRuntimeApi;
 use sp_blockchain::HeaderBackend;

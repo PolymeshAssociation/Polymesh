@@ -72,34 +72,41 @@
 // Ensure we're `no_std` when compiling for Wasm.
 #![cfg_attr(not(feature = "std"), no_std)]
 
+mod benchmarking;
 mod mock;
 mod tests;
 
 use codec::{Decode, Encode};
 use frame_support::{
-    debug, decl_error, decl_event, decl_module, decl_storage, ensure, traits::Get,
-    weights::SimpleDispatchInfo, Parameter,
+    debug, decl_error, decl_event, decl_module, decl_storage, ensure,
+    traits::EnsureOrigin,
+    traits::Get,
+    weights::{DispatchClass, Weight},
+    Parameter,
 };
-use frame_system::offchain::SubmitUnsignedTransaction;
+use frame_system::offchain::{SendTransactionTypes, SubmitTransaction};
 use frame_system::{self as system, ensure_none};
 use pallet_session::historical::IdentificationTuple;
 use sp_application_crypto::RuntimeAppPublic;
 use sp_core::offchain::OpaqueNetworkState;
 use sp_runtime::{
     offchain::storage::StorageValueRef,
-    traits::{AtLeast32Bit, Convert, EnsureOrigin, Member, Saturating},
+    traits::{AtLeast32Bit, Convert, Member, Saturating},
     transaction_validity::{
-        InvalidTransaction, TransactionPriority, TransactionValidity, ValidTransaction,
+        InvalidTransaction, TransactionPriority, TransactionSource, TransactionValidity,
+        ValidTransaction,
     },
-    PerThing, Perbill, RuntimeDebug,
+    Perbill, RuntimeDebug,
 };
-#[cfg(feature = "std")]
-use sp_runtime::{Deserialize, Serialize};
 use sp_staking::{
     offence::{Kind, Offence, ReportOffence},
     SessionIndex,
 };
-use sp_std::{convert::TryInto, marker::PhantomData, prelude::*};
+use sp_std::convert::TryInto;
+use sp_std::{marker::PhantomData, prelude::*};
+
+#[cfg(feature = "std")]
+use serde::{Deserialize, Serialize};
 
 pub mod sr25519 {
     mod app_sr25519 {
@@ -125,9 +132,10 @@ pub mod ed25519 {
         app_crypto!(ed25519, IM_ONLINE);
     }
 
-    /// An i'm online keypair using ed25519 as its crypto.
-    #[cfg(feature = "std")]
-    pub type AuthorityPair = app_ed25519::Pair;
+    sp_application_crypto::with_pair! {
+        /// An i'm online keypair using ed25519 as its crypto.
+        pub type AuthorityPair = app_ed25519::Pair;
+    }
 
     /// An i'm online signature using ed25519 as its crypto.
     pub type AuthoritySignature = app_ed25519::Signature;
@@ -229,6 +237,8 @@ where
     pub session_index: SessionIndex,
     /// An index of the authority on the list of validators.
     pub authority_index: AuthIndex,
+    /// The length of session validator set
+    pub validators_len: u32,
 }
 
 /// Preference of what happens regarding validation.
@@ -243,18 +253,12 @@ pub struct OfflineSlashingParams {
     pub max_slash_percent: u32,
 }
 
-pub trait Trait: frame_system::Trait + pallet_session::historical::Trait {
+pub trait Trait: SendTransactionTypes<Call<Self>> + pallet_session::historical::Trait {
     /// The identifier type for an authority.
     type AuthorityId: Member + Parameter + RuntimeAppPublic + Default + Ord;
 
     /// The overarching event type.
     type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
-
-    /// A dispatchable call type.
-    type Call: From<Call<Self>>;
-
-    /// A transaction submitter.
-    type SubmitTransaction: SubmitUnsignedTransaction<Self, <Self as Trait>::Call>;
 
     /// An expected duration of the session.
     ///
@@ -270,6 +274,12 @@ pub trait Trait: frame_system::Trait + pallet_session::historical::Trait {
         IdentificationTuple<Self>,
         UnresponsivenessOffence<Self, IdentificationTuple<Self>>,
     >;
+
+    /// A configuration for base priority of unsigned transactions.
+    ///
+    /// This is exposed so that it can be tuned for particular runtime, when
+    /// multiple pallets send unsigned transactions.
+    type UnsignedPriority: Get<TransactionPriority>;
 
     /// Origin for changing slashing params.
     type CommitteeOrigin: EnsureOrigin<Self::Origin>;
@@ -346,12 +356,29 @@ decl_module! {
 
         fn deposit_event() = default;
 
+        /// # <weight>
+        /// - Complexity: `O(K + E)` where K is length of `Keys` and E is length of
+        ///   `Heartbeat.network_state.external_address`
+        ///
+        ///   - `O(K)`: decoding of length `K`
+        ///   - `O(E)`: decoding/encoding of length `E`
+        /// - DbReads: pallet_session `Validators`, pallet_session `CurrentIndex`, `Keys`,
+        ///   `ReceivedHeartbeats`
+        /// - DbWrites: `ReceivedHeartbeats`
+        /// # </weight>
+        // NOTE: the weight include cost of validate_unsigned as it is part of the cost to import
+        // block with such an extrinsic.
+        #[weight = (310_000_000 + T::DbWeight::get().reads_writes(4, 1))
+            .saturating_add(750_000.saturating_mul(heartbeat.validators_len as Weight))
+            .saturating_add(
+                1_200_000.saturating_mul(heartbeat.network_state.external_addresses.len() as Weight)
+        )]
         fn heartbeat(
             origin,
             heartbeat: Heartbeat<T::BlockNumber>,
             // since signature verification is done in `validate_unsigned`
             // we can skip doing it here again.
-            _signature: <T::AuthorityId as RuntimeAppPublic>::Signature
+            _signature: <T::AuthorityId as RuntimeAppPublic>::Signature,
         ) {
             ensure_none(origin)?;
 
@@ -372,15 +399,15 @@ decl_module! {
                     &network_state
                 );
             } else if exists {
-              return  Err(Error::<T>::DuplicatedHeartbeat.into())
+                Err(Error::<T>::DuplicatedHeartbeat)?
             } else {
-              return  Err(Error::<T>::InvalidKey.into())
+                Err(Error::<T>::InvalidKey)?
             }
         }
 
         /// Set slashing params to be used in calculating `slash_fraction`
         /// Only Governance committee is allowed to set these params.
-        #[weight = SimpleDispatchInfo::FixedOperational(100_000)]
+        #[weight = (100_000, DispatchClass::Operational)]
         fn set_slashing_params(origin, params: OfflineSlashingParams) {
             ensure!(params.constant > 0, Error::<T>::InvalidSlashingParam);
             ensure!(params.max_offline_percent > 0, Error::<T>::InvalidSlashingParam);
@@ -479,9 +506,17 @@ impl<T: Trait> Module<T> {
         }
 
         let session_index = <pallet_session::Module<T>>::current_index();
+        let validators_len = <pallet_session::Module<T>>::validators().len() as u32;
+
         Ok(
             Self::local_authority_keys().map(move |(authority_index, key)| {
-                Self::send_single_heartbeat(authority_index, key, session_index, block_number)
+                Self::send_single_heartbeat(
+                    authority_index,
+                    key,
+                    session_index,
+                    block_number,
+                    validators_len,
+                )
             }),
         )
     }
@@ -491,6 +526,7 @@ impl<T: Trait> Module<T> {
         key: T::AuthorityId,
         session_index: SessionIndex,
         block_number: T::BlockNumber,
+        validators_len: u32,
     ) -> OffchainResult<T, ()> {
         // A helper function to prepare heartbeat call.
         let prepare_heartbeat = || -> OffchainResult<T, Call<T>> {
@@ -501,10 +537,13 @@ impl<T: Trait> Module<T> {
                 network_state,
                 session_index,
                 authority_index,
+                validators_len,
             };
+
             let signature = key
                 .sign(&heartbeat_data.encode())
                 .ok_or(OffchainErr::FailedSigning)?;
+
             Ok(Call::heartbeat(heartbeat_data, signature))
         };
 
@@ -525,7 +564,7 @@ impl<T: Trait> Module<T> {
                 call,
             );
 
-            T::SubmitTransaction::submit_unsigned(call)
+            SubmitTransaction::<T, Call<T>>::submit_unsigned_transaction(call.into())
                 .map_err(|_| OffchainErr::SubmitTransaction)?;
 
             Ok(())
@@ -533,9 +572,18 @@ impl<T: Trait> Module<T> {
     }
 
     fn local_authority_keys() -> impl Iterator<Item = (u32, T::AuthorityId)> {
-        // we run only when a local authority key is configured
+        // on-chain storage
+        //
+        // At index `idx`:
+        // 1. A (ImOnline) public key to be used by a validator at index `idx` to send im-online
+        //          heartbeats.
         let authorities = Keys::<T>::get();
+
+        // local keystore
+        //
+        // All `ImOnline` public (+private) keys currently in the local keystore.
         let mut local_keys = T::AuthorityId::all();
+
         local_keys.sort();
 
         authorities
@@ -598,6 +646,11 @@ impl<T: Trait> Module<T> {
             assert!(Keys::<T>::get().is_empty(), "Keys are already initialized!");
             Keys::<T>::put(keys);
         }
+    }
+
+    #[cfg(test)]
+    fn set_keys(keys: Vec<T::AuthorityId>) {
+        Keys::<T>::put(&keys)
     }
 }
 
@@ -674,10 +727,13 @@ impl<T: Trait> pallet_session::OneSessionHandler<T::AccountId> for Module<T> {
     }
 }
 
+/// Invalid transaction custom error. Returned when validators_len field in heartbeat is incorrect.
+const INVALID_VALIDATORS_LEN: u8 = 10;
+
 impl<T: Trait> frame_support::unsigned::ValidateUnsigned for Module<T> {
     type Call = Call<T>;
 
-    fn validate_unsigned(call: &Self::Call) -> TransactionValidity {
+    fn validate_unsigned(_source: TransactionSource, call: &Self::Call) -> TransactionValidity {
         if let Call::heartbeat(heartbeat, signature) = call {
             if <Module<T>>::is_online(heartbeat.authority_index) {
                 // we already received a heartbeat for this authority
@@ -692,6 +748,9 @@ impl<T: Trait> frame_support::unsigned::ValidateUnsigned for Module<T> {
 
             // verify that the incoming (unverified) pubkey is actually an authority id
             let keys = Keys::<T>::get();
+            if keys.len() as u32 != heartbeat.validators_len {
+                return InvalidTransaction::Custom(INVALID_VALIDATORS_LEN).into();
+            }
             let authority_id = match keys.get(heartbeat.authority_index as usize) {
                 Some(id) => id,
                 None => return InvalidTransaction::BadProof.into(),
@@ -706,14 +765,15 @@ impl<T: Trait> frame_support::unsigned::ValidateUnsigned for Module<T> {
                 return InvalidTransaction::BadProof.into();
             }
 
-            Ok(ValidTransaction {
-                priority: TransactionPriority::max_value(),
-                requires: vec![],
-                provides: vec![(current_session, authority_id).encode()],
-                longevity: TryInto::<u64>::try_into(T::SessionDuration::get() / 2.into())
-                    .unwrap_or(64_u64),
-                propagate: true,
-            })
+            ValidTransaction::with_tag_prefix("ImOnline")
+                .priority(T::UnsignedPriority::get())
+                .and_provides((current_session, authority_id))
+                .longevity(
+                    TryInto::<u64>::try_into(T::SessionDuration::get() / 2.into())
+                        .unwrap_or(64_u64),
+                )
+                .propagate(true)
+                .build()
         } else {
             InvalidTransaction::Call.into()
         }

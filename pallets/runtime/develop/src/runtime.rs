@@ -3,15 +3,7 @@ use crate::{
     constants::{fee::*, time::*},
     fee_details::CddHandler,
 };
-use polymesh_runtime_common::{
-    bridge,
-    cdd_check::CddChecker,
-    contracts_wrapper, dividend, exemption,
-    impls::{Author, CurrencyToVoteHandler, LinearWeightToFee},
-    merge_active_and_inactive, simple_token, sto_capped, voting, AvailableBlockRatio,
-    BlockHashCount, MaximumBlockLength, MaximumBlockWeight, NegativeImbalance,
-};
-
+use codec::Encode;
 use pallet_asset as asset;
 use pallet_balances as balances;
 use pallet_committee as committee;
@@ -22,9 +14,9 @@ use pallet_multisig as multisig;
 use pallet_pips::{HistoricalVotingByAddress, HistoricalVotingById, Vote, VoteCount};
 use pallet_protocol_fee as protocol_fee;
 use pallet_statistics as statistics;
+pub use pallet_transaction_payment::{Multiplier, TargetedFeeAdjustment};
 use pallet_treasury as treasury;
 use pallet_utility as utility;
-
 use polymesh_common_utilities::{
     constants::currency::*,
     protocol_fee::ProtocolOp,
@@ -39,21 +31,32 @@ use polymesh_primitives::{
     AccountId, AccountIndex, Balance, BlockNumber, Hash, IdentityId, Index, Link, Moment,
     Signatory, Signature, SigningItem, Ticker,
 };
+use polymesh_runtime_common::{
+    bridge,
+    cdd_check::CddChecker,
+    contracts_wrapper, dividend, exemption,
+    impls::{Author, CurrencyToVoteHandler},
+    merge_active_and_inactive, simple_token, sto_capped, voting, AvailableBlockRatio,
+    BlockHashCount, MaximumBlockLength, MaximumBlockWeight, NegativeImbalance,
+};
 
 use sp_api::impl_runtime_apis;
 use sp_core::{
+    crypto::KeyTypeId,
     u32_trait::{_1, _2, _4},
     OpaqueMetadata,
+};
+use sp_runtime::transaction_validity::{
+    TransactionPriority, TransactionSource, TransactionValidity,
 };
 use sp_runtime::{
     create_runtime_str,
     curve::PiecewiseLinear,
     generic, impl_opaque_keys,
     traits::{
-        BlakeTwo256, Block as BlockT, Extrinsic, OpaqueKeys, SaturatedConversion, StaticLookup,
-        Verify,
+        BlakeTwo256, Block as BlockT, Extrinsic, NumberFor, OpaqueKeys, SaturatedConversion,
+        Saturating, StaticLookup, Verify,
     },
-    transaction_validity::TransactionValidity,
     ApplyExtrinsicResult, MultiSignature, Perbill,
 };
 use sp_std::prelude::*;
@@ -63,15 +66,20 @@ use sp_version::RuntimeVersion;
 //use pallet_cdd_offchain_worker::crypto::SignerId as CddOffchainWorkerId;
 use frame_support::{
     construct_runtime, debug, parameter_types,
-    traits::{Randomness, SplitTwoWays},
+    traits::{KeyOwnerProofSystem, Randomness, SplitTwoWays},
+    weights::{
+        constants::{BlockExecutionWeight, ExtrinsicBaseWeight, RocksDbWeight, WEIGHT_PER_SECOND},
+        IdentityFee, Weight,
+    },
 };
-
-use frame_system::offchain::TransactionSubmitter;
 use pallet_contracts_rpc_runtime_api::ContractExecResult;
-use pallet_grandpa::{fg_primitives, AuthorityList as GrandpaAuthorityList};
+use pallet_grandpa::{
+    fg_primitives, AuthorityId as GrandpaId, AuthorityList as GrandpaAuthorityList,
+};
 use pallet_identity_rpc_runtime_api::{AssetDidResult, CddStatus, DidRecords, DidStatus, LinkType};
 use pallet_im_online::sr25519::AuthorityId as ImOnlineId;
 use pallet_protocol_fee_rpc_runtime_api::CappedFee;
+use pallet_session::historical as pallet_session_historical;
 use pallet_transaction_payment_rpc_runtime_api::RuntimeDispatchInfo;
 use sp_authority_discovery::AuthorityId as AuthorityDiscoveryId;
 use sp_inherents::{CheckInherentsResult, InherentData};
@@ -95,9 +103,14 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     spec_name: create_runtime_str!("polymesh"),
     impl_name: create_runtime_str!("polymath-polymesh"),
     authoring_version: 1,
-    spec_version: 1004,
-    impl_version: 1004,
+    // Per convention: if the runtime behavior changes, increment spec_version
+    // and set impl_version to 0. If only runtime
+    // implementation changes and behavior does not, then leave spec_version as
+    // is and increment impl_version.
+    spec_version: 2000,
+    impl_version: 0,
     apis: RUNTIME_API_VERSIONS,
+    transaction_version: 1,
 };
 
 /// Native version.
@@ -110,10 +123,15 @@ pub fn native_version() -> NativeVersion {
 }
 
 parameter_types! {
+    /// Assume 10% of weight for average on_initialize calls.
+    pub MaximumExtrinsicWeight: Weight = AvailableBlockRatio::get()
+        .saturating_sub(Perbill::from_percent(10)) * MaximumBlockWeight::get();
     pub const Version: RuntimeVersion = VERSION;
 }
 
 impl frame_system::Trait for Runtime {
+    /// The basic call filter to use in dispatchable.
+    type BaseCallFilter = ();
     /// The identifier used to distinguish between accounts.
     type AccountId = AccountId;
     /// The aggregated dispatch type that is available for extrinsics.
@@ -138,6 +156,18 @@ impl frame_system::Trait for Runtime {
     type BlockHashCount = BlockHashCount;
     /// Maximum weight of each block.
     type MaximumBlockWeight = MaximumBlockWeight;
+    /// The weight of database operations that the runtime can invoke.
+    type DbWeight = RocksDbWeight;
+    /// The weight of the overhead invoked on the block import process, independent of the
+    /// extrinsics included in that block.
+    type BlockExecutionWeight = BlockExecutionWeight;
+    /// The base weight of any extrinsic processed by the runtime, independent of the
+    /// logic of that extrinsic. (Signature verification, nonce increment, fee, etc...)
+    type ExtrinsicBaseWeight = ExtrinsicBaseWeight;
+    /// The maximum weight that a single extrinsic of `Normal` dispatch class can have,
+    /// idependent of the logic of that extrinsics. (Roughly max block weight - average on
+    /// initialize cost).
+    type MaximumExtrinsicWeight = MaximumExtrinsicWeight;
     /// Maximum size of all encoded transactions (in bytes) that are allowed in one block.
     type MaximumBlockLength = MaximumBlockLength;
     /// Portion of the block weight that is available to all normal transactions.
@@ -173,9 +203,9 @@ parameter_types! {
 
 impl pallet_indices::Trait for Runtime {
     type AccountIndex = AccountIndex;
-    type Event = Event;
     type Currency = Balances;
     type Deposit = IndexDeposit;
+    type Event = Event;
 }
 
 parameter_types! {
@@ -192,6 +222,21 @@ pub type DealWithFees = SplitTwoWays<
     Author<Runtime>, // 1 part (20%) goes to the block author.
 >;
 
+parameter_types! {
+    pub const TransactionByteFee: Balance = 10 * MILLICENTS;
+    // for a sane configuration, this should always be less than `AvailableBlockRatio`.
+    pub const TargetBlockFullness: Perbill = TARGET_BLOCK_FULLNESS;
+}
+
+impl pallet_transaction_payment::Trait for Runtime {
+    type Currency = Balances;
+    type OnTransactionPayment = DealWithFees;
+    type TransactionByteFee = TransactionByteFee;
+    type WeightToFee = IdentityFee<Balance>;
+    type FeeMultiplierUpdate = ();
+    type CddHandler = CddHandler;
+}
+
 impl CommonTrait for Runtime {
     type Balance = Balance;
     type AcceptTransferTarget = Asset;
@@ -205,25 +250,6 @@ impl balances::Trait for Runtime {
     type AccountStore = frame_system::Module<Runtime>;
     type Identity = Identity;
     type CddChecker = CddChecker<Runtime>;
-}
-
-parameter_types! {
-    pub const TransactionBaseFee: Balance = 1 * DOLLARS;
-    pub const TransactionByteFee: Balance = 10 * MILLICENTS;
-    // setting this to zero will disable the weight fee.
-    pub const WeightFeeCoefficient: Balance = 1;
-    // for a sane configuration, this should always be less than `AvailableBlockRatio`.
-    pub const TargetBlockFullness: Perbill = TARGET_BLOCK_FULLNESS;
-}
-
-impl pallet_transaction_payment::Trait for Runtime {
-    type Currency = Balances;
-    type OnTransactionPayment = DealWithFees;
-    type TransactionBaseFee = TransactionBaseFee;
-    type TransactionByteFee = TransactionByteFee;
-    type WeightToFee = LinearWeightToFee<WeightFeeCoefficient>;
-    type FeeMultiplierUpdate = ();
-    type CddHandler = CddHandler;
 }
 
 impl protocol_fee::Trait for Runtime {
@@ -277,7 +303,8 @@ impl pallet_session::Trait for Runtime {
     type ValidatorId = <Self as frame_system::Trait>::AccountId;
     type ValidatorIdOf = pallet_staking::StashOf<Self>;
     type ShouldEndSession = Babe;
-    type SessionManager = Staking;
+    type NextSessionRotation = Babe;
+    type SessionManager = pallet_session::historical::NoteHistoricalRoot<Self, Staking>;
     type SessionHandler = <SessionKeys as OpaqueKeys>::KeyTypeIdProviders;
     type Keys = SessionKeys;
     type DisabledValidatorsThreshold = DisabledValidatorsThreshold;
@@ -302,14 +329,18 @@ pallet_staking_reward_curve::build! {
 parameter_types! {
     pub const SessionsPerEra: sp_staking::SessionIndex = 3;
     pub const BondingDuration: pallet_staking::EraIndex = 7;
-    pub const SlashDeferDuration: pallet_staking::EraIndex = 4;
+    pub const SlashDeferDuration: pallet_staking::EraIndex = 4; // 1/4 the bonding duration.
     pub const RewardCurve: &'static PiecewiseLinear<'static> = &REWARD_CURVE;
     pub const MaxNominatorRewardedPerValidator: u32 = 64;
+    pub const ElectionLookahead: BlockNumber = EPOCH_DURATION_IN_BLOCKS / 4;
+    pub const MaxIterations: u32 = 10;
+    // 0.05%. The higher the value, the more strict solution acceptance becomes.
+    pub MinSolutionScoreBump: Perbill = Perbill::from_rational_approximation(5u32, 10_000);
 }
 
 impl pallet_staking::Trait for Runtime {
     type Currency = Balances;
-    type Time = Timestamp;
+    type UnixTime = Timestamp;
     type CurrencyToVote = CurrencyToVoteHandler<Self>;
     type RewardRemainder = Treasury;
     type Event = Event;
@@ -321,7 +352,13 @@ impl pallet_staking::Trait for Runtime {
     type SlashCancelOrigin = frame_system::EnsureRoot<AccountId>;
     type SessionInterface = Self;
     type RewardCurve = RewardCurve;
+    type NextNewSession = Session;
+    type ElectionLookahead = ElectionLookahead;
+    type Call = Call;
+    type MaxIterations = MaxIterations;
+    type MinSolutionScoreBump = MinSolutionScoreBump;
     type MaxNominatorRewardedPerValidator = MaxNominatorRewardedPerValidator;
+    type UnsignedPriority = StakingUnsignedPriority;
     type RequiredAddOrigin = frame_system::EnsureRoot<AccountId>;
     type RequiredRemoveOrigin = frame_system::EnsureRoot<AccountId>;
     type RequiredComplianceOrigin = frame_system::EnsureRoot<AccountId>;
@@ -364,9 +401,6 @@ impl pallet_pips::Trait for Runtime {
 }
 
 parameter_types! {
-    pub const ContractTransactionBaseFee: Balance = 1 * CENTS;
-    pub const ContractTransactionByteFee: Balance = 10 * MILLICENTS;
-    pub const ContractFee: Balance = 1 * CENTS;
     pub const TombstoneDeposit: Balance = 1 * DOLLARS;
     pub const RentByteFee: Balance = 1 * DOLLARS;
     pub const RentDepositOffset: Balance = 1000 * DOLLARS;
@@ -374,15 +408,12 @@ parameter_types! {
 }
 
 impl pallet_contracts::Trait for Runtime {
-    type Currency = Balances;
     type Time = Timestamp;
     type Randomness = RandomnessCollectiveFlip;
     type Call = Call;
     type Event = Event;
     type DetermineContractAddress = pallet_contracts::SimpleAddressDeterminer<Runtime>;
-    type ComputeDispatchFee = pallet_contracts::DefaultDispatchFeeComputor<Runtime>;
     type TrieIdGenerator = pallet_contracts::TrieIdFromParentCounter<Runtime>;
-    type GasPayment = ();
     type RentPayment = ();
     type SignedClaimHandicap = pallet_contracts::DefaultSignedClaimHandicap;
     type TombstoneDeposit = TombstoneDeposit;
@@ -390,14 +421,64 @@ impl pallet_contracts::Trait for Runtime {
     type RentByteFee = RentByteFee;
     type RentDepositOffset = RentDepositOffset;
     type SurchargeReward = SurchargeReward;
-    type TransactionBaseFee = ContractTransactionBaseFee;
-    type TransactionByteFee = ContractTransactionByteFee;
-    type ContractFee = ContractFee;
-    type CallBaseFee = pallet_contracts::DefaultCallBaseFee;
-    type InstantiateBaseFee = pallet_contracts::DefaultInstantiateBaseFee;
     type MaxDepth = pallet_contracts::DefaultMaxDepth;
     type MaxValueSize = pallet_contracts::DefaultMaxValueSize;
-    type BlockGasLimit = pallet_contracts::DefaultBlockGasLimit;
+}
+
+impl<LocalCall> frame_system::offchain::CreateSignedTransaction<LocalCall> for Runtime
+where
+    Call: From<LocalCall>,
+{
+    fn create_transaction<C: frame_system::offchain::AppCrypto<Self::Public, Self::Signature>>(
+        call: Call,
+        public: <Signature as Verify>::Signer,
+        account: AccountId,
+        nonce: Index,
+    ) -> Option<(Call, <UncheckedExtrinsic as Extrinsic>::SignaturePayload)> {
+        // take the biggest period possible.
+        let period = BlockHashCount::get()
+            .checked_next_power_of_two()
+            .map(|c| c / 2)
+            .unwrap_or(2) as u64;
+        let current_block = System::block_number()
+            .saturated_into::<u64>()
+            // The `System::block_number` is initialized with `n+1`,
+            // so the actual block number is `n`.
+            .saturating_sub(1);
+        let tip = 0;
+        let extra: SignedExtra = (
+            frame_system::CheckSpecVersion::<Runtime>::new(),
+            frame_system::CheckTxVersion::<Runtime>::new(),
+            frame_system::CheckGenesis::<Runtime>::new(),
+            frame_system::CheckEra::<Runtime>::from(generic::Era::mortal(period, current_block)),
+            frame_system::CheckNonce::<Runtime>::from(nonce),
+            frame_system::CheckWeight::<Runtime>::new(),
+            pallet_transaction_payment::ChargeTransactionPayment::<Runtime>::from(tip),
+            pallet_grandpa::ValidateEquivocationReport::<Runtime>::new(),
+        );
+        let raw_payload = SignedPayload::new(call, extra)
+            .map_err(|e| {
+                debug::warn!("Unable to create signed payload: {:?}", e);
+            })
+            .ok()?;
+        let signature = raw_payload.using_encoded(|payload| C::sign(payload, public))?;
+        let address = Indices::unlookup(account);
+        let (call, extra, _) = raw_payload.deconstruct();
+        Some((call, (address, signature.into(), extra)))
+    }
+}
+
+impl frame_system::offchain::SigningTypes for Runtime {
+    type Public = <Signature as Verify>::Signer;
+    type Signature = Signature;
+}
+
+impl<C> frame_system::offchain::SendTransactionTypes<C> for Runtime
+where
+    Call: From<C>,
+{
+    type Extrinsic = UncheckedExtrinsic;
+    type OverarchingCall = Call;
 }
 
 impl treasury::Trait for Runtime {
@@ -405,24 +486,28 @@ impl treasury::Trait for Runtime {
     type Currency = Balances;
 }
 
+parameter_types! {
+    pub OffencesWeightSoftLimit: Weight = Perbill::from_percent(60) * MaximumBlockWeight::get();
+}
+
 impl pallet_offences::Trait for Runtime {
     type Event = Event;
     type IdentificationTuple = pallet_session::historical::IdentificationTuple<Self>;
     type OnOffenceHandler = Staking;
+    type WeightSoftLimit = OffencesWeightSoftLimit;
 }
 
-/// A runtime transaction submitter.
-pub type SubmitTransaction = TransactionSubmitter<ImOnlineId, Runtime, UncheckedExtrinsic>;
-
 parameter_types! {
-    pub const SessionDuration: BlockNumber = EPOCH_DURATION_IN_BLOCKS as _;
+    pub const SessionDuration: BlockNumber = EPOCH_DURATION_IN_SLOTS as _;
+    pub const ImOnlineUnsignedPriority: TransactionPriority = TransactionPriority::max_value();
+    /// We prioritize im-online heartbeats over election solution submission.
+    pub const StakingUnsignedPriority: TransactionPriority = TransactionPriority::max_value() / 2;
 }
 
 impl pallet_im_online::Trait for Runtime {
     type AuthorityId = ImOnlineId;
-    type Call = Call;
     type Event = Event;
-    type SubmitTransaction = SubmitTransaction;
+    type UnsignedPriority = ImOnlineUnsignedPriority;
     type ReportUnresponsiveness = Offences;
     type SessionDuration = SessionDuration;
     type CommitteeOrigin = frame_system::EnsureRoot<AccountId>;
@@ -430,6 +515,24 @@ impl pallet_im_online::Trait for Runtime {
 
 impl pallet_grandpa::Trait for Runtime {
     type Event = Event;
+    type Call = Call;
+
+    type KeyOwnerProofSystem = Historical;
+
+    type KeyOwnerProof =
+        <Self::KeyOwnerProofSystem as KeyOwnerProofSystem<(KeyTypeId, GrandpaId)>>::Proof;
+
+    type KeyOwnerIdentification = <Self::KeyOwnerProofSystem as KeyOwnerProofSystem<(
+        KeyTypeId,
+        GrandpaId,
+    )>>::IdentificationTuple;
+
+    type HandleEquivocation = pallet_grandpa::EquivocationHandler<
+        Self::KeyOwnerIdentification,
+        polymesh_primitives::report::ReporterAppCrypto,
+        Runtime,
+        Offences,
+    >;
 }
 
 impl pallet_authority_discovery::Trait for Runtime {}
@@ -443,10 +546,6 @@ impl pallet_finality_tracker::Trait for Runtime {
     type OnFinalizationStalled = ();
     type WindowSize = WindowSize;
     type ReportLatency = ReportLatency;
-}
-
-parameter_types! {
-    pub const Prefix: &'static [u8] = b"Pay POLYX to the Polymesh account:";
 }
 
 impl pallet_sudo::Trait for Runtime {
@@ -574,67 +673,24 @@ impl EnactProposalMaker<Origin, Call> for Runtime {
 //     type SubmitUnsignedTransaction = SubmitTransactionCdd;
 // }
 
-impl frame_system::offchain::CreateTransaction<Runtime, UncheckedExtrinsic> for Runtime {
-    type Public = <Signature as Verify>::Signer;
-    type Signature = Signature;
-
-    fn create_transaction<
-        TSigner: frame_system::offchain::Signer<Self::Public, Self::Signature>,
-    >(
-        call: Call,
-        public: Self::Public,
-        account: AccountId,
-        index: Index,
-    ) -> Option<(Call, <UncheckedExtrinsic as Extrinsic>::SignaturePayload)> {
-        // take the biggest period possible.
-        let period = BlockHashCount::get()
-            .checked_next_power_of_two()
-            .map(|c| c / 2)
-            .unwrap_or(2) as u64;
-        let current_block = System::block_number()
-            .saturated_into::<u64>()
-            // The `System::block_number` is initialized with `n+1`,
-            // so the actual block number is `n`.
-            .saturating_sub(1);
-        let tip = 0;
-        let extra: SignedExtra = (
-            frame_system::CheckVersion::<Runtime>::new(),
-            frame_system::CheckGenesis::<Runtime>::new(),
-            frame_system::CheckEra::<Runtime>::from(generic::Era::mortal(period, current_block)),
-            frame_system::CheckNonce::<Runtime>::from(index),
-            frame_system::CheckWeight::<Runtime>::new(),
-            pallet_transaction_payment::ChargeTransactionPayment::<Runtime>::from(tip),
-            Default::default(),
-        );
-        let raw_payload = SignedPayload::new(call, extra)
-            .map_err(|e| {
-                debug::warn!("Unable to create signed payload: {:?}", e);
-            })
-            .ok()?;
-        let signature = TSigner::sign(public, &raw_payload)?;
-        let address = Indices::unlookup(account);
-        let (call, extra, _) = raw_payload.deconstruct();
-        Some((call, (address, signature, extra)))
-    }
-}
-
 construct_runtime!(
     pub enum Runtime where
         Block = Block,
         NodeBlock = polymesh_primitives::Block,
         UncheckedExtrinsic = UncheckedExtrinsic
     {
-        System: frame_system::{Module, Call, Storage, Config, Event<T>},
+        System: frame_system::{Module, Call, Config, Storage, Event<T>},
         // Must be before session.
         Babe: pallet_babe::{Module, Call, Storage, Config, Inherent(Timestamp)},
 
         Timestamp: pallet_timestamp::{Module, Call, Storage, Inherent},
         Indices: pallet_indices::{Module, Call, Storage, Config<T>, Event<T>},
         Balances: balances::{Module, Call, Storage, Config<T>, Event<T>},
+        TransactionPayment: pallet_transaction_payment::{Module, Storage},
 
         // Consensus frame_support.
         Authorship: pallet_authorship::{Module, Call, Storage, Inherent},
-        Staking: pallet_staking::{Module, Call, Config<T>, Storage, Event<T>},
+        Staking: pallet_staking::{Module, Call, Config<T>, Storage, Event<T>, ValidateUnsigned},
         Offences: pallet_offences::{Module, Call, Storage, Event},
         Session: pallet_session::{Module, Call, Storage, Event, Config<T>},
         FinalityTracker: pallet_finality_tracker::{Module, Call, Inherent},
@@ -642,7 +698,8 @@ construct_runtime!(
         ImOnline: pallet_im_online::{Module, Call, Storage, Event<T>, ValidateUnsigned, Config<T>},
         AuthorityDiscovery: pallet_authority_discovery::{Module, Call, Config},
         RandomnessCollectiveFlip: pallet_randomness_collective_flip::{Module, Call, Storage},
-        TransactionPayment: pallet_transaction_payment::{Module, Storage},
+
+        Historical: pallet_session_historical::{Module},
         // Sudo. Usable initially.
         // RELEASE: remove this for release build.
         Sudo: pallet_sudo::{Module, Call, Config<T>, Storage, Event<T>},
@@ -650,7 +707,7 @@ construct_runtime!(
         MultiSig: multisig::{Module, Call, Storage, Event<T>},
 
         // Contracts
-        Contracts: pallet_contracts::{Module, Call, Config<T>, Storage, Event<T>},
+        Contracts: pallet_contracts::{Module, Call, Config, Storage, Event<T>},
         // ContractsWrapper: contracts_wrapper::{Module, Call, Storage},
 
         // Polymesh Governance Committees
@@ -690,13 +747,14 @@ pub type SignedBlock = generic::SignedBlock<Block>;
 pub type BlockId = generic::BlockId<Block>;
 /// The SignedExtension to the basic transaction logic.
 pub type SignedExtra = (
-    frame_system::CheckVersion<Runtime>,
+    frame_system::CheckSpecVersion<Runtime>,
+    frame_system::CheckTxVersion<Runtime>,
     frame_system::CheckGenesis<Runtime>,
     frame_system::CheckEra<Runtime>,
     frame_system::CheckNonce<Runtime>,
     frame_system::CheckWeight<Runtime>,
     pallet_transaction_payment::ChargeTransactionPayment<Runtime>,
-    pallet_contracts::CheckBlockGasLimit<Runtime>,
+    pallet_grandpa::ValidateEquivocationReport<Runtime>,
 );
 /// Unchecked extrinsic type as expected by this runtime.
 pub type UncheckedExtrinsic = generic::UncheckedExtrinsic<Address, Call, Signature, SignedExtra>;
@@ -757,8 +815,11 @@ impl_runtime_apis! {
     }
 
     impl sp_transaction_pool::runtime_api::TaggedTransactionQueue<Block> for Runtime {
-        fn validate_transaction(tx: <Block as BlockT>::Extrinsic) -> TransactionValidity {
-            Executive::validate_transaction(tx)
+        fn validate_transaction(
+            source: TransactionSource,
+            tx: <Block as BlockT>::Extrinsic,
+        ) -> TransactionValidity {
+            Executive::validate_transaction(source, tx)
         }
     }
 
@@ -772,22 +833,48 @@ impl_runtime_apis! {
         fn grandpa_authorities() -> GrandpaAuthorityList {
             Grandpa::grandpa_authorities()
         }
+
+        fn submit_report_equivocation_extrinsic(
+            equivocation_proof: fg_primitives::EquivocationProof<
+                <Block as BlockT>::Hash,
+                NumberFor<Block>,
+            >,
+            key_owner_proof: fg_primitives::OpaqueKeyOwnershipProof,
+        ) -> Option<()> {
+            let key_owner_proof = key_owner_proof.decode()?;
+
+            Grandpa::submit_report_equivocation_extrinsic(
+                equivocation_proof,
+                key_owner_proof,
+            )
+        }
+
+        fn generate_key_ownership_proof(
+            _set_id: fg_primitives::SetId,
+            authority_id: GrandpaId,
+        ) -> Option<fg_primitives::OpaqueKeyOwnershipProof> {
+            use codec::Encode;
+
+            Historical::prove((fg_primitives::KEY_TYPE, authority_id))
+                .map(|p| p.encode())
+                .map(fg_primitives::OpaqueKeyOwnershipProof::new)
+        }
     }
 
     impl sp_consensus_babe::BabeApi<Block> for Runtime {
-        fn configuration() -> sp_consensus_babe::BabeConfiguration {
+        fn configuration() -> sp_consensus_babe::BabeGenesisConfiguration {
             // The choice of `c` parameter (where `1 - c` represents the
             // probability of a slot being empty), is done in accordance to the
             // slot duration and expected target block time, for safely
             // resisting network delays of maximum two seconds.
             // <https://research.web3.foundation/en/latest/polkadot/BABE/Babe/#6-practical-results>
-            sp_consensus_babe::BabeConfiguration {
+            sp_consensus_babe::BabeGenesisConfiguration {
                 slot_duration: Babe::slot_duration(),
                 epoch_length: EpochDuration::get(),
                 c: PRIMARY_PROBABILITY,
                 genesis_authorities: Babe::authorities(),
                 randomness: Babe::randomness(),
-                secondary_slots: true,
+                allowed_slots: sp_consensus_babe::AllowedSlots::PrimaryAndSecondaryPlainSlots,
             }
         }
 
@@ -808,7 +895,9 @@ impl_runtime_apis! {
         }
     }
 
-    impl pallet_contracts_rpc_runtime_api::ContractsApi<Block, AccountId, Balance, BlockNumber> for Runtime {
+    impl pallet_contracts_rpc_runtime_api::ContractsApi<Block, AccountId, Balance, BlockNumber>
+        for Runtime
+    {
         fn call(
             origin: AccountId,
             dest: AccountId,
@@ -816,13 +905,8 @@ impl_runtime_apis! {
             gas_limit: u64,
             input_data: Vec<u8>,
         ) -> ContractExecResult {
-            let exec_result = Contracts::bare_call(
-                origin,
-                dest,
-                value,
-                gas_limit,
-                input_data,
-            );
+            let exec_result =
+                Contracts::bare_call(origin, dest.into(), value, gas_limit, input_data);
             match exec_result {
                 Ok(v) => ContractExecResult::Success {
                     status: v.status,

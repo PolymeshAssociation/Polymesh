@@ -1,7 +1,7 @@
 use codec::Codec;
 use jsonrpc_core::{Error as RpcError, ErrorCode, Result};
 use jsonrpc_derive::rpc;
-use pallet_identity_rpc_runtime_api::{
+pub use pallet_identity_rpc_runtime_api::{
     AssetDidResult, CddStatus, DidRecords, DidStatus, IdentityApi as IdentityRuntimeApi, Link,
     LinkType,
 };

@@ -55,7 +55,7 @@ fn signed_extension_charge_transaction_payment_work() {
                     ChargeTransactionPayment::from(0),
                     &alice_id,
                     &call,
-                    info_from_weight(5),
+                    &info_from_weight(5),
                     len
                 )
                 .is_ok()
@@ -66,7 +66,7 @@ fn signed_extension_charge_transaction_payment_work() {
                     ChargeTransactionPayment::from(0 /* 0 tip */),
                     &alice_id,
                     &call,
-                    info_from_weight(3),
+                    &info_from_weight(3),
                     len
                 )
                 .is_ok()
@@ -91,7 +91,7 @@ fn tipping_fails() {
                     ChargeTransactionPayment::from(5 /* 5 tip */),
                     &alice_id,
                     &call,
-                    info_from_weight(3),
+                    &info_from_weight(3),
                     len
                 )
                 .is_err()
@@ -264,7 +264,7 @@ fn should_charge_identity() {
                     ChargeTransactionPayment::from(0 /* 0 tip */),
                     &dave_id,
                     &call,
-                    info_from_weight(3),
+                    &info_from_weight(3),
                     len
                 )
                 .is_ok()
@@ -279,7 +279,7 @@ fn should_charge_identity() {
                     ChargeTransactionPayment::from(0 /* 0 tip */),
                     &dave_id,
                     &call,
-                    info_from_weight(3),
+                    &info_from_weight(3),
                     len
                 )
                 .is_err()
@@ -297,7 +297,7 @@ fn should_charge_identity() {
                     ChargeTransactionPayment::from(0 /* 0 tip */),
                     &dave_id,
                     &call,
-                    info_from_weight(3),
+                    &info_from_weight(3),
                     len
                 )
                 .is_ok()
@@ -364,19 +364,7 @@ fn transfer_with_memo_we() {
 
     let expected_events = vec![
         EventRecord {
-            phase: Phase::ApplyExtrinsic(0),
-            event: EventTest::balances(BalancesRawEvent::Transfer(
-                Some(alice_id),
-                alice.clone(),
-                Some(bob_id),
-                bob.clone(),
-                100,
-                memo_1,
-            )),
-            topics: vec![],
-        },
-        EventRecord {
-            phase: Phase::ApplyExtrinsic(0),
+            phase: Phase::Initialization,
             event: EventTest::balances(BalancesRawEvent::Transfer(
                 Some(alice_id),
                 alice,
@@ -388,7 +376,7 @@ fn transfer_with_memo_we() {
             topics: vec![],
         },
         EventRecord {
-            phase: Phase::ApplyExtrinsic(0),
+            phase: Phase::Initialization,
             event: EventTest::balances(BalancesRawEvent::Transfer(
                 Some(alice_id),
                 alice,

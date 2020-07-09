@@ -19,11 +19,11 @@ jsonrpc-core = "14.0.5"
 
 # Substrate
 codec = { package = "parity-scale-codec", version = "1.1.2", default-features = false, features = ["derive"] }
-sp-core = { git = 'https://github.com/paritytech/substrate.git', default-features = false, rev = 'a439a7aa5a9a3df2a42d9b25ea04288d3a0866e8'}
-sp-std = { git = 'https://github.com/paritytech/substrate.git', default_features = false, rev = 'a439a7aa5a9a3df2a42d9b25ea04288d3a0866e8'}
-sp-api = { git = 'https://github.com/paritytech/substrate', default-features = false, rev = 'a439a7aa5a9a3df2a42d9b25ea04288d3a0866e8'}
-frame-system = { package = "frame-system", git = "https://github.com/paritytech/substrate", default-features = false, rev = "a439a7aa5a9a3df2a42d9b25ea04288d3a0866e8" }
-frame-support = { git = 'https://github.com/paritytech/substrate', default-features = false, rev = 'a439a7aa5a9a3df2a42d9b25ea04288d3a0866e8'}
+sp-core = { git = 'https://github.com/paritytech/substrate.git', default-features = false, rev = 'c771821cae2dcb5a8808a19fae8122c0b9ae8499'}
+sp-std = { git = 'https://github.com/paritytech/substrate.git', default_features = false, rev = 'c771821cae2dcb5a8808a19fae8122c0b9ae8499'}
+sp-api = { git = 'https://github.com/paritytech/substrate', default-features = false, rev = 'c771821cae2dcb5a8808a19fae8122c0b9ae8499'}
+frame-system = { package = "frame-system", git = "https://github.com/paritytech/substrate", default-features = false, rev = "c771821cae2dcb5a8808a19fae8122c0b9ae8499" }
+frame-support = { git = 'https://github.com/paritytech/substrate', default-features = false, rev = 'c771821cae2dcb5a8808a19fae8122c0b9ae8499'}
 
 [dev-dependencies]
 serde_json = "1.0.41"
@@ -35,6 +35,8 @@ std = [
 	"sp-api/std",
 	"codec/std",
 	"sp-std/std",
+	"pallet-balances/std",
 	"polymesh-primitives/std",
+	"polymesh-common-utilities/std",
 	"frame-support/std",
 ]

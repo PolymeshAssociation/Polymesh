@@ -5,7 +5,7 @@ use super::{
     },
     ExtBuilder,
 };
-use frame_support::{assert_err, assert_ok};
+use frame_support::{assert_err, assert_ok, dispatch::DispatchError};
 use frame_system;
 use pallet_balances as balances;
 use pallet_committee as committee;
@@ -108,7 +108,7 @@ fn closing_a_proposal_works_we() {
     let proposal_desc: PipDescription = b"Test description".into();
 
     // Voting majority
-    let root = Origin::system(frame_system::RawOrigin::Root);
+    let root = Origin::from(frame_system::RawOrigin::Root);
 
     let alice_acc = AccountKeyring::Alice.public();
     let (alice_signer, _) = make_account_with_balance(alice_acc, 300).unwrap();
@@ -222,7 +222,7 @@ fn enacting_a_referendum_works_we() {
     let (bob_signer, _) = make_account_with_balance(bob_acc, 100).unwrap();
 
     // Voting majority
-    let root = Origin::system(frame_system::RawOrigin::Root);
+    let root = Origin::from(frame_system::RawOrigin::Root);
 
     assert_ok!(Pips::propose(
         alice_signer.clone(),
@@ -265,7 +265,7 @@ fn enacting_a_referendum_works_we() {
 
     assert_err!(
         Pips::enact_referendum(bob_signer.clone(), 0),
-        Error::<TestStorage>::BadOrigin
+        DispatchError::BadOrigin
     );
     assert_ok!(Pips::enact_referendum(root, 0));
 
@@ -307,7 +307,7 @@ fn fast_tracking_a_proposal_works_we() {
     let proposal_url: Url = b"www.abc.com".into();
     let proposal_desc: PipDescription = b"Test description".into();
 
-    let root = Origin::system(frame_system::RawOrigin::Root);
+    let root = Origin::from(frame_system::RawOrigin::Root);
 
     // Alice and Bob are committee members
     let alice_acc = AccountKeyring::Alice.public();
@@ -346,7 +346,7 @@ fn fast_tracking_a_proposal_works_we() {
     assert_ok!(Pips::fast_track_proposal(alice_signer.clone(), index));
     assert_err!(
         Pips::enact_referendum(bob_signer.clone(), 0),
-        Error::<TestStorage>::BadOrigin
+        DispatchError::BadOrigin
     );
     assert_eq!(
         Pips::referendums(0),
@@ -397,7 +397,7 @@ fn emergency_referendum_works_we() {
     let proposal_url: Url = b"www.abc.com".into();
     let proposal_desc: PipDescription = b"Test description".into();
 
-    let root = Origin::system(frame_system::RawOrigin::Root);
+    let root = Origin::from(frame_system::RawOrigin::Root);
 
     // Alice and Bob are committee members
     let alice_acc = AccountKeyring::Alice.public();
@@ -431,7 +431,7 @@ fn emergency_referendum_works_we() {
 
     assert_err!(
         Pips::enact_referendum(alice_signer.clone(), 0),
-        Error::<TestStorage>::BadOrigin
+        DispatchError::BadOrigin
     );
 
     fast_forward_to(101);
@@ -472,7 +472,7 @@ fn reject_referendum_works_we() {
     let proposal_url: Url = b"www.abc.com".into();
     let proposal_desc: PipDescription = b"Test description".into();
 
-    let root = Origin::system(frame_system::RawOrigin::Root);
+    let root = Origin::from(frame_system::RawOrigin::Root);
 
     // Alice and Bob are committee members
     let alice_acc = AccountKeyring::Alice.public();
@@ -505,7 +505,7 @@ fn reject_referendum_works_we() {
 
     assert_err!(
         Pips::enact_referendum(alice_signer.clone(), 0),
-        Error::<TestStorage>::BadOrigin
+        DispatchError::BadOrigin
     );
 
     fast_forward_to(101);
@@ -530,16 +530,15 @@ fn updating_pips_variables_works() {
 }
 
 fn updating_pips_variables_works_we() {
-    let root = Origin::system(frame_system::RawOrigin::Root);
+    let root = Origin::from(frame_system::RawOrigin::Root);
 
     let alice_acc = AccountKeyring::Alice.public();
     let (alice_signer, _) = make_account_with_balance(alice_acc, 60).unwrap();
-
     // config variables can be updated only through committee
     assert_eq!(Pips::min_proposal_deposit(), 50);
     assert_err!(
         Pips::set_min_proposal_deposit(alice_signer.clone(), 10),
-        Error::<TestStorage>::BadOrigin
+        DispatchError::BadOrigin
     );
     assert_ok!(Pips::set_min_proposal_deposit(root.clone(), 10));
     assert_eq!(Pips::min_proposal_deposit(), 10);
@@ -576,7 +575,10 @@ fn amend_pips_details_during_cool_off_period_we() {
 
     let (alice, _) = make_account(AccountKeyring::Alice.public()).unwrap();
     let (bob, _) = make_account(AccountKeyring::Bob.public()).unwrap();
-
+    print!(
+        "Block no - {:?}",
+        <frame_system::Module<TestStorage>>::block_number()
+    );
     // 1. Create Pips proposal
     assert_ok!(Pips::propose(
         alice.clone(),
@@ -608,8 +610,8 @@ fn amend_pips_details_during_cool_off_period_we() {
         Some(PipsMetadata {
             proposer: AccountKeyring::Alice.public(),
             id: 0,
-            cool_off_until: 101,
-            end: 111,
+            cool_off_until: 100,
+            end: 110,
             url: Some(new_url),
             description: Some(new_desc),
         })
@@ -705,8 +707,8 @@ fn cancel_pips_during_cool_off_period_we() {
         Some(PipsMetadata {
             proposer: AccountKeyring::Bob.public(),
             id: 1,
-            cool_off_until: 101,
-            end: 111,
+            cool_off_until: 100,
+            end: 110,
             url: None,
             description: None,
         })
@@ -724,7 +726,7 @@ fn update_referendum_enactment_period() {
 }
 
 fn update_referendum_enactment_period_we() {
-    let root = Origin::system(frame_system::RawOrigin::Root);
+    let root = Origin::from(frame_system::RawOrigin::Root);
     let alice = Origin::signed(AccountKeyring::Alice.public());
     let bob = Origin::signed(AccountKeyring::Bob.public());
 
@@ -754,7 +756,7 @@ fn update_referendum_enactment_period_we() {
             id: 0,
             state: ReferendumState::Scheduled,
             referendum_type: ReferendumType::Emergency,
-            enactment_period: 101,
+            enactment_period: 100,
         })
     );
 
@@ -847,7 +849,7 @@ fn proposal_with_beneficiares() {
 fn proposal_with_beneficiares_we() {
     // 0. Create accounts
     System::set_block_number(1);
-    let root = Origin::system(frame_system::RawOrigin::Root);
+    let root = Origin::from(frame_system::RawOrigin::Root);
     let alice = AccountKeyring::Alice.public();
     let charlie = AccountKeyring::Charlie.public();
     let dave = AccountKeyring::Dave.public();

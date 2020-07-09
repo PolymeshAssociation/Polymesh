@@ -5,9 +5,9 @@ authors = ["Anonymous"]
 edition = "2018"
 
 [dependencies]
-sp-api = { git = 'https://github.com/paritytech/substrate.git', default_features = false, rev = 'a439a7aa5a9a3df2a42d9b25ea04288d3a0866e8'}
-sp-runtime = { git = 'https://github.com/paritytech/substrate.git', default_features = false,  rev = 'a439a7aa5a9a3df2a42d9b25ea04288d3a0866e8'}
-frame-support = { git = "https://github.com/paritytech/substrate", default-features = false, rev = "a439a7aa5a9a3df2a42d9b25ea04288d3a0866e8" }
+sp-api = { git = 'https://github.com/paritytech/substrate.git', default_features = false, rev = 'c771821cae2dcb5a8808a19fae8122c0b9ae8499'}
+sp-runtime = { git = 'https://github.com/paritytech/substrate.git', default_features = false,  rev = 'c771821cae2dcb5a8808a19fae8122c0b9ae8499'}
+frame-support = { git = "https://github.com/paritytech/substrate", default-features = false, rev = "c771821cae2dcb5a8808a19fae8122c0b9ae8499" }
 
 [dev-dependencies]
 serde_json = "1.0.48"
