@@ -77,7 +77,9 @@ use pallet_contracts_rpc_runtime_api::ContractExecResult;
 use pallet_grandpa::{
     fg_primitives, AuthorityId as GrandpaId, AuthorityList as GrandpaAuthorityList,
 };
-use pallet_identity_rpc_runtime_api::{AssetDidResult, AuthorizationType, CddStatus, DidRecords, DidStatus, LinkType};
+use pallet_identity_rpc_runtime_api::{
+    AssetDidResult, AuthorizationType, CddStatus, DidRecords, DidStatus, LinkType,
+};
 
 use pallet_im_online::sr25519::AuthorityId as ImOnlineId;
 use pallet_protocol_fee_rpc_runtime_api::CappedFee;

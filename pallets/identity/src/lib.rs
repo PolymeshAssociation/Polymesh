@@ -90,7 +90,9 @@ use core::{
     result::Result as StdResult,
 };
 
-use pallet_identity_rpc_runtime_api::{AuthorizationType, DidRecords as RpcDidRecords, DidStatus, LinkType};
+use pallet_identity_rpc_runtime_api::{
+    AuthorizationType, DidRecords as RpcDidRecords, DidStatus, LinkType,
+};
 
 use pallet_transaction_payment::{CddAndFeeDetails, ChargeTxFee};
 use polymesh_common_utilities::{
@@ -2149,7 +2151,7 @@ impl<T: Trait> Module<T> {
         let now = <pallet_timestamp::Module<T>>::get();
 
         if let Some(type_of_auth) = auth_type {
-            <Authorizations<T>>::iter_prefix(signatory)
+            <Authorizations<T>>::iter_prefix_values(signatory)
                 .filter(|auth| {
                     if !allow_expired {
                         if let Some(expiry) = auth.expiry {
@@ -2183,7 +2185,7 @@ impl<T: Trait> Module<T> {
                 })
                 .collect::<Vec<Authorization<T::AccountId, T::Moment>>>()
         } else {
-            <Authorizations<T>>::iter_prefix(signatory)
+            <Authorizations<T>>::iter_prefix_values(signatory)
                 .filter(|l| {
                     if !allow_expired {
                         if let Some(expiry) = l.expiry {
