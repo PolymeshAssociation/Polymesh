@@ -93,7 +93,7 @@ use frame_system::{self as system, ensure_signed};
 use pallet_identity as identity;
 use pallet_transaction_payment::{CddAndFeeDetails, ChargeTxFee};
 use polymesh_common_utilities::{
-    identity::{LinkedKeyInfo, Trait as IdentityTrait},
+    identity::{Trait as IdentityTrait},
     multisig::MultiSigSubTrait,
     Context,
 };
@@ -393,7 +393,6 @@ decl_module! {
         #[weight = SimpleDispatchInfo::FixedNormal(400_000)]
         pub fn add_multisig_signer(origin, signer: Signatory<T::AccountId>) -> DispatchResult {
             let sender = ensure_signed(origin)?;
-            let sender_signer = Signatory::Account(sender.clone());
             ensure!(<MultiSigToIdentity<T>>::contains_key(&sender), Error::<T>::NoSuchMultisig);
             let did = <MultiSigToIdentity<T>>::get(&sender);
             Self::unsafe_add_auth_for_signers(did, signer, sender);
@@ -441,9 +440,9 @@ decl_module! {
         pub fn add_multisig_signers_via_creator(origin, multisig: T::AccountId, signers: Vec<Signatory<T::AccountId>>) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             let sender_did = Context::current_identity_or::<Identity<T>>(&sender)?;
+            Self::verify_sender_is_creator(sender_did, &multisig)?;
             ensure!(<MultiSigToIdentity<T>>::get(&multisig) == sender_did, Error::<T>::IdentityNotCreator);
             ensure!(<Identity<T>>::is_master_key(sender_did, &sender), Error::<T>::NotMasterKey);
-            let multisig_signer = Signatory::Account(multisig.clone());
             for signer in signers {
                 Self::unsafe_add_auth_for_signers(
                     sender_did,
@@ -476,7 +475,7 @@ decl_module! {
         pub fn remove_multisig_signers_via_creator(origin, multisig: T::AccountId, signers: Vec<Signatory<T::AccountId>>) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             let sender_did = Context::current_identity_or::<Identity<T>>(&sender)?;
-            ensure!(<MultiSigToIdentity<T>>::get(&multisig) == sender_did, Error::<T>::ChangeNotAllowed);
+            Self::verify_sender_is_creator(sender_did, &multisig)?;
             ensure!(<Identity<T>>::is_master_key(sender_did, &sender), Error::<T>::NotMasterKey);
             ensure!(Self::is_changing_signers_allowed(&multisig), Error::<T>::ChangeNotAllowed);
             let signers_len:u64 = u64::try_from(signers.len()).unwrap_or_default();
@@ -546,7 +545,6 @@ decl_module! {
             sigs_required: u64
         ) -> DispatchResult {
             let sender = ensure_signed(origin)?;
-            let sender_signer = Signatory::Account(sender.clone());
             ensure!(<MultiSigToIdentity<T>>::contains_key(&sender), Error::<T>::NoSuchMultisig);
             // The creator is always the authorising agent for multisig issued authorisations
             let authorising_did = <MultiSigToIdentity<T>>::get(&sender);
@@ -903,16 +901,9 @@ impl<T: Trait> Module<T> {
     ) -> DispatchResult {
         let approvals_needed = Self::ms_signs_required(multisig.clone());
         if proposal_details.approvals >= approvals_needed {
-            // Requires both the creator and the attached DID (if it exists) to have a CDD claim (if different)
             ensure!(
                 <MultiSigToIdentity<T>>::contains_key(&multisig),
                 Error::<T>::NoSuchMultisig
-            );
-
-            let multisig_did = <MultiSigToIdentity<T>>::get(&multisig);
-            ensure!(
-                <Identity<T>>::has_valid_cdd(multisig_did),
-                Error::<T>::CddMissing
             );
 
             if let Some(did) = <Identity<T>>::get_identity(&multisig) {
@@ -1060,10 +1051,7 @@ impl<T: Trait> Module<T> {
             // NB - you can add a multisig as a signer to a different multisig
             ensure!(key != &multisig, Error::<T>::SignerAlreadyLinked);
         }
-        ensure!(
-            <MultiSigToIdentity<T>>::contains_key(&multisig),
-            Error::<T>::NoSuchMultisig
-        );
+
         let ms_identity = <MultiSigToIdentity<T>>::get(&multisig);
 
         <Identity<T>>::consume_auth(ms_identity, signer.clone(), auth_id)?;
