@@ -58,7 +58,7 @@ jobs:
                 aws_region: us-east-1
             run:
               path: bash
-              args: ["r-git-polymesh/.concourse/scripts/t-cargo-build.sh", "r-git-polymesh", "build-caches"]
+              args: ["git-polymesh/.concourse/scripts/t-cargo-build.sh", "git-polymesh", "build-caches"]
             outputs:
               - name: build-caches
       - in_parallel:
@@ -79,7 +79,7 @@ jobs:
                 aws_region: us-east-1
             run:
               path: bash
-              args: ["r-git-polymesh/.concourse/scripts/t-cargo-test.sh", "r-git-polymesh", "build-caches"]
+              args: ["git-polymesh/.concourse/scripts/t-cargo-test.sh", "git-polymesh", "build-caches"]
       - put: s3-polymesh
         params:
           file: artifact/polymesh-*
@@ -99,7 +99,7 @@ jobs:
 #                aws_region: us-east-1
 #            run:
 #              path: bash
-#              args: ["r-git-polymesh/.concourse/scripts/t-lint-clippy.sh", "r-git-polymesh", "build-caches"]
+#              args: ["git-polymesh/.concourse/scripts/t-lint-clippy.sh", "git-polymesh", "build-caches"]
 #          on_failure:
 #            task: ignore_clippy
 #            config:
