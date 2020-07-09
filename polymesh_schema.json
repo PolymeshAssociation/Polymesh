@@ -606,14 +606,7 @@
             "created_at": "Option<Moment>",
             "valid_from": "Option<Moment>"
         },
-        "LegDetails": {
-            "from": "IdentityId",
-            "to": "IdentityId",
-            "asset": "Ticker",
-            "amount": "Balance"
-        },
         "Leg": {
-            "leg_number": "u64",
             "from": "IdentityId",
             "to": "IdentityId",
             "asset": "Ticker",

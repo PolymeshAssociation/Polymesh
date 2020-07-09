@@ -108,7 +108,6 @@ impl_outer_event! {
         frame_system<T>,
         protocol_fee<T>,
         treasury<T>,
-        utility,
         settlement<T>,
         pallet_utility,
     }
