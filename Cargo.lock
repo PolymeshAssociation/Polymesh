@@ -3373,33 +3373,16 @@ dependencies = [
 name = "pallet-portfolio"
 version = "0.1.0"
 dependencies = [
- "frame-benchmarking",
  "frame-support",
  "frame-system",
- "hex-literal",
  "pallet-balances 0.1.0",
- "pallet-contracts",
  "pallet-identity",
- "pallet-protocol-fee",
- "pallet-session",
- "pallet-statistics",
- "pallet-timestamp",
  "parity-scale-codec",
  "polymesh-common-utilities",
  "polymesh-primitives",
- "polymesh-primitives-derive",
- "rustc-hex",
  "serde",
- "serde_derive",
- "sp-api",
  "sp-arithmetic",
- "sp-core",
- "sp-io",
- "sp-runtime",
- "sp-serializer",
  "sp-std",
- "sp-version",
- "substrate-test-runtime-client",
 ]
 
 [[package]]

@@ -24,18 +24,18 @@ decl_storage! {
         ///
         /// The portfolio number is both the key and part of the value due to a limitation of the
         /// iterator on `StorageDoubleMap`.
-        pub Portfolios get(portfolios):
+        pub Portfolios get(fn portfolios):
             double_map hasher(blake2_128_concat) IdentityId, hasher(blake2_128_concat) PortfolioNumber =>
             Option<(PortfolioNumber, PortfolioName)>;
         /// Asset balances of portfolios.
         ///
         /// The ticker is both the key and part of the value due to a limitation of the iterator on
         /// `StorageDoubleMap`.
-        pub PortfolioAssetBalances get(portfolio_asset_balances):
+        pub PortfolioAssetBalances get(fn portfolio_asset_balances):
             double_map hasher(blake2_128_concat) PortfolioId, hasher(blake2_128_concat) Ticker =>
             (Ticker, T::Balance);
         /// The next portfolio sequence number.
-        pub NextPortfolioNumber get(next_portfolio_number) build(|_| 1): u64;
+        pub NextPortfolioNumber get(fn next_portfolio_number) build(|_| 1): u64;
     }
 }
 
@@ -84,10 +84,11 @@ decl_module! {
         fn deposit_event() = default;
 
         /// Creates a portfolio.
+        #[weight = 200_000]
         pub fn create_portfolio(origin, name: PortfolioName) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             let did = Context::current_identity_or::<Identity<T>>(&sender)?;
-            let name_uniq = <Portfolios>::iter_prefix(&did).all(|n| n.1 != name);
+            let name_uniq = <Portfolios>::iter_prefix_values(&did).all(|n| n.1 != name);
             ensure!(name_uniq, Error::<T>::PortfolioNameAlreadyInUse);
             let num = Self::get_next_portfolio_number();
             <Portfolios>::insert(&did, &num, (num, name.clone()));
@@ -96,13 +97,14 @@ decl_module! {
         }
 
         /// Deletes a user portfolio and moves all its assets to the default portfolio.
+        #[weight = 1_000_000]
         pub fn delete_portfolio(origin, num: PortfolioNumber) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             let did = Context::current_identity_or::<Identity<T>>(&sender)?;
             ensure!(Self::portfolios(&did, &num).is_some(), Error::<T>::PortfolioDoesNotExist);
             let portfolio_id = PortfolioId::User(did, num);
             let def_portfolio_id = PortfolioId::Default(did);
-            for (ticker, balance) in <PortfolioAssetBalances<T>>::iter_prefix(&portfolio_id) {
+            for (ticker, balance) in <PortfolioAssetBalances<T>>::iter_prefix_values(&portfolio_id) {
                 <PortfolioAssetBalances<T>>::mutate(&def_portfolio_id, ticker, |(_, v)| {
                     *v = v.saturating_add(balance)
                 });
@@ -122,6 +124,7 @@ decl_module! {
 
         /// Moves a token amount from one portfolio of an identity to another portfolio of the same
         /// identity.
+        #[weight = 500_000]
         pub fn move_portfolio(
             origin,
             from_num: Option<PortfolioNumber>,
@@ -167,6 +170,7 @@ decl_module! {
         }
 
         /// Renames a non-default portfolio.
+        #[weight = 500_000]
         pub fn rename_portfolio(
             origin,
             num: PortfolioNumber,
@@ -175,7 +179,7 @@ decl_module! {
             let sender = ensure_signed(origin)?;
             let did = Context::current_identity_or::<Identity<T>>(&sender)?;
             ensure!(Self::portfolios(&did, &num).is_some(), Error::<T>::PortfolioDoesNotExist);
-            let name_uniq = <Portfolios>::iter_prefix(&did).all(|n| n.1 != to_name);
+            let name_uniq = <Portfolios>::iter_prefix_values(&did).all(|n| n.1 != to_name);
             ensure!(name_uniq, Error::<T>::PortfolioNameAlreadyInUse);
             <Portfolios>::mutate(&did, &num, |p| *p = Some((num, to_name.clone())));
             Self::deposit_event(RawEvent::PortfolioRenamed(
@@ -187,11 +191,12 @@ decl_module! {
         }
 
         /// Emits an event containing all non-default portfolio numbers and names of a given DID.
+        #[weight = 500_000]
         pub fn get_portfolios(origin) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             let did = Context::current_identity_or::<Identity<T>>(&sender)?;
             let portfolios: Vec<(PortfolioNumber, PortfolioName)> =
-                <Portfolios>::iter_prefix(&did).collect();
+                <Portfolios>::iter_prefix_values(&did).collect();
             Self::deposit_event(RawEvent::UserPortfolios(
                 did,
                 portfolios,
