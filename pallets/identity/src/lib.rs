@@ -1293,7 +1293,6 @@ impl<T: Trait> Module<T> {
             AuthorizationError::Invalid
         );
 
-        //TODO: Permission add_auth and then check submitting DID matches DID on actioning (don't allow auths to be issued by a key that crosses an identity boundary)
         let auth = <Authorizations<T>>::get(&target, auth_id);
         ensure!(auth.authorized_by == from, AuthorizationError::Unauthorized);
         if let Some(expiry) = auth.expiry {
@@ -1749,6 +1748,8 @@ impl<T: Trait> Module<T> {
                 LinkedKeyInfo::Unique(..) => false,
                 LinkedKeyInfo::Group(..) => signer_type != SignatoryType::External,
             }
+        } else if T::MultiSig::is_signer(key) {
+            false
         } else {
             true
         }

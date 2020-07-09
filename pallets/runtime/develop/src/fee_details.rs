@@ -143,7 +143,7 @@ impl CddAndFeeDetails<AccountId, Call> for CddHandler {
                     if let Some(did) = Identity::get_identity(key) {
                         if Identity::has_valid_cdd(did) {
                             Context::set_current_identity::<Identity>(Some(did));
-                            if let Some(fee_did) = Balances::charge_fee_to_identity(&key) {
+                            if let Some(fee_did) = Balances::charge_fee_to_identity(key) {
                                 sp_runtime::print("charging identity");
                                 return Ok(Some(Signatory::from(fee_did)));
                             } else {
@@ -198,7 +198,6 @@ fn is_auth_valid(
         // Different auths have different authorization data requirements and hence we match call type
         // to make sure proper authorization data is present.
         // All we need to check is that there is a payer with a valid CDD. Business logic for authorisations can be checked post-Signed Extension.
-        // TODO: clean up into a single match case
         match call_type {
             CallType::AcceptMultiSigSigner => {
                 if let AuthorizationData::AddMultiSigSigner(_) = auth.authorization_data {
