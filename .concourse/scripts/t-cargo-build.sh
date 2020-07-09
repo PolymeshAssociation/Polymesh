@@ -24,6 +24,9 @@ elif [[ -f ${GIT_DIR}/.git/describe_ref ]]; then
 else
     echo "no reference for the polymesh version found"
     ls -al ${GIT_DIR}/.git
+    cat ${GIT_DIR}/.git/description
+    cat ${GIT_DIR}/.git/short_ref
+    cat ${GIT_DIR}/.git/ref
     exit 1
 fi
 
