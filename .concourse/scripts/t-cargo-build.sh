@@ -14,6 +14,6 @@ cargo build --release || cargo build -j 1 --release
 
 popd
 
-rsync -auv $HOME/.cargo/ ${CACHE_DIR}/.cargo
+rsync -auv ${CARGO_HOME:-$HOME/.cargo}/ ${CACHE_DIR}/.cargo
 rsync -auv ${GIT_DIR}/target/ ${CACHE_DIR}/target
 

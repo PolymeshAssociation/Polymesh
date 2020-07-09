@@ -40,7 +40,7 @@ jobs:
             platform: linux
             caches:
               - path: r-git-polymesh/target
-              - path: $HOME/.cargo
+              - path: /usr/local/cargo
             image_resource:
               type: registry-image
               source:
