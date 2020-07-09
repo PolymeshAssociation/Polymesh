@@ -49,7 +49,6 @@ jobs:
                 aws_secret_access_key: ((polymath-ecr.aws-access-secret))
                 aws_region: us-east-1
             run:
-              dir: r-git-polymesh
               path: bash
               args: [".concourse/scripts/t-cargo-build.sh", "r-git-polymesh", "build-caches"]
             outputs:
