@@ -35,7 +35,7 @@ sp-runtime-interface = { git = "https://github.com/paritytech/substrate", defaul
 # Crypto
 rand_core = { version = "0.5", default-features = false }
 rand = { version = "0.7.3", default-features = false, optional = true } 
-cryptography = { path = "../../3rdParty/cryptography", default-features = false }
+cryptography = { path = "../../external/cryptography", default-features = false }
 curve25519-dalek = { version = "2", default-features = false, features = ["nightly"] }
 bulletproofs = { git = "https://github.com/fmiguelgarcia/bulletproofs.git", tag = "2.0.0-polymath-1", default-features = false }
 
