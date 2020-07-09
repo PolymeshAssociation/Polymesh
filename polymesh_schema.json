@@ -331,9 +331,9 @@
                 "AttestMasterKeyRotation": "IdentityId",
                 "RotateMasterKey": "IdentityId",
                 "TransferTicker": "Ticker",
-                "AddMultiSigSigner": "",
+                "AddMultiSigSigner": "AccountId",
                 "TransferAssetOwnership": "Ticker",
-                "JoinIdentity": "JoinIdentityData",
+                "JoinIdentity": "Vec<Permission>",
                 "Custom": "Vec<u8>",
                 "NoData": ""
             }
@@ -526,10 +526,6 @@
                 "Ok": "u8",
                 "Err": "Vec<u8>"
             }
-        },
-        "JoinIdentityData": {
-            "target_did": "IdentityId",
-            "permissions": "Vec<Permission>"
         },
         "LinkType": {
             "_enum": {
