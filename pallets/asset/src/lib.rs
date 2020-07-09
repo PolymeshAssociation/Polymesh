@@ -743,30 +743,37 @@ decl_module! {
             let mut issued_in_this_round = Self::issued_in_funding_round(&ticker_round);
 
             // A round of per-investor checks
-            for i in 0..issue_asset_items.len() {
+            for IssueAssetItem { investor_did, value } in &issue_asset_items {
                 ensure!(
-                    Self::check_granularity(&ticker, issue_asset_items[i].value),
+                    Self::check_granularity(&ticker, *value),
                     Error::<T>::InvalidGranularity
                 );
                 let updated_total_supply = token
                     .total_supply
-                    .checked_add(&issue_asset_items[i].value)
+                    .checked_add(value)
                     .ok_or(Error::<T>::TotalSupplyOverflow)?;
                 ensure!(updated_total_supply <= MAX_SUPPLY.into(), Error::<T>::TotalSupplyAboveLimit);
 
-                current_balances.push(Self::balance(&ticker, &issue_asset_items[i].investor_did));
-                updated_balances.push(current_balances[i]
-                    .checked_add(&issue_asset_items[i].value)
-                    .ok_or(Error::<T>::BalanceOverflow)?);
+                let bals = Self::balance(&ticker, *investor_did);
+                current_balances.push(bals);
+                let updated_total_balance = bals
+                    .0
+                    .checked_add(value)
+                    .ok_or(Error::<T>::BalanceOverflow)?;
+                let updated_def_balance = bals
+                    .1
+                    .checked_add(value)
+                    .ok_or(Error::<T>::BalanceOverflow)?;
+                updated_balances.push((updated_total_balance, updated_def_balance));
 
                 // verify transfer check
                 ensure!(
-                    Self::_is_valid_transfer(&ticker, sender.clone(),  None, Some(issue_asset_items[i].investor_did), issue_asset_items[i].value)? == ERC1400_TRANSFER_SUCCESS,
+                    Self::_is_valid_transfer(&ticker, sender.clone(),  None, Some(*investor_did), *value)? == ERC1400_TRANSFER_SUCCESS,
                     Error::<T>::InvalidTransfer
                 );
 
                 issued_in_this_round = issued_in_this_round
-                    .checked_add(&issue_asset_items[i].value)
+                    .checked_add(value)
                     .ok_or(Error::<T>::FundingRoundTotalOverflow)?;
 
                 // New total supply must be valid
@@ -779,15 +786,17 @@ decl_module! {
             )?;
             <IssuedInFundingRound<T>>::insert(&ticker_round, issued_in_this_round);
             // Update investor balances and emit events quoting the updated total token balance issued.
-            for i in 0..issue_asset_items.len() {
-                Self::_update_checkpoint(&ticker, issue_asset_items[i].investor_did, current_balances[i]);
-                <BalanceOf<T>>::insert(ticker, issue_asset_items[i].investor_did, updated_balances[i]);
-                <statistics::Module<T>>::update_transfer_stats(&ticker, None, Some(updated_balances[i]), issue_asset_items[i].value);
+            for (i, IssueAssetItem { investor_did, value }) in issue_asset_items.iter().enumerate() {
+                Self::_update_checkpoint(&ticker, *investor_did, current_balances[i].0);
+                let (tot, def) = updated_balances[i];
+                <BalanceOf<T>>::insert(ticker, investor_did, tot);
+                Portfolio::<T>::set_default_portfolio_balance(*investor_did, &ticker, def);
+                <statistics::Module<T>>::update_transfer_stats(&ticker, None, Some(tot), *value);
                 Self::deposit_event(RawEvent::Issued(
                     did,
                     ticker,
-                    issue_asset_items[i].investor_did,
-                    issue_asset_items[i].value,
+                    *investor_did,
+                    *value,
                     round.clone(),
                     issued_in_this_round
                 ));
@@ -812,11 +821,15 @@ decl_module! {
             // Granularity check
             ensure!(Self::check_granularity(&ticker, value), Error::<T>::InvalidGranularity);
             ensure!(<BalanceOf<T>>::contains_key(&ticker, &did), Error::<T>::NotAnOwner);
-            let burner_balance = Self::balance(&ticker, &did);
+            let (burner_balance, burner_def_balance) = Self::balance(&ticker, did);
             ensure!(burner_balance >= value, Error::<T>::InsufficientBalance);
+            ensure!(burner_def_balance >= value, Error::<T>::InsufficientBalance);
 
             // Reduce sender's balance
             let updated_burner_balance = burner_balance
+                .checked_sub(&value)
+                .ok_or(Error::<T>::BalanceOverflow)?;
+            let updated_burner_def_balance = burner_def_balance
                 .checked_sub(&value)
                 .ok_or(Error::<T>::BalanceOverflow)?;
             // Check whether the custody allowance remain intact or not
@@ -836,6 +849,7 @@ decl_module! {
             Self::_update_checkpoint(&ticker, did, burner_balance);
 
             <BalanceOf<T>>::insert(ticker, did, updated_burner_balance);
+            Portfolio::<T>::set_default_portfolio_balance(did, &ticker, updated_burner_def_balance);
             <Tokens<T>>::insert(&ticker, token);
             <statistics::Module<T>>::update_transfer_stats(&ticker, Some(updated_burner_balance), None, value);
 
@@ -859,11 +873,15 @@ decl_module! {
             // Granularity check
             ensure!(Self::check_granularity(&ticker, value), Error::<T>::InvalidGranularity);
             ensure!(<BalanceOf<T>>::contains_key(&ticker, &did), Error::<T>::NotAnOwner);
-            let burner_balance = Self::balance(&ticker, &did);
+            let (burner_balance, burner_def_balance) = Self::balance(&ticker, did);
             ensure!(burner_balance >= value, Error::<T>::InsufficientBalance);
+            ensure!(burner_def_balance >= value, Error::<T>::InsufficientBalance);
 
             // Reduce sender's balance
             let updated_burner_balance = burner_balance
+                .checked_sub(&value)
+                .ok_or(Error::<T>::BalanceOverflow)?;
+            let updated_burner_def_balance = burner_def_balance
                 .checked_sub(&value)
                 .ok_or(Error::<T>::BalanceOverflow)?;
 
@@ -890,8 +908,9 @@ decl_module! {
 
             <Allowance<T>>::insert(&ticker_from_did_did, updated_allowance);
             <BalanceOf<T>>::insert(&ticker, &did, updated_burner_balance);
+            Portfolio::<T>::set_default_portfolio_balance(did, &ticker, updated_burner_def_balance);
             <Tokens<T>>::insert(&ticker, token);
-            <statistics::Module<T>>::update_transfer_stats( &ticker, Some(updated_burner_balance), None, value);
+            <statistics::Module<T>>::update_transfer_stats(&ticker, Some(updated_burner_balance), None, value);
 
             Self::deposit_event(RawEvent::Redeemed(did, ticker, from_did, value));
             Self::deposit_event(RawEvent::Approval(did, ticker, from_did, did, value));
@@ -917,11 +936,15 @@ decl_module! {
             // Granularity check
             ensure!(Self::check_granularity(&ticker, value), Error::<T>::InvalidGranularity);
             ensure!(<BalanceOf<T>>::contains_key(&ticker, &token_holder_did), Error::<T>::NotAnAssetHolder);
-            let burner_balance = Self::balance(&ticker, &token_holder_did);
+            let (burner_balance, burner_def_balance) = Self::balance(&ticker, token_holder_did);
             ensure!(burner_balance >= value, Error::<T>::InsufficientBalance);
+            ensure!(burner_def_balance >= value, Error::<T>::InsufficientBalance);
 
             // Reduce sender's balance
             let updated_burner_balance = burner_balance
+                .checked_sub(&value)
+                .ok_or(Error::<T>::BalanceOverflow)?;
+            let updated_burner_def_balance = burner_def_balance
                 .checked_sub(&value)
                 .ok_or(Error::<T>::BalanceOverflow)?;
 
@@ -932,6 +955,7 @@ decl_module! {
             Self::_update_checkpoint(&ticker, token_holder_did, burner_balance);
 
             <BalanceOf<T>>::insert(&ticker, &token_holder_did, updated_burner_balance);
+            Portfolio::<T>::set_default_portfolio_balance(token_holder_did, &ticker, updated_burner_def_balance);
             <Tokens<T>>::insert(&ticker, token);
             <statistics::Module<T>>::update_transfer_stats( &ticker, Some(updated_burner_balance), None, value);
 
@@ -1666,9 +1690,12 @@ impl<T: Trait> Module<T> {
         Ok(())
     }
 
-    /// Get the asset `id` balance of `who`.
-    pub fn balance(ticker: &Ticker, did: &IdentityId) -> T::Balance {
-        Self::balance_of(ticker, did)
+    /// Get the asset `ticker` balance of `did`, both total and that of the default portfolio.
+    pub fn balance(ticker: &Ticker, did: IdentityId) -> (T::Balance, T::Balance) {
+        (
+            Self::balance_of(ticker, &did),
+            Portfolio::<T>::default_portfolio_balance(did, ticker),
+        )
     }
 
     // Get the total supply of an asset `id`.
@@ -1683,7 +1710,7 @@ impl<T: Trait> Module<T> {
             at > Self::total_checkpoints_of(&ticker)
         {
             // No checkpoints data exist
-            return Self::balance(&ticker, &did);
+            return Self::balance(&ticker, did).0;
         }
 
         if <UserCheckpoints>::contains_key(&ticker_did) {
@@ -1693,7 +1720,7 @@ impl<T: Trait> Module<T> {
                 // or part should never be triggered due to the check on 2 lines above
                 // User has not transacted after checkpoint creation.
                 // This means their current balance = their balance at that cp.
-                return Self::balance(&ticker, &did);
+                return Self::balance(&ticker, did).0;
             }
             // Uses the first checkpoint that was created after target checkpoint
             // and the user has data for that checkpoint
@@ -1706,7 +1733,7 @@ impl<T: Trait> Module<T> {
         // User has no checkpoint data.
         // This means that user's balance has not changed since first checkpoint was created.
         // Maybe the user never held any balance.
-        Self::balance(&ticker, &did)
+        Self::balance(&ticker, did).0
     }
 
     fn find_ceiling(arr: &Vec<u64>, key: u64) -> u64 {
@@ -1810,8 +1837,8 @@ impl<T: Trait> Module<T> {
             Error::<T>::NotAnAssetHolder
         );
         ensure!(from_did != to_did, Error::<T>::InvalidTransfer);
-        let from_total_balance = Self::balance(ticker, &from_did);
-        let from_def_balance = Portfolio::<T>::default_portfolio_balance(from_did, ticker);
+        let (from_total_balance, from_def_balance) = Self::balance(ticker, from_did);
+        ensure!(from_total_balance >= value, Error::<T>::InsufficientBalance);
         ensure!(from_def_balance >= value, Error::<T>::InsufficientBalance);
         let updated_from_total_balance = from_total_balance
             .checked_sub(&value)
@@ -1820,8 +1847,7 @@ impl<T: Trait> Module<T> {
             .checked_sub(&value)
             .ok_or(Error::<T>::BalanceOverflow)?;
 
-        let to_total_balance = Self::balance(ticker, &to_did);
-        let to_def_balance = Portfolio::<T>::default_portfolio_balance(to_did, ticker);
+        let (to_total_balance, to_def_balance) = Self::balance(ticker, to_did);
         let updated_to_total_balance = to_total_balance
             .checked_add(&value)
             .ok_or(Error::<T>::BalanceOverflow)?;
@@ -1902,8 +1928,11 @@ impl<T: Trait> Module<T> {
             Error::<T>::InvalidGranularity
         );
         //Increase receiver balance
-        let current_to_balance = Self::balance(ticker, &to_did);
+        let (current_to_balance, current_to_def_balance) = Self::balance(ticker, to_did);
         let updated_to_balance = current_to_balance
+            .checked_add(&value)
+            .ok_or(Error::<T>::BalanceOverflow)?;
+        let updated_to_def_balance = current_to_def_balance
             .checked_add(&value)
             .ok_or(Error::<T>::BalanceOverflow)?;
         // verify transfer check
@@ -1933,6 +1962,7 @@ impl<T: Trait> Module<T> {
         Self::_update_checkpoint(ticker, to_did, current_to_balance);
 
         <BalanceOf<T>>::insert(ticker, &to_did, updated_to_balance);
+        Portfolio::<T>::set_default_portfolio_balance(to_did, ticker, updated_to_def_balance);
         <Tokens<T>>::insert(ticker, token);
         let round = Self::funding_round(ticker);
         let ticker_round = (*ticker, round.clone());
@@ -1963,7 +1993,8 @@ impl<T: Trait> Module<T> {
         holder_did: IdentityId,
         value: T::Balance,
     ) -> DispatchResult {
-        let remaining_balance = Self::balance(&ticker, &holder_did)
+        let remaining_balance = Self::balance(&ticker, holder_did)
+            .0
             .checked_sub(&value)
             .ok_or(Error::<T>::BalanceUnderflow)?;
         ensure!(
@@ -1985,7 +2016,7 @@ impl<T: Trait> Module<T> {
             .ok_or(Error::<T>::TotalAllowanceOverflow)?;
         // Ensure that balance of the token holder should greater than or equal to the total custody allowance + value
         ensure!(
-            Self::balance(&ticker, &holder_did) >= new_custody_allowance,
+            Self::balance(&ticker, holder_did).0 >= new_custody_allowance,
             Error::<T>::InsufficientBalance
         );
         // Ensure the valid DID
@@ -2235,8 +2266,9 @@ impl<T: Trait> Module<T> {
         // Non-Issuance case check
         if let Some(from_id) = from_did {
             if Identity::<T>::has_valid_cdd(from_id) {
-                let balance = Self::balance(&ticker, &from_id);
+                let (balance, def_balance) = Self::balance(&ticker, from_id);
                 if balance < amount
+                    || def_balance < amount
                     || balance - amount < Self::total_custody_allowance((ticker, from_id))
                 {
                     return Ok(ERC1400_INSUFFICIENT_BALANCE);
