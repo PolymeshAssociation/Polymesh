@@ -98,7 +98,9 @@ use frame_support::{
     StorageDoubleMap,
 };
 use frame_system::{self as system, ensure_root, ensure_signed};
-use pallet_identity_rpc_runtime_api::{DidRecords as RpcDidRecords, DidStatus, LinkType, AuthorizationType};
+use pallet_identity_rpc_runtime_api::{
+    AuthorizationType, DidRecords as RpcDidRecords, DidStatus, LinkType,
+};
 use pallet_transaction_payment::{CddAndFeeDetails, ChargeTxFee};
 use polymesh_common_utilities::{
     constants::did::{SECURITY_TOKEN, USER},
@@ -2174,13 +2176,25 @@ impl<T: Trait> Module<T> {
                             }
                         }
                     }
-                    match auth.authorization_data {  
-                        AuthorizationData::AttestMasterKeyRotation(..) => type_of_auth == AuthorizationType::AttestMasterKeyRotation,
-                        AuthorizationData::RotateMasterKey(..) => type_of_auth == AuthorizationType::RotateMasterKey,
-                        AuthorizationData::TransferTicker(..) => type_of_auth == AuthorizationType::TransferTicker,
-                        AuthorizationData::AddMultiSigSigner => type_of_auth == AuthorizationType::AddMultiSigSigner,
-                        AuthorizationData::TransferAssetOwnership(..) => type_of_auth == AuthorizationType::TransferAssetOwnership,
-                        AuthorizationData::JoinIdentity(..) => type_of_auth == AuthorizationType::JoinIdentity,
+                    match auth.authorization_data {
+                        AuthorizationData::AttestMasterKeyRotation(..) => {
+                            type_of_auth == AuthorizationType::AttestMasterKeyRotation
+                        }
+                        AuthorizationData::RotateMasterKey(..) => {
+                            type_of_auth == AuthorizationType::RotateMasterKey
+                        }
+                        AuthorizationData::TransferTicker(..) => {
+                            type_of_auth == AuthorizationType::TransferTicker
+                        }
+                        AuthorizationData::AddMultiSigSigner => {
+                            type_of_auth == AuthorizationType::AddMultiSigSigner
+                        }
+                        AuthorizationData::TransferAssetOwnership(..) => {
+                            type_of_auth == AuthorizationType::TransferAssetOwnership
+                        }
+                        AuthorizationData::JoinIdentity(..) => {
+                            type_of_auth == AuthorizationType::JoinIdentity
+                        }
                         AuthorizationData::Custom(..) => type_of_auth == AuthorizationType::Custom,
                         AuthorizationData::NoData => type_of_auth == AuthorizationType::NoData,
                     }

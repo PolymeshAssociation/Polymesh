@@ -3,7 +3,7 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use codec::{Codec, Decode, Encode};
-pub use polymesh_primitives::{IdentityId, Link, Moment, Authorization};
+pub use polymesh_primitives::{Authorization, IdentityId, Link, Moment};
 #[cfg(feature = "std")]
 use serde::{Deserialize, Serialize};
 use sp_std::{prelude::*, vec::Vec};

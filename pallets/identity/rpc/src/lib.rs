@@ -2,8 +2,8 @@ use codec::Codec;
 use jsonrpc_core::{Error as RpcError, ErrorCode, Result};
 use jsonrpc_derive::rpc;
 use pallet_identity_rpc_runtime_api::{
-    AssetDidResult, CddStatus, DidRecords, DidStatus, IdentityApi as IdentityRuntimeApi, Link,
-    LinkType, Authorization, AuthorizationType,
+    AssetDidResult, Authorization, AuthorizationType, CddStatus, DidRecords, DidStatus,
+    IdentityApi as IdentityRuntimeApi, Link, LinkType,
 };
 use sp_api::ProvideRuntimeApi;
 use sp_blockchain::HeaderBackend;

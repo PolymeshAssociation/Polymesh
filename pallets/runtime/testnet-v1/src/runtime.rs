@@ -36,8 +36,8 @@ use polymesh_common_utilities::{
     CommonTrait,
 };
 use polymesh_primitives::{
-    AccountId, AccountIndex, Balance, BlockNumber, Hash, IdentityId, Index, Link, Moment,
-    Signatory, Signature, SigningItem, Ticker,
+    AccountId, AccountIndex, Authorization, Balance, BlockNumber, Hash, IdentityId, Index, Link,
+    Moment, Signatory, Signature, SigningItem, Ticker,
 };
 
 use frame_support::{
@@ -59,7 +59,9 @@ use sp_version::RuntimeVersion;
 use frame_system::offchain::TransactionSubmitter;
 use pallet_contracts_rpc_runtime_api::ContractExecResult;
 use pallet_grandpa::{fg_primitives, AuthorityList as GrandpaAuthorityList};
-use pallet_identity_rpc_runtime_api::{AssetDidResult, CddStatus, DidRecords, DidStatus, LinkType};
+use pallet_identity_rpc_runtime_api::{
+    AssetDidResult, AuthorizationType, CddStatus, DidRecords, DidStatus, LinkType,
+};
 use pallet_im_online::sr25519::AuthorityId as ImOnlineId;
 use pallet_protocol_fee_rpc_runtime_api::CappedFee;
 use pallet_transaction_payment_rpc_runtime_api::RuntimeDispatchInfo;
@@ -874,6 +876,15 @@ impl_runtime_apis! {
         /// Retrieve the status of the DIDs
         fn get_did_status(dids: Vec<IdentityId>) -> Vec<DidStatus> {
             Identity::get_did_status(dids)
+        }
+
+        /// Retrieve list of a authorization for a given signatory
+        fn get_filtered_authorizations(
+            signatory: Signatory<AccountId>,
+            allow_expired: bool,
+            auth_type: Option<AuthorizationType>
+        ) -> Vec<Authorization<AccountId, Moment>> {
+            Identity::get_filtered_authorizations(signatory, allow_expired, auth_type)
         }
     }
 

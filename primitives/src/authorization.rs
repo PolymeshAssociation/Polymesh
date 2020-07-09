@@ -20,10 +20,13 @@ use crate::{
 };
 use codec::{Decode, Encode};
 use frame_support::dispatch::DispatchError;
+#[cfg(feature = "std")]
+use serde::{Deserialize, Serialize};
 use sp_std::prelude::*;
 
 /// Authorization data for two step processes.
 #[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, PartialOrd, Ord)]
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 pub enum AuthorizationData {
     /// CDD provider's attestation to change master key
     AttestMasterKeyRotation(IdentityId),
@@ -75,6 +78,7 @@ impl From<AuthorizationError> for DispatchError {
 
 /// Authorization struct
 #[derive(Encode, Decode, Default, Clone, PartialEq, Debug)]
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 pub struct Authorization<AccountId, Moment> {
     /// Enum that contains authorization type and data
     pub authorization_data: AuthorizationData,
@@ -91,6 +95,7 @@ pub struct Authorization<AccountId, Moment> {
 
 /// Authorization Identity data
 #[derive(Encode, Decode, Default, Clone, PartialEq, Eq, Debug, PartialOrd, Ord)]
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 pub struct JoinIdentityData {
     /// Target DID under which signing_item need to be added
     pub target_did: IdentityId,
