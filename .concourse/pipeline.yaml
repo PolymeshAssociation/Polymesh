@@ -61,6 +61,7 @@ jobs:
               args: ["git-polymesh/.concourse/scripts/t-cargo-build.sh", "git-polymesh", "build-caches"]
             outputs:
               - name: build-caches
+              - name: artifact
       - in_parallel:
         - task: cargo-test
           config:
