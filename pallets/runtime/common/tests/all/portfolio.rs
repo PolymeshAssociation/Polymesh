@@ -16,13 +16,13 @@ fn can_create_and_delete_portfolio() {
         let alice = AccountKeyring::Alice.public();
         let alice_id = register_keyring_account(AccountKeyring::Alice).unwrap();
         let name = PortfolioName::from([42u8].to_vec());
+        let num = Portfolio::next_portfolio_number();
         assert_ok!(Portfolio::create_portfolio(
             Origin::signed(alice),
             name.clone()
         ));
-        let num = Portfolio::next_portfolio_number();
-        assert_eq!(Portfolio::portfolios(&alice_id, num), (num, name));
+        assert_eq!(Portfolio::portfolios(&alice_id, num), Some((num, name)));
         assert_ok!(Portfolio::delete_portfolio(Origin::signed(alice), num));
-        assert_eq!(Portfolio::portfolios(&alice_id, num).0, 0);
+        assert!(Portfolio::portfolios(&alice_id, num).is_none());
     });
 }
