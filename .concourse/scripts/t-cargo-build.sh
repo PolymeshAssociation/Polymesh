@@ -26,7 +26,7 @@ else
     exit 1
 fi
 
-cp ${GIT_DIR}/target//release/polymesh artifact/polymesh-${POLYMESH_VERSION}
+cp ${GIT_DIR}/target/release/polymesh artifact/polymesh-${POLYMESH_VERSION}
 
 rsync -auv ${CARGO_HOME:-$HOME/.cargo}/ ${CACHE_DIR}/.cargo
 rsync -auv ${GIT_DIR}/target/ ${CACHE_DIR}/target

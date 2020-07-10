@@ -17,6 +17,12 @@ resources:
       regexp: concourse/polymesh/polymesh-(.*)
       access_key_id: ((s3-polymath-concourse.access_key_id))
       secret_access_key: ((s3-polymath-concourse.secret_access_key))
+  - name: dockerimage-polymesh
+    type: docker-image
+    source:
+      repository: 414255671868.dkr.ecr.us-east-1.amazonaws.com/polymathnetwork/polymesh
+      aws_access_key_id: ((polymath-ecr.aws-access-id))
+      aws_secret_access_key: ((polymath-ecr.aws-access-secret))
 
 jobs:
   - name: build-polymesh
@@ -81,10 +87,6 @@ jobs:
             run:
               path: bash
               args: ["git-polymesh/.concourse/scripts/t-cargo-test.sh", "git-polymesh", "build-caches"]
-      - put: s3-polymesh
-        params:
-          file: artifact/polymesh-*
-          acl: public-read
 #        - task: cargo-clippy
 #          config:
 #            inputs:
@@ -112,4 +114,11 @@ jobs:
 #                path: echo
 #                args:
 #                  - "Ignoring clippy failure"
-#
+      - put: s3-polymesh
+        params:
+          file: artifact/polymesh-*
+          acl: public-read
+      - put: dockerimage-polymesh
+        params:
+          build: git-polymesh
+
