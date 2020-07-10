@@ -21,6 +21,7 @@ mod group_test;
 mod identity_test;
 mod multisig;
 mod pips_test;
+mod portfolio;
 mod protocol_fee;
 mod simple_token_test;
 mod statistics_test;
