@@ -1846,7 +1846,10 @@ impl<T: Trait> Module<T> {
         ensure!(from_did != to_did, Error::<T>::InvalidTransfer);
         let (from_total_balance, from_def_balance) = Self::balance(ticker, from_did);
         ensure!(from_total_balance >= value, Error::<T>::InsufficientBalance);
-        ensure!(from_def_balance >= value, Error::<T>::InsufficientDefaultPortfolioBalance);
+        ensure!(
+            from_def_balance >= value,
+            Error::<T>::InsufficientDefaultPortfolioBalance
+        );
         let updated_from_total_balance = from_total_balance
             .checked_sub(&value)
             .ok_or(Error::<T>::BalanceUnderflow)?;
