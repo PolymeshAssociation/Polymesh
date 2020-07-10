@@ -14,7 +14,7 @@ resources:
     source:
       bucket: polymesh-testnet-artifacts
       region_name: ca-central-1
-      regexp: concourse/polymesh/release-(.*)
+      regexp: concourse/polymesh/polymesh-(.*)
       access_key_id: ((s3-polymath-concourse.access_key_id))
       secret_access_key: ((s3-polymath-concourse.secret_access_key))
 
