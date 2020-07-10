@@ -478,6 +478,7 @@ decl_module! {
             };
             <Tokens<T>>::insert(&ticker, token);
             <BalanceOf<T>>::insert(ticker, did, total_supply);
+            Portfolio::<T>::set_default_portfolio_balance(did, &ticker, total_supply);
             Self::deposit_event(RawEvent::AssetCreated(
                 did,
                 ticker,
@@ -763,7 +764,7 @@ decl_module! {
                 let updated_def_balance = bals
                     .1
                     .checked_add(value)
-                    .ok_or(Error::<T>::BalanceOverflow)?;
+                    .ok_or(Error::<T>::DefaultPortfolioBalanceOverflow)?;
                 updated_balances.push((updated_total_balance, updated_def_balance));
 
                 // verify transfer check
@@ -823,15 +824,15 @@ decl_module! {
             ensure!(<BalanceOf<T>>::contains_key(&ticker, &did), Error::<T>::NotAnOwner);
             let (burner_balance, burner_def_balance) = Self::balance(&ticker, did);
             ensure!(burner_balance >= value, Error::<T>::InsufficientBalance);
-            ensure!(burner_def_balance >= value, Error::<T>::InsufficientBalance);
+            ensure!(burner_def_balance >= value, Error::<T>::InsufficientDefaultPortfolioBalance);
 
             // Reduce sender's balance
             let updated_burner_balance = burner_balance
                 .checked_sub(&value)
-                .ok_or(Error::<T>::BalanceOverflow)?;
+                .ok_or(Error::<T>::BalanceUnderflow)?;
             let updated_burner_def_balance = burner_def_balance
                 .checked_sub(&value)
-                .ok_or(Error::<T>::BalanceOverflow)?;
+                .ok_or(Error::<T>::DefaultPortfolioBalanceUnderflow)?;
             // Check whether the custody allowance remain intact or not
             Self::_check_custody_allowance(&ticker, did, value)?;
 
@@ -844,7 +845,7 @@ decl_module! {
             //Decrease total supply
             let mut token = Self::token_details(&ticker);
             token.total_supply = token.total_supply.checked_sub(&value)
-                .ok_or(Error::<T>::BalanceOverflow)?;
+                .ok_or(Error::<T>::BalanceUnderflow)?;
 
             Self::_update_checkpoint(&ticker, did, burner_balance);
 
@@ -875,15 +876,15 @@ decl_module! {
             ensure!(<BalanceOf<T>>::contains_key(&ticker, &did), Error::<T>::NotAnOwner);
             let (burner_balance, burner_def_balance) = Self::balance(&ticker, did);
             ensure!(burner_balance >= value, Error::<T>::InsufficientBalance);
-            ensure!(burner_def_balance >= value, Error::<T>::InsufficientBalance);
+            ensure!(burner_def_balance >= value, Error::<T>::InsufficientDefaultPortfolioBalance);
 
             // Reduce sender's balance
             let updated_burner_balance = burner_balance
                 .checked_sub(&value)
-                .ok_or(Error::<T>::BalanceOverflow)?;
+                .ok_or(Error::<T>::BalanceUnderflow)?;
             let updated_burner_def_balance = burner_def_balance
                 .checked_sub(&value)
-                .ok_or(Error::<T>::BalanceOverflow)?;
+                .ok_or(Error::<T>::DefaultPortfolioBalanceUnderflow)?;
 
             let ticker_from_did_did = (ticker, from_did, did);
             ensure!(<Allowance<T>>::contains_key(&ticker_from_did_did), Error::<T>::NoSuchAllowance);
@@ -902,7 +903,7 @@ decl_module! {
             //Decrease total supply
             let mut token = Self::token_details(&ticker);
             token.total_supply = token.total_supply.checked_sub(&value)
-                .ok_or(Error::<T>::BalanceOverflow)?;
+                .ok_or(Error::<T>::BalanceUnderflow)?;
 
             Self::_update_checkpoint(&ticker, did, burner_balance);
 
@@ -938,19 +939,19 @@ decl_module! {
             ensure!(<BalanceOf<T>>::contains_key(&ticker, &token_holder_did), Error::<T>::NotAnAssetHolder);
             let (burner_balance, burner_def_balance) = Self::balance(&ticker, token_holder_did);
             ensure!(burner_balance >= value, Error::<T>::InsufficientBalance);
-            ensure!(burner_def_balance >= value, Error::<T>::InsufficientBalance);
+            ensure!(burner_def_balance >= value, Error::<T>::InsufficientDefaultPortfolioBalance);
 
             // Reduce sender's balance
             let updated_burner_balance = burner_balance
                 .checked_sub(&value)
-                .ok_or(Error::<T>::BalanceOverflow)?;
+                .ok_or(Error::<T>::BalanceUnderflow)?;
             let updated_burner_def_balance = burner_def_balance
                 .checked_sub(&value)
-                .ok_or(Error::<T>::BalanceOverflow)?;
+                .ok_or(Error::<T>::DefaultPortfolioBalanceUnderflow)?;
 
             // Decrease total supply
             let mut token = Self::token_details(&ticker);
-            token.total_supply = token.total_supply.checked_sub(&value).ok_or(Error::<T>::BalanceOverflow)?;
+            token.total_supply = token.total_supply.checked_sub(&value).ok_or(Error::<T>::BalanceUnderflow)?;
 
             Self::_update_checkpoint(&ticker, token_holder_did, burner_balance);
 
@@ -1494,8 +1495,12 @@ decl_error! {
         NotAnOwner,
         /// An overflow while calculating the balance.
         BalanceOverflow,
+        /// An overflow while calculating the default portfolio balance.
+        DefaultPortfolioBalanceOverflow,
         /// An underflow while calculating the balance.
         BalanceUnderflow,
+        /// An underflow while calculating the default portfolio balance.
+        DefaultPortfolioBalanceUnderflow,
         /// An overflow while calculating the allowance.
         AllowanceOverflow,
         /// An underflow in calculating the allowance.
@@ -1528,6 +1533,8 @@ decl_error! {
         InvalidTransfer,
         /// The sender balance is not sufficient.
         InsufficientBalance,
+        /// The balance of the sender's default portfolio is not sufficient.
+        InsufficientDefaultPortfolioBalance,
         /// An invalid signature.
         InvalidSignature,
         /// The signature is already in use.
@@ -1839,21 +1846,21 @@ impl<T: Trait> Module<T> {
         ensure!(from_did != to_did, Error::<T>::InvalidTransfer);
         let (from_total_balance, from_def_balance) = Self::balance(ticker, from_did);
         ensure!(from_total_balance >= value, Error::<T>::InsufficientBalance);
-        ensure!(from_def_balance >= value, Error::<T>::InsufficientBalance);
+        ensure!(from_def_balance >= value, Error::<T>::InsufficientDefaultPortfolioBalance);
         let updated_from_total_balance = from_total_balance
             .checked_sub(&value)
-            .ok_or(Error::<T>::BalanceOverflow)?;
+            .ok_or(Error::<T>::BalanceUnderflow)?;
         let updated_from_def_balance = from_def_balance
             .checked_sub(&value)
-            .ok_or(Error::<T>::BalanceOverflow)?;
+            .ok_or(Error::<T>::DefaultPortfolioBalanceUnderflow)?;
 
         let (to_total_balance, to_def_balance) = Self::balance(ticker, to_did);
         let updated_to_total_balance = to_total_balance
             .checked_add(&value)
             .ok_or(Error::<T>::BalanceOverflow)?;
         let updated_to_def_balance = to_def_balance
-            .checked_sub(&value)
-            .ok_or(Error::<T>::BalanceOverflow)?;
+            .checked_add(&value)
+            .ok_or(Error::<T>::DefaultPortfolioBalanceOverflow)?;
 
         Self::_update_checkpoint(ticker, from_did, from_total_balance);
         Self::_update_checkpoint(ticker, to_did, to_total_balance);
@@ -1934,7 +1941,7 @@ impl<T: Trait> Module<T> {
             .ok_or(Error::<T>::BalanceOverflow)?;
         let updated_to_def_balance = current_to_def_balance
             .checked_add(&value)
-            .ok_or(Error::<T>::BalanceOverflow)?;
+            .ok_or(Error::<T>::DefaultPortfolioBalanceOverflow)?;
         // verify transfer check
         ensure!(
             Self::_is_valid_transfer(ticker, caller.clone(), None, Some(to_did), value)?

@@ -37,6 +37,7 @@ type Balances = balances::Module<TestStorage>;
 type Asset = asset::Module<TestStorage>;
 type Timestamp = pallet_timestamp::Module<TestStorage>;
 type ComplianceManager = compliance_manager::Module<TestStorage>;
+type Portfolio = pallet_portfolio::Module<TestStorage>;
 type AssetError = asset::Error<TestStorage>;
 type OffChainSignature = AnySignature;
 type Origin = <TestStorage as frame_system::Trait>::Origin;
@@ -622,7 +623,6 @@ fn checkpoints_fuzz_test() {
                 vec![],
                 vec![]
             ));
-
             let mut owner_balance: [u128; 100] = [1_000_000; 100];
             let mut bob_balance: [u128; 100] = [0; 100];
             let mut rng = rand::thread_rng();
@@ -639,7 +639,7 @@ fn checkpoints_fuzz_test() {
                     bob_balance[j] += 1;
                     assert_ok!(Asset::transfer(owner_signed.clone(), ticker, bob_did, 1));
                 }
-                assert_ok!(Asset::create_checkpoint(owner_signed.clone(), ticker,));
+                assert_ok!(Asset::create_checkpoint(owner_signed.clone(), ticker));
                 let x: u64 = u64::try_from(j).unwrap();
                 assert_eq!(
                     Asset::get_balance_at(ticker, owner_did, 0),

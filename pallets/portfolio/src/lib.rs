@@ -68,7 +68,7 @@ decl_error! {
         /// The portfolio doesn't exist.
         PortfolioDoesNotExist,
         /// Insufficient balance for a transaction.
-        InsufficientBalance,
+        InsufficientPortfolioBalance,
         /// The source and destination portfolios should be different.
         DestinationIsSamePortfolio,
         /// The portfolio couldn't be renamed because the chosen name is already in use.
@@ -148,7 +148,7 @@ decl_module! {
                 .and_then(|num| Some(PortfolioId::User(did, num)))
                 .unwrap_or_else(|| PortfolioId::Default(did));
             let (_, balance) = Self::portfolio_asset_balances(&from_portfolio_id, &ticker);
-            ensure!(balance >= amount, Error::<T>::InsufficientBalance);
+            ensure!(balance >= amount, Error::<T>::InsufficientPortfolioBalance);
             <PortfolioAssetBalances<T>>::insert(
                 &from_portfolio_id,
                 &ticker,
