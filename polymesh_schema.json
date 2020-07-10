@@ -626,7 +626,7 @@
         },
         "ReceiptDetails": {
             "receipt_uid": "u64",
-            "leg_number": "u64",
+            "leg_id": "u64",
             "signer": "AccountId",
             "signature": "OffChainSignature"
         }
