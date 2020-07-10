@@ -215,6 +215,15 @@ impl<T: Trait> Module<T> {
         Self::portfolio_asset_balances(PortfolioId::Default(did), ticker).1
     }
 
+    /// Returns the ticker balance of an identity's user portfolio.
+    pub fn user_portfolio_balance(
+        did: IdentityId,
+        num: PortfolioNumber,
+        ticker: &Ticker,
+    ) -> <T as CommonTrait>::Balance {
+        Self::portfolio_asset_balances(PortfolioId::User(did, num), ticker).1
+    }
+
     /// Sets the ticker balance of the identity's default portfolio to the given value.
     pub fn set_default_portfolio_balance(
         did: IdentityId,

@@ -564,6 +564,14 @@
         "IssueAssetItem": {
             "identity_did": "IdentityId",
             "value": "Balance"
+        },
+        "PortfolioName": "Vec<u8>",
+        "PortfolioNumber": "u64",
+        "PortfolioId" : {
+            "_enum": {
+                "Default": "IdentityId",
+                "User": "IdentityId, PortfolioNumber"
+            }
         }
     },
     "rpc": {
