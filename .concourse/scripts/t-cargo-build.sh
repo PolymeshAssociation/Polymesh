@@ -15,6 +15,7 @@ cd $GIT_DIR
 popd
 
 mkdir -p artifact
+mkdir -p dockerdir
 
 POLYMESH_VERSION=""
 if [[ -f ${GIT_DIR}/.git/short_ref ]]; then
@@ -27,6 +28,9 @@ else
 fi
 
 cp ${GIT_DIR}/target/release/polymesh artifact/polymesh-${POLYMESH_VERSION}
+cp ${GIT_DIR}/target/release/polymesh ${GIT_DIR}/Dockerfile dockerdir/
+echo -n "${POLYMESH_VERSION}" > dockerdir/tag_file
+echo -n "latest-forked forked" > dockerdir/additional_tags
 
 rsync -auv ${CARGO_HOME:-$HOME/.cargo}/ ${CACHE_DIR}/.cargo
 rsync -auv ${GIT_DIR}/target/ ${CACHE_DIR}/target

@@ -68,6 +68,7 @@ jobs:
             outputs:
               - name: build-caches
               - name: artifact
+              - name: dockerdir
       - in_parallel:
         - task: cargo-test
           config:
@@ -120,5 +121,7 @@ jobs:
           acl: public-read
       - put: dockerimage-polymesh
         params:
-          build: git-polymesh
+          build: dockerdir
+          tag_file: dockerdir/tag_file
+          additional_tags: dockerdir/additional_tags
 
