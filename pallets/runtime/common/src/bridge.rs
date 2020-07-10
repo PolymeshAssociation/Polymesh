@@ -202,12 +202,13 @@ pub mod weight_for {
     use frame_support::{traits::Get, weights::Weight};
 
     /// <weight>
-    /// * Read operation - 1 for read block no. + 1 for reading bridge txn details
+    /// * Read operation - 1 for read block no. + 1 for reading bridge txn details.
+    /// * Write operation - 1 for updating the bridge tx status.
     /// </weight>
     pub(crate) fn handle_bridge_tx<T: Trait>() -> Weight {
         let db = T::DbWeight::get();
         db.reads_writes(2, 1)
-            .saturating_add(7_000_000) // base fee for the handle bridge tx
+            .saturating_add(70_000_000) // base fee for the handle bridge tx
             .saturating_add(800_000) // base value for issue function
             .saturating_add(db.reads_writes(3, 1)) // read and write for the issue() function
             .saturating_add(db.reads_writes(1, 1)) // read and write for the deposit_creating() function under issue() call
