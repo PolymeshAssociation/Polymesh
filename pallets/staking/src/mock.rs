@@ -436,10 +436,10 @@ impl MultiSigSubTrait<AccountId> for Test {
     fn is_multisig(account: &AccountId) -> bool {
         unimplemented!()
     }
-    fn is_signer(key: T::AccountId) -> bool {
+    fn is_signer(key: &AccountId) -> bool {
         unimplemented!()
     }
-    fn did_of_signer(key: T::AccountId) -> IdentityId {
+    fn did_of_signer(key: &AccountId) -> IdentityId {
         unimplemented!()
     }
 }
@@ -836,7 +836,7 @@ pub fn add_signing_item(stash_key: AccountId, to_signing_item: AccountId) {
         assert!(
             Identity::add_authorization(
                 Origin::signed(stash_key),
-                did,
+                Signatory::Account(to_signing_item),
                 AuthorizationData::JoinIdentity(vec![]),
                 None
             )
