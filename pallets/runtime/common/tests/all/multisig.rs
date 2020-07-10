@@ -763,7 +763,7 @@ fn remove_multisig_signers_via_creator() {
                 musig_address.clone(),
                 vec![bob_signer]
             ),
-            Error::ChangeNotAllowed
+            Error::IdentityNotCreator
         );
 
         assert_ok!(MultiSig::remove_multisig_signers_via_creator(
