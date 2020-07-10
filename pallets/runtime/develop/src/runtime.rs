@@ -737,7 +737,7 @@ construct_runtime!(
         StoCapped: sto_capped::{Module, Call, Storage, Event<T>},
         Exemption: exemption::{Module, Call, Storage, Event},
         SimpleToken: simple_token::{Module, Call, Storage, Event<T>},
-        Settlement: settlement::{Module, Call, Storage, Event<T>},
+        Settlement: settlement::{Module, Call, Storage, Event<T>, Config},
         CddServiceProviders: group::<Instance2>::{Module, Call, Storage, Event<T>, Config<T>},
         Statistic: statistics::{Module, Call, Storage},
         ProtocolFee: protocol_fee::{Module, Call, Storage, Event<T>, Config<T>},
