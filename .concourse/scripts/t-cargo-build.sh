@@ -28,6 +28,7 @@ else
 fi
 
 cp ${GIT_DIR}/target/release/polymesh artifact/polymesh-${POLYMESH_VERSION}
+echo -n "$POLYMESH_VERSION" > artifact/VERSION
 cp ${GIT_DIR}/target/release/polymesh ${GIT_DIR}/Dockerfile dockerdir/
 echo -n "${POLYMESH_VERSION}" > dockerdir/tag_file
 echo -n "latest-forked forked" > dockerdir/additional_tags

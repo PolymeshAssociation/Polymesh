@@ -69,6 +69,23 @@ jobs:
               - name: build-caches
               - name: artifact
               - name: dockerdir
+        - task: npm-install
+          config:
+            inputs:
+              - name: git-polymesh
+            caches:
+              - path: git-polymesh/scripts/cli/node_modules
+            platform: linux
+            image_resource:
+              type: registry-image
+              source:
+                repository: node
+                tag: 14
+            run:
+              path: bash
+              args: ["git-polymesh/.concourse/scripts/t-npm-install.sh", "git-polymesh", "npm-caches"]
+            outputs:
+              - name: npm-caches
       - in_parallel:
         - task: cargo-test
           config:
@@ -88,6 +105,21 @@ jobs:
             run:
               path: bash
               args: ["git-polymesh/.concourse/scripts/t-cargo-test.sh", "git-polymesh", "build-caches"]
+        - task: npm-test
+          config:
+            inputs:
+              - name: git-polymesh
+              - name: artifact
+              - name: npm-caches
+            platform: linux
+            image_resource:
+              type: registry-image
+              source:
+                repository: npm
+                tag: 14
+            run:
+              path: bash
+              args: ["git-polymesh/.concourse/scripts/t-npm-test.sh", "git-polymesh", "npm-caches", "artifact"]
 #        - task: cargo-clippy
 #          config:
 #            inputs:
