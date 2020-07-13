@@ -27,11 +27,11 @@
 //!
 //! ### Terminology
 //!
-//! - **Ballot:** It is a collection of motions on which a tokenholder can vote.
+//! - **Ballot:** It is a collection of motions on which a token holder can vote.
 //!     Additional parameters include voting start date, voting end date and checkpoint id.
 //!     Checkpoint id is used to prevent double voting with same coins. When voting on a ballot,
-//!     the total number of votes that a tokenholder can cast is equal to their balance at the checkpoint.
-//!     Voters can distribute their votes accross all the motions in the ballot.
+//!     the total number of votes that a token holder can cast is equal to their balance at the checkpoint.
+//!     Voters can distribute their votes across all the motions in the ballot.
 //! - **motion:** It is a suggestion or a question that can have an infinite number of choices that can be voted on.
 //!     Additional parameters include title of the motion and a link from where more info can be fetched.
 //!     The most common motion is of accept/reject type where the motion has two choices, yes/no.
@@ -58,7 +58,7 @@ use polymesh_primitives_derive::VecU8StrongTyped;
 use codec::{Decode, Encode};
 use frame_support::{
     decl_error, decl_event, decl_module, decl_storage, dispatch::DispatchResult, ensure,
-    weights::SimpleDispatchInfo,
+    storage::StorageMap,
 };
 use frame_system::{self as system, ensure_signed};
 use sp_std::{convert::TryFrom, prelude::*, vec};
@@ -116,7 +116,7 @@ type Identity<T> = identity::Module<T>;
 decl_storage! {
     trait Store for Module<T: Trait> as Voting {
         /// Mapping of ticker and ballot name -> ballot details
-        pub Ballots get(fn ballots): linked_map hasher(blake2_128_concat) (Ticker, Vec<u8>) => Ballot<T::Moment>;
+        pub Ballots get(fn ballots): map hasher(blake2_128_concat) (Ticker, Vec<u8>) => Ballot<T::Moment>;
 
         /// Helper data to make voting cheaper.
         /// (ticker, BallotName) -> NoOfChoices
@@ -150,7 +150,7 @@ decl_module! {
         /// * `ticker` - Ticker of the token for which ballot is to be created
         /// * `ballot_name` - Name of the ballot
         /// * `ballot_details` - Other details of the ballot
-        #[weight = SimpleDispatchInfo::FixedNormal(300_000)]
+        #[weight = 300_000]
         pub fn add_ballot(origin, ticker: Ticker, ballot_name: Vec<u8>, ballot_details: Ballot<T::Moment>) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             let did = Context::current_identity_or::<Identity<T>>(&sender)?;
@@ -207,7 +207,7 @@ decl_module! {
         /// * `ticker` - Ticker of the token for which vote is to be cast
         /// * `ballot_name` - Name of the ballot
         /// * `votes` - The actual vote to be cast
-        #[weight = SimpleDispatchInfo::FixedNormal(500_000)]
+        #[weight = 500_000]
         pub fn vote(origin, ticker: Ticker, ballot_name: Vec<u8>, votes: Vec<T::Balance>) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             let did = Context::current_identity_or::<Identity<T>>(&sender)?;
@@ -278,7 +278,7 @@ decl_module! {
         /// # Arguments
         /// * `ticker` - Ticker of the token for which ballot is to be cancelled
         /// * `ballot_name` - Name of the ballot
-        #[weight = SimpleDispatchInfo::FixedNormal(300_000)]
+        #[weight = 300_000]
         pub fn cancel_ballot(origin, ticker: Ticker, ballot_name: Vec<u8>) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             let did = Context::current_identity_or::<Identity<T>>(&sender)?;

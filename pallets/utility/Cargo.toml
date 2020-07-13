@@ -5,22 +5,22 @@ authors = ["Polymath"]
 edition = "2018"
 
 [dependencies]
+# General
 serde = { version = "1.0.101", optional = true }
 
-codec = { package = "parity-scale-codec", version = "1.2.0", default-features = false }
-frame-support = { git = "https://github.com/paritytech/substrate", default-features = false, rev = "a439a7aa5a9a3df2a42d9b25ea04288d3a0866e8"  }
-frame-system = { git = "https://github.com/paritytech/substrate", default-features = false, rev = "a439a7aa5a9a3df2a42d9b25ea04288d3a0866e8" }
-sp-core = { git = "https://github.com/paritytech/substrate", default-features = false, rev = "a439a7aa5a9a3df2a42d9b25ea04288d3a0866e8" }
-sp-runtime = { git = "https://github.com/paritytech/substrate", default-features = false, rev = "a439a7aa5a9a3df2a42d9b25ea04288d3a0866e8" }
-sp-std = { git = "https://github.com/paritytech/substrate", default-features = false, rev = "a439a7aa5a9a3df2a42d9b25ea04288d3a0866e8" }
-sp-io = { git = "https://github.com/paritytech/substrate", default-features = false, rev = "a439a7aa5a9a3df2a42d9b25ea04288d3a0866e8" }
+# Substrate
+codec = { package = "parity-scale-codec", version = "1.3.0", default-features = false }
+frame-support = { git = "https://github.com/fmiguelgarcia/substrate", default-features = false, branch = "poly-v2.0.0-rc3+1" }
+frame-system = { git = "https://github.com/fmiguelgarcia/substrate", default-features = false, branch = "poly-v2.0.0-rc3+1" }
+sp-core = { git = "https://github.com/fmiguelgarcia/substrate", default-features = false, branch = "poly-v2.0.0-rc3+1" }
+sp-runtime = { git = "https://github.com/fmiguelgarcia/substrate", default-features = false, branch = "poly-v2.0.0-rc3+1" }
+sp-std = { git = "https://github.com/fmiguelgarcia/substrate", default-features = false, branch = "poly-v2.0.0-rc3+1" }
+sp-io = { git = "https://github.com/fmiguelgarcia/substrate", default-features = false, branch = "poly-v2.0.0-rc3+1" }
 
-[dev-dependencies]
-sp-core = { git = "https://github.com/paritytech/substrate", default-features = false, rev = "a439a7aa5a9a3df2a42d9b25ea04288d3a0866e8" }
-# pallet-balances = { version = "2.0.0-alpha.2", path = "../balances" }
 
 [features]
 default = ["std"]
+no_std = []
 std = [
 	"serde",
 	"codec/std",

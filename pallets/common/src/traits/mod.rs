@@ -64,3 +64,4 @@ pub mod group;
 pub mod identity;
 pub mod multisig;
 pub mod pip;
+pub mod transaction_payment;

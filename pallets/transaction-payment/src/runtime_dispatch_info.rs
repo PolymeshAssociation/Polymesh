@@ -15,9 +15,6 @@
 // along with Substrate.  If not, see <http://www.gnu.org/licenses/>.
 
 //! Runtime API definition for transaction payment module.
-
-#![cfg_attr(not(feature = "std"), no_std)]
-
 use codec::{Codec, Decode, Encode};
 use frame_support::weights::{DispatchClass, Weight};
 #[cfg(feature = "std")]

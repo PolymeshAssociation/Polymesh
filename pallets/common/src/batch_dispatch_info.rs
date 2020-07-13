@@ -1,6 +1,6 @@
 use polymesh_primitives::IdentityId;
 
-use frame_support::weights::{ClassifyDispatch, DispatchClass, PaysFee, WeighData, Weight};
+use frame_support::weights::{ClassifyDispatch, DispatchClass, Pays, PaysFee, WeighData, Weight};
 use sp_std::{cmp::max, vec::Vec};
 
 /// It supports fee calculation when a transaction is made in batch mode (for a group of items).
@@ -39,8 +39,8 @@ impl<T> ClassifyDispatch<T> for BatchDispatchInfo {
 }
 
 impl<T> PaysFee<T> for BatchDispatchInfo {
-    fn pays_fee(&self, _target: T) -> bool {
-        true
+    fn pays_fee(&self, _target: T) -> Pays {
+        Pays::Yes
     }
 }
 

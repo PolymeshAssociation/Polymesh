@@ -9,31 +9,30 @@ edition = "2018"
 polymesh-primitives = { path = "../../primitives", default-features = false }
 polymesh-primitives-derive = { path = "../../primitives_derive", default-features = false }
 
-# Our Pallets
-pallet-transaction-payment = { package = "pallet-transaction-payment", path = "../transaction-payment", default-features = false  }
-
 # Other
-serde = { version = "1.0.104", default-features = false }
-serde_derive = { version = "1.0.104", optional = true, default-features = false}
+serde = { version = "1.0.112", default-features = false }
+serde_derive = { version = "1.0.112", optional = true, default-features = false}
 
 # Substrate
-codec = { package = "parity-scale-codec", version = "1.2.0", default-features = false, features = ["derive"] }
-sp-core = { git = "https://github.com/paritytech/substrate", default-features = false, rev = "a439a7aa5a9a3df2a42d9b25ea04288d3a0866e8" }
-sp-io = { git = "https://github.com/paritytech/substrate", default-features = false, rev = "a439a7aa5a9a3df2a42d9b25ea04288d3a0866e8" }
-sp-std = { package = "sp-std", git = "https://github.com/paritytech/substrate", default-features = false, rev = "a439a7aa5a9a3df2a42d9b25ea04288d3a0866e8" }
-sp-api = { package = "sp-api", git = "https://github.com/paritytech/substrate", default-features = false, rev = "a439a7aa5a9a3df2a42d9b25ea04288d3a0866e8" }
-sp-arithmetic = { package = "sp-arithmetic", git = "https://github.com/paritytech/substrate", default-features = false, rev = "a439a7aa5a9a3df2a42d9b25ea04288d3a0866e8" }
-sp-runtime = { package = "sp-runtime", git = "https://github.com/paritytech/substrate", default-features = false, rev = "a439a7aa5a9a3df2a42d9b25ea04288d3a0866e8" }
+codec = { package = "parity-scale-codec", version = "1.3.0", default-features = false, features = ["derive"] }
+sp-core = { git = "https://github.com/fmiguelgarcia/substrate", default-features = false, branch = "poly-v2.0.0-rc3+1" }
+sp-io = { git = "https://github.com/fmiguelgarcia/substrate", default-features = false, branch = "poly-v2.0.0-rc3+1" }
+sp-std = { git = "https://github.com/fmiguelgarcia/substrate", default-features = false, branch = "poly-v2.0.0-rc3+1" }
+sp-api = { git = "https://github.com/fmiguelgarcia/substrate", default-features = false, branch = "poly-v2.0.0-rc3+1" }
+sp-arithmetic = { git = "https://github.com/fmiguelgarcia/substrate", default-features = false, branch = "poly-v2.0.0-rc3+1" }
+sp-runtime = { git = "https://github.com/fmiguelgarcia/substrate", default-features = false, branch = "poly-v2.0.0-rc3+1" }
 
-frame-support = { git = "https://github.com/paritytech/substrate", default-features = false, rev = "a439a7aa5a9a3df2a42d9b25ea04288d3a0866e8" }
-frame-system = { package = "frame-system", git = "https://github.com/paritytech/substrate", default-features = false, rev = "a439a7aa5a9a3df2a42d9b25ea04288d3a0866e8" }
+frame-support = { git = "https://github.com/fmiguelgarcia/substrate", default-features = false, branch = "poly-v2.0.0-rc3+1" }
+frame-system = { git = "https://github.com/fmiguelgarcia/substrate", default-features = false, branch = "poly-v2.0.0-rc3+1" }
 
-pallet-timestamp = { package = "pallet-timestamp", git = "https://github.com/paritytech/substrate", default-features = false, rev = "a439a7aa5a9a3df2a42d9b25ea04288d3a0866e8" }
-pallet-session = { package = "pallet-session", git = "https://github.com/paritytech/substrate", default-features = false, rev = "a439a7aa5a9a3df2a42d9b25ea04288d3a0866e8" }
+pallet-timestamp = { git = "https://github.com/fmiguelgarcia/substrate", default-features = false, branch = "poly-v2.0.0-rc3+1" }
+pallet-session = { git = "https://github.com/fmiguelgarcia/substrate", default-features = false, branch = "poly-v2.0.0-rc3+1" }
+
+# Only for test in STD
+substrate-test-runtime-client = { git = "https://github.com/fmiguelgarcia/substrate", branch = "poly-v2.0.0-rc3+1", optional = true}
 
 [dev-dependencies]
-test-client = { package = "substrate-test-runtime-client", git = "https://github.com/paritytech/substrate", rev = "a439a7aa5a9a3df2a42d9b25ea04288d3a0866e8" }
-lazy_static = "1.4.0"
+lazy_static = { version = "1.4.0", default-features = false }
 
 [features]
 equalize = []
@@ -42,6 +41,7 @@ default_identity = []
 no_std = []
 only-staking = []
 std = [
+	"substrate-test-runtime-client",
 	"serde_derive",
 	"codec/std",
 	"serde/std",
@@ -56,5 +56,4 @@ std = [
 	"pallet-timestamp/std",
 	"polymesh-primitives/std",
 	"pallet-session/std",
-	"pallet-transaction-payment/std"
 ]

@@ -142,7 +142,7 @@ const blockTillPoolEmpty = async function (api) {
         }
         let timestamp_extrinsic = block["block"]["extrinsics"][0];
         let new_block_ts = parseInt(
-          JSON.stringify(timestamp_extrinsic.raw["method"].args[0].raw)
+          JSON.stringify(timestamp_extrinsic["method"].args[0].now)
         );
         block_times[i] = new_block_ts - synced_block_ts;
         synced_block_ts = new_block_ts;
@@ -185,16 +185,11 @@ const createIdentitiesWithExpiry = async function(api, accounts, alice, expiries
   await blockTillPoolEmpty(api);
   for (let i = 0; i < accounts.length; i++) {
     const d = await api.query.identity.keyToIdentityIds(accounts[i].publicKey);
-    dids.push(d.raw.asUnique);
+    dids.push(d.toHuman().Unique);
   }
   let did_balance = 1000 * 10**6;
   for (let i = 0; i < dids.length; i++) {
-    // let nonceObjTwo = {nonce: nonces.get(alice.address)};
-    // const transactionTwo = api.tx.balances.topUpIdentityBalance(dids[i], did_balance);
-    // await sendTransaction(transactionTwo, alice, nonceObjTwo);
-
     await topUpIdentityBalance(api, alice, dids[i], did_balance);
-
   }
   return dids;
 }

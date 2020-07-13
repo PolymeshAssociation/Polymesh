@@ -24,19 +24,19 @@ async function main() {
   let proposalId = 0;
   
   await reqImports.createIdentities( api, [bob, govCommittee1, govCommittee2], alice );
-
+  
   await bondPoly(api, alice, bob);
-
+  
   await proposePIP( api, bob );
 
   await amendProposal(api, bob);
 
   await fastTrackProposal(api, proposalId, alice);
- 
+
   await reqImports.distributePolyBatch( api, [govCommittee1, govCommittee2], reqImports.transfer_amount, alice );
 
   await voteEnactReferendum(api, proposalId, govCommittee1);
-  
+
   await voteEnactReferendum(api, proposalId, govCommittee2);
 
   await overrideReferendumEnactmentPeriod(api, proposalId, null, alice);
@@ -99,7 +99,7 @@ async function amendProposal(api, signer) {
 async function bondPoly(api, signer, bob) {
 
   let nonceObj = {nonce: reqImports.nonces.get(signer.address)};
-  const transaction = await api.tx.staking.bond(bob.publicKey, 20_000, "Staked");
+  const transaction = await api.tx.staking.bond(bob.publicKey, 20000, "Staked");
   const result = await reqImports.sendTransaction(transaction, signer, nonceObj);  
   const passed = result.findRecord('system', 'ExtrinsicSuccess');
   if (passed) reqImports.fail_count--;
@@ -111,7 +111,7 @@ async function bondPoly(api, signer, bob) {
 async function proposePIP(api, signer) {
 
   let proposal = await api.tx.pips.setProposalDuration(10);
-  let deposit = 10_000_000_000;
+  let deposit = 10000000000;
   let url = "www.google.com";
   let description = "test proposal";
 

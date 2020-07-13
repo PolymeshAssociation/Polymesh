@@ -1,7 +1,5 @@
 //! Runtime API definition for Identity module.
 
-#![cfg_attr(not(feature = "std"), no_std)]
-
 use codec::{Codec, Decode, Encode};
 pub use polymesh_primitives::{IdentityId, Link, Moment};
 #[cfg(feature = "std")]

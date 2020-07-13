@@ -15,7 +15,6 @@
 
 use frame_support::{
     decl_error, decl_event, decl_module, decl_storage, dispatch::DispatchResult, ensure,
-    weights::SimpleDispatchInfo,
 };
 use frame_system::{self as system, ensure_signed};
 use pallet_identity as identity;
@@ -62,7 +61,7 @@ decl_module! {
         // this is needed only if you are using events in your module
         fn deposit_event() = default;
 
-        #[weight = SimpleDispatchInfo::FixedNormal(200_000)]
+        #[weight = 200_000]
         fn modify_exemption_list(origin, ticker: Ticker, _tm: u16, asset_holder_did: IdentityId, exempted: bool) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             let did = Context::current_identity_or::<Identity<T>>(&sender)?;

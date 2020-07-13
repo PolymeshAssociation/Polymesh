@@ -27,5 +27,6 @@ mod statistics_test;
 mod treasury_test;
 mod utility_test;
 mod voting_test;
-
+mod transaction_payment_test;
 mod confidential_test;
+

@@ -12,12 +12,12 @@ pallet-pips = { path = "../pallets/pips", default-features = false }
 
 # Substrate
 codec = { package = "parity-scale-codec", version = "1.2.0" }
-sp-rpc = { git = 'https://github.com/paritytech/substrate.git', default_features = false, rev = 'a439a7aa5a9a3df2a42d9b25ea04288d3a0866e8'}
-sp-runtime = { git = "https://github.com/paritytech/substrate", default-features = false, rev = "a439a7aa5a9a3df2a42d9b25ea04288d3a0866e8" }
-sp-blockchain = { git = 'https://github.com/paritytech/substrate.git', default_features = false, rev = 'a439a7aa5a9a3df2a42d9b25ea04288d3a0866e8'}
-sp-std = {git = 'https://github.com/paritytech/substrate.git', default_features = false, rev = 'a439a7aa5a9a3df2a42d9b25ea04288d3a0866e8' }
-sp-api = {git = 'https://github.com/paritytech/substrate.git', default_features = false, rev = 'a439a7aa5a9a3df2a42d9b25ea04288d3a0866e8' }
-frame-support = { git = "https://github.com/paritytech/substrate", default-features = false, rev = 'a439a7aa5a9a3df2a42d9b25ea04288d3a0866e8'}
+sp-rpc = { git = 'https://github.com/fmiguelgarcia/substrate', default_features = false, branch = "poly-v2.0.0-rc3+1"}
+sp-runtime = { git = "https://github.com/fmiguelgarcia/substrate", default-features = false, branch = "poly-v2.0.0-rc3+1" }
+sp-blockchain = { git = 'https://github.com/fmiguelgarcia/substrate', default_features = false, branch = "poly-v2.0.0-rc3+1"}
+sp-std = {git = 'https://github.com/fmiguelgarcia/substrate', default_features = false, branch = "poly-v2.0.0-rc3+1" }
+sp-api = {git = 'https://github.com/fmiguelgarcia/substrate', default_features = false, branch = "poly-v2.0.0-rc3+1" }
+frame-support = { git = "https://github.com/fmiguelgarcia/substrate", default-features = false, branch = "poly-v2.0.0-rc3+1"}
 
 # Others
 serde = { version = "1.0.104", features = ["derive"] }
@@ -30,4 +30,6 @@ default = ["std"]
 std = [
 	"polymesh-primitives/std",
 	"pallet-pips/std",
+	"frame-support/std",
+	"sp-runtime/std",
 ]
