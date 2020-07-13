@@ -19,12 +19,6 @@ let synced_block_ts = 0;
 // Amount to seed each key with
 let transfer_amount = new BN(25000).mul(new BN(10).pow(new BN(6)));
 
-let prepend = "demo";
-
-// Used for creating a single ticker
-const ticker = `token${prepend}0`.toUpperCase();
-assert( ticker.length <= 12, "Ticker cannot be longer than 12 characters");
-
 const senderRules1 = function(trusted_did, asset_did) {
     return [
     {
@@ -268,16 +262,14 @@ async function authorizeJoinToIdentities(api, accounts, dids, signing_accounts) 
 }
 
 // Creates a token for a did
-async function issueTokenPerDid(api, accounts) {
+async function issueTokenPerDid(api, accounts, prepend) {
 
-  // let nonceObj = {nonce: nonces.get(accounts[0].address)};
-  // const transaction = api.tx.asset.createAsset(ticker, ticker, 1000000, true, 0, [], "abc");
-  // await sendTransaction(transaction, accounts[0], nonceObj);
-
+  const ticker = `token${prepend}0`.toUpperCase();
+  assert( ticker.length <= 12, "Ticker cannot be longer than 12 characters");
+  
   const unsub = await api.tx.asset
         .createAsset(ticker, ticker, 1000000, true, 0, [], "abc", null)
         .signAndSend(accounts[0], { nonce: nonces.get(accounts[0].address) });
-
   nonces.set(accounts[0].address, nonces.get(accounts[0].address).addn(1));
 }
 
@@ -289,7 +281,10 @@ function tickerToDid(ticker) {
 }
 
 // Creates claim rules for an asset
-async function createClaimRules(api, accounts, dids) {
+async function createClaimRules(api, accounts, dids, prepend) {
+
+    const ticker = `token${prepend}0`.toUpperCase();
+    assert( ticker.length <= 12, "Ticker cannot be longer than 12 characters");
 
     const asset_did = tickerToDid(ticker);
 
@@ -300,7 +295,7 @@ async function createClaimRules(api, accounts, dids) {
     const transaction = api.tx.complianceManager.addActiveRule(ticker, senderRules, receiverRules);
     await sendTransaction(transaction, accounts[0], nonceObj);
 
-      nonces.set(accounts[0].address, nonces.get(accounts[0].address).addn(1));
+    nonces.set(accounts[0].address, nonces.get(accounts[0].address).addn(1));
 
 
 }
@@ -311,13 +306,12 @@ async function addClaimsToDids(api, accounts, did, claimType, claimValue, expiry
   // Receieving Rules Claim
   let claim = {[claimType]: claimValue};
 
+  let nonceObj = {nonce: nonces.get(accounts[1].address)};
+  expiry = expiry == 0 ? null : expiry;
+  const transaction = api.tx.identity.addClaim(did, claim, expiry);
+  await sendTransaction(transaction, accounts[1], nonceObj);
 
-    let nonceObj = {nonce: nonces.get(accounts[1].address)};
-    expiry = expiry == 0 ? null : expiry;
-    const transaction = api.tx.identity.addClaim(did, claim, expiry);
-    await sendTransaction(transaction, accounts[1], nonceObj);
-
-    nonces.set(accounts[1].address, nonces.get(accounts[1].address).addn(1));
+  nonces.set(accounts[1].address, nonces.get(accounts[1].address).addn(1));
 
 }
 
@@ -449,8 +443,6 @@ let reqImports = {
   transfer_amount,
   fail_count,
   sk_roles,
-  prepend,
-  ticker,
   createApi,
   createIdentities,
   initMain,
