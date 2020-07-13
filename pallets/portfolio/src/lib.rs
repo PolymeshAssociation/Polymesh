@@ -244,4 +244,13 @@ impl<T: Trait> Module<T> {
         <NextPortfolioNumber>::put(num + 1);
         num
     }
+
+    /// An RPC function that lists all user-defined portfolio number-name pairs.
+    pub fn rpc_get_portfolios(
+        did: IdentityId,
+    ) -> core::result::Result<Vec<(PortfolioNumber, PortfolioName)>, &'static str> {
+        let portfolios: Vec<(PortfolioNumber, PortfolioName)> =
+            <Portfolios>::iter_prefix_values(&did).collect();
+        Ok(portfolios)
+    }
 }

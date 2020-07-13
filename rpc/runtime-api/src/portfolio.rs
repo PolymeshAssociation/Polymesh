@@ -13,9 +13,19 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
-//! Runtime API definition for Runtime RPC module.
-#![cfg_attr(not(feature = "std"), no_std)]
+//! Runtime API definition for the Portfolio module.
 
-pub mod asset;
-pub mod pips;
-pub mod portfolio;
+//use codec::Codec;
+use polymesh_primitives::{IdentityId, PortfolioName, PortfolioNumber, Ticker};
+use sp_std::vec::Vec;
+
+pub type Error = Vec<u8>;
+pub type GetPortfoliosResult = Result<Vec<(PortfolioNumber, PortfolioName)>, Error>;
+
+sp_api::decl_runtime_apis! {
+    /// The API to interact with Asset.
+    pub trait PortfolioApi {
+         /// Gets all user-defined portfolio names of an identity.
+        fn get_portfolios(did: IdentityId) -> GetPortfoliosResult;
+    }
+}

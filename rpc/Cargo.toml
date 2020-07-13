@@ -9,6 +9,7 @@ node-rpc-runtime-api = { path = "./runtime-api" }
 
 polymesh-primitives = { path = "../primitives", default-features = false }
 pallet-pips = { path = "../pallets/pips", default-features = false }
+pallet-portfolio = { path = "../pallets/portfolio", default-features = false }
 
 # Substrate
 codec = { package = "parity-scale-codec", version = "1.2.0" }
@@ -28,8 +29,9 @@ jsonrpc-derive = "14.0.5"
 [features]
 default = ["std"]
 std = [
-	"polymesh-primitives/std",
-	"pallet-pips/std",
-	"frame-support/std",
-	"sp-runtime/std",
+    "polymesh-primitives/std",
+    "pallet-pips/std",
+    "pallet-portfolio/std",
+    "frame-support/std",
+    "sp-runtime/std",
 ]
