@@ -235,10 +235,10 @@ fn is_auth_valid(
                 if let AuthorizationData::JoinIdentity(did) = auth.authorization_data {
                     // make sure that the auth was created by the master key of an identity with valid CDD
                     let master =
-                        Identity::did_records(&identity_data_to_join.target_did).master_key;
-                    let master_signatory = Signatory::Account(master);
+                        Identity::did_records(&did).master_key;
+                    let master_signatory = Signatory::AccountKey(master);
                     if auth.authorized_by == master_signatory {
-                        let _ = check_cdd(&identity_data_to_join.target_did);
+                        let _ = check_cdd(&did);
                         return Ok(Some(master_signatory));
                     }
                 }
