@@ -1,14 +1,18 @@
 ---
 
+resource_types:
+- name: pull-request
+  type: docker-image
+  source:
+    repository: teliaoss/github-pr-resource
+
 resources:
-  - name: git-polymesh
-    type: git
-    icon: github
-    check_every: 5m
+  - name: githubpr-polymesh
+    type: pull-request
+    webhook_token: ((cwsatpolymath-polymesh-webhook-token))
     source:
-      uri: git@github.com:cwsatpolymath/Polymesh.git
-      branch: concourse-test
-      private_key: ((polymesh-github.id_concourse_rsa))
+      repository: cwsatpolymath/Polymesh
+      access_token: ((github-pat-claus))
   - name: s3-polymesh
     type: s3
     source:
@@ -27,14 +31,14 @@ resources:
 jobs:
   - name: build-polymesh
     plan:
-      - get: git-polymesh
+      - get: githubpr-polymesh
         trigger: true
         version: every
       - in_parallel:
         - task: run-lint
           config:
             inputs:
-              - name: git-polymesh
+              - name: githubpr-polymesh
             platform: linux
             image_resource:
               type: registry-image
@@ -44,15 +48,15 @@ jobs:
                 aws_secret_access_key: ((polymath-ecr.aws-access-secret))
                 aws_region: us-east-1
             run:
-              dir: git-polymesh
+              dir: githubpr-polymesh
               path: bash
               args: [".concourse/scripts/t-rustfmt-lint.sh"]
         - task: cargo-build
           config:
             inputs:
-              - name: git-polymesh
+              - name: githubpr-polymesh
             caches:
-              - path: git-polymesh/target
+              - path: githubpr-polymesh/target
               - path: /usr/local/cargo
             platform: linux
             image_resource:
@@ -64,7 +68,7 @@ jobs:
                 aws_region: us-east-1
             run:
               path: bash
-              args: ["git-polymesh/.concourse/scripts/t-cargo-build.sh", "git-polymesh", "build-caches"]
+              args: ["githubpr-polymesh/.concourse/scripts/t-cargo-build.sh", "githubpr-polymesh", "build-caches"]
             outputs:
               - name: build-caches
               - name: artifact
@@ -72,9 +76,9 @@ jobs:
         - task: npm-install
           config:
             inputs:
-              - name: git-polymesh
+              - name: githubpr-polymesh
             caches:
-              - path: git-polymesh/scripts/cli/node_modules
+              - path: githubpr-polymesh/scripts/cli/node_modules
             platform: linux
             image_resource:
               type: registry-image
@@ -85,17 +89,17 @@ jobs:
                 aws_region: us-east-1
             run:
               path: bash
-              args: ["git-polymesh/.concourse/scripts/t-npm-install.sh", "git-polymesh", "npm-caches"]
+              args: ["githubpr-polymesh/.concourse/scripts/t-npm-install.sh", "githubpr-polymesh", "npm-caches"]
             outputs:
               - name: npm-caches
       - in_parallel:
         - task: cargo-test
           config:
             inputs:
-              - name: git-polymesh
+              - name: githubpr-polymesh
               - name: build-caches
             caches:
-              - path: git-polymesh/target
+              - path: githubpr-polymesh/target
             platform: linux
             image_resource:
               type: registry-image
@@ -106,11 +110,11 @@ jobs:
                 aws_region: us-east-1
             run:
               path: bash
-              args: ["git-polymesh/.concourse/scripts/t-cargo-test.sh", "git-polymesh", "build-caches"]
+              args: ["githubpr-polymesh/.concourse/scripts/t-cargo-test.sh", "githubpr-polymesh", "build-caches"]
         - task: npm-test
           config:
             inputs:
-              - name: git-polymesh
+              - name: githubpr-polymesh
               - name: artifact
               - name: npm-caches
             platform: linux
@@ -123,11 +127,11 @@ jobs:
                 aws_region: us-east-1
             run:
               path: bash
-              args: ["git-polymesh/.concourse/scripts/t-npm-test.sh", "git-polymesh", "npm-caches", "artifact"]
+              args: ["githubpr-polymesh/.concourse/scripts/t-npm-test.sh", "githubpr-polymesh", "npm-caches", "artifact"]
 #        - task: cargo-clippy
 #          config:
 #            inputs:
-#              - name: git-polymesh
+#              - name: githubpr-polymesh
 #              - name: build-caches
 #            platform: linux
 #            image_resource:
@@ -139,7 +143,7 @@ jobs:
 #                aws_region: us-east-1
 #            run:
 #              path: bash
-#              args: ["git-polymesh/.concourse/scripts/t-lint-clippy.sh", "git-polymesh", "build-caches"]
+#              args: ["githubpr-polymesh/.concourse/scripts/t-lint-clippy.sh", "githubpr-polymesh", "build-caches"]
 #          on_failure:
 #            task: ignore_clippy
 #            config:

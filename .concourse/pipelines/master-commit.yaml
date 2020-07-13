@@ -1,0 +1,163 @@
+---
+
+resources:
+  - name: git-polymesh
+    type: git
+    icon: github
+    check_every: 5m
+    source:
+      uri: git@github.com:cwsatpolymath/Polymesh.git
+      branch: master
+      private_key: ((polymesh-github.id_concourse_rsa))
+  - name: s3-polymesh
+    type: s3
+    source:
+      bucket: polymesh-testnet-artifacts
+      region_name: ca-central-1
+      regexp: concourse/polymesh/polymesh-(.*)
+      access_key_id: ((s3-polymath-concourse.access_key_id))
+      secret_access_key: ((s3-polymath-concourse.secret_access_key))
+  - name: dockerimage-polymesh
+    type: docker-image
+    source:
+      repository: 414255671868.dkr.ecr.us-east-1.amazonaws.com/polymathnetwork/polymesh
+      aws_access_key_id: ((polymath-ecr.aws-access-id))
+      aws_secret_access_key: ((polymath-ecr.aws-access-secret))
+
+jobs:
+  - name: build-polymesh
+    plan:
+      - get: git-polymesh
+        trigger: true
+        version: every
+      - in_parallel:
+        - task: run-lint
+          config:
+            inputs:
+              - name: git-polymesh
+            platform: linux
+            image_resource:
+              type: registry-image
+              source:
+                repository: polymathnetwork/rust
+                aws_access_key_id: ((polymath-ecr.aws-access-id))
+                aws_secret_access_key: ((polymath-ecr.aws-access-secret))
+                aws_region: us-east-1
+            run:
+              dir: git-polymesh
+              path: bash
+              args: [".concourse/scripts/t-rustfmt-lint.sh"]
+        - task: cargo-build
+          config:
+            inputs:
+              - name: git-polymesh
+            caches:
+              - path: git-polymesh/target
+              - path: /usr/local/cargo
+            platform: linux
+            image_resource:
+              type: registry-image
+              source:
+                repository: polymathnetwork/rust
+                aws_access_key_id: ((polymath-ecr.aws-access-id))
+                aws_secret_access_key: ((polymath-ecr.aws-access-secret))
+                aws_region: us-east-1
+            run:
+              path: bash
+              args: ["git-polymesh/.concourse/scripts/t-cargo-build.sh", "git-polymesh", "build-caches"]
+            outputs:
+              - name: build-caches
+              - name: artifact
+              - name: dockerdir
+        - task: npm-install
+          config:
+            inputs:
+              - name: git-polymesh
+            caches:
+              - path: git-polymesh/scripts/cli/node_modules
+            platform: linux
+            image_resource:
+              type: registry-image
+              source:
+                repository: polymathnetwork/node
+                aws_access_key_id: ((polymath-ecr.aws-access-id))
+                aws_secret_access_key: ((polymath-ecr.aws-access-secret))
+                aws_region: us-east-1
+            run:
+              path: bash
+              args: ["git-polymesh/.concourse/scripts/t-npm-install.sh", "git-polymesh", "npm-caches"]
+            outputs:
+              - name: npm-caches
+      - in_parallel:
+        - task: cargo-test
+          config:
+            inputs:
+              - name: git-polymesh
+              - name: build-caches
+            caches:
+              - path: git-polymesh/target
+            platform: linux
+            image_resource:
+              type: registry-image
+              source:
+                repository: polymathnetwork/rust
+                aws_access_key_id: ((polymath-ecr.aws-access-id))
+                aws_secret_access_key: ((polymath-ecr.aws-access-secret))
+                aws_region: us-east-1
+            run:
+              path: bash
+              args: ["git-polymesh/.concourse/scripts/t-cargo-test.sh", "git-polymesh", "build-caches"]
+        - task: npm-test
+          config:
+            inputs:
+              - name: git-polymesh
+              - name: artifact
+              - name: npm-caches
+            platform: linux
+            image_resource:
+              type: registry-image
+              source:
+                repository: polymathnetwork/node
+                aws_access_key_id: ((polymath-ecr.aws-access-id))
+                aws_secret_access_key: ((polymath-ecr.aws-access-secret))
+                aws_region: us-east-1
+            run:
+              path: bash
+              args: ["git-polymesh/.concourse/scripts/t-npm-test.sh", "git-polymesh", "npm-caches", "artifact"]
+#        - task: cargo-clippy
+#          config:
+#            inputs:
+#              - name: git-polymesh
+#              - name: build-caches
+#            platform: linux
+#            image_resource:
+#              type: registry-image
+#              source:
+#                repository: polymathnetwork/rust
+#                aws_access_key_id: ((polymath-ecr.aws-access-id))
+#                aws_secret_access_key: ((polymath-ecr.aws-access-secret))
+#                aws_region: us-east-1
+#            run:
+#              path: bash
+#              args: ["git-polymesh/.concourse/scripts/t-lint-clippy.sh", "git-polymesh", "build-caches"]
+#          on_failure:
+#            task: ignore_clippy
+#            config:
+#              platform: linux
+#              image_resource:
+#                type: registry-image
+#                source: { repository: busybox }
+#              run:
+#                path: echo
+#                args:
+#                  - "Ignoring clippy failure"
+      - put: s3-polymesh
+        params:
+          file: artifact/polymesh-*
+          acl: public-read
+      - put: dockerimage-polymesh
+        params:
+          build: dockerdir
+          tag_file: dockerdir/tag_file
+          additional_tags: dockerdir/additional_tags
+
