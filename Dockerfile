@@ -1,4 +1,4 @@
-FROM scratch
+FROM alpine
 
 USER 4001:4001
 
