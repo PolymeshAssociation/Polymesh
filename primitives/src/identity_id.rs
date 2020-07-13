@@ -176,33 +176,67 @@ pub struct PortfolioName(pub Vec<u8>);
 /// The unique ID of a non-default portfolio.
 pub type PortfolioNumber = u64;
 
+#[derive(Decode, Encode, Clone, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
+pub enum PortfolioKind {
+    /// The default portfolio of a DID.
+    Default,
+    /// A user-defined portfolio of a DID.
+    User(PortfolioNumber),
+}
+
+impl Default for PortfolioKind {
+    fn default() -> Self {
+        PortfolioKind::Default
+    }
+}
+
 /// The ID of a portfolio.
 #[derive(Decode, Encode, Clone, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
-pub enum PortfolioId {
-    /// The default portfolio of the DID.
-    Default(IdentityId),
-    /// A non-default portfolio identified with a unique sequence number.
-    User(IdentityId, PortfolioNumber),
+pub struct PortfolioId {
+    /// The DID of the portfolio.
+    did: IdentityId,
+    /// The kind of the portfolio: either default or user.
+    kind: PortfolioKind,
 }
 
 impl Default for PortfolioId {
     fn default() -> Self {
-        PortfolioId::Default(IdentityId::default())
+        PortfolioId {
+            did: IdentityId::default(),
+            ..Default::default()
+        }
     }
 }
 
 impl Printable for PortfolioId {
     fn print(&self) {
-        match self {
-            PortfolioId::Default(did) => {
-                did.print();
-                sp_io::misc::print_utf8(b"/default");
+        self.did.print();
+        sp_io::misc::print_utf8(b"/");
+        match self.kind {
+            PortfolioKind::Default => {
+                sp_io::misc::print_utf8(b"default");
             }
-            PortfolioId::User(did, num) => {
-                did.print();
-                sp_io::misc::print_utf8(b"/");
+            PortfolioKind::User(num) => {
                 sp_io::misc::print_hex(&num.to_be_bytes());
             }
+        }
+    }
+}
+
+impl PortfolioId {
+    /// Returns the default portfolio of `did`.
+    pub fn default_portfolio(did: IdentityId) -> PortfolioId {
+        PortfolioId {
+            did,
+            kind: PortfolioKind::Default,
+        }
+    }
+
+    /// Returns the user portfolio `num` of `did`.
+    pub fn user_portfolio(did: IdentityId, num: PortfolioNumber) -> PortfolioId {
+        PortfolioId {
+            did,
+            kind: PortfolioKind::User(num),
         }
     }
 }

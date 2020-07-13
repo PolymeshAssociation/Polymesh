@@ -102,8 +102,8 @@ decl_module! {
             let sender = ensure_signed(origin)?;
             let did = Context::current_identity_or::<Identity<T>>(&sender)?;
             ensure!(Self::portfolios(&did, &num).is_some(), Error::<T>::PortfolioDoesNotExist);
-            let portfolio_id = PortfolioId::User(did, num);
-            let def_portfolio_id = PortfolioId::Default(did);
+            let portfolio_id = PortfolioId::user_portfolio(did, num);
+            let def_portfolio_id = PortfolioId::default_portfolio(did);
             for (ticker, balance) in <PortfolioAssetBalances<T>>::iter_prefix_values(&portfolio_id) {
                 <PortfolioAssetBalances<T>>::mutate(&def_portfolio_id, ticker, |(_, v)| {
                     *v = v.saturating_add(balance)
@@ -142,11 +142,11 @@ decl_module! {
                 ensure!(Self::portfolios(&did, to_num).is_some(), Error::<T>::PortfolioDoesNotExist);
             }
             let from_portfolio_id = from_num
-                .and_then(|num| Some(PortfolioId::User(did, num)))
-                .unwrap_or_else(|| PortfolioId::Default(did));
+                .and_then(|num| Some(PortfolioId::user_portfolio(did, num)))
+                .unwrap_or_else(|| PortfolioId::default_portfolio(did));
             let to_portfolio_id = to_num
-                .and_then(|num| Some(PortfolioId::User(did, num)))
-                .unwrap_or_else(|| PortfolioId::Default(did));
+                .and_then(|num| Some(PortfolioId::user_portfolio(did, num)))
+                .unwrap_or_else(|| PortfolioId::default_portfolio(did));
             let (_, balance) = Self::portfolio_asset_balances(&from_portfolio_id, &ticker);
             ensure!(balance >= amount, Error::<T>::InsufficientPortfolioBalance);
             <PortfolioAssetBalances<T>>::insert(
@@ -212,7 +212,7 @@ impl<T: Trait> Module<T> {
         did: IdentityId,
         ticker: &Ticker,
     ) -> <T as CommonTrait>::Balance {
-        Self::portfolio_asset_balances(PortfolioId::Default(did), ticker).1
+        Self::portfolio_asset_balances(PortfolioId::default_portfolio(did), ticker).1
     }
 
     /// Returns the ticker balance of an identity's user portfolio.
@@ -221,7 +221,7 @@ impl<T: Trait> Module<T> {
         num: PortfolioNumber,
         ticker: &Ticker,
     ) -> <T as CommonTrait>::Balance {
-        Self::portfolio_asset_balances(PortfolioId::User(did, num), ticker).1
+        Self::portfolio_asset_balances(PortfolioId::user_portfolio(did, num), ticker).1
     }
 
     /// Sets the ticker balance of the identity's default portfolio to the given value.
@@ -230,7 +230,11 @@ impl<T: Trait> Module<T> {
         ticker: &Ticker,
         balance: <T as CommonTrait>::Balance,
     ) {
-        <PortfolioAssetBalances<T>>::insert(PortfolioId::Default(did), ticker, (ticker, balance));
+        <PortfolioAssetBalances<T>>::insert(
+            PortfolioId::default_portfolio(did),
+            ticker,
+            (ticker, balance),
+        );
     }
 
     /// Returns the next portfolio number and increments the stored number.

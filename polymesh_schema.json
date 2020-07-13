@@ -567,11 +567,15 @@
         },
         "PortfolioName": "Vec<u8>",
         "PortfolioNumber": "u64",
-        "PortfolioId" : {
+        "PortfolioKind": {
             "_enum": {
-                "Default": "IdentityId",
-                "User": "IdentityId, PortfolioNumber"
+                "Default": "",
+                "User": "PortfolioNumber"
             }
+        },
+        "PortfolioId" : {
+            "did": "IdentityId",
+            "kind": "PortfolioKind"
         }
     },
     "rpc": {
