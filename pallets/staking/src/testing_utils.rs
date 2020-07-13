@@ -18,7 +18,6 @@
 //! Testing utils for staking. Provides some common functions to setup staking state, such as
 //! bonding validators, nominators, and generating different types of solutions.
 
-//use crate::mock::*;
 use crate::Module as Staking;
 use crate::*;
 use frame_benchmarking::account;
