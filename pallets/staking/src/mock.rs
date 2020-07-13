@@ -437,7 +437,8 @@ impl MultiSigSubTrait<AccountId> for Test {
         unimplemented!()
     }
     fn is_signer(key: &AccountId) -> bool {
-        unimplemented!()
+        // Allow all keys when mocked
+        false
     }
     fn did_of_signer(key: &AccountId) -> IdentityId {
         unimplemented!()
