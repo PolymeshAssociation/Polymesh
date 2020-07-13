@@ -19,6 +19,8 @@ export type Account = {
     type: Type
 }
 
+export let cdd_provider: IKeyringPair;
+
 export let nonces = new Map();
 
 export async function setAPI(endpoint: string) {
@@ -38,6 +40,14 @@ export async function setAPI(endpoint: string) {
 
 export function getAPI() {
   return api;
+}
+
+export async function setCddProvider(api: ApiPromise, name: string) {
+  cdd_provider = await generateEntity(api, name);
+}
+
+export function getCddProvider() {
+  return cdd_provider;
 }
 
 export async function generateEntity(api: ApiPromise, name: string) {
