@@ -233,9 +233,8 @@ async function addSigningKeys(api, accounts, dids, signing_accounts) {
     // 1. Add Signing Item to identity.
 
     let nonceObj = {nonce: nonces.get(accounts[i].address)};
-    const transaction = api.tx.identity.addAuthorization({Account: signing_accounts[i].publicKey}, {JoinIdentity: null }, null);
+    const transaction = api.tx.identity.addAuthorization({Account: signing_accounts[i].publicKey}, {JoinIdentity: []}, null);
     await sendTransaction(transaction, accounts[i], nonceObj);
-
     nonces.set(accounts[i].address, nonces.get(accounts[i].address).addn(1));
   }
 }

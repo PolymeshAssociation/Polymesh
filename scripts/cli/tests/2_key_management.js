@@ -54,7 +54,7 @@ async function addSigningKeys( api, accounts, dids, signing_accounts ) {
 
     // 1. Add Signing Item to identity.
     let nonceObj = {nonce: reqImports.nonces.get(accounts[i].address)};
-    const transaction = api.tx.identity.addAuthorization({Account: signing_accounts[i].publicKey}, {JoinIdentity: null }, null);
+    const transaction = api.tx.identity.addAuthorization({Account: signing_accounts[i].publicKey}, {JoinIdentity: []}, null);
     const result = await reqImports.sendTransaction(transaction, accounts[i], nonceObj);
     const passed = result.findRecord('system', 'ExtrinsicSuccess');
     if (passed) reqImports.fail_count--;

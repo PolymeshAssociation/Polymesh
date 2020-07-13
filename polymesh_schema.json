@@ -322,7 +322,7 @@
         "OffChainSignature": "H512",
         "Authorization": {
             "authorization_data": "AuthorizationData",
-            "authorized_by": "Signatory",
+            "authorized_by": "IdentityId",
             "expiry": "Option<Moment>",
             "auth_id": "u64"
         },
@@ -334,7 +334,7 @@
                 "AddMultiSigSigner": "AccountId",
                 "TransferAssetOwnership": "Ticker",
                 "JoinIdentity": "Vec<Permission>",
-                "Custom": "Vec<u8>",
+                "Custom": "Ticker",
                 "NoData": ""
             }
         },
