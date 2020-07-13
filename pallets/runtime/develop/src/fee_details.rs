@@ -234,8 +234,7 @@ fn is_auth_valid(
             CallType::AcceptIdentitySigner => {
                 if let AuthorizationData::JoinIdentity(did) = auth.authorization_data {
                     // make sure that the auth was created by the master key of an identity with valid CDD
-                    let master =
-                        Identity::did_records(&did).master_key;
+                    let master = Identity::did_records(&did).master_key;
                     let master_signatory = Signatory::AccountKey(master);
                     if auth.authorized_by == master_signatory {
                         let _ = check_cdd(&did);
