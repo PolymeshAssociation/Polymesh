@@ -115,8 +115,10 @@ jobs:
             image_resource:
               type: registry-image
               source:
-                repository: npm
-                tag: 14
+                repository: polymathnetwork/npm
+                aws_access_key_id: ((polymath-ecr.aws-access-id))
+                aws_secret_access_key: ((polymath-ecr.aws-access-secret))
+                aws_region: us-east-1
             run:
               path: bash
               args: ["git-polymesh/.concourse/scripts/t-npm-test.sh", "git-polymesh", "npm-caches", "artifact"]
