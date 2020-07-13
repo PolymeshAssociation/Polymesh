@@ -14,7 +14,7 @@ mkdir -p ${CACHE_DIR}/scripts/cli/node_modules
 rsync -auv ${CACHE_DIR}/scripts/cli/node_modules/ ${GIT_DIR}/scripts/cli/node_modules
 
 
-$ARTIFACT_DIR/polymesh-$(cat $ARTIFACT_DIR/VERSION) --dev --pool-limit 100000 -d /tmp/pmesh-primary-node
+$ARTIFACT_DIR/polymesh-$(cat $ARTIFACT_DIR/VERSION) --dev --pool-limit 100000 -d /tmp/pmesh-primary-node > /dev/null &
 
 $POLYMESH_PID=$!
 
