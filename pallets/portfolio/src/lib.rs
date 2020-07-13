@@ -147,17 +147,18 @@ decl_module! {
             let to_portfolio_id = to_num
                 .and_then(|num| Some(PortfolioId::user_portfolio(did, num)))
                 .unwrap_or_else(|| PortfolioId::default_portfolio(did));
-            let (_, balance) = Self::portfolio_asset_balances(&from_portfolio_id, &ticker);
-            ensure!(balance >= amount, Error::<T>::InsufficientPortfolioBalance);
+            let (_, from_balance) = Self::portfolio_asset_balances(&from_portfolio_id, &ticker);
+            ensure!(from_balance >= amount, Error::<T>::InsufficientPortfolioBalance);
             <PortfolioAssetBalances<T>>::insert(
                 &from_portfolio_id,
                 &ticker,
-                (ticker, balance - amount)
+                (ticker, from_balance - amount)
             );
+            let (_, to_balance) = Self::portfolio_asset_balances(&to_portfolio_id, &ticker);
             <PortfolioAssetBalances<T>>::insert(
                 &to_portfolio_id,
                 &ticker,
-                (ticker, balance.saturating_add(amount))
+                (ticker, to_balance.saturating_add(amount))
             );
            Self::deposit_event(RawEvent::MovedBetweenPortfolios(
                 did,
