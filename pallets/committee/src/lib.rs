@@ -722,6 +722,11 @@ impl<
             r => Err(O::from(r)),
         })
     }
+
+    #[cfg(feature = "runtime-benchmarks")]
+	fn successful_origin() -> O {
+		O::from(RawOrigin::Members(1u32, 0u32))
+	}
 }
 
 pub struct EnsureProportionAtLeast<N: U32, D: U32, AccountId, I = DefaultInstance>(
@@ -742,4 +747,9 @@ impl<
             r => Err(O::from(r)),
         })
     }
+
+    #[cfg(feature = "runtime-benchmarks")]
+	fn successful_origin() -> O {
+		O::from(RawOrigin::Members(0u32, 0u32))
+	}
 }
