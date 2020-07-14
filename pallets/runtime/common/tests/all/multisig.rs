@@ -35,7 +35,6 @@ fn create_multisig() {
         ));
 
         assert_eq!(MultiSig::ms_signs_required(musig_address), 1);
-        assert_eq!(Identity::get_identity(&musig_address), Some(alice_did));
 
         assert_err!(
             MultiSig::create_multisig(alice.clone(), vec![], 10,),
@@ -116,10 +115,6 @@ fn join_multisig() {
         assert_eq!(
             MultiSig::ms_signers(musig_address.clone(), bob_signer),
             true
-        );
-        assert_eq!(
-            Identity::get_identity(&AccountKeyring::Bob.public()),
-            Some(alice_did)
         );
 
         Context::set_current_identity::<Identity>(None);
@@ -328,10 +323,10 @@ fn remove_multisig_signer() {
             true
         );
 
-        assert_eq!(
-            Identity::get_identity(&AccountKeyring::Bob.public()),
-            Some(alice_did)
-        );
+        // No direct identity for Bob as he is only a signer
+        assert_eq!(Identity::get_identity(&AccountKeyring::Bob.public()), None);
+        // No identity as multisig has not been set as a signing / master key
+        assert_eq!(Identity::get_identity(&musig_address), None);
 
         let call = Box::new(Call::MultiSig(multisig::Call::remove_multisig_signer(
             bob_signer,
@@ -768,7 +763,7 @@ fn remove_multisig_signers_via_creator() {
                 musig_address.clone(),
                 vec![bob_signer]
             ),
-            Error::NotMasterKey
+            Error::IdentityNotCreator
         );
 
         assert_ok!(MultiSig::remove_multisig_signers_via_creator(

@@ -781,14 +781,14 @@ fn transfer_ticker() {
         assert_ok!(Asset::register_ticker(owner_signed.clone(), ticker));
 
         let auth_id_alice = Identity::add_auth(
-            Signatory::from(owner_did),
+            owner_did,
             Signatory::from(alice_did),
             AuthorizationData::TransferTicker(ticker),
             None,
         );
 
         let auth_id_bob = Identity::add_auth(
-            Signatory::from(owner_did),
+            owner_did,
             Signatory::from(bob_did),
             AuthorizationData::TransferTicker(ticker),
             None,
@@ -830,7 +830,7 @@ fn transfer_ticker() {
         );
 
         let mut auth_id = Identity::add_auth(
-            Signatory::from(alice_did),
+            alice_did,
             Signatory::from(bob_did),
             AuthorizationData::TransferTicker(ticker),
             Some(now.timestamp() as u64 - 100),
@@ -842,7 +842,7 @@ fn transfer_ticker() {
         );
 
         auth_id = Identity::add_auth(
-            Signatory::from(alice_did),
+            alice_did,
             Signatory::from(bob_did),
             AuthorizationData::Custom(ticker),
             Some(now.timestamp() as u64 + 100),
@@ -854,7 +854,7 @@ fn transfer_ticker() {
         );
 
         auth_id = Identity::add_auth(
-            Signatory::from(alice_did),
+            alice_did,
             Signatory::from(bob_did),
             AuthorizationData::TransferTicker(ticker),
             Some(now.timestamp() as u64 + 100),
@@ -894,14 +894,14 @@ fn transfer_token_ownership() {
         ));
 
         let auth_id_alice = Identity::add_auth(
-            Signatory::from(owner_did),
+            owner_did,
             Signatory::from(alice_did),
             AuthorizationData::TransferAssetOwnership(ticker),
             None,
         );
 
         let auth_id_bob = Identity::add_auth(
-            Signatory::from(owner_did),
+            owner_did,
             Signatory::from(bob_did),
             AuthorizationData::TransferAssetOwnership(ticker),
             None,
@@ -957,7 +957,7 @@ fn transfer_token_ownership() {
         );
 
         let mut auth_id = Identity::add_auth(
-            Signatory::from(alice_did),
+            alice_did,
             Signatory::from(bob_did),
             AuthorizationData::TransferAssetOwnership(ticker),
             Some(now.timestamp() as u64 - 100),
@@ -969,7 +969,7 @@ fn transfer_token_ownership() {
         );
 
         auth_id = Identity::add_auth(
-            Signatory::from(alice_did),
+            alice_did,
             Signatory::from(bob_did),
             AuthorizationData::Custom(ticker),
             Some(now.timestamp() as u64 + 100),
@@ -981,7 +981,7 @@ fn transfer_token_ownership() {
         );
 
         auth_id = Identity::add_auth(
-            Signatory::from(alice_did),
+            alice_did,
             Signatory::from(bob_did),
             AuthorizationData::TransferAssetOwnership(Ticker::try_from(&[0x50][..]).unwrap()),
             Some(now.timestamp() as u64 + 100),
@@ -993,7 +993,7 @@ fn transfer_token_ownership() {
         );
 
         auth_id = Identity::add_auth(
-            Signatory::from(alice_did),
+            alice_did,
             Signatory::from(bob_did),
             AuthorizationData::TransferAssetOwnership(ticker),
             Some(now.timestamp() as u64 + 100),
@@ -1764,7 +1764,7 @@ fn freeze_unfreeze_asset() {
         );
         // Attempt to transfer token ownership.
         let auth_id = Identity::add_auth(
-            Signatory::from(alice_did),
+            alice_did,
             Signatory::from(bob_did),
             AuthorizationData::TransferAssetOwnership(ticker),
             None,

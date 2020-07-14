@@ -92,9 +92,8 @@ impl CddAndFeeDetails<AccountId, Call> for CddHandler {
             | Call::MultiSig(multisig::Call::approve_as_key(multisig, ..)) => {
                 sp_runtime::print("multisig stuff");
                 if <multisig::MultiSigSigners<Runtime>>::contains_key(multisig, caller) {
-                    if let Some(did) = Identity::get_identity(&multisig) {
-                        return check_cdd(&did);
-                    }
+                    let did = <multisig::MultiSigToIdentity<Runtime>>::get(multisig);
+                    return check_cdd(&did);
                 }
                 Err(InvalidTransaction::Custom(TransactionError::MissingIdentity as u8).into())
             }
@@ -105,9 +104,8 @@ impl CddAndFeeDetails<AccountId, Call> for CddHandler {
                 sp_runtime::print("multisig stuff via bridge");
                 let multisig = Bridge::controller_key();
                 if <multisig::MultiSigSigners<Runtime>>::contains_key(&multisig, caller) {
-                    if let Some(did) = Identity::get_identity(&multisig) {
-                        return check_cdd(&did);
-                    }
+                    let did = <multisig::MultiSigToIdentity<Runtime>>::get(multisig);
+                    return check_cdd(&did);
                 }
                 Err(InvalidTransaction::Custom(TransactionError::MissingIdentity as u8).into())
             }
@@ -145,7 +143,7 @@ impl CddAndFeeDetails<AccountId, Call> for CddHandler {
                     if let Some(did) = Identity::get_identity(key) {
                         if Identity::has_valid_cdd(did) {
                             Context::set_current_identity::<Identity>(Some(did));
-                            if let Some(fee_did) = Balances::charge_fee_to_identity(&key) {
+                            if let Some(fee_did) = Balances::charge_fee_to_identity(key) {
                                 sp_runtime::print("charging identity");
                                 return Ok(Some(Signatory::from(fee_did)));
                             } else {
@@ -199,44 +197,21 @@ fn is_auth_valid(
     if let Some(auth) = Identity::get_non_expired_auth(singer, auth_id) {
         // Different auths have different authorization data requirements and hence we match call type
         // to make sure proper authorization data is present.
+        // All we need to check is that there is a payer with a valid CDD. Business logic for authorisations can be checked post-Signed Extension.
         match call_type {
             CallType::AcceptMultiSigSigner => {
-                if auth.authorization_data == AuthorizationData::AddMultiSigSigner {
-                    // make sure that the auth was created by a valid multisig
-                    if let Signatory::Account(multisig) = auth.authorized_by {
-                        if <multisig::MultiSigSignsRequired<Runtime>>::contains_key(&multisig) {
-                            // make sure that the multisig is attached to an identity with valid CDD
-                            if let Some(did) = Identity::get_identity(&multisig) {
-                                return check_cdd(&did);
-                            } else {
-                                return Err(InvalidTransaction::Custom(
-                                    TransactionError::MissingIdentity as u8,
-                                )
-                                .into());
-                            }
-                        }
-                    }
+                if let AuthorizationData::AddMultiSigSigner(_) = auth.authorization_data {
+                    return check_cdd(&auth.authorized_by);
                 }
             }
             CallType::AcceptIdentitySigner => {
-                if let AuthorizationData::JoinIdentity(identity_data_to_join) =
-                    auth.authorization_data
-                {
-                    // make sure that the auth was created by the master key of an identity with valid CDD
-                    let master =
-                        Identity::did_records(&identity_data_to_join.target_did).master_key;
-                    if auth.authorized_by == Signatory::Account(master) {
-                        return check_cdd(&identity_data_to_join.target_did);
-                    }
+                if let AuthorizationData::JoinIdentity(_) = auth.authorization_data {
+                    return check_cdd(&auth.authorized_by);
                 }
             }
             CallType::AcceptIdentityMaster => {
-                if let AuthorizationData::RotateMasterKey(did) = auth.authorization_data {
-                    // make sure that the auth was created by the master key of an identity with valid CDD
-                    let master = Identity::did_records(&did).master_key;
-                    if auth.authorized_by == Signatory::Account(master) {
-                        return check_cdd(&did);
-                    }
+                if let AuthorizationData::RotateMasterKey(_) = auth.authorization_data {
+                    return check_cdd(&auth.authorized_by);
                 }
             }
         }

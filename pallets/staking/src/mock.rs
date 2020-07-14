@@ -40,7 +40,7 @@ use polymesh_common_utilities::traits::{
     CommonTrait,
 };
 use primitives::traits::BlockRewardsReserveCurrency;
-use primitives::{AuthorizationData, Claim, IdentityId, JoinIdentityData, Moment, Signatory};
+use primitives::{AuthorizationData, Claim, IdentityId, Moment, Signatory};
 use sp_core::H256;
 use sp_io;
 use sp_npos_elections::{
@@ -436,6 +436,10 @@ impl MultiSigSubTrait<AccountId> for Test {
     fn is_multisig(account: &AccountId) -> bool {
         unimplemented!()
     }
+    fn is_signer(key: &AccountId) -> bool {
+        // Allow all keys when mocked
+        false
+    }
 }
 
 impl CheckCdd<AccountId> for Test {
@@ -827,15 +831,11 @@ pub fn provide_did_to_user(account: AccountId) -> bool {
 pub fn add_signing_item(stash_key: AccountId, to_signing_item: AccountId) {
     if !get_identity(to_signing_item) {
         let did = Identity::get_identity(&stash_key).unwrap();
-        let join_data = JoinIdentityData {
-            target_did: did,
-            permissions: vec![],
-        };
         assert!(
-            Identity::add_authorization_as_key(
+            Identity::add_authorization(
                 Origin::signed(stash_key),
                 Signatory::Account(to_signing_item),
-                AuthorizationData::JoinIdentity(join_data),
+                AuthorizationData::JoinIdentity(vec![]),
                 None
             )
             .is_ok(),
