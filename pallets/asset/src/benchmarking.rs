@@ -201,23 +201,6 @@ benchmarks! {
         let ticker = make_token::<T>(origin.clone(), t, n, i, f);
     }: _(origin, ticker, new_name)
 
-    transfer {
-        let u in ...;
-        // Token name length.
-        let n in 1 .. MAX_NAME_LENGTH;
-        // Ticker length.
-        let t in 1 .. MAX_TICKER_LENGTH as u32;
-        // Length of the vector of identifiers.
-        let i in 1 .. 100;
-        // Funding round name length.
-        let f in 1 .. MAX_NAME_LENGTH;
-        // Token amount.
-        let a in 1 .. 100_000;
-        let (_, alice_origin, _) = make_account::<T>("alice", u);
-        let (_, _, bob_did) = make_account::<T>("bob", u);
-        let ticker = make_token::<T>(alice_origin.clone(), t, n, i, f);
-    }: _(alice_origin, ticker, bob_did, a.into())
-
     issue {
         let u in ...;
         // Token name length.
@@ -233,27 +216,5 @@ benchmarks! {
         let (_, alice_origin, _) = make_account::<T>("alice", u);
         let (_, _, bob_did) = make_account::<T>("bob", u);
         let ticker = make_token::<T>(alice_origin.clone(), t, n, i, f);
-    }: _(alice_origin, ticker, bob_did, a.into(), vec![])
-
-    batch_issue {
-        let u in ...;
-        // Token name length.
-        let n in 1 .. MAX_NAME_LENGTH;
-        // Ticker length.
-        let t in 1 .. MAX_TICKER_LENGTH as u32;
-        // Number of investors.
-        let i in 1 .. 100;
-        // Funding round name length.
-        let f in 1 .. MAX_NAME_LENGTH;
-        let alice_origin = make_account::<T>("alice", u).1;
-        let ticker = make_token::<T>(alice_origin.clone(), t, n, i, f);
-        let mut issue_asset_item = Vec::new();
-        for j in 1 .. i {
-            let did = make_account::<T>("investor", u + j).2;
-            issue_asset_item.push(IssueAssetItem {
-                investor_did: did,
-                value: 1_000.into()
-            });
-        }
-    }: _(alice_origin, issue_asset_item, ticker)
+    }: _(alice_origin, ticker, a.into())
 }

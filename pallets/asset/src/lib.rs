@@ -612,43 +612,6 @@ decl_module! {
             Ok(())
         }
 
-        /// If sufficient allowance provided, transfer from a DID to another DID without token owner's signature.
-        ///
-        /// # Arguments
-        /// * `origin` Signing key of spender.
-        /// * `ticker` Ticker of the token.
-        /// * `from_did` DID from whom token is being transferred.
-        /// * `to_did` DID to whom token is being transferred.
-        /// * `value` Amount of the token for transfer.
-        #[weight = 500_000]
-        pub fn transfer_from(origin, ticker: Ticker, from_did: IdentityId, to_did: IdentityId, value: T::Balance) -> DispatchResult {
-            let sender = ensure_signed(origin)?;
-            let did = Context::current_identity_or::<Identity<T>>(&sender)?;
-
-            let ticker_from_did_did = (ticker, from_did, did);
-            ensure!(<Allowance<T>>::contains_key(&ticker_from_did_did), Error::<T>::NoSuchAllowance);
-            let allowance = Self::allowance(&ticker_from_did_did);
-            ensure!(allowance >= value, Error::<T>::InsufficientAllowance);
-
-            // using checked_sub (safe math) to avoid overflow
-            let updated_allowance = allowance.checked_sub(&value)
-                .ok_or(Error::<T>::AllowanceOverflow)?;
-            // Check whether the custody allowance remain intact or not
-            Self::_check_custody_allowance(&ticker, from_did, value)?;
-
-            ensure!(
-                Self::_is_valid_transfer(&ticker, sender, Some(from_did), Some(to_did), value)? == ERC1400_TRANSFER_SUCCESS,
-                Error::<T>::InvalidTransfer
-            );
-            Self::unsafe_transfer(did, &ticker, from_did, to_did, value)?;
-
-            // Change allowance afterwards
-            <Allowance<T>>::insert(&ticker_from_did_did, updated_allowance);
-
-            Self::deposit_event(RawEvent::Approval(did, ticker, from_did, did, value));
-            Ok(())
-        }
-
         /// Function used to create the checkpoint.
         /// NB: Only called by the owner of the security token i.e owner DID.
         ///
@@ -680,7 +643,8 @@ decl_module! {
             let signer = Signatory::Account(sender.clone());
 
             ensure!(Self::is_owner(&ticker, did), Error::<T>::Unauthorized);
-            Self::_mint(&ticker, sender, to_did, value, Some((&signer, ProtocolOp::AssetIssue)))
+            let beneficiary = Self::token_details(&ticker).treasury_did.unwrap_or(did);
+            Self::_mint(&ticker, sender, beneficiary, value, Some((&signer, ProtocolOp::AssetIssue)))
         }
 
         /// Forces a redemption of an DID's tokens. Can only be called by token owner.
@@ -742,60 +706,6 @@ decl_module! {
             <Tokens<T>>::insert(&ticker, token);
             Self::deposit_event(RawEvent::DivisibilityChanged(did, ticker, true));
             Ok(())
-        }
-
-        /// An ERC1594 transfer with data
-        /// This function can be used by the exchanges or other third parties to dynamically validate the transaction
-        /// by passing the data blob.
-        ///
-        /// # Arguments
-        /// * `origin` Signing key of the sender.
-        /// * `ticker` Ticker of the token.
-        /// * `to_did` DID to whom tokens will be transferred.
-        /// * `value` Amount of the tokens.
-        /// * `data` Off chain data blob to validate the transfer.
-        #[weight = 450_000]
-        pub fn transfer_with_data(origin, ticker: Ticker, to_did: IdentityId, value: T::Balance, data: Vec<u8>) -> DispatchResult {
-
-            let sender = ensure_signed(origin.clone())?;
-            let did = Context::current_identity_or::<Identity<T>>(&sender)?;
-
-            Self::transfer(origin, ticker, to_did, value)?;
-
-            Self::deposit_event(RawEvent::TransferWithData(did, ticker, did, to_did, value, data));
-            Ok(())
-        }
-
-        /// An ERC1594 transfer_from with data
-        /// This function can be used by the exchanges or other third parties to dynamically validate the transaction
-        /// by passing the data blob.
-        ///
-        /// # Arguments
-        /// * `origin` Signing key of the spender.
-        /// * `ticker` Ticker of the token.
-        /// * `from_did` DID from whom tokens will be transferred.
-        /// * `to_did` DID to whom tokens will be transferred.
-        /// * `value` Amount of the tokens.
-        /// * `data` Off chain data blob to validate the transfer.
-        #[weight = 550_000]
-        pub fn transfer_from_with_data(origin, ticker: Ticker, from_did: IdentityId, to_did: IdentityId, value: T::Balance, data: Vec<u8>) -> DispatchResult {
-            let sender = ensure_signed(origin.clone())?;
-            let did = Context::current_identity_or::<Identity<T>>(&sender)?;
-
-            Self::transfer_from(origin, ticker, from_did,  to_did, value)?;
-
-            Self::deposit_event(RawEvent::TransferWithData(did, ticker, from_did, to_did, value, data));
-            Ok(())
-        }
-
-        /// Used to know whether the given token will issue new tokens or not.
-        ///
-        /// # Arguments
-        /// * `_origin` Signing key.
-        /// * `ticker` Ticker of the token whose issuance status need to know.
-        #[weight = 5_000]
-        pub fn is_issuable(_origin, ticker:Ticker) {
-            Self::deposit_event(RawEvent::IsIssuable(ticker, true));
         }
 
         /// Add documents for a given token. To be called only by the token owner.
