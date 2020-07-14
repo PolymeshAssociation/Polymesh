@@ -1466,7 +1466,7 @@ fn add_identity_signers() {
             .iter()
             .find(|si| **si == SigningItem::from_account_id(AccountKeyring::Dave.public()))
             .is_none());
- });
+    });
 }
 
 #[test]
