@@ -122,7 +122,7 @@ use frame_support::{
 use frame_system::{self as system, ensure_signed};
 use hex_literal::hex;
 use pallet_contracts::{ExecReturnValue, Gas};
-use sp_runtime::traits::{CheckedAdd, CheckedSub, Verify};
+use sp_runtime::traits::{CheckedAdd, CheckedSub, Saturating, Verify};
 
 #[cfg(feature = "std")]
 use sp_runtime::{Deserialize, Serialize};
@@ -583,7 +583,7 @@ decl_module! {
                 Error::<T>::InvalidTransfer
             );
 
-            Self::_transfer(did, &ticker, did, to_did, value)
+            Self::unsafe_transfer(did, &ticker, did, to_did, value)
         }
 
         /// Forces a transfer between two DIDs & This can only be called by security token owner.
@@ -604,7 +604,7 @@ decl_module! {
 
             ensure!(Self::is_owner(&ticker, did), Error::<T>::Unauthorized);
 
-            Self::_transfer(did, &ticker, from_did, to_did, value)?;
+            Self::unsafe_transfer(did, &ticker, from_did, to_did, value)?;
 
             Self::deposit_event(RawEvent::ControllerTransfer(did, ticker, from_did, to_did, value, data, operator_data));
 
@@ -662,7 +662,7 @@ decl_module! {
                 Self::_is_valid_transfer(&ticker, sender, Some(from_did), Some(to_did), value)? == ERC1400_TRANSFER_SUCCESS,
                 Error::<T>::InvalidTransfer
             );
-            Self::_transfer(did, &ticker, from_did, to_did, value)?;
+            Self::unsafe_transfer(did, &ticker, from_did, to_did, value)?;
 
             // Change allowance afterwards
             <Allowance<T>>::insert(&ticker_from_did_did, updated_allowance);
@@ -1106,7 +1106,7 @@ decl_module! {
         pub fn increase_custody_allowance(origin, ticker: Ticker, custodian_did: IdentityId, value: T::Balance) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             let sender_did = Context::current_identity_or::<Identity<T>>(&sender)?;
-            Self::_increase_custody_allowance(sender_did, ticker, sender_did, custodian_did, value)?;
+            Self::unsafe_increase_custody_allowance(sender_did, ticker, sender_did, custodian_did, value)?;
             Ok(())
         }
 
@@ -1157,7 +1157,7 @@ decl_module! {
                 <identity::Module<T>>::is_signer_authorized(holder_did, &holder_signer),
                 Error::<T>::HolderMustBeSigningKeyForHolderDid
             );
-            Self::_increase_custody_allowance(caller_did, ticker, holder_did, custodian_did, value)?;
+            Self::unsafe_increase_custody_allowance(caller_did, ticker, holder_did, custodian_did, value)?;
             <AuthenticationNonce>::insert((ticker, holder_did, nonce), true);
             Ok(())
         }
@@ -1181,27 +1181,7 @@ decl_module! {
             let sender = ensure_signed(origin)?;
             let custodian_did = Context::current_identity_or::<Identity<T>>(&sender)?;
 
-            let mut custodian_allowance = Self::custodian_allowance((ticker, holder_did, custodian_did));
-            // Check whether the custodian has enough allowance or not
-            ensure!(custodian_allowance >= value, Error::<T>::InsufficientAllowance);
-            // using checked_sub (safe math) to avoid underflow
-            custodian_allowance = custodian_allowance.checked_sub(&value)
-                .ok_or(Error::<T>::AllowanceUnderflow)?;
-            // using checked_sub (safe math) to avoid underflow
-            let new_total_allowance = Self::total_custody_allowance((ticker, holder_did))
-                .checked_sub(&value)
-                .ok_or(Error::<T>::TotalAllowanceUnderflow)?;
-            // Validate the transfer
-            ensure!(
-                Self::_is_valid_transfer(&ticker, sender, Some(holder_did), Some(receiver_did), value)? == ERC1400_TRANSFER_SUCCESS,
-                Error::<T>::InvalidTransfer
-            );
-            Self::_transfer(custodian_did, &ticker, holder_did, receiver_did, value)?;
-            // Update Storage of allowance
-            <CustodianAllowance<T>>::insert((ticker, holder_did, custodian_did), &custodian_allowance);
-            <TotalCustodyAllowance<T>>::insert((ticker, holder_did), new_total_allowance);
-            Self::deposit_event(RawEvent::CustodyTransfer(custodian_did, ticker, holder_did, receiver_did, value));
-            Ok(())
+            Self::unsafe_transfer_by_custodian(custodian_did, ticker, holder_did, receiver_did, value)
         }
 
         /// Sets the name of the current funding round.
@@ -1539,6 +1519,58 @@ impl<T: Trait> AssetTrait<T::Balance, T::AccountId> for Module<T> {
     fn get_balance_at(ticker: &Ticker, did: IdentityId, at: u64) -> T::Balance {
         Self::get_balance_at(*ticker, did, at)
     }
+
+    fn unsafe_increase_custody_allowance(
+        caller_did: IdentityId,
+        ticker: Ticker,
+        holder_did: IdentityId,
+        custodian_did: IdentityId,
+        value: T::Balance,
+    ) -> DispatchResult {
+        Self::unsafe_increase_custody_allowance(
+            caller_did,
+            ticker,
+            holder_did,
+            custodian_did,
+            value,
+        )
+    }
+
+    fn unsafe_decrease_custody_allowance(
+        caller_did: IdentityId,
+        ticker: Ticker,
+        holder_did: IdentityId,
+        custodian_did: IdentityId,
+        value: T::Balance,
+    ) {
+        Self::unsafe_decrease_custody_allowance(
+            caller_did,
+            ticker,
+            holder_did,
+            custodian_did,
+            value,
+        )
+    }
+
+    fn unsafe_system_transfer(
+        sender: IdentityId,
+        ticker: &Ticker,
+        from_did: IdentityId,
+        to_did: IdentityId,
+        value: T::Balance,
+    ) {
+        Self::unsafe_system_transfer(sender, ticker, from_did, to_did, value);
+    }
+
+    fn unsafe_transfer_by_custodian(
+        custodian_did: IdentityId,
+        ticker: Ticker,
+        holder_did: IdentityId,
+        receiver_did: IdentityId,
+        value: T::Balance,
+    ) -> DispatchResult {
+        Self::unsafe_transfer_by_custodian(custodian_did, ticker, holder_did, receiver_did, value)
+    }
 }
 
 impl<T: Trait> AcceptTransfer for Module<T> {
@@ -1790,7 +1822,7 @@ impl<T: Trait> Module<T> {
 
     // The SimpleToken standard transfer function
     // internal
-    fn _transfer(
+    fn unsafe_transfer(
         sender: IdentityId,
         ticker: &Ticker,
         from_did: IdentityId,
@@ -1960,7 +1992,7 @@ impl<T: Trait> Module<T> {
         Ok(())
     }
 
-    fn _increase_custody_allowance(
+    fn unsafe_increase_custody_allowance(
         caller_did: IdentityId,
         ticker: Ticker,
         holder_did: IdentityId,
@@ -2000,6 +2032,35 @@ impl<T: Trait> Module<T> {
             new_current_allowance,
         ));
         Ok(())
+    }
+
+    fn unsafe_decrease_custody_allowance(
+        caller_did: IdentityId,
+        ticker: Ticker,
+        holder_did: IdentityId,
+        custodian_did: IdentityId,
+        value: T::Balance,
+    ) {
+        let new_custody_allowance =
+            Self::total_custody_allowance((ticker, holder_did)).saturating_sub(value);
+
+        let old_allowance = Self::custodian_allowance((ticker, holder_did, custodian_did));
+        let new_current_allowance = old_allowance.saturating_sub(value);
+
+        // Update Storage
+        <CustodianAllowance<T>>::insert(
+            (ticker, holder_did, custodian_did),
+            &new_current_allowance,
+        );
+        <TotalCustodyAllowance<T>>::insert((ticker, holder_did), new_custody_allowance);
+        Self::deposit_event(RawEvent::CustodyAllowanceChanged(
+            caller_did,
+            ticker,
+            holder_did,
+            custodian_did,
+            old_allowance,
+            new_current_allowance,
+        ));
     }
 
     /// Accept and process a ticker transfer.
@@ -2243,5 +2304,82 @@ impl<T: Trait> Module<T> {
             Self::_is_valid_transfer(&ticker, sender, from_did, to_did, amount)
                 .unwrap_or(ERC1400_TRANSFER_FAILURE),
         )
+    }
+
+    /// Transfers an asset using custodial allowance
+    fn unsafe_transfer_by_custodian(
+        custodian_did: IdentityId,
+        ticker: Ticker,
+        holder_did: IdentityId,
+        receiver_did: IdentityId,
+        value: T::Balance,
+    ) -> DispatchResult {
+        let mut custodian_allowance =
+            Self::custodian_allowance((ticker, holder_did, custodian_did));
+        // using checked_sub (safe math) to avoid underflow
+        custodian_allowance = custodian_allowance
+            .checked_sub(&value)
+            .ok_or(Error::<T>::AllowanceUnderflow)?;
+        // using checked_sub (safe math) to avoid underflow
+        let new_total_allowance = Self::total_custody_allowance((ticker, holder_did))
+            .checked_sub(&value)
+            .ok_or(Error::<T>::TotalAllowanceUnderflow)?;
+        // Validate the transfer
+        ensure!(
+            Self::_is_valid_transfer(
+                &ticker,
+                <identity::Module<T>>::did_records(custodian_did).master_key,
+                Some(holder_did),
+                Some(receiver_did),
+                value
+            )? == ERC1400_TRANSFER_SUCCESS,
+            Error::<T>::InvalidTransfer
+        );
+        Self::unsafe_transfer(custodian_did, &ticker, holder_did, receiver_did, value)?;
+        // Update Storage of allowance
+        <CustodianAllowance<T>>::insert((ticker, holder_did, custodian_did), &custodian_allowance);
+        <TotalCustodyAllowance<T>>::insert((ticker, holder_did), new_total_allowance);
+        Self::deposit_event(RawEvent::CustodyTransfer(
+            custodian_did,
+            ticker,
+            holder_did,
+            receiver_did,
+            value,
+        ));
+        Ok(())
+    }
+
+    /// Internal function to process a transfer without any checks.
+    /// Used for reverting failed settlements
+    fn unsafe_system_transfer(
+        sender: IdentityId,
+        ticker: &Ticker,
+        from_did: IdentityId,
+        to_did: IdentityId,
+        value: T::Balance,
+    ) {
+        let sender_balance = Self::balance(ticker, &from_did);
+        let updated_from_balance = sender_balance.saturating_sub(value);
+        let receiver_balance = Self::balance(ticker, &to_did);
+        let updated_to_balance = receiver_balance.saturating_add(value);
+
+        Self::_update_checkpoint(ticker, from_did, sender_balance);
+        Self::_update_checkpoint(ticker, to_did, receiver_balance);
+
+        // reduce sender's balance
+        <BalanceOf<T>>::insert(ticker, &from_did, updated_from_balance);
+
+        // increase receiver's balance
+        <BalanceOf<T>>::insert(ticker, &to_did, updated_to_balance);
+
+        // Update statistic info.
+        <statistics::Module<T>>::update_transfer_stats(
+            ticker,
+            Some(updated_from_balance),
+            Some(updated_to_balance),
+            value,
+        );
+
+        Self::deposit_event(RawEvent::Transfer(sender, *ticker, from_did, to_did, value));
     }
 }

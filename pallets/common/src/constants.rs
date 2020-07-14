@@ -26,6 +26,8 @@ pub mod did {
     pub const TREASURY_DID: &[u8; 32] = b"system:treasury_module_did\0\0\0\0\0\0";
     /// Block Reward Reserve DID.
     pub const BLOCK_REWARD_RESERVE_DID: &[u8; 32] = b"system:block_reward_reserve_did\0";
+    /// Settlement module DID
+    pub const SETTLEMENT_MODULE_DID: &[u8; 32] = b"system:settlement_module_did\0\0\0\0";
 }
 
 // ERC1400 transfer status codes
@@ -58,3 +60,4 @@ pub const TREASURY_MODULE_ID: ModuleId = ModuleId(*b"pm/trsry");
 pub const BRR_MODULE_ID: ModuleId = ModuleId(*b"pm/blrwr");
 pub const GC_MODULE_ID: ModuleId = ModuleId(*b"pm/govcm");
 pub const CDD_MODULE_ID: ModuleId = ModuleId(*b"pm/cusdd");
+pub const SETTLEMENT_MODULE_ID: ModuleId = ModuleId(*b"pm/setmn");

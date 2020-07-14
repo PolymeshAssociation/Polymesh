@@ -211,7 +211,7 @@ decl_storage! {
                 .for_each(|s| <Module<T>>::register_systematic_id(*s));
 
             // Add CDD claims to Treasury & BRR
-            let sys_issuers_with_cdd = [ SystematicIssuers::Treasury, SystematicIssuers::BlockRewardReserve];
+            let sys_issuers_with_cdd = [SystematicIssuers::Treasury, SystematicIssuers::BlockRewardReserve, SystematicIssuers::Settlement];
             let id_with_cdd = sys_issuers_with_cdd.iter()
                 .inspect(|iss| debug::info!( "Add Systematic CDD Claims to {}", iss))
                 .map(|iss| iss.as_id())
