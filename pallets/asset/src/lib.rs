@@ -2084,7 +2084,7 @@ impl<T: Trait> Module<T> {
         let ticker_details = Self::ticker_registration(&ticker);
 
         <identity::Module<T>>::consume_auth(
-            Signatory::from(ticker_details.owner),
+            ticker_details.owner,
             Signatory::from(to_did),
             auth_id,
         )?;
@@ -2134,7 +2134,7 @@ impl<T: Trait> Module<T> {
         let ticker_details = Self::ticker_registration(&ticker);
 
         <identity::Module<T>>::consume_auth(
-            Signatory::from(token_details.owner_did),
+            token_details.owner_did,
             Signatory::from(to_did),
             auth_id,
         )?;

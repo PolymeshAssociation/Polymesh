@@ -14,19 +14,13 @@ async function main() {
 
   const testEntities = await reqImports.initMain(api);
 
-  let master_keys = await reqImports.generateKeys(api,5, "master");
-
-  let signing_keys = await reqImports.generateKeys(api, 5, "signing");
+  let master_keys = await reqImports.generateKeys(api, 2, "master6");
 
   let issuer_dids = await reqImports.createIdentities(api, master_keys, testEntities[0]);
 
   await reqImports.distributePolyBatch( api, master_keys, reqImports.transfer_amount, testEntities[0] );
 
-  await reqImports.addSigningKeys( api, master_keys, issuer_dids, signing_keys );
-
-  await reqImports.authorizeJoinToIdentities( api, master_keys, issuer_dids, signing_keys);
-
-  await issueTokenPerDid(api, master_keys, issuer_dids, reqImports.prepend);
+  await issueTokenPerDid(api, master_keys, issuer_dids, "DEMOCA");
 
   if (reqImports.fail_count > 0) {
     console.log("Failed");

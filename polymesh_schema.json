@@ -329,7 +329,7 @@
         },
         "Authorization": {
             "authorization_data": "AuthorizationData",
-            "authorized_by": "Signatory",
+            "authorized_by": "IdentityId",
             "expiry": "Option<Moment>",
             "auth_id": "u64"
         },
@@ -338,10 +338,10 @@
                 "AttestMasterKeyRotation": "IdentityId",
                 "RotateMasterKey": "IdentityId",
                 "TransferTicker": "Ticker",
-                "AddMultiSigSigner": "",
+                "AddMultiSigSigner": "AccountId",
                 "TransferAssetOwnership": "Ticker",
-                "JoinIdentity": "JoinIdentityData",
-                "Custom": "Vec<u8>",
+                "JoinIdentity": "Vec<Permission>",
+                "Custom": "Ticker",
                 "NoData": ""
             }
         },
@@ -532,10 +532,6 @@
                 "Ok": "u8",
                 "Err": "Vec<u8>"
             }
-        },
-        "JoinIdentityData": {
-            "target_did": "IdentityId",
-            "permissions": "Vec<Permission>"
         },
         "LinkType": {
             "_enum": {

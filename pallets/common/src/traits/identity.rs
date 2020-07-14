@@ -145,22 +145,13 @@ decl_event!(
         AssetDidRegistered(IdentityId, Ticker),
 
         /// New authorization added.
-        /// (from, to, auth_id, authorization_data, expiry)
-        AuthorizationAddedByIdentity(
+        /// (authorised_by, target_did, target_key, auth_id, authorization_data, expiry)
+        AuthorizationAdded(
             IdentityId,
             Option<IdentityId>,
             Option<AccountId>,
             u64,
-            AuthorizationData,
-            Option<Moment>
-        ),
-
-        AuthorizationAddedByKey(
-            AccountId,
-            Option<IdentityId>,
-            Option<AccountId>,
-            u64,
-            AuthorizationData,
+            AuthorizationData<AccountId>,
             Option<Moment>
         ),
 
