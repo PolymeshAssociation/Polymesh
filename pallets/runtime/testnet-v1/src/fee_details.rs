@@ -235,7 +235,7 @@ fn is_auth_valid(
                     let master = Identity::did_records(&did).master_key;
                     let master_signatory = Signatory::AccountKey(master);
                     if auth.authorized_by == master_signatory {
-                        let _ = check_cdd(&did);
+                        let _ = check_cdd(&did)?;
                         return Ok(Some(master_signatory));
                     }
                 }
