@@ -27,6 +27,22 @@ resources:
       repository: 414255671868.dkr.ecr.us-east-1.amazonaws.com/polymathnetwork/polymesh
       aws_access_key_id: ((polymath-ecr.aws-access-id))
       aws_secret_access_key: ((polymath-ecr.aws-access-secret))
+  - name: semver-git-polymesh
+    type: semver
+    source:
+      driver: git
+      uri: git@github.com:polymathnetwork/concourse-semver-tracking
+      branch: master
+      file: polymesh/version
+      private_key: ((github-polymathnetwork-concourse-semver-tracking.id_rsa))
+  - name: semver-git-polymesh-cli
+    type: semver
+    source:
+      driver: git
+      uri: git@github.com:polymathnetwork/concourse-semver-tracking
+      branch: master
+      file: polymesh-cli/version
+      private_key: ((github-polymathnetwork-concourse-semver-tracking.id_rsa))
 
 jobs:
   - name: build-polymesh
@@ -34,6 +50,14 @@ jobs:
       - get: githubpr-polymesh
         trigger: true
         version: every
+      - get: semver-git-polymesh
+        params:
+          bump: patch
+          pre: rc
+      - get: semver-git-polymesh-cli
+        params:
+          bump: patch
+          pre: rc
       - in_parallel:
         - task: run-lint
           config:
