@@ -68,6 +68,7 @@ jobs:
               type: registry-image
               source:
                 repository: polymathnetwork/rust
+                tag: alpine-1.44.1
                 aws_access_key_id: ((polymath-ecr.aws-access-id))
                 aws_secret_access_key: ((polymath-ecr.aws-access-secret))
                 aws_region: us-east-1
@@ -88,6 +89,7 @@ jobs:
               type: registry-image
               source:
                 repository: polymathnetwork/rust
+                tag: alpine-1.44.1
                 aws_access_key_id: ((polymath-ecr.aws-access-id))
                 aws_secret_access_key: ((polymath-ecr.aws-access-secret))
                 aws_region: us-east-1
@@ -110,6 +112,7 @@ jobs:
               type: registry-image
               source:
                 repository: polymathnetwork/node
+                tag: 14
                 aws_access_key_id: ((polymath-ecr.aws-access-id))
                 aws_secret_access_key: ((polymath-ecr.aws-access-secret))
                 aws_region: us-east-1
@@ -131,6 +134,7 @@ jobs:
               type: registry-image
               source:
                 repository: polymathnetwork/rust
+                tag: alpine-1.44.1
                 aws_access_key_id: ((polymath-ecr.aws-access-id))
                 aws_secret_access_key: ((polymath-ecr.aws-access-secret))
                 aws_region: us-east-1
@@ -148,39 +152,13 @@ jobs:
               type: registry-image
               source:
                 repository: polymathnetwork/node
+                tag: 14
                 aws_access_key_id: ((polymath-ecr.aws-access-id))
                 aws_secret_access_key: ((polymath-ecr.aws-access-secret))
                 aws_region: us-east-1
             run:
               path: bash
               args: ["githubpr-polymesh/.concourse/scripts/t-npm-test.sh", "githubpr-polymesh", "npm-caches", "artifact"]
-#        - task: cargo-clippy
-#          config:
-#            inputs:
-#              - name: githubpr-polymesh
-#              - name: build-caches
-#            platform: linux
-#            image_resource:
-#              type: registry-image
-#              source:
-#                repository: polymathnetwork/rust
-#                aws_access_key_id: ((polymath-ecr.aws-access-id))
-#                aws_secret_access_key: ((polymath-ecr.aws-access-secret))
-#                aws_region: us-east-1
-#            run:
-#              path: bash
-#              args: ["githubpr-polymesh/.concourse/scripts/t-lint-clippy.sh", "githubpr-polymesh", "build-caches"]
-#          on_failure:
-#            task: ignore_clippy
-#            config:
-#              platform: linux
-#              image_resource:
-#                type: registry-image
-#                source: { repository: busybox }
-#              run:
-#                path: echo
-#                args:
-#                  - "Ignoring clippy failure"
       - put: s3-polymesh
         params:
           file: artifact/polymesh-*
