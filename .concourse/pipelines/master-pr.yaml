@@ -79,6 +79,7 @@ jobs:
           config:
             inputs:
               - name: githubpr-polymesh
+              - name: semver-git-polymesh
             caches:
               - path: githubpr-polymesh/target
               - path: /usr/local/cargo
@@ -101,6 +102,7 @@ jobs:
           config:
             inputs:
               - name: githubpr-polymesh
+              - name: semver-git-polymesh-cli
             caches:
               - path: githubpr-polymesh/scripts/cli/node_modules
             platform: linux
