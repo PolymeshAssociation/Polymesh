@@ -249,8 +249,13 @@ impl<T: Trait> Module<T> {
     pub fn rpc_get_portfolios(
         did: IdentityId,
     ) -> core::result::Result<Vec<(PortfolioNumber, PortfolioName)>, &'static str> {
-        let portfolios: Vec<(PortfolioNumber, PortfolioName)> =
-            <Portfolios>::iter_prefix_values(&did).collect();
-        Ok(portfolios)
+        Ok(<Portfolios>::iter_prefix_values(&did).collect())
+    }
+
+    /// An RPC function that lists all token-balance pairs of a portfolio.
+    pub fn rpc_get_portfolio_assets(
+        portfolio_id: PortfolioId,
+    ) -> core::result::Result<Vec<(Ticker, <T as CommonTrait>::Balance)>, &'static str> {
+        Ok(<PortfolioAssetBalances<T>>::iter_prefix_values(&portfolio_id).collect())
     }
 }

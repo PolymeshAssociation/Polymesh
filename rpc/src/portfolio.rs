@@ -14,23 +14,32 @@
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
 pub use node_rpc_runtime_api::portfolio::{
-    GetPortfoliosResult, PortfolioApi as PortfolioRuntimeApi,
+    GetPortfolioAssetsResult, GetPortfoliosResult, PortfolioApi as PortfolioRuntimeApi,
 };
 
 use codec::Codec;
 use jsonrpc_core::{Error as RpcError, ErrorCode, Result};
 use jsonrpc_derive::rpc;
-use polymesh_primitives::IdentityId;
+use polymesh_primitives::{IdentityId, PortfolioId};
 use sp_api::{ApiRef, ProvideRuntimeApi};
 use sp_blockchain::HeaderBackend;
 use sp_runtime::{generic::BlockId, traits::Block as BlockT};
 use std::sync::Arc;
 
 #[rpc]
-pub trait PortfolioApi<BlockHash> {
+pub trait PortfolioApi<BlockHash, Balance> {
+    /// Gets all user-defined portfolio names of an identity.
     #[rpc(name = "portfolio_getPortfolios")]
     fn get_portfolios(&self, did: IdentityId, at: Option<BlockHash>)
         -> Result<GetPortfoliosResult>;
+
+    /// Gets the balances of all assets in a given portfolio.
+    #[rpc(name = "portfolio_getPortfolioAssets")]
+    fn get_portfolio_assets(
+        &self,
+        portfolio_id: PortfolioId,
+        at: Option<BlockHash>,
+    ) -> Result<GetPortfolioAssetsResult<Balance>>;
 }
 
 /// An implementation of portfolio-specific RPC methods.
@@ -49,13 +58,14 @@ impl<T, U> Portfolio<T, U> {
     }
 }
 
-impl<C, Block> PortfolioApi<<Block as BlockT>::Hash> for Portfolio<C, Block>
+impl<C, Block, Balance> PortfolioApi<<Block as BlockT>::Hash, Balance> for Portfolio<C, Block>
 where
     Block: BlockT,
     C: Send + Sync + 'static,
     C: ProvideRuntimeApi<Block>,
     C: HeaderBackend<Block>,
-    C::Api: PortfolioRuntimeApi<Block>,
+    C::Api: PortfolioRuntimeApi<Block, Balance>,
+    Balance: Codec,
 {
     fn get_portfolios(
         &self,
@@ -67,6 +77,20 @@ where
             at,
             |api: ApiRef<<C as ProvideRuntimeApi<Block>>::Api>, at| api.get_portfolios(at, did),
             "Unable to get portfolios"
+        )
+    }
+
+    fn get_portfolio_assets(
+        &self,
+        portfolio_id: PortfolioId,
+        at: Option<<Block as BlockT>::Hash>,
+    ) -> Result<GetPortfolioAssetsResult<Balance>> {
+        rpc_forward_call!(
+            self,
+            at,
+            |api: ApiRef<<C as ProvideRuntimeApi<Block>>::Api>, at| api
+                .get_portfolio_assets(at, portfolio_id),
+            "Unable to get portfolio assets"
         )
     }
 }

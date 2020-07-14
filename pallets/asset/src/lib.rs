@@ -107,9 +107,8 @@ use polymesh_common_utilities::{
     CommonTrait, Context,
 };
 use polymesh_primitives::{
-    AuthorizationData, AuthorizationError, Document, IdentityId, LinkData, PortfolioId,
-    PortfolioName, PortfolioNumber, Signatory, SmartExtension, SmartExtensionName,
-    SmartExtensionType, Ticker,
+    AuthorizationData, AuthorizationError, Document, IdentityId, LinkData, Signatory,
+    SmartExtension, SmartExtensionName, SmartExtensionType, Ticker,
 };
 use polymesh_primitives_derive::VecU8StrongTyped;
 

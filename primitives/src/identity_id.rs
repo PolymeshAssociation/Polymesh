@@ -171,12 +171,14 @@ impl Printable for IdentityId {
 #[derive(
     Decode, Encode, Clone, Debug, Default, Hash, PartialEq, Eq, PartialOrd, Ord, VecU8StrongTyped,
 )]
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 pub struct PortfolioName(pub Vec<u8>);
 
 /// The unique ID of a non-default portfolio.
 pub type PortfolioNumber = u64;
 
 #[derive(Decode, Encode, Clone, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 pub enum PortfolioKind {
     /// The default portfolio of a DID.
     Default,
@@ -192,6 +194,7 @@ impl Default for PortfolioKind {
 
 /// The ID of a portfolio.
 #[derive(Decode, Encode, Clone, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 pub struct PortfolioId {
     /// The DID of the portfolio.
     did: IdentityId,

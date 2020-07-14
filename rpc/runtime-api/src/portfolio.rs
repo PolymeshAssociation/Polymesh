@@ -15,17 +15,23 @@
 
 //! Runtime API definition for the Portfolio module.
 
-//use codec::Codec;
-use polymesh_primitives::{IdentityId, PortfolioName, PortfolioNumber, Ticker};
+use codec::Codec;
+use polymesh_primitives::{IdentityId, PortfolioId, PortfolioName, PortfolioNumber, Ticker};
 use sp_std::vec::Vec;
 
 pub type Error = Vec<u8>;
 pub type GetPortfoliosResult = Result<Vec<(PortfolioNumber, PortfolioName)>, Error>;
+pub type GetPortfolioAssetsResult<Balance> = Result<Vec<(Ticker, Balance)>, Error>;
 
 sp_api::decl_runtime_apis! {
     /// The API to interact with Asset.
-    pub trait PortfolioApi {
-         /// Gets all user-defined portfolio names of an identity.
+    pub trait PortfolioApi<Balance> where
+        Balance: Codec
+    {
+        /// Gets all user-defined portfolio names of an identity.
         fn get_portfolios(did: IdentityId) -> GetPortfoliosResult;
+
+        /// Gets the balances of all assets in a given portfolio.
+        fn get_portfolio_assets(portfolio_id: PortfolioId) -> GetPortfolioAssetsResult<Balance>;
     }
 }
