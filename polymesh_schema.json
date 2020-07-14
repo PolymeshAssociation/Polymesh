@@ -35,6 +35,7 @@
         "AssetName": "Text",
         "AssetIdentifier": "Text",
         "FundingRoundName": "Text",
+        "VenueDetails": "Text",
         "SecurityToken": {
             "name": "AssetName",
             "total_supply": "Balance",
