@@ -98,7 +98,7 @@ pub mod benchmarking;
 use pallet_identity as identity;
 use pallet_statistics as statistics;
 use polymesh_common_utilities::{
-    asset::{AcceptTransfer, IssueAssetItem, Trait as AssetTrait},
+    asset::{AcceptTransfer, Trait as AssetTrait},
     balances::Trait as BalancesTrait,
     compliance_manager::Trait as ComplianceManagerTrait,
     constants::*,
