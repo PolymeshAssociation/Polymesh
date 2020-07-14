@@ -1109,14 +1109,7 @@ impl<T: Trait> MultiSigSubTrait<T::AccountId> for Module<T> {
         <MultiSigToIdentity<T>>::contains_key(account)
     }
 
-    /// Helper function that returns if a key is a multisig signer
     fn is_signer(key: &T::AccountId) -> bool {
         <KeyToMultiSig<T>>::contains_key(key)
-    }
-
-    /// Helper function that returns if a key is a multisig signer
-    fn did_of_signer(key: &T::AccountId) -> IdentityId {
-        let multisig_key = <KeyToMultiSig<T>>::get(key);
-        <MultiSigToIdentity<T>>::get(multisig_key)
     }
 }

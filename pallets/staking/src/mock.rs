@@ -440,9 +440,6 @@ impl MultiSigSubTrait<AccountId> for Test {
         // Allow all keys when mocked
         false
     }
-    fn did_of_signer(key: &AccountId) -> IdentityId {
-        unimplemented!()
-    }
 }
 
 impl CheckCdd<AccountId> for Test {
