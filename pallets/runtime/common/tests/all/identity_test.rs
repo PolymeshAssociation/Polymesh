@@ -1440,6 +1440,14 @@ fn add_identity_signers() {
             Error::<TestStorage>::AlreadyLinked
         );
 
+        // Getting expired and non-expired both
+        let mut authorizations = Identity::get_filtered_authorizations(
+            bob_identity_signer,
+            true,
+            Some(AuthorizationType::JoinIdentity),
+        );
+        assert_eq!(authorizations.len(), 1);
+
         let alice_signing_items = Identity::did_records(alice_did).signing_items;
         let charlie_signing_items = Identity::did_records(charlie_did).signing_items;
         assert!(alice_signing_items
@@ -1458,7 +1466,7 @@ fn add_identity_signers() {
             .iter()
             .find(|si| **si == SigningItem::from_account_id(AccountKeyring::Dave.public()))
             .is_none());
-    });
+ });
 }
 
 #[test]
