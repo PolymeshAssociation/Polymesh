@@ -10,7 +10,7 @@ CACHE_DIR=$2
 pushd .
 cd $GIT_DIR
 
-cargo build --release || cargo build -j 1 --release
+RUSTFLAGS="-C target-feature=+crt-static" cargo build --release || cargo build -j 1 --release
 
 popd
 
