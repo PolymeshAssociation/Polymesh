@@ -20,6 +20,16 @@ POLYMESH_PID=$!
 
 cd $GIT_DIR/scripts/cli
 
+WAIT_COUNT=0
+while ! nc -z localhost 9944; do
+    if [ $WAIT_COUNT -gt 60 ]; then
+        echo "Timed out waiting for polymesh websocket port to become available"
+        exit 1
+    fi
+    sleep 1
+    WAIT_COUNT=$((WAIT_COUNT+1))
+done
+
 npm test
 
 kill $POLYMESH_PID
