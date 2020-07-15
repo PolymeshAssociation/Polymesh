@@ -13,7 +13,6 @@ resources:
     source:
       repository: cwsatpolymath/Polymesh
       access_token: ((github-pat-claus))
-      list_changed_files: true
   - name: s3-polymesh
     type: s3
     source:
@@ -49,6 +48,7 @@ jobs:
           bump: patch
           pre: rc
       - get: githubpr-polymesh
+        list_changed_files: true
         trigger: true
         version: every
       - in_parallel:
