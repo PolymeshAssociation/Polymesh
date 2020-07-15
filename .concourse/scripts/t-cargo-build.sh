@@ -6,6 +6,7 @@ set -o pipefail
 
 GIT_DIR=$1
 CACHE_DIR=$2
+SEMVER_DIR=$3
 
 pushd .
 cd $GIT_DIR
@@ -17,22 +18,24 @@ popd
 mkdir -p artifact
 mkdir -p dockerdir
 
-POLYMESH_VERSION=""
+GIT_REF=""
 if [[ -f ${GIT_DIR}/.git/short_ref ]]; then
-    POLYMESH_VERSION=$(cat ${GIT_DIR}/.git/short_ref)
+    GIT_REF=$(cat ${GIT_DIR}/.git/short_ref)
 elif [[ -f "${GIT_DIR}/.git/resource/head_sha" ]]; then
-    POLYMESH_VERSION=$(cat ${GIT_DIR}/.git/resource/head_sha)
+    GIT_REF=$(cat ${GIT_DIR}/.git/resource/head_sha)
 else
     echo "no reference for the polymesh version found"
     exit 1
 fi
 
-cp ${GIT_DIR}/target/release/polymesh artifact/polymesh-${POLYMESH_VERSION}
-echo -n "$POLYMESH_VERSION" > artifact/VERSION
-cp ${GIT_DIR}/target/release/polymesh ${GIT_DIR}/Dockerfile dockerdir/
-echo -n "${POLYMESH_VERSION}" > dockerdir/tag_file
+SEMVER=$(cat $SEMVER_DIR/version)
+
+cp    ${GIT_DIR}/Dockerfile              dockerdir/
+cp    ${SEMVER_DIR}/version              artifact/tag_file
+cp    ${GIT_DIR}/target/release/polymesh artifact/polymesh
+ln -s artifact/polymesh                  artifact/polymesh-${SEMVER}
 echo -n "latest-forked forked" > dockerdir/additional_tags
 
-rsync -auv ${CARGO_HOME:-$HOME/.cargo}/ ${CACHE_DIR}/.cargo
-rsync -auv ${GIT_DIR}/target/ ${CACHE_DIR}/target
+rsync -auv --size-only ${CARGO_HOME:-$HOME/.cargo}/ ${CACHE_DIR}/.cargo | grep -e "^total size" -B1 --color=never
+rsync -auv --size-only ${GIT_DIR}/target/           ${CACHE_DIR}/target | grep -e "^total size" -B1 --color=never
 

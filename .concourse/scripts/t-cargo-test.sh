@@ -10,8 +10,8 @@ CACHE_DIR=$2
 mkdir -p ${CARGO_HOME:-$HOME/.cargo}
 mkdir -p ${GIT_DIR}/target
 
-rsync -auv ${CACHE_DIR}/.cargo/ ${CARGO_HOME:-$HOME/.cargo}
-rsync -auv ${CACHE_DIR}/target/ ${GIT_DIR}/target
+rsync -auv --size-only ${CACHE_DIR}/.cargo/ ${CARGO_HOME:-$HOME/.cargo}  | grep -e "^total size" -B1 --color=never
+rsync -auv --size-only ${CACHE_DIR}/target/ ${GIT_DIR}/target            | grep -e "^total size" -B1 --color=never
 
 cd $GIT_DIR
 
