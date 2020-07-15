@@ -2411,19 +2411,23 @@ impl<T: Trait> Module<T> {
         to_did: IdentityId,
         value: T::Balance,
     ) {
-        let sender_balance = Self::balance(ticker, &from_did);
-        let updated_from_balance = sender_balance.saturating_sub(value);
-        let receiver_balance = Self::balance(ticker, &to_did);
-        let updated_to_balance = receiver_balance.saturating_add(value);
+        let (from_balance, from_def_balance) = Self::balance(ticker, from_did);
+        let updated_from_balance = from_balance.saturating_sub(value);
+        let updated_from_def_balance = from_def_balance.saturating_sub(value);
+        let (to_balance, to_def_balance) = Self::balance(ticker, to_did);
+        let updated_to_balance = to_balance.saturating_add(value);
+        let updated_to_def_balance = to_def_balance.saturating_add(value);
 
-        Self::_update_checkpoint(ticker, from_did, sender_balance);
-        Self::_update_checkpoint(ticker, to_did, receiver_balance);
+        Self::_update_checkpoint(ticker, from_did, from_balance);
+        Self::_update_checkpoint(ticker, to_did, to_balance);
 
         // reduce sender's balance
         <BalanceOf<T>>::insert(ticker, &from_did, updated_from_balance);
+        Portfolio::<T>::set_default_portfolio_balance(from_did, ticker, updated_from_def_balance);
 
         // increase receiver's balance
         <BalanceOf<T>>::insert(ticker, &to_did, updated_to_balance);
+        Portfolio::<T>::set_default_portfolio_balance(to_did, ticker, updated_to_def_balance);
 
         // Update statistic info.
         <statistics::Module<T>>::update_transfer_stats(
