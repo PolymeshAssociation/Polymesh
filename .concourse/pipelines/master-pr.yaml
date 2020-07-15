@@ -13,6 +13,7 @@ resources:
     source:
       repository: cwsatpolymath/Polymesh
       access_token: ((github-pat-claus))
+      list_changed_files: true
   - name: s3-polymesh
     type: s3
     source:
@@ -157,7 +158,15 @@ jobs:
           - put: dockerimage-polymesh
             params:
               build: artifact
+              dockerfile: artifact/Dockerfile.distroless
               tag_file: artifact/tag_file
-              additional_tags: artifact/additional_tags
-              tag_prefix: v
+              additional_tags: artifact/additional_tags.distroless
+              tag_prefix: distroless-
+          - put: dockerimage-polymesh
+            params:
+              build: artifact
+              dockerfile: artifact/Dockerfile.debian
+              tag_file: artifact/tag_file
+              additional_tags: artifact/additional_tags.debian
+              tag_prefix: debian-
 
