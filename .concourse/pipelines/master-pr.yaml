@@ -48,11 +48,9 @@ jobs:
           pre: rc
       - in_parallel:
         - task: run-lint
-          vars:
-            git: githubpr-polymesh
           config:
             inputs:
-              - name: ((git))
+              - name: githubpr-polymesh
             platform: linux
             image_resource:
               type: registry-image
@@ -63,21 +61,16 @@ jobs:
                 aws_secret_access_key: ((polymath-ecr.aws-access-secret))
                 aws_region: us-east-1
             run:
-              dir: ((git))
+              dir: githubpr-polymesh
               path: bash
               args: [".concourse/scripts/t-rustfmt-lint.sh"]
         - task: cargo-build
-          vars:
-            git: githubpr-polymesh
-            artifact: artifact
-            cache: build-caches
-            version: semver-git-polymesh
           config:
             inputs:
-              - name: ((git))
-              - name: ((version))
+              - name: githubpr-polymesh
+              - name: semver-git-polymesh
             caches:
-              - path: ((git))/target
+              - path: githubpr-polymesh/target
               - path: /usr/local/cargo
             platform: linux
             image_resource:
@@ -90,19 +83,16 @@ jobs:
                 aws_region: us-east-1
             run:
               path: bash
-              args: ["((git))/.concourse/scripts/t-cargo-build.sh", "((git))", "((cache))", "((artifact))", "((version))"]
+              args: ["githubpr-polymesh/.concourse/scripts/t-cargo-build.sh", "githubpr-polymesh", "build-caches", "artifact", "semver-git-polymesh"]
             outputs:
-              - name: ((cache))
-              - name: ((artifact))
+              - name: build-caches
+              - name: artifact
         - task: npm-install
-          vars:
-            git: githubpr-polymesh
-            cache: npm-caches
           config:
             inputs:
-              - name: ((git))
+              - name: githubpr-polymesh
             caches:
-              - path: ((git))/scripts/cli/node_modules
+              - path: githubpr-polymesh/scripts/cli/node_modules
             platform: linux
             image_resource:
               type: registry-image
@@ -114,7 +104,7 @@ jobs:
                 aws_region: us-east-1
             run:
               path: bash
-              args: ["((git))/.concourse/scripts/t-npm-install.sh", "((git))", "((cache))"]
+              args: ["githubpr-polymesh/.concourse/scripts/t-npm-install.sh", "githubpr-polymesh", "npm-caches"]
             outputs:
               - name: npm-caches
       - put: s3-polymesh
@@ -123,16 +113,12 @@ jobs:
           acl: public-read
       - in_parallel:
         - task: cargo-test
-          vars:
-            git: githubpr-polymesh
-            cache: build-caches
-            version: semver-git-polymesh
           config:
             inputs:
-              - name: ((git))
-              - name: ((cache))
+              - name: githubpr-polymesh
+              - name: build-caches
             caches:
-              - path: ((git))/target
+              - path: githubpr-polymesh/target
             platform: linux
             image_resource:
               type: registry-image
@@ -144,18 +130,13 @@ jobs:
                 aws_region: us-east-1
             run:
               path: bash
-              args: ["((git))/.concourse/scripts/t-cargo-test.sh", "((git))", "((cache))"]
+              args: ["githubpr-polymesh/.concourse/scripts/t-cargo-test.sh", "githubpr-polymesh", "build-caches"]
         - task: integration-test
-          vars:
-            git: githubpr-polymesh
-            artifact: artifact
-            cache: npm-caches
-            version: semver-git-polymesh
           config:
             inputs:
-              - name: ((git))
-              - name: ((artifact))
-              - name: ((cache))
+              - name: githubpr-polymesh
+              - name: artifact
+              - name: npm-caches
             platform: linux
             image_resource:
               type: registry-image
@@ -167,7 +148,7 @@ jobs:
                 aws_region: us-east-1
             run:
               path: bash
-              args: ["((git))/.concourse/scripts/t-npm-test.sh", "((git))", "((cache))", "((artifact))"]
+              args: ["githubpr-polymesh/.concourse/scripts/t-npm-test.sh", "githubpr-polymesh", "npm-caches", "artifact"]
       - put: dockerimage-polymesh
         params:
           build: artifact
