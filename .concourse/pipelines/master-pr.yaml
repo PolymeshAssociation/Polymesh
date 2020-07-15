@@ -83,7 +83,7 @@ jobs:
                 aws_region: us-east-1
             run:
               path: bash
-              args: ["githubpr-polymesh/.concourse/scripts/t-cargo-build.sh", "githubpr-polymesh", "build-caches"]
+              args: ["githubpr-polymesh/.concourse/scripts/t-cargo-build.sh", "githubpr-polymesh", "build-caches", "semver-git-polymesh"]
             outputs:
               - name: build-caches
               - name: artifact
