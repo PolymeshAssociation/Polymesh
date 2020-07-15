@@ -12,7 +12,8 @@ SEMVER_DIR=$4
 pushd .
 cd $GIT_DIR
 
-cargo build --release || cargo build -j 1 --release
+cat .git/resource/changed_files
+#cargo build --release || cargo build -j 1 --release
 
 popd
 
@@ -31,7 +32,8 @@ fi
 SEMVER=$(cat $SEMVER_DIR/version)
 LDLIBS=$(ldd ${GIT_DIR}/target/release/polymesh | grep -o '/\S*')
 
-echo -n "latest-forked forked ${GIT_REF}" > ${ARTIFACT_DIR}/additional_tags
+echo -n "distroless-latest distroless-${GIT_REF}" > ${ARTIFACT_DIR}/additional_tags.distroless
+echo -n "debian-latest debian-${GIT_REF}"         > ${ARTIFACT_DIR}/additional_tags.debian
 mkdir -p ${ARTIFACT_DIR}/usr/local/bin
 mkdir -p ${ARTIFACT_DIR}/var/lib/polymesh
 touch ${ARTIFACT_DIR}/var/lib/polymesh/.keep
@@ -44,7 +46,8 @@ for LIB in $LDLIBS; do
     cp $LIB  ${ARTIFACT_DIR}/$(dirname $LIB | cut -c 2-)/
 done
 cat << EOF > ${ARTIFACT_DIR}/.dockerignore
-Dockerfile
+Dockerfile.distroless
+Dockerfile.debian
 polymesh-${SEMVER}
 tag_file
 additional_tags
