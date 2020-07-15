@@ -48,7 +48,8 @@ jobs:
           bump: patch
           pre: rc
       - get: githubpr-polymesh
-        list_changed_files: true
+        params:
+          list_changed_files: true
         trigger: true
         version: every
       - in_parallel:
