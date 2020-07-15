@@ -18,7 +18,7 @@ fn can_create_rename_delete_portfolio() {
     ExtBuilder::default().build().execute_with(|| {
         let (owner_signed, owner_did) = make_account(AccountKeyring::Alice.public()).unwrap();
         let name = PortfolioName::from([42u8].to_vec());
-        let num = Portfolio::next_portfolio_number();
+        let num = Portfolio::next_portfolio_number(&owner_did);
         assert_ok!(Portfolio::create_portfolio(
             owner_signed.clone(),
             name.clone()
@@ -75,7 +75,7 @@ fn do_move_asset_from_portfolio() {
         total_supply,
     );
     let name = PortfolioName::from([42u8].to_vec());
-    let num = Portfolio::next_portfolio_number();
+    let num = Portfolio::next_portfolio_number(&owner_did);
     assert_ok!(Portfolio::create_portfolio(
         owner_signed.clone(),
         name.clone(),

@@ -25,7 +25,7 @@ decl_storage! {
         /// The portfolio number is both the key and part of the value due to a limitation of the
         /// iterator on `StorageDoubleMap`.
         pub Portfolios get(fn portfolios):
-            double_map hasher(blake2_128_concat) IdentityId, hasher(blake2_128_concat) PortfolioNumber =>
+            double_map hasher(blake2_128_concat) IdentityId, hasher(twox_64_concat) PortfolioNumber =>
             Option<(PortfolioNumber, PortfolioName)>;
         /// Asset balances of portfolios.
         ///
@@ -34,8 +34,9 @@ decl_storage! {
         pub PortfolioAssetBalances get(fn portfolio_asset_balances):
             double_map hasher(blake2_128_concat) PortfolioId, hasher(blake2_128_concat) Ticker =>
             (Ticker, T::Balance);
-        /// The next portfolio sequence number.
-        pub NextPortfolioNumber get(fn next_portfolio_number) build(|_| 1): u64;
+        /// The next portfolio sequence number of an identity.
+        pub NextPortfolioNumber get(fn next_portfolio_number):
+            map hasher(blake2_128_concat) IdentityId => PortfolioNumber;
     }
 }
 
@@ -90,7 +91,7 @@ decl_module! {
             let did = Context::current_identity_or::<Identity<T>>(&sender)?;
             let name_uniq = <Portfolios>::iter_prefix_values(&did).all(|n| n.1 != name);
             ensure!(name_uniq, Error::<T>::PortfolioNameAlreadyInUse);
-            let num = Self::get_next_portfolio_number();
+            let num = Self::get_next_portfolio_number(&did);
             <Portfolios>::insert(&did, &num, (num, name.clone()));
             Self::deposit_event(RawEvent::PortfolioCreated(did, num, name));
             Ok(())
@@ -238,10 +239,10 @@ impl<T: Trait> Module<T> {
         );
     }
 
-    /// Returns the next portfolio number and increments the stored number.
-    fn get_next_portfolio_number() -> PortfolioNumber {
-        let num = Self::next_portfolio_number();
-        <NextPortfolioNumber>::put(num + 1);
+    /// Returns the next portfolio number of a given identity and increments the stored number.
+    fn get_next_portfolio_number(did: &IdentityId) -> PortfolioNumber {
+        let num = Self::next_portfolio_number(did);
+        <NextPortfolioNumber>::insert(did, num + 1);
         num
     }
 
