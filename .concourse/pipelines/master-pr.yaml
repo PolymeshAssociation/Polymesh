@@ -41,11 +41,9 @@ jobs:
     plan:
       - get: semver-git-polymesh
         params:
-          bump: patch
           pre: rc
       - put: semver-git-polymesh
         params:
-          bump: patch
           pre: rc
       - get: githubpr-polymesh
         params:
