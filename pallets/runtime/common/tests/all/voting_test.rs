@@ -308,9 +308,10 @@ fn vote() {
             receiver_rules
         ));
 
-        assert_ok!(Asset::transfer(
-            token_owner_acc.clone(),
-            ticker,
+        assert_ok!(Asset::unsafe_transfer(
+            token_owner_did,
+            &ticker,
+            token_owner_did,
             tokenholder_did,
             500
         ));

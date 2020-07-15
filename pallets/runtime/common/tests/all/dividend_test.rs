@@ -126,9 +126,10 @@ fn correct_dividend_must_work() {
         ));
 
         // Transfer tokens to investor
-        assert_ok!(Asset::transfer(
-            token_owner_acc.clone(),
-            ticker,
+        assert_ok!(Asset::unsafe_transfer(
+            token_owner_did,
+            &ticker,
+            token_owner_did,
             investor_did,
             amount_invested
         ));

@@ -1461,7 +1461,7 @@ impl<T: Trait> Module<T> {
         arr[0]
     }
 
-    fn _is_valid_transfer(
+    pub fn _is_valid_transfer(
         ticker: &Ticker,
         extension_caller: T::AccountId,
         from_did: Option<IdentityId>,
@@ -1519,7 +1519,7 @@ impl<T: Trait> Module<T> {
 
     // The SimpleToken standard transfer function
     // internal
-    fn unsafe_transfer(
+    pub fn unsafe_transfer(
         sender: IdentityId,
         ticker: &Ticker,
         from_did: IdentityId,
