@@ -35,14 +35,6 @@ resources:
       branch: master
       file: polymesh/version
       private_key: ((github-polymathnetwork-concourse-semver-tracking.id_rsa))
-  - name: semver-git-polymesh-cli
-    type: semver
-    source:
-      driver: git
-      uri: git@github.com:polymathnetwork/concourse-semver-tracking
-      branch: master
-      file: polymesh-cli/version
-      private_key: ((github-polymathnetwork-concourse-semver-tracking.id_rsa))
 
 jobs:
   - name: build-polymesh
@@ -51,10 +43,6 @@ jobs:
         trigger: true
         version: every
       - get: semver-git-polymesh
-        params:
-          bump: patch
-          pre: rc
-      - get: semver-git-polymesh-cli
         params:
           bump: patch
           pre: rc
@@ -99,12 +87,10 @@ jobs:
             outputs:
               - name: build-caches
               - name: artifact
-              - name: dockerdir
         - task: npm-install
           config:
             inputs:
               - name: githubpr-polymesh
-              - name: semver-git-polymesh-cli
             caches:
               - path: githubpr-polymesh/scripts/cli/node_modules
             platform: linux
@@ -121,6 +107,10 @@ jobs:
               args: ["githubpr-polymesh/.concourse/scripts/t-npm-install.sh", "githubpr-polymesh", "npm-caches"]
             outputs:
               - name: npm-caches
+      - put: s3-polymesh
+        params:
+          file: artifact/polymesh-*
+          acl: public-read
       - in_parallel:
         - task: cargo-test
           config:
@@ -141,7 +131,7 @@ jobs:
             run:
               path: bash
               args: ["githubpr-polymesh/.concourse/scripts/t-cargo-test.sh", "githubpr-polymesh", "build-caches"]
-        - task: npm-test
+        - task: integration-test
           config:
             inputs:
               - name: githubpr-polymesh
@@ -159,13 +149,10 @@ jobs:
             run:
               path: bash
               args: ["githubpr-polymesh/.concourse/scripts/t-npm-test.sh", "githubpr-polymesh", "npm-caches", "artifact"]
-      - put: s3-polymesh
-        params:
-          file: artifact/polymesh-*
-          acl: public-read
       - put: dockerimage-polymesh
         params:
-          build: dockerdir
-          tag_file: dockerdir/tag_file
-          additional_tags: dockerdir/additional_tags
+          build: artifact
+          tag_file: artifact/tag_file
+          additional_tags: artifact/additional_tags
+          tag_prefix: v
 
