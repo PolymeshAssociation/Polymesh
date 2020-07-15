@@ -17,6 +17,9 @@ jobs:
       VERBOSE: "1"
     steps:
       - checkout
+      - add_ssh_keys:
+          fingerprints:
+            - "a1:99:47:ca:fa:32:4c:9d:4b:b8:50:99:c7:64:e3:80"
       - run:
           name: Store rust version in an environment var for cache key
           command: rustc --version > rust.version
@@ -25,6 +28,9 @@ jobs:
             - v2-release-cache-{{ checksum "./rust.version" }}-{{ checksum "./Cargo.lock" }}
             - v2-release-cache-{{ checksum "./rust.version" }}
             - v2-cli-cache-{{ checksum "./rust.version" }}
+      - run:
+          name: Pull submodules
+          command: git submodule update --init --recursive
       - run:
           name: Build release
           command: cargo build --release || cargo build -j 1 --release
@@ -41,13 +47,19 @@ jobs:
       VERBOSE: "1"
     steps:
       - checkout
+      - add_ssh_keys:
+          fingerprints:
+            - "a1:99:47:ca:fa:32:4c:9d:4b:b8:50:99:c7:64:e3:80"
       - run:
           name: Store rust version in a file for cache key
           command: rustc --version > rust.version
       - restore_cache:
           keys:
-            - v7-test-cache-{{ checksum "./rust.version" }}-{{ checksum "./Cargo.lock" }}
-            - v7-test-cache-{{ checksum "./rust.version" }}
+            - v8-test-cache-{{ checksum "./rust.version" }}-{{ checksum "./Cargo.lock" }}
+            - v8-test-cache-{{ checksum "./rust.version" }}
+      - run:
+          name: Pull submodules
+          command: git submodule update --init --recursive
       - run:
           name: Tests
           command: >-
@@ -69,7 +81,7 @@ jobs:
             --features default_identity
           no_output_timeout: 30m
       - save_cache:
-          key: v7-test-cache-{{ checksum "./rust.version" }}-{{ checksum "./Cargo.lock" }}
+          key: v8-test-cache-{{ checksum "./rust.version" }}-{{ checksum "./Cargo.lock" }}
           paths:
             - "~/.cargo"
             - "./target"
@@ -80,12 +92,18 @@ jobs:
       VERBOSE: "1"
     steps:
       - checkout
+      - add_ssh_keys:
+          fingerprints:
+            - "a1:99:47:ca:fa:32:4c:9d:4b:b8:50:99:c7:64:e3:80"
       - run:
           name: Store rust version in a file for cache key
           command: rustc --version > rust.version
       - restore_cache:
           keys:
             - v5-cli-cache-{{ checksum "./rust.version" }}-{{ checksum "./Cargo.lock" }}
+      - run:
+          name: Pull submodules
+          command: git submodule update --init --recursive
       - run:
           name: Build release
           command: cargo build --release || cargo build -j 1 --release
@@ -117,6 +135,9 @@ jobs:
       VERBOSE: "1"
     steps:
       - checkout
+      - add_ssh_keys:
+          fingerprints:
+            - "a1:99:47:ca:fa:32:4c:9d:4b:b8:50:99:c7:64:e3:80"
       - run:
           name: Store rust version in a file for cache key
           command: rustc +nightly --version > rust.version
@@ -124,6 +145,9 @@ jobs:
           keys:
             - v3-clippy-cache-{{ checksum "./rust.version" }}-{{ checksum "./Cargo.lock" }}
             - v3-clippy-cache-{{ checksum "./rust.version" }}
+      - run:
+          name: Pull submodules
+          command: git submodule update --init --recursive
       - run:
           name: run clippy
           command: cargo +nightly clippy -j 1

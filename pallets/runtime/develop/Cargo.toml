@@ -28,6 +28,7 @@ pallet-portfolio = { path = "../../portfolio", default-features = false  }
 pallet-committee = { path = "../../committee", default-features = false }
 pallet-multisig = { path = "../../multisig", default-features = false }
 pallet-treasury = { path = "../../treasury", default-features = false }
+pallet-settlement = { path = "../../settlement", default-features = false }
 pallet-im-online = { path = "../../im-online", default-features = false }
 pallet-compliance-manager = { path = "../../compliance-manager", default-features = false }
 pallet-statistics = { path = "../../statistics", default-features = false }
@@ -145,6 +146,7 @@ std = [
     "pallet-indices/std",
     "pallet-offences/std",
     "pallet-session/std",
+    "pallet-settlement/std",
     "pallet-staking/std",
     "pallet-sudo/std",
     "pallet-timestamp/std",

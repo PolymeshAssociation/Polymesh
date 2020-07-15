@@ -7,7 +7,9 @@ use super::{
     ExtBuilder,
 };
 use codec::Encode;
-use frame_support::{assert_err, assert_ok, traits::Currency, StorageDoubleMap};
+use frame_support::{
+    assert_err, assert_ok, dispatch::DispatchError, traits::Currency, StorageDoubleMap,
+};
 use pallet_balances as balances;
 use pallet_identity::{self as identity, BatchAddClaimItem, BatchRevokeClaimItem, Error};
 use pallet_identity_rpc_runtime_api::LinkType;
@@ -23,8 +25,7 @@ use polymesh_common_utilities::{
 };
 use polymesh_primitives::{
     AuthorizationData, AuthorizationError, Claim, ClaimType, Document, IdentityClaim, IdentityId,
-    JoinIdentityData, LinkData, Permission, Scope, Signatory, SignatoryType, SigningItem, Ticker,
-    TransactionError,
+    LinkData, Permission, Scope, Signatory, SignatoryType, SigningItem, Ticker, TransactionError,
 };
 use polymesh_runtime_develop::{fee_details::CddHandler, runtime::Call};
 use sp_core::crypto::AccountId32;
@@ -585,13 +586,19 @@ fn remove_signing_keys_test_with_externalities() {
     ));
 
     add_signing_item(alice_did, Signatory::Account(bob_key));
+
+    assert_ok!(Balances::top_up_identity_balance(
+        alice.clone(),
+        alice_did,
+        PROTOCOL_OP_BASE_FEE
+    ));
     add_signing_item(alice_did, Signatory::Account(musig_address));
 
     // Fund the multisig
     assert_ok!(Balances::transfer(alice.clone(), musig_address.clone(), 1));
 
     // Check DidRecord.
-    assert_eq!(Identity::get_identity(&dave_key), Some(alice_did));
+    assert_eq!(Identity::get_identity(&dave_key), None);
     assert_eq!(Identity::get_identity(&musig_address), Some(alice_did));
     assert_eq!(Identity::get_identity(&bob_key), Some(alice_did));
 
@@ -602,7 +609,7 @@ fn remove_signing_keys_test_with_externalities() {
     ));
 
     // Check DidRecord.
-    assert_eq!(Identity::get_identity(&dave_key), Some(alice_did));
+    assert_eq!(Identity::get_identity(&dave_key), None);
     assert_eq!(Identity::get_identity(&musig_address), Some(alice_did));
     assert_eq!(Identity::get_identity(&bob_key), Some(alice_did));
 
@@ -613,7 +620,7 @@ fn remove_signing_keys_test_with_externalities() {
     ));
 
     // Check DidRecord.
-    assert_eq!(Identity::get_identity(&dave_key), Some(alice_did));
+    assert_eq!(Identity::get_identity(&dave_key), None);
     assert_eq!(Identity::get_identity(&musig_address), Some(alice_did));
     assert_eq!(Identity::get_identity(&bob_key), None);
 
@@ -624,7 +631,7 @@ fn remove_signing_keys_test_with_externalities() {
     ));
 
     // Check DidRecord.
-    assert_eq!(Identity::get_identity(&dave_key), Some(alice_did));
+    assert_eq!(Identity::get_identity(&dave_key), None);
     assert_eq!(Identity::get_identity(&musig_address), Some(alice_did));
     assert_eq!(Identity::get_identity(&bob_key), None);
 
@@ -703,9 +710,6 @@ fn leave_identity_test_with_externalities() {
     add_signing_item(alice_did, Signatory::Account(bob_key));
     add_signing_item(alice_did, Signatory::from(charlie_did));
 
-    // Fund the multisig
-    assert_ok!(Balances::transfer(alice.clone(), musig_address.clone(), 1));
-
     // Check DidRecord.
     let did_rec = Identity::did_records(alice_did);
     assert_eq!(did_rec.signing_items, alice_signing_items);
@@ -727,11 +731,19 @@ fn leave_identity_test_with_externalities() {
     assert_eq!(did_rec.signing_items.len(), 0);
     assert_eq!(Identity::get_identity(&bob_key), None);
 
-    add_signing_item(alice_did, Signatory::Account(musig_address));
     // Check DidRecord.
-    assert_eq!(Identity::get_identity(&dave_key), Some(alice_did));
-    assert_eq!(Identity::get_identity(&musig_address), Some(alice_did));
+    assert_eq!(Identity::get_identity(&dave_key), None);
+    assert_eq!(Identity::get_identity(&musig_address), None);
 
+    assert_ok!(Balances::top_up_identity_balance(
+        alice.clone(),
+        alice_did,
+        PROTOCOL_OP_BASE_FEE
+    ));
+
+    add_signing_item(alice_did, Signatory::Account(musig_address));
+    // send funds to multisig
+    assert_ok!(Balances::transfer(alice.clone(), musig_address.clone(), 1));
     // multisig tries leaving identity while it has funds
     assert_err!(
         Identity::leave_identity_as_key(Origin::signed(musig_address.clone())),
@@ -739,7 +751,7 @@ fn leave_identity_test_with_externalities() {
     );
 
     // Check DidRecord.
-    assert_eq!(Identity::get_identity(&dave_key), Some(alice_did));
+    assert_eq!(Identity::get_identity(&dave_key), None);
     assert_eq!(Identity::get_identity(&musig_address), Some(alice_did));
 
     // Check multisig's signer
@@ -792,11 +804,16 @@ fn enforce_uniqueness_keys_in_identity() {
     ));
     add_signing_item(alice_id, Signatory::Account(charlie_key));
     let auth_id = Identity::add_auth(
-        Signatory::Account(AccountKeyring::Alice.public()),
+        alice_id,
         Signatory::Account(AccountKeyring::Bob.public()),
-        AuthorizationData::JoinIdentity(JoinIdentityData::new(alice_id, vec![])),
+        AuthorizationData::JoinIdentity(vec![]),
         None,
     );
+    assert_ok!(Balances::top_up_identity_balance(
+        alice.clone(),
+        alice_id,
+        PROTOCOL_OP_BASE_FEE
+    ));
     assert_err!(
         Identity::join_identity(Signatory::Account(AccountKeyring::Bob.public()), auth_id),
         Error::<TestStorage>::AlreadyLinked
@@ -971,7 +988,7 @@ fn one_step_join_id_with_ext() {
 #[test]
 fn adding_authorizations() {
     ExtBuilder::default().build().execute_with(|| {
-        let alice_did = Signatory::from(register_keyring_account(AccountKeyring::Alice).unwrap());
+        let alice_did = register_keyring_account(AccountKeyring::Alice).unwrap();
         let bob_did = Signatory::from(register_keyring_account(AccountKeyring::Bob).unwrap());
         let ticker50 = Ticker::try_from(&[0x50][..]).unwrap();
         let mut auth_id = Identity::add_auth(
@@ -1008,7 +1025,7 @@ fn adding_authorizations() {
 #[test]
 fn removing_authorizations() {
     ExtBuilder::default().build().execute_with(|| {
-        let alice_did = Signatory::from(register_keyring_account(AccountKeyring::Alice).unwrap());
+        let alice_did = register_keyring_account(AccountKeyring::Alice).unwrap();
         let alice = Origin::signed(AccountKeyring::Alice.public());
         let bob_did = Signatory::from(register_keyring_account(AccountKeyring::Bob).unwrap());
         let ticker50 = Ticker::try_from(&[0x50][..]).unwrap();
@@ -1141,7 +1158,7 @@ fn changing_master_key_we() {
 
     // Alice triggers change of master key
     let owner_auth_id = Identity::add_auth(
-        Signatory::Account(alice_key),
+        alice_did,
         Signatory::Account(new_key),
         AuthorizationData::RotateMasterKey(alice_did),
         None,
@@ -1185,14 +1202,14 @@ fn changing_master_key_with_cdd_auth_we() {
 
     // Alice triggers change of master key
     let owner_auth_id = Identity::add_auth(
-        Signatory::Account(alice_key),
+        alice_did,
         Signatory::Account(new_key),
         AuthorizationData::RotateMasterKey(alice_did),
         None,
     );
 
     let cdd_auth_id = Identity::add_auth(
-        Signatory::Identity(cdd_did),
+        cdd_did,
         Signatory::Account(new_key),
         AuthorizationData::AttestMasterKeyRotation(alice_did),
         None,
@@ -1208,7 +1225,7 @@ fn changing_master_key_with_cdd_auth_we() {
     );
 
     let owner_auth_id2 = Identity::add_auth(
-        Signatory::Account(alice_key),
+        alice_did,
         Signatory::Account(new_key),
         AuthorizationData::RotateMasterKey(alice_did),
         None,
@@ -1341,28 +1358,15 @@ fn add_identity_signers() {
         let bob_did = register_keyring_account(AccountKeyring::Bob).unwrap();
         let charlie = Origin::signed(AccountKeyring::Charlie.public());
         let charlie_did = register_keyring_account(AccountKeyring::Charlie).unwrap();
-        let alice_identity_signer = Signatory::from(alice_did);
         let alice_acc_signer = Signatory::Account(AccountKeyring::Alice.public());
         let bob_identity_signer = Signatory::from(bob_did);
         let charlie_acc_signer = Signatory::Account(AccountKeyring::Charlie.public());
         let dave_acc_signer = Signatory::Account(AccountKeyring::Dave.public());
 
-        let auth_id_for_id_to_id = Identity::add_auth(
-            alice_identity_signer,
-            bob_identity_signer,
-            AuthorizationData::JoinIdentity(JoinIdentityData::new(alice_did, vec![])),
-            None,
-        );
-
-        assert_err!(
-            Identity::join_identity(bob_identity_signer, auth_id_for_id_to_id),
-            AuthorizationError::Unauthorized
-        );
-
         let auth_id_for_acc_to_id = Identity::add_auth(
-            alice_acc_signer,
+            alice_did,
             bob_identity_signer,
-            AuthorizationData::JoinIdentity(JoinIdentityData::new(alice_did, vec![])),
+            AuthorizationData::JoinIdentity(vec![]),
             None,
         );
 
@@ -1377,9 +1381,9 @@ fn add_identity_signers() {
         ));
 
         let auth_id_for_acc2_to_id = Identity::add_auth(
-            charlie_acc_signer,
+            charlie_did,
             bob_identity_signer,
-            AuthorizationData::JoinIdentity(JoinIdentityData::new(charlie_did, vec![])),
+            AuthorizationData::JoinIdentity(vec![]),
             None,
         );
 
@@ -1388,15 +1392,16 @@ fn add_identity_signers() {
             charlie_did,
             PROTOCOL_OP_BASE_FEE
         ));
+
         assert_ok!(Identity::join_identity(
             bob_identity_signer,
             auth_id_for_acc2_to_id
         ));
 
         let auth_id_for_acc1_to_acc = Identity::add_auth(
-            alice_acc_signer,
+            alice_did,
             dave_acc_signer,
-            AuthorizationData::JoinIdentity(JoinIdentityData::new(alice_did, vec![])),
+            AuthorizationData::JoinIdentity(vec![]),
             None,
         );
 
@@ -1405,17 +1410,24 @@ fn add_identity_signers() {
             alice_did,
             PROTOCOL_OP_BASE_FEE
         ));
+
         assert_ok!(Identity::join_identity(
             dave_acc_signer,
             auth_id_for_acc1_to_acc
         ));
 
         let auth_id_for_acc2_to_acc = Identity::add_auth(
-            charlie_acc_signer,
+            charlie_did,
             dave_acc_signer,
-            AuthorizationData::JoinIdentity(JoinIdentityData::new(charlie_did, vec![])),
+            AuthorizationData::JoinIdentity(vec![]),
             None,
         );
+
+        assert_ok!(Balances::top_up_identity_balance(
+            charlie.clone(),
+            charlie_did,
+            PROTOCOL_OP_BASE_FEE
+        ));
 
         assert_err!(
             Identity::join_identity(dave_acc_signer, auth_id_for_acc2_to_acc),

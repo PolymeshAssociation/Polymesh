@@ -105,7 +105,7 @@ benchmarks! {
         ).unwrap();
         Module::<T>::register_ticker(alice_origin.clone().into(), ticker).unwrap();
         let bob_auth_id = identity::Module::<T>::add_auth(
-            Signatory::from(alice_did),
+            alice_did,
             Signatory::from(bob_did),
             AuthorizationData::TransferTicker(ticker),
             None,
@@ -125,7 +125,7 @@ benchmarks! {
         ).unwrap();
         Module::<T>::register_ticker(alice_origin.clone().into(), ticker).unwrap();
         let bob_auth_id = identity::Module::<T>::add_auth(
-            Signatory::from(alice_did),
+            alice_did,
             Signatory::from(bob_did),
             AuthorizationData::TransferAssetOwnership(ticker),
             None,

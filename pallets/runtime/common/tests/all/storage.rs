@@ -21,6 +21,7 @@ use pallet_multisig as multisig;
 use pallet_pips as pips;
 use pallet_portfolio as portfolio;
 use pallet_protocol_fee as protocol_fee;
+use pallet_settlement as settlement;
 use pallet_statistics as statistics;
 use pallet_treasury as treasury;
 use pallet_utility;
@@ -32,9 +33,7 @@ use polymesh_common_utilities::traits::{
     pip::{EnactProposalMaker, PipId},
     CommonTrait,
 };
-use polymesh_primitives::{
-    Authorization, AuthorizationData, IdentityId, JoinIdentityData, Signatory,
-};
+use polymesh_primitives::{Authorization, AuthorizationData, IdentityId, Signatory};
 use polymesh_runtime_common::{
     bridge, cdd_check::CddChecker, dividend, exemption, simple_token, voting,
 };
@@ -108,6 +107,7 @@ impl_outer_event! {
         frame_system<T>,
         protocol_fee<T>,
         treasury<T>,
+        settlement<T>,
         pallet_utility,
         portfolio<T>,
     }
@@ -235,6 +235,16 @@ impl pallet_timestamp::Trait for TestStorage {
 
 impl multisig::Trait for TestStorage {
     type Event = Event;
+}
+
+parameter_types! {
+    pub const MaxScheduledInstructionLegsPerBlock: u32 = 500;
+}
+
+impl settlement::Trait for TestStorage {
+    type Event = Event;
+    type Asset = asset::Module<TestStorage>;
+    type MaxScheduledInstructionLegsPerBlock = MaxScheduledInstructionLegsPerBlock;
 }
 
 impl simple_token::Trait for TestStorage {
@@ -622,9 +632,9 @@ pub fn register_keyring_account_without_cdd(
 pub fn add_signing_item(did: IdentityId, signer: Signatory<AccountId>) {
     let master_key = Identity::did_records(&did).master_key;
     let auth_id = Identity::add_auth(
-        Signatory::Account(master_key),
+        did.clone(),
         signer,
-        AuthorizationData::JoinIdentity(JoinIdentityData::new(did, vec![])),
+        AuthorizationData::JoinIdentity(vec![]),
         None,
     );
     assert_ok!(Identity::join_identity(signer, auth_id));

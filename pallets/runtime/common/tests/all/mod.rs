@@ -23,6 +23,7 @@ mod multisig;
 mod pips_test;
 mod portfolio;
 mod protocol_fee;
+mod settlement_test;
 mod simple_token_test;
 mod statistics_test;
 mod treasury_test;
