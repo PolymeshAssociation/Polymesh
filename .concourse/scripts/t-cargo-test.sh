@@ -7,6 +7,11 @@ set -o pipefail
 GIT_DIR=$1
 CACHE_DIR=$2
 
+if [ ! -f "${CACHE_DIR}/.new_binary" ]; then
+    exit 0
+fi
+
+
 mkdir -p ${CARGO_HOME:-$HOME/.cargo}
 mkdir -p ${GIT_DIR}/target
 

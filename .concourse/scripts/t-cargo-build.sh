@@ -12,9 +12,16 @@ SEMVER_DIR=$4
 pushd .
 cd $GIT_DIR
 
-# Compile if the source minus exceptions changed or if the polymesh binary is missing
-if cat .git/resource/changed_files | grep -v '^.concourse\|^Dockerfile\|scripts/cli' || [ ! -f "target/release/polymesh" ]; then
+# Compile if
+#  - This is a master merge, not a PR
+#  - This is a PR where the source minus exceptions changed
+#  - The polymesh binary is missing
+if [ ! -f ".git/resource/changed_files" ] || cat ".git/resource/changed_files" | grep -v '^.concourse\|^Dockerfile\|^scripts/cli' || [ ! -f "target/release/polymesh" ]; then
+    rm target/release/polymesh
+    touch ${CACHE_DIR}/.new_binary
     cargo build --release || cargo build -j 1 --release
+else
+    rm -f ${CACHE_DIR}/.new_binary
 fi
 
 popd
@@ -53,7 +60,8 @@ Dockerfile.distroless
 Dockerfile.debian
 polymesh-${SEMVER}
 tag_file
-additional_tags
+additional_tags.distroless
+additional_tags.debian
 EOF
 
 rsync -auv --size-only ${CARGO_HOME:-$HOME/.cargo}/ ${CACHE_DIR}/.cargo | grep -e "^total size" -B1 --color=never
