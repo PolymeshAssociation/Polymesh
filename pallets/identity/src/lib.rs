@@ -2117,7 +2117,7 @@ impl<T: Trait> Module<T> {
                         AuthorizationData::TransferTicker(..) => {
                             type_of_auth == AuthorizationType::TransferTicker
                         }
-                        AuthorizationData::AddMultiSigSigner => {
+                        AuthorizationData::AddMultiSigSigner(..) => {
                             type_of_auth == AuthorizationType::AddMultiSigSigner
                         }
                         AuthorizationData::TransferAssetOwnership(..) => {
