@@ -12,8 +12,11 @@ SEMVER_DIR=$4
 pushd .
 cd $GIT_DIR
 
-cat .git/resource/changed_files
-#cargo build --release || cargo build -j 1 --release
+CHANGE_LIST=$(cat .git/resource/changed_files | grep -v '^.concourse\|^Dockerfile\|scripts/cli')
+
+if [ ! -z "$CHANGE_LIST" ] || [ ! -f "target/release/polymesh" ]; then
+    cargo build --release || cargo build -j 1 --release
+fi
 
 popd
 
@@ -37,7 +40,8 @@ echo -n "debian-latest debian-${GIT_REF}"         > ${ARTIFACT_DIR}/additional_t
 mkdir -p ${ARTIFACT_DIR}/usr/local/bin
 mkdir -p ${ARTIFACT_DIR}/var/lib/polymesh
 touch ${ARTIFACT_DIR}/var/lib/polymesh/.keep
-cp ${GIT_DIR}/Dockerfile              ${ARTIFACT_DIR}/
+cp ${GIT_DIR}/Dockerfile.distroless   ${ARTIFACT_DIR}/
+cp ${GIT_DIR}/Dockerfile.debian       ${ARTIFACT_DIR}/
 cp ${SEMVER_DIR}/version              ${ARTIFACT_DIR}/tag_file
 cp ${GIT_DIR}/target/release/polymesh ${ARTIFACT_DIR}/usr/local/bin/polymesh
 cp ${GIT_DIR}/target/release/polymesh ${ARTIFACT_DIR}/polymesh-${SEMVER}
