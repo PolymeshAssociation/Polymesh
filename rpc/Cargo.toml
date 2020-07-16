@@ -7,29 +7,38 @@ edition = "2018"
 [dependencies]
 node-rpc-runtime-api = { path = "./runtime-api" }
 
-polymesh-primitives = { path = "../primitives", default-features = false }
+pallet-compliance-manager = { path = "../pallets/compliance-manager", default-features = false }
 pallet-pips = { path = "../pallets/pips", default-features = false }
+polymesh-primitives = { path = "../primitives", default-features = false }
 
 # Substrate
 codec = { package = "parity-scale-codec", version = "1.2.0" }
+frame-support = { git = "https://github.com/paritytech/substrate", default-features = false, rev = 'c771821cae2dcb5a8808a19fae8122c0b9ae8499'}
+frame-system = { git = "https://github.com/paritytech/substrate", default-features = false, rev = "c771821cae2dcb5a8808a19fae8122c0b9ae8499" }
+sp-api = {git = 'https://github.com/paritytech/substrate.git', default_features = false, rev = 'c771821cae2dcb5a8808a19fae8122c0b9ae8499' }
+sp-blockchain = { git = 'https://github.com/paritytech/substrate.git', default_features = false, rev = 'c771821cae2dcb5a8808a19fae8122c0b9ae8499'}
 sp-rpc = { git = 'https://github.com/paritytech/substrate.git', default_features = false, rev = 'c771821cae2dcb5a8808a19fae8122c0b9ae8499'}
 sp-runtime = { git = "https://github.com/paritytech/substrate", default-features = false, rev = "c771821cae2dcb5a8808a19fae8122c0b9ae8499" }
-sp-blockchain = { git = 'https://github.com/paritytech/substrate.git', default_features = false, rev = 'c771821cae2dcb5a8808a19fae8122c0b9ae8499'}
 sp-std = {git = 'https://github.com/paritytech/substrate.git', default_features = false, rev = 'c771821cae2dcb5a8808a19fae8122c0b9ae8499' }
-sp-api = {git = 'https://github.com/paritytech/substrate.git', default_features = false, rev = 'c771821cae2dcb5a8808a19fae8122c0b9ae8499' }
-frame-support = { git = "https://github.com/paritytech/substrate", default-features = false, rev = 'c771821cae2dcb5a8808a19fae8122c0b9ae8499'}
 
 # Others
-serde = { version = "1.0.104", features = ["derive"] }
 jsonrpc-core = "14.0.5"
 jsonrpc-core-client = "14.0.5"
 jsonrpc-derive = "14.0.5"
+serde = { version = "1.0.104", optional = true, features = ["derive"] }
 
 [features]
 default = ["std"]
 std = [
-	"polymesh-primitives/std",
-	"pallet-pips/std",
-	"frame-support/std",
-	"sp-runtime/std",
+    "serde",
+    "codec/std",
+    "frame-support/std",
+    "frame-system/std",
+    "node-rpc-runtime-api/std",
+    "pallet-pips/std",
+    "pallet-compliance-manager/std",
+    "polymesh-primitives/std",
+    "sp-api/std",
+    "sp-runtime/std",
+    "sp-std/std"
 ]

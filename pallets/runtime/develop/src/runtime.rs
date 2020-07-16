@@ -1067,7 +1067,9 @@ impl_runtime_apis! {
         }
     }
 
-    impl pallet_compliance_manager_rpc_runtime_api::ComplianceManagerApi<Block, AccountId, Balance> for Runtime {
+    impl node_rpc_runtime_api::compliance_manager::ComplianceManagerApi<Block, AccountId, Balance>
+        for Runtime
+    {
         #[inline]
         fn can_transfer(
             ticker: Ticker,

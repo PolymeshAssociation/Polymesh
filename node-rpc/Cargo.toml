@@ -33,9 +33,7 @@ sp-block-builder = { git = "https://github.com/paritytech/substrate", rev = "c77
 pallet-transaction-payment-rpc = { path = "../pallets/transaction-payment/rpc" }
 pallet-contracts-rpc = { path = "../pallets/contracts/rpc" }
 node-rpc = { path = "../rpc"}
-pallet-compliance-manager-rpc = { path = "../pallets/compliance-manager/rpc" }
 pallet-group-rpc = { path = "../pallets/group/rpc" }
 pallet-identity-rpc = { path = "../pallets/identity/rpc" }
 pallet-staking-rpc = { path = "../pallets/staking/rpc" }
 pallet-protocol-fee-rpc = {  path = "../pallets/protocol-fee/rpc" }
-

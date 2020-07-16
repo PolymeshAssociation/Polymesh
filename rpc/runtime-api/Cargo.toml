@@ -6,18 +6,20 @@ edition = "2018"
 
 [dependencies]
 # Our pallets
-polymesh-primitives = { path = "../../primitives", default-features = false }
+pallet-compliance-manager = { path = "../../pallets/compliance-manager", default-features = false  }
 pallet-pips = { path = "../../pallets/pips", default-features = false  }
+polymesh-primitives = { path = "../../primitives", default-features = false }
 
 # Other
 serde = { version = "1.0.104", optional = true, features = ["derive"] }
 
 # Substrate
 codec = { package = "parity-scale-codec", version = "1.2.0", default-features = false, features = ["derive"] }
+frame-support = { git = "https://github.com/paritytech/substrate", default-features = false, rev = 'c771821cae2dcb5a8808a19fae8122c0b9ae8499'}
+frame-system = { git = "https://github.com/paritytech/substrate", default-features = false, rev = "c771821cae2dcb5a8808a19fae8122c0b9ae8499" }
 sp-api = { git = 'https://github.com/paritytech/substrate.git', default_features = false, rev = 'c771821cae2dcb5a8808a19fae8122c0b9ae8499'}
 sp-std = { git = 'https://github.com/paritytech/substrate.git', default_features = false, rev = 'c771821cae2dcb5a8808a19fae8122c0b9ae8499'}
 sp-runtime = { git = 'https://github.com/paritytech/substrate.git', default_features = false, rev = 'c771821cae2dcb5a8808a19fae8122c0b9ae8499'}
-frame-support = { git = "https://github.com/paritytech/substrate", default-features = false, rev = 'c771821cae2dcb5a8808a19fae8122c0b9ae8499'}
 
 [dev-dependencies]
 serde_json = "1.0.41"
@@ -25,12 +27,14 @@ serde_json = "1.0.41"
 [features]
 default = ["std"]
 std = [
-	"serde",
-	"sp-api/std",
-	"codec/std",
-	"pallet-pips/std",
-	"sp-std/std",
-	"sp-runtime/std",
-	"frame-support/std",
-	"polymesh-primitives/std",
+    "codec/std",
+    "frame-support/std",
+    "frame-system/std",
+    "pallet-compliance-manager/std",
+    "pallet-pips/std",
+    "polymesh-primitives/std",
+    "serde",
+    "sp-api/std",
+    "sp-std/std",
+    "sp-runtime/std"
 ]

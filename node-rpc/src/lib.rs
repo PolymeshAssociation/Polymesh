@@ -118,7 +118,7 @@ where
     C::Api: pallet_protocol_fee_rpc::ProtocolFeeRuntimeApi<Block>,
     C::Api: node_rpc::asset::AssetRuntimeApi<Block, AccountId, Balance>,
     C::Api: pallet_group_rpc::GroupRuntimeApi<Block>,
-    C::Api: pallet_compliance_manager_rpc::ComplianceManagerRuntimeApi<Block, AccountId, Balance>,
+    C::Api: node_rpc::compliance_manager::ComplianceManagerRuntimeApi<Block, AccountId, Balance>,
     C::Api: BabeApi<Block>,
     C::Api: BlockBuilder<Block>,
     P: TransactionPool + Sync + Send + 'static,
@@ -130,7 +130,7 @@ where
         asset::{Asset, AssetApi},
         pips::{Pips, PipsApi},
     };
-    use pallet_compliance_manager_rpc::{ComplianceManager, ComplianceManagerApi};
+    use node_rpc::compliance_manager::{ComplianceManager, ComplianceManagerApi};
     use pallet_contracts_rpc::{Contracts, ContractsApi};
     use pallet_group_rpc::{Group, GroupApi};
     use pallet_identity_rpc::{Identity, IdentityApi};

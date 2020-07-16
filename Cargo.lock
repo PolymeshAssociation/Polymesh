@@ -2640,10 +2640,12 @@ name = "node-rpc"
 version = "0.1.0"
 dependencies = [
  "frame-support",
+ "frame-system",
  "jsonrpc-core",
  "jsonrpc-core-client",
  "jsonrpc-derive",
  "node-rpc-runtime-api",
+ "pallet-compliance-manager",
  "pallet-pips",
  "parity-scale-codec",
  "polymesh-primitives",
@@ -2660,6 +2662,8 @@ name = "node-rpc-runtime-api"
 version = "0.1.0"
 dependencies = [
  "frame-support",
+ "frame-system",
+ "pallet-compliance-manager",
  "pallet-pips",
  "parity-scale-codec",
  "polymesh-primitives",
@@ -3007,50 +3011,6 @@ dependencies = [
  "sp-std",
  "sp-version",
  "substrate-test-runtime-client",
-]
-
-[[package]]
-name = "pallet-compliance-manager-rpc"
-version = "0.1.0"
-dependencies = [
- "frame-support",
- "frame-system",
- "jsonrpc-core",
- "jsonrpc-core-client",
- "jsonrpc-derive",
- "pallet-balances 0.1.0",
- "pallet-compliance-manager",
- "pallet-compliance-manager-rpc-runtime-api",
- "parity-scale-codec",
- "polymesh-common-utilities",
- "polymesh-primitives",
- "serde",
- "serde_derive",
- "sp-api",
- "sp-blockchain",
- "sp-core",
- "sp-rpc",
- "sp-runtime",
- "sp-std",
-]
-
-[[package]]
-name = "pallet-compliance-manager-rpc-runtime-api"
-version = "0.1.0"
-dependencies = [
- "frame-support",
- "frame-system",
- "jsonrpc-core",
- "pallet-balances 0.1.0",
- "pallet-compliance-manager",
- "parity-scale-codec",
- "polymesh-common-utilities",
- "polymesh-primitives",
- "serde",
- "serde_json",
- "sp-api",
- "sp-core",
- "sp-std",
 ]
 
 [[package]]
@@ -4007,8 +3967,6 @@ dependencies = [
  "node-rpc",
  "node-rpc-runtime-api",
  "pallet-asset",
- "pallet-compliance-manager-rpc",
- "pallet-compliance-manager-rpc-runtime-api",
  "pallet-contracts",
  "pallet-contracts-rpc",
  "pallet-contracts-rpc-runtime-api",
@@ -4100,7 +4058,6 @@ version = "0.1.0"
 dependencies = [
  "jsonrpc-core",
  "node-rpc",
- "pallet-compliance-manager-rpc",
  "pallet-contracts-rpc",
  "pallet-group-rpc",
  "pallet-identity-rpc",
@@ -4227,7 +4184,6 @@ dependencies = [
  "pallet-cdd-offchain-worker",
  "pallet-committee",
  "pallet-compliance-manager",
- "pallet-compliance-manager-rpc-runtime-api",
  "pallet-contracts",
  "pallet-contracts-primitives",
  "pallet-contracts-rpc-runtime-api",
@@ -4309,7 +4265,6 @@ dependencies = [
  "pallet-balances 0.1.0",
  "pallet-committee",
  "pallet-compliance-manager",
- "pallet-compliance-manager-rpc-runtime-api",
  "pallet-contracts",
  "pallet-contracts-primitives",
  "pallet-contracts-rpc-runtime-api",
