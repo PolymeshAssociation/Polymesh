@@ -5,15 +5,19 @@ set -x
 set -o pipefail
 
 GIT_DIR=$1
-CACHE_DIR=$2
-ARTIFACT_DIR=$3
+NPM_CACHE_DIR=$2
+CARGO_CACHE_DIR=$3
 
 mkdir -p ${GIT_DIR}/scripts/cli/node_modules
-mkdir -p ${CACHE_DIR}/scripts/cli/node_modules
+mkdir -p ${NPM_CACHE_DIR}/scripts/cli/node_modules
 
-rsync -auv --size-only ${CACHE_DIR}/scripts/cli/node_modules/ ${GIT_DIR}/scripts/cli/node_modules | grep -e "^total size" -B1 --color=never
+if [ ! -f "$NPM_CACHE_DIR/.new_cli" ] && [ ! -f "$CARGO_CACHE_DIR/.new_binary" ]; then
+    exit 0
+fi
 
-$ARTIFACT_DIR/usr/local/bin/polymesh --dev --pool-limit 100000 -d /tmp/pmesh-primary-node > /dev/null &
+rsync -auv --size-only ${NPM_CACHE_DIR}/scripts/cli/node_modules/ ${GIT_DIR}/scripts/cli/node_modules | grep -e "^total size" -B1 --color=never
+
+$CARGO_CACHE_DIR/target/release/polymesh --dev --pool-limit 100000 -d /tmp/pmesh-primary-node > /dev/null &
 
 POLYMESH_PID=$!
 
