@@ -14,7 +14,7 @@ use pallet_multisig as multisig;
 use pallet_pips::{HistoricalVotingByAddress, HistoricalVotingById, Vote, VoteCount};
 use pallet_protocol_fee as protocol_fee;
 use pallet_statistics as statistics;
-pub use pallet_transaction_payment::{Multiplier, TargetedFeeAdjustment};
+pub use pallet_transaction_payment::{Multiplier, TargetedFeeAdjustment, RuntimeDispatchInfo};
 use pallet_treasury as treasury;
 use pallet_utility as utility;
 use polymesh_common_utilities::{
@@ -76,11 +76,10 @@ use pallet_contracts_rpc_runtime_api::ContractExecResult;
 use pallet_grandpa::{
     fg_primitives, AuthorityId as GrandpaId, AuthorityList as GrandpaAuthorityList,
 };
-use pallet_identity_rpc_runtime_api::{AssetDidResult, CddStatus, DidRecords, DidStatus, LinkType};
+// use pallet_identity_rpc_runtime_api::{AssetDidResult, CddStatus, DidRecords, DidStatus, LinkType};
 use pallet_im_online::sr25519::AuthorityId as ImOnlineId;
 use pallet_protocol_fee_rpc_runtime_api::CappedFee;
 use pallet_session::historical as pallet_session_historical;
-use pallet_transaction_payment_rpc_runtime_api::RuntimeDispatchInfo;
 use sp_authority_discovery::AuthorityId as AuthorityDiscoveryId;
 use sp_inherents::{CheckInherentsResult, InherentData};
 #[cfg(feature = "std")]
@@ -903,6 +902,7 @@ impl_runtime_apis! {
         }
     }
 
+    /*
     impl pallet_transaction_payment_rpc_runtime_api::TransactionPaymentApi<
         Block,
         Balance,
@@ -911,7 +911,7 @@ impl_runtime_apis! {
         fn query_info(uxt: UncheckedExtrinsic, len: u32) -> RuntimeDispatchInfo<Balance> {
             TransactionPayment::query_info(uxt, len)
         }
-    }
+    }*/
 
     impl sp_session::SessionKeys<Block> for Runtime {
         fn generate_session_keys(seed: Option<Vec<u8>>) -> Vec<u8> {
@@ -969,6 +969,7 @@ impl_runtime_apis! {
         }
     }
 
+    /*
     impl
         pallet_identity_rpc_runtime_api::IdentityApi<
             Block,
@@ -1013,6 +1014,7 @@ impl_runtime_apis! {
             Identity::get_did_status(dids)
         }
     }
+    */
 
     impl node_rpc_runtime_api::asset::AssetApi<Block, AccountId, Balance> for Runtime {
         #[inline]

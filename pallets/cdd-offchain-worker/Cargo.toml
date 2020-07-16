@@ -5,11 +5,9 @@ authors = ["Polymath Inc. <events@polymath.network>"]
 edition = "2018"
 
 [dependencies]
-polymesh-common-utilities = { path = "../common", default-features = false}
+polymesh-primitives = { path = "../../primitives", default-features = false}
+polymesh-common-utilities = { path = "../common", default-features = false }
 pallet-staking = { path = "../staking", default-features = false }
-
-# General 
-serde = { version = "1.0.104", default-features = false }
 
 # Substrate
 codec = { package = "parity-scale-codec", version = "1.2.0", default-features = false, features = ["derive"] }
@@ -17,28 +15,11 @@ sp-io = { git = "https://github.com/fmiguelgarcia/substrate", default-features =
 sp-std = { git = "https://github.com/fmiguelgarcia/substrate", default-features = false, branch = "poly-v2.0.0-rc3+1" }
 sp-core = { git = "https://github.com/fmiguelgarcia/substrate", default-features = false, branch = "poly-v2.0.0-rc3+1" }
 sp-runtime = { git = "https://github.com/fmiguelgarcia/substrate", default-features = false, branch = "poly-v2.0.0-rc3+1" }
-
+# 
 frame-system = { git = "https://github.com/fmiguelgarcia/substrate", default-features = false, branch = "poly-v2.0.0-rc3+1" }
 frame-support = { git = "https://github.com/fmiguelgarcia/substrate", default-features = false, branch = "poly-v2.0.0-rc3+1" }
-
+ 
 sp-application-crypto = { git = "https://github.com/fmiguelgarcia/substrate", default-features = false, branch = "poly-v2.0.0-rc3+1" }
-
-
-[dev-dependencies]
-test-client = { package = "substrate-test-runtime-client", git = "https://github.com/fmiguelgarcia/substrate", default-features = false, branch = "poly-v2.0.0-rc3+1" }
-chrono = { version = "0.4.10", default-features = false }
-pallet-timestamp = { git = "https://github.com/fmiguelgarcia/substrate", default-features = false, branch = "poly-v2.0.0-rc3+1" }
-pallet-balances = {package = "pallet-balances", path = "../balances"}
-pallet-protocol-fee = {package = "pallet-protocol-fee", path = "../protocol-fee"}
-pallet-group = {package = "pallet-group", path = "../group"}
-pallet-identity = {package = "pallet-identity", path = "../identity", default-features = false}
-pallet-staking-reward-curve = { path = "../staking/reward-curve", default-features = false}
-pallet-session = { git = "https://github.com/fmiguelgarcia/substrate", default-features = false, branch = "poly-v2.0.0-rc3+1" }
-pallet-transaction-payment = {package = "pallet-transaction-payment", path = "../transaction-payment", default-features = false}
-primitives = {package = "polymesh-primitives", path = "../../primitives", default-features = false}
-sp-staking = { git = "https://github.com/fmiguelgarcia/substrate", default-features = false, branch = "poly-v2.0.0-rc3+1" }
-pallet-babe = { git = "https://github.com/fmiguelgarcia/substrate", default-features = false, branch = "poly-v2.0.0-rc3+1" }
-pallet-authorship = { git = "https://github.com/fmiguelgarcia/substrate", default-features = false, branch = "poly-v2.0.0-rc3+1" }
 
 [features]
 equalize = []
@@ -46,7 +27,8 @@ default = ["std", "equalize"]
 no_std = []
 only-staking = []
 std = [ 
-	"serde/std",
+	"polymesh-common-utilities/std",
+	"polymesh-primitives/std",
 	"codec/std",
 	"sp-io/std",
 	"sp-std/std",
@@ -54,6 +36,6 @@ std = [
 	"frame-support/std",
 	"frame-system/std",
 	"sp-runtime/std",
-    "polymesh-common-utilities/std",
 	"pallet-staking/std",
+	"sp-application-crypto/std",
 ]

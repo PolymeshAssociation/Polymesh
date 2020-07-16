@@ -30,3 +30,5 @@ mod voting_test;
 mod transaction_payment_test;
 mod confidential_test;
 
+mod staking;
+mod cdd_offchain_worker;

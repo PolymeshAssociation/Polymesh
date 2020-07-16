@@ -38,7 +38,6 @@ pallet-contracts-primitives = { path = "../../contracts/common/", default-featur
 # RPC
 node-rpc-runtime-api = { path = "../../../rpc/runtime-api", default-features = false }
 pallet-staking-rpc-runtime-api = { package = "pallet-staking-rpc-runtime-api", path = "../../staking/rpc/runtime-api", default-features = false }
-#pallet-transaction-payment-rpc-runtime-api = { package = "pallet-transaction-payment-rpc-runtime-api", path = "../../transaction-payment/rpc/runtime-api", default-features = false }
 pallet-protocol-fee-rpc-runtime-api = { package = "pallet-protocol-fee-rpc-runtime-api", path = "../../protocol-fee/rpc/runtime-api", default-features = false }
 pallet-compliance-manager-rpc-runtime-api = { package = "pallet-compliance-manager-rpc-runtime-api", path = "../../compliance-manager/rpc/runtime-api", default-features = false  }
 pallet-contracts-rpc-runtime-api = { path = "../../contracts/rpc/runtime-api", default-features = false}
@@ -105,7 +104,7 @@ equalize = []
 default = ["std", "equalize"]
 no_std = [ 
 	"pallet-confidential/no_std",
-	"pallet-confidential/u32_backend",
+	"pallet-confidential/u64_backend",
 ]
 
 only-staking = []
@@ -135,7 +134,6 @@ std = [
 	"pallet-finality-tracker/std",
 	"pallet-contracts-rpc-runtime-api/std",
 	"pallet-group-rpc-runtime-api/std",
-#	"pallet-transaction-payment-rpc-runtime-api/std",
 	"pallet-protocol-fee-rpc-runtime-api/std",
 	"pallet-staking-rpc-runtime-api/std",
 	"pallet-compliance-manager-rpc-runtime-api/std",

@@ -36,7 +36,10 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 pub mod runtime_dispatch_info;
-pub use runtime_dispatch_info::RuntimeDispatchInfo;
+pub use runtime_dispatch_info::{
+    RuntimeDispatchInfo,
+    // runtime_decl_for_TransactionPaymentApi::TransactionPaymentApi
+};
 
 use polymesh_primitives::{traits::IdentityCurrency, Signatory, TransactionError};
 use polymesh_common_utilities::traits::transaction_payment::{ CddAndFeeDetails, ChargeTxFee };

@@ -18,14 +18,12 @@ members = [
     "pallets/runtime/testnet-v1",
     "pallets/common",
     "pallets/transaction-payment",
-    "pallets/transaction-payment/rpc",
     "pallets/staking",
     "pallets/staking/rpc",
     "pallets/staking/rpc/runtime-api",
     "pallets/staking/reward-curve",
     "pallets/pips",
     "pallets/identity",
-    "pallets/identity/rpc",
     "pallets/im-online",
     "pallets/balances",
     "pallets/committee",
@@ -72,13 +70,9 @@ polymesh-runtime-testnet-v1 = { path = "pallets/runtime/testnet-v1" }
 # RPC
 # node-rpc = { path = "rpc", default-features = false }
 # node-rpc-runtime-api = { path = "rpc/runtime-api", default-features = false }
-# pallet-transaction-payment-rpc = { path = "pallets/transaction-payment/rpc", default-features = false }
-# pallet-transaction-payment-rpc-runtime-api = { path = "pallets/transaction-payment/rpc/runtime-api", default-features = false }
 # pallet-protocol-fee-rpc-runtime-api = { path = "pallets/protocol-fee/rpc/runtime-api", default-features = false }
 # pallet-contracts-rpc-runtime-api = { path = "pallets/contracts/rpc/runtime-api", default-features = false}
 # pallet-staking-rpc-runtime-api = { path = "pallets/staking/rpc/runtime-api", default-features = false }
-# pallet-identity-rpc = { path = "pallets/identity/rpc", default-features = false }
-# pallet-identity-rpc-runtime-api = { path = "pallets/identity/rpc/runtime-api", default-features = false }
 # pallet-protocol-fee-rpc = { path = "pallets/protocol-fee/rpc", default-features = false }
 # pallet-group-rpc = { path = "pallets/group/rpc", default-features = false }
 # pallet-group-rpc-runtime-api = { path = "pallets/group/rpc/runtime-api", default-features = false }

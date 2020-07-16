@@ -21,7 +21,7 @@ use crate::*;
 use chrono::prelude::Utc;
 use frame_support::{
     assert_ok,
-    dispatch::{DispatchError, DispatchResult},
+    dispatch::{DispatchResult},
     impl_outer_dispatch, impl_outer_event, impl_outer_origin, ord_parameter_types, parameter_types,
     traits::{Currency, FindAuthor, Get, OnFinalize, OnInitialize},
     weights::{constants::RocksDbWeight, DispatchInfo, Weight},
@@ -40,7 +40,6 @@ use polymesh_common_utilities::traits::{
     transaction_payment::{ CddAndFeeDetails, ChargeTxFee },
     CommonTrait,
 };
-use primitives::traits::BlockRewardsReserveCurrency;
 use primitives::{AuthorizationData, Claim, IdentityId, JoinIdentityData, Moment, Signatory};
 use sp_core::H256;
 use sp_io;
@@ -51,7 +50,7 @@ use sp_npos_elections::{
 use sp_runtime::curve::PiecewiseLinear;
 use sp_runtime::testing::{Header, TestSignature, TestXt, UintAuthorityId};
 use sp_runtime::traits::{Convert, IdentityLookup, SaturatedConversion, Zero};
-use sp_runtime::{AnySignature, Perbill};
+use sp_runtime::Perbill;
 use sp_staking::{
     offence::{OffenceDetails, OnOffenceHandler},
     SessionIndex,
@@ -65,7 +64,6 @@ pub(crate) type AccountId = u64;
 pub(crate) type AccountIndex = u64;
 pub(crate) type BlockNumber = u64;
 pub(crate) type Balance = u128;
-type OffChainSignature = AnySignature;
 
 /// Simple structure that exposes how u64 currency can be represented as... u64.
 pub struct CurrencyToVoteHandler;
@@ -413,7 +411,7 @@ impl GroupTrait<Moment> for Test {
             .collect::<Vec<_>>()
     }
 
-    fn is_member_expired(member: &InactiveMember<Moment>, now: Moment) -> bool {
+    fn is_member_expired(_member: &InactiveMember<Moment>, _now: Moment) -> bool {
         false
     }
 }
@@ -431,19 +429,19 @@ impl MultiSigSubTrait<AccountId> for Test {
     fn accept_multisig_signer(_: Signatory<AccountId>, _: u64) -> DispatchResult {
         unimplemented!()
     }
-    fn get_key_signers(multisig: &AccountId) -> Vec<AccountId> {
+    fn get_key_signers(_multisig: &AccountId) -> Vec<AccountId> {
         unimplemented!()
     }
-    fn is_multisig(account: &AccountId) -> bool {
+    fn is_multisig(_account: &AccountId) -> bool {
         unimplemented!()
     }
 }
 
 impl CheckCdd<AccountId> for Test {
-    fn check_key_cdd(key: &AccountId) -> bool {
+    fn check_key_cdd(_key: &AccountId) -> bool {
         true
     }
-    fn get_key_cdd_did(key: &AccountId) -> Option<IdentityId> {
+    fn get_key_cdd_did(_key: &AccountId) -> Option<IdentityId> {
         None
     }
 }
@@ -683,7 +681,7 @@ impl ExtBuilder {
         }
         .assimilate_storage(&mut storage);
 
-        group::GenesisConfig::<Test, group::Instance2> {
+        let _ = group::GenesisConfig::<Test, group::Instance2> {
             active_members: vec![IdentityId::from(1), IdentityId::from(2)],
             phantom: Default::default(),
         }
@@ -691,8 +689,8 @@ impl ExtBuilder {
 
         let _ = identity::GenesisConfig::<Test> {
             identities: vec![
-                /// (master_account_id, service provider did, target did, expiry time of CustomerDueDiligence claim i.e 10 days is ms)
-                /// Provide Identity
+                // (master_account_id, service provider did, target did, expiry time of CustomerDueDiligence claim i.e 10 days is ms)
+                // Provide Identity
                 (1005, IdentityId::from(1), IdentityId::from(1), None),
                 (11, IdentityId::from(1), IdentityId::from(11), None),
                 (21, IdentityId::from(1), IdentityId::from(21), None),
@@ -816,7 +814,7 @@ pub fn provide_did_to_user(account: AccountId) -> bool {
             Identity::cdd_register_did(Origin::signed(1005).into(), account, None, vec![]).is_ok(),
             "Error in registering the DID"
         );
-        if let LinkedKeyInfo::Unique(did) = Identity::key_to_identity_ids(account).unwrap() {
+        if let LinkedKeyInfo::Unique(_did) = Identity::key_to_identity_ids(account).unwrap() {
             result = true;
         } else {
             assert!(result, "DID not find in the storage");
@@ -859,9 +857,8 @@ pub fn get_identity(key: AccountId) -> bool {
     let mut have_id = false;
     if let Some(linked_key_info) = <identity::KeyToIdentityIds<Test>>::get(key) {
         have_id = match linked_key_info {
-            LinkedKeyInfo::Unique(id) => true,
-            LinkedKeyInfo::Group(id) => true,
-            _ => false,
+            LinkedKeyInfo::Unique(_id) => true,
+            LinkedKeyInfo::Group(_id) => true,
         };
     }
     have_id
@@ -1416,7 +1413,7 @@ pub fn add_trusted_cdd_provider(cdd_sp: IdentityId) {
 }
 
 pub fn add_nominator_claim_with_expiry(
-    claim_issuer: IdentityId,
+    _claim_issuer: IdentityId,
     identity_id: IdentityId,
     claim_issuer_account_id: AccountId,
     expiry: u64,
@@ -1431,7 +1428,7 @@ pub fn add_nominator_claim_with_expiry(
 }
 
 pub fn add_nominator_claim(
-    claim_issuer: IdentityId,
+    _claim_issuer: IdentityId,
     idendity_id: IdentityId,
     claim_issuer_account_id: AccountId,
 ) {
@@ -1445,11 +1442,12 @@ pub fn add_nominator_claim(
     ));
 }
 
+/*
 pub fn check_cdd(id: AccountId) -> Result<bool, &'static str> {
     let did = Identity::get_identity(&id).unwrap();
     let is_cdd = Identity::fetch_cdd(did, Zero::zero()).is_some();
     Ok(is_cdd)
-}
+}*/
 
 pub fn bond_nominator_with_expiry(acc: u64, val: u128, claim_expiry: u64, target: Vec<AccountId>) {
     // a = controller

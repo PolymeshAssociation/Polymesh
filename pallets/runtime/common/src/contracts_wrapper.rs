@@ -28,7 +28,6 @@
 //!   - Initially restrict list of accounts that can put_code
 //!   - When code is instantiated enforce a POLYX fee to the DID owning the code (i.e. that executed put_code)
 
-use frame_support::traits::Currency;
 use frame_support::{
     decl_error, decl_module, decl_storage,
     dispatch::{DispatchResult, DispatchResultWithPostInfo},

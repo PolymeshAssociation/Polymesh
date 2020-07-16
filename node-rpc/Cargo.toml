@@ -30,12 +30,10 @@ txpool-api = { package = "sp-transaction-pool", git = "https://github.com/fmigue
 frame-rpc-system = { package = "substrate-frame-rpc-system", git = "https://github.com/fmiguelgarcia/substrate", branch = "poly-v2.0.0-rc3+1"  }
 sp-block-builder = { git = "https://github.com/fmiguelgarcia/substrate", branch = "poly-v2.0.0-rc3+1" }
 
-pallet-transaction-payment-rpc = { path = "../pallets/transaction-payment/rpc" }
 pallet-contracts-rpc = { path = "../pallets/contracts/rpc" }
 node-rpc = { path = "../rpc"}
 pallet-compliance-manager-rpc = { path = "../pallets/compliance-manager/rpc" }
 pallet-group-rpc = { path = "../pallets/group/rpc" }
-pallet-identity-rpc = { path = "../pallets/identity/rpc" }
 pallet-staking-rpc = { path = "../pallets/staking/rpc" }
 pallet-protocol-fee-rpc = {  path = "../pallets/protocol-fee/rpc" }
 

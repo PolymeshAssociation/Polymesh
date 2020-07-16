@@ -14,6 +14,7 @@
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
 //! Tests for the module.
+mod mock;
 
 use crate::*;
 use chrono::prelude::Utc;
@@ -21,7 +22,7 @@ use codec::{Decode, Encode};
 use frame_support::{assert_err, assert_noop, assert_ok, dispatch::DispatchError};
 use mock::*;
 use pallet_staking::RewardDestination;
-use primitives::{IdentityId, Signatory};
+use polymesh_primitives::{IdentityId, Signatory};
 use sp_core::{
     offchain::{testing, OffchainExt, TransactionPoolExt},
     testing::KeyStore,
@@ -30,7 +31,8 @@ use sp_core::{
 };
 use sp_runtime::testing::UintAuthorityId;
 use sp_runtime::RuntimeAppPublic;
-use test_client::AccountKeyring;
+use substrate_test_runtime_client::AccountKeyring;
+
 
 #[test]
 fn check_the_initial_nominators_of_chain() {

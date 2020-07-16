@@ -17,7 +17,7 @@ use rand::rngs::OsRng;
 ///  - Use lazy static RNG object to mitigate performance impact during the `OsRng` object
 ///  creation. We should double-check the security implications of having a global RNG in a
 ///  multi-threading environment.
-#[runtime_interface]
+#[runtime_interface(wasm_only)]
 pub trait NativeRng {
     fn next_u32() -> u32 {
         OsRng::default().next_u32()

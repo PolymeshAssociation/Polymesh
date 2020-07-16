@@ -9,61 +9,53 @@ edition = "2018"
 [dependencies]
 # Common
 polymesh-common-utilities = { path = "../../common", default-features = false }
-polymesh-runtime-common = { path = "../common", default-features = false}
+polymesh-runtime-common = { path = "../common", default-features = false }
 polymesh-primitives = { path = "../../../primitives", default-features = false }
 
 # Our pallets
+pallet-confidential = { path = "../../confidential", default-features = false }
+pallet-identity = { path = "../../identity", default-features = false }
+pallet-balances = { path = "../../balances", default-features = false }
 pallet-protocol-fee = { path = "../../protocol-fee", default-features = false }
+pallet-utility = { path = "../../utility", default-features = false }
 pallet-group = { path = "../../group", default-features = false }
-pallet-identity = { path = "../../identity", default-features = false  }
-pallet-balances = { path = "../../balances", default-features = false  }
 pallet-asset = { path = "../../asset", default-features = false }
-pallet-group-rpc-runtime-api = { path = "../../group/rpc/runtime-api", default-features = false }
-pallet-transaction-payment = { path = "../../transaction-payment", default-features = false  }
-pallet-staking = { path = "../../staking", default-features = false  }
-pallet-staking-reward-curve = { path = "../../staking/reward-curve", default-features = false  }
-pallet-pips = { path = "../../pips", default-features = false  }
-pallet-committee = { path = "../../committee", default-features = false }
+pallet-compliance-manager = { path = "../../compliance-manager", default-features = false }
 pallet-multisig = { path = "../../multisig", default-features = false }
+pallet-pips = { path = "../../pips", default-features = false }
+pallet-committee = { path = "../../committee", default-features = false }
 pallet-treasury = { path = "../../treasury", default-features = false }
 pallet-im-online = { path = "../../im-online", default-features = false }
-pallet-compliance-manager = { path = "../../compliance-manager", default-features = false }
 pallet-statistics = { path = "../../statistics", default-features = false }
-pallet-cdd-offchain-worker = { path = "../../cdd-offchain-worker", default-features = false}
-pallet-utility = { path = "../../utility", default-features = false}
-pallet-confidential = { path = "../../confidential", default-features = false }
-pallet-contracts = { path = "../../contracts", default-features = false}
+pallet-transaction-payment = { path = "../../transaction-payment", default-features = false }
+pallet-contracts = { path = "../../contracts", default-features = false }
 pallet-contracts-primitives = { path = "../../contracts/common/", default-features = false}
+pallet-staking = { path = "../../staking", default-features = false }
 
-# RPC
-node-rpc-runtime-api = { path = "../../../rpc/runtime-api", default-features = false }
-pallet-staking-rpc-runtime-api = { path = "../../staking/rpc/runtime-api", default-features = false }
-# pallet-transaction-payment-rpc-runtime-api = { path = "../../transaction-payment/rpc/runtime-api", default-features = false }
-pallet-protocol-fee-rpc-runtime-api = { path = "../../protocol-fee/rpc/runtime-api", default-features = false }
-pallet-compliance-manager-rpc-runtime-api = { path = "../../compliance-manager/rpc/runtime-api", default-features = false  }
-pallet-contracts-rpc-runtime-api = { path = "../../contracts/rpc/runtime-api", default-features = false}
+pallet-staking-reward-curve = { path = "../../staking/reward-curve", default-features = false }
+# pallet-cdd-offchain-worker = { path = "../../cdd-offchain-worker", default-features = false}
 
 # Others
-chrono = { version = "0.4.11", default-features = false }
-lazy_static = { version = "1.4.0", default-features = false }
-log = { version = "0.4.8", default-features = false }
-rustc-hex = { version = "2.1.0", default-features = false }
-safe-mix = { version = "1.0.1", default-features = false }
 serde = { version = "1.0.104", default-features = false }
-serde_derive = { version = "1.0.104", optional = true }
-serde_json = { version = "1.0.48", default-features = false }
-yaml-rust = { version = "0.4.3", default-features = false }
+# chrono = { version = "0.4.11", default-features = false }
+# lazy_static = { version = "1.4.0", default-features = false }
+# log = { version = "0.4.8", default-features = false }
+# rustc-hex = { version = "2.1.0", default-features = false }
+# safe-mix = { version = "1.0.1", default-features = false }
+# serde_derive = { version = "1.0.104", optional = true }
+# serde_json = { version = "1.0.48", default-features = false }
+# yaml-rust = { version = "0.4.3", default-features = false }
 
 # Substrate
 codec = { package = "parity-scale-codec", version = "1.2.0", default-features = false, features = ["derive"] }
 sp-core = { git = "https://github.com/fmiguelgarcia/substrate", default-features = false, branch = "poly-v2.0.0-rc3+1" }
 sp-std = { git = "https://github.com/fmiguelgarcia/substrate", default-features = false, branch = "poly-v2.0.0-rc3+1" }
 sp-io = { git = "https://github.com/fmiguelgarcia/substrate", default-features = false, branch = "poly-v2.0.0-rc3+1" }
-sp-serializer = { git = "https://github.com/fmiguelgarcia/substrate", default-features = false, branch = "poly-v2.0.0-rc3+1" }
+# sp-serializer = { git = "https://github.com/fmiguelgarcia/substrate", default-features = false, branch = "poly-v2.0.0-rc3+1" }
 sp-runtime = { git = "https://github.com/fmiguelgarcia/substrate", default-features = false, branch = "poly-v2.0.0-rc3+1" }
 sp-version = { git = "https://github.com/fmiguelgarcia/substrate", default-features = false, branch = "poly-v2.0.0-rc3+1" }
 sp-api = { git = "https://github.com/fmiguelgarcia/substrate", default-features = false, branch = "poly-v2.0.0-rc3+1" }
-sp-inherents = { git = "https://github.com/fmiguelgarcia/substrate", default-features = false, branch = "poly-v2.0.0-rc3+1" }
+ sp-inherents = { git = "https://github.com/fmiguelgarcia/substrate", default-features = false, branch = "poly-v2.0.0-rc3+1" }
 sp-offchain = { git = "https://github.com/fmiguelgarcia/substrate", default-features = false, branch = "poly-v2.0.0-rc3+1" }
 sp-staking = { git = "https://github.com/fmiguelgarcia/substrate", default-features = false, branch = "poly-v2.0.0-rc3+1" }
 sp-consensus-babe = { git = "https://github.com/fmiguelgarcia/substrate", default-features = false, branch = "poly-v2.0.0-rc3+1" }
@@ -72,7 +64,7 @@ sp-authority-discovery = { git = "https://github.com/fmiguelgarcia/substrate", d
 sp-transaction-pool = { git = "https://github.com/fmiguelgarcia/substrate", default-features = false, branch = "poly-v2.0.0-rc3+1" }
 sp-block-builder = { git = "https://github.com/fmiguelgarcia/substrate", default-features = false, branch = "poly-v2.0.0-rc3+1" }
 sp-arithmetic = { git = "https://github.com/fmiguelgarcia/substrate", default-features = false, branch = "poly-v2.0.0-rc3+1" }
-
+# 
 pallet-authorship = { git = "https://github.com/fmiguelgarcia/substrate", default-features = false, branch = "poly-v2.0.0-rc3+1" }
 pallet-executive = { package = "frame-executive", git = "https://github.com/fmiguelgarcia/substrate", default-features = false, branch = "poly-v2.0.0-rc3+1" }
 pallet-finality-tracker = { git = "https://github.com/fmiguelgarcia/substrate", default-features = false, branch = "poly-v2.0.0-rc3+1" }
@@ -85,86 +77,111 @@ pallet-timestamp = { git = "https://github.com/fmiguelgarcia/substrate", default
 pallet-babe = { git = "https://github.com/fmiguelgarcia/substrate", default-features = false, branch = "poly-v2.0.0-rc3+1" }
 pallet-authority-discovery = { git = "https://github.com/fmiguelgarcia/substrate", default-features = false, branch = "poly-v2.0.0-rc3+1" }
 pallet-randomness-collective-flip = { git = "https://github.com/fmiguelgarcia/substrate", default-features = false, branch = "poly-v2.0.0-rc3+1" }
-
-frame-benchmarking = { default-features = false, git = "https://github.com/fmiguelgarcia/substrate", branch = "poly-v2.0.0-rc3+1", optional = true }
+# 
+# frame-benchmarking = { default-features = false, git = "https://github.com/fmiguelgarcia/substrate", branch = "poly-v2.0.0-rc3+1", optional = true }
 frame-system = { git = "https://github.com/fmiguelgarcia/substrate", default-features = false, branch = "poly-v2.0.0-rc3+1" }
 frame-support = { git = "https://github.com/fmiguelgarcia/substrate", default-features = false, branch = "poly-v2.0.0-rc3+1" }
-frame-system-rpc-runtime-api = { git = "https://github.com/fmiguelgarcia/substrate", default-features = false, branch = "poly-v2.0.0-rc3+1" }
-ink_primitives = { git = "https://github.com/paritytech/ink", tag = "v2.1.0", default-features = false }
-hex-literal = "0.2.1"
 
-[dev-dependencies]
-test-client = { package = "substrate-test-runtime-client", git = "https://github.com/fmiguelgarcia/substrate", branch = "poly-v2.0.0-rc3+1" }
+# RPC
+frame-system-rpc-runtime-api = { git = "https://github.com/fmiguelgarcia/substrate", default-features = false, branch = "poly-v2.0.0-rc3+1" }
+pallet-group-rpc-runtime-api = { path = "../../group/rpc/runtime-api", default-features = false }
+pallet-protocol-fee-rpc-runtime-api = { path = "../../protocol-fee/rpc/runtime-api", default-features = false }
+pallet-contracts-rpc-runtime-api = { path = "../../contracts/rpc/runtime-api", default-features = false }
+pallet-compliance-manager-rpc-runtime-api = { path = "../../compliance-manager/rpc/runtime-api", default-features = false }
+pallet-staking-rpc-runtime-api = { path = "../../staking/rpc/runtime-api", default-features = false }
+node-rpc-runtime-api = { path = "../../../rpc/runtime-api", default-features = false }
+
+# ink_primitives = { git = "https://github.com/paritytech/ink", tag = "v2.1.0", default-features = false }
+# hex-literal = "0.2.1"
+
+# [dev-dependencies]
+# test-client = { package = "substrate-test-runtime-client", git = "https://github.com/fmiguelgarcia/substrate", branch = "poly-v2.0.0-rc3+1" }
 
 [build-dependencies]
 wasm-builder-runner = { package = "substrate-wasm-builder-runner", git = "https://github.com/fmiguelgarcia/substrate", default-features = false, branch = "poly-v2.0.0-rc3+1"}
 
 [features]
-equalize = []
 default = ["std", "equalize"]
+equalize = []
+only-staking = []
 no_std = [
 	"pallet-confidential/no_std",
-	"pallet-confidential/u32_backend",
+	"pallet-confidential/u64_backend",
 ]
-
-only-staking = []
 std = [
-	"rustc-hex/std",
-	"serde_derive",
-	"serde/std",
-	"codec/std",
-	"sp-std/std",
-	"sp-io/std",
+	# General
+ 	"serde/std",
+	# Polymesh
+	"polymesh-runtime-common/std",
+	# SP
+ 	"codec/std",
 	"sp-core/std",
+	"sp-io/std",
+	"sp-std/std",
+	"sp-runtime/std",
+	"sp-version/std",
+	"sp-api/std",
+	"sp-arithmetic/std",
 	"sp-inherents/std",
 	"sp-offchain/std",
-	"sp-version/std",
 	"sp-consensus-babe/std",
-	"sp-session/std",
+	"sp-session/std", 
 	"sp-authority-discovery/std",
-	"sp-runtime/std",
-	"sp-staking/std",
-	"sp-arithmetic/std",
+ 	"sp-staking/std",
+# 	"sp-arithmetic/std",
 	"sp-block-builder/std",
 	"sp-transaction-pool/std",
-	"polymesh-runtime-common/std",
+
+	# Frame
+	"frame-support/std",
+	"frame-system/std",
+
+# 	"rustc-hex/std",
+# 	"serde_derive",
+
+	# Pallets
 	"pallet-authorship/std",
 	"pallet-contracts/std",
+	"pallet-contracts-primitives/std",
 	"pallet-executive/std",
 	"pallet-finality-tracker/std",
-	"pallet-contracts-rpc-runtime-api/std",
-	"pallet-group-rpc-runtime-api/std",
-#	"pallet-transaction-payment-rpc-runtime-api/std",
-	"pallet-protocol-fee-rpc-runtime-api/std",
-	"pallet-staking-rpc-runtime-api/std",
-	"pallet-compliance-manager-rpc-runtime-api/std",
+	"pallet-randomness-collective-flip/std",
+	"pallet-transaction-payment/std",
 	"pallet-grandpa/std",
 	"pallet-im-online/std",
 	"pallet-indices/std",
 	"pallet-offences/std",
-	"pallet-session/std",
+# 	"pallet-session/std",
 	"pallet-staking/std",
+	"pallet-staking-reward-curve/std",
 	"pallet-sudo/std",
 	"pallet-timestamp/std",
 	"pallet-treasury/std",
 	"pallet-authority-discovery/std",
 	"pallet-babe/std",
-	"pallet-pips/std",
+ 	"pallet-pips/std",
 	"pallet-committee/std",
 	"pallet-multisig/std",
-	"frame-support/std",
-	"frame-system/std",
-	"frame-system-rpc-runtime-api/std",
-	"polymesh-common-utilities/std",
-	"pallet-balances/std",
-	"pallet-identity/std",
-    "pallet-cdd-offchain-worker/std",
+# 	"polymesh-common-utilities/std",
+ 	"pallet-balances/std",
+ 	"pallet-utility/std",
+ 	"pallet-identity/std",
+#	"pallet-cdd-offchain-worker/std",
 	"pallet-protocol-fee/std",
+	"pallet-group/std",
 	"pallet-asset/std",
 	"pallet-compliance-manager/std",
-	"pallet-statistics/std",
-	"pallet-asset/runtime-benchmarks",
-	"pallet-confidential/std",
-	"ink_primitives/std",
+ 	"pallet-statistics/std",
+# 	"pallet-asset/runtime-benchmarks",
+ 	"pallet-confidential/std",
+# 	"ink_primitives/std",
+
+	# RPC 
+	"frame-system-rpc-runtime-api/std",
+	"pallet-group-rpc-runtime-api/std",
+	"pallet-protocol-fee-rpc-runtime-api/std",
+	"pallet-contracts-rpc-runtime-api/std",
+	"pallet-compliance-manager-rpc-runtime-api/std",
+	"pallet-staking-rpc-runtime-api/std",
 	"node-rpc-runtime-api/std",
 ]

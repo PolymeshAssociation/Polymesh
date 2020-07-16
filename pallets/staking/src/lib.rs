@@ -284,12 +284,8 @@
 
 #[cfg(any(feature = "runtime-benchmarks"))]
 pub mod benchmarking;
-#[cfg(test)]
-mod mock;
 #[cfg(any(feature = "runtime-benchmarks"))]
 pub mod testing_utils;
-#[cfg(test)]
-mod tests;
 
 pub mod inflation;
 pub mod offchain_election;
@@ -321,7 +317,7 @@ use pallet_babe;
 use pallet_identity as identity;
 use pallet_session::historical;
 use polymesh_common_utilities::{identity::Trait as IdentityTrait, Context};
-use primitives::{traits::BlockRewardsReserveCurrency, IdentityId};
+use polymesh_primitives::{traits::BlockRewardsReserveCurrency, IdentityId};
 use sp_npos_elections::{
     build_support_map, evaluate_support, generate_compact_solution_type, is_score_better,
     seq_phragmen, Assignment, ElectionResult as PrimitiveElectionResult, ElectionScore,

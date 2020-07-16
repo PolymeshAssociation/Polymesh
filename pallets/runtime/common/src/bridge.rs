@@ -98,10 +98,10 @@
 //! - `unfreeze_txs`: Unfreezes given bridge transactions.
 
 use codec::{Decode, Encode};
-use frame_support::dispatch::DispatchResult;
-use frame_support::traits::{Currency, Get};
 use frame_support::{
-    debug, decl_error, decl_event, decl_module, decl_storage, ensure,
+    decl_error, decl_event, decl_module, decl_storage, ensure,
+    dispatch::DispatchResult,
+    traits::{Currency, Get},
     storage::StorageDoubleMap,
     weights::{DispatchClass, Pays, Weight},
 };
@@ -113,7 +113,7 @@ use polymesh_common_utilities::{
     traits::{balances::CheckCdd, identity::Trait as IdentityTrait, CommonTrait},
     Context, SystematicIssuers,
 };
-use polymesh_primitives::{IdentityId, JoinIdentityData, Signatory};
+use polymesh_primitives::{IdentityId, Signatory};
 use sp_core::H256;
 use sp_runtime::traits::{CheckedAdd, One, Zero};
 use sp_std::{convert::TryFrom, prelude::*};
@@ -243,6 +243,9 @@ decl_storage! {
         /// authorizations and are able to get their proposals delivered. The bridge creator
         /// transfers some POLY to their identity.
         Controller get(fn controller) build(|config: &GenesisConfig<T>| {
+            use frame_support::debug;
+            use polymesh_primitives::JoinIdentityData;
+
             if config.signatures_required > u64::try_from(config.signers.len()).unwrap_or_default()
             {
                 panic!("too many signatures required");

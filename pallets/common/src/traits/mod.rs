@@ -65,3 +65,4 @@ pub mod identity;
 pub mod multisig;
 pub mod pip;
 pub mod transaction_payment;
+pub use transaction_payment::{ CddAndFeeDetails, ChargeTxFee };

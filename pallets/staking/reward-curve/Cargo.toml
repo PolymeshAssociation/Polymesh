@@ -14,9 +14,9 @@ proc-macro2 = "1.0.9"
 proc-macro-crate = "0.1.4"
 
 [dev-dependencies]
-sp-runtime = { git = 'https://github.com/fmiguelgarcia/substrate', default_features = false, branch = "poly-v2.0.0-rc3+1" }
+sp-runtime = { git = 'https://github.com/fmiguelgarcia/substrate', default-features = false, branch = "poly-v2.0.0-rc3+1" }
 
 [features]
 default = ["std"]
 no_std = []
-std = [ "sp-runtime/std" ]
+std = [ ]

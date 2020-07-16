@@ -16,6 +16,8 @@
 // limitations under the License.
 
 //! Tests for the module.
+mod mock;
+mod inflaction;
 
 use super::*;
 use chrono::prelude::Utc;
@@ -2582,7 +2584,7 @@ fn invulnerables_are_not_slashed() {
             let exposure = Staking::eras_stakers(Staking::active_era().unwrap().index, 21);
             let initial_balance = Staking::slashable_balance_of(&21);
 
-            let nominator_balances: Vec<_> = exposure
+            let _nominator_balances: Vec<_> = exposure
                 .others
                 .iter()
                 .map(|o| Balances::free_balance(&o.who))
@@ -2775,7 +2777,7 @@ fn garbage_collection_on_window_pruning() {
 
         let exposure = Staking::eras_stakers(now, 11);
         assert_eq!(Balances::free_balance(101), 2000);
-        let nominated_value = exposure.others.iter().find(|o| o.who == 101).unwrap().value;
+        let _nominated_value = exposure.others.iter().find(|o| o.who == 101).unwrap().value;
 
         on_offence_now(
             &[OffenceDetails {
@@ -3017,7 +3019,7 @@ fn deferred_slashes_are_deferred() {
 
             let exposure = Staking::eras_stakers(Staking::active_era().unwrap().index, 11);
             assert_eq!(Balances::free_balance(101), 2000);
-            let nominated_value = exposure.others.iter().find(|o| o.who == 101).unwrap().value;
+            let _nominated_value = exposure.others.iter().find(|o| o.who == 101).unwrap().value;
 
             on_offence_now(
                 &[OffenceDetails {
@@ -3121,7 +3123,7 @@ fn remove_deferred() {
             let initial_slash = slash_10 * nominated_value;
 
             let total_slash = slash_15 * nominated_value;
-            let actual_slash = total_slash - initial_slash;
+            let _actual_slash = total_slash - initial_slash;
 
             // Polymesh-note -> No slashing for the nominators
             // 5% slash (15 - 10) processed now.
@@ -4380,7 +4382,7 @@ fn slash_kicks_validators_not_nominators_and_disables_nominator_for_kicked_valid
         );
 
         // post-slash balance
-        let nominator_slash_amount_11 = 125 / 10;
+        let _nominator_slash_amount_11 = 125 / 10;
         assert_eq!(Balances::free_balance(11), 900);
         // Polymesh-Note -> No slashing for nominataors
         // assert_eq!(
@@ -4974,14 +4976,14 @@ fn add_nominator_with_invalid_expiry() {
         .build()
         .execute_with(|| {
             let account_alice = 500;
-            let (alice_signed, alice_did) =
+            let (_alice_signed, alice_did) =
                 make_account_with_balance(account_alice, 1_000_000).unwrap();
             let account_alice_controller = account_alice + 1;
             let controller_signed = Origin::signed(account_alice_controller);
 
             // For valid trusted CDD service providers
             let account_bob = 600;
-            let (bob_signed, bob_did) = make_account(account_bob).unwrap();
+            let (_bob_signed, bob_did) = make_account(account_bob).unwrap();
             add_trusted_cdd_provider(bob_did);
 
             let now = Utc::now();
@@ -5016,14 +5018,14 @@ fn add_valid_nominator_with_multiple_claims() {
         .build()
         .execute_with(|| {
             let account_alice = 500;
-            let (alice_signed, alice_did) =
+            let (_alice_signed, alice_did) =
                 make_account_with_balance(account_alice, 1_000_000).unwrap();
 
             let account_alice_controller = account_alice + 1;
             let controller_signed = Origin::signed(account_alice_controller);
 
             let claim_issuer_1 = 600;
-            let (claim_issuer_1_signed, claim_issuer_1_did) = make_account(claim_issuer_1).unwrap();
+            let (_claim_issuer_1_signed, claim_issuer_1_did) = make_account(claim_issuer_1).unwrap();
             add_trusted_cdd_provider(claim_issuer_1_did);
 
             let now = Utc::now();
@@ -5032,7 +5034,7 @@ fn add_valid_nominator_with_multiple_claims() {
 
             // add one more claim issuer
             let claim_issuer_2 = 700;
-            let (claim_issuer_2_signed, claim_issuer_2_did) = make_account(claim_issuer_2).unwrap();
+            let (_claim_issuer_2_signed, claim_issuer_2_did) = make_account(claim_issuer_2).unwrap();
             add_trusted_cdd_provider(claim_issuer_2_did);
 
             // add claim by claim issuer
@@ -5061,24 +5063,24 @@ fn validate_nominators_with_valid_cdd() {
         .build()
         .execute_with(|| {
             let account_alice = 500;
-            let (alice_signed, alice_did) =
+            let (_alice_signed, alice_did) =
                 make_account_with_balance(account_alice, 1_000_000).unwrap();
 
             let account_alice_controller = 500 + account_alice;
             let controller_signed_alice = Origin::signed(account_alice_controller);
 
             let claim_issuer_1 = 600;
-            let (claim_issuer_1_signed, claim_issuer_1_did) = make_account(claim_issuer_1).unwrap();
+            let (_claim_issuer_1_signed, claim_issuer_1_did) = make_account(claim_issuer_1).unwrap();
             add_trusted_cdd_provider(claim_issuer_1_did);
 
             let account_eve = 700;
-            let (eve_signed, eve_did) = make_account_with_balance(account_eve, 1_000_000).unwrap();
+            let (_eve_signed, eve_did) = make_account_with_balance(account_eve, 1_000_000).unwrap();
 
             let account_eve_controller = account_eve + 1;
             let controller_signed_eve = Origin::signed(account_eve_controller);
 
             let claim_issuer_2 = 800;
-            let (claim_issuer_2_signed, claim_issuer_2_did) = make_account(claim_issuer_2).unwrap();
+            let (_claim_issuer_2_signed, claim_issuer_2_did) = make_account(claim_issuer_2).unwrap();
             add_trusted_cdd_provider(claim_issuer_2_did);
 
             let mut now = Utc::now();

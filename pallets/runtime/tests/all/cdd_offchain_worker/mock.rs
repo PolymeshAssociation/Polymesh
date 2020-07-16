@@ -34,9 +34,10 @@ use polymesh_common_utilities::traits::{
     group::{GroupTrait, InactiveMember},
     identity::Trait as IdentityTrait,
     multisig::MultiSigSubTrait,
+    transaction_payment::{ CddAndFeeDetails, ChargeTxFee },
     CommonTrait,
 };
-use primitives::{IdentityId, Signatory};
+use polymesh_primitives::{IdentityId, Signatory};
 use sp_core::{
     crypto::{key_types, Pair as PairTrait},
     offchain::{testing, OffchainExt, TransactionPoolExt},
@@ -60,7 +61,7 @@ use std::{
     cell::RefCell,
     collections::{BTreeMap, HashSet},
 };
-use test_client::AccountKeyring;
+use substrate_test_runtime_client::AccountKeyring;
 
 pub type AccountId = <AnySignature as Verify>::Signer;
 pub type BlockNumber = u64;
@@ -284,7 +285,7 @@ impl IdentityTrait for Test {
     type ProtocolFee = protocol_fee::Module<Test>;
 }
 
-impl pallet_transaction_payment::CddAndFeeDetails<AccountId, Call> for Test {
+impl CddAndFeeDetails<AccountId, Call> for Test {
     fn get_valid_payer(
         _: &Call,
         _: &Signatory<AccountId>,
@@ -299,7 +300,7 @@ impl pallet_transaction_payment::CddAndFeeDetails<AccountId, Call> for Test {
     fn set_current_identity(_: &IdentityId) {}
 }
 
-impl pallet_transaction_payment::ChargeTxFee for Test {
+impl ChargeTxFee for Test {
     fn charge_fee(_len: u32, _info: DispatchInfo) -> TransactionValidity {
         Ok(ValidTransaction::default())
     }

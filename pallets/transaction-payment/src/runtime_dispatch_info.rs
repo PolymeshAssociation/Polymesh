@@ -17,15 +17,15 @@
 //! Runtime API definition for transaction payment module.
 use codec::{Codec, Decode, Encode};
 use frame_support::weights::{DispatchClass, Weight};
-#[cfg(feature = "std")]
+#[cfg(feature = "serde")]
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
-use sp_runtime::traits::{MaybeDisplay, MaybeFromStr};
+// use sp_runtime::traits::{MaybeDisplay, MaybeFromStr};
 use sp_std::prelude::*;
 
 /// Some information related to a dispatchable that can be queried from the runtime.
 #[derive(Eq, PartialEq, Encode, Decode, Default)]
-#[cfg_attr(feature = "std", derive(Debug, Serialize, Deserialize))]
-#[cfg_attr(feature = "std", serde(rename_all = "camelCase"))]
+#[cfg_attr(feature = "std", derive(Debug))]
+#[cfg_attr(feature = "serde", serde(rename_all = "camelCase"), derive(Serialize, Deserialize))]
 pub struct RuntimeDispatchInfo<Balance> {
     /// Weight of this dispatch.
     pub weight: Weight,
@@ -34,19 +34,19 @@ pub struct RuntimeDispatchInfo<Balance> {
     /// The partial inclusion fee of this dispatch. This does not include tip or anything else which
     /// is dependent on the signature (aka. depends on a `SignedExtension`).
     #[cfg_attr(
-        feature = "std",
+        feature = "serde",
         serde(bound(serialize = "Balance: std::fmt::Display"))
     )]
-    #[cfg_attr(feature = "std", serde(serialize_with = "serialize_as_string"))]
+    #[cfg_attr(feature = "serde", serde(serialize_with = "serialize_as_string"))]
     #[cfg_attr(
-        feature = "std",
+        feature = "serde",
         serde(bound(deserialize = "Balance: std::str::FromStr"))
     )]
-    #[cfg_attr(feature = "std", serde(deserialize_with = "deserialize_from_string"))]
+    #[cfg_attr(feature = "serde", serde(deserialize_with = "deserialize_from_string"))]
     pub partial_fee: Balance,
 }
 
-#[cfg(feature = "std")]
+#[cfg(feature = "serde")]
 fn serialize_as_string<S: Serializer, T: std::fmt::Display>(
     t: &T,
     serializer: S,
@@ -54,7 +54,7 @@ fn serialize_as_string<S: Serializer, T: std::fmt::Display>(
     serializer.serialize_str(&t.to_string())
 }
 
-#[cfg(feature = "std")]
+#[cfg(feature = "serde")]
 fn deserialize_from_string<'de, D: Deserializer<'de>, T: std::str::FromStr>(
     deserializer: D,
 ) -> Result<T, D::Error> {
@@ -63,14 +63,14 @@ fn deserialize_from_string<'de, D: Deserializer<'de>, T: std::str::FromStr>(
         .map_err(|_| serde::de::Error::custom("Parse from string failed"))
 }
 
-sp_api::decl_runtime_apis! {
+// sp_api::decl_runtime_apis! {
     pub trait TransactionPaymentApi<Balance, Extrinsic> where
-        Balance: Codec + MaybeDisplay + MaybeFromStr,
+        Balance: Codec,
         Extrinsic: Codec,
     {
         fn query_info(uxt: Extrinsic, len: u32) -> RuntimeDispatchInfo<Balance>;
     }
-}
+//}
 
 #[cfg(test)]
 mod tests {
