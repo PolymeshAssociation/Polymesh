@@ -113,7 +113,7 @@ use polymesh_common_utilities::{
     traits::{balances::CheckCdd, identity::Trait as IdentityTrait, CommonTrait},
     Context, SystematicIssuers,
 };
-use polymesh_primitives::{IdentityId, JoinIdentityData, Signatory};
+use polymesh_primitives::{IdentityId, Signatory};
 use sp_core::H256;
 use sp_runtime::traits::{CheckedAdd, One, Zero};
 use sp_std::{convert::TryFrom, prelude::*};
@@ -269,7 +269,8 @@ decl_storage! {
             let creator_did = Context::current_identity_or::<identity::Module<T>>(&config.creator)
                 .expect("bridge creator account has no identity");
             <identity::Module<T>>::unsafe_join_identity(
-                JoinIdentityData::new(creator_did.clone(), vec![]),
+                creator_did,
+                vec![],
                 Signatory::Account(multisig_id.clone())
             ).expect("cannot link the bridge multisig");
             debug::info!("Joined identity {} as signer {}", creator_did, multisig_id);

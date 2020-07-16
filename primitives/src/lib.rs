@@ -152,7 +152,6 @@ pub use authorization::AuthIdentifier;
 pub use authorization::Authorization;
 pub use authorization::AuthorizationData;
 pub use authorization::AuthorizationError;
-pub use authorization::JoinIdentityData;
 
 /// Generic links that contains information about a key/identity for example ownership of a ticker
 pub mod link;

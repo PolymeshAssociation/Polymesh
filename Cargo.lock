@@ -3448,6 +3448,30 @@ dependencies = [
 ]
 
 [[package]]
+name = "pallet-settlement"
+version = "0.1.0"
+dependencies = [
+ "frame-support",
+ "frame-system",
+ "pallet-balances 0.1.0",
+ "pallet-identity",
+ "pallet-timestamp",
+ "parity-scale-codec",
+ "polymesh-common-utilities",
+ "polymesh-primitives",
+ "polymesh-primitives-derive",
+ "serde",
+ "serde_derive",
+ "sp-api",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+ "sp-serializer",
+ "sp-std",
+ "sp-version",
+]
+
+[[package]]
 name = "pallet-staking"
 version = "2.0.0"
 dependencies = [
@@ -4156,6 +4180,7 @@ dependencies = [
  "pallet-protocol-fee",
  "pallet-randomness-collective-flip",
  "pallet-session",
+ "pallet-settlement",
  "pallet-statistics",
  "pallet-timestamp",
  "pallet-transaction-payment",
@@ -4221,6 +4246,7 @@ dependencies = [
  "pallet-protocol-fee-rpc-runtime-api",
  "pallet-randomness-collective-flip",
  "pallet-session",
+ "pallet-settlement",
  "pallet-staking",
  "pallet-staking-reward-curve",
  "pallet-staking-rpc-runtime-api",
@@ -4302,6 +4328,7 @@ dependencies = [
  "pallet-protocol-fee-rpc-runtime-api",
  "pallet-randomness-collective-flip",
  "pallet-session",
+ "pallet-settlement",
  "pallet-staking",
  "pallet-staking-reward-curve",
  "pallet-staking-rpc-runtime-api",

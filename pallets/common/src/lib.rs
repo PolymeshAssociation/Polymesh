@@ -55,6 +55,7 @@ pub enum SystematicIssuers {
     CDDProvider,
     Treasury,
     BlockRewardReserve,
+    Settlement,
 }
 
 impl core::fmt::Display for SystematicIssuers {
@@ -64,6 +65,7 @@ impl core::fmt::Display for SystematicIssuers {
             SystematicIssuers::CDDProvider => "CDD Trusted Providers",
             SystematicIssuers::Treasury => "Treasury",
             SystematicIssuers::BlockRewardReserve => "Block Reward Reserve",
+            SystematicIssuers::Settlement => "Settlement module",
         };
 
         write!(f, "'{}'", value)
@@ -75,13 +77,15 @@ pub const SYSTEMATIC_ISSUERS: &[SystematicIssuers] = &[
     SystematicIssuers::Committee,
     SystematicIssuers::CDDProvider,
     SystematicIssuers::BlockRewardReserve,
+    SystematicIssuers::Settlement,
 ];
 
 impl SystematicIssuers {
     /// It returns the representation of this issuer as a raw public key.
     pub fn as_bytes(self) -> &'static [u8; 32] {
         use constants::did::{
-            BLOCK_REWARD_RESERVE_DID, CDD_PROVIDERS_DID, GOVERNANCE_COMMITTEE_DID, TREASURY_DID,
+            BLOCK_REWARD_RESERVE_DID, CDD_PROVIDERS_DID, GOVERNANCE_COMMITTEE_DID,
+            SETTLEMENT_MODULE_DID, TREASURY_DID,
         };
 
         match self {
@@ -89,6 +93,7 @@ impl SystematicIssuers {
             SystematicIssuers::CDDProvider => CDD_PROVIDERS_DID,
             SystematicIssuers::Treasury => TREASURY_DID,
             SystematicIssuers::BlockRewardReserve => BLOCK_REWARD_RESERVE_DID,
+            SystematicIssuers::Settlement => SETTLEMENT_MODULE_DID,
         }
     }
 
@@ -98,13 +103,16 @@ impl SystematicIssuers {
     }
 
     pub fn as_module_id(self) -> ModuleId {
-        use constants::{BRR_MODULE_ID, CDD_MODULE_ID, GC_MODULE_ID, TREASURY_MODULE_ID};
+        use constants::{
+            BRR_MODULE_ID, CDD_MODULE_ID, GC_MODULE_ID, SETTLEMENT_MODULE_ID, TREASURY_MODULE_ID,
+        };
 
         match self {
             SystematicIssuers::Committee => GC_MODULE_ID,
             SystematicIssuers::CDDProvider => CDD_MODULE_ID,
             SystematicIssuers::Treasury => TREASURY_MODULE_ID,
             SystematicIssuers::BlockRewardReserve => BRR_MODULE_ID,
+            SystematicIssuers::Settlement => SETTLEMENT_MODULE_ID,
         }
     }
 }

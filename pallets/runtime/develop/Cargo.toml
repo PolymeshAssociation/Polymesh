@@ -27,6 +27,7 @@ pallet-pips = { path = "../../pips", default-features = false  }
 pallet-committee = { path = "../../committee", default-features = false }
 pallet-multisig = { path = "../../multisig", default-features = false }
 pallet-treasury = { path = "../../treasury", default-features = false }
+pallet-settlement = { path = "../../settlement", default-features = false }
 pallet-im-online = { path = "../../im-online", default-features = false }
 pallet-compliance-manager = { path = "../../compliance-manager", default-features = false }
 pallet-statistics = { path = "../../statistics", default-features = false }
@@ -148,6 +149,7 @@ std = [
 	"pallet-sudo/std",
 	"pallet-timestamp/std",
 	"pallet-treasury/std",
+	"pallet-settlement/std",
 	"pallet-authority-discovery/std",
 	"pallet-babe/std",
 	"pallet-pips/std",

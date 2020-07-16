@@ -373,6 +373,9 @@ impl MultiSigSubTrait<AccountId> for Test {
     fn is_multisig(account: &AccountId) -> bool {
         unimplemented!()
     }
+    fn is_signer(key: &AccountId) -> bool {
+        unimplemented!()
+    }
 }
 
 impl CheckCdd<AccountId> for Test {
