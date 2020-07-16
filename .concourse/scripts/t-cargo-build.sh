@@ -12,9 +12,8 @@ SEMVER_DIR=$4
 pushd .
 cd $GIT_DIR
 
-CHANGE_LIST=$(cat .git/resource/changed_files | grep -v '^.concourse\|^Dockerfile\|scripts/cli')
-
-if [ ! -z "$CHANGE_LIST" ] || [ ! -f "target/release/polymesh" ]; then
+# Compile if the source minus exceptions changed or if the polymesh binary is missing
+if cat .git/resource/changed_files | grep -v '^.concourse\|^Dockerfile\|scripts/cli' || [ ! -f "target/release/polymesh" ]; then
     cargo build --release || cargo build -j 1 --release
 fi
 
