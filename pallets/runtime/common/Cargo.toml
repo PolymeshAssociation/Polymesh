@@ -32,7 +32,7 @@ pallet-settlement = { path = "../../settlement", default-features = false }
 chrono = { version = "0.4.11", default-features = false }
 rand = { version = "0.7.3", default-features = false }
 lazy_static = { version = "1.4.0", default-features = false }
-serde = { version = "1.0.104", default-features = false }
+serde = { version = "1.0.104", optional = true }
 serde_derive = { version = "1.0.104", optional = true }
 serde_json = { version = "1.0.48", default-features = false }
 
@@ -67,35 +67,36 @@ default = ["std", "equalize", "runtime-benchmarks"]
 no_std = []
 only-staking = []
 std = [
-	"serde_derive",
-	"serde/std",
-	"codec/std",
-	"sp-std/std",
-	"sp-io/std",
-	"sp-core/std",
-	"sp-runtime/std",
-	"pallet-contracts/std",
-	"pallet-timestamp/std",
-	"pallet-treasury/std",
-	"pallet-group/std",
-	"pallet-pips/std",
-	"pallet-session/std",
-	"pallet-committee/std",
-	"pallet-balances/std",
-	"pallet-identity/std",
-	"pallet-multisig/std",
-	"pallet-treasury/std",
-	"pallet-transaction-payment/std",
-	"pallet-randomness-collective-flip/std",
-	"pallet-identity-rpc-runtime-api/std",
-	"pallet-utility/std",
-	"frame-benchmarking/std",
-	"frame-support/std",
-	"frame-system/std",
-	"polymesh-common-utilities/std",
-	"pallet-protocol-fee/std",
-	"ink_primitives/std",
-	"sp-arithmetic/std"
+    "codec/std",
+    "frame-benchmarking/std",
+    "frame-support/std",
+    "frame-system/std",
+    "ink_primitives/std",
+    "pallet-balances/std",
+    "pallet-committee/std",
+    "pallet-compliance-manager/std",
+    "pallet-contracts/std",
+    "pallet-group/std",
+    "pallet-identity-rpc-runtime-api/std",
+    "pallet-identity/std",
+    "pallet-multisig/std",
+    "pallet-pips/std",
+    "pallet-protocol-fee/std",
+    "pallet-randomness-collective-flip/std",
+    "pallet-session/std",
+    "pallet-timestamp/std",
+    "pallet-transaction-payment/std",
+    "pallet-treasury/std",
+    "pallet-treasury/std",
+    "pallet-utility/std",
+    "polymesh-common-utilities/std",
+    "serde",
+    "serde_derive",
+    "sp-arithmetic/std",
+    "sp-core/std",
+    "sp-io/std",
+    "sp-runtime/std",
+    "sp-std/std"
 ]
 
 runtime-benchmarks = [

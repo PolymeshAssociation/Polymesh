@@ -83,7 +83,7 @@ pub trait RuntimeApiCollection<Extrinsic: codec::Codec + Send + Sync + 'static>:
     > + pallet_protocol_fee_rpc_runtime_api::ProtocolFeeApi<Block>
     + node_rpc_runtime_api::asset::AssetApi<Block, AccountId, Balance>
     + pallet_group_rpc_runtime_api::GroupApi<Block>
-    + node_rpc::compliance_manager::ComplianceManagerApi<Block, AccountId, Balance>
+    + node_rpc_runtime_api::compliance_manager::ComplianceManagerApi<Block, AccountId, Balance>
 where
     Extrinsic: RuntimeExtrinsic,
     <Self as sp_api::ApiExt<Block>>::StateBackend: sp_api::StateBackend<BlakeTwo256>,
@@ -117,7 +117,7 @@ where
         > + pallet_protocol_fee_rpc_runtime_api::ProtocolFeeApi<Block>
         + node_rpc_runtime_api::asset::AssetApi<Block, AccountId, Balance>
         + pallet_group_rpc_runtime_api::GroupApi<Block>
-        + node_rpc::compliance_manager::ComplianceManagerApi<Block, AccountId, Balance>,
+        + node_rpc_runtime_api::compliance_manager::ComplianceManagerApi<Block, AccountId, Balance>,
     Extrinsic: RuntimeExtrinsic,
     <Self as sp_api::ApiExt<Block>>::StateBackend: sp_api::StateBackend<BlakeTwo256>,
 {

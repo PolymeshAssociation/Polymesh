@@ -126,11 +126,11 @@ where
     SC: SelectChain<Block> + 'static,
 {
     use frame_rpc_system::{FullSystem, SystemApi};
+    use node_rpc::compliance_manager::{ComplianceManager, ComplianceManagerApi};
     use node_rpc::{
         asset::{Asset, AssetApi},
         pips::{Pips, PipsApi},
     };
-    use node_rpc::compliance_manager::{ComplianceManager, ComplianceManagerApi};
     use pallet_contracts_rpc::{Contracts, ContractsApi};
     use pallet_group_rpc::{Group, GroupApi};
     use pallet_identity_rpc::{Identity, IdentityApi};

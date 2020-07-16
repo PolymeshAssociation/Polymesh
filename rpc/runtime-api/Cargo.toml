@@ -6,7 +6,7 @@ edition = "2018"
 
 [dependencies]
 # Our pallets
-pallet-compliance-manager = { path = "../../pallets/compliance-manager", default-features = false  }
+pallet-compliance-manager = { path = "../../pallets/compliance-manager", default-features = false }
 pallet-pips = { path = "../../pallets/pips", default-features = false  }
 polymesh-primitives = { path = "../../primitives", default-features = false }
 
