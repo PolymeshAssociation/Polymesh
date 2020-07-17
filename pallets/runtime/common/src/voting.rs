@@ -181,10 +181,7 @@ decl_module! {
                 ensure!(!motion.choices.is_empty(), Error::<T>::NoChoicesInMotions);
                 total_choices += motion.choices.len();
             }
-            <<T as IdentityTrait>::ProtocolFee>::charge_fee(
-                &signer,
-                ProtocolOp::VotingAddBallot
-            )?;
+            <<T as IdentityTrait>::ProtocolFee>::charge_fee(ProtocolOp::VotingAddBallot)?;
             if let Ok(total_choices_u64) = u64::try_from(total_choices) {
                 <TotalChoices>::insert(&ticker_ballot_name, total_choices_u64);
             } else {

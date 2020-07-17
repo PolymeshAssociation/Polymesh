@@ -82,7 +82,7 @@ use polymesh_common_utilities::{
     traits::{governance_group::GovernanceGroupTrait, group::GroupTrait, pip::PipId},
     CommonTrait, Context, SystematicIssuers,
 };
-use polymesh_primitives::{Beneficiary, IdentityId, Signatory};
+use polymesh_primitives::{Beneficiary, IdentityId};
 use polymesh_primitives_derive::VecU8StrongTyped;
 #[cfg(feature = "std")]
 use serde::{Deserialize, Serialize};
@@ -556,7 +556,6 @@ decl_module! {
             beneficiaries: Option<Vec<Beneficiary<T::Balance>>>
         ) -> DispatchResult {
             let proposer = ensure_signed(origin)?;
-            let signer = Signatory::Account(proposer.clone());
 
             // Pre conditions: caller must have min balance
             ensure!(
@@ -566,10 +565,7 @@ decl_module! {
 
             // Reserve the minimum deposit
             <T as Trait>::Currency::reserve(&proposer, deposit).map_err(|_| Error::<T>::InsufficientDeposit)?;
-            <T as IdentityTrait>::ProtocolFee::charge_fee(
-                &signer,
-                ProtocolOp::PipsPropose
-            )?;
+            <T as IdentityTrait>::ProtocolFee::charge_fee(ProtocolOp::PipsPropose)?;
 
             let id = Self::next_pip_id();
             let curr_block_number = <system::Module<T>>::block_number();

@@ -5,14 +5,13 @@ authors = ["Polymath"]
 edition = "2018"
 
 [dependencies]
-pallet-identity = { package = "pallet-identity", path = "../identity", default-features = false  }
-
-
 codec = { package = "parity-scale-codec", version = "1.2.0", default-features = false, features = ["derive"] }
 frame-support = { git = "https://github.com/paritytech/substrate", default-features = false, rev = "c771821cae2dcb5a8808a19fae8122c0b9ae8499" }
 frame-system = { git = "https://github.com/paritytech/substrate", default-features = false, rev = "c771821cae2dcb5a8808a19fae8122c0b9ae8499" }
+pallet-identity = { path = "../identity", default-features = false  }
+pallet-transaction-payment = { path = "../transaction-payment", default-features = false  }
 polymesh-common-utilities = { path = "../common", default-features = false }
-primitives = { package = "polymesh-primitives", default-features = false, path = "../../primitives" }
+polymesh-primitives = { path = "../../primitives", default-features = false }
 serde = { version = "1.0.104", default-features = false }
 sp-core = { package = "sp-core", git = "https://github.com/paritytech/substrate", default-features = false, rev = "c771821cae2dcb5a8808a19fae8122c0b9ae8499" }
 sp-io = { package = "sp-io", git = "https://github.com/paritytech/substrate", default-features = false, rev = "c771821cae2dcb5a8808a19fae8122c0b9ae8499" }
@@ -29,12 +28,13 @@ std = [
     "codec/std",
     "frame-support/std",
     "frame-system/std",
+    "pallet-identity/std",
+    "pallet-transaction-payment/std",
     "polymesh-common-utilities/std",
-    "primitives/std",
+    "polymesh-primitives/std",
     "serde/std",
     "sp-core/std",
     "sp-io/std",
     "sp-runtime/std",
     "sp-std/std",
-    "pallet-identity/std",
 ]

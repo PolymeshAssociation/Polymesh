@@ -3373,6 +3373,7 @@ dependencies = [
  "frame-support",
  "frame-system",
  "pallet-identity",
+ "pallet-transaction-payment",
  "parity-scale-codec",
  "polymesh-common-utilities",
  "polymesh-primitives",
