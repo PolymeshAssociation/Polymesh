@@ -12,7 +12,6 @@ use frame_support::{
 };
 use pallet_balances as balances;
 use pallet_identity::{self as identity, BatchAddClaimItem, BatchRevokeClaimItem, Error};
-use pallet_identity_rpc_runtime_api::LinkType;
 use pallet_transaction_payment::CddAndFeeDetails;
 use polymesh_common_utilities::{
     traits::{

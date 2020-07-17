@@ -29,7 +29,7 @@ use polymesh_common_utilities::{
     CommonTrait,
 };
 use polymesh_primitives::{
-    AccountId, AccountIndex, Balance, BlockNumber, Hash, IdentityId, Index, Link, Moment,
+    AccountId, AccountIndex, Balance, BlockNumber, Hash, IdentityId, Index, Moment,
     Signatory, Signature, SigningItem, Ticker,
 };
 use polymesh_runtime_common::{
@@ -77,7 +77,7 @@ use pallet_contracts_rpc_runtime_api::ContractExecResult;
 use pallet_grandpa::{
     fg_primitives, AuthorityId as GrandpaId, AuthorityList as GrandpaAuthorityList,
 };
-use pallet_identity_rpc_runtime_api::{AssetDidResult, CddStatus, DidRecords, DidStatus, LinkType};
+use pallet_identity_rpc_runtime_api::{AssetDidResult, CddStatus, DidRecords, DidStatus};
 use pallet_im_online::sr25519::AuthorityId as ImOnlineId;
 use pallet_protocol_fee_rpc_runtime_api::CappedFee;
 use pallet_session::historical as pallet_session_historical;

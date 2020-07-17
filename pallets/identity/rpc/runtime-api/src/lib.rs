@@ -26,14 +26,6 @@ pub enum DidRecords<AccountId, SigningItem> {
     IdNotFound,
 }
 
-#[derive(Eq, PartialEq, Encode, Decode)]
-#[cfg_attr(feature = "std", derive(Debug, Serialize, Deserialize))]
-pub enum LinkType {
-    DocumentOwnership,
-    TickerOwnership,
-    AssetOwnership,
-    NoData,
-}
 #[derive(Encode, Decode, PartialEq, Eq)]
 #[cfg_attr(feature = "std", derive(Debug, Serialize, Deserialize))]
 pub enum DidStatus {

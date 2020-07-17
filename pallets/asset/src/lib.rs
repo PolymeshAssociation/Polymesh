@@ -1053,7 +1053,7 @@ decl_module! {
             )?;
 
             for (document_name, document) in documents {
-                <AssetDocuments>::insert(ticker, document_name, document);
+                <AssetDocuments>::insert(ticker, &document_name, document.clone());
                 Self::deposit_event(RawEvent::DocumentAdded(ticker, document_name, document));
             }
 
@@ -1076,7 +1076,7 @@ decl_module! {
             ensure!(Self::is_owner(&ticker, did), Error::<T>::NotAnOwner);
 
             for document_name in doc_names {
-                <AssetDocuments>::remove(ticker, document_name);
+                <AssetDocuments>::remove(ticker, &document_name);
                 Self::deposit_event(RawEvent::DocumentRemoved(ticker, document_name));
             }
 
