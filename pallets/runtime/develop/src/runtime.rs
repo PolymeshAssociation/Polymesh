@@ -1038,15 +1038,6 @@ impl_runtime_apis! {
             Identity::get_did_records(did)
         }
 
-        /// Retrieve list of a link for a given signatory
-        fn get_filtered_links(
-            signatory: Signatory<AccountId>,
-            allow_expired: bool,
-            link_type: Option<LinkType>
-        ) -> Vec<Link<Moment>> {
-            Identity::get_filtered_links(signatory, allow_expired, link_type)
-        }
-
         /// Retrieve the status of the DIDs
         fn get_did_status(dids: Vec<IdentityId>) -> Vec<DidStatus> {
             Identity::get_did_status(dids)
