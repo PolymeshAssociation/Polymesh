@@ -107,7 +107,7 @@ use polymesh_common_utilities::{
 use polymesh_primitives::{
     AuthIdentifier, Authorization, AuthorizationData, AuthorizationError, Claim, ClaimType,
     Identity as DidRecord, IdentityClaim, IdentityId, Link, LinkData, Permission, Scope, Signatory,
-    SignatoryType, SigningItem, Ticker,
+    SigningItem, Ticker,
 };
 use sp_core::sr25519::Signature;
 use sp_io::hashing::blake2_256;
@@ -233,11 +233,11 @@ decl_storage! {
                 // Direct storage change for attaching some signing keys to identities
                 assert!(<DidRecords<T>>::contains_key(did), "Identity does not exist");
                 assert!(
-                    <Module<T>>::can_key_be_linked_to_did(&signer_id, SignatoryType::External),
+                    <Module<T>>::can_key_be_linked_to_did(&signer_id),
                     "Signing key already linked"
                 );
                 <MultiPurposeNonce>::mutate(|n| *n += 1_u64);
-                <Module<T>>::link_key_to_did(&signer_id, SignatoryType::External, did);
+                <Module<T>>::link_key_to_did(&signer_id, did);
                 <DidRecords<T>>::mutate(did, |record| {
                     (*record).add_signing_items(&[SigningItem::from_account_id(signer_id.clone())]);
                 });
@@ -408,7 +408,7 @@ decl_module! {
             let _grants_checked = Self::grant_check_only_master_key(&sender, did)?;
 
             ensure!(
-                Self::can_key_be_linked_to_did(&new_key, SignatoryType::External),
+                Self::can_key_be_linked_to_did(&new_key),
                 Error::<T>::AlreadyLinked
             );
             T::ProtocolFee::charge_fee(
@@ -995,7 +995,7 @@ decl_module! {
                     if let Signatory::Account(key) = &si.signer {
                         // 1.1. Constraint 1-to-1 account to DID
                         ensure!(
-                            Self::can_key_be_linked_to_did(key, si.signer_type),
+                            Self::can_key_be_linked_to_did(key),
                             Error::<T>::AlreadyLinked
                         );
                     }
@@ -1032,7 +1032,7 @@ decl_module! {
 
             additional_keys_si.iter().for_each( |si| {
                 if let Signatory::Account(ref key) = si.signer {
-                    Self::link_key_to_did(key, si.signer_type, id);
+                    Self::link_key_to_did(key, id);
                 }
             });
             // 2.2. Update that identity information and its offchain authorization nonce.
@@ -1186,10 +1186,10 @@ impl<T: Trait> Module<T> {
         )?;
         if let Signatory::Account(key) = &signer {
             ensure!(
-                Self::can_key_be_linked_to_did(key, SignatoryType::External),
+                Self::can_key_be_linked_to_did(key),
                 Error::<T>::AlreadyLinked
             );
-            Self::link_key_to_did(key, SignatoryType::External, target_did);
+            Self::link_key_to_did(key, target_did);
         }
 
         // create the SigningItem
@@ -1432,7 +1432,7 @@ impl<T: Trait> Module<T> {
         <DidRecords<T>>::mutate(&rotation_for_did, |record| {
             Self::unlink_key_from_did(&record.master_key, rotation_for_did);
             record.master_key = sender.clone();
-            Self::link_key_to_did(&sender, SignatoryType::External, rotation_for_did);
+            Self::link_key_to_did(&sender, rotation_for_did);
         });
 
         Self::deposit_event(RawEvent::MasterKeyUpdated(
@@ -1723,12 +1723,9 @@ impl<T: Trait> Module<T> {
 
     /// It checks that any external account can only be associated with at most one.
     /// Master keys are considered as external accounts.
-    pub fn can_key_be_linked_to_did(key: &T::AccountId, signer_type: SignatoryType) -> bool {
+    pub fn can_key_be_linked_to_did(key: &T::AccountId) -> bool {
         if let Some(linked_key_info) = <KeyToIdentityIds<T>>::get(key) {
-            match linked_key_info {
-                LinkedKeyInfo::Unique(..) => false,
-                LinkedKeyInfo::Group(..) => signer_type != SignatoryType::External,
-            }
+            false
         } else if T::MultiSig::is_signer(key) {
             false
         } else {
@@ -1740,22 +1737,10 @@ impl<T: Trait> Module<T> {
     /// # Errors
     /// This function can be used if `can_key_be_linked_to_did` returns true. Otherwise, it will do
     /// nothing.
-    fn link_key_to_did(key: &T::AccountId, key_type: SignatoryType, did: IdentityId) {
-        if let Some(linked_key_info) = <KeyToIdentityIds<T>>::get(key) {
-            if let LinkedKeyInfo::Group(mut dids) = linked_key_info {
-                if !dids.contains(&did) && key_type != SignatoryType::External {
-                    dids.push(did);
-                    dids.sort();
-
-                    <KeyToIdentityIds<T>>::insert(key, LinkedKeyInfo::Group(dids));
-                }
-            }
-        } else {
+    fn link_key_to_did(key: &T::AccountId, did: IdentityId) {
+        if <KeyToIdentityIds<T>>::get(key).is_none() {
             // `key` is not yet linked to any identity, so no constraints.
-            let linked_key_info = match key_type {
-                SignatoryType::External => LinkedKeyInfo::Unique(did),
-                _ => LinkedKeyInfo::Group(vec![did]),
-            };
+            let linked_key_info = LinkedKeyInfo::Unique(did);
             <KeyToIdentityIds<T>>::insert(key, linked_key_info);
         }
     }
@@ -1822,7 +1807,7 @@ impl<T: Trait> Module<T> {
         // 1 Check constraints.
         // 1.1. Master key is not linked to any identity.
         ensure!(
-            Self::can_key_be_linked_to_did(&sender, SignatoryType::External),
+            Self::can_key_be_linked_to_did(&sender),
             Error::<T>::MasterKeyAlreadyLinked
         );
         // 1.2. Master key is not part of signing keys.
@@ -1848,7 +1833,7 @@ impl<T: Trait> Module<T> {
         for s_item in &signing_items {
             if let Signatory::Account(ref key) = s_item.signer {
                 ensure!(
-                    Self::can_key_be_linked_to_did(key, s_item.signer_type),
+                    Self::can_key_be_linked_to_did(key),
                     Error::<T>::AlreadyLinked
                 );
             }
@@ -1861,7 +1846,7 @@ impl<T: Trait> Module<T> {
 
         // 2. Apply changes to our extrinsic.
         // 2.1. Link master key and add pre-authorized signing keys.
-        Self::link_key_to_did(&sender, SignatoryType::External, did);
+        Self::link_key_to_did(&sender, did);
         let _auth_ids = signing_items
             .iter()
             .map(|s_item| {
@@ -2118,7 +2103,7 @@ impl<T: Trait> Module<T> {
 
     /// Registers `master_key` as `id` identity.
     fn unsafe_register_id(master_key: T::AccountId, id: IdentityId) {
-        <Module<T>>::link_key_to_did(&master_key, SignatoryType::External, id);
+        <Module<T>>::link_key_to_did(&master_key, id);
         let record = DidRecord {
             master_key: master_key.clone(),
             ..Default::default()

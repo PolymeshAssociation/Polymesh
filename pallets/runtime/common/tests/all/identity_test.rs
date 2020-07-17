@@ -25,7 +25,7 @@ use polymesh_common_utilities::{
 };
 use polymesh_primitives::{
     AuthorizationData, AuthorizationError, Claim, ClaimType, Document, IdentityClaim, IdentityId,
-    LinkData, Permission, Scope, Signatory, SignatoryType, SigningItem, Ticker, TransactionError,
+    LinkData, Permission, Scope, Signatory, SigningItem, Ticker, TransactionError,
 };
 use polymesh_runtime_develop::{fee_details::CddHandler, runtime::Call};
 use sp_core::crypto::AccountId32;
@@ -1686,13 +1686,11 @@ fn add_permission_with_signing_item() {
             // SigningItem added
             let sig_1 = SigningItem {
                 signer: Signatory::Account(bob_acc),
-                signer_type: SignatoryType::External,
                 permissions: vec![Permission::Admin, Permission::Operator],
             };
 
             let sig_2 = SigningItem {
                 signer: Signatory::Account(charlie_acc),
-                signer_type: SignatoryType::External,
                 permissions: vec![Permission::Full],
             };
 
