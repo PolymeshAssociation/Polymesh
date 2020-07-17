@@ -55,27 +55,26 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use codec::{Decode, Encode};
-use core::{convert::TryFrom};
 use frame_support::{
     decl_error, decl_event, decl_module, decl_storage,
     dispatch::PostDispatchInfo,
+    ensure,
     traits::UnfilteredDispatchable,
     weights::{DispatchClass, GetDispatchInfo, Weight},
     Parameter,
 };
 use frame_system as system;
-use frame_system::{ensure_signed, RawOrigin};
+use frame_system::{ensure_root, ensure_signed, RawOrigin};
 use polymesh_common_utilities::{
     balances::CheckCdd, identity::AuthorizationNonce, identity::Trait as IdentityModule,
 };
-use polymesh_primitives::AccountKey;
 use sp_runtime::{
     traits::Dispatchable, traits::Verify, DispatchError, DispatchResult, RuntimeDebug,
 };
 use sp_std::prelude::*;
 
 /// Configuration trait.
-pub trait Trait: frame_system::Trait {
+pub trait Trait: frame_system::Trait + IdentityModule {
     /// The overarching event type.
     type Event: From<Event> + Into<<Self as frame_system::Trait>::Event>;
 
@@ -88,7 +87,9 @@ pub trait Trait: frame_system::Trait {
 }
 
 decl_storage! {
-    trait Store for Module<T: Trait> as Utility { }
+    trait Store for Module<T: Trait> as Utility {
+        Nonces get(fn nonces): map hasher(twox_64_concat) T::AccountId => AuthorizationNonce;
+    }
 }
 
 decl_error! {
@@ -121,7 +122,7 @@ decl_event! {
 #[derive(Encode, Decode, Clone, PartialEq, Eq, RuntimeDebug)]
 pub struct UniqueCall<C> {
     nonce: AuthorizationNonce,
-    inner: C,
+    inner: Box<C>,
 }
 
 decl_module! {
@@ -195,9 +196,6 @@ decl_module! {
         ) -> DispatchResult {
             let origin = ensure_signed(origin)?;
 
-           let origin_key = AccountKey::try_from(origin.encode())?;
-           let target_key = AccountKey::try_from(target.encode())?;
-
            let target_nonce = <Nonces<T>>::get(&target);
 
             ensure!(
@@ -211,18 +209,20 @@ decl_module! {
             );
 
             ensure!(
-                T::CddChecker::check_key_cdd(&origin_key),
+                T::CddChecker::check_key_cdd(&origin),
                 Error::<T>::OriginCddMissing
             );
 
             ensure!(
-                T::CddChecker::check_key_cdd(&target_key),
+                T::CddChecker::check_key_cdd(&target),
                 Error::<T>::TargetCddMissing
             );
 
             <Nonces<T>>::insert(target.clone(), target_nonce + 1);
 
             call.inner.dispatch(RawOrigin::Signed(target).into())
+                .map(|_| ())
+                .map_err(|e| e.error)
         }
     }
 }

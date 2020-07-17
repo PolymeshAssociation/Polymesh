@@ -1094,6 +1094,7 @@ decl_error! {
         /// Given authorization is not pre-known
         UnknownAuthorization,
         /// Account Id cannot be extracted from signer
+
         InvalidAccountKey,
         /// Only CDD service providers are allowed.
         UnAuthorizedCddProvider,
