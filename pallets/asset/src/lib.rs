@@ -499,7 +499,8 @@ decl_module! {
                 did,
                 total_supply,
                 Self::funding_round(ticker),
-                total_supply
+                total_supply,
+                treasury_did,
             ));
             Ok(())
         }
@@ -786,7 +787,8 @@ decl_module! {
                     issue_asset_items[i].investor_did,
                     issue_asset_items[i].value,
                     round.clone(),
-                    issued_in_this_round
+                    issued_in_this_round,
+                    token.treasury_did,
                 ));
             }
             <Tokens<T>>::insert(ticker, token);
@@ -1337,8 +1339,9 @@ decl_event! {
         /// caller DID, ticker, owner DID, spender DID, value
         Approval(IdentityId, Ticker, IdentityId, IdentityId, Balance),
         /// Emit when tokens get issued.
-        /// caller DID, ticker, beneficiary DID, value, funding round, total issued in this funding round
-        Issued(IdentityId, Ticker, IdentityId, Balance, FundingRoundName, Balance),
+        /// caller DID, ticker, beneficiary DID, value, funding round, total issued in this funding round,
+        /// treasury DID
+        Issued(IdentityId, Ticker, IdentityId, Balance, FundingRoundName, Balance, Option<IdentityId>),
         /// Emit when tokens get redeemed.
         /// caller DID, ticker,  from DID, value
         Redeemed(IdentityId, Ticker, IdentityId, Balance),
@@ -1952,6 +1955,7 @@ impl<T: Trait> Module<T> {
         Self::_update_checkpoint(ticker, to_did, current_to_balance);
 
         <BalanceOf<T>>::insert(ticker, &to_did, updated_to_balance);
+        let treasury_did = token.treasury_did;
         <Tokens<T>>::insert(ticker, token);
         let round = Self::funding_round(ticker);
         let ticker_round = (*ticker, round.clone());
@@ -1966,6 +1970,7 @@ impl<T: Trait> Module<T> {
             value,
             round,
             issued_in_this_round,
+            treasury_did,
         ));
 
         Ok(())
