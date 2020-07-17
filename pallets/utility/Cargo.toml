@@ -28,5 +28,7 @@ std = [
 	"frame-support/std",
 	"frame-system/std",
 	"sp-io/std",
-	"sp-std/std"
+	"sp-std/std",
+    "polymesh-common-utilities/std",
+    "polymesh-primitives/std",
 ]

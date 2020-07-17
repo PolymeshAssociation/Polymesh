@@ -54,6 +54,8 @@
 // Ensure we're `no_std` when compiling for Wasm.
 #![cfg_attr(not(feature = "std"), no_std)]
 
+use codec::{Decode, Encode};
+use core::{convert::TryFrom};
 use frame_support::{
     decl_error, decl_event, decl_module, decl_storage,
     dispatch::PostDispatchInfo,
@@ -61,8 +63,15 @@ use frame_support::{
     weights::{DispatchClass, GetDispatchInfo, Weight},
     Parameter,
 };
-use frame_system::{self as system, ensure_root};
-use sp_runtime::{traits::Dispatchable, DispatchError, DispatchResult};
+use frame_system as system;
+use frame_system::{ensure_signed, RawOrigin};
+use polymesh_common_utilities::{
+    balances::CheckCdd, identity::AuthorizationNonce, identity::Trait as IdentityModule,
+};
+use polymesh_primitives::AccountKey;
+use sp_runtime::{
+    traits::Dispatchable, traits::Verify, DispatchError, DispatchResult, RuntimeDebug,
+};
 use sp_std::prelude::*;
 
 /// Configuration trait.
@@ -84,6 +93,16 @@ decl_storage! {
 
 decl_error! {
     pub enum Error for Module<T: Trait> {
+        /// Offchain signature is invalid
+        InvalidSignature,
+        /// Target does not have a valid CDD
+        TargetCddMissing,
+        /// Origin does not have a valid CDD
+        OriginCddMissing,
+        /// Provided nonce was invalid
+        /// If the provided nonce < current nonce, the call was already executed
+        /// If the provided nonce > current nonce, the call(s) before the current failed to execute
+        InvalidNonce,
     }
 }
 
@@ -97,6 +116,12 @@ decl_event! {
         /// Batch of dispatches completed fully with no error.
         BatchCompleted,
     }
+}
+
+#[derive(Encode, Decode, Clone, PartialEq, Eq, RuntimeDebug)]
+pub struct UniqueCall<C> {
+    nonce: AuthorizationNonce,
+    inner: C,
 }
 
 decl_module! {
@@ -155,6 +180,49 @@ decl_module! {
             Self::deposit_event(Event::BatchCompleted);
 
             Ok(())
+        }
+
+        /// TODO docs
+        #[weight = (
+            call.inner.get_dispatch_info().weight.saturating_add(250_000),
+            call.inner.get_dispatch_info().class,
+        )]
+        pub fn relay_tx(
+            origin,
+            target: T::AccountId,
+            signature: <T as IdentityModule>::OffChainSignature,
+            call: UniqueCall<<T as Trait>::Call>
+        ) -> DispatchResult {
+            let origin = ensure_signed(origin)?;
+
+           let origin_key = AccountKey::try_from(origin.encode())?;
+           let target_key = AccountKey::try_from(target.encode())?;
+
+           let target_nonce = <Nonces<T>>::get(&target);
+
+            ensure!(
+                target_nonce == call.nonce,
+                Error::<T>::InvalidNonce
+            );
+
+            ensure!(
+                signature.verify(call.encode().as_slice(), &target),
+                Error::<T>::InvalidSignature
+            );
+
+            ensure!(
+                T::CddChecker::check_key_cdd(&origin_key),
+                Error::<T>::OriginCddMissing
+            );
+
+            ensure!(
+                T::CddChecker::check_key_cdd(&target_key),
+                Error::<T>::TargetCddMissing
+            );
+
+            <Nonces<T>>::insert(target.clone(), target_nonce + 1);
+
+            call.inner.dispatch(RawOrigin::Signed(target).into())
         }
     }
 }
