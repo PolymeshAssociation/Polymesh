@@ -626,6 +626,10 @@
             "leg_id": "u64",
             "signer": "AccountId",
             "signature": "OffChainSignature"
+        },
+        "UniqueCall": {
+            "nonce": "u64",
+            "call": "call"
         }
     },
     "rpc": {
