@@ -265,7 +265,6 @@ decl_module! {
         #[weight = 100_000_000]
         pub fn register_did(origin, signing_items: Vec<SigningItem<T::AccountId>>) -> DispatchResult {
             let sender = ensure_signed(origin)?;
-            let signer = Signatory::Account(sender.clone());
             Self::_register_did(sender, signing_items, Some(ProtocolOp::IdentityRegisterDid))?;
             Ok(())
         }

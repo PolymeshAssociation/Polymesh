@@ -168,10 +168,10 @@ impl<T: Trait> Module<T> {
         if fee.is_zero() {
             return Ok(());
         }
-        let imbalance = Self::withdraw_fee(fee)?;
-        // Pay the fee to the intended recipients depending on the implementation of
-        // `OnProtocolFeePayment`.
-        T::OnProtocolFeePayment::on_unbalanced(imbalance);
+        if let Some(payer) = T::CddHandler::get_payer_from_context() {
+            let imbalance = Self::withdraw_fee(payer, fee)?;
+            T::OnProtocolFeePayment::on_unbalanced(imbalance);
+        }
         Ok(())
     }
 
@@ -181,21 +181,16 @@ impl<T: Trait> Module<T> {
         if fee.is_zero() {
             return Ok(());
         }
-        let imbalance = Self::withdraw_fee(fee)?;
-        T::OnProtocolFeePayment::on_unbalanced(imbalance);
+        if let Some(payer) = T::CddHandler::get_payer_from_context() {
+            let imbalance = Self::withdraw_fee(payer, fee)?;
+            T::OnProtocolFeePayment::on_unbalanced(imbalance);
+        }
         Ok(())
     }
 
     /// Withdraws a precomputed fee from the current payer if it is defined or from the current
     /// identity otherwise.
-    fn withdraw_fee(fee: BalanceOf<T>) -> WithdrawFeeResult<T> {
-        let payer = if let Some(payer) = T::CddHandler::get_payer_from_context() {
-            payer
-        } else {
-            let current_did = Context::current_identity::<Identity<T>>()
-                .ok_or_else(|| Error::<T>::MissingCurrentIdentity)?;
-            Signatory::Identity(current_did)
-        };
+    fn withdraw_fee(payer: Signatory<T::AccountId>, fee: BalanceOf<T>) -> WithdrawFeeResult<T> {
         let result = match &payer {
             Signatory::Identity(did) => T::Currency::withdraw_identity_balance(did, fee)
                 .map_err(|_| Error::<T>::InsufficientIdentityBalance.into()),
