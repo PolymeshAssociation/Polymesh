@@ -245,7 +245,6 @@ decl_storage! {
         /// transfers some POLY to their identity.
         Controller get(fn controller) build(|config: &GenesisConfig<T>| {
             use frame_support::debug;
-            use polymesh_primitives::JoinIdentityData;
 
             if config.signatures_required > u64::try_from(config.signers.len()).unwrap_or_default()
             {
@@ -273,7 +272,8 @@ decl_storage! {
             let creator_did = Context::current_identity_or::<identity::Module<T>>(&config.creator)
                 .expect("bridge creator account has no identity");
             <identity::Module<T>>::unsafe_join_identity(
-                JoinIdentityData::new(creator_did.clone(), vec![]),
+                creator_did,
+                vec![],
                 Signatory::Account(multisig_id.clone())
             ).expect("cannot link the bridge multisig");
             debug::info!("Joined identity {} as signer {}", creator_did, multisig_id);

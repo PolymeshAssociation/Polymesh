@@ -18,9 +18,9 @@ async function main() {
   let charlie = testEntities[2];
   let dave = testEntities[3];
 
-  let master_keys = await reqImports.generateKeys(api,5, "master");
+  let master_keys = await reqImports.generateKeys(api, 2, "master2");
 
-  let signing_keys = await reqImports.generateKeys(api, 5, "signing");
+  let signing_keys = await reqImports.generateKeys(api, 2, "signing2");
 
   let issuer_dids = await reqImports.createIdentities(api, master_keys, alice);
 
@@ -54,7 +54,7 @@ async function addSigningKeys( api, accounts, dids, signing_accounts ) {
 
     // 1. Add Signing Item to identity.
     let nonceObj = {nonce: reqImports.nonces.get(accounts[i].address)};
-    const transaction = api.tx.identity.addAuthorizationAsKey({Account: signing_accounts[i].publicKey}, {JoinIdentity: { target_did: dids[i], signing_item: null }}, null);
+    const transaction = api.tx.identity.addAuthorization({Account: signing_accounts[i].publicKey}, {JoinIdentity: []}, null);
     const result = await reqImports.sendTransaction(transaction, accounts[i], nonceObj);
     const passed = result.findRecord('system', 'ExtrinsicSuccess');
     if (passed) reqImports.fail_count--;

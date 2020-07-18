@@ -24,26 +24,31 @@ use sp_std::prelude::*;
 
 /// Authorization data for two step processes.
 #[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, PartialOrd, Ord)]
-pub enum AuthorizationData {
+pub enum AuthorizationData<AccountId> {
     /// CDD provider's attestation to change master key
     AttestMasterKeyRotation(IdentityId),
     /// Authorization to change master key
     RotateMasterKey(IdentityId),
     /// Authorization to transfer a ticker
+    /// Must be issued by the current owner of the ticker
     TransferTicker(Ticker),
     /// Add a signer to multisig
-    AddMultiSigSigner,
+    /// Must be issued to the identity that created the ms (and therefore owns it permanently)
+    AddMultiSigSigner(AccountId),
     /// Authorization to transfer a token's ownership
+    /// Must be issued by the current owner of the asset
     TransferAssetOwnership(Ticker),
     /// Authorization to join an Identity
-    JoinIdentity(JoinIdentityData),
+    /// Must be issued by the identity which is being joined
+    JoinIdentity(Vec<Permission>),
     /// Any other authorization
+    /// TODO: Is this used?
     Custom(Ticker),
     /// No authorization data
     NoData,
 }
 
-impl Default for AuthorizationData {
+impl<AccountId> Default for AuthorizationData<AccountId> {
     fn default() -> Self {
         AuthorizationData::NoData
     }
@@ -77,36 +82,16 @@ impl From<AuthorizationError> for DispatchError {
 #[derive(Encode, Decode, Default, Clone, PartialEq, Debug)]
 pub struct Authorization<AccountId, Moment> {
     /// Enum that contains authorization type and data
-    pub authorization_data: AuthorizationData,
+    pub authorization_data: AuthorizationData<AccountId>,
 
     /// Identity of the organization/individual that added this authorization
-    pub authorized_by: Signatory<AccountId>,
+    pub authorized_by: IdentityId,
 
     /// time when this authorization expires. optional.
     pub expiry: Option<Moment>,
 
     /// Authorization id of this authorization
     pub auth_id: u64,
-}
-
-/// Authorization Identity data
-#[derive(Encode, Decode, Default, Clone, PartialEq, Eq, Debug, PartialOrd, Ord)]
-pub struct JoinIdentityData {
-    /// Target DID under which signing_item need to be added
-    pub target_did: IdentityId,
-
-    /// Signing Item
-    pub permissions: Vec<Permission>,
-}
-
-impl JoinIdentityData {
-    /// Use to create the new Self object by providing target_did and permission
-    pub fn new(target_did: IdentityId, permissions: Vec<Permission>) -> Self {
-        Self {
-            target_did,
-            permissions,
-        }
-    }
 }
 
 /// Data required to fetch and authorization
