@@ -94,7 +94,7 @@ use pallet_identity as identity;
 use polymesh_common_utilities::{
     identity::{LinkedKeyInfo, Trait as IdentityTrait},
     multisig::MultiSigSubTrait,
-    transaction_payment::{ CddAndFeeDetails, ChargeTxFee },
+    transaction_payment::{CddAndFeeDetails, ChargeTxFee},
     Context,
 };
 use polymesh_primitives::{

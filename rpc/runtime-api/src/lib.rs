@@ -17,4 +17,6 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 pub mod asset;
+pub mod identity;
 pub mod pips;
+pub mod transaction_payment;

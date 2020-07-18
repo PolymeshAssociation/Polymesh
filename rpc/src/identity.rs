@@ -1,18 +1,19 @@
+pub use pallet_identity::types::{
+    AssetDidResult, CddStatus, DidRecords, DidStatus, Link, LinkType,
+};
+
+pub use node_rpc_runtime_api::identity::IdentityApi as IdentityRuntimeApi;
+
 use codec::Codec;
 use jsonrpc_core::{Error as RpcError, ErrorCode, Result};
 use jsonrpc_derive::rpc;
-pub use pallet_identity_rpc_runtime_api::{
-    AssetDidResult, CddStatus, DidRecords, DidStatus, IdentityApi as IdentityRuntimeApi, Link,
-    LinkType,
-};
 use sp_api::ProvideRuntimeApi;
 use sp_blockchain::HeaderBackend;
 use sp_runtime::{
     generic::BlockId,
     traits::{Block as BlockT, Zero},
 };
-use std::convert::TryInto;
-use std::sync::Arc;
+use std::{convert::TryInto, sync::Arc};
 
 const MAX_IDENTITIES_ALLOWED_TO_QUERY: u32 = 500;
 

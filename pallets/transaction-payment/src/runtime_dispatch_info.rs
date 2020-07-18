@@ -15,7 +15,7 @@
 // along with Substrate.  If not, see <http://www.gnu.org/licenses/>.
 
 //! Runtime API definition for transaction payment module.
-use codec::{Codec, Decode, Encode};
+use codec::{Decode, Encode};
 use frame_support::weights::{DispatchClass, Weight};
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
@@ -25,7 +25,11 @@ use sp_std::prelude::*;
 /// Some information related to a dispatchable that can be queried from the runtime.
 #[derive(Eq, PartialEq, Encode, Decode, Default)]
 #[cfg_attr(feature = "std", derive(Debug))]
-#[cfg_attr(feature = "serde", serde(rename_all = "camelCase"), derive(Serialize, Deserialize))]
+#[cfg_attr(
+    feature = "serde",
+    serde(rename_all = "camelCase"),
+    derive(Serialize, Deserialize)
+)]
 pub struct RuntimeDispatchInfo<Balance> {
     /// Weight of this dispatch.
     pub weight: Weight,
@@ -62,15 +66,6 @@ fn deserialize_from_string<'de, D: Deserializer<'de>, T: std::str::FromStr>(
     s.parse::<T>()
         .map_err(|_| serde::de::Error::custom("Parse from string failed"))
 }
-
-// sp_api::decl_runtime_apis! {
-    pub trait TransactionPaymentApi<Balance, Extrinsic> where
-        Balance: Codec,
-        Extrinsic: Codec,
-    {
-        fn query_info(uxt: Extrinsic, len: u32) -> RuntimeDispatchInfo<Balance>;
-    }
-//}
 
 #[cfg(test)]
 mod tests {

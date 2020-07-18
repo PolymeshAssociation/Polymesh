@@ -19,7 +19,7 @@ use crate::{
         group::GroupTrait,
         multisig::MultiSigSubTrait,
         transaction_payment::{CddAndFeeDetails, ChargeTxFee},
-        CommonTrait
+        CommonTrait,
     },
     ChargeProtocolFee, SystematicIssuers,
 };

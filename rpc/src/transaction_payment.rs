@@ -17,11 +17,12 @@
 //! RPC interface for the transaction payment module.
 
 pub use self::gen_client::Client as TransactionPaymentClient;
+pub use node_rpc_runtime_api::transaction_payment::TransactionPaymentApi as TransactionPaymentRuntimeApi;
+use pallet_transaction_payment::RuntimeDispatchInfo;
+
 use codec::{Codec, Decode};
 use jsonrpc_core::{Error as RpcError, ErrorCode, Result};
 use jsonrpc_derive::rpc;
-use pallet_transaction_payment_rpc_runtime_api::RuntimeDispatchInfo;
-pub use pallet_transaction_payment_rpc_runtime_api::TransactionPaymentApi as TransactionPaymentRuntimeApi;
 use sp_api::ProvideRuntimeApi;
 use sp_blockchain::HeaderBackend;
 use sp_core::Bytes;

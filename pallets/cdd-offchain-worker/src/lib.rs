@@ -27,7 +27,7 @@ use frame_support::{
 };
 use frame_system::{
     self as system, ensure_none,
-    offchain::{ CreateSignedTransaction, SubmitTransaction, },
+    offchain::{CreateSignedTransaction, SubmitTransaction},
 };
 use sp_application_crypto::RuntimeAppPublic;
 use sp_core::crypto::KeyTypeId;

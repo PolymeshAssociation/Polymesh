@@ -49,7 +49,10 @@ use polymesh_common_utilities::{
     Context, SystematicIssuers,
 };
 use polymesh_primitives::{traits::IdentityCurrency, IdentityId, PosRatio, Signatory};
-use sp_runtime::{ traits::{Saturating, Zero}, Perbill, };
+use sp_runtime::{
+    traits::{Saturating, Zero},
+    Perbill,
+};
 
 type BalanceOf<T> =
     <<T as Trait>::Currency as Currency<<T as frame_system::Trait>::AccountId>>::Balance;

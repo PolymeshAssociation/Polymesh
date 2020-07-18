@@ -27,8 +27,8 @@ use frame_system as system;
 use sp_core::H256;
 use sp_runtime::{
     testing::{Header, TestXt, UintAuthorityId},
-    traits::{ BlakeTwo256, ConvertInto, IdentityLookup, Verify },
-    Perbill, AnySignature,
+    traits::{BlakeTwo256, ConvertInto, IdentityLookup, Verify},
+    AnySignature, Perbill,
 };
 use sp_staking::{
     offence::{OffenceError, ReportOffence},

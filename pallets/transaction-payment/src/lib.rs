@@ -36,13 +36,10 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 pub mod runtime_dispatch_info;
-pub use runtime_dispatch_info::{
-    RuntimeDispatchInfo,
-    // runtime_decl_for_TransactionPaymentApi::TransactionPaymentApi
-};
+pub use runtime_dispatch_info::RuntimeDispatchInfo;
 
+use polymesh_common_utilities::traits::transaction_payment::{CddAndFeeDetails, ChargeTxFee};
 use polymesh_primitives::{traits::IdentityCurrency, Signatory, TransactionError};
-use polymesh_common_utilities::traits::transaction_payment::{ CddAndFeeDetails, ChargeTxFee };
 
 use codec::{Decode, Encode};
 use frame_support::{
@@ -551,7 +548,6 @@ where
         Ok(())
     }
 }
-
 
 // Polymesh note: This was specifically added for Polymesh
 impl<T: Trait> ChargeTxFee for Module<T>

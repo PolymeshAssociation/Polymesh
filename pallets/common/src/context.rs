@@ -130,14 +130,18 @@ mod test {
             None
         }
 
-        fn set_current_payer(_payer: Option<Signatory<AccountId>>) { }
+        fn set_current_payer(_payer: Option<Signatory<AccountId>>) {}
 
         fn has_valid_cdd(_target_did: IdentityId) -> bool {
             true
         }
 
         fn unsafe_add_systematic_cdd_claims(_targets: &[IdentityId], _issuer: SystematicIssuers) {}
-        fn unsafe_revoke_systematic_cdd_claims(_targets: &[IdentityId], _issuer: SystematicIssuers) {}
+        fn unsafe_revoke_systematic_cdd_claims(
+            _targets: &[IdentityId],
+            _issuer: SystematicIssuers,
+        ) {
+        }
     }
 
     #[test]
