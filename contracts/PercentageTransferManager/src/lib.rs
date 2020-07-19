@@ -1,15 +1,15 @@
-#![cfg_attr(not(feature = "std"), no_std)]
+#![cfg_attr(not(any(test, feature = "std")), no_std)]
 
 use ink_lang as ink;
 
 mod custom_types {
 
     use ink_core::storage::Flush;
-    use scale::Encode;
+    use scale::{ Encode, Decode };
 
     #[derive(
-        scale::Decode,
-        scale::Encode,
+        Decode,
+        Encode,
         PartialEq,
         Ord,
         Eq,
@@ -36,7 +36,7 @@ mod custom_types {
     }
 
     /// Custom type
-    #[derive(scale::Decode, scale::Encode, Debug, PartialEq, Ord, Eq, PartialOrd)]
+    #[derive(Decode, Encode, Debug, PartialEq, Ord, Eq, PartialOrd)]
     #[cfg_attr(feature = "ink-generate-abi", derive(type_metadata::Metadata))]
     pub enum RestrictionResult {
         Valid,
@@ -119,6 +119,7 @@ mod percentage_transfer_manager {
         /// * `balance_from` - Balance of sender at the time of transaction.
         /// * `balance_to` - Balance of receiver at the time of transaction.
         /// * `total_supply` - Total supply of the asset
+        /// * `number_of_investors - Total no. of investors of a ticker
         #[ink(message)]
         fn verify_transfer(
             &self,
@@ -128,6 +129,7 @@ mod percentage_transfer_manager {
             balance_from: Balance,
             balance_to: Balance,
             total_supply: Balance,
+            number_of_investors: u64
         ) -> RestrictionResult {
             if from == None && *self.allow_primary_issuance.get()
                 || self._is_exempted_or_not(&(to.unwrap_or_default()))
@@ -145,7 +147,7 @@ mod percentage_transfer_manager {
         /// * `new_percentage` - New value of Max percentage of assets hold by an investor
         #[ink(message)]
         fn change_allowed_percentage(&mut self, new_percentage: u128) {
-            assert!(self.env().caller() == *self.owner.get(), "Not Authorized");
+            self._ensure_owner(self.env().caller());
             assert!(
                 *self.max_allowed_percentage.get() != new_percentage,
                 "Must change setting"
@@ -163,7 +165,7 @@ mod percentage_transfer_manager {
         /// * `primary_issuance` - whether to allow all primary issuance transfers
         #[ink(message)]
         fn change_primary_issuance(&mut self, primary_issuance: bool) {
-            assert!(self.env().caller() == *self.owner.get(), "Not Authorized");
+            self._ensure_owner(self.env().caller());
             assert!(
                 *self.allow_primary_issuance.get() != primary_issuance,
                 "Must change setting"
@@ -181,7 +183,7 @@ mod percentage_transfer_manager {
         /// * `is_exempted` - New exemption status of the identity
         #[ink(message)]
         fn modify_exemption_list(&mut self, identity: IdentityId, is_exempted: bool) {
-            assert!(self.env().caller() == *self.owner.get(), "Not Authorized");
+            self._ensure_owner(self.env().caller());
             assert!(
                 self._is_exempted_or_not(&identity) != is_exempted,
                 "Must change setting"
@@ -206,7 +208,7 @@ mod percentage_transfer_manager {
         /// * `new_owner` - AccountId of the new owner
         #[ink(message)]
         fn transfer_ownership(&mut self, new_owner: AccountId) {
-            assert!(self.env().caller() == *self.owner.get(), "Not Authorized");
+            self._ensure_owner(self.env().caller());
             self.env().emit_event(TransferOwnership {
                 old_owner: self.env().caller(),
                 new_owner: new_owner,
@@ -248,6 +250,10 @@ mod percentage_transfer_manager {
                 identity: identity,
                 exempted: is_exempted,
             });
+        }
+
+        fn _ensure_owner(&self, owner: AccountId) {
+            assert!(owner == *self.owner.get(), "Not Authorized");
         }
     }
 
