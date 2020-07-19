@@ -475,14 +475,17 @@ fn frozen_signing_keys_cdd_verification_test() {
 fn frozen_signing_keys_cdd_verification_test_we() {
     // 0. Create identity for Alice and signing key from Bob.
     let alice = AccountKeyring::Alice.public();
-    let alice_id = register_keyring_account(AccountKeyring::Alice).unwrap();
-    let charlie = AccountKeyring::Charlie.public();
-    let _charlie_id = register_keyring_account_with_balance(AccountKeyring::Charlie, 100).unwrap();
     let bob = AccountKeyring::Bob.public();
+    let charlie = AccountKeyring::Charlie.public();
+    TestStorage::set_payer_context(Some(Signatory::Account(alice)));
+    let alice_id = register_keyring_account(AccountKeyring::Alice).unwrap();
+    TestStorage::set_payer_context(Some(Signatory::Account(charlie)));
+    let _charlie_id = register_keyring_account_with_balance(AccountKeyring::Charlie, 100).unwrap();
     assert_eq!(Balances::free_balance(charlie), 59);
 
     // 1. Add Bob as signatory to Alice ID.
     let bob_signatory = Signatory::Account(AccountKeyring::Bob.public());
+    TestStorage::set_payer_context(Some(Signatory::Account(alice)));
     assert_ok!(Balances::top_up_identity_balance(
         Origin::signed(alice),
         alice_id,
@@ -498,6 +501,7 @@ fn frozen_signing_keys_cdd_verification_test_we() {
     assert_eq!(Balances::free_balance(bob), 25_000);
 
     // 2. Bob can transfer some funds to Charlie ID.
+    TestStorage::set_payer_context(Some(Signatory::Account(bob)));
     assert_ok!(Balances::transfer_with_memo(
         Origin::signed(bob),
         charlie,
