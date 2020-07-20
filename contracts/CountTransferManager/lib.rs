@@ -129,9 +129,59 @@ mod count_transfer_manager {
             return RestrictionResult::Valid; // VALID
         }
 
+        /// Simply returns the current value of `owner`.
+        #[ink(message)]
+        fn owner(&self) -> AccountId {
+            *self.owner.get()
+        }
+
         fn _ensure_owner(&self, owner: AccountId) {
             assert!(owner == *self.owner.get(), "Not Authorized");
         }
 
+    }
+
+    #[cfg(test)]
+    mod tests {
+        /// Imports all the definitions from the outer scope so we can use them here.
+        use super::*;
+        use ink_core::env::test::*;
+        type EnvTypes = ink_core::env::DefaultEnvTypes;
+
+        /// We test if the default constructor does its job.
+        #[test]
+        fn constructor_initialization_check() {
+            let default_accounts = default_accounts::<EnvTypes>().unwrap();
+            let count_transfer_manager =
+                CountTransferManagerStorage::new(5000u64);
+            assert_eq!(
+                count_transfer_manager.get_max_holders(),
+                5000u64
+            );
+            assert_eq!(count_transfer_manager.owner(), default_accounts.alice);
+        }
+
+        #[test]
+        fn verify_transfer_check() {
+            let default_accounts = default_accounts::<EnvTypes>().unwrap();
+            let alice_did = IdentityId::from(1);
+            let bob_did = IdentityId::from(2);
+            let count_transfer_manager =
+                CountTransferManagerStorage::new(5u64);
+
+            // Check for simple transfer case
+            assert_eq!(
+                count_transfer_manager.verify_transfer(
+                    Some(alice_did),
+                    Some(bob_did),
+                    100,
+                    200,
+                    10,
+                    500,
+                    5
+                ),
+                RestrictionResult::Valid
+            );
+        }
     }
 }
