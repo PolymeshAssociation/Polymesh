@@ -632,8 +632,7 @@
             "coeffFrac": "Perbill",
             "negative": "bool",
             "degree": "u8"
-        },
-        "StakingLedger": "StakingLedgerTo240"
+        }
     },
     "rpc": {
         "compliance": {
