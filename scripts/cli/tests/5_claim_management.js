@@ -13,21 +13,14 @@ async function main() {
 
   const testEntities = await reqImports.initMain(api);
 
-  let master_keys = await reqImports.generateKeys(api,5, "master");
-
-  let signing_keys = await reqImports.generateKeys(api, 5, "signing");
-
-  let claim_keys = await reqImports.generateKeys(api, 5, "claim");
+  let master_keys = await reqImports.generateKeys(api,2, "master5");
+  let claim_keys = await reqImports.generateKeys(api, 2, "claim");
 
   let claim_issuer_dids = await reqImports.createIdentities(api, claim_keys, testEntities[0]);
 
   let issuer_dids = await reqImports.createIdentities(api, master_keys, testEntities[0]);
 
   await reqImports.distributePolyBatch( api, master_keys.concat(claim_keys), reqImports.transfer_amount, testEntities[0] );
-
-  await reqImports.addSigningKeys( api, master_keys, issuer_dids, signing_keys );
-
-  await reqImports.authorizeJoinToIdentities( api, master_keys, issuer_dids, signing_keys);
 
   await addClaimsToDids(api, claim_keys, issuer_dids, claim_issuer_dids);
 

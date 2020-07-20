@@ -362,12 +362,12 @@ async function addSigningKeys(api, accounts, dids, signing_accounts, submitBar, 
     // 1. Add Signing Item to identity.
     if (fast) {
       let nonceObj = {nonce: reqImports.nonces.get(accounts[i].address)};
-      const transaction = api.tx.identity.addAuthorizationAsKey({Account: signing_accounts[i].publicKey}, {JoinIdentity: { target_did: dids[i], signing_item: null }}, null);
+      const transaction = api.tx.identity.addAuthorization({Account: signing_accounts[i].publicKey}, {JoinIdentity: []}, null);
       await reqImports.sendTransaction(transaction, accounts[i], nonceObj);
     } else {
 
       let nonceObj = {nonce: reqImports.nonces.get(accounts[i].address)};
-      const transaction = api.tx.identity.addAuthorizationAsKey({Account: signing_accounts[i].publicKey}, {JoinIdentity: { target_did: dids[i], signing_item: null }}, null);
+      const transaction = api.tx.identity.addAuthorization({Account: signing_accounts[i].publicKey}, {JoinIdentity: []}, null);
       const result = await reqImports.sendTransaction(transaction, accounts[i], nonceObj);
       const passed = result.findRecord('system', 'ExtrinsicSuccess');
       if (!passed) {

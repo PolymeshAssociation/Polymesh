@@ -13,9 +13,9 @@ async function main() {
 
   const testEntities = await reqImports.initMain(api);
 
-  let master_keys = await reqImports.generateKeys(api,5, "master");
+  let master_keys = await reqImports.generateKeys(api, 2, "master4");
 
-  let signing_keys = await reqImports.generateKeys(api, 5, "signing");
+  let signing_keys = await reqImports.generateKeys(api, 2, "signing4");
 
   let issuer_dids = await reqImports.createIdentities(api, master_keys, testEntities[0]);
 

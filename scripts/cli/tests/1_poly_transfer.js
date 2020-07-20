@@ -13,7 +13,7 @@ async function main() {
 
   const testEntities = await reqImports.initMain(api);
 
-  let keys = await reqImports.generateKeys(api,5, "master");
+  let keys = await reqImports.generateKeys(api, 2, "master1");
 
   await reqImports.createIdentities(api, keys, testEntities[0]);
   
