@@ -156,6 +156,8 @@ fn creating_a_referendum_works_we() {
     let (alice_signer, _) = make_account_with_balance(alice_acc, 300).unwrap();
     let bob_acc = AccountKeyring::Bob.public();
     let (bob_signer, _) = make_account_with_balance(bob_acc, 200).unwrap();
+    // Voting majority
+    let root = Origin::from(frame_system::RawOrigin::Root);
 
     assert_ok!(Pips::propose(
         alice_signer.clone(),
@@ -166,12 +168,24 @@ fn creating_a_referendum_works_we() {
         None
     ));
 
+    // Cannot prune proposal at this stage
+    assert_err!(
+        Pips::prune_proposal(root.clone(), 0),
+        Error::<TestStorage>::IncorrectProposalState
+    );
+
     assert_err!(
         Pips::vote(bob_signer.clone(), 0, true, 50),
         Error::<TestStorage>::ProposalOnCoolOffPeriod
     );
     fast_forward_to(101);
     assert_ok!(Pips::vote(bob_signer.clone(), 0, true, 50));
+
+    // Cannot prune proposal at this stage
+    assert_err!(
+        Pips::prune_proposal(root.clone(), 0),
+        Error::<TestStorage>::IncorrectProposalState
+    );
 
     assert_eq!(
         Pips::proposal_result(0),
@@ -187,6 +201,12 @@ fn creating_a_referendum_works_we() {
     assert_eq!(Balances::free_balance(&bob_acc), 109);
 
     fast_forward_to(120);
+
+    // Cannot prune referendum at this stage
+    assert_err!(
+        Pips::prune_proposal(root.clone(), 0),
+        Error::<TestStorage>::IncorrectReferendumState
+    );
 
     assert_eq!(
         Pips::referendums(0),
@@ -253,6 +273,12 @@ fn enacting_a_referendum_works_we() {
 
     fast_forward_to(120);
 
+    // Cannot prune referendum at this stage
+    assert_err!(
+        Pips::prune_proposal(root.clone(), 0),
+        Error::<TestStorage>::IncorrectReferendumState
+    );
+
     assert_eq!(
         Pips::referendums(0),
         Some(Referendum {
@@ -267,7 +293,7 @@ fn enacting_a_referendum_works_we() {
         Pips::enact_referendum(bob_signer.clone(), 0),
         DispatchError::BadOrigin
     );
-    assert_ok!(Pips::enact_referendum(root, 0));
+    assert_ok!(Pips::enact_referendum(root.clone(), 0));
 
     assert_eq!(
         Pips::referendums(0),
@@ -277,6 +303,12 @@ fn enacting_a_referendum_works_we() {
             referendum_type: ReferendumType::Community,
             enactment_period: 220,
         })
+    );
+
+    // Cannot prune referendum at this stage
+    assert_err!(
+        Pips::prune_proposal(root.clone(), 0),
+        Error::<TestStorage>::IncorrectReferendumState
     );
 
     fast_forward_to(221);
@@ -290,6 +322,13 @@ fn enacting_a_referendum_works_we() {
             enactment_period: 220,
         })
     );
+
+    // Can now prune referendum
+    assert_ok!(Pips::prune_proposal(root.clone(), 0));
+
+    assert_eq!(Pips::referendums(0), None);
+    assert_eq!(Pips::proposals(0), None);
+    assert_eq!(Pips::proposal_metadata(0), None);
 }
 
 #[test]
@@ -670,6 +709,7 @@ fn cancel_pips_during_cool_off_period_we() {
 
     let (alice, _) = make_account(AccountKeyring::Alice.public()).unwrap();
     let (bob, _) = make_account(AccountKeyring::Bob.public()).unwrap();
+    let root = Origin::from(frame_system::RawOrigin::Root);
 
     // 1. Create Pips proposals
     assert_ok!(Pips::propose(
@@ -693,6 +733,14 @@ fn cancel_pips_during_cool_off_period_we() {
     // 2. Cancel Alice's proposal during cool-off period.
     fast_forward_to(50);
     assert_ok!(Pips::cancel_proposal(alice.clone(), 0));
+
+    // Can prune cancelled proposals
+    assert_ok!(Pips::prune_proposal(root.clone(), 0));
+
+    // Check proposal is pruned from storage
+    assert_eq!(Pips::referendums(0), None);
+    assert_eq!(Pips::proposals(0), None);
+    assert_eq!(Pips::proposal_metadata(0), None);
 
     // 3. Try to cancel Bob's proposal after cool-off period.
     fast_forward_to(101);
