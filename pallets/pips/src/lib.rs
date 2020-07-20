@@ -392,8 +392,6 @@ decl_event!(
         Voted(IdentityId, AccountId, PipId, bool, Balance),
         /// Pip has been closed, bool indicates whether data is pruned
         PipClosed(IdentityId, PipId, bool),
-        /// Pip has been pruned
-        PipPruned(IdentityId, PipId),
         /// Referendum created for proposal.
         ReferendumCreated(IdentityId, PipId, ReferendumType),
         /// Referendum execution has been scheduled at specific block.
@@ -1145,7 +1143,6 @@ impl<T: Trait> Module<T> {
             <ProposalMetadata<T>>::remove(id);
             <Proposals<T>>::remove(id);
             <Referendums<T>>::remove(id);
-            Self::deposit_event(RawEvent::PipPruned(current_did, id));
         }
         Self::deposit_event(RawEvent::PipClosed(current_did, id, prune));
     }
