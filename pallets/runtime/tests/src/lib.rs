@@ -1,4 +1,5 @@
 #![allow(dead_code)]
+#![feature(proc_macro_hygiene)]
 
 pub mod storage;
 pub use storage::{
