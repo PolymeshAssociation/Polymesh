@@ -261,6 +261,13 @@ impl Default for RestrictionResult {
     }
 }
 
+/// The total asset balance and the balance of the asset in a specified portfolio.
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
+pub struct FocusedBalances<Balance> {
+    total: Balance,
+    portfolio: Balance,
+}
+
 decl_storage! {
     trait Store for Module<T: Trait> as Asset {
         /// Ticker registration details.
@@ -732,7 +739,7 @@ decl_module! {
             // A helper vec for calculated new investor balances
             let mut updated_balances = Vec::with_capacity(issue_asset_items.len());
             // A helper vec for calculated new investor balances
-            let mut current_balances = Vec::with_capacity(issue_asset_items.len());
+            let mut current_total_balances = Vec::with_capacity(issue_asset_items.len());
             // Get current token details for supply update
             let mut token = Self::token_details(ticker);
 
@@ -754,13 +761,13 @@ decl_module! {
                 ensure!(updated_total_supply <= MAX_SUPPLY.into(), Error::<T>::TotalSupplyAboveLimit);
 
                 let bals = Self::balance(&ticker, *investor_did);
-                current_balances.push(bals);
+                current_total_balances.push(bals.total);
                 // No check since the total balance is always less than or equal to the total
                 // supply. The total supply is already checked above.
-                let updated_total_balance = bals.0 + *value;
+                let updated_total_balance = bals.total + *value;
                 // No check since the default portfolio balance is always less than or equal to the
                 // total supply. The total supply is already checked above.
-                let updated_def_balance = bals.1 + *value;
+                let updated_def_balance = bals.portfolio + *value;
                 updated_balances.push((updated_total_balance, updated_def_balance));
 
                 // verify transfer check
@@ -784,7 +791,7 @@ decl_module! {
             <IssuedInFundingRound<T>>::insert(&ticker_round, issued_in_this_round);
             // Update investor balances and emit events quoting the updated total token balance issued.
             for (i, IssueAssetItem { investor_did, value }) in issue_asset_items.iter().enumerate() {
-                Self::_update_checkpoint(&ticker, *investor_did, current_balances[i].0);
+                Self::_update_checkpoint(&ticker, *investor_did, current_total_balances[i]);
                 let (tot, def) = updated_balances[i];
                 <BalanceOf<T>>::insert(ticker, investor_did, tot);
                 Portfolio::<T>::set_default_portfolio_balance(*investor_did, &ticker, def);
@@ -818,7 +825,10 @@ decl_module! {
             // Granularity check
             ensure!(Self::check_granularity(&ticker, value), Error::<T>::InvalidGranularity);
             ensure!(<BalanceOf<T>>::contains_key(&ticker, &did), Error::<T>::NotAnOwner);
-            let (burner_balance, burner_def_balance) = Self::balance(&ticker, did);
+            let FocusedBalances {
+                total: burner_balance,
+                portfolio: burner_def_balance,
+            } = Self::balance(&ticker, did);
             ensure!(burner_balance >= value, Error::<T>::InsufficientBalance);
             ensure!(burner_def_balance >= value, Error::<T>::InsufficientDefaultPortfolioBalance);
 
@@ -871,7 +881,10 @@ decl_module! {
             // Granularity check
             ensure!(Self::check_granularity(&ticker, value), Error::<T>::InvalidGranularity);
             ensure!(<BalanceOf<T>>::contains_key(&ticker, &did), Error::<T>::NotAnOwner);
-            let (burner_balance, burner_def_balance) = Self::balance(&ticker, did);
+            let FocusedBalances {
+                total: burner_balance,
+                portfolio: burner_def_balance,
+            } = Self::balance(&ticker, did);
             ensure!(burner_balance >= value, Error::<T>::InsufficientBalance);
             ensure!(burner_def_balance >= value, Error::<T>::InsufficientDefaultPortfolioBalance);
 
@@ -935,7 +948,10 @@ decl_module! {
             // Granularity check
             ensure!(Self::check_granularity(&ticker, value), Error::<T>::InvalidGranularity);
             ensure!(<BalanceOf<T>>::contains_key(&ticker, &token_holder_did), Error::<T>::NotAnAssetHolder);
-            let (burner_balance, burner_def_balance) = Self::balance(&ticker, token_holder_did);
+            let FocusedBalances {
+                total: burner_balance,
+                portfolio: burner_def_balance,
+            } = Self::balance(&ticker, token_holder_did);
             ensure!(burner_balance >= value, Error::<T>::InsufficientBalance);
             ensure!(burner_def_balance >= value, Error::<T>::InsufficientDefaultPortfolioBalance);
 
@@ -1726,11 +1742,11 @@ impl<T: Trait> Module<T> {
     }
 
     /// Get the asset `ticker` balance of `did`, both total and that of the default portfolio.
-    pub fn balance(ticker: &Ticker, did: IdentityId) -> (T::Balance, T::Balance) {
-        (
-            Self::balance_of(ticker, &did),
-            Portfolio::<T>::default_portfolio_balance(did, ticker),
-        )
+    pub fn balance(ticker: &Ticker, did: IdentityId) -> FocusedBalances<T::Balance> {
+        FocusedBalances {
+            total: Self::balance_of(ticker, &did),
+            portfolio: Portfolio::<T>::default_portfolio_balance(did, ticker),
+        }
     }
 
     // Get the total supply of an asset `id`.
@@ -1745,7 +1761,7 @@ impl<T: Trait> Module<T> {
             at > Self::total_checkpoints_of(&ticker)
         {
             // No checkpoints data exist
-            return Self::balance(&ticker, did).0;
+            return Self::balance(&ticker, did).total;
         }
 
         if <UserCheckpoints>::contains_key(&ticker_did) {
@@ -1755,7 +1771,7 @@ impl<T: Trait> Module<T> {
                 // or part should never be triggered due to the check on 2 lines above
                 // User has not transacted after checkpoint creation.
                 // This means their current balance = their balance at that cp.
-                return Self::balance(&ticker, did).0;
+                return Self::balance(&ticker, did).total;
             }
             // Uses the first checkpoint that was created after target checkpoint
             // and the user has data for that checkpoint
@@ -1768,7 +1784,7 @@ impl<T: Trait> Module<T> {
         // User has no checkpoint data.
         // This means that user's balance has not changed since first checkpoint was created.
         // Maybe the user never held any balance.
-        Self::balance(&ticker, did).0
+        Self::balance(&ticker, did).total
     }
 
     fn find_ceiling(arr: &Vec<u64>, key: u64) -> u64 {
@@ -1872,7 +1888,10 @@ impl<T: Trait> Module<T> {
             Error::<T>::NotAnAssetHolder
         );
         ensure!(from_did != to_did, Error::<T>::InvalidTransfer);
-        let (from_total_balance, from_def_balance) = Self::balance(ticker, from_did);
+        let FocusedBalances {
+            total: from_total_balance,
+            portfolio: from_def_balance,
+        } = Self::balance(ticker, from_did);
         ensure!(from_total_balance >= value, Error::<T>::InsufficientBalance);
         ensure!(
             from_def_balance >= value,
@@ -1885,7 +1904,10 @@ impl<T: Trait> Module<T> {
         // portfolio balance. The default portfolio balance is already checked above.
         let updated_from_total_balance = from_total_balance - value;
 
-        let (to_total_balance, to_def_balance) = Self::balance(ticker, to_did);
+        let FocusedBalances {
+            total: to_total_balance,
+            portfolio: to_def_balance,
+        } = Self::balance(ticker, to_did);
         let updated_to_total_balance = to_total_balance
             .checked_add(&value)
             .ok_or(Error::<T>::BalanceOverflow)?;
@@ -1977,7 +1999,10 @@ impl<T: Trait> Module<T> {
             Error::<T>::TotalSupplyAboveLimit
         );
         //Increase receiver balance
-        let (current_to_balance, current_to_def_balance) = Self::balance(ticker, to_did);
+        let FocusedBalances {
+            total: current_to_balance,
+            portfolio: current_to_def_balance,
+        } = Self::balance(ticker, to_did);
         // No check since the total balance is always less than or equal to the total supply. The
         // total supply is already checked above.
         let updated_to_balance = current_to_balance + value;
@@ -2033,7 +2058,7 @@ impl<T: Trait> Module<T> {
         value: T::Balance,
     ) -> DispatchResult {
         let remaining_balance = Self::balance(&ticker, holder_did)
-            .0
+            .total
             .checked_sub(&value)
             .ok_or(Error::<T>::BalanceUnderflow)?;
         ensure!(
@@ -2055,7 +2080,7 @@ impl<T: Trait> Module<T> {
             .ok_or(Error::<T>::TotalAllowanceOverflow)?;
         // Ensure that balance of the token holder should greater than or equal to the total custody allowance + value
         ensure!(
-            Self::balance(&ticker, holder_did).0 >= new_custody_allowance,
+            Self::balance(&ticker, holder_did).total >= new_custody_allowance,
             Error::<T>::InsufficientBalance
         );
         // Ensure the valid DID
@@ -2334,7 +2359,10 @@ impl<T: Trait> Module<T> {
         // Non-Issuance case check
         if let Some(from_id) = from_did {
             if Identity::<T>::has_valid_cdd(from_id) {
-                let (balance, def_balance) = Self::balance(&ticker, from_id);
+                let FocusedBalances {
+                    total: balance,
+                    portfolio: def_balance,
+                } = Self::balance(&ticker, from_id);
                 if balance < amount
                     || def_balance < amount
                     || balance - amount < Self::total_custody_allowance((ticker, from_id))
@@ -2410,10 +2438,16 @@ impl<T: Trait> Module<T> {
         to_did: IdentityId,
         value: T::Balance,
     ) {
-        let (from_balance, from_def_balance) = Self::balance(ticker, from_did);
+        let FocusedBalances {
+            total: from_balance,
+            portfolio: from_def_balance,
+        } = Self::balance(ticker, from_did);
         let updated_from_balance = from_balance.saturating_sub(value);
         let updated_from_def_balance = from_def_balance.saturating_sub(value);
-        let (to_balance, to_def_balance) = Self::balance(ticker, to_did);
+        let FocusedBalances {
+            total: to_balance,
+            portfolio: to_def_balance,
+        } = Self::balance(ticker, to_did);
         let updated_to_balance = to_balance.saturating_add(value);
         let updated_to_def_balance = to_def_balance.saturating_add(value);
 

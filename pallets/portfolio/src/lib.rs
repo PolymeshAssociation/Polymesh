@@ -1,5 +1,6 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
+use codec::{Decode, Encode};
 use frame_support::{
     decl_error, decl_event, decl_module, decl_storage, dispatch::DispatchResult, ensure,
     IterableStorageDoubleMap,
@@ -8,9 +9,28 @@ use frame_system::{self as system, ensure_signed};
 use polymesh_common_utilities::{identity::Trait as IdentityTrait, CommonTrait, Context};
 use polymesh_primitives::{IdentityId, PortfolioId, PortfolioName, PortfolioNumber, Ticker};
 use sp_arithmetic::traits::Saturating;
-use sp_std::prelude::Vec;
+use sp_std::{convert::TryFrom, prelude::Vec};
 
 type Identity<T> = pallet_identity::Module<T>;
+
+/// The ticker and balance of an asset to be moved from one portfolio to another.
+#[derive(Encode, Decode, Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
+pub struct MovePortfolioItem<Balance> {
+    ticker: Ticker,
+    amount: Balance,
+}
+
+impl<Balance> Default for MovePortfolioItem<Balance>
+where
+    Balance: Default,
+{
+    fn default() -> MovePortfolioItem<Balance> {
+        MovePortfolioItem {
+            ticker: Ticker::default(),
+            amount: Balance::default(),
+        }
+    }
+}
 
 pub trait Trait: CommonTrait + IdentityTrait {
     type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
@@ -119,13 +139,12 @@ decl_module! {
 
         /// Moves a token amount from one portfolio of an identity to another portfolio of the same
         /// identity.
-        #[weight = 500_000]
+        #[weight = 250_000 + 250_000 * u64::try_from(items.len()).unwrap_or_default()]
         pub fn move_portfolio(
             origin,
             from_num: Option<PortfolioNumber>,
             to_num: Option<PortfolioNumber>,
-            ticker: Ticker,
-            amount: T::Balance
+            items: Vec<MovePortfolioItem<<T as CommonTrait>::Balance>>,
         ) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             let did = Context::current_identity_or::<Identity<T>>(&sender)?;
@@ -142,26 +161,28 @@ decl_module! {
             let to_portfolio_id = to_num
                 .and_then(|num| Some(PortfolioId::user_portfolio(did, num)))
                 .unwrap_or_else(|| PortfolioId::default_portfolio(did));
-            let from_balance = Self::portfolio_asset_balances(&from_portfolio_id, &ticker);
-            ensure!(from_balance >= amount, Error::<T>::InsufficientPortfolioBalance);
-            <PortfolioAssetBalances<T>>::insert(
-                &from_portfolio_id,
-                &ticker,
-                from_balance - amount
-            );
-            let to_balance = Self::portfolio_asset_balances(&to_portfolio_id, &ticker);
-            <PortfolioAssetBalances<T>>::insert(
-                &to_portfolio_id,
-                &ticker,
-                to_balance.saturating_add(amount)
-            );
-           Self::deposit_event(RawEvent::MovedBetweenPortfolios(
-                did,
-                from_num,
-                to_num,
-                ticker,
-                amount
-            ));
+            for item in items {
+                let from_balance = Self::portfolio_asset_balances(&from_portfolio_id, &item.ticker);
+                ensure!(from_balance >= item.amount, Error::<T>::InsufficientPortfolioBalance);
+                <PortfolioAssetBalances<T>>::insert(
+                    &from_portfolio_id,
+                    &item.ticker,
+                    from_balance - item.amount
+                );
+                let to_balance = Self::portfolio_asset_balances(&to_portfolio_id, &item.ticker);
+                <PortfolioAssetBalances<T>>::insert(
+                    &to_portfolio_id,
+                    &item.ticker,
+                    to_balance.saturating_add(item.amount)
+                );
+                Self::deposit_event(RawEvent::MovedBetweenPortfolios(
+                    did,
+                    from_num,
+                    to_num,
+                    item.ticker,
+                    item.amount
+                ));
+            }
             Ok(())
         }
 

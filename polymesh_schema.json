@@ -638,6 +638,10 @@
             "leg_id": "u64",
             "signer": "AccountId",
             "signature": "OffChainSignature"
+        },
+        "MovePortfolioItem": {
+            "ticker": "Ticker",
+            "amount": "Balance"
         }
     },
     "rpc": {
