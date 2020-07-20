@@ -16,8 +16,10 @@ type Identity<T> = pallet_identity::Module<T>;
 /// The ticker and balance of an asset to be moved from one portfolio to another.
 #[derive(Encode, Decode, Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub struct MovePortfolioItem<Balance> {
-    ticker: Ticker,
-    amount: Balance,
+    /// The asset ticker.
+    pub ticker: Ticker,
+    /// The asset balance.
+    pub amount: Balance,
 }
 
 impl<Balance> Default for MovePortfolioItem<Balance>
@@ -203,20 +205,6 @@ decl_module! {
                 did,
                 num,
                 to_name,
-            ));
-            Ok(())
-        }
-
-        /// Emits an event containing all non-default portfolio numbers and names of a given DID.
-        #[weight = 500_000]
-        pub fn get_portfolios(origin) -> DispatchResult {
-            let sender = ensure_signed(origin)?;
-            let did = Context::current_identity_or::<Identity<T>>(&sender)?;
-            let portfolios: Vec<(PortfolioNumber, PortfolioName)> =
-                <Portfolios>::iter_prefix(&did).collect();
-            Self::deposit_event(RawEvent::UserPortfolios(
-                did,
-                portfolios,
             ));
             Ok(())
         }

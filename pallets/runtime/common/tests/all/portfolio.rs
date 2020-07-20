@@ -4,6 +4,7 @@ use super::{
 };
 use frame_support::{assert_err, assert_ok, dispatch::DispatchError};
 use pallet_asset::{AssetType, SecurityToken};
+use pallet_portfolio::MovePortfolioItem;
 use polymesh_primitives::{PortfolioId, PortfolioName, Ticker};
 use std::convert::TryFrom;
 use test_client::AccountKeyring;
@@ -88,24 +89,41 @@ fn do_move_asset_from_portfolio() {
             owner_signed.clone(),
             None,
             Some(num),
-            ticker,
-            total_supply * 2,
+            vec![MovePortfolioItem {
+                ticker,
+                amount: total_supply * 2,
+            }]
         ),
         Error::InsufficientPortfolioBalance
     );
     // Attempt to move to the same portfolio.
     assert_err!(
-        Portfolio::move_portfolio(owner_signed.clone(), None, None, ticker, 1),
+        Portfolio::move_portfolio(
+            owner_signed.clone(),
+            None,
+            None,
+            vec![MovePortfolioItem { ticker, amount: 1 }]
+        ),
         Error::DestinationIsSamePortfolio
     );
     // Attempt to move to a non-existent portfolio.
     assert_err!(
-        Portfolio::move_portfolio(owner_signed.clone(), None, Some(num + 777), ticker, 1),
+        Portfolio::move_portfolio(
+            owner_signed.clone(),
+            None,
+            Some(num + 777),
+            vec![MovePortfolioItem { ticker, amount: 1 }]
+        ),
         Error::PortfolioDoesNotExist
     );
     // Attempt to move by another identity.
     assert_err!(
-        Portfolio::move_portfolio(bob_signed.clone(), None, Some(num), ticker, 1),
+        Portfolio::move_portfolio(
+            bob_signed.clone(),
+            None,
+            Some(num),
+            vec![MovePortfolioItem { ticker, amount: 1 }]
+        ),
         Error::PortfolioDoesNotExist
     );
     // Move an amount within bounds.
@@ -114,8 +132,10 @@ fn do_move_asset_from_portfolio() {
         owner_signed.clone(),
         None,
         Some(num),
-        ticker,
-        move_amount,
+        vec![MovePortfolioItem {
+            ticker,
+            amount: move_amount,
+        }]
     ));
     assert_eq!(
         Portfolio::default_portfolio_balance(owner_did, &ticker),

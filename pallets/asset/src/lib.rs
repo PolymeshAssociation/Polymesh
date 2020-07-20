@@ -261,11 +261,13 @@ impl Default for RestrictionResult {
     }
 }
 
-/// The total asset balance and the balance of the asset in a specified portfolio.
+/// The total asset balance and the balance of the asset in a specified portfolio of an identity.
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub struct FocusedBalances<Balance> {
-    total: Balance,
-    portfolio: Balance,
+    /// The total balance of the asset held by the identity.
+    pub total: Balance,
+    /// The balance of the asset in the default portfolio of the identity.
+    pub portfolio: Balance,
 }
 
 decl_storage! {
