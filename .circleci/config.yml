@@ -56,8 +56,8 @@ jobs:
           name: Store rust version in a file for cache key
           command: rustc --version > rust.version
       - run:
-          name: get ssh config
-          command: cat ~/.ssh/config || cat /etc/ssh/ssh_config
+          name: update ssh config
+          command: sed -i 's/IdentitiesOnly yes/IdentitiesOnly no/g' ~/.ssh/config
       - run:
           name: Pull submodules
           command: git submodule update --init --recursive
