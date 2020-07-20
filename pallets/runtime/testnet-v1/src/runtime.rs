@@ -29,8 +29,8 @@ use polymesh_common_utilities::{
     CommonTrait,
 };
 use polymesh_primitives::{
-    AccountId, AccountIndex, Balance, BlockNumber, Hash, IdentityId, Index, Moment,
-    Signatory, Signature, SigningItem, Ticker,
+    AccountId, AccountIndex, Balance, BlockNumber, Hash, IdentityId, Index, Moment, Signatory,
+    Signature, SigningItem, Ticker,
 };
 use polymesh_runtime_common::{
     bridge,
