@@ -55,13 +55,9 @@ jobs:
       - run:
           name: Store rust version in a file for cache key
           command: rustc --version > rust.version
-      - restore_cache:
-          keys:
-            - v8-test-cache-{{ checksum "./rust.version" }}-{{ checksum "./Cargo.lock" }}
-            - v8-test-cache-{{ checksum "./rust.version" }}
       - run:
-          name: Pull submodules
-          command: git submodule update --init --recursive
+          name: get ssh config
+          command: cat ~/.ssh/config || cat /etc/ssh/ssh_config
       - run:
           name: Pull submodules
           command: git submodule update --init --recursive
