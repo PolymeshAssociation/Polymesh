@@ -35,6 +35,12 @@
 //!   behalf of another account. This is useful when a transaction's fee needs to be paid by a third party.
 //!   Relaying dispatch requires the dispatched call to be unique as to avoid replay attacks.
 //!
+//! ## Interface
+//!
+//! ### Dispatchable Functions
+//!
+//! - `batch` - Dispatch multiple calls from the sender's origin.
+//! - `relay_tx` - Relay a call for a target from an origin.
 //! [`Batch dispatch`]: struct.Module.html#method.batch
 //! [`Relayed dispatch`]: struct.Module.html#method.relay_tx
 
@@ -75,7 +81,7 @@ pub trait Trait: frame_system::Trait + IdentityModule {
 
 decl_storage! {
     trait Store for Module<T: Trait> as Utility {
-        Nonces get(fn nonces): map hasher(twox_64_concat) T::AccountId => AuthorizationNonce;
+        Nonces get(fn nonce): map hasher(twox_64_concat) T::AccountId => AuthorizationNonce;
     }
 }
 
@@ -111,6 +117,15 @@ decl_event! {
 pub struct UniqueCall<C> {
     nonce: AuthorizationNonce,
     call: Box<C>,
+}
+
+impl<C> UniqueCall<C> {
+    pub fn new(nonce: AuthorizationNonce, call: C) -> Self {
+        Self {
+            nonce,
+            call: Box::new(call),
+        }
+    }
 }
 
 decl_module! {
@@ -171,7 +186,7 @@ decl_module! {
             Ok(())
         }
 
-        /// Relay a call as a target from an origin
+        /// Relay a call for a target from an origin
         ///
         /// Relaying in this context refers to the ability of origin to make a call on behalf of
         /// target.
@@ -179,8 +194,6 @@ decl_module! {
         /// Fees are charged to origin
         ///
         /// # Parameters
-        /// - `target`: Account ID to ne relayed
-        /// - `signature`: Signature from target authorizing the relay
         /// - `call`: Call to be relayed on behalf of target
         ///
         /// # Weight
@@ -210,13 +223,13 @@ decl_module! {
             );
 
             ensure!(
-                T::CddChecker::check_key_cdd(&origin),
-                Error::<T>::OriginCddMissing
+                T::CddChecker::check_key_cdd(&target),
+                Error::<T>::TargetCddMissing
             );
 
             ensure!(
-                T::CddChecker::check_key_cdd(&target),
-                Error::<T>::TargetCddMissing
+                T::CddChecker::check_key_cdd(&origin),
+                Error::<T>::OriginCddMissing
             );
 
             <Nonces<T>>::insert(target.clone(), target_nonce + 1);
