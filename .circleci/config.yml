@@ -59,6 +59,9 @@ jobs:
           name: update ssh config
           command: sed -i 's/IdentitiesOnly yes/IdentitiesOnly no/g' ~/.ssh/config
       - run:
+          name: get ssh config
+          command: cat ~/.ssh/config
+      - run:
           name: Pull submodules
           command: git submodule update --init --recursive
       - run:
