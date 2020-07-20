@@ -863,7 +863,7 @@ decl_module! {
         /// a proposal at any time.
         #[weight = SimpleDispatchInfo::FixedOperational(100_000)]
         pub fn prune_proposal(origin, id: PipId) {
-            T::VotingMajorityOrigin::ensure_origin(origin)?;
+            T::CommitteeOrigin::try_origin(origin).map_err(|_| Error::<T>::BadOrigin)?;
             // Check that the proposal is in a state valid for pruning
             let proposal = Self::proposals(id).ok_or_else(|| Error::<T>::NoSuchProposal)?;
             if proposal.state == ProposalState::Referendum {

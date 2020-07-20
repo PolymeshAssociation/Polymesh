@@ -86,8 +86,8 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     spec_name: create_runtime_str!("polymesh"),
     impl_name: create_runtime_str!("polymath-polymesh"),
     authoring_version: 1,
-    spec_version: 1011,
-    impl_version: 1011,
+    spec_version: 1012,
+    impl_version: 1012,
     apis: RUNTIME_API_VERSIONS,
 };
 
