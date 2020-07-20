@@ -861,7 +861,7 @@ decl_module! {
 
         /// An emergency stop measure to kill a proposal. Governance committee can kill
         /// a proposal at any time.
-        #[weight = (100_000, DispatchClass::Operational, Pays::Yes)]
+        #[weight = SimpleDispatchInfo::FixedOperational(100_000)]
         pub fn prune_proposal(origin, id: PipId) {
             T::VotingMajorityOrigin::ensure_origin(origin)?;
             // Check that the proposal is in a state valid for pruning
