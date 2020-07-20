@@ -119,7 +119,10 @@ fn relay_unhappy_cases() {
 
 fn _relay_unhappy_cases() {
     let alice = AccountKeyring::Alice.public();
+    let _alice_did = register_keyring_account_with_balance(AccountKeyring::Alice, 1_000).unwrap();
+
     let bob = AccountKeyring::Bob.public();
+
     let charlie = AccountKeyring::Charlie.public();
 
     let origin = Origin::signed(alice);
@@ -158,22 +161,6 @@ fn _relay_unhappy_cases() {
 
     let _bob_did = register_keyring_account_with_balance(AccountKeyring::Bob, 1_000).unwrap();
 
-    assert_eq!(
-        Utility::relay_tx(
-            origin.clone(),
-            bob,
-            AccountKeyring::Bob.sign(&transaction.encode()).into(),
-            transaction.clone()
-        ),
-        Err(DispatchError::Module {
-            index: 0,
-            error: 2,
-            message: Some("OriginCddMissing")
-        })
-    );
-
-    let _alice_did = register_keyring_account_with_balance(AccountKeyring::Alice, 1_000).unwrap();
-
     let transaction = UniqueCall::new(
         Utility::nonce(bob) + 1,
         Call::Balances(BalancesCall::transfer(charlie, 59)),
@@ -188,7 +175,7 @@ fn _relay_unhappy_cases() {
         ),
         Err(DispatchError::Module {
             index: 0,
-            error: 3,
+            error: 2,
             message: Some("InvalidNonce")
         })
     );

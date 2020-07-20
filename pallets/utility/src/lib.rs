@@ -27,11 +27,11 @@
 //!
 //! ## Overview
 //! This module contains the following functionality:
-//! - [`Batch dispatch`]\: A stateless operation, allowing any origin to execute multiple calls in a
+//! - [Batch dispatch]\: A stateless operation, allowing any origin to execute multiple calls in a
 //!   single dispatch. This can be useful to amalgamate proposals, combining `set_code` with
 //!   corresponding `set_storage`s, for efficient multiple payouts with just a single signature
 //!   verify, or in combination with one of the other dispatch functionality.
-//! - [`Relayed dispatch`]\: A stateful operation, allowing a signed origin to execute calls on
+//! - [Relayed dispatch]\: A stateful operation, allowing a signed origin to execute calls on
 //!   behalf of another account. This is useful when a transaction's fee needs to be paid by a third party.
 //!   Relaying dispatch requires the dispatched call to be unique as to avoid replay attacks.
 //!
@@ -41,8 +41,9 @@
 //!
 //! - `batch` - Dispatch multiple calls from the sender's origin.
 //! - `relay_tx` - Relay a call for a target from an origin.
-//! [`Batch dispatch`]: struct.Module.html#method.batch
-//! [`Relayed dispatch`]: struct.Module.html#method.relay_tx
+//!
+//! [Batch dispatch]: ./struct.Module.html#method.batch
+//! [Relayed dispatch]: ./struct.Module.html#method.relay_tx
 
 // Ensure we're `no_std` when compiling for Wasm.
 #![cfg_attr(not(feature = "std"), no_std)]
@@ -59,7 +60,7 @@ use frame_support::{
 use frame_system as system;
 use frame_system::{ensure_root, ensure_signed, RawOrigin};
 use polymesh_common_utilities::{
-    balances::CheckCdd, identity::AuthorizationNonce, identity::Trait as IdentityModule,
+    balances::CheckCdd, identity::AuthorizationNonce, identity::Trait as IdentityTrait,
 };
 use sp_runtime::{
     traits::Dispatchable, traits::Verify, DispatchError, DispatchResult, RuntimeDebug,
@@ -67,7 +68,7 @@ use sp_runtime::{
 use sp_std::prelude::*;
 
 /// Configuration trait.
-pub trait Trait: frame_system::Trait + IdentityModule {
+pub trait Trait: frame_system::Trait + IdentityTrait {
     /// The overarching event type.
     type Event: From<Event> + Into<<Self as frame_system::Trait>::Event>;
 
@@ -91,8 +92,6 @@ decl_error! {
         InvalidSignature,
         /// Target does not have a valid CDD
         TargetCddMissing,
-        /// Origin does not have a valid CDD
-        OriginCddMissing,
         /// Provided nonce was invalid
         /// If the provided nonce < current nonce, the call was already executed
         /// If the provided nonce > current nonce, the call(s) before the current failed to execute
@@ -194,10 +193,12 @@ decl_module! {
         /// Fees are charged to origin
         ///
         /// # Parameters
+        /// - `target`: Account to be relayed
+        /// - `signature`: Signature from target authorizing the relay
         /// - `call`: Call to be relayed on behalf of target
         ///
         /// # Weight
-        /// - The weight of the call being relayed plus a static 250_000.
+        /// - The weight of the call to be relayed plus a static 250_000.
         #[weight = (
             call.call.get_dispatch_info().weight.saturating_add(250_000),
             call.call.get_dispatch_info().class,
@@ -205,10 +206,10 @@ decl_module! {
         pub fn relay_tx(
             origin,
             target: T::AccountId,
-            signature: <T as IdentityModule>::OffChainSignature,
+            signature: <T as IdentityTrait>::OffChainSignature,
             call: UniqueCall<<T as Trait>::Call>
         ) -> DispatchResult {
-            let origin = ensure_signed(origin)?;
+            let _ = ensure_signed(origin)?;
 
            let target_nonce = <Nonces<T>>::get(&target);
 
@@ -225,11 +226,6 @@ decl_module! {
             ensure!(
                 T::CddChecker::check_key_cdd(&target),
                 Error::<T>::TargetCddMissing
-            );
-
-            ensure!(
-                T::CddChecker::check_key_cdd(&origin),
-                Error::<T>::OriginCddMissing
             );
 
             <Nonces<T>>::insert(target.clone(), target_nonce + 1);
