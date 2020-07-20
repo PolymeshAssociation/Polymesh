@@ -2107,28 +2107,7 @@ impl<T: Trait> Module<T> {
                             }
                         }
                     }
-                    match auth.authorization_data {
-                        AuthorizationData::AttestMasterKeyRotation(..) => {
-                            type_of_auth == AuthorizationType::AttestMasterKeyRotation
-                        }
-                        AuthorizationData::RotateMasterKey(..) => {
-                            type_of_auth == AuthorizationType::RotateMasterKey
-                        }
-                        AuthorizationData::TransferTicker(..) => {
-                            type_of_auth == AuthorizationType::TransferTicker
-                        }
-                        AuthorizationData::AddMultiSigSigner(..) => {
-                            type_of_auth == AuthorizationType::AddMultiSigSigner
-                        }
-                        AuthorizationData::TransferAssetOwnership(..) => {
-                            type_of_auth == AuthorizationType::TransferAssetOwnership
-                        }
-                        AuthorizationData::JoinIdentity(..) => {
-                            type_of_auth == AuthorizationType::JoinIdentity
-                        }
-                        AuthorizationData::Custom(..) => type_of_auth == AuthorizationType::Custom,
-                        AuthorizationData::NoData => type_of_auth == AuthorizationType::NoData,
-                    }
+                    Self::get_type(auth.authorization_data.clone(), type_of_auth.clone())
                 })
                 .collect::<Vec<Authorization<T::AccountId, T::Moment>>>()
         } else {
@@ -2144,6 +2123,34 @@ impl<T: Trait> Module<T> {
                     return true;
                 })
                 .collect::<Vec<Authorization<T::AccountId, T::Moment>>>()
+        }
+    }
+
+    pub fn get_type(
+        authorization_data: AuthorizationData<T::AccountId>,
+        type_of_auth: AuthorizationType,
+    ) -> bool {
+        match authorization_data {
+            AuthorizationData::AttestMasterKeyRotation(..) => {
+                return type_of_auth == AuthorizationType::AttestMasterKeyRotation
+            }
+            AuthorizationData::RotateMasterKey(..) => {
+                return type_of_auth == AuthorizationType::RotateMasterKey
+            }
+            AuthorizationData::TransferTicker(..) => {
+                return type_of_auth == AuthorizationType::TransferTicker
+            }
+            AuthorizationData::AddMultiSigSigner(..) => {
+                return type_of_auth == AuthorizationType::AddMultiSigSigner
+            }
+            AuthorizationData::TransferAssetOwnership(..) => {
+                return type_of_auth == AuthorizationType::TransferAssetOwnership
+            }
+            AuthorizationData::JoinIdentity(..) => {
+                return type_of_auth == AuthorizationType::JoinIdentity
+            }
+            AuthorizationData::Custom(..) => return type_of_auth == AuthorizationType::Custom,
+            AuthorizationData::NoData => return type_of_auth == AuthorizationType::NoData,
         }
     }
 

@@ -51,6 +51,19 @@ pub enum AuthorizationData<AccountId> {
     NoData,
 }
 
+#[derive(Eq, PartialEq, Encode, Decode, Clone)]
+#[cfg_attr(feature = "std", derive(Debug, Serialize, Deserialize))]
+pub enum AuthorizationType {
+    AttestMasterKeyRotation,
+    RotateMasterKey,
+    TransferTicker,
+    AddMultiSigSigner,
+    TransferAssetOwnership,
+    JoinIdentity,
+    Custom,
+    NoData,
+}
+
 impl<AccountId> Default for AuthorizationData<AccountId> {
     fn default() -> Self {
         AuthorizationData::NoData

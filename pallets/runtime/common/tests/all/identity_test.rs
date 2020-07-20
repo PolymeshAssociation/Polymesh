@@ -1405,6 +1405,14 @@ fn add_identity_signers() {
             None,
         );
 
+        // Getting expired and non-expired both
+        let mut authorizations = Identity::get_filtered_authorizations(
+            bob_identity_signer,
+            true,
+            Some(AuthorizationType::JoinIdentity),
+        );
+        assert_eq!(authorizations.len(), 1);
+
         assert_ok!(Balances::top_up_identity_balance(
             charlie.clone(),
             charlie_did,
@@ -1451,14 +1459,6 @@ fn add_identity_signers() {
             Identity::join_identity(dave_acc_signer, auth_id_for_acc2_to_acc),
             Error::<TestStorage>::AlreadyLinked
         );
-
-        // Getting expired and non-expired both
-        let mut authorizations = Identity::get_filtered_authorizations(
-            bob_identity_signer,
-            true,
-            Some(AuthorizationType::JoinIdentity),
-        );
-        assert_eq!(authorizations.len(), 1);
 
         let alice_signing_items = Identity::did_records(alice_did).signing_items;
         let charlie_signing_items = Identity::did_records(charlie_did).signing_items;

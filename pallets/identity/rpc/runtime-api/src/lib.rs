@@ -3,7 +3,7 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use codec::{Codec, Decode, Encode};
-pub use polymesh_primitives::{Authorization, IdentityId, Link, Moment};
+pub use polymesh_primitives::{Authorization, AuthorizationType, IdentityId, Link, Moment};
 #[cfg(feature = "std")]
 use serde::{Deserialize, Serialize};
 use sp_std::{prelude::*, vec::Vec};
@@ -40,18 +40,6 @@ pub enum DidStatus {
     Unknown,
     Exists,
     CddVerified,
-}
-#[derive(Eq, PartialEq, Encode, Decode)]
-#[cfg_attr(feature = "std", derive(Debug, Serialize, Deserialize))]
-pub enum AuthorizationType {
-    AttestMasterKeyRotation,
-    RotateMasterKey,
-    TransferTicker,
-    AddMultiSigSigner,
-    TransferAssetOwnership,
-    JoinIdentity,
-    Custom,
-    NoData,
 }
 
 sp_api::decl_runtime_apis! {
