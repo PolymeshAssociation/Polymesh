@@ -40,6 +40,7 @@ members = [
     "pallets/protocol-fee/rpc",
     "pallets/protocol-fee/rpc/runtime-api",
     "pallets/treasury",
+    "pallets/settlement",
     "pallets/cdd-offchain-worker",
     "pallets/asset",
     "pallets/compliance-manager",
