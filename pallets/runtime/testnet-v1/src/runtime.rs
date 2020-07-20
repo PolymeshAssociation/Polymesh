@@ -13,6 +13,7 @@ use pallet_identity as identity;
 use pallet_multisig as multisig;
 use pallet_pips::{HistoricalVotingByAddress, HistoricalVotingById, Vote, VoteCount};
 use pallet_protocol_fee as protocol_fee;
+use pallet_settlement as settlement;
 use pallet_statistics as statistics;
 pub use pallet_transaction_payment::{Multiplier, TargetedFeeAdjustment};
 use pallet_treasury as treasury;
@@ -487,6 +488,16 @@ impl treasury::Trait for Runtime {
 }
 
 parameter_types! {
+    pub const MaxScheduledInstructionLegsPerBlock: u32 = 500;
+}
+
+impl settlement::Trait for Runtime {
+    type Event = Event;
+    type Asset = Asset;
+    type MaxScheduledInstructionLegsPerBlock = MaxScheduledInstructionLegsPerBlock;
+}
+
+parameter_types! {
     pub OffencesWeightSoftLimit: Weight = Perbill::from_percent(60) * MaximumBlockWeight::get();
 }
 
@@ -701,6 +712,7 @@ construct_runtime!(
         StoCapped: sto_capped::{Module, Call, Storage, Event<T>},
         Exemption: exemption::{Module, Call, Storage, Event},
         SimpleToken: simple_token::{Module, Call, Storage, Event<T>},
+        Settlement: settlement::{Module, Call, Storage, Event<T>, Config},
         CddServiceProviders: group::<Instance2>::{Module, Call, Storage, Event<T>, Config<T>},
         Statistic: statistics::{Module, Call, Storage},
         ProtocolFee: protocol_fee::{Module, Call, Storage, Event<T>, Config<T>},
