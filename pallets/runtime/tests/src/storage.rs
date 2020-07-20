@@ -31,6 +31,7 @@ use polymesh_common_utilities::traits::{
     group::GroupTrait,
     identity::Trait as IdentityTrait,
     pip::{EnactProposalMaker, PipId},
+    transaction_payment::{CddAndFeeDetails, ChargeTxFee},
     CommonTrait,
 };
 use polymesh_primitives::{Authorization, AuthorizationData, IdentityId, Signatory};
@@ -38,7 +39,6 @@ use polymesh_runtime_common::{
     bridge, cdd_check::CddChecker, dividend, exemption, simple_token, voting,
 };
 use smallvec::smallvec;
-use sp_arithmetic::traits::Saturating;
 use sp_core::{
     crypto::{key_types, Pair as PairTrait},
     sr25519::{Pair, Public},
@@ -251,13 +251,13 @@ impl simple_token::Trait for TestStorage {
     type Event = Event;
 }
 
-impl pallet_transaction_payment::ChargeTxFee for TestStorage {
+impl ChargeTxFee for TestStorage {
     fn charge_fee(_len: u32, _info: DispatchInfo) -> TransactionValidity {
         Ok(ValidTransaction::default())
     }
 }
 
-impl pallet_transaction_payment::CddAndFeeDetails<AccountId, Call> for TestStorage {
+impl CddAndFeeDetails<AccountId, Call> for TestStorage {
     fn get_valid_payer(
         _: &Call,
         _: &Signatory<AccountId>,
@@ -629,7 +629,7 @@ pub fn register_keyring_account_without_cdd(
 }
 
 pub fn add_signing_item(did: IdentityId, signer: Signatory<AccountId>) {
-    let master_key = Identity::did_records(&did).master_key;
+    let _master_key = Identity::did_records(&did).master_key;
     let auth_id = Identity::add_auth(
         did.clone(),
         signer,

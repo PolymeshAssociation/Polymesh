@@ -7,7 +7,7 @@ use frame_support::{assert_err, assert_ok, StorageDoubleMap};
 use pallet_balances as balances;
 use pallet_identity as identity;
 use pallet_multisig as multisig;
-use pallet_transaction_payment::CddAndFeeDetails;
+use polymesh_common_utilities::traits::transaction_payment::CddAndFeeDetails;
 use polymesh_primitives::{Signatory, TransactionError};
 use polymesh_runtime_develop::{fee_details::CddHandler, runtime::Call};
 use sp_core::crypto::AccountId32;
@@ -31,7 +31,8 @@ fn cdd_checks() {
             let alice_account_signatory =
                 Signatory::Account(AccountId32::from(AccountKeyring::Alice.public().0));
             let alice_did_signatory = Signatory::from(alice_did);
-            let musig_address = MultiSig::get_next_multisig_address(AccountKeyring::Alice.public());
+            let _musig_address =
+                MultiSig::get_next_multisig_address(AccountKeyring::Alice.public());
 
             // charlie has valid cdd
             let (charlie_signed, charlie_did) =
@@ -95,7 +96,7 @@ fn cdd_checks() {
 
             // call to accept being a multisig signer should succeed when authorizer has a valid cdd but signer key does not
             // fee must be paid by multisig creator
-            let musig_address2 =
+            let _musig_address2 =
                 MultiSig::get_next_multisig_address(AccountKeyring::Charlie.public());
             assert_ok!(MultiSig::create_multisig(
                 charlie_signed.clone(),

@@ -16,6 +16,7 @@ members = [
     "pallets/runtime/common",
     "pallets/runtime/develop",
     "pallets/runtime/testnet-v1",
+    "pallets/runtime/tests",
     "pallets/common",
     "pallets/transaction-payment",
     "pallets/staking",

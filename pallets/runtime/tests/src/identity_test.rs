@@ -7,25 +7,22 @@ use super::{
     ExtBuilder,
 };
 use codec::Encode;
-use frame_support::{
-    assert_err, assert_ok, dispatch::DispatchError, traits::Currency, StorageDoubleMap,
-};
+use frame_support::{assert_err, assert_ok, traits::Currency, StorageDoubleMap};
 use pallet_balances as balances;
-use pallet_identity::{self as identity, BatchAddClaimItem, BatchRevokeClaimItem, Error};
-use pallet_identity_rpc_runtime_api::LinkType;
-use pallet_transaction_payment::CddAndFeeDetails;
+use pallet_identity::{self as identity, BatchAddClaimItem, BatchRevokeClaimItem, Error, LinkType};
 use polymesh_common_utilities::{
     traits::{
         group::GroupTrait,
         identity::{
             LinkedKeyInfo, SigningItemWithAuth, TargetIdAuthorization, Trait as IdentityTrait,
         },
+        transaction_payment::CddAndFeeDetails,
     },
     SystematicIssuers,
 };
 use polymesh_primitives::{
-    AuthorizationData, AuthorizationError, Claim, ClaimType, Document, IdentityClaim, IdentityId,
-    LinkData, Permission, Scope, Signatory, SignatoryType, SigningItem, Ticker, TransactionError,
+    AuthorizationData, Claim, ClaimType, Document, IdentityClaim, IdentityId, LinkData, Permission,
+    Scope, Signatory, SignatoryType, SigningItem, Ticker, TransactionError,
 };
 use polymesh_runtime_develop::{fee_details::CddHandler, runtime::Call};
 use sp_core::crypto::AccountId32;
@@ -1358,9 +1355,9 @@ fn add_identity_signers() {
         let bob_did = register_keyring_account(AccountKeyring::Bob).unwrap();
         let charlie = Origin::signed(AccountKeyring::Charlie.public());
         let charlie_did = register_keyring_account(AccountKeyring::Charlie).unwrap();
-        let alice_acc_signer = Signatory::Account(AccountKeyring::Alice.public());
+        let _alice_acc_signer = Signatory::Account(AccountKeyring::Alice.public());
         let bob_identity_signer = Signatory::from(bob_did);
-        let charlie_acc_signer = Signatory::Account(AccountKeyring::Charlie.public());
+        let _charlie_acc_signer = Signatory::Account(AccountKeyring::Charlie.public());
         let dave_acc_signer = Signatory::Account(AccountKeyring::Dave.public());
 
         let auth_id_for_acc_to_id = Identity::add_auth(

@@ -16,21 +16,44 @@
 // limitations under the License.
 
 //! Tests for the module.
-mod mock;
-mod inflaction;
+//!
+#[macro_export]
+macro_rules! assert_session_era {
+    ($session:expr, $era:expr) => {
+        assert_eq!(
+            Session::current_index(),
+            $session,
+            "wrong session {} != {}",
+            Session::current_index(),
+            $session,
+        );
+        assert_eq!(
+            Staking::active_era().unwrap().index,
+            $era,
+            "wrong active era {} != {}",
+            Staking::active_era().unwrap().index,
+            $era,
+        );
+    };
+}
 
-use super::*;
+mod mock;
+use mock::*;
+
+use pallet_staking::*;
+
 use chrono::prelude::Utc;
 use frame_support::{
     assert_noop, assert_ok,
     traits::{Currency, OnFinalize, OnInitialize, ReservableCurrency},
     StorageMap,
 };
-use mock::*;
 use pallet_balances::Error as BalancesError;
 use sp_runtime::{assert_eq_error_rate, traits::BadOrigin};
 use sp_staking::offence::OffenceDetails;
+use sp_npos_elections::{ElectionScore};
 use substrate_test_utils::assert_eq_uvec;
+
 
 #[test]
 fn force_unstake_works() {
@@ -471,10 +494,10 @@ fn no_candidate_emergency_condition() {
             let prefs = ValidatorPrefs {
                 commission: Perbill::one(),
             };
-            <Staking as crate::Store>::Validators::insert(11, prefs.clone());
+            pallet_staking::<Module<Test>>::Validators::insert(11, prefs.clone());
 
             // set the minimum validator count.
-            <Staking as crate::Store>::MinimumValidatorCount::put(10);
+            pallet_staking::<Module<Test>>::MinimumValidatorCount::put(10);
 
             // try to chill
             let _ = Staking::chill(Origin::signed(10));
@@ -3219,13 +3242,13 @@ fn remove_multi_deferred() {
 }
 
 mod offchain_phragmen {
-    use crate::*;
+    use super::*;
+    use pallet_staking::{offchain_election, OffchainAccuracy};
     use codec::Encode;
     use frame_support::traits::OffchainWorker;
     use frame_support::{
         assert_err_with_weight, assert_noop, assert_ok, dispatch::DispatchResultWithPostInfo,
     };
-    use mock::*;
     use parking_lot::RwLock;
     use sp_core::offchain::{
         testing::{PoolState, TestOffchainExt, TestTransactionPoolExt},

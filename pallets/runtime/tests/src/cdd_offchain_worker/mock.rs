@@ -19,11 +19,12 @@ use codec::Encode;
 use frame_support::{
     assert_ok,
     dispatch::DispatchResult,
-    impl_outer_dispatch, impl_outer_origin, ord_parameter_types, parameter_types,
+    impl_outer_dispatch, impl_outer_origin, parameter_types,
     traits::{Currency, FindAuthor, Get},
     weights::{DispatchInfo, Weight},
 };
 use frame_system::EnsureSignedBy;
+use pallet_cdd_offchain_worker::{Trait, crypto};
 use pallet_group as group;
 use pallet_identity::{self as identity};
 use pallet_protocol_fee as protocol_fee;
@@ -61,7 +62,7 @@ use std::{
     cell::RefCell,
     collections::{BTreeMap, HashSet},
 };
-use substrate_test_runtime_client::AccountKeyring;
+use test_client::AccountKeyring;
 
 pub type AccountId = <AnySignature as Verify>::Signer;
 pub type BlockNumber = u64;
@@ -248,7 +249,7 @@ impl pallet_balances::Trait for Test {
     type CddChecker = Test;
 }
 
-ord_parameter_types! {
+parameter_types! {
     pub const One: AccountId = AccountId::from(AccountKeyring::Dave);
     pub const Two: AccountId = AccountId::from(AccountKeyring::Dave);
     pub const Three: AccountId = AccountId::from(AccountKeyring::Dave);
@@ -449,7 +450,7 @@ parameter_types! {
     pub const SlashDeferDuration: EraIndex = 0;
 }
 
-ord_parameter_types! {
+parameter_types! {
     pub const OneThousand: Public = account_from(1000);
     pub const TwoThousand: Public = account_from(2000);
     pub const ThreeThousand: Public = account_from(3000);
@@ -459,7 +460,7 @@ ord_parameter_types! {
 
 impl pallet_staking::Trait for Test {
     type Currency = pallet_balances::Module<Self>;
-    type Time = pallet_timestamp::Module<Self>;
+    // type Time = pallet_timestamp::Module<Self>;
     type CurrencyToVote = CurrencyToVoteHandler;
     type RewardRemainder = ();
     type Event = ();
@@ -480,14 +481,11 @@ impl pallet_staking::Trait for Test {
 }
 
 pub type Extrinsic = TestXt<Call, ()>;
-pub type SubmitTransaction =
-    frame_system::offchain::TransactionSubmitter<crypto::SignerId, Call, Extrinsic>;
 
 impl Trait for Test {
     type SignerId = UintAuthorityId;
     type Event = ();
     type Call = Call;
-    type SubmitUnsignedTransaction = SubmitTransaction;
     type CoolingInterval = CoolingInterval;
     type BufferInterval = BufferInterval;
 }
@@ -757,7 +755,7 @@ impl ExtBuilder {
     }
 }
 
-pub type CddOffchainWorker = Module<Test>;
+pub type CddOffchainWorker = pallet_cdd_offchain_worker::Module<Test>;
 pub type System = frame_system::Module<Test>;
 pub type Session = pallet_session::Module<Test>;
 pub type Timestamp = pallet_timestamp::Module<Test>;

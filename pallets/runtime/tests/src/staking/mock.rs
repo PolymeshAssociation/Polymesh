@@ -16,14 +16,12 @@
 // limitations under the License.
 
 //! Test utilities
-
-use crate::*;
 use chrono::prelude::Utc;
 use frame_support::{
     assert_ok,
     dispatch::{DispatchResult},
     impl_outer_dispatch, impl_outer_event, impl_outer_origin, ord_parameter_types, parameter_types,
-    traits::{Currency, FindAuthor, Get, OnFinalize, OnInitialize},
+    traits::{Currency, FindAuthor, Get, OnFinalize, OnInitialize, OnUnbalanced},
     weights::{constants::RocksDbWeight, DispatchInfo, Weight},
     IterableStorageMap, StorageDoubleMap, StorageMap, StorageValue,
 };
@@ -31,6 +29,8 @@ use frame_system::EnsureSignedBy;
 use pallet_group as group;
 use pallet_identity as identity;
 use pallet_protocol_fee as protocol_fee;
+use pallet_staking::{ self as staking, *};
+
 use polymesh_common_utilities::traits::{
     asset::AcceptTransfer,
     balances::{AccountData, CheckCdd},
@@ -40,22 +40,28 @@ use polymesh_common_utilities::traits::{
     transaction_payment::{ CddAndFeeDetails, ChargeTxFee },
     CommonTrait,
 };
-use primitives::{AuthorizationData, Claim, IdentityId, Moment, Signatory};
+use polymesh_primitives::{AuthorizationData, Claim, IdentityId, Moment, Signatory};
 use sp_core::H256;
 use sp_io;
 use sp_npos_elections::{
     build_support_map, evaluate_support, reduce, ElectionScore, ExtendedBalance, StakedAssignment,
     VoteWeight,
 };
-use sp_runtime::curve::PiecewiseLinear;
-use sp_runtime::testing::{Header, TestSignature, TestXt, UintAuthorityId};
-use sp_runtime::traits::{Convert, IdentityLookup, SaturatedConversion, Zero};
-use sp_runtime::Perbill;
+use sp_runtime::{
+    curve::PiecewiseLinear,
+    testing::{Header, TestSignature, TestXt, UintAuthorityId},
+    traits::{Convert, IdentityLookup, SaturatedConversion, Zero},
+    transaction_validity::{ TransactionValidity, InvalidTransaction, ValidTransaction },
+    Perbill
+};
 use sp_staking::{
     offence::{OffenceDetails, OnOffenceHandler},
     SessionIndex,
 };
-use std::{cell::RefCell, collections::HashSet};
+use std::{
+    cell::RefCell,
+    collections::{HashSet,BTreeMap},
+};
 
 pub const INIT_TIMESTAMP: u64 = 30_000;
 
@@ -185,10 +191,6 @@ impl_outer_dispatch! {
     }
 }
 
-mod staking {
-    // Re-export needed for `impl_outer_event!`.
-    pub use super::super::*;
-}
 use frame_system as system;
 use pallet_balances as balances;
 use pallet_session as session;
@@ -285,20 +287,20 @@ impl pallet_session::Trait for Test {
     type SessionHandler = (OtherSessionHandler,);
     type Event = MetaEvent;
     type ValidatorId = AccountId;
-    type ValidatorIdOf = crate::StashOf<Test>;
+    type ValidatorIdOf = StashOf<Test>;
     type DisabledValidatorsThreshold = DisabledValidatorsThreshold;
     type NextSessionRotation = pallet_session::PeriodicSessions<Period, Offset>;
 }
 
 impl pallet_session::historical::Trait for Test {
-    type FullIdentification = crate::Exposure<AccountId, Balance>;
-    type FullIdentificationOf = crate::ExposureOf<Test>;
+    type FullIdentification = Exposure<AccountId, Balance>;
+    type FullIdentificationOf = ExposureOf<Test>;
 }
 impl pallet_authorship::Trait for Test {
     type FindAuthor = Author11;
     type UncleGenerations = UncleGenerations;
     type FilterUncle = ();
-    type EventHandler = Module<Test>;
+    type EventHandler = pallet_staking::Module<Test>;
 }
 parameter_types! {
     pub const MinimumPeriod: u64 = 5;
@@ -309,20 +311,12 @@ impl pallet_timestamp::Trait for Test {
     type MinimumPeriod = MinimumPeriod;
 }
 
-ord_parameter_types! {
-    pub const One: AccountId = 1001;
-    pub const Two: AccountId = 1001;
-    pub const Three: AccountId = 1001;
-    pub const Four: AccountId = 1001;
-    pub const Five: AccountId = 1001;
-}
-
 impl group::Trait<group::Instance2> for Test {
     type Event = MetaEvent;
-    type AddOrigin = EnsureSignedBy<One, AccountId>;
-    type RemoveOrigin = EnsureSignedBy<Two, AccountId>;
-    type SwapOrigin = EnsureSignedBy<Three, AccountId>;
-    type ResetOrigin = EnsureSignedBy<Four, AccountId>;
+    type AddOrigin = frame_system::EnsureRoot<AccountId>;
+    type RemoveOrigin = frame_system::EnsureRoot<AccountId>;
+    type SwapOrigin = frame_system::EnsureRoot<AccountId>;
+    type ResetOrigin = frame_system::EnsureRoot<AccountId>;
     type MembershipInitialized = ();
     type MembershipChanged = ();
 }
@@ -494,7 +488,7 @@ impl OnUnbalanced<NegativeImbalanceOf<Test>> for RewardRemainderMock {
     }
 }
 
-ord_parameter_types! {
+parameter_types! {
     pub const OneThousand: AccountId = 1000;
     pub const TwoThousand: AccountId = 2000;
     pub const ThreeThousand: AccountId = 3000;
@@ -740,7 +734,7 @@ impl ExtBuilder {
                 ),
             ];
         }
-        let _ = GenesisConfig::<Test> {
+        let _ = pallet_staking::GenesisConfig::<Test> {
             stakers: stakers,
             validator_count: self.validator_count,
             minimum_validator_count: self.minimum_validator_count,
@@ -794,7 +788,7 @@ pub type Balances = balances::Module<Test>;
 pub type Session = pallet_session::Module<Test>;
 pub type Timestamp = pallet_timestamp::Module<Test>;
 pub type Group = group::Module<Test, group::Instance2>;
-pub type Staking = Module<Test>;
+pub type Staking = pallet_staking::Module<Test>;
 pub type Identity = identity::Module<Test>;
 
 pub(crate) fn current_era() -> EraIndex {
@@ -943,7 +937,7 @@ fn assert_ledger_consistent(ctrl: AccountId) {
     assert_eq!(real_total, ledger.total);
 }
 
-pub(crate) fn bond_validator(stash: AccountId, ctrl: AccountId, val: Balance) {
+pub fn bond_validator(stash: AccountId, ctrl: AccountId, val: Balance) {
     let _ = Balances::make_free_balance_be(&stash, val);
     let _ = Balances::make_free_balance_be(&ctrl, val);
     provide_did_to_user(stash);
@@ -981,7 +975,7 @@ pub(crate) fn bond_nominator(
     assert_ok!(Staking::nominate(Origin::signed(ctrl), target));
 }
 
-pub(crate) fn bond_nominator_cdd(
+pub fn bond_nominator_cdd(
     stash: AccountId,
     ctrl: AccountId,
     val: Balance,
@@ -992,7 +986,7 @@ pub(crate) fn bond_nominator_cdd(
     bond_nominator(stash, ctrl, val, target);
 }
 
-pub(crate) fn run_to_block(n: BlockNumber) {
+pub fn run_to_block(n: BlockNumber) {
     Staking::on_finalize(System::block_number());
     for b in System::block_number() + 1..=n {
         System::set_block_number(b);
@@ -1004,12 +998,12 @@ pub(crate) fn run_to_block(n: BlockNumber) {
     }
 }
 
-pub(crate) fn advance_session() {
+pub fn advance_session() {
     let current_index = Session::current_index();
     start_session(current_index + 1);
 }
 
-pub(crate) fn start_session(session_index: SessionIndex) {
+pub fn start_session(session_index: SessionIndex) {
     assert_eq!(
         <Period as Get<BlockNumber>>::get(),
         1,
@@ -1045,7 +1039,7 @@ pub(crate) fn current_total_payout_for_duration(duration: u64) -> Balance {
     .0
 }
 
-pub(crate) fn reward_all_elected() {
+pub fn reward_all_elected() {
     let rewards = <Test as Trait>::SessionInterface::validators()
         .into_iter()
         .map(|v| (v, 1));
@@ -1068,7 +1062,7 @@ pub(crate) fn on_offence_in_era(
     slash_fraction: &[Perbill],
     era: EraIndex,
 ) {
-    let bonded_eras = crate::BondedEras::get();
+    let bonded_eras = staking::BondedEras::get();
     for &(bonded_era, start_session) in bonded_eras.iter() {
         if bonded_era == era {
             let _ = Staking::on_offence(offenders, slash_fraction, start_session).unwrap();
@@ -1347,26 +1341,6 @@ pub(crate) fn make_all_reward_payment(era: EraIndex) {
             era
         ));
     }
-}
-
-#[macro_export]
-macro_rules! assert_session_era {
-    ($session:expr, $era:expr) => {
-        assert_eq!(
-            Session::current_index(),
-            $session,
-            "wrong session {} != {}",
-            Session::current_index(),
-            $session,
-        );
-        assert_eq!(
-            Staking::active_era().unwrap().index,
-            $era,
-            "wrong active era {} != {}",
-            Staking::active_era().unwrap().index,
-            $era,
-        );
-    };
 }
 
 pub(crate) fn staking_events() -> Vec<Event<Test>> {

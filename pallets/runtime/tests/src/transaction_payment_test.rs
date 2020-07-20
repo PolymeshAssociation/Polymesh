@@ -1,22 +1,26 @@
+use pallet_balances::Call as BalancesCall;
+use pallet_transaction_payment::{
+    ChargeTransactionPayment, Multiplier, RuntimeDispatchInfo, Trait,
+};
 use polymesh_common_utilities::{
     traits::{
         asset::AcceptTransfer,
-        balances::{self, AccountData, CheckCdd},
+        balances::{AccountData, CheckCdd},
         identity::IdentityTrait,
+        transaction_payment::{CddAndFeeDetails, ChargeTxFee},
         CommonTrait,
     },
     SystematicIssuers,
 };
-use primitives::{IdentityId, Permission};
-use pallet_balances::Call as BalancesCall;
-use pallet_transaction_payment::RuntimeDispatchInfo;
-
+use polymesh_primitives::{IdentityId, Permission, Signatory};
 
 use codec::Encode;
 use frame_support::{
+    dispatch::DispatchResult,
     impl_outer_dispatch, impl_outer_event, impl_outer_origin, parameter_types,
+    traits::{Currency, Get},
     weights::{
-        DispatchClass, DispatchInfo, GetDispatchInfo, PostDispatchInfo, Weight,
+        DispatchClass, DispatchInfo, GetDispatchInfo, Pays, PostDispatchInfo, Weight,
         WeightToFeeCoefficient, WeightToFeeCoefficients, WeightToFeePolynomial,
     },
 };
@@ -24,8 +28,9 @@ use smallvec::smallvec;
 use sp_core::H256;
 use sp_runtime::{
     testing::{Header, TestXt},
-    traits::{BlakeTwo256, IdentityLookup},
-    Perbill,
+    traits::{BlakeTwo256, IdentityLookup, SignedExtension},
+    transaction_validity::{InvalidTransaction, TransactionValidity, ValidTransaction},
+    FixedPointNumber, Perbill,
 };
 use std::cell::RefCell;
 
@@ -33,7 +38,7 @@ pub type AccountId = u64;
 pub type Balance = u128;
 
 const CALL: &<Runtime as frame_system::Trait>::Call =
-&Call::Balances(BalancesCall::transfer(2, 69));
+    &Call::Balances(BalancesCall::transfer(2, 69));
 
 impl_outer_dispatch! {
     pub enum Call for Runtime where origin: Origin {
@@ -216,11 +221,7 @@ impl IdentityTrait<AccountId> for Runtime {
     }
 
     fn unsafe_add_systematic_cdd_claims(_targets: &[IdentityId], _issuer: SystematicIssuers) {}
-    fn unsafe_revoke_systematic_cdd_claims(
-        _targets: &[IdentityId],
-        _issuer: SystematicIssuers,
-    ) {
-    }
+    fn unsafe_revoke_systematic_cdd_claims(_targets: &[IdentityId], _issuer: SystematicIssuers) {}
     fn has_valid_cdd(_target_did: IdentityId) -> bool {
         unimplemented!()
     }
@@ -271,7 +272,7 @@ impl ChargeTxFee for Runtime {
 
 type Balances = pallet_balances::Module<Runtime>;
 type System = frame_system::Module<Runtime>;
-type TransactionPayment = Module<Runtime>;
+type TransactionPayment = pallet_transaction_payment::Module<Runtime>;
 
 pub struct ExtBuilder {
     balance_factor: u128,
@@ -334,7 +335,7 @@ impl ExtBuilder {
             identity_balances: vec![],
         }
         .assimilate_storage(&mut t)
-            .unwrap();
+        .unwrap();
         t.into()
     }
 }
@@ -374,29 +375,29 @@ fn signed_extension_transaction_payment_work() {
             assert_eq!(Balances::free_balance(1), 100 - 5 - 5 - 10);
 
             assert!(ChargeTransactionPayment::<Runtime>::post_dispatch(
-                    pre,
-                    &info_from_weight(5),
-                    &default_post_info(),
-                    len,
-                    &Ok(())
+                pre,
+                &info_from_weight(5),
+                &default_post_info(),
+                len,
+                &Ok(())
             )
-                .is_ok());
-                assert_eq!(Balances::free_balance(1), 100 - 5 - 5 - 10);
+            .is_ok());
+            assert_eq!(Balances::free_balance(1), 100 - 5 - 5 - 10);
 
-                let pre = ChargeTransactionPayment::<Runtime>::from(0 /* tipped */)
-                    .pre_dispatch(&2, CALL, &info_from_weight(100), len)
-                    .unwrap();
+            let pre = ChargeTransactionPayment::<Runtime>::from(0 /* tipped */)
+                .pre_dispatch(&2, CALL, &info_from_weight(100), len)
+                .unwrap();
             assert_eq!(Balances::free_balance(2), 200 - 5 - 10 - 100 - 0);
 
             assert!(ChargeTransactionPayment::<Runtime>::post_dispatch(
-                    pre,
-                    &info_from_weight(100),
-                    &post_info_from_weight(50),
-                    len,
-                    &Ok(())
+                pre,
+                &info_from_weight(100),
+                &post_info_from_weight(50),
+                len,
+                &Ok(())
             )
-                .is_ok());
-                assert_eq!(Balances::free_balance(2), 200 - 5 - 10 - 50 - 0);
+            .is_ok());
+            assert_eq!(Balances::free_balance(2), 200 - 5 - 10 - 50 - 0);
         });
 }
 
@@ -408,7 +409,7 @@ fn signed_extension_transaction_payment_multiplied_refund_works() {
         .build()
         .execute_with(|| {
             let len = 10;
-            NextFeeMultiplier::put(Multiplier::saturating_from_rational(3, 2));
+            TransactionPayment::put_next_fee_multiplier(Multiplier::saturating_from_rational(3, 2));
 
             let pre = ChargeTransactionPayment::<Runtime>::from(0 /* tipped */)
                 .pre_dispatch(&2, CALL, &info_from_weight(100), len)
@@ -417,14 +418,14 @@ fn signed_extension_transaction_payment_multiplied_refund_works() {
             assert_eq!(Balances::free_balance(2), 200 - 5 - 10 - 150 - 0);
 
             assert!(ChargeTransactionPayment::<Runtime>::post_dispatch(
-                    pre,
-                    &info_from_weight(100),
-                    &post_info_from_weight(50),
-                    len,
-                    &Ok(())
+                pre,
+                &info_from_weight(100),
+                &post_info_from_weight(50),
+                len,
+                &Ok(())
             )
-                .is_ok());
-                // 75 (3/2 of the returned 50 units of weight) is refunded
+            .is_ok());
+            // 75 (3/2 of the returned 50 units of weight) is refunded
             assert_eq!(Balances::free_balance(2), 200 - 5 - 10 - 75 - 0);
         });
 }
@@ -440,7 +441,7 @@ fn signed_extension_transaction_payment_is_bounded() {
             assert!(ChargeTransactionPayment::<Runtime>::from(0)
                 .pre_dispatch(&1, CALL, &info_from_weight(Weight::max_value()), 10)
                 .is_ok());
-                // fee will be proportional to what is the actual maximum weight in the runtime.
+            // fee will be proportional to what is the actual maximum weight in the runtime.
             assert_eq!(
                 Balances::free_balance(&1),
                 (10000 - <Runtime as frame_system::Trait>::MaximumBlockWeight::get()) as u128
@@ -479,7 +480,7 @@ fn signed_extension_allows_free_transactions() {
             assert!(ChargeTransactionPayment::<Runtime>::from(0)
                 .validate(&1, CALL, &free_transaction, len)
                 .is_err());
-                });
+        });
 }
 
 #[test]
@@ -490,20 +491,20 @@ fn signed_ext_length_fee_is_also_updated_per_congestion() {
         .build()
         .execute_with(|| {
             // all fees should be x1.5
-            NextFeeMultiplier::put(Multiplier::saturating_from_rational(3, 2));
+            TransactionPayment::put_next_fee_multiplier(Multiplier::saturating_from_rational(3, 2));
             let len = 10;
 
             assert!(ChargeTransactionPayment::<Runtime>::from(0) // tipped
                 .pre_dispatch(&1, CALL, &info_from_weight(3), len)
                 .is_ok());
-                assert_eq!(
-                    Balances::free_balance(1),
-                    100 // original
+            assert_eq!(
+                Balances::free_balance(1),
+                100 // original
                     - 0 // tip
                     - 5 // base
                     - 10 // len
                     - (3 * 3 / 2) // adjusted weight
-                );
+            );
         })
 }
 
@@ -522,7 +523,7 @@ fn query_info_works() {
         .build()
         .execute_with(|| {
             // all fees should be x1.5
-            NextFeeMultiplier::put(Multiplier::saturating_from_rational(3, 2));
+            TransactionPayment::put_next_fee_multiplier(Multiplier::saturating_from_rational(3, 2));
 
             assert_eq!(
                 TransactionPayment::query_info(xt, len),
@@ -546,7 +547,7 @@ fn compute_fee_works_without_multiplier() {
         .build()
         .execute_with(|| {
             // Next fee multiplier is zero
-            assert_eq!(NextFeeMultiplier::get(), Multiplier::one());
+            assert_eq!(TransactionPayment::next_fee_multiplier(), Multiplier::one());
 
             // Tip only, no fees works
             let dispatch_info = DispatchInfo {
@@ -554,25 +555,25 @@ fn compute_fee_works_without_multiplier() {
                 class: DispatchClass::Operational,
                 pays_fee: Pays::No,
             };
-            assert_eq!(Module::<Runtime>::compute_fee(0, &dispatch_info, 10), 10);
+            assert_eq!(TransactionPayment::compute_fee(0, &dispatch_info, 10), 10);
             // No tip, only base fee works
             let dispatch_info = DispatchInfo {
                 weight: 0,
                 class: DispatchClass::Operational,
                 pays_fee: Pays::Yes,
             };
-            assert_eq!(Module::<Runtime>::compute_fee(0, &dispatch_info, 0), 100);
+            assert_eq!(TransactionPayment::compute_fee(0, &dispatch_info, 0), 100);
             // Tip + base fee works
-            assert_eq!(Module::<Runtime>::compute_fee(0, &dispatch_info, 69), 169);
+            assert_eq!(TransactionPayment::compute_fee(0, &dispatch_info, 69), 169);
             // Len (byte fee) + base fee works
-            assert_eq!(Module::<Runtime>::compute_fee(42, &dispatch_info, 0), 520);
+            assert_eq!(TransactionPayment::compute_fee(42, &dispatch_info, 0), 520);
             // Weight fee + base fee works
             let dispatch_info = DispatchInfo {
                 weight: 1000,
                 class: DispatchClass::Operational,
                 pays_fee: Pays::Yes,
             };
-            assert_eq!(Module::<Runtime>::compute_fee(0, &dispatch_info, 0), 1100);
+            assert_eq!(TransactionPayment::compute_fee(0, &dispatch_info, 0), 1100);
         });
 }
 
@@ -585,14 +586,14 @@ fn compute_fee_works_with_multiplier() {
         .build()
         .execute_with(|| {
             // Add a next fee multiplier. Fees will be x3/2.
-            NextFeeMultiplier::put(Multiplier::saturating_from_rational(3, 2));
+            TransactionPayment::put_next_fee_multiplier(Multiplier::saturating_from_rational(3, 2));
             // Base fee is unaffected by multiplier
             let dispatch_info = DispatchInfo {
                 weight: 0,
                 class: DispatchClass::Operational,
                 pays_fee: Pays::Yes,
             };
-            assert_eq!(Module::<Runtime>::compute_fee(0, &dispatch_info, 0), 100);
+            assert_eq!(TransactionPayment::compute_fee(0, &dispatch_info, 0), 100);
 
             // Everything works together :)
             let dispatch_info = DispatchInfo {
@@ -602,7 +603,7 @@ fn compute_fee_works_with_multiplier() {
             };
             // 123 weight, 456 length, 100 base
             assert_eq!(
-                Module::<Runtime>::compute_fee(456, &dispatch_info, 789),
+                TransactionPayment::compute_fee(456, &dispatch_info, 789),
                 100 + (3 * 123 / 2) + 4560 + 789,
             );
         });
@@ -617,7 +618,7 @@ fn compute_fee_works_with_negative_multiplier() {
         .build()
         .execute_with(|| {
             // Add a next fee multiplier. All fees will be x1/2.
-            NextFeeMultiplier::put(Multiplier::saturating_from_rational(1, 2));
+            TransactionPayment::put_next_fee_multiplier(Multiplier::saturating_from_rational(1, 2));
 
             // Base fee is unaffected by multiplier.
             let dispatch_info = DispatchInfo {
@@ -625,7 +626,7 @@ fn compute_fee_works_with_negative_multiplier() {
                 class: DispatchClass::Operational,
                 pays_fee: Pays::Yes,
             };
-            assert_eq!(Module::<Runtime>::compute_fee(0, &dispatch_info, 0), 100);
+            assert_eq!(TransactionPayment::compute_fee(0, &dispatch_info, 0), 100);
 
             // Everything works together.
             let dispatch_info = DispatchInfo {
@@ -635,7 +636,7 @@ fn compute_fee_works_with_negative_multiplier() {
             };
             // 123 weight, 456 length, 100 base
             assert_eq!(
-                Module::<Runtime>::compute_fee(456, &dispatch_info, 789),
+                TransactionPayment::compute_fee(456, &dispatch_info, 789),
                 100 + (123 / 2) + 4560 + 789,
             );
         });
@@ -656,7 +657,7 @@ fn compute_fee_does_not_overflow() {
                 pays_fee: Pays::Yes,
             };
             assert_eq!(
-                Module::<Runtime>::compute_fee(
+                TransactionPayment::compute_fee(
                     <u32>::max_value(),
                     &dispatch_info,
                     <u128>::max_value()
@@ -680,14 +681,14 @@ fn actual_weight_higher_than_max_refunds_nothing() {
             assert_eq!(Balances::free_balance(2), 200 - 0 - 10 - 100 - 5);
 
             assert!(ChargeTransactionPayment::<Runtime>::post_dispatch(
-                    pre,
-                    &info_from_weight(100),
-                    &post_info_from_weight(101),
-                    len,
-                    &Ok(())
+                pre,
+                &info_from_weight(100),
+                &post_info_from_weight(101),
+                len,
+                &Ok(())
             )
-                .is_ok());
-                assert_eq!(Balances::free_balance(2), 200 - 0 - 10 - 100 - 5);
+            .is_ok());
+            assert_eq!(Balances::free_balance(2), 200 - 0 - 10 - 100 - 5);
         });
 }
 
@@ -712,16 +713,16 @@ fn zero_transfer_on_free_transaction() {
                 .unwrap();
             assert_eq!(Balances::total_balance(&user), 0);
             assert!(ChargeTransactionPayment::<Runtime>::post_dispatch(
-                    pre,
-                    &dispatch_info,
-                    &default_post_info(),
-                    len,
-                    &Ok(())
+                pre,
+                &dispatch_info,
+                &default_post_info(),
+                len,
+                &Ok(())
             )
-                .is_ok());
-                assert_eq!(Balances::total_balance(&user), 0);
-                // No events for such a scenario
-                assert_eq!(System::events().len(), 0);
+            .is_ok());
+            assert_eq!(Balances::total_balance(&user), 0);
+            // No events for such a scenario
+            assert_eq!(System::events().len(), 0);
         });
 }
 
@@ -738,7 +739,7 @@ fn refund_consistent_with_actual_weight() {
             let len = 10;
             let tip = 0;
 
-            NextFeeMultiplier::put(Multiplier::saturating_from_rational(5, 4));
+            TransactionPayment::put_next_fee_multiplier(Multiplier::saturating_from_rational(5, 4));
 
             let pre = ChargeTransactionPayment::<Runtime>::from(tip)
                 .pre_dispatch(&2, CALL, &info, len)
@@ -751,15 +752,14 @@ fn refund_consistent_with_actual_weight() {
                 len,
                 &Ok(()),
             )
-                .unwrap();
+            .unwrap();
 
             let refund_based_fee = prev_balance - Balances::free_balance(2);
             let actual_fee =
-                Module::<Runtime>::compute_actual_fee(len as u32, &info, &post_info, tip);
+                TransactionPayment::compute_actual_fee(len as u32, &info, &post_info, tip);
 
             // 33 weight, 10 length, 7 base, 5 tip
             assert_eq!(actual_fee, 7 + 10 + (33 * 5 / 4) + tip);
             assert_eq!(refund_based_fee, actual_fee);
         });
 }
-

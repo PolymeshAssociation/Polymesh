@@ -418,7 +418,7 @@ pub type CompactAssignments =
 
 type PositiveImbalanceOf<T> =
     <<T as Trait>::Currency as Currency<<T as frame_system::Trait>::AccountId>>::PositiveImbalance;
-type NegativeImbalanceOf<T> =
+pub type NegativeImbalanceOf<T> =
     <<T as Trait>::Currency as Currency<<T as frame_system::Trait>::AccountId>>::NegativeImbalance;
 
 /// Reward points of an era. Used to split era total payout between validators.
@@ -1123,7 +1123,7 @@ decl_storage! {
         ///
         /// Must contains information for eras for the range:
         /// `[active_era - bounding_duration; active_era]`
-        BondedEras: Vec<(EraIndex, SessionIndex)>;
+        pub BondedEras: Vec<(EraIndex, SessionIndex)>;
 
         /// All slashing events on validators, mapped by era to the highest slash proportion
         /// and slash value of the era.

@@ -31,7 +31,7 @@ use sp_core::{
 };
 use sp_runtime::testing::UintAuthorityId;
 use sp_runtime::RuntimeAppPublic;
-use substrate_test_runtime_client::AccountKeyring;
+use test_client::AccountKeyring;
 
 
 #[test]
@@ -49,8 +49,6 @@ fn check_the_initial_nominators_of_chain() {
 
 #[test]
 fn should_submit_unsigned_transaction_on_chain() {
-    use sp_runtime::traits::OffchainWorker;
-
     const PHRASE: &str =
         "foster nation swing usage bread mind donor door whisper lyrics token enroll";
 

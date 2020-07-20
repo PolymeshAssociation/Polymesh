@@ -78,8 +78,7 @@ pallet-timestamp = { git = "https://github.com/paritytech/substrate", default-fe
 pallet-babe = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0-rc4" }
 pallet-authority-discovery = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0-rc4" }
 pallet-randomness-collective-flip = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0-rc4" }
-# 
-# frame-benchmarking = { default-features = false, git = "https://github.com/paritytech/substrate", tag = "v2.0.0-rc4", optional = true }
+
 frame-system = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0-rc4" }
 frame-support = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0-rc4" }
 
@@ -91,12 +90,6 @@ pallet-contracts-rpc-runtime-api = { path = "../../contracts/rpc/runtime-api", d
 pallet-compliance-manager-rpc-runtime-api = { path = "../../compliance-manager/rpc/runtime-api", default-features = false }
 pallet-staking-rpc-runtime-api = { path = "../../staking/rpc/runtime-api", default-features = false }
 node-rpc-runtime-api = { path = "../../../rpc/runtime-api", default-features = false }
-
-# ink_primitives = { git = "https://github.com/paritytech/ink", tag = "v2.1.0", default-features = false }
-# hex-literal = "0.2.1"
-
-# [dev-dependencies]
-# test-client = { package = "substrate-test-runtime-client", git = "https://github.com/paritytech/substrate", tag = "v2.0.0-rc4" }
 
 [build-dependencies]
 wasm-builder-runner = { package = "substrate-wasm-builder-runner", git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0-rc4"}
