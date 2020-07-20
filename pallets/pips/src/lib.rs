@@ -392,6 +392,8 @@ decl_event!(
         Voted(IdentityId, AccountId, PipId, bool, Balance),
         /// Pip has been closed, bool indicates whether data is pruned
         PipClosed(IdentityId, PipId, bool),
+        /// Pip has been pruned
+        PipPruned(IdentityId, PipId),
         /// Referendum created for proposal.
         ReferendumCreated(IdentityId, PipId, ReferendumType),
         /// Referendum execution has been scheduled at specific block.
@@ -857,6 +859,33 @@ decl_module! {
             Self::prune_data(id, Self::prune_historical_pips());
         }
 
+        /// An emergency stop measure to kill a proposal. Governance committee can kill
+        /// a proposal at any time.
+        #[weight = (100_000, DispatchClass::Operational, Pays::Yes)]
+        pub fn prune_proposal(origin, id: PipId) {
+            T::VotingMajorityOrigin::ensure_origin(origin)?;
+            // Check that the proposal is in a state valid for pruning
+            let proposal = Self::proposals(id).ok_or_else(|| Error::<T>::NoSuchProposal)?;
+            if proposal.state == ProposalState::Referendum {
+                // Check that the referendum is in a state valid for pruning
+                let referendum = Self::referendums(id).ok_or_else(|| Error::<T>::NoSuchProposal)?;
+                ensure!(
+                    referendum.state == ReferendumState::Rejected ||
+                    referendum.state == ReferendumState::Failed ||
+                    referendum.state == ReferendumState::Executed,
+                    Error::<T>::IncorrectReferendumState
+                );
+            } else {
+                ensure!(
+                    proposal.state == ProposalState::Cancelled ||
+                    proposal.state == ProposalState::Killed ||
+                    proposal.state == ProposalState::Rejected,
+                    Error::<T>::IncorrectProposalState
+                );
+            }
+            Self::prune_data(id, true);
+        }
+
         /// Any governance committee member can fast track a proposal and turn it into a referendum
         /// that will be voted on by the committee.
         #[weight = (200_000, DispatchClass::Operational, Pays::Yes)]
@@ -1116,6 +1145,7 @@ impl<T: Trait> Module<T> {
             <ProposalMetadata<T>>::remove(id);
             <Proposals<T>>::remove(id);
             <Referendums<T>>::remove(id);
+            Self::deposit_event(RawEvent::PipPruned(current_did, id));
         }
         Self::deposit_event(RawEvent::PipClosed(current_did, id, prune));
     }
