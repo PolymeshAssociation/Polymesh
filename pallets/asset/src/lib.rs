@@ -2231,8 +2231,13 @@ impl<T: Trait> Module<T> {
         // native currency value should be `0` as no funds need to transfer to the smart extension
         // We are passing arbitrary high `gas_limit` value to make sure extension's function execute successfully
         // TODO: Once gas estimate function will be introduced, arbitrary gas value will be replaced by the estimated gas
-        let is_allowed =
-            Self::call_extension(extension_caller, dest, 0.into(), 10_000_000_000_000, encoded_data);
+        let is_allowed = Self::call_extension(
+            extension_caller,
+            dest,
+            0.into(),
+            10_000_000_000_000,
+            encoded_data,
+        );
         if is_allowed.is_success() {
             if let Ok(allowed) = RestrictionResult::decode(&mut &is_allowed.data[..]) {
                 return allowed;
@@ -2260,7 +2265,6 @@ impl<T: Trait> Module<T> {
         match <pallet_contracts::Module<T>>::bare_call(from, dest, 0.into(), gas_limit, data) {
             Ok(encoded_value) => encoded_value,
             Err(err) => {
-
                 let reason: &'static str = err.reason.into();
                 // status 0 is used for extension call successfully executed
                 ExecReturnValue {

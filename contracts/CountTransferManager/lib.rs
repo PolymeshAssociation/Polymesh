@@ -30,13 +30,12 @@ mod custom_types {
         Invalid,
         ForceValid,
     }
-    
 }
 
 #[ink::contract(version = "0.1.0")]
 mod count_transfer_manager {
     use crate::custom_types::{IdentityId, RestrictionResult};
-    use ink_core::{ env, storage };
+    use ink_core::{env, storage};
     use ink_prelude::format;
     pub type Counter = u64;
 
@@ -115,7 +114,7 @@ mod count_transfer_manager {
             if *self.max_holders.get() == current_holder_count
                 && balance_to == 0
                 && balance_from > value
-            {   
+            {
                 return RestrictionResult::Invalid; // INVALID
             }
             return RestrictionResult::Valid; // VALID
