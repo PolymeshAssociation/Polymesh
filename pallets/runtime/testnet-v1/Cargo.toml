@@ -88,6 +88,7 @@ pallet-babe = { package = "pallet-babe", git = "https://github.com/paritytech/su
 pallet-authority-discovery = { package = "pallet-authority-discovery", git = "https://github.com/paritytech/substrate", default-features = false, rev = "c771821cae2dcb5a8808a19fae8122c0b9ae8499" }
 pallet-randomness-collective-flip = { git = "https://github.com/paritytech/substrate", default-features = false, rev = "c771821cae2dcb5a8808a19fae8122c0b9ae8499" }
 
+frame-benchmarking = { default-features = false, git = "https://github.com/paritytech/substrate", rev = "c771821cae2dcb5a8808a19fae8122c0b9ae8499", optional = true }
 frame-system = { package = "frame-system", git = "https://github.com/paritytech/substrate", default-features = false, rev = "c771821cae2dcb5a8808a19fae8122c0b9ae8499" }
 frame-support = { git = "https://github.com/paritytech/substrate", default-features = false, rev = "c771821cae2dcb5a8808a19fae8122c0b9ae8499" }
 frame-system-rpc-runtime-api = { git = "https://github.com/paritytech/substrate", default-features = false, rev = "c771821cae2dcb5a8808a19fae8122c0b9ae8499" }
@@ -102,7 +103,7 @@ wasm-builder-runner = { package = "substrate-wasm-builder-runner", git = "https:
 
 [features]
 equalize = []
-default = ["std", "equalize"]
+default = ["std", "equalize", "runtime-benchmarks"]
 no_std = []
 only-staking = []
 std = [
@@ -165,4 +166,14 @@ std = [
 	"pallet-asset/runtime-benchmarks",
 	"ink_primitives/std",
 	"node-rpc-runtime-api/std",
+]
+runtime-benchmarks = [
+	"frame-benchmarking",
+	"frame-system/runtime-benchmarks",
+	"frame-support/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks",
+	"polymesh-runtime-common/runtime-benchmarks",
+	"pallet-staking/runtime-benchmarks",
+	"pallet-im-online/runtime-benchmarks",
+	"pallet-committee/runtime-benchmarks",
 ]

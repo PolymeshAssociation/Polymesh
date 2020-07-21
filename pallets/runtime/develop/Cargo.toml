@@ -105,7 +105,7 @@ wasm-builder-runner = { package = "substrate-wasm-builder-runner", git = "https:
 
 [features]
 equalize = []
-default = ["std", "equalize"]
+default = ["std", "equalize", "runtime-benchmarks"]
 no_std = []
 only-staking = []
 std = [
@@ -169,4 +169,14 @@ std = [
 	"pallet-asset/runtime-benchmarks",
 	"ink_primitives/std",
 	"node-rpc-runtime-api/std",
+]
+runtime-benchmarks = [
+	"frame-benchmarking",
+	"frame-system/runtime-benchmarks",
+	"frame-support/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks",
+	"polymesh-runtime-common/runtime-benchmarks",
+	"pallet-staking/runtime-benchmarks",
+	"pallet-im-online/runtime-benchmarks",
+	"pallet-committee/runtime-benchmarks",
 ]

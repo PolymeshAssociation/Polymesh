@@ -98,10 +98,11 @@
 //! - `unfreeze_txs`: Unfreezes given bridge transactions.
 
 use codec::{Decode, Encode};
-use frame_support::dispatch::DispatchResult;
 use frame_support::traits::{Currency, Get};
 use frame_support::{
-    debug, decl_error, decl_event, decl_module, decl_storage, ensure,
+    debug, decl_error, decl_event, decl_module, decl_storage,
+    dispatch::{DispatchError, DispatchResult},
+    ensure,
     storage::StorageDoubleMap,
     weights::{DispatchClass, Pays, Weight},
 };
@@ -115,7 +116,7 @@ use polymesh_common_utilities::{
 };
 use polymesh_primitives::{IdentityId, Signatory};
 use sp_core::H256;
-use sp_runtime::traits::{CheckedAdd, One, Zero};
+use sp_runtime::traits::{CheckedAdd, One, SaturatedConversion, Zero};
 use sp_std::{convert::TryFrom, prelude::*};
 
 type Identity<T> = identity::Module<T>;
@@ -193,6 +194,36 @@ pub enum HandledTxStatus {
 impl Default for HandledTxStatus {
     fn default() -> Self {
         HandledTxStatus::Success
+    }
+}
+
+pub mod weight_for {
+    use super::Trait;
+    use frame_support::{traits::Get, weights::Weight};
+
+    /// <weight>
+    /// * Read operation - 1 for read block no. + 1 for reading bridge txn details.
+    /// * Write operation - 1 for updating the bridge tx status.
+    /// </weight>
+    pub(crate) fn handle_bridge_tx<T: Trait>() -> Weight {
+        let db = T::DbWeight::get();
+        db.reads_writes(2, 1)
+            .saturating_add(70_000_000) // base fee for the handle bridge tx
+            .saturating_add(800_000) // base value for issue function
+            .saturating_add(db.reads_writes(3, 1)) // read and write for the issue() function
+            .saturating_add(db.reads_writes(1, 1)) // read and write for the deposit_creating() function under issue() call
+    }
+
+    /// <weight>
+    /// * Read operation - 4 where 1 is for reading bridge txn details & 3 for general operations
+    /// * Write operation - 2
+    /// * Base value - 50_000_000
+    /// </weight>
+    pub(crate) fn handle_bridge_tx_later<T: Trait>(count: u64) -> Weight {
+        let db = T::DbWeight::get();
+        db.reads_writes(4, 2)
+            .saturating_add(50_000_000) // base value
+            .saturating_add(count.saturating_mul(500_00)) // for one loop
     }
 }
 
@@ -370,8 +401,7 @@ decl_module! {
 
         /// Issues tokens in timelocked transactions.
         fn on_initialize(block_number: T::BlockNumber) -> Weight {
-            Self::handle_timelocked_txs(block_number);
-            0 // TODO: Need to return the right weight used by the on_initialize() function
+            Self::handle_timelocked_txs(block_number)
         }
 
         /// Changes the controller account as admin.
@@ -642,7 +672,7 @@ impl<T: Trait> Module<T> {
     fn handle_bridge_tx_now(
         bridge_tx: BridgeTx<T::AccountId, T::Balance>,
         untrusted_manual_retry: bool,
-    ) -> DispatchResult {
+    ) -> Result<Weight, DispatchError> {
         let mut tx_details = Self::bridge_tx_details(&bridge_tx.recipient, &bridge_tx.nonce);
         // NB: This function does not care if a transaction is timelocked. Therefore, this should only be called
         // after timelock has expired or timelock is to be bypassed by an admin.
@@ -656,7 +686,7 @@ impl<T: Trait> Module<T> {
         );
 
         if Self::frozen() {
-            // Untruested manual retries not allowed during frozen state.
+            // Un-trusted manual retries not allowed during frozen state.
             ensure!(!untrusted_manual_retry, Error::<T>::Frozen);
             // Bridge module frozen. Retry this tx again later.
             return Self::handle_bridge_tx_later(bridge_tx, Self::timelock());
@@ -681,14 +711,14 @@ impl<T: Trait> Module<T> {
             // Recipient missing CDD or limit reached. Retry this tx again later.
             return Self::handle_bridge_tx_later(bridge_tx, Self::timelock());
         }
-        Ok(())
+        Ok(weight_for::handle_bridge_tx::<T>())
     }
 
     /// Handles a bridge transaction proposal after `timelock` blocks.
     fn handle_bridge_tx_later(
         bridge_tx: BridgeTx<T::AccountId, T::Balance>,
         timelock: T::BlockNumber,
-    ) -> DispatchResult {
+    ) -> Result<Weight, DispatchError> {
         let mut already_tried = 0;
         let mut tx_details = Self::bridge_tx_details(&bridge_tx.recipient, &bridge_tx.nonce);
         match tx_details.status {
@@ -722,10 +752,13 @@ impl<T: Trait> Module<T> {
         let mut unlock_block_number =
             current_block_number + timelock + T::BlockNumber::from(2u32.pow(already_tried.into()));
         let max_timelocked_txs_per_block = T::MaxTimelockedTxsPerBlock::get() as usize;
+        let old_unlock_count_number = unlock_block_number;
         while Self::timelocked_txs(unlock_block_number).len() >= max_timelocked_txs_per_block {
             unlock_block_number += One::one();
         }
-
+        let calculated_weight = weight_for::handle_bridge_tx_later::<T>(
+            (unlock_block_number - old_unlock_count_number).saturated_into::<u64>(),
+        );
         tx_details.execution_block = unlock_block_number;
         <BridgeTxDetails<T>>::insert(&bridge_tx.recipient, &bridge_tx.nonce, tx_details);
         <TimelockedTxs<T>>::mutate(&unlock_block_number, |txs| {
@@ -739,17 +772,23 @@ impl<T: Trait> Module<T> {
             unlock_block_number,
         ));
 
-        Ok(())
+        Ok(calculated_weight)
     }
 
     /// Handles the timelocked transactions that are set to unlock at the given block number.
-    fn handle_timelocked_txs(block_number: T::BlockNumber) {
+    fn handle_timelocked_txs(block_number: T::BlockNumber) -> Weight {
+        let mut weight = 0;
         let txs = <TimelockedTxs<T>>::take(block_number);
         for tx in txs {
-            if let Err(e) = Self::handle_bridge_tx_now(tx, false) {
-                sp_runtime::print(e);
-            }
+            weight += match Self::handle_bridge_tx_now(tx, false) {
+                Ok(weight) => weight,
+                Err(e) => {
+                    sp_runtime::print(e);
+                    Zero::zero()
+                }
+            };
         }
+        weight
     }
 
     /// Proposes a bridge transaction. The bridge controller must be set.
@@ -807,14 +846,17 @@ impl<T: Trait> Module<T> {
                 );
                 let timelock = Self::timelock();
                 if timelock.is_zero() {
-                    return Self::handle_bridge_tx_now(bridge_tx, false);
+                    let _ = Self::handle_bridge_tx_now(bridge_tx, false)?;
+                    return Ok(());
                 } else {
-                    return Self::handle_bridge_tx_later(bridge_tx, timelock);
+                    let _ = Self::handle_bridge_tx_later(bridge_tx, timelock)?;
+                    return Ok(());
                 }
             }
             // Pending cdd bridge tx
             BridgeTxStatus::Pending(_) => {
-                return Self::handle_bridge_tx_now(bridge_tx, true);
+                let _ = Self::handle_bridge_tx_now(bridge_tx, true)?;
+                return Ok(());
             }
             // Pre frozen tx. We just set the correct amount.
             BridgeTxStatus::Frozen => {
@@ -845,11 +887,12 @@ impl<T: Trait> Module<T> {
             if !Self::bridge_exempted(did) {
                 // Exempt the did temporarily
                 <BridgeLimitExempted>::insert(did, true);
-                Self::handle_bridge_tx_now(bridge_tx, false)?;
+                let _ = Self::handle_bridge_tx_now(bridge_tx, false)?;
                 <BridgeLimitExempted>::insert(did, false);
             } else {
                 // Already exempted
-                return Self::handle_bridge_tx_now(bridge_tx, false);
+                let _ = Self::handle_bridge_tx_now(bridge_tx, false)?;
+                return Ok(());
             }
         } else {
             return Err(Error::<T>::NoValidCdd.into());

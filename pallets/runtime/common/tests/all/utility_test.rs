@@ -2,8 +2,9 @@ use super::{
     storage::{register_keyring_account_with_balance, Call, TestStorage},
     ExtBuilder,
 };
-
+use frame_support::assert_ok;
 use pallet_balances::{self as balances, Call as BalancesCall};
+use pallet_transaction_payment::CddAndFeeDetails;
 use pallet_utility as utility;
 
 use codec::Encode;
@@ -11,6 +12,7 @@ use frame_support::{assert_err, assert_ok};
 use frame_support::dispatch::DispatchError;
 use pallet_utility::UniqueCall;
 use sp_core::sr25519::Signature;
+use polymesh_primitives::Signatory;
 use test_client::AccountKeyring;
 
 type Balances = balances::Module<TestStorage>;
@@ -27,9 +29,11 @@ fn batch_with_signed_works() {
 
 fn batch_with_signed_works_we() {
     let alice = AccountKeyring::Alice.public();
+    TestStorage::set_payer_context(Some(Signatory::Account(alice)));
     let _alice_did = register_keyring_account_with_balance(AccountKeyring::Alice, 1_000).unwrap();
 
     let bob = AccountKeyring::Bob.public();
+    TestStorage::set_payer_context(Some(Signatory::Account(bob)));
     let _bob_did = register_keyring_account_with_balance(AccountKeyring::Bob, 1_000).unwrap();
 
     assert_eq!(Balances::free_balance(alice), 959);
@@ -54,9 +58,11 @@ fn batch_early_exit_works() {
 
 fn batch_early_exit_works_we() {
     let alice = AccountKeyring::Alice.public();
+    TestStorage::set_payer_context(Some(Signatory::Account(alice)));
     let _alice_did = register_keyring_account_with_balance(AccountKeyring::Alice, 1_000).unwrap();
 
     let bob = AccountKeyring::Bob.public();
+    TestStorage::set_payer_context(Some(Signatory::Account(bob)));
     let _bob_did = register_keyring_account_with_balance(AccountKeyring::Bob, 1_000).unwrap();
 
     assert_eq!(Balances::free_balance(alice), 959);

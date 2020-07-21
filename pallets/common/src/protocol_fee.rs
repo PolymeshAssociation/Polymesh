@@ -41,13 +41,9 @@ pub enum ProtocolOp {
 /// Common interface to protocol fees for runtime modules.
 pub trait ChargeProtocolFee<AccountId> {
     /// Computes the fee of the operation and charges it to the given signatory.
-    fn charge_fee(signatory: &Signatory<AccountId>, op: ProtocolOp) -> DispatchResult;
+    fn charge_fee(op: ProtocolOp) -> DispatchResult;
 
     /// Computes the fee for `count` similar operations, and charges that fee to the given
     /// signatory.
-    fn batch_charge_fee(
-        signatory: &Signatory<AccountId>,
-        op: ProtocolOp,
-        count: usize,
-    ) -> DispatchResult;
+    fn batch_charge_fee(op: ProtocolOp, count: usize) -> DispatchResult;
 }
