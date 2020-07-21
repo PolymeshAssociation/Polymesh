@@ -74,7 +74,7 @@ use polymesh_common_utilities::{
 use polymesh_primitives::IdentityId;
 use sp_core::u32_trait::Value as U32;
 use sp_runtime::traits::{Hash, Zero};
-use sp_std::{convert::TryFrom, prelude::*, vec};
+use sp_std::{prelude::*, vec};
 
 /// Simple index type for proposal counting.
 pub type ProposalIndex = u32;

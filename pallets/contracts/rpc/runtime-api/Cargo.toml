@@ -12,10 +12,10 @@ description = "Runtime API definition required by Contracts RPC extensions."
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
-sp-api = { git = "https://github.com/paritytech/substrate/", default-features = false, rev = "c771821cae2dcb5a8808a19fae8122c0b9ae8499" }
+sp-api = { git = "https://github.com/paritytech/substrate/", default-features = false, tag = "v2.0.0-rc4" }
 codec = { package = "parity-scale-codec", version = "1.3.1", default-features = false, features = ["derive"] }
-sp-std = { git = "https://github.com/paritytech/substrate/", default-features = false, rev = "c771821cae2dcb5a8808a19fae8122c0b9ae8499" }
-sp-runtime = { git = "https://github.com/paritytech/substrate/", default-features = false, rev = "c771821cae2dcb5a8808a19fae8122c0b9ae8499" }
+sp-std = { git = "https://github.com/paritytech/substrate/", default-features = false, tag = "v2.0.0-rc4" }
+sp-runtime = { git = "https://github.com/paritytech/substrate/", default-features = false, tag = "v2.0.0-rc4" }
 pallet-contracts-primitives = { version = "2.0.0-rc3", default-features = false, path = "../../common" }
 
 [features]
