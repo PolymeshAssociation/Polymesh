@@ -3,7 +3,7 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use codec::{Codec, Decode, Encode};
-pub use polymesh_primitives::{IdentityId, Link, Moment};
+pub use polymesh_primitives::{Authorization, AuthorizationType, IdentityId, Link, Moment};
 #[cfg(feature = "std")]
 use serde::{Deserialize, Serialize};
 use sp_std::{prelude::*, vec::Vec};
@@ -66,6 +66,13 @@ sp_api::decl_runtime_apis! {
             allow_expired: bool,
             link_type: Option<LinkType>
         ) -> Vec<Link<Moment>>;
+
+        /// Retrieve list of a authorization for a given signatory
+        fn get_filtered_authorizations(
+            signatory: Signatory,
+            allow_expired: bool,
+            auth_type: Option<AuthorizationType>
+        ) -> Vec<Authorization<AccountId, Moment>>;
 
         /// Retrieve the status of the DID
         fn get_did_status(dids: Vec<IdentityId>) -> Vec<DidStatus>;

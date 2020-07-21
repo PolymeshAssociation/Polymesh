@@ -12,7 +12,7 @@ use frame_support::{
 };
 use pallet_balances as balances;
 use pallet_identity::{self as identity, BatchAddClaimItem, BatchRevokeClaimItem, Error};
-use pallet_identity_rpc_runtime_api::LinkType;
+use pallet_identity_rpc_runtime_api::{AuthorizationType, LinkType};
 use pallet_transaction_payment::CddAndFeeDetails;
 use polymesh_common_utilities::{
     traits::{
@@ -1019,6 +1019,24 @@ fn adding_authorizations() {
             auth.authorization_data,
             AuthorizationData::TransferTicker(ticker50)
         );
+
+        // Testing the list of filtered authorizations
+        Timestamp::set_timestamp(120);
+
+        // Getting expired and non-expired both
+        let mut authorizations = Identity::get_filtered_authorizations(
+            bob_did,
+            true,
+            Some(AuthorizationType::TransferTicker),
+        );
+        assert_eq!(authorizations.len(), 2);
+        authorizations = Identity::get_filtered_authorizations(
+            bob_did,
+            false,
+            Some(AuthorizationType::TransferTicker),
+        );
+        // One authorization is expired
+        assert_eq!(authorizations.len(), 1);
     });
 }
 
@@ -1386,6 +1404,14 @@ fn add_identity_signers() {
             AuthorizationData::JoinIdentity(vec![]),
             None,
         );
+
+        // Getting expired and non-expired both
+        let mut authorizations = Identity::get_filtered_authorizations(
+            bob_identity_signer,
+            true,
+            Some(AuthorizationType::JoinIdentity),
+        );
+        assert_eq!(authorizations.len(), 1);
 
         assert_ok!(Balances::top_up_identity_balance(
             charlie.clone(),

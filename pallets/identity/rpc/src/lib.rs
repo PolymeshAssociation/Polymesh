@@ -1,9 +1,10 @@
 use codec::Codec;
 use jsonrpc_core::{Error as RpcError, ErrorCode, Result};
 use jsonrpc_derive::rpc;
+
 pub use pallet_identity_rpc_runtime_api::{
-    AssetDidResult, CddStatus, DidRecords, DidStatus, IdentityApi as IdentityRuntimeApi, Link,
-    LinkType,
+    AssetDidResult, Authorization, AuthorizationType, CddStatus, DidRecords, DidStatus,
+    IdentityApi as IdentityRuntimeApi, Link, LinkType,
 };
 use sp_api::ProvideRuntimeApi;
 use sp_blockchain::HeaderBackend;
@@ -57,6 +58,16 @@ pub trait IdentityApi<BlockHash, IdentityId, Ticker, AccountId, SigningItem, Sig
         dids: Vec<IdentityId>,
         at: Option<BlockHash>,
     ) -> Result<Vec<DidStatus>>;
+
+    /// Retrieve the list of authorizations for a given signatory.
+    #[rpc(name = "identity_getFilteredAuthorizations")]
+    fn get_filtered_authorizations(
+        &self,
+        signatory: Signatory,
+        allow_expired: bool,
+        auth_type: Option<AuthorizationType>,
+        at: Option<BlockHash>,
+    ) -> Result<Vec<Authorization<AccountId, Moment>>>;
 }
 
 /// A struct that implements the [`IdentityApi`].
@@ -204,5 +215,23 @@ where
             message: "Unable to fetch dids status".into(),
             data: Some(format!("{:?}", e).into()),
         })
+    }
+
+    fn get_filtered_authorizations(
+        &self,
+        signatory: Signatory,
+        allow_expired: bool,
+        auth_type: Option<AuthorizationType>,
+        at: Option<<Block as BlockT>::Hash>,
+    ) -> Result<Vec<Authorization<AccountId, Moment>>> {
+        let api = self.client.runtime_api();
+        let at = BlockId::hash(at.unwrap_or_else(|| self.client.info().best_hash));
+
+        api.get_filtered_authorizations(&at, signatory, allow_expired, auth_type)
+            .map_err(|e| RpcError {
+                code: ErrorCode::ServerError(Error::RuntimeError as i64),
+                message: "Unable to fetch authorizations data".into(),
+                data: Some(format!("{:?}", e).into()),
+            })
     }
 }

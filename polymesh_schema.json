@@ -532,6 +532,18 @@
                 "NoData":""
             }
         },
+        "AuthorizationType": {
+            "_enum": {
+                "AttestMasterKeyRotation": "",
+                "RotateMasterKey": "",
+                "TransferTicker": "",
+                "AddMultiSigSigner": "",
+                "TransferAssetOwnership": "",
+                "JoinIdentity": "",
+                "Custom": "",
+                "NoData": ""
+            }
+        },
         "ProposalDetails": {
             "approvals": "u64",
             "rejections": "u64",
@@ -749,6 +761,32 @@
                     }
                 ],
                 "type": "Vec<DidStatus>"
+            },
+            "getFilteredAuthorizations": {
+                "description": "Retrieve authorizations data for a given signatory and filtered using the given authorization type",
+                "params": [
+                    {
+                        "name": "signatory",
+                        "type": "Signatory",
+                        "isOptional": false
+                    },
+                    {
+                        "name": "allow_expired",
+                        "type": "bool",
+                        "isOptional": false
+                    },
+                    {
+                        "name": "auth_type",
+                        "type": "AuthorizationType",
+                        "isOptional": true
+                    },
+                    {
+                        "name": "blockHash",
+                        "type": "Hash",
+                        "isOptional": true
+                    }
+                ],
+                "type": "Vec<Authorization>"
             }
         },
         "pips":{
