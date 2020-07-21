@@ -484,14 +484,16 @@ decl_module! {
                 treasury_did,
             };
             <Tokens<T>>::insert(&ticker, token);
-            <BalanceOf<T>>::insert(ticker, did, total_supply);
-            Portfolio::<T>::set_default_portfolio_balance(did, &ticker, total_supply);
+            let beneficiary_did = treasury_did.unwrap_or_else(|| did);
+            <BalanceOf<T>>::insert(ticker, beneficiary_did, total_supply);
+            Portfolio::<T>::set_default_portfolio_balance(beneficiary_did, &ticker, total_supply);
             Self::deposit_event(RawEvent::AssetCreated(
                 did,
                 ticker,
                 total_supply,
                 divisible,
                 asset_type,
+                beneficiary_did,
             ));
             for (typ, val) in &identifiers {
                 <Identifiers>::insert((ticker, typ.clone()), val.clone());
@@ -507,7 +509,7 @@ decl_module! {
             Self::deposit_event(RawEvent::Issued(
                 did,
                 ticker,
-                did,
+                beneficiary_did,
                 total_supply,
                 Self::funding_round(ticker),
                 total_supply
@@ -831,7 +833,6 @@ decl_module! {
                 total: burner_balance,
                 portfolio: burner_def_balance,
             } = Self::balance(&ticker, did);
-            ensure!(burner_balance >= value, Error::<T>::InsufficientBalance);
             ensure!(burner_def_balance >= value, Error::<T>::InsufficientDefaultPortfolioBalance);
 
             // Reduce sender's balance
@@ -1395,8 +1396,8 @@ decl_event! {
         /// caller DID/ controller DID, ticker, token holder DID, value, data, operator data
         ControllerRedemption(IdentityId, Ticker, IdentityId, Balance, Vec<u8>, Vec<u8>),
         /// Event for creation of the asset.
-        /// caller DID/ owner DID, ticker, total supply, divisibility, asset type
-        AssetCreated(IdentityId, Ticker, Balance, bool, AssetType),
+        /// caller DID/ owner DID, ticker, total supply, divisibility, asset type, beneficiary DID
+        AssetCreated(IdentityId, Ticker, Balance, bool, AssetType, IdentityId),
         /// Event emitted when a token identifiers are updated.
         /// caller DID, ticker, a vector of (identifier type, identifier value)
         IdentifiersUpdated(IdentityId, Ticker, Vec<(IdentifierType, AssetIdentifier)>),
