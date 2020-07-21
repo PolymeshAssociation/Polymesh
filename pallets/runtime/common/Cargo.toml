@@ -100,5 +100,6 @@ std = [
 
 runtime-benchmarks = [
     "frame-benchmarking",
-    "pallet-identity/runtime-benchmarks"
+	"pallet-asset/runtime-benchmarks",
+	"pallet-identity/runtime-benchmarks",
 ]

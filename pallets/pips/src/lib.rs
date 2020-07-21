@@ -65,7 +65,7 @@
 use codec::{Decode, Encode};
 use frame_support::{
     debug, decl_error, decl_event, decl_module, decl_storage,
-    dispatch::DispatchResult,
+    dispatch::{DispatchError, DispatchResult},
     ensure,
     storage::IterableStorageMap,
     traits::{Currency, EnsureOrigin, LockableCurrency, ReservableCurrency},
@@ -1037,10 +1037,10 @@ decl_module! {
         /// When constructing a block check if it's time for a ballot to end. If ballot ends,
         /// proceed to ratification process.
         fn on_initialize(n: T::BlockNumber) -> Weight {
-            if let Err(e) = Self::end_block(n) {
+            Self::end_block(n).unwrap_or_else(|e| {
                 sp_runtime::print(e);
-            }
-            0
+                0
+            })
         }
 
     }
@@ -1052,8 +1052,9 @@ impl<T: Trait> Module<T> {
     /// 2. Tally votes
     /// 3. Submit any proposals that meet the quorum threshold, to the governance committee
     /// 4. Automatically execute any referendum
-    pub fn end_block(block_number: T::BlockNumber) -> DispatchResult {
-        // Find all matured proposals...
+    pub fn end_block(block_number: T::BlockNumber) -> Result<Weight, DispatchError> {
+        let mut weight: Weight = 50_000_000; // Some arbitrary number right now, It is subject to change after proper benchmarking
+                                             // Find all matured proposals...
         <ProposalsMaturingAt<T>>::take(block_number)
             .into_iter()
             .for_each(|id| {
@@ -1085,11 +1086,11 @@ impl<T: Trait> Module<T> {
         <ProposalsMaturingAt<T>>::remove(block_number);
         // Execute automatically referendums after its enactment period.
         let referendum_ids = <ScheduledReferendumsAt<T>>::take(block_number);
-        referendum_ids
-            .into_iter()
-            .for_each(|id| Self::execute_referendum(id));
+        referendum_ids.into_iter().for_each(|id| {
+            weight += Self::execute_referendum(id);
+        });
         <ScheduledReferendumsAt<T>>::remove(block_number);
-        Ok(())
+        Ok(weight)
     }
 
     /// Create a referendum object from a proposal. If governance committee is composed of less
@@ -1175,13 +1176,15 @@ impl<T: Trait> Module<T> {
         Ok(())
     }
 
-    fn execute_referendum(id: PipId) {
+    fn execute_referendum(id: PipId) -> Weight {
+        let mut actual_weight: Weight = 0;
         if let Some(proposal) = Self::proposals(id) {
             if proposal.state == ProposalState::Referendum {
                 match Self::check_beneficiaries(id) {
                     Ok(_) => {
                         match proposal.proposal.dispatch(system::RawOrigin::Root.into()) {
-                            Ok(_) => {
+                            Ok(post_info) => {
+                                actual_weight = post_info.actual_weight.unwrap_or(0);
                                 Self::pay_to_beneficiaries(id);
                                 Self::update_referendum_state(id, ReferendumState::Executed);
                             }
@@ -1203,6 +1206,7 @@ impl<T: Trait> Module<T> {
                 Self::prune_data(id, Self::prune_historical_pips());
             }
         }
+        actual_weight
     }
 
     fn check_beneficiaries(id: PipId) -> DispatchResult {
