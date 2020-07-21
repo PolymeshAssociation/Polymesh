@@ -2,14 +2,12 @@ use super::{
     storage::{register_keyring_account_with_balance, Call, TestStorage},
     ExtBuilder,
 };
-use frame_support::assert_ok;
 use pallet_balances::{self as balances, Call as BalancesCall};
 use pallet_transaction_payment::CddAndFeeDetails;
 use pallet_utility as utility;
 
 use codec::Encode;
 use frame_support::{assert_err, assert_ok};
-use frame_support::dispatch::DispatchError;
 use pallet_utility::UniqueCall;
 use sp_core::sr25519::Signature;
 use polymesh_primitives::Signatory;
@@ -97,13 +95,13 @@ fn _relay_happy_case() {
     let _charlie_did =
         register_keyring_account_with_balance(AccountKeyring::Charlie, 1_000).unwrap();
 
-    assert_eq!(Balances::free_balance(bob), 959);
-    assert_eq!(Balances::free_balance(charlie), 959);
+    assert_eq!(Balances::free_balance(bob), 1000);
+    assert_eq!(Balances::free_balance(charlie), 1000);
 
     let origin = Origin::signed(alice);
     let transaction = UniqueCall::new(
         Utility::nonce(bob),
-        Call::Balances(BalancesCall::transfer(charlie, 59)),
+        Call::Balances(BalancesCall::transfer(charlie, 50)),
     );
 
     assert_ok!(Utility::relay_tx(
@@ -113,8 +111,8 @@ fn _relay_happy_case() {
         transaction
     ));
 
-    assert_eq!(Balances::free_balance(bob), 900);
-    assert_eq!(Balances::free_balance(charlie), 1_018);
+    assert_eq!(Balances::free_balance(bob), 950);
+    assert_eq!(Balances::free_balance(charlie), 1_050);
 }
 
 #[test]
