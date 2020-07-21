@@ -11,9 +11,6 @@ ink_core = { git = "https://github.com/paritytech/ink", tag = "v2.1.0", package 
 ink_lang = { git = "https://github.com/paritytech/ink", tag = "v2.1.0", package = "ink_lang", default-features = false }
 ink_prelude = { git = "https://github.com/paritytech/ink", tag = "v2.1.0", package = "ink_prelude", default-features = false }
 
-# sp-core = { package = "sp-core", git = "https://github.com/paritytech/substrate", default-features = false, rev = "c771821cae2dcb5a8808a19fae8122c0b9ae8499" }
-
-# serde = { version = "1.0.104", optional = true, features = ["derive"] }
 scale = { package = "parity-scale-codec", version = "1.2", default-features = false, features = ["derive"] }
 
 [dependencies.type-metadata]
