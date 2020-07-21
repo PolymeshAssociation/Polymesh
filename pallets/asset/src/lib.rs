@@ -447,7 +447,7 @@ decl_module! {
         ) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             let did = Context::current_identity_or::<Identity<T>>(&sender)?;
-            Self::create_asset_parameter_checks(&did, &ticker, &name, total_supply)?;
+            Self::ensure_create_asset_parameters(&ticker, &name, total_supply)?;
             let is_ticker_available_or_registered_to = Self::is_ticker_available_or_registered_to(&ticker, did);
             ensure!(
                 is_ticker_available_or_registered_to != TickerRegistrationStatus::RegisteredByOther,
@@ -2414,22 +2414,24 @@ impl<T: Trait> Module<T> {
         Self::deposit_event(RawEvent::Transfer(sender, *ticker, from_did, to_did, value));
     }
 
-    fn create_asset_parameter_checks(
-        did: &IdentityId,
+    /// Performs necessary checks on parameters of `create_asset`.
+    fn ensure_create_asset_parameters(
         ticker: &Ticker,
         name: &AssetName,
         total_supply: T::Balance
     ) -> DispatchResult {
-        // Check that sender is allowed to act on behalf of `did`
+        // Ensure that the ticker is new.
         ensure!(!<Tokens<T>>::contains_key(&ticker), Error::<T>::AssetAlreadyCreated);
         let ticker_config = Self::ticker_registration_config();
+        // Limit the ticker length.
         ensure!(
             ticker.len() <= usize::try_from(ticker_config.max_ticker_length).unwrap_or_default(),
             Error::<T>::TickerTooLong
         );
-        // checking max size for name and ticker
+        // Check the name length.
         // TODO: Limit the maximum size of a name.
         ensure!(name.as_slice().len() <= 64, Error::<T>::AssetNameTooLong);
+        // Limit the total supply.
         ensure!(total_supply <= MAX_SUPPLY.into(), Error::<T>::TotalSupplyAboveLimit);
         Ok(())
     }
