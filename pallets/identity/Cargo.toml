@@ -5,15 +5,9 @@ authors = ["Polymath"]
 edition = "2018"
 
 [dependencies]
-# Common
 polymesh-common-utilities = { path = "../common", default-features = false }
 polymesh-primitives = { path = "../../primitives", default-features = false }
-
-# Out pallets
 pallet-balances = { path = "../balances", default-features = false }
-
-# RPC
-# pallet-identity-rpc-runtime-api = {  version = "0.1.0", path = "./rpc/runtime-api", default-features = false }
 
 # Others
 serde = { version = "1.0.104", default-features = false }

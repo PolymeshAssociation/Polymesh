@@ -4539,7 +4539,7 @@ dependencies = [
  "sp-std",
  "sp-transaction-pool",
  "sp-version",
- "substrate-wasm-builder-runner 1.0.6",
+ "substrate-wasm-builder-runner",
 ]
 
 [[package]]
@@ -4620,7 +4620,7 @@ dependencies = [
  "sp-transaction-pool",
  "sp-version",
  "substrate-test-runtime-client",
- "substrate-wasm-builder-runner 1.0.5",
+ "substrate-wasm-builder-runner",
  "yaml-rust",
 ]
 
@@ -7402,7 +7402,7 @@ dependencies = [
  "sp-transaction-pool",
  "sp-trie",
  "sp-version",
- "substrate-wasm-builder-runner 1.0.6",
+ "substrate-wasm-builder-runner",
  "trie-db",
 ]
 
@@ -7446,11 +7446,6 @@ dependencies = [
  "walkdir",
  "wasm-gc-api",
 ]
-
-[[package]]
-name = "substrate-wasm-builder-runner"
-version = "1.0.5"
-source = "git+https://github.com/paritytech/substrate?rev=a439a7aa5a9a3df2a42d9b25ea04288d3a0866e8#a439a7aa5a9a3df2a42d9b25ea04288d3a0866e8"
 
 [[package]]
 name = "substrate-wasm-builder-runner"
