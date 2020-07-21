@@ -6,6 +6,7 @@ use super::{
 use frame_support::{
     assert_err, assert_ok,
     traits::{Currency, OnInitialize},
+    weights::Weight,
     StorageDoubleMap,
 };
 use pallet_balances as balances;
@@ -361,6 +362,8 @@ fn do_freeze_and_unfreeze_bridge() {
         Bridge::bridge_tx_details(AccountKeyring::Alice.public(), &1).status,
         BridgeTxStatus::Timelocked
     );
+    // Weight calculation when bridge is freezed
+    assert_eq!(next_block(), 50000240);
     // Unfreeze the bridge.
     assert_ok!(Bridge::unfreeze(admin.clone()));
     assert!(!Bridge::frozen());
@@ -368,12 +371,12 @@ fn do_freeze_and_unfreeze_bridge() {
     assert_eq!(alices_balance(), starting_alices_balance);
     assert_eq!(
         Bridge::bridge_tx_details(AccountKeyring::Alice.public(), &1).status,
-        BridgeTxStatus::Timelocked
+        BridgeTxStatus::Pending(1)
     );
-    next_block();
-    next_block();
-    next_block();
-    next_block();
+    // It will be 0 as txn has to wait for 1 more block to execute.
+    assert_eq!(next_block(), 0);
+    assert_eq!(next_block(), 70800360);
+
     // Now the tokens are issued.
     assert_eq!(alices_balance(), starting_alices_balance + amount);
     assert_eq!(
@@ -387,11 +390,12 @@ fn do_freeze_and_unfreeze_bridge() {
     );
 }
 
-fn next_block() {
+fn next_block() -> Weight {
     let block_number = System::block_number() + 1;
     System::set_block_number(block_number);
     // Call the timelocked tx handler.
-    Bridge::on_initialize(block_number);
+    let weight = Bridge::on_initialize(block_number);
+    return weight;
 }
 
 #[test]

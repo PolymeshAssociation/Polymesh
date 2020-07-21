@@ -91,7 +91,6 @@ polymesh-node-rpc = { package = "polymesh-node-rpc", path = "node-rpc"}
 
 # Others
 parking_lot = "0.10.0"
-tokio = "0.2.13"
 ctrlc = { version = "3.1.4", features = ["termination"] }
 lazy_static = "1.4.0"
 log = "0.4.8"
@@ -101,11 +100,11 @@ jsonrpc-core = "14.0.5"
 serde_json = '1.0.48'
 structopt = "0.3.15"
 chrono = { version = "0.4.11", default-features = false }
-linregress = { version = "0.1", optional = true }
+tokio = { version = "0.2.13", features = ["rt-threaded"], optional = true }
 
 # Substrate
 codec = { version = "1.2.0", package = "parity-scale-codec" }
-frame-benchmarking = { package = "frame-benchmarking", git = "https://github.com/paritytech/substrate", rev = "c771821cae2dcb5a8808a19fae8122c0b9ae8499" }
+frame-benchmarking = { package = "frame-benchmarking", git = "https://github.com/paritytech/substrate", rev = "c771821cae2dcb5a8808a19fae8122c0b9ae8499"}
 sc-rpc = { git = "https://github.com/paritytech/substrate", rev = "c771821cae2dcb5a8808a19fae8122c0b9ae8499" }
 sc-chain-spec = { git = "https://github.com/paritytech/substrate", rev = "c771821cae2dcb5a8808a19fae8122c0b9ae8499" }
 sp-api = { git = "https://github.com/paritytech/substrate", rev = "c771821cae2dcb5a8808a19fae8122c0b9ae8499" }
@@ -151,6 +150,6 @@ default_identity = [
 	"polymesh-common-utilities/default_identity"
 ]
 runtime-benchmarks = [
-    "linregress",
-    "polymesh-runtime-common/runtime-benchmarks",
+    "polymesh-runtime-develop/runtime-benchmarks",
+    "polymesh-runtime-testnet-v1/runtime-benchmarks"
 ]
