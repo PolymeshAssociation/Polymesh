@@ -1,3 +1,3 @@
 [submodule "pallets/settlement"]
 	path = pallets/settlement
-	url = https://github.com/PolymathNetwork/polymesh-settlement-module.git
+	url = git@github.com:PolymathNetwork/polymesh-settlement-module.git
