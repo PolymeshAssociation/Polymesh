@@ -71,14 +71,6 @@
                 "AssetOwned": "Ticker"
             }
         },
-        "SignatoryType": {
-            "_enum": [
-                "External",
-                "Identity",
-                "MultiSig",
-                "Relayer"
-            ]
-        },
         "Signatory":{
             "_enum": {
                 "Identity": "IdentityId",
@@ -87,7 +79,6 @@
         },
         "SigningItem": {
             "signer": "Signatory",
-            "signer_type": "SignatoryType",
             "permissions": "Vec<Permission>"
         },
         "SigningItemWithAuth":{

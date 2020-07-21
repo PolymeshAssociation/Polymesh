@@ -41,24 +41,6 @@ pub enum Permission {
     Custom(u8),
 }
 
-/// Signing key type.
-#[allow(missing_docs)]
-#[derive(Encode, Decode, Copy, Clone, PartialEq, Eq, Debug)]
-#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-pub enum SignatoryType {
-    External,
-    Identity,
-    MultiSig,
-    Relayer,
-    Custom(u8),
-}
-
-impl Default for SignatoryType {
-    fn default() -> Self {
-        SignatoryType::External
-    }
-}
-
 /// It supports different elements as a signer.
 #[allow(missing_docs)]
 #[derive(Encode, Decode, Copy, Clone, PartialEq, Eq, Debug)]
@@ -152,7 +134,6 @@ where
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 pub struct SigningItem<AccountId> {
     pub signer: Signatory<AccountId>,
-    pub signer_type: SignatoryType,
     pub permissions: Vec<Permission>,
 }
 
@@ -161,7 +142,6 @@ impl<AccountId> SigningItem<AccountId> {
     pub fn new(signer: Signatory<AccountId>, permissions: Vec<Permission>) -> Self {
         Self {
             signer,
-            signer_type: SignatoryType::External,
             permissions,
         }
     }
@@ -191,9 +171,7 @@ where
     AccountId: PartialEq,
 {
     fn eq(&self, other: &Self) -> bool {
-        self.signer == other.signer
-            && self.signer_type == other.signer_type
-            && self.permissions == other.permissions
+        self.signer == other.signer && self.permissions == other.permissions
     }
 }
 
