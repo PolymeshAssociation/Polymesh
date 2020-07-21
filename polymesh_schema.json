@@ -626,6 +626,12 @@
             "leg_id": "u64",
             "signer": "AccountId",
             "signature": "OffChainSignature"
+        },
+        "WeightToFeeCoefficient": {
+            "coeffInteger": "Balance",
+            "coeffFrac": "Perbill",
+            "negative": "bool",
+            "degree": "u8"
         }
     },
     "rpc": {
