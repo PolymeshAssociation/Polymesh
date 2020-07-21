@@ -1,3 +1,43 @@
+// This file is part of the Polymesh distribution (https://github.com/PolymathNetwork/Polymesh).
+// Copyright (c) 2020 Polymath
+//
+// This program is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, version 3.
+//
+// This program is distributed in the hope that it will be useful, but
+// WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+// General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with this program. If not, see <http://www.gnu.org/licenses/>.
+
+//! # Portfolio Module
+//!
+//! ## Overview
+//!
+//! The portfolio module provides the essential extrinsics to manage asset portfolios, public
+//! functions for integration of portfolios into other pallets, and implementations of RPC getters.
+//!
+//! ## Interface
+//!
+//! ### Dispatchable Functions
+//!
+//! - `create_portfolio`: Creates a new user portfolio.
+//! - `delete_portfolio`: Deletes an existing user portfolio.
+//! - `move_portfolio`: Moves specified amounts of assets from one portfolio to another portfolio
+//!   of the same DID.
+//! - `rename_portfolio`: Renames a user portfolio.
+//!
+//! ### Public Functions
+//!
+//! - `default_portfolio_balance`: Returns the ticker balance of the identity's default portfolio.
+//! - `user_portfolio_balance`: Returns the ticker balance of an identity's user portfolio.
+//! - `set_default_portfolio_balance`: Sets the ticker balance of the identity's default portfolio.
+//! - `rpc_get_portfolios`: An RPC function that lists all user-defined portfolio number-name pairs.
+//! - `rpc_get_portfolio_assets`: Ensures that there is no portfolio with the desired name yet.
+
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use codec::{Decode, Encode};
@@ -119,7 +159,7 @@ decl_module! {
         pub fn create_portfolio(origin, name: PortfolioName) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             let did = Context::current_identity_or::<Identity<T>>(&sender)?;
-            Self::check_name_unique(&did, &to_name)?;
+            Self::ensure_name_unique(&did, &name)?;
             let num = Self::get_next_portfolio_number(&did);
             <Portfolios>::insert(&did, &num, name.clone());
             Self::deposit_event(RawEvent::PortfolioCreated(did, num, name));
@@ -226,7 +266,7 @@ decl_module! {
             let did = Context::current_identity_or::<Identity<T>>(&sender)?;
             // Check that the portfolio exists.
             ensure!(Self::portfolios(&did, &num).is_some(), Error::<T>::PortfolioDoesNotExist);
-            Self::check_name_unique(&did, &to_name)?;
+            Self::ensure_name_unique(&did, &to_name)?;
             <Portfolios>::mutate(&did, &num, |p| *p = Some(to_name.clone()));
             Self::deposit_event(RawEvent::PortfolioRenamed(
                 did,
@@ -286,9 +326,9 @@ impl<T: Trait> Module<T> {
         Ok(<PortfolioAssetBalances<T>>::iter_prefix(&portfolio_id).collect())
     }
 
-    /// Checks that there is no portfolio with the desired `name` yet.
-    fn check_name_unique(did: &IdentityId, name: &PortfolioName) -> DispatchResult {
-        let name_uniq = <Portfolios>::iter_prefix(&did).all(|n| &n.1 != to_name);
+    /// Ensures that there is no portfolio with the desired `name` yet.
+    fn ensure_name_unique(did: &IdentityId, name: &PortfolioName) -> DispatchResult {
+        let name_uniq = <Portfolios>::iter_prefix(&did).all(|n| &n.1 != name);
         ensure!(name_uniq, Error::<T>::PortfolioNameAlreadyInUse);
         Ok(())
     }
