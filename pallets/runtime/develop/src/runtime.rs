@@ -30,8 +30,8 @@ use polymesh_common_utilities::{
     CommonTrait,
 };
 use polymesh_primitives::{
-    AccountId, AccountIndex, Balance, BlockNumber, Hash, IdentityId, Index, Link, Moment,
-    PortfolioId, Signatory, Signature, SigningItem, Ticker,
+    AccountId, AccountIndex, Authorization, Balance, BlockNumber, Hash, IdentityId, Index, Link,
+    Moment, PortfolioId, Signatory, Signature, SigningItem, Ticker,
 };
 use polymesh_runtime_common::{
     bridge,
@@ -75,10 +75,14 @@ use frame_support::{
     },
 };
 use pallet_contracts_rpc_runtime_api::ContractExecResult;
+
 use pallet_grandpa::{
     fg_primitives, AuthorityId as GrandpaId, AuthorityList as GrandpaAuthorityList,
 };
-use pallet_identity_rpc_runtime_api::{AssetDidResult, CddStatus, DidRecords, DidStatus, LinkType};
+use pallet_identity_rpc_runtime_api::{
+    AssetDidResult, AuthorizationType, CddStatus, DidRecords, DidStatus, LinkType,
+};
+
 use pallet_im_online::sr25519::AuthorityId as ImOnlineId;
 use pallet_protocol_fee_rpc_runtime_api::CappedFee;
 use pallet_session::historical as pallet_session_historical;
@@ -1057,6 +1061,15 @@ impl_runtime_apis! {
         fn get_did_status(dids: Vec<IdentityId>) -> Vec<DidStatus> {
             Identity::get_did_status(dids)
         }
+
+        /// Retrieve list of a authorization for a given signatory
+        fn get_filtered_authorizations(
+            signatory: Signatory<AccountId>,
+            allow_expired: bool,
+            auth_type: Option<AuthorizationType>
+        ) -> Vec<Authorization<AccountId, Moment>> {
+            Identity::get_filtered_authorizations(signatory, allow_expired, auth_type)
+        }
     }
 
     impl node_rpc_runtime_api::asset::AssetApi<Block, AccountId, Balance> for Runtime {
@@ -1118,33 +1131,25 @@ impl_runtime_apis! {
     #[cfg(feature = "runtime-benchmarks")]
     impl frame_benchmarking::Benchmark<Block> for Runtime {
         fn dispatch_benchmark(
-            module: Vec<u8>,
-            extrinsic: Vec<u8>,
+            pallet: Vec<u8>,
+            benchmark: Vec<u8>,
             lowest_range_values: Vec<u32>,
             highest_range_values: Vec<u32>,
             steps: Vec<u32>,
             repeat: u32,
-        ) -> Result<Vec<frame_benchmarking::BenchmarkResults>, sp_runtime::RuntimeString> {
-            use frame_benchmarking::Benchmarking;
+        ) -> Result<Vec<frame_benchmarking::BenchmarkBatch>, sp_runtime::RuntimeString> {
+            use frame_benchmarking::{Benchmarking, BenchmarkBatch, add_benchmark};
 
-            let result = match module.as_slice() {
-                b"pallet-identity" | b"identity" => Identity::run_benchmark(
-                    extrinsic,
-                    lowest_range_values,
-                    highest_range_values,
-                    steps,
-                    repeat,
-                ),
-                b"runtime-asset" | b"asset" => Asset::run_benchmark(
-                    extrinsic,
-                    lowest_range_values,
-                    highest_range_values,
-                    steps,
-                    repeat,
-                ),
-                _ => Err("Benchmark not found for this pallet."),
-            };
-            result.map_err(|e| e.into())
+            let mut batches = Vec::<BenchmarkBatch>::new();
+            let params = (&pallet, &benchmark, &lowest_range_values, &highest_range_values, &steps, repeat);
+
+            add_benchmark!(params, batches, b"asset", Asset);
+            add_benchmark!(params, batches, b"identity", Identity);
+            add_benchmark!(params, batches, b"im-online", ImOnline);
+            add_benchmark!(params, batches, b"staking", Staking);
+
+            if batches.is_empty() { return Err("Benchmark not found for this pallet.".into()) }
+            Ok(batches)
         }
     }
 }

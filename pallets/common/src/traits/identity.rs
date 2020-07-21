@@ -23,7 +23,9 @@ use polymesh_primitives::{
 };
 
 use codec::{Decode, Encode};
-use frame_support::{decl_event, traits::Currency, weights::GetDispatchInfo, Parameter};
+use frame_support::{
+    decl_event, dispatch::PostDispatchInfo, traits::Currency, weights::GetDispatchInfo, Parameter,
+};
 use pallet_transaction_payment::{CddAndFeeDetails, ChargeTxFee};
 use sp_core::H512;
 use sp_runtime::traits::{Dispatchable, IdentifyAccount, Member, Verify};
@@ -84,7 +86,7 @@ pub trait Trait: CommonTrait + pallet_timestamp::Trait + balances::Trait {
     type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
     /// An extrinsic call.
     type Proposal: Parameter
-        + Dispatchable<Origin = <Self as frame_system::Trait>::Origin>
+        + Dispatchable<Origin = <Self as frame_system::Trait>::Origin, PostInfo = PostDispatchInfo>
         + GetDispatchInfo;
     /// MultiSig module
     type MultiSig: MultiSigSubTrait<Self::AccountId>;

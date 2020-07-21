@@ -88,7 +88,11 @@ use core::{
     convert::{From, TryInto},
     result::Result as StdResult,
 };
-use pallet_identity_rpc_runtime_api::{DidRecords as RpcDidRecords, DidStatus, LinkType};
+
+use pallet_identity_rpc_runtime_api::{
+    AuthorizationType, DidRecords as RpcDidRecords, DidStatus, LinkType,
+};
+
 use pallet_transaction_payment::{CddAndFeeDetails, ChargeTxFee};
 use polymesh_common_utilities::{
     constants::did::{SECURITY_TOKEN, USER},
@@ -107,7 +111,7 @@ use polymesh_common_utilities::{
 use polymesh_primitives::{
     AuthIdentifier, Authorization, AuthorizationData, AuthorizationError, Claim, ClaimType,
     Identity as DidRecord, IdentityClaim, IdentityId, Link, LinkData, Permission, Scope, Signatory,
-    SignatoryType, SigningItem, Ticker,
+    SigningItem, Ticker,
 };
 use sp_core::sr25519::Signature;
 use sp_io::hashing::blake2_256;
@@ -122,10 +126,10 @@ use sp_std::{convert::TryFrom, mem::swap, prelude::*, vec};
 
 use frame_support::{
     debug, decl_error, decl_module, decl_storage,
-    dispatch::{DispatchError, DispatchResult},
+    dispatch::{DispatchError, DispatchResult, DispatchResultWithPostInfo},
     ensure,
     traits::{ChangeMembers, Currency, InitializeMembers},
-    weights::{DispatchClass, GetDispatchInfo, Pays},
+    weights::{DispatchClass, GetDispatchInfo, Pays, Weight},
     StorageDoubleMap,
 };
 use frame_system::{self as system, ensure_root, ensure_signed};
@@ -233,11 +237,11 @@ decl_storage! {
                 // Direct storage change for attaching some signing keys to identities
                 assert!(<DidRecords<T>>::contains_key(did), "Identity does not exist");
                 assert!(
-                    <Module<T>>::can_key_be_linked_to_did(&signer_id, SignatoryType::External),
+                    <Module<T>>::can_key_be_linked_to_did(&signer_id),
                     "Signing key already linked"
                 );
                 <MultiPurposeNonce>::mutate(|n| *n += 1_u64);
-                <Module<T>>::link_key_to_did(&signer_id, SignatoryType::External, did);
+                <Module<T>>::link_key_to_did(&signer_id, did);
                 <DidRecords<T>>::mutate(did, |record| {
                     (*record).add_signing_items(&[SigningItem::from_account_id(signer_id.clone())]);
                 });
@@ -408,7 +412,7 @@ decl_module! {
             let _grants_checked = Self::grant_check_only_master_key(&sender, did)?;
 
             ensure!(
-                Self::can_key_be_linked_to_did(&new_key, SignatoryType::External),
+                Self::can_key_be_linked_to_did(&new_key),
                 Error::<T>::AlreadyLinked
             );
             T::ProtocolFee::charge_fee(
@@ -563,8 +567,9 @@ decl_module! {
             proposal.get_dispatch_info().class,
             Pays::Yes
         )]
-        fn forwarded_call(origin, target_did: IdentityId, proposal: Box<T::Proposal>) -> DispatchResult {
+        fn forwarded_call(origin, target_did: IdentityId, proposal: Box<T::Proposal>) -> DispatchResultWithPostInfo {
             let sender = ensure_signed(origin)?;
+            let proposal_weight = proposal.get_dispatch_info().weight;
 
             // 1. Constraints.
             // 1.1. A valid current identity.
@@ -591,11 +596,13 @@ decl_module! {
 
             // Also set current_did roles when acting as a signing key for target_did
             // Re-dispatch call - e.g. to asset::doSomething...
-            // let new_origin = frame_system::RawOrigin::Signed(sender).into();
+            let new_origin = frame_system::RawOrigin::Signed(sender).into();
 
-            // TODO: Handle dispatch properly
-            //proposal.dispatch(new_origin)
-            Ok(())
+            let actual_weight = match proposal.dispatch(new_origin) {
+                Ok(post_info) => post_info.actual_weight,
+                Err(err) => err.post_info.actual_weight,
+            };
+            Ok((Some(actual_weight.unwrap_or(0u64) + 500_000 + proposal_weight as Weight)).into())
         }
 
         /// Marks the specified claim as revoked.
@@ -995,7 +1002,7 @@ decl_module! {
                     if let Signatory::Account(key) = &si.signer {
                         // 1.1. Constraint 1-to-1 account to DID
                         ensure!(
-                            Self::can_key_be_linked_to_did(key, si.signer_type),
+                            Self::can_key_be_linked_to_did(key),
                             Error::<T>::AlreadyLinked
                         );
                     }
@@ -1032,7 +1039,7 @@ decl_module! {
 
             additional_keys_si.iter().for_each( |si| {
                 if let Signatory::Account(ref key) = si.signer {
-                    Self::link_key_to_did(key, si.signer_type, id);
+                    Self::link_key_to_did(key, id);
                 }
             });
             // 2.2. Update that identity information and its offchain authorization nonce.
@@ -1186,10 +1193,10 @@ impl<T: Trait> Module<T> {
         )?;
         if let Signatory::Account(key) = &signer {
             ensure!(
-                Self::can_key_be_linked_to_did(key, SignatoryType::External),
+                Self::can_key_be_linked_to_did(key),
                 Error::<T>::AlreadyLinked
             );
-            Self::link_key_to_did(key, SignatoryType::External, target_did);
+            Self::link_key_to_did(key, target_did);
         }
 
         // create the SigningItem
@@ -1432,7 +1439,7 @@ impl<T: Trait> Module<T> {
         <DidRecords<T>>::mutate(&rotation_for_did, |record| {
             Self::unlink_key_from_did(&record.master_key, rotation_for_did);
             record.master_key = sender.clone();
-            Self::link_key_to_did(&sender, SignatoryType::External, rotation_for_did);
+            Self::link_key_to_did(&sender, rotation_for_did);
         });
 
         Self::deposit_event(RawEvent::MasterKeyUpdated(
@@ -1723,12 +1730,9 @@ impl<T: Trait> Module<T> {
 
     /// It checks that any external account can only be associated with at most one.
     /// Master keys are considered as external accounts.
-    pub fn can_key_be_linked_to_did(key: &T::AccountId, signer_type: SignatoryType) -> bool {
+    pub fn can_key_be_linked_to_did(key: &T::AccountId) -> bool {
         if let Some(linked_key_info) = <KeyToIdentityIds<T>>::get(key) {
-            match linked_key_info {
-                LinkedKeyInfo::Unique(..) => false,
-                LinkedKeyInfo::Group(..) => signer_type != SignatoryType::External,
-            }
+            false
         } else if T::MultiSig::is_signer(key) {
             false
         } else {
@@ -1740,22 +1744,10 @@ impl<T: Trait> Module<T> {
     /// # Errors
     /// This function can be used if `can_key_be_linked_to_did` returns true. Otherwise, it will do
     /// nothing.
-    fn link_key_to_did(key: &T::AccountId, key_type: SignatoryType, did: IdentityId) {
-        if let Some(linked_key_info) = <KeyToIdentityIds<T>>::get(key) {
-            if let LinkedKeyInfo::Group(mut dids) = linked_key_info {
-                if !dids.contains(&did) && key_type != SignatoryType::External {
-                    dids.push(did);
-                    dids.sort();
-
-                    <KeyToIdentityIds<T>>::insert(key, LinkedKeyInfo::Group(dids));
-                }
-            }
-        } else {
+    fn link_key_to_did(key: &T::AccountId, did: IdentityId) {
+        if <KeyToIdentityIds<T>>::get(key).is_none() {
             // `key` is not yet linked to any identity, so no constraints.
-            let linked_key_info = match key_type {
-                SignatoryType::External => LinkedKeyInfo::Unique(did),
-                _ => LinkedKeyInfo::Group(vec![did]),
-            };
+            let linked_key_info = LinkedKeyInfo::Unique(did);
             <KeyToIdentityIds<T>>::insert(key, linked_key_info);
         }
     }
@@ -1822,7 +1814,7 @@ impl<T: Trait> Module<T> {
         // 1 Check constraints.
         // 1.1. Master key is not linked to any identity.
         ensure!(
-            Self::can_key_be_linked_to_did(&sender, SignatoryType::External),
+            Self::can_key_be_linked_to_did(&sender),
             Error::<T>::MasterKeyAlreadyLinked
         );
         // 1.2. Master key is not part of signing keys.
@@ -1848,7 +1840,7 @@ impl<T: Trait> Module<T> {
         for s_item in &signing_items {
             if let Signatory::Account(ref key) = s_item.signer {
                 ensure!(
-                    Self::can_key_be_linked_to_did(key, s_item.signer_type),
+                    Self::can_key_be_linked_to_did(key),
                     Error::<T>::AlreadyLinked
                 );
             }
@@ -1861,7 +1853,7 @@ impl<T: Trait> Module<T> {
 
         // 2. Apply changes to our extrinsic.
         // 2.1. Link master key and add pre-authorized signing keys.
-        Self::link_key_to_did(&sender, SignatoryType::External, did);
+        Self::link_key_to_did(&sender, did);
         let _auth_ids = signing_items
             .iter()
             .map(|s_item| {
@@ -2082,6 +2074,74 @@ impl<T: Trait> Module<T> {
         }
     }
 
+    /// Use to get the filtered authorization data for a given signatory
+    /// - if auth_type is None then return authorizations data on the basis of the `allow_expired` boolean
+    /// - if auth_type is Some(value) then return filtered authorizations on the value basis type in conjunction
+    ///   with `allow_expired` boolean condition
+    pub fn get_filtered_authorizations(
+        signatory: Signatory<T::AccountId>,
+        allow_expired: bool,
+        auth_type: Option<AuthorizationType>,
+    ) -> Vec<Authorization<T::AccountId, T::Moment>> {
+        let now = <pallet_timestamp::Module<T>>::get();
+
+        if let Some(type_of_auth) = auth_type {
+            <Authorizations<T>>::iter_prefix_values(signatory)
+                .filter(|auth| {
+                    if !allow_expired {
+                        if let Some(expiry) = auth.expiry {
+                            if expiry < now {
+                                return false;
+                            }
+                        }
+                    }
+                    Self::get_type(auth.authorization_data.clone(), type_of_auth.clone())
+                })
+                .collect::<Vec<Authorization<T::AccountId, T::Moment>>>()
+        } else {
+            <Authorizations<T>>::iter_prefix_values(signatory)
+                .filter(|l| {
+                    if !allow_expired {
+                        if let Some(expiry) = l.expiry {
+                            if expiry < now {
+                                return false;
+                            }
+                        }
+                    }
+                    return true;
+                })
+                .collect::<Vec<Authorization<T::AccountId, T::Moment>>>()
+        }
+    }
+
+    pub fn get_type(
+        authorization_data: AuthorizationData<T::AccountId>,
+        type_of_auth: AuthorizationType,
+    ) -> bool {
+        match authorization_data {
+            AuthorizationData::AttestMasterKeyRotation(..) => {
+                return type_of_auth == AuthorizationType::AttestMasterKeyRotation
+            }
+            AuthorizationData::RotateMasterKey(..) => {
+                return type_of_auth == AuthorizationType::RotateMasterKey
+            }
+            AuthorizationData::TransferTicker(..) => {
+                return type_of_auth == AuthorizationType::TransferTicker
+            }
+            AuthorizationData::AddMultiSigSigner(..) => {
+                return type_of_auth == AuthorizationType::AddMultiSigSigner
+            }
+            AuthorizationData::TransferAssetOwnership(..) => {
+                return type_of_auth == AuthorizationType::TransferAssetOwnership
+            }
+            AuthorizationData::JoinIdentity(..) => {
+                return type_of_auth == AuthorizationType::JoinIdentity
+            }
+            AuthorizationData::Custom(..) => return type_of_auth == AuthorizationType::Custom,
+            AuthorizationData::NoData => return type_of_auth == AuthorizationType::NoData,
+        }
+    }
+
     pub fn get_did_status(dids: Vec<IdentityId>) -> Vec<DidStatus> {
         let mut result = Vec::with_capacity(dids.len());
         dids.into_iter().for_each(|did| {
@@ -2118,7 +2178,7 @@ impl<T: Trait> Module<T> {
 
     /// Registers `master_key` as `id` identity.
     fn unsafe_register_id(master_key: T::AccountId, id: IdentityId) {
-        <Module<T>>::link_key_to_did(&master_key, SignatoryType::External, id);
+        <Module<T>>::link_key_to_did(&master_key, id);
         let record = DidRecord {
             master_key: master_key.clone(),
             ..Default::default()
