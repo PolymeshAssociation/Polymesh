@@ -5,21 +5,9 @@ use ink_lang as ink;
 mod custom_types {
 
     use ink_core::storage::Flush;
-    use scale::{ Encode, Decode };
+    use scale::{Decode, Encode};
 
-    #[derive(
-        Decode,
-        Encode,
-        PartialEq,
-        Ord,
-        Eq,
-        PartialOrd,
-        Copy,
-        Hash,
-        Clone,
-        Debug,
-        Default,
-    )]
+    #[derive(Decode, Encode, PartialEq, Ord, Eq, PartialOrd, Copy, Hash, Clone, Debug, Default)]
     #[cfg_attr(feature = "ink-generate-abi", derive(type_metadata::Metadata))]
     pub struct IdentityId([u8; 32]);
 
@@ -119,7 +107,7 @@ mod percentage_transfer_manager {
         /// * `balance_from` - Balance of sender at the time of transaction.
         /// * `balance_to` - Balance of receiver at the time of transaction.
         /// * `total_supply` - Total supply of the asset
-        /// * `number_of_investors - Total no. of investors of a ticker
+        /// * `current_holder_count - Total no. of investors of a ticker
         #[ink(message)]
         fn verify_transfer(
             &self,
@@ -129,10 +117,10 @@ mod percentage_transfer_manager {
             balance_from: Balance,
             balance_to: Balance,
             total_supply: Balance,
-            number_of_investors: u64
+            current_holder_count: u64,
         ) -> RestrictionResult {
             if from == None && *self.allow_primary_issuance.get()
-                || self._is_exempted_or_not(&(to.unwrap_or_default()))
+                || self.is_exempted_or_not(&(to.unwrap_or_default()))
                 || ((balance_to + value) * 10u128.pow(6)) / total_supply
                     <= *self.max_allowed_percentage.get()
             {
@@ -147,7 +135,7 @@ mod percentage_transfer_manager {
         /// * `new_percentage` - New value of Max percentage of assets hold by an investor
         #[ink(message)]
         fn change_allowed_percentage(&mut self, new_percentage: u128) {
-            self._ensure_owner(self.env().caller());
+            self.ensure_owner(self.env().caller());
             assert!(
                 *self.max_allowed_percentage.get() != new_percentage,
                 "Must change setting"
@@ -165,7 +153,7 @@ mod percentage_transfer_manager {
         /// * `primary_issuance` - whether to allow all primary issuance transfers
         #[ink(message)]
         fn change_primary_issuance(&mut self, primary_issuance: bool) {
-            self._ensure_owner(self.env().caller());
+            self.ensure_owner(self.env().caller());
             assert!(
                 *self.allow_primary_issuance.get() != primary_issuance,
                 "Must change setting"
@@ -183,12 +171,16 @@ mod percentage_transfer_manager {
         /// * `is_exempted` - New exemption status of the identity
         #[ink(message)]
         fn modify_exemption_list(&mut self, identity: IdentityId, is_exempted: bool) {
-            self._ensure_owner(self.env().caller());
+            self.ensure_owner(self.env().caller());
             assert!(
-                self._is_exempted_or_not(&identity) != is_exempted,
+                self.is_exempted_or_not(&identity) != is_exempted,
                 "Must change setting"
             );
-            self._modify_exemption_list(identity, is_exempted);
+            self.exemption_list.insert(identity, is_exempted);
+            self.env().emit_event(ModifyExemptionList {
+                identity: identity,
+                exempted: is_exempted,
+            });
         }
 
         /// To exempt the given Identities from the restriction
@@ -208,7 +200,7 @@ mod percentage_transfer_manager {
         /// * `new_owner` - AccountId of the new owner
         #[ink(message)]
         fn transfer_ownership(&mut self, new_owner: AccountId) {
-            self._ensure_owner(self.env().caller());
+            self.ensure_owner(self.env().caller());
             self.env().emit_event(TransferOwnership {
                 old_owner: self.env().caller(),
                 new_owner: new_owner,
@@ -236,23 +228,15 @@ mod percentage_transfer_manager {
 
         /// Function to know whether given Identity is exempted or not
         #[ink(message)]
-        fn is_exempted_or_not(&self, of: IdentityId) -> bool {
-            *self.exemption_list.get(&of).unwrap_or(&false)
+        fn is_identity_exempted_or_not(&self, of: IdentityId) -> bool {
+            self.is_exempted_or_not(&of)
         }
 
-        fn _is_exempted_or_not(&self, of: &IdentityId) -> bool {
+        fn is_exempted_or_not(&self, of: &IdentityId) -> bool {
             *self.exemption_list.get(of).unwrap_or(&false)
         }
 
-        fn _modify_exemption_list(&mut self, identity: IdentityId, is_exempted: bool) {
-            self.exemption_list.insert(identity, is_exempted);
-            self.env().emit_event(ModifyExemptionList {
-                identity: identity,
-                exempted: is_exempted,
-            });
-        }
-
-        fn _ensure_owner(&self, owner: AccountId) {
+        fn ensure_owner(&self, owner: AccountId) {
             assert!(owner == *self.owner.get(), "Not Authorized");
         }
     }
