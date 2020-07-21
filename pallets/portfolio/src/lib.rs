@@ -119,9 +119,7 @@ decl_module! {
         pub fn create_portfolio(origin, name: PortfolioName) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             let did = Context::current_identity_or::<Identity<T>>(&sender)?;
-            let name_uniq = <Portfolios>::iter_prefix(&did).all(|n| n.1 != name);
-            // Check that the name is unique for `did` and hence that the portfolio does not exist.
-            ensure!(name_uniq, Error::<T>::PortfolioNameAlreadyInUse);
+            Self::check_name_unique(&did, &to_name)?;
             let num = Self::get_next_portfolio_number(&did);
             <Portfolios>::insert(&did, &num, name.clone());
             Self::deposit_event(RawEvent::PortfolioCreated(did, num, name));
@@ -228,9 +226,7 @@ decl_module! {
             let did = Context::current_identity_or::<Identity<T>>(&sender)?;
             // Check that the portfolio exists.
             ensure!(Self::portfolios(&did, &num).is_some(), Error::<T>::PortfolioDoesNotExist);
-            let name_uniq = <Portfolios>::iter_prefix(&did).all(|n| n.1 != to_name);
-            // Check that there is no portfolio with the desired name yet.
-            ensure!(name_uniq, Error::<T>::PortfolioNameAlreadyInUse);
+            Self::check_name_unique(&did, &to_name)?;
             <Portfolios>::mutate(&did, &num, |p| *p = Some(to_name.clone()));
             Self::deposit_event(RawEvent::PortfolioRenamed(
                 did,
@@ -288,5 +284,12 @@ impl<T: Trait> Module<T> {
         portfolio_id: PortfolioId,
     ) -> Result<Vec<(Ticker, <T as CommonTrait>::Balance)>, &'static str> {
         Ok(<PortfolioAssetBalances<T>>::iter_prefix(&portfolio_id).collect())
+    }
+
+    /// Checks that there is no portfolio with the desired `name` yet.
+    fn check_name_unique(did: &IdentityId, name: &PortfolioName) -> DispatchResult {
+        let name_uniq = <Portfolios>::iter_prefix(&did).all(|n| &n.1 != to_name);
+        ensure!(name_uniq, Error::<T>::PortfolioNameAlreadyInUse);
+        Ok(())
     }
 }
