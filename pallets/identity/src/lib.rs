@@ -1964,6 +1964,74 @@ impl<T: Trait> Module<T> {
         }
     }
 
+    /// Use to get the filtered authorization data for a given signatory
+    /// - if auth_type is None then return authorizations data on the basis of the `allow_expired` boolean
+    /// - if auth_type is Some(value) then return filtered authorizations on the value basis type in conjunction
+    ///   with `allow_expired` boolean condition
+    pub fn get_filtered_authorizations(
+        signatory: Signatory<T::AccountId>,
+        allow_expired: bool,
+        auth_type: Option<AuthorizationType>,
+    ) -> Vec<Authorization<T::AccountId, T::Moment>> {
+        let now = <pallet_timestamp::Module<T>>::get();
+
+        if let Some(type_of_auth) = auth_type {
+            <Authorizations<T>>::iter_prefix_values(signatory)
+                .filter(|auth| {
+                    if !allow_expired {
+                        if let Some(expiry) = auth.expiry {
+                            if expiry < now {
+                                return false;
+                            }
+                        }
+                    }
+                    Self::get_type(auth.authorization_data.clone(), type_of_auth.clone())
+                })
+                .collect::<Vec<Authorization<T::AccountId, T::Moment>>>()
+        } else {
+            <Authorizations<T>>::iter_prefix_values(signatory)
+                .filter(|l| {
+                    if !allow_expired {
+                        if let Some(expiry) = l.expiry {
+                            if expiry < now {
+                                return false;
+                            }
+                        }
+                    }
+                    return true;
+                })
+                .collect::<Vec<Authorization<T::AccountId, T::Moment>>>()
+        }
+    }
+
+    pub fn get_type(
+        authorization_data: AuthorizationData<T::AccountId>,
+        type_of_auth: AuthorizationType,
+    ) -> bool {
+        match authorization_data {
+            AuthorizationData::AttestMasterKeyRotation(..) => {
+                return type_of_auth == AuthorizationType::AttestMasterKeyRotation
+            }
+            AuthorizationData::RotateMasterKey(..) => {
+                return type_of_auth == AuthorizationType::RotateMasterKey
+            }
+            AuthorizationData::TransferTicker(..) => {
+                return type_of_auth == AuthorizationType::TransferTicker
+            }
+            AuthorizationData::AddMultiSigSigner(..) => {
+                return type_of_auth == AuthorizationType::AddMultiSigSigner
+            }
+            AuthorizationData::TransferAssetOwnership(..) => {
+                return type_of_auth == AuthorizationType::TransferAssetOwnership
+            }
+            AuthorizationData::JoinIdentity(..) => {
+                return type_of_auth == AuthorizationType::JoinIdentity
+            }
+            AuthorizationData::Custom(..) => return type_of_auth == AuthorizationType::Custom,
+            AuthorizationData::NoData => return type_of_auth == AuthorizationType::NoData,
+        }
+    }
+
     pub fn get_did_status(dids: Vec<IdentityId>) -> Vec<DidStatus> {
         let mut result = Vec::with_capacity(dids.len());
         dids.into_iter().for_each(|did| {
