@@ -182,7 +182,7 @@ impl Default for IdentifierType {
 pub enum AssetOwnershipRelation {
     NotOwned,
     TickerOwned,
-    TokenOwned,
+    AssetOwned,
 }
 
 impl Default for AssetOwnershipRelation {
@@ -492,7 +492,7 @@ decl_module! {
 
             <Tokens<T>>::insert(&ticker, token);
             <BalanceOf<T>>::insert(ticker, did, total_supply);
-            <AssetOwnershipRelations>::insert(did, ticker, AssetOwnershipRelation::TokenOwned);
+            <AssetOwnershipRelations>::insert(did, ticker, AssetOwnershipRelation::AssetOwned);
 
             Self::deposit_event(RawEvent::AssetCreated(
                 did,
@@ -2121,7 +2121,7 @@ impl<T: Trait> Module<T> {
 
         <AssetOwnershipRelations>::remove(ticker_details.owner, ticker);
 
-        <AssetOwnershipRelations>::insert(to_did, ticker, AssetOwnershipRelation::TokenOwned);
+        <AssetOwnershipRelations>::insert(to_did, ticker, AssetOwnershipRelation::AssetOwned);
 
         <Tickers<T>>::mutate(&ticker, |tr| {
             tr.owner = to_did;

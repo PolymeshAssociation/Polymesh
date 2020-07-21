@@ -105,7 +105,7 @@ fn issuers_can_create_and_rename_tokens() {
         assert_eq!(Asset::token_details(ticker), token);
         assert_eq!(
             Asset::asset_ownership_relation(token.owner_did, ticker),
-            AssetOwnershipRelation::TokenOwned
+            AssetOwnershipRelation::AssetOwned
         );
         assert!(<DidRecords>::contains_key(
             Identity::get_token_did(&ticker).unwrap()
@@ -902,7 +902,7 @@ fn transfer_token_ownership() {
 
         assert_eq!(
             Asset::asset_ownership_relation(owner_did, ticker),
-            AssetOwnershipRelation::TokenOwned
+            AssetOwnershipRelation::AssetOwned
         );
 
         assert_ok!(Asset::accept_asset_ownership_transfer(
@@ -916,7 +916,7 @@ fn transfer_token_ownership() {
         );
         assert_eq!(
             Asset::asset_ownership_relation(alice_did, ticker),
-            AssetOwnershipRelation::TokenOwned
+            AssetOwnershipRelation::AssetOwned
         );
 
         assert_err!(
