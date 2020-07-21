@@ -15,7 +15,6 @@
 
 use codec::{Decode, Encode};
 use frame_support::dispatch::DispatchResult;
-use polymesh_primitives::Signatory;
 #[cfg(feature = "std")]
 use sp_runtime::{Deserialize, Serialize};
 

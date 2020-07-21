@@ -19,11 +19,11 @@ jsonrpc-core = "14.0.5"
 
 # Substrate
 codec = { package = "parity-scale-codec", version = "1.1.2", default-features = false, features = ["derive"] }
-sp-core = { git = 'https://github.com/paritytech/substrate.git', default-features = false, rev = 'c771821cae2dcb5a8808a19fae8122c0b9ae8499'}
-sp-std = { git = 'https://github.com/paritytech/substrate.git', default_features = false, rev = 'c771821cae2dcb5a8808a19fae8122c0b9ae8499'}
-sp-api = { git = 'https://github.com/paritytech/substrate', default-features = false, rev = 'c771821cae2dcb5a8808a19fae8122c0b9ae8499'}
-frame-system = { package = "frame-system", git = "https://github.com/paritytech/substrate", default-features = false, rev = "c771821cae2dcb5a8808a19fae8122c0b9ae8499" }
-frame-support = { git = 'https://github.com/paritytech/substrate', default-features = false, rev = 'c771821cae2dcb5a8808a19fae8122c0b9ae8499'}
+sp-core = { git = 'https://github.com/paritytech/substrate', default-features = false, tag = "v2.0.0-rc4"}
+sp-std = { git = 'https://github.com/paritytech/substrate', default_features = false, tag = "v2.0.0-rc4"}
+sp-api = { git = 'https://github.com/paritytech/substrate', default-features = false, tag = "v2.0.0-rc4"}
+frame-system = { package = "frame-system", git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0-rc4" }
+frame-support = { git = 'https://github.com/paritytech/substrate', default-features = false, tag = "v2.0.0-rc4"}
 
 [dev-dependencies]
 serde_json = "1.0.41"

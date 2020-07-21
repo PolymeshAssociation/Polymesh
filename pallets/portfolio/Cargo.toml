@@ -6,8 +6,8 @@ edition = "2018"
 
 [dependencies]
 # Common
-polymesh-primitives = { path = "../../primitives", default-features = false }
 polymesh-common-utilities = { package = "polymesh-common-utilities", path = "../common", default-features = false }
+polymesh-primitives = { path = "../../primitives", default-features = false }
 
 # Our Pallets
 pallet-balances = { package = "pallet-balances", path = "../balances", default-features = false  }
@@ -18,10 +18,10 @@ serde = { version = "1.0.104", default-features = false }
 
 # Substrate
 codec = { package = "parity-scale-codec", version = "1.1.0", default-features = false, features = ["derive"] }
-sp-arithmetic = { git = "https://github.com/paritytech/substrate", default-features = false, rev = "c771821cae2dcb5a8808a19fae8122c0b9ae8499" }
-sp-std = { package = "sp-std", git = "https://github.com/paritytech/substrate", default-features = false, rev = "c771821cae2dcb5a8808a19fae8122c0b9ae8499" }
-frame-system = { package = "frame-system", git = "https://github.com/paritytech/substrate", default-features = false, rev = "c771821cae2dcb5a8808a19fae8122c0b9ae8499" }
-frame-support = { git = "https://github.com/paritytech/substrate", default-features = false, rev = "c771821cae2dcb5a8808a19fae8122c0b9ae8499" }
+frame-support = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0-rc4" }
+frame-system = { package = "frame-system", git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0-rc4" }
+sp-arithmetic = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0-rc4" }
+sp-std = { package = "sp-std", git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0-rc4" }
 
 [features]
 equalize = []
@@ -29,14 +29,14 @@ default = ["std", "equalize", "runtime-benchmarks"]
 no_std = []
 only-staking = []
 std = [
-    "serde/std",
     "codec/std",
-    "sp-std/std",
-    "frame-system/std",
     "frame-support/std",
+    "frame-system/std",
+    "pallet-balances/std",
     "polymesh-common-utilities/std",
     "polymesh-primitives/std",
-    "pallet-balances/std",
+    "serde/std",
+    "sp-std/std",
 ]
 runtime-benchmarks = [
 ]

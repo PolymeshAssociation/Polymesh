@@ -567,6 +567,15 @@
             "did": "IdentityId",
             "kind": "PortfolioKind"
         },
+        "ProverTickerKey": {
+            "prover": "IdentityId",
+            "ticker": "Ticker"
+        },
+        "TickerRangeProof": {
+            "initial_message": "[u8; 32]",
+            "final_response": "Vec<u8>",
+            "max_two_exp": "u32"
+        },
         "InstructionStatus": {
             "_enum": {
                 "Unknown": "",

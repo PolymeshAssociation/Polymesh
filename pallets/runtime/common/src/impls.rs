@@ -34,18 +34,12 @@
 //! Auxillary struct/enums
 
 use crate::NegativeImbalance;
-use frame_support::{
-    traits::{Currency, Get, OnUnbalanced},
-    weights::Weight,
-};
+use frame_support::traits::{Currency, OnUnbalanced};
 use frame_system as system;
 use pallet_authorship as authorship;
 use pallet_balances as balances;
 use polymesh_primitives::Balance;
-use sp_runtime::{
-    traits::{Convert, Saturating},
-    Perbill,
-};
+use sp_runtime::traits::Convert;
 
 pub struct Author<R>(sp_std::marker::PhantomData<R>);
 

@@ -43,16 +43,16 @@ use frame_support::{
 };
 use frame_system::{self as system, ensure_root};
 use pallet_identity as identity;
-use pallet_transaction_payment::CddAndFeeDetails;
 use polymesh_common_utilities::{
     identity::Trait as IdentityTrait,
     protocol_fee::{ChargeProtocolFee, ProtocolOp},
+    transaction_payment::CddAndFeeDetails,
     Context, SystematicIssuers,
 };
 use polymesh_primitives::{traits::IdentityCurrency, IdentityId, PosRatio, Signatory};
 use sp_runtime::{
     traits::{Saturating, Zero},
-    PerThing, Perbill,
+    Perbill,
 };
 
 type BalanceOf<T> =

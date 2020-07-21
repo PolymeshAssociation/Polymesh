@@ -21,11 +21,11 @@ jsonrpc-derive = "14.0.5"
 
 # Substrate
 codec = { package = "parity-scale-codec", version = "1.2.0" }
-sp-rpc = { git = 'https://github.com/paritytech/substrate.git', default_features = false, rev = "c771821cae2dcb5a8808a19fae8122c0b9ae8499"}
-sp-runtime = { git = "https://github.com/paritytech/substrate", default-features = false, rev = "c771821cae2dcb5a8808a19fae8122c0b9ae8499" }
-sp-blockchain = { git = 'https://github.com/paritytech/substrate.git', default_features = false, rev = "c771821cae2dcb5a8808a19fae8122c0b9ae8499"}
-sp-std = {git = 'https://github.com/paritytech/substrate.git', default_features = false, rev = "c771821cae2dcb5a8808a19fae8122c0b9ae8499" }
-sp-api = {git = 'https://github.com/paritytech/substrate.git', default_features = false, rev = "c771821cae2dcb5a8808a19fae8122c0b9ae8499" }
+sp-rpc = { git = 'https://github.com/paritytech/substrate', default_features = false, tag = "v2.0.0-rc4"}
+sp-runtime = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0-rc4" }
+sp-blockchain = { git = 'https://github.com/paritytech/substrate', default_features = false, tag = "v2.0.0-rc4"}
+sp-std = {git = 'https://github.com/paritytech/substrate', default_features = false, tag = "v2.0.0-rc4" }
+sp-api = {git = 'https://github.com/paritytech/substrate', default_features = false, tag = "v2.0.0-rc4" }
 
 [dev-dependencies]
-substrate-test-runtime-client = { git = 'https://github.com/paritytech/substrate.git', default_features = false, rev = "c771821cae2dcb5a8808a19fae8122c0b9ae8499" }
+substrate-test-runtime-client = { git = 'https://github.com/paritytech/substrate', default_features = false, tag = "v2.0.0-rc4" }

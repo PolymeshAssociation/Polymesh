@@ -19,6 +19,7 @@ jobs:
       - checkout
       - add_ssh_keys:
           fingerprints:
+            - "b3:bb:01:c5:90:77:ef:5c:e6:5b:f2:db:16:2f:e8:61"
             - "a1:99:47:ca:fa:32:4c:9d:4b:b8:50:99:c7:64:e3:80"
       - run:
           name: Store rust version in an environment var for cache key
@@ -30,10 +31,12 @@ jobs:
             - v2-cli-cache-{{ checksum "./rust.version" }}
       - run:
           name: Pull submodules
-          command: git submodule update --init --recursive
+          command: >-
+            GIT_SSH_COMMAND="ssh -i /root/.ssh/id_rsa_a19947cafa324c9d4bb85099c764e380" git submodule update --init pallets/settlement &&
+            GIT_SSH_COMMAND="ssh -i /root/.ssh/id_rsa_b3bb01c59077ef5ce65bf2db162fe861" git submodule update --init external/cryptography
       - run:
           name: Build release
-          command: cargo build --release || cargo build -j 1 --release
+          command: cargo +nightly build --release || cargo +nightly build -j 1 --release
           no_output_timeout: 4h
       - save_cache:
           key: v2-release-cache-{{ checksum "./rust.version" }}-{{ checksum "./Cargo.lock" }}
@@ -49,6 +52,7 @@ jobs:
       - checkout
       - add_ssh_keys:
           fingerprints:
+            - "b3:bb:01:c5:90:77:ef:5c:e6:5b:f2:db:16:2f:e8:61"
             - "a1:99:47:ca:fa:32:4c:9d:4b:b8:50:99:c7:64:e3:80"
       - run:
           name: Store rust version in a file for cache key
@@ -59,25 +63,29 @@ jobs:
             - v8-test-cache-{{ checksum "./rust.version" }}
       - run:
           name: Pull submodules
-          command: git submodule update --init --recursive
+          command: >-
+            GIT_SSH_COMMAND="ssh -i /root/.ssh/id_rsa_a19947cafa324c9d4bb85099c764e380" git submodule update --init pallets/settlement &&
+            GIT_SSH_COMMAND="ssh -i /root/.ssh/id_rsa_b3bb01c59077ef5ce65bf2db162fe861" git submodule update --init external/cryptography
       - run:
           name: Tests
           command: >-
-            cargo test
+            cargo +nightly test
             --package polymesh-runtime-common
             --package pallet-staking
             --package pallet-group
             --package polymesh-primitives
             --package node-rpc-runtime-api
             --package pallet-transaction-payment
+            --package polymesh-runtime-tests
             --features default_identity ||
-            cargo test -j 1
+            cargo +nightly test -j 1
             --package polymesh-runtime-common
             --package pallet-staking
             --package pallet-group
             --package polymesh-primitives
             --package node-rpc-runtime-api
             --package pallet-transaction-payment
+            --package polymesh-runtime-tests
             --features default_identity
           no_output_timeout: 30m
       - save_cache:
@@ -94,6 +102,7 @@ jobs:
       - checkout
       - add_ssh_keys:
           fingerprints:
+            - "b3:bb:01:c5:90:77:ef:5c:e6:5b:f2:db:16:2f:e8:61"
             - "a1:99:47:ca:fa:32:4c:9d:4b:b8:50:99:c7:64:e3:80"
       - run:
           name: Store rust version in a file for cache key
@@ -103,10 +112,12 @@ jobs:
             - v5-cli-cache-{{ checksum "./rust.version" }}-{{ checksum "./Cargo.lock" }}
       - run:
           name: Pull submodules
-          command: git submodule update --init --recursive
+          command: >-
+            GIT_SSH_COMMAND="ssh -i /root/.ssh/id_rsa_a19947cafa324c9d4bb85099c764e380" git submodule update --init pallets/settlement &&
+            GIT_SSH_COMMAND="ssh -i /root/.ssh/id_rsa_b3bb01c59077ef5ce65bf2db162fe861" git submodule update --init external/cryptography
       - run:
           name: Build release
-          command: cargo build --release || cargo build -j 1 --release
+          command: cargo +nightly build --release || cargo +nightly build -j 1 --release
           no_output_timeout: 4h
       - run:
           name: cli node instance
@@ -137,6 +148,7 @@ jobs:
       - checkout
       - add_ssh_keys:
           fingerprints:
+            - "b3:bb:01:c5:90:77:ef:5c:e6:5b:f2:db:16:2f:e8:61"
             - "a1:99:47:ca:fa:32:4c:9d:4b:b8:50:99:c7:64:e3:80"
       - run:
           name: Store rust version in a file for cache key
@@ -147,7 +159,9 @@ jobs:
             - v3-clippy-cache-{{ checksum "./rust.version" }}
       - run:
           name: Pull submodules
-          command: git submodule update --init --recursive
+          command: >-
+            GIT_SSH_COMMAND="ssh -i /root/.ssh/id_rsa_a19947cafa324c9d4bb85099c764e380" git submodule update --init pallets/settlement &&
+            GIT_SSH_COMMAND="ssh -i /root/.ssh/id_rsa_b3bb01c59077ef5ce65bf2db162fe861" git submodule update --init external/cryptography
       - run:
           name: run clippy
           command: cargo +nightly clippy -j 1
