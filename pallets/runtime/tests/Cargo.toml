@@ -43,7 +43,7 @@ chrono = "0.4"
 hex-literal = "0.3.0"
 smallvec = "1.4.1"
 lazy_static = "1.4.0"
-parking_lot = "0.11.0"
+parking_lot = "=0.10.2"
 env_logger = "0.7"
 
 # Substrate

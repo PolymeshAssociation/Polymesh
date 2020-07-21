@@ -19,9 +19,11 @@
 use chrono::prelude::Utc;
 use frame_support::{
     assert_ok,
-    dispatch::{DispatchResult},
-    impl_outer_dispatch, impl_outer_event, impl_outer_origin, ord_parameter_types, parameter_types,
-    traits::{Currency, FindAuthor, Get, OnFinalize, OnInitialize, OnUnbalanced},
+    dispatch::DispatchResult,
+    impl_outer_dispatch, impl_outer_event, impl_outer_origin, parameter_types,
+    traits::{
+        Contains, Currency, FindAuthor, Get, Imbalance, OnFinalize, OnInitialize, OnUnbalanced,
+    },
     weights::{constants::RocksDbWeight, DispatchInfo, Weight},
     IterableStorageMap, StorageDoubleMap, StorageMap, StorageValue,
 };
@@ -29,7 +31,7 @@ use frame_system::EnsureSignedBy;
 use pallet_group as group;
 use pallet_identity as identity;
 use pallet_protocol_fee as protocol_fee;
-use pallet_staking::{ self as staking, *};
+use pallet_staking::{self as staking, *};
 
 use polymesh_common_utilities::traits::{
     asset::AcceptTransfer,
@@ -37,7 +39,7 @@ use polymesh_common_utilities::traits::{
     group::{GroupTrait, InactiveMember},
     identity::{LinkedKeyInfo, Trait as IdentityTrait},
     multisig::MultiSigSubTrait,
-    transaction_payment::{ CddAndFeeDetails, ChargeTxFee },
+    transaction_payment::{CddAndFeeDetails, ChargeTxFee},
     CommonTrait,
 };
 use polymesh_primitives::{AuthorizationData, Claim, IdentityId, Moment, Signatory};
@@ -51,8 +53,8 @@ use sp_runtime::{
     curve::PiecewiseLinear,
     testing::{Header, TestSignature, TestXt, UintAuthorityId},
     traits::{Convert, IdentityLookup, SaturatedConversion, Zero},
-    transaction_validity::{ TransactionValidity, InvalidTransaction, ValidTransaction },
-    Perbill
+    transaction_validity::{InvalidTransaction, TransactionValidity, ValidTransaction},
+    Perbill,
 };
 use sp_staking::{
     offence::{OffenceDetails, OnOffenceHandler},
@@ -60,7 +62,7 @@ use sp_staking::{
 };
 use std::{
     cell::RefCell,
-    collections::{HashSet,BTreeMap},
+    collections::{BTreeMap, HashSet},
 };
 
 pub const INIT_TIMESTAMP: u64 = 30_000;
@@ -429,7 +431,7 @@ impl MultiSigSubTrait<AccountId> for Test {
     fn is_multisig(_account: &AccountId) -> bool {
         unimplemented!()
     }
-    fn is_signer(key: &AccountId) -> bool {
+    fn is_signer(_key: &AccountId) -> bool {
         // Allow all keys when mocked
         false
     }
@@ -489,11 +491,16 @@ impl OnUnbalanced<NegativeImbalanceOf<Test>> for RewardRemainderMock {
 }
 
 parameter_types! {
-    pub const OneThousand: AccountId = 1000;
     pub const TwoThousand: AccountId = 2000;
     pub const ThreeThousand: AccountId = 3000;
     pub const FourThousand: AccountId = 4000;
     pub const FiveThousand: AccountId = 5000;
+}
+
+impl Contains<u64> for TwoThousand {
+    fn sorted_members() -> std::vec::Vec<u64> {
+        [2000, 3000, 4000, 5000].to_vec()
+    }
 }
 
 impl Trait for Test {
@@ -519,9 +526,10 @@ impl Trait for Test {
     type UnsignedPriority = UnsignedPriority;
     type RequiredAddOrigin = frame_system::EnsureRoot<AccountId>;
     type RequiredRemoveOrigin = EnsureSignedBy<TwoThousand, Self::AccountId>;
-    type RequiredComplianceOrigin = EnsureSignedBy<ThreeThousand, Self::AccountId>;
-    type RequiredCommissionOrigin = EnsureSignedBy<FourThousand, Self::AccountId>;
-    type RequiredChangeHistoryDepthOrigin = EnsureSignedBy<FiveThousand, Self::AccountId>;
+
+    type RequiredComplianceOrigin = frame_system::EnsureRoot<AccountId>;
+    type RequiredCommissionOrigin = frame_system::EnsureRoot<AccountId>;
+    type RequiredChangeHistoryDepthOrigin = frame_system::EnsureRoot<AccountId>;
 }
 
 impl<LocalCall> frame_system::offchain::SendTransactionTypes<LocalCall> for Test
@@ -823,7 +831,7 @@ pub fn provide_did_to_user(account: AccountId) -> bool {
 
 pub fn add_signing_item(stash_key: AccountId, to_signing_item: AccountId) {
     if !get_identity(to_signing_item) {
-        let did = Identity::get_identity(&stash_key).unwrap();
+        let _did = Identity::get_identity(&stash_key).unwrap();
         assert!(
             Identity::add_authorization(
                 Origin::signed(stash_key),
@@ -975,12 +983,7 @@ pub(crate) fn bond_nominator(
     assert_ok!(Staking::nominate(Origin::signed(ctrl), target));
 }
 
-pub fn bond_nominator_cdd(
-    stash: AccountId,
-    ctrl: AccountId,
-    val: Balance,
-    target: Vec<AccountId>,
-) {
+pub fn bond_nominator_cdd(stash: AccountId, ctrl: AccountId, val: Balance, target: Vec<AccountId>) {
     provide_did_to_user(stash);
     add_signing_item(stash, ctrl);
     bond_nominator(stash, ctrl, val, target);
@@ -1382,8 +1385,8 @@ pub fn make_account_with_balance(
 }
 
 pub fn add_trusted_cdd_provider(cdd_sp: IdentityId) {
-    let signed_id = Origin::signed(1001);
-    assert_ok!(Group::add_member(signed_id, cdd_sp));
+    let root = Origin::from(frame_system::RawOrigin::Root);
+    assert_ok!(Group::add_member(root, cdd_sp));
 }
 
 pub fn add_nominator_claim_with_expiry(

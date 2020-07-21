@@ -42,6 +42,8 @@ mod settlement_test;
 #[cfg(test)]
 mod simple_token_test;
 #[cfg(test)]
+mod staking;
+#[cfg(test)]
 mod statistics_test;
 #[cfg(test)]
 mod transaction_payment_test;
@@ -52,5 +54,4 @@ mod utility_test;
 #[cfg(test)]
 mod voting_test;
 
-// mod staking;
 // mod cdd_offchain_worker;
