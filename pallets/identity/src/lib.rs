@@ -89,9 +89,7 @@ use core::{
     result::Result as StdResult,
 };
 
-use pallet_identity_rpc_runtime_api::{
-    AuthorizationType, DidRecords as RpcDidRecords, DidStatus, LinkType,
-};
+use pallet_identity_rpc_runtime_api::{AuthorizationType, DidRecords as RpcDidRecords, DidStatus};
 
 use pallet_transaction_payment::{CddAndFeeDetails, ChargeTxFee};
 use polymesh_common_utilities::{
@@ -110,8 +108,8 @@ use polymesh_common_utilities::{
 };
 use polymesh_primitives::{
     AuthIdentifier, Authorization, AuthorizationData, AuthorizationError, Claim, ClaimType,
-    Identity as DidRecord, IdentityClaim, IdentityId, Link, LinkData, Permission, Scope, Signatory,
-    SigningItem, Ticker,
+    Identity as DidRecord, IdentityClaim, IdentityId, Permission, Scope, Signatory, SigningItem,
+    Ticker,
 };
 use sp_core::sr25519::Signature;
 use sp_io::hashing::blake2_256;
@@ -192,10 +190,6 @@ decl_storage! {
         pub RevokeOffChainAuthorization get(fn is_offchain_authorization_revoked):
             map hasher(blake2_128_concat) (Signatory<T::AccountId>, TargetIdAuthorization<T::Moment>) => bool;
 
-        /// All links that an identity/key has
-        pub Links: double_map hasher(blake2_128_concat)
-            Signatory<T::AccountId>, hasher(twox_64_concat) u64 => Link<T::Moment>;
-
         /// All authorizations that an identity/key has
         pub Authorizations: double_map hasher(blake2_128_concat)
             Signatory<T::AccountId>, hasher(twox_64_concat) u64 => Authorization<T::AccountId, T::Moment>;
@@ -269,12 +263,7 @@ decl_module! {
         #[weight = 100_000_000]
         pub fn register_did(origin, signing_items: Vec<SigningItem<T::AccountId>>) -> DispatchResult {
             let sender = ensure_signed(origin)?;
-            let signer = Signatory::Account(sender.clone());
-            Self::_register_did(
-                sender,
-                signing_items,
-                Some((&signer, ProtocolOp::IdentityRegisterDid))
-            )?;
+            Self::_register_did(sender, signing_items, Some(ProtocolOp::IdentityRegisterDid))?;
             Ok(())
         }
 
@@ -310,7 +299,7 @@ decl_module! {
             let new_id = Self::_register_did(
                 target_account,
                 signing_items,
-                Some((&Signatory::Account(cdd_sender), ProtocolOp::IdentityCddRegisterDid))
+                Some(ProtocolOp::IdentityCddRegisterDid)
             )?;
             Self::unsafe_add_claim(new_id, Claim::CustomerDueDiligence, cdd_id, cdd_claim_expiry);
             Ok(())
@@ -415,10 +404,7 @@ decl_module! {
                 Self::can_key_be_linked_to_did(&new_key),
                 Error::<T>::AlreadyLinked
             );
-            T::ProtocolFee::charge_fee(
-                &Signatory::Account(sender.clone()),
-                ProtocolOp::IdentitySetMasterKey
-            )?;
+            T::ProtocolFee::charge_fee(ProtocolOp::IdentitySetMasterKey)?;
             <DidRecords<T>>::mutate(did,
             |record| {
                 (*record).master_key = new_key.clone();
@@ -505,10 +491,7 @@ decl_module! {
             match claim {
                 Claim::CustomerDueDiligence => Self::unsafe_add_cdd_claim(target, claim, issuer, expiry)?,
                 _ => {
-                    T::ProtocolFee::charge_fee(
-                    &Signatory::Account(sender),
-                    ProtocolOp::IdentityAddClaim
-                    )?;
+                    T::ProtocolFee::charge_fee(ProtocolOp::IdentityAddClaim)?;
                     Self::unsafe_add_claim(target, claim, issuer, expiry)
                 }
             };
@@ -548,11 +531,7 @@ decl_module! {
                 ensure!(cdd_providers.contains(&issuer), Error::<T>::UnAuthorizedCddProvider);
             }
 
-            T::ProtocolFee::batch_charge_fee(
-                &Signatory::Account(sender),
-                ProtocolOp::IdentityAddClaim,
-                claims.len() - cdd_count
-            )?;
+            T::ProtocolFee::batch_charge_fee(ProtocolOp::IdentityAddClaim, claims.len() - cdd_count)?;
             claims
                 .into_iter()
                 .for_each(|bci| {
@@ -1028,7 +1007,6 @@ decl_module! {
             }
             // 1.999. Charge the fee.
             T::ProtocolFee::batch_charge_fee(
-                &Signatory::Account(sender),
                 ProtocolOp::IdentityAddSigningItemsWithAuthorization,
                 additional_keys.len()
             )?;
@@ -1187,10 +1165,7 @@ impl<T: Trait> Module<T> {
         permissions: Vec<Permission>,
         signer: Signatory<T::AccountId>,
     ) -> DispatchResult {
-        T::ProtocolFee::charge_fee(
-            &Signatory::Identity(target_did),
-            ProtocolOp::IdentityAddSigningItemsWithAuthorization,
-        )?;
+        T::ProtocolFee::charge_fee(ProtocolOp::IdentityAddSigningItemsWithAuthorization)?;
         if let Signatory::Account(key) = &signer {
             ensure!(
                 Self::can_key_be_linked_to_did(key),
@@ -1305,65 +1280,6 @@ impl<T: Trait> Module<T> {
         auth_id: u64,
     ) -> Authorization<T::AccountId, T::Moment> {
         <Authorizations<T>>::get(target, auth_id)
-    }
-
-    /// Fetches a particular link.
-    pub fn get_link(target: Signatory<T::AccountId>, link_id: u64) -> Link<T::Moment> {
-        <Links<T>>::get(target, link_id)
-    }
-
-    /// Adds a link to a key or an identity.
-    /// NB: Please do all the required checks before calling this function.
-    pub fn add_link(
-        target: Signatory<T::AccountId>,
-        link_data: LinkData,
-        expiry: Option<T::Moment>,
-    ) -> u64 {
-        let new_nonce = Self::multi_purpose_nonce() + 1u64;
-        <MultiPurposeNonce>::put(&new_nonce);
-
-        let link = Link {
-            link_data: link_data.clone(),
-            expiry,
-            link_id: new_nonce,
-        };
-
-        <Links<T>>::insert(target.clone(), new_nonce, link);
-
-        Self::deposit_event(RawEvent::LinkAdded(
-            target.as_identity().cloned(),
-            target.as_account().cloned(),
-            new_nonce,
-            link_data,
-            expiry,
-        ));
-        new_nonce
-    }
-
-    /// Remove a link (if it exists) from a key or identity.
-    /// NB: Please do all the required checks before calling this function.
-    pub fn remove_link(target: Signatory<T::AccountId>, link_id: u64) {
-        if <Links<T>>::contains_key(&target, link_id) {
-            <Links<T>>::remove(&target, link_id);
-            Self::deposit_event(RawEvent::LinkRemoved(
-                target.as_identity().cloned(),
-                target.as_account().cloned(),
-                link_id,
-            ));
-        }
-    }
-
-    /// Update link data (if it exists) from a key or identity.
-    /// NB: Please do all the required checks before calling this function.
-    pub fn update_link(target: Signatory<T::AccountId>, link_id: u64, link_data: LinkData) {
-        if <Links<T>>::contains_key(&target, link_id) {
-            <Links<T>>::mutate(&target, link_id, |link| link.link_data = link_data);
-            Self::deposit_event(RawEvent::LinkUpdated(
-                target.as_identity().cloned(),
-                target.as_account().cloned(),
-                link_id,
-            ));
-        }
     }
 
     /// Accepts a master key rotation.
@@ -1802,7 +1718,7 @@ impl<T: Trait> Module<T> {
     pub fn _register_did(
         sender: T::AccountId,
         signing_items: Vec<SigningItem<T::AccountId>>,
-        protocol_fee_data: Option<(&Signatory<T::AccountId>, ProtocolOp)>,
+        protocol_fee_data: Option<ProtocolOp>,
     ) -> Result<IdentityId, DispatchError> {
         // Adding extrensic count to did nonce for some unpredictability
         // NB: this does not guarantee randomness
@@ -1847,8 +1763,8 @@ impl<T: Trait> Module<T> {
         }
 
         // 1.5. Charge the given fee.
-        if let Some((payee, op)) = protocol_fee_data {
-            T::ProtocolFee::charge_fee(payee, op)?;
+        if let Some(op) = protocol_fee_data {
+            T::ProtocolFee::charge_fee(op)?;
         }
 
         // 2. Apply changes to our extrinsic.
@@ -2026,51 +1942,6 @@ impl<T: Trait> Module<T> {
             }
         } else {
             RpcDidRecords::IdNotFound
-        }
-    }
-
-    /// Use to get the filtered link data for a given signatory
-    /// - if link_type is None then return links data on the basis of the `allow_expired` boolean
-    /// - if link_type is Some(value) then return filtered links on the value basis type in conjunction
-    ///   with `allow_expired` boolean condition
-    pub fn get_filtered_links(
-        signatory: Signatory<T::AccountId>,
-        allow_expired: bool,
-        link_type: Option<LinkType>,
-    ) -> Vec<Link<T::Moment>> {
-        let now = <pallet_timestamp::Module<T>>::get();
-
-        if let Some(type_of_link) = link_type {
-            <Links<T>>::iter_prefix_values(signatory)
-                .filter(|link| {
-                    if !allow_expired {
-                        if let Some(expiry) = link.expiry {
-                            if expiry < now {
-                                return false;
-                            }
-                        }
-                    }
-                    match link.link_data {
-                        LinkData::DocumentOwned(..) => type_of_link == LinkType::DocumentOwnership,
-                        LinkData::TickerOwned(..) => type_of_link == LinkType::TickerOwnership,
-                        LinkData::AssetOwned(..) => type_of_link == LinkType::AssetOwnership,
-                        LinkData::NoData => type_of_link == LinkType::NoData,
-                    }
-                })
-                .collect::<Vec<Link<T::Moment>>>()
-        } else {
-            <Links<T>>::iter_prefix_values(signatory)
-                .filter(|l| {
-                    if !allow_expired {
-                        if let Some(expiry) = l.expiry {
-                            if expiry < now {
-                                return false;
-                            }
-                        }
-                    }
-                    return true;
-                })
-                .collect::<Vec<Link<T::Moment>>>()
         }
     }
 

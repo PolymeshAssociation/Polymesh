@@ -12,7 +12,7 @@ use frame_support::{
 };
 use pallet_balances as balances;
 use pallet_identity::{self as identity, BatchAddClaimItem, BatchRevokeClaimItem, Error};
-use pallet_identity_rpc_runtime_api::{AuthorizationType, LinkType};
+use pallet_identity_rpc_runtime_api::AuthorizationType;
 use pallet_transaction_payment::CddAndFeeDetails;
 use polymesh_common_utilities::{
     traits::{
@@ -25,7 +25,7 @@ use polymesh_common_utilities::{
 };
 use polymesh_primitives::{
     AuthorizationData, AuthorizationError, Claim, ClaimType, Document, IdentityClaim, IdentityId,
-    LinkData, Permission, Scope, Signatory, SigningItem, Ticker, TransactionError,
+    Permission, Scope, Signatory, SigningItem, Ticker, TransactionError,
 };
 use polymesh_runtime_develop::{fee_details::CddHandler, runtime::Call};
 use sp_core::crypto::AccountId32;
@@ -475,14 +475,17 @@ fn frozen_signing_keys_cdd_verification_test() {
 fn frozen_signing_keys_cdd_verification_test_we() {
     // 0. Create identity for Alice and signing key from Bob.
     let alice = AccountKeyring::Alice.public();
-    let alice_id = register_keyring_account(AccountKeyring::Alice).unwrap();
-    let charlie = AccountKeyring::Charlie.public();
-    let _charlie_id = register_keyring_account_with_balance(AccountKeyring::Charlie, 100).unwrap();
     let bob = AccountKeyring::Bob.public();
+    let charlie = AccountKeyring::Charlie.public();
+    TestStorage::set_payer_context(Some(Signatory::Account(alice)));
+    let alice_id = register_keyring_account(AccountKeyring::Alice).unwrap();
+    TestStorage::set_payer_context(Some(Signatory::Account(charlie)));
+    let _charlie_id = register_keyring_account_with_balance(AccountKeyring::Charlie, 100).unwrap();
     assert_eq!(Balances::free_balance(charlie), 59);
 
     // 1. Add Bob as signatory to Alice ID.
     let bob_signatory = Signatory::Account(AccountKeyring::Bob.public());
+    TestStorage::set_payer_context(Some(Signatory::Account(alice)));
     assert_ok!(Balances::top_up_identity_balance(
         Origin::signed(alice),
         alice_id,
@@ -498,6 +501,7 @@ fn frozen_signing_keys_cdd_verification_test_we() {
     assert_eq!(Balances::free_balance(bob), 25_000);
 
     // 2. Bob can transfer some funds to Charlie ID.
+    TestStorage::set_payer_context(Some(Signatory::Account(bob)));
     assert_ok!(Balances::transfer_with_memo(
         Origin::signed(bob),
         charlie,
@@ -1068,89 +1072,6 @@ fn removing_authorizations() {
         assert!(!<identity::Authorizations<TestStorage>>::contains_key(
             bob_did, auth_id
         ));
-    });
-}
-
-#[test]
-fn adding_links() {
-    ExtBuilder::default().build().execute_with(|| {
-        let bob_did = Signatory::from(register_keyring_account(AccountKeyring::Bob).unwrap());
-        let ticker50 = Ticker::try_from(&[0x50][..]).unwrap();
-        let ticker51 = Ticker::try_from(&[0x51][..]).unwrap();
-        let mut link_id = Identity::add_link(bob_did, LinkData::TickerOwned(ticker50), None);
-        let mut link = Identity::get_link(bob_did, link_id);
-        assert_eq!(link.expiry, None);
-        assert_eq!(link.link_data, LinkData::TickerOwned(ticker50));
-        link_id = Identity::add_link(bob_did, LinkData::TickerOwned(ticker51), None);
-        link = Identity::get_link(bob_did, link_id);
-        assert_eq!(link.expiry, None);
-        assert_eq!(link.link_data, LinkData::TickerOwned(ticker51));
-        link_id = Identity::add_link(bob_did, LinkData::TickerOwned(ticker50), Some(100));
-        link = Identity::get_link(bob_did, link_id);
-        assert_eq!(link.expiry, Some(100));
-        assert_eq!(link.link_data, LinkData::TickerOwned(ticker50));
-        link_id = Identity::add_link(bob_did, LinkData::TickerOwned(ticker50), Some(100));
-        link = Identity::get_link(bob_did, link_id);
-        assert_eq!(link.expiry, Some(100));
-        assert_eq!(link.link_data, LinkData::TickerOwned(ticker50));
-
-        // Testing the list of filtered links
-        Timestamp::set_timestamp(120);
-
-        // Getting expired and non-expired both
-        let mut links =
-            Identity::get_filtered_links(bob_did, true, Some(LinkType::TickerOwnership));
-        assert_eq!(links.len(), 4);
-        links = Identity::get_filtered_links(bob_did, false, Some(LinkType::TickerOwnership));
-        // Two links are expired
-        assert_eq!(links.len(), 2);
-        // Add other type of link
-        // 1.1 : Add document type
-        let doc = Document {
-            name: b"D".into(),
-            uri: b"www.d.com".into(),
-            content_hash: b"0x4".into(),
-        };
-
-        Identity::add_link(bob_did, LinkData::DocumentOwned(doc.clone()), None);
-        // 1.2 : Add AssetOwned type
-        Identity::add_link(bob_did, LinkData::AssetOwned(ticker51), None);
-        Identity::add_link(bob_did, LinkData::AssetOwned(ticker50), Some(200));
-
-        // Query DocumentOwnership type link
-        links = Identity::get_filtered_links(bob_did, true, Some(LinkType::DocumentOwnership));
-        assert_eq!(links.len(), 1);
-
-        // Query AssetOwnership type
-        links = Identity::get_filtered_links(bob_did, true, Some(LinkType::AssetOwnership));
-        assert_eq!(links.len(), 2);
-
-        // Increase time
-        Timestamp::set_timestamp(220);
-        links = Identity::get_filtered_links(bob_did, false, Some(LinkType::AssetOwnership));
-        assert_eq!(links.len(), 1);
-
-        // Query all links without providing link type and allow expired ones as well
-        links = Identity::get_filtered_links(bob_did, true, None);
-        assert_eq!(links.len(), 7);
-
-        // Query all links without providing link type and not allow the expired ones
-        links = Identity::get_filtered_links(bob_did, false, None);
-        assert_eq!(links.len(), 4);
-    });
-}
-
-#[test]
-fn removing_links() {
-    ExtBuilder::default().build().execute_with(|| {
-        let bob_did = Signatory::from(register_keyring_account(AccountKeyring::Bob).unwrap());
-        let ticker50 = Ticker::try_from(&[0x50][..]).unwrap();
-        let link_id = Identity::add_link(bob_did, LinkData::TickerOwned(ticker50), None);
-        let link = Identity::get_link(bob_did, link_id);
-        assert_eq!(link.link_data, LinkData::TickerOwned(ticker50));
-        Identity::remove_link(bob_did, link_id);
-        let removed_link = Identity::get_link(bob_did, link_id);
-        assert_eq!(removed_link.link_data, LinkData::NoData);
     });
 }
 

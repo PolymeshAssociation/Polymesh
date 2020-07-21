@@ -30,8 +30,8 @@ use polymesh_common_utilities::{
     CommonTrait,
 };
 use polymesh_primitives::{
-    AccountId, AccountIndex, Authorization, Balance, BlockNumber, Hash, IdentityId, Index, Link,
-    Moment, PortfolioId, Signatory, Signature, SigningItem, Ticker,
+    AccountId, AccountIndex, Authorization, Balance, BlockNumber, Hash, IdentityId, Index, Moment,
+    PortfolioId, Signatory, Signature, SigningItem, Ticker,
 };
 use polymesh_runtime_common::{
     bridge,
@@ -79,7 +79,7 @@ use pallet_grandpa::{
     fg_primitives, AuthorityId as GrandpaId, AuthorityList as GrandpaAuthorityList,
 };
 use pallet_identity_rpc_runtime_api::{
-    AssetDidResult, AuthorizationType, CddStatus, DidRecords, DidStatus, LinkType,
+    AssetDidResult, AuthorizationType, CddStatus, DidRecords, DidStatus,
 };
 
 use pallet_im_online::sr25519::AuthorityId as ImOnlineId;
@@ -1018,15 +1018,6 @@ impl_runtime_apis! {
         /// Retrieve master key and signing keys for a given IdentityId
         fn get_did_records(did: IdentityId) -> DidRecords<AccountId, SigningItem<AccountId>> {
             Identity::get_did_records(did)
-        }
-
-        /// Retrieve list of a link for a given signatory
-        fn get_filtered_links(
-            signatory: Signatory<AccountId>,
-            allow_expired: bool,
-            link_type: Option<LinkType>
-        ) -> Vec<Link<Moment>> {
-            Identity::get_filtered_links(signatory, allow_expired, link_type)
         }
 
         /// Retrieve the status of the DIDs

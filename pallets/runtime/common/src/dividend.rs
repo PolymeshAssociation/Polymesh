@@ -180,10 +180,7 @@ decl_module! {
 
             // Subtract the amount
             let new_balance = balance.checked_sub(&amount).ok_or(Error::<T>::BalanceUnderflow)?;
-            <<T as IdentityTrait>::ProtocolFee>::charge_fee(
-                &sender,
-                ProtocolOp::DividendNew
-            )?;
+            <<T as IdentityTrait>::ProtocolFee>::charge_fee(ProtocolOp::DividendNew)?;
             <simple_token::BalanceOf<T>>::insert((payout_ticker, did), new_balance);
 
             // Insert dividend entry into storage

@@ -4,7 +4,7 @@ use jsonrpc_derive::rpc;
 
 pub use pallet_identity_rpc_runtime_api::{
     AssetDidResult, Authorization, AuthorizationType, CddStatus, DidRecords, DidStatus,
-    IdentityApi as IdentityRuntimeApi, Link, LinkType,
+    IdentityApi as IdentityRuntimeApi,
 };
 use sp_api::ProvideRuntimeApi;
 use sp_blockchain::HeaderBackend;
@@ -40,16 +40,6 @@ pub trait IdentityApi<BlockHash, IdentityId, Ticker, AccountId, SigningItem, Sig
         did: IdentityId,
         at: Option<BlockHash>,
     ) -> Result<DidRecords<AccountId, SigningItem>>;
-
-    /// Retrieve the list of links for a given signatory.
-    #[rpc(name = "identity_getFilteredLinks")]
-    fn get_filtered_links(
-        &self,
-        signatory: Signatory,
-        allow_expired: bool,
-        link_type: Option<LinkType>,
-        at: Option<BlockHash>,
-    ) -> Result<Vec<Link<Moment>>>;
 
     /// Provide the status of a given DID
     #[rpc(name = "identity_getDidStatus")]
@@ -165,24 +155,6 @@ where
             message: "Unable to fetch DID records".into(),
             data: Some(format!("{:?}", e).into()),
         })
-    }
-
-    fn get_filtered_links(
-        &self,
-        signatory: Signatory,
-        allow_expired: bool,
-        link_type: Option<LinkType>,
-        at: Option<<Block as BlockT>::Hash>,
-    ) -> Result<Vec<Link<Moment>>> {
-        let api = self.client.runtime_api();
-        let at = BlockId::hash(at.unwrap_or_else(|| self.client.info().best_hash));
-
-        api.get_filtered_links(&at, signatory, allow_expired, link_type)
-            .map_err(|e| RpcError {
-                code: ErrorCode::ServerError(Error::RuntimeError as i64),
-                message: "Unable to fetch Links data".into(),
-                data: Some(format!("{:?}", e).into()),
-            })
     }
 
     fn get_did_status(
