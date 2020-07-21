@@ -51,7 +51,7 @@
 use codec::{Decode, Encode};
 use frame_support::{
     decl_error, decl_event, decl_module, decl_storage,
-    dispatch::PostDispatchInfo,
+    dispatch::{DispatchErrorWithPostInfo, DispatchResultWithPostInfo, PostDispatchInfo},
     ensure,
     traits::UnfilteredDispatchable,
     weights::{DispatchClass, GetDispatchInfo, Weight},
@@ -208,7 +208,7 @@ decl_module! {
             target: T::AccountId,
             signature: <T as IdentityTrait>::OffChainSignature,
             call: UniqueCall<<T as Trait>::Call>
-        ) -> DispatchResult {
+        ) -> DispatchResultWithPostInfo {
             let _ = ensure_signed(origin)?;
 
            let target_nonce = <Nonces<T>>::get(&target);
@@ -231,8 +231,11 @@ decl_module! {
             <Nonces<T>>::insert(target.clone(), target_nonce + 1);
 
             call.call.dispatch(RawOrigin::Signed(target).into())
-                .map(|_| ())
-                .map_err(|e| e.error)
+                .map(|info| info.actual_weight.map(|w| w + 250_000).into())
+                .map_err(|e| DispatchErrorWithPostInfo {
+                    error: e.error,
+                    post_info: e.post_info.actual_weight.map(|w| w + 250_000).into()
+                })
         }
     }
 }

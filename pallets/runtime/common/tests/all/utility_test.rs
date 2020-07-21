@@ -7,7 +7,7 @@ use pallet_balances::{self as balances, Call as BalancesCall};
 use pallet_utility as utility;
 
 use codec::Encode;
-use frame_support::assert_ok;
+use frame_support::{assert_err, assert_ok};
 use frame_support::dispatch::DispatchError;
 use pallet_utility::UniqueCall;
 use sp_core::sr25519::Signature;
@@ -15,6 +15,7 @@ use test_client::AccountKeyring;
 
 type Balances = balances::Module<TestStorage>;
 type Utility = utility::Module<TestStorage>;
+type Error = utility::Error<TestStorage>;
 type Origin = <TestStorage as frame_system::Trait>::Origin;
 
 #[test]
@@ -131,32 +132,24 @@ fn _relay_unhappy_cases() {
         Call::Balances(BalancesCall::transfer(charlie, 59)),
     );
 
-    assert_eq!(
+    assert_err!(
         Utility::relay_tx(
             origin.clone(),
             bob,
             Signature::default().into(),
             transaction.clone()
         ),
-        Err(DispatchError::Module {
-            index: 0,
-            error: 0,
-            message: Some("InvalidSignature")
-        })
+        Error::InvalidSignature
     );
 
-    assert_eq!(
+    assert_err!(
         Utility::relay_tx(
             origin.clone(),
             bob,
             AccountKeyring::Bob.sign(&transaction.encode()).into(),
             transaction.clone()
         ),
-        Err(DispatchError::Module {
-            index: 0,
-            error: 1,
-            message: Some("TargetCddMissing")
-        })
+        Error::TargetCddMissing
     );
 
     let _bob_did = register_keyring_account_with_balance(AccountKeyring::Bob, 1_000).unwrap();
@@ -166,17 +159,13 @@ fn _relay_unhappy_cases() {
         Call::Balances(BalancesCall::transfer(charlie, 59)),
     );
 
-    assert_eq!(
+    assert_err!(
         Utility::relay_tx(
             origin.clone(),
             bob,
             Signature::default().into(),
             transaction
         ),
-        Err(DispatchError::Module {
-            index: 0,
-            error: 2,
-            message: Some("InvalidNonce")
-        })
+        Error::InvalidNonce
     );
 }
