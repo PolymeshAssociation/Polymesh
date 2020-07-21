@@ -447,37 +447,19 @@ decl_module! {
         ) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             let did = Context::current_identity_or::<Identity<T>>(&sender)?;
-
-            // Check that sender is allowed to act on behalf of `did`
-            ensure!(!<Tokens<T>>::contains_key(&ticker), Error::<T>::AssetAlreadyCreated);
-
-            let ticker_config = Self::ticker_registration_config();
-
-            ensure!(
-                ticker.len() <= usize::try_from(ticker_config.max_ticker_length).unwrap_or_default(),
-                Error::<T>::TickerTooLong
-            );
-
-            // checking max size for name and ticker
-            // byte arrays (Vec) with no max size should be avoided
-            ensure!(name.as_slice().len() <= 64, Error::<T>::AssetNameTooLong);
-
+            Self::create_asset_parameter_checks(&did, &ticker, &name, total_supply)?;
             let is_ticker_available_or_registered_to = Self::is_ticker_available_or_registered_to(&ticker, did);
-
             ensure!(
                 is_ticker_available_or_registered_to != TickerRegistrationStatus::RegisteredByOther,
                 Error::<T>::TickerAlreadyRegistered
             );
-
             if !divisible {
                 ensure!(total_supply % ONE_UNIT.into() == 0.into(), Error::<T>::InvalidTotalSupply);
             }
-
-            ensure!(total_supply <= MAX_SUPPLY.into(), Error::<T>::TotalSupplyAboveLimit);
-
+            // Once all the checks are made, charge the protocol fee.
             <<T as IdentityTrait>::ProtocolFee>::charge_fee(ProtocolOp::AssetCreateAsset)?;
             <identity::Module<T>>::register_asset_did(&ticker)?;
-
+            // Register the ticker or finish its registration.
             if is_ticker_available_or_registered_to == TickerRegistrationStatus::Available {
                 // ticker not registered by anyone (or registry expired). we can charge fee and register this ticker
                 Self::_register_ticker(&ticker, did, None)?;
@@ -485,7 +467,6 @@ decl_module! {
                 // Ticker already registered by the user
                 <Tickers<T>>::mutate(&ticker, |tr| tr.expiry = None);
             }
-
             let token = SecurityToken {
                 name,
                 total_supply,
@@ -494,7 +475,6 @@ decl_module! {
                 asset_type: asset_type.clone(),
                 treasury_did,
             };
-
             <Tokens<T>>::insert(&ticker, token);
             let beneficiary_did = treasury_did.unwrap_or(did);
             <BalanceOf<T>>::insert(ticker, beneficiary_did, total_supply);
@@ -797,7 +777,7 @@ decl_module! {
 
                 // No check since the issued balance is always less than or equal to the total
                 // supply. The total supply is already checked above.
-                issued_in_this_round = issued_in_this_round + *value;
+                issued_in_this_round += *value;
 
                 // New total supply must be valid
                 token.total_supply = updated_total_supply;
@@ -2432,5 +2412,25 @@ impl<T: Trait> Module<T> {
         );
 
         Self::deposit_event(RawEvent::Transfer(sender, *ticker, from_did, to_did, value));
+    }
+
+    fn create_asset_parameter_checks(
+        did: &IdentityId,
+        ticker: &Ticker,
+        name: &AssetName,
+        total_supply: T::Balance
+    ) -> DispatchResult {
+        // Check that sender is allowed to act on behalf of `did`
+        ensure!(!<Tokens<T>>::contains_key(&ticker), Error::<T>::AssetAlreadyCreated);
+        let ticker_config = Self::ticker_registration_config();
+        ensure!(
+            ticker.len() <= usize::try_from(ticker_config.max_ticker_length).unwrap_or_default(),
+            Error::<T>::TickerTooLong
+        );
+        // checking max size for name and ticker
+        // TODO: Limit the maximum size of a name.
+        ensure!(name.as_slice().len() <= 64, Error::<T>::AssetNameTooLong);
+        ensure!(total_supply <= MAX_SUPPLY.into(), Error::<T>::TotalSupplyAboveLimit);
+        Ok(())
     }
 }

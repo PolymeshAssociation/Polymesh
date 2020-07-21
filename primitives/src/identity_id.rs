@@ -219,16 +219,16 @@ impl Printable for PortfolioId {
 
 impl PortfolioId {
     /// Returns the default portfolio of `did`.
-    pub fn default_portfolio(did: IdentityId) -> PortfolioId {
-        PortfolioId {
+    pub fn default_portfolio(did: IdentityId) -> Self {
+        Self {
             did,
             kind: PortfolioKind::Default,
         }
     }
 
     /// Returns the user portfolio `num` of `did`.
-    pub fn user_portfolio(did: IdentityId, num: PortfolioNumber) -> PortfolioId {
-        PortfolioId {
+    pub fn user_portfolio(did: IdentityId, num: PortfolioNumber) -> Self {
+        Self {
             did,
             kind: PortfolioKind::User(num),
         }
