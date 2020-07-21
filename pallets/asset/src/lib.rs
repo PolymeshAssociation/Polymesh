@@ -758,10 +758,10 @@ decl_module! {
 
                 let bals = Self::balance(&ticker, *investor_did);
                 current_total_balances.push(bals.total);
-                // No check since the total balance is always less than or equal to the total
+                // No check since the total balance is always <= the total
                 // supply. The total supply is already checked above.
                 let updated_total_balance = bals.total + *value;
-                // No check since the default portfolio balance is always less than or equal to the
+                // No check since the default portfolio balance is always <= the
                 // total supply. The total supply is already checked above.
                 let updated_def_balance = bals.portfolio + *value;
                 updated_balances.push(FocusedBalances {
@@ -775,7 +775,7 @@ decl_module! {
                     Error::<T>::InvalidTransfer
                 );
 
-                // No check since the issued balance is always less than or equal to the total
+                // No check since the issued balance is always <= the total
                 // supply. The total supply is already checked above.
                 issued_in_this_round += *value;
 
@@ -836,7 +836,7 @@ decl_module! {
             let updated_burner_def_balance = burner_def_balance
                 .checked_sub(&value)
                 .ok_or(Error::<T>::DefaultPortfolioBalanceUnderflow)?;
-            // No check since the total balance is always greater than or equal to the default
+            // No check since the total balance is always >= the default
             // portfolio balance. The default portfolio balance is already checked above.
             let updated_burner_balance = burner_balance - value;
             // Check whether the custody allowance remain intact or not
@@ -850,7 +850,7 @@ decl_module! {
 
             //Decrease total supply
             let mut token = Self::token_details(&ticker);
-            // No check since the total supply is always greater than or equal to the default
+            // No check since the total supply is always >= the default
             // portfolio balance. The default portfolio balance is already checked above.
             token.total_supply -= token.total_supply;
 
@@ -892,7 +892,7 @@ decl_module! {
             let updated_burner_def_balance = burner_def_balance
                 .checked_sub(&value)
                 .ok_or(Error::<T>::DefaultPortfolioBalanceUnderflow)?;
-            // No check since the total balance is always greater than or equal to the default
+            // No check since the total balance is always >= the default
             // portfolio balance. The default portfolio balance is already checked above.
             let updated_burner_balance = burner_balance - value;
 
@@ -912,7 +912,7 @@ decl_module! {
 
             //Decrease total supply
             let mut token = Self::token_details(&ticker);
-            // No check since the total supply is always greater than or equal to the default
+            // No check since the total supply is always >= the default
             // portfolio balance. The default portfolio balance is already checked above.
             token.total_supply -= value;
 
@@ -959,13 +959,13 @@ decl_module! {
             let updated_burner_def_balance = burner_def_balance
                 .checked_sub(&value)
                 .ok_or(Error::<T>::DefaultPortfolioBalanceUnderflow)?;
-            // No check since the total balance is always greater than or equal to the default
+            // No check since the total balance is always >= the default
             // portfolio balance. The default portfolio balance is already checked above.
             let updated_burner_balance = burner_balance - value;
 
             // Decrease total supply
             let mut token = Self::token_details(&ticker);
-            // No check since the total supply is always greater than or equal to the default
+            // No check since the total supply is always >= the default
             // portfolio balance. The default portfolio balance is already checked above.
             token.total_supply = token.total_supply - value;
 
@@ -1867,7 +1867,7 @@ impl<T: Trait> Module<T> {
         let updated_from_def_balance = from_def_balance
             .checked_sub(&value)
             .ok_or(Error::<T>::DefaultPortfolioBalanceUnderflow)?;
-        // No check since the total balance is always greater than or equal to the default
+        // No check since the total balance is always >= the default
         // portfolio balance. The default portfolio balance is already checked above.
         let updated_from_total_balance = from_total_balance - value;
 
@@ -1878,7 +1878,7 @@ impl<T: Trait> Module<T> {
         let updated_to_total_balance = to_total_balance
             .checked_add(&value)
             .ok_or(Error::<T>::BalanceOverflow)?;
-        // No check since the default portfolio balance is always less than or equal to the total
+        // No check since the default portfolio balance is always <= the total
         // balance. The total balance is already checked above.
         let updated_to_def_balance = to_def_balance + value;
 
@@ -1970,10 +1970,10 @@ impl<T: Trait> Module<T> {
             total: current_to_balance,
             portfolio: current_to_def_balance,
         } = Self::balance(ticker, to_did);
-        // No check since the total balance is always less than or equal to the total supply. The
+        // No check since the total balance is always <= the total supply. The
         // total supply is already checked above.
         let updated_to_balance = current_to_balance + value;
-        // No check since the default portfolio balance is always less than or equal to the total
+        // No check since the default portfolio balance is always <= the total
         // supply. The total supply is already checked above.
         let updated_to_def_balance = current_to_def_balance + value;
         // verify transfer check
@@ -1997,7 +1997,7 @@ impl<T: Trait> Module<T> {
         <Tokens<T>>::insert(ticker, token);
         let round = Self::funding_round(ticker);
         let ticker_round = (*ticker, round.clone());
-        // No check since the issued balance is always less than or equal to the total
+        // No check since the issued balance is always <= the total
         // supply. The total supply is already checked above.
         let issued_in_this_round = Self::issued_in_funding_round(&ticker_round) + value;
         <IssuedInFundingRound<T>>::insert(&ticker_round, issued_in_this_round);
@@ -2045,7 +2045,7 @@ impl<T: Trait> Module<T> {
         let new_custody_allowance = Self::total_custody_allowance((ticker, holder_did))
             .checked_add(&value)
             .ok_or(Error::<T>::TotalAllowanceOverflow)?;
-        // Ensure that balance of the token holder should greater than or equal to the total custody allowance + value
+        // Ensure that balance of the token holder is >= the total custody allowance + value
         ensure!(
             Self::balance(&ticker, holder_did).total >= new_custody_allowance,
             Error::<T>::InsufficientBalance
