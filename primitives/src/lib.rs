@@ -154,11 +154,6 @@ pub use authorization::AuthorizationData;
 pub use authorization::AuthorizationError;
 pub use authorization::AuthorizationType;
 
-/// Generic links that contains information about a key/identity for example ownership of a ticker
-pub mod link;
-pub use link::Link;
-pub use link::LinkData;
-
 pub mod ticker;
 pub use ticker::Ticker;
 

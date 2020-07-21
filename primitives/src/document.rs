@@ -45,8 +45,6 @@ pub struct DocumentHash(pub Vec<u8>);
 #[derive(Decode, Encode, Clone, Debug, Default, Hash, PartialEq, Eq, PartialOrd, Ord)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 pub struct Document {
-    /// Document name
-    pub name: DocumentName,
     /// Document URI
     pub uri: DocumentUri,
     /// Document hash

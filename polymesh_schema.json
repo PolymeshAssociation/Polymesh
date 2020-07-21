@@ -7,7 +7,6 @@
         "DocumentUri": "Text",
         "DocumentHash": "Text",
         "Document": {
-            "name": "DocumentName",
             "uri": "DocumentUri",
             "content_hash": "DocumentHash"
         },
@@ -32,6 +31,13 @@
                 "Isin": ""
             }
         },
+        "AssetOwnershipRelation": {
+            "_enum": {
+                "NotOwned": "",
+                "TickerOwned": "",
+                "AssetOwned": ""
+            }
+        },
         "AssetName": "Text",
         "AssetIdentifier": "Text",
         "FundingRoundName": "Text",
@@ -42,7 +48,6 @@
             "owner_did": "IdentityId",
             "divisible": "bool",
             "asset_type": "AssetType",
-            "link_id": "u64",
             "treasury_did": "Option<IdentityId>"
         },
         "LinkedKeyInfo": {
@@ -58,18 +63,6 @@
                 "Operator",
                 "SpendFunds"
             ]
-        },
-        "Link": {
-            "link_data": "LinkData",
-            "expiry": "Option<Moment>",
-            "link_id": "u64"
-        },
-        "LinkData": {
-            "_enum": {
-                "DocumentOwned": "Document",
-                "TickerOwned": "Ticker",
-                "AssetOwned": "Ticker"
-            }
         },
         "Signatory":{
             "_enum": {
@@ -212,8 +205,7 @@
         },
         "TickerRegistration": {
             "owner": "IdentityId",
-            "expiry": "Option<Moment>",
-            "link_id": "u64"
+            "expiry": "Option<Moment>"
         },
         "TickerRegistrationConfig": {
             "max_ticker_length": "u8",
@@ -524,14 +516,6 @@
                 "Err": "Vec<u8>"
             }
         },
-        "LinkType": {
-            "_enum": {
-                "DocumentOwnership": "",
-                "TickerOwnership": "",
-                "AssetOwnership": "",
-                "NoData":""
-            }
-        },
         "AuthorizationType": {
             "_enum": {
                 "AttestMasterKeyRotation": "",
@@ -719,32 +703,6 @@
                     }
                 ],
                 "type": "DidRecords"
-            },
-            "getFilteredLinks": {
-                "description": "Retrieve links data for a given signatory and filtered using the given Link type",
-                "params": [
-                    {
-                        "name": "signatory",
-                        "type": "Signatory",
-                        "isOptional": false
-                    },
-                    {
-                        "name": "allow_expired",
-                        "type": "bool",
-                        "isOptional": false
-                    },
-                    {
-                        "name": "link_type",
-                        "type": "LinkType",
-                        "isOptional": true
-                    },
-                    {
-                        "name": "blockHash",
-                        "type": "Hash",
-                        "isOptional": true
-                    }
-                ],
-                "type": "Vec<Link>"
             },
             "getDidStatus": {
                 "description": "Retrieve status of the DID",

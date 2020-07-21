@@ -59,7 +59,6 @@
 //! - `is_issuable` - Used to know whether the given token will issue new tokens or not.
 //! - `batch_add_document` - Add documents for a given token, Only be called by the token owner.
 //! - `batch_remove_document` - Remove documents for a given token, Only be called by the token owner.
-//! - `batch_update_document` - Update documents for the given token, Only be called by the token owner.
 //! - `increase_custody_allowance` - Used to increase the allowance for a given custodian.
 //! - `increase_custody_allowance_of` - Used to increase the allowance for a given custodian by providing the off chain signature.
 //! - `transfer_by_custodian` - Used to transfer the tokens by the approved custodian.
@@ -107,7 +106,7 @@ use polymesh_common_utilities::{
     CommonTrait, Context,
 };
 use polymesh_primitives::{
-    AuthorizationData, AuthorizationError, Document, IdentityId, LinkData, Signatory,
+    AuthorizationData, AuthorizationError, Document, DocumentName, IdentityId, Signatory,
     SmartExtension, SmartExtensionName, SmartExtensionType, Ticker,
 };
 use polymesh_primitives_derive::VecU8StrongTyped;
@@ -178,6 +177,20 @@ impl Default for IdentifierType {
     }
 }
 
+/// Ownership status of a ticker/token.
+#[derive(Encode, Decode, Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
+pub enum AssetOwnershipRelation {
+    NotOwned,
+    TickerOwned,
+    AssetOwned,
+}
+
+impl Default for AssetOwnershipRelation {
+    fn default() -> Self {
+        Self::NotOwned
+    }
+}
+
 /// A wrapper for a token name.
 #[derive(
     Decode, Encode, Clone, Debug, Default, Hash, PartialEq, Eq, PartialOrd, Ord, VecU8StrongTyped,
@@ -208,7 +221,6 @@ pub struct SecurityToken<U> {
     pub owner_did: IdentityId,
     pub divisible: bool,
     pub asset_type: AssetType,
-    pub link_id: u64,
     pub treasury_did: Option<IdentityId>,
 }
 
@@ -227,7 +239,6 @@ pub struct SignData<U> {
 pub struct TickerRegistration<U> {
     pub owner: IdentityId,
     pub expiry: Option<U>,
-    pub link_id: u64,
 }
 
 /// struct to store the ticker registration config.
@@ -314,6 +325,14 @@ decl_storage! {
         /// The set of frozen assets implemented as a membership map.
         /// ticker -> bool
         pub Frozen get(fn frozen): map hasher(blake2_128_concat) Ticker => bool;
+        /// Tickers and token owned by a user
+        /// (user, ticker) -> AssetOwnership
+        pub AssetOwnershipRelations get(fn asset_ownership_relation):
+            double_map hasher(twox_64_concat) IdentityId, hasher(blake2_128_concat) Ticker => AssetOwnershipRelation;
+        /// Documents attached to an Asset
+        /// (ticker, document_name) -> document
+        pub AssetDocuments get(fn asset_documents):
+            double_map hasher(blake2_128_concat) Ticker, hasher(blake2_128_concat) DocumentName => Document;
     }
 }
 
@@ -457,19 +476,19 @@ decl_module! {
                 <Tickers<T>>::mutate(&ticker, |tr| tr.expiry = None);
             }
 
-            let link = <identity::Module<T>>::add_link(Signatory::from(did), LinkData::AssetOwned(ticker), None);
-
             let token = SecurityToken {
                 name,
                 total_supply,
                 owner_did: did,
                 divisible,
                 asset_type: asset_type.clone(),
-                link_id: link,
                 treasury_did,
             };
+
             <Tokens<T>>::insert(&ticker, token);
             <BalanceOf<T>>::insert(ticker, did, total_supply);
+            <AssetOwnershipRelations>::insert(did, ticker, AssetOwnershipRelation::AssetOwned);
+
             Self::deposit_event(RawEvent::AssetCreated(
                 did,
                 ticker,
@@ -1014,21 +1033,21 @@ decl_module! {
         /// # Weight
         /// `200_000 + 60_000 * documents.len()`
         #[weight = 200_000 + 60_000 * u64::try_from(documents.len()).unwrap_or_default()]
-        pub fn batch_add_document(origin, documents: Vec<Document>, ticker: Ticker) -> DispatchResult {
+        pub fn batch_add_document(origin, documents: Vec<(DocumentName, Document)>, ticker: Ticker) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             let did = Context::current_identity_or::<Identity<T>>(&sender)?;
 
             ensure!(Self::is_owner(&ticker, did), Error::<T>::NotAnOwner);
 
-            let ticker_did = <identity::Module<T>>::get_token_did(&ticker)?;
-            let signer = Signatory::from(ticker_did);
             <<T as IdentityTrait>::ProtocolFee>::batch_charge_fee(
                 ProtocolOp::AssetAddDocument,
                 documents.len()
             )?;
-            documents.into_iter().for_each(|doc| {
-                <identity::Module<T>>::add_link(signer.clone(), LinkData::DocumentOwned(doc), None);
-            });
+
+            for (document_name, document) in documents {
+                <AssetDocuments>::insert(ticker, &document_name, document.clone());
+                Self::deposit_event(RawEvent::DocumentAdded(ticker, document_name, document));
+            }
 
             Ok(())
         }
@@ -1038,46 +1057,20 @@ decl_module! {
         /// # Arguments
         /// * `origin` Signing key of the token owner.
         /// * `ticker` Ticker of the token.
-        /// * `doc_ids` Documents to be removed from `ticker`.
+        /// * `doc_names` Documents to be removed from `ticker`.
         ///
         /// # Weight
         /// `200_000 + 60_000 * do_ids.len()`
-        #[weight = 200_000 + 60_000 * u64::try_from(doc_ids.len()).unwrap_or_default()]
-        pub fn batch_remove_document(origin, doc_ids: Vec<u64>, ticker: Ticker) -> DispatchResult {
+        #[weight = 200_000 + 60_000 * u64::try_from(doc_names.len()).unwrap_or_default()]
+        pub fn batch_remove_document(origin, doc_names: Vec<DocumentName>, ticker: Ticker) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             let did = Context::current_identity_or::<Identity<T>>(&sender)?;
             ensure!(Self::is_owner(&ticker, did), Error::<T>::NotAnOwner);
 
-            let ticker_did = <identity::Module<T>>::get_token_did(&ticker)?;
-            let signer = Signatory::from(ticker_did);
-            doc_ids.into_iter().for_each(|doc_id| {
-                <identity::Module<T>>::remove_link(signer.clone(), doc_id)
-            });
-
-            Ok(())
-        }
-
-        /// Update documents for the given token, Only be called by the token owner.
-        ///
-        /// # Arguments
-        /// * `origin` Signing key of the token owner.
-        /// * `ticker` Ticker of the token.
-        /// * `docs` Vector of tuples (Document to be updated, Contents of new document).
-        ///
-        /// # Weight
-        /// `200_000 + 60_000 * docs.len()`
-        #[weight = 200_000 + 60_000 * u64::try_from(docs.len()).unwrap_or_default()]
-        pub fn batch_update_document(origin, docs: Vec<(u64, Document)>, ticker: Ticker) -> DispatchResult {
-            let sender = ensure_signed(origin)?;
-            let did = Context::current_identity_or::<Identity<T>>(&sender)?;
-
-            ensure!(Self::is_owner(&ticker, did), Error::<T>::NotAnOwner);
-
-            let ticker_did = <identity::Module<T>>::get_token_did(&ticker)?;
-            let signer = Signatory::from(ticker_did);
-            docs.into_iter().for_each(|(doc_id, doc)| {
-                <identity::Module<T>>::update_link(signer.clone(), doc_id, LinkData::DocumentOwned(doc))
-            });
+            for document_name in doc_names {
+                <AssetDocuments>::remove(ticker, &document_name);
+                Self::deposit_event(RawEvent::DocumentRemoved(ticker, document_name));
+            }
 
             Ok(())
         }
@@ -1396,6 +1389,10 @@ decl_event! {
         CheckpointCreated(IdentityId, Ticker, u64),
         /// An event emitted when the treasury DID of an asset is set.
         TreasuryDidSet(IdentityId, Ticker, Option<IdentityId>),
+        /// A new document attached to an asset
+        DocumentAdded(Ticker, DocumentName, Document),
+        /// A document removed from an asset
+        DocumentRemoved(Ticker, DocumentName),
     }
 }
 
@@ -1661,26 +1658,17 @@ impl<T: Trait> Module<T> {
 
         if <Tickers<T>>::contains_key(ticker) {
             let ticker_details = <Tickers<T>>::get(ticker);
-            <identity::Module<T>>::remove_link(
-                Signatory::from(ticker_details.owner),
-                ticker_details.link_id,
-            );
+            <AssetOwnershipRelations>::remove(ticker_details.owner, ticker);
         }
-
-        let link = <identity::Module<T>>::add_link(
-            Signatory::from(to_did),
-            LinkData::TickerOwned(*ticker),
-            expiry,
-        );
 
         let ticker_registration = TickerRegistration {
             owner: to_did,
             expiry,
-            link_id: link,
         };
 
         // Store ticker registration details
         <Tickers<T>>::insert(ticker, ticker_registration);
+        <AssetOwnershipRelations>::insert(to_did, ticker, AssetOwnershipRelation::TickerOwned);
 
         Self::deposit_event(RawEvent::TickerRegistered(to_did, *ticker, expiry));
         Ok(())
@@ -2080,20 +2068,12 @@ impl<T: Trait> Module<T> {
             auth_id,
         )?;
 
-        <identity::Module<T>>::remove_link(
-            Signatory::from(ticker_details.owner),
-            ticker_details.link_id,
-        );
+        <AssetOwnershipRelations>::remove(ticker_details.owner, ticker);
 
-        let link = <identity::Module<T>>::add_link(
-            Signatory::from(to_did),
-            LinkData::TickerOwned(ticker),
-            ticker_details.expiry,
-        );
+        <AssetOwnershipRelations>::insert(to_did, ticker, AssetOwnershipRelation::TickerOwned);
 
         <Tickers<T>>::mutate(&ticker, |tr| {
             tr.owner = to_did;
-            tr.link_id = link;
         });
 
         Self::deposit_event(RawEvent::TickerTransferred(
@@ -2130,33 +2110,15 @@ impl<T: Trait> Module<T> {
             auth_id,
         )?;
 
-        <identity::Module<T>>::remove_link(
-            Signatory::from(ticker_details.owner),
-            ticker_details.link_id,
-        );
-        <identity::Module<T>>::remove_link(
-            Signatory::from(token_details.owner_did),
-            token_details.link_id,
-        );
+        <AssetOwnershipRelations>::remove(ticker_details.owner, ticker);
 
-        let ticker_link = <identity::Module<T>>::add_link(
-            Signatory::from(to_did),
-            LinkData::TickerOwned(ticker),
-            None,
-        );
-        let token_link = <identity::Module<T>>::add_link(
-            Signatory::from(to_did),
-            LinkData::AssetOwned(ticker),
-            None,
-        );
+        <AssetOwnershipRelations>::insert(to_did, ticker, AssetOwnershipRelation::AssetOwned);
 
         <Tickers<T>>::mutate(&ticker, |tr| {
             tr.owner = to_did;
-            tr.link_id = ticker_link;
         });
         <Tokens<T>>::mutate(&ticker, |tr| {
             tr.owner_did = to_did;
-            tr.link_id = token_link;
         });
 
         Self::deposit_event(RawEvent::AssetOwnershipTransferred(

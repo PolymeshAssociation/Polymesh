@@ -89,9 +89,7 @@ use core::{
     result::Result as StdResult,
 };
 
-use pallet_identity_rpc_runtime_api::{
-    AuthorizationType, DidRecords as RpcDidRecords, DidStatus, LinkType,
-};
+use pallet_identity_rpc_runtime_api::{AuthorizationType, DidRecords as RpcDidRecords, DidStatus};
 
 use pallet_transaction_payment::{CddAndFeeDetails, ChargeTxFee};
 use polymesh_common_utilities::{
@@ -110,8 +108,8 @@ use polymesh_common_utilities::{
 };
 use polymesh_primitives::{
     AuthIdentifier, Authorization, AuthorizationData, AuthorizationError, Claim, ClaimType,
-    Identity as DidRecord, IdentityClaim, IdentityId, Link, LinkData, Permission, Scope, Signatory,
-    SigningItem, Ticker,
+    Identity as DidRecord, IdentityClaim, IdentityId, Permission, Scope, Signatory, SigningItem,
+    Ticker,
 };
 use sp_core::sr25519::Signature;
 use sp_io::hashing::blake2_256;
@@ -191,10 +189,6 @@ decl_storage! {
         /// Inmediate revoke of any off-chain authorization.
         pub RevokeOffChainAuthorization get(fn is_offchain_authorization_revoked):
             map hasher(blake2_128_concat) (Signatory<T::AccountId>, TargetIdAuthorization<T::Moment>) => bool;
-
-        /// All links that an identity/key has
-        pub Links: double_map hasher(blake2_128_concat)
-            Signatory<T::AccountId>, hasher(twox_64_concat) u64 => Link<T::Moment>;
 
         /// All authorizations that an identity/key has
         pub Authorizations: double_map hasher(blake2_128_concat)
@@ -1288,65 +1282,6 @@ impl<T: Trait> Module<T> {
         <Authorizations<T>>::get(target, auth_id)
     }
 
-    /// Fetches a particular link.
-    pub fn get_link(target: Signatory<T::AccountId>, link_id: u64) -> Link<T::Moment> {
-        <Links<T>>::get(target, link_id)
-    }
-
-    /// Adds a link to a key or an identity.
-    /// NB: Please do all the required checks before calling this function.
-    pub fn add_link(
-        target: Signatory<T::AccountId>,
-        link_data: LinkData,
-        expiry: Option<T::Moment>,
-    ) -> u64 {
-        let new_nonce = Self::multi_purpose_nonce() + 1u64;
-        <MultiPurposeNonce>::put(&new_nonce);
-
-        let link = Link {
-            link_data: link_data.clone(),
-            expiry,
-            link_id: new_nonce,
-        };
-
-        <Links<T>>::insert(target.clone(), new_nonce, link);
-
-        Self::deposit_event(RawEvent::LinkAdded(
-            target.as_identity().cloned(),
-            target.as_account().cloned(),
-            new_nonce,
-            link_data,
-            expiry,
-        ));
-        new_nonce
-    }
-
-    /// Remove a link (if it exists) from a key or identity.
-    /// NB: Please do all the required checks before calling this function.
-    pub fn remove_link(target: Signatory<T::AccountId>, link_id: u64) {
-        if <Links<T>>::contains_key(&target, link_id) {
-            <Links<T>>::remove(&target, link_id);
-            Self::deposit_event(RawEvent::LinkRemoved(
-                target.as_identity().cloned(),
-                target.as_account().cloned(),
-                link_id,
-            ));
-        }
-    }
-
-    /// Update link data (if it exists) from a key or identity.
-    /// NB: Please do all the required checks before calling this function.
-    pub fn update_link(target: Signatory<T::AccountId>, link_id: u64, link_data: LinkData) {
-        if <Links<T>>::contains_key(&target, link_id) {
-            <Links<T>>::mutate(&target, link_id, |link| link.link_data = link_data);
-            Self::deposit_event(RawEvent::LinkUpdated(
-                target.as_identity().cloned(),
-                target.as_account().cloned(),
-                link_id,
-            ));
-        }
-    }
-
     /// Accepts a master key rotation.
     fn accept_master_key_rotation(
         sender: T::AccountId,
@@ -2007,51 +1942,6 @@ impl<T: Trait> Module<T> {
             }
         } else {
             RpcDidRecords::IdNotFound
-        }
-    }
-
-    /// Use to get the filtered link data for a given signatory
-    /// - if link_type is None then return links data on the basis of the `allow_expired` boolean
-    /// - if link_type is Some(value) then return filtered links on the value basis type in conjunction
-    ///   with `allow_expired` boolean condition
-    pub fn get_filtered_links(
-        signatory: Signatory<T::AccountId>,
-        allow_expired: bool,
-        link_type: Option<LinkType>,
-    ) -> Vec<Link<T::Moment>> {
-        let now = <pallet_timestamp::Module<T>>::get();
-
-        if let Some(type_of_link) = link_type {
-            <Links<T>>::iter_prefix_values(signatory)
-                .filter(|link| {
-                    if !allow_expired {
-                        if let Some(expiry) = link.expiry {
-                            if expiry < now {
-                                return false;
-                            }
-                        }
-                    }
-                    match link.link_data {
-                        LinkData::DocumentOwned(..) => type_of_link == LinkType::DocumentOwnership,
-                        LinkData::TickerOwned(..) => type_of_link == LinkType::TickerOwnership,
-                        LinkData::AssetOwned(..) => type_of_link == LinkType::AssetOwnership,
-                        LinkData::NoData => type_of_link == LinkType::NoData,
-                    }
-                })
-                .collect::<Vec<Link<T::Moment>>>()
-        } else {
-            <Links<T>>::iter_prefix_values(signatory)
-                .filter(|l| {
-                    if !allow_expired {
-                        if let Some(expiry) = l.expiry {
-                            if expiry < now {
-                                return false;
-                            }
-                        }
-                    }
-                    return true;
-                })
-                .collect::<Vec<Link<T::Moment>>>()
         }
     }
 
