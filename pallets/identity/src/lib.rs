@@ -88,7 +88,9 @@ use core::{
     convert::{From, TryInto},
     result::Result as StdResult,
 };
-use pallet_identity_rpc_runtime_api::{DidRecords as RpcDidRecords, DidStatus};
+
+use pallet_identity_rpc_runtime_api::{AuthorizationType, DidRecords as RpcDidRecords, DidStatus};
+
 use pallet_transaction_payment::{CddAndFeeDetails, ChargeTxFee};
 use polymesh_common_utilities::{
     constants::did::{SECURITY_TOKEN, USER},
@@ -122,10 +124,10 @@ use sp_std::{convert::TryFrom, mem::swap, prelude::*, vec};
 
 use frame_support::{
     debug, decl_error, decl_module, decl_storage,
-    dispatch::{DispatchError, DispatchResult},
+    dispatch::{DispatchError, DispatchResult, DispatchResultWithPostInfo},
     ensure,
     traits::{ChangeMembers, Currency, InitializeMembers},
-    weights::{DispatchClass, GetDispatchInfo, Pays},
+    weights::{DispatchClass, GetDispatchInfo, Pays, Weight},
     StorageDoubleMap,
 };
 use frame_system::{self as system, ensure_root, ensure_signed};
@@ -559,8 +561,9 @@ decl_module! {
             proposal.get_dispatch_info().class,
             Pays::Yes
         )]
-        fn forwarded_call(origin, target_did: IdentityId, proposal: Box<T::Proposal>) -> DispatchResult {
+        fn forwarded_call(origin, target_did: IdentityId, proposal: Box<T::Proposal>) -> DispatchResultWithPostInfo {
             let sender = ensure_signed(origin)?;
+            let proposal_weight = proposal.get_dispatch_info().weight;
 
             // 1. Constraints.
             // 1.1. A valid current identity.
@@ -587,11 +590,13 @@ decl_module! {
 
             // Also set current_did roles when acting as a signing key for target_did
             // Re-dispatch call - e.g. to asset::doSomething...
-            // let new_origin = frame_system::RawOrigin::Signed(sender).into();
+            let new_origin = frame_system::RawOrigin::Signed(sender).into();
 
-            // TODO: Handle dispatch properly
-            //proposal.dispatch(new_origin)
-            Ok(())
+            let actual_weight = match proposal.dispatch(new_origin) {
+                Ok(post_info) => post_info.actual_weight,
+                Err(err) => err.post_info.actual_weight,
+            };
+            Ok((Some(actual_weight.unwrap_or(0u64) + 500_000 + proposal_weight as Weight)).into())
         }
 
         /// Marks the specified claim as revoked.

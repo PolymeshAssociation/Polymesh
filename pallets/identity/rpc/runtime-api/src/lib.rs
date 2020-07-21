@@ -3,7 +3,7 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use codec::{Codec, Decode, Encode};
-pub use polymesh_primitives::{IdentityId, Moment};
+pub use polymesh_primitives::{Authorization, AuthorizationType, IdentityId, Moment};
 #[cfg(feature = "std")]
 use serde::{Deserialize, Serialize};
 use sp_std::{prelude::*, vec::Vec};
@@ -51,6 +51,13 @@ sp_api::decl_runtime_apis! {
 
         /// Retrieve DidRecord for a given `did`.
         fn get_did_records(did: IdentityId) -> DidRecords<AccountId, SigningItem>;
+
+        /// Retrieve list of a authorization for a given signatory
+        fn get_filtered_authorizations(
+            signatory: Signatory,
+            allow_expired: bool,
+            auth_type: Option<AuthorizationType>
+        ) -> Vec<Authorization<AccountId, Moment>>;
 
         /// Retrieve the status of the DID
         fn get_did_status(dids: Vec<IdentityId>) -> Vec<DidStatus>;
