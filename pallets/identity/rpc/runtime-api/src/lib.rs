@@ -3,7 +3,7 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use codec::{Codec, Decode, Encode};
-pub use polymesh_primitives::{IdentityId, Link, Moment};
+pub use polymesh_primitives::{Authorization, AuthorizationType, IdentityId, Moment};
 #[cfg(feature = "std")]
 use serde::{Deserialize, Serialize};
 use sp_std::{prelude::*, vec::Vec};
@@ -26,14 +26,6 @@ pub enum DidRecords<AccountId, SigningItem> {
     IdNotFound,
 }
 
-#[derive(Eq, PartialEq, Encode, Decode)]
-#[cfg_attr(feature = "std", derive(Debug, Serialize, Deserialize))]
-pub enum LinkType {
-    DocumentOwnership,
-    TickerOwnership,
-    AssetOwnership,
-    NoData,
-}
 #[derive(Encode, Decode, PartialEq, Eq)]
 #[cfg_attr(feature = "std", derive(Debug, Serialize, Deserialize))]
 pub enum DidStatus {
@@ -60,12 +52,12 @@ sp_api::decl_runtime_apis! {
         /// Retrieve DidRecord for a given `did`.
         fn get_did_records(did: IdentityId) -> DidRecords<AccountId, SigningItem>;
 
-        /// Retrieve list of a link for a given signatory
-        fn get_filtered_links(
+        /// Retrieve list of a authorization for a given signatory
+        fn get_filtered_authorizations(
             signatory: Signatory,
             allow_expired: bool,
-            link_type: Option<LinkType>
-        ) -> Vec<Link<Moment>>;
+            auth_type: Option<AuthorizationType>
+        ) -> Vec<Authorization<AccountId, Moment>>;
 
         /// Retrieve the status of the DID
         fn get_did_status(dids: Vec<IdentityId>) -> Vec<DidStatus>;

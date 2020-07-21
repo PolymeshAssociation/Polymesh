@@ -32,6 +32,7 @@ use polymesh_common_utilities::traits::{
     pip::{EnactProposalMaker, PipId},
     CommonTrait,
 };
+use polymesh_common_utilities::Context;
 use polymesh_primitives::{Authorization, AuthorizationData, IdentityId, Signatory};
 use polymesh_runtime_common::{
     bridge, cdd_check::CddChecker, dividend, exemption, simple_token, voting,
@@ -262,12 +263,19 @@ impl pallet_transaction_payment::CddAndFeeDetails<AccountId, Call> for TestStora
     ) -> Result<Option<Signatory<AccountId>>, InvalidTransaction> {
         Ok(None)
     }
-    fn clear_context() {}
-    fn set_payer_context(_: Option<Signatory<AccountId>>) {}
-    fn get_payer_from_context() -> Option<Signatory<AccountId>> {
-        None
+    fn clear_context() {
+        Context::set_current_identity::<Identity>(None);
+        Context::set_current_payer::<Identity>(None);
     }
-    fn set_current_identity(_: &IdentityId) {}
+    fn set_payer_context(payer: Option<Signatory<AccountId>>) {
+        Context::set_current_payer::<Identity>(payer);
+    }
+    fn get_payer_from_context() -> Option<Signatory<AccountId>> {
+        Context::current_payer::<Identity>()
+    }
+    fn set_current_identity(did: &IdentityId) {
+        Context::set_current_identity::<Identity>(Some(*did));
+    }
 }
 
 pub struct WeightToFee;
