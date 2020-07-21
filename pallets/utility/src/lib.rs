@@ -231,10 +231,10 @@ decl_module! {
             <Nonces<T>>::insert(target.clone(), target_nonce + 1);
 
             call.call.dispatch(RawOrigin::Signed(target).into())
-                .map(|info| info.actual_weight.map(|w| w + 250_000).into())
+                .map(|info| info.actual_weight.map(|w| w.saturating_add(250_000)).into())
                 .map_err(|e| DispatchErrorWithPostInfo {
                     error: e.error,
-                    post_info: e.post_info.actual_weight.map(|w| w + 250_000).into()
+                    post_info: e.post_info.actual_weight.map(|w| w.saturating_add(250_000)).into()
                 })
         }
     }
