@@ -337,7 +337,6 @@ decl_module! {
         #[weight = 500_000]
         pub fn register_ticker(origin, ticker: Ticker) -> DispatchResult {
             let sender = ensure_signed(origin)?;
-            let signer = Signatory::Account(sender.clone());
             let to_did = Context::current_identity_or::<Identity<T>>(&sender)?;
 
             ensure!(!<Tokens<T>>::contains_key(&ticker), Error::<T>::AssetAlreadyCreated);
@@ -358,7 +357,7 @@ decl_module! {
             let now = <pallet_timestamp::Module<T>>::get();
             let expiry = if let Some(exp) = ticker_config.registration_length { Some(now + exp) } else { None };
 
-            Self::_register_ticker(&ticker, &signer, to_did, expiry)
+            Self::_register_ticker(&ticker, to_did, expiry)
         }
 
         /// This function is used to accept a ticker transfer.
@@ -419,7 +418,6 @@ decl_module! {
         ) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             let did = Context::current_identity_or::<Identity<T>>(&sender)?;
-            let signer = Signatory::Account(sender);
 
             // Check that sender is allowed to act on behalf of `did`
             ensure!(!<Tokens<T>>::contains_key(&ticker), Error::<T>::AssetAlreadyCreated);
@@ -448,15 +446,12 @@ decl_module! {
 
             ensure!(total_supply <= MAX_SUPPLY.into(), Error::<T>::TotalSupplyAboveLimit);
 
-            <<T as IdentityTrait>::ProtocolFee>::charge_fee(
-                &signer,
-                ProtocolOp::AssetCreateAsset,
-            )?;
+            <<T as IdentityTrait>::ProtocolFee>::charge_fee(ProtocolOp::AssetCreateAsset)?;
             <identity::Module<T>>::register_asset_did(&ticker)?;
 
             if is_ticker_available_or_registered_to == TickerRegistrationStatus::Available {
                 // ticker not registered by anyone (or registry expired). we can charge fee and register this ticker
-                Self::_register_ticker(&ticker, &signer, did, None)?;
+                Self::_register_ticker(&ticker, did, None)?;
             } else {
                 // Ticker already registered by the user
                 <Tickers<T>>::mutate(&ticker, |tr| tr.expiry = None);
@@ -700,10 +695,9 @@ decl_module! {
         pub fn issue(origin, ticker: Ticker, to_did: IdentityId, value: T::Balance, _data: Vec<u8>) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             let did = Context::current_identity_or::<Identity<T>>(&sender)?;
-            let signer = Signatory::Account(sender.clone());
 
             ensure!(Self::is_owner(&ticker, did), Error::<T>::Unauthorized);
-            Self::_mint(&ticker, sender, to_did, value, Some((&signer, ProtocolOp::AssetIssue)))
+            Self::_mint(&ticker, sender, to_did, value, Some(ProtocolOp::AssetIssue))
         }
 
         /// Function is used issue(or mint) new tokens for the given DIDs
@@ -770,7 +764,6 @@ decl_module! {
                 token.total_supply = updated_total_supply;
             }
             <<T as IdentityTrait>::ProtocolFee>::batch_charge_fee(
-                &Signatory::Account(sender),
                 ProtocolOp::AssetIssue,
                 issue_asset_items.len()
             )?;
@@ -1030,7 +1023,6 @@ decl_module! {
             let ticker_did = <identity::Module<T>>::get_token_did(&ticker)?;
             let signer = Signatory::from(ticker_did);
             <<T as IdentityTrait>::ProtocolFee>::batch_charge_fee(
-                &Signatory::Account(sender),
                 ProtocolOp::AssetAddDocument,
                 documents.len()
             )?;
@@ -1662,11 +1654,10 @@ impl<T: Trait> Module<T> {
 
     fn _register_ticker(
         ticker: &Ticker,
-        signer: &Signatory<T::AccountId>,
         to_did: IdentityId,
         expiry: Option<T::Moment>,
     ) -> DispatchResult {
-        <<T as IdentityTrait>::ProtocolFee>::charge_fee(&signer, ProtocolOp::AssetRegisterTicker)?;
+        <<T as IdentityTrait>::ProtocolFee>::charge_fee(ProtocolOp::AssetRegisterTicker)?;
 
         if <Tickers<T>>::contains_key(ticker) {
             let ticker_details = <Tickers<T>>::get(ticker);
@@ -1913,7 +1904,7 @@ impl<T: Trait> Module<T> {
         caller: T::AccountId,
         to_did: IdentityId,
         value: T::Balance,
-        protocol_fee_data: Option<(&Signatory<T::AccountId>, ProtocolOp)>,
+        protocol_fee_data: Option<ProtocolOp>,
     ) -> DispatchResult {
         // Granularity check
         ensure!(
@@ -1946,8 +1937,8 @@ impl<T: Trait> Module<T> {
         token.total_supply = updated_total_supply;
 
         // Charge the given fee.
-        if let Some((payee, op)) = protocol_fee_data {
-            <<T as IdentityTrait>::ProtocolFee>::charge_fee(payee, op)?;
+        if let Some(op) = protocol_fee_data {
+            <<T as IdentityTrait>::ProtocolFee>::charge_fee(op)?;
         }
         Self::_update_checkpoint(ticker, to_did, current_to_balance);
 

@@ -4,7 +4,8 @@ use super::{
     ExtBuilder,
 };
 use frame_support::{assert_err, assert_ok};
-use polymesh_common_utilities::protocol_fee::ProtocolOp;
+use pallet_transaction_payment::CddAndFeeDetails;
+use polymesh_common_utilities::{protocol_fee::ProtocolOp, Context};
 use polymesh_primitives::Signatory;
 use test_client::AccountKeyring;
 
@@ -28,13 +29,11 @@ fn can_charge_fee_batch() {
             register_keyring_account_with_balance(AccountKeyring::Alice, PROTOCOL_OP_BASE_FEE * 10)
                 .unwrap();
         let alice_signer = Signatory::Account(AccountKeyring::Alice.public());
-        assert_ok!(ProtocolFee::batch_charge_fee(
-            &alice_signer,
-            ProtocolOp::AssetIssue,
-            7,
-        ));
+        TestStorage::set_payer_context(Some(alice_signer));
+        assert_eq!(TestStorage::get_payer_from_context(), Some(alice_signer));
+        assert_ok!(ProtocolFee::batch_charge_fee(ProtocolOp::AssetIssue, 7));
         assert_err!(
-            ProtocolFee::batch_charge_fee(&alice_signer, ProtocolOp::AssetIssue, 7,),
+            ProtocolFee::batch_charge_fee(ProtocolOp::AssetIssue, 7),
             Error::InsufficientAccountBalance
         );
     });

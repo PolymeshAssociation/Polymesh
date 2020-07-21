@@ -269,12 +269,7 @@ decl_module! {
         #[weight = 100_000_000]
         pub fn register_did(origin, signing_items: Vec<SigningItem<T::AccountId>>) -> DispatchResult {
             let sender = ensure_signed(origin)?;
-            let signer = Signatory::Account(sender.clone());
-            Self::_register_did(
-                sender,
-                signing_items,
-                Some((&signer, ProtocolOp::IdentityRegisterDid))
-            )?;
+            Self::_register_did(sender, signing_items, Some(ProtocolOp::IdentityRegisterDid))?;
             Ok(())
         }
 
@@ -310,7 +305,7 @@ decl_module! {
             let new_id = Self::_register_did(
                 target_account,
                 signing_items,
-                Some((&Signatory::Account(cdd_sender), ProtocolOp::IdentityCddRegisterDid))
+                Some(ProtocolOp::IdentityCddRegisterDid)
             )?;
             Self::unsafe_add_claim(new_id, Claim::CustomerDueDiligence, cdd_id, cdd_claim_expiry);
             Ok(())
@@ -415,10 +410,7 @@ decl_module! {
                 Self::can_key_be_linked_to_did(&new_key),
                 Error::<T>::AlreadyLinked
             );
-            T::ProtocolFee::charge_fee(
-                &Signatory::Account(sender.clone()),
-                ProtocolOp::IdentitySetMasterKey
-            )?;
+            T::ProtocolFee::charge_fee(ProtocolOp::IdentitySetMasterKey)?;
             <DidRecords<T>>::mutate(did,
             |record| {
                 (*record).master_key = new_key.clone();
@@ -505,10 +497,7 @@ decl_module! {
             match claim {
                 Claim::CustomerDueDiligence => Self::unsafe_add_cdd_claim(target, claim, issuer, expiry)?,
                 _ => {
-                    T::ProtocolFee::charge_fee(
-                    &Signatory::Account(sender),
-                    ProtocolOp::IdentityAddClaim
-                    )?;
+                    T::ProtocolFee::charge_fee(ProtocolOp::IdentityAddClaim)?;
                     Self::unsafe_add_claim(target, claim, issuer, expiry)
                 }
             };
@@ -548,11 +537,7 @@ decl_module! {
                 ensure!(cdd_providers.contains(&issuer), Error::<T>::UnAuthorizedCddProvider);
             }
 
-            T::ProtocolFee::batch_charge_fee(
-                &Signatory::Account(sender),
-                ProtocolOp::IdentityAddClaim,
-                claims.len() - cdd_count
-            )?;
+            T::ProtocolFee::batch_charge_fee(ProtocolOp::IdentityAddClaim, claims.len() - cdd_count)?;
             claims
                 .into_iter()
                 .for_each(|bci| {
@@ -1028,7 +1013,6 @@ decl_module! {
             }
             // 1.999. Charge the fee.
             T::ProtocolFee::batch_charge_fee(
-                &Signatory::Account(sender),
                 ProtocolOp::IdentityAddSigningItemsWithAuthorization,
                 additional_keys.len()
             )?;
@@ -1187,10 +1171,7 @@ impl<T: Trait> Module<T> {
         permissions: Vec<Permission>,
         signer: Signatory<T::AccountId>,
     ) -> DispatchResult {
-        T::ProtocolFee::charge_fee(
-            &Signatory::Identity(target_did),
-            ProtocolOp::IdentityAddSigningItemsWithAuthorization,
-        )?;
+        T::ProtocolFee::charge_fee(ProtocolOp::IdentityAddSigningItemsWithAuthorization)?;
         if let Signatory::Account(key) = &signer {
             ensure!(
                 Self::can_key_be_linked_to_did(key),
@@ -1802,7 +1783,7 @@ impl<T: Trait> Module<T> {
     pub fn _register_did(
         sender: T::AccountId,
         signing_items: Vec<SigningItem<T::AccountId>>,
-        protocol_fee_data: Option<(&Signatory<T::AccountId>, ProtocolOp)>,
+        protocol_fee_data: Option<ProtocolOp>,
     ) -> Result<IdentityId, DispatchError> {
         // Adding extrensic count to did nonce for some unpredictability
         // NB: this does not guarantee randomness
@@ -1847,8 +1828,8 @@ impl<T: Trait> Module<T> {
         }
 
         // 1.5. Charge the given fee.
-        if let Some((payee, op)) = protocol_fee_data {
-            T::ProtocolFee::charge_fee(payee, op)?;
+        if let Some(op) = protocol_fee_data {
+            T::ProtocolFee::charge_fee(op)?;
         }
 
         // 2. Apply changes to our extrinsic.
