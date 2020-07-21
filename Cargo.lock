@@ -3311,6 +3311,7 @@ dependencies = [
 name = "pallet-committee"
 version = "0.1.0"
 dependencies = [
+ "frame-benchmarking",
  "frame-support",
  "frame-system",
  "pallet-identity",
@@ -4307,7 +4308,6 @@ dependencies = [
  "frame-system-rpc-runtime-api",
  "futures 0.3.5",
  "jsonrpc-core",
- "linregress",
  "log",
  "node-rpc",
  "node-rpc-runtime-api",
@@ -4477,6 +4477,7 @@ dependencies = [
 name = "polymesh-runtime-develop"
 version = "0.1.0"
 dependencies = [
+ "frame-benchmarking",
  "frame-executive",
  "frame-support",
  "frame-system",
@@ -4546,6 +4547,7 @@ name = "polymesh-runtime-testnet-v1"
 version = "0.1.0"
 dependencies = [
  "chrono",
+ "frame-benchmarking",
  "frame-executive",
  "frame-support",
  "frame-system",

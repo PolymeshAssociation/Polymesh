@@ -20,10 +20,13 @@ use crate::{
 };
 use codec::{Decode, Encode};
 use frame_support::dispatch::DispatchError;
+#[cfg(feature = "std")]
+use serde::{Deserialize, Serialize};
 use sp_std::prelude::*;
 
 /// Authorization data for two step processes.
 #[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, PartialOrd, Ord)]
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 pub enum AuthorizationData<AccountId> {
     /// CDD provider's attestation to change master key
     AttestMasterKeyRotation(IdentityId),
@@ -45,6 +48,19 @@ pub enum AuthorizationData<AccountId> {
     /// TODO: Is this used?
     Custom(Ticker),
     /// No authorization data
+    NoData,
+}
+
+#[derive(Eq, PartialEq, Encode, Decode, Clone)]
+#[cfg_attr(feature = "std", derive(Debug, Serialize, Deserialize))]
+pub enum AuthorizationType {
+    AttestMasterKeyRotation,
+    RotateMasterKey,
+    TransferTicker,
+    AddMultiSigSigner,
+    TransferAssetOwnership,
+    JoinIdentity,
+    Custom,
     NoData,
 }
 
@@ -80,6 +96,7 @@ impl From<AuthorizationError> for DispatchError {
 
 /// Authorization struct
 #[derive(Encode, Decode, Default, Clone, PartialEq, Debug)]
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 pub struct Authorization<AccountId, Moment> {
     /// Enum that contains authorization type and data
     pub authorization_data: AuthorizationData<AccountId>,

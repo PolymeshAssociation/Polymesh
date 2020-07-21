@@ -1,6 +1,5 @@
-pub use pallet_identity::types::{
-    AssetDidResult, CddStatus, DidRecords, DidStatus, Link, LinkType,
-};
+pub use pallet_identity::types::{AssetDidResult, CddStatus, DidRecords, DidStatus};
+use polymesh_primitives::{Authorization, AuthorizationType};
 
 pub use node_rpc_runtime_api::identity::IdentityApi as IdentityRuntimeApi;
 
@@ -41,15 +40,15 @@ pub trait IdentityApi<BlockHash, IdentityId, Ticker, AccountId, SigningItem, Sig
         at: Option<BlockHash>,
     ) -> Result<DidRecords<AccountId, SigningItem>>;
 
-    /// Retrieve the list of links for a given signatory.
-    #[rpc(name = "identity_getFilteredLinks")]
-    fn get_filtered_links(
+    /// Retrieve the list of authorizations for a given signatory.
+    #[rpc(name = "identity_getFilteredAuthorizations")]
+    fn get_filtered_authorizations(
         &self,
         signatory: Signatory,
         allow_expired: bool,
-        link_type: Option<LinkType>,
+        auth_type: Option<AuthorizationType>,
         at: Option<BlockHash>,
-    ) -> Result<Vec<Link<Moment>>>;
+    ) -> Result<Vec<Authorization<AccountId, Moment>>>;
 
     /// Provide the status of a given DID
     #[rpc(name = "identity_getDidStatus")]
@@ -157,20 +156,20 @@ where
         })
     }
 
-    fn get_filtered_links(
+    fn get_filtered_authorizations(
         &self,
         signatory: Signatory,
         allow_expired: bool,
-        link_type: Option<LinkType>,
+        auth_type: Option<AuthorizationType>,
         at: Option<<Block as BlockT>::Hash>,
-    ) -> Result<Vec<Link<Moment>>> {
+    ) -> Result<Vec<Authorization<AccountId, Moment>>> {
         let api = self.client.runtime_api();
         let at = BlockId::hash(at.unwrap_or_else(|| self.client.info().best_hash));
 
-        api.get_filtered_links(&at, signatory, allow_expired, link_type)
+        api.get_filtered_authorizations(&at, signatory, allow_expired, auth_type)
             .map_err(|e| RpcError {
                 code: ErrorCode::ServerError(Error::RuntimeError as i64),
-                message: "Unable to fetch Links data".into(),
+                message: "Unable to fetch authorizations data".into(),
                 data: Some(format!("{:?}", e).into()),
             })
     }

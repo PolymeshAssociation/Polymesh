@@ -1,7 +1,7 @@
 //! Runtime API definition for Identity module.
 
 use codec::{Decode, Encode};
-pub use polymesh_primitives::{IdentityId, Link, Moment};
+pub use polymesh_primitives::{Authorization, AuthorizationType, IdentityId, Moment};
 #[cfg(feature = "std")]
 use serde::{Deserialize, Serialize};
 use sp_std::{prelude::*, vec::Vec};
@@ -24,14 +24,6 @@ pub enum DidRecords<AccountId, SigningItem> {
     IdNotFound,
 }
 
-#[derive(Eq, PartialEq, Encode, Decode)]
-#[cfg_attr(feature = "std", derive(Debug, Serialize, Deserialize))]
-pub enum LinkType {
-    DocumentOwnership,
-    TickerOwnership,
-    AssetOwnership,
-    NoData,
-}
 #[derive(Encode, Decode, PartialEq, Eq)]
 #[cfg_attr(feature = "std", derive(Debug, Serialize, Deserialize))]
 pub enum DidStatus {

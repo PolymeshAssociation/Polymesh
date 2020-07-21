@@ -34,25 +34,15 @@ pallet-contracts-primitives = { path = "../../contracts/common/", default-featur
 pallet-staking = { path = "../../staking", default-features = false }
 
 pallet-staking-reward-curve = { path = "../../staking/reward-curve", default-features = false }
-# pallet-cdd-offchain-worker = { path = "../../cdd-offchain-worker", default-features = false}
 
 # Others
 serde = { version = "1.0.104", default-features = false }
-# chrono = { version = "0.4.11", default-features = false }
-# lazy_static = { version = "1.4.0", default-features = false }
-# log = { version = "0.4.8", default-features = false }
-# rustc-hex = { version = "2.1.0", default-features = false }
-# safe-mix = { version = "1.0.1", default-features = false }
-# serde_derive = { version = "1.0.104", optional = true }
-# serde_json = { version = "1.0.48", default-features = false }
-# yaml-rust = { version = "0.4.3", default-features = false }
 
 # Substrate
 codec = { package = "parity-scale-codec", version = "1.2.0", default-features = false, features = ["derive"] }
 sp-core = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0-rc4" }
 sp-std = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0-rc4" }
 sp-io = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0-rc4" }
-# sp-serializer = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0-rc4" }
 sp-runtime = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0-rc4" }
 sp-version = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0-rc4" }
 sp-api = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0-rc4" }
@@ -91,6 +81,9 @@ pallet-compliance-manager-rpc-runtime-api = { path = "../../compliance-manager/r
 pallet-staking-rpc-runtime-api = { path = "../../staking/rpc/runtime-api", default-features = false }
 node-rpc-runtime-api = { path = "../../../rpc/runtime-api", default-features = false }
 
+# Benchmark
+frame-benchmarking = { default-features = false, git = "https://github.com/paritytech/substrate", tag = "v2.0.0-rc4", optional = true }
+
 [build-dependencies]
 wasm-builder-runner = { package = "substrate-wasm-builder-runner", git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0-rc4"}
 
@@ -121,17 +114,13 @@ std = [
 	"sp-consensus-babe/std",
 	"sp-session/std", 
 	"sp-authority-discovery/std",
- 	"sp-staking/std",
-# 	"sp-arithmetic/std",
+	"sp-staking/std",
 	"sp-block-builder/std",
 	"sp-transaction-pool/std",
 
 	# Frame
 	"frame-support/std",
 	"frame-system/std",
-
-# 	"rustc-hex/std",
-# 	"serde_derive",
 
 	# Pallets
 	"pallet-authorship/std",
@@ -145,7 +134,6 @@ std = [
 	"pallet-im-online/std",
 	"pallet-indices/std",
 	"pallet-offences/std",
-# 	"pallet-session/std",
 	"pallet-staking/std",
 	"pallet-staking-reward-curve/std",
 	"pallet-sudo/std",
@@ -157,19 +145,15 @@ std = [
  	"pallet-pips/std",
 	"pallet-committee/std",
 	"pallet-multisig/std",
-# 	"polymesh-common-utilities/std",
  	"pallet-balances/std",
  	"pallet-utility/std",
  	"pallet-identity/std",
-#	"pallet-cdd-offchain-worker/std",
 	"pallet-protocol-fee/std",
 	"pallet-group/std",
 	"pallet-asset/std",
 	"pallet-compliance-manager/std",
  	"pallet-statistics/std",
-# 	"pallet-asset/runtime-benchmarks",
  	"pallet-confidential/std",
-# 	"ink_primitives/std",
 
 	# RPC 
 	"frame-system-rpc-runtime-api/std",
@@ -179,4 +163,15 @@ std = [
 	"pallet-compliance-manager-rpc-runtime-api/std",
 	"pallet-staking-rpc-runtime-api/std",
 	"node-rpc-runtime-api/std",
+]
+
+runtime-benchmarks = [
+	"frame-benchmarking",
+	"frame-system/runtime-benchmarks",
+	"frame-support/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks",
+	"polymesh-runtime-common/runtime-benchmarks",
+	"pallet-staking/runtime-benchmarks",
+	"pallet-im-online/runtime-benchmarks",
+	"pallet-committee/runtime-benchmarks",
 ]

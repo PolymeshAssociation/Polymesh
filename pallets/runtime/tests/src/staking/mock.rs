@@ -1419,13 +1419,6 @@ pub fn add_nominator_claim(
     ));
 }
 
-/*
-pub fn check_cdd(id: AccountId) -> Result<bool, &'static str> {
-    let did = Identity::get_identity(&id).unwrap();
-    let is_cdd = Identity::fetch_cdd(did, Zero::zero()).is_some();
-    Ok(is_cdd)
-}*/
-
 pub fn bond_nominator_with_expiry(acc: u64, val: u128, claim_expiry: u64, target: Vec<AccountId>) {
     // a = controller
     // a + 1 = stash

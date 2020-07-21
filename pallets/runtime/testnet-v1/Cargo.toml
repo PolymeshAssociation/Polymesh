@@ -94,6 +94,9 @@ frame-system-rpc-runtime-api = { git = "https://github.com/paritytech/substrate"
 ink_primitives = { git = "https://github.com/paritytech/ink", tag = "v2.1.0", default-features = false }
 hex-literal = "0.2.1"
 
+# Benchmark
+frame-benchmarking = { default-features = false, git = "https://github.com/paritytech/substrate", tag = "v2.0.0-rc4", optional = true }
+
 [dev-dependencies]
 test-client = { package = "substrate-test-runtime-client", git = "https://github.com/paritytech/substrate", tag = "v2.0.0-rc4" }
 
@@ -167,4 +170,14 @@ std = [
 	"pallet-confidential/std",
 	"ink_primitives/std",
 	"node-rpc-runtime-api/std",
+]
+runtime-benchmarks = [
+	"frame-benchmarking",
+	"frame-system/runtime-benchmarks",
+	"frame-support/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks",
+	"polymesh-runtime-common/runtime-benchmarks",
+	"pallet-staking/runtime-benchmarks",
+	"pallet-im-online/runtime-benchmarks",
+	"pallet-committee/runtime-benchmarks",
 ]
