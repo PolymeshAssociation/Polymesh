@@ -496,7 +496,7 @@ decl_module! {
             };
 
             <Tokens<T>>::insert(&ticker, token);
-            let beneficiary_did = treasury_did.unwrap_or_else(|| did);
+            let beneficiary_did = treasury_did.unwrap_or(did);
             <BalanceOf<T>>::insert(ticker, beneficiary_did, total_supply);
             Portfolio::<T>::set_default_portfolio_balance(beneficiary_did, &ticker, total_supply);
             <AssetOwnershipRelations>::insert(did, ticker, AssetOwnershipRelation::AssetOwned);
@@ -784,7 +784,10 @@ decl_module! {
                 // No check since the default portfolio balance is always less than or equal to the
                 // total supply. The total supply is already checked above.
                 let updated_def_balance = bals.portfolio + *value;
-                updated_balances.push((updated_total_balance, updated_def_balance));
+                updated_balances.push(FocusedBalances {
+                    total: updated_total_balance,
+                    portfolio: updated_def_balance
+                });
 
                 // verify transfer check
                 ensure!(
@@ -807,10 +810,13 @@ decl_module! {
             // Update investor balances and emit events quoting the updated total token balance issued.
             for (i, IssueAssetItem { investor_did, value }) in issue_asset_items.iter().enumerate() {
                 Self::_update_checkpoint(&ticker, *investor_did, current_total_balances[i]);
-                let (tot, def) = updated_balances[i];
-                <BalanceOf<T>>::insert(ticker, investor_did, tot);
-                Portfolio::<T>::set_default_portfolio_balance(*investor_did, &ticker, def);
-                <statistics::Module<T>>::update_transfer_stats(&ticker, None, Some(tot), *value);
+                let FocusedBalances{
+                    total,
+                    portfolio
+                } = updated_balances[i];
+                <BalanceOf<T>>::insert(ticker, investor_did, total);
+                Portfolio::<T>::set_default_portfolio_balance(*investor_did, &ticker, portfolio);
+                <statistics::Module<T>>::update_transfer_stats(&ticker, None, Some(total), *value);
                 Self::deposit_event(RawEvent::Issued(
                     did,
                     ticker,
@@ -866,7 +872,7 @@ decl_module! {
             let mut token = Self::token_details(&ticker);
             // No check since the total supply is always greater than or equal to the default
             // portfolio balance. The default portfolio balance is already checked above.
-            token.total_supply = token.total_supply - value;
+            token.total_supply -= token.total_supply;
 
             Self::_update_checkpoint(&ticker, did, burner_balance);
 
@@ -928,7 +934,7 @@ decl_module! {
             let mut token = Self::token_details(&ticker);
             // No check since the total supply is always greater than or equal to the default
             // portfolio balance. The default portfolio balance is already checked above.
-            token.total_supply = token.total_supply - value;
+            token.total_supply -= value;
 
             Self::_update_checkpoint(&ticker, did, burner_balance);
 

@@ -193,22 +193,13 @@ impl Default for PortfolioKind {
 }
 
 /// The ID of a portfolio.
-#[derive(Decode, Encode, Clone, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Decode, Encode, Clone, Debug, Default, Hash, PartialEq, Eq, PartialOrd, Ord)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 pub struct PortfolioId {
     /// The DID of the portfolio.
     did: IdentityId,
     /// The kind of the portfolio: either default or user.
     kind: PortfolioKind,
-}
-
-impl Default for PortfolioId {
-    fn default() -> Self {
-        PortfolioId {
-            did: IdentityId::default(),
-            ..Default::default()
-        }
-    }
 }
 
 impl Printable for PortfolioId {
