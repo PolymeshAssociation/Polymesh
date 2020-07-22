@@ -3982,6 +3982,8 @@ dependencies = [
  "frame-support",
  "frame-system",
  "parity-scale-codec",
+ "polymesh-common-utilities",
+ "polymesh-primitives",
  "serde",
  "sp-core",
  "sp-io",

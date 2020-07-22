@@ -9,6 +9,9 @@ edition = "2018"
 serde = { version = "1.0.101", optional = true }
 
 # Substrate
+polymesh-common-utilities = { path = "../common", default-features = false }
+polymesh-primitives = { path = "../../primitives", default-features = false }
+
 codec = { package = "parity-scale-codec", version = "1.3.0", default-features = false }
 frame-support = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0-rc4" }
 frame-system = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0-rc4" }
@@ -22,11 +25,13 @@ sp-io = { git = "https://github.com/paritytech/substrate", default-features = fa
 default = ["std"]
 no_std = []
 std = [
-	"serde",
-	"codec/std",
-	"sp-runtime/std",
-	"frame-support/std",
-	"frame-system/std",
-	"sp-io/std",
-	"sp-std/std"
+    "serde",
+    "codec/std",
+    "sp-runtime/std",
+    "frame-support/std",
+    "frame-system/std",
+    "sp-io/std",
+    "sp-std/std",
+    "polymesh-common-utilities/std",
+    "polymesh-primitives/std",
 ]
