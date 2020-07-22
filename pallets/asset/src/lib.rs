@@ -2418,10 +2418,13 @@ impl<T: Trait> Module<T> {
     fn ensure_create_asset_parameters(
         ticker: &Ticker,
         name: &AssetName,
-        total_supply: T::Balance
+        total_supply: T::Balance,
     ) -> DispatchResult {
         // Ensure that the ticker is new.
-        ensure!(!<Tokens<T>>::contains_key(&ticker), Error::<T>::AssetAlreadyCreated);
+        ensure!(
+            !<Tokens<T>>::contains_key(&ticker),
+            Error::<T>::AssetAlreadyCreated
+        );
         let ticker_config = Self::ticker_registration_config();
         // Limit the ticker length.
         ensure!(
@@ -2432,7 +2435,10 @@ impl<T: Trait> Module<T> {
         // TODO: Limit the maximum size of a name.
         ensure!(name.as_slice().len() <= 64, Error::<T>::AssetNameTooLong);
         // Limit the total supply.
-        ensure!(total_supply <= MAX_SUPPLY.into(), Error::<T>::TotalSupplyAboveLimit);
+        ensure!(
+            total_supply <= MAX_SUPPLY.into(),
+            Error::<T>::TotalSupplyAboveLimit
+        );
         Ok(())
     }
 }
