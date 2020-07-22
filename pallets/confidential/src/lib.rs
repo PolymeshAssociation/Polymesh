@@ -30,7 +30,6 @@ use curve25519_dalek::{ristretto::CompressedRistretto, scalar::Scalar};
 use codec::{Decode, Encode};
 use frame_support::{
     debug, decl_error, decl_event, decl_module, decl_storage, dispatch::DispatchResult,
-    weights::SimpleDispatchInfo,
 };
 use frame_system::{self as system, ensure_signed};
 use sp_std::prelude::*;
@@ -80,7 +79,7 @@ decl_module! {
 
         fn deposit_event() = default;
 
-        #[weight = SimpleDispatchInfo::FixedNormal(400_000)]
+        #[weight = 400_000]
         pub fn add_range_proof(origin,
             target_id: IdentityId,
             ticker: Ticker,
@@ -109,7 +108,7 @@ decl_module! {
             Ok(())
         }
 
-        #[weight = SimpleDispatchInfo::FixedNormal(400_000)]
+        #[weight = 400_000]
         pub fn add_verify_range_proof(origin,
             target: IdentityId,
             prover: IdentityId,

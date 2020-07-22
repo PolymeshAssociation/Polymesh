@@ -20,6 +20,7 @@ jobs:
       - add_ssh_keys:
           fingerprints:
             - "b3:bb:01:c5:90:77:ef:5c:e6:5b:f2:db:16:2f:e8:61"
+            - "a1:99:47:ca:fa:32:4c:9d:4b:b8:50:99:c7:64:e3:80"
       - run:
           name: Store rust version in an environment var for cache key
           command: rustc --version > rust.version
@@ -49,14 +50,18 @@ jobs:
       - checkout
       - add_ssh_keys:
           fingerprints:
-             - "b3:bb:01:c5:90:77:ef:5c:e6:5b:f2:db:16:2f:e8:61"
+            - "b3:bb:01:c5:90:77:ef:5c:e6:5b:f2:db:16:2f:e8:61"
+            - "a1:99:47:ca:fa:32:4c:9d:4b:b8:50:99:c7:64:e3:80"
       - run:
           name: Store rust version in a file for cache key
           command: rustc --version > rust.version
       - restore_cache:
           keys:
-            - v7-test-cache-{{ checksum "./rust.version" }}-{{ checksum "./Cargo.lock" }}
-            - v7-test-cache-{{ checksum "./rust.version" }}
+            - v8-test-cache-{{ checksum "./rust.version" }}-{{ checksum "./Cargo.lock" }}
+            - v8-test-cache-{{ checksum "./rust.version" }}
+      - run:
+          name: Pull submodules
+          command: git submodule update --init --recursive
       - run:
           name: Pull submodules
           command: git submodule update --init --recursive
@@ -70,7 +75,6 @@ jobs:
             --package polymesh-primitives
             --package node-rpc-runtime-api
             --package pallet-transaction-payment
-            --package pallet-cdd-offchain-worker
             --features default_identity ||
             cargo +nightly test -j 1
             --package polymesh-runtime-common
@@ -79,11 +83,10 @@ jobs:
             --package polymesh-primitives
             --package node-rpc-runtime-api
             --package pallet-transaction-payment
-            --package pallet-cdd-offchain-worker
             --features default_identity
           no_output_timeout: 30m
       - save_cache:
-          key: v7-test-cache-{{ checksum "./rust.version" }}-{{ checksum "./Cargo.lock" }}
+          key: v8-test-cache-{{ checksum "./rust.version" }}-{{ checksum "./Cargo.lock" }}
           paths:
             - "~/.cargo"
             - "./target"
@@ -96,7 +99,8 @@ jobs:
       - checkout
       - add_ssh_keys:
           fingerprints:
-             - "b3:bb:01:c5:90:77:ef:5c:e6:5b:f2:db:16:2f:e8:61"
+            - "b3:bb:01:c5:90:77:ef:5c:e6:5b:f2:db:16:2f:e8:61"
+            - "a1:99:47:ca:fa:32:4c:9d:4b:b8:50:99:c7:64:e3:80"
       - run:
           name: Store rust version in a file for cache key
           command: rustc --version > rust.version
@@ -140,6 +144,7 @@ jobs:
       - add_ssh_keys:
           fingerprints:
             - "b3:bb:01:c5:90:77:ef:5c:e6:5b:f2:db:16:2f:e8:61"
+            - "a1:99:47:ca:fa:32:4c:9d:4b:b8:50:99:c7:64:e3:80"
       - run:
           name: Store rust version in a file for cache key
           command: rustc +nightly --version > rust.version

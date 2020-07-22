@@ -69,7 +69,6 @@
 //! - `freeze_signing_keys` - Disables all signing keys at `did` identity.
 //! - `unfreeze_signing_keys` - Re-enables all signing keys of the caller's identity.
 //! - `add_authorization` - Adds an authorization.
-//! - `add_authorization_as_key` - Adds an authorization as a key.
 //! - `batch_add_authorization` - Adds an array of authorizations.
 //! - `remove_authorization` - Removes an authorization.
 //! - `batch_remove_authorization` - Removes an array of authorizations.
@@ -81,6 +80,9 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 #![recursion_limit = "256"]
 
+pub mod types;
+pub use types::{DidRecords as RpcDidRecords, DidStatus, LinkType};
+
 #[cfg(feature = "runtime-benchmarks")]
 pub mod benchmarking;
 
@@ -89,17 +91,6 @@ use core::{
     convert::{From, TryInto},
     result::Result as StdResult,
 };
-use frame_support::{
-    debug, decl_error, decl_module, decl_storage,
-    dispatch::{DispatchError, DispatchResult},
-    ensure,
-    traits::{ChangeMembers, Currency, InitializeMembers},
-    weights::{DispatchClass, FunctionOf, GetDispatchInfo, SimpleDispatchInfo},
-    StorageDoubleMap,
-};
-use frame_system::{self as system, ensure_root, ensure_signed};
-use pallet_identity_rpc_runtime_api::{DidRecords as RpcDidRecords, DidStatus, LinkType};
-use pallet_transaction_payment::{CddAndFeeDetails, ChargeTxFee};
 use polymesh_common_utilities::{
     constants::did::{SECURITY_TOKEN, USER},
     protocol_fee::{ChargeProtocolFee, ProtocolOp},
@@ -111,24 +102,34 @@ use polymesh_common_utilities::{
             TargetIdAuthorization, Trait,
         },
         multisig::MultiSigSubTrait,
+        transaction_payment::{CddAndFeeDetails, ChargeTxFee},
     },
-    Context, SystematicIssuers, SYSTEMATIC_ISSUERS,
+    Context, SystematicIssuers,
 };
 use polymesh_primitives::{
     AuthIdentifier, Authorization, AuthorizationData, AuthorizationError, CddId, Claim, ClaimType,
-    Identity as DidRecord, IdentityClaim, IdentityId, InvestorUID, JoinIdentityData, Link,
-    LinkData, Permission, Scope, Signatory, SignatoryType, SigningItem, Ticker,
+    Identity as DidRecord, IdentityClaim, IdentityId, Link, LinkData, Permission, Scope, Signatory,
+    SignatoryType, SigningItem, Ticker,
 };
 use sp_core::sr25519::Signature;
 use sp_io::hashing::blake2_256;
 use sp_runtime::{
     traits::{
-        AccountIdConversion, CheckedAdd, Dispatchable, Hash, IdentifyAccount, SaturatedConversion,
-        Verify, Zero,
+        AccountIdConversion, CheckedAdd, Hash, IdentifyAccount, SaturatedConversion, Verify, Zero,
     },
     AnySignature,
 };
 use sp_std::{convert::TryFrom, mem::swap, prelude::*, vec};
+
+use frame_support::{
+    debug, decl_error, decl_module, decl_storage,
+    dispatch::{DispatchError, DispatchResult},
+    ensure,
+    traits::{ChangeMembers, Currency, InitializeMembers},
+    weights::{DispatchClass, GetDispatchInfo, Pays},
+    StorageDoubleMap,
+};
+use frame_system::{self as system, ensure_root, ensure_signed};
 
 pub type Event<T> = polymesh_common_utilities::traits::identity::Event<T>;
 
@@ -188,17 +189,17 @@ decl_storage! {
         pub RevokeOffChainAuthorization get(fn is_offchain_authorization_revoked):
             map hasher(blake2_128_concat) (Signatory<T::AccountId>, TargetIdAuthorization<T::Moment>) => bool;
 
-        /// All authorizations that an identity/key has
-        pub Authorizations: double_map hasher(blake2_128_concat)
-            Signatory<T::AccountId>, hasher(twox_64_concat) u64 => Authorization<T::AccountId, T::Moment>;
-
         /// All links that an identity/key has
         pub Links: double_map hasher(blake2_128_concat)
             Signatory<T::AccountId>, hasher(twox_64_concat) u64 => Link<T::Moment>;
 
-        /// All authorizations that an identity/key has given. (Authorizer, auth_id -> authorized)
+        /// All authorizations that an identity/key has
+        pub Authorizations: double_map hasher(blake2_128_concat)
+            Signatory<T::AccountId>, hasher(twox_64_concat) u64 => Authorization<T::AccountId, T::Moment>;
+
+        /// All authorizations that an identity has given. (Authorizer, auth_id -> authorized)
         pub AuthorizationsGiven: double_map hasher(blake2_128_concat)
-            Signatory<T::AccountId>, hasher(twox_64_concat) u64 => Signatory<T::AccountId>;
+            IdentityId, hasher(twox_64_concat) u64 => Signatory<T::AccountId>;
 
         /// It defines if authorization from a CDD provider is needed to change master key of an identity
         pub CddAuthForMasterKeyRotation get(fn cdd_auth_for_master_key_rotation): bool;
@@ -207,11 +208,13 @@ decl_storage! {
         config(identities): Vec<(T::AccountId, IdentityId, IdentityId, InvestorUID, Option<u64>)>;
         config(signing_keys): Vec<(T::AccountId, IdentityId)>;
         build(|config: &GenesisConfig<T>| {
+            use polymesh_common_utilities::SYSTEMATIC_ISSUERS;
+
             SYSTEMATIC_ISSUERS.iter()
                 .for_each(|s| <Module<T>>::register_systematic_id(*s));
 
             // Add CDD claims to Treasury & BRR
-            let sys_issuers_with_cdd = [ SystematicIssuers::Treasury, SystematicIssuers::BlockRewardReserve];
+            let sys_issuers_with_cdd = [SystematicIssuers::Treasury, SystematicIssuers::BlockRewardReserve, SystematicIssuers::Settlement];
             let id_with_cdd = sys_issuers_with_cdd.iter()
                 .inspect(|iss| debug::info!( "Add Systematic CDD Claims to {}", iss))
                 .map(|iss| iss.as_id())
@@ -263,6 +266,7 @@ decl_module! {
 
         // TODO: Remove this function before mainnet. cdd_register_did should be used instead.
         /// Register a new did with a CDD claim for the caller.
+        #[weight = 100_000_000]
         pub fn register_did(origin, signing_items: Vec<SigningItem<T::AccountId>>) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             let signer = Signatory::Account(sender.clone());
@@ -285,12 +289,10 @@ decl_module! {
         ///
         /// # Weight
         /// `400_000 + 60_000 * signing_items.len()`
-        #[weight = FunctionOf(
-            |(_, items): (&T::AccountId, &Vec<SigningItem<T::AccountId>>)| {
-                400_000 + 60_000 * u32::try_from(items.len()).unwrap_or_default()
-            },
+        #[weight = (
+            (400_000 + 60_000 * u64::try_from(signing_items.len()).unwrap_or_default()),
             DispatchClass::Normal,
-            true
+            Pays::Yes
         )]
         pub fn cdd_register_did(
             origin,
@@ -315,7 +317,7 @@ decl_module! {
         /// It invalidates any claim generated by `cdd` from `disable_from` timestamps.
         /// You can also define an expiration time, which will invalidate all claims generated by
         /// that `cdd` and remove it as CDD member group.
-        #[weight = SimpleDispatchInfo::FixedNormal(400_000)]
+        #[weight = 400_000]
         pub fn invalidate_cdd_claims(
             origin,
             cdd: IdentityId,
@@ -341,18 +343,15 @@ decl_module! {
         ///
         /// # Weight
         /// `400_000 + 60_000 * signers_to_remove.len()`
-        #[weight = FunctionOf(
-            |(items,): (&Vec<Signatory<T::AccountId>>,)| {
-                400_000 + 60_000 * u32::try_from(items.len()).unwrap_or_default()
-            },
+        #[weight = (
+            400_000 + 60_000 * u64::try_from(signers_to_remove.len()).unwrap_or_default(),
             DispatchClass::Normal,
-            true
+            Pays::Yes
         )]
         pub fn remove_signing_items(origin, signers_to_remove: Vec<Signatory<T::AccountId>>) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             let did = Context::current_identity_or::<Self>(&sender)?;
             let _grants_checked = Self::grant_check_only_master_key(&sender, did)?;
-            let did_sig = Signatory::from(did);
 
             // Remove links and get all authorization IDs per signer.
             let signer_and_auth_id_list = signers_to_remove.iter().filter_map(|signer| {
@@ -371,9 +370,9 @@ decl_module! {
                 }
 
                 // It returns the list of `auth_id` from `did`.
-                let auth_ids = <Authorizations<T>>::iter_prefix(signer)
+                let auth_ids = <Authorizations<T>>::iter_prefix_values(signer)
                     .filter_map( |authorization| {
-                        if authorization.authorized_by == did_sig {
+                        if authorization.authorized_by == did {
                             Some(authorization.auth_id)
                         } else {
                             None
@@ -388,7 +387,7 @@ decl_module! {
             // Remove authorizations
             signer_and_auth_id_list.into_iter().for_each( |(signer, auth_ids)| {
                 auth_ids.into_iter().for_each( |auth_id|
-                        Self::unsafe_remove_auth( signer, auth_id, &did_sig, true));
+                        Self::unsafe_remove_auth( signer, auth_id, &did, true));
             });
 
             // Update signing keys at Identity.
@@ -404,7 +403,7 @@ decl_module! {
         ///
         /// # Failure
         /// Only called by master key owner.
-        #[weight = SimpleDispatchInfo::FixedNormal(300_000)]
+        #[weight = 300_000]
         fn set_master_key(origin, new_key: T::AccountId) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             let did = Context::current_identity_or::<Self>(&sender)?;
@@ -434,7 +433,7 @@ decl_module! {
         /// # Arguments
         /// * `owner_auth_id` Authorization from the owner who initiated the change
         /// * `cdd_auth_id` Authorization from a CDD service provider
-        #[weight = SimpleDispatchInfo::FixedNormal(500_000)]
+        #[weight = 500_000]
         pub fn accept_master_key(origin, rotation_auth_id: u64, optional_cdd_auth_id: Option<u64>) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             Self::accept_master_key_rotation(sender, rotation_auth_id, optional_cdd_auth_id)
@@ -445,7 +444,7 @@ decl_module! {
         ///
         /// # Arguments
         /// * `auth_required` CDD Authorization required or not
-        #[weight = SimpleDispatchInfo::FixedNormal(200_000)]
+        #[weight = 200_000]
         pub fn change_cdd_requirement_for_mk_rotation(
             origin,
             auth_required: bool,
@@ -457,14 +456,14 @@ decl_module! {
         }
 
         /// Join an identity as a signing key.
-        #[weight = SimpleDispatchInfo::FixedNormal(300_000)]
+        #[weight = 300_000]
         pub fn join_identity_as_key(origin, auth_id: u64) -> DispatchResult {
             let signer = Signatory::Account(ensure_signed(origin)?);
             Self::join_identity(signer, auth_id)
         }
 
         /// Join an identity as a signing identity.
-        #[weight = SimpleDispatchInfo::FixedNormal(300_000)]
+        #[weight = 300_000]
         pub fn join_identity_as_identity(origin, auth_id: u64) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             let sender_did = Context::current_identity_or::<Self>(&sender)?;
@@ -472,7 +471,7 @@ decl_module! {
         }
 
         /// Leave the signing key's identity.
-        #[weight = SimpleDispatchInfo::FixedNormal(300_000)]
+        #[weight = 300_000]
         pub fn leave_identity_as_key(origin) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             if let Some(did) = Self::get_identity(&sender) {
@@ -482,7 +481,7 @@ decl_module! {
         }
 
         /// Leave an identity as a signing identity.
-        #[weight = SimpleDispatchInfo::FixedNormal(300_000)]
+        #[weight = 300_000]
         pub fn leave_identity_as_identity(origin, did: IdentityId) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             let sender_did = Context::current_identity_or::<Self>(&sender)?;
@@ -490,7 +489,7 @@ decl_module! {
         }
 
         /// Adds a new claim record or edits an existing one. Only called by did_issuer's signing key.
-        #[weight = SimpleDispatchInfo::FixedNormal(400_000)]
+        #[weight = 400_000]
         pub fn add_claim(
             origin,
             target: IdentityId,
@@ -519,12 +518,10 @@ decl_module! {
         ///
         /// # Weight
         /// `300_000 + 100_000 * claims.len()`
-        #[weight = FunctionOf(
-            |(claims,): (&Vec<BatchAddClaimItem<T::Moment>>,)| {
-                300_000 + 100_000 * u32::try_from(claims.len()).unwrap_or_default()
-            },
+        #[weight =(
+            300_000 + 100_000 * u64::try_from(claims.len()).unwrap_or_default(),
             DispatchClass::Normal,
-            true
+            Pays::Yes
         )]
         pub fn batch_add_claim(
             origin,
@@ -563,17 +560,13 @@ decl_module! {
         }
 
         /// Creates a call on behalf of another DID.
-        #[weight = FunctionOf(
-            |(_, call): (&IdentityId, &Box<T::Proposal>)| {
-                500_000 + call.get_dispatch_info().weight
-            },
-            |(_, call): (&IdentityId, &Box<T::Proposal>)| {
-                call.get_dispatch_info().class
-            },
-            true
+        #[weight =(
+            500_000 + proposal.get_dispatch_info().weight,
+            proposal.get_dispatch_info().class,
+            Pays::Yes
         )]
         fn forwarded_call(origin, target_did: IdentityId, proposal: Box<T::Proposal>) -> DispatchResult {
-            let sender = ensure_signed(origin)?;
+            let _sender = ensure_signed(origin)?;
 
             // 1. Constraints.
             // 1.1. A valid current identity.
@@ -600,13 +593,15 @@ decl_module! {
 
             // Also set current_did roles when acting as a signing key for target_did
             // Re-dispatch call - e.g. to asset::doSomething...
-            let new_origin = frame_system::RawOrigin::Signed(sender).into();
+            // let new_origin = frame_system::RawOrigin::Signed(sender).into();
 
-            proposal.dispatch(new_origin)
+            // TODO: Handle dispatch properly
+            //proposal.dispatch(new_origin)
+            Ok(())
         }
 
         /// Marks the specified claim as revoked.
-        #[weight = SimpleDispatchInfo::FixedNormal(250_000)]
+        #[weight = 250_000]
         pub fn revoke_claim(origin,
             target: IdentityId,
             claim: Claim,
@@ -628,12 +623,10 @@ decl_module! {
         ///
         /// # Weight
         /// `100_000 + 150_000 * claims.len()`
-        #[weight = FunctionOf(
-            |(claims,): (&Vec<BatchRevokeClaimItem>,)| {
-                100_000 + 150_000 * u32::try_from(claims.len()).unwrap_or_default()
-            },
+        #[weight = (
+            100_000 + 150_000 * u64::try_from(claims.len()).unwrap_or_default(),
             DispatchClass::Normal,
-            true
+            Pays::Yes
         )]
         pub fn batch_revoke_claim(
             origin,
@@ -656,12 +649,10 @@ decl_module! {
         ///
         /// # Weight
         /// `400_000 + 30_000 * permissions.len()`
-        #[weight = FunctionOf(
-            |(_, permissions): (&Signatory<T::AccountId>, &Vec<Permission>)| {
-                400_000 + 30_000 * u32::try_from(permissions.len()).unwrap_or_default()
-            },
+        #[weight =(
+            400_000 + 30_000 * u64::try_from(permissions.len()).unwrap_or_default(),
             DispatchClass::Normal,
-            true
+            Pays::Yes
         )]
         pub fn set_permission_to_signer(
             origin,
@@ -684,20 +675,20 @@ decl_module! {
         ///
         /// # Errors
         ///
-        #[weight = SimpleDispatchInfo::FixedNormal(200_000)]
+        #[weight = 200_000]
         pub fn freeze_signing_keys(origin) -> DispatchResult {
             Self::set_frozen_signing_key_flags(origin, true)
         }
 
         /// Re-enables all signing keys of the caller's identity.
-        #[weight = SimpleDispatchInfo::FixedNormal(200_000)]
+        #[weight = 200_000]
         pub fn unfreeze_signing_keys(origin) -> DispatchResult {
             Self::set_frozen_signing_key_flags(origin, false)
         }
 
         // TODO: Remove before mainnet launch.
         /// Emits an event with caller's identity.
-        #[weight = SimpleDispatchInfo::FixedNormal(50_000)]
+        #[weight = 50_000]
         pub fn get_my_did(origin) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             let did = Context::current_identity_or::<Self>(&sender)?;
@@ -708,7 +699,7 @@ decl_module! {
 
         // TODO: Remove before mainnet launch.
         /// Emits an event with caller's identity and CDD status.
-        #[weight = SimpleDispatchInfo::FixedNormal(200_000)]
+        #[weight = 200_000]
         pub fn get_cdd_of(_origin, of: T::AccountId) -> DispatchResult {
             let did_opt = Self::get_identity(&of);
             let has_cdd = did_opt.iter()
@@ -722,30 +713,16 @@ decl_module! {
 
         // Manage generic authorizations
         /// Adds an authorization.
-        #[weight = SimpleDispatchInfo::FixedNormal(200_000)]
+        #[weight = 200_000]
         pub fn add_authorization(
             origin,
             target: Signatory<T::AccountId>,
-            authorization_data: AuthorizationData,
+            authorization_data: AuthorizationData<T::AccountId>,
             expiry: Option<T::Moment>
         ) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             let from_did = Context::current_identity_or::<Self>(&sender)?;
-            Self::add_auth(Signatory::Identity(from_did), target, authorization_data, expiry);
-            Ok(())
-        }
-
-        /// Adds an authorization as a key.
-        /// To be used by signing keys that don't have an identity.
-        #[weight = SimpleDispatchInfo::FixedNormal(150_000)]
-        pub fn add_authorization_as_key(
-            origin,
-            target: Signatory<T::AccountId>,
-            authorization_data: AuthorizationData,
-            expiry: Option<T::Moment>
-        ) -> DispatchResult {
-            let sender = ensure_signed(origin)?;
-            Self::add_auth(Signatory::Account(sender), target, authorization_data, expiry);
+            Self::add_auth(from_did, target, authorization_data, expiry);
             Ok(())
         }
 
@@ -754,28 +731,26 @@ decl_module! {
         ///
         /// # Weight
         /// `150_000 + 50_000 * auths.len()`
-        #[weight = FunctionOf(
-            |(auths,): (&Vec<(Signatory<T::AccountId>, AuthorizationData, Option<T::Moment>)>,)| {
-                150_000 + 50_000 * u32::try_from(auths.len()).unwrap_or_default()
-            },
+        #[weight =(
+            150_000 + 50_000 * u64::try_from(auths.len()).unwrap_or_default(),
             DispatchClass::Normal,
-            true
+            Pays::Yes
         )]
         pub fn batch_add_authorization(
             origin,
             // Vec<(target_did, auth_data, expiry)>
-            auths: Vec<(Signatory<T::AccountId>, AuthorizationData, Option<T::Moment>)>
+            auths: Vec<(Signatory<T::AccountId>, AuthorizationData<T::AccountId>, Option<T::Moment>)>
         ) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             let from_did = Context::current_identity_or::<Self>(&sender)?;
             for auth in auths {
-                Self::add_auth(Signatory::Identity(from_did), auth.0, auth.1, auth.2);
+                Self::add_auth(from_did, auth.0, auth.1, auth.2);
             }
             Ok(())
         }
 
         /// Removes an authorization.
-        #[weight = SimpleDispatchInfo::FixedNormal(250_000)]
+        #[weight = 250_000]
         pub fn remove_authorization(
             origin,
             target: Signatory<T::AccountId>,
@@ -789,7 +764,7 @@ decl_module! {
                 Error::<T>::AuthorizationDoesNotExist
             );
             let auth = <Authorizations<T>>::get(&target, auth_id);
-            let revoked = auth.authorized_by.eq_either(&from_did, &sender);
+            let revoked = auth.authorized_by == from_did;
             ensure!(
                 revoked || target.eq_either(&from_did, &sender),
                 Error::<T>::Unauthorized
@@ -803,12 +778,10 @@ decl_module! {
         ///
         /// # Weight
         /// `150_000 + 50_000 * auths.len()`
-        #[weight = FunctionOf(
-            |(auths,): (&Vec<AuthIdentifier<T::AccountId>>,)| {
-                150_000 + 100_000 * u32::try_from(auths.len()).unwrap_or_default()
-            },
+        #[weight =(
+            150_000 + 100_000 * u64::try_from(auth_identifiers.len()).unwrap_or_default(),
             DispatchClass::Normal,
-            true
+            Pays::Yes
         )]
         pub fn batch_remove_authorization(
             origin,
@@ -825,7 +798,7 @@ decl_module! {
                     Error::<T>::AuthorizationDoesNotExist
                 );
                 auths.push(<Authorizations<T>>::get(&auth_identifier.0, &auth_identifier.1));
-                revoked.push(auths[i].authorized_by.eq_either(&from_did, &sender));
+                revoked.push(auths[i].authorized_by == from_did);
                 ensure!(
                     revoked[i] || auth_identifier.0.eq_either(&from_did, &sender),
                     Error::<T>::Unauthorized
@@ -842,30 +815,30 @@ decl_module! {
         }
 
         /// Accepts an authorization.
-        #[weight = SimpleDispatchInfo::FixedNormal(600_000)]
+        #[weight = 600_000]
         pub fn accept_authorization(
             origin,
             auth_id: u64
         ) -> DispatchResult {
             let sender = ensure_signed(origin)?;
-            let signer_by_key = Signatory::Account(sender.clone());
-            let signer_by_id = Context::current_identity_or::<Self>(&sender)
+            let signer_key = Signatory::Account(sender.clone());
+            let signer_did = Context::current_identity_or::<Self>(&sender)
                 .map_or_else(
-                    |_error| signer_by_key.clone(),
+                    |_error| signer_key.clone(),
                     Signatory::from);
 
             // Get auth by key or by id.
-            let auth_signer_opt = if <Authorizations<T>>::contains_key(&signer_by_id, auth_id) {
-                let auth = <Authorizations<T>>::get(&signer_by_id, auth_id);
-                Some((auth, signer_by_id))
-            } else if <Authorizations<T>>::contains_key(&signer_by_key, auth_id) {
-                let auth = <Authorizations<T>>::get(&signer_by_key, auth_id);
-                Some((auth, signer_by_key))
+            let auth_signer = if <Authorizations<T>>::contains_key(&signer_did, auth_id) {
+                let auth = <Authorizations<T>>::get(&signer_did, auth_id);
+                Some((auth, signer_did))
+            } else if <Authorizations<T>>::contains_key(&signer_key, auth_id) {
+                let auth = <Authorizations<T>>::get(&signer_key, auth_id);
+                Some((auth, signer_key))
             } else {
                 None
             };
 
-            let (auth, signer) = auth_signer_opt
+            let (auth, signer) = auth_signer
                     .ok_or_else(||Error::<T>::AuthorizationDoesNotExist)?;
 
             match signer {
@@ -875,7 +848,7 @@ decl_module! {
                             T::AcceptTransferTarget::accept_ticker_transfer(did, auth_id),
                         AuthorizationData::TransferAssetOwnership(_) =>
                             T::AcceptTransferTarget::accept_asset_ownership_transfer(did, auth_id),
-                        AuthorizationData::AddMultiSigSigner =>
+                        AuthorizationData::AddMultiSigSigner(_) =>
                             T::MultiSig::accept_multisig_signer(Signatory::from(did), auth_id),
                         AuthorizationData::JoinIdentity(_) =>
                             Self::join_identity(Signatory::from(did), auth_id),
@@ -884,7 +857,7 @@ decl_module! {
                 },
                 Signatory::Account(key) => {
                     match auth.authorization_data {
-                        AuthorizationData::AddMultiSigSigner =>
+                        AuthorizationData::AddMultiSigSigner(_) =>
                             T::MultiSig::accept_multisig_signer(Signatory::Account(key), auth_id),
                         AuthorizationData::RotateMasterKey(_identityid) =>
                             Self::accept_master_key_rotation(key , auth_id, None),
@@ -902,12 +875,10 @@ decl_module! {
         ///
         /// # Weight
         /// `100_000 + 500_000 * auth_ids.len()`
-        #[weight = FunctionOf(
-            |(auth_ids,): (&Vec<u64>,)| {
-                100_000 + 500_000 * u32::try_from(auth_ids.len()).unwrap_or_default()
-            },
+        #[weight =(
+            100_000 + 500_000 * u64::try_from(auth_ids.len()).unwrap_or_default(),
             DispatchClass::Normal,
-            true
+            Pays::Yes
         )]
         pub fn batch_accept_authorization(
             origin,
@@ -932,7 +903,7 @@ decl_module! {
                                     T::AcceptTransferTarget::accept_ticker_transfer(*did, auth_id),
                                 AuthorizationData::TransferAssetOwnership(_) =>
                                     T::AcceptTransferTarget::accept_asset_ownership_transfer(*did, auth_id),
-                                AuthorizationData::AddMultiSigSigner =>
+                                AuthorizationData::AddMultiSigSigner(_) =>
                                     T::MultiSig::accept_multisig_signer(Signatory::from(*did), auth_id),
                                 AuthorizationData::JoinIdentity(_) =>
                                     Self::join_identity(Signatory::from(*did), auth_id),
@@ -949,7 +920,7 @@ decl_module! {
 
                             //NB: Result is not handled, invalid auths are just ignored to let the batch function continue.
                             let _result = match auth.authorization_data {
-                                AuthorizationData::AddMultiSigSigner =>
+                                AuthorizationData::AddMultiSigSigner(_) =>
                                     T::MultiSig::accept_multisig_signer(
                                         Signatory::Account(key.clone()),
                                         auth_id
@@ -983,12 +954,10 @@ decl_module! {
         ///
         /// # Weight
         /// `400_000 + 200_000 * auths.len()`
-        #[weight = FunctionOf(
-            |(additional_keys, _): (&Vec<SigningItemWithAuth<T::AccountId>>, &T::Moment)| {
-                400_000 + 200_000 * u32::try_from(additional_keys.len()).unwrap_or_default()
-            },
+        #[weight = (
+            400_000 + 200_000 * u64::try_from(additional_keys.len()).unwrap_or_default(),
             DispatchClass::Normal,
-            true
+            Pays::Yes
         )]
         pub fn batch_add_signing_item_with_authorization(
             origin,
@@ -1083,7 +1052,7 @@ decl_module! {
 
         /// It revokes the `auth` off-chain authorization of `signer`. It only takes effect if
         /// the authorized transaction is not yet executed.
-        #[weight = SimpleDispatchInfo::FixedNormal(100_000)]
+        #[weight = 100_000]
         pub fn revoke_offchain_authorization(
             origin,
             signer: Signatory<T::AccountId>,
@@ -1191,72 +1160,57 @@ impl<T: Trait> Module<T> {
 
         let auth = <Authorizations<T>>::get(&signer, auth_id);
 
-        let identity_data_to_join = match auth.authorization_data {
-            AuthorizationData::JoinIdentity(data) => Ok(data),
+        let permissions = match auth.authorization_data {
+            AuthorizationData::JoinIdentity(permissions) => Ok(permissions),
             _ => Err(AuthorizationError::Invalid),
         }?;
 
+        //Not really needed unless we allow identities to be deleted
         ensure!(
-            <DidRecords<T>>::contains_key(&identity_data_to_join.target_did),
+            <DidRecords<T>>::contains_key(&auth.authorized_by),
             "Identity does not exist"
         );
 
-        let master = Self::did_records(&identity_data_to_join.target_did).master_key;
+        Self::consume_auth(auth.authorized_by.clone(), signer.clone(), auth_id)?;
 
-        Self::consume_auth(Signatory::Account(master), signer.clone(), auth_id)?;
-
-        Self::unsafe_join_identity(identity_data_to_join, signer)
+        Self::unsafe_join_identity(auth.authorized_by, permissions, signer)
     }
 
     /// Joins an identity as signer
     pub fn unsafe_join_identity(
-        identity_data_to_join: JoinIdentityData,
+        target_did: IdentityId,
+        permissions: Vec<Permission>,
         signer: Signatory<T::AccountId>,
     ) -> DispatchResult {
+        T::ProtocolFee::charge_fee(
+            &Signatory::Identity(target_did),
+            ProtocolOp::IdentityAddSigningItemsWithAuthorization,
+        )?;
         if let Signatory::Account(key) = &signer {
-            if !Self::can_key_be_linked_to_did(key, SignatoryType::External) {
-                ensure!(
-                    Self::get_identity(key) == Some(identity_data_to_join.target_did),
-                    Error::<T>::AlreadyLinked
-                )
-            } else {
-                T::ProtocolFee::charge_fee(
-                    &Signatory::Identity(identity_data_to_join.target_did),
-                    ProtocolOp::IdentityAddSigningItemsWithAuthorization,
-                )?;
-                Self::link_key_to_did(
-                    key,
-                    SignatoryType::External,
-                    identity_data_to_join.target_did,
-                );
-            }
-        } else {
-            T::ProtocolFee::charge_fee(
-                &Signatory::Identity(identity_data_to_join.target_did),
-                ProtocolOp::IdentityAddSigningItemsWithAuthorization,
-            )?;
+            ensure!(
+                Self::can_key_be_linked_to_did(key, SignatoryType::External),
+                Error::<T>::AlreadyLinked
+            );
+            Self::link_key_to_did(key, SignatoryType::External, target_did);
         }
 
         // create the SigningItem
-        let sg_item = SigningItem::new(signer, identity_data_to_join.permissions);
+        let sg_item = SigningItem::new(signer, permissions);
 
-        <DidRecords<T>>::mutate(identity_data_to_join.target_did, |identity| {
+        <DidRecords<T>>::mutate(target_did, |identity| {
             identity.add_signing_items(&[sg_item.clone()]);
         });
 
-        Self::deposit_event(RawEvent::SigningItemsAdded(
-            identity_data_to_join.target_did,
-            [sg_item].to_vec(),
-        ));
+        Self::deposit_event(RawEvent::SigningItemsAdded(target_did, [sg_item].to_vec()));
 
         Ok(())
     }
 
     /// Adds an authorization.
     pub fn add_auth(
-        from: Signatory<T::AccountId>,
+        from: IdentityId,
         target: Signatory<T::AccountId>,
-        authorization_data: AuthorizationData,
+        authorization_data: AuthorizationData<T::AccountId>,
         expiry: Option<T::Moment>,
     ) -> u64 {
         let new_nonce = Self::multi_purpose_nonce() + 1u64;
@@ -1273,24 +1227,14 @@ impl<T: Trait> Module<T> {
         <AuthorizationsGiven<T>>::insert(from.clone(), new_nonce, target.clone());
 
         // This event is split in order to help the event harvesters.
-        match from {
-            Signatory::Identity(id) => Self::deposit_event(RawEvent::AuthorizationAddedByIdentity(
-                id,
-                target.as_identity().cloned(),
-                target.as_account().cloned(),
-                new_nonce,
-                authorization_data,
-                expiry,
-            )),
-            Signatory::Account(key) => Self::deposit_event(RawEvent::AuthorizationAddedByKey(
-                key,
-                target.as_identity().cloned(),
-                target.as_account().cloned(),
-                new_nonce,
-                authorization_data,
-                expiry,
-            )),
-        };
+        Self::deposit_event(RawEvent::AuthorizationAdded(
+            from,
+            target.as_identity().cloned(),
+            target.as_account().cloned(),
+            new_nonce,
+            authorization_data,
+            expiry,
+        ));
 
         new_nonce
     }
@@ -1300,7 +1244,7 @@ impl<T: Trait> Module<T> {
     pub fn unsafe_remove_auth(
         target: &Signatory<T::AccountId>,
         auth_id: u64,
-        authorizer: &Signatory<T::AccountId>,
+        authorizer: &IdentityId,
         revoked: bool,
     ) {
         <Authorizations<T>>::remove(target, auth_id);
@@ -1323,7 +1267,7 @@ impl<T: Trait> Module<T> {
     /// Consumes an authorization.
     /// Checks if the auth has not expired and the caller is authorized to consume this auth.
     pub fn consume_auth(
-        from: Signatory<T::AccountId>,
+        from: IdentityId,
         target: Signatory<T::AccountId>,
         auth_id: u64,
     ) -> DispatchResult {
@@ -1331,6 +1275,7 @@ impl<T: Trait> Module<T> {
             <Authorizations<T>>::contains_key(&target, auth_id),
             AuthorizationError::Invalid
         );
+
         let auth = <Authorizations<T>>::get(&target, auth_id);
         ensure!(auth.authorized_by == from, AuthorizationError::Unauthorized);
         if let Some(expiry) = auth.expiry {
@@ -1435,16 +1380,8 @@ impl<T: Trait> Module<T> {
         if let AuthorizationData::RotateMasterKey(rotation_for_did) =
             rotation_auth.authorization_data
         {
-            // Ensure the request was made by the owner of master key
-            match &rotation_auth.authorized_by {
-                Signatory::Account(key) => {
-                    let master_key = <DidRecords<T>>::get(&rotation_for_did).master_key;
-                    ensure!(key == &master_key, Error::<T>::KeyChangeUnauthorized);
-                }
-                _ => return Err(Error::<T>::UnknownAuthorization.into()),
-            };
             // consume owner's authorization
-            Self::consume_auth(rotation_auth.authorized_by, signer, rotation_auth_id)?;
+            Self::consume_auth(rotation_for_did, signer, rotation_auth_id)?;
             Self::unsafe_master_key_rotation(sender, rotation_for_did, optional_cdd_auth_id)
         } else {
             Err(Error::<T>::UnknownAuthorization.into())
@@ -1472,14 +1409,8 @@ impl<T: Trait> Module<T> {
             match cdd_auth.authorization_data {
                 AuthorizationData::AttestMasterKeyRotation(ref attestation_for_did) => {
                     // Attestor must be a CDD service provider
-                    let cdd_provider_did = match cdd_auth.authorized_by {
-                        Signatory::Account(ref key) => Self::get_identity(key),
-                        Signatory::Identity(id) => Some(id),
-                    };
-
-                    let id = cdd_provider_did.ok_or_else(|| Error::<T>::NoDIDFound)?;
                     ensure!(
-                        T::CddServiceProviders::is_member(&id),
+                        T::CddServiceProviders::is_member(&cdd_auth.authorized_by),
                         Error::<T>::NotCddProviderAttestation
                     );
 
@@ -1490,6 +1421,8 @@ impl<T: Trait> Module<T> {
                     );
 
                     // consume CDD service provider's authorization
+                    // here we pass the known authorising identity to consume_auth, rather than the expected authorising identity
+                    // as we've already checked the validity above
                     Self::consume_auth(cdd_auth.authorized_by, signer, cdd_auth_id)?;
                 }
                 _ => return Err(Error::<T>::UnknownAuthorization.into()),
@@ -1501,6 +1434,7 @@ impl<T: Trait> Module<T> {
         <DidRecords<T>>::mutate(&rotation_for_did, |record| {
             Self::unlink_key_from_did(&record.master_key, rotation_for_did);
             record.master_key = sender.clone();
+            Self::link_key_to_did(&sender, SignatoryType::External, rotation_for_did);
         });
 
         Self::deposit_event(RawEvent::MasterKeyUpdated(
@@ -1724,7 +1658,7 @@ impl<T: Trait> Module<T> {
         claim_type: ClaimType,
     ) -> impl Iterator<Item = IdentityClaim> + 'a {
         let pk = Claim1stKey { target, claim_type };
-        <Claims>::iter_prefix(pk)
+        <Claims>::iter_prefix_values(pk)
     }
 
     /// It fetches an specific `claim_type` claim type for target identity `id`, which was issued
@@ -1811,6 +1745,8 @@ impl<T: Trait> Module<T> {
                 LinkedKeyInfo::Unique(..) => false,
                 LinkedKeyInfo::Group(..) => signer_type != SignatoryType::External,
             }
+        } else if T::MultiSig::is_signer(key) {
+            false
         } else {
             true
         }
@@ -1941,18 +1877,14 @@ impl<T: Trait> Module<T> {
 
         // 2. Apply changes to our extrinsic.
         // 2.1. Link master key and add pre-authorized signing keys.
-        let master_key_signatory = Signatory::Account(sender.clone());
         Self::link_key_to_did(&sender, SignatoryType::External, did);
         let _auth_ids = signing_items
             .iter()
             .map(|s_item| {
                 Self::add_auth(
-                    master_key_signatory.clone(),
+                    did.clone(),
                     s_item.signer.clone(),
-                    AuthorizationData::JoinIdentity(JoinIdentityData::new(
-                        did,
-                        s_item.permissions.clone(),
-                    )),
+                    AuthorizationData::JoinIdentity(s_item.permissions.clone()),
                     None,
                 )
             })
@@ -2133,7 +2065,7 @@ impl<T: Trait> Module<T> {
         let now = <pallet_timestamp::Module<T>>::get();
 
         if let Some(type_of_link) = link_type {
-            <Links<T>>::iter_prefix(signatory)
+            <Links<T>>::iter_prefix_values(signatory)
                 .filter(|link| {
                     if !allow_expired {
                         if let Some(expiry) = link.expiry {
@@ -2151,7 +2083,7 @@ impl<T: Trait> Module<T> {
                 })
                 .collect::<Vec<Link<T::Moment>>>()
         } else {
-            <Links<T>>::iter_prefix(signatory)
+            <Links<T>>::iter_prefix_values(signatory)
                 .filter(|l| {
                     if !allow_expired {
                         if let Some(expiry) = l.expiry {
@@ -2184,6 +2116,7 @@ impl<T: Trait> Module<T> {
     }
 
     /// Registers the systematic issuer with its DID.
+    #[allow(dead_code)]
     fn register_systematic_id(issuer: SystematicIssuers)
     where
         <T as frame_system::Trait>::AccountId: core::fmt::Display,
@@ -2201,6 +2134,7 @@ impl<T: Trait> Module<T> {
     }
 
     /// Registers `master_key` as `id` identity.
+    #[allow(dead_code)]
     fn unsafe_register_id(master_key: T::AccountId, id: IdentityId) {
         <Module<T>>::link_key_to_did(&master_key, SignatoryType::External, id);
         let record = DidRecord {

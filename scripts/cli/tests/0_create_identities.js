@@ -13,7 +13,7 @@ async function main() {
 
   const testEntities = await reqImports.initMain(api);
 
-  let keys = await reqImports.generateKeys(api,5, "master");
+  let keys = await reqImports.generateKeys(api, 2, "master0");
 
   await createIdentities(api, keys, testEntities[0]);
 
@@ -46,7 +46,7 @@ async function createIdentities(api, accounts, alice) {
       await reqImports.blockTillPoolEmpty(api);
       for (let i = 0; i < accounts.length; i++) {
         const d = await api.query.identity.keyToIdentityIds(accounts[i].publicKey);
-        dids.push(d.raw.asUnique);
+        dids.push(d.toHuman().Unique);
         console.log( `>>>> [Get DID ] acc: ${accounts[i].address} did: ${dids[i]}` ); 
       }
 

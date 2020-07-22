@@ -14,7 +14,13 @@
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
 use crate::{
-    traits::{balances, group::GroupTrait, multisig::MultiSigSubTrait, CommonTrait},
+    traits::{
+        balances,
+        group::GroupTrait,
+        multisig::MultiSigSubTrait,
+        transaction_payment::{CddAndFeeDetails, ChargeTxFee},
+        CommonTrait,
+    },
     ChargeProtocolFee, SystematicIssuers,
 };
 use polymesh_primitives::{
@@ -24,7 +30,6 @@ use polymesh_primitives::{
 
 use codec::{Decode, Encode};
 use frame_support::{decl_event, traits::Currency, weights::GetDispatchInfo, Parameter};
-use pallet_transaction_payment::{CddAndFeeDetails, ChargeTxFee};
 use sp_core::H512;
 use sp_runtime::traits::{Dispatchable, IdentifyAccount, Member, Verify};
 #[cfg(feature = "std")]
@@ -145,22 +150,13 @@ decl_event!(
         AssetDidRegistered(IdentityId, Ticker),
 
         /// New authorization added.
-        /// (from, to, auth_id, authorization_data, expiry)
-        AuthorizationAddedByIdentity(
+        /// (authorised_by, target_did, target_key, auth_id, authorization_data, expiry)
+        AuthorizationAdded(
             IdentityId,
             Option<IdentityId>,
             Option<AccountId>,
             u64,
-            AuthorizationData,
-            Option<Moment>
-        ),
-
-        AuthorizationAddedByKey(
-            AccountId,
-            Option<IdentityId>,
-            Option<AccountId>,
-            u64,
-            AuthorizationData,
+            AuthorizationData<AccountId>,
             Option<Moment>
         ),
 

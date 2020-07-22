@@ -36,6 +36,7 @@
         "AssetName": "Text",
         "AssetIdentifier": "Text",
         "FundingRoundName": "Text",
+        "VenueDetails": "Text",
         "SecurityToken": {
             "name": "AssetName",
             "total_supply": "Balance",
@@ -320,10 +321,16 @@
             "next_ticker": "Option<Ticker>",
             "previous_ticker": "Option<Ticker>"
         },
-        "OffChainSignature": "H512",
+        "OffChainSignature": {
+            "_enum": {
+                "Ed25519": "H512",
+                "Sr25519": "H512",
+                "Ecdsa": "H512"
+            }
+        },
         "Authorization": {
             "authorization_data": "AuthorizationData",
-            "authorized_by": "Signatory",
+            "authorized_by": "IdentityId",
             "expiry": "Option<Moment>",
             "auth_id": "u64"
         },
@@ -332,10 +339,10 @@
                 "AttestMasterKeyRotation": "IdentityId",
                 "RotateMasterKey": "IdentityId",
                 "TransferTicker": "Ticker",
-                "AddMultiSigSigner": "",
+                "AddMultiSigSigner": "AccountId",
                 "TransferAssetOwnership": "Ticker",
-                "JoinIdentity": "JoinIdentityData",
-                "Custom": "Vec<u8>",
+                "JoinIdentity": "Vec<Permission>",
+                "Custom": "Ticker",
                 "NoData": ""
             }
         },
@@ -499,7 +506,6 @@
         },
         "HistoricalVotingByAddress": "Vec<VoteByPip>",
         "HistoricalVotingById": "Vec<(AccountId, HistoricalVotingByAddress)>",
-        "Weight": "u32",
         "BridgeTxDetail": {
             "amount": "Balance",
             "status": "BridgeTxStatus",
@@ -527,10 +533,6 @@
                 "Ok": "u8",
                 "Err": "Vec<u8>"
             }
-        },
-        "JoinIdentityData": {
-            "target_did": "IdentityId",
-            "permissions": "Vec<Permission>"
         },
         "LinkType": {
             "_enum": {
@@ -575,6 +577,65 @@
             "initial_message": "[u8; 32]",
             "final_response": "Vec<u8>",
             "max_two_exp": "u32"
+        },
+        "InstructionStatus": {
+            "_enum": {
+                "Unknown": "",
+                "Pending": ""
+            }
+        },
+        "LegStatus": {
+            "_enum": {
+                "PendingTokenLock": "",
+                "ExecutionPending": "",
+                "ExecutionToBeSkipped": "(AccountId, u64)"
+            }
+        },
+        "AuthorizationStatus": {
+            "_enum": {
+                "Unknown": "",
+                "Pending": "",
+                "Authorized": "",
+                "Rejected": ""
+            }
+        },
+        "SettlementType": {
+            "_enum": {
+                "SettleOnAuthorization": "",
+                "SettleOnBlock": "BlockNumber"
+            }
+        },
+        "Instruction": {
+            "instruction_id": "u64",
+            "venue_id": "u64",
+            "status": "InstructionStatus",
+            "settlement_type": "SettlementType",
+            "created_at": "Option<Moment>",
+            "valid_from": "Option<Moment>"
+        },
+        "Leg": {
+            "from": "IdentityId",
+            "to": "IdentityId",
+            "asset": "Ticker",
+            "amount": "Balance"
+        },
+        "Venue": {
+            "creator": "IdentityId",
+            "instructions": "Vec<u64>",
+            "details": "Vec<u8>"
+        },
+        "Receipt": {
+            "receipt_uid": "u64",
+            "from": "IdentityId",
+            "to": "IdentityId",
+            "asset": "Ticker",
+            "amount": "Balance"
+        },
+        "ReceiptDetails": {
+            "receipt_uid": "u64",
+            "leg_id": "u64",
+            "signer": "AccountId",
+            "signature": "OffChainSignature"
         }
     },
     "rpc": {

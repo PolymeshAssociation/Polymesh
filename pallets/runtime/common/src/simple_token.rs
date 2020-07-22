@@ -55,7 +55,6 @@ use polymesh_primitives::{IdentityId, Signatory, Ticker};
 
 use frame_support::{
     decl_error, decl_event, decl_module, decl_storage, dispatch::DispatchResult, ensure,
-    weights::SimpleDispatchInfo,
 };
 use frame_system::{self as system, ensure_signed};
 use sp_runtime::traits::{CheckedAdd, CheckedSub};
@@ -122,7 +121,7 @@ decl_module! {
         fn deposit_event() = default;
 
         /// Create a new token and mint a balance to the issuing identity
-        #[weight = SimpleDispatchInfo::FixedNormal(200_000)]
+        #[weight = 200_000]
         pub fn create_token(origin, ticker: Ticker, total_supply: T::Balance) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             let did = Context::current_identity_or::<Identity<T>>(&sender)?;
@@ -154,7 +153,7 @@ decl_module! {
         }
 
         /// Approve another identity to transfer tokens on behalf of the caller
-        #[weight = SimpleDispatchInfo::FixedNormal(150_000)]
+        #[weight = 150_000]
         pub fn approve(origin, ticker: Ticker, spender_did: IdentityId, value: T::Balance) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             let did = Context::current_identity_or::<Identity<T>>(&sender)?;
@@ -180,7 +179,7 @@ decl_module! {
         }
 
         /// Transfer tokens to another identity
-        #[weight = SimpleDispatchInfo::FixedNormal(300_000)]
+        #[weight = 300_000]
         pub fn transfer(origin, ticker: Ticker, to_did: IdentityId, amount: T::Balance) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             let did = Context::current_identity_or::<Identity<T>>(&sender)?;
@@ -192,11 +191,11 @@ decl_module! {
                 Error::<T>::SenderMustBeSigningKeyForDid
             );
 
-            Self::_transfer(&ticker, did, to_did, amount)
+            Self::unsafe_transfer(&ticker, did, to_did, amount)
         }
 
         /// Transfer tokens to another identity using the approval mechanic
-        #[weight = SimpleDispatchInfo::FixedNormal(400_000)]
+        #[weight = 400_000]
         pub fn transfer_from(origin, ticker: Ticker, from_did: IdentityId, to_did: IdentityId, amount: T::Balance) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             let did = Context::current_identity_or::<Identity<T>>(&sender)?;
@@ -213,7 +212,7 @@ decl_module! {
             ensure!(allowance >= amount, Error::<T>::InsufficientAllowance);
 
             // Needs to happen before allowance subtraction so that the from balance is checked in _transfer
-            Self::_transfer(&ticker, from_did, to_did, amount)?;
+            Self::unsafe_transfer(&ticker, from_did, to_did, amount)?;
 
             // using checked_sub (safe math) to avoid overflow
             let updated_allowance = allowance.checked_sub(&amount)
@@ -261,7 +260,7 @@ impl<T: Trait> SimpleTokenTrait<T::Balance> for Module<T> {
         to_did: IdentityId,
         amount: T::Balance,
     ) -> DispatchResult {
-        Self::_transfer(ticker, sender_did, to_did, amount)
+        Self::unsafe_transfer(ticker, sender_did, to_did, amount)
     }
     /// Returns the balance associated with an identity and ticker
     fn balance_of(ticker: Ticker, owner_did: IdentityId) -> T::Balance {
@@ -270,7 +269,7 @@ impl<T: Trait> SimpleTokenTrait<T::Balance> for Module<T> {
 }
 
 impl<T: Trait> Module<T> {
-    fn _transfer(
+    fn unsafe_transfer(
         ticker: &Ticker,
         from_did: IdentityId,
         to_did: IdentityId,
