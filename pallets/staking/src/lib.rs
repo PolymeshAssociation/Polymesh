@@ -284,12 +284,8 @@
 
 #[cfg(any(feature = "runtime-benchmarks"))]
 pub mod benchmarking;
-#[cfg(test)]
-mod mock;
 #[cfg(any(feature = "runtime-benchmarks"))]
 pub mod testing_utils;
-#[cfg(test)]
-mod tests;
 
 pub mod inflation;
 pub mod offchain_election;
@@ -321,7 +317,7 @@ use pallet_babe;
 use pallet_identity as identity;
 use pallet_session::historical;
 use polymesh_common_utilities::{identity::Trait as IdentityTrait, Context};
-use primitives::{traits::BlockRewardsReserveCurrency, IdentityId};
+use polymesh_primitives::{traits::BlockRewardsReserveCurrency, IdentityId};
 use sp_npos_elections::{
     build_support_map, evaluate_support, generate_compact_solution_type, is_score_better,
     seq_phragmen, Assignment, ElectionResult as PrimitiveElectionResult, ElectionScore,
@@ -420,9 +416,20 @@ pub type BalanceOf<T> =
 pub type CompactAssignments =
     GenericCompactAssignments<NominatorIndex, ValidatorIndex, OffchainAccuracy>;
 
+#[cfg(debug_assertions)]
+impl<N, V, O> GenericCompactAssignments<N, V, O> {
+    pub fn push_votes1(&mut self, v: (N, V)) {
+        self.votes1.push(v)
+    }
+
+    pub fn get_votes3(&mut self) -> &mut Vec<(N, [(V, O); 2], V)> {
+        &mut self.votes3
+    }
+}
+
 type PositiveImbalanceOf<T> =
     <<T as Trait>::Currency as Currency<<T as frame_system::Trait>::AccountId>>::PositiveImbalance;
-type NegativeImbalanceOf<T> =
+pub type NegativeImbalanceOf<T> =
     <<T as Trait>::Currency as Currency<<T as frame_system::Trait>::AccountId>>::NegativeImbalance;
 
 /// Reward points of an era. Used to split era total payout between validators.
@@ -431,9 +438,9 @@ type NegativeImbalanceOf<T> =
 #[derive(PartialEq, Encode, Decode, Default, RuntimeDebug)]
 pub struct EraRewardPoints<AccountId: Ord> {
     /// Total number of points. Equals the sum of reward points for each validator.
-    total: RewardPoint,
+    pub total: RewardPoint,
     /// The reward points earned by a given validator.
-    individual: BTreeMap<AccountId, RewardPoint>,
+    pub individual: BTreeMap<AccountId, RewardPoint>,
 }
 
 /// Indicates the initial status of the staker.
@@ -503,10 +510,10 @@ impl Default for Commission {
 pub struct UnlockChunk<Balance: HasCompact> {
     /// Amount of funds to be unlocked.
     #[codec(compact)]
-    value: Balance,
+    pub value: Balance,
     /// Era number at which point it'll be unlocked.
     #[codec(compact)]
-    era: EraIndex,
+    pub era: EraIndex,
 }
 
 /// The ledger of a (bonded) stash.
@@ -678,7 +685,7 @@ pub struct Exposure<AccountId, Balance: HasCompact> {
 #[derive(Encode, Decode, Default, RuntimeDebug)]
 pub struct UnappliedSlash<AccountId, Balance: HasCompact> {
     /// The stash ID of the offending validator.
-    validator: AccountId,
+    pub validator: AccountId,
     /// The validator's own slash.
     own: Balance,
     /// All other slashed stakers and amounts.
@@ -710,7 +717,7 @@ pub struct ElectionResult<AccountId, Balance: HasCompact> {
     exposures: Vec<(AccountId, Exposure<AccountId, Balance>)>,
     /// Type of the result. This is kept on chain only to track and report the best score's
     /// submission type. An optimisation could remove this.
-    compute: ElectionCompute,
+    pub compute: ElectionCompute,
 }
 
 /// The status of the upcoming (offchain) election.
@@ -1127,7 +1134,7 @@ decl_storage! {
         ///
         /// Must contains information for eras for the range:
         /// `[active_era - bounding_duration; active_era]`
-        BondedEras: Vec<(EraIndex, SessionIndex)>;
+        pub BondedEras: Vec<(EraIndex, SessionIndex)>;
 
         /// All slashing events on validators, mapped by era to the highest slash proportion
         /// and slash value of the era.
@@ -1576,7 +1583,7 @@ decl_module! {
         /// * origin Stash account (signer of the extrinsic).
         /// * max_additional Extra amount that need to be bonded.
         #[weight = 55 * WEIGHT_PER_MICROS + T::DbWeight::get().reads_writes(4, 2)]
-        fn bond_extra(origin, #[compact] max_additional: BalanceOf<T>) {
+        pub fn bond_extra(origin, #[compact] max_additional: BalanceOf<T>) {
             ensure!(Self::era_election_status().is_closed(), Error::<T>::CallNotAllowed);
             let stash = ensure_signed(origin)?;
 
@@ -1632,7 +1639,7 @@ decl_module! {
         /// * origin Controller (Signer of the extrinsic).
         /// * value Balance needs to be unbonded.
         #[weight = 50 * WEIGHT_PER_MICROS + T::DbWeight::get().reads_writes(4, 2)]
-        fn unbond(origin, #[compact] value: BalanceOf<T>) {
+        pub fn unbond(origin, #[compact] value: BalanceOf<T>) {
             ensure!(Self::era_election_status().is_closed(), Error::<T>::CallNotAllowed);
             let controller = ensure_signed(origin)?;
             let mut ledger = Self::ledger(&controller).ok_or(Error::<T>::NotController)?;
@@ -1682,7 +1689,7 @@ decl_module! {
             // if slashing spans is non-zero, add 1 more write
             .saturating_add(T::DbWeight::get().writes(Weight::from(*num_slashing_spans).min(1)))
         ]
-        fn withdraw_unbonded(origin, num_slashing_spans: u32) -> DispatchResultWithPostInfo {
+        pub fn withdraw_unbonded(origin, num_slashing_spans: u32) -> DispatchResultWithPostInfo {
             ensure!(Self::era_election_status().is_closed(), Error::<T>::CallNotAllowed);
             let controller = ensure_signed(origin)?;
             let mut ledger = Self::ledger(&controller).ok_or(Error::<T>::NotController)?;
@@ -1828,7 +1835,7 @@ decl_module! {
         /// - Write: Validators, Nominators
         /// # </weight>
         #[weight = 16 * WEIGHT_PER_MICROS + T::DbWeight::get().reads_writes(2, 2)]
-        fn chill(origin) {
+        pub fn chill(origin) {
             ensure!(Self::era_election_status().is_closed(), Error::<T>::CallNotAllowed);
             let controller = ensure_signed(origin)?;
             let ledger = Self::ledger(&controller).ok_or(Error::<T>::NotController)?;
@@ -1852,7 +1859,7 @@ decl_module! {
         ///     - Write: Payee
         /// # </weight>
         #[weight = 11 * WEIGHT_PER_MICROS + T::DbWeight::get().reads_writes(1, 1)]
-        fn set_payee(origin, payee: RewardDestination) {
+        pub fn set_payee(origin, payee: RewardDestination) {
             let controller = ensure_signed(origin)?;
             let ledger = Self::ledger(&controller).ok_or(Error::<T>::NotController)?;
             let stash = &ledger.stash;
@@ -1876,7 +1883,7 @@ decl_module! {
         /// - Write: Bonded, Ledger New Controller, Ledger Old Controller
         /// # </weight>
         #[weight = 25 * WEIGHT_PER_MICROS + T::DbWeight::get().reads_writes(3, 3)]
-        fn set_controller(origin, controller: <T::Lookup as StaticLookup>::Source) {
+        pub fn set_controller(origin, controller: <T::Lookup as StaticLookup>::Source) {
             let stash = ensure_signed(origin)?;
             let old_controller = Self::bonded(&stash).ok_or(Error::<T>::NotStash)?;
             let controller = T::Lookup::lookup(controller)?;
@@ -2143,7 +2150,7 @@ decl_module! {
             // if slashing spans is non-zero, add 1 more write
             .saturating_add(T::DbWeight::get().writes(Weight::from(*num_slashing_spans > 0)))
         ]
-        fn force_unstake(origin, stash: T::AccountId, num_slashing_spans: u32) {
+        pub fn force_unstake(origin, stash: T::AccountId, num_slashing_spans: u32) {
             ensure_root(origin)?;
 
             // remove all staking-related information.
@@ -2162,7 +2169,7 @@ decl_module! {
         /// - Write: ForceEra
         /// # </weight>
         #[weight = 2 * WEIGHT_PER_MICROS + T::DbWeight::get().writes(1)]
-        fn force_new_era_always(origin) {
+        pub fn force_new_era_always(origin) {
             ensure_root(origin)?;
             ForceEra::put(Forcing::ForceAlways);
         }
@@ -2185,7 +2192,7 @@ decl_module! {
             .saturating_add(5_870 * WEIGHT_PER_MICROS)
             .saturating_add((35 * WEIGHT_PER_MICROS).saturating_mul(slash_indices.len() as Weight))
         ]
-        fn cancel_deferred_slash(origin, era: EraIndex, slash_indices: Vec<u32>) {
+        pub fn cancel_deferred_slash(origin, era: EraIndex, slash_indices: Vec<u32>) {
             T::SlashCancelOrigin::ensure_origin(origin)?;
 
             ensure!(!slash_indices.is_empty(), Error::<T>::EmptyTargets);
@@ -2233,7 +2240,7 @@ decl_module! {
             + T::DbWeight::get().reads(5)  * Weight::from(T::MaxNominatorRewardedPerValidator::get() + 1)
             + T::DbWeight::get().writes(3) * Weight::from(T::MaxNominatorRewardedPerValidator::get() + 1)
         ]
-        fn payout_stakers(origin, validator_stash: T::AccountId, era: EraIndex) -> DispatchResult {
+        pub fn payout_stakers(origin, validator_stash: T::AccountId, era: EraIndex) -> DispatchResult {
             ensure!(Self::era_election_status().is_closed(), Error::<T>::CallNotAllowed);
             ensure_signed(origin)?;
             Self::do_payout_stakers(validator_stash, era)
@@ -2259,7 +2266,7 @@ decl_module! {
             + 50 * WEIGHT_PER_NANOS * (MAX_UNLOCKING_CHUNKS as Weight)
             + T::DbWeight::get().reads_writes(3, 2)
         ]
-        fn rebond(origin, #[compact] value: BalanceOf<T>) -> DispatchResultWithPostInfo {
+        pub fn rebond(origin, #[compact] value: BalanceOf<T>) -> DispatchResultWithPostInfo {
             ensure!(Self::era_election_status().is_closed(), Error::<T>::CallNotAllowed);
             let controller = ensure_signed(origin)?;
             let ledger = Self::ledger(&controller).ok_or(Error::<T>::NotController)?;
@@ -2304,7 +2311,7 @@ decl_module! {
                 .saturating_add(T::DbWeight::get().reads_writes(items, items))
 
         }]
-        fn set_history_depth(origin,
+        pub fn set_history_depth(origin,
             #[compact] new_history_depth: EraIndex,
             #[compact] _era_items_deleted: u32,
         ) {
@@ -2346,7 +2353,7 @@ decl_module! {
             // if slashing spans is non-zero, add 1 more write
             .saturating_add(T::DbWeight::get().writes(Weight::from(*num_slashing_spans).min(1)))
         ]
-        fn reap_stash(_origin, stash: T::AccountId, num_slashing_spans: u32) {
+        pub fn reap_stash(_origin, stash: T::AccountId, num_slashing_spans: u32) {
             ensure!(T::Currency::total_balance(&stash).is_zero(), Error::<T>::FundedTarget);
             Self::kill_stash(&stash, num_slashing_spans)?;
             T::Currency::remove_lock(STAKING_ID, &stash);
@@ -2511,7 +2518,7 @@ impl<T: Trait> Module<T> {
     }
 
     /// internal impl of [`slashable_balance_of`] that returns [`VoteWeight`].
-    fn slashable_balance_of_vote_weight(stash: &T::AccountId) -> VoteWeight {
+    pub fn slashable_balance_of_vote_weight(stash: &T::AccountId) -> VoteWeight {
         <T::CurrencyToVote as Convert<BalanceOf<T>, VoteWeight>>::convert(
             Self::slashable_balance_of(stash),
         )
@@ -2557,7 +2564,7 @@ impl<T: Trait> Module<T> {
     }
 
     /// Clears both snapshots of stakers.
-    fn kill_stakers_snapshot() {
+    pub fn kill_stakers_snapshot() {
         <SnapshotValidators<T>>::kill();
         <SnapshotNominators<T>>::kill();
     }
@@ -3235,8 +3242,8 @@ impl<T: Trait> Module<T> {
     /// Self votes are added and nominations before the most recent slashing span are reaped.
     ///
     /// No storage item is updated.
-    fn do_phragmen<Accuracy: PerThing>() -> Option<PrimitiveElectionResult<T::AccountId, Accuracy>>
-    {
+    pub fn do_phragmen<Accuracy: PerThing>(
+    ) -> Option<PrimitiveElectionResult<T::AccountId, Accuracy>> {
         let mut all_nominators: Vec<(T::AccountId, VoteWeight, Vec<T::AccountId>)> = Vec::new();
         let mut all_validators = Vec::new();
         for (validator, _) in <Validators<T>>::iter() {
@@ -3331,7 +3338,7 @@ impl<T: Trait> Module<T> {
     /// This is called:
     /// - after a `withdraw_unbond()` call that frees all of a stash's bonded balance.
     /// - through `reap_stash()` if the balance has fallen to zero (through slashing).
-    fn kill_stash(stash: &T::AccountId, num_slashing_spans: u32) -> DispatchResult {
+    pub fn kill_stash(stash: &T::AccountId, num_slashing_spans: u32) -> DispatchResult {
         let controller = <Bonded<T>>::get(stash).ok_or(Error::<T>::NotStash)?;
 
         slashing::clear_stash_metadata::<T>(stash, num_slashing_spans)?;
@@ -3504,6 +3511,56 @@ impl<T: Trait> Module<T> {
     #[cfg(feature = "runtime-benchmarks")]
     pub fn set_slash_reward_fraction(fraction: Perbill) {
         SlashRewardFraction::put(fraction);
+    }
+
+    #[cfg(debug_assertions)]
+    pub fn get_span_slash(
+        idx: &(T::AccountId, slashing::SpanIndex),
+    ) -> slashing::SpanRecord<BalanceOf<T>> {
+        <SpanSlash<T>>::get(idx)
+    }
+
+    #[cfg(debug_assertions)]
+    pub fn get_slashing_spans(acc: &T::AccountId) -> Option<slashing::SlashingSpans> {
+        <SlashingSpans<T>>::get(acc)
+    }
+
+    #[cfg(debug_assertions)]
+    pub fn get_validator_slash_in_era(
+        era_idx: &EraIndex,
+        acc: &T::AccountId,
+    ) -> Option<(Perbill, BalanceOf<T>)> {
+        <ValidatorSlashInEra<T>>::get(era_idx, acc)
+    }
+
+    #[cfg(debug_assertions)]
+    pub fn get_nominators_slash_in_era(
+        era_idx: &EraIndex,
+        acc: &T::AccountId,
+    ) -> Option<BalanceOf<T>> {
+        <NominatorSlashInEra<T>>::get(era_idx, acc)
+    }
+
+    #[cfg(debug_assertions)]
+    pub fn get_unapplied_slashed(
+        era_idx: &EraIndex,
+    ) -> Vec<UnappliedSlash<T::AccountId, BalanceOf<T>>> {
+        <UnappliedSlashes<T>>::get(era_idx)
+    }
+
+    #[cfg(debug_assertions)]
+    pub fn get_all_validators() -> Vec<(T::AccountId, ValidatorPrefs)> {
+        <Validators<T>>::iter().collect::<Vec<_>>()
+    }
+
+    #[cfg(debug_assertions)]
+    pub fn insert_validators(acc: T::AccountId, v: ValidatorPrefs) {
+        <Validators<T>>::insert(acc, v)
+    }
+
+    #[cfg(debug_assertions)]
+    pub fn set_minimum_validator_count(m: u32) {
+        MinimumValidatorCount::put(m)
     }
 }
 

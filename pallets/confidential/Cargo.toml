@@ -1,0 +1,69 @@
+[package]
+name = "pallet-confidential"
+version = "0.1.0"
+authors = ["Polymath"]
+edition = "2018"
+
+[dependencies]
+polymesh-primitives = { path = "../../primitives", default-features = false }
+polymesh-primitives-derive = { path = "../../primitives_derive", default-features = false }
+polymesh-common-utilities = { path = "../common", default-features = false }
+
+pallet-identity = { path = "../identity", default-features = false }
+
+# Substrate
+codec = { package = "parity-scale-codec", version = "1.2.0", default-features = false, features = ["derive"] }
+sp-core = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0-rc4" }
+sp-io = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0-rc4" }
+sp-std = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0-rc4" }
+sp-api = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0-rc4" }
+sp-arithmetic = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0-rc4" }
+sp-runtime = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0-rc4" }
+
+frame-support = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0-rc4" }
+frame-system = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0-rc4" }
+
+pallet-timestamp = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0-rc4" }
+
+sp-runtime-interface = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0-rc4" }
+
+# Crypto
+rand_core = { version = "0.5", default-features = false }
+rand = { version = "0.7.3", default-features = false, optional = true } 
+cryptography = { path = "../../external/cryptography", default-features = false }
+curve25519-dalek = { version = "2", default-features = false, features = ["nightly"] }
+bulletproofs = { git = "https://github.com/PolymathNetwork/bulletproofs.git", branch = "main", default-features = false, features = ["zeroize"] }
+
+[features]
+equalize = []
+only-staking = []
+# default = ["std", "equalize", "avx2_backend"]
+default = ["std", "equalize", "u64_backend"]
+
+# Backends
+# u32_backend = ["cryptography/u32_backend"]
+u64_backend = ["cryptography/u64_backend"]
+avx2_backend = ["cryptography/avx2_backend"]
+
+no_std = [
+	"cryptography/no_std",
+	"u64_backend"
+]
+
+std = [
+	"rand/std",
+	"rand_core/std",
+	"cryptography/std",
+	"codec/std",
+	"sp-core/std",
+	"sp-std/std",
+	"sp-io/std",
+	"sp-api/std",
+	"sp-arithmetic/std",
+	"sp-runtime/std",
+	"sp-runtime-interface/std",
+	"frame-support/std",
+	"frame-system/std",
+	"pallet-timestamp/std",
+	"polymesh-primitives/std",
+]

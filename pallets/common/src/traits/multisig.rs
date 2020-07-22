@@ -19,7 +19,7 @@
 //! multisig module itself.
 
 use frame_support::dispatch::DispatchResult;
-use polymesh_primitives::{IdentityId, Signatory};
+use polymesh_primitives::Signatory;
 
 use sp_std::vec::Vec;
 

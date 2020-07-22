@@ -2,13 +2,13 @@
 
 pub use crate::chain_spec::{AldebaranChainSpec, GeneralChainSpec};
 pub use codec::Codec;
-use grandpa::{
-    self, FinalityProofProvider as GrandpaFinalityProofProvider, StorageAndProofProvider,
-};
+use grandpa::{self, FinalityProofProvider as GrandpaFinalityProofProvider};
+pub use pallet_confidential::native_rng;
 pub use polymesh_primitives::{
     AccountId, Balance, Block, BlockNumber, Hash, IdentityId, Index as Nonce, Moment, Signatory,
     SigningItem, Ticker,
 };
+
 pub use polymesh_runtime_develop;
 pub use polymesh_runtime_testnet_v1;
 use prometheus_endpoint::Registry;
@@ -34,7 +34,7 @@ pub trait IsAldebaranNetwork {
     fn is_aldebaran_network(&self) -> bool;
 }
 
-impl IsAldebaranNetwork for ChainSpec {
+impl IsAldebaranNetwork for dyn ChainSpec {
     fn is_aldebaran_network(&self) -> bool {
         self.name().starts_with("Polymesh Aldebaran")
     }
@@ -53,7 +53,7 @@ native_executor_instance!(
     pub GeneralExecutor,
     polymesh_runtime_develop::api::dispatch,
     polymesh_runtime_develop::native_version,
-    frame_benchmarking::benchmarking::HostFunctions,
+    (frame_benchmarking::benchmarking::HostFunctions, native_rng::HostFunctions)
 );
 
 /// A set of APIs that polkadot-like runtimes must implement.
@@ -64,7 +64,7 @@ pub trait RuntimeApiCollection<Extrinsic: codec::Codec + Send + Sync + 'static>:
     + grandpa_primitives::GrandpaApi<Block>
     + sp_block_builder::BlockBuilder<Block>
     + frame_system_rpc_runtime_api::AccountNonceApi<Block, AccountId, Nonce>
-    + pallet_transaction_payment_rpc_runtime_api::TransactionPaymentApi<Block, Balance, Extrinsic>
+    + node_rpc_runtime_api::transaction_payment::TransactionPaymentApi<Block, Balance, Extrinsic>
     + sp_api::Metadata<Block>
     + sp_offchain::OffchainWorkerApi<Block>
     + sp_session::SessionKeys<Block>
@@ -72,7 +72,7 @@ pub trait RuntimeApiCollection<Extrinsic: codec::Codec + Send + Sync + 'static>:
     + pallet_contracts_rpc_runtime_api::ContractsApi<Block, AccountId, Balance, BlockNumber>
     + pallet_staking_rpc_runtime_api::StakingApi<Block>
     + node_rpc_runtime_api::pips::PipsApi<Block, AccountId, Balance>
-    + pallet_identity_rpc_runtime_api::IdentityApi<
+    + node_rpc_runtime_api::identity::IdentityApi<
         Block,
         IdentityId,
         Ticker,
@@ -98,7 +98,7 @@ where
         + grandpa_primitives::GrandpaApi<Block>
         + sp_block_builder::BlockBuilder<Block>
         + frame_system_rpc_runtime_api::AccountNonceApi<Block, AccountId, Nonce>
-        + pallet_transaction_payment_rpc_runtime_api::TransactionPaymentApi<Block, Balance, Extrinsic>
+        + node_rpc_runtime_api::transaction_payment::TransactionPaymentApi<Block, Balance, Extrinsic>
         + sp_api::Metadata<Block>
         + sp_offchain::OffchainWorkerApi<Block>
         + sp_session::SessionKeys<Block>
@@ -106,7 +106,7 @@ where
         + pallet_contracts_rpc_runtime_api::ContractsApi<Block, AccountId, Balance, BlockNumber>
         + pallet_staking_rpc_runtime_api::StakingApi<Block>
         + node_rpc_runtime_api::pips::PipsApi<Block, AccountId, Balance>
-        + pallet_identity_rpc_runtime_api::IdentityApi<
+        + node_rpc_runtime_api::identity::IdentityApi<
             Block,
             IdentityId,
             Ticker,
@@ -146,7 +146,6 @@ macro_rules! new_full_start {
 
         set_prometheus_registry(&mut $config)?;
 
-        type RpcExtension = jsonrpc_core::IoHandler<sc_rpc::Metadata>;
         let mut import_setup = None;
         let mut rpc_setup = None;
         let inherent_data_providers = sp_inherents::InherentDataProviders::new();
@@ -167,7 +166,7 @@ macro_rules! new_full_start {
             Ok(pool)
         })?
         .with_import_queue(
-            |config, client, mut select_chain, _, spawn_task_handle, registry| {
+            |_config, client, mut select_chain, _, spawn_task_handle, registry| {
                 let select_chain = select_chain
                     .take()
                     .ok_or_else(|| sc_service::Error::SelectChainRequired)?;
@@ -278,8 +277,8 @@ macro_rules! new_full {
 			$config.disable_grandpa,
 		);
 
-		let is_authority = role.is_authority();
-		let db_path = match $config.database.path() {
+		let _is_authority = role.is_authority();
+		let _db_path = match $config.database.path() {
 			Some(path) => std::path::PathBuf::from(path),
 			None => return Err("Starting a Polkadot service with a custom database isn't supported".to_string().into()),
 		};

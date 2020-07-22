@@ -70,11 +70,12 @@ impl<AccountId> Context<AccountId> {
 #[cfg(test)]
 mod test {
     use super::*;
-    use polymesh_primitives::{AccountId, Permission, Signatory};
+    use crate::SystematicIssuers;
+    use polymesh_primitives::{AccountId, IdentityId, Permission, Signatory};
 
     use lazy_static::lazy_static;
     use std::{collections::BTreeMap, convert::From, sync::RwLock, thread};
-    use test_client::AccountKeyring;
+    use substrate_test_runtime_client::AccountKeyring;
 
     lazy_static! {
         pub static ref CURR_IDENTITY: RwLock<Option<IdentityId>> = RwLock::new(None);
@@ -125,8 +126,22 @@ mod test {
             false
         }
 
-        fn unsafe_add_systematic_cdd_claims(_targets: &[IdentityId]) {}
-        fn unsafe_revoke_systematic_cdd_claims(_targets: &[IdentityId]) {}
+        fn current_payer() -> Option<Signatory<AccountId>> {
+            None
+        }
+
+        fn set_current_payer(_payer: Option<Signatory<AccountId>>) {}
+
+        fn has_valid_cdd(_target_did: IdentityId) -> bool {
+            true
+        }
+
+        fn unsafe_add_systematic_cdd_claims(_targets: &[IdentityId], _issuer: SystematicIssuers) {}
+        fn unsafe_revoke_systematic_cdd_claims(
+            _targets: &[IdentityId],
+            _issuer: SystematicIssuers,
+        ) {
+        }
     }
 
     #[test]
