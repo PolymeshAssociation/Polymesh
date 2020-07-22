@@ -20,8 +20,7 @@ use pallet_identity as identity;
 use pallet_multisig as multisig;
 use polymesh_runtime_common::bridge;
 
-use pallet_transaction_payment::CddAndFeeDetails;
-use polymesh_common_utilities::Context;
+use polymesh_common_utilities::{traits::transaction_payment::CddAndFeeDetails, Context};
 use polymesh_primitives::{
     traits::IdentityCurrency, AccountId, AuthorizationData, IdentityId, Signatory, TransactionError,
 };

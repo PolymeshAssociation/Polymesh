@@ -74,11 +74,11 @@ pub type SpanIndex = u32;
 
 // A range of start..end eras for a slashing span.
 #[derive(Encode, Decode)]
-#[cfg_attr(test, derive(Debug, PartialEq))]
-pub(crate) struct SlashingSpan {
-    pub(crate) index: SpanIndex,
-    pub(crate) start: EraIndex,
-    pub(crate) length: Option<EraIndex>, // the ongoing slashing span has indeterminate length.
+#[cfg_attr(feature = "std", derive(Debug, PartialEq))]
+pub struct SlashingSpan {
+    pub index: SpanIndex,
+    pub start: EraIndex,
+    pub length: Option<EraIndex>, // the ongoing slashing span has indeterminate length.
 }
 
 impl SlashingSpan {
@@ -134,7 +134,7 @@ impl SlashingSpans {
     }
 
     // an iterator over all slashing spans in _reverse_ order - most recent first.
-    pub(crate) fn iter(&'_ self) -> impl Iterator<Item = SlashingSpan> + '_ {
+    pub fn iter(&'_ self) -> impl Iterator<Item = SlashingSpan> + '_ {
         let mut last_start = self.last_start;
         let mut index = self.span_index;
         let last = SlashingSpan {
@@ -193,15 +193,14 @@ impl SlashingSpans {
 
 /// A slashing-span record for a particular stash.
 #[derive(Encode, Decode, Default)]
-pub(crate) struct SpanRecord<Balance> {
+pub struct SpanRecord<Balance> {
     slashed: Balance,
     paid_out: Balance,
 }
 
 impl<Balance> SpanRecord<Balance> {
     /// The value of stash balance slashed in this span.
-    #[cfg(test)]
-    pub(crate) fn amount_slashed(&self) -> &Balance {
+    pub fn amount_slashed(&self) -> &Balance {
         &self.slashed
     }
 }

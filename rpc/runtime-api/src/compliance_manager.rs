@@ -20,7 +20,6 @@ use codec::Codec;
 use frame_support::traits::Currency;
 use pallet_compliance_manager::AssetTransferRulesResult;
 use polymesh_primitives::{IdentityId, Ticker};
-use sp_std::vec::Vec;
 
 pub trait Trait: frame_system::Trait {
     type Currency: Currency<Self::AccountId>;

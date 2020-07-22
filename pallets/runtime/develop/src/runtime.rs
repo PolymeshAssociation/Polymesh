@@ -8,14 +8,19 @@ use pallet_asset as asset;
 use pallet_balances as balances;
 use pallet_committee as committee;
 use pallet_compliance_manager::{self as compliance_manager, AssetTransferRulesResult};
+use pallet_confidential as confidential;
 use pallet_group as group;
-use pallet_identity as identity;
+use pallet_identity::{
+    self as identity,
+    types::{AssetDidResult, CddStatus, DidRecords, DidStatus},
+};
 use pallet_multisig as multisig;
 use pallet_pips::{HistoricalVotingByAddress, HistoricalVotingById, Vote, VoteCount};
+use pallet_portfolio as portfolio;
 use pallet_protocol_fee as protocol_fee;
 use pallet_settlement as settlement;
 use pallet_statistics as statistics;
-pub use pallet_transaction_payment::{Multiplier, TargetedFeeAdjustment};
+pub use pallet_transaction_payment::{Multiplier, RuntimeDispatchInfo, TargetedFeeAdjustment};
 use pallet_treasury as treasury;
 use pallet_utility as utility;
 use polymesh_common_utilities::{
@@ -29,8 +34,8 @@ use polymesh_common_utilities::{
     CommonTrait,
 };
 use polymesh_primitives::{
-    AccountId, AccountIndex, Balance, BlockNumber, Hash, IdentityId, Index, Link, Moment,
-    Signatory, Signature, SigningItem, Ticker,
+    AccountId, AccountIndex, Authorization, AuthorizationType, Balance, BlockNumber, Hash,
+    IdentityId, Index, Moment, PortfolioId, Signatory, Signature, SigningItem, Ticker,
 };
 use polymesh_runtime_common::{
     bridge,
@@ -69,19 +74,18 @@ use frame_support::{
     construct_runtime, debug, parameter_types,
     traits::{KeyOwnerProofSystem, Randomness, SplitTwoWays},
     weights::{
-        constants::{BlockExecutionWeight, ExtrinsicBaseWeight, RocksDbWeight, WEIGHT_PER_SECOND},
+        constants::{BlockExecutionWeight, ExtrinsicBaseWeight, RocksDbWeight},
         IdentityFee, Weight,
     },
 };
 use pallet_contracts_rpc_runtime_api::ContractExecResult;
+
 use pallet_grandpa::{
     fg_primitives, AuthorityId as GrandpaId, AuthorityList as GrandpaAuthorityList,
 };
-use pallet_identity_rpc_runtime_api::{AssetDidResult, CddStatus, DidRecords, DidStatus, LinkType};
 use pallet_im_online::sr25519::AuthorityId as ImOnlineId;
 use pallet_protocol_fee_rpc_runtime_api::CappedFee;
 use pallet_session::historical as pallet_session_historical;
-use pallet_transaction_payment_rpc_runtime_api::RuntimeDispatchInfo;
 use sp_authority_discovery::AuthorityId as AuthorityDiscoveryId;
 use sp_inherents::{CheckInherentsResult, InherentData};
 #[cfg(feature = "std")]
@@ -578,6 +582,10 @@ impl bridge::Trait for Runtime {
     type MaxTimelockedTxsPerBlock = MaxTimelockedTxsPerBlock;
 }
 
+impl portfolio::Trait for Runtime {
+    type Event = Event;
+}
+
 impl asset::Trait for Runtime {
     type Event = Event;
     type Currency = Balances;
@@ -658,8 +666,11 @@ impl EnactProposalMaker<Origin, Call> for Runtime {
         Call::Pips(pallet_pips::Call::reject_referendum(id))
     }
 }
+impl confidential::Trait for Runtime {
+    type Event = Event;
+}
 
-/// A runtime transaction submitter for the cdd_offchain_worker
+// / A runtime transaction submitter for the cdd_offchain_worker
 // Comment it in the favour of Testnet v1 release
 //type SubmitTransactionCdd = TransactionSubmitter<CddOffchainWorkerId, Runtime, UncheckedExtrinsic>;
 
@@ -744,6 +755,8 @@ construct_runtime!(
         Utility: utility::{Module, Call, Storage, Event},
         // Comment it in the favour of Testnet v1 release
         // CddOffchainWorker: pallet_cdd_offchain_worker::{Module, Call, Storage, ValidateUnsigned, Event<T>}
+        Portfolio: portfolio::{Module, Call, Storage, Event<T>},
+        Confidential: confidential::{Module, Call, Storage, Event },
     }
 );
 
@@ -942,7 +955,7 @@ impl_runtime_apis! {
         }
     }
 
-    impl pallet_transaction_payment_rpc_runtime_api::TransactionPaymentApi<
+    impl node_rpc_runtime_api::transaction_payment::TransactionPaymentApi<
         Block,
         Balance,
         UncheckedExtrinsic,
@@ -1009,7 +1022,7 @@ impl_runtime_apis! {
     }
 
     impl
-        pallet_identity_rpc_runtime_api::IdentityApi<
+        node_rpc_runtime_api::identity::IdentityApi<
             Block,
             IdentityId,
             Ticker,
@@ -1038,18 +1051,18 @@ impl_runtime_apis! {
             Identity::get_did_records(did)
         }
 
-        /// Retrieve list of a link for a given signatory
-        fn get_filtered_links(
-            signatory: Signatory<AccountId>,
-            allow_expired: bool,
-            link_type: Option<LinkType>
-        ) -> Vec<Link<Moment>> {
-            Identity::get_filtered_links(signatory, allow_expired, link_type)
-        }
-
         /// Retrieve the status of the DIDs
         fn get_did_status(dids: Vec<IdentityId>) -> Vec<DidStatus> {
             Identity::get_did_status(dids)
+        }
+
+        /// Retrieve list of a authorization for a given signatory
+        fn get_filtered_authorizations(
+            signatory: Signatory<AccountId>,
+            allow_expired: bool,
+            auth_type: Option<AuthorizationType>
+        ) -> Vec<Authorization<AccountId, Moment>> {
+            Identity::get_filtered_authorizations(signatory, allow_expired, auth_type)
         }
     }
 
@@ -1096,36 +1109,42 @@ impl_runtime_apis! {
         }
     }
 
+    impl node_rpc_runtime_api::portfolio::PortfolioApi<Block, Balance> for Runtime {
+        #[inline]
+        fn get_portfolios(did: IdentityId) -> node_rpc_runtime_api::portfolio::GetPortfoliosResult {
+            Ok(Portfolio::rpc_get_portfolios(did))
+        }
+
+        #[inline]
+        fn get_portfolio_assets(portfolio_id: PortfolioId) ->
+            node_rpc_runtime_api::portfolio::GetPortfolioAssetsResult<Balance>
+        {
+            Ok(Portfolio::rpc_get_portfolio_assets(portfolio_id))
+        }
+    }
+
     #[cfg(feature = "runtime-benchmarks")]
     impl frame_benchmarking::Benchmark<Block> for Runtime {
         fn dispatch_benchmark(
-            module: Vec<u8>,
-            extrinsic: Vec<u8>,
+            pallet: Vec<u8>,
+            benchmark: Vec<u8>,
             lowest_range_values: Vec<u32>,
             highest_range_values: Vec<u32>,
             steps: Vec<u32>,
             repeat: u32,
-        ) -> Result<Vec<frame_benchmarking::BenchmarkResults>, sp_runtime::RuntimeString> {
-            use frame_benchmarking::Benchmarking;
+        ) -> Result<Vec<frame_benchmarking::BenchmarkBatch>, sp_runtime::RuntimeString> {
+            use frame_benchmarking::{Benchmarking, BenchmarkBatch, add_benchmark};
 
-            let result = match module.as_slice() {
-                b"pallet-identity" | b"identity" => Identity::run_benchmark(
-                    extrinsic,
-                    lowest_range_values,
-                    highest_range_values,
-                    steps,
-                    repeat,
-                ),
-                b"runtime-asset" | b"asset" => Asset::run_benchmark(
-                    extrinsic,
-                    lowest_range_values,
-                    highest_range_values,
-                    steps,
-                    repeat,
-                ),
-                _ => Err("Benchmark not found for this pallet."),
-            };
-            result.map_err(|e| e.into())
+            let mut batches = Vec::<BenchmarkBatch>::new();
+            let params = (&pallet, &benchmark, &lowest_range_values, &highest_range_values, &steps, repeat);
+
+            add_benchmark!(params, batches, b"asset", Asset);
+            add_benchmark!(params, batches, b"identity", Identity);
+            add_benchmark!(params, batches, b"im-online", ImOnline);
+            add_benchmark!(params, batches, b"staking", Staking);
+
+            if batches.is_empty() { return Err("Benchmark not found for this pallet.".into()) }
+            Ok(batches)
         }
     }
 }

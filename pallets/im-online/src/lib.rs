@@ -73,7 +73,10 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 mod benchmarking;
+
+#[cfg(test)]
 mod mock;
+#[cfg(test)]
 mod tests;
 
 use codec::{Decode, Encode};

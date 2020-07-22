@@ -16,10 +16,11 @@
 use codec::{Decode, Encode};
 use core::fmt::{Display, Formatter};
 use core::str;
+use polymesh_primitives_derive::VecU8StrongTyped;
 #[cfg(feature = "std")]
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use sp_runtime::traits::Printable;
-use sp_std::prelude::*;
+use sp_std::prelude::Vec;
 
 const _POLY_DID_PREFIX: &str = "did:poly:";
 const POLY_DID_PREFIX_LEN: usize = 9; // _POLY_DID_PREFIX.len(); // CI does not support: #![feature(const_str_len)]
@@ -39,7 +40,7 @@ const UUID_LEN: usize = 32usize;
 ///  - "did:poly:ab01"
 ///  - "did:poly:1"
 ///  - "DID:poly:..."
-#[derive(Encode, Decode, Default, PartialOrd, Ord, PartialEq, Eq, Clone, Copy, Debug)]
+#[derive(Encode, Decode, Default, PartialOrd, Ord, PartialEq, Eq, Clone, Copy, Debug, Hash)]
 pub struct IdentityId([u8; UUID_LEN]);
 
 impl IdentityId {
@@ -162,6 +163,75 @@ impl Printable for IdentityId {
     fn print(&self) {
         sp_io::misc::print_utf8(b"did:poly:");
         sp_io::misc::print_hex(&self.0);
+    }
+}
+
+/// A wrapper for a portfolio name. It is used for non-default (aka "user") portfolios only since
+/// default ones are nameless.
+#[derive(
+    Decode, Encode, Clone, Debug, Default, Hash, PartialEq, Eq, PartialOrd, Ord, VecU8StrongTyped,
+)]
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+pub struct PortfolioName(pub Vec<u8>);
+
+/// The unique ID of a non-default portfolio.
+pub type PortfolioNumber = u64;
+
+#[derive(Decode, Encode, Clone, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+pub enum PortfolioKind {
+    /// The default portfolio of a DID.
+    Default,
+    /// A user-defined portfolio of a DID.
+    User(PortfolioNumber),
+}
+
+impl Default for PortfolioKind {
+    fn default() -> Self {
+        PortfolioKind::Default
+    }
+}
+
+/// The ID of a portfolio.
+#[derive(Decode, Encode, Clone, Debug, Default, Hash, PartialEq, Eq, PartialOrd, Ord)]
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+pub struct PortfolioId {
+    /// The DID of the portfolio.
+    did: IdentityId,
+    /// The kind of the portfolio: either default or user.
+    kind: PortfolioKind,
+}
+
+impl Printable for PortfolioId {
+    fn print(&self) {
+        self.did.print();
+        sp_io::misc::print_utf8(b"/");
+        match self.kind {
+            PortfolioKind::Default => {
+                sp_io::misc::print_utf8(b"default");
+            }
+            PortfolioKind::User(num) => {
+                sp_io::misc::print_hex(&num.to_be_bytes());
+            }
+        }
+    }
+}
+
+impl PortfolioId {
+    /// Returns the default portfolio of `did`.
+    pub fn default_portfolio(did: IdentityId) -> Self {
+        Self {
+            did,
+            kind: PortfolioKind::Default,
+        }
+    }
+
+    /// Returns the user portfolio `num` of `did`.
+    pub fn user_portfolio(did: IdentityId, num: PortfolioNumber) -> Self {
+        Self {
+            did,
+            kind: PortfolioKind::User(num),
+        }
     }
 }
 

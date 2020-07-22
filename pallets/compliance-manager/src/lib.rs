@@ -91,7 +91,7 @@ use polymesh_common_utilities::{
     protocol_fee::{ChargeProtocolFee, ProtocolOp},
     Context,
 };
-use polymesh_primitives::{predicate, Claim, IdentityId, Rule, RuleType, Signatory, Ticker};
+use polymesh_primitives::{predicate, Claim, IdentityId, Rule, RuleType, Ticker};
 #[cfg(feature = "std")]
 use sp_runtime::{Deserialize, Serialize};
 use sp_std::{
@@ -259,7 +259,6 @@ decl_module! {
 
             ensure!(Self::is_owner(&ticker, did), Error::<T>::Unauthorized);
             <<T as IdentityTrait>::ProtocolFee>::charge_fee(
-                &Signatory::Account(sender),
                 ProtocolOp::ComplianceManagerAddActiveRule
             )?;
             let new_rule = AssetTransferRule {

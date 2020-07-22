@@ -5,14 +5,18 @@ authors = ["Polymath"]
 edition = "2018"
 
 [dependencies]
-codec = { package = "parity-scale-codec", version = "1.2.0" }
+polymesh-common-utilities = { path = "../../common", default-features = false }
+pallet-protocol-fee-rpc-runtime-api = { path = "./runtime-api" }
+
+# General 
 serde = { version = "1.0.104", features = ["derive"] }
 jsonrpc-core = "14.0.5"
 jsonrpc-core-client = "14.0.5"
 jsonrpc-derive = "14.0.5"
-sp-rpc = { git = 'https://github.com/paritytech/substrate.git', default_features = false, rev = 'c771821cae2dcb5a8808a19fae8122c0b9ae8499'}
-sp-runtime = { git = 'https://github.com/paritytech/substrate.git', default_features = false, rev = 'c771821cae2dcb5a8808a19fae8122c0b9ae8499' }
-sp-blockchain = { git = 'https://github.com/paritytech/substrate.git', default_features = false, rev = 'c771821cae2dcb5a8808a19fae8122c0b9ae8499'}
-sp-api = { git = 'https://github.com/paritytech/substrate.git', default_features = false, rev = 'c771821cae2dcb5a8808a19fae8122c0b9ae8499'}
-pallet-protocol-fee-rpc-runtime-api = { path = "./runtime-api" }
-polymesh-common-utilities = { package = "polymesh-common-utilities", path = "../../common", default-features = false }
+
+# Substrate
+codec = { package = "parity-scale-codec", version = "1.2.0" }
+sp-rpc = { git = 'https://github.com/paritytech/substrate', default_features = false, tag = "v2.0.0-rc4"}
+sp-runtime = { git = 'https://github.com/paritytech/substrate', default_features = false, tag = "v2.0.0-rc4" }
+sp-blockchain = { git = 'https://github.com/paritytech/substrate', default_features = false, tag = "v2.0.0-rc4"}
+sp-api = { git = 'https://github.com/paritytech/substrate', default_features = false, tag = "v2.0.0-rc4"}
