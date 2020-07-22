@@ -505,8 +505,19 @@ decl_module! {
             } else {
                 <FundingRound>::insert(ticker, FundingRoundName::default());
             }
+
+            // Update the investor count of an asset.
+            <statistics::Module<T>>::update_transfer_stats(&ticker, None, Some(total_supply), total_supply);
+
             Self::deposit_event(RawEvent::IdentifiersUpdated(did, ticker, identifiers));
             <IssuedInFundingRound<T>>::insert((ticker, Self::funding_round(ticker)), total_supply);
+            Self::deposit_event(RawEvent::Transfer(
+                did,
+                ticker,
+                IdentityId::default(),
+                did,
+                total_supply
+            ));
             Self::deposit_event(RawEvent::Issued(
                 did,
                 ticker,
@@ -792,6 +803,13 @@ decl_module! {
                 Self::_update_checkpoint(&ticker, issue_asset_items[i].investor_did, current_balances[i]);
                 <BalanceOf<T>>::insert(ticker, issue_asset_items[i].investor_did, updated_balances[i]);
                 <statistics::Module<T>>::update_transfer_stats(&ticker, None, Some(updated_balances[i]), issue_asset_items[i].value);
+                Self::deposit_event(RawEvent::Transfer(
+                    did,
+                    ticker,
+                    IdentityId::default(),
+                    issue_asset_items[i].investor_did,
+                    updated_balances[i]
+                ));
                 Self::deposit_event(RawEvent::Issued(
                     did,
                     ticker,
@@ -1932,12 +1950,28 @@ impl<T: Trait> Module<T> {
 
         <BalanceOf<T>>::insert(ticker, &to_did, updated_to_balance);
         <Tokens<T>>::insert(ticker, token);
+
+        // Update the investor count of an asset.
+        <statistics::Module<T>>::update_transfer_stats(
+            &ticker,
+            None,
+            Some(updated_to_balance),
+            value,
+        );
+
         let round = Self::funding_round(ticker);
         let ticker_round = (*ticker, round.clone());
         let issued_in_this_round = Self::issued_in_funding_round(&ticker_round)
             .checked_add(&value)
             .ok_or(Error::<T>::FundingRoundTotalOverflow)?;
         <IssuedInFundingRound<T>>::insert(&ticker_round, issued_in_this_round);
+        Self::deposit_event(RawEvent::Transfer(
+            Context::current_identity_or::<Identity<T>>(&caller)?,
+            *ticker,
+            IdentityId::default(),
+            to_did,
+            value,
+        ));
         Self::deposit_event(RawEvent::Issued(
             Context::current_identity_or::<Identity<T>>(&caller)?,
             *ticker,

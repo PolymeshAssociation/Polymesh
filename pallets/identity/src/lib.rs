@@ -583,7 +583,8 @@ decl_module! {
                 Ok(post_info) => post_info.actual_weight,
                 Err(err) => err.post_info.actual_weight,
             };
-            Ok((Some(actual_weight.unwrap_or(0u64) + 500_000 + proposal_weight as Weight)).into())
+
+            Ok((Some(actual_weight.unwrap_or(proposal_weight as Weight) + 500_000)).into())
         }
 
         /// Marks the specified claim as revoked.
