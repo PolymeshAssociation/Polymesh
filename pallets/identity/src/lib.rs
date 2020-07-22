@@ -550,7 +550,6 @@ decl_module! {
         )]
         fn forwarded_call(origin, target_did: IdentityId, proposal: Box<T::Proposal>) -> DispatchResultWithPostInfo {
             let sender = ensure_signed(origin)?;
-            let proposal_weight = proposal.get_dispatch_info().weight;
 
             // 1. Constraints.
             // 1.1. A valid current identity.
@@ -584,7 +583,7 @@ decl_module! {
                 Err(err) => err.post_info.actual_weight,
             };
 
-            Ok((Some(actual_weight.unwrap_or(proposal_weight as Weight) + 500_000)).into())
+            Ok((actual_weight.map(|w| w + 500_000)).into())
         }
 
         /// Marks the specified claim as revoked.
