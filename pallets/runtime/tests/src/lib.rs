@@ -35,6 +35,7 @@ mod identity_test;
 mod multisig;
 #[cfg(test)]
 mod pips_test;
+#[cfg(test)]
 mod portfolio;
 #[cfg(test)]
 mod protocol_fee;

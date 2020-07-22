@@ -41,7 +41,6 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use codec::{Decode, Encode};
-use core::result::Result;
 use frame_support::{
     decl_error, decl_event, decl_module, decl_storage, dispatch::DispatchResult, ensure,
     IterableStorageDoubleMap,
@@ -55,7 +54,8 @@ use sp_std::{convert::TryFrom, prelude::Vec};
 type Identity<T> = pallet_identity::Module<T>;
 
 /// The ticker and balance of an asset to be moved from one portfolio to another.
-#[derive(Encode, Decode, Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord)]
+#[cfg_attr(feature = "std", derive(Debug))]
+#[derive(Encode, Decode, Clone, Default, PartialEq, Eq, PartialOrd, Ord)]
 pub struct MovePortfolioItem<Balance> {
     /// The ticker of the asset to be moved.
     pub ticker: Ticker,
@@ -73,15 +73,15 @@ decl_storage! {
         /// portfolio number maps to `None` then such a portfolio doesn't exist. Conversely, if a
         /// pair maps to `Some(name)` then such a portfolio exists and is called `name`.
         pub Portfolios get(fn portfolios):
-            double_map hasher(blake2_128_concat) IdentityId, hasher(twox_64_concat) PortfolioNumber =>
+            double_map hasher(twox_64_concat) IdentityId, hasher(twox_64_concat) PortfolioNumber =>
             Option<PortfolioName>;
         /// The asset balances of portfolios.
         pub PortfolioAssetBalances get(fn portfolio_asset_balances):
-            double_map hasher(blake2_128_concat) PortfolioId, hasher(blake2_128_concat) Ticker =>
+            double_map hasher(twox_64_concat) PortfolioId, hasher(blake2_128_concat) Ticker =>
             T::Balance;
         /// The next portfolio sequence number of an identity.
         pub NextPortfolioNumber get(fn next_portfolio_number):
-            map hasher(blake2_128_concat) IdentityId => PortfolioNumber;
+            map hasher(twox_64_concat) IdentityId => PortfolioNumber;
     }
 }
 
@@ -313,17 +313,15 @@ impl<T: Trait> Module<T> {
     }
 
     /// An RPC function that lists all user-defined portfolio number-name pairs.
-    pub fn rpc_get_portfolios(
-        did: IdentityId,
-    ) -> Result<Vec<(PortfolioNumber, PortfolioName)>, &'static str> {
-        Ok(<Portfolios>::iter_prefix(&did).collect())
+    pub fn rpc_get_portfolios(did: IdentityId) -> Vec<(PortfolioNumber, PortfolioName)> {
+        <Portfolios>::iter_prefix(&did).collect()
     }
 
     /// An RPC function that lists all token-balance pairs of a portfolio.
     pub fn rpc_get_portfolio_assets(
         portfolio_id: PortfolioId,
-    ) -> Result<Vec<(Ticker, <T as CommonTrait>::Balance)>, &'static str> {
-        Ok(<PortfolioAssetBalances<T>>::iter_prefix(&portfolio_id).collect())
+    ) -> Vec<(Ticker, <T as CommonTrait>::Balance)> {
+        <PortfolioAssetBalances<T>>::iter_prefix(&portfolio_id).collect()
     }
 
     /// Ensures that there is no portfolio with the desired `name` yet.

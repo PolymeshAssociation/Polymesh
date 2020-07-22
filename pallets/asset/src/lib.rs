@@ -273,7 +273,8 @@ impl Default for RestrictionResult {
 }
 
 /// The total asset balance and the balance of the asset in a specified portfolio of an identity.
-#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
+#[cfg_attr(feature = "std", derive(Debug))]
+#[derive(Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct FocusedBalances<Balance> {
     /// The total balance of the asset held by the identity.
     pub total: Balance,
@@ -1728,7 +1729,7 @@ impl<T: Trait> Module<T> {
             at > Self::total_checkpoints_of(&ticker)
         {
             // No checkpoints data exist
-            return Self::balance(&ticker, did).total;
+            return Self::balance_of(&ticker, &did);
         }
 
         if <UserCheckpoints>::contains_key(&ticker_did) {
@@ -1738,7 +1739,7 @@ impl<T: Trait> Module<T> {
                 // or part should never be triggered due to the check on 2 lines above
                 // User has not transacted after checkpoint creation.
                 // This means their current balance = their balance at that cp.
-                return Self::balance(&ticker, did).total;
+                return Self::balance_of(&ticker, &did);
             }
             // Uses the first checkpoint that was created after target checkpoint
             // and the user has data for that checkpoint
@@ -1751,7 +1752,7 @@ impl<T: Trait> Module<T> {
         // User has no checkpoint data.
         // This means that user's balance has not changed since first checkpoint was created.
         // Maybe the user never held any balance.
-        Self::balance(&ticker, did).total
+        Self::balance_of(&ticker, &did)
     }
 
     fn find_ceiling(arr: &Vec<u64>, key: u64) -> u64 {
@@ -2024,8 +2025,7 @@ impl<T: Trait> Module<T> {
         holder_did: IdentityId,
         value: T::Balance,
     ) -> DispatchResult {
-        let remaining_balance = Self::balance(&ticker, holder_did)
-            .total
+        let remaining_balance = Self::balance_of(&ticker, &holder_did)
             .checked_sub(&value)
             .ok_or(Error::<T>::BalanceUnderflow)?;
         ensure!(
@@ -2047,7 +2047,7 @@ impl<T: Trait> Module<T> {
             .ok_or(Error::<T>::TotalAllowanceOverflow)?;
         // Ensure that balance of the token holder is >= the total custody allowance + value
         ensure!(
-            Self::balance(&ticker, holder_did).total >= new_custody_allowance,
+            Self::balance_of(&ticker, &holder_did) >= new_custody_allowance,
             Error::<T>::InsufficientBalance
         );
         // Ensure the valid DID

@@ -267,7 +267,7 @@ fn valid_custodian_allowance() {
         ));
 
         assert_eq!(
-            Asset::balance(&ticker, token.owner_did).total,
+            Asset::balance_of(&ticker, &token.owner_did),
             token.total_supply
         );
 
@@ -301,7 +301,7 @@ fn valid_custodian_allowance() {
         // Check the expected default behaviour of the map.
         let no_such_round: FundingRoundName = b"No such round".into();
         assert_eq!(Asset::issued_in_funding_round((ticker, no_such_round)), 0);
-        assert_eq!(Asset::balance(&ticker, investor1_did).total, num_tokens1);
+        assert_eq!(Asset::balance_of(&ticker, &investor1_did), num_tokens1);
 
         // Failed to add custodian because of insufficient balance
         assert_noop!(
@@ -353,7 +353,7 @@ fn valid_custodian_allowance() {
         ));
 
         assert_eq!(
-            Asset::balance(&ticker, investor2_did).total,
+            Asset::balance_of(&ticker, &investor2_did),
             1_400_000 as u128
         );
 
