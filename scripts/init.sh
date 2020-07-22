@@ -4,11 +4,6 @@ set -e
 
 echo "*** Initializing WASM build environment"
 
-if [ -z $CI_PROJECT_NAME ] ; then
-   rustup update nightly
-   rustup update stable
-fi
-
 # Fetch name of preferred toolchain...
 TOOLCHAIN=$(< $(dirname $0)/../rust-toolchain)
 # ...and install it + wasm32 target.
