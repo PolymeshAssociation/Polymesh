@@ -54,8 +54,7 @@ use sp_std::{convert::TryFrom, prelude::Vec};
 type Identity<T> = pallet_identity::Module<T>;
 
 /// The ticker and balance of an asset to be moved from one portfolio to another.
-#[cfg_attr(feature = "std", derive(Debug))]
-#[derive(Encode, Decode, Clone, Default, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Encode, Decode, Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord)]
 pub struct MovePortfolioItem<Balance> {
     /// The ticker of the asset to be moved.
     pub ticker: Ticker,
