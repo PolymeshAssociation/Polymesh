@@ -165,16 +165,6 @@ pub struct PipsMetadata<T: Trait> {
     pub cool_off_until: T::BlockNumber,
 }
 
-/// Was the deposit of a vote increased or decreased?
-#[derive(Clone, Copy, Eq, PartialEq, Decode, Encode)]
-#[cfg_attr(feature = "std", derive(Debug))]
-pub enum BondAdjustDir {
-    /// The deposit of a vote was increased.
-    Increased,
-    /// The deposit of a vote was decreased.
-    Decreased,
-}
-
 /// For keeping track of proposal being voted on.
 #[derive(PartialEq, Eq, Clone, Encode, Decode, Default)]
 #[cfg_attr(feature = "std", derive(Debug))]
@@ -396,7 +386,8 @@ decl_event!(
         /// A PIP's details (url & description) were amended.
         ProposalDetailsAmended(IdentityId, AccountId, PipId, Option<Url>, Option<PipDescription>),
         /// The deposit of a vote on a PIP was adjusted, either by increasing or decreasing.
-        ProposalBondAdjusted(IdentityId, AccountId, PipId, BondAdjustDir, Balance),
+        /// `true` represents an increase and `false` a decrease.
+        ProposalBondAdjusted(IdentityId, AccountId, PipId, bool, Balance),
         /// Triggered each time the state of a proposal is amended
         ProposalStateUpdated(IdentityId, PipId, ProposalState),
         /// `AccountId` voted `bool` on the proposal referenced by `PipId`
@@ -614,7 +605,7 @@ decl_module! {
                     debug::error!("The counters of voting (id={}) have an overflow during the 1st vote", id);
                     vote_error
                 })?;
-            let current_did = Context::current_identity::<Identity<T>>().ok_or_else(|| Error::<T>::MissingCurrentIdentity)?;
+            let current_did = Self::current_did_or_missing()?;
             Self::deposit_event(RawEvent::ProposalCreated(
                 current_did,
                 proposer,
@@ -664,7 +655,7 @@ decl_module! {
                     meta.description = description.clone();
                 }
             });
-            let current_did = Context::current_identity::<Identity<T>>().ok_or_else(|| Error::<T>::MissingCurrentIdentity)?;
+            let current_did = Self::current_did_or_missing()?;
             Self::deposit_event(RawEvent::ProposalDetailsAmended(current_did, proposer, id, url, description));
 
             Ok(())
@@ -724,7 +715,7 @@ decl_module! {
             );
             <ProposalVotes<T>>::insert(id, &proposer, Vote::Yes(curr_deposit + max_additional_deposit));
 
-            Self::emit_proposal_bond_adjusted(proposer, id, BondAdjustDir::Increased, max_additional_deposit)
+            Self::emit_proposal_bond_adjusted(proposer, id, true, max_additional_deposit)
         }
 
         /// It unbonds any amount from the deposit of the proposal with id `id`.
@@ -763,7 +754,7 @@ decl_module! {
             );
             <ProposalVotes<T>>::insert(id, &proposer, Vote::Yes(new_deposit));
 
-            Self::emit_proposal_bond_adjusted(proposer, id, BondAdjustDir::Decreased, amount)
+            Self::emit_proposal_bond_adjusted(proposer, id, false, amount)
         }
 
         /// A network member can vote on any PIP by selecting the id that
@@ -814,7 +805,7 @@ decl_module! {
                 amount: deposit,
             };
             <Deposits<T>>::insert(id, &proposer, depo_info);
-            let current_did = Context::current_identity::<Identity<T>>().ok_or_else(|| Error::<T>::MissingCurrentIdentity)?;
+            let current_did = Self::current_did_or_missing()?;
             Self::deposit_event(RawEvent::Voted(current_did, proposer, id, aye_or_nay, deposit));
         }
 
@@ -1021,15 +1012,19 @@ decl_module! {
 }
 
 impl<T: Trait> Module<T> {
+    /// Returns the current identity or emits `MissingCurrentIdentity`.
+    fn current_did_or_missing() -> Result<IdentityId, Error<T>> {
+        Context::current_identity::<Identity<T>>().ok_or_else(|| Error::<T>::MissingCurrentIdentity)
+    }
+
     fn emit_proposal_bond_adjusted(
         proposer: T::AccountId,
         id: PipId,
-        dir: BondAdjustDir,
+        increased: bool,
         amount: BalanceOf<T>,
     ) -> DispatchResult {
-        let current_did = Context::current_identity::<Identity<T>>()
-            .ok_or_else(|| Error::<T>::MissingCurrentIdentity)?;
-        let event = RawEvent::ProposalBondAdjusted(current_did, proposer, id, dir, amount);
+        let current_did = Self::current_did_or_missing()?;
+        let event = RawEvent::ProposalBondAdjusted(current_did, proposer, id, increased, amount);
         Self::deposit_event(event);
         Ok(())
     }
@@ -1179,8 +1174,7 @@ impl<T: Trait> Module<T> {
             }
         });
         <ScheduledReferendumsAt<T>>::mutate(enactment_period, |ids| ids.push(id));
-        let current_did = Context::current_identity::<Identity<T>>()
-            .ok_or_else(|| Error::<T>::MissingCurrentIdentity)?;
+        let current_did = Self::current_did_or_missing()?;
         Self::deposit_event(RawEvent::ReferendumScheduled(
             current_did,
             id,
