@@ -166,7 +166,8 @@ pub struct PipsMetadata<T: Trait> {
 }
 
 /// Was the deposit of a vote increased or decreased?
-#[derive(Clone, Copy, Eq, PartialEq, Debug, Decode, Encode)]
+#[derive(Clone, Copy, Eq, PartialEq, Decode, Encode)]
+#[cfg_attr(feature = "std", derive(Debug))]
 pub enum BondAdjustDir {
     /// The deposit of a vote was increased.
     Increased,
@@ -678,22 +679,13 @@ decl_module! {
         /// * `ProposalIsImmutable`: A Proposal is mutable only during its cool off period.
         #[weight = (1_000_000, DispatchClass::Operational, Pays::Yes)]
         pub fn cancel_proposal(origin, id: PipId) -> DispatchResult {
-            // 0. Initial info.
-            let proposer = ensure_signed(origin)?;
-            // 1. Only owner can cancel it.
-            let meta = Self::proposal_metadata(id)
-                .ok_or_else(|| Error::<T>::NoSuchProposal)?;
-            ensure!( meta.proposer == proposer, Error::<T>::BadOrigin);
-            // Check that the proposal is pending
-            Self::is_proposal_state(id, ProposalState::Pending)?;
-            // 2. Proposal can be cancelled *ONLY* during its cool-off period.
-            let curr_block_number = <system::Module<T>>::block_number();
-            ensure!( meta.cool_off_until > curr_block_number, Error::<T>::ProposalIsImmutable);
+            // 1. Fetch proposer and perform sanity checks.
+            let _ = Self::ensure_owned_by_alterable(origin, id)?;
 
-            // 3. Refund the bond for the proposal
+            // 2. Refund the bond for the proposal.
             Self::refund_proposal(id);
 
-            // 4. Close that proposal.
+            // 3. Close that proposal.
             Self::update_proposal_state(id, ProposalState::Cancelled);
             Self::prune_data(id, Self::prune_historical_pips());
 
@@ -711,20 +703,10 @@ decl_module! {
             id: PipId,
             additional_deposit: BalanceOf<T>
         ) -> DispatchResult {
-            let proposer = ensure_signed(origin)?;
-            let meta = Self::proposal_metadata(id)
-                .ok_or_else(|| Error::<T>::NoSuchProposal)?;
+            // 1. Sanity checks.
+            let proposer = Self::ensure_owned_by_alterable(origin, id)?;
 
-            // 1. Only owner can add additional deposit.
-            ensure!( meta.proposer == proposer, Error::<T>::BadOrigin);
-            // Check that the proposal is pending
-            Self::is_proposal_state(id, ProposalState::Pending)?;
-
-            // 2. Proposal can be amended *ONLY* during its cool-off period.
-            let curr_block_number = <system::Module<T>>::block_number();
-            ensure!( meta.cool_off_until > curr_block_number, Error::<T>::ProposalIsImmutable);
-
-            // 3. Reserve extra deposit & update deposit info for this proposal
+            // 2. Reserve extra deposit & update deposit info for this proposal
             let curr_deposit = Self::deposits(id, &proposer).amount;
             let max_additional_deposit = curr_deposit.saturating_add( additional_deposit) - curr_deposit;
             <T as Trait>::Currency::reserve(&proposer, max_additional_deposit)
@@ -735,16 +717,14 @@ decl_module! {
                 &proposer,
                 |depo_info| depo_info.amount += max_additional_deposit);
 
-            // 4. Update vote details to record additional vote
+            // 3. Update vote details to record additional vote
             <ProposalResult<T>>::mutate(
                 id,
                 |stats| stats.ayes_stake += max_additional_deposit
             );
             <ProposalVotes<T>>::insert(id, &proposer, Vote::Yes(curr_deposit + max_additional_deposit));
-            let current_did = Context::current_identity::<Identity<T>>().ok_or_else(|| Error::<T>::MissingCurrentIdentity)?;
-            Self::deposit_event(RawEvent::ProposalBondAdjusted(current_did, proposer, id, BondAdjustDir::Increased, max_additional_deposit));
 
-            Ok(())
+            Self::emit_proposal_bond_adjusted(proposer, id, BondAdjustDir::Increased, max_additional_deposit)
         }
 
         /// It unbonds any amount from the deposit of the proposal with id `id`.
@@ -759,20 +739,10 @@ decl_module! {
             id: PipId,
             amount: BalanceOf<T>
         ) -> DispatchResult {
-            let proposer = ensure_signed(origin)?;
-            let meta = Self::proposal_metadata(id)
-                .ok_or_else(|| Error::<T>::NoSuchProposal)?;
+            // 1. Sanity checks.
+            let proposer = Self::ensure_owned_by_alterable(origin, id)?;
 
-            // 1. Only owner can cancel it.
-            ensure!( meta.proposer == proposer, Error::<T>::BadOrigin);
-            // Check that the proposal is pending
-            Self::is_proposal_state(id, ProposalState::Pending)?;
-
-            // 2. Proposal can be cancelled *ONLY* during its cool-off period.
-            let curr_block_number = <system::Module<T>>::block_number();
-            ensure!( meta.cool_off_until > curr_block_number, Error::<T>::ProposalIsImmutable);
-
-            // 3. Double-check that `amount` is valid.
+            // 2. Double-check that `amount` is valid.
             let mut depo_info = Self::deposits(id, &proposer);
             let new_deposit = depo_info.amount.checked_sub(&amount)
                     .ok_or_else(|| Error::<T>::InsufficientDeposit)?;
@@ -782,20 +752,18 @@ decl_module! {
             let diff_amount = depo_info.amount - new_deposit;
             depo_info.amount = new_deposit;
 
-            // 3.1. Unreserve and update deposit info.
+            // 2.1. Unreserve and update deposit info.
             <T as Trait>::Currency::unreserve(&depo_info.owner, diff_amount);
             <Deposits<T>>::insert(id, &proposer, depo_info);
 
-            // 4. Update vote details to record reduced vote
+            // 3. Update vote details to record reduced vote
             <ProposalResult<T>>::mutate(
                 id,
                 |stats| stats.ayes_stake = new_deposit
             );
             <ProposalVotes<T>>::insert(id, &proposer, Vote::Yes(new_deposit));
 
-            let current_did = Context::current_identity::<Identity<T>>().ok_or_else(|| Error::<T>::MissingCurrentIdentity)?;
-            Self::deposit_event(RawEvent::ProposalBondAdjusted(current_did, proposer, id, BondAdjustDir::Decreased, amount));
-            Ok(())
+            Self::emit_proposal_bond_adjusted(proposer, id, BondAdjustDir::Decreased, amount)
         }
 
         /// A network member can vote on any PIP by selecting the id that
@@ -1053,6 +1021,46 @@ decl_module! {
 }
 
 impl<T: Trait> Module<T> {
+    fn emit_proposal_bond_adjusted(
+        proposer: T::AccountId,
+        id: PipId,
+        dir: BondAdjustDir,
+        amount: BalanceOf<T>,
+    ) -> DispatchResult {
+        let current_did = Context::current_identity::<Identity<T>>()
+            .ok_or_else(|| Error::<T>::MissingCurrentIdentity)?;
+        let event = RawEvent::ProposalBondAdjusted(current_did, proposer, id, dir, amount);
+        Self::deposit_event(event);
+        Ok(())
+    }
+
+    /// Ensure that proposer is owner of the proposal which mustn't be in the cool off period.
+    ///
+    /// # Errors
+    /// * `BadOrigin`: Only the owner of the proposal can mutate it.
+    /// * `ProposalIsImmutable`: A Proposal is mutable only during its cool off period.
+    fn ensure_owned_by_alterable(
+        origin: T::Origin,
+        id: PipId,
+    ) -> Result<T::AccountId, DispatchError> {
+        let proposer = ensure_signed(origin)?;
+        let meta = Self::proposal_metadata(id).ok_or_else(|| Error::<T>::NoSuchProposal)?;
+
+        // 1. Only owner can act on proposal.
+        ensure!(meta.proposer == proposer, Error::<T>::BadOrigin);
+        // 2. Check that the proposal is pending.
+        Self::is_proposal_state(id, ProposalState::Pending)?;
+
+        // 3. Proposal is *ONLY* alterable during its cool-off period.
+        let curr_block_number = <system::Module<T>>::block_number();
+        ensure!(
+            meta.cool_off_until > curr_block_number,
+            Error::<T>::ProposalIsImmutable
+        );
+
+        Ok(proposer)
+    }
+
     /// Runs the following procedure:
     /// 1. Find all proposals that need to end as of this block and close voting
     /// 2. Tally votes
