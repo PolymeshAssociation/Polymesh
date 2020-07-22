@@ -165,6 +165,15 @@ pub struct PipsMetadata<T: Trait> {
     pub cool_off_until: T::BlockNumber,
 }
 
+/// Was the deposit of a vote increased or decreased?
+#[derive(Clone, Copy, Eq, PartialEq, Debug, Decode, Encode)]
+pub enum BondAdjustDir {
+    /// The deposit of a vote was increased.
+    Increased,
+    /// The deposit of a vote was decreased.
+    Decreased,
+}
+
 /// For keeping track of proposal being voted on.
 #[derive(PartialEq, Eq, Clone, Encode, Decode, Default)]
 #[cfg_attr(feature = "std", derive(Debug))]
@@ -366,7 +375,7 @@ decl_event!(
     {
         /// Pruning Historical PIPs is enabled or disabled (caller DID, old value, new value)
         HistoricalPipsPruned(IdentityId, bool, bool),
-        /// A Mesh Improvement Proposal was made with a `Balance` stake.
+        /// A PIP was made with a `Balance` stake.
         ///
         /// # Parameters:
         ///
@@ -383,9 +392,10 @@ decl_event!(
             BlockNumber,
             ProposalData,
         ),
-        /// A Mesh Improvement Proposal was amended with a possible change to the bond
-        /// bool is +ve when bond is added, -ve when removed
-        ProposalAmended(IdentityId, AccountId, PipId, bool, Balance),
+        /// A PIP's details (url & description) were amended.
+        ProposalDetailsAmended(IdentityId, AccountId, PipId, Option<Url>, Option<PipDescription>),
+        /// The deposit of a vote on a PIP was adjusted, either by increasing or decreasing.
+        ProposalBondAdjusted(IdentityId, AccountId, PipId, BondAdjustDir, Balance),
         /// Triggered each time the state of a proposal is amended
         ProposalStateUpdated(IdentityId, PipId, ProposalState),
         /// `AccountId` voted `bool` on the proposal referenced by `PipId`
@@ -539,7 +549,7 @@ decl_module! {
             Self::deposit_event(RawEvent::DefaultEnactmentPeriodChanged(SystematicIssuers::Committee.as_id(), duration, previous_duration));
         }
 
-        /// A network member creates a Mesh Improvement Proposal by submitting a dispatchable which
+        /// A network member creates a PIP by submitting a dispatchable which
         /// changes the network in someway. A minimum deposit is required to open a new proposal.
         ///
         /// # Arguments
@@ -619,7 +629,7 @@ decl_module! {
             Ok(())
         }
 
-        /// It amends the `url` and the `description` of the proposal with id `id`.
+        /// It amends the `url` and the `description` of the proposal with `id`.
         ///
         /// # Errors
         /// * `BadOrigin`: Only the owner of the proposal can amend it.
@@ -649,12 +659,12 @@ decl_module! {
             // 3. Update proposal metadata.
             <ProposalMetadata<T>>::mutate( id, |meta| {
                 if let Some(meta) = meta {
-                    meta.url = url;
-                    meta.description = description;
+                    meta.url = url.clone();
+                    meta.description = description.clone();
                 }
             });
             let current_did = Context::current_identity::<Identity<T>>().ok_or_else(|| Error::<T>::MissingCurrentIdentity)?;
-            Self::deposit_event(RawEvent::ProposalAmended(current_did, proposer, id, true, Zero::zero()));
+            Self::deposit_event(RawEvent::ProposalDetailsAmended(current_did, proposer, id, url, description));
 
             Ok(())
         }
@@ -732,7 +742,7 @@ decl_module! {
             );
             <ProposalVotes<T>>::insert(id, &proposer, Vote::Yes(curr_deposit + max_additional_deposit));
             let current_did = Context::current_identity::<Identity<T>>().ok_or_else(|| Error::<T>::MissingCurrentIdentity)?;
-            Self::deposit_event(RawEvent::ProposalAmended(current_did, proposer, id, true, max_additional_deposit));
+            Self::deposit_event(RawEvent::ProposalBondAdjusted(current_did, proposer, id, BondAdjustDir::Increased, max_additional_deposit));
 
             Ok(())
         }
@@ -784,11 +794,11 @@ decl_module! {
             <ProposalVotes<T>>::insert(id, &proposer, Vote::Yes(new_deposit));
 
             let current_did = Context::current_identity::<Identity<T>>().ok_or_else(|| Error::<T>::MissingCurrentIdentity)?;
-            Self::deposit_event(RawEvent::ProposalAmended(current_did, proposer, id, false, amount));
+            Self::deposit_event(RawEvent::ProposalBondAdjusted(current_did, proposer, id, BondAdjustDir::Decreased, amount));
             Ok(())
         }
 
-        /// A network member can vote on any Mesh Improvement Proposal by selecting the id that
+        /// A network member can vote on any PIP by selecting the id that
         /// corresponds ot the dispatchable action and vote with some balance.
         ///
         /// # Arguments
