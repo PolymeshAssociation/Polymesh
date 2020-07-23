@@ -1,7 +1,7 @@
 use super::{
     ext_builder::PROTOCOL_OP_BASE_FEE,
     storage::{
-        add_signing_item, authorizations_to, get_identity_id, register_keyring_account,
+        add_signing_key, authorizations_to, get_identity_id, register_keyring_account,
         register_keyring_account_with_balance, GovernanceCommittee, TestStorage,
     },
     ExtBuilder,
