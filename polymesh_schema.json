@@ -635,6 +635,10 @@
             "signer": "AccountId",
             "signature": "OffChainSignature"
         },
+        "UniqueCall": {
+            "nonce": "u64",
+            "call": "call"
+        },
         "MovePortfolioItem": {
             "ticker": "Ticker",
             "amount": "Balance"
