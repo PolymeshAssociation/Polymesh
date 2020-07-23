@@ -70,7 +70,7 @@ jobs:
           name: Tests
           command: >-
             cargo +nightly test
-            --package polymesh-runtime-common
+            --package polymesh-runtime-tests
             --package pallet-staking
             --package pallet-group
             --package polymesh-primitives
@@ -79,7 +79,7 @@ jobs:
             --package polymesh-runtime-tests
             --features default_identity ||
             cargo +nightly test -j 1
-            --package polymesh-runtime-common
+            --package polymesh-runtime-tests
             --package pallet-staking
             --package pallet-group
             --package polymesh-primitives
