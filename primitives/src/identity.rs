@@ -59,10 +59,7 @@ where
     }
 
     /// It removes `keys_to_remove` from signing keys.
-    pub fn remove_signing_keys(
-        &mut self,
-        signers_to_remove: &[Signatory<AccountId>],
-    ) -> &mut Self {
+    pub fn remove_signing_keys(&mut self, signers_to_remove: &[Signatory<AccountId>]) -> &mut Self {
         self.signing_keys.retain(|curr_si| {
             signers_to_remove
                 .iter()

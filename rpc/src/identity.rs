@@ -98,8 +98,7 @@ where
     C: Send + Sync + 'static,
     C: ProvideRuntimeApi<Block>,
     C: HeaderBackend<Block>,
-    C::Api:
-        IdentityRuntimeApi<Block, IdentityId, Ticker, AccountId, SigningKey, Signatory, Moment>,
+    C::Api: IdentityRuntimeApi<Block, IdentityId, Ticker, AccountId, SigningKey, Signatory, Moment>,
     IdentityId: Codec,
     Ticker: Codec,
     AccountId: Codec,
