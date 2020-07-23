@@ -782,12 +782,12 @@ dependencies = [
 
 [[package]]
 name = "crossbeam-channel"
-version = "0.4.2"
+version = "0.4.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cced8691919c02aac3cb0a1bc2e9b73d89e832bf9a06fc579d4e71b68a2da061"
+checksum = "09ee0cc8804d5393478d743b035099520087a5186f3b93fa58cec08fa62407b6"
 dependencies = [
+ "cfg-if",
  "crossbeam-utils",
- "maybe-uninit",
 ]
 
 [[package]]
@@ -2980,6 +2980,7 @@ dependencies = [
  "node-rpc-runtime-api",
  "pallet-identity",
  "pallet-pips",
+ "pallet-portfolio",
  "pallet-transaction-payment",
  "parity-scale-codec",
  "polymesh-primitives",
@@ -2999,6 +3000,7 @@ dependencies = [
  "frame-support",
  "pallet-identity",
  "pallet-pips",
+ "pallet-portfolio",
  "pallet-transaction-payment",
  "parity-scale-codec",
  "polymesh-primitives",
@@ -3180,7 +3182,7 @@ dependencies = [
  "pallet-balances 0.1.0",
  "pallet-contracts",
  "pallet-identity",
- "pallet-protocol-fee",
+ "pallet-portfolio",
  "pallet-session",
  "pallet-statistics",
  "pallet-timestamp",
@@ -3192,10 +3194,10 @@ dependencies = [
  "serde",
  "serde_derive",
  "sp-api",
+ "sp-arithmetic",
  "sp-core",
  "sp-io",
  "sp-runtime",
- "sp-serializer",
  "sp-std",
  "sp-version",
 ]
@@ -3325,7 +3327,6 @@ dependencies = [
  "sp-core",
  "sp-io",
  "sp-runtime",
- "sp-serializer",
  "sp-std",
  "sp-version",
 ]
@@ -3337,7 +3338,6 @@ dependencies = [
  "frame-support",
  "frame-system",
  "pallet-identity",
- "pallet-protocol-fee",
  "pallet-timestamp",
  "parity-scale-codec",
  "polymesh-common-utilities",
@@ -3348,7 +3348,6 @@ dependencies = [
  "sp-core",
  "sp-io",
  "sp-runtime",
- "sp-serializer",
  "sp-std",
  "sp-version",
 ]
@@ -3373,7 +3372,6 @@ dependencies = [
  "sp-api",
  "sp-blockchain",
  "sp-core",
- "sp-rpc",
  "sp-runtime",
  "sp-std",
 ]
@@ -3384,7 +3382,6 @@ version = "0.1.0"
 dependencies = [
  "frame-support",
  "frame-system",
- "jsonrpc-core",
  "pallet-balances 0.1.0",
  "pallet-compliance-manager",
  "parity-scale-codec",
@@ -3432,7 +3429,6 @@ dependencies = [
  "frame-system",
  "hex-literal 0.2.1",
  "pallet-contracts-primitives",
- "pallet-randomness-collective-flip",
  "pallet-transaction-payment",
  "parity-scale-codec",
  "parity-wasm 0.41.0",
@@ -3556,7 +3552,6 @@ dependencies = [
  "serde",
  "sp-api",
  "sp-blockchain",
- "sp-rpc",
  "sp-runtime",
  "sp-std",
  "substrate-test-runtime-client",
@@ -3594,7 +3589,6 @@ dependencies = [
  "sp-core",
  "sp-io",
  "sp-runtime",
- "sp-serializer",
  "sp-std",
  "sp-version",
  "substrate-test-runtime-client",
@@ -3677,7 +3671,6 @@ dependencies = [
  "pallet-committee",
  "pallet-group",
  "pallet-identity",
- "pallet-protocol-fee",
  "pallet-timestamp",
  "pallet-treasury",
  "parity-scale-codec",
@@ -3686,14 +3679,28 @@ dependencies = [
  "polymesh-primitives-derive",
  "serde",
  "serde_derive",
- "shrinkwraprs",
  "sp-api",
  "sp-core",
  "sp-io",
  "sp-runtime",
- "sp-serializer",
  "sp-std",
  "sp-version",
+]
+
+[[package]]
+name = "pallet-portfolio"
+version = "0.1.0"
+dependencies = [
+ "frame-support",
+ "frame-system",
+ "pallet-balances 0.1.0",
+ "pallet-identity",
+ "parity-scale-codec",
+ "polymesh-common-utilities",
+ "polymesh-primitives",
+ "serde",
+ "sp-arithmetic",
+ "sp-std",
 ]
 
 [[package]]
@@ -3726,7 +3733,6 @@ dependencies = [
  "serde",
  "sp-api",
  "sp-blockchain",
- "sp-rpc",
  "sp-runtime",
 ]
 
@@ -3849,7 +3855,6 @@ dependencies = [
  "serde",
  "sp-api",
  "sp-blockchain",
- "sp-rpc",
  "sp-runtime",
 ]
 
@@ -3950,7 +3955,6 @@ dependencies = [
  "sp-core",
  "sp-io",
  "sp-runtime",
- "sp-serializer",
  "sp-std",
  "sp-version",
 ]
@@ -3962,6 +3966,8 @@ dependencies = [
  "frame-support",
  "frame-system",
  "parity-scale-codec",
+ "polymesh-common-utilities",
+ "polymesh-primitives",
  "serde",
  "sp-core",
  "sp-io",
@@ -4459,7 +4465,7 @@ dependencies = [
  "pallet-group-rpc-runtime-api",
  "pallet-identity",
  "pallet-multisig",
- "pallet-settlement",
+ "pallet-portfolio",
  "pallet-timestamp",
  "parity-scale-codec",
  "polymesh-common-utilities",
@@ -4505,6 +4511,7 @@ dependencies = [
  "pallet-multisig",
  "pallet-offences",
  "pallet-pips",
+ "pallet-portfolio",
  "pallet-protocol-fee",
  "pallet-protocol-fee-rpc-runtime-api",
  "pallet-randomness-collective-flip",
@@ -4546,7 +4553,6 @@ dependencies = [
 name = "polymesh-runtime-testnet-v1"
 version = "0.1.0"
 dependencies = [
- "chrono",
  "frame-benchmarking",
  "frame-executive",
  "frame-support",
@@ -4579,6 +4585,7 @@ dependencies = [
  "pallet-multisig",
  "pallet-offences",
  "pallet-pips",
+ "pallet-portfolio",
  "pallet-protocol-fee",
  "pallet-protocol-fee-rpc-runtime-api",
  "pallet-randomness-collective-flip",
@@ -4602,7 +4609,6 @@ dependencies = [
  "safe-mix",
  "serde",
  "serde_derive",
- "serde_json",
  "sp-api",
  "sp-arithmetic",
  "sp-authority-discovery",
@@ -4613,7 +4619,6 @@ dependencies = [
  "sp-io",
  "sp-offchain",
  "sp-runtime",
- "sp-serializer",
  "sp-session",
  "sp-staking",
  "sp-std",
@@ -4621,7 +4626,6 @@ dependencies = [
  "sp-version",
  "substrate-test-runtime-client",
  "substrate-wasm-builder-runner",
- "yaml-rust",
 ]
 
 [[package]]
@@ -4650,6 +4654,7 @@ dependencies = [
  "pallet-identity",
  "pallet-multisig",
  "pallet-pips",
+ "pallet-portfolio",
  "pallet-protocol-fee",
  "pallet-randomness-collective-flip",
  "pallet-session",
@@ -6454,19 +6459,6 @@ name = "shlex"
 version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7fdf1b9db47230893d76faad238fd6097fd6d6a9245cd7a4d90dbd639536bbd2"
-
-[[package]]
-name = "shrinkwraprs"
-version = "0.3.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e63e6744142336dfb606fe2b068afa2e1cca1ee6a5d8377277a92945d81fa331"
-dependencies = [
- "bitflags",
- "itertools 0.8.2",
- "proc-macro2 1.0.19",
- "quote 1.0.7",
- "syn 1.0.35",
-]
 
 [[package]]
 name = "signal-hook-registry"
@@ -8557,15 +8549,6 @@ dependencies = [
  "curve25519-dalek",
  "rand_core 0.5.1",
  "zeroize",
-]
-
-[[package]]
-name = "yaml-rust"
-version = "0.4.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "39f0c922f1a334134dc2f7a8b67dc5d25f0735263feec974345ff706bcf20b0d"
-dependencies = [
- "linked-hash-map",
 ]
 
 [[package]]

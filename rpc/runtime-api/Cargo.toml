@@ -8,6 +8,7 @@ edition = "2018"
 # Our pallets
 polymesh-primitives = { path = "../../primitives", default-features = false }
 pallet-pips = { path = "../../pallets/pips", default-features = false }
+pallet-portfolio = { path = "../../pallets/portfolio", default-features = false }
 pallet-identity = { path = "../../pallets/identity", default-features = false }
 pallet-transaction-payment = { path = "../../pallets/transaction-payment", default-features = false }
 
@@ -27,14 +28,15 @@ serde_json = "1.0.41"
 [features]
 default = ["std"]
 std = [
-	"serde",
-	"codec/std",
-	"sp-api/std",
-	"sp-std/std",
-	"sp-runtime/std",
-	"frame-support/std",
-	"polymesh-primitives/std",
-	"pallet-pips/std",
-	"pallet-identity/std",
-	"pallet-transaction-payment/std",
+    "codec/std",
+    "frame-support/std",
+    "pallet-identity/std",
+    "pallet-pips/std",
+    "pallet-portfolio/std",
+    "pallet-transaction-payment/std",
+    "polymesh-primitives/std",
+    "serde",
+    "sp-api/std",
+    "sp-runtime/std",
+    "sp-std/std",
 ]

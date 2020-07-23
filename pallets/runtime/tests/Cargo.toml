@@ -10,28 +10,29 @@ polymesh-primitives = { path = "../../../primitives", default-features = false }
 polymesh-primitives-derive = { path = "../../../primitives_derive", default-features = false }
 polymesh-runtime-common = { path = "../common", default-features = false }
 
-pallet-identity = { path = "../../identity", default-features = false  }
-pallet-balances = { path = "../../balances", default-features = false  }
-pallet-multisig = { path = "../../multisig", default-features = false}
 pallet-asset = { path = "../../asset", default-features = false }
-pallet-compliance-manager = { path = "../../compliance-manager", default-features = false }
-pallet-contracts = { path = "../../contracts", default-features = false }
+pallet-balances = { path = "../../balances", default-features = false }
+pallet-cdd-offchain-worker = { path = "../../cdd-offchain-worker", default-features = false }
 pallet-committee = { path = "../../committee", default-features = false }
-pallet-settlement = { path = "../../settlement", default-features = false }
-pallet-group = { path = "../../group", default-features = false }
-pallet-pips = { path = "../../pips", default-features = false }
-pallet-treasury = { path = "../../treasury", default-features = false }
-pallet-transaction-payment = { path = "../../transaction-payment", default-features = false }
-pallet-statistics = { path = "../../statistics", default-features = false }
-pallet-utility = { path = "../../utility", default-features = false }
-pallet-protocol-fee = { path = "../../protocol-fee", default-features = false }
+pallet-compliance-manager = { path = "../../compliance-manager", default-features = false }
 pallet-confidential = { path = "../../confidential", default-features = false }
+pallet-contracts = { path = "../../contracts", default-features = false }
+pallet-group = { path = "../../group", default-features = false }
+pallet-identity = { path = "../../identity", default-features = false }
+pallet-multisig = { path = "../../multisig", default-features = false }
+pallet-pips = { path = "../../pips", default-features = false }
+pallet-portfolio = { path = "../../portfolio", default-features = false }
+pallet-protocol-fee = { path = "../../protocol-fee", default-features = false }
+pallet-settlement = { path = "../../settlement", default-features = false }
 pallet-staking = { path = "../../staking", default-features = false }
-pallet-staking-reward-curve = { path = "../../staking/reward-curve", default-features = false  }
-pallet-cdd-offchain-worker = { path = "../../cdd-offchain-worker", default-features = false  }
+pallet-staking-reward-curve = { path = "../../staking/reward-curve", default-features = false }
+pallet-statistics = { path = "../../statistics", default-features = false }
+pallet-transaction-payment = { path = "../../transaction-payment", default-features = false }
+pallet-treasury = { path = "../../treasury", default-features = false }
+pallet-utility = { path = "../../utility", default-features = false }
 
 # RPC
-pallet-group-rpc-runtime-api = { path = "../../group/rpc/runtime-api", default-features = false}
+pallet-group-rpc-runtime-api = { path = "../../group/rpc/runtime-api", default-features = false }
 
 # Runtime
 polymesh-runtime-develop = { path = "../develop" }
@@ -76,45 +77,45 @@ equalize = []
 only-staking = []
 default = ["std", "equalize", "runtime-benchmarks"]
 std = [
-    "test_client",
-    "substrate-test-utils",
-    "serde/std",
-    "polymesh-common-utilities/std",
-    "polymesh-primitives/std",
-    "pallet-identity/std",
-    "pallet-balances/std",
-    "pallet-multisig/std",
+    "frame-benchmarking/std",
+    "frame-support/std",
+    "frame-system/std",
+    "ink_primitives/std",
     "pallet-asset/std",
+    "pallet-authorship/std",
+    "pallet-babe/std",
+    "pallet-balances/std",
+    "pallet-cdd-offchain-worker/std",
     "pallet-committee/std",
     "pallet-compliance-manager/std",
     "pallet-contracts/std",
-    "pallet-group/std",
     "pallet-group-rpc-runtime-api/std",
+    "pallet-group/std",
+    "pallet-identity/std",
+    "pallet-multisig/std",
     "pallet-pips/std",
-    "pallet-treasury/std",
-    "pallet-transaction-payment/std",
-    "pallet-statistics/std",
-    "pallet-staking/std",
-    "pallet-cdd-offchain-worker/std",
-    "polymesh-runtime-common/std",
+    "pallet-portfolio/std",
+    "pallet-randomness-collective-flip/std",
+    "pallet-session/std",
     "pallet-staking-reward-curve/std",
-    
-    "sp-std/std",
+    "pallet-staking/std",
+    "pallet-statistics/std",
+    "pallet-timestamp/std",
+    "pallet-transaction-payment/std",
+    "pallet-treasury/std",
+    "polymesh-common-utilities/std",
+    "polymesh-primitives/std",
+    "polymesh-runtime-common/std",
+    "serde/std",
+    "sp-arithmetic/std",
     "sp-core/std",
     "sp-io/std",
-    "sp-runtime/std",
-    "sp-arithmetic/std",
-    "sp-staking/std",
     "sp-npos-elections/std",
-    "frame-support/std",
-    "frame-system/std",
-    "pallet-authorship/std",
-    "pallet-session/std",
-    "pallet-babe/std",
-    "pallet-timestamp/std",
-    "pallet-randomness-collective-flip/std",
-    "ink_primitives/std",
-    "frame-benchmarking/std",
+    "sp-runtime/std",
+    "sp-staking/std",
+    "sp-std/std",
+    "substrate-test-utils",
+    "test_client",
 ]
 
 runtime-benchmarks = [
