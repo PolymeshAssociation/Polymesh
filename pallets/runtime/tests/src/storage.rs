@@ -20,6 +20,7 @@ use pallet_group as group;
 use pallet_identity as identity;
 use pallet_multisig as multisig;
 use pallet_pips as pips;
+use pallet_portfolio as portfolio;
 use pallet_protocol_fee as protocol_fee;
 use pallet_settlement as settlement;
 use pallet_statistics as statistics;
@@ -110,6 +111,7 @@ impl_outer_event! {
         treasury<T>,
         settlement<T>,
         pallet_utility,
+        portfolio<T>,
         confidential,
     }
 }
@@ -436,6 +438,10 @@ impl protocol_fee::Trait for TestStorage {
     type OnProtocolFeePayment = ();
 }
 
+impl portfolio::Trait for TestStorage {
+    type Event = Event;
+}
+
 impl asset::Trait for TestStorage {
     type Event = Event;
     type Currency = balances::Module<TestStorage>;
@@ -579,6 +585,7 @@ pub type CddServiceProvider = group::Module<TestStorage, group::Instance2>;
 pub type Committee = committee::Module<TestStorage, committee::Instance1>;
 pub type Utility = pallet_utility::Module<TestStorage>;
 pub type System = frame_system::Module<TestStorage>;
+pub type Portfolio = portfolio::Module<TestStorage>;
 
 pub fn make_account(
     id: AccountId,

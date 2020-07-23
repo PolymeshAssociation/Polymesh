@@ -2980,6 +2980,7 @@ dependencies = [
  "node-rpc-runtime-api",
  "pallet-identity",
  "pallet-pips",
+ "pallet-portfolio",
  "pallet-transaction-payment",
  "parity-scale-codec",
  "polymesh-primitives",
@@ -2999,6 +3000,7 @@ dependencies = [
  "frame-support",
  "pallet-identity",
  "pallet-pips",
+ "pallet-portfolio",
  "pallet-transaction-payment",
  "parity-scale-codec",
  "polymesh-primitives",
@@ -3180,6 +3182,7 @@ dependencies = [
  "pallet-balances 0.1.0",
  "pallet-contracts",
  "pallet-identity",
+ "pallet-portfolio",
  "pallet-protocol-fee",
  "pallet-session",
  "pallet-statistics",
@@ -3192,6 +3195,7 @@ dependencies = [
  "serde",
  "serde_derive",
  "sp-api",
+ "sp-arithmetic",
  "sp-core",
  "sp-io",
  "sp-runtime",
@@ -3697,6 +3701,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "pallet-portfolio"
+version = "0.1.0"
+dependencies = [
+ "frame-support",
+ "frame-system",
+ "pallet-balances 0.1.0",
+ "pallet-identity",
+ "parity-scale-codec",
+ "polymesh-common-utilities",
+ "polymesh-primitives",
+ "serde",
+ "sp-arithmetic",
+ "sp-std",
+]
+
+[[package]]
 name = "pallet-protocol-fee"
 version = "0.1.0"
 dependencies = [
@@ -3962,6 +3982,8 @@ dependencies = [
  "frame-support",
  "frame-system",
  "parity-scale-codec",
+ "polymesh-common-utilities",
+ "polymesh-primitives",
  "serde",
  "sp-core",
  "sp-io",
@@ -4459,6 +4481,7 @@ dependencies = [
  "pallet-group-rpc-runtime-api",
  "pallet-identity",
  "pallet-multisig",
+ "pallet-portfolio",
  "pallet-settlement",
  "pallet-timestamp",
  "parity-scale-codec",
@@ -4505,6 +4528,7 @@ dependencies = [
  "pallet-multisig",
  "pallet-offences",
  "pallet-pips",
+ "pallet-portfolio",
  "pallet-protocol-fee",
  "pallet-protocol-fee-rpc-runtime-api",
  "pallet-randomness-collective-flip",
@@ -4579,6 +4603,7 @@ dependencies = [
  "pallet-multisig",
  "pallet-offences",
  "pallet-pips",
+ "pallet-portfolio",
  "pallet-protocol-fee",
  "pallet-protocol-fee-rpc-runtime-api",
  "pallet-randomness-collective-flip",
@@ -4650,6 +4675,7 @@ dependencies = [
  "pallet-identity",
  "pallet-multisig",
  "pallet-pips",
+ "pallet-portfolio",
  "pallet-protocol-fee",
  "pallet-randomness-collective-flip",
  "pallet-session",

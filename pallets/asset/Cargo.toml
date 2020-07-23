@@ -12,19 +12,21 @@ polymesh-common-utilities = { path = "../common", default-features = false }
 
 # Our Pallets
 pallet-balances = { path = "../balances", default-features = false  }
-pallet-identity = { path = "../identity", default-features = false  }
-pallet-statistics = { path = "../statistics", default-features = false  }
-pallet-protocol-fee = { path = "../protocol-fee", default-features = false }
 pallet-contracts = { path = "../contracts", default-features = false }
+pallet-identity = { path = "../identity", default-features = false }
+pallet-portfolio = { path = "../portfolio", default-features = false }
+pallet-protocol-fee = { path = "../protocol-fee", default-features = false }
+pallet-statistics = { path = "../statistics", default-features = false }
 
 # Other
 serde = { version = "1.0.104", default-features = false }
-serde_derive = { version = "1.0.104", optional = true, default-features = false  }
+serde_derive = { version = "1.0.104", optional = true, default-features = false }
 rustc-hex = { version = "2.1.0", default-features = false }
 hex-literal = "0.2.1"
 
 # Substrate
 codec = { package = "parity-scale-codec", version = "1.1.0", default-features = false, features = ["derive"] }
+sp-arithmetic = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0-rc4" }
 sp-core = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0-rc4" }
 sp-std = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0-rc4" }
 sp-io = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0-rc4" }
@@ -46,24 +48,25 @@ default = ["std", "equalize", "runtime-benchmarks"]
 no_std = []
 only-staking = []
 std = [
-    "rustc-hex/std",
-    "serde_derive",
-    "serde/std",
     "codec/std",
-    "sp-std/std",
-    "sp-io/std",
-    "sp-core/std",
-    "sp-runtime/std",
-    "sp-version/std",
-    "sp-api/std",
-    "frame-system/std",
     "frame-support/std",
-    "pallet-timestamp/std",
+    "frame-system/std",
+    "pallet-balances/std",
     "pallet-contracts/std",
+    "pallet-portfolio/std",
     "pallet-session/std",
+    "pallet-timestamp/std",
     "polymesh-common-utilities/std",
     "polymesh-primitives/std",
-    "pallet-balances/std",
+    "rustc-hex/std",
+    "serde/std",
+    "serde_derive",
+    "sp-api/std",
+    "sp-core/std",
+    "sp-io/std",
+    "sp-runtime/std",
+    "sp-std/std",
+    "sp-version/std",
 ]
 runtime-benchmarks = [
     "frame-benchmarking",

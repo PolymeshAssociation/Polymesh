@@ -9,12 +9,13 @@ polymesh-common-utilities = { path = "../../common", default-features = false }
 polymesh-primitives = { path = "../../../primitives", default-features = false }
 polymesh-primitives-derive = { path = "../../../primitives_derive", default-features = false }
 
-pallet-identity = { path = "../../identity", default-features = false  }
-pallet-balances = { path = "../../balances", default-features = false  }
-pallet-multisig = { path = "../../multisig", default-features = false}
 pallet-asset = { path = "../../asset", default-features = false }
+pallet-balances = { path = "../../balances", default-features = false  }
 pallet-compliance-manager = { path = "../../compliance-manager", default-features = false }
 pallet-contracts = { path = "../../contracts", default-features = false }
+pallet-identity = { path = "../../identity", default-features = false  }
+pallet-multisig = { path = "../../multisig", default-features = false}
+pallet-portfolio = { path = "../../portfolio", default-features = false  }
 
 # RPC
 pallet-group-rpc-runtime-api = { path = "../../group/rpc/runtime-api", default-features = false}
@@ -44,29 +45,30 @@ only-staking = []
 default = ["std", "equalize", "runtime-benchmarks"]
 no_std = []
 std = [
-    "serde/std",
-    "polymesh-common-utilities/std",
-    "polymesh-primitives/std",
-    "pallet-identity/std",
-    "pallet-balances/std",
-    "pallet-multisig/std",
+    "frame-benchmarking/std",
+    "frame-support/std",
+    "frame-system/std",
     "pallet-asset/std",
+    "pallet-authorship/std",
+    "pallet-balances/std",
     "pallet-compliance-manager/std",
     "pallet-contracts/std",
     "pallet-group-rpc-runtime-api/std",
-    "sp-std/std",
+    "pallet-identity/std",
+    "pallet-multisig/std",
+    "pallet-portfolio/std",
+    "pallet-timestamp/std",
+    "polymesh-common-utilities/std",
+    "polymesh-primitives/std",
+    "serde/std",
     "sp-core/std",
     "sp-io/std",
     "sp-runtime/std",
-    "frame-support/std",
-    "frame-system/std",
-    "pallet-authorship/std",
-    "pallet-timestamp/std",
-    "frame-benchmarking/std",
+    "sp-std/std",
 ]
 
 runtime-benchmarks = [
-     "frame-benchmarking",
-	"pallet-asset/runtime-benchmarks",
-	"pallet-identity/runtime-benchmarks",
+    "frame-benchmarking",
+    "pallet-asset/runtime-benchmarks",
+    "pallet-identity/runtime-benchmarks",
 ]
