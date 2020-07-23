@@ -46,7 +46,6 @@ pallet-contracts-rpc-runtime-api = { path = "../../contracts/rpc/runtime-api", d
 
 
 # Others
-chrono = { version = "0.4.11", default-features = false }
 lazy_static = { version = "1.4.0", default-features = false }
 log = { version = "0.4.8", default-features = false }
 rand = { version = "0.7.3", default-features = false }
@@ -54,15 +53,12 @@ rustc-hex = { version = "2.1.0", default-features = false }
 safe-mix = { version = "1.0.1", default-features = false }
 serde = { version = "1.0.104", default-features = false }
 serde_derive = { version = "1.0.104", optional = true }
-serde_json = { version = "1.0.48", default-features = false }
-yaml-rust = { version = "0.4.3", default-features = false }
 
 # Substrate
 codec = { package = "parity-scale-codec", version = "1.2.0", default-features = false, features = ["derive"] }
 sp-core = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0-rc4" }
 sp-std = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0-rc4" }
 sp-io = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0-rc4" }
-sp-serializer = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0-rc4" }
 sp-runtime = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0-rc4" }
 sp-version = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0-rc4" }
 sp-api = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0-rc4" }
