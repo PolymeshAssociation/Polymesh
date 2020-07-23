@@ -142,7 +142,7 @@ pub use identity_claim::{Claim, ClaimType, IdentityClaim, JurisdictionName, Scop
 
 /// This module contains entities related with signing keys.
 pub mod signing_item;
-pub use signing_item::{Permission, Signatory, SigningItem};
+pub use signing_item::{Permission, Signatory, SigningKey};
 
 /// Generic authorization data types for all two step processes
 pub mod authorization;
