@@ -9,13 +9,17 @@ use pallet_balances as balances;
 use pallet_committee as committee;
 use pallet_compliance_manager::{self as compliance_manager, AssetTransferRulesResult};
 use pallet_group as group;
-use pallet_identity as identity;
+use pallet_identity::{
+    self as identity,
+    types::{AssetDidResult, CddStatus, DidRecords, DidStatus},
+};
 use pallet_multisig as multisig;
 use pallet_pips::{HistoricalVotingByAddress, HistoricalVotingById, Vote, VoteCount};
+use pallet_portfolio as portfolio;
 use pallet_protocol_fee as protocol_fee;
 use pallet_settlement as settlement;
 use pallet_statistics as statistics;
-pub use pallet_transaction_payment::{Multiplier, TargetedFeeAdjustment};
+pub use pallet_transaction_payment::{Multiplier, RuntimeDispatchInfo, TargetedFeeAdjustment};
 use pallet_treasury as treasury;
 use pallet_utility as utility;
 use polymesh_common_utilities::{
@@ -29,8 +33,8 @@ use polymesh_common_utilities::{
     CommonTrait,
 };
 use polymesh_primitives::{
-    AccountId, AccountIndex, Authorization, Balance, BlockNumber, Hash, IdentityId, Index, Moment,
-    Signatory, Signature, SigningItem, Ticker,
+    AccountId, AccountIndex, Authorization, AuthorizationType, Balance, BlockNumber, Hash,
+    IdentityId, Index, Moment, PortfolioId, Signatory, Signature, SigningItem, Ticker,
 };
 use polymesh_runtime_common::{
     bridge,
@@ -69,7 +73,7 @@ use frame_support::{
     construct_runtime, debug, parameter_types,
     traits::{KeyOwnerProofSystem, Randomness, SplitTwoWays},
     weights::{
-        constants::{BlockExecutionWeight, ExtrinsicBaseWeight, RocksDbWeight, WEIGHT_PER_SECOND},
+        constants::{BlockExecutionWeight, ExtrinsicBaseWeight, RocksDbWeight},
         IdentityFee, Weight,
     },
 };
@@ -77,14 +81,10 @@ use pallet_contracts_rpc_runtime_api::ContractExecResult;
 use pallet_grandpa::{
     fg_primitives, AuthorityId as GrandpaId, AuthorityList as GrandpaAuthorityList,
 };
-use pallet_identity_rpc_runtime_api::{
-    AssetDidResult, AuthorizationType, CddStatus, DidRecords, DidStatus,
-};
 
 use pallet_im_online::sr25519::AuthorityId as ImOnlineId;
 use pallet_protocol_fee_rpc_runtime_api::CappedFee;
 use pallet_session::historical as pallet_session_historical;
-use pallet_transaction_payment_rpc_runtime_api::RuntimeDispatchInfo;
 use sp_authority_discovery::AuthorityId as AuthorityDiscoveryId;
 use sp_inherents::{CheckInherentsResult, InherentData};
 #[cfg(feature = "std")]
@@ -581,6 +581,10 @@ impl bridge::Trait for Runtime {
     type MaxTimelockedTxsPerBlock = MaxTimelockedTxsPerBlock;
 }
 
+impl portfolio::Trait for Runtime {
+    type Event = Event;
+}
+
 impl asset::Trait for Runtime {
     type Event = Event;
     type Currency = Balances;
@@ -720,6 +724,7 @@ construct_runtime!(
         Statistic: statistics::{Module, Call, Storage},
         ProtocolFee: protocol_fee::{Module, Call, Storage, Event<T>, Config<T>},
         Utility: utility::{Module, Call, Storage, Event},
+        Portfolio: portfolio::{Module, Call, Storage, Event<T>},
     }
 );
 
@@ -918,7 +923,7 @@ impl_runtime_apis! {
         }
     }
 
-    impl pallet_transaction_payment_rpc_runtime_api::TransactionPaymentApi<
+    impl node_rpc_runtime_api::transaction_payment::TransactionPaymentApi<
         Block,
         Balance,
         UncheckedExtrinsic,
@@ -985,7 +990,7 @@ impl_runtime_apis! {
     }
 
     impl
-        pallet_identity_rpc_runtime_api::IdentityApi<
+        node_rpc_runtime_api::identity::IdentityApi<
             Block,
             IdentityId,
             Ticker,
@@ -1066,6 +1071,20 @@ impl_runtime_apis! {
             merge_active_and_inactive::<Block>(
                 CommitteeMembership::active_members(),
                 CommitteeMembership::inactive_members())
+        }
+    }
+
+    impl node_rpc_runtime_api::portfolio::PortfolioApi<Block, Balance> for Runtime {
+        #[inline]
+        fn get_portfolios(did: IdentityId) -> node_rpc_runtime_api::portfolio::GetPortfoliosResult {
+            Ok(Portfolio::rpc_get_portfolios(did))
+        }
+
+        #[inline]
+        fn get_portfolio_assets(portfolio_id: PortfolioId) ->
+            node_rpc_runtime_api::portfolio::GetPortfolioAssetsResult<Balance>
+        {
+            Ok(Portfolio::rpc_get_portfolio_assets(portfolio_id))
         }
     }
 

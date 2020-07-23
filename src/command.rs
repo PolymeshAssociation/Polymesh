@@ -18,7 +18,6 @@ use crate::chain_spec;
 use crate::cli::{Cli, Subcommand};
 use crate::service;
 use crate::service::IsAldebaranNetwork;
-use chrono::prelude::*;
 use log::info;
 use polymesh_primitives::Block;
 pub use sc_cli::{Result, SubstrateCli};

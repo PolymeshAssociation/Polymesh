@@ -25,48 +25,50 @@
 //! # Utility Module
 //! A module with helpers for dispatch management.
 //!
-//! - [`utility::Trait`](./trait.Trait.html)
-//! - [`Call`](./enum.Call.html)
-//!
 //! ## Overview
-//!
-//! This module contains three basic pieces of functionality, two of which are stateless:
-//! - Batch dispatch: A stateless operation, allowing any origin to execute multiple calls in a
+//! This module contains the following functionality:
+//! - [Batch dispatch]\: A stateless operation, allowing any origin to execute multiple calls in a
 //!   single dispatch. This can be useful to amalgamate proposals, combining `set_code` with
 //!   corresponding `set_storage`s, for efficient multiple payouts with just a single signature
-//!   verify, or in combination with one of the other two dispatch functionality.
-//! - Pseudonymal dispatch: A stateless operation, allowing a signed origin to execute a call from
-//!   an alternative signed origin. Each account has 2**16 possible "pseudonyms" (alternative
-//!   account IDs) and these can be stacked. This can be useful as a key management tool, where you
-//!   need multiple distinct accounts (e.g. as controllers for many staking accounts), but where
-//!   it's perfectly fine to have each of them controlled by the same underlying keypair.
+//!   verify, or in combination with one of the other dispatch functionality.
+//! - [Relayed dispatch]\: A stateful operation, allowing a signed origin to execute calls on
+//!   behalf of another account. This is useful when a transaction's fee needs to be paid by a third party.
+//!   Relaying dispatch requires the dispatched call to be unique as to avoid replay attacks.
 //!
 //! ## Interface
 //!
 //! ### Dispatchable Functions
 //!
-//! #### For batch dispatch
-//! * `batch` - Dispatch multiple calls from the sender's origin.
+//! - `batch` - Dispatch multiple calls from the sender's origin.
+//! - `relay_tx` - Relay a call for a target from an origin.
 //!
-//! [`Call`]: ./enum.Call.html
-//! [`Trait`]: ./trait.Trait.html
+//! [Batch dispatch]: ./struct.Module.html#method.batch
+//! [Relayed dispatch]: ./struct.Module.html#method.relay_tx
 
 // Ensure we're `no_std` when compiling for Wasm.
 #![cfg_attr(not(feature = "std"), no_std)]
 
+use codec::{Decode, Encode};
 use frame_support::{
     decl_error, decl_event, decl_module, decl_storage,
-    dispatch::PostDispatchInfo,
+    dispatch::{DispatchErrorWithPostInfo, DispatchResultWithPostInfo, PostDispatchInfo},
+    ensure,
     traits::UnfilteredDispatchable,
     weights::{DispatchClass, GetDispatchInfo, Weight},
     Parameter,
 };
-use frame_system::{self as system, ensure_root};
-use sp_runtime::{traits::Dispatchable, DispatchError, DispatchResult};
+use frame_system as system;
+use frame_system::{ensure_root, ensure_signed, RawOrigin};
+use polymesh_common_utilities::{
+    balances::CheckCdd, identity::AuthorizationNonce, identity::Trait as IdentityTrait,
+};
+use sp_runtime::{
+    traits::Dispatchable, traits::Verify, DispatchError, DispatchResult, RuntimeDebug,
+};
 use sp_std::prelude::*;
 
 /// Configuration trait.
-pub trait Trait: frame_system::Trait {
+pub trait Trait: frame_system::Trait + IdentityTrait {
     /// The overarching event type.
     type Event: From<Event> + Into<<Self as frame_system::Trait>::Event>;
 
@@ -79,11 +81,21 @@ pub trait Trait: frame_system::Trait {
 }
 
 decl_storage! {
-    trait Store for Module<T: Trait> as Utility { }
+    trait Store for Module<T: Trait> as Utility {
+        Nonces get(fn nonce): map hasher(twox_64_concat) T::AccountId => AuthorizationNonce;
+    }
 }
 
 decl_error! {
     pub enum Error for Module<T: Trait> {
+        /// Offchain signature is invalid
+        InvalidSignature,
+        /// Target does not have a valid CDD
+        TargetCddMissing,
+        /// Provided nonce was invalid
+        /// If the provided nonce < current nonce, the call was already executed
+        /// If the provided nonce > current nonce, the call(s) before the current failed to execute
+        InvalidNonce,
     }
 }
 
@@ -99,6 +111,22 @@ decl_event! {
     }
 }
 
+/// Wraps a `Call` and provides uniqueness through a nonce
+#[derive(Encode, Decode, Clone, PartialEq, Eq, RuntimeDebug)]
+pub struct UniqueCall<C> {
+    nonce: AuthorizationNonce,
+    call: Box<C>,
+}
+
+impl<C> UniqueCall<C> {
+    pub fn new(nonce: AuthorizationNonce, call: C) -> Self {
+        Self {
+            nonce,
+            call: Box::new(call),
+        }
+    }
+}
+
 decl_module! {
     pub struct Module<T: Trait> for enum Call where origin: T::Origin {
         type Error = Error<T>;
@@ -106,18 +134,18 @@ decl_module! {
         /// Deposit one of this module's events by using the default implementation.
         fn deposit_event() = default;
 
-        /// Send a batch of dispatch calls.
+        /// Dispatch multiple calls from the sender's origin.
         ///
         /// This will execute until the first one fails and then stop.
         ///
         /// May be called from any origin.
         ///
+        ///# Parameters
         /// - `calls`: The calls to be dispatched from the same origin.
         ///
-        /// # <weight>
+        /// # Weight
         /// - The sum of the weights of the `calls`.
         /// - One event.
-        /// # </weight>
         ///
         /// This will return `Ok` in all circumstances. To determine the success of the batch, an
         /// event is deposited. If a call failed and the batch was interrupted, then the
@@ -155,6 +183,59 @@ decl_module! {
             Self::deposit_event(Event::BatchCompleted);
 
             Ok(())
+        }
+
+        /// Relay a call for a target from an origin
+        ///
+        /// Relaying in this context refers to the ability of origin to make a call on behalf of
+        /// target.
+        ///
+        /// Fees are charged to origin
+        ///
+        /// # Parameters
+        /// - `target`: Account to be relayed
+        /// - `signature`: Signature from target authorizing the relay
+        /// - `call`: Call to be relayed on behalf of target
+        ///
+        /// # Weight
+        /// - The weight of the call to be relayed plus a static 250_000.
+        #[weight = (
+            call.call.get_dispatch_info().weight.saturating_add(250_000),
+            call.call.get_dispatch_info().class,
+        )]
+        pub fn relay_tx(
+            origin,
+            target: T::AccountId,
+            signature: <T as IdentityTrait>::OffChainSignature,
+            call: UniqueCall<<T as Trait>::Call>
+        ) -> DispatchResultWithPostInfo {
+            let _ = ensure_signed(origin)?;
+
+           let target_nonce = <Nonces<T>>::get(&target);
+
+            ensure!(
+                target_nonce == call.nonce,
+                Error::<T>::InvalidNonce
+            );
+
+            ensure!(
+                signature.verify(call.encode().as_slice(), &target),
+                Error::<T>::InvalidSignature
+            );
+
+            ensure!(
+                T::CddChecker::check_key_cdd(&target),
+                Error::<T>::TargetCddMissing
+            );
+
+            <Nonces<T>>::insert(target.clone(), target_nonce + 1);
+
+            call.call.dispatch(RawOrigin::Signed(target).into())
+                .map(|info| info.actual_weight.map(|w| w.saturating_add(250_000)).into())
+                .map_err(|e| DispatchErrorWithPostInfo {
+                    error: e.error,
+                    post_info: e.post_info.actual_weight.map(|w| w.saturating_add(250_000)).into()
+                })
         }
     }
 }
