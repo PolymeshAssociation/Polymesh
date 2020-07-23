@@ -15,7 +15,6 @@ pallet-compliance-manager = { package = "pallet-compliance-manager", path = "../
 
 # Others
 serde = { version = "1.0.101", optional = true, features = ["derive"] }
-jsonrpc-core = "14.0.5"
 
 # Substrate
 codec = { package = "parity-scale-codec", version = "1.1.2", default-features = false, features = ["derive"] }
