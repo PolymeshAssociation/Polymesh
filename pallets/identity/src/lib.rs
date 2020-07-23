@@ -583,6 +583,8 @@ decl_module! {
                 Err(err) => err.post_info.actual_weight,
             };
 
+            // If actual_weight retrieve from the proposal is `None` then refunds = 0
+            // otherwise refunds = ((500_000 + proposal.get_dispatch_info().weight) - `actual_weight of proposal + 500_000`).
             Ok((actual_weight.map(|w| w + 500_000)).into())
         }
 
