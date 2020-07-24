@@ -7,8 +7,9 @@ mod custom_types {
     use ink_core::storage::Flush;
     use scale::{Decode, Encode};
 
-    #[derive(Decode, Encode, PartialEq, Ord, Eq, PartialOrd, Copy, Hash, Clone, Debug, Default)]
+    #[derive(Decode, Encode, PartialEq, Ord, Eq, PartialOrd, Copy, Hash, Clone, Default)]
     #[cfg_attr(feature = "ink-generate-abi", derive(type_metadata::Metadata))]
+    #[cfg_attr(feature = "std", derive(Debug))]
     pub struct IdentityId([u8; 32]);
 
     impl Flush for IdentityId {}
@@ -23,9 +24,9 @@ mod custom_types {
         }
     }
 
-    /// Custom type
-    #[derive(Decode, Encode, Debug, PartialEq, Ord, Eq, PartialOrd)]
+    #[derive(Decode, Encode, PartialEq, Ord, Eq, PartialOrd)]
     #[cfg_attr(feature = "ink-generate-abi", derive(type_metadata::Metadata))]
+    #[cfg_attr(feature = "std", derive(Debug))]
     pub enum RestrictionResult {
         Valid,
         Invalid,
@@ -285,7 +286,8 @@ mod percentage_transfer_manager {
                     (100u128 * multiplier).into(),
                     (2000u128 * multiplier).into(),
                     0u128.into(),
-                    (2000u128 * multiplier).into()
+                    (2000u128 * multiplier).into(),
+                    0
                 ),
                 RestrictionResult::Valid
             );
@@ -299,6 +301,7 @@ mod percentage_transfer_manager {
                     (2000u128 * multiplier).into(),
                     0u128.into(),
                     (2000u128 * multiplier).into(),
+                    0
                 ),
                 RestrictionResult::Invalid
             );
@@ -311,7 +314,8 @@ mod percentage_transfer_manager {
                     (301u128 * multiplier).into(),
                     (2000u128 * multiplier).into(),
                     (100u128 * multiplier).into(),
-                    (2000u128 * multiplier).into()
+                    (2000u128 * multiplier).into(),
+                    0
                 ),
                 RestrictionResult::Invalid
             );
@@ -330,7 +334,8 @@ mod percentage_transfer_manager {
                     (700u128 * multiplier).into(),
                     (2000u128 * multiplier).into(),
                     0u128.into(),
-                    (2000u128 * multiplier).into()
+                    (2000u128 * multiplier).into(),
+                    0
                 ),
                 RestrictionResult::Invalid
             );
@@ -343,7 +348,8 @@ mod percentage_transfer_manager {
                     (700u128 * multiplier).into(),
                     (2000u128 * multiplier).into(),
                     0u128.into(),
-                    (2000u128 * multiplier).into()
+                    (2000u128 * multiplier).into(),
+                    0
                 ),
                 RestrictionResult::Valid
             );
@@ -355,7 +361,7 @@ mod percentage_transfer_manager {
                 false
             );
             percentage_transfer_manager.modify_exemption_list(to, true);
-            assert_eq!(percentage_transfer_manager.is_exempted_or_not(to), true);
+            assert_eq!(percentage_transfer_manager.is_identity_exempted_or_not(to), true);
 
             assert_eq!(
                 percentage_transfer_manager.verify_transfer(
@@ -364,7 +370,8 @@ mod percentage_transfer_manager {
                     (700u128 * multiplier).into(),
                     (2000u128 * multiplier).into(),
                     0u128.into(),
-                    (2000u128 * multiplier).into()
+                    (2000u128 * multiplier).into(),
+                    0
                 ),
                 RestrictionResult::Valid
             );
@@ -385,7 +392,8 @@ mod percentage_transfer_manager {
                     (55788u128 * 10000).into(), // exact 27.894% of 2000 tokens
                     (2000u128 * multiplier).into(),
                     0u128.into(),
-                    (2000u128 * multiplier).into()
+                    (2000u128 * multiplier).into(),
+                    0
                 ),
                 RestrictionResult::Valid
             );
@@ -398,7 +406,8 @@ mod percentage_transfer_manager {
                     (558u128 * multiplier).into(),
                     (2000u128 * multiplier).into(),
                     0u128.into(),
-                    (2000u128 * multiplier).into()
+                    (2000u128 * multiplier).into(),
+                    0
                 ),
                 RestrictionResult::Invalid
             );
@@ -422,6 +431,7 @@ mod percentage_transfer_manager {
                     (2000u128 * multiplier).into(),
                     0u128.into(),
                     (2000u128 * multiplier).into(),
+                    0
                 ),
                 RestrictionResult::Invalid
             );
@@ -437,6 +447,7 @@ mod percentage_transfer_manager {
                     (2000u128 * multiplier).into(),
                     0u128.into(),
                     (2000u128 * multiplier).into(),
+                    0
                 ),
                 RestrictionResult::Valid
             );
@@ -540,9 +551,9 @@ mod percentage_transfer_manager {
             ];
             percentage_transfer_manager.modify_exemption_list_batch(exempted_identities.clone());
 
-            assert!(percentage_transfer_manager.is_exempted_or_not(IdentityId::from(1)));
-            assert!(percentage_transfer_manager.is_exempted_or_not(IdentityId::from(2)));
-            assert!(percentage_transfer_manager.is_exempted_or_not(IdentityId::from(3)));
+            assert!(percentage_transfer_manager.is_identity_exempted_or_not(IdentityId::from(1)));
+            assert!(percentage_transfer_manager.is_identity_exempted_or_not(IdentityId::from(2)));
+            assert!(percentage_transfer_manager.is_identity_exempted_or_not(IdentityId::from(3)));
         }
     }
 }

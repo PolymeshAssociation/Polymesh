@@ -13,14 +13,14 @@ cargo install --git https://github.com/paritytech/cargo-contract cargo-contract 
 To build a single example and generate the contracts Wasm file, navigate to the root of the example smart contract and run:
 
 ```
-cargo +nightly contract build
+cargo contract build
 
 ```
 
 To generate the contract metadata (a.k.a. the contract ABI), run the following command:
 
 ```
-cargo +nightly contract generate-metadata
+cargo contract generate-metadata
 
 ```
 

@@ -6,8 +6,9 @@ mod custom_types {
     use ink_core::storage::Flush;
     use scale::{Decode, Encode};
 
-    #[derive(Decode, Encode, PartialEq, Ord, Eq, PartialOrd, Copy, Hash, Clone, Debug, Default)]
+    #[derive(Decode, Encode, PartialEq, Ord, Eq, PartialOrd, Copy, Hash, Clone, Default)]
     #[cfg_attr(feature = "ink-generate-abi", derive(type_metadata::Metadata))]
+    #[cfg_attr(feature = "std", derive(Debug))]
     pub struct IdentityId([u8; 32]);
 
     impl Flush for IdentityId {}
@@ -22,9 +23,10 @@ mod custom_types {
         }
     }
 
-    /// Custom type
-    #[derive(Decode, Encode, Debug, PartialEq, Ord, Eq, PartialOrd)]
+    
+    #[derive(Decode, Encode, PartialEq, Ord, Eq, PartialOrd)]
     #[cfg_attr(feature = "ink-generate-abi", derive(type_metadata::Metadata))]
+    #[cfg_attr(feature = "std", derive(Debug))]
     pub enum RestrictionResult {
         Valid,
         Invalid,
