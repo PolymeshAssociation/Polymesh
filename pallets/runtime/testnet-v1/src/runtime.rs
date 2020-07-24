@@ -1048,15 +1048,18 @@ impl_runtime_apis! {
         }
     }
 
-    impl pallet_compliance_manager_rpc_runtime_api::ComplianceManagerApi<Block, AccountId, Balance> for Runtime {
+    impl node_rpc_runtime_api::compliance_manager::ComplianceManagerApi<Block, AccountId, Balance>
+        for Runtime
+    {
         #[inline]
         fn can_transfer(
             ticker: Ticker,
             from_did: Option<IdentityId>,
             to_did: Option<IdentityId>,
+            treasury_did: Option<IdentityId>,
         ) -> AssetTransferRulesResult
         {
-            ComplianceManager::granular_verify_restriction(&ticker, from_did, to_did)
+            ComplianceManager::granular_verify_restriction(&ticker, from_did, to_did, treasury_did)
         }
     }
 

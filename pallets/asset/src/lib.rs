@@ -517,7 +517,8 @@ decl_module! {
                 beneficiary_did,
                 total_supply,
                 Self::funding_round(ticker),
-                total_supply
+                total_supply,
+                treasury_did,
             ));
             Ok(())
         }
@@ -822,7 +823,8 @@ decl_module! {
                     *investor_did,
                     *value,
                     round.clone(),
-                    issued_in_this_round
+                    issued_in_this_round,
+                    token.treasury_did,
                 ));
             }
             <Tokens<T>>::insert(ticker, token);
@@ -1373,8 +1375,9 @@ decl_event! {
         /// caller DID, ticker, owner DID, spender DID, value
         Approval(IdentityId, Ticker, IdentityId, IdentityId, Balance),
         /// Emit when tokens get issued.
-        /// caller DID, ticker, beneficiary DID, value, funding round, total issued in this funding round
-        Issued(IdentityId, Ticker, IdentityId, Balance, FundingRoundName, Balance),
+        /// caller DID, ticker, beneficiary DID, value, funding round, total issued in this funding round,
+        /// treasury DID
+        Issued(IdentityId, Ticker, IdentityId, Balance, FundingRoundName, Balance, Option<IdentityId>),
         /// Emit when tokens get redeemed.
         /// caller DID, ticker,  from DID, value
         Redeemed(IdentityId, Ticker, IdentityId, Balance),
@@ -2010,9 +2013,9 @@ impl<T: Trait> Module<T> {
 
         // Increase total supply
         token.total_supply = updated_total_supply;
-
         <BalanceOf<T>>::insert(ticker, &to_did, updated_to_balance);
         Portfolio::<T>::set_default_portfolio_balance(to_did, ticker, updated_to_def_balance);
+        let treasury_did = token.treasury_did;
         <Tokens<T>>::insert(ticker, token);
 
         // Update the investor count of an asset.
@@ -2043,6 +2046,7 @@ impl<T: Trait> Module<T> {
             value,
             round,
             issued_in_this_round,
+            treasury_did,
         ));
 
         Ok(())

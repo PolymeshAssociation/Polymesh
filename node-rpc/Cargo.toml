@@ -12,11 +12,10 @@ targets = ["x86_64-unknown-linux-gnu"]
 [dependencies]
 polymesh-primitives = { path = "../primitives" }
 pallet-contracts-rpc = { path = "../pallets/contracts/rpc" }
-pallet-compliance-manager-rpc = { path = "../pallets/compliance-manager/rpc" }
 pallet-group-rpc = { path = "../pallets/group/rpc" }
 pallet-staking-rpc = { path = "../pallets/staking/rpc" }
 pallet-protocol-fee-rpc = {  path = "../pallets/protocol-fee/rpc" }
-node-rpc = { path = "../rpc"}
+node-rpc = { path = "../rpc" }
 
 jsonrpc-core = "14.2.0"
 
@@ -39,4 +38,3 @@ sc-finality-grandpa-rpc = { git = "https://github.com/paritytech/substrate", tag
 sc-keystore = { git = "https://github.com/paritytech/substrate", tag = "v2.0.0-rc4" }
 
 frame-rpc-system = { package = "substrate-frame-rpc-system", git = "https://github.com/paritytech/substrate", tag = "v2.0.0-rc4"  }
-
