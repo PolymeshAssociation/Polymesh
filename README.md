@@ -113,11 +113,11 @@ npm install
 
 This uses pm2 to run a local three node network for demonstrate simple consensus.
 
-To stop the chain you can use:  
+To stop the chain you can use:
 ```bash
 ./stop.sh
 ```
-and to display log files you can use:  
+and to display log files you can use:
 ```bash
 ./log.sh
 ```
@@ -135,7 +135,7 @@ Specifying no chain at the command line defaults to the Aldebaran Public Testnet
 Unit tests are packaged with the Rust code. To run these, you can execute:
 
 ```bash
-cargo test --package polymesh-runtime-common  --features default_identity
+cargo test --package polymesh-runtime-tests  --features default_identity
 cargo test --package pallet-staking
 cargo test --package pallet-balances
 cargo test --package pallet-im-online

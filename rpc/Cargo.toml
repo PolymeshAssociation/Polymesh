@@ -9,7 +9,8 @@ node-rpc-runtime-api = { path = "./runtime-api", default-features = false }
 
 polymesh-primitives = { path = "../primitives", default-features = false }
 pallet-pips = { path = "../pallets/pips", default-features = false }
-pallet-identity= { path = "../pallets/identity", default-features = false }
+pallet-portfolio = { path = "../pallets/portfolio", default-features = false }
+pallet-identity = { path = "../pallets/identity", default-features = false }
 pallet-transaction-payment = { path = "../pallets/transaction-payment", default-features = false }
 
 # Substrate
@@ -34,14 +35,15 @@ jsonrpc-derive = "14.0.5"
 [features]
 default = ["std"]
 std = [
-	"node-rpc-runtime-api/std",
-	"polymesh-primitives/std",
-	"pallet-pips/std",
-	"pallet-identity/std",
-	"pallet-transaction-payment/std",
-	"frame-support/std",
-	"sp-core/std",
-	"sp-std/std",
-	"sp-api/std",
-	"sp-runtime/std",
+    "frame-support/std",
+    "node-rpc-runtime-api/std",
+    "pallet-identity/std",
+    "pallet-pips/std",
+    "pallet-portfolio/std",
+    "pallet-transaction-payment/std",
+    "polymesh-primitives/std",
+    "sp-api/std",
+    "sp-core/std",
+    "sp-runtime/std",
+    "sp-std/std",
 ]

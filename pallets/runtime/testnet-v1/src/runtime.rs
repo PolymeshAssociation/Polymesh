@@ -15,6 +15,7 @@ use pallet_identity::{
 };
 use pallet_multisig as multisig;
 use pallet_pips::{HistoricalVotingByAddress, HistoricalVotingById, Vote, VoteCount};
+use pallet_portfolio as portfolio;
 use pallet_protocol_fee as protocol_fee;
 use pallet_settlement as settlement;
 use pallet_statistics as statistics;
@@ -33,7 +34,7 @@ use polymesh_common_utilities::{
 };
 use polymesh_primitives::{
     AccountId, AccountIndex, Authorization, AuthorizationType, Balance, BlockNumber, Hash,
-    IdentityId, Index, Moment, Signatory, Signature, SigningItem, Ticker,
+    IdentityId, Index, Moment, PortfolioId, Signatory, Signature, SigningItem, Ticker,
 };
 use polymesh_runtime_common::{
     bridge,
@@ -580,6 +581,10 @@ impl bridge::Trait for Runtime {
     type MaxTimelockedTxsPerBlock = MaxTimelockedTxsPerBlock;
 }
 
+impl portfolio::Trait for Runtime {
+    type Event = Event;
+}
+
 impl asset::Trait for Runtime {
     type Event = Event;
     type Currency = Balances;
@@ -719,6 +724,7 @@ construct_runtime!(
         Statistic: statistics::{Module, Call, Storage},
         ProtocolFee: protocol_fee::{Module, Call, Storage, Event<T>, Config<T>},
         Utility: utility::{Module, Call, Storage, Event},
+        Portfolio: portfolio::{Module, Call, Storage, Event<T>},
     }
 );
 
@@ -1065,6 +1071,20 @@ impl_runtime_apis! {
             merge_active_and_inactive::<Block>(
                 CommitteeMembership::active_members(),
                 CommitteeMembership::inactive_members())
+        }
+    }
+
+    impl node_rpc_runtime_api::portfolio::PortfolioApi<Block, Balance> for Runtime {
+        #[inline]
+        fn get_portfolios(did: IdentityId) -> node_rpc_runtime_api::portfolio::GetPortfoliosResult {
+            Ok(Portfolio::rpc_get_portfolios(did))
+        }
+
+        #[inline]
+        fn get_portfolio_assets(portfolio_id: PortfolioId) ->
+            node_rpc_runtime_api::portfolio::GetPortfolioAssetsResult<Balance>
+        {
+            Ok(Portfolio::rpc_get_portfolio_assets(portfolio_id))
         }
     }
 

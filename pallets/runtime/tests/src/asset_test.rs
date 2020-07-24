@@ -35,6 +35,7 @@ type Balances = balances::Module<TestStorage>;
 type Asset = asset::Module<TestStorage>;
 type Timestamp = pallet_timestamp::Module<TestStorage>;
 type ComplianceManager = compliance_manager::Module<TestStorage>;
+type Portfolio = pallet_portfolio::Module<TestStorage>;
 type AssetError = asset::Error<TestStorage>;
 type OffChainSignature = AnySignature;
 type Origin = <TestStorage as frame_system::Trait>::Origin;
@@ -273,7 +274,7 @@ fn valid_custodian_allowance() {
         ));
 
         assert_eq!(
-            Asset::balance(&ticker, &token.owner_did),
+            Asset::balance_of(&ticker, &token.owner_did),
             token.total_supply
         );
 
@@ -307,7 +308,7 @@ fn valid_custodian_allowance() {
         // Check the expected default behaviour of the map.
         let no_such_round: FundingRoundName = b"No such round".into();
         assert_eq!(Asset::issued_in_funding_round((ticker, no_such_round)), 0);
-        assert_eq!(Asset::balance(&ticker, &investor1_did), num_tokens1);
+        assert_eq!(Asset::balance_of(&ticker, &investor1_did), num_tokens1);
 
         // Failed to add custodian because of insufficient balance
         assert_noop!(
@@ -358,7 +359,10 @@ fn valid_custodian_allowance() {
             140_00_00 as u128
         ));
 
-        assert_eq!(Asset::balance(&ticker, &investor2_did), 140_00_00 as u128);
+        assert_eq!(
+            Asset::balance_of(&ticker, &investor2_did),
+            1_400_000 as u128
+        );
 
         // Try to Transfer the tokens beyond the limit
         assert_noop!(
@@ -445,7 +449,7 @@ fn valid_custodian_allowance_of() {
         ));
 
         assert_eq!(
-            Asset::balance(&ticker, &token.owner_did),
+            Asset::balance(&ticker, token.owner_did).total,
             token.total_supply
         );
 
@@ -466,7 +470,10 @@ fn valid_custodian_allowance_of() {
             vec![0x0]
         ));
 
-        assert_eq!(Asset::balance(&ticker, &investor1_did), 200_00_00 as u128);
+        assert_eq!(
+            Asset::balance(&ticker, investor1_did).total,
+            2_000_000 as u128
+        );
 
         let msg = SignData {
             custodian_did,
@@ -538,7 +545,10 @@ fn valid_custodian_allowance_of() {
             140_00_00 as u128
         ));
 
-        assert_eq!(Asset::balance(&ticker, &investor2_did), 140_00_00 as u128);
+        assert_eq!(
+            Asset::balance(&ticker, investor2_did).total,
+            1_400_000 as u128
+        );
 
         // Try to Transfer the tokens beyond the limit
         assert_noop!(
@@ -618,7 +628,6 @@ fn checkpoints_fuzz_test() {
                 vec![],
                 vec![]
             ));
-
             let mut owner_balance: [u128; 100] = [1_000_000; 100];
             let mut bob_balance: [u128; 100] = [0; 100];
             let mut rng = rand::thread_rng();
@@ -635,7 +644,7 @@ fn checkpoints_fuzz_test() {
                     bob_balance[j] += 1;
                     assert_ok!(Asset::transfer(owner_signed.clone(), ticker, bob_did, 1));
                 }
-                assert_ok!(Asset::create_checkpoint(owner_signed.clone(), ticker,));
+                assert_ok!(Asset::create_checkpoint(owner_signed.clone(), ticker));
                 let x: u64 = u64::try_from(j).unwrap();
                 assert_eq!(
                     Asset::get_balance_at(ticker, owner_did, 0),

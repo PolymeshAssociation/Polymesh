@@ -10,7 +10,6 @@ serde = { version = "1.0.104", features = ["derive"] }
 jsonrpc-core = "14.0.5"
 jsonrpc-core-client = "14.0.5"
 jsonrpc-derive = "14.0.5"
-sp-rpc = { git = 'https://github.com/paritytech/substrate', default_features = false, tag = "v2.0.0-rc4"}
 sp-runtime = { git = 'https://github.com/paritytech/substrate', default_features = false, tag = "v2.0.0-rc4" }
 sp-blockchain = { git = 'https://github.com/paritytech/substrate', default_features = false, tag = "v2.0.0-rc4"}
 sp-api = { git = 'https://github.com/paritytech/substrate', default_features = false, tag = "v2.0.0-rc4"}
