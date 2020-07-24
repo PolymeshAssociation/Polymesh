@@ -12,7 +12,7 @@ use polymesh_common_utilities::{
     },
     SystematicIssuers,
 };
-use polymesh_primitives::{IdentityId, Permission, Signatory};
+use polymesh_primitives::{IdentityId, Permissions, Signatory};
 
 use codec::Encode;
 use frame_support::{
@@ -212,7 +212,7 @@ impl IdentityTrait<AccountId> for Runtime {
     fn is_signer_authorized_with_permissions(
         _did: IdentityId,
         _signer: &Signatory<AccountId>,
-        _permissions: Vec<Permission>,
+        _permissions: Permissions,
     ) -> bool {
         unimplemented!()
     }

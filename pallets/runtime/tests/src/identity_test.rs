@@ -811,7 +811,7 @@ fn enforce_uniqueness_keys_in_identity() {
     let auth_id = Identity::add_auth(
         alice_id,
         Signatory::Account(AccountKeyring::Bob.public()),
-        AuthorizationData::JoinIdentity(vec![]),
+        AuthorizationData::JoinIdentity(Permissions::empty()),
         None,
     );
     assert_ok!(Balances::top_up_identity_balance(
@@ -1306,7 +1306,7 @@ fn add_identity_signers() {
         let auth_id_for_acc_to_id = Identity::add_auth(
             alice_did,
             bob_identity_signer,
-            AuthorizationData::JoinIdentity(vec![]),
+            AuthorizationData::JoinIdentity(Permissions::empty()),
             None,
         );
 
@@ -1323,7 +1323,7 @@ fn add_identity_signers() {
         let auth_id_for_acc2_to_id = Identity::add_auth(
             charlie_did,
             bob_identity_signer,
-            AuthorizationData::JoinIdentity(vec![]),
+            AuthorizationData::JoinIdentity(Permissions::empty()),
             None,
         );
 
@@ -1349,7 +1349,7 @@ fn add_identity_signers() {
         let auth_id_for_acc1_to_acc = Identity::add_auth(
             alice_did,
             dave_acc_signer,
-            AuthorizationData::JoinIdentity(vec![]),
+            AuthorizationData::JoinIdentity(Permissions::empty()),
             None,
         );
 
@@ -1367,7 +1367,7 @@ fn add_identity_signers() {
         let auth_id_for_acc2_to_acc = Identity::add_auth(
             charlie_did,
             dave_acc_signer,
-            AuthorizationData::JoinIdentity(vec![]),
+            AuthorizationData::JoinIdentity(Permissions::empty()),
             None,
         );
 

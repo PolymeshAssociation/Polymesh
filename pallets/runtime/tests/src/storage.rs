@@ -36,7 +36,7 @@ use polymesh_common_utilities::traits::{
     CommonTrait,
 };
 use polymesh_common_utilities::Context;
-use polymesh_primitives::{Authorization, AuthorizationData, IdentityId, Signatory};
+use polymesh_primitives::{Authorization, AuthorizationData, IdentityId, Permissions, Signatory};
 use polymesh_runtime_common::{
     bridge, cdd_check::CddChecker, dividend, exemption, simple_token, voting,
 };
@@ -648,7 +648,7 @@ pub fn add_signing_key(did: IdentityId, signer: Signatory<AccountId>) {
     let auth_id = Identity::add_auth(
         did.clone(),
         signer,
-        AuthorizationData::JoinIdentity(vec![]),
+        AuthorizationData::JoinIdentity(Permissions::empty()),
         None,
     );
     assert_ok!(Identity::join_identity(signer, auth_id));

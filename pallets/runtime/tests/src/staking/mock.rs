@@ -42,7 +42,7 @@ use polymesh_common_utilities::traits::{
     transaction_payment::{CddAndFeeDetails, ChargeTxFee},
     CommonTrait,
 };
-use polymesh_primitives::{AuthorizationData, Claim, IdentityId, Moment, Signatory};
+use polymesh_primitives::{AuthorizationData, Claim, IdentityId, Moment, Permissions, Signatory};
 use sp_core::H256;
 use sp_io;
 use sp_npos_elections::{
@@ -836,7 +836,7 @@ pub fn add_signing_key(stash_key: AccountId, to_signing_key: AccountId) {
             Identity::add_authorization(
                 Origin::signed(stash_key),
                 Signatory::Account(to_signing_key),
-                AuthorizationData::JoinIdentity(vec![]),
+                AuthorizationData::JoinIdentity(Permissions::empty()),
                 None
             )
             .is_ok(),
