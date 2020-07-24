@@ -62,6 +62,11 @@ impl IdentityId {
         &self.0
     }
 
+    #[inline]
+    pub fn to_bytes(self) -> [u8; UUID_LEN] {
+        self.0
+    }
+
     fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
         write!(f, "did:poly:")?;
         for byte in &self.0 {

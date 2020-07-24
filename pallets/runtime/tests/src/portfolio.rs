@@ -51,7 +51,7 @@ fn do_move_asset_from_portfolio() {
     let bob_signed = Origin::signed(AccountKeyring::Bob.public());
     let _ = register_keyring_account(AccountKeyring::Bob).unwrap();
     let total_supply = 1_000_000;
-    let mut token = SecurityToken {
+    let token = SecurityToken {
         name: vec![0x01].into(),
         owner_did,
         total_supply,

@@ -1,12 +1,8 @@
 use crate::IdentityId;
-use cryptography::claim_proofs::PedersenGenerators;
-use curve25519_dalek::scalar::Scalar;
+use cryptography::claim_proofs::{ CDDClaimData, RawData, compute_cdd_id };
 use polymesh_primitives_derive::SliceU8StrongTyped;
 
-use blake2::{Blake2b, Digest};
 use codec::{Decode, Encode};
-
-use sp_std::convert::TryInto;
 
 #[cfg(feature = "std")]
 use polymesh_primitives_derive::{DeserializeU8StrongTyped, SerializeU8StrongTyped};
@@ -23,7 +19,7 @@ use polymesh_primitives_derive::{DeserializeU8StrongTyped, SerializeU8StrongType
     feature = "std",
     derive(SerializeU8StrongTyped, DeserializeU8StrongTyped)
 )]
-pub struct InvestorUID([u8; 32]);
+pub struct InvestorUID(pub [u8; 32]);
 
 /// It links the investor UID with an specific Identity DID in a way that no one can extract that
 /// investor UID from this CDD Id, and the investor can create a Zero Knowledge Proof to prove that
@@ -44,37 +40,19 @@ impl CddId {
     /// The blind factor is generated as a `Blake2b` hash of the concatenation of the given `did`
     /// and `investor_uid`.
     pub fn new(did: IdentityId, investor_uid: InvestorUID) -> Self {
-        let blind = Blake2b::default()
-            .chain(did.as_bytes())
-            .chain(investor_uid.as_slice())
-            .finalize();
-        let blind_plain: [u8; 32] = blind.as_ref().try_into().unwrap_or_else(|_| [0u8; 32]);
+        let cdd_claim_data = CDDClaimData {
+            investor_did: RawData(did.to_bytes()),
+            investor_unique_id: RawData(investor_uid.0),
+        };
+        let raw_cdd_id = compute_cdd_id(&cdd_claim_data)
+            .compress()
+            .to_bytes();
 
-        Self::with_blind(did, investor_uid, blind_plain)
-    }
-
-    /// Create a new CDD id using an specific blind factor.
-    /// # TODO
-    ///  - Limit IdentityId & InvestorUID to fit into Scalar (see Scalar::from_bits)
-    pub fn with_blind(did: IdentityId, investor_uid: InvestorUID, blind: [u8; 32]) -> Self {
-        let uid: [u8; 32] = investor_uid
-            .as_slice()
-            .try_into()
-            .unwrap_or_else(|_| [0u8; 32]);
-
-        let a0 = Scalar::from_bits(did.as_fixed_bytes().clone());
-        let a1 = Scalar::from_bits(uid);
-        let a2 = Scalar::from_bits(blind);
-
-        let pg = PedersenGenerators::default();
-        let values = [a0, a1, a2];
-        let commitment = pg.commit(&values);
-        let commitment_compressed = commitment.compress().as_bytes().clone();
-
-        CddId(commitment_compressed)
+        Self(raw_cdd_id)
     }
 
     /// Only the zero-filled `CddId` is considered as invalid.
+    #[inline]
     pub fn is_valid(&self) -> bool {
         self.0 != [0u8; 32]
     }

@@ -1,6 +1,7 @@
 {
     "types": {
         "IdentityId":"[u8; 32]",
+        "InvestorUID":"[u8; 32]",
         "Ticker": "[u8; 12]",
         "CddId": "[u8; 32]",
         "PosRatio": "(u32, u32)",
