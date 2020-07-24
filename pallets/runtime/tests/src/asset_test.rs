@@ -10,6 +10,7 @@ use pallet_asset::{
 use pallet_balances as balances;
 use pallet_compliance_manager as compliance_manager;
 use pallet_identity as identity;
+use pallet_statistics as statistics;
 use polymesh_common_utilities::{
     constants::*, traits::asset::IssueAssetItem, traits::balances::Memo,
 };
@@ -40,6 +41,7 @@ type AssetError = asset::Error<TestStorage>;
 type OffChainSignature = AnySignature;
 type Origin = <TestStorage as frame_system::Trait>::Origin;
 type DidRecords = identity::DidRecords<TestStorage>;
+type Statistics = statistics::Module<TestStorage>;
 
 #[test]
 fn check_the_test_hex() {
@@ -101,6 +103,9 @@ fn issuers_can_create_and_rename_tokens() {
             Some(funding_round_name.clone()),
             None,
         ));
+
+        // Check the update investor count for the newly created asset
+        assert_eq!(Statistics::investor_count_per_asset(ticker), 1);
 
         // A correct entry is added
         assert_eq!(Asset::token_details(ticker), token);
