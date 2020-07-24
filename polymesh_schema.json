@@ -343,7 +343,7 @@
         "SmartExtension": {
             "extension_type": "SmartExtensionType",
             "extension_name": "SmartExtensionName",
-            "extension_id": "IdentityId",
+            "extension_id": "AccountId",
             "is_archive": "bool"
         },
         "ProportionMatch": {

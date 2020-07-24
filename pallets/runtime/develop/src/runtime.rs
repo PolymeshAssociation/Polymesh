@@ -408,7 +408,7 @@ impl pallet_pips::Trait for Runtime {
 parameter_types! {
     pub const TombstoneDeposit: Balance = 1 * DOLLARS;
     pub const RentByteFee: Balance = 1 * DOLLARS;
-    pub const RentDepositOffset: Balance = 1000 * DOLLARS;
+    pub const RentDepositOffset: Balance = 300 * DOLLARS;
     pub const SurchargeReward: Balance = 150 * DOLLARS;
 }
 

@@ -105,7 +105,7 @@ use frame_system::{self as system, ensure_signed};
 use hex_literal::hex;
 use pallet_contracts::{ExecReturnValue, Gas};
 use pallet_identity as identity;
-use pallet_statistics as statistics;
+use pallet_statistics::{self as statistics, Counter};
 use polymesh_common_utilities::{
     asset::{AcceptTransfer, IssueAssetItem, Trait as AssetTrait},
     balances::Trait as BalancesTrait,
@@ -1827,6 +1827,7 @@ impl<T: Trait> Module<T> {
             let mut is_valid = false;
             let mut is_invalid = false;
             let mut force_valid = false;
+            let current_holder_count = <statistics::Module<T>>::investor_count_per_asset(ticker);
             let tms = Self::extensions((ticker, SmartExtensionType::TransferManager))
                 .into_iter()
                 .filter(|tm| !Self::extension_details((ticker, tm)).is_archive)
@@ -1839,6 +1840,7 @@ impl<T: Trait> Module<T> {
                         from_did,
                         to_did,
                         value,
+                        current_holder_count,
                         tm,
                     );
                     match result {
@@ -2238,6 +2240,7 @@ impl<T: Trait> Module<T> {
         from_did: Option<IdentityId>,
         to_did: Option<IdentityId>,
         value: T::Balance,
+        holder_count: Counter,
         dest: T::AccountId,
     ) -> RestrictionResult {
         // 4 byte selector of verify_transfer - 0xD9386E41
@@ -2254,6 +2257,7 @@ impl<T: Trait> Module<T> {
         let encoded_from = Option::<IdentityId>::encode(&from_did);
         let encoded_value = T::Balance::encode(&value);
         let total_supply = T::Balance::encode(&<Tokens<T>>::get(&ticker).total_supply);
+        let current_holder_count = Counter::encode(&holder_count);
 
         // Creation of the encoded data for the verifyTransfer function of the extension
         // i.e fn verify_transfer(
@@ -2262,7 +2266,8 @@ impl<T: Trait> Module<T> {
         //        value: Balance,
         //        balance_from: Balance,
         //        balance_to: Balance,
-        //        total_supply: Balance
+        //        total_supply: Balance,
+        //        current_holder_count: Counter
         //    ) -> RestrictionResult { }
 
         let encoded_data = [
@@ -2273,6 +2278,7 @@ impl<T: Trait> Module<T> {
             &balance_from[..],
             &balance_to[..],
             &total_supply[..],
+            &current_holder_count[..],
         ]
         .concat();
 
@@ -2280,8 +2286,13 @@ impl<T: Trait> Module<T> {
         // native currency value should be `0` as no funds need to transfer to the smart extension
         // We are passing arbitrary high `gas_limit` value to make sure extension's function execute successfully
         // TODO: Once gas estimate function will be introduced, arbitrary gas value will be replaced by the estimated gas
-        let is_allowed =
-            Self::call_extension(extension_caller, dest, 0.into(), 5_000_000, encoded_data);
+        let is_allowed = Self::call_extension(
+            extension_caller,
+            dest,
+            0.into(),
+            10_000_000_000_000,
+            encoded_data,
+        );
         if is_allowed.is_success() {
             if let Ok(allowed) = RestrictionResult::decode(&mut &is_allowed.data[..]) {
                 return allowed;
