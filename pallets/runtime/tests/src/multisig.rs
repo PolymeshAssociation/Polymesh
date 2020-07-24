@@ -8,7 +8,7 @@ use pallet_balances as balances;
 use pallet_identity as identity;
 use pallet_multisig as multisig;
 use polymesh_common_utilities::Context;
-use polymesh_primitives::{Signatory, SigningItem};
+use polymesh_primitives::{Signatory, SigningKey};
 use sp_core::sr25519::Public;
 use test_client::AccountKeyring;
 
@@ -674,10 +674,10 @@ fn make_multisig_signer() {
             1,
         ));
 
-        let signing_items = Identity::did_records(alice_did).signing_items;
-        assert!(signing_items
+        let signing_keys = Identity::did_records(alice_did).signing_keys;
+        assert!(signing_keys
             .iter()
-            .find(|si| **si == SigningItem::from_account_id(musig_address))
+            .find(|si| **si == SigningKey::from_account_id(musig_address))
             .is_none());
 
         assert_err!(
@@ -695,10 +695,10 @@ fn make_multisig_signer() {
             musig_address.clone(),
         ));
 
-        let signing_items2 = Identity::did_records(alice_did).signing_items;
-        assert!(signing_items2
+        let signing_keys2 = Identity::did_records(alice_did).signing_keys;
+        assert!(signing_keys2
             .iter()
-            .find(|si| **si == SigningItem::from_account_id(musig_address))
+            .find(|si| **si == SigningKey::from_account_id(musig_address))
             .is_some());
     });
 }

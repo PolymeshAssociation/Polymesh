@@ -1,5 +1,5 @@
 use crate::{
-    storage::{add_signing_item, make_account, register_keyring_account, TestStorage},
+    storage::{add_signing_key, make_account, register_keyring_account, TestStorage},
     ExtBuilder,
 };
 
@@ -1742,7 +1742,7 @@ fn frozen_signing_keys_create_asset_we() {
         100_000
     ));
     let bob_signatory = Signatory::Account(AccountKeyring::Bob.public());
-    add_signing_item(alice_id, bob_signatory);
+    add_signing_key(alice_id, bob_signatory);
     assert_ok!(Balances::transfer_with_memo(
         Origin::signed(alice),
         bob,
@@ -1969,7 +1969,7 @@ fn can_set_treasury_did_we() {
         100_000
     ));
     let bob_signatory = Signatory::Account(AccountKeyring::Bob.public());
-    add_signing_item(alice_id, bob_signatory);
+    add_signing_key(alice_id, bob_signatory);
     assert_ok!(Balances::transfer_with_memo(
         Origin::signed(alice),
         bob,
