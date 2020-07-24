@@ -127,7 +127,7 @@ mod percentage_transfer_manager {
             {
                 return RestrictionResult::Valid;
             }
-            return RestrictionResult::Invalid;
+            RestrictionResult::Invalid
         }
 
         /// Change the value of allowed percentage

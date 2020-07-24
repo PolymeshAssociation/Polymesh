@@ -119,7 +119,7 @@ mod count_transfer_manager {
             {
                 return RestrictionResult::Invalid; // INVALID
             }
-            return RestrictionResult::Valid; // VALID
+            RestrictionResult::Valid // VALID
         }
 
         /// Simply returns the current value of `owner`.
