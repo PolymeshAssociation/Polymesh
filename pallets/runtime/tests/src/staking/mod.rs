@@ -16,20 +16,52 @@
 // limitations under the License.
 
 //! Tests for the module.
-mod mock;
-mod inflaction;
+//!
+#[macro_export]
+macro_rules! assert_session_era {
+    ($session:expr, $era:expr) => {
+        assert_eq!(
+            Session::current_index(),
+            $session,
+            "wrong session {} != {}",
+            Session::current_index(),
+            $session,
+        );
+        assert_eq!(
+            Staking::active_era().unwrap().index,
+            $era,
+            "wrong active era {} != {}",
+            Staking::active_era().unwrap().index,
+            $era,
+        );
+    };
+}
 
-use super::*;
+mod mock;
+use mock::*;
+
+use pallet_staking::*;
+
 use chrono::prelude::Utc;
+use codec::Decode;
 use frame_support::{
     assert_noop, assert_ok,
-    traits::{Currency, OnFinalize, OnInitialize, ReservableCurrency},
+    storage::{IterableStorageMap, StorageDoubleMap, StorageValue},
+    traits::{Currency, Get, OnFinalize, OnInitialize, ReservableCurrency},
     StorageMap,
 };
-use mock::*;
 use pallet_balances::Error as BalancesError;
-use sp_runtime::{assert_eq_error_rate, traits::BadOrigin};
-use sp_staking::offence::OffenceDetails;
+use sp_npos_elections::ElectionScore;
+use sp_runtime::{
+    assert_eq_error_rate,
+    traits::BadOrigin,
+    transaction_validity::{InvalidTransaction, TransactionValidity, ValidTransaction},
+    Perbill,
+};
+use sp_staking::{
+    offence::{OffenceDetails, OnOffenceHandler},
+    SessionIndex,
+};
 use substrate_test_utils::assert_eq_uvec;
 
 #[test]
@@ -116,7 +148,7 @@ fn basic_setup_works() {
 
         // ValidatorPrefs are default
         assert_eq_uvec!(
-            <Validators<Test>>::iter().collect::<Vec<_>>(),
+            mock::Staking::get_all_validators(),
             vec![
                 (31, ValidatorPrefs::default()),
                 (21, ValidatorPrefs::default()),
@@ -471,10 +503,10 @@ fn no_candidate_emergency_condition() {
             let prefs = ValidatorPrefs {
                 commission: Perbill::one(),
             };
-            <Staking as crate::Store>::Validators::insert(11, prefs.clone());
+            mock::Staking::insert_validators(11, prefs.clone());
 
             // set the minimum validator count.
-            <Staking as crate::Store>::MinimumValidatorCount::put(10);
+            mock::Staking::set_minimum_validator_count(10);
 
             // try to chill
             let _ = Staking::chill(Origin::signed(10));
@@ -2724,9 +2756,9 @@ fn garbage_collection_after_slashing() {
             );
 
             assert_eq!(Balances::free_balance(11), 256_000 - 25_600);
-            assert!(<Staking as crate::Store>::SlashingSpans::get(&11).is_some());
+            assert!(mock::Staking::get_slashing_spans(&11).is_some());
             assert_eq!(
-                <Staking as crate::Store>::SpanSlash::get(&(11, 0)).amount_slashed(),
+                mock::Staking::get_span_slash(&(11, 0)).amount_slashed(),
                 &25_600
             );
 
@@ -2747,7 +2779,7 @@ fn garbage_collection_after_slashing() {
             assert_eq!(Balances::free_balance(11), 0);
             assert_eq!(Balances::total_balance(&11), 0);
 
-            let slashing_spans = <Staking as crate::Store>::SlashingSpans::get(&11).unwrap();
+            let slashing_spans = mock::Staking::get_slashing_spans(&11).unwrap();
             assert_eq!(slashing_spans.iter().count(), 2);
 
             // reap_stash respects num_slashing_spans so that weight is accurate
@@ -2757,11 +2789,8 @@ fn garbage_collection_after_slashing() {
             );
             assert_ok!(Staking::reap_stash(Origin::none(), 11, 2));
 
-            assert!(<Staking as crate::Store>::SlashingSpans::get(&11).is_none());
-            assert_eq!(
-                <Staking as crate::Store>::SpanSlash::get(&(11, 0)).amount_slashed(),
-                &0
-            );
+            assert!(mock::Staking::get_slashing_spans(&11).is_none());
+            assert_eq!(mock::Staking::get_span_slash(&(11, 0)).amount_slashed(), &0);
         })
 }
 
@@ -2792,20 +2821,20 @@ fn garbage_collection_on_window_pruning() {
         // assert_eq!(Balances::free_balance(101), 2000 - (nominated_value / 10));
         assert_eq!(Balances::free_balance(101), 2000);
 
-        assert!(<Staking as crate::Store>::ValidatorSlashInEra::get(&now, &11).is_some());
+        assert!(mock::Staking::get_validator_slash_in_era(&now, &11).is_some());
         // Storage get update even the nominator didn't get slashed
-        assert!(<Staking as crate::Store>::NominatorSlashInEra::get(&now, &101).is_some());
+        assert!(mock::Staking::get_nominators_slash_in_era(&now, &101).is_some());
 
         // + 1 because we have to exit the bonding window.
         for era in (0..(BondingDuration::get() + 1)).map(|offset| offset + now + 1) {
-            assert!(<Staking as crate::Store>::ValidatorSlashInEra::get(&now, &11).is_some());
-            assert!(<Staking as crate::Store>::NominatorSlashInEra::get(&now, &101).is_some());
+            assert!(mock::Staking::get_validator_slash_in_era(&now, &11).is_some());
+            assert!(mock::Staking::get_nominators_slash_in_era(&now, &101).is_some());
 
             mock::start_era(era);
         }
 
-        assert!(<Staking as crate::Store>::ValidatorSlashInEra::get(&now, &11).is_none());
-        assert!(<Staking as crate::Store>::NominatorSlashInEra::get(&now, &101).is_none());
+        assert!(mock::Staking::get_validator_slash_in_era(&now, &11).is_none());
+        assert!(mock::Staking::get_nominators_slash_in_era(&now, &101).is_none());
     })
 }
 
@@ -2868,7 +2897,7 @@ fn slashing_nominators_by_span_max() {
             },
         ];
 
-        let get_span = |account| <Staking as crate::Store>::SlashingSpans::get(&account).unwrap();
+        let get_span = |account| mock::Staking::get_slashing_spans(&account).unwrap();
 
         assert_eq!(get_span(11).iter().collect::<Vec<_>>(), expected_spans,);
 
@@ -2938,7 +2967,7 @@ fn slashes_are_summed_across_spans() {
         assert_eq!(Balances::free_balance(21), 2000);
         assert_eq!(Staking::slashable_balance_of(&21), 1000);
 
-        let get_span = |account| <Staking as crate::Store>::SlashingSpans::get(&account).unwrap();
+        let get_span = |account| mock::Staking::get_slashing_spans(&account).unwrap();
 
         on_offence_now(
             &[OffenceDetails {
@@ -3187,7 +3216,7 @@ fn remove_multi_deferred() {
                 &[Perbill::from_percent(25)],
             );
 
-            assert_eq!(<Staking as Store>::UnappliedSlashes::get(&1).len(), 5);
+            assert_eq!(mock::Staking::get_unapplied_slashed(&1).len(), 5);
 
             // fails if list is not sorted
             assert_noop!(
@@ -3211,7 +3240,7 @@ fn remove_multi_deferred() {
                 vec![0, 2, 4]
             ));
 
-            let slashes = <Staking as Store>::UnappliedSlashes::get(&1);
+            let slashes = mock::Staking::get_unapplied_slashed(&1);
             assert_eq!(slashes.len(), 2);
             assert_eq!(slashes[0].validator, 21);
             assert_eq!(slashes[1].validator, 42);
@@ -3219,13 +3248,13 @@ fn remove_multi_deferred() {
 }
 
 mod offchain_phragmen {
-    use crate::*;
+    use super::*;
     use codec::Encode;
     use frame_support::traits::OffchainWorker;
     use frame_support::{
         assert_err_with_weight, assert_noop, assert_ok, dispatch::DispatchResultWithPostInfo,
     };
-    use mock::*;
+    use pallet_staking::{offchain_election, OffchainAccuracy};
     use parking_lot::RwLock;
     use sp_core::offchain::{
         testing::{PoolState, TestOffchainExt, TestTransactionPoolExt},
@@ -3838,10 +3867,7 @@ mod offchain_phragmen {
                     TransactionSource::Local,
                     &inner,
                 ),
-                TransactionValidity::Err(
-                    InvalidTransaction::Custom(<Error<Test>>::PhragmenWeakSubmission.as_u8())
-                        .into(),
-                ),
+                TransactionValidity::Err(InvalidTransaction::Custom(16).into(),),
             )
         })
     }
@@ -3957,7 +3983,7 @@ mod offchain_phragmen {
                 let (mut compact, winners, score) = prepare_submission_with(true, 2, |_| {});
 
                 // index 9 doesn't exist.
-                compact.votes1.push((9, 2));
+                compact.push_votes1((9, 2));
 
                 // The error type sadly cannot be more specific now.
                 assert_noop!(
@@ -3984,7 +4010,7 @@ mod offchain_phragmen {
                 let (mut compact, winners, score) = prepare_submission_with(true, 2, |_| {});
 
                 // index 4 doesn't exist.
-                compact.votes1.push((3, 4));
+                compact.push_votes1((3, 4));
 
                 // The error type sadly cannot be more specific now.
                 assert_noop!(
@@ -4126,7 +4152,7 @@ mod offchain_phragmen {
                 // reduce.
                 let (mut compact, winners, score) = prepare_submission_with(false, 0, |_| {});
 
-                if let Some(c) = compact.votes3.iter_mut().find(|x| x.0 == 0) {
+                if let Some(c) = compact.get_votes3().iter_mut().find(|x| x.0 == 0) {
                     // by default it should have been (0, [(2, 33%), (1, 33%)], 0)
                     // now the sum is above 100%
                     c.1 = [(2, percent(66)), (1, percent(66))];
@@ -4393,15 +4419,15 @@ fn slash_kicks_validators_not_nominators_and_disables_nominator_for_kicked_valid
 
         // This is the best way to check that the validator was chilled; `get` will
         // return default value.
-        for (stash, _) in <Staking as Store>::Validators::iter() {
-            assert!(stash != 11);
+        for (stash, _) in mock::Staking::get_all_validators().iter() {
+            assert!(*stash != 11);
         }
 
-        let nominations = <Staking as Store>::Nominators::get(&101).unwrap();
+        let nominations = mock::Staking::nominators(&101).unwrap();
 
         // and make sure that the vote will be ignored even if the validator
         // re-registers.
-        let last_slash = <Staking as Store>::SlashingSpans::get(&11)
+        let last_slash = mock::Staking::get_slashing_spans(&11)
             .unwrap()
             .last_nonzero_slash();
         assert!(nominations.submitted_in < last_slash);
@@ -4530,15 +4556,15 @@ fn zero_slash_keeps_nominators() {
 
         // This is the best way to check that the validator was chilled; `get` will
         // return default value.
-        for (stash, _) in <Staking as Store>::Validators::iter() {
-            assert!(stash != 11);
+        for (stash, _) in mock::Staking::get_all_validators().iter() {
+            assert!(*stash != 11);
         }
 
-        let nominations = <Staking as Store>::Nominators::get(&101).unwrap();
+        let nominations = mock::Staking::nominators(&101).unwrap();
 
         // and make sure that the vote will not be ignored, because the slash was
         // zero.
-        let last_slash = <Staking as Store>::SlashingSpans::get(&11)
+        let last_slash = mock::Staking::get_slashing_spans(&11)
             .unwrap()
             .last_nonzero_slash();
         assert!(nominations.submitted_in >= last_slash);
@@ -4658,19 +4684,20 @@ fn test_max_nominator_rewarded_per_validator_and_cant_steal_someone_else_reward(
 #[test]
 fn set_history_depth_works() {
     ExtBuilder::default().build_and_execute(|| {
+        let root = Origin::from(frame_system::RawOrigin::Root);
         mock::start_era(10);
-        Staking::set_history_depth(Origin::signed(5000), 20, 0).unwrap();
-        assert!(<Staking as Store>::ErasTotalStake::contains_key(10 - 4));
-        assert!(<Staking as Store>::ErasTotalStake::contains_key(10 - 5));
-        Staking::set_history_depth(Origin::signed(5000), 4, 0).unwrap();
-        assert!(<Staking as Store>::ErasTotalStake::contains_key(10 - 4));
-        assert!(!<Staking as Store>::ErasTotalStake::contains_key(10 - 5));
-        Staking::set_history_depth(Origin::signed(5000), 3, 0).unwrap();
-        assert!(!<Staking as Store>::ErasTotalStake::contains_key(10 - 4));
-        assert!(!<Staking as Store>::ErasTotalStake::contains_key(10 - 5));
-        Staking::set_history_depth(Origin::signed(5000), 8, 0).unwrap();
-        assert!(!<Staking as Store>::ErasTotalStake::contains_key(10 - 4));
-        assert!(!<Staking as Store>::ErasTotalStake::contains_key(10 - 5));
+        Staking::set_history_depth(root.clone(), 20, 0).unwrap();
+        assert_ne!(mock::Staking::eras_total_stake(10 - 4), 0u128);
+        assert_ne!(mock::Staking::eras_total_stake(10 - 5), 0);
+        Staking::set_history_depth(root.clone(), 4, 0).unwrap();
+        assert_ne!(mock::Staking::eras_total_stake(10 - 4), 0);
+        assert_eq!(mock::Staking::eras_total_stake(10 - 5), 0);
+        Staking::set_history_depth(root.clone(), 3, 0).unwrap();
+        assert_eq!(mock::Staking::eras_total_stake(10 - 4), 0);
+        assert_eq!(mock::Staking::eras_total_stake(10 - 5), 0);
+        Staking::set_history_depth(root, 8, 0).unwrap();
+        assert_eq!(mock::Staking::eras_total_stake(10 - 4), 0);
+        assert_eq!(mock::Staking::eras_total_stake(10 - 5), 0);
     });
 }
 
@@ -4938,7 +4965,7 @@ fn on_initialize_weight_is_correct() {
     ExtBuilder::default()
         .has_stakers(false)
         .build_and_execute(|| {
-            assert_eq!(Validators::<Test>::iter().count(), 0);
+            assert_eq!(mock::Staking::get_all_validators().iter().count(), 0);
             assert_eq!(Nominators::<Test>::iter().count(), 0);
             // When this pallet has nothing, we do 4 reads each block
             let base_weight = <Test as frame_system::Trait>::DbWeight::get().reads(4);
@@ -4951,14 +4978,14 @@ fn on_initialize_weight_is_correct() {
         .has_stakers(false)
         .build()
         .execute_with(|| {
-            crate::tests::offchain_phragmen::build_offchain_phragmen_test_ext();
+            offchain_phragmen::build_offchain_phragmen_test_ext();
             run_to_block(11);
             Staking::on_finalize(System::block_number());
             System::set_block_number((System::block_number() + 1).into());
             Timestamp::set_timestamp(System::block_number() * 1000 + INIT_TIMESTAMP);
             Session::on_initialize(System::block_number());
 
-            assert_eq!(Validators::<Test>::iter().count(), 4);
+            assert_eq!(mock::Staking::get_all_validators().iter().count(), 4);
             assert_eq!(Nominators::<Test>::iter().count(), 5);
             // With 4 validators and 5 nominator, we should increase weight by:
             // - (4 + 5) reads
@@ -5025,7 +5052,8 @@ fn add_valid_nominator_with_multiple_claims() {
             let controller_signed = Origin::signed(account_alice_controller);
 
             let claim_issuer_1 = 600;
-            let (_claim_issuer_1_signed, claim_issuer_1_did) = make_account(claim_issuer_1).unwrap();
+            let (_claim_issuer_1_signed, claim_issuer_1_did) =
+                make_account(claim_issuer_1).unwrap();
             add_trusted_cdd_provider(claim_issuer_1_did);
 
             let now = Utc::now();
@@ -5034,7 +5062,8 @@ fn add_valid_nominator_with_multiple_claims() {
 
             // add one more claim issuer
             let claim_issuer_2 = 700;
-            let (_claim_issuer_2_signed, claim_issuer_2_did) = make_account(claim_issuer_2).unwrap();
+            let (_claim_issuer_2_signed, claim_issuer_2_did) =
+                make_account(claim_issuer_2).unwrap();
             add_trusted_cdd_provider(claim_issuer_2_did);
 
             // add claim by claim issuer
@@ -5070,7 +5099,8 @@ fn validate_nominators_with_valid_cdd() {
             let controller_signed_alice = Origin::signed(account_alice_controller);
 
             let claim_issuer_1 = 600;
-            let (_claim_issuer_1_signed, claim_issuer_1_did) = make_account(claim_issuer_1).unwrap();
+            let (_claim_issuer_1_signed, claim_issuer_1_did) =
+                make_account(claim_issuer_1).unwrap();
             add_trusted_cdd_provider(claim_issuer_1_did);
 
             let account_eve = 700;
@@ -5080,7 +5110,8 @@ fn validate_nominators_with_valid_cdd() {
             let controller_signed_eve = Origin::signed(account_eve_controller);
 
             let claim_issuer_2 = 800;
-            let (_claim_issuer_2_signed, claim_issuer_2_did) = make_account(claim_issuer_2).unwrap();
+            let (_claim_issuer_2_signed, claim_issuer_2_did) =
+                make_account(claim_issuer_2).unwrap();
             add_trusted_cdd_provider(claim_issuer_2_did);
 
             let mut now = Utc::now();

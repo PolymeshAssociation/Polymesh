@@ -1759,6 +1759,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "hex-literal"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "dc38ca401ca1b8d89ff1185e39a132e5c4f86d844c0cf6364251576f2d7fa0c1"
+
+[[package]]
 name = "hex-literal-impl"
 version = "0.2.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3170,7 +3176,7 @@ dependencies = [
  "frame-benchmarking",
  "frame-support",
  "frame-system",
- "hex-literal",
+ "hex-literal 0.2.1",
  "pallet-balances 0.1.0",
  "pallet-contracts",
  "pallet-identity",
@@ -3305,6 +3311,7 @@ dependencies = [
 name = "pallet-committee"
 version = "0.1.0"
 dependencies = [
+ "frame-benchmarking",
  "frame-support",
  "frame-system",
  "pallet-identity",
@@ -3423,7 +3430,7 @@ dependencies = [
  "assert_matches",
  "frame-support",
  "frame-system",
- "hex-literal",
+ "hex-literal 0.2.1",
  "pallet-contracts-primitives",
  "pallet-randomness-collective-flip",
  "pallet-transaction-payment",
@@ -4301,7 +4308,6 @@ dependencies = [
  "frame-system-rpc-runtime-api",
  "futures 0.3.5",
  "jsonrpc-core",
- "linregress",
  "log",
  "node-rpc",
  "node-rpc-runtime-api",
@@ -4474,6 +4480,7 @@ dependencies = [
 name = "polymesh-runtime-develop"
 version = "0.1.0"
 dependencies = [
+ "frame-benchmarking",
  "frame-executive",
  "frame-support",
  "frame-system",
@@ -4535,7 +4542,7 @@ dependencies = [
  "sp-std",
  "sp-transaction-pool",
  "sp-version",
- "substrate-wasm-builder-runner 1.0.6",
+ "substrate-wasm-builder-runner",
 ]
 
 [[package]]
@@ -4543,11 +4550,12 @@ name = "polymesh-runtime-testnet-v1"
 version = "0.1.0"
 dependencies = [
  "chrono",
+ "frame-benchmarking",
  "frame-executive",
  "frame-support",
  "frame-system",
  "frame-system-rpc-runtime-api",
- "hex-literal",
+ "hex-literal 0.2.1",
  "ink_primitives",
  "lazy_static",
  "log",
@@ -4615,8 +4623,66 @@ dependencies = [
  "sp-transaction-pool",
  "sp-version",
  "substrate-test-runtime-client",
- "substrate-wasm-builder-runner 1.0.5",
+ "substrate-wasm-builder-runner",
  "yaml-rust",
+]
+
+[[package]]
+name = "polymesh-runtime-tests"
+version = "1.0.0"
+dependencies = [
+ "chrono",
+ "env_logger",
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
+ "hex-literal 0.3.0",
+ "ink_primitives",
+ "lazy_static",
+ "pallet-asset",
+ "pallet-authorship",
+ "pallet-babe",
+ "pallet-balances 0.1.0",
+ "pallet-cdd-offchain-worker",
+ "pallet-committee",
+ "pallet-compliance-manager",
+ "pallet-confidential",
+ "pallet-contracts",
+ "pallet-group",
+ "pallet-group-rpc-runtime-api",
+ "pallet-identity",
+ "pallet-multisig",
+ "pallet-pips",
+ "pallet-protocol-fee",
+ "pallet-randomness-collective-flip",
+ "pallet-session",
+ "pallet-settlement",
+ "pallet-staking",
+ "pallet-staking-reward-curve",
+ "pallet-statistics",
+ "pallet-timestamp",
+ "pallet-transaction-payment",
+ "pallet-treasury",
+ "pallet-utility",
+ "parity-scale-codec",
+ "parking_lot 0.10.2",
+ "polymesh-common-utilities",
+ "polymesh-primitives",
+ "polymesh-primitives-derive",
+ "polymesh-runtime-common",
+ "polymesh-runtime-develop",
+ "rand 0.7.3",
+ "serde",
+ "smallvec 1.4.1",
+ "sp-arithmetic",
+ "sp-core",
+ "sp-io",
+ "sp-npos-elections",
+ "sp-runtime",
+ "sp-staking",
+ "sp-std",
+ "substrate-test-runtime-client",
+ "substrate-test-utils",
 ]
 
 [[package]]
@@ -5466,7 +5532,7 @@ dependencies = [
  "fnv",
  "futures 0.3.5",
  "hash-db",
- "hex-literal",
+ "hex-literal 0.2.1",
  "kvdb",
  "lazy_static",
  "log",
@@ -7339,7 +7405,7 @@ dependencies = [
  "sp-transaction-pool",
  "sp-trie",
  "sp-version",
- "substrate-wasm-builder-runner 1.0.6",
+ "substrate-wasm-builder-runner",
  "trie-db",
 ]
 
@@ -7365,6 +7431,11 @@ dependencies = [
 ]
 
 [[package]]
+name = "substrate-test-utils"
+version = "2.0.0-rc4"
+source = "git+https://github.com/paritytech/substrate?tag=v2.0.0-rc4#00768a1f21a579c478fe5d4f51e1fa71f7db9fd4"
+
+[[package]]
 name = "substrate-wasm-builder"
 version = "1.0.11"
 dependencies = [
@@ -7378,11 +7449,6 @@ dependencies = [
  "walkdir",
  "wasm-gc-api",
 ]
-
-[[package]]
-name = "substrate-wasm-builder-runner"
-version = "1.0.5"
-source = "git+https://github.com/paritytech/substrate?rev=a439a7aa5a9a3df2a42d9b25ea04288d3a0866e8#a439a7aa5a9a3df2a42d9b25ea04288d3a0866e8"
 
 [[package]]
 name = "substrate-wasm-builder-runner"

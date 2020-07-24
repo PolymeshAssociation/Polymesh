@@ -25,8 +25,9 @@ sp-api = { git = "https://github.com/paritytech/substrate", default-features = f
 
 frame-system = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0-rc4" }
 frame-support = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0-rc4" }
-
 pallet-timestamp = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0-rc4" }
+
+frame-benchmarking = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0-rc4", optional = true }
 
 [features]
 equalize = []
@@ -48,4 +49,9 @@ std = [
 	"pallet-timestamp/std",
 	"polymesh-primitives/std",
 	"pallet-identity/std",
+]
+runtime-benchmarks = [
+	"frame-benchmarking",
+	"sp-runtime/runtime-benchmarks",
+	"frame-system/runtime-benchmarks",
 ]

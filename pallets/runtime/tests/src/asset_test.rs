@@ -1,10 +1,11 @@
-use super::{
-    storage::{add_signing_item, make_account, register_keyring_account, TestStorage},
+use crate::{
+    storage::{add_signing_item, register_keyring_account, TestStorage},
     ExtBuilder,
 };
 
 use pallet_asset::{
-    self as asset, AssetType, FundingRoundName, IdentifierType, SecurityToken, SignData,
+    self as asset, AssetOwnershipRelation, AssetType, FundingRoundName, IdentifierType,
+    SecurityToken, SignData,
 };
 use pallet_balances as balances;
 use pallet_compliance_manager as compliance_manager;
@@ -13,7 +14,7 @@ use polymesh_common_utilities::{
     constants::*, traits::asset::IssueAssetItem, traits::balances::Memo,
 };
 use polymesh_primitives::{
-    AuthorizationData, Document, IdentityId, LinkData, Signatory, SmartExtension,
+    AuthorizationData, Document, DocumentName, IdentityId, Signatory, SmartExtension,
     SmartExtensionType, Ticker,
 };
 
@@ -26,10 +27,7 @@ use hex_literal::hex;
 use ink_primitives::hash as FunctionSelectorHasher;
 use rand::Rng;
 use sp_runtime::AnySignature;
-use std::{
-    convert::{TryFrom, TryInto},
-    mem,
-};
+use std::convert::{TryFrom, TryInto};
 use test_client::AccountKeyring;
 
 type Identity = identity::Module<TestStorage>;
@@ -58,10 +56,11 @@ fn check_the_test_hex() {
 #[test]
 fn issuers_can_create_and_rename_tokens() {
     ExtBuilder::default().build().execute_with(|| {
-        let (owner_signed, owner_did) = make_account(AccountKeyring::Dave.public()).unwrap();
+        let owner_signed = Origin::signed(AccountKeyring::Dave.public());
+        let owner_did = register_keyring_account(AccountKeyring::Dave).unwrap();
         let funding_round_name: FundingRoundName = b"round1".into();
         // Expected token entry
-        let mut token = SecurityToken {
+        let token = SecurityToken {
             name: vec![0x01].into(),
             owner_did,
             total_supply: 1_000_000,
@@ -103,31 +102,20 @@ fn issuers_can_create_and_rename_tokens() {
             None,
         ));
 
-        let token_link = Identity::get_link(
-            Signatory::from(owner_did),
-            Asset::token_details(ticker).link_id,
-        );
-        assert_eq!(token_link.link_data, LinkData::AssetOwned(ticker));
-        assert_eq!(token_link.expiry, None);
-
-        let ticker_link = Identity::get_link(
-            Signatory::from(owner_did),
-            Asset::ticker_registration(ticker).link_id,
-        );
-
-        assert_eq!(ticker_link.link_data, LinkData::TickerOwned(ticker));
-        assert_eq!(ticker_link.expiry, None);
-
-        token.link_id = Asset::token_details(ticker).link_id;
         // A correct entry is added
         assert_eq!(Asset::token_details(ticker), token);
+        assert_eq!(
+            Asset::asset_ownership_relation(token.owner_did, ticker),
+            AssetOwnershipRelation::AssetOwned
+        );
         assert!(<DidRecords>::contains_key(
             Identity::get_token_did(&ticker).unwrap()
         ));
         assert_eq!(Asset::funding_round(ticker), funding_round_name.clone());
 
         // Unauthorized identities cannot rename the token.
-        let (eve_signed, _eve_did) = make_account(AccountKeyring::Eve.public()).unwrap();
+        let eve_signed = Origin::signed(AccountKeyring::Eve.public());
+        let _eve_did = register_keyring_account(AccountKeyring::Eve).unwrap();
         assert_err!(
             Asset::rename_asset(eve_signed, ticker, vec![0xde, 0xad, 0xbe, 0xef].into()),
             AssetError::Unauthorized
@@ -141,7 +129,6 @@ fn issuers_can_create_and_rename_tokens() {
             total_supply: token.total_supply,
             divisible: token.divisible,
             asset_type: token.asset_type.clone(),
-            link_id: Asset::token_details(ticker).link_id,
             ..Default::default()
         };
         assert_ok!(Asset::rename_asset(
@@ -162,7 +149,8 @@ fn issuers_can_create_and_rename_tokens() {
 #[ignore]
 fn non_issuers_cant_create_tokens() {
     ExtBuilder::default().build().execute_with(|| {
-        let (_, owner_did) = make_account(AccountKeyring::Dave.public()).unwrap();
+        let _ = Origin::signed(AccountKeyring::Dave.public());
+        let owner_did = register_keyring_account(AccountKeyring::Dave).unwrap();
 
         // Expected token entry
         let _ = SecurityToken {
@@ -187,7 +175,8 @@ fn valid_transfers_pass() {
         let now = Utc::now();
         Timestamp::set_timestamp(now.timestamp() as u64);
 
-        let (owner_signed, owner_did) = make_account(AccountKeyring::Dave.public()).unwrap();
+        let owner_signed = Origin::signed(AccountKeyring::Dave.public());
+        let owner_did = register_keyring_account(AccountKeyring::Dave).unwrap();
 
         // Expected token entry
         let token = SecurityToken {
@@ -200,7 +189,7 @@ fn valid_transfers_pass() {
         };
         let ticker = Ticker::try_from(token.name.as_slice()).unwrap();
 
-        let (_, alice_did) = make_account(AccountKeyring::Alice.public()).unwrap();
+        let alice_did = register_keyring_account(AccountKeyring::Alice).unwrap();
 
         // Issuance is successful
         assert_ok!(Asset::create_asset(
@@ -247,7 +236,8 @@ fn valid_transfers_pass() {
 #[test]
 fn valid_custodian_allowance() {
     ExtBuilder::default().build().execute_with(|| {
-        let (owner_signed, owner_did) = make_account(AccountKeyring::Dave.public()).unwrap();
+        let owner_signed = Origin::signed(AccountKeyring::Dave.public());
+        let owner_did = register_keyring_account(AccountKeyring::Dave).unwrap();
 
         let now = Utc::now();
         Timestamp::set_timestamp(now.timestamp() as u64);
@@ -263,9 +253,11 @@ fn valid_custodian_allowance() {
         };
         let ticker = Ticker::try_from(token.name.as_slice()).unwrap();
 
-        let (investor1_signed, investor1_did) = make_account(AccountKeyring::Bob.public()).unwrap();
-        let (_, investor2_did) = make_account(AccountKeyring::Charlie.public()).unwrap();
-        let (custodian_signed, custodian_did) = make_account(AccountKeyring::Eve.public()).unwrap();
+        let investor1_signed = Origin::signed(AccountKeyring::Bob.public());
+        let investor1_did = register_keyring_account(AccountKeyring::Bob).unwrap();
+        let investor2_did = register_keyring_account(AccountKeyring::Charlie).unwrap();
+        let custodian_signed = Origin::signed(AccountKeyring::Eve.public());
+        let custodian_did = register_keyring_account(AccountKeyring::Eve).unwrap();
 
         // Issuance is successful
         assert_ok!(Asset::create_asset(
@@ -415,7 +407,8 @@ fn valid_custodian_allowance() {
 #[test]
 fn valid_custodian_allowance_of() {
     ExtBuilder::default().build().execute_with(|| {
-        let (owner_signed, owner_did) = make_account(AccountKeyring::Dave.public()).unwrap();
+        let owner_signed = Origin::signed(AccountKeyring::Dave.public());
+        let owner_did = register_keyring_account(AccountKeyring::Dave).unwrap();
 
         let now = Utc::now();
         Timestamp::set_timestamp(now.timestamp() as u64);
@@ -431,10 +424,12 @@ fn valid_custodian_allowance_of() {
         };
         let ticker = Ticker::try_from(token.name.as_slice()).unwrap();
 
-        let (investor1_signed, investor1_did) = make_account(AccountKeyring::Bob.public()).unwrap();
-        let (investor2_signed, investor2_did) =
-            make_account(AccountKeyring::Charlie.public()).unwrap();
-        let (custodian_signed, custodian_did) = make_account(AccountKeyring::Eve.public()).unwrap();
+        let investor1_signed = Origin::signed(AccountKeyring::Bob.public());
+        let investor1_did = register_keyring_account(AccountKeyring::Bob).unwrap();
+        let investor2_signed = Origin::signed(AccountKeyring::Charlie.public());
+        let investor2_did = register_keyring_account(AccountKeyring::Charlie).unwrap();
+        let custodian_signed = Origin::signed(AccountKeyring::Eve.public());
+        let custodian_did = register_keyring_account(AccountKeyring::Eve).unwrap();
 
         // Issuance is successful
         assert_ok!(Asset::create_asset(
@@ -588,7 +583,8 @@ fn checkpoints_fuzz_test() {
             let now = Utc::now();
             Timestamp::set_timestamp(now.timestamp() as u64);
 
-            let (owner_signed, owner_did) = make_account(AccountKeyring::Dave.public()).unwrap();
+            let owner_signed = Origin::signed(AccountKeyring::Dave.public());
+            let owner_did = register_keyring_account(AccountKeyring::Dave).unwrap();
 
             // Expected token entry
             let token = SecurityToken {
@@ -600,7 +596,7 @@ fn checkpoints_fuzz_test() {
                 ..Default::default()
             };
             let ticker = Ticker::try_from(token.name.as_slice()).unwrap();
-            let (_, bob_did) = make_account(AccountKeyring::Bob.public()).unwrap();
+            let bob_did = register_keyring_account(AccountKeyring::Bob).unwrap();
 
             // Issuance is successful
             assert_ok!(Asset::create_asset(
@@ -688,7 +684,8 @@ fn register_ticker() {
         let now = Utc::now();
         Timestamp::set_timestamp(now.timestamp() as u64);
 
-        let (owner_signed, owner_did) = make_account(AccountKeyring::Dave.public()).unwrap();
+        let owner_signed = Origin::signed(AccountKeyring::Dave.public());
+        let owner_did = register_keyring_account(AccountKeyring::Dave).unwrap();
 
         let token = SecurityToken {
             name: vec![0x01].into(),
@@ -741,14 +738,13 @@ fn register_ticker() {
 
         assert_ok!(Asset::register_ticker(owner_signed.clone(), ticker));
 
-        let ticker_link = Identity::get_link(
-            Signatory::from(owner_did),
-            Asset::ticker_registration(ticker).link_id,
+        assert_eq!(
+            Asset::asset_ownership_relation(owner_did, ticker),
+            AssetOwnershipRelation::TickerOwned
         );
 
-        assert_eq!(ticker_link.link_data, LinkData::TickerOwned(ticker));
-
-        let (alice_signed, _) = make_account(AccountKeyring::Alice.public()).unwrap();
+        let alice_signed = Origin::signed(AccountKeyring::Alice.public());
+        let _ = register_keyring_account(AccountKeyring::Alice).unwrap();
 
         assert_err!(
             Asset::register_ticker(alice_signed.clone(), ticker),
@@ -771,9 +767,12 @@ fn transfer_ticker() {
         let now = Utc::now();
         Timestamp::set_timestamp(now.timestamp() as u64);
 
-        let (owner_signed, owner_did) = make_account(AccountKeyring::Dave.public()).unwrap();
-        let (alice_signed, alice_did) = make_account(AccountKeyring::Alice.public()).unwrap();
-        let (bob_signed, bob_did) = make_account(AccountKeyring::Bob.public()).unwrap();
+        let owner_signed = Origin::signed(AccountKeyring::Dave.public());
+        let owner_did = register_keyring_account(AccountKeyring::Dave).unwrap();
+        let alice_signed = Origin::signed(AccountKeyring::Alice.public());
+        let alice_did = register_keyring_account(AccountKeyring::Alice).unwrap();
+        let bob_signed = Origin::signed(AccountKeyring::Bob.public());
+        let bob_did = register_keyring_account(AccountKeyring::Bob).unwrap();
 
         let ticker = Ticker::try_from(&[0x01, 0x01][..]).unwrap();
 
@@ -803,26 +802,29 @@ fn transfer_ticker() {
             "Authorization does not exist"
         );
 
-        let old_ticker = Asset::ticker_registration(ticker);
-        let old_ticker_link =
-            Identity::get_link(Signatory::from(old_ticker.owner), old_ticker.link_id);
-        assert_eq!(old_ticker_link.link_data, LinkData::TickerOwned(ticker));
+        assert_eq!(
+            Asset::asset_ownership_relation(owner_did, ticker),
+            AssetOwnershipRelation::TickerOwned
+        );
 
         assert_ok!(Asset::accept_ticker_transfer(
             alice_signed.clone(),
             auth_id_alice
         ));
 
-        assert!(!<identity::Links<TestStorage>>::contains_key(
-            Signatory::from(old_ticker.owner),
-            old_ticker.link_id
-        ));
-
-        let ticker_link = Identity::get_link(
-            Signatory::from(alice_did),
-            Asset::ticker_registration(ticker).link_id,
+        assert_eq!(
+            Asset::asset_ownership_relation(owner_did, ticker),
+            AssetOwnershipRelation::NotOwned
         );
-        assert_eq!(ticker_link.link_data, LinkData::TickerOwned(ticker));
+        assert_eq!(
+            Asset::asset_ownership_relation(alice_did, ticker),
+            AssetOwnershipRelation::TickerOwned
+        );
+
+        assert_eq!(
+            Asset::asset_ownership_relation(alice_did, ticker),
+            AssetOwnershipRelation::TickerOwned
+        );
 
         assert_err!(
             Asset::accept_ticker_transfer(bob_signed.clone(), auth_id_bob),
@@ -875,9 +877,12 @@ fn transfer_token_ownership() {
         let now = Utc::now();
         Timestamp::set_timestamp(now.timestamp() as u64);
 
-        let (owner_signed, owner_did) = make_account(AccountKeyring::Dave.public()).unwrap();
-        let (alice_signed, alice_did) = make_account(AccountKeyring::Alice.public()).unwrap();
-        let (bob_signed, bob_did) = make_account(AccountKeyring::Bob.public()).unwrap();
+        let owner_signed = Origin::signed(AccountKeyring::Dave.public());
+        let owner_did = register_keyring_account(AccountKeyring::Dave).unwrap();
+        let alice_signed = Origin::signed(AccountKeyring::Alice.public());
+        let alice_did = register_keyring_account(AccountKeyring::Alice).unwrap();
+        let bob_signed = Origin::signed(AccountKeyring::Bob.public());
+        let bob_did = register_keyring_account(AccountKeyring::Bob).unwrap();
 
         let token_name = vec![0x01, 0x01];
         let ticker = Ticker::try_from(token_name.as_slice()).unwrap();
@@ -914,42 +919,24 @@ fn transfer_token_ownership() {
             "Authorization does not exist"
         );
 
-        let old_ticker = Asset::ticker_registration(ticker);
-        let old_ticker_link =
-            Identity::get_link(Signatory::from(old_ticker.owner), old_ticker.link_id);
-
-        assert_eq!(old_ticker_link.link_data, LinkData::TickerOwned(ticker));
-
-        let old_token = Asset::token_details(ticker);
-        let old_token_link =
-            Identity::get_link(Signatory::from(old_token.owner_did), old_token.link_id);
-
-        assert_eq!(old_token_link.link_data, LinkData::AssetOwned(ticker));
+        assert_eq!(
+            Asset::asset_ownership_relation(owner_did, ticker),
+            AssetOwnershipRelation::AssetOwned
+        );
 
         assert_ok!(Asset::accept_asset_ownership_transfer(
             alice_signed.clone(),
             auth_id_alice
         ));
         assert_eq!(Asset::token_details(&ticker).owner_did, alice_did);
-        assert!(!<identity::Links<TestStorage>>::contains_key(
-            Signatory::from(old_ticker.owner),
-            old_ticker.link_id
-        ));
-        assert!(!<identity::Links<TestStorage>>::contains_key(
-            Signatory::from(old_token.owner_did),
-            old_token.link_id
-        ));
-
-        let ticker_link = Identity::get_link(
-            Signatory::from(alice_did),
-            Asset::ticker_registration(ticker).link_id,
+        assert_eq!(
+            Asset::asset_ownership_relation(owner_did, ticker),
+            AssetOwnershipRelation::NotOwned
         );
-        assert_eq!(ticker_link.link_data, LinkData::TickerOwned(ticker));
-        let token_link = Identity::get_link(
-            Signatory::from(alice_did),
-            Asset::token_details(ticker).link_id,
+        assert_eq!(
+            Asset::asset_ownership_relation(alice_did, ticker),
+            AssetOwnershipRelation::AssetOwned
         );
-        assert_eq!(token_link.link_data, LinkData::AssetOwned(ticker));
 
         assert_err!(
             Asset::accept_asset_ownership_transfer(bob_signed.clone(), auth_id_bob),
@@ -1010,10 +997,11 @@ fn transfer_token_ownership() {
 #[test]
 fn update_identifiers() {
     ExtBuilder::default().build().execute_with(|| {
-        let (owner_signed, owner_did) = make_account(AccountKeyring::Dave.public()).unwrap();
+        let owner_signed = Origin::signed(AccountKeyring::Dave.public());
+        let owner_did = register_keyring_account(AccountKeyring::Dave).unwrap();
 
         // Expected token entry
-        let mut token = SecurityToken {
+        let token = SecurityToken {
             name: b"TEST".into(),
             owner_did,
             total_supply: 1_000_000,
@@ -1039,7 +1027,6 @@ fn update_identifiers() {
             None,
         ));
 
-        token.link_id = Asset::token_details(ticker).link_id;
         // A correct entry was added
         assert_eq!(Asset::token_details(ticker), token);
         assert_eq!(
@@ -1065,7 +1052,8 @@ fn update_identifiers() {
 #[test]
 fn adding_removing_documents() {
     ExtBuilder::default().build().execute_with(|| {
-        let (owner_signed, owner_did) = make_account(AccountKeyring::Dave.public()).unwrap();
+        let owner_signed = Origin::signed(AccountKeyring::Dave.public());
+        let owner_did = register_keyring_account(AccountKeyring::Dave).unwrap();
 
         let token = SecurityToken {
             name: vec![0x01].into(),
@@ -1083,7 +1071,7 @@ fn adding_removing_documents() {
         ));
 
         let identifiers = vec![(IdentifierType::default(), b"undefined".into())];
-        let ticker_did = Identity::get_token_did(&ticker).unwrap();
+        let _ticker_did = Identity::get_token_did(&ticker).unwrap();
 
         // Issuance is successful
         assert_ok!(Asset::create_asset(
@@ -1099,110 +1087,55 @@ fn adding_removing_documents() {
         ));
 
         let documents = vec![
-            Document {
-                name: b"A".into(),
-                uri: b"www.a.com".into(),
-                content_hash: b"0x1".into(),
-            },
-            Document {
-                name: b"B".into(),
-                uri: b"www.b.com".into(),
-                content_hash: b"0x2".into(),
-            },
+            (
+                b"A".into(),
+                Document {
+                    uri: b"www.a.com".into(),
+                    content_hash: b"0x1".into(),
+                },
+            ),
+            (
+                b"B".into(),
+                Document {
+                    uri: b"www.b.com".into(),
+                    content_hash: b"0x2".into(),
+                },
+            ),
         ];
 
         assert_ok!(Asset::batch_add_document(
             owner_signed.clone(),
-            documents,
+            documents.clone(),
             ticker
         ));
 
-        let mut docs =
-            <identity::Links<TestStorage>>::iter_prefix_values(Signatory::from(ticker_did));
-        let mut doc1 = docs.next().unwrap();
-        let mut doc2 = docs.next().unwrap();
-        if doc1.link_id > doc2.link_id {
-            mem::swap(&mut doc1, &mut doc2);
-        }
-
         assert_eq!(
-            doc1.link_data,
-            LinkData::DocumentOwned(Document {
-                name: b"A".into(),
-                uri: b"www.a.com".into(),
-                content_hash: b"0x1".into(),
-            })
+            Asset::asset_documents(ticker, DocumentName::from(b"A")),
+            documents[0].1
         );
-        assert_eq!(doc1.expiry, None);
-
         assert_eq!(
-            doc2.link_data,
-            LinkData::DocumentOwned(Document {
-                name: b"B".into(),
-                uri: b"www.b.com".into(),
-                content_hash: b"0x2".into()
-            })
+            Asset::asset_documents(ticker, DocumentName::from(b"B")),
+            documents[1].1
         );
 
-        assert_eq!(doc2.expiry, None);
-
-        assert_ok!(Asset::batch_update_document(
+        assert_ok!(Asset::batch_remove_document(
             owner_signed.clone(),
-            vec![
-                (
-                    doc1.link_id,
-                    Document {
-                        name: b"C".into(),
-                        uri: b"www.c.com".into(),
-                        content_hash: b"0x3".into(),
-                    }
-                ),
-                (
-                    doc2.link_id,
-                    Document {
-                        name: b"D".into(),
-                        uri: b"www.d.com".into(),
-                        content_hash: b"0x4".into(),
-                    }
-                ),
-            ],
+            vec![b"A".into(), b"B".into()],
             ticker
         ));
 
-        docs = <identity::Links<TestStorage>>::iter_prefix_values(Signatory::from(ticker_did));
-        doc1 = docs.next().unwrap();
-        doc2 = docs.next().unwrap();
-        if doc1.link_id > doc2.link_id {
-            mem::swap(&mut doc1, &mut doc2);
-        }
-
         assert_eq!(
-            doc1.link_data,
-            LinkData::DocumentOwned(Document {
-                name: b"C".into(),
-                uri: b"www.c.com".into(),
-                content_hash: b"0x3".into(),
-            })
+            <asset::AssetDocuments>::iter_prefix_values(ticker).count(),
+            0
         );
-
-        assert_eq!(doc1.expiry, None);
-
-        assert_eq!(
-            doc2.link_data,
-            LinkData::DocumentOwned(Document {
-                name: b"D".into(),
-                uri: b"www.d.com".into(),
-                content_hash: b"0x4".into(),
-            })
-        );
-        assert_eq!(doc2.expiry, None);
     });
 }
 
 #[test]
 fn add_extension_successfully() {
     ExtBuilder::default().build().execute_with(|| {
-        let (owner_signed, _) = make_account(AccountKeyring::Dave.public()).unwrap();
+        let owner_signed = Origin::signed(AccountKeyring::Dave.public());
+        let _ = register_keyring_account(AccountKeyring::Dave).unwrap();
 
         // Expected token entry
         let token = SecurityToken {
@@ -1267,7 +1200,8 @@ fn add_extension_successfully() {
 #[test]
 fn add_same_extension_should_fail() {
     ExtBuilder::default().build().execute_with(|| {
-        let (owner_signed, owner_did) = make_account(AccountKeyring::Dave.public()).unwrap();
+        let owner_signed = Origin::signed(AccountKeyring::Dave.public());
+        let owner_did = register_keyring_account(AccountKeyring::Dave).unwrap();
 
         // Expected token entry
         let token = SecurityToken {
@@ -1338,7 +1272,8 @@ fn add_same_extension_should_fail() {
 #[test]
 fn should_successfully_archive_extension() {
     ExtBuilder::default().build().execute_with(|| {
-        let (owner_signed, owner_did) = make_account(AccountKeyring::Dave.public()).unwrap();
+        let owner_signed = Origin::signed(AccountKeyring::Dave.public());
+        let owner_did = register_keyring_account(AccountKeyring::Dave).unwrap();
 
         // Expected token entry
         let token = SecurityToken {
@@ -1414,7 +1349,8 @@ fn should_successfully_archive_extension() {
 #[test]
 fn should_fail_to_archive_an_already_archived_extension() {
     ExtBuilder::default().build().execute_with(|| {
-        let (owner_signed, owner_did) = make_account(AccountKeyring::Dave.public()).unwrap();
+        let owner_signed = Origin::signed(AccountKeyring::Dave.public());
+        let owner_did = register_keyring_account(AccountKeyring::Dave).unwrap();
 
         // Expected token entry
         let token = SecurityToken {
@@ -1495,7 +1431,8 @@ fn should_fail_to_archive_an_already_archived_extension() {
 #[test]
 fn should_fail_to_archive_a_non_existent_extension() {
     ExtBuilder::default().build().execute_with(|| {
-        let (owner_signed, owner_did) = make_account(AccountKeyring::Dave.public()).unwrap();
+        let owner_signed = Origin::signed(AccountKeyring::Dave.public());
+        let owner_did = register_keyring_account(AccountKeyring::Dave).unwrap();
 
         // Expected token entry
         let token = SecurityToken {
@@ -1537,7 +1474,8 @@ fn should_fail_to_archive_a_non_existent_extension() {
 #[test]
 fn should_successfuly_unarchive_an_extension() {
     ExtBuilder::default().build().execute_with(|| {
-        let (owner_signed, owner_did) = make_account(AccountKeyring::Dave.public()).unwrap();
+        let owner_signed = Origin::signed(AccountKeyring::Dave.public());
+        let owner_did = register_keyring_account(AccountKeyring::Dave).unwrap();
 
         // Expected token entry
         let token = SecurityToken {
@@ -1623,7 +1561,8 @@ fn should_successfuly_unarchive_an_extension() {
 #[test]
 fn should_fail_to_unarchive_an_already_unarchived_extension() {
     ExtBuilder::default().build().execute_with(|| {
-        let (owner_signed, owner_did) = make_account(AccountKeyring::Dave.public()).unwrap();
+        let owner_signed = Origin::signed(AccountKeyring::Dave.public());
+        let owner_did = register_keyring_account(AccountKeyring::Dave).unwrap();
 
         // Expected token entry
         let token = SecurityToken {
@@ -1716,8 +1655,10 @@ fn freeze_unfreeze_asset() {
     ExtBuilder::default().build().execute_with(|| {
         let now = Utc::now();
         Timestamp::set_timestamp(now.timestamp() as u64);
-        let (alice_signed, alice_did) = make_account(AccountKeyring::Alice.public()).unwrap();
-        let (bob_signed, bob_did) = make_account(AccountKeyring::Bob.public()).unwrap();
+        let alice_signed = Origin::signed(AccountKeyring::Alice.public());
+        let alice_did = register_keyring_account(AccountKeyring::Alice).unwrap();
+        let bob_signed = Origin::signed(AccountKeyring::Bob.public());
+        let bob_did = register_keyring_account(AccountKeyring::Bob).unwrap();
         let token_name = b"COOL";
         let ticker = Ticker::try_from(&token_name[..]).unwrap();
         assert_ok!(Asset::create_asset(
@@ -1837,7 +1778,6 @@ fn frozen_signing_keys_create_asset_we() {
         total_supply: 1_000_000,
         divisible: true,
         asset_type: AssetType::default(),
-        link_id: 18,
         ..Default::default()
     };
     let ticker_1 = Ticker::try_from(token_1.name.as_slice()).unwrap();
@@ -1892,10 +1832,13 @@ fn test_can_transfer_rpc() {
         .existential_deposit(1)
         .build()
         .execute_with(|| {
-            let (alice_signed, alice_did) = make_account(AccountKeyring::Alice.public()).unwrap();
-            let (_bob_signed, bob_did) = make_account(AccountKeyring::Bob.public()).unwrap();
-            let (_custodian_signed, custodian_did) =
-                make_account(AccountKeyring::Charlie.public()).unwrap();
+            let alice_signed = Origin::signed(AccountKeyring::Alice.public());
+            let alice_did = register_keyring_account(AccountKeyring::Alice).unwrap();
+            let _bob_signed = Origin::signed(AccountKeyring::Bob.public());
+            let bob_did = register_keyring_account(AccountKeyring::Bob).unwrap();
+            let _custodian_signed = Origin::signed(AccountKeyring::Charlie.public());
+            let custodian_did = register_keyring_account(AccountKeyring::Charlie).unwrap();
+
             let token_name = b"COOL";
             let ticker = Ticker::try_from(&token_name[..]).unwrap();
             assert_ok!(Asset::create_asset(
@@ -2063,7 +2006,6 @@ fn can_set_treasury_did_we() {
         total_supply: 1_000_000,
         divisible: true,
         asset_type: AssetType::default(),
-        link_id: 18,
         ..Default::default()
     };
     let ticker_1 = Ticker::try_from(token_1.name.as_slice()).unwrap();
@@ -2091,7 +2033,6 @@ fn can_set_treasury_did_we() {
         total_supply: token_1.total_supply,
         divisible: token_1.divisible,
         asset_type: token_1.asset_type,
-        link_id: token_1.link_id,
         treasury_did,
         ..Default::default()
     };

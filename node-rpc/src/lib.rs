@@ -205,7 +205,6 @@ where
     C: HeaderBackend<Block>,
     C: Send + Sync + 'static,
     C::Api: frame_rpc_system::AccountNonceApi<Block, AccountId, Nonce>,
-    // C::Api: pallet_transaction_payment_rpc::TransactionPaymentRuntimeApi<Block, Balance, UE>,
     C::Api: node_rpc::transaction_payment::TransactionPaymentRuntimeApi<Block, Balance, UE>,
     P: TransactionPool + Sync + Send + 'static,
     F: Fetcher<Block> + 'static,

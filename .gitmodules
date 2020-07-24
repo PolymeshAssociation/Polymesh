@@ -1,6 +1,6 @@
 [submodule "external/cryptography"]
 	path = external/cryptography
-	url = git@github.com:PolymathNetwork/cryptography.git
+	url = https://github.com/PolymathNetwork/cryptography.git
 	branch = master
 
 [submodule "pallets/settlement"]

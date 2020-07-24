@@ -1,7 +1,7 @@
 use super::{
     storage::{
-        get_identity_id, make_account, make_account_with_balance,
-        register_keyring_account_with_balance, Call, TestStorage,
+        get_identity_id, register_keyring_account, register_keyring_account_with_balance, Call,
+        TestStorage,
     },
     ExtBuilder,
 };
@@ -15,7 +15,8 @@ use pallet_pips::{
     ReferendumType, Url, VotingResult,
 };
 use pallet_treasury as treasury;
-use polymesh_primitives::Beneficiary;
+use polymesh_common_utilities::traits::transaction_payment::CddAndFeeDetails;
+use polymesh_primitives::{Beneficiary, Signatory};
 use test_client::AccountKeyring;
 
 type System = frame_system::Module<TestStorage>;
@@ -52,8 +53,10 @@ fn starting_a_proposal_works_we() {
     let proposal_url: Url = b"www.abc.com".into();
     let proposal_desc: PipDescription = b"Test description".into();
 
+    TestStorage::set_payer_context(Some(Signatory::Account(AccountKeyring::Alice.public())));
     let alice_acc = AccountKeyring::Alice.public();
-    let (alice_signer, _) = make_account_with_balance(alice_acc, 300).unwrap();
+    let alice_signer = Origin::signed(alice_acc.clone());
+    let _ = register_keyring_account_with_balance(AccountKeyring::Alice, 300).unwrap();
 
     // Error when min deposit requirements are not met
     assert_err!(
@@ -110,8 +113,10 @@ fn closing_a_proposal_works_we() {
     // Voting majority
     let root = Origin::from(frame_system::RawOrigin::Root);
 
+    TestStorage::set_payer_context(Some(Signatory::Account(AccountKeyring::Alice.public())));
     let alice_acc = AccountKeyring::Alice.public();
-    let (alice_signer, _) = make_account_with_balance(alice_acc, 300).unwrap();
+    let alice_signer = Origin::signed(alice_acc.clone());
+    let _ = register_keyring_account_with_balance(AccountKeyring::Alice, 300).unwrap();
 
     // Alice starts a proposal with min deposit
     assert_ok!(Pips::propose(
@@ -153,10 +158,17 @@ fn creating_a_referendum_works_we() {
     let proposal_desc: PipDescription = b"Test description".into();
 
     let alice_acc = AccountKeyring::Alice.public();
-    let (alice_signer, _) = make_account_with_balance(alice_acc, 300).unwrap();
+    TestStorage::set_payer_context(Some(Signatory::Account(alice_acc.clone())));
+    let alice_signer = Origin::signed(alice_acc.clone());
+    let _ = register_keyring_account_with_balance(AccountKeyring::Alice, 300).unwrap();
     let bob_acc = AccountKeyring::Bob.public();
-    let (bob_signer, _) = make_account_with_balance(bob_acc, 200).unwrap();
+    TestStorage::set_payer_context(Some(Signatory::Account(bob_acc)));
+    let bob_signer = Origin::signed(bob_acc.clone());
+    let _ = register_keyring_account_with_balance(AccountKeyring::Bob, 200);
+    // Voting majority
+    let root = Origin::from(frame_system::RawOrigin::Root);
 
+    TestStorage::set_payer_context(Some(Signatory::Account(alice_acc)));
     assert_ok!(Pips::propose(
         alice_signer.clone(),
         Box::new(proposal.clone()),
@@ -166,12 +178,25 @@ fn creating_a_referendum_works_we() {
         None
     ));
 
+    // Cannot prune proposal at this stage
+    assert_err!(
+        Pips::prune_proposal(root.clone(), 0),
+        Error::<TestStorage>::IncorrectProposalState
+    );
+
     assert_err!(
         Pips::vote(bob_signer.clone(), 0, true, 50),
         Error::<TestStorage>::ProposalOnCoolOffPeriod
     );
     fast_forward_to(101);
+    TestStorage::set_payer_context(Some(Signatory::Account(bob_acc)));
     assert_ok!(Pips::vote(bob_signer.clone(), 0, true, 50));
+
+    // Cannot prune proposal at this stage
+    assert_err!(
+        Pips::prune_proposal(root.clone(), 0),
+        Error::<TestStorage>::IncorrectProposalState
+    );
 
     assert_eq!(
         Pips::proposal_result(0),
@@ -187,6 +212,12 @@ fn creating_a_referendum_works_we() {
     assert_eq!(Balances::free_balance(&bob_acc), 109);
 
     fast_forward_to(120);
+
+    // Cannot prune referendum at this stage
+    assert_err!(
+        Pips::prune_proposal(root.clone(), 0),
+        Error::<TestStorage>::IncorrectReferendumState
+    );
 
     assert_eq!(
         Pips::referendums(0),
@@ -216,10 +247,10 @@ fn enacting_a_referendum_works_we() {
     let proposal_url: Url = b"www.abc.com".into();
     let proposal_desc: PipDescription = b"Test description".into();
 
-    let alice_acc = AccountKeyring::Alice.public();
-    let (alice_signer, _) = make_account_with_balance(alice_acc, 300).unwrap();
-    let bob_acc = AccountKeyring::Bob.public();
-    let (bob_signer, _) = make_account_with_balance(bob_acc, 100).unwrap();
+    let alice_signer = Origin::signed(AccountKeyring::Alice.public());
+    let _ = register_keyring_account_with_balance(AccountKeyring::Alice, 300).unwrap();
+    let bob_signer = Origin::signed(AccountKeyring::Bob.public());
+    let _ = register_keyring_account_with_balance(AccountKeyring::Bob, 100).unwrap();
 
     // Voting majority
     let root = Origin::from(frame_system::RawOrigin::Root);
@@ -253,6 +284,12 @@ fn enacting_a_referendum_works_we() {
 
     fast_forward_to(120);
 
+    // Cannot prune referendum at this stage
+    assert_err!(
+        Pips::prune_proposal(root.clone(), 0),
+        Error::<TestStorage>::IncorrectReferendumState
+    );
+
     assert_eq!(
         Pips::referendums(0),
         Some(Referendum {
@@ -267,7 +304,7 @@ fn enacting_a_referendum_works_we() {
         Pips::enact_referendum(bob_signer.clone(), 0),
         DispatchError::BadOrigin
     );
-    assert_ok!(Pips::enact_referendum(root, 0));
+    assert_ok!(Pips::enact_referendum(root.clone(), 0));
 
     assert_eq!(
         Pips::referendums(0),
@@ -277,6 +314,12 @@ fn enacting_a_referendum_works_we() {
             referendum_type: ReferendumType::Community,
             enactment_period: 220,
         })
+    );
+
+    // Cannot prune referendum at this stage
+    assert_err!(
+        Pips::prune_proposal(root.clone(), 0),
+        Error::<TestStorage>::IncorrectReferendumState
     );
 
     fast_forward_to(221);
@@ -290,6 +333,13 @@ fn enacting_a_referendum_works_we() {
             enactment_period: 220,
         })
     );
+
+    // Can now prune referendum
+    assert_ok!(Pips::prune_proposal(root.clone(), 0));
+
+    assert_eq!(Pips::referendums(0), None);
+    assert_eq!(Pips::proposals(0), None);
+    assert_eq!(Pips::proposal_metadata(0), None);
 }
 
 #[test]
@@ -310,13 +360,13 @@ fn fast_tracking_a_proposal_works_we() {
     let root = Origin::from(frame_system::RawOrigin::Root);
 
     // Alice and Bob are committee members
-    let alice_acc = AccountKeyring::Alice.public();
-    let (alice_signer, alice_did) = make_account_with_balance(alice_acc, 100).unwrap();
-    let bob_acc = AccountKeyring::Bob.public();
-    let (bob_signer, bob_did) = make_account_with_balance(bob_acc, 100).unwrap();
+    let alice_signer = Origin::signed(AccountKeyring::Alice.public());
+    let alice_did = register_keyring_account_with_balance(AccountKeyring::Alice, 100).unwrap();
+    let bob_signer = Origin::signed(AccountKeyring::Bob.public());
+    let bob_did = register_keyring_account_with_balance(AccountKeyring::Bob, 100).unwrap();
 
-    let charlie_acc = AccountKeyring::Charlie.public();
-    let (charlie_signer, _) = make_account_with_balance(charlie_acc, 300).unwrap();
+    let charlie_signer = Origin::signed(AccountKeyring::Charlie.public());
+    let _ = register_keyring_account_with_balance(AccountKeyring::Charlie, 300).unwrap();
 
     Group::reset_members(root.clone(), vec![alice_did, bob_did]).unwrap();
 
@@ -400,8 +450,8 @@ fn emergency_referendum_works_we() {
     let root = Origin::from(frame_system::RawOrigin::Root);
 
     // Alice and Bob are committee members
-    let alice_acc = AccountKeyring::Alice.public();
-    let (alice_signer, alice_did) = make_account_with_balance(alice_acc, 60).unwrap();
+    let alice_signer = Origin::signed(AccountKeyring::Alice.public());
+    let alice_did = register_keyring_account_with_balance(AccountKeyring::Alice, 60).unwrap();
 
     Group::reset_members(root.clone(), vec![alice_did]).unwrap();
 
@@ -475,8 +525,8 @@ fn reject_referendum_works_we() {
     let root = Origin::from(frame_system::RawOrigin::Root);
 
     // Alice and Bob are committee members
-    let alice_acc = AccountKeyring::Alice.public();
-    let (alice_signer, alice_did) = make_account_with_balance(alice_acc, 60).unwrap();
+    let alice_signer = Origin::signed(AccountKeyring::Alice.public());
+    let alice_did = register_keyring_account_with_balance(AccountKeyring::Alice, 60).unwrap();
 
     Group::reset_members(root.clone(), vec![alice_did]).unwrap();
 
@@ -532,8 +582,8 @@ fn updating_pips_variables_works() {
 fn updating_pips_variables_works_we() {
     let root = Origin::from(frame_system::RawOrigin::Root);
 
-    let alice_acc = AccountKeyring::Alice.public();
-    let (alice_signer, _) = make_account_with_balance(alice_acc, 60).unwrap();
+    let alice_signer = Origin::signed(AccountKeyring::Alice.public());
+    let _ = register_keyring_account_with_balance(AccountKeyring::Alice, 60).unwrap();
     // config variables can be updated only through committee
     assert_eq!(Pips::min_proposal_deposit(), 50);
     assert_err!(
@@ -573,8 +623,11 @@ fn amend_pips_details_during_cool_off_period_we() {
     let proposal_url: Url = b"www.abc.com".into();
     let proposal_desc: PipDescription = b"Test description".into();
 
-    let (alice, _) = make_account(AccountKeyring::Alice.public()).unwrap();
-    let (bob, _) = make_account(AccountKeyring::Bob.public()).unwrap();
+    let alice_acc = AccountKeyring::Alice.public();
+    let alice = Origin::signed(alice_acc.clone());
+    let _ = register_keyring_account(AccountKeyring::Alice).unwrap();
+    let bob = Origin::signed(AccountKeyring::Bob.public());
+    let _ = register_keyring_account(AccountKeyring::Bob).unwrap();
     print!(
         "Block no - {:?}",
         <frame_system::Module<TestStorage>>::block_number()
@@ -608,7 +661,7 @@ fn amend_pips_details_during_cool_off_period_we() {
     assert_eq!(
         Pips::proposal_metadata(0),
         Some(PipsMetadata {
-            proposer: AccountKeyring::Alice.public(),
+            proposer: alice_acc.clone(),
             id: 0,
             cool_off_until: 100,
             end: 110,
@@ -618,7 +671,6 @@ fn amend_pips_details_during_cool_off_period_we() {
     );
 
     // 3. Bound/Unbound additional POLYX.
-    let alice_acc = AccountKeyring::Alice.public();
     assert_eq!(
         Pips::deposits(0, &alice_acc),
         DepositInfo {
@@ -668,8 +720,11 @@ fn cancel_pips_during_cool_off_period_we() {
     let proposal_url: Url = b"www.abc.com".into();
     let proposal_desc: PipDescription = b"Test description".into();
 
-    let (alice, _) = make_account(AccountKeyring::Alice.public()).unwrap();
-    let (bob, _) = make_account(AccountKeyring::Bob.public()).unwrap();
+    let alice = Origin::signed(AccountKeyring::Alice.public());
+    let _ = register_keyring_account(AccountKeyring::Alice).unwrap();
+    let bob = Origin::signed(AccountKeyring::Bob.public());
+    let _ = register_keyring_account(AccountKeyring::Bob).unwrap();
+    let root = Origin::from(frame_system::RawOrigin::Root);
 
     // 1. Create Pips proposals
     assert_ok!(Pips::propose(
@@ -693,6 +748,14 @@ fn cancel_pips_during_cool_off_period_we() {
     // 2. Cancel Alice's proposal during cool-off period.
     fast_forward_to(50);
     assert_ok!(Pips::cancel_proposal(alice.clone(), 0));
+
+    // Can prune cancelled proposals
+    assert_ok!(Pips::prune_proposal(root.clone(), 0));
+
+    // Check proposal is pruned from storage
+    assert_eq!(Pips::referendums(0), None);
+    assert_eq!(Pips::proposals(0), None);
+    assert_eq!(Pips::proposal_metadata(0), None);
 
     // 3. Try to cancel Bob's proposal after cool-off period.
     fast_forward_to(101);
@@ -853,8 +916,12 @@ fn proposal_with_beneficiares_we() {
     let alice = AccountKeyring::Alice.public();
     let charlie = AccountKeyring::Charlie.public();
     let dave = AccountKeyring::Dave.public();
+    let eve = AccountKeyring::Eve.public();
+    TestStorage::set_payer_context(Some(Signatory::Account(charlie)));
     let charlie_id = register_keyring_account_with_balance(AccountKeyring::Charlie, 200).unwrap();
+    TestStorage::set_payer_context(Some(Signatory::Account(dave)));
     let dave_id = register_keyring_account_with_balance(AccountKeyring::Dave, 200).unwrap();
+    TestStorage::set_payer_context(Some(Signatory::Account(eve)));
     let _ = register_keyring_account_with_balance(AccountKeyring::Eve, 1_000_000).unwrap();
     let eve_acc = Origin::signed(AccountKeyring::Eve.public());
 
@@ -873,6 +940,7 @@ fn proposal_with_beneficiares_we() {
         },
     ];
 
+    TestStorage::set_payer_context(Some(Signatory::Account(charlie)));
     assert_ok!(Pips::propose(
         Origin::signed(charlie.clone()),
         Box::new(proposal),
@@ -883,6 +951,7 @@ fn proposal_with_beneficiares_we() {
     ));
 
     // 2. Alice can fast track because she is a GC member
+    TestStorage::set_payer_context(Some(Signatory::Account(alice)));
     assert_ok!(Pips::fast_track_proposal(Origin::signed(alice), 0));
     assert_eq!(
         Pips::referendums(0),

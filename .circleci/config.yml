@@ -31,7 +31,9 @@ jobs:
             - v2-cli-cache-{{ checksum "./rust.version" }}
       - run:
           name: Pull submodules
-          command: git submodule update --init --recursive
+          command: >-
+            GIT_SSH_COMMAND="ssh -i /root/.ssh/id_rsa_a19947cafa324c9d4bb85099c764e380" git submodule update --init pallets/settlement &&
+            GIT_SSH_COMMAND="ssh -i /root/.ssh/id_rsa_b3bb01c59077ef5ce65bf2db162fe861" git submodule update --init external/cryptography
       - run:
           name: Build release
           command: cargo +nightly build --release || cargo +nightly build -j 1 --release
@@ -61,7 +63,9 @@ jobs:
             - v8-test-cache-{{ checksum "./rust.version" }}
       - run:
           name: Pull submodules
-          command: git submodule update --init --recursive
+          command: >-
+            GIT_SSH_COMMAND="ssh -i /root/.ssh/id_rsa_a19947cafa324c9d4bb85099c764e380" git submodule update --init pallets/settlement &&
+            GIT_SSH_COMMAND="ssh -i /root/.ssh/id_rsa_b3bb01c59077ef5ce65bf2db162fe861" git submodule update --init external/cryptography
       - run:
           name: Pull submodules
           command: git submodule update --init --recursive
@@ -75,6 +79,7 @@ jobs:
             --package polymesh-primitives
             --package node-rpc-runtime-api
             --package pallet-transaction-payment
+            --package polymesh-runtime-tests
             --features default_identity ||
             cargo +nightly test -j 1
             --package polymesh-runtime-common
@@ -83,6 +88,7 @@ jobs:
             --package polymesh-primitives
             --package node-rpc-runtime-api
             --package pallet-transaction-payment
+            --package polymesh-runtime-tests
             --features default_identity
           no_output_timeout: 30m
       - save_cache:
@@ -109,7 +115,9 @@ jobs:
             - v5-cli-cache-{{ checksum "./rust.version" }}-{{ checksum "./Cargo.lock" }}
       - run:
           name: Pull submodules
-          command: git submodule update --init --recursive
+          command: >-
+            GIT_SSH_COMMAND="ssh -i /root/.ssh/id_rsa_a19947cafa324c9d4bb85099c764e380" git submodule update --init pallets/settlement &&
+            GIT_SSH_COMMAND="ssh -i /root/.ssh/id_rsa_b3bb01c59077ef5ce65bf2db162fe861" git submodule update --init external/cryptography
       - run:
           name: Build release
           command: cargo +nightly build --release || cargo +nightly build -j 1 --release
@@ -154,7 +162,9 @@ jobs:
             - v3-clippy-cache-{{ checksum "./rust.version" }}
       - run:
           name: Pull submodules
-          command: git submodule update --init --recursive
+          command: >-
+            GIT_SSH_COMMAND="ssh -i /root/.ssh/id_rsa_a19947cafa324c9d4bb85099c764e380" git submodule update --init pallets/settlement &&
+            GIT_SSH_COMMAND="ssh -i /root/.ssh/id_rsa_b3bb01c59077ef5ce65bf2db162fe861" git submodule update --init external/cryptography
       - run:
           name: run clippy
           command: cargo +nightly clippy -j 1

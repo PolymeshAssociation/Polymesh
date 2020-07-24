@@ -99,7 +99,7 @@ decl_module! {
                 })?;
 
             let ticker_range_proof = TickerRangeProof {
-                initial_message: RangeProofInitialMessageWrapper(*in_range_proof.init.as_bytes()),
+                initial_message: RangeProofInitialMessageWrapper::from(in_range_proof.init.as_bytes().as_ref()),
                 final_response: in_range_proof.response.to_bytes().into(),
                 max_two_exp: 32,
             };

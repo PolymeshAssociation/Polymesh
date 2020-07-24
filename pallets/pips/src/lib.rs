@@ -65,7 +65,7 @@
 use codec::{Decode, Encode};
 use frame_support::{
     debug, decl_error, decl_event, decl_module, decl_storage,
-    dispatch::DispatchResult,
+    dispatch::{DispatchError, DispatchResult},
     ensure,
     storage::IterableStorageMap,
     traits::{Currency, EnsureOrigin, LockableCurrency, ReservableCurrency},
@@ -82,7 +82,7 @@ use polymesh_common_utilities::{
     traits::{governance_group::GovernanceGroupTrait, group::GroupTrait, pip::PipId},
     CommonTrait, Context, SystematicIssuers,
 };
-use polymesh_primitives::{Beneficiary, IdentityId, Signatory};
+use polymesh_primitives::{Beneficiary, IdentityId};
 use polymesh_primitives_derive::VecU8StrongTyped;
 #[cfg(feature = "std")]
 use serde::{Deserialize, Serialize};
@@ -556,7 +556,6 @@ decl_module! {
             beneficiaries: Option<Vec<Beneficiary<T::Balance>>>
         ) -> DispatchResult {
             let proposer = ensure_signed(origin)?;
-            let signer = Signatory::Account(proposer.clone());
 
             // Pre conditions: caller must have min balance
             ensure!(
@@ -566,10 +565,7 @@ decl_module! {
 
             // Reserve the minimum deposit
             <T as Trait>::Currency::reserve(&proposer, deposit).map_err(|_| Error::<T>::InsufficientDeposit)?;
-            <T as IdentityTrait>::ProtocolFee::charge_fee(
-                &signer,
-                ProtocolOp::PipsPropose
-            )?;
+            <T as IdentityTrait>::ProtocolFee::charge_fee(ProtocolOp::PipsPropose)?;
 
             let id = Self::next_pip_id();
             let curr_block_number = <system::Module<T>>::block_number();
@@ -857,6 +853,33 @@ decl_module! {
             Self::prune_data(id, Self::prune_historical_pips());
         }
 
+        /// An emergency stop measure to kill a proposal. Governance committee can kill
+        /// a proposal at any time.
+        #[weight = (100_000, DispatchClass::Operational, Pays::Yes)]
+        pub fn prune_proposal(origin, id: PipId) {
+            T::VotingMajorityOrigin::ensure_origin(origin)?;
+            // Check that the proposal is in a state valid for pruning
+            let proposal = Self::proposals(id).ok_or_else(|| Error::<T>::NoSuchProposal)?;
+            if proposal.state == ProposalState::Referendum {
+                // Check that the referendum is in a state valid for pruning
+                let referendum = Self::referendums(id).ok_or_else(|| Error::<T>::NoSuchProposal)?;
+                ensure!(
+                    referendum.state == ReferendumState::Rejected ||
+                    referendum.state == ReferendumState::Failed ||
+                    referendum.state == ReferendumState::Executed,
+                    Error::<T>::IncorrectReferendumState
+                );
+            } else {
+                ensure!(
+                    proposal.state == ProposalState::Cancelled ||
+                    proposal.state == ProposalState::Killed ||
+                    proposal.state == ProposalState::Rejected,
+                    Error::<T>::IncorrectProposalState
+                );
+            }
+            Self::prune_data(id, true);
+        }
+
         /// Any governance committee member can fast track a proposal and turn it into a referendum
         /// that will be voted on by the committee.
         #[weight = (200_000, DispatchClass::Operational, Pays::Yes)]
@@ -1010,10 +1033,10 @@ decl_module! {
         /// When constructing a block check if it's time for a ballot to end. If ballot ends,
         /// proceed to ratification process.
         fn on_initialize(n: T::BlockNumber) -> Weight {
-            if let Err(e) = Self::end_block(n) {
+            Self::end_block(n).unwrap_or_else(|e| {
                 sp_runtime::print(e);
-            }
-            0
+                0
+            })
         }
 
     }
@@ -1025,8 +1048,9 @@ impl<T: Trait> Module<T> {
     /// 2. Tally votes
     /// 3. Submit any proposals that meet the quorum threshold, to the governance committee
     /// 4. Automatically execute any referendum
-    pub fn end_block(block_number: T::BlockNumber) -> DispatchResult {
-        // Find all matured proposals...
+    pub fn end_block(block_number: T::BlockNumber) -> Result<Weight, DispatchError> {
+        let mut weight: Weight = 50_000_000; // Some arbitrary number right now, It is subject to change after proper benchmarking
+                                             // Find all matured proposals...
         <ProposalsMaturingAt<T>>::take(block_number)
             .into_iter()
             .for_each(|id| {
@@ -1058,11 +1082,11 @@ impl<T: Trait> Module<T> {
         <ProposalsMaturingAt<T>>::remove(block_number);
         // Execute automatically referendums after its enactment period.
         let referendum_ids = <ScheduledReferendumsAt<T>>::take(block_number);
-        referendum_ids
-            .into_iter()
-            .for_each(|id| Self::execute_referendum(id));
+        referendum_ids.into_iter().for_each(|id| {
+            weight += Self::execute_referendum(id);
+        });
         <ScheduledReferendumsAt<T>>::remove(block_number);
-        Ok(())
+        Ok(weight)
     }
 
     /// Create a referendum object from a proposal. If governance committee is composed of less
@@ -1148,13 +1172,15 @@ impl<T: Trait> Module<T> {
         Ok(())
     }
 
-    fn execute_referendum(id: PipId) {
+    fn execute_referendum(id: PipId) -> Weight {
+        let mut actual_weight: Weight = 0;
         if let Some(proposal) = Self::proposals(id) {
             if proposal.state == ProposalState::Referendum {
                 match Self::check_beneficiaries(id) {
                     Ok(_) => {
                         match proposal.proposal.dispatch(system::RawOrigin::Root.into()) {
-                            Ok(_) => {
+                            Ok(post_info) => {
+                                actual_weight = post_info.actual_weight.unwrap_or(0);
                                 Self::pay_to_beneficiaries(id);
                                 Self::update_referendum_state(id, ReferendumState::Executed);
                             }
@@ -1176,6 +1202,7 @@ impl<T: Trait> Module<T> {
                 Self::prune_data(id, Self::prune_historical_pips());
             }
         }
+        actual_weight
     }
 
     fn check_beneficiaries(id: PipId) -> DispatchResult {

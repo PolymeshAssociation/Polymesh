@@ -31,17 +31,17 @@ use polymesh_common_utilities::traits::{
     group::GroupTrait,
     identity::Trait as IdentityTrait,
     pip::{EnactProposalMaker, PipId},
+    transaction_payment::{CddAndFeeDetails, ChargeTxFee},
     CommonTrait,
 };
-use polymesh_primitives::{Authorization, AuthorizationData, IdentityId, Signatory};
-    Authorization, AuthorizationData, CddId, Claim, IdentityId, InvestorUID, JoinIdentityData,
-    Signatory,
+use polymesh_common_utilities::Context;
+use polymesh_primitives::{
+    Authorization, AuthorizationData, CddId, Claim, IdentityId, InvestorUID, Signatory,
 };
 use polymesh_runtime_common::{
     bridge, cdd_check::CddChecker, dividend, exemption, simple_token, voting,
 };
 use smallvec::smallvec;
-use sp_arithmetic::traits::Saturating;
 use sp_core::{
     crypto::{key_types, Pair as PairTrait},
     sr25519::{Pair, Public},
@@ -254,25 +254,32 @@ impl simple_token::Trait for TestStorage {
     type Event = Event;
 }
 
-impl pallet_transaction_payment::ChargeTxFee for TestStorage {
+impl ChargeTxFee for TestStorage {
     fn charge_fee(_len: u32, _info: DispatchInfo) -> TransactionValidity {
         Ok(ValidTransaction::default())
     }
 }
 
-impl pallet_transaction_payment::CddAndFeeDetails<AccountId, Call> for TestStorage {
+impl CddAndFeeDetails<AccountId, Call> for TestStorage {
     fn get_valid_payer(
         _: &Call,
         _: &Signatory<AccountId>,
     ) -> Result<Option<Signatory<AccountId>>, InvalidTransaction> {
         Ok(None)
     }
-    fn clear_context() {}
-    fn set_payer_context(_: Option<Signatory<AccountId>>) {}
-    fn get_payer_from_context() -> Option<Signatory<AccountId>> {
-        None
+    fn clear_context() {
+        Context::set_current_identity::<Identity>(None);
+        Context::set_current_payer::<Identity>(None);
     }
-    fn set_current_identity(_: &IdentityId) {}
+    fn set_payer_context(payer: Option<Signatory<AccountId>>) {
+        Context::set_current_payer::<Identity>(payer);
+    }
+    fn get_payer_from_context() -> Option<Signatory<AccountId>> {
+        Context::current_payer::<Identity>()
+    }
+    fn set_current_identity(did: &IdentityId) {
+        Context::set_current_identity::<Identity>(Some(*did));
+    }
 }
 
 pub struct WeightToFee;
@@ -577,13 +584,15 @@ pub type System = frame_system::Module<TestStorage>;
 
 pub fn make_account(
     id: AccountId,
+    uid: InvestorUID,
 ) -> Result<(<TestStorage as frame_system::Trait>::Origin, IdentityId), &'static str> {
-    make_account_with_balance(id, 1_000_000)
+    make_account_with_balance(id, uid, 1_000_000)
 }
 
-/// It creates an Account and registers its DID.
+/// It creates an Account and registers its DID and its InvestorUID.
 pub fn make_account_with_balance(
     id: AccountId,
+    uid: InvestorUID,
     balance: <TestStorage as CommonTrait>::Balance,
 ) -> Result<(<TestStorage as frame_system::Trait>::Origin, IdentityId), &'static str> {
     let signed_id = Origin::signed(id.clone());
@@ -591,23 +600,24 @@ pub fn make_account_with_balance(
 
     // If we have CDD providers, first of them executes the registration.
     let cdd_providers = CddServiceProvider::get_members();
-    let did = if let Some(cdd_provider) = cdd_providers.into_iter().next() {
-        let cdd_acc = Public::from_raw(Identity::did_records(&cdd_provider).master_key.0);
-        Identity::cdd_register_did(Origin::signed(cdd_acc), id, vec![])
-            .map_err(|_| "Register DID failed")?;
-        let did = Identity::get_identity(&id).unwrap();
+    let did = match cdd_providers.into_iter().nth(0) {
+        Some(cdd_provider) => {
+            let cdd_acc = Public::from_raw(Identity::did_records(&cdd_provider).master_key.0);
+            let _ = Identity::cdd_register_did(Origin::signed(cdd_acc), id, vec![])
+                .map_err(|_| "CDD register DID failed")?;
 
-        // Add CDD claim with CDD_ID.
-        let investor_uid = InvestorUID::from(did.as_ref());
-        let cdd_claim = Claim::CustomerDueDiligence(CddId::new(did, investor_uid));
-
-        Identity::add_claim(Origin::signed(cdd_acc), did, cdd_claim, None)
-            .map_err(|_| "Add CDD claim failed")?;
-
-        did
-    } else {
-        Identity::register_did(signed_id.clone(), vec![]).map_err(|_| "Register DID failed")?;
-        Identity::get_identity(&id).unwrap()
+            // Add CDD Claim
+            let did = Identity::get_identity(&id).unwrap();
+            let cdd_claim = Claim::CustomerDueDiligence(CddId::new(did, uid));
+            Identity::add_claim(Origin::signed(cdd_acc), did, cdd_claim, None)
+                .map_err(|_| "CDD provider cannot add the CDD claim")?;
+            did
+        }
+        _ => {
+            let _ = Identity::register_did(signed_id.clone(), uid, vec![])
+                .map_err(|_| "Register DID failed")?;
+            Identity::get_identity(&id).unwrap()
+        }
     };
 
     Ok((signed_id, did))
@@ -631,7 +641,8 @@ pub fn register_keyring_account_with_balance(
     balance: <TestStorage as CommonTrait>::Balance,
 ) -> Result<IdentityId, &'static str> {
     let acc_pub = acc.public();
-    make_account_with_balance(acc_pub, balance).map(|(_, id)| id)
+    let uid = InvestorUID::from(format!("{}", acc).as_str());
+    make_account_with_balance(acc_pub, uid, balance).map(|(_, id)| id)
 }
 
 pub fn register_keyring_account_without_cdd(
@@ -642,7 +653,7 @@ pub fn register_keyring_account_without_cdd(
 }
 
 pub fn add_signing_item(did: IdentityId, signer: Signatory<AccountId>) {
-    let master_key = Identity::did_records(&did).master_key;
+    let _master_key = Identity::did_records(&did).master_key;
     let auth_id = Identity::add_auth(
         did.clone(),
         signer,

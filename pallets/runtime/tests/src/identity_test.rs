@@ -7,26 +7,20 @@ use super::{
     ExtBuilder,
 };
 use codec::Encode;
-use frame_support::{
-    assert_err, assert_ok, dispatch::DispatchError, traits::Currency, StorageDoubleMap,
-};
+use frame_support::{assert_err, assert_ok, traits::Currency, StorageDoubleMap};
 use pallet_balances as balances;
 use pallet_identity::{self as identity, BatchAddClaimItem, BatchRevokeClaimItem, Error};
-use pallet_identity_rpc_runtime_api::LinkType;
-use pallet_transaction_payment::CddAndFeeDetails;
 use polymesh_common_utilities::{
     traits::{
         group::GroupTrait,
-        identity::{
-            LinkedKeyInfo, SigningItemWithAuth, TargetIdAuthorization, Trait as IdentityTrait,
-        },
+        identity::{SigningItemWithAuth, TargetIdAuthorization, Trait as IdentityTrait},
+        transaction_payment::CddAndFeeDetails,
     },
     SystematicIssuers,
 };
 use polymesh_primitives::{
-    AuthorizationData, AuthorizationError, CddId, Claim, ClaimType, Document, IdentityClaim,
-    IdentityId, InvestorUID, JoinIdentityData, LinkData, Permission, Scope, Signatory,
-    SignatoryType, SigningItem, Ticker, TransactionError,
+    AuthorizationData, AuthorizationType, Claim, ClaimType, IdentityClaim, IdentityId, Permission,
+    Scope, Signatory, SigningItem, Ticker, TransactionError,
 };
 use polymesh_runtime_develop::{fee_details::CddHandler, runtime::Call};
 use sp_core::crypto::AccountId32;
@@ -89,12 +83,10 @@ fn add_claims_batch() {
 
     let scope = Scope::from(0);
 
-    let alice_cdd =
-        Claim::CustomerDueDiligence(CddId::new(alice_did, InvestorUID::from(alice_did.as_ref())));
     let claim_records = vec![
         BatchAddClaimItem {
             target: alice_did,
-            claim: alice_cdd.clone(),
+            claim: Claim::make_cdd_wildcard(),
             expiry: None,
         },
         BatchAddClaimItem {
@@ -129,7 +121,7 @@ fn add_claims_batch() {
     assert_eq!(claim1.expiry, None);
     assert_eq!(claim2.expiry, None);
 
-    assert_eq!(claim1.claim, alice_cdd);
+    assert_eq!(claim1.claim, Claim::make_cdd_wildcard());
     assert_eq!(claim2.claim, Claim::Affiliate(scope));
 }
 
@@ -478,14 +470,17 @@ fn frozen_signing_keys_cdd_verification_test() {
 fn frozen_signing_keys_cdd_verification_test_we() {
     // 0. Create identity for Alice and signing key from Bob.
     let alice = AccountKeyring::Alice.public();
-    let alice_id = register_keyring_account(AccountKeyring::Alice).unwrap();
-    let charlie = AccountKeyring::Charlie.public();
-    let _charlie_id = register_keyring_account_with_balance(AccountKeyring::Charlie, 100).unwrap();
     let bob = AccountKeyring::Bob.public();
+    let charlie = AccountKeyring::Charlie.public();
+    TestStorage::set_payer_context(Some(Signatory::Account(alice)));
+    let alice_id = register_keyring_account(AccountKeyring::Alice).unwrap();
+    TestStorage::set_payer_context(Some(Signatory::Account(charlie)));
+    let _charlie_id = register_keyring_account_with_balance(AccountKeyring::Charlie, 100).unwrap();
     assert_eq!(Balances::free_balance(charlie), 59);
 
     // 1. Add Bob as signatory to Alice ID.
     let bob_signatory = Signatory::Account(AccountKeyring::Bob.public());
+    TestStorage::set_payer_context(Some(Signatory::Account(alice)));
     assert_ok!(Balances::top_up_identity_balance(
         Origin::signed(alice),
         alice_id,
@@ -501,6 +496,7 @@ fn frozen_signing_keys_cdd_verification_test_we() {
     assert_eq!(Balances::free_balance(bob), 25_000);
 
     // 2. Bob can transfer some funds to Charlie ID.
+    TestStorage::set_payer_context(Some(Signatory::Account(bob)));
     assert_ok!(Balances::transfer_with_memo(
         Origin::signed(bob),
         charlie,
@@ -1022,6 +1018,24 @@ fn adding_authorizations() {
             auth.authorization_data,
             AuthorizationData::TransferTicker(ticker50)
         );
+
+        // Testing the list of filtered authorizations
+        Timestamp::set_timestamp(120);
+
+        // Getting expired and non-expired both
+        let mut authorizations = Identity::get_filtered_authorizations(
+            bob_did,
+            true,
+            Some(AuthorizationType::TransferTicker),
+        );
+        assert_eq!(authorizations.len(), 2);
+        authorizations = Identity::get_filtered_authorizations(
+            bob_did,
+            false,
+            Some(AuthorizationType::TransferTicker),
+        );
+        // One authorization is expired
+        assert_eq!(authorizations.len(), 1);
     });
 }
 
@@ -1053,89 +1067,6 @@ fn removing_authorizations() {
         assert!(!<identity::Authorizations<TestStorage>>::contains_key(
             bob_did, auth_id
         ));
-    });
-}
-
-#[test]
-fn adding_links() {
-    ExtBuilder::default().build().execute_with(|| {
-        let bob_did = Signatory::from(register_keyring_account(AccountKeyring::Bob).unwrap());
-        let ticker50 = Ticker::try_from(&[0x50][..]).unwrap();
-        let ticker51 = Ticker::try_from(&[0x51][..]).unwrap();
-        let mut link_id = Identity::add_link(bob_did, LinkData::TickerOwned(ticker50), None);
-        let mut link = Identity::get_link(bob_did, link_id);
-        assert_eq!(link.expiry, None);
-        assert_eq!(link.link_data, LinkData::TickerOwned(ticker50));
-        link_id = Identity::add_link(bob_did, LinkData::TickerOwned(ticker51), None);
-        link = Identity::get_link(bob_did, link_id);
-        assert_eq!(link.expiry, None);
-        assert_eq!(link.link_data, LinkData::TickerOwned(ticker51));
-        link_id = Identity::add_link(bob_did, LinkData::TickerOwned(ticker50), Some(100));
-        link = Identity::get_link(bob_did, link_id);
-        assert_eq!(link.expiry, Some(100));
-        assert_eq!(link.link_data, LinkData::TickerOwned(ticker50));
-        link_id = Identity::add_link(bob_did, LinkData::TickerOwned(ticker50), Some(100));
-        link = Identity::get_link(bob_did, link_id);
-        assert_eq!(link.expiry, Some(100));
-        assert_eq!(link.link_data, LinkData::TickerOwned(ticker50));
-
-        // Testing the list of filtered links
-        Timestamp::set_timestamp(120);
-
-        // Getting expired and non-expired both
-        let mut links =
-            Identity::get_filtered_links(bob_did, true, Some(LinkType::TickerOwnership));
-        assert_eq!(links.len(), 4);
-        links = Identity::get_filtered_links(bob_did, false, Some(LinkType::TickerOwnership));
-        // Two links are expired
-        assert_eq!(links.len(), 2);
-        // Add other type of link
-        // 1.1 : Add document type
-        let doc = Document {
-            name: b"D".into(),
-            uri: b"www.d.com".into(),
-            content_hash: b"0x4".into(),
-        };
-
-        Identity::add_link(bob_did, LinkData::DocumentOwned(doc.clone()), None);
-        // 1.2 : Add AssetOwned type
-        Identity::add_link(bob_did, LinkData::AssetOwned(ticker51), None);
-        Identity::add_link(bob_did, LinkData::AssetOwned(ticker50), Some(200));
-
-        // Query DocumentOwnership type link
-        links = Identity::get_filtered_links(bob_did, true, Some(LinkType::DocumentOwnership));
-        assert_eq!(links.len(), 1);
-
-        // Query AssetOwnership type
-        links = Identity::get_filtered_links(bob_did, true, Some(LinkType::AssetOwnership));
-        assert_eq!(links.len(), 2);
-
-        // Increase time
-        Timestamp::set_timestamp(220);
-        links = Identity::get_filtered_links(bob_did, false, Some(LinkType::AssetOwnership));
-        assert_eq!(links.len(), 1);
-
-        // Query all links without providing link type and allow expired ones as well
-        links = Identity::get_filtered_links(bob_did, true, None);
-        assert_eq!(links.len(), 7);
-
-        // Query all links without providing link type and not allow the expired ones
-        links = Identity::get_filtered_links(bob_did, false, None);
-        assert_eq!(links.len(), 4);
-    });
-}
-
-#[test]
-fn removing_links() {
-    ExtBuilder::default().build().execute_with(|| {
-        let bob_did = Signatory::from(register_keyring_account(AccountKeyring::Bob).unwrap());
-        let ticker50 = Ticker::try_from(&[0x50][..]).unwrap();
-        let link_id = Identity::add_link(bob_did, LinkData::TickerOwned(ticker50), None);
-        let link = Identity::get_link(bob_did, link_id);
-        assert_eq!(link.link_data, LinkData::TickerOwned(ticker50));
-        Identity::remove_link(bob_did, link_id);
-        let removed_link = Identity::get_link(bob_did, link_id);
-        assert_eq!(removed_link.link_data, LinkData::NoData);
     });
 }
 
@@ -1271,35 +1202,31 @@ fn cdd_register_did_test_we() {
 
     // CDD 1 registers correctly the Alice's ID.
     assert_ok!(Identity::cdd_register_did(cdd1.clone(), alice, vec![]));
-
-    // Check that Alice's ID is attested by CDD 1.
     let alice_id = get_identity_id(AccountKeyring::Alice).unwrap();
-    let alice_cdd_id = CddId::new(alice_id, InvestorUID::from(alice_id.as_ref()));
     assert_ok!(Identity::add_claim(
         cdd1.clone(),
         alice_id,
-        Claim::CustomerDueDiligence(alice_cdd_id),
-        Some(10)
+        Claim::make_cdd_wildcard(),
+        None
     ));
 
+    // Check that Alice's ID is attested by CDD 1.
     assert_eq!(Identity::has_valid_cdd(alice_id), true);
 
     // Error case: Try account without ID.
-    assert!(Identity::cdd_register_did(non_id, bob_acc, vec![]).is_err());
+    assert!(Identity::cdd_register_did(non_id, bob_acc, vec![]).is_err(),);
     // Error case: Try account with ID but it is not part of CDD providers.
     assert!(Identity::cdd_register_did(Origin::signed(alice), bob_acc, vec![]).is_err());
 
     // CDD 2 registers properly Bob's ID.
     assert_ok!(Identity::cdd_register_did(cdd2.clone(), bob_acc, vec![]));
     let bob_id = get_identity_id(AccountKeyring::Bob).unwrap();
-    let bob_cdd_id = CddId::new(bob_id, InvestorUID::from(bob_id.as_ref()));
     assert_ok!(Identity::add_claim(
         cdd2,
         bob_id,
-        Claim::CustomerDueDiligence(bob_cdd_id),
-        Some(10)
+        Claim::make_cdd_wildcard(),
+        None
     ));
-
     assert_eq!(Identity::has_valid_cdd(bob_id), true);
 
     // Register with signing_keys
@@ -1316,16 +1243,14 @@ fn cdd_register_did_test_we() {
         signing_keys
     ));
     let charlie_id = get_identity_id(AccountKeyring::Charlie).unwrap();
-    let charlie_cdd_id = CddId::new(charlie_id, InvestorUID::from(charlie_id.as_ref()));
     assert_ok!(Identity::add_claim(
         cdd1.clone(),
         charlie_id,
-        Claim::CustomerDueDiligence(charlie_cdd_id),
-        Some(10)
+        Claim::make_cdd_wildcard(),
+        None
     ));
 
     Balances::make_free_balance_be(&charlie, 10_000_000_000);
-    let charlie_id = get_identity_id(AccountKeyring::Charlie).unwrap();
     assert_eq!(Identity::has_valid_cdd(charlie_id), true);
     assert_eq!(
         Identity::did_records(charlie_id).signing_items.is_empty(),
@@ -1379,9 +1304,9 @@ fn add_identity_signers() {
         let bob_did = register_keyring_account(AccountKeyring::Bob).unwrap();
         let charlie = Origin::signed(AccountKeyring::Charlie.public());
         let charlie_did = register_keyring_account(AccountKeyring::Charlie).unwrap();
-        let alice_acc_signer = Signatory::Account(AccountKeyring::Alice.public());
+        let _alice_acc_signer = Signatory::Account(AccountKeyring::Alice.public());
         let bob_identity_signer = Signatory::from(bob_did);
-        let charlie_acc_signer = Signatory::Account(AccountKeyring::Charlie.public());
+        let _charlie_acc_signer = Signatory::Account(AccountKeyring::Charlie.public());
         let dave_acc_signer = Signatory::Account(AccountKeyring::Dave.public());
 
         let auth_id_for_acc_to_id = Identity::add_auth(
@@ -1407,6 +1332,14 @@ fn add_identity_signers() {
             AuthorizationData::JoinIdentity(vec![]),
             None,
         );
+
+        // Getting expired and non-expired both
+        let authorizations = Identity::get_filtered_authorizations(
+            bob_identity_signer,
+            true,
+            Some(AuthorizationType::JoinIdentity),
+        );
+        assert_eq!(authorizations.len(), 1);
 
         assert_ok!(Balances::top_up_identity_balance(
             charlie.clone(),
@@ -1491,27 +1424,24 @@ fn invalidate_cdd_claims() {
 
 fn invalidate_cdd_claims_we() {
     let root = Origin::from(frame_system::RawOrigin::Root);
-    let cdd_1_acc = AccountKeyring::Eve.public();
+    let cdd = AccountKeyring::Eve.public();
     let alice_acc = AccountKeyring::Alice.public();
     let bob_acc = AccountKeyring::Bob.public();
     assert_ok!(Identity::cdd_register_did(
-        Origin::signed(cdd_1_acc),
+        Origin::signed(cdd),
         alice_acc,
         vec![]
     ));
-
-    // Check that Alice's ID is attested by CDD 1.
     let alice_id = get_identity_id(AccountKeyring::Alice).unwrap();
-    let alice_cdd =
-        Claim::CustomerDueDiligence(CddId::new(alice_id, InvestorUID::from(alice_id.as_ref())));
     assert_ok!(Identity::add_claim(
-        Origin::signed(cdd_1_acc),
+        Origin::signed(cdd),
         alice_id,
-        alice_cdd,
-        Some(10)
+        Claim::make_cdd_wildcard(),
+        None
     ));
 
-    let cdd_1_id = Identity::get_identity(&cdd_1_acc).unwrap();
+    // Check that Alice's ID is attested by CDD 1.
+    let cdd_1_id = Identity::get_identity(&cdd).unwrap();
     assert_eq!(Identity::has_valid_cdd(alice_id), true);
 
     // Disable CDD 1.
@@ -1522,7 +1452,7 @@ fn invalidate_cdd_claims_we() {
     Timestamp::set_timestamp(8);
     assert_eq!(Identity::has_valid_cdd(alice_id), true);
     assert_err!(
-        Identity::cdd_register_did(Origin::signed(cdd_1_acc), bob_acc, vec![]),
+        Identity::cdd_register_did(Origin::signed(cdd), bob_acc, vec![]),
         Error::<TestStorage>::UnAuthorizedCddProvider
     );
 
@@ -1530,7 +1460,7 @@ fn invalidate_cdd_claims_we() {
     Timestamp::set_timestamp(11);
     assert_eq!(Identity::has_valid_cdd(alice_id), false);
     assert_err!(
-        Identity::cdd_register_did(Origin::signed(cdd_1_acc), bob_acc, vec![]),
+        Identity::cdd_register_did(Origin::signed(cdd), bob_acc, vec![]),
         Error::<TestStorage>::UnAuthorizedCddProvider
     );
 }
@@ -1579,20 +1509,14 @@ fn cdd_provider_with_systematic_cdd_claims_we() {
         charlie_acc.clone(),
         vec![]
     ));
-    let charlie_id = get_identity_id(AccountKeyring::Charlie).unwrap();
-    let charlie_cdd = Claim::CustomerDueDiligence(CddId::new(
-        charlie_id,
-        InvestorUID::from(charlie_id.as_ref()),
-    ));
+    let charlie_id =
+        get_identity_id(AccountKeyring::Charlie).expect("Charlie should have an Identity Id");
     assert_ok!(Identity::add_claim(
         alice,
         charlie_id,
-        charlie_cdd,
-        Some(10)
+        Claim::make_cdd_wildcard(),
+        None
     ));
-
-    let charlie_id =
-        get_identity_id(AccountKeyring::Charlie).expect("Charlie should have an Identity Id");
     let charlie_cdd_claim =
         Identity::fetch_cdd(charlie_id, 0).expect("Charlie should have a CDD claim by Alice");
 
@@ -1658,13 +1582,14 @@ fn gc_with_systematic_cdd_claims_we() {
         ferdie_acc.clone(),
         vec![]
     ));
-    let ferdie_id = get_identity_id(AccountKeyring::Ferdie).unwrap();
-    let ferdie_cdd =
-        Claim::CustomerDueDiligence(CddId::new(ferdie_id, InvestorUID::from(ferdie_id.as_ref())));
-    assert_ok!(Identity::add_claim(alice, ferdie_id, ferdie_cdd, Some(10)));
-
     let ferdie_id =
         get_identity_id(AccountKeyring::Ferdie).expect("Ferdie should have an Identity Id");
+    assert_ok!(Identity::add_claim(
+        alice,
+        ferdie_id,
+        Claim::make_cdd_wildcard(),
+        None
+    ));
     let ferdie_cdd_claim =
         Identity::fetch_cdd(ferdie_id, 0).expect("Ferdie should have a CDD claim by Alice");
 
@@ -1730,13 +1655,11 @@ fn add_permission_with_signing_item() {
             // SigningItem added
             let sig_1 = SigningItem {
                 signer: Signatory::Account(bob_acc),
-                signer_type: SignatoryType::External,
                 permissions: vec![Permission::Admin, Permission::Operator],
             };
 
             let sig_2 = SigningItem {
                 signer: Signatory::Account(charlie_acc),
-                signer_type: SignatoryType::External,
                 permissions: vec![Permission::Full],
             };
 
@@ -1745,22 +1668,13 @@ fn add_permission_with_signing_item() {
                 alice_acc,
                 vec![sig_1.clone(), sig_2.clone()]
             ));
-            let alice_id = get_identity_id(AccountKeyring::Alice).unwrap();
-            let alice_cdd = Claim::CustomerDueDiligence(CddId::new(
-                alice_id,
-                InvestorUID::from(alice_id.as_ref()),
-            ));
+            let alice_did = Identity::get_identity(&alice_acc).unwrap();
             assert_ok!(Identity::add_claim(
                 Origin::signed(cdd_1_acc),
-                alice_id,
-                alice_cdd,
-                Some(10)
+                alice_did,
+                Claim::make_cdd_wildcard(),
+                None
             ));
-
-            let did = match Identity::key_to_identity_ids(alice_acc).unwrap() {
-                LinkedKeyInfo::Unique(did) => did,
-                _ => Default::default(),
-            };
 
             let bob_auth_id = <identity::Authorizations<TestStorage>>::iter_prefix_values(
                 Signatory::Account(bob_acc),
@@ -1780,7 +1694,7 @@ fn add_permission_with_signing_item() {
             // Fund the identity
             assert_ok!(Balances::top_up_identity_balance(
                 Origin::signed(alice_acc),
-                did,
+                alice_did,
                 PROTOCOL_OP_BASE_FEE * 3
             ));
 
@@ -1797,7 +1711,7 @@ fn add_permission_with_signing_item() {
             ));
 
             // check for permissions
-            let sig_items = (Identity::did_records(did)).signing_items;
+            let sig_items = (Identity::did_records(alice_did)).signing_items;
             assert_eq!(sig_items[0], sig_1);
             assert_eq!(sig_items[1], sig_2);
         });

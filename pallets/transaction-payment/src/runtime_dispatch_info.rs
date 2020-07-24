@@ -19,7 +19,6 @@ use codec::{Decode, Encode};
 use frame_support::weights::{DispatchClass, Weight};
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
-// use sp_runtime::traits::{MaybeDisplay, MaybeFromStr};
 use sp_std::prelude::*;
 
 /// Some information related to a dispatchable that can be queried from the runtime.

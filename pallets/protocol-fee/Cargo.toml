@@ -28,6 +28,7 @@ std = [
     "codec/std",
     "frame-support/std",
     "frame-system/std",
+    "pallet-identity/std",
     "polymesh-common-utilities/std",
     "polymesh-primitives/std",
     "serde/std",
@@ -35,5 +36,4 @@ std = [
     "sp-io/std",
     "sp-runtime/std",
     "sp-std/std",
-    "pallet-identity/std",
 ]

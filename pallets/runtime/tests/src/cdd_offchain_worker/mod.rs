@@ -18,8 +18,8 @@ mod mock;
 
 use crate::*;
 use chrono::prelude::Utc;
-use codec::Decode;
-use frame_support::assert_ok;
+use codec::{Decode, Encode};
+use frame_support::{assert_err, assert_noop, assert_ok, dispatch::DispatchError};
 use mock::*;
 use pallet_staking::RewardDestination;
 use polymesh_primitives::{IdentityId, Signatory};
@@ -27,10 +27,11 @@ use sp_core::{
     offchain::{testing, OffchainExt, TransactionPoolExt},
     testing::KeyStore,
     traits::KeystoreExt,
+    H256,
 };
 use sp_runtime::testing::UintAuthorityId;
 use sp_runtime::RuntimeAppPublic;
-use substrate_test_runtime_client::AccountKeyring;
+use test_client::AccountKeyring;
 
 
 #[test]
@@ -48,12 +49,10 @@ fn check_the_initial_nominators_of_chain() {
 
 #[test]
 fn should_submit_unsigned_transaction_on_chain() {
-    use sp_runtime::traits::OffchainWorker;
-
     const PHRASE: &str =
         "foster nation swing usage bread mind donor door whisper lyrics token enroll";
 
-    let (offchain, _offchain_state) = testing::TestOffchainExt::new();
+    let (offchain, offchain_state) = testing::TestOffchainExt::new();
     let (pool, pool_state) = testing::TestTransactionPoolExt::new();
     let keystore = KeyStore::new();
     keystore

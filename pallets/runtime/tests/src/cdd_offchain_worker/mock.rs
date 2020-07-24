@@ -14,17 +14,19 @@
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
 use crate::*;
+use chrono::prelude::Utc;
 use codec::Encode;
 use frame_support::{
     assert_ok,
     dispatch::DispatchResult,
-    impl_outer_dispatch, impl_outer_origin, ord_parameter_types, parameter_types,
+    impl_outer_dispatch, impl_outer_origin, parameter_types,
     traits::{Currency, FindAuthor, Get},
     weights::{DispatchInfo, Weight},
 };
 use frame_system::EnsureSignedBy;
+use pallet_cdd_offchain_worker::{Trait, crypto};
 use pallet_group as group;
-use pallet_identity as identity;
+use pallet_identity::{self as identity};
 use pallet_protocol_fee as protocol_fee;
 use pallet_staking::{EraIndex, Exposure, ExposureOf, StakerStatus, StashOf};
 use polymesh_common_utilities::traits::{
@@ -36,17 +38,23 @@ use polymesh_common_utilities::traits::{
     transaction_payment::{ CddAndFeeDetails, ChargeTxFee },
     CommonTrait,
 };
-use polymesh_primitives::{CddId, Claim, IdentityId, InvestorUID, Signatory};
+use polymesh_primitives::{IdentityId, Signatory};
 use sp_core::{
     crypto::{key_types, Pair as PairTrait},
+    offchain::{testing, OffchainExt, TransactionPoolExt},
     sr25519::Pair,
+    testing::KeyStore,
+    traits::KeystoreExt,
     H256,
 };
 use sp_runtime::curve::PiecewiseLinear;
 use sp_runtime::transaction_validity::{InvalidTransaction, TransactionValidity, ValidTransaction};
 use sp_runtime::{
     testing::{sr25519::Public, Header, TestXt, UintAuthorityId},
-    traits::{Convert, IdentityLookup, OpaqueKeys, SaturatedConversion, Verify},
+    traits::{
+        Convert, Extrinsic as ExtrinsicsT, IdentityLookup, OpaqueKeys, SaturatedConversion, Verify,
+        Zero,
+    },
     AnySignature, KeyTypeId, Perbill,
 };
 use sp_staking::SessionIndex;
@@ -54,7 +62,7 @@ use std::{
     cell::RefCell,
     collections::{BTreeMap, HashSet},
 };
-use substrate_test_runtime_client::AccountKeyring;
+use test_client::AccountKeyring;
 
 pub type AccountId = <AnySignature as Verify>::Signer;
 pub type BlockNumber = u64;
@@ -172,6 +180,11 @@ impl pallet_session::SessionHandler<AccountId> for TestSessionHandler {
     }
 }
 
+pub fn is_disabled(controller: AccountId) -> bool {
+    let stash = Staking::ledger(&controller).unwrap().stash;
+    SESSION.with(|d| d.borrow().1.contains(&stash))
+}
+
 /// Author of block is always 11
 pub struct Author11;
 impl FindAuthor<AccountId> for Author11 {
@@ -236,7 +249,7 @@ impl pallet_balances::Trait for Test {
     type CddChecker = Test;
 }
 
-ord_parameter_types! {
+parameter_types! {
     pub const One: AccountId = AccountId::from(AccountKeyring::Dave);
     pub const Two: AccountId = AccountId::from(AccountKeyring::Dave);
     pub const Three: AccountId = AccountId::from(AccountKeyring::Dave);
@@ -338,7 +351,7 @@ impl GroupTrait<Moment> for Test {
             .collect::<Vec<_>>()
     }
 
-    fn is_member_expired(_member: &InactiveMember<Moment>, _now: Moment) -> bool {
+    fn is_member_expired(member: &InactiveMember<Moment>, now: Moment) -> bool {
         false
     }
 }
@@ -356,10 +369,10 @@ impl MultiSigSubTrait<AccountId> for Test {
     fn accept_multisig_signer(_: Signatory<AccountId>, _: u64) -> DispatchResult {
         unimplemented!()
     }
-    fn get_key_signers(_multisig: &AccountId) -> Vec<AccountId> {
+    fn get_key_signers(multisig: &AccountId) -> Vec<AccountId> {
         unimplemented!()
     }
-    fn is_multisig(_account: &AccountId) -> bool {
+    fn is_multisig(account: &AccountId) -> bool {
         unimplemented!()
     }
     fn is_signer(key: &AccountId) -> bool {
@@ -368,10 +381,10 @@ impl MultiSigSubTrait<AccountId> for Test {
 }
 
 impl CheckCdd<AccountId> for Test {
-    fn check_key_cdd(_key: &AccountId) -> bool {
+    fn check_key_cdd(key: &AccountId) -> bool {
         true
     }
-    fn get_key_cdd_did(_key: &AccountId) -> Option<IdentityId> {
+    fn get_key_cdd_did(key: &AccountId) -> Option<IdentityId> {
         None
     }
 }
@@ -437,7 +450,7 @@ parameter_types! {
     pub const SlashDeferDuration: EraIndex = 0;
 }
 
-ord_parameter_types! {
+parameter_types! {
     pub const OneThousand: Public = account_from(1000);
     pub const TwoThousand: Public = account_from(2000);
     pub const ThreeThousand: Public = account_from(3000);
@@ -447,7 +460,7 @@ ord_parameter_types! {
 
 impl pallet_staking::Trait for Test {
     type Currency = pallet_balances::Module<Self>;
-    type Time = pallet_timestamp::Module<Self>;
+    // type Time = pallet_timestamp::Module<Self>;
     type CurrencyToVote = CurrencyToVoteHandler;
     type RewardRemainder = ();
     type Event = ();
@@ -468,14 +481,11 @@ impl pallet_staking::Trait for Test {
 }
 
 pub type Extrinsic = TestXt<Call, ()>;
-pub type SubmitTransaction =
-    frame_system::offchain::TransactionSubmitter<crypto::SignerId, Call, Extrinsic>;
 
 impl Trait for Test {
     type SignerId = UintAuthorityId;
     type Event = ();
     type Call = Call;
-    type SubmitUnsignedTransaction = SubmitTransaction;
     type CoolingInterval = CoolingInterval;
     type BufferInterval = BufferInterval;
 }
@@ -504,24 +514,19 @@ impl Default for ExtBuilder {
     }
 }
 
-#[allow(dead_code)]
-#[allow(unused_imports)]
 impl ExtBuilder {
     pub fn session_per_era(mut self, session_per_era: SessionIndex) -> Self {
         self.session_per_era = session_per_era;
         self
     }
-
     pub fn bonding_duration(mut self, bonding_duration: EraIndex) -> Self {
         self.bonding_duration = bonding_duration;
         self
     }
-
     pub fn nominate(mut self, nominate: bool) -> Self {
         self.nominate = nominate;
         self
     }
-
     pub fn expected_block_time(mut self, expected_block_time: u64) -> Self {
         self.expected_block_time = expected_block_time;
         self
@@ -565,7 +570,7 @@ impl ExtBuilder {
         .map(|id| (*id, account_from(*id)))
         .collect();
 
-        let _ = pallet_balances::GenesisConfig::<Test> {
+        pallet_balances::GenesisConfig::<Test> {
             balances: vec![
                 (AccountKeyring::Alice.public(), 10 * balance_factor),
                 (AccountKeyring::Bob.public(), 20 * balance_factor),
@@ -625,7 +630,7 @@ impl ExtBuilder {
         }
         .assimilate_storage(&mut storage);
 
-        let _ = group::GenesisConfig::<Test, group::Instance2> {
+        group::GenesisConfig::<Test, group::Instance2> {
             active_members: vec![IdentityId::from(1), IdentityId::from(2)],
             phantom: Default::default(),
         }
@@ -633,48 +638,42 @@ impl ExtBuilder {
 
         let _ = identity::GenesisConfig::<Test> {
             identities: vec![
-                // (master_account_id, service provider did, target did, expiry time of CustomerDueDiligence claim i.e 10 days is ms)
-                // Provide Identity
+                /// (master_account_id, service provider did, target did, expiry time of CustomerDueDiligence claim i.e 10 days is ms)
+                /// Provide Identity
                 (
                     account_key_ring.get(&1005).unwrap().clone(),
                     IdentityId::from(1),
                     IdentityId::from(1),
-                    InvestorUID::from(b"uid1".as_ref()),
                     None,
                 ),
                 (
                     account_key_ring.get(&11).unwrap().clone(),
                     IdentityId::from(1),
                     IdentityId::from(11),
-                    InvestorUID::from(b"uid11".as_ref()),
                     None,
                 ),
                 (
                     account_key_ring.get(&21).unwrap().clone(),
                     IdentityId::from(1),
                     IdentityId::from(21),
-                    InvestorUID::from(b"uid21".as_ref()),
                     None,
                 ),
                 (
                     account_key_ring.get(&31).unwrap().clone(),
                     IdentityId::from(1),
                     IdentityId::from(31),
-                    InvestorUID::from(b"uid31".as_ref()),
                     None,
                 ),
                 (
                     account_key_ring.get(&41).unwrap().clone(),
                     IdentityId::from(1),
                     IdentityId::from(41),
-                    InvestorUID::from(b"uid41".as_ref()),
                     None,
                 ),
                 (
                     account_key_ring.get(&101).unwrap().clone(),
                     IdentityId::from(1),
                     IdentityId::from(101),
-                    InvestorUID::from(b"uid101".as_ref()),
                     None,
                 ),
             ],
@@ -756,7 +755,7 @@ impl ExtBuilder {
     }
 }
 
-pub type CddOffchainWorker = Module<Test>;
+pub type CddOffchainWorker = pallet_cdd_offchain_worker::Module<Test>;
 pub type System = frame_system::Module<Test>;
 pub type Session = pallet_session::Module<Test>;
 pub type Timestamp = pallet_timestamp::Module<Test>;
@@ -776,22 +775,11 @@ pub fn account_from(id: u64) -> AccountId {
 }
 
 pub fn create_did_and_add_claim(stash: AccountId, expiry: u64) {
-    let acc = account_from(1005);
-    Balances::make_free_balance_be(&acc, 1_000_000);
+    Balances::make_free_balance_be(&account_from(1005), 1_000_000);
     assert_ok!(Identity::cdd_register_did(
-        Origin::signed(acc),
+        Origin::signed(account_from(1005)),
         stash,
+        Some(expiry.saturated_into::<Moment>()),
         vec![]
     ));
-
-    if let Some(stash_id) = Identity::get_identity(&stash) {
-        let investor_uid = InvestorUID::from(stash_id.as_ref());
-        let cdd_claim = Claim::CustomerDueDiligence(CddId::new(stash_id, investor_uid));
-        assert_ok!(Identity::add_claim(
-            Origin::signed(acc),
-            stash_id,
-            cdd_claim,
-            Some(expiry.saturated_into::<Moment>())
-        ));
-    }
 }

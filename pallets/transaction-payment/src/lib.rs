@@ -368,6 +368,11 @@ impl<T: Trait> Module<T> {
         let capped_weight = weight.min(<T as frame_system::Trait>::MaximumBlockWeight::get());
         T::WeightToFee::calc(&capped_weight)
     }
+
+    #[cfg(debug_assertions)]
+    pub fn put_next_fee_multiplier(m: Multiplier) {
+        NextFeeMultiplier::put(m)
+    }
 }
 
 /// Require the transactor pay for themselves and maybe include a tip to gain additional priority
