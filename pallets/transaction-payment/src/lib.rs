@@ -43,7 +43,7 @@ use polymesh_primitives::{traits::IdentityCurrency, Signatory, TransactionError}
 
 use codec::{Decode, Encode};
 use frame_support::{
-    decl_module, decl_storage,
+    decl_module, decl_storage, debug,
     dispatch::DispatchResult,
     traits::{Currency, ExistenceRequirement, Get, Imbalance, OnUnbalanced, WithdrawReason},
     weights::{
@@ -330,9 +330,14 @@ where
 
             // the adjustable part of the fee.
             let unadjusted_weight_fee = Self::weight_to_fee(weight);
+            debug::info!("Unadjusted fee {:?}", unadjusted_weight_fee);
+
             let multiplier = Self::next_fee_multiplier();
+            debug::info!("multiplier {:?}", multiplier);
+
             // final adjusted weight fee.
             let adjusted_weight_fee = multiplier.saturating_mul_int(unadjusted_weight_fee);
+            debug::info!("adjusted_weight_fee {:?}", adjusted_weight_fee);
 
             let base_weight = Self::weight_to_fee(T::ExtrinsicBaseWeight::get());
             base_weight
