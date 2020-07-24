@@ -74,7 +74,7 @@ use polymesh_common_utilities::{
 use polymesh_primitives::IdentityId;
 use sp_core::u32_trait::Value as U32;
 use sp_runtime::traits::{Hash, Zero};
-use sp_std::{convert::TryFrom, prelude::*, vec};
+use sp_std::{prelude::*, vec};
 
 /// Simple index type for proposal counting.
 pub type ProposalIndex = u32;
@@ -722,6 +722,11 @@ impl<
             r => Err(O::from(r)),
         })
     }
+
+    #[cfg(feature = "runtime-benchmarks")]
+    fn successful_origin() -> O {
+        O::from(RawOrigin::Members(1u32, 0u32))
+    }
 }
 
 pub struct EnsureProportionAtLeast<N: U32, D: U32, AccountId, I = DefaultInstance>(
@@ -741,5 +746,10 @@ impl<
             RawOrigin::Members(n, m) if n * D::VALUE >= N::VALUE * m => Ok(()),
             r => Err(O::from(r)),
         })
+    }
+
+    #[cfg(feature = "runtime-benchmarks")]
+    fn successful_origin() -> O {
+        O::from(RawOrigin::Members(0u32, 0u32))
     }
 }

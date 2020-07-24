@@ -7,7 +7,6 @@
         "DocumentUri": "Text",
         "DocumentHash": "Text",
         "Document": {
-            "name": "DocumentName",
             "uri": "DocumentUri",
             "content_hash": "DocumentHash"
         },
@@ -32,6 +31,13 @@
                 "Isin": ""
             }
         },
+        "AssetOwnershipRelation": {
+            "_enum": {
+                "NotOwned": "",
+                "TickerOwned": "",
+                "AssetOwned": ""
+            }
+        },
         "AssetName": "Text",
         "AssetIdentifier": "Text",
         "FundingRoundName": "Text",
@@ -42,7 +48,6 @@
             "owner_did": "IdentityId",
             "divisible": "bool",
             "asset_type": "AssetType",
-            "link_id": "u64",
             "treasury_did": "Option<IdentityId>"
         },
         "LinkedKeyInfo": {
@@ -59,26 +64,6 @@
                 "SpendFunds"
             ]
         },
-        "Link": {
-            "link_data": "LinkData",
-            "expiry": "Option<Moment>",
-            "link_id": "u64"
-        },
-        "LinkData": {
-            "_enum": {
-                "DocumentOwned": "Document",
-                "TickerOwned": "Ticker",
-                "AssetOwned": "Ticker"
-            }
-        },
-        "SignatoryType": {
-            "_enum": [
-                "External",
-                "Identity",
-                "MultiSig",
-                "Relayer"
-            ]
-        },
         "Signatory":{
             "_enum": {
                 "Identity": "IdentityId",
@@ -87,7 +72,6 @@
         },
         "SigningItem": {
             "signer": "Signatory",
-            "signer_type": "SignatoryType",
             "permissions": "Vec<Permission>"
         },
         "SigningItemWithAuth":{
@@ -221,8 +205,7 @@
         },
         "TickerRegistration": {
             "owner": "IdentityId",
-            "expiry": "Option<Moment>",
-            "link_id": "u64"
+            "expiry": "Option<Moment>"
         },
         "TickerRegistrationConfig": {
             "max_ticker_length": "u8",
@@ -533,12 +516,16 @@
                 "Err": "Vec<u8>"
             }
         },
-        "LinkType": {
+        "AuthorizationType": {
             "_enum": {
-                "DocumentOwnership": "",
-                "TickerOwnership": "",
-                "AssetOwnership": "",
-                "NoData":""
+                "AttestMasterKeyRotation": "",
+                "RotateMasterKey": "",
+                "TransferTicker": "",
+                "AddMultiSigSigner": "",
+                "TransferAssetOwnership": "",
+                "JoinIdentity": "",
+                "Custom": "",
+                "NoData": ""
             }
         },
         "ProposalDetails": {
@@ -567,6 +554,27 @@
         "IssueAssetItem": {
             "identity_did": "IdentityId",
             "value": "Balance"
+        },
+        "PortfolioName": "Vec<u8>",
+        "PortfolioNumber": "u64",
+        "PortfolioKind": {
+            "_enum": {
+                "Default": "",
+                "User": "PortfolioNumber"
+            }
+        },
+        "PortfolioId" : {
+            "did": "IdentityId",
+            "kind": "PortfolioKind"
+        },
+        "ProverTickerKey": {
+            "prover": "IdentityId",
+            "ticker": "Ticker"
+        },
+        "TickerRangeProof": {
+            "initial_message": "[u8; 32]",
+            "final_response": "Vec<u8>",
+            "max_two_exp": "u32"
         },
         "InstructionStatus": {
             "_enum": {
@@ -626,6 +634,20 @@
             "leg_id": "u64",
             "signer": "AccountId",
             "signature": "OffChainSignature"
+        },
+        "UniqueCall": {
+            "nonce": "u64",
+            "call": "call"
+        },
+        "MovePortfolioItem": {
+            "ticker": "Ticker",
+            "amount": "Balance"
+        },
+        "WeightToFeeCoefficient": {
+            "coeffInteger": "Balance",
+            "coeffFrac": "Perbill",
+            "negative": "bool",
+            "degree": "u8"
         }
     },
     "rpc": {
@@ -711,32 +733,6 @@
                 ],
                 "type": "DidRecords"
             },
-            "getFilteredLinks": {
-                "description": "Retrieve links data for a given signatory and filtered using the given Link type",
-                "params": [
-                    {
-                        "name": "signatory",
-                        "type": "Signatory",
-                        "isOptional": false
-                    },
-                    {
-                        "name": "allow_expired",
-                        "type": "bool",
-                        "isOptional": false
-                    },
-                    {
-                        "name": "link_type",
-                        "type": "LinkType",
-                        "isOptional": true
-                    },
-                    {
-                        "name": "blockHash",
-                        "type": "Hash",
-                        "isOptional": true
-                    }
-                ],
-                "type": "Vec<Link>"
-            },
             "getDidStatus": {
                 "description": "Retrieve status of the DID",
                 "params": [
@@ -752,6 +748,32 @@
                     }
                 ],
                 "type": "Vec<DidStatus>"
+            },
+            "getFilteredAuthorizations": {
+                "description": "Retrieve authorizations data for a given signatory and filtered using the given authorization type",
+                "params": [
+                    {
+                        "name": "signatory",
+                        "type": "Signatory",
+                        "isOptional": false
+                    },
+                    {
+                        "name": "allow_expired",
+                        "type": "bool",
+                        "isOptional": false
+                    },
+                    {
+                        "name": "auth_type",
+                        "type": "AuthorizationType",
+                        "isOptional": true
+                    },
+                    {
+                        "name": "blockHash",
+                        "type": "Hash",
+                        "isOptional": true
+                    }
+                ],
+                "type": "Vec<Authorization>"
             }
         },
         "pips":{
@@ -903,6 +925,30 @@
                     }
                 ],
                 "type": "CanTransferResult"
+            }
+        },
+        "portfolio": {
+            "getPortfolios": {
+                "description": "Gets all user-defined portfolio names of an identity",
+                "params": [
+                    {
+                        "name": "did",
+                        "type": "IdentityId",
+                        "isOptional": false
+                    }
+                ],
+                "type": "GetPortfoliosResult"
+            },
+            "getPortfolioAssets": {
+                "description": "Gets the balances of all assets in a given portfolio",
+                "params": [
+                    {
+                        "name": "portfolio_id",
+                        "type": "PortfolioId",
+                        "isOptional": false
+                    }
+                ],
+                "type": "GetPortfolioAssetsResult"
             }
         }
     }

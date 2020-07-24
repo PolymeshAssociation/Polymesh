@@ -91,9 +91,11 @@ use frame_support::{
 };
 use frame_system::{self as system, ensure_signed};
 use pallet_identity as identity;
-use pallet_transaction_payment::{CddAndFeeDetails, ChargeTxFee};
 use polymesh_common_utilities::{
-    identity::Trait as IdentityTrait, multisig::MultiSigSubTrait, Context,
+    identity::Trait as IdentityTrait,
+    multisig::MultiSigSubTrait,
+    transaction_payment::{CddAndFeeDetails, ChargeTxFee},
+    Context,
 };
 use polymesh_primitives::{AuthorizationData, AuthorizationError, IdentityId, Signatory};
 use sp_runtime::traits::{Dispatchable, Hash};
