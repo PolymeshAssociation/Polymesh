@@ -83,7 +83,7 @@ pub trait RuntimeApiCollection<Extrinsic: codec::Codec + Send + Sync + 'static>:
     > + pallet_protocol_fee_rpc_runtime_api::ProtocolFeeApi<Block>
     + node_rpc_runtime_api::asset::AssetApi<Block, AccountId, Balance>
     + pallet_group_rpc_runtime_api::GroupApi<Block>
-    + pallet_compliance_manager_rpc_runtime_api::ComplianceManagerApi<Block, AccountId, Balance>
+    + node_rpc_runtime_api::compliance_manager::ComplianceManagerApi<Block, AccountId, Balance>
 where
     Extrinsic: RuntimeExtrinsic,
     <Self as sp_api::ApiExt<Block>>::StateBackend: sp_api::StateBackend<BlakeTwo256>,
@@ -117,7 +117,7 @@ where
         > + pallet_protocol_fee_rpc_runtime_api::ProtocolFeeApi<Block>
         + node_rpc_runtime_api::asset::AssetApi<Block, AccountId, Balance>
         + pallet_group_rpc_runtime_api::GroupApi<Block>
-        + pallet_compliance_manager_rpc_runtime_api::ComplianceManagerApi<Block, AccountId, Balance>,
+        + node_rpc_runtime_api::compliance_manager::ComplianceManagerApi<Block, AccountId, Balance>,
     Extrinsic: RuntimeExtrinsic,
     <Self as sp_api::ApiExt<Block>>::StateBackend: sp_api::StateBackend<BlakeTwo256>,
 {
@@ -254,52 +254,52 @@ macro_rules! new_full_start {
 /// Builds a new service for a full client.
 #[macro_export]
 macro_rules! new_full {
-	(
-		$config:expr,
-		$runtime:ty,
-		$dispatch:ty,
-	) => {{
-		use sc_network::Event;
-		use sc_client_api::ExecutorProvider;
-		use futures::stream::StreamExt;
+    (
+        $config:expr,
+        $runtime:ty,
+        $dispatch:ty,
+    ) => {{
+        use sc_network::Event;
+        use sc_client_api::ExecutorProvider;
+        use futures::stream::StreamExt;
         use sp_core::traits::BareCryptoStorePtr;
 
 
         let (
-			role,
-			force_authoring,
-			name,
-			disable_grandpa,
-		) = (
-			$config.role.clone(),
-			$config.force_authoring,
-			$config.network.node_name.clone(),
-			$config.disable_grandpa,
-		);
+            role,
+            force_authoring,
+            name,
+            disable_grandpa,
+        ) = (
+            $config.role.clone(),
+            $config.force_authoring,
+            $config.network.node_name.clone(),
+            $config.disable_grandpa,
+        );
 
-		let _is_authority = role.is_authority();
-		let _db_path = match $config.database.path() {
-			Some(path) => std::path::PathBuf::from(path),
-			None => return Err("Starting a Polkadot service with a custom database isn't supported".to_string().into()),
-		};
-		//let authority_discovery_enabled = $authority_discovery_enabled;
-		//let slot_duration = $slot_duration;
+        let _is_authority = role.is_authority();
+        let _db_path = match $config.database.path() {
+            Some(path) => std::path::PathBuf::from(path),
+            None => return Err("Starting a Polkadot service with a custom database isn't supported".to_string().into()),
+        };
+        //let authority_discovery_enabled = $authority_discovery_enabled;
+        //let slot_duration = $slot_duration;
 
-		let (builder, mut import_setup, inherent_data_providers, mut rpc_setup) =
-			new_full_start!($config, $runtime, $dispatch);
+        let (builder, mut import_setup, inherent_data_providers, mut rpc_setup) =
+            new_full_start!($config, $runtime, $dispatch);
 
-		let service = builder
-			.with_finality_proof_provider(|client, backend| {
-				let provider = client as Arc<dyn grandpa::StorageAndProofProvider<_, _>>;
-				Ok(Arc::new(GrandpaFinalityProofProvider::new(backend, provider)) as _)
-			})?
-			.build_full()?;
+        let service = builder
+            .with_finality_proof_provider(|client, backend| {
+                let provider = client as Arc<dyn grandpa::StorageAndProofProvider<_, _>>;
+                Ok(Arc::new(GrandpaFinalityProofProvider::new(backend, provider)) as _)
+            })?
+            .build_full()?;
 
-		let (block_import, grandpa_link, babe_link) = import_setup.take()
-			.expect("Link Half and Block Import are present for Full Services or setup failed before. qed");
+        let (block_import, grandpa_link, babe_link) = import_setup.take()
+            .expect("Link Half and Block Import are present for Full Services or setup failed before. qed");
 
-		let shared_voter_state = rpc_setup.take()
-			.expect("The SharedVoterState is present for Full Services or setup failed before. qed");
+        let shared_voter_state = rpc_setup.take()
+            .expect("The SharedVoterState is present for Full Services or setup failed before. qed");
 
             if let sc_service::config::Role::Authority { .. } = &role {
                 let proposer = sc_basic_authorship::ProposerFactory::new(
@@ -480,90 +480,90 @@ where
 /// Builds a new service for a light client.
 #[macro_export]
 macro_rules! new_light {
-	($config:expr, $runtime:ty, $dispatch:ty) => {{
-		set_prometheus_registry(&mut $config)?;
-		let inherent_data_providers = InherentDataProviders::new();
+    ($config:expr, $runtime:ty, $dispatch:ty) => {{
+        set_prometheus_registry(&mut $config)?;
+        let inherent_data_providers = InherentDataProviders::new();
 
-		ServiceBuilder::new_light::<Block, $runtime, $dispatch>($config)?
-			.with_select_chain(|_, backend| {
-				Ok(sc_consensus::LongestChain::new(backend.clone()))
-			})?
-			.with_transaction_pool(|builder| {
-				let fetcher = builder.fetcher()
-					.ok_or_else(|| "Trying to start light transaction pool without active fetcher")?;
-				let pool_api = sc_transaction_pool::LightChainApi::new(
-					builder.client().clone(),
-					fetcher,
-				);
-				let pool = sc_transaction_pool::BasicPool::with_revalidation_type(
-					builder.config().transaction_pool.clone(),
-					Arc::new(pool_api),
-					builder.prometheus_registry(),
-					sc_transaction_pool::RevalidationType::Light,
-				);
-				Ok(pool)
-			})?
-			.with_import_queue_and_fprb(|
-				_config,
-				client,
-				backend,
-				fetcher,
-				_select_chain,
-				_,
-				spawn_task_handle,
-				registry,
-			| {
-				let fetch_checker = fetcher
-					.map(|fetcher| fetcher.checker().clone())
-					.ok_or_else(|| "Trying to start light import queue without active fetch checker")?;
-				let grandpa_block_import = grandpa::light_block_import(
-					client.clone(), backend, &(client.clone() as Arc<_>), Arc::new(fetch_checker)
-				)?;
+        ServiceBuilder::new_light::<Block, $runtime, $dispatch>($config)?
+            .with_select_chain(|_, backend| {
+                Ok(sc_consensus::LongestChain::new(backend.clone()))
+            })?
+            .with_transaction_pool(|builder| {
+                let fetcher = builder.fetcher()
+                    .ok_or_else(|| "Trying to start light transaction pool without active fetcher")?;
+                let pool_api = sc_transaction_pool::LightChainApi::new(
+                    builder.client().clone(),
+                    fetcher,
+                );
+                let pool = sc_transaction_pool::BasicPool::with_revalidation_type(
+                    builder.config().transaction_pool.clone(),
+                    Arc::new(pool_api),
+                    builder.prometheus_registry(),
+                    sc_transaction_pool::RevalidationType::Light,
+                );
+                Ok(pool)
+            })?
+            .with_import_queue_and_fprb(|
+                _config,
+                client,
+                backend,
+                fetcher,
+                _select_chain,
+                _,
+                spawn_task_handle,
+                registry,
+            | {
+                let fetch_checker = fetcher
+                    .map(|fetcher| fetcher.checker().clone())
+                    .ok_or_else(|| "Trying to start light import queue without active fetch checker")?;
+                let grandpa_block_import = grandpa::light_block_import(
+                    client.clone(), backend, &(client.clone() as Arc<_>), Arc::new(fetch_checker)
+                )?;
 
-				let finality_proof_import = grandpa_block_import.clone();
-				let finality_proof_request_builder =
-					finality_proof_import.create_finality_proof_request_builder();
+                let finality_proof_import = grandpa_block_import.clone();
+                let finality_proof_request_builder =
+                    finality_proof_import.create_finality_proof_request_builder();
 
-				let (babe_block_import, babe_link) = sc_consensus_babe::block_import(
-					sc_consensus_babe::Config::get_or_compute(&*client)?,
-					grandpa_block_import,
-					client.clone(),
-				)?;
+                let (babe_block_import, babe_link) = sc_consensus_babe::block_import(
+                    sc_consensus_babe::Config::get_or_compute(&*client)?,
+                    grandpa_block_import,
+                    client.clone(),
+                )?;
 
-				// FIXME: pruning task isn't started since light client doesn't do `AuthoritySetup`.
-				let import_queue = sc_consensus_babe::import_queue(
-					babe_link,
-					babe_block_import,
-					None,
-					Some(Box::new(finality_proof_import)),
-					client,
-					inherent_data_providers.clone(),
-					spawn_task_handle,
-					registry,
-				)?;
+                // FIXME: pruning task isn't started since light client doesn't do `AuthoritySetup`.
+                let import_queue = sc_consensus_babe::import_queue(
+                    babe_link,
+                    babe_block_import,
+                    None,
+                    Some(Box::new(finality_proof_import)),
+                    client,
+                    inherent_data_providers.clone(),
+                    spawn_task_handle,
+                    registry,
+                )?;
 
-				Ok((import_queue, finality_proof_request_builder))
-			})?
-			.with_finality_proof_provider(|client, backend| {
-				let provider = client as Arc<dyn grandpa::StorageAndProofProvider<_, _>>;
-				Ok(Arc::new(grandpa::FinalityProofProvider::new(backend, provider)) as _)
-			})?
-			.with_rpc_extensions(|builder| {
-				let fetcher = builder.fetcher()
-					.ok_or_else(|| "Trying to start node RPC without active fetcher")?;
-				let remote_blockchain = builder.remote_backend()
-					.ok_or_else(|| "Trying to start node RPC without active remote blockchain")?;
+                Ok((import_queue, finality_proof_request_builder))
+            })?
+            .with_finality_proof_provider(|client, backend| {
+                let provider = client as Arc<dyn grandpa::StorageAndProofProvider<_, _>>;
+                Ok(Arc::new(grandpa::FinalityProofProvider::new(backend, provider)) as _)
+            })?
+            .with_rpc_extensions(|builder| {
+                let fetcher = builder.fetcher()
+                    .ok_or_else(|| "Trying to start node RPC without active fetcher")?;
+                let remote_blockchain = builder.remote_backend()
+                    .ok_or_else(|| "Trying to start node RPC without active remote blockchain")?;
 
-				let light_deps = polymesh_node_rpc::LightDeps {
-					remote_blockchain,
-					fetcher,
-					client: builder.client().clone(),
-					pool: builder.pool(),
-				};
-				Ok(polymesh_node_rpc::create_light(light_deps))
-			})?
-			.build_light()
-	}}
+                let light_deps = polymesh_node_rpc::LightDeps {
+                    remote_blockchain,
+                    fetcher,
+                    client: builder.client().clone(),
+                    pool: builder.pool(),
+                };
+                Ok(polymesh_node_rpc::create_light(light_deps))
+            })?
+            .build_light()
+    }}
 }
 
 /// Create a new Polymesh service for a light client.
