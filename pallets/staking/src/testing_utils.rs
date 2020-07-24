@@ -24,7 +24,7 @@ use frame_benchmarking::account;
 use frame_support::traits::Currency;
 use frame_system::RawOrigin;
 use polymesh_common_utilities::traits::identity::LinkedKeyInfo;
-use primitives::{IdentityId, Signatory, SigningItem};
+use primitives::{IdentityId, Signatory};
 use rand_chacha::{
     rand_core::{RngCore, SeedableRng},
     ChaChaRng,
