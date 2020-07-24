@@ -140,7 +140,7 @@ pub use identity::Identity;
 /// That keeps the privacy of a real investor and its global portfolio split in several Polymesh
 /// Identities.
 pub mod cdd_id;
-pub use cdd_id::{CddId, InvestorUID};
+pub use cdd_id::{CddId, InvestorUid};
 
 /// Claim information.
 /// Each claim is associated with this kind of record.

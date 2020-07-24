@@ -108,7 +108,7 @@ use polymesh_common_utilities::{
 };
 use polymesh_primitives::{
     AuthIdentifier, Authorization, AuthorizationData, AuthorizationError, AuthorizationType, CddId,
-    Claim, ClaimType, Identity as DidRecord, IdentityClaim, IdentityId, InvestorUID, Permission,
+    Claim, ClaimType, Identity as DidRecord, IdentityClaim, IdentityId, InvestorUid, Permission,
     Scope, Signatory, SigningItem, Ticker,
 };
 use sp_core::sr25519::Signature;
@@ -202,7 +202,7 @@ decl_storage! {
         pub CddAuthForMasterKeyRotation get(fn cdd_auth_for_master_key_rotation): bool;
     }
     add_extra_genesis {
-        config(identities): Vec<(T::AccountId, IdentityId, IdentityId, InvestorUID, Option<u64>)>;
+        config(identities): Vec<(T::AccountId, IdentityId, IdentityId, InvestorUid, Option<u64>)>;
         config(signing_keys): Vec<(T::AccountId, IdentityId)>;
         build(|config: &GenesisConfig<T>| {
             use polymesh_common_utilities::SYSTEMATIC_ISSUERS;
@@ -265,7 +265,7 @@ decl_module! {
         /// Register a new did with a CDD claim for the caller.
         #[weight = 100_000_000]
         pub fn register_did(origin,
-            uid: InvestorUID,
+            uid: InvestorUid,
             signing_items: Vec<SigningItem<T::AccountId>>) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             Self::_register_did(sender.clone(), signing_items, Some(ProtocolOp::IdentityRegisterDid))?;
@@ -2184,7 +2184,7 @@ impl<T: Trait> IdentityTrait<T::AccountId> for Module<T> {
     /// Adds systematic CDD claims.
     fn unsafe_add_systematic_cdd_claims(targets: &[IdentityId], issuer: SystematicIssuers) {
         for new_member in targets {
-            let cdd_id = CddId::new(new_member.clone(), InvestorUID::from(new_member.as_ref()));
+            let cdd_id = CddId::new(new_member.clone(), InvestorUid::from(new_member.as_ref()));
             let cdd_claim = Claim::CustomerDueDiligence(cdd_id);
             Self::unsafe_add_claim(*new_member, cdd_claim, issuer.as_id(), None);
         }

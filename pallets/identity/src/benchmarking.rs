@@ -18,16 +18,16 @@ use frame_benchmarking::{account, benchmarks};
 use frame_support::traits::Currency;
 use frame_system::RawOrigin;
 use pallet_balances as balances;
-use polymesh_primitives::{Claim, IdentityId, InvestorUID, SigningItem};
+use polymesh_primitives::{Claim, IdentityId, InvestorUid, SigningItem};
 use sp_std::{iter, prelude::*};
 
 const SEED: u32 = 0;
 const MAX_USER_INDEX: u32 = 1_000;
 const NAME: &'static str = "caller";
 
-fn uid_from_name_and_idx(name: &'static str, u: u32) -> InvestorUID {
+fn uid_from_name_and_idx(name: &'static str, u: u32) -> InvestorUid {
     let name_u = format!("{}-{}", name, u);
-    InvestorUID::from(name_u.as_str())
+    InvestorUid::from(name_u.as_str())
 }
 
 fn make_account_without_did<T: Trait>(

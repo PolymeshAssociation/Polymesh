@@ -292,7 +292,7 @@ impl<'a> Predicate for AnyPredicate<'a> {
 mod tests {
     use crate::{
         predicate::{self, Context, Predicate},
-        CddId, Claim, IdentityId, InvestorUID, Rule, RuleType, Scope,
+        CddId, Claim, IdentityId, InvestorUid, Rule, RuleType, Scope,
     };
     use std::convert::From;
 
@@ -301,7 +301,7 @@ mod tests {
         let scope = Scope::from(0);
         let cdd_claim = Claim::CustomerDueDiligence(CddId::new(
             IdentityId::from(1),
-            InvestorUID::from(b"UID1".as_ref()),
+            InvestorUid::from(b"UID1".as_ref()),
         ));
         let context = Context::from(vec![cdd_claim.clone(), Claim::Affiliate(scope)]);
 

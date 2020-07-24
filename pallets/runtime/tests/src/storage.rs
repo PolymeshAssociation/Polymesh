@@ -37,7 +37,7 @@ use polymesh_common_utilities::traits::{
 };
 use polymesh_common_utilities::Context;
 use polymesh_primitives::{
-    Authorization, AuthorizationData, CddId, Claim, IdentityId, InvestorUID, Signatory,
+    Authorization, AuthorizationData, CddId, Claim, IdentityId, InvestorUid, Signatory,
 };
 use polymesh_runtime_common::{
     bridge, cdd_check::CddChecker, dividend, exemption, simple_token, voting,
@@ -591,15 +591,15 @@ pub type Portfolio = portfolio::Module<TestStorage>;
 
 pub fn make_account(
     id: AccountId,
-    uid: InvestorUID,
+    uid: InvestorUid,
 ) -> Result<(<TestStorage as frame_system::Trait>::Origin, IdentityId), &'static str> {
     make_account_with_balance(id, uid, 1_000_000)
 }
 
-/// It creates an Account and registers its DID and its InvestorUID.
+/// It creates an Account and registers its DID and its InvestorUid.
 pub fn make_account_with_balance(
     id: AccountId,
-    uid: InvestorUID,
+    uid: InvestorUid,
     balance: <TestStorage as CommonTrait>::Balance,
 ) -> Result<(<TestStorage as frame_system::Trait>::Origin, IdentityId), &'static str> {
     let signed_id = Origin::signed(id.clone());
@@ -648,7 +648,7 @@ pub fn register_keyring_account_with_balance(
     balance: <TestStorage as CommonTrait>::Balance,
 ) -> Result<IdentityId, &'static str> {
     let acc_pub = acc.public();
-    let uid = InvestorUID::from(format!("{}", acc).as_str());
+    let uid = InvestorUid::from(format!("{}", acc).as_str());
     make_account_with_balance(acc_pub, uid, balance).map(|(_, id)| id)
 }
 

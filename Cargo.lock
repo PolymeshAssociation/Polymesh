@@ -868,6 +868,7 @@ dependencies = [
 name = "cryptography"
 version = "0.1.0"
 dependencies = [
+ "blake2 0.9.0",
  "bulletproofs",
  "criterion",
  "curve25519-dalek",

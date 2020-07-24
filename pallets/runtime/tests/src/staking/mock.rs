@@ -42,7 +42,7 @@ use polymesh_common_utilities::traits::{
     transaction_payment::{CddAndFeeDetails, ChargeTxFee},
     CommonTrait,
 };
-use polymesh_primitives::{AuthorizationData, Claim, IdentityId, InvestorUID, Moment, Signatory};
+use polymesh_primitives::{AuthorizationData, Claim, IdentityId, InvestorUid, Moment, Signatory};
 use sp_core::H256;
 use sp_io;
 use sp_npos_elections::{
@@ -701,42 +701,42 @@ impl ExtBuilder {
                     1005,
                     IdentityId::from(1),
                     IdentityId::from(1),
-                    InvestorUID::from(b"uid1".as_ref()),
+                    InvestorUid::from(b"uid1".as_ref()),
                     None,
                 ),
                 (
                     11,
                     IdentityId::from(1),
                     IdentityId::from(11),
-                    InvestorUID::from(b"uid11".as_ref()),
+                    InvestorUid::from(b"uid11".as_ref()),
                     None,
                 ),
                 (
                     21,
                     IdentityId::from(1),
                     IdentityId::from(21),
-                    InvestorUID::from(b"uid21".as_ref()),
+                    InvestorUid::from(b"uid21".as_ref()),
                     None,
                 ),
                 (
                     31,
                     IdentityId::from(1),
                     IdentityId::from(31),
-                    InvestorUID::from(b"uid31".as_ref()),
+                    InvestorUid::from(b"uid31".as_ref()),
                     None,
                 ),
                 (
                     41,
                     IdentityId::from(1),
                     IdentityId::from(41),
-                    InvestorUID::from(b"uid41".as_ref()),
+                    InvestorUid::from(b"uid41".as_ref()),
                     None,
                 ),
                 (
                     101,
                     IdentityId::from(1),
                     IdentityId::from(101),
-                    InvestorUID::from(b"uid101".as_ref()),
+                    InvestorUid::from(b"uid101".as_ref()),
                     None,
                 ),
             ],
@@ -1418,7 +1418,7 @@ pub fn make_account_with_balance(
     let signed_id = Origin::signed(id.clone());
     Balances::make_free_balance_be(&id, balance);
 
-    let uid = InvestorUID::from(format!("{}", id).as_str());
+    let uid = InvestorUid::from(format!("{}", id).as_str());
     Identity::register_did(signed_id.clone(), uid, vec![]).map_err(|_| "Register DID failed")?;
     let did = Identity::get_identity(&id).unwrap();
 

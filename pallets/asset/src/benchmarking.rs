@@ -16,7 +16,7 @@
 use crate::*;
 use pallet_balances as balances;
 use pallet_identity as identity;
-use polymesh_primitives::{AuthorizationData, IdentityId, InvestorUID, Signatory, Ticker};
+use polymesh_primitives::{AuthorizationData, IdentityId, InvestorUid, Signatory, Ticker};
 
 use frame_benchmarking::{account, benchmarks};
 use frame_support::{traits::Currency, StorageValue};
@@ -28,9 +28,9 @@ const MAX_USER_INDEX: u32 = 1_000;
 const MAX_TICKER_LENGTH: u8 = 12;
 const MAX_NAME_LENGTH: u32 = 64;
 
-fn uid_from_name_and_idx(name: &'static str, u: u32) -> InvestorUID {
+fn uid_from_name_and_idx(name: &'static str, u: u32) -> InvestorUid {
     let name_u = format!("{}-{}", name, u);
-    InvestorUID::from(name_u.as_str())
+    InvestorUid::from(name_u.as_str())
 }
 
 fn make_account<T: Trait>(

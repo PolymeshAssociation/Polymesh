@@ -8,7 +8,7 @@ use pallet_balances as balances;
 use pallet_identity as identity;
 use pallet_multisig as multisig;
 use polymesh_common_utilities::traits::transaction_payment::CddAndFeeDetails;
-use polymesh_primitives::{InvestorUID, Signatory, TransactionError};
+use polymesh_primitives::{InvestorUid, Signatory, TransactionError};
 use polymesh_runtime_develop::{fee_details::CddHandler, runtime::Call};
 use sp_core::crypto::AccountId32;
 use sp_runtime::transaction_validity::InvalidTransaction;
@@ -52,7 +52,7 @@ fn cdd_checks() {
             assert_eq!(
                 CddHandler::get_valid_payer(
                     &Call::Identity(identity::Call::register_did(
-                        InvestorUID::default(),
+                        InvestorUid::default(),
                         Default::default()
                     )),
                     &alice_did_signatory
