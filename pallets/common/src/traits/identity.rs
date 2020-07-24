@@ -24,7 +24,7 @@ use crate::{
     ChargeProtocolFee, SystematicIssuers,
 };
 use polymesh_primitives::{
-    AuthorizationData, IdentityClaim, IdentityId, Permission, Signatory, SigningItem, Ticker,
+    AuthorizationData, IdentityClaim, IdentityId, Permission, Signatory, SigningKey, Ticker,
 };
 
 use codec::{Decode, Encode};
@@ -77,9 +77,9 @@ pub struct TargetIdAuthorization<Moment> {
 ///  - Replace `H512` type by a template type which represents explicitly the relation with
 ///  `TargetIdAuthorization`.
 #[derive(codec::Encode, codec::Decode, Clone, PartialEq, Eq, Debug)]
-pub struct SigningItemWithAuth<AccountId> {
-    /// Signing item to be added.
-    pub signing_item: SigningItem<AccountId>,
+pub struct SigningKeyWithAuth<AccountId> {
+    /// Signing key to be added.
+    pub signing_key: SigningKey<AccountId>,
     /// Off-chain authorization signature.
     pub auth_signature: H512,
 }
@@ -117,19 +117,19 @@ decl_event!(
         Moment = <T as pallet_timestamp::Trait>::Moment,
     {
         /// DID, master key account ID, signing keys
-        DidCreated(IdentityId, AccountId, Vec<SigningItem<AccountId>>),
+        DidCreated(IdentityId, AccountId, Vec<SigningKey<AccountId>>),
 
         /// DID, new keys
-        SigningItemsAdded(IdentityId, Vec<SigningItem<AccountId>>),
+        SigningKeysAdded(IdentityId, Vec<SigningKey<AccountId>>),
 
         /// DID, the keys that got removed
-        SigningItemsRemoved(IdentityId, Vec<Signatory<AccountId>>),
+        SigningKeysRemoved(IdentityId, Vec<Signatory<AccountId>>),
 
         /// A signer left their identity. (did, signer)
         SignerLeft(IdentityId, Signatory<AccountId>),
 
         /// DID, updated signing key, previous permissions
-        SigningPermissionsUpdated(IdentityId, SigningItem<AccountId>, Vec<Permission>),
+        SigningPermissionsUpdated(IdentityId, SigningKey<AccountId>, Vec<Permission>),
 
 
         /// DID, old master key account ID, new ID
