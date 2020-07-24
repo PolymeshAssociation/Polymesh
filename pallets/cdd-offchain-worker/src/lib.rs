@@ -27,10 +27,7 @@ use frame_support::{
 };
 use frame_system::{
     self as system, ensure_none,
-    offchain::{
-        AppCrypto, CreateSignedTransaction, SendSignedTransaction, SendUnsignedTransaction,
-        SignedPayload, Signer, SigningTypes, SubmitTransaction,
-    },
+    offchain::{CreateSignedTransaction, SubmitTransaction},
 };
 use sp_application_crypto::RuntimeAppPublic;
 use sp_core::crypto::KeyTypeId;
@@ -40,11 +37,6 @@ use sp_runtime::transaction_validity::{
     ValidTransaction,
 };
 use sp_std::prelude::*;
-
-#[cfg(test)]
-mod mock;
-#[cfg(test)]
-mod tests;
 
 /// Defines application identifier for crypto keys of this module.
 ///

@@ -58,7 +58,7 @@ impl From<sp_npos_elections::Error> for OffchainElectionError {
 }
 
 /// Storage key used to store the persistent offchain worker status.
-pub(crate) const OFFCHAIN_HEAD_DB: &[u8] = b"parity/staking-election/";
+pub const OFFCHAIN_HEAD_DB: &[u8] = b"parity/staking-election/";
 /// The repeat threshold of the offchain worker. This means we won't run the offchain worker twice
 /// within a window of 5 blocks.
 pub(crate) const OFFCHAIN_REPEAT: u32 = 5;
@@ -71,7 +71,7 @@ pub(crate) const DEFAULT_LONGEVITY: u64 = 25;
 /// don't run twice within a window of length [`OFFCHAIN_REPEAT`].
 ///
 /// Returns `Ok(())` if offchain worker should happen, `Err(reason)` otherwise.
-pub(crate) fn set_check_offchain_execution_status<T: Trait>(
+pub fn set_check_offchain_execution_status<T: Trait>(
     now: T::BlockNumber,
 ) -> Result<(), &'static str> {
     let storage = StorageValueRef::persistent(&OFFCHAIN_HEAD_DB);

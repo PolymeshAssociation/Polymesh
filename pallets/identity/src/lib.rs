@@ -80,6 +80,9 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 #![recursion_limit = "256"]
 
+pub mod types;
+pub use types::{DidRecords as RpcDidRecords, DidStatus};
+
 #[cfg(feature = "runtime-benchmarks")]
 pub mod benchmarking;
 
@@ -88,10 +91,6 @@ use core::{
     convert::{From, TryInto},
     result::Result as StdResult,
 };
-
-use pallet_identity_rpc_runtime_api::{AuthorizationType, DidRecords as RpcDidRecords, DidStatus};
-
-use pallet_transaction_payment::{CddAndFeeDetails, ChargeTxFee};
 use polymesh_common_utilities::{
     constants::did::{SECURITY_TOKEN, USER},
     protocol_fee::{ChargeProtocolFee, ProtocolOp},
@@ -103,13 +102,14 @@ use polymesh_common_utilities::{
             TargetIdAuthorization, Trait,
         },
         multisig::MultiSigSubTrait,
+        transaction_payment::{CddAndFeeDetails, ChargeTxFee},
     },
-    Context, SystematicIssuers, SYSTEMATIC_ISSUERS,
+    Context, SystematicIssuers,
 };
 use polymesh_primitives::{
-    AuthIdentifier, Authorization, AuthorizationData, AuthorizationError, Claim, ClaimType,
-    Identity as DidRecord, IdentityClaim, IdentityId, Permission, Scope, Signatory, SigningItem,
-    Ticker,
+    AuthIdentifier, Authorization, AuthorizationData, AuthorizationError, AuthorizationType, Claim,
+    ClaimType, Identity as DidRecord, IdentityClaim, IdentityId, Permission, Scope, Signatory,
+    SigningItem, Ticker,
 };
 use sp_core::sr25519::Signature;
 use sp_io::hashing::blake2_256;
@@ -205,6 +205,8 @@ decl_storage! {
         config(identities): Vec<(T::AccountId, IdentityId, IdentityId, Option<u64>)>;
         config(signing_keys): Vec<(T::AccountId, IdentityId)>;
         build(|config: &GenesisConfig<T>| {
+            use polymesh_common_utilities::SYSTEMATIC_ISSUERS;
+
             SYSTEMATIC_ISSUERS.iter()
                 .for_each(|s| <Module<T>>::register_systematic_id(*s));
 
@@ -1647,7 +1649,7 @@ impl<T: Trait> Module<T> {
     /// It checks that any external account can only be associated with at most one.
     /// Master keys are considered as external accounts.
     pub fn can_key_be_linked_to_did(key: &T::AccountId) -> bool {
-        if let Some(linked_key_info) = <KeyToIdentityIds<T>>::get(key) {
+        if <KeyToIdentityIds<T>>::get(key).is_some() {
             false
         } else if T::MultiSig::is_signer(key) {
             false
@@ -2031,6 +2033,7 @@ impl<T: Trait> Module<T> {
     }
 
     /// Registers the systematic issuer with its DID.
+    #[allow(dead_code)]
     fn register_systematic_id(issuer: SystematicIssuers)
     where
         <T as frame_system::Trait>::AccountId: core::fmt::Display,
@@ -2048,6 +2051,7 @@ impl<T: Trait> Module<T> {
     }
 
     /// Registers `master_key` as `id` identity.
+    #[allow(dead_code)]
     fn unsafe_register_id(master_key: T::AccountId, id: IdentityId) {
         <Module<T>>::link_key_to_did(&master_key, id);
         let record = DidRecord {

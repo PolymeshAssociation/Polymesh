@@ -25,9 +25,11 @@ use crate::{Module, Trait};
 use frame_support::{impl_outer_dispatch, impl_outer_origin, parameter_types, weights::Weight};
 use frame_system as system;
 use sp_core::H256;
-use sp_runtime::testing::{Header, TestXt, UintAuthorityId};
-use sp_runtime::traits::{BlakeTwo256, ConvertInto, IdentityLookup};
-use sp_runtime::Perbill;
+use sp_runtime::{
+    testing::{Header, TestXt, UintAuthorityId},
+    traits::{BlakeTwo256, ConvertInto, IdentityLookup, Verify},
+    AnySignature, Perbill,
+};
 use sp_staking::{
     offence::{OffenceError, ReportOffence},
     SessionIndex,
@@ -74,7 +76,7 @@ impl pallet_session::historical::SessionManager<u64, u64> for TestSessionManager
 /// An extrinsic type used for tests.
 pub type Extrinsic = TestXt<Call, ()>;
 type IdentificationTuple = (u64, u64);
-type Offence = crate::UnresponsivenessOffence<IdentificationTuple>;
+type Offence = crate::UnresponsivenessOffence<Runtime, IdentificationTuple>;
 
 thread_local! {
     pub static OFFENCES: RefCell<Vec<(Vec<u64>, Offence)>> = RefCell::new(vec![]);
@@ -175,6 +177,7 @@ parameter_types! {
     pub const UnsignedPriority: u64 = 1 << 20;
 }
 
+pub type AccountId = <AnySignature as Verify>::Signer;
 impl Trait for Runtime {
     type AuthorityId = UintAuthorityId;
     type Event = ();

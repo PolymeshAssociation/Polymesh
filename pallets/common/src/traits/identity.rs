@@ -14,7 +14,13 @@
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
 use crate::{
-    traits::{balances, group::GroupTrait, multisig::MultiSigSubTrait, CommonTrait},
+    traits::{
+        balances,
+        group::GroupTrait,
+        multisig::MultiSigSubTrait,
+        transaction_payment::{CddAndFeeDetails, ChargeTxFee},
+        CommonTrait,
+    },
     ChargeProtocolFee, SystematicIssuers,
 };
 use polymesh_primitives::{
@@ -25,7 +31,6 @@ use codec::{Decode, Encode};
 use frame_support::{
     decl_event, dispatch::PostDispatchInfo, traits::Currency, weights::GetDispatchInfo, Parameter,
 };
-use pallet_transaction_payment::{CddAndFeeDetails, ChargeTxFee};
 use sp_core::H512;
 use sp_runtime::traits::{Dispatchable, IdentifyAccount, Member, Verify};
 #[cfg(feature = "std")]

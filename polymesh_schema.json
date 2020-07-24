@@ -555,6 +555,27 @@
             "identity_did": "IdentityId",
             "value": "Balance"
         },
+        "PortfolioName": "Vec<u8>",
+        "PortfolioNumber": "u64",
+        "PortfolioKind": {
+            "_enum": {
+                "Default": "",
+                "User": "PortfolioNumber"
+            }
+        },
+        "PortfolioId" : {
+            "did": "IdentityId",
+            "kind": "PortfolioKind"
+        },
+        "ProverTickerKey": {
+            "prover": "IdentityId",
+            "ticker": "Ticker"
+        },
+        "TickerRangeProof": {
+            "initial_message": "[u8; 32]",
+            "final_response": "Vec<u8>",
+            "max_two_exp": "u32"
+        },
         "InstructionStatus": {
             "_enum": {
                 "Unknown": "",
@@ -613,6 +634,14 @@
             "leg_id": "u64",
             "signer": "AccountId",
             "signature": "OffChainSignature"
+        },
+        "UniqueCall": {
+            "nonce": "u64",
+            "call": "call"
+        },
+        "MovePortfolioItem": {
+            "ticker": "Ticker",
+            "amount": "Balance"
         },
         "WeightToFeeCoefficient": {
             "coeffInteger": "Balance",
@@ -896,6 +925,30 @@
                     }
                 ],
                 "type": "CanTransferResult"
+            }
+        },
+        "portfolio": {
+            "getPortfolios": {
+                "description": "Gets all user-defined portfolio names of an identity",
+                "params": [
+                    {
+                        "name": "did",
+                        "type": "IdentityId",
+                        "isOptional": false
+                    }
+                ],
+                "type": "GetPortfoliosResult"
+            },
+            "getPortfolioAssets": {
+                "description": "Gets the balances of all assets in a given portfolio",
+                "params": [
+                    {
+                        "name": "portfolio_id",
+                        "type": "PortfolioId",
+                        "isOptional": false
+                    }
+                ],
+                "type": "GetPortfolioAssetsResult"
             }
         }
     }
