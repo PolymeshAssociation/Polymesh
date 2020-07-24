@@ -829,13 +829,13 @@ pub fn provide_did_to_user(account: AccountId) -> bool {
     result
 }
 
-pub fn add_signing_item(stash_key: AccountId, to_signing_item: AccountId) {
-    if !get_identity(to_signing_item) {
+pub fn add_signing_key(stash_key: AccountId, to_signing_key: AccountId) {
+    if !get_identity(to_signing_key) {
         let _did = Identity::get_identity(&stash_key).unwrap();
         assert!(
             Identity::add_authorization(
                 Origin::signed(stash_key),
-                Signatory::Account(to_signing_item),
+                Signatory::Account(to_signing_key),
                 AuthorizationData::JoinIdentity(vec![]),
                 None
             )
@@ -843,13 +843,13 @@ pub fn add_signing_item(stash_key: AccountId, to_signing_item: AccountId) {
             "Error in providing the authorization"
         );
         let auth_id = <identity::Authorizations<Test>>::iter_prefix_values(Signatory::Account(
-            to_signing_item,
+            to_signing_key,
         ))
         .next()
         .unwrap()
         .auth_id;
         assert_ok!(Identity::join_identity_as_key(
-            Origin::signed(to_signing_item),
+            Origin::signed(to_signing_key),
             auth_id
         ));
     }
@@ -949,7 +949,7 @@ pub fn bond_validator(stash: AccountId, ctrl: AccountId, val: Balance) {
     let _ = Balances::make_free_balance_be(&stash, val);
     let _ = Balances::make_free_balance_be(&ctrl, val);
     provide_did_to_user(stash);
-    add_signing_item(stash, ctrl);
+    add_signing_key(stash, ctrl);
     assert_ok!(Staking::bond(
         Origin::signed(stash),
         ctrl,
@@ -985,7 +985,7 @@ pub(crate) fn bond_nominator(
 
 pub fn bond_nominator_cdd(stash: AccountId, ctrl: AccountId, val: Balance, target: Vec<AccountId>) {
     provide_did_to_user(stash);
-    add_signing_item(stash, ctrl);
+    add_signing_key(stash, ctrl);
     bond_nominator(stash, ctrl, val, target);
 }
 
