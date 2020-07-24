@@ -275,7 +275,11 @@ decl_module! {
 
             let mut asset_rules = <AssetRulesMap>::get(ticker);
 
-            if !asset_rules.rules.iter().any(|rule| rule.sender_rules == new_rule.sender_rules && rule.receiver_rules == new_rule.receiver_rules) {
+            if !asset_rules
+                .rules
+                .iter()
+                .any(|rule| rule.sender_rules == new_rule.sender_rules && rule.receiver_rules == new_rule.receiver_rules)
+            {
                 asset_rules.rules.push(new_rule.clone());
                 Self::verify_rules_complexity(&asset_rules.rules, <TrustedClaimIssuer>::decode_len(ticker).unwrap_or_default())?;
                 <AssetRulesMap>::insert(&ticker, asset_rules);
@@ -388,7 +392,10 @@ decl_module! {
         /// * trusted_issuer - IdentityId of the trusted claim issuer.
         #[weight = 300_000]
         pub fn add_default_trusted_claim_issuer(origin, ticker: Ticker, trusted_issuer: IdentityId) -> DispatchResult {
-            Self::verify_rules_complexity(&<AssetRulesMap>::get(ticker).rules, <TrustedClaimIssuer>::decode_len(ticker).unwrap_or_default().saturating_add(1))?;
+            Self::verify_rules_complexity(
+                &<AssetRulesMap>::get(ticker).rules,
+                <TrustedClaimIssuer>::decode_len(ticker).unwrap_or_default().saturating_add(1)
+            )?;
             Self::modify_default_trusted_claim_issuer(origin, ticker, trusted_issuer, true)
         }
 
@@ -416,7 +423,10 @@ decl_module! {
         /// `50_000 + 250_000 * trusted_issuers.len().max(values.len())`
         #[weight = 50_000 + 250_000 * u64::try_from(trusted_issuers.len()).unwrap_or_default()]
         pub fn batch_add_default_trusted_claim_issuer(origin, trusted_issuers: Vec<IdentityId>, ticker: Ticker) -> DispatchResult {
-            Self::verify_rules_complexity(&<AssetRulesMap>::get(ticker).rules, <TrustedClaimIssuer>::decode_len(ticker).unwrap_or_default().saturating_add(trusted_issuers.len()))?;
+            Self::verify_rules_complexity(
+                &<AssetRulesMap>::get(ticker).rules,
+                <TrustedClaimIssuer>::decode_len(ticker).unwrap_or_default().saturating_add(trusted_issuers.len())
+            )?;
             Self::batch_modify_default_trusted_claim_issuer(origin, ticker, trusted_issuers, true)
         }
 
