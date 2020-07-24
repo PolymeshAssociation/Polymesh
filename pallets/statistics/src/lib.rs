@@ -20,7 +20,7 @@ use polymesh_primitives::Ticker;
 
 use frame_support::{decl_module, decl_storage};
 
-type Counter = u64;
+pub type Counter = u64;
 
 pub trait Trait: BalancesTrait {}
 

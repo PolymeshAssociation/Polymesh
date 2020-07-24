@@ -33,7 +33,6 @@ pub type ExtrinsicPermissions = Subset<Vec<u8>>;
 /// Portfolio permissions.
 pub type PortfolioPermissions = Subset<PortfolioNumber>;
 
-
 /// Signing key permissions.
 #[derive(Encode, Decode, Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]

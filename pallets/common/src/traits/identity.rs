@@ -131,7 +131,6 @@ decl_event!(
         /// DID, updated signing key, previous permissions
         SigningPermissionsUpdated(IdentityId, SigningKey<AccountId>, Permissions),
 
-
         /// DID, old master key account ID, new ID
         MasterKeyUpdated(IdentityId, AccountId, AccountId),
 

@@ -259,13 +259,6 @@ decl_storage! {
             account_total.saturating_add(identity_total)
         }): T::Balance;
 
-        /// The balance of an account.
-        ///
-        /// NOTE: THIS MAY NEVER BE IN EXISTENCE AND YET HAVE A `total().is_zero()`. If the total
-        /// is ever zero, then the entry *MUST* be removed.
-        ///
-        /// NOTE: This is only used in the case that this module is used to store balances.
-        pub Account: map hasher(blake2_128_concat) T::AccountId => AccountData<T::Balance>;
 
         /// Any liquidity locks on some account balances.
         /// NOTE: Should only be accessed when setting, changing and freeing a lock.
@@ -1255,17 +1248,6 @@ where
             status,
         ));
         Ok(value - actual)
-    }
-}
-
-/// Implement `OnKilledAccount` to remove the local account, if using local account storage.
-///
-/// NOTE: You probably won't need to use this! This only needs to be "wired in" to System module
-/// if you're using the local balance storage. **If you're using the composite system account
-/// storage (which is the default in most examples and tests) then there's no need.**
-impl<T: Trait> OnKilledAccount<T::AccountId> for Module<T> {
-    fn on_killed_account(who: &T::AccountId) {
-        Account::<T>::remove(who);
     }
 }
 

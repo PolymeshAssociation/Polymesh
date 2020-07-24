@@ -358,7 +358,7 @@
         "SmartExtension": {
             "extension_type": "SmartExtensionType",
             "extension_name": "SmartExtensionName",
-            "extension_id": "IdentityId",
+            "extension_id": "AccountId",
             "is_archive": "bool"
         },
         "ProportionMatch": {
@@ -682,6 +682,11 @@
                     },
                     {
                         "name": "to_did",
+                        "type": "Option<IdentityId>",
+                        "isOptional": false
+                    },
+                    {
+                        "name": "treasury_did",
                         "type": "Option<IdentityId>",
                         "isOptional": false
                     },

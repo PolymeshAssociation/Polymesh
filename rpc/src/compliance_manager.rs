@@ -13,18 +13,19 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
+pub use node_rpc_runtime_api::compliance_manager::ComplianceManagerApi as ComplianceManagerRuntimeApi;
+
 use codec::Codec;
+use frame_support::traits::Currency;
 use jsonrpc_core::{Error as RpcError, ErrorCode, Result};
 use jsonrpc_derive::rpc;
 use pallet_compliance_manager::AssetTransferRulesResult;
-pub use pallet_compliance_manager_rpc_runtime_api::ComplianceManagerApi as ComplianceManagerRuntimeApi;
 use polymesh_primitives::{IdentityId, Ticker};
 use sp_api::ProvideRuntimeApi;
 use sp_blockchain::HeaderBackend;
 use sp_runtime::{generic::BlockId, traits::Block as BlockT};
 use std::sync::Arc;
 
-use frame_support::traits::Currency;
 pub trait Trait: frame_system::Trait {
     type Currency: Currency<Self::AccountId>;
 }
@@ -40,6 +41,7 @@ pub trait ComplianceManagerApi<BlockHash, AccountId, T> {
         ticker: Ticker,
         from_did: Option<IdentityId>,
         to_did: Option<IdentityId>,
+        treasury_did: Option<IdentityId>,
         at: Option<BlockHash>,
     ) -> Result<AssetTransferRulesResult>;
 }
@@ -76,6 +78,7 @@ where
         ticker: Ticker,
         from_did: Option<IdentityId>,
         to_did: Option<IdentityId>,
+        treasury_did: Option<IdentityId>,
         at: Option<<Block as BlockT>::Hash>,
     ) -> Result<AssetTransferRulesResult> {
         let api = self.client.runtime_api();
@@ -83,7 +86,7 @@ where
                 // If the block hash is not supplied assume the best block.
                 self.client.info().best_hash));
 
-        api.can_transfer(&at, ticker, from_did, to_did)
+        api.can_transfer(&at, ticker, from_did, to_did, treasury_did)
             .map_err(|e| RpcError {
                 code: ErrorCode::ServerError(1),
                 message: "Unable to fetch transfer status from compliance manager.".into(),
