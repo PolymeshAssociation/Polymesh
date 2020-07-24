@@ -433,7 +433,8 @@ fn remove_frozen_signing_keys_with_externalities() {
         AccountKeyring::Charlie.public(),
     );
 
-    let charlie_signing_key = SigningKey::new(Signatory::Account(charlie_key), vec![]);
+    let charlie_signing_key =
+        SigningKey::new(Signatory::Account(charlie_key), Permissions::empty());
 
     // Add signing keys.
     let alice_did = register_keyring_account(AccountKeyring::Alice).unwrap();
@@ -684,8 +685,9 @@ fn leave_identity_test_with_externalities() {
     let alice = Origin::signed(AccountKeyring::Alice.public());
     let charlie_did = register_keyring_account(AccountKeyring::Charlie).unwrap();
     let charlie = Origin::signed(AccountKeyring::Charlie.public());
-    let bob_signing_key = SigningKey::new(Signatory::Account(bob_key), vec![]);
-    let charlie_signing_key = SigningKey::new(Signatory::Identity(charlie_did), vec![]);
+    let bob_signing_key = SigningKey::new(Signatory::Account(bob_key), Permissions::empty());
+    let charlie_signing_key =
+        SigningKey::new(Signatory::Identity(charlie_did), Permissions::empty());
     let alice_signing_keys = vec![bob_signing_key, charlie_signing_key.clone()];
     let dave_key = AccountKeyring::Dave.public();
 
