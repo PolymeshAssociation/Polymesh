@@ -42,8 +42,6 @@ members = [
     "pallets/asset",
     "pallets/compliance-manager",
     "pallets/statistics",
-    "pallets/compliance-manager/rpc",
-    "pallets/compliance-manager/rpc/runtime-api",
     "pallets/confidential",
     "pallets/utility",
     "rpc/runtime-api",
@@ -69,8 +67,6 @@ pallet-staking-rpc-runtime-api = { path = "pallets/staking/rpc/runtime-api" }
 pallet-protocol-fee-rpc = { path = "pallets/protocol-fee/rpc" }
 pallet-group-rpc = { path = "pallets/group/rpc" }
 pallet-group-rpc-runtime-api = { path = "pallets/group/rpc/runtime-api", default-features = false }
-pallet-compliance-manager-rpc = { path = "pallets/compliance-manager/rpc", default-features = false }
-pallet-compliance-manager-rpc-runtime-api = { path = "pallets/compliance-manager/rpc/runtime-api", default-features = false }
 polymesh-node-rpc = { path = "node-rpc" }
 frame-system-rpc-runtime-api = { git = "https://github.com/paritytech/substrate", tag = "v2.0.0-rc4" }
 
