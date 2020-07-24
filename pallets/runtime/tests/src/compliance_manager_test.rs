@@ -162,6 +162,7 @@ fn should_add_and_verify_asset_rule_we() {
         &ticker,
         Some(token_owner_did),
         Some(token_rec_did),
+        None,
     );
     assert!(!result.final_result);
     assert!(!result.rules[0].transfer_rule_result);
@@ -189,6 +190,7 @@ fn should_add_and_verify_asset_rule_we() {
         &ticker,
         Some(token_owner_did),
         Some(token_rec_did),
+        None,
     );
     assert!(result.final_result);
     assert!(result.rules[0].transfer_rule_result);
@@ -219,6 +221,7 @@ fn should_add_and_verify_asset_rule_we() {
         &ticker,
         Some(token_owner_did),
         Some(token_rec_did),
+        None,
     );
     assert!(!result.final_result);
     assert!(!result.rules[0].transfer_rule_result);
@@ -981,7 +984,7 @@ fn cm_test_case_9_we() {
         None
     ));
     assert_ok!(Asset::transfer(owner.clone(), ticker, charlie, 100));
-    let result = ComplianceManager::granular_verify_restriction(&ticker, None, Some(charlie));
+    let result = ComplianceManager::granular_verify_restriction(&ticker, None, Some(charlie), None);
     assert!(result.final_result);
     assert!(result.rules[0].transfer_rule_result);
     assert!(result.rules[0].receiver_rules[0].result);
@@ -994,7 +997,7 @@ fn cm_test_case_9_we() {
         None
     ));
     assert_ok!(Asset::transfer(owner.clone(), ticker, dave, 100));
-    let result = ComplianceManager::granular_verify_restriction(&ticker, None, Some(dave));
+    let result = ComplianceManager::granular_verify_restriction(&ticker, None, Some(dave), None);
     assert!(result.final_result);
     assert!(result.rules[0].transfer_rule_result);
     assert!(result.rules[0].receiver_rules[0].result);
@@ -1007,7 +1010,7 @@ fn cm_test_case_9_we() {
         None
     ));
     assert_ok!(Asset::transfer(owner.clone(), ticker, eve, 100));
-    let result = ComplianceManager::granular_verify_restriction(&ticker, None, Some(eve));
+    let result = ComplianceManager::granular_verify_restriction(&ticker, None, Some(eve), None);
     assert!(result.final_result);
     assert!(result.rules[0].transfer_rule_result);
     assert!(result.rules[0].receiver_rules[0].result);
@@ -1017,7 +1020,7 @@ fn cm_test_case_9_we() {
         Asset::transfer(owner.clone(), ticker, ferdie, 100),
         AssetError::<TestStorage>::InvalidTransfer
     );
-    let result = ComplianceManager::granular_verify_restriction(&ticker, None, Some(ferdie));
+    let result = ComplianceManager::granular_verify_restriction(&ticker, None, Some(ferdie), None);
     assert!(!result.final_result);
     assert!(!result.rules[0].transfer_rule_result);
     assert!(!result.rules[0].receiver_rules[0].result);
@@ -1079,7 +1082,7 @@ fn cm_test_case_11_we() {
         None
     ));
     assert_ok!(Asset::transfer(owner.clone(), ticker, charlie, 100));
-    let result = ComplianceManager::granular_verify_restriction(&ticker, None, Some(charlie));
+    let result = ComplianceManager::granular_verify_restriction(&ticker, None, Some(charlie), None);
     assert!(result.final_result);
     assert!(result.rules[0].transfer_rule_result);
     assert!(result.rules[0].receiver_rules[0].result);
@@ -1102,7 +1105,7 @@ fn cm_test_case_11_we() {
         Asset::transfer(owner.clone(), ticker, dave, 100),
         AssetError::<TestStorage>::InvalidTransfer
     );
-    let result = ComplianceManager::granular_verify_restriction(&ticker, None, Some(dave));
+    let result = ComplianceManager::granular_verify_restriction(&ticker, None, Some(dave), None);
     assert!(!result.final_result);
     assert!(!result.rules[0].transfer_rule_result);
     assert!(result.rules[0].receiver_rules[0].result);
@@ -1122,7 +1125,7 @@ fn cm_test_case_11_we() {
         None
     ));
     assert_ok!(Asset::transfer(owner.clone(), ticker, eve, 100));
-    let result = ComplianceManager::granular_verify_restriction(&ticker, None, Some(eve));
+    let result = ComplianceManager::granular_verify_restriction(&ticker, None, Some(eve), None);
     assert!(result.final_result);
     assert!(result.rules[0].transfer_rule_result);
     assert!(result.rules[0].receiver_rules[0].result);
@@ -1192,7 +1195,7 @@ fn cm_test_case_13_we() {
         Asset::transfer(owner.clone(), ticker, charlie, 100),
         AssetError::<TestStorage>::InvalidTransfer
     );
-    let result = ComplianceManager::granular_verify_restriction(&ticker, None, Some(charlie));
+    let result = ComplianceManager::granular_verify_restriction(&ticker, None, Some(charlie), None);
     assert!(!result.final_result);
     assert!(!result.rules[0].transfer_rule_result);
     assert!(result.rules[0].receiver_rules[0].result);
@@ -1223,7 +1226,7 @@ fn cm_test_case_13_we() {
         Asset::transfer(owner.clone(), ticker, dave, 100),
         AssetError::<TestStorage>::InvalidTransfer
     );
-    let result = ComplianceManager::granular_verify_restriction(&ticker, None, Some(dave));
+    let result = ComplianceManager::granular_verify_restriction(&ticker, None, Some(dave), None);
     assert!(!result.final_result);
     assert!(!result.rules[0].transfer_rule_result);
     assert!(result.rules[0].receiver_rules[0].result);
@@ -1251,7 +1254,7 @@ fn cm_test_case_13_we() {
 
     assert_ok!(Identity::batch_add_claim(issuer.clone(), eve_claims));
     assert_ok!(Asset::transfer(owner.clone(), ticker, eve, 100));
-    let result = ComplianceManager::granular_verify_restriction(&ticker, None, Some(eve));
+    let result = ComplianceManager::granular_verify_restriction(&ticker, None, Some(eve), None);
     assert!(result.final_result);
     assert!(result.rules[0].transfer_rule_result);
     assert!(result.rules[0].receiver_rules[0].result);

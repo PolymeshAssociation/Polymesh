@@ -32,7 +32,7 @@ pub enum ProtocolOp {
     IdentityCddRegisterDid,
     IdentityAddClaim,
     IdentitySetMasterKey,
-    IdentityAddSigningItemsWithAuthorization,
+    IdentityAddSigningKeysWithAuthorization,
     PipsPropose,
     VotingAddBallot,
 }
