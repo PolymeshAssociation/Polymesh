@@ -38,13 +38,15 @@ pub trait LatticeOrd {
     fn lattice_cmp(&self, other: &Self) -> LatticeOrdering;
 }
 
-/// The type of subsets of a set of elements of type `A`.
+/// The type of subsets of an open set of elements of type `A` where the whole set is always
+/// considered to be bigger than any finite set of its elements. This is true for infinite
+/// sets. When talking about finite sets, we have to add that they are _open_.
 #[derive(Encode, Decode, Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 pub enum Subset<A> {
     /// The set of all elements.
     All,
-    /// A subset of given elements.
+    /// A subset of given elements. It is strictly contained in [`Subset::All`].
     Elems(Vec<A>),
 }
 
@@ -67,17 +69,14 @@ where
                 let mut a_minus_b = a.clone();
                 // Subtract `b` from a copy of `a`.
                 a_minus_b.retain(|elem| !b.contains(elem));
-                if a_minus_b.is_empty() {
-                    LatticeOrdering::Less
-                } else {
-                    let mut b_minus_a = b.clone();
-                    // Subtract `a` from a copy of `b`.
-                    b_minus_a.retain(|elem| !a.contains(elem));
-                    if b_minus_a.is_empty() {
-                        LatticeOrdering::Greater
-                    } else {
-                        LatticeOrdering::Incomparable
-                    }
+                let mut b_minus_a = b.clone();
+                // Subtract `a` from a copy of `b`.
+                b_minus_a.retain(|elem| !a.contains(elem));
+                match (a_minus_b.is_empty(), b_minus_a.is_empty()) {
+                    (true, true) => LatticeOrdering::Equal,
+                    (true, false) => LatticeOrdering::Less,
+                    (false, true) => LatticeOrdering::Greater,
+                    _ => LatticeOrdering::Incomparable,
                 }
             }
         }
@@ -111,5 +110,24 @@ where
         } else {
             None
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{LatticeOrd, LatticeOrdering, Subset};
+
+    #[test]
+    fn lattice_cmp() {
+        let t: Subset<bool> = Subset::Elems(vec![true]);
+        let f: Subset<bool> = Subset::Elems(vec![false]);
+        let tf: Subset<bool> = Subset::Elems(vec![true, false]);
+        let ft: Subset<bool> = Subset::Elems(vec![false, true]);
+        assert_eq!(t.lattice_cmp(&t), LatticeOrdering::Equal);
+        assert_eq!(t.lattice_cmp(&tf), LatticeOrdering::Less);
+        assert_eq!(t.lattice_cmp(&ft), LatticeOrdering::Less);
+        assert_eq!(tf.lattice_cmp(&ft), LatticeOrdering::Equal);
+        assert_eq!(tf.lattice_cmp(&t), LatticeOrdering::Greater);
+        assert_eq!(t.lattice_cmp(&f), LatticeOrdering::Incomparable);
     }
 }

@@ -48,7 +48,7 @@ fn do_move_asset_from_portfolio() {
     let (owner_signed, owner_did) = make_account(AccountKeyring::Alice.public()).unwrap();
     let (bob_signed, _) = make_account(AccountKeyring::Bob.public()).unwrap();
     let total_supply = 1_000_000;
-    let mut token = SecurityToken {
+    let token = SecurityToken {
         name: vec![0x01].into(),
         owner_did,
         total_supply,

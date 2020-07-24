@@ -163,11 +163,11 @@ impl<AccountId> SigningKey<AccountId> {
         }
     }
 
-    /// Creates a [`SigningKey`] from an `AccountId` with total permissions.
+    /// Creates a [`SigningKey`] from an `AccountId` with empty permissions.
     pub fn from_account_id(s: AccountId) -> Self {
         Self {
             signer: Signatory::Account(s),
-            permissions: Default::default(),
+            permissions: Permissions::empty(),
         }
     }
 
@@ -254,7 +254,7 @@ mod tests {
     #[test]
     fn build_test() {
         let key = Public::from_raw([b'A'; 32]);
-        let rk1 = SigningKey::new(Signatory::Account(key.clone()), Permissions::default());
+        let rk1 = SigningKey::new(Signatory::Account(key.clone()), Permissions::empty());
         let rk2 = SigningKey::from_account_id(key.clone());
         assert_eq!(rk1, rk2);
 
@@ -290,13 +290,13 @@ mod tests {
             extrinsic: Subset::All,
             portfolio: Subset::Elems(vec![1]),
         };
-        let free_key = SigningKey::from_account_id(Signatory::Account(key.clone()));
+        let free_key = SigningKey::new(Signatory::Account(key.clone()), Permissions::default());
         let restricted_key = SigningKey::new(Signatory::Account(key), permissions.clone());
         assert!(free_key.has_asset_permission(ticker2));
         assert!(free_key.has_extrinsic_permission(vec![2]));
         assert!(free_key.has_portfolio_permission(2));
         assert!(!restricted_key.has_asset_permission(ticker2));
-        assert!(!restricted_key.has_extrinsic_permission(vec![2]));
+        assert!(restricted_key.has_extrinsic_permission(vec![2]));
         assert!(!restricted_key.has_portfolio_permission(2));
         assert!(free_key.has_permissions(&permissions));
         assert!(restricted_key.has_permissions(&permissions));
