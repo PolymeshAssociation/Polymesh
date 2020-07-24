@@ -671,6 +671,11 @@
                         "isOptional": false
                     },
                     {
+                        "name": "treasury_did",
+                        "type": "Option<IdentityId>",
+                        "isOptional": false
+                    },
+                    {
                         "name": "blockHash",
                         "type": "Hash",
                         "isOptional": true
