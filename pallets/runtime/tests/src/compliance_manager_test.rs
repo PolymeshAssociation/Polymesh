@@ -1419,7 +1419,7 @@ fn should_limit_rules_complexity_we() {
             rule_type: RuleType::IsPresent(Claim::KnowYourCustomer(scope)),
             issuers: vec![],
         };
-        30
+        15
     ];
 
     // Complexity = 30*1 + 30*1 = 60
@@ -1433,7 +1433,7 @@ fn should_limit_rules_complexity_we() {
         CMError::<TestStorage>::RuleTooComplex
     );
 
-    // Complexity = 30*1 + 30*0 = 30
+    // Complexity = 30*1 + 15*0 = 30
     assert_ok!(ComplianceManager::add_active_rule(
         token_owner_signed.clone(),
         ticker,
@@ -1441,7 +1441,14 @@ fn should_limit_rules_complexity_we() {
         rules_without_issuers,
     ));
 
-    // Complexity = 30*1 + 30*1 = 60
+    // Complexity = 30*1 + 15*1 = 45
+    assert_ok!(ComplianceManager::add_default_trusted_claim_issuer(
+        token_owner_signed.clone(),
+        ticker,
+        token_owner_did
+    ));
+
+    // Complexity = 30*1 + 15*2 = 60
     assert_noop!(
         ComplianceManager::add_default_trusted_claim_issuer(
             token_owner_signed.clone(),
