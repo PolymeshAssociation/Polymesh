@@ -65,7 +65,16 @@ fn correct_dividend_must_work() {
             asset_type: AssetType::default(),
             ..Default::default()
         };
+        let payout_token = SecurityToken {
+            name: vec![0x02].into(),
+            owner_did: payout_owner_did,
+            total_supply: 200_000_000,
+            divisible: true,
+            asset_type: AssetType::default(),
+            ..Default::default()
+        };
         let ticker = Ticker::try_from(token.name.as_slice()).unwrap();
+        let payout_ticker = Ticker::try_from(payout_token.name.as_slice()).unwrap();
         let token_owner_account = ensure_signed(token_owner_acc.clone()).ok().unwrap();
         Balances::make_free_balance_be(&token_owner_account, 1_000_000);
         let payout_owner_account = ensure_signed(payout_owner_acc.clone()).ok().unwrap();
@@ -78,6 +87,18 @@ fn correct_dividend_must_work() {
             token.total_supply,
             true,
             token.asset_type.clone(),
+            vec![],
+            None,
+            None,
+        ));
+
+        assert_ok!(Asset::create_asset(
+            payout_owner_acc.clone(),
+            payout_token.name.clone(),
+            payout_ticker,
+            payout_token.total_supply,
+            true,
+            payout_token.asset_type.clone(),
             vec![],
             None,
             None,
@@ -112,6 +133,13 @@ fn correct_dividend_must_work() {
             vec![]
         ));
 
+        assert_ok!(ComplianceManager::add_active_rule(
+            payout_owner_acc.clone(),
+            payout_ticker,
+            vec![],
+            vec![]
+        ));
+
         // Transfer tokens to investor
         assert_ok!(Asset::transfer(
             token_owner_acc.clone(),
@@ -132,14 +160,14 @@ fn correct_dividend_must_work() {
             remaining_claimed: false,
             matures_at: Some((now - Duration::hours(1)).timestamp() as u64),
             expires_at: Some((now + Duration::hours(1)).timestamp() as u64),
-            payout_currency: Ticker::default(),
+            payout_currency: payout_ticker,
             checkpoint_id,
         };
 
         // Transfer payout tokens to asset owner
         assert_ok!(Asset::transfer(
             payout_owner_acc.clone(),
-            Ticker::default(),
+            payout_ticker,
             token_owner_did,
             dividend.amount
         ));
@@ -167,7 +195,7 @@ fn correct_dividend_must_work() {
         // Check if the correct amount was added to investor balance
         let share = dividend.amount * amount_invested / token.total_supply;
         assert_eq!(
-            Asset::balance_of(Ticker::default(), investor_did),
+            Asset::balance_of(payout_ticker, investor_did),
             share
         );
 
