@@ -21,7 +21,7 @@ use polymesh_common_utilities::{
     SystematicIssuers,
 };
 use polymesh_primitives::{
-    AuthorizationData, AuthorizationType, Claim, ClaimType, IdentityClaim, IdentityId, Permission,
+    AuthorizationData, AuthorizationType, Claim, ClaimType, IdentityClaim, IdentityId, Permissions,
     Scope, Signatory, SigningKey, Ticker, TransactionError,
 };
 use polymesh_runtime_develop::{fee_details::CddHandler, runtime::Call};
@@ -308,12 +308,12 @@ fn only_master_key_can_add_signing_key_permissions_with_externalities() {
     assert_ok!(Identity::set_permission_to_signer(
         alice.clone(),
         Signatory::Account(bob_key),
-        vec![Permission::Operator]
+        Permissions::empty()
     ));
     assert_ok!(Identity::set_permission_to_signer(
         alice.clone(),
         Signatory::Account(charlie_key),
-        vec![Permission::Admin, Permission::Operator]
+        Permissions::default()
     ));
 
     // Bob tries to get better permission by himself at `alice` Identity.
@@ -321,14 +321,18 @@ fn only_master_key_can_add_signing_key_permissions_with_externalities() {
         Identity::set_permission_to_signer(
             bob.clone(),
             Signatory::Account(bob_key),
-            vec![Permission::Full]
+            Permissions::default()
         ),
         Error::<TestStorage>::KeyNotAllowed
     );
 
     // Bob tries to remove Charlie's permissions at `alice` Identity.
     assert_err!(
-        Identity::set_permission_to_signer(bob, Signatory::Account(charlie_key), vec![]),
+        Identity::set_permission_to_signer(
+            bob,
+            Signatory::Account(charlie_key),
+            Permissions::empty()
+        ),
         Error::<TestStorage>::KeyNotAllowed
     );
 
@@ -336,7 +340,7 @@ fn only_master_key_can_add_signing_key_permissions_with_externalities() {
     assert_ok!(Identity::set_permission_to_signer(
         alice,
         Signatory::Account(bob_key),
-        vec![]
+        Permissions::empty()
     ));
 }
 
@@ -397,7 +401,7 @@ fn freeze_signing_keys_with_externalities() {
     assert_ok!(Identity::set_permission_to_signer(
         alice.clone(),
         Signatory::Account(bob_key),
-        vec![Permission::Operator]
+        Permissions::default()
     ));
 
     // unfreeze all
@@ -1630,12 +1634,12 @@ fn add_permission_with_signing_key() {
             // SigningKey added
             let sig_1 = SigningKey {
                 signer: Signatory::Account(bob_acc),
-                permissions: vec![Permission::Admin, Permission::Operator],
+                permissions: Permissions::default(),
             };
 
             let sig_2 = SigningKey {
                 signer: Signatory::Account(charlie_acc),
-                permissions: vec![Permission::Full],
+                permissions: Permissions::default(),
             };
 
             assert_ok!(Identity::cdd_register_did(

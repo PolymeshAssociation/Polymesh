@@ -108,7 +108,7 @@ use polymesh_common_utilities::{
 };
 use polymesh_primitives::{
     AuthIdentifier, Authorization, AuthorizationData, AuthorizationError, AuthorizationType, Claim,
-    ClaimType, Identity as DidRecord, IdentityClaim, IdentityId, Permission, Scope, Signatory,
+    ClaimType, Identity as DidRecord, IdentityClaim, IdentityId, Permissions, Scope, Signatory,
     SigningKey, Ticker,
 };
 use sp_core::sr25519::Signature;
@@ -636,14 +636,29 @@ decl_module! {
         /// # Weight
         /// `400_000 + 30_000 * permissions.len()`
         #[weight =(
-            400_000 + 30_000 * u64::try_from(permissions.len()).unwrap_or_default(),
+            400_000
+                + 10_000 * (
+                    1 + u64::try_from(
+                        permissions.asset.elems_len().unwrap_or_default()
+                    ).unwrap_or_default()
+                )
+                + 10_000 * (
+                    1 + u64::try_from(
+                        permissions.extrinsic.elems_len().unwrap_or_default()
+                    ).unwrap_or_default()
+                )
+                + 10_000 * (
+                    1 + u64::try_from(
+                        permissions.portfolio.elems_len().unwrap_or_default()
+                    ).unwrap_or_default()
+                ),
             DispatchClass::Normal,
             Pays::Yes
         )]
         pub fn set_permission_to_signer(
             origin,
             signer: Signatory<T::AccountId>,
-            permissions: Vec<Permission>
+            permissions: Permissions
         ) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             let did = Context::current_identity_or::<Self>(&sender)?;
@@ -1164,7 +1179,7 @@ impl<T: Trait> Module<T> {
     /// Joins an identity as signer
     pub fn unsafe_join_identity(
         target_did: IdentityId,
-        permissions: Vec<Permission>,
+        permissions: Permissions,
         signer: Signatory<T::AccountId>,
     ) -> DispatchResult {
         T::ProtocolFee::charge_fee(ProtocolOp::IdentityAddSigningKeysWithAuthorization)?;
@@ -1374,12 +1389,8 @@ impl<T: Trait> Module<T> {
     fn update_signing_key_permissions(
         target_did: IdentityId,
         signer: &Signatory<T::AccountId>,
-        mut permissions: Vec<Permission>,
+        mut permissions: Permissions,
     ) -> DispatchResult {
-        // Remove duplicates.
-        permissions.sort();
-        permissions.dedup();
-
         let mut new_s_item: Option<SigningKey<T::AccountId>> = None;
 
         <DidRecords<T>>::mutate(target_did, |record| {
@@ -1435,7 +1446,7 @@ impl<T: Trait> Module<T> {
     fn is_signer_authorized_with_permissions(
         did: IdentityId,
         signer: &Signatory<T::AccountId>,
-        permissions: Vec<Permission>,
+        permissions: Permissions,
     ) -> bool {
         let record = <DidRecords<T>>::get(did);
 
@@ -1447,10 +1458,11 @@ impl<T: Trait> Module<T> {
                     if let Some(signing_key) =
                         record.signing_keys.iter().find(|&si| &si.signer == signer)
                     {
-                        // It retruns true if all requested permission are in this signing item.
-                        return permissions.iter().all(|required_permission| {
-                            signing_key.has_permission(*required_permission)
-                        });
+                        let sk_permissions = &signing_key.permissions;
+                        // `true` iff all requested permissions are in this signing key.
+                        return sk_permissions.asset.ge(&permissions.asset)
+                            && sk_permissions.extrinsic.ge(&permissions.extrinsic)
+                            && sk_permissions.portfolio.ge(&permissions.portfolio);
                     }
                 }
                 // Signatory is not part of signing items of `did`, or
@@ -2155,7 +2167,7 @@ impl<T: Trait> IdentityTrait<T::AccountId> for Module<T> {
     fn is_signer_authorized_with_permissions(
         did: IdentityId,
         signer: &Signatory<T::AccountId>,
-        permissions: Vec<Permission>,
+        permissions: Permissions,
     ) -> bool {
         Self::is_signer_authorized_with_permissions(did, signer, permissions)
     }

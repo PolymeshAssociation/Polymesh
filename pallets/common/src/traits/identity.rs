@@ -24,7 +24,7 @@ use crate::{
     ChargeProtocolFee, SystematicIssuers,
 };
 use polymesh_primitives::{
-    AuthorizationData, IdentityClaim, IdentityId, Permission, Signatory, SigningKey, Ticker,
+    AuthorizationData, IdentityClaim, IdentityId, Permissions, Signatory, SigningKey, Ticker,
 };
 
 use codec::{Decode, Encode};
@@ -129,7 +129,7 @@ decl_event!(
         SignerLeft(IdentityId, Signatory<AccountId>),
 
         /// DID, updated signing key, previous permissions
-        SigningPermissionsUpdated(IdentityId, SigningKey<AccountId>, Vec<Permission>),
+        SigningPermissionsUpdated(IdentityId, SigningKey<AccountId>, Permissions),
 
 
         /// DID, old master key account ID, new ID
@@ -203,7 +203,7 @@ pub trait IdentityTrait<AccountId> {
     fn is_signer_authorized_with_permissions(
         did: IdentityId,
         signer: &Signatory<AccountId>,
-        permissions: Vec<Permission>,
+        permissions: Permissions,
     ) -> bool;
     fn is_master_key(did: IdentityId, key: &AccountId) -> bool;
 

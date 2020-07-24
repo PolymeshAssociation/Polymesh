@@ -195,7 +195,7 @@ use polymesh_common_utilities::{
 };
 use polymesh_primitives::{
     traits::{BlockRewardsReserveCurrency, IdentityCurrency},
-    IdentityId, Permission, Signatory,
+    IdentityId, Permissions, Signatory,
 };
 use sp_runtime::{
     traits::{
@@ -204,7 +204,7 @@ use sp_runtime::{
     },
     DispatchError, DispatchResult, RuntimeDebug,
 };
-use sp_std::{cmp, convert::Infallible, fmt::Debug, mem, prelude::*, result, vec};
+use sp_std::{cmp, convert::Infallible, fmt::Debug, mem, prelude::*, result};
 
 pub use polymesh_common_utilities::traits::balances::Trait;
 
@@ -1085,7 +1085,7 @@ where
                 if <T::Identity>::is_signer_authorized_with_permissions(
                     did,
                     &Signatory::Account(who.clone()),
-                    vec![Permission::SpendFunds],
+                    Permissions::empty(),
                 ) {
                     return Some(did);
                 }

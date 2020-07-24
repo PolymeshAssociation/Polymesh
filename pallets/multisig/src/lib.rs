@@ -97,7 +97,9 @@ use polymesh_common_utilities::{
     transaction_payment::{CddAndFeeDetails, ChargeTxFee},
     Context,
 };
-use polymesh_primitives::{AuthorizationData, AuthorizationError, IdentityId, Signatory};
+use polymesh_primitives::{
+    AuthorizationData, AuthorizationError, IdentityId, Permissions, Signatory,
+};
 use sp_runtime::traits::{Dispatchable, Hash};
 use sp_std::{convert::TryFrom, prelude::*};
 type Identity<T> = identity::Module<T>;
@@ -567,7 +569,7 @@ decl_module! {
             Self::verify_sender_is_creator(sender_did, &multisig)?;
             <Identity<T>>::unsafe_join_identity(
                 sender_did,
-                vec![],
+                Permissions::empty(),
                 Signatory::Account(multisig)
             )
         }

@@ -56,15 +56,30 @@
                 "Group": "Vec<IdentityId>"
             }
         },
-        "Permission": {
-            "_enum": [
-                "Full",
-                "Admin",
-                "Operator",
-                "SpendFunds"
-            ]
+        "AssetPermissions": {
+            "_enum": {
+                "All": "",
+                "Elems": "Vec<Ticker>"
+            }
         },
-        "Signatory":{
+        "ExtrinsicPermissions": {
+            "_enum": {
+                "All": "",
+                "Elems": "Vec<Vec<u8>>"
+            }
+        },
+        "PortfolioPermissions": {
+            "_enum": {
+                "All": "",
+                "Elems": "Vec<PortfolioNumber>"
+            }
+        },
+        "Permissions": {
+            "asset": "AssetPermissions",
+            "extrinsic": "ExtrinsicPermissions",
+            "portfolio": "PortfolioPermissions"
+        },
+        "Signatory": {
             "_enum": {
                 "Identity": "IdentityId",
                 "Account": "AccountId"
@@ -72,7 +87,7 @@
         },
         "SigningKey": {
             "signer": "Signatory",
-            "permissions": "Vec<Permission>"
+            "permissions": "Permissions"
         },
         "SigningKeyWithAuth":{
             "signing_key": "SigningKey",
@@ -323,7 +338,7 @@
                 "TransferTicker": "Ticker",
                 "AddMultiSigSigner": "AccountId",
                 "TransferAssetOwnership": "Ticker",
-                "JoinIdentity": "Vec<Permission>",
+                "JoinIdentity": "Permission",
                 "Custom": "Ticker",
                 "NoData": ""
             }

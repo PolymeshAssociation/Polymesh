@@ -142,7 +142,14 @@ pub use identity_claim::{Claim, ClaimType, IdentityClaim, JurisdictionName, Scop
 
 /// This module contains entities related with signing keys.
 pub mod signing_key;
-pub use signing_key::{Permission, Signatory, SigningKey};
+pub use signing_key::{
+    AssetPermissions, ExtrinsicPermissions, Permissions, PortfolioPermissions, Signatory,
+    SigningKey,
+};
+
+/// Subset type.
+pub mod subset;
+pub use subset::{LatticeOrd, LatticeOrdering, Subset};
 
 /// Generic authorization data types for all two step processes
 pub mod authorization;

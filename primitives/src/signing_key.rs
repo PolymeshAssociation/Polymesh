@@ -13,32 +13,48 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
-use crate::IdentityId;
+use crate::{IdentityId, PortfolioNumber, Subset, Ticker};
 use codec::{Decode, Encode};
 #[cfg(feature = "std")]
 use sp_runtime::{Deserialize, Serialize};
 use sp_std::{
     cmp::{Ord, Ordering, PartialOrd},
     prelude::Vec,
-    vec,
 };
 
-// use crate::entity::IgnoredCaseString;
+/// Asset permissions.
+pub type AssetPermissions = Subset<Ticker>;
 
-/// Key permissions.
-/// # TODO
-/// 2. Review documents:
-///     - [MESH-235](https://polymath.atlassian.net/browse/MESH-235)
-///     - [Polymesh: Roles/Permissions](https://docs.google.com/document/d/12u-rMavow4fvidsFlLcLe7DAXuqWk8XUHOBV9kw05Z8/)
-#[allow(missing_docs)]
-#[derive(Encode, Decode, Clone, Copy, PartialEq, Eq, Debug, PartialOrd, Ord)]
+/// Extrinsic permissions.
+///
+/// FIXME: correct the type of extrinsic.
+pub type ExtrinsicPermissions = Subset<Vec<u8>>;
+
+/// Portfolio permissions.
+pub type PortfolioPermissions = Subset<PortfolioNumber>;
+
+
+/// Signing key permissions.
+#[derive(Encode, Decode, Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-pub enum Permission {
-    Full,
-    Admin,
-    Operator,
-    SpendFunds,
-    Custom(u8),
+pub struct Permissions {
+    /// The subset of assets under management.
+    pub asset: AssetPermissions,
+    /// The subset of callable extrinsics.
+    pub extrinsic: ExtrinsicPermissions,
+    /// The subset of portfolios management.
+    pub portfolio: PortfolioPermissions,
+}
+
+impl Permissions {
+    /// The empty permissions.
+    pub fn empty() -> Self {
+        Self {
+            asset: Subset::empty(),
+            extrinsic: Subset::empty(),
+            portfolio: Subset::empty(),
+        }
+    }
 }
 
 /// It supports different elements as a signer.
@@ -128,41 +144,66 @@ where
     }
 }
 
-/// A signing key contains a type and a group of permissions.
+/// A signing key of an identity.
 #[allow(missing_docs)]
 #[derive(Encode, Decode, Default, Clone, Eq, Debug)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 pub struct SigningKey<AccountId> {
+    /// The signatory of the signing key.
     pub signer: Signatory<AccountId>,
-    pub permissions: Vec<Permission>,
+    /// The access permissions of the signing key.
+    pub permissions: Permissions,
 }
 
 impl<AccountId> SigningKey<AccountId> {
-    /// It creates an 'External' signing key.
-    pub fn new(signer: Signatory<AccountId>, permissions: Vec<Permission>) -> Self {
+    /// Creates a [`SigningKey`].
+    pub fn new(signer: Signatory<AccountId>, permissions: Permissions) -> Self {
         Self {
             signer,
             permissions,
         }
     }
 
-    /// Creates a [`SigningKey`] from an `AccountId`.
+    /// Creates a [`SigningKey`] from an `AccountId` with total permissions.
     pub fn from_account_id(s: AccountId) -> Self {
-        Self::new(Signatory::Account(s), vec![])
+        Self {
+            signer: Signatory::Account(s),
+            permissions: Default::default(),
+        }
     }
 
-    /// It checks if this key has specified `permission` permission.
-    /// permission `Permission::Full` is special and denotates that this key can be used for any permission.
-    pub fn has_permission(&self, permission: Permission) -> bool {
-        self.permissions
-            .iter()
-            .any(|r| permission == *r || *r == Permission::Full)
+    /// Checks if the given key has permission to access the given asset.
+    pub fn has_asset_permission(&self, asset: Ticker) -> bool {
+        self.permissions.asset.ge(&Subset::elem(asset))
+    }
+
+    /// Checks if the given key has permission to call the given extrinsic.
+    ///
+    /// FIXME: replace the placeholder type of extrinsic with a correct one.
+    pub fn has_extrinsic_permission(&self, extrinsic: Vec<u8>) -> bool {
+        self.permissions.extrinsic.ge(&Subset::elem(extrinsic))
+    }
+
+    /// Checks if the given key has permission to access the given portfolio.
+    pub fn has_portfolio_permission(&self, portfolio: PortfolioNumber) -> bool {
+        self.permissions.portfolio.ge(&Subset::elem(portfolio))
+    }
+
+    /// Checks if the signing key has the given permissions.
+    pub fn has_permissions(&self, them: &Permissions) -> bool {
+        let us = &self.permissions;
+        us.asset.ge(&them.asset)
+            && us.extrinsic.ge(&them.extrinsic)
+            && us.portfolio.ge(&them.portfolio)
     }
 }
 
 impl<AccountId> From<IdentityId> for SigningKey<AccountId> {
     fn from(id: IdentityId) -> Self {
-        Self::new(Signatory::Identity(id), vec![])
+        Self {
+            signer: Signatory::Identity(id),
+            permissions: Default::default(),
+        }
     }
 }
 
@@ -206,26 +247,28 @@ where
 
 #[cfg(test)]
 mod tests {
-    use super::{Permission, Signatory, SigningKey};
-    use crate::IdentityId;
+    use super::{Permissions, Signatory, SigningKey, Subset};
+    use crate::{IdentityId, Ticker};
     use sp_core::sr25519::Public;
     use std::convert::{From, TryFrom};
 
     #[test]
     fn build_test() {
         let key = Public::from_raw([b'A'; 32]);
-        let rk1 = SigningKey::new(Signatory::Account(key.clone()), vec![]);
+        let rk1 = SigningKey::new(Signatory::Account(key.clone()), Permissions::default());
         let rk2 = SigningKey::from_account_id(key.clone());
         assert_eq!(rk1, rk2);
 
-        let rk3 = SigningKey::new(
-            Signatory::Account(key.clone()),
-            vec![Permission::Operator, Permission::Admin],
-        );
+        let rk3_permissions = Permissions {
+            asset: Subset::Elems(vec![Ticker::try_from(&[1][..]).unwrap()]),
+            extrinsic: Subset::All,
+            portfolio: Subset::Elems(vec![1]),
+        };
+        let rk3 = SigningKey::new(Signatory::Account(key.clone()), rk3_permissions);
         assert_ne!(rk1, rk3);
 
         let mut rk4 = SigningKey::from_account_id(key);
-        rk4.permissions = vec![Permission::Operator, Permission::Admin];
+        rk4.permissions = rk3_permissions.clone();
         assert_eq!(rk3, rk4);
 
         let si1 = SigningKey::from(IdentityId::from(1u128));
@@ -239,15 +282,32 @@ mod tests {
     }
 
     #[test]
-    fn full_permission_test() {
+    fn has_permission_test() {
         let key = Public::from_raw([b'A'; 32]);
-        let full_key = SigningKey::new(Signatory::Account(key.clone()), vec![Permission::Full]);
-        let not_full_key = SigningKey::new(Signatory::Account(key), vec![Permission::Operator]);
-        assert_eq!(full_key.has_permission(Permission::Operator), true);
-        assert_eq!(full_key.has_permission(Permission::Admin), true);
-
-        assert_eq!(not_full_key.has_permission(Permission::Operator), true);
-        assert_eq!(not_full_key.has_permission(Permission::Admin), false);
+        let ticker1 = Ticker::try_from(&[1][..]).unwrap();
+        let ticker2 = Ticker::try_from(&[2][..]).unwrap();
+        let permissions = Permissions {
+            asset: Subset::Elems(vec![ticker1]),
+            extrinsic: Subset::All,
+            portfolio: Subset::Elems(vec![1]),
+        };
+        let free_key = SigningKey::from_account_id(Signatory::Account(key.clone()));
+        let restricted_key = SigningKey::new(Signatory::Account(key), permissions);
+        assert!(free_key.has_asset_permission(ticker2));
+        assert!(free_key.has_extrinsic_permission(vec![2]));
+        assert!(free_key.has_portfolio_permission(2));
+        assert!(!restricted_key.has_asset_permission(ticker2));
+        assert!(!restricted_key.has_extrinsic_permission(vec![2]));
+        assert!(!restricted_key.has_portfolio_permission(2));
+        assert!(free_key.has_permissions(&permissions));
+        assert!(restricted_key.has_permissions(&permissions));
+        let extended_permissions = Permissions {
+            asset: Subset::Elems(vec![ticker1]),
+            extrinsic: Subset::All,
+            portfolio: Subset::Elems(vec![1, 2]),
+        };
+        assert!(free_key.has_permissions(&extended_permissions));
+        assert!(!restricted_key.has_permissions(&extended_permissions));
     }
 
     #[test]
