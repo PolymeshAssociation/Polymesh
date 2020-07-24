@@ -1533,13 +1533,6 @@ impl<T: Trait> Module<T> {
             .collect::<Vec<_>>();
 
         Self::fetch_base_claims(claim_for, ClaimType::CustomerDueDiligence)
-            .inspect(|id_claim| {
-                debug::warn!(
-                    "[fetch_cdd::pre_filter for {:?}]: {:?}",
-                    claim_for,
-                    id_claim
-                )
-            })
             .filter(|id_claim| {
                 Self::is_identity_cdd_claim_valid(
                     id_claim,
@@ -1549,13 +1542,6 @@ impl<T: Trait> Module<T> {
                 )
             })
             .map(|id_claim| id_claim.claim_issuer)
-            .inspect(|issuer| {
-                debug::warn!(
-                    "[fetch_cdd::post_filter for {:?}]: issuer {:?}",
-                    claim_for,
-                    issuer
-                )
-            })
             .next()
     }
 
