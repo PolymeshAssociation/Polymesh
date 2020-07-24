@@ -263,11 +263,11 @@ mod tests {
             extrinsic: Subset::All,
             portfolio: Subset::Elems(vec![1]),
         };
-        let rk3 = SigningKey::new(Signatory::Account(key.clone()), rk3_permissions);
+        let rk3 = SigningKey::new(Signatory::Account(key.clone()), rk3_permissions.clone());
         assert_ne!(rk1, rk3);
 
         let mut rk4 = SigningKey::from_account_id(key);
-        rk4.permissions = rk3_permissions.clone();
+        rk4.permissions = rk3_permissions;
         assert_eq!(rk3, rk4);
 
         let si1 = SigningKey::from(IdentityId::from(1u128));
@@ -291,7 +291,7 @@ mod tests {
             portfolio: Subset::Elems(vec![1]),
         };
         let free_key = SigningKey::from_account_id(Signatory::Account(key.clone()));
-        let restricted_key = SigningKey::new(Signatory::Account(key), permissions);
+        let restricted_key = SigningKey::new(Signatory::Account(key), permissions.clone());
         assert!(free_key.has_asset_permission(ticker2));
         assert!(free_key.has_extrinsic_permission(vec![2]));
         assert!(free_key.has_portfolio_permission(2));

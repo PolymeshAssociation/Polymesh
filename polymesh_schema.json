@@ -338,7 +338,7 @@
                 "TransferTicker": "Ticker",
                 "AddMultiSigSigner": "AccountId",
                 "TransferAssetOwnership": "Ticker",
-                "JoinIdentity": "Permission",
+                "JoinIdentity": "Permissions",
                 "Custom": "Ticker",
                 "NoData": ""
             }
