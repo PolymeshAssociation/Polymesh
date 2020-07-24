@@ -361,7 +361,10 @@ mod percentage_transfer_manager {
                 false
             );
             percentage_transfer_manager.modify_exemption_list(to, true);
-            assert_eq!(percentage_transfer_manager.is_identity_exempted_or_not(to), true);
+            assert_eq!(
+                percentage_transfer_manager.is_identity_exempted_or_not(to),
+                true
+            );
 
             assert_eq!(
                 percentage_transfer_manager.verify_transfer(

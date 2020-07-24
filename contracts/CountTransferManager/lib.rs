@@ -23,7 +23,6 @@ mod custom_types {
         }
     }
 
-    
     #[derive(Decode, Encode, PartialEq, Ord, Eq, PartialOrd)]
     #[cfg_attr(feature = "ink-generate-abi", derive(type_metadata::Metadata))]
     #[cfg_attr(feature = "std", derive(Debug))]
