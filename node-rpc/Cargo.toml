@@ -10,32 +10,33 @@ repository = "https://github.com/paritytech/substrate/"
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
-jsonrpc-core = "14.2.0"
-codec = { package = "parity-scale-codec", version = "1.3.0", default-features = false }
-polymesh-primitives = { path = "../primitives", package = "polymesh-primitives" }
-sc-client-api = { git = "https://github.com/paritytech/substrate", rev = "c771821cae2dcb5a8808a19fae8122c0b9ae8499" }
-sp-blockchain = { git = "https://github.com/paritytech/substrate", rev = "c771821cae2dcb5a8808a19fae8122c0b9ae8499" }
-sp-runtime = { git = "https://github.com/paritytech/substrate", rev = "c771821cae2dcb5a8808a19fae8122c0b9ae8499" }
-sp-api = { git = "https://github.com/paritytech/substrate", rev = "c771821cae2dcb5a8808a19fae8122c0b9ae8499" }
-sp-consensus = { git = "https://github.com/paritytech/substrate", rev = "c771821cae2dcb5a8808a19fae8122c0b9ae8499" }
-sp-consensus-babe = { git = "https://github.com/paritytech/substrate", rev = "c771821cae2dcb5a8808a19fae8122c0b9ae8499" }
-sc-rpc = { git = "https://github.com/paritytech/substrate", rev = "c771821cae2dcb5a8808a19fae8122c0b9ae8499" }
-sc-consensus-babe = { git = "https://github.com/paritytech/substrate", rev = "c771821cae2dcb5a8808a19fae8122c0b9ae8499" }
-sc-consensus-babe-rpc = { git = "https://github.com/paritytech/substrate", rev = "c771821cae2dcb5a8808a19fae8122c0b9ae8499" }
-sc-consensus-epochs = { git = "https://github.com/paritytech/substrate", rev = "c771821cae2dcb5a8808a19fae8122c0b9ae8499" }
-sc-finality-grandpa = { git = "https://github.com/paritytech/substrate", rev = "c771821cae2dcb5a8808a19fae8122c0b9ae8499" }
-sc-finality-grandpa-rpc = { git = "https://github.com/paritytech/substrate", rev = "c771821cae2dcb5a8808a19fae8122c0b9ae8499" }
-sc-keystore = { git = "https://github.com/paritytech/substrate", rev = "c771821cae2dcb5a8808a19fae8122c0b9ae8499" }
-txpool-api = { package = "sp-transaction-pool", git = "https://github.com/paritytech/substrate", rev = "c771821cae2dcb5a8808a19fae8122c0b9ae8499" }
-frame-rpc-system = { package = "substrate-frame-rpc-system", git = "https://github.com/paritytech/substrate", rev = "c771821cae2dcb5a8808a19fae8122c0b9ae8499"  }
-sp-block-builder = { git = "https://github.com/paritytech/substrate", rev = "c771821cae2dcb5a8808a19fae8122c0b9ae8499" }
-
-pallet-transaction-payment-rpc = { path = "../pallets/transaction-payment/rpc" }
+polymesh-primitives = { path = "../primitives" }
 pallet-contracts-rpc = { path = "../pallets/contracts/rpc" }
-node-rpc = { path = "../rpc"}
 pallet-compliance-manager-rpc = { path = "../pallets/compliance-manager/rpc" }
 pallet-group-rpc = { path = "../pallets/group/rpc" }
-pallet-identity-rpc = { path = "../pallets/identity/rpc" }
 pallet-staking-rpc = { path = "../pallets/staking/rpc" }
 pallet-protocol-fee-rpc = {  path = "../pallets/protocol-fee/rpc" }
+node-rpc = { path = "../rpc"}
+
+jsonrpc-core = "14.2.0"
+
+codec = { package = "parity-scale-codec", version = "1.3.0", default-features = false }
+sp-blockchain = { git = "https://github.com/paritytech/substrate", tag = "v2.0.0-rc4" }
+sp-runtime = { git = "https://github.com/paritytech/substrate", tag = "v2.0.0-rc4" }
+sp-api = { git = "https://github.com/paritytech/substrate", tag = "v2.0.0-rc4" }
+sc-client-api = { git = "https://github.com/paritytech/substrate", tag = "v2.0.0-rc4" }
+sp-consensus = { git = "https://github.com/paritytech/substrate", tag = "v2.0.0-rc4" }
+sp-consensus-babe = { git = "https://github.com/paritytech/substrate", tag = "v2.0.0-rc4" }
+sp-block-builder = { git = "https://github.com/paritytech/substrate", tag = "v2.0.0-rc4" }
+txpool-api = { package = "sp-transaction-pool", git = "https://github.com/paritytech/substrate", tag = "v2.0.0-rc4" }
+
+sc-rpc = { git = "https://github.com/paritytech/substrate", tag = "v2.0.0-rc4" }
+sc-consensus-babe = { git = "https://github.com/paritytech/substrate", tag = "v2.0.0-rc4" }
+sc-consensus-babe-rpc = { git = "https://github.com/paritytech/substrate", tag = "v2.0.0-rc4" }
+sc-consensus-epochs = { git = "https://github.com/paritytech/substrate", tag = "v2.0.0-rc4" }
+sc-finality-grandpa = { git = "https://github.com/paritytech/substrate", tag = "v2.0.0-rc4" }
+sc-finality-grandpa-rpc = { git = "https://github.com/paritytech/substrate", tag = "v2.0.0-rc4" }
+sc-keystore = { git = "https://github.com/paritytech/substrate", tag = "v2.0.0-rc4" }
+
+frame-rpc-system = { package = "substrate-frame-rpc-system", git = "https://github.com/paritytech/substrate", tag = "v2.0.0-rc4"  }
 
