@@ -34,7 +34,7 @@ use polymesh_common_utilities::{
 };
 use polymesh_primitives::{
     AccountId, AccountIndex, Authorization, AuthorizationType, Balance, BlockNumber, Hash,
-    IdentityId, Index, Moment, PortfolioId, Signatory, Signature, SigningItem, Ticker,
+    IdentityId, Index, Moment, PortfolioId, Signatory, Signature, SigningKey, Ticker,
 };
 use polymesh_runtime_common::{
     bridge,
@@ -423,7 +423,7 @@ impl pallet_pips::Trait for Runtime {
 parameter_types! {
     pub const TombstoneDeposit: Balance = 1 * DOLLARS;
     pub const RentByteFee: Balance = 1 * DOLLARS;
-    pub const RentDepositOffset: Balance = 1000 * DOLLARS;
+    pub const RentDepositOffset: Balance = 300 * DOLLARS;
     pub const SurchargeReward: Balance = 150 * DOLLARS;
 }
 
@@ -1011,7 +1011,7 @@ impl_runtime_apis! {
             IdentityId,
             Ticker,
             AccountId,
-            SigningItem<AccountId>,
+            SigningKey<AccountId>,
             Signatory<AccountId>,
             Moment
         > for Runtime
@@ -1031,7 +1031,7 @@ impl_runtime_apis! {
         }
 
         /// Retrieve master key and signing keys for a given IdentityId
-        fn get_did_records(did: IdentityId) -> DidRecords<AccountId, SigningItem<AccountId>> {
+        fn get_did_records(did: IdentityId) -> DidRecords<AccountId, SigningKey<AccountId>> {
             Identity::get_did_records(did)
         }
 
@@ -1064,15 +1064,18 @@ impl_runtime_apis! {
         }
     }
 
-    impl pallet_compliance_manager_rpc_runtime_api::ComplianceManagerApi<Block, AccountId, Balance> for Runtime {
+    impl node_rpc_runtime_api::compliance_manager::ComplianceManagerApi<Block, AccountId, Balance>
+        for Runtime
+    {
         #[inline]
         fn can_transfer(
             ticker: Ticker,
             from_did: Option<IdentityId>,
             to_did: Option<IdentityId>,
+            treasury_did: Option<IdentityId>,
         ) -> AssetTransferRulesResult
         {
-            ComplianceManager::granular_verify_restriction(&ticker, from_did, to_did)
+            ComplianceManager::granular_verify_restriction(&ticker, from_did, to_did, treasury_did)
         }
     }
 

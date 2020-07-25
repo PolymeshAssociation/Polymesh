@@ -4,11 +4,11 @@ use polymesh_primitives::{Authorization, AuthorizationType};
 use sp_std::prelude::*;
 
 sp_api::decl_runtime_apis! {
-    pub trait IdentityApi<IdentityId, Ticker, AccountId, SigningItem, Signatory, Moment> where
+    pub trait IdentityApi<IdentityId, Ticker, AccountId, SigningKey, Signatory, Moment> where
         IdentityId: Codec,
         Ticker: Codec,
         AccountId: Codec,
-        SigningItem: Codec,
+        SigningKey: Codec,
         Signatory: Codec,
         Moment: Codec
     {
@@ -19,7 +19,7 @@ sp_api::decl_runtime_apis! {
         fn get_asset_did(ticker: Ticker) -> AssetDidResult;
 
         /// Retrieve DidRecord for a given `did`.
-        fn get_did_records(did: IdentityId) -> DidRecords<AccountId, SigningItem>;
+        fn get_did_records(did: IdentityId) -> DidRecords<AccountId, SigningKey>;
 
         /// Retrieve list of a authorization for a given signatory
         fn get_filtered_authorizations(

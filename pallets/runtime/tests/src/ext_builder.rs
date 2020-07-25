@@ -45,7 +45,7 @@ impl Default for MockProtocolBaseFees {
             ProtocolOp::IdentityCddRegisterDid,
             ProtocolOp::IdentityAddClaim,
             ProtocolOp::IdentitySetMasterKey,
-            ProtocolOp::IdentityAddSigningItemsWithAuthorization,
+            ProtocolOp::IdentityAddSigningKeysWithAuthorization,
             ProtocolOp::PipsPropose,
             ProtocolOp::VotingAddBallot,
         ];
