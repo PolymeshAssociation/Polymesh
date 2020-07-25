@@ -34,8 +34,8 @@ pub type ExtrinsicPermissions = Subset<Vec<u8>>;
 pub type PortfolioPermissions = Subset<PortfolioNumber>;
 
 /// Signing key permissions.
-#[derive(Encode, Decode, Clone, Default, PartialEq, Eq, PartialOrd, Ord)]
-#[cfg_attr(feature = "std", derive(Serialize, Deserialize, Debug))]
+#[derive(Encode, Decode, Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord)]
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 pub struct Permissions {
     /// The subset of assets under management.
     pub asset: AssetPermissions,
@@ -58,8 +58,8 @@ impl Permissions {
 
 /// It supports different elements as a signer.
 #[allow(missing_docs)]
-#[derive(Encode, Decode, Copy, Clone, PartialEq, Eq)]
-#[cfg_attr(feature = "std", derive(Serialize, Deserialize, Debug))]
+#[derive(Encode, Decode, Copy, Clone, PartialEq, Eq, Debug)]
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 pub enum Signatory<AccountId> {
     Identity(IdentityId),
     Account(AccountId),
@@ -145,8 +145,8 @@ where
 
 /// A signing key of an identity.
 #[allow(missing_docs)]
-#[derive(Encode, Decode, Default, Clone, Eq)]
-#[cfg_attr(feature = "std", derive(Serialize, Deserialize, Debug))]
+#[derive(Encode, Decode, Default, Clone, Eq, Debug)]
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 pub struct SigningKey<AccountId> {
     /// The signatory of the signing key.
     pub signer: Signatory<AccountId>,
