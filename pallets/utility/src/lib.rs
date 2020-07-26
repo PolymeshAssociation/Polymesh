@@ -155,7 +155,7 @@ decl_module! {
         #[weight = (
             calls.iter()
                 .map(|call| call.get_dispatch_info().weight)
-                .fold(10_000, |a: Weight, n| a.saturating_add(n)),
+                .fold(15_000_000, |a: Weight, n| a.saturating_add(n).saturating_add(1_000_000)),
             {
                 let all_operational = calls.iter()
                     .map(|call| call.get_dispatch_info().class)
@@ -167,7 +167,7 @@ decl_module! {
                 }
             },
         )]
-        pub fn batch(origin, calls: Vec<<T as Trait>::Call>) -> DispatchResult {
+        pub fn batch(origin, calls: Vec<<T as Trait>::Call>) {
             let is_root = ensure_root(origin.clone()).is_ok();
             for (index, call) in calls.into_iter().enumerate() {
                 let result = if is_root {
@@ -181,8 +181,6 @@ decl_module! {
                 }
             }
             Self::deposit_event(Event::BatchCompleted);
-
-            Ok(())
         }
 
         /// Relay a call for a target from an origin
@@ -211,7 +209,7 @@ decl_module! {
         ) -> DispatchResultWithPostInfo {
             let _ = ensure_signed(origin)?;
 
-           let target_nonce = <Nonces<T>>::get(&target);
+            let target_nonce = <Nonces<T>>::get(&target);
 
             ensure!(
                 target_nonce == call.nonce,

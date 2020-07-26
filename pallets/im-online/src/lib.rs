@@ -94,7 +94,7 @@ use sp_application_crypto::RuntimeAppPublic;
 use sp_core::offchain::OpaqueNetworkState;
 use sp_runtime::{
     offchain::storage::StorageValueRef,
-    traits::{AtLeast32Bit, Convert, Member, Saturating},
+    traits::{AtLeast32BitUnsigned, Convert, Member, Saturating},
     transaction_validity::{
         InvalidTransaction, TransactionPriority, TransactionSource, TransactionValidity,
         ValidTransaction,
@@ -170,7 +170,7 @@ struct HeartbeatStatus<BlockNumber> {
     pub sent_at: BlockNumber,
 }
 
-impl<BlockNumber: PartialEq + AtLeast32Bit + Copy> HeartbeatStatus<BlockNumber> {
+impl<BlockNumber: PartialEq + AtLeast32BitUnsigned + Copy> HeartbeatStatus<BlockNumber> {
     /// Returns true if heartbeat has been recently sent.
     ///
     /// Parameters:
@@ -372,10 +372,11 @@ decl_module! {
         // NOTE: the weight include cost of validate_unsigned as it is part of the cost to import
         // block with such an extrinsic.
         #[weight = (310_000_000 + T::DbWeight::get().reads_writes(4, 1))
-            .saturating_add(750_000.saturating_mul(heartbeat.validators_len as Weight))
-            .saturating_add(
-                1_200_000.saturating_mul(heartbeat.network_state.external_addresses.len() as Weight)
-        )]
+        .saturating_add(750_000.saturating_mul(heartbeat.validators_len as Weight))
+        .saturating_add(
+            1_200_000.saturating_mul(heartbeat.network_state.external_addresses.len() as Weight)
+            )
+        ]
         fn heartbeat(
             origin,
             heartbeat: Heartbeat<T::BlockNumber>,

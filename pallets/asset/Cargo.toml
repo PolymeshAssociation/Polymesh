@@ -12,7 +12,7 @@ polymesh-common-utilities = { path = "../common", default-features = false }
 
 # Our Pallets
 pallet-balances = { path = "../balances", default-features = false  }
-pallet-contracts = { path = "../contracts", default-features = false }
+pallet-contracts = { git = "https://github.com/paritytech/substrate", tag = "v2.0.0-rc4", default-features = false }
 pallet-identity = { path = "../identity", default-features = false }
 pallet-portfolio = { path = "../portfolio", default-features = false }
 pallet-statistics = { path = "../statistics", default-features = false }

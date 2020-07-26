@@ -21,7 +21,7 @@
 //! divided by the total token supply.
 
 use sp_arithmetic::traits::Unsigned;
-use sp_runtime::{curve::PiecewiseLinear, traits::AtLeast32Bit, Perbill};
+use sp_runtime::{curve::PiecewiseLinear, traits::AtLeast32BitUnsigned, Perbill};
 
 /// The total payout to all validators (and their nominators) per era and maximum payout.
 ///
@@ -37,7 +37,7 @@ pub fn compute_total_payout<N>(
     era_duration: u64,
 ) -> (N, N)
 where
-    N: AtLeast32Bit + Unsigned + Clone,
+    N: AtLeast32BitUnsigned + Unsigned + Clone,
 {
     // Milliseconds per year for the Julian year (365.25 days).
     const MILLISECONDS_PER_YEAR: u64 = 1000 * 3600 * 24 * 36525 / 100;
