@@ -1,26 +1,15 @@
-#![cfg_attr(not(feature = "std"), no_std)]
+#![cfg_attr(not(any(test, feature = "std")), no_std)]
 
 use ink_lang as ink;
 
 mod custom_types {
 
     use ink_core::storage::Flush;
-    use scale::Encode;
+    use scale::{Decode, Encode};
 
-    #[derive(
-        scale::Decode,
-        scale::Encode,
-        PartialEq,
-        Ord,
-        Eq,
-        PartialOrd,
-        Copy,
-        Hash,
-        Clone,
-        Debug,
-        Default,
-    )]
+    #[derive(Decode, Encode, PartialEq, Ord, Eq, PartialOrd, Copy, Hash, Clone, Default)]
     #[cfg_attr(feature = "ink-generate-abi", derive(type_metadata::Metadata))]
+    #[cfg_attr(feature = "std", derive(Debug))]
     pub struct IdentityId([u8; 32]);
 
     impl Flush for IdentityId {}
@@ -35,9 +24,9 @@ mod custom_types {
         }
     }
 
-    /// Custom type
-    #[derive(scale::Decode, scale::Encode, Debug, PartialEq, Ord, Eq, PartialOrd)]
+    #[derive(Decode, Encode, PartialEq, Ord, Eq, PartialOrd)]
     #[cfg_attr(feature = "ink-generate-abi", derive(type_metadata::Metadata))]
+    #[cfg_attr(feature = "std", derive(Debug))]
     pub enum RestrictionResult {
         Valid,
         Invalid,
@@ -119,6 +108,7 @@ mod percentage_transfer_manager {
         /// * `balance_from` - Balance of sender at the time of transaction.
         /// * `balance_to` - Balance of receiver at the time of transaction.
         /// * `total_supply` - Total supply of the asset
+        /// * `current_holder_count - Total no. of investors of a ticker
         #[ink(message)]
         fn verify_transfer(
             &self,
@@ -128,15 +118,16 @@ mod percentage_transfer_manager {
             balance_from: Balance,
             balance_to: Balance,
             total_supply: Balance,
+            current_holder_count: u64,
         ) -> RestrictionResult {
             if from == None && *self.allow_primary_issuance.get()
-                || self._is_exempted_or_not(&(to.unwrap_or_default()))
+                || self.is_exempted_or_not(&(to.unwrap_or_default()))
                 || ((balance_to + value) * 10u128.pow(6)) / total_supply
                     <= *self.max_allowed_percentage.get()
             {
                 return RestrictionResult::Valid;
             }
-            return RestrictionResult::Invalid;
+            RestrictionResult::Invalid
         }
 
         /// Change the value of allowed percentage
@@ -145,7 +136,7 @@ mod percentage_transfer_manager {
         /// * `new_percentage` - New value of Max percentage of assets hold by an investor
         #[ink(message)]
         fn change_allowed_percentage(&mut self, new_percentage: u128) {
-            assert!(self.env().caller() == *self.owner.get(), "Not Authorized");
+            self.ensure_owner(self.env().caller());
             assert!(
                 *self.max_allowed_percentage.get() != new_percentage,
                 "Must change setting"
@@ -163,7 +154,7 @@ mod percentage_transfer_manager {
         /// * `primary_issuance` - whether to allow all primary issuance transfers
         #[ink(message)]
         fn change_primary_issuance(&mut self, primary_issuance: bool) {
-            assert!(self.env().caller() == *self.owner.get(), "Not Authorized");
+            self.ensure_owner(self.env().caller());
             assert!(
                 *self.allow_primary_issuance.get() != primary_issuance,
                 "Must change setting"
@@ -181,12 +172,16 @@ mod percentage_transfer_manager {
         /// * `is_exempted` - New exemption status of the identity
         #[ink(message)]
         fn modify_exemption_list(&mut self, identity: IdentityId, is_exempted: bool) {
-            assert!(self.env().caller() == *self.owner.get(), "Not Authorized");
+            self.ensure_owner(self.env().caller());
             assert!(
-                self._is_exempted_or_not(&identity) != is_exempted,
+                self.is_exempted_or_not(&identity) != is_exempted,
                 "Must change setting"
             );
-            self._modify_exemption_list(identity, is_exempted);
+            self.exemption_list.insert(identity, is_exempted);
+            self.env().emit_event(ModifyExemptionList {
+                identity: identity,
+                exempted: is_exempted,
+            });
         }
 
         /// To exempt the given Identities from the restriction
@@ -206,7 +201,7 @@ mod percentage_transfer_manager {
         /// * `new_owner` - AccountId of the new owner
         #[ink(message)]
         fn transfer_ownership(&mut self, new_owner: AccountId) {
-            assert!(self.env().caller() == *self.owner.get(), "Not Authorized");
+            self.ensure_owner(self.env().caller());
             self.env().emit_event(TransferOwnership {
                 old_owner: self.env().caller(),
                 new_owner: new_owner,
@@ -234,20 +229,16 @@ mod percentage_transfer_manager {
 
         /// Function to know whether given Identity is exempted or not
         #[ink(message)]
-        fn is_exempted_or_not(&self, of: IdentityId) -> bool {
-            *self.exemption_list.get(&of).unwrap_or(&false)
+        fn is_identity_exempted_or_not(&self, of: IdentityId) -> bool {
+            self.is_exempted_or_not(&of)
         }
 
-        fn _is_exempted_or_not(&self, of: &IdentityId) -> bool {
+        fn is_exempted_or_not(&self, of: &IdentityId) -> bool {
             *self.exemption_list.get(of).unwrap_or(&false)
         }
 
-        fn _modify_exemption_list(&mut self, identity: IdentityId, is_exempted: bool) {
-            self.exemption_list.insert(identity, is_exempted);
-            self.env().emit_event(ModifyExemptionList {
-                identity: identity,
-                exempted: is_exempted,
-            });
+        fn ensure_owner(&self, owner: AccountId) {
+            assert!(owner == *self.owner.get(), "Not Authorized");
         }
     }
 
@@ -295,7 +286,8 @@ mod percentage_transfer_manager {
                     (100u128 * multiplier).into(),
                     (2000u128 * multiplier).into(),
                     0u128.into(),
-                    (2000u128 * multiplier).into()
+                    (2000u128 * multiplier).into(),
+                    0
                 ),
                 RestrictionResult::Valid
             );
@@ -309,6 +301,7 @@ mod percentage_transfer_manager {
                     (2000u128 * multiplier).into(),
                     0u128.into(),
                     (2000u128 * multiplier).into(),
+                    0
                 ),
                 RestrictionResult::Invalid
             );
@@ -321,7 +314,8 @@ mod percentage_transfer_manager {
                     (301u128 * multiplier).into(),
                     (2000u128 * multiplier).into(),
                     (100u128 * multiplier).into(),
-                    (2000u128 * multiplier).into()
+                    (2000u128 * multiplier).into(),
+                    0
                 ),
                 RestrictionResult::Invalid
             );
@@ -340,7 +334,8 @@ mod percentage_transfer_manager {
                     (700u128 * multiplier).into(),
                     (2000u128 * multiplier).into(),
                     0u128.into(),
-                    (2000u128 * multiplier).into()
+                    (2000u128 * multiplier).into(),
+                    0
                 ),
                 RestrictionResult::Invalid
             );
@@ -353,7 +348,8 @@ mod percentage_transfer_manager {
                     (700u128 * multiplier).into(),
                     (2000u128 * multiplier).into(),
                     0u128.into(),
-                    (2000u128 * multiplier).into()
+                    (2000u128 * multiplier).into(),
+                    0
                 ),
                 RestrictionResult::Valid
             );
@@ -365,7 +361,10 @@ mod percentage_transfer_manager {
                 false
             );
             percentage_transfer_manager.modify_exemption_list(to, true);
-            assert_eq!(percentage_transfer_manager.is_exempted_or_not(to), true);
+            assert_eq!(
+                percentage_transfer_manager.is_identity_exempted_or_not(to),
+                true
+            );
 
             assert_eq!(
                 percentage_transfer_manager.verify_transfer(
@@ -374,7 +373,8 @@ mod percentage_transfer_manager {
                     (700u128 * multiplier).into(),
                     (2000u128 * multiplier).into(),
                     0u128.into(),
-                    (2000u128 * multiplier).into()
+                    (2000u128 * multiplier).into(),
+                    0
                 ),
                 RestrictionResult::Valid
             );
@@ -395,7 +395,8 @@ mod percentage_transfer_manager {
                     (55788u128 * 10000).into(), // exact 27.894% of 2000 tokens
                     (2000u128 * multiplier).into(),
                     0u128.into(),
-                    (2000u128 * multiplier).into()
+                    (2000u128 * multiplier).into(),
+                    0
                 ),
                 RestrictionResult::Valid
             );
@@ -408,7 +409,8 @@ mod percentage_transfer_manager {
                     (558u128 * multiplier).into(),
                     (2000u128 * multiplier).into(),
                     0u128.into(),
-                    (2000u128 * multiplier).into()
+                    (2000u128 * multiplier).into(),
+                    0
                 ),
                 RestrictionResult::Invalid
             );
@@ -432,6 +434,7 @@ mod percentage_transfer_manager {
                     (2000u128 * multiplier).into(),
                     0u128.into(),
                     (2000u128 * multiplier).into(),
+                    0
                 ),
                 RestrictionResult::Invalid
             );
@@ -447,6 +450,7 @@ mod percentage_transfer_manager {
                     (2000u128 * multiplier).into(),
                     0u128.into(),
                     (2000u128 * multiplier).into(),
+                    0
                 ),
                 RestrictionResult::Valid
             );
@@ -550,9 +554,9 @@ mod percentage_transfer_manager {
             ];
             percentage_transfer_manager.modify_exemption_list_batch(exempted_identities.clone());
 
-            assert!(percentage_transfer_manager.is_exempted_or_not(IdentityId::from(1)));
-            assert!(percentage_transfer_manager.is_exempted_or_not(IdentityId::from(2)));
-            assert!(percentage_transfer_manager.is_exempted_or_not(IdentityId::from(3)));
+            assert!(percentage_transfer_manager.is_identity_exempted_or_not(IdentityId::from(1)));
+            assert!(percentage_transfer_manager.is_identity_exempted_or_not(IdentityId::from(2)));
+            assert!(percentage_transfer_manager.is_identity_exempted_or_not(IdentityId::from(3)));
         }
     }
 }

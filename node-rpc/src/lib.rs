@@ -34,7 +34,7 @@ use std::sync::Arc;
 
 use polymesh_primitives::{
     AccountId, Balance, Block, BlockNumber, Hash, IdentityId, Index as Nonce, Moment, Signatory,
-    SigningItem, Ticker,
+    SigningKey, Ticker,
 };
 use sc_client_api::light::{Fetcher, RemoteBlockchain};
 use sc_consensus_babe::Epoch;
@@ -112,7 +112,7 @@ where
         IdentityId,
         Ticker,
         AccountId,
-        SigningItem<AccountId>,
+        SigningKey<AccountId>,
         Signatory<AccountId>,
         Moment,
     >,
