@@ -427,9 +427,13 @@ impl pallet_contracts::Trait for TestStorage {
 
 impl statistics::Trait for TestStorage {}
 
+parameter_types! {
+    pub const MaxRuleComplexity: u32 = 50;
+}
 impl compliance_manager::Trait for TestStorage {
     type Event = Event;
-    type Asset = asset::Module<TestStorage>;
+    type Asset = Asset;
+    type MaxRuleComplexity = MaxRuleComplexity;
 }
 
 impl protocol_fee::Trait for TestStorage {
