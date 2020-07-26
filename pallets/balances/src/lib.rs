@@ -506,7 +506,7 @@ decl_module! {
 
         // Polymesh modified code. New dispatchable function that anyone can call to burn their balance.
         /// Burns the given amount of tokens from the caller's free, unlocked balance.
-        #[weight = T::DbWeight::get().reads_writes(1, 1) + 200_000]
+        #[weight = T::DbWeight::get().reads_writes(1, 1) + 2_000_000]
         pub fn burn_account_balance(origin, amount: T::Balance) -> DispatchResult {
             let who = ensure_signed(origin)?;
             let caller_id = Context::current_identity_or::<T::Identity>(&who)?;

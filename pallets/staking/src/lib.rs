@@ -1946,7 +1946,7 @@ decl_module! {
         /// # Arguments
         /// * origin Required origin for adding a potential validator.
         /// * validator Stash AccountId of the validator.
-        #[weight = 50_000]
+        #[weight = 500_000]
         pub fn add_permissioned_validator(origin, validator: T::AccountId) {
             T::RequiredAddOrigin::ensure_origin(origin)?;
             ensure!(!Self::permissioned_validators(&validator), Error::<T>::AlreadyExists);
@@ -1963,7 +1963,7 @@ decl_module! {
         /// # Arguments
         /// * origin Required origin for removing a potential validator.
         /// * validator Stash AccountId of the validator.
-        #[weight = 50_000]
+        #[weight = 500_000]
         pub fn remove_permissioned_validator(origin, validator: T::AccountId) {
             T::RequiredRemoveOrigin::ensure_origin(origin.clone())?;
             let caller = ensure_signed(origin)?;
@@ -1985,7 +1985,7 @@ decl_module! {
         /// - Depends on passed list of AccountId.
         /// - Depends on the no. of claim issuers an accountId has for the CDD expiry.
         /// #</weight>
-        #[weight = 950_000]
+        #[weight = 5_000_000]
         pub fn validate_cdd_expiry_nominators(origin, targets: Vec<T::AccountId>) {
             let caller = ensure_signed(origin)?;
             let caller_id = Context::current_identity_or::<T::Identity>(&caller)?;
@@ -2029,7 +2029,7 @@ decl_module! {
         /// Enables individual commissions. This can be set only once. Once individual commission
         /// rates are enabled, there's no going back.  Only Governance committee is allowed to
         /// change this value.
-        #[weight = (100_000, Operational, Pays::Yes)]
+        #[weight = (1_000_000, Operational, Pays::Yes)]
         pub fn enable_individual_commissions(origin) {
             T::RequiredCommissionOrigin::ensure_origin(origin.clone())?;
             let key = ensure_signed(origin)?;
@@ -2049,7 +2049,7 @@ decl_module! {
         ///
         /// # Arguments
         /// * `new_value` the new commission to be used for reward calculations
-        #[weight = (100_000, Operational, Pays::Yes)]
+        #[weight = (2_000_000, Operational, Pays::Yes)]
         pub fn set_global_commission(origin, new_value: Perbill) {
             T::RequiredCommissionOrigin::ensure_origin(origin.clone())?;
             let key = ensure_signed(origin)?;
@@ -2071,7 +2071,7 @@ decl_module! {
         ///
         /// # Arguments
         /// * `new_value` the new minimum
-        #[weight = (100_000, Operational, Pays::Yes)]
+        #[weight = (900_000, Operational, Pays::Yes)]
         pub fn set_min_bond_threshold(origin, new_value: BalanceOf<T>) {
             T::RequiredCommissionOrigin::ensure_origin(origin.clone())?;
             let key = ensure_signed(origin)?;

@@ -198,9 +198,9 @@ decl_module! {
         /// - `call`: Call to be relayed on behalf of target
         ///
         /// # Weight
-        /// - The weight of the call to be relayed plus a static 250_000.
+        /// - The weight of the call to be relayed plus a static 90_000_000.
         #[weight = (
-            call.call.get_dispatch_info().weight.saturating_add(250_000),
+            call.call.get_dispatch_info().weight.saturating_add(90_000_000),
             call.call.get_dispatch_info().class,
         )]
         pub fn relay_tx(
@@ -211,7 +211,7 @@ decl_module! {
         ) -> DispatchResultWithPostInfo {
             let _ = ensure_signed(origin)?;
 
-           let target_nonce = <Nonces<T>>::get(&target);
+            let target_nonce = <Nonces<T>>::get(&target);
 
             ensure!(
                 target_nonce == call.nonce,
@@ -231,10 +231,10 @@ decl_module! {
             <Nonces<T>>::insert(target.clone(), target_nonce + 1);
 
             call.call.dispatch(RawOrigin::Signed(target).into())
-                .map(|info| info.actual_weight.map(|w| w.saturating_add(250_000)).into())
+                .map(|info| info.actual_weight.map(|w| w.saturating_add(90_000_000)).into())
                 .map_err(|e| DispatchErrorWithPostInfo {
                     error: e.error,
-                    post_info: e.post_info.actual_weight.map(|w| w.saturating_add(250_000)).into()
+                    post_info: e.post_info.actual_weight.map(|w| w.saturating_add(90_000_000)).into()
                 })
         }
     }

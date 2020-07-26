@@ -74,7 +74,7 @@ use frame_support::{
     traits::{KeyOwnerProofSystem, Randomness, SplitTwoWays},
     weights::{
         constants::{BlockExecutionWeight, ExtrinsicBaseWeight, RocksDbWeight},
-        Weight, WeightToFeePolynomial, WeightToFeeCoefficients, WeightToFeeCoefficient
+        Weight, WeightToFeeCoefficient, WeightToFeeCoefficients, WeightToFeePolynomial,
     },
 };
 use pallet_contracts_rpc_runtime_api::ContractExecResult;
@@ -235,7 +235,7 @@ impl WeightToFeePolynomial for WeightToFee {
     fn polynomial() -> WeightToFeeCoefficients<Self::Balance> {
         smallvec![WeightToFeeCoefficient {
             degree: 1,
-            coeff_frac: Perbill::from_percent(100),
+            coeff_frac: Perbill::from_percent(10),
             coeff_integer: 0u128, // Coefficient is zero
             negative: false,
         }]
