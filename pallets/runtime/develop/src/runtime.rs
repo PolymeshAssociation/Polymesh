@@ -596,9 +596,13 @@ impl simple_token::Trait for Runtime {
     type Event = Event;
 }
 
+parameter_types! {
+    pub const MaxRuleComplexity: u32 = 50;
+}
 impl compliance_manager::Trait for Runtime {
     type Event = Event;
     type Asset = Asset;
+    type MaxRuleComplexity = MaxRuleComplexity;
 }
 
 impl voting::Trait for Runtime {
