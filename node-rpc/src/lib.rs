@@ -34,7 +34,7 @@ use std::sync::Arc;
 
 use polymesh_primitives::{
     AccountId, Balance, Block, BlockNumber, Hash, IdentityId, Index as Nonce, Moment, Signatory,
-    SigningItem, Ticker,
+    SigningKey, Ticker,
 };
 use sc_client_api::light::{Fetcher, RemoteBlockchain};
 use sc_consensus_babe::Epoch;
@@ -103,22 +103,23 @@ where
     C: Send + Sync + 'static,
     C::Api: frame_rpc_system::AccountNonceApi<Block, AccountId, Nonce>,
     C::Api: pallet_contracts_rpc::ContractsRuntimeApi<Block, AccountId, Balance, BlockNumber>,
-    C::Api: pallet_transaction_payment_rpc::TransactionPaymentRuntimeApi<Block, Balance, UE>,
+    // C::Api: pallet_transaction_payment_rpc::TransactionPaymentRuntimeApi<Block, Balance, UE>,
+    C::Api: node_rpc::transaction_payment::TransactionPaymentRuntimeApi<Block, Balance, UE>,
     C::Api: pallet_staking_rpc::StakingRuntimeApi<Block>,
     C::Api: node_rpc::pips::PipsRuntimeApi<Block, AccountId, Balance>,
-    C::Api: pallet_identity_rpc::IdentityRuntimeApi<
+    C::Api: node_rpc::identity::IdentityRuntimeApi<
         Block,
         IdentityId,
         Ticker,
         AccountId,
-        SigningItem<AccountId>,
+        SigningKey<AccountId>,
         Signatory<AccountId>,
         Moment,
     >,
     C::Api: pallet_protocol_fee_rpc::ProtocolFeeRuntimeApi<Block>,
     C::Api: node_rpc::asset::AssetRuntimeApi<Block, AccountId, Balance>,
     C::Api: pallet_group_rpc::GroupRuntimeApi<Block>,
-    C::Api: pallet_compliance_manager_rpc::ComplianceManagerRuntimeApi<Block, AccountId, Balance>,
+    C::Api: node_rpc::compliance_manager::ComplianceManagerRuntimeApi<Block, AccountId, Balance>,
     C::Api: BabeApi<Block>,
     C::Api: BlockBuilder<Block>,
     P: TransactionPool + Sync + Send + 'static,
@@ -126,17 +127,17 @@ where
     SC: SelectChain<Block> + 'static,
 {
     use frame_rpc_system::{FullSystem, SystemApi};
+    use node_rpc::compliance_manager::{ComplianceManager, ComplianceManagerApi};
     use node_rpc::{
         asset::{Asset, AssetApi},
+        identity::{Identity, IdentityApi},
         pips::{Pips, PipsApi},
+        transaction_payment::{TransactionPayment, TransactionPaymentApi},
     };
-    use pallet_compliance_manager_rpc::{ComplianceManager, ComplianceManagerApi};
     use pallet_contracts_rpc::{Contracts, ContractsApi};
     use pallet_group_rpc::{Group, GroupApi};
-    use pallet_identity_rpc::{Identity, IdentityApi};
     use pallet_protocol_fee_rpc::{ProtocolFee, ProtocolFeeApi};
     use pallet_staking_rpc::{Staking, StakingApi};
-    use pallet_transaction_payment_rpc::{TransactionPayment, TransactionPaymentApi};
     use sc_consensus_babe_rpc::BabeRpcHandler;
     use sc_finality_grandpa_rpc::{GrandpaApi, GrandpaRpcHandler};
 
@@ -204,7 +205,7 @@ where
     C: HeaderBackend<Block>,
     C: Send + Sync + 'static,
     C::Api: frame_rpc_system::AccountNonceApi<Block, AccountId, Nonce>,
-    C::Api: pallet_transaction_payment_rpc::TransactionPaymentRuntimeApi<Block, Balance, UE>,
+    C::Api: node_rpc::transaction_payment::TransactionPaymentRuntimeApi<Block, Balance, UE>,
     P: TransactionPool + Sync + Send + 'static,
     F: Fetcher<Block> + 'static,
     UE: codec::Codec + Send + Sync + 'static,
