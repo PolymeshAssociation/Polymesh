@@ -7,8 +7,10 @@ edition = "2018"
 [dependencies]
 node-rpc-runtime-api = { path = "./runtime-api", default-features = false }
 
-polymesh-primitives = { path = "../primitives", default-features = false }
+pallet-compliance-manager = { path = "../pallets/compliance-manager", default-features = false }
 pallet-pips = { path = "../pallets/pips", default-features = false }
+polymesh-primitives = { path = "../primitives", default-features = false }
+
 pallet-portfolio = { path = "../pallets/portfolio", default-features = false }
 pallet-identity = { path = "../pallets/identity", default-features = false }
 pallet-transaction-payment = { path = "../pallets/transaction-payment", default-features = false }
@@ -19,29 +21,30 @@ sp-core = {git = 'https://github.com/paritytech/substrate', default_features = f
 sp-std = {git = 'https://github.com/paritytech/substrate', default_features = false, tag = "v2.0.0-rc4" }
 sp-runtime = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0-rc4" }
 sp-api = { git = 'https://github.com/paritytech/substrate', default-features = false, tag = "v2.0.0-rc4" }
-sp-blockchain = { git = 'https://github.com/paritytech/substrate', tag = "v2.0.0-rc4"}
-
-sp-rpc = { git = 'https://github.com/paritytech/substrate', tag = "v2.0.0-rc4"}
-
-
-frame-support = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0-rc4"}
+sp-blockchain = { git = 'https://github.com/paritytech/substrate', tag = "v2.0.0-rc4" }
+sp-rpc = { git = 'https://github.com/paritytech/substrate', tag = "v2.0.0-rc4" }
+frame-support = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0-rc4" }
+frame-system = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0-rc4" }
 
 # Others
-serde = { version = "1.0.104", features = ["derive"] }
 jsonrpc-core = "14.0.5"
 jsonrpc-core-client = "14.0.5"
 jsonrpc-derive = "14.0.5"
+serde = { version = "1.0.104", optional = true, features = ["derive"] }
 
 [features]
 default = ["std"]
 std = [
+    "codec/std",
     "frame-support/std",
+    "frame-system/std",
     "node-rpc-runtime-api/std",
     "pallet-identity/std",
     "pallet-pips/std",
     "pallet-portfolio/std",
     "pallet-transaction-payment/std",
     "polymesh-primitives/std",
+    "serde",
     "sp-api/std",
     "sp-core/std",
     "sp-runtime/std",

@@ -42,7 +42,7 @@ async function createIdentities(api, accounts, alice) {
 
         reqImports.nonces.set(alice.address, reqImports.nonces.get(alice.address).addn(1));
       }
-      await reqImports.blockTillPoolEmpty(api);
+  
       for (let i = 0; i < accounts.length; i++) {
         const d = await api.query.identity.keyToIdentityIds(accounts[i].publicKey);
         dids.push(d.toHuman().Unique);
