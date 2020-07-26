@@ -78,3 +78,16 @@ impl From<RuleType> for Rule {
         }
     }
 }
+
+impl Rule {
+    /// Returns worst case complexity of a rule
+    pub fn complexity(&self) -> (usize, usize) {
+        let claims_count = match self.rule_type {
+            RuleType::IsPresent(ref _claim) => 1,
+            RuleType::IsAbsent(ref _claim) => 1,
+            RuleType::IsNoneOf(ref claims) => claims.len(),
+            RuleType::IsAnyOf(ref claims) => claims.len(),
+        };
+        (claims_count, self.issuers.len())
+    }
+}
