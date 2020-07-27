@@ -1,23 +1,29 @@
-# polymesh-count-transfer-manager
+# CountTransferManager
+This smart contract is a transfer manager for limiting the number of token holders a ticker can have.
+  
 
-Count Transfer Manager implemented in Ink! smart contract.
+## Pre-requsite
+`cargo-contract` Install using below command
+```
+cargo install --git https://github.com/paritytech/cargo-contract cargo-contract --force
+```
 
-Designed to be attached to the Asset module to allow the total number of investors to be capped.
+### Build example contract and generate the contracts metadata
 
-# Pre-Requisites
-
-  - Rust (nightly and stable)
-  - Contract Crate
-  `cargo install --force --git https://github.com/paritytech/ink cargo-contract`
-
-# To build WASM
+To build a single example and generate the contracts Wasm file, navigate to the root of the example smart contract and run:
 
 ```
 cargo contract build
-```
-
-# To build ABI
 
 ```
-cargo +nightly build --features ink-generate-abi
+
+To generate the contract metadata (a.k.a. the contract ABI), run the following command:
+
 ```
+cargo contract generate-metadata
+
+```
+
+You should now have an optimized  `<contract-name>.wasm`  file and an  `metadata.json`  file in the  `target`  folder of the contract.
+
+For further information, please have a look at our  [smart contracts workshop](https://substrate.dev/substrate-contracts-workshop/).

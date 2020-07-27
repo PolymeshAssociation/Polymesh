@@ -72,12 +72,12 @@
                 "Account": "AccountId"
             }
         },
-        "SigningItem": {
+        "SigningKey": {
             "signer": "Signatory",
             "permissions": "Vec<Permission>"
         },
-        "SigningItemWithAuth":{
-            "signing_item": "SigningItem",
+        "SigningKeyWithAuth":{
+            "signing_key": "SigningKey",
             "auth_signature": "Signature"
         },
         "IdentityRole": {
@@ -96,12 +96,12 @@
         },
         "PreAuthorizedKeyInfo": {
             "target_id": "IdentityId",
-            "signing_item": "SigningItem"
+            "signing_key": "SigningKey"
         },
         "DidRecord": {
             "roles": "Vec<IdentityRole>",
             "master_key": "AccountId",
-            "signing_items": "Vec<SigningItem>"
+            "signing_keys": "Vec<SigningKey>"
         },
         "JurisdictionName": "Text",
         "Scope": "IdentityId",
@@ -345,7 +345,7 @@
         "SmartExtension": {
             "extension_type": "SmartExtensionType",
             "extension_name": "SmartExtensionName",
-            "extension_id": "IdentityId",
+            "extension_id": "AccountId",
             "is_archive": "bool"
         },
         "ProportionMatch": {
@@ -440,7 +440,7 @@
                 "IdentityCddRegisterDid",
                 "IdentityAddClaim",
                 "IdentitySetMasterKey",
-                "IdentityAddSigningItemsWithAuthorization",
+                "IdentityAddSigningKeysWithAuthorization",
                 "PipsPropose",
                 "VotingAddBallot"
             ]
@@ -459,7 +459,7 @@
         },
         "DidRecordsSuccess": {
             "master_key" : "AccountId",
-            "signing_items": "Vec<SigningItem>"
+            "signing_key": "Vec<SigningKey>"
         },
         "DidRecords": {
             "_enum": {
@@ -669,6 +669,11 @@
                     },
                     {
                         "name": "to_did",
+                        "type": "Option<IdentityId>",
+                        "isOptional": false
+                    },
+                    {
+                        "name": "treasury_did",
                         "type": "Option<IdentityId>",
                         "isOptional": false
                     },

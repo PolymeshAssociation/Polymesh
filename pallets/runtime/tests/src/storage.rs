@@ -429,9 +429,13 @@ impl pallet_contracts::Trait for TestStorage {
 
 impl statistics::Trait for TestStorage {}
 
+parameter_types! {
+    pub const MaxRuleComplexity: u32 = 50;
+}
 impl compliance_manager::Trait for TestStorage {
     type Event = Event;
-    type Asset = asset::Module<TestStorage>;
+    type Asset = Asset;
+    type MaxRuleComplexity = MaxRuleComplexity;
 }
 
 impl protocol_fee::Trait for TestStorage {
@@ -659,7 +663,7 @@ pub fn register_keyring_account_without_cdd(
     make_account_without_cdd(acc_pub).map(|(_, id)| id)
 }
 
-pub fn add_signing_item(did: IdentityId, signer: Signatory<AccountId>) {
+pub fn add_signing_key(did: IdentityId, signer: Signatory<AccountId>) {
     let _master_key = Identity::did_records(&did).master_key;
     let auth_id = Identity::add_auth(
         did.clone(),

@@ -95,9 +95,16 @@ You can start a development chain with:
 Detailed logs may be shown by running the node with the following environment variables set:
 `RUST_LOG=debug RUST_BACKTRACE=1 ./target/release/polymesh --dev --pool-limit 100000 -d /tmp/pmesh-primary-node`.
 
-To access the Polymesh Chain using the [Web Interface](https://app.polymesh.live/#/explorer) do the following:
+[Web Interface]: https://app.polymesh.live/#/explorer
+
+To access the Polymesh Chain using the [Web Interface] do the following:
 
 1. In [Settings](https://app.polymesh.live/#/settings) tab under the `General` section select `Local Node (Own, 127.0.0.1:9944)` as remote endpoint.
+
+   > Note: if the `polymesh` node above is on a different machine than your browser (e.g., a server on your local network), you'll need to use a *"custom endpoint"*, e.g., `ws://192.168.0.100:9944/`.
+   > The [Web Interface] uses `https`, but your `polymesh` instance does not, so you'll need `ws://` as opposed to `wss://`. You'll also need to use `http://httpapp.polymesh.live/` instead of [Web Interface]. Otherwise, you'll have problems with mixed-content blocking (https vs. http).
+   > Finally, add `--rpc-external --ws-external --rpc-cors all` to the `polymesh` invocation above.
+
 2. If you have [custom types definitions](https://github.com/PolymathNetwork/Polymesh/blob/master/polymesh_schema.json) that differ from the V1 Aldebaran Testnet, you can update these in [Settings](https://app.polymesh.live/#/settings) tab under the `Developer` section.
 3. Reload the page.
 

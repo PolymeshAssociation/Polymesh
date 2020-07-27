@@ -41,7 +41,6 @@ pallet-utility = { path = "../../utility", default-features = false }
 node-rpc-runtime-api = { path = "../../../rpc/runtime-api", default-features = false }
 pallet-staking-rpc-runtime-api = { package = "pallet-staking-rpc-runtime-api", path = "../../staking/rpc/runtime-api", default-features = false }
 pallet-protocol-fee-rpc-runtime-api = { package = "pallet-protocol-fee-rpc-runtime-api", path = "../../protocol-fee/rpc/runtime-api", default-features = false }
-pallet-compliance-manager-rpc-runtime-api = { package = "pallet-compliance-manager-rpc-runtime-api", path = "../../compliance-manager/rpc/runtime-api", default-features = false  }
 pallet-contracts-rpc-runtime-api = { path = "../../contracts/rpc/runtime-api", default-features = false}
 
 
@@ -123,7 +122,6 @@ std = [
     "pallet-babe/std",
     "pallet-balances/std",
     "pallet-committee/std",
-    "pallet-compliance-manager-rpc-runtime-api/std",
     "pallet-compliance-manager/std",
     "pallet-confidential/std",
     "pallet-contracts-rpc-runtime-api/std",

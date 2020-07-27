@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-if [ -z "$(find . -name "Cargo.toml" -not -path "*/target/*" -execdir bash -c "cargo +nightly fmt -- --check" \;)" ]; then
+if [ -z "$(find . -name "Cargo.toml" -not -path "*/target/*" -not -path "*/external/*" -execdir bash -c "cargo fmt -- --check" \;)" ]; then
 	echo "rustfmt ok"
 	exit 0
 else

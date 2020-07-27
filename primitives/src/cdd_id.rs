@@ -29,7 +29,6 @@ impl From<[u8; 32]> for InvestorUid {
     }
 }
 
-
 /// It links the investor UID with an specific Identity DID in a way that no one can extract that
 /// investor UID from this CDD Id, and the investor can create a Zero Knowledge Proof to prove that
 /// an specific DID belongs to him.
