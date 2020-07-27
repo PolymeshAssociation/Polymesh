@@ -372,9 +372,9 @@ decl_module! {
         // NOTE: the weight include cost of validate_unsigned as it is part of the cost to import
         // block with such an extrinsic.
         #[weight = (310_000_000 + T::DbWeight::get().reads_writes(4, 1))
-        .saturating_add(750_000.saturating_mul(heartbeat.validators_len as Weight))
-        .saturating_add(
-            1_200_000.saturating_mul(heartbeat.network_state.external_addresses.len() as Weight)
+            .saturating_add(750_000.saturating_mul(heartbeat.validators_len as Weight))
+            .saturating_add(
+                1_200_000.saturating_mul(heartbeat.network_state.external_addresses.len() as Weight)
             )
         ]
         fn heartbeat(
