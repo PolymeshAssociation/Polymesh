@@ -343,7 +343,6 @@ decl_event!(
     where
         Balance = <T as CommonTrait>::Balance,
     {
-        ModifyAllowedTokens(Ticker, Ticker, u32, bool),
         /// Emit when Asset get purchased by the investor
         /// caller DID/investor DID, Ticker, sto_id, amount invested, amount of token purchased
         AssetPurchased(IdentityId, Ticker, u32, Balance, Balance),
