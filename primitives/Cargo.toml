@@ -10,7 +10,6 @@ polymesh-primitives-derive = { path = "../primitives_derive" }
 
 # Other 
 serde = { version = "1.0.104", optional = true, features = ["derive"] }
-blake2 = { version = "0.9.0", default-features = false }
 
 # Crypto
 cryptography = { path = "../external/cryptography", default-features = false }
@@ -54,7 +53,5 @@ std = [
 	"frame-support/std",
 	"frame-system/std",
 	"sp-io/std",
-	"blake2/std",
-	"blake2/simd",
 	"cryptography/std",
 ]

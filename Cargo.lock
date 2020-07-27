@@ -4386,7 +4386,6 @@ dependencies = [
 name = "polymesh-primitives"
 version = "2.0.0"
 dependencies = [
- "blake2 0.9.0",
  "cryptography",
  "curve25519-dalek",
  "frame-support",
