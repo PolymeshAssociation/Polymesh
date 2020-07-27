@@ -19,7 +19,16 @@ use polymesh_primitives_derive::{DeserializeU8StrongTyped, SerializeU8StrongType
     feature = "std",
     derive(SerializeU8StrongTyped, DeserializeU8StrongTyped)
 )]
-pub struct InvestorUid(pub [u8; 32]);
+pub struct InvestorUid([u8; 32]);
+
+impl From<[u8; 32]> for InvestorUid {
+    /// Ensure DID < 2^255 by masking the high bit, that facilitates its conversion to Scalar.
+    fn from(mut s: [u8; 32]) -> Self {
+        s[31] &= 0b0111_1111;
+        Self(s)
+    }
+}
+
 
 /// It links the investor UID with an specific Identity DID in a way that no one can extract that
 /// investor UID from this CDD Id, and the investor can create a Zero Knowledge Proof to prove that
