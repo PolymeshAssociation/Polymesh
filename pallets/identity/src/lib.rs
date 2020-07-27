@@ -127,7 +127,7 @@ use frame_support::{
     dispatch::{DispatchError, DispatchResult, DispatchResultWithPostInfo},
     ensure,
     traits::{ChangeMembers, Currency, InitializeMembers},
-    weights::{DispatchClass, GetDispatchInfo, Pays, Weight},
+    weights::{DispatchClass, GetDispatchInfo, Pays},
     StorageDoubleMap,
 };
 use frame_system::{self as system, ensure_root, ensure_signed};

@@ -1381,7 +1381,8 @@ fn should_limit_rules_complexity() {
 
 fn should_limit_rules_complexity_we() {
     let token_owner_acc = AccountKeyring::Alice.public();
-    let (token_owner_signed, token_owner_did) = make_account(token_owner_acc).unwrap();
+    let token_owner_signed = Origin::signed(token_owner_acc.clone());
+    let token_owner_did = register_keyring_account(AccountKeyring::Alice).unwrap();
 
     // A token representing 1M shares
     let token = SecurityToken {

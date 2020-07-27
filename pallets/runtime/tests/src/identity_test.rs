@@ -13,9 +13,7 @@ use pallet_identity::{self as identity, BatchAddClaimItem, BatchRevokeClaimItem,
 use polymesh_common_utilities::{
     traits::{
         group::GroupTrait,
-        identity::{
-            LinkedKeyInfo, SigningKeyWithAuth, TargetIdAuthorization, Trait as IdentityTrait,
-        },
+        identity::{SigningKeyWithAuth, TargetIdAuthorization, Trait as IdentityTrait},
         transaction_payment::CddAndFeeDetails,
     },
     SystematicIssuers,
