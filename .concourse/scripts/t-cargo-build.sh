@@ -19,7 +19,14 @@ else
     echo "no reference for the polymesh version found"
     exit 1
 fi
+
+# Prime the build cache directory
 mkdir -p "${CACHE_DIR}"
+if [ ! -f ".git/resource/changed_files" ] || grep -v '^.concourse\|^Dockerfile\|^scripts/cli' ".git/resource/changed_files" || [ ! -f "target/release/polymesh" ]; then
+    touch ${CACHE_DIR}/.new_binary
+else
+    rm -f ${CACHE_DIR}/.new_binary
+fi
 
 pushd .
 cd $GIT_DIR
@@ -29,10 +36,7 @@ cd $GIT_DIR
 #  - The polymesh binary is missing
 if [ ! -f ".git/resource/changed_files" ] || grep -v '^.concourse\|^Dockerfile\|^scripts/cli' ".git/resource/changed_files" || [ ! -f "target/release/polymesh" ]; then
     rm -f target/release/polymesh
-    touch ${CACHE_DIR}/.new_binary
     cargo build --release || cargo build -j 1 --release
-else
-    rm -f ${CACHE_DIR}/.new_binary
 fi
 popd
 
