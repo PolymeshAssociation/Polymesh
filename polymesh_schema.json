@@ -637,7 +637,7 @@
         },
         "UniqueCall": {
             "nonce": "u64",
-            "call": "call"
+            "call": "Call"
         },
         "MovePortfolioItem": {
             "ticker": "Ticker",
