@@ -75,8 +75,9 @@ pub struct ExtBuilder {
 thread_local! {
     static EXISTENTIAL_DEPOSIT: RefCell<u128> = RefCell::new(0);
     static TRANSACTION_BASE_FEE: RefCell<u128> = RefCell::new(0);
-    static TRANSACTION_BYTE_FEE: RefCell<u128> = RefCell::new(1);
-    static WEIGHT_TO_FEE: RefCell<u128> = RefCell::new(1);
+    pub static EXTRINSIC_BASE_WEIGHT: RefCell<u64> = RefCell::new(5);
+    pub static TRANSACTION_BYTE_FEE: RefCell<u128> = RefCell::new(10);
+    pub static WEIGHT_TO_FEE: RefCell<u128> = RefCell::new(1);
 }
 
 impl ExtBuilder {

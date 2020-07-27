@@ -1,11 +1,11 @@
 use super::{
-    storage::{make_account, register_keyring_account, TestStorage},
+    storage::{make_account, TestStorage},
     ExtBuilder,
 };
-use frame_support::{assert_err, assert_ok, dispatch::DispatchError};
+use frame_support::{assert_err, assert_ok};
 use pallet_asset::{AssetType, SecurityToken};
 use pallet_portfolio::MovePortfolioItem;
-use polymesh_primitives::{PortfolioId, PortfolioName, Ticker};
+use polymesh_primitives::{PortfolioName, Ticker};
 use std::convert::TryFrom;
 use test_client::AccountKeyring;
 
@@ -48,7 +48,7 @@ fn do_move_asset_from_portfolio() {
     let (owner_signed, owner_did) = make_account(AccountKeyring::Alice.public()).unwrap();
     let (bob_signed, _) = make_account(AccountKeyring::Bob.public()).unwrap();
     let total_supply = 1_000_000;
-    let mut token = SecurityToken {
+    let token = SecurityToken {
         name: vec![0x01].into(),
         owner_did,
         total_supply,
