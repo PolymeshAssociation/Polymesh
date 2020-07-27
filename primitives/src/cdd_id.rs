@@ -59,8 +59,8 @@ impl CddId {
 
     /// Only the zero-filled `CddId` is considered as invalid.
     #[inline]
-    pub fn is_valid(&self) -> bool {
-        self.0 != [0u8; 32]
+    pub fn is_wildcard(&self) -> bool {
+        self.0 == [0u8; 32]
     }
 }
 

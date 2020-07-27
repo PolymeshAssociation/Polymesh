@@ -133,7 +133,7 @@ pub struct ExistentialPredicate<'a> {
 impl<'a> Predicate for ExistentialPredicate<'a> {
     fn evaluate(&self, context: &Context) -> bool {
         match &self.claim {
-            Claim::CustomerDueDiligence(ref cdd_id) if !cdd_id.is_valid() => {
+            Claim::CustomerDueDiligence(ref cdd_id) if cdd_id.is_wildcard() => {
                 self.evaluate_cdd_claim_wildcard(context)
             }
             _ => self.evaluate_regular_claim(context),
