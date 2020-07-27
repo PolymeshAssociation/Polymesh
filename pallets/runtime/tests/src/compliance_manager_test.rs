@@ -3,7 +3,7 @@ use super::{
     ExtBuilder,
 };
 use chrono::prelude::Utc;
-use frame_support::{assert_err, assert_ok, traits::Currency};
+use frame_support::{assert_err, assert_noop, assert_ok, traits::Currency};
 use pallet_asset::{self as asset, AssetName, AssetType, Error as AssetError, SecurityToken};
 use pallet_balances as balances;
 use pallet_compliance_manager::{self as compliance_manager, AssetTransferRule, Error as CMError};
@@ -1370,4 +1370,97 @@ fn can_verify_restriction_with_treasury_did_we() {
         ),
         ERC1400_TRANSFER_FAILURE
     );
+}
+
+#[test]
+fn should_limit_rules_complexity() {
+    ExtBuilder::default()
+        .build()
+        .execute_with(should_reset_asset_rules_we);
+}
+
+fn should_limit_rules_complexity_we() {
+    let token_owner_acc = AccountKeyring::Alice.public();
+    let (token_owner_signed, token_owner_did) = make_account(token_owner_acc).unwrap();
+
+    // A token representing 1M shares
+    let token = SecurityToken {
+        name: vec![0x01].into(),
+        owner_did: token_owner_did,
+        total_supply: 1_000_000,
+        divisible: true,
+        asset_type: AssetType::default(),
+        ..Default::default()
+    };
+    let ticker = Ticker::try_from(token.name.0.as_slice()).unwrap();
+    let scope = Identity::get_token_did(&ticker).unwrap();
+    Balances::make_free_balance_be(&token_owner_acc, 1_000_000);
+
+    // Share issuance is successful
+    assert_ok!(Asset::create_asset(
+        token_owner_signed.clone(),
+        token.name.clone(),
+        ticker,
+        token.total_supply,
+        true,
+        token.asset_type.clone(),
+        vec![],
+        None,
+        None,
+    ));
+
+    let rules_with_issuer = vec![
+        Rule {
+            rule_type: RuleType::IsPresent(Claim::KnowYourCustomer(scope)),
+            issuers: vec![token_owner_did],
+        };
+        30
+    ];
+
+    let rules_without_issuers = vec![
+        Rule {
+            rule_type: RuleType::IsPresent(Claim::KnowYourCustomer(scope)),
+            issuers: vec![],
+        };
+        15
+    ];
+
+    // Complexity = 30*1 + 30*1 = 60
+    assert_noop!(
+        ComplianceManager::add_active_rule(
+            token_owner_signed.clone(),
+            ticker,
+            rules_with_issuer.clone(),
+            rules_with_issuer.clone()
+        ),
+        CMError::<TestStorage>::RuleTooComplex
+    );
+
+    // Complexity = 30*1 + 15*0 = 30
+    assert_ok!(ComplianceManager::add_active_rule(
+        token_owner_signed.clone(),
+        ticker,
+        rules_with_issuer.clone(),
+        rules_without_issuers,
+    ));
+
+    // Complexity = 30*1 + 15*1 = 45
+    assert_ok!(ComplianceManager::add_default_trusted_claim_issuer(
+        token_owner_signed.clone(),
+        ticker,
+        token_owner_did
+    ));
+
+    // Complexity = 30*1 + 15*2 = 60
+    assert_noop!(
+        ComplianceManager::add_default_trusted_claim_issuer(
+            token_owner_signed.clone(),
+            ticker,
+            token_owner_did
+        ),
+        CMError::<TestStorage>::RuleTooComplex
+    );
+
+    let asset_rules = ComplianceManager::asset_rules(ticker);
+    assert_eq!(asset_rules.rules.len(), 1);
 }
