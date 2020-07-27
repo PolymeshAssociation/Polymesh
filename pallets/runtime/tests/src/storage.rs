@@ -410,7 +410,7 @@ parameter_types! {
 impl pallet_contracts::Trait for TestStorage {
     type Time = Timestamp;
     type Randomness = Randomness;
-    type Call = Call;
+    type Currency = Balances;
     type Event = Event;
     type DetermineContractAddress = pallet_contracts::SimpleAddressDeterminer<TestStorage>;
     type TrieIdGenerator = pallet_contracts::TrieIdFromParentCounter<TestStorage>;
@@ -423,6 +423,7 @@ impl pallet_contracts::Trait for TestStorage {
     type SurchargeReward = SurchargeReward;
     type MaxDepth = MaxDepth;
     type MaxValueSize = MaxValueSize;
+    type WeightPrice = pallet_transaction_payment::Module<Self>;
 }
 
 impl statistics::Trait for TestStorage {}

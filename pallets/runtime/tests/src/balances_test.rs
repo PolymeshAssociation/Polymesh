@@ -175,15 +175,7 @@ fn issue_must_work() {
 
             // Funding BRR
             let eve = AccountKeyring::Eve.public();
-            assert_err!(
-                <Balances as Currency<_>>::transfer(
-                    &eve,
-                    &brr,
-                    500,
-                    ExistenceRequirement::AllowDeath
-                ),
-                Error::ReceiverCddMissing
-            );
+
             let eve_signed = Origin::signed(AccountKeyring::Eve.public());
             assert_ok!(Balances::top_up_brr_balance(eve_signed, 500,));
             assert_eq!(Balances::free_balance(&brr), 500);

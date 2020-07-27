@@ -904,6 +904,7 @@ where
         Ok(())
     }
 
+    // Important-Note - Use the transfer carefully as this function is not resilient for the cdd check of receiver.
     // Transfer some free balance from `transactor` to `dest`.
     // Is a no-op if value to be transferred is zero or the `transactor` is the same as `dest`.
     fn transfer(
@@ -912,7 +913,9 @@ where
         value: Self::Balance,
         existence_requirement: ExistenceRequirement,
     ) -> DispatchResult {
-        Self::safe_transfer_core(transactor, dest, value, None, existence_requirement)?;
+        // Calling `transfer_core()` instead of the `safe_transfer_core()` to support the
+        // transfer to the smart extensions using the pallet-contracts.
+        Self::transfer_core(transactor, dest, value, None, existence_requirement)?;
         Ok(())
     }
 
