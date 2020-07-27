@@ -19,6 +19,7 @@ else
     echo "no reference for the polymesh version found"
     exit 1
 fi
+mkdir -p "${CACHE_DIR}"
 
 pushd .
 cd $GIT_DIR
