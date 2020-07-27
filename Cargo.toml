@@ -44,6 +44,7 @@ members = [
     "pallets/statistics",
     "pallets/confidential",
     "pallets/utility",
+    "pallets/staking/fuzzer",
     "rpc/runtime-api",
     "node-rpc",
     "rpc",
@@ -62,7 +63,7 @@ im-online = { package = "pallet-im-online", path = "pallets/im-online" }
 node-rpc = { path = "rpc" }
 node-rpc-runtime-api = { path = "rpc/runtime-api", default-features = false }
 pallet-protocol-fee-rpc-runtime-api = { path = "pallets/protocol-fee/rpc/runtime-api", default-features = false }
-pallet-contracts-rpc-runtime-api = { path = "pallets/contracts/rpc/runtime-api" }
+pallet-contracts-rpc-runtime-api = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0-rc4" }
 pallet-staking-rpc-runtime-api = { path = "pallets/staking/rpc/runtime-api" }
 pallet-protocol-fee-rpc = { path = "pallets/protocol-fee/rpc" }
 pallet-group-rpc = { path = "pallets/group/rpc" }
@@ -99,7 +100,7 @@ sp-transaction-pool = { package = "sp-transaction-pool", git = "https://github.c
 sp-consensus-babe = { git = "https://github.com/paritytech/substrate", tag = "v2.0.0-rc4" }
 sp-authority-discovery = { git = "https://github.com/paritytech/substrate", tag = "v2.0.0-rc4" }
 
-contracts = { package = "pallet-contracts", path = "pallets/contracts" }
+contracts = { package = "pallet-contracts", git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0-rc4" }
 
 sc-service = { git = "https://github.com/paritytech/substrate", tag = "v2.0.0-rc4" }
 sc-chain-spec = { git = "https://github.com/paritytech/substrate", tag = "v2.0.0-rc4" }
