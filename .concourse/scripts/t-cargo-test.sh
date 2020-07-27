@@ -7,14 +7,9 @@ set -o pipefail
 GIT_DIR=$1
 CACHE_DIR=$2
 
-if [ ! -f "${CACHE_DIR}/.new_binary" ]; then
-    exit 0
-fi
-
-
+# Restore the rust build cache
 mkdir -p ${CARGO_HOME:-$HOME/.cargo}
 mkdir -p ${GIT_DIR}/target
-
 rsync -auv --size-only ${CACHE_DIR}/.cargo/ ${CARGO_HOME:-$HOME/.cargo}  | grep -e "^total size" -B1 --color=never
 rsync -auv --size-only ${CACHE_DIR}/target/ ${GIT_DIR}/target            | grep -e "^total size" -B1 --color=never
 
