@@ -846,14 +846,15 @@ impl<T: Trait> Module<T> {
                     sender == &Self::controller() || sender == &Self::admin(),
                     Error::<T>::BadCaller
                 );
+
                 let timelock = Self::timelock();
                 if timelock.is_zero() {
                     let _ = Self::handle_bridge_tx_now(bridge_tx, false)?;
-                    Ok(())
                 } else {
                     let _ = Self::handle_bridge_tx_later(bridge_tx, timelock)?;
-                    Ok(())
                 }
+
+                Ok(())
             }
             // Pending cdd bridge tx
             BridgeTxStatus::Pending(_) => {

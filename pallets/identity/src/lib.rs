@@ -1650,7 +1650,7 @@ impl<T: Trait> Module<T> {
         if <KeyToIdentityIds<T>>::get(key).is_some() {
             false
         } else {
-            T::MultiSig::is_signer(key)
+            !T::MultiSig::is_signer(key)
         }
     }
 
@@ -1987,26 +1987,21 @@ impl<T: Trait> Module<T> {
         authorization_data: AuthorizationData<T::AccountId>,
         type_of_auth: AuthorizationType,
     ) -> bool {
-        match authorization_data {
-            AuthorizationData::AttestMasterKeyRotation(..) => {
-                type_of_auth == AuthorizationType::AttestMasterKeyRotation
+        type_of_auth
+            == match authorization_data {
+                AuthorizationData::AttestMasterKeyRotation(..) => {
+                    AuthorizationType::AttestMasterKeyRotation
+                }
+                AuthorizationData::RotateMasterKey(..) => AuthorizationType::RotateMasterKey,
+                AuthorizationData::TransferTicker(..) => AuthorizationType::TransferTicker,
+                AuthorizationData::AddMultiSigSigner(..) => AuthorizationType::AddMultiSigSigner,
+                AuthorizationData::TransferAssetOwnership(..) => {
+                    AuthorizationType::TransferAssetOwnership
+                }
+                AuthorizationData::JoinIdentity(..) => AuthorizationType::JoinIdentity,
+                AuthorizationData::Custom(..) => AuthorizationType::Custom,
+                AuthorizationData::NoData => AuthorizationType::NoData,
             }
-            AuthorizationData::RotateMasterKey(..) => {
-                type_of_auth == AuthorizationType::RotateMasterKey
-            }
-            AuthorizationData::TransferTicker(..) => {
-                type_of_auth == AuthorizationType::TransferTicker
-            }
-            AuthorizationData::AddMultiSigSigner(..) => {
-                type_of_auth == AuthorizationType::AddMultiSigSigner
-            }
-            AuthorizationData::TransferAssetOwnership(..) => {
-                type_of_auth == AuthorizationType::TransferAssetOwnership
-            }
-            AuthorizationData::JoinIdentity(..) => type_of_auth == AuthorizationType::JoinIdentity,
-            AuthorizationData::Custom(..) => type_of_auth == AuthorizationType::Custom,
-            AuthorizationData::NoData => type_of_auth == AuthorizationType::NoData,
-        }
     }
 
     pub fn get_did_status(dids: Vec<IdentityId>) -> Vec<DidStatus> {
