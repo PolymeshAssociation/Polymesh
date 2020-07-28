@@ -6,7 +6,7 @@ set -o pipefail
 
 GIT_DIR=$1
 NPM_CACHE_DIR=$2
-CARGO_CACHE_DIR=$3
+ARTIFACT_DIR=$3
 
 # Sync the npm cache from the install task
 mkdir -p ${GIT_DIR}/scripts/cli/node_modules
@@ -14,7 +14,7 @@ mkdir -p ${NPM_CACHE_DIR}/scripts/cli/node_modules
 rsync -auv --size-only ${NPM_CACHE_DIR}/scripts/cli/node_modules/ ${GIT_DIR}/scripts/cli/node_modules | grep -e "^total size" -B1 --color=never
 
 # Run polymesh silently in the background
-$GIT_DIR/target/release/polymesh --dev --pool-limit 100000 -d /tmp/pmesh-primary-node > /dev/null &
+$ARTIFACT_DIR/usr/local/bin/polymesh --dev --pool-limit 100000 -d /tmp/pmesh-primary-node > /dev/null &
 POLYMESH_PID=$!
 
 cd $GIT_DIR/scripts/cli
