@@ -630,27 +630,18 @@ decl_module! {
                 url: Option<Url>,
                 description: Option<PipDescription>
         ) -> DispatchResult {
-            // 0. Initial info.
-            let proposer = ensure_signed(origin)?;
-            let meta = Self::proposal_metadata(id)
-                .ok_or_else(|| Error::<T>::NoSuchProposal)?;
+            // 1. Fetch proposer and perform sanity checks.
+            let proposer = Self::ensure_owned_by_alterable(origin, id)?;
 
-            // 1. Only owner can cancel it.
-            ensure!( meta.proposer == proposer, Error::<T>::BadOrigin);
-            // Check that the proposal is pending
-            Self::is_proposal_state(id, ProposalState::Pending)?;
-
-            // 2. Proposal can be cancelled *ONLY* during its cool-off period.
-            let curr_block_number = <system::Module<T>>::block_number();
-            ensure!( meta.cool_off_until > curr_block_number, Error::<T>::ProposalIsImmutable);
-
-            // 3. Update proposal metadata.
+            // 2. Update proposal metadata.
             <ProposalMetadata<T>>::mutate( id, |meta| {
                 if let Some(meta) = meta {
                     meta.url = url.clone();
                     meta.description = description.clone();
                 }
             });
+
+            // 3. Emit event.
             let current_did = Self::current_did_or_missing()?;
             Self::deposit_event(RawEvent::ProposalDetailsAmended(current_did, proposer, id, url, description));
 
