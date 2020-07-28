@@ -59,7 +59,7 @@ impl Default for MockProtocolBaseFees {
 
 #[derive(Default)]
 pub struct ExtBuilder {
-    transaction_base_fee: u128,
+    extrinsic_base_weight: u64,
     transaction_byte_fee: u128,
     weight_to_fee: u128,
     /// Scaling factor for initial balances on genesis.
@@ -81,10 +81,17 @@ thread_local! {
 }
 
 impl ExtBuilder {
-    pub fn transaction_fees(mut self, base_fee: u128, byte_fee: u128, weight_fee: u128) -> Self {
-        self.transaction_base_fee = base_fee;
-        self.transaction_byte_fee = byte_fee;
-        self.weight_to_fee = weight_fee;
+    /// Sets parameters for transaction fees
+    /// (`extrinsic_base_weight`, `transaction_byte_fee`, and `weight_to_fee`).
+    pub fn transaction_fees(
+        mut self,
+        extrinsic_base_weight: u64,
+        transaction_byte_fee: u128,
+        weight_to_fee: u128,
+    ) -> Self {
+        self.extrinsic_base_weight = extrinsic_base_weight;
+        self.transaction_byte_fee = transaction_byte_fee;
+        self.weight_to_fee = weight_to_fee;
         self
     }
 
@@ -136,6 +143,7 @@ impl ExtBuilder {
     }
 
     pub fn set_associated_consts(&self) {
+        EXTRINSIC_BASE_WEIGHT.with(|v| *v.borrow_mut() = self.extrinsic_base_weight);
         TRANSACTION_BYTE_FEE.with(|v| *v.borrow_mut() = self.transaction_byte_fee);
         WEIGHT_TO_FEE.with(|v| *v.borrow_mut() = self.weight_to_fee);
     }
