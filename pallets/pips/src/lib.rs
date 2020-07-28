@@ -73,13 +73,12 @@ use frame_support::{
 };
 use frame_system::{self as system, ensure_signed};
 use pallet_identity as identity;
-use pallet_pips_rpc_runtime_api::VoteCount;
 use pallet_treasury::TreasuryTrait;
 use polymesh_common_utilities::{
     constants::PIP_MAX_REPORTING_SIZE,
     identity::Trait as IdentityTrait,
     protocol_fee::{ChargeProtocolFee, ProtocolOp},
-    traits::{governance_group::GovernanceGroupTrait, group::GroupTrait},
+    traits::{governance_group::GovernanceGroupTrait, group::GroupTrait, pip::PipId},
     CommonTrait, Context, SystematicIssuers,
 };
 use polymesh_primitives::{AccountKey, Beneficiary, IdentityId, Signatory};
@@ -88,11 +87,13 @@ use sp_core::H256;
 use sp_runtime::traits::{
     BlakeTwo256, CheckedAdd, CheckedSub, Dispatchable, EnsureOrigin, Hash, Saturating, Zero,
 };
-use sp_std::{convert::TryFrom, prelude::*};
+use sp_std::{
+    convert::{From, TryFrom},
+    prelude::*,
+};
 
-/// Mesh Improvement Proposal id. Used offchain.
-pub type PipId = u32;
-
+#[cfg(feature = "std")]
+use serde::{Deserialize, Serialize};
 /// Balance
 type BalanceOf<T> =
     <<T as Trait>::Currency as Currency<<T as frame_system::Trait>::AccountId>>::Balance;
@@ -111,15 +112,31 @@ pub struct PipDescription(pub Vec<u8>);
 
 /// Represents a proposal
 #[derive(Encode, Decode, Clone, PartialEq, Eq)]
+#[cfg_attr(feature = "std", derive(Debug))]
 pub struct Pip<Proposal, Balance> {
     /// The proposal's unique id.
-    id: PipId,
+    pub id: PipId,
     /// The proposal being voted on.
-    proposal: Proposal,
+    pub proposal: Proposal,
     /// The latest state
-    state: ProposalState,
+    pub state: ProposalState,
     /// Beneficiaries of this Pips
     pub beneficiaries: Option<Vec<Beneficiary<Balance>>>,
+}
+
+/// A result of execution of get_votes.
+#[derive(Eq, PartialEq, Encode, Decode)]
+#[cfg_attr(feature = "std", derive(Debug, Serialize, Deserialize))]
+pub enum VoteCount<Balance> {
+    /// Proposal was found and has the following votes.
+    ProposalFound {
+        /// Stake for
+        ayes: Balance,
+        /// Stake against
+        nays: Balance,
+    },
+    /// Proposal was not for given index.
+    ProposalNotFound,
 }
 
 /// Either the entire proposal encoded as a byte vector or its hash. The latter represents large
@@ -163,7 +180,7 @@ pub struct VotingResult<Balance: Parameter> {
 }
 
 #[derive(PartialEq, Eq, Clone, Encode, Decode)]
-#[cfg_attr(feature = "std", derive(Debug))]
+#[cfg_attr(feature = "std", derive(Debug, Serialize, Deserialize))]
 pub enum Vote<Balance> {
     None,
     Yes(Balance),
@@ -176,8 +193,17 @@ impl<Balance> Default for Vote<Balance> {
     }
 }
 
-#[derive(Encode, Decode, Copy, Clone, Eq, PartialEq)]
-#[cfg_attr(feature = "std", derive(Debug))]
+#[derive(PartialEq, Eq, Clone, Encode, Decode)]
+#[cfg_attr(feature = "std", derive(Debug, Serialize, Deserialize))]
+pub struct VoteByPip<VoteType> {
+    pub pip: PipId,
+    pub vote: VoteType,
+}
+
+pub type HistoricalVotingByAddress<VoteType> = Vec<VoteByPip<VoteType>>;
+pub type HistoricalVotingById<VoteType> = Vec<(AccountKey, HistoricalVotingByAddress<VoteType>)>;
+
+#[derive(Encode, Decode, Copy, Clone, Eq, PartialEq, Debug)]
 pub enum ProposalState {
     /// Proposal is created and either in the cool-down period or open to voting
     Pending,
@@ -395,6 +421,8 @@ decl_error! {
     pub enum Error for Module<T: Trait> {
         /// Incorrect origin
         BadOrigin,
+        /// Proposer specifies an incorrect deposit
+        IncorrectDeposit,
         /// Proposer can't afford to lock minimum deposit
         InsufficientDeposit,
         /// when voter vote gain
@@ -403,8 +431,6 @@ decl_error! {
         DuplicateProposal,
         /// The proposal does not exist.
         NoSuchProposal,
-        /// Mismatched proposal id.
-        MismatchedProposalId,
         /// Not part of governance committee.
         NotACommitteeMember,
         /// After Cool-off period, proposals are not cancelable.
@@ -501,8 +527,7 @@ decl_module! {
         #[weight = SimpleDispatchInfo::FixedOperational(100_000)]
         pub fn set_proposal_cool_off_period(origin, duration: T::BlockNumber) {
             T::CommitteeOrigin::try_origin(origin).map_err(|_| Error::<T>::BadOrigin)?;
-            let current_did = Context::current_identity::<Identity<T>>().ok_or_else(|| Error::<T>::MissingCurrentIdentity)?;
-            Self::deposit_event(RawEvent::ProposalDurationChanged(current_did, Self::proposal_cool_off_period(), duration));
+            Self::deposit_event(RawEvent::ProposalDurationChanged(SystematicIssuers::Committee.as_id(), Self::proposal_cool_off_period(), duration));
             <ProposalCoolOffPeriod<T>>::put(duration);
         }
 
@@ -538,7 +563,7 @@ decl_module! {
             // Pre conditions: caller must have min balance
             ensure!(
                 deposit >= Self::min_proposal_deposit(),
-                Error::<T>::InsufficientDeposit
+                Error::<T>::IncorrectDeposit
             );
 
             // Reserve the minimum deposit
@@ -616,7 +641,7 @@ decl_module! {
             // 0. Initial info.
             let proposer = ensure_signed(origin)?;
             let meta = Self::proposal_metadata(id)
-                .ok_or_else(|| Error::<T>::MismatchedProposalId)?;
+                .ok_or_else(|| Error::<T>::NoSuchProposal)?;
 
             // 1. Only owner can cancel it.
             ensure!( meta.proposer == proposer, Error::<T>::BadOrigin);
@@ -653,7 +678,7 @@ decl_module! {
             let proposer = ensure_signed(origin)?;
             // 1. Only owner can cancel it.
             let meta = Self::proposal_metadata(id)
-                .ok_or_else(|| Error::<T>::MismatchedProposalId)?;
+                .ok_or_else(|| Error::<T>::NoSuchProposal)?;
             ensure!( meta.proposer == proposer, Error::<T>::BadOrigin);
             // Check that the proposal is pending
             Self::is_proposal_state(id, ProposalState::Pending)?;
@@ -684,7 +709,7 @@ decl_module! {
         ) -> DispatchResult {
             let proposer = ensure_signed(origin)?;
             let meta = Self::proposal_metadata(id)
-                .ok_or_else(|| Error::<T>::MismatchedProposalId)?;
+                .ok_or_else(|| Error::<T>::NoSuchProposal)?;
 
             // 1. Only owner can add additional deposit.
             ensure!( meta.proposer == proposer, Error::<T>::BadOrigin);
@@ -732,7 +757,7 @@ decl_module! {
         ) -> DispatchResult {
             let proposer = ensure_signed(origin)?;
             let meta = Self::proposal_metadata(id)
-                .ok_or_else(|| Error::<T>::MismatchedProposalId)?;
+                .ok_or_else(|| Error::<T>::NoSuchProposal)?;
 
             // 1. Only owner can cancel it.
             ensure!( meta.proposer == proposer, Error::<T>::BadOrigin);
@@ -749,7 +774,7 @@ decl_module! {
                     .ok_or_else(|| Error::<T>::InsufficientDeposit)?;
             ensure!(
                 new_deposit >= Self::min_proposal_deposit(),
-                Error::<T>::InsufficientDeposit);
+                Error::<T>::IncorrectDeposit);
             let diff_amount = depo_info.amount - new_deposit;
             depo_info.amount = new_deposit;
 
@@ -781,7 +806,7 @@ decl_module! {
         pub fn vote(origin, id: PipId, aye_or_nay: bool, deposit: BalanceOf<T>) {
             let proposer = ensure_signed(origin)?;
             let meta = Self::proposal_metadata(id)
-                .ok_or_else(|| Error::<T>::MismatchedProposalId)?;
+                .ok_or_else(|| Error::<T>::NoSuchProposal)?;
 
             // No one should be able to vote during the proposal cool-off period.
             let curr_block_number = <system::Module<T>>::block_number();
@@ -825,13 +850,40 @@ decl_module! {
         /// a proposal at any time.
         #[weight = SimpleDispatchInfo::FixedOperational(100_000)]
         pub fn kill_proposal(origin, id: PipId) {
-            T::CommitteeOrigin::try_origin(origin).map_err(|_| Error::<T>::BadOrigin)?;
+            T::VotingMajorityOrigin::try_origin(origin).map_err(|_| Error::<T>::BadOrigin)?;
             ensure!(<Proposals<T>>::contains_key(id), Error::<T>::NoSuchProposal);
             // Check that the proposal is pending
             Self::is_proposal_state(id, ProposalState::Pending)?;
             Self::refund_proposal(id);
             Self::update_proposal_state(id, ProposalState::Killed);
             Self::prune_data(id, Self::prune_historical_pips());
+        }
+
+        /// An emergency stop measure to kill a proposal. Governance committee can kill
+        /// a proposal at any time.
+        #[weight = SimpleDispatchInfo::FixedOperational(100_000)]
+        pub fn prune_proposal(origin, id: PipId) {
+            T::CommitteeOrigin::try_origin(origin).map_err(|_| Error::<T>::BadOrigin)?;
+            // Check that the proposal is in a state valid for pruning
+            let proposal = Self::proposals(id).ok_or_else(|| Error::<T>::NoSuchProposal)?;
+            if proposal.state == ProposalState::Referendum {
+                // Check that the referendum is in a state valid for pruning
+                let referendum = Self::referendums(id).ok_or_else(|| Error::<T>::NoSuchProposal)?;
+                ensure!(
+                    referendum.state == ReferendumState::Rejected ||
+                    referendum.state == ReferendumState::Failed ||
+                    referendum.state == ReferendumState::Executed,
+                    Error::<T>::IncorrectReferendumState
+                );
+            } else {
+                ensure!(
+                    proposal.state == ProposalState::Cancelled ||
+                    proposal.state == ProposalState::Killed ||
+                    proposal.state == ProposalState::Rejected,
+                    Error::<T>::IncorrectProposalState
+                );
+            }
+            Self::prune_data(id, true);
         }
 
         /// Any governance committee member can fast track a proposal and turn it into a referendum
@@ -846,7 +898,7 @@ decl_module! {
                 Error::<T>::NotACommitteeMember
             );
 
-            ensure!(<Proposals<T>>::contains_key(id), Error::<T>::MismatchedProposalId);
+            ensure!(<Proposals<T>>::contains_key(id), Error::<T>::NoSuchProposal);
             // Check that the proposal is pending
             Self::is_proposal_state(id, ProposalState::Pending)?;
             Self::create_referendum(
@@ -967,7 +1019,7 @@ decl_module! {
             // 3. Update enactment period.
             // 3.1 Update referendum.
             let referendum = Self::referendums(id)
-                .ok_or_else(|| Error::<T>::MismatchedProposalId)?;
+                .ok_or_else(|| Error::<T>::NoSuchProposal)?;
 
             let old_until = referendum.enactment_period;
 
@@ -1099,7 +1151,7 @@ impl<T: Trait> Module<T> {
     fn prepare_to_dispatch(id: PipId) -> DispatchResult {
         ensure!(
             <Referendums<T>>::contains_key(id),
-            Error::<T>::MismatchedProposalId
+            Error::<T>::NoSuchProposal
         );
 
         // Set the default enactment period and move it to `Scheduled`
@@ -1197,7 +1249,7 @@ impl<T: Trait> Module<T> {
     }
 
     fn is_referendum_state(id: PipId, state: ReferendumState) -> DispatchResult {
-        let referendum = Self::referendums(id).ok_or_else(|| Error::<T>::MismatchedProposalId)?;
+        let referendum = Self::referendums(id).ok_or_else(|| Error::<T>::NoSuchProposal)?;
         ensure!(
             referendum.state == state,
             Error::<T>::IncorrectReferendumState
@@ -1206,7 +1258,7 @@ impl<T: Trait> Module<T> {
     }
 
     fn is_proposal_state(id: PipId, state: ProposalState) -> DispatchResult {
-        let proposal = Self::proposals(id).ok_or_else(|| Error::<T>::MismatchedProposalId)?;
+        let proposal = Self::proposals(id).ok_or_else(|| Error::<T>::NoSuchProposal)?;
         ensure!(proposal.state == state, Error::<T>::IncorrectProposalState);
         Ok(())
     }
@@ -1224,7 +1276,7 @@ impl<T: Trait> Module<T> {
         }
 
         let voting = Self::proposal_result(id);
-        VoteCount::Success {
+        VoteCount::ProposalFound {
             ayes: voting.ayes_stake,
             nays: voting.nays_stake,
         }
@@ -1246,6 +1298,34 @@ impl<T: Trait> Module<T> {
                 _ => Some(meta.id),
             })
             .collect::<Vec<_>>()
+    }
+
+    /// Retrieve historical voting of `who` account.
+    pub fn voting_history_by_address(
+        who: T::AccountId,
+    ) -> HistoricalVotingByAddress<Vote<BalanceOf<T>>> {
+        <ProposalMetadata<T>>::iter()
+            .map(|meta| VoteByPip {
+                pip: meta.id,
+                vote: Self::proposal_vote(meta.id, &who),
+            })
+            .collect::<Vec<_>>()
+    }
+
+    /// Retrieve historical voting of `who` identity.
+    /// It fetches all its keys recursively and it returns the voting history for each of them.
+    pub fn voting_history_by_id(who: IdentityId) -> HistoricalVotingById<Vote<BalanceOf<T>>> {
+        let flatten_keys = <Identity<T>>::flatten_keys(who, 1);
+        flatten_keys
+            .into_iter()
+            .filter_map(|key| {
+                if let Ok(address) = T::AccountId::decode(&mut key.as_slice()) {
+                    Some((key, Self::voting_history_by_address(address)))
+                } else {
+                    None
+                }
+            })
+            .collect::<HistoricalVotingById<_>>()
     }
 
     /// It generates the next id for proposals and referendums.
@@ -1301,5 +1381,11 @@ impl<T: Trait> Module<T> {
             ProposalData::Proposal(encoded_proposal)
         };
         proposal_data
+    }
+
+    /// A proposal is valid if there is an associated proposal and it is in pending state.
+    pub fn is_proposal_id_valid(id: PipId) -> bool {
+        <Proposals<T>>::contains_key(id)
+            && Self::is_referendum_state(id, ReferendumState::Pending).is_ok()
     }
 }

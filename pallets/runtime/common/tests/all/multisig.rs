@@ -488,7 +488,6 @@ fn add_multisig_signer() {
             MultiSig::ms_signers(musig_address.clone(), charlie_signer),
             true
         );
-        Context::set_current_identity::<Identity>(Some(IdentityId::from(999)));
         assert!(Identity::change_cdd_requirement_for_mk_rotation(root.clone(), true).is_ok());
 
         Context::set_current_identity::<Identity>(Some(alice_did));
@@ -496,7 +495,6 @@ fn add_multisig_signer() {
             MultiSig::accept_multisig_signer_as_key(bob.clone(), bob_auth_id),
             Error::ChangeNotAllowed
         );
-        Context::set_current_identity::<Identity>(Some(IdentityId::from(999)));
         assert!(Identity::change_cdd_requirement_for_mk_rotation(root.clone(), false).is_ok());
 
         Context::set_current_identity::<Identity>(Some(alice_did));
@@ -894,13 +892,8 @@ fn check_for_approval_closure() {
         let eve_did = register_keyring_account(AccountKeyring::Eve).unwrap();
         let alice = Origin::signed(AccountKeyring::Alice.public());
         let eve = Origin::signed(AccountKeyring::Eve.public());
-        let bob = Origin::signed(AccountKeyring::Bob.public());
         let bob_signer =
             Signatory::from(AccountKey::try_from(AccountKeyring::Bob.public().encode()).unwrap());
-        let charlie = Origin::signed(AccountKeyring::Charlie.public());
-        let charlie_signer = Signatory::from(
-            AccountKey::try_from(AccountKeyring::Charlie.public().encode()).unwrap(),
-        );
 
         let musig_address = MultiSig::get_next_multisig_address(AccountKeyring::Alice.public());
 

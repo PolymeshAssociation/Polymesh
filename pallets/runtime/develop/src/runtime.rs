@@ -15,23 +15,29 @@ use polymesh_runtime_common::{
 use pallet_asset as asset;
 use pallet_balances as balances;
 use pallet_committee as committee;
-use pallet_compliance_manager as compliance_manager;
+use pallet_compliance_manager::{self as compliance_manager, AssetTransferRulesResult};
 use pallet_group as group;
 use pallet_identity as identity;
 use pallet_multisig as multisig;
+use pallet_pips::{HistoricalVotingByAddress, HistoricalVotingById, Vote, VoteCount};
 use pallet_protocol_fee as protocol_fee;
 use pallet_statistics as statistics;
 use pallet_treasury as treasury;
+use pallet_utility as utility;
 
 use polymesh_common_utilities::{
     constants::currency::*,
     protocol_fee::ProtocolOp,
-    traits::{balances::AccountData, identity::Trait as IdentityTrait},
+    traits::{
+        balances::AccountData,
+        identity::Trait as IdentityTrait,
+        pip::{EnactProposalMaker, PipId},
+    },
     CommonTrait,
 };
 use polymesh_primitives::{
-    AccountId, AccountIndex, AccountKey, Balance, BlockNumber, Hash, IdentityId, Index, Moment,
-    Signature, SigningItem, Ticker,
+    AccountId, AccountIndex, AccountKey, Balance, BlockNumber, Hash, IdentityId, Index, Link,
+    Moment, Signatory, Signature, SigningItem, Ticker,
 };
 
 use sp_api::impl_runtime_apis;
@@ -63,7 +69,7 @@ use frame_support::{
 use frame_system::offchain::TransactionSubmitter;
 use pallet_contracts_rpc_runtime_api::ContractExecResult;
 use pallet_grandpa::{fg_primitives, AuthorityList as GrandpaAuthorityList};
-use pallet_identity_rpc_runtime_api::{AssetDidResult, CddStatus, DidRecords};
+use pallet_identity_rpc_runtime_api::{AssetDidResult, CddStatus, DidRecords, DidStatus, LinkType};
 use pallet_im_online::sr25519::AuthorityId as ImOnlineId;
 use pallet_protocol_fee_rpc_runtime_api::CappedFee;
 use pallet_transaction_payment_rpc_runtime_api::RuntimeDispatchInfo;
@@ -89,8 +95,8 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     spec_name: create_runtime_str!("polymesh"),
     impl_name: create_runtime_str!("polymath-polymesh"),
     authoring_version: 1,
-    spec_version: 1004,
-    impl_version: 1004,
+    spec_version: 1008,
+    impl_version: 1008,
     apis: RUNTIME_API_VERSIONS,
 };
 
@@ -202,7 +208,7 @@ impl balances::Trait for Runtime {
 }
 
 parameter_types! {
-    pub const TransactionBaseFee: Balance = 1 * CENTS;
+    pub const TransactionBaseFee: Balance = 1 * DOLLARS;
     pub const TransactionByteFee: Balance = 10 * MILLICENTS;
     // setting this to zero will disable the weight fee.
     pub const WeightFeeCoefficient: Balance = 1;
@@ -216,7 +222,7 @@ impl pallet_transaction_payment::Trait for Runtime {
     type TransactionBaseFee = TransactionBaseFee;
     type TransactionByteFee = TransactionByteFee;
     type WeightToFee = LinearWeightToFee<WeightFeeCoefficient>;
-    type FeeMultiplierUpdate = TargetedFeeAdjustment<TargetBlockFullness, Self>;
+    type FeeMultiplierUpdate = ();
     type CddHandler = CddHandler;
 }
 
@@ -333,6 +339,7 @@ impl committee::Trait<GovernanceCommittee> for Runtime {
     type CommitteeOrigin = frame_system::EnsureRoot<AccountId>;
     type Event = Event;
     type MotionDuration = MotionDuration;
+    type EnactProposalMaker = Runtime;
 }
 
 /// PolymeshCommittee as an instance of group
@@ -523,6 +530,25 @@ impl group::Trait<group::Instance2> for Runtime {
 
 impl statistics::Trait for Runtime {}
 
+impl pallet_utility::Trait for Runtime {
+    type Event = Event;
+    type Call = Call;
+}
+
+impl EnactProposalMaker<Origin, Call> for Runtime {
+    fn is_pip_id_valid(id: PipId) -> bool {
+        Pips::is_proposal_id_valid(id)
+    }
+
+    fn enact_referendum_call(id: PipId) -> Call {
+        Call::Pips(pallet_pips::Call::enact_referendum(id))
+    }
+
+    fn reject_referendum_call(id: PipId) -> Call {
+        Call::Pips(pallet_pips::Call::reject_referendum(id))
+    }
+}
+
 /// A runtime transaction submitter for the cdd_offchain_worker
 // Comment it in the favour of Testnet v1 release
 //type SubmitTransactionCdd = TransactionSubmitter<CddOffchainWorkerId, Runtime, UncheckedExtrinsic>;
@@ -646,6 +672,7 @@ construct_runtime!(
         CddServiceProviders: group::<Instance2>::{Module, Call, Storage, Event<T>, Config<T>},
         Statistic: statistics::{Module, Call, Storage},
         ProtocolFee: protocol_fee::{Module, Call, Storage, Event<T>, Config<T>},
+        Utility: utility::{Module, Call, Storage, Event},
         // Comment it in the favour of Testnet v1 release
         // CddOffchainWorker: pallet_cdd_offchain_worker::{Module, Call, Storage, ValidateUnsigned, Event<T>}
     }
@@ -847,9 +874,11 @@ impl_runtime_apis! {
         }
     }
 
-    impl pallet_pips_rpc_runtime_api::PipsApi<Block, AccountId, Balance> for Runtime {
+    impl node_rpc_runtime_api::pips::PipsApi<Block, AccountId, Balance>
+    for Runtime
+    {
         /// Get vote count for a given proposal index
-        fn get_votes(index: u32) -> pallet_pips_rpc_runtime_api::VoteCount<Balance> {
+        fn get_votes(index: u32) -> VoteCount<Balance> {
             Pips::get_votes(index)
         }
 
@@ -861,6 +890,17 @@ impl_runtime_apis! {
         /// Proposals `address` voted on
         fn voted_on(address: AccountId) -> Vec<u32> {
             Pips::voted_on(address)
+        }
+
+        /// Retrieve referendums voted on information by `address` account.
+        fn voting_history_by_address(address: AccountId) -> HistoricalVotingByAddress<Vote<Balance>> {
+            Pips::voting_history_by_address(address)
+
+        }
+
+        /// Retrieve referendums voted on information by `id` identity (and its signing items).
+        fn voting_history_by_id(id: IdentityId) -> HistoricalVotingById<Vote<Balance>> {
+            Pips::voting_history_by_id(id)
         }
     }
 
@@ -879,6 +919,8 @@ impl_runtime_apis! {
             Ticker,
             AccountKey,
             SigningItem,
+            Signatory,
+            Moment
         > for Runtime
     {
         /// RPC call to know whether the given did has valid cdd claim or not
@@ -899,19 +941,41 @@ impl_runtime_apis! {
         fn get_did_records(did: IdentityId) -> DidRecords<AccountKey, SigningItem> {
             Identity::get_did_records(did)
         }
+
+        /// Retrieve list of a link for a given signatory
+        fn get_filtered_links(signatory: Signatory, allow_expired: bool, link_type: Option<LinkType>) -> Vec<Link<Moment>> {
+            Identity::get_filtered_links(signatory, allow_expired, link_type)
+        }
+
+        /// Retrieve the status of the DIDs
+        fn get_did_status(dids: Vec<IdentityId>) -> Vec<DidStatus> {
+            Identity::get_did_status(dids)
+        }
     }
 
-    impl pallet_asset_rpc_runtime_api::AssetApi<Block, AccountId, Balance> for Runtime {
+    impl node_rpc_runtime_api::asset::AssetApi<Block, AccountId, Balance> for Runtime {
         #[inline]
         fn can_transfer(
             sender: AccountId,
             ticker: Ticker,
             from_did: Option<IdentityId>,
             to_did: Option<IdentityId>,
-            value: Balance) -> pallet_asset_rpc_runtime_api::CanTransferResult
+            value: Balance) -> node_rpc_runtime_api::asset::CanTransferResult
         {
             Asset::unsafe_can_transfer(sender, ticker, from_did, to_did, value)
                 .map_err(|msg| msg.as_bytes().to_vec())
+        }
+    }
+
+    impl pallet_compliance_manager_rpc_runtime_api::ComplianceManagerApi<Block, AccountId, Balance> for Runtime {
+        #[inline]
+        fn can_transfer(
+            ticker: Ticker,
+            from_did: Option<IdentityId>,
+            to_did: Option<IdentityId>,
+        ) -> AssetTransferRulesResult
+        {
+            ComplianceManager::granular_verify_restriction(&ticker, from_did, to_did)
         }
     }
 

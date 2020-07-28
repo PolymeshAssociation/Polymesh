@@ -7,6 +7,7 @@ use super::{
     ExtBuilder,
 };
 
+use pallet_identity_rpc_runtime_api::LinkType;
 use polymesh_common_utilities::{
     traits::{
         group::GroupTrait,
@@ -15,8 +16,8 @@ use polymesh_common_utilities::{
     SystematicIssuers,
 };
 use polymesh_primitives::{
-    AccountKey, AuthorizationData, AuthorizationError, Claim, ClaimType, IdentityClaim, IdentityId,
-    LinkData, Permission, Scope, Signatory, SigningItem, Ticker, TransactionError,
+    AccountKey, AuthorizationData, AuthorizationError, Claim, ClaimType, Document, IdentityClaim,
+    IdentityId, LinkData, Permission, Scope, Signatory, SigningItem, Ticker, TransactionError,
 };
 use polymesh_runtime_develop::{fee_details::CddHandler, runtime::Call};
 
@@ -545,6 +546,111 @@ fn frozen_signing_keys_cdd_verification_test_we() {
 }
 
 #[test]
+fn remove_signing_keys_test() {
+    ExtBuilder::default()
+        .monied(true)
+        .build()
+        .execute_with(&remove_signing_keys_test_with_externalities);
+}
+
+fn remove_signing_keys_test_with_externalities() {
+    let bob_key = AccountKey::from(AccountKeyring::Bob.public().0);
+
+    let bob_signing_key = SigningItem::new(Signatory::AccountKey(bob_key), vec![]);
+
+    let alice_did = register_keyring_account(AccountKeyring::Alice).unwrap();
+    let alice = Origin::signed(AccountKeyring::Alice.public());
+    let charlie = Origin::signed(AccountKeyring::Charlie.public());
+    let _charlie_did = register_keyring_account(AccountKeyring::Charlie).unwrap();
+
+    assert_ok!(Balances::top_up_identity_balance(
+        alice.clone(),
+        alice_did,
+        PROTOCOL_OP_BASE_FEE
+    ));
+
+    add_signing_item(alice_did, Signatory::from(bob_key));
+
+    // Check DidRecord.
+    let did_rec = Identity::did_records(alice_did);
+    assert_eq!(did_rec.signing_items, vec![bob_signing_key.clone()]);
+    assert_eq!(Identity::get_identity(&bob_key), Some(alice_did));
+
+    // Try removing bob using charlie
+    assert_ok!(Identity::remove_signing_items(
+        charlie.clone(),
+        vec![Signatory::AccountKey(bob_key)]
+    ));
+
+    // Check DidRecord.
+    let did_rec = Identity::did_records(alice_did);
+    assert_eq!(did_rec.signing_items, vec![bob_signing_key]);
+    assert_eq!(Identity::get_identity(&bob_key), Some(alice_did));
+
+    // Try remove bob using alice
+    assert_ok!(Identity::remove_signing_items(
+        alice.clone(),
+        vec![Signatory::AccountKey(bob_key)]
+    ));
+
+    // Check DidRecord.
+    let did_rec = Identity::did_records(alice_did);
+    assert_eq!(did_rec.signing_items.len(), 0);
+    assert_eq!(Identity::get_identity(&bob_key), None);
+}
+
+#[test]
+fn leave_identity_test() {
+    ExtBuilder::default()
+        .monied(true)
+        .build()
+        .execute_with(&leave_identity_test_with_externalities);
+}
+
+fn leave_identity_test_with_externalities() {
+    let bob_key = AccountKey::from(AccountKeyring::Bob.public().0);
+    let bob = Origin::signed(AccountKeyring::Bob.public());
+    let alice_did = register_keyring_account(AccountKeyring::Alice).unwrap();
+    let alice = Origin::signed(AccountKeyring::Alice.public());
+    let charlie_did = register_keyring_account(AccountKeyring::Charlie).unwrap();
+    let charlie = Origin::signed(AccountKeyring::Charlie.public());
+
+    let bob_signing_key = SigningItem::new(Signatory::AccountKey(bob_key), vec![]);
+    let charlie_signing_key = SigningItem::new(Signatory::Identity(charlie_did), vec![]);
+    let alice_signing_items = vec![bob_signing_key, charlie_signing_key.clone()];
+
+    assert_ok!(Balances::top_up_identity_balance(
+        alice,
+        alice_did,
+        2 * PROTOCOL_OP_BASE_FEE
+    ));
+
+    add_signing_item(alice_did, Signatory::from(bob_key));
+    add_signing_item(alice_did, Signatory::from(charlie_did));
+
+    // Check DidRecord.
+    let did_rec = Identity::did_records(alice_did);
+    assert_eq!(did_rec.signing_items, alice_signing_items);
+    assert_eq!(Identity::get_identity(&bob_key), Some(alice_did));
+
+    // Bob leaves
+    assert_ok!(Identity::leave_identity_as_key(bob));
+
+    // Check DidRecord.
+    let did_rec = Identity::did_records(alice_did);
+    assert_eq!(did_rec.signing_items, vec![charlie_signing_key]);
+    assert_eq!(Identity::get_identity(&bob_key), None);
+
+    // Charlie leaves
+    assert_ok!(Identity::leave_identity_as_identity(charlie, alice_did));
+
+    // Check DidRecord.
+    let did_rec = Identity::did_records(alice_did);
+    assert_eq!(did_rec.signing_items.len(), 0);
+    assert_eq!(Identity::get_identity(&bob_key), None);
+}
+
+#[test]
 fn enforce_uniqueness_keys_in_identity_tests() {
     ExtBuilder::default()
         .monied(true)
@@ -847,6 +953,50 @@ fn adding_links() {
         link = Identity::get_link(bob_did, link_id);
         assert_eq!(link.expiry, Some(100));
         assert_eq!(link.link_data, LinkData::TickerOwned(ticker50));
+
+        // Testing the list of filtered links
+        Timestamp::set_timestamp(120);
+
+        // Getting expired and non-expired both
+        let mut links =
+            Identity::get_filtered_links(bob_did, true, Some(LinkType::TickerOwnership));
+        assert_eq!(links.len(), 4);
+        links = Identity::get_filtered_links(bob_did, false, Some(LinkType::TickerOwnership));
+        // Two links are expired
+        assert_eq!(links.len(), 2);
+        // Add other type of link
+        // 1.1 : Add document type
+        let doc = Document {
+            name: b"D".into(),
+            uri: b"www.d.com".into(),
+            content_hash: b"0x4".into(),
+        };
+
+        Identity::add_link(bob_did, LinkData::DocumentOwned(doc.clone()), None);
+        // 1.2 : Add AssetOwned type
+        Identity::add_link(bob_did, LinkData::AssetOwned(ticker51), None);
+        Identity::add_link(bob_did, LinkData::AssetOwned(ticker50), Some(200));
+
+        // Query DocumentOwnership type link
+        links = Identity::get_filtered_links(bob_did, true, Some(LinkType::DocumentOwnership));
+        assert_eq!(links.len(), 1);
+
+        // Query AssetOwnership type
+        links = Identity::get_filtered_links(bob_did, true, Some(LinkType::AssetOwnership));
+        assert_eq!(links.len(), 2);
+
+        // Increase time
+        Timestamp::set_timestamp(220);
+        links = Identity::get_filtered_links(bob_did, false, Some(LinkType::AssetOwnership));
+        assert_eq!(links.len(), 1);
+
+        // Query all links without providing link type and allow expired ones as well
+        links = Identity::get_filtered_links(bob_did, true, None);
+        assert_eq!(links.len(), 7);
+
+        // Query all links without providing link type and not allow the expired ones
+        links = Identity::get_filtered_links(bob_did, false, None);
+        assert_eq!(links.len(), 4);
     });
 }
 

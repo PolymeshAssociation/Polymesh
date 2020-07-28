@@ -84,7 +84,7 @@
 #[cfg(feature = "runtime-benchmarks")]
 pub mod benchmarking;
 
-use pallet_identity_rpc_runtime_api::DidRecords as RpcDidRecords;
+use pallet_identity_rpc_runtime_api::{DidRecords as RpcDidRecords, DidStatus, LinkType};
 use pallet_transaction_payment::{CddAndFeeDetails, ChargeTxFee};
 use polymesh_common_utilities::{
     constants::{
@@ -406,7 +406,7 @@ decl_module! {
             // Remove links and get all authorization IDs per signer.
             let signer_and_auth_id_list = signers_to_remove.iter().map(|signer| {
                 match signer {
-                    Signatory::AccountKey(ref key) => Self::unlink_key_to_did(key, did),
+                    Signatory::AccountKey(ref key) => Self::unlink_key_from_did(key, did),
                     _ => {}
                 };
 
@@ -511,6 +511,24 @@ decl_module! {
             let sender_key = AccountKey::try_from(ensure_signed(origin)?.encode())?;
             let sender_did = Context::current_identity_or::<Self>(&sender_key)?;
             Self::join_identity(Signatory::from(sender_did), auth_id)
+        }
+
+        /// Leave the signing key's identity.
+        #[weight = SimpleDispatchInfo::FixedNormal(300_000)]
+        pub fn leave_identity_as_key(origin) -> DispatchResult {
+            let sender_key = AccountKey::try_from(ensure_signed(origin)?.encode())?;
+            if let Some(did) = Self::get_identity(&sender_key) {
+                return Self::leave_identity(Signatory::from(sender_key), did);
+            }
+            Ok(())
+        }
+
+        /// Leave an identity as a signing identity.
+        #[weight = SimpleDispatchInfo::FixedNormal(300_000)]
+        pub fn leave_identity_as_identity(origin, did: IdentityId) -> DispatchResult {
+            let sender_key = AccountKey::try_from(ensure_signed(origin)?.encode())?;
+            let sender_did = Context::current_identity_or::<Self>(&sender_key)?;
+            Self::leave_identity(Signatory::from(sender_did), did)
         }
 
         /// Adds a new claim record or edits an existing one. Only called by did_issuer's signing key.
@@ -1185,6 +1203,8 @@ decl_error! {
         SigningKeysContainMasterKey,
         /// Couldn't charge fee for the transaction
         FailedToChargeFee,
+        /// Signer is not a signing key of the provided identity
+        NotASigner,
     }
 }
 
@@ -1484,7 +1504,7 @@ impl<T: Trait> Module<T> {
         // Replace master key of the owner that initiated key rotation
         let old_master_key = Self::did_records(&rotation_for_did).master_key;
         <DidRecords>::mutate(&rotation_for_did, |record| {
-            Self::unlink_key_to_did(&(*record).master_key, rotation_for_did);
+            Self::unlink_key_from_did(&(*record).master_key, rotation_for_did);
             (*record).master_key = sender_key;
         });
 
@@ -1551,6 +1571,12 @@ impl<T: Trait> Module<T> {
                     && record.signing_items.iter().any(|si| si.signer == *signer)
             }
         }
+    }
+
+    /// It checks if `key` is a signing key of `did` identity.
+    pub fn is_signer(did: IdentityId, signer: &Signatory) -> bool {
+        let record = <DidRecords>::get(did);
+        record.signing_items.iter().any(|si| si.signer == *signer)
     }
 
     /// Checks if signer has correct permissions.
@@ -1810,10 +1836,14 @@ impl<T: Trait> Module<T> {
 
     /// It unlinks the `key` key from `did`.
     /// If there is no more associated identities, its full entry is removed.
-    fn unlink_key_to_did(key: &AccountKey, did: IdentityId) {
+    fn unlink_key_from_did(key: &AccountKey, did: IdentityId) {
         if let Some(linked_key_info) = <KeyToIdentityIds>::get(key) {
             match linked_key_info {
-                LinkedKeyInfo::Unique(..) => <KeyToIdentityIds>::remove(key),
+                LinkedKeyInfo::Unique(did_linked) => {
+                    if did_linked == did {
+                        <KeyToIdentityIds>::remove(key)
+                    }
+                }
                 LinkedKeyInfo::Group(mut dids) => {
                     dids.retain(|ref_did| *ref_did != did);
                     if dids.is_empty() {
@@ -2021,6 +2051,22 @@ impl<T: Trait> Module<T> {
             Signatory::Identity(did) => Some(*did),
         }
     }
+
+    fn leave_identity(signer: Signatory, did: IdentityId) -> DispatchResult {
+        ensure!(Self::is_signer(did, &signer), Error::<T>::NotASigner);
+
+        if let Signatory::AccountKey(key) = signer {
+            Self::unlink_key_from_did(&key, did)
+        }
+
+        // Update signing keys at Identity.
+        <DidRecords>::mutate(did, |record| {
+            (*record).remove_signing_items(&[signer]);
+        });
+
+        Self::deposit_event(RawEvent::SignerLeft(did, signer));
+        Ok(())
+    }
 }
 
 impl<T: Trait> Module<T> {
@@ -2048,6 +2094,111 @@ impl<T: Trait> Module<T> {
         } else {
             RpcDidRecords::IdNotFound
         }
+    }
+
+    /// Use to get the filtered link data for a given signatory
+    /// - if link_type is None then return links data on the basis of the `allow_expired` boolean
+    /// - if link_type is Some(value) then return filtered links on the value basis type in conjunction
+    ///   with `allow_expired` boolean condition
+    pub fn get_filtered_links(
+        signatory: Signatory,
+        allow_expired: bool,
+        link_type: Option<LinkType>,
+    ) -> Vec<Link<T::Moment>> {
+        let now = <pallet_timestamp::Module<T>>::get();
+
+        if let Some(type_of_link) = link_type {
+            <Links<T>>::iter_prefix(signatory)
+                .filter(|link| {
+                    if !allow_expired {
+                        if let Some(expiry) = link.expiry {
+                            if expiry < now {
+                                return false;
+                            }
+                        }
+                    }
+                    match link.link_data {
+                        LinkData::DocumentOwned(..) => type_of_link == LinkType::DocumentOwnership,
+                        LinkData::TickerOwned(..) => type_of_link == LinkType::TickerOwnership,
+                        LinkData::AssetOwned(..) => type_of_link == LinkType::AssetOwnership,
+                        LinkData::NoData => type_of_link == LinkType::NoData,
+                    }
+                })
+                .collect::<Vec<Link<T::Moment>>>()
+        } else {
+            <Links<T>>::iter_prefix(signatory)
+                .filter(|l| {
+                    if !allow_expired {
+                        if let Some(expiry) = l.expiry {
+                            if expiry < now {
+                                return false;
+                            }
+                        }
+                    }
+                    return true;
+                })
+                .collect::<Vec<Link<T::Moment>>>()
+        }
+    }
+
+    pub fn get_did_status(dids: Vec<IdentityId>) -> Vec<DidStatus> {
+        let mut result = Vec::with_capacity(dids.len());
+        dids.into_iter().for_each(|did| {
+            // is DID exist in the ecosystem
+            if !<DidRecords>::contains_key(did) {
+                result.push(DidStatus::Unknown);
+            }
+            // DID exist but whether it has valid cdd or not
+            else if Self::fetch_cdd(did, T::Moment::zero()).is_some() {
+                result.push(DidStatus::CddVerified);
+            } else {
+                result.push(DidStatus::Exists);
+            }
+        });
+        result
+    }
+
+    /// It returns the list of flatten identities of the given identity.
+    /// It runs recursively over all signing items.
+    pub fn flatten_identities(id: IdentityId, max_depth: u8) -> Vec<IdentityId> {
+        if <DidRecords>::contains_key(id) {
+            let identity = <DidRecords>::get(id);
+
+            identity
+                .signing_items
+                .into_iter()
+                .flat_map(|si| match si.signer {
+                    Signatory::Identity(sub_id) if max_depth > 0 => {
+                        Self::flatten_identities(sub_id, max_depth - 1)
+                    }
+                    _ => vec![],
+                })
+                .chain([id].iter().cloned())
+                .collect::<Vec<_>>()
+        } else {
+            vec![]
+        }
+    }
+
+    /// Get the list of flatten keys fo the given identity.
+    /// It runs recursively over all signing items.
+    pub fn flatten_keys(id: IdentityId, max_depth: u8) -> Vec<AccountKey> {
+        let sub_identities = Self::flatten_identities(id, max_depth);
+        sub_identities
+            .into_iter()
+            .flat_map(|sub_id| {
+                let identity = <DidRecords>::get(sub_id);
+                identity
+                    .signing_items
+                    .iter()
+                    .filter_map(|si| match si.signer {
+                        Signatory::AccountKey(key) => Some(key),
+                        _ => None,
+                    })
+                    .chain([identity.master_key].iter().cloned())
+                    .collect::<Vec<_>>()
+            })
+            .collect::<Vec<_>>()
     }
 }
 
