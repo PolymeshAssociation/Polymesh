@@ -40,7 +40,7 @@ pub fn info_from_weight(w: Weight) -> DispatchInfo {
 fn signed_extension_charge_transaction_payment_work() {
     ExtBuilder::default()
         .balance_factor(10)
-        .transaction_fees(10, 1, 5)
+        .transaction_fees(0, 1, 5)
         .monied(true)
         .build()
         .execute_with(|| {
@@ -79,7 +79,7 @@ fn signed_extension_charge_transaction_payment_work() {
 fn tipping_fails() {
     ExtBuilder::default()
         .balance_factor(10)
-        .transaction_fees(10, 1, 5)
+        .transaction_fees(0, 1, 5)
         .monied(true)
         .build()
         .execute_with(|| {
@@ -250,7 +250,7 @@ fn burn_account_balance_works() {
 fn should_charge_identity() {
     ExtBuilder::default()
         .balance_factor(10)
-        .transaction_fees(10, 1, 5)
+        .transaction_fees(0, 1, 5)
         .monied(true)
         .build()
         .execute_with(|| {
