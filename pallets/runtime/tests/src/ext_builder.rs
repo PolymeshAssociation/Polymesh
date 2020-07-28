@@ -62,7 +62,9 @@ pub struct ExtBuilder {
     transaction_base_fee: u128,
     transaction_byte_fee: u128,
     weight_to_fee: u128,
-    existential_deposit: u128,
+    /// Scaling factor for initial balances on genesis.
+    balance_factor: u128,
+    /// When `false`, no balances will be initialized on genesis.
     monied: bool,
     vesting: bool,
     cdd_providers: Vec<Public>,
@@ -73,8 +75,6 @@ pub struct ExtBuilder {
 }
 
 thread_local! {
-    static EXISTENTIAL_DEPOSIT: RefCell<u128> = RefCell::new(0);
-    static TRANSACTION_BASE_FEE: RefCell<u128> = RefCell::new(0);
     pub static EXTRINSIC_BASE_WEIGHT: RefCell<u64> = RefCell::new(5);
     pub static TRANSACTION_BYTE_FEE: RefCell<u128> = RefCell::new(10);
     pub static WEIGHT_TO_FEE: RefCell<u128> = RefCell::new(1);
@@ -88,15 +88,20 @@ impl ExtBuilder {
         self
     }
 
-    pub fn existential_deposit(mut self, existential_deposit: u128) -> Self {
-        self.existential_deposit = existential_deposit;
+    /// Set the scaling factor used for initial balances on genesis to `factor`.
+    /// The default is `0`.
+    pub fn balance_factor(mut self, factor: u128) -> Self {
+        self.balance_factor = factor;
         self
     }
 
+    /// Set whether balances should be initialized on genesis.
+    /// This also does `.balance_factor(1)` when it is `0`.
+    /// The default is `false`.
     pub fn monied(mut self, monied: bool) -> Self {
         self.monied = monied;
-        if self.existential_deposit == 0 {
-            self.existential_deposit = 1;
+        if self.balance_factor == 0 {
+            self.balance_factor = 1;
         }
         self
     }
@@ -131,8 +136,6 @@ impl ExtBuilder {
     }
 
     pub fn set_associated_consts(&self) {
-        EXISTENTIAL_DEPOSIT.with(|v| *v.borrow_mut() = self.existential_deposit);
-        TRANSACTION_BASE_FEE.with(|v| *v.borrow_mut() = self.transaction_base_fee);
         TRANSACTION_BYTE_FEE.with(|v| *v.borrow_mut() = self.transaction_byte_fee);
         WEIGHT_TO_FEE.with(|v| *v.borrow_mut() = self.weight_to_fee);
     }
@@ -140,22 +143,13 @@ impl ExtBuilder {
     fn make_balances(&self) -> Vec<(Public, u128)> {
         if self.monied {
             vec![
-                (
-                    AccountKeyring::Alice.public(),
-                    1_000 * self.existential_deposit,
-                ),
-                (
-                    AccountKeyring::Bob.public(),
-                    2_000 * self.existential_deposit,
-                ),
+                (AccountKeyring::Alice.public(), 1_000 * self.balance_factor),
+                (AccountKeyring::Bob.public(), 2_000 * self.balance_factor),
                 (
                     AccountKeyring::Charlie.public(),
-                    3_000 * self.existential_deposit,
+                    3_000 * self.balance_factor,
                 ),
-                (
-                    AccountKeyring::Dave.public(),
-                    4_000 * self.existential_deposit,
-                ),
+                (AccountKeyring::Dave.public(), 4_000 * self.balance_factor),
                 // CDD Accounts
                 (AccountKeyring::Eve.public(), 1_000_000),
                 (AccountKeyring::Ferdie.public(), 1_000_000),

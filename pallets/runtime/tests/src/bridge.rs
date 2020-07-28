@@ -36,7 +36,7 @@ macro_rules! assert_tx_approvals {
 #[test]
 fn can_issue_to_identity() {
     ExtBuilder::default()
-        .existential_deposit(1_000)
+        .balance_factor(1_000)
         .monied(true)
         .build()
         .execute_with(can_issue_to_identity_we);
@@ -267,7 +267,7 @@ fn cannot_call_bridge_callback_extrinsics() {
 #[test]
 fn can_freeze_and_unfreeze_bridge() {
     ExtBuilder::default()
-        .existential_deposit(1_000)
+        .balance_factor(1_000)
         .monied(true)
         .build()
         .execute_with(do_freeze_and_unfreeze_bridge);
@@ -401,7 +401,7 @@ fn next_block() -> Weight {
 #[test]
 fn can_timelock_txs() {
     ExtBuilder::default()
-        .existential_deposit(1_000)
+        .balance_factor(1_000)
         .monied(true)
         .build()
         .execute_with(do_timelock_txs);
@@ -521,7 +521,7 @@ fn do_timelock_txs() {
 #[test]
 fn can_rate_limit() {
     ExtBuilder::default()
-        .existential_deposit(1_000)
+        .balance_factor(1_000)
         .monied(true)
         .build()
         .execute_with(do_rate_limit);
@@ -647,7 +647,7 @@ fn do_rate_limit() {
 #[test]
 fn is_exempted() {
     ExtBuilder::default()
-        .existential_deposit(1_000)
+        .balance_factor(1_000)
         .monied(true)
         .build()
         .execute_with(do_exempted);
@@ -771,7 +771,7 @@ fn do_exempted() {
 #[test]
 fn can_force_mint() {
     ExtBuilder::default()
-        .existential_deposit(1_000)
+        .balance_factor(1_000)
         .monied(true)
         .build()
         .execute_with(do_force_mint);
