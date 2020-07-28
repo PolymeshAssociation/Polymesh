@@ -265,11 +265,7 @@ pub struct Referendum<T: Trait> {
 /// Information about deposit.
 #[derive(Encode, Decode, Clone, PartialEq, Eq, Default)]
 #[cfg_attr(feature = "std", derive(Debug))]
-pub struct DepositInfo<AccountId, Balance>
-where
-    AccountId: Default,
-    Balance: Default,
-{
+pub struct DepositInfo<AccountId, Balance> {
     /// Owner of the deposit.
     pub owner: AccountId,
     /// Amount. It can be updated during the cool off period.
