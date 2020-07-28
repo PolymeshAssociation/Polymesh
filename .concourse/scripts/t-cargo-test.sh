@@ -24,6 +24,7 @@ cargo +$TOOLCHAIN test \
   --package pallet-transaction-payment \
   --package pallet-cdd-offchain-worker \
   --features default_identity \
+  --verbose \
 || \
 cargo +$TOOLCHAIN test -j 1 \
   --package polymesh-runtime-common \
@@ -34,4 +35,5 @@ cargo +$TOOLCHAIN test -j 1 \
   --package pallet-transaction-payment \
   --package pallet-cdd-offchain-worker \
   --features default_identity \
+  -- verbose \
 
