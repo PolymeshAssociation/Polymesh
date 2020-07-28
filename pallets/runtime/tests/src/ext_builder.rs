@@ -59,8 +59,14 @@ impl Default for MockProtocolBaseFees {
 
 #[derive(Default)]
 pub struct ExtBuilder {
+    /// Minimum weight for the extrinsic (see `weight_to_fee` below).
     extrinsic_base_weight: u64,
+    /// The transaction fee per byte.
+    /// Transactions with bigger payloads will have a bigger `len_fee`.
+    /// This is calculated as `transaction_byte_fee * tx.len()`.
     transaction_byte_fee: u128,
+    /// Contributes to the `weight_fee`, indicating the compute requirements of a transaction.
+    /// A more resource-intensive transaction will have a higher `weight_fee`.
     weight_to_fee: u128,
     /// Scaling factor for initial balances on genesis.
     balance_factor: u128,
@@ -81,8 +87,29 @@ thread_local! {
 }
 
 impl ExtBuilder {
+    /// Sets the minimum weight for the extrinsic (see also `weight_fee`).
+    pub fn base_weight(mut self, extrinsic_base_weight: u64) -> Self {
+        self.extrinsic_base_weight = extrinsic_base_weight;
+        self
+    }
+
+    /// Sets the fee per each byte in a transaction.
+    /// The full byte fee is defined as: `transaction_byte_fee * tx.len()`.
+    pub fn byte_fee(mut self, transaction_byte_fee: u128) -> Self {
+        self.transaction_byte_fee = transaction_byte_fee;
+        self
+    }
+
+    /// Sets the fee to charge per weight.
+    /// A more demanding computation will have a higher fee for its weight.
+    pub fn weight_fee(mut self, weight_to_fee: u128) -> Self {
+        self.weight_to_fee = weight_to_fee;
+        self
+    }
+
     /// Sets parameters for transaction fees
     /// (`extrinsic_base_weight`, `transaction_byte_fee`, and `weight_to_fee`).
+    /// See the corresponding methods for more details.
     pub fn transaction_fees(
         mut self,
         extrinsic_base_weight: u64,
