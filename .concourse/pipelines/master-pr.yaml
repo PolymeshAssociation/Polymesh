@@ -39,9 +39,10 @@ resources:
 jobs:
   - name: build-polymesh
     plan:
-      - get: semver-git-polymesh
+      - put: githubpr-polymesh
         params:
-          pre: rc
+          path: githubpr-polymesh
+          status: pending
       - put: semver-git-polymesh
         params:
           pre: rc
@@ -60,7 +61,7 @@ jobs:
                 type: registry-image
                 source:
                   repository: polymathnetwork/rust
-                  tag: debian-1.44.1
+                  tag: debian-1.45.0
                   aws_access_key_id: ((polymath-ecr.aws-access-id))
                   aws_secret_access_key: ((polymath-ecr.aws-access-secret))
                   aws_region: us-east-1
@@ -81,7 +82,7 @@ jobs:
                 type: registry-image
                 source:
                   repository: polymathnetwork/rust
-                  tag: debian-1.44.1
+                  tag: debian-1.45.0
                   aws_access_key_id: ((polymath-ecr.aws-access-id))
                   aws_secret_access_key: ((polymath-ecr.aws-access-secret))
                   aws_region: us-east-1
@@ -102,7 +103,7 @@ jobs:
                 type: registry-image
                 source:
                   repository: polymathnetwork/node
-                  tag: 14
+                  tag: 12
                   aws_access_key_id: ((polymath-ecr.aws-access-id))
                   aws_secret_access_key: ((polymath-ecr.aws-access-secret))
                   aws_region: us-east-1
@@ -124,7 +125,7 @@ jobs:
                 type: registry-image
                 source:
                   repository: polymathnetwork/rust
-                  tag: debian-1.44.1
+                  tag: debian-1.45.0
                   aws_access_key_id: ((polymath-ecr.aws-access-id))
                   aws_secret_access_key: ((polymath-ecr.aws-access-secret))
                   aws_region: us-east-1
@@ -142,7 +143,7 @@ jobs:
                 type: registry-image
                 source:
                   repository: polymathnetwork/node
-                  tag: 14
+                  tag: 12
                   aws_access_key_id: ((polymath-ecr.aws-access-id))
                   aws_secret_access_key: ((polymath-ecr.aws-access-secret))
                   aws_region: us-east-1
@@ -168,4 +169,13 @@ jobs:
               tag_file: artifact/tag_file
               additional_tags: artifact/additional_tags.debian
               tag_prefix: debian-
+      - put: githubpr-polymesh
+        params:
+          path: githubpr-polymesh
+          status: success
+    on_failure:
+      put: githubpr-polymesh
+      params:
+        path: githubpr-polymesh
+        status: failure
 

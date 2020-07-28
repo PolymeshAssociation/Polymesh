@@ -15,7 +15,7 @@ rsync -auv --size-only ${CACHE_DIR}/target/ ${GIT_DIR}/target            | grep 
 
 cd $GIT_DIR
 
-cargo +$TOOLCHAIN test \
+cargo test \
   --package polymesh-runtime-common \
   --package pallet-staking \
   --package pallet-group \
@@ -24,9 +24,8 @@ cargo +$TOOLCHAIN test \
   --package pallet-transaction-payment \
   --package pallet-cdd-offchain-worker \
   --features default_identity \
-  --verbose \
 || \
-cargo +$TOOLCHAIN test -j 1 \
+cargo test -j 1 \
   --package polymesh-runtime-common \
   --package pallet-staking \
   --package pallet-group \
@@ -35,5 +34,4 @@ cargo +$TOOLCHAIN test -j 1 \
   --package pallet-transaction-payment \
   --package pallet-cdd-offchain-worker \
   --features default_identity \
-  -- verbose \
 
