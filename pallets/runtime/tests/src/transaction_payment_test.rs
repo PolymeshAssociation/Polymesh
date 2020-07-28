@@ -15,9 +15,6 @@ fn call() -> <TestStorage as frame_system::Trait>::Call {
     Call::Balances(BalancesCall::transfer(AccountKeyring::Alice.public(), 69))
 }
 
-type AccountId = u64;
-type Balance = u128;
-type Origin = <TestStorage as frame_system::Trait>::Origin;
 type Balances = pallet_balances::Module<TestStorage>;
 type System = frame_system::Module<TestStorage>;
 type TransactionPayment = pallet_transaction_payment::Module<TestStorage>;
