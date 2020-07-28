@@ -272,6 +272,33 @@ pub struct DepositInfo<AccountId, Balance> {
     pub amount: Balance,
 }
 
+/// A snapshot's metadata, containing when it was created and who triggered it.
+/// The priority queue is stored separately (see `SnapshottedPip`).
+#[derive(Encode, Decode, Clone, PartialEq, Eq)]
+#[cfg_attr(feature = "std", derive(Debug))]
+pub struct SnapshotMetadata<T: Trait> {
+    /// The block when the snapshot was made.
+    pub created_at: T::BlockNumber,
+    /// Who triggered this snapshot? Should refer to someone in the GC.
+    pub made_by: T::AccountId,
+}
+
+/// A PIP in the snapshot's priority queue for consideration by the GC.
+/// Such a PIP can be marked as skipped in the snapshot.
+#[derive(Encode, Decode, Clone, PartialEq, Eq)]
+#[cfg_attr(feature = "std", derive(Debug))]
+pub struct SnapshottedPip {
+    /// Identifies the PIP this refers to.
+    pub id: PipId,
+    /// `true` if the PIP was skipped within this snapshot.
+    /// Skipping will also bump the `skiped_count` in the `PipMetadata` as well.
+    /// Once a (configurable) threshhold is exceeded, a PIP cannot be skipped again.
+    pub skipped: bool,
+    /// Weight of the proposal in the snapshot's priority queue.
+    /// Higher weights come before lower weights.
+    pub weight: u128,
+}
+
 type Identity<T> = identity::Module<T>;
 
 /// The module's configuration trait.
@@ -316,6 +343,9 @@ decl_storage! {
         /// How long (in blocks) a ballot runs
         pub ProposalDuration get(fn proposal_duration) config(): T::BlockNumber;
 
+        /// Default enactment period that will be use after a proposal is accepted by GC.
+        pub DefaultEnactmentPeriod get(fn default_enactment_period) config(): T::BlockNumber;
+
         /// Proposals so far. id can be used to keep track of PIPs off-chain.
         PipIdSequence: u32;
 
@@ -348,8 +378,12 @@ decl_storage! {
         /// block number -> Pip id
         pub ScheduledReferendumsAt get(fn scheduled_referendums_at): map hasher(twox_64_concat) T::BlockNumber => Vec<PipId>;
 
-        /// Default enactment period that will be use after a proposal is accepted by GC.
-        pub DefaultEnactmentPeriod get(fn default_enactment_period) config(): T::BlockNumber;
+        /// The priority queue (lowest priority at index 0) of PIPs at the point of snapshotting.
+        /// Priority is defined by the `weight` in the `SnapshottedPIP`.
+        pub SnapshotQueue get(fn snapshot_queue): Vec<SnapshottedPip>;
+
+        /// The metadata of the snapshot, if there is one.
+        pub SnapshotMeta get(fn snapshot_metadata): Option<SnapshotMetadata<T>>;
     }
 }
 
