@@ -126,7 +126,7 @@ decl_module! {
         #[weight = (500_000, DispatchClass::Operational, Pays::Yes)]
         pub fn change_coefficient(origin, coefficient: PosRatio) -> DispatchResult {
             ensure_root(origin)?;
-            let id = Context::current_identity::<Identity<T>>().unwrap_or(SystematicIssuers::Committee.as_id());
+            let id = Context::current_identity::<Identity<T>>().unwrap_or_else(|| SystematicIssuers::Committee.as_id());
 
             <Coefficient>::put(&coefficient);
             Self::deposit_event(RawEvent::CoefficientSet(id, coefficient));
@@ -142,7 +142,7 @@ decl_module! {
             DispatchResult
         {
             ensure_root(origin)?;
-            let id = Context::current_identity::<Identity<T>>().unwrap_or(SystematicIssuers::Committee.as_id());
+            let id = Context::current_identity::<Identity<T>>().unwrap_or_else(|| SystematicIssuers::Committee.as_id());
 
             <BaseFees<T>>::insert(op, &base_fee);
             Self::deposit_event(RawEvent::FeeSet(id, base_fee));

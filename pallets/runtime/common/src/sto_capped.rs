@@ -220,7 +220,7 @@ decl_module! {
             <StosByToken<T>>::insert((ticker, sto_count), sto);
             <StoCount>::insert(ticker, new_sto_count);
 
-            if simple_token_ticker.len() > 0 {
+            if simple_token_ticker.is_empty() {
                 // Addition of the SimpleToken token as the fund raised type.
                 <TokenIndexForSTO>::insert((ticker, sto_count, simple_token_ticker), new_token_count);
                 <AllowedTokens>::insert((ticker, sto_count, new_token_count), simple_token_ticker);

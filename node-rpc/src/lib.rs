@@ -192,7 +192,7 @@ where
     io.extend_with(AssetApi::to_delegate(Asset::new(client.clone())));
     io.extend_with(GroupApi::to_delegate(Group::from(client.clone())));
     io.extend_with(ComplianceManagerApi::to_delegate(ComplianceManager::new(
-        client.clone(),
+        client,
     )));
 
     io
