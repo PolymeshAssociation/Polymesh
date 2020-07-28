@@ -130,6 +130,8 @@ decl_module! {
             let sender = ensure_signed(origin)?;
             let did = Context::current_identity_or::<Identity<T>>(&sender)?;
 
+            // Not checking the cdd for the treasury account as it is assumed
+            // that treasury account posses a valid CDD check during the genesis phase
             let _ = T::Currency::transfer(
                 &sender,
                 &Self::account_id(),
