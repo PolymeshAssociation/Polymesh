@@ -43,7 +43,7 @@ use polymesh_primitives::{traits::IdentityCurrency, Signatory, TransactionError}
 
 use codec::{Decode, Encode};
 use frame_support::{
-    debug, decl_module, decl_storage,
+    decl_module, decl_storage,
     dispatch::DispatchResult,
     traits::{Currency, ExistenceRequirement, Get, Imbalance, OnUnbalanced, WithdrawReason},
     weights::{
