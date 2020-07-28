@@ -20,7 +20,7 @@ cargo test \
   --package pallet-staking \
   --package pallet-group \
   --package polymesh-primitives \
-  --package pallet-pips-rpc \
+  --package node-rpc-runtime-api \
   --package pallet-transaction-payment \
   --package pallet-cdd-offchain-worker \
   --features default_identity \
@@ -30,7 +30,7 @@ cargo test -j 1 \
   --package pallet-staking \
   --package pallet-group \
   --package polymesh-primitives \
-  --package pallet-pips-rpc \
+  --package node-rpc-runtime-api \
   --package pallet-transaction-payment \
   --package pallet-cdd-offchain-worker \
   --features default_identity \
