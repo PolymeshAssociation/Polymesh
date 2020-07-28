@@ -111,15 +111,14 @@ impl ExtBuilder {
     /// (`extrinsic_base_weight`, `transaction_byte_fee`, and `weight_to_fee`).
     /// See the corresponding methods for more details.
     pub fn transaction_fees(
-        mut self,
+        self,
         extrinsic_base_weight: u64,
         transaction_byte_fee: u128,
         weight_to_fee: u128,
     ) -> Self {
-        self.extrinsic_base_weight = extrinsic_base_weight;
-        self.transaction_byte_fee = transaction_byte_fee;
-        self.weight_to_fee = weight_to_fee;
-        self
+        self.base_weight(extrinsic_base_weight)
+            .byte_fee(transaction_byte_fee)
+            .weight_fee(weight_to_fee)
     }
 
     /// Set the scaling factor used for initial balances on genesis to `factor`.
@@ -169,7 +168,7 @@ impl ExtBuilder {
         self
     }
 
-    pub fn set_associated_consts(&self) {
+    fn set_associated_consts(&self) {
         EXTRINSIC_BASE_WEIGHT.with(|v| *v.borrow_mut() = self.extrinsic_base_weight);
         TRANSACTION_BYTE_FEE.with(|v| *v.borrow_mut() = self.transaction_byte_fee);
         WEIGHT_TO_FEE.with(|v| *v.borrow_mut() = self.weight_to_fee);
@@ -230,6 +229,8 @@ impl ExtBuilder {
     ///     2. CDD provider's account key is linked to its new Identity ID.
     ///     3. That Identity ID is added as member of CDD provider group.
     pub fn build(self) -> TestExternalities {
+        self.set_associated_consts();
+
         let mut storage = frame_system::GenesisConfig::default()
             .build_storage::<TestStorage>()
             .unwrap();
