@@ -36,7 +36,7 @@ cd $GIT_DIR
 #  - The polymesh binary is missing
 if [ ! -f ".git/resource/changed_files" ] || grep -v '^.concourse\|^Dockerfile\|^scripts/cli' ".git/resource/changed_files" || [ ! -f "target/release/polymesh" ]; then
     rm -f target/release/polymesh
-    cargo build --release || cargo build -j 1 --release
+    cargo +$TOOLCHAIN build --release || cargo build -j 1 --release
 fi
 popd
 
