@@ -11,9 +11,9 @@ mod custom_types {
 
     const TICKER_LEN: usize = 12;
 
-    #[derive(Decode, Encode, PartialEq, Ord, Eq, PartialOrd, Copy, Hash, Clone, Default)]
+    #[derive(Decode, Encode, PartialEq, Ord, Eq, PartialOrd, Copy, Hash, Clone, Default, Debug)]
     #[cfg_attr(feature = "ink-generate-abi", derive(type_metadata::Metadata))]
-    #[cfg_attr(feature = "std", derive(Serialize, Deserialize, Debug))]
+    #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
     pub struct IdentityId([u8; 32]);
 
     impl Flush for IdentityId {}
@@ -29,9 +29,9 @@ mod custom_types {
     pub type Scope = IdentityId;
 
     /// All possible claims in polymesh
-    #[cfg_attr(feature = "std", derive(Serialize, Deserialize, Debug))]
+    #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
     #[cfg_attr(feature = "ink-generate-abi", derive(type_metadata::Metadata))]
-    #[derive(Encode, Decode, Clone, PartialEq, Eq, PartialOrd, Ord)]
+    #[derive(Encode, Decode, Clone, PartialEq, Eq, PartialOrd, Ord, Debug)]
     pub enum Claim {
         /// User is Accredited
         Accredited(Scope),
@@ -55,9 +55,9 @@ mod custom_types {
         NoData,
     }
 
-    #[cfg_attr(feature = "std", derive(Serialize, Deserialize, Debug))]
+    #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
     #[cfg_attr(feature = "ink-generate-abi", derive(type_metadata::Metadata))]
-    #[derive(Encode, Decode, Clone, PartialEq, Eq)]
+    #[derive(Encode, Decode, Clone, PartialEq, Eq, Debug)]
     /// It defines the type of rule supported, and the filter information we will use to evaluate as a
     /// predicate.
     pub enum RuleType {
@@ -72,9 +72,9 @@ mod custom_types {
     }
 
     /// Type of claim requirements that a rule can have
-    #[cfg_attr(feature = "std", derive(Serialize, Deserialize, Debug))]
+    #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
     #[cfg_attr(feature = "ink-generate-abi", derive(type_metadata::Metadata))]
-    #[derive(Encode, Decode, Clone, PartialEq, Eq)]
+    #[derive(Encode, Decode, Clone, PartialEq, Eq, Debug)]
     pub struct Rule {
         /// Type of rule.
         pub rule_type: RuleType,
@@ -82,9 +82,9 @@ mod custom_types {
         pub issuers: Vec<IdentityId>,
     }
 
-    #[cfg_attr(feature = "std", derive(Serialize, Deserialize, Debug))]
+    #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
     #[cfg_attr(feature = "ink-generate-abi", derive(type_metadata::Metadata))]
-    #[derive(Encode, Decode, Default, Clone, PartialEq, Eq)]
+    #[derive(Encode, Decode, Default, Clone, PartialEq, Eq, Debug)]
     pub struct AssetTransferRule {
         pub sender_rules: Vec<Rule>,
         pub receiver_rules: Vec<Rule>,
@@ -93,9 +93,9 @@ mod custom_types {
     }
 
     /// List of rules associated to an asset.
-    #[cfg_attr(feature = "std", derive(Serialize, Deserialize, Debug))]
+    #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
     #[cfg_attr(feature = "ink-generate-abi", derive(type_metadata::Metadata))]
-    #[derive(Encode, Decode, Default, Clone, PartialEq, Eq)]
+    #[derive(Encode, Decode, Default, Clone, PartialEq, Eq, Debug)]
     pub struct AssetTransferRules {
         /// This flag indicates if asset transfer rules are active or paused.
         pub is_paused: bool,
@@ -183,8 +183,12 @@ mod RuntimeInteraction {
 
             // fetch from runtime storage
             let result = self.env().get_runtime_storage::<AssetTransferRules>(&key[..]);
+            env::println(&format!("PRINT THE KEY {:?}", key));
             match result {
-                Some(Ok(asset_rules)) => asset_rules,
+                Some(Ok(asset_rules)) => {
+                    env::println(&format!("AssetTransferRules {:?}", asset_rules));
+                    asset_rules
+                },
                 Some(Err(err)) => {
                     env::println(&format!("Error reading AssetTransferRules {:?}", err));
                     AssetTransferRules::default()
@@ -194,6 +198,11 @@ mod RuntimeInteraction {
                     AssetTransferRules::default()
                 }
             }
+        }
+
+        #[ink(message)]
+        fn call_runtime_dispatch() -> {
+            
         }
     }
 
