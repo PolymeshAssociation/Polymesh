@@ -31,7 +31,7 @@ use frame_system::{self as system};
 use sp_runtime::{traits::Saturating, RuntimeDebug};
 use sp_std::ops::BitOr;
 
-#[derive(Encode, Default, Decode, Clone, PartialEq, Eq, RuntimeDebug, SliceU8StrongTyped)]
+#[derive(Encode, Default, Decode, Clone, PartialEq, Eq, SliceU8StrongTyped)]
 pub struct Memo(pub [u8; 32]);
 
 // POLYMESH-NOTE: Make `AccountData` public to access it from the outside module.

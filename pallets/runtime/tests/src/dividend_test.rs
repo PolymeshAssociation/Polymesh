@@ -1,5 +1,5 @@
 use super::{
-    storage::{make_account, TestStorage},
+    storage::{register_keyring_account, TestStorage},
     ExtBuilder,
 };
 
@@ -48,14 +48,15 @@ type Balances = balances::Module<TestStorage>;
 type Asset = asset::Module<TestStorage>;
 type ComplianceManager = compliance_manager::Module<TestStorage>;
 type SimpleToken = simple_token::Module<TestStorage>;
+type Origin = <TestStorage as frame_system::Trait>::Origin;
 
 #[test]
 fn correct_dividend_must_work() {
     ExtBuilder::default().build().execute_with(|| {
-        let (token_owner_acc, token_owner_did) =
-            make_account(AccountKeyring::Alice.public()).unwrap();
-        let (payout_owner_acc, payout_owner_did) =
-            make_account(AccountKeyring::Bob.public()).unwrap();
+        let token_owner_acc = Origin::signed(AccountKeyring::Alice.public());
+        let token_owner_did = register_keyring_account(AccountKeyring::Alice).unwrap();
+        let payout_owner_acc = Origin::signed(AccountKeyring::Bob.public());
+        let payout_owner_did = register_keyring_account(AccountKeyring::Bob).unwrap();
 
         // A token representing 1M shares
         let token = SecurityToken {
@@ -98,7 +99,8 @@ fn correct_dividend_must_work() {
         ));
 
         // Prepare an exempted investor
-        let (investor_acc, investor_did) = make_account(AccountKeyring::Charlie.public()).unwrap();
+        let investor_acc = Origin::signed(AccountKeyring::Charlie.public());
+        let investor_did = register_keyring_account(AccountKeyring::Charlie).unwrap();
         let investor_account_id = ensure_signed(investor_acc.clone()).ok().unwrap();
         Balances::make_free_balance_be(&investor_account_id, 1_000_000);
 

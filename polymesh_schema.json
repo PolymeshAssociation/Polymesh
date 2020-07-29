@@ -1,7 +1,9 @@
 {
     "types": {
         "IdentityId":"[u8; 32]",
+        "InvestorUid":"[u8; 32]",
         "Ticker": "[u8; 12]",
+        "CddId": "[u8; 32]",
         "PosRatio": "(u32, u32)",
         "DocumentName": "Text",
         "DocumentUri": "Text",
@@ -109,7 +111,7 @@
                 "Affiliate": "Scope",
                 "BuyLockup": "Scope",
                 "SellLockup": "Scope",
-                "CustomerDueDiligence": "",
+                "CustomerDueDiligence": "CddId",
                 "KnowYourCustomer": "Scope",
                 "Jurisdiction": "(JurisdictionName, Scope)",
                 "Exempted": "Scope",

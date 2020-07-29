@@ -179,8 +179,8 @@ use frame_support::{
     decl_error, decl_module, decl_storage, ensure,
     traits::{
         BalanceStatus as Status, Currency, ExistenceRequirement, Get, Imbalance, IsDeadAccount,
-        LockIdentifier, LockableCurrency, OnKilledAccount, ReservableCurrency, SignedImbalance,
-        StoredMap, WithdrawReason, WithdrawReasons,
+        LockIdentifier, LockableCurrency, ReservableCurrency, SignedImbalance, StoredMap,
+        WithdrawReason, WithdrawReasons,
     },
     StorageValue,
 };
