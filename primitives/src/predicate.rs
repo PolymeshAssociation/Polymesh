@@ -13,7 +13,7 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
-use crate::{Claim, Rule, RuleType};
+use crate::{Claim, IdentityId, Rule, RuleType};
 use codec::{Decode, Encode};
 
 use sp_std::prelude::*;
@@ -27,11 +27,24 @@ use sp_std::prelude::*;
 pub struct Context {
     /// Predicate evaluation will use those claims.
     pub claims: Vec<Claim>,
+    /// Identity that is being checked
+    pub identity: Option<IdentityId>,
+    /// Identity of the treasury of the token
+    pub treasury: Option<IdentityId>,
 }
 
-impl From<Vec<Claim>> for Context {
-    fn from(claims: Vec<Claim>) -> Self {
-        Context { claims }
+impl Context {
+    /// Creates a new context from the input variables
+    pub fn new(
+        claims: Vec<Claim>,
+        identity: Option<IdentityId>,
+        treasury: Option<IdentityId>,
+    ) -> Self {
+        Self {
+            claims,
+            identity,
+            treasury,
+        }
     }
 }
 
@@ -107,6 +120,8 @@ pub fn run(rule: &Rule, context: &Context) -> bool {
         RuleType::IsAbsent(ref claim) => not(exists(claim)).evaluate(context),
         RuleType::IsAnyOf(ref claims) => any(claims).evaluate(context),
         RuleType::IsNoneOf(ref claims) => not(any(claims)).evaluate(context),
+        // TODO: Fix
+        _ => true,
     }
 }
 

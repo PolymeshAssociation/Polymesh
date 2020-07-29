@@ -575,7 +575,12 @@ impl<T: Trait> Module<T> {
     ///
     /// If `rule` does not define trusted issuers, it will use the default trusted issuer for
     /// `ticker` asset.
-    fn fetch_context(ticker: &Ticker, id: IdentityId, rule: &Rule) -> predicate::Context {
+    fn fetch_context(
+        ticker: &Ticker,
+        id: IdentityId,
+        rule: &Rule,
+        treasury_did: Option<IdentityId>,
+    ) -> predicate::Context {
         let issuers = if !rule.issuers.is_empty() {
             rule.issuers.clone()
         } else {
@@ -593,15 +598,23 @@ impl<T: Trait> Module<T> {
                 .iter()
                 .flat_map(|claim| Self::fetch_claims(id, claim, &issuers))
                 .collect::<Vec<_>>(),
+            RuleType::IsIdentity(_) => {
+                return predicate::Context::new(vec![], Some(id), treasury_did);
+            }
         };
 
-        predicate::Context::from(claims)
+        predicate::Context::new(claims, None, None)
     }
 
     /// Loads the context for each rule in `rules` and verifies that all of them evaluate to `true`.
-    fn are_all_rules_satisfied(ticker: &Ticker, did: IdentityId, rules: &Vec<Rule>) -> bool {
+    fn are_all_rules_satisfied(
+        ticker: &Ticker,
+        did: IdentityId,
+        rules: &Vec<Rule>,
+        treasury_did: Option<IdentityId>,
+    ) -> bool {
         rules.into_iter().all(|rule| {
-            let context = Self::fetch_context(ticker, did, &rule);
+            let context = Self::fetch_context(ticker, did, &rule, treasury_did);
             predicate::run(&rule, &context)
         })
     }
@@ -609,10 +622,15 @@ impl<T: Trait> Module<T> {
     /// It loads a context for each rule in `rules` and evaluates them.
     /// It updates the internal result variable of every rule.
     /// It returns the final result of all rules combined.
-    fn evaluate_rules(ticker: &Ticker, did: IdentityId, rules: &mut Vec<RuleResult>) -> bool {
+    fn evaluate_rules(
+        ticker: &Ticker,
+        did: IdentityId,
+        rules: &mut Vec<RuleResult>,
+        treasury_did: Option<IdentityId>,
+    ) -> bool {
         let mut result = true;
         for rule in rules {
-            let context = Self::fetch_context(ticker, did, &rule.rule);
+            let context = Self::fetch_context(ticker, did, &rule.rule, treasury_did);
             rule.result = predicate::run(&rule.rule, &context);
             if !rule.result {
                 result = false;
@@ -762,8 +780,12 @@ impl<T: Trait> Module<T> {
         for active_rule in &mut asset_rules_with_results.rules {
             if let Some(from_did) = from_did_opt {
                 // Evaluate all sender rules first before checking if the sender is the treasury account.
-                if !Self::evaluate_rules(ticker, from_did, &mut active_rule.sender_rules)
-                    && !treasury_sender
+                if !Self::evaluate_rules(
+                    ticker,
+                    from_did,
+                    &mut active_rule.sender_rules,
+                    treasury_did,
+                ) && !treasury_sender
                 {
                     // If the result of any of the sender rules was false, set this asset rule result to false.
                     active_rule.transfer_rule_result = false;
@@ -771,8 +793,12 @@ impl<T: Trait> Module<T> {
             }
             if let Some(to_did) = to_did_opt {
                 // Evaluate all receiver rules first before checking if the receiver is the treasury account.
-                if !Self::evaluate_rules(ticker, to_did, &mut active_rule.receiver_rules)
-                    && !treasury_receiver
+                if !Self::evaluate_rules(
+                    ticker,
+                    to_did,
+                    &mut active_rule.receiver_rules,
+                    treasury_did,
+                ) && !treasury_receiver
                 {
                     // If the result of any of the receiver rules was false, set this asset rule result to false.
                     active_rule.transfer_rule_result = false;
@@ -844,7 +870,12 @@ impl<T: Trait> ComplianceManagerTrait<T::Balance> for Module<T> {
             let mut rule_satisfied = false;
             if let Some(from_did) = from_did_opt {
                 rule_satisfied = treasury_sender
-                    || Self::are_all_rules_satisfied(ticker, from_did, &active_rule.sender_rules);
+                    || Self::are_all_rules_satisfied(
+                        ticker,
+                        from_did,
+                        &active_rule.sender_rules,
+                        treasury_did,
+                    );
                 if !rule_satisfied {
                     // Skips checking receiver rules because sender rules are not satisfied.
                     continue;
@@ -852,7 +883,12 @@ impl<T: Trait> ComplianceManagerTrait<T::Balance> for Module<T> {
             }
             if let Some(to_did) = to_did_opt {
                 rule_satisfied = treasury_receiver
-                    || Self::are_all_rules_satisfied(ticker, to_did, &active_rule.receiver_rules);
+                    || Self::are_all_rules_satisfied(
+                        ticker,
+                        to_did,
+                        &active_rule.receiver_rules,
+                        treasury_did,
+                    );
             }
             if rule_satisfied {
                 return Ok(ERC1400_TRANSFER_SUCCESS);
