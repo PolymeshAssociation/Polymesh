@@ -530,7 +530,7 @@ decl_module! {
 
             let cdd_count: usize = claims
                 .iter()
-                .filter(|batch_claim_item| matches!(batch_claim_item.claim, Claim::CustomerDueDiligence))
+                .filter(|batch_claim_item| matches!(batch_claim_item.claim, Claim::CustomerDueDiligence(_)))
                 .count();
             if cdd_count > 0 {
                 let cdd_providers = T::CddServiceProviders::get_members();
