@@ -40,8 +40,8 @@ resources:
   - name: slack-polymesh
     type: slack-notifier
     source:
-      url: https://hooks.slack.com/services/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
-      channel: polymesh-notifications
+      url: ((slack-webhook-url-concourse-notifications))
+      channel: concourse-notifications
 
 
 jobs:
