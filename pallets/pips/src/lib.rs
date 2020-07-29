@@ -389,9 +389,9 @@ decl_storage! {
         /// proposal id -> proposal
         pub Referendums get(fn referendums): map hasher(twox_64_concat) PipId => Option<Referendum<T>>;
 
-        /// List of id's of current scheduled referendums.
+        /// Maps block numbers to list of PIPs which should be executed at the block number.
         /// block number -> Pip id
-        pub ScheduledReferendumsAt get(fn scheduled_referendums_at): map hasher(twox_64_concat) T::BlockNumber => Vec<PipId>;
+        pub ExecutionSchedule get(fn execution_schedule): map hasher(twox_64_concat) T::BlockNumber => Vec<PipId>;
 
         /// The priority queue (lowest priority at index 0) of PIPs at the point of snapshotting.
         /// Priority is defined by the `weight` in the `SnapshottedPIP`.
@@ -448,8 +448,8 @@ decl_event!(
         PipClosed(IdentityId, PipId, bool),
         /// Referendum created for proposal.
         ReferendumCreated(IdentityId, PipId, ReferendumType),
-        /// Referendum execution has been scheduled at specific block.
-        ReferendumScheduled(IdentityId, PipId, BlockNumber, BlockNumber),
+        /// Execution of a PIP has been scheduled at specific block.
+        ExecutionScheduled(IdentityId, PipId, BlockNumber, BlockNumber),
         /// Triggered each time the state of a referendum is amended
         ReferendumStateUpdated(IdentityId, PipId, ReferendumState),
         /// Default enactment period (in blocks) has been changed.
@@ -1003,7 +1003,7 @@ decl_module! {
             // Check that referendum is Pending
             Self::is_referendum_state(id, ReferendumState::Pending)?;
             ensure!(<Referendums<T>>::contains_key(id), Error::<T>::NoSuchProposal);
-            Self::prepare_to_dispatch(Self::current_did_or_missing()?, id);
+            Self::schedule_pip_for_execution(Self::current_did_or_missing()?, id);
             Ok(())
         }
 
@@ -1060,12 +1060,12 @@ decl_module! {
             });
 
             // 3.1. Re-schedule it
-            <ScheduledReferendumsAt<T>>::mutate(old_until, |ids| {
+            <ExecutionSchedule<T>>::mutate(old_until, |ids| {
                 ids.retain(|i| *i != id);
                 ids.push(id);
             });
 
-            Self::deposit_event(RawEvent::ReferendumScheduled(current_did, id, old_until, new_until));
+            Self::deposit_event(RawEvent::ExecutionScheduled(current_did, id, old_until, new_until));
             Ok(())
         }
 
@@ -1192,7 +1192,7 @@ decl_module! {
                 // TODO(centril): will need some more tweaks.
                 let current_did = Context::current_identity::<Identity<T>>().unwrap_or_default();
                 for pip_id in to_approve {
-                    Self::prepare_to_dispatch(current_did, pip_id);
+                    Self::schedule_pip_for_execution(current_did, pip_id);
                 }
 
                 Ok(())
@@ -1292,11 +1292,11 @@ impl<T: Trait> Module<T> {
             });
         <ProposalsMaturingAt<T>>::remove(block_number);
         // Execute automatically referendums after its enactment period.
-        let referendum_ids = <ScheduledReferendumsAt<T>>::take(block_number);
+        let referendum_ids = <ExecutionSchedule<T>>::take(block_number);
         referendum_ids.into_iter().for_each(|id| {
             weight += Self::execute_referendum(id);
         });
-        <ScheduledReferendumsAt<T>>::remove(block_number);
+        <ExecutionSchedule<T>>::remove(block_number);
         Ok(weight)
     }
 
@@ -1362,7 +1362,7 @@ impl<T: Trait> Module<T> {
         Self::deposit_event(RawEvent::PipClosed(current_did, id, prune));
     }
 
-    fn prepare_to_dispatch(current_did: IdentityId, id: PipId) {
+    fn schedule_pip_for_execution(current_did: IdentityId, id: PipId) {
         // Set the default enactment period and move it to `Scheduled`
         let curr_block_number = <system::Module<T>>::block_number();
         let enactment_period = curr_block_number + Self::default_enactment_period();
@@ -1373,8 +1373,8 @@ impl<T: Trait> Module<T> {
                 referendum.state = ReferendumState::Scheduled;
             }
         });
-        <ScheduledReferendumsAt<T>>::append(enactment_period, id);
-        Self::deposit_event(RawEvent::ReferendumScheduled(
+        <ExecutionSchedule<T>>::append(enactment_period, id);
+        Self::deposit_event(RawEvent::ExecutionScheduled(
             current_did,
             id,
             Zero::zero(),
