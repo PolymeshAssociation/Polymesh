@@ -13,7 +13,7 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
-use crate::{Claim, IdentityId, Rule, RuleType};
+use crate::{Claim, IdentityId, Rule, RuleType, TargetIdentity};
 use codec::{Decode, Encode};
 
 use sp_std::prelude::*;
@@ -92,6 +92,15 @@ pub trait Predicate {
 // Helper functions
 // ======================================
 
+/// It creates a predicate to evaluate the matching of `id` with treasury in the context.
+#[inline]
+pub fn equals<'a>(id: &'a TargetIdentity, treasury: &'a IdentityId) -> MatchPredicate<'a> {
+    match id {
+        TargetIdentity::Treasury => MatchPredicate { identity: treasury },
+        TargetIdentity::Specific(identity) => MatchPredicate { identity },
+    }
+}
+
 /// It creates a predicate to evaluate the existential of `claim` in the context.
 #[inline]
 pub fn exists(claim: &'_ Claim) -> ExistentialPredicate<'_> {
@@ -120,8 +129,26 @@ pub fn run(rule: &Rule, context: &Context) -> bool {
         RuleType::IsAbsent(ref claim) => not(exists(claim)).evaluate(context),
         RuleType::IsAnyOf(ref claims) => any(claims).evaluate(context),
         RuleType::IsNoneOf(ref claims) => not(any(claims)).evaluate(context),
-        // TODO: Fix
-        _ => true,
+        RuleType::IsIdentity(ref id) => {
+            equals(id, &context.treasury.unwrap_or_default()).evaluate(context)
+        }
+    }
+}
+
+// MatchPredicate
+// ======================================================
+
+/// It matches `id` with treasury in the context.
+#[derive(Clone, Debug)]
+pub struct MatchPredicate<'a> {
+    /// IdentityId we want to check.
+    pub identity: &'a IdentityId,
+}
+
+impl<'a> Predicate for MatchPredicate<'a> {
+    #[inline]
+    fn evaluate(&self, context: &Context) -> bool {
+        context.identity.unwrap_or_default() == *self.identity
     }
 }
 
