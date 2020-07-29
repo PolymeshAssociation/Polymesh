@@ -24,7 +24,6 @@ sp-api = { git = "https://github.com/paritytech/substrate", default-features = f
 
 frame-system = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "at-add-dispatch-call" }
 frame-support = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "at-add-dispatch-call" }
-
 pallet-timestamp = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "at-add-dispatch-call" }
 
 frame-benchmarking = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "at-add-dispatch-call", optional = true }

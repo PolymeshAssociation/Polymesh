@@ -16,7 +16,7 @@
 use crate::*;
 use pallet_balances as balances;
 use pallet_identity as identity;
-use polymesh_primitives::{AuthorizationData, IdentityId, Signatory, Ticker};
+use polymesh_primitives::{AuthorizationData, IdentityId, InvestorUid, Signatory, Ticker};
 
 use frame_benchmarking::{account, benchmarks};
 use frame_support::{traits::Currency, StorageValue};
@@ -28,6 +28,11 @@ const MAX_USER_INDEX: u32 = 1_000;
 const MAX_TICKER_LENGTH: u8 = 12;
 const MAX_NAME_LENGTH: u32 = 64;
 
+fn uid_from_name_and_idx(name: &'static str, u: u32) -> InvestorUid {
+    let name_u = format!("{}-{}", name, u);
+    InvestorUid::from(name_u.as_str())
+}
+
 fn make_account<T: Trait>(
     name: &'static str,
     u: u32,
@@ -35,7 +40,8 @@ fn make_account<T: Trait>(
     let account: T::AccountId = account(name, u, SEED);
     let origin = RawOrigin::Signed(account.clone());
     let _ = balances::Module::<T>::make_free_balance_be(&account, 1_000_000.into());
-    let _ = identity::Module::<T>::register_did(origin.clone().into(), vec![]);
+    let uid = uid_from_name_and_idx(name, u);
+    let _ = identity::Module::<T>::register_did(origin.clone().into(), uid, vec![]);
     let did = identity::Module::<T>::get_identity(&account).unwrap_or_default();
     (account, origin, did)
 }
