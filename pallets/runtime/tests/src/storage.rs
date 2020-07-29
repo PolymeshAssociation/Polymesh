@@ -36,7 +36,9 @@ use polymesh_common_utilities::traits::{
     CommonTrait,
 };
 use polymesh_common_utilities::Context;
-use polymesh_primitives::{Authorization, AuthorizationData, IdentityId, Signatory};
+use polymesh_primitives::{
+    Authorization, AuthorizationData, CddId, Claim, IdentityId, InvestorUid, Signatory,
+};
 use polymesh_runtime_common::{
     bridge, cdd_check::CddChecker, dividend, exemption, simple_token, voting,
 };
@@ -594,13 +596,15 @@ pub type Portfolio = portfolio::Module<TestStorage>;
 
 pub fn make_account(
     id: AccountId,
+    uid: InvestorUid,
 ) -> Result<(<TestStorage as frame_system::Trait>::Origin, IdentityId), &'static str> {
-    make_account_with_balance(id, 1_000_000)
+    make_account_with_balance(id, uid, 1_000_000)
 }
 
-/// It creates an Account and registers its DID.
+/// It creates an Account and registers its DID and its InvestorUid.
 pub fn make_account_with_balance(
     id: AccountId,
+    uid: InvestorUid,
     balance: <TestStorage as CommonTrait>::Balance,
 ) -> Result<(<TestStorage as frame_system::Trait>::Origin, IdentityId), &'static str> {
     let signed_id = Origin::signed(id.clone());
@@ -608,14 +612,25 @@ pub fn make_account_with_balance(
 
     // If we have CDD providers, first of them executes the registration.
     let cdd_providers = CddServiceProvider::get_members();
-    let did_registration = if let Some(cdd_provider) = cdd_providers.into_iter().nth(0) {
-        let cdd_acc = Public::from_raw(Identity::did_records(&cdd_provider).master_key.0);
-        Identity::cdd_register_did(Origin::signed(cdd_acc), id, Some(10), vec![])
-    } else {
-        Identity::register_did(signed_id.clone(), vec![])
+    let did = match cdd_providers.into_iter().nth(0) {
+        Some(cdd_provider) => {
+            let cdd_acc = Public::from_raw(Identity::did_records(&cdd_provider).master_key.0);
+            let _ = Identity::cdd_register_did(Origin::signed(cdd_acc), id, vec![])
+                .map_err(|_| "CDD register DID failed")?;
+
+            // Add CDD Claim
+            let did = Identity::get_identity(&id).unwrap();
+            let cdd_claim = Claim::CustomerDueDiligence(CddId::new(did, uid));
+            Identity::add_claim(Origin::signed(cdd_acc), did, cdd_claim, None)
+                .map_err(|_| "CDD provider cannot add the CDD claim")?;
+            did
+        }
+        _ => {
+            let _ = Identity::register_did(signed_id.clone(), uid, vec![])
+                .map_err(|_| "Register DID failed")?;
+            Identity::get_identity(&id).unwrap()
+        }
     };
-    let _ = did_registration.map_err(|_| "Register DID failed")?;
-    let did = Identity::get_identity(&id).unwrap();
 
     Ok((signed_id, did))
 }
@@ -638,7 +653,8 @@ pub fn register_keyring_account_with_balance(
     balance: <TestStorage as CommonTrait>::Balance,
 ) -> Result<IdentityId, &'static str> {
     let acc_pub = acc.public();
-    make_account_with_balance(acc_pub, balance).map(|(_, id)| id)
+    let uid = InvestorUid::from(format!("{}", acc).as_str());
+    make_account_with_balance(acc_pub, uid, balance).map(|(_, id)| id)
 }
 
 pub fn register_keyring_account_without_cdd(
