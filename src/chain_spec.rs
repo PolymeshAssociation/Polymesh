@@ -298,6 +298,7 @@ fn general_testnet_genesis(
             proposal_duration: generalTime::MINUTES,
             proposal_cool_off_period: generalTime::MINUTES,
             default_enactment_period: generalTime::MINUTES,
+            max_pip_skip_count: 1,
         }),
         pallet_im_online: Some(GeneralConfig::ImOnlineConfig {
             slashing_params: general::OfflineSlashingParams {
@@ -749,6 +750,7 @@ fn aldebaran_testnet_genesis(
             proposal_duration: aldebaranTime::DAYS * 7,
             proposal_cool_off_period: aldebaranTime::HOURS * 6,
             default_enactment_period: aldebaranTime::DAYS * 7,
+            max_pip_skip_count: 1,
         }),
         pallet_im_online: Some(AldebaranConfig::ImOnlineConfig {
             slashing_params: aldebaran::OfflineSlashingParams {
