@@ -12,7 +12,7 @@ polymesh-primitives-derive = { path = "../../../primitives_derive", default-feat
 pallet-asset = { path = "../../asset", default-features = false }
 pallet-balances = { path = "../../balances", default-features = false  }
 pallet-compliance-manager = { path = "../../compliance-manager", default-features = false }
-pallet-contracts = { path = "../../contracts", default-features = false }
+pallet-contracts = { git = "https://github.com/paritytech/substrate", tag = "v2.0.0-rc4", default-features = false }
 pallet-identity = { path = "../../identity", default-features = false  }
 pallet-multisig = { path = "../../multisig", default-features = false}
 pallet-portfolio = { path = "../../portfolio", default-features = false  }

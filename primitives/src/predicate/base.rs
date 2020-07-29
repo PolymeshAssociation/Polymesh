@@ -4,6 +4,7 @@ use crate::{
 };
 use codec::{Decode, Encode};
 
+#[cfg_attr(feature = "std", derive(Debug))]
 // ExistentialPredicate
 // ======================================================
 
