@@ -295,6 +295,22 @@ pub struct SnapshottedPip<T: Trait> {
     pub weight: (bool, BalanceOf<T>),
 }
 
+/// A result to enact for one or many PIPs in the snapshot queue.
+#[derive(Encode, Decode, Copy, Clone, PartialEq, Eq)]
+#[cfg_attr(feature = "std", derive(Debug))]
+pub enum SnapshotResult {
+    /// Approve the PIP and move it to the execution queue.
+    Approve,
+    /// Reject the PIP, removing it from future consideration.
+    Reject,
+    /// Skip the PIP, bumping the `skipped_count`,
+    /// or fail if the threshold for maximum skips is exceeded.
+    Skip,
+}
+
+/// The number of times a PIP has been skipped.
+pub type SkippedCount = u8;
+
 type Identity<T> = identity::Module<T>;
 
 /// The module's configuration trait.
@@ -342,6 +358,9 @@ decl_storage! {
         /// Default enactment period that will be use after a proposal is accepted by GC.
         pub DefaultEnactmentPeriod get(fn default_enactment_period) config(): T::BlockNumber;
 
+        /// Maximum times a PIP can be skipped before triggering `CannotSkipPip` in `enact_snapshot_results`.
+        pub MaxPipSkipCount get(fn max_pip_skip_count) config(): SkippedCount;
+
         /// Proposals so far. id can be used to keep track of PIPs off-chain.
         PipIdSequence: u32;
 
@@ -377,12 +396,16 @@ decl_storage! {
         /// The priority queue (lowest priority at index 0) of PIPs at the point of snapshotting.
         /// Priority is defined by the `weight` in the `SnapshottedPIP`.
         ///
-        /// A queued PIP can be skipped. Doing so bumps the `skiped_count` in the `PipMetadata`.
+        /// A queued PIP can be skipped. Doing so bumps the `pip_skip_count`.
         /// Once a (configurable) threshhold is exceeded, a PIP cannot be skipped again.
         pub SnapshotQueue get(fn snapshot_queue): Vec<SnapshottedPip<T>>;
 
         /// The metadata of the snapshot, if there is one.
         pub SnapshotMeta get(fn snapshot_metadata): Option<SnapshotMetadata<T>>;
+
+        /// The number of times a certain PIP has been skipped.
+        /// Once a (configurable) threshhold is exceeded, a PIP cannot be skipped again.
+        pub PipSkipCount get(fn pip_skip_count): map hasher(twox_64_concat) PipId => SkippedCount;
     }
 }
 
@@ -441,6 +464,9 @@ decl_event!(
         /// Proposal duration changed
         /// (old value, new value)
         ProposalDurationChanged(IdentityId, BlockNumber, BlockNumber),
+        /// The maximum times a PIP can be skipped was changed.
+        /// (caller DID, old value, new value)
+        MaxPipSkipCountChanged(IdentityId, SkippedCount, SkippedCount),
         /// Refund proposal
         /// (id, total amount)
         ProposalRefund(IdentityId, PipId, Balance),
@@ -448,6 +474,9 @@ decl_event!(
         SnapshotCleared(IdentityId),
         /// A new snapshot was taken.
         SnapshotTaken(IdentityId),
+        /// A PIP in the snapshot queue was skipped.
+        /// (pip_id, new_skip_count)
+        SkippedPip(PipId, SkippedCount),
     }
 );
 
@@ -493,6 +522,10 @@ decl_error! {
         IncorrectProposalState,
         /// Insufficient treasury funds to pay beneficiaries
         InsufficientTreasuryFunds,
+        /// When enacting snapshot results, an unskippable PIP was skipped.
+        CannotSkipPip,
+        /// Tried to enact results for the snapshot queue overflowing its length.
+        SnapshotResultTooLarge
     }
 }
 
@@ -571,6 +604,16 @@ decl_module! {
             let previous_duration = <DefaultEnactmentPeriod<T>>::get();
             <DefaultEnactmentPeriod<T>>::put(duration);
             Self::deposit_event(RawEvent::DefaultEnactmentPeriodChanged(SystematicIssuers::Committee.as_id(), duration, previous_duration));
+        }
+
+        /// Change the maximum skip count (`max_pip_skip_count`).
+        /// New values only
+        #[weight = (100_000, DispatchClass::Operational, Pays::Yes)]
+        pub fn set_max_pip_skip_count(origin, new_max: SkippedCount) {
+            T::CommitteeOrigin::ensure_origin(origin)?;
+            let prev_max = MaxPipSkipCount::get();
+            MaxPipSkipCount::put(prev_max);
+            Self::deposit_event(RawEvent::MaxPipSkipCountChanged(SystematicIssuers::Committee.as_id(), prev_max, new_max));
         }
 
         /// A network member creates a PIP by submitting a dispatchable which
@@ -959,7 +1002,9 @@ decl_module! {
             T::VotingMajorityOrigin::ensure_origin(origin)?;
             // Check that referendum is Pending
             Self::is_referendum_state(id, ReferendumState::Pending)?;
-            Self::prepare_to_dispatch(id)
+            ensure!(<Referendums<T>>::contains_key(id), Error::<T>::NoSuchProposal);
+            Self::prepare_to_dispatch(Self::current_did_or_missing()?, id);
+            Ok(())
         }
 
         /// Moves a referendum instance into rejected state.
@@ -1031,10 +1076,7 @@ decl_module! {
             // 1. Check that a GC member is executing this.
             let actor = ensure_signed(origin)?;
             let did = Context::current_identity_or::<Identity<T>>(&actor)?;
-            ensure!(
-                T::GovernanceCommittee::is_member(&did),
-                Error::<T>::NotACommitteeMember
-            );
+            ensure!(T::GovernanceCommittee::is_member(&did), Error::<T>::NotACommitteeMember);
 
             // 2. Clear the snapshot.
             <SnapshotMeta<T>>::kill();
@@ -1055,10 +1097,7 @@ decl_module! {
             // 1. Check that a GC member is executing this.
             let made_by = ensure_signed(origin)?;
             let did = Context::current_identity_or::<Identity<T>>(&made_by)?;
-            ensure!(
-                T::GovernanceCommittee::is_member(&did),
-                Error::<T>::NotACommitteeMember
-            );
+            ensure!(T::GovernanceCommittee::is_member(&did), Error::<T>::NotACommitteeMember);
 
             // 2. Fetch intersection of pending && non-cooling PIPs and aggregate their votes.
             let created_at = <system::Module<T>>::block_number();
@@ -1092,6 +1131,70 @@ decl_module! {
             // 3. Emit event.
             Self::deposit_event(RawEvent::SnapshotTaken(did));
             Ok(())
+        }
+
+        /// Enacts results for the PIPs in the snapshot queue.
+        /// The snapshot will be available for further enactments until it is cleared.
+        ///
+        /// The `results` are encoded a list of `(n, result)` where `result` is applied to `n` PIPs.
+        /// Note that the snapshot priority queue is encoded with the *lowest priority first*.
+        /// so `results = [(2, Approve)]` will approve `SnapshotQueue[snapshot.len() - 2..]`.
+        ///
+        /// # Errors
+        /// * `BadOrigin` - unless a GC voting majority executes this function.
+        /// * `CannotSkipPip` - a given PIP has already been skipped too many times.
+        /// * `SnapshotResultTooLarge` - on len(results) > len(snapshot_queue).
+        #[weight = (100_000, DispatchClass::Operational, Pays::Yes)]
+        pub fn enact_snapshot_results(origin, results: Vec<(SkippedCount, SnapshotResult)>) -> DispatchResult {
+            T::VotingMajorityOrigin::ensure_origin(origin)?;
+
+            let max_pip_skip_count = Self::max_pip_skip_count();
+
+            <SnapshotQueue<T>>::try_mutate(|queue| {
+                let mut to_bump_skipped = Vec::new();
+                let mut to_reject = Vec::new();
+                let mut to_approve = Vec::new();
+
+                // Go over each result, which may apply up to `num` queued elements...
+                for result in results.iter().copied().flat_map(|(n, r)| (0..n).map(move |_| r)) {
+                    match (queue.pop(), result) { // ...and zip with the queue in reverse.
+                        // An action is missing a corresponding PIP in the queue, bail!
+                        (None, _) => Err(Error::<T>::SnapshotResultTooLarge)?,
+                        // Make sure the PIP can be skipped and enqueue bumping of skip.
+                        (Some(pip), SnapshotResult::Skip) => {
+                            let count = PipSkipCount::get(pip.id);
+                            ensure!(count >= max_pip_skip_count, Error::<T>::CannotSkipPip);
+                            to_bump_skipped.push((pip.id, count + 1));
+                        },
+                        // Mark PIP as rejected.
+                        (Some(pip), SnapshotResult::Reject) => to_reject.push(pip.id),
+                        // Approve PIP.
+                        (Some(pip), SnapshotResult::Approve) => to_approve.push(pip.id),
+                    }
+                }
+
+                // Update skip counts.
+                for (pip_id, new_count) in to_bump_skipped {
+                    PipSkipCount::insert(pip_id, new_count);
+                    Self::deposit_event(RawEvent::SkippedPip(pip_id, new_count));
+                }
+
+                // Reject proposals as instructed & refund.
+                // TODO(centril): is refunding working properly?
+                for pip_id in to_reject {
+                    Self::reject_proposal(pip_id);
+                }
+
+                // Approve proposals as instructed.
+                // TODO(centril): is refunding working properly?
+                // TODO(centril): will need some more tweaks.
+                let current_did = Context::current_identity::<Identity<T>>().unwrap_or_default();
+                for pip_id in to_approve {
+                    Self::prepare_to_dispatch(current_did, pip_id);
+                }
+
+                Ok(())
+            })
         }
 
         /// When constructing a block check if it's time for a ballot to end. If ballot ends,
@@ -1180,9 +1283,7 @@ impl<T: Trait> Module<T> {
                                 ReferendumType::Community,
                             );
                         } else {
-                            Self::update_proposal_state(id, ProposalState::Rejected);
-                            Self::refund_proposal(id);
-                            Self::prune_data(id, Self::prune_historical_pips());
+                            Self::reject_proposal(id);
                         }
                     }
                 }
@@ -1195,6 +1296,13 @@ impl<T: Trait> Module<T> {
         });
         <ScheduledReferendumsAt<T>>::remove(block_number);
         Ok(weight)
+    }
+
+    /// Rejects the given `id`, refunding the deposit, and possibly pruning the proposal's data.
+    fn reject_proposal(id: PipId) {
+        Self::update_proposal_state(id, ProposalState::Rejected);
+        Self::refund_proposal(id);
+        Self::prune_data(id, Self::prune_historical_pips());
     }
 
     /// Create a referendum object from a proposal. If governance committee is composed of less
@@ -1233,7 +1341,6 @@ impl<T: Trait> Module<T> {
     /// Close a proposal.
     ///
     /// Voting ceases and proposal is removed from storage.
-    /// It also refunds all deposits.
     ///
     /// # Internal
     /// * `ProposalsMaturingat` does not need to be deleted here.
@@ -1248,16 +1355,12 @@ impl<T: Trait> Module<T> {
             <ProposalMetadata<T>>::remove(id);
             <Proposals<T>>::remove(id);
             <Referendums<T>>::remove(id);
+            PipSkipCount::remove(id);
         }
         Self::deposit_event(RawEvent::PipClosed(current_did, id, prune));
     }
 
-    fn prepare_to_dispatch(id: PipId) -> DispatchResult {
-        ensure!(
-            <Referendums<T>>::contains_key(id),
-            Error::<T>::NoSuchProposal
-        );
-
+    fn prepare_to_dispatch(current_did: IdentityId, id: PipId) {
         // Set the default enactment period and move it to `Scheduled`
         let curr_block_number = <system::Module<T>>::block_number();
         let enactment_period = curr_block_number + Self::default_enactment_period();
@@ -1269,14 +1372,12 @@ impl<T: Trait> Module<T> {
             }
         });
         <ScheduledReferendumsAt<T>>::mutate(enactment_period, |ids| ids.push(id));
-        let current_did = Self::current_did_or_missing()?;
         Self::deposit_event(RawEvent::ReferendumScheduled(
             current_did,
             id,
             Zero::zero(),
             enactment_period,
         ));
-        Ok(())
     }
 
     fn execute_referendum(id: PipId) -> Weight {
