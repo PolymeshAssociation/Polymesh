@@ -70,6 +70,7 @@ decl_storage! {
         pub RangeProofs get(fn range_proof): double_map hasher(twox_64_concat) IdentityId, hasher(blake2_128_concat) ProverTickerKey => Option<TickerRangeProof>;
 
         pub RangeProofVerifications get(fn range_proof_verification): double_map hasher(blake2_128_concat) (IdentityId, Ticker), hasher(twox_64_concat) IdentityId => bool;
+
     }
 }
 

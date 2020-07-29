@@ -145,7 +145,9 @@ pub use cdd_id::{CddId, InvestorUid};
 /// Claim information.
 /// Each claim is associated with this kind of record.
 pub mod identity_claim;
-pub use identity_claim::{Claim, ClaimType, IdentityClaim, JurisdictionName, Scope};
+pub use identity_claim::{
+    AssetScopeId, Claim, ClaimType, IdentityClaim, JurisdictionName, ProofData, Scope,
+};
 
 /// This module contains entities related with signing keys.
 pub mod signing_key;
@@ -177,7 +179,9 @@ pub use rule::{Rule, RuleType};
 
 /// Predicate calculation for Claims.
 pub mod predicate;
-pub use predicate::{AndPredicate, Context, NotPredicate, OrPredicate, Predicate};
+pub use predicate::{
+    AndPredicate, Context, NotPredicate, OrPredicate, Predicate, ValidProofOfInvestor,
+};
 
 /// Represents custom transaction errors.
 #[repr(u8)]

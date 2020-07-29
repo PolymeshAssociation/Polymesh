@@ -129,10 +129,10 @@ impl TryFrom<&[u8]> for IdentityId {
     type Error = &'static str;
 
     fn try_from(did: &[u8]) -> Result<Self, Self::Error> {
-        if did.len() == UUID_LEN {
+        if did.len() <= UUID_LEN {
             // case where a 256 bit hash is being converted
             let mut fixed = [0; 32];
-            fixed.copy_from_slice(&did);
+            fixed[(UUID_LEN - did.len())..].copy_from_slice(&did);
             Ok(IdentityId::from(fixed))
         } else {
             // case where a string represented as u8 is being converted

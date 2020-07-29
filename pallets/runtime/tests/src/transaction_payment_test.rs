@@ -220,8 +220,8 @@ impl IdentityTrait<AccountId> for Runtime {
         unimplemented!()
     }
 
-    fn unsafe_add_systematic_cdd_claims(_targets: &[IdentityId], _issuer: SystematicIssuers) {}
-    fn unsafe_revoke_systematic_cdd_claims(_targets: &[IdentityId], _issuer: SystematicIssuers) {}
+    fn add_systematic_cdd_claims(_targets: &[IdentityId], _issuer: SystematicIssuers) {}
+    fn revoke_systematic_cdd_claims(_targets: &[IdentityId], _issuer: SystematicIssuers) {}
     fn has_valid_cdd(_target_did: IdentityId) -> bool {
         unimplemented!()
     }

@@ -32,6 +32,8 @@ pub enum RuleType {
     IsAnyOf(Vec<Claim>),
     /// Rule to ensure that at none of claims is fetched when filter is applied.
     IsNoneOf(Vec<Claim>),
+    ///
+    HasValidProofOfInvestor,
 }
 
 impl RuleType {
@@ -48,6 +50,7 @@ impl RuleType {
             RuleType::IsAbsent(ref claim) => claim.claim_type(),
             RuleType::IsNoneOf(ref claims) => Self::get_claim_type(claims.as_slice()),
             RuleType::IsAnyOf(ref claims) => Self::get_claim_type(claims.as_slice()),
+            RuleType::HasValidProofOfInvestor => ClaimType::ConfidentialScopeClaim,
         }
     }
 
@@ -87,6 +90,7 @@ impl Rule {
             RuleType::IsAbsent(ref _claim) => 1,
             RuleType::IsNoneOf(ref claims) => claims.len(),
             RuleType::IsAnyOf(ref claims) => claims.len(),
+            RuleType::HasValidProofOfInvestor => 2,
         };
         (claims_count, self.issuers.len())
     }

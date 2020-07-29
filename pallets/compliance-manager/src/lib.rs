@@ -571,6 +571,19 @@ impl<T: Trait> Module<T> {
             .collect::<Vec<_>>()
     }
 
+    /// It fetches the `ConfidentialScopeClaim` of users `id` for the given ticker.
+    /// Note that this vector could be 0 or 1 items.
+    fn fetch_confidential_claims(id: IdentityId, ticker: &Ticker) -> Vec<Claim> {
+        let claim_type = ClaimType::ConfidentialScopeClaim;
+        let asset_scope = AssetScope::try_from(ticker.as_slice())
+            .expect("Ticker len should be less than asset scope");
+
+        <identity::Module<T>>::fetch_claim(id, claim_type, id, asset_scope)
+            .iter()
+            .map(|id_claim| id_claim.claim)
+            .collect::<Vec<_>>()
+    }
+
     /// It fetches the predicate context for target `id` and specific `rule`.
     ///
     /// If `rule` does not define trusted issuers, it will use the default trusted issuer for
@@ -593,9 +606,16 @@ impl<T: Trait> Module<T> {
                 .iter()
                 .flat_map(|claim| Self::fetch_claims(id, claim, &issuers))
                 .collect::<Vec<_>>(),
+            RuleType::HasValidProofOfInvestor => Self::fetch_confidential_claims(target, ticker),
+        };
+        let zk_proofs = match rule.rule_type {
+            RuleType::HasValidProofOfInvestor if !claims.is_empty() => {
+                Self::fetch_zk_proofs(ticker, id)
+            }
+            _ => vec![],
         };
 
-        predicate::Context::from(claims)
+        predicate::Context { claims, zk_proofs };
     }
 
     /// Loads the context for each rule in `rules` and verifies that all of them evaluate to `true`.

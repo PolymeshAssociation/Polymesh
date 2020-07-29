@@ -13,16 +13,36 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
-use crate::{identity_id::IdentityId, CddId, Moment};
-use polymesh_primitives_derive::VecU8StrongTyped;
+use crate::{identity_id::IdentityId, CddId, InvestorUid, Moment};
+#[cfg(feature = "std")]
+use polymesh_primitives_derive::{DeserializeU8StrongTyped, SerializeU8StrongTyped};
+use polymesh_primitives_derive::{SliceU8StrongTyped, VecU8StrongTyped};
 
 use codec::{Decode, Encode};
 #[cfg(feature = "std")]
 use sp_runtime::{Deserialize, Serialize};
+
 use sp_std::prelude::*;
 
 /// Scope: Almost all claim needs a valid scope identity.
 pub type Scope = IdentityId;
+/// It is the asset Id.
+pub type AssetScopeId = CddId;
+
+///
+#[derive(Clone, PartialEq, Encode, Decode, SliceU8StrongTyped)]
+#[cfg_attr(
+    feature = "std",
+    derive(SerializeU8StrongTyped, DeserializeU8StrongTyped)
+)]
+// pub struct ProofData(Signature);
+pub struct ProofData([u8; 64]);
+
+impl Default for ProofData {
+    fn default() -> Self {
+        ProofData([0; 64])
+    }
+}
 
 /// All possible claims in polymesh
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
@@ -46,6 +66,8 @@ pub enum Claim {
     Exempted(Scope),
     /// User is Blocked
     Blocked(Scope),
+    /// Confidential Scope claim
+    InvestorZKProof(AssetScopeId, CddId, ProofData),
     /// Empty claim
     NoData,
 }
@@ -69,6 +91,7 @@ impl Claim {
             Claim::Jurisdiction(..) => ClaimType::Jurisdiction,
             Claim::Exempted(..) => ClaimType::Exempted,
             Claim::Blocked(..) => ClaimType::Blocked,
+            Claim::ConfidentialScopeClaim(..) => ClaimType::ConfidentialScopeClaim,
             Claim::NoData => ClaimType::NoType,
         }
     }
@@ -85,6 +108,7 @@ impl Claim {
             Claim::Jurisdiction(.., ref scope) => Some(scope),
             Claim::Exempted(ref scope) => Some(scope),
             Claim::Blocked(ref scope) => Some(scope),
+            Claim::ConfidentialScopeClaim(ref asset_scope, ..) => Some(asset_scope),
             Claim::NoData => None,
         }
     }
@@ -119,6 +143,8 @@ pub enum ClaimType {
     Exempted,
     /// User is Blocked.
     Blocked,
+    ///
+    ConfidentialScopeClaim,
     /// Empty type
     NoType,
 }
