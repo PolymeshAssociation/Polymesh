@@ -2,7 +2,7 @@ use grandpa::AuthorityId as GrandpaId;
 use im_online::sr25519::AuthorityId as ImOnlineId;
 use pallet_asset::TickerRegistrationConfig;
 use polymesh_common_utilities::{constants::currency::POLY, protocol_fee::ProtocolOp};
-use polymesh_primitives::{AccountId, IdentityId, PosRatio, Signatory, Signature};
+use polymesh_primitives::{AccountId, IdentityId, InvestorUid, PosRatio, Signatory, Signature};
 use polymesh_runtime_develop::{
     self as general,
     config::{self as GeneralConfig},
@@ -153,12 +153,14 @@ fn general_testnet_genesis(
                     get_account_id_from_seed::<sr25519::Public>("cdd_provider_1"),
                     IdentityId::from(1),
                     IdentityId::from(1),
+                    InvestorUid::from(b"uid1".as_ref()),
                     None,
                 ),
                 (
                     get_account_id_from_seed::<sr25519::Public>("cdd_provider_2"),
                     IdentityId::from(2),
                     IdentityId::from(2),
+                    InvestorUid::from(b"uid2".as_ref()),
                     None,
                 ),
                 // Governance committee members
@@ -166,18 +168,21 @@ fn general_testnet_genesis(
                     get_account_id_from_seed::<sr25519::Public>("governance_committee_1"),
                     IdentityId::from(1),
                     IdentityId::from(3),
+                    InvestorUid::from(b"uid3".as_ref()),
                     None,
                 ),
                 (
                     get_account_id_from_seed::<sr25519::Public>("governance_committee_2"),
                     IdentityId::from(1),
                     IdentityId::from(4),
+                    InvestorUid::from(b"uid4".as_ref()),
                     None,
                 ),
                 (
                     get_account_id_from_seed::<sr25519::Public>("governance_committee_3"),
                     IdentityId::from(1),
                     IdentityId::from(5),
+                    InvestorUid::from(b"uid4".as_ref()),
                     None,
                 ),
             ];
@@ -187,12 +192,9 @@ fn general_testnet_genesis(
                 .iter()
                 .map(|x| {
                     identity_counter = identity_counter + 1;
-                    (
-                        x.1.clone(),
-                        IdentityId::from(1),
-                        IdentityId::from(identity_counter),
-                        None,
-                    )
+                    let did = IdentityId::from(identity_counter);
+                    let investor_uid = InvestorUid::from(did.as_ref());
+                    (x.1.clone(), IdentityId::from(1), did, investor_uid, None)
                 })
                 .collect::<Vec<_>>();
 
@@ -601,18 +603,21 @@ fn aldebaran_testnet_genesis(
                     get_account_id_from_seed::<sr25519::Public>("cdd_provider_1"),
                     IdentityId::from(1),
                     IdentityId::from(1),
+                    InvestorUid::from(b"uid1".as_ref()),
                     None,
                 ),
                 (
                     get_account_id_from_seed::<sr25519::Public>("cdd_provider_2"),
                     IdentityId::from(2),
                     IdentityId::from(2),
+                    InvestorUid::from(b"uid2".as_ref()),
                     None,
                 ),
                 (
                     get_account_id_from_seed::<sr25519::Public>("cdd_provider_3"),
                     IdentityId::from(3),
                     IdentityId::from(3),
+                    InvestorUid::from(b"uid3".as_ref()),
                     None,
                 ),
                 // Governance committee members
@@ -620,18 +625,21 @@ fn aldebaran_testnet_genesis(
                     get_account_id_from_seed::<sr25519::Public>("polymath_1"),
                     IdentityId::from(1),
                     IdentityId::from(4),
+                    InvestorUid::from(b"uid4".as_ref()),
                     None,
                 ),
                 (
                     get_account_id_from_seed::<sr25519::Public>("polymath_2"),
                     IdentityId::from(2),
                     IdentityId::from(5),
+                    InvestorUid::from(b"uid5".as_ref()),
                     None,
                 ),
                 (
                     get_account_id_from_seed::<sr25519::Public>("polymath_3"),
                     IdentityId::from(3),
                     IdentityId::from(6),
+                    InvestorUid::from(b"uid6".as_ref()),
                     None,
                 ),
             ];
@@ -641,12 +649,9 @@ fn aldebaran_testnet_genesis(
                 .iter()
                 .map(|x| {
                     identity_counter = identity_counter + 1;
-                    (
-                        x.1.clone(),
-                        IdentityId::from(1),
-                        IdentityId::from(identity_counter),
-                        None,
-                    )
+                    let did = IdentityId::from(identity_counter);
+                    let investor_uid = InvestorUid::from(did.as_ref());
+                    (x.1.clone(), IdentityId::from(1), did, investor_uid, None)
                 })
                 .collect::<Vec<_>>();
 
