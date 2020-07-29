@@ -1060,8 +1060,10 @@ decl_module! {
             });
 
             // 3.1. Re-schedule it
-            <ScheduledReferendumsAt<T>>::mutate( old_until, |ids| ids.retain( |i| *i != id));
-            <ScheduledReferendumsAt<T>>::mutate( new_until, |ids| ids.push(id));
+            <ScheduledReferendumsAt<T>>::mutate(old_until, |ids| {
+                ids.retain(|i| *i != id);
+                ids.push(id);
+            });
 
             Self::deposit_event(RawEvent::ReferendumScheduled(current_did, id, old_until, new_until));
             Ok(())
@@ -1371,7 +1373,7 @@ impl<T: Trait> Module<T> {
                 referendum.state = ReferendumState::Scheduled;
             }
         });
-        <ScheduledReferendumsAt<T>>::mutate(enactment_period, |ids| ids.push(id));
+        <ScheduledReferendumsAt<T>>::append(enactment_period, id);
         Self::deposit_event(RawEvent::ReferendumScheduled(
             current_did,
             id,
