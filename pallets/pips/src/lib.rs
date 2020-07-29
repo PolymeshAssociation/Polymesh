@@ -284,19 +284,15 @@ pub struct SnapshotMetadata<T: Trait> {
 }
 
 /// A PIP in the snapshot's priority queue for consideration by the GC.
-/// Such a PIP can be marked as skipped in the snapshot.
 #[derive(Encode, Decode, Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "std", derive(Debug))]
-pub struct SnapshottedPip {
+pub struct SnapshottedPip<T: Trait> {
     /// Identifies the PIP this refers to.
     pub id: PipId,
-    /// `true` if the PIP was skipped within this snapshot.
-    /// Skipping will also bump the `skiped_count` in the `PipMetadata` as well.
-    /// Once a (configurable) threshhold is exceeded, a PIP cannot be skipped again.
-    pub skipped: bool,
     /// Weight of the proposal in the snapshot's priority queue.
     /// Higher weights come before lower weights.
-    pub weight: u128,
+    /// The `bool` denotes the sign, where `true` siginfies a positive number.
+    pub weight: (bool, BalanceOf<T>),
 }
 
 type Identity<T> = identity::Module<T>;
@@ -380,7 +376,10 @@ decl_storage! {
 
         /// The priority queue (lowest priority at index 0) of PIPs at the point of snapshotting.
         /// Priority is defined by the `weight` in the `SnapshottedPIP`.
-        pub SnapshotQueue get(fn snapshot_queue): Vec<SnapshottedPip>;
+        ///
+        /// A queued PIP can be skipped. Doing so bumps the `skiped_count` in the `PipMetadata`.
+        /// Once a (configurable) threshhold is exceeded, a PIP cannot be skipped again.
+        pub SnapshotQueue get(fn snapshot_queue): Vec<SnapshottedPip<T>>;
 
         /// The metadata of the snapshot, if there is one.
         pub SnapshotMeta get(fn snapshot_metadata): Option<SnapshotMetadata<T>>;
@@ -445,6 +444,10 @@ decl_event!(
         /// Refund proposal
         /// (id, total amount)
         ProposalRefund(IdentityId, PipId, Balance),
+        /// The snapshot was cleared.
+        SnapshotCleared(IdentityId),
+        /// A new snapshot was taken.
+        SnapshotTaken(IdentityId),
     }
 );
 
@@ -548,7 +551,6 @@ decl_module! {
             Self::deposit_event(RawEvent::ProposalDurationChanged(SystematicIssuers::Committee.as_id(), Self::proposal_duration(), duration));
             <ProposalDuration<T>>::put(duration);
         }
-
 
         /// Change the proposal cool off period value. This is the number of blocks after which the proposer of a pip
         /// can modify or cancel their proposal, and other voting is prohibited
@@ -1017,6 +1019,78 @@ decl_module! {
             <ScheduledReferendumsAt<T>>::mutate( new_until, |ids| ids.push(id));
 
             Self::deposit_event(RawEvent::ReferendumScheduled(current_did, id, old_until, new_until));
+            Ok(())
+        }
+
+        /// Clears the snapshot and emits the event `SnapshotCleared`.
+        ///
+        /// # Errors
+        /// * `NotACommitteeMember` - triggered when a non-GC-member executes the function.
+        #[weight = (100_000, DispatchClass::Operational, Pays::Yes)]
+        pub fn clear_snapshot(origin) -> DispatchResult {
+            // 1. Check that a GC member is executing this.
+            let actor = ensure_signed(origin)?;
+            let did = Context::current_identity_or::<Identity<T>>(&actor)?;
+            ensure!(
+                T::GovernanceCommittee::is_member(&did),
+                Error::<T>::NotACommitteeMember
+            );
+
+            // 2. Clear the snapshot.
+            <SnapshotMeta<T>>::kill();
+            <SnapshotQueue<T>>::kill();
+
+            // 3. Emit event.
+            Self::deposit_event(RawEvent::SnapshotCleared(did));
+            Ok(())
+        }
+
+        /// Takes a new snapshot of the current list of active && pending PIPs.
+        /// The PIPs are then sorted into a priority queue based on each PIP's weight.
+        ///
+        /// # Errors
+        /// * `NotACommitteeMember` - triggered when a non-GC-member executes the function.
+        #[weight = (100_000, DispatchClass::Operational, Pays::Yes)]
+        pub fn snapshot(origin) -> DispatchResult {
+            // 1. Check that a GC member is executing this.
+            let made_by = ensure_signed(origin)?;
+            let did = Context::current_identity_or::<Identity<T>>(&made_by)?;
+            ensure!(
+                T::GovernanceCommittee::is_member(&did),
+                Error::<T>::NotACommitteeMember
+            );
+
+            // 2. Fetch intersection of pending && non-cooling PIPs and aggregate their votes.
+            let created_at = <system::Module<T>>::block_number();
+            let mut queue = <Proposals<T>>::iter_values()
+                // Only keep pending PIPs.
+                .filter(|pip| matches!(pip.state, ProposalState::Pending))
+                .map(|pip| pip.id)
+                // Omit cooling-off PIPs.
+                .filter(|id| {
+                    <ProposalMetadata<T>>::get(id)
+                        .filter(|meta| meta.cool_off_until > created_at)
+                        .is_some()
+                })
+                // Aggregate the votes; `true` denotes a positive sign.
+                .map(|id| {
+                    let VotingResult { ayes_stake, nays_stake, .. } = <ProposalResult<T>>::get(id);
+                    let weight = if ayes_stake > nays_stake {
+                        (true, ayes_stake - nays_stake)
+                    } else {
+                        (false, nays_stake - ayes_stake)
+                    };
+                    SnapshottedPip { id, weight }
+                })
+                .collect::<Vec<_>>();
+            queue.sort_by_key(|s| s.weight);
+
+            // 3. Commit the new snapshot.
+            <SnapshotMeta<T>>::set(Some(SnapshotMetadata { created_at, made_by }));
+            <SnapshotQueue<T>>::set(queue);
+
+            // 3. Emit event.
+            Self::deposit_event(RawEvent::SnapshotTaken(did));
             Ok(())
         }
 
