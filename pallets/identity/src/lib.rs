@@ -2000,27 +2000,30 @@ impl<T: Trait> Module<T> {
         authorization_data: AuthorizationData<T::AccountId>,
         type_of_auth: AuthorizationType,
     ) -> bool {
-        match authorization_data {
+        type_of_auth == match authorization_data {
             AuthorizationData::AttestMasterKeyRotation(..) => {
-                return type_of_auth == AuthorizationType::AttestMasterKeyRotation
+                AuthorizationType::AttestMasterKeyRotation
             }
             AuthorizationData::RotateMasterKey(..) => {
-                return type_of_auth == AuthorizationType::RotateMasterKey
+                AuthorizationType::RotateMasterKey
             }
             AuthorizationData::TransferTicker(..) => {
-                return type_of_auth == AuthorizationType::TransferTicker
+                AuthorizationType::TransferTicker
+            }
+            AuthorizationData::TransferTreasury(..) => {
+                AuthorizationType::TransferTreasury
             }
             AuthorizationData::AddMultiSigSigner(..) => {
-                return type_of_auth == AuthorizationType::AddMultiSigSigner
+                AuthorizationType::AddMultiSigSigner
             }
             AuthorizationData::TransferAssetOwnership(..) => {
-                return type_of_auth == AuthorizationType::TransferAssetOwnership
+                AuthorizationType::TransferAssetOwnership
             }
             AuthorizationData::JoinIdentity(..) => {
-                return type_of_auth == AuthorizationType::JoinIdentity
+                AuthorizationType::JoinIdentity
             }
-            AuthorizationData::Custom(..) => return type_of_auth == AuthorizationType::Custom,
-            AuthorizationData::NoData => return type_of_auth == AuthorizationType::NoData,
+            AuthorizationData::Custom(..) => AuthorizationType::Custom,
+            AuthorizationData::NoData => AuthorizationType::NoData,
         }
     }
 

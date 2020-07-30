@@ -1369,7 +1369,7 @@ decl_module! {
             let did = Context::current_identity_or::<Identity<T>>(&sender)?;
             ensure!(Self::is_owner(&ticker, did), Error::<T>::Unauthorized);
             <Tokens<T>>::mutate(&ticker, |token| token.treasury_did = treasury_did);
-            Self::deposit_event(RawEvent::TreasuryDidSet(did, ticker, treasury_did));
+            Self::deposit_event(RawEvent::TreasuryTransferred(did, ticker, treasury_did));
             Ok(())
         }
     }
@@ -1456,7 +1456,7 @@ decl_event! {
         /// caller DID. ticker, checkpoint count.
         CheckpointCreated(IdentityId, Ticker, u64),
         /// An event emitted when the treasury DID of an asset is transferred.
-        TreasuryTransfer(IdentityId, Ticker, Option<IdentityId>),
+        TreasuryTransferred(IdentityId, Ticker, Option<IdentityId>),
         /// A new document attached to an asset
         DocumentAdded(Ticker, DocumentName, Document),
         /// A document removed from an asset
@@ -2218,8 +2218,8 @@ impl<T: Trait> Module<T> {
 
         let auth = <identity::Authorizations<T>>::get(Signatory::from(to_did), auth_id);
 
-        let ticker = match auth.authorization_data {
-            AuthorizationData::TransferTreasury(ticker) => ticker,
+        let (old_treasury, ticker) = match auth.authorization_data {
+            AuthorizationData::TransferTreasury(ticker) => (auth.authorized_by, ticker),
             _ => return Err(Error::<T>::NoTreasuryTransferAuth.into()),
         };
 
@@ -2229,21 +2229,19 @@ impl<T: Trait> Module<T> {
         );
 
         <identity::Module<T>>::consume_auth(
-            ticker_details.owner,
+            old_treasury,
             Signatory::from(to_did),
             auth_id,
         )?;
 
-        let mut old_treasury = None;
         <Tokens<T>>::mutate(&ticker, |token| {
-            old_treasury = token.treasury;
-            token.treasury = Some(to_did);
+            token.treasury_did = Some(to_did);
         });
 
         Self::deposit_event(RawEvent::TreasuryTransferred(
             to_did,
             ticker,
-            old_treasury,
+            Some(old_treasury),
         ));
 
         Ok(())
