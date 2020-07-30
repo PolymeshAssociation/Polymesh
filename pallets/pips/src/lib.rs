@@ -438,6 +438,9 @@ decl_event!(
         /// A PIP in the snapshot queue was skipped.
         /// (pip_id, new_skip_count)
         SkippedPip(PipId, SkippedCount),
+        /// Results (e.g., approved, rejected, and skipped), were enacted for some PIPs.
+        /// (skipped_pips_with_new_count, rejected_pips, approved_pips)
+        SnapshotResultsEnacted(Vec<(PipId, SkippedCount)>, Vec<PipId>, Vec<PipId>),
     }
 );
 
@@ -856,7 +859,7 @@ decl_module! {
         /// * `BadOrigin` unless triggered by release coordinator.
         /// * `IncorrectProposalState` unless the proposal was in a scheduled state.
         #[weight = (750_000_000, DispatchClass::Operational, Pays::Yes)]
-        pub fn override_referendum_enactment_period(origin, id: PipId, until: Option<T::BlockNumber>) -> DispatchResult {
+        pub fn override_execution_schedule(origin, id: PipId, until: Option<T::BlockNumber>) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             let current_did = Context::current_identity_or::<Identity<T>>(&sender)?;
 
@@ -990,14 +993,14 @@ decl_module! {
                 }
 
                 // Update skip counts.
-                for (pip_id, new_count) in to_bump_skipped {
+                for (pip_id, new_count) in to_bump_skipped.iter().copied() {
                     PipSkipCount::insert(pip_id, new_count);
                     Self::deposit_event(RawEvent::SkippedPip(pip_id, new_count));
                 }
 
                 // Reject proposals as instructed & refund.
                 // TODO(centril): is refunding working properly?
-                for pip_id in to_reject {
+                for pip_id in to_reject.iter().copied() {
                     Self::unsafe_reject_proposal(pip_id);
                 }
 
@@ -1005,11 +1008,12 @@ decl_module! {
                 // TODO(centril): is refunding working properly?
                 // TODO(centril): will need some more tweaks.
                 let current_did = Context::current_identity::<Identity<T>>().unwrap_or_default();
-                for pip_id in to_approve {
+                for pip_id in to_approve.iter().copied() {
                     Self::schedule_pip_for_execution(current_did, pip_id);
                 }
 
                 // TODO(centril): trigger event.
+                Self::deposit_event(RawEvent::SnapshotResultsEnacted(to_bump_skipped, to_reject, to_approve));
 
                 Ok(())
             })
@@ -1138,13 +1142,10 @@ impl<T: Trait> Module<T> {
         }
     }
 
-    /// Prunes all data associated with a proposal, removing it from storage.
+    /// Prunes (nearly) all data associated with a proposal, removing it from storage.
     ///
-    /// # Internal
-    /// * `ProposalsMaturingat` does not need to be deleted here.
-    ///
-    /// # TODO
-    /// * Should we remove the proposal when it is Cancelled?, killed?, rejected?
+    /// For efficiency, some data (e.g., re. execution schedules) is not removed in this function,
+    /// but is removed in functions executing this one.
     fn prune_data(id: PipId, prune: bool) {
         let current_did = Context::current_identity::<Identity<T>>().unwrap_or_default();
         if prune {
