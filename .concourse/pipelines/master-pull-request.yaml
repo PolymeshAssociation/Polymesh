@@ -9,10 +9,10 @@ resource_types:
 resources:
   - name: githubpr-polymesh
     type: pull-request
-    webhook_token: ((cwsatpolymath-polymesh-webhook-token))
+    webhook_token: ((polymathnetwork-polymesh-webhook-token-master))
     source:
       repository: polymathnetwork/Polymesh
-      access_token: ((github-pat-claus))
+      access_token: ((github-concourse-access-token))
       base_branch: master
   - name: s3-polymesh
     type: s3
@@ -40,6 +40,11 @@ resources:
 jobs:
   - name: build-polymesh
     plan:
+      - get: githubpr-polymesh
+        params:
+          list_changed_files: true
+        trigger: true
+        version: every
       - put: githubpr-polymesh
         params:
           path: githubpr-polymesh
@@ -47,11 +52,6 @@ jobs:
       - put: semver-git-polymesh
         params:
           pre: rc
-      - get: githubpr-polymesh
-        params:
-          list_changed_files: true
-        trigger: true
-        version: every
       - in_parallel:
           - task: run-lint
             config:
