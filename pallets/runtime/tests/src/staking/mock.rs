@@ -42,7 +42,7 @@ use polymesh_common_utilities::traits::{
     transaction_payment::{CddAndFeeDetails, ChargeTxFee},
     CommonTrait,
 };
-use polymesh_primitives::{AuthorizationData, Claim, IdentityId, Moment, Signatory};
+use polymesh_primitives::{AuthorizationData, Claim, IdentityId, InvestorUid, Moment, Signatory};
 use sp_core::H256;
 use sp_io;
 use sp_npos_elections::{
@@ -697,12 +697,48 @@ impl ExtBuilder {
             identities: vec![
                 // (master_account_id, service provider did, target did, expiry time of CustomerDueDiligence claim i.e 10 days is ms)
                 // Provide Identity
-                (1005, IdentityId::from(1), IdentityId::from(1), None),
-                (11, IdentityId::from(1), IdentityId::from(11), None),
-                (21, IdentityId::from(1), IdentityId::from(21), None),
-                (31, IdentityId::from(1), IdentityId::from(31), None),
-                (41, IdentityId::from(1), IdentityId::from(41), None),
-                (101, IdentityId::from(1), IdentityId::from(101), None),
+                (
+                    1005,
+                    IdentityId::from(1),
+                    IdentityId::from(1),
+                    InvestorUid::from(b"uid1".as_ref()),
+                    None,
+                ),
+                (
+                    11,
+                    IdentityId::from(1),
+                    IdentityId::from(11),
+                    InvestorUid::from(b"uid11".as_ref()),
+                    None,
+                ),
+                (
+                    21,
+                    IdentityId::from(1),
+                    IdentityId::from(21),
+                    InvestorUid::from(b"uid21".as_ref()),
+                    None,
+                ),
+                (
+                    31,
+                    IdentityId::from(1),
+                    IdentityId::from(31),
+                    InvestorUid::from(b"uid31".as_ref()),
+                    None,
+                ),
+                (
+                    41,
+                    IdentityId::from(1),
+                    IdentityId::from(41),
+                    InvestorUid::from(b"uid41".as_ref()),
+                    None,
+                ),
+                (
+                    101,
+                    IdentityId::from(1),
+                    IdentityId::from(101),
+                    InvestorUid::from(b"uid101".as_ref()),
+                    None,
+                ),
             ],
             ..Default::default()
         }
@@ -814,19 +850,23 @@ pub(crate) fn active_era() -> EraIndex {
 }
 
 pub fn provide_did_to_user(account: AccountId) -> bool {
-    let mut result = false;
-    if let None = Identity::key_to_identity_ids(account) {
-        assert!(
-            Identity::cdd_register_did(Origin::signed(1005).into(), account, None, vec![]).is_ok(),
-            "Error in registering the DID"
-        );
-        if let LinkedKeyInfo::Unique(_did) = Identity::key_to_identity_ids(account).unwrap() {
-            result = true;
-        } else {
-            assert!(result, "DID not find in the storage");
+    match Identity::key_to_identity_ids(account) {
+        None => {
+            let cdd = Origin::signed(1005);
+            assert!(
+                Identity::cdd_register_did(cdd.clone(), account, vec![]).is_ok(),
+                "Error in registering the DID"
+            );
+
+            let did = Identity::get_identity(&account).expect("DID not find in the storage");
+            assert!(
+                Identity::add_claim(cdd.clone(), did, Claim::make_cdd_wildcard(), None).is_ok(),
+                "Error CDD Claim cannot be added to DID"
+            );
+            true
         }
+        _ => false,
     }
-    result
 }
 
 pub fn add_signing_key(stash_key: AccountId, to_signing_key: AccountId) {
@@ -1378,7 +1418,8 @@ pub fn make_account_with_balance(
     let signed_id = Origin::signed(id.clone());
     Balances::make_free_balance_be(&id, balance);
 
-    Identity::register_did(signed_id.clone(), vec![]).map_err(|_| "Register DID failed")?;
+    let uid = InvestorUid::from(format!("{}", id).as_str());
+    Identity::register_did(signed_id.clone(), uid, vec![]).map_err(|_| "Register DID failed")?;
     let did = Identity::get_identity(&id).unwrap();
 
     Ok((signed_id, did))
@@ -1399,7 +1440,7 @@ pub fn add_nominator_claim_with_expiry(
     assert_ok!(Identity::add_claim(
         signed_claim_issuer_id,
         identity_id,
-        Claim::CustomerDueDiligence,
+        Claim::make_cdd_wildcard(),
         Some(expiry.into()),
     ));
 }
@@ -1414,7 +1455,7 @@ pub fn add_nominator_claim(
     assert_ok!(Identity::add_claim(
         signed_claim_issuer_id,
         idendity_id,
-        Claim::CustomerDueDiligence,
+        Claim::make_cdd_wildcard(),
         Some((now.timestamp() as u64 + 10000_u64).into()),
     ));
 }
@@ -1440,7 +1481,13 @@ pub fn create_did_and_add_claim_with_expiry(stash: AccountId, expiry: u64) {
     assert_ok!(Identity::cdd_register_did(
         Origin::signed(1005),
         stash,
-        Some(expiry.into()),
         vec![]
+    ));
+    let did = Identity::get_identity(&stash).unwrap();
+    assert_ok!(Identity::add_claim(
+        Origin::signed(1005),
+        did,
+        Claim::make_cdd_wildcard(),
+        Some(expiry.into())
     ));
 }

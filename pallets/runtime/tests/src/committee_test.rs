@@ -1,7 +1,7 @@
 use super::{
     storage::{
-        fast_forward_to_block, get_identity_id, make_account, register_keyring_account, Call,
-        EventTest, TestStorage,
+        fast_forward_to_block, get_identity_id, register_keyring_account, Call, EventTest,
+        TestStorage,
     },
     ExtBuilder,
 };
@@ -72,8 +72,8 @@ fn single_member_committee_works() {
 fn single_member_committee_works_we() {
     System::set_block_number(1);
 
-    let alice_acc = AccountKeyring::Alice.public();
-    let (alice_signer, alice_did) = make_account(alice_acc).unwrap();
+    let alice_signer = Origin::signed(AccountKeyring::Alice.public());
+    let alice_did = register_keyring_account(AccountKeyring::Alice).unwrap();
 
     let root = Origin::from(frame_system::RawOrigin::Root);
     CommitteeGroup::reset_members(root, vec![alice_did]).unwrap();
@@ -125,8 +125,8 @@ fn preventing_motions_from_non_members_works() {
 fn preventing_motions_from_non_members_works_we() {
     System::set_block_number(1);
 
-    let alice_acc = AccountKeyring::Alice.public();
-    let (alice_signer, _) = make_account(alice_acc).unwrap();
+    let alice_signer = Origin::signed(AccountKeyring::Alice.public());
+    let _ = register_keyring_account(AccountKeyring::Alice).unwrap();
 
     let proposal = make_proposal(42);
     assert_ok!(Pips::propose(
@@ -160,10 +160,10 @@ fn preventing_voting_from_non_members_works_we() {
     System::set_block_number(1);
 
     let root = Origin::from(frame_system::RawOrigin::Root);
-    let alice_acc = AccountKeyring::Alice.public();
-    let (alice_signer, alice_did) = make_account(alice_acc).unwrap();
-    let bob_acc = AccountKeyring::Bob.public();
-    let (bob_signer, _) = make_account(bob_acc).unwrap();
+    let alice_signer = Origin::signed(AccountKeyring::Alice.public());
+    let alice_did = register_keyring_account(AccountKeyring::Alice).unwrap();
+    let bob_signer = Origin::signed(AccountKeyring::Bob.public());
+    let _ = register_keyring_account(AccountKeyring::Bob).unwrap();
 
     CommitteeGroup::reset_members(root, vec![alice_did]).unwrap();
 
@@ -196,12 +196,12 @@ fn motions_revoting_works_we() {
     System::set_block_number(1);
 
     let root = Origin::from(frame_system::RawOrigin::Root);
-    let alice_acc = AccountKeyring::Alice.public();
-    let (alice_signer, alice_did) = make_account(alice_acc).unwrap();
-    let bob_acc = AccountKeyring::Bob.public();
-    let (_bob_signer, bob_did) = make_account(bob_acc).unwrap();
-    let charlie_acc = AccountKeyring::Charlie.public();
-    let (_charlie_signer, charlie_did) = make_account(charlie_acc).unwrap();
+    let alice_signer = Origin::signed(AccountKeyring::Alice.public());
+    let alice_did = register_keyring_account(AccountKeyring::Alice).unwrap();
+    let _bob_signer = Origin::signed(AccountKeyring::Bob.public());
+    let bob_did = register_keyring_account(AccountKeyring::Bob).unwrap();
+    let _charlie_signer = Origin::signed(AccountKeyring::Charlie.public());
+    let charlie_did = register_keyring_account(AccountKeyring::Charlie).unwrap();
 
     CommitteeGroup::reset_members(root, vec![alice_did, bob_did, charlie_did]).unwrap();
 
@@ -260,12 +260,12 @@ fn voting_works_we() {
     System::set_block_number(1);
 
     let root = Origin::from(frame_system::RawOrigin::Root);
-    let alice_acc = AccountKeyring::Alice.public();
-    let (alice_signer, alice_did) = make_account(alice_acc).unwrap();
-    let bob_acc = AccountKeyring::Bob.public();
-    let (bob_signer, bob_did) = make_account(bob_acc).unwrap();
-    let charlie_acc = AccountKeyring::Charlie.public();
-    let (_charlie_signer, charlie_did) = make_account(charlie_acc).unwrap();
+    let alice_signer = Origin::signed(AccountKeyring::Alice.public());
+    let alice_did = register_keyring_account(AccountKeyring::Alice).unwrap();
+    let bob_signer = Origin::signed(AccountKeyring::Bob.public());
+    let bob_did = register_keyring_account(AccountKeyring::Bob).unwrap();
+    let _charlie_signer = Origin::signed(AccountKeyring::Charlie.public());
+    let charlie_did = register_keyring_account(AccountKeyring::Charlie).unwrap();
 
     CommitteeGroup::reset_members(root, vec![alice_did, bob_did, charlie_did]).unwrap();
 
@@ -325,16 +325,15 @@ fn rage_quit() {
 
 fn rage_quit_we() {
     // 1. Add members to committee
-    let alice_acc = AccountKeyring::Alice.public();
-    let (alice_signer, alice_did) = make_account(alice_acc).unwrap();
-    let bob_acc = AccountKeyring::Bob.public();
-    let (bob_signer, bob_did) = make_account(bob_acc).unwrap();
-    let charlie_acc = AccountKeyring::Charlie.public();
-    let (charlie_signer, charlie_did) = make_account(charlie_acc).unwrap();
-    let dave_acc = AccountKeyring::Dave.public();
-    let (_, dave_did) = make_account(dave_acc).unwrap();
-    let ferdie_acc = AccountKeyring::Ferdie.public();
-    let (ferdie_signer, ferdie_did) = make_account(ferdie_acc).unwrap();
+    let alice_signer = Origin::signed(AccountKeyring::Alice.public());
+    let alice_did = register_keyring_account(AccountKeyring::Alice).unwrap();
+    let bob_signer = Origin::signed(AccountKeyring::Bob.public());
+    let bob_did = register_keyring_account(AccountKeyring::Bob).unwrap();
+    let charlie_signer = Origin::signed(AccountKeyring::Charlie.public());
+    let charlie_did = register_keyring_account(AccountKeyring::Charlie).unwrap();
+    let dave_did = register_keyring_account(AccountKeyring::Dave).unwrap();
+    let ferdie_signer = Origin::signed(AccountKeyring::Ferdie.public());
+    let ferdie_did = register_keyring_account(AccountKeyring::Ferdie).unwrap();
     let committee = vec![alice_did, bob_did, charlie_did, dave_did];
 
     let root = Origin::from(frame_system::RawOrigin::Root);
