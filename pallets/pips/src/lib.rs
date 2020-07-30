@@ -202,18 +202,21 @@ pub type HistoricalVotingByAddress<VoteType> = Vec<VoteByPip<VoteType>>;
 pub type HistoricalVotingById<AccountId, VoteType> =
     Vec<(AccountId, HistoricalVotingByAddress<VoteType>)>;
 
+/// The state a PIP is in.
 #[derive(Encode, Decode, Copy, Clone, Eq, PartialEq, Debug)]
 pub enum ProposalState {
-    /// Proposal is created and either in the cool-down period or open to voting
+    /// Proposal is created and either in the cool-down period or open to voting.
     Pending,
-    /// Proposal is cancelled by its owner
+    /// Proposal is cancelled by its owner.
     Cancelled,
-    /// Proposal was killed by the GC
-    Killed,
-    /// Proposal failed to pass by a community vote
+    /// Proposal was rejected by the GC.
     Rejected,
-    /// Proposal has moved to referendum stage
-    Referendum,
+    /// Proposal has been approved by the GC and scheduled for execution.
+    Scheduled,
+    /// Proposal execution was attempted by failed.
+    Failed,
+    /// Proposal was successfully executed.
+    Executed,
 }
 
 impl Default for ProposalState {
@@ -366,8 +369,6 @@ decl_storage! {
 
         /// The metadata of the active proposals.
         pub ProposalMetadata get(fn proposal_metadata): map hasher(twox_64_concat) PipId => Option<PipsMetadata<T>>;
-        /// It maps the block number where a list of proposal are considered as matured.
-        pub ProposalsMaturingAt get(fn proposals_maturing_at): map hasher(twox_64_concat) T::BlockNumber => Vec<PipId>;
 
         /// Those who have locked a deposit.
         /// proposal (id, proposer) -> deposit
@@ -388,6 +389,9 @@ decl_storage! {
         /// Proposals that have met the quorum threshold to be put forward to a governance committee
         /// proposal id -> proposal
         pub Referendums get(fn referendums): map hasher(twox_64_concat) PipId => Option<Referendum<T>>;
+
+        /// Maps PIPs to the block at which they will be executed, if any.
+        pub PipToSchedule get(fn pip_to_schedule): map hasher(twox_64_concat) PipId => Option<T::BlockNumber>;
 
         /// Maps block numbers to list of PIPs which should be executed at the block number.
         /// block number -> Pip id
@@ -656,7 +660,6 @@ decl_module! {
                 description: description.clone(),
                 cool_off_until: cool_off_until,
             };
-            <ProposalsMaturingAt<T>>::append(end, id);
             <ProposalMetadata<T>>::insert(id, proposal_metadata);
 
             let deposit_info = DepositInfo {
@@ -888,7 +891,7 @@ decl_module! {
             T::VotingMajorityOrigin::ensure_origin(origin)?;
             let proposal = Self::proposals(id).ok_or_else(|| Error::<T>::NoSuchProposal)?;
             ensure!(
-                matches!(proposal.state, ProposalState::Cancelled | ProposalState::Referendum),
+                matches!(proposal.state, ProposalState::Cancelled | ProposalState::Failed | ProposalState::Executed),
                 Error::<T>::IncorrectProposalState,
             );
             Self::unsafe_reject_proposal(id);
@@ -908,87 +911,6 @@ decl_module! {
             ensure!(Self::proposals(id).is_some(), Error::<T>::NoSuchProposal);
             Self::refund_proposal(id);
             Self::prune_data(id, true);
-        }
-
-        /// Any governance committee member can fast track a proposal and turn it into a referendum
-        /// that will be voted on by the committee.
-        #[weight = (1_000_000_000, DispatchClass::Operational, Pays::Yes)]
-        pub fn fast_track_proposal(origin, id: PipId) -> DispatchResult {
-            let sender = ensure_signed(origin)?;
-            let did = Context::current_identity_or::<Identity<T>>(&sender)?;
-
-            ensure!(
-                T::GovernanceCommittee::is_member(&did),
-                Error::<T>::NotACommitteeMember
-            );
-
-            ensure!(<Proposals<T>>::contains_key(id), Error::<T>::NoSuchProposal);
-            // Check that the proposal is pending
-            Self::is_proposal_state(id, ProposalState::Pending)?;
-            Self::create_referendum(
-                id,
-                ReferendumState::Pending,
-                ReferendumType::FastTracked,
-            );
-            Self::refund_proposal(id);
-
-            Ok(())
-        }
-
-        /// Governance committee can make a proposal that automatically becomes a referendum on
-        /// which the committee can vote on.
-        #[weight = (1_000_000_000, DispatchClass::Operational, Pays::Yes)]
-        pub fn emergency_referendum(
-            origin,
-            proposal: Box<T::Proposal>,
-            url: Option<Url>,
-            description: Option<PipDescription>,
-            beneficiaries: Option<Vec<Beneficiary<T::Balance>>>
-        ) -> DispatchResult {
-            let proposer = ensure_signed(origin)?;
-            let did = Context::current_identity_or::<Identity<T>>(&proposer)?;
-
-            ensure!(
-                T::GovernanceCommittee::is_member(&did),
-                Error::<T>::NotACommitteeMember
-            );
-            let proposal_data = Self::reportable_proposal_data(&*proposal);
-            let id = Self::next_pip_id();
-            let pip = Pip {
-                id,
-                proposal: *proposal,
-                state: ProposalState::Pending,
-                beneficiaries,
-            };
-            <Proposals<T>>::insert(id, pip);
-
-            let proposal_metadata = PipsMetadata {
-                proposer: proposer.clone(),
-                id,
-                end: Zero::zero(),
-                url: url.clone(),
-                description: description.clone(),
-                cool_off_until: Zero::zero(),
-            };
-            <ProposalMetadata<T>>::insert(id, proposal_metadata);
-            Self::deposit_event(RawEvent::ProposalCreated(
-                did,
-                proposer,
-                id,
-                Zero::zero(),
-                url,
-                description,
-                Zero::zero(),
-                Zero::zero(),
-                proposal_data,
-                //beneficiaries,
-            ));
-            Self::create_referendum(
-                id,
-                ReferendumState::Pending,
-                ReferendumType::Emergency,
-            );
-            Ok(())
         }
 
         /// Moves a referendum instance into dispatch queue.
@@ -1257,38 +1179,12 @@ impl<T: Trait> Module<T> {
     /// 3. Submit any proposals that meet the quorum threshold, to the governance committee
     /// 4. Automatically execute any referendum
     pub fn end_block(block_number: T::BlockNumber) -> Result<Weight, DispatchError> {
-        let mut weight: Weight = 50_000_000; // Some arbitrary number right now, It is subject to change after proper benchmarking
-                                             // Find all matured proposals...
-        <ProposalsMaturingAt<T>>::take(block_number)
-            .into_iter()
-            .for_each(|id| {
-                // It is possible the proposal has been killed, cancelled or fast tracked
-                if let Some(proposal) = Self::proposals(id) {
-                    if proposal.state == ProposalState::Pending {
-                        // Tally votes and create referendums
-                        let voting = Self::proposal_result(id);
-
-                        // 1. Ayes staked must be more than nays staked (simple majority)
-                        // 2. Ayes staked are more than the minimum quorum threshold
-                        if voting.ayes_stake > voting.nays_stake
-                            && voting.ayes_stake >= Self::quorum_threshold()
-                        {
-                            Self::refund_proposal(id);
-                            Self::create_referendum(
-                                id,
-                                ReferendumState::Pending,
-                                ReferendumType::Community,
-                            );
-                        } else {
-                            Self::unsafe_reject_proposal(id);
-                        }
-                    }
-                }
-            });
-        <ProposalsMaturingAt<T>>::remove(block_number);
+        // Some arbitrary number right now, It is subject to change after proper benchmarking
+        let mut weight: Weight = 50_000_000;
         // Execute automatically referendums after its enactment period.
         let referendum_ids = <ExecutionSchedule<T>>::take(block_number);
         referendum_ids.into_iter().for_each(|id| {
+            <PipToSchedule<T>>::remove(id);
             weight += Self::execute_referendum(id);
         });
         <ExecutionSchedule<T>>::remove(block_number);
@@ -1300,27 +1196,6 @@ impl<T: Trait> Module<T> {
         Self::update_proposal_state(id, ProposalState::Rejected);
         Self::refund_proposal(id);
         Self::prune_data(id, Self::prune_historical_pips());
-    }
-
-    /// Create a referendum object from a proposal. If governance committee is composed of less
-    /// than 2 members, enact it immediately. Otherwise, committee votes on this referendum and
-    /// decides whether it should be enacted.
-    fn create_referendum(id: PipId, state: ReferendumState, referendum_type: ReferendumType) {
-        let enactment_period: T::BlockNumber = 0.into();
-        let referendum = Referendum {
-            id,
-            state,
-            referendum_type,
-            enactment_period,
-        };
-        <Referendums<T>>::insert(id, referendum);
-        Self::update_proposal_state(id, ProposalState::Referendum);
-        let current_did = Context::current_identity::<Identity<T>>().unwrap_or_default();
-        Self::deposit_event(RawEvent::ReferendumCreated(
-            current_did,
-            id,
-            referendum_type,
-        ));
     }
 
     /// Refunds any tokens used to vote or bond a proposal
@@ -1361,12 +1236,8 @@ impl<T: Trait> Module<T> {
         let curr_block_number = <system::Module<T>>::block_number();
         let enactment_period = curr_block_number + Self::default_enactment_period();
 
-        <Referendums<T>>::mutate(id, |referendum| {
-            if let Some(ref mut referendum) = referendum {
-                referendum.enactment_period = enactment_period;
-                referendum.state = ReferendumState::Scheduled;
-            }
-        });
+        Self::update_proposal_state(id, ProposalState::Scheduled);
+        <PipToSchedule<T>>::insert(id, enactment_period);
         <ExecutionSchedule<T>>::append(enactment_period, id);
         Self::deposit_event(RawEvent::ExecutionScheduled(
             current_did,
@@ -1379,7 +1250,7 @@ impl<T: Trait> Module<T> {
     fn execute_referendum(id: PipId) -> Weight {
         let mut actual_weight: Weight = 0;
         if let Some(proposal) = Self::proposals(id) {
-            if proposal.state == ProposalState::Referendum {
+            if proposal.state == ProposalState::Scheduled {
                 match Self::check_beneficiaries(id) {
                     Ok(_) => {
                         match proposal.proposal.dispatch(system::RawOrigin::Root.into()) {
