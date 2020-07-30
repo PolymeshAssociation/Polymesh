@@ -75,8 +75,8 @@ pub mod capped {
     {
         fn from(core_vote: CoreVote<Balance>) -> Self {
             match core_vote {
-                CoreVote::Yes(amount) => Vote::Yes(amount.saturated_into()),
-                CoreVote::No(amount) => Vote::No(amount.saturated_into()),
+                CoreVote(true, amount) => Vote::Yes(amount.saturated_into()),
+                CoreVote(false, amount) => Vote::No(amount.saturated_into()),
             }
         }
     }

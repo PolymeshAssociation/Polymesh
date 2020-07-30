@@ -192,12 +192,15 @@ pub struct VotingResult<Balance: Parameter> {
     pub nays_stake: Balance,
 }
 
+/// A "vote" or "signal" on a PIP to move it up or down the review queue.
 #[derive(PartialEq, Eq, Clone, Encode, Decode)]
 #[cfg_attr(feature = "std", derive(Debug, Serialize, Deserialize))]
-pub enum Vote<Balance> {
-    Yes(Balance),
-    No(Balance),
-}
+pub struct Vote<Balance>(
+    /// `true` if there's agreement.
+    pub bool,
+    /// How strongly do they feel about it?
+    pub Balance,
+);
 
 #[derive(PartialEq, Eq, Clone, Encode, Decode)]
 #[cfg_attr(feature = "std", derive(Debug, Serialize, Deserialize))]
@@ -606,7 +609,7 @@ decl_module! {
 
             // Add vote and update voting counter.
             // INTERNAL: It is impossible to overflow counters in the first vote.
-            Self::unsafe_vote( id, proposer.clone(), Vote::Yes(deposit))
+            Self::unsafe_vote(id, proposer.clone(), Vote(true, deposit))
                 .map_err(|vote_error| {
                     debug::error!("The counters of voting (id={}) have an overflow during the 1st vote", id);
                     vote_error
@@ -709,7 +712,7 @@ decl_module! {
                 id,
                 |stats| stats.ayes_stake += max_additional_deposit
             );
-            <ProposalVotes<T>>::insert(id, &proposer, Vote::Yes(curr_deposit + max_additional_deposit));
+            <ProposalVotes<T>>::insert(id, &proposer, Vote(true, curr_deposit + max_additional_deposit));
 
             Self::emit_proposal_bond_adjusted(proposer, id, true, max_additional_deposit)
         }
@@ -748,7 +751,7 @@ decl_module! {
                 id,
                 |stats| stats.ayes_stake = new_deposit
             );
-            <ProposalVotes<T>>::insert(id, &proposer, Vote::Yes(new_deposit));
+            <ProposalVotes<T>>::insert(id, &proposer, Vote(true, new_deposit));
 
             Self::emit_proposal_bond_adjusted(proposer, id, false, amount)
         }
@@ -784,12 +787,7 @@ decl_module! {
             <T as Trait>::Currency::reserve(&proposer, deposit).map_err(|_| Error::<T>::InsufficientDeposit)?;
 
             // Save your vote.
-            let vote = if aye_or_nay {
-                Vote::Yes(deposit)
-            } else {
-                Vote::No(deposit)
-            };
-            Self::unsafe_vote( id, proposer.clone(), vote)
+            Self::unsafe_vote(id, proposer.clone(), Vote(aye_or_nay, deposit))
                 .map_err( |vote_error| {
                     debug::warn!("The counters of voting (id={}) have an overflow, transaction is roll-back", id);
                     let _ = <T as Trait>::Currency::unreserve(&proposer, deposit);
@@ -1315,28 +1313,16 @@ impl<T: Trait> Module<T> {
     /// It inserts the vote and updates the accountability of target proposal.
     fn unsafe_vote(id: PipId, proposer: T::AccountId, vote: Vote<BalanceOf<T>>) -> DispatchResult {
         let mut stats = Self::proposal_result(id);
-        match vote {
-            Vote::Yes(deposit) => {
-                stats.ayes_count = stats
-                    .ayes_count
-                    .checked_add(1)
-                    .ok_or_else(|| Error::<T>::NumberOfVotesExceeded)?;
-                stats.ayes_stake = stats
-                    .ayes_stake
-                    .checked_add(&deposit)
-                    .ok_or_else(|| Error::<T>::StakeAmountOfVotesExceeded)?;
-            }
-            Vote::No(deposit) => {
-                stats.nays_count = stats
-                    .nays_count
-                    .checked_add(1)
-                    .ok_or_else(|| Error::<T>::NumberOfVotesExceeded)?;
-                stats.nays_stake = stats
-                    .nays_stake
-                    .checked_add(&deposit)
-                    .ok_or_else(|| Error::<T>::StakeAmountOfVotesExceeded)?;
-            }
+        let (count, stake, deposit) = match vote {
+            Vote(true, deposit) => (&mut stats.ayes_count, &mut stats.ayes_stake, deposit),
+            Vote(false, deposit) => (&mut stats.nays_count, &mut stats.nays_stake, deposit),
         };
+        *count = count
+            .checked_add(1)
+            .ok_or_else(|| Error::<T>::NumberOfVotesExceeded)?;
+        *stake = stake
+            .checked_add(&deposit)
+            .ok_or_else(|| Error::<T>::StakeAmountOfVotesExceeded)?;
 
         <ProposalResult<T>>::insert(id, stats);
         <ProposalVotes<T>>::insert(id, proposer, vote);
