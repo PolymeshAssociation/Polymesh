@@ -14,6 +14,7 @@ serde = { version = "1.0.104", optional = true, features = ["derive"] }
 polymesh-derive = { path = "../../../primitives_derive", package = "polymesh-primitives-derive"}
 scale-info = { version = "0.3", default-features = false, features = ["derive"], optional = true }
 derive_more = { version = "0.99", default-features = false, features = ["from", "display"] }
+ed25519-dalek = "=1.0.0-pre.3"
 
 [dependencies.type-metadata]
 git = "https://github.com/type-metadata/type-metadata.git"
@@ -38,3 +39,7 @@ ink-generate-abi = [
     "type-metadata",
     "ink_core/ink-generate-abi",
 ]
+no_std = [ ]
+
+[workspace]
+members = []
