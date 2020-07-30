@@ -398,7 +398,7 @@ decl_module! {
         /// # Arguments
         /// * `origin` It contains the signing key of the caller (i.e who signed the transaction to execute this function).
         /// * `auth_id` Authorization ID of ticker transfer authorization.
-        #[weight = T::DbWeight::get().reads_writes(4, 5) + 20_000_000]
+        #[weight = T::DbWeight::get().reads_writes(4, 5) + 200_000_000]
         pub fn accept_ticker_transfer(origin, auth_id: u64) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             let to_did = Context::current_identity_or::<Identity<T>>(&sender)?;
@@ -412,7 +412,7 @@ decl_module! {
         /// # Arguments
         /// * `origin` It contains the signing key of the caller (i.e who signed the transaction to execute this function).
         /// * `auth_id` Authorization ID of the token ownership transfer authorization.
-        #[weight = T::DbWeight::get().reads_writes(4, 5) + 20_000_000]
+        #[weight = T::DbWeight::get().reads_writes(4, 5) + 200_000_000]
         pub fn accept_asset_ownership_transfer(origin, auth_id: u64) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             let to_did = Context::current_identity_or::<Identity<T>>(&sender)?;
@@ -435,8 +435,8 @@ decl_module! {
         /// * `funding_round` - name of the funding round.
         ///
         /// # Weight
-        /// `800_000_000 + 20_000 * identifiers.len()`
-        #[weight = 800_000_000 + 20_000 * u64::try_from(identifiers.len()).unwrap_or_default()]
+        /// `1_000_000_000 + 20_000 * identifiers.len()`
+        #[weight = 1_000_000_000 + 20_000 * u64::try_from(identifiers.len()).unwrap_or_default()]
         pub fn create_asset(
             origin,
             name: AssetName,
@@ -530,7 +530,7 @@ decl_module! {
         /// # Arguments
         /// * `origin` - the signing key of the sender.
         /// * `ticker` - the ticker of the token.
-        #[weight = T::DbWeight::get().reads_writes(4, 1) + 10_000_000]
+        #[weight = T::DbWeight::get().reads_writes(4, 1) + 100_000_000]
         pub fn freeze(origin, ticker: Ticker) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             let sender_did = Context::current_identity_or::<Identity<T>>(&sender)?;
@@ -550,7 +550,7 @@ decl_module! {
         /// # Arguments
         /// * `origin` - the signing key of the sender.
         /// * `ticker` - the ticker of the frozen token.
-        #[weight = T::DbWeight::get().reads_writes(4, 1) + 10_000_000]
+        #[weight = T::DbWeight::get().reads_writes(4, 1) + 100_000_000]
         pub fn unfreeze(origin, ticker: Ticker) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             let sender_did = Context::current_identity_or::<Identity<T>>(&sender)?;
@@ -571,7 +571,7 @@ decl_module! {
         /// * `origin` - the signing key of the sender.
         /// * `ticker` - the ticker of the token.
         /// * `name` - the new name of the token.
-        #[weight = T::DbWeight::get().reads_writes(2, 1) + 10_000_000]
+        #[weight = T::DbWeight::get().reads_writes(2, 1) + 100_000_000]
         pub fn rename_asset(origin, ticker: Ticker, name: AssetName) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             let sender_did = Context::current_identity_or::<Identity<T>>(&sender)?;
@@ -618,7 +618,7 @@ decl_module! {
         /// * `value` Amount of tokens.
         /// * `data` Some off chain data to validate the restriction.
         /// * `operator_data` It is a string which describes the reason of this control transfer call.
-        #[weight = T::DbWeight::get().reads_writes(3, 2) + 10_000_000]
+        #[weight = T::DbWeight::get().reads_writes(3, 2) + 500_000_000]
         pub fn controller_transfer(origin, ticker: Ticker, from_did: IdentityId, to_did: IdentityId, value: T::Balance, data: Vec<u8>, operator_data: Vec<u8>) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             let did = Context::current_identity_or::<Identity<T>>(&sender)?;
@@ -639,7 +639,7 @@ decl_module! {
         /// * `origin` Signing key of the token owner (i.e sender).
         /// * `spender_did` DID of the spender.
         /// * `value` Amount of the tokens approved.
-        #[weight = T::DbWeight::get().reads_writes(2, 1) + 10_000_000]
+        #[weight = T::DbWeight::get().reads_writes(2, 1) + 400_000_000]
         fn approve(origin, ticker: Ticker, spender_did: IdentityId, value: T::Balance) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             let did = Context::current_identity_or::<Identity<T>>(&sender)?;
@@ -663,7 +663,7 @@ decl_module! {
         /// * `from_did` DID from whom token is being transferred.
         /// * `to_did` DID to whom token is being transferred.
         /// * `value` Amount of the token for transfer.
-        #[weight = T::DbWeight::get().reads_writes(5, 3) + 600_000_000]
+        #[weight = T::DbWeight::get().reads_writes(5, 3) + 800_000_000]
         pub fn transfer_from(origin, ticker: Ticker, from_did: IdentityId, to_did: IdentityId, value: T::Balance) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             let did = Context::current_identity_or::<Identity<T>>(&sender)?;
@@ -698,7 +698,7 @@ decl_module! {
         /// # Arguments
         /// * `origin` Signing key of the token owner. (Only token owner can call this function).
         /// * `ticker` Ticker of the token.
-        #[weight = T::DbWeight::get().reads_writes(3, 2) + 10_000_000]
+        #[weight = T::DbWeight::get().reads_writes(3, 2) + 100_000_000]
         pub fn create_checkpoint(origin, ticker: Ticker) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             let did = Context::current_identity_or::<Identity<T>>(&sender)?;
@@ -738,7 +738,7 @@ decl_module! {
         /// # Weight
         /// `800_000_000 + 400_000 * issue_asset_items.len().max(values.len())`
         #[weight =
-            T::DbWeight::get().reads_writes(6, 3) + 800_000_000 + 400_000 * u64::try_from(issue_asset_items.len()).unwrap_or_default()
+            T::DbWeight::get().reads_writes(6, 3) + 800_000_000 + 900_000 * u64::try_from(issue_asset_items.len()).unwrap_or_default()
         ]
         pub fn batch_issue(origin, issue_asset_items: Vec<IssueAssetItem<T::Balance>>, ticker: Ticker) -> DispatchResult {
             let sender = ensure_signed(origin)?;
@@ -1009,7 +1009,7 @@ decl_module! {
         /// # Arguments
         /// * `origin` Signing key of the token owner.
         /// * `ticker` Ticker of the token.
-        #[weight = T::DbWeight::get().reads_writes(2, 1) + 10_000_000]
+        #[weight = T::DbWeight::get().reads_writes(2, 1) + 100_000_000]
         pub fn make_divisible(origin, ticker: Ticker) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             let did = Context::current_identity_or::<Identity<T>>(&sender)?;
@@ -1073,7 +1073,7 @@ decl_module! {
         /// # Arguments
         /// * `_origin` Signing key.
         /// * `ticker` Ticker of the token whose issuance status need to know.
-        #[weight = 100_000]
+        #[weight = 10_000_000]
         pub fn is_issuable(_origin, ticker:Ticker) {
             Self::deposit_event(RawEvent::IsIssuable(ticker, true));
         }
@@ -1086,8 +1086,8 @@ decl_module! {
         /// * `documents` Documents to be attached to `ticker`.
         ///
         /// # Weight
-        /// `8_000_000 + 60_000 * documents.len()`
-        #[weight = T::DbWeight::get().reads_writes(2, 1) + 8_000_000 + 60_000 * u64::try_from(documents.len()).unwrap_or_default()]
+        /// `500_000_000 + 60_000 * documents.len()`
+        #[weight = T::DbWeight::get().reads_writes(2, 1) + 500_000_000 + 60_000 * u64::try_from(documents.len()).unwrap_or_default()]
         pub fn batch_add_document(origin, documents: Vec<(DocumentName, Document)>, ticker: Ticker) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             let did = Context::current_identity_or::<Identity<T>>(&sender)?;
@@ -1115,8 +1115,8 @@ decl_module! {
         /// * `doc_names` Documents to be removed from `ticker`.
         ///
         /// # Weight
-        /// `8_000_000 + 60_000 * do_ids.len()`
-        #[weight = T::DbWeight::get().reads_writes(2, 1) + 8_000_000 + 60_000 * u64::try_from(doc_names.len()).unwrap_or_default()]
+        /// `500_000_000 + 60_000 * do_ids.len()`
+        #[weight = T::DbWeight::get().reads_writes(2, 1) + 500_000_000 + 60_000 * u64::try_from(doc_names.len()).unwrap_or_default()]
         pub fn batch_remove_document(origin, doc_names: Vec<DocumentName>, ticker: Ticker) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             let did = Context::current_identity_or::<Identity<T>>(&sender)?;
@@ -1142,7 +1142,7 @@ decl_module! {
         /// * `ticker` Ticker of the token.
         /// * `custodian_did` DID of the custodian (i.e whom allowance provided).
         /// * `value` Allowance amount.
-        #[weight = T::DbWeight::get().reads_writes(4, 2) + 10_000_000]
+        #[weight = T::DbWeight::get().reads_writes(4, 2) + 500_000_000]
         pub fn increase_custody_allowance(origin, ticker: Ticker, custodian_did: IdentityId, value: T::Balance) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             let sender_did = Context::current_identity_or::<Identity<T>>(&sender)?;
@@ -1161,7 +1161,7 @@ decl_module! {
         /// * `value` Allowance amount.
         /// * `nonce` A u16 number which avoid the replay attack.
         /// * `signature` Signature provided by the holder_did.
-        #[weight = T::DbWeight::get().reads_writes(6, 3) + 40_000_000]
+        #[weight = T::DbWeight::get().reads_writes(6, 3) + 600_000_000]
         pub fn increase_custody_allowance_of(
             origin,
             ticker: Ticker,
@@ -1230,7 +1230,7 @@ decl_module! {
         /// * `origin` - the signing key of the token owner DID.
         /// * `ticker` - the ticker of the token.
         /// * `name` - the desired name of the current funding round.
-        #[weight = T::DbWeight::get().reads_writes(2, 1) + 10_000_000]
+        #[weight = T::DbWeight::get().reads_writes(2, 1) + 100_000_000]
         pub fn set_funding_round(origin, ticker: Ticker, name: FundingRoundName) ->
             DispatchResult
         {
@@ -1252,7 +1252,7 @@ decl_module! {
         ///
         /// # Weight
         /// `150_000 + 20_000 * identifiers.len()`
-        #[weight = T::DbWeight::get().reads_writes(1, 1) + 10_000_000 + 20_000 * u64::try_from(identifiers.len()).unwrap_or_default()]
+        #[weight = T::DbWeight::get().reads_writes(1, 1) + 100_000_000 + 20_000 * u64::try_from(identifiers.len()).unwrap_or_default()]
         pub fn update_identifiers(
             origin,
             ticker: Ticker,
@@ -1274,7 +1274,7 @@ decl_module! {
         /// * `origin` - Signatory who owns to ticker/asset.
         /// * `ticker` - ticker for whom extension get added.
         /// * `extension_details` - Details of the smart extension.
-        #[weight = T::DbWeight::get().reads_writes(2, 2) + 10_000_000]
+        #[weight = T::DbWeight::get().reads_writes(2, 2) + 600_000_000]
         pub fn add_extension(origin, ticker: Ticker, extension_details: SmartExtension<T::AccountId>) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             let my_did = Context::current_identity_or::<identity::Module<T>>(&sender)?;
@@ -1297,7 +1297,7 @@ decl_module! {
         /// * `origin` - Signatory who owns the ticker/asset.
         /// * `ticker` - Ticker symbol of the asset.
         /// * `extension_id` - AccountId of the extension that need to be archived.
-        #[weight = T::DbWeight::get().reads_writes(3, 1) + 10_000_000]
+        #[weight = T::DbWeight::get().reads_writes(3, 1) + 800_000_000]
         pub fn archive_extension(origin, ticker: Ticker, extension_id: T::AccountId) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             let my_did =  Context::current_identity_or::<identity::Module<T>>(&sender)?;
@@ -1320,7 +1320,7 @@ decl_module! {
         /// * `origin` - Signatory who owns the ticker/asset.
         /// * `ticker` - Ticker symbol of the asset.
         /// * `extension_id` - AccountId of the extension that need to be un-archived.
-        #[weight = T::DbWeight::get().reads_writes(2, 2) + 10_000_000]
+        #[weight = T::DbWeight::get().reads_writes(2, 2) + 800_000_000]
         pub fn unarchive_extension(origin, ticker: Ticker, extension_id: T::AccountId) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             let my_did = Context::current_identity_or::<identity::Module<T>>(&sender)?;
@@ -1347,7 +1347,7 @@ decl_module! {
         /// * `origin` - The asset issuer.
         /// * `ticker` - Ticker symbol of the asset.
         /// * `treasury_did` - The treasury DID wrapped in a value of type [`Option`].
-        #[weight = T::DbWeight::get().reads_writes(1, 1) + 5_000_000]
+        #[weight = T::DbWeight::get().reads_writes(1, 1) + 50_000_000]
         pub fn set_treasury_did(
             origin,
             ticker: Ticker,

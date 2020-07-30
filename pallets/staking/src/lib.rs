@@ -2029,7 +2029,7 @@ decl_module! {
         /// Enables individual commissions. This can be set only once. Once individual commission
         /// rates are enabled, there's no going back.  Only Governance committee is allowed to
         /// change this value.
-        #[weight = (10_000_000, Operational, Pays::Yes)]
+        #[weight = (800_000_000, Operational, Pays::Yes)]
         pub fn enable_individual_commissions(origin) {
             T::RequiredCommissionOrigin::ensure_origin(origin.clone())?;
             let key = ensure_signed(origin)?;
@@ -2049,7 +2049,7 @@ decl_module! {
         ///
         /// # Arguments
         /// * `new_value` the new commission to be used for reward calculations
-        #[weight = (20_000_000, Operational, Pays::Yes)]
+        #[weight = (800_000_000, Operational, Pays::Yes)]
         pub fn set_global_commission(origin, new_value: Perbill) {
             T::RequiredCommissionOrigin::ensure_origin(origin.clone())?;
             let key = ensure_signed(origin)?;
@@ -2071,7 +2071,7 @@ decl_module! {
         ///
         /// # Arguments
         /// * `new_value` the new minimum
-        #[weight = (900_000, Operational, Pays::Yes)]
+        #[weight = (75_000_000, Operational, Pays::Yes)]
         pub fn set_min_bond_threshold(origin, new_value: BalanceOf<T>) {
             T::RequiredCommissionOrigin::ensure_origin(origin.clone())?;
             let key = ensure_signed(origin)?;
