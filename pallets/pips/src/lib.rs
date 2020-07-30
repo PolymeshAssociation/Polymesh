@@ -149,6 +149,8 @@ pub enum ProposalData {
 }
 
 /// The various sorts of committees that can make a PIP.
+#[derive(Encode, Decode, Clone, PartialEq, Eq)]
+#[cfg_attr(feature = "std", derive(Debug))]
 pub enum Committee {
     /// The technical committee.
     Technical,
@@ -157,18 +159,21 @@ pub enum Committee {
 }
 
 /// The proposer of a certain PIP.
-pub enum Proposer<T: Trait> {
+#[derive(Encode, Decode, Clone, PartialEq, Eq)]
+#[cfg_attr(feature = "std", derive(Debug))]
+pub enum Proposer<AccountId> {
     /// The proposer is of the community.
-    Community(T::AccountId),
+    Community(AccountId),
     /// The proposer is a committee.
     Committee(Committee),
 }
 
 /// Represents a proposal metadata
-#[derive(Encode, Decode, Clone, PartialEq, Eq, Debug)]
+#[derive(Encode, Decode, Clone, PartialEq, Eq)]
+#[cfg_attr(feature = "std", derive(Debug))]
 pub struct PipsMetadata<T: Trait> {
-    /// The creator
-    pub proposer: T::AccountId,
+    /// They creator
+    pub proposer: Proposer<T::AccountId>,
     /// The proposal's unique id.
     pub id: PipId,
     /// The proposal url for proposal discussion.
@@ -390,7 +395,7 @@ decl_event!(
         /// Caller DID, Proposer, PIP ID, deposit, URL, description, cool-off period end, proposal data.
         ProposalCreated(
             IdentityId,
-            AccountId,
+            Proposer<AccountId>,
             PipId,
             Balance,
             Option<Url>,
@@ -399,7 +404,7 @@ decl_event!(
             ProposalData,
         ),
         /// A PIP's details (url & description) were amended.
-        ProposalDetailsAmended(IdentityId, AccountId, PipId, Option<Url>, Option<PipDescription>),
+        ProposalDetailsAmended(IdentityId, Proposer<AccountId>, PipId, Option<Url>, Option<PipDescription>),
         /// The deposit of a vote on a PIP was adjusted, either by increasing or decreasing.
         /// `true` represents an increase and `false` a decrease.
         ProposalBondAdjusted(IdentityId, AccountId, PipId, bool, Balance),
@@ -446,6 +451,9 @@ decl_error! {
     pub enum Error for Module<T: Trait> {
         /// Incorrect origin
         BadOrigin,
+        /// The given dispatchable call is not valid for this proposal.
+        /// The proposal must be from the community, but isn't.
+        NotFromCommunity,
         /// Proposer specifies an incorrect deposit
         IncorrectDeposit,
         /// Proposer can't afford to lock minimum deposit
@@ -558,33 +566,40 @@ decl_module! {
         /// changes the network in someway. A minimum deposit is required to open a new proposal.
         ///
         /// # Arguments
+        /// * `proposer` is either a signing key or committee.
+        ///    Used to understand whether this is a committee proposal and verified against `origin`.
         /// * `proposal` a dispatchable call
-        /// * `deposit` minimum deposit value
+        /// * `deposit` minimum deposit value, which is ignored if `proposer` is a committee.
         /// * `url` a link to a website for proposal discussion
         #[weight = (1_850_000_000, DispatchClass::Operational, Pays::Yes)]
         pub fn propose(
             origin,
+            proposer: Proposer<T::AccountId>,
             proposal: Box<T::Proposal>,
             deposit: BalanceOf<T>,
             url: Option<Url>,
             description: Option<PipDescription>,
             beneficiaries: Option<Vec<Beneficiary<T::Balance>>>
         ) -> DispatchResult {
-            let proposer = ensure_signed(origin)?;
+            // 1. Ensure it's really the `proposer`.
+            Self::ensure_signed_by(origin, &proposer)?;
 
-            // Pre conditions: caller must have min balance
-            ensure!(
-                deposit >= Self::min_proposal_deposit(),
-                Error::<T>::IncorrectDeposit
-            );
+            // 2. Add a deposit for community PIPs.
+            if let Proposer::Community(ref proposer) = proposer {
+                // Pre conditions: caller must have min balance
+                ensure!(deposit >= Self::min_proposal_deposit(), Error::<T>::IncorrectDeposit);
 
-            // Reserve the minimum deposit
-            <T as Trait>::Currency::reserve(&proposer, deposit).map_err(|_| Error::<T>::InsufficientDeposit)?;
+                // Reserve the minimum deposit
+                <T as Trait>::Currency::reserve(&proposer, deposit)
+                    .map_err(|_| Error::<T>::InsufficientDeposit)?;
+            }
+
+            // 3. Charge protocol fees, even for committee PIPs.
             <T as IdentityTrait>::ProtocolFee::charge_fee(ProtocolOp::PipsPropose)?;
 
+            // 4. Construct and add PIP to storage.
             let id = Self::next_pip_id();
-            let curr_block_number = <system::Module<T>>::block_number();
-            let cool_off_until = curr_block_number + Self::proposal_cool_off_period();
+            let cool_off_until = <system::Module<T>>::block_number() + Self::proposal_cool_off_period();
             let proposal_metadata = PipsMetadata {
                 proposer: proposer.clone(),
                 id,
@@ -594,11 +609,6 @@ decl_module! {
             };
             <ProposalMetadata<T>>::insert(id, proposal_metadata);
 
-            let deposit_info = DepositInfo {
-                owner: proposer.clone(),
-                amount: deposit
-            };
-            <Deposits<T>>::insert(id, &proposer, deposit_info);
             let proposal_data = Self::reportable_proposal_data(&*proposal);
             let pip = Pip {
                 id,
@@ -608,16 +618,26 @@ decl_module! {
             };
             <Proposals<T>>::insert(id, pip);
 
-            // Add vote and update voting counter.
-            // INTERNAL: It is impossible to overflow counters in the first vote.
-            Self::unsafe_vote(id, proposer.clone(), Vote(true, deposit))
-                .map_err(|vote_error| {
-                    debug::error!("The counters of voting (id={}) have an overflow during the 1st vote", id);
-                    vote_error
-                })?;
-            let current_did = Self::current_did_or_missing()?;
+            // 5. Record the deposit and as a signal if we have a community PIP.
+            if let Proposer::Community(ref proposer) = proposer {
+                let deposit_info = DepositInfo {
+                    owner: proposer.clone(),
+                    amount: deposit
+                };
+                <Deposits<T>>::insert(id, &proposer, deposit_info);
+
+                // Add vote and update voting counter.
+                // INTERNAL: It is impossible to overflow counters in the first vote.
+                Self::unsafe_vote(id, proposer.clone(), Vote(true, deposit))
+                    .map_err(|vote_error| {
+                        debug::error!("The counters of voting (id={}) have an overflow during the 1st vote", id);
+                        vote_error
+                    })?;
+            }
+
+            // 6. Emit the event.
             Self::deposit_event(RawEvent::ProposalCreated(
-                current_did,
+                Self::current_did_or_missing()?,
                 proposer,
                 id,
                 deposit,
@@ -638,16 +658,16 @@ decl_module! {
         ///
         #[weight = (1_000_000_000, DispatchClass::Operational, Pays::Yes)]
         pub fn amend_proposal(
-                origin,
-                id: PipId,
-                url: Option<Url>,
-                description: Option<PipDescription>
+            origin,
+            id: PipId,
+            url: Option<Url>,
+            description: Option<PipDescription>,
         ) -> DispatchResult {
             // 1. Fetch proposer and perform sanity checks.
             let proposer = Self::ensure_owned_by_alterable(origin, id)?;
 
             // 2. Update proposal metadata.
-            <ProposalMetadata<T>>::mutate( id, |meta| {
+            <ProposalMetadata<T>>::mutate(id, |meta| {
                 if let Some(meta) = meta {
                     meta.url = url.clone();
                     meta.description = description.clone();
@@ -687,15 +707,15 @@ decl_module! {
         /// That amount is added to the current deposit.
         ///
         /// # Errors
-        /// * `BadOrigin`: Only the owner of the proposal can bond an additional deposit.
-        /// * `ProposalIsImmutable`: A Proposal is mutable only during its cool off period.
+        /// * `BadOrigin` if other than the PIP's owner, or if owner is a committee.
+        /// * `ProposalIsImmutable` if proposal is out of its cool-off period.
         #[weight = 900_000_000]
         pub fn bond_additional_deposit(origin,
             id: PipId,
             additional_deposit: BalanceOf<T>
         ) -> DispatchResult {
             // 1. Sanity checks.
-            let proposer = Self::ensure_owned_by_alterable(origin, id)?;
+            let proposer = Self::ensure_owned_by_community_alterable(origin, id)?;
 
             // 2. Reserve extra deposit & update deposit info for this proposal
             let curr_deposit = Self::deposits(id, &proposer).amount;
@@ -721,17 +741,16 @@ decl_module! {
         /// It unbonds any amount from the deposit of the proposal with id `id`.
         ///
         /// # Errors
-        /// * `BadOrigin`: Only the owner of the proposal can release part of the deposit.
-        /// * `ProposalIsImmutable`: A Proposal is mutable only during its cool off period.
-        /// * `InsufficientDeposit`: If the final deposit will be less that the minimum deposit for
-        /// a proposal.
+        /// * `BadOrigin` if other than the PIP's owner, or if owner is a committee.
+        /// * `ProposalIsImmutable` if proposal is out of its cool-off period.
+        /// * `InsufficientDeposit` if the final deposit < minimum deposit for a proposal.
         #[weight = 900_000_000]
         pub fn unbond_deposit(origin,
             id: PipId,
             amount: BalanceOf<T>
         ) -> DispatchResult {
             // 1. Sanity checks.
-            let proposer = Self::ensure_owned_by_alterable(origin, id)?;
+            let proposer = Self::ensure_owned_by_community_alterable(origin, id)?;
 
             // 2. Double-check that `amount` is valid.
             let mut depo_info = Self::deposits(id, &proposer);
@@ -757,7 +776,7 @@ decl_module! {
             Self::emit_proposal_bond_adjusted(proposer, id, false, amount)
         }
 
-        /// A network member can vote on any PIP by selecting the id that
+        /// A network member can vote on any community PIP by selecting the id that
         /// corresponds ot the dispatchable action and vote with some balance.
         ///
         /// # Arguments
@@ -770,10 +789,11 @@ decl_module! {
             let proposer = ensure_signed(origin)?;
             let meta = Self::proposal_metadata(id)
                 .ok_or_else(|| Error::<T>::NoSuchProposal)?;
+            ensure!(matches!(meta.proposer, Proposer::Community(_)), Error::<T>::NotFromCommunity);
 
             // No one should be able to vote during the proposal cool-off period.
             let curr_block_number = <system::Module<T>>::block_number();
-            ensure!( meta.cool_off_until <= curr_block_number, Error::<T>::ProposalOnCoolOffPeriod);
+            ensure!(meta.cool_off_until <= curr_block_number, Error::<T>::ProposalOnCoolOffPeriod);
 
             // Check that the proposal is pending
             Self::is_proposal_state(id, ProposalState::Pending)?;
@@ -1025,6 +1045,26 @@ decl_module! {
 }
 
 impl<T: Trait> Module<T> {
+    /// Ensure that `origin` represents a signed extrinsic (i.e. transaction)
+    /// and confirms that the account is the same as the given `proposer`.
+    ///
+    /// For example, if `proposer` denotes a committee,
+    /// then `origin` is checked against the committee's origin.
+    ///
+    /// # Errors
+    /// * `BadOrigin` unless the checks above pass.
+    fn ensure_signed_by(origin: T::Origin, proposer: &Proposer<T::AccountId>) -> DispatchResult {
+        match proposer {
+            Proposer::Community(acc) => {
+                ensure!(acc == &ensure_signed(origin)?, Error::<T>::BadOrigin)
+            }
+            // TODO(centril): add actual checks for committees.
+            Proposer::Committee(Committee::Technical) => todo!(),
+            Proposer::Committee(Committee::Upgrade) => todo!(),
+        }
+        Ok(())
+    }
+
     /// Returns the current identity or emits `MissingCurrentIdentity`.
     fn current_did_or_missing() -> Result<IdentityId, Error<T>> {
         Context::current_identity::<Identity<T>>().ok_or_else(|| Error::<T>::MissingCurrentIdentity)
@@ -1042,20 +1082,29 @@ impl<T: Trait> Module<T> {
         Ok(())
     }
 
-    /// Ensure that proposer is owner of the proposal which mustn't be in the cool off period.
-    ///
-    /// # Errors
-    /// * `BadOrigin`: Only the owner of the proposal can mutate it.
-    /// * `ProposalIsImmutable`: A Proposal is mutable only during its cool off period.
-    fn ensure_owned_by_alterable(
+    fn ensure_owned_by_community_alterable(
         origin: T::Origin,
         id: PipId,
     ) -> Result<T::AccountId, DispatchError> {
-        let proposer = ensure_signed(origin)?;
-        let meta = Self::proposal_metadata(id).ok_or_else(|| Error::<T>::NoSuchProposal)?;
+        match Self::ensure_owned_by_alterable(origin, id)? {
+            Proposer::Community(p) => Ok(p),
+            Proposer::Committee(_) => Err(Error::<T>::BadOrigin)?,
+        }
+    }
 
+    /// Ensure that proposer is owner of the proposal which mustn't be in the cool off period.
+    ///
+    /// # Errors
+    /// * `ProposalIsImmutable`: A Proposal is mutable only during its cool off period.
+    /// * `BadOrigin`: Only the owner of the proposal can mutate it.
+    fn ensure_owned_by_alterable(
+        origin: T::Origin,
+        id: PipId,
+    ) -> Result<Proposer<T::AccountId>, DispatchError> {
         // 1. Only owner can act on proposal.
-        ensure!(meta.proposer == proposer, Error::<T>::BadOrigin);
+        let meta = Self::proposal_metadata(id).ok_or_else(|| Error::<T>::NoSuchProposal)?;
+        Self::ensure_signed_by(origin, &meta.proposer)?;
+
         // 2. Check that the proposal is pending.
         Self::is_proposal_state(id, ProposalState::Pending)?;
 
@@ -1066,7 +1115,7 @@ impl<T: Trait> Module<T> {
             Error::<T>::ProposalIsImmutable
         );
 
-        Ok(proposer)
+        Ok(meta.proposer)
     }
 
     /// Runs the following procedure:
@@ -1261,10 +1310,10 @@ impl<T: Trait> Module<T> {
         }
     }
 
-    /// Retrieve proposals made by `address`.
-    pub fn proposed_by(address: T::AccountId) -> Vec<PipId> {
+    /// Retrieve proposals made by `proposer`.
+    pub fn proposed_by(proposer: Proposer<T::AccountId>) -> Vec<PipId> {
         <ProposalMetadata<T>>::iter()
-            .filter(|(_, meta)| meta.proposer == address)
+            .filter(|(_, meta)| meta.proposer == proposer)
             .map(|(_, meta)| meta.id)
             .collect()
     }
@@ -1302,12 +1351,9 @@ impl<T: Trait> Module<T> {
             .collect::<HistoricalVotingById<_, _>>()
     }
 
-    /// It generates the next id for proposals and referendums.
+    /// Generates the next id for proposals and referendums.
     fn next_pip_id() -> u32 {
-        let id = <PipIdSequence>::get();
-        <PipIdSequence>::put(id + 1);
-
-        id
+        <PipIdSequence>::mutate(|id| mem::replace(id, *id + 1))
     }
 
     /// It inserts the vote and updates the accountability of target proposal.
