@@ -195,15 +195,8 @@ pub struct VotingResult<Balance: Parameter> {
 #[derive(PartialEq, Eq, Clone, Encode, Decode)]
 #[cfg_attr(feature = "std", derive(Debug, Serialize, Deserialize))]
 pub enum Vote<Balance> {
-    None,
     Yes(Balance),
     No(Balance),
-}
-
-impl<Balance> Default for Vote<Balance> {
-    fn default() -> Self {
-        Vote::None
-    }
 }
 
 #[derive(PartialEq, Eq, Clone, Encode, Decode)]
@@ -353,7 +346,7 @@ decl_storage! {
 
         /// Votes per Proposal and account. Used to avoid double vote issue.
         /// (proposal id, account) -> Vote
-        pub ProposalVotes get(fn proposal_vote): double_map hasher(twox_64_concat) PipId, hasher(twox_64_concat) T::AccountId => Vote<BalanceOf<T>>;
+        pub ProposalVotes get(fn proposal_vote): double_map hasher(twox_64_concat) PipId, hasher(twox_64_concat) T::AccountId => Option<Vote<BalanceOf<T>>>;
 
         /// Maps PIPs to the block at which they will be executed, if any.
         pub PipToSchedule get(fn pip_to_schedule): map hasher(twox_64_concat) PipId => Option<T::BlockNumber>;
@@ -785,7 +778,7 @@ decl_module! {
             ensure!(<ProposalResult<T>>::contains_key(id), Error::<T>::NoSuchProposal);
 
             // Double-check vote duplication.
-            ensure!( Self::proposal_vote(id, &proposer) == Vote::None, Error::<T>::DuplicateVote);
+            ensure!(matches!(Self::proposal_vote(id, &proposer), None), Error::<T>::DuplicateVote);
 
             // Reserve the deposit
             <T as Trait>::Currency::reserve(&proposer, deposit).map_err(|_| Error::<T>::InsufficientDeposit)?;
@@ -1281,10 +1274,7 @@ impl<T: Trait> Module<T> {
     /// Retrieve proposals `address` voted on
     pub fn voted_on(address: T::AccountId) -> Vec<PipId> {
         <ProposalMetadata<T>>::iter()
-            .filter_map(|(_, meta)| match Self::proposal_vote(meta.id, &address) {
-                Vote::None => None,
-                _ => Some(meta.id),
-            })
+            .filter_map(|(_, meta)| Self::proposal_vote(meta.id, &address).map(|_| meta.id))
             .collect::<Vec<_>>()
     }
 
@@ -1293,9 +1283,11 @@ impl<T: Trait> Module<T> {
         who: T::AccountId,
     ) -> HistoricalVotingByAddress<Vote<BalanceOf<T>>> {
         <ProposalMetadata<T>>::iter()
-            .map(|(_, meta)| VoteByPip {
-                pip: meta.id,
-                vote: Self::proposal_vote(meta.id, &who),
+            .filter_map(|(_, meta)| {
+                Some(VoteByPip {
+                    pip: meta.id,
+                    vote: Self::proposal_vote(meta.id, &who)?,
+                })
             })
             .collect::<Vec<_>>()
     }
@@ -1343,10 +1335,6 @@ impl<T: Trait> Module<T> {
                     .nays_stake
                     .checked_add(&deposit)
                     .ok_or_else(|| Error::<T>::StakeAmountOfVotesExceeded)?;
-            }
-            Vote::None => {
-                // It should be unreachable because public API only allows binary options.
-                debug::warn!("Unexpected none vote");
             }
         };
 
