@@ -226,21 +226,6 @@ impl Default for ProposalState {
     }
 }
 
-#[derive(Encode, Decode, Copy, Clone, Eq, PartialEq)]
-#[cfg_attr(feature = "std", derive(Debug))]
-pub enum ReferendumState {
-    /// Pending GC ratification
-    Pending,
-    /// Execution of this PIP is scheduled, i.e. it needs to wait its enactment period.
-    Scheduled,
-    /// Rejected by the GC
-    Rejected,
-    /// It has been executed, but execution failed.
-    Failed,
-    /// It has been successfully executed.
-    Executed,
-}
-
 /// Information about deposit.
 #[derive(Encode, Decode, Clone, PartialEq, Eq, Default)]
 #[cfg_attr(feature = "std", derive(Debug))]
@@ -422,12 +407,8 @@ decl_event!(
         Voted(IdentityId, AccountId, PipId, bool, Balance),
         /// Pip has been closed, bool indicates whether data is pruned
         PipClosed(IdentityId, PipId, bool),
-        /// Referendum created for proposal.
-        ReferendumCreated(IdentityId, PipId),
         /// Execution of a PIP has been scheduled at specific block.
         ExecutionScheduled(IdentityId, PipId, BlockNumber, BlockNumber),
-        /// Triggered each time the state of a referendum is amended
-        ReferendumStateUpdated(IdentityId, PipId, ReferendumState),
         /// Default enactment period (in blocks) has been changed.
         /// (caller DID, old period, new period)
         DefaultEnactmentPeriodChanged(IdentityId, BlockNumber, BlockNumber),
@@ -1160,7 +1141,6 @@ impl<T: Trait> Module<T> {
             <ProposalVotes<T>>::remove_prefix(id);
             <ProposalMetadata<T>>::remove(id);
             <Proposals<T>>::remove(id);
-
             PipSkipCount::remove(id);
         }
         Self::deposit_event(RawEvent::PipClosed(current_did, id, prune));
