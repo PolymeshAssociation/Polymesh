@@ -1,0 +1,39 @@
+[package]
+name = "custom_ink_env_types"
+version = "0.1.0"
+authors = ["Polymath Inc."]
+edition = "2018"
+
+[dependencies]
+ink_core = { git = "https://github.com/paritytech/ink", tag = "v2.1.0", package = "ink_core", default-features = false }
+ink_prelude = { git = "https://github.com/paritytech/ink", tag = "v2.1.0", package = "ink_prelude", default-features = false }
+frame-system = { git = "https://github.com/paritytech/substrate/", package = "frame-system", tag = "v2.0.0-rc4", default-features = false }
+pallet-indices = { git = "https://github.com/paritytech/substrate/", package = "pallet-indices", tag = "v2.0.0-rc4", default-features = false }
+sp-runtime = { git = "https://github.com/paritytech/substrate/", package = "sp-runtime", tag = "v2.0.0-rc4", default-features = false }
+scale = { package = "parity-scale-codec", version = "1.3", default-features = false, features = ["derive"] }
+serde = { version = "1.0.104", optional = true, features = ["derive"] }
+polymesh-derive = { path = "../../../primitives_derive", package = "polymesh-primitives-derive"}
+
+[dependencies.type-metadata]
+git = "https://github.com/type-metadata/type-metadata.git"
+rev = "02eae9f35c40c943b56af5b60616219f2b72b47d"
+default-features = false
+features = ["derive"]
+optional = true
+
+[features]
+default = ["std"]
+std = [
+    "serde",
+    "ink_core/std",
+    "frame-system/std",
+    "pallet-indices/std",
+    "sp-runtime/std",
+]
+ink-generate-abi = [
+    "std",
+    "type-metadata",
+    "ink_core/ink-generate-abi",
+]
+[workspace]
+members = []

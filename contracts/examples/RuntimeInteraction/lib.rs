@@ -160,7 +160,7 @@ mod RuntimeInteraction {
         }
 
         #[ink(message)]
-        fn read_compliance_manager_storage(&mut self, ticker: Ticker) -> AssetTransferRules {
+        fn read_compliance_manager_storage(&self, ticker: Ticker) -> AssetTransferRules {
             // Read the storage of compliance transfer manager
             // Read the map storage
             // Twox128(module_prefix) ++ Twox128(storage_prefix) ++ Hasher(encode(key))
@@ -201,8 +201,8 @@ mod RuntimeInteraction {
         }
 
         #[ink(message)]
-        fn call_runtime_dispatch() -> {
-            
+        fn call_runtime_dispatch(&mut self) {
+            self.env().invoke_runtime::<T>(&call);
         }
     }
 
