@@ -363,7 +363,7 @@ fn do_freeze_and_unfreeze_bridge() {
         BridgeTxStatus::Timelocked
     );
     // Weight calculation when bridge is freezed
-    assert_eq!(next_block(), 500002400);
+    assert_eq!(next_block(), 500000240);
     // Unfreeze the bridge.
     assert_ok!(Bridge::unfreeze(admin.clone()));
     assert!(!Bridge::frozen());
