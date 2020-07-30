@@ -404,6 +404,20 @@ decl_module! {
             Self::_accept_ticker_transfer(to_did, auth_id)
         }
 
+        /// This function is used to accept a treasury transfer.
+        /// NB: To reject the transfer, call remove auth function in identity module.
+        ///
+        /// # Arguments
+        /// * `origin` It contains the signing key of the caller (i.e who signed the transaction to execute this function).
+        /// * `auth_id` Authorization ID of treasury transfer authorization.
+        #[weight = 500_000]
+        pub fn accept_treasury_transfer(origin, auth_id: u64) -> DispatchResult {
+            let sender = ensure_signed(origin)?;
+            let to_did = Context::current_identity_or::<Identity<T>>(&sender)?;
+
+            Self::_accept_treasury_transfer(to_did, auth_id)
+        }
+
         /// This function is used to accept a token ownership transfer.
         /// NB: To reject the transfer, call remove auth function in identity module.
         ///
@@ -1441,8 +1455,8 @@ decl_event! {
         /// Emitted event for Checkpoint creation.
         /// caller DID. ticker, checkpoint count.
         CheckpointCreated(IdentityId, Ticker, u64),
-        /// An event emitted when the treasury DID of an asset is set.
-        TreasuryDidSet(IdentityId, Ticker, Option<IdentityId>),
+        /// An event emitted when the treasury DID of an asset is transferred.
+        TreasuryTransfer(IdentityId, Ticker, Option<IdentityId>),
         /// A new document attached to an asset
         DocumentAdded(Ticker, DocumentName, Document),
         /// A document removed from an asset
@@ -1456,6 +1470,8 @@ decl_error! {
         DIDNotFound,
         /// Not a ticker transfer auth.
         NoTickerTransferAuth,
+        /// Not a treasury transfer auth.
+        NoTreasuryTransferAuth,
         /// Not a token ownership transfer auth.
         NotTickerOwnershipTransferAuth,
         /// The user is not authorized.
@@ -1621,6 +1637,10 @@ impl<T: Trait> AssetTrait<T::Balance, T::AccountId> for Module<T> {
 impl<T: Trait> AcceptTransfer for Module<T> {
     fn accept_ticker_transfer(to_did: IdentityId, auth_id: u64) -> DispatchResult {
         Self::_accept_ticker_transfer(to_did, auth_id)
+    }
+
+    fn accept_treasury_transfer(to_did: IdentityId, auth_id: u64) -> DispatchResult {
+        Self::_accept_treasury_transfer(to_did, auth_id)
     }
 
     fn accept_asset_ownership_transfer(to_did: IdentityId, auth_id: u64) -> DispatchResult {
@@ -2184,6 +2204,46 @@ impl<T: Trait> Module<T> {
             to_did,
             ticker,
             ticker_details.owner,
+        ));
+
+        Ok(())
+    }
+
+    /// Accept and process a treasury transfer.
+    pub fn _accept_treasury_transfer(to_did: IdentityId, auth_id: u64) -> DispatchResult {
+        ensure!(
+            <identity::Authorizations<T>>::contains_key(Signatory::from(to_did), auth_id),
+            AuthorizationError::Invalid
+        );
+
+        let auth = <identity::Authorizations<T>>::get(Signatory::from(to_did), auth_id);
+
+        let ticker = match auth.authorization_data {
+            AuthorizationData::TransferTreasury(ticker) => ticker,
+            _ => return Err(Error::<T>::NoTreasuryTransferAuth.into()),
+        };
+
+        ensure!(
+            <Tokens<T>>::contains_key(&ticker),
+            Error::<T>::NoSuchAsset
+        );
+
+        <identity::Module<T>>::consume_auth(
+            ticker_details.owner,
+            Signatory::from(to_did),
+            auth_id,
+        )?;
+
+        let mut old_treasury = None;
+        <Tokens<T>>::mutate(&ticker, |token| {
+            old_treasury = token.treasury;
+            token.treasury = Some(to_did);
+        });
+
+        Self::deposit_event(RawEvent::TreasuryTransferred(
+            to_did,
+            ticker,
+            old_treasury,
         ));
 
         Ok(())
