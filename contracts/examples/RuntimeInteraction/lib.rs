@@ -7,7 +7,6 @@ mod RuntimeInteraction {
     use custom_ink_env_types::{
         calls as runtime_calls, AssetTransferRules, PolymeshRuntimeTypes, Ticker,
     };
-    use ink_core::env;
     use ink_core::{env, hash::Blake2x128, storage};
     use ink_prelude::{format, vec, vec::Vec};
     use scale::{Decode, Encode};
