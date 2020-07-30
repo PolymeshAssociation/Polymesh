@@ -1,11 +1,18 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
-pub use ink_core::env::{ Balance, AccountId, Timestamp, BlockNumber, Hash};
+use core::{
+    array::TryFromSliceError,
+    convert::TryFrom,
+};
+use derive_more::From;
+use ink_core::env::Clear;
 use scale::{Decode, Encode};
 #[cfg(feature = "std")]
 use serde::{Serialize, Deserialize};
 use ink_core::storage::Flush;
-use ink_prelude::{vec, vec::Vec};
+use ink_prelude::vec::Vec;
+#[cfg(feature = "std")]
+use scale_info::TypeInfo;
 
 pub mod calls;
 
@@ -14,7 +21,100 @@ pub mod calls;
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum PolymeshRuntimeTypes {}
 
-pub type AccountIndex = u32;
+/// The default balance type.
+pub type Balance = u128;
+
+/// The default timestamp type.
+pub type Timestamp = u64;
+
+/// The default block number type.
+pub type BlockNumber = u64;
+
+/// The default environment `AccountId` type.
+///
+/// # Note
+///
+/// This is a mirror of the `AccountId` type used in the default configuration
+/// of PALLET contracts.
+#[derive(
+    Debug,
+    Copy,
+    Clone,
+    PartialEq,
+    Eq,
+    Ord,
+    PartialOrd,
+    Hash,
+    Encode,
+    Decode,
+    From,
+    Default,
+)]
+#[cfg_attr(feature = "std", derive(TypeInfo))]
+pub struct AccountId([u8; 32]);
+
+impl<'a> TryFrom<&'a [u8]> for AccountId {
+    type Error = TryFromSliceError;
+
+    fn try_from(bytes: &'a [u8]) -> Result<Self, TryFromSliceError> {
+        let address = <[u8; 32]>::try_from(bytes)?;
+        Ok(Self(address))
+    }
+}
+
+/// The default environment `Hash` type.
+///
+/// # Note
+///
+/// This is a mirror of the `Hash` type used in the default configuration
+/// of PALLET contracts.
+#[derive(
+    Debug,
+    Copy,
+    Clone,
+    PartialEq,
+    Eq,
+    Ord,
+    PartialOrd,
+    Hash,
+    Encode,
+    Decode,
+    From,
+    Default,
+)]
+#[cfg_attr(feature = "std", derive(TypeInfo))]
+pub struct Hash([u8; 32]);
+
+impl<'a> TryFrom<&'a [u8]> for Hash {
+    type Error = TryFromSliceError;
+
+    fn try_from(bytes: &'a [u8]) -> Result<Self, TryFromSliceError> {
+        let address = <[u8; 32]>::try_from(bytes)?;
+        Ok(Self(address))
+    }
+}
+
+impl AsRef<[u8]> for Hash {
+    fn as_ref(&self) -> &[u8] {
+        &self.0[..]
+    }
+}
+
+impl AsMut<[u8]> for Hash {
+    fn as_mut(&mut self) -> &mut [u8] {
+        &mut self.0[..]
+    }
+}
+
+impl Clear for Hash {
+    fn is_clear(&self) -> bool {
+        self.as_ref().iter().all(|&byte| byte == 0x00)
+    }
+
+    fn clear() -> Self {
+        Self([0x00; 32])
+    }
+}
 
 impl ink_core::env::EnvTypes for PolymeshRuntimeTypes {
     type AccountId = AccountId;
@@ -125,7 +225,7 @@ pub struct AssetTransferRules {
 /// received by a Substrate module call method has to be converted to canonical uppercase
 /// representation using [`Ticker::canonize`].
 #[cfg_attr(feature = "ink-generate-abi", derive(type_metadata::Metadata))]
-#[derive(Encode, Decode, Clone, Copy, Hash, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Encode, Decode, Clone, Copy, Hash, PartialEq, Eq, PartialOrd, Ord, Debug)]
 pub struct Ticker([u8; TICKER_LEN]);
 
 impl Default for Ticker {

@@ -1,5 +1,5 @@
 [package]
-name = "custom_ink_env_types"
+name = "custom-ink-env-types"
 version = "0.1.0"
 authors = ["Polymath Inc."]
 edition = "2018"
@@ -7,12 +7,13 @@ edition = "2018"
 [dependencies]
 ink_core = { git = "https://github.com/paritytech/ink", tag = "v2.1.0", package = "ink_core", default-features = false }
 ink_prelude = { git = "https://github.com/paritytech/ink", tag = "v2.1.0", package = "ink_prelude", default-features = false }
-frame-system = { git = "https://github.com/paritytech/substrate/", package = "frame-system", tag = "v2.0.0-rc4", default-features = false }
-pallet-indices = { git = "https://github.com/paritytech/substrate/", package = "pallet-indices", tag = "v2.0.0-rc4", default-features = false }
-sp-runtime = { git = "https://github.com/paritytech/substrate/", package = "sp-runtime", tag = "v2.0.0-rc4", default-features = false }
+frame-system = { git = "https://github.com/paritytech/substrate/", package = "frame-system", branch = "at-add-dispatch-call", default-features = false }
+sp-runtime = { git = "https://github.com/paritytech/substrate/", package = "sp-runtime", branch = "at-add-dispatch-call", default-features = false }
 scale = { package = "parity-scale-codec", version = "1.3", default-features = false, features = ["derive"] }
 serde = { version = "1.0.104", optional = true, features = ["derive"] }
 polymesh-derive = { path = "../../../primitives_derive", package = "polymesh-primitives-derive"}
+scale-info = { version = "0.3", default-features = false, features = ["derive"], optional = true }
+derive_more = { version = "0.99", default-features = false, features = ["from", "display"] }
 
 [dependencies.type-metadata]
 git = "https://github.com/type-metadata/type-metadata.git"
@@ -25,9 +26,11 @@ optional = true
 default = ["std"]
 std = [
     "serde",
+    "scale-info",
+    "scale-info/std",
+    "scale/std",
     "ink_core/std",
     "frame-system/std",
-    "pallet-indices/std",
     "sp-runtime/std",
 ]
 ink-generate-abi = [
@@ -35,5 +38,3 @@ ink-generate-abi = [
     "type-metadata",
     "ink_core/ink-generate-abi",
 ]
-[workspace]
-members = []

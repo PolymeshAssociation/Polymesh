@@ -15,6 +15,8 @@ polymesh-derive = { path = "../../../primitives_derive", package = "polymesh-pri
 scale = { package = "parity-scale-codec", version = "1.2", default-features = false, features = ["derive"] }
 serde = { version = "1.0.104", optional = true, features = ["derive"] }
 
+custom-ink-env-types = { path = "../custom-ink-env-types", default-features = false }
+
 [dependencies.type-metadata]
 git = "https://github.com/type-metadata/type-metadata.git"
 rev = "02eae9f35c40c943b56af5b60616219f2b72b47d"
@@ -43,6 +45,7 @@ std = [
     "ink_prelude/std",
     "scale/std",
     "type-metadata/std",
+    "custom-ink-env-types/std"
 ]
 test-env = [
     "std",
@@ -54,6 +57,7 @@ ink-generate-abi = [
     "type-metadata",
     "ink_core/ink-generate-abi",
     "ink_lang/ink-generate-abi",
+    "custom-ink-env-types/ink-generate-abi"
 ]
 ink-as-dependency = []
 

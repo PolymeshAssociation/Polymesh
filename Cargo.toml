@@ -45,6 +45,7 @@ members = [
     "pallets/confidential",
     "pallets/utility",
     "pallets/staking/fuzzer",
+    "contracts/examples/custom-ink-env-types",
     "rpc/runtime-api",
     "node-rpc",
     "rpc",
