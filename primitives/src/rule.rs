@@ -70,8 +70,7 @@ impl Rule {
     pub fn complexity(&self) -> (usize, usize) {
         let claims_count = match self.rule_type {
             RuleType::IsIdentity(_) | RuleType::IsPresent(_) | RuleType::IsAbsent(_) => 1,
-            RuleType::IsNoneOf(ref claims) => claims.len(),
-            RuleType::IsAnyOf(ref claims) => claims.len(),
+            RuleType::IsNoneOf(ref claims) | RuleType::IsAnyOf(ref claims) => claims.len(),
         };
         (claims_count, self.issuers.len())
     }
