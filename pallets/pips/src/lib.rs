@@ -148,6 +148,20 @@ pub enum ProposalData {
     Proposal(Vec<u8>),
 }
 
+/// The various sorts of committees that can make a PIP.
+pub enum Committee {
+    /// The technical committee.
+    Technical,
+}
+
+/// The proposer of a certain PIP.
+pub enum Proposer<T: Trait> {
+    /// The proposer is of the community.
+    Community(T::AccountId),
+    /// The proposer is a committee.
+    Committee(Committee),
+}
+
 /// Represents a proposal metadata
 #[derive(Encode, Decode, Clone, PartialEq, Eq, Debug)]
 pub struct PipsMetadata<T: Trait> {
