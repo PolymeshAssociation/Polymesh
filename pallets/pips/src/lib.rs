@@ -155,8 +155,6 @@ pub struct PipsMetadata<T: Trait> {
     pub proposer: T::AccountId,
     /// The proposal's unique id.
     pub id: PipId,
-    /// When voting will end.
-    pub end: T::BlockNumber,
     /// The proposal url for proposal discussion.
     pub url: Option<Url>,
     /// The proposal description.
@@ -316,9 +314,6 @@ decl_storage! {
         /// proposal.
         pub ProposalCoolOffPeriod get(fn proposal_cool_off_period) config(): T::BlockNumber;
 
-        /// How long (in blocks) a ballot runs
-        pub ProposalDuration get(fn proposal_duration) config(): T::BlockNumber;
-
         /// Default enactment period that will be use after a proposal is accepted by GC.
         pub DefaultEnactmentPeriod get(fn default_enactment_period) config(): T::BlockNumber;
 
@@ -383,8 +378,7 @@ decl_event!(
         ///
         /// # Parameters:
         ///
-        /// Caller DID, Proposer, PIP ID, deposit, URL, description, cool-off period end, proposal end, proposal
-        /// data.
+        /// Caller DID, Proposer, PIP ID, deposit, URL, description, cool-off period end, proposal data.
         ProposalCreated(
             IdentityId,
             AccountId,
@@ -392,7 +386,6 @@ decl_event!(
             Balance,
             Option<Url>,
             Option<PipDescription>,
-            BlockNumber,
             BlockNumber,
             ProposalData,
         ),
@@ -530,18 +523,6 @@ decl_module! {
             <QuorumThreshold<T>>::put(threshold);
         }
 
-        /// Change the proposal duration value. This is the number of blocks for which votes are
-        /// accepted on a proposal. Only Governance committee is allowed to change this value.
-        ///
-        /// # Arguments
-        /// * `duration` proposal duration in blocks
-        #[weight = (150_000_000, DispatchClass::Operational, Pays::Yes)]
-        pub fn set_proposal_duration(origin, duration: T::BlockNumber) {
-            T::CommitteeOrigin::ensure_origin(origin)?;
-            Self::deposit_event(RawEvent::ProposalDurationChanged(SystematicIssuers::Committee.as_id(), Self::proposal_duration(), duration));
-            <ProposalDuration<T>>::put(duration);
-        }
-
         /// Change the proposal cool off period value. This is the number of blocks after which the proposer of a pip
         /// can modify or cancel their proposal, and other voting is prohibited
         ///
@@ -604,11 +585,9 @@ decl_module! {
             let id = Self::next_pip_id();
             let curr_block_number = <system::Module<T>>::block_number();
             let cool_off_until = curr_block_number + Self::proposal_cool_off_period();
-            let end = cool_off_until + Self::proposal_duration();
             let proposal_metadata = PipsMetadata {
                 proposer: proposer.clone(),
                 id,
-                end: end,
                 url: url.clone(),
                 description: description.clone(),
                 cool_off_until: cool_off_until,
@@ -645,7 +624,6 @@ decl_module! {
                 url,
                 description,
                 cool_off_until,
-                end,
                 proposal_data,
                 //beneficiaries,
             ));
