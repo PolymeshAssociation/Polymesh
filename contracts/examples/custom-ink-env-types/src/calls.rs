@@ -1,7 +1,7 @@
-use scale::{Codec, Decode, Encode};
-use sp_runtime::traits::Member;
 use crate::{Rule, Ticker};
 use ink_prelude::vec::Vec;
+use scale::{Codec, Decode, Encode};
+use sp_runtime::traits::Member;
 
 /// Default runtime Call type, a subset of the runtime Call module variants
 ///
@@ -23,14 +23,10 @@ impl From<ComplianceManager<Rule, Ticker>> for Call {
 pub enum ComplianceManager<Rule, Ticker>
 where
     Rule: Member + Codec,
-    Ticker: Member + Codec
+    Ticker: Member + Codec,
 {
     #[allow(non_camel_case_types)]
-    add_active_rule(
-        Ticker,
-        Vec<Rule>,
-        Vec<Rule>
-    ),
+    add_active_rule(Ticker, Vec<Rule>, Vec<Rule>),
     #[allow(non_camel_case_types)]
     remove_active_rule(Ticker, u32),
 }
@@ -41,6 +37,10 @@ pub fn cm_remove_active_rule(ticker: Ticker, active_rule_id: u32) -> Call {
 }
 
 /// Construct a `ComplianceManager::add_active_rule` call
-pub fn cm_add_active_rule(ticker: Ticker, sender_rules: Vec<Rule>, receiver_rules: Vec<Rule>) -> Call {
+pub fn cm_add_active_rule(
+    ticker: Ticker,
+    sender_rules: Vec<Rule>,
+    receiver_rules: Vec<Rule>,
+) -> Call {
     ComplianceManager::<Rule, Ticker>::add_active_rule(ticker, sender_rules, receiver_rules).into()
 }

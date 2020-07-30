@@ -1,18 +1,15 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use core::{
-    array::TryFromSliceError,
-    convert::TryFrom,
-};
+use core::{array::TryFromSliceError, convert::TryFrom};
 use derive_more::From;
 use ink_core::env::Clear;
-use scale::{Decode, Encode};
-#[cfg(feature = "std")]
-use serde::{Serialize, Deserialize};
 use ink_core::storage::Flush;
 use ink_prelude::vec::Vec;
+use scale::{Decode, Encode};
 #[cfg(feature = "std")]
 use scale_info::TypeInfo;
+#[cfg(feature = "std")]
+use serde::{Deserialize, Serialize};
 
 pub mod calls;
 
@@ -37,18 +34,7 @@ pub type BlockNumber = u64;
 /// This is a mirror of the `AccountId` type used in the default configuration
 /// of PALLET contracts.
 #[derive(
-    Debug,
-    Copy,
-    Clone,
-    PartialEq,
-    Eq,
-    Ord,
-    PartialOrd,
-    Hash,
-    Encode,
-    Decode,
-    From,
-    Default,
+    Debug, Copy, Clone, PartialEq, Eq, Ord, PartialOrd, Hash, Encode, Decode, From, Default,
 )]
 #[cfg_attr(feature = "std", derive(TypeInfo))]
 pub struct AccountId([u8; 32]);
@@ -69,18 +55,7 @@ impl<'a> TryFrom<&'a [u8]> for AccountId {
 /// This is a mirror of the `Hash` type used in the default configuration
 /// of PALLET contracts.
 #[derive(
-    Debug,
-    Copy,
-    Clone,
-    PartialEq,
-    Eq,
-    Ord,
-    PartialOrd,
-    Hash,
-    Encode,
-    Decode,
-    From,
-    Default,
+    Debug, Copy, Clone, PartialEq, Eq, Ord, PartialOrd, Hash, Encode, Decode, From, Default,
 )]
 #[cfg_attr(feature = "std", derive(TypeInfo))]
 pub struct Hash([u8; 32]);
@@ -136,9 +111,7 @@ impl Flush for IdentityId {}
 
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[cfg_attr(feature = "ink-generate-abi", derive(type_metadata::Metadata))]
-#[derive(
-    Decode, Encode, Clone, Debug, Default, Hash, PartialEq, Eq, PartialOrd, Ord,
-)]
+#[derive(Decode, Encode, Clone, Debug, Default, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub struct JurisdictionName(pub Vec<u8>);
 
 /// Scope: Almost all claim needs a valid scope identity.
