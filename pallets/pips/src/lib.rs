@@ -63,6 +63,7 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use codec::{Decode, Encode};
+use core::mem;
 use frame_support::{
     debug, decl_error, decl_event, decl_module, decl_storage,
     dispatch::{DispatchError, DispatchResult},
@@ -240,31 +241,6 @@ pub enum ReferendumState {
     Executed,
 }
 
-#[derive(Encode, Decode, Copy, Clone, Eq, PartialEq)]
-#[cfg_attr(feature = "std", derive(Debug))]
-pub enum ReferendumType {
-    /// Referendum pushed by GC (fast-tracked)
-    FastTracked,
-    /// Referendum created by GC
-    Emergency,
-    /// Created through a community vote
-    Community,
-}
-
-/// Properties of a referendum
-#[derive(Encode, Decode, Clone, PartialEq, Eq)]
-#[cfg_attr(feature = "std", derive(Debug))]
-pub struct Referendum<T: Trait> {
-    /// The proposal's unique id.
-    pub id: PipId,
-    /// Current state of this Referendum.
-    pub state: ReferendumState,
-    /// The type of the referendum
-    pub referendum_type: ReferendumType,
-    /// Enactment period.
-    pub enactment_period: T::BlockNumber,
-}
-
 /// Information about deposit.
 #[derive(Encode, Decode, Clone, PartialEq, Eq, Default)]
 #[cfg_attr(feature = "std", derive(Debug))]
@@ -386,10 +362,6 @@ decl_storage! {
         /// (proposal id, account) -> Vote
         pub ProposalVotes get(fn proposal_vote): double_map hasher(twox_64_concat) PipId, hasher(twox_64_concat) T::AccountId => Vote<BalanceOf<T>>;
 
-        /// Proposals that have met the quorum threshold to be put forward to a governance committee
-        /// proposal id -> proposal
-        pub Referendums get(fn referendums): map hasher(twox_64_concat) PipId => Option<Referendum<T>>;
-
         /// Maps PIPs to the block at which they will be executed, if any.
         pub PipToSchedule get(fn pip_to_schedule): map hasher(twox_64_concat) PipId => Option<T::BlockNumber>;
 
@@ -451,7 +423,7 @@ decl_event!(
         /// Pip has been closed, bool indicates whether data is pruned
         PipClosed(IdentityId, PipId, bool),
         /// Referendum created for proposal.
-        ReferendumCreated(IdentityId, PipId, ReferendumType),
+        ReferendumCreated(IdentityId, PipId),
         /// Execution of a PIP has been scheduled at specific block.
         ExecutionScheduled(IdentityId, PipId, BlockNumber, BlockNumber),
         /// Triggered each time the state of a referendum is amended
@@ -913,39 +885,15 @@ decl_module! {
             Self::prune_data(id, true);
         }
 
-        /// Moves a referendum instance into dispatch queue.
-        #[weight = (800_000_000, DispatchClass::Operational, Pays::Yes)]
-        pub fn enact_referendum(origin, id: PipId) -> DispatchResult {
-            T::VotingMajorityOrigin::ensure_origin(origin)?;
-            // Check that referendum is Pending
-            Self::is_referendum_state(id, ReferendumState::Pending)?;
-            ensure!(<Referendums<T>>::contains_key(id), Error::<T>::NoSuchProposal);
-            Self::schedule_pip_for_execution(Self::current_did_or_missing()?, id);
-            Ok(())
-        }
-
-        /// Moves a referendum instance into rejected state.
-        #[weight = (400_000_000, DispatchClass::Operational, Pays::Yes)]
-        pub fn reject_referendum(origin, id: PipId) -> DispatchResult {
-            T::VotingMajorityOrigin::ensure_origin(origin)?;
-            // Check that referendum is Pending
-            Self::is_referendum_state(id, ReferendumState::Pending)?;
-
-            // Close proposal
-            Self::update_referendum_state(id, ReferendumState::Rejected);
-            Self::prune_data(id, Self::prune_historical_pips());
-            Ok(())
-        }
-
-        /// It updates the enactment period of a specific referendum.
+        /// Updates the execution schedule of the PIP given by `id`.
         ///
         /// # Arguments
-        /// * `until`, It defines the future block where the enactment period will finished.  A
-        /// `None` value means that enactment period is going to finish in the next block.
+        /// * `until` defines the future block where the enactment period will finished.
+        ///    `None` value means that enactment period is going to finish in the next block.
         ///
         /// # Errors
-        /// * `BadOrigin`, Only the release coordinator can update the enactment period.
-        /// * ``,
+        /// * `BadOrigin` unless triggered by release coordinator.
+        /// * `IncorrectProposalState` unless the proposal was in a scheduled state.
         #[weight = (750_000_000, DispatchClass::Operational, Pays::Yes)]
         pub fn override_referendum_enactment_period(origin, id: PipId, until: Option<T::BlockNumber>) -> DispatchResult {
             let sender = ensure_signed(origin)?;
@@ -954,34 +902,22 @@ decl_module! {
             // 1. Only release coordinator
             ensure!(
                 Some(current_did) == T::GovernanceCommittee::release_coordinator(),
-                Error::<T>::BadOrigin);
+                Error::<T>::BadOrigin
+            );
 
-            Self::is_referendum_state(id, ReferendumState::Scheduled)?;
+            Self::is_proposal_state(id, ProposalState::Scheduled)?;
 
             // 2. New value should be valid block number.
             let next_block = <system::Module<T>>::block_number() + 1.into();
             let new_until = until.unwrap_or(next_block);
-            ensure!( new_until >= next_block, Error::<T>::InvalidFutureBlockNumber);
+            ensure!(new_until >= next_block, Error::<T>::InvalidFutureBlockNumber);
 
-            // 3. Update enactment period.
-            // 3.1 Update referendum.
-            let referendum = Self::referendums(id)
-                .ok_or_else(|| Error::<T>::NoSuchProposal)?;
+            // 3. Update enactment period & reschule it.
+            let old_until = <PipToSchedule<T>>::mutate(id, |old| mem::replace(old, Some(new_until))).unwrap();
+            <ExecutionSchedule<T>>::append(new_until, id);
+            <ExecutionSchedule<T>>::mutate(old_until, |ids| ids.retain(|i| *i != id));
 
-            let old_until = referendum.enactment_period;
-
-            <Referendums<T>>::mutate( id, |referendum| {
-                if let Some(ref mut referendum) = referendum {
-                    referendum.enactment_period = new_until;
-                }
-            });
-
-            // 3.1. Re-schedule it
-            <ExecutionSchedule<T>>::mutate(old_until, |ids| {
-                ids.retain(|i| *i != id);
-                ids.push(id);
-            });
-
+            // 4. Emit event.
             Self::deposit_event(RawEvent::ExecutionScheduled(current_did, id, old_until, new_until));
             Ok(())
         }
@@ -1185,7 +1121,7 @@ impl<T: Trait> Module<T> {
         let referendum_ids = <ExecutionSchedule<T>>::take(block_number);
         referendum_ids.into_iter().for_each(|id| {
             <PipToSchedule<T>>::remove(id);
-            weight += Self::execute_referendum(id);
+            weight += Self::execute_proposal(id);
         });
         <ExecutionSchedule<T>>::remove(block_number);
         Ok(weight)
@@ -1224,7 +1160,6 @@ impl<T: Trait> Module<T> {
             <ProposalVotes<T>>::remove_prefix(id);
             <ProposalMetadata<T>>::remove(id);
             <Proposals<T>>::remove(id);
-            <Referendums<T>>::remove(id);
 
             PipSkipCount::remove(id);
         }
@@ -1247,7 +1182,7 @@ impl<T: Trait> Module<T> {
         ));
     }
 
-    fn execute_referendum(id: PipId) -> Weight {
+    fn execute_proposal(id: PipId) -> Weight {
         let mut actual_weight: Weight = 0;
         if let Some(proposal) = Self::proposals(id) {
             if proposal.state == ProposalState::Scheduled {
@@ -1257,12 +1192,12 @@ impl<T: Trait> Module<T> {
                             Ok(post_info) => {
                                 actual_weight = post_info.actual_weight.unwrap_or(0);
                                 Self::pay_to_beneficiaries(id);
-                                Self::update_referendum_state(id, ReferendumState::Executed);
+                                Self::update_proposal_state(id, ProposalState::Executed);
                             }
                             Err(e) => {
-                                Self::update_referendum_state(id, ReferendumState::Failed);
+                                Self::update_proposal_state(id, ProposalState::Failed);
                                 debug::error!(
-                                    "Referendum {}, its execution fails: {:?}",
+                                    "Proposal {}, its execution fails: {:?}",
                                     id,
                                     e.error
                                 );
@@ -1270,8 +1205,8 @@ impl<T: Trait> Module<T> {
                         };
                     }
                     Err(e) => {
-                        Self::update_referendum_state(id, ReferendumState::Failed);
-                        debug::error!("Referendum {}, its beneficiaries fails: {:?}", id, e);
+                        Self::update_proposal_state(id, ProposalState::Failed);
+                        debug::error!("Proposal {}, its beneficiaries fails: {:?}", id, e);
                     }
                 }
                 Self::prune_data(id, Self::prune_historical_pips());
@@ -1314,25 +1249,6 @@ impl<T: Trait> Module<T> {
         });
         let current_did = Context::current_identity::<Identity<T>>().unwrap_or_default();
         Self::deposit_event(RawEvent::ProposalStateUpdated(current_did, id, new_state));
-    }
-
-    fn update_referendum_state(id: PipId, new_state: ReferendumState) {
-        <Referendums<T>>::mutate(id, |referendum| {
-            if let Some(ref mut referendum) = referendum {
-                referendum.state = new_state;
-            }
-        });
-        let current_did = Context::current_identity::<Identity<T>>().unwrap_or_default();
-        Self::deposit_event(RawEvent::ReferendumStateUpdated(current_did, id, new_state));
-    }
-
-    fn is_referendum_state(id: PipId, state: ReferendumState) -> DispatchResult {
-        let referendum = Self::referendums(id).ok_or_else(|| Error::<T>::NoSuchProposal)?;
-        ensure!(
-            referendum.state == state,
-            Error::<T>::IncorrectReferendumState
-        );
-        Ok(())
     }
 
     fn is_proposal_state(id: PipId, state: ProposalState) -> DispatchResult {
@@ -1455,11 +1371,5 @@ impl<T: Trait> Module<T> {
             ProposalData::Proposal(encoded_proposal)
         };
         proposal_data
-    }
-
-    /// A proposal is valid if there is an associated proposal and it is in pending state.
-    pub fn is_proposal_id_valid(id: PipId) -> bool {
-        <Proposals<T>>::contains_key(id)
-            && Self::is_referendum_state(id, ReferendumState::Pending).is_ok()
     }
 }
