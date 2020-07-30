@@ -875,43 +875,38 @@ decl_module! {
             Self::deposit_event(RawEvent::Voted(current_did, proposer, id, aye_or_nay, deposit));
         }
 
-        /// An emergency stop measure to kill a proposal. Governance committee can kill
-        /// a proposal at any time.
+        /// Rejects the PIP given by the `id`, refunding any bonded funds,
+        /// assuming it hasn't been cancelled or executed.
+        /// Note that cooling-off and proposals scheduled-for-execution can also be rejected.
+        ///
+        /// # Errors
+        /// * `BadOrigin` unless a GC voting majority executes this function.
+        /// * `NoSuchProposal` if the PIP with `id` doesn't exist.
+        /// * `IncorrectProposalState` if the proposal was cancelled or executed.
         #[weight = (550_000_000, DispatchClass::Operational, Pays::Yes)]
-        pub fn kill_proposal(origin, id: PipId) {
+        pub fn reject_proposal(origin, id: PipId, prune: bool) {
             T::VotingMajorityOrigin::ensure_origin(origin)?;
-            ensure!(<Proposals<T>>::contains_key(id), Error::<T>::NoSuchProposal);
-            // Check that the proposal is pending
-            Self::is_proposal_state(id, ProposalState::Pending)?;
-            Self::refund_proposal(id);
-            Self::update_proposal_state(id, ProposalState::Killed);
-            Self::prune_data(id, Self::prune_historical_pips());
+            let proposal = Self::proposals(id).ok_or_else(|| Error::<T>::NoSuchProposal)?;
+            ensure!(
+                matches!(proposal.state, ProposalState::Cancelled | ProposalState::Referendum),
+                Error::<T>::IncorrectProposalState,
+            );
+            Self::unsafe_reject_proposal(id);
         }
 
-        /// An emergency stop measure to kill a proposal. Governance committee can kill
-        /// a proposal at any time.
+        /// Prune the PIP given by the `id`, refunding any funds not already refunded.
+        /// *No restrictions* on the PIP applies.
+        ///
+        /// This function is intended for storage garbage collection purposes.
+        ///
+        /// # Errors
+        /// * `BadOrigin` unless a GC voting majority executes this function.
+        /// * `NoSuchProposal` if the PIP with `id` doesn't exist.
         #[weight = (550_000_000, DispatchClass::Operational, Pays::Yes)]
         pub fn prune_proposal(origin, id: PipId) {
             T::VotingMajorityOrigin::ensure_origin(origin)?;
-            // Check that the proposal is in a state valid for pruning
-            let proposal = Self::proposals(id).ok_or_else(|| Error::<T>::NoSuchProposal)?;
-            if proposal.state == ProposalState::Referendum {
-                // Check that the referendum is in a state valid for pruning
-                let referendum = Self::referendums(id).ok_or_else(|| Error::<T>::NoSuchProposal)?;
-                ensure!(
-                    referendum.state == ReferendumState::Rejected ||
-                    referendum.state == ReferendumState::Failed ||
-                    referendum.state == ReferendumState::Executed,
-                    Error::<T>::IncorrectReferendumState
-                );
-            } else {
-                ensure!(
-                    proposal.state == ProposalState::Cancelled ||
-                    proposal.state == ProposalState::Killed ||
-                    proposal.state == ProposalState::Rejected,
-                    Error::<T>::IncorrectProposalState
-                );
-            }
+            ensure!(Self::proposals(id).is_some(), Error::<T>::NoSuchProposal);
+            Self::refund_proposal(id);
             Self::prune_data(id, true);
         }
 
@@ -1184,7 +1179,7 @@ decl_module! {
                 // Reject proposals as instructed & refund.
                 // TODO(centril): is refunding working properly?
                 for pip_id in to_reject {
-                    Self::reject_proposal(pip_id);
+                    Self::unsafe_reject_proposal(pip_id);
                 }
 
                 // Approve proposals as instructed.
@@ -1285,7 +1280,7 @@ impl<T: Trait> Module<T> {
                                 ReferendumType::Community,
                             );
                         } else {
-                            Self::reject_proposal(id);
+                            Self::unsafe_reject_proposal(id);
                         }
                     }
                 }
@@ -1301,7 +1296,7 @@ impl<T: Trait> Module<T> {
     }
 
     /// Rejects the given `id`, refunding the deposit, and possibly pruning the proposal's data.
-    fn reject_proposal(id: PipId) {
+    fn unsafe_reject_proposal(id: PipId) {
         Self::update_proposal_state(id, ProposalState::Rejected);
         Self::refund_proposal(id);
         Self::prune_data(id, Self::prune_historical_pips());
@@ -1340,9 +1335,7 @@ impl<T: Trait> Module<T> {
         Self::deposit_event(RawEvent::ProposalRefund(current_did, id, total_refund));
     }
 
-    /// Close a proposal.
-    ///
-    /// Voting ceases and proposal is removed from storage.
+    /// Prunes all data associated with a proposal, removing it from storage.
     ///
     /// # Internal
     /// * `ProposalsMaturingat` does not need to be deleted here.
@@ -1357,6 +1350,7 @@ impl<T: Trait> Module<T> {
             <ProposalMetadata<T>>::remove(id);
             <Proposals<T>>::remove(id);
             <Referendums<T>>::remove(id);
+
             PipSkipCount::remove(id);
         }
         Self::deposit_event(RawEvent::PipClosed(current_did, id, prune));
