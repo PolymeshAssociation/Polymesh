@@ -1758,9 +1758,8 @@ impl<T: Trait> Module<T> {
         })
     }
 
-    // The SimpleToken standard transfer function
-    // internal
-    fn unsafe_transfer(
+    // Transfers tokens from one identity to another
+    pub fn unsafe_transfer(
         sender: IdentityId,
         ticker: &Ticker,
         from_did: IdentityId,

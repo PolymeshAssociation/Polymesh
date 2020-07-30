@@ -14,7 +14,7 @@ use polymesh_common_utilities::{
     constants::{ERC1400_TRANSFER_FAILURE, ERC1400_TRANSFER_SUCCESS},
     Context,
 };
-use polymesh_primitives::{Claim, IdentityId, Rule, RuleType, Scope, Ticker};
+use polymesh_primitives::{Claim, IdentityId, Rule, RuleType, Scope, TargetIdentity, Ticker};
 use sp_std::{convert::TryFrom, prelude::*};
 use test_client::AccountKeyring;
 
@@ -1273,13 +1273,12 @@ fn can_verify_restriction_with_treasury_did_we() {
     let owner = AccountKeyring::Alice.public();
     let owner_origin = Origin::signed(owner);
     let owner_id = register_keyring_account(AccountKeyring::Alice).unwrap();
-    let _ = AccountKeyring::Bob.public();
-    let issuer_id = register_keyring_account(AccountKeyring::Bob).unwrap();
+    let treasury_id = register_keyring_account(AccountKeyring::Bob).unwrap();
     let random_guy_id = register_keyring_account(AccountKeyring::Charlie).unwrap();
     let token_name: AssetName = vec![0x01].into();
     let ticker = Ticker::try_from(token_name.0.as_slice()).unwrap();
     assert_ok!(Asset::create_asset(
-        owner_origin,
+        owner_origin.clone(),
         token_name,
         ticker,
         1_000_000,
@@ -1287,86 +1286,68 @@ fn can_verify_restriction_with_treasury_did_we() {
         Default::default(),
         vec![],
         None,
-        Some(issuer_id),
+        Some(treasury_id),
     ));
     let amount = 1_000;
+
+    // No rule is present, compliance should fail
     assert_ok!(
         ComplianceManager::verify_restriction(
             &ticker,
             None,
-            Some(issuer_id),
+            Some(treasury_id),
             amount,
-            Some(issuer_id)
+            Some(treasury_id)
+        ),
+        ERC1400_TRANSFER_FAILURE
+    );
+
+    // Add rule that requires sender to be treasury (dynamic) and receiver to be a specific random_guy_id
+    assert_ok!(ComplianceManager::add_active_rule(
+        owner_origin,
+        ticker,
+        vec![Rule {
+            rule_type: RuleType::IsIdentity(TargetIdentity::Treasury),
+            issuers: vec![],
+        }],
+        vec![Rule {
+            rule_type: RuleType::IsIdentity(TargetIdentity::Specific(random_guy_id)),
+            issuers: vec![],
+        }]
+    ));
+
+    // From treasury to the random guy should succeed
+    assert_ok!(
+        ComplianceManager::verify_restriction(
+            &ticker,
+            Some(treasury_id),
+            Some(random_guy_id),
+            amount,
+            Some(treasury_id)
         ),
         ERC1400_TRANSFER_SUCCESS
     );
+
+    // From treasury to owner should fail
     assert_ok!(
         ComplianceManager::verify_restriction(
             &ticker,
-            Some(issuer_id),
-            None,
-            amount,
-            Some(issuer_id)
-        ),
-        ERC1400_TRANSFER_SUCCESS
-    );
-    assert_ok!(
-        ComplianceManager::verify_restriction(
-            &ticker,
-            Some(random_guy_id),
-            Some(issuer_id),
-            amount,
-            Some(issuer_id)
-        ),
-        ERC1400_TRANSFER_FAILURE
-    );
-    assert_ok!(
-        ComplianceManager::verify_restriction(
-            &ticker,
-            Some(issuer_id),
-            Some(random_guy_id),
-            amount,
-            Some(issuer_id)
-        ),
-        ERC1400_TRANSFER_FAILURE
-    );
-    assert_ok!(
-        ComplianceManager::verify_restriction(
-            &ticker,
-            Some(random_guy_id),
+            Some(treasury_id),
             Some(owner_id),
             amount,
-            Some(issuer_id)
+            Some(treasury_id)
         ),
         ERC1400_TRANSFER_FAILURE
     );
-    assert_ok!(
-        ComplianceManager::verify_restriction(
-            &ticker,
-            Some(owner_id),
-            Some(random_guy_id),
-            amount,
-            Some(issuer_id)
-        ),
-        ERC1400_TRANSFER_FAILURE
-    );
+
+    // From random guy to treasury should fail
     assert_ok!(
         ComplianceManager::verify_restriction(
             &ticker,
             Some(random_guy_id),
-            None,
+            Some(treasury_id),
             amount,
-            Some(issuer_id)
-        ),
-        ERC1400_TRANSFER_FAILURE
-    );
-    assert_ok!(
-        ComplianceManager::verify_restriction(
-            &ticker,
-            None,
-            Some(random_guy_id),
-            amount,
-            Some(issuer_id)
+            Some(treasury_id)
         ),
         ERC1400_TRANSFER_FAILURE
     );

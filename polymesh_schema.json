@@ -158,7 +158,8 @@
                 "IsPresent" : "Claim",
                 "IsAbsent": "Claim",
                 "IsAnyOf": "Vec<Claim>",
-                "IsNoneOf": "Vec<Claim>"
+                "IsNoneOf": "Vec<Claim>",
+                "IsIdentity": "TargetIdentity"
             }
         },
         "Rule": {
@@ -648,6 +649,12 @@
             "coeffFrac": "Perbill",
             "negative": "bool",
             "degree": "u8"
+        },
+        "TargetIdentity": {
+            "_enum": {
+                "Treasury": "",
+                "Specific": "IdentityId"
+            }
         }
     },
     "rpc": {
