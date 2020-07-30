@@ -300,7 +300,7 @@ impl<'a> Predicate for AnyPredicate<'a> {
 #[cfg(test)]
 mod tests {
     use crate::{
-        predicate::{self, Context, Predicate},
+        predicate::{self, Context, IdentityId, Predicate, TargetIdentity},
         Claim, Rule, RuleType, Scope,
     };
     use std::convert::From;
@@ -430,5 +430,16 @@ mod tests {
         );
         let out = !rules.iter().any(|rule| !predicate::run(&rule, &context));
         assert_eq!(out, false);
+
+        let identity1 = IdentityId::from(1);
+        let identity2 = IdentityId::from(2);
+        assert!(predicate::run(
+            &RuleType::IsIdentity(TargetIdentity::Treasury).into(),
+            &Context::new(vec![], Some(identity1), Some(identity1),)
+        ));
+        assert!(predicate::run(
+            &RuleType::IsIdentity(TargetIdentity::Specific(identity2)).into(),
+            &Context::new(vec![], Some(identity2), Some(identity1),)
+        ));
     }
 }
