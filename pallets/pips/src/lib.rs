@@ -844,9 +844,10 @@ decl_module! {
             T::VotingMajorityOrigin::ensure_origin(origin)?;
             let proposal = Self::proposals(id).ok_or_else(|| Error::<T>::NoSuchProposal)?;
             ensure!(
-                matches!(proposal.state, ProposalState::Cancelled | ProposalState::Failed | ProposalState::Executed),
+                !matches!(proposal.state, ProposalState::Cancelled | ProposalState::Failed | ProposalState::Executed),
                 Error::<T>::IncorrectProposalState,
             );
+            Self::maybe_unschedule_pip(id, proposal.state);
             Self::unsafe_reject_proposal(id);
         }
 
@@ -861,8 +862,9 @@ decl_module! {
         #[weight = (550_000_000, DispatchClass::Operational, Pays::Yes)]
         pub fn prune_proposal(origin, id: PipId) {
             T::VotingMajorityOrigin::ensure_origin(origin)?;
-            ensure!(Self::proposals(id).is_some(), Error::<T>::NoSuchProposal);
+            let proposal = Self::proposals(id).ok_or_else(|| Error::<T>::NoSuchProposal)?;
             Self::refund_proposal(id);
+            Self::maybe_unschedule_pip(id, proposal.state);
             Self::prune_data(id, true);
         }
 
@@ -896,7 +898,7 @@ decl_module! {
             // 3. Update enactment period & reschule it.
             let old_until = <PipToSchedule<T>>::mutate(id, |old| mem::replace(old, Some(new_until))).unwrap();
             <ExecutionSchedule<T>>::append(new_until, id);
-            <ExecutionSchedule<T>>::mutate(old_until, |ids| ids.retain(|i| *i != id));
+            Self::remove_pip_from_schedule(old_until, id);
 
             // 4. Emit event.
             Self::deposit_event(RawEvent::ExecutionScheduled(current_did, id, old_until, new_until));
@@ -1125,6 +1127,18 @@ impl<T: Trait> Module<T> {
         <Deposits<T>>::remove_prefix(id);
         let current_did = Context::current_identity::<Identity<T>>().unwrap_or_default();
         Self::deposit_event(RawEvent::ProposalRefund(current_did, id, total_refund));
+    }
+
+    /// Unschedule PIP with given `id` if it's scheduled for execution.
+    fn maybe_unschedule_pip(id: PipId, state: ProposalState) {
+        if let ProposalState::Scheduled = state {
+            Self::remove_pip_from_schedule(<PipToSchedule<T>>::take(id).unwrap(), id);
+        }
+    }
+
+    /// Remove the PIP with `id` from the `ExecutionSchedule` at `block_no`.
+    fn remove_pip_from_schedule(block_no: T::BlockNumber, id: PipId) {
+        <ExecutionSchedule<T>>::mutate(block_no, |ids| ids.retain(|i| *i != id));
     }
 
     /// Prunes all data associated with a proposal, removing it from storage.
