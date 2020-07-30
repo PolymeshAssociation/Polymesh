@@ -1009,6 +1009,8 @@ decl_module! {
                     Self::schedule_pip_for_execution(current_did, pip_id);
                 }
 
+                // TODO(centril): trigger event.
+
                 Ok(())
             })
         }
