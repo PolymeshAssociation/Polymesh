@@ -1,5 +1,5 @@
 use super::{
-    storage::{get_identity_id, make_account, register_keyring_account, TestStorage},
+    storage::{get_identity_id, register_keyring_account, TestStorage},
     ExtBuilder,
 };
 use pallet_group::{self as group};
@@ -168,14 +168,14 @@ fn rage_quit_we() {
     let root = Origin::from(frame_system::RawOrigin::Root);
 
     // 1. Add members to committee
-    let alice_acc = AccountKeyring::Alice.public();
-    let (alice_signer, alice_did) = make_account(alice_acc).unwrap();
-    let bob_acc = AccountKeyring::Bob.public();
-    let (bob_signer, bob_did) = make_account(bob_acc).unwrap();
-    let charlie_acc = AccountKeyring::Charlie.public();
-    let (charlie_signer, charlie_did) = make_account(charlie_acc).unwrap();
-    let ferdie_acc = AccountKeyring::Ferdie.public();
-    let (ferdie_signer, ferdie_did) = make_account(ferdie_acc).unwrap();
+    let alice_signer = Origin::signed(AccountKeyring::Alice.public());
+    let alice_did = register_keyring_account(AccountKeyring::Alice).unwrap();
+    let bob_signer = Origin::signed(AccountKeyring::Bob.public());
+    let bob_did = register_keyring_account(AccountKeyring::Bob).unwrap();
+    let charlie_signer = Origin::signed(AccountKeyring::Charlie.public());
+    let charlie_did = register_keyring_account(AccountKeyring::Charlie).unwrap();
+    let ferdie_signer = Origin::signed(AccountKeyring::Ferdie.public());
+    let ferdie_did = register_keyring_account(AccountKeyring::Ferdie).unwrap();
 
     // 0. Threshold is 2/3
     let committee = vec![alice_did, bob_did, charlie_did];
@@ -221,15 +221,10 @@ fn disable_member() {
 
 fn disable_member_we() {
     let root = Origin::from(frame_system::RawOrigin::Root);
+    let alice_id = register_keyring_account(AccountKeyring::Alice).unwrap();
+    let bob_id = register_keyring_account(AccountKeyring::Bob).unwrap();
+    let charlie_id = register_keyring_account(AccountKeyring::Charlie).unwrap();
 
-    let alice_acc = AccountKeyring::Alice.public();
-    let (_, alice_id) = make_account(alice_acc).unwrap();
-    let bob_acc = AccountKeyring::Bob.public();
-    let (_, bob_id) = make_account(bob_acc).unwrap();
-    let charlie_acc = AccountKeyring::Charlie.public();
-    let (_, charlie_id) = make_account(charlie_acc).unwrap();
-
-    // 0. Create group
     let mut committee = vec![alice_id, bob_id, charlie_id];
     committee.sort();
     assert_ok!(CommitteeGroup::reset_members(

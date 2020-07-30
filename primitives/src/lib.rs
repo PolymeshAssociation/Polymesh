@@ -54,6 +54,7 @@ pub type Index = u32;
 /// App-specific crypto used for reporting equivocation/misbehavior in BABE and
 /// GRANDPA. Any rewards for misbehavior reporting will be paid out to this
 /// account.
+// #[cfg(feature = "std")]
 pub mod report {
     use super::{Signature, Verify};
     use frame_system::offchain::AppCrypto;
@@ -134,6 +135,12 @@ pub use identity_id::{IdentityId, PortfolioId, PortfolioName, PortfolioNumber};
 /// Each DID is associated with this kind of record.
 pub mod identity;
 pub use identity::Identity;
+
+/// CDD Identity is an ID to link the encrypted investor UID with one Identity ID.
+/// That keeps the privacy of a real investor and its global portfolio split in several Polymesh
+/// Identities.
+pub mod cdd_id;
+pub use cdd_id::{CddId, InvestorUid};
 
 /// Claim information.
 /// Each claim is associated with this kind of record.
@@ -242,10 +249,9 @@ mod tests {
         // let text3 = &b"Lorem Ipsum dolor sit amet";
 
         // From traits.
-        let mut c1 = C::from(text1);
-        let c2: C = text1.into();
-        let _d1 = D::from(text2.to_vec());
-        let _d2: D = text2.to_vec().into();
+        let mut c1 = C::from(text1.as_ref());
+        let c2: C = C::from(text1.as_ref());
+        let _d1 = D::from(text2.as_ref());
 
         // Deref & DerefMut
         let text1_with_zeros = &b"lorem Ipsum \0\0\0\0";

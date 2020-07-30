@@ -13,7 +13,7 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
-use crate::{identity_id::IdentityId, Moment};
+use crate::{identity_id::IdentityId, CddId, Moment};
 use polymesh_primitives_derive::VecU8StrongTyped;
 
 use codec::{Decode, Encode};
@@ -37,7 +37,7 @@ pub enum Claim {
     /// User has an active SellLockup (date defined in claim expiry)
     SellLockup(Scope),
     /// User has passed CDD
-    CustomerDueDiligence,
+    CustomerDueDiligence(CddId),
     /// User is KYC'd
     KnowYourCustomer(Scope),
     /// This claim contains a string that represents the jurisdiction of the user
@@ -64,7 +64,7 @@ impl Claim {
             Claim::Affiliate(..) => ClaimType::Affiliate,
             Claim::BuyLockup(..) => ClaimType::BuyLockup,
             Claim::SellLockup(..) => ClaimType::SellLockup,
-            Claim::CustomerDueDiligence => ClaimType::CustomerDueDiligence,
+            Claim::CustomerDueDiligence(..) => ClaimType::CustomerDueDiligence,
             Claim::KnowYourCustomer(..) => ClaimType::KnowYourCustomer,
             Claim::Jurisdiction(..) => ClaimType::Jurisdiction,
             Claim::Exempted(..) => ClaimType::Exempted,
@@ -80,7 +80,7 @@ impl Claim {
             Claim::Affiliate(ref scope) => Some(scope),
             Claim::BuyLockup(ref scope) => Some(scope),
             Claim::SellLockup(ref scope) => Some(scope),
-            Claim::CustomerDueDiligence => None,
+            Claim::CustomerDueDiligence(..) => None,
             Claim::KnowYourCustomer(ref scope) => Some(scope),
             Claim::Jurisdiction(.., ref scope) => Some(scope),
             Claim::Exempted(ref scope) => Some(scope),
@@ -88,9 +88,17 @@ impl Claim {
             Claim::NoData => None,
         }
     }
+
+    /// It returns a CDD claim with a wildcard as CddId.
+    pub fn make_cdd_wildcard() -> Claim {
+        Claim::CustomerDueDiligence(CddId::default())
+    }
 }
 
 /// Claim type represent the claim without its data.
+///
+/// # TODO
+/// - Could we use `std::mem::Discriminat`?
 #[derive(Encode, Decode, Copy, Clone, PartialEq, Eq, Debug, PartialOrd, Ord)]
 pub enum ClaimType {
     /// User is Accredited

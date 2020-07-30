@@ -4408,6 +4408,8 @@ dependencies = [
 name = "polymesh-primitives"
 version = "2.0.0"
 dependencies = [
+ "cryptography",
+ "curve25519-dalek",
  "frame-support",
  "frame-system",
  "hex",
