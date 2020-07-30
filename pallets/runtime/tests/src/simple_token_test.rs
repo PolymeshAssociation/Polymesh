@@ -1,5 +1,5 @@
 use super::{
-    storage::{make_account, TestStorage},
+    storage::{register_keyring_account, TestStorage},
     ExtBuilder,
 };
 use frame_support::{assert_err, assert_ok};
@@ -13,11 +13,13 @@ use std::convert::TryFrom;
 
 type SimpleToken = simple_token::Module<TestStorage>;
 type Error = simple_token::Error<TestStorage>;
+type Origin = <TestStorage as frame_system::Trait>::Origin;
 
 #[test]
 fn create_token_works() {
     ExtBuilder::default().build().execute_with(|| {
-        let (owner_signed, owner_did) = make_account(AccountKeyring::Alice.public()).unwrap();
+        let owner_signed = Origin::signed(AccountKeyring::Alice.public());
+        let owner_did = register_keyring_account(AccountKeyring::Alice).unwrap();
 
         let ticker = Ticker::try_from(&[0x01][..]).unwrap();
         let total_supply = 1_000_000;
@@ -71,8 +73,10 @@ fn create_token_works() {
 #[test]
 fn transfer_works() {
     ExtBuilder::default().build().execute_with(|| {
-        let (owner_signed, owner_did) = make_account(AccountKeyring::Alice.public()).unwrap();
-        let (spender_signed, spender_did) = make_account(AccountKeyring::Bob.public()).unwrap();
+        let owner_signed = Origin::signed(AccountKeyring::Alice.public());
+        let owner_did = register_keyring_account(AccountKeyring::Alice).unwrap();
+        let spender_signed = Origin::signed(AccountKeyring::Bob.public());
+        let spender_did = register_keyring_account(AccountKeyring::Bob).unwrap();
 
         let ticker = Ticker::try_from(&[0x01][..]).unwrap();
         let total_supply = 1_000_000;
@@ -107,9 +111,11 @@ fn transfer_works() {
 #[test]
 fn approve_transfer_works() {
     ExtBuilder::default().build().execute_with(|| {
-        let (owner_signed, owner_did) = make_account(AccountKeyring::Alice.public()).unwrap();
-        let (spender_signed, spender_did) = make_account(AccountKeyring::Bob.public()).unwrap();
-        let (_agent_signed, _) = make_account(AccountKeyring::Dave.public()).unwrap();
+        let owner_signed = Origin::signed(AccountKeyring::Alice.public());
+        let owner_did = register_keyring_account(AccountKeyring::Alice).unwrap();
+        let spender_signed = Origin::signed(AccountKeyring::Bob.public());
+        let spender_did = register_keyring_account(AccountKeyring::Bob).unwrap();
+        let _ = register_keyring_account(AccountKeyring::Dave).unwrap();
 
         let ticker = Ticker::try_from(&[0x01][..]).unwrap();
         let total_supply = 1_000_000;

@@ -1,8 +1,5 @@
 use super::{
-    storage::{
-        make_account, make_account_with_balance, make_account_without_cdd,
-        register_keyring_account, EventTest, TestStorage,
-    },
+    storage::{make_account_without_cdd, register_keyring_account, EventTest, TestStorage},
     ExtBuilder,
 };
 use pallet_balances as balances;
@@ -17,7 +14,7 @@ use frame_support::{
 };
 use frame_system::{EventRecord, Phase};
 use pallet_transaction_payment::ChargeTransactionPayment;
-use polymesh_primitives::{traits::BlockRewardsReserveCurrency, Claim};
+use polymesh_primitives::{traits::BlockRewardsReserveCurrency, Claim, InvestorUid};
 use sp_runtime::traits::SignedExtension;
 use test_client::AccountKeyring;
 
@@ -48,7 +45,10 @@ fn signed_extension_charge_transaction_payment_work() {
             let alice_pub = AccountKeyring::Alice.public();
             let alice_id = AccountKeyring::Alice.to_account_id();
 
-            let call = runtime::Call::Identity(identity::Call::register_did(vec![]));
+            let call = runtime::Call::Identity(identity::Call::register_did(
+                InvestorUid::default(),
+                vec![],
+            ));
 
             assert!(
                 <ChargeTransactionPayment<Runtime> as SignedExtension>::pre_dispatch(
@@ -83,7 +83,10 @@ fn tipping_fails() {
         .monied(true)
         .build()
         .execute_with(|| {
-            let call = runtime::Call::Identity(identity::Call::register_did(vec![]));
+            let call = runtime::Call::Identity(identity::Call::register_did(
+                InvestorUid::default(),
+                vec![],
+            ));
             let len = 10;
             let alice_id = AccountKeyring::Alice.to_account_id();
             assert!(
@@ -211,7 +214,7 @@ fn issue_must_work() {
 fn burn_account_balance_works() {
     ExtBuilder::default().monied(true).build().execute_with(|| {
         let alice_pub = AccountKeyring::Alice.public();
-        let _ = make_account(alice_pub).unwrap();
+        let _ = register_keyring_account(AccountKeyring::Alice).unwrap();
         let total_issuance0 = Balances::total_issuance();
         let alice_free_balance0 = Balances::free_balance(&alice_pub);
         let burn_amount = 100_000;
@@ -246,10 +249,15 @@ fn should_charge_identity() {
         .monied(true)
         .build()
         .execute_with(|| {
-            let call = runtime::Call::Identity(identity::Call::register_did(vec![]));
+            let call = runtime::Call::Identity(identity::Call::register_did(
+                InvestorUid::default(),
+                vec![],
+            ));
             let dave_pub = AccountKeyring::Dave.public();
             let dave_id = AccountKeyring::Dave.to_account_id();
-            let (signed_acc_id, acc_did) = make_account(dave_pub).unwrap();
+            let signed_acc_id = Origin::signed(AccountKeyring::Dave.public());
+            let acc_did = register_keyring_account(AccountKeyring::Dave).unwrap();
+
             let len = 10;
             assert!(
                 <ChargeTransactionPayment<Runtime> as SignedExtension>::pre_dispatch(
@@ -331,7 +339,7 @@ fn transfer_with_memo_we() {
         100,
         memo_1.clone()
     ),);
-    let _ = make_account_with_balance(bob, 0);
+    Balances::make_free_balance_be(&bob, 0);
     assert_ok!(Balances::transfer_with_memo(
         Origin::signed(alice),
         bob,
@@ -407,7 +415,7 @@ fn check_top_up_identity_balance() {
             assert_ok!(Identity::add_claim(
                 Origin::signed(AccountKeyring::Ferdie.public()),
                 acc_did,
-                Claim::CustomerDueDiligence,
+                Claim::make_cdd_wildcard(),
                 None
             ));
 

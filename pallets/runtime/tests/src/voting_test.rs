@@ -1,5 +1,5 @@
 use super::{
-    storage::{make_account, TestStorage},
+    storage::{register_keyring_account, TestStorage},
     ExtBuilder,
 };
 use pallet_asset::{self as asset, AssetType, SecurityToken};
@@ -16,13 +16,15 @@ type Asset = asset::Module<TestStorage>;
 type ComplianceManager = compliance_manager::Module<TestStorage>;
 type Voting = voting::Module<TestStorage>;
 type Error = voting::Error<TestStorage>;
+type Origin = <TestStorage as frame_system::Trait>::Origin;
 
 #[test]
 fn add_ballot() {
     ExtBuilder::default().build().execute_with(|| {
-        let (token_owner_acc, token_owner_did) =
-            make_account(AccountKeyring::Alice.public()).unwrap();
-        let (tokenholder_acc, _) = make_account(AccountKeyring::Bob.public()).unwrap();
+        let token_owner_acc = Origin::signed(AccountKeyring::Alice.public());
+        let token_owner_did = register_keyring_account(AccountKeyring::Alice).unwrap();
+        let tokenholder_acc = Origin::signed(AccountKeyring::Bob.public());
+        let _ = register_keyring_account(AccountKeyring::Bob).unwrap();
 
         // A token representing 1M shares
         let token = SecurityToken {
@@ -179,9 +181,10 @@ fn add_ballot() {
 #[test]
 fn cancel_ballot() {
     ExtBuilder::default().build().execute_with(|| {
-        let (token_owner_acc, token_owner_did) =
-            make_account(AccountKeyring::Alice.public()).unwrap();
-        let (tokenholder_acc, _) = make_account(AccountKeyring::Bob.public()).unwrap();
+        let token_owner_acc = Origin::signed(AccountKeyring::Alice.public());
+        let token_owner_did = register_keyring_account(AccountKeyring::Alice).unwrap();
+        let tokenholder_acc = Origin::signed(AccountKeyring::Bob.public());
+        let _ = register_keyring_account(AccountKeyring::Bob).unwrap();
 
         // A token representing 1M shares
         let token = SecurityToken {
@@ -269,10 +272,10 @@ fn cancel_ballot() {
 #[test]
 fn vote() {
     ExtBuilder::default().build().execute_with(|| {
-        let (token_owner_acc, token_owner_did) =
-            make_account(AccountKeyring::Alice.public()).unwrap();
-        let (tokenholder_acc, tokenholder_did) =
-            make_account(AccountKeyring::Bob.public()).unwrap();
+        let token_owner_acc = Origin::signed(AccountKeyring::Alice.public());
+        let token_owner_did = register_keyring_account(AccountKeyring::Alice).unwrap();
+        let tokenholder_acc = Origin::signed(AccountKeyring::Bob.public());
+        let tokenholder_did = register_keyring_account(AccountKeyring::Bob).unwrap();
 
         // A token representing 1M shares
         let token = SecurityToken {
