@@ -810,6 +810,7 @@ decl_module! {
                 Error::<T>::IncorrectProposalState,
             );
             Self::maybe_unschedule_pip(id, proposal.state);
+            Self::maybe_unsnapshot_pip(id, proposal.state);
             Self::unsafe_reject_proposal(id);
         }
 
@@ -827,6 +828,7 @@ decl_module! {
             let proposal = Self::proposals(id).ok_or_else(|| Error::<T>::NoSuchProposal)?;
             Self::refund_proposal(id);
             Self::maybe_unschedule_pip(id, proposal.state);
+            Self::maybe_unsnapshot_pip(id, proposal.state);
             Self::prune_data(id, true);
         }
 
@@ -1101,6 +1103,23 @@ impl<T: Trait> Module<T> {
     /// Remove the PIP with `id` from the `ExecutionSchedule` at `block_no`.
     fn remove_pip_from_schedule(block_no: T::BlockNumber, id: PipId) {
         <ExecutionSchedule<T>>::mutate(block_no, |ids| ids.retain(|i| *i != id));
+    }
+
+    /// Remove the PIP with `id` from the snapshot if it is there.
+    fn maybe_unsnapshot_pip(id: PipId, state: ProposalState) {
+        if let ProposalState::Pending = state {
+            let cool_until = <ProposalMetadata<T>>::get(id).unwrap().cool_off_until;
+            if cool_until < <system::Module<T>>::block_number()
+                && <SnapshotMeta<T>>::get()
+                    .filter(|m| cool_until < m.created_at)
+                    .is_some()
+            {
+                // Proposal is pending, no longer in cool-down, and wasn't when snapshot was made.
+                // Hence, it is in the snapshot and filtering it out will have an effect.
+                // Note: These checks are not strictly necessary, but are done to avoid work.
+                <SnapshotQueue<T>>::mutate(|queue| queue.retain(|i| i.id != id));
+            }
+        }
     }
 
     /// Prunes all data associated with a proposal, removing it from storage.
