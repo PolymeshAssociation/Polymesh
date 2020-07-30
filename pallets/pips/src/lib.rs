@@ -152,6 +152,8 @@ pub enum ProposalData {
 pub enum Committee {
     /// The technical committee.
     Technical,
+    /// The upgrade committee tends to propose chain upgrades.
+    Upgrade,
 }
 
 /// The proposer of a certain PIP.
