@@ -307,9 +307,6 @@ decl_storage! {
         /// The minimum amount to be used as a deposit for a public referendum proposal.
         pub MinimumProposalDeposit get(fn min_proposal_deposit) config(): BalanceOf<T>;
 
-        /// Minimum stake a proposal must gather in order to be considered by the committee.
-        pub QuorumThreshold get(fn quorum_threshold) config(): BalanceOf<T>;
-
         /// During Cool-off period, proposal owner can amend any PIP detail or cancel the entire
         /// proposal.
         pub ProposalCoolOffPeriod get(fn proposal_cool_off_period) config(): T::BlockNumber;
@@ -508,19 +505,6 @@ decl_module! {
             T::CommitteeOrigin::ensure_origin(origin)?;
             Self::deposit_event(RawEvent::MinimumProposalDepositChanged(SystematicIssuers::Committee.as_id(), Self::min_proposal_deposit(), deposit));
             <MinimumProposalDeposit<T>>::put(deposit);
-        }
-
-        /// Change the quorum threshold amount. This is the amount which a proposal must gather so
-        /// as to be considered by a committee. Only Governance committee is allowed to change
-        /// this value.
-        ///
-        /// # Arguments
-        /// * `threshold` the new quorum threshold amount value
-        #[weight = (150_000_000, DispatchClass::Operational, Pays::Yes)]
-        pub fn set_quorum_threshold(origin, threshold: BalanceOf<T>) {
-            T::CommitteeOrigin::ensure_origin(origin)?;
-            Self::deposit_event(RawEvent::MinimumProposalDepositChanged(SystematicIssuers::Committee.as_id(), Self::quorum_threshold(), threshold));
-            <QuorumThreshold<T>>::put(threshold);
         }
 
         /// Change the proposal cool off period value. This is the number of blocks after which the proposer of a pip

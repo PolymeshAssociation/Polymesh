@@ -294,7 +294,6 @@ fn general_testnet_genesis(
         pallet_pips: Some(GeneralConfig::PipsConfig {
             prune_historical_pips: false,
             min_proposal_deposit: 5_000 * POLY,
-            quorum_threshold: 100_000,
             proposal_cool_off_period: generalTime::MINUTES,
             default_enactment_period: generalTime::MINUTES,
             max_pip_skip_count: 1,
@@ -745,7 +744,6 @@ fn aldebaran_testnet_genesis(
         pallet_pips: Some(AldebaranConfig::PipsConfig {
             prune_historical_pips: false,
             min_proposal_deposit: 5_000 * POLY,
-            quorum_threshold: 100_000_000_000,
             proposal_cool_off_period: aldebaranTime::HOURS * 6,
             default_enactment_period: aldebaranTime::DAYS * 7,
             max_pip_skip_count: 1,
