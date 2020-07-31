@@ -928,10 +928,11 @@ decl_module! {
                 // Only keep pending PIPs.
                 .filter(|pip| matches!(pip.state, ProposalState::Pending))
                 .map(|pip| pip.id)
-                // Omit cooling-off PIPs.
+                // Omit cooling-off community PIPs.
                 .filter(|id| {
                     <ProposalMetadata<T>>::get(id)
                         .filter(|meta| meta.cool_off_until > created_at)
+                        .filter(|meta| matches!(meta.proposer, Proposer::Community(_)))
                         .is_some()
                 })
                 // Aggregate the votes; `true` denotes a positive sign.
