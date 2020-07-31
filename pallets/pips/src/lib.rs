@@ -321,7 +321,7 @@ decl_storage! {
         /// Determines whether historical PIP data is persisted or removed
         pub PruneHistoricalPips get(fn prune_historical_pips) config(): bool;
 
-        /// The minimum amount to be used as a deposit for a public referendum proposal.
+        /// The minimum amount to be used as a deposit for community PIP creation.
         pub MinimumProposalDeposit get(fn min_proposal_deposit) config(): BalanceOf<T>;
 
         /// During Cool-off period, proposal owner can amend any PIP detail or cancel the entire
@@ -470,10 +470,6 @@ decl_error! {
         ProposalOnCoolOffPeriod,
         /// Proposal is immutable after cool-off period.
         ProposalIsImmutable,
-        /// Referendum is still on its enactment period.
-        ReferendumOnEnactmentPeriod,
-        /// Referendum is immutable.
-        ReferendumIsImmutable,
         /// When a block number is less than current block number.
         InvalidFutureBlockNumber,
         /// When number of votes overflows.
@@ -486,8 +482,6 @@ decl_error! {
         BadCoolOffPeriod,
         /// The proposal duration is too small relative to the cool off period
         BadProposalDuration,
-        /// Referendum is not in the correct state
-        IncorrectReferendumState,
         /// Proposal is not in the correct state
         IncorrectProposalState,
         /// Insufficient treasury funds to pay beneficiaries
@@ -1119,19 +1113,17 @@ impl<T: Trait> Module<T> {
     }
 
     /// Runs the following procedure:
-    /// 1. Find all proposals that need to end as of this block and close voting
-    /// 2. Tally votes
-    /// 3. Submit any proposals that meet the quorum threshold, to the governance committee
-    /// 4. Automatically execute any referendum
+    /// 1. Executes all PIPs scheduled for this block.
     pub fn end_block(block_number: T::BlockNumber) -> Result<Weight, DispatchError> {
         // Some arbitrary number right now, It is subject to change after proper benchmarking
         let mut weight: Weight = 50_000_000;
-        // Execute automatically referendums after its enactment period.
-        let referendum_ids = <ExecutionSchedule<T>>::take(block_number);
-        referendum_ids.into_iter().for_each(|id| {
-            <PipToSchedule<T>>::remove(id);
-            weight += Self::execute_proposal(id);
-        });
+        // 1. Execute all PIPs scheduled for this block.
+        <ExecutionSchedule<T>>::take(block_number)
+            .into_iter()
+            .for_each(|id| {
+                <PipToSchedule<T>>::remove(id);
+                weight += Self::execute_proposal(id);
+            });
         <ExecutionSchedule<T>>::remove(block_number);
         Ok(weight)
     }
@@ -1351,7 +1343,8 @@ impl<T: Trait> Module<T> {
             .collect::<HistoricalVotingById<_, _>>()
     }
 
-    /// Generates the next id for proposals and referendums.
+    /// Returns the id to use for the next PIP to be made.
+    /// Invariant: `next_pip_id() == next_pip_id() + 1`.
     fn next_pip_id() -> u32 {
         <PipIdSequence>::mutate(|id| mem::replace(id, *id + 1))
     }
