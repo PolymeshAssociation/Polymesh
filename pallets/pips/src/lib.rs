@@ -457,14 +457,15 @@ decl_error! {
         /// The given dispatchable call is not valid for this proposal.
         /// The proposal must be from the community, but isn't.
         NotFromCommunity,
+        /// The given dispatchable call is not valid for this proposal.
+        /// The proposal must be by community, but isn't.
+        NotByCommittee,
         /// Proposer specifies an incorrect deposit
         IncorrectDeposit,
         /// Proposer can't afford to lock minimum deposit
         InsufficientDeposit,
         /// when voter vote gain
         DuplicateVote,
-        /// Duplicate proposal.
-        DuplicateProposal,
         /// The proposal does not exist.
         NoSuchProposal,
         /// Not part of governance committee.
@@ -481,10 +482,6 @@ decl_error! {
         StakeAmountOfVotesExceeded,
         /// Missing current DID
         MissingCurrentIdentity,
-        /// Cool off period is too large relative to the proposal duration
-        BadCoolOffPeriod,
-        /// The proposal duration is too small relative to the cool off period
-        BadProposalDuration,
         /// Proposal is not in the correct state
         IncorrectProposalState,
         /// Insufficient treasury funds to pay beneficiaries
@@ -820,6 +817,34 @@ decl_module! {
             Self::deposit_event(RawEvent::Voted(current_did, proposer, id, aye_or_nay, deposit));
         }
 
+        /// Approves the pending non-cooling committee PIP given by the `id`.
+        ///
+        /// # Errors
+        /// * `BadOrigin` unless a GC voting majority executes this function.
+        /// * `NoSuchProposal` if the PIP with `id` doesn't exist.
+        /// * `IncorrectProposalState` if the proposal isn't pending.
+        /// * `ProposalOnCoolOffPeriod` if the proposal is cooling off.
+        /// * `NotByCommittee` if the proposal isn't by a committee.
+        #[weight = (100_000, DispatchClass::Operational, Pays::Yes)]
+        pub fn approve_committee_proposal(origin, id: PipId) {
+            // 1. Only GC can do this.
+            T::VotingMajorityOrigin::ensure_origin(origin)?;
+
+            // 2. Proposal must be pending.
+            Self::is_proposal_state(id, ProposalState::Pending)?;
+
+            // 3. Proposal must not be cooling-off and must be by committee.
+            let meta = Self::proposal_metadata(id).ok_or_else(|| Error::<T>::NoSuchProposal)?;
+            let curr_block_number = <system::Module<T>>::block_number();
+            ensure!(meta.cool_off_until <= curr_block_number, Error::<T>::ProposalOnCoolOffPeriod);
+            ensure!(matches!(meta.proposer, Proposer::Committee(_)), Error::<T>::NotByCommittee);
+
+            // 4. All is good, schedule PIP for execution.
+            Self::maybe_unsnapshot_pip(id, ProposalState::Pending);
+            let current_did = Context::current_identity::<Identity<T>>().unwrap_or_default();
+            Self::schedule_pip_for_execution(current_did, id);
+        }
+
         /// Rejects the PIP given by the `id`, refunding any bonded funds,
         /// assuming it hasn't been cancelled or executed.
         /// Note that cooling-off and proposals scheduled-for-execution can also be rejected.
@@ -937,7 +962,7 @@ decl_module! {
                 // Only keep community PIPs not cooling-off.
                 .filter(|id| {
                     <ProposalMetadata<T>>::get(id)
-                        .filter(|meta| meta.cool_off_until > created_at)
+                        .filter(|meta| meta.cool_off_until <= created_at)
                         .filter(|meta| matches!(meta.proposer, Proposer::Community(_)))
                         .is_some()
                 })
@@ -1166,9 +1191,9 @@ impl<T: Trait> Module<T> {
     fn maybe_unsnapshot_pip(id: PipId, state: ProposalState) {
         if let ProposalState::Pending = state {
             let cool_until = <ProposalMetadata<T>>::get(id).unwrap().cool_off_until;
-            if cool_until < <system::Module<T>>::block_number()
+            if cool_until <= <system::Module<T>>::block_number()
                 && <SnapshotMeta<T>>::get()
-                    .filter(|m| cool_until < m.created_at)
+                    .filter(|m| cool_until <= m.created_at)
                     .is_some()
             {
                 // Proposal is pending, no longer in cool-down, and wasn't when snapshot was made.
