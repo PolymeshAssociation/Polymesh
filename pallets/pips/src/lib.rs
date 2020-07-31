@@ -15,51 +15,78 @@
 
 //! # Pips Module
 //!
-//! Polymesh Improvement Proposals (PIPs) are proposals (ballots) that can be proposed and voted on
-//! by all POLYX token holders. If a ballot passes this community token holder vote it is then passed to the
-//! governance council to ratify (or reject).
-//! - minimum of 5,000 POLYX needs to be staked by the proposer of the ballot
-//! in order to create a new ballot.
-//! - minimum of 100,000 POLYX (quorum) needs to vote in favour of the ballot in order for the
-//! ballot to be considered by the governing committee.
-//! - ballots run for 1 week
-//! - a simple majority is needed to pass the ballot so that it heads for the
-//! next stage (governing committee)
+//! Polymesh Improvement Proposals (PIPs) are dispatchables that can be `propose`d for execution.
+//! These PIPs can either be proposed by a committee, or they can be proposed by a community member,
+//! in which case they can `vote`d on by all POLYX token holders.
+//! Once created, a proposal first enters a cool-off period, during which it can be amended
+//! (via `amend_proposal`, `bond_additional_deposit`, and `unbond_deposit`)
+//! or cancelled (via `cancel_proposal`), but not voted on, nor approved.
+//!
+//! Voting, or rather "signalling", which currently scales linearly with POLX,
+//! in this system is used to direct the Governance Councils (GCs)
+//! attention by moving proposals up and down a review queue, specific to community proposals.
+//!
+//! From time to time, the GC will take a `snapshot` of this queue,
+//! meet and review PIPs, and reject, approve, or skip the proposal (via `enact_snapshot_results`).
+//! Any approved PIPs from this snapshot will then be scheduled,
+//! in order of signal value, to be executed automatically on the blockchain.
+//! However, using `reschedule_proposal`, a special Release Coordinator (RC), a member of the GC,
+//! can reschedule approved PIPs at will, except for a PIP to replace the RC. TODO(centril): make this a reality.
+//! Once no longer relevant, the snapshot can be cleared by the GC through `clear_snapshot`.
+//!
+//! As aforementioned, the GC can skip a PIP, which will increments its "skipped count".
+//! Should a configurable limit for the skipped count be exceeded, a PIP can no longer be skipped.
+//!
+//! Committee proposals, as noted before, do not enter the snapshot or receive votes.
+//! However, the GC can at any moment approve such a PIP via `approve_committee_proposal`.
+//!
+//! Should the GC want to reject an active (scheduled or pending) proposal,
+//! they can do so at any time using `reject_proposal`.
+//! For garbage collection purposes, it is also possible to use `prune_proposal`,
+//! which will, without any restrictions on its state, remove the PIP's storage.
+//!
 //!
 //! ## Overview
 //!
 //! The Pips module provides functions for:
 //!
-//! - Creating Mesh Improvement Proposals
-//! - Voting on Mesh Improvement Proposals
-//! - Governance committee to ratify or reject proposals
+//! - Proposing and amending PIPs
+//! - Signalling (voting) on them for adjusting priority in the review queue
+//! - Taking and clearing snapshots of the queue
+//! - Approving, rejecting, skipping, and rescheduling PIPs
 //!
 //! ## Interface
 //!
 //! ### Dispatchable Functions
 //!
+//! #### Configuration changes
+//!
 //! - `set_prune_historical_pips` change whether historical PIPs are pruned
 //! - `set_min_proposal_deposit` change min deposit to create a proposal
-//! - `set_quorum_threshold` change stake required to make a proposal into a referendum
-//! - `set_proposal_duration` change duration in blocks for which proposal stays active
 //! - `set_proposal_cool_off_period` change duration in blocks for which a proposal can be amended
-//! - `set_default_enact_period` change the period after enactment after which the proposal is executed
+//! - `set_default_enactment_period` change the period after enactment after which the proposal is executed
+//! - `set_max_pip_skip_count` change the maximum times a PIP can be skipped
+//! - `set_active_pip_limit` change the maximum number of concurrently active PIPs
+//!
+//! #### Other
+//!
 //! - `propose` - token holders can propose a new ballot.
 //! - `amend_proposal` - allows the creator of a proposal to amend the proposal details
-//! - `cancel_proposal` - allows the creator of a proposal to cancel the proposal
 //! - `bond_additional_deposit` - allows the creator of a proposal to bond additional POLYX to it
 //! - `unbond_deposit` - allows the creator of a proposal to unbond POLYX from it
+//! - `cancel_proposal` - allows the creator of a proposal to cancel the proposal
 //! - `vote` - Token holders can vote on a ballot.
-//! - `kill_proposal` - close a proposal and refund all deposits
-//! - `fast_track_proposal` - move a proposal to a referendum stage
-//! - `emergency_referendum` - create an emergency referndum, bypassing the token holder vote
-//! - `reject_referendum` - reject a referendum which will be closed without executing
-//! - `override_referendum_enactment_period` - release coordinator can reschedule a referendum
-//! - `enact_referendum` committee calls to execute a referendum
+//! - `approve_committee_proposal` - allows the GC to approve a committee proposal
+//! - `reject_proposal` - reject an active proposal and refund deposits
+//! - `prune_proposal` - prune all storage associated with proposal and refund deposits
+//! - `reschedule_execution` - release coordinator can reschedule a PIPs execution
+//! - `clear_snapshot` - clears the snapshot
+//! - `snapshot` - takes a new snapshot of the review queue
+//! - `enact_snapshot_results` - enters results (approve, reject, and skip) for PIPs in snapshot
 //!
 //! ### Public Functions
 //!
-//! - `end_block` - processes pending proposals and referendums
+//! - `end_block` - executes scheduled proposals
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use codec::{Decode, Encode};
@@ -1276,18 +1303,19 @@ impl<T: Trait> Module<T> {
                 Ok(post_info) => {
                     actual_weight = post_info.actual_weight.unwrap_or(0);
                     Self::pay_to_beneficiaries(id);
-                    Self::update_proposal_state(id, ProposalState::Executed)
+                    ProposalState::Executed
                 }
                 Err(e) => {
                     debug::error!("Proposal {}, its execution fails: {:?}", id, e.error);
-                    Self::update_proposal_state(id, ProposalState::Failed)
+                    ProposalState::Failed
                 }
             },
             Err(e) => {
                 debug::error!("Proposal {}, its beneficiaries fails: {:?}", id, e);
-                Self::update_proposal_state(id, ProposalState::Failed)
+                ProposalState::Failed
             }
         };
+        Self::update_proposal_state(id, new_state);
         Self::prune_data(id, new_state, Self::prune_historical_pips());
         actual_weight
     }
