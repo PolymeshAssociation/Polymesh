@@ -1003,14 +1003,11 @@ decl_module! {
                 }
 
                 // Reject proposals as instructed & refund.
-                // TODO(centril): is refunding working properly?
                 for pip_id in to_reject.iter().copied() {
                     Self::unsafe_reject_proposal(pip_id);
                 }
 
                 // Approve proposals as instructed.
-                // TODO(centril): is refunding working properly?
-                // TODO(centril): will need some more tweaks.
                 let current_did = Context::current_identity::<Identity<T>>().unwrap_or_default();
                 for pip_id in to_approve.iter().copied() {
                     Self::schedule_pip_for_execution(current_did, pip_id);
