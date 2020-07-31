@@ -1265,30 +1265,30 @@ impl<T: Trait> Module<T> {
         ));
     }
 
+    /// Execute the PIP given by `id`.
+    /// Panics if the PIP doesn't exist or isn't scheduled.
     fn execute_proposal(id: PipId) -> Weight {
+        let proposal = Self::proposals(id).expect("PIP was scheduled but doesn't exist");
+        assert_eq!(proposal.state, ProposalState::Scheduled);
         let mut actual_weight: Weight = 0;
-        if let Some(proposal) = Self::proposals(id) {
-            if proposal.state == ProposalState::Scheduled {
-                let new_state = match Self::check_beneficiaries(id) {
-                    Ok(_) => match proposal.proposal.dispatch(system::RawOrigin::Root.into()) {
-                        Ok(post_info) => {
-                            actual_weight = post_info.actual_weight.unwrap_or(0);
-                            Self::pay_to_beneficiaries(id);
-                            Self::update_proposal_state(id, ProposalState::Executed)
-                        }
-                        Err(e) => {
-                            debug::error!("Proposal {}, its execution fails: {:?}", id, e.error);
-                            Self::update_proposal_state(id, ProposalState::Failed)
-                        }
-                    },
-                    Err(e) => {
-                        debug::error!("Proposal {}, its beneficiaries fails: {:?}", id, e);
-                        Self::update_proposal_state(id, ProposalState::Failed)
-                    }
-                };
-                Self::prune_data(id, new_state, Self::prune_historical_pips());
+        let new_state = match Self::check_beneficiaries(id) {
+            Ok(_) => match proposal.proposal.dispatch(system::RawOrigin::Root.into()) {
+                Ok(post_info) => {
+                    actual_weight = post_info.actual_weight.unwrap_or(0);
+                    Self::pay_to_beneficiaries(id);
+                    Self::update_proposal_state(id, ProposalState::Executed)
+                }
+                Err(e) => {
+                    debug::error!("Proposal {}, its execution fails: {:?}", id, e.error);
+                    Self::update_proposal_state(id, ProposalState::Failed)
+                }
+            },
+            Err(e) => {
+                debug::error!("Proposal {}, its beneficiaries fails: {:?}", id, e);
+                Self::update_proposal_state(id, ProposalState::Failed)
             }
-        }
+        };
+        Self::prune_data(id, new_state, Self::prune_historical_pips());
         actual_weight
     }
 
