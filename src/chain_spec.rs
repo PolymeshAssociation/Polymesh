@@ -315,6 +315,7 @@ fn general_testnet_genesis(
                 ..Default::default()
             },
         }),
+        // Governance Council:
         group_Instance1: Some(general::runtime::CommitteeMembershipConfig {
             active_members: vec![
                 IdentityId::from(3),
@@ -337,6 +338,28 @@ fn general_testnet_genesis(
                 IdentityId::from(2),
                 IdentityId::from(6),
             ],
+            phantom: Default::default(),
+        }),
+        // Technical Committee:
+        group_Instance3: Some(general::runtime::TechnicalCommitteeMembershipConfig {
+            active_members: vec![IdentityId::from(3)],
+            phantom: Default::default(),
+        }),
+        committee_Instance3: Some(GeneralConfig::TechnicalCommitteeConfig {
+            vote_threshold: (1, 2),
+            members: vec![],
+            release_coordinator: IdentityId::from(3),
+            phantom: Default::default(),
+        }),
+        // Upgrade Committee:
+        group_Instance4: Some(general::runtime::UpgradeCommitteeMembershipConfig {
+            active_members: vec![IdentityId::from(4)],
+            phantom: Default::default(),
+        }),
+        committee_Instance4: Some(GeneralConfig::UpgradeCommitteeConfig {
+            vote_threshold: (1, 2),
+            members: vec![],
+            release_coordinator: IdentityId::from(4),
             phantom: Default::default(),
         }),
         protocol_fee: Some(GeneralConfig::ProtocolFeeConfig {
@@ -786,6 +809,28 @@ fn aldebaran_testnet_genesis(
                 IdentityId::from(2),
                 IdentityId::from(3),
             ],
+            phantom: Default::default(),
+        }),
+        // Technical Committee:
+        group_Instance3: Some(aldebaran::runtime::TechnicalCommitteeMembershipConfig {
+            active_members: vec![IdentityId::from(4)],
+            phantom: Default::default(),
+        }),
+        committee_Instance3: Some(aldebaran::runtime::TechnicalCommitteeConfig {
+            vote_threshold: (1, 2),
+            members: vec![],
+            release_coordinator: IdentityId::from(4),
+            phantom: Default::default(),
+        }),
+        // Upgrade Committee:
+        group_Instance4: Some(aldebaran::runtime::UpgradeCommitteeMembershipConfig {
+            active_members: vec![IdentityId::from(5)],
+            phantom: Default::default(),
+        }),
+        committee_Instance4: Some(aldebaran::runtime::UpgradeCommitteeConfig {
+            vote_threshold: (1, 2),
+            members: vec![],
+            release_coordinator: IdentityId::from(5),
             phantom: Default::default(),
         }),
         protocol_fee: Some(AldebaranConfig::ProtocolFeeConfig {

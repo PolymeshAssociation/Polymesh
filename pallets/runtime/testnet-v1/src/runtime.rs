@@ -390,6 +390,10 @@ impl pallet_staking::Trait for Runtime {
 parameter_types! {
     pub const MotionDuration: BlockNumber = 0;
 }
+
+/// Voting majority origin for `Instance`.
+type VMO<Instance> = committee::EnsureProportionAtLeast<_2, _3, AccountId, Instance>;
+
 type GovernanceCommittee = committee::Instance1;
 impl committee::Trait<GovernanceCommittee> for Runtime {
     type Origin = Origin;
@@ -411,12 +415,41 @@ impl group::Trait<group::Instance1> for Runtime {
     type MembershipChanged = PolymeshCommittee;
 }
 
+macro_rules! committee_config {
+    ($committee:ident, $instance:ident) => {
+        impl committee::Trait<committee::$instance> for Runtime {
+            type Origin = Origin;
+            type Proposal = Call;
+            // Can act upon itself.
+            type CommitteeOrigin = VMO<committee::$instance>;
+            type Event = Event;
+            type MotionDuration = MotionDuration;
+            type EnactProposalMaker = Runtime;
+        }
+        impl group::Trait<group::$instance> for Runtime {
+            type Event = Event;
+            // Can manage its own addition, deletion, and swapping of membership...
+            type AddOrigin = VMO<committee::$instance>;
+            type RemoveOrigin = VMO<committee::$instance>;
+            type SwapOrigin = VMO<committee::$instance>;
+            // ...but it cannot reset its own membership; GC needs to do that.
+            type ResetOrigin = VMO<GovernanceCommittee>;
+            type MembershipInitialized = $committee;
+            type MembershipChanged = $committee;
+        }
+    };
+}
+
+committee_config!(TechnicalCommittee, Instance3);
+committee_config!(UpgradeCommittee, Instance4);
+
 impl pallet_pips::Trait for Runtime {
     type Currency = Balances;
     type CommitteeOrigin = frame_system::EnsureRoot<AccountId>;
-    type VotingMajorityOrigin =
-        committee::EnsureProportionAtLeast<_2, _3, AccountId, GovernanceCommittee>;
+    type VotingMajorityOrigin = VMO<GovernanceCommittee>;
     type GovernanceCommittee = PolymeshCommittee;
+    type TechnicalCommitteeVMO = VMO<committee::Instance3>;
+    type UpgradeCommitteeVMO = VMO<committee::Instance4>;
     type Treasury = Treasury;
     type Event = Event;
 }
@@ -737,6 +770,12 @@ construct_runtime!(
         PolymeshCommittee: committee::<Instance1>::{Module, Call, Storage, Origin<T>, Event<T>, Config<T>},
         CommitteeMembership: group::<Instance1>::{Module, Call, Storage, Event<T>, Config<T>},
         Pips: pallet_pips::{Module, Call, Storage, Event<T>, Config<T>},
+
+        TechnicalCommittee: committee::<Instance3>::{Module, Call, Storage, Origin<T>, Event<T>, Config<T>},
+        TechnicalCommitteeMembership: group::<Instance3>::{Module, Call, Storage, Event<T>, Config<T>},
+
+        UpgradeCommittee: committee::<Instance4>::{Module, Call, Storage, Origin<T>, Event<T>, Config<T>},
+        UpgradeCommitteeMembership: group::<Instance4>::{Module, Call, Storage, Event<T>, Config<T>},
 
         //Polymesh
         Asset: asset::{Module, Call, Storage, Config<T>, Event<T>},
