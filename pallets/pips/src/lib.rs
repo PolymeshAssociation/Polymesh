@@ -982,7 +982,7 @@ decl_module! {
                 for result in results.iter().copied().flat_map(|(n, r)| (0..n).map(move |_| r)) {
                     match (queue.pop(), result) { // ...and zip with the queue in reverse.
                         // An action is missing a corresponding PIP in the queue, bail!
-                        (None, _) => Err(Error::<T>::SnapshotResultTooLarge)?,
+                        (None, _) => return Err(Error::<T>::SnapshotResultTooLarge.into()),
                         // Make sure the PIP can be skipped and enqueue bumping of skip.
                         (Some(pip), SnapshotResult::Skip) => {
                             let count = PipSkipCount::get(pip.id);
@@ -1075,7 +1075,7 @@ impl<T: Trait> Module<T> {
     ) -> Result<T::AccountId, DispatchError> {
         match Self::ensure_owned_by_alterable(origin, id)? {
             Proposer::Community(p) => Ok(p),
-            Proposer::Committee(_) => Err(Error::<T>::BadOrigin)?,
+            Proposer::Committee(_) => Err(Error::<T>::BadOrigin.into()),
         }
     }
 
