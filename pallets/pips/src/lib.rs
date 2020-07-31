@@ -863,7 +863,7 @@ decl_module! {
         /// * `BadOrigin` unless triggered by release coordinator.
         /// * `IncorrectProposalState` unless the proposal was in a scheduled state.
         #[weight = (750_000_000, DispatchClass::Operational, Pays::Yes)]
-        pub fn override_execution_schedule(origin, id: PipId, until: Option<T::BlockNumber>) -> DispatchResult {
+        pub fn reschedule_execution(origin, id: PipId, until: Option<T::BlockNumber>) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             let current_did = Context::current_identity_or::<Identity<T>>(&sender)?;
 
