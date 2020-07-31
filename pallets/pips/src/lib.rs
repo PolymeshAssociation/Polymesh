@@ -1000,7 +1000,7 @@ decl_module! {
         /// * `CannotSkipPip` - a given PIP has already been skipped too many times.
         /// * `SnapshotResultTooLarge` - on len(results) > len(snapshot_queue).
         #[weight = (100_000, DispatchClass::Operational, Pays::Yes)]
-        pub fn enact_snapshot_results(origin, results: Vec<(SkippedCount, SnapshotResult)>) -> DispatchResult {
+        pub fn enact_snapshot_results(origin, results: Vec<(u8, SnapshotResult)>) -> DispatchResult {
             T::VotingMajorityOrigin::ensure_origin(origin)?;
 
             let max_pip_skip_count = Self::max_pip_skip_count();
