@@ -309,6 +309,12 @@ pub trait Trait:
     /// Committee
     type GovernanceCommittee: GovernanceGroupTrait<<Self as pallet_timestamp::Trait>::Moment>;
 
+    /// Voting majority origin for Technical Committee.
+    type TechnicalCommitteeVMO: EnsureOrigin<Self::Origin>;
+
+    /// Voting majority origin for Upgrade Committee.
+    type UpgradeCommitteeVMO: EnsureOrigin<Self::Origin>;
+
     type Treasury: TreasuryTrait<<Self as CommonTrait>::Balance>;
 
     /// The overarching event type.
@@ -928,7 +934,7 @@ decl_module! {
                 // Only keep pending PIPs.
                 .filter(|pip| matches!(pip.state, ProposalState::Pending))
                 .map(|pip| pip.id)
-                // Omit cooling-off community PIPs.
+                // Only keep community PIPs not cooling-off.
                 .filter(|id| {
                     <ProposalMetadata<T>>::get(id)
                         .filter(|meta| meta.cool_off_until > created_at)
@@ -1046,9 +1052,12 @@ impl<T: Trait> Module<T> {
             Proposer::Community(acc) => {
                 ensure!(acc == &ensure_signed(origin)?, Error::<T>::BadOrigin)
             }
-            // TODO(centril): add actual checks for committees.
-            Proposer::Committee(Committee::Technical) => todo!(),
-            Proposer::Committee(Committee::Upgrade) => todo!(),
+            Proposer::Committee(Committee::Technical) => {
+                T::TechnicalCommitteeVMO::ensure_origin(origin)?;
+            }
+            Proposer::Committee(Committee::Upgrade) => {
+                T::UpgradeCommitteeVMO::ensure_origin(origin)?;
+            }
         }
         Ok(())
     }
