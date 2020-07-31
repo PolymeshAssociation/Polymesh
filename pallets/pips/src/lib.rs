@@ -1345,9 +1345,10 @@ impl<T: Trait> Module<T> {
     /// It inserts the vote and updates the accountability of target proposal.
     fn unsafe_vote(id: PipId, proposer: T::AccountId, vote: Vote<BalanceOf<T>>) -> DispatchResult {
         let mut stats = Self::proposal_result(id);
-        let (count, stake, deposit) = match vote {
-            Vote(true, deposit) => (&mut stats.ayes_count, &mut stats.ayes_stake, deposit),
-            Vote(false, deposit) => (&mut stats.nays_count, &mut stats.nays_stake, deposit),
+        let Vote(direction, deposit) = vote;
+        let (count, stake) = match direction {
+            true => (&mut stats.ayes_count, &mut stats.ayes_stake),
+            false => (&mut stats.nays_count, &mut stats.nays_stake),
         };
         *count = count
             .checked_add(1)
