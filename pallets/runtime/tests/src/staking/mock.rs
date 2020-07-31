@@ -416,6 +416,9 @@ impl AcceptTransfer for Test {
     fn accept_ticker_transfer(_: IdentityId, _: u64) -> DispatchResult {
         Ok(())
     }
+    fn accept_treasury_transfer(_: IdentityId, _: u64) -> DispatchResult {
+        Ok(())
+    }
     fn accept_asset_ownership_transfer(_: IdentityId, _: u64) -> DispatchResult {
         Ok(())
     }

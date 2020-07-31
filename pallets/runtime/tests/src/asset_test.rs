@@ -886,6 +886,82 @@ fn transfer_ticker() {
 }
 
 #[test]
+fn transfer_treasury() {
+    ExtBuilder::default().build().execute_with(|| {
+        let now = Utc::now();
+        Timestamp::set_timestamp(now.timestamp() as u64);
+
+        let owner_signed = Origin::signed(AccountKeyring::Alice.public());
+        let owner_did = register_keyring_account(AccountKeyring::Alice).unwrap();
+        let treasury_signed = Origin::signed(AccountKeyring::Bob.public());
+        let treasury_did = register_keyring_account(AccountKeyring::Bob).unwrap();
+
+        let ticker = Ticker::try_from(&[0x01, 0x01][..]).unwrap();
+        let token = SecurityToken {
+            name: ticker.as_slice().into(),
+            total_supply: 1_000_000,
+            owner_did,
+            divisible: true,
+            asset_type: Default::default(),
+            treasury_did: None,
+        };
+
+        assert_ok!(Asset::create_asset(
+            owner_signed,
+            token.name.clone(),
+            ticker.clone(),
+            token.total_supply,
+            token.divisible,
+            token.asset_type.clone(),
+            Default::default(),
+            Default::default(),
+            token.treasury_did.clone()
+        ));
+
+        assert!(!Asset::is_ticker_available(&ticker));
+        assert_eq!(Asset::token_details(&ticker), token);
+
+        let auth_id = Identity::add_auth(
+            owner_did,
+            Signatory::from(treasury_did),
+            AuthorizationData::TransferTreasury(ticker),
+            Some(now.timestamp() as u64 - 100),
+        );
+
+        assert_err!(
+            Asset::accept_treasury_transfer(treasury_signed.clone(), auth_id),
+            "Authorization expired"
+        );
+        assert_eq!(Asset::token_details(&ticker), token);
+
+        let auth_id = Identity::add_auth(
+            owner_did,
+            Signatory::from(owner_did),
+            AuthorizationData::TransferTreasury(ticker),
+            None,
+        );
+
+        assert_err!(
+            Asset::accept_treasury_transfer(treasury_signed.clone(), auth_id),
+            "Authorization does not exist"
+        );
+        assert_eq!(Asset::token_details(&ticker), token);
+
+        let auth_id = Identity::add_auth(
+            owner_did,
+            Signatory::from(treasury_did),
+            AuthorizationData::TransferTreasury(ticker),
+            None,
+        );
+
+        assert_ok!(Asset::accept_treasury_transfer(treasury_signed.clone(), auth_id));
+        let mut new_token = token.clone();
+        new_token.treasury_did = Some(treasury_did);
+        assert_eq!(Asset::token_details(&ticker), new_token);
+    })
+}
+
+#[test]
 fn transfer_token_ownership() {
     ExtBuilder::default().build().execute_with(|| {
         let now = Utc::now();
