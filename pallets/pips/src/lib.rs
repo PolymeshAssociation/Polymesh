@@ -340,8 +340,15 @@ decl_storage! {
         /// Maximum times a PIP can be skipped before triggering `CannotSkipPip` in `enact_snapshot_results`.
         pub MaxPipSkipCount get(fn max_pip_skip_count) config(): SkippedCount;
 
+        /// The maximum allowed number for `ActivePipCount`.
+        /// Once reached, new PIPs cannot be proposed by community members.
+        pub ActivePipLimit get(fn active_pip_limit) config(): u32;
+
         /// Proposals so far. id can be used to keep track of PIPs off-chain.
         PipIdSequence: u32;
+
+        /// Total count of current pending or scheduled PIPs.
+        ActivePipCount: u32;
 
         /// The metadata of the active proposals.
         pub ProposalMetadata get(fn proposal_metadata): map hasher(twox_64_concat) PipId => Option<PipsMetadata<T>>;
@@ -434,6 +441,9 @@ decl_event!(
         /// The maximum times a PIP can be skipped was changed.
         /// (caller DID, old value, new value)
         MaxPipSkipCountChanged(IdentityId, SkippedCount, SkippedCount),
+        /// The maximum number of active PIPs was changed.
+        /// (caller DID, old value, new value)
+        ActivePipLimitChanged(IdentityId, u32, u32),
         /// Refund proposal
         /// (id, total amount)
         ProposalRefund(IdentityId, PipId, Balance),
@@ -460,6 +470,9 @@ decl_error! {
         /// The given dispatchable call is not valid for this proposal.
         /// The proposal must be by community, but isn't.
         NotByCommittee,
+        /// The current number of active (pending | scheduled) PIPs exceed the maximum
+        /// and the proposal is not by a committee.
+        TooManyActivePips,
         /// Proposer specifies an incorrect deposit
         IncorrectDeposit,
         /// Proposer can't afford to lock minimum deposit
@@ -555,6 +568,15 @@ decl_module! {
             Self::deposit_event(RawEvent::MaxPipSkipCountChanged(SystematicIssuers::Committee.as_id(), prev_max, new_max));
         }
 
+        /// Change the maximum number of active PIPs before community members cannot propose anything.
+        #[weight = (100_000, DispatchClass::Operational, Pays::Yes)]
+        pub fn set_active_pip_limit(origin, new_max: u32) {
+            T::CommitteeOrigin::ensure_origin(origin)?;
+            let prev_max = ActivePipLimit::get();
+            ActivePipLimit::put(prev_max);
+            Self::deposit_event(RawEvent::ActivePipLimitChanged(SystematicIssuers::Committee.as_id(), prev_max, new_max));
+        }
+
         /// A network member creates a PIP by submitting a dispatchable which
         /// changes the network in someway. A minimum deposit is required to open a new proposal.
         ///
@@ -579,10 +601,16 @@ decl_module! {
 
             // 2. Add a deposit for community PIPs.
             if let Proposer::Community(ref proposer) = proposer {
-                // Pre conditions: caller must have min balance
+                // ...but first make sure active PIP limit isn't crossed.
+                // This doesn't apply to committee PIPs.
+                // `0` is special and denotes no limit.
+                let limit = ActivePipLimit::get();
+                ensure!(limit == 0 || ActivePipCount::get() < limit, Error::<T>::TooManyActivePips);
+
+                // Pre conditions: caller must have min balance.
                 ensure!(deposit >= Self::min_proposal_deposit(), Error::<T>::IncorrectDeposit);
 
-                // Reserve the minimum deposit
+                // Reserve the minimum deposit.
                 <T as Trait>::Currency::reserve(&proposer, deposit)
                     .map_err(|_| Error::<T>::InsufficientDeposit)?;
             }
@@ -592,6 +620,7 @@ decl_module! {
 
             // 4. Construct and add PIP to storage.
             let id = Self::next_pip_id();
+            ActivePipCount::mutate(|count| *count += 1);
             let cool_off_until = <system::Module<T>>::block_number() + Self::proposal_cool_off_period();
             let proposal_metadata = PipsMetadata {
                 proposer: proposer.clone(),
@@ -690,8 +719,8 @@ decl_module! {
             Self::refund_proposal(id);
 
             // 3. Close that proposal.
-            Self::update_proposal_state(id, ProposalState::Cancelled);
-            Self::prune_data(id, Self::prune_historical_pips());
+            let new_state = Self::update_proposal_state(id, ProposalState::Cancelled);
+            Self::prune_data(id, new_state, Self::prune_historical_pips());
 
             Ok(())
         }
@@ -881,7 +910,7 @@ decl_module! {
             Self::refund_proposal(id);
             Self::maybe_unschedule_pip(id, proposal.state);
             Self::maybe_unsnapshot_pip(id, proposal.state);
-            Self::prune_data(id, true);
+            Self::prune_data(id, proposal.state, true);
         }
 
         /// Updates the execution schedule of the PIP given by `id`.
@@ -1059,7 +1088,6 @@ decl_module! {
                 0
             })
         }
-
     }
 }
 
@@ -1158,9 +1186,9 @@ impl<T: Trait> Module<T> {
 
     /// Rejects the given `id`, refunding the deposit, and possibly pruning the proposal's data.
     fn unsafe_reject_proposal(id: PipId) {
-        Self::update_proposal_state(id, ProposalState::Rejected);
+        let new_state = Self::update_proposal_state(id, ProposalState::Rejected);
         Self::refund_proposal(id);
-        Self::prune_data(id, Self::prune_historical_pips());
+        Self::prune_data(id, new_state, Self::prune_historical_pips());
     }
 
     /// Refunds any tokens used to vote or bond a proposal
@@ -1208,8 +1236,9 @@ impl<T: Trait> Module<T> {
     ///
     /// For efficiency, some data (e.g., re. execution schedules) is not removed in this function,
     /// but is removed in functions executing this one.
-    fn prune_data(id: PipId, prune: bool) {
+    fn prune_data(id: PipId, state: ProposalState, prune: bool) {
         let current_did = Context::current_identity::<Identity<T>>().unwrap_or_default();
+        Self::decrement_count_if_active(state);
         if prune {
             <ProposalResult<T>>::remove(id);
             <ProposalVotes<T>>::remove_prefix(id);
@@ -1240,30 +1269,24 @@ impl<T: Trait> Module<T> {
         let mut actual_weight: Weight = 0;
         if let Some(proposal) = Self::proposals(id) {
             if proposal.state == ProposalState::Scheduled {
-                match Self::check_beneficiaries(id) {
-                    Ok(_) => {
-                        match proposal.proposal.dispatch(system::RawOrigin::Root.into()) {
-                            Ok(post_info) => {
-                                actual_weight = post_info.actual_weight.unwrap_or(0);
-                                Self::pay_to_beneficiaries(id);
-                                Self::update_proposal_state(id, ProposalState::Executed);
-                            }
-                            Err(e) => {
-                                Self::update_proposal_state(id, ProposalState::Failed);
-                                debug::error!(
-                                    "Proposal {}, its execution fails: {:?}",
-                                    id,
-                                    e.error
-                                );
-                            }
-                        };
-                    }
+                let new_state = match Self::check_beneficiaries(id) {
+                    Ok(_) => match proposal.proposal.dispatch(system::RawOrigin::Root.into()) {
+                        Ok(post_info) => {
+                            actual_weight = post_info.actual_weight.unwrap_or(0);
+                            Self::pay_to_beneficiaries(id);
+                            Self::update_proposal_state(id, ProposalState::Executed)
+                        }
+                        Err(e) => {
+                            debug::error!("Proposal {}, its execution fails: {:?}", id, e.error);
+                            Self::update_proposal_state(id, ProposalState::Failed)
+                        }
+                    },
                     Err(e) => {
-                        Self::update_proposal_state(id, ProposalState::Failed);
                         debug::error!("Proposal {}, its beneficiaries fails: {:?}", id, e);
+                        Self::update_proposal_state(id, ProposalState::Failed)
                     }
-                }
-                Self::prune_data(id, Self::prune_historical_pips());
+                };
+                Self::prune_data(id, new_state, Self::prune_historical_pips());
             }
         }
         actual_weight
@@ -1295,20 +1318,29 @@ impl<T: Trait> Module<T> {
         }
     }
 
-    fn update_proposal_state(id: PipId, new_state: ProposalState) {
+    fn update_proposal_state(id: PipId, new_state: ProposalState) -> ProposalState {
         <Proposals<T>>::mutate(id, |proposal| {
             if let Some(ref mut proposal) = proposal {
+                Self::decrement_count_if_active(proposal.state);
                 proposal.state = new_state;
             }
         });
         let current_did = Context::current_identity::<Identity<T>>().unwrap_or_default();
         Self::deposit_event(RawEvent::ProposalStateUpdated(current_did, id, new_state));
+        new_state
     }
 
     fn is_proposal_state(id: PipId, state: ProposalState) -> DispatchResult {
         let proposal = Self::proposals(id).ok_or_else(|| Error::<T>::NoSuchProposal)?;
         ensure!(proposal.state == state, Error::<T>::IncorrectProposalState);
         Ok(())
+    }
+
+    /// Decrement active proposal count if `state` signifies it is active.
+    fn decrement_count_if_active(state: ProposalState) {
+        if let ProposalState::Pending | ProposalState::Scheduled = state {
+            ActivePipCount::mutate(|count| *count -= 1);
+        }
     }
 }
 
