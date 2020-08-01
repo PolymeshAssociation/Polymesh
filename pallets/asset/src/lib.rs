@@ -1368,8 +1368,12 @@ decl_module! {
             let sender = ensure_signed(origin)?;
             let did = Context::current_identity_or::<Identity<T>>(&sender)?;
             ensure!(Self::is_owner(&ticker, did), Error::<T>::Unauthorized);
-            <Tokens<T>>::mutate(&ticker, |token| token.treasury_did = treasury_did);
-            Self::deposit_event(RawEvent::TreasuryTransferred(did, ticker, treasury_did));
+            let mut old_treasury = None;
+            <Tokens<T>>::mutate(&ticker, |token| {
+                old_treasury = token.treasury_did;
+                token.treasury_did = treasury_did
+            });
+            Self::deposit_event(RawEvent::TreasuryTransferred(did, ticker, old_treasury, treasury_did));
             Ok(())
         }
     }
@@ -1456,7 +1460,8 @@ decl_event! {
         /// caller DID. ticker, checkpoint count.
         CheckpointCreated(IdentityId, Ticker, u64),
         /// An event emitted when the treasury DID of an asset is transferred.
-        TreasuryTransferred(IdentityId, Ticker, Option<IdentityId>),
+        /// First DID is the old treasury and the second DID is the new treasury.
+        TreasuryTransferred(IdentityId, Ticker, Option<IdentityId>, Option<IdentityId>),
         /// A new document attached to an asset
         DocumentAdded(Ticker, DocumentName, Document),
         /// A document removed from an asset
@@ -2218,30 +2223,35 @@ impl<T: Trait> Module<T> {
 
         let auth = <identity::Authorizations<T>>::get(Signatory::from(to_did), auth_id);
 
-        let (old_treasury, ticker) = match auth.authorization_data {
+        let (owner_did, ticker) = match auth.authorization_data {
             AuthorizationData::TransferTreasury(ticker) => (auth.authorized_by, ticker),
             _ => return Err(Error::<T>::NoTreasuryTransferAuth.into()),
         };
 
+        let token = <Tokens<T>>::get(&ticker);
+
         ensure!(
-            <Tokens<T>>::contains_key(&ticker),
-            Error::<T>::NoSuchAsset
+            token.owner_did == owner_did,
+            Error::<T>::NotAnOwner
         );
 
         <identity::Module<T>>::consume_auth(
-            old_treasury,
+            owner_did,
             Signatory::from(to_did),
             auth_id,
         )?;
 
+        let mut old_treasury = None;
         <Tokens<T>>::mutate(&ticker, |token| {
+            old_treasury = token.treasury_did;
             token.treasury_did = Some(to_did);
         });
 
         Self::deposit_event(RawEvent::TreasuryTransferred(
             to_did,
             ticker,
-            Some(old_treasury),
+            old_treasury,
+            Some(to_did),
         ));
 
         Ok(())

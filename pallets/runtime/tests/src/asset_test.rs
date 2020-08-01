@@ -948,6 +948,19 @@ fn transfer_treasury() {
         assert_eq!(Asset::token_details(&ticker), token);
 
         let auth_id = Identity::add_auth(
+            treasury_did,
+            Signatory::from(treasury_did),
+            AuthorizationData::TransferTreasury(ticker),
+            None,
+        );
+
+        assert_err!(
+            Asset::accept_treasury_transfer(treasury_signed.clone(), auth_id),
+            AssetError::NotAnOwner
+        );
+        assert_eq!(Asset::token_details(&ticker), token);
+
+        let auth_id = Identity::add_auth(
             owner_did,
             Signatory::from(treasury_did),
             AuthorizationData::TransferTreasury(ticker),
