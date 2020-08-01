@@ -14,7 +14,12 @@ resources:
     source:
       uri: git@github.com:polymathnetwork/Polymesh.git
       branch: develop
-      private_key: ((deploy-key-polymathnetwork-polymesh.id_rsa))
+      private_key: ((github-ssh-key-concourseatpolymath.id_rsa))
+      commit_filter:
+        include:
+          - merge
+          - Merge
+          - trigger
   - name: s3-polymesh
     type: s3
     source:
@@ -129,7 +134,7 @@ jobs:
                 type: registry-image
                 source:
                   repository: polymathnetwork/rust
-                  tag: debian-1.44.1
+                  tag: debian-1.45.0
                   aws_access_key_id: ((polymath-ecr.aws-access-id))
                   aws_secret_access_key: ((polymath-ecr.aws-access-secret))
                   aws_region: us-east-1

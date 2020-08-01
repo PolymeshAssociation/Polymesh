@@ -14,7 +14,12 @@ resources:
     source:
       uri: git@github.com:polymathnetwork/Polymesh.git
       branch: master
-      private_key: ((deploy-key-polymathnetwork-polymesh.id_rsa))
+      private_key: ((github-ssh-key-concourseatpolymath.id_rsa))
+      commit_filter:
+        include:
+          - merge
+          - Merge
+          - trigger
   - name: s3-polymesh
     type: s3
     source:
