@@ -4,6 +4,7 @@
         "InvestorUid":"[u8; 32]",
         "Ticker": "[u8; 12]",
         "CddId": "[u8; 32]",
+        "ScopeId": "[u8; 32]",
         "PosRatio": "(u32, u32)",
         "DocumentName": "Text",
         "DocumentUri": "Text",
@@ -105,6 +106,7 @@
         },
         "JurisdictionName": "Text",
         "Scope": "IdentityId",
+        "InvestorZKProofData": "[u8;64]",
         "Claim": {
             "_enum": {
                 "Accredited": "Scope",
@@ -116,6 +118,7 @@
                 "Jurisdiction": "(JurisdictionName, Scope)",
                 "Exempted": "Scope",
                 "Blocked": "Scope",
+                "InvestorZKProof":"(Scope, ScopeId, CddId, InvestorZKProofData)",
                 "NoData": ""
             }
         },
