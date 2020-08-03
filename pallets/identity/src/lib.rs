@@ -841,13 +841,19 @@ decl_module! {
                     match auth.authorization_data {
                         AuthorizationData::TransferTicker(_) =>
                             T::AcceptTransferTarget::accept_ticker_transfer(did, auth_id),
+                        AuthorizationData::TransferTreasury(_) =>
+                            T::AcceptTransferTarget::accept_treasury_transfer(did, auth_id),
                         AuthorizationData::TransferAssetOwnership(_) =>
                             T::AcceptTransferTarget::accept_asset_ownership_transfer(did, auth_id),
                         AuthorizationData::AddMultiSigSigner(_) =>
                             T::MultiSig::accept_multisig_signer(Signatory::from(did), auth_id),
                         AuthorizationData::JoinIdentity(_) =>
                             Self::join_identity(Signatory::from(did), auth_id),
-                        _ => Err(Error::<T>::UnknownAuthorization.into())
+                        AuthorizationData::RotateMasterKey(..)
+                        | AuthorizationData::AttestMasterKeyRotation(..)
+                        | AuthorizationData::Custom(..)
+                        | AuthorizationData::NoData =>
+                            Err(Error::<T>::UnknownAuthorization.into())
                     }
                 },
                 Signatory::Account(key) => {
@@ -858,7 +864,13 @@ decl_module! {
                             Self::accept_master_key_rotation(key , auth_id, None),
                         AuthorizationData::JoinIdentity(_) =>
                             Self::join_identity(Signatory::Account(key), auth_id),
-                        _ => Err(Error::<T>::UnknownAuthorization.into())
+                        AuthorizationData::TransferTicker(..)
+                        | AuthorizationData::TransferTreasury(..)
+                        | AuthorizationData::TransferAssetOwnership(..)
+                        | AuthorizationData::AttestMasterKeyRotation(..)
+                        | AuthorizationData::Custom(..)
+                        | AuthorizationData::NoData =>
+                            Err(Error::<T>::UnknownAuthorization.into())
                     }
                 }
             }
@@ -2000,31 +2012,22 @@ impl<T: Trait> Module<T> {
         authorization_data: AuthorizationData<T::AccountId>,
         type_of_auth: AuthorizationType,
     ) -> bool {
-        type_of_auth == match authorization_data {
-            AuthorizationData::AttestMasterKeyRotation(..) => {
-                AuthorizationType::AttestMasterKeyRotation
+        type_of_auth
+            == match authorization_data {
+                AuthorizationData::AttestMasterKeyRotation(..) => {
+                    AuthorizationType::AttestMasterKeyRotation
+                }
+                AuthorizationData::RotateMasterKey(..) => AuthorizationType::RotateMasterKey,
+                AuthorizationData::TransferTicker(..) => AuthorizationType::TransferTicker,
+                AuthorizationData::TransferTreasury(..) => AuthorizationType::TransferTreasury,
+                AuthorizationData::AddMultiSigSigner(..) => AuthorizationType::AddMultiSigSigner,
+                AuthorizationData::TransferAssetOwnership(..) => {
+                    AuthorizationType::TransferAssetOwnership
+                }
+                AuthorizationData::JoinIdentity(..) => AuthorizationType::JoinIdentity,
+                AuthorizationData::Custom(..) => AuthorizationType::Custom,
+                AuthorizationData::NoData => AuthorizationType::NoData,
             }
-            AuthorizationData::RotateMasterKey(..) => {
-                AuthorizationType::RotateMasterKey
-            }
-            AuthorizationData::TransferTicker(..) => {
-                AuthorizationType::TransferTicker
-            }
-            AuthorizationData::TransferTreasury(..) => {
-                AuthorizationType::TransferTreasury
-            }
-            AuthorizationData::AddMultiSigSigner(..) => {
-                AuthorizationType::AddMultiSigSigner
-            }
-            AuthorizationData::TransferAssetOwnership(..) => {
-                AuthorizationType::TransferAssetOwnership
-            }
-            AuthorizationData::JoinIdentity(..) => {
-                AuthorizationType::JoinIdentity
-            }
-            AuthorizationData::Custom(..) => AuthorizationType::Custom,
-            AuthorizationData::NoData => AuthorizationType::NoData,
-        }
     }
 
     pub fn get_did_status(dids: Vec<IdentityId>) -> Vec<DidStatus> {

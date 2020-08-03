@@ -2223,23 +2223,13 @@ impl<T: Trait> Module<T> {
 
         let auth = <identity::Authorizations<T>>::get(Signatory::from(to_did), auth_id);
 
-        let (owner_did, ticker) = match auth.authorization_data {
-            AuthorizationData::TransferTreasury(ticker) => (auth.authorized_by, ticker),
+        let ticker = match auth.authorization_data {
+            AuthorizationData::TransferTreasury(ticker) => ticker,
             _ => return Err(Error::<T>::NoTreasuryTransferAuth.into()),
         };
 
         let token = <Tokens<T>>::get(&ticker);
-
-        ensure!(
-            token.owner_did == owner_did,
-            Error::<T>::NotAnOwner
-        );
-
-        <identity::Module<T>>::consume_auth(
-            owner_did,
-            Signatory::from(to_did),
-            auth_id,
-        )?;
+        <identity::Module<T>>::consume_auth(token.owner_did, Signatory::from(to_did), auth_id)?;
 
         let mut old_treasury = None;
         <Tokens<T>>::mutate(&ticker, |token| {

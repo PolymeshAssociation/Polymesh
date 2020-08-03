@@ -956,7 +956,7 @@ fn transfer_treasury() {
 
         assert_err!(
             Asset::accept_treasury_transfer(treasury_signed.clone(), auth_id),
-            AssetError::NotAnOwner
+            "Illegal use of Authorization"
         );
         assert_eq!(Asset::token_details(&ticker), token);
 
@@ -967,7 +967,10 @@ fn transfer_treasury() {
             None,
         );
 
-        assert_ok!(Asset::accept_treasury_transfer(treasury_signed.clone(), auth_id));
+        assert_ok!(Asset::accept_treasury_transfer(
+            treasury_signed.clone(),
+            auth_id
+        ));
         let mut new_token = token.clone();
         new_token.treasury_did = Some(treasury_did);
         assert_eq!(Asset::token_details(&ticker), new_token);
