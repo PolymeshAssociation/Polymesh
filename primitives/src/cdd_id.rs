@@ -75,6 +75,13 @@ impl CddId {
     }
 }
 
+impl From<[u8; 32]> for CddId {
+    #[inline]
+    fn from(data: [u8; 32]) -> Self {
+        Self(data)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use crate::{CddId, IdentityId, InvestorUid};

@@ -34,6 +34,9 @@ pallet-utility = { path = "../../utility", default-features = false }
 # RPC
 pallet-group-rpc-runtime-api = { path = "../../group/rpc/runtime-api", default-features = false }
 
+# Crypto
+cryptography = { path = "../../../external/cryptography", default-features = false }
+
 # Runtime
 polymesh-runtime-develop = { path = "../develop" }
 
@@ -77,6 +80,7 @@ equalize = []
 only-staking = []
 default = ["std", "equalize", "runtime-benchmarks"]
 std = [
+    "cryptography/std",
     "frame-benchmarking/std",
     "frame-support/std",
     "frame-system/std",

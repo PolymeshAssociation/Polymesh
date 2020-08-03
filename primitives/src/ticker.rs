@@ -93,10 +93,16 @@ impl Ticker {
         &self.0
     }
 
-    /// Return the ticker as a fixed-size array.
+    /// Returns the ticker as a fixed-size array.
     #[inline]
     pub fn as_bytes(&self) -> &[u8; TICKER_LEN] {
         &(self.0)
+    }
+
+    /// Returns an iterator over the ticker.
+    #[inline]
+    pub fn iter(&self) -> sp_std::slice::Iter<'_, u8> {
+        self.0.iter()
     }
 }
 

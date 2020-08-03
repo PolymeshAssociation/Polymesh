@@ -4,7 +4,6 @@ use crate::{
 };
 use codec::{Decode, Encode};
 
-#[cfg_attr(feature = "std", derive(Debug))]
 // ExistentialPredicate
 // ======================================================
 
@@ -193,11 +192,13 @@ mod tests {
     #[test]
     fn existential_operators_test() {
         let scope = Scope::from(0);
-        let cdd_claim = Claim::CustomerDueDiligence(CddId::new(
-            IdentityId::from(1),
-            InvestorUid::from(b"UID1".as_ref()),
-        ));
-        let context = Context::from(vec![cdd_claim.clone(), Claim::Affiliate(scope)]);
+        let did = IdentityId::from(1);
+        let cdd_claim =
+            Claim::CustomerDueDiligence(CddId::new(did, InvestorUid::from(b"UID1".as_ref())));
+        let context = Context {
+            claims: vec![cdd_claim.clone(), Claim::Affiliate(scope)],
+            id: did,
+        };
 
         // Affiliate && CustommerDueDiligenge
         let affiliate_claim = Claim::Affiliate(scope);
@@ -218,12 +219,18 @@ mod tests {
             Claim::Jurisdiction(b"India".into(), scope),
         ];
 
-        let context = Context::from(vec![Claim::Jurisdiction(b"Canada".into(), scope)]);
+        let context = Context {
+            claims: vec![Claim::Jurisdiction(b"Canada".into(), scope)],
+            ..Default::default()
+        };
         let in_juridisction_pre = predicate::any(&valid_jurisdictions);
         assert_eq!(in_juridisction_pre.evaluate(&context), true);
 
         // 2. Check USA does not belong to {ESP, CAN, IND}.
-        let context = Context::from(vec![Claim::Jurisdiction(b"USA".into(), scope)]);
+        let context = Context {
+            claims: vec![Claim::Jurisdiction(b"USA".into(), scope)],
+            ..Default::default()
+        };
         assert_eq!(in_juridisction_pre.evaluate(&context), false);
 
         // 3. Check NOT in jurisdiction.
@@ -247,52 +254,63 @@ mod tests {
         ];
 
         // Valid case
-        let context: Context = vec![
-            Claim::Accredited(scope),
-            Claim::Jurisdiction(b"Canada".into(), scope),
-        ]
-        .into();
+        let context = Context {
+            claims: vec![
+                Claim::Accredited(scope),
+                Claim::Jurisdiction(b"Canada".into(), scope),
+            ],
+            ..Default::default()
+        };
 
         let out = !rules.iter().any(|rule| !predicate::run(&rule, &context));
         assert_eq!(out, true);
 
         // Invalid case: `BuyLockup` is present.
-        let context: Context = vec![
-            Claim::Accredited(scope),
-            Claim::BuyLockup(scope),
-            Claim::Jurisdiction(b"Canada".into(), scope),
-        ]
-        .into();
+        let context = Context {
+            claims: vec![
+                Claim::Accredited(scope),
+                Claim::BuyLockup(scope),
+                Claim::Jurisdiction(b"Canada".into(), scope),
+            ],
+            ..Default::default()
+        };
 
         let out = !rules.iter().any(|rule| !predicate::run(&rule, &context));
         assert_eq!(out, false);
 
         // Invalid case: Missing `Accredited`
-        let context: Context = vec![
-            Claim::BuyLockup(scope),
-            Claim::Jurisdiction(b"Canada".into(), scope),
-        ]
-        .into();
+        let context = Context {
+            claims: vec![
+                Claim::BuyLockup(scope),
+                Claim::Jurisdiction(b"Canada".into(), scope),
+            ],
+            ..Default::default()
+        };
 
         let out = !rules.iter().any(|rule| !predicate::run(&rule, &context));
         assert_eq!(out, false);
 
         // Invalid case: Missing `Jurisdiction`
-        let context: Context = vec![
-            Claim::Accredited(scope),
-            Claim::Jurisdiction(b"Spain".into(), scope),
-        ]
-        .into();
+        let context = Context {
+            claims: vec![
+                Claim::Accredited(scope),
+                Claim::Jurisdiction(b"Spain".into(), scope),
+            ],
+            ..Default::default()
+        };
 
         let out = !rules.iter().any(|rule| !predicate::run(&rule, &context));
         assert_eq!(out, false);
 
         // Check NoneOf
-        let context: Context = vec![
-            Claim::Accredited(scope),
-            Claim::Jurisdiction(b"Cuba".into(), scope),
-        ]
-        .into();
+        let context = Context {
+            claims: vec![
+                Claim::Accredited(scope),
+                Claim::Jurisdiction(b"Cuba".into(), scope),
+            ],
+            ..Default::default()
+        };
+
         let out = !rules.iter().any(|rule| !predicate::run(&rule, &context));
         assert_eq!(out, false);
     }

@@ -1,14 +1,15 @@
 use super::{
-    storage::{get_identity_id, make_account_with_balance, register_keyring_account, TestStorage},
+    storage::{make_account_with_balance, register_keyring_account, TestStorage},
     ExtBuilder,
 };
 
+use cryptography::claim_proofs::{compute_cdd_id, compute_scope_id};
 use pallet_asset::{self as asset, AssetType, IdentifierType, SecurityToken};
 use pallet_compliance_manager as compliance_manager;
 use pallet_confidential as confidential;
 use pallet_identity as identity;
 use polymesh_primitives::{
-    AssetScope, Claim, ClaimType, InvestorScope, InvestorUid, Rule, RuleType, Ticker,
+    Claim, IdentityId, InvestorUid, InvestorZKProofData, Rule, RuleType, Ticker,
 };
 
 use core::convert::TryFrom;
@@ -123,11 +124,9 @@ fn scope_claims_we() {
     ));
 
     // 2. Alice defines the asset complain rules.
-    let asset_scope = AssetScope::try_from(st_id.as_slice()).unwrap();
+    let st_scope = IdentityId::try_from(st_id.as_slice()).unwrap();
     let sender_rules = vec![];
-    let receiver_rules = vec![Rule::from(RuleType::IsPresent(
-        Claim::ConfidentialScopeClaim(asset_scope, investor),
-    ))];
+    let receiver_rules = vec![Rule::from(RuleType::HasValidProofOfInvestor(st_id))];
     assert_ok!(ComplianceManager::add_active_rule(
         Origin::signed(alice),
         st_id,
@@ -136,7 +135,15 @@ fn scope_claims_we() {
     ));
 
     // 2. Investor adds its Confidential Scope claims.
-    let conf_scope_claim_1 = Claim::ConfidentialScopeClaim(asset_scope, investor);
+    let scope_claim = InvestorZKProofData::make_scope_claim(&st_id, &investor);
+    let scope_id = compute_scope_id(&scope_claim).compress().to_bytes().into();
+
+    let inv_1_proof = InvestorZKProofData::new(&inv_did_1, &investor, &st_id);
+    let cdd_claim_1 = InvestorZKProofData::make_cdd_claim(&inv_did_1, &investor);
+    let cdd_id_1 = compute_cdd_id(&cdd_claim_1).compress().to_bytes().into();
+
+    let conf_scope_claim_1 = Claim::InvestorZKProof(st_scope, scope_id, cdd_id_1, inv_1_proof);
+
     assert_ok!(Identity::add_claim(
         Origin::signed(inv_acc_1),
         inv_did_1,
@@ -144,7 +151,11 @@ fn scope_claims_we() {
         None
     ));
 
-    let conf_scope_claim_2 = Claim::ConfidentialScopeClaim(asset_scope, investor);
+    let inv_2_proof = InvestorZKProofData::new(&inv_did_2, &investor, &st_id);
+    let cdd_claim_2 = InvestorZKProofData::make_cdd_claim(&inv_did_2, &investor);
+    let cdd_id_2 = compute_cdd_id(&cdd_claim_2).compress().to_bytes().into();
+
+    let conf_scope_claim_2 = Claim::InvestorZKProof(st_scope, scope_id, cdd_id_2, inv_2_proof);
     assert_ok!(Identity::add_claim(
         Origin::signed(inv_acc_2),
         inv_did_2,

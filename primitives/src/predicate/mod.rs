@@ -13,7 +13,7 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
-use crate::{Claim, Rule, RuleType};
+use crate::{Claim, IdentityId, Rule, RuleType, Ticker};
 use codec::{Decode, Encode};
 
 use sp_std::prelude::*;
@@ -28,7 +28,10 @@ use sp_std::prelude::*;
 pub struct Context {
     /// Predicate evaluation will use those claims.
     pub claims: Vec<Claim>,
-    pub zk_proofs: Vec<u8>,
+    /// Identity of this context.
+    /// It could be the sender DID during the evaluation of sender's rules or
+    /// the receiver DID on a receiver's rule evaluation.
+    pub id: IdentityId,
 }
 
 // Predicate Trait
@@ -72,11 +75,13 @@ pub trait Predicate {
     }
 }
 
+/// Base and simple predicates
 pub mod base;
 pub use base::{AndPredicate, AnyPredicate, ExistentialPredicate, NotPredicate, OrPredicate};
 
-pub mod confidential;
-pub use confidential::ValidProofOfInvestor;
+/// Predicates for confidential stuff.
+pub mod valid_proof_of_investor;
+pub use valid_proof_of_investor::ValidProofOfInvestorPredicate;
 
 // Helper functions
 // ======================================
@@ -102,9 +107,11 @@ where
     NotPredicate::new(predicate)
 }
 
+/// It verifies if the Identifier in the context has got a valid `InvestorZKProof` and its
+/// associate `CustomDueDiligence`.
 #[inline]
-pub fn has_valid_proof_of_investor() -> ValidProofOfInvestor {
-    ValidProofOfInvestor {}
+pub fn has_valid_proof_of_investor(ticker: Ticker) -> ValidProofOfInvestorPredicate {
+    ValidProofOfInvestorPredicate { ticker }
 }
 
 /// Helper function to run predicates from a context.
@@ -114,6 +121,8 @@ pub fn run(rule: &Rule, context: &Context) -> bool {
         RuleType::IsAbsent(ref claim) => not(exists(claim)).evaluate(context),
         RuleType::IsAnyOf(ref claims) => any(claims).evaluate(context),
         RuleType::IsNoneOf(ref claims) => not(any(claims)).evaluate(context),
-        RuleType::HasValidProofOfInvestor => has_valid_proof_of_investor().evaluate(context),
+        RuleType::HasValidProofOfInvestor(ref ticker) => {
+            has_valid_proof_of_investor(ticker.clone()).evaluate(context)
+        }
     }
 }

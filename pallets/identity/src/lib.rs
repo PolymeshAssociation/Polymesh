@@ -150,14 +150,14 @@ pub struct Claim2ndKey {
     pub scope: Option<Scope>,
 }
 
-#[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, PartialOrd, Ord, Default)]
+#[derive(Encode, Decode, Clone, PartialEq, Eq, Default, Debug)]
 pub struct BatchAddClaimItem<M> {
     pub target: IdentityId,
     pub claim: Claim,
     pub expiry: Option<M>,
 }
 
-#[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, PartialOrd, Ord, Default)]
+#[derive(Encode, Decode, Clone, PartialEq, Eq, Default, Debug)]
 pub struct BatchRevokeClaimItem {
     pub target: IdentityId,
     pub claim: Claim,
@@ -503,7 +503,7 @@ decl_module! {
 
             match &claim {
                 Claim::CustomerDueDiligence(..) => Self::base_add_cdd_claim(target, claim, issuer, expiry)?,
-                Claim::ConfidentialScopeClaim(..) => Self::base_add_confidential_scope_claim(target, claim, issuer, expiry)?,
+                Claim::InvestorZKProof(..) => Self::base_add_confidential_scope_claim(target, claim, issuer, expiry)?,
                 _ => {
                     T::ProtocolFee::charge_fee(ProtocolOp::IdentityAddClaim)?;
                     Self::base_add_claim(target, claim, issuer, expiry)
@@ -598,7 +598,7 @@ decl_module! {
             let claim_type = claim.claim_type();
 
             match &claim {
-                Claim::ConfidentialScopeClaim(..) => Self::revoke_confidential_scope_claim(target, claim_type, issuer, scope),
+                Claim::InvestorZKProof(..) => Self::revoke_confidential_scope_claim(target, claim_type, issuer, scope),
                 _ => {
                     Self::base_revoke_claim(target, claim_type, issuer, scope);
                     Ok(())

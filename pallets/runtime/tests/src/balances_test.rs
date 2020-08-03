@@ -9,7 +9,7 @@ use polymesh_runtime_develop::{runtime, Runtime};
 
 use frame_support::{
     assert_err, assert_ok,
-    traits::{Currency, ExistenceRequirement},
+    traits::Currency,
     weights::{DispatchInfo, Weight},
 };
 use frame_system::{EventRecord, Phase};
@@ -177,8 +177,6 @@ fn issue_must_work() {
             assert_eq!(Balances::total_issuance(), ti);
 
             // Funding BRR
-            let eve = AccountKeyring::Eve.public();
-
             let eve_signed = Origin::signed(AccountKeyring::Eve.public());
             assert_ok!(Balances::top_up_brr_balance(eve_signed, 500,));
             assert_eq!(Balances::free_balance(&brr), 500);

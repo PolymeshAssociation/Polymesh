@@ -54,7 +54,7 @@ use frame_support::{
 use sp_runtime::{
     traits::{
         Convert, DispatchInfoOf, Dispatchable, PostDispatchInfoOf, SaturatedConversion, Saturating,
-        SignedExtension, UniqueSaturatedFrom, UniqueSaturatedInto, Zero,
+        SignedExtension, Zero,
     },
     transaction_validity::{
         InvalidTransaction, TransactionPriority, TransactionValidity, TransactionValidityError,
