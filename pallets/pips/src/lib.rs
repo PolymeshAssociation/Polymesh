@@ -910,7 +910,7 @@ decl_module! {
         /// * `NoSuchProposal` if the PIP with `id` doesn't exist.
         /// * `IncorrectProposalState` if the proposal was cancelled or executed.
         #[weight = (550_000_000, DispatchClass::Operational, Pays::Yes)]
-        pub fn reject_proposal(origin, id: PipId, prune: bool) {
+        pub fn reject_proposal(origin, id: PipId) {
             T::VotingMajorityOrigin::ensure_origin(origin)?;
             let proposal = Self::proposals(id).ok_or_else(|| Error::<T>::NoSuchProposal)?;
             ensure!(

@@ -57,7 +57,7 @@
 use frame_support::{
     codec::{Decode, Encode},
     decl_error, decl_event, decl_module, decl_storage,
-    dispatch::{DispatchResult, Dispatchable, Parameter},
+    dispatch::{DispatchError, DispatchResult, Dispatchable, Parameter},
     ensure,
     traits::{ChangeMembers, EnsureOrigin, Get, InitializeMembers},
     weights::{DispatchClass::Operational, Pays},
@@ -289,20 +289,8 @@ decl_module! {
             no_votes += abstentions;
 
             Self::deposit_event(RawEvent::Closed(did, proposal, yes_votes, no_votes));
-            let threshold = <VoteThreshold<I>>::get();
 
-            let approved = Self::is_threshold_satisfied(yes_votes, seats, threshold);
-            let rejected = Self::is_threshold_satisfied(no_votes, seats, threshold);
-            if approved || rejected {
-                Self::finalize_proposal(approved, seats, yes_votes, no_votes, proposal, did);
-                Self::deposit_event(RawEvent::FinalVotes(
-                    did,
-                    voting.index,
-                    proposal,
-                    voting.ayes,
-                    voting.nays,
-                ));
-            }
+            Self::check_threshold_finalize(proposal, did, voting, yes_votes, no_votes, seats);
         }
 
         /// Changes the release coordinator.
@@ -328,14 +316,8 @@ decl_module! {
         /// * `id` - Pip Id that need to be enacted
         #[weight = (T::DbWeight::get().reads_writes(6, 2) + 400_000_000, Operational, Pays::Yes)]
         pub fn vote_enact_referendum(origin, id: PipId) -> DispatchResult {
-            Self::vote_referendum( origin, id,
-                || {
-                    let aye_call = T::EnactProposalMaker::enact_referendum_call(id);
-                    let nay_call = T::EnactProposalMaker::reject_referendum_call(id);
-                    (aye_call, nay_call)
-                })?;
-            let current_did = Context::current_identity::<Identity<T>>().unwrap_or_default();
-            Self::deposit_event(RawEvent::VoteEnactReferendum(current_did, id));
+            let did = Self::vote_or_propose(origin, T::EnactProposalMaker::enact_referendum_call(id))?;
+            Self::deposit_event(RawEvent::VoteEnactReferendum(did, id));
             Ok(())
         }
 
@@ -345,14 +327,8 @@ decl_module! {
         /// * `id` - Pip Id that need to be rejected
         #[weight = (T::DbWeight::get().reads_writes(6, 2) + 400_000_000, Operational, Pays::Yes)]
         pub fn vote_reject_referendum(origin, id: PipId) -> DispatchResult {
-            Self::vote_referendum( origin, id,
-                || {
-                    let aye_call = T::EnactProposalMaker::enact_referendum_call(id);
-                    let nay_call = T::EnactProposalMaker::reject_referendum_call(id);
-                    (nay_call, aye_call)
-                })?;
-            let current_did = Context::current_identity::<Identity<T>>().unwrap_or_default();
-            Self::deposit_event(RawEvent::VoteRejectReferendum(current_did, id));
+            let did = Self::vote_or_propose(origin, T::EnactProposalMaker::reject_referendum_call(id))?;
+            Self::deposit_event(RawEvent::VoteRejectReferendum(did, id));
             Ok(())
         }
     }
@@ -402,31 +378,28 @@ impl<T: Trait<I>, I: Instance> Module<T, I> {
             let seats = Self::members().len() as MemberCount;
             let yes_votes = voting.ayes.len() as MemberCount;
             let no_votes = voting.nays.len() as MemberCount;
-
-            let threshold = <VoteThreshold<I>>::get();
-
-            let approved = Self::is_threshold_satisfied(yes_votes, seats, threshold);
-            let rejected = Self::is_threshold_satisfied(no_votes, seats, threshold);
-
-            if approved || rejected {
-                let current_did = Context::current_identity::<Identity<T>>().unwrap_or_default();
-                Self::finalize_proposal(
-                    approved,
-                    seats,
-                    yes_votes,
-                    no_votes,
-                    proposal,
-                    current_did,
-                );
-                Self::deposit_event(RawEvent::FinalVotes(
-                    current_did,
-                    voting.index,
-                    proposal,
-                    voting.ayes,
-                    voting.nays,
-                ));
-            }
+            let did = Context::current_identity::<Identity<T>>().unwrap_or_default();
+            Self::check_threshold_finalize(proposal, did, voting, yes_votes, no_votes, seats);
         }
+    }
+
+    fn check_threshold_finalize(
+        proposal: T::Hash,
+        did: IdentityId,
+        voting: PolymeshVotes<IdentityId, T::BlockNumber>,
+        yes_votes: MemberCount,
+        no_votes: MemberCount,
+        seats: MemberCount,
+    ) {
+        let threshold = <VoteThreshold<I>>::get();
+        let approved = Self::is_threshold_satisfied(yes_votes, seats, threshold);
+        let rejected = Self::is_threshold_satisfied(no_votes, seats, threshold);
+        if !approved && !rejected {
+            return;
+        }
+        Self::finalize_proposal(approved, seats, yes_votes, no_votes, proposal, did);
+        let event = RawEvent::FinalVotes(did, voting.index, proposal, voting.ayes, voting.nays);
+        Self::deposit_event(event);
     }
 
     /// Finalizes a proposal.
@@ -454,29 +427,17 @@ impl<T: Trait<I>, I: Instance> Module<T, I> {
         current_did: IdentityId,
     ) {
         if approved {
-            Self::deposit_event(RawEvent::Approved(
-                current_did,
-                proposal,
-                yes_votes,
-                no_votes,
-                seats,
-            ));
+            let event = RawEvent::Approved(current_did, proposal, yes_votes, no_votes, seats);
+            Self::deposit_event(event);
 
             // execute motion, assuming it exists.
             if let Some(p) = <ProposalOf<T, I>>::take(&proposal) {
-                let origin = RawOrigin::Members(yes_votes, seats).into();
-                let ok = p.dispatch(origin).is_ok();
-                Self::deposit_event(RawEvent::Executed(current_did, proposal, ok));
+                Self::execute(current_did, p, proposal, yes_votes, seats);
             }
         } else {
             // rejected
-            Self::deposit_event(RawEvent::Rejected(
-                current_did,
-                proposal,
-                yes_votes,
-                no_votes,
-                seats,
-            ));
+            let event = RawEvent::Rejected(current_did, proposal, yes_votes, no_votes, seats);
+            Self::deposit_event(event);
         }
 
         // remove vote
@@ -484,52 +445,42 @@ impl<T: Trait<I>, I: Instance> Module<T, I> {
         <Proposals<T, I>>::mutate(|proposals| proposals.retain(|h| h != &proposal));
     }
 
-    fn vote_referendum<F>(
+    fn execute(
+        did: IdentityId,
+        proposal: <T as Trait<I>>::Proposal,
+        hash: T::Hash,
+        ayes: MemberCount,
+        seats: MemberCount,
+    ) {
+        let origin = RawOrigin::Members(ayes, seats).into();
+        let ok = proposal.dispatch(origin).is_ok();
+        Self::deposit_event(RawEvent::Executed(did, hash, ok));
+    }
+
+    fn vote_or_propose(
         origin: <T as frame_system::Trait>::Origin,
-        id: PipId,
-        call_maker: F,
-    ) -> DispatchResult
-    where
-        F: Fn() -> (<T as Trait<I>>::Proposal, <T as Trait<I>>::Proposal),
-    {
+        call: <T as Trait<I>>::Proposal,
+    ) -> Result<IdentityId, DispatchError> {
         // Only committee members can use this function.
         let who = ensure_signed(origin)?;
         let who_id = Context::current_identity_or::<Identity<T>>(&who)?;
         ensure!(Self::is_member(&who_id), Error::<T, I>::BadOrigin);
 
-        ensure!(
-            T::EnactProposalMaker::is_pip_id_valid(id),
-            Error::<T, I>::NoSuchProposal
-        );
+        // Either create a new proposal or vote on an existing one.
+        let hash = T::Hashing::hash_of(&call);
+        match Self::voting(hash) {
+            Some(voting) => Self::vote(who_id, hash, voting.index, true),
+            None => Self::propose(who_id, call),
+        }?;
 
-        // It creates the proposal if it does not exists or vote that proposal.
-        let (aye_call, nay_call) = call_maker();
-        let hash = T::Hashing::hash_of(&aye_call);
-
-        if let Some(voting) = Self::voting(hash) {
-            Self::vote(who_id, hash, voting.index, true)?;
-        } else {
-            Self::propose(who_id, Box::new(aye_call))?;
-        }
-
-        // If voting info has been removed, the vote has finished.
-        // Then we have to clean Pip & the other call.
-        if !<Voting<T, I>>::contains_key(hash) {
-            // Clean proposal
-            let nay_hash = T::Hashing::hash_of(&nay_call);
-
-            <Voting<T, I>>::remove(&nay_hash);
-            <Proposals<T, I>>::mutate(|proposals| proposals.retain(|h| h != &nay_hash));
-        }
-
-        Ok(())
+        Ok(who_id)
     }
 
     /// Any committee member proposes a dispatchable.
     ///
     /// # Arguments
     /// * `proposal` - A dispatchable call.
-    fn propose(did: IdentityId, proposal: Box<<T as Trait<I>>::Proposal>) -> DispatchResult {
+    fn propose(did: IdentityId, proposal: <T as Trait<I>>::Proposal) -> DispatchResult {
         // Only committee members can propose
         ensure!(Self::is_member(&did), Error::<T, I>::BadOrigin);
 
@@ -543,21 +494,17 @@ impl<T: Trait<I>, I: Instance> Module<T, I> {
         // If committee is composed of a single member, execute the proposal
         let seats = Self::members().len() as MemberCount;
         if seats < 2 {
-            let ok = proposal
-                .dispatch(RawOrigin::Members(1, seats).into())
-                .is_ok();
-            Self::deposit_event(RawEvent::Executed(did, proposal_hash, ok));
+            Self::execute(did, proposal, proposal_hash, 1, seats);
         } else {
             let index = Self::proposal_count();
             <ProposalCount<I>>::mutate(|i| *i += 1);
             <Proposals<T, I>>::mutate(|proposals| proposals.push(proposal_hash));
-            <ProposalOf<T, I>>::insert(proposal_hash, *proposal);
-            let end = system::Module::<T>::block_number() + T::MotionDuration::get();
+            <ProposalOf<T, I>>::insert(proposal_hash, proposal);
             let votes = PolymeshVotes {
                 index,
                 ayes: vec![did],
                 nays: vec![],
-                end,
+                end: system::Module::<T>::block_number() + T::MotionDuration::get(),
             };
             <Voting<T, I>>::insert(proposal_hash, votes);
 
@@ -585,36 +532,24 @@ impl<T: Trait<I>, I: Instance> Module<T, I> {
         let mut voting = Self::voting(&proposal).ok_or(Error::<T, I>::NoSuchProposal)?;
         ensure!(voting.index == index, Error::<T, I>::MismatchedVotingIndex);
 
-        let position_yes = voting.ayes.iter().position(|a| a == &did);
-        let position_no = voting.nays.iter().position(|a| a == &did);
-
-        if approve {
-            ensure!(position_yes.is_none(), Error::<T, I>::DuplicateVote);
-            voting.ayes.push(did);
-
-            if let Some(pos) = position_no {
-                voting.nays.swap_remove(pos);
-            }
-        } else {
-            ensure!(position_no.is_none(), Error::<T, I>::DuplicateVote);
-            voting.nays.push(did);
-
-            if let Some(pos) = position_yes {
-                voting.ayes.swap_remove(pos);
-            }
+        // Vote on aye / nay and remove from the other.
+        let aye = (voting.ayes.iter().position(|a| a == &did), &mut voting.ayes);
+        let nay = (voting.nays.iter().position(|a| a == &did), &mut voting.nays);
+        let (main, other) = if approve { (aye, nay) } else { (nay, aye) };
+        ensure!(main.0.is_none(), Error::<T, I>::DuplicateVote);
+        main.1.push(did.clone());
+        if let Some(pos) = other.0 {
+            other.1.swap_remove(pos);
         }
-        let yes_votes = voting.ayes.len() as MemberCount;
-        let no_votes = voting.nays.len() as MemberCount;
 
+        let ayes = voting.ayes.len() as MemberCount;
+        let nays = voting.nays.len() as MemberCount;
         <Voting<T, I>>::insert(&proposal, voting);
+
+        // Emit event.
+        let members = Self::members().len() as MemberCount;
         Self::deposit_event(RawEvent::Voted(
-            did,
-            index,
-            proposal,
-            approve,
-            yes_votes,
-            no_votes,
-            Self::members().len() as MemberCount,
+            did, index, proposal, approve, ayes, nays, members,
         ));
         Self::check_proposal_threshold(proposal);
         Ok(())
