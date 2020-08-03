@@ -250,6 +250,7 @@ mod tests {
     use crate::{IdentityId, Ticker};
     use sp_core::sr25519::Public;
     use std::convert::{From, TryFrom};
+    use std::iter::FromIterator;
 
     #[test]
     fn build_test() {
@@ -259,9 +260,9 @@ mod tests {
         assert_eq!(rk1, rk2);
 
         let rk3_permissions = Permissions {
-            asset: Subset::Elems(vec![Ticker::try_from(&[1][..]).unwrap()]),
+            asset: Subset::elem(Ticker::try_from(&[1][..]).unwrap()),
             extrinsic: Subset::All,
-            portfolio: Subset::Elems(vec![1]),
+            portfolio: Subset::elem(1),
         };
         let rk3 = SigningKey::new(Signatory::Account(key.clone()), rk3_permissions.clone());
         assert_ne!(rk1, rk3);
@@ -286,9 +287,9 @@ mod tests {
         let ticker1 = Ticker::try_from(&[1][..]).unwrap();
         let ticker2 = Ticker::try_from(&[2][..]).unwrap();
         let permissions = Permissions {
-            asset: Subset::Elems(vec![ticker1]),
+            asset: Subset::elem(ticker1),
             extrinsic: Subset::All,
-            portfolio: Subset::Elems(vec![1]),
+            portfolio: Subset::elem(1),
         };
         let free_key = SigningKey::new(Signatory::Account(key.clone()), Permissions::default());
         let restricted_key = SigningKey::new(Signatory::Account(key), permissions.clone());
@@ -301,9 +302,9 @@ mod tests {
         assert!(free_key.has_permissions(&permissions));
         assert!(restricted_key.has_permissions(&permissions));
         let extended_permissions = Permissions {
-            asset: Subset::Elems(vec![ticker1]),
+            asset: Subset::elem(ticker1),
             extrinsic: Subset::All,
-            portfolio: Subset::Elems(vec![1, 2]),
+            portfolio: Subset::from_iter(vec![1, 2].into_iter()),
         };
         assert!(free_key.has_permissions(&extended_permissions));
         assert!(!restricted_key.has_permissions(&extended_permissions));
