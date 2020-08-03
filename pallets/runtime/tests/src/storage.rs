@@ -33,7 +33,7 @@ use polymesh_common_utilities::traits::{
     balances::AccountData,
     group::GroupTrait,
     identity::Trait as IdentityTrait,
-    pip::{EnactProposalMaker, PipId},
+    pip::{EnactProposalMaker, PipId, SnapshotResult},
     transaction_payment::{CddAndFeeDetails, ChargeTxFee},
     CommonTrait,
 };
@@ -544,6 +544,8 @@ impl pips::Trait for TestStorage {
     type CommitteeOrigin = frame_system::EnsureRoot<AccountId>;
     type VotingMajorityOrigin = frame_system::EnsureRoot<AccountId>;
     type GovernanceCommittee = Committee;
+    type TechnicalCommitteeVMO = frame_system::EnsureRoot<AccountId>;
+    type UpgradeCommitteeVMO = frame_system::EnsureRoot<AccountId>;
     type Treasury = treasury::Module<Self>;
     type Event = Event;
 }
@@ -558,16 +560,20 @@ impl pallet_utility::Trait for TestStorage {
 }
 
 impl EnactProposalMaker<Origin, Call> for TestStorage {
-    fn is_pip_id_valid(id: PipId) -> bool {
-        Pips::is_proposal_id_valid(id)
+    fn approve_committee_proposal(id: PipId) -> Call {
+        Call::Pips(pallet_pips::Call::approve_committee_proposal(id))
     }
 
-    fn enact_referendum_call(id: PipId) -> Call {
-        Call::Pips(pallet_pips::Call::enact_referendum(id))
+    fn reject_proposal(id: PipId) -> Call {
+        Call::Pips(pallet_pips::Call::reject_proposal(id))
     }
 
-    fn reject_referendum_call(id: PipId) -> Call {
-        Call::Pips(pallet_pips::Call::reject_referendum(id))
+    fn prune_proposal(id: PipId) -> Call {
+        Call::Pips(pallet_pips::Call::prune_proposal(id))
+    }
+
+    fn enact_snapshot_results(results: Vec<(u8, SnapshotResult)>) -> Call {
+        Call::Pips(pallet_pips::Call::enact_snapshot_results(results))
     }
 }
 
