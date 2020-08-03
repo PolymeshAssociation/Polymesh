@@ -42,7 +42,9 @@ use polymesh_common_utilities::traits::{
     transaction_payment::{CddAndFeeDetails, ChargeTxFee},
     CommonTrait,
 };
-use polymesh_primitives::{AuthorizationData, Claim, IdentityId, InvestorUid, Moment, Permissions, Signatory};
+use polymesh_primitives::{
+    AuthorizationData, Claim, IdentityId, InvestorUid, Moment, Permissions, Signatory,
+};
 use sp_core::H256;
 use sp_io;
 use sp_npos_elections::{

@@ -132,9 +132,12 @@ mod tests {
         let f: Subset<bool> = Subset::elem(false);
         let tf: Subset<bool> = Subset::from_iter(vec![true, false].into_iter());
         let ft: Subset<bool> = Subset::from_iter(vec![false, true].into_iter());
+        let all = Subset::All;
         assert_eq!(t.lattice_cmp(&t), LatticeOrdering::Equal);
         assert_eq!(t.lattice_cmp(&tf), LatticeOrdering::Less);
         assert_eq!(f.lattice_cmp(&tf), LatticeOrdering::Less);
+        assert_eq!(t.lattice_cmp(&all), LatticeOrdering::Less);
+        assert_eq!(tf.lattice_cmp(&all), LatticeOrdering::Less);
         assert_eq!(tf.lattice_cmp(&ft), LatticeOrdering::Equal);
         assert_eq!(tf.lattice_cmp(&t), LatticeOrdering::Greater);
         assert_eq!(tf.lattice_cmp(&f), LatticeOrdering::Greater);

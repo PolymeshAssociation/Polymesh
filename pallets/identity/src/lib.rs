@@ -108,8 +108,8 @@ use polymesh_common_utilities::{
 };
 use polymesh_primitives::{
     AuthIdentifier, Authorization, AuthorizationData, AuthorizationError, AuthorizationType, CddId,
-    Claim, ClaimType, Identity as DidRecord, IdentityClaim, IdentityId, InvestorUid, Permission,
-    Scope, Signatory, SigningKey, Ticker, Permissions,
+    Claim, ClaimType, Identity as DidRecord, IdentityClaim, IdentityId, InvestorUid, Permissions,
+    Permissions, Scope, Signatory, SigningKey, Ticker,
 };
 use sp_core::sr25519::Signature;
 use sp_io::hashing::blake2_256;
