@@ -16,8 +16,7 @@ mod RuntimeInteraction {
     /// Add new fields to the below struct in order
     /// to add new static storage fields to your contract.
     #[ink(storage)]
-    struct RuntimeInteractionStorage {
-    }
+    struct RuntimeInteractionStorage {}
 
     impl RuntimeInteractionStorage {
         /// Constructor.
