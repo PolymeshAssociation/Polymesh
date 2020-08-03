@@ -503,7 +503,14 @@ decl_module! {
 
             match &claim {
                 Claim::CustomerDueDiligence(..) => Self::base_add_cdd_claim(target, claim, issuer, expiry)?,
-                Claim::InvestorZKProof(..) => Self::base_add_confidential_scope_claim(target, claim, issuer, expiry)?,
+                Claim::InvestorZKProof(_t, _s, cdd_id, _p) => {
+                    Self::base_add_confidential_scope_claim(
+                        target,
+                        claim.clone(),
+                        issuer,
+                        expiry,
+                        cdd_id.clone())?
+                },
                 _ => {
                     T::ProtocolFee::charge_fee(ProtocolOp::IdentityAddClaim)?;
                     Self::base_add_claim(target, claim, issuer, expiry)
@@ -594,8 +601,8 @@ decl_module! {
         ) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             let issuer = Context::current_identity_or::<Self>(&sender)?;
-            let scope = claim.as_scope().cloned();
             let claim_type = claim.claim_type();
+            let scope = claim.as_scope().cloned();
 
             match &claim {
                 Claim::InvestorZKProof(..) => Self::revoke_confidential_scope_claim(target, claim_type, issuer, scope),
@@ -1524,6 +1531,14 @@ impl<T: Trait> Module<T> {
     /// No state change is allowed in this function because this function is used within the RPC
     /// calls.
     pub fn fetch_cdd(claim_for: IdentityId, leeway: T::Moment) -> Option<IdentityId> {
+        Self::base_fetch_cdd(claim_for, leeway, None)
+    }
+
+    fn base_fetch_cdd(
+        claim_for: IdentityId,
+        leeway: T::Moment,
+        filter_cdd_id: Option<CddId>,
+    ) -> Option<IdentityId> {
         let exp_with_leeway = <pallet_timestamp::Module<T>>::get()
             .checked_add(&leeway)
             .unwrap_or_default();
@@ -1536,6 +1551,14 @@ impl<T: Trait> Module<T> {
 
         Self::fetch_base_claims(claim_for, ClaimType::CustomerDueDiligence)
             .filter(|id_claim| {
+                if let Some(cdd_id) = &filter_cdd_id {
+                    if let Claim::CustomerDueDiligence(claim_cdd_id) = &id_claim.claim {
+                        if claim_cdd_id != cdd_id {
+                            return false;
+                        }
+                    }
+                }
+
                 Self::is_identity_cdd_claim_valid(
                     id_claim,
                     exp_with_leeway,
@@ -1852,16 +1875,30 @@ impl<T: Trait> Module<T> {
         Ok(())
     }
 
+    /// # Errors
+    /// - 'ConfidentialScopeClaimNotAllowed` if :
+    ///     - Sender is not the issuer. That claim can be only added by your-self.
+    ///     - You are not the owner of that CDD_ID.
+    ///
     fn base_add_confidential_scope_claim(
         target: IdentityId,
         claim: Claim,
         issuer: IdentityId,
         expiry: Option<T::Moment>,
+        cdd_id: CddId,
     ) -> DispatchResult {
+        // Only onwer of the identity can add that confidential claim.
         ensure!(
             issuer == target,
             Error::<T>::ConfidentialScopeClaimNotAllowed
         );
+
+        // Verify the onwer of that CDD_ID.
+        ensure!(
+            Self::base_fetch_cdd(target, T::Moment::zero(), Some(cdd_id)).is_some(),
+            Error::<T>::ConfidentialScopeClaimNotAllowed
+        );
+
         Self::base_add_claim(target, claim, issuer, expiry);
         Ok(())
     }

@@ -7,13 +7,13 @@ use cryptography::claim_proofs::{compute_cdd_id, compute_scope_id};
 use pallet_asset::{self as asset, AssetType, IdentifierType, SecurityToken};
 use pallet_compliance_manager as compliance_manager;
 use pallet_confidential as confidential;
-use pallet_identity as identity;
+use pallet_identity::{self as identity, Error};
 use polymesh_primitives::{
     Claim, IdentityId, InvestorUid, InvestorZKProofData, Rule, RuleType, Ticker,
 };
 
 use core::convert::TryFrom;
-use frame_support::assert_ok;
+use frame_support::{assert_err, assert_ok};
 use test_client::AccountKeyring;
 
 type Identity = identity::Module<TestStorage>;
@@ -98,6 +98,9 @@ fn scope_claims_we() {
     let (_, inv_did_1) = make_account_with_balance(inv_acc_1, investor, 1_000_000).unwrap();
     let inv_acc_2 = AccountKeyring::Charlie.public();
     let (_, inv_did_2) = make_account_with_balance(inv_acc_2, investor, 2_000_000).unwrap();
+    let other_investor = InvestorUid::from("inv_2");
+    let inv_acc_3 = AccountKeyring::Dave.public();
+    let (_, inv_did_3) = make_account_with_balance(inv_acc_3, other_investor, 3_000_000).unwrap();
 
     // 1. Alice creates her ST and set up its rules.
     let st = SecurityToken {
@@ -147,7 +150,7 @@ fn scope_claims_we() {
     assert_ok!(Identity::add_claim(
         Origin::signed(inv_acc_1),
         inv_did_1,
-        conf_scope_claim_1,
+        conf_scope_claim_1.clone(),
         None
     ));
 
@@ -171,4 +174,15 @@ fn scope_claims_we() {
     assert_eq!(Asset::balance_of(st_id, inv_did_2), 0);
     assert_ok!(Asset::transfer(Origin::signed(alice), st_id, inv_did_2, 20));
     assert_eq!(Asset::balance_of(st_id, inv_did_2), 20);
+
+    // 4. Fail case: Investor 2 cannot add a claim of the real investor.
+    assert_err!(
+        Identity::add_claim(
+            Origin::signed(inv_acc_3),
+            inv_did_3,
+            conf_scope_claim_1,
+            None
+        ),
+        Error::<TestStorage>::ConfidentialScopeClaimNotAllowed
+    );
 }

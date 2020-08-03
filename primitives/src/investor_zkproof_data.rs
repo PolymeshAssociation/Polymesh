@@ -57,7 +57,7 @@ impl InvestorZKProofData {
         }
     }
 
-    /// Returns the blake2s hash of
+    /// Returns the message used for testing the proof.
     pub fn make_message(investor_did: &IdentityId, ticker: &Ticker) -> [u8; 32] {
         Blake2s::default()
             .chain(investor_did)

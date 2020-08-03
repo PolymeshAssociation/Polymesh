@@ -32,7 +32,8 @@ pub enum RuleType {
     IsAnyOf(Vec<Claim>),
     /// Rule to ensure that at none of claims is fetched when filter is applied.
     IsNoneOf(Vec<Claim>),
-    ///
+    /// Rule to ensure that the target identity has a valid `InvestorZKProof` claim for the given
+    /// ticker.
     HasValidProofOfInvestor(Ticker),
 }
 
@@ -90,6 +91,9 @@ impl Rule {
             RuleType::IsAbsent(ref _claim) => 1,
             RuleType::IsNoneOf(ref claims) => claims.len(),
             RuleType::IsAnyOf(ref claims) => claims.len(),
+            // NOTE: The complexity of this rule implies the use of cryptography libraries, which
+            // are computational expensive.
+            // So we've added a 10 factor here.
             RuleType::HasValidProofOfInvestor(..) => 10,
         };
         (claims_count, self.issuers.len())
