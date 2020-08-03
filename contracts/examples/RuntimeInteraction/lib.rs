@@ -2,38 +2,27 @@
 
 use ink_lang as ink;
 
-#[ink::contract(version = "0.1.0")]
+#[ink::contract(version = "0.1.0", env = PolymeshRuntimeTypes)]
+#[allow(non_snake_case)]
 mod RuntimeInteraction {
     use custom_ink_env_types::{
         calls as runtime_calls, AssetTransferRules, PolymeshRuntimeTypes, Ticker,
     };
     use ink_core::{env, hash::Blake2x128, storage};
     use ink_prelude::{format, vec, vec::Vec};
-    use scale::{Decode, Encode};
+    use scale::Encode;
 
     /// Defines the storage of your contract.
     /// Add new fields to the below struct in order
     /// to add new static storage fields to your contract.
     #[ink(storage)]
     struct RuntimeInteractionStorage {
-        /// Stores a single `bool` value on the storage.
-        value: storage::Value<bool>,
     }
 
     impl RuntimeInteractionStorage {
-        /// Constructor that initializes the `bool` value to the given `init_value`.
+        /// Constructor.
         #[ink(constructor)]
-        fn new(&mut self, init_value: bool) {
-            self.value.set(init_value);
-        }
-
-        /// Constructor that initializes the `bool` value to `false`.
-        ///
-        /// Constructors can delegate to other constructors.
-        #[ink(constructor)]
-        fn default(&mut self) {
-            self.new(false)
-        }
+        fn new(&mut self) {}
 
         #[ink(message)]
         fn read_compliance_manager_storage(&self, ticker: Ticker) -> AssetTransferRules {

@@ -1,7 +1,7 @@
 [package]
 name = "RuntimeInteraction"
 version = "0.1.0"
-authors = ["[your_name] <[your_email]>"]
+authors = ["Polymath Inc."]
 edition = "2018"
 
 [dependencies]
@@ -11,11 +11,9 @@ ink_core = { git = "https://github.com/paritytech/ink", tag = "v2.1.0", package 
 ink_lang = { git = "https://github.com/paritytech/ink", tag = "v2.1.0", package = "ink_lang", default-features = false }
 ink_prelude = { git = "https://github.com/paritytech/ink", tag = "v2.1.0", package = "ink_prelude", default-features = false }
 polymesh-derive = { path = "../../../primitives_derive", default-features = false, package = "polymesh-primitives-derive"}
-sp-io = { git = "https://github.com/paritytech/substrate/", branch = "at-add-dispatch-call", default-features = false, features = ["disable_panic_handler", "disable_oom", "disable_allocator" ] }
 
 scale = { package = "parity-scale-codec", version = "1.2", default-features = false, features = ["derive"] }
 serde = { version = "1.0.104", optional = true, features = ["derive"] }
-
 custom-ink-env-types = { path = "../custom-ink-env-types", default-features = false }
 
 [dependencies.type-metadata]

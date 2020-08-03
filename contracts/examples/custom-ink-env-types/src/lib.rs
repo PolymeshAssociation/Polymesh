@@ -14,7 +14,7 @@ use serde::{Deserialize, Serialize};
 pub mod calls;
 
 /// Contract environment types defined in substrate node-runtime
-#[cfg_attr(feature = "ink-generate-abi", derive(Metadata))]
+#[cfg_attr(feature = "ink-generate-abi", derive(type_metadata::Metadata))]
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum PolymeshRuntimeTypes {}
 
