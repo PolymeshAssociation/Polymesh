@@ -1052,7 +1052,6 @@ impl_runtime_apis! {
 
         /// Proposals voted by `address`
         fn proposed_by(address: AccountId) -> Vec<u32> {
-            // TODO(centril): figure out...
             Pips::proposed_by(pallet_pips::Proposer::Community(address))
         }
 
