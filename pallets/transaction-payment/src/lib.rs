@@ -273,7 +273,7 @@ where
     /// Compute the final fee value for a particular transaction.
     ///
     /// The final fee is composed of:
-    ///   - `base_weight`: This is the minimum amount a user pays for a transaction. It is declared
+    ///   - `base_fee`: This is the minimum amount a user pays for a transaction. It is declared
     ///     as a base _weight_ in the runtime and converted to a fee using `WeightToFee`.
     ///   - `len_fee`: The length fee, the amount paid for the encoded length (in bytes) of the
     ///     transaction.
@@ -282,14 +282,14 @@ where
     ///   - `targeted_fee_adjustment`: This is a multiplier that can tune the final fee based on
     ///     the congestion of the network.
     ///   - (Optional) `tip`: If included in the transaction, the tip will be added on top. Only
-    ///     signed transactions can have a tip. Although it will always be zero in Polymesh, keeping
+    ///     signed transactions can have a tip.Although it will always be zero in Polymesh, keeping
     ///     the tip as parameter to reduce the change in the apis.
     ///
     /// The base fee and adjusted weight and length fees constitute the _inclusion fee,_ which is
     /// the minimum fee for a transaction to be included in a block.
     ///
     /// ```ignore
-    /// inclusion_fee = base_weight + targeted_fee_adjustment * (len_fee + weight_fee);
+    /// inclusion_fee = base_fee + len_fee + [targeted_fee_adjustment * weight_fee];
     /// final_fee = inclusion_fee + tip;
     /// ```
     pub fn compute_fee(len: u32, info: &DispatchInfoOf<T::Call>, tip: BalanceOf<T>) -> BalanceOf<T>
@@ -334,32 +334,14 @@ where
             // final adjusted weight fee.
             let adjusted_weight_fee = multiplier.saturating_mul_int(unadjusted_weight_fee);
 
-            let base_weight = Self::weight_to_fee(T::ExtrinsicBaseWeight::get());
-            base_weight
+            let base_fee = Self::weight_to_fee(T::ExtrinsicBaseWeight::get());
+            base_fee
                 .saturating_add(fixed_len_fee)
                 .saturating_add(adjusted_weight_fee)
                 .saturating_add(tip)
         } else {
             tip
         }
-    }
-}
-
-impl<T: Trait> Module<T> {
-    /// Compute the fee for the specified weight.
-    ///
-    /// This fee is already adjusted by the per block fee adjustment factor and is therefore
-    /// the share that the weight contributes to the overall fee of a transaction.
-    ///
-    /// This function is generic in order to supply the contracts module with a way
-    /// to calculate the gas price. The contracts module is not able to put the necessary
-    /// `BalanceOf<T>` contraints on its trait. This function is not to be used by this module.
-    pub fn weight_to_fee_with_adjustment<Balance>(weight: Weight) -> Balance
-    where
-        Balance: UniqueSaturatedFrom<u128>,
-    {
-        let fee: u128 = Self::weight_to_fee(weight).unique_saturated_into();
-        Balance::unique_saturated_from(NextFeeMultiplier::get().saturating_mul_acc_int(fee))
     }
 
     fn weight_to_fee(weight: Weight) -> BalanceOf<T> {
@@ -369,9 +351,25 @@ impl<T: Trait> Module<T> {
         T::WeightToFee::calc(&capped_weight)
     }
 
+    /// Polymesh-Note :- Change for the supporting the test
     #[cfg(debug_assertions)]
     pub fn put_next_fee_multiplier(m: Multiplier) {
         NextFeeMultiplier::put(m)
+    }
+}
+
+impl<T> Convert<Weight, BalanceOf<T>> for Module<T>
+where
+    T: Trait,
+    BalanceOf<T>: FixedPointOperand,
+{
+    /// Compute the fee for the specified weight.
+    ///
+    /// This fee is already adjusted by the per block fee adjustment factor and is therefore the
+    /// share that the weight contributes to the overall fee of a transaction. It is mainly
+    /// for informational purposes and not used in the actual fee calculation.
+    fn convert(weight: Weight) -> BalanceOf<T> {
+        NextFeeMultiplier::get().saturating_mul_int(Self::weight_to_fee(weight))
     }
 }
 

@@ -165,22 +165,35 @@ const createIdentitiesWithExpiry = async function(api, accounts, alice, expiries
   let dids = [];
 
   for (let i = 0; i < accounts.length; i++) {
-    // let nonceObj = {nonce: nonces.get(alice.address)};
-    // const transaction = api.tx.identity.cddRegisterDid(accounts[i].address, null, []);
-    // await sendTransaction(transaction, alice, nonceObj);
-
-      let expiry = expiries.length == 0 ? null : expiries[i];
-      await api.tx.identity
-        .cddRegisterDid(accounts[i].address, expiry, [])
+    console.log( `>>>> [Register CDD Claim] acc: ${accounts[i].address}`); 
+    await api.tx.identity
+        .cddRegisterDid(accounts[i].address, [])
         .signAndSend(alice, { nonce: nonces.get(alice.address) });
 
     nonces.set(alice.address, nonces.get(alice.address).addn(1));
   }
   await blockTillPoolEmpty(api);
+
   for (let i = 0; i < accounts.length; i++) {
     const d = await api.query.identity.keyToIdentityIds(accounts[i].publicKey);
     dids.push(d.toHuman().Unique);
+    console.log( `>>>> [Get DID ] acc: ${accounts[i].address} did: ${dids[i]}` ); 
   }
+    
+  // Add CDD Claim with CDD_ID
+  for (let i = 0; i < dids.length; i++) {
+    const cdd_id_byte = (i+1).toString(16).padStart(2,'0');
+    const claim = { CustomerDueDiligence: `0x00000000000000000000000000000000000000000000000000000000000000${cdd_id_byte}`};
+    const expiry = expiries.length == 0 ? null : expiries[i];
+
+    console.log( `>>>> [add CDD Claim] did: ${dids[i]}, claim: ${JSON.stringify( claim)}`); 
+    await api.tx.identity
+      .addClaim(dids[i], claim, expiry)
+      .signAndSend(alice, { nonce: nonces.get(alice.address) });
+
+    nonces.set(alice.address, nonces.get(alice.address).addn(1));
+  }
+ 
   let did_balance = 1000 * 10**6;
   for (let i = 0; i < dids.length; i++) {
     await topUpIdentityBalance(api, alice, dids[i], did_balance);

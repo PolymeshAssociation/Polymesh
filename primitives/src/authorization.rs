@@ -51,16 +51,25 @@ pub enum AuthorizationData<AccountId> {
     NoData,
 }
 
+/// Type of authorization.
 #[derive(Eq, PartialEq, Encode, Decode, Clone)]
 #[cfg_attr(feature = "std", derive(Debug, Serialize, Deserialize))]
 pub enum AuthorizationType {
+    /// TBD.
     AttestMasterKeyRotation,
+    /// Authorization to rotate master key.
     RotateMasterKey,
+    /// Authorization to transfer a ticker.
     TransferTicker,
+    /// Authorization to add some key int a multi signer.
     AddMultiSigSigner,
+    /// Authorization to transfer the asset ownership to other identity.
     TransferAssetOwnership,
+    /// Join Identity authorization.
     JoinIdentity,
+    /// Customized authorization.
     Custom,
+    /// Undefined authorization.
     NoData,
 }
 

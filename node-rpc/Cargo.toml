@@ -11,7 +11,7 @@ targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
 polymesh-primitives = { path = "../primitives" }
-pallet-contracts-rpc = { path = "../pallets/contracts/rpc" }
+pallet-contracts-rpc = { git = "https://github.com/paritytech/substrate", tag = "v2.0.0-rc4" }
 pallet-group-rpc = { path = "../pallets/group/rpc" }
 pallet-staking-rpc = { path = "../pallets/staking/rpc" }
 pallet-protocol-fee-rpc = {  path = "../pallets/protocol-fee/rpc" }
