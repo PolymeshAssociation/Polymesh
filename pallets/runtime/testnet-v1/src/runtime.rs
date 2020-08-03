@@ -704,22 +704,20 @@ impl pallet_utility::Trait for Runtime {
 }
 
 impl EnactProposalMaker<Origin, Call> for Runtime {
-    fn is_pip_id_valid(_id: PipId) -> bool {
-        // TODO(centril): fix this...
-        true
-        //Pips::is_proposal_id_valid(id)
+    fn approve_committee_proposal(id: PipId) -> Call {
+        Call::Pips(pallet_pips::Call::approve_committee_proposal(id))
     }
 
-    fn enact_referendum_call(_id: PipId) -> Call {
-        // TODO(centril): fix this...
-        todo!()
-        //Call::Pips(pallet_pips::Call::enact_referendum(id))
+    fn reject_proposal(id: PipId) -> Call {
+        Call::Pips(pallet_pips::Call::reject_proposal(id))
     }
 
-    fn reject_referendum_call(_id: PipId) -> Call {
-        // TODO(centril): fix this...
-        todo!()
-        //Call::Pips(pallet_pips::Call::reject_referendum(id))
+    fn prune_proposal(id: PipId) -> Call {
+        Call::Pips(pallet_pips::Call::prune_proposal(id))
+    }
+
+    fn enact_snapshot_results(results: Vec<(u8, SnapshotResult)>) -> Call {
+        Call::Pips(pallet_pips::Call::enact_snapshot_results(results))
     }
 }
 

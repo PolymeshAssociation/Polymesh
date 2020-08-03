@@ -68,7 +68,7 @@ use polymesh_common_utilities::{
     governance_group::GovernanceGroupTrait,
     group::{GroupTrait, InactiveMember},
     identity::{IdentityTrait, Trait as IdentityModuleTrait},
-    pip::{EnactProposalMaker, PipId},
+    pip::{EnactProposalMaker, PipId, SnapshotResult},
     Context, SystematicIssuers,
 };
 use polymesh_primitives::IdentityId;
@@ -189,12 +189,18 @@ decl_event!(
         /// Voting threshold has been updated
         /// Parameters: caller DID, numerator, denominator
         VoteThresholdUpdated(IdentityId, u32, u32),
-        /// Vote enact referendum.
+        /// Vote to approve a committee proposal.
         /// Parameters: caller DID, target Pip Id.
-        VoteEnactReferendum(IdentityId, PipId),
-        /// Vote reject referendum.
+        VoteApproveCommitteeProposal(IdentityId, PipId),
+        /// Vote to reject a proposal.
         /// Parameters: caller DID, target Pip Id.
-        VoteRejectReferendum(IdentityId, PipId),
+        VoteRejectProposal(IdentityId, PipId),
+        /// Vote to prune a proposal.
+        /// Parameters: caller DID, target Pip Id.
+        VotePruneProposal(IdentityId, PipId),
+        /// Vote to enact snapshot results.
+        /// Parameters: caller DID, results to enact.
+        VoteEnactSnapshotResults(IdentityId, Vec<(u8, SnapshotResult)>),
     }
 );
 
@@ -310,25 +316,35 @@ decl_module! {
             Self::deposit_event(RawEvent::ReleaseCoordinatorUpdated(current_did, Some(id)));
         }
 
-        /// Enact the referendum
-        ///
-        /// # Arguments
-        /// * `id` - Pip Id that need to be enacted
-        #[weight = (T::DbWeight::get().reads_writes(6, 2) + 400_000_000, Operational, Pays::Yes)]
-        pub fn vote_enact_referendum(origin, id: PipId) -> DispatchResult {
-            let did = Self::vote_or_propose(origin, T::EnactProposalMaker::enact_referendum_call(id))?;
-            Self::deposit_event(RawEvent::VoteEnactReferendum(did, id));
+        /// Vote on `aprove_committee_proposal` (see its docs for more info).
+        #[weight = (5_000_000, Operational, Pays::Yes)]
+        pub fn approve_committee_proposal(origin, id: PipId) -> DispatchResult {
+            let did = Self::vote_or_propose(origin, T::EnactProposalMaker::approve_committee_proposal(id))?;
+            Self::deposit_event(RawEvent::VoteApproveCommitteeProposal(did, id));
             Ok(())
         }
 
-        /// Reject the referendum
-        ///
-        /// # Arguments
-        /// * `id` - Pip Id that need to be rejected
-        #[weight = (T::DbWeight::get().reads_writes(6, 2) + 400_000_000, Operational, Pays::Yes)]
-        pub fn vote_reject_referendum(origin, id: PipId) -> DispatchResult {
-            let did = Self::vote_or_propose(origin, T::EnactProposalMaker::reject_referendum_call(id))?;
-            Self::deposit_event(RawEvent::VoteRejectReferendum(did, id));
+        /// Vote on `reject_proposal` (see its docs for more info).
+        #[weight = (5_000_000, Operational, Pays::Yes)]
+        pub fn reject_proposal(origin, id: PipId) -> DispatchResult {
+            let did = Self::vote_or_propose(origin, T::EnactProposalMaker::reject_proposal(id))?;
+            Self::deposit_event(RawEvent::VoteRejectProposal(did, id));
+            Ok(())
+        }
+
+        /// Vote on `prune_proposal` (see its docs for more info).
+        #[weight = (5_000_000, Operational, Pays::Yes)]
+        pub fn prune_proposal(origin, id: PipId) -> DispatchResult {
+            let did = Self::vote_or_propose(origin, T::EnactProposalMaker::prune_proposal(id))?;
+            Self::deposit_event(RawEvent::VotePruneProposal(did, id));
+            Ok(())
+        }
+
+        /// Vote on `enact_snapshot_results` (see its docs for more info).
+        #[weight = (5_000_000, Operational, Pays::Yes)]
+        pub fn enact_snapshot_results(origin, res: Vec<(u8, SnapshotResult)>) -> DispatchResult {
+            let did = Self::vote_or_propose(origin, T::EnactProposalMaker::enact_snapshot_results(res.clone()))?;
+            Self::deposit_event(RawEvent::VoteEnactSnapshotResults(did, res));
             Ok(())
         }
     }
