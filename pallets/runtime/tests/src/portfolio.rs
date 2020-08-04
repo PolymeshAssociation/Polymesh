@@ -1,5 +1,5 @@
 use super::{
-    storage::{register_keyring_account, TestStorage},
+    storage::{register_keyring_account, make_account, TestStorage},
     ExtBuilder,
 };
 use frame_support::{assert_err, assert_ok};
