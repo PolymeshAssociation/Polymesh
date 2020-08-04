@@ -1843,7 +1843,7 @@ fn test_can_transfer_rpc() {
     ExtBuilder::default()
         .cdd_providers(vec![AccountKeyring::Eve.public()])
         .monied(true)
-        .existential_deposit(1)
+        .balance_factor(1)
         .build()
         .execute_with(|| {
             let alice_signed = Origin::signed(AccountKeyring::Alice.public());
