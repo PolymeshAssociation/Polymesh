@@ -42,7 +42,6 @@
 //! - `pause_sto` - Used to pause the STO of a given token
 //! - `unpause_sto` - Used to un pause the STO of a given token.
 
-use crate::simple_token::{self, SimpleTokenTrait};
 use frame_support::traits::Currency;
 use frame_support::{
     decl_error, decl_event, decl_module, decl_storage, dispatch::DispatchResult, ensure,
@@ -64,7 +63,6 @@ pub trait Trait:
 {
     /// The overarching event type.
     type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
-    type SimpleTokenTrait: simple_token::SimpleTokenTrait<Self::Balance>;
 }
 
 #[derive(codec::Encode, codec::Decode, Default, Clone, PartialEq, Debug)]
@@ -94,21 +92,12 @@ decl_storage! {
         /// It returns the sto count corresponds to its ticker
         /// ticker -> sto count
         StoCount get(fn sto_count): map hasher(blake2_128_concat) Ticker => u32;
-        /// List of SimpleToken tokens which will be accepted as the fund raised type for the STO
-        /// (asset_ticker, sto_id, index) -> simple_token_ticker
-        AllowedTokens get(fn allowed_tokens): map hasher(blake2_128_concat) (Ticker, u32, u32) => Ticker;
-        /// To track the index of the token address for the given STO
-        /// (Asset_ticker, sto_id, simple_token_ticker) -> index
-        TokenIndexForSTO get(fn token_index_for_sto): map hasher(blake2_128_concat) (Ticker, u32, Ticker) => Option<u32>;
-        /// To track the no of different tokens allowed as fund raised type for the given STO
-        /// (asset_ticker, sto_id) -> count
-        TokensCountForSto get(fn tokens_count_for_sto): map hasher(blake2_128_concat) (Ticker, u32) => u32;
         /// To track the investment data of the investor corresponds to ticker
         /// (asset_ticker, sto_id, DID) -> Investment structure
         InvestmentData get(fn investment_data): map hasher(blake2_128_concat) (Ticker, u32, IdentityId) => Investment<T::Balance, T::Moment>;
-        /// To track the investment amount of the investor corresponds to ticker using SimpleToken
-        /// (asset_ticker, simple_token_ticker, sto_id, accountId) -> Invested balance
-        SimpleTokenSpent get(fn simple_token_token_spent): map hasher(blake2_128_concat) (Ticker, Ticker, u32, IdentityId) => T::Balance;
+        /// To track the investment amount of the investor corresponds to ticker
+        /// (asset_ticker, sto_id, accountId) -> Invested balance
+        SimpleTokenSpent get(fn simple_token_token_spent): map hasher(blake2_128_concat) (Ticker, u32, IdentityId) => T::Balance;
     }
 }
 
@@ -174,7 +163,6 @@ decl_module! {
         /// * `rate` Rate of asset in terms of native currency
         /// * `start_date` Unix timestamp at when STO starts
         /// * `end_date` Unix timestamp at when STO ends
-        /// * `simple_token_ticker` Ticker of the simple token
         #[weight = 300_000]
         pub fn launch_sto(
             origin,
@@ -184,7 +172,6 @@ decl_module! {
             rate: u128,
             start_date: T::Moment,
             end_date: T::Moment,
-            simple_token_ticker: Ticker
         ) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             let did = Context::current_identity_or::<Identity<T>>(&sender)?;
@@ -214,20 +201,9 @@ decl_module! {
                 .checked_add(1)
                 .ok_or(Error::<T>::StoCountOverflow)?;
 
-            let token_count = Self::tokens_count_for_sto((ticker, sto_count));
-            let new_token_count = token_count.checked_add(1).ok_or(Error::<T>::TokenCountOverflow)?;
-
             <StosByToken<T>>::insert((ticker, sto_count), sto);
             <StoCount>::insert(ticker, new_sto_count);
 
-            if simple_token_ticker.len() > 0 {
-                // Addition of the SimpleToken token as the fund raised type.
-                <TokenIndexForSTO>::insert((ticker, sto_count, simple_token_ticker), new_token_count);
-                <AllowedTokens>::insert((ticker, sto_count, new_token_count), simple_token_ticker);
-                <TokensCountForSto>::insert((ticker, sto_count), new_token_count);
-
-                Self::deposit_event(RawEvent::ModifyAllowedTokens(ticker, simple_token_ticker, sto_count, true));
-            }
             sp_runtime::print("Capped STO launched!!!");
 
             Ok(())
@@ -291,139 +267,9 @@ decl_module! {
                 did,
                 token_amount_value.1,
                 token_amount_value.0,
-                Ticker::default(),
-                0.into(),
                 selected_sto
             )?;
 
-            Ok(())
-        }
-
-
-        /// Modify the list of allowed tokens (stable coins) corresponds to given token/asset
-        ///
-        /// # Arguments
-        /// * `origin` Signing key of the token owner
-        /// * `ticker` Ticker of the token
-        /// * `sto_id` A unique identifier to know which STO investor wants to invest in.
-        /// * `simple_token_ticker` Ticker of the stable coin
-        /// * `modify_status` Boolean to know whether the provided simple token ticker will be used or not.
-        #[weight = 400_000]
-        pub fn modify_allowed_tokens(origin, ticker: Ticker, sto_id: u32, simple_token_ticker: Ticker, modify_status: bool) -> DispatchResult {
-            let sender = ensure_signed(origin)?;
-            let did = Context::current_identity_or::<Identity<T>>(&sender)?;
-            let sender = Signatory::Account(sender);
-
-            // Check that sender is allowed to act on behalf of `did`
-            ensure!(
-                <identity::Module<T>>::is_signer_authorized(did, &sender),
-                Error::<T>::SenderMustBeSigningKeyForDid
-            );
-            let selected_sto = Self::stos_by_token((ticker, sto_id));
-            let now = <pallet_timestamp::Module<T>>::get();
-            // Right now we are only allowing the issuer to change the configuration only before the STO start not after the start
-            // or STO should be in non-active stage
-            ensure!(
-                now < selected_sto.start_date || !selected_sto.active,
-                Error::<T>::StoAlreadyStarted
-            );
-            ensure!(Self::is_owner(&ticker, did), Error::<T>::Unauthorized);
-
-            let token_index = Self::token_index_for_sto((ticker, sto_id, simple_token_ticker));
-            let token_count = Self::tokens_count_for_sto((ticker, sto_id));
-
-            let current_status = match token_index == None {
-                true => false,
-                false => true,
-            };
-
-            ensure!(current_status != modify_status, Error::<T>::AlreadyInThatState);
-
-            if modify_status {
-                let new_count = token_count.checked_add(1).ok_or(Error::<T>::TokenCountOverflow)?;
-                <TokenIndexForSTO>::insert((ticker, sto_id, simple_token_ticker), new_count);
-                <AllowedTokens>::insert((ticker, sto_id, new_count), simple_token_ticker);
-                <TokensCountForSto>::insert((ticker, sto_id), new_count);
-            } else {
-                let new_count = token_count.checked_sub(1).ok_or(Error::<T>::TokenCountUnderflow)?;
-                <TokenIndexForSTO>::insert((ticker, sto_id, simple_token_ticker), new_count);
-                <AllowedTokens>::insert((ticker, sto_id, new_count), Ticker::default());
-                <TokensCountForSto>::insert((ticker, sto_id), new_count);
-            }
-
-            Self::deposit_event(RawEvent::ModifyAllowedTokens(ticker, simple_token_ticker, sto_id, modify_status));
-
-            Ok(())
-
-        }
-
-        /// Used to buy tokens using stable coins
-        ///
-        /// # Arguments
-        /// * `origin` Signing key of the investor
-        /// * `ticker` Ticker of the token
-        /// * `sto_id` A unique identifier to know which STO investor wants to invest in
-        /// * `value` Amount of POLYX wants to invest in
-        /// * `simple_token_ticker` Ticker of the simple token
-        #[weight = 1_000_000]
-        pub fn buy_tokens_by_simple_token(origin, ticker: Ticker, sto_id: u32, value: T::Balance, simple_token_ticker: Ticker) -> DispatchResult {
-            let sender = ensure_signed(origin)?;
-            let did = Context::current_identity_or::<Identity<T>>(&sender)?;
-            let spender = Signatory::Account(sender.clone());
-
-            // Check that spender is allowed to act on behalf of `did`
-            ensure!(
-                <identity::Module<T>>::is_signer_authorized(did, &spender),
-                Error::<T>::SenderMustBeSigningKeyForDid
-            );
-            // Check whether given token is allowed as investment currency or not
-            ensure!(
-                Self::token_index_for_sto((ticker, sto_id, simple_token_ticker)) != None,
-                Error::<T>::TokenIsNotPermitted
-            );
-            let mut selected_sto = Self::stos_by_token((ticker, sto_id));
-            // Pre validation checks
-            ensure!(
-                Self::_pre_validation(&ticker, did, selected_sto.clone()).is_ok(),
-                Error::<T>::PrevalidationFailed
-            );
-            // Make sure spender has enough balance
-            ensure!(
-                T::SimpleTokenTrait::balance_of(simple_token_ticker, did) >= value,
-                Error::<T>::InsufficientBalance
-            );
-
-            // Get the invested amount of investment currency and amount of ST tokens minted as a return of investment
-            let token_amount_value = Self::_get_invested_amount_and_tokens(
-                value,
-                selected_sto.clone()
-            )?;
-
-            selected_sto.sold = selected_sto.sold
-                .checked_add(&token_amount_value.0)
-                .ok_or(Error::<T>::SoldTokensOverflow)?;
-
-            let simple_token_investment =
-                Self::simple_token_token_spent((ticker, simple_token_ticker, sto_id, did))
-                .checked_add(&token_amount_value.1)
-                .ok_or(Error::<T>::InvestmentOverflow)?;
-
-            // Mint tokens and update STO
-            let _minted_tokes = T::Asset::_mint_from_sto(&ticker, sender, did, token_amount_value.0);
-            // Transfer the simple_token invested token to beneficiary account
-            T::SimpleTokenTrait::transfer(did, &simple_token_ticker, selected_sto.beneficiary_did, token_amount_value.1)?;
-
-            // Update storage values
-            Self::_update_storage(
-                ticker,
-                sto_id,
-                did,
-                token_amount_value.1,
-                token_amount_value.0,
-                simple_token_ticker,
-                simple_token_investment,
-                selected_sto
-            )?;
             Ok(())
         }
 
@@ -497,10 +343,9 @@ decl_event!(
     where
         Balance = <T as CommonTrait>::Balance,
     {
-        ModifyAllowedTokens(Ticker, Ticker, u32, bool),
         /// Emit when Asset get purchased by the investor
-        /// caller DID/investor DID, Ticker, SimpleToken token, sto_id, amount invested, amount of token purchased
-        AssetPurchased(IdentityId, Ticker, Ticker, u32, Balance, Balance),
+        /// caller DID/investor DID, Ticker, sto_id, amount invested, amount of token purchased
+        AssetPurchased(IdentityId, Ticker, u32, Balance, Balance),
     }
 );
 
@@ -556,8 +401,6 @@ impl<T: Trait> Module<T> {
         did: IdentityId,
         investment_amount: T::Balance,
         new_tokens_minted: T::Balance,
-        simple_token_ticker: Ticker,
-        simple_token_investment: T::Balance,
         selected_sto: STO<T::Balance, T::Moment>,
     ) -> DispatchResult {
         // Store Investment DATA
@@ -571,23 +414,15 @@ impl<T: Trait> Module<T> {
             .ok_or(Error::<T>::InvestmentOverflow)?;
         investor_holder.last_purchase_date = <pallet_timestamp::Module<T>>::get();
 
-        if simple_token_ticker != Ticker::default() {
-            <SimpleTokenSpent<T>>::insert(
-                (ticker, simple_token_ticker, sto_id, did),
-                simple_token_investment,
-            );
-        } else {
-            investor_holder.amount_paid = investor_holder
-                .amount_paid
-                .checked_add(&investment_amount)
-                .ok_or(Error::<T>::InvestmentOverflow)?;
-        }
+        investor_holder.amount_paid = investor_holder
+            .amount_paid
+            .checked_add(&investment_amount)
+            .ok_or(Error::<T>::InvestmentOverflow)?;
         <StosByToken<T>>::insert((ticker, sto_id), selected_sto);
         // Emit Event
         Self::deposit_event(RawEvent::AssetPurchased(
             did,
             ticker,
-            simple_token_ticker,
             sto_id,
             investment_amount,
             new_tokens_minted,

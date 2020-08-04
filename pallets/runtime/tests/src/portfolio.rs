@@ -1,5 +1,5 @@
 use super::{
-    storage::{make_account, TestStorage},
+    storage::{register_keyring_account, make_account, TestStorage},
     ExtBuilder,
 };
 use frame_support::{assert_err, assert_ok};
@@ -17,7 +17,8 @@ type Portfolio = pallet_portfolio::Module<TestStorage>;
 #[test]
 fn can_create_rename_delete_portfolio() {
     ExtBuilder::default().build().execute_with(|| {
-        let (owner_signed, owner_did) = make_account(AccountKeyring::Alice.public()).unwrap();
+        let owner_signed = Origin::signed(AccountKeyring::Alice.public());
+        let owner_did = register_keyring_account(AccountKeyring::Alice).unwrap();
         let name = PortfolioName::from([42u8].to_vec());
         let num = Portfolio::next_portfolio_number(&owner_did);
         assert_ok!(Portfolio::create_portfolio(
@@ -45,8 +46,10 @@ fn can_move_asset_from_portfolio() {
 }
 
 fn do_move_asset_from_portfolio() {
-    let (owner_signed, owner_did) = make_account(AccountKeyring::Alice.public()).unwrap();
-    let (bob_signed, _) = make_account(AccountKeyring::Bob.public()).unwrap();
+    let owner_signed = Origin::signed(AccountKeyring::Alice.public());
+    let owner_did = register_keyring_account(AccountKeyring::Alice).unwrap();
+    let bob_signed = Origin::signed(AccountKeyring::Bob.public());
+    let _ = register_keyring_account(AccountKeyring::Bob).unwrap();
     let total_supply = 1_000_000;
     let token = SecurityToken {
         name: vec![0x01].into(),

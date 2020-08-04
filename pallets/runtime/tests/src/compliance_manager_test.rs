@@ -1,5 +1,5 @@
 use super::{
-    storage::{make_account, register_keyring_account, TestStorage},
+    storage::{register_keyring_account, TestStorage},
     ExtBuilder,
 };
 use chrono::prelude::Utc;
@@ -66,11 +66,11 @@ fn should_add_and_verify_asset_rule_we() {
     // 0. Create accounts
     let root = Origin::from(frame_system::RawOrigin::Root);
     let token_owner_acc = AccountKeyring::Alice.public();
-    let (token_owner_signed, token_owner_did) = make_account(token_owner_acc).unwrap();
-    let token_rec_acc = AccountKeyring::Charlie.public();
-    let (_token_rec_signed, token_rec_did) = make_account(token_rec_acc).unwrap();
-    let cdd_provider = AccountKeyring::Eve.public();
-    let (cdd_signed, cdd_id) = make_account(cdd_provider).unwrap();
+    let token_owner_signed = Origin::signed(AccountKeyring::Alice.public());
+    let token_owner_did = register_keyring_account(AccountKeyring::Alice).unwrap();
+    let token_rec_did = register_keyring_account(AccountKeyring::Charlie).unwrap();
+    let cdd_signed = Origin::signed(AccountKeyring::Eve.public());
+    let cdd_id = register_keyring_account(AccountKeyring::Eve).unwrap();
 
     assert_ok!(CDDGroup::reset_members(root, vec![cdd_id]));
 
@@ -100,7 +100,8 @@ fn should_add_and_verify_asset_rule_we() {
     ));
     let claim_issuer_acc = AccountKeyring::Bob.public();
     Balances::make_free_balance_be(&claim_issuer_acc, 1_000_000);
-    let (claim_issuer_signed, claim_issuer_did) = make_account(claim_issuer_acc).unwrap();
+    let claim_issuer_signed = Origin::signed(AccountKeyring::Bob.public());
+    let claim_issuer_did = register_keyring_account(AccountKeyring::Bob).unwrap();
 
     assert_ok!(Identity::add_claim(
         claim_issuer_signed.clone(),
@@ -126,7 +127,7 @@ fn should_add_and_verify_asset_rule_we() {
 
     let receiver_rule1 = Rule {
         issuers: vec![cdd_id],
-        rule_type: RuleType::IsAbsent(Claim::CustomerDueDiligence),
+        rule_type: RuleType::IsAbsent(Claim::make_cdd_wildcard()),
     };
 
     let receiver_rule2 = Rule {
@@ -204,7 +205,7 @@ fn should_add_and_verify_asset_rule_we() {
     assert_ok!(Identity::add_claim(
         cdd_signed.clone(),
         token_rec_did,
-        Claim::CustomerDueDiligence,
+        Claim::make_cdd_wildcard(),
         None,
     ));
 
@@ -242,7 +243,8 @@ fn should_replace_asset_rules() {
 
 fn should_replace_asset_rules_we() {
     let token_owner_acc = AccountKeyring::Alice.public();
-    let (token_owner_signed, token_owner_did) = make_account(token_owner_acc).unwrap();
+    let token_owner_signed = Origin::signed(AccountKeyring::Alice.public());
+    let token_owner_did = register_keyring_account(AccountKeyring::Alice).unwrap();
 
     // A token representing 1M shares
     let token = SecurityToken {
@@ -310,7 +312,8 @@ fn should_reset_asset_rules() {
 
 fn should_reset_asset_rules_we() {
     let token_owner_acc = AccountKeyring::Alice.public();
-    let (token_owner_signed, token_owner_did) = make_account(token_owner_acc).unwrap();
+    let token_owner_signed = Origin::signed(AccountKeyring::Alice.public());
+    let token_owner_did = register_keyring_account(AccountKeyring::Alice).unwrap();
 
     // A token representing 1M shares
     let token = SecurityToken {
@@ -366,9 +369,10 @@ fn pause_resume_asset_rules() {
 fn pause_resume_asset_rules_we() {
     // 0. Create accounts
     let token_owner_acc = AccountKeyring::Alice.public();
-    let (token_owner_signed, token_owner_did) = make_account(token_owner_acc).unwrap();
-    let receiver_acc = AccountKeyring::Charlie.public();
-    let (receiver_signed, receiver_did) = make_account(receiver_acc).unwrap();
+    let token_owner_signed = Origin::signed(AccountKeyring::Alice.public());
+    let token_owner_did = register_keyring_account(AccountKeyring::Alice).unwrap();
+    let receiver_signed = Origin::signed(AccountKeyring::Charlie.public());
+    let receiver_did = register_keyring_account(AccountKeyring::Charlie).unwrap();
 
     // 1. A token representing 1M shares
     let token = SecurityToken {
@@ -462,12 +466,11 @@ fn should_successfully_add_and_use_default_issuers() {
 fn should_successfully_add_and_use_default_issuers_we() {
     // 0. Create accounts
     let root = Origin::from(frame_system::RawOrigin::Root);
-    let token_owner_acc = AccountKeyring::Alice.public();
-    let (token_owner_signed, token_owner_did) = make_account(token_owner_acc).unwrap();
-    let trusted_issuer_acc = AccountKeyring::Charlie.public();
-    let (trusted_issuer_signed, trusted_issuer_did) = make_account(trusted_issuer_acc).unwrap();
-    let receiver_acc = AccountKeyring::Dave.public();
-    let (_, receiver_did) = make_account(receiver_acc).unwrap();
+    let token_owner_signed = Origin::signed(AccountKeyring::Alice.public());
+    let token_owner_did = register_keyring_account(AccountKeyring::Alice).unwrap();
+    let trusted_issuer_signed = Origin::signed(AccountKeyring::Charlie.public());
+    let trusted_issuer_did = register_keyring_account(AccountKeyring::Charlie).unwrap();
+    let receiver_did = register_keyring_account(AccountKeyring::Dave).unwrap();
 
     assert_ok!(CDDGroup::reset_members(root, vec![trusted_issuer_did]));
 
@@ -520,7 +523,7 @@ fn should_successfully_add_and_use_default_issuers_we() {
     assert_ok!(Identity::add_claim(
         trusted_issuer_signed.clone(),
         receiver_did.clone(),
-        Claim::CustomerDueDiligence,
+        Claim::make_cdd_wildcard(),
         Some(99999999999999999u64),
     ));
 
@@ -529,12 +532,12 @@ fn should_successfully_add_and_use_default_issuers_we() {
 
     let sender_rule = Rule {
         issuers: vec![],
-        rule_type: RuleType::IsPresent(Claim::CustomerDueDiligence),
+        rule_type: RuleType::IsPresent(Claim::make_cdd_wildcard()),
     };
 
     let receiver_rule = Rule {
         issuers: vec![],
-        rule_type: RuleType::IsPresent(Claim::CustomerDueDiligence),
+        rule_type: RuleType::IsPresent(Claim::make_cdd_wildcard()),
     };
 
     assert_ok!(ComplianceManager::add_active_rule(
@@ -558,7 +561,7 @@ fn should_successfully_add_and_use_default_issuers_we() {
     assert_ok!(Identity::add_claim(
         trusted_issuer_signed.clone(),
         token_owner_did.clone(),
-        Claim::CustomerDueDiligence,
+        Claim::make_cdd_wildcard(),
         Some(99999999999999999u64),
     ));
     assert_ok!(Asset::transfer(
@@ -579,16 +582,14 @@ fn should_modify_vector_of_trusted_issuer() {
 fn should_modify_vector_of_trusted_issuer_we() {
     // 0. Create accounts
     let root = Origin::from(frame_system::RawOrigin::Root);
-    let token_owner_acc = AccountKeyring::Alice.public();
-    let (token_owner_signed, token_owner_did) = make_account(token_owner_acc).unwrap();
-    let trusted_issuer_acc_1 = AccountKeyring::Charlie.public();
-    let (trusted_issuer_signed_1, trusted_issuer_did_1) =
-        make_account(trusted_issuer_acc_1).unwrap();
-    let trusted_issuer_acc_2 = AccountKeyring::Ferdie.public();
-    let (trusted_issuer_signed_2, trusted_issuer_did_2) =
-        make_account(trusted_issuer_acc_2).unwrap();
-    let receiver_acc = AccountKeyring::Dave.public();
-    let (receiver_signed, receiver_did) = make_account(receiver_acc).unwrap();
+    let token_owner_signed = Origin::signed(AccountKeyring::Alice.public());
+    let token_owner_did = register_keyring_account(AccountKeyring::Alice).unwrap();
+    let trusted_issuer_signed_1 = Origin::signed(AccountKeyring::Charlie.public());
+    let trusted_issuer_did_1 = register_keyring_account(AccountKeyring::Charlie).unwrap();
+    let trusted_issuer_signed_2 = Origin::signed(AccountKeyring::Ferdie.public());
+    let trusted_issuer_did_2 = register_keyring_account(AccountKeyring::Ferdie).unwrap();
+    let receiver_signed = Origin::signed(AccountKeyring::Dave.public());
+    let receiver_did = register_keyring_account(AccountKeyring::Dave).unwrap();
 
     // Providing a random DID to root but in real world Root should posses a DID
     assert_ok!(CDDGroup::reset_members(
@@ -666,7 +667,7 @@ fn should_modify_vector_of_trusted_issuer_we() {
     assert_ok!(Identity::add_claim(
         trusted_issuer_signed_1.clone(),
         receiver_did.clone(),
-        Claim::CustomerDueDiligence,
+        Claim::make_cdd_wildcard(),
         None,
     ));
 
@@ -682,7 +683,7 @@ fn should_modify_vector_of_trusted_issuer_we() {
     assert_ok!(Identity::add_claim(
         trusted_issuer_signed_2.clone(),
         token_owner_did.clone(),
-        Claim::CustomerDueDiligence,
+        Claim::make_cdd_wildcard(),
         None,
     ));
 
@@ -691,12 +692,12 @@ fn should_modify_vector_of_trusted_issuer_we() {
 
     let sender_rule = Rule {
         issuers: vec![],
-        rule_type: RuleType::IsPresent(Claim::CustomerDueDiligence),
+        rule_type: RuleType::IsPresent(Claim::make_cdd_wildcard()),
     };
 
     let receiver_rule_1 = Rule {
         issuers: vec![],
-        rule_type: RuleType::IsPresent(Claim::CustomerDueDiligence),
+        rule_type: RuleType::IsPresent(Claim::make_cdd_wildcard()),
     };
 
     let receiver_rule_2 = Rule {
@@ -751,7 +752,7 @@ fn should_modify_vector_of_trusted_issuer_we() {
 
     let receiver_rule_1 = Rule {
         issuers: vec![trusted_issuer_did_1],
-        rule_type: RuleType::IsPresent(Claim::CustomerDueDiligence),
+        rule_type: RuleType::IsPresent(Claim::make_cdd_wildcard()),
     };
 
     let receiver_rule_2 = Rule {
@@ -814,12 +815,11 @@ fn jurisdiction_asset_rules() {
 }
 fn jurisdiction_asset_rules_we() {
     // 0. Create accounts
-    let token_owner_acc = AccountKeyring::Alice.public();
-    let (token_owner_signed, token_owner_id) = make_account(token_owner_acc).unwrap();
-    let cdd_acc = AccountKeyring::Bob.public();
-    let (cdd_signed, cdd_id) = make_account(cdd_acc).unwrap();
-    let user_acc = AccountKeyring::Charlie.public();
-    let (_, user_id) = make_account(user_acc).unwrap();
+    let token_owner_signed = Origin::signed(AccountKeyring::Alice.public());
+    let token_owner_id = register_keyring_account(AccountKeyring::Alice).unwrap();
+    let cdd_signed = Origin::signed(AccountKeyring::Bob.public());
+    let cdd_id = register_keyring_account(AccountKeyring::Bob).unwrap();
+    let user_id = register_keyring_account(AccountKeyring::Charlie).unwrap();
     // 1. Create a token.
     let token = SecurityToken {
         name: vec![0x01].into(),
@@ -1381,7 +1381,8 @@ fn should_limit_rules_complexity() {
 
 fn should_limit_rules_complexity_we() {
     let token_owner_acc = AccountKeyring::Alice.public();
-    let (token_owner_signed, token_owner_did) = make_account(token_owner_acc).unwrap();
+    let token_owner_signed = Origin::signed(token_owner_acc.clone());
+    let token_owner_did = register_keyring_account(AccountKeyring::Alice).unwrap();
 
     // A token representing 1M shares
     let token = SecurityToken {
