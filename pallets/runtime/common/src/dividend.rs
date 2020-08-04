@@ -46,15 +46,13 @@
 //!
 //! - `get_dividend` - Returns details about a dividend
 
-use crate::simple_token;
 use frame_support::{
     decl_error, decl_event, decl_module, decl_storage, dispatch::DispatchResult, ensure,
 };
 use frame_system::{self as system, ensure_signed};
-use pallet_asset as asset;
+use pallet_asset::{self as asset, BalanceOf, Trait as AssetTrait};
 use pallet_identity as identity;
 use polymesh_common_utilities::{
-    balances::Trait as BalancesTrait,
     identity::Trait as IdentityTrait,
     protocol_fee::{ChargeProtocolFee, ProtocolOp},
     CommonTrait, Context,
@@ -64,9 +62,7 @@ use sp_runtime::traits::{CheckedAdd, CheckedDiv, CheckedMul, CheckedSub, Zero};
 use sp_std::prelude::*;
 
 /// The module's configuration trait.
-pub trait Trait:
-    asset::Trait + BalancesTrait + simple_token::Trait + frame_system::Trait + pallet_timestamp::Trait
-{
+pub trait Trait: AssetTrait + frame_system::Trait + pallet_timestamp::Trait {
     type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
 }
 
@@ -138,7 +134,7 @@ decl_module! {
             ensure!(<asset::Module<T>>::_is_owner(&ticker, did), Error::<T>::NotAnOwner);
 
             // Check if sender has enough funds in payout currency
-            let balance = <simple_token::BalanceOf<T>>::get((payout_ticker, did));
+            let balance = <BalanceOf<T>>::get(payout_ticker, did);
             ensure!(balance >= amount, Error::<T>::InsufficientFunds);
 
             // Unpack the checkpoint ID, use the latest or create a new one, in that order
@@ -181,7 +177,7 @@ decl_module! {
             // Subtract the amount
             let new_balance = balance.checked_sub(&amount).ok_or(Error::<T>::BalanceUnderflow)?;
             <<T as IdentityTrait>::ProtocolFee>::charge_fee(ProtocolOp::DividendNew)?;
-            <simple_token::BalanceOf<T>>::insert((payout_ticker, did), new_balance);
+            <BalanceOf<T>>::insert(payout_ticker, did, new_balance);
 
             // Insert dividend entry into storage
             let new_dividend = Dividend {
@@ -227,8 +223,8 @@ decl_module! {
             );
 
             // Pay amount back to owner
-            <simple_token::BalanceOf<T>>::mutate(
-                (entry.payout_currency, did),
+            <BalanceOf<T>>::mutate(
+                entry.payout_currency, did,
                 |balance: &mut T::Balance| -> DispatchResult {
                     *balance  = balance
                         .checked_add(&entry.amount)
@@ -303,8 +299,8 @@ decl_module! {
             })?;
 
             // Perform the payout in designated tokens
-            <simple_token::BalanceOf<T>>::mutate(
-                (dividend.payout_currency, did),
+            <BalanceOf<T>>::mutate(
+                dividend.payout_currency, did,
                 |balance| -> DispatchResult {
                     *balance = balance.checked_add(&share).ok_or(Error::<T>::CouldNotAddShare)?;
                     Ok(())
@@ -340,8 +336,8 @@ decl_module! {
             let now = <pallet_timestamp::Module<T>>::get();
             ensure!(entry.expires_at.map_or(false, |ref end| *end < now), Error::<T>::NotEnded);
             // Transfer the computed amount
-            <simple_token::BalanceOf<T>>::mutate(
-                (entry.payout_currency, did),
+            <BalanceOf<T>>::mutate(
+                entry.payout_currency, did,
                 |balance: &mut T::Balance| -> DispatchResult {
                     *balance = balance
                         .checked_add(&entry.amount_left)

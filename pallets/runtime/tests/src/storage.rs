@@ -40,7 +40,7 @@ use polymesh_primitives::{
     Authorization, AuthorizationData, CddId, Claim, IdentityId, InvestorUid, Signatory,
 };
 use polymesh_runtime_common::{
-    bridge, cdd_check::CddChecker, dividend, exemption, simple_token, voting,
+    bridge, cdd_check::CddChecker, dividend, exemption, voting,
 };
 use smallvec::smallvec;
 use sp_core::{
@@ -107,7 +107,6 @@ impl_outer_event! {
         committee DefaultInstance<T>,
         voting<T>,
         dividend<T>,
-        simple_token<T>,
         frame_system<T>,
         protocol_fee<T>,
         treasury<T>,
@@ -250,10 +249,6 @@ impl settlement::Trait for TestStorage {
     type Event = Event;
     type Asset = asset::Module<TestStorage>;
     type MaxScheduledInstructionLegsPerBlock = MaxScheduledInstructionLegsPerBlock;
-}
-
-impl simple_token::Trait for TestStorage {
-    type Event = Event;
 }
 
 impl ChargeTxFee for TestStorage {
