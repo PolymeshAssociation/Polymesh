@@ -25,7 +25,7 @@ pushd .
 cd $GIT_DIR
 
 # Fetch submodules.  Workaround for https://github.com/telia-oss/github-pr-resource/pull/200
-if [ -f "${GIT_DIR}/.git/resource/head_sha" ]; then
+if [ -f .git/resource/head_sha ]; then
     git submodule init
     set +x
     git config submodule.external/cryptography.url "https://${SUBMODULE_ACCESS_TOKEN}@github.com/PolymathNetwork/cryptography.git"
