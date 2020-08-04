@@ -19,7 +19,7 @@ if [ -f .git/resource/head_sha ]; then
     git submodule update external/cryptography
 fi
 
-cargo test \
+cargo +$TOOLCHAIN test \
   --package node-rpc-runtime-api \
   --package pallet-cdd-offchain-worker \
   --package pallet-group \
