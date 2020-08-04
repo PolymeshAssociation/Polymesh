@@ -41,7 +41,7 @@ use polymesh_runtime_common::{
     cdd_check::CddChecker,
     contracts_wrapper, dividend, exemption,
     impls::{Author, CurrencyToVoteHandler},
-    merge_active_and_inactive, simple_token, sto_capped, voting, AvailableBlockRatio,
+    merge_active_and_inactive, sto_capped, voting, AvailableBlockRatio,
     BlockHashCount, MaximumBlockLength, MaximumBlockWeight, NegativeImbalance,
 };
 
@@ -592,13 +592,10 @@ impl asset::Trait for Runtime {
     type ComplianceManager = compliance_manager::Module<Runtime>;
 }
 
-impl simple_token::Trait for Runtime {
-    type Event = Event;
-}
-
 parameter_types! {
     pub const MaxRuleComplexity: u32 = 50;
 }
+
 impl compliance_manager::Trait for Runtime {
     type Event = Event;
     type Asset = Asset;
@@ -612,7 +609,6 @@ impl voting::Trait for Runtime {
 
 impl sto_capped::Trait for Runtime {
     type Event = Event;
-    type SimpleTokenTrait = SimpleToken;
 }
 
 impl IdentityTrait for Runtime {
@@ -723,7 +719,6 @@ construct_runtime!(
         Voting: voting::{Module, Call, Storage, Event<T>},
         StoCapped: sto_capped::{Module, Call, Storage, Event<T>},
         Exemption: exemption::{Module, Call, Storage, Event},
-        SimpleToken: simple_token::{Module, Call, Storage, Event<T>},
         Settlement: settlement::{Module, Call, Storage, Event<T>, Config},
         CddServiceProviders: group::<Instance2>::{Module, Call, Storage, Event<T>, Config<T>},
         Statistic: statistics::{Module, Call, Storage},
