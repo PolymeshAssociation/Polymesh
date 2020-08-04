@@ -7,7 +7,7 @@
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
-// 	http://www.apache.org/licenses/LICENSE-2.0
+//     http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
@@ -313,7 +313,6 @@ use frame_support::{
 use frame_system::{
     self as system, ensure_none, ensure_root, ensure_signed, offchain::SendTransactionTypes,
 };
-use pallet_babe;
 use pallet_identity as identity;
 use pallet_session::historical;
 use polymesh_common_utilities::{identity::Trait as IdentityTrait, Context};
@@ -354,17 +353,17 @@ const STAKING_ID: LockIdentifier = *b"staking ";
 pub const MAX_UNLOCKING_CHUNKS: usize = 32;
 pub const MAX_NOMINATIONS: usize = <CompactAssignments as VotingLimit>::LIMIT;
 
-pub(crate) const LOG_TARGET: &'static str = "staking";
+pub(crate) const LOG_TARGET: &str = "staking";
 
 // syntactic sugar for logging.
 #[macro_export]
 macro_rules! log {
-	($level:tt, $patter:expr $(, $values:expr)* $(,)?) => {
-		frame_support::debug::$level!(
-			target: crate::LOG_TARGET,
-			$patter $(, $values)*
-		)
-	};
+    ($level:tt, $patter:expr $(, $values:expr)* $(,)?) => {
+        frame_support::debug::$level!(
+            target: crate::LOG_TARGET,
+            $patter $(, $values)*
+        )
+    };
 }
 
 /// Data type used to index nominators in the compact type
@@ -750,10 +749,7 @@ impl<BlockNumber: PartialEq> ElectionStatus<BlockNumber> {
     }
 
     fn is_closed(&self) -> bool {
-        match self {
-            Self::Closed => true,
-            _ => false,
-        }
+        matches!(self, Self::Closed)
     }
 
     fn is_open(&self) -> bool {
@@ -822,22 +818,22 @@ pub mod weight {
     /// * w winners in the submitted solution
     ///
     /// State reads:
-    /// 	- Initial checks:
-    /// 		- ElectionState, CurrentEra, QueuedScore
-    /// 		- SnapshotValidators.len() + SnapShotNominators.len()
-    /// 		- ValidatorCount
-    /// 		- SnapshotValidators
-    /// 		- SnapshotNominators
-    /// 	- Iterate over nominators:
-    /// 		- compact.len() * Nominators(who)
-    /// 		- (non_self_vote_edges) * SlashingSpans
-    /// 	- For `assignment_ratio_to_staked`: Basically read the staked value of each stash.
-    /// 		- (winners.len() + compact.len()) * (Ledger + Bonded)
-    /// 		- TotalIssuance (read a gzillion times potentially, but well it is cached.)
+    ///     - Initial checks:
+    ///         - ElectionState, CurrentEra, QueuedScore
+    ///         - SnapshotValidators.len() + SnapShotNominators.len()
+    ///         - ValidatorCount
+    ///         - SnapshotValidators
+    ///         - SnapshotNominators
+    ///     - Iterate over nominators:
+    ///         - compact.len() * Nominators(who)
+    ///         - (non_self_vote_edges) * SlashingSpans
+    ///     - For `assignment_ratio_to_staked`: Basically read the staked value of each stash.
+    ///         - (winners.len() + compact.len()) * (Ledger + Bonded)
+    ///         - TotalIssuance (read a gzillion times potentially, but well it is cached.)
     /// - State writes:
-    /// 	- QueuedElected, QueuedScore
+    ///     - QueuedElected, QueuedScore
     pub fn weight_for_submit_solution<T: Trait>(
-        winners: &Vec<ValidatorIndex>,
+        winners: &[ValidatorIndex],
         compact: &CompactAssignments,
         size: &ElectionSize,
     ) -> Weight {
@@ -866,7 +862,7 @@ pub mod weight {
     /// refund: we charged compact.len() * read(1) for SlashingSpans. A valid solution only reads
     /// winners.len().
     pub fn weight_for_correct_submit_solution<T: Trait>(
-        winners: &Vec<ValidatorIndex>,
+        winners: &[ValidatorIndex],
         compact: &CompactAssignments,
         size: &ElectionSize,
     ) -> Weight {
@@ -1462,12 +1458,10 @@ decl_module! {
                 let offchain_status = set_check_offchain_execution_status::<T>(now);
                 if let Err(why) = offchain_status {
                     log!(debug, "skipping offchain worker in open election window due to [{}]", why);
+                } else if let Err(e) = compute_offchain_election::<T>() {
+                    log!(error, "💸 Error in election offchain worker: {:?}", e);
                 } else {
-                    if let Err(e) = compute_offchain_election::<T>() {
-                        log!(error, "💸 Error in election offchain worker: {:?}", e);
-                    } else {
-                        log!(debug, "Executed offchain worker thread without errors.");
-                    }
+                    log!(debug, "Executed offchain worker thread without errors.");
                 }
             }
         }
@@ -1800,7 +1794,7 @@ decl_module! {
                 if is_cdded {
                     let targets = targets.into_iter()
                     .take(MAX_NOMINATIONS)
-                    .map(|t| T::Lookup::lookup(t))
+                    .map(T::Lookup::lookup)
                     .collect::<result::Result<Vec<T::AccountId>, _>>()?;
 
                     let nominations = Nominations {
@@ -1996,7 +1990,7 @@ decl_module! {
             for target in targets.iter() {
                 // Check whether given nominator is vouching for someone or not.
 
-                if let Some(_) = Self::nominators(target) {
+                if Self::nominators(target).is_some() {
                     // Access the identity of the nominator
                     if let Some(nominate_identity) = <identity::Module<T>>::get_identity(&target) {
                         // Fetch all the claim values provided by the trusted service providers
@@ -2040,7 +2034,7 @@ decl_module! {
                 <ValidatorCommission>::put(Commission::Individual);
                 Self::deposit_event(RawEvent::IndividualCommissionEnabled(id));
             } else {
-                Err(Error::<T>::AlreadyEnabled)?
+                return Err(Error::<T>::AlreadyEnabled.into());
             }
         }
 
@@ -2062,7 +2056,7 @@ decl_module! {
                 Self::update_validator_prefs(new_value);
                 Self::deposit_event(RawEvent::GlobalCommissionUpdated(id, old_value, new_value));
             } else {
-                Err(Error::<T>::AlreadyEnabled)?
+                return Err(Error::<T>::AlreadyEnabled.into())
             }
         }
 
@@ -2320,8 +2314,8 @@ decl_module! {
             T::RequiredChangeHistoryDepthOrigin::ensure_origin(origin)?;
             if let Some(current_era) = Self::current_era() {
                 HistoryDepth::mutate(|history_depth| {
-                    let last_kept = current_era.checked_sub(*history_depth).unwrap_or(0);
-                    let new_last_kept = current_era.checked_sub(new_history_depth).unwrap_or(0);
+                    let last_kept = current_era.saturating_sub(*history_depth);
+                    let new_last_kept = current_era.saturating_sub(new_history_depth);
                     for era_index in last_kept..new_last_kept {
                         Self::clear_era_information(era_index);
                     }
@@ -2457,8 +2451,8 @@ decl_module! {
             ).expect(
                 "An unsigned solution can only be submitted by validators; A validator should \
                 always produce correct solutions, else this block should not be imported, thus \
-				effectively depriving the validators from their authoring reward. Hence, this panic
-				is expected."
+                effectively depriving the validators from their authoring reward. Hence, this panic
+                is expected."
             );
             Ok(adjustments)
         }
@@ -2475,19 +2469,19 @@ impl<T: Trait> Module<T> {
                 if let Some(nominate_identity) =
                     <identity::Module<T>>::get_identity(&(nominator_stash_key))
                 {
-                    if !(<identity::Module<T>>::fetch_cdd(
+                    if (<identity::Module<T>>::fetch_cdd(
                         nominate_identity,
                         buffer.saturated_into::<T::Moment>(),
                     ))
-                    .is_some()
+                    .is_none()
                     {
                         return Some(nominator_stash_key);
                     }
                 }
-                return None;
+                None
             })
             .collect::<Vec<T::AccountId>>();
-        return invalid_nominators;
+        invalid_nominators
     }
 
     /// POLYMESH-NOTE: This is Polymesh specific change.
@@ -2595,7 +2589,7 @@ impl<T: Trait> Module<T> {
             .claimed_rewards
             .retain(|&x| x >= current_era.saturating_sub(history_depth));
         match ledger.claimed_rewards.binary_search(&era) {
-            Ok(_) => Err(Error::<T>::AlreadyClaimed)?,
+            Ok(_) => return Err(Error::<T>::AlreadyClaimed.into()),
             Err(pos) => ledger.claimed_rewards.insert(pos, era),
         }
 
@@ -2617,8 +2611,8 @@ impl<T: Trait> Module<T> {
         let validator_reward_points = era_reward_points
             .individual
             .get(&ledger.stash)
-            .map(|points| *points)
-            .unwrap_or_else(|| Zero::zero());
+            .copied()
+            .unwrap_or_else(Zero::zero);
 
         // Nothing to do if they have no reward points.
         if validator_reward_points.is_zero() {
@@ -2696,7 +2690,7 @@ impl<T: Trait> Module<T> {
         let dest = Self::payee(stash);
         match dest {
             RewardDestination::Controller => Self::bonded(stash)
-                .and_then(|controller| Some(T::Currency::deposit_creating(&controller, amount))),
+                .map(|controller| T::Currency::deposit_creating(&controller, amount)),
             RewardDestination::Stash => T::Currency::deposit_into_existing(stash, amount).ok(),
             RewardDestination::Staked => Self::bonded(stash)
                 .and_then(|c| Self::ledger(&c).map(|l| (c, l)))
@@ -2721,9 +2715,7 @@ impl<T: Trait> Module<T> {
                     0
                 });
 
-            let era_length = session_index
-                .checked_sub(current_era_start_session_index)
-                .unwrap_or(0); // Must never happen.
+            let era_length = session_index.saturating_sub(current_era_start_session_index);
 
             match ForceEra::get() {
                 Forcing::ForceNew => ForceEra::kill(),
@@ -2896,7 +2888,7 @@ impl<T: Trait> Module<T> {
                 // a normal vote
                 let nomination = maybe_nomination.expect(
                     "exactly one of `maybe_validator` and `maybe_nomination.is_some` is true. \
-					is_validator is false; maybe_nomination is some; qed",
+                    is_validator is false; maybe_nomination is some; qed",
                 );
 
                 // NOTE: we don't really have to check here if the sum of all edges are the
@@ -2952,11 +2944,11 @@ impl<T: Trait> Module<T> {
         // At last, alles Ok. Exposures and store the result.
         let exposures = Self::collect_exposure(supports);
         log!(
-			info,
-			"💸 A better solution (with compute {:?} and score {:?}) has been validated and stored on chain.",
-			compute,
-			submitted_score,
-		);
+            info,
+            "💸 A better solution (with compute {:?} and score {:?}) has been validated and stored on chain.",
+            compute,
+            submitted_score,
+        );
 
         // write new results.
         <QueuedElected<T>>::put(ElectionResult {
@@ -3087,9 +3079,7 @@ impl<T: Trait> Module<T> {
         }
 
         // Set staking information for new era.
-        let maybe_new_validators = Self::select_and_update_validators(current_era);
-
-        maybe_new_validators
+        Self::select_and_update_validators(current_era)
     }
 
     /// Remove all the storage items associated with the election.
@@ -3727,8 +3717,7 @@ where
             match eras
                 .iter()
                 .rev()
-                .filter(|&&(_, ref sesh)| sesh <= &slash_session)
-                .next()
+                .find(|&&(_, ref sesh)| sesh <= &slash_session)
             {
                 Some(&(ref slash_era, _)) => *slash_era,
                 // before bonding period. defensive - should be filtered out.

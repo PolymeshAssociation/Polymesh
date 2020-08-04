@@ -207,7 +207,7 @@ fn general_testnet_genesis(
             let signing_keys = initial_authorities
                 .iter()
                 .map(|x| {
-                    identity_counter = identity_counter + 1;
+                    identity_counter += 1;
                     (x.0.clone(), IdentityId::from(identity_counter))
                 })
                 .collect::<Vec<_>>();
@@ -295,9 +295,9 @@ fn general_testnet_genesis(
             prune_historical_pips: false,
             min_proposal_deposit: 5_000 * POLY,
             quorum_threshold: 100_000,
-            proposal_duration: generalTime::MINUTES * 1,
-            proposal_cool_off_period: generalTime::MINUTES * 1,
-            default_enactment_period: generalTime::MINUTES * 1,
+            proposal_duration: generalTime::MINUTES,
+            proposal_cool_off_period: generalTime::MINUTES,
+            default_enactment_period: generalTime::MINUTES,
         }),
         pallet_im_online: Some(GeneralConfig::ImOnlineConfig {
             slashing_params: general::OfflineSlashingParams {
@@ -664,7 +664,7 @@ fn aldebaran_testnet_genesis(
             let signing_keys = initial_authorities
                 .iter()
                 .map(|x| {
-                    identity_counter = identity_counter + 1;
+                    identity_counter += 1;
                     (x.0.clone(), IdentityId::from(identity_counter))
                 })
                 .collect::<Vec<_>>();
@@ -706,7 +706,7 @@ fn aldebaran_testnet_genesis(
                 )),
             ],
             timelock: aldebaranTime::MINUTES * 15,
-            bridge_limit: (30_000_000_000, aldebaranTime::DAYS * 1),
+            bridge_limit: (30_000_000_000, aldebaranTime::DAYS),
         }),
         pallet_indices: Some(AldebaranConfig::IndicesConfig { indices: vec![] }),
         pallet_sudo: Some(AldebaranConfig::SudoConfig { key: root_key }),

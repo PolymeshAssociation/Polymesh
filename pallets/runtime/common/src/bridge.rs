@@ -223,7 +223,7 @@ pub mod weight_for {
         let db = T::DbWeight::get();
         db.reads_writes(4, 2)
             .saturating_add(50_000_000) // base value
-            .saturating_add(count.saturating_mul(500_00)) // for one loop
+            .saturating_add(count.saturating_mul(50_000)) // for one loop
     }
 }
 
@@ -433,7 +433,7 @@ decl_module! {
         pub fn change_timelock(origin, timelock: T::BlockNumber) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             ensure!(sender == Self::admin(), Error::<T>::BadAdmin);
-            <Timelock<T>>::put(timelock.clone());
+            <Timelock<T>>::put(timelock);
             let current_did = Context::current_identity_or::<Identity<T>>(&sender)?;
             Self::deposit_event(RawEvent::TimelockChanged(current_did, timelock));
             Ok(())
@@ -470,7 +470,7 @@ decl_module! {
             let sender = ensure_signed(origin)?;
             let current_did = Context::current_identity_or::<Identity<T>>(&sender)?;
             ensure!(sender == Self::admin(), Error::<T>::BadAdmin);
-            <BridgeLimit<T>>::put((amount.clone(), duration.clone()));
+            <BridgeLimit<T>>::put((amount, duration));
             Self::deposit_event(RawEvent::BridgeLimitUpdated(current_did, amount, duration));
             Ok(())
         }
@@ -510,7 +510,7 @@ decl_module! {
             let sender = ensure_signed(origin)?;
             ensure!(sender == Self::admin(), Error::<T>::BadAdmin);
             let stati = Self::apply_handler(
-                |tx| Self::force_handle_signed_bridge_tx(tx),
+                Self::force_handle_signed_bridge_tx,
                 bridge_txs
             );
             Self::deposit_event(RawEvent::TxsHandled(stati));
@@ -706,7 +706,7 @@ impl<T: Trait> Module<T> {
             tx_details.execution_block = <system::Module<T>>::block_number();
             <BridgeTxDetails<T>>::insert(&bridge_tx.recipient, &bridge_tx.nonce, tx_details);
             let current_did = Context::current_identity::<Identity<T>>()
-                .unwrap_or(SystematicIssuers::Committee.as_id());
+                .unwrap_or_else(|| SystematicIssuers::Committee.as_id());
             Self::deposit_event(RawEvent::Bridged(current_did, bridge_tx));
         } else if !untrusted_manual_retry {
             // NB: If this was a manual retry, tx's automated retry schedule is not updated.
@@ -726,7 +726,7 @@ impl<T: Trait> Module<T> {
         match tx_details.status {
             BridgeTxStatus::Absent => {
                 tx_details.status = BridgeTxStatus::Timelocked;
-                tx_details.amount = bridge_tx.amount.clone();
+                tx_details.amount = bridge_tx.amount;
             }
             BridgeTxStatus::Pending(x) => {
                 tx_details.status = BridgeTxStatus::Pending(x + 1);
@@ -743,7 +743,7 @@ impl<T: Trait> Module<T> {
                 return Err(Error::<T>::ProposalAlreadyHandled.into());
             }
         }
-        tx_details.tx_hash = bridge_tx.tx_hash.clone();
+        tx_details.tx_hash = bridge_tx.tx_hash;
 
         if already_tried > 24 {
             // Limits the exponential backoff to *almost infinity* (~180 years)
@@ -767,7 +767,7 @@ impl<T: Trait> Module<T> {
             txs.push(bridge_tx.clone());
         });
         let current_did = Context::current_identity::<Identity<T>>()
-            .unwrap_or(SystematicIssuers::Committee.as_id());
+            .unwrap_or_else(|| SystematicIssuers::Committee.as_id());
         Self::deposit_event(RawEvent::BridgeTxScheduled(
             current_did,
             bridge_tx,
@@ -846,19 +846,20 @@ impl<T: Trait> Module<T> {
                     sender == &Self::controller() || sender == &Self::admin(),
                     Error::<T>::BadCaller
                 );
+
                 let timelock = Self::timelock();
                 if timelock.is_zero() {
                     let _ = Self::handle_bridge_tx_now(bridge_tx, false)?;
-                    return Ok(());
                 } else {
                     let _ = Self::handle_bridge_tx_later(bridge_tx, timelock)?;
-                    return Ok(());
                 }
+
+                Ok(())
             }
             // Pending cdd bridge tx
             BridgeTxStatus::Pending(_) => {
                 let _ = Self::handle_bridge_tx_now(bridge_tx, true)?;
-                return Ok(());
+                Ok(())
             }
             // Pre frozen tx. We just set the correct amount.
             BridgeTxStatus::Frozen => {
@@ -872,10 +873,10 @@ impl<T: Trait> Module<T> {
                 Ok(())
             }
             BridgeTxStatus::Timelocked => {
-                return Err(Error::<T>::TimelockedTx.into());
+                Err(Error::<T>::TimelockedTx.into())
             }
             BridgeTxStatus::Handled => {
-                return Err(Error::<T>::ProposalAlreadyHandled.into());
+                Err(Error::<T>::ProposalAlreadyHandled.into())
             }
         }
     }
