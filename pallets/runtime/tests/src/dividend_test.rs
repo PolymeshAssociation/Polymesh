@@ -7,7 +7,6 @@ use polymesh_common_utilities::traits::CommonTrait;
 use polymesh_primitives::Ticker;
 use polymesh_runtime_common::{
     dividend::{self, Dividend},
-    simple_token::{self, SimpleTokenRecord},
 };
 
 use pallet_asset::{self as asset, AssetType, SecurityToken};
@@ -47,7 +46,6 @@ type DividendModule = dividend::Module<TestStorage>;
 type Balances = balances::Module<TestStorage>;
 type Asset = asset::Module<TestStorage>;
 type ComplianceManager = compliance_manager::Module<TestStorage>;
-type SimpleToken = simple_token::Module<TestStorage>;
 type Origin = <TestStorage as frame_system::Trait>::Origin;
 
 #[test]
@@ -67,13 +65,16 @@ fn correct_dividend_must_work() {
             asset_type: AssetType::default(),
             ..Default::default()
         };
-        let ticker = Ticker::try_from(token.name.as_slice()).unwrap();
-        // A token used for payout
-        let payout_token = SimpleTokenRecord {
-            ticker: Ticker::try_from(&[b'B'; 12][..]).unwrap(),
+        let payout_token = SecurityToken {
+            name: vec![0x02].into(),
             owner_did: payout_owner_did,
             total_supply: 200_000_000,
+            divisible: true,
+            asset_type: AssetType::default(),
+            ..Default::default()
         };
+        let ticker = Ticker::try_from(token.name.as_slice()).unwrap();
+        let payout_ticker = Ticker::try_from(payout_token.name.as_slice()).unwrap();
         let token_owner_account = ensure_signed(token_owner_acc.clone()).ok().unwrap();
         Balances::make_free_balance_be(&token_owner_account, 1_000_000);
         let payout_owner_account = ensure_signed(payout_owner_acc.clone()).ok().unwrap();
@@ -91,11 +92,16 @@ fn correct_dividend_must_work() {
             None,
         ));
 
-        // Issuance for payout token is successful
-        assert_ok!(SimpleToken::create_token(
+        assert_ok!(Asset::create_asset(
             payout_owner_acc.clone(),
-            payout_token.ticker,
-            payout_token.total_supply
+            payout_token.name.clone(),
+            payout_ticker,
+            payout_token.total_supply,
+            true,
+            payout_token.asset_type.clone(),
+            vec![],
+            None,
+            None,
         ));
 
         // Prepare an exempted investor
@@ -127,6 +133,13 @@ fn correct_dividend_must_work() {
             vec![]
         ));
 
+        assert_ok!(ComplianceManager::add_active_rule(
+            payout_owner_acc.clone(),
+            payout_ticker,
+            vec![],
+            vec![]
+        ));
+
         // Transfer tokens to investor
         assert_ok!(Asset::transfer(
             token_owner_acc.clone(),
@@ -147,14 +160,14 @@ fn correct_dividend_must_work() {
             remaining_claimed: false,
             matures_at: Some((now - Duration::hours(1)).timestamp() as u64),
             expires_at: Some((now + Duration::hours(1)).timestamp() as u64),
-            payout_currency: payout_token.ticker,
+            payout_currency: payout_ticker,
             checkpoint_id,
         };
 
         // Transfer payout tokens to asset owner
-        assert_ok!(SimpleToken::transfer(
+        assert_ok!(Asset::transfer(
             payout_owner_acc.clone(),
-            payout_token.ticker,
+            payout_ticker,
             token_owner_did,
             dividend.amount
         ));
@@ -182,7 +195,7 @@ fn correct_dividend_must_work() {
         // Check if the correct amount was added to investor balance
         let share = dividend.amount * amount_invested / token.total_supply;
         assert_eq!(
-            SimpleToken::balance_of((payout_token.ticker, investor_did)),
+            Asset::balance_of(payout_ticker, investor_did),
             share
         );
 
