@@ -42,8 +42,6 @@ mod protocol_fee;
 #[cfg(test)]
 mod settlement_test;
 #[cfg(test)]
-mod simple_token_test;
-#[cfg(test)]
 mod staking;
 #[cfg(test)]
 mod statistics_test;
