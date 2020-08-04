@@ -710,3 +710,7 @@ pub fn fast_forward_to_block(n: u64) {
         frame_system::Module::<TestStorage>::set_block_number(block + 1);
     });
 }
+
+pub fn fast_forward_blocks(n: u64) {
+    fast_forward_to_block(n + frame_system::Module::<TestStorage>::block_number());
+}
