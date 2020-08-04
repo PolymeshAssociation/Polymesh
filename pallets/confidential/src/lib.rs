@@ -117,7 +117,7 @@ decl_module! {
             let verifier = ensure_signed(origin)?;
             let verifier_id = Context::current_identity_or::<Identity<T>>(&verifier)?;
 
-            Self::verify_range_proof(target, prover, ticker.clone())?;
+            Self::verify_range_proof(target, prover, ticker)?;
 
             <RangeProofVerifications>::insert((target,ticker), verifier_id, true);
             Ok(())

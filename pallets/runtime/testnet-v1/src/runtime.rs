@@ -41,7 +41,7 @@ use polymesh_runtime_common::{
     cdd_check::CddChecker,
     contracts_wrapper, dividend, exemption,
     impls::{Author, CurrencyToVoteHandler},
-    merge_active_and_inactive, simple_token, sto_capped, voting, AvailableBlockRatio,
+    merge_active_and_inactive, sto_capped, voting, AvailableBlockRatio,
     BlockHashCount, MaximumBlockLength, MaximumBlockWeight, NegativeImbalance,
 };
 
@@ -202,7 +202,7 @@ impl pallet_babe::Trait for Runtime {
 }
 
 parameter_types! {
-    pub const IndexDeposit: Balance = 1 * DOLLARS;
+    pub const IndexDeposit: Balance = DOLLARS;
 }
 
 impl pallet_indices::Trait for Runtime {
@@ -405,8 +405,8 @@ impl pallet_pips::Trait for Runtime {
 }
 
 parameter_types! {
-    pub const TombstoneDeposit: Balance = 1 * DOLLARS;
-    pub const RentByteFee: Balance = 1 * DOLLARS;
+    pub const TombstoneDeposit: Balance = DOLLARS;
+    pub const RentByteFee: Balance = DOLLARS;
     pub const RentDepositOffset: Balance = 300 * DOLLARS;
     pub const SurchargeReward: Balance = 150 * DOLLARS;
 }
@@ -470,7 +470,7 @@ where
         let signature = raw_payload.using_encoded(|payload| C::sign(payload, public))?;
         let address = Indices::unlookup(account);
         let (call, extra, _) = raw_payload.deconstruct();
-        Some((call, (address, signature.into(), extra)))
+        Some((call, (address, signature, extra)))
     }
 }
 
@@ -593,13 +593,10 @@ impl asset::Trait for Runtime {
     type ComplianceManager = compliance_manager::Module<Runtime>;
 }
 
-impl simple_token::Trait for Runtime {
-    type Event = Event;
-}
-
 parameter_types! {
     pub const MaxRuleComplexity: u32 = 50;
 }
+
 impl compliance_manager::Trait for Runtime {
     type Event = Event;
     type Asset = Asset;
@@ -613,7 +610,6 @@ impl voting::Trait for Runtime {
 
 impl sto_capped::Trait for Runtime {
     type Event = Event;
-    type SimpleTokenTrait = SimpleToken;
 }
 
 impl IdentityTrait for Runtime {
@@ -724,7 +720,6 @@ construct_runtime!(
         Voting: voting::{Module, Call, Storage, Event<T>},
         StoCapped: sto_capped::{Module, Call, Storage, Event<T>},
         Exemption: exemption::{Module, Call, Storage, Event},
-        SimpleToken: simple_token::{Module, Call, Storage, Event<T>},
         Settlement: settlement::{Module, Call, Storage, Event<T>, Config},
         CddServiceProviders: group::<Instance2>::{Module, Call, Storage, Event<T>, Config<T>},
         Statistic: statistics::{Module, Call, Storage},
@@ -905,7 +900,7 @@ impl_runtime_apis! {
             input_data: Vec<u8>,
         ) -> ContractExecResult {
             let exec_result =
-                Contracts::bare_call(origin, dest.into(), value, gas_limit, input_data);
+                Contracts::bare_call(origin, dest, value, gas_limit, input_data);
             match exec_result {
                 Ok(v) => ContractExecResult::Success {
                     status: v.status,

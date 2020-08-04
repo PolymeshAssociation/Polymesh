@@ -163,7 +163,7 @@ impl<T: Trait> Module<T> {
         );
         let _ = T::Currency::deposit_into_existing_identity(&target, amount);
         let current_did = Context::current_identity::<Identity<T>>()
-            .unwrap_or(SystematicIssuers::Committee.as_id());
+            .unwrap_or_else(|| SystematicIssuers::Committee.as_id());
         Self::deposit_event(RawEvent::TreasuryDisbursement(current_did, target, amount));
     }
 

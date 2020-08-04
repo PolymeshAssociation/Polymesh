@@ -162,11 +162,11 @@ decl_module! {
 
             let mut members = <ActiveMembers<I>>::get();
             let location = members.binary_search(&who).err().ok_or(Error::<T, I>::DuplicateMember)?;
-            members.insert(location, who.clone());
+            members.insert(location, who);
             <ActiveMembers<I>>::put(&members);
 
             T::MembershipChanged::change_members_sorted(&[who], &[], &members[..]);
-            let current_did = Context::current_identity::<Identity<T>>().unwrap_or(SystematicIssuers::Committee.as_id());
+            let current_did = Context::current_identity::<Identity<T>>().unwrap_or_else(|| SystematicIssuers::Committee.as_id());
             Self::deposit_event(RawEvent::MemberAdded(current_did, who));
         }
 
@@ -212,7 +212,7 @@ decl_module! {
                 &[remove],
                 &members[..],
             );
-            let current_did = Context::current_identity::<Identity<T>>().unwrap_or(SystematicIssuers::Committee.as_id());
+            let current_did = Context::current_identity::<Identity<T>>().unwrap_or_else(|| SystematicIssuers::Committee.as_id());
             Self::deposit_event(RawEvent::MembersSwapped(current_did, remove, add));
         }
 
@@ -232,7 +232,7 @@ decl_module! {
                 T::MembershipChanged::set_members_sorted(&new_members[..], m);
                 *m = new_members;
             });
-            let current_did = Context::current_identity::<Identity<T>>().unwrap_or(SystematicIssuers::Committee.as_id());
+            let current_did = Context::current_identity::<Identity<T>>().unwrap_or_else(|| SystematicIssuers::Committee.as_id());
             Self::deposit_event(RawEvent::MembersReset(current_did, members));
         }
 
@@ -302,7 +302,7 @@ impl<T: Trait<I>, I: Instance> Module<T, I> {
     /// # Arguments
     /// * `who` IdentityId to be removed from the group.
     fn unsafe_remove_member(who: IdentityId) -> DispatchResult {
-        Self::unsafe_remove_active_member(who).or(Self::unsafe_remove_inactive_member(who))
+        Self::unsafe_remove_active_member(who).or_else(|_| Self::unsafe_remove_inactive_member(who))
     }
 
     /// Removes `who` as "inactive member"
@@ -342,7 +342,7 @@ impl<T: Trait<I>, I: Instance> Module<T, I> {
 
         T::MembershipChanged::change_members_sorted(&[], &[who], &members[..]);
         let current_did = Context::current_identity::<Identity<T>>()
-            .unwrap_or(SystematicIssuers::Committee.as_id());
+            .unwrap_or_else(|| SystematicIssuers::Committee.as_id());
         Self::deposit_event(RawEvent::MemberRemoved(current_did, who));
         Ok(())
     }
@@ -382,9 +382,9 @@ impl<T: Trait<I>, I: Instance> GroupTrait<T::Moment> for Module<T, I> {
     ) -> DispatchResult {
         Self::unsafe_remove_active_member(who)?;
         let current_did = Context::current_identity::<Identity<T>>()
-            .unwrap_or(SystematicIssuers::Committee.as_id());
+            .unwrap_or_else(|| SystematicIssuers::Committee.as_id());
 
-        let deactivated_at = at.unwrap_or_else(|| <pallet_timestamp::Module<T>>::get());
+        let deactivated_at = at.unwrap_or_else(<pallet_timestamp::Module<T>>::get);
         let inactive_member = InactiveMember {
             id: who,
             expiry,
@@ -404,7 +404,7 @@ impl<T: Trait<I>, I: Instance> GroupTrait<T::Moment> for Module<T, I> {
             });
 
             // Update inactive member
-            if let Some(idx) = members.binary_search(&inactive_member).ok() {
+            if let Ok(idx) = members.binary_search(&inactive_member) {
                 members[idx] = inactive_member;
             } else {
                 members.push(inactive_member);

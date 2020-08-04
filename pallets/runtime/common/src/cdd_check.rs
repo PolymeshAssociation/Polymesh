@@ -34,6 +34,6 @@ where
                 return Some(did);
             }
         }
-        return None;
+        None
     }
 }

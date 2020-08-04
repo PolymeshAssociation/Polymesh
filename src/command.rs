@@ -94,14 +94,14 @@ pub fn run() -> Result<()> {
 
             if chain_spec.is_aldebaran_network() {
                 runtime.run_node(
-                    |config| service::aldebaran_new_light(config),
-                    |config| service::aldebaran_new_full(config),
+                    service::aldebaran_new_light,
+                    service::aldebaran_new_full,
                     service::AldebaranExecutor::native_version().runtime_version,
                 )
             } else {
                 runtime.run_node(
-                    |config| service::general_new_light(config),
-                    |config| service::general_new_full(config),
+                    service::general_new_light,
+                    service::general_new_full,
                     service::GeneralExecutor::native_version().runtime_version,
                 )
             }

@@ -14,7 +14,6 @@ pub use polymesh_runtime_testnet_v1;
 use prometheus_endpoint::Registry;
 pub use sc_client_api::backend::Backend;
 pub use sc_consensus::LongestChain;
-use sc_consensus_babe;
 use sc_executor::native_executor_instance;
 pub use sc_executor::{NativeExecutionDispatch, NativeExecutor};
 pub use sc_service::{
