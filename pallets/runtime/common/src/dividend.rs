@@ -112,7 +112,7 @@ decl_module! {
         fn deposit_event() = default;
 
         /// Creates a new dividend entry without payout. Token must have at least one checkpoint.
-        #[weight = 800_000_000]
+        #[weight = 2_000_000_000]
         pub fn new(origin,
             amount: T::Balance,
             ticker: Ticker,
@@ -242,7 +242,7 @@ decl_module! {
 
         /// Withdraws from a dividend the adequate share of the `amount` field. All dividend shares
         /// are rounded by truncation (down to first integer below)
-        #[weight = 600_000_000]
+        #[weight = 1_000_000_000]
         pub fn claim(origin, ticker: Ticker, dividend_id: u32) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             let did = Context::current_identity_or::<Identity<T>>(&sender)?;
@@ -316,7 +316,7 @@ decl_module! {
         }
 
         /// After a dividend had expired, collect the remaining amount to owner address
-        #[weight = 600_000_000]
+        #[weight = 900_000_000]
         pub fn claim_unclaimed(origin, ticker: Ticker, dividend_id: u32) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             let did = Context::current_identity_or::<Identity<T>>(&sender)?;

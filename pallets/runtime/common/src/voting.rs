@@ -204,7 +204,7 @@ decl_module! {
         /// * `ticker` - Ticker of the token for which vote is to be cast
         /// * `ballot_name` - Name of the ballot
         /// * `votes` - The actual vote to be cast
-        #[weight = 300_000_000]
+        #[weight = 600_000_000]
         pub fn vote(origin, ticker: Ticker, ballot_name: Vec<u8>, votes: Vec<T::Balance>) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             let did = Context::current_identity_or::<Identity<T>>(&sender)?;
@@ -275,7 +275,7 @@ decl_module! {
         /// # Arguments
         /// * `ticker` - Ticker of the token for which ballot is to be cancelled
         /// * `ballot_name` - Name of the ballot
-        #[weight = 200_000_000]
+        #[weight = 500_000_000]
         pub fn cancel_ballot(origin, ticker: Ticker, ballot_name: Vec<u8>) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             let did = Context::current_identity_or::<Identity<T>>(&sender)?;

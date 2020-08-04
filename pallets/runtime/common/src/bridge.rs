@@ -407,7 +407,7 @@ decl_module! {
         }
 
         /// Changes the controller account as admin.
-        #[weight = (200_000_000, DispatchClass::Operational, Pays::Yes)]
+        #[weight = (300_000_000, DispatchClass::Operational, Pays::Yes)]
         pub fn change_controller(origin, controller: T::AccountId) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             ensure!(sender == Self::admin(), Error::<T>::BadAdmin);
@@ -418,7 +418,7 @@ decl_module! {
         }
 
         /// Changes the bridge admin key.
-        #[weight = (200_000_000, DispatchClass::Operational, Pays::Yes)]
+        #[weight = (300_000_000, DispatchClass::Operational, Pays::Yes)]
         pub fn change_admin(origin, admin: T::AccountId) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             ensure!(sender == Self::admin(), Error::<T>::BadAdmin);
@@ -429,7 +429,7 @@ decl_module! {
         }
 
         /// Changes the timelock period.
-        #[weight = (200_000_000, DispatchClass::Operational, Pays::Yes)]
+        #[weight = (300_000_000, DispatchClass::Operational, Pays::Yes)]
         pub fn change_timelock(origin, timelock: T::BlockNumber) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             ensure!(sender == Self::admin(), Error::<T>::BadAdmin);
@@ -441,7 +441,7 @@ decl_module! {
 
         /// Freezes transaction handling in the bridge module if it is not already frozen. When the
         /// bridge is frozen, attempted transactions get postponed instead of getting handled.
-        #[weight = (200_000_000, DispatchClass::Operational, Pays::Yes)]
+        #[weight = (300_000_000, DispatchClass::Operational, Pays::Yes)]
         pub fn freeze(origin) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             let current_did = Context::current_identity_or::<Identity<T>>(&sender)?;
@@ -453,7 +453,7 @@ decl_module! {
         }
 
         /// Unfreezes transaction handling in the bridge module if it is frozen.
-        #[weight = (200_000_000, DispatchClass::Operational, Pays::Yes)]
+        #[weight = (300_000_000, DispatchClass::Operational, Pays::Yes)]
         pub fn unfreeze(origin) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             let current_did = Context::current_identity_or::<Identity<T>>(&sender)?;
@@ -465,7 +465,7 @@ decl_module! {
         }
 
         /// Changes the bridge limits.
-        #[weight = (200_000_000, DispatchClass::Operational, Pays::Yes)]
+        #[weight = (500_000_000, DispatchClass::Operational, Pays::Yes)]
         pub fn change_bridge_limit(origin, amount: T::Balance, duration: T::BlockNumber) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             let current_did = Context::current_identity_or::<Identity<T>>(&sender)?;
@@ -476,7 +476,7 @@ decl_module! {
         }
 
         /// Changes the bridge limit exempted list.
-        #[weight = (200_000_000, DispatchClass::Operational, Pays::Yes)]
+        #[weight = (500_000_000, DispatchClass::Operational, Pays::Yes)]
         pub fn change_bridge_exempted(origin, exempted: Vec<(IdentityId, bool)>) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             let current_did = Context::current_identity_or::<Identity<T>>(&sender)?;

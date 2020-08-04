@@ -216,7 +216,7 @@ decl_module! {
         /// * `ticker` Ticker of the token
         /// * `sto_id` A unique identifier to know which STO investor wants to invest in
         /// * `value` Amount of POLYX wants to invest in
-        #[weight = 500_000_000]
+        #[weight = 900_000_000]
         pub fn buy_tokens(origin, ticker: Ticker, sto_id: u32, value: T::Balance) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             let did = Context::current_identity_or::<Identity<T>>(&sender)?;
@@ -280,7 +280,7 @@ decl_module! {
         /// * `origin` Signing key of the token owner
         /// * `ticker` Ticker of the token
         /// * `sto_id` A unique identifier to know which STO needs to paused
-        #[weight = 100_000_000]
+        #[weight = 500_000_000]
         pub fn pause_sto(origin, ticker: Ticker, sto_id: u32) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             let did = Context::current_identity_or::<Identity<T>>(&sender)?;
@@ -311,7 +311,7 @@ decl_module! {
         /// * `origin` Signing key of the token owner
         /// * `ticker` Ticker of the token
         /// * `sto_id` A unique identifier to know which STO needs to un paused
-        #[weight = 100_000_000]
+        #[weight = 500_000_000]
         pub fn unpause_sto(origin, ticker: Ticker, sto_id: u32) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             let did = Context::current_identity_or::<Identity<T>>(&sender)?;

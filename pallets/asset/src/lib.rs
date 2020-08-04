@@ -530,7 +530,7 @@ decl_module! {
         /// # Arguments
         /// * `origin` - the signing key of the sender.
         /// * `ticker` - the ticker of the token.
-        #[weight = T::DbWeight::get().reads_writes(4, 1) + 100_000_000]
+        #[weight = T::DbWeight::get().reads_writes(4, 1) + 300_000_000]
         pub fn freeze(origin, ticker: Ticker) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             let sender_did = Context::current_identity_or::<Identity<T>>(&sender)?;
@@ -550,7 +550,7 @@ decl_module! {
         /// # Arguments
         /// * `origin` - the signing key of the sender.
         /// * `ticker` - the ticker of the frozen token.
-        #[weight = T::DbWeight::get().reads_writes(4, 1) + 100_000_000]
+        #[weight = T::DbWeight::get().reads_writes(4, 1) + 300_000_000]
         pub fn unfreeze(origin, ticker: Ticker) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             let sender_did = Context::current_identity_or::<Identity<T>>(&sender)?;
@@ -571,7 +571,7 @@ decl_module! {
         /// * `origin` - the signing key of the sender.
         /// * `ticker` - the ticker of the token.
         /// * `name` - the new name of the token.
-        #[weight = T::DbWeight::get().reads_writes(2, 1) + 100_000_000]
+        #[weight = T::DbWeight::get().reads_writes(2, 1) + 300_000_000]
         pub fn rename_asset(origin, ticker: Ticker, name: AssetName) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             let sender_did = Context::current_identity_or::<Identity<T>>(&sender)?;
@@ -698,7 +698,7 @@ decl_module! {
         /// # Arguments
         /// * `origin` Signing key of the token owner. (Only token owner can call this function).
         /// * `ticker` Ticker of the token.
-        #[weight = T::DbWeight::get().reads_writes(3, 2) + 100_000_000]
+        #[weight = T::DbWeight::get().reads_writes(3, 2) + 400_000_000]
         pub fn create_checkpoint(origin, ticker: Ticker) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             let did = Context::current_identity_or::<Identity<T>>(&sender)?;
@@ -736,7 +736,7 @@ decl_module! {
         /// * `values` Array of the Amount of tokens that get issued.
         ///
         /// # Weight
-        /// `800_000_000 + 400_000 * issue_asset_items.len().max(values.len())`
+        /// `800_000_000 + 900_000 * issue_asset_items.len().max(values.len())`
         #[weight =
             T::DbWeight::get().reads_writes(6, 3) + 800_000_000 + 900_000 * u64::try_from(issue_asset_items.len()).unwrap_or_default()
         ]
@@ -1086,8 +1086,8 @@ decl_module! {
         /// * `documents` Documents to be attached to `ticker`.
         ///
         /// # Weight
-        /// `500_000_000 + 60_000 * documents.len()`
-        #[weight = T::DbWeight::get().reads_writes(2, 1) + 500_000_000 + 60_000 * u64::try_from(documents.len()).unwrap_or_default()]
+        /// `500_000_000 + 600_000 * documents.len()`
+        #[weight = T::DbWeight::get().reads_writes(2, 1) + 500_000_000 + 600_000 * u64::try_from(documents.len()).unwrap_or_default()]
         pub fn batch_add_document(origin, documents: Vec<(DocumentName, Document)>, ticker: Ticker) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             let did = Context::current_identity_or::<Identity<T>>(&sender)?;
@@ -1115,8 +1115,8 @@ decl_module! {
         /// * `doc_names` Documents to be removed from `ticker`.
         ///
         /// # Weight
-        /// `500_000_000 + 60_000 * do_ids.len()`
-        #[weight = T::DbWeight::get().reads_writes(2, 1) + 500_000_000 + 60_000 * u64::try_from(doc_names.len()).unwrap_or_default()]
+        /// `500_000_000 + 600_000 * do_ids.len()`
+        #[weight = T::DbWeight::get().reads_writes(2, 1) + 500_000_000 + 600_000 * u64::try_from(doc_names.len()).unwrap_or_default()]
         pub fn batch_remove_document(origin, doc_names: Vec<DocumentName>, ticker: Ticker) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             let did = Context::current_identity_or::<Identity<T>>(&sender)?;

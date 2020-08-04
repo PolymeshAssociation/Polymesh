@@ -683,7 +683,7 @@ decl_module! {
 
         // TODO: Remove before mainnet launch.
         /// Emits an event with caller's identity.
-        #[weight = 500_000]
+        #[weight = 80_000_000]
         pub fn get_my_did(origin) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             let did = Context::current_identity_or::<Self>(&sender)?;
@@ -694,7 +694,7 @@ decl_module! {
 
         // TODO: Remove before mainnet launch.
         /// Emits an event with caller's identity and CDD status.
-        #[weight =800_000]
+        #[weight = 80_000_000]
         pub fn get_cdd_of(_origin, of: T::AccountId) -> DispatchResult {
             let did_opt = Self::get_identity(&of);
             let has_cdd = did_opt.iter()
