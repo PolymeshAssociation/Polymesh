@@ -413,7 +413,7 @@ decl_module! {
                 Error::<T>::NotEnoughSigners
             );
             ensure!(Self::is_changing_signers_allowed(&sender), Error::<T>::ChangeNotAllowed);
-            <NumberOfSigners<T>>::mutate(&sender, |x| *x = *x - 1u64);
+            <NumberOfSigners<T>>::mutate(&sender, |x| *x -= 1u64);
             Self::unsafe_signer_removal(sender, signer);
             Ok(())
         }
@@ -475,7 +475,7 @@ decl_module! {
                 Self::unsafe_signer_removal(multisig.clone(), signer);
             }
 
-            <NumberOfSigners<T>>::mutate(&multisig, |x| *x = *x - signers_len);
+            <NumberOfSigners<T>>::mutate(&multisig, |x| *x -= signers_len);
 
             Ok(())
         }
@@ -521,7 +521,7 @@ decl_module! {
             ensure!(<MultiSigToIdentity<T>>::contains_key(&sender), Error::<T>::NoSuchMultisig);
             // The creator is always the authorising agent for multisig issued authorisations
             let authorising_did = <MultiSigToIdentity<T>>::get(&sender);
-            ensure!(signers.len() > 0, Error::<T>::NoSigners);
+            ensure!(!signers.is_empty(), Error::<T>::NoSigners);
             ensure!(u64::try_from(signers.len()).unwrap_or_default() >= sigs_required && sigs_required > 0,
                 Error::<T>::RequiredSignaturesOutOfBounds
             );
@@ -547,7 +547,7 @@ decl_module! {
                     Self::unsafe_add_auth_for_signers(authorising_did, signer, sender.clone())
                 });
             // Change the no. of signers for a multisig
-            <NumberOfSigners<T>>::mutate(&sender, |x| *x = *x - u64::try_from(old_signers.len()).unwrap_or_default());
+            <NumberOfSigners<T>>::mutate(&sender, |x| *x -= u64::try_from(old_signers.len()).unwrap_or_default());
             // Change the required signature count
             Self::unsafe_change_sigs_required(sender, sigs_required);
 
@@ -745,7 +745,7 @@ impl<T: Trait> Module<T> {
             Self::get_multisig_address(sender, new_nonce).map_err(|_| Error::<T>::DecodingError)?;
         for signer in signers {
             <Identity<T>>::add_auth(
-                sender_did.clone(),
+                sender_did,
                 signer.clone(),
                 AuthorizationData::AddMultiSigSigner(account_id.clone()),
                 None,
@@ -1036,8 +1036,8 @@ impl<T: Trait> Module<T> {
         }
         Self::deposit_event(RawEvent::MultiSigSignerAdded(
             ms_identity,
-            multisig.clone(),
-            signer.clone(),
+            multisig,
+            signer,
         ));
         Ok(())
     }
@@ -1099,7 +1099,7 @@ impl<T: Trait> MultiSigSubTrait<T::AccountId> for Module<T> {
         <MultiSigSigners<T>>::iter_prefix_values(multisig)
             .filter_map(|signer| {
                 if let Signatory::Account(key) = signer {
-                    Some(key.clone())
+                    Some(key)
                 } else {
                     None
                 }

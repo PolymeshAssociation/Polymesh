@@ -223,7 +223,7 @@ decl_module! {
             }
             let get_portfolio_id = |num: Option<PortfolioNumber>| {
                 num
-                    .and_then(|num| Some(PortfolioId::user_portfolio(did, num)))
+                    .map(|num| PortfolioId::user_portfolio(did, num))
                     .unwrap_or_else(|| PortfolioId::default_portfolio(did))
             };
             let from_portfolio_id = get_portfolio_id(from_num);

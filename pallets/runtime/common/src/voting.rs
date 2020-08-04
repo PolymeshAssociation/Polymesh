@@ -296,8 +296,8 @@ decl_module! {
 
             // Clearing results
             <Results<T>>::mutate(&ticker_ballot_name, |results| {
-                for i in 0..results.len() {
-                    results[i] = 0.into();
+                for result in results.iter_mut() {
+                    *result = 0.into();
                 }
             });
 

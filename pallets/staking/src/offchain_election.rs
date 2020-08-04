@@ -185,7 +185,7 @@ where
             // Don't run balance_solution at all
             0
         }
-        iterations @ _ => {
+        iterations => {
             let seed = sp_io::offchain::random_seed();
             let iterations = <u32>::decode(&mut TrailingZeroInput::new(seed.as_ref()))
                 .expect("input is padded with zeroes; qed")
@@ -206,7 +206,7 @@ where
 
     // Convert back to ratio assignment. This takes less space.
     let low_accuracy_assignment = sp_npos_elections::assignment_staked_to_ratio_normalized(staked)
-        .map_err(|e| OffchainElectionError::from(e))?;
+        .map_err(OffchainElectionError::from)?;
 
     // convert back to staked to compute the score in the receiver's accuracy. This can be done
     // nicer, for now we do it as such since this code is not time-critical. This ensure that the
@@ -232,7 +232,7 @@ where
         nominator_index,
         validator_index,
     )
-    .map_err(|e| OffchainElectionError::from(e))?;
+    .map_err(OffchainElectionError::from)?;
 
     // winners to index. Use a simple for loop for a more expressive early exit in case of error.
     let mut winners_indexed: Vec<ValidatorIndex> = Vec::with_capacity(winners.len());
