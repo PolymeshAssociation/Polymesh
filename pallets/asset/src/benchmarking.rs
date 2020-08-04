@@ -103,7 +103,7 @@ benchmarks! {
         let ticker = Ticker::try_from(
             vec![b'A'; MAX_TICKER_LENGTH as usize].as_slice()
         ).unwrap();
-        Module::<T>::register_ticker(alice_origin.clone().into(), ticker).unwrap();
+        Module::<T>::register_ticker(alice_origin.into(), ticker).unwrap();
         let bob_auth_id = identity::Module::<T>::add_auth(
             alice_did,
             Signatory::from(bob_did),
@@ -123,7 +123,7 @@ benchmarks! {
         let ticker = Ticker::try_from(
             vec![b'A'; MAX_TICKER_LENGTH as usize].as_slice()
         ).unwrap();
-        Module::<T>::register_ticker(alice_origin.clone().into(), ticker).unwrap();
+        Module::<T>::register_ticker(alice_origin.into(), ticker).unwrap();
         let bob_auth_id = identity::Module::<T>::add_auth(
             alice_did,
             Signatory::from(bob_did),

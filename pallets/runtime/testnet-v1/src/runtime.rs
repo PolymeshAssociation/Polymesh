@@ -202,7 +202,7 @@ impl pallet_babe::Trait for Runtime {
 }
 
 parameter_types! {
-    pub const IndexDeposit: Balance = 1 * DOLLARS;
+    pub const IndexDeposit: Balance = DOLLARS;
 }
 
 impl pallet_indices::Trait for Runtime {
@@ -405,8 +405,8 @@ impl pallet_pips::Trait for Runtime {
 }
 
 parameter_types! {
-    pub const TombstoneDeposit: Balance = 1 * DOLLARS;
-    pub const RentByteFee: Balance = 1 * DOLLARS;
+    pub const TombstoneDeposit: Balance = DOLLARS;
+    pub const RentByteFee: Balance = DOLLARS;
     pub const RentDepositOffset: Balance = 300 * DOLLARS;
     pub const SurchargeReward: Balance = 150 * DOLLARS;
 }
@@ -470,7 +470,7 @@ where
         let signature = raw_payload.using_encoded(|payload| C::sign(payload, public))?;
         let address = Indices::unlookup(account);
         let (call, extra, _) = raw_payload.deconstruct();
-        Some((call, (address, signature.into(), extra)))
+        Some((call, (address, signature, extra)))
     }
 }
 
@@ -900,7 +900,7 @@ impl_runtime_apis! {
             input_data: Vec<u8>,
         ) -> ContractExecResult {
             let exec_result =
-                Contracts::bare_call(origin, dest.into(), value, gas_limit, input_data);
+                Contracts::bare_call(origin, dest, value, gas_limit, input_data);
             match exec_result {
                 Ok(v) => ContractExecResult::Success {
                     status: v.status,

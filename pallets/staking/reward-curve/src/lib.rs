@@ -62,14 +62,14 @@ use syn::parse::{Parse, ParseStream};
 /// use sp_runtime::curve::PiecewiseLinear;
 ///
 /// pallet_staking_reward_curve::build! {
-/// 	const I_NPOS: PiecewiseLinear<'static> = curve!(
-/// 		min_inflation: 0_025_000,
-/// 		max_inflation: 0_100_000,
-/// 		ideal_stake: 0_500_000,
-/// 		falloff: 0_050_000,
-/// 		max_piece_count: 40,
-/// 		test_precision: 0_005_000,
-/// 	);
+///     const I_NPOS: PiecewiseLinear<'static> = curve!(
+///         min_inflation: 25_000,
+///         max_inflation: 100_000,
+///         ideal_stake: 500_000,
+///         falloff: 50_000,
+///         max_piece_count: 40,
+///         test_precision: 5_000,
+///     );
 /// }
 /// ```
 #[proc_macro]
@@ -220,9 +220,9 @@ impl Parse for INposInput {
         let ideal_stake = parse_field::<keyword::ideal_stake>(
             &args_input,
             Bounds {
-                min: 0_100_000,
+                min: 100_000,
                 min_strict: false,
-                max: 0_900_000,
+                max: 900_000,
                 max_strict: false,
             },
         )?;
@@ -230,7 +230,7 @@ impl Parse for INposInput {
         let falloff = parse_field::<keyword::falloff>(
             &args_input,
             Bounds {
-                min: 0_010_000,
+                min: 10_000,
                 min_strict: false,
                 max: 1_000_000,
                 max_strict: false,
@@ -473,5 +473,5 @@ fn generate_test_module(input: &INposInput) -> TokenStream2 {
 				);
 			}
 		}
-	).into()
+	)
 }

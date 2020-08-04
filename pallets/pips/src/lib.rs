@@ -576,10 +576,10 @@ decl_module! {
             let proposal_metadata = PipsMetadata {
                 proposer: proposer.clone(),
                 id,
-                end: end.clone(),
+                end: end,
                 url: url.clone(),
                 description: description.clone(),
-                cool_off_until: cool_off_until.clone(),
+                cool_off_until: cool_off_until,
             };
             <ProposalsMaturingAt<T>>::append(end, id);
             <ProposalMetadata<T>>::insert(id, proposal_metadata);

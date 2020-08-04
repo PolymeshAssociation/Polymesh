@@ -250,7 +250,7 @@ decl_module! {
             ensure!(d > 0 && n <= d, Error::<T, I>::InvalidProportion);
             <VoteThreshold<I>>::put((n, d));
             let current_did = Context::current_identity::<Identity<T>>()
-                .unwrap_or(SystematicIssuers::Committee.as_id());
+                .unwrap_or_else(|| SystematicIssuers::Committee.as_id());
             Self::deposit_event(RawEvent::VoteThresholdUpdated(current_did, n, d));
         }
 
@@ -318,7 +318,7 @@ decl_module! {
             ensure!( Self::members().contains(&id), Error::<T, I>::MemberNotFound);
             <ReleaseCoordinator<I>>::put(id);
             let current_did = Context::current_identity::<Identity<T>>()
-                .unwrap_or(SystematicIssuers::Committee.as_id());
+                .unwrap_or_else(|| SystematicIssuers::Committee.as_id());
             Self::deposit_event(RawEvent::ReleaseCoordinatorUpdated(current_did, Some(id)));
         }
 
@@ -373,7 +373,7 @@ impl<T: Trait<I>, I: Instance> Module<T, I> {
             is_id_removed = if let Some(idx) = voting.ayes.iter().position(|a| *a == id) {
                 Self::deposit_event(RawEvent::VoteRetracted(
                     id,
-                    voting.index.clone(),
+                    voting.index,
                     proposal,
                     true,
                 ));
@@ -381,7 +381,7 @@ impl<T: Trait<I>, I: Instance> Module<T, I> {
             } else if let Some(idx) = voting.nays.iter().position(|a| *a == id) {
                 Self::deposit_event(RawEvent::VoteRetracted(
                     id,
-                    voting.index.clone(),
+                    voting.index,
                     proposal,
                     false,
                 ));
@@ -495,7 +495,7 @@ impl<T: Trait<I>, I: Instance> Module<T, I> {
         F: Fn() -> (<T as Trait<I>>::Proposal, <T as Trait<I>>::Proposal),
     {
         // Only committee members can use this function.
-        let who = ensure_signed(origin.clone())?;
+        let who = ensure_signed(origin)?;
         let who_id = Context::current_identity_or::<Identity<T>>(&who)?;
         ensure!(Self::is_member(&who_id), Error::<T, I>::BadOrigin);
 
@@ -559,7 +559,7 @@ impl<T: Trait<I>, I: Instance> Module<T, I> {
                 index,
                 ayes: vec![did],
                 nays: vec![],
-                end: end,
+                end,
             };
             <Voting<T, I>>::insert(proposal_hash, votes);
 
@@ -592,14 +592,14 @@ impl<T: Trait<I>, I: Instance> Module<T, I> {
 
         if approve {
             ensure!(position_yes.is_none(), Error::<T, I>::DuplicateVote);
-            voting.ayes.push(did.clone());
+            voting.ayes.push(did);
 
             if let Some(pos) = position_no {
                 voting.nays.swap_remove(pos);
             }
         } else {
             ensure!(position_no.is_none(), Error::<T, I>::DuplicateVote);
-            voting.nays.push(did.clone());
+            voting.nays.push(did);
 
             if let Some(pos) = position_yes {
                 voting.ayes.swap_remove(pos);
@@ -660,9 +660,7 @@ impl<T: Trait<I>, I: Instance> ChangeMembers<IdentityId> for Module<T, I> {
         Self::proposals()
             .into_iter()
             .filter(|proposal| {
-                outgoing.iter().fold(false, |acc, id| {
-                    acc || Self::remove_vote_from(*id, *proposal)
-                })
+                outgoing.iter().any(|id| Self::remove_vote_from(*id, *proposal))
             })
             .for_each(Self::check_proposal_threshold);
 
