@@ -14,6 +14,7 @@ resources:
       repository: polymathnetwork/Polymesh
       access_token: ((github-concourse-access-token))
       base_branch: develop
+      disable_forks: true
   - name: s3-polymesh
     type: s3
     source:
