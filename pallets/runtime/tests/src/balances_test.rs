@@ -39,8 +39,8 @@ pub fn info_from_weight(w: Weight) -> DispatchInfo {
 #[ignore]
 fn signed_extension_charge_transaction_payment_work() {
     ExtBuilder::default()
-        .existential_deposit(10)
-        .transaction_fees(10, 1, 5)
+        .balance_factor(10)
+        .transaction_fees(0, 1, 5)
         .monied(true)
         .build()
         .execute_with(|| {
@@ -78,8 +78,8 @@ fn signed_extension_charge_transaction_payment_work() {
 #[test]
 fn tipping_fails() {
     ExtBuilder::default()
-        .existential_deposit(10)
-        .transaction_fees(10, 1, 5)
+        .balance_factor(10)
+        .transaction_fees(0, 1, 5)
         .monied(true)
         .build()
         .execute_with(|| {
@@ -241,8 +241,8 @@ fn burn_account_balance_works() {
 #[ignore]
 fn should_charge_identity() {
     ExtBuilder::default()
-        .existential_deposit(10)
-        .transaction_fees(10, 1, 5)
+        .balance_factor(10)
+        .transaction_fees(0, 1, 5)
         .monied(true)
         .build()
         .execute_with(|| {
@@ -311,7 +311,7 @@ fn should_charge_identity() {
 #[test]
 fn transfer_with_memo() {
     ExtBuilder::default()
-        .existential_deposit(1_000)
+        .balance_factor(1_000)
         .monied(true)
         .cdd_providers(vec![AccountKeyring::Ferdie.public()])
         .build()
@@ -390,7 +390,7 @@ fn transfer_with_memo_we() {
 #[test]
 fn check_top_up_identity_balance() {
     ExtBuilder::default()
-        .existential_deposit(0)
+        .balance_factor(0)
         .monied(true)
         .cdd_providers(vec![AccountKeyring::Ferdie.public()])
         .build()
