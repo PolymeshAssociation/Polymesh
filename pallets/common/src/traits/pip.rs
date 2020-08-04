@@ -31,7 +31,7 @@ pub enum SnapshotResult {
 }
 
 /// Utility maker used to link `Call` type, defined at `Runtime` level, from inside any module.
-pub trait EnactProposalMaker<Origin, Call> {
+pub trait PipsCommitteeBridge<Call> {
     fn approve_committee_proposal(id: PipId) -> Call;
     fn reject_proposal(id: PipId) -> Call;
     fn prune_proposal(id: PipId) -> Call;

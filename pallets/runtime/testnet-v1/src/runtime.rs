@@ -28,7 +28,7 @@ use polymesh_common_utilities::{
     traits::{
         balances::AccountData,
         identity::Trait as IdentityTrait,
-        pip::{EnactProposalMaker, PipId},
+        pip::{PipId, PipsCommitteeBridge},
     },
     CommonTrait,
 };
@@ -397,7 +397,7 @@ type GovernanceCommittee = committee::Instance1;
 impl committee::Trait<GovernanceCommittee> for Runtime {
     type Origin = Origin;
     type Proposal = Call;
-    type CommitteeOrigin = frame_system::EnsureRoot<AccountId>;
+    type CommitteeOrigin = VMO<GovernanceCommittee>;
     type Event = Event;
     type MotionDuration = MotionDuration;
     type EnactProposalMaker = Runtime;
@@ -703,7 +703,7 @@ impl pallet_utility::Trait for Runtime {
     type Call = Call;
 }
 
-impl EnactProposalMaker<Origin, Call> for Runtime {
+impl PipsCommitteeBridge<Call> for Runtime {
     fn approve_committee_proposal(id: PipId) -> Call {
         Call::Pips(pallet_pips::Call::approve_committee_proposal(id))
     }
