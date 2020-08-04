@@ -44,6 +44,7 @@ jobs:
       - get: githubpr-polymesh
         params:
           list_changed_files: true
+          submodules: true
         trigger: true
         version: every
       - put: githubpr-polymesh
