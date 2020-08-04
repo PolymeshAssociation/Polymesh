@@ -68,7 +68,7 @@ use polymesh_common_utilities::{
     governance_group::GovernanceGroupTrait,
     group::{GroupTrait, InactiveMember},
     identity::{IdentityTrait, Trait as IdentityModuleTrait},
-    pip::{EnactProposalMaker, PipId, SnapshotResult},
+    pip::{PipId, PipsCommitteeBridge, SnapshotResult},
     Context, SystematicIssuers,
 };
 use polymesh_primitives::IdentityId;
@@ -95,13 +95,14 @@ pub trait Trait<I>: frame_system::Trait + IdentityModuleTrait {
 
     /// The outer event type.
     type Event: From<Event<Self, I>> + Into<<Self as frame_system::Trait>::Event>;
+
     /// The time-out for council motions.
     type MotionDuration: Get<Self::BlockNumber>;
 
-    type EnactProposalMaker: EnactProposalMaker<
-        <Self as frame_system::Trait>::Origin,
-        <Self as Trait<I>>::Proposal,
-    >;
+    type PipsCommitteeBridge: PipsCommitteeBridge<<Self as Trait<I>>::Proposal>;
+
+    /// Bridge between `set_release_coordinator_vote` and `set_release_coordinator`.
+    fn set_release_coordinator(id: crate::IdentityId) -> <Self as Trait<I>>::Proposal;
 }
 
 /// Origin for the committee module.
@@ -189,6 +190,9 @@ decl_event!(
         /// Voting threshold has been updated
         /// Parameters: caller DID, numerator, denominator
         VoteThresholdUpdated(IdentityId, u32, u32),
+        /// Vote to set a new release coordinator.
+        /// Parameters: caller DID, new_release_coordinator id.
+        VoteSetReleaseCoordinator(IdentityId, IdentityId),
         /// Vote to approve a committee proposal.
         /// Parameters: caller DID, target Pip Id.
         VoteApproveCommitteeProposal(IdentityId, PipId),
@@ -307,19 +311,27 @@ decl_module! {
         /// # Errors
         /// * `MemberNotFound`, If the new coordinator `id` is not part of the committee.
         #[weight = (T::DbWeight::get().reads_writes(1, 1) + 200_000_000, Operational, Pays::Yes)]
-        pub fn set_release_coordinator(origin, id: IdentityId ) {
+        pub fn set_release_coordinator(origin, id: IdentityId) {
             T::CommitteeOrigin::ensure_origin(origin)?;
-            ensure!( Self::members().contains(&id), Error::<T, I>::MemberNotFound);
+            ensure!(Self::members().contains(&id), Error::<T, I>::MemberNotFound);
             <ReleaseCoordinator<I>>::put(id);
             let current_did = Context::current_identity::<Identity<T>>()
                 .unwrap_or_else(|| SystematicIssuers::Committee.as_id());
             Self::deposit_event(RawEvent::ReleaseCoordinatorUpdated(current_did, Some(id)));
         }
 
+        /// Vote on `set_release_coordinatior` (see its docs for more info).
+        #[weight = (5_000_000, Operational, Pays::Yes)]
+        pub fn set_release_coordinator_vote(origin, id: IdentityId) -> DispatchResult {
+            let did = Self::vote_or_propose(origin, T::set_release_coordinator(id))?;
+            Self::deposit_event(RawEvent::VoteSetReleaseCoordinator(did, id));
+            Ok(())
+        }
+
         /// Vote on `aprove_committee_proposal` (see its docs for more info).
         #[weight = (5_000_000, Operational, Pays::Yes)]
         pub fn approve_committee_proposal(origin, id: PipId) -> DispatchResult {
-            let did = Self::vote_or_propose(origin, T::EnactProposalMaker::approve_committee_proposal(id))?;
+            let did = Self::vote_or_propose(origin, T::PipsCommitteeBridge::approve_committee_proposal(id))?;
             Self::deposit_event(RawEvent::VoteApproveCommitteeProposal(did, id));
             Ok(())
         }
@@ -327,7 +339,7 @@ decl_module! {
         /// Vote on `reject_proposal` (see its docs for more info).
         #[weight = (5_000_000, Operational, Pays::Yes)]
         pub fn reject_proposal(origin, id: PipId) -> DispatchResult {
-            let did = Self::vote_or_propose(origin, T::EnactProposalMaker::reject_proposal(id))?;
+            let did = Self::vote_or_propose(origin, T::PipsCommitteeBridge::reject_proposal(id))?;
             Self::deposit_event(RawEvent::VoteRejectProposal(did, id));
             Ok(())
         }
@@ -335,7 +347,7 @@ decl_module! {
         /// Vote on `prune_proposal` (see its docs for more info).
         #[weight = (5_000_000, Operational, Pays::Yes)]
         pub fn prune_proposal(origin, id: PipId) -> DispatchResult {
-            let did = Self::vote_or_propose(origin, T::EnactProposalMaker::prune_proposal(id))?;
+            let did = Self::vote_or_propose(origin, T::PipsCommitteeBridge::prune_proposal(id))?;
             Self::deposit_event(RawEvent::VotePruneProposal(did, id));
             Ok(())
         }
@@ -343,7 +355,7 @@ decl_module! {
         /// Vote on `enact_snapshot_results` (see its docs for more info).
         #[weight = (5_000_000, Operational, Pays::Yes)]
         pub fn enact_snapshot_results(origin, res: Vec<(u8, SnapshotResult)>) -> DispatchResult {
-            let did = Self::vote_or_propose(origin, T::EnactProposalMaker::enact_snapshot_results(res.clone()))?;
+            let did = Self::vote_or_propose(origin, T::PipsCommitteeBridge::enact_snapshot_results(res.clone()))?;
             Self::deposit_event(RawEvent::VoteEnactSnapshotResults(did, res));
             Ok(())
         }

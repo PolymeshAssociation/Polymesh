@@ -31,7 +31,7 @@
 //! Any approved PIPs from this snapshot will then be scheduled,
 //! in order of signal value, to be executed automatically on the blockchain.
 //! However, using `reschedule_proposal`, a special Release Coordinator (RC), a member of the GC,
-//! can reschedule approved PIPs at will, except for a PIP to replace the RC. TODO(centril): make this a reality.
+//! can reschedule approved PIPs at will, except for a PIP to replace the RC.
 //! Once no longer relevant, the snapshot can be cleared by the GC through `clear_snapshot`.
 //!
 //! As aforementioned, the GC can skip a PIP, which will increments its "skipped count".

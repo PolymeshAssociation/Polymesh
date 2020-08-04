@@ -33,7 +33,7 @@ use polymesh_common_utilities::traits::{
     balances::AccountData,
     group::GroupTrait,
     identity::Trait as IdentityTrait,
-    pip::{EnactProposalMaker, PipId, SnapshotResult},
+    pip::{PipId, PipsCommitteeBridge, SnapshotResult},
     transaction_payment::{CddAndFeeDetails, ChargeTxFee},
     CommonTrait,
 };
@@ -85,6 +85,8 @@ impl_outer_dispatch! {
         asset::Asset,
         frame_system::System,
         pallet_utility::Utility,
+        self::Committee,
+        self::DefaultCommittee,
     }
 }
 
@@ -357,7 +359,10 @@ impl committee::Trait<committee::Instance1> for TestStorage {
     type CommitteeOrigin = frame_system::EnsureRoot<AccountId>;
     type Event = Event;
     type MotionDuration = MotionDuration;
-    type EnactProposalMaker = TestStorage;
+    type PipsCommitteeBridge = TestStorage;
+    fn set_release_coordinator(id: IdentityId) -> Call {
+        Call::Committee(pallet_committee::Call::set_release_coordinator(id))
+    }
 }
 
 impl committee::Trait<committee::DefaultInstance> for TestStorage {
@@ -366,7 +371,10 @@ impl committee::Trait<committee::DefaultInstance> for TestStorage {
     type CommitteeOrigin = frame_system::EnsureRoot<AccountId>;
     type Event = Event;
     type MotionDuration = MotionDuration;
-    type EnactProposalMaker = TestStorage;
+    type PipsCommitteeBridge = TestStorage;
+    fn set_release_coordinator(id: IdentityId) -> Call {
+        Call::DefaultCommittee(pallet_committee::Call::set_release_coordinator(id))
+    }
 }
 
 impl IdentityTrait for TestStorage {
@@ -559,7 +567,7 @@ impl pallet_utility::Trait for TestStorage {
     type Call = Call;
 }
 
-impl EnactProposalMaker<Origin, Call> for TestStorage {
+impl PipsCommitteeBridge<Call> for TestStorage {
     fn approve_committee_proposal(id: PipId) -> Call {
         Call::Pips(pallet_pips::Call::approve_committee_proposal(id))
     }
@@ -590,6 +598,7 @@ pub type Bridge = bridge::Module<TestStorage>;
 pub type GovernanceCommittee = group::Module<TestStorage, group::Instance1>;
 pub type CddServiceProvider = group::Module<TestStorage, group::Instance2>;
 pub type Committee = committee::Module<TestStorage, committee::Instance1>;
+pub type DefaultCommittee = committee::Module<TestStorage, committee::DefaultInstance>;
 pub type Utility = pallet_utility::Module<TestStorage>;
 pub type System = frame_system::Module<TestStorage>;
 pub type Portfolio = portfolio::Module<TestStorage>;
