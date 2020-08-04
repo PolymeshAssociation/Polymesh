@@ -1362,11 +1362,11 @@ impl<T: Trait> Module<T> {
                     .ok_or_else(|| Error::<T>::StakeAmountOfVotesExceeded)?;
             }
             Vote::No(deposit) => {
-                stats.nays_count += stats
+                stats.nays_count = stats
                     .nays_count
                     .checked_add(1)
                     .ok_or_else(|| Error::<T>::NumberOfVotesExceeded)?;
-                stats.nays_stake += stats
+                stats.nays_stake = stats
                     .nays_stake
                     .checked_add(&deposit)
                     .ok_or_else(|| Error::<T>::StakeAmountOfVotesExceeded)?;
