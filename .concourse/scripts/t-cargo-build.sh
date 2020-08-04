@@ -11,8 +11,10 @@ SEMVER_DIR=$3
 SEMVER=$(cat $SEMVER_DIR/version)
 GIT_REF=""
 if [[ -f ${GIT_DIR}/.git/short_ref ]]; then
+    ## commit
     GIT_REF=$(cat ${GIT_DIR}/.git/short_ref)
 elif [[ -f "${GIT_DIR}/.git/resource/head_sha" ]]; then
+    ## Pull request
     GIT_REF=$(cat ${GIT_DIR}/.git/resource/head_sha)
 else
     echo "no reference for the polymesh version found"
@@ -21,6 +23,18 @@ fi
 
 pushd .
 cd $GIT_DIR
+
+# Fetch submodules.  Workaround for https://github.com/telia-oss/github-pr-resource/pull/200
+if [ -f "${GIT_DIR}/.git/resource/head_sha" ]; then
+    git submodule init
+    set +x
+    git config submodule.external/cryptography.url "https://${SUBMODULE_ACCESS_TOKEN}@github.com/PolymathNetwork/cryptography.git"
+    git config submodule.pallets/settlement.url    "https://${SUBMODULE_ACCESS_TOKEN}@github.com/PolymathNetwork/polymesh-settlement-module.git"
+    set -x
+    git submodule update pallets/settlement
+    git submodule update external/cryptography
+fi
+
 # Compile if any of the following conditions is met:
 #  - This is a branch merge, not a PR
 #  - This is a PR where the source minus exceptions changed

@@ -5,7 +5,6 @@ resource_types:
   type: docker-image
   source:
     repository: teliaoss/github-pr-resource
-    tag: dev
 
 resources:
   - name: githubpr-polymesh
@@ -45,7 +44,6 @@ jobs:
       - get: githubpr-polymesh
         params:
           list_changed_files: true
-          submodules: true
         trigger: true
         version: every
       - put: githubpr-polymesh
@@ -74,6 +72,8 @@ jobs:
                 path: bash
                 args: [".concourse/scripts/t-rustfmt-lint.sh"]
           - task: cargo-build
+            params:
+              SUBMODULE_ACCESS_TOKEN: ((github-concourse-access-token))
             config:
               inputs:
                 - name: githubpr-polymesh
