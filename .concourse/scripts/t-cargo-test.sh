@@ -20,12 +20,12 @@ if [ -f .git/resource/head_sha ]; then
 fi
 
 cargo test \
-  --package polymesh-runtime-common \
-  --package pallet-staking \
-  --package pallet-group \
-  --package polymesh-primitives \
   --package node-rpc-runtime-api \
-  --package pallet-transaction-payment \
   --package pallet-cdd-offchain-worker \
+  --package pallet-group \
+  --package pallet-staking \
+  --package pallet-transaction-payment \
+  --package polymesh-primitives \
+  --package polymesh-runtime-tests \
   --features default_identity \
 
