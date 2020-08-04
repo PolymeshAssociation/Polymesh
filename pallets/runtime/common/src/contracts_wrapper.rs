@@ -72,7 +72,7 @@ decl_module! {
         }
 
         // Simply forwards to the `put_code` function in the Contract module.
-        #[weight = 500_000 + 100_00 * u64::try_from(code.len()).unwrap_or_default()]
+        #[weight = 500_000 + 10_000 * u64::try_from(code.len()).unwrap_or_default()]
         pub fn put_code(
             origin,
             code: Vec<u8>
@@ -105,7 +105,7 @@ decl_module! {
         }
 
         // Simply forwards to the `instantiate` function in the Contract module.
-        #[weight = 500_000 + 100_00 * u64::try_from(data.len()).unwrap_or_default()]
+        #[weight = 500_000 + 10_000 * u64::try_from(data.len()).unwrap_or_default()]
         pub fn instantiate(
             origin,
             #[compact] endowment: BalanceOf<T>,
