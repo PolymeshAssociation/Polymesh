@@ -23,7 +23,6 @@ pub mod contracts_wrapper;
 pub mod dividend;
 pub mod exemption;
 pub mod impls;
-pub mod simple_token;
 pub mod sto_capped;
 pub mod voting;
 
