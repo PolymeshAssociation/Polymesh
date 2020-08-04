@@ -268,8 +268,8 @@ decl_module! {
                 ProtocolOp::ComplianceManagerAddActiveRule
             )?;
             let new_rule = AssetTransferRule {
-                sender_rules: sender_rules,
-                receiver_rules: receiver_rules,
+                sender_rules,
+                receiver_rules,
                 rule_id: Self::get_latest_rule_id(ticker) + 1u32
             };
 
@@ -463,7 +463,7 @@ decl_module! {
             if let Some(index) = asset_rules
                 .rules
                 .iter()
-                .position(|rule| &rule.rule_id == &new_asset_rule.rule_id)
+                .position(|rule| rule.rule_id == new_asset_rule.rule_id)
             {
                 asset_rules.rules[index] = new_asset_rule.clone();
                 Self::verify_rules_complexity(&asset_rules.rules, <TrustedClaimIssuer>::decode_len(ticker).unwrap_or_default())?;
@@ -499,9 +499,9 @@ decl_module! {
                 if let Some(index) = asset_rules
                     .rules
                     .iter()
-                    .position(|rule| &rule.rule_id == &new_asset_rule.rule_id)
+                    .position(|rule| rule.rule_id == new_asset_rule.rule_id)
                 {
-                    asset_rules.rules[index] = new_asset_rule.clone();
+                    asset_rules.rules[index] = new_asset_rule;
                     updated_rules.push(index);
                 }
             });
@@ -599,8 +599,8 @@ impl<T: Trait> Module<T> {
     }
 
     /// Loads the context for each rule in `rules` and verifies that all of them evaluate to `true`.
-    fn are_all_rules_satisfied(ticker: &Ticker, did: IdentityId, rules: &Vec<Rule>) -> bool {
-        rules.into_iter().all(|rule| {
+    fn are_all_rules_satisfied(ticker: &Ticker, did: IdentityId, rules: &[Rule]) -> bool {
+        rules.iter().all(|rule| {
             let context = Self::fetch_context(ticker, did, &rule);
             predicate::run(&rule, &context)
         })
@@ -679,7 +679,7 @@ impl<T: Trait> Module<T> {
             Error::<T>::DidNotExist
         );
         ensure!(
-            Self::trusted_claim_issuer(&ticker).contains(&trusted_issuer) == !is_add_call,
+            Self::trusted_claim_issuer(&ticker).contains(&trusted_issuer) != is_add_call,
             Error::<T>::IncorrectOperationOnTrustedIssuer
         );
         Self::unsafe_modify_default_trusted_claim_issuer(did, ticker, trusted_issuer, is_add_call);
@@ -695,7 +695,7 @@ impl<T: Trait> Module<T> {
         let sender = ensure_signed(origin)?;
         let did = Context::current_identity_or::<Identity<T>>(&sender)?;
 
-        ensure!(trusted_issuers.len() >= 1, Error::<T>::InvalidLength);
+        ensure!(!trusted_issuers.is_empty(), Error::<T>::InvalidLength);
         ensure!(Self::is_owner(&ticker, did), Error::<T>::Unauthorized);
         // Perform validity checks on the data set
         for trusted_issuer in trusted_issuers.iter() {
@@ -703,7 +703,7 @@ impl<T: Trait> Module<T> {
             // if is_add_call == true then trusted_claim_issuer should not exists.
             // if is_add_call == false then trusted_claim_issuer should exists.
             ensure!(
-                Self::trusted_claim_issuer(&ticker).contains(&trusted_issuer) == !is_add_call,
+                Self::trusted_claim_issuer(&ticker).contains(&trusted_issuer) != is_add_call,
                 Error::<T>::IncorrectOperationOnTrustedIssuer
             );
             // ensure whether the trusted issuer's did is register did or not
@@ -749,7 +749,7 @@ impl<T: Trait> Module<T> {
             (false, false)
         };
         let asset_rules = Self::asset_rules(ticker);
-        let no_rules = asset_rules.rules.len() == 0;
+        let no_rules = asset_rules.rules.is_empty();
         let mut asset_rules_with_results = AssetTransferRulesResult::from(asset_rules);
         // Check if either the sender or the receiver is the treasury DID as in the case of issuance
         // and credemption transactions.
@@ -787,7 +787,7 @@ impl<T: Trait> Module<T> {
     }
 
     fn verify_rules_complexity(
-        asset_rules: &Vec<AssetTransferRule>,
+        asset_rules: &[AssetTransferRule],
         default_issuer_count: usize,
     ) -> DispatchResult {
         let mut complexity = 0usize;
@@ -834,7 +834,7 @@ impl<T: Trait> ComplianceManagerTrait<T::Balance> for Module<T> {
         // DID, which covers issuance and redemption transactions.
         let asset_rules = Self::asset_rules(ticker);
         if asset_rules.is_paused
-            || (asset_rules.rules.len() == 0
+            || (asset_rules.rules.is_empty()
                 && ((from_did_opt == None && treasury_receiver)
                     || (treasury_sender && to_did_opt == None)))
         {
