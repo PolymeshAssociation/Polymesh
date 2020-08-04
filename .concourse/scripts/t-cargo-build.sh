@@ -5,9 +5,8 @@ set -x
 set -o pipefail
 
 GIT_DIR=$1
-CACHE_DIR=$2
-ARTIFACT_DIR=$3
-SEMVER_DIR=$4
+ARTIFACT_DIR=$2
+SEMVER_DIR=$3
 
 SEMVER=$(cat $SEMVER_DIR/version)
 GIT_REF=""
@@ -20,14 +19,6 @@ else
     exit 1
 fi
 
-# Prime the build cache directory
-mkdir -p "${CACHE_DIR}"
-if [ ! -f ".git/resource/changed_files" ] || grep -v '^.concourse\|^Dockerfile\|^scripts/cli' ".git/resource/changed_files" || [ ! -f "target/release/polymesh" ]; then
-    touch ${CACHE_DIR}/.new_binary
-else
-    rm -f ${CACHE_DIR}/.new_binary
-fi
-
 pushd .
 cd $GIT_DIR
 # Compile if any of the following conditions is met:
@@ -36,7 +27,7 @@ cd $GIT_DIR
 #  - The polymesh binary is missing
 if [ ! -f ".git/resource/changed_files" ] || grep -v '^.concourse\|^Dockerfile\|^scripts/cli' ".git/resource/changed_files" || [ ! -f "target/release/polymesh" ]; then
     rm -f target/release/polymesh
-    cargo +$TOOLCHAIN build --release || cargo build -j 1 --release
+    cargo +$TOOLCHAIN build --release
 fi
 popd
 
@@ -68,8 +59,4 @@ tag_file
 additional_tags.distroless
 additional_tags.debian
 EOF
-
-# Sync the cross-task build cache
-rsync -auv --size-only ${CARGO_HOME:-$HOME/.cargo}/ ${CACHE_DIR}/.cargo | grep -e "^total size" -B1 --color=never
-rsync -auv --size-only ${GIT_DIR}/target/           ${CACHE_DIR}/target | grep -e "^total size" -B1 --color=never
 
