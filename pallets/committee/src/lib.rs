@@ -54,6 +54,7 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
+use core::mem;
 use frame_support::{
     codec::{Decode, Encode},
     decl_error, decl_event, decl_module, decl_storage,
@@ -192,19 +193,19 @@ decl_event!(
         VoteThresholdUpdated(IdentityId, u32, u32),
         /// Vote to set a new release coordinator.
         /// Parameters: caller DID, new_release_coordinator id.
-        VoteSetReleaseCoordinator(IdentityId, IdentityId),
+        VoteSetReleaseCoordinator(IdentityId, bool, IdentityId),
         /// Vote to approve a committee proposal.
         /// Parameters: caller DID, target Pip Id.
-        VoteApproveCommitteeProposal(IdentityId, PipId),
+        VoteApproveCommitteeProposal(IdentityId, bool, PipId),
         /// Vote to reject a proposal.
         /// Parameters: caller DID, target Pip Id.
-        VoteRejectProposal(IdentityId, PipId),
+        VoteRejectProposal(IdentityId, bool, PipId),
         /// Vote to prune a proposal.
         /// Parameters: caller DID, target Pip Id.
-        VotePruneProposal(IdentityId, PipId),
+        VotePruneProposal(IdentityId, bool, PipId),
         /// Vote to enact snapshot results.
         /// Parameters: caller DID, results to enact.
-        VoteEnactSnapshotResults(IdentityId, Vec<(u8, SnapshotResult)>),
+        VoteEnactSnapshotResults(IdentityId, bool, Vec<(u8, SnapshotResult)>),
     }
 );
 
@@ -234,6 +235,10 @@ decl_error! {
         NotAllowed,
         /// The current DID is missing.
         MissingCurrentIdentity,
+        /// First vote on a proposal creates it, so it must be an approval.
+        /// All proposals are motions to execute something as "GC majority".
+        /// To reject e.g., a PIP, a motion to reject should be *approved*.
+        FirstVoteReject,
     }
 }
 
@@ -322,41 +327,41 @@ decl_module! {
 
         /// Vote on `set_release_coordinatior` (see its docs for more info).
         #[weight = (5_000_000, Operational, Pays::Yes)]
-        pub fn set_release_coordinator_vote(origin, id: IdentityId) -> DispatchResult {
-            let did = Self::vote_or_propose(origin, T::set_release_coordinator(id))?;
-            Self::deposit_event(RawEvent::VoteSetReleaseCoordinator(did, id));
+        pub fn set_release_coordinator_vote(origin, approve: bool, id: IdentityId) -> DispatchResult {
+            let did = Self::vote_or_propose(origin, approve, T::set_release_coordinator(id))?;
+            Self::deposit_event(RawEvent::VoteSetReleaseCoordinator(did, approve, id));
             Ok(())
         }
 
         /// Vote on `aprove_committee_proposal` (see its docs for more info).
         #[weight = (5_000_000, Operational, Pays::Yes)]
-        pub fn approve_committee_proposal(origin, id: PipId) -> DispatchResult {
-            let did = Self::vote_or_propose(origin, T::PipsCommitteeBridge::approve_committee_proposal(id))?;
-            Self::deposit_event(RawEvent::VoteApproveCommitteeProposal(did, id));
+        pub fn approve_committee_proposal(origin, approve: bool, id: PipId) -> DispatchResult {
+            let did = Self::vote_or_propose(origin, approve, T::PipsCommitteeBridge::approve_committee_proposal(id))?;
+            Self::deposit_event(RawEvent::VoteApproveCommitteeProposal(did, approve, id));
             Ok(())
         }
 
         /// Vote on `reject_proposal` (see its docs for more info).
         #[weight = (5_000_000, Operational, Pays::Yes)]
-        pub fn reject_proposal(origin, id: PipId) -> DispatchResult {
-            let did = Self::vote_or_propose(origin, T::PipsCommitteeBridge::reject_proposal(id))?;
-            Self::deposit_event(RawEvent::VoteRejectProposal(did, id));
+        pub fn reject_proposal(origin, approve: bool, id: PipId) -> DispatchResult {
+            let did = Self::vote_or_propose(origin, approve, T::PipsCommitteeBridge::reject_proposal(id))?;
+            Self::deposit_event(RawEvent::VoteRejectProposal(did, approve, id));
             Ok(())
         }
 
         /// Vote on `prune_proposal` (see its docs for more info).
         #[weight = (5_000_000, Operational, Pays::Yes)]
-        pub fn prune_proposal(origin, id: PipId) -> DispatchResult {
-            let did = Self::vote_or_propose(origin, T::PipsCommitteeBridge::prune_proposal(id))?;
-            Self::deposit_event(RawEvent::VotePruneProposal(did, id));
+        pub fn prune_proposal(origin, approve: bool, id: PipId) -> DispatchResult {
+            let did = Self::vote_or_propose(origin, approve, T::PipsCommitteeBridge::prune_proposal(id))?;
+            Self::deposit_event(RawEvent::VotePruneProposal(did, approve, id));
             Ok(())
         }
 
         /// Vote on `enact_snapshot_results` (see its docs for more info).
         #[weight = (5_000_000, Operational, Pays::Yes)]
-        pub fn enact_snapshot_results(origin, res: Vec<(u8, SnapshotResult)>) -> DispatchResult {
-            let did = Self::vote_or_propose(origin, T::PipsCommitteeBridge::enact_snapshot_results(res.clone()))?;
-            Self::deposit_event(RawEvent::VoteEnactSnapshotResults(did, res));
+        pub fn enact_snapshot_results(origin, approve: bool, res: Vec<(u8, SnapshotResult)>) -> DispatchResult {
+            let did = Self::vote_or_propose(origin, approve, T::PipsCommitteeBridge::enact_snapshot_results(res.clone()))?;
+            Self::deposit_event(RawEvent::VoteEnactSnapshotResults(did, approve, res));
             Ok(())
         }
     }
@@ -487,6 +492,7 @@ impl<T: Trait<I>, I: Instance> Module<T, I> {
 
     fn vote_or_propose(
         origin: <T as frame_system::Trait>::Origin,
+        approve: bool,
         call: <T as Trait<I>>::Proposal,
     ) -> Result<IdentityId, DispatchError> {
         // Only committee members can use this function.
@@ -497,8 +503,9 @@ impl<T: Trait<I>, I: Instance> Module<T, I> {
         // Either create a new proposal or vote on an existing one.
         let hash = T::Hashing::hash_of(&call);
         match Self::voting(hash) {
-            Some(voting) => Self::vote(who_id, hash, voting.index, true),
-            None => Self::propose(who_id, call),
+            Some(voting) => Self::vote(who_id, hash, voting.index, approve),
+            None if approve => Self::propose(who_id, call),
+            None => return Err(Error::<T, I>::FirstVoteReject.into()),
         }?;
 
         Ok(who_id)
@@ -524,8 +531,7 @@ impl<T: Trait<I>, I: Instance> Module<T, I> {
         if seats < 2 {
             Self::execute(did, proposal, proposal_hash, 1, seats);
         } else {
-            let index = Self::proposal_count();
-            <ProposalCount<I>>::mutate(|i| *i += 1);
+            let index = <ProposalCount<I>>::mutate(|i| mem::replace(i, *i + 1));
             <Proposals<T, I>>::mutate(|proposals| proposals.push(proposal_hash));
             <ProposalOf<T, I>>::insert(proposal_hash, proposal);
             let votes = PolymeshVotes {
@@ -617,7 +623,10 @@ impl<T: Trait<I>, I: Instance> ChangeMembers<IdentityId> for Module<T, I> {
     /// * It removes the Systematic CDD claim (issued by `SystematicIssuer::Committee`) from
     /// outgoing members.
     fn change_members_sorted(incoming: &[IdentityId], outgoing: &[IdentityId], new: &[IdentityId]) {
-        // remove accounts from all current voting in motions.
+        // Immediately set members so threshold is affected.
+        <Members<I>>::put(new);
+
+        // Remove accounts from all current voting in motions.
         Self::proposals()
             .into_iter()
             .filter(|proposal| {
@@ -642,8 +651,6 @@ impl<T: Trait<I>, I: Instance> ChangeMembers<IdentityId> for Module<T, I> {
         let issuer = SystematicIssuers::Committee;
         <identity::Module<T>>::add_systematic_cdd_claims(incoming, issuer);
         <identity::Module<T>>::revoke_systematic_cdd_claims(outgoing, issuer);
-
-        <Members<I>>::put(new);
     }
 }
 
