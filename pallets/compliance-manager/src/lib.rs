@@ -575,8 +575,8 @@ impl<T: Trait> Module<T> {
     /// Note that this vector could be 0 or 1 items.
     fn fetch_confidential_claims(id: IdentityId, ticker: &Ticker) -> Vec<Claim> {
         let claim_type = ClaimType::InvestorZKProof;
-        let asset_scope = IdentityId::try_from(ticker.as_slice())
-            .expect("Ticker len should be less than asset scope");
+        // NOTE: Ticker lenght is less by design that IdentityId.
+        let asset_scope = IdentityId::try_from(ticker.as_slice()).unwrap_or_default();
 
         <identity::Module<T>>::fetch_claim(id, claim_type, id, Some(asset_scope))
             .into_iter()

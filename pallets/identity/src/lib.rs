@@ -533,7 +533,7 @@ decl_module! {
             origin,
             claims: Vec<BatchAddClaimItem<T::Moment>>
         ) -> DispatchResult {
-            let _sender = ensure_signed(origin.clone())?;
+            ensure_signed(origin.clone())?;
 
             with_transaction(|| {
                 for bci in claims {
