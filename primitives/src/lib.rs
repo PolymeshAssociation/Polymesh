@@ -147,9 +147,9 @@ pub use cdd_id::{CddId, InvestorUid};
 pub mod identity_claim;
 pub use identity_claim::{Claim, ClaimType, IdentityClaim, JurisdictionName, Scope};
 
-/// This module contains entities related with signing keys.
-pub mod signing_key;
-pub use signing_key::{Permission, Signatory, SigningKey};
+/// This module contains entities related with secondary keys.
+pub mod secondary_key;
+pub use secondary_key::{Permission, SecondaryKey, Signatory};
 
 /// Generic authorization data types for all two step processes
 pub mod authorization;

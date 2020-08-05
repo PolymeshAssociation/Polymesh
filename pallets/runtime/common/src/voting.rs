@@ -335,7 +335,7 @@ decl_event!(
 
 decl_error! {
     pub enum Error for Module<T: Trait> {
-        /// sender must be a signing key for DID
+        /// sender must be a secondary key for DID
         InvalidSigner,
         /// Sender must be the token owner
         InvalidOwner,

@@ -35,15 +35,15 @@ use polymesh_common_utilities::{
 };
 use polymesh_primitives::{
     AccountId, AccountIndex, Authorization, AuthorizationType, Balance, BlockNumber, Hash,
-    IdentityId, Index, Moment, PortfolioId, Signatory, Signature, SigningKey, Ticker,
+    IdentityId, Index, Moment, PortfolioId, SecondaryKey, Signatory, Signature, Ticker,
 };
 use polymesh_runtime_common::{
     bridge,
     cdd_check::CddChecker,
     contracts_wrapper, dividend, exemption,
     impls::{Author, CurrencyToVoteHandler},
-    merge_active_and_inactive, sto_capped, voting, AvailableBlockRatio,
-    BlockHashCount, MaximumBlockLength, MaximumBlockWeight, NegativeImbalance,
+    merge_active_and_inactive, sto_capped, voting, AvailableBlockRatio, BlockHashCount,
+    MaximumBlockLength, MaximumBlockWeight, NegativeImbalance,
 };
 
 use sp_api::impl_runtime_apis;
@@ -1008,7 +1008,7 @@ impl_runtime_apis! {
 
         }
 
-        /// Retrieve referendums voted on information by `id` identity (and its signing items).
+        /// Retrieve referendums voted on information by `id` identity (and its secondary items).
         fn voting_history_by_id(id: IdentityId) -> HistoricalVotingById<AccountId, Vote<Balance>> {
             Pips::voting_history_by_id(id)
         }
@@ -1028,7 +1028,7 @@ impl_runtime_apis! {
             IdentityId,
             Ticker,
             AccountId,
-            SigningKey<AccountId>,
+            SecondaryKey<AccountId>,
             Signatory<AccountId>,
             Moment
         > for Runtime
@@ -1047,8 +1047,8 @@ impl_runtime_apis! {
             }
         }
 
-        /// Retrieve master key and signing keys for a given IdentityId
-        fn get_did_records(did: IdentityId) -> DidRecords<AccountId, SigningKey<AccountId>> {
+        /// Retrieve primary key and secondary keys for a given IdentityId
+        fn get_did_records(did: IdentityId) -> DidRecords<AccountId, SecondaryKey<AccountId>> {
             Identity::get_did_records(did)
         }
 

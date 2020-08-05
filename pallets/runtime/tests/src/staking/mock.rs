@@ -695,7 +695,7 @@ impl ExtBuilder {
 
         let _ = identity::GenesisConfig::<Test> {
             identities: vec![
-                // (master_account_id, service provider did, target did, expiry time of CustomerDueDiligence claim i.e 10 days is ms)
+                // (primary_account_id, service provider did, target did, expiry time of CustomerDueDiligence claim i.e 10 days is ms)
                 // Provide Identity
                 (
                     1005,
@@ -869,13 +869,13 @@ pub fn provide_did_to_user(account: AccountId) -> bool {
     }
 }
 
-pub fn add_signing_key(stash_key: AccountId, to_signing_key: AccountId) {
-    if !get_identity(to_signing_key) {
+pub fn add_secondary_key(stash_key: AccountId, to_secondary_key: AccountId) {
+    if !get_identity(to_secondary_key) {
         let _did = Identity::get_identity(&stash_key).unwrap();
         assert!(
             Identity::add_authorization(
                 Origin::signed(stash_key),
-                Signatory::Account(to_signing_key),
+                Signatory::Account(to_secondary_key),
                 AuthorizationData::JoinIdentity(vec![]),
                 None
             )
@@ -883,13 +883,13 @@ pub fn add_signing_key(stash_key: AccountId, to_signing_key: AccountId) {
             "Error in providing the authorization"
         );
         let auth_id = <identity::Authorizations<Test>>::iter_prefix_values(Signatory::Account(
-            to_signing_key,
+            to_secondary_key,
         ))
         .next()
         .unwrap()
         .auth_id;
         assert_ok!(Identity::join_identity_as_key(
-            Origin::signed(to_signing_key),
+            Origin::signed(to_secondary_key),
             auth_id
         ));
     }
@@ -989,7 +989,7 @@ pub fn bond_validator(stash: AccountId, ctrl: AccountId, val: Balance) {
     let _ = Balances::make_free_balance_be(&stash, val);
     let _ = Balances::make_free_balance_be(&ctrl, val);
     provide_did_to_user(stash);
-    add_signing_key(stash, ctrl);
+    add_secondary_key(stash, ctrl);
     assert_ok!(Staking::bond(
         Origin::signed(stash),
         ctrl,
@@ -1025,7 +1025,7 @@ pub(crate) fn bond_nominator(
 
 pub fn bond_nominator_cdd(stash: AccountId, ctrl: AccountId, val: Balance, target: Vec<AccountId>) {
     provide_did_to_user(stash);
-    add_signing_key(stash, ctrl);
+    add_secondary_key(stash, ctrl);
     bond_nominator(stash, ctrl, val, target);
 }
 

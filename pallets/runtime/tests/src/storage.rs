@@ -40,9 +40,7 @@ use polymesh_common_utilities::Context;
 use polymesh_primitives::{
     Authorization, AuthorizationData, CddId, Claim, IdentityId, InvestorUid, Signatory,
 };
-use polymesh_runtime_common::{
-    bridge, cdd_check::CddChecker, dividend, exemption, voting,
-};
+use polymesh_runtime_common::{bridge, cdd_check::CddChecker, dividend, exemption, voting};
 use smallvec::smallvec;
 use sp_core::{
     crypto::{key_types, Pair as PairTrait},
@@ -604,7 +602,7 @@ pub fn make_account_with_balance(
     let cdd_providers = CddServiceProvider::get_members();
     let did = match cdd_providers.into_iter().nth(0) {
         Some(cdd_provider) => {
-            let cdd_acc = Public::from_raw(Identity::did_records(&cdd_provider).master_key.0);
+            let cdd_acc = Public::from_raw(Identity::did_records(&cdd_provider).primary_key.0);
             let _ = Identity::cdd_register_did(Origin::signed(cdd_acc), id, vec![])
                 .map_err(|_| "CDD register DID failed")?;
 
@@ -654,8 +652,8 @@ pub fn register_keyring_account_without_cdd(
     make_account_without_cdd(acc_pub).map(|(_, id)| id)
 }
 
-pub fn add_signing_key(did: IdentityId, signer: Signatory<AccountId>) {
-    let _master_key = Identity::did_records(&did).master_key;
+pub fn add_secondary_key(did: IdentityId, signer: Signatory<AccountId>) {
+    let _primary_key = Identity::did_records(&did).primary_key;
     let auth_id = Identity::add_auth(
         did.clone(),
         signer,

@@ -18,7 +18,7 @@ use frame_benchmarking::{account, benchmarks};
 use frame_support::traits::Currency;
 use frame_system::RawOrigin;
 use pallet_balances as balances;
-use polymesh_primitives::{Claim, IdentityId, InvestorUid, SigningKey};
+use polymesh_primitives::{Claim, IdentityId, InvestorUid, SecondaryKey};
 use sp_std::{iter, prelude::*};
 
 const SEED: u32 = 0;
@@ -59,14 +59,14 @@ benchmarks! {
 
     register_did {
         let u in ...;
-        // Number of signing items.
+        // Number of secondary items.
         let i in 0 .. 50;
         let origin = make_account_without_did::<T>(NAME, u).1;
         let uid = uid_from_name_and_idx(NAME, u);
-        let signing_keys: Vec<SigningKey<T::AccountId>> = iter::repeat(Default::default())
+        let secondary_keys: Vec<SecondaryKey<T::AccountId>> = iter::repeat(Default::default())
             .take(i as usize)
             .collect();
-    }: _(origin, uid, signing_keys)
+    }: _(origin, uid, secondary_keys)
 
     add_claim {
         let u in ...;
