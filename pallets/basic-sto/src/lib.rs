@@ -25,13 +25,14 @@ use sp_runtime::{Perbill, traits::Verify};
 use sp_std::{collections::btree_set::BTreeSet, convert::TryFrom, prelude::*};
 type Identity<T> = identity::Module<T>;
 type Settlement<T> = pallet_settlement::Module<T>;
-type Asset<T> = pallet_asset::Module<T>;
 
 pub trait Trait:
-    frame_system::Trait + CommonTrait + IdentityTrait + pallet_timestamp::Trait
+    frame_system::Trait + CommonTrait + IdentityTrait + pallet_timestamp::Trait + pallet_settlement::Trait
 {
     /// The overarching event type.
     type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
+    /// Asset module
+    type Asset: AssetTrait<Self::Balance, Self::AccountId>;
 }
 
 
@@ -80,6 +81,7 @@ decl_module! {
             let did = Context::current_identity_or::<Identity<T>>(&sender)?;
             ensure!(Asset<T>::is_owner(&raise_token, did), Error::Unauthorized);
             // TODO: Take custodial ownership of `offering_token` from treasury
+
             Ok(())
         }
     }
@@ -87,10 +89,10 @@ decl_module! {
 }
 
 impl<T: Trait> Module<T> {
-    // /// Returns true if `sender_did` is the owner of `ticker` asset.
-    // fn is_owner(ticker: &Ticker, sender_did: IdentityId) -> bool {
-    //     T::Asset::is_owner(ticker, sender_did)
-    // }
+    /// Returns true if `sender_did` is the owner of `ticker` asset.
+    fn is_owner(ticker: &Ticker, sender_did: IdentityId) -> bool {
+        T::Asset::is_owner(ticker, sender_did)
+    }
 
 
 }
