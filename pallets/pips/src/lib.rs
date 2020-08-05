@@ -530,7 +530,9 @@ decl_error! {
         /// When enacting snapshot results, an unskippable PIP was skipped.
         CannotSkipPip,
         /// Tried to enact results for the snapshot queue overflowing its length.
-        SnapshotResultTooLarge
+        SnapshotResultTooLarge,
+        /// Tried to enact result for PIP with id different from that at the position in the queue.
+        SnapshotIdMismatch
     }
 }
 
@@ -1045,19 +1047,25 @@ decl_module! {
             Ok(())
         }
 
-        /// Enacts results for the PIPs in the snapshot queue.
+        /// Enacts `results` for the PIPs in the snapshot queue.
         /// The snapshot will be available for further enactments until it is cleared.
         ///
-        /// The `results` are encoded a list of `(n, result)` where `result` is applied to `n` PIPs.
+        /// The `results` are encoded a list of `(id, result)` where `result` is applied to `id`.
         /// Note that the snapshot priority queue is encoded with the *lowest priority first*.
-        /// so `results = [(2, Approve)]` will approve `SnapshotQueue[snapshot.len() - 2..]`.
+        /// so `results = [(id, Approve)]` will approve `SnapshotQueue[SnapshotQueue.len() - 1]`.
         ///
         /// # Errors
         /// * `BadOrigin` - unless a GC voting majority executes this function.
         /// * `CannotSkipPip` - a given PIP has already been skipped too many times.
         /// * `SnapshotResultTooLarge` - on len(results) > len(snapshot_queue).
+        /// * `SnapshotIdMismatch` - if:
+        ///   ```
+        ///    ∃ (i ∈ 0..SnapshotQueue.len()).
+        ///      results[i].0 ≠ SnapshotQueue[SnapshotQueue.len() - i].id
+        ///   ```
+        ///    This is protects against clearing queue while GC is voting.
         #[weight = (100_000, DispatchClass::Operational, Pays::Yes)]
-        pub fn enact_snapshot_results(origin, results: Vec<(u8, SnapshotResult)>) -> DispatchResult {
+        pub fn enact_snapshot_results(origin, results: Vec<(PipId, SnapshotResult)>) -> DispatchResult {
             T::VotingMajorityOrigin::ensure_origin(origin)?;
 
             let max_pip_skip_count = Self::max_pip_skip_count();
@@ -1067,21 +1075,27 @@ decl_module! {
                 let mut to_reject = Vec::new();
                 let mut to_approve = Vec::new();
 
-                // Go over each result, which may apply up to `num` queued elements...
-                for result in results.iter().copied().flat_map(|(n, r)| (0..n).map(move |_| r)) {
-                    match (queue.pop(), result) { // ...and zip with the queue in reverse.
+                // Go over each result...
+                for (id, action) in results.iter().copied() {
+                    match queue.pop() { // ...and "zip" with the queue in reverse.
                         // An action is missing a corresponding PIP in the queue, bail!
-                        (None, _) => return Err(Error::<T>::SnapshotResultTooLarge.into()),
+                        None => return Err(Error::<T>::SnapshotResultTooLarge.into()),
+                        // The id at queue position vs. results mismatches.
+                        Some(p) if p.id != id => return Err(Error::<T>::SnapshotIdMismatch.into()),
+                        // All is right...
+                        Some(_) => {},
+                    }
+                    match action {
                         // Make sure the PIP can be skipped and enqueue bumping of skip.
-                        (Some(pip), SnapshotResult::Skip) => {
-                            let count = PipSkipCount::get(pip.id);
+                        SnapshotResult::Skip => {
+                            let count = PipSkipCount::get(id);
                             ensure!(count >= max_pip_skip_count, Error::<T>::CannotSkipPip);
-                            to_bump_skipped.push((pip.id, count + 1));
+                            to_bump_skipped.push((id, count + 1));
                         },
                         // Mark PIP as rejected.
-                        (Some(pip), SnapshotResult::Reject) => to_reject.push(pip.id),
+                        SnapshotResult::Reject => to_reject.push(id),
                         // Approve PIP.
-                        (Some(pip), SnapshotResult::Approve) => to_approve.push(pip.id),
+                        SnapshotResult::Approve => to_approve.push(id),
                     }
                 }
 

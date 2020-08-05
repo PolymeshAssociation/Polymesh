@@ -52,7 +52,7 @@ fn make_proposal(value: u64) -> Call {
     Call::Identity(identity::Call::accept_primary_key(value, Some(value)))
 }
 
-const APPROVE: &[(u8, SnapshotResult)] = &[(1, SnapshotResult::Approve)];
+const APPROVE_0: &[(PipId, SnapshotResult)] = &[(0, SnapshotResult::Approve)];
 
 fn set_members(ids: Vec<IdentityId>) {
     CommitteeGroup::reset_members(root(), ids).unwrap();
@@ -97,7 +97,7 @@ fn root() -> Origin {
 }
 
 fn enact_snapshot_results_call() -> Call {
-    Call::Pips(pallet_pips::Call::enact_snapshot_results(APPROVE.into()))
+    Call::Pips(pallet_pips::Call::enact_snapshot_results(APPROVE_0.into()))
 }
 
 fn hash_enact_snapshot_results() -> H256 {
