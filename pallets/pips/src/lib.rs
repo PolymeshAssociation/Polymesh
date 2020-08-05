@@ -63,6 +63,7 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use codec::{Decode, Encode};
+use core::cell::Cell;
 use frame_support::{
     debug, decl_error, decl_event, decl_module, decl_storage,
     dispatch::DispatchResult,
@@ -469,6 +470,34 @@ decl_module! {
         type Error = Error<T>;
 
         fn deposit_event() = default;
+
+        fn on_runtime_upgrade() -> Weight {
+            let stores = Cell::new(0);
+            let reads = Cell::new(0);
+            let inner_reads = Cell::new(0);
+            <ProposalResult<T>>::translate(|pip_id, _: VotingResult<BalanceOf<T>>| {
+                stores.set(stores.get() + 1);
+                reads.set(reads.get() + 1);
+                let mut stats = VotingResult::default();
+                for vote in <ProposalVotes<T>>::iter_prefix_values(pip_id) {
+                    inner_reads.set(inner_reads.get() + 1);
+                    match vote {
+                        Vote::None => {},
+                        Vote::Yes(deposit) => {
+                            stats.ayes_count += 1;
+                            stats.ayes_stake += deposit;
+                        }
+                        Vote::No(deposit) => {
+                            stats.nays_count += 1;
+                            stats.nays_stake += deposit;
+                        }
+                    }
+                }
+                Some(stats)
+            });
+
+            10 * (10 * stores.get() + 10 * reads.get() + inner_reads.get())
+        }
 
         /// Change whether completed PIPs are pruned. Can only be called by governance council
         ///
