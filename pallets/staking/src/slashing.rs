@@ -375,7 +375,7 @@ fn slash_nominators<T: Trait>(
             let own_slash_difference = own_slash_by_validator.saturating_sub(own_slash_prior);
 
             let mut era_slash = <Module<T> as Store>::NominatorSlashInEra::get(&slash_era, stash)
-                .unwrap_or(Zero::zero());
+                .unwrap_or_else(Zero::zero);
 
             era_slash += own_slash_difference;
 
