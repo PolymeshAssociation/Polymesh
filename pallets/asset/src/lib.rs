@@ -988,7 +988,7 @@ decl_module! {
             let mut token = Self::token_details(&ticker);
             // No check since the total supply is always >= the default
             // portfolio balance. The default portfolio balance is already checked above.
-            token.total_supply = token.total_supply - value;
+            token.total_supply -= value;
 
             Self::_update_checkpoint(&ticker, token_holder_did, burner_balance);
 
@@ -1178,8 +1178,8 @@ decl_module! {
             );
 
             let msg = SignData {
-                custodian_did: custodian_did,
-                holder_did: holder_did,
+                custodian_did,
+                holder_did,
                 ticker,
                 value,
                 nonce
@@ -1776,7 +1776,7 @@ impl<T: Trait> Module<T> {
         Self::balance_of(&ticker, &did)
     }
 
-    fn find_ceiling(arr: &Vec<u64>, key: u64) -> u64 {
+    fn find_ceiling(arr: &[u64], key: u64) -> u64 {
         // This function assumes that key <= last element of the array,
         // the array consists of unique sorted elements,
         // array len > 0
