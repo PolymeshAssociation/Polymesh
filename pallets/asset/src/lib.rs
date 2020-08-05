@@ -410,7 +410,7 @@ decl_module! {
         /// # Arguments
         /// * `origin` It contains the signing key of the caller (i.e who signed the transaction to execute this function).
         /// * `auth_id` Authorization ID of treasury transfer authorization.
-        #[weight = 500_000]
+        #[weight = 300_000_000]
         pub fn accept_treasury_transfer(origin, auth_id: u64) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             let to_did = Context::current_identity_or::<Identity<T>>(&sender)?;
@@ -1349,21 +1349,19 @@ decl_module! {
             Ok(())
         }
 
-        /// Sets the treasury DID to a given value. The caller must be the asset issuer. The asset
-        /// issuer can always update the treasury DID, including setting it to `None`. If the issuer
-        /// modifies their treasury DID to `None` then it will be immovable until either they change
-        /// the treasury DID to `Some` DID, or they add a claim to allow that DID to move the
+        /// Sets the treasury DID to None. The caller must be the asset issuer. The asset
+        /// issuer can always update the treasury DID using `transfer_treasury`. If the issuer
+        /// clears their treasury DID then it will be immovable until either they transfer
+        /// the treasury DID to an actual DID, or they add a claim to allow that DID to move the
         /// asset.
         ///
         /// # Arguments
         /// * `origin` - The asset issuer.
         /// * `ticker` - Ticker symbol of the asset.
-        /// * `treasury_did` - The treasury DID wrapped in a value of type [`Option`].
         #[weight = 250_000]
-        pub fn set_treasury_did(
+        pub fn clear_treasury_did(
             origin,
             ticker: Ticker,
-            treasury_did: Option<IdentityId>,
         ) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             let did = Context::current_identity_or::<Identity<T>>(&sender)?;
@@ -1371,9 +1369,9 @@ decl_module! {
             let mut old_treasury = None;
             <Tokens<T>>::mutate(&ticker, |token| {
                 old_treasury = token.treasury_did;
-                token.treasury_did = treasury_did
+                token.treasury_did = None
             });
-            Self::deposit_event(RawEvent::TreasuryTransferred(did, ticker, old_treasury, treasury_did));
+            Self::deposit_event(RawEvent::TreasuryTransferred(did, ticker, old_treasury, None));
             Ok(())
         }
     }
