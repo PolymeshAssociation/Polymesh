@@ -607,7 +607,12 @@ impl<T: Trait> Module<T> {
     }
 
     /// Loads the context for each rule in `rules` and verifies that all of them evaluate to `true`.
-    fn are_all_rules_satisfied(ticker: &Ticker, did: IdentityId, rules: &[Rule], treasury_did: Option<IdentityId>) -> bool {
+    fn are_all_rules_satisfied(
+        ticker: &Ticker,
+        did: IdentityId,
+        rules: &[Rule],
+        treasury_did: Option<IdentityId>,
+    ) -> bool {
         rules.iter().all(|rule| {
             let context = Self::fetch_context(ticker, did, &rule, treasury_did);
             predicate::run(&rule, &context)
