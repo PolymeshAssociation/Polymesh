@@ -97,9 +97,8 @@ jobs:
                   aws_region: us-east-1
               run:
                 path: bash
-                args: ["git-polymesh/.concourse/scripts/t-cargo-build.sh", "git-polymesh", "build-caches", "artifact", "semver-git-polymesh"]
+                args: ["git-polymesh/.concourse/scripts/t-cargo-build.sh", "git-polymesh", "artifact", "semver-git-polymesh"]
               outputs:
-                - name: build-caches
                 - name: artifact
           - task: npm-install
             config:
@@ -126,9 +125,9 @@ jobs:
             config:
               inputs:
                 - name: git-polymesh
-                - name: build-caches
               caches:
                 - path: git-polymesh/target
+                - path: /usr/local/cargo
               platform: linux
               image_resource:
                 type: registry-image
@@ -140,7 +139,7 @@ jobs:
                   aws_region: us-east-1
               run:
                 path: bash
-                args: ["git-polymesh/.concourse/scripts/t-cargo-test.sh", "git-polymesh", "build-caches"]
+                args: ["git-polymesh/.concourse/scripts/t-cargo-test.sh", "git-polymesh"]
           - task: integration-test
             config:
               inputs:
@@ -159,6 +158,7 @@ jobs:
               run:
                 path: bash
                 args: ["git-polymesh/.concourse/scripts/t-npm-test.sh", "git-polymesh", "npm-caches", "artifact"]
+            timeout: 30m
       - in_parallel:
           - put: s3-polymesh
             params:

@@ -25,7 +25,7 @@ pushd .
 cd $GIT_DIR
 
 # Fetch submodules.  Workaround for https://github.com/telia-oss/github-pr-resource/pull/200
-if [ -f .git/resource/head_sha ]; then
+if [ ! -z "$SUBMODULE_ACCESS_TOKEN" ]; then
     git submodule init
     set +x
     git config submodule.external/cryptography.url "https://${SUBMODULE_ACCESS_TOKEN}@github.com/PolymathNetwork/cryptography.git"
@@ -41,7 +41,8 @@ fi
 #  - The polymesh binary is missing
 if [ ! -f ".git/resource/changed_files" ] || grep -v '^.concourse\|^Dockerfile\|^scripts/cli' ".git/resource/changed_files" || [ ! -f "target/release/polymesh" ]; then
     rm -f target/release/polymesh
-    cargo +$TOOLCHAIN build --release
+    sed -i -e "s/^version = .*$/version = \"$SEMVER\"/" Cargo.toml
+    cargo build --release
 fi
 popd
 
