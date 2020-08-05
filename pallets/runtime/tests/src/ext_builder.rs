@@ -59,10 +59,18 @@ impl Default for MockProtocolBaseFees {
 
 #[derive(Default)]
 pub struct ExtBuilder {
-    transaction_base_fee: u128,
+    /// Minimum weight for the extrinsic (see `weight_to_fee` below).
+    extrinsic_base_weight: u64,
+    /// The transaction fee per byte.
+    /// Transactions with bigger payloads will have a bigger `len_fee`.
+    /// This is calculated as `transaction_byte_fee * tx.len()`.
     transaction_byte_fee: u128,
+    /// Contributes to the `weight_fee`, indicating the compute requirements of a transaction.
+    /// A more resource-intensive transaction will have a higher `weight_fee`.
     weight_to_fee: u128,
-    existential_deposit: u128,
+    /// Scaling factor for initial balances on genesis.
+    balance_factor: u128,
+    /// When `false`, no balances will be initialized on genesis.
     monied: bool,
     vesting: bool,
     cdd_providers: Vec<Public>,
@@ -73,29 +81,60 @@ pub struct ExtBuilder {
 }
 
 thread_local! {
-    static EXISTENTIAL_DEPOSIT: RefCell<u128> = RefCell::new(0);
-    static TRANSACTION_BASE_FEE: RefCell<u128> = RefCell::new(0);
-    static TRANSACTION_BYTE_FEE: RefCell<u128> = RefCell::new(1);
-    static WEIGHT_TO_FEE: RefCell<u128> = RefCell::new(1);
+    pub static EXTRINSIC_BASE_WEIGHT: RefCell<u64> = RefCell::new(0);
+    pub static TRANSACTION_BYTE_FEE: RefCell<u128> = RefCell::new(0);
+    pub static WEIGHT_TO_FEE: RefCell<u128> = RefCell::new(0);
 }
 
 impl ExtBuilder {
-    pub fn transaction_fees(mut self, base_fee: u128, byte_fee: u128, weight_fee: u128) -> Self {
-        self.transaction_base_fee = base_fee;
-        self.transaction_byte_fee = byte_fee;
-        self.weight_to_fee = weight_fee;
+    /// Sets the minimum weight for the extrinsic (see also `weight_fee`).
+    pub fn base_weight(mut self, extrinsic_base_weight: u64) -> Self {
+        self.extrinsic_base_weight = extrinsic_base_weight;
         self
     }
 
-    pub fn existential_deposit(mut self, existential_deposit: u128) -> Self {
-        self.existential_deposit = existential_deposit;
+    /// Sets the fee per each byte in a transaction.
+    /// The full byte fee is defined as: `transaction_byte_fee * tx.len()`.
+    pub fn byte_fee(mut self, transaction_byte_fee: u128) -> Self {
+        self.transaction_byte_fee = transaction_byte_fee;
         self
     }
 
+    /// Sets the fee to charge per weight.
+    /// A more demanding computation will have a higher fee for its weight.
+    pub fn weight_fee(mut self, weight_to_fee: u128) -> Self {
+        self.weight_to_fee = weight_to_fee;
+        self
+    }
+
+    /// Sets parameters for transaction fees
+    /// (`extrinsic_base_weight`, `transaction_byte_fee`, and `weight_to_fee`).
+    /// See the corresponding methods for more details.
+    pub fn transaction_fees(
+        self,
+        extrinsic_base_weight: u64,
+        transaction_byte_fee: u128,
+        weight_to_fee: u128,
+    ) -> Self {
+        self.base_weight(extrinsic_base_weight)
+            .byte_fee(transaction_byte_fee)
+            .weight_fee(weight_to_fee)
+    }
+
+    /// Set the scaling factor used for initial balances on genesis to `factor`.
+    /// The default is `0`.
+    pub fn balance_factor(mut self, factor: u128) -> Self {
+        self.balance_factor = factor;
+        self
+    }
+
+    /// Set whether balances should be initialized on genesis.
+    /// This also does `.balance_factor(1)` when it is `0`.
+    /// The default is `false`.
     pub fn monied(mut self, monied: bool) -> Self {
         self.monied = monied;
-        if self.existential_deposit == 0 {
-            self.existential_deposit = 1;
+        if self.balance_factor == 0 {
+            self.balance_factor = 1;
         }
         self
     }
@@ -129,9 +168,8 @@ impl ExtBuilder {
         self
     }
 
-    pub fn set_associated_consts(&self) {
-        EXISTENTIAL_DEPOSIT.with(|v| *v.borrow_mut() = self.existential_deposit);
-        TRANSACTION_BASE_FEE.with(|v| *v.borrow_mut() = self.transaction_base_fee);
+    fn set_associated_consts(&self) {
+        EXTRINSIC_BASE_WEIGHT.with(|v| *v.borrow_mut() = self.extrinsic_base_weight);
         TRANSACTION_BYTE_FEE.with(|v| *v.borrow_mut() = self.transaction_byte_fee);
         WEIGHT_TO_FEE.with(|v| *v.borrow_mut() = self.weight_to_fee);
     }
@@ -139,22 +177,13 @@ impl ExtBuilder {
     fn make_balances(&self) -> Vec<(Public, u128)> {
         if self.monied {
             vec![
-                (
-                    AccountKeyring::Alice.public(),
-                    1_000 * self.existential_deposit,
-                ),
-                (
-                    AccountKeyring::Bob.public(),
-                    2_000 * self.existential_deposit,
-                ),
+                (AccountKeyring::Alice.public(), 1_000 * self.balance_factor),
+                (AccountKeyring::Bob.public(), 2_000 * self.balance_factor),
                 (
                     AccountKeyring::Charlie.public(),
-                    3_000 * self.existential_deposit,
+                    3_000 * self.balance_factor,
                 ),
-                (
-                    AccountKeyring::Dave.public(),
-                    4_000 * self.existential_deposit,
-                ),
+                (AccountKeyring::Dave.public(), 4_000 * self.balance_factor),
                 // CDD Accounts
                 (AccountKeyring::Eve.public(), 1_000_000),
                 (AccountKeyring::Ferdie.public(), 1_000_000),
@@ -200,6 +229,8 @@ impl ExtBuilder {
     ///     2. CDD provider's account key is linked to its new Identity ID.
     ///     3. That Identity ID is added as member of CDD provider group.
     pub fn build(self) -> TestExternalities {
+        self.set_associated_consts();
+
         let mut storage = frame_system::GenesisConfig::default()
             .build_storage::<TestStorage>()
             .unwrap();

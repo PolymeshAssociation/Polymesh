@@ -64,7 +64,7 @@ fn fetch_systematic_cdd(target: IdentityId) -> Option<IdentityClaim> {
 #[test]
 fn add_claims_batch_test() {
     ExtBuilder::default()
-        .existential_deposit(1_000)
+        .balance_factor(1_000)
         .monied(true)
         .cdd_providers(vec![
             AccountKeyring::Eve.public(),
@@ -1182,7 +1182,7 @@ fn changing_master_key_with_cdd_auth_we() {
 #[test]
 fn cdd_register_did_test() {
     ExtBuilder::default()
-        .existential_deposit(1_000)
+        .balance_factor(1_000)
         .monied(true)
         .cdd_providers(vec![
             AccountKeyring::Eve.public(),
@@ -1412,7 +1412,7 @@ fn add_identity_signers() {
 #[test]
 fn invalidate_cdd_claims() {
     ExtBuilder::default()
-        .existential_deposit(1_000)
+        .balance_factor(1_000)
         .monied(true)
         .cdd_providers(vec![
             AccountKeyring::Eve.public(),
@@ -1639,7 +1639,7 @@ fn gc_and_cdd_with_systematic_cdd_claims_we() {
 #[test]
 fn add_permission_with_signing_key() {
     ExtBuilder::default()
-        .existential_deposit(1_000)
+        .balance_factor(1_000)
         .monied(true)
         .cdd_providers(vec![
             AccountKeyring::Eve.public(),
