@@ -33,7 +33,6 @@ use polymesh_common_utilities::traits::{
     balances::AccountData,
     group::GroupTrait,
     identity::Trait as IdentityTrait,
-    pip::{PipId, PipsCommitteeBridge, SnapshotResult},
     transaction_payment::{CddAndFeeDetails, ChargeTxFee},
     CommonTrait,
 };
@@ -359,10 +358,6 @@ impl committee::Trait<committee::Instance1> for TestStorage {
     type CommitteeOrigin = frame_system::EnsureRoot<AccountId>;
     type Event = Event;
     type MotionDuration = MotionDuration;
-    type PipsCommitteeBridge = TestStorage;
-    fn set_release_coordinator(id: IdentityId) -> Call {
-        Call::Committee(pallet_committee::Call::set_release_coordinator(id))
-    }
 }
 
 impl committee::Trait<committee::DefaultInstance> for TestStorage {
@@ -371,10 +366,6 @@ impl committee::Trait<committee::DefaultInstance> for TestStorage {
     type CommitteeOrigin = frame_system::EnsureRoot<AccountId>;
     type Event = Event;
     type MotionDuration = MotionDuration;
-    type PipsCommitteeBridge = TestStorage;
-    fn set_release_coordinator(id: IdentityId) -> Call {
-        Call::DefaultCommittee(pallet_committee::Call::set_release_coordinator(id))
-    }
 }
 
 impl IdentityTrait for TestStorage {
@@ -565,24 +556,6 @@ impl confidential::Trait for TestStorage {
 impl pallet_utility::Trait for TestStorage {
     type Event = Event;
     type Call = Call;
-}
-
-impl PipsCommitteeBridge<Call> for TestStorage {
-    fn approve_committee_proposal(id: PipId) -> Call {
-        Call::Pips(pallet_pips::Call::approve_committee_proposal(id))
-    }
-
-    fn reject_proposal(id: PipId) -> Call {
-        Call::Pips(pallet_pips::Call::reject_proposal(id))
-    }
-
-    fn prune_proposal(id: PipId) -> Call {
-        Call::Pips(pallet_pips::Call::prune_proposal(id))
-    }
-
-    fn enact_snapshot_results(results: Vec<(u8, SnapshotResult)>) -> Call {
-        Call::Pips(pallet_pips::Call::enact_snapshot_results(results))
-    }
 }
 
 // Publish type alias for each module

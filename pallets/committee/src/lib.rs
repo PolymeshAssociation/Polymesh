@@ -61,7 +61,7 @@ use frame_support::{
     dispatch::{DispatchError, DispatchResult, Dispatchable, Parameter},
     ensure,
     traits::{ChangeMembers, EnsureOrigin, Get, InitializeMembers},
-    weights::{DispatchClass::Operational, Pays},
+    weights::{DispatchClass::Operational, GetDispatchInfo, Pays},
 };
 use frame_system::{self as system, ensure_signed};
 use pallet_identity as identity;
@@ -69,7 +69,6 @@ use polymesh_common_utilities::{
     governance_group::GovernanceGroupTrait,
     group::{GroupTrait, InactiveMember},
     identity::{IdentityTrait, Trait as IdentityModuleTrait},
-    pip::{PipId, PipsCommitteeBridge, SnapshotResult},
     Context, SystematicIssuers,
 };
 use polymesh_primitives::IdentityId;
@@ -89,7 +88,7 @@ pub trait Trait<I>: frame_system::Trait + IdentityModuleTrait {
     type Origin: From<RawOrigin<<Self as frame_system::Trait>::AccountId, I>>;
 
     /// The outer call dispatch type.
-    type Proposal: Parameter + Dispatchable<Origin = <Self as Trait<I>>::Origin>;
+    type Proposal: Parameter + Dispatchable<Origin = <Self as Trait<I>>::Origin> + GetDispatchInfo;
 
     /// Required origin for changing behaviour of this module.
     type CommitteeOrigin: EnsureOrigin<<Self as frame_system::Trait>::Origin>;
@@ -99,11 +98,6 @@ pub trait Trait<I>: frame_system::Trait + IdentityModuleTrait {
 
     /// The time-out for council motions.
     type MotionDuration: Get<Self::BlockNumber>;
-
-    type PipsCommitteeBridge: PipsCommitteeBridge<<Self as Trait<I>>::Proposal>;
-
-    /// Bridge between `set_release_coordinator_vote` and `set_release_coordinator`.
-    fn set_release_coordinator(id: crate::IdentityId) -> <Self as Trait<I>>::Proposal;
 }
 
 /// Origin for the committee module.
@@ -136,8 +130,7 @@ decl_storage! {
         /// The hashes of the active proposals.
         pub Proposals get(fn proposals): Vec<T::Hash>;
         /// Actual proposal for a given hash.
-        pub ProposalOf get(fn proposal_of):
-            map hasher(twox_64_concat) T::Hash => Option<<T as Trait<I>>::Proposal>;
+        pub ProposalOf get(fn proposal_of): map hasher(twox_64_concat) T::Hash => Option<<T as Trait<I>>::Proposal>;
         /// PolymeshVotes on a given proposal, if it is ongoing.
         pub Voting get(fn voting): map hasher(twox_64_concat) T::Hash => Option<PolymeshVotes<IdentityId, T::BlockNumber>>;
         /// Proposals so far.
@@ -191,21 +184,6 @@ decl_event!(
         /// Voting threshold has been updated
         /// Parameters: caller DID, numerator, denominator
         VoteThresholdUpdated(IdentityId, u32, u32),
-        /// Vote to set a new release coordinator.
-        /// Parameters: caller DID, new_release_coordinator id.
-        VoteSetReleaseCoordinator(IdentityId, bool, IdentityId),
-        /// Vote to approve a committee proposal.
-        /// Parameters: caller DID, target Pip Id.
-        VoteApproveCommitteeProposal(IdentityId, bool, PipId),
-        /// Vote to reject a proposal.
-        /// Parameters: caller DID, target Pip Id.
-        VoteRejectProposal(IdentityId, bool, PipId),
-        /// Vote to prune a proposal.
-        /// Parameters: caller DID, target Pip Id.
-        VotePruneProposal(IdentityId, bool, PipId),
-        /// Vote to enact snapshot results.
-        /// Parameters: caller DID, results to enact.
-        VoteEnactSnapshotResults(IdentityId, bool, Vec<(u8, SnapshotResult)>),
     }
 );
 
@@ -269,6 +247,23 @@ decl_module! {
             Self::deposit_event(RawEvent::VoteThresholdUpdated(current_did, n, d));
         }
 
+        /// Changes the release coordinator.
+        ///
+        /// # Arguments
+        /// * `id` - The DID of the new release coordinator.
+        ///
+        /// # Errors
+        /// * `MemberNotFound`, If the new coordinator `id` is not part of the committee.
+        #[weight = (T::DbWeight::get().reads_writes(1, 1) + 200_000_000, Operational, Pays::Yes)]
+        pub fn set_release_coordinator(origin, id: IdentityId) {
+            T::CommitteeOrigin::ensure_origin(origin)?;
+            ensure!(Self::members().contains(&id), Error::<T, I>::MemberNotFound);
+            <ReleaseCoordinator<I>>::put(id);
+            let current_did = Context::current_identity::<Identity<T>>()
+                .unwrap_or_else(|| SystematicIssuers::Committee.as_id());
+            Self::deposit_event(RawEvent::ReleaseCoordinatorUpdated(current_did, Some(id)));
+        }
+
         /// May be called by any signed account after the voting duration has ended in order to
         /// finish voting and close the proposal.
         ///
@@ -308,66 +303,100 @@ decl_module! {
             Self::check_threshold_finalize(proposal, did, voting, yes_votes, no_votes, seats);
         }
 
-        /// Changes the release coordinator.
+        /// Proposes to the committee that `call` should be executed in its name.
+        /// Alternatively, if the hash of `call` has already been recorded, i.e., already proposed,
+        /// then this call counts as a vote, i.e., as if `vote_by_hash` was called.
+        ///
+        /// # Weight
+        ///
+        /// The weight of this dispatchable is that of `call` as well as the complexity
+        /// for recording the vote itself.
         ///
         /// # Arguments
-        /// * `id` - The DID of the new release coordinator.
+        /// * `approve` - is this an approving vote?
+        ///   If the proposal doesn't exist, passing `false` will result in error `FirstVoteReject`.
+        /// * `call` - the call to propose for execution.
         ///
         /// # Errors
-        /// * `MemberNotFound`, If the new coordinator `id` is not part of the committee.
-        #[weight = (T::DbWeight::get().reads_writes(1, 1) + 200_000_000, Operational, Pays::Yes)]
-        pub fn set_release_coordinator(origin, id: IdentityId) {
-            T::CommitteeOrigin::ensure_origin(origin)?;
-            ensure!(Self::members().contains(&id), Error::<T, I>::MemberNotFound);
-            <ReleaseCoordinator<I>>::put(id);
-            let current_did = Context::current_identity::<Identity<T>>()
-                .unwrap_or_else(|| SystematicIssuers::Committee.as_id());
-            Self::deposit_event(RawEvent::ReleaseCoordinatorUpdated(current_did, Some(id)));
+        /// * `FirstVoteReject`, if `call` hasn't been proposed and `approve == false`.
+        /// * `BadOrigin`, if the `origin` is not a member of this committee.
+        #[weight = (
+            500_000 + call.get_dispatch_info().weight,
+            call.get_dispatch_info().class,
+            Pays::Yes
+        )]
+        pub fn vote_or_propose(origin, approve: bool, call: Box<<T as Trait<I>>::Proposal>) -> DispatchResult {
+            // Either create a new proposal or vote on an existing one.
+            let hash = T::Hashing::hash_of(&call);
+            match Self::voting(hash) {
+                Some(voting) => Self::vote(origin, hash, voting.index, approve),
+                // NOTE: boxing is necessary or the trait system will throw a fit.
+                None if approve => Self::propose(origin, *call),
+                None => Err(Error::<T, I>::FirstVoteReject.into()),
+            }
         }
 
-        /// Vote on `set_release_coordinatior` (see its docs for more info).
-        #[weight = (5_000_000, Operational, Pays::Yes)]
-        pub fn set_release_coordinator_vote(origin, approve: bool, id: IdentityId) -> DispatchResult {
-            let did = Self::vote_or_propose(origin, approve, T::set_release_coordinator(id))?;
-            Self::deposit_event(RawEvent::VoteSetReleaseCoordinator(did, approve, id));
-            Ok(())
-        }
+        /// Votes `approve`ingly (or not, if `false`)
+        /// on an existing `proposal` given by its hash, `index`.
+        ///
+        /// # Arguments
+        /// * `proposal` - A hash of the proposal to be voted on.
+        /// * `index` - The proposal index.
+        /// * `approve` - If `true` than this is a `for` vote, and `against` otherwise.
+        ///
+        /// # Errors
+        /// * `BadOrigin`, if the `origin` is not a member of this committee.
+        #[weight = (500_000, Operational, Pays::Yes)]
+        pub fn vote(
+            origin,
+            proposal: T::Hash,
+            index: ProposalIndex,
+            approve: bool,
+        ) -> DispatchResult {
+            // 1. Ensure `origin` is a committee member.
+            let did = Self::ensure_is_member(origin)?;
 
-        /// Vote on `aprove_committee_proposal` (see its docs for more info).
-        #[weight = (5_000_000, Operational, Pays::Yes)]
-        pub fn approve_committee_proposal(origin, approve: bool, id: PipId) -> DispatchResult {
-            let did = Self::vote_or_propose(origin, approve, T::PipsCommitteeBridge::approve_committee_proposal(id))?;
-            Self::deposit_event(RawEvent::VoteApproveCommitteeProposal(did, approve, id));
-            Ok(())
-        }
+            // 2. Ensure a prior proposal exists and that their indices match.
+            let mut voting = Self::voting(&proposal).ok_or(Error::<T, I>::NoSuchProposal)?;
+            ensure!(voting.index == index, Error::<T, I>::MismatchedVotingIndex);
 
-        /// Vote on `reject_proposal` (see its docs for more info).
-        #[weight = (5_000_000, Operational, Pays::Yes)]
-        pub fn reject_proposal(origin, approve: bool, id: PipId) -> DispatchResult {
-            let did = Self::vote_or_propose(origin, approve, T::PipsCommitteeBridge::reject_proposal(id))?;
-            Self::deposit_event(RawEvent::VoteRejectProposal(did, approve, id));
-            Ok(())
-        }
+            // 3. Vote on aye / nay and remove from the other.
+            let aye = (voting.ayes.iter().position(|a| a == &did), &mut voting.ayes);
+            let nay = (voting.nays.iter().position(|a| a == &did), &mut voting.nays);
+            let (main, other) = if approve { (aye, nay) } else { (nay, aye) };
+            ensure!(main.0.is_none(), Error::<T, I>::DuplicateVote);
+            main.1.push(did);
+            if let Some(pos) = other.0 {
+                other.1.swap_remove(pos);
+            }
+            let ayes = voting.ayes.len() as MemberCount;
+            let nays = voting.nays.len() as MemberCount;
+            <Voting<T, I>>::insert(&proposal, voting);
 
-        /// Vote on `prune_proposal` (see its docs for more info).
-        #[weight = (5_000_000, Operational, Pays::Yes)]
-        pub fn prune_proposal(origin, approve: bool, id: PipId) -> DispatchResult {
-            let did = Self::vote_or_propose(origin, approve, T::PipsCommitteeBridge::prune_proposal(id))?;
-            Self::deposit_event(RawEvent::VotePruneProposal(did, approve, id));
-            Ok(())
-        }
+            // 4. Emit event.
+            let members = Self::members().len() as MemberCount;
+            Self::deposit_event(RawEvent::Voted(
+                did, index, proposal, approve, ayes, nays, members,
+            ));
 
-        /// Vote on `enact_snapshot_results` (see its docs for more info).
-        #[weight = (5_000_000, Operational, Pays::Yes)]
-        pub fn enact_snapshot_results(origin, approve: bool, res: Vec<(u8, SnapshotResult)>) -> DispatchResult {
-            let did = Self::vote_or_propose(origin, approve, T::PipsCommitteeBridge::enact_snapshot_results(res.clone()))?;
-            Self::deposit_event(RawEvent::VoteEnactSnapshotResults(did, approve, res));
+            // 5. Check whether majority has been reached and if so, execute proposal.
+            Self::check_proposal_threshold(proposal);
             Ok(())
         }
     }
 }
 
 impl<T: Trait<I>, I: Instance> Module<T, I> {
+    /// Ensures that `origin` is a committee member, returning its identity, or throws `BadOrigin`.
+    fn ensure_is_member(
+        origin: <T as frame_system::Trait>::Origin,
+    ) -> Result<IdentityId, DispatchError> {
+        let who = ensure_signed(origin)?;
+        let who_id = Context::current_identity_or::<Identity<T>>(&who)?;
+        ensure!(Self::is_member(&who_id), Error::<T, I>::BadOrigin);
+        Ok(who_id)
+    }
+
     /// Returns true if `who` is contained in the set of committee members, and `false` otherwise.
     pub fn is_member(who: &IdentityId) -> bool {
         Self::members().contains(who)
@@ -490,43 +519,25 @@ impl<T: Trait<I>, I: Instance> Module<T, I> {
         Self::deposit_event(RawEvent::Executed(did, hash, ok));
     }
 
-    fn vote_or_propose(
-        origin: <T as frame_system::Trait>::Origin,
-        approve: bool,
-        call: <T as Trait<I>>::Proposal,
-    ) -> Result<IdentityId, DispatchError> {
-        // Only committee members can use this function.
-        let who = ensure_signed(origin)?;
-        let who_id = Context::current_identity_or::<Identity<T>>(&who)?;
-        ensure!(Self::is_member(&who_id), Error::<T, I>::BadOrigin);
-
-        // Either create a new proposal or vote on an existing one.
-        let hash = T::Hashing::hash_of(&call);
-        match Self::voting(hash) {
-            Some(voting) => Self::vote(who_id, hash, voting.index, approve),
-            None if approve => Self::propose(who_id, call),
-            None => return Err(Error::<T, I>::FirstVoteReject.into()),
-        }?;
-
-        Ok(who_id)
-    }
-
     /// Any committee member proposes a dispatchable.
     ///
     /// # Arguments
     /// * `proposal` - A dispatchable call.
-    fn propose(did: IdentityId, proposal: <T as Trait<I>>::Proposal) -> DispatchResult {
-        // Only committee members can propose
-        ensure!(Self::is_member(&did), Error::<T, I>::BadOrigin);
+    fn propose(
+        origin: <T as frame_system::Trait>::Origin,
+        proposal: <T as Trait<I>>::Proposal,
+    ) -> DispatchResult {
+        // 1. Ensure `origin` is a committee member.
+        let did = Self::ensure_is_member(origin)?;
 
-        // Reject duplicate proposals
+        // 2. Get hash & reject duplicate proposals.
         let proposal_hash = T::Hashing::hash_of(&proposal);
         ensure!(
             !<ProposalOf<T, I>>::contains_key(proposal_hash),
             Error::<T, I>::DuplicateProposal
         );
 
-        // If committee is composed of a single member, execute the proposal
+        // 3. Execute if committee is single member, and otherwise record the vote.
         let seats = Self::members().len() as MemberCount;
         if seats < 2 {
             Self::execute(did, proposal, proposal_hash, 1, seats);
@@ -545,47 +556,6 @@ impl<T: Trait<I>, I: Instance> Module<T, I> {
             Self::deposit_event(RawEvent::Proposed(did, index, proposal_hash));
         }
 
-        Ok(())
-    }
-
-    /// Member casts a vote.
-    ///
-    /// # Arguments
-    /// * `proposal` - A hash of the proposal to be voted on.
-    /// * `index` - The proposal index.
-    /// * `approve` - If `true` than this is a `for` vote, and `against` otherwise.
-    fn vote(
-        did: IdentityId,
-        proposal: T::Hash,
-        index: ProposalIndex,
-        approve: bool,
-    ) -> DispatchResult {
-        // Only committee members can vote
-        ensure!(Self::is_member(&did), Error::<T, I>::BadOrigin);
-
-        let mut voting = Self::voting(&proposal).ok_or(Error::<T, I>::NoSuchProposal)?;
-        ensure!(voting.index == index, Error::<T, I>::MismatchedVotingIndex);
-
-        // Vote on aye / nay and remove from the other.
-        let aye = (voting.ayes.iter().position(|a| a == &did), &mut voting.ayes);
-        let nay = (voting.nays.iter().position(|a| a == &did), &mut voting.nays);
-        let (main, other) = if approve { (aye, nay) } else { (nay, aye) };
-        ensure!(main.0.is_none(), Error::<T, I>::DuplicateVote);
-        main.1.push(did.clone());
-        if let Some(pos) = other.0 {
-            other.1.swap_remove(pos);
-        }
-
-        let ayes = voting.ayes.len() as MemberCount;
-        let nays = voting.nays.len() as MemberCount;
-        <Voting<T, I>>::insert(&proposal, voting);
-
-        // Emit event.
-        let members = Self::members().len() as MemberCount;
-        Self::deposit_event(RawEvent::Voted(
-            did, index, proposal, approve, ayes, nays, members,
-        ));
-        Self::check_proposal_threshold(proposal);
         Ok(())
     }
 }
