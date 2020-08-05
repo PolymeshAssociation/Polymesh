@@ -107,11 +107,7 @@ use polymesh_common_utilities::{
     constants::PIP_MAX_REPORTING_SIZE,
     identity::Trait as IdentityTrait,
     protocol_fee::{ChargeProtocolFee, ProtocolOp},
-    traits::{
-        governance_group::GovernanceGroupTrait,
-        group::GroupTrait,
-        pip::{PipId, SnapshotResult},
-    },
+    traits::{governance_group::GovernanceGroupTrait, group::GroupTrait, pip::PipId},
     CommonTrait, Context, SystematicIssuers,
 };
 use polymesh_primitives::{Beneficiary, IdentityId};
@@ -303,6 +299,20 @@ pub struct SnapshottedPip<T: Trait> {
     /// Higher weights come before lower weights.
     /// The `bool` denotes the sign, where `true` siginfies a positive number.
     pub weight: (bool, BalanceOf<T>),
+}
+
+/// A result to enact for one or many PIPs in the snapshot queue.
+// This type is only here due to `enact_snapshot_results`.
+#[derive(codec::Encode, codec::Decode, Copy, Clone, PartialEq, Eq)]
+#[cfg_attr(feature = "std", derive(Debug))]
+pub enum SnapshotResult {
+    /// Approve the PIP and move it to the execution queue.
+    Approve,
+    /// Reject the PIP, removing it from future consideration.
+    Reject,
+    /// Skip the PIP, bumping the `skipped_count`,
+    /// or fail if the threshold for maximum skips is exceeded.
+    Skip,
 }
 
 /// The number of times a PIP has been skipped.

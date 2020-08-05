@@ -13,8 +13,8 @@ use frame_system::{EventRecord, Phase};
 use pallet_committee::{self as committee, PolymeshVotes, RawEvent as CommitteeRawEvent};
 use pallet_group as group;
 use pallet_identity as identity;
-use pallet_pips::{self as pips, ProposalState, Proposer};
-use polymesh_common_utilities::traits::pip::{PipId, PipsCommitteeBridge, SnapshotResult};
+use pallet_pips::{self as pips, ProposalState, Proposer, SnapshotResult};
+use polymesh_common_utilities::traits::pip::PipId;
 use polymesh_primitives::IdentityId;
 use sp_core::{sr25519::Public, H256};
 use sp_runtime::traits::Hash;
@@ -96,13 +96,21 @@ fn root() -> Origin {
     Origin::from(frame_system::RawOrigin::Root)
 }
 
+fn enact_snapshot_results_call() -> Call {
+    Call::Pips(pallet_pips::Call::enact_snapshot_results(APPROVE.into()))
+}
+
 fn hash_enact_snapshot_results() -> H256 {
-    let call = TestStorage::enact_snapshot_results(APPROVE.into());
+    let call = enact_snapshot_results_call();
     <TestStorage as frame_system::Trait>::Hashing::hash_of(&call)
 }
 
 fn vote(who: &Origin, approve: bool) -> DispatchResult {
-    Committee::enact_snapshot_results(who.clone(), approve, APPROVE.into())
+    Committee::vote_or_propose(
+        who.clone(),
+        approve,
+        Box::new(enact_snapshot_results_call()),
+    )
 }
 
 #[test]
@@ -465,10 +473,11 @@ fn release_coordinator_majority_we() {
     );
 
     // Vote to change RC => bob.
-    assert_ok!(Committee::set_release_coordinator_vote(
+    let call = Call::Committee(pallet_committee::Call::set_release_coordinator(bob_id));
+    assert_ok!(Committee::vote_or_propose(
         alice.clone(),
         true,
-        bob_id
+        Box::new(call.clone()),
     ));
 
     // No majority yet.
@@ -477,12 +486,9 @@ fn release_coordinator_majority_we() {
         Some(IdentityId::from(999))
     );
 
-    // Bob votes for themselves.
-    assert_ok!(Committee::set_release_coordinator_vote(
-        bob.clone(),
-        true,
-        bob_id
-    ));
+    // Bob votes for themselves, this time *via hash*.
+    let hash = <TestStorage as frame_system::Trait>::Hashing::hash_of(&call);
+    assert_ok!(Committee::vote(bob, hash, 0, true));
 
     // Now we have a new RC.
     assert_eq!(Committee::release_coordinator(), Some(bob_id));
