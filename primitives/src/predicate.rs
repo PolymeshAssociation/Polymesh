@@ -95,10 +95,10 @@ pub trait Predicate {
 
 /// It creates a predicate to evaluate the matching of `id` with treasury in the context.
 #[inline]
-pub fn equals<'a>(id: &'a TargetIdentity, treasury: &'a IdentityId) -> MatchPredicate<'a> {
+pub fn equals<'a>(id: &'a TargetIdentity, treasury: &'a IdentityId) -> TargetIdentityPredicate<'a> {
     match id {
-        TargetIdentity::Treasury => MatchPredicate { identity: treasury },
-        TargetIdentity::Specific(identity) => MatchPredicate { identity },
+        TargetIdentity::Treasury => TargetIdentityPredicate { identity: treasury },
+        TargetIdentity::Specific(identity) => TargetIdentityPredicate { identity },
     }
 }
 
@@ -136,17 +136,17 @@ pub fn run(rule: &Rule, context: &Context) -> bool {
     }
 }
 
-// MatchPredicate
+// TargetIdentityPredicate
 // ======================================================
 
 /// It matches `id` with treasury in the context.
 #[derive(Clone, Debug)]
-pub struct MatchPredicate<'a> {
+pub struct TargetIdentityPredicate<'a> {
     /// IdentityId we want to check.
     pub identity: &'a IdentityId,
 }
 
-impl<'a> Predicate for MatchPredicate<'a> {
+impl<'a> Predicate for TargetIdentityPredicate<'a> {
     #[inline]
     fn evaluate(&self, context: &Context) -> bool {
         context.identity.unwrap_or_default() == *self.identity
