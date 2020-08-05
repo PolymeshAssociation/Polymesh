@@ -1464,11 +1464,7 @@ impl<T: Trait> Module<T> {
                     if let Some(signing_key) =
                         record.signing_keys.iter().find(|&si| &si.signer == signer)
                     {
-                        let sk_permissions = &signing_key.permissions;
-                        // `true` iff all requested permissions are in this signing key.
-                        return sk_permissions.asset.ge(&permissions.asset)
-                            && sk_permissions.extrinsic.ge(&permissions.extrinsic)
-                            && sk_permissions.portfolio.ge(&permissions.portfolio);
+                        return signing_key.has_permissions(&permissions);
                     }
                 }
                 // Signatory is not part of signing items of `did`, or
