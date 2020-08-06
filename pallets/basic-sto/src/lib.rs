@@ -17,9 +17,9 @@ use frame_support::{
     decl_error, decl_event, decl_module, decl_storage, dispatch::DispatchResult, ensure,
 };
 use frame_system::{self as system, ensure_signed};
-use sp_std::prelude::*;
+use pallet_settlement::{Leg, SettlementType};
 use sp_runtime::traits::{CheckedMul, Saturating};
-
+use sp_std::prelude::*;
 type Identity<T> = identity::Module<T>;
 type Settlement<T> = pallet_settlement::Module<T>;
 
@@ -53,8 +53,12 @@ decl_event!(
     where
         Balance = <T as CommonTrait>::Balance,
     {
-        /// A new fundraise has been created (offering token, raise token, amount to sell, price, venue id, fundraiser_id)
+        /// A new fundraise has been created
+        /// (offering token, raise token, amount to sell, price, venue id, fundraiser_id)
         FundraiseCreated(IdentityId, Ticker, Ticker, Balance, u128, u64, u64),
+        /// An investor invested in the fundraiser
+        /// (offering token, raise token, offering_token_amount, raise_token_amount, fundraiser_id)
+        FundsRaised(IdentityId, Ticker, Ticker, Balance, Balance, u64),
     }
 );
 
@@ -64,7 +68,9 @@ decl_error! {
         /// Sender does not have required permissions
         Unauthorized,
         /// An arithmetic operation overflowed
-        Overflow
+        Overflow,
+        /// Not enough tokens left for sale
+        InsufficientTokensRemaining
     }
 }
 
@@ -116,16 +122,52 @@ decl_module! {
 
         /// Create a new offering.
         #[weight = 200_000_000]
-        pub fn invest(origin, offering_token: Ticker, fundraise_id: u64, buy_amount: T::Balance) -> DispatchResult {
-            let sender = ensure_signed(origin)?;
+        pub fn invest(origin, offering_token: Ticker, fundraise_id: u64, offering_token_amount: T::Balance) -> DispatchResult {
+            let sender = ensure_signed(origin.clone())?;
             let did = Context::current_identity_or::<Identity<T>>(&sender)?;
-            let fundraiser = Self::fundraisers(offering_token, fundraise_id);
-            // Ceil of buy_amount * price_per_million
-            let sell_amount = buy_amount
+            let mut fundraiser = Self::fundraisers(offering_token, fundraise_id);
+            ensure!(fundraiser.remaining_amount >= offering_token_amount, Error::<T>::InsufficientTokensRemaining);
+            // Ceil of offering_token_amount * price_per_million
+            let raise_token_amount = offering_token_amount
                 .checked_mul(&fundraiser.price_per_token.into())
                 .ok_or(Error::<T>::Overflow)?
                 .saturating_add(999_999.into())
                 / 1_000_000.into();
+
+            let treasury = T::Asset::treasury(&offering_token);
+            let legs = vec![
+                Leg {
+                    // TODO: Replace with did that actually hold the offering token
+                    from: treasury,
+                    to: did,
+                    asset: offering_token,
+                    amount: offering_token_amount
+                },
+                Leg {
+                    from: did,
+                    to: treasury,
+                    asset: fundraiser.raise_token,
+                    amount: raise_token_amount
+                }
+            ];
+
+            let instruction_id = Settlement::<T>::base_add_instruction(
+                treasury,
+                fundraiser.venue_id,
+                SettlementType::SettleOnAuthorization,
+                None,
+                legs
+            )?;
+
+            Settlement::<T>::unsafe_authorize_instruction(treasury, instruction_id)?;
+            Settlement::<T>::authorize_instruction(origin, instruction_id)?;
+
+            Self::deposit_event(
+                RawEvent::FundsRaised(did, offering_token, fundraiser.raise_token, offering_token_amount, raise_token_amount, fundraise_id)
+            );
+
+            fundraiser.remaining_amount -= offering_token_amount;
+            <Fundraisers<T>>::insert(offering_token, fundraise_id, fundraiser);
 
             Ok(())
         }
