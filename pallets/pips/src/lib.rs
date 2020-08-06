@@ -71,7 +71,7 @@ use frame_support::{
     weights::SimpleDispatchInfo,
     Parameter,
 };
-use frame_system::{self as system, ensure_signed};
+use frame_system::{self as system, ensure_root, ensure_signed};
 use pallet_identity as identity;
 use pallet_treasury::TreasuryTrait;
 use polymesh_common_utilities::{
@@ -469,6 +469,35 @@ decl_module! {
         type Error = Error<T>;
 
         fn deposit_event() = default;
+
+        #[weight = SimpleDispatchInfo::FixedOperational(100_000)]
+        fn update_vote_tally(origin) {
+            ensure_root(origin)?;
+            let last_pip_id = <PipIdSequence>::get();
+            // Iterate over all pips
+            for pip_id in 0..=last_pip_id {
+                // Skip pruned pips
+                if <ProposalResult<T>>::contains_key(pip_id) {
+                    // Recalculate result
+                    let mut stats = VotingResult::default();
+                    for vote in <ProposalVotes<T>>::iter_prefix(pip_id) {
+                        match vote {
+                            Vote::None => {},
+                            Vote::Yes(deposit) => {
+                                stats.ayes_count += 1;
+                                stats.ayes_stake += deposit;
+                            }
+                            Vote::No(deposit) => {
+                                stats.nays_count += 1;
+                                stats.nays_stake += deposit;
+                            }
+                        }
+                    }
+                    // Update result
+                    <ProposalResult<T>>::insert(pip_id, stats);
+                }
+            }
+        }
 
         /// Change whether completed PIPs are pruned. Can only be called by governance council
         ///
@@ -1351,11 +1380,11 @@ impl<T: Trait> Module<T> {
                     .ok_or_else(|| Error::<T>::StakeAmountOfVotesExceeded)?;
             }
             Vote::No(deposit) => {
-                stats.nays_count += stats
+                stats.nays_count = stats
                     .nays_count
                     .checked_add(1)
                     .ok_or_else(|| Error::<T>::NumberOfVotesExceeded)?;
-                stats.nays_stake += stats
+                stats.nays_stake = stats
                     .nays_stake
                     .checked_add(&deposit)
                     .ok_or_else(|| Error::<T>::StakeAmountOfVotesExceeded)?;
