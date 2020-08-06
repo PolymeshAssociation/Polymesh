@@ -161,7 +161,7 @@ pub struct BatchRevokeClaimItem {
 
 /// Storage version of the pallet queried on runtime upgrades.
 #[derive(Encode, Decode, Clone, Copy, PartialEq, Eq)]
-enum Releases {
+enum Version {
     V1,
 }
 
@@ -214,8 +214,8 @@ decl_storage! {
 
         /// Storage version of the pallet.
         ///
-        /// New networks start with version `Some(Releases::V1)`. Existing networks start with `None`.
-        StorageVersion build(|_| Some(Releases::V1)): Option<Releases>;
+        /// New networks start with version `Some(Version::V1)`. Existing networks start with `None`.
+        StorageVersion build(|_| Some(Version::V1)): Option<Version>;
     }
     add_extra_genesis {
         config(identities): Vec<(T::AccountId, IdentityId, IdentityId, InvestorUid, Option<u64>)>;
@@ -280,9 +280,11 @@ decl_module! {
         fn on_runtime_upgrade() -> Weight {
             if <StorageVersion>::get().is_none() {
                 // Upgrade to V1.
-                <CddAuthForPrimaryKeyRotation>::put(Self::cdd_auth_for_master_key_rotation());
+                <CddAuthForPrimaryKeyRotation>::put(<CddAuthForMasterKeyRotation>::take());
+                <StorageVersion>::put(Version::V1);
             }
-            1
+            // 3 writes
+            30
         }
 
         // TODO: Remove this function before mainnet. cdd_register_did should be used instead.
