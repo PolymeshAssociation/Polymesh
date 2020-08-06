@@ -150,13 +150,13 @@
 //!     controller: &T::AccountId,
 //!     ledger: &StakingLedger<T>
 //! ) {
-//! 	T::Currency::set_lock(
-//! 		STAKING_ID,
-//! 		&ledger.stash,
-//! 		ledger.total,
-//! 		WithdrawReasons::all()
-//! 	);
-//! 	// <Ledger<T>>::insert(controller, ledger); // Commented out as we don't have access to Staking's storage here.
+//!     T::Currency::set_lock(
+//!         STAKING_ID,
+//!         &ledger.stash,
+//!         ledger.total,
+//!         WithdrawReasons::all()
+//!     );
+//!     // <Ledger<T>>::insert(controller, ledger); // Commented out as we don't have access to Staking's storage here.
 //! }
 //! # fn main() {}
 //! ```
@@ -461,7 +461,7 @@ decl_module! {
             ensure_root(origin)?;
             let who = T::Lookup::lookup(who)?;
             let caller_id = Context::current_identity_or::<T::Identity>(&who)
-                .unwrap_or(SystematicIssuers::Committee.as_id());
+                .unwrap_or_else(|_| SystematicIssuers::Committee.as_id());
 
             let (free, reserved) = Self::mutate_account(&who, |account| {
                 if new_free > account.free {
@@ -769,7 +769,7 @@ impl<T: Trait> BlockRewardsReserveCurrency<T::Balance, NegativeImbalance<T>> for
                 account.free = new_brr_free_balance;
                 // Calculate how much amount to mint that is not available with the Brr
                 // eg. amount = 100 and the account.free = 60 then `amount_to_mint` = 40
-                amount = amount - (old_brr_free_balance - new_brr_free_balance);
+                amount -= old_brr_free_balance - new_brr_free_balance;
             }
             <TotalIssuance<T>>::mutate(|v| *v = v.saturating_add(amount));
             Ok(())
@@ -995,7 +995,7 @@ where
                 account.free = account
                     .free
                     .checked_add(&value)
-                    .ok_or(Self::PositiveImbalance::zero())?;
+                    .ok_or_else(Self::PositiveImbalance::zero)?;
 
                 Ok(PositiveImbalance::new(value))
             },
@@ -1054,7 +1054,7 @@ where
                 Ok(imbalance)
             },
         )
-        .unwrap_or(SignedImbalance::Positive(Self::PositiveImbalance::zero()))
+        .unwrap_or_else(|_| SignedImbalance::Positive(Self::PositiveImbalance::zero()))
     }
 }
 
@@ -1071,7 +1071,7 @@ where
             <IdentityBalance<T>>::insert(who, new_balance);
             Ok(NegativeImbalance::new(value))
         } else {
-            Err(Error::<T>::Overflow)?
+            return Err(Error::<T>::Overflow.into());
         }
     }
 
@@ -1087,7 +1087,7 @@ where
                 }
             }
         }
-        return None;
+        None
     }
 
     fn deposit_into_existing_identity(
@@ -1101,7 +1101,7 @@ where
             <IdentityBalance<T>>::insert(who, new_balance);
             Ok(PositiveImbalance::new(value))
         } else {
-            Err(Error::<T>::Overflow)?
+            return Err(Error::<T>::Overflow.into());
         }
     }
 }
@@ -1170,7 +1170,7 @@ where
             actual
         });
 
-        Self::deposit_event(RawEvent::Unreserved(who.clone(), actual.clone()));
+        Self::deposit_event(RawEvent::Unreserved(who.clone(), actual));
         value - actual
     }
 
