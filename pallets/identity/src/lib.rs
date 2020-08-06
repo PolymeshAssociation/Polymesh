@@ -204,10 +204,6 @@ decl_storage! {
         pub AuthorizationsGiven: double_map hasher(blake2_128_concat)
             IdentityId, hasher(twox_64_concat) u64 => Signatory<T::AccountId>;
 
-        /// Obsoleted storage variable superceded by `CddAuthForPrimaryKeyRotation`. It is kept here
-        /// for the purpose of storage migration.
-        pub CddAuthForMasterKeyRotation get(fn cdd_auth_for_master_key_rotation): bool;
-
         /// A config flag that, if set, instructs an authorization from a CDD provider in order to
         /// change the primary key of an identity.
         pub CddAuthForPrimaryKeyRotation get(fn cdd_auth_for_primary_key_rotation): bool;
@@ -276,16 +272,6 @@ decl_module! {
         // Initializing events
         // this is needed only if you are using events in your module
         fn deposit_event() = default;
-
-        fn on_runtime_upgrade() -> Weight {
-            if <StorageVersion>::get().is_none() {
-                // Upgrade to V1.
-                <CddAuthForPrimaryKeyRotation>::put(<CddAuthForMasterKeyRotation>::take());
-                <StorageVersion>::put(Version::V1);
-            }
-            // 3 writes
-            30
-        }
 
         // TODO: Remove this function before mainnet. cdd_register_did should be used instead.
         /// Register a new did with a CDD claim for the caller.
