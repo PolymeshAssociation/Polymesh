@@ -20,7 +20,7 @@ type Origin = <TestStorage as frame_system::Trait>::Origin;
 #[test]
 fn reimbursement_and_disbursement() {
     ExtBuilder::default()
-        .existential_deposit(10)
+        .balance_factor(10)
         .build()
         .execute_with(reimbursement_and_disbursement_we);
 }
