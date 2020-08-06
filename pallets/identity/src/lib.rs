@@ -159,12 +159,6 @@ pub struct BatchRevokeClaimItem {
     pub claim: Claim,
 }
 
-/// Storage version of the pallet queried on runtime upgrades.
-#[derive(Encode, Decode, Clone, Copy, PartialEq, Eq)]
-enum Version {
-    V1,
-}
-
 decl_storage! {
     trait Store for Module<T: Trait> as identity {
 
@@ -207,11 +201,6 @@ decl_storage! {
         /// A config flag that, if set, instructs an authorization from a CDD provider in order to
         /// change the primary key of an identity.
         pub CddAuthForPrimaryKeyRotation get(fn cdd_auth_for_primary_key_rotation): bool;
-
-        /// Storage version of the pallet.
-        ///
-        /// New networks start with version `Some(Version::V1)`. Existing networks start with `None`.
-        StorageVersion build(|_| Some(Version::V1)): Option<Version>;
     }
     add_extra_genesis {
         config(identities): Vec<(T::AccountId, IdentityId, IdentityId, InvestorUid, Option<u64>)>;
