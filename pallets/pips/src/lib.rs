@@ -110,7 +110,7 @@ use polymesh_common_utilities::{
     traits::{governance_group::GovernanceGroupTrait, group::GroupTrait, pip::PipId},
     CommonTrait, Context, SystematicIssuers,
 };
-use polymesh_primitives::{Beneficiary, IdentityId};
+use polymesh_primitives::IdentityId;
 use polymesh_primitives_derive::VecU8StrongTyped;
 #[cfg(feature = "std")]
 use serde::{Deserialize, Serialize};
@@ -139,15 +139,13 @@ pub struct PipDescription(pub Vec<u8>);
 /// Represents a proposal
 #[derive(Encode, Decode, Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "std", derive(Debug))]
-pub struct Pip<Proposal, Balance> {
+pub struct Pip<Proposal> {
     /// The proposal's unique id.
     pub id: PipId,
     /// The proposal being voted on.
     pub proposal: Proposal,
     /// The latest state
     pub state: ProposalState,
-    /// Beneficiaries of this Pips
-    pub beneficiaries: Option<Vec<Beneficiary<Balance>>>,
 }
 
 /// A result of execution of get_votes.
@@ -387,7 +385,7 @@ decl_storage! {
 
         /// Actual proposal for a given id, if it's current.
         /// proposal id -> proposal
-        pub Proposals get(fn proposals): map hasher(twox_64_concat) PipId => Option<Pip<T::Proposal, T::Balance>>;
+        pub Proposals get(fn proposals): map hasher(twox_64_concat) PipId => Option<Pip<T::Proposal>>;
 
         /// PolymeshVotes on a given proposal, if it is ongoing.
         /// proposal id -> vote count
@@ -525,8 +523,6 @@ decl_error! {
         MissingCurrentIdentity,
         /// Proposal is not in the correct state
         IncorrectProposalState,
-        /// Insufficient treasury funds to pay beneficiaries
-        InsufficientTreasuryFunds,
         /// When enacting snapshot results, an unskippable PIP was skipped.
         CannotSkipPip,
         /// Tried to enact results for the snapshot queue overflowing its length.
@@ -624,7 +620,6 @@ decl_module! {
             deposit: BalanceOf<T>,
             url: Option<Url>,
             description: Option<PipDescription>,
-            beneficiaries: Option<Vec<Beneficiary<T::Balance>>>
         ) -> DispatchResult {
             // 1. Ensure it's really the `proposer`.
             Self::ensure_signed_by(origin, &proposer)?;
@@ -666,7 +661,6 @@ decl_module! {
                 id,
                 proposal: *proposal,
                 state: ProposalState::Pending,
-                beneficiaries,
             };
             <Proposals<T>>::insert(id, pip);
 
@@ -1312,53 +1306,16 @@ impl<T: Trait> Module<T> {
     fn execute_proposal(id: PipId) -> Weight {
         let proposal = Self::proposals(id).expect("PIP was scheduled but doesn't exist");
         assert_eq!(proposal.state, ProposalState::Scheduled);
-        let mut actual_weight: Weight = 0;
-        let new_state = match Self::check_beneficiaries(id) {
-            Ok(_) => match proposal.proposal.dispatch(system::RawOrigin::Root.into()) {
-                Ok(post_info) => {
-                    actual_weight = post_info.actual_weight.unwrap_or(0);
-                    Self::pay_to_beneficiaries(id);
-                    ProposalState::Executed
-                }
-                Err(e) => {
-                    debug::error!("Proposal {}, its execution fails: {:?}", id, e.error);
-                    ProposalState::Failed
-                }
-            },
+        let (new_state, weight) = match proposal.proposal.dispatch(system::RawOrigin::Root.into()) {
+            Ok(post_info) => (ProposalState::Executed, post_info.actual_weight),
             Err(e) => {
-                debug::error!("Proposal {}, its beneficiaries fails: {:?}", id, e);
-                ProposalState::Failed
+                debug::error!("Proposal {}, its execution fails: {:?}", id, e.error);
+                (ProposalState::Failed, None)
             }
         };
         Self::update_proposal_state(id, new_state);
         Self::prune_data(id, new_state, Self::prune_historical_pips());
-        actual_weight
-    }
-
-    fn check_beneficiaries(id: PipId) -> DispatchResult {
-        if let Some(proposal) = Self::proposals(id) {
-            if let Some(beneficiaries) = proposal.beneficiaries {
-                let total_amount = beneficiaries
-                    .iter()
-                    .fold(0.into(), |acc, b| b.amount.saturating_add(acc));
-                ensure!(
-                    T::Treasury::balance() >= total_amount,
-                    Error::<T>::InsufficientTreasuryFunds
-                );
-            }
-        }
-        Ok(())
-    }
-
-    fn pay_to_beneficiaries(id: PipId) {
-        if let Some(proposal) = Self::proposals(id) {
-            if let Some(beneficiaries) = proposal.beneficiaries {
-                let _ = beneficiaries.into_iter().fold(0.into(), |acc, b| {
-                    T::Treasury::disbursement(b.id, b.amount);
-                    b.amount.saturating_add(acc)
-                });
-            }
-        }
+        weight.unwrap_or(0)
     }
 
     fn update_proposal_state(id: PipId, new_state: ProposalState) -> ProposalState {
