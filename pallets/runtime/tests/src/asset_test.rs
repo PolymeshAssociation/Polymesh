@@ -2085,62 +2085,41 @@ fn test_can_transfer_rpc() {
 fn can_set_treasury_did() {
     ExtBuilder::default()
         .build()
-        .execute_with(can_set_treasury_did_we);
+        .execute_with(clear_treasury);
 }
 
-fn can_set_treasury_did_we() {
+fn clear_treasury() {
     let alice = AccountKeyring::Alice.public();
     let alice_id = register_keyring_account(AccountKeyring::Alice).unwrap();
-    let _charlie_id = register_keyring_account(AccountKeyring::Charlie).unwrap();
-    let bob = AccountKeyring::Bob.public();
-    assert_ok!(Balances::top_up_identity_balance(
-        Origin::signed(alice),
-        alice_id,
-        100_000
-    ));
-    let bob_signatory = Signatory::Account(AccountKeyring::Bob.public());
-    add_signing_key(alice_id, bob_signatory);
-    assert_ok!(Balances::transfer_with_memo(
-        Origin::signed(alice),
-        bob,
-        1_000,
-        Some(Memo::from("Bob funding"))
-    ));
-    let token_1 = SecurityToken {
+    let bob_id = register_keyring_account(AccountKeyring::Bob).unwrap();
+
+    let mut token = SecurityToken {
         name: vec![0x01].into(),
         owner_did: alice_id,
         total_supply: 1_000_000,
         divisible: true,
         asset_type: AssetType::default(),
+        treasury_did: Some(bob_id),
         ..Default::default()
     };
-    let ticker_1 = Ticker::try_from(token_1.name.as_slice()).unwrap();
+    let ticker = Ticker::try_from(token.name.as_slice()).unwrap();
+
     assert_ok!(Asset::create_asset(
-        Origin::signed(bob),
-        token_1.name.clone(),
-        ticker_1,
-        token_1.total_supply,
+        Origin::signed(alice),
+        token.name.clone(),
+        ticker,
+        token.total_supply,
         true,
-        token_1.asset_type.clone(),
+        token.asset_type.clone(),
         vec![],
         None,
-        None,
+        token.treasury_did,
     ));
-    assert_eq!(Asset::token_details(ticker_1), token_1);
-    let treasury_did = Some(alice_id);
-    assert_ok!(Asset::set_treasury_did(
-        Origin::signed(bob),
-        ticker_1,
-        treasury_did
+    assert_eq!(Asset::token_details(ticker), token);
+    assert_ok!(Asset::clear_treasury_did(
+        Origin::signed(alice),
+        ticker
     ));
-    let token_2 = SecurityToken {
-        name: token_1.name,
-        owner_did: token_1.owner_did,
-        total_supply: token_1.total_supply,
-        divisible: token_1.divisible,
-        asset_type: token_1.asset_type,
-        treasury_did,
-        ..Default::default()
-    };
-    assert_eq!(Asset::token_details(ticker_1), token_2);
+    token.treasury_did = None;
+    assert_eq!(Asset::token_details(ticker), token);
 }
