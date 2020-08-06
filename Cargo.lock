@@ -880,7 +880,7 @@ dependencies = [
  "serde_bytes",
  "serde_json",
  "sha3",
- "sp-std 2.0.0-rc4 (git+https://github.com/paritytech/substrate?tag=v2.0.0-rc4)",
+ "sp-std",
  "wasm-bindgen-test",
  "zeroize",
 ]
@@ -1171,16 +1171,16 @@ name = "frame-benchmarking"
 version = "2.0.0-rc4"
 source = "git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call#b161460bf73e4cc73e29b8e01ab0323bb3d95e84"
 dependencies = [
- "frame-support 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "frame-system 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
+ "frame-support",
+ "frame-system",
  "linregress",
  "parity-scale-codec",
  "paste",
- "sp-api 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "sp-io 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "sp-runtime 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "sp-runtime-interface 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "sp-std 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
+ "sp-api",
+ "sp-io",
+ "sp-runtime",
+ "sp-runtime-interface",
+ "sp-std",
 ]
 
 [[package]]
@@ -1194,10 +1194,10 @@ dependencies = [
  "sc-client-db",
  "sc-executor",
  "sc-service",
- "sp-core 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "sp-externalities 0.8.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "sp-runtime 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "sp-state-machine 0.8.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
+ "sp-core",
+ "sp-externalities",
+ "sp-runtime",
+ "sp-state-machine",
  "structopt",
 ]
 
@@ -1206,25 +1206,14 @@ name = "frame-executive"
 version = "2.0.0-rc4"
 source = "git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call#b161460bf73e4cc73e29b8e01ab0323bb3d95e84"
 dependencies = [
- "frame-support 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "frame-system 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
+ "frame-support",
+ "frame-system",
  "parity-scale-codec",
  "serde",
- "sp-io 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "sp-runtime 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "sp-std 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "sp-tracing 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
-]
-
-[[package]]
-name = "frame-metadata"
-version = "11.0.0-rc4"
-source = "git+https://github.com/paritytech/substrate?tag=v2.0.0-rc4#00768a1f21a579c478fe5d4f51e1fa71f7db9fd4"
-dependencies = [
- "parity-scale-codec",
- "serde",
- "sp-core 2.0.0-rc4 (git+https://github.com/paritytech/substrate?tag=v2.0.0-rc4)",
- "sp-std 2.0.0-rc4 (git+https://github.com/paritytech/substrate?tag=v2.0.0-rc4)",
+ "sp-io",
+ "sp-runtime",
+ "sp-std",
+ "sp-tracing",
 ]
 
 [[package]]
@@ -1234,33 +1223,8 @@ source = "git+https://github.com/paritytech/substrate?branch=at-add-dispatch-cal
 dependencies = [
  "parity-scale-codec",
  "serde",
- "sp-core 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "sp-std 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
-]
-
-[[package]]
-name = "frame-support"
-version = "2.0.0-rc4"
-source = "git+https://github.com/paritytech/substrate?tag=v2.0.0-rc4#00768a1f21a579c478fe5d4f51e1fa71f7db9fd4"
-dependencies = [
- "bitmask",
- "frame-metadata 11.0.0-rc4 (git+https://github.com/paritytech/substrate?tag=v2.0.0-rc4)",
- "frame-support-procedural 2.0.0-rc4 (git+https://github.com/paritytech/substrate?tag=v2.0.0-rc4)",
- "impl-trait-for-tuples",
- "log",
- "once_cell",
- "parity-scale-codec",
- "paste",
- "serde",
- "smallvec 1.4.1",
- "sp-arithmetic 2.0.0-rc4 (git+https://github.com/paritytech/substrate?tag=v2.0.0-rc4)",
- "sp-core 2.0.0-rc4 (git+https://github.com/paritytech/substrate?tag=v2.0.0-rc4)",
- "sp-inherents 2.0.0-rc4 (git+https://github.com/paritytech/substrate?tag=v2.0.0-rc4)",
- "sp-io 2.0.0-rc4 (git+https://github.com/paritytech/substrate?tag=v2.0.0-rc4)",
- "sp-runtime 2.0.0-rc4 (git+https://github.com/paritytech/substrate?tag=v2.0.0-rc4)",
- "sp-state-machine 0.8.0-rc4 (git+https://github.com/paritytech/substrate?tag=v2.0.0-rc4)",
- "sp-std 2.0.0-rc4 (git+https://github.com/paritytech/substrate?tag=v2.0.0-rc4)",
- "sp-tracing 2.0.0-rc4 (git+https://github.com/paritytech/substrate?tag=v2.0.0-rc4)",
+ "sp-core",
+ "sp-std",
 ]
 
 [[package]]
@@ -1269,8 +1233,8 @@ version = "2.0.0-rc4"
 source = "git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call#b161460bf73e4cc73e29b8e01ab0323bb3d95e84"
 dependencies = [
  "bitmask",
- "frame-metadata 11.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "frame-support-procedural 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
+ "frame-metadata",
+ "frame-support-procedural",
  "impl-trait-for-tuples",
  "log",
  "once_cell",
@@ -1278,25 +1242,14 @@ dependencies = [
  "paste",
  "serde",
  "smallvec 1.4.1",
- "sp-arithmetic 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "sp-core 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "sp-inherents 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "sp-io 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "sp-runtime 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "sp-state-machine 0.8.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "sp-std 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "sp-tracing 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
-]
-
-[[package]]
-name = "frame-support-procedural"
-version = "2.0.0-rc4"
-source = "git+https://github.com/paritytech/substrate?tag=v2.0.0-rc4#00768a1f21a579c478fe5d4f51e1fa71f7db9fd4"
-dependencies = [
- "frame-support-procedural-tools 2.0.0-rc4 (git+https://github.com/paritytech/substrate?tag=v2.0.0-rc4)",
- "proc-macro2 1.0.19",
- "quote 1.0.7",
- "syn 1.0.35",
+ "sp-arithmetic",
+ "sp-core",
+ "sp-inherents",
+ "sp-io",
+ "sp-runtime",
+ "sp-state-machine",
+ "sp-std",
+ "sp-tracing",
 ]
 
 [[package]]
@@ -1304,19 +1257,7 @@ name = "frame-support-procedural"
 version = "2.0.0-rc4"
 source = "git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call#b161460bf73e4cc73e29b8e01ab0323bb3d95e84"
 dependencies = [
- "frame-support-procedural-tools 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "proc-macro2 1.0.19",
- "quote 1.0.7",
- "syn 1.0.35",
-]
-
-[[package]]
-name = "frame-support-procedural-tools"
-version = "2.0.0-rc4"
-source = "git+https://github.com/paritytech/substrate?tag=v2.0.0-rc4#00768a1f21a579c478fe5d4f51e1fa71f7db9fd4"
-dependencies = [
- "frame-support-procedural-tools-derive 2.0.0-rc4 (git+https://github.com/paritytech/substrate?tag=v2.0.0-rc4)",
- "proc-macro-crate",
+ "frame-support-procedural-tools",
  "proc-macro2 1.0.19",
  "quote 1.0.7",
  "syn 1.0.35",
@@ -1327,18 +1268,8 @@ name = "frame-support-procedural-tools"
 version = "2.0.0-rc4"
 source = "git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call#b161460bf73e4cc73e29b8e01ab0323bb3d95e84"
 dependencies = [
- "frame-support-procedural-tools-derive 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
+ "frame-support-procedural-tools-derive",
  "proc-macro-crate",
- "proc-macro2 1.0.19",
- "quote 1.0.7",
- "syn 1.0.35",
-]
-
-[[package]]
-name = "frame-support-procedural-tools-derive"
-version = "2.0.0-rc4"
-source = "git+https://github.com/paritytech/substrate?tag=v2.0.0-rc4#00768a1f21a579c478fe5d4f51e1fa71f7db9fd4"
-dependencies = [
  "proc-macro2 1.0.19",
  "quote 1.0.7",
  "syn 1.0.35",
@@ -1357,33 +1288,17 @@ dependencies = [
 [[package]]
 name = "frame-system"
 version = "2.0.0-rc4"
-source = "git+https://github.com/paritytech/substrate?tag=v2.0.0-rc4#00768a1f21a579c478fe5d4f51e1fa71f7db9fd4"
-dependencies = [
- "frame-support 2.0.0-rc4 (git+https://github.com/paritytech/substrate?tag=v2.0.0-rc4)",
- "impl-trait-for-tuples",
- "parity-scale-codec",
- "serde",
- "sp-core 2.0.0-rc4 (git+https://github.com/paritytech/substrate?tag=v2.0.0-rc4)",
- "sp-io 2.0.0-rc4 (git+https://github.com/paritytech/substrate?tag=v2.0.0-rc4)",
- "sp-runtime 2.0.0-rc4 (git+https://github.com/paritytech/substrate?tag=v2.0.0-rc4)",
- "sp-std 2.0.0-rc4 (git+https://github.com/paritytech/substrate?tag=v2.0.0-rc4)",
- "sp-version 2.0.0-rc4 (git+https://github.com/paritytech/substrate?tag=v2.0.0-rc4)",
-]
-
-[[package]]
-name = "frame-system"
-version = "2.0.0-rc4"
 source = "git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call#b161460bf73e4cc73e29b8e01ab0323bb3d95e84"
 dependencies = [
- "frame-support 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
+ "frame-support",
  "impl-trait-for-tuples",
  "parity-scale-codec",
  "serde",
- "sp-core 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "sp-io 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "sp-runtime 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "sp-std 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "sp-version 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+ "sp-std",
+ "sp-version",
 ]
 
 [[package]]
@@ -1392,7 +1307,7 @@ version = "2.0.0-rc4"
 source = "git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call#b161460bf73e4cc73e29b8e01ab0323bb3d95e84"
 dependencies = [
  "parity-scale-codec",
- "sp-api 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
+ "sp-api",
 ]
 
 [[package]]
@@ -3060,8 +2975,8 @@ dependencies = [
 name = "node-rpc"
 version = "0.1.0"
 dependencies = [
- "frame-support 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "frame-system 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
+ "frame-support",
+ "frame-system",
  "jsonrpc-core",
  "jsonrpc-core-client",
  "jsonrpc-derive",
@@ -3074,20 +2989,20 @@ dependencies = [
  "parity-scale-codec",
  "polymesh-primitives",
  "serde",
- "sp-api 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
+ "sp-api",
  "sp-blockchain",
- "sp-core 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
+ "sp-core",
  "sp-rpc",
- "sp-runtime 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "sp-std 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
+ "sp-runtime",
+ "sp-std",
 ]
 
 [[package]]
 name = "node-rpc-runtime-api"
 version = "0.1.0"
 dependencies = [
- "frame-support 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "frame-system 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
+ "frame-support",
+ "frame-system",
  "pallet-compliance-manager",
  "pallet-identity",
  "pallet-pips",
@@ -3097,9 +3012,9 @@ dependencies = [
  "polymesh-primitives",
  "serde",
  "serde_json",
- "sp-api 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "sp-runtime 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "sp-std 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
+ "sp-api",
+ "sp-runtime",
+ "sp-std",
 ]
 
 [[package]]
@@ -3267,8 +3182,8 @@ name = "pallet-asset"
 version = "0.1.0"
 dependencies = [
  "frame-benchmarking",
- "frame-support 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "frame-system 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
+ "frame-support",
+ "frame-system",
  "hex-literal 0.2.1",
  "pallet-balances 0.1.0",
  "pallet-contracts",
@@ -3276,7 +3191,7 @@ dependencies = [
  "pallet-portfolio",
  "pallet-session",
  "pallet-statistics",
- "pallet-timestamp 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
+ "pallet-timestamp",
  "parity-scale-codec",
  "polymesh-common-utilities",
  "polymesh-primitives",
@@ -3284,13 +3199,13 @@ dependencies = [
  "rustc-hex",
  "serde",
  "serde_derive",
- "sp-api 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "sp-arithmetic 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "sp-core 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "sp-io 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "sp-runtime 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "sp-std 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "sp-version 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
+ "sp-api",
+ "sp-arithmetic",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+ "sp-std",
+ "sp-version",
 ]
 
 [[package]]
@@ -3298,15 +3213,15 @@ name = "pallet-authority-discovery"
 version = "2.0.0-rc4"
 source = "git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call#b161460bf73e4cc73e29b8e01ab0323bb3d95e84"
 dependencies = [
- "frame-support 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "frame-system 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
+ "frame-support",
+ "frame-system",
  "pallet-session",
  "parity-scale-codec",
  "serde",
- "sp-application-crypto 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
+ "sp-application-crypto",
  "sp-authority-discovery",
- "sp-runtime 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "sp-std 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
+ "sp-runtime",
+ "sp-std",
 ]
 
 [[package]]
@@ -3314,14 +3229,14 @@ name = "pallet-authorship"
 version = "2.0.0-rc4"
 source = "git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call#b161460bf73e4cc73e29b8e01ab0323bb3d95e84"
 dependencies = [
- "frame-support 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "frame-system 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
+ "frame-support",
+ "frame-system",
  "impl-trait-for-tuples",
  "parity-scale-codec",
  "sp-authorship",
- "sp-inherents 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "sp-runtime 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "sp-std 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
+ "sp-inherents",
+ "sp-runtime",
+ "sp-std",
 ]
 
 [[package]]
@@ -3329,30 +3244,30 @@ name = "pallet-babe"
 version = "2.0.0-rc4"
 source = "git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call#b161460bf73e4cc73e29b8e01ab0323bb3d95e84"
 dependencies = [
- "frame-support 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "frame-system 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
+ "frame-support",
+ "frame-system",
  "pallet-session",
- "pallet-timestamp 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
+ "pallet-timestamp",
  "parity-scale-codec",
  "serde",
- "sp-application-crypto 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
+ "sp-application-crypto",
  "sp-consensus-babe",
  "sp-consensus-vrf",
- "sp-inherents 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "sp-io 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "sp-runtime 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
+ "sp-inherents",
+ "sp-io",
+ "sp-runtime",
  "sp-staking",
- "sp-std 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "sp-timestamp 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
+ "sp-std",
+ "sp-timestamp",
 ]
 
 [[package]]
 name = "pallet-balances"
 version = "0.1.0"
 dependencies = [
- "frame-support 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "frame-system 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "pallet-timestamp 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
+ "frame-support",
+ "frame-system",
+ "pallet-timestamp",
  "pallet-transaction-payment",
  "parity-scale-codec",
  "polymesh-common-utilities",
@@ -3360,12 +3275,12 @@ dependencies = [
  "polymesh-primitives-derive",
  "serde",
  "serde_derive",
- "sp-api 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "sp-core 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "sp-io 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "sp-runtime 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "sp-std 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "sp-version 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
+ "sp-api",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+ "sp-std",
+ "sp-version",
  "substrate-test-runtime-client",
 ]
 
@@ -3375,29 +3290,29 @@ version = "2.0.0-rc4"
 source = "git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call#b161460bf73e4cc73e29b8e01ab0323bb3d95e84"
 dependencies = [
  "frame-benchmarking",
- "frame-support 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "frame-system 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
+ "frame-support",
+ "frame-system",
  "parity-scale-codec",
  "serde",
- "sp-runtime 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "sp-std 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
+ "sp-runtime",
+ "sp-std",
 ]
 
 [[package]]
 name = "pallet-cdd-offchain-worker"
 version = "2.0.0"
 dependencies = [
- "frame-support 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "frame-system 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
+ "frame-support",
+ "frame-system",
  "pallet-staking",
  "parity-scale-codec",
  "polymesh-common-utilities",
  "polymesh-primitives",
- "sp-application-crypto 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "sp-core 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "sp-io 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "sp-runtime 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "sp-std 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
+ "sp-application-crypto",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+ "sp-std",
 ]
 
 [[package]]
@@ -3405,42 +3320,42 @@ name = "pallet-committee"
 version = "0.1.0"
 dependencies = [
  "frame-benchmarking",
- "frame-support 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "frame-system 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
+ "frame-support",
+ "frame-system",
  "pallet-identity",
- "pallet-timestamp 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
+ "pallet-timestamp",
  "parity-scale-codec",
  "polymesh-common-utilities",
  "polymesh-primitives",
  "serde",
  "serde_derive",
- "sp-api 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "sp-core 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "sp-io 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "sp-runtime 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "sp-std 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "sp-version 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
+ "sp-api",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+ "sp-std",
+ "sp-version",
 ]
 
 [[package]]
 name = "pallet-compliance-manager"
 version = "0.1.0"
 dependencies = [
- "frame-support 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "frame-system 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
+ "frame-support",
+ "frame-system",
  "pallet-identity",
- "pallet-timestamp 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
+ "pallet-timestamp",
  "parity-scale-codec",
  "polymesh-common-utilities",
  "polymesh-primitives",
  "serde",
  "serde_derive",
- "sp-api 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "sp-core 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "sp-io 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "sp-runtime 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "sp-std 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "sp-version 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
+ "sp-api",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+ "sp-std",
+ "sp-version",
 ]
 
 [[package]]
@@ -3450,23 +3365,23 @@ dependencies = [
  "bulletproofs",
  "cryptography",
  "curve25519-dalek",
- "frame-support 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "frame-system 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
+ "frame-support",
+ "frame-system",
  "pallet-identity",
- "pallet-timestamp 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
+ "pallet-timestamp",
  "parity-scale-codec",
  "polymesh-common-utilities",
  "polymesh-primitives",
  "polymesh-primitives-derive",
  "rand 0.7.3",
  "rand_core 0.5.1",
- "sp-api 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "sp-arithmetic 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "sp-core 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "sp-io 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "sp-runtime 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "sp-runtime-interface 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "sp-std 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
+ "sp-api",
+ "sp-arithmetic",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+ "sp-runtime-interface",
+ "sp-std",
 ]
 
 [[package]]
@@ -3474,18 +3389,18 @@ name = "pallet-contracts"
 version = "2.0.0-rc4"
 source = "git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call#b161460bf73e4cc73e29b8e01ab0323bb3d95e84"
 dependencies = [
- "frame-support 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "frame-system 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
+ "frame-support",
+ "frame-system",
  "pallet-contracts-primitives",
  "parity-scale-codec",
  "parity-wasm 0.41.0",
  "pwasm-utils",
  "serde",
- "sp-core 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "sp-io 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "sp-runtime 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
  "sp-sandbox",
- "sp-std 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
+ "sp-std",
  "wasmi-validation",
 ]
 
@@ -3495,8 +3410,8 @@ version = "2.0.0-rc4"
 source = "git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call#b161460bf73e4cc73e29b8e01ab0323bb3d95e84"
 dependencies = [
  "parity-scale-codec",
- "sp-runtime 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "sp-std 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
+ "sp-runtime",
+ "sp-std",
 ]
 
 [[package]]
@@ -3511,11 +3426,11 @@ dependencies = [
  "pallet-contracts-rpc-runtime-api",
  "parity-scale-codec",
  "serde",
- "sp-api 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
+ "sp-api",
  "sp-blockchain",
- "sp-core 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
+ "sp-core",
  "sp-rpc",
- "sp-runtime 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
+ "sp-runtime",
 ]
 
 [[package]]
@@ -3525,9 +3440,9 @@ source = "git+https://github.com/paritytech/substrate?branch=at-add-dispatch-cal
 dependencies = [
  "pallet-contracts-primitives",
  "parity-scale-codec",
- "sp-api 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "sp-runtime 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "sp-std 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
+ "sp-api",
+ "sp-runtime",
+ "sp-std",
 ]
 
 [[package]]
@@ -3535,15 +3450,15 @@ name = "pallet-finality-tracker"
 version = "2.0.0-rc4"
 source = "git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call#b161460bf73e4cc73e29b8e01ab0323bb3d95e84"
 dependencies = [
- "frame-support 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "frame-system 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
+ "frame-support",
+ "frame-system",
  "impl-trait-for-tuples",
  "parity-scale-codec",
  "serde",
  "sp-finality-tracker",
- "sp-inherents 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "sp-runtime 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "sp-std 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
+ "sp-inherents",
+ "sp-runtime",
+ "sp-std",
 ]
 
 [[package]]
@@ -3551,40 +3466,40 @@ name = "pallet-grandpa"
 version = "2.0.0-rc4"
 source = "git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call#b161460bf73e4cc73e29b8e01ab0323bb3d95e84"
 dependencies = [
- "frame-support 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "frame-system 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
+ "frame-support",
+ "frame-system",
  "pallet-finality-tracker",
  "pallet-session",
  "parity-scale-codec",
  "serde",
- "sp-application-crypto 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "sp-core 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
+ "sp-application-crypto",
+ "sp-core",
  "sp-finality-grandpa",
- "sp-runtime 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
+ "sp-runtime",
  "sp-session",
  "sp-staking",
- "sp-std 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
+ "sp-std",
 ]
 
 [[package]]
 name = "pallet-group"
 version = "0.1.0"
 dependencies = [
- "frame-support 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "frame-system 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
+ "frame-support",
+ "frame-system",
  "pallet-identity",
- "pallet-timestamp 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
+ "pallet-timestamp",
  "parity-scale-codec",
  "polymesh-common-utilities",
  "polymesh-primitives",
  "serde",
  "serde_derive",
- "sp-api 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "sp-core 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "sp-io 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "sp-runtime 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "sp-std 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "sp-version 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
+ "sp-api",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+ "sp-std",
+ "sp-version",
 ]
 
 [[package]]
@@ -3598,10 +3513,10 @@ dependencies = [
  "parity-scale-codec",
  "polymesh-primitives",
  "serde",
- "sp-api 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
+ "sp-api",
  "sp-blockchain",
- "sp-runtime 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "sp-std 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
+ "sp-runtime",
+ "sp-std",
  "substrate-test-runtime-client",
 ]
 
@@ -3614,9 +3529,9 @@ dependencies = [
  "polymesh-primitives",
  "serde",
  "serde_json",
- "sp-api 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "sp-runtime 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "sp-std 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
+ "sp-api",
+ "sp-runtime",
+ "sp-std",
 ]
 
 [[package]]
@@ -3624,21 +3539,21 @@ name = "pallet-identity"
 version = "0.1.0"
 dependencies = [
  "frame-benchmarking",
- "frame-support 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "frame-system 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
+ "frame-support",
+ "frame-system",
  "pallet-balances 0.1.0",
- "pallet-timestamp 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
+ "pallet-timestamp",
  "parity-scale-codec",
  "polymesh-common-utilities",
  "polymesh-primitives",
  "serde",
  "serde_derive",
- "sp-api 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "sp-core 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "sp-io 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "sp-runtime 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "sp-std 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "sp-version 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
+ "sp-api",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+ "sp-std",
+ "sp-version",
  "substrate-test-runtime-client",
 ]
 
@@ -3647,18 +3562,18 @@ name = "pallet-im-online"
 version = "2.0.0"
 dependencies = [
  "frame-benchmarking",
- "frame-support 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "frame-system 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
+ "frame-support",
+ "frame-system",
  "pallet-authorship",
  "pallet-session",
  "parity-scale-codec",
  "serde",
- "sp-application-crypto 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "sp-core 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "sp-io 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "sp-runtime 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
+ "sp-application-crypto",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
  "sp-staking",
- "sp-std 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
+ "sp-std",
 ]
 
 [[package]]
@@ -3666,32 +3581,32 @@ name = "pallet-indices"
 version = "2.0.0-rc4"
 source = "git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call#b161460bf73e4cc73e29b8e01ab0323bb3d95e84"
 dependencies = [
- "frame-support 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "frame-system 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
+ "frame-support",
+ "frame-system",
  "parity-scale-codec",
  "serde",
- "sp-core 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "sp-io 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
+ "sp-core",
+ "sp-io",
  "sp-keyring",
- "sp-runtime 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "sp-std 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
+ "sp-runtime",
+ "sp-std",
 ]
 
 [[package]]
 name = "pallet-multisig"
 version = "0.1.0"
 dependencies = [
- "frame-support 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "frame-system 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
+ "frame-support",
+ "frame-system",
  "pallet-identity",
- "pallet-timestamp 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
+ "pallet-timestamp",
  "parity-scale-codec",
  "polymesh-common-utilities",
  "polymesh-primitives",
  "serde",
- "sp-core 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "sp-runtime 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "sp-std 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
+ "sp-core",
+ "sp-runtime",
+ "sp-std",
 ]
 
 [[package]]
@@ -3699,27 +3614,27 @@ name = "pallet-offences"
 version = "2.0.0-rc4"
 source = "git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call#b161460bf73e4cc73e29b8e01ab0323bb3d95e84"
 dependencies = [
- "frame-support 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "frame-system 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
+ "frame-support",
+ "frame-system",
  "pallet-balances 2.0.0-rc4",
  "parity-scale-codec",
  "serde",
- "sp-runtime 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
+ "sp-runtime",
  "sp-staking",
- "sp-std 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
+ "sp-std",
 ]
 
 [[package]]
 name = "pallet-pips"
 version = "0.1.0"
 dependencies = [
- "frame-support 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "frame-system 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
+ "frame-support",
+ "frame-system",
  "pallet-balances 0.1.0",
  "pallet-committee",
  "pallet-group",
  "pallet-identity",
- "pallet-timestamp 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
+ "pallet-timestamp",
  "pallet-treasury",
  "parity-scale-codec",
  "polymesh-common-utilities",
@@ -3727,45 +3642,45 @@ dependencies = [
  "polymesh-primitives-derive",
  "serde",
  "serde_derive",
- "sp-api 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "sp-core 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "sp-io 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "sp-runtime 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "sp-std 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "sp-version 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
+ "sp-api",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+ "sp-std",
+ "sp-version",
 ]
 
 [[package]]
 name = "pallet-portfolio"
 version = "0.1.0"
 dependencies = [
- "frame-support 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "frame-system 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
+ "frame-support",
+ "frame-system",
  "pallet-balances 0.1.0",
  "pallet-identity",
  "parity-scale-codec",
  "polymesh-common-utilities",
  "polymesh-primitives",
  "serde",
- "sp-arithmetic 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "sp-std 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
+ "sp-arithmetic",
+ "sp-std",
 ]
 
 [[package]]
 name = "pallet-protocol-fee"
 version = "0.1.0"
 dependencies = [
- "frame-support 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "frame-system 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
+ "frame-support",
+ "frame-system",
  "pallet-identity",
  "parity-scale-codec",
  "polymesh-common-utilities",
  "polymesh-primitives",
  "serde",
- "sp-core 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "sp-io 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "sp-runtime 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "sp-std 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+ "sp-std",
 ]
 
 [[package]]
@@ -3779,22 +3694,22 @@ dependencies = [
  "parity-scale-codec",
  "polymesh-common-utilities",
  "serde",
- "sp-api 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
+ "sp-api",
  "sp-blockchain",
- "sp-runtime 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
+ "sp-runtime",
 ]
 
 [[package]]
 name = "pallet-protocol-fee-rpc-runtime-api"
 version = "0.1.0"
 dependencies = [
- "frame-support 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
+ "frame-support",
  "parity-scale-codec",
  "polymesh-common-utilities",
  "serde",
  "serde_json",
- "sp-api 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "sp-runtime 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
+ "sp-api",
+ "sp-runtime",
 ]
 
 [[package]]
@@ -3802,12 +3717,12 @@ name = "pallet-randomness-collective-flip"
 version = "2.0.0-rc4"
 source = "git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call#b161460bf73e4cc73e29b8e01ab0323bb3d95e84"
 dependencies = [
- "frame-support 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "frame-system 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
+ "frame-support",
+ "frame-system",
  "parity-scale-codec",
  "safe-mix",
- "sp-runtime 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "sp-std 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
+ "sp-runtime",
+ "sp-std",
 ]
 
 [[package]]
@@ -3815,43 +3730,43 @@ name = "pallet-session"
 version = "2.0.0-rc4"
 source = "git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call#b161460bf73e4cc73e29b8e01ab0323bb3d95e84"
 dependencies = [
- "frame-support 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "frame-system 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
+ "frame-support",
+ "frame-system",
  "impl-trait-for-tuples",
- "pallet-timestamp 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
+ "pallet-timestamp",
  "parity-scale-codec",
  "serde",
- "sp-core 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "sp-io 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "sp-runtime 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
  "sp-session",
  "sp-staking",
- "sp-std 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "sp-trie 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
+ "sp-std",
+ "sp-trie",
 ]
 
 [[package]]
 name = "pallet-settlement"
 version = "0.1.0"
 dependencies = [
- "frame-support 2.0.0-rc4 (git+https://github.com/paritytech/substrate?tag=v2.0.0-rc4)",
- "frame-system 2.0.0-rc4 (git+https://github.com/paritytech/substrate?tag=v2.0.0-rc4)",
+ "frame-support",
+ "frame-system",
  "pallet-balances 0.1.0",
  "pallet-identity",
- "pallet-timestamp 2.0.0-rc4 (git+https://github.com/paritytech/substrate?tag=v2.0.0-rc4)",
+ "pallet-timestamp",
  "parity-scale-codec",
  "polymesh-common-utilities",
  "polymesh-primitives",
  "polymesh-primitives-derive",
  "serde",
  "serde_derive",
- "sp-api 2.0.0-rc4 (git+https://github.com/paritytech/substrate?tag=v2.0.0-rc4)",
- "sp-core 2.0.0-rc4 (git+https://github.com/paritytech/substrate?tag=v2.0.0-rc4)",
- "sp-io 2.0.0-rc4 (git+https://github.com/paritytech/substrate?tag=v2.0.0-rc4)",
- "sp-runtime 2.0.0-rc4 (git+https://github.com/paritytech/substrate?tag=v2.0.0-rc4)",
- "sp-serializer 2.0.0-rc4 (git+https://github.com/paritytech/substrate?tag=v2.0.0-rc4)",
- "sp-std 2.0.0-rc4 (git+https://github.com/paritytech/substrate?tag=v2.0.0-rc4)",
- "sp-version 2.0.0-rc4 (git+https://github.com/paritytech/substrate?tag=v2.0.0-rc4)",
+ "sp-api",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+ "sp-serializer",
+ "sp-std",
+ "sp-version",
 ]
 
 [[package]]
@@ -3859,8 +3774,8 @@ name = "pallet-staking"
 version = "2.0.0"
 dependencies = [
  "frame-benchmarking",
- "frame-support 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "frame-system 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
+ "frame-support",
+ "frame-system",
  "pallet-authorship",
  "pallet-babe",
  "pallet-identity",
@@ -3870,13 +3785,13 @@ dependencies = [
  "polymesh-primitives",
  "rand_chacha 0.2.2",
  "serde",
- "sp-arithmetic 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "sp-core 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "sp-io 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
+ "sp-arithmetic",
+ "sp-core",
+ "sp-io",
  "sp-npos-elections",
- "sp-runtime 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
+ "sp-runtime",
  "sp-staking",
- "sp-std 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
+ "sp-std",
  "static_assertions",
 ]
 
@@ -3884,21 +3799,21 @@ dependencies = [
 name = "pallet-staking-fuzz"
 version = "0.0.0"
 dependencies = [
- "frame-support 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "frame-system 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
+ "frame-support",
+ "frame-system",
  "honggfuzz",
  "pallet-balances 0.1.0",
  "pallet-indices",
  "pallet-session",
  "pallet-staking",
  "pallet-staking-reward-curve",
- "pallet-timestamp 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
+ "pallet-timestamp",
  "parity-scale-codec",
- "sp-core 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "sp-io 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
+ "sp-core",
+ "sp-io",
  "sp-npos-elections",
- "sp-runtime 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "sp-std 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
+ "sp-runtime",
+ "sp-std",
 ]
 
 [[package]]
@@ -3908,7 +3823,7 @@ dependencies = [
  "proc-macro-crate",
  "proc-macro2 1.0.19",
  "quote 1.0.7",
- "sp-runtime 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
+ "sp-runtime",
  "syn 1.0.35",
 ]
 
@@ -3922,41 +3837,41 @@ dependencies = [
  "pallet-staking-rpc-runtime-api",
  "parity-scale-codec",
  "serde",
- "sp-api 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
+ "sp-api",
  "sp-blockchain",
- "sp-runtime 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
+ "sp-runtime",
 ]
 
 [[package]]
 name = "pallet-staking-rpc-runtime-api"
 version = "2.0.0"
 dependencies = [
- "frame-support 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
+ "frame-support",
  "serde_json",
- "sp-api 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "sp-runtime 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
+ "sp-api",
+ "sp-runtime",
 ]
 
 [[package]]
 name = "pallet-statistics"
 version = "0.1.0"
 dependencies = [
- "frame-support 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "frame-system 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
+ "frame-support",
+ "frame-system",
  "lazy_static",
  "pallet-session",
- "pallet-timestamp 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
+ "pallet-timestamp",
  "parity-scale-codec",
  "polymesh-common-utilities",
  "polymesh-primitives",
  "serde",
  "serde_derive",
- "sp-api 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "sp-arithmetic 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "sp-core 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "sp-io 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "sp-runtime 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "sp-std 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
+ "sp-api",
+ "sp-arithmetic",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+ "sp-std",
  "substrate-test-runtime-client",
 ]
 
@@ -3965,28 +3880,13 @@ name = "pallet-sudo"
 version = "2.0.0-rc4"
 source = "git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call#b161460bf73e4cc73e29b8e01ab0323bb3d95e84"
 dependencies = [
- "frame-support 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "frame-system 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
+ "frame-support",
+ "frame-system",
  "parity-scale-codec",
  "serde",
- "sp-io 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "sp-runtime 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "sp-std 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
-]
-
-[[package]]
-name = "pallet-timestamp"
-version = "2.0.0-rc4"
-source = "git+https://github.com/paritytech/substrate?tag=v2.0.0-rc4#00768a1f21a579c478fe5d4f51e1fa71f7db9fd4"
-dependencies = [
- "frame-support 2.0.0-rc4 (git+https://github.com/paritytech/substrate?tag=v2.0.0-rc4)",
- "frame-system 2.0.0-rc4 (git+https://github.com/paritytech/substrate?tag=v2.0.0-rc4)",
- "impl-trait-for-tuples",
- "parity-scale-codec",
- "sp-inherents 2.0.0-rc4 (git+https://github.com/paritytech/substrate?tag=v2.0.0-rc4)",
- "sp-runtime 2.0.0-rc4 (git+https://github.com/paritytech/substrate?tag=v2.0.0-rc4)",
- "sp-std 2.0.0-rc4 (git+https://github.com/paritytech/substrate?tag=v2.0.0-rc4)",
- "sp-timestamp 2.0.0-rc4 (git+https://github.com/paritytech/substrate?tag=v2.0.0-rc4)",
+ "sp-io",
+ "sp-runtime",
+ "sp-std",
 ]
 
 [[package]]
@@ -3995,39 +3895,39 @@ version = "2.0.0-rc4"
 source = "git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call#b161460bf73e4cc73e29b8e01ab0323bb3d95e84"
 dependencies = [
  "frame-benchmarking",
- "frame-support 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "frame-system 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
+ "frame-support",
+ "frame-system",
  "impl-trait-for-tuples",
  "parity-scale-codec",
  "serde",
- "sp-inherents 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "sp-runtime 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "sp-std 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "sp-timestamp 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
+ "sp-inherents",
+ "sp-runtime",
+ "sp-std",
+ "sp-timestamp",
 ]
 
 [[package]]
 name = "pallet-transaction-payment"
 version = "2.0.0"
 dependencies = [
- "frame-support 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "frame-system 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
+ "frame-support",
+ "frame-system",
  "parity-scale-codec",
  "polymesh-common-utilities",
  "polymesh-primitives",
  "serde",
  "serde_json",
- "sp-api 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "sp-runtime 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "sp-std 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
+ "sp-api",
+ "sp-runtime",
+ "sp-std",
 ]
 
 [[package]]
 name = "pallet-treasury"
 version = "0.1.0"
 dependencies = [
- "frame-support 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "frame-system 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
+ "frame-support",
+ "frame-system",
  "pallet-balances 0.1.0",
  "pallet-identity",
  "parity-scale-codec",
@@ -4035,28 +3935,28 @@ dependencies = [
  "polymesh-primitives",
  "serde",
  "serde_derive",
- "sp-api 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "sp-core 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "sp-io 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "sp-runtime 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "sp-std 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "sp-version 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
+ "sp-api",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+ "sp-std",
+ "sp-version",
 ]
 
 [[package]]
 name = "pallet-utility"
 version = "0.1.0"
 dependencies = [
- "frame-support 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "frame-system 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
+ "frame-support",
+ "frame-system",
  "parity-scale-codec",
  "polymesh-common-utilities",
  "polymesh-primitives",
  "serde",
- "sp-core 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "sp-io 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "sp-runtime 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "sp-std 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+ "sp-std",
 ]
 
 [[package]]
@@ -4433,17 +4333,17 @@ dependencies = [
  "sc-telemetry",
  "sc-transaction-pool",
  "serde_json",
- "sp-api 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
+ "sp-api",
  "sp-authority-discovery",
  "sp-block-builder",
  "sp-blockchain",
  "sp-consensus",
  "sp-consensus-babe",
- "sp-core 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
+ "sp-core",
  "sp-finality-grandpa",
- "sp-inherents 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
+ "sp-inherents",
  "sp-offchain",
- "sp-runtime 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
+ "sp-runtime",
  "sp-session",
  "sp-transaction-pool",
  "structopt",
@@ -4455,22 +4355,22 @@ dependencies = [
 name = "polymesh-common-utilities"
 version = "0.1.0"
 dependencies = [
- "frame-support 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "frame-system 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
+ "frame-support",
+ "frame-system",
  "lazy_static",
  "pallet-session",
- "pallet-timestamp 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
+ "pallet-timestamp",
  "parity-scale-codec",
  "polymesh-primitives",
  "polymesh-primitives-derive",
  "serde",
  "serde_derive",
- "sp-api 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "sp-arithmetic 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "sp-core 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "sp-io 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "sp-runtime 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "sp-std 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
+ "sp-api",
+ "sp-arithmetic",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+ "sp-std",
  "substrate-test-runtime-client",
 ]
 
@@ -4494,12 +4394,12 @@ dependencies = [
  "sc-finality-grandpa-rpc",
  "sc-keystore",
  "sc-rpc",
- "sp-api 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
+ "sp-api",
  "sp-block-builder",
  "sp-blockchain",
  "sp-consensus",
  "sp-consensus-babe",
- "sp-runtime 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
+ "sp-runtime",
  "sp-transaction-pool",
  "substrate-frame-rpc-system",
 ]
@@ -4510,19 +4410,19 @@ version = "2.0.0"
 dependencies = [
  "cryptography",
  "curve25519-dalek",
- "frame-support 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "frame-system 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
+ "frame-support",
+ "frame-system",
  "hex",
  "parity-scale-codec",
  "polymesh-primitives-derive",
  "serde",
  "serde_json",
- "sp-application-crypto 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "sp-core 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "sp-io 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "sp-runtime 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "sp-std 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "sp-version 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
+ "sp-application-crypto",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+ "sp-std",
+ "sp-version",
 ]
 
 [[package]]
@@ -4538,8 +4438,8 @@ name = "polymesh-runtime-common"
 version = "1.0.0"
 dependencies = [
  "frame-benchmarking",
- "frame-support 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "frame-system 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
+ "frame-support",
+ "frame-system",
  "pallet-asset",
  "pallet-authorship",
  "pallet-balances 0.1.0",
@@ -4549,17 +4449,17 @@ dependencies = [
  "pallet-identity",
  "pallet-multisig",
  "pallet-portfolio",
- "pallet-timestamp 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
+ "pallet-timestamp",
  "parity-scale-codec",
  "polymesh-common-utilities",
  "polymesh-primitives",
  "polymesh-primitives-derive",
  "rand 0.7.3",
  "serde",
- "sp-core 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "sp-io 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "sp-runtime 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "sp-std 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+ "sp-std",
 ]
 
 [[package]]
@@ -4568,8 +4468,8 @@ version = "0.1.0"
 dependencies = [
  "frame-benchmarking",
  "frame-executive",
- "frame-support 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "frame-system 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
+ "frame-support",
+ "frame-system",
  "frame-system-rpc-runtime-api",
  "node-rpc-runtime-api",
  "pallet-asset",
@@ -4604,7 +4504,7 @@ dependencies = [
  "pallet-staking-rpc-runtime-api",
  "pallet-statistics",
  "pallet-sudo",
- "pallet-timestamp 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
+ "pallet-timestamp",
  "pallet-transaction-payment",
  "pallet-treasury",
  "pallet-utility",
@@ -4613,21 +4513,21 @@ dependencies = [
  "polymesh-primitives",
  "polymesh-runtime-common",
  "serde",
- "sp-api 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "sp-arithmetic 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
+ "sp-api",
+ "sp-arithmetic",
  "sp-authority-discovery",
  "sp-block-builder",
  "sp-consensus-babe",
- "sp-core 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "sp-inherents 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "sp-io 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
+ "sp-core",
+ "sp-inherents",
+ "sp-io",
  "sp-offchain",
- "sp-runtime 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
+ "sp-runtime",
  "sp-session",
  "sp-staking",
- "sp-std 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
+ "sp-std",
  "sp-transaction-pool",
- "sp-version 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
+ "sp-version",
  "substrate-wasm-builder-runner",
 ]
 
@@ -4637,8 +4537,8 @@ version = "0.1.0"
 dependencies = [
  "frame-benchmarking",
  "frame-executive",
- "frame-support 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "frame-system 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
+ "frame-support",
+ "frame-system",
  "frame-system-rpc-runtime-api",
  "hex-literal 0.2.1",
  "ink_primitives",
@@ -4677,7 +4577,7 @@ dependencies = [
  "pallet-staking-rpc-runtime-api",
  "pallet-statistics",
  "pallet-sudo",
- "pallet-timestamp 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
+ "pallet-timestamp",
  "pallet-transaction-payment",
  "pallet-treasury",
  "pallet-utility",
@@ -4690,21 +4590,21 @@ dependencies = [
  "safe-mix",
  "serde",
  "serde_derive",
- "sp-api 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "sp-arithmetic 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
+ "sp-api",
+ "sp-arithmetic",
  "sp-authority-discovery",
  "sp-block-builder",
  "sp-consensus-babe",
- "sp-core 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "sp-inherents 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "sp-io 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
+ "sp-core",
+ "sp-inherents",
+ "sp-io",
  "sp-offchain",
- "sp-runtime 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
+ "sp-runtime",
  "sp-session",
  "sp-staking",
- "sp-std 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
+ "sp-std",
  "sp-transaction-pool",
- "sp-version 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
+ "sp-version",
  "substrate-test-runtime-client",
  "substrate-wasm-builder-runner",
 ]
@@ -4716,8 +4616,8 @@ dependencies = [
  "chrono",
  "env_logger",
  "frame-benchmarking",
- "frame-support 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "frame-system 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
+ "frame-support",
+ "frame-system",
  "hex-literal 0.3.0",
  "ink_primitives",
  "lazy_static",
@@ -4743,7 +4643,7 @@ dependencies = [
  "pallet-staking",
  "pallet-staking-reward-curve",
  "pallet-statistics",
- "pallet-timestamp 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
+ "pallet-timestamp",
  "pallet-transaction-payment",
  "pallet-treasury",
  "pallet-utility",
@@ -4757,13 +4657,13 @@ dependencies = [
  "rand 0.7.3",
  "serde",
  "smallvec 1.4.1",
- "sp-arithmetic 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "sp-core 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "sp-io 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
+ "sp-arithmetic",
+ "sp-core",
+ "sp-io",
  "sp-npos-elections",
- "sp-runtime 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
+ "sp-runtime",
  "sp-staking",
- "sp-std 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
+ "sp-std",
  "substrate-test-runtime-client",
  "substrate-test-utils",
 ]
@@ -5491,11 +5391,11 @@ dependencies = [
  "sc-keystore",
  "sc-network",
  "serde_json",
- "sp-api 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
+ "sp-api",
  "sp-authority-discovery",
  "sp-blockchain",
- "sp-core 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "sp-runtime 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
+ "sp-core",
+ "sp-runtime",
  "substrate-prometheus-endpoint",
 ]
 
@@ -5512,12 +5412,12 @@ dependencies = [
  "sc-client-api",
  "sc-proposer-metrics",
  "sc-telemetry",
- "sp-api 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
+ "sp-api",
  "sp-blockchain",
  "sp-consensus",
- "sp-core 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "sp-inherents 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "sp-runtime 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
+ "sp-core",
+ "sp-inherents",
+ "sp-runtime",
  "sp-transaction-pool",
  "substrate-prometheus-endpoint",
  "tokio-executor 0.2.0-alpha.6",
@@ -5530,13 +5430,13 @@ source = "git+https://github.com/paritytech/substrate?branch=at-add-dispatch-cal
 dependencies = [
  "parity-scale-codec",
  "sc-client-api",
- "sp-api 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
+ "sp-api",
  "sp-block-builder",
  "sp-blockchain",
  "sp-consensus",
- "sp-core 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "sp-runtime 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "sp-state-machine 0.8.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
+ "sp-core",
+ "sp-runtime",
+ "sp-state-machine",
 ]
 
 [[package]]
@@ -5551,8 +5451,8 @@ dependencies = [
  "serde",
  "serde_json",
  "sp-chain-spec",
- "sp-core 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "sp-runtime 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
+ "sp-core",
+ "sp-runtime",
 ]
 
 [[package]]
@@ -5593,13 +5493,13 @@ dependencies = [
  "sc-tracing",
  "serde_json",
  "sp-blockchain",
- "sp-core 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
+ "sp-core",
  "sp-keyring",
- "sp-panic-handler 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "sp-runtime 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "sp-state-machine 0.8.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
+ "sp-panic-handler",
+ "sp-runtime",
+ "sp-state-machine",
  "sp-utils",
- "sp-version 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
+ "sp-version",
  "structopt",
  "substrate-prometheus-endpoint",
  "time",
@@ -5623,22 +5523,22 @@ dependencies = [
  "parking_lot 0.10.2",
  "sc-executor",
  "sc-telemetry",
- "sp-api 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
+ "sp-api",
  "sp-blockchain",
  "sp-consensus",
- "sp-core 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
+ "sp-core",
  "sp-database",
- "sp-externalities 0.8.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "sp-inherents 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
+ "sp-externalities",
+ "sp-inherents",
  "sp-keyring",
- "sp-runtime 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "sp-state-machine 0.8.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "sp-std 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "sp-storage 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
+ "sp-runtime",
+ "sp-state-machine",
+ "sp-std",
+ "sp-storage",
  "sp-transaction-pool",
- "sp-trie 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
+ "sp-trie",
  "sp-utils",
- "sp-version 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
+ "sp-version",
  "substrate-prometheus-endpoint",
 ]
 
@@ -5663,11 +5563,11 @@ dependencies = [
  "sc-state-db",
  "sp-blockchain",
  "sp-consensus",
- "sp-core 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
+ "sp-core",
  "sp-database",
- "sp-runtime 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "sp-state-machine 0.8.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "sp-trie 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
+ "sp-runtime",
+ "sp-state-machine",
+ "sp-trie",
  "substrate-prometheus-endpoint",
 ]
 
@@ -5679,7 +5579,7 @@ dependencies = [
  "sc-client-api",
  "sp-blockchain",
  "sp-consensus",
- "sp-runtime 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
+ "sp-runtime",
 ]
 
 [[package]]
@@ -5708,19 +5608,19 @@ dependencies = [
  "sc-telemetry",
  "schnorrkel",
  "serde",
- "sp-api 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "sp-application-crypto 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
+ "sp-api",
+ "sp-application-crypto",
  "sp-block-builder",
  "sp-blockchain",
  "sp-consensus",
  "sp-consensus-babe",
  "sp-consensus-vrf",
- "sp-core 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "sp-inherents 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "sp-io 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "sp-runtime 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "sp-timestamp 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "sp-version 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
+ "sp-core",
+ "sp-inherents",
+ "sp-io",
+ "sp-runtime",
+ "sp-timestamp",
+ "sp-version",
  "substrate-prometheus-endpoint",
 ]
 
@@ -5739,13 +5639,13 @@ dependencies = [
  "sc-keystore",
  "sc-rpc-api",
  "serde",
- "sp-api 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "sp-application-crypto 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
+ "sp-api",
+ "sp-application-crypto",
  "sp-blockchain",
  "sp-consensus",
  "sp-consensus-babe",
- "sp-core 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "sp-runtime 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
+ "sp-core",
+ "sp-runtime",
 ]
 
 [[package]]
@@ -5758,7 +5658,7 @@ dependencies = [
  "parking_lot 0.10.2",
  "sc-client-api",
  "sp-blockchain",
- "sp-runtime 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
+ "sp-runtime",
 ]
 
 [[package]]
@@ -5773,14 +5673,14 @@ dependencies = [
  "parking_lot 0.10.2",
  "sc-client-api",
  "sc-telemetry",
- "sp-api 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "sp-application-crypto 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
+ "sp-api",
+ "sp-application-crypto",
  "sp-blockchain",
  "sp-consensus",
- "sp-core 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "sp-inherents 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "sp-runtime 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "sp-state-machine 0.8.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
+ "sp-core",
+ "sp-inherents",
+ "sp-runtime",
+ "sp-state-machine",
 ]
 
 [[package]]
@@ -5792,9 +5692,9 @@ dependencies = [
  "sc-client-api",
  "sp-authorship",
  "sp-consensus",
- "sp-core 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "sp-inherents 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "sp-runtime 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
+ "sp-core",
+ "sp-inherents",
+ "sp-runtime",
 ]
 
 [[package]]
@@ -5811,16 +5711,16 @@ dependencies = [
  "parking_lot 0.10.2",
  "sc-executor-common",
  "sc-executor-wasmi",
- "sp-api 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "sp-core 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "sp-externalities 0.8.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "sp-io 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "sp-panic-handler 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "sp-runtime-interface 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "sp-serializer 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "sp-trie 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "sp-version 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "sp-wasm-interface 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
+ "sp-api",
+ "sp-core",
+ "sp-externalities",
+ "sp-io",
+ "sp-panic-handler",
+ "sp-runtime-interface",
+ "sp-serializer",
+ "sp-trie",
+ "sp-version",
+ "sp-wasm-interface",
  "wasmi",
 ]
 
@@ -5834,10 +5734,10 @@ dependencies = [
  "parity-scale-codec",
  "parity-wasm 0.41.0",
  "sp-allocator",
- "sp-core 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "sp-runtime-interface 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "sp-serializer 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "sp-wasm-interface 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
+ "sp-core",
+ "sp-runtime-interface",
+ "sp-serializer",
+ "sp-wasm-interface",
  "wasmi",
 ]
 
@@ -5850,9 +5750,9 @@ dependencies = [
  "parity-scale-codec",
  "sc-executor-common",
  "sp-allocator",
- "sp-core 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "sp-runtime-interface 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "sp-wasm-interface 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
+ "sp-core",
+ "sp-runtime-interface",
+ "sp-wasm-interface",
  "wasmi",
 ]
 
@@ -5880,16 +5780,16 @@ dependencies = [
  "sc-network-gossip",
  "sc-telemetry",
  "serde_json",
- "sp-api 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "sp-application-crypto 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "sp-arithmetic 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
+ "sp-api",
+ "sp-application-crypto",
+ "sp-arithmetic",
  "sp-blockchain",
  "sp-consensus",
- "sp-core 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
+ "sp-core",
  "sp-finality-grandpa",
  "sp-finality-tracker",
- "sp-inherents 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "sp-runtime 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
+ "sp-inherents",
+ "sp-runtime",
  "sp-utils",
  "substrate-prometheus-endpoint",
 ]
@@ -5924,7 +5824,7 @@ dependencies = [
  "sc-client-api",
  "sc-network",
  "sp-blockchain",
- "sp-runtime 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
+ "sp-runtime",
  "sp-transaction-pool",
  "sp-utils",
  "wasm-timer",
@@ -5941,8 +5841,8 @@ dependencies = [
  "parking_lot 0.10.2",
  "rand 0.7.3",
  "serde_json",
- "sp-application-crypto 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "sp-core 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
+ "sp-application-crypto",
+ "sp-core",
  "subtle 2.2.3",
 ]
 
@@ -5957,12 +5857,12 @@ dependencies = [
  "parking_lot 0.10.2",
  "sc-client-api",
  "sc-executor",
- "sp-api 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
+ "sp-api",
  "sp-blockchain",
- "sp-core 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "sp-externalities 0.8.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "sp-runtime 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "sp-state-machine 0.8.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
+ "sp-core",
+ "sp-externalities",
+ "sp-runtime",
+ "sp-state-machine",
 ]
 
 [[package]]
@@ -6003,11 +5903,11 @@ dependencies = [
  "slog",
  "slog_derive",
  "smallvec 0.6.13",
- "sp-arithmetic 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
+ "sp-arithmetic",
  "sp-blockchain",
  "sp-consensus",
- "sp-core 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "sp-runtime 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
+ "sp-core",
+ "sp-runtime",
  "sp-utils",
  "substrate-prometheus-endpoint",
  "thiserror",
@@ -6028,7 +5928,7 @@ dependencies = [
  "log",
  "lru",
  "sc-network",
- "sp-runtime 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
+ "sp-runtime",
  "wasm-timer",
 ]
 
@@ -6051,10 +5951,10 @@ dependencies = [
  "sc-client-api",
  "sc-keystore",
  "sc-network",
- "sp-api 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "sp-core 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
+ "sp-api",
+ "sp-core",
  "sp-offchain",
- "sp-runtime 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
+ "sp-runtime",
  "sp-utils",
  "threadpool",
 ]
@@ -6099,18 +5999,18 @@ dependencies = [
  "sc-keystore",
  "sc-rpc-api",
  "serde_json",
- "sp-api 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
+ "sp-api",
  "sp-blockchain",
  "sp-chain-spec",
- "sp-core 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
+ "sp-core",
  "sp-offchain",
  "sp-rpc",
- "sp-runtime 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
+ "sp-runtime",
  "sp-session",
- "sp-state-machine 0.8.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
+ "sp-state-machine",
  "sp-transaction-pool",
  "sp-utils",
- "sp-version 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
+ "sp-version",
 ]
 
 [[package]]
@@ -6130,11 +6030,11 @@ dependencies = [
  "serde",
  "serde_json",
  "sp-chain-spec",
- "sp-core 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
+ "sp-core",
  "sp-rpc",
- "sp-runtime 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
+ "sp-runtime",
  "sp-transaction-pool",
- "sp-version 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
+ "sp-version",
 ]
 
 [[package]]
@@ -6150,7 +6050,7 @@ dependencies = [
  "log",
  "serde",
  "serde_json",
- "sp-runtime 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
+ "sp-runtime",
 ]
 
 [[package]]
@@ -6194,21 +6094,21 @@ dependencies = [
  "serde",
  "serde_json",
  "slog",
- "sp-api 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "sp-application-crypto 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
+ "sp-api",
+ "sp-application-crypto",
  "sp-block-builder",
  "sp-blockchain",
  "sp-consensus",
- "sp-core 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "sp-externalities 0.8.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "sp-io 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "sp-runtime 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
+ "sp-core",
+ "sp-externalities",
+ "sp-io",
+ "sp-runtime",
  "sp-session",
- "sp-state-machine 0.8.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
+ "sp-state-machine",
  "sp-transaction-pool",
- "sp-trie 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
+ "sp-trie",
  "sp-utils",
- "sp-version 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
+ "sp-version",
  "substrate-prometheus-endpoint",
  "sysinfo",
  "tempfile",
@@ -6227,7 +6127,7 @@ dependencies = [
  "parity-util-mem-derive",
  "parking_lot 0.10.2",
  "sc-client-api",
- "sp-core 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
+ "sp-core",
 ]
 
 [[package]]
@@ -6265,7 +6165,7 @@ dependencies = [
  "serde",
  "serde_json",
  "slog",
- "sp-tracing 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
+ "sp-tracing",
  "tracing-core",
 ]
 
@@ -6282,8 +6182,8 @@ dependencies = [
  "parking_lot 0.10.2",
  "serde",
  "sp-blockchain",
- "sp-core 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "sp-runtime 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
+ "sp-core",
+ "sp-runtime",
  "sp-transaction-pool",
  "sp-utils",
  "wasm-timer",
@@ -6304,11 +6204,11 @@ dependencies = [
  "parking_lot 0.10.2",
  "sc-client-api",
  "sc-transaction-graph",
- "sp-api 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
+ "sp-api",
  "sp-blockchain",
- "sp-core 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "sp-runtime 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "sp-tracing 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
+ "sp-core",
+ "sp-runtime",
+ "sp-tracing",
  "sp-transaction-pool",
  "sp-utils",
  "substrate-prometheus-endpoint",
@@ -6673,24 +6573,9 @@ source = "git+https://github.com/paritytech/substrate?branch=at-add-dispatch-cal
 dependencies = [
  "derive_more",
  "log",
- "sp-core 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "sp-std 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "sp-wasm-interface 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
-]
-
-[[package]]
-name = "sp-api"
-version = "2.0.0-rc4"
-source = "git+https://github.com/paritytech/substrate?tag=v2.0.0-rc4#00768a1f21a579c478fe5d4f51e1fa71f7db9fd4"
-dependencies = [
- "hash-db",
- "parity-scale-codec",
- "sp-api-proc-macro 2.0.0-rc4 (git+https://github.com/paritytech/substrate?tag=v2.0.0-rc4)",
- "sp-core 2.0.0-rc4 (git+https://github.com/paritytech/substrate?tag=v2.0.0-rc4)",
- "sp-runtime 2.0.0-rc4 (git+https://github.com/paritytech/substrate?tag=v2.0.0-rc4)",
- "sp-state-machine 0.8.0-rc4 (git+https://github.com/paritytech/substrate?tag=v2.0.0-rc4)",
- "sp-std 2.0.0-rc4 (git+https://github.com/paritytech/substrate?tag=v2.0.0-rc4)",
- "sp-version 2.0.0-rc4 (git+https://github.com/paritytech/substrate?tag=v2.0.0-rc4)",
+ "sp-core",
+ "sp-std",
+ "sp-wasm-interface",
 ]
 
 [[package]]
@@ -6700,24 +6585,12 @@ source = "git+https://github.com/paritytech/substrate?branch=at-add-dispatch-cal
 dependencies = [
  "hash-db",
  "parity-scale-codec",
- "sp-api-proc-macro 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "sp-core 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "sp-runtime 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "sp-state-machine 0.8.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "sp-std 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "sp-version 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
-]
-
-[[package]]
-name = "sp-api-proc-macro"
-version = "2.0.0-rc4"
-source = "git+https://github.com/paritytech/substrate?tag=v2.0.0-rc4#00768a1f21a579c478fe5d4f51e1fa71f7db9fd4"
-dependencies = [
- "blake2-rfc",
- "proc-macro-crate",
- "proc-macro2 1.0.19",
- "quote 1.0.7",
- "syn 1.0.35",
+ "sp-api-proc-macro",
+ "sp-core",
+ "sp-runtime",
+ "sp-state-machine",
+ "sp-std",
+ "sp-version",
 ]
 
 [[package]]
@@ -6735,38 +6608,13 @@ dependencies = [
 [[package]]
 name = "sp-application-crypto"
 version = "2.0.0-rc4"
-source = "git+https://github.com/paritytech/substrate?tag=v2.0.0-rc4#00768a1f21a579c478fe5d4f51e1fa71f7db9fd4"
-dependencies = [
- "parity-scale-codec",
- "serde",
- "sp-core 2.0.0-rc4 (git+https://github.com/paritytech/substrate?tag=v2.0.0-rc4)",
- "sp-io 2.0.0-rc4 (git+https://github.com/paritytech/substrate?tag=v2.0.0-rc4)",
- "sp-std 2.0.0-rc4 (git+https://github.com/paritytech/substrate?tag=v2.0.0-rc4)",
-]
-
-[[package]]
-name = "sp-application-crypto"
-version = "2.0.0-rc4"
 source = "git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call#b161460bf73e4cc73e29b8e01ab0323bb3d95e84"
 dependencies = [
  "parity-scale-codec",
  "serde",
- "sp-core 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "sp-io 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "sp-std 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
-]
-
-[[package]]
-name = "sp-arithmetic"
-version = "2.0.0-rc4"
-source = "git+https://github.com/paritytech/substrate?tag=v2.0.0-rc4#00768a1f21a579c478fe5d4f51e1fa71f7db9fd4"
-dependencies = [
- "integer-sqrt",
- "num-traits 0.2.12",
- "parity-scale-codec",
- "serde",
- "sp-debug-derive 2.0.0-rc4 (git+https://github.com/paritytech/substrate?tag=v2.0.0-rc4)",
- "sp-std 2.0.0-rc4 (git+https://github.com/paritytech/substrate?tag=v2.0.0-rc4)",
+ "sp-core",
+ "sp-io",
+ "sp-std",
 ]
 
 [[package]]
@@ -6778,8 +6626,8 @@ dependencies = [
  "num-traits 0.2.12",
  "parity-scale-codec",
  "serde",
- "sp-debug-derive 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "sp-std 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
+ "sp-debug-derive",
+ "sp-std",
 ]
 
 [[package]]
@@ -6788,10 +6636,10 @@ version = "2.0.0-rc4"
 source = "git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call#b161460bf73e4cc73e29b8e01ab0323bb3d95e84"
 dependencies = [
  "parity-scale-codec",
- "sp-api 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "sp-application-crypto 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "sp-runtime 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "sp-std 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
+ "sp-api",
+ "sp-application-crypto",
+ "sp-runtime",
+ "sp-std",
 ]
 
 [[package]]
@@ -6800,9 +6648,9 @@ version = "2.0.0-rc4"
 source = "git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call#b161460bf73e4cc73e29b8e01ab0323bb3d95e84"
 dependencies = [
  "parity-scale-codec",
- "sp-inherents 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "sp-runtime 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "sp-std 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
+ "sp-inherents",
+ "sp-runtime",
+ "sp-std",
 ]
 
 [[package]]
@@ -6811,10 +6659,10 @@ version = "2.0.0-rc4"
 source = "git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call#b161460bf73e4cc73e29b8e01ab0323bb3d95e84"
 dependencies = [
  "parity-scale-codec",
- "sp-api 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "sp-inherents 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "sp-runtime 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "sp-std 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
+ "sp-api",
+ "sp-inherents",
+ "sp-runtime",
+ "sp-std",
 ]
 
 [[package]]
@@ -6829,8 +6677,8 @@ dependencies = [
  "parking_lot 0.10.2",
  "sp-block-builder",
  "sp-consensus",
- "sp-runtime 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "sp-state-machine 0.8.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
+ "sp-runtime",
+ "sp-state-machine",
 ]
 
 [[package]]
@@ -6855,13 +6703,13 @@ dependencies = [
  "parity-scale-codec",
  "parking_lot 0.10.2",
  "serde",
- "sp-core 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "sp-inherents 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "sp-runtime 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "sp-state-machine 0.8.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "sp-std 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
+ "sp-core",
+ "sp-inherents",
+ "sp-runtime",
+ "sp-state-machine",
+ "sp-std",
  "sp-utils",
- "sp-version 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
+ "sp-version",
  "substrate-prometheus-endpoint",
  "wasm-timer",
 ]
@@ -6872,12 +6720,12 @@ version = "0.8.0-rc4"
 source = "git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call#b161460bf73e4cc73e29b8e01ab0323bb3d95e84"
 dependencies = [
  "parity-scale-codec",
- "sp-api 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "sp-application-crypto 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "sp-inherents 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "sp-runtime 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "sp-std 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "sp-timestamp 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
+ "sp-api",
+ "sp-application-crypto",
+ "sp-inherents",
+ "sp-runtime",
+ "sp-std",
+ "sp-timestamp",
 ]
 
 [[package]]
@@ -6887,15 +6735,15 @@ source = "git+https://github.com/paritytech/substrate?branch=at-add-dispatch-cal
 dependencies = [
  "merlin",
  "parity-scale-codec",
- "sp-api 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "sp-application-crypto 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
+ "sp-api",
+ "sp-application-crypto",
  "sp-consensus",
  "sp-consensus-vrf",
- "sp-core 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "sp-inherents 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "sp-runtime 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "sp-std 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "sp-timestamp 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
+ "sp-core",
+ "sp-inherents",
+ "sp-runtime",
+ "sp-std",
+ "sp-timestamp",
 ]
 
 [[package]]
@@ -6905,51 +6753,9 @@ source = "git+https://github.com/paritytech/substrate?branch=at-add-dispatch-cal
 dependencies = [
  "parity-scale-codec",
  "schnorrkel",
- "sp-core 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "sp-runtime 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "sp-std 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
-]
-
-[[package]]
-name = "sp-core"
-version = "2.0.0-rc4"
-source = "git+https://github.com/paritytech/substrate?tag=v2.0.0-rc4#00768a1f21a579c478fe5d4f51e1fa71f7db9fd4"
-dependencies = [
- "base58",
- "blake2-rfc",
- "byteorder",
- "derive_more",
- "ed25519-dalek",
- "futures 0.3.5",
- "hash-db",
- "hash256-std-hasher",
- "hex",
- "impl-serde 0.3.1",
- "lazy_static",
- "libsecp256k1",
- "log",
- "merlin",
- "num-traits 0.2.12",
- "parity-scale-codec",
- "parity-util-mem",
- "parking_lot 0.10.2",
- "primitive-types",
- "rand 0.7.3",
- "regex",
- "schnorrkel",
- "serde",
- "sha2 0.8.2",
- "sp-debug-derive 2.0.0-rc4 (git+https://github.com/paritytech/substrate?tag=v2.0.0-rc4)",
- "sp-externalities 0.8.0-rc4 (git+https://github.com/paritytech/substrate?tag=v2.0.0-rc4)",
- "sp-runtime-interface 2.0.0-rc4 (git+https://github.com/paritytech/substrate?tag=v2.0.0-rc4)",
- "sp-std 2.0.0-rc4 (git+https://github.com/paritytech/substrate?tag=v2.0.0-rc4)",
- "sp-storage 2.0.0-rc4 (git+https://github.com/paritytech/substrate?tag=v2.0.0-rc4)",
- "substrate-bip39",
- "tiny-bip39",
- "tiny-keccak",
- "twox-hash",
- "wasmi",
- "zeroize",
+ "sp-core",
+ "sp-runtime",
+ "sp-std",
 ]
 
 [[package]]
@@ -6981,11 +6787,11 @@ dependencies = [
  "schnorrkel",
  "serde",
  "sha2 0.8.2",
- "sp-debug-derive 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "sp-externalities 0.8.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "sp-runtime-interface 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "sp-std 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "sp-storage 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
+ "sp-debug-derive",
+ "sp-externalities",
+ "sp-runtime-interface",
+ "sp-std",
+ "sp-storage",
  "substrate-bip39",
  "tiny-bip39",
  "tiny-keccak",
@@ -7006,16 +6812,6 @@ dependencies = [
 [[package]]
 name = "sp-debug-derive"
 version = "2.0.0-rc4"
-source = "git+https://github.com/paritytech/substrate?tag=v2.0.0-rc4#00768a1f21a579c478fe5d4f51e1fa71f7db9fd4"
-dependencies = [
- "proc-macro2 1.0.19",
- "quote 1.0.7",
- "syn 1.0.35",
-]
-
-[[package]]
-name = "sp-debug-derive"
-version = "2.0.0-rc4"
 source = "git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call#b161460bf73e4cc73e29b8e01ab0323bb3d95e84"
 dependencies = [
  "proc-macro2 1.0.19",
@@ -7026,23 +6822,12 @@ dependencies = [
 [[package]]
 name = "sp-externalities"
 version = "0.8.0-rc4"
-source = "git+https://github.com/paritytech/substrate?tag=v2.0.0-rc4#00768a1f21a579c478fe5d4f51e1fa71f7db9fd4"
-dependencies = [
- "environmental",
- "parity-scale-codec",
- "sp-std 2.0.0-rc4 (git+https://github.com/paritytech/substrate?tag=v2.0.0-rc4)",
- "sp-storage 2.0.0-rc4 (git+https://github.com/paritytech/substrate?tag=v2.0.0-rc4)",
-]
-
-[[package]]
-name = "sp-externalities"
-version = "0.8.0-rc4"
 source = "git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call#b161460bf73e4cc73e29b8e01ab0323bb3d95e84"
 dependencies = [
  "environmental",
  "parity-scale-codec",
- "sp-std 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "sp-storage 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
+ "sp-std",
+ "sp-storage",
 ]
 
 [[package]]
@@ -7054,11 +6839,11 @@ dependencies = [
  "log",
  "parity-scale-codec",
  "serde",
- "sp-api 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "sp-application-crypto 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "sp-core 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "sp-runtime 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "sp-std 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
+ "sp-api",
+ "sp-application-crypto",
+ "sp-core",
+ "sp-runtime",
+ "sp-std",
 ]
 
 [[package]]
@@ -7067,20 +6852,8 @@ version = "2.0.0-rc4"
 source = "git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call#b161460bf73e4cc73e29b8e01ab0323bb3d95e84"
 dependencies = [
  "parity-scale-codec",
- "sp-inherents 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "sp-std 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
-]
-
-[[package]]
-name = "sp-inherents"
-version = "2.0.0-rc4"
-source = "git+https://github.com/paritytech/substrate?tag=v2.0.0-rc4#00768a1f21a579c478fe5d4f51e1fa71f7db9fd4"
-dependencies = [
- "derive_more",
- "parity-scale-codec",
- "parking_lot 0.10.2",
- "sp-core 2.0.0-rc4 (git+https://github.com/paritytech/substrate?tag=v2.0.0-rc4)",
- "sp-std 2.0.0-rc4 (git+https://github.com/paritytech/substrate?tag=v2.0.0-rc4)",
+ "sp-inherents",
+ "sp-std",
 ]
 
 [[package]]
@@ -7091,29 +6864,8 @@ dependencies = [
  "derive_more",
  "parity-scale-codec",
  "parking_lot 0.10.2",
- "sp-core 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "sp-std 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
-]
-
-[[package]]
-name = "sp-io"
-version = "2.0.0-rc4"
-source = "git+https://github.com/paritytech/substrate?tag=v2.0.0-rc4#00768a1f21a579c478fe5d4f51e1fa71f7db9fd4"
-dependencies = [
- "futures 0.3.5",
- "hash-db",
- "libsecp256k1",
- "log",
- "parity-scale-codec",
- "parking_lot 0.10.2",
- "sp-core 2.0.0-rc4 (git+https://github.com/paritytech/substrate?tag=v2.0.0-rc4)",
- "sp-externalities 0.8.0-rc4 (git+https://github.com/paritytech/substrate?tag=v2.0.0-rc4)",
- "sp-runtime-interface 2.0.0-rc4 (git+https://github.com/paritytech/substrate?tag=v2.0.0-rc4)",
- "sp-state-machine 0.8.0-rc4 (git+https://github.com/paritytech/substrate?tag=v2.0.0-rc4)",
- "sp-std 2.0.0-rc4 (git+https://github.com/paritytech/substrate?tag=v2.0.0-rc4)",
- "sp-tracing 2.0.0-rc4 (git+https://github.com/paritytech/substrate?tag=v2.0.0-rc4)",
- "sp-trie 2.0.0-rc4 (git+https://github.com/paritytech/substrate?tag=v2.0.0-rc4)",
- "sp-wasm-interface 2.0.0-rc4 (git+https://github.com/paritytech/substrate?tag=v2.0.0-rc4)",
+ "sp-core",
+ "sp-std",
 ]
 
 [[package]]
@@ -7127,14 +6879,14 @@ dependencies = [
  "log",
  "parity-scale-codec",
  "parking_lot 0.10.2",
- "sp-core 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "sp-externalities 0.8.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "sp-runtime-interface 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "sp-state-machine 0.8.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "sp-std 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "sp-tracing 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "sp-trie 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "sp-wasm-interface 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
+ "sp-core",
+ "sp-externalities",
+ "sp-runtime-interface",
+ "sp-state-machine",
+ "sp-std",
+ "sp-tracing",
+ "sp-trie",
+ "sp-wasm-interface",
 ]
 
 [[package]]
@@ -7143,8 +6895,8 @@ version = "2.0.0-rc4"
 source = "git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call#b161460bf73e4cc73e29b8e01ab0323bb3d95e84"
 dependencies = [
  "lazy_static",
- "sp-core 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "sp-runtime 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
+ "sp-core",
+ "sp-runtime",
  "strum",
 ]
 
@@ -7155,9 +6907,9 @@ source = "git+https://github.com/paritytech/substrate?branch=at-add-dispatch-cal
 dependencies = [
  "parity-scale-codec",
  "serde",
- "sp-arithmetic 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
+ "sp-arithmetic",
  "sp-npos-elections-compact",
- "sp-std 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
+ "sp-std",
 ]
 
 [[package]]
@@ -7176,18 +6928,9 @@ name = "sp-offchain"
 version = "2.0.0-rc4"
 source = "git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call#b161460bf73e4cc73e29b8e01ab0323bb3d95e84"
 dependencies = [
- "sp-api 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "sp-core 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "sp-runtime 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
-]
-
-[[package]]
-name = "sp-panic-handler"
-version = "2.0.0-rc4"
-source = "git+https://github.com/paritytech/substrate?tag=v2.0.0-rc4#00768a1f21a579c478fe5d4f51e1fa71f7db9fd4"
-dependencies = [
- "backtrace",
- "log",
+ "sp-api",
+ "sp-core",
+ "sp-runtime",
 ]
 
 [[package]]
@@ -7205,29 +6948,7 @@ version = "2.0.0-rc4"
 source = "git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call#b161460bf73e4cc73e29b8e01ab0323bb3d95e84"
 dependencies = [
  "serde",
- "sp-core 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
-]
-
-[[package]]
-name = "sp-runtime"
-version = "2.0.0-rc4"
-source = "git+https://github.com/paritytech/substrate?tag=v2.0.0-rc4#00768a1f21a579c478fe5d4f51e1fa71f7db9fd4"
-dependencies = [
- "either",
- "hash256-std-hasher",
- "impl-trait-for-tuples",
- "log",
- "parity-scale-codec",
- "parity-util-mem",
- "paste",
- "rand 0.7.3",
- "serde",
- "sp-application-crypto 2.0.0-rc4 (git+https://github.com/paritytech/substrate?tag=v2.0.0-rc4)",
- "sp-arithmetic 2.0.0-rc4 (git+https://github.com/paritytech/substrate?tag=v2.0.0-rc4)",
- "sp-core 2.0.0-rc4 (git+https://github.com/paritytech/substrate?tag=v2.0.0-rc4)",
- "sp-inherents 2.0.0-rc4 (git+https://github.com/paritytech/substrate?tag=v2.0.0-rc4)",
- "sp-io 2.0.0-rc4 (git+https://github.com/paritytech/substrate?tag=v2.0.0-rc4)",
- "sp-std 2.0.0-rc4 (git+https://github.com/paritytech/substrate?tag=v2.0.0-rc4)",
+ "sp-core",
 ]
 
 [[package]]
@@ -7244,27 +6965,12 @@ dependencies = [
  "paste",
  "rand 0.7.3",
  "serde",
- "sp-application-crypto 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "sp-arithmetic 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "sp-core 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "sp-inherents 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "sp-io 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "sp-std 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
-]
-
-[[package]]
-name = "sp-runtime-interface"
-version = "2.0.0-rc4"
-source = "git+https://github.com/paritytech/substrate?tag=v2.0.0-rc4#00768a1f21a579c478fe5d4f51e1fa71f7db9fd4"
-dependencies = [
- "parity-scale-codec",
- "primitive-types",
- "sp-externalities 0.8.0-rc4 (git+https://github.com/paritytech/substrate?tag=v2.0.0-rc4)",
- "sp-runtime-interface-proc-macro 2.0.0-rc4 (git+https://github.com/paritytech/substrate?tag=v2.0.0-rc4)",
- "sp-std 2.0.0-rc4 (git+https://github.com/paritytech/substrate?tag=v2.0.0-rc4)",
- "sp-tracing 2.0.0-rc4 (git+https://github.com/paritytech/substrate?tag=v2.0.0-rc4)",
- "sp-wasm-interface 2.0.0-rc4 (git+https://github.com/paritytech/substrate?tag=v2.0.0-rc4)",
- "static_assertions",
+ "sp-application-crypto",
+ "sp-arithmetic",
+ "sp-core",
+ "sp-inherents",
+ "sp-io",
+ "sp-std",
 ]
 
 [[package]]
@@ -7274,24 +6980,12 @@ source = "git+https://github.com/paritytech/substrate?branch=at-add-dispatch-cal
 dependencies = [
  "parity-scale-codec",
  "primitive-types",
- "sp-externalities 0.8.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "sp-runtime-interface-proc-macro 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "sp-std 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "sp-tracing 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "sp-wasm-interface 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
+ "sp-externalities",
+ "sp-runtime-interface-proc-macro",
+ "sp-std",
+ "sp-tracing",
+ "sp-wasm-interface",
  "static_assertions",
-]
-
-[[package]]
-name = "sp-runtime-interface-proc-macro"
-version = "2.0.0-rc4"
-source = "git+https://github.com/paritytech/substrate?tag=v2.0.0-rc4#00768a1f21a579c478fe5d4f51e1fa71f7db9fd4"
-dependencies = [
- "Inflector",
- "proc-macro-crate",
- "proc-macro2 1.0.19",
- "quote 1.0.7",
- "syn 1.0.35",
 ]
 
 [[package]]
@@ -7312,20 +7006,11 @@ version = "0.8.0-rc4"
 source = "git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call#b161460bf73e4cc73e29b8e01ab0323bb3d95e84"
 dependencies = [
  "parity-scale-codec",
- "sp-core 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "sp-io 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "sp-std 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "sp-wasm-interface 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
+ "sp-core",
+ "sp-io",
+ "sp-std",
+ "sp-wasm-interface",
  "wasmi",
-]
-
-[[package]]
-name = "sp-serializer"
-version = "2.0.0-rc4"
-source = "git+https://github.com/paritytech/substrate?tag=v2.0.0-rc4#00768a1f21a579c478fe5d4f51e1fa71f7db9fd4"
-dependencies = [
- "serde",
- "serde_json",
 ]
 
 [[package]]
@@ -7343,11 +7028,11 @@ version = "2.0.0-rc4"
 source = "git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call#b161460bf73e4cc73e29b8e01ab0323bb3d95e84"
 dependencies = [
  "parity-scale-codec",
- "sp-api 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "sp-core 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "sp-runtime 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
+ "sp-api",
+ "sp-core",
+ "sp-runtime",
  "sp-staking",
- "sp-std 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
+ "sp-std",
 ]
 
 [[package]]
@@ -7356,29 +7041,8 @@ version = "2.0.0-rc4"
 source = "git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call#b161460bf73e4cc73e29b8e01ab0323bb3d95e84"
 dependencies = [
  "parity-scale-codec",
- "sp-runtime 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "sp-std 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
-]
-
-[[package]]
-name = "sp-state-machine"
-version = "0.8.0-rc4"
-source = "git+https://github.com/paritytech/substrate?tag=v2.0.0-rc4#00768a1f21a579c478fe5d4f51e1fa71f7db9fd4"
-dependencies = [
- "hash-db",
- "itertools 0.9.0",
- "log",
- "num-traits 0.2.12",
- "parity-scale-codec",
- "parking_lot 0.10.2",
- "rand 0.7.3",
- "smallvec 1.4.1",
- "sp-core 2.0.0-rc4 (git+https://github.com/paritytech/substrate?tag=v2.0.0-rc4)",
- "sp-externalities 0.8.0-rc4 (git+https://github.com/paritytech/substrate?tag=v2.0.0-rc4)",
- "sp-panic-handler 2.0.0-rc4 (git+https://github.com/paritytech/substrate?tag=v2.0.0-rc4)",
- "sp-trie 2.0.0-rc4 (git+https://github.com/paritytech/substrate?tag=v2.0.0-rc4)",
- "trie-db",
- "trie-root",
+ "sp-runtime",
+ "sp-std",
 ]
 
 [[package]]
@@ -7394,10 +7058,10 @@ dependencies = [
  "parking_lot 0.10.2",
  "rand 0.7.3",
  "smallvec 1.4.1",
- "sp-core 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "sp-externalities 0.8.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "sp-panic-handler 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "sp-trie 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
+ "sp-core",
+ "sp-externalities",
+ "sp-panic-handler",
+ "sp-trie",
  "trie-db",
  "trie-root",
 ]
@@ -7405,24 +7069,7 @@ dependencies = [
 [[package]]
 name = "sp-std"
 version = "2.0.0-rc4"
-source = "git+https://github.com/paritytech/substrate?tag=v2.0.0-rc4#00768a1f21a579c478fe5d4f51e1fa71f7db9fd4"
-
-[[package]]
-name = "sp-std"
-version = "2.0.0-rc4"
 source = "git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call#b161460bf73e4cc73e29b8e01ab0323bb3d95e84"
-
-[[package]]
-name = "sp-storage"
-version = "2.0.0-rc4"
-source = "git+https://github.com/paritytech/substrate?tag=v2.0.0-rc4#00768a1f21a579c478fe5d4f51e1fa71f7db9fd4"
-dependencies = [
- "impl-serde 0.2.3",
- "ref-cast",
- "serde",
- "sp-debug-derive 2.0.0-rc4 (git+https://github.com/paritytech/substrate?tag=v2.0.0-rc4)",
- "sp-std 2.0.0-rc4 (git+https://github.com/paritytech/substrate?tag=v2.0.0-rc4)",
-]
 
 [[package]]
 name = "sp-storage"
@@ -7432,21 +7079,8 @@ dependencies = [
  "impl-serde 0.2.3",
  "ref-cast",
  "serde",
- "sp-debug-derive 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "sp-std 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
-]
-
-[[package]]
-name = "sp-timestamp"
-version = "2.0.0-rc4"
-source = "git+https://github.com/paritytech/substrate?tag=v2.0.0-rc4#00768a1f21a579c478fe5d4f51e1fa71f7db9fd4"
-dependencies = [
- "impl-trait-for-tuples",
- "parity-scale-codec",
- "sp-api 2.0.0-rc4 (git+https://github.com/paritytech/substrate?tag=v2.0.0-rc4)",
- "sp-inherents 2.0.0-rc4 (git+https://github.com/paritytech/substrate?tag=v2.0.0-rc4)",
- "sp-runtime 2.0.0-rc4 (git+https://github.com/paritytech/substrate?tag=v2.0.0-rc4)",
- "sp-std 2.0.0-rc4 (git+https://github.com/paritytech/substrate?tag=v2.0.0-rc4)",
+ "sp-debug-derive",
+ "sp-std",
 ]
 
 [[package]]
@@ -7456,21 +7090,11 @@ source = "git+https://github.com/paritytech/substrate?branch=at-add-dispatch-cal
 dependencies = [
  "impl-trait-for-tuples",
  "parity-scale-codec",
- "sp-api 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "sp-inherents 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "sp-runtime 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "sp-std 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
+ "sp-api",
+ "sp-inherents",
+ "sp-runtime",
+ "sp-std",
  "wasm-timer",
-]
-
-[[package]]
-name = "sp-tracing"
-version = "2.0.0-rc4"
-source = "git+https://github.com/paritytech/substrate?tag=v2.0.0-rc4#00768a1f21a579c478fe5d4f51e1fa71f7db9fd4"
-dependencies = [
- "log",
- "rental",
- "tracing",
 ]
 
 [[package]]
@@ -7493,24 +7117,10 @@ dependencies = [
  "log",
  "parity-scale-codec",
  "serde",
- "sp-api 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
+ "sp-api",
  "sp-blockchain",
- "sp-runtime 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
+ "sp-runtime",
  "sp-utils",
-]
-
-[[package]]
-name = "sp-trie"
-version = "2.0.0-rc4"
-source = "git+https://github.com/paritytech/substrate?tag=v2.0.0-rc4#00768a1f21a579c478fe5d4f51e1fa71f7db9fd4"
-dependencies = [
- "hash-db",
- "memory-db",
- "parity-scale-codec",
- "sp-core 2.0.0-rc4 (git+https://github.com/paritytech/substrate?tag=v2.0.0-rc4)",
- "sp-std 2.0.0-rc4 (git+https://github.com/paritytech/substrate?tag=v2.0.0-rc4)",
- "trie-db",
- "trie-root",
 ]
 
 [[package]]
@@ -7521,8 +7131,8 @@ dependencies = [
  "hash-db",
  "memory-db",
  "parity-scale-codec",
- "sp-core 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "sp-std 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
+ "sp-core",
+ "sp-std",
  "trie-db",
  "trie-root",
 ]
@@ -7542,36 +7152,13 @@ dependencies = [
 [[package]]
 name = "sp-version"
 version = "2.0.0-rc4"
-source = "git+https://github.com/paritytech/substrate?tag=v2.0.0-rc4#00768a1f21a579c478fe5d4f51e1fa71f7db9fd4"
-dependencies = [
- "impl-serde 0.2.3",
- "parity-scale-codec",
- "serde",
- "sp-runtime 2.0.0-rc4 (git+https://github.com/paritytech/substrate?tag=v2.0.0-rc4)",
- "sp-std 2.0.0-rc4 (git+https://github.com/paritytech/substrate?tag=v2.0.0-rc4)",
-]
-
-[[package]]
-name = "sp-version"
-version = "2.0.0-rc4"
 source = "git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call#b161460bf73e4cc73e29b8e01ab0323bb3d95e84"
 dependencies = [
  "impl-serde 0.2.3",
  "parity-scale-codec",
  "serde",
- "sp-runtime 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "sp-std 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
-]
-
-[[package]]
-name = "sp-wasm-interface"
-version = "2.0.0-rc4"
-source = "git+https://github.com/paritytech/substrate?tag=v2.0.0-rc4#00768a1f21a579c478fe5d4f51e1fa71f7db9fd4"
-dependencies = [
- "impl-trait-for-tuples",
- "parity-scale-codec",
- "sp-std 2.0.0-rc4 (git+https://github.com/paritytech/substrate?tag=v2.0.0-rc4)",
- "wasmi",
+ "sp-runtime",
+ "sp-std",
 ]
 
 [[package]]
@@ -7581,7 +7168,7 @@ source = "git+https://github.com/paritytech/substrate?branch=at-add-dispatch-cal
 dependencies = [
  "impl-trait-for-tuples",
  "parity-scale-codec",
- "sp-std 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
+ "sp-std",
  "wasmi",
 ]
 
@@ -7708,11 +7295,11 @@ dependencies = [
  "sc-client-api",
  "sc-rpc-api",
  "serde",
- "sp-api 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
+ "sp-api",
  "sp-block-builder",
  "sp-blockchain",
- "sp-core 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "sp-runtime 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
+ "sp-core",
+ "sp-runtime",
  "sp-transaction-pool",
 ]
 
@@ -7746,10 +7333,10 @@ dependencies = [
  "sc-service",
  "sp-blockchain",
  "sp-consensus",
- "sp-core 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
+ "sp-core",
  "sp-keyring",
- "sp-runtime 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "sp-state-machine 0.8.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
+ "sp-runtime",
+ "sp-state-machine",
 ]
 
 [[package]]
@@ -7759,35 +7346,35 @@ source = "git+https://github.com/paritytech/substrate?branch=at-add-dispatch-cal
 dependencies = [
  "cfg-if",
  "frame-executive",
- "frame-support 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "frame-system 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
+ "frame-support",
+ "frame-system",
  "frame-system-rpc-runtime-api",
  "log",
  "memory-db",
  "pallet-babe",
- "pallet-timestamp 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
+ "pallet-timestamp",
  "parity-scale-codec",
  "parity-util-mem",
  "sc-service",
  "serde",
- "sp-api 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "sp-application-crypto 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
+ "sp-api",
+ "sp-application-crypto",
  "sp-block-builder",
  "sp-consensus-aura",
  "sp-consensus-babe",
- "sp-core 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
+ "sp-core",
  "sp-finality-grandpa",
- "sp-inherents 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "sp-io 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
+ "sp-inherents",
+ "sp-io",
  "sp-keyring",
  "sp-offchain",
- "sp-runtime 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "sp-runtime-interface 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
+ "sp-runtime",
+ "sp-runtime-interface",
  "sp-session",
- "sp-std 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
+ "sp-std",
  "sp-transaction-pool",
- "sp-trie 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "sp-version 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
+ "sp-trie",
+ "sp-version",
  "substrate-wasm-builder-runner",
  "trie-db",
 ]
@@ -7804,11 +7391,11 @@ dependencies = [
  "sc-consensus",
  "sc-light",
  "sc-service",
- "sp-api 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
+ "sp-api",
  "sp-blockchain",
  "sp-consensus",
- "sp-core 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
- "sp-runtime 2.0.0-rc4 (git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call)",
+ "sp-core",
+ "sp-runtime",
  "substrate-test-client",
  "substrate-test-runtime",
 ]
