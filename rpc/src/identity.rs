@@ -181,7 +181,7 @@ where
         if dids.len()
             > MAX_IDENTITIES_ALLOWED_TO_QUERY
                 .try_into()
-                .unwrap_or(Zero::zero())
+                .unwrap_or_else(|_| Zero::zero())
         {
             return Err(RpcError {
                 code: ErrorCode::ServerError(Error::RuntimeError as i64),

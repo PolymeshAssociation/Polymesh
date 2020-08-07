@@ -78,15 +78,15 @@ type NegativeImbalanceOf<T> =
 /// system module.
 ///
 /// given:
-/// 	s = previous block weight
-/// 	s'= ideal block weight
-/// 	m = maximum block weight
-///		diff = (s - s')/m
-///		v = 0.00001
-///		t1 = (v * diff)
-///		t2 = (v * diff)^2 / 2
-///	then:
-/// 	next_multiplier = prev_multiplier * (1 + t1 + t2)
+///     s = previous block weight
+///     s'= ideal block weight
+///     m = maximum block weight
+///        diff = (s - s')/m
+///        v = 0.00001
+///        t1 = (v * diff)
+///        t2 = (v * diff)^2 / 2
+///    then:
+///     next_multiplier = prev_multiplier * (1 + t1 + t2)
 ///
 /// Where `(s', v)` must be given as the `Get` implementation of the `T` generic type. Moreover, `M`
 /// must provide the minimum allowed value for the multiplier. Note that a runtime should ensure
@@ -421,7 +421,7 @@ where
                 }
             }
             T::CddHandler::set_payer_context(Some(payer));
-            return Ok((fee, Some(imbalance)));
+            Ok((fee, Some(imbalance)))
         } else {
             Err(InvalidTransaction::Payment.into())
         }
