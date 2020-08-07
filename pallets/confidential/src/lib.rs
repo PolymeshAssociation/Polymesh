@@ -22,8 +22,13 @@ use polymesh_primitives_derive::{SliceU8StrongTyped, VecU8StrongTyped};
 use pallet_identity as identity;
 
 use bulletproofs::RangeProof;
-use cryptography::asset_proofs::range_proof::{
-    prove_within_range, verify_within_range, InRangeProof,
+use cryptography::{
+    asset_proofs::range_proof::{prove_within_range, verify_within_range, InRangeProof},
+    mercat::{
+        account::{convert_asset_ids, AccountValidator},
+        AccountCreatorVerifier, PubAccount, PubAccountTx,
+    },
+    AssetId,
 };
 use curve25519_dalek::{ristretto::CompressedRistretto, scalar::Scalar};
 
@@ -70,6 +75,10 @@ decl_storage! {
         pub RangeProofs get(fn range_proof): double_map hasher(twox_64_concat) IdentityId, hasher(blake2_128_concat) ProverTickerKey => Option<TickerRangeProof>;
 
         pub RangeProofVerifications get(fn range_proof_verification): double_map hasher(blake2_128_concat) (IdentityId, Ticker), hasher(twox_64_concat) IdentityId => bool;
+
+        pub MercatAccounts get(fn mercat_accounts): map hasher(blake2_128_concat) IdentityId => Vec<PubAccount>;
+
+        pub ValidAssetIds get(fn valid_asset_ids): Vec<AssetId>;
     }
 }
 
@@ -78,6 +87,36 @@ decl_module! {
         type Error = Error<T>;
 
         fn deposit_event() = default;
+
+        #[weight = 400_000]
+        pub fn store_valid_asset_ids(origin, // TODO: how to ensure only privileged users can call this?
+            valid_asset_ids: Vec<AssetId>,
+        ) -> DispatchResult
+        {
+            ensure_signed(origin)?;
+
+            <ValidAssetIds>::put(valid_asset_ids);
+            Ok(())
+        }
+
+        #[weight = 400_000]
+        pub fn store_account_tx(origin,
+            tx: PubAccountTx,
+        ) -> DispatchResult
+        {
+            let owner_acc = ensure_signed(origin)?;
+            let owner_id = Context::current_identity_or::<Identity<T>>(&owner_acc)?;
+
+            let account_vldtr = AccountValidator {};
+            let valid_asset_ids = Self::valid_asset_ids();
+            let valid_asset_ids = convert_asset_ids(valid_asset_ids);
+            let _ = account_vldtr.verify(&tx, &valid_asset_ids).map_err(|_| Error::<T>::InvalidAccountCreationProof)?;
+
+            let mut mercat_accounts = Self::mercat_accounts(owner_id);
+            mercat_accounts.push(tx.pub_account);
+            <MercatAccounts>::insert(&owner_id, mercat_accounts);
+            Ok(())
+        }
 
         #[weight = 400_000]
         pub fn add_range_proof(origin,
@@ -139,6 +178,8 @@ decl_error! {
         MissingRangeProof,
         ///
         InvalidRangeProof,
+        ///
+        InvalidAccountCreationProof,
     }
 }
 

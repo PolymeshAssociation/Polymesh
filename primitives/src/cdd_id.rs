@@ -1,5 +1,6 @@
 use crate::IdentityId;
-use cryptography::claim_proofs::{compute_cdd_id, CDDClaimData, RawData};
+use cryptography::claim_proofs::{compute_cdd_id, CDDClaimData};
+use curve25519_dalek::scalar::Scalar;
 use polymesh_primitives_derive::SliceU8StrongTyped;
 
 use codec::{Decode, Encode};
@@ -49,8 +50,8 @@ impl CddId {
     /// and `investor_uid`.
     pub fn new(did: IdentityId, investor_uid: InvestorUid) -> Self {
         let cdd_claim_data = CDDClaimData {
-            investor_did: RawData(did.to_bytes()),
-            investor_unique_id: RawData(investor_uid.0),
+            investor_did: Scalar::from_bits(did.to_bytes()),
+            investor_unique_id: Scalar::from_bits(investor_uid.0),
         };
         let raw_cdd_id = compute_cdd_id(&cdd_claim_data).compress().to_bytes();
 
