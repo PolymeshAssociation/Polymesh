@@ -40,9 +40,7 @@ use polymesh_common_utilities::Context;
 use polymesh_primitives::{
     Authorization, AuthorizationData, CddId, Claim, IdentityId, InvestorUid, Signatory,
 };
-use polymesh_runtime_common::{
-    bridge, cdd_check::CddChecker, dividend, exemption, voting,
-};
+use polymesh_runtime_common::{bridge, cdd_check::CddChecker, dividend, exemption, voting};
 use smallvec::smallvec;
 use sp_core::{
     crypto::{key_types, Pair as PairTrait},
