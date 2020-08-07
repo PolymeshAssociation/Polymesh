@@ -650,6 +650,12 @@
             "coeffFrac": "Perbill",
             "negative": "bool",
             "degree": "u8"
+        },
+        "Fundraiser": {
+            "raise_token": "Ticker",
+            "remaining_amount": "Balance",
+            "price_per_token": "u128",
+            "venue_id": "u64"
         }
     },
     "rpc": {
