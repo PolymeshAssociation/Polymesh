@@ -4577,6 +4577,7 @@ dependencies = [
  "pallet-authorship",
  "pallet-babe",
  "pallet-balances 0.1.0",
+ "pallet-basic-sto",
  "pallet-committee",
  "pallet-compliance-manager",
  "pallet-confidential",
