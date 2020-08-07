@@ -41,8 +41,8 @@ use polymesh_runtime_common::{
     cdd_check::CddChecker,
     contracts_wrapper, dividend, exemption,
     impls::{Author, CurrencyToVoteHandler},
-    merge_active_and_inactive, sto_capped, voting, AvailableBlockRatio,
-    BlockHashCount, MaximumBlockLength, MaximumBlockWeight, NegativeImbalance,
+    merge_active_and_inactive, sto_capped, voting, AvailableBlockRatio, BlockHashCount,
+    MaximumBlockLength, MaximumBlockWeight, NegativeImbalance,
 };
 
 use sp_api::impl_runtime_apis;

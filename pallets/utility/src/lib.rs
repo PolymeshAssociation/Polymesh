@@ -62,9 +62,7 @@ use frame_system::{ensure_root, ensure_signed, RawOrigin};
 use polymesh_common_utilities::{
     balances::CheckCdd, identity::AuthorizationNonce, identity::Trait as IdentityTrait,
 };
-use sp_runtime::{
-    traits::Dispatchable, traits::Verify, DispatchError, RuntimeDebug,
-};
+use sp_runtime::{traits::Dispatchable, traits::Verify, DispatchError, RuntimeDebug};
 use sp_std::prelude::*;
 
 /// Configuration trait.
