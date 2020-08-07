@@ -1034,11 +1034,7 @@ impl<T: Trait> Module<T> {
         if let Signatory::Account(key) = &signer {
             <KeyToMultiSig<T>>::insert(key, multisig.clone());
         }
-        Self::deposit_event(RawEvent::MultiSigSignerAdded(
-            ms_identity,
-            multisig,
-            signer,
-        ));
+        Self::deposit_event(RawEvent::MultiSigSignerAdded(ms_identity, multisig, signer));
         Ok(())
     }
 
