@@ -16,13 +16,14 @@
 use codec::{Decode, Encode};
 use polymesh_primitives_derive::VecU8StrongTyped;
 use sp_std::prelude::Vec;
-
+use crate::{ Balance, IdentityId };
 /// Smart Extension types
 #[allow(missing_docs)]
 #[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, PartialOrd, Ord)]
 pub enum SmartExtensionType {
     TransferManager,
     Offerings,
+    SmartWallet,
     Custom(Vec<u8>),
 }
 
@@ -50,4 +51,61 @@ pub struct SmartExtension<U> {
     pub extension_id: U,
     /// Status of the smart extension
     pub is_archive: bool,
+}
+
+/// Holds the url string of the SE template.
+#[derive(Encode, Decode, Default, Clone, PartialEq, VecU8StrongTyped)]
+#[cfg_attr(feature = "std", derive(Debug))]
+pub struct MetaUrl(pub Vec<u8>);
+
+/// Holds the description string about the SE template.
+#[derive(Encode, Decode, Default, Clone, PartialEq, VecU8StrongTyped)]
+#[cfg_attr(feature = "std", derive(Debug))]
+pub struct MetaDescription(pub Vec<u8>);
+
+/// Holds the version string of the SE template.
+#[derive(Encode, Decode, Default, Clone, PartialEq, VecU8StrongTyped)]
+#[cfg_attr(feature = "std", derive(Debug))]
+pub struct MetaVersion(pub Vec<u8>);
+
+#[derive(Encode, Decode, Default, Clone, PartialEq)]
+#[cfg_attr(feature = "std", derive(Debug))]
+pub struct SmartExtensionMetadata {
+    /// Url that can contain the details about the template
+    /// Ex- license, audit report.
+    pub url: Option<MetaUrl>,
+    /// Type of smart extension template.
+    pub se_type: SmartExtensionType,
+    /// Fee paid at the time on creating new instance form the template.
+    pub instantiation_fee: Balance,
+    /// Fee paid at the time of usage of the SE (A given operation performed).
+    pub usage_fee: Balance,
+    /// Description about the SE template.
+    pub description: MetaDescription,
+    /// Version of the template.
+    pub version: MetaVersion,
+}
+
+#[derive(Encode, Decode, Default, Clone, PartialEq)]
+#[cfg_attr(feature = "std", derive(Debug))]
+pub struct TemplateMetaData {
+    /// Meta details of the SE template
+    pub meta_info: SmartExtensionMetadata,
+    /// Owner of the SE template.
+    pub owner: IdentityId,
+    /// power button to switch on/off the instantiation from the template
+    pub active: bool
+}
+
+impl TemplateMetaData {
+
+    /// Return the instantiation fee
+    pub fn get_instantiation_fee(&self) -> Balance {
+        self.meta_info.instantiation_fee
+    }
+
+    // Check whether the instantiation of the template is allowed or not.
+    pub fn is_instantiation_allowed(&self) -> bool {
+        self.active
+    }
 }

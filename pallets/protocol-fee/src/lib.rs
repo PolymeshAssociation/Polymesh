@@ -175,6 +175,15 @@ impl<T: Trait> Module<T> {
         Ok(())
     }
 
+    pub fn charge_extension_instantiation_fee(fee: BalanceOf<T>, owner: T::AccountId, ) -> DispatchResult {
+        if let Some(payer) = T::CddHandler::get_payer_from_context() {
+            let imbalance = Self::withdraw_fee(payer, fee)?;
+            imbalance.split(imbalance::from_rational_approximation())
+            T::OnProtocolFeePayment::on_unbalanced(imbalance, owner);
+        }
+        Ok(())
+    }
+
     /// Computes the fee for `count` similar operations, and charges that fee to the current payer.
     pub fn batch_charge_fee(op: ProtocolOp, count: usize) -> DispatchResult {
         let fee = Self::compute_fee(op).saturating_mul(<BalanceOf<T>>::from(count as u32));

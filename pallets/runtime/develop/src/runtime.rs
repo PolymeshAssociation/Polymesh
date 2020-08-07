@@ -40,7 +40,7 @@ use polymesh_primitives::{
 use polymesh_runtime_common::{
     bridge,
     cdd_check::CddChecker,
-    contracts_wrapper, dividend, exemption,
+    dividend, exemption,
     impls::{Author, CurrencyToVoteHandler},
     merge_active_and_inactive, sto_capped, voting, AvailableBlockRatio,
     BlockHashCount, MaximumBlockLength, MaximumBlockWeight, NegativeImbalance,
@@ -626,7 +626,7 @@ impl IdentityTrait for Runtime {
     type ProtocolFee = protocol_fee::Module<Runtime>;
 }
 
-impl contracts_wrapper::Trait for Runtime {}
+impl polymesh_contracts::Trait for Runtime {}
 
 impl exemption::Trait for Runtime {
     type Event = Event;

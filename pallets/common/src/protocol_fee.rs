@@ -35,6 +35,7 @@ pub enum ProtocolOp {
     IdentityAddSigningKeysWithAuthorization,
     PipsPropose,
     VotingAddBallot,
+    ContractsPutCode
 }
 
 /// Common interface to protocol fees for runtime modules.
