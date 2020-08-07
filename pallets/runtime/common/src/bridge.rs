@@ -872,12 +872,8 @@ impl<T: Trait> Module<T> {
                 <BridgeTxDetails<T>>::insert(&bridge_tx.recipient, &bridge_tx.nonce, tx_details);
                 Ok(())
             }
-            BridgeTxStatus::Timelocked => {
-                Err(Error::<T>::TimelockedTx.into())
-            }
-            BridgeTxStatus::Handled => {
-                Err(Error::<T>::ProposalAlreadyHandled.into())
-            }
+            BridgeTxStatus::Timelocked => Err(Error::<T>::TimelockedTx.into()),
+            BridgeTxStatus::Handled => Err(Error::<T>::ProposalAlreadyHandled.into()),
         }
     }
 
