@@ -14,6 +14,7 @@ use frame_support::{
 use frame_system as system;
 use pallet_asset as asset;
 use pallet_balances as balances;
+use pallet_basic_sto as sto;
 use pallet_committee as committee;
 use pallet_compliance_manager as compliance_manager;
 use pallet_confidential as confidential;
@@ -110,6 +111,7 @@ impl_outer_event! {
         protocol_fee<T>,
         treasury<T>,
         settlement<T>,
+        sto<T>,
         pallet_utility,
         portfolio<T>,
         confidential,
@@ -249,6 +251,10 @@ impl settlement::Trait for TestStorage {
     type Event = Event;
     type Asset = asset::Module<TestStorage>;
     type MaxScheduledInstructionLegsPerBlock = MaxScheduledInstructionLegsPerBlock;
+}
+
+impl sto::Trait for TestStorage {
+    type Event = Event;
 }
 
 impl ChargeTxFee for TestStorage {

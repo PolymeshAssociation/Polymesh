@@ -16,6 +16,8 @@ mod asset_test;
 #[cfg(test)]
 mod balances_test;
 #[cfg(test)]
+mod basic_sto_test;
+#[cfg(test)]
 mod bridge;
 #[cfg(test)]
 mod committee_test;

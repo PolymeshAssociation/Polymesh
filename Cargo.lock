@@ -4652,6 +4652,7 @@ dependencies = [
  "pallet-authorship",
  "pallet-babe",
  "pallet-balances 0.1.0",
+ "pallet-basic-sto",
  "pallet-cdd-offchain-worker",
  "pallet-committee",
  "pallet-compliance-manager",

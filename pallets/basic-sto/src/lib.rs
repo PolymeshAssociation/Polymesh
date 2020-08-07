@@ -39,13 +39,13 @@ pub trait Trait:
 #[derive(Encode, Decode, Default, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Fundraiser<Balance> {
     /// Token to raise funds in
-    raise_token: Ticker,
+    pub raise_token: Ticker,
     /// Amount of offering token available for sale
-    remaining_amount: Balance,
+    pub remaining_amount: Balance,
     /// Price of one million offering token units (one full token) in terms of raise token units
-    price_per_token: u128,
+    pub price_per_token: u128,
     /// Id of the venue to use for this fundraise
-    venue_id: u64,
+    pub venue_id: u64,
 }
 
 decl_event!(
