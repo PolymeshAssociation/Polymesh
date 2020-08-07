@@ -101,7 +101,7 @@ decl_module! {
         ) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             let did = Context::current_identity_or::<Identity<T>>(&sender)?;
-            ensure!(T::Asset::is_owner(&raise_token, did), Error::<T>::Unauthorized);
+            ensure!(T::Asset::is_owner(&offering_token, did), Error::<T>::Unauthorized);
             // TODO: Take custodial ownership of $sell_amount of $offering_token from treasury?
             let fundraise_id = Self::fundraiser_count(offering_token) + 1;
             <Fundraisers<T>>::insert(
