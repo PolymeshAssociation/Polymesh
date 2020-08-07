@@ -6,7 +6,7 @@ use pallet_committee as committee;
 use pallet_group as group;
 use pallet_identity as identity;
 use pallet_pips as pips;
-use polymesh_common_utilities::{protocol_fee::ProtocolOp, traits::identity::LinkedKeyInfo};
+use polymesh_common_utilities::protocol_fee::ProtocolOp;
 use polymesh_primitives::{Identity, IdentityId, PosRatio};
 use sp_core::sr25519::Public;
 use sp_io::TestExternalities;
@@ -201,7 +201,7 @@ impl ExtBuilder {
         accounts: &[Public],
     ) -> (
         Vec<(IdentityId, Identity<AccountId>)>,
-        Vec<(AccountId, LinkedKeyInfo)>,
+        Vec<(AccountId, IdentityId)>,
     ) {
         let identities = accounts
             .iter()
@@ -211,12 +211,7 @@ impl ExtBuilder {
         let key_links = accounts
             .into_iter()
             .enumerate()
-            .map(|(idx, key)| {
-                (
-                    *key,
-                    LinkedKeyInfo::Unique(IdentityId::from((idx + 1) as u128)),
-                )
-            })
+            .map(|(idx, key)| (*key, IdentityId::from((idx + 1) as u128)))
             .collect::<Vec<_>>();
 
         (identities, key_links)
@@ -252,7 +247,7 @@ impl ExtBuilder {
         // Identity genesis.
         identity::GenesisConfig::<TestStorage> {
             did_records: system_identities.clone(),
-            key_to_identity_ids: system_links,
+            primary_key_dids: system_links,
             identities: vec![],
             ..Default::default()
         }

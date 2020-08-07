@@ -37,7 +37,7 @@ use polymesh_common_utilities::traits::{
     asset::AcceptTransfer,
     balances::{AccountData, CheckCdd},
     group::{GroupTrait, InactiveMember},
-    identity::{LinkedKeyInfo, Trait as IdentityTrait},
+    identity::Trait as IdentityTrait,
     multisig::MultiSigSubTrait,
     transaction_payment::{CddAndFeeDetails, ChargeTxFee},
     CommonTrait,
@@ -852,7 +852,7 @@ pub(crate) fn active_era() -> EraIndex {
 }
 
 pub fn provide_did_to_user(account: AccountId) -> bool {
-    match Identity::key_to_identity_ids(account) {
+    match Identity::primary_key_dids(account) {
         None => {
             let cdd = Origin::signed(1005);
             assert!(
@@ -899,13 +899,7 @@ pub fn add_signing_key(stash_key: AccountId, to_signing_key: AccountId) {
 
 pub fn get_identity(key: AccountId) -> bool {
     let mut have_id = false;
-    if let Some(linked_key_info) = <identity::KeyToIdentityIds<Test>>::get(key) {
-        have_id = match linked_key_info {
-            LinkedKeyInfo::Unique(_id) => true,
-            LinkedKeyInfo::Group(_id) => true,
-        };
-    }
-    have_id
+    <identity::PrimaryKeyDids<Test>>::get(key).is_some()
 }
 
 fn check_ledgers() {

@@ -435,7 +435,7 @@ decl_module! {
             let sender_did = Context::current_identity_or::<Identity<T>>(&sender)?;
             Self::verify_sender_is_creator(sender_did, &multisig)?;
             ensure!(<MultiSigToIdentity<T>>::get(&multisig) == sender_did, Error::<T>::IdentityNotCreator);
-            ensure!(<Identity<T>>::is_master_key(sender_did, &sender), Error::<T>::NotMasterKey);
+            ensure!(<Identity<T>>::is_master_key(&sender_did, &sender), Error::<T>::NotMasterKey);
             for signer in signers {
                 Self::unsafe_add_auth_for_signers(
                     sender_did,
@@ -460,7 +460,7 @@ decl_module! {
             let sender = ensure_signed(origin)?;
             let sender_did = Context::current_identity_or::<Identity<T>>(&sender)?;
             Self::verify_sender_is_creator(sender_did, &multisig)?;
-            ensure!(<Identity<T>>::is_master_key(sender_did, &sender), Error::<T>::NotMasterKey);
+            ensure!(<Identity<T>>::is_master_key(&sender_did, &sender), Error::<T>::NotMasterKey);
             ensure!(Self::is_changing_signers_allowed(&multisig), Error::<T>::ChangeNotAllowed);
             let signers_len:u64 = u64::try_from(signers.len()).unwrap_or_default();
 
@@ -585,7 +585,7 @@ decl_module! {
             ensure!(<MultiSigToIdentity<T>>::contains_key(&multisig), Error::<T>::NoSuchMultisig);
             let sender_did = Context::current_identity_or::<Identity<T>>(&sender)?;
             Self::verify_sender_is_creator(sender_did, &multisig)?;
-            ensure!(<Identity<T>>::is_master_key(sender_did, &sender), Error::<T>::NotMasterKey);
+            ensure!(<Identity<T>>::is_master_key(&sender_did, &sender), Error::<T>::NotMasterKey);
             <Identity<T>>::unsafe_master_key_rotation(
                 multisig,
                 sender_did,
@@ -1019,7 +1019,7 @@ impl<T: Trait> Module<T> {
             );
             // Don't allow a signer key that is already a signing key on another identity
             ensure!(
-                !<identity::KeyToIdentityIds<T>>::contains_key(key),
+                !<identity::PrimaryKeyDids<T>>::contains_key(key),
                 Error::<T>::SignerAlreadyLinked
             );
             // Don't allow a multisig to add itself as a signer to itself

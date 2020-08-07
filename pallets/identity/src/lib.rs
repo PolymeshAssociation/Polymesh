@@ -98,8 +98,8 @@ use polymesh_common_utilities::{
         asset::AcceptTransfer,
         group::{GroupTrait, InactiveMember},
         identity::{
-            AuthorizationNonce, IdentityTrait, LinkedKeyInfo, RawEvent, SigningKeyWithAuth,
-            TargetIdAuthorization, Trait,
+            AuthorizationNonce, IdentityTrait, RawEvent, SigningKeyWithAuth, TargetIdAuthorization,
+            Trait,
         },
         multisig::MultiSigSubTrait,
         transaction_payment::{CddAndFeeDetails, ChargeTxFee},
@@ -177,8 +177,13 @@ decl_storage! {
         /// (Target ID, claim type) (issuer,scope) -> Associated claims
         pub Claims: double_map hasher(blake2_128_concat) Claim1stKey, hasher(blake2_128_concat) Claim2ndKey => IdentityClaim;
 
-        // Account => DID
-        pub KeyToIdentityIds get(fn key_to_identity_ids) config(): map hasher(blake2_128_concat) T::AccountId => Option<LinkedKeyInfo>;
+        // A map from primary keys to DIDs.
+        pub PrimaryKeyDids get(fn primary_key_dids) config():
+            map hasher(blake2_128_concat) T::AccountId => Option<IdentityId>;
+
+        // A map from secondary keys to DIDs.
+        pub SecondaryKeyDids get(fn secondary_key_dids) config():
+            map hasher(blake2_128_concat) Signatory<T::AccountId> => Option<IdentityId>;
 
         /// Nonce to ensure unique actions. starts from 1.
         pub MultiPurposeNonce get(fn multi_purpose_nonce) build(|_| 1u64): u64;
@@ -238,7 +243,7 @@ decl_storage! {
                     "Signing key already linked"
                 );
                 <MultiPurposeNonce>::mutate(|n| *n += 1_u64);
-                <Module<T>>::link_key_to_did(&signer_id, did);
+                <Module<T>>::link_primary_key_to_did(&signer_id, did);
                 <DidRecords<T>>::mutate(did, |record| {
                     (*record).add_signing_keys(&[SigningKey::from_account_id(signer_id.clone())]);
                 });
@@ -366,7 +371,7 @@ decl_module! {
                             did
                         );
                     }
-                    Self::unlink_key_from_did(key, did)
+                    Self::unlink_primary_key_from_did(key, did)
                 }
 
                 // It returns the list of `auth_id` from `did`.
@@ -1040,7 +1045,7 @@ decl_module! {
 
             additional_keys_si.iter().for_each( |si| {
                 if let Signatory::Account(ref key) = si.signer {
-                    Self::link_key_to_did(key, id);
+                    Self::link_primary_key_to_did(key, id);
                 }
             });
             // 2.2. Update that identity information and its offchain authorization nonce.
@@ -1071,7 +1076,7 @@ decl_module! {
                     ensure!(&sender == key, Error::<T>::KeyNotAllowed);
                 }
                 Signatory::Identity(id) => {
-                    ensure!(Self::is_master_key(*id, &sender), Error::<T>::NotMasterKey);
+                    ensure!(Self::is_master_key(id, &sender), Error::<T>::NotMasterKey);
                 }
             }
 
@@ -1194,7 +1199,7 @@ impl<T: Trait> Module<T> {
                 Self::can_key_be_linked_to_did(key),
                 Error::<T>::AlreadyLinked
             );
-            Self::link_key_to_did(key, target_did);
+            Self::link_primary_key_to_did(key, target_did);
         }
 
         // create the SigningKey
@@ -1376,9 +1381,9 @@ impl<T: Trait> Module<T> {
         // Replace master key of the owner that initiated key rotation
         let old_master_key = Self::did_records(&rotation_for_did).master_key;
         <DidRecords<T>>::mutate(&rotation_for_did, |record| {
-            Self::unlink_key_from_did(&record.master_key, rotation_for_did);
+            Self::unlink_primary_key_from_did(&record.master_key, rotation_for_did);
             record.master_key = sender.clone();
-            Self::link_key_to_did(&sender, rotation_for_did);
+            Self::link_primary_key_to_did(&sender, rotation_for_did);
         });
 
         Self::deposit_event(RawEvent::MasterKeyUpdated(
@@ -1475,7 +1480,7 @@ impl<T: Trait> Module<T> {
     }
 
     /// Use `did` as reference.
-    pub fn is_master_key(did: IdentityId, key: &T::AccountId) -> bool {
+    pub fn is_master_key(did: &IdentityId, key: &T::AccountId) -> bool {
         key == &<DidRecords<T>>::get(did).master_key
     }
 
@@ -1625,19 +1630,10 @@ impl<T: Trait> Module<T> {
     ///
     /// An Option object containing the `IdentityId` that belongs to the key.
     pub fn get_identity(key: &T::AccountId) -> Option<IdentityId> {
-        if let Some(linked_key_info) = <KeyToIdentityIds<T>>::get(key) {
-            let id = match linked_key_info {
-                LinkedKeyInfo::Unique(id)
-                    if !Self::is_did_frozen(id) || Self::is_master_key(id, key) =>
-                {
-                    Some(id)
-                }
-                _ => None,
-            };
-
-            return id;
-        }
-        None
+        <PrimaryKeyDids<T>>::get(key).filter(|id| {
+            !Self::is_did_frozen(id)
+                 || /* TODO: this check is not required */ Self::is_master_key(id, key)
+        })
     }
 
     /// It freezes/unfreezes the target `did` identity.
@@ -1662,44 +1658,25 @@ impl<T: Trait> Module<T> {
     /// It checks that any external account can only be associated with at most one.
     /// Master keys are considered as external accounts.
     pub fn can_key_be_linked_to_did(key: &T::AccountId) -> bool {
-        if <KeyToIdentityIds<T>>::get(key).is_some() {
-            false
-        } else {
-            !T::MultiSig::is_signer(key)
-        }
+        <PrimaryKeyDids<T>>::get(key).is_none() && !T::MultiSig::is_signer(key)
     }
 
-    /// It links `key` key to `did` identity as a `key_type` type.
+    /// Links a primary key `key` to an identity `did`.
+    ///
     /// # Errors
     /// This function can be used if `can_key_be_linked_to_did` returns true. Otherwise, it will do
     /// nothing.
-    fn link_key_to_did(key: &T::AccountId, did: IdentityId) {
-        if <KeyToIdentityIds<T>>::get(key).is_none() {
+    fn link_primary_key_to_did(key: &T::AccountId, did: IdentityId) {
+        if <PrimaryKeyDids<T>>::get(key).is_none() {
             // `key` is not yet linked to any identity, so no constraints.
-            let linked_key_info = LinkedKeyInfo::Unique(did);
-            <KeyToIdentityIds<T>>::insert(key, linked_key_info);
+            <PrimaryKeyDids<T>>::insert(key, did);
         }
     }
 
-    /// It unlinks the `key` key from `did`.
-    /// If there is no more associated identities, its full entry is removed.
-    fn unlink_key_from_did(key: &T::AccountId, did: IdentityId) {
-        if let Some(linked_key_info) = <KeyToIdentityIds<T>>::get(key) {
-            match linked_key_info {
-                LinkedKeyInfo::Unique(did_linked) => {
-                    if did_linked == did {
-                        <KeyToIdentityIds<T>>::remove(key)
-                    }
-                }
-                LinkedKeyInfo::Group(mut dids) => {
-                    dids.retain(|ref_did| *ref_did != did);
-                    if dids.is_empty() {
-                        <KeyToIdentityIds<T>>::remove(key);
-                    } else {
-                        <KeyToIdentityIds<T>>::insert(key, LinkedKeyInfo::Group(dids));
-                    }
-                }
-            }
+    /// Unlinks a key `key` from an identity `did`.
+    fn unlink_primary_key_from_did(key: &T::AccountId, did: IdentityId) {
+        if <PrimaryKeyDids<T>>::get(key) == Some(did) {
+            <PrimaryKeyDids<T>>::remove(key)
         }
     }
 
@@ -1782,7 +1759,7 @@ impl<T: Trait> Module<T> {
 
         // 2. Apply changes to our extrinsic.
         // 2.1. Link master key and add pre-authorized signing keys.
-        Self::link_key_to_did(&sender, did);
+        Self::link_primary_key_to_did(&sender, did);
         let _auth_ids = signing_keys
             .iter()
             .map(|s_item| {
@@ -1910,7 +1887,7 @@ impl<T: Trait> Module<T> {
                 // Unlink multisig signers from the identity.
                 Self::unlink_multisig_signers_from_did(T::MultiSig::get_key_signers(key), did);
             }
-            Self::unlink_key_from_did(key, did)
+            Self::unlink_primary_key_from_did(key, did)
         }
 
         // Update signing keys at Identity.
@@ -1924,7 +1901,7 @@ impl<T: Trait> Module<T> {
 
     fn unlink_multisig_signers_from_did(signers: Vec<T::AccountId>, did: IdentityId) {
         for signer in signers {
-            Self::unlink_key_from_did(&signer, did)
+            Self::unlink_primary_key_from_did(&signer, did)
         }
     }
 }
@@ -2057,7 +2034,7 @@ impl<T: Trait> Module<T> {
     /// Registers `master_key` as `id` identity.
     #[allow(dead_code)]
     fn unsafe_register_id(master_key: T::AccountId, id: IdentityId) {
-        <Module<T>>::link_key_to_did(&master_key, id);
+        <Module<T>>::link_primary_key_to_did(&master_key, id);
         let record = DidRecord {
             master_key: master_key.clone(),
             ..Default::default()
@@ -2151,7 +2128,7 @@ impl<T: Trait> IdentityTrait<T::AccountId> for Module<T> {
     }
 
     /// Checks if the keys is the master key of the identity.
-    fn is_master_key(did: IdentityId, key: &T::AccountId) -> bool {
+    fn is_master_key(did: &IdentityId, key: &T::AccountId) -> bool {
         Self::is_master_key(did, key)
     }
 

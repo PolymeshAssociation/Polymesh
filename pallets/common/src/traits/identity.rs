@@ -37,18 +37,6 @@ use sp_runtime::traits::{Dispatchable, IdentifyAccount, Member, Verify};
 use sp_runtime::{Deserialize, Serialize};
 use sp_std::vec::Vec;
 
-/// Keys could be linked to several identities (`IdentityId`) as master key or signing key.
-/// Master key or external type signing key are restricted to be linked to just one identity.
-/// Other types of signing key could be associated with more than one identity.
-/// # TODO
-/// * Use of `Master` and `Signer` (instead of `Unique`) will optimize the access.
-#[derive(codec::Encode, codec::Decode, Clone, PartialEq, Eq, Debug)]
-#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-pub enum LinkedKeyInfo {
-    Unique(IdentityId),
-    Group(Vec<IdentityId>),
-}
-
 pub type AuthorizationNonce = u64;
 
 /// It represents an authorization that any account could sign to allow operations related with a
@@ -204,7 +192,7 @@ pub trait IdentityTrait<AccountId> {
         signer: &Signatory<AccountId>,
         permissions: Permissions,
     ) -> bool;
-    fn is_master_key(did: IdentityId, key: &AccountId) -> bool;
+    fn is_master_key(did: &IdentityId, key: &AccountId) -> bool;
 
     /// It adds a systematic CDD claim for each `target` identity.
     ///
