@@ -238,14 +238,16 @@ decl_storage! {
             for &(ref signer_id, did) in &config.signing_keys {
                 // Direct storage change for attaching some signing keys to identities
                 assert!(<DidRecords<T>>::contains_key(did), "Identity does not exist");
+                let sk = SigningKey::from_account_id(signer_id.clone());
                 assert!(
-                    <Module<T>>::can_key_be_linked_to_did(&signer_id),
+                    <Module<T>>::can_link_secondary_key_to_did(&sk.signer),
                     "Signing key already linked"
                 );
                 <MultiPurposeNonce>::mutate(|n| *n += 1_u64);
-                <Module<T>>::link_primary_key_to_did(&signer_id, did);
+                let sk = SigningKey::from_account_id(signer_id.clone());
+                <Module<T>>::link_secondary_key_to_did(&sk.signer, did);
                 <DidRecords<T>>::mutate(did, |record| {
-                    (*record).add_signing_keys(&[SigningKey::from_account_id(signer_id.clone())]);
+                    (*record).add_signing_keys(&[sk]);
                 });
                 <Module<T>>::deposit_event(RawEvent::SigningKeysAdded(
                     did,
@@ -360,6 +362,9 @@ decl_module! {
 
             // Remove links and get all authorization IDs per signer.
             let signer_and_auth_id_list = signers_to_remove.iter().filter_map(|signer| {
+                // Unlink each of the given secondary keys from `did`.
+                Self::unlink_secondary_key_from_did(signer, did);
+                // Unlink multisig signers.
                 if let Signatory::Account(key) = &signer {
                     if T::MultiSig::is_multisig(key) {
                         if !T::Balances::total_balance(key).is_zero() {
@@ -371,12 +376,11 @@ decl_module! {
                             did
                         );
                     }
-                    Self::unlink_primary_key_from_did(key, did)
                 }
 
                 // It returns the list of `auth_id` from `did`.
                 let auth_ids = <Authorizations<T>>::iter_prefix_values(signer)
-                    .filter_map( |authorization| {
+                    .filter_map(|authorization| {
                         if authorization.authorized_by == did {
                             Some(authorization.auth_id)
                         } else {
@@ -390,9 +394,10 @@ decl_module! {
             .collect::<Vec<_>>();
 
             // Remove authorizations
-            signer_and_auth_id_list.into_iter().for_each( |(signer, auth_ids)| {
-                auth_ids.into_iter().for_each( |auth_id|
-                        Self::unsafe_remove_auth( signer, auth_id, &did, true));
+            signer_and_auth_id_list.into_iter().for_each(|(signer, auth_ids)| {
+                auth_ids.into_iter().for_each(|auth_id| {
+                    Self::unsafe_remove_auth(signer, auth_id, &did, true);
+                });
             });
 
             // Update signing keys at Identity.
@@ -415,7 +420,7 @@ decl_module! {
             let _grants_checked = Self::grant_check_only_master_key(&sender, did)?;
 
             ensure!(
-                Self::can_key_be_linked_to_did(&new_key),
+                Self::can_link_primary_key_to_did(&new_key),
                 Error::<T>::AlreadyLinked
             );
             T::ProtocolFee::charge_fee(ProtocolOp::IdentitySetMasterKey)?;
@@ -1009,7 +1014,7 @@ decl_module! {
                     if let Signatory::Account(key) = &si.signer {
                         // 1.1. Constraint 1-to-1 account to DID
                         ensure!(
-                            Self::can_key_be_linked_to_did(key),
+                            Self::can_link_primary_key_to_did(key),
                             Error::<T>::AlreadyLinked
                         );
                     }
@@ -1043,10 +1048,8 @@ decl_module! {
                 .map( |si_with_auth| si_with_auth.signing_key)
                 .collect::<Vec<_>>();
 
-            additional_keys_si.iter().for_each( |si| {
-                if let Signatory::Account(ref key) = si.signer {
-                    Self::link_primary_key_to_did(key, id);
-                }
+            additional_keys_si.iter().for_each(|sk| {
+                Self::link_secondary_key_to_did(&sk.signer, id);
             });
             // 2.2. Update that identity information and its offchain authorization nonce.
             <DidRecords<T>>::mutate(id, |record| {
@@ -1193,23 +1196,33 @@ impl<T: Trait> Module<T> {
         permissions: Permissions,
         signer: Signatory<T::AccountId>,
     ) -> DispatchResult {
-        T::ProtocolFee::charge_fee(ProtocolOp::IdentityAddSigningKeysWithAuthorization)?;
+        let charge_fee =
+            || T::ProtocolFee::charge_fee(ProtocolOp::IdentityAddSigningKeysWithAuthorization);
+        let sk = SigningKey::new(signer.clone(), permissions);
+        ensure!(Self::can_link_secondary_key_to_did(&sk.signer), Error::<T>::AlreadyLinked);
+
+        // Link the primary key.
+        //
+        // TODO: Linking the same signer account both as primary and secondary shouldn't be needed.
         if let Signatory::Account(key) = &signer {
             ensure!(
-                Self::can_key_be_linked_to_did(key),
+                Self::can_link_primary_key_to_did(key),
                 Error::<T>::AlreadyLinked
             );
             Self::link_primary_key_to_did(key, target_did);
+            // Charge the protocol fee after all checks.
+            charge_fee()?;
+        } else {
+            charge_fee()?;
         }
 
-        // create the SigningKey
-        let sg_item = SigningKey::new(signer, permissions);
-
+        // Link the secondary key.
         <DidRecords<T>>::mutate(target_did, |identity| {
-            identity.add_signing_keys(&[sg_item.clone()]);
+            identity.add_signing_keys(&[sk.clone()]);
         });
+        Self::link_secondary_key_to_did(&sk.signer, target_did);
 
-        Self::deposit_event(RawEvent::SigningKeysAdded(target_did, [sg_item].to_vec()));
+        Self::deposit_event(RawEvent::SigningKeysAdded(target_did, vec![sk]));
 
         Ok(())
     }
@@ -1655,17 +1668,26 @@ impl<T: Trait> Module<T> {
         Ok(())
     }
 
-    /// It checks that any external account can only be associated with at most one.
-    /// Master keys are considered as external accounts.
-    pub fn can_key_be_linked_to_did(key: &T::AccountId) -> bool {
+    /// Checks that a primary key is not linked to any identity or multisig.
+    pub fn can_link_primary_key_to_did(key: &T::AccountId) -> bool {
         <PrimaryKeyDids<T>>::get(key).is_none() && !T::MultiSig::is_signer(key)
+    }
+
+    /// Checks that a secondary key is not linked to any identity or multisig.
+    pub fn can_link_secondary_key_to_did(signatory: &Signatory<T::AccountId>) -> bool {
+        <SecondaryKeyDids<T>>::get(signatory).is_none()
+            && !signatory
+                .as_account()
+                .filter(|acc| T::MultiSig::is_signer(*acc))
+                .is_some()
     }
 
     /// Links a primary key `key` to an identity `did`.
     ///
     /// # Errors
-    /// This function can be used if `can_key_be_linked_to_did` returns true. Otherwise, it will do
-    /// nothing.
+    ///
+    /// This function applies the change if `can_link_primary_key_to_did` returns `true`. Otherwise,
+    /// it does nothing.
     fn link_primary_key_to_did(key: &T::AccountId, did: IdentityId) {
         if <PrimaryKeyDids<T>>::get(key).is_none() {
             // `key` is not yet linked to any identity, so no constraints.
@@ -1673,10 +1695,30 @@ impl<T: Trait> Module<T> {
         }
     }
 
-    /// Unlinks a key `key` from an identity `did`.
+    /// Unlinks a primary key `key` from an identity `did`.
     fn unlink_primary_key_from_did(key: &T::AccountId, did: IdentityId) {
         if <PrimaryKeyDids<T>>::get(key) == Some(did) {
             <PrimaryKeyDids<T>>::remove(key)
+        }
+    }
+
+    /// Links a secondary key `signatory` to an identity `did`.
+    ///
+    /// # Errors
+    ///
+    /// This function applies the change if `can_link_secondary_key_to_did` returns
+    /// `true`. Otherwise, it does nothing.
+    fn link_secondary_key_to_did(signatory: &Signatory<T::AccountId>, did: IdentityId) {
+        if <SecondaryKeyDids<T>>::get(signatory).is_none() {
+            // `key` is not yet linked to any identity, so no constraints.
+            <SecondaryKeyDids<T>>::insert(signatory, did);
+        }
+    }
+
+    /// Unlinks a secondary key `signatory` from an identity `did`.
+    fn unlink_secondary_key_from_did(signatory: &Signatory<T::AccountId>, did: IdentityId) {
+        if <SecondaryKeyDids<T>>::get(signatory) == Some(did) {
+            <SecondaryKeyDids<T>>::remove(signatory)
         }
     }
 
@@ -1720,7 +1762,7 @@ impl<T: Trait> Module<T> {
         // 1 Check constraints.
         // 1.1. Master key is not linked to any identity.
         ensure!(
-            Self::can_key_be_linked_to_did(&sender),
+            Self::can_link_primary_key_to_did(&sender),
             Error::<T>::MasterKeyAlreadyLinked
         );
         // 1.2. Master key is not part of signing keys.
@@ -1743,13 +1785,11 @@ impl<T: Trait> Module<T> {
         );
 
         // 1.4. Signing keys can be linked to the new identity.
-        for s_item in &signing_keys {
-            if let Signatory::Account(ref key) = s_item.signer {
-                ensure!(
-                    Self::can_key_be_linked_to_did(key),
-                    Error::<T>::AlreadyLinked
-                );
-            }
+        for sk in &signing_keys {
+            ensure!(
+                Self::can_link_secondary_key_to_did(&sk.signer),
+                Error::<T>::AlreadyLinked
+            );
         }
 
         // 1.5. Charge the given fee.
@@ -1762,11 +1802,11 @@ impl<T: Trait> Module<T> {
         Self::link_primary_key_to_did(&sender, did);
         let _auth_ids = signing_keys
             .iter()
-            .map(|s_item| {
+            .map(|sk| {
                 Self::add_auth(
                     did,
-                    s_item.signer.clone(),
-                    AuthorizationData::JoinIdentity(s_item.permissions.clone()),
+                    sk.signer.clone(),
+                    AuthorizationData::JoinIdentity(sk.permissions.clone()),
                     None,
                 )
             })
@@ -1878,6 +1918,7 @@ impl<T: Trait> Module<T> {
     fn leave_identity(signer: Signatory<T::AccountId>, did: IdentityId) -> DispatchResult {
         ensure!(Self::is_signer(did, &signer), Error::<T>::NotASigner);
 
+        // Unlink multisig signers.
         if let Signatory::Account(key) = &signer {
             if T::MultiSig::is_multisig(key) {
                 ensure!(
@@ -1887,13 +1928,13 @@ impl<T: Trait> Module<T> {
                 // Unlink multisig signers from the identity.
                 Self::unlink_multisig_signers_from_did(T::MultiSig::get_key_signers(key), did);
             }
-            Self::unlink_primary_key_from_did(key, did)
         }
 
         // Update signing keys at Identity.
         <DidRecords<T>>::mutate(did, |record| {
             record.remove_signing_keys(&[signer.clone()]);
         });
+        Self::unlink_secondary_key_from_did(&signer, did);
 
         Self::deposit_event(RawEvent::SignerLeft(did, signer));
         Ok(())
