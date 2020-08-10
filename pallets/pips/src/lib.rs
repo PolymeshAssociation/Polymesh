@@ -371,10 +371,10 @@ decl_storage! {
         pub ActivePipLimit get(fn active_pip_limit) config(): u32;
 
         /// Proposals so far. id can be used to keep track of PIPs off-chain.
-        PipIdSequence: u32;
+        PipIdSequence get(fn pip_id_sequence): u32;
 
         /// Total count of current pending or scheduled PIPs.
-        ActivePipCount: u32;
+        ActivePipCount get(fn active_pip_count): u32;
 
         /// The metadata of the active proposals.
         pub ProposalMetadata get(fn proposal_metadata): map hasher(twox_64_concat) PipId => Option<PipsMetadata<T>>;
@@ -579,9 +579,9 @@ decl_module! {
         #[weight = (300_000_000, DispatchClass::Operational, Pays::Yes)]
         pub fn set_default_enactment_period(origin, duration: T::BlockNumber) {
             T::CommitteeOrigin::ensure_origin(origin)?;
-            let previous_duration = <DefaultEnactmentPeriod<T>>::get();
+            let prev = <DefaultEnactmentPeriod<T>>::get();
             <DefaultEnactmentPeriod<T>>::put(duration);
-            Self::deposit_event(RawEvent::DefaultEnactmentPeriodChanged(SystematicIssuers::Committee.as_id(), duration, previous_duration));
+            Self::deposit_event(RawEvent::DefaultEnactmentPeriodChanged(SystematicIssuers::Committee.as_id(), prev, duration));
         }
 
         /// Change the maximum skip count (`max_pip_skip_count`).
@@ -590,7 +590,7 @@ decl_module! {
         pub fn set_max_pip_skip_count(origin, new_max: SkippedCount) {
             T::CommitteeOrigin::ensure_origin(origin)?;
             let prev_max = MaxPipSkipCount::get();
-            MaxPipSkipCount::put(prev_max);
+            MaxPipSkipCount::put(new_max);
             Self::deposit_event(RawEvent::MaxPipSkipCountChanged(SystematicIssuers::Committee.as_id(), prev_max, new_max));
         }
 
@@ -599,7 +599,7 @@ decl_module! {
         pub fn set_active_pip_limit(origin, new_max: u32) {
             T::CommitteeOrigin::ensure_origin(origin)?;
             let prev_max = ActivePipLimit::get();
-            ActivePipLimit::put(prev_max);
+            ActivePipLimit::put(new_max);
             Self::deposit_event(RawEvent::ActivePipLimitChanged(SystematicIssuers::Committee.as_id(), prev_max, new_max));
         }
 
@@ -691,7 +691,6 @@ decl_module! {
                 description,
                 cool_off_until,
                 proposal_data,
-                //beneficiaries,
             ));
             Ok(())
         }
@@ -739,10 +738,7 @@ decl_module! {
             // 1. Fetch proposer and perform sanity checks.
             let _ = Self::ensure_owned_by_alterable(origin, id)?;
 
-            // 2. Refund the bond for the proposal.
-            Self::refund_proposal(id);
-
-            // 3. Close that proposal.
+            // 2. Close that proposal (including refunding).
             let new_state = Self::update_proposal_state(id, ProposalState::Cancelled);
             Self::prune_data(id, new_state, Self::prune_historical_pips());
 
@@ -848,6 +844,7 @@ decl_module! {
             ensure!(<ProposalResult<T>>::contains_key(id), Error::<T>::NoSuchProposal);
 
             // Double-check vote duplication.
+            // TODO(centril): Do we really want to prevent duplicate votes -- why not aggregate instead?
             ensure!(matches!(Self::proposal_vote(id, &proposer), None), Error::<T>::DuplicateVote);
 
             // Reserve the deposit
@@ -893,7 +890,6 @@ decl_module! {
             ensure!(matches!(meta.proposer, Proposer::Committee(_)), Error::<T>::NotByCommittee);
 
             // 4. All is good, schedule PIP for execution.
-            Self::maybe_unsnapshot_pip(id, ProposalState::Pending);
             let current_did = Context::current_identity::<Identity<T>>().unwrap_or_default();
             Self::schedule_pip_for_execution(current_did, id);
         }
@@ -911,7 +907,7 @@ decl_module! {
             T::VotingMajorityOrigin::ensure_origin(origin)?;
             let proposal = Self::proposals(id).ok_or_else(|| Error::<T>::NoSuchProposal)?;
             ensure!(
-                !matches!(proposal.state, ProposalState::Cancelled | ProposalState::Failed | ProposalState::Executed),
+                matches!(proposal.state, ProposalState::Pending | ProposalState::Scheduled),
                 Error::<T>::IncorrectProposalState,
             );
             Self::maybe_unschedule_pip(id, proposal.state);
@@ -931,7 +927,6 @@ decl_module! {
         pub fn prune_proposal(origin, id: PipId) {
             T::VotingMajorityOrigin::ensure_origin(origin)?;
             let proposal = Self::proposals(id).ok_or_else(|| Error::<T>::NoSuchProposal)?;
-            Self::refund_proposal(id);
             Self::maybe_unschedule_pip(id, proposal.state);
             Self::maybe_unsnapshot_pip(id, proposal.state);
             Self::prune_data(id, proposal.state, true);
@@ -954,7 +949,7 @@ decl_module! {
             // 1. Only release coordinator
             ensure!(
                 Some(current_did) == T::GovernanceCommittee::release_coordinator(),
-                Error::<T>::BadOrigin
+                DispatchError::BadOrigin
             );
 
             Self::is_proposal_state(id, ProposalState::Scheduled)?;
@@ -1022,7 +1017,7 @@ decl_module! {
                 // Aggregate the votes; `true` denotes a positive sign.
                 .map(|id| {
                     let VotingResult { ayes_stake, nays_stake, .. } = <ProposalResult<T>>::get(id);
-                    let weight = if ayes_stake > nays_stake {
+                    let weight = if ayes_stake >= nays_stake {
                         (true, ayes_stake - nays_stake)
                     } else {
                         (false, nays_stake - ayes_stake)
@@ -1030,13 +1025,29 @@ decl_module! {
                     SnapshottedPip { id, weight }
                 })
                 .collect::<Vec<_>>();
-            queue.sort_by_key(|s| s.weight);
 
-            // 3. Commit the new snapshot.
+            // 5. Sort pips into priority queue, with highest priority *last*.
+            // Having higher prio last allows efficient tail popping, so we have a LIFO structure.
+            queue.sort_unstable_by(|l, r| {
+                let (l_dir, l_stake): (bool, BalanceOf<T>) = l.weight;
+                let (r_dir, r_stake): (bool, BalanceOf<T>) = r.weight;
+                l_dir.cmp(&r_dir) // Negative has lower prio.
+                    .then_with(|| match l_dir {
+                        true => l_stake.cmp(&r_stake), // Higher stake, higher prio...
+                         // Unless negative stake, in which case lower abs stake, higher prio.
+                        false => r_stake.cmp(&l_stake)
+                    })
+                    // Lower id was made first, so assigned higher prio.
+                    // This also gives us sorting stability through a total order.
+                    // Moreover, as `queue` should be in by-id order originally.
+                    .then(r.id.cmp(&l.id))
+            });
+
+            // 4. Commit the new snapshot.
             <SnapshotMeta<T>>::set(Some(SnapshotMetadata { created_at, made_by }));
             <SnapshotQueue<T>>::set(queue);
 
-            // 3. Emit event.
+            // 5. Emit event.
             Self::deposit_event(RawEvent::SnapshotTaken(did));
             Ok(())
         }
@@ -1083,7 +1094,7 @@ decl_module! {
                         // Make sure the PIP can be skipped and enqueue bumping of skip.
                         SnapshotResult::Skip => {
                             let count = PipSkipCount::get(id);
-                            ensure!(count >= max_pip_skip_count, Error::<T>::CannotSkipPip);
+                            ensure!(count < max_pip_skip_count, Error::<T>::CannotSkipPip);
                             to_bump_skipped.push((id, count + 1));
                         },
                         // Mark PIP as rejected.
@@ -1139,7 +1150,7 @@ impl<T: Trait> Module<T> {
     fn ensure_signed_by(origin: T::Origin, proposer: &Proposer<T::AccountId>) -> DispatchResult {
         match proposer {
             Proposer::Community(acc) => {
-                ensure!(acc == &ensure_signed(origin)?, Error::<T>::BadOrigin)
+                ensure!(acc == &ensure_signed(origin)?, DispatchError::BadOrigin)
             }
             Proposer::Committee(Committee::Technical) => {
                 T::TechnicalCommitteeVMO::ensure_origin(origin)?;
@@ -1174,7 +1185,7 @@ impl<T: Trait> Module<T> {
     ) -> Result<T::AccountId, DispatchError> {
         match Self::ensure_owned_by_alterable(origin, id)? {
             Proposer::Community(p) => Ok(p),
-            Proposer::Committee(_) => Err(Error::<T>::BadOrigin.into()),
+            Proposer::Committee(_) => Err(DispatchError::BadOrigin),
         }
     }
 
@@ -1223,11 +1234,13 @@ impl<T: Trait> Module<T> {
     /// Rejects the given `id`, refunding the deposit, and possibly pruning the proposal's data.
     fn unsafe_reject_proposal(id: PipId) {
         let new_state = Self::update_proposal_state(id, ProposalState::Rejected);
-        Self::refund_proposal(id);
         Self::prune_data(id, new_state, Self::prune_historical_pips());
     }
 
-    /// Refunds any tokens used to vote or bond a proposal
+    /// Refunds any tokens used to vote or bond a proposal.
+    ///
+    /// This operation is idempotent wrt. chain state,
+    /// i.e., once run, refunding again will refund nothing.
     fn refund_proposal(id: PipId) {
         let total_refund =
             <Deposits<T>>::iter_prefix_values(id).fold(0.into(), |acc, depo_info| {
@@ -1274,6 +1287,7 @@ impl<T: Trait> Module<T> {
     /// but is removed in functions executing this one.
     fn prune_data(id: PipId, state: ProposalState, prune: bool) {
         let current_did = Context::current_identity::<Identity<T>>().unwrap_or_default();
+        Self::refund_proposal(id);
         Self::decrement_count_if_active(state);
         if prune {
             <ProposalResult<T>>::remove(id);
@@ -1321,7 +1335,10 @@ impl<T: Trait> Module<T> {
     fn update_proposal_state(id: PipId, new_state: ProposalState) -> ProposalState {
         <Proposals<T>>::mutate(id, |proposal| {
             if let Some(ref mut proposal) = proposal {
-                Self::decrement_count_if_active(proposal.state);
+                if (proposal.state, new_state) != (ProposalState::Pending, ProposalState::Scheduled)
+                {
+                    Self::decrement_count_if_active(proposal.state);
+                }
                 proposal.state = new_state;
             }
         });
