@@ -39,6 +39,7 @@ use polymesh_common_utilities::traits::{
     group::{GroupTrait, InactiveMember},
     identity::{LinkedKeyInfo, Trait as IdentityTrait},
     multisig::MultiSigSubTrait,
+    portfolio::PortfolioSubTrait,
     transaction_payment::{CddAndFeeDetails, ChargeTxFee},
     CommonTrait,
 };
@@ -434,6 +435,12 @@ impl MultiSigSubTrait<AccountId> for Test {
     fn is_signer(_key: &AccountId) -> bool {
         // Allow all keys when mocked
         false
+    }
+}
+
+impl PortfolioSubTrait for Test {
+    fn accept_portfolio_custody(_: IdentityId, _: u64) -> DispatchResult {
+        unimplemented!()
     }
 }
 

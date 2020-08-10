@@ -102,6 +102,7 @@ use polymesh_common_utilities::{
             TargetIdAuthorization, Trait,
         },
         multisig::MultiSigSubTrait,
+        portfolio::PortfolioSubTrait,
         transaction_payment::{CddAndFeeDetails, ChargeTxFee},
     },
     Context, SystematicIssuers,
@@ -844,6 +845,8 @@ decl_module! {
                             T::MultiSig::accept_multisig_signer(Signatory::from(did), auth_id),
                         AuthorizationData::JoinIdentity(_) =>
                             Self::join_identity(Signatory::from(did), auth_id),
+                        AuthorizationData::PortfolioCustody(..) =>
+                            T::Portfolio::accept_portfolio_custody(did, auth_id),
                         _ => Err(Error::<T>::UnknownAuthorization.into())
                     }
                 },
@@ -899,6 +902,8 @@ decl_module! {
                                     T::MultiSig::accept_multisig_signer(Signatory::from(*did), auth_id),
                                 AuthorizationData::JoinIdentity(_) =>
                                     Self::join_identity(Signatory::from(*did), auth_id),
+                                AuthorizationData::PortfolioCustody(..) =>
+                                    T::Portfolio::accept_portfolio_custody(*did, auth_id),
                                 _ => Err(Error::<T>::UnknownAuthorization.into())
                             };
                         }

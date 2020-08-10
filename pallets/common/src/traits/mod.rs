@@ -65,5 +65,6 @@ pub mod group;
 pub mod identity;
 pub mod multisig;
 pub mod pip;
+pub mod portfolio;
 pub mod transaction_payment;
 pub use transaction_payment::{CddAndFeeDetails, ChargeTxFee};

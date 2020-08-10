@@ -47,7 +47,9 @@ use frame_support::{
 };
 use frame_system::{self as system, ensure_signed};
 use pallet_identity as identity;
-use polymesh_common_utilities::{identity::Trait as IdentityTrait, CommonTrait, Context};
+use polymesh_common_utilities::{
+    identity::Trait as IdentityTrait, portfolio::PortfolioSubTrait, CommonTrait, Context,
+};
 use polymesh_primitives::{
     AuthorizationData, AuthorizationError, IdentityId, PortfolioId, PortfolioName, PortfolioNumber,
     Signatory, Ticker,
@@ -386,5 +388,11 @@ impl<T: Trait> Module<T> {
             new_custodian,
         ));
         Ok(())
+    }
+}
+
+impl<T: Trait> PortfolioSubTrait for Module<T> {
+    fn accept_portfolio_custody(new_custodian: IdentityId, auth_id: u64) -> DispatchResult {
+        Self::accept_portfolio_custody(new_custodian, auth_id)
     }
 }

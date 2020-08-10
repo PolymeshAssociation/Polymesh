@@ -617,6 +617,7 @@ impl IdentityTrait for Runtime {
     type Event = Event;
     type Proposal = Call;
     type MultiSig = MultiSig;
+    type Portfolio = Portfolio;
     type CddServiceProviders = CddServiceProviders;
     type Balances = balances::Module<Runtime>;
     type ChargeTxFeeTarget = TransactionPayment;
