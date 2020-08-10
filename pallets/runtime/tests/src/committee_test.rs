@@ -532,3 +532,47 @@ fn enact_we() {
     assert_ok!(vote(&Origin::signed(bob), true));
     check_scheduled(0);
 }
+
+#[test]
+fn mesh_1065_regression_test() {
+    ExtBuilder::default().build().execute_with(|| {
+        System::set_block_number(1);
+
+        let alice_did = register_keyring_account(AccountKeyring::Alice).unwrap();
+        let bob_signer = Origin::signed(AccountKeyring::Bob.public());
+        let bob_did = register_keyring_account(AccountKeyring::Bob).unwrap();
+        let charlie_did = register_keyring_account(AccountKeyring::Charlie).unwrap();
+        set_members(vec![alice_did, bob_did, charlie_did]);
+        assert_mem_len(3);
+
+        let assert_ayes = |ayes| {
+            assert_eq!(
+                Committee::voting(&hash_enact_snapshot_results()),
+                Some(PolymeshVotes {
+                    index: 0,
+                    ayes,
+                    nays: vec![],
+                    end: System::block_number(),
+                })
+            );
+        };
+
+        // Bob votes for something.
+        // It doesn't matter that no PIP exist; we're only testing voting itself.
+        assert_ok!(vote(&bob_signer, true));
+        assert_ayes(vec![bob_did]);
+
+        // Bob abdicates.
+        abdicate_membership(bob_did, &bob_signer, 3);
+        assert_ayes(vec![]);
+
+        // Bob rejoins.
+        set_members(vec![alice_did, bob_did, charlie_did]);
+        assert_mem_len(3);
+        assert_ayes(vec![]);
+
+        // Bob revotes, and there's no `DuplicateVote` error.
+        assert_ok!(vote(&bob_signer, true));
+        assert_ayes(vec![bob_did]);
+    });
+}
