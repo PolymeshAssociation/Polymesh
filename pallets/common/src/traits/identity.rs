@@ -105,7 +105,7 @@ pub trait Trait: CommonTrait + pallet_timestamp::Trait + balances::Trait {
 
     type Public: IdentifyAccount<AccountId = Self::AccountId>;
     type OffChainSignature: Verify<Signer = Self::Public> + Member + Decode + Encode;
-    type ProtocolFee: ChargeProtocolFee<Self::AccountId>;
+    type ProtocolFee: ChargeProtocolFee<Self::AccountId, <<Self as Trait>::Balances as Currency<<Self as frame_system::Trait>::AccountId>>::Balance>;
 }
 
 // rustfmt adds a comma after Option<Moment> in NewAuthorization and it breaks compilation

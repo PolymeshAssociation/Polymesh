@@ -94,7 +94,9 @@ impl CddAndFeeDetails<AccountId, Call> for CddHandler {
                     let did = <multisig::MultiSigToIdentity<Runtime>>::get(multisig);
                     return check_cdd(&did);
                 }
-                Err(InvalidTransaction::Custom(TransactionError::MissingIdentity as u8))
+                Err(InvalidTransaction::Custom(
+                    TransactionError::MissingIdentity as u8,
+                ))
             }
             // Call made by an Account key to propose or approve a multisig transaction via the bridge helper
             // The multisig must have valid CDD and the caller must be a signer of the multisig.
@@ -106,7 +108,9 @@ impl CddAndFeeDetails<AccountId, Call> for CddHandler {
                     let did = <multisig::MultiSigToIdentity<Runtime>>::get(multisig);
                     return check_cdd(&did);
                 }
-                Err(InvalidTransaction::Custom(TransactionError::MissingIdentity as u8))
+                Err(InvalidTransaction::Custom(
+                    TransactionError::MissingIdentity as u8,
+                ))
             }
             // Call to set fee payer
             Call::Balances(balances::Call::change_charge_did_flag(charge_did)) => match caller {
@@ -126,7 +130,9 @@ impl CddAndFeeDetails<AccountId, Call> for CddHandler {
                         .into());
                     }
                     // Return an error if any of the above checks fail
-                    Err(InvalidTransaction::Custom(TransactionError::MissingIdentity as u8))
+                    Err(InvalidTransaction::Custom(
+                        TransactionError::MissingIdentity as u8,
+                    ))
                 }
                 // A did was passed as the caller. The did should be charged the fee.
                 // This will never happen during an external call.
@@ -155,7 +161,9 @@ impl CddAndFeeDetails<AccountId, Call> for CddHandler {
                         ));
                     }
                     // Return an error if any of the above checks fail
-                    Err(InvalidTransaction::Custom(TransactionError::MissingIdentity as u8))
+                    Err(InvalidTransaction::Custom(
+                        TransactionError::MissingIdentity as u8,
+                    ))
                 }
                 // A did was passed as the caller. The did should be charged the fee.
                 // This will never happen during an external call.
@@ -225,6 +233,8 @@ fn check_cdd(did: &IdentityId) -> Result<Option<Signatory<AccountId>>, InvalidTr
         Ok(Some(Signatory::from(*did)))
     } else {
         sp_runtime::print("ERROR: This transaction requires an Identity");
-        Err(InvalidTransaction::Custom(TransactionError::CddRequired as u8))
+        Err(InvalidTransaction::Custom(
+            TransactionError::CddRequired as u8,
+        ))
     }
 }

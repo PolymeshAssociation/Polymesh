@@ -13,10 +13,10 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
+use crate::{Balance, IdentityId};
 use codec::{Decode, Encode};
 use polymesh_primitives_derive::VecU8StrongTyped;
 use sp_std::prelude::Vec;
-use crate::{ Balance, IdentityId };
 /// Smart Extension types
 #[allow(missing_docs)]
 #[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, PartialOrd, Ord)]
@@ -70,7 +70,7 @@ pub struct MetaVersion(pub Vec<u8>);
 
 #[derive(Encode, Decode, Default, Clone, PartialEq)]
 #[cfg_attr(feature = "std", derive(Debug))]
-pub struct SmartExtensionMetadata {
+pub struct SmartExtensionMetadata<Balance> {
     /// Url that can contain the details about the template
     /// Ex- license, audit report.
     pub url: Option<MetaUrl>,
@@ -88,24 +88,26 @@ pub struct SmartExtensionMetadata {
 
 #[derive(Encode, Decode, Default, Clone, PartialEq)]
 #[cfg_attr(feature = "std", derive(Debug))]
-pub struct TemplateMetaData {
+pub struct TemplateMetaData<Balance, AccountId> {
     /// Meta details of the SE template
-    pub meta_info: SmartExtensionMetadata,
+    pub meta_info: SmartExtensionMetadata<Balance>,
     /// Owner of the SE template.
-    pub owner: IdentityId,
+    pub owner: AccountId,
     /// power button to switch on/off the instantiation from the template
-    pub active: bool
+    pub is_freeze: bool,
 }
 
-impl TemplateMetaData {
-
+impl<Balance, AccountId> TemplateMetaData<Balance, AccountId>
+where
+    Balance: Clone + Copy,
+{
     /// Return the instantiation fee
     pub fn get_instantiation_fee(&self) -> Balance {
         self.meta_info.instantiation_fee
     }
 
     // Check whether the instantiation of the template is allowed or not.
-    pub fn is_instantiation_allowed(&self) -> bool {
-        self.active
+    pub fn is_instantiation_freezed(&self) -> bool {
+        self.is_freeze
     }
 }

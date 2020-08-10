@@ -16,7 +16,7 @@
 use codec::{Decode, Encode};
 use frame_support::dispatch::DispatchResult;
 #[cfg(feature = "std")]
-use sp_runtime::{Deserialize, Serialize};
+use sp_runtime::{Deserialize, Perbill, Serialize};
 
 /// Protocol fee operations.
 #[derive(Decode, Encode, Clone, Copy, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
@@ -35,15 +35,22 @@ pub enum ProtocolOp {
     IdentityAddSigningKeysWithAuthorization,
     PipsPropose,
     VotingAddBallot,
-    ContractsPutCode
+    ContractsPutCode,
 }
 
 /// Common interface to protocol fees for runtime modules.
-pub trait ChargeProtocolFee<AccountId> {
+pub trait ChargeProtocolFee<AccountId, Balance> {
     /// Computes the fee of the operation and charges it to the given signatory.
     fn charge_fee(op: ProtocolOp) -> DispatchResult;
 
     /// Computes the fee for `count` similar operations, and charges that fee to the given
     /// signatory.
     fn batch_charge_fee(op: ProtocolOp, count: usize) -> DispatchResult;
+
+    /// Used for charging the instantiation fee for the smart extension.
+    fn charge_extension_instantiation_fee(
+        fee: Balance,
+        owner: AccountId,
+        network_share: Perbill,
+    ) -> DispatchResult;
 }

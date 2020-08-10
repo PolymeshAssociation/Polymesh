@@ -41,8 +41,8 @@ use polymesh_runtime_common::{
     cdd_check::CddChecker,
     dividend, exemption,
     impls::{Author, CurrencyToVoteHandler},
-    merge_active_and_inactive, sto_capped, voting, AvailableBlockRatio,
-    BlockHashCount, MaximumBlockLength, MaximumBlockWeight, NegativeImbalance,
+    merge_active_and_inactive, sto_capped, voting, AvailableBlockRatio, BlockHashCount,
+    MaximumBlockLength, MaximumBlockWeight, NegativeImbalance,
 };
 
 use sp_api::impl_runtime_apis;
@@ -625,7 +625,14 @@ impl IdentityTrait for Runtime {
     type ProtocolFee = protocol_fee::Module<Runtime>;
 }
 
-impl polymesh_contracts::Trait for Runtime {}
+parameter_types! {
+    pub const NetworkShareInFee: Perbill = Perbill::from_percent(0);
+}
+
+impl polymesh_contracts::Trait for Runtime {
+    type Event = Event;
+    type NetworkShareInFee = NetworkShareInFee;
+}
 
 impl exemption::Trait for Runtime {
     type Event = Event;
