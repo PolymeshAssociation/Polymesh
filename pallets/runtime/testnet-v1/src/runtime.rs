@@ -25,11 +25,7 @@ use pallet_utility as utility;
 use polymesh_common_utilities::{
     constants::currency::*,
     protocol_fee::ProtocolOp,
-    traits::{
-        balances::AccountData,
-        identity::Trait as IdentityTrait,
-        pip::{PipId, PipsCommitteeBridge},
-    },
+    traits::{balances::AccountData, identity::Trait as IdentityTrait},
     CommonTrait,
 };
 use polymesh_primitives::{
@@ -400,7 +396,6 @@ impl committee::Trait<GovernanceCommittee> for Runtime {
     type CommitteeOrigin = VMO<GovernanceCommittee>;
     type Event = Event;
     type MotionDuration = MotionDuration;
-    type EnactProposalMaker = Runtime;
 }
 
 /// PolymeshCommittee as an instance of group
@@ -423,7 +418,6 @@ macro_rules! committee_config {
             type CommitteeOrigin = VMO<committee::$instance>;
             type Event = Event;
             type MotionDuration = MotionDuration;
-            type EnactProposalMaker = Runtime;
         }
         impl group::Trait<group::$instance> for Runtime {
             type Event = Event;
@@ -701,24 +695,6 @@ impl statistics::Trait for Runtime {}
 impl pallet_utility::Trait for Runtime {
     type Event = Event;
     type Call = Call;
-}
-
-impl PipsCommitteeBridge<Call> for Runtime {
-    fn approve_committee_proposal(id: PipId) -> Call {
-        Call::Pips(pallet_pips::Call::approve_committee_proposal(id))
-    }
-
-    fn reject_proposal(id: PipId) -> Call {
-        Call::Pips(pallet_pips::Call::reject_proposal(id))
-    }
-
-    fn prune_proposal(id: PipId) -> Call {
-        Call::Pips(pallet_pips::Call::prune_proposal(id))
-    }
-
-    fn enact_snapshot_results(results: Vec<(u8, SnapshotResult)>) -> Call {
-        Call::Pips(pallet_pips::Call::enact_snapshot_results(results))
-    }
 }
 
 construct_runtime!(

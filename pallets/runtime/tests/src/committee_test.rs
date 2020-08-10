@@ -16,7 +16,7 @@ use pallet_identity as identity;
 use pallet_pips::{self as pips, ProposalState, Proposer, SnapshotResult};
 use polymesh_common_utilities::traits::pip::PipId;
 use polymesh_primitives::IdentityId;
-use sp_core::{sr25519::Public, H256};
+use sp_core::H256;
 use sp_runtime::traits::Hash;
 use std::convert::TryFrom;
 use test_client::AccountKeyring;
