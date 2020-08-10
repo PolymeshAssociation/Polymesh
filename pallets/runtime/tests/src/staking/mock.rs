@@ -334,6 +334,7 @@ impl IdentityTrait for Test {
     type Event = MetaEvent;
     type Proposal = Call;
     type MultiSig = Test;
+    type Portfolio = Test;
     type CddServiceProviders = group::Module<Test, group::Instance2>;
     type Balances = Balances;
     type ChargeTxFeeTarget = Test;

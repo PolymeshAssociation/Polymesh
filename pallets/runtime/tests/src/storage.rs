@@ -367,6 +367,7 @@ impl IdentityTrait for TestStorage {
     type Event = Event;
     type Proposal = Call;
     type MultiSig = multisig::Module<TestStorage>;
+    type Portfolio = portfolio::Module<TestStorage>;
     type CddServiceProviders = group::Module<TestStorage, group::Instance2>;
     type Balances = balances::Module<TestStorage>;
     type ChargeTxFeeTarget = TestStorage;
