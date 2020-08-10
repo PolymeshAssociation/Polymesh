@@ -5,21 +5,21 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 #![recursion_limit = "256"]
 
-use pallet_identity as identity;
-use polymesh_common_utilities::{
-    traits::{asset::Trait as AssetTrait, identity::Trait as IdentityTrait, CommonTrait},
-    Context,
-};
-use polymesh_primitives::{IdentityId, Ticker};
-
 use codec::{Decode, Encode};
 use frame_support::{
     decl_error, decl_event, decl_module, decl_storage, dispatch::DispatchResult, ensure,
 };
 use frame_system::{self as system, ensure_signed};
+use pallet_identity as identity;
 use pallet_settlement::{Leg, SettlementType};
+use polymesh_common_utilities::{
+    traits::{asset::Trait as AssetTrait, identity::Trait as IdentityTrait, CommonTrait},
+    Context,
+};
+use polymesh_primitives::{IdentityId, Ticker};
 use sp_runtime::traits::{CheckedMul, Saturating};
 use sp_std::prelude::*;
+
 type Identity<T> = identity::Module<T>;
 type Settlement<T> = pallet_settlement::Module<T>;
 
@@ -53,9 +53,9 @@ decl_event!(
     where
         Balance = <T as CommonTrait>::Balance,
     {
-        /// A new fundraise has been created
+        /// A new fundraiser has been created
         /// (offering token, raise token, amount to sell, price, venue id, fundraiser_id)
-        FundraiseCreated(IdentityId, Ticker, Ticker, Balance, u128, u64, u64),
+        FundraiserCreated(IdentityId, Ticker, Ticker, Balance, u128, u64, u64),
         /// An investor invested in the fundraiser
         /// (offering token, raise token, offering_token_amount, raise_token_amount, fundraiser_id)
         FundsRaised(IdentityId, Ticker, Ticker, Balance, Balance, u64),
@@ -103,10 +103,10 @@ decl_module! {
             let did = Context::current_identity_or::<Identity<T>>(&sender)?;
             ensure!(T::Asset::is_owner(&offering_token, did), Error::<T>::Unauthorized);
             // TODO: Take custodial ownership of $sell_amount of $offering_token from treasury?
-            let fundraise_id = Self::fundraiser_count(offering_token) + 1;
+            let fundraiser_id = Self::fundraiser_count(offering_token) + 1;
             <Fundraisers<T>>::insert(
                 offering_token,
-                fundraise_id,
+                fundraiser_id,
                 Fundraiser {
                     raise_token,
                     price_per_token,
@@ -115,17 +115,17 @@ decl_module! {
                 }
             );
             Self::deposit_event(
-                RawEvent::FundraiseCreated(did, offering_token, raise_token, sell_amount, price_per_token, venue_id, fundraise_id)
+                RawEvent::FundraiserCreated(did, offering_token, raise_token, sell_amount, price_per_token, venue_id, fundraiser_id)
             );
             Ok(())
         }
 
         /// Create a new offering.
         #[weight = 200_000_000]
-        pub fn invest(origin, offering_token: Ticker, fundraise_id: u64, offering_token_amount: T::Balance) -> DispatchResult {
+        pub fn invest(origin, offering_token: Ticker, fundraiser_id: u64, offering_token_amount: T::Balance) -> DispatchResult {
             let sender = ensure_signed(origin.clone())?;
             let did = Context::current_identity_or::<Identity<T>>(&sender)?;
-            let mut fundraiser = Self::fundraisers(offering_token, fundraise_id);
+            let mut fundraiser = Self::fundraisers(offering_token, fundraiser_id);
             ensure!(fundraiser.remaining_amount >= offering_token_amount, Error::<T>::InsufficientTokensRemaining);
             // Ceil of offering_token_amount * price_per_million
             let raise_token_amount = offering_token_amount
@@ -163,11 +163,11 @@ decl_module! {
             Settlement::<T>::authorize_instruction(origin, instruction_id)?;
 
             Self::deposit_event(
-                RawEvent::FundsRaised(did, offering_token, fundraiser.raise_token, offering_token_amount, raise_token_amount, fundraise_id)
+                RawEvent::FundsRaised(did, offering_token, fundraiser.raise_token, offering_token_amount, raise_token_amount, fundraiser_id)
             );
 
             fundraiser.remaining_amount -= offering_token_amount;
-            <Fundraisers<T>>::insert(offering_token, fundraise_id, fundraiser);
+            <Fundraisers<T>>::insert(offering_token, fundraiser_id, fundraiser);
 
             Ok(())
         }
