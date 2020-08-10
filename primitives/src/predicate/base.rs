@@ -1,115 +1,8 @@
-// This file is part of the Polymesh distribution (https://github.com/PolymathNetwork/Polymesh).
-// Copyright (c) 2020 Polymath
-
-// This program is free software: you can redistribute it and/or modify
-// it under the terms of the GNU General Public License as published by
-// the Free Software Foundation, version 3.
-
-// This program is distributed in the hope that it will be useful, but
-// WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-// General Public License for more details.
-
-// You should have received a copy of the GNU General Public License
-// along with this program. If not, see <http://www.gnu.org/licenses/>.
-
-use crate::{Claim, Rule, RuleType};
+use crate::{
+    predicate::{Context, Predicate},
+    Claim,
+};
 use codec::{Decode, Encode};
-
-use sp_std::prelude::*;
-
-/// Context using during an `Predicate` evaluation.
-///
-/// # TODO
-///  - Use a lazy access to claims. It could be part of the optimization
-///  process of CDD claims.
-#[derive(Encode, Decode, Clone, Default)]
-#[cfg_attr(feature = "std", derive(Debug))]
-pub struct Context {
-    /// Predicate evaluation will use those claims.
-    pub claims: Vec<Claim>,
-}
-
-impl From<Vec<Claim>> for Context {
-    fn from(claims: Vec<Claim>) -> Self {
-        Context { claims }
-    }
-}
-
-// Predicate Trait
-// ==================================
-
-/// It allows composition and evaluation of claims based on a context.
-pub trait Predicate {
-    /// It evaluates this predicated based on `context` context.
-    fn evaluate(&self, context: &Context) -> bool;
-
-    /// It generates a new predicate that represents the logical AND
-    /// of two predicates: `Self` and `other`.
-    #[inline]
-    fn and<B>(self, other: B) -> AndPredicate<Self, B>
-    where
-        Self: Sized,
-        B: Predicate + Sized,
-    {
-        AndPredicate::new(self, other)
-    }
-
-    /// It generates a new predicate that represents the logical OR
-    /// of two predicates: `Self` and `other`.
-    #[inline]
-    fn or<B>(self, other: B) -> OrPredicate<Self, B>
-    where
-        Self: Sized,
-        B: Predicate + Sized,
-    {
-        OrPredicate::new(self, other)
-    }
-
-    /// It generates a new predicate that represents the logical NOT
-    /// of this predicate.
-    #[inline]
-    fn not(self) -> NotPredicate<Self>
-    where
-        Self: Sized,
-    {
-        NotPredicate::new(self)
-    }
-}
-
-// Helper functions
-// ======================================
-
-/// It creates a predicate to evaluate the existential of `claim` in the context.
-#[inline]
-pub fn exists(claim: &'_ Claim) -> ExistentialPredicate<'_> {
-    ExistentialPredicate { claim }
-}
-
-/// It creates a predicate to evaluate if any of `claims` are found in the context.
-#[inline]
-pub fn any(claims: &'_ [Claim]) -> AnyPredicate<'_> {
-    AnyPredicate { claims }
-}
-
-/// It create a negate predicate of `predicate`.
-#[inline]
-pub fn not<P>(predicate: P) -> NotPredicate<P>
-where
-    P: Predicate + Sized,
-{
-    NotPredicate::new(predicate)
-}
-
-/// Helper function to run predicates from a context.
-pub fn run(rule: &Rule, context: &Context) -> bool {
-    match rule.rule_type {
-        RuleType::IsPresent(ref claim) => exists(claim).evaluate(context),
-        RuleType::IsAbsent(ref claim) => not(exists(claim)).evaluate(context),
-        RuleType::IsAnyOf(ref claims) => any(claims).evaluate(context),
-        RuleType::IsNoneOf(ref claims) => not(any(claims)).evaluate(context),
-    }
-}
 
 // ExistentialPredicate
 // ======================================================
@@ -299,11 +192,13 @@ mod tests {
     #[test]
     fn existential_operators_test() {
         let scope = Scope::from(0);
-        let cdd_claim = Claim::CustomerDueDiligence(CddId::new(
-            IdentityId::from(1),
-            InvestorUid::from(b"UID1".as_ref()),
-        ));
-        let context = Context::from(vec![cdd_claim.clone(), Claim::Affiliate(scope)]);
+        let did = IdentityId::from(1);
+        let cdd_claim =
+            Claim::CustomerDueDiligence(CddId::new(did, InvestorUid::from(b"UID1".as_ref())));
+        let context = Context {
+            claims: vec![cdd_claim.clone(), Claim::Affiliate(scope)],
+            id: did,
+        };
 
         // Affiliate && CustommerDueDiligenge
         let affiliate_claim = Claim::Affiliate(scope);
@@ -324,12 +219,18 @@ mod tests {
             Claim::Jurisdiction(b"India".into(), scope),
         ];
 
-        let context = Context::from(vec![Claim::Jurisdiction(b"Canada".into(), scope)]);
+        let context = Context {
+            claims: vec![Claim::Jurisdiction(b"Canada".into(), scope)],
+            ..Default::default()
+        };
         let in_juridisction_pre = predicate::any(&valid_jurisdictions);
         assert_eq!(in_juridisction_pre.evaluate(&context), true);
 
         // 2. Check USA does not belong to {ESP, CAN, IND}.
-        let context = Context::from(vec![Claim::Jurisdiction(b"USA".into(), scope)]);
+        let context = Context {
+            claims: vec![Claim::Jurisdiction(b"USA".into(), scope)],
+            ..Default::default()
+        };
         assert_eq!(in_juridisction_pre.evaluate(&context), false);
 
         // 3. Check NOT in jurisdiction.
@@ -353,52 +254,63 @@ mod tests {
         ];
 
         // Valid case
-        let context: Context = vec![
-            Claim::Accredited(scope),
-            Claim::Jurisdiction(b"Canada".into(), scope),
-        ]
-        .into();
+        let context = Context {
+            claims: vec![
+                Claim::Accredited(scope),
+                Claim::Jurisdiction(b"Canada".into(), scope),
+            ],
+            ..Default::default()
+        };
 
         let out = !rules.iter().any(|rule| !predicate::run(&rule, &context));
         assert_eq!(out, true);
 
         // Invalid case: `BuyLockup` is present.
-        let context: Context = vec![
-            Claim::Accredited(scope),
-            Claim::BuyLockup(scope),
-            Claim::Jurisdiction(b"Canada".into(), scope),
-        ]
-        .into();
+        let context = Context {
+            claims: vec![
+                Claim::Accredited(scope),
+                Claim::BuyLockup(scope),
+                Claim::Jurisdiction(b"Canada".into(), scope),
+            ],
+            ..Default::default()
+        };
 
         let out = !rules.iter().any(|rule| !predicate::run(&rule, &context));
         assert_eq!(out, false);
 
         // Invalid case: Missing `Accredited`
-        let context: Context = vec![
-            Claim::BuyLockup(scope),
-            Claim::Jurisdiction(b"Canada".into(), scope),
-        ]
-        .into();
+        let context = Context {
+            claims: vec![
+                Claim::BuyLockup(scope),
+                Claim::Jurisdiction(b"Canada".into(), scope),
+            ],
+            ..Default::default()
+        };
 
         let out = !rules.iter().any(|rule| !predicate::run(&rule, &context));
         assert_eq!(out, false);
 
         // Invalid case: Missing `Jurisdiction`
-        let context: Context = vec![
-            Claim::Accredited(scope),
-            Claim::Jurisdiction(b"Spain".into(), scope),
-        ]
-        .into();
+        let context = Context {
+            claims: vec![
+                Claim::Accredited(scope),
+                Claim::Jurisdiction(b"Spain".into(), scope),
+            ],
+            ..Default::default()
+        };
 
         let out = !rules.iter().any(|rule| !predicate::run(&rule, &context));
         assert_eq!(out, false);
 
         // Check NoneOf
-        let context: Context = vec![
-            Claim::Accredited(scope),
-            Claim::Jurisdiction(b"Cuba".into(), scope),
-        ]
-        .into();
+        let context = Context {
+            claims: vec![
+                Claim::Accredited(scope),
+                Claim::Jurisdiction(b"Cuba".into(), scope),
+            ],
+            ..Default::default()
+        };
+
         let out = !rules.iter().any(|rule| !predicate::run(&rule, &context));
         assert_eq!(out, false);
     }
