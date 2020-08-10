@@ -5,9 +5,7 @@ use super::{
 
 use polymesh_common_utilities::traits::CommonTrait;
 use polymesh_primitives::Ticker;
-use polymesh_runtime_common::{
-    dividend::{self, Dividend},
-};
+use polymesh_runtime_common::dividend::{self, Dividend};
 
 use pallet_asset::{self as asset, AssetType, SecurityToken};
 use pallet_balances as balances;
@@ -194,10 +192,7 @@ fn correct_dividend_must_work() {
 
         // Check if the correct amount was added to investor balance
         let share = dividend.amount * amount_invested / token.total_supply;
-        assert_eq!(
-            Asset::balance_of(payout_ticker, investor_did),
-            share
-        );
+        assert_eq!(Asset::balance_of(payout_ticker, investor_did), share);
 
         // Check if amount_left was adjusted correctly
         let current_entry =

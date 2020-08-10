@@ -379,20 +379,10 @@ impl<T: Trait<I>, I: Instance> Module<T, I> {
         if let Some(mut voting) = Self::voting(&proposal) {
             // If any element is removed, we have to update `voting`.
             is_id_removed = if let Some(idx) = voting.ayes.iter().position(|a| *a == id) {
-                Self::deposit_event(RawEvent::VoteRetracted(
-                    id,
-                    voting.index,
-                    proposal,
-                    true,
-                ));
+                Self::deposit_event(RawEvent::VoteRetracted(id, voting.index, proposal, true));
                 Some(voting.ayes.swap_remove(idx))
             } else if let Some(idx) = voting.nays.iter().position(|a| *a == id) {
-                Self::deposit_event(RawEvent::VoteRetracted(
-                    id,
-                    voting.index,
-                    proposal,
-                    false,
-                ));
+                Self::deposit_event(RawEvent::VoteRetracted(id, voting.index, proposal, false));
                 Some(voting.nays.swap_remove(idx))
             } else {
                 None
@@ -668,7 +658,9 @@ impl<T: Trait<I>, I: Instance> ChangeMembers<IdentityId> for Module<T, I> {
         Self::proposals()
             .into_iter()
             .filter(|proposal| {
-                outgoing.iter().any(|id| Self::remove_vote_from(*id, *proposal))
+                outgoing
+                    .iter()
+                    .any(|id| Self::remove_vote_from(*id, *proposal))
             })
             .for_each(Self::check_proposal_threshold);
 
