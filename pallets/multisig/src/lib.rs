@@ -202,7 +202,7 @@ decl_module! {
         /// # Arguments
         /// * `signers` - Signers of the multisig (They need to accept authorization before they are actually added).
         /// * `sigs_required` - Number of sigs required to process a multi-sig tx.
-        #[weight = 250_000]
+        #[weight = 750_000_000]
         pub fn create_multisig(origin, signers: Vec<Signatory<T::AccountId>>, sigs_required: u64) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             ensure!(!signers.is_empty(), Error::<T>::NoSigners);
@@ -227,7 +227,7 @@ decl_module! {
         /// * `expiry` - Optional proposal expiry time.
         /// * `auto_close` - Close proposal on receiving enough reject votes.
         /// If this is 1 out of `m` multisig, the proposal will be immediately executed.
-        #[weight = 750_000]
+        #[weight = 1_000_000_000]
         pub fn create_or_approve_proposal_as_identity(
             origin,
             multisig: T::AccountId,
@@ -249,7 +249,7 @@ decl_module! {
         /// * `expiry` - Optional proposal expiry time.
         /// * `auto_close` - Close proposal on receiving enough reject votes.
         /// If this is 1 out of `m` multisig, the proposal will be immediately executed.
-        #[weight = 750_000]
+        #[weight = 1_000_000_000]
         pub fn create_or_approve_proposal_as_key(
             origin,
             multisig: T::AccountId,
@@ -270,7 +270,7 @@ decl_module! {
         /// * `expiry` - Optional proposal expiry time.
         /// * `auto_close` - Close proposal on receiving enough reject votes.
         /// If this is 1 out of `m` multisig, the proposal will be immediately executed.
-        #[weight = 250_000]
+        #[weight = 1_000_000_000]
         pub fn create_proposal_as_identity(
             origin,
             multisig: T::AccountId,
@@ -294,7 +294,7 @@ decl_module! {
         /// * `expiry` - Optional proposal expiry time.
         /// * `auto_close` - Close proposal on receiving enough reject votes.
         /// If this is 1 out of `m` multisig, the proposal will be immediately executed.
-        #[weight = 250_000]
+        #[weight = 500_000_000]
         pub fn create_proposal_as_key(
             origin,
             multisig: T::AccountId,
@@ -314,7 +314,7 @@ decl_module! {
         /// * `multisig` - MultiSig address.
         /// * `proposal_id` - Proposal id to approve.
         /// If quorum is reached, the proposal will be immediately executed.
-        #[weight = 750_000]
+        #[weight = 500_000_000]
         pub fn approve_as_identity(origin, multisig: T::AccountId, proposal_id: u64) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             let sender_did = Context::current_identity_or::<Identity<T>>(&sender)?;
@@ -328,7 +328,7 @@ decl_module! {
         /// * `multisig` - MultiSig address.
         /// * `proposal_id` - Proposal id to approve.
         /// If quorum is reached, the proposal will be immediately executed.
-        #[weight = 750_000]
+        #[weight = 500_000_000]
         pub fn approve_as_key(origin, multisig: T::AccountId, proposal_id: u64) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             let signer = Signatory::Account(sender);
@@ -341,7 +341,7 @@ decl_module! {
         /// * `multisig` - MultiSig address.
         /// * `proposal_id` - Proposal id to reject.
         /// If quorum is reached, the proposal will be immediately executed.
-        #[weight = 750_000]
+        #[weight = 500_000_000]
         pub fn reject_as_identity(origin, multisig: T::AccountId, proposal_id: u64) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             let sender_did = Context::current_identity_or::<Identity<T>>(&sender)?;
@@ -355,7 +355,7 @@ decl_module! {
         /// * `multisig` - MultiSig address.
         /// * `proposal_id` - Proposal id to reject.
         /// If quorum is reached, the proposal will be immediately executed.
-        #[weight = 750_000]
+        #[weight = 500_000_000]
         pub fn reject_as_key(origin, multisig: T::AccountId, proposal_id: u64) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             let signer = Signatory::Account(sender);
@@ -366,7 +366,7 @@ decl_module! {
         ///
         /// # Arguments
         /// * `proposal_id` - Auth id of the authorization.
-        #[weight = 500_000]
+        #[weight = 720_000_000]
         pub fn accept_multisig_signer_as_identity(origin, auth_id: u64) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             let sender_did = Context::current_identity_or::<Identity<T>>(&sender)?;
@@ -379,7 +379,7 @@ decl_module! {
         ///
         /// # Arguments
         /// * `proposal_id` - Auth id of the authorization.
-        #[weight = 500_000]
+        #[weight = 720_000_000]
         pub fn accept_multisig_signer_as_key(origin, auth_id: u64) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             let signer = Signatory::Account(sender);
@@ -390,7 +390,7 @@ decl_module! {
         ///
         /// # Arguments
         /// * `signer` - Signatory to add.
-        #[weight = 400_000]
+        #[weight = 900_000_000]
         pub fn add_multisig_signer(origin, signer: Signatory<T::AccountId>) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             ensure!(<MultiSigToIdentity<T>>::contains_key(&sender), Error::<T>::NoSuchMultisig);
@@ -403,7 +403,7 @@ decl_module! {
         ///
         /// # Arguments
         /// * `signer` - Signatory to remove.
-        #[weight = 250_000]
+        #[weight = 900_000_000]
         pub fn remove_multisig_signer(origin, signer: Signatory<T::AccountId>) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             ensure!(<MultiSigToIdentity<T>>::contains_key(&sender), Error::<T>::NoSuchMultisig);
@@ -426,8 +426,8 @@ decl_module! {
         /// * `signers` - Signatories to add.
         ///
         /// # Weight
-        /// `100_000 + 300_000 * signers.len()`
-        #[weight = 100_000 + 300_000 * u64::try_from(signers.len()).unwrap_or_default()]
+        /// `900_000_000 + 3_000_000 * signers.len()`
+        #[weight = 900_000_000 + 3_000_000 * u64::try_from(signers.len()).unwrap_or_default()]
         pub fn add_multisig_signers_via_creator(origin, multisig: T::AccountId, signers: Vec<Signatory<T::AccountId>>) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             let sender_did = Context::current_identity_or::<Identity<T>>(&sender)?;
@@ -452,8 +452,8 @@ decl_module! {
         /// * `signers` - Signatories to remove.
         ///
         /// # Weight
-        /// `150_000 + 150_000 * signers.len()`
-        #[weight = 150_000 + 150_000 * u64::try_from(signers.len()).unwrap_or_default()]
+        /// `900_000_000 + 3_000_000 * signers.len()`
+        #[weight = 900_000_000 + 3_000_000 * u64::try_from(signers.len()).unwrap_or_default()]
         pub fn remove_multisig_signers_via_creator(origin, multisig: T::AccountId, signers: Vec<Signatory<T::AccountId>>) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             let sender_did = Context::current_identity_or::<Identity<T>>(&sender)?;
@@ -485,7 +485,7 @@ decl_module! {
         ///
         /// # Arguments
         /// * `sigs_required` - New number of required signatures.
-        #[weight = 150_000]
+        #[weight = 350_000_000]
         pub fn change_sigs_required(origin, sigs_required: u64) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             ensure!(<MultiSigToIdentity<T>>::contains_key(&sender), Error::<T>::NoSuchMultisig);
@@ -510,8 +510,8 @@ decl_module! {
         /// * sigs_required - Number of signature required for a given multisig.
         ///
         /// # Weight
-        /// `200_000 + 300_000 * signers.len()`
-        #[weight = 200_000 + 300_000 * u64::try_from(signers.len()).unwrap_or_default()]
+        /// `900_000_000 + 3_000_000 * signers.len()`
+        #[weight = 900_000_000 + 3_000_000 * u64::try_from(signers.len()).unwrap_or_default()]
         pub fn change_all_signers_and_sigs_required(
             origin,
             signers: Vec<Signatory<T::AccountId>>,
@@ -559,7 +559,7 @@ decl_module! {
         ///
         /// # Arguments
         /// * `multi_sig` - multi sig address
-        #[weight = 250_000]
+        #[weight = 300_000_000]
         pub fn make_multisig_signer(origin, multisig: T::AccountId) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             ensure!(<MultiSigSignsRequired<T>>::contains_key(&multisig), Error::<T>::NoSuchMultisig);
@@ -577,7 +577,7 @@ decl_module! {
         ///
         /// # Arguments
         /// * `multi_sig` - multi sig address
-        #[weight = 250_000]
+        #[weight = 300_000_000]
         pub fn make_multisig_master(origin, multisig: T::AccountId, optional_cdd_auth_id: Option<u64>) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             ensure!(<MultiSigToIdentity<T>>::contains_key(&multisig), Error::<T>::NoSuchMultisig);
