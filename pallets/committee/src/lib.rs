@@ -677,8 +677,8 @@ impl<T: Trait<I>, I: Instance> ChangeMembers<IdentityId> for Module<T, I> {
 
         // Add/remove Systematic CDD claims for new/removed members.
         let issuer = SystematicIssuers::Committee;
-        <identity::Module<T>>::unsafe_add_systematic_cdd_claims(incoming, issuer);
-        <identity::Module<T>>::unsafe_revoke_systematic_cdd_claims(outgoing, issuer);
+        <identity::Module<T>>::add_systematic_cdd_claims(incoming, issuer);
+        <identity::Module<T>>::revoke_systematic_cdd_claims(outgoing, issuer);
 
         <Members<I>>::put(new);
     }
@@ -688,17 +688,15 @@ impl<T: Trait<I>, I: Instance> InitializeMembers<IdentityId> for Module<T, I> {
     /// Initializes the members and adds the Systemic CDD claim (issued by
     /// `SystematicIssuers::Committee`).
     fn initialize_members(members: &[IdentityId]) {
-        if !members.is_empty() {
-            assert!(
-                <Members<I>>::get().is_empty(),
-                "Members are already initialized!"
-            );
-            <identity::Module<T>>::unsafe_add_systematic_cdd_claims(
-                members,
-                SystematicIssuers::Committee,
-            );
-            <Members<I>>::put(members);
+        if members.is_empty() {
+            return;
         }
+        assert!(
+            <Members<I>>::get().is_empty(),
+            "Members are already initialized!"
+        );
+        <identity::Module<T>>::add_systematic_cdd_claims(members, SystematicIssuers::Committee);
+        <Members<I>>::put(members);
     }
 }
 

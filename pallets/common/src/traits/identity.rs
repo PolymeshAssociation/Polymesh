@@ -210,12 +210,12 @@ pub trait IdentityTrait<AccountId> {
     /// It adds a systematic CDD claim for each `target` identity.
     ///
     /// It is used when we add a new member to CDD providers or Governance Committee.
-    fn unsafe_add_systematic_cdd_claims(targets: &[IdentityId], issuer: SystematicIssuers);
+    fn add_systematic_cdd_claims(targets: &[IdentityId], issuer: SystematicIssuers);
 
     /// It removes the systematic CDD claim for each `target` identity.
     ///
     /// It is used when we remove a member from CDD providers or Governance Committee.
-    fn unsafe_revoke_systematic_cdd_claims(targets: &[IdentityId], issuer: SystematicIssuers);
+    fn revoke_systematic_cdd_claims(targets: &[IdentityId], issuer: SystematicIssuers);
 
     // Provides the DID status for the given DID
     fn has_valid_cdd(target_did: IdentityId) -> bool;
