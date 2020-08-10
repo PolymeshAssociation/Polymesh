@@ -1,8 +1,7 @@
 use super::{
     committee_test::{root, set_members},
     storage::{
-        fast_forward_blocks, get_identity_id, make_account, make_account_with_balance,
-        register_keyring_account, register_keyring_account_with_balance, Call, EventTest,
+        fast_forward_blocks, get_identity_id, register_keyring_account, Call, EventTest,
         TestStorage,
     },
     ExtBuilder,
@@ -17,9 +16,8 @@ use pallet_balances as balances;
 use pallet_committee as committee;
 use pallet_group as group;
 use pallet_pips::{
-    self as pips, DepositInfo, Pip, PipDescription, PipsMetadata, ProposalState, ProposalVotes,
-    Proposer, RawEvent as Event, SnapshotMetadata, SnapshotResult, SnapshottedPip, Url, Vote,
-    VotingResult,
+    self as pips, DepositInfo, Pip, PipDescription, ProposalState, Proposer, RawEvent as Event,
+    SnapshotMetadata, SnapshotResult, SnapshottedPip, Url, Vote, VotingResult,
 };
 use pallet_treasury as treasury;
 use polymesh_common_utilities::pip::PipId;
@@ -46,7 +44,6 @@ struct User {
 }
 
 impl User {
-    #[track_caller]
     fn new(ring: AccountKeyring) -> Self {
         let did = register_keyring_account(ring).unwrap();
         Self { ring, did }
