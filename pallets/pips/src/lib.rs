@@ -174,8 +174,7 @@ pub enum ProposalData {
 }
 
 /// The various sorts of committees that can make a PIP.
-#[derive(Encode, Decode, Clone, PartialEq, Eq)]
-#[cfg_attr(feature = "std", derive(Debug))]
+#[derive(Encode, Decode, Clone, PartialEq, Eq, Debug)]
 pub enum Committee {
     /// The technical committee.
     Technical,
@@ -184,8 +183,7 @@ pub enum Committee {
 }
 
 /// The proposer of a certain PIP.
-#[derive(Encode, Decode, Clone, PartialEq, Eq)]
-#[cfg_attr(feature = "std", derive(Debug))]
+#[derive(Encode, Decode, Clone, PartialEq, Eq, Debug)]
 pub enum Proposer<AccountId> {
     /// The proposer is of the community.
     Community(AccountId),
@@ -301,8 +299,7 @@ pub struct SnapshottedPip<T: Trait> {
 
 /// A result to enact for one or many PIPs in the snapshot queue.
 // This type is only here due to `enact_snapshot_results`.
-#[derive(codec::Encode, codec::Decode, Copy, Clone, PartialEq, Eq)]
-#[cfg_attr(feature = "std", derive(Debug))]
+#[derive(codec::Encode, codec::Decode, Copy, Clone, PartialEq, Eq, Debug)]
 pub enum SnapshotResult {
     /// Approve the PIP and move it to the execution queue.
     Approve,
