@@ -97,7 +97,7 @@
 //! - `transfer` - Transfer some liquid free balance to another account.
 //! - `transfer_with_memo` - Transfer some liquid free balance to another account alon with a memo.
 //! - `top_up_identity_balance` - Move some POLYX from balance of self to balance of an identity.
-//! - `reclaim_identity_balance` - Claim back POLYX from an identity. Can only be called by master key of the identity.
+//! - `reclaim_identity_balance` - Claim back POLYX from an identity. Can only be called by primary key of the identity.
 //! - `change_charge_did_flag` - Change setting that governs if user pays fee via their own balance or identity's balance.
 //! - `set_balance` - Set the balances of a given account. The origin of this call must be root.
 //! - `top_up_brr_balance` - Transfer some liquid free balance to block rewards reserve.
@@ -265,11 +265,11 @@ decl_storage! {
         pub Locks get(fn locks): map hasher(blake2_128_concat) T::AccountId => Vec<BalanceLock<T::Balance>>;
 
         // Polymesh modified code. The storage variables below this were added for Polymesh.
-        /// Balance held by the identity. It can be spent by its signing keys.
+        /// Balance held by the identity. It can be spent by its secondary keys.
         pub IdentityBalance get(fn identity_balance): map hasher(blake2_128_concat) IdentityId => T::Balance;
 
         // Polymesh-Note : Change to facilitate the DID charging
-        /// Signing key => Charge Fee to did?. Default is false i.e. the fee will be charged from user balance
+        /// Secondary key => Charge Fee to did?. Default is false i.e. the fee will be charged from user balance
         pub ChargeDid get(fn charge_did): map hasher(twox_64_concat) T::AccountId => bool;
     }
     add_extra_genesis {
@@ -389,7 +389,7 @@ decl_module! {
         }
 
         // Polymesh modified code. New function to withdraw balance from an identity.
-        /// Claim back POLYX from an identity. Can only be called by master key of the identity.
+        /// Claim back POLYX from an identity. Can only be called by primary key of the identity.
         /// no-op when,
         /// - value is zero
         /// # <weight>
@@ -405,7 +405,7 @@ decl_module! {
         ) {
             if value.is_zero() { return Ok(()) }
             let transactor = ensure_signed(origin)?;
-            ensure!(<T::Identity>::is_master_key(did, &transactor), Error::<T>::UnAuthorized);
+            ensure!(<T::Identity>::is_primary_key(did, &transactor), Error::<T>::UnAuthorized);
             // Not managing imbalances because they will cancel out.
             // withdraw function will create negative imbalance and
             // deposit function will create positive imbalance

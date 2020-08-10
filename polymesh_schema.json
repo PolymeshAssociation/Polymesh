@@ -73,12 +73,12 @@
                 "Account": "AccountId"
             }
         },
-        "SigningKey": {
+        "SecondaryKey": {
             "signer": "Signatory",
             "permissions": "Vec<Permission>"
         },
-        "SigningKeyWithAuth":{
-            "signing_key": "SigningKey",
+        "SecondaryKeyWithAuth":{
+            "secondary_key": "SecondaryKey",
             "auth_signature": "Signature"
         },
         "IdentityRole": {
@@ -97,12 +97,12 @@
         },
         "PreAuthorizedKeyInfo": {
             "target_id": "IdentityId",
-            "signing_key": "SigningKey"
+            "secondary_key": "SecondaryKey"
         },
         "DidRecord": {
             "roles": "Vec<IdentityRole>",
-            "master_key": "AccountId",
-            "signing_keys": "Vec<SigningKey>"
+            "primary_key": "AccountId",
+            "secondary_keys": "Vec<SecondaryKey>"
         },
         "JurisdictionName": "Text",
         "Scope": "IdentityId",
@@ -323,8 +323,8 @@
         },
         "AuthorizationData": {
             "_enum": {
-                "AttestMasterKeyRotation": "IdentityId",
-                "RotateMasterKey": "IdentityId",
+                "AttestPrimaryKeyRotation": "IdentityId",
+                "RotatePrimaryKey": "IdentityId",
                 "TransferTicker": "Ticker",
                 "AddMultiSigSigner": "AccountId",
                 "TransferAssetOwnership": "Ticker",
@@ -442,8 +442,8 @@
                 "IdentityRegisterDid",
                 "IdentityCddRegisterDid",
                 "IdentityAddClaim",
-                "IdentitySetMasterKey",
-                "IdentityAddSigningKeysWithAuthorization",
+                "IdentitySetPrimaryKey",
+                "IdentityAddSecondaryKeysWithAuthorization",
                 "PipsPropose",
                 "VotingAddBallot"
             ]
@@ -461,8 +461,8 @@
             }
         },
         "DidRecordsSuccess": {
-            "master_key" : "AccountId",
-            "signing_key": "Vec<SigningKey>"
+            "primary_key" : "AccountId",
+            "secondary_key": "Vec<SecondaryKey>"
         },
         "DidRecords": {
             "_enum": {
@@ -523,8 +523,8 @@
         },
         "AuthorizationType": {
             "_enum": {
-                "AttestMasterKeyRotation": "",
-                "RotateMasterKey": "",
+                "AttestPrimaryKeyRotation": "",
+                "RotatePrimaryKey": "",
                 "TransferTicker": "",
                 "AddMultiSigSigner": "",
                 "TransferAssetOwnership": "",

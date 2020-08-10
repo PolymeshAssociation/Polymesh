@@ -364,7 +364,7 @@ decl_module! {
         /// NB: Ticker validity does not get carry forward when renewing ticker.
         ///
         /// # Arguments
-        /// * `origin` It contains the signing key of the caller (i.e who signed the transaction to execute this function).
+        /// * `origin` It contains the secondary key of the caller (i.e who signed the transaction to execute this function).
         /// * `ticker` ticker to register.
         #[weight = T::DbWeight::get().reads_writes(4, 3) + 500_000_000]
         pub fn register_ticker(origin, ticker: Ticker) -> DispatchResult {
@@ -396,7 +396,7 @@ decl_module! {
         /// NB: To reject the transfer, call remove auth function in identity module.
         ///
         /// # Arguments
-        /// * `origin` It contains the signing key of the caller (i.e who signed the transaction to execute this function).
+        /// * `origin` It contains the secondary key of the caller (i.e who signed the transaction to execute this function).
         /// * `auth_id` Authorization ID of ticker transfer authorization.
         #[weight = T::DbWeight::get().reads_writes(4, 5) + 200_000_000]
         pub fn accept_ticker_transfer(origin, auth_id: u64) -> DispatchResult {
@@ -410,7 +410,7 @@ decl_module! {
         /// NB: To reject the transfer, call remove auth function in identity module.
         ///
         /// # Arguments
-        /// * `origin` It contains the signing key of the caller (i.e who signed the transaction to execute this function).
+        /// * `origin` It contains the secondary key of the caller (i.e who signed the transaction to execute this function).
         /// * `auth_id` Authorization ID of the token ownership transfer authorization.
         #[weight = T::DbWeight::get().reads_writes(4, 5) + 200_000_000]
         pub fn accept_asset_ownership_transfer(origin, auth_id: u64) -> DispatchResult {
@@ -425,7 +425,7 @@ decl_module! {
         /// & the balance of the owner is set to total supply.
         ///
         /// # Arguments
-        /// * `origin` - contains the signing key of the caller (i.e who signed the transaction to execute this function).
+        /// * `origin` - contains the secondary key of the caller (i.e who signed the transaction to execute this function).
         /// * `name` - the name of the token.
         /// * `ticker` - the ticker symbol of the token.
         /// * `total_supply` - the total supply of the token.
@@ -528,7 +528,7 @@ decl_module! {
         /// Freezes transfers and minting of a given token.
         ///
         /// # Arguments
-        /// * `origin` - the signing key of the sender.
+        /// * `origin` - the secondary key of the sender.
         /// * `ticker` - the ticker of the token.
         #[weight = T::DbWeight::get().reads_writes(4, 1) + 300_000_000]
         pub fn freeze(origin, ticker: Ticker) -> DispatchResult {
@@ -548,7 +548,7 @@ decl_module! {
         /// Unfreezes transfers and minting of a given token.
         ///
         /// # Arguments
-        /// * `origin` - the signing key of the sender.
+        /// * `origin` - the secondary key of the sender.
         /// * `ticker` - the ticker of the frozen token.
         #[weight = T::DbWeight::get().reads_writes(4, 1) + 300_000_000]
         pub fn unfreeze(origin, ticker: Ticker) -> DispatchResult {
@@ -568,7 +568,7 @@ decl_module! {
         /// Renames a given token.
         ///
         /// # Arguments
-        /// * `origin` - the signing key of the sender.
+        /// * `origin` - the secondary key of the sender.
         /// * `ticker` - the ticker of the token.
         /// * `name` - the new name of the token.
         #[weight = T::DbWeight::get().reads_writes(2, 1) + 300_000_000]
@@ -588,7 +588,7 @@ decl_module! {
         /// Transfer tokens from one DID to another DID as tokens are stored/managed on the DID level.
         ///
         /// # Arguments
-        /// * `origin` signing key of the sender.
+        /// * `origin` secondary key of the sender.
         /// * `ticker` Ticker of the token.
         /// * `to_did` DID of the `to` token holder, to whom token needs to transferred.
         /// * `value` Value that needs to transferred.
@@ -611,7 +611,7 @@ decl_module! {
         /// This function doesn't validate any type of restriction beside a valid CDD check.
         ///
         /// # Arguments
-        /// * `origin` signing key of the token owner DID.
+        /// * `origin` secondary key of the token owner DID.
         /// * `ticker` symbol of the token.
         /// * `from_did` DID of the token holder from whom balance token will be transferred.
         /// * `to_did` DID of token holder to whom token balance will be transferred.
@@ -636,7 +636,7 @@ decl_module! {
         /// once this is done, transfer_from can be called with corresponding values.
         ///
         /// # Arguments
-        /// * `origin` Signing key of the token owner (i.e sender).
+        /// * `origin` Secondary key of the token owner (i.e sender).
         /// * `spender_did` DID of the spender.
         /// * `value` Amount of the tokens approved.
         #[weight = T::DbWeight::get().reads_writes(2, 1) + 400_000_000]
@@ -658,7 +658,7 @@ decl_module! {
         /// If sufficient allowance provided, transfer from a DID to another DID without token owner's signature.
         ///
         /// # Arguments
-        /// * `origin` Signing key of spender.
+        /// * `origin` Secondary key of spender.
         /// * `ticker` Ticker of the token.
         /// * `from_did` DID from whom token is being transferred.
         /// * `to_did` DID to whom token is being transferred.
@@ -696,7 +696,7 @@ decl_module! {
         /// NB: Only called by the owner of the security token i.e owner DID.
         ///
         /// # Arguments
-        /// * `origin` Signing key of the token owner. (Only token owner can call this function).
+        /// * `origin` Secondary key of the token owner. (Only token owner can call this function).
         /// * `ticker` Ticker of the token.
         #[weight = T::DbWeight::get().reads_writes(3, 2) + 400_000_000]
         pub fn create_checkpoint(origin, ticker: Ticker) -> DispatchResult {
@@ -713,7 +713,7 @@ decl_module! {
         /// can only be executed by the token owner.
         ///
         /// # Arguments
-        /// * `origin` Signing key of token owner.
+        /// * `origin` Secondary key of token owner.
         /// * `ticker` Ticker of the token.
         /// * `to_did` DID of the token holder to whom new tokens get issued.
         /// * `value` Amount of tokens that get issued.
@@ -730,7 +730,7 @@ decl_module! {
         /// can only be executed by the token owner.
         ///
         /// # Arguments
-        /// * `origin` Signing key of token owner.
+        /// * `origin` Secondary key of token owner.
         /// * `ticker` Ticker of the token.
         /// * `investor_dids` Array of the DID of the token holders to whom new tokens get issued.
         /// * `values` Array of the Amount of tokens that get issued.
@@ -837,7 +837,7 @@ decl_module! {
         /// Used to redeem the security tokens.
         ///
         /// # Arguments
-        /// * `origin` Signing key of the token holder who wants to redeem the tokens.
+        /// * `origin` Secondary key of the token holder who wants to redeem the tokens.
         /// * `ticker` Ticker of the token.
         /// * `value` Amount of the tokens needs to redeem.
         /// * `_data` An off chain data blob used to validate the redeem functionality.
@@ -891,7 +891,7 @@ decl_module! {
         /// Used to redeem the security tokens by some other DID who has approval.
         ///
         /// # Arguments
-        /// * `origin` Signing key of the spender who has valid approval to redeem the tokens.
+        /// * `origin` Secondary key of the spender who has valid approval to redeem the tokens.
         /// * `ticker` Ticker of the token.
         /// * `from_did` DID from whom balance get reduced.
         /// * `value` Amount of the tokens needs to redeem.
@@ -956,7 +956,7 @@ decl_module! {
         /// Forces a redemption of an DID's tokens. Can only be called by token owner.
         ///
         /// # Arguments
-        /// * `origin` Signing key of the token owner.
+        /// * `origin` Secondary key of the token owner.
         /// * `ticker` Ticker of the token.
         /// * `token_holder_did` DID from whom balance get reduced.
         /// * `value` Amount of the tokens needs to redeem.
@@ -1007,7 +1007,7 @@ decl_module! {
         /// Makes an indivisible token divisible. Only called by the token owner.
         ///
         /// # Arguments
-        /// * `origin` Signing key of the token owner.
+        /// * `origin` Secondary key of the token owner.
         /// * `ticker` Ticker of the token.
         #[weight = T::DbWeight::get().reads_writes(2, 1) + 100_000_000]
         pub fn make_divisible(origin, ticker: Ticker) -> DispatchResult {
@@ -1029,7 +1029,7 @@ decl_module! {
         /// by passing the data blob.
         ///
         /// # Arguments
-        /// * `origin` Signing key of the sender.
+        /// * `origin` Secondary key of the sender.
         /// * `ticker` Ticker of the token.
         /// * `to_did` DID to whom tokens will be transferred.
         /// * `value` Amount of the tokens.
@@ -1051,7 +1051,7 @@ decl_module! {
         /// by passing the data blob.
         ///
         /// # Arguments
-        /// * `origin` Signing key of the spender.
+        /// * `origin` Secondary key of the spender.
         /// * `ticker` Ticker of the token.
         /// * `from_did` DID from whom tokens will be transferred.
         /// * `to_did` DID to whom tokens will be transferred.
@@ -1071,7 +1071,7 @@ decl_module! {
         /// Used to know whether the given token will issue new tokens or not.
         ///
         /// # Arguments
-        /// * `_origin` Signing key.
+        /// * `_origin` Secondary key.
         /// * `ticker` Ticker of the token whose issuance status need to know.
         #[weight = 10_000_000]
         pub fn is_issuable(_origin, ticker:Ticker) {
@@ -1081,7 +1081,7 @@ decl_module! {
         /// Add documents for a given token. To be called only by the token owner.
         ///
         /// # Arguments
-        /// * `origin` Signing key of the token owner.
+        /// * `origin` Secondary key of the token owner.
         /// * `ticker` Ticker of the token.
         /// * `documents` Documents to be attached to `ticker`.
         ///
@@ -1110,7 +1110,7 @@ decl_module! {
         /// Remove documents for a given token. To be called only by the token owner.
         ///
         /// # Arguments
-        /// * `origin` Signing key of the token owner.
+        /// * `origin` Secondary key of the token owner.
         /// * `ticker` Ticker of the token.
         /// * `doc_names` Documents to be removed from `ticker`.
         ///
@@ -1138,7 +1138,7 @@ decl_module! {
         /// This implementation make sure to have an accurate investor count from omnibus wallets.
         ///
         /// # Arguments
-        /// * `origin` Signing key of the token holder.
+        /// * `origin` Secondary key of the token holder.
         /// * `ticker` Ticker of the token.
         /// * `custodian_did` DID of the custodian (i.e whom allowance provided).
         /// * `value` Allowance amount.
@@ -1153,10 +1153,10 @@ decl_module! {
         /// Used to increase the allowance for a given custodian by providing the off chain signature.
         ///
         /// # Arguments
-        /// * `origin` Signing key of a DID who posses off chain signature.
+        /// * `origin` Secondary key of a DID who posses off chain signature.
         /// * `ticker` Ticker of the token.
         /// * `holder_did` DID of the token holder (i.e who wants to increase the custody allowance).
-        /// * `holder_account_id` Signing key which signs the off chain data blob.
+        /// * `holder_account_id` Secondary key which signs the off chain data blob.
         /// * `custodian_did` DID of the custodian (i.e whom allowance provided).
         /// * `value` Allowance amount.
         /// * `nonce` A u16 number which avoid the replay attack.
@@ -1191,11 +1191,11 @@ decl_module! {
                 signature.verify(&msg.encode()[..], &holder_account_id),
                 Error::<T>::InvalidSignature
             );
-            // Validate the holder signing key
+            // Validate the holder secondary key
             let holder_signer = Signatory::Account(holder_account_id);
             ensure!(
                 <identity::Module<T>>::is_signer_authorized(holder_did, &holder_signer),
-                Error::<T>::HolderMustBeSigningKeyForHolderDid
+                Error::<T>::HolderMustBeSecondaryKeyForHolderDid
             );
             Self::unsafe_increase_custody_allowance(caller_did, ticker, holder_did, custodian_did, value)?;
             <AuthenticationNonce>::insert((ticker, holder_did, nonce), true);
@@ -1205,7 +1205,7 @@ decl_module! {
         /// Used to transfer the tokens by the approved custodian.
         ///
         /// # Arguments
-        /// * `origin` Signing key of the custodian.
+        /// * `origin` Secondary key of the custodian.
         /// * `ticker` Ticker of the token.
         /// * `holder_did` DID of the token holder (i.e whom balance get reduced).
         /// * `receiver_did` DID of the receiver.
@@ -1227,7 +1227,7 @@ decl_module! {
         /// Sets the name of the current funding round.
         ///
         /// # Arguments
-        /// * `origin` - the signing key of the token owner DID.
+        /// * `origin` - the secondary key of the token owner DID.
         /// * `ticker` - the ticker of the token.
         /// * `name` - the desired name of the current funding round.
         #[weight = T::DbWeight::get().reads_writes(2, 1) + 100_000_000]
@@ -1245,7 +1245,7 @@ decl_module! {
         /// Updates the asset identifiers. Can only be called by the token owner.
         ///
         /// # Arguments
-        /// * `origin` - the signing key of the token owner.
+        /// * `origin` - the secondary key of the token owner.
         /// * `ticker` - the ticker of the token.
         /// * `identifiers` - the asset identifiers to be updated in the form of a vector of pairs
         ///    of `IdentifierType` and `AssetIdentifier` value.
@@ -1470,8 +1470,8 @@ decl_error! {
         ExtensionAlreadyPresent,
         /// When smart extension failed to execute result.
         IncorrectResult,
-        /// The sender must be a signing key for the DID.
-        HolderMustBeSigningKeyForHolderDid,
+        /// The sender must be a secondary key for the DID.
+        HolderMustBeSecondaryKeyForHolderDid,
         /// The token has already been created.
         AssetAlreadyCreated,
         /// The ticker length is over the limit.
@@ -2400,7 +2400,7 @@ impl<T: Trait> Module<T> {
         ensure!(
             Self::_is_valid_transfer(
                 &ticker,
-                <identity::Module<T>>::did_records(custodian_did).master_key,
+                <identity::Module<T>>::did_records(custodian_did).primary_key,
                 Some(holder_did),
                 Some(receiver_did),
                 value

@@ -15,7 +15,7 @@
 
 use crate::{
     identity_id::IdentityId,
-    signing_key::{Permission, Signatory},
+    secondary_key::{Permission, Signatory},
     Ticker,
 };
 use codec::{Decode, Encode};
@@ -28,10 +28,10 @@ use sp_std::prelude::*;
 #[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, PartialOrd, Ord)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 pub enum AuthorizationData<AccountId> {
-    /// CDD provider's attestation to change master key
-    AttestMasterKeyRotation(IdentityId),
-    /// Authorization to change master key
-    RotateMasterKey(IdentityId),
+    /// CDD provider's attestation to change primary key
+    AttestPrimaryKeyRotation(IdentityId),
+    /// Authorization to change primary key
+    RotatePrimaryKey(IdentityId),
     /// Authorization to transfer a ticker
     /// Must be issued by the current owner of the ticker
     TransferTicker(Ticker),
@@ -56,9 +56,9 @@ pub enum AuthorizationData<AccountId> {
 #[cfg_attr(feature = "std", derive(Debug, Serialize, Deserialize))]
 pub enum AuthorizationType {
     /// TBD.
-    AttestMasterKeyRotation,
-    /// Authorization to rotate master key.
-    RotateMasterKey,
+    AttestPrimaryKeyRotation,
+    /// Authorization to rotate primary key.
+    RotatePrimaryKey,
     /// Authorization to transfer a ticker.
     TransferTicker,
     /// Authorization to add some key int a multi signer.
