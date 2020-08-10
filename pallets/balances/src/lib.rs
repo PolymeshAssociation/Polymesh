@@ -405,7 +405,7 @@ decl_module! {
         ) {
             if value.is_zero() { return Ok(()) }
             let transactor = ensure_signed(origin)?;
-            ensure!(<T::Identity>::is_primary_key(did, &transactor), Error::<T>::UnAuthorized);
+            ensure!(<T::Identity>::is_primary_key(&did, &transactor), Error::<T>::UnAuthorized);
             // Not managing imbalances because they will cancel out.
             // withdraw function will create negative imbalance and
             // deposit function will create positive imbalance

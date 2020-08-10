@@ -109,7 +109,7 @@ use polymesh_common_utilities::{
 use polymesh_primitives::{
     AuthIdentifier, Authorization, AuthorizationData, AuthorizationError, AuthorizationType, CddId,
     Claim, ClaimType, Identity as DidRecord, IdentityClaim, IdentityId, InvestorUid, Permissions,
-    Scope, Signatory, SecondaryKey, Ticker,
+    Scope, SecondaryKey, Signatory, Ticker,
 };
 use sp_core::sr25519::Signature;
 use sp_io::hashing::blake2_256;
@@ -247,7 +247,7 @@ decl_storage! {
             for &(ref signer_id, did) in &config.secondary_keys {
                 // Direct storage change for attaching some secondary keys to identities
                 assert!(<DidRecords<T>>::contains_key(did), "Identity does not exist");
-                let sk = SigningKey::from_account_id(signer_id.clone());
+                let sk = SecondaryKey::from_account_id(signer_id.clone());
                 assert!(
                     <Module<T>>::can_link_secondary_key_to_did(&sk.signer),
                     "Secondary key already linked"
@@ -256,7 +256,7 @@ decl_storage! {
                 let sk = SecondaryKey::from_account_id(signer_id.clone());
                 <Module<T>>::link_secondary_key_to_did(&sk.signer, did);
                 <DidRecords<T>>::mutate(did, |record| {
-                    (*record).add_signing_keys(&[sk]);
+                    (*record).add_secondary_keys(&[sk]);
                 });
                 <Module<T>>::deposit_event(RawEvent::SecondaryKeysAdded(
                     did,
@@ -1100,7 +1100,7 @@ decl_module! {
                     ensure!(&sender == key, Error::<T>::KeyNotAllowed);
                 }
                 Signatory::Identity(id) => {
-                    ensure!(Self::is_primary_key(*id, &sender), Error::<T>::NotPrimaryKey);
+                    ensure!(Self::is_primary_key(id, &sender), Error::<T>::NotPrimaryKey);
                 }
             }
 
@@ -1222,7 +1222,10 @@ impl<T: Trait> Module<T> {
         let charge_fee =
             || T::ProtocolFee::charge_fee(ProtocolOp::IdentityAddSecondaryKeysWithAuthorization);
         let sk = SecondaryKey::new(signer.clone(), permissions);
-        ensure!(Self::can_link_secondary_key_to_did(&sk.signer), Error::<T>::AlreadyLinked);
+        ensure!(
+            Self::can_link_secondary_key_to_did(&sk.signer),
+            Error::<T>::AlreadyLinked
+        );
 
         // Link the primary key.
         //
@@ -1416,7 +1419,7 @@ impl<T: Trait> Module<T> {
         // Replace primary key of the owner that initiated key rotation
         let old_primary_key = Self::did_records(&rotation_for_did).primary_key;
         <DidRecords<T>>::mutate(&rotation_for_did, |record| {
-            Self::unlink_primary_key_from_did(&record.master_key, rotation_for_did);
+            Self::unlink_primary_key_from_did(&record.primary_key, rotation_for_did);
             record.primary_key = sender.clone();
             Self::link_primary_key_to_did(&sender, rotation_for_did);
         });
@@ -1454,7 +1457,7 @@ impl<T: Trait> Module<T> {
         });
 
         if let Some(s) = new_s_item {
-            Self::deposit_event(RawEvent::SecondaryPermissionsUpdated(
+            Self::deposit_event(RawEvent::SecondaryKeyPermissionsUpdated(
                 target_did,
                 s,
                 permissions,
@@ -1506,7 +1509,7 @@ impl<T: Trait> Module<T> {
                         .iter()
                         .find(|&si| &si.signer == signer)
                     {
-                        return signing_key.has_permissions(&permissions);
+                        return secondary_key.has_permissions(&permissions);
                     }
                 }
                 // Signatory is not part of secondary items of `did`, or
@@ -1840,7 +1843,7 @@ impl<T: Trait> Module<T> {
         // 2. Apply changes to our extrinsic.
         // 2.1. Link primary key and add pre-authorized signing keys.
         Self::link_primary_key_to_did(&sender, did);
-        let _auth_ids = signing_keys
+        let _auth_ids = secondary_keys
             .iter()
             .map(|sk| {
                 Self::add_auth(

@@ -15,7 +15,7 @@
 
 use crate::{
     identity_id::IdentityId,
-    secondary_key::{Permission, Signatory},
+    secondary_key::{Permissions, Signatory},
     Ticker,
 };
 use codec::{Decode, Encode};

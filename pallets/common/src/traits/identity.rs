@@ -24,7 +24,7 @@ use crate::{
     ChargeProtocolFee, SystematicIssuers,
 };
 use polymesh_primitives::{
-    AuthorizationData, IdentityClaim, IdentityId, Permission, SecondaryKey, Signatory, Ticker,
+    AuthorizationData, IdentityClaim, IdentityId, Permissions, SecondaryKey, Signatory, Ticker,
 };
 
 use codec::{Decode, Encode};
@@ -116,8 +116,8 @@ decl_event!(
         /// A signer left their identity. (did, signer)
         SignerLeft(IdentityId, Signatory<AccountId>),
 
-        /// DID, updated signing key, previous permissions
-        SigningPermissionsUpdated(IdentityId, SigningKey<AccountId>, Permissions),
+        /// DID, updated secondary key, previous permissions
+        SecondaryKeyPermissionsUpdated(IdentityId, SecondaryKey<AccountId>, Permissions),
 
         /// DID, old primary key account ID, new ID
         PrimaryKeyUpdated(IdentityId, AccountId, AccountId),
@@ -192,7 +192,7 @@ pub trait IdentityTrait<AccountId> {
         signer: &Signatory<AccountId>,
         permissions: Permissions,
     ) -> bool;
-    fn is_primary_key(did: IdentityId, key: &AccountId) -> bool;
+    fn is_primary_key(did: &IdentityId, key: &AccountId) -> bool;
 
     /// It adds a systematic CDD claim for each `target` identity.
     ///

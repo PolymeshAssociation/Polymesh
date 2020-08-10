@@ -435,7 +435,7 @@ decl_module! {
             let sender_did = Context::current_identity_or::<Identity<T>>(&sender)?;
             Self::verify_sender_is_creator(sender_did, &multisig)?;
             ensure!(<MultiSigToIdentity<T>>::get(&multisig) == sender_did, Error::<T>::IdentityNotCreator);
-            ensure!(<Identity<T>>::is_primary_key(sender_did, &sender), Error::<T>::NotPrimaryKey);
+            ensure!(<Identity<T>>::is_primary_key(&sender_did, &sender), Error::<T>::NotPrimaryKey);
             for signer in signers {
                 Self::unsafe_add_auth_for_signers(
                     sender_did,
@@ -460,7 +460,7 @@ decl_module! {
             let sender = ensure_signed(origin)?;
             let sender_did = Context::current_identity_or::<Identity<T>>(&sender)?;
             Self::verify_sender_is_creator(sender_did, &multisig)?;
-            ensure!(<Identity<T>>::is_primary_key(sender_did, &sender), Error::<T>::NotPrimaryKey);
+            ensure!(<Identity<T>>::is_primary_key(&sender_did, &sender), Error::<T>::NotPrimaryKey);
             ensure!(Self::is_changing_signers_allowed(&multisig), Error::<T>::ChangeNotAllowed);
             let signers_len:u64 = u64::try_from(signers.len()).unwrap_or_default();
 
@@ -585,7 +585,7 @@ decl_module! {
             ensure!(<MultiSigToIdentity<T>>::contains_key(&multisig), Error::<T>::NoSuchMultisig);
             let sender_did = Context::current_identity_or::<Identity<T>>(&sender)?;
             Self::verify_sender_is_creator(sender_did, &multisig)?;
-            ensure!(<Identity<T>>::is_primary_key(sender_did, &sender), Error::<T>::NotPrimaryKey);
+            ensure!(<Identity<T>>::is_primary_key(&sender_did, &sender), Error::<T>::NotPrimaryKey);
             <Identity<T>>::unsafe_primary_key_rotation(
                 multisig,
                 sender_did,

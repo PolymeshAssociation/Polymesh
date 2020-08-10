@@ -245,7 +245,7 @@ where
 
 #[cfg(test)]
 mod tests {
-    use super::{Permission, SecondaryKey, Signatory, Subset};
+    use super::{Permissions, SecondaryKey, Signatory, Subset};
     use crate::{IdentityId, Ticker};
     use sp_core::sr25519::Public;
     use std::convert::{From, TryFrom};
@@ -254,7 +254,7 @@ mod tests {
     #[test]
     fn build_test() {
         let key = Public::from_raw([b'A'; 32]);
-        let rk1 = SecondaryKey::new(Signatory::Account(key.clone()), vec![]);
+        let rk1 = SecondaryKey::new(Signatory::Account(key.clone()), Permissions::empty());
         let rk2 = SecondaryKey::from_account_id(key.clone());
         assert_eq!(rk1, rk2);
 

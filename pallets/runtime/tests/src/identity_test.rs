@@ -20,7 +20,7 @@ use polymesh_common_utilities::{
 };
 use polymesh_primitives::{
     AuthorizationData, AuthorizationType, Claim, ClaimType, IdentityClaim, IdentityId, Permissions,
-    Scope, Signatory, SecondaryKey, Ticker, TransactionError,
+    Scope, SecondaryKey, Signatory, Ticker, TransactionError,
 };
 use polymesh_runtime_develop::{fee_details::CddHandler, runtime::Call};
 use sp_core::crypto::AccountId32;
@@ -431,7 +431,8 @@ fn remove_frozen_secondary_keys_with_externalities() {
         AccountKeyring::Charlie.public(),
     );
 
-    let charlie_secondary_key = SecondaryKey::new(Signatory::Account(charlie_key), Permissions::empty());
+    let charlie_secondary_key =
+        SecondaryKey::new(Signatory::Account(charlie_key), Permissions::empty());
 
     // Add secondary keys.
     let alice_did = register_keyring_account(AccountKeyring::Alice).unwrap();
@@ -683,7 +684,8 @@ fn leave_identity_test_with_externalities() {
     let charlie_did = register_keyring_account(AccountKeyring::Charlie).unwrap();
     let charlie = Origin::signed(AccountKeyring::Charlie.public());
     let bob_secondary_key = SecondaryKey::new(Signatory::Account(bob_key), Permissions::empty());
-    let charlie_secondary_key = SecondaryKey::new(Signatory::Identity(charlie_did), Permissions::empty());
+    let charlie_secondary_key =
+        SecondaryKey::new(Signatory::Identity(charlie_did), Permissions::empty());
     let alice_secondary_keys = vec![bob_secondary_key, charlie_secondary_key.clone()];
     let dave_key = AccountKeyring::Dave.public();
 

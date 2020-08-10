@@ -172,8 +172,8 @@ pub use identity_claim::{Claim, ClaimType, IdentityClaim, JurisdictionName, Scop
 /// This module contains entities related with secondary keys.
 pub mod secondary_key;
 pub use secondary_key::{
-    AssetPermissions, ExtrinsicPermissions, Permissions, PortfolioPermissions, Signatory,
-    SigningKey,
+    AssetPermissions, ExtrinsicPermissions, Permissions, PortfolioPermissions, SecondaryKey,
+    Signatory,
 };
 
 /// Subset type.
