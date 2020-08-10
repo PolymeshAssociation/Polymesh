@@ -242,8 +242,8 @@ decl_module! {
             // Proportion must be a rational number
             ensure!(d > 0 && n <= d, Error::<T, I>::InvalidProportion);
             <VoteThreshold<I>>::put((n, d));
-            let current_did = Context::current_identity::<Identity<T>>()
-                .unwrap_or_else(|| SystematicIssuers::Committee.as_id());
+            // TODO(centril): did refers to GC only; consider adding variants for other committees.
+            let current_did = SystematicIssuers::Committee.as_id();
             Self::deposit_event(RawEvent::VoteThresholdUpdated(current_did, n, d));
         }
 
@@ -259,8 +259,7 @@ decl_module! {
             T::CommitteeOrigin::ensure_origin(origin)?;
             ensure!(Self::members().contains(&id), Error::<T, I>::MemberNotFound);
             <ReleaseCoordinator<I>>::put(id);
-            let current_did = Context::current_identity::<Identity<T>>()
-                .unwrap_or_else(|| SystematicIssuers::Committee.as_id());
+            let current_did = SystematicIssuers::Committee.as_id();
             Self::deposit_event(RawEvent::ReleaseCoordinatorUpdated(current_did, Some(id)));
         }
 
