@@ -46,12 +46,15 @@ use frame_support::{
     IterableStorageDoubleMap,
 };
 use frame_system::{self as system, ensure_signed};
+use pallet_identity as identity;
 use polymesh_common_utilities::{identity::Trait as IdentityTrait, CommonTrait, Context};
-use polymesh_primitives::{IdentityId, PortfolioId, PortfolioName, PortfolioNumber, Ticker};
+use polymesh_primitives::{
+    AuthorizationData, AuthorizationError, IdentityId, PortfolioId, PortfolioName, PortfolioNumber,
+    Signatory, Ticker,
+};
 use sp_arithmetic::traits::Saturating;
 use sp_std::{convert::TryFrom, prelude::Vec};
-
-type Identity<T> = pallet_identity::Module<T>;
+type Identity<T> = identity::Module<T>;
 
 /// The ticker and balance of an asset to be moved from one portfolio to another.
 #[derive(Encode, Decode, Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord)]
@@ -81,6 +84,12 @@ decl_storage! {
         /// The next portfolio sequence number of an identity.
         pub NextPortfolioNumber get(fn next_portfolio_number):
             map hasher(twox_64_concat) IdentityId => PortfolioNumber;
+        /// The custodian of a particular portfolio.
+        /// None represents that the custody is with the original owner while
+        /// Some(identity) implies that the custody has been give to the identity,
+        pub PortfolioCustodian get(fn portfolio_custodian):
+            double_map hasher(twox_64_concat) IdentityId, hasher(twox_64_concat) PortfolioNumber =>
+            Option<IdentityId>;
     }
 }
 
@@ -130,6 +139,14 @@ decl_event! {
         /// * origin DID
         /// * vector of number-name pairs
         UserPortfolios(IdentityId, Vec<(PortfolioNumber, PortfolioName)>),
+        /// Custody of a portfolio has been given to a different identity
+        ///
+        /// # Parameters
+        /// * origin DID
+        /// * portfolio number
+        /// * portfolio owner did
+        /// * portfolio custodian did
+        PortfolioCustodied(IdentityId, PortfolioNumber, IdentityId, IdentityId),
     }
 }
 
@@ -143,6 +160,10 @@ decl_error! {
         DestinationIsSamePortfolio,
         /// The portfolio couldn't be renamed because the chosen name is already in use.
         PortfolioNameAlreadyInUse,
+        /// The porfolio's custody is with someone other than the caller.
+        UnauthorizedCustodian,
+        /// The authorization is for something other than portfolio custody
+        IrrelevantAuthorization
     }
 }
 
@@ -327,6 +348,43 @@ impl<T: Trait> Module<T> {
     fn ensure_name_unique(did: &IdentityId, name: &PortfolioName) -> DispatchResult {
         let name_uniq = <Portfolios>::iter_prefix(&did).all(|n| &n.1 != name);
         ensure!(name_uniq, Error::<T>::PortfolioNameAlreadyInUse);
+        Ok(())
+    }
+
+    /// Accept custody of a Portfolio
+    fn accept_portfolio_custody(new_custodian: IdentityId, auth_id: u64) -> DispatchResult {
+        ensure!(
+            <identity::Authorizations<T>>::contains_key(Signatory::from(new_custodian), auth_id),
+            AuthorizationError::Invalid
+        );
+
+        let auth = <identity::Authorizations<T>>::get(Signatory::from(new_custodian), auth_id);
+
+        let (portfolio_owner, portfolio_number) = match auth.authorization_data {
+            AuthorizationData::PortfolioCustody(did, number) => (did, number),
+            _ => return Err(Error::<T>::IrrelevantAuthorization.into()),
+        };
+
+        ensure!(
+            !<Portfolios>::contains_key(portfolio_owner, portfolio_number),
+            Error::<T>::PortfolioDoesNotExist
+        );
+        let current_custodian = <PortfolioCustodian>::get(portfolio_owner, portfolio_number);
+
+        <identity::Module<T>>::consume_auth(
+            current_custodian.unwrap_or_else(|| portfolio_owner),
+            Signatory::from(new_custodian),
+            auth_id,
+        )?;
+
+        <PortfolioCustodian>::insert(&portfolio_owner, &portfolio_number, new_custodian);
+
+        Self::deposit_event(RawEvent::PortfolioCustodied(
+            new_custodian,
+            portfolio_number,
+            portfolio_owner,
+            new_custodian,
+        ));
         Ok(())
     }
 }

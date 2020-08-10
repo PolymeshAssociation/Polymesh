@@ -2006,6 +2006,7 @@ impl<T: Trait> Module<T> {
                     AuthorizationType::TransferAssetOwnership
                 }
                 AuthorizationData::JoinIdentity(..) => AuthorizationType::JoinIdentity,
+                AuthorizationData::PortfolioCustody(..) => AuthorizationType::PortfolioCustody,
                 AuthorizationData::Custom(..) => AuthorizationType::Custom,
                 AuthorizationData::NoData => AuthorizationType::NoData,
             }
