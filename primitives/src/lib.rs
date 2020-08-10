@@ -18,10 +18,16 @@
 #![warn(missing_docs)]
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use sp_runtime::{generic, MultiSignature};
+use blake2::{Blake2b, Digest};
+use curve25519_dalek::scalar::Scalar;
 
 pub use codec::{Compact, Decode, Encode};
-pub use sp_runtime::traits::{BlakeTwo256, Hash as HashT, IdentifyAccount, Member, Verify};
+pub use sp_runtime::{
+    generic,
+    traits::{BlakeTwo256, Hash as HashT, IdentifyAccount, Member, Verify},
+    MultiSignature,
+};
+
 #[cfg(feature = "std")]
 use sp_runtime::{Deserialize, Serialize};
 
@@ -100,6 +106,18 @@ impl From<(u32, u32)> for PosRatio {
     }
 }
 
+/// It creates a scalar from the blake2_512 hash of `data` parameter.
+pub fn scalar_blake2_from_bytes(data: impl AsRef<[u8]>) -> Scalar {
+    let mut hash = [0u8; 64];
+    hash.copy_from_slice(
+        Blake2b::default()
+            .chain(data.as_ref())
+            .finalize()
+            .as_slice(),
+    );
+    Scalar::from_bytes_mod_order_wide(&hash)
+}
+
 /// The balance of an account.
 /// 128-bits (or 38 significant decimal figures) will allow for 10m currency (10^7) at a resolution
 /// to all for one second's worth of an annualised 50% reward be paid to a unit holder (10^11 unit
@@ -119,7 +137,7 @@ pub type BlockId = generic::BlockId<Block>;
 /// Opaque, encoded, unchecked extrinsic.
 pub use sp_runtime::OpaqueExtrinsic as UncheckedExtrinsic;
 
-/// Utility byte container where equality comparision are ignored case.
+/// Utility byte container where equality comparison are ignored case.
 pub mod ignored_case_string;
 pub use ignored_case_string::IgnoredCaseString;
 
@@ -142,10 +160,14 @@ pub use identity::Identity;
 pub mod cdd_id;
 pub use cdd_id::{CddId, InvestorUid};
 
+/// Investor Zero Knowledge Proof data
+pub mod investor_zkproof_data;
+pub use investor_zkproof_data::InvestorZKProofData;
+
 /// Claim information.
 /// Each claim is associated with this kind of record.
 pub mod identity_claim;
-pub use identity_claim::{Claim, ClaimType, IdentityClaim, JurisdictionName, Scope};
+pub use identity_claim::{Claim, ClaimType, IdentityClaim, JurisdictionName, Scope, ScopeId};
 
 /// This module contains entities related with signing keys.
 pub mod signing_key;
@@ -177,7 +199,9 @@ pub use rule::{Rule, RuleType};
 
 /// Predicate calculation for Claims.
 pub mod predicate;
-pub use predicate::{AndPredicate, Context, NotPredicate, OrPredicate, Predicate};
+pub use predicate::{
+    AndPredicate, Context, NotPredicate, OrPredicate, Predicate, ValidProofOfInvestorPredicate,
+};
 
 /// Represents custom transaction errors.
 #[repr(u8)]

@@ -92,7 +92,7 @@ use polymesh_common_utilities::{
     protocol_fee::{ChargeProtocolFee, ProtocolOp},
     Context,
 };
-use polymesh_primitives::{predicate, Claim, IdentityId, Rule, RuleType, Ticker};
+use polymesh_primitives::{predicate, Claim, ClaimType, IdentityId, Rule, RuleType, Ticker};
 #[cfg(feature = "std")]
 use sp_runtime::{Deserialize, Serialize};
 use sp_std::{
@@ -127,8 +127,8 @@ pub struct AssetTransferRule {
 }
 
 /// An asset transfer rule along with its evaluation result
-#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[derive(codec::Encode, codec::Decode, Clone, PartialEq, Eq, Debug)]
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize, Debug))]
+#[derive(codec::Encode, codec::Decode, Clone, PartialEq, Eq)]
 pub struct AssetTransferRuleResult {
     pub sender_rules: Vec<RuleResult>,
     pub receiver_rules: Vec<RuleResult>,
@@ -158,8 +158,8 @@ impl From<AssetTransferRule> for AssetTransferRuleResult {
 }
 
 /// An individual rule along with its evaluation result
-#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[derive(codec::Encode, codec::Decode, Clone, PartialEq, Eq, Debug)]
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize, Debug))]
+#[derive(codec::Encode, codec::Decode, Clone, PartialEq, Eq)]
 pub struct RuleResult {
     // Rule being evaluated
     pub rule: Rule,
@@ -174,8 +174,8 @@ impl From<Rule> for RuleResult {
 }
 
 /// List of rules associated to an asset.
-#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[derive(codec::Encode, codec::Decode, Default, Clone, PartialEq, Eq, Debug)]
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize, Debug))]
+#[derive(codec::Encode, codec::Decode, Default, Clone, PartialEq, Eq)]
 pub struct AssetTransferRules {
     /// This flag indicates if asset transfer rules are active or paused.
     pub is_paused: bool,
@@ -186,8 +186,8 @@ pub struct AssetTransferRules {
 type Identity<T> = identity::Module<T>;
 
 /// Rules evaluation result
-#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[derive(codec::Encode, codec::Decode, Clone, PartialEq, Eq, Debug)]
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize, Debug))]
+#[derive(codec::Encode, codec::Decode, Clone, PartialEq, Eq)]
 pub struct AssetTransferRulesResult {
     /// This flag indicates if asset transfer rules are active or paused.
     pub is_paused: bool,
@@ -571,6 +571,19 @@ impl<T: Trait> Module<T> {
             .collect::<Vec<_>>()
     }
 
+    /// It fetches the `ConfidentialScopeClaim` of users `id` for the given ticker.
+    /// Note that this vector could be 0 or 1 items.
+    fn fetch_confidential_claims(id: IdentityId, ticker: &Ticker) -> Vec<Claim> {
+        let claim_type = ClaimType::InvestorZKProof;
+        // NOTE: Ticker lenght is less by design that IdentityId.
+        let asset_scope = IdentityId::try_from(ticker.as_slice()).unwrap_or_default();
+
+        <identity::Module<T>>::fetch_claim(id, claim_type, id, Some(asset_scope))
+            .into_iter()
+            .map(|id_claim| id_claim.claim)
+            .collect::<Vec<_>>()
+    }
+
     /// It fetches the predicate context for target `id` and specific `rule`.
     ///
     /// If `rule` does not define trusted issuers, it will use the default trusted issuer for
@@ -593,9 +606,12 @@ impl<T: Trait> Module<T> {
                 .iter()
                 .flat_map(|claim| Self::fetch_claims(id, claim, &issuers))
                 .collect::<Vec<_>>(),
+            RuleType::HasValidProofOfInvestor(ref proof_ticker) => {
+                Self::fetch_confidential_claims(id, proof_ticker)
+            }
         };
 
-        predicate::Context::from(claims)
+        predicate::Context { claims, id }
     }
 
     /// Loads the context for each rule in `rules` and verifies that all of them evaluate to `true`.

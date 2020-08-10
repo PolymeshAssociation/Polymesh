@@ -126,6 +126,10 @@ use frame_support::{
     debug, decl_error, decl_module, decl_storage,
     dispatch::{DispatchError, DispatchResult, DispatchResultWithPostInfo},
     ensure,
+    storage::{
+        with_transaction,
+        TransactionOutcome::{Commit, Rollback},
+    },
     traits::{ChangeMembers, Currency, InitializeMembers},
     weights::{DispatchClass, GetDispatchInfo, Pays},
     StorageDoubleMap,
@@ -146,14 +150,14 @@ pub struct Claim2ndKey {
     pub scope: Option<Scope>,
 }
 
-#[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, PartialOrd, Ord, Default)]
+#[derive(Encode, Decode, Clone, PartialEq, Eq, Default, Debug)]
 pub struct BatchAddClaimItem<M> {
     pub target: IdentityId,
     pub claim: Claim,
     pub expiry: Option<M>,
 }
 
-#[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, PartialOrd, Ord, Default)]
+#[derive(Encode, Decode, Clone, PartialEq, Eq, Default, Debug)]
 pub struct BatchRevokeClaimItem {
     pub target: IdentityId,
     pub claim: Claim,
@@ -217,7 +221,7 @@ decl_storage! {
                 .map(|iss| iss.as_id())
                 .collect::<Vec<_>>();
 
-            <Module<T>>::unsafe_add_systematic_cdd_claims( &id_with_cdd, SystematicIssuers::CDDProvider);
+            <Module<T>>::add_systematic_cdd_claims( &id_with_cdd, SystematicIssuers::CDDProvider);
 
             //  Other
             for &(ref master_account_id, issuer, did, investor_uid, expiry) in &config.identities {
@@ -227,7 +231,7 @@ decl_storage! {
                 <MultiPurposeNonce>::mutate(|n| *n += 1_u64);
                 let expiry = expiry.iter().map(|m| T::Moment::from(*m as u32)).next();
                 <Module<T>>::unsafe_register_id(master_account_id.clone(), did);
-                <Module<T>>::unsafe_add_claim( did, cdd_claim, issuer, expiry);
+                <Module<T>>::base_add_claim( did, cdd_claim, issuer, expiry);
             }
 
             for &(ref signer_id, did) in &config.signing_keys {
@@ -273,7 +277,7 @@ decl_module! {
             // Add CDD claim
             let did = Self::get_identity(&sender).ok_or_else(|| "DID Self-register failed")?;
             let cdd_claim = Claim::CustomerDueDiligence(CddId::new(did, uid));
-            Self::unsafe_add_claim(did, cdd_claim, did, None);
+            Self::base_add_claim(did, cdd_claim, did, None);
 
             Ok(())
         }
@@ -498,10 +502,18 @@ decl_module! {
             ensure!(<DidRecords<T>>::contains_key(target), Error::<T>::DidMustAlreadyExist);
 
             match &claim {
-                Claim::CustomerDueDiligence(..) => Self::unsafe_add_cdd_claim(target, claim, issuer, expiry)?,
+                Claim::CustomerDueDiligence(..) => Self::base_add_cdd_claim(target, claim, issuer, expiry)?,
+                Claim::InvestorZKProof(_t, _s, cdd_id, _p) => {
+                    Self::base_add_confidential_scope_claim(
+                        target,
+                        claim.clone(),
+                        issuer,
+                        expiry,
+                        cdd_id.clone())?
+                },
                 _ => {
                     T::ProtocolFee::charge_fee(ProtocolOp::IdentityAddClaim)?;
-                    Self::unsafe_add_claim(target, claim, issuer, expiry)
+                    Self::base_add_claim(target, claim, issuer, expiry)
                 }
             };
             Ok(())
@@ -521,30 +533,19 @@ decl_module! {
             origin,
             claims: Vec<BatchAddClaimItem<T::Moment>>
         ) -> DispatchResult {
-            let sender = ensure_signed(origin)?;
-            let issuer = Context::current_identity_or::<Self>(&sender)?;
-            // Check input claims.
-            ensure!( claims.iter().all(
-                |batch_claim_item| <DidRecords<T>>::contains_key(batch_claim_item.target)),
-                Error::<T>::DidMustAlreadyExist);
+            ensure_signed(origin.clone())?;
 
-            let cdd_count: usize = claims
-                .iter()
-                .filter(|batch_claim_item| matches!(batch_claim_item.claim, Claim::CustomerDueDiligence(_)))
-                .count();
-            if cdd_count > 0 {
-                let cdd_providers = T::CddServiceProviders::get_members();
-                ensure!(cdd_providers.contains(&issuer), Error::<T>::UnAuthorizedCddProvider);
-            }
+            with_transaction(|| {
+                for bci in claims {
+                    if let Err(bci_err) = Self::add_claim(origin.clone(), bci.target, bci.claim, bci.expiry) {
+                        return Rollback(Err(bci_err));
+                    }
+                }
+                Commit(Ok(()))
+            })?;
 
-            T::ProtocolFee::batch_charge_fee(ProtocolOp::IdentityAddClaim, claims.len() - cdd_count)?;
-            claims
-                .into_iter()
-                .for_each(|bci| {
-                    Self::unsafe_add_claim(bci.target, bci.claim, issuer, bci.expiry)
-                });
             Ok(())
-        }
+       }
 
         /// Creates a call on behalf of another DID.
         #[weight =(
@@ -603,8 +604,13 @@ decl_module! {
             let claim_type = claim.claim_type();
             let scope = claim.as_scope().cloned();
 
-            Self::unsafe_revoke_claim(target, claim_type, issuer, scope);
-            Ok(())
+            match &claim {
+                Claim::InvestorZKProof(..) => Self::revoke_confidential_scope_claim(target, claim_type, issuer, scope),
+                _ => {
+                    Self::base_revoke_claim(target, claim_type, issuer, scope);
+                    Ok(())
+                }
+            }
         }
 
         /// Revoke multiple claims in a batch.
@@ -624,15 +630,17 @@ decl_module! {
             origin,
             claims: Vec<BatchRevokeClaimItem>
         ) -> DispatchResult {
-            let sender = ensure_signed(origin)?;
-            let issuer = Context::current_identity_or::<Self>(&sender)?;
+            let _sender = ensure_signed(origin.clone())?;
 
-            claims.into_iter()
-                .for_each( |bci| {
-                    let claim_type = bci.claim.claim_type();
-                    let scope = bci.claim.as_scope().cloned();
-                    Self::unsafe_revoke_claim(bci.target, claim_type, issuer, scope)
-                });
+            with_transaction(|| {
+                for bci in claims {
+                    if let Err(bci_err) = Self::revoke_claim(origin.clone(), bci.target, bci.claim) {
+                        return Rollback(Err(bci_err));
+                    }
+                }
+                Commit(Ok(()))
+            })?;
+
             Ok(())
         }
 
@@ -1137,7 +1145,9 @@ decl_error! {
         /// Cannot convert a `T::AccountId` to `AnySignature::Signer::AccountId`.
         CannotDecodeSignerAccountId,
         /// Multisig can not be unlinked from an identity while it still holds POLYX
-        MultiSigHasBalance
+        MultiSigHasBalance,
+        /// Confidential Scope claims can be added by an Identity to it-self.
+        ConfidentialScopeClaimNotAllowed
     }
 }
 
@@ -1520,6 +1530,14 @@ impl<T: Trait> Module<T> {
     /// No state change is allowed in this function because this function is used within the RPC
     /// calls.
     pub fn fetch_cdd(claim_for: IdentityId, leeway: T::Moment) -> Option<IdentityId> {
+        Self::base_fetch_cdd(claim_for, leeway, None)
+    }
+
+    fn base_fetch_cdd(
+        claim_for: IdentityId,
+        leeway: T::Moment,
+        filter_cdd_id: Option<CddId>,
+    ) -> Option<IdentityId> {
         let exp_with_leeway = <pallet_timestamp::Module<T>>::get()
             .checked_add(&leeway)
             .unwrap_or_default();
@@ -1532,6 +1550,14 @@ impl<T: Trait> Module<T> {
 
         Self::fetch_base_claims(claim_for, ClaimType::CustomerDueDiligence)
             .filter(|id_claim| {
+                if let Some(cdd_id) = &filter_cdd_id {
+                    if let Claim::CustomerDueDiligence(claim_cdd_id) = &id_claim.claim {
+                        if claim_cdd_id != cdd_id {
+                            return false;
+                        }
+                    }
+                }
+
                 Self::is_identity_cdd_claim_valid(
                     id_claim,
                     exp_with_leeway,
@@ -1799,7 +1825,7 @@ impl<T: Trait> Module<T> {
     }
 
     /// It adds a new claim without any previous security check.
-    fn unsafe_add_claim(
+    fn base_add_claim(
         target: IdentityId,
         claim: Claim,
         issuer: IdentityId,
@@ -1830,7 +1856,7 @@ impl<T: Trait> Module<T> {
     ///
     /// # Errors
     /// - 'UnAuthorizedCddProvider' is returned if `issuer` is not a CDD provider.
-    fn unsafe_add_cdd_claim(
+    fn base_add_cdd_claim(
         target: IdentityId,
         claim: Claim,
         issuer: IdentityId,
@@ -1842,7 +1868,35 @@ impl<T: Trait> Module<T> {
             Error::<T>::UnAuthorizedCddProvider
         );
 
-        Self::unsafe_add_claim(target, claim, issuer, expiry);
+        Self::base_add_claim(target, claim, issuer, expiry);
+        Ok(())
+    }
+
+    /// # Errors
+    /// - 'ConfidentialScopeClaimNotAllowed` if :
+    ///     - Sender is not the issuer. That claim can be only added by your-self.
+    ///     - You are not the owner of that CDD_ID.
+    ///
+    fn base_add_confidential_scope_claim(
+        target: IdentityId,
+        claim: Claim,
+        issuer: IdentityId,
+        expiry: Option<T::Moment>,
+        cdd_id: CddId,
+    ) -> DispatchResult {
+        // Only onwer of the identity can add that confidential claim.
+        ensure!(
+            issuer == target,
+            Error::<T>::ConfidentialScopeClaimNotAllowed
+        );
+
+        // Verify the onwer of that CDD_ID.
+        ensure!(
+            Self::base_fetch_cdd(target, T::Moment::zero(), Some(cdd_id)).is_some(),
+            Error::<T>::ConfidentialScopeClaimNotAllowed
+        );
+
+        Self::base_add_claim(target, claim, issuer, expiry);
         Ok(())
     }
 
@@ -1850,8 +1904,22 @@ impl<T: Trait> Module<T> {
         <DidRecords<T>>::contains_key(did)
     }
 
+    fn revoke_confidential_scope_claim(
+        target: IdentityId,
+        claim_type: ClaimType,
+        issuer: IdentityId,
+        scope: Option<Scope>,
+    ) -> DispatchResult {
+        ensure!(
+            target == issuer,
+            Error::<T>::ConfidentialScopeClaimNotAllowed
+        );
+        Self::base_revoke_claim(target, claim_type, issuer, scope);
+        Ok(())
+    }
+
     /// It removes a claim from `target` which was issued by `issuer` without any security check.
-    fn unsafe_revoke_claim(
+    fn base_revoke_claim(
         target: IdentityId,
         claim_type: ClaimType,
         issuer: IdentityId,
@@ -2157,18 +2225,18 @@ impl<T: Trait> IdentityTrait<T::AccountId> for Module<T> {
     }
 
     /// Adds systematic CDD claims.
-    fn unsafe_add_systematic_cdd_claims(targets: &[IdentityId], issuer: SystematicIssuers) {
+    fn add_systematic_cdd_claims(targets: &[IdentityId], issuer: SystematicIssuers) {
         for new_member in targets {
             let cdd_id = CddId::new(new_member.clone(), InvestorUid::from(new_member.as_ref()));
             let cdd_claim = Claim::CustomerDueDiligence(cdd_id);
-            Self::unsafe_add_claim(*new_member, cdd_claim, issuer.as_id(), None);
+            Self::base_add_claim(*new_member, cdd_claim, issuer.as_id(), None);
         }
     }
 
     /// Removes systematic CDD claims.
-    fn unsafe_revoke_systematic_cdd_claims(targets: &[IdentityId], issuer: SystematicIssuers) {
+    fn revoke_systematic_cdd_claims(targets: &[IdentityId], issuer: SystematicIssuers) {
         targets.iter().for_each(|removed_member| {
-            Self::unsafe_revoke_claim(
+            Self::base_revoke_claim(
                 *removed_member,
                 ClaimType::CustomerDueDiligence,
                 issuer.as_id(),
@@ -2192,14 +2260,14 @@ impl<T: Trait> ChangeMembers<IdentityId> for Module<T> {
     ) {
         // Add/remove Systematic CDD claims for new/removed members.
         let issuer = SystematicIssuers::CDDProvider;
-        Self::unsafe_add_systematic_cdd_claims(incoming, issuer);
-        Self::unsafe_revoke_systematic_cdd_claims(outgoing, issuer);
+        Self::add_systematic_cdd_claims(incoming, issuer);
+        Self::revoke_systematic_cdd_claims(outgoing, issuer);
     }
 }
 
 impl<T: Trait> InitializeMembers<IdentityId> for Module<T> {
     /// Initializes members of a group by adding systematic claims for them.
     fn initialize_members(members: &[IdentityId]) {
-        Self::unsafe_add_systematic_cdd_claims(members, SystematicIssuers::CDDProvider);
+        Self::add_systematic_cdd_claims(members, SystematicIssuers::CDDProvider);
     }
 }
