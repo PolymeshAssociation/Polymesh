@@ -243,7 +243,7 @@ decl_module! {
         /// * `match_criteria` - One of {AtLeast, MoreThan}.
         /// * `n` - Numerator of the fraction representing vote threshold.
         /// * `d` - Denominator of the fraction representing vote threshold.
-        #[weight = (500_000, Operational, Pays::Yes)]
+        #[weight = (100_000_000, Operational, Pays::Yes)]
         pub fn set_vote_threshold(origin, n: u32, d: u32) {
             T::CommitteeOrigin::ensure_origin(origin)?;
             // Proportion must be a rational number
@@ -271,7 +271,7 @@ decl_module! {
         ///   - `M` is number of members,
         ///   - `P` is number of active proposals,
         ///   - `L` is the encoded length of `proposal` preimage.
-        #[weight = (2_000_000, Operational, Pays::Yes)]
+        #[weight = (T::DbWeight::get().reads_writes(6, 2) + 650_000_000, Operational, Pays::Yes)]
         fn close(origin, proposal: T::Hash, #[compact] index: ProposalIndex) {
             let who = ensure_signed(origin)?;
             let did = Context::current_identity_or::<Identity<T>>(&who)?;
@@ -312,7 +312,7 @@ decl_module! {
         ///
         /// # Errors
         /// * `MemberNotFound`, If the new coordinator `id` is not part of the committee.
-        #[weight = (500_000, Operational, Pays::Yes)]
+        #[weight = (T::DbWeight::get().reads_writes(1, 1) + 200_000_000, Operational, Pays::Yes)]
         pub fn set_release_coordinator(origin, id: IdentityId ) {
             T::CommitteeOrigin::ensure_origin(origin)?;
             ensure!( Self::members().contains(&id), Error::<T, I>::MemberNotFound);
@@ -322,7 +322,11 @@ decl_module! {
             Self::deposit_event(RawEvent::ReleaseCoordinatorUpdated(current_did, Some(id)));
         }
 
-        #[weight = (5_000_000, Operational, Pays::Yes)]
+        /// Enact the referendum
+        ///
+        /// # Arguments
+        /// * `id` - Pip Id that need to be enacted
+        #[weight = (T::DbWeight::get().reads_writes(6, 2) + 400_000_000, Operational, Pays::Yes)]
         pub fn vote_enact_referendum(origin, id: PipId) -> DispatchResult {
             Self::vote_referendum( origin, id,
                 || {
@@ -335,7 +339,11 @@ decl_module! {
             Ok(())
         }
 
-        #[weight = (5_000_000, Operational, Pays::Yes)]
+        /// Reject the referendum
+        ///
+        /// # Arguments
+        /// * `id` - Pip Id that need to be rejected
+        #[weight = (T::DbWeight::get().reads_writes(6, 2) + 400_000_000, Operational, Pays::Yes)]
         pub fn vote_reject_referendum(origin, id: PipId) -> DispatchResult {
             Self::vote_referendum( origin, id,
                 || {
