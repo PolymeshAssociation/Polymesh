@@ -54,7 +54,7 @@ fn make_proposal(value: u64) -> Call {
 
 const APPROVE_0: &[(PipId, SnapshotResult)] = &[(0, SnapshotResult::Approve)];
 
-fn set_members(ids: Vec<IdentityId>) {
+pub fn set_members(ids: Vec<IdentityId>) {
     CommitteeGroup::reset_members(root(), ids).unwrap();
 }
 
@@ -74,8 +74,9 @@ fn abdicate_membership(who: IdentityId, signer: &Origin, n: u32) {
     assert_mem_len(n - 1);
 }
 
-fn prepare_proposal(acc: Public) {
+fn prepare_proposal(ring: AccountKeyring) {
     let proposal = make_proposal(42);
+    let acc = ring.public();
     assert_ok!(Pips::propose(
         Origin::signed(acc),
         Proposer::Community(acc),
@@ -83,7 +84,6 @@ fn prepare_proposal(acc: Public) {
         50,
         None,
         None,
-        None
     ));
     fast_forward_blocks(COOL_OFF_PERIOD);
 }
@@ -92,7 +92,7 @@ fn check_scheduled(id: PipId) {
     assert_eq!(Pips::proposals(id).unwrap().state, ProposalState::Scheduled);
 }
 
-fn root() -> Origin {
+pub fn root() -> Origin {
     Origin::from(frame_system::RawOrigin::Root)
 }
 
@@ -123,13 +123,14 @@ fn single_member_committee_works() {
 fn single_member_committee_works_we() {
     System::set_block_number(1);
 
-    let alice_signer = Origin::signed(AccountKeyring::Alice.public());
-    let alice_did = register_keyring_account(AccountKeyring::Alice).unwrap();
+    let alice_ring = AccountKeyring::Alice;
+    let alice_signer = Origin::signed(alice_ring.public());
+    let alice_did = register_keyring_account(alice_ring).unwrap();
 
     set_members(vec![alice_did]);
 
     // Proposal is executed if committee is comprised of a single member
-    prepare_proposal(alice_acc);
+    prepare_proposal(alice_ring);
     assert_ok!(Pips::snapshot(alice_signer.clone()));
     assert_eq!(Committee::proposals(), vec![]);
 
@@ -154,10 +155,11 @@ fn preventing_motions_from_non_members_works() {
 fn preventing_motions_from_non_members_works_we() {
     System::set_block_number(1);
 
-    let alice_signer = Origin::signed(AccountKeyring::Alice.public());
-    let _ = register_keyring_account(AccountKeyring::Alice).unwrap();
+    let alice_ring = AccountKeyring::Alice;
+    let alice_signer = Origin::signed(alice_ring.public());
+    let _ = register_keyring_account(alice_ring).unwrap();
 
-    prepare_proposal(alice_acc);
+    prepare_proposal(alice_ring);
     assert_err!(
         Pips::snapshot(alice_signer.clone()),
         pips::Error::<TestStorage>::NotACommitteeMember
@@ -179,14 +181,14 @@ fn preventing_voting_from_non_members_works() {
 fn preventing_voting_from_non_members_works_we() {
     System::set_block_number(1);
 
-    let alice_acc = AccountKeyring::Alice.public();
-    let alice_signer = Origin::signed(alice_acc);
-    let alice_did = register_keyring_account(alice_acc).unwrap();
+    let alice_ring = AccountKeyring::Alice;
+    let alice_signer = Origin::signed(alice_ring.public());
+    let alice_did = register_keyring_account(alice_ring).unwrap();
     let bob_signer = Origin::signed(AccountKeyring::Bob.public());
     let _ = register_keyring_account(AccountKeyring::Bob).unwrap();
 
     set_members(vec![alice_did]);
-    prepare_proposal(alice_acc);
+    prepare_proposal(alice_ring);
     assert_ok!(Pips::snapshot(alice_signer.clone()));
     assert_eq!(Committee::proposals(), vec![]);
     assert_noop!(
@@ -205,16 +207,16 @@ fn motions_revoting_works() {
 fn motions_revoting_works_we() {
     System::set_block_number(1);
 
-    let alice_acc = AccountKeyring::Alice.public();
-    let alice_signer = Origin::signed(alice_acc);
-    let alice_did = register_keyring_account(alice_acc).unwrap();
+    let alice_ring = AccountKeyring::Alice;
+    let alice_signer = Origin::signed(alice_ring.public());
+    let alice_did = register_keyring_account(alice_ring).unwrap();
     let _bob_signer = Origin::signed(AccountKeyring::Bob.public());
     let bob_did = register_keyring_account(AccountKeyring::Bob).unwrap();
     let _charlie_signer = Origin::signed(AccountKeyring::Charlie.public());
     let charlie_did = register_keyring_account(AccountKeyring::Charlie).unwrap();
 
     set_members(vec![alice_did, bob_did, charlie_did]);
-    prepare_proposal(alice_acc);
+    prepare_proposal(alice_ring);
     assert_eq!(Committee::proposals(), vec![]);
 
     assert_ok!(vote(&alice_signer, true));
@@ -258,16 +260,16 @@ fn first_vote_cannot_be_reject() {
 fn first_vote_cannot_be_reject_we() {
     System::set_block_number(1);
 
-    let alice_acc = AccountKeyring::Alice.public();
-    let alice_did = register_keyring_account(alice_acc).unwrap();
+    let alice_ring = AccountKeyring::Alice;
+    let alice_did = register_keyring_account(alice_ring).unwrap();
     let bob_did = register_keyring_account(AccountKeyring::Bob).unwrap();
     let charlie_did = register_keyring_account(AccountKeyring::Charlie).unwrap();
 
     set_members(vec![alice_did, bob_did, charlie_did]);
-    prepare_proposal(alice_acc);
+    prepare_proposal(alice_ring);
     assert_eq!(Committee::proposals(), vec![]);
     assert_noop!(
-        vote(&Origin::signed(alice_acc), false),
+        vote(&Origin::signed(alice_ring.public()), false),
         committee::Error::<TestStorage, committee::Instance1>::FirstVoteReject
     );
 }
@@ -296,8 +298,8 @@ fn rage_quit() {
 
 fn rage_quit_we() {
     // 1. Add members to committee
-    let alice_acc = AccountKeyring::Alice.public();
-    let alice_signer = Origin::signed(alice_acc);
+    let alice_ring = AccountKeyring::Alice;
+    let alice_signer = Origin::signed(alice_ring.public());
     let alice_did = register_keyring_account(AccountKeyring::Alice).unwrap();
     let bob_signer = Origin::signed(AccountKeyring::Bob.public());
     let bob_did = register_keyring_account(AccountKeyring::Bob).unwrap();
@@ -306,8 +308,6 @@ fn rage_quit_we() {
     let dave_did = register_keyring_account(AccountKeyring::Dave).unwrap();
     let ferdie_signer = Origin::signed(AccountKeyring::Ferdie.public());
     let ferdie_did = register_keyring_account(AccountKeyring::Ferdie).unwrap();
-    let committee = vec![alice_did, bob_did, charlie_did, dave_did];
-
     set_members(vec![alice_did, bob_did, charlie_did, dave_did]);
     assert_mem_len(4);
 
@@ -319,7 +319,7 @@ fn rage_quit_we() {
     );
 
     // Make a proposal... only Alice & Bob approve it.
-    prepare_proposal(alice_acc);
+    prepare_proposal(alice_ring);
     assert_ok!(Pips::snapshot(alice_signer.clone()));
     assert_eq!(Committee::proposals(), vec![]);
 
@@ -510,8 +510,9 @@ fn enact() {
 fn enact_we() {
     System::set_block_number(1);
 
-    let alice = AccountKeyring::Alice.public();
-    let _ = register_keyring_account(AccountKeyring::Alice);
+    let alice = AccountKeyring::Alice;
+    let alice_signer = Origin::signed(alice.public());
+    let _ = register_keyring_account(alice);
     let bob = AccountKeyring::Bob.public();
     let _ = register_keyring_account(AccountKeyring::Bob);
     let dave = AccountKeyring::Dave.public();
@@ -519,11 +520,11 @@ fn enact_we() {
 
     // 1. Create the PIP.
     prepare_proposal(alice);
-    assert_ok!(Pips::snapshot(Origin::signed(alice)));
+    assert_ok!(Pips::snapshot(alice_signer.clone()));
     assert_eq!(Committee::proposals(), vec![]);
 
     // 2. Alice and Bob vote to enact that pip, they are 2/3 of committee.
-    assert_ok!(vote(&Origin::signed(alice), true));
+    assert_ok!(vote(&alice_signer, true));
     assert_err!(
         vote(&Origin::signed(dave), true),
         committee::Error::<TestStorage, committee::Instance1>::BadOrigin,
