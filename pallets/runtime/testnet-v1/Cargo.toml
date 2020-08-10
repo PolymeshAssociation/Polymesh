@@ -89,6 +89,7 @@ frame-support = { git = "https://github.com/paritytech/substrate", default-featu
 frame-system-rpc-runtime-api = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "at-add-dispatch-call" }
 ink_primitives = { git = "https://github.com/paritytech/ink", tag = "v2.1.0", default-features = false }
 hex-literal = "0.2.1"
+smallvec = "1.4.0"
 
 # Benchmark
 frame-benchmarking = { default-features = false, git = "https://github.com/paritytech/substrate", branch = "at-add-dispatch-call", optional = true }

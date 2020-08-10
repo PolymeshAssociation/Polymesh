@@ -165,7 +165,7 @@ const createIdentitiesWithExpiry = async function(api, accounts, alice, expiries
   let dids = [];
 
   for (let i = 0; i < accounts.length; i++) {
-    console.log( `>>>> [Register CDD Claim] acc: ${accounts[i].address}`); 
+    console.log( `>>>> [Register CDD Claim] acc: ${accounts[i].address}`);
     await api.tx.identity
         .cddRegisterDid(accounts[i].address, [])
         .signAndSend(alice, { nonce: nonces.get(alice.address) });
@@ -177,23 +177,23 @@ const createIdentitiesWithExpiry = async function(api, accounts, alice, expiries
   for (let i = 0; i < accounts.length; i++) {
     const d = await api.query.identity.keyToIdentityIds(accounts[i].publicKey);
     dids.push(d.toHuman().Unique);
-    console.log( `>>>> [Get DID ] acc: ${accounts[i].address} did: ${dids[i]}` ); 
+    console.log( `>>>> [Get DID ] acc: ${accounts[i].address} did: ${dids[i]}` );
   }
-    
+
   // Add CDD Claim with CDD_ID
   for (let i = 0; i < dids.length; i++) {
     const cdd_id_byte = (i+1).toString(16).padStart(2,'0');
     const claim = { CustomerDueDiligence: `0x00000000000000000000000000000000000000000000000000000000000000${cdd_id_byte}`};
     const expiry = expiries.length == 0 ? null : expiries[i];
 
-    console.log( `>>>> [add CDD Claim] did: ${dids[i]}, claim: ${JSON.stringify( claim)}`); 
+    console.log( `>>>> [add CDD Claim] did: ${dids[i]}, claim: ${JSON.stringify( claim)}`);
     await api.tx.identity
       .addClaim(dids[i], claim, expiry)
       .signAndSend(alice, { nonce: nonces.get(alice.address) });
 
     nonces.set(alice.address, nonces.get(alice.address).addn(1));
   }
- 
+
   let did_balance = 1000 * 10**6;
   for (let i = 0; i < dids.length; i++) {
     await topUpIdentityBalance(api, alice, dids[i], did_balance);
@@ -234,25 +234,25 @@ async function distributePolyBatch(api, to, amount, from) {
   }
 }
 
-// Attach a signing key to each DID
-async function addSigningKeys(api, accounts, dids, signing_accounts) {
+// Attach a secondary key to each DID
+async function addSecondaryKeys(api, accounts, dids, secondary_accounts) {
   for (let i = 0; i < accounts.length; i++) {
-    // 1. Add Signing Item to identity.
+    // 1. Add Secondary Item to identity.
 
     let nonceObj = {nonce: nonces.get(accounts[i].address)};
-    const transaction = api.tx.identity.addAuthorization({Account: signing_accounts[i].publicKey}, {JoinIdentity: []}, null);
+    const transaction = api.tx.identity.addAuthorization({Account: secondary_accounts[i].publicKey}, {JoinIdentity: []}, null);
     await sendTransaction(transaction, accounts[i], nonceObj);
     nonces.set(accounts[i].address, nonces.get(accounts[i].address).addn(1));
   }
 }
 
-// Authorizes the join of signing keys to a DID
-async function authorizeJoinToIdentities(api, accounts, dids, signing_accounts) {
+// Authorizes the join of secondary keys to a DID
+async function authorizeJoinToIdentities(api, accounts, dids, secondary_accounts) {
 
   for (let i = 0; i < accounts.length; i++) {
     // 1. Authorize
     const auths = await api.query.identity.authorizations.entries({
-      Account: signing_accounts[i].publicKey
+      Account: secondary_accounts[i].publicKey
     });
     let last_auth_id = 0;
     for (let i = 0; i < auths.length; i++) {
@@ -261,14 +261,14 @@ async function authorizeJoinToIdentities(api, accounts, dids, signing_accounts) 
       }
     }
 
-    let nonceObj = {nonce: nonces.get(signing_accounts[i].address)};
+    let nonceObj = {nonce: nonces.get(secondary_accounts[i].address)};
     const transaction = api.tx.identity.joinIdentityAsKey([last_auth_id]);
-    await sendTransaction(transaction, signing_accounts[i], nonceObj);
+    await sendTransaction(transaction, secondary_accounts[i], nonceObj);
 
     // const unsub = await api.tx.identity
     //   .joinIdentityAsKey([last_auth_id])
-    //   .signAndSend(signing_accounts[i], { nonce: nonces.get(signing_accounts[i].address) });
-    // nonces.set(signing_accounts[i].address, nonces.get(signing_accounts[i].address).addn(1));
+    //   .signAndSend(secondary_accounts[i], { nonce: nonces.get(secondary_accounts[i].address) });
+    // nonces.set(secondary_accounts[i].address, nonces.get(secondary_accounts[i].address).addn(1));
   }
 
   return dids;
@@ -279,7 +279,7 @@ async function issueTokenPerDid(api, accounts, prepend) {
 
   const ticker = `token${prepend}0`.toUpperCase();
   assert( ticker.length <= 12, "Ticker cannot be longer than 12 characters");
-  
+
   const unsub = await api.tx.asset
         .createAsset(ticker, ticker, 1000000, true, 0, [], "abc", null)
         .signAndSend(accounts[0], { nonce: nonces.get(accounts[0].address) });
@@ -463,7 +463,7 @@ let reqImports = {
   generateKeys,
   generateEntityFromUri,
   distributePoly,
-  addSigningKeys,
+  addSecondaryKeys,
   authorizeJoinToIdentities,
   issueTokenPerDid,
   senderRules1,

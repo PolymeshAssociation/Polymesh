@@ -143,19 +143,18 @@ where
     }
 }
 
-/// A signing key of an identity.
+/// A secondary key contains a type and a group of permissions.
 #[allow(missing_docs)]
 #[derive(Encode, Decode, Default, Clone, Eq, Debug)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-pub struct SigningKey<AccountId> {
-    /// The signatory of the signing key.
+pub struct SecondaryKey<AccountId> {
     pub signer: Signatory<AccountId>,
     /// The access permissions of the signing key.
     pub permissions: Permissions,
 }
 
-impl<AccountId> SigningKey<AccountId> {
-    /// Creates a [`SigningKey`].
+impl<AccountId> SecondaryKey<AccountId> {
+    /// Creates a [`SecondaryKey`].
     pub fn new(signer: Signatory<AccountId>, permissions: Permissions) -> Self {
         Self {
             signer,
@@ -163,7 +162,7 @@ impl<AccountId> SigningKey<AccountId> {
         }
     }
 
-    /// Creates a [`SigningKey`] from an `AccountId` with empty permissions.
+    /// Creates a [`SecondaryKey`] from an `AccountId`.
     pub fn from_account_id(s: AccountId) -> Self {
         Self {
             signer: Signatory::Account(s),
@@ -197,7 +196,7 @@ impl<AccountId> SigningKey<AccountId> {
     }
 }
 
-impl<AccountId> From<IdentityId> for SigningKey<AccountId> {
+impl<AccountId> From<IdentityId> for SecondaryKey<AccountId> {
     fn from(id: IdentityId) -> Self {
         Self {
             signer: Signatory::Identity(id),
@@ -206,7 +205,7 @@ impl<AccountId> From<IdentityId> for SigningKey<AccountId> {
     }
 }
 
-impl<AccountId> PartialEq for SigningKey<AccountId>
+impl<AccountId> PartialEq for SecondaryKey<AccountId>
 where
     AccountId: PartialEq,
 {
@@ -215,7 +214,7 @@ where
     }
 }
 
-impl<AccountId> PartialEq<IdentityId> for SigningKey<AccountId> {
+impl<AccountId> PartialEq<IdentityId> for SecondaryKey<AccountId> {
     fn eq(&self, other: &IdentityId) -> bool {
         if let Signatory::Identity(id) = self.signer {
             id == *other
@@ -225,7 +224,7 @@ impl<AccountId> PartialEq<IdentityId> for SigningKey<AccountId> {
     }
 }
 
-impl<AccountId> PartialOrd for SigningKey<AccountId>
+impl<AccountId> PartialOrd for SecondaryKey<AccountId>
 where
     AccountId: Ord,
 {
@@ -235,7 +234,7 @@ where
     }
 }
 
-impl<AccountId> Ord for SigningKey<AccountId>
+impl<AccountId> Ord for SecondaryKey<AccountId>
 where
     AccountId: Ord,
 {
@@ -246,7 +245,7 @@ where
 
 #[cfg(test)]
 mod tests {
-    use super::{Permissions, Signatory, SigningKey, Subset};
+    use super::{Permission, SecondaryKey, Signatory, Subset};
     use crate::{IdentityId, Ticker};
     use sp_core::sr25519::Public;
     use std::convert::{From, TryFrom};
@@ -255,8 +254,8 @@ mod tests {
     #[test]
     fn build_test() {
         let key = Public::from_raw([b'A'; 32]);
-        let rk1 = SigningKey::new(Signatory::Account(key.clone()), Permissions::empty());
-        let rk2 = SigningKey::from_account_id(key.clone());
+        let rk1 = SecondaryKey::new(Signatory::Account(key.clone()), vec![]);
+        let rk2 = SecondaryKey::from_account_id(key.clone());
         assert_eq!(rk1, rk2);
 
         let rk3_permissions = Permissions {
@@ -264,18 +263,18 @@ mod tests {
             extrinsic: Subset::All,
             portfolio: Subset::elem(1),
         };
-        let rk3 = SigningKey::new(Signatory::Account(key.clone()), rk3_permissions.clone());
+        let rk3 = SecondaryKey::new(Signatory::Account(key.clone()), rk3_permissions.clone());
         assert_ne!(rk1, rk3);
 
-        let mut rk4 = SigningKey::from_account_id(key);
+        let mut rk4 = SecondaryKey::from_account_id(key);
         rk4.permissions = rk3_permissions;
         assert_eq!(rk3, rk4);
 
-        let si1 = SigningKey::from(IdentityId::from(1u128));
-        let si2 = SigningKey::from(IdentityId::from(1u128));
+        let si1 = SecondaryKey::from(IdentityId::from(1u128));
+        let si2 = SecondaryKey::from(IdentityId::from(1u128));
         assert_eq!(si1, si2);
 
-        let si3 = SigningKey::from(IdentityId::from(2u128));
+        let si3 = SecondaryKey::from(IdentityId::from(2u128));
         assert_ne!(si1, si3);
 
         assert_ne!(si1, rk1);
@@ -291,8 +290,8 @@ mod tests {
             extrinsic: Subset::All,
             portfolio: Subset::elem(1),
         };
-        let free_key = SigningKey::new(Signatory::Account(key.clone()), Permissions::default());
-        let restricted_key = SigningKey::new(Signatory::Account(key), permissions.clone());
+        let free_key = SecondaryKey::new(Signatory::Account(key.clone()), Permissions::default());
+        let restricted_key = SecondaryKey::new(Signatory::Account(key), permissions.clone());
         assert!(free_key.has_asset_permission(ticker2));
         assert!(free_key.has_extrinsic_permission(vec![2]));
         assert!(free_key.has_portfolio_permission(2));

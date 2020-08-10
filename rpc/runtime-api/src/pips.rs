@@ -103,7 +103,7 @@ sp_api::decl_runtime_apis! {
         /// Retrieve referendums voted on information by `address` account.
         fn voting_history_by_address(address: AccountId) -> HistoricalVotingByAddress<Vote<Balance>>;
 
-        /// Retrieve referendums voted on information by `id` identity (and its signing items).
+        /// Retrieve referendums voted on information by `id` identity (and its secondary keys).
         fn voting_history_by_id(id: IdentityId) -> HistoricalVotingById<AccountId, Vote<Balance>>;
     }
 }
