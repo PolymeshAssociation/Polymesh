@@ -140,7 +140,7 @@ decl_module! {
         /// * `who` - Target member of the group.
         /// * `expiry` - Time-stamp when `who` is removed from CDD. As soon as it is expired, the
         /// generated claims will be "invalid" as `who` is not considered a member of the group.
-        #[weight = (500_000, DispatchClass::Operational, Pays::Yes)]
+        #[weight = (750_000_000, DispatchClass::Operational, Pays::Yes)]
         pub fn disable_member( origin,
             who: IdentityId,
             expiry: Option<T::Moment>,
@@ -156,7 +156,7 @@ decl_module! {
         /// # Arguments
         /// * `origin` - Origin representing `AddOrigin` or root
         /// * `who` - IdentityId to be added to the group.
-        #[weight = (500_000, DispatchClass::Operational, Pays::Yes)]
+        #[weight = (750_000_000, DispatchClass::Operational, Pays::Yes)]
         pub fn add_member(origin, who: IdentityId) {
             T::AddOrigin::ensure_origin(origin)?;
 
@@ -180,7 +180,7 @@ decl_module! {
         /// # Arguments
         /// * `origin` - Origin representing `RemoveOrigin` or root
         /// * `who` - IdentityId to be removed from the group.
-        #[weight = (500_000, DispatchClass::Operational, Pays::Yes)]
+        #[weight = (750_000_000, DispatchClass::Operational, Pays::Yes)]
         pub fn remove_member(origin, who: IdentityId) -> DispatchResult {
             T::RemoveOrigin::ensure_origin(origin)?;
             Self::unsafe_remove_member(who)
@@ -194,7 +194,7 @@ decl_module! {
         /// * `origin` - Origin representing `SwapOrigin` or root
         /// * `remove` - IdentityId to be removed from the group.
         /// * `add` - IdentityId to be added in place of `remove`.
-        #[weight = (500_000, DispatchClass::Operational, Pays::Yes)]
+        #[weight = (750_000_000, DispatchClass::Operational, Pays::Yes)]
         pub fn swap_member(origin, remove: IdentityId, add: IdentityId) {
             T::SwapOrigin::ensure_origin(origin)?;
 
@@ -222,7 +222,7 @@ decl_module! {
         /// # Arguments
         /// * `origin` - Origin representing `ResetOrigin` or root
         /// * `members` - New set of identities
-        #[weight = (500_000, DispatchClass::Operational, Pays::Yes)]
+        #[weight = (750_000_000, DispatchClass::Operational, Pays::Yes)]
         pub fn reset_members(origin, members: Vec<IdentityId>) {
             T::ResetOrigin::ensure_origin(origin)?;
 
@@ -246,7 +246,7 @@ decl_module! {
         ///
         /// * Only master key can abdicate.
         /// * Last member of a group cannot abdicate.
-        #[weight = (100_000, DispatchClass::Operational, Pays::Yes)]
+        #[weight = (1_000_000_000, DispatchClass::Operational, Pays::Yes)]
         pub fn abdicate_membership(origin) -> DispatchResult {
             let who = ensure_signed(origin)?;
             let remove_id = Context::current_identity_or::<Identity<T>>(&who)?;
