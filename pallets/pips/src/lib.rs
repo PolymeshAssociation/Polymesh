@@ -475,7 +475,7 @@ decl_module! {
         ///
         /// # Arguments
         /// * `deposit` the new min deposit required to start a proposal
-        #[weight = (100_000, DispatchClass::Operational, Pays::Yes)]
+        #[weight = (150_000_000, DispatchClass::Operational, Pays::Yes)]
         pub fn set_prune_historical_pips(origin, new_value: bool) {
             T::CommitteeOrigin::ensure_origin(origin)?;
             Self::deposit_event(RawEvent::HistoricalPipsPruned(SystematicIssuers::Committee.as_id(), Self::prune_historical_pips(), new_value));
@@ -487,7 +487,7 @@ decl_module! {
         ///
         /// # Arguments
         /// * `deposit` the new min deposit required to start a proposal
-        #[weight = (100_000, DispatchClass::Operational, Pays::Yes)]
+        #[weight = (150_000_000, DispatchClass::Operational, Pays::Yes)]
         pub fn set_min_proposal_deposit(origin, deposit: BalanceOf<T>) {
             T::CommitteeOrigin::ensure_origin(origin)?;
             Self::deposit_event(RawEvent::MinimumProposalDepositChanged(SystematicIssuers::Committee.as_id(), Self::min_proposal_deposit(), deposit));
@@ -500,7 +500,7 @@ decl_module! {
         ///
         /// # Arguments
         /// * `threshold` the new quorum threshold amount value
-        #[weight = (100_000, DispatchClass::Operational, Pays::Yes)]
+        #[weight = (150_000_000, DispatchClass::Operational, Pays::Yes)]
         pub fn set_quorum_threshold(origin, threshold: BalanceOf<T>) {
             T::CommitteeOrigin::ensure_origin(origin)?;
             Self::deposit_event(RawEvent::MinimumProposalDepositChanged(SystematicIssuers::Committee.as_id(), Self::quorum_threshold(), threshold));
@@ -512,7 +512,7 @@ decl_module! {
         ///
         /// # Arguments
         /// * `duration` proposal duration in blocks
-        #[weight = (100_000, DispatchClass::Operational, Pays::Yes)]
+        #[weight = (150_000_000, DispatchClass::Operational, Pays::Yes)]
         pub fn set_proposal_duration(origin, duration: T::BlockNumber) {
             T::CommitteeOrigin::ensure_origin(origin)?;
             Self::deposit_event(RawEvent::ProposalDurationChanged(SystematicIssuers::Committee.as_id(), Self::proposal_duration(), duration));
@@ -525,7 +525,7 @@ decl_module! {
         ///
         /// # Arguments
         /// * `duration` proposal cool off period duration in blocks
-        #[weight = (100_000, DispatchClass::Operational, Pays::Yes)]
+        #[weight = (150_000_000, DispatchClass::Operational, Pays::Yes)]
         pub fn set_proposal_cool_off_period(origin, duration: T::BlockNumber) {
             T::CommitteeOrigin::ensure_origin(origin)?;
             Self::deposit_event(RawEvent::ProposalDurationChanged(SystematicIssuers::Committee.as_id(), Self::proposal_cool_off_period(), duration));
@@ -533,7 +533,7 @@ decl_module! {
         }
 
         /// Change the default enact period.
-        #[weight = (100_000, DispatchClass::Operational, Pays::Yes)]
+        #[weight = (300_000_000, DispatchClass::Operational, Pays::Yes)]
         pub fn set_default_enactment_period(origin, duration: T::BlockNumber) {
             T::CommitteeOrigin::ensure_origin(origin)?;
             let previous_duration = <DefaultEnactmentPeriod<T>>::get();
@@ -548,7 +548,7 @@ decl_module! {
         /// * `proposal` a dispatchable call
         /// * `deposit` minimum deposit value
         /// * `url` a link to a website for proposal discussion
-        #[weight = (5_000_000, DispatchClass::Operational, Pays::Yes)]
+        #[weight = (1_850_000_000, DispatchClass::Operational, Pays::Yes)]
         pub fn propose(
             origin,
             proposal: Box<T::Proposal>,
@@ -627,7 +627,7 @@ decl_module! {
         /// * `BadOrigin`: Only the owner of the proposal can amend it.
         /// * `ProposalIsImmutable`: A proposals is mutable only during its cool off period.
         ///
-        #[weight = (1_000_000, DispatchClass::Operational, Pays::Yes)]
+        #[weight = (1_000_000_000, DispatchClass::Operational, Pays::Yes)]
         pub fn amend_proposal(
                 origin,
                 id: PipId,
@@ -668,7 +668,7 @@ decl_module! {
         /// # Errors
         /// * `BadOrigin`: Only the owner of the proposal can amend it.
         /// * `ProposalIsImmutable`: A Proposal is mutable only during its cool off period.
-        #[weight = (1_000_000, DispatchClass::Operational, Pays::Yes)]
+        #[weight = (750_000_000, DispatchClass::Operational, Pays::Yes)]
         pub fn cancel_proposal(origin, id: PipId) -> DispatchResult {
             // 1. Fetch proposer and perform sanity checks.
             let _ = Self::ensure_owned_by_alterable(origin, id)?;
@@ -689,7 +689,7 @@ decl_module! {
         /// # Errors
         /// * `BadOrigin`: Only the owner of the proposal can bond an additional deposit.
         /// * `ProposalIsImmutable`: A Proposal is mutable only during its cool off period.
-        #[weight = 200_000]
+        #[weight = 900_000_000]
         pub fn bond_additional_deposit(origin,
             id: PipId,
             additional_deposit: BalanceOf<T>
@@ -725,7 +725,7 @@ decl_module! {
         /// * `ProposalIsImmutable`: A Proposal is mutable only during its cool off period.
         /// * `InsufficientDeposit`: If the final deposit will be less that the minimum deposit for
         /// a proposal.
-        #[weight = 200_000]
+        #[weight = 900_000_000]
         pub fn unbond_deposit(origin,
             id: PipId,
             amount: BalanceOf<T>
@@ -765,7 +765,7 @@ decl_module! {
         /// * `id` proposal id
         /// * `aye_or_nay` a bool representing for or against vote
         /// * `deposit` minimum deposit value
-        #[weight = 200_000]
+        #[weight = 1_000_000_000]
         pub fn vote(origin, id: PipId, aye_or_nay: bool, deposit: BalanceOf<T>) {
             let proposer = ensure_signed(origin)?;
             let meta = Self::proposal_metadata(id)
@@ -811,7 +811,7 @@ decl_module! {
 
         /// An emergency stop measure to kill a proposal. Governance committee can kill
         /// a proposal at any time.
-        #[weight = (100_000, DispatchClass::Operational, Pays::Yes)]
+        #[weight = (550_000_000, DispatchClass::Operational, Pays::Yes)]
         pub fn kill_proposal(origin, id: PipId) {
             T::VotingMajorityOrigin::ensure_origin(origin)?;
             ensure!(<Proposals<T>>::contains_key(id), Error::<T>::NoSuchProposal);
@@ -824,7 +824,7 @@ decl_module! {
 
         /// An emergency stop measure to kill a proposal. Governance committee can kill
         /// a proposal at any time.
-        #[weight = (100_000, DispatchClass::Operational, Pays::Yes)]
+        #[weight = (550_000_000, DispatchClass::Operational, Pays::Yes)]
         pub fn prune_proposal(origin, id: PipId) {
             T::VotingMajorityOrigin::ensure_origin(origin)?;
             // Check that the proposal is in a state valid for pruning
@@ -851,7 +851,7 @@ decl_module! {
 
         /// Any governance committee member can fast track a proposal and turn it into a referendum
         /// that will be voted on by the committee.
-        #[weight = (200_000, DispatchClass::Operational, Pays::Yes)]
+        #[weight = (1_000_000_000, DispatchClass::Operational, Pays::Yes)]
         pub fn fast_track_proposal(origin, id: PipId) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             let did = Context::current_identity_or::<Identity<T>>(&sender)?;
@@ -876,7 +876,7 @@ decl_module! {
 
         /// Governance committee can make a proposal that automatically becomes a referendum on
         /// which the committee can vote on.
-        #[weight = (200_000, DispatchClass::Operational, Pays::Yes)]
+        #[weight = (1_000_000_000, DispatchClass::Operational, Pays::Yes)]
         pub fn emergency_referendum(
             origin,
             proposal: Box<T::Proposal>,
@@ -931,7 +931,7 @@ decl_module! {
         }
 
         /// Moves a referendum instance into dispatch queue.
-        #[weight = (100_000, DispatchClass::Operational, Pays::Yes)]
+        #[weight = (800_000_000, DispatchClass::Operational, Pays::Yes)]
         pub fn enact_referendum(origin, id: PipId) -> DispatchResult {
             T::VotingMajorityOrigin::ensure_origin(origin)?;
             // Check that referendum is Pending
@@ -940,7 +940,7 @@ decl_module! {
         }
 
         /// Moves a referendum instance into rejected state.
-        #[weight = (100_000, DispatchClass::Operational, Pays::Yes)]
+        #[weight = (400_000_000, DispatchClass::Operational, Pays::Yes)]
         pub fn reject_referendum(origin, id: PipId) -> DispatchResult {
             T::VotingMajorityOrigin::ensure_origin(origin)?;
             // Check that referendum is Pending
@@ -961,7 +961,7 @@ decl_module! {
         /// # Errors
         /// * `BadOrigin`, Only the release coordinator can update the enactment period.
         /// * ``,
-        #[weight = (100_000, DispatchClass::Operational, Pays::Yes)]
+        #[weight = (750_000_000, DispatchClass::Operational, Pays::Yes)]
         pub fn override_referendum_enactment_period(origin, id: PipId, until: Option<T::BlockNumber>) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             let current_did = Context::current_identity_or::<Identity<T>>(&sender)?;
