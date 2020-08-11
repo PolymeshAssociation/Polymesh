@@ -29,22 +29,20 @@
 //!   - When code is instantiated enforce a POLYX fee to the DID owning the code (i.e. that executed put_code)
 
 use frame_support::{
-    decl_error, decl_module, decl_storage, decl_event,
+    decl_error, decl_event, decl_module, decl_storage,
     dispatch::{DispatchResult, DispatchResultWithPostInfo},
     ensure,
     traits::Get,
 };
-use frame_system::{ self as system, ensure_signed };
+use frame_system::{self as system, ensure_signed};
 use pallet_contracts::{BalanceOf, CodeHash, Gas, Schedule};
 use pallet_identity as identity;
 use polymesh_common_utilities::{
     identity::Trait as IdentityTrait,
     protocol_fee::{ChargeProtocolFee, ProtocolOp},
-    Context
+    Context,
 };
-use polymesh_primitives::{
-    IdentityId, SmartExtensionMetadata, TemplateMetaData,
-};
+use polymesh_primitives::{IdentityId, SmartExtensionMetadata, TemplateMetaData};
 use sp_runtime::{
     traits::{Hash, Saturating, StaticLookup},
     Perbill,
@@ -85,9 +83,9 @@ decl_event! {
         where
         Balance = BalanceOf<T>,
         CodeHash = <T as frame_system::Trait>::Hash,
-    {   
+    {
         /// Emitted when instantiation fee of a template get changed.
-        /// IdentityId of the owner, Code hash of the template, old instantiation fee, new instantiation fee. 
+        /// IdentityId of the owner, Code hash of the template, old instantiation fee, new instantiation fee.
         InstantiationFeeChanged(IdentityId, CodeHash, Balance, Balance),
         /// Emitted when the instantiation of the template get freezed.
         /// IdentityId of the owner, Code hash of the template.
