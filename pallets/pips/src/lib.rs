@@ -573,7 +573,7 @@ decl_module! {
         }
 
         /// Change the default enact period.
-        #[weight = (300_000_000, DispatchClass::Operational, Pays::Yes)]
+        #[weight = (150_000_000, DispatchClass::Operational, Pays::Yes)]
         pub fn set_default_enactment_period(origin, duration: T::BlockNumber) {
             T::CommitteeOrigin::ensure_origin(origin)?;
             let prev = <DefaultEnactmentPeriod<T>>::get();
@@ -583,7 +583,7 @@ decl_module! {
 
         /// Change the maximum skip count (`max_pip_skip_count`).
         /// New values only
-        #[weight = (100_000, DispatchClass::Operational, Pays::Yes)]
+        #[weight = (150_000_000, DispatchClass::Operational, Pays::Yes)]
         pub fn set_max_pip_skip_count(origin, new_max: SkippedCount) {
             T::CommitteeOrigin::ensure_origin(origin)?;
             let prev_max = MaxPipSkipCount::get();
@@ -592,7 +592,7 @@ decl_module! {
         }
 
         /// Change the maximum number of active PIPs before community members cannot propose anything.
-        #[weight = (100_000, DispatchClass::Operational, Pays::Yes)]
+        #[weight = (150_000_000, DispatchClass::Operational, Pays::Yes)]
         pub fn set_active_pip_limit(origin, new_max: u32) {
             T::CommitteeOrigin::ensure_origin(origin)?;
             let prev_max = ActivePipLimit::get();
@@ -872,7 +872,7 @@ decl_module! {
         /// * `IncorrectProposalState` if the proposal isn't pending.
         /// * `ProposalOnCoolOffPeriod` if the proposal is cooling off.
         /// * `NotByCommittee` if the proposal isn't by a committee.
-        #[weight = (100_000, DispatchClass::Operational, Pays::Yes)]
+        #[weight = (1_000_000_000, DispatchClass::Operational, Pays::Yes)]
         pub fn approve_committee_proposal(origin, id: PipId) {
             // 1. Only GC can do this.
             T::VotingMajorityOrigin::ensure_origin(origin)?;
@@ -970,7 +970,7 @@ decl_module! {
         ///
         /// # Errors
         /// * `NotACommitteeMember` - triggered when a non-GC-member executes the function.
-        #[weight = (100_000, DispatchClass::Operational, Pays::Yes)]
+        #[weight = (1_000_000_000, DispatchClass::Operational, Pays::Yes)]
         pub fn clear_snapshot(origin) -> DispatchResult {
             // 1. Check that a GC member is executing this.
             let actor = ensure_signed(origin)?;
@@ -991,7 +991,7 @@ decl_module! {
         ///
         /// # Errors
         /// * `NotACommitteeMember` - triggered when a non-GC-member executes the function.
-        #[weight = (100_000, DispatchClass::Operational, Pays::Yes)]
+        #[weight = (1_000_000_000, DispatchClass::Operational, Pays::Yes)]
         pub fn snapshot(origin) -> DispatchResult {
             // 1. Check that a GC member is executing this.
             let made_by = ensure_signed(origin)?;
@@ -1066,7 +1066,7 @@ decl_module! {
         ///      results[i].0 ≠ SnapshotQueue[SnapshotQueue.len() - i].id
         ///   ```
         ///    This is protects against clearing queue while GC is voting.
-        #[weight = (100_000, DispatchClass::Operational, Pays::Yes)]
+        #[weight = (1_000_000_000, DispatchClass::Operational, Pays::Yes)]
         pub fn enact_snapshot_results(origin, results: Vec<(PipId, SnapshotResult)>) -> DispatchResult {
             T::VotingMajorityOrigin::ensure_origin(origin)?;
 
