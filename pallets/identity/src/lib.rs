@@ -866,8 +866,8 @@ decl_module! {
                             T::MultiSig::accept_multisig_signer(Signatory::from(did), auth_id),
                         AuthorizationData::JoinIdentity(_) =>
                             Self::join_identity(Signatory::from(did), auth_id),
-                        AuthorizationData::RotateMasterKey(..)
-                        | AuthorizationData::AttestMasterKeyRotation(..)
+                        AuthorizationData::RotatePrimaryKey(..)
+                        | AuthorizationData::AttestPrimaryKeyRotation(..)
                         | AuthorizationData::Custom(..)
                         | AuthorizationData::NoData =>
                             Err(Error::<T>::UnknownAuthorization.into())
@@ -884,7 +884,7 @@ decl_module! {
                         AuthorizationData::TransferTicker(..)
                         | AuthorizationData::TransferTreasury(..)
                         | AuthorizationData::TransferAssetOwnership(..)
-                        | AuthorizationData::AttestMasterKeyRotation(..)
+                        | AuthorizationData::AttestPrimaryKeyRotation(..)
                         | AuthorizationData::Custom(..)
                         | AuthorizationData::NoData =>
                             Err(Error::<T>::UnknownAuthorization.into())
