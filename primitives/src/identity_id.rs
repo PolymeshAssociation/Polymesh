@@ -68,6 +68,12 @@ impl IdentityId {
         self.0
     }
 
+    /// Returns an iterator over the slice.
+    #[inline]
+    pub fn iter(&self) -> sp_std::slice::Iter<'_, u8> {
+        self.0.iter()
+    }
+
     fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
         write!(f, "did:poly:")?;
         for byte in &self.0 {
@@ -129,10 +135,10 @@ impl TryFrom<&[u8]> for IdentityId {
     type Error = &'static str;
 
     fn try_from(did: &[u8]) -> Result<Self, Self::Error> {
-        if did.len() == UUID_LEN {
+        if did.len() <= UUID_LEN {
             // case where a 256 bit hash is being converted
             let mut fixed = [0; 32];
-            fixed.copy_from_slice(&did);
+            fixed[(UUID_LEN - did.len())..].copy_from_slice(&did);
             Ok(IdentityId::from(fixed))
         } else {
             // case where a string represented as u8 is being converted
@@ -175,6 +181,7 @@ pub struct PortfolioName(pub Vec<u8>);
 /// The unique ID of a non-default portfolio.
 pub type PortfolioNumber = u64;
 
+/// TBD
 #[derive(Decode, Encode, Clone, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 pub enum PortfolioKind {
@@ -277,14 +284,13 @@ mod tests {
             "Missing 'did:poly:' prefix"
         );
         assert_err!(
-            IdentityId::try_from("did:poly:a4a7".as_bytes()),
+            IdentityId::try_from("did:poly:a4a7"),
             "Invalid length of IdentityId"
         );
 
         assert_err!(
             IdentityId::try_from(
                 "did:poly:f1d273950ddaf693db228084d63ef18282e00f91997ae9df4f173f09e86d097X"
-                    .as_bytes()
             ),
             "DID code is not a valid hex"
         );

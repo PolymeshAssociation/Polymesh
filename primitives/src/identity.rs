@@ -19,7 +19,7 @@ use sp_core::{crypto::Public as PublicType, sr25519::Public};
 use sp_runtime::{Deserialize, Serialize};
 use sp_std::{convert::From, prelude::Vec};
 
-use crate::{IdentityRole, Signatory, SigningKey};
+use crate::{IdentityRole, SecondaryKey, Signatory};
 
 /// Identity information.
 #[allow(missing_docs)]
@@ -27,8 +27,8 @@ use crate::{IdentityRole, Signatory, SigningKey};
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 pub struct Identity<AccountId> {
     pub roles: Vec<IdentityRole>,
-    pub master_key: AccountId,
-    pub signing_keys: Vec<SigningKey<AccountId>>,
+    pub primary_key: AccountId,
+    pub secondary_keys: Vec<SecondaryKey<AccountId>>,
 }
 
 impl<AccountId> Identity<AccountId>
@@ -36,9 +36,9 @@ where
     AccountId: Clone + Default + Eq + Ord,
 {
     /// Creates an [`Identity`] from an `AccountId`.
-    pub fn new(master_key: AccountId) -> Self {
+    pub fn new(primary_key: AccountId) -> Self {
         Identity {
-            master_key,
+            primary_key,
             ..Default::default()
         }
     }
@@ -48,19 +48,25 @@ where
         self.roles.contains(&role)
     }
 
-    /// It adds `new_signing_keys` to `self`.
+    /// It adds `new_secondary_keys` to `self`.
     /// It also keeps its internal list sorted and removes duplicate elements.
-    pub fn add_signing_keys(&mut self, new_signing_keys: &[SigningKey<AccountId>]) -> &mut Self {
-        self.signing_keys.extend_from_slice(new_signing_keys);
-        self.signing_keys.sort();
-        self.signing_keys.dedup();
+    pub fn add_secondary_keys(
+        &mut self,
+        new_secondary_keys: &[SecondaryKey<AccountId>],
+    ) -> &mut Self {
+        self.secondary_keys.extend_from_slice(new_secondary_keys);
+        self.secondary_keys.sort();
+        self.secondary_keys.dedup();
 
         self
     }
 
-    /// It removes `keys_to_remove` from signing keys.
-    pub fn remove_signing_keys(&mut self, signers_to_remove: &[Signatory<AccountId>]) -> &mut Self {
-        self.signing_keys.retain(|curr_si| {
+    /// It removes `keys_to_remove` from secondary keys.
+    pub fn remove_secondary_keys(
+        &mut self,
+        signers_to_remove: &[Signatory<AccountId>],
+    ) -> &mut Self {
+        self.secondary_keys.retain(|curr_si| {
             signers_to_remove
                 .iter()
                 .find(|&signer| curr_si.signer == *signer)
@@ -77,7 +83,7 @@ where
 {
     fn from(p: Public) -> Self {
         Identity {
-            master_key: AccountId::from_slice(&p.0[..]),
+            primary_key: AccountId::from_slice(&p.0[..]),
             ..Default::default()
         }
     }

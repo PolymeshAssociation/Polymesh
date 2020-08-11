@@ -20,7 +20,7 @@
 //! ## To Do
 //!
 //!   - Remove the ability to call the Contracts module, bypassing Contracts Wrapper
-//!   - Integrate DID into all calls, and validate signing_key
+//!   - Integrate DID into all calls, and validate secondary_key
 //!   - Track ownership of code and instances via DIDs
 //!
 //! ## Possible Tokenomics
@@ -52,8 +52,8 @@ decl_storage! {
 
 decl_error! {
     pub enum Error for Module<T: Trait> {
-        /// The sender must be a signing key for the DID.
-        SenderMustBeSigningKeyForDid,
+        /// The sender must be a secondary key for the DID.
+        SenderMustBeSecondaryKeyForDid,
     }
 }
 
@@ -84,7 +84,7 @@ decl_module! {
             // Check that sender is allowed to act on behalf of `did`
             ensure!(
                 <identity::Module<T>>::is_signer_authorized(did, &signer),
-                Error::<T>::SenderMustBeSigningKeyForDid
+                Error::<T>::SenderMustBeSecondaryKeyForDid
             );
 
             // Call underlying function

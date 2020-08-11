@@ -153,7 +153,7 @@ decl_module! {
         #[weight = (
             calls.iter()
                 .map(|call| call.get_dispatch_info().weight)
-                .fold(15_000_000, |a: Weight, n| a.saturating_add(n).saturating_add(1_000_000)),
+                .fold(550_000_000, |a: Weight, n| a.saturating_add(n).saturating_add(10_000_000)),
             {
                 let all_operational = calls.iter()
                     .map(|call| call.get_dispatch_info().class)
@@ -194,9 +194,9 @@ decl_module! {
         /// - `call`: Call to be relayed on behalf of target
         ///
         /// # Weight
-        /// - The weight of the call to be relayed plus a static 250_000.
+        /// - The weight of the call to be relayed plus a static 900_000_000.
         #[weight = (
-            call.call.get_dispatch_info().weight.saturating_add(250_000),
+            call.call.get_dispatch_info().weight.saturating_add(900_000_000),
             call.call.get_dispatch_info().class,
         )]
         pub fn relay_tx(
@@ -227,10 +227,10 @@ decl_module! {
             <Nonces<T>>::insert(target.clone(), target_nonce + 1);
 
             call.call.dispatch(RawOrigin::Signed(target).into())
-                .map(|info| info.actual_weight.map(|w| w.saturating_add(250_000)).into())
+                .map(|info| info.actual_weight.map(|w| w.saturating_add(90_000_000)).into())
                 .map_err(|e| DispatchErrorWithPostInfo {
                     error: e.error,
-                    post_info: e.post_info.actual_weight.map(|w| w.saturating_add(250_000)).into()
+                    post_info: e.post_info.actual_weight.map(|w| w.saturating_add(90_000_000)).into()
                 })
         }
     }

@@ -31,8 +31,8 @@ pub enum ProtocolOp {
     IdentityRegisterDid,
     IdentityCddRegisterDid,
     IdentityAddClaim,
-    IdentitySetMasterKey,
-    IdentityAddSigningKeysWithAuthorization,
+    IdentitySetPrimaryKey,
+    IdentityAddSecondaryKeysWithAuthorization,
     PipsPropose,
     VotingAddBallot,
 }
