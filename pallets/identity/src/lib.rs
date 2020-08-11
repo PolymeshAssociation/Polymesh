@@ -1997,15 +1997,16 @@ impl<T: Trait> Module<T> {
                     // Unlink multisig signers from the identity.
                     Self::unlink_multisig_signers_from_did(T::MultiSig::get_key_signers(key), did);
                 }
-                // Update secondary keys at Identity.
-                <DidRecords<T>>::mutate(did, |record| {
-                    record.remove_secondary_keys(&[signer.clone()]);
-                });
+                Self::unlink_account_key_from_did(key, did);
             }
             Signatory::Identity(source_did) => {
                 Self::unlink_identity_key_from_did(source_did, did);
             }
         }
+        // Update secondary keys at Identity.
+        <DidRecords<T>>::mutate(did, |record| {
+            record.remove_secondary_keys(&[signer.clone()]);
+        });
         Self::deposit_event(RawEvent::SignerLeft(did, signer));
         Ok(())
     }
