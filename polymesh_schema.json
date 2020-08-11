@@ -253,6 +253,12 @@
                 "Committee": "Committee"
             }
         },
+        "Committee": {
+            "_enum": {
+                "Technical": "",
+                "Upgrade": ""
+            }
+        },
         "SkippedCount": "u8",
         "SnapshottedPip": {
             "id": "PipId",
