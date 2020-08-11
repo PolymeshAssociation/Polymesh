@@ -147,7 +147,7 @@ fn general_testnet_genesis(
         }),
         identity: {
             let initial_identities = vec![
-                // (master_account_id, service provider did, target did, expiry time of CustomerDueDiligence claim i.e 10 days is ms)
+                // (primary_account_id, service provider did, target did, expiry time of CustomerDueDiligence claim i.e 10 days is ms)
                 // Service providers
                 (
                     get_account_id_from_seed::<sr25519::Public>("cdd_provider_1"),
@@ -204,7 +204,7 @@ fn general_testnet_genesis(
                 .chain(authority_identities.iter().cloned())
                 .collect::<Vec<_>>();
             identity_counter = num_initial_identities;
-            let signing_keys = initial_authorities
+            let secondary_keys = initial_authorities
                 .iter()
                 .map(|x| {
                     identity_counter += 1;
@@ -214,7 +214,7 @@ fn general_testnet_genesis(
 
             Some(GeneralConfig::IdentityConfig {
                 identities: all_identities,
-                signing_keys,
+                secondary_keys,
                 ..Default::default()
             })
         },
@@ -597,7 +597,7 @@ fn aldebaran_testnet_genesis(
         }),
         identity: {
             let initial_identities = vec![
-                // (master_account_id, service provider did, target did, expiry time of CustomerDueDiligence claim i.e 10 days is ms)
+                // (primary_account_id, service provider did, target did, expiry time of CustomerDueDiligence claim i.e 10 days is ms)
                 // Service providers
                 (
                     get_account_id_from_seed::<sr25519::Public>("cdd_provider_1"),
@@ -661,7 +661,7 @@ fn aldebaran_testnet_genesis(
                 .chain(authority_identities.iter().cloned())
                 .collect::<Vec<_>>();
             identity_counter = num_initial_identities;
-            let signing_keys = initial_authorities
+            let secondary_keys = initial_authorities
                 .iter()
                 .map(|x| {
                     identity_counter += 1;
@@ -671,7 +671,7 @@ fn aldebaran_testnet_genesis(
 
             Some(AldebaranConfig::IdentityConfig {
                 identities: all_identities,
-                signing_keys,
+                secondary_keys,
                 ..Default::default()
             })
         },

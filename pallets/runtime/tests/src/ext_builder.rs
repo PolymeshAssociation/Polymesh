@@ -44,8 +44,8 @@ impl Default for MockProtocolBaseFees {
             ProtocolOp::IdentityRegisterDid,
             ProtocolOp::IdentityCddRegisterDid,
             ProtocolOp::IdentityAddClaim,
-            ProtocolOp::IdentitySetMasterKey,
-            ProtocolOp::IdentityAddSigningKeysWithAuthorization,
+            ProtocolOp::IdentitySetPrimaryKey,
+            ProtocolOp::IdentityAddSecondaryKeysWithAuthorization,
             ProtocolOp::PipsPropose,
             ProtocolOp::VotingAddBallot,
         ];
@@ -284,7 +284,7 @@ impl ExtBuilder {
             .map(|key| {
                 let (id, _) = system_identities
                     .iter()
-                    .find(|(_id, info)| info.master_key == *key)
+                    .find(|(_id, info)| info.primary_key == *key)
                     .unwrap();
                 id
             })
@@ -305,7 +305,7 @@ impl ExtBuilder {
             .map(|key| {
                 let (id, _) = system_identities
                     .iter()
-                    .find(|(_id, info)| info.master_key == *key)
+                    .find(|(_id, info)| info.primary_key == *key)
                     .unwrap();
                 id
             })

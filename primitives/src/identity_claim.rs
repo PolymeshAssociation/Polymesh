@@ -13,20 +13,23 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
-use crate::{identity_id::IdentityId, CddId, Moment};
+use crate::{identity_id::IdentityId, CddId, InvestorZKProofData, Moment};
 use polymesh_primitives_derive::VecU8StrongTyped;
 
 use codec::{Decode, Encode};
 #[cfg(feature = "std")]
 use sp_runtime::{Deserialize, Serialize};
+
 use sp_std::prelude::*;
 
 /// Scope: Almost all claim needs a valid scope identity.
 pub type Scope = IdentityId;
+/// It is the asset Id.
+pub type ScopeId = Scope;
 
 /// All possible claims in polymesh
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, PartialOrd, Ord)]
+#[derive(Encode, Decode, Clone, PartialEq, Eq, Debug)]
 pub enum Claim {
     /// User is Accredited
     Accredited(Scope),
@@ -46,6 +49,8 @@ pub enum Claim {
     Exempted(Scope),
     /// User is Blocked
     Blocked(Scope),
+    /// Confidential Scope claim
+    InvestorZKProof(Scope, ScopeId, CddId, InvestorZKProofData),
     /// Empty claim
     NoData,
 }
@@ -69,6 +74,7 @@ impl Claim {
             Claim::Jurisdiction(..) => ClaimType::Jurisdiction,
             Claim::Exempted(..) => ClaimType::Exempted,
             Claim::Blocked(..) => ClaimType::Blocked,
+            Claim::InvestorZKProof(..) => ClaimType::InvestorZKProof,
             Claim::NoData => ClaimType::NoType,
         }
     }
@@ -85,6 +91,7 @@ impl Claim {
             Claim::Jurisdiction(.., ref scope) => Some(scope),
             Claim::Exempted(ref scope) => Some(scope),
             Claim::Blocked(ref scope) => Some(scope),
+            Claim::InvestorZKProof(ref ticker_scope, ..) => Some(ticker_scope),
             Claim::NoData => None,
         }
     }
@@ -119,6 +126,8 @@ pub enum ClaimType {
     Exempted,
     /// User is Blocked.
     Blocked,
+    ///
+    InvestorZKProof,
     /// Empty type
     NoType,
 }
@@ -132,12 +141,13 @@ impl Default for ClaimType {
 /// A wrapper for Jurisdiction name.
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[derive(
-    Decode, Encode, Clone, Debug, Default, Hash, PartialEq, Eq, PartialOrd, Ord, VecU8StrongTyped,
+    Decode, Encode, Clone, Default, Hash, PartialEq, Eq, PartialOrd, Ord, VecU8StrongTyped, Debug,
 )]
 pub struct JurisdictionName(pub Vec<u8>);
 
 /// All information of a particular claim
-#[derive(Encode, Decode, Clone, Default, PartialEq, Eq, Debug, PartialOrd, Ord)]
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize, Debug))]
+#[derive(Encode, Decode, Clone, Default, PartialEq, Eq)]
 pub struct IdentityClaim {
     /// Issuer of the claim
     pub claim_issuer: IdentityId,

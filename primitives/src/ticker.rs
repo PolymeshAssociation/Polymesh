@@ -16,7 +16,8 @@
 //! Ticker symbol
 use codec::{Decode, Encode, Error, Input};
 #[cfg(feature = "std")]
-use serde::{Deserialize, Deserializer, Serialize, Serializer};
+use polymesh_primitives_derive::{DeserializeU8StrongTyped, SerializeU8StrongTyped};
+
 use sp_std::convert::TryFrom;
 
 const TICKER_LEN: usize = 12;
@@ -27,6 +28,10 @@ const TICKER_LEN: usize = 12;
 /// received by a Substrate module call method has to be converted to canonical uppercase
 /// representation using [`Ticker::canonize`].
 #[derive(Encode, Clone, Copy, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
+#[cfg_attr(
+    feature = "std",
+    derive(SerializeU8StrongTyped, DeserializeU8StrongTyped)
+)]
 pub struct Ticker([u8; TICKER_LEN]);
 
 impl Default for Ticker {
@@ -56,28 +61,6 @@ impl TryFrom<&[u8]> for Ticker {
     }
 }
 
-#[cfg(feature = "std")]
-impl Serialize for Ticker {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        self.using_encoded(|bytes| sp_core::bytes::serialize(bytes, serializer))
-    }
-}
-
-#[cfg(feature = "std")]
-impl<'de> Deserialize<'de> for Ticker {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        let r = sp_core::bytes::deserialize(deserializer)?;
-        Decode::decode(&mut &r[..])
-            .map_err(|e| serde::de::Error::custom(format!("Decode error: {}", e)))
-    }
-}
-
 /// It custom decoder enforces to upper case.
 impl Decode for Ticker {
     fn decode<I: Input>(input: &mut I) -> Result<Self, Error> {
@@ -99,13 +82,27 @@ impl Ticker {
     }
     /// Returns `true` if the ticker is empty, that is, if it has no prefix of characters other than
     /// `0u8`.
+    #[inline]
     pub fn is_empty(&self) -> bool {
         self.0[0] == 0
     }
 
     /// Returns the ticker as a slice.
+    #[inline]
     pub fn as_slice(&self) -> &[u8] {
         &self.0
+    }
+
+    /// Returns the ticker as a fixed-size array.
+    #[inline]
+    pub fn as_bytes(&self) -> &[u8; TICKER_LEN] {
+        &(self.0)
+    }
+
+    /// Returns an iterator over the ticker.
+    #[inline]
+    pub fn iter(&self) -> sp_std::slice::Iter<'_, u8> {
+        self.0.iter()
     }
 }
 

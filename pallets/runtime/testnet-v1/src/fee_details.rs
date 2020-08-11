@@ -35,7 +35,7 @@ type Call = runtime::Call;
 enum CallType {
     AcceptMultiSigSigner,
     AcceptIdentitySigner,
-    AcceptIdentityMaster,
+    AcceptIdentityPrimary,
 }
 
 #[derive(Default, Encode, Decode, Clone, Eq, PartialEq)]
@@ -62,23 +62,23 @@ impl CddAndFeeDetails<AccountId, Call> for CddHandler {
                 sp_runtime::print("register_did, CDD check bypassed");
                 Ok(Some(caller.clone()))
             }
-            // Call made by a new Account key to accept invitation to become a signing key
+            // Call made by a new Account key to accept invitation to become a secondary key
             // of an existing multisig that has a valid CDD. The auth should be valid.
             Call::MultiSig(multisig::Call::accept_multisig_signer_as_key(auth_id)) => {
                 sp_runtime::print("accept_multisig_signer_as_key");
                 is_auth_valid(caller, auth_id, CallType::AcceptMultiSigSigner)
             }
-            // Call made by a new Account key to accept invitation to become a signing key
+            // Call made by a new Account key to accept invitation to become a secondary key
             // of an existing identity that has a valid CDD. The auth should be valid.
             Call::Identity(identity::Call::join_identity_as_key(auth_id, ..)) => {
                 sp_runtime::print("join_identity_as_key");
                 is_auth_valid(caller, auth_id, CallType::AcceptIdentitySigner)
             }
-            // Call made by a new Account key to accept invitation to become the master key
+            // Call made by a new Account key to accept invitation to become the primary key
             // of an existing identity that has a valid CDD. The auth should be valid.
-            Call::Identity(identity::Call::accept_master_key(rotation_auth_id, ..)) => {
-                sp_runtime::print("accept_master_key");
-                is_auth_valid(caller, rotation_auth_id, CallType::AcceptIdentityMaster)
+            Call::Identity(identity::Call::accept_primary_key(rotation_auth_id, ..)) => {
+                sp_runtime::print("accept_primary_key");
+                is_auth_valid(caller, rotation_auth_id, CallType::AcceptIdentityPrimary)
             }
             // Call made by an Account key to propose or approve a multisig transaction.
             // The multisig must have valid CDD and the caller must be a signer of the multisig.
@@ -210,8 +210,8 @@ fn is_auth_valid(
                     return check_cdd(&auth.authorized_by);
                 }
             }
-            CallType::AcceptIdentityMaster => {
-                if let AuthorizationData::RotateMasterKey(_) = auth.authorization_data {
+            CallType::AcceptIdentityPrimary => {
+                if let AuthorizationData::RotatePrimaryKey(_) = auth.authorization_data {
                     return check_cdd(&auth.authorized_by);
                 }
             }

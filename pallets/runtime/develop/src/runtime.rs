@@ -36,7 +36,7 @@ use polymesh_common_utilities::{
 };
 use polymesh_primitives::{
     AccountId, AccountIndex, Authorization, AuthorizationType, Balance, BlockNumber, Hash,
-    IdentityId, Index, Moment, PortfolioId, Signatory, Signature, SigningKey, Ticker,
+    IdentityId, Index, Moment, PortfolioId, SecondaryKey, Signatory, Signature, Ticker,
 };
 use polymesh_runtime_common::{
     bridge,
@@ -76,7 +76,7 @@ use frame_support::{
     traits::{KeyOwnerProofSystem, Randomness, SplitTwoWays},
     weights::{
         constants::{BlockExecutionWeight, ExtrinsicBaseWeight, RocksDbWeight},
-        IdentityFee, Weight,
+        Weight, WeightToFeeCoefficient, WeightToFeeCoefficients, WeightToFeePolynomial,
     },
 };
 use pallet_contracts_rpc_runtime_api::ContractExecResult;
@@ -99,6 +99,8 @@ pub use pallet_staking::StakerStatus;
 pub use pallet_timestamp::Call as TimestampCall;
 #[cfg(any(feature = "std", test))]
 pub use sp_runtime::BuildStorage;
+
+use smallvec::smallvec;
 
 // Make the WASM binary available.
 #[cfg(feature = "std")]
@@ -228,6 +230,20 @@ pub type DealWithFees = SplitTwoWays<
     Author<Runtime>, // 1 part (20%) goes to the block author.
 >;
 
+pub struct WeightToFee;
+impl WeightToFeePolynomial for WeightToFee {
+    type Balance = Balance;
+
+    fn polynomial() -> WeightToFeeCoefficients<Self::Balance> {
+        smallvec![WeightToFeeCoefficient {
+            degree: 1,
+            coeff_frac: Perbill::from_percent(10),
+            coeff_integer: 0u128, // Coefficient is zero
+            negative: false,
+        }]
+    }
+}
+
 parameter_types! {
     pub const TransactionByteFee: Balance = 10 * MILLICENTS;
     // for a sane configuration, this should always be less than `AvailableBlockRatio`.
@@ -238,7 +254,7 @@ impl pallet_transaction_payment::Trait for Runtime {
     type Currency = Balances;
     type OnTransactionPayment = DealWithFees;
     type TransactionByteFee = TransactionByteFee;
-    type WeightToFee = IdentityFee<Balance>;
+    type WeightToFee = WeightToFee;
     type FeeMultiplierUpdate = ();
     type CddHandler = CddHandler;
 }
@@ -1014,7 +1030,7 @@ impl_runtime_apis! {
 
         }
 
-        /// Retrieve referendums voted on information by `id` identity (and its signing items).
+        /// Retrieve referendums voted on information by `id` identity (and its secondary items).
         fn voting_history_by_id(id: IdentityId) -> HistoricalVotingById<AccountId, Vote<Balance>> {
             Pips::voting_history_by_id(id)
         }
@@ -1034,7 +1050,7 @@ impl_runtime_apis! {
             IdentityId,
             Ticker,
             AccountId,
-            SigningKey<AccountId>,
+            SecondaryKey<AccountId>,
             Signatory<AccountId>,
             Moment
         > for Runtime
@@ -1053,8 +1069,8 @@ impl_runtime_apis! {
             }
         }
 
-        /// Retrieve master key and signing keys for a given IdentityId
-        fn get_did_records(did: IdentityId) -> DidRecords<AccountId, SigningKey<AccountId>> {
+        /// Retrieve primary key and secondary keys for a given IdentityId
+        fn get_did_records(did: IdentityId) -> DidRecords<AccountId, SecondaryKey<AccountId>> {
             Identity::get_did_records(did)
         }
 

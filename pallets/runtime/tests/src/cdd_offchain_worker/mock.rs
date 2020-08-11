@@ -638,7 +638,7 @@ impl ExtBuilder {
 
         let _ = identity::GenesisConfig::<Test> {
             identities: vec![
-                /// (master_account_id, service provider did, target did, expiry time of CustomerDueDiligence claim i.e 10 days is ms)
+                /// (primary_account_id, service provider did, target did, expiry time of CustomerDueDiligence claim i.e 10 days is ms)
                 /// Provide Identity
                 (
                     account_key_ring.get(&1005).unwrap().clone(),

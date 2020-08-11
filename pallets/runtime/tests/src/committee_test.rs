@@ -49,7 +49,7 @@ fn motions_basic_environment_works_we() {
 }
 
 fn make_proposal(value: u64) -> Call {
-    Call::Identity(identity::Call::accept_master_key(value, Some(value)))
+    Call::Identity(identity::Call::accept_primary_key(value, Some(value)))
 }
 
 fn hash_enact_referendum(pip: PipId) -> H256 {
