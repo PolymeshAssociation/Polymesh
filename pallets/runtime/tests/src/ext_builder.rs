@@ -247,7 +247,7 @@ impl ExtBuilder {
         // Identity genesis.
         identity::GenesisConfig::<TestStorage> {
             did_records: system_identities.clone(),
-            primary_key_dids: system_links,
+            secondary_keys: system_links,
             identities: vec![],
             ..Default::default()
         }

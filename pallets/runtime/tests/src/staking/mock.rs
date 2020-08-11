@@ -852,7 +852,7 @@ pub(crate) fn active_era() -> EraIndex {
 }
 
 pub fn provide_did_to_user(account: AccountId) -> bool {
-    match Identity::primary_key_dids(account) {
+    match Identity::account_key_dids(account) {
         None => {
             let cdd = Origin::signed(1005);
             assert!(
@@ -899,7 +899,7 @@ pub fn add_secondary_key(stash_key: AccountId, to_secondary_key: AccountId) {
 
 pub fn get_identity(key: AccountId) -> bool {
     let mut have_id = false;
-    <identity::PrimaryKeyDids<Test>>::get(key).is_some()
+    <identity::AccountKeyDids<Test>>::get(key).is_some()
 }
 
 fn check_ledgers() {

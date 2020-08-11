@@ -256,7 +256,9 @@ decl_storage! {
                 <MultiPurposeNonce>::mutate(|n| *n += 1_u64);
                 <Module<T>>::link_account_key_to_did(secondary_account_id, did);
                 let sk = SecondaryKey::from_account_id(secondary_account_id.clone());
-                <DidRecords<T>>::mutate(did, |record| (*record).add_secondary_keys(&[sk.clone()]));
+                <DidRecords<T>>::mutate(did, |record| {
+                    (*record).add_secondary_keys(&[sk.clone()]);
+                });
                 <Module<T>>::deposit_event(RawEvent::SecondaryKeysAdded(did, [sk].to_vec()));
             }
         });
