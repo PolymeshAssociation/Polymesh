@@ -40,7 +40,7 @@ async function issueTokenPerDid(api, accounts, dids, prepend) {
 
     let nonceObj = {nonce: reqImports.nonces.get(accounts[i].address)};
     const transaction = api.tx.asset.createAsset(
-      ticker, ticker, 1000000, true, 0, [], "abc", dids[i]
+      ticker, ticker, 1000000, true, 0, [], "abc"
     );
     const result = await reqImports.sendTransaction(transaction, accounts[i], nonceObj);
     const passed = result.findRecord('system', 'ExtrinsicSuccess');
