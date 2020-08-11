@@ -1824,7 +1824,7 @@ impl<T: Trait> Module<T> {
         }
 
         // 2. Apply changes to our extrinsic.
-        // 2.1. Link primary key and add pre-authorized signing keys.
+        // 2.1. Link primary key and add pre-authorized secondary keys.
         Self::link_account_key_to_did(&sender, did);
         let _auth_ids = secondary_keys
             .iter()
