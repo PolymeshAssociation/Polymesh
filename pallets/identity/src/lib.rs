@@ -530,10 +530,7 @@ decl_module! {
 
             let cdd_count: usize = claims
                 .iter()
-                .filter(|batch_claim_item| match batch_claim_item.claim {
-                    Claim::CustomerDueDiligence(..) => true,
-                    _ => false,
-                })
+                .filter(|batch_claim_item| matches!(batch_claim_item.claim, Claim::CustomerDueDiligence(_)))
                 .count();
             if cdd_count > 0 {
                 let cdd_providers = T::CddServiceProviders::get_members();
@@ -1165,7 +1162,7 @@ impl<T: Trait> Module<T> {
             "Identity does not exist"
         );
 
-        Self::consume_auth(auth.authorized_by.clone(), signer.clone(), auth_id)?;
+        Self::consume_auth(auth.authorized_by, signer.clone(), auth_id)?;
 
         Self::unsafe_join_identity(auth.authorized_by, permissions, signer)
     }
@@ -1209,13 +1206,13 @@ impl<T: Trait> Module<T> {
 
         let auth = Authorization {
             authorization_data: authorization_data.clone(),
-            authorized_by: from.clone(),
+            authorized_by: from,
             expiry,
             auth_id: new_nonce,
         };
 
         <Authorizations<T>>::insert(target.clone(), new_nonce, auth);
-        <AuthorizationsGiven<T>>::insert(from.clone(), new_nonce, target.clone());
+        <AuthorizationsGiven<T>>::insert(from, new_nonce, target.clone());
 
         // This event is split in order to help the event harvesters.
         Self::deposit_event(RawEvent::AuthorizationAdded(
@@ -1497,8 +1494,7 @@ impl<T: Trait> Module<T> {
 
         Self::fetch_base_claim_with_issuer(id, claim_type, issuer, scope)
             .into_iter()
-            .filter(|c| Self::is_identity_claim_not_expired_at(c, now))
-            .next()
+            .find(|c| Self::is_identity_claim_not_expired_at(c, now))
     }
 
     /// See `Self::fetch_cdd`.
@@ -1507,7 +1503,7 @@ impl<T: Trait> Module<T> {
         let trusted_cdd_providers = T::CddServiceProviders::get_members();
         // It will never happen in production but helpful during testing.
         // TODO: Remove this condition
-        if trusted_cdd_providers.len() == 0 {
+        if trusted_cdd_providers.is_empty() {
             return true;
         }
 
@@ -1660,10 +1656,8 @@ impl<T: Trait> Module<T> {
     pub fn can_key_be_linked_to_did(key: &T::AccountId) -> bool {
         if <KeyToIdentityIds<T>>::get(key).is_some() {
             false
-        } else if T::MultiSig::is_signer(key) {
-            false
         } else {
-            true
+            !T::MultiSig::is_signer(key)
         }
     }
 
@@ -1785,7 +1779,7 @@ impl<T: Trait> Module<T> {
             .iter()
             .map(|s_item| {
                 Self::add_auth(
-                    did.clone(),
+                    did,
                     s_item.signer.clone(),
                     AuthorizationData::JoinIdentity(s_item.permissions.clone()),
                     None,
@@ -1990,7 +1984,7 @@ impl<T: Trait> Module<T> {
                             }
                         }
                     }
-                    return true;
+                    true
                 })
                 .collect::<Vec<Authorization<T::AccountId, T::Moment>>>()
         }
@@ -2000,28 +1994,21 @@ impl<T: Trait> Module<T> {
         authorization_data: AuthorizationData<T::AccountId>,
         type_of_auth: AuthorizationType,
     ) -> bool {
-        match authorization_data {
-            AuthorizationData::AttestMasterKeyRotation(..) => {
-                return type_of_auth == AuthorizationType::AttestMasterKeyRotation
+        type_of_auth
+            == match authorization_data {
+                AuthorizationData::AttestMasterKeyRotation(..) => {
+                    AuthorizationType::AttestMasterKeyRotation
+                }
+                AuthorizationData::RotateMasterKey(..) => AuthorizationType::RotateMasterKey,
+                AuthorizationData::TransferTicker(..) => AuthorizationType::TransferTicker,
+                AuthorizationData::AddMultiSigSigner(..) => AuthorizationType::AddMultiSigSigner,
+                AuthorizationData::TransferAssetOwnership(..) => {
+                    AuthorizationType::TransferAssetOwnership
+                }
+                AuthorizationData::JoinIdentity(..) => AuthorizationType::JoinIdentity,
+                AuthorizationData::Custom(..) => AuthorizationType::Custom,
+                AuthorizationData::NoData => AuthorizationType::NoData,
             }
-            AuthorizationData::RotateMasterKey(..) => {
-                return type_of_auth == AuthorizationType::RotateMasterKey
-            }
-            AuthorizationData::TransferTicker(..) => {
-                return type_of_auth == AuthorizationType::TransferTicker
-            }
-            AuthorizationData::AddMultiSigSigner(..) => {
-                return type_of_auth == AuthorizationType::AddMultiSigSigner
-            }
-            AuthorizationData::TransferAssetOwnership(..) => {
-                return type_of_auth == AuthorizationType::TransferAssetOwnership
-            }
-            AuthorizationData::JoinIdentity(..) => {
-                return type_of_auth == AuthorizationType::JoinIdentity
-            }
-            AuthorizationData::Custom(..) => return type_of_auth == AuthorizationType::Custom,
-            AuthorizationData::NoData => return type_of_auth == AuthorizationType::NoData,
-        }
     }
 
     pub fn get_did_status(dids: Vec<IdentityId>) -> Vec<DidStatus> {
