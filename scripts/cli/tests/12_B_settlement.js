@@ -7,12 +7,17 @@ let { reqImports } = require("../util/init.js");
 // Sets the default exit code to fail unless the script runs successfully
 process.exitCode = 1;
 
-const prepend = "DEMOAT";
+/*
+ * This test is for checking the ability to distribute ssets to a group of investors
+ * without payment.
+ */
 
+
+
+const prepend = "ACME";
 async function main() {
   const api = await reqImports.createApi();
   const ticker = `token${prepend}0`.toUpperCase();
-
   const testEntities = await reqImports.initMain(api);
 
   let alice = testEntities[0];
@@ -20,11 +25,11 @@ async function main() {
   let charlie = testEntities[2];
   let dave = testEntities[3];
 
-  let dave_did = await reqImports.createIdentities( api, [dave], alice );
+  let dave_did = await reqImports.createIdentities(api, [dave], alice);
   dave_did = dave_did[0];
   console.log(`---------> Dave DID: ${dave_did}`);
 
-  let charlie_did = await reqImports.createIdentities( api, [charlie], alice );
+  let charlie_did = await reqImports.createIdentities(api, [charlie], alice);
   charlie_did = charlie_did[0];
   console.log(`---------> Charlie DID: ${charlie_did}`);
 
@@ -38,8 +43,6 @@ async function main() {
   alice_did = alice_did.Unique;
   console.log(`---------> Alice DID: ${alice_did}`);
 
-  console.log(0);
-
   await reqImports.distributePolyBatch(
     api,
     [bob, charlie, dave],
@@ -47,32 +50,24 @@ async function main() {
     alice
   );
 
-  console.log(1);
-
   await reqImports.issueTokenPerDid(api, [alice], prepend);
 
-  console.log(2);
+  await addActiveRule(api, alice, ticker);
 
-  await addActiveRule(api, alice, `token${prepend}0`);
+  await reqImports.mintingAsset(api, alice, alice_did, prepend);
 
-  console.log(2.5);
+  let aliceACMEBalance = await api.query.asset.balanceOf(ticker, alice_did);
+  let bobACMEBalance = await api.query.asset.balanceOf(ticker, bob_did);
+  let charlieACMEBalance = await api.query.asset.balanceOf(ticker, charlie_did);
+  let daveACMEBalance = await api.query.asset.balanceOf(ticker, dave_did);
 
-  let aliceBalance = await api.query.asset.balanceOf(ticker, alice_did);
-  let bobBalance = await api.query.asset.balanceOf(ticker, bob_did);
-  let charlieBalance = await api.query.asset.balanceOf(ticker, charlie_did);
-  let daveBalance = await api.query.asset.balanceOf(ticker, dave_did);
-
-  console.log(`alice asset balance -------->  ${aliceBalance}`);
-  console.log(`bob asset balance -------->  ${bobBalance}`);
-  console.log(`charlie asset balance -------->  ${charlieBalance}`);
-  console.log(`dave asset balance -------->  ${daveBalance}`);
-
-
-  console.log(3);
+  console.log("Balance for ACME (Before)");
+  console.log(`alice asset balance -------->  ${aliceACMEBalance}`);
+  console.log(`bob asset balance -------->  ${bobACMEBalance}`);
+  console.log(`charlie asset balance -------->  ${charlieACMEBalance}`);
+  console.log(`dave asset balance -------->  ${daveACMEBalance}`);
 
   let venueCounter = await createVenue(api, alice);
-
-  console.log(4);
 
   let intructionCounterAB = await addInstruction(
     api,
@@ -80,54 +75,51 @@ async function main() {
     alice,
     alice_did,
     bob_did,
-    `token${prepend}0`,
+    ticker,
     100
   );
-console.log(`instructionAB -> ${intructionCounterAB}`);
+ 
   let intructionCounterAC = await addInstruction(
     api,
     venueCounter,
     alice,
     alice_did,
     charlie_did,
-    `token${prepend}0`,
+    ticker,
     100
   );
-  console.log(`instructionAC -> ${intructionCounterAC}`);
+  
   let intructionCounterAD = await addInstruction(
     api,
     venueCounter,
     alice,
     alice_did,
     dave_did,
-    `token${prepend}0`,
+    ticker,
     100
   );
-  console.log(`instructionAD -> ${intructionCounterAD}`);
 
-   console.log(6);
-   await authorizeInstruction(api, alice, intructionCounterAB);
-   await authorizeInstruction(api, bob, intructionCounterAB);
-   console.log(7);
-   await authorizeInstruction(api, alice, intructionCounterAC);
-   console.log(7.5);
-   await authorizeInstruction(api, charlie, intructionCounterAC);
-   //await rejectInstruction(api, bob, intructionCounter);
-   console.log(8);
-   await authorizeInstruction(api, alice, intructionCounterAD);
-   await rejectInstruction(api, dave, intructionCounterAD);
-   console.log(9);
+  await authorizeInstruction(api, alice, intructionCounterAB);
+  await authorizeInstruction(api, bob, intructionCounterAB);
+ 
+  await authorizeInstruction(api, alice, intructionCounterAC);
+  await authorizeInstruction(api, charlie, intructionCounterAC);
+
+  await authorizeInstruction(api, alice, intructionCounterAD);
+  await rejectInstruction(api, dave, intructionCounterAD);
   
 
-  aliceBalance = await api.query.asset.balanceOf(ticker, alice_did);
-  bobBalance = await api.query.asset.balanceOf(ticker, bob_did);
-  charlieBalance = await api.query.asset.balanceOf(ticker, charlie_did);
-  daveBalance = await api.query.asset.balanceOf(ticker, dave_did);
+  aliceACMEBalance = await api.query.asset.balanceOf(ticker, alice_did);
+  bobACMEBalance = await api.query.asset.balanceOf(ticker, bob_did);
+  charlieACMEBalance = await api.query.asset.balanceOf(ticker, charlie_did);
+  daveACMEBalance = await api.query.asset.balanceOf(ticker, dave_did);
 
-  console.log(`alice asset balance -------->  ${aliceBalance}`);
-  console.log(`bob asset balance -------->  ${bobBalance}`);
-  console.log(`charlie asset balance -------->  ${charlieBalance}`);
-  console.log(`dave asset balance -------->  ${daveBalance}`);
+  console.log("Balance for ACME (After)");
+  console.log(`alice asset balance -------->  ${aliceACMEBalance}`);
+  console.log(`bob asset balance -------->  ${bobACMEBalance}`);
+  console.log(`charlie asset balance -------->  ${charlieACMEBalance}`);
+  console.log(`dave asset balance -------->  ${daveACMEBalance}`);
+ 
 
   if (reqImports.fail_count > 0) {
     console.log("Failed");
@@ -140,10 +132,9 @@ console.log(`instructionAB -> ${intructionCounterAB}`);
 }
 
 async function addActiveRule(api, sender, ticker) {
-  let uppercaseTicker = ticker.toUpperCase();
   let nonceObj = { nonce: reqImports.nonces.get(sender.address) };
   const transaction = await api.tx.complianceManager.addActiveRule(
-    uppercaseTicker,
+    ticker,
     [],
     []
   );
@@ -194,31 +185,29 @@ async function addInstruction(
   venueCounter,
   sender,
   sender_did,
-  reciever_did,
+  receiver_did,
   ticker,
   amount
 ) {
+  let result;
   let instructionCounter = await api.query.settlement.instructionCounter();
   let nonceObj = { nonce: reqImports.nonces.get(sender.address) };
   let leg = {
     from: sender_did,
-    to: reciever_did,
-    asset: ticker.toUpperCase(),
+    to: receiver_did,
+    asset: ticker,
     amount: amount,
   };
- console.log(`leg info -> ${JSON.stringify(leg)}`);
-  const transaction = await api.tx.settlement.addInstruction(
-    venueCounter,
-     0,
-    null,
-    [leg]
-  );
 
-  const result = await reqImports.sendTransaction(
-    transaction,
-    sender,
-    nonceObj
-  );
+    transaction = await api.tx.settlement.addInstruction(
+      venueCounter,
+      0,
+      null,
+      [leg]
+    );
+
+    result = await reqImports.sendTransaction(transaction, sender, nonceObj);
+  
 
   const passed = result.findRecord("system", "ExtrinsicSuccess");
   if (passed) reqImports.fail_count--;

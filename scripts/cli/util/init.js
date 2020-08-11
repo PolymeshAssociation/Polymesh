@@ -446,6 +446,15 @@ async function jumpLightYears() {
   await api.tx.timestamp.set()
 }
 
+async function mintingAsset(api, minter, did, prepend) {
+  const ticker = `token${prepend}0`.toUpperCase();
+  let nonceObj = {nonce: nonces.get(minter.address)};
+  const transaction = await api.tx.asset.issue(ticker, did, 100, "");
+  const result = await sendTransaction(transaction, minter, nonceObj);  
+
+  nonces.set(minter.address, nonces.get(minter.address).addn(1));
+}
+
 // this object holds the required imports for all the scripts
 let reqImports = {
   ApiPromise,
@@ -482,7 +491,8 @@ let reqImports = {
   createMultiSig,
   u8aToHex,
   topUpIdentityBalance,
-  keyToIdentityIds
+  keyToIdentityIds,
+  mintingAsset
 };
 
 export { reqImports };
