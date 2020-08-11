@@ -98,7 +98,6 @@ use frame_support::{
     storage::IterableStorageMap,
     traits::{Currency, EnsureOrigin, LockableCurrency, ReservableCurrency},
     weights::{DispatchClass, Pays, Weight},
-    Parameter,
 };
 use frame_system::{self as system, ensure_signed};
 use pallet_identity as identity;
@@ -115,9 +114,7 @@ use polymesh_primitives_derive::VecU8StrongTyped;
 #[cfg(feature = "std")]
 use serde::{Deserialize, Serialize};
 use sp_core::H256;
-use sp_runtime::traits::{
-    BlakeTwo256, CheckedAdd, CheckedSub, Dispatchable, Hash, Saturating, Zero,
-};
+use sp_runtime::traits::{BlakeTwo256, CheckedAdd, Dispatchable, Hash, Saturating, Zero};
 use sp_std::{convert::From, prelude::*};
 
 /// Balance
@@ -211,7 +208,7 @@ pub struct PipsMetadata<T: Trait> {
 /// For keeping track of proposal being voted on.
 #[derive(PartialEq, Eq, Clone, Encode, Decode, Default)]
 #[cfg_attr(feature = "std", derive(Debug))]
-pub struct VotingResult<Balance: Parameter> {
+pub struct VotingResult<Balance> {
     /// The current set of voters that approved with their stake.
     pub ayes_count: u32,
     pub ayes_stake: Balance,
@@ -221,7 +218,7 @@ pub struct VotingResult<Balance: Parameter> {
 }
 
 /// A "vote" or "signal" on a PIP to move it up or down the review queue.
-#[derive(PartialEq, Eq, Clone, Encode, Decode)]
+#[derive(PartialEq, Eq, Copy, Clone, Encode, Decode)]
 #[cfg_attr(feature = "std", derive(Debug, Serialize, Deserialize))]
 pub struct Vote<Balance>(
     /// `true` if there's agreement.
@@ -441,9 +438,6 @@ decl_event!(
         ),
         /// A PIP's details (url & description) were amended.
         ProposalDetailsAmended(IdentityId, Proposer<AccountId>, PipId, Option<Url>, Option<PipDescription>),
-        /// The deposit of a vote on a PIP was adjusted, either by increasing or decreasing.
-        /// `true` represents an increase and `false` a decrease.
-        ProposalBondAdjusted(IdentityId, AccountId, PipId, bool, Balance),
         /// Triggered each time the state of a proposal is amended
         ProposalStateUpdated(IdentityId, PipId, ProposalState),
         /// `AccountId` voted `bool` on the proposal referenced by `PipId`
@@ -500,8 +494,6 @@ decl_error! {
         IncorrectDeposit,
         /// Proposer can't afford to lock minimum deposit
         InsufficientDeposit,
-        /// when voter vote gain
-        DuplicateVote,
         /// The proposal does not exist.
         NoSuchProposal,
         /// Not part of governance committee.
@@ -742,126 +734,79 @@ decl_module! {
             Ok(())
         }
 
-        /// Id bonds an additional deposit to proposal with id `id`.
-        /// That amount is added to the current deposit.
+        /// Vote either in favor (`aye_or_nay` == true) or against a PIP with `id`.
+        /// The "convinction" or strength of the vote is given by `deposit`, which is reserved.
         ///
-        /// # Errors
-        /// * `BadOrigin` if other than the PIP's owner, or if owner is a committee.
-        /// * `ProposalIsImmutable` if proposal is out of its cool-off period.
-        #[weight = 900_000_000]
-        pub fn bond_additional_deposit(origin,
-            id: PipId,
-            additional_deposit: BalanceOf<T>
-        ) -> DispatchResult {
-            // 1. Sanity checks.
-            let proposer = Self::ensure_owned_by_community_alterable(origin, id)?;
-
-            // 2. Reserve extra deposit & update deposit info for this proposal
-            let curr_deposit = Self::deposits(id, &proposer).amount;
-            let max_additional_deposit = curr_deposit.saturating_add( additional_deposit) - curr_deposit;
-            <T as Trait>::Currency::reserve(&proposer, max_additional_deposit)
-                .map_err(|_| Error::<T>::InsufficientDeposit)?;
-
-            <Deposits<T>>::mutate(
-                id,
-                &proposer,
-                |depo_info| depo_info.amount += max_additional_deposit);
-
-            // 3. Update vote details to record additional vote
-            <ProposalResult<T>>::mutate(
-                id,
-                |stats| stats.ayes_stake += max_additional_deposit
-            );
-            <ProposalVotes<T>>::insert(id, &proposer, Vote(true, curr_deposit + max_additional_deposit));
-
-            Self::emit_proposal_bond_adjusted(proposer, id, true, max_additional_deposit)
-        }
-
-        /// It unbonds any amount from the deposit of the proposal with id `id`.
-        ///
-        /// # Errors
-        /// * `BadOrigin` if other than the PIP's owner, or if owner is a committee.
-        /// * `ProposalIsImmutable` if proposal is out of its cool-off period.
-        /// * `InsufficientDeposit` if the final deposit < minimum deposit for a proposal.
-        #[weight = 900_000_000]
-        pub fn unbond_deposit(origin,
-            id: PipId,
-            amount: BalanceOf<T>
-        ) -> DispatchResult {
-            // 1. Sanity checks.
-            let proposer = Self::ensure_owned_by_community_alterable(origin, id)?;
-
-            // 2. Double-check that `amount` is valid.
-            let mut depo_info = Self::deposits(id, &proposer);
-            let new_deposit = depo_info.amount.checked_sub(&amount)
-                    .ok_or_else(|| Error::<T>::InsufficientDeposit)?;
-            ensure!(
-                new_deposit >= Self::min_proposal_deposit(),
-                Error::<T>::IncorrectDeposit);
-            let diff_amount = depo_info.amount - new_deposit;
-            depo_info.amount = new_deposit;
-
-            // 2.1. Unreserve and update deposit info.
-            <T as Trait>::Currency::unreserve(&depo_info.owner, diff_amount);
-            <Deposits<T>>::insert(id, &proposer, depo_info);
-
-            // 3. Update vote details to record reduced vote
-            <ProposalResult<T>>::mutate(
-                id,
-                |stats| stats.ayes_stake = new_deposit
-            );
-            <ProposalVotes<T>>::insert(id, &proposer, Vote(true, new_deposit));
-
-            Self::emit_proposal_bond_adjusted(proposer, id, false, amount)
-        }
-
-        /// A network member can vote on any community PIP by selecting the id that
-        /// corresponds ot the dispatchable action and vote with some balance.
+        /// Note that `vote` is *not* additive.
+        /// That is, `vote(id, true, 50)` followed by `vote(id, true, 40)`
+        /// will first reserve `50` and then refund `50 - 10`, ending up with `40` in deposit.
+        /// To add atop of existing votes, you'll need `existing_deposit + addition`.
         ///
         /// # Arguments
-        /// * `proposal` a dispatchable call
-        /// * `id` proposal id
-        /// * `aye_or_nay` a bool representing for or against vote
-        /// * `deposit` minimum deposit value
+        /// * `id`, proposal id
+        /// * `aye_or_nay`, a bool representing for or against vote
+        /// * `deposit`, the "conviction" with which the vote is made.
+        ///
+        /// # Errors
+        /// * `NoSuchProposal` if `id` doesn't reference a valid PIP.
+        /// * `NotFromCommunity` if proposal was made by a committee.
+        /// * `ProposalOnCoolOffPeriod` if non-owner is voting and PIP is cooling off.
+        /// * `IncorrectProposalState` if PIP isn't pending.
+        /// * `InsufficientDeposit` if `origin` cannot reserve `deposit - old_deposit`.
         #[weight = 1_000_000_000]
         pub fn vote(origin, id: PipId, aye_or_nay: bool, deposit: BalanceOf<T>) {
-            let proposer = ensure_signed(origin)?;
+            let voter = ensure_signed(origin)?;
             let meta = Self::proposal_metadata(id)
                 .ok_or_else(|| Error::<T>::NoSuchProposal)?;
-            ensure!(matches!(meta.proposer, Proposer::Community(_)), Error::<T>::NotFromCommunity);
 
-            // No one should be able to vote during the proposal cool-off period.
-            let curr_block_number = <system::Module<T>>::block_number();
-            ensure!(meta.cool_off_until <= curr_block_number, Error::<T>::ProposalOnCoolOffPeriod);
+            // 1. Proposal must be from the community.
+            let proposer = match meta.proposer {
+                Proposer::Committee(_) => return Err(Error::<T>::NotFromCommunity.into()),
+                Proposer::Community(p) => p,
+            };
 
-            // Check that the proposal is pending
+            if proposer == voter {
+                // 2a. Deposit must be above minimum.
+                // Note that proposer can still vote against their own PIP.
+                ensure!(deposit >= Self::min_proposal_deposit(), Error::<T>::IncorrectDeposit);
+            } else {
+                // 2b. Only proposer can vote during PIP's cool-off period.
+                let curr_block_number = <system::Module<T>>::block_number();
+                ensure!(meta.cool_off_until <= curr_block_number, Error::<T>::ProposalOnCoolOffPeriod);
+            }
+
+            // 3. Proposal must be pending.
             Self::is_proposal_state(id, ProposalState::Pending)?;
 
-            // Valid PipId
-            ensure!(<ProposalResult<T>>::contains_key(id), Error::<T>::NoSuchProposal);
+            // TODO(centril): move this to a suitable utils crate.
+            fn with_transaction<T, E>(tx: impl FnOnce() -> Result<T, E>) -> Result<T, E> {
+                use frame_support::storage::{with_transaction, TransactionOutcome};
+                with_transaction(|| match tx() {
+                    r @ Ok(_) => TransactionOutcome::Commit(r),
+                    r @ Err(_) => TransactionOutcome::Rollback(r),
+                })
+            }
 
-            // Double-check vote duplication.
-            // TODO(centril): Do we really want to prevent duplicate votes -- why not aggregate instead?
-            ensure!(matches!(Self::proposal_vote(id, &proposer), None), Error::<T>::DuplicateVote);
+            with_transaction(|| {
+                // 4. Reserve the deposit, or refund if needed.
+                let curr_deposit = Self::deposits(id, &voter).amount;
+                if deposit < curr_deposit {
+                    <T as Trait>::Currency::unreserve(&voter, curr_deposit - deposit);
+                } else {
+                    <T as Trait>::Currency::reserve(&voter, deposit - curr_deposit).map_err(|_| Error::<T>::InsufficientDeposit)?;
+                }
+                // 5. Save the vote.
+                Self::unsafe_vote(id, voter.clone(), Vote(aye_or_nay, deposit))
+            })?;
 
-            // Reserve the deposit
-            <T as Trait>::Currency::reserve(&proposer, deposit).map_err(|_| Error::<T>::InsufficientDeposit)?;
-
-            // Save your vote.
-            Self::unsafe_vote(id, proposer.clone(), Vote(aye_or_nay, deposit))
-                .map_err( |vote_error| {
-                    debug::warn!("The counters of voting (id={}) have an overflow, transaction is roll-back", id);
-                    let _ = <T as Trait>::Currency::unreserve(&proposer, deposit);
-                    vote_error
-                })?;
-
-            let depo_info = DepositInfo {
-                owner: proposer.clone(),
+            <Deposits<T>>::insert(id, &voter, DepositInfo {
+                owner: voter.clone(),
                 amount: deposit,
-            };
-            <Deposits<T>>::insert(id, &proposer, depo_info);
+            });
+
+            // 6. Emit event.
             let current_did = Self::current_did_or_missing()?;
-            Self::deposit_event(RawEvent::Voted(current_did, proposer, id, aye_or_nay, deposit));
+            Self::deposit_event(RawEvent::Voted(current_did, voter, id, aye_or_nay, deposit));
         }
 
         /// Approves the pending non-cooling committee PIP given by the `id`.
@@ -1164,28 +1109,6 @@ impl<T: Trait> Module<T> {
         Context::current_identity::<Identity<T>>().ok_or_else(|| Error::<T>::MissingCurrentIdentity)
     }
 
-    fn emit_proposal_bond_adjusted(
-        proposer: T::AccountId,
-        id: PipId,
-        increased: bool,
-        amount: BalanceOf<T>,
-    ) -> DispatchResult {
-        let current_did = Self::current_did_or_missing()?;
-        let event = RawEvent::ProposalBondAdjusted(current_did, proposer, id, increased, amount);
-        Self::deposit_event(event);
-        Ok(())
-    }
-
-    fn ensure_owned_by_community_alterable(
-        origin: T::Origin,
-        id: PipId,
-    ) -> Result<T::AccountId, DispatchError> {
-        match Self::ensure_owned_by_alterable(origin, id)? {
-            Proposer::Community(p) => Ok(p),
-            Proposer::Committee(_) => Err(DispatchError::BadOrigin),
-        }
-    }
-
     /// Ensure that proposer is owner of the proposal which mustn't be in the cool off period.
     ///
     /// # Errors
@@ -1423,9 +1346,21 @@ impl<T: Trait> Module<T> {
         <PipIdSequence>::mutate(|id| mem::replace(id, *id + 1))
     }
 
-    /// It inserts the vote and updates the accountability of target proposal.
-    fn unsafe_vote(id: PipId, proposer: T::AccountId, vote: Vote<BalanceOf<T>>) -> DispatchResult {
+    /// Changes the vote of `voter` to `vote`, if any.
+    fn unsafe_vote(id: PipId, voter: T::AccountId, vote: Vote<BalanceOf<T>>) -> DispatchResult {
         let mut stats = Self::proposal_result(id);
+
+        // Update the vote and get the old one, if any, in which case also remove it from stats.
+        if let Some(Vote(direction, deposit)) = <ProposalVotes<T>>::get(id, voter.clone()) {
+            let (count, stake) = match direction {
+                true => (&mut stats.ayes_count, &mut stats.ayes_stake),
+                false => (&mut stats.nays_count, &mut stats.nays_stake),
+            };
+            *count -= 1;
+            *stake -= deposit;
+        }
+
+        // Add new vote to stats.
         let Vote(direction, deposit) = vote;
         let (count, stake) = match direction {
             true => (&mut stats.ayes_count, &mut stats.ayes_stake),
@@ -1438,8 +1373,10 @@ impl<T: Trait> Module<T> {
             .checked_add(&deposit)
             .ok_or_else(|| Error::<T>::StakeAmountOfVotesExceeded)?;
 
+        // Commit all changes.
         <ProposalResult<T>>::insert(id, stats);
-        <ProposalVotes<T>>::insert(id, proposer, vote);
+        <ProposalVotes<T>>::insert(id, voter, vote);
+
         Ok(())
     }
 

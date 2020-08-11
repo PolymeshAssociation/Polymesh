@@ -457,22 +457,30 @@ fn skip_limit_works() {
     });
 }
 
-fn assert_votes(id: PipId, owner: Public, amount: u128) {
+fn assert_vote_details(
+    id: PipId,
+    results: VotingResult<u128>,
+    deposits: Vec<DepositInfo<Public, u128>>,
+    votes: Vec<Vote<u128>>,
+) {
+    assert_eq!(results, Pips::proposal_result(id));
     assert_eq!(
-        Pips::proposal_result(id),
+        deposits,
+        Deposits::iter_prefix_values(0).collect::<Vec<_>>(),
+    );
+    assert_eq!(votes, Votes::iter_prefix_values(0).collect::<Vec<_>>());
+}
+
+fn assert_votes(id: PipId, owner: Public, amount: u128) {
+    assert_vote_details(
+        id,
         VotingResult {
             ayes_count: 1,
             ayes_stake: amount,
             nays_count: 0,
             nays_stake: 0,
-        }
-    );
-    assert_eq!(
-        Deposits::iter_prefix_values(0).collect::<Vec<_>>(),
-        vec![DepositInfo { owner, amount }]
-    );
-    assert_eq!(
-        Votes::iter_prefix_values(0).collect::<Vec<_>>(),
+        },
+        vec![DepositInfo { owner, amount }],
         vec![Vote(true, amount)],
     );
 }
@@ -527,8 +535,6 @@ fn amend_proposal_no_such_proposal() {
         System::set_block_number(1);
         assert_no_pip!(Pips::amend_proposal(root(), 0, None, None));
         assert_no_pip!(Pips::cancel_proposal(root(), 0));
-        assert_no_pip!(Pips::bond_additional_deposit(root(), 0, 0));
-        assert_no_pip!(Pips::unbond_deposit(root(), 0, 0));
         let signer = Origin::signed(AccountKeyring::Bob.public());
         assert_no_pip!(Pips::vote(signer, 0, false, 0));
     });
@@ -543,8 +549,6 @@ fn amend_proposal_not_owner_bad_origin() {
         let bob = Origin::signed(AccountKeyring::Bob.public());
         assert_bad_origin!(Pips::amend_proposal(bob.clone(), 0, None, None));
         assert_bad_origin!(Pips::cancel_proposal(bob.clone(), 0));
-        assert_bad_origin!(Pips::bond_additional_deposit(bob.clone(), 0, 0));
-        assert_bad_origin!(Pips::unbond_deposit(bob, 0, 0));
     });
 }
 
@@ -568,12 +572,7 @@ fn amend_proposal_not_pending() {
     };
     op_and_check(&|o, id| assert_bad_state!(Pips::amend_proposal(o, id, None, None)));
     op_and_check(&|o, id| assert_bad_state!(Pips::cancel_proposal(o, id)));
-    op_and_check(&|o, id| assert_bad_state!(Pips::bond_additional_deposit(o, id, 0)));
-    op_and_check(&|o, id| assert_bad_state!(Pips::unbond_deposit(o, id, 0)));
-    op_and_check(&|o, id| {
-        fast_forward_blocks(Pips::proposal_cool_off_period() + 1);
-        assert_bad_state!(Pips::vote(o, id, false, 0))
-    });
+    op_and_check(&|o, id| assert_bad_state!(Pips::vote(o, id, false, 0)));
 }
 
 #[test]
@@ -586,8 +585,6 @@ fn amend_proposal_beyond_cool_off() {
         let signer = Origin::signed(AccountKeyring::Alice.public());
         assert_immutable!(Pips::amend_proposal(signer.clone(), 0, None, None));
         assert_immutable!(Pips::cancel_proposal(signer.clone(), 0));
-        assert_immutable!(Pips::bond_additional_deposit(signer.clone(), 0, 0));
-        assert_immutable!(Pips::unbond_deposit(signer, 0, 0));
     });
 }
 
@@ -607,31 +604,7 @@ fn amend_proposal_works() {
 }
 
 #[test]
-fn bond_on_committee_pip() {
-    ExtBuilder::default().build().execute_with(|| {
-        System::set_block_number(1);
-        assert_ok!(committee_proposal(0));
-        let signer = Origin::signed(AccountKeyring::Bob.public());
-        assert_bad_origin!(Pips::bond_additional_deposit(signer.clone(), 0, 0));
-        assert_bad_origin!(Pips::unbond_deposit(signer, 0, 0));
-    });
-}
-
-#[test]
-fn bond_additional_deposit_insufficient_and_saturating() {
-    ExtBuilder::default().monied(true).build().execute_with(|| {
-        System::set_block_number(1);
-        assert_ok!(alice_proposal(Pips::min_proposal_deposit()));
-        let signer = Origin::signed(AccountKeyring::Alice.public());
-        assert_noop!(
-            Pips::bond_additional_deposit(signer, 0, u128::MAX),
-            Error::InsufficientDeposit
-        );
-    });
-}
-
-#[test]
-fn bond_additional_deposit_works() {
+fn vote_bond_additional_deposit_works() {
     ExtBuilder::default().monied(true).build().execute_with(|| {
         System::set_block_number(1);
         assert_ok!(Pips::set_min_proposal_deposit(root(), 0));
@@ -647,38 +620,57 @@ fn bond_additional_deposit_works() {
 
         assert_ok!(alice_proposal(init_amount));
         assert_eq!(Balances::free_balance(&acc), init_free - init_amount);
-        assert_ok!(Pips::bond_additional_deposit(signer, 0, then_amount));
+        assert_ok!(Pips::vote(signer, 0, true, amount));
         assert_eq!(Balances::free_balance(&acc), init_free - amount);
-        assert_last_event!(Event::ProposalBondAdjusted(.., true, _));
+        assert_last_event!(Event::Voted(.., true, _));
         assert_votes(0, acc, amount);
     });
 }
 
 #[test]
-fn unbond_deposit_insufficient() {
+fn vote_owner_below_min_deposit() {
     ExtBuilder::default().monied(true).build().execute_with(|| {
         System::set_block_number(1);
-        assert_ok!(Pips::set_min_proposal_deposit(root(), 50));
+        let min = 50;
+        let sub = min - 1;
+        assert_ok!(Pips::set_min_proposal_deposit(root(), min));
+        assert_ok!(Pips::set_proposal_cool_off_period(root(), 0));
 
-        let acc = AccountKeyring::Alice.public();
-        let signer = Origin::signed(acc);
+        let alice = User::new(AccountKeyring::Alice);
+        let bob = User::new(AccountKeyring::Bob);
+
         assert_ok!(alice_proposal(100));
         assert_noop!(
-            Pips::unbond_deposit(signer.clone(), 0, 51),
+            Pips::vote(alice.signer(), 0, true, sub),
             Error::IncorrectDeposit
         );
-        assert_votes(0, acc, 100);
-        assert_ok!(alice_proposal(100));
-        assert_noop!(
-            Pips::unbond_deposit(signer, 0, 101),
-            Error::InsufficientDeposit
+        assert_votes(0, alice.acc(), 100);
+        // Doesn't apply to Bob though, as they didn't propose it.
+        assert_ok!(Pips::vote(bob.signer(), 0, true, sub));
+        assert_vote_details(
+            0,
+            VotingResult {
+                ayes_count: 2,
+                ayes_stake: 100 + sub,
+                ..VotingResult::default()
+            },
+            vec![
+                DepositInfo {
+                    owner: alice.acc(),
+                    amount: 100,
+                },
+                DepositInfo {
+                    owner: bob.acc(),
+                    amount: sub,
+                },
+            ],
+            vec![Vote(true, 100), Vote(true, sub)],
         );
-        assert_votes(1, acc, 100);
     });
 }
 
 #[test]
-fn unbond_deposit_works() {
+fn vote_unbond_deposit_works() {
     ExtBuilder::default().monied(true).build().execute_with(|| {
         System::set_block_number(1);
         assert_ok!(Pips::set_min_proposal_deposit(root(), 0));
@@ -686,7 +678,6 @@ fn unbond_deposit_works() {
         let init_free = 1000;
         let init_amount = 200;
         let then_amount = 100;
-        let amount = init_amount - then_amount;
 
         let acc = AccountKeyring::Alice.public();
         let signer = Origin::signed(acc);
@@ -694,10 +685,10 @@ fn unbond_deposit_works() {
 
         assert_ok!(alice_proposal(init_amount));
         assert_eq!(Balances::free_balance(&acc), init_free - init_amount);
-        assert_ok!(Pips::unbond_deposit(signer, 0, then_amount));
-        assert_eq!(Balances::free_balance(&acc), init_free - amount);
-        assert_last_event!(Event::ProposalBondAdjusted(.., false, _));
-        assert_votes(0, acc, amount);
+        assert_ok!(Pips::vote(signer, 0, true, then_amount));
+        assert_eq!(Balances::free_balance(&acc), init_free - then_amount);
+        assert_last_event!(Event::Voted(.., true, _));
+        assert_votes(0, acc, then_amount);
     });
 }
 
@@ -719,34 +710,104 @@ fn vote_on_cool_off() {
         assert_ok!(Pips::set_proposal_cool_off_period(root(), 42));
         assert_ok!(alice_proposal(0));
         assert!(Pips::proposal_metadata(0).unwrap().cool_off_until > System::block_number());
+        // Alice made the PIP, so they can vote during cool-off period.
+        let signer = User::new(AccountKeyring::Alice).signer();
+        assert_ok!(Pips::vote(signer, 0, false, 0));
+        // Bob cannot vote until cool-off has passed.
         let signer = Origin::signed(AccountKeyring::Bob.public());
         assert_noop!(
-            Pips::vote(signer, 0, false, 0),
+            Pips::vote(signer.clone(), 0, false, 0),
             Error::ProposalOnCoolOffPeriod
+        );
+        // Fast-forward beyond cool-off; Bob can vote now.
+        fast_forward_blocks(42);
+        assert_ok!(Pips::vote(signer, 0, false, 0));
+    });
+}
+
+#[test]
+fn vote_duplicate_ok() {
+    ExtBuilder::default().monied(true).build().execute_with(|| {
+        System::set_block_number(1);
+        assert_ok!(Pips::set_min_proposal_deposit(root(), 0));
+        assert_ok!(Pips::set_proposal_cool_off_period(root(), 0));
+        let signer = Origin::signed(AccountKeyring::Alice.public());
+
+        assert_ok!(alice_proposal(42));
+        assert_eq!(
+            Pips::proposal_result(0),
+            VotingResult {
+                ayes_count: 1,
+                ayes_stake: 42,
+                ..VotingResult::default()
+            }
+        );
+        assert_ok!(Pips::vote(signer.clone(), 0, true, 21));
+        assert_eq!(
+            Pips::proposal_result(0),
+            VotingResult {
+                ayes_count: 1,
+                ayes_stake: 21,
+                ..VotingResult::default()
+            }
+        );
+        assert_ok!(Pips::vote(signer.clone(), 0, false, 21));
+        assert_eq!(
+            Pips::proposal_result(0),
+            VotingResult {
+                nays_count: 1,
+                nays_stake: 21,
+                ..VotingResult::default()
+            }
+        );
+        assert_ok!(Pips::vote(signer.clone(), 0, false, 42));
+        assert_eq!(
+            Pips::proposal_result(0),
+            VotingResult {
+                nays_count: 1,
+                nays_stake: 42,
+                ..VotingResult::default()
+            }
+        );
+        assert_ok!(Pips::vote(signer.clone(), 0, true, 42));
+        assert_eq!(
+            Pips::proposal_result(0),
+            VotingResult {
+                ayes_count: 1,
+                ayes_stake: 42,
+                ..VotingResult::default()
+            }
         );
     });
 }
 
 #[test]
-fn vote_duplicate() {
+fn vote_stake_overflow() {
     ExtBuilder::default().build().execute_with(|| {
         System::set_block_number(1);
-        assert_ok!(Pips::set_min_proposal_deposit(root(), 0));
+
+        let alice = User::new(AccountKeyring::Alice).balance(u128::MAX);
+        let bob = User::new(AccountKeyring::Bob).balance(100);
+
         assert_ok!(Pips::set_proposal_cool_off_period(root(), 0));
-        let signer = Origin::signed(AccountKeyring::Bob.public());
-
-        assert_ok!(alice_proposal(0));
-        assert_ok!(Pips::vote(signer.clone(), 0, false, 0));
-        assert_noop!(
-            Pips::vote(signer.clone(), 0, false, 0),
-            Error::DuplicateVote
+        assert_ok!(alice_proposal(u128::MAX));
+        assert_eq!(
+            Pips::proposal_result(0),
+            VotingResult {
+                ayes_count: 1,
+                ayes_stake: u128::MAX,
+                ..VotingResult::default()
+            }
         );
-        assert_noop!(Pips::vote(signer.clone(), 0, true, 0), Error::DuplicateVote);
-
-        assert_ok!(alice_proposal(0));
-        assert_ok!(Pips::vote(signer.clone(), 1, true, 0));
-        assert_noop!(Pips::vote(signer.clone(), 1, true, 0), Error::DuplicateVote);
-        assert_noop!(Pips::vote(signer, 0, false, 0), Error::DuplicateVote);
+        assert_noop!(
+            Pips::vote(bob.signer(), 0, true, 1),
+            Error::StakeAmountOfVotesExceeded,
+        );
+        assert_ok!(Pips::vote(bob.signer(), 0, false, 1));
+        assert_noop!(
+            Pips::vote(alice.signer(), 0, false, u128::MAX),
+            Error::StakeAmountOfVotesExceeded,
+        );
     });
 }
 
@@ -789,17 +850,14 @@ fn vote_works() {
         assert_last_event!(Event::Voted(.., true, 2441));
         assert_eq!(Balances::free_balance(&bob_acc), 2000 - 1337);
         assert_eq!(Balances::free_balance(&charlie_acc), 3000 - 2441);
-        assert_eq!(
-            Pips::proposal_result(0),
+        assert_vote_details(
+            0,
             VotingResult {
                 ayes_count: 2,
                 ayes_stake: 2541,
                 nays_count: 1,
                 nays_stake: 1337,
-            }
-        );
-        assert_eq!(
-            Deposits::iter_prefix_values(0).collect::<Vec<_>>(),
+            },
             vec![
                 DepositInfo {
                     owner: alice_acc,
@@ -807,16 +865,13 @@ fn vote_works() {
                 },
                 DepositInfo {
                     owner: bob_acc,
-                    amount: 1337
+                    amount: 1337,
                 },
                 DepositInfo {
                     owner: charlie_acc,
-                    amount: 2441
-                }
-            ]
-        );
-        assert_eq!(
-            Votes::iter_prefix_values(0).collect::<Vec<_>>(),
+                    amount: 2441,
+                },
+            ],
             vec![Vote(true, 100), Vote(false, 1337), Vote(true, 2441)],
         );
     });
@@ -1083,8 +1138,7 @@ fn assert_pruned(id: PipId) {
     assert_eq!(Pips::proposal_metadata(id), None);
     assert_eq!(Deposits::iter_prefix_values(id).count(), 0);
     assert_eq!(Pips::proposals(id), None);
-    assert_eq!(Pips::proposal_result(id), VotingResult::default());
-    assert_eq!(Votes::iter_prefix_values(id).count(), 0);
+    assert_vote_details(id, VotingResult::default(), vec![], vec![]);
     assert_eq!(Pips::pip_to_schedule(id), None);
     for v in <pallet_pips::ExecutionSchedule<TestStorage>>::iter_values() {
         assert!(v.iter().all(|x| *x != id));
