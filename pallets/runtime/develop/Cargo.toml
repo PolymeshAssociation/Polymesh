@@ -13,6 +13,7 @@ polymesh-runtime-common = { path = "../common", default-features = false }
 polymesh-primitives = { path = "../../../primitives", default-features = false }
 
 # Our pallets
+polymesh-contracts = { path = "../../contracts", default-features = false }
 pallet-confidential = { path = "../../confidential", default-features = false }
 pallet-identity = { path = "../../identity", default-features = false }
 pallet-balances = { path = "../../balances", default-features = false }
@@ -32,7 +33,6 @@ pallet-statistics = { path = "../../statistics", default-features = false }
 pallet-transaction-payment = { path = "../../transaction-payment", default-features = false }
 pallet-staking = { path = "../../staking", default-features = false }
 pallet-staking-reward-curve = { path = "../../staking/reward-curve", default-features = false }
-polymesh-contracts = { path = "../../contracts", default-features = false }
 
 # Others
 serde = { version = "1.0.104", default-features = false }

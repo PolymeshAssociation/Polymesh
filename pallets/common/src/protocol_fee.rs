@@ -15,8 +15,9 @@
 
 use codec::{Decode, Encode};
 use frame_support::dispatch::DispatchResult;
+use sp_runtime::Perbill;
 #[cfg(feature = "std")]
-use sp_runtime::{Deserialize, Perbill, Serialize};
+use sp_runtime::{Deserialize, Serialize};
 
 /// Protocol fee operations.
 #[derive(Decode, Encode, Clone, Copy, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]

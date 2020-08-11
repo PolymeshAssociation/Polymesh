@@ -4388,6 +4388,8 @@ dependencies = [
  "parity-scale-codec",
  "polymesh-common-utilities",
  "polymesh-primitives",
+ "sp-core",
+ "sp-io",
  "sp-runtime",
  "sp-std",
 ]

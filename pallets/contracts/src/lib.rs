@@ -13,20 +13,8 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
-//! # Contracts Wrapper Module
-//!
-//! The Contracts Wrapper module wraps Contracts, allowing for DID integration and permissioning
-//!
-//! ## To Do
-//!
-//!   - Remove the ability to call the Contracts module, bypassing Contracts Wrapper
-//!   - Integrate DID into all calls, and validate signing_key
-//!   - Track ownership of code and instances via DIDs
-//!
-//! ## Possible Tokenomics
-//!
-//!   - Initially restrict list of accounts that can put_code
-//!   - When code is instantiated enforce a POLYX fee to the DID owning the code (i.e. that executed put_code)
+// Ensure we're `no_std` when compiling for Wasm.
+#![cfg_attr(not(feature = "std"), no_std)]
 
 use frame_support::{
     decl_error, decl_event, decl_module, decl_storage,
@@ -47,9 +35,10 @@ use sp_runtime::{
     traits::{Hash, Saturating, StaticLookup},
     Perbill,
 };
-use sp_std::prelude::Vec;
+use sp_std::prelude::*;
 
 type Identity<T> = identity::Module<T>;
+
 pub trait Trait: pallet_contracts::Trait + IdentityTrait {
     type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
     /// Percentage distribution of instantiation fee to the validators and treasury.
@@ -59,7 +48,7 @@ pub trait Trait: pallet_contracts::Trait + IdentityTrait {
 decl_storage! {
     trait Store for Module<T: Trait> as ContractsWrapper {
         /// Store the meta details of the smart extension template.
-        pub TemplateMetaDetails get(fn get_template_meta_details): map hasher(identity) CodeHash<T> => TemplateMetaData<BalanceOf<T>, T::AccountId>;
+        pub TemplateMetaDetails get(fn get_template_meta_details): map hasher(twox_64_concat) CodeHash<T> => TemplateMetaData<BalanceOf<T>, T::AccountId>;
     }
 }
 
@@ -137,8 +126,6 @@ decl_module! {
             <pallet_contracts::Module<T>>::put_code(origin, code)?;
 
             // Charge the protocol fee
-            // TODO: Introduce the new fee function that will allow to distribute the
-            // protocol fee to different participants instead of only treasury.
             T::ProtocolFee::charge_fee(ProtocolOp::ContractsPutCode)?;
             <TemplateMetaDetails<T>>::insert(code_hash, TemplateMetaData {
                 meta_info: meta_info,
