@@ -222,7 +222,7 @@ pub struct SecurityToken<U> {
     pub owner_did: IdentityId,
     pub divisible: bool,
     pub asset_type: AssetType,
-    pub treasury_did: Option<IdentityId>,
+    pub primary_issuance_did: Option<IdentityId>,
 }
 
 /// struct to store the signed data.
@@ -458,7 +458,6 @@ decl_module! {
             asset_type: AssetType,
             identifiers: Vec<(IdentifierType, AssetIdentifier)>,
             funding_round: Option<FundingRoundName>,
-            treasury_did: Option<IdentityId>,
         ) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             let did = Context::current_identity_or::<Identity<T>>(&sender)?;
@@ -488,12 +487,11 @@ decl_module! {
                 owner_did: did,
                 divisible,
                 asset_type: asset_type.clone(),
-                treasury_did,
+                primary_issuance_did: Some(did),
             };
             <Tokens<T>>::insert(&ticker, token);
-            let beneficiary_did = treasury_did.unwrap_or(did);
-            <BalanceOf<T>>::insert(ticker, beneficiary_did, total_supply);
-            Portfolio::<T>::set_default_portfolio_balance(beneficiary_did, &ticker, total_supply);
+            <BalanceOf<T>>::insert(ticker, did, total_supply);
+            Portfolio::<T>::set_default_portfolio_balance(did, &ticker, total_supply);
             <AssetOwnershipRelations>::insert(did, ticker, AssetOwnershipRelation::AssetOwned);
             Self::deposit_event(RawEvent::AssetCreated(
                 did,
@@ -501,7 +499,7 @@ decl_module! {
                 total_supply,
                 divisible,
                 asset_type,
-                beneficiary_did,
+                did,
             ));
             for (typ, val) in &identifiers {
                 <Identifiers>::insert((ticker, typ.clone()), val.clone());
@@ -528,11 +526,11 @@ decl_module! {
             Self::deposit_event(RawEvent::Issued(
                 did,
                 ticker,
-                beneficiary_did,
+                did,
                 total_supply,
                 Self::funding_round(ticker),
                 total_supply,
-                treasury_did,
+                Some(did),
             ));
             Ok(())
         }
@@ -838,7 +836,7 @@ decl_module! {
                     *value,
                     round.clone(),
                     issued_in_this_round,
-                    token.treasury_did,
+                    token.primary_issuance_did,
                 ));
             }
             <Tokens<T>>::insert(ticker, token);
@@ -1359,7 +1357,7 @@ decl_module! {
         /// * `origin` - The asset issuer.
         /// * `ticker` - Ticker symbol of the asset.
         #[weight = 250_000]
-        pub fn clear_treasury_did(
+        pub fn clear_primary_issuance_did(
             origin,
             ticker: Ticker,
         ) -> DispatchResult {
@@ -1368,8 +1366,8 @@ decl_module! {
             ensure!(Self::is_owner(&ticker, did), Error::<T>::Unauthorized);
             let mut old_treasury = None;
             <Tokens<T>>::mutate(&ticker, |token| {
-                old_treasury = token.treasury_did;
-                token.treasury_did = None
+                old_treasury = token.primary_issuance_did;
+                token.primary_issuance_did = None
             });
             Self::deposit_event(RawEvent::TreasuryTransferred(did, ticker, old_treasury, None));
             Ok(())
@@ -1835,13 +1833,13 @@ impl<T: Trait> Module<T> {
         if Self::frozen(ticker) {
             return Ok(ERC1400_TRANSFERS_HALTED);
         }
-        let treasury_did = <Tokens<T>>::get(ticker).treasury_did;
+        let primary_issuance_did = <Tokens<T>>::get(ticker).primary_issuance_did;
         let general_status_code = T::ComplianceManager::verify_restriction(
             ticker,
             from_did,
             to_did,
             value,
-            treasury_did,
+            primary_issuance_did,
         )?;
         Ok(if general_status_code != ERC1400_TRANSFER_SUCCESS {
             COMPLIANCE_MANAGER_FAILURE
@@ -2040,7 +2038,7 @@ impl<T: Trait> Module<T> {
         token.total_supply = updated_total_supply;
         <BalanceOf<T>>::insert(ticker, &to_did, updated_to_balance);
         Portfolio::<T>::set_default_portfolio_balance(to_did, ticker, updated_to_def_balance);
-        let treasury_did = token.treasury_did;
+        let primary_issuance_did = token.primary_issuance_did;
         <Tokens<T>>::insert(ticker, token);
 
         // Update the investor count of an asset.
@@ -2071,7 +2069,7 @@ impl<T: Trait> Module<T> {
             value,
             round,
             issued_in_this_round,
-            treasury_did,
+            primary_issuance_did,
         ));
 
         Ok(())
@@ -2231,8 +2229,8 @@ impl<T: Trait> Module<T> {
 
         let mut old_treasury = None;
         <Tokens<T>>::mutate(&ticker, |token| {
-            old_treasury = token.treasury_did;
-            token.treasury_did = Some(to_did);
+            old_treasury = token.primary_issuance_did;
+            token.primary_issuance_did = Some(to_did);
         });
 
         Self::deposit_event(RawEvent::TreasuryTransferred(

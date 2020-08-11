@@ -49,7 +49,6 @@ fn range_proof_we() {
         token.asset_type.clone(),
         identifiers.clone(),
         None,
-        None
     ));
 
     // 2. X add a range proof
