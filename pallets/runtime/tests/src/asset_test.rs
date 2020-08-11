@@ -2081,15 +2081,13 @@ fn clear_treasury() {
         alice_id,
         100_000
     ));
-    let bob_signatory = Signatory::Account(AccountKeyring::Bob.public());
-    add_secondary_key(alice_id, bob_signatory);
     assert_ok!(Balances::transfer_with_memo(
         Origin::signed(alice),
         bob,
         1_000,
         Some(Memo::from("Bob funding"))
     ));
-    let token_1 = SecurityToken {
+    let mut token = SecurityToken {
         name: vec![0x01].into(),
         owner_did: alice_id,
         total_supply: 1_000_000,
