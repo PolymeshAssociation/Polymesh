@@ -29,7 +29,6 @@
 //! - Creation of checkpoints on the token level.
 //! - Management of the token (Document mgt etc).
 //! - Transfer/redeem functionality of the token.
-//! - Custodian functionality.
 //!
 //! ## Interface
 //!
@@ -59,9 +58,6 @@
 //! - `is_issuable` - Used to know whether the given token will issue new tokens or not.
 //! - `batch_add_document` - Add documents for a given token, Only be called by the token owner.
 //! - `batch_remove_document` - Remove documents for a given token, Only be called by the token owner.
-//! - `increase_custody_allowance` - Used to increase the allowance for a given custodian.
-//! - `increase_custody_allowance_of` - Used to increase the allowance for a given custodian by providing the off chain signature.
-//! - `transfer_by_custodian` - Used to transfer the tokens by the approved custodian.
 //! - `set_funding_round` - Sets the name of the current funding round.
 //! - `update_identifiers` - Updates the asset identifiers. Only called by the token owner.
 //! - `add_extension` - It is used to permission the Smart-Extension address for a given ticker.
@@ -120,7 +116,7 @@ use polymesh_primitives::{
     SmartExtension, SmartExtensionName, SmartExtensionType, Ticker,
 };
 use polymesh_primitives_derive::VecU8StrongTyped;
-use sp_runtime::traits::{CheckedAdd, CheckedSub, Saturating, Verify};
+use sp_runtime::traits::{CheckedAdd, CheckedSub, Saturating};
 #[cfg(feature = "std")]
 use sp_runtime::{Deserialize, Serialize};
 use sp_std::{convert::TryFrom, prelude::*};
@@ -225,16 +221,6 @@ pub struct SecurityToken<U> {
     pub treasury_did: Option<IdentityId>,
 }
 
-/// struct to store the signed data.
-#[derive(Encode, Decode, Default, Clone, PartialEq, Debug)]
-pub struct SignData<U> {
-    pub custodian_did: IdentityId,
-    pub holder_did: IdentityId,
-    pub ticker: Ticker,
-    pub value: U,
-    pub nonce: u16,
-}
-
 /// struct to store the ticker registration details.
 #[derive(Encode, Decode, Clone, Default, PartialEq, Debug)]
 pub struct TickerRegistration<U> {
@@ -312,6 +298,7 @@ decl_storage! {
         /// Last checkpoint updated for a DID's balance.
         /// (ticker, did) -> List of checkpoints where user balance changed
         UserCheckpoints get(fn user_checkpoints): map hasher(blake2_128_concat) (Ticker, IdentityId) => Vec<u64>;
+        // TODO: Remove custodian allowances once custodian-portfolio integration is complete
         /// Allowance provided to the custodian.
         /// (ticker, token holder, custodian) -> balance
         pub CustodianAllowance get(fn custodian_allowance): map hasher(blake2_128_concat) (Ticker, IdentityId, IdentityId) => T::Balance;
@@ -1126,100 +1113,6 @@ decl_module! {
             }
 
             Ok(())
-        }
-
-        /// ERC-2258 Implementation
-
-        /// Used to increase the allowance for a given custodian
-        /// Any investor/token holder can add a custodian and transfer the token transfer ownership to the custodian
-        /// Through that investor balance will remain the same but the given token are only transfer by the custodian.
-        /// This implementation make sure to have an accurate investor count from omnibus wallets.
-        ///
-        /// # Arguments
-        /// * `origin` Signing key of the token holder.
-        /// * `ticker` Ticker of the token.
-        /// * `custodian_did` DID of the custodian (i.e whom allowance provided).
-        /// * `value` Allowance amount.
-        #[weight = 300_000]
-        pub fn increase_custody_allowance(origin, ticker: Ticker, custodian_did: IdentityId, value: T::Balance) -> DispatchResult {
-            let sender = ensure_signed(origin)?;
-            let sender_did = Context::current_identity_or::<Identity<T>>(&sender)?;
-            Self::unsafe_increase_custody_allowance(sender_did, ticker, sender_did, custodian_did, value)?;
-            Ok(())
-        }
-
-        /// Used to increase the allowance for a given custodian by providing the off chain signature.
-        ///
-        /// # Arguments
-        /// * `origin` Signing key of a DID who posses off chain signature.
-        /// * `ticker` Ticker of the token.
-        /// * `holder_did` DID of the token holder (i.e who wants to increase the custody allowance).
-        /// * `holder_account_id` Signing key which signs the off chain data blob.
-        /// * `custodian_did` DID of the custodian (i.e whom allowance provided).
-        /// * `value` Allowance amount.
-        /// * `nonce` A u16 number which avoid the replay attack.
-        /// * `signature` Signature provided by the holder_did.
-        #[weight = 450_000]
-        pub fn increase_custody_allowance_of(
-            origin,
-            ticker: Ticker,
-            holder_did: IdentityId,
-            holder_account_id: T::AccountId,
-            custodian_did: IdentityId,
-            value: T::Balance,
-            nonce: u16,
-            signature: T::OffChainSignature
-        ) -> DispatchResult {
-            let sender = ensure_signed(origin)?;
-            let caller_did = Context::current_identity_or::<Identity<T>>(&sender)?;
-            ensure!(
-                !Self::authentication_nonce((ticker, holder_did, nonce)),
-                Error::<T>::SignatureAlreadyUsed
-            );
-
-            let msg = SignData {
-                custodian_did,
-                holder_did,
-                ticker,
-                value,
-                nonce
-            };
-            // holder_account_id should be a part of the holder_did
-            ensure!(
-                signature.verify(&msg.encode()[..], &holder_account_id),
-                Error::<T>::InvalidSignature
-            );
-            // Validate the holder signing key
-            let holder_signer = Signatory::Account(holder_account_id);
-            ensure!(
-                <identity::Module<T>>::is_signer_authorized(holder_did, &holder_signer),
-                Error::<T>::HolderMustBeSigningKeyForHolderDid
-            );
-            Self::unsafe_increase_custody_allowance(caller_did, ticker, holder_did, custodian_did, value)?;
-            <AuthenticationNonce>::insert((ticker, holder_did, nonce), true);
-            Ok(())
-        }
-
-        /// Used to transfer the tokens by the approved custodian.
-        ///
-        /// # Arguments
-        /// * `origin` Signing key of the custodian.
-        /// * `ticker` Ticker of the token.
-        /// * `holder_did` DID of the token holder (i.e whom balance get reduced).
-        /// * `receiver_did` DID of the receiver.
-        /// * `value` Amount of tokens need to transfer.
-        #[weight = 750_000]
-        pub fn transfer_by_custodian(
-            origin,
-            ticker: Ticker,
-            holder_did: IdentityId,
-            receiver_did: IdentityId,
-            value: T::Balance
-        ) -> DispatchResult {
-            let sender = ensure_signed(origin)?;
-            let custodian_did = Context::current_identity_or::<Identity<T>>(&sender)?;
-
-            Self::unsafe_transfer_by_custodian(custodian_did, ticker, holder_did, receiver_did, value)
         }
 
         /// Sets the name of the current funding round.
