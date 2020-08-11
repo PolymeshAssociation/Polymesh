@@ -40,16 +40,15 @@ use pallet_identity as identity;
 use polymesh_common_utilities::{
     identity::Trait as IdentityTrait,
     protocol_fee::{ChargeProtocolFee, ProtocolOp},
-    Context, traits::CommonTrait
+    Context
 };
 use polymesh_primitives::{
-    IdentityId, Signatory, SmartExtensionMetadata, SmartExtensionType, TemplateMetaData,
+    IdentityId, SmartExtensionMetadata, TemplateMetaData,
 };
 use sp_runtime::{
     traits::{Hash, Saturating, StaticLookup},
     Perbill,
 };
-use sp_std::convert::TryFrom;
 use sp_std::prelude::Vec;
 
 type Identity<T> = identity::Module<T>;

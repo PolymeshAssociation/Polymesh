@@ -754,8 +754,8 @@ construct_runtime!(
         MultiSig: multisig::{Module, Call, Storage, Event<T>},
 
         // Contracts
-        Contracts: pallet_contracts::{Module, Call, Config, Storage, Event<T>},
-        // ContractsWrapper: contracts_wrapper::{Module, Call, Storage},
+        UpstreamContracts: pallet_contracts::{Module, Config, Storage, Event<T>},
+        Contracts: polymesh_contracts::{Module, Call, Storage, Event<T>},
 
         // Polymesh Governance Committees
         Treasury: treasury::{Module, Call, Event<T>},
@@ -955,7 +955,7 @@ impl_runtime_apis! {
             input_data: Vec<u8>,
         ) -> ContractExecResult {
             let exec_result =
-                Contracts::bare_call(origin, dest, value, gas_limit, input_data);
+            UpstreamContracts::bare_call(origin, dest, value, gas_limit, input_data);
             match exec_result {
                 Ok(v) => ContractExecResult::Success {
                     status: v.status,
@@ -969,13 +969,13 @@ impl_runtime_apis! {
             address: AccountId,
             key: [u8; 32],
         ) -> pallet_contracts_primitives::GetStorageResult {
-            Contracts::get_storage(address, key)
+            UpstreamContracts::get_storage(address, key)
         }
 
         fn rent_projection(
             address: AccountId,
         ) -> pallet_contracts_primitives::RentProjectionResult<BlockNumber> {
-            Contracts::rent_projection(address)
+            UpstreamContracts::rent_projection(address)
         }
     }
 
