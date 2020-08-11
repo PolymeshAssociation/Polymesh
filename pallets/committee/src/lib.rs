@@ -320,7 +320,7 @@ decl_module! {
         /// * `FirstVoteReject`, if `call` hasn't been proposed and `approve == false`.
         /// * `BadOrigin`, if the `origin` is not a member of this committee.
         #[weight = (
-            500_000 + call.get_dispatch_info().weight,
+            500_000_000 + call.get_dispatch_info().weight,
             call.get_dispatch_info().class,
             Pays::Yes
         )]
@@ -345,7 +345,7 @@ decl_module! {
         ///
         /// # Errors
         /// * `BadOrigin`, if the `origin` is not a member of this committee.
-        #[weight = (500_000, Operational, Pays::Yes)]
+        #[weight = (500_000_000, Operational, Pays::Yes)]
         pub fn vote(
             origin,
             proposal: T::Hash,
