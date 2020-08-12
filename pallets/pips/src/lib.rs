@@ -19,8 +19,8 @@
 //! These PIPs can either be proposed by a committee, or they can be proposed by a community member,
 //! in which case they can `vote`d on by all POLYX token holders.
 //! Once created, a proposal first enters a cool-off period, during which it can be amended
-//! (via `amend_proposal`, `bond_additional_deposit`, and `unbond_deposit`)
-//! or cancelled (via `cancel_proposal`), but not voted on, nor approved.
+//! (via `amend_proposal` and `vote`) or cancelled (via `cancel_proposal`) but not approved.
+//! During cool-off, only the PIPs proposer can use `vote`.
 //!
 //! Voting, or rather "signalling", which currently scales linearly with POLX,
 //! in this system is used to direct the Governance Councils (GCs)
@@ -70,12 +70,10 @@
 //!
 //! #### Other
 //!
-//! - `propose` - token holders can propose a new ballot.
+//! - `propose` - token holders can propose a new PIP.
 //! - `amend_proposal` - allows the creator of a proposal to amend the proposal details
-//! - `bond_additional_deposit` - allows the creator of a proposal to bond additional POLYX to it
-//! - `unbond_deposit` - allows the creator of a proposal to unbond POLYX from it
 //! - `cancel_proposal` - allows the creator of a proposal to cancel the proposal
-//! - `vote` - Token holders can vote on a ballot.
+//! - `vote` - token holders, including the PIP's proposer, can vote on a PIP.
 //! - `approve_committee_proposal` - allows the GC to approve a committee proposal
 //! - `reject_proposal` - reject an active proposal and refund deposits
 //! - `prune_proposal` - prune all storage associated with proposal and refund deposits
