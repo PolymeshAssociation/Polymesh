@@ -113,6 +113,7 @@ impl_outer_event! {
         pallet_utility,
         portfolio<T>,
         confidential,
+        polymesh_contracts<T>
     }
 }
 
@@ -235,6 +236,15 @@ impl pallet_timestamp::Trait for TestStorage {
     type Moment = u64;
     type OnTimestampSet = ();
     type MinimumPeriod = MinimumPeriod;
+}
+
+parameter_types! {
+    pub const NetworkShareInFee: Perbill = Perbill::from_percent(0);
+}
+
+impl polymesh_contracts::Trait for Runtime {
+    type Event = Event;
+    type NetworkShareInFee = NetworkShareInFee;
 }
 
 impl multisig::Trait for TestStorage {
@@ -402,7 +412,7 @@ impl pallet_contracts::Trait for TestStorage {
     type Currency = Balances;
     type Event = Event;
     type Call = Call;
-    type DetermineContractAddress = pallet_contracts::SimpleAddressDeterminer<TestStorage>;
+    type DetermineContractAddress = polymesh_contracts::NonceBasedAddressDeterminer<TestStorage>;
     type TrieIdGenerator = pallet_contracts::TrieIdFromParentCounter<TestStorage>;
     type RentPayment = ();
     type SignedClaimHandicap = SignedClaimHandicap;
@@ -581,6 +591,7 @@ pub type Committee = committee::Module<TestStorage, committee::Instance1>;
 pub type Utility = pallet_utility::Module<TestStorage>;
 pub type System = frame_system::Module<TestStorage>;
 pub type Portfolio = portfolio::Module<TestStorage>;
+pub type PolymeshContracts = polymesh_contracts::Module<TestStorage>;
 
 pub fn make_account(
     id: AccountId,

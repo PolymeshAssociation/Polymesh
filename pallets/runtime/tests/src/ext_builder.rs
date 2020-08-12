@@ -12,6 +12,7 @@ use sp_core::sr25519::Public;
 use sp_io::TestExternalities;
 use std::{cell::RefCell, convert::From, iter};
 use test_client::AccountKeyring;
+use sp_runtime::Perbill;
 
 /// A prime number fee to test the split between multiple recipients.
 pub const PROTOCOL_OP_BASE_FEE: u128 = 41;
@@ -78,6 +79,9 @@ pub struct ExtBuilder {
     governance_committee_vote_threshold: BuilderVoteThreshold,
     protocol_base_fees: MockProtocolBaseFees,
     protocol_coefficient: PosRatio,
+    /// Percentage fee share of a network (treasury + validators) in instantiation fee
+    /// of a smart extension.
+    network_fee_share: Perbill,
 }
 
 thread_local! {
@@ -172,6 +176,12 @@ impl ExtBuilder {
         EXTRINSIC_BASE_WEIGHT.with(|v| *v.borrow_mut() = self.extrinsic_base_weight);
         TRANSACTION_BYTE_FEE.with(|v| *v.borrow_mut() = self.transaction_byte_fee);
         WEIGHT_TO_FEE.with(|v| *v.borrow_mut() = self.weight_to_fee);
+    }
+
+    /// Assigning the fee share in the instantiation fee
+    fn network_fee_share(mut self, share: Perbill) -> Self {
+        self.network_fee_share = share;
+        self
     }
 
     fn make_balances(&self) -> Vec<(Public, u128)> {
