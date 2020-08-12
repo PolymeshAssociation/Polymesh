@@ -113,15 +113,13 @@ fn cdd_checks() {
                     .unwrap()
                     .auth_id;
 
-            // FIXME: determine why this fails
-            //
-            // assert_eq!(
-            //     CddHandler::get_valid_payer(
-            //         &Call::MultiSig(multisig::Call::accept_multisig_signer_as_key(alice_auth_id)),
-            //         &alice_account_signatory
-            //     ),
-            //     Ok(Some(charlie_did_signatory.clone()))
-            // );
+            assert_eq!(
+                CddHandler::get_valid_payer(
+                    &Call::MultiSig(multisig::Call::accept_multisig_signer_as_key(alice_auth_id)),
+                    &alice_account_signatory
+                ),
+                Ok(Some(charlie_did_signatory.clone()))
+            );
 
             // normal tx with cdd should succeed
             assert_eq!(

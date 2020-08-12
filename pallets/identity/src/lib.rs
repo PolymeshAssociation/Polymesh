@@ -184,7 +184,7 @@ decl_storage! {
         // A map from AccountId primary or secondary keys to DIDs.
         // Account keys map to at most one identity.
         pub AccountKeyDids get(fn account_key_dids) config():
-            map hasher(blake2_128_concat) T::AccountId => Option<IdentityId>;
+            map hasher(blake2_128_concat) T::AccountId => IdentityId;
 
         /// Nonce to ensure unique actions. starts from 1.
         pub MultiPurposeNonce get(fn multi_purpose_nonce) build(|_| 1u64): u64;
@@ -1676,8 +1676,13 @@ impl<T: Trait> Module<T> {
     ///
     /// An Option object containing the `IdentityId` that belongs to the key.
     pub fn get_identity(key: &T::AccountId) -> Option<IdentityId> {
-        <AccountKeyDids<T>>::get(key)
-            .filter(|id| !Self::is_did_frozen(id) || Self::is_primary_key(id, key))
+        if <AccountKeyDids<T>>::contains_key(key) {
+            let did = <AccountKeyDids<T>>::get(key);
+            if !Self::is_did_frozen(did) || Self::is_primary_key(&did, key) {
+                return Some(did);
+            }
+        }
+        None
     }
 
     /// It freezes/unfreezes the target `did` identity.
@@ -1701,7 +1706,7 @@ impl<T: Trait> Module<T> {
 
     /// Checks that a primary key is not linked to any identity or multisig.
     pub fn can_link_account_key_to_did(key: &T::AccountId) -> bool {
-        <AccountKeyDids<T>>::get(key).is_none() && !T::MultiSig::is_signer(key)
+        !<AccountKeyDids<T>>::contains_key(key) && !T::MultiSig::is_signer(key)
     }
 
     /// Links a primary or secondary `AccountId` key `key` to an identity `did`.
@@ -1709,7 +1714,7 @@ impl<T: Trait> Module<T> {
     /// This function applies the change if `can_link_account_key_to_did` returns `true`. Otherwise,
     /// it does nothing.
     fn link_account_key_to_did(key: &T::AccountId, did: IdentityId) {
-        if <AccountKeyDids<T>>::get(key).is_none() {
+        if !<AccountKeyDids<T>>::contains_key(key) {
             // `key` is not yet linked to any identity, so no constraints.
             <AccountKeyDids<T>>::insert(key, did);
         }
@@ -1717,7 +1722,7 @@ impl<T: Trait> Module<T> {
 
     /// Unlinks an `AccountId` key `key` from an identity `did`.
     fn unlink_account_key_from_did(key: &T::AccountId, did: IdentityId) {
-        if <AccountKeyDids<T>>::get(key) == Some(did) {
+        if <AccountKeyDids<T>>::contains_key(key) && <AccountKeyDids<T>>::get(key) == did {
             <AccountKeyDids<T>>::remove(key)
         }
     }

@@ -852,23 +852,20 @@ pub(crate) fn active_era() -> EraIndex {
 }
 
 pub fn provide_did_to_user(account: AccountId) -> bool {
-    match Identity::account_key_dids(account) {
-        None => {
-            let cdd = Origin::signed(1005);
-            assert!(
-                Identity::cdd_register_did(cdd.clone(), account, vec![]).is_ok(),
-                "Error in registering the DID"
-            );
-
-            let did = Identity::get_identity(&account).expect("DID not find in the storage");
-            assert!(
-                Identity::add_claim(cdd.clone(), did, Claim::make_cdd_wildcard(), None).is_ok(),
-                "Error CDD Claim cannot be added to DID"
-            );
-            true
-        }
-        _ => false,
+    if <identity::AccountKeyDids<Test>>::contains_key(&account) {
+        return false;
     }
+    let cdd = Origin::signed(1005);
+    assert!(
+        Identity::cdd_register_did(cdd.clone(), account, vec![]).is_ok(),
+        "Error in registering the DID"
+    );
+    let did = Identity::get_identity(&account).expect("DID not find in the storage");
+    assert!(
+        Identity::add_claim(cdd.clone(), did, Claim::make_cdd_wildcard(), None).is_ok(),
+        "Error CDD Claim cannot be added to DID"
+    );
+    true
 }
 
 pub fn add_secondary_key(stash_key: AccountId, to_secondary_key: AccountId) {
@@ -898,8 +895,7 @@ pub fn add_secondary_key(stash_key: AccountId, to_secondary_key: AccountId) {
 }
 
 pub fn get_identity(key: AccountId) -> bool {
-    let mut have_id = false;
-    <identity::AccountKeyDids<Test>>::get(key).is_some()
+    <identity::AccountKeyDids<Test>>::contains_key(&key)
 }
 
 fn check_ledgers() {
