@@ -186,11 +186,6 @@ decl_storage! {
         pub AccountKeyDids get(fn account_key_dids) config():
             map hasher(blake2_128_concat) T::AccountId => Option<IdentityId>;
 
-        // A map from IdentityId secondary keys to sets of DIDs.
-        // Identity keys can map to multiple identities.
-        pub IdentityKeyDids get(fn identity_key_dids) config():
-            map hasher(twox_64_concat) IdentityId => Vec<IdentityId>;
-
         /// Nonce to ensure unique actions. starts from 1.
         pub MultiPurposeNonce get(fn multi_purpose_nonce) build(|_| 1u64): u64;
 
@@ -377,26 +372,20 @@ decl_module! {
             // Remove links and get all authorization IDs per signer.
             let signer_and_auth_id_list = signers_to_remove.iter().filter_map(|signer| {
                 // Unlink each of the given secondary keys from `did`.
-                match &signer {
-                    Signatory::Account(key) => {
-                        // Unlink multisig signers.
-                        if T::MultiSig::is_multisig(key) {
-                            if !T::Balances::total_balance(key).is_zero() {
-                                return None;
-                            }
-                            // Unlink multisig signers from the identity.
-                            Self::unlink_multisig_signers_from_did(
-                                T::MultiSig::get_key_signers(key),
-                                did
-                            );
+                if let Signatory::Account(key) = &signer {
+                    // Unlink multisig signers.
+                    if T::MultiSig::is_multisig(key) {
+                        if !T::Balances::total_balance(key).is_zero() {
+                            return None;
                         }
-                        // Unlink the secondary account key.
-                        Self::unlink_account_key_from_did(key, did);
+                        // Unlink multisig signers from the identity.
+                        Self::unlink_multisig_signers_from_did(
+                            T::MultiSig::get_key_signers(key),
+                            did
+                        );
                     }
-                    Signatory::Identity(source_did) => {
-                        // Unlink the secondary identity key.
-                        Self::unlink_identity_key_from_did(source_did, did);
-                    }
+                    // Unlink the secondary account key.
+                    Self::unlink_account_key_from_did(key, did);
                 }
 
                 // It returns the list of `auth_id` from `did`.
@@ -1075,9 +1064,8 @@ decl_module! {
                 .collect::<Vec<_>>();
 
             additional_keys_si.iter().for_each(|sk| {
-                match &sk.signer {
-                    Signatory::Account(key) => Self::link_account_key_to_did(key, id),
-                    Signatory::Identity(did) => Self::link_identity_key_to_did(did, id),
+                if let Signatory::Account(key) = &sk.signer {
+                    Self::link_account_key_to_did(key, id);
                 }
             });
             // 2.2. Update that identity information and its offchain authorization nonce.
@@ -1241,7 +1229,6 @@ impl<T: Trait> Module<T> {
             }
             Signatory::Identity(source_did) => {
                 charge_fee()?;
-                Self::link_identity_key_to_did(source_did, target_did);
             }
         }
 
@@ -1735,17 +1722,6 @@ impl<T: Trait> Module<T> {
         }
     }
 
-    /// Links a secondary identity key `source_did` to an identity `target_did`.
-    fn link_identity_key_to_did(source_did: &IdentityId, target_did: IdentityId) {
-        // FIXME: use BTreeSet, not Vec
-        <IdentityKeyDids>::mutate(source_did, |dids| dids.push(target_did));
-    }
-
-    /// Unlinks a secondary identity key `source_did` from an identity `target_did`.
-    fn unlink_identity_key_from_did(source_did: &IdentityId, target_did: IdentityId) {
-        <IdentityKeyDids>::mutate(source_did, |dids| dids.retain(|did| *did != target_did));
-    }
-
     /// It registers a did for a new asset. Only called by create_asset function.
     pub fn register_asset_did(ticker: &Ticker) -> DispatchResult {
         let did = Self::get_token_did(ticker)?;
@@ -1986,22 +1962,17 @@ impl<T: Trait> Module<T> {
     fn leave_identity(signer: Signatory<T::AccountId>, did: IdentityId) -> DispatchResult {
         ensure!(Self::is_signer(did, &signer), Error::<T>::NotASigner);
 
-        match &signer {
-            Signatory::Account(key) => {
-                // Unlink multisig signers.
-                if T::MultiSig::is_multisig(key) {
-                    ensure!(
-                        T::Balances::total_balance(key).is_zero(),
-                        Error::<T>::MultiSigHasBalance
-                    );
-                    // Unlink multisig signers from the identity.
-                    Self::unlink_multisig_signers_from_did(T::MultiSig::get_key_signers(key), did);
-                }
-                Self::unlink_account_key_from_did(key, did);
+        if let Signatory::Account(key) = &signer {
+            // Unlink multisig signers.
+            if T::MultiSig::is_multisig(key) {
+                ensure!(
+                    T::Balances::total_balance(key).is_zero(),
+                    Error::<T>::MultiSigHasBalance
+                );
+                // Unlink multisig signers from the identity.
+                Self::unlink_multisig_signers_from_did(T::MultiSig::get_key_signers(key), did);
             }
-            Signatory::Identity(source_did) => {
-                Self::unlink_identity_key_from_did(source_did, did);
-            }
+            Self::unlink_account_key_from_did(key, did);
         }
         // Update secondary keys at Identity.
         <DidRecords<T>>::mutate(did, |record| {
