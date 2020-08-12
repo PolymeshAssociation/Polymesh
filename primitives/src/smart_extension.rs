@@ -54,22 +54,18 @@ pub struct SmartExtension<U> {
 }
 
 /// Holds the url string of the SE template.
-#[derive(Encode, Decode, Default, Clone, PartialEq, VecU8StrongTyped)]
-#[cfg_attr(feature = "std", derive(Debug))]
+#[derive(Encode, Decode, Default, Debug, Clone, PartialEq, VecU8StrongTyped)]
 pub struct MetaUrl(pub Vec<u8>);
 
 /// Holds the description string about the SE template.
-#[derive(Encode, Decode, Default, Clone, PartialEq, VecU8StrongTyped)]
-#[cfg_attr(feature = "std", derive(Debug))]
+#[derive(Encode, Decode, Default, Debug, Clone, PartialEq, VecU8StrongTyped)]
 pub struct MetaDescription(pub Vec<u8>);
 
 /// Holds the version string of the SE template.
-#[derive(Encode, Decode, Default, Clone, PartialEq, VecU8StrongTyped)]
-#[cfg_attr(feature = "std", derive(Debug))]
+#[derive(Encode, Decode, Default, Debug, Clone, PartialEq, VecU8StrongTyped)]
 pub struct MetaVersion(pub Vec<u8>);
 
-#[derive(Encode, Decode, Default, Clone, PartialEq)]
-#[cfg_attr(feature = "std", derive(Debug))]
+#[derive(Encode, Decode, Default, Debug, Clone, PartialEq)]
 pub struct SmartExtensionMetadata<Balance> {
     /// Url that can contain the details about the template
     /// Ex- license, audit report.
@@ -86,8 +82,7 @@ pub struct SmartExtensionMetadata<Balance> {
     pub version: MetaVersion,
 }
 
-#[derive(Encode, Decode, Default, Clone, PartialEq)]
-#[cfg_attr(feature = "std", derive(Debug))]
+#[derive(Encode, Decode, Default, Debug, Clone, PartialEq)]
 pub struct TemplateMetaData<Balance, AccountId> {
     /// Meta details of the SE template
     pub meta_info: SmartExtensionMetadata<Balance>,
