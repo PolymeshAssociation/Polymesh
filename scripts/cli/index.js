@@ -341,7 +341,7 @@ for (let i = 0; i < accounts.length; i++) {
 }
 await blockTillPoolEmpty(api);
 for (let i = 0; i < accounts.length; i++) {
-  const d = await api.query.identity.keyToIdentityIds(accounts[i].publicKey);
+  const d = await api.query.identity.accountKeyDids(accounts[i].publicKey);
   dids.push(d.raw.asUnique);
 }
 let did_balance = 10 * 10**12;

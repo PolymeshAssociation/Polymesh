@@ -41,7 +41,7 @@ const createIdentitiesWithExpiry = async function (
   }
 
   for (let i = 0; i < accounts.length; i++) {
-    const d: any = await api.query.identity.keyToIdentityIds(
+    const d: any = await api.query.identity.accountKeyDids(
       accounts[i].publicKey
     );
     dids.push(d.toHuman().Unique);

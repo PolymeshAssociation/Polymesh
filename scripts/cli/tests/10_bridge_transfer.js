@@ -16,7 +16,7 @@ async function main() {
   let relay = testEntities[4];
 
   let alice_did = JSON.parse(
-    await reqImports.keyToIdentityIds(api, alice.publicKey)
+    await reqImports.accountKeyDids(api, alice.publicKey)
   );
 
   let did_balance = 1000 * 10 ** 6;
@@ -27,7 +27,7 @@ async function main() {
     alice_did.Unique,
     did_balance
   );
-  
+
   await acceptMultisigSignerAsKey(api, relay, 9);
 
   await reqImports.distributePolyBatch( api, [relay], reqImports.transfer_amount, alice );
@@ -35,9 +35,9 @@ async function main() {
   await bridgeTransfer(api, relay, alice);
 
   await freezeTransaction(api, alice);
-  
+
   await sleep(50000).then(async() => { await unfreezeTransaction(api, alice); });
-  
+
   if (reqImports.fail_count > 0) {
     console.log("Failed");
   } else {

@@ -175,7 +175,7 @@ const createIdentitiesWithExpiry = async function(api, accounts, alice, expiries
   await blockTillPoolEmpty(api);
 
   for (let i = 0; i < accounts.length; i++) {
-    const d = await api.query.identity.keyToIdentityIds(accounts[i].publicKey);
+    const d = await api.query.identity.accountKeyDids(accounts[i].publicKey);
     dids.push(d.toHuman().Unique);
     console.log( `>>>> [Get DID ] acc: ${accounts[i].address} did: ${dids[i]}` );
   }
@@ -211,8 +211,8 @@ async function topUpIdentityBalance(api, signer, did, did_balance) {
 }
 
 // Fetches DID that belongs to the Account Key
-async function keyToIdentityIds(api, accountKey) {
-  let account_did = await api.query.identity.keyToIdentityIds(accountKey);
+async function accountKeyDids(api, accountKey) {
+  let account_did = await api.query.identity.accountKeyDids(accountKey);
   return account_did;
 }
 
@@ -482,7 +482,7 @@ let reqImports = {
   createMultiSig,
   u8aToHex,
   topUpIdentityBalance,
-  keyToIdentityIds
+  accountKeyDids
 };
 
 export { reqImports };

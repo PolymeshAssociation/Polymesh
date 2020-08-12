@@ -45,7 +45,7 @@ async function createIdentities(api, accounts, alice) {
       }
 
       for (let i = 0; i < accounts.length; i++) {
-        const d = await api.query.identity.keyToIdentityIds(accounts[i].publicKey);
+        const d = await api.query.identity.accountKeyDids(accounts[i].publicKey);
         dids.push(d.toHuman().Unique);
         console.log( `>>>> [Get DID ] acc: ${accounts[i].address} did: ${dids[i]}` );
       }
