@@ -123,7 +123,7 @@ decl_module! {
         ///
         /// # Errors
         /// * `BadOrigin` - Only root allowed.
-        #[weight = (500_000, DispatchClass::Operational, Pays::Yes)]
+        #[weight = (200_000_000, DispatchClass::Operational, Pays::Yes)]
         pub fn change_coefficient(origin, coefficient: PosRatio) -> DispatchResult {
             ensure_root(origin)?;
             let id = Context::current_identity::<Identity<T>>().unwrap_or_else(|| SystematicIssuers::Committee.as_id());
@@ -137,7 +137,7 @@ decl_module! {
         ///
         /// # Errors
         /// * `BadOrigin` - Only root allowed.
-        #[weight = (500_000, DispatchClass::Operational, Pays::Yes)]
+        #[weight = (200_000_000, DispatchClass::Operational, Pays::Yes)]
         pub fn change_base_fee(origin, op: ProtocolOp, base_fee: BalanceOf<T>) ->
             DispatchResult
         {

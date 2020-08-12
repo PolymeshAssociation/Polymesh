@@ -112,7 +112,7 @@ decl_module! {
         fn deposit_event() = default;
 
         /// Creates a new dividend entry without payout. Token must have at least one checkpoint.
-        #[weight = 400_000]
+        #[weight = 2_000_000_000]
         pub fn new(origin,
             amount: T::Balance,
             ticker: Ticker,
@@ -128,7 +128,7 @@ decl_module! {
             // Check that sender is allowed to act on behalf of `did`
             ensure!(
                 <identity::Module<T>>::is_signer_authorized(did, &sender),
-                Error::<T>::SenderMustBeSigningKeyForDid
+                Error::<T>::SenderMustBeSecondaryKeyForDid
             );
             // Check that sender owns the asset token
             ensure!(<asset::Module<T>>::_is_owner(&ticker, did), Error::<T>::NotAnOwner);
@@ -199,7 +199,7 @@ decl_module! {
         }
 
         /// Lets the owner cancel a dividend before start/maturity date
-        #[weight = 300_000]
+        #[weight = 700_000_000]
         pub fn cancel(origin, ticker: Ticker, dividend_id: u32) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             let did = Context::current_identity_or::<Identity<T>>(&sender)?;
@@ -208,7 +208,7 @@ decl_module! {
             // Check that sender is allowed to act on behalf of `did`
             ensure!(
                 <identity::Module<T>>::is_signer_authorized(did, &sender),
-                Error::<T>::SenderMustBeSigningKeyForDid
+                Error::<T>::SenderMustBeSecondaryKeyForDid
             );
             // Check that sender owns the asset token
             ensure!(<asset::Module<T>>::_is_owner(&ticker, did), Error::<T>::NotAnOwner);
@@ -242,7 +242,7 @@ decl_module! {
 
         /// Withdraws from a dividend the adequate share of the `amount` field. All dividend shares
         /// are rounded by truncation (down to first integer below)
-        #[weight = 500_000]
+        #[weight = 1_000_000_000]
         pub fn claim(origin, ticker: Ticker, dividend_id: u32) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             let did = Context::current_identity_or::<Identity<T>>(&sender)?;
@@ -251,7 +251,7 @@ decl_module! {
             // Check that sender is allowed to act on behalf of `did`
             ensure!(
                 <identity::Module<T>>::is_signer_authorized(did, &sender),
-                Error::<T>::SenderMustBeSigningKeyForDid
+                Error::<T>::SenderMustBeSecondaryKeyForDid
             );
             // Check if sender wasn't already paid their share
             ensure!(
@@ -316,7 +316,7 @@ decl_module! {
         }
 
         /// After a dividend had expired, collect the remaining amount to owner address
-        #[weight = 300_000]
+        #[weight = 900_000_000]
         pub fn claim_unclaimed(origin, ticker: Ticker, dividend_id: u32) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             let did = Context::current_identity_or::<Identity<T>>(&sender)?;
@@ -325,7 +325,7 @@ decl_module! {
             // Check that sender is allowed to act on behalf of `did`
             ensure!(
                 <identity::Module<T>>::is_signer_authorized(did, &sender),
-                Error::<T>::SenderMustBeSigningKeyForDid
+                Error::<T>::SenderMustBeSecondaryKeyForDid
             );
             // Check that sender owns the asset token
             ensure!(<asset::Module<T>>::_is_owner(&ticker, did), Error::<T>::NotAnOwner);
@@ -383,8 +383,8 @@ decl_error! {
     pub enum Error for Module<T: Trait> {
         /// Claiming unclaimed payouts requires an end date
         NotEnded,
-        /// The sender must be a signing key for the DID.
-        SenderMustBeSigningKeyForDid,
+        /// The sender must be a secondary key for the DID.
+        SenderMustBeSecondaryKeyForDid,
         /// The dividend was not found.
         NoSuchDividend,
         /// The user is not an owner of the asset.

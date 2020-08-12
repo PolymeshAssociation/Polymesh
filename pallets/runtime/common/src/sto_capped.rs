@@ -103,8 +103,8 @@ decl_storage! {
 
 decl_error! {
     pub enum Error for Module<T: Trait> {
-        /// The sender must be a signing key for the DID.
-        SenderMustBeSigningKeyForDid,
+        /// The sender must be a secondary key for the DID.
+        SenderMustBeSecondaryKeyForDid,
         /// The sender is not a token owner.
         NotAnOwner,
         /// Pre-validation checks failed.
@@ -156,14 +156,14 @@ decl_module! {
         /// Used to initialize the STO for a given asset
         ///
         /// # Arguments
-        /// * `origin` Signing key of the token owner who wants to initialize the sto
+        /// * `origin` Secondary key of the token owner who wants to initialize the sto
         /// * `ticker` Ticker of the token
         /// * `beneficiary_did` DID which holds all the funds collected
         /// * `cap` Total amount of tokens allowed for sale
         /// * `rate` Rate of asset in terms of native currency
         /// * `start_date` Unix timestamp at when STO starts
         /// * `end_date` Unix timestamp at when STO ends
-        #[weight = 300_000]
+        #[weight = 1_000_000_000]
         pub fn launch_sto(
             origin,
             ticker: Ticker,
@@ -180,7 +180,7 @@ decl_module! {
             // Check that sender is allowed to act on behalf of `did`
             ensure!(
                 <identity::Module<T>>::is_signer_authorized(did, &sender),
-                Error::<T>::SenderMustBeSigningKeyForDid
+                Error::<T>::SenderMustBeSecondaryKeyForDid
             );
 
             let sold:T::Balance = 0.into();
@@ -212,11 +212,11 @@ decl_module! {
         /// Used to buy tokens
         ///
         /// # Arguments
-        /// * `origin` Signing key of the investor
+        /// * `origin` Secondary key of the investor
         /// * `ticker` Ticker of the token
         /// * `sto_id` A unique identifier to know which STO investor wants to invest in
         /// * `value` Amount of POLYX wants to invest in
-        #[weight = 500_000]
+        #[weight = 900_000_000]
         pub fn buy_tokens(origin, ticker: Ticker, sto_id: u32, value: T::Balance) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             let did = Context::current_identity_or::<Identity<T>>(&sender)?;
@@ -225,7 +225,7 @@ decl_module! {
             // Check that sender is allowed to act on behalf of `did`
             ensure!(
                 <identity::Module<T>>::is_signer_authorized(did, &sender_signer),
-                Error::<T>::SenderMustBeSigningKeyForDid
+                Error::<T>::SenderMustBeSecondaryKeyForDid
             );
 
             let mut selected_sto = Self::stos_by_token((ticker, sto_id));
@@ -277,10 +277,10 @@ decl_module! {
         /// By doing this every operations on given sto_id would get freezed like buy_tokens
         ///
         /// # Arguments
-        /// * `origin` Signing key of the token owner
+        /// * `origin` Secondary key of the token owner
         /// * `ticker` Ticker of the token
         /// * `sto_id` A unique identifier to know which STO needs to paused
-        #[weight = 150_000]
+        #[weight = 500_000_000]
         pub fn pause_sto(origin, ticker: Ticker, sto_id: u32) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             let did = Context::current_identity_or::<Identity<T>>(&sender)?;
@@ -289,7 +289,7 @@ decl_module! {
             // Check that sender is allowed to act on behalf of `did`
             ensure!(
                 <identity::Module<T>>::is_signer_authorized(did, &sender),
-                Error::<T>::SenderMustBeSigningKeyForDid
+                Error::<T>::SenderMustBeSecondaryKeyForDid
             );
             // Check valid STO id
             ensure!(Self::sto_count(ticker) >= sto_id, Error::<T>::InvalidStoId);
@@ -308,10 +308,10 @@ decl_module! {
         /// By doing this every operations on given sto_id would get un freezed.
         ///
         /// # Arguments
-        /// * `origin` Signing key of the token owner
+        /// * `origin` Secondary key of the token owner
         /// * `ticker` Ticker of the token
         /// * `sto_id` A unique identifier to know which STO needs to un paused
-        #[weight = 150_000]
+        #[weight = 500_000_000]
         pub fn unpause_sto(origin, ticker: Ticker, sto_id: u32) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             let did = Context::current_identity_or::<Identity<T>>(&sender)?;
@@ -320,7 +320,7 @@ decl_module! {
             // Check that sender is allowed to act on behalf of `did`
             ensure!(
                 <identity::Module<T>>::is_signer_authorized(did, &sender),
-                Error::<T>::SenderMustBeSigningKeyForDid
+                Error::<T>::SenderMustBeSecondaryKeyForDid
             );
             // Check valid STO id
             ensure!(Self::sto_count(ticker) >= sto_id, Error::<T>::InvalidStoId);

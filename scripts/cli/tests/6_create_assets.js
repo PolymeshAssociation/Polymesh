@@ -14,13 +14,13 @@ async function main() {
 
   const testEntities = await reqImports.initMain(api);
 
-  let master_keys = await reqImports.generateKeys(api, 2, "master6");
+  let primary_keys = await reqImports.generateKeys(api, 2, "primary6");
 
-  let issuer_dids = await reqImports.createIdentities(api, master_keys, testEntities[0]);
+  let issuer_dids = await reqImports.createIdentities(api, primary_keys, testEntities[0]);
 
-  await reqImports.distributePolyBatch( api, master_keys, reqImports.transfer_amount, testEntities[0] );
+  await reqImports.distributePolyBatch( api, primary_keys, reqImports.transfer_amount, testEntities[0] );
 
-  await issueTokenPerDid(api, master_keys, issuer_dids, "DEMOCA");
+  await issueTokenPerDid(api, primary_keys, issuer_dids, "DEMOCA");
 
   if (reqImports.fail_count > 0) {
     console.log("Failed");
