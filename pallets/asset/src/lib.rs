@@ -1618,6 +1618,13 @@ impl<T: Trait> AssetTrait<T::Balance, T::AccountId> for Module<T> {
     ) -> DispatchResult {
         Self::unsafe_transfer_by_custodian(custodian_did, ticker, holder_did, receiver_did, value)
     }
+
+    fn treasury(ticker: &Ticker) -> IdentityId {
+        let token_details = Self::token_details(ticker);
+        token_details
+            .treasury_did
+            .unwrap_or(token_details.owner_did)
+    }
 }
 
 impl<T: Trait> AcceptTransfer for Module<T> {
