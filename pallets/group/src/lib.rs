@@ -140,7 +140,7 @@ decl_module! {
         /// * `who` - Target member of the group.
         /// * `expiry` - Time-stamp when `who` is removed from CDD. As soon as it is expired, the
         /// generated claims will be "invalid" as `who` is not considered a member of the group.
-        #[weight = (500_000, DispatchClass::Operational, Pays::Yes)]
+        #[weight = (750_000_000, DispatchClass::Operational, Pays::Yes)]
         pub fn disable_member( origin,
             who: IdentityId,
             expiry: Option<T::Moment>,
@@ -156,17 +156,17 @@ decl_module! {
         /// # Arguments
         /// * `origin` - Origin representing `AddOrigin` or root
         /// * `who` - IdentityId to be added to the group.
-        #[weight = (500_000, DispatchClass::Operational, Pays::Yes)]
+        #[weight = (750_000_000, DispatchClass::Operational, Pays::Yes)]
         pub fn add_member(origin, who: IdentityId) {
             T::AddOrigin::ensure_origin(origin)?;
 
             let mut members = <ActiveMembers<I>>::get();
             let location = members.binary_search(&who).err().ok_or(Error::<T, I>::DuplicateMember)?;
-            members.insert(location, who.clone());
+            members.insert(location, who);
             <ActiveMembers<I>>::put(&members);
 
             T::MembershipChanged::change_members_sorted(&[who], &[], &members[..]);
-            let current_did = Context::current_identity::<Identity<T>>().unwrap_or(SystematicIssuers::Committee.as_id());
+            let current_did = Context::current_identity::<Identity<T>>().unwrap_or_else(|| SystematicIssuers::Committee.as_id());
             Self::deposit_event(RawEvent::MemberAdded(current_did, who));
         }
 
@@ -180,7 +180,7 @@ decl_module! {
         /// # Arguments
         /// * `origin` - Origin representing `RemoveOrigin` or root
         /// * `who` - IdentityId to be removed from the group.
-        #[weight = (500_000, DispatchClass::Operational, Pays::Yes)]
+        #[weight = (750_000_000, DispatchClass::Operational, Pays::Yes)]
         pub fn remove_member(origin, who: IdentityId) -> DispatchResult {
             T::RemoveOrigin::ensure_origin(origin)?;
             Self::unsafe_remove_member(who)
@@ -194,7 +194,7 @@ decl_module! {
         /// * `origin` - Origin representing `SwapOrigin` or root
         /// * `remove` - IdentityId to be removed from the group.
         /// * `add` - IdentityId to be added in place of `remove`.
-        #[weight = (500_000, DispatchClass::Operational, Pays::Yes)]
+        #[weight = (750_000_000, DispatchClass::Operational, Pays::Yes)]
         pub fn swap_member(origin, remove: IdentityId, add: IdentityId) {
             T::SwapOrigin::ensure_origin(origin)?;
 
@@ -212,7 +212,7 @@ decl_module! {
                 &[remove],
                 &members[..],
             );
-            let current_did = Context::current_identity::<Identity<T>>().unwrap_or(SystematicIssuers::Committee.as_id());
+            let current_did = Context::current_identity::<Identity<T>>().unwrap_or_else(|| SystematicIssuers::Committee.as_id());
             Self::deposit_event(RawEvent::MembersSwapped(current_did, remove, add));
         }
 
@@ -222,7 +222,7 @@ decl_module! {
         /// # Arguments
         /// * `origin` - Origin representing `ResetOrigin` or root
         /// * `members` - New set of identities
-        #[weight = (500_000, DispatchClass::Operational, Pays::Yes)]
+        #[weight = (750_000_000, DispatchClass::Operational, Pays::Yes)]
         pub fn reset_members(origin, members: Vec<IdentityId>) {
             T::ResetOrigin::ensure_origin(origin)?;
 
@@ -232,7 +232,7 @@ decl_module! {
                 T::MembershipChanged::set_members_sorted(&new_members[..], m);
                 *m = new_members;
             });
-            let current_did = Context::current_identity::<Identity<T>>().unwrap_or(SystematicIssuers::Committee.as_id());
+            let current_did = Context::current_identity::<Identity<T>>().unwrap_or_else(|| SystematicIssuers::Committee.as_id());
             Self::deposit_event(RawEvent::MembersReset(current_did, members));
         }
 
@@ -244,15 +244,15 @@ decl_module! {
         ///
         /// # Error
         ///
-        /// * Only master key can abdicate.
+        /// * Only primary key can abdicate.
         /// * Last member of a group cannot abdicate.
-        #[weight = (100_000, DispatchClass::Operational, Pays::Yes)]
+        #[weight = (1_000_000_000, DispatchClass::Operational, Pays::Yes)]
         pub fn abdicate_membership(origin) -> DispatchResult {
             let who = ensure_signed(origin)?;
             let remove_id = Context::current_identity_or::<Identity<T>>(&who)?;
 
-            ensure!(<Identity<T>>::is_master_key(remove_id, &who),
-                Error::<T,I>::OnlyMasterKeyAllowed);
+            ensure!(<Identity<T>>::is_primary_key(remove_id, &who),
+                Error::<T,I>::OnlyPrimaryKeyAllowed);
 
             let mut members = Self::get_members();
             ensure!(members.contains(&remove_id),
@@ -276,8 +276,8 @@ decl_module! {
 
 decl_error! {
     pub enum Error for Module<T: Trait<I>, I: Instance> {
-        /// Only master key of the identity is allowed.
-        OnlyMasterKeyAllowed,
+        /// Only primary key of the identity is allowed.
+        OnlyPrimaryKeyAllowed,
         /// Group member was added already.
         DuplicateMember,
         /// Can't remove a member that doesn't exist.
@@ -302,7 +302,7 @@ impl<T: Trait<I>, I: Instance> Module<T, I> {
     /// # Arguments
     /// * `who` IdentityId to be removed from the group.
     fn unsafe_remove_member(who: IdentityId) -> DispatchResult {
-        Self::unsafe_remove_active_member(who).or(Self::unsafe_remove_inactive_member(who))
+        Self::unsafe_remove_active_member(who).or_else(|_| Self::unsafe_remove_inactive_member(who))
     }
 
     /// Removes `who` as "inactive member"
@@ -342,7 +342,7 @@ impl<T: Trait<I>, I: Instance> Module<T, I> {
 
         T::MembershipChanged::change_members_sorted(&[], &[who], &members[..]);
         let current_did = Context::current_identity::<Identity<T>>()
-            .unwrap_or(SystematicIssuers::Committee.as_id());
+            .unwrap_or_else(|| SystematicIssuers::Committee.as_id());
         Self::deposit_event(RawEvent::MemberRemoved(current_did, who));
         Ok(())
     }
@@ -382,9 +382,9 @@ impl<T: Trait<I>, I: Instance> GroupTrait<T::Moment> for Module<T, I> {
     ) -> DispatchResult {
         Self::unsafe_remove_active_member(who)?;
         let current_did = Context::current_identity::<Identity<T>>()
-            .unwrap_or(SystematicIssuers::Committee.as_id());
+            .unwrap_or_else(|| SystematicIssuers::Committee.as_id());
 
-        let deactivated_at = at.unwrap_or_else(|| <pallet_timestamp::Module<T>>::get());
+        let deactivated_at = at.unwrap_or_else(<pallet_timestamp::Module<T>>::get);
         let inactive_member = InactiveMember {
             id: who,
             expiry,
@@ -404,7 +404,7 @@ impl<T: Trait<I>, I: Instance> GroupTrait<T::Moment> for Module<T, I> {
             });
 
             // Update inactive member
-            if let Some(idx) = members.binary_search(&inactive_member).ok() {
+            if let Ok(idx) = members.binary_search(&inactive_member) {
                 members[idx] = inactive_member;
             } else {
                 members.push(inactive_member);

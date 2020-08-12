@@ -154,7 +154,7 @@ decl_module! {
         fn deposit_event() = default;
 
         /// Creates a portfolio with the given `name`.
-        #[weight = 200_000]
+        #[weight = 600_000_000]
         pub fn create_portfolio(origin, name: PortfolioName) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             let did = Context::current_identity_or::<Identity<T>>(&sender)?;
@@ -166,7 +166,7 @@ decl_module! {
         }
 
         /// Deletes a user portfolio and moves all its assets to the default portfolio.
-        #[weight = 1_000_000]
+        #[weight = 1_000_000_000]
         pub fn delete_portfolio(origin, num: PortfolioNumber) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             let did = Context::current_identity_or::<Identity<T>>(&sender)?;
@@ -196,7 +196,7 @@ decl_module! {
 
         /// Moves a token amount from one portfolio of an identity to another portfolio of the same
         /// identity.
-        #[weight = 250_000 + 250_000 * u64::try_from(items.len()).unwrap_or_default()]
+        #[weight = 1_000_000_000 + 10_050_000 * u64::try_from(items.len()).unwrap_or_default()]
         pub fn move_portfolio(
             origin,
             from_num: Option<PortfolioNumber>,
@@ -223,7 +223,7 @@ decl_module! {
             }
             let get_portfolio_id = |num: Option<PortfolioNumber>| {
                 num
-                    .and_then(|num| Some(PortfolioId::user_portfolio(did, num)))
+                    .map(|num| PortfolioId::user_portfolio(did, num))
                     .unwrap_or_else(|| PortfolioId::default_portfolio(did))
             };
             let from_portfolio_id = get_portfolio_id(from_num);
@@ -255,7 +255,7 @@ decl_module! {
         }
 
         /// Renames a non-default portfolio.
-        #[weight = 500_000]
+        #[weight = 600_000_000]
         pub fn rename_portfolio(
             origin,
             num: PortfolioNumber,

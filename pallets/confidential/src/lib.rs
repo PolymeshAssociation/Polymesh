@@ -79,7 +79,7 @@ decl_module! {
 
         fn deposit_event() = default;
 
-        #[weight = 400_000]
+        #[weight = 8_000_000_000]
         pub fn add_range_proof(origin,
             target_id: IdentityId,
             ticker: Ticker,
@@ -108,7 +108,7 @@ decl_module! {
             Ok(())
         }
 
-        #[weight = 400_000]
+        #[weight = 6_000_000_000]
         pub fn add_verify_range_proof(origin,
             target: IdentityId,
             prover: IdentityId,
@@ -117,7 +117,7 @@ decl_module! {
             let verifier = ensure_signed(origin)?;
             let verifier_id = Context::current_identity_or::<Identity<T>>(&verifier)?;
 
-            Self::verify_range_proof(target, prover, ticker.clone())?;
+            Self::verify_range_proof(target, prover, ticker)?;
 
             <RangeProofVerifications>::insert((target,ticker), verifier_id, true);
             Ok(())

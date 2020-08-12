@@ -20,7 +20,7 @@
 //! ## To Do
 //!
 //!   - Remove the ability to call the Contracts module, bypassing Contracts Wrapper
-//!   - Integrate DID into all calls, and validate signing_key
+//!   - Integrate DID into all calls, and validate secondary_key
 //!   - Track ownership of code and instances via DIDs
 //!
 //! ## Possible Tokenomics
@@ -52,8 +52,8 @@ decl_storage! {
 
 decl_error! {
     pub enum Error for Module<T: Trait> {
-        /// The sender must be a signing key for the DID.
-        SenderMustBeSigningKeyForDid,
+        /// The sender must be a secondary key for the DID.
+        SenderMustBeSecondaryKeyForDid,
     }
 }
 
@@ -72,7 +72,7 @@ decl_module! {
         }
 
         // Simply forwards to the `put_code` function in the Contract module.
-        #[weight = 500_000 + 100_00 * u64::try_from(code.len()).unwrap_or_default()]
+        #[weight = 500_000 + 10_000 * u64::try_from(code.len()).unwrap_or_default()]
         pub fn put_code(
             origin,
             code: Vec<u8>
@@ -84,7 +84,7 @@ decl_module! {
             // Check that sender is allowed to act on behalf of `did`
             ensure!(
                 <identity::Module<T>>::is_signer_authorized(did, &signer),
-                Error::<T>::SenderMustBeSigningKeyForDid
+                Error::<T>::SenderMustBeSecondaryKeyForDid
             );
 
             // Call underlying function
@@ -105,7 +105,7 @@ decl_module! {
         }
 
         // Simply forwards to the `instantiate` function in the Contract module.
-        #[weight = 500_000 + 100_00 * u64::try_from(data.len()).unwrap_or_default()]
+        #[weight = 500_000 + 10_000 * u64::try_from(data.len()).unwrap_or_default()]
         pub fn instantiate(
             origin,
             #[compact] endowment: BalanceOf<T>,

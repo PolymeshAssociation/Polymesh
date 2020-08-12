@@ -5,8 +5,8 @@ pub use codec::Codec;
 use grandpa::{self, FinalityProofProvider as GrandpaFinalityProofProvider};
 pub use pallet_confidential::native_rng;
 pub use polymesh_primitives::{
-    AccountId, Balance, Block, BlockNumber, Hash, IdentityId, Index as Nonce, Moment, Signatory,
-    SigningKey, Ticker,
+    AccountId, Balance, Block, BlockNumber, Hash, IdentityId, Index as Nonce, Moment, SecondaryKey,
+    Signatory, Ticker,
 };
 
 pub use polymesh_runtime_develop;
@@ -14,7 +14,6 @@ pub use polymesh_runtime_testnet_v1;
 use prometheus_endpoint::Registry;
 pub use sc_client_api::backend::Backend;
 pub use sc_consensus::LongestChain;
-use sc_consensus_babe;
 use sc_executor::native_executor_instance;
 pub use sc_executor::{NativeExecutionDispatch, NativeExecutor};
 pub use sc_service::{
@@ -77,7 +76,7 @@ pub trait RuntimeApiCollection<Extrinsic: codec::Codec + Send + Sync + 'static>:
         IdentityId,
         Ticker,
         AccountId,
-        SigningKey<AccountId>,
+        SecondaryKey<AccountId>,
         Signatory<AccountId>,
         Moment,
     > + pallet_protocol_fee_rpc_runtime_api::ProtocolFeeApi<Block>
@@ -111,7 +110,7 @@ where
             IdentityId,
             Ticker,
             AccountId,
-            SigningKey<AccountId>,
+            SecondaryKey<AccountId>,
             Signatory<AccountId>,
             Moment,
         > + pallet_protocol_fee_rpc_runtime_api::ProtocolFeeApi<Block>

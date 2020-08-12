@@ -1,3 +1,4 @@
+use super::ext_builder::{EXTRINSIC_BASE_WEIGHT, TRANSACTION_BYTE_FEE, WEIGHT_TO_FEE};
 use codec::Encode;
 use frame_support::{
     assert_ok,
@@ -10,7 +11,7 @@ use frame_support::{
     },
     StorageDoubleMap,
 };
-use frame_system::{self as system};
+use frame_system as system;
 use pallet_asset as asset;
 use pallet_balances as balances;
 use pallet_committee as committee;
@@ -39,9 +40,7 @@ use polymesh_common_utilities::Context;
 use polymesh_primitives::{
     Authorization, AuthorizationData, CddId, Claim, IdentityId, InvestorUid, Signatory,
 };
-use polymesh_runtime_common::{
-    bridge, cdd_check::CddChecker, dividend, exemption, voting,
-};
+use polymesh_runtime_common::{bridge, cdd_check::CddChecker, dividend, exemption, voting};
 use smallvec::smallvec;
 use sp_core::{
     crypto::{key_types, Pair as PairTrait},
@@ -144,7 +143,8 @@ parameter_types! {
     pub const AvailableBlockRatio: Perbill = Perbill::from_percent(75);
     pub const MaximumExtrinsicWeight: u64 = 2800;
     pub const BlockExecutionWeight: u64 = 10;
-    pub const ExtrinsicBaseWeight: u64 = 5;
+    pub TransactionByteFee: Balance = TRANSACTION_BYTE_FEE.with(|v| *v.borrow());
+    pub ExtrinsicBaseWeight: u64 = EXTRINSIC_BASE_WEIGHT.with(|v| *v.borrow());
     pub const DbWeight: RuntimeDbWeight = RuntimeDbWeight {
         read: 10,
         write: 100,
@@ -260,9 +260,9 @@ impl ChargeTxFee for TestStorage {
 impl CddAndFeeDetails<AccountId, Call> for TestStorage {
     fn get_valid_payer(
         _: &Call,
-        _: &Signatory<AccountId>,
+        caller: &Signatory<AccountId>,
     ) -> Result<Option<Signatory<AccountId>>, InvalidTransaction> {
-        Ok(None)
+        Ok(Some(*caller))
     }
     fn clear_context() {
         Context::set_current_identity::<Identity>(None);
@@ -291,14 +291,6 @@ impl WeightToFeePolynomial for WeightToFee {
             negative: false,
         }]
     }
-}
-
-thread_local! {
-    static WEIGHT_TO_FEE: RefCell<u128> = RefCell::new(1);
-}
-
-parameter_types! {
-    pub const TransactionByteFee: Balance = 10;
 }
 
 impl pallet_transaction_payment::Trait for TestStorage {
@@ -409,6 +401,7 @@ impl pallet_contracts::Trait for TestStorage {
     type Randomness = Randomness;
     type Currency = Balances;
     type Event = Event;
+    type Call = Call;
     type DetermineContractAddress = pallet_contracts::SimpleAddressDeterminer<TestStorage>;
     type TrieIdGenerator = pallet_contracts::TrieIdFromParentCounter<TestStorage>;
     type RentPayment = ();
@@ -609,7 +602,7 @@ pub fn make_account_with_balance(
     let cdd_providers = CddServiceProvider::get_members();
     let did = match cdd_providers.into_iter().nth(0) {
         Some(cdd_provider) => {
-            let cdd_acc = Public::from_raw(Identity::did_records(&cdd_provider).master_key.0);
+            let cdd_acc = Public::from_raw(Identity::did_records(&cdd_provider).primary_key.0);
             let _ = Identity::cdd_register_did(Origin::signed(cdd_acc), id, vec![])
                 .map_err(|_| "CDD register DID failed")?;
 
@@ -659,8 +652,8 @@ pub fn register_keyring_account_without_cdd(
     make_account_without_cdd(acc_pub).map(|(_, id)| id)
 }
 
-pub fn add_signing_key(did: IdentityId, signer: Signatory<AccountId>) {
-    let _master_key = Identity::did_records(&did).master_key;
+pub fn add_secondary_key(did: IdentityId, signer: Signatory<AccountId>) {
+    let _primary_key = Identity::did_records(&did).primary_key;
     let auth_id = Identity::add_auth(
         did.clone(),
         signer,

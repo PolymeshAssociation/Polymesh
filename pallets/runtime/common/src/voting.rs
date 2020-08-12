@@ -150,7 +150,7 @@ decl_module! {
         /// * `ticker` - Ticker of the token for which ballot is to be created
         /// * `ballot_name` - Name of the ballot
         /// * `ballot_details` - Other details of the ballot
-        #[weight = 300_000]
+        #[weight = 900_000_000]
         pub fn add_ballot(origin, ticker: Ticker, ballot_name: Vec<u8>, ballot_details: Ballot<T::Moment>) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             let did = Context::current_identity_or::<Identity<T>>(&sender)?;
@@ -204,7 +204,7 @@ decl_module! {
         /// * `ticker` - Ticker of the token for which vote is to be cast
         /// * `ballot_name` - Name of the ballot
         /// * `votes` - The actual vote to be cast
-        #[weight = 500_000]
+        #[weight = 600_000_000]
         pub fn vote(origin, ticker: Ticker, ballot_name: Vec<u8>, votes: Vec<T::Balance>) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             let did = Context::current_identity_or::<Identity<T>>(&sender)?;
@@ -275,7 +275,7 @@ decl_module! {
         /// # Arguments
         /// * `ticker` - Ticker of the token for which ballot is to be cancelled
         /// * `ballot_name` - Name of the ballot
-        #[weight = 300_000]
+        #[weight = 500_000_000]
         pub fn cancel_ballot(origin, ticker: Ticker, ballot_name: Vec<u8>) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             let did = Context::current_identity_or::<Identity<T>>(&sender)?;
@@ -296,8 +296,8 @@ decl_module! {
 
             // Clearing results
             <Results<T>>::mutate(&ticker_ballot_name, |results| {
-                for i in 0..results.len() {
-                    results[i] = 0.into();
+                for result in results.iter_mut() {
+                    *result = 0.into();
                 }
             });
 
@@ -335,7 +335,7 @@ decl_event!(
 
 decl_error! {
     pub enum Error for Module<T: Trait> {
-        /// sender must be a signing key for DID
+        /// sender must be a secondary key for DID
         InvalidSigner,
         /// Sender must be the token owner
         InvalidOwner,

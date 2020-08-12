@@ -904,7 +904,7 @@ fn proposal_with_beneficiares() {
     ExtBuilder::default()
         .governance_committee(committee)
         .governance_committee_vote_threshold((2, 3))
-        .existential_deposit(10)
+        .balance_factor(10)
         .build()
         .execute_with(proposal_with_beneficiares_we);
 }

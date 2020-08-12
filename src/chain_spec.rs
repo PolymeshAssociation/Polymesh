@@ -147,7 +147,7 @@ fn general_testnet_genesis(
         }),
         identity: {
             let initial_identities = vec![
-                // (master_account_id, service provider did, target did, expiry time of CustomerDueDiligence claim i.e 10 days is ms)
+                // (primary_account_id, service provider did, target did, expiry time of CustomerDueDiligence claim i.e 10 days is ms)
                 // Service providers
                 (
                     get_account_id_from_seed::<sr25519::Public>("cdd_provider_1"),
@@ -204,17 +204,17 @@ fn general_testnet_genesis(
                 .chain(authority_identities.iter().cloned())
                 .collect::<Vec<_>>();
             identity_counter = num_initial_identities;
-            let signing_keys = initial_authorities
+            let secondary_keys = initial_authorities
                 .iter()
                 .map(|x| {
-                    identity_counter = identity_counter + 1;
+                    identity_counter += 1;
                     (x.0.clone(), IdentityId::from(identity_counter))
                 })
                 .collect::<Vec<_>>();
 
             Some(GeneralConfig::IdentityConfig {
                 identities: all_identities,
-                signing_keys,
+                secondary_keys,
                 ..Default::default()
             })
         },
@@ -295,9 +295,9 @@ fn general_testnet_genesis(
             prune_historical_pips: false,
             min_proposal_deposit: 5_000 * POLY,
             quorum_threshold: 100_000,
-            proposal_duration: generalTime::MINUTES * 1,
-            proposal_cool_off_period: generalTime::MINUTES * 1,
-            default_enactment_period: generalTime::MINUTES * 1,
+            proposal_duration: generalTime::MINUTES,
+            proposal_cool_off_period: generalTime::MINUTES,
+            default_enactment_period: generalTime::MINUTES,
         }),
         pallet_im_online: Some(GeneralConfig::ImOnlineConfig {
             slashing_params: general::OfflineSlashingParams {
@@ -597,7 +597,7 @@ fn aldebaran_testnet_genesis(
         }),
         identity: {
             let initial_identities = vec![
-                // (master_account_id, service provider did, target did, expiry time of CustomerDueDiligence claim i.e 10 days is ms)
+                // (primary_account_id, service provider did, target did, expiry time of CustomerDueDiligence claim i.e 10 days is ms)
                 // Service providers
                 (
                     get_account_id_from_seed::<sr25519::Public>("cdd_provider_1"),
@@ -661,17 +661,17 @@ fn aldebaran_testnet_genesis(
                 .chain(authority_identities.iter().cloned())
                 .collect::<Vec<_>>();
             identity_counter = num_initial_identities;
-            let signing_keys = initial_authorities
+            let secondary_keys = initial_authorities
                 .iter()
                 .map(|x| {
-                    identity_counter = identity_counter + 1;
+                    identity_counter += 1;
                     (x.0.clone(), IdentityId::from(identity_counter))
                 })
                 .collect::<Vec<_>>();
 
             Some(AldebaranConfig::IdentityConfig {
                 identities: all_identities,
-                signing_keys,
+                secondary_keys,
                 ..Default::default()
             })
         },
@@ -706,7 +706,7 @@ fn aldebaran_testnet_genesis(
                 )),
             ],
             timelock: aldebaranTime::MINUTES * 15,
-            bridge_limit: (30_000_000_000, aldebaranTime::DAYS * 1),
+            bridge_limit: (30_000_000_000, aldebaranTime::DAYS),
         }),
         pallet_indices: Some(AldebaranConfig::IndicesConfig { indices: vec![] }),
         pallet_sudo: Some(AldebaranConfig::SudoConfig { key: root_key }),

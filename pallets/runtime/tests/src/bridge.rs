@@ -36,7 +36,7 @@ macro_rules! assert_tx_approvals {
 #[test]
 fn can_issue_to_identity() {
     ExtBuilder::default()
-        .existential_deposit(1_000)
+        .balance_factor(1_000)
         .monied(true)
         .build()
         .execute_with(can_issue_to_identity_we);
@@ -267,7 +267,7 @@ fn cannot_call_bridge_callback_extrinsics() {
 #[test]
 fn can_freeze_and_unfreeze_bridge() {
     ExtBuilder::default()
-        .existential_deposit(1_000)
+        .balance_factor(1_000)
         .monied(true)
         .build()
         .execute_with(do_freeze_and_unfreeze_bridge);
@@ -363,7 +363,7 @@ fn do_freeze_and_unfreeze_bridge() {
         BridgeTxStatus::Timelocked
     );
     // Weight calculation when bridge is freezed
-    assert_eq!(next_block(), 50000240);
+    assert_eq!(next_block(), 500000240);
     // Unfreeze the bridge.
     assert_ok!(Bridge::unfreeze(admin.clone()));
     assert!(!Bridge::frozen());
@@ -375,7 +375,7 @@ fn do_freeze_and_unfreeze_bridge() {
     );
     // It will be 0 as txn has to wait for 1 more block to execute.
     assert_eq!(next_block(), 0);
-    assert_eq!(next_block(), 70800360);
+    assert_eq!(next_block(), 700800360);
 
     // Now the tokens are issued.
     assert_eq!(alices_balance(), starting_alices_balance + amount);
@@ -401,7 +401,7 @@ fn next_block() -> Weight {
 #[test]
 fn can_timelock_txs() {
     ExtBuilder::default()
-        .existential_deposit(1_000)
+        .balance_factor(1_000)
         .monied(true)
         .build()
         .execute_with(do_timelock_txs);
@@ -521,7 +521,7 @@ fn do_timelock_txs() {
 #[test]
 fn can_rate_limit() {
     ExtBuilder::default()
-        .existential_deposit(1_000)
+        .balance_factor(1_000)
         .monied(true)
         .build()
         .execute_with(do_rate_limit);
@@ -647,7 +647,7 @@ fn do_rate_limit() {
 #[test]
 fn is_exempted() {
     ExtBuilder::default()
-        .existential_deposit(1_000)
+        .balance_factor(1_000)
         .monied(true)
         .build()
         .execute_with(do_exempted);
@@ -771,7 +771,7 @@ fn do_exempted() {
 #[test]
 fn can_force_mint() {
     ExtBuilder::default()
-        .existential_deposit(1_000)
+        .balance_factor(1_000)
         .monied(true)
         .build()
         .execute_with(do_force_mint);

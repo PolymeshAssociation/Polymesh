@@ -202,8 +202,8 @@ decl_error! {
     pub enum Error for Module<T: Trait<I>, I: Instance> {
         /// Duplicate votes are not allowed.
         DuplicateVote,
-        /// Only master key of the identity is allowed.
-        OnlyMasterKeyAllowed,
+        /// Only primary key of the identity is allowed.
+        OnlyPrimaryKeyAllowed,
         /// Sender Identity is not part of the committee.
         MemberNotFound,
         /// Last member of the committee can not quit.
@@ -243,14 +243,14 @@ decl_module! {
         /// * `match_criteria` - One of {AtLeast, MoreThan}.
         /// * `n` - Numerator of the fraction representing vote threshold.
         /// * `d` - Denominator of the fraction representing vote threshold.
-        #[weight = (500_000, Operational, Pays::Yes)]
+        #[weight = (100_000_000, Operational, Pays::Yes)]
         pub fn set_vote_threshold(origin, n: u32, d: u32) {
             T::CommitteeOrigin::ensure_origin(origin)?;
             // Proportion must be a rational number
             ensure!(d > 0 && n <= d, Error::<T, I>::InvalidProportion);
             <VoteThreshold<I>>::put((n, d));
             let current_did = Context::current_identity::<Identity<T>>()
-                .unwrap_or(SystematicIssuers::Committee.as_id());
+                .unwrap_or_else(|| SystematicIssuers::Committee.as_id());
             Self::deposit_event(RawEvent::VoteThresholdUpdated(current_did, n, d));
         }
 
@@ -271,7 +271,7 @@ decl_module! {
         ///   - `M` is number of members,
         ///   - `P` is number of active proposals,
         ///   - `L` is the encoded length of `proposal` preimage.
-        #[weight = (2_000_000, Operational, Pays::Yes)]
+        #[weight = (T::DbWeight::get().reads_writes(6, 2) + 650_000_000, Operational, Pays::Yes)]
         fn close(origin, proposal: T::Hash, #[compact] index: ProposalIndex) {
             let who = ensure_signed(origin)?;
             let did = Context::current_identity_or::<Identity<T>>(&who)?;
@@ -312,17 +312,21 @@ decl_module! {
         ///
         /// # Errors
         /// * `MemberNotFound`, If the new coordinator `id` is not part of the committee.
-        #[weight = (500_000, Operational, Pays::Yes)]
+        #[weight = (T::DbWeight::get().reads_writes(1, 1) + 200_000_000, Operational, Pays::Yes)]
         pub fn set_release_coordinator(origin, id: IdentityId ) {
             T::CommitteeOrigin::ensure_origin(origin)?;
             ensure!( Self::members().contains(&id), Error::<T, I>::MemberNotFound);
             <ReleaseCoordinator<I>>::put(id);
             let current_did = Context::current_identity::<Identity<T>>()
-                .unwrap_or(SystematicIssuers::Committee.as_id());
+                .unwrap_or_else(|| SystematicIssuers::Committee.as_id());
             Self::deposit_event(RawEvent::ReleaseCoordinatorUpdated(current_did, Some(id)));
         }
 
-        #[weight = (5_000_000, Operational, Pays::Yes)]
+        /// Enact the referendum
+        ///
+        /// # Arguments
+        /// * `id` - Pip Id that need to be enacted
+        #[weight = (T::DbWeight::get().reads_writes(6, 2) + 400_000_000, Operational, Pays::Yes)]
         pub fn vote_enact_referendum(origin, id: PipId) -> DispatchResult {
             Self::vote_referendum( origin, id,
                 || {
@@ -335,7 +339,11 @@ decl_module! {
             Ok(())
         }
 
-        #[weight = (5_000_000, Operational, Pays::Yes)]
+        /// Reject the referendum
+        ///
+        /// # Arguments
+        /// * `id` - Pip Id that need to be rejected
+        #[weight = (T::DbWeight::get().reads_writes(6, 2) + 400_000_000, Operational, Pays::Yes)]
         pub fn vote_reject_referendum(origin, id: PipId) -> DispatchResult {
             Self::vote_referendum( origin, id,
                 || {
@@ -371,20 +379,10 @@ impl<T: Trait<I>, I: Instance> Module<T, I> {
         if let Some(mut voting) = Self::voting(&proposal) {
             // If any element is removed, we have to update `voting`.
             is_id_removed = if let Some(idx) = voting.ayes.iter().position(|a| *a == id) {
-                Self::deposit_event(RawEvent::VoteRetracted(
-                    id,
-                    voting.index.clone(),
-                    proposal,
-                    true,
-                ));
+                Self::deposit_event(RawEvent::VoteRetracted(id, voting.index, proposal, true));
                 Some(voting.ayes.swap_remove(idx))
             } else if let Some(idx) = voting.nays.iter().position(|a| *a == id) {
-                Self::deposit_event(RawEvent::VoteRetracted(
-                    id,
-                    voting.index.clone(),
-                    proposal,
-                    false,
-                ));
+                Self::deposit_event(RawEvent::VoteRetracted(id, voting.index, proposal, false));
                 Some(voting.nays.swap_remove(idx))
             } else {
                 None
@@ -495,7 +493,7 @@ impl<T: Trait<I>, I: Instance> Module<T, I> {
         F: Fn() -> (<T as Trait<I>>::Proposal, <T as Trait<I>>::Proposal),
     {
         // Only committee members can use this function.
-        let who = ensure_signed(origin.clone())?;
+        let who = ensure_signed(origin)?;
         let who_id = Context::current_identity_or::<Identity<T>>(&who)?;
         ensure!(Self::is_member(&who_id), Error::<T, I>::BadOrigin);
 
@@ -559,7 +557,7 @@ impl<T: Trait<I>, I: Instance> Module<T, I> {
                 index,
                 ayes: vec![did],
                 nays: vec![],
-                end: end,
+                end,
             };
             <Voting<T, I>>::insert(proposal_hash, votes);
 
@@ -592,14 +590,14 @@ impl<T: Trait<I>, I: Instance> Module<T, I> {
 
         if approve {
             ensure!(position_yes.is_none(), Error::<T, I>::DuplicateVote);
-            voting.ayes.push(did.clone());
+            voting.ayes.push(did);
 
             if let Some(pos) = position_no {
                 voting.nays.swap_remove(pos);
             }
         } else {
             ensure!(position_no.is_none(), Error::<T, I>::DuplicateVote);
-            voting.nays.push(did.clone());
+            voting.nays.push(did);
 
             if let Some(pos) = position_yes {
                 voting.ayes.swap_remove(pos);
@@ -660,9 +658,9 @@ impl<T: Trait<I>, I: Instance> ChangeMembers<IdentityId> for Module<T, I> {
         Self::proposals()
             .into_iter()
             .filter(|proposal| {
-                outgoing.iter().fold(false, |acc, id| {
-                    acc || Self::remove_vote_from(*id, *proposal)
-                })
+                outgoing
+                    .iter()
+                    .any(|id| Self::remove_vote_from(*id, *proposal))
             })
             .for_each(Self::check_proposal_threshold);
 
@@ -679,8 +677,8 @@ impl<T: Trait<I>, I: Instance> ChangeMembers<IdentityId> for Module<T, I> {
 
         // Add/remove Systematic CDD claims for new/removed members.
         let issuer = SystematicIssuers::Committee;
-        <identity::Module<T>>::unsafe_add_systematic_cdd_claims(incoming, issuer);
-        <identity::Module<T>>::unsafe_revoke_systematic_cdd_claims(outgoing, issuer);
+        <identity::Module<T>>::add_systematic_cdd_claims(incoming, issuer);
+        <identity::Module<T>>::revoke_systematic_cdd_claims(outgoing, issuer);
 
         <Members<I>>::put(new);
     }
@@ -690,17 +688,15 @@ impl<T: Trait<I>, I: Instance> InitializeMembers<IdentityId> for Module<T, I> {
     /// Initializes the members and adds the Systemic CDD claim (issued by
     /// `SystematicIssuers::Committee`).
     fn initialize_members(members: &[IdentityId]) {
-        if !members.is_empty() {
-            assert!(
-                <Members<I>>::get().is_empty(),
-                "Members are already initialized!"
-            );
-            <identity::Module<T>>::unsafe_add_systematic_cdd_claims(
-                members,
-                SystematicIssuers::Committee,
-            );
-            <Members<I>>::put(members);
+        if members.is_empty() {
+            return;
         }
+        assert!(
+            <Members<I>>::get().is_empty(),
+            "Members are already initialized!"
+        );
+        <identity::Module<T>>::add_systematic_cdd_claims(members, SystematicIssuers::Committee);
+        <Members<I>>::put(members);
     }
 }
 
