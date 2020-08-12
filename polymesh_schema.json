@@ -341,6 +341,7 @@
             "_enum": {
                 "TransferManager": "",
                 "Offerings": "",
+                "SmartWallet": "",
                 "Custom": "Vec<u8>"
             }
         },
@@ -350,6 +351,22 @@
             "extension_name": "SmartExtensionName",
             "extension_id": "AccountId",
             "is_archive": "bool"
+        },
+        "MetaUrl": "Text",
+        "MetaDescription": "Text",
+        "MetaVersion": "Text",
+        "SmartExtensionMetadata": {
+            "url": "Option<MetaUrl>",
+            "se_type": "SmartExtensionType",
+            "instantiation_fee": "Balance",
+            "usage_fee": "Balance",
+            "description": "MetaDescription",
+            "version": "MetaVersion"
+        },
+        "TemplateMetadata": {
+            "meta_info": "SmartExtensionMetadata",
+            "owner": "AccountId",
+            "is_freeze": "bool"
         },
         "ProportionMatch": {
             "_enum": [

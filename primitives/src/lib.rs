@@ -190,7 +190,7 @@ pub use ticker::Ticker;
 pub mod smart_extension;
 pub use smart_extension::{
     SmartExtension, SmartExtensionMetadata, SmartExtensionName, SmartExtensionType,
-    TemplateMetaData,
+    TemplateMetadata,
 };
 
 pub mod document;

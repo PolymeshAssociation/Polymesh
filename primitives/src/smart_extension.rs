@@ -83,7 +83,7 @@ pub struct SmartExtensionMetadata<Balance> {
 }
 
 #[derive(Encode, Decode, Default, Debug, Clone, PartialEq)]
-pub struct TemplateMetaData<Balance, AccountId> {
+pub struct TemplateMetadata<Balance, AccountId> {
     /// Meta details of the SE template
     pub meta_info: SmartExtensionMetadata<Balance>,
     /// Owner of the SE template.
@@ -92,7 +92,7 @@ pub struct TemplateMetaData<Balance, AccountId> {
     pub is_freeze: bool,
 }
 
-impl<Balance, AccountId> TemplateMetaData<Balance, AccountId>
+impl<Balance, AccountId> TemplateMetadata<Balance, AccountId>
 where
     Balance: Clone + Copy,
 {

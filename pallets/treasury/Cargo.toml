@@ -16,15 +16,15 @@ serde_derive = { version = "1.0.104", optional = true, default-features = false 
 
 # Substrate
 codec = { package = "parity-scale-codec", version = "1.1.0", default-features = false, features = ["derive"] }
-sp-core = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "at-add-dispatch-call" }
-sp-std = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "at-add-dispatch-call" }
-sp-io = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "at-add-dispatch-call" }
-sp-runtime = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "at-add-dispatch-call" }
-sp-version = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "at-add-dispatch-call" }
-sp-api = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "at-add-dispatch-call" }
+sp-core = { git = "https://github.com/PolymathNetwork/substrate", default-features = false, branch = "remove-subtype-trait" }
+sp-std = { git = "https://github.com/PolymathNetwork/substrate", default-features = false, branch = "remove-subtype-trait" }
+sp-io = { git = "https://github.com/PolymathNetwork/substrate", default-features = false, branch = "remove-subtype-trait" }
+sp-runtime = { git = "https://github.com/PolymathNetwork/substrate", default-features = false, branch = "remove-subtype-trait" }
+sp-version = { git = "https://github.com/PolymathNetwork/substrate", default-features = false, branch = "remove-subtype-trait" }
+sp-api = { git = "https://github.com/PolymathNetwork/substrate", default-features = false, branch = "remove-subtype-trait" }
 
-frame-system = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "at-add-dispatch-call" }
-frame-support = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "at-add-dispatch-call" }
+frame-system = { git = "https://github.com/PolymathNetwork/substrate", default-features = false, branch = "remove-subtype-trait" }
+frame-support = { git = "https://github.com/PolymathNetwork/substrate", default-features = false, branch = "remove-subtype-trait" }
 
 [features]
 equalize = []

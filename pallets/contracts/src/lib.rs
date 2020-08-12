@@ -16,6 +16,7 @@
 // Ensure we're `no_std` when compiling for Wasm.
 #![cfg_attr(not(feature = "std"), no_std)]
 
+use codec::{Decode, Encode};
 use frame_support::{
     decl_error, decl_event, decl_module, decl_storage,
     dispatch::{DispatchResult, DispatchResultWithPostInfo},
@@ -23,21 +24,51 @@ use frame_support::{
     traits::Get,
 };
 use frame_system::{self as system, ensure_signed};
-use pallet_contracts::{BalanceOf, CodeHash, Gas, Schedule};
+use pallet_contracts::{BalanceOf, CodeHash, ContractAddressFor, Gas, Schedule};
 use pallet_identity as identity;
 use polymesh_common_utilities::{
     identity::Trait as IdentityTrait,
     protocol_fee::{ChargeProtocolFee, ProtocolOp},
     Context,
 };
-use polymesh_primitives::{IdentityId, SmartExtensionMetadata, TemplateMetaData};
+use polymesh_primitives::{IdentityId, SmartExtensionMetadata, TemplateMetadata};
+use sp_core::crypto::UncheckedFrom;
 use sp_runtime::{
     traits::{Hash, Saturating, StaticLookup},
-    Perbill,
+    Perbill, SaturatedConversion,
 };
-use sp_std::prelude::*;
+use sp_std::{marker::PhantomData, prelude::*};
 
 type Identity<T> = identity::Module<T>;
+
+/// Nonce based contract address determiner.
+///
+/// Address calculated from the code (of the constructor), input data to the constructor,
+/// the account id that requested the account creation and the nonce of the account id.
+///
+/// Formula: `blake2_256(blake2_256(code) + blake2_256(data) + origin + blake2_256(nonce))`
+pub struct NonceBasedAddressDeterminer<T: Trait>(PhantomData<T>);
+impl<T: Trait> ContractAddressFor<CodeHash<T>, T::AccountId> for NonceBasedAddressDeterminer<T>
+where
+    T::AccountId: UncheckedFrom<T::Hash> + AsRef<[u8]>,
+{
+    fn contract_address_for(
+        code_hash: &CodeHash<T>,
+        data: &[u8],
+        origin: &T::AccountId,
+    ) -> T::AccountId {
+        let data_hash = T::Hashing::hash(data);
+        let nonce = <frame_system::Module<T>>::account(origin).nonce;
+        let nonce_hash = T::Hashing::hash(&(nonce.encode()));
+        let mut buf = Vec::new();
+        buf.extend_from_slice(code_hash.as_ref());
+        buf.extend_from_slice(data_hash.as_ref());
+        buf.extend_from_slice(origin.as_ref());
+        buf.extend_from_slice(nonce_hash.as_ref());
+
+        UncheckedFrom::unchecked_from(T::Hashing::hash(&buf[..]))
+    }
+}
 
 pub trait Trait: pallet_contracts::Trait + IdentityTrait {
     type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
@@ -48,7 +79,7 @@ pub trait Trait: pallet_contracts::Trait + IdentityTrait {
 decl_storage! {
     trait Store for Module<T: Trait> as ContractsWrapper {
         /// Store the meta details of the smart extension template.
-        pub TemplateMetaDetails get(fn get_template_meta_details): map hasher(twox_64_concat) CodeHash<T> => TemplateMetaData<BalanceOf<T>, T::AccountId>;
+        pub TemplateMetaDetails get(fn get_template_meta_details): map hasher(twox_64_concat) CodeHash<T> => TemplateMetadata<BalanceOf<T>, T::AccountId>;
     }
 }
 
@@ -127,7 +158,7 @@ decl_module! {
 
             // Charge the protocol fee
             T::ProtocolFee::charge_fee(ProtocolOp::ContractsPutCode)?;
-            <TemplateMetaDetails<T>>::insert(code_hash, TemplateMetaData {
+            <TemplateMetaDetails<T>>::insert(code_hash, TemplateMetadata {
                 meta_info: meta_info,
                 owner: sender,
                 is_freeze: false
@@ -168,7 +199,7 @@ decl_module! {
             <pallet_contracts::Module<T>>::instantiate(origin, endowment, gas_limit, code_hash, data)
                 .map(|mut info| {
                     // Charge instantiation fee
-                    //T::ProtocolFee::charge_extension_instantiation_fee(meta_details.get_instantiation_fee(), meta_details.owner, T::NetworkShareInFee::get());
+                    let _ = T::ProtocolFee::charge_extension_instantiation_fee((meta_details.get_instantiation_fee().saturated_into::<u128>()).into(), meta_details.owner, T::NetworkShareInFee::get());
                     if let Some(weight) = info.actual_weight {
                         info.actual_weight = Some(weight + 500_000_000);
                     }
