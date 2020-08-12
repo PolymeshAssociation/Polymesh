@@ -8,17 +8,17 @@ let { reqImports } = require("../util/init.js");
 process.exitCode = 1;
 
 async function main() {
-  
+
   const api = await reqImports.createApi();
 
   const testEntities = await reqImports.initMain(api);
 
-  let keys = await reqImports.generateKeys(api, 2, "master0");
+  let keys = await reqImports.generateKeys(api, 2, "primary0");
 
   await createIdentities(api, keys, testEntities[0]);
 
  // await reqImports.distributePoly( api, keys, reqImports.transfer_amount, testEntities[0] );
-  
+
   if (reqImports.fail_count > 0) {
     console.log("Failed");
   } else {
@@ -31,23 +31,23 @@ async function main() {
 
 // Create a new DID for each of accounts[]
 async function createIdentities(api, accounts, alice) {
-  
+
     let dids = [];
       for (let i = 0; i < accounts.length; i++) {
         let nonceObj = {nonce: reqImports.nonces.get(alice.address)};
-        console.log( `>>>> [Register CDD Claim] acc: ${accounts[i].address}`); 
+        console.log( `>>>> [Register CDD Claim] acc: ${accounts[i].address}`);
         const transaction = api.tx.identity.cddRegisterDid(accounts[i].address, []);
-        const result = await reqImports.sendTransaction(transaction, alice, nonceObj);  
+        const result = await reqImports.sendTransaction(transaction, alice, nonceObj);
         const passed = result.findRecord('system', 'ExtrinsicSuccess');
         if (passed) reqImports.fail_count--;
 
         reqImports.nonces.set(alice.address, reqImports.nonces.get(alice.address).addn(1));
       }
-  
+
       for (let i = 0; i < accounts.length; i++) {
         const d = await api.query.identity.keyToIdentityIds(accounts[i].publicKey);
         dids.push(d.toHuman().Unique);
-        console.log( `>>>> [Get DID ] acc: ${accounts[i].address} did: ${dids[i]}` ); 
+        console.log( `>>>> [Get DID ] acc: ${accounts[i].address} did: ${dids[i]}` );
       }
 
       // Add CDD Claim with CDD_ID
@@ -56,9 +56,9 @@ async function createIdentities(api, accounts, alice) {
         const cdd_id_byte = (i+1).toString(16).padStart(2,'0');
         const claim = { CustomerDueDiligence: `0x00000000000000000000000000000000000000000000000000000000000000${cdd_id_byte}`};
 
-        console.log( `>>>> [add CDD Claim] did: ${dids[i]}, claim: ${JSON.stringify( claim)}`); 
+        console.log( `>>>> [add CDD Claim] did: ${dids[i]}, claim: ${JSON.stringify( claim)}`);
         const transaction = api.tx.identity.addClaim(dids[i], claim, null);
-        const result = await reqImports.sendTransaction(transaction, alice, nonceObj);  
+        const result = await reqImports.sendTransaction(transaction, alice, nonceObj);
         const passed = result.findRecord('system', 'ExtrinsicSuccess');
         if (passed) reqImports.fail_count--;
 
@@ -69,9 +69,9 @@ async function createIdentities(api, accounts, alice) {
       let did_balance = 1000 * 10**6;
       for (let i = 0; i < dids.length; i++) {
         let nonceObjTwo = {nonce: reqImports.nonces.get(alice.address)};
-        console.log( `>>>> [top up DID balance] did: ${dids[i]}, balance: ${did_balance}`); 
+        console.log( `>>>> [top up DID balance] did: ${dids[i]}, balance: ${did_balance}`);
         const transactionTwo = api.tx.balances.topUpIdentityBalance(dids[i], did_balance);
-        const result = await reqImports.sendTransaction(transactionTwo, alice, nonceObjTwo);  
+        const result = await reqImports.sendTransaction(transactionTwo, alice, nonceObjTwo);
         const passed = result.findRecord('system', 'ExtrinsicSuccess');
         if (passed) reqImports.fail_count--;
 

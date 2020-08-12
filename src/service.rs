@@ -5,8 +5,8 @@ pub use codec::Codec;
 use grandpa::{self, FinalityProofProvider as GrandpaFinalityProofProvider};
 pub use pallet_confidential::native_rng;
 pub use polymesh_primitives::{
-    AccountId, Balance, Block, BlockNumber, Hash, IdentityId, Index as Nonce, Moment, Signatory,
-    SigningKey, Ticker,
+    AccountId, Balance, Block, BlockNumber, Hash, IdentityId, Index as Nonce, Moment, SecondaryKey,
+    Signatory, Ticker,
 };
 
 pub use polymesh_runtime_develop;
@@ -76,7 +76,7 @@ pub trait RuntimeApiCollection<Extrinsic: codec::Codec + Send + Sync + 'static>:
         IdentityId,
         Ticker,
         AccountId,
-        SigningKey<AccountId>,
+        SecondaryKey<AccountId>,
         Signatory<AccountId>,
         Moment,
     > + pallet_protocol_fee_rpc_runtime_api::ProtocolFeeApi<Block>
@@ -110,7 +110,7 @@ where
             IdentityId,
             Ticker,
             AccountId,
-            SigningKey<AccountId>,
+            SecondaryKey<AccountId>,
             Signatory<AccountId>,
             Moment,
         > + pallet_protocol_fee_rpc_runtime_api::ProtocolFeeApi<Block>

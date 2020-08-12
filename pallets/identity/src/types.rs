@@ -14,11 +14,11 @@ pub type AssetDidResult = Result<IdentityId, Error>;
 #[derive(Eq, PartialEq, Encode, Decode)]
 #[cfg_attr(feature = "std", derive(Debug, Serialize, Deserialize))]
 #[cfg_attr(feature = "std", serde(rename_all = "camelCase"))]
-pub enum DidRecords<AccountId, SigningKey> {
-    /// Id was found and has the following master key and signing keys.
+pub enum DidRecords<AccountId, SecondaryKey> {
+    /// Id was found and has the following primary key and secondary keys.
     Success {
-        master_key: AccountId,
-        signing_keys: Vec<SigningKey>,
+        primary_key: AccountId,
+        secondary_keys: Vec<SecondaryKey>,
     },
     /// Error.
     IdNotFound,

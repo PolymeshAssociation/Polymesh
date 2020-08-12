@@ -1,140 +1,8 @@
-// This file is part of the Polymesh distribution (https://github.com/PolymathNetwork/Polymesh).
-// Copyright (c) 2020 Polymath
-
-// This program is free software: you can redistribute it and/or modify
-// it under the terms of the GNU General Public License as published by
-// the Free Software Foundation, version 3.
-
-// This program is distributed in the hope that it will be useful, but
-// WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-// General Public License for more details.
-
-// You should have received a copy of the GNU General Public License
-// along with this program. If not, see <http://www.gnu.org/licenses/>.
-
-use crate::{Claim, IdentityId, Rule, RuleType, TargetIdentity};
+use crate::{
+    predicate::{Context, Predicate},
+    Claim, IdentityId,
+};
 use codec::{Decode, Encode};
-
-use sp_std::prelude::*;
-
-/// Context using during an `Predicate` evaluation.
-///
-/// # TODO
-///  - Use a lazy access to claims. It could be part of the optimization
-///  process of CDD claims.
-#[derive(Encode, Decode, Clone, Default)]
-#[cfg_attr(feature = "std", derive(Debug))]
-pub struct Context {
-    /// Predicate evaluation will use those claims.
-    pub claims: Vec<Claim>,
-    /// Identity that is being checked
-    pub identity: Option<IdentityId>,
-    /// Identity of the treasury of the token
-    pub treasury: Option<IdentityId>,
-}
-
-impl Context {
-    /// Creates a new context from the input variables
-    pub fn new(
-        claims: Vec<Claim>,
-        identity: Option<IdentityId>,
-        treasury: Option<IdentityId>,
-    ) -> Self {
-        Self {
-            claims,
-            identity,
-            treasury,
-        }
-    }
-}
-
-// Predicate Trait
-// ==================================
-
-/// It allows composition and evaluation of claims based on a context.
-pub trait Predicate {
-    /// It evaluates this predicated based on `context` context.
-    fn evaluate(&self, context: &Context) -> bool;
-
-    /// It generates a new predicate that represents the logical AND
-    /// of two predicates: `Self` and `other`.
-    #[inline]
-    fn and<B>(self, other: B) -> AndPredicate<Self, B>
-    where
-        Self: Sized,
-        B: Predicate + Sized,
-    {
-        AndPredicate::new(self, other)
-    }
-
-    /// It generates a new predicate that represents the logical OR
-    /// of two predicates: `Self` and `other`.
-    #[inline]
-    fn or<B>(self, other: B) -> OrPredicate<Self, B>
-    where
-        Self: Sized,
-        B: Predicate + Sized,
-    {
-        OrPredicate::new(self, other)
-    }
-
-    /// It generates a new predicate that represents the logical NOT
-    /// of this predicate.
-    #[inline]
-    fn not(self) -> NotPredicate<Self>
-    where
-        Self: Sized,
-    {
-        NotPredicate::new(self)
-    }
-}
-
-// Helper functions
-// ======================================
-
-/// It creates a predicate to evaluate the matching of `id` with treasury in the context.
-#[inline]
-pub fn equals<'a>(id: &'a TargetIdentity, treasury: &'a IdentityId) -> TargetIdentityPredicate<'a> {
-    match id {
-        TargetIdentity::Treasury => TargetIdentityPredicate { identity: treasury },
-        TargetIdentity::Specific(identity) => TargetIdentityPredicate { identity },
-    }
-}
-
-/// It creates a predicate to evaluate the existential of `claim` in the context.
-#[inline]
-pub fn exists(claim: &'_ Claim) -> ExistentialPredicate<'_> {
-    ExistentialPredicate { claim }
-}
-
-/// It creates a predicate to evaluate if any of `claims` are found in the context.
-#[inline]
-pub fn any(claims: &'_ [Claim]) -> AnyPredicate<'_> {
-    AnyPredicate { claims }
-}
-
-/// It create a negate predicate of `predicate`.
-#[inline]
-pub fn not<P>(predicate: P) -> NotPredicate<P>
-where
-    P: Predicate + Sized,
-{
-    NotPredicate::new(predicate)
-}
-
-/// Helper function to run predicates from a context.
-pub fn run(rule: &Rule, context: &Context) -> bool {
-    match rule.rule_type {
-        RuleType::IsPresent(ref claim) => exists(claim).evaluate(context),
-        RuleType::IsAbsent(ref claim) => not(exists(claim)).evaluate(context),
-        RuleType::IsAnyOf(ref claims) => any(claims).evaluate(context),
-        RuleType::IsNoneOf(ref claims) => not(any(claims)).evaluate(context),
-        RuleType::IsIdentity(ref id) => {
-            equals(id, &context.treasury.unwrap_or_default()).evaluate(context)
-        }
-    }
-}
 
 // TargetIdentityPredicate
 // ======================================================
@@ -149,7 +17,7 @@ pub struct TargetIdentityPredicate<'a> {
 impl<'a> Predicate for TargetIdentityPredicate<'a> {
     #[inline]
     fn evaluate(&self, context: &Context) -> bool {
-        context.identity.unwrap_or_default() == *self.identity
+        context.id == *self.identity
     }
 }
 
@@ -341,11 +209,14 @@ mod tests {
     #[test]
     fn existential_operators_test() {
         let scope = Scope::from(0);
-        let cdd_claim = Claim::CustomerDueDiligence(CddId::new(
-            IdentityId::from(1),
-            InvestorUid::from(b"UID1".as_ref()),
-        ));
-        let context = Context::new(vec![cdd_claim.clone(), Claim::Affiliate(scope)], None, None);
+        let did = IdentityId::from(1);
+        let cdd_claim =
+            Claim::CustomerDueDiligence(CddId::new(did, InvestorUid::from(b"UID1".as_ref())));
+        let context = Context {
+            claims: vec![cdd_claim.clone(), Claim::Affiliate(scope)],
+            id: did,
+            ..Default::default()
+        };
 
         // Affiliate && CustommerDueDiligenge
         let affiliate_claim = Claim::Affiliate(scope);
@@ -366,16 +237,18 @@ mod tests {
             Claim::Jurisdiction(b"India".into(), scope),
         ];
 
-        let context = Context::new(
-            vec![Claim::Jurisdiction(b"Canada".into(), scope)],
-            None,
-            None,
-        );
+        let context = Context {
+            claims: vec![Claim::Jurisdiction(b"Canada".into(), scope)],
+            ..Default::default()
+        };
         let in_juridisction_pre = predicate::any(&valid_jurisdictions);
         assert_eq!(in_juridisction_pre.evaluate(&context), true);
 
         // 2. Check USA does not belong to {ESP, CAN, IND}.
-        let context = Context::new(vec![Claim::Jurisdiction(b"USA".into(), scope)], None, None);
+        let context = Context {
+            claims: vec![Claim::Jurisdiction(b"USA".into(), scope)],
+            ..Default::default()
+        };
         assert_eq!(in_juridisction_pre.evaluate(&context), false);
 
         // 3. Check NOT in jurisdiction.
@@ -399,67 +272,63 @@ mod tests {
         ];
 
         // Valid case
-        let context = Context::new(
-            vec![
+        let context = Context {
+            claims: vec![
                 Claim::Accredited(scope),
                 Claim::Jurisdiction(b"Canada".into(), scope),
             ],
-            None,
-            None,
-        );
+            ..Default::default()
+        };
 
         let out = !rules.iter().any(|rule| !predicate::run(&rule, &context));
         assert_eq!(out, true);
 
         // Invalid case: `BuyLockup` is present.
-        let context = Context::new(
-            vec![
+        let context = Context {
+            claims: vec![
                 Claim::Accredited(scope),
                 Claim::BuyLockup(scope),
                 Claim::Jurisdiction(b"Canada".into(), scope),
             ],
-            None,
-            None,
-        );
+            ..Default::default()
+        };
 
         let out = !rules.iter().any(|rule| !predicate::run(&rule, &context));
         assert_eq!(out, false);
 
         // Invalid case: Missing `Accredited`
-        let context = Context::new(
-            vec![
+        let context = Context {
+            claims: vec![
                 Claim::BuyLockup(scope),
                 Claim::Jurisdiction(b"Canada".into(), scope),
             ],
-            None,
-            None,
-        );
+            ..Default::default()
+        };
 
         let out = !rules.iter().any(|rule| !predicate::run(&rule, &context));
         assert_eq!(out, false);
 
         // Invalid case: Missing `Jurisdiction`
-        let context = Context::new(
-            vec![
+        let context = Context {
+            claims: vec![
                 Claim::Accredited(scope),
                 Claim::Jurisdiction(b"Spain".into(), scope),
             ],
-            None,
-            None,
-        );
+            ..Default::default()
+        };
 
         let out = !rules.iter().any(|rule| !predicate::run(&rule, &context));
         assert_eq!(out, false);
 
         // Check NoneOf
-        let context = Context::new(
-            vec![
+        let context = Context {
+            claims: vec![
                 Claim::Accredited(scope),
                 Claim::Jurisdiction(b"Cuba".into(), scope),
             ],
-            None,
-            None,
-        );
+            ..Default::default()
+        };
+
         let out = !rules.iter().any(|rule| !predicate::run(&rule, &context));
         assert_eq!(out, false);
 
@@ -467,11 +336,19 @@ mod tests {
         let identity2 = IdentityId::from(2);
         assert!(predicate::run(
             &RuleType::IsIdentity(TargetIdentity::Treasury).into(),
-            &Context::new(vec![], Some(identity1), Some(identity1),)
+            &Context {
+                id: identity1,
+                treasury: Some(identity1),
+                ..Default::default()
+            }
         ));
         assert!(predicate::run(
             &RuleType::IsIdentity(TargetIdentity::Specific(identity2)).into(),
-            &Context::new(vec![], Some(identity2), Some(identity1),)
+            &Context {
+                id: identity1,
+                treasury: Some(identity2),
+                ..Default::default()
+            }
         ));
     }
 }

@@ -17,6 +17,12 @@ pub(crate) fn impl_slice_u8_strong_typed(ast: &syn::DeriveInput) -> TokenStream 
                 &self.0[..]
             }
 
+            /// Returns an iterator over the internal [u8].
+            #[inline]
+            pub fn iter(&self) -> sp_std::slice::Iter<'_,u8> {
+                self.0.iter()
+            }
+
             /// Display as HEX data.
             fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
                 for byte in self.0.iter() {

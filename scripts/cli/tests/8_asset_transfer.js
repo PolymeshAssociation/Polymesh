@@ -17,28 +17,28 @@ async function main() {
 
   const testEntities = await reqImports.initMain(api);
 
-  let master_keys = await reqImports.generateKeys( api, 3, "master8" );
+  let primary_keys = await reqImports.generateKeys( api, 3, "primary8" );
 
-  let issuer_dids = await reqImports.createIdentities( api, master_keys, testEntities[0] );
+  let issuer_dids = await reqImports.createIdentities( api, primary_keys, testEntities[0] );
 
-  await reqImports.distributePolyBatch( api, master_keys, reqImports.transfer_amount, testEntities[0] );
+  await reqImports.distributePolyBatch( api, primary_keys, reqImports.transfer_amount, testEntities[0] );
 
-  await reqImports.issueTokenPerDid( api, master_keys, prepend);
+  await reqImports.issueTokenPerDid( api, primary_keys, prepend);
 
   // receiverRules Claim
-  await reqImports.addClaimsToDids( api, master_keys, issuer_dids[2], "Exempted", asset_did, null );
+  await reqImports.addClaimsToDids( api, primary_keys, issuer_dids[2], "Exempted", asset_did, null );
 
   // senderRules Claim
-  await reqImports.addClaimsToDids( api, master_keys, issuer_dids[1], "Exempted", asset_did, null );
+  await reqImports.addClaimsToDids( api, primary_keys, issuer_dids[1], "Exempted", asset_did, null );
 
   // issuer Claim
-  await reqImports.addClaimsToDids( api, master_keys, issuer_dids[0], "Exempted", asset_did, null );
+  await reqImports.addClaimsToDids( api, primary_keys, issuer_dids[0], "Exempted", asset_did, null );
 
-  await reqImports.createClaimRules( api, master_keys, issuer_dids, prepend );
+  await reqImports.createClaimRules( api, primary_keys, issuer_dids, prepend );
 
-  await mintingAsset( api, master_keys[0], prepend );
+  await mintingAsset( api, primary_keys[0], prepend );
 
-  await assetTransfer( api, master_keys[0], issuer_dids[2], prepend );
+  await assetTransfer( api, primary_keys[0], issuer_dids[2], prepend );
 
   if (reqImports.fail_count > 0) {
     console.log("Failed");

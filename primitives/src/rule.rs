@@ -13,7 +13,7 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
-use crate::{Claim, IdentityId};
+use crate::{Claim, IdentityId, Ticker};
 use codec::{Decode, Encode};
 #[cfg(feature = "std")]
 use sp_runtime::{Deserialize, Serialize};
@@ -44,6 +44,9 @@ pub enum RuleType {
     IsNoneOf(Vec<Claim>),
     /// Rule to ensure that the sender/receiver is a particular identity or treasury
     IsIdentity(TargetIdentity),
+    /// Rule to ensure that the target identity has a valid `InvestorZKProof` claim for the given
+    /// ticker.
+    HasValidProofOfInvestor(Ticker),
 }
 
 /// Type of claim requirements that a rule can have
@@ -69,8 +72,12 @@ impl Rule {
     /// Returns worst case complexity of a rule
     pub fn complexity(&self) -> (usize, usize) {
         let claims_count = match self.rule_type {
-            RuleType::IsIdentity(_) | RuleType::IsPresent(_) | RuleType::IsAbsent(_) => 1,
+            RuleType::IsIdentity(..) | RuleType::IsPresent(..) | RuleType::IsAbsent(..) => 1,
             RuleType::IsNoneOf(ref claims) | RuleType::IsAnyOf(ref claims) => claims.len(),
+            // NOTE: The complexity of this rule implies the use of cryptography libraries, which
+            // are computational expensive.
+            // So we've added a 10 factor here.
+            RuleType::HasValidProofOfInvestor(..) => 10,
         };
         (claims_count, self.issuers.len())
     }

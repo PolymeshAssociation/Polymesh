@@ -208,7 +208,7 @@ pub mod weight_for {
     pub(crate) fn handle_bridge_tx<T: Trait>() -> Weight {
         let db = T::DbWeight::get();
         db.reads_writes(2, 1)
-            .saturating_add(70_000_000) // base fee for the handle bridge tx
+            .saturating_add(700_000_000) // base fee for the handle bridge tx
             .saturating_add(800_000) // base value for issue function
             .saturating_add(db.reads_writes(3, 1)) // read and write for the issue() function
             .saturating_add(db.reads_writes(1, 1)) // read and write for the deposit_creating() function under issue() call
@@ -217,13 +217,13 @@ pub mod weight_for {
     /// <weight>
     /// * Read operation - 4 where 1 is for reading bridge txn details & 3 for general operations
     /// * Write operation - 2
-    /// * Base value - 50_000_000
+    /// * Base value - 500_000_000
     /// </weight>
     pub(crate) fn handle_bridge_tx_later<T: Trait>(count: u64) -> Weight {
         let db = T::DbWeight::get();
         db.reads_writes(4, 2)
-            .saturating_add(50_000_000) // base value
-            .saturating_add(count.saturating_mul(50_000)) // for one loop
+            .saturating_add(500_000_000) // base value
+            .saturating_add(count.saturating_mul(500_00)) // for one loop
     }
 }
 
@@ -407,7 +407,7 @@ decl_module! {
         }
 
         /// Changes the controller account as admin.
-        #[weight = (50_000, DispatchClass::Operational, Pays::Yes)]
+        #[weight = (300_000_000, DispatchClass::Operational, Pays::Yes)]
         pub fn change_controller(origin, controller: T::AccountId) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             ensure!(sender == Self::admin(), Error::<T>::BadAdmin);
@@ -418,7 +418,7 @@ decl_module! {
         }
 
         /// Changes the bridge admin key.
-        #[weight = (50_000, DispatchClass::Operational, Pays::Yes)]
+        #[weight = (300_000_000, DispatchClass::Operational, Pays::Yes)]
         pub fn change_admin(origin, admin: T::AccountId) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             ensure!(sender == Self::admin(), Error::<T>::BadAdmin);
@@ -429,7 +429,7 @@ decl_module! {
         }
 
         /// Changes the timelock period.
-        #[weight = (50_000, DispatchClass::Operational, Pays::Yes)]
+        #[weight = (300_000_000, DispatchClass::Operational, Pays::Yes)]
         pub fn change_timelock(origin, timelock: T::BlockNumber) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             ensure!(sender == Self::admin(), Error::<T>::BadAdmin);
@@ -441,7 +441,7 @@ decl_module! {
 
         /// Freezes transaction handling in the bridge module if it is not already frozen. When the
         /// bridge is frozen, attempted transactions get postponed instead of getting handled.
-        #[weight = (50_000, DispatchClass::Operational, Pays::Yes)]
+        #[weight = (300_000_000, DispatchClass::Operational, Pays::Yes)]
         pub fn freeze(origin) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             let current_did = Context::current_identity_or::<Identity<T>>(&sender)?;
@@ -453,7 +453,7 @@ decl_module! {
         }
 
         /// Unfreezes transaction handling in the bridge module if it is frozen.
-        #[weight = (50_000, DispatchClass::Operational, Pays::Yes)]
+        #[weight = (300_000_000, DispatchClass::Operational, Pays::Yes)]
         pub fn unfreeze(origin) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             let current_did = Context::current_identity_or::<Identity<T>>(&sender)?;
@@ -465,7 +465,7 @@ decl_module! {
         }
 
         /// Changes the bridge limits.
-        #[weight = (50_000, DispatchClass::Operational, Pays::Yes)]
+        #[weight = (500_000_000, DispatchClass::Operational, Pays::Yes)]
         pub fn change_bridge_limit(origin, amount: T::Balance, duration: T::BlockNumber) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             let current_did = Context::current_identity_or::<Identity<T>>(&sender)?;
@@ -476,7 +476,7 @@ decl_module! {
         }
 
         /// Changes the bridge limit exempted list.
-        #[weight = (50_000, DispatchClass::Operational, Pays::Yes)]
+        #[weight = (500_000_000, DispatchClass::Operational, Pays::Yes)]
         pub fn change_bridge_exempted(origin, exempted: Vec<(IdentityId, bool)>) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             let current_did = Context::current_identity_or::<Identity<T>>(&sender)?;
@@ -489,7 +489,7 @@ decl_module! {
         }
 
         /// Forces handling a transaction by bypassing the bridge limit and timelock.
-        #[weight = (250_000, DispatchClass::Operational, Pays::Yes)]
+        #[weight = (600_000_000, DispatchClass::Operational, Pays::Yes)]
         pub fn force_handle_bridge_tx(origin, bridge_tx: BridgeTx<T::AccountId, T::Balance>) -> DispatchResult {
             // NB: To avoid code duplication, this uses a hacky approach of temporarily exempting the did
             let sender = ensure_signed(origin)?;
@@ -502,8 +502,8 @@ decl_module! {
         /// the vector of results (In event) which has the same length as the `bridge_txs` have
         ///
         /// # Weight
-        /// `50_000 + 200_000 * bridge_txs.len()`
-        #[weight = (50_000 + 200_000 * u64::try_from(bridge_txs.len()).unwrap_or_default(), DispatchClass::Operational, Pays::Yes)]
+        /// `600_000_000 + 200_000 * bridge_txs.len()`
+        #[weight = (600_000_000 + 200_000 * u64::try_from(bridge_txs.len()).unwrap_or_default(), DispatchClass::Operational, Pays::Yes)]
         pub fn batch_force_handle_bridge_tx(origin, bridge_txs: Vec<BridgeTx<T::AccountId, T::Balance>>) ->
             DispatchResult
         {
@@ -520,7 +520,7 @@ decl_module! {
         /// Proposes a bridge transaction, which amounts to making a multisig proposal for the
         /// bridge transaction if the transaction is new or approving an existing proposal if the
         /// transaction has already been proposed.
-        #[weight = (800_000, DispatchClass::Operational, Pays::Yes)]
+        #[weight = (500_000_000, DispatchClass::Operational, Pays::Yes)]
         pub fn propose_bridge_tx(origin, bridge_tx: BridgeTx<T::AccountId, T::Balance>) ->
             DispatchResult
         {
@@ -534,9 +534,9 @@ decl_module! {
         /// proposals are not processed.
         ///
         /// # Weight
-        /// `100_000 + 700_000 * bridge_txs.len()`
+        /// `500_000_000 + 7_000_000 * bridge_txs.len()`
         #[weight =(
-            100_000 + 700_000 * u64::try_from(bridge_txs.len()).unwrap_or_default(),
+            500_000_000 + 7_000_000 * u64::try_from(bridge_txs.len()).unwrap_or_default(),
             DispatchClass::Operational,
             Pays::Yes
         )]
@@ -549,7 +549,7 @@ decl_module! {
         }
 
         /// Handles an approved bridge transaction proposal.
-        #[weight = (250_000, DispatchClass::Operational, Pays::Yes)]
+        #[weight = (900_000_000, DispatchClass::Operational, Pays::Yes)]
         pub fn handle_bridge_tx(origin, bridge_tx: BridgeTx<T::AccountId, T::Balance>) ->
             DispatchResult
         {
@@ -561,9 +561,9 @@ decl_module! {
         /// It deposits an event (i.e TxsHandled) which consist the result of every BridgeTx.
         ///
         /// # Weight
-        /// `50_000 + 200_000 * bridge_txs.len()`
+        /// `900_000_000 + 2_000_000 * bridge_txs.len()`
         #[weight = (
-            50_000 + 200_000 * u64::try_from(bridge_txs.len()).unwrap_or_default(),
+            900_000_000 + 2_000_000 * u64::try_from(bridge_txs.len()).unwrap_or_default(),
             DispatchClass::Operational,
             Pays::Yes
         )]
@@ -583,9 +583,9 @@ decl_module! {
         /// If any bridge txn is already handled then this function will just ignore it and process next one.
         ///
         /// # Weight
-        /// `50_000 + 200_000 * bridge_txs.len()`
+        /// `400_000_000 + 2_000_000 * bridge_txs.len()`
         #[weight = (
-            50_000 + 200_000 * u64::try_from(bridge_txs.len()).unwrap_or_default(),
+            400_000_000 + 2_000_000 * u64::try_from(bridge_txs.len()).unwrap_or_default(),
             DispatchClass::Operational,
             Pays::Yes
         )]
@@ -609,9 +609,9 @@ decl_module! {
         /// If any bridge txn is already handled then this function will just ignore it and process next one.
         ///
         /// # Weight
-        /// `50_000 + 700_000 * bridge_txs.len()`
+        /// `400_000_000 + 7_000_000 * bridge_txs.len()`
         #[weight = (
-            50_000 + 700_000 * u64::try_from(bridge_txs.len()).unwrap_or_default(),
+            400_000_000 + 7_000_000 * u64::try_from(bridge_txs.len()).unwrap_or_default(),
             DispatchClass::Operational,
             Pays::Yes
         )]
