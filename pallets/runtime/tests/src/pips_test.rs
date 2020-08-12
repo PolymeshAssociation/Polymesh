@@ -288,21 +288,11 @@ fn min_deposit_works() {
         );
 
         // Committees are exempt from min deposit.
-        assert_ok!(committee_proposal(deposit));
+        assert_ok!(committee_proposal(0));
         assert_state(1, false, ProposalState::Pending);
         let prop_committee = Proposer::Committee(pallet_pips::Committee::Technical);
         assert_eq!(Pips::proposal_metadata(1).unwrap().proposer, prop_committee);
-        assert_eq!(
-            Pips::proposal_result(1),
-            VotingResult {
-                ayes_count: 0,
-                ayes_stake: 0,
-                nays_count: 0,
-                nays_stake: 0,
-            }
-        );
-        assert_eq!(Deposits::iter_prefix_values(1).count(), 0);
-        assert_eq!(Votes::iter_prefix_values(1).count(), 0);
+        assert_vote_details(1, VotingResult::default(), vec![], vec![]);
     })
 }
 
@@ -466,9 +456,9 @@ fn assert_vote_details(
     assert_eq!(results, Pips::proposal_result(id));
     assert_eq!(
         deposits,
-        Deposits::iter_prefix_values(0).collect::<Vec<_>>(),
+        Deposits::iter_prefix_values(id).collect::<Vec<_>>(),
     );
-    assert_eq!(votes, Votes::iter_prefix_values(0).collect::<Vec<_>>());
+    assert_eq!(votes, Votes::iter_prefix_values(id).collect::<Vec<_>>());
 }
 
 fn assert_votes(id: PipId, owner: Public, amount: u128) {
@@ -526,6 +516,15 @@ fn proposal_details_are_correct() {
 
         assert_eq!(Balances::free_balance(&alice.acc()), 300 - 60);
         assert_votes(0, alice.acc(), 60);
+    });
+}
+
+#[test]
+fn propose_committee_pip_only_zero_deposit() {
+    ExtBuilder::default().build().execute_with(|| {
+        System::set_block_number(1);
+        assert_ok!(committee_proposal(0));
+        assert_noop!(committee_proposal(1337), Error::NotFromCommunity);
     });
 }
 
@@ -909,7 +908,7 @@ fn approve_committee_proposal_on_cool_off() {
     ExtBuilder::default().build().execute_with(|| {
         System::set_block_number(1);
         assert_ok!(Pips::set_proposal_cool_off_period(root(), 42));
-        assert_ok!(committee_proposal(1337));
+        assert_ok!(committee_proposal(0));
         assert!(Pips::proposal_metadata(0).unwrap().cool_off_until > System::block_number());
         assert_noop!(
             Pips::approve_committee_proposal(root(), 0),
@@ -983,6 +982,7 @@ fn only_gc_majority_stuff() {
         let id = Pips::pip_id_sequence();
         assert_ok!(committee_proposal(0));
         assert_ok!(Pips::approve_committee_proposal(root(), id));
+        assert_ok!(Pips::reject_proposal(root(), id));
         assert_ok!(Pips::prune_proposal(root(), id));
         // Root can also `enact_snapshot_results`.
         let id = Pips::pip_id_sequence();
@@ -1239,7 +1239,7 @@ fn can_prune_states_that_cannot_be_rejected() {
 }
 
 #[test]
-fn prune_pending_scheduled_works() {
+fn cannot_prune_active() {
     ExtBuilder::default().monied(true).build().execute_with(|| {
         System::set_block_number(1);
 
@@ -1253,16 +1253,15 @@ fn prune_pending_scheduled_works() {
         // Now remove that PIP and check that funds are back.
         assert_ok!(Pips::set_prune_historical_pips(root(), false));
         assert_state(0, false, ProposalState::Pending);
-        assert_ok!(Pips::prune_proposal(root(), 0));
-        assert_pruned(0);
+        assert_bad_state!(Pips::prune_proposal(root(), 0));
         assert_eq!(Pips::pip_id_sequence(), 1);
-        assert_eq!(Pips::active_pip_count(), 0);
-        assert_eq!(Balances::free_balance(&alice.acc()), init_bal);
+        assert_eq!(Pips::active_pip_count(), 1);
+        assert_eq!(Balances::free_balance(&alice.acc()), init_bal - 50);
 
         // Alice starts a proposal with some deposit.
         assert_ok!(Pips::set_proposal_cool_off_period(root(), 0));
         assert_ok!(alice_proposal(60));
-        assert_eq!(Balances::free_balance(&alice.acc()), init_bal - 60);
+        assert_eq!(Balances::free_balance(&alice.acc()), init_bal - 50 - 60);
         // Schedule the PIP.
         assert_ok!(Pips::snapshot(alice.signer()));
         assert_ok!(Pips::enact_snapshot_results(
@@ -1271,11 +1270,10 @@ fn prune_pending_scheduled_works() {
         ));
         assert_state(1, false, ProposalState::Scheduled);
         // Now remove that PIP and check that funds are back.
-        assert_ok!(Pips::prune_proposal(root(), 1));
-        assert_pruned(1);
+        assert_bad_state!(Pips::prune_proposal(root(), 1));
         assert_eq!(Pips::pip_id_sequence(), 2);
-        assert_eq!(Pips::active_pip_count(), 0);
-        assert_eq!(Balances::free_balance(&alice.acc()), init_bal);
+        assert_eq!(Pips::active_pip_count(), 2);
+        assert_eq!(Balances::free_balance(&alice.acc()), init_bal - 50 - 60);
     });
 }
 
@@ -1375,12 +1373,6 @@ fn reject_proposal_will_unsnapshot() {
         assert_eq!(Pips::snapshot_queue()[0].id, 0);
         assert_ok!(Pips::reject_proposal(root(), 0));
         assert_eq!(Pips::snapshot_queue(), vec![]);
-
-        assert_ok!(alice_proposal(0));
-        assert_ok!(Pips::snapshot(alice.signer()));
-        assert_eq!(Pips::snapshot_queue()[0].id, 1);
-        assert_ok!(Pips::prune_proposal(root(), 1));
-        assert_eq!(Pips::snapshot_queue(), vec![]);
     });
 }
 
@@ -1472,6 +1464,7 @@ fn reschedule_execution_not_scheduled() {
         let id = Pips::pip_id_sequence();
         assert_ok!(alice_proposal(0));
         assert_bad_state!(Pips::reschedule_execution(rc.clone(), id, None));
+        assert_ok!(Pips::reject_proposal(root(), id));
         assert_ok!(Pips::prune_proposal(root(), id));
         let id = cancelled_proposal();
         assert_bad_state!(Pips::reschedule_execution(rc.clone(), id, None));
@@ -1796,5 +1789,13 @@ fn enact_snapshot_results_works() {
         ));
         assert_state(1, false, ProposalState::Scheduled);
         assert_eq!(Pips::snapshot_queue(), mk_queue(&[3]));
+
+        // Cleared queue + enacting zero-length results => noop.
+        assert_ok!(Pips::clear_snapshot(user.signer()));
+        assert_ok!(Pips::enact_snapshot_results(root(), vec![]));
+        assert_last_event!(
+            Event::SnapshotResultsEnacted(a, b, c),
+            a.is_empty() && b.is_empty() && c.is_empty()
+        )
     });
 }

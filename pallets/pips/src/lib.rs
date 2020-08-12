@@ -611,6 +611,8 @@ decl_module! {
             // 1. Ensure it's really the `proposer`.
             Self::ensure_signed_by(origin, &proposer)?;
 
+            let did = Self::current_did_or_missing()?;
+
             // 2. Add a deposit for community PIPs.
             if let Proposer::Community(ref proposer) = proposer {
                 // ...but first make sure active PIP limit isn't crossed.
@@ -625,6 +627,9 @@ decl_module! {
                 // Reserve the minimum deposit.
                 <T as Trait>::Currency::reserve(&proposer, deposit)
                     .map_err(|_| Error::<T>::InsufficientDeposit)?;
+            } else {
+                // Committee PIPs cannot have a deposit.
+                ensure!(deposit.is_zero(), Error::<T>::NotFromCommunity);
             }
 
             // 3. Charge protocol fees, even for committee PIPs.
@@ -670,7 +675,7 @@ decl_module! {
 
             // 6. Emit the event.
             Self::deposit_event(RawEvent::ProposalCreated(
-                Self::current_did_or_missing()?,
+                did,
                 proposer,
                 id,
                 deposit,
@@ -697,6 +702,7 @@ decl_module! {
         ) -> DispatchResult {
             // 1. Fetch proposer and perform sanity checks.
             let proposer = Self::ensure_owned_by_alterable(origin, id)?;
+            let current_did = Self::current_did_or_missing()?;
 
             // 2. Update proposal metadata.
             <ProposalMetadata<T>>::mutate(id, |meta| {
@@ -707,7 +713,6 @@ decl_module! {
             });
 
             // 3. Emit event.
-            let current_did = Self::current_did_or_missing()?;
             Self::deposit_event(RawEvent::ProposalDetailsAmended(current_did, proposer, id, url, description));
 
             Ok(())
@@ -726,8 +731,9 @@ decl_module! {
             let _ = Self::ensure_owned_by_alterable(origin, id)?;
 
             // 2. Close that proposal (including refunding).
-            let new_state = Self::update_proposal_state(id, ProposalState::Cancelled);
-            Self::prune_data(id, new_state, Self::prune_historical_pips());
+            let did = Context::current_identity::<Identity<T>>().unwrap_or_default();
+            let new_state = Self::update_proposal_state(did, id, ProposalState::Cancelled);
+            Self::prune_data(did, id, new_state, Self::prune_historical_pips());
 
             Ok(())
         }
@@ -776,6 +782,8 @@ decl_module! {
             // 3. Proposal must be pending.
             Self::is_proposal_state(id, ProposalState::Pending)?;
 
+            let current_did = Self::current_did_or_missing()?;
+
             // TODO(centril): move this to a suitable utils crate.
             fn with_transaction<T, E>(tx: impl FnOnce() -> Result<T, E>) -> Result<T, E> {
                 use frame_support::storage::{with_transaction, TransactionOutcome};
@@ -803,7 +811,6 @@ decl_module! {
             });
 
             // 6. Emit event.
-            let current_did = Self::current_did_or_missing()?;
             Self::deposit_event(RawEvent::Voted(current_did, voter, id, aye_or_nay, deposit));
         }
 
@@ -830,8 +837,7 @@ decl_module! {
             ensure!(matches!(meta.proposer, Proposer::Committee(_)), Error::<T>::NotByCommittee);
 
             // 4. All is good, schedule PIP for execution.
-            let current_did = Context::current_identity::<Identity<T>>().unwrap_or_default();
-            Self::schedule_pip_for_execution(current_did, id);
+            Self::schedule_pip_for_execution(SystematicIssuers::Committee.as_id(), id);
         }
 
         /// Rejects the PIP given by the `id`, refunding any bonded funds,
@@ -846,30 +852,27 @@ decl_module! {
         pub fn reject_proposal(origin, id: PipId) {
             T::VotingMajorityOrigin::ensure_origin(origin)?;
             let proposal = Self::proposals(id).ok_or_else(|| Error::<T>::NoSuchProposal)?;
-            ensure!(
-                matches!(proposal.state, ProposalState::Pending | ProposalState::Scheduled),
-                Error::<T>::IncorrectProposalState,
-            );
+            ensure!(Self::is_active(proposal.state), Error::<T>::IncorrectProposalState);
             Self::maybe_unschedule_pip(id, proposal.state);
             Self::maybe_unsnapshot_pip(id, proposal.state);
-            Self::unsafe_reject_proposal(id);
+            Self::unsafe_reject_proposal(SystematicIssuers::Committee.as_id(), id);
         }
 
         /// Prune the PIP given by the `id`, refunding any funds not already refunded.
-        /// *No restrictions* on the PIP applies.
+        /// The PIP may not be active
         ///
         /// This function is intended for storage garbage collection purposes.
         ///
         /// # Errors
         /// * `BadOrigin` unless a GC voting majority executes this function.
         /// * `NoSuchProposal` if the PIP with `id` doesn't exist.
+        /// * `IncorrectProposalState` if the proposal is active.
         #[weight = (550_000_000, DispatchClass::Operational, Pays::Yes)]
         pub fn prune_proposal(origin, id: PipId) {
             T::VotingMajorityOrigin::ensure_origin(origin)?;
             let proposal = Self::proposals(id).ok_or_else(|| Error::<T>::NoSuchProposal)?;
-            Self::maybe_unschedule_pip(id, proposal.state);
-            Self::maybe_unsnapshot_pip(id, proposal.state);
-            Self::prune_data(id, proposal.state, true);
+            ensure!(!Self::is_active(proposal.state), Error::<T>::IncorrectProposalState);
+            Self::prune_data(SystematicIssuers::Committee.as_id(), id, proposal.state, true);
         }
 
         /// Updates the execution schedule of the PIP given by `id`.
@@ -1012,6 +1015,7 @@ decl_module! {
         #[weight = (1_000_000_000, DispatchClass::Operational, Pays::Yes)]
         pub fn enact_snapshot_results(origin, results: Vec<(PipId, SnapshotResult)>) -> DispatchResult {
             T::VotingMajorityOrigin::ensure_origin(origin)?;
+            let gc_did = SystematicIssuers::Committee.as_id();
 
             let max_pip_skip_count = Self::max_pip_skip_count();
 
@@ -1052,13 +1056,12 @@ decl_module! {
 
                 // Reject proposals as instructed & refund.
                 for pip_id in to_reject.iter().copied() {
-                    Self::unsafe_reject_proposal(pip_id);
+                    Self::unsafe_reject_proposal(gc_did, pip_id);
                 }
 
                 // Approve proposals as instructed.
-                let current_did = Context::current_identity::<Identity<T>>().unwrap_or_default();
                 for pip_id in to_approve.iter().copied() {
-                    Self::schedule_pip_for_execution(current_did, pip_id);
+                    Self::schedule_pip_for_execution(gc_did, pip_id);
                 }
 
                 Self::deposit_event(RawEvent::SnapshotResultsEnacted(to_bump_skipped, to_reject, to_approve));
@@ -1107,7 +1110,7 @@ impl<T: Trait> Module<T> {
         Context::current_identity::<Identity<T>>().ok_or_else(|| Error::<T>::MissingCurrentIdentity)
     }
 
-    /// Ensure that proposer is owner of the proposal which mustn't be in the cool off period.
+    /// Ensure that proposer is owner of the proposal which must be in the cool off period.
     ///
     /// # Errors
     /// * `ProposalIsImmutable`: A Proposal is mutable only during its cool off period.
@@ -1150,24 +1153,23 @@ impl<T: Trait> Module<T> {
     }
 
     /// Rejects the given `id`, refunding the deposit, and possibly pruning the proposal's data.
-    fn unsafe_reject_proposal(id: PipId) {
-        let new_state = Self::update_proposal_state(id, ProposalState::Rejected);
-        Self::prune_data(id, new_state, Self::prune_historical_pips());
+    fn unsafe_reject_proposal(did: IdentityId, id: PipId) {
+        let new_state = Self::update_proposal_state(did, id, ProposalState::Rejected);
+        Self::prune_data(did, id, new_state, Self::prune_historical_pips());
     }
 
     /// Refunds any tokens used to vote or bond a proposal.
     ///
     /// This operation is idempotent wrt. chain state,
     /// i.e., once run, refunding again will refund nothing.
-    fn refund_proposal(id: PipId) {
+    fn refund_proposal(did: IdentityId, id: PipId) {
         let total_refund =
             <Deposits<T>>::iter_prefix_values(id).fold(0.into(), |acc, depo_info| {
                 let amount = <T as Trait>::Currency::unreserve(&depo_info.owner, depo_info.amount);
                 amount.saturating_add(acc)
             });
         <Deposits<T>>::remove_prefix(id);
-        let current_did = Context::current_identity::<Identity<T>>().unwrap_or_default();
-        Self::deposit_event(RawEvent::ProposalRefund(current_did, id, total_refund));
+        Self::deposit_event(RawEvent::ProposalRefund(did, id, total_refund));
     }
 
     /// Unschedule PIP with given `id` if it's scheduled for execution.
@@ -1203,9 +1205,8 @@ impl<T: Trait> Module<T> {
     ///
     /// For efficiency, some data (e.g., re. execution schedules) is not removed in this function,
     /// but is removed in functions executing this one.
-    fn prune_data(id: PipId, state: ProposalState, prune: bool) {
-        let current_did = Context::current_identity::<Identity<T>>().unwrap_or_default();
-        Self::refund_proposal(id);
+    fn prune_data(did: IdentityId, id: PipId, state: ProposalState, prune: bool) {
+        Self::refund_proposal(did, id);
         Self::decrement_count_if_active(state);
         if prune {
             <ProposalResult<T>>::remove(id);
@@ -1214,23 +1215,19 @@ impl<T: Trait> Module<T> {
             <Proposals<T>>::remove(id);
             PipSkipCount::remove(id);
         }
-        Self::deposit_event(RawEvent::PipClosed(current_did, id, prune));
+        Self::deposit_event(RawEvent::PipClosed(did, id, prune));
     }
 
-    fn schedule_pip_for_execution(current_did: IdentityId, id: PipId) {
+    fn schedule_pip_for_execution(did: IdentityId, id: PipId) {
         // Set the default enactment period and move it to `Scheduled`
         let curr_block_number = <system::Module<T>>::block_number();
-        let enactment_period = curr_block_number + Self::default_enactment_period();
+        let executed_at = curr_block_number + Self::default_enactment_period();
 
-        Self::update_proposal_state(id, ProposalState::Scheduled);
-        <PipToSchedule<T>>::insert(id, enactment_period);
-        <ExecutionSchedule<T>>::append(enactment_period, id);
-        Self::deposit_event(RawEvent::ExecutionScheduled(
-            current_did,
-            id,
-            Zero::zero(),
-            enactment_period,
-        ));
+        Self::update_proposal_state(did, id, ProposalState::Scheduled);
+        <PipToSchedule<T>>::insert(id, executed_at);
+        <ExecutionSchedule<T>>::append(executed_at, id);
+        let event = RawEvent::ExecutionScheduled(did, id, Zero::zero(), executed_at);
+        Self::deposit_event(event);
     }
 
     /// Execute the PIP given by `id`.
@@ -1245,12 +1242,17 @@ impl<T: Trait> Module<T> {
                 (ProposalState::Failed, None)
             }
         };
-        Self::update_proposal_state(id, new_state);
-        Self::prune_data(id, new_state, Self::prune_historical_pips());
+        let did = Context::current_identity::<Identity<T>>().unwrap_or_default();
+        Self::update_proposal_state(did, id, new_state);
+        Self::prune_data(did, id, new_state, Self::prune_historical_pips());
         weight.unwrap_or(0)
     }
 
-    fn update_proposal_state(id: PipId, new_state: ProposalState) -> ProposalState {
+    fn update_proposal_state(
+        did: IdentityId,
+        id: PipId,
+        new_state: ProposalState,
+    ) -> ProposalState {
         <Proposals<T>>::mutate(id, |proposal| {
             if let Some(ref mut proposal) = proposal {
                 if (proposal.state, new_state) != (ProposalState::Pending, ProposalState::Scheduled)
@@ -1260,8 +1262,7 @@ impl<T: Trait> Module<T> {
                 proposal.state = new_state;
             }
         });
-        let current_did = Context::current_identity::<Identity<T>>().unwrap_or_default();
-        Self::deposit_event(RawEvent::ProposalStateUpdated(current_did, id, new_state));
+        Self::deposit_event(RawEvent::ProposalStateUpdated(did, id, new_state));
         new_state
     }
 
@@ -1271,9 +1272,14 @@ impl<T: Trait> Module<T> {
         Ok(())
     }
 
+    /// Returns `true` if `state` is `Pending | Scheduled`.
+    fn is_active(state: ProposalState) -> bool {
+        matches!(state, ProposalState::Pending | ProposalState::Scheduled)
+    }
+
     /// Decrement active proposal count if `state` signifies it is active.
     fn decrement_count_if_active(state: ProposalState) {
-        if let ProposalState::Pending | ProposalState::Scheduled = state {
+        if Self::is_active(state) {
             ActivePipCount::mutate(|count| *count -= 1);
         }
     }

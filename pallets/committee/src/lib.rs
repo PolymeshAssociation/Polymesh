@@ -453,8 +453,11 @@ impl<T: Trait<I>, I: Instance> Module<T, I> {
         seats: MemberCount,
     ) {
         let threshold = <VoteThreshold<I>>::get();
-        let approved = Self::is_threshold_satisfied(yes_votes, seats, threshold);
-        let rejected = Self::is_threshold_satisfied(no_votes, seats, threshold);
+        let satisfied =
+            |main, other| main >= other && Self::is_threshold_satisfied(main, seats, threshold);
+        let approved = satisfied(yes_votes, no_votes);
+        let rejected = satisfied(no_votes, yes_votes);
+
         if !approved && !rejected {
             return;
         }
