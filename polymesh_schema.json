@@ -657,7 +657,7 @@
         "Fundraiser": {
             "raise_token": "Ticker",
             "remaining_amount": "Balance",
-            "price_per_token": "u128",
+            "price_per_token": "Balance",
             "venue_id": "u64"
         }
     },

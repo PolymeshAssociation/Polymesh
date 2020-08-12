@@ -1,6 +1,8 @@
 // Copyright (c) 2020 Polymath
 
 //! # STO Module
+//!
+//! This is a proof of concept module. It is not meant to be used in the real world in its' current state.
 
 #![cfg_attr(not(feature = "std"), no_std)]
 #![recursion_limit = "256"]
@@ -13,6 +15,7 @@ use frame_system::{self as system, ensure_signed};
 use pallet_identity as identity;
 use pallet_settlement::{Leg, SettlementType};
 use polymesh_common_utilities::{
+    constants::currency::*,
     traits::{asset::Trait as AssetTrait, identity::Trait as IdentityTrait, CommonTrait},
     Context,
 };
@@ -39,7 +42,7 @@ pub struct Fundraiser<Balance> {
     /// Amount of offering token available for sale
     pub remaining_amount: Balance,
     /// Price of one million offering token units (one full token) in terms of raise token units
-    pub price_per_token: u128,
+    pub price_per_token: Balance,
     /// Id of the venue to use for this fundraise
     pub venue_id: u64,
 }
@@ -51,7 +54,7 @@ decl_event!(
     {
         /// A new fundraiser has been created
         /// (offering token, raise token, amount to sell, price, venue id, fundraiser_id)
-        FundraiserCreated(IdentityId, Ticker, Ticker, Balance, u128, u64, u64),
+        FundraiserCreated(IdentityId, Ticker, Ticker, Balance, Balance, u64, u64),
         /// An investor invested in the fundraiser
         /// (offering token, raise token, offering_token_amount, raise_token_amount, fundraiser_id)
         FundsRaised(IdentityId, Ticker, Ticker, Balance, Balance, u64),
@@ -85,19 +88,19 @@ decl_module! {
 
         fn deposit_event() = default;
 
-        /// Create a new offering.
+        /// Create a new offering. A fixed amount of pre-minted tokens are put up for sale at the specified flat rate.
         #[weight = 200_000_000]
         pub fn create_fundraiser(
             origin,
             offering_token: Ticker,
             raise_token: Ticker,
             sell_amount: T::Balance,
-            price_per_token: u128,
+            price_per_token: T::Balance,
             venue_id: u64
         ) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             let did = Context::current_identity_or::<Identity<T>>(&sender)?;
-            ensure!(T::Asset::is_owner(&offering_token, did), Error::<T>::Unauthorized);
+            ensure!(T::Asset::treasury(&offering_token) == did, Error::<T>::Unauthorized);
             // TODO: Take custodial ownership of $sell_amount of $offering_token from treasury?
             let fundraiser_id = Self::fundraiser_count(offering_token) + 1;
             <Fundraisers<T>>::insert(
@@ -116,7 +119,7 @@ decl_module! {
             Ok(())
         }
 
-        /// Create a new offering.
+        /// Purchase tokens from an ongoing offering.
         #[weight = 200_000_000]
         pub fn invest(origin, offering_token: Ticker, fundraiser_id: u64, offering_token_amount: T::Balance) -> DispatchResult {
             let sender = ensure_signed(origin.clone())?;
@@ -125,10 +128,10 @@ decl_module! {
             ensure!(fundraiser.remaining_amount >= offering_token_amount, Error::<T>::InsufficientTokensRemaining);
             // Ceil of offering_token_amount * price_per_million
             let raise_token_amount = offering_token_amount
-                .checked_mul(&fundraiser.price_per_token.into())
+                .checked_mul(&fundraiser.price_per_token)
                 .ok_or(Error::<T>::Overflow)?
-                .saturating_add(999_999.into())
-                / 1_000_000.into();
+                .saturating_add((ONE_UNIT - 1).into())
+                / ONE_UNIT.into();
 
             let treasury = T::Asset::treasury(&offering_token);
             let legs = vec![
@@ -170,5 +173,3 @@ decl_module! {
     }
 
 }
-
-//impl<T: Trait> Module<T> {}
