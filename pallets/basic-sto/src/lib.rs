@@ -24,11 +24,7 @@ type Identity<T> = identity::Module<T>;
 type Settlement<T> = pallet_settlement::Module<T>;
 
 pub trait Trait:
-    frame_system::Trait
-    + CommonTrait
-    + IdentityTrait
-    + pallet_timestamp::Trait
-    + pallet_settlement::Trait
+    frame_system::Trait + CommonTrait + IdentityTrait + pallet_settlement::Trait
 {
     /// The overarching event type.
     type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
