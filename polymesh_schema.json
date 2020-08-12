@@ -53,12 +53,6 @@
             "asset_type": "AssetType",
             "treasury_did": "Option<IdentityId>"
         },
-        "LinkedKeyInfo": {
-            "_enum": {
-                "Unique": "IdentityId",
-                "Group": "Vec<IdentityId>"
-            }
-        },
         "AssetPermissions": {
             "_enum": {
                 "All": "",
