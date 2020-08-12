@@ -6,6 +6,7 @@ use crate::{
 use codec::Encode;
 use pallet_asset as asset;
 use pallet_balances as balances;
+use pallet_basic_sto as sto;
 use pallet_committee as committee;
 use pallet_compliance_manager::{self as compliance_manager, AssetTransferRulesResult};
 use pallet_confidential as confidential;
@@ -519,6 +520,10 @@ impl settlement::Trait for Runtime {
     type MaxScheduledInstructionLegsPerBlock = MaxScheduledInstructionLegsPerBlock;
 }
 
+impl sto::Trait for Runtime {
+    type Event = Event;
+}
+
 parameter_types! {
     pub OffencesWeightSoftLimit: Weight = Perbill::from_percent(60) * MaximumBlockWeight::get();
 }
@@ -766,6 +771,7 @@ construct_runtime!(
         StoCapped: sto_capped::{Module, Call, Storage, Event<T>},
         Exemption: exemption::{Module, Call, Storage, Event},
         Settlement: settlement::{Module, Call, Storage, Event<T>, Config},
+        Sto: sto::{Module, Call, Storage, Event<T>},
         CddServiceProviders: group::<Instance2>::{Module, Call, Storage, Event<T>, Config<T>},
         Statistic: statistics::{Module, Call, Storage},
         ProtocolFee: protocol_fee::{Module, Call, Storage, Event<T>, Config<T>},
