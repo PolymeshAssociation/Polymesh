@@ -13,17 +13,5 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
-/// Mesh Improvement Proposal id. Used offchain.
+/// Polymesh Improvement Proposal (PIP) id.
 pub type PipId = u32;
-
-/// Utility maker used to link `Call` type, defined at `Runtime` level, from inside any module.
-pub trait EnactProposalMaker<Origin, Call> {
-    /// Checks if `id` is a valid PIP identifier.
-    fn is_pip_id_valid(id: PipId) -> bool;
-
-    /// It creates the call to enactment the Pip given by `id`.
-    fn enact_referendum_call(id: PipId) -> Call;
-
-    /// It creates the call to reject the Pip, given by `id`.
-    fn reject_referendum_call(id: PipId) -> Call;
-}
