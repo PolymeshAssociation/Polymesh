@@ -87,7 +87,6 @@ fn correct_dividend_must_work() {
             token.asset_type.clone(),
             vec![],
             None,
-            None,
         ));
 
         assert_ok!(Asset::create_asset(
@@ -98,7 +97,6 @@ fn correct_dividend_must_work() {
             true,
             payout_token.asset_type.clone(),
             vec![],
-            None,
             None,
         ));
 

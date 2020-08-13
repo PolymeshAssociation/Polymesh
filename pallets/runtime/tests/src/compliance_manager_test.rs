@@ -14,7 +14,9 @@ use polymesh_common_utilities::{
     constants::{ERC1400_TRANSFER_FAILURE, ERC1400_TRANSFER_SUCCESS},
     Context,
 };
-use polymesh_primitives::{Claim, IdentityId, Rule, RuleType, Scope, Ticker};
+use polymesh_primitives::{
+    AuthorizationData, Claim, IdentityId, Rule, RuleType, Scope, Signatory, Ticker,
+};
 use sp_std::{convert::TryFrom, prelude::*};
 use test_client::AccountKeyring;
 
@@ -48,7 +50,6 @@ fn make_ticker_env(owner: AccountKeyring, token_name: AssetName) -> Ticker {
         true,
         token.asset_type.clone(),
         vec![],
-        None,
         None,
     ));
 
@@ -95,7 +96,6 @@ fn should_add_and_verify_asset_rule_we() {
         true,
         token.asset_type.clone(),
         vec![],
-        None,
         None,
     ));
     let claim_issuer_acc = AccountKeyring::Bob.public();
@@ -268,7 +268,6 @@ fn should_replace_asset_rules_we() {
         token.asset_type.clone(),
         vec![],
         None,
-        None,
     ));
 
     assert_ok!(ComplianceManager::add_active_rule(
@@ -337,7 +336,6 @@ fn should_reset_asset_rules_we() {
         token.asset_type.clone(),
         vec![],
         None,
-        None,
     ));
 
     assert_ok!(ComplianceManager::add_active_rule(
@@ -395,7 +393,6 @@ fn pause_resume_asset_rules_we() {
         true,
         token.asset_type.clone(),
         vec![],
-        None,
         None,
     ));
 
@@ -477,7 +474,7 @@ fn should_successfully_add_and_use_default_issuers_we() {
     // 1. A token representing 1M shares
     let token = SecurityToken {
         name: vec![0x01].into(),
-        owner_did: token_owner_did.clone(),
+        owner_did: token_owner_did,
         total_supply: 1_000_000,
         divisible: true,
         asset_type: AssetType::default(),
@@ -495,7 +492,11 @@ fn should_successfully_add_and_use_default_issuers_we() {
         token.asset_type.clone(),
         vec![],
         None,
-        None,
+    ));
+
+    assert_ok!(Asset::clear_primary_issuance_did(
+        token_owner_signed.clone(),
+        ticker
     ));
 
     // Failed because trusted issuer identity not exist
@@ -617,7 +618,6 @@ fn should_modify_vector_of_trusted_issuer_we() {
         true,
         token.asset_type.clone(),
         vec![],
-        None,
         None,
     ));
 
@@ -837,7 +837,6 @@ fn jurisdiction_asset_rules_we() {
         true,
         token.asset_type.clone(),
         vec![],
-        None,
         None,
     ));
     // 2. Set up rules for Asset transfer.
@@ -1273,13 +1272,13 @@ fn can_verify_restriction_with_treasury_did_we() {
     let owner = AccountKeyring::Alice.public();
     let owner_origin = Origin::signed(owner);
     let owner_id = register_keyring_account(AccountKeyring::Alice).unwrap();
-    let _ = AccountKeyring::Bob.public();
+    let issuer = AccountKeyring::Bob.public();
     let issuer_id = register_keyring_account(AccountKeyring::Bob).unwrap();
     let random_guy_id = register_keyring_account(AccountKeyring::Charlie).unwrap();
     let token_name: AssetName = vec![0x01].into();
     let ticker = Ticker::try_from(token_name.0.as_slice()).unwrap();
     assert_ok!(Asset::create_asset(
-        owner_origin,
+        owner_origin.clone(),
         token_name,
         ticker,
         1_000_000,
@@ -1287,7 +1286,16 @@ fn can_verify_restriction_with_treasury_did_we() {
         Default::default(),
         vec![],
         None,
-        Some(issuer_id),
+    ));
+    let auth_id = Identity::add_auth(
+        owner_id,
+        Signatory::from(issuer_id),
+        AuthorizationData::TransferTreasury(ticker),
+        None,
+    );
+    assert_ok!(Asset::accept_treasury_transfer(
+        Origin::signed(issuer),
+        auth_id
     ));
     let amount = 1_000;
     assert_ok!(
@@ -1406,7 +1414,6 @@ fn should_limit_rules_complexity_we() {
         true,
         token.asset_type.clone(),
         vec![],
-        None,
         None,
     ));
 
