@@ -898,7 +898,7 @@ fn transfer_treasury() {
             owner_did,
             divisible: true,
             asset_type: Default::default(),
-            primary_issuance_did: Some(owner_did)
+            primary_issuance_did: Some(owner_did),
         };
 
         assert_ok!(Asset::create_asset(
@@ -2066,9 +2066,7 @@ fn test_can_transfer_rpc() {
 
 #[test]
 fn can_clear_treasury() {
-    ExtBuilder::default()
-        .build()
-        .execute_with(clear_treasury);
+    ExtBuilder::default().build().execute_with(clear_treasury);
 }
 
 fn clear_treasury() {

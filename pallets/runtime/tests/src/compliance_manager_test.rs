@@ -494,7 +494,10 @@ fn should_successfully_add_and_use_default_issuers_we() {
         None,
     ));
 
-    assert_ok!(Asset::clear_primary_issuance_did(token_owner_signed.clone(), ticker));
+    assert_ok!(Asset::clear_primary_issuance_did(
+        token_owner_signed.clone(),
+        ticker
+    ));
 
     // Failed because trusted issuer identity not exist
     assert_err!(
