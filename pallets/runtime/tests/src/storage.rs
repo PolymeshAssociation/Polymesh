@@ -278,7 +278,7 @@ impl CddAndFeeDetails<AccountId, Call> for TestStorage {
     fn set_payer_context(payer: Option<Signatory<AccountId>>) {
         Context::set_current_payer::<Identity>(payer);
     }
-    fn get_payer_from_context() -> Option<Signatory<AccountId>> {
+    fn get_payer_from_context() -> Option<AccountId> {
         Context::current_payer::<Identity>()
     }
     fn set_current_identity(did: &IdentityId) {

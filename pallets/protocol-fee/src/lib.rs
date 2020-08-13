@@ -49,7 +49,7 @@ use polymesh_common_utilities::{
     transaction_payment::CddAndFeeDetails,
     Context, SystematicIssuers,
 };
-use polymesh_primitives::{traits::IdentityCurrency, IdentityId, PosRatio, Signatory};
+use polymesh_primitives::{IdentityId, PosRatio, Signatory};
 use sp_runtime::{
     traits::{Saturating, Zero},
     Perbill,
@@ -66,7 +66,7 @@ type Identity<T> = identity::Module<T>;
 pub trait Trait: frame_system::Trait + IdentityTrait {
     type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
     /// The currency type in which fees will be paid.
-    type Currency: Currency<Self::AccountId> + Send + Sync + IdentityCurrency<Self::AccountId>;
+    type Currency: Currency<Self::AccountId> + Send + Sync;
     /// Handler for the unbalanced reduction when taking protocol fees.
     type OnProtocolFeePayment: OnUnbalanced<NegativeImbalanceOf<Self>>;
 }
@@ -109,7 +109,7 @@ decl_event! {
         /// The fee coefficient.
         CoefficientSet(IdentityId, PosRatio),
         /// Fee charged.
-        FeeCharged(Signatory<AccountId>, Balance),
+        FeeCharged(AccountId, Balance),
     }
 }
 
@@ -190,19 +190,15 @@ impl<T: Trait> Module<T> {
 
     /// Withdraws a precomputed fee from the current payer if it is defined or from the current
     /// identity otherwise.
-    fn withdraw_fee(payer: Signatory<T::AccountId>, fee: BalanceOf<T>) -> WithdrawFeeResult<T> {
-        let result = match &payer {
-            Signatory::Identity(did) => T::Currency::withdraw_identity_balance(did, fee)
-                .map_err(|_| Error::<T>::InsufficientIdentityBalance.into()),
-            Signatory::Account(account) => T::Currency::withdraw(
-                account,
-                fee,
-                WithdrawReason::Fee.into(),
-                ExistenceRequirement::KeepAlive,
-            )
-            .map_err(|_| Error::<T>::InsufficientAccountBalance.into()),
-        };
-        Self::deposit_event(RawEvent::FeeCharged(payer, fee));
+    fn withdraw_fee(account: T::AccountId, fee: BalanceOf<T>) -> WithdrawFeeResult<T> {
+        let result = T::Currency::withdraw(
+            &account,
+            fee,
+            WithdrawReason::Fee.into(),
+            ExistenceRequirement::KeepAlive,
+        )
+        .map_err(|_| Error::<T>::InsufficientAccountBalance.into());
+        Self::deposit_event(RawEvent::FeeCharged(account, fee));
         result
     }
 }
