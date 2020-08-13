@@ -1328,12 +1328,15 @@ pub trait LockableCurrencyExt<AccountId>: LockableCurrency<AccountId> {
     fn reduce_lock(id: LockIdentifier, who: &AccountId, amount: Self::Balance) -> DispatchResult;
 
     /// Increase the locked amount under `id` for `who` or raises `Overflow`.
-    /// If there's no lock already, it will be made.
+    /// If there's no lock already, it will be made, unless `amount.is_zero()`.
+    /// Before committing to storage, `check_sum` is called with the lock total,
+    /// allowing the transaction to be aborted.
     fn increase_lock(
         id: LockIdentifier,
         who: &AccountId,
         amount: Self::Balance,
         reasons: WithdrawReasons,
+        check_sum: impl FnOnce(Self::Balance) -> DispatchResult,
     ) -> DispatchResult;
 }
 
@@ -1367,26 +1370,29 @@ where
         who: &T::AccountId,
         amount: T::Balance,
         reasons: WithdrawReasons,
+        check_sum: impl FnOnce(T::Balance) -> DispatchResult,
     ) -> DispatchResult {
         if amount.is_zero() || reasons.is_none() {
             return Ok(());
         }
         let reasons = reasons.into();
         let mut locks = Self::locks(who);
-        if let Some(pos) = locks.iter().position(|l| l.id == id) {
+        check_sum(if let Some(pos) = locks.iter().position(|l| l.id == id) {
             let slot = &mut locks[pos];
             slot.amount = slot
                 .amount
                 .checked_add(&amount)
                 .ok_or(Error::<T>::Overflow)?;
             slot.reasons = slot.reasons | reasons;
+            slot.amount
         } else {
             locks.push(BalanceLock {
                 id,
                 amount,
                 reasons,
             });
-        }
+            amount
+        })?;
         Self::update_locks(who, &locks[..]);
         Ok(())
     }

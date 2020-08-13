@@ -94,7 +94,7 @@ use frame_support::{
     dispatch::{DispatchError, DispatchResult},
     ensure,
     storage::IterableStorageMap,
-    traits::{Currency, EnsureOrigin, ReservableCurrency},
+    traits::{Currency, EnsureOrigin, LockIdentifier, ReservableCurrency, WithdrawReasons},
     weights::{DispatchClass, Pays, Weight},
 };
 use frame_system::{self as system, ensure_signed};
@@ -113,8 +113,12 @@ use polymesh_primitives_derive::VecU8StrongTyped;
 #[cfg(feature = "std")]
 use serde::{Deserialize, Serialize};
 use sp_core::H256;
-use sp_runtime::traits::{BlakeTwo256, CheckedAdd, Dispatchable, Hash, Saturating, Zero};
+use sp_runtime::traits::{
+    BlakeTwo256, CheckedAdd, CheckedSub, Dispatchable, Hash, Saturating, Zero,
+};
 use sp_std::{convert::From, prelude::*};
+
+const PIPS_LOCK_ID: LockIdentifier = *b"pips    ";
 
 /// Balance
 type BalanceOf<T> =
@@ -625,9 +629,8 @@ decl_module! {
                 // Pre conditions: caller must have min balance.
                 ensure!(deposit >= Self::min_proposal_deposit(), Error::<T>::IncorrectDeposit);
 
-                // Reserve the minimum deposit.
-                <T as Trait>::Currency::reserve(&proposer, deposit)
-                    .map_err(|_| Error::<T>::InsufficientDeposit)?;
+               // Lock the deposit.
+               Self::increase_lock(proposer, deposit)?;
             } else {
                 // Committee PIPs cannot have a deposit.
                 ensure!(deposit.is_zero(), Error::<T>::NotFromCommunity);
@@ -798,9 +801,9 @@ decl_module! {
                 // 4. Reserve the deposit, or refund if needed.
                 let curr_deposit = Self::deposits(id, &voter).amount;
                 if deposit < curr_deposit {
-                    <T as Trait>::Currency::unreserve(&voter, curr_deposit - deposit);
+                    Self::reduce_lock(&voter, curr_deposit - deposit)?;
                 } else {
-                    <T as Trait>::Currency::reserve(&voter, deposit - curr_deposit).map_err(|_| Error::<T>::InsufficientDeposit)?;
+                    Self::increase_lock(&voter, deposit - curr_deposit)?;
                 }
                 // 5. Save the vote.
                 Self::unsafe_vote(id, voter.clone(), Vote(aye_or_nay, deposit))
@@ -1171,8 +1174,8 @@ impl<T: Trait> Module<T> {
     fn refund_proposal(did: IdentityId, id: PipId) {
         let total_refund =
             <Deposits<T>>::iter_prefix_values(id).fold(0.into(), |acc, depo_info| {
-                let amount = <T as Trait>::Currency::unreserve(&depo_info.owner, depo_info.amount);
-                amount.saturating_add(acc)
+                Self::reduce_lock(&depo_info.owner, depo_info.amount).unwrap();
+                depo_info.amount.saturating_add(acc)
             });
         <Deposits<T>>::remove_prefix(id);
         Self::deposit_event(RawEvent::ProposalRefund(did, id, total_refund));
@@ -1288,6 +1291,29 @@ impl<T: Trait> Module<T> {
 }
 
 impl<T: Trait> Module<T> {
+    /// Increase `acc`'s locked deposit for all PIPs by `amount`,
+    /// or fail if there's not enough free balance after adding `amount` to lock.
+    fn increase_lock(acc: &T::AccountId, amount: BalanceOf<T>) -> DispatchResult {
+        <T as Trait>::Currency::increase_lock(
+            PIPS_LOCK_ID,
+            acc,
+            amount,
+            WithdrawReasons::all(),
+            |sum| {
+                <T as Trait>::Currency::free_balance(acc)
+                    .checked_sub(&sum)
+                    .ok_or(Error::<T>::InsufficientDeposit.into())
+                    .map(drop)
+            },
+        )
+    }
+
+    /// Reduce `acc`'s locked deposit for all PIPs by `amount`,
+    /// or fail if `amount` hasn't been locked for PIPs.
+    fn reduce_lock(acc: &T::AccountId, amount: BalanceOf<T>) -> DispatchResult {
+        <T as Trait>::Currency::reduce_lock(PIPS_LOCK_ID, acc, amount)
+    }
+
     /// Retrieve votes for a proposal represented by PipId `id`.
     pub fn get_votes(id: PipId) -> VoteCount<BalanceOf<T>>
     where
