@@ -139,11 +139,6 @@ fn only_primary_or_secondary_keys_can_authenticate_as_an_identity() {
         let charlie_key = AccountKeyring::Charlie.public();
         let charlie_signer = Signatory::Account(charlie_key);
 
-        assert_ok!(Balances::top_up_identity_balance(
-            a.clone(),
-            a_did,
-            PROTOCOL_OP_BASE_FEE
-        ));
         add_secondary_key(a_did, charlie_signer);
 
         // Check primary key on primary and secondary_keys.
@@ -294,11 +289,6 @@ fn only_primary_key_can_add_secondary_key_permissions_with_externalities() {
     let alice = Origin::signed(AccountKeyring::Alice.public());
     let bob = Origin::signed(AccountKeyring::Bob.public());
 
-    assert_ok!(Balances::top_up_identity_balance(
-        alice.clone(),
-        alice_did,
-        PROTOCOL_OP_BASE_FEE * 2
-    ));
     add_secondary_key(alice_did, Signatory::Account(charlie_key));
     add_secondary_key(alice_did, Signatory::Account(bob_key));
 
@@ -358,11 +348,6 @@ fn freeze_secondary_keys_with_externalities() {
     let alice = Origin::signed(AccountKeyring::Alice.public());
     let bob = Origin::signed(AccountKeyring::Bob.public());
 
-    assert_ok!(Balances::top_up_identity_balance(
-        alice.clone(),
-        alice_did,
-        PROTOCOL_OP_BASE_FEE * 2
-    ));
     add_secondary_key(alice_did, Signatory::Account(bob_key));
     add_secondary_key(alice_did, Signatory::Account(charlie_key));
 
@@ -383,12 +368,6 @@ fn freeze_secondary_keys_with_externalities() {
         false
     );
 
-    // Add new secondary keys.
-    assert_ok!(Balances::top_up_identity_balance(
-        alice.clone(),
-        alice_did,
-        PROTOCOL_OP_BASE_FEE
-    ));
     add_secondary_key(alice_did, Signatory::Account(dave_key));
 
     // update permission of frozen keys.
@@ -433,17 +412,7 @@ fn remove_frozen_secondary_keys_with_externalities() {
     let alice_did = register_keyring_account(AccountKeyring::Alice).unwrap();
     let alice = Origin::signed(AccountKeyring::Alice.public());
 
-    assert_ok!(Balances::top_up_identity_balance(
-        alice.clone(),
-        alice_did,
-        PROTOCOL_OP_BASE_FEE
-    ));
     add_secondary_key(alice_did, Signatory::Account(bob_key));
-    assert_ok!(Balances::top_up_identity_balance(
-        alice.clone(),
-        alice_did,
-        PROTOCOL_OP_BASE_FEE
-    ));
     add_secondary_key(alice_did, Signatory::Account(charlie_key));
 
     // Freeze all secondary keys
@@ -472,20 +441,16 @@ fn frozen_secondary_keys_cdd_verification_test_we() {
     let alice = AccountKeyring::Alice.public();
     let bob = AccountKeyring::Bob.public();
     let charlie = AccountKeyring::Charlie.public();
-    TestStorage::set_payer_context(Some(Signatory::Account(alice)));
+    TestStorage::set_payer_context(Some(alice));
     let alice_id = register_keyring_account(AccountKeyring::Alice).unwrap();
-    TestStorage::set_payer_context(Some(Signatory::Account(charlie)));
+    TestStorage::set_payer_context(Some(charlie));
     let _charlie_id = register_keyring_account_with_balance(AccountKeyring::Charlie, 100).unwrap();
     assert_eq!(Balances::free_balance(charlie), 59);
 
     // 1. Add Bob as signatory to Alice ID.
     let bob_signatory = Signatory::Account(AccountKeyring::Bob.public());
-    TestStorage::set_payer_context(Some(Signatory::Account(alice)));
-    assert_ok!(Balances::top_up_identity_balance(
-        Origin::signed(alice),
-        alice_id,
-        100_000
-    ));
+    TestStorage::set_payer_context(Some(alice));
+
     add_secondary_key(alice_id, bob_signatory);
     assert_ok!(Balances::transfer_with_memo(
         Origin::signed(alice),
@@ -496,7 +461,7 @@ fn frozen_secondary_keys_cdd_verification_test_we() {
     assert_eq!(Balances::free_balance(bob), 25_000);
 
     // 2. Bob can transfer some funds to Charlie ID.
-    TestStorage::set_payer_context(Some(Signatory::Account(bob)));
+    TestStorage::set_payer_context(Some(bob));
     assert_ok!(Balances::transfer_with_memo(
         Origin::signed(bob),
         charlie,
@@ -561,12 +526,6 @@ fn remove_secondary_keys_test_with_externalities() {
     let _charlie_did = register_keyring_account(AccountKeyring::Charlie).unwrap();
     let dave_key = AccountKeyring::Dave.public();
 
-    assert_ok!(Balances::top_up_identity_balance(
-        alice.clone(),
-        alice_did,
-        PROTOCOL_OP_BASE_FEE
-    ));
-
     let musig_address = MultiSig::get_next_multisig_address(AccountKeyring::Alice.public());
 
     assert_ok!(MultiSig::create_multisig(
@@ -586,11 +545,6 @@ fn remove_secondary_keys_test_with_externalities() {
 
     add_secondary_key(alice_did, Signatory::Account(bob_key));
 
-    assert_ok!(Balances::top_up_identity_balance(
-        alice.clone(),
-        alice_did,
-        PROTOCOL_OP_BASE_FEE
-    ));
     add_secondary_key(alice_did, Signatory::Account(musig_address));
 
     // Fund the multisig
@@ -641,11 +595,6 @@ fn remove_secondary_keys_test_with_externalities() {
     );
 
     // Empty multisig's funds and remove as signer
-    assert_ok!(Balances::top_up_identity_balance(
-        Origin::signed(musig_address.clone()),
-        alice_did,
-        1
-    ));
     assert_ok!(Identity::remove_secondary_keys(
         alice.clone(),
         vec![Signatory::Account(musig_address.clone())]
@@ -682,12 +631,6 @@ fn leave_identity_test_with_externalities() {
     let charlie_secondary_key = SecondaryKey::new(Signatory::Identity(charlie_did), vec![]);
     let alice_secondary_keys = vec![bob_secondary_key, charlie_secondary_key.clone()];
     let dave_key = AccountKeyring::Dave.public();
-
-    assert_ok!(Balances::top_up_identity_balance(
-        alice.clone(),
-        alice_did,
-        2 * PROTOCOL_OP_BASE_FEE
-    ));
 
     let musig_address = MultiSig::get_next_multisig_address(AccountKeyring::Alice.public());
 
@@ -734,12 +677,6 @@ fn leave_identity_test_with_externalities() {
     assert_eq!(Identity::get_identity(&dave_key), None);
     assert_eq!(Identity::get_identity(&musig_address), None);
 
-    assert_ok!(Balances::top_up_identity_balance(
-        alice.clone(),
-        alice_did,
-        PROTOCOL_OP_BASE_FEE
-    ));
-
     add_secondary_key(alice_did, Signatory::Account(musig_address));
     // send funds to multisig
     assert_ok!(Balances::transfer(alice.clone(), musig_address.clone(), 1));
@@ -760,11 +697,6 @@ fn leave_identity_test_with_externalities() {
     );
 
     // Empty multisig's funds and remove as signer
-    assert_ok!(Balances::top_up_identity_balance(
-        Origin::signed(musig_address.clone()),
-        alice_did,
-        1
-    ));
     assert_ok!(Identity::leave_identity_as_key(Origin::signed(
         musig_address.clone()
     )));
@@ -796,11 +728,6 @@ fn enforce_uniqueness_keys_in_identity() {
 
     // Check external signed key uniqueness.
     let charlie_key = AccountKeyring::Charlie.public();
-    assert_ok!(Balances::top_up_identity_balance(
-        alice.clone(),
-        alice_id,
-        PROTOCOL_OP_BASE_FEE
-    ));
     add_secondary_key(alice_id, Signatory::Account(charlie_key));
     let auth_id = Identity::add_auth(
         alice_id,
@@ -808,11 +735,6 @@ fn enforce_uniqueness_keys_in_identity() {
         AuthorizationData::JoinIdentity(vec![]),
         None,
     );
-    assert_ok!(Balances::top_up_identity_balance(
-        alice.clone(),
-        alice_id,
-        PROTOCOL_OP_BASE_FEE
-    ));
     assert_err!(
         Identity::join_identity(Signatory::Account(AccountKeyring::Bob.public()), auth_id),
         Error::<TestStorage>::AlreadyLinked
@@ -832,11 +754,7 @@ fn add_remove_secondary_identities_with_externalities() {
     let alice = Origin::signed(AccountKeyring::Alice.public());
     let bob_id = register_keyring_account(AccountKeyring::Bob).unwrap();
     let charlie_id = register_keyring_account(AccountKeyring::Charlie).unwrap();
-    assert_ok!(Balances::top_up_identity_balance(
-        alice.clone(),
-        alice_id,
-        PROTOCOL_OP_BASE_FEE * 2
-    ));
+
     add_secondary_key(alice_id, Signatory::from(bob_id));
     add_secondary_key(alice_id, Signatory::from(charlie_id));
 
@@ -1265,11 +1183,6 @@ fn cdd_register_did_test_we() {
         Identity::did_records(charlie_id).secondary_keys.is_empty(),
         true
     );
-    assert_ok!(Balances::top_up_identity_balance(
-        Origin::signed(charlie),
-        charlie_id,
-        10_000_000
-    ));
 
     // Dave authorizes to be joined to Charlie.
     let dave_auth_list = authorizations_to(&dave_si.signer);
@@ -1325,11 +1238,6 @@ fn add_identity_signers() {
             None,
         );
 
-        assert_ok!(Balances::top_up_identity_balance(
-            alice.clone(),
-            alice_did,
-            PROTOCOL_OP_BASE_FEE
-        ));
         assert_ok!(Identity::join_identity(
             bob_identity_signer,
             auth_id_for_acc_to_id
@@ -1350,12 +1258,6 @@ fn add_identity_signers() {
         );
         assert_eq!(authorizations.len(), 1);
 
-        assert_ok!(Balances::top_up_identity_balance(
-            charlie.clone(),
-            charlie_did,
-            PROTOCOL_OP_BASE_FEE
-        ));
-
         assert_ok!(Identity::join_identity(
             bob_identity_signer,
             auth_id_for_acc2_to_id
@@ -1368,12 +1270,6 @@ fn add_identity_signers() {
             None,
         );
 
-        assert_ok!(Balances::top_up_identity_balance(
-            alice.clone(),
-            alice_did,
-            PROTOCOL_OP_BASE_FEE
-        ));
-
         assert_ok!(Identity::join_identity(
             dave_acc_signer,
             auth_id_for_acc1_to_acc
@@ -1385,12 +1281,6 @@ fn add_identity_signers() {
             AuthorizationData::JoinIdentity(vec![]),
             None,
         );
-
-        assert_ok!(Balances::top_up_identity_balance(
-            charlie.clone(),
-            charlie_did,
-            PROTOCOL_OP_BASE_FEE
-        ));
 
         assert_err!(
             Identity::join_identity(dave_acc_signer, auth_id_for_acc2_to_acc),
@@ -1699,13 +1589,6 @@ fn add_permission_with_secondary_key() {
             .auth_id;
 
             println!("Print the protocol base fee: {:?}", PROTOCOL_OP_BASE_FEE);
-
-            // Fund the identity
-            assert_ok!(Balances::top_up_identity_balance(
-                Origin::signed(alice_acc),
-                alice_did,
-                PROTOCOL_OP_BASE_FEE * 3
-            ));
 
             // accept the auth_id
             assert_ok!(Identity::accept_authorization(
