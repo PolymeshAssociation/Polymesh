@@ -10,9 +10,9 @@ use polymesh_common_utilities::{protocol_fee::ProtocolOp, traits::identity::Link
 use polymesh_primitives::{Identity, IdentityId, PosRatio};
 use sp_core::sr25519::Public;
 use sp_io::TestExternalities;
+use sp_runtime::Perbill;
 use std::{cell::RefCell, convert::From, iter};
 use test_client::AccountKeyring;
-use sp_runtime::Perbill;
 
 /// A prime number fee to test the split between multiple recipients.
 pub const PROTOCOL_OP_BASE_FEE: u128 = 41;
@@ -49,6 +49,7 @@ impl Default for MockProtocolBaseFees {
             ProtocolOp::IdentityAddSecondaryKeysWithAuthorization,
             ProtocolOp::PipsPropose,
             ProtocolOp::VotingAddBallot,
+            ProtocolOp::ContractsPutCode,
         ];
         let fees = ops
             .into_iter()
@@ -88,6 +89,7 @@ thread_local! {
     pub static EXTRINSIC_BASE_WEIGHT: RefCell<u64> = RefCell::new(0);
     pub static TRANSACTION_BYTE_FEE: RefCell<u128> = RefCell::new(0);
     pub static WEIGHT_TO_FEE: RefCell<u128> = RefCell::new(0);
+    pub static NETWORK_FEE_SHARE: RefCell<Perbill> = RefCell::new(Perbill::from_percent(0));
 }
 
 impl ExtBuilder {
@@ -172,16 +174,17 @@ impl ExtBuilder {
         self
     }
 
+    /// Assigning the fee share in the instantiation fee
+    pub fn network_fee_share(mut self, share: Perbill) -> Self {
+        self.network_fee_share = share;
+        self
+    }
+
     fn set_associated_consts(&self) {
         EXTRINSIC_BASE_WEIGHT.with(|v| *v.borrow_mut() = self.extrinsic_base_weight);
         TRANSACTION_BYTE_FEE.with(|v| *v.borrow_mut() = self.transaction_byte_fee);
         WEIGHT_TO_FEE.with(|v| *v.borrow_mut() = self.weight_to_fee);
-    }
-
-    /// Assigning the fee share in the instantiation fee
-    fn network_fee_share(mut self, share: Perbill) -> Self {
-        self.network_fee_share = share;
-        self
+        NETWORK_FEE_SHARE.with(|v| *v.borrow_mut() = self.network_fee_share);
     }
 
     fn make_balances(&self) -> Vec<(Public, u128)> {
@@ -247,7 +250,7 @@ impl ExtBuilder {
 
         let _root = AccountKeyring::Alice.public();
 
-        // Create Identitys.
+        // Create Identities.
         let mut system_accounts = self
             .cdd_providers
             .iter()

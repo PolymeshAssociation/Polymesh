@@ -71,6 +71,7 @@ where
 }
 
 pub trait Trait: pallet_contracts::Trait + IdentityTrait {
+    /// Event type
     type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
     /// Percentage distribution of instantiation fee to the validators and treasury.
     type NetworkShareInFee: Get<Perbill>;
@@ -120,7 +121,7 @@ decl_module! {
     // Wrap dispatchable functions for contracts so that we can add additional gating logic
     pub struct Module<T: Trait> for enum Call where origin: T::Origin {
 
-        /// initialize the default event for this module.
+        /// Initialize the default event for this module.
         fn deposit_event() = default;
 
         /// Error type.
@@ -183,6 +184,9 @@ decl_module! {
         /// # Additional functionality
         /// 1. Check whether instantiation of given code_hash is allowed or not.
         /// 2. Charge instantiation fee.
+        ///
+        /// # Errors
+        /// InstantiationIsNotAllowed - It occurred when instantiation of the template is freezed.
         #[weight = 500_000_000 + *gas_limit]
         pub fn instantiate(
             origin,
@@ -191,23 +195,25 @@ decl_module! {
             code_hash: CodeHash<T>,
             data: Vec<u8>
         ) -> DispatchResultWithPostInfo {
-            let _ = ensure_signed(origin.clone())?;
+            ensure_signed(origin.clone())?;
+
             // Access the meta details of SE template
             let meta_details = Self::get_template_meta_details(code_hash);
+
             // Check whether instantiation is allowed or not.
             ensure!(!meta_details.is_instantiation_freezed(), Error::<T>::InstantiationIsNotAllowed);
+
+            // transmit the call to the base `pallet-contracts` module.
             <pallet_contracts::Module<T>>::instantiate(origin, endowment, gas_limit, code_hash, data)
                 .map(|mut info| {
                     // Charge instantiation fee
                     let _ = T::ProtocolFee::charge_extension_instantiation_fee((meta_details.get_instantiation_fee().saturated_into::<u128>()).into(), meta_details.owner, T::NetworkShareInFee::get());
-                    if let Some(weight) = info.actual_weight {
-                        info.actual_weight = Some(weight + 500_000_000);
-                    }
+                    // Update the actual weight of the extrinsic.
+                    info.actual_weight = info.actual_weight.map(|w| w + 500_000_000);
                     info
                 }).map_err(|mut err_info| {
-                    if let Some(weight) = err_info.post_info.actual_weight {
-                        err_info.post_info.actual_weight = Some(weight + 500_000_000);
-                    }
+                    // Update the actual weight of the extrinsic.
+                    err_info.post_info.actual_weight = err_info.post_info.actual_weight.map(|w| w + 500_000_000);
                     err_info
                 })
         }
@@ -220,10 +226,12 @@ decl_module! {
         /// * new_instantiation_fee - New value of instantiation fee to the smart extension template.
         #[weight = 1000_000_000]
         pub fn change_instantiation_fee(origin, code_hash: CodeHash<T>, new_instantiation_fee: BalanceOf<T>) -> DispatchResult {
-            let sender = ensure_signed(origin.clone())?;
-            let did = Context::current_identity_or::<Identity<T>>(&sender)?;
-            ensure!(<TemplateMetaDetails<T>>::contains_key(code_hash), Error::<T>::TemplateNotExists);
+            // Ensure whether the extrinsic is signed & validate the `code_hash`.
+            let did = Self::ensure_signed_and_template_exists(origin, code_hash)?;
+            // Emit event with the old fee and the new instantiation fee.
             Self::deposit_event(RawEvent::InstantiationFeeChanged(did, code_hash, Self::get_template_meta_details(code_hash).meta_info.instantiation_fee, new_instantiation_fee));
+
+            // Update the instantiation fee for a given code_hash.
             <TemplateMetaDetails<T>>::mutate(&code_hash, |meta_details| meta_details.meta_info.instantiation_fee = new_instantiation_fee);
             Ok(())
         }
@@ -235,13 +243,17 @@ decl_module! {
         /// * code_hash - Unique hash of the smart extension template.
         #[weight = 1_000_000_000]
         pub fn freeze_instantiation(origin, code_hash: CodeHash<T>) -> DispatchResult {
-            let sender = ensure_signed(origin.clone())?;
-            let did = Context::current_identity_or::<Identity<T>>(&sender)?;
-            ensure!(<TemplateMetaDetails<T>>::contains_key(code_hash), Error::<T>::TemplateNotExists);
-             // Access the meta details of SE template
+            // Ensure whether the extrinsic is signed & validate the `code_hash`.
+            let did = Self::ensure_signed_and_template_exists(origin, code_hash)?;
+            // Access the meta details of SE template
             let meta_details = Self::get_template_meta_details(code_hash);
+
+            // If instantiation is already freezed then there is no point of changing the storage value.
             ensure!(!meta_details.is_instantiation_freezed(), Error::<T>::InstantiationAlreadyFreezed);
+            // Change the `is_freeze` variable to `true`.
             <TemplateMetaDetails<T>>::mutate(&code_hash, |meta_details| meta_details.is_freeze = true);
+
+            // Emit event.
             Self::deposit_event(RawEvent::InstantiationFreezed(did, code_hash));
             Ok(())
         }
@@ -253,17 +265,38 @@ decl_module! {
         /// * code_hash - Unique hash of the smart extension template.
         #[weight = 1_000_000_000]
         pub fn unfreeze_instantiation(origin, code_hash: CodeHash<T>) -> DispatchResult {
-            let sender = ensure_signed(origin.clone())?;
-            let did = Context::current_identity_or::<Identity<T>>(&sender)?;
-            ensure!(<TemplateMetaDetails<T>>::contains_key(code_hash), Error::<T>::TemplateNotExists);
+            // Ensure whether the extrinsic is signed & validate the `code_hash`.
+            let did = Self::ensure_signed_and_template_exists(origin, code_hash)?;
              // Access the meta details of SE template
             let meta_details = Self::get_template_meta_details(code_hash);
+
+            // If instantiation is already un-freezed then there is no point of changing the storage value.
             ensure!(meta_details.is_instantiation_freezed(), Error::<T>::InstantiationAlreadyUnFreezed);
+            // Change the `is_freeze` variable to `false`.
             <TemplateMetaDetails<T>>::mutate(&code_hash, |meta_details| meta_details.is_freeze = false);
+
+            // Emit event.
             Self::deposit_event(RawEvent::InstantiationUnFreezed(did, code_hash));
             Ok(())
         }
     }
 }
 
-impl<T: Trait> Module<T> {}
+impl<T: Trait> Module<T> {
+    fn ensure_signed_and_template_exists(
+        origin: T::Origin,
+        code_hash: CodeHash<T>,
+    ) -> Result<IdentityId, &'static str> {
+        // Ensure the transaction is signed.
+        let sender = ensure_signed(origin.clone())?;
+        // Get the DID of the sender.
+        let did = Context::current_identity_or::<Identity<T>>(&sender)?;
+        // Validate whether the template exists or not for a given code_hash.
+        ensure!(
+            <TemplateMetaDetails<T>>::contains_key(code_hash),
+            Error::<T>::TemplateNotExists
+        );
+        // Return the DID
+        Ok(did)
+    }
+}

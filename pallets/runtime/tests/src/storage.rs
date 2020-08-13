@@ -1,10 +1,12 @@
-use super::ext_builder::{EXTRINSIC_BASE_WEIGHT, TRANSACTION_BYTE_FEE, WEIGHT_TO_FEE};
+use super::ext_builder::{
+    EXTRINSIC_BASE_WEIGHT, NETWORK_FEE_SHARE, TRANSACTION_BYTE_FEE, WEIGHT_TO_FEE,
+};
 use codec::Encode;
 use frame_support::{
     assert_ok,
     dispatch::DispatchResult,
     impl_outer_dispatch, impl_outer_event, impl_outer_origin, parameter_types,
-    traits::Currency,
+    traits::{Currency, Imbalance, OnUnbalanced},
     weights::DispatchInfo,
     weights::{
         RuntimeDbWeight, WeightToFeeCoefficient, WeightToFeeCoefficients, WeightToFeePolynomial,
@@ -113,7 +115,7 @@ impl_outer_event! {
         pallet_utility,
         portfolio<T>,
         confidential,
-        polymesh_contracts<T>
+        polymesh_contracts<T>,
     }
 }
 
@@ -150,6 +152,20 @@ parameter_types! {
         read: 10,
         write: 100,
     };
+    pub FeeCollector: AccountId = account_from(5000);
+}
+
+pub type NegativeImbalance<T> =
+    <balances::Module<T> as Currency<<T as system::Trait>::AccountId>>::NegativeImbalance;
+
+pub struct DealWithFees<T>(sp_std::marker::PhantomData<T>);
+
+impl OnUnbalanced<NegativeImbalance<TestStorage>> for DealWithFees<TestStorage> {
+    fn on_nonzero_unbalanced(amount: NegativeImbalance<TestStorage>) {
+        let target = account_from(5000);
+        let positive_imbalance = Balances::deposit_creating(&target, amount.peek());
+        let _ = amount.offset(positive_imbalance).map_err(|_| 4);
+    }
 }
 
 impl frame_system::Trait for TestStorage {
@@ -239,10 +255,10 @@ impl pallet_timestamp::Trait for TestStorage {
 }
 
 parameter_types! {
-    pub const NetworkShareInFee: Perbill = Perbill::from_percent(0);
+    pub NetworkShareInFee: Perbill = NETWORK_FEE_SHARE.with(|v| *v.borrow());
 }
 
-impl polymesh_contracts::Trait for Runtime {
+impl polymesh_contracts::Trait for TestStorage {
     type Event = Event;
     type NetworkShareInFee = NetworkShareInFee;
 }
@@ -440,7 +456,7 @@ impl compliance_manager::Trait for TestStorage {
 impl protocol_fee::Trait for TestStorage {
     type Event = Event;
     type Currency = Balances;
-    type OnProtocolFeePayment = ();
+    type OnProtocolFeePayment = DealWithFees<TestStorage>;
 }
 
 impl portfolio::Trait for TestStorage {

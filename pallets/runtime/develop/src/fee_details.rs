@@ -183,7 +183,7 @@ impl CddAndFeeDetails<AccountId, Call> for CddHandler {
         Context::set_current_payer::<Identity>(payer);
     }
 
-    /// Fetches fee payer for further payements (forwareded calls)
+    /// Fetches fee payer for further payments (forwarded calls)
     fn get_payer_from_context() -> Option<Signatory<AccountId>> {
         Context::current_payer::<Identity>()
     }
