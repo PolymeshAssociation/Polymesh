@@ -1639,7 +1639,7 @@ impl<T: Trait> AssetTrait<T::Balance, T::AccountId> for Module<T> {
     fn treasury(ticker: &Ticker) -> IdentityId {
         let token_details = Self::token_details(ticker);
         token_details
-            .treasury_did
+            .primary_issuance_did
             .unwrap_or(token_details.owner_did)
     }
 }
