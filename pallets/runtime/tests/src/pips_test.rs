@@ -1794,7 +1794,7 @@ fn enact_snapshot_results_works() {
         assert_ok!(Pips::clear_snapshot(user.signer()));
         assert_ok!(Pips::enact_snapshot_results(root(), vec![]));
         assert_last_event!(
-            Event::SnapshotResultsEnacted(a, b, c),
+            Event::SnapshotResultsEnacted(_, a, b, c),
             a.is_empty() && b.is_empty() && c.is_empty()
         )
     });

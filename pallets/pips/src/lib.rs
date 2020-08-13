@@ -467,11 +467,11 @@ decl_event!(
         /// A new snapshot was taken.
         SnapshotTaken(IdentityId),
         /// A PIP in the snapshot queue was skipped.
-        /// (pip_id, new_skip_count)
-        SkippedPip(PipId, SkippedCount),
+        /// (gc_did, pip_id, new_skip_count)
+        PipSkipped(IdentityId, PipId, SkippedCount),
         /// Results (e.g., approved, rejected, and skipped), were enacted for some PIPs.
-        /// (skipped_pips_with_new_count, rejected_pips, approved_pips)
-        SnapshotResultsEnacted(Vec<(PipId, SkippedCount)>, Vec<PipId>, Vec<PipId>),
+        /// (gc_did, skipped_pips_with_new_count, rejected_pips, approved_pips)
+        SnapshotResultsEnacted(IdentityId, Vec<(PipId, SkippedCount)>, Vec<PipId>, Vec<PipId>),
     }
 );
 
@@ -1021,8 +1021,12 @@ decl_module! {
 
             <SnapshotQueue<T>>::try_mutate(|queue| {
                 let mut to_bump_skipped = Vec::new();
-                let mut to_reject = Vec::new();
-                let mut to_approve = Vec::new();
+                // Default after-first-push capacity is 4, we bump this slightly.
+                // Rationale: GC are humans sitting together and reaching conensus.
+                // This is time consuming, so considering 20 PIPs in total might take few hours.
+                let speculative_capacity = queue.len().max(10);
+                let mut to_reject = Vec::with_capacity(speculative_capacity);
+                let mut to_approve = Vec::with_capacity(speculative_capacity);
 
                 // Go over each result...
                 for (id, action) in results.iter().copied() {
@@ -1051,7 +1055,7 @@ decl_module! {
                 // Update skip counts.
                 for (pip_id, new_count) in to_bump_skipped.iter().copied() {
                     PipSkipCount::insert(pip_id, new_count);
-                    Self::deposit_event(RawEvent::SkippedPip(pip_id, new_count));
+                    Self::deposit_event(RawEvent::PipSkipped(gc_did, pip_id, new_count));
                 }
 
                 // Reject proposals as instructed & refund.
@@ -1064,7 +1068,8 @@ decl_module! {
                     Self::schedule_pip_for_execution(gc_did, pip_id);
                 }
 
-                Self::deposit_event(RawEvent::SnapshotResultsEnacted(to_bump_skipped, to_reject, to_approve));
+                let event = RawEvent::SnapshotResultsEnacted(gc_did, to_bump_skipped, to_reject, to_approve);
+                Self::deposit_event(event);
 
                 Ok(())
             })
@@ -1235,13 +1240,9 @@ impl<T: Trait> Module<T> {
     fn execute_proposal(id: PipId) -> Weight {
         let proposal = Self::proposals(id).expect("PIP was scheduled but doesn't exist");
         assert_eq!(proposal.state, ProposalState::Scheduled);
-        let (new_state, weight) = match proposal.proposal.dispatch(system::RawOrigin::Root.into()) {
-            Ok(post_info) => (ProposalState::Executed, post_info.actual_weight),
-            Err(e) => {
-                debug::error!("Proposal {}, its execution fails: {:?}", id, e.error);
-                (ProposalState::Failed, None)
-            }
-        };
+        let res = proposal.proposal.dispatch(system::RawOrigin::Root.into());
+        let weight = res.unwrap_or_else(|e| e.post_info).actual_weight;
+        let new_state = res.map_or(ProposalState::Failed, |_| ProposalState::Executed);
         let did = Context::current_identity::<Identity<T>>().unwrap_or_default();
         Self::update_proposal_state(did, id, new_state);
         Self::prune_data(did, id, new_state, Self::prune_historical_pips());
