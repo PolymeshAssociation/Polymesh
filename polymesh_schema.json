@@ -4,6 +4,7 @@
         "InvestorUid":"[u8; 32]",
         "Ticker": "[u8; 12]",
         "CddId": "[u8; 32]",
+        "ScopeId": "[u8; 32]",
         "PosRatio": "(u32, u32)",
         "DocumentName": "Text",
         "DocumentUri": "Text",
@@ -72,12 +73,12 @@
                 "Account": "AccountId"
             }
         },
-        "SigningKey": {
+        "SecondaryKey": {
             "signer": "Signatory",
             "permissions": "Vec<Permission>"
         },
-        "SigningKeyWithAuth":{
-            "signing_key": "SigningKey",
+        "SecondaryKeyWithAuth":{
+            "secondary_key": "SecondaryKey",
             "auth_signature": "Signature"
         },
         "IdentityRole": {
@@ -96,15 +97,16 @@
         },
         "PreAuthorizedKeyInfo": {
             "target_id": "IdentityId",
-            "signing_key": "SigningKey"
+            "secondary_key": "SecondaryKey"
         },
         "DidRecord": {
             "roles": "Vec<IdentityRole>",
-            "master_key": "AccountId",
-            "signing_keys": "Vec<SigningKey>"
+            "primary_key": "AccountId",
+            "secondary_keys": "Vec<SecondaryKey>"
         },
         "JurisdictionName": "Text",
         "Scope": "IdentityId",
+        "InvestorZKProofData": "[u8;64]",
         "Claim": {
             "_enum": {
                 "Accredited": "Scope",
@@ -116,6 +118,7 @@
                 "Jurisdiction": "(JurisdictionName, Scope)",
                 "Exempted": "Scope",
                 "Blocked": "Scope",
+                "InvestorZKProof":"(Scope, ScopeId, CddId, InvestorZKProofData)",
                 "NoData": ""
             }
         },
@@ -320,8 +323,8 @@
         },
         "AuthorizationData": {
             "_enum": {
-                "AttestMasterKeyRotation": "IdentityId",
-                "RotateMasterKey": "IdentityId",
+                "AttestPrimaryKeyRotation": "IdentityId",
+                "RotatePrimaryKey": "IdentityId",
                 "TransferTicker": "Ticker",
                 "AddMultiSigSigner": "AccountId",
                 "TransferAssetOwnership": "Ticker",
@@ -439,8 +442,8 @@
                 "IdentityRegisterDid",
                 "IdentityCddRegisterDid",
                 "IdentityAddClaim",
-                "IdentitySetMasterKey",
-                "IdentityAddSigningKeysWithAuthorization",
+                "IdentitySetPrimaryKey",
+                "IdentityAddSecondaryKeysWithAuthorization",
                 "PipsPropose",
                 "VotingAddBallot"
             ]
@@ -458,8 +461,8 @@
             }
         },
         "DidRecordsSuccess": {
-            "master_key" : "AccountId",
-            "signing_key": "Vec<SigningKey>"
+            "primary_key" : "AccountId",
+            "secondary_key": "Vec<SecondaryKey>"
         },
         "DidRecords": {
             "_enum": {
@@ -520,8 +523,8 @@
         },
         "AuthorizationType": {
             "_enum": {
-                "AttestMasterKeyRotation": "",
-                "RotateMasterKey": "",
+                "AttestPrimaryKeyRotation": "",
+                "RotatePrimaryKey": "",
                 "TransferTicker": "",
                 "AddMultiSigSigner": "",
                 "TransferAssetOwnership": "",
@@ -650,6 +653,12 @@
             "coeffFrac": "Perbill",
             "negative": "bool",
             "degree": "u8"
+        },
+        "Fundraiser": {
+            "raise_token": "Ticker",
+            "remaining_amount": "Balance",
+            "price_per_token": "Balance",
+            "venue_id": "u64"
         }
     },
     "rpc": {

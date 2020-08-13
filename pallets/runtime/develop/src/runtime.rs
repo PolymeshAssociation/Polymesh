@@ -6,6 +6,7 @@ use crate::{
 use codec::Encode;
 use pallet_asset as asset;
 use pallet_balances as balances;
+use pallet_basic_sto as sto;
 use pallet_committee as committee;
 use pallet_compliance_manager::{self as compliance_manager, AssetTransferRulesResult};
 use pallet_confidential as confidential;
@@ -35,15 +36,15 @@ use polymesh_common_utilities::{
 };
 use polymesh_primitives::{
     AccountId, AccountIndex, Authorization, AuthorizationType, Balance, BlockNumber, Hash,
-    IdentityId, Index, Moment, PortfolioId, Signatory, Signature, SigningKey, Ticker,
+    IdentityId, Index, Moment, PortfolioId, SecondaryKey, Signatory, Signature, Ticker,
 };
 use polymesh_runtime_common::{
     bridge,
     cdd_check::CddChecker,
     contracts_wrapper, dividend, exemption,
     impls::{Author, CurrencyToVoteHandler},
-    merge_active_and_inactive, sto_capped, voting, AvailableBlockRatio,
-    BlockHashCount, MaximumBlockLength, MaximumBlockWeight, NegativeImbalance,
+    merge_active_and_inactive, sto_capped, voting, AvailableBlockRatio, BlockHashCount,
+    MaximumBlockLength, MaximumBlockWeight, NegativeImbalance,
 };
 
 use sp_api::impl_runtime_apis;
@@ -75,7 +76,7 @@ use frame_support::{
     traits::{KeyOwnerProofSystem, Randomness, SplitTwoWays},
     weights::{
         constants::{BlockExecutionWeight, ExtrinsicBaseWeight, RocksDbWeight},
-        IdentityFee, Weight,
+        Weight, WeightToFeeCoefficient, WeightToFeeCoefficients, WeightToFeePolynomial,
     },
 };
 use pallet_contracts_rpc_runtime_api::ContractExecResult;
@@ -98,6 +99,8 @@ pub use pallet_staking::StakerStatus;
 pub use pallet_timestamp::Call as TimestampCall;
 #[cfg(any(feature = "std", test))]
 pub use sp_runtime::BuildStorage;
+
+use smallvec::smallvec;
 
 // Make the WASM binary available.
 #[cfg(feature = "std")]
@@ -227,6 +230,20 @@ pub type DealWithFees = SplitTwoWays<
     Author<Runtime>, // 1 part (20%) goes to the block author.
 >;
 
+pub struct WeightToFee;
+impl WeightToFeePolynomial for WeightToFee {
+    type Balance = Balance;
+
+    fn polynomial() -> WeightToFeeCoefficients<Self::Balance> {
+        smallvec![WeightToFeeCoefficient {
+            degree: 1,
+            coeff_frac: Perbill::from_percent(10),
+            coeff_integer: 0u128, // Coefficient is zero
+            negative: false,
+        }]
+    }
+}
+
 parameter_types! {
     pub const TransactionByteFee: Balance = 10 * MILLICENTS;
     // for a sane configuration, this should always be less than `AvailableBlockRatio`.
@@ -237,7 +254,7 @@ impl pallet_transaction_payment::Trait for Runtime {
     type Currency = Balances;
     type OnTransactionPayment = DealWithFees;
     type TransactionByteFee = TransactionByteFee;
-    type WeightToFee = IdentityFee<Balance>;
+    type WeightToFee = WeightToFee;
     type FeeMultiplierUpdate = ();
     type CddHandler = CddHandler;
 }
@@ -503,6 +520,10 @@ impl settlement::Trait for Runtime {
     type MaxScheduledInstructionLegsPerBlock = MaxScheduledInstructionLegsPerBlock;
 }
 
+impl sto::Trait for Runtime {
+    type Event = Event;
+}
+
 parameter_types! {
     pub OffencesWeightSoftLimit: Weight = Perbill::from_percent(60) * MaximumBlockWeight::get();
 }
@@ -750,6 +771,7 @@ construct_runtime!(
         StoCapped: sto_capped::{Module, Call, Storage, Event<T>},
         Exemption: exemption::{Module, Call, Storage, Event},
         Settlement: settlement::{Module, Call, Storage, Event<T>, Config},
+        Sto: sto::{Module, Call, Storage, Event<T>},
         CddServiceProviders: group::<Instance2>::{Module, Call, Storage, Event<T>, Config<T>},
         Statistic: statistics::{Module, Call, Storage},
         ProtocolFee: protocol_fee::{Module, Call, Storage, Event<T>, Config<T>},
@@ -1008,7 +1030,7 @@ impl_runtime_apis! {
 
         }
 
-        /// Retrieve referendums voted on information by `id` identity (and its signing items).
+        /// Retrieve referendums voted on information by `id` identity (and its secondary items).
         fn voting_history_by_id(id: IdentityId) -> HistoricalVotingById<AccountId, Vote<Balance>> {
             Pips::voting_history_by_id(id)
         }
@@ -1028,7 +1050,7 @@ impl_runtime_apis! {
             IdentityId,
             Ticker,
             AccountId,
-            SigningKey<AccountId>,
+            SecondaryKey<AccountId>,
             Signatory<AccountId>,
             Moment
         > for Runtime
@@ -1047,8 +1069,8 @@ impl_runtime_apis! {
             }
         }
 
-        /// Retrieve master key and signing keys for a given IdentityId
-        fn get_did_records(did: IdentityId) -> DidRecords<AccountId, SigningKey<AccountId>> {
+        /// Retrieve primary key and secondary keys for a given IdentityId
+        fn get_did_records(did: IdentityId) -> DidRecords<AccountId, SecondaryKey<AccountId>> {
             Identity::get_did_records(did)
         }
 

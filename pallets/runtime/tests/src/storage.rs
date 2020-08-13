@@ -14,6 +14,7 @@ use frame_support::{
 use frame_system as system;
 use pallet_asset as asset;
 use pallet_balances as balances;
+use pallet_basic_sto as sto;
 use pallet_committee as committee;
 use pallet_compliance_manager as compliance_manager;
 use pallet_confidential as confidential;
@@ -40,9 +41,7 @@ use polymesh_common_utilities::Context;
 use polymesh_primitives::{
     Authorization, AuthorizationData, CddId, Claim, IdentityId, InvestorUid, Signatory,
 };
-use polymesh_runtime_common::{
-    bridge, cdd_check::CddChecker, dividend, exemption, voting,
-};
+use polymesh_runtime_common::{bridge, cdd_check::CddChecker, dividend, exemption, voting};
 use smallvec::smallvec;
 use sp_core::{
     crypto::{key_types, Pair as PairTrait},
@@ -112,6 +111,7 @@ impl_outer_event! {
         protocol_fee<T>,
         treasury<T>,
         settlement<T>,
+        sto<T>,
         pallet_utility,
         portfolio<T>,
         confidential,
@@ -251,6 +251,10 @@ impl settlement::Trait for TestStorage {
     type Event = Event;
     type Asset = asset::Module<TestStorage>;
     type MaxScheduledInstructionLegsPerBlock = MaxScheduledInstructionLegsPerBlock;
+}
+
+impl sto::Trait for TestStorage {
+    type Event = Event;
 }
 
 impl ChargeTxFee for TestStorage {
@@ -604,7 +608,7 @@ pub fn make_account_with_balance(
     let cdd_providers = CddServiceProvider::get_members();
     let did = match cdd_providers.into_iter().nth(0) {
         Some(cdd_provider) => {
-            let cdd_acc = Public::from_raw(Identity::did_records(&cdd_provider).master_key.0);
+            let cdd_acc = Public::from_raw(Identity::did_records(&cdd_provider).primary_key.0);
             let _ = Identity::cdd_register_did(Origin::signed(cdd_acc), id, vec![])
                 .map_err(|_| "CDD register DID failed")?;
 
@@ -654,8 +658,8 @@ pub fn register_keyring_account_without_cdd(
     make_account_without_cdd(acc_pub).map(|(_, id)| id)
 }
 
-pub fn add_signing_key(did: IdentityId, signer: Signatory<AccountId>) {
-    let _master_key = Identity::did_records(&did).master_key;
+pub fn add_secondary_key(did: IdentityId, signer: Signatory<AccountId>) {
+    let _primary_key = Identity::did_records(&did).primary_key;
     let auth_id = Identity::add_auth(
         did.clone(),
         signer,

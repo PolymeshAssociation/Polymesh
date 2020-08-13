@@ -18,7 +18,7 @@ const MAX_IDENTITIES_ALLOWED_TO_QUERY: u32 = 500;
 
 /// Identity RPC methods
 #[rpc]
-pub trait IdentityApi<BlockHash, IdentityId, Ticker, AccountId, SigningKey, Signatory, Moment> {
+pub trait IdentityApi<BlockHash, IdentityId, Ticker, AccountId, SecondaryKey, Signatory, Moment> {
     /// Below function use to tell whether the given did has valid cdd claim or not
     #[rpc(name = "identity_isIdentityHasValidCdd")]
     fn is_identity_has_valid_cdd(
@@ -38,7 +38,7 @@ pub trait IdentityApi<BlockHash, IdentityId, Ticker, AccountId, SigningKey, Sign
         &self,
         did: IdentityId,
         at: Option<BlockHash>,
-    ) -> Result<DidRecords<AccountId, SigningKey>>;
+    ) -> Result<DidRecords<AccountId, SecondaryKey>>;
 
     /// Retrieve the list of authorizations for a given signatory.
     #[rpc(name = "identity_getFilteredAuthorizations")]
@@ -83,13 +83,13 @@ pub enum Error {
     RuntimeError,
 }
 
-impl<C, Block, IdentityId, Ticker, AccountId, SigningKey, Signatory, Moment>
+impl<C, Block, IdentityId, Ticker, AccountId, SecondaryKey, Signatory, Moment>
     IdentityApi<
         <Block as BlockT>::Hash,
         IdentityId,
         Ticker,
         AccountId,
-        SigningKey,
+        SecondaryKey,
         Signatory,
         Moment,
     > for Identity<C, Block>
@@ -98,11 +98,12 @@ where
     C: Send + Sync + 'static,
     C: ProvideRuntimeApi<Block>,
     C: HeaderBackend<Block>,
-    C::Api: IdentityRuntimeApi<Block, IdentityId, Ticker, AccountId, SigningKey, Signatory, Moment>,
+    C::Api:
+        IdentityRuntimeApi<Block, IdentityId, Ticker, AccountId, SecondaryKey, Signatory, Moment>,
     IdentityId: Codec,
     Ticker: Codec,
     AccountId: Codec,
-    SigningKey: Codec,
+    SecondaryKey: Codec,
     Signatory: Codec,
     Moment: Codec,
 {
@@ -144,7 +145,7 @@ where
         &self,
         did: IdentityId,
         at: Option<<Block as BlockT>::Hash>,
-    ) -> Result<DidRecords<AccountId, SigningKey>> {
+    ) -> Result<DidRecords<AccountId, SecondaryKey>> {
         let api = self.client.runtime_api();
         let at = BlockId::hash(at.unwrap_or_else(|| self.client.info().best_hash));
 
