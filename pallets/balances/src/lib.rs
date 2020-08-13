@@ -1271,17 +1271,16 @@ where
         if amount.is_zero() || reasons.is_none() {
             return;
         }
-        let mut new_lock = Some(BalanceLock {
+        let new_lock = BalanceLock {
             id,
             amount,
             reasons: reasons.into(),
-        });
-        let mut locks = Self::locks(who)
-            .into_iter()
-            .filter_map(|l| if l.id == id { new_lock.take() } else { Some(l) })
-            .collect::<Vec<_>>();
-        if let Some(lock) = new_lock {
-            locks.push(lock)
+        };
+        let mut locks = Self::locks(who);
+        if let Some(pos) = locks.iter().position(|l| l.id == id) {
+            locks[pos] = new_lock;
+        } else {
+            locks.push(new_lock);
         }
         Self::update_locks(who, &locks[..]);
     }
@@ -1297,27 +1296,18 @@ where
         if amount.is_zero() || reasons.is_none() {
             return;
         }
-        let mut new_lock = Some(BalanceLock {
-            id,
-            amount,
-            reasons: reasons.into(),
-        });
-        let mut locks = Self::locks(who)
-            .into_iter()
-            .filter_map(|l| {
-                if l.id == id {
-                    new_lock.take().map(|nl| BalanceLock {
-                        id: l.id,
-                        amount: l.amount.max(nl.amount),
-                        reasons: l.reasons | nl.reasons,
-                    })
-                } else {
-                    Some(l)
-                }
-            })
-            .collect::<Vec<_>>();
-        if let Some(lock) = new_lock {
-            locks.push(lock)
+        let reasons = reasons.into();
+        let mut locks = Self::locks(who);
+        if let Some(pos) = locks.iter().position(|l| l.id == id) {
+            let slot = &mut locks[pos];
+            slot.amount = slot.amount.max(amount);
+            slot.reasons = slot.reasons | reasons;
+        } else {
+            locks.push(BalanceLock {
+                id,
+                amount,
+                reasons,
+            });
         }
         Self::update_locks(who, &locks[..]);
     }
