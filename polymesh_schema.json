@@ -1,9 +1,10 @@
 {
     "types": {
-        "IdentityId":"[u8; 32]",
-        "InvestorUid":"[u8; 32]",
+        "IdentityId": "[u8; 32]",
+        "InvestorUid": "[u8; 32]",
         "Ticker": "[u8; 12]",
         "CddId": "[u8; 32]",
+        "ScopeId": "[u8; 32]",
         "PosRatio": "(u32, u32)",
         "DocumentName": "Text",
         "DocumentUri": "Text",
@@ -66,18 +67,18 @@
                 "SpendFunds"
             ]
         },
-        "Signatory":{
+        "Signatory": {
             "_enum": {
                 "Identity": "IdentityId",
                 "Account": "AccountId"
             }
         },
-        "SigningKey": {
+        "SecondaryKey": {
             "signer": "Signatory",
             "permissions": "Vec<Permission>"
         },
-        "SigningKeyWithAuth":{
-            "signing_key": "SigningKey",
+        "SecondaryKeyWithAuth": {
+            "secondary_key": "SecondaryKey",
             "auth_signature": "Signature"
         },
         "IdentityRole": {
@@ -96,15 +97,16 @@
         },
         "PreAuthorizedKeyInfo": {
             "target_id": "IdentityId",
-            "signing_key": "SigningKey"
+            "secondary_key": "SecondaryKey"
         },
         "DidRecord": {
             "roles": "Vec<IdentityRole>",
-            "master_key": "AccountId",
-            "signing_keys": "Vec<SigningKey>"
+            "primary_key": "AccountId",
+            "secondary_keys": "Vec<SecondaryKey>"
         },
         "JurisdictionName": "Text",
         "Scope": "IdentityId",
+        "InvestorZKProofData": "[u8;64]",
         "Claim": {
             "_enum": {
                 "Accredited": "Scope",
@@ -116,6 +118,7 @@
                 "Jurisdiction": "(JurisdictionName, Scope)",
                 "Exempted": "Scope",
                 "Blocked": "Scope",
+                "InvestorZKProof": "(Scope, ScopeId, CddId, InvestorZKProofData)",
                 "NoData": ""
             }
         },
@@ -146,18 +149,18 @@
         },
         "AssetTransferRule": {
             "sender_rules": "Vec<Rule>",
-            "receiver_rules":"Vec<Rule>",
+            "receiver_rules": "Vec<Rule>",
             "rule_id": "u32"
         },
         "AssetTransferRuleResult": {
             "sender_rules": "Vec<Rule>",
-            "receiver_rules":"Vec<Rule>",
+            "receiver_rules": "Vec<Rule>",
             "rule_id": "u32",
             "transfer_rule_result": "bool"
         },
         "RuleType": {
             "_enum": {
-                "IsPresent" : "Claim",
+                "IsPresent": "Claim",
                 "IsAbsent": "Claim",
                 "IsAnyOf": "Vec<Claim>",
                 "IsNoneOf": "Vec<Claim>"
@@ -244,6 +247,34 @@
             "cool_off_until": "u32",
             "beneficiaries": "Vec<Beneficiary>"
         },
+        "Proposer": {
+            "_enum": {
+                "Community": "AccountId",
+                "Committee": "Committee"
+            }
+        },
+        "Committee": {
+            "_enum": {
+                "Technical": "",
+                "Upgrade": ""
+            }
+        },
+        "SkippedCount": "u8",
+        "SnapshottedPip": {
+            "id": "PipId",
+            "weight": "(bool, Balance)"
+        },
+        "SnapshotMetadata": {
+            "created_at": "BlockNumber",
+            "made_by": "AccountId"
+        },
+        "SnapshotResult": {
+            "_enum": {
+                "Approve": "",
+                "Reject": "",
+                "Skip": ""
+            }
+        },
         "Beneficiary": {
             "id": "IdentityId",
             "amount": "Balance"
@@ -285,10 +316,10 @@
         },
         "Pip": {
             "id": "PipId",
-            "proposal":"Call",
-            "state":"ProposalState"
+            "proposal": "Call",
+            "state": "ProposalState"
         },
-        "ProposalData" : {
+        "ProposalData": {
             "_enum": {
                 "Hash": "Hash",
                 "Proposal": "Vec<u8>"
@@ -320,8 +351,8 @@
         },
         "AuthorizationData": {
             "_enum": {
-                "AttestMasterKeyRotation": "IdentityId",
-                "RotateMasterKey": "IdentityId",
+                "AttestPrimaryKeyRotation": "IdentityId",
+                "RotatePrimaryKey": "IdentityId",
                 "TransferTicker": "Ticker",
                 "AddMultiSigSigner": "AccountId",
                 "TransferAssetOwnership": "Ticker",
@@ -417,12 +448,12 @@
             "target": "IdentityId",
             "claim": "Claim"
         },
-        "InactiveMember" : {
+        "InactiveMember": {
             "id": "IdentityId",
             "deactivated_at": "Moment",
             "expiry": "Option<Moment>"
         },
-        "VotingResult" : {
+        "VotingResult": {
             "ayes_count": "u32",
             "ayes_stake": "Balance",
             "nays_count": "u32",
@@ -439,8 +470,8 @@
                 "IdentityRegisterDid",
                 "IdentityCddRegisterDid",
                 "IdentityAddClaim",
-                "IdentitySetMasterKey",
-                "IdentityAddSigningKeysWithAuthorization",
+                "IdentitySetPrimaryKey",
+                "IdentityAddSecondaryKeysWithAuthorization",
                 "PipsPropose",
                 "VotingAddBallot"
             ]
@@ -458,8 +489,8 @@
             }
         },
         "DidRecordsSuccess": {
-            "master_key" : "AccountId",
-            "signing_key": "Vec<SigningKey>"
+            "primary_key": "AccountId",
+            "secondary_key": "Vec<SecondaryKey>"
         },
         "DidRecords": {
             "_enum": {
@@ -520,8 +551,8 @@
         },
         "AuthorizationType": {
             "_enum": {
-                "AttestMasterKeyRotation": "",
-                "RotateMasterKey": "",
+                "AttestPrimaryKeyRotation": "",
+                "RotatePrimaryKey": "",
                 "TransferTicker": "",
                 "AddMultiSigSigner": "",
                 "TransferAssetOwnership": "",
@@ -543,7 +574,7 @@
                 "ActiveOrExpired": "",
                 "ExecutionSuccessful": "",
                 "ExecutionFailed": "",
-                "Rejected":""
+                "Rejected": ""
             }
         },
         "DidStatus": {
@@ -565,7 +596,7 @@
                 "User": "PortfolioNumber"
             }
         },
-        "PortfolioId" : {
+        "PortfolioId": {
             "did": "IdentityId",
             "kind": "PortfolioKind"
         },
@@ -650,6 +681,12 @@
             "coeffFrac": "Perbill",
             "negative": "bool",
             "degree": "u8"
+        },
+        "Fundraiser": {
+            "raise_token": "Ticker",
+            "remaining_amount": "Balance",
+            "price_per_token": "Balance",
+            "venue_id": "u64"
         }
     },
     "rpc": {
@@ -687,7 +724,7 @@
             }
         },
         "identity": {
-            "isIdentityHasValidCdd" : {
+            "isIdentityHasValidCdd": {
                 "description": "use to tell whether the given did has valid cdd claim or not",
                 "params": [
                     {
@@ -744,14 +781,14 @@
                 "description": "Retrieve status of the DID",
                 "params": [
                     {
-                        "name":"did",
-                        "type":"Vec<IdentityId>",
+                        "name": "did",
+                        "type": "Vec<IdentityId>",
                         "isOptional": false
                     },
                     {
-                        "name":"blockHash",
-                        "type":"Hash",
-                        "isOptional":true
+                        "name": "blockHash",
+                        "type": "Hash",
+                        "isOptional": true
                     }
                 ],
                 "type": "Vec<DidStatus>"
@@ -783,7 +820,7 @@
                 "type": "Vec<Authorization>"
             }
         },
-        "pips":{
+        "pips": {
             "getVotes": {
                 "description": "Summary of votes of a proposal given by index",
                 "params": [
@@ -896,7 +933,7 @@
                 "type": "Vec<(Perbill, Perbill)>"
             }
         },
-        "asset" : {
+        "asset": {
             "canTransfer": {
                 "description": "Checks whether a transaction with given parameters can take place or not",
                 "params": [

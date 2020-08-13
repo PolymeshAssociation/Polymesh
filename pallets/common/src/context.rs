@@ -114,7 +114,7 @@ mod test {
             false
         }
 
-        fn is_master_key(_did: IdentityId, _key: &AccountId) -> bool {
+        fn is_primary_key(_did: IdentityId, _key: &AccountId) -> bool {
             false
         }
 

@@ -389,7 +389,7 @@ fn staking_should_work() {
             // --- Block 2:
             start_session(2);
             provide_did_to_user(3);
-            add_signing_key(3, 4);
+            add_secondary_key(3, 4);
             // add a new candidate for being a validator. account 3 controlled by 4.
             assert_ok!(Staking::bond(
                 Origin::signed(3),
@@ -556,7 +556,7 @@ fn nominating_and_rewards_should_work() {
             }
 
             provide_did_to_user(1);
-            add_signing_key(1, 2);
+            add_secondary_key(1, 2);
             // bond two account pairs and state interest in nomination.
             // 2 will nominate for 10, 20, 30
             assert_ok!(Staking::bond(
@@ -568,7 +568,7 @@ fn nominating_and_rewards_should_work() {
             assert_ok!(Staking::nominate(Origin::signed(2), vec![11, 21, 31]));
 
             provide_did_to_user(3);
-            add_signing_key(3, 4);
+            add_secondary_key(3, 4);
             // 4 will nominate for 10, 20, 40
             assert_ok!(Staking::bond(
                 Origin::signed(3),
@@ -1885,7 +1885,7 @@ fn switching_roles() {
         }
 
         provide_did_to_user(1);
-        add_signing_key(1, 2);
+        add_secondary_key(1, 2);
         // add 2 nominators
         assert_ok!(Staking::bond(
             Origin::signed(1),
@@ -1896,7 +1896,7 @@ fn switching_roles() {
         assert_ok!(Staking::nominate(Origin::signed(2), vec![11, 5]));
 
         provide_did_to_user(3);
-        add_signing_key(3, 4);
+        add_secondary_key(3, 4);
         assert_ok!(Staking::bond(
             Origin::signed(3),
             4,
@@ -1906,7 +1906,7 @@ fn switching_roles() {
         assert_ok!(Staking::nominate(Origin::signed(4), vec![21, 1]));
 
         provide_did_to_user(5);
-        add_signing_key(5, 6);
+        add_secondary_key(5, 6);
         // add a new validator candidate
         assert_ok!(Staking::bond(
             Origin::signed(5),
@@ -1964,7 +1964,7 @@ fn wrong_vote_is_null() {
             }
 
             provide_did_to_user(1);
-            add_signing_key(1, 2);
+            add_secondary_key(1, 2);
             // add 1 nominators
             assert_ok!(Staking::bond(
                 Origin::signed(1),
@@ -1999,7 +1999,7 @@ fn bond_with_no_staked_value() {
         .build()
         .execute_with(|| {
             provide_did_to_user(1);
-            add_signing_key(1, 2);
+            add_secondary_key(1, 2);
 
             // Polymesh-note - Below check will fail as in code we have exestential deposit = 0 (Hard coded)
             // Can't bond with 1
@@ -2074,7 +2074,7 @@ fn bond_with_little_staked_value_bounded() {
                 1,
                 RewardDestination::Controller
             ));
-            add_signing_key(1, 2);
+            add_secondary_key(1, 2);
             assert_ok!(Staking::add_permissioned_validator(
                 frame_system::RawOrigin::Root.into(),
                 1
@@ -2162,10 +2162,10 @@ fn phragmen_should_not_overflow() {
         bond_validator(5, 4, Votes::max_value() as Balance);
 
         provide_did_to_user(7);
-        add_signing_key(7, 6);
+        add_secondary_key(7, 6);
 
         provide_did_to_user(9);
-        add_signing_key(9, 8);
+        add_secondary_key(9, 8);
 
         bond_nominator(7, 6, Votes::max_value() as Balance, vec![3, 5]);
         bond_nominator(9, 8, Votes::max_value() as Balance, vec![3, 5]);
@@ -2215,7 +2215,7 @@ fn reward_validator_slashing_validator_does_not_overflow() {
         let _ = Balances::make_free_balance_be(&2, stake);
 
         provide_did_to_user(2);
-        add_signing_key(2, 20000);
+        add_secondary_key(2, 20000);
         // only slashes out of bonded stake are applied. without this line,
         // it is 0.
         Staking::bond(
@@ -4649,7 +4649,7 @@ fn test_max_nominator_rewarded_per_validator_and_cant_steal_someone_else_reward(
             let balance = 10_000 + i as Balance;
             Balances::make_free_balance_be(&stash, balance);
             provide_did_to_user(stash);
-            add_signing_key(stash, controller);
+            add_secondary_key(stash, controller);
             assert_ok!(Staking::bond(
                 Origin::signed(stash),
                 controller,

@@ -65,7 +65,6 @@ pub mod capped {
     #[cfg_attr(feature = "std", derive(Debug, Serialize, Deserialize))]
     #[cfg_attr(feature = "std", serde(rename_all = "camelCase"))]
     pub enum Vote {
-        None,
         Yes(u64),
         No(u64),
     }
@@ -76,9 +75,8 @@ pub mod capped {
     {
         fn from(core_vote: CoreVote<Balance>) -> Self {
             match core_vote {
-                CoreVote::None => Vote::None,
-                CoreVote::Yes(amount) => Vote::Yes(amount.saturated_into()),
-                CoreVote::No(amount) => Vote::No(amount.saturated_into()),
+                CoreVote(true, amount) => Vote::Yes(amount.saturated_into()),
+                CoreVote(false, amount) => Vote::No(amount.saturated_into()),
             }
         }
     }
@@ -103,7 +101,7 @@ sp_api::decl_runtime_apis! {
         /// Retrieve referendums voted on information by `address` account.
         fn voting_history_by_address(address: AccountId) -> HistoricalVotingByAddress<Vote<Balance>>;
 
-        /// Retrieve referendums voted on information by `id` identity (and its signing items).
+        /// Retrieve referendums voted on information by `id` identity (and its secondary keys).
         fn voting_history_by_id(id: IdentityId) -> HistoricalVotingById<AccountId, Vote<Balance>>;
     }
 }

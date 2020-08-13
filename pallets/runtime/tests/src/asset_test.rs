@@ -1,5 +1,5 @@
 use crate::{
-    storage::{add_signing_key, register_keyring_account, TestStorage},
+    storage::{add_secondary_key, register_keyring_account, TestStorage},
     ExtBuilder,
 };
 
@@ -1757,13 +1757,13 @@ fn freeze_unfreeze_asset() {
     });
 }
 #[test]
-fn frozen_signing_keys_create_asset() {
+fn frozen_secondary_keys_create_asset() {
     ExtBuilder::default()
         .build()
-        .execute_with(frozen_signing_keys_create_asset_we);
+        .execute_with(frozen_secondary_keys_create_asset_we);
 }
 
-fn frozen_signing_keys_create_asset_we() {
+fn frozen_secondary_keys_create_asset_we() {
     // 0. Create identities.
     let alice = AccountKeyring::Alice.public();
     let alice_id = register_keyring_account(AccountKeyring::Alice).unwrap();
@@ -1777,7 +1777,7 @@ fn frozen_signing_keys_create_asset_we() {
         100_000
     ));
     let bob_signatory = Signatory::Account(AccountKeyring::Bob.public());
-    add_signing_key(alice_id, bob_signatory);
+    add_secondary_key(alice_id, bob_signatory);
     assert_ok!(Balances::transfer_with_memo(
         Origin::signed(alice),
         bob,
@@ -1808,8 +1808,8 @@ fn frozen_signing_keys_create_asset_we() {
     ));
     assert_eq!(Asset::token_details(ticker_1), token_1);
 
-    // 3. Alice freezes her signing keys.
-    assert_ok!(Identity::freeze_signing_keys(Origin::signed(alice)));
+    // 3. Alice freezes her secondary keys.
+    assert_ok!(Identity::freeze_secondary_keys(Origin::signed(alice)));
 
     // 4. Bob cannot create a token.
     let token_2 = SecurityToken {
@@ -2007,7 +2007,7 @@ fn can_set_treasury_did_we() {
         100_000
     ));
     let bob_signatory = Signatory::Account(AccountKeyring::Bob.public());
-    add_signing_key(alice_id, bob_signatory);
+    add_secondary_key(alice_id, bob_signatory);
     assert_ok!(Balances::transfer_with_memo(
         Origin::signed(alice),
         bob,

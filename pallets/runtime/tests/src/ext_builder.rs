@@ -16,6 +16,8 @@ use test_client::AccountKeyring;
 /// A prime number fee to test the split between multiple recipients.
 pub const PROTOCOL_OP_BASE_FEE: u128 = 41;
 
+pub const COOL_OFF_PERIOD: u64 = 100;
+
 struct BuilderVoteThreshold {
     pub numerator: u32,
     pub denominator: u32,
@@ -44,8 +46,8 @@ impl Default for MockProtocolBaseFees {
             ProtocolOp::IdentityRegisterDid,
             ProtocolOp::IdentityCddRegisterDid,
             ProtocolOp::IdentityAddClaim,
-            ProtocolOp::IdentitySetMasterKey,
-            ProtocolOp::IdentityAddSigningKeysWithAuthorization,
+            ProtocolOp::IdentitySetPrimaryKey,
+            ProtocolOp::IdentityAddSecondaryKeysWithAuthorization,
             ProtocolOp::PipsPropose,
             ProtocolOp::VotingAddBallot,
         ];
@@ -284,7 +286,7 @@ impl ExtBuilder {
             .map(|key| {
                 let (id, _) = system_identities
                     .iter()
-                    .find(|(_id, info)| info.master_key == *key)
+                    .find(|(_id, info)| info.primary_key == *key)
                     .unwrap();
                 id
             })
@@ -305,7 +307,7 @@ impl ExtBuilder {
             .map(|key| {
                 let (id, _) = system_identities
                     .iter()
-                    .find(|(_id, info)| info.master_key == *key)
+                    .find(|(_id, info)| info.primary_key == *key)
                     .unwrap();
                 id
             })
@@ -341,10 +343,10 @@ impl ExtBuilder {
         pips::GenesisConfig::<TestStorage> {
             prune_historical_pips: false,
             min_proposal_deposit: 50,
-            quorum_threshold: 70,
-            proposal_duration: 10,
-            proposal_cool_off_period: 100,
+            proposal_cool_off_period: COOL_OFF_PERIOD,
             default_enactment_period: 100,
+            max_pip_skip_count: 1,
+            active_pip_limit: 5,
         }
         .assimilate_storage(&mut storage)
         .unwrap();

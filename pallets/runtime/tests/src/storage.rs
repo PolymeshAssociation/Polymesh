@@ -14,6 +14,7 @@ use frame_support::{
 use frame_system as system;
 use pallet_asset as asset;
 use pallet_balances as balances;
+use pallet_basic_sto as sto;
 use pallet_committee as committee;
 use pallet_compliance_manager as compliance_manager;
 use pallet_confidential as confidential;
@@ -32,7 +33,6 @@ use polymesh_common_utilities::traits::{
     balances::AccountData,
     group::GroupTrait,
     identity::Trait as IdentityTrait,
-    pip::{EnactProposalMaker, PipId},
     transaction_payment::{CddAndFeeDetails, ChargeTxFee},
     CommonTrait,
 };
@@ -84,6 +84,8 @@ impl_outer_dispatch! {
         asset::Asset,
         frame_system::System,
         pallet_utility::Utility,
+        self::Committee,
+        self::DefaultCommittee,
     }
 }
 
@@ -110,6 +112,7 @@ impl_outer_event! {
         protocol_fee<T>,
         treasury<T>,
         settlement<T>,
+        sto<T>,
         pallet_utility,
         portfolio<T>,
         confidential,
@@ -251,6 +254,10 @@ impl settlement::Trait for TestStorage {
     type MaxScheduledInstructionLegsPerBlock = MaxScheduledInstructionLegsPerBlock;
 }
 
+impl sto::Trait for TestStorage {
+    type Event = Event;
+}
+
 impl ChargeTxFee for TestStorage {
     fn charge_fee(_len: u32, _info: DispatchInfo) -> TransactionValidity {
         Ok(ValidTransaction::default())
@@ -351,7 +358,6 @@ impl committee::Trait<committee::Instance1> for TestStorage {
     type CommitteeOrigin = frame_system::EnsureRoot<AccountId>;
     type Event = Event;
     type MotionDuration = MotionDuration;
-    type EnactProposalMaker = TestStorage;
 }
 
 impl committee::Trait<committee::DefaultInstance> for TestStorage {
@@ -360,7 +366,6 @@ impl committee::Trait<committee::DefaultInstance> for TestStorage {
     type CommitteeOrigin = frame_system::EnsureRoot<AccountId>;
     type Event = Event;
     type MotionDuration = MotionDuration;
-    type EnactProposalMaker = TestStorage;
 }
 
 impl IdentityTrait for TestStorage {
@@ -538,6 +543,8 @@ impl pips::Trait for TestStorage {
     type CommitteeOrigin = frame_system::EnsureRoot<AccountId>;
     type VotingMajorityOrigin = frame_system::EnsureRoot<AccountId>;
     type GovernanceCommittee = Committee;
+    type TechnicalCommitteeVMO = frame_system::EnsureRoot<AccountId>;
+    type UpgradeCommitteeVMO = frame_system::EnsureRoot<AccountId>;
     type Treasury = treasury::Module<Self>;
     type Event = Event;
 }
@@ -549,20 +556,6 @@ impl confidential::Trait for TestStorage {
 impl pallet_utility::Trait for TestStorage {
     type Event = Event;
     type Call = Call;
-}
-
-impl EnactProposalMaker<Origin, Call> for TestStorage {
-    fn is_pip_id_valid(id: PipId) -> bool {
-        Pips::is_proposal_id_valid(id)
-    }
-
-    fn enact_referendum_call(id: PipId) -> Call {
-        Call::Pips(pallet_pips::Call::enact_referendum(id))
-    }
-
-    fn reject_referendum_call(id: PipId) -> Call {
-        Call::Pips(pallet_pips::Call::reject_referendum(id))
-    }
 }
 
 // Publish type alias for each module
@@ -578,6 +571,7 @@ pub type Bridge = bridge::Module<TestStorage>;
 pub type GovernanceCommittee = group::Module<TestStorage, group::Instance1>;
 pub type CddServiceProvider = group::Module<TestStorage, group::Instance2>;
 pub type Committee = committee::Module<TestStorage, committee::Instance1>;
+pub type DefaultCommittee = committee::Module<TestStorage, committee::DefaultInstance>;
 pub type Utility = pallet_utility::Module<TestStorage>;
 pub type System = frame_system::Module<TestStorage>;
 pub type Portfolio = portfolio::Module<TestStorage>;
@@ -602,7 +596,7 @@ pub fn make_account_with_balance(
     let cdd_providers = CddServiceProvider::get_members();
     let did = match cdd_providers.into_iter().nth(0) {
         Some(cdd_provider) => {
-            let cdd_acc = Public::from_raw(Identity::did_records(&cdd_provider).master_key.0);
+            let cdd_acc = Public::from_raw(Identity::did_records(&cdd_provider).primary_key.0);
             let _ = Identity::cdd_register_did(Origin::signed(cdd_acc), id, vec![])
                 .map_err(|_| "CDD register DID failed")?;
 
@@ -652,8 +646,8 @@ pub fn register_keyring_account_without_cdd(
     make_account_without_cdd(acc_pub).map(|(_, id)| id)
 }
 
-pub fn add_signing_key(did: IdentityId, signer: Signatory<AccountId>) {
-    let _master_key = Identity::did_records(&did).master_key;
+pub fn add_secondary_key(did: IdentityId, signer: Signatory<AccountId>) {
+    let _primary_key = Identity::did_records(&did).primary_key;
     let auth_id = Identity::add_auth(
         did.clone(),
         signer,
@@ -688,4 +682,8 @@ pub fn fast_forward_to_block(n: u64) {
         assert_ok!(pips::Module::<TestStorage>::end_block(block));
         frame_system::Module::<TestStorage>::set_block_number(block + 1);
     });
+}
+
+pub fn fast_forward_blocks(n: u64) {
+    fast_forward_to_block(n + frame_system::Module::<TestStorage>::block_number());
 }

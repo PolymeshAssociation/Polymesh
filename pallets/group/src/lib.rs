@@ -244,15 +244,15 @@ decl_module! {
         ///
         /// # Error
         ///
-        /// * Only master key can abdicate.
+        /// * Only primary key can abdicate.
         /// * Last member of a group cannot abdicate.
         #[weight = (1_000_000_000, DispatchClass::Operational, Pays::Yes)]
         pub fn abdicate_membership(origin) -> DispatchResult {
             let who = ensure_signed(origin)?;
             let remove_id = Context::current_identity_or::<Identity<T>>(&who)?;
 
-            ensure!(<Identity<T>>::is_master_key(remove_id, &who),
-                Error::<T,I>::OnlyMasterKeyAllowed);
+            ensure!(<Identity<T>>::is_primary_key(remove_id, &who),
+                Error::<T,I>::OnlyPrimaryKeyAllowed);
 
             let mut members = Self::get_members();
             ensure!(members.contains(&remove_id),
@@ -276,8 +276,8 @@ decl_module! {
 
 decl_error! {
     pub enum Error for Module<T: Trait<I>, I: Instance> {
-        /// Only master key of the identity is allowed.
-        OnlyMasterKeyAllowed,
+        /// Only primary key of the identity is allowed.
+        OnlyPrimaryKeyAllowed,
         /// Group member was added already.
         DuplicateMember,
         /// Can't remove a member that doesn't exist.
