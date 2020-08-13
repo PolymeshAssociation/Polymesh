@@ -3,18 +3,16 @@ require = require("esm")(module /*, options*/);
 module.exports = require("../util/init.js");
 
 let { reqImports } = require("../util/init.js");
-
 // Sets the default exit code to fail unless the script runs successfully
 process.exitCode = 1;
 
-/*
- * This test checks the ability to do a manual STO receiving payment in an asset 
+/**
+ * This test checks the ability to do a manual STO receiving payment in an asset and reciepts
  */
-
-
 
 const prepend = "ACME";
 const prepend2 = "USD";
+
 async function main() {
   const api = await reqImports.createApi();
   const ticker = `token${prepend}0`.toUpperCase();
@@ -25,6 +23,10 @@ async function main() {
   let bob = testEntities[1];
   let charlie = testEntities[2];
   let dave = testEntities[3];
+  let eve = testEntities[7];
+
+  let eve_did = await reqImports.createIdentities(api, [eve], alice);
+  eve_did = eve_did[0];
 
   let dave_did = await reqImports.createIdentities(api, [dave], alice);
   dave_did = dave_did[0];
@@ -42,7 +44,7 @@ async function main() {
 
   await reqImports.distributePolyBatch(
     api,
-    [bob, charlie, dave],
+    [bob, charlie, dave, eve],
     reqImports.transfer_amount,
     alice
   );
@@ -62,142 +64,145 @@ async function main() {
   let bobACMEBalance = await api.query.asset.balanceOf(ticker, bob_did);
   let charlieACMEBalance = await api.query.asset.balanceOf(ticker, charlie_did);
   let daveACMEBalance = await api.query.asset.balanceOf(ticker, dave_did);
+  let eveACMEBalance = await api.query.asset.balanceOf(ticker, eve_did);
 
   let aliceUSDBalance = await api.query.asset.balanceOf(ticker2, alice_did);
   let bobUSDBalance = await api.query.asset.balanceOf(ticker2, bob_did);
   let charlieUSDBalance = await api.query.asset.balanceOf(ticker2, charlie_did);
   let daveUSDBalance = await api.query.asset.balanceOf(ticker2, dave_did);
+  let eveUSDBalance = await api.query.asset.balanceOf(ticker2, eve_did);
 
   console.log("Balance for ACME (Before)");
   console.log(`alice asset balance -------->  ${aliceACMEBalance}`);
   console.log(`bob asset balance -------->  ${bobACMEBalance}`);
   console.log(`charlie asset balance -------->  ${charlieACMEBalance}`);
   console.log(`dave asset balance -------->  ${daveACMEBalance}`);
+  console.log(`eve asset balance -------->  ${eveACMEBalance}`);
   console.log(" ");
   console.log("Balance for USD_ASSET (Before)");
   console.log(`alice asset balance -------->  ${aliceUSDBalance}`);
   console.log(`bob asset balance -------->  ${bobUSDBalance}`);
   console.log(`charlie asset balance -------->  ${charlieUSDBalance}`);
   console.log(`dave asset balance -------->  ${daveUSDBalance}`);
+  console.log(`eve asset balance -------->  ${eveUSDBalance}`);
   console.log(" ");
 
   let venueCounter = await reqImports.createVenue(api, alice);
-  let bobVenueCounter = await reqImports.createVenue(api, bob);
 
-  let intructionUSDCounterBC = await reqImports.addInstruction(
-    api,
-    bobVenueCounter,
-    bob,
-    bob_did,
-    charlie_did,
-    ticker2,
-    null,
-    500
-  );
-
-  let intructionUSDCounterBD = await reqImports.addInstruction(
-    api,
-    bobVenueCounter,
-    bob,
-    bob_did,
-    dave_did,
-    ticker2,
-    null,
-    500
-  );
-
-  await reqImports.authorizeInstruction(api, bob, intructionUSDCounterBC);
-
-  await reqImports.authorizeInstruction(api, charlie, intructionUSDCounterBC);
-  
-  await reqImports.authorizeInstruction(api, bob, intructionUSDCounterBD);
-  
-  await reqImports.authorizeInstruction(api, dave, intructionUSDCounterBD);
-
-  aliceUSDBalance = await api.query.asset.balanceOf(ticker2, alice_did);
-  bobUSDBalance = await api.query.asset.balanceOf(ticker2, bob_did);
-  charlieUSDBalance = await api.query.asset.balanceOf(ticker2, charlie_did);
-  daveUSDBalance = await api.query.asset.balanceOf(ticker2, dave_did);
-
-  console.log("Balance for USD_ASSET (After)");
-  console.log(`alice asset balance -------->  ${aliceUSDBalance}`);
-  console.log(`bob asset balance -------->  ${bobUSDBalance}`);
-  console.log(`charlie asset balance -------->  ${charlieUSDBalance}`);
-  console.log(`dave asset balance -------->  ${daveUSDBalance}`);
-  console.log(" ");
-
-  let intructionCounterAB = await reqImports.addInstruction(
+  let instructionCounter = await addGroupInstruction(
     api,
     venueCounter,
     alice,
-    alice_did,
-    bob_did,
-    ticker,
-    ticker2,
-    100
-  );
-  
-  let intructionCounterAC = await reqImports.addInstruction(
-    api,
-    venueCounter,
-    alice,
-    alice_did,
-    charlie_did,
-    ticker,
-    ticker2,
-    100
-  );
-  
-  let intructionCounterAD = await reqImports.addInstruction(
-    api,
-    venueCounter,
-    alice,
-    alice_did,
-    dave_did,
+    [alice_did, bob_did, charlie_did, dave_did, eve_did],
     ticker,
     ticker2,
     100
   );
 
-  await reqImports.authorizeInstruction(api, alice, intructionCounterAB);
-  await reqImports.authorizeInstruction(api, bob, intructionCounterAB);
- 
-  await reqImports.authorizeInstruction(api, alice, intructionCounterAC);
-  await reqImports.authorizeInstruction(api, charlie, intructionCounterAC);
-  
-  await reqImports.authorizeInstruction(api, alice, intructionCounterAD);
-  await reqImports.rejectInstruction(api, dave, intructionCounterAD);
+  await reqImports.authorizeInstruction(api, alice, instructionCounter);
+
+  await reqImports.authorizeInstruction(api, bob, instructionCounter);
+
+  await reqImports.authorizeInstruction(api, charlie, instructionCounter);
+
+  await reqImports.authorizeInstruction(api, dave, instructionCounter);
+
+  //await reqImports.rejectInstruction(api, eve, instructionCounter);
+  await reqImports.authorizeInstruction(api, eve, instructionCounter);
 
   aliceACMEBalance = await api.query.asset.balanceOf(ticker, alice_did);
   bobACMEBalance = await api.query.asset.balanceOf(ticker, bob_did);
   charlieACMEBalance = await api.query.asset.balanceOf(ticker, charlie_did);
   daveACMEBalance = await api.query.asset.balanceOf(ticker, dave_did);
+  eveACMEBalance = await api.query.asset.balanceOf(ticker, eve_did);
 
   aliceUSDBalance = await api.query.asset.balanceOf(ticker2, alice_did);
   bobUSDBalance = await api.query.asset.balanceOf(ticker2, bob_did);
   charlieUSDBalance = await api.query.asset.balanceOf(ticker2, charlie_did);
   daveUSDBalance = await api.query.asset.balanceOf(ticker2, dave_did);
+  eveUSDBalance = await api.query.asset.balanceOf(ticker2, eve_did);
 
   console.log("Balance for ACME (After)");
   console.log(`alice asset balance -------->  ${aliceACMEBalance}`);
   console.log(`bob asset balance -------->  ${bobACMEBalance}`);
   console.log(`charlie asset balance -------->  ${charlieACMEBalance}`);
   console.log(`dave asset balance -------->  ${daveACMEBalance}`);
+  console.log(`eve asset balance -------->  ${eveACMEBalance}`);
   console.log(" ");
   console.log("Balance for USD_ASSET (After)");
   console.log(`alice asset balance -------->  ${aliceUSDBalance}`);
   console.log(`bob asset balance -------->  ${bobUSDBalance}`);
   console.log(`charlie asset balance -------->  ${charlieUSDBalance}`);
   console.log(`dave asset balance -------->  ${daveUSDBalance}`);
+  console.log(`eve asset balance -------->  ${eveUSDBalance}`);
 
-  // if (reqImports.fail_count > 0) {
-  //   console.log("Failed");
-  // } else {
-  //   console.log("Passed");
-  //   process.exitCode = 0;
-  // }
+  if (reqImports.fail_count > 0) {
+    console.log("Failed");
+  } else {
+    console.log("Passed");
+    process.exitCode = 0;
+  }
 
   process.exit();
+}
+
+async function addGroupInstruction(
+  api,
+  venueCounter,
+  sender,
+  group,
+  ticker,
+  ticker2,
+  amount
+) {
+  let instructionCounter = await api.query.settlement.instructionCounter();
+  let leg = {
+    from: group[1],
+    to: group[0],
+    asset: ticker2,
+    amount: amount,
+  };
+
+  let leg2 = {
+    from: group[0],
+    to: group[1],
+    asset: ticker,
+    amount: amount,
+  };
+
+  let leg3 = {
+    from: group[0],
+    to: group[2],
+    asset: ticker,
+    amount: amount,
+  };
+
+  let leg4 = {
+    from: group[0],
+    to: group[3],
+    asset: ticker,
+    amount: amount,
+  };
+
+  let leg5 = {
+    from: group[0],
+    to: group[4],
+    asset: ticker,
+    amount: amount,
+  };
+
+  transaction = await api.tx.settlement.addInstruction(venueCounter, 0, null, [
+    leg,
+    leg2,
+    leg3,
+    leg4,
+    leg5,
+  ]);
+
+  let tx = await reqImports.sendTx(sender, transaction);
+  if (tx !== -1) reqImports.fail_count--;
+
+  return instructionCounter;
 }
 
 main().catch(console.error);

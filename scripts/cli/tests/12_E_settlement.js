@@ -25,17 +25,14 @@ async function main() {
 
   let charlie_did = await reqImports.createIdentities(api, [charlie], alice);
   charlie_did = charlie_did[0];
-  console.log(`---------> Charlie DID: ${charlie_did}`);
 
   let bob_did = await reqImports.createIdentities(api, [bob], alice);
   bob_did = bob_did[0];
-  console.log(`---------> Bob DID: ${bob_did}`);
 
   let alice_did = JSON.parse(
     await reqImports.keyToIdentityIds(api, alice.publicKey)
   );
   alice_did = alice_did.Unique;
-  console.log(`---------> Alice DID: ${alice_did}`);
 
   await reqImports.distributePolyBatch(
     api,
@@ -48,8 +45,8 @@ async function main() {
 
   await reqImports.issueTokenPerDid(api, [bob], prepend2);
 
-  await addActiveRule(api, alice, ticker);
-  await addActiveRule(api, bob, ticker2);
+  await reqImports.addActiveRule(api, alice, ticker);
+  await reqImports.addActiveRule(api, bob, ticker2);
 
   await reqImports.mintingAsset(api, alice, alice_did, prepend);
 
@@ -69,38 +66,39 @@ async function main() {
   console.log("Balance for USD_ASSET (Before)");
   console.log(`alice asset balance -------->  ${aliceUSDBalance}`);
   console.log(`bob asset balance -------->  ${bobUSDBalance}`);
+  console.log(" ");
+  
+  let venueCounter = await reqImports.createVenue(api, charlie);
 
-  let venueCounter = await createVenue(api, charlie);
-
-  let instructionCounter1 = await addInstruction(
+  let instructionCounter1 = await reqImports.addInstruction(
     api,
     venueCounter,
+    charlie,
     alice_did,
     bob_did,
     ticker,
     ticker2,
-    100,
-    charlie
+    100
   );
 
-  let instructionCounter2 = await addInstruction(
+  let instructionCounter2 = await reqImports.addInstruction(
     api,
     venueCounter,
+    charlie,
     alice_did,
     bob_did,
     ticker,
     ticker2,
-    100,
-    charlie
+    100
   );
 
   await authorizeWithReceipts(api, charlie, alice, instructionCounter1, 0);
 
   await authorizeWithReceipts(api, charlie, bob, instructionCounter1, 1);
 
-  await authorizeInstruction(api, alice, instructionCounter2);
+  await reqImports.authorizeInstruction(api, alice, instructionCounter2);
 
-  await claimReceipt(
+  await exchangeClaimReceipt(
     api,
     alice,
     alice_did,
@@ -111,7 +109,7 @@ async function main() {
     charlie
   );
 
-  await authorizeInstruction(api, bob, instructionCounter2);
+  await reqImports.authorizeInstruction(api, bob, instructionCounter2);
 
   aliceACMEBalance = await api.query.asset.balanceOf(ticker, alice_did);
   bobACMEBalance = await api.query.asset.balanceOf(ticker, bob_did);
@@ -144,12 +142,10 @@ async function authorizeWithReceipts(
   instructionCounter,
   leg
 ) {
-  let nonceObj = { nonce: reqImports.nonces.get(sender.address) };
 
   receiptID = Math.floor(Math.random() * 101); // returns a random integer from 0 to 100
-  console.log(`receipt 1 ID -> ${receiptID}`);
+ 
   receiptID2 = Math.floor(Math.random() * 101); // returns a random integer from 0 to 100
-  console.log(`receipt 2 ID -> ${receiptID2}`);
 
   let receiptDetails = {
     receipt_uid: receiptID,
@@ -162,21 +158,12 @@ async function authorizeWithReceipts(
     instructionCounter,
     [receiptDetails]
   );
-  const result = await reqImports.sendTransaction(
-    transaction,
-    sender,
-    nonceObj
-  );
-  const passed = result.findRecord("system", "ExtrinsicSuccess");
-  if (passed) reqImports.fail_count--;
 
-  reqImports.nonces.set(
-    sender.address,
-    reqImports.nonces.get(sender.address).addn(1)
-  );
+  const tx = await reqImports.sendTx(sender, transaction);
+  if (tx !== -1) reqImports.fail_count--;
 }
 
-async function claimReceipt(
+async function exchangeClaimReceipt(
   api,
   from,
   from_did,
@@ -186,8 +173,7 @@ async function claimReceipt(
   instructionCounter,
   exchange
 ) {
-  let nonceObj = { nonce: reqImports.nonces.get(from.address) };
-  console.log(JSON.stringify(nonceObj));
+  
   let msg = {
     receipt_uid: 0,
     from: from_did,
@@ -210,146 +196,9 @@ async function claimReceipt(
     receiptDetails
   );
 
-  const result = await reqImports.sendTransaction(transaction, from, nonceObj);
-
-  const passed = result.findRecord("system", "ExtrinsicSuccess");
-  if (passed) reqImports.fail_count--;
-
-  reqImports.nonces.set(
-    from.address,
-    reqImports.nonces.get(from.address).addn(1)
-  );
-}
-
-async function addActiveRule(api, sender, ticker) {
-  let nonceObj = { nonce: reqImports.nonces.get(sender.address) };
-  const transaction = await api.tx.complianceManager.addActiveRule(
-    ticker,
-    [],
-    []
-  );
-
-  const result = await reqImports.sendTransaction(
-    transaction,
-    sender,
-    nonceObj
-  );
-
-  const passed = result.findRecord("system", "ExtrinsicSuccess");
-  if (passed) reqImports.fail_count--;
-
-  reqImports.nonces.set(
-    sender.address,
-    reqImports.nonces.get(sender.address).addn(1)
-  );
-}
-
-async function createVenue(api, sender) {
-  let venueCounter = await api.query.settlement.venueCounter();
-  let nonceObj = { nonce: reqImports.nonces.get(sender.address) };
-  let venueDetails = [0];
-
-  const transaction = await api.tx.settlement.createVenue(venueDetails, [
-    sender.address,
-  ]);
-
-  const result = await reqImports.sendTransaction(
-    transaction,
-    sender,
-    nonceObj
-  );
-
-  const passed = result.findRecord("system", "ExtrinsicSuccess");
-  if (passed) reqImports.fail_count--;
-
-  reqImports.nonces.set(
-    sender.address,
-    reqImports.nonces.get(sender.address).addn(1)
-  );
-
-  return venueCounter;
-}
-
-async function addInstruction(
-  api,
-  venueCounter,
-  from_did,
-  receiver_did,
-  ticker,
-  ticker2,
-  amount,
-  sender
-) {
-  let result;
-  let instructionCounter = await api.query.settlement.instructionCounter();
-  let nonceObj = { nonce: reqImports.nonces.get(sender.address) };
-
-  let leg = {
-    from: from_did,
-    to: receiver_did,
-    asset: ticker,
-    amount: amount,
-  };
-
-  console.log(`leg -> ${JSON.stringify(leg)}`);
-
-  let leg2 = {
-    from: receiver_did,
-    to: from_did,
-    asset: ticker2,
-    amount: amount,
-  };
-
-  if (ticker2 === null || ticker2 === undefined) {
-    transaction = await api.tx.settlement.addInstruction(
-      venueCounter,
-      0,
-      null,
-      [leg]
-    );
-
-    result = await reqImports.sendTransaction(transaction, sender, nonceObj);
-  } else {
-    transaction = await api.tx.settlement.addInstruction(
-      venueCounter,
-      0,
-      null,
-      [leg, leg2]
-    );
-
-    result = await reqImports.sendTransaction(transaction, sender, nonceObj);
-  }
-
-  const passed = result.findRecord("system", "ExtrinsicSuccess");
-  if (passed) reqImports.fail_count--;
-
-  reqImports.nonces.set(
-    sender.address,
-    reqImports.nonces.get(sender.address).addn(1)
-  );
-
-  return instructionCounter;
-}
-
-async function authorizeInstruction(api, sender, instructionCounter) {
-  let nonceObj = { nonce: reqImports.nonces.get(sender.address) };
-
-  console.log(`instruction Num -> ${instructionCounter}`);
-  const transaction = await api.tx.settlement.authorizeInstruction(
-    instructionCounter
-  );
-  const result = await reqImports.sendTransaction(
-    transaction,
-    sender,
-    nonceObj
-  );
-  const passed = result.findRecord("system", "ExtrinsicSuccess");
-  if (passed) reqImports.fail_count--;
-
-  reqImports.nonces.set(
-    sender.address,
-    reqImports.nonces.get(sender.address).addn(1)
-  );
+  const tx = await reqImports.sendTx(from, transaction);
+  if (tx !== -1) reqImports.fail_count--;
+  
 }
 
 main().catch(console.error);
