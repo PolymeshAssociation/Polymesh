@@ -1319,6 +1319,79 @@ where
     }
 }
 
+/// Additional functionality atop `LockableCurrency` allowing a local,
+/// per-id, stacking layer atop the overlay.
+pub trait LockableCurrencyExt<AccountId>: LockableCurrency<AccountId> {
+    /// Reduce the locked amount under `id` for `who`.
+    /// If less than `amount` was locked, then `InsufficientBalance` is raised.
+    /// If the whole locked amount is reduced, then the lock is removed.
+    fn reduce_lock(id: LockIdentifier, who: &AccountId, amount: Self::Balance) -> DispatchResult;
+
+    /// Increase the locked amount under `id` for `who` or raises `Overflow`.
+    /// If there's no lock already, it will be made.
+    fn increase_lock(
+        id: LockIdentifier,
+        who: &AccountId,
+        amount: Self::Balance,
+        reasons: WithdrawReasons,
+    ) -> DispatchResult;
+}
+
+impl<T: Trait> LockableCurrencyExt<T::AccountId> for Module<T>
+where
+    T::Balance: MaybeSerializeDeserialize + Debug,
+{
+    fn reduce_lock(id: LockIdentifier, who: &T::AccountId, amount: T::Balance) -> DispatchResult {
+        if amount.is_zero() {
+            return Ok(());
+        }
+        let mut locks = Self::locks(who);
+        locks
+            .iter()
+            .position(|l| l.id == id)
+            .and_then(|p| {
+                let slot = &mut locks[p].amount;
+                let new = slot.checked_sub(&amount).map(|n| *slot = n);
+                if slot.is_zero() {
+                    locks.swap_remove(p);
+                }
+                new
+            })
+            .ok_or(Error::<T>::InsufficientBalance)?;
+        Self::update_locks(who, &locks[..]);
+        Ok(())
+    }
+
+    fn increase_lock(
+        id: LockIdentifier,
+        who: &T::AccountId,
+        amount: T::Balance,
+        reasons: WithdrawReasons,
+    ) -> DispatchResult {
+        if amount.is_zero() || reasons.is_none() {
+            return Ok(());
+        }
+        let reasons = reasons.into();
+        let mut locks = Self::locks(who);
+        if let Some(pos) = locks.iter().position(|l| l.id == id) {
+            let slot = &mut locks[pos];
+            slot.amount = slot
+                .amount
+                .checked_add(&amount)
+                .ok_or(Error::<T>::Overflow)?;
+            slot.reasons = slot.reasons | reasons;
+        } else {
+            locks.push(BalanceLock {
+                id,
+                amount,
+                reasons,
+            });
+        }
+        Self::update_locks(who, &locks[..]);
+        Ok(())
+    }
+}
+
 impl<T: Trait> IsDeadAccount<T::AccountId> for Module<T>
 where
     T::Balance: MaybeSerializeDeserialize + Debug,

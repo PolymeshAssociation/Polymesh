@@ -94,10 +94,11 @@ use frame_support::{
     dispatch::{DispatchError, DispatchResult},
     ensure,
     storage::IterableStorageMap,
-    traits::{Currency, EnsureOrigin, LockableCurrency, ReservableCurrency},
+    traits::{Currency, EnsureOrigin, ReservableCurrency},
     weights::{DispatchClass, Pays, Weight},
 };
 use frame_system::{self as system, ensure_signed};
+use pallet_balances::LockableCurrencyExt;
 use pallet_identity as identity;
 use pallet_treasury::TreasuryTrait;
 use polymesh_common_utilities::{
@@ -316,7 +317,7 @@ pub trait Trait:
 {
     /// Currency type for this module.
     type Currency: ReservableCurrency<Self::AccountId>
-        + LockableCurrency<Self::AccountId, Moment = Self::BlockNumber>;
+        + LockableCurrencyExt<Self::AccountId, Moment = Self::BlockNumber>;
 
     /// Origin for proposals.
     type CommitteeOrigin: EnsureOrigin<Self::Origin>;
