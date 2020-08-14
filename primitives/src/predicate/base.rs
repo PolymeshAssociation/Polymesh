@@ -7,7 +7,7 @@ use codec::{Decode, Encode};
 // TargetIdentityPredicate
 // ======================================================
 
-/// It matches `id` with treasury in the context.
+/// It matches `id` with primary issuance agent in the context.
 #[derive(Clone, Debug)]
 pub struct TargetIdentityPredicate<'a> {
     /// IdentityId we want to check.
@@ -335,10 +335,10 @@ mod tests {
         let identity1 = IdentityId::from(1);
         let identity2 = IdentityId::from(2);
         assert!(predicate::run(
-            &RuleType::IsIdentity(TargetIdentity::Treasury).into(),
+            &RuleType::IsIdentity(TargetIdentity::PrimaryIssuanceAgent).into(),
             &Context {
                 id: identity1,
-                treasury: Some(identity1),
+                primary_issuance_agent: Some(identity1),
                 ..Default::default()
             }
         ));
@@ -346,7 +346,7 @@ mod tests {
             &RuleType::IsIdentity(TargetIdentity::Specific(identity1)).into(),
             &Context {
                 id: identity1,
-                treasury: Some(identity2),
+                primary_issuance_agent: Some(identity2),
                 ..Default::default()
             }
         ));
