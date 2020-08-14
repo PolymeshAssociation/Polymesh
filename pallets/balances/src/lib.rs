@@ -206,7 +206,7 @@ use sp_runtime::{
 };
 use sp_std::{cmp, convert::Infallible, fmt::Debug, mem, prelude::*, result, vec};
 
-pub use polymesh_common_utilities::traits::balances::Trait;
+pub use polymesh_common_utilities::traits::balances::{LockableCurrencyExt, Trait};
 
 pub type Event<T> = polymesh_common_utilities::traits::balances::Event<T>;
 
@@ -1260,6 +1260,9 @@ where
 {
     type Moment = T::BlockNumber;
 
+    // Polymesh-note: The implementations below differ from subsrate in terms
+    // of performance (ours uses in-place modification), but are functionally equivalent.
+
     // Set a lock on the balance of `who`.
     // Is a no-op if lock amount is zero or `reasons` `is_none()`.
     fn set_lock(
@@ -1317,27 +1320,6 @@ where
         locks.retain(|l| l.id != id);
         Self::update_locks(who, &locks[..]);
     }
-}
-
-/// Additional functionality atop `LockableCurrency` allowing a local,
-/// per-id, stacking layer atop the overlay.
-pub trait LockableCurrencyExt<AccountId>: LockableCurrency<AccountId> {
-    /// Reduce the locked amount under `id` for `who`.
-    /// If less than `amount` was locked, then `InsufficientBalance` is raised.
-    /// If the whole locked amount is reduced, then the lock is removed.
-    fn reduce_lock(id: LockIdentifier, who: &AccountId, amount: Self::Balance) -> DispatchResult;
-
-    /// Increase the locked amount under `id` for `who` or raises `Overflow`.
-    /// If there's no lock already, it will be made, unless `amount.is_zero()`.
-    /// Before committing to storage, `check_sum` is called with the lock total,
-    /// allowing the transaction to be aborted.
-    fn increase_lock(
-        id: LockIdentifier,
-        who: &AccountId,
-        amount: Self::Balance,
-        reasons: WithdrawReasons,
-        check_sum: impl FnOnce(Self::Balance) -> DispatchResult,
-    ) -> DispatchResult;
 }
 
 impl<T: Trait> LockableCurrencyExt<T::AccountId> for Module<T>

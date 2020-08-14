@@ -94,18 +94,20 @@ use frame_support::{
     dispatch::{DispatchError, DispatchResult},
     ensure,
     storage::IterableStorageMap,
-    traits::{Currency, EnsureOrigin, LockIdentifier, ReservableCurrency, WithdrawReasons},
+    traits::{Currency, EnsureOrigin, LockIdentifier, WithdrawReasons},
     weights::{DispatchClass, Pays, Weight},
 };
 use frame_system::{self as system, ensure_signed};
-use pallet_balances::LockableCurrencyExt;
 use pallet_identity as identity;
 use pallet_treasury::TreasuryTrait;
 use polymesh_common_utilities::{
     constants::PIP_MAX_REPORTING_SIZE,
     identity::Trait as IdentityTrait,
     protocol_fee::{ChargeProtocolFee, ProtocolOp},
-    traits::{governance_group::GovernanceGroupTrait, group::GroupTrait, pip::PipId},
+    traits::{
+        balances::LockableCurrencyExt, governance_group::GovernanceGroupTrait, group::GroupTrait,
+        pip::PipId,
+    },
     CommonTrait, Context, SystematicIssuers,
 };
 use polymesh_primitives::IdentityId;
@@ -320,8 +322,7 @@ pub trait Trait:
     frame_system::Trait + pallet_timestamp::Trait + IdentityTrait + CommonTrait
 {
     /// Currency type for this module.
-    type Currency: ReservableCurrency<Self::AccountId>
-        + LockableCurrencyExt<Self::AccountId, Moment = Self::BlockNumber>;
+    type Currency: LockableCurrencyExt<Self::AccountId, Moment = Self::BlockNumber>;
 
     /// Origin for proposals.
     type CommitteeOrigin: EnsureOrigin<Self::Origin>;
