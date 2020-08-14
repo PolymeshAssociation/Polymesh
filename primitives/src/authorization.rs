@@ -48,7 +48,7 @@ pub enum AuthorizationData<AccountId> {
     /// Must be issued by the identity which is being joined
     JoinIdentity(Vec<Permission>),
     /// Authorization to take custody of a portfolio
-    PortfolioCustody(IdentityId, PortfolioNumber),
+    PortfolioCustody(IdentityId, Option<PortfolioNumber>),
     /// Any other authorization
     /// TODO: Is this used?
     Custom(Ticker),

@@ -54,7 +54,7 @@ use polymesh_primitives::{
     AuthorizationData, AuthorizationError, IdentityId, PortfolioId, PortfolioName, PortfolioNumber,
     Signatory, Ticker,
 };
-use sp_arithmetic::traits::Saturating;
+use sp_arithmetic::traits::{CheckedSub, Saturating};
 use sp_std::{convert::TryFrom, prelude::Vec};
 type Identity<T> = identity::Module<T>;
 
@@ -86,12 +86,9 @@ decl_storage! {
         /// The next portfolio sequence number of an identity.
         pub NextPortfolioNumber get(fn next_portfolio_number):
             map hasher(twox_64_concat) IdentityId => PortfolioNumber;
-        /// The custodian of a particular portfolio.
-        /// None represents that the custody is with the original owner while
-        /// Some(identity) implies that the custody has been give to the identity,
+        /// The custodian of a particular portfolio. If key is missing, it implies that the identity owner is the custodian.
         pub PortfolioCustodian get(fn portfolio_custodian):
-            double_map hasher(twox_64_concat) IdentityId, hasher(twox_64_concat) PortfolioNumber =>
-            IdentityId;
+            map hasher(twox_64_concat) PortfolioId => IdentityId;
         /// Amount of assets locked in a portfolio.
         /// These assets show up in portfolio balance but can not be transferred away.
         pub PortfolioLockedAssets get(fn locked_assets):
@@ -150,10 +147,9 @@ decl_event! {
         ///
         /// # Parameters
         /// * origin DID
-        /// * portfolio number
-        /// * portfolio owner did
+        /// * portfolio id
         /// * portfolio custodian did
-        PortfolioCustodianChanged(IdentityId, PortfolioNumber, IdentityId, IdentityId),
+        PortfolioCustodianChanged(IdentityId, PortfolioId, IdentityId),
     }
 }
 
@@ -368,16 +364,20 @@ impl<T: Trait> Module<T> {
             _ => return Err(Error::<T>::IrrelevantAuthorization.into()),
         };
 
-        ensure!(
-            !<Portfolios>::contains_key(portfolio_owner, portfolio_number),
-            Error::<T>::PortfolioDoesNotExist
-        );
-        let current_custodian =
-            if <PortfolioCustodian>::contains_key(portfolio_owner, portfolio_number) {
-                <PortfolioCustodian>::get(portfolio_owner, portfolio_number)
-            } else {
-                portfolio_owner
-            };
+        let portfolio_id = Self::get_portfolio_id(portfolio_owner, portfolio_number);
+
+        if let Some(num) = portfolio_number {
+            ensure!(
+                !<Portfolios>::contains_key(portfolio_owner, num),
+                Error::<T>::PortfolioDoesNotExist
+            );
+        }
+
+        let current_custodian = if <PortfolioCustodian>::contains_key(&portfolio_id) {
+            <PortfolioCustodian>::get(&portfolio_id)
+        } else {
+            portfolio_owner
+        };
 
         <identity::Module<T>>::consume_auth(
             current_custodian,
@@ -385,12 +385,11 @@ impl<T: Trait> Module<T> {
             auth_id,
         )?;
 
-        <PortfolioCustodian>::insert(&portfolio_owner, &portfolio_number, new_custodian);
+        <PortfolioCustodian>::insert(&portfolio_id, new_custodian);
 
         Self::deposit_event(RawEvent::PortfolioCustodianChanged(
             new_custodian,
-            portfolio_number,
-            portfolio_owner,
+            portfolio_id,
             new_custodian,
         ));
         Ok(())
@@ -417,13 +416,55 @@ impl<T: Trait> Module<T> {
         amount: <T as CommonTrait>::Balance,
         ticker: &Ticker,
     ) -> DispatchResult {
-        //
+        // 1. Check if portfolio exists and custodian is correct for both sender and receiver
+
+        let from_portfolio_id = Self::get_portfolio_id(from_did, from_num);
+        Self::check_portfolio_custody(from_did, from_num, from_custodian, &from_portfolio_id)?;
+        let to_portfolio_id = Self::get_portfolio_id(to_did, to_num);
+        Self::check_portfolio_custody(to_did, to_num, to_custodian, &to_portfolio_id)?;
+
+        // 2. Check that sender has enough unlocked balance
+        ensure!(
+            Self::portfolio_asset_balances(&from_portfolio_id, ticker)
+                .saturating_sub(Self::locked_assets(&from_portfolio_id, ticker))
+                .checked_sub(&amount)
+                .is_some(),
+            Error::<T>::InsufficientPortfolioBalance
+        );
         Ok(())
     }
 
     fn get_portfolio_id(did: IdentityId, num: Option<PortfolioNumber>) -> PortfolioId {
         num.map(|num| PortfolioId::user_portfolio(did, num))
             .unwrap_or_else(|| PortfolioId::default_portfolio(did))
+    }
+
+    fn check_portfolio_custody(
+        did: IdentityId,
+        num: Option<PortfolioNumber>,
+        custodian: Option<IdentityId>,
+        portfolio_id: &PortfolioId,
+    ) -> DispatchResult {
+        // 1.1 If num is some, it implies a custom portfolio that must have been explicitly created.
+        if let Some(portfolio_num) = num {
+            ensure!(
+                <Portfolios>::contains_key(did, portfolio_num),
+                Error::<T>::PortfolioDoesNotExist
+            );
+        }
+
+        // 1.2 verify that custodian is correct
+        let call_custodian = custodian.unwrap_or_else(|| did);
+        let actual_custodian = if <PortfolioCustodian>::contains_key(portfolio_id) {
+            Self::portfolio_custodian(portfolio_id)
+        } else {
+            did
+        };
+        ensure!(
+            call_custodian == actual_custodian,
+            Error::<T>::UnauthorizedCustodian
+        );
+        Ok(())
     }
 }
 
