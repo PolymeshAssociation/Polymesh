@@ -17,7 +17,6 @@ use polymesh_common_utilities::{
 use polymesh_primitives::{
     AuthorizationData, Claim, IdentityId, Rule, RuleType, Scope, Signatory, TargetIdentity, Ticker,
 };
->>>>>>> origin/develop
 use sp_std::{convert::TryFrom, prelude::*};
 use test_client::AccountKeyring;
 
@@ -1305,9 +1304,9 @@ fn can_verify_restriction_with_treasury_did_we() {
         ComplianceManager::verify_restriction(
             &ticker,
             None,
-            Some(treasury_id),
+            Some(issuer_id),
             amount,
-            Some(treasury_id)
+            Some(issuer_id)
         ),
         ERC1400_TRANSFER_FAILURE
     );
@@ -1330,10 +1329,10 @@ fn can_verify_restriction_with_treasury_did_we() {
     assert_ok!(
         ComplianceManager::verify_restriction(
             &ticker,
-            Some(treasury_id),
+            Some(issuer_id),
             Some(random_guy_id),
             amount,
-            Some(treasury_id)
+            Some(issuer_id)
         ),
         ERC1400_TRANSFER_SUCCESS
     );
@@ -1342,10 +1341,10 @@ fn can_verify_restriction_with_treasury_did_we() {
     assert_ok!(
         ComplianceManager::verify_restriction(
             &ticker,
-            Some(treasury_id),
+            Some(issuer_id),
             Some(owner_id),
             amount,
-            Some(treasury_id)
+            Some(issuer_id)
         ),
         ERC1400_TRANSFER_FAILURE
     );
@@ -1355,9 +1354,9 @@ fn can_verify_restriction_with_treasury_did_we() {
         ComplianceManager::verify_restriction(
             &ticker,
             Some(random_guy_id),
-            Some(treasury_id),
+            Some(issuer_id),
             amount,
-            Some(treasury_id)
+            Some(issuer_id)
         ),
         ERC1400_TRANSFER_FAILURE
     );

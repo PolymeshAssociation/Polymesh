@@ -733,7 +733,7 @@ decl_module! {
             let did = Context::current_identity_or::<Identity<T>>(&sender)?;
 
             ensure!(Self::is_owner(&ticker, did), Error::<T>::Unauthorized);
-            let beneficiary = Self::token_details(&ticker).treasury_did.unwrap_or(did);
+            let beneficiary = Self::token_details(&ticker).primary_issuance_did.unwrap_or(did);
             Self::_mint(&ticker, sender, beneficiary, value, Some(ProtocolOp::AssetIssue))
         }
 
