@@ -417,7 +417,6 @@ impl<T: Trait> Module<T> {
         ticker: &Ticker,
     ) -> DispatchResult {
         // 1. Check if portfolio exists and custodian is correct for both sender and receiver
-
         let from_portfolio_id = Self::get_portfolio_id(from_did, from_num);
         Self::check_portfolio_custody(from_did, from_num, from_custodian, &from_portfolio_id)?;
         let to_portfolio_id = Self::get_portfolio_id(to_did, to_num);
@@ -453,17 +452,14 @@ impl<T: Trait> Module<T> {
             );
         }
 
-        // 1.2 verify that custodian is correct
-        let call_custodian = custodian.unwrap_or_else(|| did);
-        let actual_custodian = if <PortfolioCustodian>::contains_key(portfolio_id) {
-            Self::portfolio_custodian(portfolio_id)
-        } else {
-            did
-        };
-        ensure!(
-            call_custodian == actual_custodian,
-            Error::<T>::UnauthorizedCustodian
-        );
+        // 1.2 If a custodian is assigned, only they are allowed.
+        if <PortfolioCustodian>::contains_key(portfolio_id) {
+            ensure!(
+                Self::portfolio_custodian(portfolio_id) == custodian.unwrap_or_default(),
+                Error::<T>::UnauthorizedCustodian
+            );
+        }
+
         Ok(())
     }
 }
