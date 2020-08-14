@@ -10,7 +10,7 @@ process.exitCode = 1;
  * This test checks the ability to do a manual STO receiving payment in an asset and reciepts
  */
 
-const prepend = "ACME";
+const prepend = "EUR";
 const prepend2 = "USD";
 
 async function main() {
@@ -72,7 +72,7 @@ async function main() {
   let daveUSDBalance = await api.query.asset.balanceOf(ticker2, dave_did);
   let eveUSDBalance = await api.query.asset.balanceOf(ticker2, eve_did);
 
-  console.log("Balance for ACME (Before)");
+  console.log("Balance for EUR (Before)");
   console.log(`alice asset balance -------->  ${aliceACMEBalance}`);
   console.log(`bob asset balance -------->  ${bobACMEBalance}`);
   console.log(`charlie asset balance -------->  ${charlieACMEBalance}`);
@@ -122,7 +122,7 @@ async function main() {
   daveUSDBalance = await api.query.asset.balanceOf(ticker2, dave_did);
   eveUSDBalance = await api.query.asset.balanceOf(ticker2, eve_did);
 
-  console.log("Balance for ACME (After)");
+  console.log("Balance for EUR (After)");
   console.log(`alice asset balance -------->  ${aliceACMEBalance}`);
   console.log(`bob asset balance -------->  ${bobACMEBalance}`);
   console.log(`charlie asset balance -------->  ${charlieACMEBalance}`);

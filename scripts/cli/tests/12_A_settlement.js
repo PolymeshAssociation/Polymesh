@@ -57,8 +57,7 @@ async function main() {
     alice_did,
     bob_did,
     ticker,
-    null,
-    20
+    100
   );
  
   await authorizeInstruction(api, alice, intructionCounterAB);

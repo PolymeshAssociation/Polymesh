@@ -289,10 +289,13 @@ async function issueTokenPerDid(api, accounts, prepend) {
   const ticker = `token${prepend}0`.toUpperCase();
   assert( ticker.length <= 12, "Ticker cannot be longer than 12 characters");
 
-  const unsub = await api.tx.asset
-        .createAsset(ticker, ticker, 1000000, true, 0, [], "abc")
-        .signAndSend(accounts[0], { nonce: nonces.get(accounts[0].address) });
-  nonces.set(accounts[0].address, nonces.get(accounts[0].address).addn(1));
+  let nonceObj = {nonce: nonces.get(accounts[0].address)};
+    const transaction = api.tx.asset.createAsset(
+      ticker, ticker, 1000000, true, 0, [], "abc"
+    );
+    await sendTransaction(transaction, accounts[0], nonceObj);
+
+    nonces.set(accounts[0].address, nonces.get(accounts[0].address).addn(1));
 }
 
 // Returns the asset did
@@ -464,7 +467,7 @@ async function jumpLightYears() {
 async function mintingAsset(api, minter, did, prepend) {
   const ticker = `token${prepend}0`.toUpperCase();
   let nonceObj = { nonce: nonces.get(minter.address) };
-  const transaction = await api.tx.asset.issue(ticker, did, 100, "");
+  const transaction = await api.tx.asset.issue(ticker, 100);
   const result = await sendTransaction(transaction, minter, nonceObj);
 
   nonces.set(minter.address, nonces.get(minter.address).addn(1));
