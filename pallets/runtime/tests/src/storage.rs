@@ -86,6 +86,7 @@ impl_outer_dispatch! {
         asset::Asset,
         frame_system::System,
         pallet_utility::Utility,
+        polymesh_contracts::WrapperContracts,
     }
 }
 
@@ -164,7 +165,7 @@ impl OnUnbalanced<NegativeImbalance<TestStorage>> for DealWithFees<TestStorage> 
     fn on_nonzero_unbalanced(amount: NegativeImbalance<TestStorage>) {
         let target = account_from(5000);
         let positive_imbalance = Balances::deposit_creating(&target, amount.peek());
-        let _ = amount.offset(positive_imbalance).map_err(|_| 4);
+        let _ = amount.offset(positive_imbalance).map_err(|_| 4); // random value mapped for error
     }
 }
 
@@ -607,7 +608,7 @@ pub type Committee = committee::Module<TestStorage, committee::Instance1>;
 pub type Utility = pallet_utility::Module<TestStorage>;
 pub type System = frame_system::Module<TestStorage>;
 pub type Portfolio = portfolio::Module<TestStorage>;
-pub type PolymeshContracts = polymesh_contracts::Module<TestStorage>;
+pub type WrapperContracts = polymesh_contracts::Module<TestStorage>;
 
 pub fn make_account(
     id: AccountId,

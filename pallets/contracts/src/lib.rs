@@ -16,10 +16,10 @@
 // Ensure we're `no_std` when compiling for Wasm.
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use codec::{Decode, Encode};
+use codec::Encode;
 use frame_support::{
     decl_error, decl_event, decl_module, decl_storage,
-    dispatch::{DispatchResult, DispatchResultWithPostInfo},
+    dispatch::{DispatchError, DispatchResult, DispatchResultWithPostInfo},
     ensure,
     traits::Get,
 };
@@ -95,7 +95,9 @@ decl_error! {
         /// When instantiation of the template is already freezed.
         InstantiationAlreadyFreezed,
         /// When instantiation of the template is already un-freezed.
-        InstantiationAlreadyUnFreezed
+        InstantiationAlreadyUnFreezed,
+        /// When un-authorized personnel try to access the un-authorized extrinsic.
+        UnAuthorizedOrigin,
     }
 }
 
@@ -118,7 +120,7 @@ decl_event! {
 }
 
 decl_module! {
-    // Wrap dispatchable functions for contracts so that we can add additional gating logic
+    // Wrap dispatchable functions for contracts so that we can add additional gating logic.
     pub struct Module<T: Trait> for enum Call where origin: T::Origin {
 
         /// Initialize the default event for this module.
@@ -227,9 +229,9 @@ decl_module! {
         #[weight = 1000_000_000]
         pub fn change_instantiation_fee(origin, code_hash: CodeHash<T>, new_instantiation_fee: BalanceOf<T>) -> DispatchResult {
             // Ensure whether the extrinsic is signed & validate the `code_hash`.
-            let did = Self::ensure_signed_and_template_exists(origin, code_hash)?;
+            let (did, meta_details) = Self::ensure_signed_and_template_exists(origin, code_hash)?;
             // Emit event with the old fee and the new instantiation fee.
-            Self::deposit_event(RawEvent::InstantiationFeeChanged(did, code_hash, Self::get_template_meta_details(code_hash).meta_info.instantiation_fee, new_instantiation_fee));
+            Self::deposit_event(RawEvent::InstantiationFeeChanged(did, code_hash, meta_details.meta_info.instantiation_fee, new_instantiation_fee));
 
             // Update the instantiation fee for a given code_hash.
             <TemplateMetaDetails<T>>::mutate(&code_hash, |meta_details| meta_details.meta_info.instantiation_fee = new_instantiation_fee);
@@ -244,9 +246,7 @@ decl_module! {
         #[weight = 1_000_000_000]
         pub fn freeze_instantiation(origin, code_hash: CodeHash<T>) -> DispatchResult {
             // Ensure whether the extrinsic is signed & validate the `code_hash`.
-            let did = Self::ensure_signed_and_template_exists(origin, code_hash)?;
-            // Access the meta details of SE template
-            let meta_details = Self::get_template_meta_details(code_hash);
+            let (did, meta_details) = Self::ensure_signed_and_template_exists(origin, code_hash)?;
 
             // If instantiation is already freezed then there is no point of changing the storage value.
             ensure!(!meta_details.is_instantiation_freezed(), Error::<T>::InstantiationAlreadyFreezed);
@@ -266,9 +266,7 @@ decl_module! {
         #[weight = 1_000_000_000]
         pub fn unfreeze_instantiation(origin, code_hash: CodeHash<T>) -> DispatchResult {
             // Ensure whether the extrinsic is signed & validate the `code_hash`.
-            let did = Self::ensure_signed_and_template_exists(origin, code_hash)?;
-             // Access the meta details of SE template
-            let meta_details = Self::get_template_meta_details(code_hash);
+            let (did, meta_details) = Self::ensure_signed_and_template_exists(origin, code_hash)?;
 
             // If instantiation is already un-freezed then there is no point of changing the storage value.
             ensure!(meta_details.is_instantiation_freezed(), Error::<T>::InstantiationAlreadyUnFreezed);
@@ -283,10 +281,12 @@ decl_module! {
 }
 
 impl<T: Trait> Module<T> {
+    // Internal function
+    // Perform some basic sanity checks
     fn ensure_signed_and_template_exists(
         origin: T::Origin,
         code_hash: CodeHash<T>,
-    ) -> Result<IdentityId, &'static str> {
+    ) -> Result<(IdentityId, TemplateMetadata<BalanceOf<T>, T::AccountId>), DispatchError> {
         // Ensure the transaction is signed.
         let sender = ensure_signed(origin.clone())?;
         // Get the DID of the sender.
@@ -296,7 +296,15 @@ impl<T: Trait> Module<T> {
             <TemplateMetaDetails<T>>::contains_key(code_hash),
             Error::<T>::TemplateNotExists
         );
+
+        // Access the meta details of SE template
+        let meta_details = Self::get_template_meta_details(code_hash);
+        // Ensure sender is the owner of the template.
+        ensure!(
+            sender == meta_details.owner.clone(),
+            Error::<T>::UnAuthorizedOrigin
+        );
         // Return the DID
-        Ok(did)
+        Ok((did, meta_details))
     }
 }

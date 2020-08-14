@@ -13,7 +13,6 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
-use crate::{Balance, IdentityId};
 use codec::{Decode, Encode};
 use polymesh_primitives_derive::VecU8StrongTyped;
 use sp_std::prelude::Vec;
@@ -40,15 +39,15 @@ impl Default for SmartExtensionType {
 pub struct SmartExtensionName(pub Vec<u8>);
 
 #[derive(Encode, Decode, Default, Clone, PartialEq, Debug)]
-/// U type refers to the AccountId which will act
-/// as the address of the smart extension
-pub struct SmartExtension<U> {
+/// Smart Extension details when SE instance
+/// attached with asset.
+pub struct SmartExtension<AccountId> {
     /// Type of the extension
     pub extension_type: SmartExtensionType,
     /// Name of extension
     pub extension_name: SmartExtensionName,
     /// AccountId of the smart extension
-    pub extension_id: U,
+    pub extension_id: AccountId,
     /// Status of the smart extension
     pub is_archive: bool,
 }
@@ -65,6 +64,7 @@ pub struct MetaDescription(pub Vec<u8>);
 #[derive(Encode, Decode, Default, Debug, Clone, PartialEq, VecU8StrongTyped)]
 pub struct MetaVersion(pub Vec<u8>);
 
+/// Subset of the SE template metadata that is provided by the template owner.
 #[derive(Encode, Decode, Default, Debug, Clone, PartialEq)]
 pub struct SmartExtensionMetadata<Balance> {
     /// Url that can contain the details about the template
@@ -82,6 +82,7 @@ pub struct SmartExtensionMetadata<Balance> {
     pub version: MetaVersion,
 }
 
+/// Data structure that hold all the relevant metadata of the smart extension template.
 #[derive(Encode, Decode, Default, Debug, Clone, PartialEq)]
 pub struct TemplateMetadata<Balance, AccountId> {
     /// Meta details of the SE template
@@ -101,7 +102,7 @@ where
         self.meta_info.instantiation_fee
     }
 
-    // Check whether the instantiation of the template is allowed or not.
+    /// Check whether the instantiation of the template is allowed or not.
     pub fn is_instantiation_freezed(&self) -> bool {
         self.is_freeze
     }
