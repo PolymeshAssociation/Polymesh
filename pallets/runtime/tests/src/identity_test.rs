@@ -520,6 +520,7 @@ fn remove_secondary_keys_test() {
 
 fn remove_secondary_keys_test_with_externalities() {
     let bob_key = AccountKeyring::Bob.public();
+    let alice_key = AccountKeyring::Alice.public();
     let alice_did = register_keyring_account(AccountKeyring::Alice).unwrap();
     let alice = Origin::signed(AccountKeyring::Alice.public());
     let charlie = Origin::signed(AccountKeyring::Charlie.public());
@@ -594,6 +595,13 @@ fn remove_secondary_keys_test_with_externalities() {
         true
     );
 
+    // Transfer funds back to Alice
+    assert_ok!(Balances::transfer(
+        Origin::signed(musig_address.clone()),
+        alice_key.clone(),
+        1
+    ));
+
     // Empty multisig's funds and remove as signer
     assert_ok!(Identity::remove_secondary_keys(
         alice.clone(),
@@ -625,6 +633,7 @@ fn leave_identity_test_with_externalities() {
     let bob = Origin::signed(AccountKeyring::Bob.public());
     let alice_did = register_keyring_account(AccountKeyring::Alice).unwrap();
     let alice = Origin::signed(AccountKeyring::Alice.public());
+    let alice_key = AccountKeyring::Alice.public();
     let charlie_did = register_keyring_account(AccountKeyring::Charlie).unwrap();
     let charlie = Origin::signed(AccountKeyring::Charlie.public());
     let bob_secondary_key = SecondaryKey::new(Signatory::Account(bob_key), vec![]);
@@ -695,6 +704,13 @@ fn leave_identity_test_with_externalities() {
         MultiSig::ms_signers(musig_address.clone(), Signatory::Account(dave_key)),
         true
     );
+
+    // send funds back to alice from multisig
+    assert_ok!(Balances::transfer(
+        Origin::signed(musig_address.clone()),
+        alice_key.clone(),
+        1
+    ));
 
     // Empty multisig's funds and remove as signer
     assert_ok!(Identity::leave_identity_as_key(Origin::signed(

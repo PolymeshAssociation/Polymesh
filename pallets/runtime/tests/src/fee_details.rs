@@ -31,7 +31,6 @@ fn cdd_checks() {
             let alice_key_signatory = Signatory::Account(AccountKeyring::Alice.public());
             let alice_account_signatory =
                 Signatory::Account(AccountId32::from(AccountKeyring::Alice.public().0));
-            let alice_did_signatory = Signatory::from(alice_did);
             let _musig_address =
                 MultiSig::get_next_multisig_address(AccountKeyring::Alice.public());
 
@@ -48,7 +47,7 @@ fn cdd_checks() {
                         InvestorUid::default(),
                         Default::default()
                     )),
-                    &alice_did_signatory
+                    &alice_account_signatory
                 ),
                 Ok(Some(AccountId32::from(AccountKeyring::Alice.public().0)))
             );
@@ -57,7 +56,7 @@ fn cdd_checks() {
             assert_err!(
                 CddHandler::get_valid_payer(
                     &Call::MultiSig(multisig::Call::change_sigs_required(1)),
-                    &alice_did_signatory
+                    &alice_account_signatory
                 ),
                 InvalidTransaction::Custom(TransactionError::CddRequired as u8)
             );
