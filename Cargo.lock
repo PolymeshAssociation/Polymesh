@@ -867,6 +867,7 @@ version = "0.1.0"
 dependencies = [
  "blake2 0.9.0",
  "bulletproofs",
+ "byteorder",
  "criterion",
  "curve25519-dalek",
  "failure",
@@ -4648,6 +4649,7 @@ version = "1.0.0"
 dependencies = [
  "chrono",
  "cryptography",
+ "curve25519-dalek",
  "env_logger",
  "frame-benchmarking",
  "frame-support",
