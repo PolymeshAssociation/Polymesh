@@ -78,7 +78,7 @@ decl_storage! {
         /// pair maps to `Some(name)` then such a portfolio exists and is called `name`.
         pub Portfolios get(fn portfolios):
             double_map hasher(twox_64_concat) IdentityId, hasher(twox_64_concat) PortfolioNumber =>
-            Option<PortfolioName>;
+            PortfolioName;
         /// The asset balances of portfolios.
         pub PortfolioAssetBalances get(fn portfolio_asset_balances):
             double_map hasher(twox_64_concat) PortfolioId, hasher(blake2_128_concat) Ticker =>
@@ -91,7 +91,12 @@ decl_storage! {
         /// Some(identity) implies that the custody has been give to the identity,
         pub PortfolioCustodian get(fn portfolio_custodian):
             double_map hasher(twox_64_concat) IdentityId, hasher(twox_64_concat) PortfolioNumber =>
-            Option<IdentityId>;
+            IdentityId;
+        /// Amount of assets locked in a portfolio.
+        /// These assets show up in portfolio balance but can not be transferred away.
+        pub PortfolioLockedAssets get(fn locked_assets):
+            double_map hasher(twox_64_concat) PortfolioId, hasher(blake2_128_concat) Ticker =>
+            T::Balance;
     }
 }
 
@@ -148,7 +153,7 @@ decl_event! {
         /// * portfolio number
         /// * portfolio owner did
         /// * portfolio custodian did
-        PortfolioCustodied(IdentityId, PortfolioNumber, IdentityId, IdentityId),
+        PortfolioCustodianChanged(IdentityId, PortfolioNumber, IdentityId, IdentityId),
     }
 }
 
@@ -194,7 +199,7 @@ decl_module! {
             let sender = ensure_signed(origin)?;
             let did = Context::current_identity_or::<Identity<T>>(&sender)?;
             // Check that the portfolio exists.
-            ensure!(Self::portfolios(&did, &num).is_some(), Error::<T>::PortfolioDoesNotExist);
+            ensure!(<Portfolios>::contains_key(&did, &num), Error::<T>::PortfolioDoesNotExist);
             let portfolio_id = PortfolioId::user_portfolio(did, num);
             let def_portfolio_id = PortfolioId::default_portfolio(did);
             // Move all the assets from the portfolio that is being deleted to the default
@@ -233,24 +238,20 @@ decl_module! {
             // Check that the source portfolio exists.
             if let Some(from_num) = from_num {
                 ensure!(
-                    Self::portfolios(&did, from_num).is_some(),
+                    <Portfolios>::contains_key(&did, from_num),
                     Error::<T>::PortfolioDoesNotExist
                 );
             }
             // Check that the destination portfolio exists.
             if let Some(to_num) = to_num {
                 ensure!(
-                    Self::portfolios(&did, to_num).is_some(),
+                    <Portfolios>::contains_key(&did, to_num),
                     Error::<T>::PortfolioDoesNotExist
                 );
             }
-            let get_portfolio_id = |num: Option<PortfolioNumber>| {
-                num
-                    .map(|num| PortfolioId::user_portfolio(did, num))
-                    .unwrap_or_else(|| PortfolioId::default_portfolio(did))
-            };
-            let from_portfolio_id = get_portfolio_id(from_num);
-            let to_portfolio_id = get_portfolio_id(to_num);
+
+            let from_portfolio_id = Self::get_portfolio_id(did, from_num);
+            let to_portfolio_id = Self::get_portfolio_id(did, to_num);
             for item in items {
                 let from_balance = Self::portfolio_asset_balances(&from_portfolio_id, &item.ticker);
                 ensure!(from_balance >= item.amount, Error::<T>::InsufficientPortfolioBalance);
@@ -287,9 +288,9 @@ decl_module! {
             let sender = ensure_signed(origin)?;
             let did = Context::current_identity_or::<Identity<T>>(&sender)?;
             // Check that the portfolio exists.
-            ensure!(Self::portfolios(&did, &num).is_some(), Error::<T>::PortfolioDoesNotExist);
+            ensure!(<Portfolios>::contains_key(&did, &num), Error::<T>::PortfolioDoesNotExist);
             Self::ensure_name_unique(&did, &to_name)?;
-            <Portfolios>::mutate(&did, &num, |p| *p = Some(to_name.clone()));
+            <Portfolios>::mutate(&did, &num, |p| *p = to_name.clone());
             Self::deposit_event(RawEvent::PortfolioRenamed(
                 did,
                 num,
@@ -371,23 +372,58 @@ impl<T: Trait> Module<T> {
             !<Portfolios>::contains_key(portfolio_owner, portfolio_number),
             Error::<T>::PortfolioDoesNotExist
         );
-        let current_custodian = <PortfolioCustodian>::get(portfolio_owner, portfolio_number);
+        let current_custodian =
+            if <PortfolioCustodian>::contains_key(portfolio_owner, portfolio_number) {
+                <PortfolioCustodian>::get(portfolio_owner, portfolio_number)
+            } else {
+                portfolio_owner
+            };
 
         <identity::Module<T>>::consume_auth(
-            current_custodian.unwrap_or_else(|| portfolio_owner),
+            current_custodian,
             Signatory::from(new_custodian),
             auth_id,
         )?;
 
         <PortfolioCustodian>::insert(&portfolio_owner, &portfolio_number, new_custodian);
 
-        Self::deposit_event(RawEvent::PortfolioCustodied(
+        Self::deposit_event(RawEvent::PortfolioCustodianChanged(
             new_custodian,
             portfolio_number,
             portfolio_owner,
             new_custodian,
         ));
         Ok(())
+    }
+
+    pub fn unchecked_transfer_portfolio_balance(
+        from_did: IdentityId,
+        from_num: Option<PortfolioNumber>,
+        tp_did: IdentityId,
+        to_num: Option<PortfolioNumber>,
+        amount: <T as CommonTrait>::Balance,
+        ticker: &Ticker,
+    ) -> DispatchResult {
+        Ok(())
+    }
+
+    pub fn verify_portfolio_balance_transfer(
+        from_did: IdentityId,
+        from_custodian: Option<IdentityId>,
+        from_num: Option<PortfolioNumber>,
+        to_did: IdentityId,
+        to_custodian: Option<IdentityId>,
+        to_num: Option<PortfolioNumber>,
+        amount: <T as CommonTrait>::Balance,
+        ticker: &Ticker,
+    ) -> DispatchResult {
+        //
+        Ok(())
+    }
+
+    fn get_portfolio_id(did: IdentityId, num: Option<PortfolioNumber>) -> PortfolioId {
+        num.map(|num| PortfolioId::user_portfolio(did, num))
+            .unwrap_or_else(|| PortfolioId::default_portfolio(did))
     }
 }
 
