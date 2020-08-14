@@ -592,7 +592,7 @@ impl<T: Trait> Module<T> {
         ticker: &Ticker,
         id: IdentityId,
         rule: &Rule,
-        treasury: Option<IdentityId>,
+        primary_issuance_agent: Option<IdentityId>,
     ) -> predicate::Context {
         let issuers = if !rule.issuers.is_empty() {
             rule.issuers.clone()
@@ -620,7 +620,7 @@ impl<T: Trait> Module<T> {
         predicate::Context {
             claims,
             id,
-            treasury,
+            primary_issuance_agent,
         }
     }
 

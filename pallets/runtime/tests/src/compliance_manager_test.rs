@@ -1311,12 +1311,12 @@ fn can_verify_restriction_with_primary_issuance_agent_we() {
         ERC1400_TRANSFER_FAILURE
     );
 
-    // Add rule that requires sender to be treasury (dynamic) and receiver to be a specific random_guy_id
+    // Add rule that requires sender to be primary issuance agent (dynamic) and receiver to be a specific random_guy_id
     assert_ok!(ComplianceManager::add_active_rule(
         owner_origin,
         ticker,
         vec![Rule {
-            rule_type: RuleType::IsIdentity(TargetIdentity::Treasury),
+            rule_type: RuleType::IsIdentity(TargetIdentity::PrimaryIssuanceAgent),
             issuers: vec![],
         }],
         vec![Rule {
@@ -1325,7 +1325,7 @@ fn can_verify_restriction_with_primary_issuance_agent_we() {
         }]
     ));
 
-    // From treasury to the random guy should succeed
+    // From primary issuance agent to the random guy should succeed
     assert_ok!(
         ComplianceManager::verify_restriction(
             &ticker,
@@ -1337,7 +1337,7 @@ fn can_verify_restriction_with_primary_issuance_agent_we() {
         ERC1400_TRANSFER_SUCCESS
     );
 
-    // From treasury to owner should fail
+    // From primary issuance agent to owner should fail
     assert_ok!(
         ComplianceManager::verify_restriction(
             &ticker,
@@ -1349,7 +1349,7 @@ fn can_verify_restriction_with_primary_issuance_agent_we() {
         ERC1400_TRANSFER_FAILURE
     );
 
-    // From random guy to treasury should fail
+    // From random guy to primary issuance agent should fail
     assert_ok!(
         ComplianceManager::verify_restriction(
             &ticker,

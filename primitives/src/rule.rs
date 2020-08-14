@@ -23,8 +23,8 @@ use sp_std::prelude::*;
 #[derive(Encode, Decode, Clone, PartialEq, Eq, Debug)]
 /// It defines a static/dynamic identity
 pub enum TargetIdentity {
-    /// Current treasury of an asset. Resolved dynamically.
-    Treasury,
+    /// Current primary issuance agent of an asset. Resolved dynamically.
+    PrimaryIssuanceAgent,
     /// A static identity.
     Specific(IdentityId),
 }
@@ -42,7 +42,7 @@ pub enum RuleType {
     IsAnyOf(Vec<Claim>),
     /// Rule to ensure that at none of claims is fetched when filter is applied.
     IsNoneOf(Vec<Claim>),
-    /// Rule to ensure that the sender/receiver is a particular identity or treasury
+    /// Rule to ensure that the sender/receiver is a particular identity or primary issuance agent
     IsIdentity(TargetIdentity),
     /// Rule to ensure that the target identity has a valid `InvestorZKProof` claim for the given
     /// ticker.
