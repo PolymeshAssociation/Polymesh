@@ -281,7 +281,7 @@ async function issueTokenPerDid(api, accounts, prepend) {
   assert( ticker.length <= 12, "Ticker cannot be longer than 12 characters");
 
   const unsub = await api.tx.asset
-        .createAsset(ticker, ticker, 1000000, true, 0, [], "abc", null)
+        .createAsset(ticker, ticker, 1000000, true, 0, [], "abc")
         .signAndSend(accounts[0], { nonce: nonces.get(accounts[0].address) });
   nonces.set(accounts[0].address, nonces.get(accounts[0].address).addn(1));
 }

@@ -859,6 +859,8 @@ decl_module! {
                     match auth.authorization_data {
                         AuthorizationData::TransferTicker(_) =>
                             T::AcceptTransferTarget::accept_ticker_transfer(did, auth_id),
+                        AuthorizationData::TransferTreasury(_) =>
+                            T::AcceptTransferTarget::accept_treasury_transfer(did, auth_id),
                         AuthorizationData::TransferAssetOwnership(_) =>
                             T::AcceptTransferTarget::accept_asset_ownership_transfer(did, auth_id),
                         AuthorizationData::AddMultiSigSigner(_) =>
@@ -867,7 +869,11 @@ decl_module! {
                             Self::join_identity(Signatory::from(did), auth_id),
                         AuthorizationData::PortfolioCustody(..) =>
                             T::Portfolio::accept_portfolio_custody(did, auth_id),
-                        _ => Err(Error::<T>::UnknownAuthorization.into())
+                        AuthorizationData::RotatePrimaryKey(..)
+                        | AuthorizationData::AttestPrimaryKeyRotation(..)
+                        | AuthorizationData::Custom(..)
+                        | AuthorizationData::NoData =>
+                            Err(Error::<T>::UnknownAuthorization.into())
                     }
                 },
                 Signatory::Account(key) => {
@@ -878,7 +884,13 @@ decl_module! {
                             Self::accept_primary_key_rotation(key , auth_id, None),
                         AuthorizationData::JoinIdentity(_) =>
                             Self::join_identity(Signatory::Account(key), auth_id),
-                        _ => Err(Error::<T>::UnknownAuthorization.into())
+                        AuthorizationData::TransferTicker(..)
+                        | AuthorizationData::TransferTreasury(..)
+                        | AuthorizationData::TransferAssetOwnership(..)
+                        | AuthorizationData::AttestPrimaryKeyRotation(..)
+                        | AuthorizationData::Custom(..)
+                        | AuthorizationData::NoData =>
+                            Err(Error::<T>::UnknownAuthorization.into())
                     }
                 }
             }
@@ -2088,6 +2100,7 @@ impl<T: Trait> Module<T> {
                 }
                 AuthorizationData::RotatePrimaryKey(..) => AuthorizationType::RotatePrimaryKey,
                 AuthorizationData::TransferTicker(..) => AuthorizationType::TransferTicker,
+                AuthorizationData::TransferTreasury(..) => AuthorizationType::TransferTreasury,
                 AuthorizationData::AddMultiSigSigner(..) => AuthorizationType::AddMultiSigSigner,
                 AuthorizationData::TransferAssetOwnership(..) => {
                     AuthorizationType::TransferAssetOwnership

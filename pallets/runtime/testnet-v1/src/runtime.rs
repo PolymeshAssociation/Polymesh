@@ -6,6 +6,7 @@ use crate::{
 use codec::Encode;
 use pallet_asset as asset;
 use pallet_balances as balances;
+use pallet_basic_sto as sto;
 use pallet_committee as committee;
 use pallet_compliance_manager::{self as compliance_manager, AssetTransferRulesResult};
 use pallet_group as group;
@@ -25,11 +26,7 @@ use pallet_utility as utility;
 use polymesh_common_utilities::{
     constants::currency::*,
     protocol_fee::ProtocolOp,
-    traits::{
-        balances::AccountData,
-        identity::Trait as IdentityTrait,
-        pip::{EnactProposalMaker, PipId},
-    },
+    traits::{balances::AccountData, identity::Trait as IdentityTrait},
     CommonTrait,
 };
 use polymesh_primitives::{
@@ -389,14 +386,17 @@ impl pallet_staking::Trait for Runtime {
 parameter_types! {
     pub const MotionDuration: BlockNumber = 0;
 }
+
+/// Voting majority origin for `Instance`.
+type VMO<Instance> = committee::EnsureProportionAtLeast<_2, _3, AccountId, Instance>;
+
 type GovernanceCommittee = committee::Instance1;
 impl committee::Trait<GovernanceCommittee> for Runtime {
     type Origin = Origin;
     type Proposal = Call;
-    type CommitteeOrigin = frame_system::EnsureRoot<AccountId>;
+    type CommitteeOrigin = VMO<GovernanceCommittee>;
     type Event = Event;
     type MotionDuration = MotionDuration;
-    type EnactProposalMaker = Runtime;
 }
 
 /// PolymeshCommittee as an instance of group
@@ -410,12 +410,40 @@ impl group::Trait<group::Instance1> for Runtime {
     type MembershipChanged = PolymeshCommittee;
 }
 
+macro_rules! committee_config {
+    ($committee:ident, $instance:ident) => {
+        impl committee::Trait<committee::$instance> for Runtime {
+            type Origin = Origin;
+            type Proposal = Call;
+            // Can act upon itself.
+            type CommitteeOrigin = VMO<committee::$instance>;
+            type Event = Event;
+            type MotionDuration = MotionDuration;
+        }
+        impl group::Trait<group::$instance> for Runtime {
+            type Event = Event;
+            // Can manage its own addition, deletion, and swapping of membership...
+            type AddOrigin = VMO<committee::$instance>;
+            type RemoveOrigin = VMO<committee::$instance>;
+            type SwapOrigin = VMO<committee::$instance>;
+            // ...but it cannot reset its own membership; GC needs to do that.
+            type ResetOrigin = VMO<GovernanceCommittee>;
+            type MembershipInitialized = $committee;
+            type MembershipChanged = $committee;
+        }
+    };
+}
+
+committee_config!(TechnicalCommittee, Instance3);
+committee_config!(UpgradeCommittee, Instance4);
+
 impl pallet_pips::Trait for Runtime {
     type Currency = Balances;
     type CommitteeOrigin = frame_system::EnsureRoot<AccountId>;
-    type VotingMajorityOrigin =
-        committee::EnsureProportionAtLeast<_2, _3, AccountId, GovernanceCommittee>;
+    type VotingMajorityOrigin = VMO<GovernanceCommittee>;
     type GovernanceCommittee = PolymeshCommittee;
+    type TechnicalCommitteeVMO = VMO<committee::Instance3>;
+    type UpgradeCommitteeVMO = VMO<committee::Instance4>;
     type Treasury = Treasury;
     type Event = Event;
 }
@@ -516,6 +544,10 @@ impl settlement::Trait for Runtime {
     type Event = Event;
     type Asset = Asset;
     type MaxScheduledInstructionLegsPerBlock = MaxScheduledInstructionLegsPerBlock;
+}
+
+impl sto::Trait for Runtime {
+    type Event = Event;
 }
 
 parameter_types! {
@@ -671,20 +703,6 @@ impl pallet_utility::Trait for Runtime {
     type Call = Call;
 }
 
-impl EnactProposalMaker<Origin, Call> for Runtime {
-    fn is_pip_id_valid(id: PipId) -> bool {
-        Pips::is_proposal_id_valid(id)
-    }
-
-    fn enact_referendum_call(id: PipId) -> Call {
-        Call::Pips(pallet_pips::Call::enact_referendum(id))
-    }
-
-    fn reject_referendum_call(id: PipId) -> Call {
-        Call::Pips(pallet_pips::Call::reject_referendum(id))
-    }
-}
-
 construct_runtime!(
     pub enum Runtime where
         Block = Block,
@@ -728,6 +746,12 @@ construct_runtime!(
         CommitteeMembership: group::<Instance1>::{Module, Call, Storage, Event<T>, Config<T>},
         Pips: pallet_pips::{Module, Call, Storage, Event<T>, Config<T>},
 
+        TechnicalCommittee: committee::<Instance3>::{Module, Call, Storage, Origin<T>, Event<T>, Config<T>},
+        TechnicalCommitteeMembership: group::<Instance3>::{Module, Call, Storage, Event<T>, Config<T>},
+
+        UpgradeCommittee: committee::<Instance4>::{Module, Call, Storage, Origin<T>, Event<T>, Config<T>},
+        UpgradeCommitteeMembership: group::<Instance4>::{Module, Call, Storage, Event<T>, Config<T>},
+
         //Polymesh
         Asset: asset::{Module, Call, Storage, Config<T>, Event<T>},
         Dividend: dividend::{Module, Call, Storage, Event<T>},
@@ -738,6 +762,7 @@ construct_runtime!(
         StoCapped: sto_capped::{Module, Call, Storage, Event<T>},
         Exemption: exemption::{Module, Call, Storage, Event},
         Settlement: settlement::{Module, Call, Storage, Event<T>, Config},
+        Sto: sto::{Module, Call, Storage, Event<T>},
         CddServiceProviders: group::<Instance2>::{Module, Call, Storage, Event<T>, Config<T>},
         Statistic: statistics::{Module, Call, Storage},
         ProtocolFee: protocol_fee::{Module, Call, Storage, Event<T>, Config<T>},
@@ -979,7 +1004,7 @@ impl_runtime_apis! {
 
         /// Proposals voted by `address`
         fn proposed_by(address: AccountId) -> Vec<u32> {
-            Pips::proposed_by(address)
+            Pips::proposed_by(pallet_pips::Proposer::Community(address))
         }
 
         /// Proposals `address` voted on
