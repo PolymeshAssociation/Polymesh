@@ -888,6 +888,7 @@ decl_module! {
                         | AuthorizationData::TransferTreasury(..)
                         | AuthorizationData::TransferAssetOwnership(..)
                         | AuthorizationData::AttestPrimaryKeyRotation(..)
+                        | AuthorizationData::PortfolioCustody(..)
                         | AuthorizationData::Custom(..)
                         | AuthorizationData::NoData =>
                             Err(Error::<T>::UnknownAuthorization.into())
