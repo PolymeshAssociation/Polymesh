@@ -47,8 +47,7 @@
 //! - `approve` - Approve token transfer from one DID to another.
 //! - `transfer_from` - If sufficient allowance provided, transfer from a DID to another DID without token owner's signature.
 //! - `create_checkpoint` - Function used to create the checkpoint.
-//! - `issue` - Function is used to issue(or mint) new tokens for the given DID.
-//! - `batch_issue` - Batch version of issue function.
+//! - `issue` - Function is used to issue(or mint) new tokens to the treasury.
 //! - `redeem` - Used to redeem the security tokens.
 //! - `redeem_from` - Used to redeem the security tokens by some other DID who has approval.
 //! - `controller_redeem` - Forces a redemption of an DID's tokens. Can only be called by token owner.
@@ -109,7 +108,7 @@ use pallet_contracts::{ExecReturnValue, Gas};
 use pallet_identity as identity;
 use pallet_statistics::{self as statistics, Counter};
 use polymesh_common_utilities::{
-    asset::{AcceptTransfer, IssueAssetItem, Trait as AssetTrait},
+    asset::{AcceptTransfer, Trait as AssetTrait},
     balances::Trait as BalancesTrait,
     compliance_manager::Trait as ComplianceManagerTrait,
     constants::*,
@@ -721,129 +720,21 @@ decl_module! {
             Ok(())
         }
 
-        /// Function is used to issue(or mint) new tokens for the given DID
-        /// can only be executed by the token owner.
+        /// Function is used to issue(or mint) new tokens to the treasury.
+        /// It can only be executed by the token owner.
         ///
         /// # Arguments
         /// * `origin` Secondary key of token owner.
         /// * `ticker` Ticker of the token.
-        /// * `to_did` DID of the token holder to whom new tokens get issued.
         /// * `value` Amount of tokens that get issued.
         #[weight = T::DbWeight::get().reads_writes(6, 3) + 800_000_000]
-        pub fn issue(origin, ticker: Ticker, to_did: IdentityId, value: T::Balance, _data: Vec<u8>) -> DispatchResult {
+        pub fn issue(origin, ticker: Ticker, value: T::Balance) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             let did = Context::current_identity_or::<Identity<T>>(&sender)?;
 
             ensure!(Self::is_owner(&ticker, did), Error::<T>::Unauthorized);
-            Self::_mint(&ticker, sender, to_did, value, Some(ProtocolOp::AssetIssue))
-        }
-
-        /// Function is used issue(or mint) new tokens for the given DIDs
-        /// can only be executed by the token owner.
-        ///
-        /// # Arguments
-        /// * `origin` Secondary key of token owner.
-        /// * `ticker` Ticker of the token.
-        /// * `investor_dids` Array of the DID of the token holders to whom new tokens get issued.
-        /// * `values` Array of the Amount of tokens that get issued.
-        ///
-        /// # Weight
-        /// `800_000_000 + 900_000 * issue_asset_items.len().max(values.len())`
-        #[weight =
-            T::DbWeight::get().reads_writes(6, 3) + 800_000_000 + 900_000 * u64::try_from(issue_asset_items.len()).unwrap_or_default()
-        ]
-        pub fn batch_issue(origin, issue_asset_items: Vec<IssueAssetItem<T::Balance>>, ticker: Ticker) -> DispatchResult {
-            let sender = ensure_signed(origin)?;
-            let did = Context::current_identity_or::<Identity<T>>(&sender)?;
-
-            ensure!(!issue_asset_items.is_empty(), Error::<T>::NoInvestors);
-            ensure!(Self::is_owner(&ticker, did), Error::<T>::Unauthorized);
-
-            // A helper vec for calculated new investor balances
-            let mut updated_balances = Vec::with_capacity(issue_asset_items.len());
-            // A helper vec for calculated new investor balances
-            let mut current_total_balances = Vec::with_capacity(issue_asset_items.len());
-            // Get current token details for supply update
-            let mut token = Self::token_details(ticker);
-
-            let round = Self::funding_round(&ticker);
-            let ticker_round = (ticker, round.clone());
-            // Update the total token balance issued in this funding round.
-            let mut issued_in_this_round = Self::issued_in_funding_round(&ticker_round);
-
-            // A round of per-investor checks
-            for IssueAssetItem { investor_did, value } in &issue_asset_items {
-                ensure!(
-                    Self::check_granularity(&ticker, *value),
-                    Error::<T>::InvalidGranularity
-                );
-                let updated_total_supply = token
-                    .total_supply
-                    .checked_add(value)
-                    .ok_or(Error::<T>::TotalSupplyOverflow)?;
-                ensure!(updated_total_supply <= MAX_SUPPLY.into(), Error::<T>::TotalSupplyAboveLimit);
-
-                let bals = Self::balance(&ticker, *investor_did);
-                current_total_balances.push(bals.total);
-                // No check since the total balance is always <= the total
-                // supply. The total supply is already checked above.
-                let updated_total_balance = bals.total + *value;
-                // No check since the default portfolio balance is always <= the
-                // total supply. The total supply is already checked above.
-                let updated_def_balance = bals.portfolio + *value;
-                updated_balances.push(FocusedBalances {
-                    total: updated_total_balance,
-                    portfolio: updated_def_balance
-                });
-
-                // verify transfer check
-                ensure!(
-                    Self::_is_valid_transfer(&ticker, sender.clone(),  None, Some(*investor_did), *value)? == ERC1400_TRANSFER_SUCCESS,
-                    Error::<T>::InvalidTransfer
-                );
-
-                // No check since the issued balance is always <= the total
-                // supply. The total supply is already checked above.
-                issued_in_this_round += *value;
-
-                // New total supply must be valid
-                token.total_supply = updated_total_supply;
-            }
-            <<T as IdentityTrait>::ProtocolFee>::batch_charge_fee(
-                ProtocolOp::AssetIssue,
-                issue_asset_items.len()
-            )?;
-            <IssuedInFundingRound<T>>::insert(&ticker_round, issued_in_this_round);
-            // Update investor balances and emit events quoting the updated total token balance issued.
-            for (i, IssueAssetItem { investor_did, value }) in issue_asset_items.iter().enumerate() {
-                Self::_update_checkpoint(&ticker, *investor_did, current_total_balances[i]);
-                let FocusedBalances{
-                    total,
-                    portfolio
-                } = updated_balances[i];
-                <BalanceOf<T>>::insert(ticker, investor_did, total);
-                Portfolio::<T>::set_default_portfolio_balance(*investor_did, &ticker, portfolio);
-                <statistics::Module<T>>::update_transfer_stats(&ticker, None, Some(total), *value);
-                Self::deposit_event(RawEvent::Transfer(
-                    did,
-                    ticker,
-                    IdentityId::default(),
-                    issue_asset_items[i].investor_did,
-                    *value
-                ));
-                Self::deposit_event(RawEvent::Issued(
-                    did,
-                    ticker,
-                    *investor_did,
-                    *value,
-                    round.clone(),
-                    issued_in_this_round,
-                    token.primary_issuance_did,
-                ));
-            }
-            <Tokens<T>>::insert(ticker, token);
-
-            Ok(())
+            let beneficiary = Self::token_details(&ticker).primary_issuance_did.unwrap_or(did);
+            Self::_mint(&ticker, sender, beneficiary, value, Some(ProtocolOp::AssetIssue))
         }
 
         /// Used to redeem the security tokens.
@@ -1890,9 +1781,8 @@ impl<T: Trait> Module<T> {
         })
     }
 
-    // The SimpleToken standard transfer function
-    // internal
-    fn unsafe_transfer(
+    // Transfers tokens from one identity to another
+    pub fn unsafe_transfer(
         sender: IdentityId,
         ticker: &Ticker,
         from_did: IdentityId,
@@ -2030,12 +1920,6 @@ impl<T: Trait> Module<T> {
         // No check since the default portfolio balance is always <= the total
         // supply. The total supply is already checked above.
         let updated_to_def_balance = current_to_def_balance + value;
-        // verify transfer check
-        ensure!(
-            Self::_is_valid_transfer(ticker, caller.clone(), None, Some(to_did), value)?
-                == ERC1400_TRANSFER_SUCCESS,
-            Error::<T>::InvalidTransfer
-        );
 
         // Charge the given fee.
         if let Some(op) = protocol_fee_data {
