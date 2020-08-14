@@ -23,7 +23,7 @@ pub mod did {
     /// CDD Providers DID. It is used in systematic CDD claim for CDD Providers.
     pub const CDD_PROVIDERS_DID: &[u8; 32] = b"system:customer_due_diligence\0\0\0";
     /// Treasury module DID. It is used in systematic CDD claim for the Treasury module.
-    pub const PRIMARY_ISSUANCE_AGENT: &[u8; 32] = b"system:treasury_module_did\0\0\0\0\0\0";
+    pub const TREASURY_DID: &[u8; 32] = b"system:treasury_module_did\0\0\0\0\0\0";
     /// Block Reward Reserve DID.
     pub const BLOCK_REWARD_RESERVE_DID: &[u8; 32] = b"system:block_reward_reserve_did\0";
     /// Settlement module DID

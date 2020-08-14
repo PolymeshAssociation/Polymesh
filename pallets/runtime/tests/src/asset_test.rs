@@ -69,7 +69,7 @@ fn issuers_can_create_and_rename_tokens() {
             total_supply: 1_000_000,
             divisible: true,
             asset_type: AssetType::default(),
-            primary_issuance_did: Some(owner_did),
+            primary_issuance_agent: Some(owner_did),
             ..Default::default()
         };
         let ticker = Ticker::try_from(token.name.as_slice()).unwrap();
@@ -134,7 +134,7 @@ fn issuers_can_create_and_rename_tokens() {
             total_supply: token.total_supply,
             divisible: token.divisible,
             asset_type: token.asset_type.clone(),
-            primary_issuance_did: Some(token.owner_did),
+            primary_issuance_agent: Some(token.owner_did),
             ..Default::default()
         };
         assert_ok!(Asset::rename_asset(
@@ -881,7 +881,7 @@ fn transfer_ticker() {
 }
 
 #[test]
-fn transfer_treasury() {
+fn transfer_primary_issuance_agent() {
     ExtBuilder::default().build().execute_with(|| {
         let now = Utc::now();
         Timestamp::set_timestamp(now.timestamp() as u64);
@@ -889,7 +889,7 @@ fn transfer_treasury() {
         let owner_signed = Origin::signed(AccountKeyring::Alice.public());
         let owner_did = register_keyring_account(AccountKeyring::Alice).unwrap();
         let primary_issuance_signed = Origin::signed(AccountKeyring::Bob.public());
-        let primary_issuance_did = register_keyring_account(AccountKeyring::Bob).unwrap();
+        let primary_issuance_agent = register_keyring_account(AccountKeyring::Bob).unwrap();
 
         let ticker = Ticker::try_from(&[0x01, 0x01][..]).unwrap();
         let token = SecurityToken {
@@ -898,7 +898,7 @@ fn transfer_treasury() {
             owner_did,
             divisible: true,
             asset_type: Default::default(),
-            primary_issuance_did: Some(owner_did),
+            primary_issuance_agent: Some(owner_did),
         };
 
         assert_ok!(Asset::create_asset(
@@ -917,13 +917,13 @@ fn transfer_treasury() {
 
         let auth_id = Identity::add_auth(
             owner_did,
-            Signatory::from(primary_issuance_did),
-            AuthorizationData::TransferTreasury(ticker),
+            Signatory::from(primary_issuance_agent),
+            AuthorizationData::TransferPrimaryIssuanceAgent(ticker),
             Some(now.timestamp() as u64 - 100),
         );
 
         assert_err!(
-            Asset::accept_treasury_transfer(primary_issuance_signed.clone(), auth_id),
+            Asset::accept_primary_issuance_agent_transfer(primary_issuance_signed.clone(), auth_id),
             "Authorization expired"
         );
         assert_eq!(Asset::token_details(&ticker), token);
@@ -931,42 +931,42 @@ fn transfer_treasury() {
         let auth_id = Identity::add_auth(
             owner_did,
             Signatory::from(owner_did),
-            AuthorizationData::TransferTreasury(ticker),
+            AuthorizationData::TransferPrimaryIssuanceAgent(ticker),
             None,
         );
 
         assert_err!(
-            Asset::accept_treasury_transfer(primary_issuance_signed.clone(), auth_id),
+            Asset::accept_primary_issuance_agent_transfer(primary_issuance_signed.clone(), auth_id),
             "Authorization does not exist"
         );
         assert_eq!(Asset::token_details(&ticker), token);
 
         let auth_id = Identity::add_auth(
-            primary_issuance_did,
-            Signatory::from(primary_issuance_did),
-            AuthorizationData::TransferTreasury(ticker),
+            primary_issuance_agent,
+            Signatory::from(primary_issuance_agent),
+            AuthorizationData::TransferPrimaryIssuanceAgent(ticker),
             None,
         );
 
         assert_err!(
-            Asset::accept_treasury_transfer(primary_issuance_signed.clone(), auth_id),
+            Asset::accept_primary_issuance_agent_transfer(primary_issuance_signed.clone(), auth_id),
             "Illegal use of Authorization"
         );
         assert_eq!(Asset::token_details(&ticker), token);
 
         let auth_id = Identity::add_auth(
             owner_did,
-            Signatory::from(primary_issuance_did),
-            AuthorizationData::TransferTreasury(ticker),
+            Signatory::from(primary_issuance_agent),
+            AuthorizationData::TransferPrimaryIssuanceAgent(ticker),
             None,
         );
 
-        assert_ok!(Asset::accept_treasury_transfer(
+        assert_ok!(Asset::accept_primary_issuance_agent_transfer(
             primary_issuance_signed.clone(),
             auth_id
         ));
         let mut new_token = token.clone();
-        new_token.primary_issuance_did = Some(primary_issuance_did);
+        new_token.primary_issuance_agent = Some(primary_issuance_agent);
         assert_eq!(Asset::token_details(&ticker), new_token);
     })
 }
@@ -1106,7 +1106,7 @@ fn update_identifiers() {
             total_supply: 1_000_000,
             divisible: true,
             asset_type: AssetType::default(),
-            primary_issuance_did: Some(owner_did),
+            primary_issuance_agent: Some(owner_did),
             ..Default::default()
         };
         let ticker = Ticker::try_from(token.name.as_slice()).unwrap();
@@ -1868,7 +1868,7 @@ fn frozen_secondary_keys_create_asset_we() {
         total_supply: 1_000_000,
         divisible: true,
         asset_type: AssetType::default(),
-        primary_issuance_did: Some(alice_id),
+        primary_issuance_agent: Some(alice_id),
         ..Default::default()
     };
     let ticker_1 = Ticker::try_from(token_1.name.as_slice()).unwrap();
@@ -2093,7 +2093,7 @@ fn can_set_primary_issuance_agent_we() {
         total_supply: 1_000_000,
         divisible: true,
         asset_type: AssetType::default(),
-        primary_issuance_did: Some(bob_id),
+        primary_issuance_agent: Some(bob_id),
         ..Default::default()
     };
     let ticker = Ticker::try_from(token.name.as_slice()).unwrap();
@@ -2111,15 +2111,15 @@ fn can_set_primary_issuance_agent_we() {
     let auth_id = Identity::add_auth(
         token.owner_did,
         Signatory::from(bob_id),
-        AuthorizationData::TransferTreasury(ticker),
+        AuthorizationData::TransferPrimaryIssuanceAgent(ticker),
         None,
     );
-    assert_ok!(Asset::accept_treasury_transfer(
+    assert_ok!(Asset::accept_primary_issuance_agent_transfer(
         Origin::signed(bob),
         auth_id
     ));
     assert_eq!(Asset::token_details(ticker), token);
-    assert_ok!(Asset::clear_primary_issuance_did(
+    assert_ok!(Asset::clear_primary_issuance_agent(
         Origin::signed(alice),
         ticker
     ));

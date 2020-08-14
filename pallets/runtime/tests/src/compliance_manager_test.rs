@@ -494,7 +494,7 @@ fn should_successfully_add_and_use_default_issuers_we() {
         None,
     ));
 
-    assert_ok!(Asset::clear_primary_issuance_did(
+    assert_ok!(Asset::clear_primary_issuance_agent(
         token_owner_signed.clone(),
         ticker
     ));
@@ -1290,10 +1290,10 @@ fn can_verify_restriction_with_primary_issuance_agent_we() {
     let auth_id = Identity::add_auth(
         owner_id,
         Signatory::from(issuer_id),
-        AuthorizationData::TransferTreasury(ticker),
+        AuthorizationData::TransferPrimaryIssuanceAgent(ticker),
         None,
     );
-    assert_ok!(Asset::accept_treasury_transfer(
+    assert_ok!(Asset::accept_primary_issuance_agent_transfer(
         Origin::signed(issuer),
         auth_id
     ));

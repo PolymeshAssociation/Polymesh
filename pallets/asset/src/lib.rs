@@ -406,18 +406,18 @@ decl_module! {
             Self::_accept_ticker_transfer(to_did, auth_id)
         }
 
-        /// This function is used to accept a treasury transfer.
+        /// This function is used to accept a primary issuance agent transfer.
         /// NB: To reject the transfer, call remove auth function in identity module.
         ///
         /// # Arguments
         /// * `origin` It contains the signing key of the caller (i.e who signed the transaction to execute this function).
-        /// * `auth_id` Authorization ID of treasury transfer authorization.
+        /// * `auth_id` Authorization ID of primary issuance agent transfer authorization.
         #[weight = 300_000_000]
-        pub fn accept_treasury_transfer(origin, auth_id: u64) -> DispatchResult {
+        pub fn accept_primary_issuance_agent_transfer(origin, auth_id: u64) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             let to_did = Context::current_identity_or::<Identity<T>>(&sender)?;
 
-            Self::_accept_treasury_transfer(to_did, auth_id)
+            Self::_accept_primary_issuance_agent_transfer(to_did, auth_id)
         }
 
         /// This function is used to accept a token ownership transfer.
@@ -489,7 +489,7 @@ decl_module! {
                 owner_did: did,
                 divisible,
                 asset_type: asset_type.clone(),
-                primary_issuance_did: Some(did),
+                primary_issuance_agent: Some(did),
             };
             <Tokens<T>>::insert(&ticker, token);
             <BalanceOf<T>>::insert(ticker, did, total_supply);
@@ -1349,29 +1349,29 @@ decl_module! {
             Ok(())
         }
 
-        /// Sets the treasury DID to None. The caller must be the asset issuer. The asset
-        /// issuer can always update the treasury DID using `transfer_treasury`. If the issuer
-        /// clears their treasury DID then it will be immovable until either they transfer
-        /// the treasury DID to an actual DID, or they add a claim to allow that DID to move the
+        /// Sets the primary issuance agent to None. The caller must be the asset issuer. The asset
+        /// issuer can always update the primary issuance agent using `transfer_primary_issuance_agent`. If the issuer
+        /// clears their primary issuance agent then it will be immovable until either they transfer
+        /// the primary issuance agent to an actual DID, or they add a claim to allow that DID to move the
         /// asset.
         ///
         /// # Arguments
         /// * `origin` - The asset issuer.
         /// * `ticker` - Ticker symbol of the asset.
         #[weight = 250_000]
-        pub fn clear_primary_issuance_did(
+        pub fn clear_primary_issuance_agent(
             origin,
             ticker: Ticker,
         ) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             let did = Context::current_identity_or::<Identity<T>>(&sender)?;
             ensure!(Self::is_owner(&ticker, did), Error::<T>::Unauthorized);
-            let mut old_treasury = None;
+            let mut old_primary_issuance_agent = None;
             <Tokens<T>>::mutate(&ticker, |token| {
-                old_treasury = token.primary_issuance_did;
-                token.primary_issuance_did = None
+                old_primary_issuance_agent = token.primary_issuance_agent;
+                token.primary_issuance_agent = None
             });
-            Self::deposit_event(RawEvent::TreasuryTransferred(did, ticker, old_treasury, None));
+            Self::deposit_event(RawEvent::PrimaryIssuanceAgentTransfered(did, ticker, old_primary_issuance_agent, None));
             Ok(())
         }
     }
@@ -1457,9 +1457,9 @@ decl_event! {
         /// Emitted event for Checkpoint creation.
         /// caller DID. ticker, checkpoint count.
         CheckpointCreated(IdentityId, Ticker, u64),
-        /// An event emitted when the treasury DID of an asset is transferred.
-        /// First DID is the old treasury and the second DID is the new treasury.
-        TreasuryTransferred(IdentityId, Ticker, Option<IdentityId>, Option<IdentityId>),
+        /// An event emitted when the primary issuance agent of an asset is transferred.
+        /// First DID is the old primary issuance agent and the second DID is the new primary issuance agent.
+        PrimaryIssuanceAgentTransfered(IdentityId, Ticker, Option<IdentityId>, Option<IdentityId>),
         /// A new document attached to an asset
         DocumentAdded(Ticker, DocumentName, Document),
         /// A document removed from an asset
@@ -1473,8 +1473,8 @@ decl_error! {
         DIDNotFound,
         /// Not a ticker transfer auth.
         NoTickerTransferAuth,
-        /// Not a treasury transfer auth.
-        NoTreasuryTransferAuth,
+        /// Not a primary issuance agent transfer auth.
+        NoPrimaryIssuanceAgentTransferAuth,
         /// Not a token ownership transfer auth.
         NotTickerOwnershipTransferAuth,
         /// The user is not authorized.
@@ -1649,8 +1649,8 @@ impl<T: Trait> AcceptTransfer for Module<T> {
         Self::_accept_ticker_transfer(to_did, auth_id)
     }
 
-    fn accept_treasury_transfer(to_did: IdentityId, auth_id: u64) -> DispatchResult {
-        Self::_accept_treasury_transfer(to_did, auth_id)
+    fn accept_primary_issuance_agent_transfer(to_did: IdentityId, auth_id: u64) -> DispatchResult {
+        Self::_accept_primary_issuance_agent_transfer(to_did, auth_id)
     }
 
     fn accept_asset_ownership_transfer(to_did: IdentityId, auth_id: u64) -> DispatchResult {
@@ -2219,8 +2219,11 @@ impl<T: Trait> Module<T> {
         Ok(())
     }
 
-    /// Accept and process a treasury transfer.
-    pub fn _accept_treasury_transfer(to_did: IdentityId, auth_id: u64) -> DispatchResult {
+    /// Accept and process a primary issuance agent transfer.
+    pub fn _accept_primary_issuance_agent_transfer(
+        to_did: IdentityId,
+        auth_id: u64,
+    ) -> DispatchResult {
         ensure!(
             <identity::Authorizations<T>>::contains_key(Signatory::from(to_did), auth_id),
             AuthorizationError::Invalid
@@ -2229,23 +2232,23 @@ impl<T: Trait> Module<T> {
         let auth = <identity::Authorizations<T>>::get(Signatory::from(to_did), auth_id);
 
         let ticker = match auth.authorization_data {
-            AuthorizationData::TransferTreasury(ticker) => ticker,
-            _ => return Err(Error::<T>::NoTreasuryTransferAuth.into()),
+            AuthorizationData::TransferPrimaryIssuanceAgent(ticker) => ticker,
+            _ => return Err(Error::<T>::NoPrimaryIssuanceAgentTransferAuth.into()),
         };
 
         let token = <Tokens<T>>::get(&ticker);
         <identity::Module<T>>::consume_auth(token.owner_did, Signatory::from(to_did), auth_id)?;
 
-        let mut old_treasury = None;
+        let mut old_primary_issuance_agent = None;
         <Tokens<T>>::mutate(&ticker, |token| {
-            old_treasury = token.primary_issuance_did;
-            token.primary_issuance_did = Some(to_did);
+            old_primary_issuance_agent = token.primary_issuance_agent;
+            token.primary_issuance_agent = Some(to_did);
         });
 
-        Self::deposit_event(RawEvent::TreasuryTransferred(
+        Self::deposit_event(RawEvent::PrimaryIssuanceAgentTransfered(
             to_did,
             ticker,
-            old_treasury,
+            old_primary_issuance_agent,
             Some(to_did),
         ));
 

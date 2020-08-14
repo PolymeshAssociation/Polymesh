@@ -85,13 +85,13 @@ impl SystematicIssuers {
     pub fn as_bytes(self) -> &'static [u8; 32] {
         use constants::did::{
             BLOCK_REWARD_RESERVE_DID, CDD_PROVIDERS_DID, GOVERNANCE_COMMITTEE_DID,
-            PRIMARY_ISSUANCE_AGENT, SETTLEMENT_MODULE_DID,
+            SETTLEMENT_MODULE_DID, TREASURY_DID,
         };
 
         match self {
             SystematicIssuers::Committee => GOVERNANCE_COMMITTEE_DID,
             SystematicIssuers::CDDProvider => CDD_PROVIDERS_DID,
-            SystematicIssuers::Treasury => PRIMARY_ISSUANCE_AGENT,
+            SystematicIssuers::Treasury => TREASURY_DID,
             SystematicIssuers::BlockRewardReserve => BLOCK_REWARD_RESERVE_DID,
             SystematicIssuers::Settlement => SETTLEMENT_MODULE_DID,
         }
