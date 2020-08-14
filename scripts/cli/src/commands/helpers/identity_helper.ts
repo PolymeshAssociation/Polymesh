@@ -1,5 +1,4 @@
 import { nonces, sendTransaction } from "../util/init";
-import { topUpIdentityBalance } from "./balance_helper";
 import { IKeyringPair } from "@polkadot/types/types";
 import { ApiPromise } from "@polkadot/api";
 import { SecondaryKey } from "../types";
@@ -45,11 +44,6 @@ const createIdentitiesWithExpiry = async function (
       accounts[i].publicKey
     );
     dids.push(d.toHuman().Unique);
-  }
-  let did_balance = 1000 * 10 ** 6;
-  for (let i = 0; i < dids.length; i++) {
-    if (topup)
-      await topUpIdentityBalance(api, cdd_provider, dids[i], did_balance);
   }
 
   return dids;

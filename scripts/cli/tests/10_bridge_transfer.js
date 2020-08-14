@@ -18,15 +18,6 @@ async function main() {
   let alice_did = JSON.parse(
     await reqImports.keyToIdentityIds(api, alice.publicKey)
   );
-
-  let did_balance = 1000 * 10 ** 6;
-
-  await reqImports.topUpIdentityBalance(
-    api,
-    alice,
-    alice_did.Unique,
-    did_balance
-  );
   
   await acceptMultisigSignerAsKey(api, relay, 9);
 
