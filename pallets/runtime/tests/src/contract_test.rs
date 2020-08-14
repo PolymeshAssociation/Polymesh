@@ -58,7 +58,7 @@ fn create_se_template<T>(
     T: frame_system::Trait<Hash = sp_core::H256>,
 {
     // Set payer in context
-    TestStorage::set_payer_context(Some(Signatory::Account(template_creator)));
+    TestStorage::set_payer_context(Some(template_creator));
 
     // Create smart extension metadata
     let se_meta_data = SmartExtensionMetadata {
@@ -100,7 +100,7 @@ where
 {
     let input_data = hex!("5EBD88D6");
     // Set payer of the transaction
-    TestStorage::set_payer_context(Some(Signatory::Account(instance_creator)));
+    TestStorage::set_payer_context(Some(instance_creator));
 
     // Increment the nonce.
     System::inc_account_nonce(instance_creator);
@@ -144,7 +144,7 @@ fn check_put_code_functionality() {
             let (alice_signed, _) = make_account_without_cdd(alice).unwrap();
 
             // Set payer in context
-            TestStorage::set_payer_context(Some(Signatory::Account(alice)));
+            TestStorage::set_payer_context(Some(alice));
 
             // Get the balance of the Alice
             let alice_balance = System::account(alice).data.free;
@@ -227,7 +227,7 @@ fn check_instantiation_functionality() {
             let (alice_signed, _) = make_account_without_cdd(alice).unwrap();
 
             // Set payer in context
-            TestStorage::set_payer_context(Some(Signatory::Account(alice)));
+            TestStorage::set_payer_context(Some(alice));
 
             // Create smart extension metadata
             let se_meta_data = SmartExtensionMetadata {
@@ -274,7 +274,7 @@ fn check_instantiation_functionality() {
             let bob_balance = System::account(bob).data.free;
 
             // Set payer of the transaction
-            TestStorage::set_payer_context(Some(Signatory::Account(bob)));
+            TestStorage::set_payer_context(Some(bob));
 
             // Increment the nonce.
             System::inc_account_nonce(bob);
@@ -311,7 +311,7 @@ fn check_instantiation_functionality() {
             // It should be as contract creation is depend on the nonce of the account.
 
             // Set payer of the transaction
-            TestStorage::set_payer_context(Some(Signatory::Account(bob)));
+            TestStorage::set_payer_context(Some(bob));
 
             // Increment the nonce.
             System::inc_account_nonce(bob);

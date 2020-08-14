@@ -57,7 +57,6 @@ fn range_proof_we() {
         token.asset_type.clone(),
         identifiers.clone(),
         None,
-        None
     ));
 
     // 2. X add a range proof
@@ -124,7 +123,6 @@ fn scope_claims_we() {
         st.asset_type.clone(),
         identifiers.clone(),
         None,
-        None
     ));
 
     // 2. Alice defines the asset complain rules.
@@ -209,7 +207,6 @@ fn scope_claims_we() {
         st_2.asset_type.clone(),
         identifiers.clone(),
         None,
-        None
     ));
 
     let st_scope = IdentityId::try_from(st2_id.as_slice()).unwrap();

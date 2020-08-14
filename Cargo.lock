@@ -3316,6 +3316,32 @@ dependencies = [
 ]
 
 [[package]]
+name = "pallet-basic-sto"
+version = "0.1.0"
+dependencies = [
+ "frame-support",
+ "frame-system",
+ "pallet-asset",
+ "pallet-balances 0.1.0",
+ "pallet-identity",
+ "pallet-settlement",
+ "pallet-timestamp",
+ "parity-scale-codec",
+ "polymesh-common-utilities",
+ "polymesh-primitives",
+ "polymesh-primitives-derive",
+ "serde",
+ "serde_derive",
+ "sp-api",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+ "sp-serializer",
+ "sp-std",
+ "sp-version",
+]
+
+[[package]]
 name = "pallet-cdd-offchain-worker"
 version = "2.0.0"
 dependencies = [
@@ -3648,7 +3674,6 @@ dependencies = [
  "frame-support",
  "frame-system",
  "pallet-balances 0.1.0",
- "pallet-committee",
  "pallet-group",
  "pallet-identity",
  "pallet-timestamp",
@@ -4514,6 +4539,7 @@ dependencies = [
  "pallet-authorship",
  "pallet-babe",
  "pallet-balances 0.1.0",
+ "pallet-basic-sto",
  "pallet-committee",
  "pallet-compliance-manager",
  "pallet-confidential",
@@ -4589,6 +4615,7 @@ dependencies = [
  "pallet-authorship",
  "pallet-babe",
  "pallet-balances 0.1.0",
+ "pallet-basic-sto",
  "pallet-committee",
  "pallet-compliance-manager",
  "pallet-confidential",
@@ -4667,6 +4694,7 @@ dependencies = [
  "pallet-authorship",
  "pallet-babe",
  "pallet-balances 0.1.0",
+ "pallet-basic-sto",
  "pallet-cdd-offchain-worker",
  "pallet-committee",
  "pallet-compliance-manager",

@@ -1,5 +1,5 @@
 use super::{
-    storage::{make_account, register_keyring_account, TestStorage},
+    storage::{register_keyring_account, TestStorage},
     ExtBuilder,
 };
 use frame_support::{assert_err, assert_ok};
@@ -68,7 +68,6 @@ fn do_move_asset_from_portfolio() {
         token.divisible,
         token.asset_type.clone(),
         vec![],
-        None,
         None,
     ));
     assert_eq!(

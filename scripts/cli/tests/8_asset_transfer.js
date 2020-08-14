@@ -36,7 +36,7 @@ async function main() {
 
   await reqImports.createClaimRules( api, primary_keys, issuer_dids, prepend );
 
-await mintingAsset( api, primary_keys[0], issuer_dids[2], prepend );
+  await mintingAsset( api, primary_keys[0], prepend );
 
   await assetTransfer( api, primary_keys[0], issuer_dids[2], prepend );
 
@@ -50,10 +50,10 @@ await mintingAsset( api, primary_keys[0], issuer_dids[2], prepend );
   process.exit();
 }
 
-async function mintingAsset(api, minter, did, prepend) {
+async function mintingAsset(api, minter, prepend) {
   const ticker = `token${prepend}0`.toUpperCase();
   let nonceObj = {nonce: reqImports.nonces.get(minter.address)};
-  const transaction = await api.tx.asset.issue(ticker, did, 100, "");
+  const transaction = await api.tx.asset.issue(ticker, 100);
   const result = await reqImports.sendTransaction(transaction, minter, nonceObj);
   const passed = result.findRecord('system', 'ExtrinsicSuccess');
   if (passed) reqImports.fail_count--;

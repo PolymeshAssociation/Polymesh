@@ -685,11 +685,6 @@ fn make_multisig_signer() {
             Error::IdentityNotCreator
         );
 
-        assert_ok!(Balances::top_up_identity_balance(
-            alice.clone(),
-            alice_did,
-            PROTOCOL_OP_BASE_FEE
-        ));
         assert_ok!(MultiSig::make_multisig_signer(
             alice.clone(),
             musig_address.clone(),
