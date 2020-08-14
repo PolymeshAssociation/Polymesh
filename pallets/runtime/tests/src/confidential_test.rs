@@ -3,7 +3,17 @@ use super::{
     ExtBuilder,
 };
 
-use cryptography::claim_proofs::{compute_cdd_id, compute_scope_id};
+use cryptography::{
+    asset_proofs::{CommitmentWitness, ElgamalSecretKey},
+    claim_proofs::{compute_cdd_id, compute_scope_id},
+    mercat::account::{convert_asset_ids, AccountCreator},
+    mercat::asset::AssetIssuer,
+    mercat::{
+        Account, AccountCreatorInitializer, AssetTransactionIssuer, EncryptionKeys, SecAccount,
+    },
+    AssetId,
+};
+use curve25519_dalek::scalar::Scalar;
 use pallet_asset::{self as asset, AssetType, IdentifierType, SecurityToken};
 use pallet_compliance_manager as compliance_manager;
 use pallet_confidential as confidential;
@@ -14,6 +24,8 @@ use polymesh_primitives::{
 
 use core::convert::TryFrom;
 use frame_support::{assert_err, assert_ok};
+use rand::rngs::StdRng;
+use rand::SeedableRng;
 use test_client::AccountKeyring;
 
 type Identity = identity::Module<TestStorage>;
@@ -228,4 +240,129 @@ fn scope_claims_we() {
         Asset::transfer(Origin::signed(alice), st2_id, inv_did_1, 10),
         AssetError::InvalidTransfer
     );
+}
+
+#[test]
+fn asset_issuance() {
+    ExtBuilder::default()
+        .build()
+        .execute_with(asset_issuance_we);
+}
+
+fn asset_issuance_we() {
+    let mut rng = StdRng::from_seed([10u8; 32]);
+    let alice = AccountKeyring::Alice.public();
+    // let mediator = AccountKeyring::Bob.public();
+    let validator = AccountKeyring::Charlie.public();
+    let alice_id = register_keyring_account(AccountKeyring::Alice).unwrap();
+    let mediator_id = register_keyring_account(AccountKeyring::Bob).unwrap();
+
+    let mediator_elg_secret_key = ElgamalSecretKey::new(Scalar::random(&mut rng));
+    let mediator_enc_pub_key = mediator_elg_secret_key.get_public_key();
+
+    // 1. Alice creates her security token.
+    // ToDo: This has to change to a confidential security token type.
+    let token = SecurityToken {
+        name: "ALI_ST".as_bytes().to_owned().into(),
+        owner_did: alice_id,
+        total_supply: 1_000_000,
+        divisible: true,
+        asset_type: AssetType::default(),
+        ..Default::default()
+    };
+    let identifiers = vec![(IdentifierType::Isin, b"0123".into())];
+    let ticker = Ticker::try_from(token.name.as_slice()).unwrap();
+
+    assert_ok!(Asset::create_asset(
+        Origin::signed(alice),
+        token.name.clone(),
+        ticker,
+        token.total_supply,
+        true,
+        token.asset_type.clone(),
+        identifiers.clone(),
+        None,
+    ));
+
+    // 2. Alice issues some assets to herself.
+    let issuer = AssetIssuer {};
+    let issuer_account = make_confidential_account(
+        cryptography::asset_id_from_ticker(std::str::from_utf8(&token.name).unwrap()).unwrap(),
+    );
+    let tx_id = 1;
+    let conf_tx_id = confidential::TransactionId(tx_id);
+    let balance = 100;
+    let tx = issuer
+        .initialize_asset_transaction(
+            tx_id,
+            &issuer_account,
+            &mediator_enc_pub_key,
+            &[],
+            balance,
+            &mut rng,
+        )
+        .unwrap();
+    assert_ok!(Confidential::add_asset_issuance_transaction(
+        Origin::signed(alice),
+        ticker.clone(),
+        conf_tx_id.clone(),
+        tx
+    ));
+
+    // 3. Mediator approves it.
+    // let mediator = AssetMediator {};
+
+    // 4. Validator verifies the transaction and updates the issuer's account.
+    assert_ok!(Confidential::validate_asset_issuance_transaction(
+        Origin::signed(validator),
+        alice_id,
+        ticker.clone(),
+        conf_tx_id.clone(),
+        mediator_id,
+    ));
+
+    assert_eq!(
+        Confidential::asset_transaction_validation((alice_id, ticker), conf_tx_id.clone()),
+        true
+    );
+}
+
+fn make_confidential_account(asset_id: AssetId) -> Account {
+    let mut rng = StdRng::from_seed([10u8; 32]);
+    let issuer_elg_secret_key = ElgamalSecretKey::new(Scalar::random(&mut rng));
+    let issuer_enc_key = EncryptionKeys {
+        pblc: issuer_elg_secret_key.get_public_key().into(),
+        scrt: issuer_elg_secret_key.into(),
+    };
+
+    let issuer_secret_account = SecAccount {
+        enc_keys: issuer_enc_key.clone(),
+        asset_id_witness: CommitmentWitness::from((asset_id.clone().into(), &mut rng)),
+    };
+
+    let account_id = 1234u32;
+    let mut valid_asset_ids: Vec<AssetId> = vec![1, 2, 3]
+        .iter()
+        .map(|id| AssetId::from(id.clone()))
+        .collect();
+    // Add the given asset id to the list. This could be prettier.
+    valid_asset_ids.push(asset_id);
+    let valid_asset_ids = convert_asset_ids(valid_asset_ids);
+
+    let account_creator = AccountCreator {};
+    let tx_id = 0;
+    let issuer_account_tx = account_creator
+        .create(
+            tx_id,
+            &issuer_secret_account,
+            &valid_asset_ids,
+            account_id,
+            &mut rng,
+        )
+        .unwrap();
+
+    Account {
+        pblc: issuer_account_tx.pub_account.clone(),
+        scrt: issuer_secret_account,
+    }
 }
