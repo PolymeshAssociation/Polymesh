@@ -11,9 +11,7 @@ use pallet_balances as balances;
 use pallet_compliance_manager as compliance_manager;
 use pallet_identity as identity;
 use pallet_statistics as statistics;
-use polymesh_common_utilities::{
-    constants::*, traits::asset::IssueAssetItem, traits::balances::Memo,
-};
+use polymesh_common_utilities::{constants::*, traits::balances::Memo};
 use polymesh_primitives::{
     AuthorizationData, Document, DocumentName, IdentityId, Signatory, SmartExtension,
     SmartExtensionType, Ticker,

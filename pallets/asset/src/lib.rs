@@ -1920,12 +1920,6 @@ impl<T: Trait> Module<T> {
         // No check since the default portfolio balance is always <= the total
         // supply. The total supply is already checked above.
         let updated_to_def_balance = current_to_def_balance + value;
-        // verify transfer check
-        ensure!(
-            Self::_is_valid_transfer(ticker, caller.clone(), None, Some(to_did), value)?
-                == ERC1400_TRANSFER_SUCCESS,
-            Error::<T>::InvalidTransfer
-        );
 
         // Charge the given fee.
         if let Some(op) = protocol_fee_data {
