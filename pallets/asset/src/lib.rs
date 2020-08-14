@@ -406,6 +406,20 @@ decl_module! {
             Self::_accept_ticker_transfer(to_did, auth_id)
         }
 
+        /// This function is used to accept a treasury transfer.
+        /// NB: To reject the transfer, call remove auth function in identity module.
+        ///
+        /// # Arguments
+        /// * `origin` It contains the signing key of the caller (i.e who signed the transaction to execute this function).
+        /// * `auth_id` Authorization ID of treasury transfer authorization.
+        #[weight = 300_000_000]
+        pub fn accept_treasury_transfer(origin, auth_id: u64) -> DispatchResult {
+            let sender = ensure_signed(origin)?;
+            let to_did = Context::current_identity_or::<Identity<T>>(&sender)?;
+
+            Self::_accept_treasury_transfer(to_did, auth_id)
+        }
+
         /// This function is used to accept a token ownership transfer.
         /// NB: To reject the transfer, call remove auth function in identity module.
         ///
@@ -446,7 +460,6 @@ decl_module! {
             asset_type: AssetType,
             identifiers: Vec<(IdentifierType, AssetIdentifier)>,
             funding_round: Option<FundingRoundName>,
-            primary_issuance_agent: Option<IdentityId>,
         ) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             let did = Context::current_identity_or::<Identity<T>>(&sender)?;
@@ -476,12 +489,11 @@ decl_module! {
                 owner_did: did,
                 divisible,
                 asset_type: asset_type.clone(),
-                primary_issuance_agent,
+                primary_issuance_did: Some(did),
             };
             <Tokens<T>>::insert(&ticker, token);
-            let beneficiary_did = primary_issuance_agent.unwrap_or(did);
-            <BalanceOf<T>>::insert(ticker, beneficiary_did, total_supply);
-            Portfolio::<T>::set_default_portfolio_balance(beneficiary_did, &ticker, total_supply);
+            <BalanceOf<T>>::insert(ticker, did, total_supply);
+            Portfolio::<T>::set_default_portfolio_balance(did, &ticker, total_supply);
             <AssetOwnershipRelations>::insert(did, ticker, AssetOwnershipRelation::AssetOwned);
             Self::deposit_event(RawEvent::AssetCreated(
                 did,
@@ -489,7 +501,7 @@ decl_module! {
                 total_supply,
                 divisible,
                 asset_type,
-                beneficiary_did,
+                did,
             ));
             for (typ, val) in &identifiers {
                 <Identifiers>::insert((ticker, typ.clone()), val.clone());
@@ -516,11 +528,11 @@ decl_module! {
             Self::deposit_event(RawEvent::Issued(
                 did,
                 ticker,
-                beneficiary_did,
+                did,
                 total_supply,
                 Self::funding_round(ticker),
                 total_supply,
-                primary_issuance_agent,
+                Some(did),
             ));
             Ok(())
         }
@@ -1337,27 +1349,29 @@ decl_module! {
             Ok(())
         }
 
-        /// Sets the primary issuance agent to a given value. The caller must be the asset issuer. The asset
-        /// issuer can always update the primary issuance agent, including setting it to `None`. If the issuer
-        /// modifies their primary issuance agent to `None` then it will be immovable until either they change
-        /// the primary issuance agent to `Some` DID, or they add a claim to allow that DID to move the
+        /// Sets the treasury DID to None. The caller must be the asset issuer. The asset
+        /// issuer can always update the treasury DID using `transfer_treasury`. If the issuer
+        /// clears their treasury DID then it will be immovable until either they transfer
+        /// the treasury DID to an actual DID, or they add a claim to allow that DID to move the
         /// asset.
         ///
         /// # Arguments
         /// * `origin` - The asset issuer.
         /// * `ticker` - Ticker symbol of the asset.
-        /// * `PRIMARY_ISSUANCE_AGENT` - The primary issuance agent wrapped in a value of type [`Option`].
-        #[weight = T::DbWeight::get().reads_writes(1, 1) + 50_000_000]
-        pub fn set_primary_issuance_agent(
+        #[weight = 250_000]
+        pub fn clear_primary_issuance_did(
             origin,
             ticker: Ticker,
-            primary_issuance_agent: Option<IdentityId>,
         ) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             let did = Context::current_identity_or::<Identity<T>>(&sender)?;
             ensure!(Self::is_owner(&ticker, did), Error::<T>::Unauthorized);
-            <Tokens<T>>::mutate(&ticker, |token| token.primary_issuance_agent = primary_issuance_agent);
-            Self::deposit_event(RawEvent::PrimaryIssuanceAgentSet(did, ticker, primary_issuance_agent));
+            let mut old_treasury = None;
+            <Tokens<T>>::mutate(&ticker, |token| {
+                old_treasury = token.primary_issuance_did;
+                token.primary_issuance_did = None
+            });
+            Self::deposit_event(RawEvent::TreasuryTransferred(did, ticker, old_treasury, None));
             Ok(())
         }
     }
@@ -1443,8 +1457,9 @@ decl_event! {
         /// Emitted event for Checkpoint creation.
         /// caller DID. ticker, checkpoint count.
         CheckpointCreated(IdentityId, Ticker, u64),
-        /// An event emitted when the primary issuance agent of an asset is set.
-        PrimaryIssuanceAgentSet(IdentityId, Ticker, Option<IdentityId>),
+        /// An event emitted when the treasury DID of an asset is transferred.
+        /// First DID is the old treasury and the second DID is the new treasury.
+        TreasuryTransferred(IdentityId, Ticker, Option<IdentityId>, Option<IdentityId>),
         /// A new document attached to an asset
         DocumentAdded(Ticker, DocumentName, Document),
         /// A document removed from an asset
@@ -1458,6 +1473,8 @@ decl_error! {
         DIDNotFound,
         /// Not a ticker transfer auth.
         NoTickerTransferAuth,
+        /// Not a treasury transfer auth.
+        NoTreasuryTransferAuth,
         /// Not a token ownership transfer auth.
         NotTickerOwnershipTransferAuth,
         /// The user is not authorized.
@@ -1630,6 +1647,10 @@ impl<T: Trait> AssetTrait<T::Balance, T::AccountId> for Module<T> {
 impl<T: Trait> AcceptTransfer for Module<T> {
     fn accept_ticker_transfer(to_did: IdentityId, auth_id: u64) -> DispatchResult {
         Self::_accept_ticker_transfer(to_did, auth_id)
+    }
+
+    fn accept_treasury_transfer(to_did: IdentityId, auth_id: u64) -> DispatchResult {
+        Self::_accept_treasury_transfer(to_did, auth_id)
     }
 
     fn accept_asset_ownership_transfer(to_did: IdentityId, auth_id: u64) -> DispatchResult {
@@ -2193,6 +2214,39 @@ impl<T: Trait> Module<T> {
             to_did,
             ticker,
             ticker_details.owner,
+        ));
+
+        Ok(())
+    }
+
+    /// Accept and process a treasury transfer.
+    pub fn _accept_treasury_transfer(to_did: IdentityId, auth_id: u64) -> DispatchResult {
+        ensure!(
+            <identity::Authorizations<T>>::contains_key(Signatory::from(to_did), auth_id),
+            AuthorizationError::Invalid
+        );
+
+        let auth = <identity::Authorizations<T>>::get(Signatory::from(to_did), auth_id);
+
+        let ticker = match auth.authorization_data {
+            AuthorizationData::TransferTreasury(ticker) => ticker,
+            _ => return Err(Error::<T>::NoTreasuryTransferAuth.into()),
+        };
+
+        let token = <Tokens<T>>::get(&ticker);
+        <identity::Module<T>>::consume_auth(token.owner_did, Signatory::from(to_did), auth_id)?;
+
+        let mut old_treasury = None;
+        <Tokens<T>>::mutate(&ticker, |token| {
+            old_treasury = token.primary_issuance_did;
+            token.primary_issuance_did = Some(to_did);
+        });
+
+        Self::deposit_event(RawEvent::TreasuryTransferred(
+            to_did,
+            ticker,
+            old_treasury,
+            Some(to_did),
         ));
 
         Ok(())
