@@ -176,7 +176,7 @@ decl_storage! {
         pub CurrentDid: Option<IdentityId>;
 
         /// It stores the current gas fee payer for the current transaction
-        pub CurrentPayer: Option<Signatory<T::AccountId>>;
+        pub CurrentPayer: Option<T::AccountId>;
 
         /// (Target ID, claim type) (issuer,scope) -> Associated claims
         pub Claims: double_map hasher(blake2_128_concat) Claim1stKey, hasher(blake2_128_concat) Claim2ndKey => IdentityClaim;
@@ -2219,12 +2219,12 @@ impl<T: Trait> IdentityTrait<T::AccountId> for Module<T> {
     }
 
     /// Fetches the fee payer from the context.
-    fn current_payer() -> Option<Signatory<T::AccountId>> {
+    fn current_payer() -> Option<T::AccountId> {
         <CurrentPayer<T>>::get()
     }
 
     /// Sets the fee payer in the context.
-    fn set_current_payer(payer: Option<Signatory<T::AccountId>>) {
+    fn set_current_payer(payer: Option<T::AccountId>) {
         if let Some(payer) = payer {
             <CurrentPayer<T>>::put(payer);
         } else {

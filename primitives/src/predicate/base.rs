@@ -1,8 +1,25 @@
 use crate::{
     predicate::{Context, Predicate},
-    Claim,
+    Claim, IdentityId,
 };
 use codec::{Decode, Encode};
+
+// TargetIdentityPredicate
+// ======================================================
+
+/// It matches `id` with treasury in the context.
+#[derive(Clone, Debug)]
+pub struct TargetIdentityPredicate<'a> {
+    /// IdentityId we want to check.
+    pub identity: &'a IdentityId,
+}
+
+impl<'a> Predicate for TargetIdentityPredicate<'a> {
+    #[inline]
+    fn evaluate(&self, context: &Context) -> bool {
+        context.id == *self.identity
+    }
+}
 
 // ExistentialPredicate
 // ======================================================
@@ -185,7 +202,7 @@ impl<'a> Predicate for AnyPredicate<'a> {
 mod tests {
     use crate::{
         predicate::{self, Context, Predicate},
-        CddId, Claim, IdentityId, InvestorUid, Rule, RuleType, Scope,
+        CddId, Claim, IdentityId, InvestorUid, Rule, RuleType, Scope, TargetIdentity,
     };
     use std::convert::From;
 
@@ -198,6 +215,7 @@ mod tests {
         let context = Context {
             claims: vec![cdd_claim.clone(), Claim::Affiliate(scope)],
             id: did,
+            ..Default::default()
         };
 
         // Affiliate && CustommerDueDiligenge
@@ -313,5 +331,24 @@ mod tests {
 
         let out = !rules.iter().any(|rule| !predicate::run(&rule, &context));
         assert_eq!(out, false);
+
+        let identity1 = IdentityId::from(1);
+        let identity2 = IdentityId::from(2);
+        assert!(predicate::run(
+            &RuleType::IsIdentity(TargetIdentity::Treasury).into(),
+            &Context {
+                id: identity1,
+                treasury: Some(identity1),
+                ..Default::default()
+            }
+        ));
+        assert!(predicate::run(
+            &RuleType::IsIdentity(TargetIdentity::Specific(identity1)).into(),
+            &Context {
+                id: identity1,
+                treasury: Some(identity2),
+                ..Default::default()
+            }
+        ));
     }
 }

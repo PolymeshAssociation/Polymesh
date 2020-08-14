@@ -225,11 +225,6 @@ fn general_testnet_genesis(
                 .chain(initial_authorities.iter().map(|x| (x.1.clone(), ENDOWMENT)))
                 .chain(initial_authorities.iter().map(|x| (x.0.clone(), STASH)))
                 .collect(),
-            identity_balances: iter::once((
-                IdentityId::from(BRIDGE_CREATOR_ID),
-                BRIDGE_CREATOR_ID_BALANCE,
-            ))
-            .collect(),
         }),
         bridge: Some(GeneralConfig::BridgeConfig {
             admin: initial_authorities[0].1.clone(),
@@ -705,7 +700,6 @@ fn aldebaran_testnet_genesis(
                 .chain(initial_authorities.iter().map(|x| (x.1.clone(), ENDOWMENT)))
                 .chain(initial_authorities.iter().map(|x| (x.0.clone(), STASH)))
                 .collect(),
-            identity_balances: vec![],
         }),
         bridge: Some(AldebaranConfig::BridgeConfig {
             admin: get_account_id_from_seed::<sr25519::Public>("polymath_1"),

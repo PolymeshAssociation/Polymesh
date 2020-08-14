@@ -588,7 +588,12 @@ impl<T: Trait> Module<T> {
     ///
     /// If `rule` does not define trusted issuers, it will use the default trusted issuer for
     /// `ticker` asset.
-    fn fetch_context(ticker: &Ticker, id: IdentityId, rule: &Rule) -> predicate::Context {
+    fn fetch_context(
+        ticker: &Ticker,
+        id: IdentityId,
+        rule: &Rule,
+        treasury: Option<IdentityId>,
+    ) -> predicate::Context {
         let issuers = if !rule.issuers.is_empty() {
             rule.issuers.clone()
         } else {
@@ -609,15 +614,25 @@ impl<T: Trait> Module<T> {
             RuleType::HasValidProofOfInvestor(ref proof_ticker) => {
                 Self::fetch_confidential_claims(id, proof_ticker)
             }
+            RuleType::IsIdentity(_) => vec![],
         };
 
-        predicate::Context { claims, id }
+        predicate::Context {
+            claims,
+            id,
+            treasury,
+        }
     }
 
     /// Loads the context for each rule in `rules` and verifies that all of them evaluate to `true`.
-    fn are_all_rules_satisfied(ticker: &Ticker, did: IdentityId, rules: &[Rule]) -> bool {
+    fn are_all_rules_satisfied(
+        ticker: &Ticker,
+        did: IdentityId,
+        rules: &[Rule],
+        primary_issuance_agent: Option<IdentityId>,
+    ) -> bool {
         rules.iter().all(|rule| {
-            let context = Self::fetch_context(ticker, did, &rule);
+            let context = Self::fetch_context(ticker, did, &rule, primary_issuance_agent);
             predicate::run(&rule, &context)
         })
     }
@@ -625,10 +640,15 @@ impl<T: Trait> Module<T> {
     /// It loads a context for each rule in `rules` and evaluates them.
     /// It updates the internal result variable of every rule.
     /// It returns the final result of all rules combined.
-    fn evaluate_rules(ticker: &Ticker, did: IdentityId, rules: &mut Vec<RuleResult>) -> bool {
+    fn evaluate_rules(
+        ticker: &Ticker,
+        did: IdentityId,
+        rules: &mut Vec<RuleResult>,
+        primary_issuance_agent: Option<IdentityId>,
+    ) -> bool {
         let mut result = true;
         for rule in rules {
-            let context = Self::fetch_context(ticker, did, &rule.rule);
+            let context = Self::fetch_context(ticker, did, &rule.rule, primary_issuance_agent);
             rule.result = predicate::run(&rule.rule, &context);
             if !rule.result {
                 result = false;
@@ -759,41 +779,30 @@ impl<T: Trait> Module<T> {
         to_did_opt: Option<IdentityId>,
         primary_issuance_agent: Option<IdentityId>,
     ) -> AssetTransferRulesResult {
-        let (primary_issuance_agent_sender, primary_issuance_agent_receiver) =
-            if primary_issuance_agent.is_some() {
-                (
-                    primary_issuance_agent == from_did_opt,
-                    primary_issuance_agent == to_did_opt,
-                )
-            } else {
-                (false, false)
-            };
         let asset_rules = Self::asset_rules(ticker);
-        let no_rules = asset_rules.rules.is_empty();
         let mut asset_rules_with_results = AssetTransferRulesResult::from(asset_rules);
-        // Check if either the sender or the receiver is the primary issuance agent as in the case of issuance
-        // and credemption transactions.
-        if no_rules
-            && ((from_did_opt == None && primary_issuance_agent_receiver)
-                || (primary_issuance_agent_sender && to_did_opt == None))
-        {
-            return asset_rules_with_results;
-        }
+
         for active_rule in &mut asset_rules_with_results.rules {
             if let Some(from_did) = from_did_opt {
-                // Evaluate all sender rules first before checking if the sender is the primary issuance agent account.
-                if !Self::evaluate_rules(ticker, from_did, &mut active_rule.sender_rules)
-                    && !primary_issuance_agent_sender
-                {
+                // Evaluate all sender rules
+                if !Self::evaluate_rules(
+                    ticker,
+                    from_did,
+                    &mut active_rule.sender_rules,
+                    primary_issuance_agent,
+                ) {
                     // If the result of any of the sender rules was false, set this asset rule result to false.
                     active_rule.transfer_rule_result = false;
                 }
             }
             if let Some(to_did) = to_did_opt {
-                // Evaluate all receiver rules first before checking if the receiver is the primary issuance agent account.
-                if !Self::evaluate_rules(ticker, to_did, &mut active_rule.receiver_rules)
-                    && !primary_issuance_agent_receiver
-                {
+                // Evaluate all receiver rules
+                if !Self::evaluate_rules(
+                    ticker,
+                    to_did,
+                    &mut active_rule.receiver_rules,
+                    primary_issuance_agent,
+                ) {
                     // If the result of any of the receiver rules was false, set this asset rule result to false.
                     active_rule.transfer_rule_result = false;
                 }
@@ -844,42 +853,33 @@ impl<T: Trait> ComplianceManagerTrait<T::Balance> for Module<T> {
         _value: T::Balance,
         primary_issuance_agent: Option<IdentityId>,
     ) -> StdResult<u8, &'static str> {
-        let (primary_issuance_agent_sender, primary_issuance_agent_receiver) =
-            if primary_issuance_agent.is_some() {
-                (
-                    primary_issuance_agent == from_did_opt,
-                    primary_issuance_agent == to_did_opt,
-                )
-            } else {
-                (false, false)
-            };
-        // Transfer is valid if ALL receiver AND sender rules of ANY asset rule are valid. An
-        // exception is made for the cases when either the sender or the receiver is the primary
-        // issuance agent which covers issuance and redemption transactions.
+        // Transfer is valid if ALL receiver AND sender rules of ANY asset rule are valid.
         let asset_rules = Self::asset_rules(ticker);
-        if asset_rules.is_paused
-            || (asset_rules.rules.is_empty()
-                && ((from_did_opt == None && primary_issuance_agent_receiver)
-                    || (primary_issuance_agent_sender && to_did_opt == None)))
-        {
+        if asset_rules.is_paused {
             return Ok(ERC1400_TRANSFER_SUCCESS);
         }
         for active_rule in asset_rules.rules {
-            let mut rule_satisfied = false;
             if let Some(from_did) = from_did_opt {
-                rule_satisfied = primary_issuance_agent_sender
-                    || Self::are_all_rules_satisfied(ticker, from_did, &active_rule.sender_rules);
-                if !rule_satisfied {
+                if !Self::are_all_rules_satisfied(
+                    ticker,
+                    from_did,
+                    &active_rule.sender_rules,
+                    primary_issuance_agent,
+                ) {
                     // Skips checking receiver rules because sender rules are not satisfied.
                     continue;
                 }
             }
             if let Some(to_did) = to_did_opt {
-                rule_satisfied = primary_issuance_agent_receiver
-                    || Self::are_all_rules_satisfied(ticker, to_did, &active_rule.receiver_rules);
-            }
-            if rule_satisfied {
-                return Ok(ERC1400_TRANSFER_SUCCESS);
+                if Self::are_all_rules_satisfied(
+                    ticker,
+                    to_did,
+                    &active_rule.receiver_rules,
+                    primary_issuance_agent,
+                ) {
+                    // All rules satisfied, return early
+                    return Ok(ERC1400_TRANSFER_SUCCESS);
+                }
             }
         }
         sp_runtime::print("Identity TM restrictions not satisfied");

@@ -346,12 +346,12 @@ impl CddAndFeeDetails<AccountId, Call> for Test {
     fn get_valid_payer(
         _: &Call,
         _: &Signatory<AccountId>,
-    ) -> Result<Option<Signatory<AccountId>>, InvalidTransaction> {
+    ) -> Result<Option<AccountId>, InvalidTransaction> {
         Ok(None)
     }
     fn clear_context() {}
-    fn set_payer_context(_: Option<Signatory<AccountId>>) {}
-    fn get_payer_from_context() -> Option<Signatory<AccountId>> {
+    fn set_payer_context(_: Option<AccountId>) {}
+    fn get_payer_from_context() -> Option<AccountId> {
         None
     }
     fn set_current_identity(_: &IdentityId) {}
@@ -686,7 +686,6 @@ impl ExtBuilder {
                 // This allows us to have a total_payout different from 0.
                 (999, 1_000_000_000_000),
             ],
-            identity_balances: vec![],
         }
         .assimilate_storage(&mut storage);
 

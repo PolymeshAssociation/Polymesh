@@ -123,7 +123,9 @@ fn mint_subsidy_works() {
 
             // Funding BRR
             let eve_signed = Origin::signed(AccountKeyring::Eve.public());
-            assert_ok!(Balances::top_up_brr_balance(eve_signed, 500,));
+            assert_ok!(Balances::deposit_block_reward_reserve_balance(
+                eve_signed, 500,
+            ));
             assert_eq!(Balances::free_balance(&brr), 500);
             assert_eq!(Balances::total_issuance(), ti);
 
@@ -178,7 +180,9 @@ fn issue_must_work() {
 
             // Funding BRR
             let eve_signed = Origin::signed(AccountKeyring::Eve.public());
-            assert_ok!(Balances::top_up_brr_balance(eve_signed, 500,));
+            assert_ok!(Balances::deposit_block_reward_reserve_balance(
+                eve_signed, 500,
+            ));
             assert_eq!(Balances::free_balance(&brr), 500);
             assert_eq!(Balances::total_issuance(), ti);
 
@@ -236,82 +240,6 @@ fn burn_account_balance_works() {
         // The total issuance is unchanged either.
         assert_eq!(total_issuance2, total_issuance1);
     });
-}
-
-#[test]
-#[ignore]
-fn should_charge_identity() {
-    ExtBuilder::default()
-        .balance_factor(10)
-        .transaction_fees(0, 1, 5)
-        .monied(true)
-        .build()
-        .execute_with(|| {
-            let call = runtime::Call::Identity(identity::Call::register_did(
-                InvestorUid::default(),
-                vec![],
-            ));
-            let dave_pub = AccountKeyring::Dave.public();
-            let dave_id = AccountKeyring::Dave.to_account_id();
-            let signed_acc_id = Origin::signed(AccountKeyring::Dave.public());
-            let acc_did = register_keyring_account(AccountKeyring::Dave).unwrap();
-
-            let len = 10;
-            assert!(
-                <ChargeTransactionPayment<Runtime> as SignedExtension>::pre_dispatch(
-                    ChargeTransactionPayment::from(0 /* 0 tip */),
-                    &dave_id,
-                    &call,
-                    &info_from_weight(3),
-                    len
-                )
-                .is_ok()
-            );
-
-            assert_ok!(Balances::change_charge_did_flag(
-                signed_acc_id.clone(),
-                true
-            ));
-            assert!(
-                <ChargeTransactionPayment<Runtime> as SignedExtension>::pre_dispatch(
-                    ChargeTransactionPayment::from(0 /* 0 tip */),
-                    &dave_id,
-                    &call,
-                    &info_from_weight(3),
-                    len
-                )
-                .is_err()
-            ); // no balance in identity
-            assert_eq!(Balances::free_balance(&dave_pub), 365);
-            assert_ok!(Balances::top_up_identity_balance(
-                signed_acc_id.clone(),
-                acc_did,
-                300
-            ));
-            assert_eq!(Balances::free_balance(&dave_pub), 65);
-            assert_eq!(Balances::identity_balance(acc_did), 300);
-            assert!(
-                <ChargeTransactionPayment<Runtime> as SignedExtension>::pre_dispatch(
-                    ChargeTransactionPayment::from(0 /* 0 tip */),
-                    &dave_id,
-                    &call,
-                    &info_from_weight(3),
-                    len
-                )
-                .is_ok()
-            );
-            assert_ok!(Balances::reclaim_identity_balance(
-                signed_acc_id.clone(),
-                acc_did,
-                230
-            ));
-            assert_err!(
-                Balances::reclaim_identity_balance(signed_acc_id, acc_did, 230),
-                "too few free funds in account"
-            );
-            assert_eq!(Balances::free_balance(&dave_pub), 295);
-            assert_eq!(Balances::identity_balance(acc_did), 35);
-        });
 }
 
 #[test]
@@ -391,47 +319,4 @@ fn transfer_with_memo_we() {
     expected_events.into_iter().for_each(|expected| {
         assert!(system_events.contains(&expected));
     });
-}
-
-#[test]
-fn check_top_up_identity_balance() {
-    ExtBuilder::default()
-        .balance_factor(0)
-        .monied(true)
-        .cdd_providers(vec![AccountKeyring::Ferdie.public()])
-        .build()
-        .execute_with(|| {
-            let dave_pub = AccountKeyring::Dave.public();
-            let (signed_acc_id, acc_did) = make_account_without_cdd(dave_pub).unwrap();
-            let old_total_issuance = Balances::total_issuance();
-
-            assert_err!(
-                Balances::top_up_identity_balance(signed_acc_id.clone(), acc_did, 300),
-                Error::ReceiverCddMissing
-            );
-
-            assert_ok!(Identity::add_claim(
-                Origin::signed(AccountKeyring::Ferdie.public()),
-                acc_did,
-                Claim::make_cdd_wildcard(),
-                None
-            ));
-
-            assert_ok!(Balances::top_up_identity_balance(
-                signed_acc_id.clone(),
-                acc_did,
-                300
-            ));
-            assert_eq!(old_total_issuance, Balances::total_issuance());
-            assert_eq!(Balances::identity_balance(acc_did), 300);
-
-            // If transfer amount is 0 then operation should be no-op
-            assert_ok!(Balances::top_up_identity_balance(
-                signed_acc_id.clone(),
-                acc_did,
-                0
-            ));
-            assert_eq!(old_total_issuance, Balances::total_issuance());
-            assert_eq!(Balances::identity_balance(acc_did), 300);
-        });
 }
