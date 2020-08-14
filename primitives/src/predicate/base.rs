@@ -343,7 +343,7 @@ mod tests {
             }
         ));
         assert!(predicate::run(
-            &RuleType::IsIdentity(TargetIdentity::Specific(identity2)).into(),
+            &RuleType::IsIdentity(TargetIdentity::Specific(identity1)).into(),
             &Context {
                 id: identity1,
                 treasury: Some(identity2),
