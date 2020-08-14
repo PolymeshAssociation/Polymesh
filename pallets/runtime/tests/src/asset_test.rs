@@ -11,9 +11,7 @@ use pallet_balances as balances;
 use pallet_compliance_manager as compliance_manager;
 use pallet_identity as identity;
 use pallet_statistics as statistics;
-use polymesh_common_utilities::{
-    constants::*, traits::asset::IssueAssetItem, traits::balances::Memo,
-};
+use polymesh_common_utilities::{constants::*, traits::balances::Memo};
 use polymesh_primitives::{
     AuthorizationData, Document, DocumentName, IdentityId, Signatory, SmartExtension,
     SmartExtensionType, Ticker,
@@ -296,12 +294,13 @@ fn valid_custodian_allowance() {
         ));
         // Mint some tokens to investor1
         let num_tokens1: u128 = 2_000_000;
-        assert_ok!(Asset::issue(
-            owner_signed.clone(),
-            ticker,
+        assert_ok!(Asset::issue(owner_signed.clone(), ticker, num_tokens1));
+        assert_ok!(Asset::unsafe_transfer(
+            owner_did,
+            &ticker,
+            owner_did,
             investor1_did,
-            num_tokens1,
-            vec![0x0]
+            num_tokens1
         ));
         assert_eq!(Asset::funding_round(&ticker), funding_round1.clone());
         assert_eq!(
@@ -467,9 +466,14 @@ fn valid_custodian_allowance_of() {
         assert_ok!(Asset::issue(
             owner_signed.clone(),
             ticker,
-            investor1_did,
             200_00_00 as u128,
-            vec![0x0]
+        ));
+        assert_ok!(Asset::unsafe_transfer(
+            owner_did,
+            &ticker,
+            owner_did,
+            investor1_did,
+            2_000_000 as u128
         ));
 
         assert_eq!(
@@ -1784,11 +1788,7 @@ fn freeze_unfreeze_asset() {
             AssetError::AlreadyFrozen
         );
 
-        // Attempt to mint tokens.
-        assert_err!(
-            Asset::issue(alice_signed.clone(), ticker, bob_did, 1, vec![]),
-            AssetError::InvalidTransfer
-        );
+        // Attempt to transfer tokens.
         assert_err!(
             Asset::transfer(alice_signed.clone(), ticker, bob_did, 1),
             AssetError::InvalidTransfer
@@ -1806,23 +1806,6 @@ fn freeze_unfreeze_asset() {
             auth_id
         ));
 
-        // `batch_issue` fails when the vector of recipients is not empty.
-        assert_err!(
-            Asset::batch_issue(
-                bob_signed.clone(),
-                vec![IssueAssetItem {
-                    investor_did: bob_did,
-                    value: 1
-                }],
-                ticker
-            ),
-            AssetError::InvalidTransfer
-        );
-        // `batch_issue` fails with the empty vector of investors with a different error message.
-        assert_err!(
-            Asset::batch_issue(bob_signed.clone(), vec![], ticker),
-            AssetError::NoInvestors
-        );
         assert_ok!(Asset::unfreeze(bob_signed.clone(), ticker));
         assert_err!(
             Asset::unfreeze(bob_signed.clone(), ticker),
