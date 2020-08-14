@@ -1830,11 +1830,6 @@ fn frozen_secondary_keys_create_asset_we() {
     let bob = AccountKeyring::Bob.public();
 
     // 1. Add Bob as signatory to Alice ID.
-    assert_ok!(Balances::top_up_identity_balance(
-        Origin::signed(alice),
-        alice_id,
-        100_000
-    ));
     let bob_signatory = Signatory::Account(AccountKeyring::Bob.public());
     add_secondary_key(alice_id, bob_signatory);
     assert_ok!(Balances::transfer_with_memo(
@@ -2057,11 +2052,6 @@ fn clear_treasury() {
     let alice_id = register_keyring_account(AccountKeyring::Alice).unwrap();
     let bob = AccountKeyring::Bob.public();
     let bob_id = register_keyring_account(AccountKeyring::Bob).unwrap();
-    assert_ok!(Balances::top_up_identity_balance(
-        Origin::signed(alice),
-        alice_id,
-        100_000
-    ));
     assert_ok!(Balances::transfer_with_memo(
         Origin::signed(alice),
         bob,
