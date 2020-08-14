@@ -1263,13 +1263,13 @@ fn cm_test_case_13_we() {
 }
 
 #[test]
-fn can_verify_restriction_with_treasury_did() {
+fn can_verify_restriction_with_primary_issuance_agent() {
     ExtBuilder::default()
         .build()
-        .execute_with(can_verify_restriction_with_treasury_did_we);
+        .execute_with(can_verify_restriction_with_primary_issuance_agent_we);
 }
 
-fn can_verify_restriction_with_treasury_did_we() {
+fn can_verify_restriction_with_primary_issuance_agent_we() {
     let owner = AccountKeyring::Alice.public();
     let owner_origin = Origin::signed(owner);
     let owner_id = register_keyring_account(AccountKeyring::Alice).unwrap();

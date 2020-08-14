@@ -757,38 +757,42 @@ impl<T: Trait> Module<T> {
         ticker: &Ticker,
         from_did_opt: Option<IdentityId>,
         to_did_opt: Option<IdentityId>,
-        treasury_did: Option<IdentityId>,
+        primary_issuance_agent: Option<IdentityId>,
     ) -> AssetTransferRulesResult {
-        let (treasury_sender, treasury_receiver) = if treasury_did.is_some() {
-            (treasury_did == from_did_opt, treasury_did == to_did_opt)
-        } else {
-            (false, false)
-        };
+        let (primary_issuance_agent_sender, primary_issuance_agent_receiver) =
+            if primary_issuance_agent.is_some() {
+                (
+                    primary_issuance_agent == from_did_opt,
+                    primary_issuance_agent == to_did_opt,
+                )
+            } else {
+                (false, false)
+            };
         let asset_rules = Self::asset_rules(ticker);
         let no_rules = asset_rules.rules.is_empty();
         let mut asset_rules_with_results = AssetTransferRulesResult::from(asset_rules);
-        // Check if either the sender or the receiver is the treasury DID as in the case of issuance
+        // Check if either the sender or the receiver is the primary issuance agent as in the case of issuance
         // and credemption transactions.
         if no_rules
-            && ((from_did_opt == None && treasury_receiver)
-                || (treasury_sender && to_did_opt == None))
+            && ((from_did_opt == None && primary_issuance_agent_receiver)
+                || (primary_issuance_agent_sender && to_did_opt == None))
         {
             return asset_rules_with_results;
         }
         for active_rule in &mut asset_rules_with_results.rules {
             if let Some(from_did) = from_did_opt {
-                // Evaluate all sender rules first before checking if the sender is the treasury account.
+                // Evaluate all sender rules first before checking if the sender is the primary issuance agent account.
                 if !Self::evaluate_rules(ticker, from_did, &mut active_rule.sender_rules)
-                    && !treasury_sender
+                    && !primary_issuance_agent_sender
                 {
                     // If the result of any of the sender rules was false, set this asset rule result to false.
                     active_rule.transfer_rule_result = false;
                 }
             }
             if let Some(to_did) = to_did_opt {
-                // Evaluate all receiver rules first before checking if the receiver is the treasury account.
+                // Evaluate all receiver rules first before checking if the receiver is the primary issuance agent account.
                 if !Self::evaluate_rules(ticker, to_did, &mut active_rule.receiver_rules)
-                    && !treasury_receiver
+                    && !primary_issuance_agent_receiver
                 {
                     // If the result of any of the receiver rules was false, set this asset rule result to false.
                     active_rule.transfer_rule_result = false;
@@ -838,28 +842,32 @@ impl<T: Trait> ComplianceManagerTrait<T::Balance> for Module<T> {
         from_did_opt: Option<IdentityId>,
         to_did_opt: Option<IdentityId>,
         _value: T::Balance,
-        treasury_did: Option<IdentityId>,
+        primary_issuance_agent: Option<IdentityId>,
     ) -> StdResult<u8, &'static str> {
-        let (treasury_sender, treasury_receiver) = if treasury_did.is_some() {
-            (treasury_did == from_did_opt, treasury_did == to_did_opt)
-        } else {
-            (false, false)
-        };
+        let (primary_issuance_agent_sender, primary_issuance_agent_receiver) =
+            if primary_issuance_agent.is_some() {
+                (
+                    primary_issuance_agent == from_did_opt,
+                    primary_issuance_agent == to_did_opt,
+                )
+            } else {
+                (false, false)
+            };
         // Transfer is valid if ALL receiver AND sender rules of ANY asset rule are valid. An
-        // exception is made for the cases when either the sender or the receiver is the treasury
-        // DID, which covers issuance and redemption transactions.
+        // exception is made for the cases when either the sender or the receiver is the primary
+        // issuance agent which covers issuance and redemption transactions.
         let asset_rules = Self::asset_rules(ticker);
         if asset_rules.is_paused
             || (asset_rules.rules.is_empty()
-                && ((from_did_opt == None && treasury_receiver)
-                    || (treasury_sender && to_did_opt == None)))
+                && ((from_did_opt == None && primary_issuance_agent_receiver)
+                    || (primary_issuance_agent_sender && to_did_opt == None)))
         {
             return Ok(ERC1400_TRANSFER_SUCCESS);
         }
         for active_rule in asset_rules.rules {
             let mut rule_satisfied = false;
             if let Some(from_did) = from_did_opt {
-                rule_satisfied = treasury_sender
+                rule_satisfied = primary_issuance_agent_sender
                     || Self::are_all_rules_satisfied(ticker, from_did, &active_rule.sender_rules);
                 if !rule_satisfied {
                     // Skips checking receiver rules because sender rules are not satisfied.
@@ -867,7 +875,7 @@ impl<T: Trait> ComplianceManagerTrait<T::Balance> for Module<T> {
                 }
             }
             if let Some(to_did) = to_did_opt {
-                rule_satisfied = treasury_receiver
+                rule_satisfied = primary_issuance_agent_receiver
                     || Self::are_all_rules_satisfied(ticker, to_did, &active_rule.receiver_rules);
             }
             if rule_satisfied {

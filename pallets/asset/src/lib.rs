@@ -224,7 +224,7 @@ pub struct SecurityToken<U> {
     pub owner_did: IdentityId,
     pub divisible: bool,
     pub asset_type: AssetType,
-    pub treasury_did: Option<IdentityId>,
+    pub primary_issuance_agent: Option<IdentityId>,
 }
 
 /// struct to store the signed data.
@@ -446,7 +446,7 @@ decl_module! {
             asset_type: AssetType,
             identifiers: Vec<(IdentifierType, AssetIdentifier)>,
             funding_round: Option<FundingRoundName>,
-            treasury_did: Option<IdentityId>,
+            primary_issuance_agent: Option<IdentityId>,
         ) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             let did = Context::current_identity_or::<Identity<T>>(&sender)?;
@@ -476,10 +476,10 @@ decl_module! {
                 owner_did: did,
                 divisible,
                 asset_type: asset_type.clone(),
-                treasury_did,
+                primary_issuance_agent,
             };
             <Tokens<T>>::insert(&ticker, token);
-            let beneficiary_did = treasury_did.unwrap_or(did);
+            let beneficiary_did = primary_issuance_agent.unwrap_or(did);
             <BalanceOf<T>>::insert(ticker, beneficiary_did, total_supply);
             Portfolio::<T>::set_default_portfolio_balance(beneficiary_did, &ticker, total_supply);
             <AssetOwnershipRelations>::insert(did, ticker, AssetOwnershipRelation::AssetOwned);
@@ -520,7 +520,7 @@ decl_module! {
                 total_supply,
                 Self::funding_round(ticker),
                 total_supply,
-                treasury_did,
+                primary_issuance_agent,
             ));
             Ok(())
         }
@@ -826,7 +826,7 @@ decl_module! {
                     *value,
                     round.clone(),
                     issued_in_this_round,
-                    token.treasury_did,
+                    token.primary_issuance_agent,
                 ));
             }
             <Tokens<T>>::insert(ticker, token);
@@ -1337,27 +1337,27 @@ decl_module! {
             Ok(())
         }
 
-        /// Sets the treasury DID to a given value. The caller must be the asset issuer. The asset
-        /// issuer can always update the treasury DID, including setting it to `None`. If the issuer
-        /// modifies their treasury DID to `None` then it will be immovable until either they change
-        /// the treasury DID to `Some` DID, or they add a claim to allow that DID to move the
+        /// Sets the primary issuance agent to a given value. The caller must be the asset issuer. The asset
+        /// issuer can always update the primary issuance agent, including setting it to `None`. If the issuer
+        /// modifies their primary issuance agent to `None` then it will be immovable until either they change
+        /// the primary issuance agent to `Some` DID, or they add a claim to allow that DID to move the
         /// asset.
         ///
         /// # Arguments
         /// * `origin` - The asset issuer.
         /// * `ticker` - Ticker symbol of the asset.
-        /// * `treasury_did` - The treasury DID wrapped in a value of type [`Option`].
+        /// * `PRIMARY_ISSUANCE_AGENT` - The primary issuance agent wrapped in a value of type [`Option`].
         #[weight = T::DbWeight::get().reads_writes(1, 1) + 50_000_000]
-        pub fn set_treasury_did(
+        pub fn set_primary_issuance_agent(
             origin,
             ticker: Ticker,
-            treasury_did: Option<IdentityId>,
+            primary_issuance_agent: Option<IdentityId>,
         ) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             let did = Context::current_identity_or::<Identity<T>>(&sender)?;
             ensure!(Self::is_owner(&ticker, did), Error::<T>::Unauthorized);
-            <Tokens<T>>::mutate(&ticker, |token| token.treasury_did = treasury_did);
-            Self::deposit_event(RawEvent::TreasuryDidSet(did, ticker, treasury_did));
+            <Tokens<T>>::mutate(&ticker, |token| token.primary_issuance_agent = primary_issuance_agent);
+            Self::deposit_event(RawEvent::PrimaryIssuanceAgentSet(did, ticker, primary_issuance_agent));
             Ok(())
         }
     }
@@ -1378,7 +1378,7 @@ decl_event! {
         Approval(IdentityId, Ticker, IdentityId, IdentityId, Balance),
         /// Emit when tokens get issued.
         /// caller DID, ticker, beneficiary DID, value, funding round, total issued in this funding round,
-        /// treasury DID
+        /// primary issuance agent
         Issued(IdentityId, Ticker, IdentityId, Balance, FundingRoundName, Balance, Option<IdentityId>),
         /// Emit when tokens get redeemed.
         /// caller DID, ticker,  from DID, value
@@ -1443,8 +1443,8 @@ decl_event! {
         /// Emitted event for Checkpoint creation.
         /// caller DID. ticker, checkpoint count.
         CheckpointCreated(IdentityId, Ticker, u64),
-        /// An event emitted when the treasury DID of an asset is set.
-        TreasuryDidSet(IdentityId, Ticker, Option<IdentityId>),
+        /// An event emitted when the primary issuance agent of an asset is set.
+        PrimaryIssuanceAgentSet(IdentityId, Ticker, Option<IdentityId>),
         /// A new document attached to an asset
         DocumentAdded(Ticker, DocumentName, Document),
         /// A document removed from an asset
@@ -1619,10 +1619,10 @@ impl<T: Trait> AssetTrait<T::Balance, T::AccountId> for Module<T> {
         Self::unsafe_transfer_by_custodian(custodian_did, ticker, holder_did, receiver_did, value)
     }
 
-    fn treasury(ticker: &Ticker) -> IdentityId {
+    fn primary_issuance_agent(ticker: &Ticker) -> IdentityId {
         let token_details = Self::token_details(ticker);
         token_details
-            .treasury_did
+            .primary_issuance_agent
             .unwrap_or(token_details.owner_did)
     }
 }
@@ -1821,13 +1821,13 @@ impl<T: Trait> Module<T> {
         if Self::frozen(ticker) {
             return Ok(ERC1400_TRANSFERS_HALTED);
         }
-        let treasury_did = <Tokens<T>>::get(ticker).treasury_did;
+        let primary_issuance_agent = <Tokens<T>>::get(ticker).primary_issuance_agent;
         let general_status_code = T::ComplianceManager::verify_restriction(
             ticker,
             from_did,
             to_did,
             value,
-            treasury_did,
+            primary_issuance_agent,
         )?;
         Ok(if general_status_code != ERC1400_TRANSFER_SUCCESS {
             COMPLIANCE_MANAGER_FAILURE
@@ -2026,7 +2026,7 @@ impl<T: Trait> Module<T> {
         token.total_supply = updated_total_supply;
         <BalanceOf<T>>::insert(ticker, &to_did, updated_to_balance);
         Portfolio::<T>::set_default_portfolio_balance(to_did, ticker, updated_to_def_balance);
-        let treasury_did = token.treasury_did;
+        let primary_issuance_agent = token.primary_issuance_agent;
         <Tokens<T>>::insert(ticker, token);
 
         // Update the investor count of an asset.
@@ -2057,7 +2057,7 @@ impl<T: Trait> Module<T> {
             value,
             round,
             issued_in_this_round,
-            treasury_did,
+            primary_issuance_agent,
         ));
 
         Ok(())

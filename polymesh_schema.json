@@ -51,7 +51,7 @@
             "owner_did": "IdentityId",
             "divisible": "bool",
             "asset_type": "AssetType",
-            "treasury_did": "Option<IdentityId>"
+            "primary_issuance_agent": "Option<IdentityId>"
         },
         "LinkedKeyInfo": {
             "_enum": {
@@ -710,7 +710,7 @@
                         "isOptional": false
                     },
                     {
-                        "name": "treasury_did",
+                        "name": "primary_issuance_agent",
                         "type": "Option<IdentityId>",
                         "isOptional": false
                     },

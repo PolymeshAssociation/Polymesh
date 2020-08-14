@@ -77,5 +77,5 @@ pub trait Trait<V, U> {
         receiver_did: IdentityId,
         value: V,
     ) -> DispatchResult;
-    fn treasury(ticker: &Ticker) -> IdentityId;
+    fn primary_issuance_agent(ticker: &Ticker) -> IdentityId;
 }

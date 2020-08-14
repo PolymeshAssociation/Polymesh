@@ -1990,13 +1990,13 @@ fn test_can_transfer_rpc() {
 }
 
 #[test]
-fn can_set_treasury_did() {
+fn can_set_primary_issuance_agent() {
     ExtBuilder::default()
         .build()
-        .execute_with(can_set_treasury_did_we);
+        .execute_with(can_set_primary_issuance_agent_we);
 }
 
-fn can_set_treasury_did_we() {
+fn can_set_primary_issuance_agent_we() {
     let alice = AccountKeyring::Alice.public();
     let alice_id = register_keyring_account(AccountKeyring::Alice).unwrap();
     let _charlie_id = register_keyring_account(AccountKeyring::Charlie).unwrap();
@@ -2035,11 +2035,11 @@ fn can_set_treasury_did_we() {
         None,
     ));
     assert_eq!(Asset::token_details(ticker_1), token_1);
-    let treasury_did = Some(alice_id);
-    assert_ok!(Asset::set_treasury_did(
+    let primary_issuance_agent = Some(alice_id);
+    assert_ok!(Asset::set_primary_issuance_agent(
         Origin::signed(bob),
         ticker_1,
-        treasury_did
+        primary_issuance_agent
     ));
     let token_2 = SecurityToken {
         name: token_1.name,
@@ -2047,7 +2047,7 @@ fn can_set_treasury_did_we() {
         total_supply: token_1.total_supply,
         divisible: token_1.divisible,
         asset_type: token_1.asset_type,
-        treasury_did,
+        primary_issuance_agent,
         ..Default::default()
     };
     assert_eq!(Asset::token_details(ticker_1), token_2);
