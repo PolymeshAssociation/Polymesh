@@ -69,7 +69,6 @@ fn do_move_asset_from_portfolio() {
         token.asset_type.clone(),
         vec![],
         None,
-        None,
     ));
     assert_eq!(
         Portfolio::default_portfolio_balance(owner_did, &ticker),

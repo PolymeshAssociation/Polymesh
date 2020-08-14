@@ -355,6 +355,7 @@
                 "AttestPrimaryKeyRotation": "IdentityId",
                 "RotatePrimaryKey": "IdentityId",
                 "TransferTicker": "Ticker",
+                "TransferTreasury": "Ticker",
                 "AddMultiSigSigner": "AccountId",
                 "TransferAssetOwnership": "Ticker",
                 "JoinIdentity": "Vec<Permission>",
