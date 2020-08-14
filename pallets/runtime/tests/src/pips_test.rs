@@ -53,7 +53,7 @@ fn starting_a_proposal_works_we() {
     let proposal_url: Url = b"www.abc.com".into();
     let proposal_desc: PipDescription = b"Test description".into();
 
-    TestStorage::set_payer_context(Some(Signatory::Account(AccountKeyring::Alice.public())));
+    TestStorage::set_payer_context(Some(AccountKeyring::Alice.public()));
     let alice_acc = AccountKeyring::Alice.public();
     let (alice_signer, _) = make_account_with_balance(alice_acc, 300).unwrap();
 
@@ -112,7 +112,7 @@ fn closing_a_proposal_works_we() {
     // Voting majority
     let root = Origin::from(frame_system::RawOrigin::Root);
 
-    TestStorage::set_payer_context(Some(Signatory::Account(AccountKeyring::Alice.public())));
+    TestStorage::set_payer_context(Some(AccountKeyring::Alice.public()));
     let alice_acc = AccountKeyring::Alice.public();
     let (alice_signer, _) = make_account_with_balance(alice_acc, 300).unwrap();
 
@@ -156,15 +156,15 @@ fn creating_a_referendum_works_we() {
     let proposal_desc: PipDescription = b"Test description".into();
 
     let alice_acc = AccountKeyring::Alice.public();
-    TestStorage::set_payer_context(Some(Signatory::Account(alice_acc)));
+    TestStorage::set_payer_context(Some(alice_acc));
     let (alice_signer, _) = make_account_with_balance(alice_acc, 300).unwrap();
     let bob_acc = AccountKeyring::Bob.public();
-    TestStorage::set_payer_context(Some(Signatory::Account(bob_acc)));
+    TestStorage::set_payer_context(Some(bob_acc));
     let (bob_signer, _) = make_account_with_balance(bob_acc, 200).unwrap();
     // Voting majority
     let root = Origin::from(frame_system::RawOrigin::Root);
 
-    TestStorage::set_payer_context(Some(Signatory::Account(alice_acc)));
+    TestStorage::set_payer_context(Some(alice_acc));
     assert_ok!(Pips::propose(
         alice_signer.clone(),
         Box::new(proposal.clone()),
@@ -185,7 +185,7 @@ fn creating_a_referendum_works_we() {
         Error::<TestStorage>::ProposalOnCoolOffPeriod
     );
     fast_forward_to(101);
-    TestStorage::set_payer_context(Some(Signatory::Account(bob_acc)));
+    TestStorage::set_payer_context(Some(bob_acc));
     assert_ok!(Pips::vote(bob_signer.clone(), 0, true, 50));
 
     // Cannot prune proposal at this stage
@@ -909,11 +909,11 @@ fn proposal_with_beneficiares_we() {
     let charlie = AccountKeyring::Charlie.public();
     let dave = AccountKeyring::Dave.public();
     let eve = AccountKeyring::Eve.public();
-    TestStorage::set_payer_context(Some(Signatory::Account(charlie)));
+    TestStorage::set_payer_context(Some(charlie));
     let charlie_id = register_keyring_account_with_balance(AccountKeyring::Charlie, 200).unwrap();
-    TestStorage::set_payer_context(Some(Signatory::Account(dave)));
+    TestStorage::set_payer_context(Some(dave));
     let dave_id = register_keyring_account_with_balance(AccountKeyring::Dave, 200).unwrap();
-    TestStorage::set_payer_context(Some(Signatory::Account(eve)));
+    TestStorage::set_payer_context(Some(eve));
     let _ = register_keyring_account_with_balance(AccountKeyring::Eve, 1_000_000).unwrap();
     let eve_acc = Origin::signed(AccountKeyring::Eve.public());
 
@@ -932,7 +932,7 @@ fn proposal_with_beneficiares_we() {
         },
     ];
 
-    TestStorage::set_payer_context(Some(Signatory::Account(charlie)));
+    TestStorage::set_payer_context(Some(charlie));
     assert_ok!(Pips::propose(
         Origin::signed(charlie.clone()),
         Box::new(proposal),
@@ -943,7 +943,7 @@ fn proposal_with_beneficiares_we() {
     ));
 
     // 2. Alice can fast track because she is a GC member
-    TestStorage::set_payer_context(Some(Signatory::Account(alice)));
+    TestStorage::set_payer_context(Some(alice));
     assert_ok!(Pips::fast_track_proposal(Origin::signed(alice), 0));
     assert_eq!(
         Pips::referendums(0),
@@ -973,7 +973,4 @@ fn proposal_with_beneficiares_we() {
             enactment_period: 101,
         })
     );
-
-    assert_eq!(Balances::identity_balance(charlie_id), 200);
-    assert_eq!(Balances::identity_balance(dave_id), 800);
 }

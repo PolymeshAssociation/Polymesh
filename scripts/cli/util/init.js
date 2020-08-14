@@ -181,20 +181,7 @@ const createIdentitiesWithExpiry = async function(api, accounts, alice, expiries
     const d = await api.query.identity.keyToIdentityIds(accounts[i].publicKey);
     dids.push(d.toHuman().Unique);
   }
-  let did_balance = 1000 * 10**6;
-  for (let i = 0; i < dids.length; i++) {
-    await topUpIdentityBalance(api, alice, dids[i], did_balance);
-  }
   return dids;
-}
-
-// Top up identity balance
-async function topUpIdentityBalance(api, signer, did, did_balance) {
-  let nonceObj = {nonce: nonces.get(signer.address)};
-  const transaction = api.tx.balances.topUpIdentityBalance(did, did_balance);
-  await sendTransaction(transaction, signer, nonceObj);
-
-  nonces.set( signer.address, nonces.get(signer.address).addn(1));
 }
 
 // Fetches DID that belongs to the Account Key
@@ -468,7 +455,6 @@ let reqImports = {
   signatory,
   createMultiSig,
   u8aToHex,
-  topUpIdentityBalance,
   keyToIdentityIds
 };
 

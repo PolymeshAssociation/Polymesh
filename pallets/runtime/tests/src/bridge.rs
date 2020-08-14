@@ -53,12 +53,6 @@ fn can_issue_to_identity_we() {
     let charlie = Origin::signed(AccountKeyring::Charlie.public());
     let dave = Origin::signed(AccountKeyring::Dave.public());
 
-    assert_ok!(Balances::top_up_identity_balance(
-        alice.clone(),
-        alice_did,
-        555
-    ));
-
     let controller = MultiSig::get_next_multisig_address(AccountKeyring::Alice.public());
     assert_ok!(MultiSig::create_multisig(
         alice.clone(),
@@ -170,12 +164,6 @@ fn can_change_controller() {
         let charlie = Origin::signed(AccountKeyring::Charlie.public());
         let dave = Origin::signed(AccountKeyring::Dave.public());
 
-        assert_ok!(Balances::top_up_identity_balance(
-            alice.clone(),
-            alice_did,
-            555
-        ));
-
         let controller = MultiSig::get_next_multisig_address(AccountKeyring::Alice.public());
         assert_ok!(MultiSig::create_multisig(
             alice.clone(),
@@ -281,12 +269,6 @@ fn do_freeze_and_unfreeze_bridge() {
     let charlie_key = AccountKeyring::Charlie.public();
     let bob = Origin::signed(AccountKeyring::Bob.public());
     let charlie = Origin::signed(AccountKeyring::Charlie.public());
-
-    assert_ok!(Balances::top_up_identity_balance(
-        alice.clone(),
-        alice_did,
-        555
-    ));
 
     let controller = MultiSig::get_next_multisig_address(AccountKeyring::Alice.public());
     assert_ok!(MultiSig::create_multisig(
@@ -416,12 +398,6 @@ fn do_timelock_txs() {
     let bob = Origin::signed(AccountKeyring::Bob.public());
     let charlie = Origin::signed(AccountKeyring::Charlie.public());
 
-    assert_ok!(Balances::top_up_identity_balance(
-        alice.clone(),
-        alice_did,
-        555
-    ));
-
     let controller = MultiSig::get_next_multisig_address(AccountKeyring::Alice.public());
     assert_ok!(MultiSig::create_multisig(
         alice.clone(),
@@ -535,12 +511,6 @@ fn do_rate_limit() {
     let charlie_key = AccountKeyring::Charlie.public();
     let bob = Origin::signed(AccountKeyring::Bob.public());
     let charlie = Origin::signed(AccountKeyring::Charlie.public());
-
-    assert_ok!(Balances::top_up_identity_balance(
-        alice.clone(),
-        alice_did,
-        555
-    ));
 
     let controller = MultiSig::get_next_multisig_address(AccountKeyring::Alice.public());
     assert_ok!(MultiSig::create_multisig(
@@ -663,12 +633,6 @@ fn do_exempted() {
     let bob = Origin::signed(AccountKeyring::Bob.public());
     let charlie = Origin::signed(AccountKeyring::Charlie.public());
 
-    assert_ok!(Balances::top_up_identity_balance(
-        alice.clone(),
-        alice_did,
-        555
-    ));
-
     let controller = MultiSig::get_next_multisig_address(AccountKeyring::Alice.public());
     assert_ok!(MultiSig::create_multisig(
         alice.clone(),
@@ -786,12 +750,6 @@ fn do_force_mint() {
     let charlie_key = AccountKeyring::Charlie.public();
     let bob = Origin::signed(AccountKeyring::Bob.public());
     let charlie = Origin::signed(AccountKeyring::Charlie.public());
-
-    assert_ok!(Balances::top_up_identity_balance(
-        alice.clone(),
-        alice_did,
-        555
-    ));
 
     let controller = MultiSig::get_next_multisig_address(AccountKeyring::Alice.public());
     assert_ok!(MultiSig::create_multisig(

@@ -47,16 +47,7 @@ async function createIdentities(api, accounts, alice) {
         const d = await api.query.identity.keyToIdentityIds(accounts[i].publicKey);
         dids.push(d.toHuman().Unique);
       }
-      let did_balance = 1000 * 10**6;
-      for (let i = 0; i < dids.length; i++) {
-        let nonceObjTwo = {nonce: reqImports.nonces.get(alice.address)};
-        const transactionTwo = api.tx.balances.topUpIdentityBalance(dids[i], did_balance);
-        const result = await reqImports.sendTransaction(transactionTwo, alice, nonceObjTwo);  
-        const passed = result.findRecord('system', 'ExtrinsicSuccess');
-        if (passed) reqImports.fail_count--;
 
-        reqImports.nonces.set( alice.address, reqImports.nonces.get(alice.address).addn(1));
-      }
       return dids;
 
 }
