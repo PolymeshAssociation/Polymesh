@@ -478,6 +478,7 @@ where
             frame_system::CheckWeight::<Runtime>::new(),
             pallet_transaction_payment::ChargeTransactionPayment::<Runtime>::from(tip),
             pallet_grandpa::ValidateEquivocationReport::<Runtime>::new(),
+            pallet_permissions::CheckPermissions::<Runtime>::new(),
         );
         let raw_payload = SignedPayload::new(call, extra)
             .map_err(|e| {
@@ -689,6 +690,8 @@ impl EnactProposalMaker<Origin, Call> for Runtime {
     }
 }
 
+impl pallet_permissions::Trait for Runtime {}
+
 construct_runtime!(
     pub enum Runtime where
         Block = Block,
@@ -748,6 +751,7 @@ construct_runtime!(
         ProtocolFee: protocol_fee::{Module, Call, Storage, Event<T>, Config<T>},
         Utility: utility::{Module, Call, Storage, Event},
         Portfolio: portfolio::{Module, Call, Storage, Event<T>},
+        Permissions: pallet_permissions::{Module},
     }
 );
 
@@ -771,6 +775,7 @@ pub type SignedExtra = (
     frame_system::CheckWeight<Runtime>,
     pallet_transaction_payment::ChargeTransactionPayment<Runtime>,
     pallet_grandpa::ValidateEquivocationReport<Runtime>,
+    pallet_permissions::CheckPermissions<Runtime>,
 );
 /// Unchecked extrinsic type as expected by this runtime.
 pub type UncheckedExtrinsic = generic::UncheckedExtrinsic<Address, Call, Signature, SignedExtra>;

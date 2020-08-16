@@ -3653,6 +3653,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "pallet-permissions"
+version = "0.1.0"
+dependencies = [
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
+ "pallet-identity",
+ "parity-scale-codec",
+ "polymesh-common-utilities",
+ "polymesh-primitives",
+ "serde",
+ "sp-runtime",
+ "sp-std",
+]
+
+[[package]]
 name = "pallet-pips"
 version = "0.1.0"
 dependencies = [
@@ -4523,6 +4539,7 @@ dependencies = [
  "pallet-indices",
  "pallet-multisig",
  "pallet-offences",
+ "pallet-permissions",
  "pallet-pips",
  "pallet-portfolio",
  "pallet-protocol-fee",
@@ -4598,6 +4615,7 @@ dependencies = [
  "pallet-indices",
  "pallet-multisig",
  "pallet-offences",
+ "pallet-permissions",
  "pallet-pips",
  "pallet-portfolio",
  "pallet-protocol-fee",

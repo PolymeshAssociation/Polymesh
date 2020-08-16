@@ -479,6 +479,7 @@ where
             frame_system::CheckWeight::<Runtime>::new(),
             pallet_transaction_payment::ChargeTransactionPayment::<Runtime>::from(tip),
             pallet_grandpa::ValidateEquivocationReport::<Runtime>::new(),
+            pallet_permissions::CheckPermissions::<Runtime>::new(),
         );
         let raw_payload = SignedPayload::new(call, extra)
             .map_err(|e| {
@@ -689,9 +690,12 @@ impl EnactProposalMaker<Origin, Call> for Runtime {
         Call::Pips(pallet_pips::Call::reject_referendum(id))
     }
 }
+
 impl confidential::Trait for Runtime {
     type Event = Event;
 }
+
+impl pallet_permissions::Trait for Runtime {}
 
 // / A runtime transaction submitter for the cdd_offchain_worker
 // Comment it in the favour of Testnet v1 release
@@ -780,6 +784,7 @@ construct_runtime!(
         // CddOffchainWorker: pallet_cdd_offchain_worker::{Module, Call, Storage, ValidateUnsigned, Event<T>}
         Portfolio: portfolio::{Module, Call, Storage, Event<T>},
         Confidential: confidential::{Module, Call, Storage, Event },
+        Permissions: pallet_permissions::{Module},
     }
 );
 
@@ -803,6 +808,7 @@ pub type SignedExtra = (
     frame_system::CheckWeight<Runtime>,
     pallet_transaction_payment::ChargeTransactionPayment<Runtime>,
     pallet_grandpa::ValidateEquivocationReport<Runtime>,
+    pallet_permissions::CheckPermissions<Runtime>,
 );
 /// Unchecked extrinsic type as expected by this runtime.
 pub type UncheckedExtrinsic = generic::UncheckedExtrinsic<Address, Call, Signature, SignedExtra>;
