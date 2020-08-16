@@ -9,9 +9,9 @@ use polymesh_runtime_develop::{
     constants::time as generalTime,
 };
 use polymesh_runtime_testnet_v1::{
-    self as aldebaran,
-    config::{self as AldebaranConfig},
-    constants::time as aldebaranTime,
+    self as alcyone,
+    config::{self as AlcyoneConfig},
+    constants::time as alcyoneTime,
 };
 use sc_chain_spec::ChainType;
 use sc_service::Properties;
@@ -28,18 +28,18 @@ use std::iter;
 
 const STAGING_TELEMETRY_URL: &str = "wss://telemetry.polymesh.live/submit/";
 
-pub type AldebaranChainSpec = sc_service::GenericChainSpec<AldebaranConfig::GenesisConfig>;
+pub type AlcyoneChainSpec = sc_service::GenericChainSpec<AlcyoneConfig::GenesisConfig>;
 pub type GeneralChainSpec = sc_service::GenericChainSpec<GeneralConfig::GenesisConfig>;
 
 type AccountPublic = <Signature as Verify>::Signer;
 
-fn aldebaran_session_keys(
+fn alcyone_session_keys(
     grandpa: GrandpaId,
     babe: BabeId,
     im_online: ImOnlineId,
     authority_discovery: AuthorityDiscoveryId,
-) -> aldebaran::SessionKeys {
-    aldebaran::SessionKeys {
+) -> alcyone::SessionKeys {
+    alcyone::SessionKeys {
         babe,
         grandpa,
         im_online,
@@ -265,7 +265,7 @@ fn general_testnet_genesis(
         pallet_staking: Some(GeneralConfig::StakingConfig {
             minimum_validator_count: 1,
             validator_count: 2,
-            validator_commission: aldebaran::Commission::Global(
+            validator_commission: alcyone::Commission::Global(
                 PerThing::from_rational_approximation(1u64, 4u64),
             ),
             stakers: initial_authorities
@@ -448,120 +448,7 @@ pub fn general_live_testnet_config() -> GeneralChainSpec {
     )
 }
 
-fn aldebaran_live_testnet_genesis() -> AldebaranConfig::GenesisConfig {
-    aldebaran_testnet_genesis(
-        vec![
-            get_authority_keys_from_seed("operator_1", true),
-            get_authority_keys_from_seed("operator_2", true),
-            get_authority_keys_from_seed("operator_3", true),
-            get_authority_keys_from_seed("operator_4", true),
-            get_authority_keys_from_seed("operator_5", true),
-        ],
-        get_account_id_from_seed::<sr25519::Public>("polymath_1"),
-        vec![
-            get_account_id_from_seed::<sr25519::Public>("polymath_1"),
-            get_account_id_from_seed::<sr25519::Public>("polymath_2"),
-            get_account_id_from_seed::<sr25519::Public>("polymath_3"),
-            get_account_id_from_seed::<sr25519::Public>("relay_1"),
-            get_account_id_from_seed::<sr25519::Public>("relay_2"),
-            get_account_id_from_seed::<sr25519::Public>("relay_3"),
-            get_account_id_from_seed::<sr25519::Public>("relay_4"),
-            get_account_id_from_seed::<sr25519::Public>("relay_5"),
-        ],
-        false,
-    )
-}
-
-pub fn aldebaran_live_testnet_config() -> AldebaranChainSpec {
-    // provide boot nodes
-    let boot_nodes = vec![];
-    AldebaranChainSpec::from_genesis(
-        "Polymesh Aldebaran Testnet",
-        "aldebaran",
-        ChainType::Live,
-        aldebaran_live_testnet_genesis,
-        boot_nodes,
-        Some(
-            TelemetryEndpoints::new(vec![(STAGING_TELEMETRY_URL.to_string(), 0)])
-                .expect("Aldebaran live telemetry url is valid; qed"),
-        ),
-        Some(&*"/polymath/aldebaran/1"),
-        Some(polymath_props()),
-        Default::default(),
-    )
-}
-
-fn aldebaran_develop_testnet_genesis() -> AldebaranConfig::GenesisConfig {
-    aldebaran_testnet_genesis(
-        vec![get_authority_keys_from_seed("Alice", false)],
-        get_account_id_from_seed::<sr25519::Public>("Alice"),
-        vec![
-            get_account_id_from_seed::<sr25519::Public>("Bob"),
-            get_account_id_from_seed::<sr25519::Public>("Bob//stash"),
-            get_account_id_from_seed::<sr25519::Public>("relay_1"),
-            get_account_id_from_seed::<sr25519::Public>("relay_2"),
-            get_account_id_from_seed::<sr25519::Public>("relay_3"),
-            get_account_id_from_seed::<sr25519::Public>("relay_4"),
-            get_account_id_from_seed::<sr25519::Public>("relay_5"),
-        ],
-        true,
-    )
-}
-
-pub fn aldebaran_develop_testnet_config() -> AldebaranChainSpec {
-    // provide boot nodes
-    let boot_nodes = vec![];
-    AldebaranChainSpec::from_genesis(
-        "Polymesh Aldebaran Develop",
-        "dev_aldebaran",
-        ChainType::Development,
-        aldebaran_develop_testnet_genesis,
-        boot_nodes,
-        None,
-        None,
-        Some(polymath_props()),
-        Default::default(),
-    )
-}
-
-fn aldebaran_local_testnet_genesis() -> AldebaranConfig::GenesisConfig {
-    aldebaran_testnet_genesis(
-        vec![
-            get_authority_keys_from_seed("Alice", false),
-            get_authority_keys_from_seed("Bob", false),
-        ],
-        get_account_id_from_seed::<sr25519::Public>("Alice"),
-        vec![
-            get_account_id_from_seed::<sr25519::Public>("Charlie"),
-            get_account_id_from_seed::<sr25519::Public>("Dave"),
-            get_account_id_from_seed::<sr25519::Public>("Charlie//stash"),
-            get_account_id_from_seed::<sr25519::Public>("relay_1"),
-            get_account_id_from_seed::<sr25519::Public>("relay_2"),
-            get_account_id_from_seed::<sr25519::Public>("relay_3"),
-            get_account_id_from_seed::<sr25519::Public>("relay_4"),
-            get_account_id_from_seed::<sr25519::Public>("relay_5"),
-        ],
-        true,
-    )
-}
-
-pub fn aldebaran_local_testnet_config() -> AldebaranChainSpec {
-    // provide boot nodes
-    let boot_nodes = vec![];
-    AldebaranChainSpec::from_genesis(
-        "Polymesh Aldebaran Local",
-        "local_aldebaran",
-        ChainType::Local,
-        aldebaran_local_testnet_genesis,
-        boot_nodes,
-        None,
-        None,
-        Some(polymath_props()),
-        Default::default(),
-    )
-}
-
-fn aldebaran_testnet_genesis(
+fn alcyone_testnet_genesis(
     initial_authorities: Vec<(
         AccountId,
         AccountId,
@@ -573,16 +460,16 @@ fn aldebaran_testnet_genesis(
     root_key: AccountId,
     endowed_accounts: Vec<AccountId>,
     enable_println: bool,
-) -> AldebaranConfig::GenesisConfig {
+) -> AlcyoneConfig::GenesisConfig {
     const STASH: u128 = 5_000_000 * POLY;
     const ENDOWMENT: u128 = 100_000_000 * POLY;
 
-    AldebaranConfig::GenesisConfig {
-        frame_system: Some(AldebaranConfig::SystemConfig {
-            code: aldebaran::WASM_BINARY.to_vec(),
+    AlcyoneConfig::GenesisConfig {
+        frame_system: Some(AlcyoneConfig::SystemConfig {
+            code: alcyone::WASM_BINARY.to_vec(),
             changes_trie_config: Default::default(),
         }),
-        asset: Some(AldebaranConfig::AssetConfig {
+        asset: Some(AlcyoneConfig::AssetConfig {
             ticker_registration_config: TickerRegistrationConfig {
                 max_ticker_length: 12,
                 registration_length: Some(5_184_000_000),
@@ -659,13 +546,13 @@ fn aldebaran_testnet_genesis(
                 })
                 .collect::<Vec<_>>();
 
-            Some(AldebaranConfig::IdentityConfig {
+            Some(AlcyoneConfig::IdentityConfig {
                 identities: all_identities,
                 signing_keys,
                 ..Default::default()
             })
         },
-        balances: Some(AldebaranConfig::BalancesConfig {
+        balances: Some(AlcyoneConfig::BalancesConfig {
             balances: endowed_accounts
                 .iter()
                 .map(|k: &AccountId| (k.clone(), ENDOWMENT))
@@ -673,7 +560,7 @@ fn aldebaran_testnet_genesis(
                 .chain(initial_authorities.iter().map(|x| (x.0.clone(), STASH)))
                 .collect(),
         }),
-        bridge: Some(AldebaranConfig::BridgeConfig {
+        bridge: Some(AlcyoneConfig::BridgeConfig {
             admin: get_account_id_from_seed::<sr25519::Public>("polymath_1"),
             creator: get_account_id_from_seed::<sr25519::Public>("polymath_1"),
             signatures_required: 3,
@@ -694,27 +581,27 @@ fn aldebaran_testnet_genesis(
                     get_from_seed::<sr25519::Public>("relay_5").0,
                 )),
             ],
-            timelock: aldebaranTime::MINUTES * 15,
-            bridge_limit: (30_000_000_000, aldebaranTime::DAYS),
+            timelock: alcyoneTime::MINUTES * 15,
+            bridge_limit: (30_000_000_000, alcyoneTime::DAYS),
         }),
-        pallet_indices: Some(AldebaranConfig::IndicesConfig { indices: vec![] }),
-        pallet_sudo: Some(AldebaranConfig::SudoConfig { key: root_key }),
-        pallet_session: Some(AldebaranConfig::SessionConfig {
+        pallet_indices: Some(AlcyoneConfig::IndicesConfig { indices: vec![] }),
+        pallet_sudo: Some(AlcyoneConfig::SudoConfig { key: root_key }),
+        pallet_session: Some(AlcyoneConfig::SessionConfig {
             keys: initial_authorities
                 .iter()
                 .map(|x| {
                     (
                         x.0.clone(),
                         x.0.clone(),
-                        aldebaran_session_keys(x.2.clone(), x.3.clone(), x.4.clone(), x.5.clone()),
+                        alcyone_session_keys(x.2.clone(), x.3.clone(), x.4.clone(), x.5.clone()),
                     )
                 })
                 .collect::<Vec<_>>(),
         }),
-        pallet_staking: Some(AldebaranConfig::StakingConfig {
+        pallet_staking: Some(AlcyoneConfig::StakingConfig {
             minimum_validator_count: 1,
             validator_count: initial_authorities.len() as u32,
-            validator_commission: aldebaran::Commission::Global(PerThing::zero()),
+            validator_commission: alcyone::Commission::Global(PerThing::zero()),
             stakers: initial_authorities
                 .iter()
                 .map(|x| {
@@ -722,16 +609,16 @@ fn aldebaran_testnet_genesis(
                         x.0.clone(),
                         x.1.clone(),
                         STASH,
-                        aldebaran::StakerStatus::Validator,
+                        alcyone::StakerStatus::Validator,
                     )
                 })
                 .collect(),
             invulnerables: initial_authorities.iter().map(|x| x.0.clone()).collect(),
-            slash_reward_fraction: aldebaran::Perbill::from_percent(10),
+            slash_reward_fraction: alcyone::Perbill::from_percent(10),
             min_bond_threshold: 5_000_000_000_000,
             ..Default::default()
         }),
-        pallet_pips: Some(AldebaranConfig::PipsConfig {
+        pallet_pips: Some(AlcyoneConfig::PipsConfig {
             prune_historical_pips: false,
             min_proposal_deposit: 5_000 * POLY,
             quorum_threshold: 100_000_000_000,
@@ -739,8 +626,8 @@ fn aldebaran_testnet_genesis(
             proposal_cool_off_period: aldebaranTime::HOURS * 6,
             default_enactment_period: aldebaranTime::DAYS * 7,
         }),
-        pallet_im_online: Some(AldebaranConfig::ImOnlineConfig {
-            slashing_params: aldebaran::OfflineSlashingParams {
+        pallet_im_online: Some(AlcyoneConfig::ImOnlineConfig {
+            slashing_params: alcyone::OfflineSlashingParams {
                 max_offline_percent: 10u32,
                 constant: 3u32,
                 max_slash_percent: 7u32,
@@ -750,13 +637,13 @@ fn aldebaran_testnet_genesis(
         pallet_authority_discovery: Some(Default::default()),
         pallet_babe: Some(Default::default()),
         pallet_grandpa: Some(Default::default()),
-        pallet_contracts: Some(AldebaranConfig::ContractsConfig {
+        pallet_contracts: Some(AlcyoneConfig::ContractsConfig {
             current_schedule: contracts::Schedule {
                 enable_println, // this should only be enabled on development chains
                 ..Default::default()
             },
         }),
-        group_Instance1: Some(aldebaran::runtime::CommitteeMembershipConfig {
+        group_Instance1: Some(alcyone::runtime::CommitteeMembershipConfig {
             active_members: vec![
                 IdentityId::from(4),
                 IdentityId::from(5),
@@ -764,13 +651,13 @@ fn aldebaran_testnet_genesis(
             ],
             phantom: Default::default(),
         }),
-        committee_Instance1: Some(aldebaran::runtime::PolymeshCommitteeConfig {
+        committee_Instance1: Some(alcyone::runtime::PolymeshCommitteeConfig {
             vote_threshold: (2, 3),
             members: vec![],
             release_coordinator: IdentityId::from(6),
             phantom: Default::default(),
         }),
-        group_Instance2: Some(aldebaran::runtime::CddServiceProvidersConfig {
+        group_Instance2: Some(alcyone::runtime::CddServiceProvidersConfig {
             // sp1, sp2, sp3
             active_members: vec![
                 IdentityId::from(1),
@@ -788,4 +675,120 @@ fn aldebaran_testnet_genesis(
         }),
         settlement: Some(Default::default()),
     }
+}
+
+fn alcyone_live_testnet_genesis() -> AlcyoneConfig::GenesisConfig {
+    alcyone_testnet_genesis(
+        vec![
+            get_authority_keys_from_seed("operator_1", true),
+            get_authority_keys_from_seed("operator_2", true),
+            get_authority_keys_from_seed("operator_3", true),
+            get_authority_keys_from_seed("operator_4", true),
+            get_authority_keys_from_seed("operator_5", true),
+        ],
+        get_account_id_from_seed::<sr25519::Public>("polymath_1"),
+        vec![
+            get_account_id_from_seed::<sr25519::Public>("cdd_provider_1"),
+            get_account_id_from_seed::<sr25519::Public>("cdd_provider_2"),
+            get_account_id_from_seed::<sr25519::Public>("cdd_provider_3"),
+            get_account_id_from_seed::<sr25519::Public>("polymath_1"),
+            get_account_id_from_seed::<sr25519::Public>("polymath_2"),
+            get_account_id_from_seed::<sr25519::Public>("polymath_3"),
+            get_account_id_from_seed::<sr25519::Public>("relay_1"),
+            get_account_id_from_seed::<sr25519::Public>("relay_2"),
+            get_account_id_from_seed::<sr25519::Public>("relay_3"),
+            get_account_id_from_seed::<sr25519::Public>("relay_4"),
+            get_account_id_from_seed::<sr25519::Public>("relay_5"),
+        ],
+        false,
+    )
+}
+
+pub fn alcyone_live_testnet_config() -> AlcyoneChainSpec {
+    // provide boot nodes
+    let boot_nodes = vec![];
+    AlcyoneChainSpec::from_genesis(
+        "Polymesh Alcyone Testnet",
+        "alcyone",
+        ChainType::Live,
+        alcyone_live_testnet_genesis,
+        boot_nodes,
+        Some(
+            TelemetryEndpoints::new(vec![(STAGING_TELEMETRY_URL.to_string(), 0)])
+                .expect("Alcyone live telemetry url is valid; qed"),
+        ),
+        Some(&*"/polymath/alcyone/1"),
+        Some(polymath_props()),
+        Default::default(),
+    )
+}
+
+fn alcyone_develop_testnet_genesis() -> AlcyoneConfig::GenesisConfig {
+    alcyone_testnet_genesis(
+        vec![get_authority_keys_from_seed("Alice", false)],
+        get_account_id_from_seed::<sr25519::Public>("Alice"),
+        vec![
+            get_account_id_from_seed::<sr25519::Public>("Bob"),
+            get_account_id_from_seed::<sr25519::Public>("Bob//stash"),
+            get_account_id_from_seed::<sr25519::Public>("relay_1"),
+            get_account_id_from_seed::<sr25519::Public>("relay_2"),
+            get_account_id_from_seed::<sr25519::Public>("relay_3"),
+            get_account_id_from_seed::<sr25519::Public>("relay_4"),
+            get_account_id_from_seed::<sr25519::Public>("relay_5"),
+        ],
+        true,
+    )
+}
+
+pub fn alcyone_develop_testnet_config() -> AlcyoneChainSpec {
+    // provide boot nodes
+    let boot_nodes = vec![];
+    AlcyoneChainSpec::from_genesis(
+        "Polymesh Alcyone Develop",
+        "dev_alcyone",
+        ChainType::Development,
+        alcyone_develop_testnet_genesis,
+        boot_nodes,
+        None,
+        None,
+        Some(polymath_props()),
+        Default::default(),
+    )
+}
+
+fn alcyone_local_testnet_genesis() -> AlcyoneConfig::GenesisConfig {
+    alcyone_testnet_genesis(
+        vec![
+            get_authority_keys_from_seed("Alice", false),
+            get_authority_keys_from_seed("Bob", false),
+        ],
+        get_account_id_from_seed::<sr25519::Public>("Alice"),
+        vec![
+            get_account_id_from_seed::<sr25519::Public>("Charlie"),
+            get_account_id_from_seed::<sr25519::Public>("Dave"),
+            get_account_id_from_seed::<sr25519::Public>("Charlie//stash"),
+            get_account_id_from_seed::<sr25519::Public>("relay_1"),
+            get_account_id_from_seed::<sr25519::Public>("relay_2"),
+            get_account_id_from_seed::<sr25519::Public>("relay_3"),
+            get_account_id_from_seed::<sr25519::Public>("relay_4"),
+            get_account_id_from_seed::<sr25519::Public>("relay_5"),
+        ],
+        true,
+    )
+}
+
+pub fn alcyone_local_testnet_config() -> AlcyoneChainSpec {
+    // provide boot nodes
+    let boot_nodes = vec![];
+    AlcyoneChainSpec::from_genesis(
+        "Polymesh Alcyone Local",
+        "local_alcyone",
+        ChainType::Local,
+        alcyone_local_testnet_genesis,
+        boot_nodes,
+        None,
+        None,
+        Some(polymath_props()),
+        Default::default(),
+    )
 }
