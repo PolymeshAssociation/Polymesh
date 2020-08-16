@@ -622,9 +622,9 @@ fn alcyone_testnet_genesis(
             prune_historical_pips: false,
             min_proposal_deposit: 5_000 * POLY,
             quorum_threshold: 100_000_000_000,
-            proposal_duration: aldebaranTime::DAYS * 7,
-            proposal_cool_off_period: aldebaranTime::HOURS * 6,
-            default_enactment_period: aldebaranTime::DAYS * 7,
+            proposal_duration: alcyoneTime::DAYS * 7,
+            proposal_cool_off_period: alcyoneTime::HOURS * 6,
+            default_enactment_period: alcyoneTime::DAYS * 7,
         }),
         pallet_im_online: Some(AlcyoneConfig::ImOnlineConfig {
             slashing_params: alcyone::OfflineSlashingParams {
@@ -666,7 +666,7 @@ fn alcyone_testnet_genesis(
             ],
             phantom: Default::default(),
         }),
-        protocol_fee: Some(AldebaranConfig::ProtocolFeeConfig {
+        protocol_fee: Some(AlcyoneConfig::ProtocolFeeConfig {
             base_fees: vec![
                 (ProtocolOp::AssetCreateAsset, 10_000 * 1_000_000),
                 (ProtocolOp::AssetRegisterTicker, 2_500 * 1_000_000),
