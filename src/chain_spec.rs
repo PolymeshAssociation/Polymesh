@@ -24,7 +24,6 @@ use sp_runtime::{
     traits::{IdentifyAccount, Verify},
     PerThing,
 };
-use std::iter;
 
 const STAGING_TELEMETRY_URL: &str = "wss://telemetry.polymesh.live/submit/";
 
@@ -131,8 +130,6 @@ fn general_testnet_genesis(
 ) -> GeneralConfig::GenesisConfig {
     const STASH: u128 = 5_000_000 * POLY;
     const ENDOWMENT: u128 = 100_000_000 * POLY;
-    const BRIDGE_CREATOR_ID: u128 = 6;
-    const BRIDGE_CREATOR_ID_BALANCE: u128 = 1_000 * POLY;
 
     GeneralConfig::GenesisConfig {
         frame_system: Some(GeneralConfig::SystemConfig {
