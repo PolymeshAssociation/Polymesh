@@ -1,6 +1,6 @@
 //! Service and ServiceFactory implementation. Specialized wrapper over substrate service.
 
-pub use crate::chain_spec::{AldebaranChainSpec, GeneralChainSpec};
+pub use crate::chain_spec::{AlcyoneChainSpec, GeneralChainSpec};
 pub use codec::Codec;
 use grandpa::{self, FinalityProofProvider as GrandpaFinalityProofProvider};
 pub use pallet_confidential::native_rng;
@@ -29,19 +29,19 @@ use sp_inherents::InherentDataProviders;
 pub use sp_runtime::traits::BlakeTwo256;
 use std::{convert::From, sync::Arc};
 
-pub trait IsAldebaranNetwork {
-    fn is_aldebaran_network(&self) -> bool;
+pub trait IsAlcyoneNetwork {
+    fn is_alcyone_network(&self) -> bool;
 }
 
-impl IsAldebaranNetwork for dyn ChainSpec {
-    fn is_aldebaran_network(&self) -> bool {
-        self.name().starts_with("Polymesh Aldebaran")
+impl IsAlcyoneNetwork for dyn ChainSpec {
+    fn is_alcyone_network(&self) -> bool {
+        self.name().starts_with("Polymesh Alcyone")
     }
 }
 
 // Our native executor instance.
 native_executor_instance!(
-    pub AldebaranExecutor,
+    pub AlcyoneExecutor,
     polymesh_runtime_testnet_v1::api::dispatch,
     polymesh_runtime_testnet_v1::native_version,
     frame_benchmarking::benchmarking::HostFunctions,
@@ -419,8 +419,8 @@ macro_rules! new_full {
         }};
 }
 
-/// Create a new Aldebaran service for a full node.
-pub fn aldebaran_new_full(
+/// Create a new Alcyone service for a full node.
+pub fn alcyone_new_full(
     mut config: Configuration,
 ) -> Result<
     impl AbstractService<
@@ -433,7 +433,7 @@ pub fn aldebaran_new_full(
     new_full!(
         config,
         polymesh_runtime_testnet_v1::RuntimeApi,
-        AldebaranExecutor,
+        AlcyoneExecutor,
     )
     .map(|(service, _)| service)
 }
@@ -566,7 +566,7 @@ macro_rules! new_light {
 }
 
 /// Create a new Polymesh service for a light client.
-pub fn aldebaran_new_light(
+pub fn alcyone_new_light(
     mut config: Configuration,
 ) -> Result<
     impl AbstractService<
@@ -574,14 +574,14 @@ pub fn aldebaran_new_light(
         RuntimeApi = polymesh_runtime_testnet_v1::RuntimeApi,
         Backend = TLightBackend<Block>,
         SelectChain = LongestChain<TLightBackend<Block>, Block>,
-        CallExecutor = TLightCallExecutor<Block, AldebaranExecutor>,
+        CallExecutor = TLightCallExecutor<Block, AlcyoneExecutor>,
     >,
     ServiceError,
 > {
     new_light!(
         config,
         polymesh_runtime_testnet_v1::RuntimeApi,
-        AldebaranExecutor
+        AlcyoneExecutor
     )
 }
 
