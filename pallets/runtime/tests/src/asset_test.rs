@@ -173,70 +173,6 @@ fn non_issuers_cant_create_tokens() {
     });
 }
 
-#[test]
-fn valid_transfers_pass() {
-    ExtBuilder::default().build().execute_with(|| {
-        let now = Utc::now();
-        Timestamp::set_timestamp(now.timestamp() as u64);
-
-        let owner_signed = Origin::signed(AccountKeyring::Dave.public());
-        let owner_did = register_keyring_account(AccountKeyring::Dave).unwrap();
-
-        // Expected token entry
-        let token = SecurityToken {
-            name: vec![0x01].into(),
-            owner_did,
-            total_supply: 1_000_000,
-            divisible: true,
-            asset_type: AssetType::default(),
-            ..Default::default()
-        };
-        let ticker = Ticker::try_from(token.name.as_slice()).unwrap();
-
-        let alice_did = register_keyring_account(AccountKeyring::Alice).unwrap();
-
-        // Issuance is successful
-        assert_ok!(Asset::create_asset(
-            owner_signed.clone(),
-            token.name.clone(),
-            ticker,
-            token.total_supply,
-            true,
-            token.asset_type.clone(),
-            vec![],
-            None,
-        ));
-
-        // Allow all transfers
-        assert_ok!(ComplianceManager::add_active_rule(
-            owner_signed.clone(),
-            ticker,
-            vec![],
-            vec![]
-        ));
-
-        // Should fail as sender matches receiver
-        assert_noop!(
-            Asset::transfer(owner_signed.clone(), ticker, owner_did, 500),
-            AssetError::InvalidTransfer
-        );
-
-        assert_ok!(Asset::transfer(
-            owner_signed.clone(),
-            ticker,
-            alice_did,
-            500
-        ));
-
-        let mut cap_table = <asset::BalanceOf<TestStorage>>::iter_prefix_values(ticker);
-        let balance_alice = cap_table.next().unwrap();
-        let balance_owner = cap_table.next().unwrap();
-        assert_eq!(balance_owner, 1_000_000 - 500);
-        assert_eq!(balance_alice, 500);
-    })
-}
-
-#[test]
 fn valid_custodian_allowance() {
     ExtBuilder::default().build().execute_with(|| {
         let owner_signed = Origin::signed(AccountKeyring::Dave.public());
@@ -294,6 +230,7 @@ fn valid_custodian_allowance() {
         ));
         // Mint some tokens to investor1
         let num_tokens1: u128 = 2_000_000;
+
         assert_ok!(Asset::issue(owner_signed.clone(), ticker, num_tokens1));
         assert_ok!(Asset::unsafe_transfer(
             owner_did,
@@ -302,6 +239,7 @@ fn valid_custodian_allowance() {
             investor1_did,
             num_tokens1
         ));
+
         assert_eq!(Asset::funding_round(&ticker), funding_round1.clone());
         assert_eq!(
             Asset::issued_in_funding_round((ticker, funding_round1.clone())),
@@ -351,42 +289,6 @@ fn valid_custodian_allowance() {
         assert_eq!(
             Asset::total_custody_allowance((ticker, investor1_did)),
             50_00_00 as u128
-        );
-
-        // Transfer the token upto the limit
-        assert_ok!(Asset::transfer(
-            investor1_signed.clone(),
-            ticker,
-            investor2_did,
-            140_00_00 as u128
-        ));
-
-        assert_eq!(
-            Asset::balance_of(&ticker, &investor2_did),
-            1_400_000 as u128
-        );
-
-        // Try to Transfer the tokens beyond the limit
-        assert_noop!(
-            Asset::transfer(
-                investor1_signed.clone(),
-                ticker,
-                investor2_did,
-                50_00_00 as u128
-            ),
-            AssetError::InsufficientBalance
-        );
-
-        // Should fail to transfer the token by the custodian because of insufficient allowance
-        assert_noop!(
-            Asset::transfer_by_custodian(
-                custodian_signed.clone(),
-                ticker,
-                investor1_did,
-                investor2_did,
-                55_00_00 as u128
-            ),
-            AssetError::AllowanceUnderflow
         );
 
         // Successfully transfer by the custodian
@@ -543,42 +445,6 @@ fn valid_custodian_allowance_of() {
             AssetError::InvalidSignature
         );
 
-        // Transfer the token upto the limit
-        assert_ok!(Asset::transfer(
-            investor1_signed.clone(),
-            ticker,
-            investor2_did,
-            140_00_00 as u128
-        ));
-
-        assert_eq!(
-            Asset::balance(&ticker, investor2_did).total,
-            1_400_000 as u128
-        );
-
-        // Try to Transfer the tokens beyond the limit
-        assert_noop!(
-            Asset::transfer(
-                investor1_signed.clone(),
-                ticker,
-                investor2_did,
-                50_00_00 as u128
-            ),
-            AssetError::InsufficientBalance
-        );
-
-        // Should fail to transfer the token by the custodian because of insufficient allowance
-        assert_noop!(
-            Asset::transfer_by_custodian(
-                custodian_signed.clone(),
-                ticker,
-                investor1_did,
-                investor2_did,
-                55_00_00 as u128
-            ),
-            AssetError::AllowanceUnderflow
-        );
-
         // Successfully transfer by the custodian
         assert_ok!(Asset::transfer_by_custodian(
             custodian_signed.clone(),
@@ -647,7 +513,9 @@ fn checkpoints_fuzz_test() {
                     }
                     owner_balance[j] -= 1;
                     bob_balance[j] += 1;
-                    assert_ok!(Asset::transfer(owner_signed.clone(), ticker, bob_did, 1));
+                    assert_ok!(Asset::unsafe_transfer(
+                        owner_did, &ticker, owner_did, bob_did, 1
+                    ));
                 }
                 assert_ok!(Asset::create_checkpoint(owner_signed.clone(), ticker));
                 let x: u64 = u64::try_from(j).unwrap();
@@ -1788,11 +1656,6 @@ fn freeze_unfreeze_asset() {
             AssetError::AlreadyFrozen
         );
 
-        // Attempt to transfer tokens.
-        assert_err!(
-            Asset::transfer(alice_signed.clone(), ticker, bob_did, 1),
-            AssetError::InvalidTransfer
-        );
         // Attempt to transfer token ownership.
         let auth_id = Identity::add_auth(
             alice_did,
@@ -1811,8 +1674,6 @@ fn freeze_unfreeze_asset() {
             Asset::unfreeze(bob_signed.clone(), ticker),
             AssetError::NotFrozen
         );
-        // Transfer some balance.
-        assert_ok!(Asset::transfer(alice_signed.clone(), ticker, bob_did, 1));
     });
 }
 #[test]

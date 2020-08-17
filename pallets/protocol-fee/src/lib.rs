@@ -49,7 +49,7 @@ use polymesh_common_utilities::{
     transaction_payment::CddAndFeeDetails,
     Context, SystematicIssuers,
 };
-use polymesh_primitives::{IdentityId, PosRatio, Signatory};
+use polymesh_primitives::{IdentityId, PosRatio};
 use sp_runtime::{
     traits::{Saturating, Zero},
     Perbill,

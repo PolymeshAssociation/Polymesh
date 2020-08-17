@@ -185,7 +185,7 @@ use polymesh_common_utilities::{
     },
     Context, SystematicIssuers,
 };
-use polymesh_primitives::{traits::BlockRewardsReserveCurrency, IdentityId, Permission, Signatory};
+use polymesh_primitives::traits::BlockRewardsReserveCurrency;
 use sp_runtime::{
     traits::{
         AccountIdConversion, Bounded, CheckedAdd, CheckedSub, MaybeSerializeDeserialize,
@@ -193,7 +193,7 @@ use sp_runtime::{
     },
     DispatchError, DispatchResult, RuntimeDebug,
 };
-use sp_std::{cmp, convert::Infallible, fmt::Debug, mem, prelude::*, result, vec};
+use sp_std::{cmp, convert::Infallible, fmt::Debug, mem, prelude::*, result};
 
 pub use polymesh_common_utilities::traits::balances::Trait;
 
