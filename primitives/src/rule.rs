@@ -33,7 +33,7 @@ pub enum TargetIdentity {
 #[derive(Encode, Decode, Clone, PartialEq, Eq, Debug)]
 /// It defines the type of rule supported, and the filter information we will use to evaluate as a
 /// predicate.
-pub enum RuleType {
+pub enum ConditionType {
     /// Rule to ensure that claim filter produces one claim.
     IsPresent(Claim),
     /// Rule to ensure that claim filter produces an empty list.
@@ -52,32 +52,36 @@ pub enum RuleType {
 /// Type of claim requirements that a rule can have
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[derive(Encode, Decode, Clone, PartialEq, Eq, Debug)]
-pub struct Rule {
+pub struct Condition {
     /// Type of rule.
-    pub rule_type: RuleType,
+    pub rule_type: ConditionType,
     /// Trusted issuers.
     pub issuers: Vec<IdentityId>,
 }
 
-impl From<RuleType> for Rule {
-    fn from(rule_type: RuleType) -> Self {
-        Rule {
+impl From<ConditionType> for Condition {
+    fn from(rule_type: ConditionType) -> Self {
+        Condition {
             rule_type,
             issuers: Vec::<IdentityId>::new(),
         }
     }
 }
 
-impl Rule {
+impl Condition {
     /// Returns worst case complexity of a rule
     pub fn complexity(&self) -> (usize, usize) {
         let claims_count = match self.rule_type {
-            RuleType::IsIdentity(..) | RuleType::IsPresent(..) | RuleType::IsAbsent(..) => 1,
-            RuleType::IsNoneOf(ref claims) | RuleType::IsAnyOf(ref claims) => claims.len(),
+            ConditionType::IsIdentity(..)
+            | ConditionType::IsPresent(..)
+            | ConditionType::IsAbsent(..) => 1,
+            ConditionType::IsNoneOf(ref claims) | ConditionType::IsAnyOf(ref claims) => {
+                claims.len()
+            }
             // NOTE: The complexity of this rule implies the use of cryptography libraries, which
             // are computational expensive.
             // So we've added a 10 factor here.
-            RuleType::HasValidProofOfInvestor(..) => 10,
+            ConditionType::HasValidProofOfInvestor(..) => 10,
         };
         (claims_count, self.issuers.len())
     }

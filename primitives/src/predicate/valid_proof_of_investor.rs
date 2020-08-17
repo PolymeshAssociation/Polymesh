@@ -1,5 +1,5 @@
 use crate::{
-    scalar_blake2_from_bytes, CddId, Claim, Context, IdentityId, InvestorZKProofData, Predicate,
+    scalar_blake2_from_bytes, CddId, Claim, Context, IdentityId, InvestorZKProofData, Proposition,
     Ticker,
 };
 use cryptography::claim_proofs::ProofPublicKey;
@@ -16,7 +16,7 @@ pub struct ValidProofOfInvestorPredicate {
     pub ticker: Ticker,
 }
 
-impl Predicate for ValidProofOfInvestorPredicate {
+impl Proposition for ValidProofOfInvestorPredicate {
     /// Evaluate predicate against `context`.
     fn evaluate(&self, context: &Context) -> bool {
         context

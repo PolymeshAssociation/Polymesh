@@ -6,7 +6,9 @@ use chrono::prelude::Utc;
 use frame_support::{assert_err, assert_noop, assert_ok, traits::Currency};
 use pallet_asset::{self as asset, AssetName, AssetType, Error as AssetError, SecurityToken};
 use pallet_balances as balances;
-use pallet_compliance_manager::{self as compliance_manager, AssetTransferRule, Error as CMError};
+use pallet_compliance_manager::{
+    self as compliance_manager, ComplianceRequirement, Error as CMError,
+};
 use pallet_group as group;
 use pallet_identity::{self as identity, BatchAddClaimItem};
 use polymesh_common_utilities::traits::compliance_manager::Trait as ComplianceManagerTrait;
@@ -15,7 +17,8 @@ use polymesh_common_utilities::{
     Context,
 };
 use polymesh_primitives::{
-    AuthorizationData, Claim, IdentityId, Rule, RuleType, Scope, Signatory, TargetIdentity, Ticker,
+    AuthorizationData, Claim, Condition, ConditionType, IdentityId, Scope, Signatory,
+    TargetIdentity, Ticker,
 };
 use sp_std::{convert::TryFrom, prelude::*};
 use test_client::AccountKeyring;
@@ -150,19 +153,19 @@ fn should_add_and_verify_asset_rule_we() {
     let now = Utc::now();
     Timestamp::set_timestamp(now.timestamp() as u64);
 
-    let sender_rule = Rule {
+    let sender_rule = Condition {
         issuers: vec![claim_issuer_did],
-        rule_type: RuleType::IsPresent(Claim::NoData),
+        rule_type: ConditionType::IsPresent(Claim::NoData),
     };
 
-    let receiver_rule1 = Rule {
+    let receiver_rule1 = Condition {
         issuers: vec![cdd_id],
-        rule_type: RuleType::IsAbsent(Claim::make_cdd_wildcard()),
+        rule_type: ConditionType::IsAbsent(Claim::make_cdd_wildcard()),
     };
 
-    let receiver_rule2 = Rule {
+    let receiver_rule2 = Condition {
         issuers: vec![claim_issuer_did],
-        rule_type: RuleType::IsPresent(Claim::Accredited(token_owner_did)),
+        rule_type: ConditionType::IsPresent(Claim::Accredited(token_owner_did)),
     };
 
     assert_ok!(ComplianceManager::add_active_rule(
@@ -290,11 +293,11 @@ fn should_replace_asset_rules_we() {
     assert_eq!(asset_rules.rules.len(), 1);
 
     // Create three rules with different rule IDs.
-    let new_asset_rules: Vec<AssetTransferRule> =
-        std::iter::repeat(|rule_id: u32| AssetTransferRule {
-            sender_rules: vec![],
-            receiver_rules: vec![],
-            rule_id,
+    let new_asset_rules: Vec<ComplianceRequirement> =
+        std::iter::repeat(|rule_id: u32| ComplianceRequirement {
+            sender_conditions: vec![],
+            receiver_conditions: vec![],
+            id: rule_id,
         })
         .take(3)
         .enumerate()
@@ -416,9 +419,9 @@ fn pause_resume_asset_rules_we() {
     Timestamp::set_timestamp(now.timestamp() as u64);
 
     // 4. Define rules
-    let receiver_rules = vec![Rule {
+    let receiver_rules = vec![Condition {
         issuers: vec![receiver_did],
-        rule_type: RuleType::IsAbsent(Claim::NoData),
+        rule_type: ConditionType::IsAbsent(Claim::NoData),
     }];
 
     assert_ok!(ComplianceManager::add_active_rule(
@@ -529,14 +532,14 @@ fn should_successfully_add_and_use_default_issuers_we() {
     let now = Utc::now();
     Timestamp::set_timestamp(now.timestamp() as u64);
 
-    let sender_rule = Rule {
+    let sender_rule = Condition {
         issuers: vec![],
-        rule_type: RuleType::IsPresent(Claim::make_cdd_wildcard()),
+        rule_type: ConditionType::IsPresent(Claim::make_cdd_wildcard()),
     };
 
-    let receiver_rule = Rule {
+    let receiver_rule = Condition {
         issuers: vec![],
-        rule_type: RuleType::IsPresent(Claim::make_cdd_wildcard()),
+        rule_type: ConditionType::IsPresent(Claim::make_cdd_wildcard()),
     };
 
     assert_ok!(ComplianceManager::add_active_rule(
@@ -676,19 +679,19 @@ fn should_modify_vector_of_trusted_issuer_we() {
     let now = Utc::now();
     Timestamp::set_timestamp(now.timestamp() as u64);
 
-    let sender_rule = Rule {
+    let sender_rule = Condition {
         issuers: vec![],
-        rule_type: RuleType::IsPresent(Claim::make_cdd_wildcard()),
+        rule_type: ConditionType::IsPresent(Claim::make_cdd_wildcard()),
     };
 
-    let receiver_rule_1 = Rule {
+    let receiver_rule_1 = Condition {
         issuers: vec![],
-        rule_type: RuleType::IsPresent(Claim::make_cdd_wildcard()),
+        rule_type: ConditionType::IsPresent(Claim::make_cdd_wildcard()),
     };
 
-    let receiver_rule_2 = Rule {
+    let receiver_rule_2 = Condition {
         issuers: vec![],
-        rule_type: RuleType::IsPresent(Claim::NoData),
+        rule_type: ConditionType::IsPresent(Claim::NoData),
     };
 
     let x = vec![sender_rule.clone()];
@@ -723,23 +726,23 @@ fn should_modify_vector_of_trusted_issuer_we() {
 
     // Change the asset rule to all the transfer happen again
 
-    let receiver_rule_1 = Rule {
+    let receiver_rule_1 = Condition {
         issuers: vec![trusted_issuer_did_1],
-        rule_type: RuleType::IsPresent(Claim::make_cdd_wildcard()),
+        rule_type: ConditionType::IsPresent(Claim::make_cdd_wildcard()),
     };
 
-    let receiver_rule_2 = Rule {
+    let receiver_rule_2 = Condition {
         issuers: vec![trusted_issuer_did_1],
-        rule_type: RuleType::IsPresent(Claim::NoData),
+        rule_type: ConditionType::IsPresent(Claim::NoData),
     };
 
     let x = vec![sender_rule];
     let y = vec![receiver_rule_1, receiver_rule_2];
 
-    let asset_rule = AssetTransferRule {
-        sender_rules: x.clone(),
-        receiver_rules: y.clone(),
-        rule_id: 1,
+    let asset_rule = ComplianceRequirement {
+        sender_conditions: x.clone(),
+        receiver_conditions: y.clone(),
+        id: 1,
     };
 
     // Failed because sender is not the owner of the ticker
@@ -748,10 +751,10 @@ fn should_modify_vector_of_trusted_issuer_we() {
         CMError::<TestStorage>::Unauthorized
     );
 
-    let asset_rule_failure = AssetTransferRule {
-        sender_rules: x,
-        receiver_rules: y,
-        rule_id: 5,
+    let asset_rule_failure = ComplianceRequirement {
+        sender_conditions: x,
+        receiver_conditions: y,
+        id: 5,
     };
 
     // Failed because passed rule id is not valid
@@ -810,15 +813,15 @@ fn jurisdiction_asset_rules_we() {
     // 2. Set up rules for Asset transfer.
     let scope = Scope::from(0);
     let receiver_rules = vec![
-        Rule {
-            rule_type: RuleType::IsAnyOf(vec![
+        Condition {
+            rule_type: ConditionType::IsAnyOf(vec![
                 Claim::Jurisdiction(b"Canada".into(), scope),
                 Claim::Jurisdiction(b"Spain".into(), scope),
             ]),
             issuers: vec![cdd_id],
         },
-        Rule {
-            rule_type: RuleType::IsAbsent(Claim::Blocked(scope)),
+        Condition {
+            rule_type: ConditionType::IsAbsent(Claim::Blocked(scope)),
             issuers: vec![token_owner_id],
         },
     ];
@@ -867,8 +870,8 @@ fn scope_asset_rules_we() {
 
     // 2. Set up rules for Asset transfer.
     let scope = Identity::get_token_did(&ticker).unwrap();
-    let receiver_rules = vec![Rule {
-        rule_type: RuleType::IsPresent(Claim::Affiliate(scope)),
+    let receiver_rules = vec![Condition {
+        rule_type: ConditionType::IsPresent(Claim::Affiliate(scope)),
         issuers: vec![cdd_id],
     }];
     assert_ok!(ComplianceManager::add_active_rule(
@@ -907,8 +910,8 @@ fn cm_test_case_9_we() {
     let (ticker, owner_did) = make_ticker_env(AccountKeyring::Alice, vec![0x01].into());
     // 2. Set up rules for Asset transfer.
     let scope = Identity::get_token_did(&ticker).unwrap();
-    let receiver_rules = vec![Rule {
-        rule_type: RuleType::IsAnyOf(vec![
+    let receiver_rules = vec![Condition {
+        rule_type: ConditionType::IsAnyOf(vec![
             Claim::KnowYourCustomer(scope),
             Claim::Affiliate(scope),
             Claim::Accredited(scope),
@@ -993,8 +996,8 @@ fn cm_test_case_11_we() {
     // 2. Set up rules for Asset transfer.
     let scope = Identity::get_token_did(&ticker).unwrap();
     let receiver_rules = vec![
-        Rule {
-            rule_type: RuleType::IsAnyOf(vec![
+        Condition {
+            rule_type: ConditionType::IsAnyOf(vec![
                 Claim::KnowYourCustomer(scope),
                 Claim::Affiliate(scope),
                 Claim::Accredited(scope),
@@ -1002,8 +1005,8 @@ fn cm_test_case_11_we() {
             ]),
             issuers: vec![issuer_id],
         },
-        Rule {
-            rule_type: RuleType::IsNoneOf(vec![
+        Condition {
+            rule_type: ConditionType::IsNoneOf(vec![
                 Claim::Jurisdiction(b"USA".into(), scope),
                 Claim::Jurisdiction(b"North Kore".into(), scope),
             ]),
@@ -1098,20 +1101,20 @@ fn cm_test_case_13_we() {
     // 2. Set up rules for Asset transfer.
     let scope = Identity::get_token_did(&ticker).unwrap();
     let receiver_rules = vec![
-        Rule {
-            rule_type: RuleType::IsPresent(Claim::KnowYourCustomer(scope)),
+        Condition {
+            rule_type: ConditionType::IsPresent(Claim::KnowYourCustomer(scope)),
             issuers: vec![issuer_id],
         },
-        Rule {
-            rule_type: RuleType::IsAnyOf(vec![
+        Condition {
+            rule_type: ConditionType::IsAnyOf(vec![
                 Claim::Affiliate(scope),
                 Claim::Accredited(scope),
                 Claim::Exempted(scope),
             ]),
             issuers: vec![issuer_id],
         },
-        Rule {
-            rule_type: RuleType::IsNoneOf(vec![
+        Condition {
+            rule_type: ConditionType::IsNoneOf(vec![
                 Claim::Jurisdiction(b"USA".into(), scope),
                 Claim::Jurisdiction(b"North Kore".into(), scope),
             ]),
@@ -1259,12 +1262,12 @@ fn can_verify_restriction_with_treasury_did_we() {
     assert_ok!(ComplianceManager::add_active_rule(
         owner_origin,
         ticker,
-        vec![Rule {
-            rule_type: RuleType::IsIdentity(TargetIdentity::Treasury),
+        vec![Condition {
+            rule_type: ConditionType::IsIdentity(TargetIdentity::Treasury),
             issuers: vec![],
         }],
-        vec![Rule {
-            rule_type: RuleType::IsIdentity(TargetIdentity::Specific(random_guy_id)),
+        vec![Condition {
+            rule_type: ConditionType::IsIdentity(TargetIdentity::Specific(random_guy_id)),
             issuers: vec![],
         }]
     ));
@@ -1344,16 +1347,16 @@ fn should_limit_rules_complexity_we() {
     ));
 
     let rules_with_issuer = vec![
-        Rule {
-            rule_type: RuleType::IsPresent(Claim::KnowYourCustomer(scope)),
+        Condition {
+            rule_type: ConditionType::IsPresent(Claim::KnowYourCustomer(scope)),
             issuers: vec![token_owner_did],
         };
         30
     ];
 
     let rules_without_issuers = vec![
-        Rule {
-            rule_type: RuleType::IsPresent(Claim::KnowYourCustomer(scope)),
+        Condition {
+            rule_type: ConditionType::IsPresent(Claim::KnowYourCustomer(scope)),
             issuers: vec![],
         };
         15

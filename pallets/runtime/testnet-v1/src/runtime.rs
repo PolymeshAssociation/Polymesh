@@ -8,7 +8,7 @@ use pallet_asset as asset;
 use pallet_balances as balances;
 use pallet_basic_sto as sto;
 use pallet_committee as committee;
-use pallet_compliance_manager::{self as compliance_manager, AssetTransferRulesResult};
+use pallet_compliance_manager::{self as compliance_manager, AssetComplianceResult};
 use pallet_group as group;
 use pallet_identity::{
     self as identity,

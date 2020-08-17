@@ -1,5 +1,5 @@
 use crate::{
-    predicate::{Context, Predicate},
+    predicate::{Context, Proposition},
     Claim, IdentityId,
 };
 use codec::{Decode, Encode};
@@ -14,7 +14,7 @@ pub struct TargetIdentityPredicate<'a> {
     pub identity: &'a IdentityId,
 }
 
-impl<'a> Predicate for TargetIdentityPredicate<'a> {
+impl<'a> Proposition for TargetIdentityPredicate<'a> {
     #[inline]
     fn evaluate(&self, context: &Context) -> bool {
         context.id == *self.identity
@@ -40,7 +40,7 @@ pub struct ExistentialPredicate<'a> {
     pub claim: &'a Claim,
 }
 
-impl<'a> Predicate for ExistentialPredicate<'a> {
+impl<'a> Proposition for ExistentialPredicate<'a> {
     fn evaluate(&self, context: &Context) -> bool {
         match &self.claim {
             Claim::CustomerDueDiligence(ref cdd_id) if cdd_id.is_wildcard() => {
@@ -77,8 +77,8 @@ impl<'a> ExistentialPredicate<'a> {
 #[cfg_attr(feature = "std", derive(Debug))]
 pub struct AndPredicate<P1, P2>
 where
-    P1: Predicate + Sized,
-    P2: Predicate + Sized,
+    P1: Proposition + Sized,
+    P2: Proposition + Sized,
 {
     lhs: P1,
     rhs: P2,
@@ -86,8 +86,8 @@ where
 
 impl<P1, P2> AndPredicate<P1, P2>
 where
-    P1: Predicate + Sized,
-    P2: Predicate + Sized,
+    P1: Proposition + Sized,
+    P2: Proposition + Sized,
 {
     /// Create a new `AndPredicate` over predicates `lhs` and `rhs`.
     #[inline]
@@ -96,10 +96,10 @@ where
     }
 }
 
-impl<P1, P2> Predicate for AndPredicate<P1, P2>
+impl<P1, P2> Proposition for AndPredicate<P1, P2>
 where
-    P1: Predicate + Sized,
-    P2: Predicate + Sized,
+    P1: Proposition + Sized,
+    P2: Proposition + Sized,
 {
     /// Evaluate predicate against `context`.
     #[inline]
@@ -116,8 +116,8 @@ where
 #[cfg_attr(feature = "std", derive(Debug))]
 pub struct OrPredicate<P1, P2>
 where
-    P1: Predicate + Sized,
-    P2: Predicate + Sized,
+    P1: Proposition + Sized,
+    P2: Proposition + Sized,
 {
     lhs: P1,
     rhs: P2,
@@ -125,8 +125,8 @@ where
 
 impl<P1, P2> OrPredicate<P1, P2>
 where
-    P1: Predicate + Sized,
-    P2: Predicate + Sized,
+    P1: Proposition + Sized,
+    P2: Proposition + Sized,
 {
     /// Create a new `OrPredicate` over predicates `lhs` and `rhs`.
     #[inline]
@@ -135,10 +135,10 @@ where
     }
 }
 
-impl<P1, P2> Predicate for OrPredicate<P1, P2>
+impl<P1, P2> Proposition for OrPredicate<P1, P2>
 where
-    P1: Predicate + Sized,
-    P2: Predicate + Sized,
+    P1: Proposition + Sized,
+    P2: Proposition + Sized,
 {
     /// Evaluate predicate against `context`.
     #[inline]
@@ -153,13 +153,13 @@ where
 /// Predicate that returns a logical NOT of other predicate.
 #[derive(Encode, Decode, Clone)]
 #[cfg_attr(feature = "std", derive(Debug))]
-pub struct NotPredicate<P: Predicate + Sized> {
+pub struct NotPredicate<P: Proposition + Sized> {
     predicate: P,
 }
 
 impl<P> NotPredicate<P>
 where
-    P: Predicate + Sized,
+    P: Proposition + Sized,
 {
     /// Create a new `OrPredicate` over predicate `predicate`.
     #[inline]
@@ -168,7 +168,7 @@ where
     }
 }
 
-impl<P: Predicate + Sized> Predicate for NotPredicate<P> {
+impl<P: Proposition + Sized> Proposition for NotPredicate<P> {
     /// Evaluate predicate against `context`.
     #[inline]
     fn evaluate(&self, context: &Context) -> bool {
@@ -187,7 +187,7 @@ pub struct AnyPredicate<'a> {
     pub claims: &'a [Claim],
 }
 
-impl<'a> Predicate for AnyPredicate<'a> {
+impl<'a> Proposition for AnyPredicate<'a> {
     /// Evaluate predicate against `context`.
     fn evaluate(&self, context: &Context) -> bool {
         context.claims.iter().any(|ctx_claim| {
@@ -201,8 +201,8 @@ impl<'a> Predicate for AnyPredicate<'a> {
 #[cfg(test)]
 mod tests {
     use crate::{
-        predicate::{self, Context, Predicate},
-        CddId, Claim, IdentityId, InvestorUid, Rule, RuleType, Scope, TargetIdentity,
+        predicate::{self, Context, Proposition},
+        CddId, Claim, Condition, ConditionType, IdentityId, InvestorUid, Scope, TargetIdentity,
     };
     use std::convert::From;
 
@@ -260,15 +260,15 @@ mod tests {
     fn run_predicate() {
         let scope = Scope::from(0);
 
-        let rules: Vec<Rule> = vec![
-            RuleType::IsPresent(Claim::Accredited(scope)).into(),
-            RuleType::IsAbsent(Claim::BuyLockup(scope)).into(),
-            RuleType::IsAnyOf(vec![
+        let rules: Vec<Condition> = vec![
+            ConditionType::IsPresent(Claim::Accredited(scope)).into(),
+            ConditionType::IsAbsent(Claim::BuyLockup(scope)).into(),
+            ConditionType::IsAnyOf(vec![
                 Claim::Jurisdiction(b"USA".into(), scope),
                 Claim::Jurisdiction(b"Canada".into(), scope),
             ])
             .into(),
-            RuleType::IsNoneOf(vec![Claim::Jurisdiction(b"Cuba".into(), scope)]).into(),
+            ConditionType::IsNoneOf(vec![Claim::Jurisdiction(b"Cuba".into(), scope)]).into(),
         ];
 
         // Valid case
@@ -335,7 +335,7 @@ mod tests {
         let identity1 = IdentityId::from(1);
         let identity2 = IdentityId::from(2);
         assert!(predicate::run(
-            &RuleType::IsIdentity(TargetIdentity::Treasury).into(),
+            &ConditionType::IsIdentity(TargetIdentity::Treasury).into(),
             &Context {
                 id: identity1,
                 treasury: Some(identity1),
@@ -343,7 +343,7 @@ mod tests {
             }
         ));
         assert!(predicate::run(
-            &RuleType::IsIdentity(TargetIdentity::Specific(identity1)).into(),
+            &ConditionType::IsIdentity(TargetIdentity::Specific(identity1)).into(),
             &Context {
                 id: identity1,
                 treasury: Some(identity2),

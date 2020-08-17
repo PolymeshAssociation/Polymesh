@@ -13,7 +13,7 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
-use crate::{Claim, IdentityId, Rule, RuleType, TargetIdentity, Ticker};
+use crate::{Claim, Condition, ConditionType, IdentityId, TargetIdentity, Ticker};
 use codec::{Decode, Encode};
 
 use sp_std::prelude::*;
@@ -40,7 +40,7 @@ pub struct Context {
 // ==================================
 
 /// It allows composition and evaluation of claims based on a context.
-pub trait Predicate {
+pub trait Proposition {
     /// It evaluates this predicated based on `context` context.
     fn evaluate(&self, context: &Context) -> bool;
 
@@ -50,7 +50,7 @@ pub trait Predicate {
     fn and<B>(self, other: B) -> AndPredicate<Self, B>
     where
         Self: Sized,
-        B: Predicate + Sized,
+        B: Proposition + Sized,
     {
         AndPredicate::new(self, other)
     }
@@ -61,7 +61,7 @@ pub trait Predicate {
     fn or<B>(self, other: B) -> OrPredicate<Self, B>
     where
         Self: Sized,
-        B: Predicate + Sized,
+        B: Proposition + Sized,
     {
         OrPredicate::new(self, other)
     }
@@ -116,7 +116,7 @@ pub fn any(claims: &'_ [Claim]) -> AnyPredicate<'_> {
 #[inline]
 pub fn not<P>(predicate: P) -> NotPredicate<P>
 where
-    P: Predicate + Sized,
+    P: Proposition + Sized,
 {
     NotPredicate::new(predicate)
 }
@@ -129,16 +129,16 @@ pub fn has_valid_proof_of_investor(ticker: Ticker) -> ValidProofOfInvestorPredic
 }
 
 /// Helper function to run predicates from a context.
-pub fn run(rule: &Rule, context: &Context) -> bool {
+pub fn run(rule: &Condition, context: &Context) -> bool {
     match rule.rule_type {
-        RuleType::IsPresent(ref claim) => exists(claim).evaluate(context),
-        RuleType::IsAbsent(ref claim) => not(exists(claim)).evaluate(context),
-        RuleType::IsAnyOf(ref claims) => any(claims).evaluate(context),
-        RuleType::IsNoneOf(ref claims) => not(any(claims)).evaluate(context),
-        RuleType::HasValidProofOfInvestor(ref ticker) => {
+        ConditionType::IsPresent(ref claim) => exists(claim).evaluate(context),
+        ConditionType::IsAbsent(ref claim) => not(exists(claim)).evaluate(context),
+        ConditionType::IsAnyOf(ref claims) => any(claims).evaluate(context),
+        ConditionType::IsNoneOf(ref claims) => not(any(claims)).evaluate(context),
+        ConditionType::HasValidProofOfInvestor(ref ticker) => {
             has_valid_proof_of_investor(ticker.clone()).evaluate(context)
         }
-        RuleType::IsIdentity(ref id) => {
+        ConditionType::IsIdentity(ref id) => {
             equals(id, &context.treasury.unwrap_or_default()).evaluate(context)
         }
     }

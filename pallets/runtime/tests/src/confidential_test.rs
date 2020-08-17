@@ -10,7 +10,7 @@ use pallet_confidential as confidential;
 use pallet_identity::{self as identity, Error};
 use polymesh_common_utilities::constants::ERC1400_TRANSFER_SUCCESS;
 use polymesh_primitives::{
-    Claim, IdentityId, InvestorUid, InvestorZKProofData, Rule, RuleType, Ticker,
+    Claim, Condition, ConditionType, IdentityId, InvestorUid, InvestorZKProofData, Ticker,
 };
 
 use core::convert::TryFrom;
@@ -129,7 +129,9 @@ fn scope_claims_we() {
     // 2. Alice defines the asset complain rules.
     let st_scope = IdentityId::try_from(st_id.as_slice()).unwrap();
     let sender_rules = vec![];
-    let receiver_rules = vec![Rule::from(RuleType::HasValidProofOfInvestor(st_id))];
+    let receiver_rules = vec![Condition::from(ConditionType::HasValidProofOfInvestor(
+        st_id,
+    ))];
     assert_ok!(ComplianceManager::add_active_rule(
         Origin::signed(alice),
         st_id,
