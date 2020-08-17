@@ -937,8 +937,6 @@ fn cm_test_case_9_we() {
         None
     ));
     assert_valid_transfer!(ticker, owner_did, charlie, 100);
-    let result = ComplianceManager::granular_verify_restriction(&ticker, None, Some(charlie));
-    assert_ok!(Asset::transfer(owner.clone(), ticker, charlie, 100));
     let result = ComplianceManager::granular_verify_restriction(&ticker, None, Some(charlie), None);
     assert!(result.final_result);
     assert!(result.rules[0].transfer_rule_result);

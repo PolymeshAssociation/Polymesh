@@ -162,9 +162,10 @@ fn correct_dividend_must_work() {
         };
 
         // Transfer payout tokens to asset owner
-        assert_ok!(Asset::transfer(
-            payout_owner_acc.clone(),
-            payout_ticker,
+        assert_ok!(Asset::unsafe_transfer(
+            payout_owner_did,
+            &payout_ticker,
+            payout_owner_did,
             token_owner_did,
             dividend.amount
         ));
