@@ -494,7 +494,7 @@ fn should_successfully_add_and_use_default_issuers_we() {
         None,
     ));
 
-    assert_ok!(Asset::clear_primary_issuance_agent(
+    assert_ok!(Asset::remove_primary_issuance_agent(
         token_owner_signed.clone(),
         ticker
     ));

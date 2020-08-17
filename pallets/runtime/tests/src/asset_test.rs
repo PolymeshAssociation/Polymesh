@@ -2092,7 +2092,7 @@ fn can_set_primary_issuance_agent_we() {
         auth_id
     ));
     assert_eq!(Asset::token_details(ticker), token);
-    assert_ok!(Asset::clear_primary_issuance_agent(
+    assert_ok!(Asset::remove_primary_issuance_agent(
         Origin::signed(alice),
         ticker
     ));

@@ -1242,7 +1242,7 @@ decl_module! {
 
         /// Sets the primary issuance agent to None. The caller must be the asset issuer. The asset
         /// issuer can always update the primary issuance agent using `transfer_primary_issuance_agent`. If the issuer
-        /// clears their primary issuance agent then it will be immovable until either they transfer
+        /// removes their primary issuance agent then it will be immovable until either they transfer
         /// the primary issuance agent to an actual DID, or they add a claim to allow that DID to move the
         /// asset.
         ///
@@ -1250,7 +1250,7 @@ decl_module! {
         /// * `origin` - The asset issuer.
         /// * `ticker` - Ticker symbol of the asset.
         #[weight = 250_000]
-        pub fn clear_primary_issuance_agent(
+        pub fn remove_primary_issuance_agent(
             origin,
             ticker: Ticker,
         ) -> DispatchResult {
