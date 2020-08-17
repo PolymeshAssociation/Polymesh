@@ -185,7 +185,7 @@ use polymesh_common_utilities::{
     },
     Context, SystematicIssuers,
 };
-use polymesh_primitives::{traits::BlockRewardsReserveCurrency};
+use polymesh_primitives::traits::BlockRewardsReserveCurrency;
 use sp_runtime::{
     traits::{
         AccountIdConversion, Bounded, CheckedAdd, CheckedSub, MaybeSerializeDeserialize,
