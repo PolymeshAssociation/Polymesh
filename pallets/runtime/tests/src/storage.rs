@@ -268,17 +268,21 @@ impl CddAndFeeDetails<AccountId, Call> for TestStorage {
     fn get_valid_payer(
         _: &Call,
         caller: &Signatory<AccountId>,
-    ) -> Result<Option<Signatory<AccountId>>, InvalidTransaction> {
-        Ok(Some(*caller))
+    ) -> Result<Option<AccountId>, InvalidTransaction> {
+        if let Signatory::Account(key) = caller {
+            Ok(Some(*key))
+        } else {
+            Err(InvalidTransaction::Call.into())
+        }
     }
     fn clear_context() {
         Context::set_current_identity::<Identity>(None);
         Context::set_current_payer::<Identity>(None);
     }
-    fn set_payer_context(payer: Option<Signatory<AccountId>>) {
+    fn set_payer_context(payer: Option<AccountId>) {
         Context::set_current_payer::<Identity>(payer);
     }
-    fn get_payer_from_context() -> Option<Signatory<AccountId>> {
+    fn get_payer_from_context() -> Option<AccountId> {
         Context::current_payer::<Identity>()
     }
     fn set_current_identity(did: &IdentityId) {

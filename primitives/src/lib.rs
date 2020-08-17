@@ -195,7 +195,7 @@ pub use document::{Document, DocumentHash, DocumentName, DocumentUri};
 
 /// Rules for claims.
 pub mod rule;
-pub use rule::{Rule, RuleType};
+pub use rule::{Rule, RuleType, TargetIdentity};
 
 /// Predicate calculation for Claims.
 pub mod predicate;
