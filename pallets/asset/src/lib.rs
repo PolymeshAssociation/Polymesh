@@ -42,20 +42,12 @@
 //! - `freeze` - Freezes transfers and minting of a given token.
 //! - `unfreeze` - Unfreezes transfers and minting of a given token.
 //! - `rename_asset` - Renames a given asset.
-//! - `transfer` - Transfer tokens from one DID to another DID as tokens are stored/managed on the DID level.
 //! - `controller_transfer` - Forces a transfer between two DID.
-//! - `approve` - Approve token transfer from one DID to another.
-//! - `transfer_from` - If sufficient allowance provided, transfer from a DID to another DID without token owner's signature.
 //! - `create_checkpoint` - Function used to create the checkpoint.
 //! - `issue` - Function is used to issue(or mint) new tokens to the treasury.
-//! - `redeem` - Used to redeem the security tokens.
-//! - `redeem_from` - Used to redeem the security tokens by some other DID who has approval.
 //! - `controller_redeem` - Forces a redemption of an DID's tokens. Can only be called by token owner.
 //! - `make_divisible` - Change the divisibility of the token to divisible. Only called by the token owner.
 //! - `can_transfer` - Checks whether a transaction with given parameters can take place or not.
-//! - `transfer_with_data` - This function can be used by the exchanges of other third parties to dynamically validate the transaction by passing the data blob.
-//! - `transfer_from_with_data` - This function can be used by the exchanges of other third parties to dynamically validate the transaction by passing the data blob.
-//! - `is_issuable` - Used to know whether the given token will issue new tokens or not.
 //! - `batch_add_document` - Add documents for a given token, Only be called by the token owner.
 //! - `batch_remove_document` - Remove documents for a given token, Only be called by the token owner.
 //! - `increase_custody_allowance` - Used to increase the allowance for a given custodian.
@@ -299,8 +291,6 @@ decl_storage! {
         pub BalanceOf get(fn balance_of): double_map hasher(blake2_128_concat) Ticker, hasher(blake2_128_concat) IdentityId => T::Balance;
         /// A map of pairs of a ticker name and an `IdentifierType` to asset identifiers.
         pub Identifiers get(fn identifiers): map hasher(blake2_128_concat) (Ticker, IdentifierType) => AssetIdentifier;
-        /// (ticker, sender (DID), spender(DID)) -> allowance amount
-        Allowance get(fn allowance): map hasher(blake2_128_concat) (Ticker, IdentityId, IdentityId) => T::Balance;
         /// Checkpoints created per token.
         /// (ticker) -> no. of checkpoints
         pub TotalCheckpoints get(fn total_checkpoints_of): map hasher(blake2_128_concat) Ticker => u64;
@@ -617,29 +607,6 @@ decl_module! {
             Self::unsafe_transfer(did, &ticker, from_did, to_did, value)?;
 
             Self::deposit_event(RawEvent::ControllerTransfer(did, ticker, from_did, to_did, value, data, operator_data));
-
-            Ok(())
-        }
-
-        /// Approve token transfer from one DID to another.
-        /// once this is done, transfer_from can be called with corresponding values.
-        ///
-        /// # Arguments
-        /// * `origin` Secondary key of the token owner (i.e sender).
-        /// * `spender_did` DID of the spender.
-        /// * `value` Amount of the tokens approved.
-        #[weight = T::DbWeight::get().reads_writes(2, 1) + 400_000_000]
-        fn approve(origin, ticker: Ticker, spender_did: IdentityId, value: T::Balance) -> DispatchResult {
-            let sender = ensure_signed(origin)?;
-            let did = Context::current_identity_or::<Identity<T>>(&sender)?;
-
-            ensure!(<BalanceOf<T>>::contains_key(ticker, did), Error::<T>::NotAnOwner);
-            let allowance = Self::allowance((ticker, did, spender_did));
-            let updated_allowance = allowance.checked_add(&value)
-                .ok_or(Error::<T>::AllowanceOverflow)?;
-            <Allowance<T>>::insert((ticker, did, spender_did), updated_allowance);
-
-            Self::deposit_event(RawEvent::Approval(did, ticker, did, spender_did, value));
 
             Ok(())
         }
