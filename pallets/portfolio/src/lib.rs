@@ -368,7 +368,7 @@ impl<T: Trait> Module<T> {
 
         if let Some(num) = portfolio_number {
             ensure!(
-                !<Portfolios>::contains_key(portfolio_owner, num),
+                <Portfolios>::contains_key(portfolio_owner, num),
                 Error::<T>::PortfolioDoesNotExist
             );
         }
@@ -395,26 +395,50 @@ impl<T: Trait> Module<T> {
         Ok(())
     }
 
-    pub fn unchecked_transfer_portfolio_balance(
+    pub fn transfer_portfolio_balance(
         from_did: IdentityId,
         from_num: Option<PortfolioNumber>,
-        tp_did: IdentityId,
+        to_did: IdentityId,
         to_num: Option<PortfolioNumber>,
         amount: <T as CommonTrait>::Balance,
         ticker: &Ticker,
     ) -> DispatchResult {
+        // 1. Ensure sender has enough free balance
+        let from_portfolio_id = Self::get_portfolio_id(from_did, from_num);
+        let from_balance = Self::portfolio_asset_balances(&from_portfolio_id, ticker);
+        ensure!(
+            from_balance
+                .saturating_sub(Self::locked_assets(&from_portfolio_id, ticker))
+                .checked_sub(&amount)
+                .is_some(),
+            Error::<T>::InsufficientPortfolioBalance
+        );
+
+        // 2. Transfer tokens
+        <PortfolioAssetBalances<T>>::insert(
+            &from_portfolio_id,
+            ticker,
+            // Cannot underflow, as verified by `ensure!` above.
+            from_balance - amount,
+        );
+
+        let to_portfolio_id = Self::get_portfolio_id(to_did, to_num);
+        let to_balance = Self::portfolio_asset_balances(&to_portfolio_id, ticker);
+        <PortfolioAssetBalances<T>>::insert(
+            &to_portfolio_id,
+            ticker,
+            to_balance.saturating_add(amount),
+        );
         Ok(())
     }
 
-    pub fn verify_portfolio_balance_transfer(
+    pub fn verify_portfolio_custody(
         from_did: IdentityId,
         from_custodian: Option<IdentityId>,
         from_num: Option<PortfolioNumber>,
         to_did: IdentityId,
         to_custodian: Option<IdentityId>,
         to_num: Option<PortfolioNumber>,
-        amount: <T as CommonTrait>::Balance,
-        ticker: &Ticker,
     ) -> DispatchResult {
         // 1. Check if portfolio exists and custodian is correct for both sender and receiver
         let from_portfolio_id = Self::get_portfolio_id(from_did, from_num);
@@ -422,14 +446,6 @@ impl<T: Trait> Module<T> {
         let to_portfolio_id = Self::get_portfolio_id(to_did, to_num);
         Self::check_portfolio_custody(to_did, to_num, to_custodian, &to_portfolio_id)?;
 
-        // 2. Check that sender has enough unlocked balance
-        ensure!(
-            Self::portfolio_asset_balances(&from_portfolio_id, ticker)
-                .saturating_sub(Self::locked_assets(&from_portfolio_id, ticker))
-                .checked_sub(&amount)
-                .is_some(),
-            Error::<T>::InsufficientPortfolioBalance
-        );
         Ok(())
     }
 
