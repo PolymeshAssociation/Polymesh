@@ -11,9 +11,7 @@ use pallet_balances as balances;
 use pallet_compliance_manager as compliance_manager;
 use pallet_identity as identity;
 use pallet_statistics as statistics;
-use polymesh_common_utilities::{
-    constants::*, traits::asset::IssueAssetItem, traits::balances::Memo,
-};
+use polymesh_common_utilities::{constants::*, traits::balances::Memo};
 use polymesh_primitives::{
     AuthorizationData, Document, DocumentName, IdentityId, Signatory, SmartExtension,
     SmartExtensionType, Ticker,
@@ -1436,11 +1434,7 @@ fn freeze_unfreeze_asset() {
             AssetError::AlreadyFrozen
         );
 
-        // Attempt to mint tokens.
-        assert_err!(
-            Asset::issue(alice_signed.clone(), ticker, bob_did, 1, vec![]),
-            AssetError::InvalidTransfer
-        );
+        // Attempt to transfer tokens.
         assert_err!(
             Asset::transfer(alice_signed.clone(), ticker, bob_did, 1),
             AssetError::InvalidTransfer
@@ -1458,23 +1452,6 @@ fn freeze_unfreeze_asset() {
             auth_id
         ));
 
-        // `batch_issue` fails when the vector of recipients is not empty.
-        assert_err!(
-            Asset::batch_issue(
-                bob_signed.clone(),
-                vec![IssueAssetItem {
-                    investor_did: bob_did,
-                    value: 1
-                }],
-                ticker
-            ),
-            AssetError::InvalidTransfer
-        );
-        // `batch_issue` fails with the empty vector of investors with a different error message.
-        assert_err!(
-            Asset::batch_issue(bob_signed.clone(), vec![], ticker),
-            AssetError::NoInvestors
-        );
         assert_ok!(Asset::unfreeze(bob_signed.clone(), ticker));
         assert_err!(
             Asset::unfreeze(bob_signed.clone(), ticker),
@@ -1499,11 +1476,6 @@ fn frozen_secondary_keys_create_asset_we() {
     let bob = AccountKeyring::Bob.public();
 
     // 1. Add Bob as signatory to Alice ID.
-    assert_ok!(Balances::top_up_identity_balance(
-        Origin::signed(alice),
-        alice_id,
-        100_000
-    ));
     let bob_signatory = Signatory::Account(AccountKeyring::Bob.public());
     add_secondary_key(alice_id, bob_signatory);
     assert_ok!(Balances::transfer_with_memo(
@@ -1702,11 +1674,6 @@ fn clear_treasury() {
     let alice_id = register_keyring_account(AccountKeyring::Alice).unwrap();
     let bob = AccountKeyring::Bob.public();
     let bob_id = register_keyring_account(AccountKeyring::Bob).unwrap();
-    assert_ok!(Balances::top_up_identity_balance(
-        Origin::signed(alice),
-        alice_id,
-        100_000
-    ));
     assert_ok!(Balances::transfer_with_memo(
         Origin::signed(alice),
         bob,
