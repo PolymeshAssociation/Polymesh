@@ -57,6 +57,8 @@ fn create_se_template<T>(
 ) where
     T: frame_system::Trait<Hash = sp_core::H256>,
 {
+    let wasm_length_weight = 3598000000;
+
     // Set payer in context
     TestStorage::set_payer_context(Some(template_creator));
 
@@ -69,6 +71,13 @@ fn create_se_template<T>(
         description: "This is a transfer manager type contract".into(),
         version: "1.0.0".into(),
     };
+
+    // verify the weight value of the put_code extrinsic.
+    let weight_of_extrinsic =
+    ContractsCall::<TestStorage>::put_code(se_meta_data.clone(), wasm.clone())
+        .get_dispatch_info()
+        .weight;
+    assert_eq!(wasm_length_weight + 50_000_000, weight_of_extrinsic);
 
     // Execute `put_code`
     assert_ok!(WrapperContracts::put_code(
@@ -89,6 +98,9 @@ fn create_se_template<T>(
         WrapperContracts::get_template_meta_details(code_hash),
         expected_template_metadata
     );
+
+    // Set payer in context
+    TestStorage::set_payer_context(None);
 }
 
 fn create_contract_instance<T>(
@@ -137,54 +149,14 @@ fn check_put_code_functionality() {
         .set_protocol_base_fees(protocol_fee)
         .build()
         .execute_with(|| {
-            let wasm_length_weight = 3598000000;
-
             let alice = AccountKeyring::Alice.public();
             // Create Alice account & the identity for her.
             let (alice_signed, _) = make_account_without_cdd(alice).unwrap();
 
-            // Set payer in context
-            TestStorage::set_payer_context(Some(alice));
-
             // Get the balance of the Alice
             let alice_balance = System::account(alice).data.free;
 
-            // Create smart extension metadata
-            let se_meta_data = SmartExtensionMetadata {
-                url: None,
-                se_type: SmartExtensionType::TransferManager,
-                instantiation_fee: 0,
-                usage_fee: 0,
-                description: "This is a transfer manager type contract".into(),
-                version: "1.0.0".into(),
-            };
-
-            // verify the weight value of the put_code extrinsic.
-            let weight_of_extrinsic =
-                ContractsCall::<TestStorage>::put_code(se_meta_data.clone(), wasm.clone())
-                    .get_dispatch_info()
-                    .weight;
-            assert_eq!(wasm_length_weight + 50_000_000, weight_of_extrinsic);
-
-            // Execute `put_code`
-            assert_ok!(WrapperContracts::put_code(
-                alice_signed,
-                se_meta_data.clone(),
-                wasm
-            ));
-
-            // Expected data provide by the runtime.
-            let expected_template_metadata = TemplateMetadata {
-                meta_info: se_meta_data,
-                owner: alice,
-                is_freeze: false,
-            };
-
-            // Verify the storage
-            assert_eq!(
-                WrapperContracts::get_template_meta_details(code_hash),
-                expected_template_metadata
-            );
+            create_se_template::<TestStorage>(alice, 0, code_hash, wasm);
 
             // Check the storage of the base pallet
             assert!(<pallet_contracts::PristineCode<TestStorage>>::get(code_hash).is_some());
@@ -226,44 +198,10 @@ fn check_instantiation_functionality() {
             // Create Alice account & the identity for her.
             let (alice_signed, _) = make_account_without_cdd(alice).unwrap();
 
-            // Set payer in context
-            TestStorage::set_payer_context(Some(alice));
-
-            // Create smart extension metadata
-            let se_meta_data = SmartExtensionMetadata {
-                url: None,
-                se_type: SmartExtensionType::TransferManager,
-                instantiation_fee: instantiation_fee,
-                usage_fee: 0,
-                description: "Under hood this is flipper contract".into(),
-                version: "1.0.0".into(),
-            };
-
-            // Execute `put_code`
-            assert_ok!(WrapperContracts::put_code(
-                alice_signed,
-                se_meta_data.clone(),
-                wasm
-            ));
-
-            // Free up the context
-            TestStorage::set_payer_context(None);
+            create_se_template::<TestStorage>(alice, instantiation_fee, code_hash, wasm);
 
             // Get the balance of the Alice
             let alice_balance = System::account(alice).data.free;
-
-            // Expected data provide by the runtime.
-            let expected_template_metadata = TemplateMetadata {
-                meta_info: se_meta_data,
-                owner: alice,
-                is_freeze: false,
-            };
-
-            // Verify the storage
-            assert_eq!(
-                WrapperContracts::get_template_meta_details(code_hash),
-                expected_template_metadata
-            );
 
             // Bob will create a instance of it.
             let bob = AccountKeyring::Bob.public();
@@ -273,20 +211,9 @@ fn check_instantiation_functionality() {
             // Get the balance of the Bob
             let bob_balance = System::account(bob).data.free;
 
-            // Set payer of the transaction
-            TestStorage::set_payer_context(Some(bob));
+            // create instance of contract
+            let result = create_contract_instance::<TestStorage>(bob, code_hash);
 
-            // Increment the nonce.
-            System::inc_account_nonce(bob);
-
-            // create a instance
-            let result = WrapperContracts::instantiate(
-                bob_signed.clone(),
-                100,
-                GAS_LIMIT,
-                code_hash,
-                input_data.to_vec(),
-            );
             assert_ok!(result);
             // Verify the actual weight of the extrinsic.
             assert!(result.unwrap().actual_weight.unwrap() > extrinsic_wrapper_weight);
@@ -310,20 +237,7 @@ fn check_instantiation_functionality() {
             // Check whether the contract creation allowed or not with same constructor data.
             // It should be as contract creation is depend on the nonce of the account.
 
-            // Set payer of the transaction
-            TestStorage::set_payer_context(Some(bob));
-
-            // Increment the nonce.
-            System::inc_account_nonce(bob);
-
-            // create a new instance
-            let result = WrapperContracts::instantiate(
-                bob_signed,
-                100,
-                GAS_LIMIT,
-                code_hash,
-                input_data.to_vec(),
-            );
+            let result = create_contract_instance::<TestStorage>(bob, code_hash);
             assert_ok!(result);
 
             // Generate the contract address.

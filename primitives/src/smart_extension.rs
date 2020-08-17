@@ -40,7 +40,7 @@ pub struct SmartExtensionName(pub Vec<u8>);
 
 #[derive(Encode, Decode, Default, Clone, PartialEq, Debug)]
 /// Smart Extension details when SE instance
-/// attached with asset.
+/// is attached with asset.
 pub struct SmartExtension<AccountId> {
     /// Type of the extension
     pub extension_type: SmartExtensionType,
@@ -52,15 +52,15 @@ pub struct SmartExtension<AccountId> {
     pub is_archive: bool,
 }
 
-/// Holds the url string of the SE template.
+/// The url string of the SE template.
 #[derive(Encode, Decode, Default, Debug, Clone, PartialEq, VecU8StrongTyped)]
 pub struct MetaUrl(pub Vec<u8>);
 
-/// Holds the description string about the SE template.
+/// The description string about the SE template.
 #[derive(Encode, Decode, Default, Debug, Clone, PartialEq, VecU8StrongTyped)]
 pub struct MetaDescription(pub Vec<u8>);
 
-/// Holds the version string of the SE template.
+/// The version string of the SE template.
 #[derive(Encode, Decode, Default, Debug, Clone, PartialEq, VecU8StrongTyped)]
 pub struct MetaVersion(pub Vec<u8>);
 
