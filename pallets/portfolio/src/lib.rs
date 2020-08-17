@@ -166,7 +166,9 @@ decl_error! {
         /// The porfolio's custody is with someone other than the caller.
         UnauthorizedCustodian,
         /// The authorization is for something other than portfolio custody
-        IrrelevantAuthorization
+        IrrelevantAuthorization,
+        /// Can not unlock more tokens than what are locked
+        InsufficientTokensLocked
     }
 }
 
@@ -423,29 +425,11 @@ impl<T: Trait> Module<T> {
         );
 
         let to_portfolio_id = Self::get_portfolio_id(to_did, to_num);
-        let to_balance = Self::portfolio_asset_balances(&to_portfolio_id, ticker);
-        <PortfolioAssetBalances<T>>::insert(
+        <PortfolioAssetBalances<T>>::mutate(
             &to_portfolio_id,
             ticker,
-            to_balance.saturating_add(amount),
+            | to_balance | to_balance.saturating_add(amount),
         );
-        Ok(())
-    }
-
-    pub fn verify_portfolio_custody(
-        from_did: IdentityId,
-        from_custodian: Option<IdentityId>,
-        from_num: Option<PortfolioNumber>,
-        to_did: IdentityId,
-        to_custodian: Option<IdentityId>,
-        to_num: Option<PortfolioNumber>,
-    ) -> DispatchResult {
-        // 1. Check if portfolio exists and custodian is correct for both sender and receiver
-        let from_portfolio_id = Self::get_portfolio_id(from_did, from_num);
-        Self::check_portfolio_custody(from_did, from_num, from_custodian, &from_portfolio_id)?;
-        let to_portfolio_id = Self::get_portfolio_id(to_did, to_num);
-        Self::check_portfolio_custody(to_did, to_num, to_custodian, &to_portfolio_id)?;
-
         Ok(())
     }
 
@@ -454,12 +438,13 @@ impl<T: Trait> Module<T> {
             .unwrap_or_else(|| PortfolioId::default_portfolio(did))
     }
 
-    fn check_portfolio_custody(
+    pub fn check_portfolio_custody(
         did: IdentityId,
         num: Option<PortfolioNumber>,
-        custodian: Option<IdentityId>,
-        portfolio_id: &PortfolioId,
+        custodian: Option<IdentityId>
     ) -> DispatchResult {
+        let portfolio_id = Self::get_portfolio_id(did, num);
+
         // 1.1 If num is some, it implies a custom portfolio that must have been explicitly created.
         if let Some(portfolio_num) = num {
             ensure!(
@@ -469,13 +454,60 @@ impl<T: Trait> Module<T> {
         }
 
         // 1.2 If a custodian is assigned, only they are allowed.
-        if <PortfolioCustodian>::contains_key(portfolio_id) {
+        if <PortfolioCustodian>::contains_key(&portfolio_id) {
             ensure!(
                 Self::portfolio_custodian(portfolio_id) == custodian.unwrap_or_default(),
                 Error::<T>::UnauthorizedCustodian
             );
         }
 
+        Ok(())
+    }
+
+    pub fn lock_tokens(
+        did: IdentityId,
+        num: Option<PortfolioNumber>,
+        amount: <T as CommonTrait>::Balance,
+        ticker: &Ticker
+    ) -> DispatchResult {
+        // 1. Ensure portfolio has enough free balance
+        let portfolio_id = Self::get_portfolio_id(did, num);
+        let balance = Self::portfolio_asset_balances(&portfolio_id, ticker);
+        ensure!(
+            balance
+                .saturating_sub(Self::locked_assets(&portfolio_id, ticker))
+                .checked_sub(&amount)
+                .is_some(),
+            Error::<T>::InsufficientPortfolioBalance
+        );
+
+        // 2. Lock tokens.
+        // Locks are stacked so if there were X tokens already locked, there will now be X + N tokens locked
+        <PortfolioLockedAssets<T>>::mutate(
+            &portfolio_id,
+            ticker,
+            | locked | *locked = locked.saturating_add(amount)
+        );
+        Ok(())
+    }
+
+    pub fn unlock_tokens(
+        did: IdentityId,
+        num: Option<PortfolioNumber>,
+        amount: <T as CommonTrait>::Balance,
+        ticker: &Ticker
+    ) -> DispatchResult {
+        // 1. Ensure portfolio has enough locked tokens
+        let portfolio_id = Self::get_portfolio_id(did, num);
+        let locked = Self::locked_assets(&portfolio_id, ticker);
+        ensure!(locked >= amount, Error::<T>::InsufficientTokensLocked);
+
+        // 2. Unlock tokens. Can not underflow due to above ensure.
+        <PortfolioLockedAssets<T>>::insert(
+            &portfolio_id,
+            ticker,
+            locked - amount
+        );
         Ok(())
     }
 }
