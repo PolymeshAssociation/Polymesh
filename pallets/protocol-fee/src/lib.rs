@@ -46,12 +46,13 @@ use pallet_identity as identity;
 use polymesh_common_utilities::{
     identity::Trait as IdentityTrait,
     protocol_fee::{ChargeProtocolFee, ProtocolOp},
+    transaction_payment::CddAndFeeDetails,
     Context, SystematicIssuers,
 };
-use primitives::{traits::IdentityCurrency, IdentityId, PosRatio, Signatory};
+use polymesh_primitives::{IdentityId, PosRatio, Signatory};
 use sp_runtime::{
     traits::{Saturating, Zero},
-    PerThing, Perbill,
+    Perbill,
 };
 
 type BalanceOf<T> =
@@ -65,7 +66,7 @@ type Identity<T> = identity::Module<T>;
 pub trait Trait: frame_system::Trait + IdentityTrait {
     type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
     /// The currency type in which fees will be paid.
-    type Currency: Currency<Self::AccountId> + Send + Sync + IdentityCurrency<Self::AccountId>;
+    type Currency: Currency<Self::AccountId> + Send + Sync;
     /// Handler for the unbalanced reduction when taking protocol fees.
     type OnProtocolFeePayment: OnUnbalanced<NegativeImbalanceOf<Self>>;
 }
@@ -78,7 +79,7 @@ decl_error! {
         InsufficientAccountBalance,
         /// Account ID decoding failed.
         AccountIdDecode,
-        /// Missing current DID
+        /// Missing the current identity.
         MissingCurrentIdentity,
     }
 }
@@ -99,13 +100,16 @@ decl_storage! {
 }
 
 decl_event! {
-    pub enum Event<T> where Balance = BalanceOf<T> {
+    pub enum Event<T> where
+        AccountId = <T as frame_system::Trait>::AccountId,
+        Balance = BalanceOf<T>,
+    {
         /// The protocol fee of an operation.
         FeeSet(IdentityId, Balance),
         /// The fee coefficient.
         CoefficientSet(IdentityId, PosRatio),
         /// Fee charged.
-        FeeCharged(IdentityId, Balance),
+        FeeCharged(AccountId, Balance),
     }
 }
 
@@ -119,10 +123,10 @@ decl_module! {
         ///
         /// # Errors
         /// * `BadOrigin` - Only root allowed.
-        #[weight = (500_000, DispatchClass::Operational, Pays::Yes)]
+        #[weight = (200_000_000, DispatchClass::Operational, Pays::Yes)]
         pub fn change_coefficient(origin, coefficient: PosRatio) -> DispatchResult {
             ensure_root(origin)?;
-            let id = Context::current_identity::<Identity<T>>().unwrap_or(SystematicIssuers::Committee.as_id());
+            let id = Context::current_identity::<Identity<T>>().unwrap_or_else(|| SystematicIssuers::Committee.as_id());
 
             <Coefficient>::put(&coefficient);
             Self::deposit_event(RawEvent::CoefficientSet(id, coefficient));
@@ -133,12 +137,12 @@ decl_module! {
         ///
         /// # Errors
         /// * `BadOrigin` - Only root allowed.
-        #[weight = (500_000, DispatchClass::Operational, Pays::Yes)]
+        #[weight = (200_000_000, DispatchClass::Operational, Pays::Yes)]
         pub fn change_base_fee(origin, op: ProtocolOp, base_fee: BalanceOf<T>) ->
             DispatchResult
         {
             ensure_root(origin)?;
-            let id = Context::current_identity::<Identity<T>>().unwrap_or(SystematicIssuers::Committee.as_id());
+            let id = Context::current_identity::<Identity<T>>().unwrap_or_else(|| SystematicIssuers::Committee.as_id());
 
             <BaseFees<T>>::insert(op, &base_fee);
             Self::deposit_event(RawEvent::FeeSet(id, base_fee));
@@ -156,66 +160,55 @@ impl<T: Trait> Module<T> {
         ratio * Self::base_fees(op)
     }
 
-    /// Computes the fee of the operation and charges it to the given signatory. The fee is then
+    /// Computes the fee of the operation and charges it to the current payer. The fee is then
     /// credited to the intended recipients according to the implementation of
     /// `OnProtocolFeePayment`.
-    pub fn charge_fee(signatory: &Signatory<T::AccountId>, op: ProtocolOp) -> DispatchResult {
+    pub fn charge_fee(op: ProtocolOp) -> DispatchResult {
         let fee = Self::compute_fee(op);
         if fee.is_zero() {
             return Ok(());
         }
-        let imbalance = Self::withdraw_fee(signatory, fee)?;
-        // Pay the fee to the intended recipients depending on the implementation of
-        // `OnProtocolFeePayment`.
-        T::OnProtocolFeePayment::on_unbalanced(imbalance);
-        let id = Context::current_identity::<Identity<T>>()
-            .ok_or_else(|| Error::<T>::MissingCurrentIdentity)?;
-        Self::deposit_event(RawEvent::FeeCharged(id, fee));
-        Ok(())
-    }
-
-    /// Computes the fee for `count` similar operations, and charges that fee to the given
-    /// signatory.
-    pub fn batch_charge_fee(
-        signatory: &Signatory<T::AccountId>,
-        op: ProtocolOp,
-        count: usize,
-    ) -> DispatchResult {
-        let fee = Self::compute_fee(op).saturating_mul(<BalanceOf<T>>::from(count as u32));
-        let imbalance = Self::withdraw_fee(signatory, fee)?;
-        T::OnProtocolFeePayment::on_unbalanced(imbalance);
-        Ok(())
-    }
-
-    /// Withdraws a precomputed fee.
-    fn withdraw_fee(
-        signatory: &Signatory<T::AccountId>,
-        fee: BalanceOf<T>,
-    ) -> WithdrawFeeResult<T> {
-        match signatory {
-            Signatory::Identity(did) => T::Currency::withdraw_identity_balance(did, fee)
-                .map_err(|_| Error::<T>::InsufficientIdentityBalance.into()),
-            Signatory::Account(account) => T::Currency::withdraw(
-                &account,
-                fee,
-                WithdrawReason::Fee.into(),
-                ExistenceRequirement::KeepAlive,
-            )
-            .map_err(|_| Error::<T>::InsufficientAccountBalance.into()),
+        if let Some(payer) = T::CddHandler::get_payer_from_context() {
+            let imbalance = Self::withdraw_fee(payer, fee)?;
+            T::OnProtocolFeePayment::on_unbalanced(imbalance);
         }
+        Ok(())
+    }
+
+    /// Computes the fee for `count` similar operations, and charges that fee to the current payer.
+    pub fn batch_charge_fee(op: ProtocolOp, count: usize) -> DispatchResult {
+        let fee = Self::compute_fee(op).saturating_mul(<BalanceOf<T>>::from(count as u32));
+        if fee.is_zero() {
+            return Ok(());
+        }
+        if let Some(payer) = T::CddHandler::get_payer_from_context() {
+            let imbalance = Self::withdraw_fee(payer, fee)?;
+            T::OnProtocolFeePayment::on_unbalanced(imbalance);
+        }
+        Ok(())
+    }
+
+    /// Withdraws a precomputed fee from the current payer if it is defined or from the current
+    /// identity otherwise.
+    fn withdraw_fee(account: T::AccountId, fee: BalanceOf<T>) -> WithdrawFeeResult<T> {
+        let result = T::Currency::withdraw(
+            &account,
+            fee,
+            WithdrawReason::Fee.into(),
+            ExistenceRequirement::KeepAlive,
+        )
+        .map_err(|_| Error::<T>::InsufficientAccountBalance.into());
+        Self::deposit_event(RawEvent::FeeCharged(account, fee));
+        result
     }
 }
 
 impl<T: Trait> ChargeProtocolFee<T::AccountId> for Module<T> {
-    fn charge_fee(signatory: &Signatory<T::AccountId>, op: ProtocolOp) -> DispatchResult {
-        Self::charge_fee(signatory, op)
+    fn charge_fee(op: ProtocolOp) -> DispatchResult {
+        Self::charge_fee(op)
     }
 
-    fn batch_charge_fee(
-        signatory: &Signatory<T::AccountId>,
-        op: ProtocolOp,
-        count: usize,
-    ) -> DispatchResult {
-        Self::batch_charge_fee(signatory, op, count)
+    fn batch_charge_fee(op: ProtocolOp, count: usize) -> DispatchResult {
+        Self::batch_charge_fee(op, count)
     }
 }

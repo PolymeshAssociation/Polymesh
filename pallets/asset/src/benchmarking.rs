@@ -16,7 +16,7 @@
 use crate::*;
 use pallet_balances as balances;
 use pallet_identity as identity;
-use polymesh_primitives::{AuthorizationData, IdentityId, Signatory, Ticker};
+use polymesh_primitives::{AuthorizationData, IdentityId, InvestorUid, Signatory, Ticker};
 
 use frame_benchmarking::{account, benchmarks};
 use frame_support::{traits::Currency, StorageValue};
@@ -28,6 +28,11 @@ const MAX_USER_INDEX: u32 = 1_000;
 const MAX_TICKER_LENGTH: u8 = 12;
 const MAX_NAME_LENGTH: u32 = 64;
 
+fn uid_from_name_and_idx(name: &'static str, u: u32) -> InvestorUid {
+    let name_u = format!("{}-{}", name, u);
+    InvestorUid::from(name_u.as_str())
+}
+
 fn make_account<T: Trait>(
     name: &'static str,
     u: u32,
@@ -35,7 +40,8 @@ fn make_account<T: Trait>(
     let account: T::AccountId = account(name, u, SEED);
     let origin = RawOrigin::Signed(account.clone());
     let _ = balances::Module::<T>::make_free_balance_be(&account, 1_000_000.into());
-    let _ = identity::Module::<T>::register_did(origin.clone().into(), vec![]);
+    let uid = uid_from_name_and_idx(name, u);
+    let _ = identity::Module::<T>::register_did(origin.clone().into(), uid, vec![]);
     let did = identity::Module::<T>::get_identity(&account).unwrap_or_default();
     (account, origin, did)
 }
@@ -68,7 +74,6 @@ fn make_token<T: Trait>(
         asset_type,
         identifiers,
         Some(fundr),
-        None,
     )
     .unwrap();
     ticker
@@ -103,7 +108,7 @@ benchmarks! {
         let ticker = Ticker::try_from(
             vec![b'A'; MAX_TICKER_LENGTH as usize].as_slice()
         ).unwrap();
-        Module::<T>::register_ticker(alice_origin.clone().into(), ticker).unwrap();
+        Module::<T>::register_ticker(alice_origin.into(), ticker).unwrap();
         let bob_auth_id = identity::Module::<T>::add_auth(
             alice_did,
             Signatory::from(bob_did),
@@ -123,7 +128,7 @@ benchmarks! {
         let ticker = Ticker::try_from(
             vec![b'A'; MAX_TICKER_LENGTH as usize].as_slice()
         ).unwrap();
-        Module::<T>::register_ticker(alice_origin.clone().into(), ticker).unwrap();
+        Module::<T>::register_ticker(alice_origin.into(), ticker).unwrap();
         let bob_auth_id = identity::Module::<T>::add_auth(
             alice_did,
             Signatory::from(bob_did),
@@ -154,7 +159,7 @@ benchmarks! {
             iter::repeat(Default::default()).take(i as usize).collect();
         let fundr = FundingRoundName::from(vec![b'F'; f as usize].as_slice());
         let origin = make_account::<T>("caller", u).1;
-    }: _(origin, name, ticker, total_supply, true, asset_type, identifiers, Some(fundr), None)
+    }: _(origin, name, ticker, total_supply, true, asset_type, identifiers, Some(fundr))
 
     freeze {
         let u in ...;
@@ -214,7 +219,6 @@ benchmarks! {
         // Token amount.
         let a in 1 .. 1_000_000;
         let (_, alice_origin, _) = make_account::<T>("alice", u);
-        let (_, _, bob_did) = make_account::<T>("bob", u);
         let ticker = make_token::<T>(alice_origin.clone(), t, n, i, f);
     }: _(alice_origin, ticker, a.into())
 }

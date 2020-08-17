@@ -79,6 +79,7 @@
 use core::result::Result as StdResult;
 use frame_support::{
     decl_error, decl_event, decl_module, decl_storage, dispatch::DispatchResult, ensure,
+    traits::Get,
 };
 use frame_system::{self as system, ensure_signed};
 use pallet_identity as identity;
@@ -91,7 +92,7 @@ use polymesh_common_utilities::{
     protocol_fee::{ChargeProtocolFee, ProtocolOp},
     Context,
 };
-use polymesh_primitives::{predicate, Claim, IdentityId, Rule, RuleType, Signatory, Ticker};
+use polymesh_primitives::{predicate, Claim, ClaimType, IdentityId, Rule, RuleType, Ticker};
 #[cfg(feature = "std")]
 use sp_runtime::{Deserialize, Serialize};
 use sp_std::{
@@ -109,6 +110,9 @@ pub trait Trait:
 
     /// Asset module
     type Asset: AssetTrait<Self::Balance, Self::AccountId>;
+
+    /// The maximum claim reads that are allowed to happen in worst case of a rule resolution
+    type MaxRuleComplexity: Get<u32>;
 }
 
 /// An asset transfer rule.
@@ -123,8 +127,8 @@ pub struct AssetTransferRule {
 }
 
 /// An asset transfer rule along with its evaluation result
-#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[derive(codec::Encode, codec::Decode, Clone, PartialEq, Eq, Debug)]
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize, Debug))]
+#[derive(codec::Encode, codec::Decode, Clone, PartialEq, Eq)]
 pub struct AssetTransferRuleResult {
     pub sender_rules: Vec<RuleResult>,
     pub receiver_rules: Vec<RuleResult>,
@@ -154,8 +158,8 @@ impl From<AssetTransferRule> for AssetTransferRuleResult {
 }
 
 /// An individual rule along with its evaluation result
-#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[derive(codec::Encode, codec::Decode, Clone, PartialEq, Eq, Debug)]
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize, Debug))]
+#[derive(codec::Encode, codec::Decode, Clone, PartialEq, Eq)]
 pub struct RuleResult {
     // Rule being evaluated
     pub rule: Rule,
@@ -170,8 +174,8 @@ impl From<Rule> for RuleResult {
 }
 
 /// List of rules associated to an asset.
-#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[derive(codec::Encode, codec::Decode, Default, Clone, PartialEq, Eq, Debug)]
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize, Debug))]
+#[derive(codec::Encode, codec::Decode, Default, Clone, PartialEq, Eq)]
 pub struct AssetTransferRules {
     /// This flag indicates if asset transfer rules are active or paused.
     pub is_paused: bool,
@@ -182,8 +186,8 @@ pub struct AssetTransferRules {
 type Identity<T> = identity::Module<T>;
 
 /// Rules evaluation result
-#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[derive(codec::Encode, codec::Decode, Clone, PartialEq, Eq, Debug)]
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize, Debug))]
+#[derive(codec::Encode, codec::Decode, Clone, PartialEq, Eq)]
 pub struct AssetTransferRulesResult {
     /// This flag indicates if asset transfer rules are active or paused.
     pub is_paused: bool,
@@ -199,8 +203,8 @@ impl From<AssetTransferRules> for AssetTransferRulesResult {
             is_paused: asset_rules.is_paused,
             rules: asset_rules
                 .rules
-                .iter()
-                .map(|rule| AssetTransferRuleResult::from(rule.clone()))
+                .into_iter()
+                .map(AssetTransferRuleResult::from)
                 .collect(),
             final_result: false,
         }
@@ -218,8 +222,8 @@ decl_storage! {
 
 decl_error! {
     pub enum Error for Module<T: Trait> {
-        /// The sender must be a signing key for the DID.
-        SenderMustBeSigningKeyForDid,
+        /// The sender must be a secondary key for the DID.
+        SenderMustBeSecondaryKeyForDid,
         /// User is not authorized.
         Unauthorized,
         /// Did not exist
@@ -234,6 +238,8 @@ decl_error! {
         MissingCurrentIdentity,
         /// There are dulpicate asset rules.
         DuplicateAssetRules,
+        /// The worst case scenario of the asset rule is too complex
+        RuleTooComplex
     }
 }
 
@@ -252,28 +258,33 @@ decl_module! {
         /// * ticker - Symbol of the asset
         /// * sender_rules - Sender transfer rule.
         /// * receiver_rules - Receiver transfer rule.
-        #[weight = 500_000_000 + 100_000 * u64::try_from(max(sender_rules.len(), receiver_rules.len())).unwrap_or_default()]
+        #[weight = T::DbWeight::get().reads_writes(1, 1) + 600_000_000 + 1_000_000 * u64::try_from(max(sender_rules.len(), receiver_rules.len())).unwrap_or_default()]
         pub fn add_active_rule(origin, ticker: Ticker, sender_rules: Vec<Rule>, receiver_rules: Vec<Rule>) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             let did = Context::current_identity_or::<Identity<T>>(&sender)?;
 
             ensure!(Self::is_owner(&ticker, did), Error::<T>::Unauthorized);
             <<T as IdentityTrait>::ProtocolFee>::charge_fee(
-                &Signatory::Account(sender),
                 ProtocolOp::ComplianceManagerAddActiveRule
             )?;
             let new_rule = AssetTransferRule {
-                sender_rules: sender_rules,
-                receiver_rules: receiver_rules,
+                sender_rules,
+                receiver_rules,
                 rule_id: Self::get_latest_rule_id(ticker) + 1u32
             };
 
-            <AssetRulesMap>::mutate(ticker, |old_asset_rules| {
-                if !old_asset_rules.rules.iter().position(|rule| rule.sender_rules == new_rule.sender_rules && rule.receiver_rules == new_rule.receiver_rules).is_some() {
-                    old_asset_rules.rules.push(new_rule.clone());
-                    Self::deposit_event(Event::NewAssetRuleCreated(did, ticker, new_rule));
-                }
-            });
+            let mut asset_rules = <AssetRulesMap>::get(ticker);
+
+            if !asset_rules
+                .rules
+                .iter()
+                .any(|rule| rule.sender_rules == new_rule.sender_rules && rule.receiver_rules == new_rule.receiver_rules)
+            {
+                asset_rules.rules.push(new_rule.clone());
+                Self::verify_rules_complexity(&asset_rules.rules, <TrustedClaimIssuer>::decode_len(ticker).unwrap_or_default())?;
+                <AssetRulesMap>::insert(&ticker, asset_rules);
+                Self::deposit_event(Event::NewAssetRuleCreated(did, ticker, new_rule));
+            }
 
             Ok(())
         }
@@ -284,7 +295,7 @@ decl_module! {
         /// * origin - Signer of the dispatchable. It should be the owner of the ticker
         /// * ticker - Symbol of the asset
         /// * asset_rule_id - Rule id which is need to be removed
-        #[weight = 200_000]
+        #[weight = T::DbWeight::get().reads_writes(1, 1) + 200_000_000]
         pub fn remove_active_rule(origin, ticker: Ticker, asset_rule_id: u32) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             let did = Context::current_identity_or::<Identity<T>>(&sender)?;
@@ -311,8 +322,8 @@ decl_module! {
         /// * `DuplicateAssetRules` if `asset_rules` contains multiple entries with the same `rule_id`.
         ///
         /// # Weight
-        /// `150_000 + 50_000 * asset_rules.len()`
-        #[weight = 150_000 + 50_000 * u64::try_from(asset_rules.len()).unwrap_or_default()]
+        /// `read_and_write_weight + 100_000_000 + 500_000 * asset_rules.len()`
+        #[weight = T::DbWeight::get().reads_writes(1, 1) + 100_000_000 + 500_000 * u64::try_from(asset_rules.len()).unwrap_or_default()]
         pub fn replace_asset_rules(origin, ticker: Ticker, asset_rules: Vec<AssetTransferRule>) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             let did = Context::current_identity_or::<Identity<T>>(&sender)?;
@@ -320,6 +331,7 @@ decl_module! {
             let mut asset_rules_dedup = asset_rules.clone();
             asset_rules_dedup.dedup_by_key(|r| r.rule_id);
             ensure!(asset_rules.len() == asset_rules_dedup.len(), Error::<T>::DuplicateAssetRules);
+            Self::verify_rules_complexity(&asset_rules_dedup, <TrustedClaimIssuer>::decode_len(ticker).unwrap_or_default())?;
             <AssetRulesMap>::mutate(&ticker, |old_asset_rules| {
                 old_asset_rules.rules = asset_rules_dedup
             });
@@ -332,7 +344,7 @@ decl_module! {
         /// # Arguments
         /// * origin - Signer of the dispatchable. It should be the owner of the ticker
         /// * ticker - Symbol of the asset
-        #[weight = 100_000]
+        #[weight = T::DbWeight::get().reads_writes(1, 1) + 100_000_000]
         pub fn reset_active_rules(origin, ticker: Ticker) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             let did = Context::current_identity_or::<Identity<T>>(&sender)?;
@@ -350,7 +362,7 @@ decl_module! {
         /// # Arguments
         /// * origin - Signer of the dispatchable. It should be the owner of the ticker
         /// * ticker - Symbol of the asset
-        #[weight = 100_000]
+        #[weight = T::DbWeight::get().reads_writes(1, 1) + 100_000_000]
         pub fn pause_asset_rules(origin, ticker: Ticker) -> DispatchResult {
             Self::pause_resume_rules(origin, ticker, true)?;
             let current_did = Context::current_identity::<Identity<T>>().ok_or_else(|| Error::<T>::MissingCurrentIdentity)?;
@@ -363,7 +375,7 @@ decl_module! {
         /// # Arguments
         /// * origin - Signer of the dispatchable. It should be the owner of the ticker
         /// * ticker - Symbol of the asset
-        #[weight = 100_000]
+        #[weight = T::DbWeight::get().reads_writes(1, 1) + 100_000_000]
         pub fn resume_asset_rules(origin, ticker: Ticker) -> DispatchResult {
             Self::pause_resume_rules(origin, ticker, false)?;
             let current_did = Context::current_identity::<Identity<T>>().ok_or_else(|| Error::<T>::MissingCurrentIdentity)?;
@@ -378,8 +390,12 @@ decl_module! {
         /// * origin - Signer of the dispatchable. It should be the owner of the ticker.
         /// * ticker - Symbol of the asset.
         /// * trusted_issuer - IdentityId of the trusted claim issuer.
-        #[weight = 300_000]
+        #[weight = T::DbWeight::get().reads_writes(3, 1) + 300_000_000]
         pub fn add_default_trusted_claim_issuer(origin, ticker: Ticker, trusted_issuer: IdentityId) -> DispatchResult {
+            Self::verify_rules_complexity(
+                &<AssetRulesMap>::get(ticker).rules,
+                <TrustedClaimIssuer>::decode_len(ticker).unwrap_or_default().saturating_add(1)
+            )?;
             Self::modify_default_trusted_claim_issuer(origin, ticker, trusted_issuer, true)
         }
 
@@ -390,7 +406,7 @@ decl_module! {
         /// * origin - Signer of the dispatchable. It should be the owner of the ticker.
         /// * ticker - Symbol of the asset.
         /// * trusted_issuer - IdentityId of the trusted claim issuer.
-        #[weight = 300_000]
+        #[weight = T::DbWeight::get().reads_writes(3, 1) + 300_000_000]
         pub fn remove_default_trusted_claim_issuer(origin, ticker: Ticker, trusted_issuer: IdentityId) -> DispatchResult {
             Self::modify_default_trusted_claim_issuer(origin, ticker, trusted_issuer, false)
         }
@@ -404,9 +420,13 @@ decl_module! {
         /// * trusted_issuers - Vector of IdentityId of the trusted claim issuers.
         ///
         /// # Weight
-        /// `50_000 + 250_000 * trusted_issuers.len().max(values.len())`
-        #[weight = 50_000 + 250_000 * u64::try_from(trusted_issuers.len()).unwrap_or_default()]
+        /// `read_and_write_weight + 30_000_000 + 250_000 * trusted_issuers.len().max(values.len())`
+        #[weight = T::DbWeight::get().reads_writes(3, 1) + 300_000_000 + 250_000 * u64::try_from(trusted_issuers.len()).unwrap_or_default()]
         pub fn batch_add_default_trusted_claim_issuer(origin, trusted_issuers: Vec<IdentityId>, ticker: Ticker) -> DispatchResult {
+            Self::verify_rules_complexity(
+                &<AssetRulesMap>::get(ticker).rules,
+                <TrustedClaimIssuer>::decode_len(ticker).unwrap_or_default().saturating_add(trusted_issuers.len())
+            )?;
             Self::batch_modify_default_trusted_claim_issuer(origin, ticker, trusted_issuers, true)
         }
 
@@ -419,8 +439,8 @@ decl_module! {
         /// * trusted_issuers - Vector of IdentityId of the trusted claim issuers.
         ///
         /// # Weight
-        /// `50_000 + 250_000 * trusted_issuers.len().max(values.len())`
-        #[weight = 50_000 + 250_000 * u64::try_from(trusted_issuers.len()).unwrap_or_default()]
+        /// `100_000_000 + 250_000 * trusted_issuers.len().max(values.len())`
+        #[weight = 100_000_000 + 250_000 * u64::try_from(trusted_issuers.len()).unwrap_or_default()]
         pub fn batch_remove_default_trusted_claim_issuer(origin, trusted_issuers: Vec<IdentityId>, ticker: Ticker) -> DispatchResult {
             Self::batch_modify_default_trusted_claim_issuer(origin, ticker, trusted_issuers, false)
         }
@@ -431,14 +451,26 @@ decl_module! {
         /// * origin - Signer of the dispatchable. It should be the owner of the ticker.
         /// * ticker - Symbol of the asset.
         /// * asset_rule - Asset rule.
-        #[weight = 150_000]
-        pub fn change_asset_rule(origin, ticker: Ticker, asset_rule: AssetTransferRule) -> DispatchResult {
+        #[weight = T::DbWeight::get().reads_writes(2, 1) + 120_000_000]
+        pub fn change_asset_rule(origin, ticker: Ticker, new_asset_rule: AssetTransferRule) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             let did = Context::current_identity_or::<Identity<T>>(&sender)?;
 
             ensure!(Self::is_owner(&ticker, did), Error::<T>::Unauthorized);
-            ensure!(Self::get_latest_rule_id(ticker) >= asset_rule.rule_id, Error::<T>::InvalidRuleId);
-            Self::unsafe_change_asset_rule(did, ticker, asset_rule);
+            ensure!(Self::get_latest_rule_id(ticker) >= new_asset_rule.rule_id, Error::<T>::InvalidRuleId);
+
+            let mut asset_rules = <AssetRulesMap>::get(ticker);
+            if let Some(index) = asset_rules
+                .rules
+                .iter()
+                .position(|rule| rule.rule_id == new_asset_rule.rule_id)
+            {
+                asset_rules.rules[index] = new_asset_rule.clone();
+                Self::verify_rules_complexity(&asset_rules.rules, <TrustedClaimIssuer>::decode_len(ticker).unwrap_or_default())?;
+                <AssetRulesMap>::insert(&ticker, asset_rules);
+                Self::deposit_event(Event::AssetRuleChanged(did, ticker, new_asset_rule));
+            }
+
             Ok(())
         }
 
@@ -450,19 +482,37 @@ decl_module! {
         /// * ticker - Symbol of the asset.
         ///
         /// # Weight
-        /// `100_000 + 100_000 * asset_rules.len().max(values.len())`
-        #[weight = 100_000 + 100_000 * u64::try_from(asset_rules.len()).unwrap_or_default()]
-        pub fn batch_change_asset_rule(origin, asset_rules: Vec<AssetTransferRule> , ticker: Ticker) -> DispatchResult {
+        /// `read_and_write_weight + 12_000_000 + 100_000 * asset_rules.len().max(values.len())`
+        #[weight = T::DbWeight::get().reads_writes(2, 1) + 120_000_000 + 100_000 * u64::try_from(new_asset_rules.len()).unwrap_or_default()]
+        pub fn batch_change_asset_rule(origin, new_asset_rules: Vec<AssetTransferRule> , ticker: Ticker) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             let did = Context::current_identity_or::<Identity<T>>(&sender)?;
 
             ensure!(Self::is_owner(&ticker, did), Error::<T>::Unauthorized);
             let latest_rule_id = Self::get_latest_rule_id(ticker);
-            ensure!(asset_rules.iter().any(|rule| latest_rule_id >= rule.rule_id), Error::<T>::InvalidRuleId);
+            ensure!(new_asset_rules.iter().any(|rule| latest_rule_id >= rule.rule_id), Error::<T>::InvalidRuleId);
 
-            asset_rules.into_iter().for_each(|asset_rule| {
-                Self::unsafe_change_asset_rule(did, ticker, asset_rule);
+            let mut asset_rules = <AssetRulesMap>::get(ticker);
+            let mut updated_rules = Vec::with_capacity(new_asset_rules.len());
+
+            new_asset_rules.into_iter().for_each(|new_asset_rule| {
+                if let Some(index) = asset_rules
+                    .rules
+                    .iter()
+                    .position(|rule| rule.rule_id == new_asset_rule.rule_id)
+                {
+                    asset_rules.rules[index] = new_asset_rule;
+                    updated_rules.push(index);
+                }
             });
+
+            Self::verify_rules_complexity(&asset_rules.rules, <TrustedClaimIssuer>::decode_len(ticker).unwrap_or_default())?;
+
+            for index in updated_rules {
+                Self::deposit_event(Event::AssetRuleChanged(did, ticker, asset_rules.rules[index].clone()));
+            }
+            <AssetRulesMap>::insert(&ticker, asset_rules);
+
             Ok(())
         }
     }
@@ -521,11 +571,29 @@ impl<T: Trait> Module<T> {
             .collect::<Vec<_>>()
     }
 
+    /// It fetches the `ConfidentialScopeClaim` of users `id` for the given ticker.
+    /// Note that this vector could be 0 or 1 items.
+    fn fetch_confidential_claims(id: IdentityId, ticker: &Ticker) -> Vec<Claim> {
+        let claim_type = ClaimType::InvestorZKProof;
+        // NOTE: Ticker lenght is less by design that IdentityId.
+        let asset_scope = IdentityId::try_from(ticker.as_slice()).unwrap_or_default();
+
+        <identity::Module<T>>::fetch_claim(id, claim_type, id, Some(asset_scope))
+            .into_iter()
+            .map(|id_claim| id_claim.claim)
+            .collect::<Vec<_>>()
+    }
+
     /// It fetches the predicate context for target `id` and specific `rule`.
     ///
     /// If `rule` does not define trusted issuers, it will use the default trusted issuer for
     /// `ticker` asset.
-    fn fetch_context(ticker: &Ticker, id: IdentityId, rule: &Rule) -> predicate::Context {
+    fn fetch_context(
+        ticker: &Ticker,
+        id: IdentityId,
+        rule: &Rule,
+        treasury: Option<IdentityId>,
+    ) -> predicate::Context {
         let issuers = if !rule.issuers.is_empty() {
             rule.issuers.clone()
         } else {
@@ -543,15 +611,28 @@ impl<T: Trait> Module<T> {
                 .iter()
                 .flat_map(|claim| Self::fetch_claims(id, claim, &issuers))
                 .collect::<Vec<_>>(),
+            RuleType::HasValidProofOfInvestor(ref proof_ticker) => {
+                Self::fetch_confidential_claims(id, proof_ticker)
+            }
+            RuleType::IsIdentity(_) => vec![],
         };
 
-        predicate::Context::from(claims)
+        predicate::Context {
+            claims,
+            id,
+            treasury,
+        }
     }
 
     /// Loads the context for each rule in `rules` and verifies that all of them evaluate to `true`.
-    fn are_all_rules_satisfied(ticker: &Ticker, did: IdentityId, rules: &Vec<Rule>) -> bool {
-        rules.into_iter().all(|rule| {
-            let context = Self::fetch_context(ticker, did, &rule);
+    fn are_all_rules_satisfied(
+        ticker: &Ticker,
+        did: IdentityId,
+        rules: &[Rule],
+        treasury_did: Option<IdentityId>,
+    ) -> bool {
+        rules.iter().all(|rule| {
+            let context = Self::fetch_context(ticker, did, &rule, treasury_did);
             predicate::run(&rule, &context)
         })
     }
@@ -559,10 +640,15 @@ impl<T: Trait> Module<T> {
     /// It loads a context for each rule in `rules` and evaluates them.
     /// It updates the internal result variable of every rule.
     /// It returns the final result of all rules combined.
-    fn evaluate_rules(ticker: &Ticker, did: IdentityId, rules: &mut Vec<RuleResult>) -> bool {
+    fn evaluate_rules(
+        ticker: &Ticker,
+        did: IdentityId,
+        rules: &mut Vec<RuleResult>,
+        treasury_did: Option<IdentityId>,
+    ) -> bool {
         let mut result = true;
         for rule in rules {
-            let context = Self::fetch_context(ticker, did, &rule.rule);
+            let context = Self::fetch_context(ticker, did, &rule.rule, treasury_did);
             rule.result = predicate::run(&rule.rule, &context);
             if !rule.result {
                 result = false;
@@ -629,7 +715,7 @@ impl<T: Trait> Module<T> {
             Error::<T>::DidNotExist
         );
         ensure!(
-            Self::trusted_claim_issuer(&ticker).contains(&trusted_issuer) == !is_add_call,
+            Self::trusted_claim_issuer(&ticker).contains(&trusted_issuer) != is_add_call,
             Error::<T>::IncorrectOperationOnTrustedIssuer
         );
         Self::unsafe_modify_default_trusted_claim_issuer(did, ticker, trusted_issuer, is_add_call);
@@ -645,7 +731,7 @@ impl<T: Trait> Module<T> {
         let sender = ensure_signed(origin)?;
         let did = Context::current_identity_or::<Identity<T>>(&sender)?;
 
-        ensure!(trusted_issuers.len() >= 1, Error::<T>::InvalidLength);
+        ensure!(!trusted_issuers.is_empty(), Error::<T>::InvalidLength);
         ensure!(Self::is_owner(&ticker, did), Error::<T>::Unauthorized);
         // Perform validity checks on the data set
         for trusted_issuer in trusted_issuers.iter() {
@@ -653,7 +739,7 @@ impl<T: Trait> Module<T> {
             // if is_add_call == true then trusted_claim_issuer should not exists.
             // if is_add_call == false then trusted_claim_issuer should exists.
             ensure!(
-                Self::trusted_claim_issuer(&ticker).contains(&trusted_issuer) == !is_add_call,
+                Self::trusted_claim_issuer(&ticker).contains(&trusted_issuer) != is_add_call,
                 Error::<T>::IncorrectOperationOnTrustedIssuer
             );
             // ensure whether the trusted issuer's did is register did or not
@@ -675,23 +761,6 @@ impl<T: Trait> Module<T> {
         Ok(())
     }
 
-    fn unsafe_change_asset_rule(
-        caller_did: IdentityId,
-        ticker: Ticker,
-        new_asset_rule: AssetTransferRule,
-    ) {
-        <AssetRulesMap>::mutate(&ticker, |asset_rules| {
-            if let Some(index) = asset_rules
-                .rules
-                .iter()
-                .position(|rule| &rule.rule_id == &new_asset_rule.rule_id)
-            {
-                asset_rules.rules[index] = new_asset_rule.clone();
-            }
-        });
-        Self::deposit_event(Event::AssetRuleChanged(caller_did, ticker, new_asset_rule));
-    }
-
     // TODO: Cache the latest_rule_id to avoid loading of all asset_rules in memory.
     fn get_latest_rule_id(ticker: Ticker) -> u32 {
         let length = Self::asset_rules(ticker).rules.len();
@@ -708,20 +777,32 @@ impl<T: Trait> Module<T> {
         ticker: &Ticker,
         from_did_opt: Option<IdentityId>,
         to_did_opt: Option<IdentityId>,
+        treasury_did: Option<IdentityId>,
     ) -> AssetTransferRulesResult {
         let asset_rules = Self::asset_rules(ticker);
         let mut asset_rules_with_results = AssetTransferRulesResult::from(asset_rules);
+
         for active_rule in &mut asset_rules_with_results.rules {
             if let Some(from_did) = from_did_opt {
                 // Evaluate all sender rules
-                if !Self::evaluate_rules(ticker, from_did, &mut active_rule.sender_rules) {
+                if !Self::evaluate_rules(
+                    ticker,
+                    from_did,
+                    &mut active_rule.sender_rules,
+                    treasury_did,
+                ) {
                     // If the result of any of the sender rules was false, set this asset rule result to false.
                     active_rule.transfer_rule_result = false;
                 }
             }
             if let Some(to_did) = to_did_opt {
                 // Evaluate all receiver rules
-                if !Self::evaluate_rules(ticker, to_did, &mut active_rule.receiver_rules) {
+                if !Self::evaluate_rules(
+                    ticker,
+                    to_did,
+                    &mut active_rule.receiver_rules,
+                    treasury_did,
+                ) {
                     // If the result of any of the receiver rules was false, set this asset rule result to false.
                     active_rule.transfer_rule_result = false;
                 }
@@ -732,6 +813,34 @@ impl<T: Trait> Module<T> {
             }
         }
         asset_rules_with_results
+    }
+
+    fn verify_rules_complexity(
+        asset_rules: &[AssetTransferRule],
+        default_issuer_count: usize,
+    ) -> DispatchResult {
+        let mut complexity = 0usize;
+        for asset_rule in asset_rules {
+            for rule in asset_rule
+                .sender_rules
+                .iter()
+                .chain(asset_rule.receiver_rules.iter())
+            {
+                let (claims, issuers) = rule.complexity();
+                if issuers == 0 {
+                    complexity =
+                        complexity.saturating_add(claims.saturating_mul(default_issuer_count));
+                } else {
+                    complexity = complexity.saturating_add(claims.saturating_mul(issuers));
+                }
+            }
+        }
+        if let Ok(complexity_u32) = u32::try_from(complexity) {
+            if complexity_u32 <= T::MaxRuleComplexity::get() {
+                return Ok(());
+            }
+        }
+        Err(Error::<T>::RuleTooComplex.into())
     }
 }
 
@@ -744,37 +853,33 @@ impl<T: Trait> ComplianceManagerTrait<T::Balance> for Module<T> {
         _value: T::Balance,
         treasury_did: Option<IdentityId>,
     ) -> StdResult<u8, &'static str> {
-        let (treasury_sender, treasury_receiver) = if treasury_did.is_some() {
-            (treasury_did == from_did_opt, treasury_did == to_did_opt)
-        } else {
-            (false, false)
-        };
-        // Transfer is valid if ALL receiver AND sender rules of ANY asset rule are valid. An
-        // exception is made for the cases when either the sender or the receiver is the treasury
-        // DID, which covers issuance and redemption transactions.
+        // Transfer is valid if ALL receiver AND sender rules of ANY asset rule are valid.
         let asset_rules = Self::asset_rules(ticker);
-        if asset_rules.is_paused
-            || (asset_rules.rules.len() == 0 && (from_did_opt == None && treasury_receiver)
-                || (treasury_sender && to_did_opt == None))
-        {
+        if asset_rules.is_paused {
             return Ok(ERC1400_TRANSFER_SUCCESS);
         }
         for active_rule in asset_rules.rules {
-            let mut rule_satisfied = false;
             if let Some(from_did) = from_did_opt {
-                rule_satisfied = treasury_sender
-                    || Self::are_all_rules_satisfied(ticker, from_did, &active_rule.sender_rules);
-                if !rule_satisfied {
+                if !Self::are_all_rules_satisfied(
+                    ticker,
+                    from_did,
+                    &active_rule.sender_rules,
+                    treasury_did,
+                ) {
                     // Skips checking receiver rules because sender rules are not satisfied.
                     continue;
                 }
             }
             if let Some(to_did) = to_did_opt {
-                rule_satisfied = treasury_receiver
-                    || Self::are_all_rules_satisfied(ticker, to_did, &active_rule.receiver_rules);
-            }
-            if rule_satisfied {
-                return Ok(ERC1400_TRANSFER_SUCCESS);
+                if Self::are_all_rules_satisfied(
+                    ticker,
+                    to_did,
+                    &active_rule.receiver_rules,
+                    treasury_did,
+                ) {
+                    // All rules satisfied, return early
+                    return Ok(ERC1400_TRANSFER_SUCCESS);
+                }
             }
         }
         sp_runtime::print("Identity TM restrictions not satisfied");

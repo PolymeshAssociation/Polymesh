@@ -15,23 +15,29 @@
 
 use crate::{
     identity_id::IdentityId,
-    signing_item::{Permission, Signatory},
+    secondary_key::{Permission, Signatory},
     Ticker,
 };
 use codec::{Decode, Encode};
 use frame_support::dispatch::DispatchError;
+#[cfg(feature = "std")]
+use serde::{Deserialize, Serialize};
 use sp_std::prelude::*;
 
 /// Authorization data for two step processes.
 #[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, PartialOrd, Ord)]
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 pub enum AuthorizationData<AccountId> {
-    /// CDD provider's attestation to change master key
-    AttestMasterKeyRotation(IdentityId),
-    /// Authorization to change master key
-    RotateMasterKey(IdentityId),
+    /// CDD provider's attestation to change primary key
+    AttestPrimaryKeyRotation(IdentityId),
+    /// Authorization to change primary key
+    RotatePrimaryKey(IdentityId),
     /// Authorization to transfer a ticker
     /// Must be issued by the current owner of the ticker
     TransferTicker(Ticker),
+    /// Authorization to transfer a token's treasury.
+    /// Must be issued by the current owner of the token
+    TransferTreasury(Ticker),
     /// Add a signer to multisig
     /// Must be issued to the identity that created the ms (and therefore owns it permanently)
     AddMultiSigSigner(AccountId),
@@ -45,6 +51,30 @@ pub enum AuthorizationData<AccountId> {
     /// TODO: Is this used?
     Custom(Ticker),
     /// No authorization data
+    NoData,
+}
+
+/// Type of authorization.
+#[derive(Eq, PartialEq, Encode, Decode, Clone)]
+#[cfg_attr(feature = "std", derive(Debug, Serialize, Deserialize))]
+pub enum AuthorizationType {
+    /// TBD.
+    AttestPrimaryKeyRotation,
+    /// Authorization to rotate primary key.
+    RotatePrimaryKey,
+    /// Authorization to transfer a ticker.
+    TransferTicker,
+    /// Authorization to transfer a token's treasury.
+    TransferTreasury,
+    /// Authorization to add some key int a multi signer.
+    AddMultiSigSigner,
+    /// Authorization to transfer the asset ownership to other identity.
+    TransferAssetOwnership,
+    /// Join Identity authorization.
+    JoinIdentity,
+    /// Customized authorization.
+    Custom,
+    /// Undefined authorization.
     NoData,
 }
 
@@ -80,6 +110,7 @@ impl From<AuthorizationError> for DispatchError {
 
 /// Authorization struct
 #[derive(Encode, Decode, Default, Clone, PartialEq, Debug)]
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 pub struct Authorization<AccountId, Moment> {
     /// Enum that contains authorization type and data
     pub authorization_data: AuthorizationData<AccountId>,

@@ -6,39 +6,40 @@ use crate::{
 use codec::Encode;
 use pallet_asset as asset;
 use pallet_balances as balances;
+use pallet_basic_sto as sto;
 use pallet_committee as committee;
 use pallet_compliance_manager::{self as compliance_manager, AssetTransferRulesResult};
 use pallet_group as group;
-use pallet_identity as identity;
+use pallet_identity::{
+    self as identity,
+    types::{AssetDidResult, CddStatus, DidRecords, DidStatus},
+};
 use pallet_multisig as multisig;
 use pallet_pips::{HistoricalVotingByAddress, HistoricalVotingById, Vote, VoteCount};
+use pallet_portfolio as portfolio;
 use pallet_protocol_fee as protocol_fee;
 use pallet_settlement as settlement;
 use pallet_statistics as statistics;
-pub use pallet_transaction_payment::{Multiplier, TargetedFeeAdjustment};
+pub use pallet_transaction_payment::{Multiplier, RuntimeDispatchInfo, TargetedFeeAdjustment};
 use pallet_treasury as treasury;
 use pallet_utility as utility;
 use polymesh_common_utilities::{
     constants::currency::*,
     protocol_fee::ProtocolOp,
-    traits::{
-        balances::AccountData,
-        identity::Trait as IdentityTrait,
-        pip::{EnactProposalMaker, PipId},
-    },
+    traits::{balances::AccountData, identity::Trait as IdentityTrait},
     CommonTrait,
 };
 use polymesh_primitives::{
-    AccountId, AccountIndex, Balance, BlockNumber, Hash, IdentityId, Index, Link, Moment,
-    Signatory, Signature, SigningItem, Ticker,
+    AccountId, AccountIndex, Authorization, AuthorizationType, Balance, BlockNumber, Hash,
+    IdentityId, Index, Moment, PortfolioId, SecondaryKey, Signatory, Signature, Ticker,
 };
 use polymesh_runtime_common::{
     bridge,
     cdd_check::CddChecker,
     contracts_wrapper, dividend, exemption,
     impls::{Author, CurrencyToVoteHandler},
-    merge_active_and_inactive, simple_token, sto_capped, voting, AvailableBlockRatio,
-    BlockHashCount, MaximumBlockLength, MaximumBlockWeight, NegativeImbalance,
+    merge_active_and_inactive, sto_capped, voting, AvailableBlockRatio, BlockHashCount,
+    MaximumBlockLength, MaximumBlockWeight, NegativeImbalance,
 };
 
 use sp_api::impl_runtime_apis;
@@ -69,19 +70,18 @@ use frame_support::{
     construct_runtime, debug, parameter_types,
     traits::{KeyOwnerProofSystem, Randomness, SplitTwoWays},
     weights::{
-        constants::{BlockExecutionWeight, ExtrinsicBaseWeight, RocksDbWeight, WEIGHT_PER_SECOND},
-        IdentityFee, Weight,
+        constants::{BlockExecutionWeight, ExtrinsicBaseWeight, RocksDbWeight},
+        Weight, WeightToFeeCoefficient, WeightToFeeCoefficients, WeightToFeePolynomial,
     },
 };
 use pallet_contracts_rpc_runtime_api::ContractExecResult;
 use pallet_grandpa::{
     fg_primitives, AuthorityId as GrandpaId, AuthorityList as GrandpaAuthorityList,
 };
-use pallet_identity_rpc_runtime_api::{AssetDidResult, CddStatus, DidRecords, DidStatus, LinkType};
+
 use pallet_im_online::sr25519::AuthorityId as ImOnlineId;
 use pallet_protocol_fee_rpc_runtime_api::CappedFee;
 use pallet_session::historical as pallet_session_historical;
-use pallet_transaction_payment_rpc_runtime_api::RuntimeDispatchInfo;
 use sp_authority_discovery::AuthorityId as AuthorityDiscoveryId;
 use sp_inherents::{CheckInherentsResult, InherentData};
 #[cfg(feature = "std")]
@@ -94,6 +94,8 @@ pub use pallet_staking::StakerStatus;
 pub use pallet_timestamp::Call as TimestampCall;
 #[cfg(any(feature = "std", test))]
 pub use sp_runtime::BuildStorage;
+
+use smallvec::smallvec;
 
 // Make the WASM binary available.
 #[cfg(feature = "std")]
@@ -199,7 +201,7 @@ impl pallet_babe::Trait for Runtime {
 }
 
 parameter_types! {
-    pub const IndexDeposit: Balance = 1 * DOLLARS;
+    pub const IndexDeposit: Balance = DOLLARS;
 }
 
 impl pallet_indices::Trait for Runtime {
@@ -223,6 +225,20 @@ pub type DealWithFees = SplitTwoWays<
     Author<Runtime>, // 1 part (20%) goes to the block author.
 >;
 
+pub struct WeightToFee;
+impl WeightToFeePolynomial for WeightToFee {
+    type Balance = Balance;
+
+    fn polynomial() -> WeightToFeeCoefficients<Self::Balance> {
+        smallvec![WeightToFeeCoefficient {
+            degree: 1,
+            coeff_frac: Perbill::from_percent(10),
+            coeff_integer: 0u128, // Coefficient is zero
+            negative: false,
+        }]
+    }
+}
+
 impl CommonTrait for Runtime {
     type Balance = Balance;
     type AcceptTransferTarget = Asset;
@@ -239,7 +255,7 @@ impl pallet_transaction_payment::Trait for Runtime {
     type Currency = Balances;
     type OnTransactionPayment = DealWithFees;
     type TransactionByteFee = TransactionByteFee;
-    type WeightToFee = IdentityFee<Balance>;
+    type WeightToFee = WeightToFee;
     type FeeMultiplierUpdate = ();
     type CddHandler = CddHandler;
 }
@@ -370,14 +386,17 @@ impl pallet_staking::Trait for Runtime {
 parameter_types! {
     pub const MotionDuration: BlockNumber = 0;
 }
+
+/// Voting majority origin for `Instance`.
+type VMO<Instance> = committee::EnsureProportionAtLeast<_2, _3, AccountId, Instance>;
+
 type GovernanceCommittee = committee::Instance1;
 impl committee::Trait<GovernanceCommittee> for Runtime {
     type Origin = Origin;
     type Proposal = Call;
-    type CommitteeOrigin = frame_system::EnsureRoot<AccountId>;
+    type CommitteeOrigin = VMO<GovernanceCommittee>;
     type Event = Event;
     type MotionDuration = MotionDuration;
-    type EnactProposalMaker = Runtime;
 }
 
 /// PolymeshCommittee as an instance of group
@@ -391,28 +410,57 @@ impl group::Trait<group::Instance1> for Runtime {
     type MembershipChanged = PolymeshCommittee;
 }
 
+macro_rules! committee_config {
+    ($committee:ident, $instance:ident) => {
+        impl committee::Trait<committee::$instance> for Runtime {
+            type Origin = Origin;
+            type Proposal = Call;
+            // Can act upon itself.
+            type CommitteeOrigin = VMO<committee::$instance>;
+            type Event = Event;
+            type MotionDuration = MotionDuration;
+        }
+        impl group::Trait<group::$instance> for Runtime {
+            type Event = Event;
+            // Can manage its own addition, deletion, and swapping of membership...
+            type AddOrigin = VMO<committee::$instance>;
+            type RemoveOrigin = VMO<committee::$instance>;
+            type SwapOrigin = VMO<committee::$instance>;
+            // ...but it cannot reset its own membership; GC needs to do that.
+            type ResetOrigin = VMO<GovernanceCommittee>;
+            type MembershipInitialized = $committee;
+            type MembershipChanged = $committee;
+        }
+    };
+}
+
+committee_config!(TechnicalCommittee, Instance3);
+committee_config!(UpgradeCommittee, Instance4);
+
 impl pallet_pips::Trait for Runtime {
     type Currency = Balances;
     type CommitteeOrigin = frame_system::EnsureRoot<AccountId>;
-    type VotingMajorityOrigin =
-        committee::EnsureProportionAtLeast<_2, _3, AccountId, GovernanceCommittee>;
+    type VotingMajorityOrigin = VMO<GovernanceCommittee>;
     type GovernanceCommittee = PolymeshCommittee;
+    type TechnicalCommitteeVMO = VMO<committee::Instance3>;
+    type UpgradeCommitteeVMO = VMO<committee::Instance4>;
     type Treasury = Treasury;
     type Event = Event;
 }
 
 parameter_types! {
-    pub const TombstoneDeposit: Balance = 1 * DOLLARS;
-    pub const RentByteFee: Balance = 1 * DOLLARS;
-    pub const RentDepositOffset: Balance = 1000 * DOLLARS;
+    pub const TombstoneDeposit: Balance = DOLLARS;
+    pub const RentByteFee: Balance = DOLLARS;
+    pub const RentDepositOffset: Balance = 300 * DOLLARS;
     pub const SurchargeReward: Balance = 150 * DOLLARS;
 }
 
 impl pallet_contracts::Trait for Runtime {
     type Time = Timestamp;
     type Randomness = RandomnessCollectiveFlip;
-    type Call = Call;
+    type Currency = Balances;
     type Event = Event;
+    type Call = Call;
     type DetermineContractAddress = pallet_contracts::SimpleAddressDeterminer<Runtime>;
     type TrieIdGenerator = pallet_contracts::TrieIdFromParentCounter<Runtime>;
     type RentPayment = ();
@@ -424,6 +472,7 @@ impl pallet_contracts::Trait for Runtime {
     type SurchargeReward = SurchargeReward;
     type MaxDepth = pallet_contracts::DefaultMaxDepth;
     type MaxValueSize = pallet_contracts::DefaultMaxValueSize;
+    type WeightPrice = pallet_transaction_payment::Module<Self>;
 }
 
 impl<LocalCall> frame_system::offchain::CreateSignedTransaction<LocalCall> for Runtime
@@ -465,7 +514,7 @@ where
         let signature = raw_payload.using_encoded(|payload| C::sign(payload, public))?;
         let address = Indices::unlookup(account);
         let (call, extra, _) = raw_payload.deconstruct();
-        Some((call, (address, signature.into(), extra)))
+        Some((call, (address, signature, extra)))
     }
 }
 
@@ -495,6 +544,10 @@ impl settlement::Trait for Runtime {
     type Event = Event;
     type Asset = Asset;
     type MaxScheduledInstructionLegsPerBlock = MaxScheduledInstructionLegsPerBlock;
+}
+
+impl sto::Trait for Runtime {
+    type Event = Event;
 }
 
 parameter_types! {
@@ -578,19 +631,24 @@ impl bridge::Trait for Runtime {
     type MaxTimelockedTxsPerBlock = MaxTimelockedTxsPerBlock;
 }
 
+impl portfolio::Trait for Runtime {
+    type Event = Event;
+}
+
 impl asset::Trait for Runtime {
     type Event = Event;
     type Currency = Balances;
     type ComplianceManager = compliance_manager::Module<Runtime>;
 }
 
-impl simple_token::Trait for Runtime {
-    type Event = Event;
+parameter_types! {
+    pub const MaxRuleComplexity: u32 = 50;
 }
 
 impl compliance_manager::Trait for Runtime {
     type Event = Event;
     type Asset = Asset;
+    type MaxRuleComplexity = MaxRuleComplexity;
 }
 
 impl voting::Trait for Runtime {
@@ -600,7 +658,6 @@ impl voting::Trait for Runtime {
 
 impl sto_capped::Trait for Runtime {
     type Event = Event;
-    type SimpleTokenTrait = SimpleToken;
 }
 
 impl IdentityTrait for Runtime {
@@ -643,20 +700,6 @@ impl statistics::Trait for Runtime {}
 impl pallet_utility::Trait for Runtime {
     type Event = Event;
     type Call = Call;
-}
-
-impl EnactProposalMaker<Origin, Call> for Runtime {
-    fn is_pip_id_valid(id: PipId) -> bool {
-        Pips::is_proposal_id_valid(id)
-    }
-
-    fn enact_referendum_call(id: PipId) -> Call {
-        Call::Pips(pallet_pips::Call::enact_referendum(id))
-    }
-
-    fn reject_referendum_call(id: PipId) -> Call {
-        Call::Pips(pallet_pips::Call::reject_referendum(id))
-    }
 }
 
 construct_runtime!(
@@ -702,6 +745,12 @@ construct_runtime!(
         CommitteeMembership: group::<Instance1>::{Module, Call, Storage, Event<T>, Config<T>},
         Pips: pallet_pips::{Module, Call, Storage, Event<T>, Config<T>},
 
+        TechnicalCommittee: committee::<Instance3>::{Module, Call, Storage, Origin<T>, Event<T>, Config<T>},
+        TechnicalCommitteeMembership: group::<Instance3>::{Module, Call, Storage, Event<T>, Config<T>},
+
+        UpgradeCommittee: committee::<Instance4>::{Module, Call, Storage, Origin<T>, Event<T>, Config<T>},
+        UpgradeCommitteeMembership: group::<Instance4>::{Module, Call, Storage, Event<T>, Config<T>},
+
         //Polymesh
         Asset: asset::{Module, Call, Storage, Config<T>, Event<T>},
         Dividend: dividend::{Module, Call, Storage, Event<T>},
@@ -711,12 +760,13 @@ construct_runtime!(
         Voting: voting::{Module, Call, Storage, Event<T>},
         StoCapped: sto_capped::{Module, Call, Storage, Event<T>},
         Exemption: exemption::{Module, Call, Storage, Event},
-        SimpleToken: simple_token::{Module, Call, Storage, Event<T>},
         Settlement: settlement::{Module, Call, Storage, Event<T>, Config},
+        Sto: sto::{Module, Call, Storage, Event<T>},
         CddServiceProviders: group::<Instance2>::{Module, Call, Storage, Event<T>, Config<T>},
         Statistic: statistics::{Module, Call, Storage},
         ProtocolFee: protocol_fee::{Module, Call, Storage, Event<T>, Config<T>},
         Utility: utility::{Module, Call, Storage, Event},
+        Portfolio: portfolio::{Module, Call, Storage, Event<T>},
     }
 );
 
@@ -891,7 +941,7 @@ impl_runtime_apis! {
             input_data: Vec<u8>,
         ) -> ContractExecResult {
             let exec_result =
-                Contracts::bare_call(origin, dest.into(), value, gas_limit, input_data);
+                Contracts::bare_call(origin, dest, value, gas_limit, input_data);
             match exec_result {
                 Ok(v) => ContractExecResult::Success {
                     status: v.status,
@@ -915,7 +965,7 @@ impl_runtime_apis! {
         }
     }
 
-    impl pallet_transaction_payment_rpc_runtime_api::TransactionPaymentApi<
+    impl node_rpc_runtime_api::transaction_payment::TransactionPaymentApi<
         Block,
         Balance,
         UncheckedExtrinsic,
@@ -953,7 +1003,7 @@ impl_runtime_apis! {
 
         /// Proposals voted by `address`
         fn proposed_by(address: AccountId) -> Vec<u32> {
-            Pips::proposed_by(address)
+            Pips::proposed_by(pallet_pips::Proposer::Community(address))
         }
 
         /// Proposals `address` voted on
@@ -967,7 +1017,7 @@ impl_runtime_apis! {
 
         }
 
-        /// Retrieve referendums voted on information by `id` identity (and its signing items).
+        /// Retrieve referendums voted on information by `id` identity (and its secondary items).
         fn voting_history_by_id(id: IdentityId) -> HistoricalVotingById<AccountId, Vote<Balance>> {
             Pips::voting_history_by_id(id)
         }
@@ -982,12 +1032,12 @@ impl_runtime_apis! {
     }
 
     impl
-        pallet_identity_rpc_runtime_api::IdentityApi<
+        node_rpc_runtime_api::identity::IdentityApi<
             Block,
             IdentityId,
             Ticker,
             AccountId,
-            SigningItem<AccountId>,
+            SecondaryKey<AccountId>,
             Signatory<AccountId>,
             Moment
         > for Runtime
@@ -1006,23 +1056,23 @@ impl_runtime_apis! {
             }
         }
 
-        /// Retrieve master key and signing keys for a given IdentityId
-        fn get_did_records(did: IdentityId) -> DidRecords<AccountId, SigningItem<AccountId>> {
+        /// Retrieve primary key and secondary keys for a given IdentityId
+        fn get_did_records(did: IdentityId) -> DidRecords<AccountId, SecondaryKey<AccountId>> {
             Identity::get_did_records(did)
-        }
-
-        /// Retrieve list of a link for a given signatory
-        fn get_filtered_links(
-            signatory: Signatory<AccountId>,
-            allow_expired: bool,
-            link_type: Option<LinkType>
-        ) -> Vec<Link<Moment>> {
-            Identity::get_filtered_links(signatory, allow_expired, link_type)
         }
 
         /// Retrieve the status of the DIDs
         fn get_did_status(dids: Vec<IdentityId>) -> Vec<DidStatus> {
             Identity::get_did_status(dids)
+        }
+
+        /// Retrieve list of a authorization for a given signatory
+        fn get_filtered_authorizations(
+            signatory: Signatory<AccountId>,
+            allow_expired: bool,
+            auth_type: Option<AuthorizationType>
+        ) -> Vec<Authorization<AccountId, Moment>> {
+            Identity::get_filtered_authorizations(signatory, allow_expired, auth_type)
         }
     }
 
@@ -1040,15 +1090,18 @@ impl_runtime_apis! {
         }
     }
 
-    impl pallet_compliance_manager_rpc_runtime_api::ComplianceManagerApi<Block, AccountId, Balance> for Runtime {
+    impl node_rpc_runtime_api::compliance_manager::ComplianceManagerApi<Block, AccountId, Balance>
+        for Runtime
+    {
         #[inline]
         fn can_transfer(
             ticker: Ticker,
             from_did: Option<IdentityId>,
             to_did: Option<IdentityId>,
+            treasury_did: Option<IdentityId>,
         ) -> AssetTransferRulesResult
         {
-            ComplianceManager::granular_verify_restriction(&ticker, from_did, to_did)
+            ComplianceManager::granular_verify_restriction(&ticker, from_did, to_did, treasury_did)
         }
     }
 
@@ -1066,36 +1119,42 @@ impl_runtime_apis! {
         }
     }
 
+    impl node_rpc_runtime_api::portfolio::PortfolioApi<Block, Balance> for Runtime {
+        #[inline]
+        fn get_portfolios(did: IdentityId) -> node_rpc_runtime_api::portfolio::GetPortfoliosResult {
+            Ok(Portfolio::rpc_get_portfolios(did))
+        }
+
+        #[inline]
+        fn get_portfolio_assets(portfolio_id: PortfolioId) ->
+            node_rpc_runtime_api::portfolio::GetPortfolioAssetsResult<Balance>
+        {
+            Ok(Portfolio::rpc_get_portfolio_assets(portfolio_id))
+        }
+    }
+
     #[cfg(feature = "runtime-benchmarks")]
     impl frame_benchmarking::Benchmark<Block> for Runtime {
         fn dispatch_benchmark(
-            module: Vec<u8>,
-            extrinsic: Vec<u8>,
+            pallet: Vec<u8>,
+            benchmark: Vec<u8>,
             lowest_range_values: Vec<u32>,
             highest_range_values: Vec<u32>,
             steps: Vec<u32>,
             repeat: u32,
-        ) -> Result<Vec<frame_benchmarking::BenchmarkResults>, sp_runtime::RuntimeString> {
-            use frame_benchmarking::Benchmarking;
+        ) -> Result<Vec<frame_benchmarking::BenchmarkBatch>, sp_runtime::RuntimeString> {
+            use frame_benchmarking::{Benchmarking, BenchmarkBatch, add_benchmark};
 
-            let result = match module.as_slice() {
-                b"pallet-identity" | b"identity" => Identity::run_benchmark(
-                    extrinsic,
-                    lowest_range_values,
-                    highest_range_values,
-                    steps,
-                    repeat,
-                ),
-                b"runtime-asset" | b"asset" => Asset::run_benchmark(
-                    extrinsic,
-                    lowest_range_values,
-                    highest_range_values,
-                    steps,
-                    repeat,
-                ),
-                _ => Err("Benchmark not found for this pallet."),
-            };
-            result.map_err(|e| e.into())
+            let mut batches = Vec::<BenchmarkBatch>::new();
+            let params = (&pallet, &benchmark, &lowest_range_values, &highest_range_values, &steps, repeat);
+
+            add_benchmark!(params, batches, b"asset", Asset);
+            add_benchmark!(params, batches, b"identity", Identity);
+            add_benchmark!(params, batches, b"im-online", ImOnline);
+            add_benchmark!(params, batches, b"staking", Staking);
+
+            if batches.is_empty() { return Err("Benchmark not found for this pallet.".into()) }
+            Ok(batches)
         }
     }
 }

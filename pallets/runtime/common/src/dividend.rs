@@ -46,15 +46,13 @@
 //!
 //! - `get_dividend` - Returns details about a dividend
 
-use crate::simple_token;
 use frame_support::{
     decl_error, decl_event, decl_module, decl_storage, dispatch::DispatchResult, ensure,
 };
 use frame_system::{self as system, ensure_signed};
-use pallet_asset as asset;
+use pallet_asset::{self as asset, BalanceOf, Trait as AssetTrait};
 use pallet_identity as identity;
 use polymesh_common_utilities::{
-    balances::Trait as BalancesTrait,
     identity::Trait as IdentityTrait,
     protocol_fee::{ChargeProtocolFee, ProtocolOp},
     CommonTrait, Context,
@@ -64,9 +62,7 @@ use sp_runtime::traits::{CheckedAdd, CheckedDiv, CheckedMul, CheckedSub, Zero};
 use sp_std::prelude::*;
 
 /// The module's configuration trait.
-pub trait Trait:
-    asset::Trait + BalancesTrait + simple_token::Trait + frame_system::Trait + pallet_timestamp::Trait
-{
+pub trait Trait: AssetTrait + frame_system::Trait + pallet_timestamp::Trait {
     type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
 }
 
@@ -116,7 +112,7 @@ decl_module! {
         fn deposit_event() = default;
 
         /// Creates a new dividend entry without payout. Token must have at least one checkpoint.
-        #[weight = 400_000]
+        #[weight = 2_000_000_000]
         pub fn new(origin,
             amount: T::Balance,
             ticker: Ticker,
@@ -132,13 +128,13 @@ decl_module! {
             // Check that sender is allowed to act on behalf of `did`
             ensure!(
                 <identity::Module<T>>::is_signer_authorized(did, &sender),
-                Error::<T>::SenderMustBeSigningKeyForDid
+                Error::<T>::SenderMustBeSecondaryKeyForDid
             );
             // Check that sender owns the asset token
             ensure!(<asset::Module<T>>::_is_owner(&ticker, did), Error::<T>::NotAnOwner);
 
             // Check if sender has enough funds in payout currency
-            let balance = <simple_token::BalanceOf<T>>::get((payout_ticker, did));
+            let balance = <BalanceOf<T>>::get(payout_ticker, did);
             ensure!(balance >= amount, Error::<T>::InsufficientFunds);
 
             // Unpack the checkpoint ID, use the latest or create a new one, in that order
@@ -180,11 +176,8 @@ decl_module! {
 
             // Subtract the amount
             let new_balance = balance.checked_sub(&amount).ok_or(Error::<T>::BalanceUnderflow)?;
-            <<T as IdentityTrait>::ProtocolFee>::charge_fee(
-                &sender,
-                ProtocolOp::DividendNew
-            )?;
-            <simple_token::BalanceOf<T>>::insert((payout_ticker, did), new_balance);
+            <<T as IdentityTrait>::ProtocolFee>::charge_fee(ProtocolOp::DividendNew)?;
+            <BalanceOf<T>>::insert(payout_ticker, did, new_balance);
 
             // Insert dividend entry into storage
             let new_dividend = Dividend {
@@ -206,7 +199,7 @@ decl_module! {
         }
 
         /// Lets the owner cancel a dividend before start/maturity date
-        #[weight = 300_000]
+        #[weight = 700_000_000]
         pub fn cancel(origin, ticker: Ticker, dividend_id: u32) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             let did = Context::current_identity_or::<Identity<T>>(&sender)?;
@@ -215,7 +208,7 @@ decl_module! {
             // Check that sender is allowed to act on behalf of `did`
             ensure!(
                 <identity::Module<T>>::is_signer_authorized(did, &sender),
-                Error::<T>::SenderMustBeSigningKeyForDid
+                Error::<T>::SenderMustBeSecondaryKeyForDid
             );
             // Check that sender owns the asset token
             ensure!(<asset::Module<T>>::_is_owner(&ticker, did), Error::<T>::NotAnOwner);
@@ -230,8 +223,8 @@ decl_module! {
             );
 
             // Pay amount back to owner
-            <simple_token::BalanceOf<T>>::mutate(
-                (entry.payout_currency, did),
+            <BalanceOf<T>>::mutate(
+                entry.payout_currency, did,
                 |balance: &mut T::Balance| -> DispatchResult {
                     *balance  = balance
                         .checked_add(&entry.amount)
@@ -249,7 +242,7 @@ decl_module! {
 
         /// Withdraws from a dividend the adequate share of the `amount` field. All dividend shares
         /// are rounded by truncation (down to first integer below)
-        #[weight = 500_000]
+        #[weight = 1_000_000_000]
         pub fn claim(origin, ticker: Ticker, dividend_id: u32) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             let did = Context::current_identity_or::<Identity<T>>(&sender)?;
@@ -258,7 +251,7 @@ decl_module! {
             // Check that sender is allowed to act on behalf of `did`
             ensure!(
                 <identity::Module<T>>::is_signer_authorized(did, &sender),
-                Error::<T>::SenderMustBeSigningKeyForDid
+                Error::<T>::SenderMustBeSecondaryKeyForDid
             );
             // Check if sender wasn't already paid their share
             ensure!(
@@ -306,8 +299,8 @@ decl_module! {
             })?;
 
             // Perform the payout in designated tokens
-            <simple_token::BalanceOf<T>>::mutate(
-                (dividend.payout_currency, did),
+            <BalanceOf<T>>::mutate(
+                dividend.payout_currency, did,
                 |balance| -> DispatchResult {
                     *balance = balance.checked_add(&share).ok_or(Error::<T>::CouldNotAddShare)?;
                     Ok(())
@@ -323,7 +316,7 @@ decl_module! {
         }
 
         /// After a dividend had expired, collect the remaining amount to owner address
-        #[weight = 300_000]
+        #[weight = 900_000_000]
         pub fn claim_unclaimed(origin, ticker: Ticker, dividend_id: u32) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             let did = Context::current_identity_or::<Identity<T>>(&sender)?;
@@ -332,7 +325,7 @@ decl_module! {
             // Check that sender is allowed to act on behalf of `did`
             ensure!(
                 <identity::Module<T>>::is_signer_authorized(did, &sender),
-                Error::<T>::SenderMustBeSigningKeyForDid
+                Error::<T>::SenderMustBeSecondaryKeyForDid
             );
             // Check that sender owns the asset token
             ensure!(<asset::Module<T>>::_is_owner(&ticker, did), Error::<T>::NotAnOwner);
@@ -343,8 +336,8 @@ decl_module! {
             let now = <pallet_timestamp::Module<T>>::get();
             ensure!(entry.expires_at.map_or(false, |ref end| *end < now), Error::<T>::NotEnded);
             // Transfer the computed amount
-            <simple_token::BalanceOf<T>>::mutate(
-                (entry.payout_currency, did),
+            <BalanceOf<T>>::mutate(
+                entry.payout_currency, did,
                 |balance: &mut T::Balance| -> DispatchResult {
                     *balance = balance
                         .checked_add(&entry.amount_left)
@@ -390,8 +383,8 @@ decl_error! {
     pub enum Error for Module<T: Trait> {
         /// Claiming unclaimed payouts requires an end date
         NotEnded,
-        /// The sender must be a signing key for the DID.
-        SenderMustBeSigningKeyForDid,
+        /// The sender must be a secondary key for the DID.
+        SenderMustBeSecondaryKeyForDid,
         /// The dividend was not found.
         NoSuchDividend,
         /// The user is not an owner of the asset.

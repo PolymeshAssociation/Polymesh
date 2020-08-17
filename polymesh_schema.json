@@ -1,13 +1,15 @@
 {
     "types": {
-        "IdentityId":"[u8; 32]",
+        "IdentityId": "[u8; 32]",
+        "InvestorUid": "[u8; 32]",
         "Ticker": "[u8; 12]",
+        "CddId": "[u8; 32]",
+        "ScopeId": "[u8; 32]",
         "PosRatio": "(u32, u32)",
         "DocumentName": "Text",
         "DocumentUri": "Text",
         "DocumentHash": "Text",
         "Document": {
-            "name": "DocumentName",
             "uri": "DocumentUri",
             "content_hash": "DocumentHash"
         },
@@ -32,6 +34,13 @@
                 "Isin": ""
             }
         },
+        "AssetOwnershipRelation": {
+            "_enum": {
+                "NotOwned": "",
+                "TickerOwned": "",
+                "AssetOwned": ""
+            }
+        },
         "AssetName": "Text",
         "AssetIdentifier": "Text",
         "FundingRoundName": "Text",
@@ -42,7 +51,6 @@
             "owner_did": "IdentityId",
             "divisible": "bool",
             "asset_type": "AssetType",
-            "link_id": "u64",
             "treasury_did": "Option<IdentityId>"
         },
         "LinkedKeyInfo": {
@@ -59,39 +67,18 @@
                 "SpendFunds"
             ]
         },
-        "Link": {
-            "link_data": "LinkData",
-            "expiry": "Option<Moment>",
-            "link_id": "u64"
-        },
-        "LinkData": {
-            "_enum": {
-                "DocumentOwned": "Document",
-                "TickerOwned": "Ticker",
-                "AssetOwned": "Ticker"
-            }
-        },
-        "SignatoryType": {
-            "_enum": [
-                "External",
-                "Identity",
-                "MultiSig",
-                "Relayer"
-            ]
-        },
-        "Signatory":{
+        "Signatory": {
             "_enum": {
                 "Identity": "IdentityId",
                 "Account": "AccountId"
             }
         },
-        "SigningItem": {
+        "SecondaryKey": {
             "signer": "Signatory",
-            "signer_type": "SignatoryType",
             "permissions": "Vec<Permission>"
         },
-        "SigningItemWithAuth":{
-            "signing_item": "SigningItem",
+        "SecondaryKeyWithAuth": {
+            "secondary_key": "SecondaryKey",
             "auth_signature": "Signature"
         },
         "IdentityRole": {
@@ -110,26 +97,28 @@
         },
         "PreAuthorizedKeyInfo": {
             "target_id": "IdentityId",
-            "signing_item": "SigningItem"
+            "secondary_key": "SecondaryKey"
         },
         "DidRecord": {
             "roles": "Vec<IdentityRole>",
-            "master_key": "AccountId",
-            "signing_items": "Vec<SigningItem>"
+            "primary_key": "AccountId",
+            "secondary_keys": "Vec<SecondaryKey>"
         },
         "JurisdictionName": "Text",
         "Scope": "IdentityId",
+        "InvestorZKProofData": "[u8;64]",
         "Claim": {
             "_enum": {
                 "Accredited": "Scope",
                 "Affiliate": "Scope",
                 "BuyLockup": "Scope",
                 "SellLockup": "Scope",
-                "CustomerDueDiligence": "",
+                "CustomerDueDiligence": "CddId",
                 "KnowYourCustomer": "Scope",
                 "Jurisdiction": "(JurisdictionName, Scope)",
                 "Exempted": "Scope",
                 "Blocked": "Scope",
+                "InvestorZKProof": "(Scope, ScopeId, CddId, InvestorZKProofData)",
                 "NoData": ""
             }
         },
@@ -160,21 +149,22 @@
         },
         "AssetTransferRule": {
             "sender_rules": "Vec<Rule>",
-            "receiver_rules":"Vec<Rule>",
+            "receiver_rules": "Vec<Rule>",
             "rule_id": "u32"
         },
         "AssetTransferRuleResult": {
             "sender_rules": "Vec<Rule>",
-            "receiver_rules":"Vec<Rule>",
+            "receiver_rules": "Vec<Rule>",
             "rule_id": "u32",
             "transfer_rule_result": "bool"
         },
         "RuleType": {
             "_enum": {
-                "IsPresent" : "Claim",
+                "IsPresent": "Claim",
                 "IsAbsent": "Claim",
                 "IsAnyOf": "Vec<Claim>",
-                "IsNoneOf": "Vec<Claim>"
+                "IsNoneOf": "Vec<Claim>",
+                "IsIdentity": "TargetIdentity"
             }
         },
         "Rule": {
@@ -221,8 +211,7 @@
         },
         "TickerRegistration": {
             "owner": "IdentityId",
-            "expiry": "Option<Moment>",
-            "link_id": "u64"
+            "expiry": "Option<Moment>"
         },
         "TickerRegistrationConfig": {
             "max_ticker_length": "u8",
@@ -258,6 +247,34 @@
             "description": "Option<PipDescription>",
             "cool_off_until": "u32",
             "beneficiaries": "Vec<Beneficiary>"
+        },
+        "Proposer": {
+            "_enum": {
+                "Community": "AccountId",
+                "Committee": "Committee"
+            }
+        },
+        "Committee": {
+            "_enum": {
+                "Technical": "",
+                "Upgrade": ""
+            }
+        },
+        "SkippedCount": "u8",
+        "SnapshottedPip": {
+            "id": "PipId",
+            "weight": "(bool, Balance)"
+        },
+        "SnapshotMetadata": {
+            "created_at": "BlockNumber",
+            "made_by": "AccountId"
+        },
+        "SnapshotResult": {
+            "_enum": {
+                "Approve": "",
+                "Reject": "",
+                "Skip": ""
+            }
         },
         "Beneficiary": {
             "id": "IdentityId",
@@ -300,10 +317,10 @@
         },
         "Pip": {
             "id": "PipId",
-            "proposal":"Call",
-            "state":"ProposalState"
+            "proposal": "Call",
+            "state": "ProposalState"
         },
-        "ProposalData" : {
+        "ProposalData": {
             "_enum": {
                 "Hash": "Hash",
                 "Proposal": "Vec<u8>"
@@ -335,9 +352,10 @@
         },
         "AuthorizationData": {
             "_enum": {
-                "AttestMasterKeyRotation": "IdentityId",
-                "RotateMasterKey": "IdentityId",
+                "AttestPrimaryKeyRotation": "IdentityId",
+                "RotatePrimaryKey": "IdentityId",
                 "TransferTicker": "Ticker",
+                "TransferTreasury": "Ticker",
                 "AddMultiSigSigner": "AccountId",
                 "TransferAssetOwnership": "Ticker",
                 "JoinIdentity": "Vec<Permission>",
@@ -360,7 +378,7 @@
         "SmartExtension": {
             "extension_type": "SmartExtensionType",
             "extension_name": "SmartExtensionName",
-            "extension_id": "IdentityId",
+            "extension_id": "AccountId",
             "is_archive": "bool"
         },
         "ProportionMatch": {
@@ -412,7 +430,7 @@
         },
         "AssetTransferRulesResult": {
             "is_paused": "bool",
-            "rules": "Vec<AssetTransferRule>",
+            "rules": "Vec<AssetTransferRuleResult>",
             "final_result": "bool"
         },
         "Claim1stKey": {
@@ -432,12 +450,12 @@
             "target": "IdentityId",
             "claim": "Claim"
         },
-        "InactiveMember" : {
+        "InactiveMember": {
             "id": "IdentityId",
             "deactivated_at": "Moment",
             "expiry": "Option<Moment>"
         },
-        "VotingResult" : {
+        "VotingResult": {
             "ayes_count": "u32",
             "ayes_stake": "Balance",
             "nays_count": "u32",
@@ -454,8 +472,8 @@
                 "IdentityRegisterDid",
                 "IdentityCddRegisterDid",
                 "IdentityAddClaim",
-                "IdentitySetMasterKey",
-                "IdentityAddSigningItemsWithAuthorization",
+                "IdentitySetPrimaryKey",
+                "IdentityAddSecondaryKeysWithAuthorization",
                 "PipsPropose",
                 "VotingAddBallot"
             ]
@@ -473,8 +491,8 @@
             }
         },
         "DidRecordsSuccess": {
-            "master_key" : "AccountId",
-            "signing_items": "Vec<SigningItem>"
+            "primary_key": "AccountId",
+            "secondary_key": "Vec<SecondaryKey>"
         },
         "DidRecords": {
             "_enum": {
@@ -533,12 +551,16 @@
                 "Err": "Vec<u8>"
             }
         },
-        "LinkType": {
+        "AuthorizationType": {
             "_enum": {
-                "DocumentOwnership": "",
-                "TickerOwnership": "",
-                "AssetOwnership": "",
-                "NoData":""
+                "AttestPrimaryKeyRotation": "",
+                "RotatePrimaryKey": "",
+                "TransferTicker": "",
+                "AddMultiSigSigner": "",
+                "TransferAssetOwnership": "",
+                "JoinIdentity": "",
+                "Custom": "",
+                "NoData": ""
             }
         },
         "ProposalDetails": {
@@ -554,7 +576,7 @@
                 "ActiveOrExpired": "",
                 "ExecutionSuccessful": "",
                 "ExecutionFailed": "",
-                "Rejected":""
+                "Rejected": ""
             }
         },
         "DidStatus": {
@@ -567,6 +589,27 @@
         "IssueAssetItem": {
             "identity_did": "IdentityId",
             "value": "Balance"
+        },
+        "PortfolioName": "Vec<u8>",
+        "PortfolioNumber": "u64",
+        "PortfolioKind": {
+            "_enum": {
+                "Default": "",
+                "User": "PortfolioNumber"
+            }
+        },
+        "PortfolioId": {
+            "did": "IdentityId",
+            "kind": "PortfolioKind"
+        },
+        "ProverTickerKey": {
+            "prover": "IdentityId",
+            "ticker": "Ticker"
+        },
+        "TickerRangeProof": {
+            "initial_message": "[u8; 32]",
+            "final_response": "Vec<u8>",
+            "max_two_exp": "u32"
         },
         "InstructionStatus": {
             "_enum": {
@@ -626,6 +669,32 @@
             "leg_id": "u64",
             "signer": "AccountId",
             "signature": "OffChainSignature"
+        },
+        "UniqueCall": {
+            "nonce": "u64",
+            "call": "Call"
+        },
+        "MovePortfolioItem": {
+            "ticker": "Ticker",
+            "amount": "Balance"
+        },
+        "WeightToFeeCoefficient": {
+            "coeffInteger": "Balance",
+            "coeffFrac": "Perbill",
+            "negative": "bool",
+            "degree": "u8"
+        },
+        "TargetIdentity": {
+            "_enum": {
+                "Treasury": "",
+                "Specific": "IdentityId"
+            }
+        },
+        "Fundraiser": {
+            "raise_token": "Ticker",
+            "remaining_amount": "Balance",
+            "price_per_token": "Balance",
+            "venue_id": "u64"
         }
     },
     "rpc": {
@@ -649,6 +718,11 @@
                         "isOptional": false
                     },
                     {
+                        "name": "treasury_did",
+                        "type": "Option<IdentityId>",
+                        "isOptional": false
+                    },
+                    {
                         "name": "blockHash",
                         "type": "Hash",
                         "isOptional": true
@@ -658,7 +732,7 @@
             }
         },
         "identity": {
-            "isIdentityHasValidCdd" : {
+            "isIdentityHasValidCdd": {
                 "description": "use to tell whether the given did has valid cdd claim or not",
                 "params": [
                     {
@@ -711,8 +785,24 @@
                 ],
                 "type": "DidRecords"
             },
-            "getFilteredLinks": {
-                "description": "Retrieve links data for a given signatory and filtered using the given Link type",
+            "getDidStatus": {
+                "description": "Retrieve status of the DID",
+                "params": [
+                    {
+                        "name": "did",
+                        "type": "Vec<IdentityId>",
+                        "isOptional": false
+                    },
+                    {
+                        "name": "blockHash",
+                        "type": "Hash",
+                        "isOptional": true
+                    }
+                ],
+                "type": "Vec<DidStatus>"
+            },
+            "getFilteredAuthorizations": {
+                "description": "Retrieve authorizations data for a given signatory and filtered using the given authorization type",
                 "params": [
                     {
                         "name": "signatory",
@@ -725,8 +815,8 @@
                         "isOptional": false
                     },
                     {
-                        "name": "link_type",
-                        "type": "LinkType",
+                        "name": "auth_type",
+                        "type": "AuthorizationType",
                         "isOptional": true
                     },
                     {
@@ -735,26 +825,10 @@
                         "isOptional": true
                     }
                 ],
-                "type": "Vec<Link>"
-            },
-            "getDidStatus": {
-                "description": "Retrieve status of the DID",
-                "params": [
-                    {
-                        "name":"did",
-                        "type":"Vec<IdentityId>",
-                        "isOptional": false
-                    },
-                    {
-                        "name":"blockHash",
-                        "type":"Hash",
-                        "isOptional":true
-                    }
-                ],
-                "type": "Vec<DidStatus>"
+                "type": "Vec<Authorization>"
             }
         },
-        "pips":{
+        "pips": {
             "getVotes": {
                 "description": "Summary of votes of a proposal given by index",
                 "params": [
@@ -867,7 +941,7 @@
                 "type": "Vec<(Perbill, Perbill)>"
             }
         },
-        "asset" : {
+        "asset": {
             "canTransfer": {
                 "description": "Checks whether a transaction with given parameters can take place or not",
                 "params": [
@@ -903,6 +977,30 @@
                     }
                 ],
                 "type": "CanTransferResult"
+            }
+        },
+        "portfolio": {
+            "getPortfolios": {
+                "description": "Gets all user-defined portfolio names of an identity",
+                "params": [
+                    {
+                        "name": "did",
+                        "type": "IdentityId",
+                        "isOptional": false
+                    }
+                ],
+                "type": "GetPortfoliosResult"
+            },
+            "getPortfolioAssets": {
+                "description": "Gets the balances of all assets in a given portfolio",
+                "params": [
+                    {
+                        "name": "portfolio_id",
+                        "type": "PortfolioId",
+                        "isOptional": false
+                    }
+                ],
+                "type": "GetPortfolioAssetsResult"
             }
         }
     }

@@ -39,4 +39,8 @@ macro_rules! rpc_forward_call {
 }
 
 pub mod asset;
+pub mod compliance_manager;
+pub mod identity;
 pub mod pips;
+pub mod portfolio;
+pub mod transaction_payment;

@@ -19,7 +19,7 @@ use frame_support::{
     Parameter,
 };
 use polymesh_primitives::traits::BlockRewardsReserveCurrency;
-use sp_arithmetic::traits::{AtLeast32Bit, CheckedSub, Saturating};
+use sp_arithmetic::traits::{AtLeast32BitUnsigned, CheckedSub, Saturating, Unsigned};
 use sp_runtime::traits::{MaybeSerializeDeserialize, Member};
 use sp_std::fmt::Debug;
 
@@ -36,7 +36,7 @@ pub trait CommonTrait: frame_system::Trait {
     /// The balance of an account.
     type Balance: Parameter
         + Member
-        + AtLeast32Bit
+        + AtLeast32BitUnsigned
         + CheckedSub
         + Codec
         + Default
@@ -44,6 +44,7 @@ pub trait CommonTrait: frame_system::Trait {
         + MaybeSerializeDeserialize
         + Saturating
         + Debug
+        + Unsigned
         + From<u128>
         + From<Self::BlockNumber>;
 
@@ -64,3 +65,5 @@ pub mod group;
 pub mod identity;
 pub mod multisig;
 pub mod pip;
+pub mod transaction_payment;
+pub use transaction_payment::{CddAndFeeDetails, ChargeTxFee};
