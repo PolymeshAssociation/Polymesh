@@ -763,11 +763,11 @@ impl<T: Trait> Module<T> {
 
     // TODO: Cache the latest_rule_id to avoid loading of all asset_rules in memory.
     fn get_latest_rule_id(ticker: Ticker) -> u32 {
-        let length = Self::asset_rules(ticker).rules.len();
-        match length > 0 {
-            true => Self::asset_rules(ticker).rules[length - 1].rule_id,
-            false => 0u32,
-        }
+        Self::asset_rules(ticker)
+            .rules
+            .last()
+            .map(|r| r.rule_id)
+            .unwrap_or(0)
     }
 
     /// verifies all rules and returns the result in an array of bools.
