@@ -858,8 +858,8 @@ decl_module! {
                     match auth.authorization_data {
                         AuthorizationData::TransferTicker(_) =>
                             T::AcceptTransferTarget::accept_ticker_transfer(did, auth_id),
-                        AuthorizationData::TransferTreasury(_) =>
-                            T::AcceptTransferTarget::accept_treasury_transfer(did, auth_id),
+                        AuthorizationData::TransferPrimaryIssuanceAgent(_) =>
+                            T::AcceptTransferTarget::accept_primary_issuance_agent_transfer(did, auth_id),
                         AuthorizationData::TransferAssetOwnership(_) =>
                             T::AcceptTransferTarget::accept_asset_ownership_transfer(did, auth_id),
                         AuthorizationData::AddMultiSigSigner(_) =>
@@ -882,7 +882,7 @@ decl_module! {
                         AuthorizationData::JoinIdentity(_) =>
                             Self::join_identity(Signatory::Account(key), auth_id),
                         AuthorizationData::TransferTicker(..)
-                        | AuthorizationData::TransferTreasury(..)
+                        | AuthorizationData::TransferPrimaryIssuanceAgent(..)
                         | AuthorizationData::TransferAssetOwnership(..)
                         | AuthorizationData::AttestPrimaryKeyRotation(..)
                         | AuthorizationData::Custom(..)
@@ -2095,7 +2095,9 @@ impl<T: Trait> Module<T> {
                 }
                 AuthorizationData::RotatePrimaryKey(..) => AuthorizationType::RotatePrimaryKey,
                 AuthorizationData::TransferTicker(..) => AuthorizationType::TransferTicker,
-                AuthorizationData::TransferTreasury(..) => AuthorizationType::TransferTreasury,
+                AuthorizationData::TransferPrimaryIssuanceAgent(..) => {
+                    AuthorizationType::TransferPrimaryIssuanceAgent
+                }
                 AuthorizationData::AddMultiSigSigner(..) => AuthorizationType::AddMultiSigSigner,
                 AuthorizationData::TransferAssetOwnership(..) => {
                     AuthorizationType::TransferAssetOwnership

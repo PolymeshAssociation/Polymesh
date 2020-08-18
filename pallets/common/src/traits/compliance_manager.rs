@@ -23,6 +23,6 @@ pub trait Trait<Balance> {
         from_id: Option<IdentityId>,
         to_id: Option<IdentityId>,
         _value: Balance,
-        treasury_did: Option<IdentityId>,
+        primary_issuance_agent: Option<IdentityId>,
     ) -> Result<u8, &'static str>;
 }

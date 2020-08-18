@@ -492,7 +492,7 @@ fn should_successfully_add_and_use_default_issuers_we() {
         None,
     ));
 
-    assert_ok!(Asset::clear_primary_issuance_did(
+    assert_ok!(Asset::remove_primary_issuance_agent(
         token_owner_signed.clone(),
         ticker
     ));
@@ -1206,13 +1206,13 @@ fn cm_test_case_13_we() {
 }
 
 #[test]
-fn can_verify_restriction_with_treasury_did() {
+fn can_verify_restriction_with_primary_issuance_agent() {
     ExtBuilder::default()
         .build()
-        .execute_with(can_verify_restriction_with_treasury_did_we);
+        .execute_with(can_verify_restriction_with_primary_issuance_agent_we);
 }
 
-fn can_verify_restriction_with_treasury_did_we() {
+fn can_verify_restriction_with_primary_issuance_agent_we() {
     let owner = AccountKeyring::Alice.public();
     let owner_origin = Origin::signed(owner);
     let owner_id = register_keyring_account(AccountKeyring::Alice).unwrap();
@@ -1234,10 +1234,10 @@ fn can_verify_restriction_with_treasury_did_we() {
     let auth_id = Identity::add_auth(
         owner_id,
         Signatory::from(issuer_id),
-        AuthorizationData::TransferTreasury(ticker),
+        AuthorizationData::TransferPrimaryIssuanceAgent(ticker),
         None,
     );
-    assert_ok!(Asset::accept_treasury_transfer(
+    assert_ok!(Asset::accept_primary_issuance_agent_transfer(
         Origin::signed(issuer),
         auth_id
     ));
@@ -1255,12 +1255,12 @@ fn can_verify_restriction_with_treasury_did_we() {
         ERC1400_TRANSFER_FAILURE
     );
 
-    // Add rule that requires sender to be treasury (dynamic) and receiver to be a specific random_guy_id
+    // Add rule that requires sender to be primary issuance agent (dynamic) and receiver to be a specific random_guy_id
     assert_ok!(ComplianceManager::add_active_rule(
         owner_origin,
         ticker,
         vec![Rule {
-            rule_type: RuleType::IsIdentity(TargetIdentity::Treasury),
+            rule_type: RuleType::IsIdentity(TargetIdentity::PrimaryIssuanceAgent),
             issuers: vec![],
         }],
         vec![Rule {
@@ -1269,7 +1269,7 @@ fn can_verify_restriction_with_treasury_did_we() {
         }]
     ));
 
-    // From treasury to the random guy should succeed
+    // From primary issuance agent to the random guy should succeed
     assert_ok!(
         ComplianceManager::verify_restriction(
             &ticker,
@@ -1281,7 +1281,7 @@ fn can_verify_restriction_with_treasury_did_we() {
         ERC1400_TRANSFER_SUCCESS
     );
 
-    // From treasury to owner should fail
+    // From primary issuance agent to owner should fail
     assert_ok!(
         ComplianceManager::verify_restriction(
             &ticker,
@@ -1293,7 +1293,7 @@ fn can_verify_restriction_with_treasury_did_we() {
         ERC1400_TRANSFER_FAILURE
     );
 
-    // From random guy to treasury should fail
+    // From random guy to primary issuance agent should fail
     assert_ok!(
         ComplianceManager::verify_restriction(
             &ticker,

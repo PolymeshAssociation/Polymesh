@@ -21,10 +21,10 @@ use polymesh_primitives_derive::SliceU8StrongTyped;
 use codec::{Decode, Encode};
 use frame_support::{
     decl_event,
-    dispatch::DispatchError,
+    dispatch::{DispatchError, DispatchResult},
     traits::{
-        BalanceStatus as Status, ExistenceRequirement, Get, OnUnbalanced, StoredMap,
-        WithdrawReason, WithdrawReasons,
+        BalanceStatus as Status, ExistenceRequirement, Get, LockIdentifier, LockableCurrency,
+        OnUnbalanced, StoredMap, WithdrawReason, WithdrawReasons,
     },
 };
 use frame_system::{self as system};
@@ -169,4 +169,25 @@ pub trait BalancesTrait<A, B, NI> {
 pub trait CheckCdd<AccountId> {
     fn check_key_cdd(key: &AccountId) -> bool;
     fn get_key_cdd_did(key: &AccountId) -> Option<IdentityId>;
+}
+
+/// Additional functionality atop `LockableCurrency` allowing a local,
+/// per-id, stacking layer atop the overlay.
+pub trait LockableCurrencyExt<AccountId>: LockableCurrency<AccountId> {
+    /// Reduce the locked amount under `id` for `who`.
+    /// If less than `amount` was locked, then `InsufficientBalance` is raised.
+    /// If the whole locked amount is reduced, then the lock is removed.
+    fn reduce_lock(id: LockIdentifier, who: &AccountId, amount: Self::Balance) -> DispatchResult;
+
+    /// Increase the locked amount under `id` for `who` or raises `Overflow`.
+    /// If there's no lock already, it will be made, unless `amount.is_zero()`.
+    /// Before committing to storage, `check_sum` is called with the lock total,
+    /// allowing the transaction to be aborted.
+    fn increase_lock(
+        id: LockIdentifier,
+        who: &AccountId,
+        amount: Self::Balance,
+        reasons: WithdrawReasons,
+        check_sum: impl FnOnce(Self::Balance) -> DispatchResult,
+    ) -> DispatchResult;
 }
