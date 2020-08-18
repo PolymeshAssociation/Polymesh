@@ -14,13 +14,14 @@
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
 use crate::{identity_id::IdentityId, CddId, InvestorZKProofData, Moment};
-use polymesh_primitives_derive::VecU8StrongTyped;
 
 use codec::{Decode, Encode};
 #[cfg(feature = "std")]
 use sp_runtime::{Deserialize, Serialize};
 
 use sp_std::prelude::*;
+
+use super::jurisdiction::JurisdictionName;
 
 /// Scope: Almost all claim needs a valid scope identity.
 pub type Scope = IdentityId;
@@ -137,13 +138,6 @@ impl Default for ClaimType {
         ClaimType::NoType
     }
 }
-
-/// A wrapper for Jurisdiction name.
-#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[derive(
-    Decode, Encode, Clone, Default, Hash, PartialEq, Eq, PartialOrd, Ord, VecU8StrongTyped, Debug,
-)]
-pub struct JurisdictionName(pub Vec<u8>);
 
 /// All information of a particular claim
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize, Debug))]
