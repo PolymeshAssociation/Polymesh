@@ -18,7 +18,7 @@ use codec::{Decode, Encode};
 
 use sp_std::prelude::*;
 
-/// Context using during an `Predicate` evaluation.
+/// Context using during an `Proposition` evaluation.
 ///
 /// # TODO
 ///  - Use a lazy access to claims. It could be part of the optimization
@@ -26,7 +26,7 @@ use sp_std::prelude::*;
 #[derive(Encode, Decode, Clone, Default)]
 #[cfg_attr(feature = "std", derive(Debug))]
 pub struct Context {
-    /// Predicate evaluation will use those claims.
+    /// Proposition evaluation will use those claims.
     pub claims: Vec<Claim>,
     /// Identity of this context.
     /// It could be the sender DID during the evaluation of sender's rules or
@@ -36,101 +36,101 @@ pub struct Context {
     pub treasury: Option<IdentityId>,
 }
 
-// Predicate Trait
+// Proposition Trait
 // ==================================
 
 /// It allows composition and evaluation of claims based on a context.
 pub trait Proposition {
-    /// It evaluates this predicated based on `context` context.
+    /// It evaluates this propositiond based on `context` context.
     fn evaluate(&self, context: &Context) -> bool;
 
-    /// It generates a new predicate that represents the logical AND
-    /// of two predicates: `Self` and `other`.
+    /// It generates a new proposition that represents the logical AND
+    /// of two propositions: `Self` and `other`.
     #[inline]
-    fn and<B>(self, other: B) -> AndPredicate<Self, B>
+    fn and<B>(self, other: B) -> AndProposition<Self, B>
     where
         Self: Sized,
         B: Proposition + Sized,
     {
-        AndPredicate::new(self, other)
+        AndProposition::new(self, other)
     }
 
-    /// It generates a new predicate that represents the logical OR
-    /// of two predicates: `Self` and `other`.
+    /// It generates a new proposition that represents the logical OR
+    /// of two propositions: `Self` and `other`.
     #[inline]
-    fn or<B>(self, other: B) -> OrPredicate<Self, B>
+    fn or<B>(self, other: B) -> OrProposition<Self, B>
     where
         Self: Sized,
         B: Proposition + Sized,
     {
-        OrPredicate::new(self, other)
+        OrProposition::new(self, other)
     }
 
-    /// It generates a new predicate that represents the logical NOT
-    /// of this predicate.
+    /// It generates a new proposition that represents the logical NOT
+    /// of this proposition.
     #[inline]
-    fn not(self) -> NotPredicate<Self>
+    fn not(self) -> NotProposition<Self>
     where
         Self: Sized,
     {
-        NotPredicate::new(self)
+        NotProposition::new(self)
     }
 }
 
-/// Base and simple predicates
+/// Base and simple propositions
 pub mod base;
 pub use base::{
-    AndPredicate, AnyPredicate, ExistentialPredicate, NotPredicate, OrPredicate,
-    TargetIdentityPredicate,
+    AndProposition, AnyProposition, ExistentialProposition, NotProposition, OrProposition,
+    TargetIdentityProposition,
 };
 
-/// Predicates for confidential stuff.
+/// Propositions for confidential stuff.
 pub mod valid_proof_of_investor;
-pub use valid_proof_of_investor::ValidProofOfInvestorPredicate;
+pub use valid_proof_of_investor::ValidProofOfInvestorProposition;
 
 // Helper functions
 // ======================================
 
-/// It creates a predicate to evaluate the matching of `id` with treasury in the context.
+/// It creates a proposition to evaluate the matching of `id` with treasury in the context.
 #[inline]
-pub fn equals<'a>(id: &'a TargetIdentity, treasury: &'a IdentityId) -> TargetIdentityPredicate<'a> {
+pub fn equals<'a>(id: &'a TargetIdentity, treasury: &'a IdentityId) -> TargetIdentityProposition<'a> {
     match id {
-        TargetIdentity::Treasury => TargetIdentityPredicate { identity: treasury },
-        TargetIdentity::Specific(identity) => TargetIdentityPredicate { identity },
+        TargetIdentity::Treasury => TargetIdentityProposition { identity: treasury },
+        TargetIdentity::Specific(identity) => TargetIdentityProposition { identity },
     }
 }
 
-/// It creates a predicate to evaluate the existential of `claim` in the context.
+/// It creates a proposition to evaluate the existential of `claim` in the context.
 #[inline]
-pub fn exists(claim: &'_ Claim) -> ExistentialPredicate<'_> {
-    ExistentialPredicate { claim }
+pub fn exists(claim: &'_ Claim) -> ExistentialProposition<'_> {
+    ExistentialProposition { claim }
 }
 
-/// It creates a predicate to evaluate if any of `claims` are found in the context.
+/// It creates a proposition to evaluate if any of `claims` are found in the context.
 #[inline]
-pub fn any(claims: &'_ [Claim]) -> AnyPredicate<'_> {
-    AnyPredicate { claims }
+pub fn any(claims: &'_ [Claim]) -> AnyProposition<'_> {
+    AnyProposition { claims }
 }
 
-/// It create a negate predicate of `predicate`.
+/// It create a negate proposition of `proposition`.
 #[inline]
-pub fn not<P>(predicate: P) -> NotPredicate<P>
+pub fn not<P>(proposition: P) -> NotProposition<P>
 where
     P: Proposition + Sized,
 {
-    NotPredicate::new(predicate)
+    NotProposition::new(proposition)
 }
 
 /// It verifies if the Identifier in the context has got a valid `InvestorZKProof` and its
 /// associate `CustomDueDiligence`.
 #[inline]
-pub fn has_valid_proof_of_investor(ticker: Ticker) -> ValidProofOfInvestorPredicate {
-    ValidProofOfInvestorPredicate { ticker }
+pub fn has_valid_proof_of_investor(ticker: Ticker) -> ValidProofOfInvestorProposition {
+    ValidProofOfInvestorProposition { ticker }
 }
 
-/// Helper function to run predicates from a context.
-pub fn run(rule: &Condition, context: &Context) -> bool {
-    match rule.rule_type {
+/// Helper function to run propositions from a context.
+pub fn run(condition: &Condition, context: &Context) -> bool {
+    match condition.condition_type {
         ConditionType::IsPresent(ref claim) => exists(claim).evaluate(context),
         ConditionType::IsAbsent(ref claim) => not(exists(claim)).evaluate(context),
         ConditionType::IsAnyOf(ref claims) => any(claims).evaluate(context),

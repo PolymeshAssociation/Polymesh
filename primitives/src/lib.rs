@@ -198,9 +198,9 @@ pub mod rule;
 pub use rule::{Condition, ConditionType, TargetIdentity};
 
 /// Predicate calculation for Claims.
-pub mod predicate;
-pub use predicate::{
-    AndPredicate, Context, NotPredicate, OrPredicate, Proposition, ValidProofOfInvestorPredicate,
+pub mod proposition;
+pub use proposition::{
+    AndProposition, Context, NotProposition, OrProposition, Proposition, ValidProofOfInvestorProposition,
 };
 
 /// Represents custom transaction errors.

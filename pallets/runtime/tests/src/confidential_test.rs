@@ -132,7 +132,7 @@ fn scope_claims_we() {
     let receiver_rules = vec![Condition::from(ConditionType::HasValidProofOfInvestor(
         st_id,
     ))];
-    assert_ok!(ComplianceManager::add_active_rule(
+    assert_ok!(ComplianceManager::add_compliance_requirement(
         Origin::signed(alice),
         st_id,
         sender_rules,

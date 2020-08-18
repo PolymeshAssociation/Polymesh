@@ -216,7 +216,7 @@ fn valid_custodian_allowance() {
         );
 
         // Allow all transfers
-        assert_ok!(ComplianceManager::add_active_rule(
+        assert_ok!(ComplianceManager::add_compliance_requirement(
             owner_signed.clone(),
             ticker,
             vec![],
@@ -357,7 +357,7 @@ fn valid_custodian_allowance_of() {
         );
 
         // Allow all transfers
-        assert_ok!(ComplianceManager::add_active_rule(
+        assert_ok!(ComplianceManager::add_compliance_requirement(
             owner_signed.clone(),
             ticker,
             vec![],
@@ -493,7 +493,7 @@ fn checkpoints_fuzz_test() {
             ));
 
             // Allow all transfers
-            assert_ok!(ComplianceManager::add_active_rule(
+            assert_ok!(ComplianceManager::add_compliance_requirement(
                 owner_signed.clone(),
                 ticker,
                 vec![],
@@ -1636,7 +1636,7 @@ fn freeze_unfreeze_asset() {
         ));
 
         // Allow all transfers.
-        assert_ok!(ComplianceManager::add_active_rule(
+        assert_ok!(ComplianceManager::add_compliance_requirement(
             alice_signed.clone(),
             ticker,
             vec![],
@@ -1882,7 +1882,7 @@ fn test_can_transfer_rpc() {
 
             // Case 7: when transaction get success by the compliance_manager
             // Allow all transfers.
-            assert_ok!(ComplianceManager::add_active_rule(
+            assert_ok!(ComplianceManager::add_compliance_requirement(
                 alice_signed.clone(),
                 ticker,
                 vec![],

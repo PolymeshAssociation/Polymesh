@@ -168,7 +168,7 @@ fn should_add_and_verify_asset_rule_we() {
         rule_type: ConditionType::IsPresent(Claim::Accredited(token_owner_did)),
     };
 
-    assert_ok!(ComplianceManager::add_active_rule(
+    assert_ok!(ComplianceManager::add_compliance_requirement(
         token_owner_signed.clone(),
         ticker,
         vec![sender_rule.clone()],
@@ -282,7 +282,7 @@ fn should_replace_asset_rules_we() {
         None,
     ));
 
-    assert_ok!(ComplianceManager::add_active_rule(
+    assert_ok!(ComplianceManager::add_compliance_requirement(
         token_owner_signed.clone(),
         ticker,
         vec![],
@@ -350,7 +350,7 @@ fn should_reset_asset_rules_we() {
         None,
     ));
 
-    assert_ok!(ComplianceManager::add_active_rule(
+    assert_ok!(ComplianceManager::add_compliance_requirement(
         token_owner_signed.clone(),
         ticker,
         vec![],
@@ -360,7 +360,7 @@ fn should_reset_asset_rules_we() {
     let asset_rules = ComplianceManager::asset_rules(ticker);
     assert_eq!(asset_rules.rules.len(), 1);
 
-    assert_ok!(ComplianceManager::reset_active_rules(
+    assert_ok!(ComplianceManager::reset_asset_compliance(
         token_owner_signed.clone(),
         ticker
     ));
@@ -424,7 +424,7 @@ fn pause_resume_asset_rules_we() {
         rule_type: ConditionType::IsAbsent(Claim::NoData),
     }];
 
-    assert_ok!(ComplianceManager::add_active_rule(
+    assert_ok!(ComplianceManager::add_compliance_requirement(
         token_owner_signed.clone(),
         ticker,
         vec![],
@@ -542,7 +542,7 @@ fn should_successfully_add_and_use_default_issuers_we() {
         rule_type: ConditionType::IsPresent(Claim::make_cdd_wildcard()),
     };
 
-    assert_ok!(ComplianceManager::add_active_rule(
+    assert_ok!(ComplianceManager::add_compliance_requirement(
         token_owner_signed.clone(),
         ticker,
         vec![sender_rule],
@@ -697,7 +697,7 @@ fn should_modify_vector_of_trusted_issuer_we() {
     let x = vec![sender_rule.clone()];
     let y = vec![receiver_rule_1, receiver_rule_2];
 
-    assert_ok!(ComplianceManager::add_active_rule(
+    assert_ok!(ComplianceManager::add_compliance_requirement(
         token_owner_signed.clone(),
         ticker,
         x,
@@ -825,7 +825,7 @@ fn jurisdiction_asset_rules_we() {
             issuers: vec![token_owner_id],
         },
     ];
-    assert_ok!(ComplianceManager::add_active_rule(
+    assert_ok!(ComplianceManager::add_compliance_requirement(
         token_owner_signed.clone(),
         ticker,
         vec![],
@@ -874,7 +874,7 @@ fn scope_asset_rules_we() {
         rule_type: ConditionType::IsPresent(Claim::Affiliate(scope)),
         issuers: vec![cdd_id],
     }];
-    assert_ok!(ComplianceManager::add_active_rule(
+    assert_ok!(ComplianceManager::add_compliance_requirement(
         owner_signed.clone(),
         ticker,
         vec![],
@@ -919,7 +919,7 @@ fn cm_test_case_9_we() {
         ]),
         issuers: vec![issuer_id],
     }];
-    assert_ok!(ComplianceManager::add_active_rule(
+    assert_ok!(ComplianceManager::add_compliance_requirement(
         owner.clone(),
         ticker,
         vec![],
@@ -1013,7 +1013,7 @@ fn cm_test_case_11_we() {
             issuers: vec![issuer_id],
         },
     ];
-    assert_ok!(ComplianceManager::add_active_rule(
+    assert_ok!(ComplianceManager::add_compliance_requirement(
         owner.clone(),
         ticker,
         vec![],
@@ -1121,7 +1121,7 @@ fn cm_test_case_13_we() {
             issuers: vec![issuer_id],
         },
     ];
-    assert_ok!(ComplianceManager::add_active_rule(
+    assert_ok!(ComplianceManager::add_compliance_requirement(
         owner.clone(),
         ticker,
         vec![],
@@ -1259,7 +1259,7 @@ fn can_verify_restriction_with_treasury_did_we() {
     );
 
     // Add rule that requires sender to be treasury (dynamic) and receiver to be a specific random_guy_id
-    assert_ok!(ComplianceManager::add_active_rule(
+    assert_ok!(ComplianceManager::add_compliance_requirement(
         owner_origin,
         ticker,
         vec![Condition {
@@ -1364,7 +1364,7 @@ fn should_limit_rules_complexity_we() {
 
     // Complexity = 30*1 + 30*1 = 60
     assert_noop!(
-        ComplianceManager::add_active_rule(
+        ComplianceManager::add_compliance_requirement(
             token_owner_signed.clone(),
             ticker,
             rules_with_issuer.clone(),
@@ -1374,7 +1374,7 @@ fn should_limit_rules_complexity_we() {
     );
 
     // Complexity = 30*1 + 15*0 = 30
-    assert_ok!(ComplianceManager::add_active_rule(
+    assert_ok!(ComplianceManager::add_compliance_requirement(
         token_owner_signed.clone(),
         ticker,
         rules_with_issuer.clone(),

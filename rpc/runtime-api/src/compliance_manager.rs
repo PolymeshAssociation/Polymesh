@@ -59,6 +59,6 @@ sp_api::decl_runtime_apis! {
             from_did: Option<IdentityId>,
             to_did: Option<IdentityId>,
             treasury_did: Option<IdentityId>,
-        ) -> AssetTransferRulesResult;
+        ) -> AssetComplianceResult;
     }
 }

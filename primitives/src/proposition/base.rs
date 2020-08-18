@@ -1,27 +1,27 @@
 use crate::{
-    predicate::{Context, Proposition},
+    proposition::{Context, Proposition},
     Claim, IdentityId,
 };
 use codec::{Decode, Encode};
 
-// TargetIdentityPredicate
+// TargetIdentityProposition
 // ======================================================
 
 /// It matches `id` with treasury in the context.
 #[derive(Clone, Debug)]
-pub struct TargetIdentityPredicate<'a> {
+pub struct TargetIdentityProposition<'a> {
     /// IdentityId we want to check.
     pub identity: &'a IdentityId,
 }
 
-impl<'a> Proposition for TargetIdentityPredicate<'a> {
+impl<'a> Proposition for TargetIdentityProposition<'a> {
     #[inline]
     fn evaluate(&self, context: &Context) -> bool {
         context.id == *self.identity
     }
 }
 
-// ExistentialPredicate
+// ExistentialProposition
 // ======================================================
 
 /// It checks the existential of a claim.
@@ -35,12 +35,12 @@ impl<'a> Proposition for TargetIdentityPredicate<'a> {
 ///
 #[derive(Clone)]
 #[cfg_attr(feature = "std", derive(Debug))]
-pub struct ExistentialPredicate<'a> {
+pub struct ExistentialProposition<'a> {
     /// Claims we want to check if it exists in context.
     pub claim: &'a Claim,
 }
 
-impl<'a> Proposition for ExistentialPredicate<'a> {
+impl<'a> Proposition for ExistentialProposition<'a> {
     fn evaluate(&self, context: &Context) -> bool {
         match &self.claim {
             Claim::CustomerDueDiligence(ref cdd_id) if cdd_id.is_wildcard() => {
@@ -51,7 +51,7 @@ impl<'a> Proposition for ExistentialPredicate<'a> {
     }
 }
 
-impl<'a> ExistentialPredicate<'a> {
+impl<'a> ExistentialProposition<'a> {
     /// The wildcard search only double-checks if any CDD claim is in the context.
     fn evaluate_cdd_claim_wildcard(&self, context: &Context) -> bool {
         context.claims.iter().any(|ctx_claim| match ctx_claim {
@@ -69,13 +69,13 @@ impl<'a> ExistentialPredicate<'a> {
     }
 }
 
-// AndPredicate
+// AndProposition
 // ======================================================
 
-/// A composition predicate of two others using logical AND operator.
+/// A composition proposition of two others using logical AND operator.
 #[derive(Encode, Decode, Clone)]
 #[cfg_attr(feature = "std", derive(Debug))]
-pub struct AndPredicate<P1, P2>
+pub struct AndProposition<P1, P2>
 where
     P1: Proposition + Sized,
     P2: Proposition + Sized,
@@ -84,37 +84,37 @@ where
     rhs: P2,
 }
 
-impl<P1, P2> AndPredicate<P1, P2>
+impl<P1, P2> AndProposition<P1, P2>
 where
     P1: Proposition + Sized,
     P2: Proposition + Sized,
 {
-    /// Create a new `AndPredicate` over predicates `lhs` and `rhs`.
+    /// Create a new `AndProposition` over propositions `lhs` and `rhs`.
     #[inline]
     pub fn new(lhs: P1, rhs: P2) -> Self {
-        AndPredicate { lhs, rhs }
+        AndProposition { lhs, rhs }
     }
 }
 
-impl<P1, P2> Proposition for AndPredicate<P1, P2>
+impl<P1, P2> Proposition for AndProposition<P1, P2>
 where
     P1: Proposition + Sized,
     P2: Proposition + Sized,
 {
-    /// Evaluate predicate against `context`.
+    /// Evaluate proposition against `context`.
     #[inline]
     fn evaluate(&self, context: &Context) -> bool {
         self.lhs.evaluate(context) && self.rhs.evaluate(context)
     }
 }
 
-// OrPredicate
+// OrProposition
 // ======================================================
 
-/// A composition predicate of two others using logical OR operator.
+/// A composition proposition of two others using logical OR operator.
 #[derive(Encode, Decode, Clone)]
 #[cfg_attr(feature = "std", derive(Debug))]
-pub struct OrPredicate<P1, P2>
+pub struct OrProposition<P1, P2>
 where
     P1: Proposition + Sized,
     P2: Proposition + Sized,
@@ -123,72 +123,72 @@ where
     rhs: P2,
 }
 
-impl<P1, P2> OrPredicate<P1, P2>
+impl<P1, P2> OrProposition<P1, P2>
 where
     P1: Proposition + Sized,
     P2: Proposition + Sized,
 {
-    /// Create a new `OrPredicate` over predicates `lhs` and `rhs`.
+    /// Create a new `OrProposition` over propositions `lhs` and `rhs`.
     #[inline]
     pub fn new(lhs: P1, rhs: P2) -> Self {
-        OrPredicate { lhs, rhs }
+        OrProposition { lhs, rhs }
     }
 }
 
-impl<P1, P2> Proposition for OrPredicate<P1, P2>
+impl<P1, P2> Proposition for OrProposition<P1, P2>
 where
     P1: Proposition + Sized,
     P2: Proposition + Sized,
 {
-    /// Evaluate predicate against `context`.
+    /// Evaluate proposition against `context`.
     #[inline]
     fn evaluate(&self, context: &Context) -> bool {
         self.lhs.evaluate(context) || self.rhs.evaluate(context)
     }
 }
 
-// NotPredicate
+// NotProposition
 // ======================================================
 
-/// Predicate that returns a logical NOT of other predicate.
+/// proposition that returns a logical NOT of other proposition.
 #[derive(Encode, Decode, Clone)]
 #[cfg_attr(feature = "std", derive(Debug))]
-pub struct NotPredicate<P: Proposition + Sized> {
-    predicate: P,
+pub struct NotProposition<P: Proposition + Sized> {
+    proposition: P,
 }
 
-impl<P> NotPredicate<P>
+impl<P> NotProposition<P>
 where
     P: Proposition + Sized,
 {
-    /// Create a new `OrPredicate` over predicate `predicate`.
+    /// Create a new `OrProposition` over proposition `proposition`.
     #[inline]
-    pub fn new(predicate: P) -> Self {
-        NotPredicate { predicate }
+    pub fn new(proposition: P) -> Self {
+        NotProposition { proposition }
     }
 }
 
-impl<P: Proposition + Sized> Proposition for NotPredicate<P> {
-    /// Evaluate predicate against `context`.
+impl<P: Proposition + Sized> Proposition for NotProposition<P> {
+    /// Evaluate proposition against `context`.
     #[inline]
     fn evaluate(&self, context: &Context) -> bool {
-        !self.predicate.evaluate(context)
+        !self.proposition.evaluate(context)
     }
 }
 
-// AnyPredicate
+// AnyProposition
 // =========================================================
 
-/// Predicate that checks if any of its internal claims exists in context.
+/// Proposition that checks if any of its internal claims exists in context.
 #[derive(Clone)]
 #[cfg_attr(feature = "std", derive(Debug))]
-pub struct AnyPredicate<'a> {
+pub struct AnyProposition<'a> {
     /// List of claims to find in context.
     pub claims: &'a [Claim],
 }
 
-impl<'a> Proposition for AnyPredicate<'a> {
-    /// Evaluate predicate against `context`.
+impl<'a> Proposition for AnyProposition<'a> {
+    /// Evaluate proposition against `context`.
     fn evaluate(&self, context: &Context) -> bool {
         context.claims.iter().any(|ctx_claim| {
             self.claims
@@ -201,7 +201,7 @@ impl<'a> Proposition for AnyPredicate<'a> {
 #[cfg(test)]
 mod tests {
     use crate::{
-        predicate::{self, Context, Proposition},
+        proposition::{self, Context, Proposition},
         CddId, Claim, Condition, ConditionType, IdentityId, InvestorUid, Scope, TargetIdentity,
     };
     use std::convert::From;
@@ -221,7 +221,7 @@ mod tests {
         // Affiliate && CustommerDueDiligenge
         let affiliate_claim = Claim::Affiliate(scope);
         let affiliate_and_cdd_pred =
-            predicate::exists(&affiliate_claim).and(predicate::exists(&cdd_claim));
+            proposition::exists(&affiliate_claim).and(proposition::exists(&cdd_claim));
 
         assert_eq!(affiliate_and_cdd_pred.evaluate(&context), true);
     }
@@ -241,7 +241,7 @@ mod tests {
             claims: vec![Claim::Jurisdiction(b"Canada".into(), scope)],
             ..Default::default()
         };
-        let in_juridisction_pre = predicate::any(&valid_jurisdictions);
+        let in_juridisction_pre = proposition::any(&valid_jurisdictions);
         assert_eq!(in_juridisction_pre.evaluate(&context), true);
 
         // 2. Check USA does not belong to {ESP, CAN, IND}.
@@ -252,12 +252,12 @@ mod tests {
         assert_eq!(in_juridisction_pre.evaluate(&context), false);
 
         // 3. Check NOT in jurisdiction.
-        let not_in_jurisdiction_pre = predicate::not(in_juridisction_pre.clone());
+        let not_in_jurisdiction_pre = proposition::not(in_juridisction_pre.clone());
         assert_eq!(not_in_jurisdiction_pre.evaluate(&context), true);
     }
 
     #[test]
-    fn run_predicate() {
+    fn run_proposition() {
         let scope = Scope::from(0);
 
         let rules: Vec<Condition> = vec![
@@ -280,7 +280,7 @@ mod tests {
             ..Default::default()
         };
 
-        let out = !rules.iter().any(|rule| !predicate::run(&rule, &context));
+        let out = !rules.iter().any(|rule| !proposition::run(&rule, &context));
         assert_eq!(out, true);
 
         // Invalid case: `BuyLockup` is present.
@@ -293,7 +293,7 @@ mod tests {
             ..Default::default()
         };
 
-        let out = !rules.iter().any(|rule| !predicate::run(&rule, &context));
+        let out = !rules.iter().any(|rule| !proposition::run(&rule, &context));
         assert_eq!(out, false);
 
         // Invalid case: Missing `Accredited`
@@ -305,7 +305,7 @@ mod tests {
             ..Default::default()
         };
 
-        let out = !rules.iter().any(|rule| !predicate::run(&rule, &context));
+        let out = !rules.iter().any(|rule| !proposition::run(&rule, &context));
         assert_eq!(out, false);
 
         // Invalid case: Missing `Jurisdiction`
@@ -317,7 +317,7 @@ mod tests {
             ..Default::default()
         };
 
-        let out = !rules.iter().any(|rule| !predicate::run(&rule, &context));
+        let out = !rules.iter().any(|rule| !proposition::run(&rule, &context));
         assert_eq!(out, false);
 
         // Check NoneOf
@@ -329,12 +329,12 @@ mod tests {
             ..Default::default()
         };
 
-        let out = !rules.iter().any(|rule| !predicate::run(&rule, &context));
+        let out = !rules.iter().any(|rule| !proposition::run(&rule, &context));
         assert_eq!(out, false);
 
         let identity1 = IdentityId::from(1);
         let identity2 = IdentityId::from(2);
-        assert!(predicate::run(
+        assert!(proposition::run(
             &ConditionType::IsIdentity(TargetIdentity::Treasury).into(),
             &Context {
                 id: identity1,
@@ -342,7 +342,7 @@ mod tests {
                 ..Default::default()
             }
         ));
-        assert!(predicate::run(
+        assert!(proposition::run(
             &ConditionType::IsIdentity(TargetIdentity::Specific(identity1)).into(),
             &Context {
                 id: identity1,

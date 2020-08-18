@@ -642,13 +642,13 @@ impl asset::Trait for Runtime {
 }
 
 parameter_types! {
-    pub const MaxRuleComplexity: u32 = 50;
+    pub const MaxConditionComplexity: u32 = 50;
 }
 
 impl compliance_manager::Trait for Runtime {
     type Event = Event;
     type Asset = Asset;
-    type MaxRuleComplexity = MaxRuleComplexity;
+    type MaxConditionComplexity = MaxConditionComplexity;
 }
 
 impl voting::Trait for Runtime {
@@ -1131,7 +1131,7 @@ impl_runtime_apis! {
             from_did: Option<IdentityId>,
             to_did: Option<IdentityId>,
             treasury_did: Option<IdentityId>,
-        ) -> AssetTransferRulesResult
+        ) -> AssetComplianceResult
         {
             ComplianceManager::granular_verify_restriction(&ticker, from_did, to_did, treasury_did)
         }

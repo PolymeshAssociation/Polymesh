@@ -301,7 +301,7 @@ fn vote() {
         let receiver_rules = vec![];
 
         // Allow all transfers
-        assert_ok!(ComplianceManager::add_active_rule(
+        assert_ok!(ComplianceManager::add_compliance_requirement(
             token_owner_acc.clone(),
             ticker,
             sender_rules,
