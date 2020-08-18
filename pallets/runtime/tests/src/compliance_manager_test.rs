@@ -29,7 +29,37 @@ type CDDGroup = group::Module<TestStorage, group::Instance2>;
 type Moment = u64;
 type Origin = <TestStorage as frame_system::Trait>::Origin;
 
-fn make_ticker_env(owner: AccountKeyring, token_name: AssetName) -> Ticker {
+macro_rules! assert_invalid_transfer {
+    ($ticker:expr, $from:expr, $to:expr, $amount:expr) => {
+        assert_ne!(
+            Asset::_is_valid_transfer(
+                &$ticker,
+                AccountKeyring::Alice.public(),
+                Some($from),
+                Some($to),
+                $amount
+            ),
+            Ok(ERC1400_TRANSFER_SUCCESS)
+        );
+    };
+}
+
+macro_rules! assert_valid_transfer {
+    ($ticker:expr, $from:expr, $to:expr, $amount:expr) => {
+        assert_eq!(
+            Asset::_is_valid_transfer(
+                &$ticker,
+                AccountKeyring::Alice.public(),
+                Some($from),
+                Some($to),
+                $amount
+            ),
+            Ok(ERC1400_TRANSFER_SUCCESS)
+        );
+    };
+}
+
+fn make_ticker_env(owner: AccountKeyring, token_name: AssetName) -> (Ticker, IdentityId) {
     let owner_id = register_keyring_account(owner.clone()).unwrap();
 
     // 1. Create a token.
@@ -53,7 +83,7 @@ fn make_ticker_env(owner: AccountKeyring, token_name: AssetName) -> Ticker {
         None,
     ));
 
-    ticker
+    (ticker, owner_id)
 }
 
 #[test]
@@ -150,15 +180,7 @@ fn should_add_and_verify_asset_rule_we() {
     ));
 
     //Transfer tokens to investor - fails wrong Accredited scope
-    assert_err!(
-        Asset::transfer(
-            token_owner_signed.clone(),
-            ticker,
-            token_rec_did.clone(),
-            token.total_supply
-        ),
-        AssetError::<TestStorage>::InvalidTransfer
-    );
+    assert_invalid_transfer!(ticker, token_owner_did, token_rec_did, token.total_supply);
     let result = ComplianceManager::granular_verify_restriction(
         &ticker,
         Some(token_owner_did),
@@ -181,12 +203,7 @@ fn should_add_and_verify_asset_rule_we() {
         None,
     ));
 
-    assert_ok!(Asset::transfer(
-        token_owner_signed.clone(),
-        ticker,
-        token_rec_did.clone(),
-        10
-    ));
+    assert_valid_transfer!(ticker, token_owner_did, token_rec_did, 10);
     let result = ComplianceManager::granular_verify_restriction(
         &ticker,
         Some(token_owner_did),
@@ -209,15 +226,7 @@ fn should_add_and_verify_asset_rule_we() {
         None,
     ));
 
-    assert_err!(
-        Asset::transfer(
-            token_owner_signed.clone(),
-            ticker,
-            token_rec_did.clone(),
-            10
-        ),
-        AssetError::<TestStorage>::InvalidTransfer
-    );
+    assert_invalid_transfer!(ticker, token_owner_did, token_rec_did, 10);
     let result = ComplianceManager::granular_verify_restriction(
         &ticker,
         Some(token_owner_did),
@@ -421,10 +430,7 @@ fn pause_resume_asset_rules_we() {
 
     // 5. Verify pause/resume mechanism.
     // 5.1. Transfer should be cancelled.
-    assert_err!(
-        Asset::transfer(token_owner_signed.clone(), ticker, receiver_did, 10),
-        AssetError::<TestStorage>::InvalidTransfer
-    );
+    assert_invalid_transfer!(ticker, token_owner_did, receiver_did, 10);
 
     Context::set_current_identity::<Identity>(Some(token_owner_did));
     // 5.2. Pause asset rules, and run the transaction.
@@ -433,12 +439,7 @@ fn pause_resume_asset_rules_we() {
         ticker
     ));
     Context::set_current_identity::<Identity>(None);
-    assert_ok!(Asset::transfer(
-        token_owner_signed.clone(),
-        ticker,
-        receiver_did,
-        10
-    ));
+    assert_valid_transfer!(ticker, token_owner_did, receiver_did, 10);
 
     Context::set_current_identity::<Identity>(Some(token_owner_did));
     // 5.3. Resume asset rules, and new transfer should fail again.
@@ -447,10 +448,7 @@ fn pause_resume_asset_rules_we() {
         ticker
     ));
     Context::set_current_identity::<Identity>(None);
-    assert_err!(
-        Asset::transfer(token_owner_signed.clone(), ticker, receiver_did, 10),
-        AssetError::<TestStorage>::InvalidTransfer
-    );
+    assert_invalid_transfer!(ticker, token_owner_did, receiver_did, 10);
 }
 
 #[test]
@@ -549,15 +547,7 @@ fn should_successfully_add_and_use_default_issuers_we() {
     ));
 
     // fail when token owner doesn't has the valid claim
-    assert_err!(
-        Asset::transfer(
-            token_owner_signed.clone(),
-            ticker,
-            receiver_did.clone(),
-            100
-        ),
-        AssetError::<TestStorage>::InvalidTransfer
-    );
+    assert_invalid_transfer!(ticker, token_owner_did, receiver_did, 100);
 
     assert_ok!(Identity::add_claim(
         trusted_issuer_signed.clone(),
@@ -565,12 +555,8 @@ fn should_successfully_add_and_use_default_issuers_we() {
         Claim::make_cdd_wildcard(),
         Some(99999999999999999u64),
     ));
-    assert_ok!(Asset::transfer(
-        token_owner_signed.clone(),
-        ticker,
-        receiver_did.clone(),
-        100
-    ));
+
+    assert_valid_transfer!(ticker, token_owner_did, receiver_did, 100);
 }
 
 #[test]
@@ -715,12 +701,7 @@ fn should_modify_vector_of_trusted_issuer_we() {
         y
     ));
 
-    assert_ok!(Asset::transfer(
-        token_owner_signed.clone(),
-        ticker,
-        receiver_did.clone(),
-        100
-    ));
+    assert_valid_transfer!(ticker, token_owner_did, receiver_did, 10);
 
     // Remove the trusted issuer 1 from the list
     assert_ok!(
@@ -738,15 +719,7 @@ fn should_modify_vector_of_trusted_issuer_we() {
     );
 
     // Transfer should fail as issuer doesn't exist anymore but the rule data still exist
-    assert_err!(
-        Asset::transfer(
-            token_owner_signed.clone(),
-            ticker,
-            receiver_did.clone(),
-            500
-        ),
-        AssetError::<TestStorage>::InvalidTransfer
-    );
+    assert_invalid_transfer!(ticker, token_owner_did, receiver_did, 500);
 
     // Change the asset rule to all the transfer happen again
 
@@ -799,12 +772,7 @@ fn should_modify_vector_of_trusted_issuer_we() {
     ));
 
     // Now the transfer should pass
-    assert_ok!(Asset::transfer(
-        token_owner_signed.clone(),
-        ticker,
-        receiver_did.clone(),
-        500
-    ));
+    assert_valid_transfer!(ticker, token_owner_did, receiver_did, 500);
 }
 
 #[test]
@@ -862,10 +830,7 @@ fn jurisdiction_asset_rules_we() {
     ));
     // 3. Validate behaviour.
     // 3.1. Invalid transfer because missing jurisdiction.
-    assert_err!(
-        Asset::transfer(token_owner_signed.clone(), ticker, user_id, 100),
-        AssetError::<TestStorage>::InvalidTransfer
-    );
+    assert_invalid_transfer!(ticker, token_owner_id, user_id, 10);
     // 3.2. Add jurisdiction and transfer will be OK.
     assert_ok!(Identity::add_claim(
         cdd_signed.clone(),
@@ -873,12 +838,7 @@ fn jurisdiction_asset_rules_we() {
         Claim::Jurisdiction(b"Canada".into(), scope),
         None
     ));
-    assert_ok!(Asset::transfer(
-        token_owner_signed.clone(),
-        ticker,
-        user_id,
-        100
-    ));
+    assert_valid_transfer!(ticker, token_owner_id, user_id, 10);
     // 3.3. Add user to Blocked
     assert_ok!(Identity::add_claim(
         token_owner_signed.clone(),
@@ -886,10 +846,7 @@ fn jurisdiction_asset_rules_we() {
         Claim::Blocked(scope),
         None,
     ));
-    assert_err!(
-        Asset::transfer(token_owner_signed.clone(), ticker, user_id, 100),
-        AssetError::<TestStorage>::InvalidTransfer
-    );
+    assert_invalid_transfer!(ticker, token_owner_id, user_id, 10);
 }
 
 #[test]
@@ -906,7 +863,7 @@ fn scope_asset_rules_we() {
     let cdd_id = register_keyring_account(AccountKeyring::Bob).unwrap();
     let user_id = register_keyring_account(AccountKeyring::Charlie).unwrap();
     // 1. Create a token.
-    let ticker = make_ticker_env(owner, vec![0x01].into());
+    let (ticker, owner_did) = make_ticker_env(owner, vec![0x01].into());
 
     // 2. Set up rules for Asset transfer.
     let scope = Identity::get_token_did(&ticker).unwrap();
@@ -922,10 +879,7 @@ fn scope_asset_rules_we() {
     ));
     // 3. Validate behaviour.
     // 3.1. Invalid transfer because missing jurisdiction.
-    assert_err!(
-        Asset::transfer(owner_signed.clone(), ticker, user_id, 100),
-        AssetError::<TestStorage>::InvalidTransfer
-    );
+    assert_invalid_transfer!(ticker, owner_did, user_id, 10);
     // 3.2. Add jurisdiction and transfer will be OK.
     assert_ok!(Identity::add_claim(
         cdd_signed.clone(),
@@ -933,7 +887,7 @@ fn scope_asset_rules_we() {
         Claim::Affiliate(scope),
         None
     ));
-    assert_ok!(Asset::transfer(owner_signed.clone(), ticker, user_id, 100));
+    assert_valid_transfer!(ticker, owner_did, user_id, 10);
 }
 
 #[test]
@@ -950,7 +904,7 @@ fn cm_test_case_9_we() {
     let issuer_id = register_keyring_account(AccountKeyring::Bob).unwrap();
 
     // 1. Create a token.
-    let ticker = make_ticker_env(AccountKeyring::Alice, vec![0x01].into());
+    let (ticker, owner_did) = make_ticker_env(AccountKeyring::Alice, vec![0x01].into());
     // 2. Set up rules for Asset transfer.
     let scope = Identity::get_token_did(&ticker).unwrap();
     let receiver_rules = vec![Rule {
@@ -982,7 +936,7 @@ fn cm_test_case_9_we() {
         Claim::KnowYourCustomer(scope),
         None
     ));
-    assert_ok!(Asset::transfer(owner.clone(), ticker, charlie, 100));
+    assert_valid_transfer!(ticker, owner_did, charlie, 100);
     let result = ComplianceManager::granular_verify_restriction(&ticker, None, Some(charlie), None);
     assert!(result.final_result);
     assert!(result.rules[0].transfer_rule_result);
@@ -995,7 +949,7 @@ fn cm_test_case_9_we() {
         Claim::Affiliate(scope),
         None
     ));
-    assert_ok!(Asset::transfer(owner.clone(), ticker, dave, 100));
+    assert_valid_transfer!(ticker, owner_did, dave, 100);
     let result = ComplianceManager::granular_verify_restriction(&ticker, None, Some(dave), None);
     assert!(result.final_result);
     assert!(result.rules[0].transfer_rule_result);
@@ -1008,17 +962,12 @@ fn cm_test_case_9_we() {
         Claim::Exempted(scope),
         None
     ));
-    assert_ok!(Asset::transfer(owner.clone(), ticker, eve, 100));
     let result = ComplianceManager::granular_verify_restriction(&ticker, None, Some(eve), None);
-    assert!(result.final_result);
     assert!(result.rules[0].transfer_rule_result);
     assert!(result.rules[0].receiver_rules[0].result);
 
     // 3.4 Ferdie has none of the required claims
-    assert_err!(
-        Asset::transfer(owner.clone(), ticker, ferdie, 100),
-        AssetError::<TestStorage>::InvalidTransfer
-    );
+    assert_invalid_transfer!(ticker, owner_did, ferdie, 100);
     let result = ComplianceManager::granular_verify_restriction(&ticker, None, Some(ferdie), None);
     assert!(!result.final_result);
     assert!(!result.rules[0].transfer_rule_result);
@@ -1040,7 +989,7 @@ fn cm_test_case_11_we() {
     let issuer_id = register_keyring_account(AccountKeyring::Bob).unwrap();
 
     // 1. Create a token.
-    let ticker = make_ticker_env(AccountKeyring::Alice, vec![0x01].into());
+    let (ticker, owner_did) = make_ticker_env(AccountKeyring::Alice, vec![0x01].into());
     // 2. Set up rules for Asset transfer.
     let scope = Identity::get_token_did(&ticker).unwrap();
     let receiver_rules = vec![
@@ -1080,7 +1029,7 @@ fn cm_test_case_11_we() {
         Claim::KnowYourCustomer(scope),
         None
     ));
-    assert_ok!(Asset::transfer(owner.clone(), ticker, charlie, 100));
+    assert_valid_transfer!(ticker, owner_did, charlie, 100);
     let result = ComplianceManager::granular_verify_restriction(&ticker, None, Some(charlie), None);
     assert!(result.final_result);
     assert!(result.rules[0].transfer_rule_result);
@@ -1100,10 +1049,8 @@ fn cm_test_case_11_we() {
         Claim::Jurisdiction(b"USA".into(), scope),
         None
     ));
-    assert_err!(
-        Asset::transfer(owner.clone(), ticker, dave, 100),
-        AssetError::<TestStorage>::InvalidTransfer
-    );
+
+    assert_invalid_transfer!(ticker, owner_did, dave, 100);
     let result = ComplianceManager::granular_verify_restriction(&ticker, None, Some(dave), None);
     assert!(!result.final_result);
     assert!(!result.rules[0].transfer_rule_result);
@@ -1123,7 +1070,8 @@ fn cm_test_case_11_we() {
         Claim::Jurisdiction(b"UK".into(), scope),
         None
     ));
-    assert_ok!(Asset::transfer(owner.clone(), ticker, eve, 100));
+
+    assert_valid_transfer!(ticker, owner_did, eve, 100);
     let result = ComplianceManager::granular_verify_restriction(&ticker, None, Some(eve), None);
     assert!(result.final_result);
     assert!(result.rules[0].transfer_rule_result);
@@ -1146,7 +1094,7 @@ fn cm_test_case_13_we() {
     let issuer_id = register_keyring_account(AccountKeyring::Bob).unwrap();
 
     // 1. Create a token.
-    let ticker = make_ticker_env(AccountKeyring::Alice, vec![0x01].into());
+    let (ticker, owner_did) = make_ticker_env(AccountKeyring::Alice, vec![0x01].into());
     // 2. Set up rules for Asset transfer.
     let scope = Identity::get_token_did(&ticker).unwrap();
     let receiver_rules = vec![
@@ -1190,10 +1138,8 @@ fn cm_test_case_13_we() {
         Claim::KnowYourCustomer(scope),
         None
     ));
-    assert_err!(
-        Asset::transfer(owner.clone(), ticker, charlie, 100),
-        AssetError::<TestStorage>::InvalidTransfer
-    );
+
+    assert_invalid_transfer!(ticker, owner_did, charlie, 100);
     let result = ComplianceManager::granular_verify_restriction(&ticker, None, Some(charlie), None);
     assert!(!result.final_result);
     assert!(!result.rules[0].transfer_rule_result);
@@ -1221,10 +1167,8 @@ fn cm_test_case_13_we() {
     ];
 
     assert_ok!(Identity::batch_add_claim(issuer.clone(), dave_claims));
-    assert_err!(
-        Asset::transfer(owner.clone(), ticker, dave, 100),
-        AssetError::<TestStorage>::InvalidTransfer
-    );
+
+    assert_invalid_transfer!(ticker, owner_did, dave, 100);
     let result = ComplianceManager::granular_verify_restriction(&ticker, None, Some(dave), None);
     assert!(!result.final_result);
     assert!(!result.rules[0].transfer_rule_result);
@@ -1252,7 +1196,7 @@ fn cm_test_case_13_we() {
     ];
 
     assert_ok!(Identity::batch_add_claim(issuer.clone(), eve_claims));
-    assert_ok!(Asset::transfer(owner.clone(), ticker, eve, 100));
+    assert_valid_transfer!(ticker, owner_did, eve, 100);
     let result = ComplianceManager::granular_verify_restriction(&ticker, None, Some(eve), None);
     assert!(result.final_result);
     assert!(result.rules[0].transfer_rule_result);
