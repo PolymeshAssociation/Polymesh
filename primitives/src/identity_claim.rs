@@ -21,7 +21,7 @@ use sp_runtime::{Deserialize, Serialize};
 
 use sp_std::prelude::*;
 
-use super::jurisdiction::JurisdictionName;
+use super::jurisdiction::CountryCode;
 
 /// Scope: Almost all claim needs a valid scope identity.
 pub type Scope = IdentityId;
@@ -45,7 +45,7 @@ pub enum Claim {
     /// User is KYC'd
     KnowYourCustomer(Scope),
     /// This claim contains a string that represents the jurisdiction of the user
-    Jurisdiction(JurisdictionName, Scope),
+    Jurisdiction(CountryCode, Scope),
     /// User is exempted
     Exempted(Scope),
     /// User is Blocked

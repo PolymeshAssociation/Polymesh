@@ -15,7 +15,8 @@ use polymesh_common_utilities::{
     Context,
 };
 use polymesh_primitives::{
-    AuthorizationData, Claim, IdentityId, Rule, RuleType, Scope, Signatory, TargetIdentity, Ticker,
+    AuthorizationData, Claim, CountryCode, IdentityId, Rule, RuleType, Scope, Signatory,
+    TargetIdentity, Ticker,
 };
 use sp_std::{convert::TryFrom, prelude::*};
 use test_client::AccountKeyring;
@@ -812,8 +813,8 @@ fn jurisdiction_asset_rules_we() {
     let receiver_rules = vec![
         Rule {
             rule_type: RuleType::IsAnyOf(vec![
-                Claim::Jurisdiction(b"Canada".into(), scope),
-                Claim::Jurisdiction(b"Spain".into(), scope),
+                Claim::Jurisdiction(CountryCode::CA, scope),
+                Claim::Jurisdiction(CountryCode::ES, scope),
             ]),
             issuers: vec![cdd_id],
         },
@@ -835,7 +836,7 @@ fn jurisdiction_asset_rules_we() {
     assert_ok!(Identity::add_claim(
         cdd_signed.clone(),
         user_id,
-        Claim::Jurisdiction(b"Canada".into(), scope),
+        Claim::Jurisdiction(CountryCode::CA, scope),
         None
     ));
     assert_valid_transfer!(ticker, token_owner_id, user_id, 10);
@@ -1004,8 +1005,8 @@ fn cm_test_case_11_we() {
         },
         Rule {
             rule_type: RuleType::IsNoneOf(vec![
-                Claim::Jurisdiction(b"USA".into(), scope),
-                Claim::Jurisdiction(b"North Kore".into(), scope),
+                Claim::Jurisdiction(CountryCode::US, scope),
+                Claim::Jurisdiction(CountryCode::KP, scope),
             ]),
             issuers: vec![issuer_id],
         },
@@ -1046,7 +1047,7 @@ fn cm_test_case_11_we() {
     assert_ok!(Identity::add_claim(
         issuer.clone(),
         dave,
-        Claim::Jurisdiction(b"USA".into(), scope),
+        Claim::Jurisdiction(CountryCode::US, scope),
         None
     ));
 
@@ -1067,7 +1068,7 @@ fn cm_test_case_11_we() {
     assert_ok!(Identity::add_claim(
         issuer.clone(),
         eve,
-        Claim::Jurisdiction(b"UK".into(), scope),
+        Claim::Jurisdiction(CountryCode::GB, scope),
         None
     ));
 
@@ -1112,8 +1113,8 @@ fn cm_test_case_13_we() {
         },
         Rule {
             rule_type: RuleType::IsNoneOf(vec![
-                Claim::Jurisdiction(b"USA".into(), scope),
-                Claim::Jurisdiction(b"North Kore".into(), scope),
+                Claim::Jurisdiction(CountryCode::US, scope),
+                Claim::Jurisdiction(CountryCode::KP, scope),
             ]),
             issuers: vec![issuer_id],
         },
@@ -1161,7 +1162,7 @@ fn cm_test_case_13_we() {
         },
         BatchAddClaimItem::<Moment> {
             target: dave,
-            claim: Claim::Jurisdiction(b"USA".into(), scope),
+            claim: Claim::Jurisdiction(CountryCode::US, scope),
             expiry: None,
         },
     ];
@@ -1190,7 +1191,7 @@ fn cm_test_case_13_we() {
         },
         BatchAddClaimItem::<Moment> {
             target: eve,
-            claim: Claim::Jurisdiction(b"UK".into(), scope),
+            claim: Claim::Jurisdiction(CountryCode::GB, scope),
             expiry: None,
         },
     ];
