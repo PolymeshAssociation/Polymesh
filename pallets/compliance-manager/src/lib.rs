@@ -592,7 +592,7 @@ impl<T: Trait> Module<T> {
         ticker: &Ticker,
         id: IdentityId,
         rule: &Rule,
-        treasury: Option<IdentityId>,
+        primary_issuance_agent: Option<IdentityId>,
     ) -> predicate::Context {
         let issuers = if !rule.issuers.is_empty() {
             rule.issuers.clone()
@@ -620,7 +620,7 @@ impl<T: Trait> Module<T> {
         predicate::Context {
             claims,
             id,
-            treasury,
+            primary_issuance_agent,
         }
     }
 
@@ -629,10 +629,10 @@ impl<T: Trait> Module<T> {
         ticker: &Ticker,
         did: IdentityId,
         rules: &[Rule],
-        treasury_did: Option<IdentityId>,
+        primary_issuance_agent: Option<IdentityId>,
     ) -> bool {
         rules.iter().all(|rule| {
-            let context = Self::fetch_context(ticker, did, &rule, treasury_did);
+            let context = Self::fetch_context(ticker, did, &rule, primary_issuance_agent);
             predicate::run(&rule, &context)
         })
     }
@@ -644,11 +644,11 @@ impl<T: Trait> Module<T> {
         ticker: &Ticker,
         did: IdentityId,
         rules: &mut Vec<RuleResult>,
-        treasury_did: Option<IdentityId>,
+        primary_issuance_agent: Option<IdentityId>,
     ) -> bool {
         let mut result = true;
         for rule in rules {
-            let context = Self::fetch_context(ticker, did, &rule.rule, treasury_did);
+            let context = Self::fetch_context(ticker, did, &rule.rule, primary_issuance_agent);
             rule.result = predicate::run(&rule.rule, &context);
             if !rule.result {
                 result = false;
@@ -777,7 +777,7 @@ impl<T: Trait> Module<T> {
         ticker: &Ticker,
         from_did_opt: Option<IdentityId>,
         to_did_opt: Option<IdentityId>,
-        treasury_did: Option<IdentityId>,
+        primary_issuance_agent: Option<IdentityId>,
     ) -> AssetTransferRulesResult {
         let asset_rules = Self::asset_rules(ticker);
         let mut asset_rules_with_results = AssetTransferRulesResult::from(asset_rules);
@@ -789,7 +789,7 @@ impl<T: Trait> Module<T> {
                     ticker,
                     from_did,
                     &mut active_rule.sender_rules,
-                    treasury_did,
+                    primary_issuance_agent,
                 ) {
                     // If the result of any of the sender rules was false, set this asset rule result to false.
                     active_rule.transfer_rule_result = false;
@@ -801,7 +801,7 @@ impl<T: Trait> Module<T> {
                     ticker,
                     to_did,
                     &mut active_rule.receiver_rules,
-                    treasury_did,
+                    primary_issuance_agent,
                 ) {
                     // If the result of any of the receiver rules was false, set this asset rule result to false.
                     active_rule.transfer_rule_result = false;
@@ -851,7 +851,7 @@ impl<T: Trait> ComplianceManagerTrait<T::Balance> for Module<T> {
         from_did_opt: Option<IdentityId>,
         to_did_opt: Option<IdentityId>,
         _value: T::Balance,
-        treasury_did: Option<IdentityId>,
+        primary_issuance_agent: Option<IdentityId>,
     ) -> StdResult<u8, &'static str> {
         // Transfer is valid if ALL receiver AND sender rules of ANY asset rule are valid.
         let asset_rules = Self::asset_rules(ticker);
@@ -864,7 +864,7 @@ impl<T: Trait> ComplianceManagerTrait<T::Balance> for Module<T> {
                     ticker,
                     from_did,
                     &active_rule.sender_rules,
-                    treasury_did,
+                    primary_issuance_agent,
                 ) {
                     // Skips checking receiver rules because sender rules are not satisfied.
                     continue;
@@ -875,7 +875,7 @@ impl<T: Trait> ComplianceManagerTrait<T::Balance> for Module<T> {
                     ticker,
                     to_did,
                     &active_rule.receiver_rules,
-                    treasury_did,
+                    primary_issuance_agent,
                 ) {
                     // All rules satisfied, return early
                     return Ok(ERC1400_TRANSFER_SUCCESS);

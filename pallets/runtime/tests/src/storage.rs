@@ -390,7 +390,7 @@ impl AcceptTransfer for TestStorage {
         Ok(())
     }
 
-    fn accept_treasury_transfer(_: IdentityId, _: u64) -> DispatchResult {
+    fn accept_primary_issuance_agent_transfer(_: IdentityId, _: u64) -> DispatchResult {
         Ok(())
     }
 

@@ -100,8 +100,8 @@ decl_module! {
         ) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             let did = Context::current_identity_or::<Identity<T>>(&sender)?;
-            ensure!(T::Asset::treasury(&offering_token) == did, Error::<T>::Unauthorized);
-            // TODO: Take custodial ownership of $sell_amount of $offering_token from treasury?
+            ensure!(T::Asset::primary_issuance_agent(&offering_token) == did, Error::<T>::Unauthorized);
+            // TODO: Take custodial ownership of $sell_amount of $offering_token from primary issuance agent?
             let fundraiser_id = Self::fundraiser_count(offering_token) + 1;
             <Fundraisers<T>>::insert(
                 offering_token,
@@ -133,32 +133,32 @@ decl_module! {
                 .saturating_add((ONE_UNIT - 1).into())
                 / ONE_UNIT.into();
 
-            let treasury = T::Asset::treasury(&offering_token);
+            let primary_issuance_agent = T::Asset::primary_issuance_agent(&offering_token);
             let legs = vec![
                 Leg {
                     // TODO: Replace with did that actually hold the offering token
-                    from: treasury,
+                    from: primary_issuance_agent,
                     to: did,
                     asset: offering_token,
                     amount: offering_token_amount
                 },
                 Leg {
                     from: did,
-                    to: treasury,
+                    to: primary_issuance_agent,
                     asset: fundraiser.raise_token,
                     amount: raise_token_amount
                 }
             ];
 
             let instruction_id = Settlement::<T>::base_add_instruction(
-                treasury,
+                primary_issuance_agent,
                 fundraiser.venue_id,
                 SettlementType::SettleOnAuthorization,
                 None,
                 legs
             )?;
 
-            Settlement::<T>::unsafe_authorize_instruction(treasury, instruction_id)?;
+            Settlement::<T>::unsafe_authorize_instruction(primary_issuance_agent, instruction_id)?;
             Settlement::<T>::authorize_instruction(origin, instruction_id)?;
 
             Self::deposit_event(

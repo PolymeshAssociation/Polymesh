@@ -108,7 +108,7 @@ use polymesh_common_utilities::{
         balances::LockableCurrencyExt, governance_group::GovernanceGroupTrait, group::GroupTrait,
         pip::PipId,
     },
-    CommonTrait, Context, SystematicIssuers,
+    with_transaction, CommonTrait, Context, SystematicIssuers,
 };
 use polymesh_primitives::IdentityId;
 use polymesh_primitives_derive::VecU8StrongTyped;
@@ -788,15 +788,6 @@ decl_module! {
             Self::is_proposal_state(id, ProposalState::Pending)?;
 
             let current_did = Self::current_did_or_missing()?;
-
-            // TODO(centril): move this to a suitable utils crate.
-            fn with_transaction<T, E>(tx: impl FnOnce() -> Result<T, E>) -> Result<T, E> {
-                use frame_support::storage::{with_transaction, TransactionOutcome};
-                with_transaction(|| match tx() {
-                    r @ Ok(_) => TransactionOutcome::Commit(r),
-                    r @ Err(_) => TransactionOutcome::Rollback(r),
-                })
-            }
 
             with_transaction(|| {
                 // 4. Reserve the deposit, or refund if needed.

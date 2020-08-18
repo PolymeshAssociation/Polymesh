@@ -51,7 +51,7 @@
             "owner_did": "IdentityId",
             "divisible": "bool",
             "asset_type": "AssetType",
-            "treasury_did": "Option<IdentityId>"
+            "primary_issuance_agent": "Option<IdentityId>"
         },
         "LinkedKeyInfo": {
             "_enum": {
@@ -355,7 +355,7 @@
                 "AttestPrimaryKeyRotation": "IdentityId",
                 "RotatePrimaryKey": "IdentityId",
                 "TransferTicker": "Ticker",
-                "TransferTreasury": "Ticker",
+                "TransferPrimaryIssuanceAgent": "Ticker",
                 "AddMultiSigSigner": "AccountId",
                 "TransferAssetOwnership": "Ticker",
                 "JoinIdentity": "Vec<Permission>",
@@ -686,7 +686,7 @@
         },
         "TargetIdentity": {
             "_enum": {
-                "Treasury": "",
+                "PrimaryIssuanceAgent": "",
                 "Specific": "IdentityId"
             }
         },
@@ -718,7 +718,7 @@
                         "isOptional": false
                     },
                     {
-                        "name": "treasury_did",
+                        "name": "primary_issuance_agent",
                         "type": "Option<IdentityId>",
                         "isOptional": false
                     },
