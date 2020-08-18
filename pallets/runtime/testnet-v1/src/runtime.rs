@@ -1098,10 +1098,10 @@ impl_runtime_apis! {
             ticker: Ticker,
             from_did: Option<IdentityId>,
             to_did: Option<IdentityId>,
-            treasury_did: Option<IdentityId>,
+            primary_issuance_agent: Option<IdentityId>,
         ) -> AssetTransferRulesResult
         {
-            ComplianceManager::granular_verify_restriction(&ticker, from_did, to_did, treasury_did)
+            ComplianceManager::granular_verify_restriction(&ticker, from_did, to_did, primary_issuance_agent)
         }
     }
 
