@@ -92,10 +92,10 @@ decl_error! {
         InstantiationIsNotAllowed,
         /// Smart extension template not exist in the storage.
         TemplateNotExists,
-        /// When instantiation of the template is already freezed.
-        InstantiationAlreadyFreezed,
-        /// When instantiation of the template is already un-freezed.
-        InstantiationAlreadyUnFreezed,
+        /// When instantiation of the template is already frozen.
+        InstantiationAlreadyFrozen,
+        /// When instantiation of the template is already un-frozen.
+        InstantiationAlreadyUnFrozen,
         /// When un-authorized personnel try to access the un-authorized extrinsic.
         UnAuthorizedOrigin,
     }
@@ -110,10 +110,10 @@ decl_event! {
         /// Emitted when instantiation fee of a template get changed.
         /// IdentityId of the owner, Code hash of the template, old instantiation fee, new instantiation fee.
         InstantiationFeeChanged(IdentityId, CodeHash, Balance, Balance),
-        /// Emitted when the instantiation of the template get freezed.
+        /// Emitted when the instantiation of the template get frozen.
         /// IdentityId of the owner, Code hash of the template.
         InstantiationFreezed(IdentityId, CodeHash),
-        /// Emitted when the instantiation of the template gets un-freezed.
+        /// Emitted when the instantiation of the template gets un-frozen.
         /// IdentityId of the owner, Code hash of the template.
         InstantiationUnFreezed(IdentityId, CodeHash),
     }
@@ -133,7 +133,7 @@ decl_module! {
         const NetworkShareInInstantiationFee: Perbill = T::NetworkShareInFee::get();
 
         // Simply forwards to the `update_schedule` function in the Contract module.
-        #[weight = 500_000]
+        #[weight = pallet_contracts::Call::<T>::update_schedule(schedule).get_dispatch_info().weight]
         pub fn update_schedule(origin, schedule: Schedule) -> DispatchResult {
             <pallet_contracts::Module<T>>::update_schedule(origin, schedule)
         }
@@ -164,13 +164,13 @@ decl_module! {
             <TemplateMetaDetails<T>>::insert(code_hash, TemplateMetadata {
                 meta_info: meta_info,
                 owner: sender,
-                is_freeze: false
+                frozen: false
             });
             Ok(())
         }
 
         // Simply forwards to the `call` function in the Contract module.
-        #[weight = 700_000]
+        #[weight = pallet_contracts::Call::<T>::call(dest, value, gas_limit, data.clone()).get_dispatch_info().weight]
         pub fn call(
             origin,
             dest: <T::Lookup as StaticLookup>::Source,
@@ -188,7 +188,7 @@ decl_module! {
         /// 2. Charge instantiation fee.
         ///
         /// # Errors
-        /// InstantiationIsNotAllowed - It occurred when instantiation of the template is freezed.
+        /// InstantiationIsNotAllowed - It occurred when instantiation of the template is frozen.
         #[weight = 500_000_000 + *gas_limit]
         pub fn instantiate(
             origin,
@@ -248,10 +248,10 @@ decl_module! {
             // Ensure whether the extrinsic is signed & validate the `code_hash`.
             let (did, meta_details) = Self::ensure_signed_and_template_exists(origin, code_hash)?;
 
-            // If instantiation is already freezed then there is no point of changing the storage value.
-            ensure!(!meta_details.is_instantiation_freezed(), Error::<T>::InstantiationAlreadyFreezed);
-            // Change the `is_freeze` variable to `true`.
-            <TemplateMetaDetails<T>>::mutate(&code_hash, |meta_details| meta_details.is_freeze = true);
+            // If instantiation is already frozen then there is no point of changing the storage value.
+            ensure!(!meta_details.is_instantiation_frozen(), Error::<T>::InstantiationAlreadyFreezed);
+            // Change the `frozen` variable to `true`.
+            <TemplateMetaDetails<T>>::mutate(&code_hash, |meta_details| meta_details.frozen = true);
 
             // Emit event.
             Self::deposit_event(RawEvent::InstantiationFreezed(did, code_hash));
@@ -268,10 +268,10 @@ decl_module! {
             // Ensure whether the extrinsic is signed & validate the `code_hash`.
             let (did, meta_details) = Self::ensure_signed_and_template_exists(origin, code_hash)?;
 
-            // If instantiation is already un-freezed then there is no point of changing the storage value.
+            // If instantiation is already un-frozen then there is no point of changing the storage value.
             ensure!(meta_details.is_instantiation_freezed(), Error::<T>::InstantiationAlreadyUnFreezed);
-            // Change the `is_freeze` variable to `false`.
-            <TemplateMetaDetails<T>>::mutate(&code_hash, |meta_details| meta_details.is_freeze = false);
+            // Change the `frozen` variable to `false`.
+            <TemplateMetaDetails<T>>::mutate(&code_hash, |meta_details| meta_details.frozen = false);
 
             // Emit event.
             Self::deposit_event(RawEvent::InstantiationUnFreezed(did, code_hash));

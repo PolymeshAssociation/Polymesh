@@ -396,7 +396,7 @@
         "TemplateMetadata": {
             "meta_info": "SmartExtensionMetadata",
             "owner": "AccountId",
-            "is_freeze": "bool"
+            "frozen": "bool"
         },
         "ProportionMatch": {
             "_enum": [

@@ -90,7 +90,7 @@ pub struct TemplateMetadata<Balance, AccountId> {
     /// Owner of the SE template.
     pub owner: AccountId,
     /// power button to switch on/off the instantiation from the template
-    pub is_freeze: bool,
+    pub frozen: bool,
 }
 
 impl<Balance, AccountId> TemplateMetadata<Balance, AccountId>
@@ -103,7 +103,7 @@ where
     }
 
     /// Check whether the instantiation of the template is allowed or not.
-    pub fn is_instantiation_freezed(&self) -> bool {
-        self.is_freeze
+    pub fn is_instantiation_frozen(&self) -> bool {
+        self.frozen
     }
 }

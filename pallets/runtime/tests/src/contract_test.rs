@@ -90,7 +90,7 @@ fn create_se_template<T>(
     let expected_template_metadata = TemplateMetadata {
         meta_info: se_meta_data,
         owner: template_creator,
-        is_freeze: false,
+        frozen: false,
     };
 
     // Verify the storage
@@ -420,7 +420,7 @@ fn check_freeze_unfreeze_functionality() {
             ));
 
             // Verify the storage
-            assert!(WrapperContracts::get_template_meta_details(code_hash).is_freeze);
+            assert!(WrapperContracts::get_template_meta_details(code_hash).frozen);
 
             // Should fail when trying to freeze the template again
             assert_err!(
@@ -443,7 +443,7 @@ fn check_freeze_unfreeze_functionality() {
             ));
 
             // Verify the storage
-            assert!(!WrapperContracts::get_template_meta_details(code_hash).is_freeze);
+            assert!(!WrapperContracts::get_template_meta_details(code_hash).frozen);
 
             // Should fail when trying to unfreeze the template again
             assert_err!(
