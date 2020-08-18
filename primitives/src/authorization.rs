@@ -35,9 +35,9 @@ pub enum AuthorizationData<AccountId> {
     /// Authorization to transfer a ticker
     /// Must be issued by the current owner of the ticker
     TransferTicker(Ticker),
-    /// Authorization to transfer a token's treasury.
+    /// Authorization to transfer a token's primary issuance agent.
     /// Must be issued by the current owner of the token
-    TransferTreasury(Ticker),
+    TransferPrimaryIssuanceAgent(Ticker),
     /// Add a signer to multisig
     /// Must be issued to the identity that created the ms (and therefore owns it permanently)
     AddMultiSigSigner(AccountId),
@@ -64,8 +64,8 @@ pub enum AuthorizationType {
     RotatePrimaryKey,
     /// Authorization to transfer a ticker.
     TransferTicker,
-    /// Authorization to transfer a token's treasury.
-    TransferTreasury,
+    /// Authorization to transfer a token's primary issuance agent.
+    TransferPrimaryIssuanceAgent,
     /// Authorization to add some key int a multi signer.
     AddMultiSigSigner,
     /// Authorization to transfer the asset ownership to other identity.
