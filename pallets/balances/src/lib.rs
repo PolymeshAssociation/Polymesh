@@ -1104,7 +1104,7 @@ where
 {
     type Moment = T::BlockNumber;
 
-    // Polymesh-note: The implementations below differ from subsrate in terms
+    // Polymesh-note: The implementations below differ from substrate in terms
     // of performance (ours uses in-place modification), but are functionally equivalent.
 
     // Set a lock on the balance of `who`.
