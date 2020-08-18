@@ -472,7 +472,7 @@ impl Default for RewardDestination {
 }
 
 /// Preference of what happens regarding validation.
-#[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug)]
+#[derive(PartialEq, Eq, Clone, Default, Encode, Decode, RuntimeDebug)]
 pub struct ValidatorPrefs {
     /// Reward that validator takes up-front; only the rest is split between themselves and
     /// nominators.
@@ -480,13 +480,6 @@ pub struct ValidatorPrefs {
     pub commission: Perbill,
 }
 
-impl Default for ValidatorPrefs {
-    fn default() -> Self {
-        ValidatorPrefs {
-            commission: Default::default(),
-        }
-    }
-}
 // Polymesh-Note: Polymesh specific changes to allow flexibility in commission
 /// Commission can be set globally or by validator
 #[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug)]

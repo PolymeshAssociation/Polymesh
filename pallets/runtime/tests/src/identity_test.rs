@@ -940,7 +940,7 @@ fn adding_authorizations() {
             None,
         );
         assert_eq!(<AuthorizationsGiven>::get(alice_did, auth_id), bob_did);
-        let mut auth = Identity::get_authorization(bob_did, auth_id);
+        let mut auth = Identity::get_authorization(&bob_did, auth_id);
         assert_eq!(auth.authorized_by, alice_did);
         assert_eq!(auth.expiry, None);
         assert_eq!(
@@ -954,7 +954,7 @@ fn adding_authorizations() {
             Some(100),
         );
         assert_eq!(<AuthorizationsGiven>::get(alice_did, auth_id), bob_did);
-        auth = Identity::get_authorization(bob_did, auth_id);
+        auth = Identity::get_authorization(&bob_did, auth_id);
         assert_eq!(auth.authorized_by, alice_did);
         assert_eq!(auth.expiry, Some(100));
         assert_eq!(
@@ -996,7 +996,7 @@ fn removing_authorizations() {
             None,
         );
         assert_eq!(<AuthorizationsGiven>::get(alice_did, auth_id), bob_did);
-        let auth = Identity::get_authorization(bob_did, auth_id);
+        let auth = Identity::get_authorization(&bob_did, auth_id);
         assert_eq!(
             auth.authorization_data,
             AuthorizationData::TransferTicker(ticker50)
