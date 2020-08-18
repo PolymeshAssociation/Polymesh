@@ -1,5 +1,5 @@
 use super::{
-    storage::{make_account_without_cdd, register_keyring_account, EventTest, TestStorage},
+    storage::{register_keyring_account, EventTest, TestStorage},
     ExtBuilder,
 };
 use pallet_balances as balances;
@@ -14,7 +14,7 @@ use frame_support::{
 };
 use frame_system::{EventRecord, Phase};
 use pallet_transaction_payment::ChargeTransactionPayment;
-use polymesh_primitives::{traits::BlockRewardsReserveCurrency, Claim, InvestorUid};
+use polymesh_primitives::{traits::BlockRewardsReserveCurrency, InvestorUid};
 use sp_runtime::traits::SignedExtension;
 use test_client::AccountKeyring;
 

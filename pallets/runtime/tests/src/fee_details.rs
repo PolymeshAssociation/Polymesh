@@ -1,5 +1,4 @@
 use super::{
-    ext_builder::PROTOCOL_OP_BASE_FEE,
     storage::{make_account_without_cdd, register_keyring_account, TestStorage},
     ExtBuilder,
 };

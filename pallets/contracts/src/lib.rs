@@ -21,8 +21,7 @@ use frame_support::{
     decl_error, decl_event, decl_module, decl_storage,
     dispatch::{DispatchError, DispatchResult, DispatchResultWithPostInfo},
     ensure,
-    traits::Get,
-    storage::{with_transaction, TransactionOutcome::*}
+    traits::Get
 };
 use frame_system::{self as system, ensure_signed};
 use pallet_contracts::{BalanceOf, CodeHash, ContractAddressFor, Gas, Schedule};
@@ -38,6 +37,7 @@ use sp_runtime::{
     traits::{Hash, Saturating, StaticLookup},
     Perbill, SaturatedConversion,
 };
+use polymesh_common_utilities::{ with_transaction };
 use sp_std::{marker::PhantomData, prelude::*};
 
 type Identity<T> = identity::Module<T>;
@@ -45,7 +45,7 @@ type Identity<T> = identity::Module<T>;
 /// Nonce based contract address determiner.
 ///
 /// Address calculated from the code (of the constructor), input data to the constructor,
-/// the account id that requested the account creation and the nonce of the account id.
+/// the account id that requested the account creation and the latest nonce of the account id.
 ///
 /// Formula: `blake2_256(blake2_256(code) + blake2_256(data) + origin + blake2_256(nonce))`
 pub struct NonceBasedAddressDeterminer<T: Trait>(PhantomData<T>);
@@ -162,20 +162,17 @@ decl_module! {
             let code_hash = T::Hashing::hash(&code);
 
             // Rollback the `put_code()` if user is not able to pay the protocol-fee.
-            // TODO: use change from here https://github.com/PolymathNetwork/Polymesh/pull/532
             with_transaction(|| {
                 // Call underlying function
-                let result = <pallet_contracts::Module<T>>::put_code(origin, code).is_err();
-                // Charge the protocol fee
-                if T::ProtocolFee::charge_fee(ProtocolOp::ContractsPutCode).is_err() || result {
-                    return Rollback(Err(Error::<T>::FailedToPayProtocolFee))
-                }
+                <pallet_contracts::Module<T>>::put_code(origin, code)?;
+                // Update the storage.
                 <TemplateMetaDetails<T>>::insert(code_hash, TemplateMetadata {
                     meta_info: meta_info,
                     owner: sender,
                     frozen: false
                 });
-                Commit(Ok(()))
+                // Charge the protocol fee
+                T::ProtocolFee::charge_fee(ProtocolOp::ContractsPutCode)
             })?;
             Ok(())
         }
@@ -216,15 +213,6 @@ decl_module! {
             ensure!(!meta_details.is_instantiation_frozen(), Error::<T>::InstantiationIsNotAllowed);
 
             let mut actual_weight = None;
-
-            // TODO(centril): move this to a suitable utils crate.
-            fn with_transaction<T, E>(tx: impl FnOnce() -> Result<T, E>) -> Result<T, E> {
-                use frame_support::storage::{with_transaction, TransactionOutcome};
-                with_transaction(|| match tx() {
-                    r @ Ok(_) => TransactionOutcome::Commit(r),
-                    r @ Err(_) => TransactionOutcome::Rollback(r),
-                })
-            }
 
             with_transaction(|| {
                 // transmit the call to the base `pallet-contracts` module.

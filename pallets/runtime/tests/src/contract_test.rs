@@ -16,7 +16,7 @@ use pallet_balances as balances;
 use polymesh_common_utilities::{protocol_fee::ProtocolOp, traits::CddAndFeeDetails};
 use polymesh_contracts::{Call as ContractsCall, NonceBasedAddressDeterminer};
 use polymesh_primitives::{
-    Signatory, SmartExtensionMetadata, SmartExtensionType, TemplateMetadata,
+    SmartExtensionMetadata, SmartExtensionType, TemplateMetadata,
 };
 use test_client::AccountKeyring;
 
@@ -425,7 +425,7 @@ fn check_freeze_unfreeze_functionality() {
             // Should fail when trying to freeze the template again
             assert_err!(
                 WrapperContracts::freeze_instantiation(alice_signed.clone(), code_hash),
-                WrapperContractsError::InstantiationAlreadyFreezed
+                WrapperContractsError::InstantiationAlreadyFrozen
             );
 
             // Instantiation should fail
@@ -448,7 +448,7 @@ fn check_freeze_unfreeze_functionality() {
             // Should fail when trying to unfreeze the template again
             assert_err!(
                 WrapperContracts::unfreeze_instantiation(alice_signed, code_hash),
-                WrapperContractsError::InstantiationAlreadyUnFreezed
+                WrapperContractsError::InstantiationAlreadyUnFrozen
             );
 
             // Instantiation should passed
