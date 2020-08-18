@@ -246,12 +246,14 @@ impl multisig::Trait for TestStorage {
 
 parameter_types! {
     pub const MaxScheduledInstructionLegsPerBlock: u32 = 500;
+    pub const MaxLegsInAInstruction: u32 = 500;
 }
 
 impl settlement::Trait for TestStorage {
     type Event = Event;
     type Asset = asset::Module<TestStorage>;
     type MaxScheduledInstructionLegsPerBlock = MaxScheduledInstructionLegsPerBlock;
+    type MaxLegsInAInstruction = MaxLegsInAInstruction;
 }
 
 impl sto::Trait for TestStorage {
@@ -451,10 +453,15 @@ impl portfolio::Trait for TestStorage {
     type Event = Event;
 }
 
+parameter_types! {
+    pub const MaxNumberOfTMExtensionForAsset:u32 = 5;
+}
+
 impl asset::Trait for TestStorage {
     type Event = Event;
     type Currency = balances::Module<TestStorage>;
     type ComplianceManager = compliance_manager::Module<TestStorage>;
+    type MaxNumberOfTMExtensionForAsset = MaxNumberOfTMExtensionForAsset;
 }
 
 parameter_types! {
