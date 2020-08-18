@@ -194,20 +194,7 @@ const createIdentitiesWithExpiry = async function(api, accounts, alice, expiries
     nonces.set(alice.address, nonces.get(alice.address).addn(1));
   }
 
-  let did_balance = 1000 * 10**6;
-  for (let i = 0; i < dids.length; i++) {
-    await topUpIdentityBalance(api, alice, dids[i], did_balance);
-  }
   return dids;
-}
-
-// Top up identity balance
-async function topUpIdentityBalance(api, signer, did, did_balance) {
-  let nonceObj = {nonce: nonces.get(signer.address)};
-  const transaction = api.tx.balances.topUpIdentityBalance(did, did_balance);
-  await sendTransaction(transaction, signer, nonceObj);
-
-  nonces.set( signer.address, nonces.get(signer.address).addn(1));
 }
 
 // Fetches DID that belongs to the Account Key
@@ -281,7 +268,7 @@ async function issueTokenPerDid(api, accounts, prepend) {
   assert( ticker.length <= 12, "Ticker cannot be longer than 12 characters");
 
   const unsub = await api.tx.asset
-        .createAsset(ticker, ticker, 1000000, true, 0, [], "abc", null)
+        .createAsset(ticker, ticker, 1000000, true, 0, [], "abc")
         .signAndSend(accounts[0], { nonce: nonces.get(accounts[0].address) });
   nonces.set(accounts[0].address, nonces.get(accounts[0].address).addn(1));
 }
@@ -481,7 +468,6 @@ let reqImports = {
   signatory,
   createMultiSig,
   u8aToHex,
-  topUpIdentityBalance,
   keyToIdentityIds
 };
 

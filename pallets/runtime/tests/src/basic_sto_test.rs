@@ -43,8 +43,8 @@ fn basic_raise_with_ext() {
         AssetType::default(),
         vec![],
         None,
-        Some(alice_did),
     ));
+
     assert_ok!(Asset::create_asset(
         bob_signed.clone(),
         vec![0x01].into(),
@@ -54,7 +54,6 @@ fn basic_raise_with_ext() {
         AssetType::default(),
         vec![],
         None,
-        Some(bob_did),
     ));
 
     // Add empty transfer rules

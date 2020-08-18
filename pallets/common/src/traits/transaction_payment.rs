@@ -8,10 +8,10 @@ pub trait CddAndFeeDetails<AccountId, Call> {
     fn get_valid_payer(
         call: &Call,
         caller: &Signatory<AccountId>,
-    ) -> Result<Option<Signatory<AccountId>>, InvalidTransaction>;
+    ) -> Result<Option<AccountId>, InvalidTransaction>;
     fn clear_context();
-    fn set_payer_context(payer: Option<Signatory<AccountId>>);
-    fn get_payer_from_context() -> Option<Signatory<AccountId>>;
+    fn set_payer_context(payer: Option<AccountId>);
+    fn get_payer_from_context() -> Option<AccountId>;
     fn set_current_identity(did: &IdentityId);
 }
 
