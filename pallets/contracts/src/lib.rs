@@ -22,6 +22,7 @@ use frame_support::{
     dispatch::{DispatchError, DispatchResult, DispatchResultWithPostInfo},
     ensure,
     traits::Get,
+    storage::{with_transaction, TransactionOutcome::*}
 };
 use frame_system::{self as system, ensure_signed};
 use pallet_contracts::{BalanceOf, CodeHash, ContractAddressFor, Gas, Schedule};
@@ -98,6 +99,10 @@ decl_error! {
         InstantiationAlreadyUnFrozen,
         /// When un-authorized personnel try to access the un-authorized extrinsic.
         UnAuthorizedOrigin,
+        /// User is not able to pay the protocol fee because of insufficient funds or because of something else.
+        FailedToPayProtocolFee,
+        /// Failed To charge the instantiation fee for the smart extension.
+        FailedToPayInstantiationFee
     }
 }
 
@@ -133,7 +138,7 @@ decl_module! {
         const NetworkShareInInstantiationFee: Perbill = T::NetworkShareInFee::get();
 
         // Simply forwards to the `update_schedule` function in the Contract module.
-        #[weight = pallet_contracts::Call::<T>::update_schedule(schedule).get_dispatch_info().weight]
+        #[weight = pallet_contracts::Call::<T>::update_schedule(schedule.clone()).get_dispatch_info().weight]
         pub fn update_schedule(origin, schedule: Schedule) -> DispatchResult {
             <pallet_contracts::Module<T>>::update_schedule(origin, schedule)
         }
@@ -156,21 +161,27 @@ decl_module! {
             // to read it directly from the upstream `pallet-contracts` module.
             let code_hash = T::Hashing::hash(&code);
 
-            // Call underlying function
-            <pallet_contracts::Module<T>>::put_code(origin, code)?;
-
-            // Charge the protocol fee
-            T::ProtocolFee::charge_fee(ProtocolOp::ContractsPutCode)?;
-            <TemplateMetaDetails<T>>::insert(code_hash, TemplateMetadata {
-                meta_info: meta_info,
-                owner: sender,
-                frozen: false
-            });
+            // Rollback the `put_code()` if user is not able to pay the protocol-fee.
+            // TODO: use change from here https://github.com/PolymathNetwork/Polymesh/pull/532
+            with_transaction(|| {
+                // Call underlying function
+                let result = <pallet_contracts::Module<T>>::put_code(origin, code).is_err();
+                // Charge the protocol fee
+                if T::ProtocolFee::charge_fee(ProtocolOp::ContractsPutCode).is_err() || result {
+                    return Rollback(Err(Error::<T>::FailedToPayProtocolFee))
+                }
+                <TemplateMetaDetails<T>>::insert(code_hash, TemplateMetadata {
+                    meta_info: meta_info,
+                    owner: sender,
+                    frozen: false
+                });
+                Commit(Ok(()))
+            })?;
             Ok(())
         }
 
         // Simply forwards to the `call` function in the Contract module.
-        #[weight = pallet_contracts::Call::<T>::call(dest, value, gas_limit, data.clone()).get_dispatch_info().weight]
+        #[weight = pallet_contracts::Call::<T>::call(dest.clone(), *value, *gas_limit, data.clone()).get_dispatch_info().weight]
         pub fn call(
             origin,
             dest: <T::Lookup as StaticLookup>::Source,
@@ -198,26 +209,32 @@ decl_module! {
             data: Vec<u8>
         ) -> DispatchResultWithPostInfo {
             ensure_signed(origin.clone())?;
-
             // Access the meta details of SE template
             let meta_details = Self::get_template_meta_details(code_hash);
 
             // Check whether instantiation is allowed or not.
-            ensure!(!meta_details.is_instantiation_freezed(), Error::<T>::InstantiationIsNotAllowed);
+            ensure!(!meta_details.is_instantiation_frozen(), Error::<T>::InstantiationIsNotAllowed);
 
-            // transmit the call to the base `pallet-contracts` module.
-            <pallet_contracts::Module<T>>::instantiate(origin, endowment, gas_limit, code_hash, data)
-                .map(|mut info| {
-                    // Charge instantiation fee
-                    let _ = T::ProtocolFee::charge_extension_instantiation_fee((meta_details.get_instantiation_fee().saturated_into::<u128>()).into(), meta_details.owner, T::NetworkShareInFee::get());
-                    // Update the actual weight of the extrinsic.
-                    info.actual_weight = info.actual_weight.map(|w| w + 500_000_000);
-                    info
-                }).map_err(|mut err_info| {
-                    // Update the actual weight of the extrinsic.
-                    err_info.post_info.actual_weight = err_info.post_info.actual_weight.map(|w| w + 500_000_000);
-                    err_info
+            let mut actual_weight = None;
+
+            // TODO(centril): move this to a suitable utils crate.
+            fn with_transaction<T, E>(tx: impl FnOnce() -> Result<T, E>) -> Result<T, E> {
+                use frame_support::storage::{with_transaction, TransactionOutcome};
+                with_transaction(|| match tx() {
+                    r @ Ok(_) => TransactionOutcome::Commit(r),
+                    r @ Err(_) => TransactionOutcome::Rollback(r),
                 })
+            }
+
+            with_transaction(|| {
+                // transmit the call to the base `pallet-contracts` module.
+                actual_weight = <pallet_contracts::Module<T>>::instantiate(origin, endowment, gas_limit, code_hash, data).map(|post_info| post_info.actual_weight).map_err(|err| err.error)?;
+                // Charge instantiation fee
+                T::ProtocolFee::charge_extension_instantiation_fee((meta_details.get_instantiation_fee().saturated_into::<u128>()).into(), meta_details.owner, T::NetworkShareInFee::get())
+            })?;
+
+            // Update the actual weight of the extrinsic.
+            Ok(actual_weight.map(|w| w + 500_000_000).into())
         }
 
         /// Change the instantiation fee of the smart extension template
@@ -249,7 +266,7 @@ decl_module! {
             let (did, meta_details) = Self::ensure_signed_and_template_exists(origin, code_hash)?;
 
             // If instantiation is already frozen then there is no point of changing the storage value.
-            ensure!(!meta_details.is_instantiation_frozen(), Error::<T>::InstantiationAlreadyFreezed);
+            ensure!(!meta_details.is_instantiation_frozen(), Error::<T>::InstantiationAlreadyFrozen);
             // Change the `frozen` variable to `true`.
             <TemplateMetaDetails<T>>::mutate(&code_hash, |meta_details| meta_details.frozen = true);
 
@@ -269,7 +286,7 @@ decl_module! {
             let (did, meta_details) = Self::ensure_signed_and_template_exists(origin, code_hash)?;
 
             // If instantiation is already un-frozen then there is no point of changing the storage value.
-            ensure!(meta_details.is_instantiation_freezed(), Error::<T>::InstantiationAlreadyUnFreezed);
+            ensure!(meta_details.is_instantiation_frozen(), Error::<T>::InstantiationAlreadyUnFrozen);
             // Change the `frozen` variable to `false`.
             <TemplateMetaDetails<T>>::mutate(&code_hash, |meta_details| meta_details.frozen = false);
 
