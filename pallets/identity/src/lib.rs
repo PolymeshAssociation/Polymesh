@@ -2095,7 +2095,9 @@ impl<T: Trait> Module<T> {
                 }
                 AuthorizationData::RotatePrimaryKey(..) => AuthorizationType::RotatePrimaryKey,
                 AuthorizationData::TransferTicker(..) => AuthorizationType::TransferTicker,
-                AuthorizationData::TransferPrimaryIssuanceAgent(..) => AuthorizationType::TransferPrimaryIssuanceAgent,
+                AuthorizationData::TransferPrimaryIssuanceAgent(..) => {
+                    AuthorizationType::TransferPrimaryIssuanceAgent
+                }
                 AuthorizationData::AddMultiSigSigner(..) => AuthorizationType::AddMultiSigSigner,
                 AuthorizationData::TransferAssetOwnership(..) => {
                     AuthorizationType::TransferAssetOwnership

@@ -355,7 +355,7 @@
                 "AttestPrimaryKeyRotation": "IdentityId",
                 "RotatePrimaryKey": "IdentityId",
                 "TransferTicker": "Ticker",
-                "TransferTreasury": "Ticker",
+                "TransferPrimaryIssuanceAgent": "Ticker",
                 "AddMultiSigSigner": "AccountId",
                 "TransferAssetOwnership": "Ticker",
                 "JoinIdentity": "Vec<Permission>",
@@ -686,7 +686,7 @@
         },
         "TargetIdentity": {
             "_enum": {
-                "Treasury": "",
+                "PrimaryIssuanceAgent": "",
                 "Specific": "IdentityId"
             }
         },

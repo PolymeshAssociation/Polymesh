@@ -93,9 +93,14 @@ pub use valid_proof_of_investor::ValidProofOfInvestorPredicate;
 
 /// It creates a predicate to evaluate the matching of `id` with primary issuance agent in the context.
 #[inline]
-pub fn equals<'a>(id: &'a TargetIdentity, primary_issuance_agent: &'a IdentityId) -> TargetIdentityPredicate<'a> {
+pub fn equals<'a>(
+    id: &'a TargetIdentity,
+    primary_issuance_agent: &'a IdentityId,
+) -> TargetIdentityPredicate<'a> {
     match id {
-        TargetIdentity::PrimaryIssuanceAgent => TargetIdentityPredicate { identity: primary_issuance_agent },
+        TargetIdentity::PrimaryIssuanceAgent => TargetIdentityPredicate {
+            identity: primary_issuance_agent,
+        },
         TargetIdentity::Specific(identity) => TargetIdentityPredicate { identity },
     }
 }

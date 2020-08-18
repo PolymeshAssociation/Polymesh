@@ -44,7 +44,7 @@
 //! - `rename_asset` - Renames a given asset.
 //! - `controller_transfer` - Forces a transfer between two DID.
 //! - `create_checkpoint` - Function used to create the checkpoint.
-//! - `issue` - Function is used to issue(or mint) new tokens to the treasury.
+//! - `issue` - Function is used to issue(or mint) new tokens to the primary issuance agent.
 //! - `controller_redeem` - Forces a redemption of an DID's tokens. Can only be called by token owner.
 //! - `make_divisible` - Change the divisibility of the token to divisible. Only called by the token owner.
 //! - `can_transfer` - Checks whether a transaction with given parameters can take place or not.
@@ -628,7 +628,7 @@ decl_module! {
             Ok(())
         }
 
-        /// Function is used to issue(or mint) new tokens to the treasury.
+        /// Function is used to issue(or mint) new tokens to the primary issuance agent.
         /// It can only be executed by the token owner.
         ///
         /// # Arguments
