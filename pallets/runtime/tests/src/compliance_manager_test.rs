@@ -155,17 +155,17 @@ fn should_add_and_verify_asset_rule_we() {
 
     let sender_rule = Condition {
         issuers: vec![claim_issuer_did],
-        rule_type: ConditionType::IsPresent(Claim::NoData),
+        condition_type: ConditionType::IsPresent(Claim::NoData),
     };
 
     let receiver_rule1 = Condition {
         issuers: vec![cdd_id],
-        rule_type: ConditionType::IsAbsent(Claim::make_cdd_wildcard()),
+        condition_type: ConditionType::IsAbsent(Claim::make_cdd_wildcard()),
     };
 
     let receiver_rule2 = Condition {
         issuers: vec![claim_issuer_did],
-        rule_type: ConditionType::IsPresent(Claim::Accredited(token_owner_did)),
+        condition_type: ConditionType::IsPresent(Claim::Accredited(token_owner_did)),
     };
 
     assert_ok!(ComplianceManager::add_compliance_requirement(
@@ -190,14 +190,14 @@ fn should_add_and_verify_asset_rule_we() {
         Some(token_rec_did),
         None,
     );
-    assert!(!result.final_result);
-    assert!(!result.rules[0].transfer_rule_result);
-    assert!(result.rules[0].sender_rules[0].result);
-    assert!(result.rules[0].receiver_rules[0].result);
-    assert!(!result.rules[0].receiver_rules[1].result);
-    assert_eq!(result.rules[0].sender_rules[0].rule, sender_rule);
-    assert_eq!(result.rules[0].receiver_rules[0].rule, receiver_rule1);
-    assert_eq!(result.rules[0].receiver_rules[1].rule, receiver_rule2);
+    assert!(!result.result);
+    assert!(!result.requirements[0].result);
+    assert!(result.requirements[0].sender_conditions[0].result);
+    assert!(result.requirements[0].receiver_conditions[0].result);
+    assert!(!result.requirements[0].receiver_conditions[1].result);
+    assert_eq!(result.requirements[0].sender_conditions[0].rule, sender_rule);
+    assert_eq!(result.requirements[0].receiver_conditions[0].rule, receiver_rule1);
+    assert_eq!(result.requirements[0].receiver_conditions[1].rule, receiver_rule2);
 
     assert_ok!(Identity::add_claim(
         claim_issuer_signed.clone(),
@@ -213,14 +213,14 @@ fn should_add_and_verify_asset_rule_we() {
         Some(token_rec_did),
         None,
     );
-    assert!(result.final_result);
-    assert!(result.rules[0].transfer_rule_result);
-    assert!(result.rules[0].sender_rules[0].result);
-    assert!(result.rules[0].receiver_rules[0].result);
-    assert!(result.rules[0].receiver_rules[1].result);
-    assert_eq!(result.rules[0].sender_rules[0].rule, sender_rule);
-    assert_eq!(result.rules[0].receiver_rules[0].rule, receiver_rule1);
-    assert_eq!(result.rules[0].receiver_rules[1].rule, receiver_rule2);
+    assert!(result.result);
+    assert!(result.requirements[0].result);
+    assert!(result.requirements[0].sender_conditions[0].result);
+    assert!(result.requirements[0].receiver_conditions[0].result);
+    assert!(result.requirements[0].receiver_conditions[1].result);
+    assert_eq!(result.requirements[0].sender_conditions[0].rule, sender_rule);
+    assert_eq!(result.requirements[0].receiver_conditions[0].rule, receiver_rule1);
+    assert_eq!(result.requirements[0].receiver_conditions[1].rule, receiver_rule2);
 
     assert_ok!(Identity::add_claim(
         cdd_signed.clone(),
@@ -236,24 +236,24 @@ fn should_add_and_verify_asset_rule_we() {
         Some(token_rec_did),
         None,
     );
-    assert!(!result.final_result);
-    assert!(!result.rules[0].transfer_rule_result);
-    assert!(result.rules[0].sender_rules[0].result);
-    assert!(!result.rules[0].receiver_rules[0].result);
-    assert!(result.rules[0].receiver_rules[1].result);
-    assert_eq!(result.rules[0].sender_rules[0].rule, sender_rule);
-    assert_eq!(result.rules[0].receiver_rules[0].rule, receiver_rule1);
-    assert_eq!(result.rules[0].receiver_rules[1].rule, receiver_rule2);
+    assert!(!result.result);
+    assert!(!result.requirements[0].result);
+    assert!(result.requirements[0].sender_conditions[0].result);
+    assert!(!result.requirements[0].receiver_conditions[0].result);
+    assert!(result.requirements[0].receiver_conditions[1].result);
+    assert_eq!(result.requirements[0].sender_conditions[0].rule, sender_rule);
+    assert_eq!(result.requirements[0].receiver_conditions[0].rule, receiver_rule1);
+    assert_eq!(result.requirements[0].receiver_conditions[1].rule, receiver_rule2);
 }
 
 #[test]
-fn should_replace_asset_rules() {
+fn should_replace_asset_compliance() {
     ExtBuilder::default()
         .build()
-        .execute_with(should_replace_asset_rules_we);
+        .execute_with(should_replace_asset_compliance_we);
 }
 
-fn should_replace_asset_rules_we() {
+fn should_replace_asset_compliance_we() {
     let token_owner_acc = AccountKeyring::Alice.public();
     let token_owner_signed = Origin::signed(AccountKeyring::Alice.public());
     let token_owner_did = register_keyring_account(AccountKeyring::Alice).unwrap();
@@ -289,11 +289,11 @@ fn should_replace_asset_rules_we() {
         vec![]
     ));
 
-    let asset_rules = ComplianceManager::asset_rules(ticker);
-    assert_eq!(asset_rules.rules.len(), 1);
+    let asset_compliance = ComplianceManager::asset_compliance(ticker);
+    assert_eq!(asset_compliance.requirements.len(), 1);
 
     // Create three rules with different rule IDs.
-    let new_asset_rules: Vec<ComplianceRequirement> =
+    let new_asset_compliance: Vec<ComplianceRequirement> =
         std::iter::repeat(|rule_id: u32| ComplianceRequirement {
             sender_conditions: vec![],
             receiver_conditions: vec![],
@@ -304,24 +304,24 @@ fn should_replace_asset_rules_we() {
         .map(|(n, f)| f(n as u32))
         .collect();
 
-    assert_ok!(ComplianceManager::replace_asset_rules(
+    assert_ok!(ComplianceManager::replace_asset_compliance(
         token_owner_signed.clone(),
         ticker,
-        new_asset_rules.clone(),
+        new_asset_compliance.clone(),
     ));
 
-    let asset_rules = ComplianceManager::asset_rules(ticker);
-    assert_eq!(asset_rules.rules, new_asset_rules);
+    let asset_compliance = ComplianceManager::asset_compliance(ticker);
+    assert_eq!(asset_compliance.requirements, new_asset_compliance);
 }
 
 #[test]
-fn should_reset_asset_rules() {
+fn should_reset_asset_compliance() {
     ExtBuilder::default()
         .build()
-        .execute_with(should_reset_asset_rules_we);
+        .execute_with(should_reset_asset_compliance_we);
 }
 
-fn should_reset_asset_rules_we() {
+fn should_reset_asset_compliance_we() {
     let token_owner_acc = AccountKeyring::Alice.public();
     let token_owner_signed = Origin::signed(AccountKeyring::Alice.public());
     let token_owner_did = register_keyring_account(AccountKeyring::Alice).unwrap();
@@ -357,26 +357,26 @@ fn should_reset_asset_rules_we() {
         vec![]
     ));
 
-    let asset_rules = ComplianceManager::asset_rules(ticker);
-    assert_eq!(asset_rules.rules.len(), 1);
+    let asset_compliance = ComplianceManager::asset_compliance(ticker);
+    assert_eq!(asset_compliance.requirements.len(), 1);
 
     assert_ok!(ComplianceManager::reset_asset_compliance(
         token_owner_signed.clone(),
         ticker
     ));
 
-    let asset_rules_new = ComplianceManager::asset_rules(ticker);
-    assert_eq!(asset_rules_new.rules.len(), 0);
+    let asset_compliance_new = ComplianceManager::asset_compliance(ticker);
+    assert_eq!(asset_compliance_new.requirements.len(), 0);
 }
 
 #[test]
-fn pause_resume_asset_rules() {
+fn pause_resume_asset_compliance() {
     ExtBuilder::default()
         .build()
-        .execute_with(pause_resume_asset_rules_we);
+        .execute_with(pause_resume_asset_compliance_we);
 }
 
-fn pause_resume_asset_rules_we() {
+fn pause_resume_asset_compliance_we() {
     // 0. Create accounts
     let token_owner_acc = AccountKeyring::Alice.public();
     let token_owner_signed = Origin::signed(AccountKeyring::Alice.public());
@@ -419,16 +419,16 @@ fn pause_resume_asset_rules_we() {
     Timestamp::set_timestamp(now.timestamp() as u64);
 
     // 4. Define rules
-    let receiver_rules = vec![Condition {
+    let receiver_conditions = vec![Condition {
         issuers: vec![receiver_did],
-        rule_type: ConditionType::IsAbsent(Claim::NoData),
+        condition_type: ConditionType::IsAbsent(Claim::NoData),
     }];
 
     assert_ok!(ComplianceManager::add_compliance_requirement(
         token_owner_signed.clone(),
         ticker,
         vec![],
-        receiver_rules
+        receiver_conditions
     ));
 
     // 5. Verify pause/resume mechanism.
@@ -437,7 +437,7 @@ fn pause_resume_asset_rules_we() {
 
     Context::set_current_identity::<Identity>(Some(token_owner_did));
     // 5.2. Pause asset rules, and run the transaction.
-    assert_ok!(ComplianceManager::pause_asset_rules(
+    assert_ok!(ComplianceManager::pause_asset_compliance(
         token_owner_signed.clone(),
         ticker
     ));
@@ -446,7 +446,7 @@ fn pause_resume_asset_rules_we() {
 
     Context::set_current_identity::<Identity>(Some(token_owner_did));
     // 5.3. Resume asset rules, and new transfer should fail again.
-    assert_ok!(ComplianceManager::resume_asset_rules(
+    assert_ok!(ComplianceManager::resume_asset_compliance(
         token_owner_signed.clone(),
         ticker
     ));
@@ -534,12 +534,12 @@ fn should_successfully_add_and_use_default_issuers_we() {
 
     let sender_rule = Condition {
         issuers: vec![],
-        rule_type: ConditionType::IsPresent(Claim::make_cdd_wildcard()),
+        condition_type: ConditionType::IsPresent(Claim::make_cdd_wildcard()),
     };
 
     let receiver_rule = Condition {
         issuers: vec![],
-        rule_type: ConditionType::IsPresent(Claim::make_cdd_wildcard()),
+        condition_type: ConditionType::IsPresent(Claim::make_cdd_wildcard()),
     };
 
     assert_ok!(ComplianceManager::add_compliance_requirement(
@@ -681,17 +681,17 @@ fn should_modify_vector_of_trusted_issuer_we() {
 
     let sender_rule = Condition {
         issuers: vec![],
-        rule_type: ConditionType::IsPresent(Claim::make_cdd_wildcard()),
+        condition_type: ConditionType::IsPresent(Claim::make_cdd_wildcard()),
     };
 
     let receiver_rule_1 = Condition {
         issuers: vec![],
-        rule_type: ConditionType::IsPresent(Claim::make_cdd_wildcard()),
+        condition_type: ConditionType::IsPresent(Claim::make_cdd_wildcard()),
     };
 
     let receiver_rule_2 = Condition {
         issuers: vec![],
-        rule_type: ConditionType::IsPresent(Claim::NoData),
+        condition_type: ConditionType::IsPresent(Claim::NoData),
     };
 
     let x = vec![sender_rule.clone()];
@@ -728,12 +728,12 @@ fn should_modify_vector_of_trusted_issuer_we() {
 
     let receiver_rule_1 = Condition {
         issuers: vec![trusted_issuer_did_1],
-        rule_type: ConditionType::IsPresent(Claim::make_cdd_wildcard()),
+        condition_type: ConditionType::IsPresent(Claim::make_cdd_wildcard()),
     };
 
     let receiver_rule_2 = Condition {
         issuers: vec![trusted_issuer_did_1],
-        rule_type: ConditionType::IsPresent(Claim::NoData),
+        condition_type: ConditionType::IsPresent(Claim::NoData),
     };
 
     let x = vec![sender_rule];
@@ -779,12 +779,12 @@ fn should_modify_vector_of_trusted_issuer_we() {
 }
 
 #[test]
-fn jurisdiction_asset_rules() {
+fn jurisdiction_asset_compliance() {
     ExtBuilder::default()
         .build()
-        .execute_with(jurisdiction_asset_rules_we);
+        .execute_with(jurisdiction_asset_compliance_we);
 }
-fn jurisdiction_asset_rules_we() {
+fn jurisdiction_asset_compliance_we() {
     // 0. Create accounts
     let token_owner_signed = Origin::signed(AccountKeyring::Alice.public());
     let token_owner_id = register_keyring_account(AccountKeyring::Alice).unwrap();
@@ -812,16 +812,16 @@ fn jurisdiction_asset_rules_we() {
     ));
     // 2. Set up rules for Asset transfer.
     let scope = Scope::from(0);
-    let receiver_rules = vec![
+    let receiver_conditions = vec![
         Condition {
-            rule_type: ConditionType::IsAnyOf(vec![
+            condition_type: ConditionType::IsAnyOf(vec![
                 Claim::Jurisdiction(b"Canada".into(), scope),
                 Claim::Jurisdiction(b"Spain".into(), scope),
             ]),
             issuers: vec![cdd_id],
         },
         Condition {
-            rule_type: ConditionType::IsAbsent(Claim::Blocked(scope)),
+            condition_type: ConditionType::IsAbsent(Claim::Blocked(scope)),
             issuers: vec![token_owner_id],
         },
     ];
@@ -829,7 +829,7 @@ fn jurisdiction_asset_rules_we() {
         token_owner_signed.clone(),
         ticker,
         vec![],
-        receiver_rules
+        receiver_conditions
     ));
     // 3. Validate behaviour.
     // 3.1. Invalid transfer because missing jurisdiction.
@@ -853,12 +853,12 @@ fn jurisdiction_asset_rules_we() {
 }
 
 #[test]
-fn scope_asset_rules() {
+fn scope_asset_compliance() {
     ExtBuilder::default()
         .build()
-        .execute_with(scope_asset_rules_we);
+        .execute_with(scope_asset_compliance_we);
 }
-fn scope_asset_rules_we() {
+fn scope_asset_compliance_we() {
     // 0. Create accounts
     let owner = AccountKeyring::Alice;
     let owner_signed = Origin::signed(owner.public());
@@ -870,15 +870,15 @@ fn scope_asset_rules_we() {
 
     // 2. Set up rules for Asset transfer.
     let scope = Identity::get_token_did(&ticker).unwrap();
-    let receiver_rules = vec![Condition {
-        rule_type: ConditionType::IsPresent(Claim::Affiliate(scope)),
+    let receiver_conditions = vec![Condition {
+        condition_type: ConditionType::IsPresent(Claim::Affiliate(scope)),
         issuers: vec![cdd_id],
     }];
     assert_ok!(ComplianceManager::add_compliance_requirement(
         owner_signed.clone(),
         ticker,
         vec![],
-        receiver_rules
+        receiver_conditions
     ));
     // 3. Validate behaviour.
     // 3.1. Invalid transfer because missing jurisdiction.
@@ -910,8 +910,8 @@ fn cm_test_case_9_we() {
     let (ticker, owner_did) = make_ticker_env(AccountKeyring::Alice, vec![0x01].into());
     // 2. Set up rules for Asset transfer.
     let scope = Identity::get_token_did(&ticker).unwrap();
-    let receiver_rules = vec![Condition {
-        rule_type: ConditionType::IsAnyOf(vec![
+    let receiver_conditions = vec![Condition {
+        condition_type: ConditionType::IsAnyOf(vec![
             Claim::KnowYourCustomer(scope),
             Claim::Affiliate(scope),
             Claim::Accredited(scope),
@@ -923,7 +923,7 @@ fn cm_test_case_9_we() {
         owner.clone(),
         ticker,
         vec![],
-        receiver_rules
+        receiver_conditions
     ));
 
     // 3. Validate behaviour.
@@ -941,9 +941,9 @@ fn cm_test_case_9_we() {
     ));
     assert_valid_transfer!(ticker, owner_did, charlie, 100);
     let result = ComplianceManager::granular_verify_restriction(&ticker, None, Some(charlie), None);
-    assert!(result.final_result);
-    assert!(result.rules[0].transfer_rule_result);
-    assert!(result.rules[0].receiver_rules[0].result);
+    assert!(result.result);
+    assert!(result.requirements[0].result);
+    assert!(result.requirements[0].receiver_conditions[0].result);
 
     // 3.2. Dave has a 'Affiliate' Claim
     assert_ok!(Identity::add_claim(
@@ -954,9 +954,9 @@ fn cm_test_case_9_we() {
     ));
     assert_valid_transfer!(ticker, owner_did, dave, 100);
     let result = ComplianceManager::granular_verify_restriction(&ticker, None, Some(dave), None);
-    assert!(result.final_result);
-    assert!(result.rules[0].transfer_rule_result);
-    assert!(result.rules[0].receiver_rules[0].result);
+    assert!(result.result);
+    assert!(result.requirements[0].result);
+    assert!(result.requirements[0].receiver_conditions[0].result);
 
     // 3.3. Eve has a 'Exempted' Claim
     assert_ok!(Identity::add_claim(
@@ -966,15 +966,15 @@ fn cm_test_case_9_we() {
         None
     ));
     let result = ComplianceManager::granular_verify_restriction(&ticker, None, Some(eve), None);
-    assert!(result.rules[0].transfer_rule_result);
-    assert!(result.rules[0].receiver_rules[0].result);
+    assert!(result.requirements[0].result);
+    assert!(result.requirements[0].receiver_conditions[0].result);
 
     // 3.4 Ferdie has none of the required claims
     assert_invalid_transfer!(ticker, owner_did, ferdie, 100);
     let result = ComplianceManager::granular_verify_restriction(&ticker, None, Some(ferdie), None);
-    assert!(!result.final_result);
-    assert!(!result.rules[0].transfer_rule_result);
-    assert!(!result.rules[0].receiver_rules[0].result);
+    assert!(!result.result);
+    assert!(!result.requirements[0].result);
+    assert!(!result.requirements[0].receiver_conditions[0].result);
 }
 
 #[test]
@@ -995,9 +995,9 @@ fn cm_test_case_11_we() {
     let (ticker, owner_did) = make_ticker_env(AccountKeyring::Alice, vec![0x01].into());
     // 2. Set up rules for Asset transfer.
     let scope = Identity::get_token_did(&ticker).unwrap();
-    let receiver_rules = vec![
+    let receiver_conditions = vec![
         Condition {
-            rule_type: ConditionType::IsAnyOf(vec![
+            condition_type: ConditionType::IsAnyOf(vec![
                 Claim::KnowYourCustomer(scope),
                 Claim::Affiliate(scope),
                 Claim::Accredited(scope),
@@ -1006,7 +1006,7 @@ fn cm_test_case_11_we() {
             issuers: vec![issuer_id],
         },
         Condition {
-            rule_type: ConditionType::IsNoneOf(vec![
+            condition_type: ConditionType::IsNoneOf(vec![
                 Claim::Jurisdiction(b"USA".into(), scope),
                 Claim::Jurisdiction(b"North Kore".into(), scope),
             ]),
@@ -1017,7 +1017,7 @@ fn cm_test_case_11_we() {
         owner.clone(),
         ticker,
         vec![],
-        receiver_rules
+        receiver_conditions
     ));
 
     // 3. Validate behaviour.
@@ -1034,10 +1034,10 @@ fn cm_test_case_11_we() {
     ));
     assert_valid_transfer!(ticker, owner_did, charlie, 100);
     let result = ComplianceManager::granular_verify_restriction(&ticker, None, Some(charlie), None);
-    assert!(result.final_result);
-    assert!(result.rules[0].transfer_rule_result);
-    assert!(result.rules[0].receiver_rules[0].result);
-    assert!(result.rules[0].receiver_rules[1].result);
+    assert!(result.result);
+    assert!(result.requirements[0].result);
+    assert!(result.requirements[0].receiver_conditions[0].result);
+    assert!(result.requirements[0].receiver_conditions[1].result);
 
     // 3.2. Dave has a 'Affiliate' Claim but he is from USA
     assert_ok!(Identity::add_claim(
@@ -1055,10 +1055,10 @@ fn cm_test_case_11_we() {
 
     assert_invalid_transfer!(ticker, owner_did, dave, 100);
     let result = ComplianceManager::granular_verify_restriction(&ticker, None, Some(dave), None);
-    assert!(!result.final_result);
-    assert!(!result.rules[0].transfer_rule_result);
-    assert!(result.rules[0].receiver_rules[0].result);
-    assert!(!result.rules[0].receiver_rules[1].result);
+    assert!(!result.result);
+    assert!(!result.requirements[0].result);
+    assert!(result.requirements[0].receiver_conditions[0].result);
+    assert!(!result.requirements[0].receiver_conditions[1].result);
 
     // 3.3. Eve has a 'Exempted' Claim
     assert_ok!(Identity::add_claim(
@@ -1076,10 +1076,10 @@ fn cm_test_case_11_we() {
 
     assert_valid_transfer!(ticker, owner_did, eve, 100);
     let result = ComplianceManager::granular_verify_restriction(&ticker, None, Some(eve), None);
-    assert!(result.final_result);
-    assert!(result.rules[0].transfer_rule_result);
-    assert!(result.rules[0].receiver_rules[0].result);
-    assert!(result.rules[0].receiver_rules[1].result);
+    assert!(result.result);
+    assert!(result.requirements[0].result);
+    assert!(result.requirements[0].receiver_conditions[0].result);
+    assert!(result.requirements[0].receiver_conditions[1].result);
 }
 
 #[test]
@@ -1100,13 +1100,13 @@ fn cm_test_case_13_we() {
     let (ticker, owner_did) = make_ticker_env(AccountKeyring::Alice, vec![0x01].into());
     // 2. Set up rules for Asset transfer.
     let scope = Identity::get_token_did(&ticker).unwrap();
-    let receiver_rules = vec![
+    let receiver_conditions = vec![
         Condition {
-            rule_type: ConditionType::IsPresent(Claim::KnowYourCustomer(scope)),
+            condition_type: ConditionType::IsPresent(Claim::KnowYourCustomer(scope)),
             issuers: vec![issuer_id],
         },
         Condition {
-            rule_type: ConditionType::IsAnyOf(vec![
+            condition_type: ConditionType::IsAnyOf(vec![
                 Claim::Affiliate(scope),
                 Claim::Accredited(scope),
                 Claim::Exempted(scope),
@@ -1114,7 +1114,7 @@ fn cm_test_case_13_we() {
             issuers: vec![issuer_id],
         },
         Condition {
-            rule_type: ConditionType::IsNoneOf(vec![
+            condition_type: ConditionType::IsNoneOf(vec![
                 Claim::Jurisdiction(b"USA".into(), scope),
                 Claim::Jurisdiction(b"North Kore".into(), scope),
             ]),
@@ -1125,7 +1125,7 @@ fn cm_test_case_13_we() {
         owner.clone(),
         ticker,
         vec![],
-        receiver_rules
+        receiver_conditions
     ));
 
     // 3. Validate behaviour.
@@ -1144,11 +1144,11 @@ fn cm_test_case_13_we() {
 
     assert_invalid_transfer!(ticker, owner_did, charlie, 100);
     let result = ComplianceManager::granular_verify_restriction(&ticker, None, Some(charlie), None);
-    assert!(!result.final_result);
-    assert!(!result.rules[0].transfer_rule_result);
-    assert!(result.rules[0].receiver_rules[0].result);
-    assert!(!result.rules[0].receiver_rules[1].result);
-    assert!(result.rules[0].receiver_rules[2].result);
+    assert!(!result.result);
+    assert!(!result.requirements[0].result);
+    assert!(result.requirements[0].receiver_conditions[0].result);
+    assert!(!result.requirements[0].receiver_conditions[1].result);
+    assert!(result.requirements[0].receiver_conditions[2].result);
 
     // 3.2. Dave has a 'Affiliate' Claim but he is from USA
     let dave_claims = vec![
@@ -1173,11 +1173,11 @@ fn cm_test_case_13_we() {
 
     assert_invalid_transfer!(ticker, owner_did, dave, 100);
     let result = ComplianceManager::granular_verify_restriction(&ticker, None, Some(dave), None);
-    assert!(!result.final_result);
-    assert!(!result.rules[0].transfer_rule_result);
-    assert!(result.rules[0].receiver_rules[0].result);
-    assert!(result.rules[0].receiver_rules[1].result);
-    assert!(!result.rules[0].receiver_rules[2].result);
+    assert!(!result.result);
+    assert!(!result.requirements[0].result);
+    assert!(result.requirements[0].receiver_conditions[0].result);
+    assert!(result.requirements[0].receiver_conditions[1].result);
+    assert!(!result.requirements[0].receiver_conditions[2].result);
 
     // 3.3. Eve has a 'Exempted' Claim
     let eve_claims = vec![
@@ -1201,11 +1201,11 @@ fn cm_test_case_13_we() {
     assert_ok!(Identity::batch_add_claim(issuer.clone(), eve_claims));
     assert_valid_transfer!(ticker, owner_did, eve, 100);
     let result = ComplianceManager::granular_verify_restriction(&ticker, None, Some(eve), None);
-    assert!(result.final_result);
-    assert!(result.rules[0].transfer_rule_result);
-    assert!(result.rules[0].receiver_rules[0].result);
-    assert!(result.rules[0].receiver_rules[1].result);
-    assert!(result.rules[0].receiver_rules[2].result);
+    assert!(result.result);
+    assert!(result.requirements[0].result);
+    assert!(result.requirements[0].receiver_conditions[0].result);
+    assert!(result.requirements[0].receiver_conditions[1].result);
+    assert!(result.requirements[0].receiver_conditions[2].result);
 }
 
 #[test]
@@ -1263,11 +1263,11 @@ fn can_verify_restriction_with_treasury_did_we() {
         owner_origin,
         ticker,
         vec![Condition {
-            rule_type: ConditionType::IsIdentity(TargetIdentity::Treasury),
+            condition_type: ConditionType::IsIdentity(TargetIdentity::Treasury),
             issuers: vec![],
         }],
         vec![Condition {
-            rule_type: ConditionType::IsIdentity(TargetIdentity::Specific(random_guy_id)),
+            condition_type: ConditionType::IsIdentity(TargetIdentity::Specific(random_guy_id)),
             issuers: vec![],
         }]
     ));
@@ -1313,7 +1313,7 @@ fn can_verify_restriction_with_treasury_did_we() {
 fn should_limit_rules_complexity() {
     ExtBuilder::default()
         .build()
-        .execute_with(should_reset_asset_rules_we);
+        .execute_with(should_reset_asset_compliance_we);
 }
 
 fn should_limit_rules_complexity_we() {
@@ -1348,7 +1348,7 @@ fn should_limit_rules_complexity_we() {
 
     let rules_with_issuer = vec![
         Condition {
-            rule_type: ConditionType::IsPresent(Claim::KnowYourCustomer(scope)),
+            condition_type: ConditionType::IsPresent(Claim::KnowYourCustomer(scope)),
             issuers: vec![token_owner_did],
         };
         30
@@ -1356,7 +1356,7 @@ fn should_limit_rules_complexity_we() {
 
     let rules_without_issuers = vec![
         Condition {
-            rule_type: ConditionType::IsPresent(Claim::KnowYourCustomer(scope)),
+            condition_type: ConditionType::IsPresent(Claim::KnowYourCustomer(scope)),
             issuers: vec![],
         };
         15
@@ -1370,7 +1370,7 @@ fn should_limit_rules_complexity_we() {
             rules_with_issuer.clone(),
             rules_with_issuer.clone()
         ),
-        CMError::<TestStorage>::RuleTooComplex
+        CMError::<TestStorage>::ComplianceRequirementTooComplex
     );
 
     // Complexity = 30*1 + 15*0 = 30
@@ -1395,9 +1395,9 @@ fn should_limit_rules_complexity_we() {
             ticker,
             token_owner_did
         ),
-        CMError::<TestStorage>::RuleTooComplex
+        CMError::<TestStorage>::ComplianceRequirementTooComplex
     );
 
-    let asset_rules = ComplianceManager::asset_rules(ticker);
-    assert_eq!(asset_rules.rules.len(), 1);
+    let asset_compliance = ComplianceManager::asset_compliance(ticker);
+    assert_eq!(asset_compliance.requirements.len(), 1);
 }

@@ -128,15 +128,15 @@ fn scope_claims_we() {
 
     // 2. Alice defines the asset complain rules.
     let st_scope = IdentityId::try_from(st_id.as_slice()).unwrap();
-    let sender_rules = vec![];
-    let receiver_rules = vec![Condition::from(ConditionType::HasValidProofOfInvestor(
+    let sender_conditions = vec![];
+    let receiver_conditions = vec![Condition::from(ConditionType::HasValidProofOfInvestor(
         st_id,
     ))];
     assert_ok!(ComplianceManager::add_compliance_requirement(
         Origin::signed(alice),
         st_id,
-        sender_rules,
-        receiver_rules
+        sender_conditions,
+        receiver_conditions
     ));
 
     // 2. Investor adds its Confidential Scope claims.

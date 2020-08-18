@@ -22,7 +22,7 @@ let transfer_amount = new BN(25000).mul(new BN(10).pow(new BN(6)));
 const senderRules1 = function(trusted_did, asset_did) {
     return [
     {
-      "rule_type": {
+      "condition_type": {
         "IsPresent": {
           "Exempted": asset_did
         }
@@ -35,7 +35,7 @@ const senderRules1 = function(trusted_did, asset_did) {
 const receiverRules1 = function(trusted_did, asset_did) {
     return [
     {
-      "rule_type": {
+      "condition_type": {
         "IsPresent": {
           "Exempted": asset_did
         }
