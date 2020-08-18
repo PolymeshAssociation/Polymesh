@@ -63,11 +63,9 @@ impl SubstrateCli for Cli {
             "alcyone-dev" => Box::new(chain_spec::alcyone_develop_testnet_config()),
             "alcyone-local" => Box::new(chain_spec::alcyone_local_testnet_config()),
             "alcyone-live" => Box::new(chain_spec::alcyone_live_testnet_config()),
-            "Alcyone" | "alcyone" | "" => {
-                Box::new(chain_spec::AlcyoneChainSpec::from_json_bytes(
-                    &include_bytes!("./chain_specs/alcyone_raw.json")[..],
-                )?)
-            }
+            "Alcyone" | "alcyone" | "" => Box::new(chain_spec::AlcyoneChainSpec::from_json_bytes(
+                &include_bytes!("./chain_specs/alcyone_raw.json")[..],
+            )?),
             path => Box::new(chain_spec::GeneralChainSpec::from_json_file(
                 std::path::PathBuf::from(path),
             )?),
