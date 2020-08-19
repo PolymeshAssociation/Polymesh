@@ -82,6 +82,8 @@
 //! - `call_extension` - A helper function that is used to call the smart extension function.
 #![cfg_attr(not(feature = "std"), no_std)]
 #![recursion_limit = "256"]
+#![feature(bool_to_option)]
+
 #[cfg(feature = "runtime-benchmarks")]
 pub mod benchmarking;
 
@@ -1320,11 +1322,17 @@ impl<T: Trait> Module<T> {
         token.owner_did == did
     }
 
+    fn maybe_ticker(ticker: &Ticker) -> Option<TickerRegistration<T::Moment>> {
+        <Tickers<T>>::contains_key(ticker).then(|| <Tickers<T>>::get(ticker))
+    }
+
     pub fn is_ticker_available(ticker: &Ticker) -> bool {
         // Assumes uppercase ticker
-        if <Tickers<T>>::contains_key(ticker) {
-            let now = <pallet_timestamp::Module<T>>::get();
-            Self::ticker_registration(*ticker).expiry.filter(|&e| now > e).is_some()
+        if let Some(ticker) = Self::maybe_ticker(ticker) {
+            ticker
+                .expiry
+                .filter(|&e| <pallet_timestamp::Module<T>>::get() > e)
+                .is_some()
         } else {
             true
         }
@@ -1333,10 +1341,9 @@ impl<T: Trait> Module<T> {
     /// Returns `true` iff the ticker exists, is owned by `did`, and ticker hasn't expired.
     pub fn is_ticker_registry_valid(ticker: &Ticker, did: IdentityId) -> bool {
         // Assumes uppercase ticker
-        if <Tickers<T>>::contains_key(ticker) {
+        if let Some(ticker) = Self::maybe_ticker(ticker) {
             let now = <pallet_timestamp::Module<T>>::get();
-            let ticker_reg = Self::ticker_registration(ticker);
-            ticker_reg.owner == did && ticker_reg.expiry.filter(|&e| now > e).is_none()
+            ticker.owner == did && ticker.expiry.filter(|&e| now > e).is_none()
         } else {
             false
         }
@@ -1351,9 +1358,8 @@ impl<T: Trait> Module<T> {
         did: IdentityId,
     ) -> TickerRegistrationStatus {
         // Assumes uppercase ticker
-        if <Tickers<T>>::contains_key(ticker) {
-            let TickerRegistration { expiry, owner } = Self::ticker_registration(*ticker);
-            match expiry {
+        match Self::maybe_ticker(ticker) {
+            Some(TickerRegistration { expiry, owner }) => match expiry {
                 // Ticker registered to someone but expired and can be registered again.
                 Some(expiry) if <pallet_timestamp::Module<T>>::get() > expiry => {
                     TickerRegistrationStatus::Available
@@ -1362,10 +1368,9 @@ impl<T: Trait> Module<T> {
                 _ if owner == did => TickerRegistrationStatus::RegisteredByDid,
                 // Ticker registered to someone else and hasn't expired.
                 _ => TickerRegistrationStatus::RegisteredByOther,
-            }
-        } else {
+            },
             // Ticker not registered yet.
-            TickerRegistrationStatus::Available
+            None => TickerRegistrationStatus::Available,
         }
     }
 
@@ -1373,8 +1378,7 @@ impl<T: Trait> Module<T> {
     /// register the given `ticker` to the `owner` identity,
     /// with the registration being removed at `expiry`.
     fn _register_ticker_feeless(ticker: &Ticker, owner: IdentityId, expiry: Option<T::Moment>) {
-        if <Tickers<T>>::contains_key(ticker) {
-            let ticker_details = <Tickers<T>>::get(ticker);
+        if let Some(ticker_details) = Self::maybe_ticker(ticker) {
             <AssetOwnershipRelations>::remove(ticker_details.owner, ticker);
         }
 
