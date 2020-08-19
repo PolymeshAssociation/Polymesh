@@ -17,6 +17,7 @@
 
 use codec::{Decode, Encode};
 use frame_support::migration::{put_storage_value, StorageIterator};
+use sp_std::vec::Vec;
 
 /// A data type which is migrating through `migrate` to a new type as defined by `Into`.
 pub trait Migrate: Decode {

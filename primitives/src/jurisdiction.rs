@@ -16,12 +16,11 @@
 //! Data types and definitions of jurisdictions.
 
 use crate::migrate::Migrate;
-use polymesh_primitives_derive::VecU8StrongTyped;
-
 use codec::{Decode, Encode};
+use core::str;
+use polymesh_primitives_derive::VecU8StrongTyped;
 #[cfg(feature = "std")]
 use sp_runtime::{Deserialize, Serialize};
-
 use sp_std::prelude::*;
 
 /// A wrapper for Jurisdiction name.
@@ -34,9 +33,7 @@ pub struct JurisdictionName(pub Vec<u8>);
 impl Migrate for JurisdictionName {
     type Into = CountryCode;
     fn migrate(self) -> Option<Self::Into> {
-        std::str::from_utf8(&self.0)
-            .ok()
-            .and_then(CountryCode::by_any)
+        str::from_utf8(&self.0).ok().and_then(CountryCode::by_any)
     }
 }
 
