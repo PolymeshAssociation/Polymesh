@@ -109,6 +109,7 @@ fn create_se_template<T>(
 fn create_contract_instance<T>(
     instance_creator: AccountId,
     code_hash: <T::Hashing as Hash>::Output,
+    fail: bool
 ) -> DispatchResultWithPostInfo
 where
     T: frame_system::Trait<Hash = sp_core::H256>,
@@ -117,8 +118,8 @@ where
     // Set payer of the transaction
     TestStorage::set_payer_context(Some(instance_creator));
 
-    // Increment the nonce.
-    System::inc_account_nonce(instance_creator);
+    // Access the extension nonce.
+    let current_extension_nonce = WrapperContracts::extension_nonce();
 
     // create a instance
     let result = WrapperContracts::instantiate(
@@ -128,6 +129,10 @@ where
         code_hash,
         input_data.to_vec(),
     );
+
+    if !fail {
+        assert_eq!(WrapperContracts::extension_nonce(), current_extension_nonce + 1);
+    }
 
     // Free up the context
     TestStorage::set_payer_context(None);
@@ -215,7 +220,7 @@ fn check_instantiation_functionality() {
             let bob_balance = System::account(bob).data.free;
 
             // create instance of contract
-            let result = create_contract_instance::<TestStorage>(bob, code_hash);
+            let result = create_contract_instance::<TestStorage>(bob, code_hash, false);
 
             assert_ok!(result);
             // Verify the actual weight of the extrinsic.
@@ -240,7 +245,7 @@ fn check_instantiation_functionality() {
             // Check whether the contract creation allowed or not with same constructor data.
             // It should be as contract creation is depend on the nonce of the account.
 
-            let result = create_contract_instance::<TestStorage>(bob, code_hash);
+            let result = create_contract_instance::<TestStorage>(bob, code_hash, false);
             assert_ok!(result);
 
             // Generate the contract address.
@@ -287,7 +292,7 @@ fn allow_network_share_deduction() {
             let fee_collector_balance = System::account(fee_collector).data.free;
 
             // create instance of contract
-            assert_ok!(create_contract_instance::<TestStorage>(bob, code_hash));
+            assert_ok!(create_contract_instance::<TestStorage>(bob, code_hash,false));
 
             // check the fee division
             // 25 % of fee should be consumed by the network and 75% should be transferred to template owner.
@@ -373,7 +378,7 @@ fn check_behavior_when_instantiation_fee_changes() {
             let fee_collector_balance = System::account(fee_collector).data.free;
 
             // create instance of contract
-            assert_ok!(create_contract_instance::<TestStorage>(bob, code_hash));
+            assert_ok!(create_contract_instance::<TestStorage>(bob, code_hash, false));
 
             // check the fee division
             // 30 % of fee should be consumed by the network and 70% should be transferred to template owner.
@@ -433,7 +438,7 @@ fn check_freeze_unfreeze_functionality() {
 
             // Instantiation should fail
             assert_err!(
-                create_contract_instance::<TestStorage>(bob, code_hash),
+                create_contract_instance::<TestStorage>(bob, code_hash, true),
                 WrapperContractsError::InstantiationIsNotAllowed
             );
 
@@ -455,7 +460,7 @@ fn check_freeze_unfreeze_functionality() {
             );
 
             // Instantiation should passed
-            assert_ok!(create_contract_instance::<TestStorage>(bob, code_hash));
+            assert_ok!(create_contract_instance::<TestStorage>(bob, code_hash, false));
         });
 }
 
@@ -595,7 +600,7 @@ fn check_transaction_rollback_functionality_for_instantiation() {
             let fee_collector_balance = System::account(fee_collector).data.free;
 
             // create instance of contract
-            assert_err!(create_contract_instance::<TestStorage>(bob, code_hash), ProtocolFeeError::InsufficientAccountBalance);
+            assert_err!(create_contract_instance::<TestStorage>(bob, code_hash, true), ProtocolFeeError::InsufficientAccountBalance);
 
             // Generate the contract address.
             let flipper_address_1 =

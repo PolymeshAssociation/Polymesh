@@ -4428,6 +4428,7 @@ dependencies = [
  "parity-scale-codec",
  "polymesh-common-utilities",
  "polymesh-primitives",
+ "serde",
  "sp-core",
  "sp-io",
  "sp-runtime",

@@ -58,7 +58,10 @@ where
         origin: &T::AccountId,
     ) -> T::AccountId {
         let data_hash = T::Hashing::hash(data);
-        let nonce = <frame_system::Module<T>>::account(origin).nonce;
+        let nonce = ExtensionNonce::mutate(|n| {
+            *n = *n + 1u64;
+            *n
+        });
         let nonce_hash = T::Hashing::hash(&(nonce.encode()));
         let mut buf = Vec::new();
         buf.extend_from_slice(code_hash.as_ref());
@@ -81,6 +84,9 @@ decl_storage! {
     trait Store for Module<T: Trait> as ContractsWrapper {
         /// Store the meta details of the smart extension template.
         pub TemplateMetaDetails get(fn get_template_meta_details): map hasher(twox_64_concat) CodeHash<T> => TemplateMetadata<BalanceOf<T>>;
+        /// Nonce for the smart extension account id generation.
+        /// Using explicit nonce as in batch transaction accounts nonce doesn't get incremented.
+        pub ExtensionNonce get(fn extension_nonce): u64;
     }
 }
 
