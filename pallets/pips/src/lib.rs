@@ -537,7 +537,7 @@ decl_module! {
         ///
         /// # Arguments
         /// * `deposit` the new min deposit required to start a proposal
-        #[weight = (150_000_000, DispatchClass::Operational, Pays::Yes)]
+        #[weight = (550_000_000, DispatchClass::Operational, Pays::Yes)]
         pub fn set_prune_historical_pips(origin, new_value: bool) {
             T::CommitteeOrigin::ensure_origin(origin)?;
             Self::deposit_event(RawEvent::HistoricalPipsPruned(SystematicIssuers::Committee.as_id(), Self::prune_historical_pips(), new_value));
@@ -549,7 +549,7 @@ decl_module! {
         ///
         /// # Arguments
         /// * `deposit` the new min deposit required to start a proposal
-        #[weight = (150_000_000, DispatchClass::Operational, Pays::Yes)]
+        #[weight = (550_000_000, DispatchClass::Operational, Pays::Yes)]
         pub fn set_min_proposal_deposit(origin, deposit: BalanceOf<T>) {
             T::CommitteeOrigin::ensure_origin(origin)?;
             Self::deposit_event(RawEvent::MinimumProposalDepositChanged(SystematicIssuers::Committee.as_id(), Self::min_proposal_deposit(), deposit));
@@ -561,7 +561,7 @@ decl_module! {
         ///
         /// # Arguments
         /// * `duration` proposal cool off period duration in blocks
-        #[weight = (150_000_000, DispatchClass::Operational, Pays::Yes)]
+        #[weight = (550_000_000, DispatchClass::Operational, Pays::Yes)]
         pub fn set_proposal_cool_off_period(origin, duration: T::BlockNumber) {
             T::CommitteeOrigin::ensure_origin(origin)?;
             Self::deposit_event(RawEvent::ProposalCoolOffPeriodChanged(SystematicIssuers::Committee.as_id(), Self::proposal_cool_off_period(), duration));
@@ -569,7 +569,7 @@ decl_module! {
         }
 
         /// Change the default enact period.
-        #[weight = (150_000_000, DispatchClass::Operational, Pays::Yes)]
+        #[weight = (550_000_000, DispatchClass::Operational, Pays::Yes)]
         pub fn set_default_enactment_period(origin, duration: T::BlockNumber) {
             T::CommitteeOrigin::ensure_origin(origin)?;
             let prev = <DefaultEnactmentPeriod<T>>::get();
