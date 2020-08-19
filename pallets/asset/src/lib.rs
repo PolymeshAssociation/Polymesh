@@ -435,8 +435,8 @@ decl_module! {
         /// * `funding_round` - name of the funding round.
         ///
         /// # Weight
-        /// `1_000_000_000 + 20_000 * identifiers.len()`
-        #[weight = 1_000_000_000 + 20_000 * u64::try_from(identifiers.len()).unwrap_or_default()]
+        /// `3_000_000_000 + 20_000 * identifiers.len()`
+        #[weight = 3_000_000_000 + 20_000 * u64::try_from(identifiers.len()).unwrap_or_default()]
         pub fn create_asset(
             origin,
             name: AssetName,
@@ -1009,7 +1009,7 @@ decl_module! {
         /// # Arguments
         /// * `origin` Signing key of the token owner.
         /// * `ticker` Ticker of the token.
-        #[weight = T::DbWeight::get().reads_writes(2, 1) + 100_000_000]
+        #[weight = T::DbWeight::get().reads_writes(2, 1) + 300_000_000]
         pub fn make_divisible(origin, ticker: Ticker) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             let did = Context::current_identity_or::<Identity<T>>(&sender)?;
@@ -1230,7 +1230,7 @@ decl_module! {
         /// * `origin` - the signing key of the token owner DID.
         /// * `ticker` - the ticker of the token.
         /// * `name` - the desired name of the current funding round.
-        #[weight = T::DbWeight::get().reads_writes(2, 1) + 100_000_000]
+        #[weight = T::DbWeight::get().reads_writes(2, 1) + 600_000_000]
         pub fn set_funding_round(origin, ticker: Ticker, name: FundingRoundName) ->
             DispatchResult
         {
@@ -1252,7 +1252,7 @@ decl_module! {
         ///
         /// # Weight
         /// `150_000 + 20_000 * identifiers.len()`
-        #[weight = T::DbWeight::get().reads_writes(1, 1) + 100_000_000 + 20_000 * u64::try_from(identifiers.len()).unwrap_or_default()]
+        #[weight = T::DbWeight::get().reads_writes(1, 1) + 700_000_000 + 20_000 * u64::try_from(identifiers.len()).unwrap_or_default()]
         pub fn update_identifiers(
             origin,
             ticker: Ticker,
@@ -1347,7 +1347,7 @@ decl_module! {
         /// * `origin` - The asset issuer.
         /// * `ticker` - Ticker symbol of the asset.
         /// * `treasury_did` - The treasury DID wrapped in a value of type [`Option`].
-        #[weight = T::DbWeight::get().reads_writes(1, 1) + 50_000_000]
+        #[weight = 250_000_000]
         pub fn set_treasury_did(
             origin,
             ticker: Ticker,
