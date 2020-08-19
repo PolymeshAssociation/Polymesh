@@ -173,6 +173,9 @@ pub use identity_claim::{Claim, ClaimType, IdentityClaim, Scope, ScopeId};
 pub mod jurisdiction;
 pub use jurisdiction::{CountryCode, JurisdictionName};
 
+/// Utilities for storage migration.
+pub mod migrate;
+
 /// This module contains entities related with secondary keys.
 pub mod secondary_key;
 pub use secondary_key::{Permission, SecondaryKey, Signatory};

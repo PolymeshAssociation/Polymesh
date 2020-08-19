@@ -13,7 +13,7 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
-use crate::{identity_id::IdentityId, CddId, InvestorZKProofData, Moment};
+use crate::{identity_id::IdentityId, migrate::Migrate, CddId, InvestorZKProofData, Moment};
 
 use codec::{Decode, Encode};
 #[cfg(feature = "std")]
@@ -21,12 +21,61 @@ use sp_runtime::{Deserialize, Serialize};
 
 use sp_std::prelude::*;
 
-use super::jurisdiction::CountryCode;
+use super::jurisdiction::{CountryCode, JurisdictionName};
 
 /// Scope: Almost all claim needs a valid scope identity.
 pub type Scope = IdentityId;
 /// It is the asset Id.
 pub type ScopeId = Scope;
+
+/// All possible claims in polymesh
+#[derive(Decode)]
+pub enum ClaimOld {
+    /// User is Accredited
+    Accredited(Scope),
+    /// User is Accredited
+    Affiliate(Scope),
+    /// User has an active BuyLockup (end date defined in claim expiry)
+    BuyLockup(Scope),
+    /// User has an active SellLockup (date defined in claim expiry)
+    SellLockup(Scope),
+    /// User has passed CDD
+    CustomerDueDiligence(CddId),
+    /// User is KYC'd
+    KnowYourCustomer(Scope),
+    /// This claim contains a string that represents the jurisdiction of the user
+    Jurisdiction(
+        JurisdictionName, // delta compared to `Claim`.
+        Scope,
+    ),
+    /// User is exempted
+    Exempted(Scope),
+    /// User is Blocked
+    Blocked(Scope),
+    /// Confidential Scope claim
+    InvestorZKProof(Scope, ScopeId, CddId, InvestorZKProofData),
+    /// Empty claim
+    NoData,
+}
+
+impl Migrate for ClaimOld {
+    type Into = Claim;
+    fn migrate(self) -> Option<Self::Into> {
+        Some(match self {
+            Self::Accredited(a) => Self::Into::Accredited(a),
+            Self::Affiliate(a) => Self::Into::Affiliate(a),
+            Self::BuyLockup(a) => Self::Into::BuyLockup(a),
+            Self::SellLockup(a) => Self::Into::SellLockup(a),
+            Self::CustomerDueDiligence(a) => Self::Into::CustomerDueDiligence(a),
+            Self::KnowYourCustomer(a) => Self::Into::KnowYourCustomer(a),
+            Self::Jurisdiction(j, b) => Self::Into::Jurisdiction(j.migrate()?, b),
+            Self::Exempted(a) => Self::Into::Exempted(a),
+            Self::Blocked(a) => Self::Into::Blocked(a),
+            Self::InvestorZKProof(a, b, c, d) => Self::Into::InvestorZKProof(a, b, c, d),
+            Self::NoData => Self::Into::NoData,
+        })
+    }
+}
 
 /// All possible claims in polymesh
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
@@ -136,6 +185,34 @@ pub enum ClaimType {
 impl Default for ClaimType {
     fn default() -> Self {
         ClaimType::NoType
+    }
+}
+
+/// All information of a particular claim
+#[derive(Decode)]
+pub struct IdentityClaimOld {
+    /// Issuer of the claim
+    pub claim_issuer: IdentityId,
+    /// Issuance date
+    pub issuance_date: Moment,
+    /// Last updated date
+    pub last_update_date: Moment,
+    /// Expirty date
+    pub expiry: Option<Moment>,
+    /// Claim data
+    pub claim: ClaimOld,
+}
+
+impl Migrate for IdentityClaimOld {
+    type Into = IdentityClaim;
+    fn migrate(self) -> Option<Self::Into> {
+        Some(Self::Into {
+            claim_issuer: self.claim_issuer,
+            issuance_date: self.issuance_date,
+            last_update_date: self.last_update_date,
+            expiry: self.expiry,
+            claim: self.claim.migrate()?,
+        })
     }
 }
 

@@ -92,7 +92,9 @@ use polymesh_common_utilities::{
     protocol_fee::{ChargeProtocolFee, ProtocolOp},
     Context,
 };
-use polymesh_primitives::{predicate, Claim, ClaimType, IdentityId, Rule, RuleType, Ticker};
+use polymesh_primitives::{
+    migrate::Migrate, predicate, Claim, ClaimType, IdentityId, Rule, RuleType, Ticker,
+};
 #[cfg(feature = "std")]
 use sp_runtime::{Deserialize, Serialize};
 use sp_std::{
@@ -113,6 +115,29 @@ pub trait Trait:
 
     /// The maximum claim reads that are allowed to happen in worst case of a rule resolution
     type MaxRuleComplexity: Get<u32>;
+}
+
+use polymesh_primitives::rule::RuleOld;
+
+/// An asset transfer rule.
+/// All sender and receiver rule of the same asset rule must be true in order to execute the transfer.
+#[derive(codec::Decode)]
+pub struct AssetTransferRuleOld {
+    pub sender_rules: Vec<RuleOld>,
+    pub receiver_rules: Vec<RuleOld>,
+    /// Unique identifier of the asset rule
+    pub rule_id: u32,
+}
+
+impl Migrate for AssetTransferRuleOld {
+    type Into = AssetTransferRule;
+    fn migrate(self) -> Option<Self::Into> {
+        Some(Self::Into {
+            sender_rules: self.sender_rules.migrate()?,
+            receiver_rules: self.receiver_rules.migrate()?,
+            rule_id: self.rule_id,
+        })
+    }
 }
 
 /// An asset transfer rule.
@@ -170,6 +195,25 @@ pub struct RuleResult {
 impl From<Rule> for RuleResult {
     fn from(rule: Rule) -> Self {
         Self { rule, result: true }
+    }
+}
+
+/// List of rules associated to an asset.
+#[derive(codec::Decode)]
+pub struct AssetTransferRulesOld {
+    /// This flag indicates if asset transfer rules are active or paused.
+    pub is_paused: bool,
+    /// List of rules.
+    pub rules: Vec<AssetTransferRuleOld>,
+}
+
+impl Migrate for AssetTransferRulesOld {
+    type Into = AssetTransferRules;
+    fn migrate(self) -> Option<Self::Into> {
+        Some(Self::Into {
+            is_paused: self.is_paused,
+            rules: self.rules.migrate()?,
+        })
     }
 }
 
@@ -249,6 +293,14 @@ decl_module! {
         type Error = Error<T>;
 
         fn deposit_event() = default;
+
+        fn on_runtime_upgrade() -> frame_support::weights::Weight {
+            use polymesh_primitives::migrate::migrate_map;
+            migrate_map::<AssetTransferRulesOld>(b"ComplianceManager", b"AssetRulesMap");
+
+            // It's gonna be alot, so lets pretend its 0 anyways.
+            0
+        }
 
         /// Adds an asset rule to active rules for a ticker.
         /// If rules are duplicated, it does nothing.
