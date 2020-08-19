@@ -104,7 +104,7 @@
             "primary_key": "AccountId",
             "secondary_keys": "Vec<SecondaryKey>"
         },
-        "JurisdictionName": "Text",
+        "CountryCode": "u16",
         "Scope": "IdentityId",
         "InvestorZKProofData": "[u8;64]",
         "Claim": {
@@ -115,7 +115,7 @@
                 "SellLockup": "Scope",
                 "CustomerDueDiligence": "CddId",
                 "KnowYourCustomer": "Scope",
-                "Jurisdiction": "(JurisdictionName, Scope)",
+                "Jurisdiction": "(CountryCode, Scope)",
                 "Exempted": "Scope",
                 "Blocked": "Scope",
                 "InvestorZKProof": "(Scope, ScopeId, CddId, InvestorZKProofData)",
