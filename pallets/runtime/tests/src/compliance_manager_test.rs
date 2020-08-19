@@ -153,17 +153,17 @@ fn should_add_and_verify_asset_rule_we() {
     let now = Utc::now();
     Timestamp::set_timestamp(now.timestamp() as u64);
 
-    let sender_rule = Condition {
+    let sender_condition = Condition {
         issuers: vec![claim_issuer_did],
         condition_type: ConditionType::IsPresent(Claim::NoData),
     };
 
-    let receiver_rule1 = Condition {
+    let receiver_condition1 = Condition {
         issuers: vec![cdd_id],
         condition_type: ConditionType::IsAbsent(Claim::make_cdd_wildcard()),
     };
 
-    let receiver_rule2 = Condition {
+    let receiver_condition2 = Condition {
         issuers: vec![claim_issuer_did],
         condition_type: ConditionType::IsPresent(Claim::Accredited(token_owner_did)),
     };
@@ -171,8 +171,8 @@ fn should_add_and_verify_asset_rule_we() {
     assert_ok!(ComplianceManager::add_compliance_requirement(
         token_owner_signed.clone(),
         ticker,
-        vec![sender_rule.clone()],
-        vec![receiver_rule1.clone(), receiver_rule2.clone()]
+        vec![sender_condition.clone()],
+        vec![receiver_condition1.clone(), receiver_condition2.clone()]
     ));
 
     assert_ok!(Identity::add_claim(
@@ -195,9 +195,9 @@ fn should_add_and_verify_asset_rule_we() {
     assert!(result.requirements[0].sender_conditions[0].result);
     assert!(result.requirements[0].receiver_conditions[0].result);
     assert!(!result.requirements[0].receiver_conditions[1].result);
-    assert_eq!(result.requirements[0].sender_conditions[0].rule, sender_rule);
-    assert_eq!(result.requirements[0].receiver_conditions[0].rule, receiver_rule1);
-    assert_eq!(result.requirements[0].receiver_conditions[1].rule, receiver_rule2);
+    assert_eq!(result.requirements[0].sender_conditions[0].condition, sender_condition);
+    assert_eq!(result.requirements[0].receiver_conditions[0].condition, receiver_condition1);
+    assert_eq!(result.requirements[0].receiver_conditions[1].condition, receiver_condition2);
 
     assert_ok!(Identity::add_claim(
         claim_issuer_signed.clone(),
@@ -218,9 +218,9 @@ fn should_add_and_verify_asset_rule_we() {
     assert!(result.requirements[0].sender_conditions[0].result);
     assert!(result.requirements[0].receiver_conditions[0].result);
     assert!(result.requirements[0].receiver_conditions[1].result);
-    assert_eq!(result.requirements[0].sender_conditions[0].rule, sender_rule);
-    assert_eq!(result.requirements[0].receiver_conditions[0].rule, receiver_rule1);
-    assert_eq!(result.requirements[0].receiver_conditions[1].rule, receiver_rule2);
+    assert_eq!(result.requirements[0].sender_conditions[0].condition, sender_condition);
+    assert_eq!(result.requirements[0].receiver_conditions[0].condition, receiver_condition1);
+    assert_eq!(result.requirements[0].receiver_conditions[1].condition, receiver_condition2);
 
     assert_ok!(Identity::add_claim(
         cdd_signed.clone(),
@@ -241,9 +241,9 @@ fn should_add_and_verify_asset_rule_we() {
     assert!(result.requirements[0].sender_conditions[0].result);
     assert!(!result.requirements[0].receiver_conditions[0].result);
     assert!(result.requirements[0].receiver_conditions[1].result);
-    assert_eq!(result.requirements[0].sender_conditions[0].rule, sender_rule);
-    assert_eq!(result.requirements[0].receiver_conditions[0].rule, receiver_rule1);
-    assert_eq!(result.requirements[0].receiver_conditions[1].rule, receiver_rule2);
+    assert_eq!(result.requirements[0].sender_conditions[0].condition, sender_condition);
+    assert_eq!(result.requirements[0].receiver_conditions[0].condition, receiver_condition1);
+    assert_eq!(result.requirements[0].receiver_conditions[1].condition, receiver_condition2);
 }
 
 #[test]
@@ -532,12 +532,12 @@ fn should_successfully_add_and_use_default_issuers_we() {
     let now = Utc::now();
     Timestamp::set_timestamp(now.timestamp() as u64);
 
-    let sender_rule = Condition {
+    let sender_condition = Condition {
         issuers: vec![],
         condition_type: ConditionType::IsPresent(Claim::make_cdd_wildcard()),
     };
 
-    let receiver_rule = Condition {
+    let receiver_condition = Condition {
         issuers: vec![],
         condition_type: ConditionType::IsPresent(Claim::make_cdd_wildcard()),
     };
@@ -545,8 +545,8 @@ fn should_successfully_add_and_use_default_issuers_we() {
     assert_ok!(ComplianceManager::add_compliance_requirement(
         token_owner_signed.clone(),
         ticker,
-        vec![sender_rule],
-        vec![receiver_rule]
+        vec![sender_condition],
+        vec![receiver_condition]
     ));
 
     // fail when token owner doesn't has the valid claim
@@ -679,23 +679,23 @@ fn should_modify_vector_of_trusted_issuer_we() {
     let now = Utc::now();
     Timestamp::set_timestamp(now.timestamp() as u64);
 
-    let sender_rule = Condition {
+    let sender_condition = Condition {
         issuers: vec![],
         condition_type: ConditionType::IsPresent(Claim::make_cdd_wildcard()),
     };
 
-    let receiver_rule_1 = Condition {
+    let receiver_condition_1 = Condition {
         issuers: vec![],
         condition_type: ConditionType::IsPresent(Claim::make_cdd_wildcard()),
     };
 
-    let receiver_rule_2 = Condition {
+    let receiver_condition_2 = Condition {
         issuers: vec![],
         condition_type: ConditionType::IsPresent(Claim::NoData),
     };
 
-    let x = vec![sender_rule.clone()];
-    let y = vec![receiver_rule_1, receiver_rule_2];
+    let x = vec![sender_condition.clone()];
+    let y = vec![receiver_condition_1, receiver_condition_2];
 
     assert_ok!(ComplianceManager::add_compliance_requirement(
         token_owner_signed.clone(),
@@ -726,18 +726,18 @@ fn should_modify_vector_of_trusted_issuer_we() {
 
     // Change the asset rule to all the transfer happen again
 
-    let receiver_rule_1 = Condition {
+    let receiver_condition_1 = Condition {
         issuers: vec![trusted_issuer_did_1],
         condition_type: ConditionType::IsPresent(Claim::make_cdd_wildcard()),
     };
 
-    let receiver_rule_2 = Condition {
+    let receiver_condition_2 = Condition {
         issuers: vec![trusted_issuer_did_1],
         condition_type: ConditionType::IsPresent(Claim::NoData),
     };
 
-    let x = vec![sender_rule];
-    let y = vec![receiver_rule_1, receiver_rule_2];
+    let x = vec![sender_condition];
+    let y = vec![receiver_condition_1, receiver_condition_2];
 
     let asset_rule = ComplianceRequirement {
         sender_conditions: x.clone(),
@@ -747,7 +747,7 @@ fn should_modify_vector_of_trusted_issuer_we() {
 
     // Failed because sender is not the owner of the ticker
     assert_err!(
-        ComplianceManager::change_asset_rule(receiver_signed.clone(), ticker, asset_rule.clone()),
+        ComplianceManager::change_compliance_requirement(receiver_signed.clone(), ticker, asset_rule.clone()),
         CMError::<TestStorage>::Unauthorized
     );
 
@@ -759,16 +759,16 @@ fn should_modify_vector_of_trusted_issuer_we() {
 
     // Failed because passed rule id is not valid
     assert_err!(
-        ComplianceManager::change_asset_rule(
+        ComplianceManager::change_compliance_requirement(
             token_owner_signed.clone(),
             ticker,
             asset_rule_failure.clone()
         ),
-        CMError::<TestStorage>::InvalidRuleId
+        CMError::<TestStorage>::InvalidConditionRequirementId
     );
 
     // Should successfully change the asset rule
-    assert_ok!(ComplianceManager::change_asset_rule(
+    assert_ok!(ComplianceManager::change_compliance_requirement(
         token_owner_signed.clone(),
         ticker,
         asset_rule
