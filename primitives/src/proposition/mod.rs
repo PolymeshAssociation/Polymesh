@@ -95,7 +95,7 @@ pub use valid_proof_of_investor::ValidProofOfInvestorProposition;
 #[inline]
 pub fn equals<'a>(id: &'a TargetIdentity, primary_issuance_agent: &'a IdentityId) -> TargetIdentityProposition<'a> {
     match id {
-        TargetIdentity::primary_issuance_agent => TargetIdentityProposition { identity: primary_issuance_agent },
+        TargetIdentity::PrimaryIssuanceAgent => TargetIdentityProposition { identity: primary_issuance_agent },
         TargetIdentity::Specific(identity) => TargetIdentityProposition { identity },
     }
 }
