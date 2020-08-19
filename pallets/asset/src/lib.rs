@@ -1361,28 +1361,34 @@ impl<T: Trait> Module<T> {
         TickerRegistrationStatus::Available
     }
 
+    /// Without charging any fees,
+    /// register the given `ticker` to the `owner` identity,
+    /// with the registration being removed at `expiry`.
+    fn _register_ticker_feeless(ticker: &Ticker, owner: IdentityId, expiry: Option<T::Moment>) {
+        if <Tickers<T>>::contains_key(ticker) {
+            let ticker_details = <Tickers<T>>::get(ticker);
+            <AssetOwnershipRelations>::remove(ticker_details.owner, ticker);
+        }
+
+        let ticker_registration = TickerRegistration { owner, expiry };
+
+        // Store ticker registration details
+        <Tickers<T>>::insert(ticker, ticker_registration);
+        <AssetOwnershipRelations>::insert(owner, ticker, AssetOwnershipRelation::TickerOwned);
+
+        Self::deposit_event(RawEvent::TickerRegistered(owner, *ticker, expiry));
+    }
+
+    /// Register the given `ticker` to `to_did` identity,
+    /// with the registration being removed at `expiry`.
+    /// This version also charges protocol fees.
     fn _register_ticker(
         ticker: &Ticker,
         to_did: IdentityId,
         expiry: Option<T::Moment>,
     ) -> DispatchResult {
         <<T as IdentityTrait>::ProtocolFee>::charge_fee(ProtocolOp::AssetRegisterTicker)?;
-
-        if <Tickers<T>>::contains_key(ticker) {
-            let ticker_details = <Tickers<T>>::get(ticker);
-            <AssetOwnershipRelations>::remove(ticker_details.owner, ticker);
-        }
-
-        let ticker_registration = TickerRegistration {
-            owner: to_did,
-            expiry,
-        };
-
-        // Store ticker registration details
-        <Tickers<T>>::insert(ticker, ticker_registration);
-        <AssetOwnershipRelations>::insert(to_did, ticker, AssetOwnershipRelation::TickerOwned);
-
-        Self::deposit_event(RawEvent::TickerRegistered(to_did, *ticker, expiry));
+        Self::_register_ticker_feeless(ticker, to_did, expiry);
         Ok(())
     }
 
