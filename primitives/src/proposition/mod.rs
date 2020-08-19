@@ -32,8 +32,8 @@ pub struct Context {
     /// It could be the sender DID during the evaluation of sender's rules or
     /// the receiver DID on a receiver's rule evaluation.
     pub id: IdentityId,
-    /// Identity of the treasury of the token
-    pub treasury: Option<IdentityId>,
+    /// Identity of the primary_issuance_agent of the token
+    pub primary_issuance_agent: Option<IdentityId>,
 }
 
 // Proposition Trait
@@ -91,11 +91,11 @@ pub use valid_proof_of_investor::ValidProofOfInvestorProposition;
 // Helper functions
 // ======================================
 
-/// It creates a proposition to evaluate the matching of `id` with treasury in the context.
+/// It creates a proposition to evaluate the matching of `id` with primary_issuance_agent in the context.
 #[inline]
-pub fn equals<'a>(id: &'a TargetIdentity, treasury: &'a IdentityId) -> TargetIdentityProposition<'a> {
+pub fn equals<'a>(id: &'a TargetIdentity, primary_issuance_agent: &'a IdentityId) -> TargetIdentityProposition<'a> {
     match id {
-        TargetIdentity::Treasury => TargetIdentityProposition { identity: treasury },
+        TargetIdentity::primary_issuance_agent => TargetIdentityProposition { identity: primary_issuance_agent },
         TargetIdentity::Specific(identity) => TargetIdentityProposition { identity },
     }
 }
@@ -139,7 +139,7 @@ pub fn run(condition: &Condition, context: &Context) -> bool {
             has_valid_proof_of_investor(ticker.clone()).evaluate(context)
         }
         ConditionType::IsIdentity(ref id) => {
-            equals(id, &context.treasury.unwrap_or_default()).evaluate(context)
+            equals(id, &context.primary_issuance_agent.unwrap_or_default()).evaluate(context)
         }
     }
 }

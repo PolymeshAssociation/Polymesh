@@ -327,7 +327,7 @@ decl_module! {
         ///
         /// # Weight
         /// `read_and_write_weight + 100_000_000 + 500_000 * asset_compliance.len()`
-        #[weight = T::DbWeight::get().reads_writes(1, 1) + 100_000_000 + 500_000 * u64::try_from(asset_compliance.len()).unwrap_or_default()]
+        #[weight = T::DbWeight::get().reads_writes(1, 1) + 400_000_000 + 500_000 * u64::try_from(asset_compliance.len()).unwrap_or_default()]
         pub fn replace_asset_compliance(origin, ticker: Ticker, asset_compliance: Vec<ComplianceRequirement>) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             let did = Context::current_identity_or::<Identity<T>>(&sender)?;
@@ -455,7 +455,7 @@ decl_module! {
         /// * origin - Signer of the dispatchable. It should be the owner of the ticker.
         /// * ticker - Symbol of the asset.
         /// * new_requirement - Compliance requirement.
-        #[weight = T::DbWeight::get().reads_writes(2, 1) + 120_000_000]
+        #[weight = T::DbWeight::get().reads_writes(2, 1) + 720_000_000]
         pub fn change_compliance_requirement(origin, ticker: Ticker, new_requirement: ComplianceRequirement) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             let did = Context::current_identity_or::<Identity<T>>(&sender)?;
@@ -486,8 +486,8 @@ decl_module! {
         /// * ticker - Symbol of the asset.
         ///
         /// # Weight
-        /// `read_and_write_weight + 12_000_000 + 100_000 * new_requirements.len().max(values.len())`
-        #[weight = T::DbWeight::get().reads_writes(2, 1) + 120_000_000 + 100_000 * u64::try_from(new_requirements.len()).unwrap_or_default()]
+        /// `read_and_write_weight + 720_000_000 + 100_000 * new_requirements.len().max(values.len())`
+        #[weight = T::DbWeight::get().reads_writes(2, 1) + 720_000_000 + 100_000 * u64::try_from(new_requirements.len()).unwrap_or_default()]
         pub fn batch_change_compliance_requirement(origin, new_requirements: Vec<ComplianceRequirement> , ticker: Ticker) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             let did = Context::current_identity_or::<Identity<T>>(&sender)?;
@@ -596,7 +596,7 @@ impl<T: Trait> Module<T> {
         ticker: &Ticker,
         id: IdentityId,
         condition: &Condition,
-        treasury: Option<IdentityId>,
+        primary_issuance_agent: Option<IdentityId>,
     ) -> proposition::Context {
         let issuers = if !condition.issuers.is_empty() {
             condition.issuers.clone()
@@ -624,7 +624,7 @@ impl<T: Trait> Module<T> {
         proposition::Context {
             claims,
             id,
-            treasury,
+            primary_issuance_agent,
         }
     }
 
@@ -633,10 +633,10 @@ impl<T: Trait> Module<T> {
         ticker: &Ticker,
         did: IdentityId,
         conditions: &[Condition],
-        treasury_did: Option<IdentityId>,
+        primary_issuance_agent: Option<IdentityId>,
     ) -> bool {
         conditions.iter().all(|condition| {
-            let context = Self::fetch_context(ticker, did, &condition, treasury_did);
+            let context = Self::fetch_context(ticker, did, &condition, primary_issuance_agent);
             proposition::run(&condition, &context)
         })
     }
@@ -648,11 +648,11 @@ impl<T: Trait> Module<T> {
         ticker: &Ticker,
         did: IdentityId,
         conditions: &mut Vec<ConditionResult>,
-        treasury_did: Option<IdentityId>,
+        primary_issuance_agent: Option<IdentityId>,
     ) -> bool {
         let mut result = true;
         for condition in conditions {
-            let context = Self::fetch_context(ticker, did, &condition.condition, treasury_did);
+            let context = Self::fetch_context(ticker, did, &condition.condition, primary_issuance_agent);
             condition.result = proposition::run(&condition.condition, &context);
             if !condition.result {
                 result = false;
@@ -767,11 +767,11 @@ impl<T: Trait> Module<T> {
 
     // TODO: Cache the latest_requirement_id to avoid loading of all compliance requirements in memory.
     fn get_latest_requirement_id(ticker: Ticker) -> u32 {
-        let length = Self::asset_compliance(ticker).requirements.len();
-        match length > 0 {
-            true => Self::asset_compliance(ticker).requirements[length - 1].id,
-            false => 0u32,
-        }
+        Self::asset_compliance(ticker)
+            .requirements
+            .last()
+            .map(|r| r.id)
+            .unwrap_or(0)
     }
 
     /// verifies all requirements and returns the result in an array of bools.
@@ -781,7 +781,7 @@ impl<T: Trait> Module<T> {
         ticker: &Ticker,
         from_did_opt: Option<IdentityId>,
         to_did_opt: Option<IdentityId>,
-        treasury_did: Option<IdentityId>,
+        primary_issuance_agent: Option<IdentityId>,
     ) -> AssetComplianceResult {
         let asset_compliance = Self::asset_compliance(ticker);
         let mut asset_compliance_with_results = AssetComplianceResult::from(asset_compliance);
@@ -793,7 +793,7 @@ impl<T: Trait> Module<T> {
                     ticker,
                     from_did,
                     &mut requirements.sender_conditions,
-                    treasury_did,
+                    primary_issuance_agent,
                 ) {
                     // If the result of any of the sender conditions was false, set this requirements result to false.
                     requirements.result = false;
@@ -805,7 +805,7 @@ impl<T: Trait> Module<T> {
                     ticker,
                     to_did,
                     &mut requirements.receiver_conditions,
-                    treasury_did,
+                    primary_issuance_agent,
                 ) {
                     // If the result of any of the receiver conditions was false, set this requirements result to false.
                     requirements.result = false;
@@ -855,7 +855,7 @@ impl<T: Trait> ComplianceManagerTrait<T::Balance> for Module<T> {
         from_did_opt: Option<IdentityId>,
         to_did_opt: Option<IdentityId>,
         _value: T::Balance,
-        treasury_did: Option<IdentityId>,
+        primary_issuance_agent: Option<IdentityId>,
     ) -> StdResult<u8, &'static str> {
         // Transfer is valid if ALL receiver AND sender conditions of ANY asset conditions are valid.
         let asset_compliance = Self::asset_compliance(ticker);
@@ -868,7 +868,7 @@ impl<T: Trait> ComplianceManagerTrait<T::Balance> for Module<T> {
                     ticker,
                     from_did,
                     &requirement.sender_conditions,
-                    treasury_did,
+                    primary_issuance_agent,
                 ) {
                     // Skips checking receiver conditions because sender conditions are not satisfied.
                     continue;
@@ -879,7 +879,7 @@ impl<T: Trait> ComplianceManagerTrait<T::Balance> for Module<T> {
                     ticker,
                     to_did,
                     &requirement.receiver_conditions,
-                    treasury_did,
+                    primary_issuance_agent,
                 ) {
                     // All conditions satisfied, return early
                     return Ok(ERC1400_TRANSFER_SUCCESS);

@@ -28,6 +28,9 @@ use sp_std::{
     vec::Vec,
 };
 
+/// The number of group members.
+pub type MemberCount = u32;
+
 #[derive(Encode, Decode, Default, Clone, PartialEq, Eq, Debug)]
 pub struct InactiveMember<Moment> {
     pub id: IdentityId,
@@ -80,6 +83,11 @@ pub trait Trait<I>: frame_system::Trait + pallet_timestamp::Trait + IdentityTrai
     /// The overarching event type.
     type Event: From<Event<Self, I>> + Into<<Self as frame_system::Trait>::Event>;
 
+    /// Required origin for changing the active limit.
+    /// It's recommended that e.g., in case of a committee,
+    /// this be an origin that cannot be formed through a committee majority.
+    type LimitOrigin: EnsureOrigin<<Self as frame_system::Trait>::Origin>;
+
     /// Required origin for adding a member (though can always be Root).
     type AddOrigin: EnsureOrigin<<Self as frame_system::Trait>::Origin>;
 
@@ -121,6 +129,8 @@ decl_event!(
         /// The membership was reset; see the transaction for who the new set is.
         /// caller DID, List of new members.
         MembersReset(IdentityId, Vec<IdentityId>),
+        /// The limit of how many active members there can be concurrently was changed.
+        ActiveLimitChanged(IdentityId, MemberCount, MemberCount),
         /// Phantom member, never used.
         Dummy(sp_std::marker::PhantomData<(AccountId, Event)>),
     }
