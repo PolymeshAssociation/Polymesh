@@ -1324,15 +1324,10 @@ impl<T: Trait> Module<T> {
         // Assumes uppercase ticker
         if <Tickers<T>>::contains_key(ticker) {
             let now = <pallet_timestamp::Module<T>>::get();
-            if let Some(expiry) = Self::ticker_registration(*ticker).expiry {
-                if now <= expiry {
-                    return false;
-                }
-            } else {
-                return false;
-            }
+            Self::ticker_registration(*ticker).expiry.filter(|&e| now > e).is_some()
+        } else {
+            true
         }
-        true
     }
 
     /// Returns `true` iff the ticker exists, is owned by `did`, and ticker hasn't expired.
