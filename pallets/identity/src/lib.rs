@@ -545,7 +545,7 @@ decl_module! {
             with_each_transaction(claims, |bci| {
                 Self::add_claim(origin.clone(), bci.target, bci.claim, bci.expiry)
             })
-       }
+        }
 
         /// Creates a call on behalf of another DID.
         #[weight =(
@@ -680,7 +680,7 @@ decl_module! {
 
         // TODO: Remove before mainnet launch.
         /// Emits an event with caller's identity.
-        #[weight = 80_000_000]
+        #[weight = 800_000_000]
         pub fn get_my_did(origin) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             let did = Context::current_identity_or::<Self>(&sender)?;
@@ -691,7 +691,7 @@ decl_module! {
 
         // TODO: Remove before mainnet launch.
         /// Emits an event with caller's identity and CDD status.
-        #[weight = 80_000_000]
+        #[weight = 800_000_000]
         pub fn get_cdd_of(_origin, of: T::AccountId) -> DispatchResult {
             let did_opt = Self::get_identity(&of);
             let has_cdd = did_opt.iter()
@@ -1023,7 +1023,7 @@ decl_module! {
 
         /// It revokes the `auth` off-chain authorization of `signer`. It only takes effect if
         /// the authorized transaction is not yet executed.
-        #[weight = 400_000_000]
+        #[weight = 850_000_000]
         pub fn revoke_offchain_authorization(
             origin,
             signer: Signatory<T::AccountId>,
