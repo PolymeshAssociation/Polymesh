@@ -1,58 +1,14 @@
 use syn::export::TokenStream2;
-use syn::{
-    parse::{Parse, ParseStream},
-    visit_mut, Data, DataEnum, DataStruct, DeriveInput, Ident, Index, Type,
-};
+use syn::parse::{Parse, ParseStream};
+use syn::spanned::Spanned as _;
+use syn::{visit_mut, Data, DataEnum, DataStruct, DeriveInput, Ident, Index, Type};
 
-enum Field {
-    Named(Ident),
-    Index(usize),
-}
-
-impl Field {
-    fn new(idx: usize, opt_ident: Option<Ident>) -> Self {
-        match opt_ident {
-            Some(ident) => Self::Named(ident),
-            None => Self::Index(idx),
-        }
-    }
-
-    fn idx_ident(idx: usize) -> (Ident, Index) {
-        let idx = Index::from(idx);
-        let ident = Ident::new(&format!("idx{}", idx.index), idx.span);
-        (ident, idx)
-    }
-
-    fn pat(&self) -> TokenStream2 {
-        match self {
-            Field::Named(ident) => quote!( #ident ),
-            Field::Index(idx) => {
-                let (ident, idx) = Self::idx_ident(*idx);
-                quote!( #idx: #ident )
-            }
-        }
-    }
-
-    fn init(&self, migrate: bool) -> TokenStream2 {
-        match (self, migrate) {
-            (Field::Named(ident), true) => quote!( #ident: #ident.migrate()? ),
-            (Field::Named(ident), _) => quote!( #ident ),
-            (Field::Index(idx), true) => {
-                let (var, idx) = Self::idx_ident(*idx);
-                quote!( #idx: #var.migrate()? )
-            }
-            (Field::Index(idx), false) => {
-                let (var, idx) = Self::idx_ident(*idx);
-                quote!( #idx: #var )
-            }
-        }
-    }
-}
-
+/// Appends `Old` suffix to the `ident` returning the new appended `Ident`.
 fn oldify_ident(ident: &Ident) -> Ident {
     Ident::new(&format!("{}Old", ident), ident.span())
 }
 
+/// Appends `Old` suffix to those identifiers in `ty` as instructed by `refs`.
 fn oldify_type(ty: &mut Type, refs: &Option<MigrateRefs>) {
     let refs = match refs {
         None => return,
@@ -62,7 +18,9 @@ fn oldify_type(ty: &mut Type, refs: &Option<MigrateRefs>) {
     impl visit_mut::VisitMut for Vis<'_> {
         fn visit_ident_mut(&mut self, ident: &mut Ident) {
             match &self.0 {
+                // Got `#[migrate]`; instructed oldify any identifier.
                 MigrateRefs::Any => {}
+                // Got `#[migrate(TypeA, TypeB, ...)]`, so check if `ident` is one of those.
                 MigrateRefs::Listed(list)
                     if {
                         let ident = ident.to_string();
@@ -76,30 +34,46 @@ fn oldify_type(ty: &mut Type, refs: &Option<MigrateRefs>) {
     visit_mut::visit_type_mut(&mut Vis(&refs), ty);
 }
 
-type FieldsVec<'a> = Vec<(Option<MigrateRefs>, &'a mut syn::Field)>;
-
-fn fields_vec(fields: &mut syn::Fields) -> FieldsVec<'_> {
+/// Go over the given `fields`,
+/// stripping any `#[migrate]` attributes on them (while noting them), stripping those,
+/// and then extending the fields in the output with the presence of `#[migrate]`.
+fn fields_with_migration(fields: &mut syn::Fields) -> Vec<(bool, &syn::Field)> {
     let mut fields_vec = Vec::with_capacity(fields.len());
     for f in fields.iter_mut() {
-        let refs = has_migrate(&mut f.attrs);
+        let refs = extract_migrate_refs(&mut f.attrs);
         oldify_type(&mut f.ty, &refs);
-        fields_vec.push((refs, f));
+        fields_vec.push((refs.is_some(), &*f));
     }
     fields_vec
 }
 
-fn pack_unpack(fields_vec: &FieldsVec<'_>) -> (Vec<TokenStream2>, Vec<TokenStream2>) {
-    fields_vec
+/// Quote the given `fields`, assumed to be a variant/product,
+/// into a pair of a destructuring (unpacking) pattern
+/// and a piece of a struct/variant initialization expression.
+fn quote_pack_unpack(fields: &[(bool, &syn::Field)]) -> (Vec<TokenStream2>, Vec<TokenStream2>) {
+    fn pack(migrate: &bool, field: impl quote::ToTokens, var: &Ident) -> TokenStream2 {
+        match migrate {
+            true => quote!( #field: #var.migrate()? ),
+            false => quote!( #field: #var ),
+        }
+    }
+    fields
         .iter()
         .enumerate()
-        .map(|(idx, (refs, field))| {
-            let field = Field::new(idx, field.ident.clone());
-            (field.pat(), field.init(refs.is_some()))
+        .map(|(index, (migrate, field))| match &field.ident {
+            Some(ident) => (quote!( #ident ), pack(migrate, &ident, &ident)),
+            None => {
+                let span = field.ty.span();
+                let index = index as u32;
+                let idx = Index { index, span };
+                let var = Ident::new(&format!("idx{}", index), span);
+                (quote!( #idx: #var ), pack(migrate, idx, &var))
+            }
         })
         .unzip()
 }
 
-/// Implements all utility method for *strong typed* based on `[u8]`.
+/// Implements `#[derive(Migrate)]`.
 pub(crate) fn impl_migrate(mut input: DeriveInput) -> TokenStream2 {
     let name = input.ident;
     input.ident = oldify_ident(&name);
@@ -115,7 +89,7 @@ pub(crate) fn impl_migrate(mut input: DeriveInput) -> TokenStream2 {
         Data::Struct(DataStruct { ref mut fields, .. }) => {
             // Handle `#[migrate]`s and old-ifying types
             // and then interpolate unpacking & packing.
-            let (unpack, pack) = pack_unpack(&fields_vec(fields));
+            let (unpack, pack) = quote_pack_unpack(&fields_with_migration(fields));
             quote!( match self { Self { #(#unpack,)* } => Self::Into { #(#pack,)* } } )
         }
         Data::Enum(DataEnum {
@@ -125,7 +99,7 @@ pub(crate) fn impl_migrate(mut input: DeriveInput) -> TokenStream2 {
             let arm = variants
                 .iter_mut()
                 .map(|syn::Variant { ident, fields, .. }| {
-                    let (unpack, pack) = pack_unpack(&fields_vec(fields));
+                    let (unpack, pack) = quote_pack_unpack(&fields_with_migration(fields));
                     quote!( Self::#ident { #(#unpack,)* } => Self::Into::#ident { #(#pack,)* } )
                 });
             quote!( match self { #(#arm,)* } )
@@ -145,21 +119,33 @@ pub(crate) fn impl_migrate(mut input: DeriveInput) -> TokenStream2 {
     }
 }
 
+/// Semantic representation of the `#[migrate]` attribute.
 enum MigrateRefs {
+    /// Derived from `#[migrate]`.
+    /// Any identifier in the type of the field should be migrated.
     Any,
+    /// Derived from `#[migrate(ident, ident, ...)]`.
+    /// Only those identifiers in the list and which match in the type of the field should be migrated.
     Listed(Vec<syn::Ident>),
 }
 
-/// Returns whether `attrs` contains `#[migrate]` and also strips such attributes.
+/// Returns information about any `#[migrate]` attributes while also stripping them.
 ///
-/// Forms `#[migrate(...)]` nor `#[migrate = ".."]` do not qualify.
-fn has_migrate(attrs: &mut Vec<syn::Attribute>) -> Option<MigrateRefs> {
+/// The form `#[migrate = ".."]` does qualify.
+fn extract_migrate_refs(attrs: &mut Vec<syn::Attribute>) -> Option<MigrateRefs> {
     let mut mig_ref = None;
     attrs.retain(|attr| {
+        // Only care about `migrate], and remove all of those, irrespective of form.
         if attr.path.is_ident("migrate") {
             if attr.tokens.is_empty() {
+                // Got exactly `#[migrate]`.
+                // User doesn't wish to specify which types to migrate, so assume all.
                 mig_ref = Some(MigrateRefs::Any);
             } else if let Ok(refs) = attr.parse_args_with(|ps: ParseStream| {
+                // Got `migrate(ident, ident, ...)`.
+                // User only wants to oldify the given identifiers.
+                // Applies in e.g., `field: Vec<Foo>` where `Foo` is being migrated
+                // but `Vec` shouldn't be renamed as it is a container of `Foo`s.
                 ps.parse_terminated::<_, syn::Token![,]>(Ident::parse)
                     .map(|iter| iter.into_iter().collect())
             }) {
