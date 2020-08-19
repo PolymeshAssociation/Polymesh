@@ -318,7 +318,7 @@ pub struct EthereumAddress([u8; 20]);
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 pub struct ClassicTickerImport {
     /// Owner of the registration.
-    pub eth_owner: EthereumAddress,
+    pub eth_owner: ethereum::EthereumAddress,
     /// Name of the ticker registered.
     pub ticker: Ticker,
     /// Is `eth_owner` an Ethereum contract (e.g., in case of a multisig)?
@@ -332,7 +332,7 @@ pub struct ClassicTickerImport {
 #[derive(Encode, Decode, Clone, Debug, PartialEq, Eq)]
 pub struct ClassicTickerRegistration {
     /// Owner of the registration.
-    pub eth_owner: EthereumAddress,
+    pub eth_owner: ethereum::EthereumAddress,
     /// Has the ticker been elevated to a created asset on classic?
     pub is_created: bool,
 }
@@ -1075,6 +1075,141 @@ decl_module! {
             Self::deposit_event(RawEvent::PrimaryIssuanceAgentTransfered(did, ticker, old_primary_issuance_agent, None));
             Ok(())
         }
+
+        /// Claim a systematically reserved Polymath Classic (PMC) `ticker`
+        /// and transfer it to the `origin`'s identity.
+        ///
+        /// To verify that the `origin` is in control of the Ethereum account on the books,
+        /// an `ethereum_signature` containing the `origin`'s `AccountId` as the message
+        /// must be provided by that Ethereum account.
+        ///
+        /// # Errors
+        /// - `NoSuchClassicTicker` if this is not a systematically reserved PMC ticker.
+        /// - `TickerAlreadyRegistered` if the ticker was already registered, e.g., by `origin`.
+        /// - `TickerRegistrationExpired` if the ticker's registration has expired.
+        /// - `BadOrigin` if not signed.
+        /// - `InvalidEthereumSignature` if the `ethereum_signature` is not valid.
+        /// - `NotAnOwner` if the ethereum account is not the owner of the PMC ticker.
+        #[weight = 250_000_000]
+        pub fn claim_classic_ticker(origin, ticker: Ticker, ethereum_signature: ethereum::EcdsaSignature) -> DispatchResult {
+            // Ensure the ticker is a classic one and fetch details.
+            let ClassicTickerRegistration { eth_owner, .. } = ClassicTickers::get(ticker)
+                .ok_or(Error::<T>::NoSuchClassicTicker)?;
+
+            // Ensure ticker registration is still attached to the systematic DID.
+            let sys_did = SystematicIssuers::ClassicMigration.as_id();
+            match Self::is_ticker_available_or_registered_to(&ticker, sys_did) {
+                TickerRegistrationStatus::RegisteredByOther => return Err(Error::<T>::TickerAlreadyRegistered.into()),
+                TickerRegistrationStatus::Available => return Err(Error::<T>::TickerRegistrationExpired.into()),
+                TickerRegistrationStatus::RegisteredByDid => {}
+            }
+
+            // Ensure we're signed & get did.
+            let sender = ensure_signed(origin)?;
+            let owner_did = Context::current_identity_or::<Identity<T>>(&sender)?;
+
+            // Have the signer prove that they own *some* Ethereum account
+            // by having the signed signature contain the `sender` signing key.
+            let eth_signer = ethereum::eth_check(sender, &ethereum_signature)
+                .ok_or(Error::<T>::InvalidEthereumSignature)?;
+
+            // Now we have an Ethereum account; ensure it's the *right one*.
+            ensure!(eth_signer == eth_owner, Error::<T>::NotAnOwner);
+
+            // Success; transfer the ticker to `owner_did`.
+            <Tickers<T>>::mutate(ticker, |reg| reg.owner = owner_did);
+
+            // Emit event.
+            Self::deposit_event(RawEvent::ClassicTickerClaimed(owner_did, ticker, eth_signer));
+
+            Ok(())
+        }
+    }
+}
+
+mod ethereum {
+    use codec::{Decode, Encode};
+    #[cfg(feature = "std")]
+    use sp_runtime::{Deserialize, Serialize};
+    use sp_std::vec::Vec;
+
+    /// An Ethereum address (i.e. 20 bytes, used to represent an Ethereum account).
+    ///
+    /// This gets serialized to the 0x-prefixed hex representation.
+    #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+    #[derive(Clone, Copy, PartialEq, Eq, Encode, Decode, Default, Debug)]
+    pub struct EthereumAddress([u8; 20]);
+
+    #[derive(Encode, Decode, Clone)]
+    pub struct EcdsaSignature(pub [u8; 65]);
+
+    impl PartialEq for EcdsaSignature {
+        fn eq(&self, other: &Self) -> bool {
+            &self.0[..] == &other.0[..]
+        }
+    }
+
+    impl sp_std::fmt::Debug for EcdsaSignature {
+        fn fmt(&self, f: &mut sp_std::fmt::Formatter<'_>) -> sp_std::fmt::Result {
+            write!(f, "EcdsaSignature({:?})", &self.0[..])
+        }
+    }
+
+    /// Check that `data` is the message of `ecdsa_sig` and return the Ethereum address.
+    pub fn eth_check<D: Encode>(data: D, ecdsa_sig: &EcdsaSignature) -> Option<EthereumAddress> {
+        // Logic is largely taken from:
+        // https://github.com/paritytech/polkadot/blob/013c4a8041e6f1739cc5b785a2874061919c5db9/runtime/common/src/claims.rs#L248-L251
+        let data = data.using_encoded(to_ascii_hex);
+        eth_recover(&ecdsa_sig, b"classic_claim", &data, &[][..])
+    }
+
+    /// Converts the given binary data into ASCII-encoded hex. It will be twice the length.
+    fn to_ascii_hex(data: &[u8]) -> Vec<u8> {
+        let mut r = Vec::with_capacity(data.len() * 2);
+        let mut push_nibble = |n| r.push(if n < 10 { b'0' + n } else { b'a' - 10 + n });
+        for &b in data.iter() {
+            push_nibble(b / 16);
+            push_nibble(b % 16);
+        }
+        r
+    }
+
+    // Constructs the message that Ethereum RPC's `personal_sign` and `eth_sign` would sign.
+    fn ethereum_signable_message(prefix: &[u8], what: &[u8], extra: &[u8]) -> Vec<u8> {
+        let mut l = prefix.len() + what.len() + extra.len();
+        let mut rev = Vec::new();
+        while l > 0 {
+            rev.push(b'0' + (l % 10) as u8);
+            l /= 10;
+        }
+        let head = b"\x19Ethereum Signed Message:\n";
+        let len = [head, &rev as &[u8], &prefix, what, extra]
+            .iter()
+            .map(|p| p.len())
+            .sum();
+        let mut v = Vec::with_capacity(len);
+        v.extend_from_slice(head);
+        v.extend(rev.into_iter().rev());
+        v.extend_from_slice(&prefix[..]);
+        v.extend_from_slice(what);
+        v.extend_from_slice(extra);
+        v
+    }
+
+    // Attempts to recover the Ethereum address from a message signature signed by using
+    // the Ethereum RPC's `personal_sign` and `eth_sign`.
+    fn eth_recover(
+        s: &EcdsaSignature,
+        prefix: &[u8],
+        what: &[u8],
+        extra: &[u8],
+    ) -> Option<EthereumAddress> {
+        use sp_io::{crypto::secp256k1_ecdsa_recover, hashing::keccak_256};
+        let msg = keccak_256(&ethereum_signable_message(prefix, what, extra));
+        let mut res = EthereumAddress::default();
+        res.0
+            .copy_from_slice(&keccak_256(&secp256k1_ecdsa_recover(&s.0, &msg).ok()?[..])[12..]);
+        Some(res)
     }
 }
 
@@ -1165,6 +1300,8 @@ decl_event! {
         DocumentAdded(Ticker, DocumentName, Document),
         /// A document removed from an asset
         DocumentRemoved(Ticker, DocumentName),
+        /// A Polymath Classic token was claimed and transferred to a non-systematic DID.
+        ClassicTickerClaimed(IdentityId, Ticker, ethereum::EthereumAddress),
     }
 }
 
@@ -1255,7 +1392,13 @@ decl_error! {
         /// An invalid custodian DID.
         InvalidCustodianDid,
         /// Number of Transfer Manager extensions attached to an asset is equal to MaxNumberOfTMExtensionForAsset.
-        MaximumTMExtensionLimitReached
+        MaximumTMExtensionLimitReached,
+        /// An invalid Ethereum `EcdsaSignature`.
+        InvalidEthereumSignature,
+        /// The given ticker is not a classic one.
+        NoSuchClassicTicker,
+        /// Registration of ticker has expired.
+        TickerRegistrationExpired,
     }
 }
 
