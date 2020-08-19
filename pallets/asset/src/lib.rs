@@ -1354,34 +1354,31 @@ impl<T: Trait> Module<T> {
         false
     }
 
-    /// Returns 0 if ticker is registered to someone else.
-    /// 1 if ticker is available for registry.
-    /// 2 if ticker is already registered to provided did.
+    /// Returns:
+    /// - `RegisteredByOther` if ticker is registered to someone else.
+    /// - `Available` if ticker is available for registry.
+    /// - `RegisteredByDid` if ticker is already registered to provided did.
     pub fn is_ticker_available_or_registered_to(
         ticker: &Ticker,
         did: IdentityId,
     ) -> TickerRegistrationStatus {
         // Assumes uppercase ticker
         if <Tickers<T>>::contains_key(ticker) {
-            let ticker_reg = Self::ticker_registration(*ticker);
-            if let Some(expiry) = ticker_reg.expiry {
-                let now = <pallet_timestamp::Module<T>>::get();
-                if now > expiry {
-                    // ticker registered to someone but expired and can be registered again
-                    return TickerRegistrationStatus::Available;
-                } else if ticker_reg.owner == did {
-                    // ticker is already registered to provided did (but may expire in future)
-                    return TickerRegistrationStatus::RegisteredByDid;
+            let TickerRegistration { expiry, owner } = Self::ticker_registration(*ticker);
+            match expiry {
+                // Ticker registered to someone but expired and can be registered again.
+                Some(expiry) if <pallet_timestamp::Module<T>>::get() > expiry => {
+                    TickerRegistrationStatus::Available
                 }
-            } else if ticker_reg.owner == did {
-                // ticker is already registered to provided did (and will never expire)
-                return TickerRegistrationStatus::RegisteredByDid;
+                // Ticker is already registered to provided did (may or may not expire in future).
+                _ if owner == did => TickerRegistrationStatus::RegisteredByDid,
+                // Ticker registered to someone else and hasn't expired.
+                _ => TickerRegistrationStatus::RegisteredByOther,
             }
-            // ticker registered to someone else
-            return TickerRegistrationStatus::RegisteredByOther;
+        } else {
+            // Ticker not registered yet.
+            TickerRegistrationStatus::Available
         }
-        // Ticker not registered yet
-        TickerRegistrationStatus::Available
     }
 
     /// Without charging any fees,
