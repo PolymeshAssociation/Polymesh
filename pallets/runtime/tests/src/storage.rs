@@ -1,4 +1,4 @@
-use super::ext_builder::{EXTRINSIC_BASE_WEIGHT, TRANSACTION_BYTE_FEE, WEIGHT_TO_FEE};
+use super::ext_builder::{EXTRINSIC_BASE_WEIGHT, TRANSACTION_BYTE_FEE, WEIGHT_TO_FEE, MAX_NO_OF_TM_ALLOWED};
 use codec::Encode;
 use frame_support::{
     assert_ok,
@@ -454,7 +454,7 @@ impl portfolio::Trait for TestStorage {
 }
 
 parameter_types! {
-    pub const MaxNumberOfTMExtensionForAsset:u32 = 5;
+    pub MaxNumberOfTMExtensionForAsset: u32 = MAX_NO_OF_TM_ALLOWED.with(|v| *v.borrow());
 }
 
 impl asset::Trait for TestStorage {

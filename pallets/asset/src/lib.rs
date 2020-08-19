@@ -283,6 +283,7 @@ pub struct FocusedBalances<Balance> {
 pub mod weight_for {
     use super::*;
 
+    /// Weight for `_is_valid_transfer()` transfer.
     pub fn weight_for_is_valid_transfer<T: Trait>(
         no_of_tms: u32,
         weight_from_cm: Weight,
@@ -292,6 +293,7 @@ pub mod weight_for {
             .saturating_add(weight_from_cm) // weight that comes from the compliance manager.
     }
 
+    /// Weight for `unsafe_transfer_by_custodian()`.
     pub fn weight_for_unsafe_transfer_by_custodian<T: Trait>(
         weight_for_transfer_rest: Weight,
     ) -> Weight {
@@ -1209,7 +1211,7 @@ decl_error! {
         AssetAlreadyDivisible,
         /// An invalid custodian DID.
         InvalidCustodianDid,
-        /// Number of Transfer Manager extensions attached to an asset >= MAX_TM_EXT_LIMIT.
+        /// Number of Transfer Manager extensions attached to an asset is equal to MaxNumberOfTMExtensionForAsset.
         MaximumTMExtensionLimitReached
     }
 }
@@ -1505,15 +1507,15 @@ impl<T: Trait> Module<T> {
             return Ok((ERC1400_TRANSFERS_HALTED, T::DbWeight::get().reads(1)));
         }
         let primary_issuance_did = <Tokens<T>>::get(ticker).primary_issuance_did;
-        let general_status_code = T::ComplianceManager::verify_restriction(
+        let (status_code, weight_for_transfer) = T::ComplianceManager::verify_restriction(
             ticker,
             from_did,
             to_did,
             value,
             primary_issuance_did,
         )?;
-        Ok(if general_status_code.0 != ERC1400_TRANSFER_SUCCESS {
-            (COMPLIANCE_MANAGER_FAILURE, general_status_code.1)
+        Ok(if status_code != ERC1400_TRANSFER_SUCCESS {
+            (COMPLIANCE_MANAGER_FAILURE, weight_for_transfer)
         } else {
             let mut final_result = true;
             let mut is_valid = false;
@@ -1524,7 +1526,7 @@ impl<T: Trait> Module<T> {
                 .into_iter()
                 .filter(|tm| !Self::extension_details((ticker, tm)).is_archive)
                 .collect::<Vec<T::AccountId>>();
-            let tm_length = u32::try_from(tms.len()).unwrap_or_default();
+            let tm_count = u32::try_from(tms.len()).unwrap_or_default();
             if !tms.is_empty() {
                 for tm in tms.into_iter() {
                     let result = Self::verify_restriction(
@@ -1545,17 +1547,8 @@ impl<T: Trait> Module<T> {
                 //is_valid = force_valid ? true : (is_invalid ? false : is_valid);
                 final_result = force_valid || !is_invalid && is_valid;
             }
-            if final_result {
-                return Ok((
-                    ERC1400_TRANSFER_SUCCESS,
-                    weight_for::weight_for_is_valid_transfer::<T>(tm_length, general_status_code.1),
-                ));
-            } else {
-                return Ok((
-                    SMART_EXTENSION_FAILURE,
-                    weight_for::weight_for_is_valid_transfer::<T>(tm_length, general_status_code.1),
-                ));
-            }
+            // Compute the result for transfer
+            Self::compute_transfer_result(final_result, tm_count, weight_for_transfer)
         })
     }
 
@@ -2234,5 +2227,15 @@ impl<T: Trait> Module<T> {
             );
         }
         Ok(())
+    }
+
+    /// Compute the result of the transfer
+    fn compute_transfer_result(final_result: bool, tm_count: u32, cm_result: Weight) -> (u8, Weight) {
+        let weight_for_valid_transfer = weight_for::weight_for_is_valid_transfer::<T>(tm_count, cm_result);
+        let transfer_status = match final_result {
+            true => ERC1400_TRANSFER_SUCCESS,
+            false => SMART_EXTENSION_FAILURE
+        };
+        return (transfer_status, weight_for_valid_transfer);
     }
 }

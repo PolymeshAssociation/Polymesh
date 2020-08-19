@@ -1,5 +1,5 @@
 use crate::{
-    storage::{add_secondary_key, register_keyring_account, TestStorage},
+    storage::{add_secondary_key, register_keyring_account, account_from, AccountId, TestStorage},
     ExtBuilder,
 };
 
@@ -14,13 +14,13 @@ use pallet_statistics as statistics;
 use polymesh_common_utilities::{constants::*, traits::balances::Memo};
 use polymesh_primitives::{
     AuthorizationData, Document, DocumentName, IdentityId, Signatory, SmartExtension,
-    SmartExtensionType, Ticker,
+    SmartExtensionType, Ticker, SmartExtensionName
 };
 
 use chrono::prelude::Utc;
 use codec::Encode;
 use frame_support::{
-    assert_err, assert_noop, assert_ok, traits::Currency, StorageDoubleMap, StorageMap,
+    assert_err, assert_noop, assert_ok, traits::Currency, StorageDoubleMap, StorageMap, dispatch::DispatchResult
 };
 use hex_literal::hex;
 use ink_primitives::hash as FunctionSelectorHasher;
@@ -40,6 +40,21 @@ type OffChainSignature = AnySignature;
 type Origin = <TestStorage as frame_system::Trait>::Origin;
 type DidRecords = identity::DidRecords<TestStorage>;
 type Statistics = statistics::Module<TestStorage>;
+
+fn smart_extension_addition(account_id: AccountId, extension_name: SmartExtensionName, signer: Origin, ticker: Ticker) -> DispatchResult{
+    let extension_details = SmartExtension {
+        extension_type: SmartExtensionType::TransferManager,
+        extension_name: extension_name,
+        extension_id: account_id,
+        is_archive: false,
+    };
+
+    Asset::add_extension(
+        signer,
+        ticker,
+        extension_details.clone(),
+    )
+}
 
 #[test]
 fn check_the_test_hex() {
@@ -1103,7 +1118,10 @@ fn adding_removing_documents() {
 
 #[test]
 fn add_extension_successfully() {
-    ExtBuilder::default().build().execute_with(|| {
+    ExtBuilder::default()
+    .set_max_tms_allowed(2)
+    .build()
+    .execute_with(|| {
         let owner_signed = Origin::signed(AccountKeyring::Dave.public());
         let _ = register_keyring_account(AccountKeyring::Dave).unwrap();
 
@@ -1134,41 +1152,40 @@ fn add_extension_successfully() {
         ));
 
         // Add smart extension
-        let extension_name = b"PTM".into();
-        let extension_id = AccountKeyring::Bob.public();
+        let extension_name_1: SmartExtensionName = b"PTM1".into();
+        let extension_name_2 = b"PTM2".into();
+        let extension_name_3 = b"PTM3".into();
+        let extension_id_1 = account_from(1);
+        let extension_id_2 = account_from(2);
+        let extension_id_3 = account_from(3);
 
-        let extension_details = SmartExtension {
-            extension_type: SmartExtensionType::TransferManager,
-            extension_name,
-            extension_id: extension_id.clone(),
-            is_archive: false,
-        };
-
-        assert_ok!(Asset::add_extension(
-            owner_signed.clone(),
-            ticker,
-            extension_details.clone(),
-        ));
+        assert_ok!(smart_extension_addition(extension_id_1, extension_name_1.clone(), owner_signed.clone(), ticker));
+        assert_ok!(smart_extension_addition(extension_id_2, extension_name_2, owner_signed.clone(), ticker));
 
         // verify the data within the runtime
         assert_eq!(
-            Asset::extension_details((ticker, extension_id)),
-            extension_details
+            Asset::extension_details((ticker, extension_id_1)).extension_name,
+            extension_name_1
         );
         assert_eq!(
             (Asset::extensions((ticker, SmartExtensionType::TransferManager))).len(),
-            1
+            2
         );
         assert_eq!(
             (Asset::extensions((ticker, SmartExtensionType::TransferManager)))[0],
-            extension_id
+            extension_id_1
         );
+
+        assert_err!(smart_extension_addition(extension_id_3, extension_name_3, owner_signed.clone(), ticker), AssetError::MaximumTMExtensionLimitReached);
     });
 }
 
 #[test]
 fn add_same_extension_should_fail() {
-    ExtBuilder::default().build().execute_with(|| {
+    ExtBuilder::default()
+    .set_max_tms_allowed(10)
+    .build()
+    .execute_with(|| {
         let owner_signed = Origin::signed(AccountKeyring::Dave.public());
         let owner_did = register_keyring_account(AccountKeyring::Dave).unwrap();
 
