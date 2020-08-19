@@ -275,6 +275,24 @@ pub struct FocusedBalances<Balance> {
     pub portfolio: Balance,
 }
 
+// TODO(centril): Dummy data type, replace with real stuff.
+/// Representation of an owner account on the side of Ethereum, for Polymath Classic.
+pub type EthOwner = u64;
+
+/// Data imported from Polymath Classic regarding ticker registration/creation.
+/// Only used at genesis config and not stored on-chain.
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+pub struct ClassicTickerImport {
+    /// Owner of the registration.
+    pub eth_owner: EthOwner,
+    /// Name of the ticker registered.
+    pub ticker: Ticker,
+    /// Is `eth_owner` an Ethereum contract (e.g., in case of a multisig)?
+    pub is_contract: bool,
+    /// Has the ticker been elevated to a created asset on classic?
+    pub is_crated: bool,
+}
+
 decl_storage! {
     trait Store for Module<T: Trait> as Asset {
         /// Ticker registration details.
@@ -337,7 +355,7 @@ decl_storage! {
             double_map hasher(blake2_128_concat) Ticker, hasher(blake2_128_concat) DocumentName => Document;
     }
     add_extra_genesis {
-        config(classic_migration_tickers): Vec<(/* TODO(centril) */)>;
+        config(classic_migration_tickers): Vec<ClassicTickerImport>;
         build(|config: &GenesisConfig<T>| {
         });
     }
