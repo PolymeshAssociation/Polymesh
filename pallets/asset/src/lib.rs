@@ -1335,23 +1335,16 @@ impl<T: Trait> Module<T> {
         true
     }
 
+    /// Returns `true` iff the ticker exists, is owned by `did`, and ticker hasn't expired.
     pub fn is_ticker_registry_valid(ticker: &Ticker, did: IdentityId) -> bool {
         // Assumes uppercase ticker
         if <Tickers<T>>::contains_key(ticker) {
             let now = <pallet_timestamp::Module<T>>::get();
             let ticker_reg = Self::ticker_registration(ticker);
-            if ticker_reg.owner == did {
-                if let Some(expiry) = ticker_reg.expiry {
-                    if now > expiry {
-                        return false;
-                    }
-                } else {
-                    return true;
-                }
-                return true;
-            }
+            ticker_reg.owner == did && ticker_reg.expiry.filter(|&e| now > e).is_none()
+        } else {
+            false
         }
-        false
     }
 
     /// Returns:
