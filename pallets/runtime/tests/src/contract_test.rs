@@ -2,22 +2,22 @@ use frame_support::{
     assert_err, assert_ok, dispatch::DispatchResultWithPostInfo, weights::GetDispatchInfo,
     StorageMap,
 };
-use pallet_contracts::{ContractAddressFor, Gas, ContractInfoOf};
+use pallet_contracts::{ContractAddressFor, ContractInfoOf, Gas};
 use sp_runtime::{traits::Hash, Perbill};
 
 use crate::{
     ext_builder::MockProtocolBaseFees,
-    storage::{account_from, make_account_without_cdd, make_account, AccountId, TestStorage},
+    storage::{account_from, make_account, make_account_without_cdd, AccountId, TestStorage},
     ExtBuilder,
 };
-use polymesh_contracts::TemplateMetaDetails;
 use codec::Encode;
 use hex_literal::hex;
 use pallet_balances as balances;
 use polymesh_common_utilities::{protocol_fee::ProtocolOp, traits::CddAndFeeDetails};
+use polymesh_contracts::TemplateMetaDetails;
 use polymesh_contracts::{Call as ContractsCall, NonceBasedAddressDeterminer};
 use polymesh_primitives::{
-    SmartExtensionMetadata, SmartExtensionType, TemplateMetadata, IdentityId, InvestorUid
+    IdentityId, InvestorUid, SmartExtensionMetadata, SmartExtensionType, TemplateMetadata,
 };
 use test_client::AccountKeyring;
 
@@ -77,9 +77,9 @@ fn create_se_template<T>(
 
     // verify the weight value of the put_code extrinsic.
     let weight_of_extrinsic =
-    ContractsCall::<TestStorage>::put_code(se_meta_data.clone(), wasm.clone())
-        .get_dispatch_info()
-        .weight;
+        ContractsCall::<TestStorage>::put_code(se_meta_data.clone(), wasm.clone())
+            .get_dispatch_info()
+            .weight;
     assert_eq!(wasm_length_weight + 50_000_000, weight_of_extrinsic);
 
     // Execute `put_code`
@@ -109,7 +109,7 @@ fn create_se_template<T>(
 fn create_contract_instance<T>(
     instance_creator: AccountId,
     code_hash: <T::Hashing as Hash>::Output,
-    fail: bool
+    fail: bool,
 ) -> DispatchResultWithPostInfo
 where
     T: frame_system::Trait<Hash = sp_core::H256>,
@@ -131,7 +131,10 @@ where
     );
 
     if !fail {
-        assert_eq!(WrapperContracts::extension_nonce(), current_extension_nonce + 1);
+        assert_eq!(
+            WrapperContracts::extension_nonce(),
+            current_extension_nonce + 1
+        );
     }
 
     // Free up the context
@@ -292,7 +295,9 @@ fn allow_network_share_deduction() {
             let fee_collector_balance = System::account(fee_collector).data.free;
 
             // create instance of contract
-            assert_ok!(create_contract_instance::<TestStorage>(bob, code_hash,false));
+            assert_ok!(create_contract_instance::<TestStorage>(
+                bob, code_hash, false
+            ));
 
             // check the fee division
             // 25 % of fee should be consumed by the network and 75% should be transferred to template owner.
@@ -378,7 +383,9 @@ fn check_behavior_when_instantiation_fee_changes() {
             let fee_collector_balance = System::account(fee_collector).data.free;
 
             // create instance of contract
-            assert_ok!(create_contract_instance::<TestStorage>(bob, code_hash, false));
+            assert_ok!(create_contract_instance::<TestStorage>(
+                bob, code_hash, false
+            ));
 
             // check the fee division
             // 30 % of fee should be consumed by the network and 70% should be transferred to template owner.
@@ -460,7 +467,9 @@ fn check_freeze_unfreeze_functionality() {
             );
 
             // Instantiation should passed
-            assert_ok!(create_contract_instance::<TestStorage>(bob, code_hash, false));
+            assert_ok!(create_contract_instance::<TestStorage>(
+                bob, code_hash, false
+            ));
         });
 }
 
@@ -510,15 +519,16 @@ fn validate_transfer_template_ownership_functionality() {
             );
 
             // Successfully transfer ownership to the other DID.
-            assert_ok!(
-                WrapperContracts::transfer_template_ownership(
-                    alice_signed,
-                    code_hash,
-                    bob_did
-                )
-            );
+            assert_ok!(WrapperContracts::transfer_template_ownership(
+                alice_signed,
+                code_hash,
+                bob_did
+            ));
 
-            assert!(matches!(WrapperContracts::get_template_meta_details(code_hash).owner, bob_did));
+            assert!(matches!(
+                WrapperContracts::get_template_meta_details(code_hash).owner,
+                bob_did
+            ));
         });
 }
 
@@ -533,7 +543,6 @@ fn check_transaction_rollback_functionality_for_put_code() {
         .set_protocol_base_fees(protocol_fee)
         .build()
         .execute_with(|| {
-
             let instantiation_fee = 5000;
             let alice = AccountKeyring::Alice.public();
             // Create Alice account & the identity for her.
@@ -554,11 +563,7 @@ fn check_transaction_rollback_functionality_for_put_code() {
 
             // Execute `put_code`
             assert_err!(
-                WrapperContracts::put_code(
-                    alice_signed,
-                    se_meta_data.clone(),
-                    wasm
-                ),
+                WrapperContracts::put_code(alice_signed, se_meta_data.clone(), wasm),
                 ProtocolFeeError::InsufficientAccountBalance
             );
 
@@ -600,7 +605,10 @@ fn check_transaction_rollback_functionality_for_instantiation() {
             let fee_collector_balance = System::account(fee_collector).data.free;
 
             // create instance of contract
-            assert_err!(create_contract_instance::<TestStorage>(bob, code_hash, true), ProtocolFeeError::InsufficientAccountBalance);
+            assert_err!(
+                create_contract_instance::<TestStorage>(bob, code_hash, true),
+                ProtocolFeeError::InsufficientAccountBalance
+            );
 
             // Generate the contract address.
             let flipper_address_1 =
@@ -610,6 +618,8 @@ fn check_transaction_rollback_functionality_for_instantiation() {
                     &bob,
                 );
 
-            assert!(!ContractInfoOf::<TestStorage>::contains_key(flipper_address_1));
+            assert!(!ContractInfoOf::<TestStorage>::contains_key(
+                flipper_address_1
+            ));
         });
 }

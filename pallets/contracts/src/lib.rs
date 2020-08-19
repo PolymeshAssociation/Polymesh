@@ -21,7 +21,7 @@ use frame_support::{
     decl_error, decl_event, decl_module, decl_storage,
     dispatch::{DispatchError, DispatchResult, DispatchResultWithPostInfo},
     ensure,
-    traits::Get
+    traits::Get,
 };
 use frame_system::{self as system, ensure_signed};
 use pallet_contracts::{BalanceOf, CodeHash, ContractAddressFor, Gas, Schedule};
@@ -29,7 +29,7 @@ use pallet_identity as identity;
 use polymesh_common_utilities::{
     identity::Trait as IdentityTrait,
     protocol_fee::{ChargeProtocolFee, ProtocolOp},
-    Context, with_transaction
+    with_transaction, Context,
 };
 use polymesh_primitives::{IdentityId, SmartExtensionMetadata, TemplateMetadata};
 use sp_core::crypto::UncheckedFrom;
@@ -63,7 +63,12 @@ where
             *n
         });
         let nonce_hash = T::Hashing::hash(&(nonce.encode()));
-        let mut buf = Vec::new();
+        let mut buf = Vec::with_capacity(
+            code_hash.as_ref().len()
+                + data_hash.as_ref().len()
+                + origin.as_ref().len()
+                + nonce_hash.as_ref().len(),
+        );
         buf.extend_from_slice(code_hash.as_ref());
         buf.extend_from_slice(data_hash.as_ref());
         buf.extend_from_slice(origin.as_ref());
@@ -339,10 +344,7 @@ impl<T: Trait> Module<T> {
         // Access the meta details of SE template
         let meta_details = Self::get_template_meta_details(code_hash);
         // Ensure sender's DID is the owner of the template.
-        ensure!(
-            did == meta_details.owner,
-            Error::<T>::UnAuthorizedOrigin
-        );
+        ensure!(did == meta_details.owner, Error::<T>::UnAuthorizedOrigin);
         // Return the DID and the template details.
         Ok((did, meta_details))
     }
