@@ -274,6 +274,8 @@ impl ExtBuilder {
                 max_ticker_length: 8,
                 registration_length: Some(10000),
             },
+            // TODO(centril): fill with test data.
+            classic_migration_tickers: vec![],
         }
         .assimilate_storage(&mut storage)
         .unwrap();

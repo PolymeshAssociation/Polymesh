@@ -336,6 +336,11 @@ decl_storage! {
         pub AssetDocuments get(fn asset_documents):
             double_map hasher(blake2_128_concat) Ticker, hasher(blake2_128_concat) DocumentName => Document;
     }
+    add_extra_genesis {
+        config(classic_migration_tickers): Vec<(/* TODO(centril) */)>;
+        build(|config: &GenesisConfig<T>| {
+        });
+    }
 }
 
 type Identity<T> = identity::Module<T>;

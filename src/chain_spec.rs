@@ -141,6 +141,8 @@ fn general_testnet_genesis(
                 max_ticker_length: 12,
                 registration_length: Some(5_184_000_000),
             },
+            // TODO(centril): fill with actual data from Ethereum.
+            classic_migration_tickers: vec![],
         }),
         identity: {
             let initial_identities = vec![
@@ -500,6 +502,8 @@ fn alcyone_testnet_genesis(
                 max_ticker_length: 12,
                 registration_length: Some(5_184_000_000),
             },
+            // TODO(centril): fill with actual data from Ethereum.
+            classic_migration_tickers: vec![],
         }),
         identity: {
             let initial_identities = vec![
