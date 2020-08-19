@@ -92,7 +92,7 @@ use core::result::Result as StdResult;
 use currency::*;
 use frame_support::{
     decl_error, decl_event, decl_module, decl_storage,
-    dispatch::DispatchResult,
+    dispatch::{DispatchError, DispatchResult},
     ensure,
     traits::{Currency, Get},
 };
@@ -384,25 +384,7 @@ decl_module! {
         pub fn register_ticker(origin, ticker: Ticker) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             let to_did = Context::current_identity_or::<Identity<T>>(&sender)?;
-
-            ensure!(!<Tokens<T>>::contains_key(&ticker), Error::<T>::AssetAlreadyCreated);
-
-            let ticker_config = Self::ticker_registration_config();
-
-            ensure!(
-                ticker.len() <= usize::try_from(ticker_config.max_ticker_length).unwrap_or_default(),
-                Error::<T>::TickerTooLong
-            );
-
-            // Ensure that the ticker is not registered by someone else
-            ensure!(
-                Self::is_ticker_available_or_registered_to(&ticker, to_did) != TickerRegistrationStatus::RegisteredByOther,
-                Error::<T>::TickerAlreadyRegistered
-            );
-
-            let now = <pallet_timestamp::Module<T>>::get();
-            let expiry = if let Some(exp) = ticker_config.registration_length { Some(now + exp) } else { None };
-
+            let expiry = Self::ticker_registration_checks(&ticker, to_did, || Self::ticker_registration_config())?;
             Self::_register_ticker(&ticker, to_did, expiry)
         }
 
@@ -1372,6 +1354,37 @@ impl<T: Trait> Module<T> {
             // Ticker not registered yet.
             None => TickerRegistrationStatus::Available,
         }
+    }
+
+    /// Before registering a ticker, do some checks, and return the expiry moment.
+    fn ticker_registration_checks(
+        ticker: &Ticker,
+        to_did: IdentityId,
+        config: impl FnOnce() -> TickerRegistrationConfig<T::Moment>,
+    ) -> Result<Option<T::Moment>, DispatchError> {
+        ensure!(
+            !<Tokens<T>>::contains_key(&ticker),
+            Error::<T>::AssetAlreadyCreated
+        );
+
+        let config = config();
+
+        // Ensure the ticker is not too long.
+        ensure!(
+            ticker.len() <= usize::try_from(config.max_ticker_length).unwrap_or_default(),
+            Error::<T>::TickerTooLong
+        );
+
+        // Ensure that the ticker is not registered by someone else.
+        ensure!(
+            Self::is_ticker_available_or_registered_to(&ticker, to_did)
+                != TickerRegistrationStatus::RegisteredByOther,
+            Error::<T>::TickerAlreadyRegistered
+        );
+
+        Ok(config
+            .registration_length
+            .map(|exp| <pallet_timestamp::Module<T>>::get() + exp))
     }
 
     /// Without charging any fees,
