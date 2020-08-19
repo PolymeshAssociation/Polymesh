@@ -372,9 +372,13 @@ decl_storage! {
     add_extra_genesis {
         config(classic_migration_tickers): Vec<ClassicTickerImport>;
         config(classic_migration_tconfig): TickerRegistrationConfig<T::Moment>;
+        config(classic_migration_contract_did): IdentityId;
         build(|config: &GenesisConfig<T>| {
-            let did = SystematicIssuers::ClassicMigration.as_id();
+            let cm_did = SystematicIssuers::ClassicMigration.as_id();
             for import in &config.classic_migration_tickers {
+                // Use DID of someone at Polymath if it's a contract-made ticker registration.
+                let did = if import.is_contract { config.classic_migration_contract_did } else { cm_did };
+
                 // Register the ticker...
                 let tconfig = || config.classic_migration_tconfig.clone();
                 let expiry = <Module<T>>::ticker_registration_checks(&import.ticker, did, tconfig);

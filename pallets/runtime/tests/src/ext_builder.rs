@@ -279,6 +279,8 @@ impl ExtBuilder {
                 max_ticker_length,
                 registration_length: Some(20000),
             },
+            // Always use the first id, whomever that may be.
+            classic_migration_contract_did: IdentityId::from(1),
             // TODO(centril): fill with test data.
             classic_migration_tickers: vec![],
         }

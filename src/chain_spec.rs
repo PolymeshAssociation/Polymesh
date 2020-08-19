@@ -146,6 +146,8 @@ fn general_testnet_genesis(
                 // TODO(centril): use values per product team wishes.
                 registration_length: Some(5_184_000_000),
             },
+            // Always use the first id, whomever that may be.
+            classic_migration_contract_did: IdentityId::from(1),
             // TODO(centril): fill with actual data from Ethereum.
             classic_migration_tickers: vec![],
         }),
@@ -512,6 +514,8 @@ fn alcyone_testnet_genesis(
                 // TODO(centril): use values per product team wishes.
                 registration_length: Some(5_184_000_000),
             },
+            // TODO(product_team): Assign to a real person.
+            classic_migration_contract_did: IdentityId::from(1),
             // TODO(centril): fill with actual data from Ethereum.
             classic_migration_tickers: vec![],
         }),
