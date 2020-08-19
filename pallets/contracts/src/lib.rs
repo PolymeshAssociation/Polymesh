@@ -29,7 +29,7 @@ use pallet_identity as identity;
 use polymesh_common_utilities::{
     identity::Trait as IdentityTrait,
     protocol_fee::{ChargeProtocolFee, ProtocolOp},
-    Context,
+    Context, with_transaction
 };
 use polymesh_primitives::{IdentityId, SmartExtensionMetadata, TemplateMetadata};
 use sp_core::crypto::UncheckedFrom;
@@ -37,7 +37,6 @@ use sp_runtime::{
     traits::{Hash, Saturating, StaticLookup},
     Perbill, SaturatedConversion,
 };
-use polymesh_common_utilities::{ with_transaction };
 use sp_std::{marker::PhantomData, prelude::*};
 
 type Identity<T> = identity::Module<T>;
@@ -81,7 +80,7 @@ pub trait Trait: pallet_contracts::Trait + IdentityTrait {
 decl_storage! {
     trait Store for Module<T: Trait> as ContractsWrapper {
         /// Store the meta details of the smart extension template.
-        pub TemplateMetaDetails get(fn get_template_meta_details): map hasher(twox_64_concat) CodeHash<T> => TemplateMetadata<BalanceOf<T>, T::AccountId>;
+        pub TemplateMetaDetails get(fn get_template_meta_details): map hasher(twox_64_concat) CodeHash<T> => TemplateMetadata<BalanceOf<T>>;
     }
 }
 
@@ -102,7 +101,9 @@ decl_error! {
         /// User is not able to pay the protocol fee because of insufficient funds or because of something else.
         FailedToPayProtocolFee,
         /// Failed To charge the instantiation fee for the smart extension.
-        FailedToPayInstantiationFee
+        FailedToPayInstantiationFee,
+        /// Given identityId is not CDD.
+        NewOwnerIsNotCDD
     }
 }
 
@@ -121,6 +122,9 @@ decl_event! {
         /// Emitted when the instantiation of the template gets un-frozen.
         /// IdentityId of the owner, Code hash of the template.
         InstantiationUnFreezed(IdentityId, CodeHash),
+        /// Emitted when the template ownership get transferred.
+        /// IdentityId of the owner, Code hash of the template, IdentityId of the new owner of the template.
+        TemplateOwnershipTransferred(IdentityId, CodeHash, IdentityId),
     }
 }
 
@@ -155,6 +159,7 @@ decl_module! {
             code: Vec<u8>
         ) -> DispatchResult {
             let sender = ensure_signed(origin.clone())?;
+            let did = Context::current_identity_or::<Identity<T>>(&sender)?;
 
             // Save metadata related to the SE template
             // Generate the code_hash here as well because there is no way
@@ -168,7 +173,7 @@ decl_module! {
                 // Update the storage.
                 <TemplateMetaDetails<T>>::insert(code_hash, TemplateMetadata {
                     meta_info: meta_info,
-                    owner: sender,
+                    owner: did,
                     frozen: false
                 });
                 // Charge the protocol fee
@@ -218,7 +223,7 @@ decl_module! {
                 // transmit the call to the base `pallet-contracts` module.
                 actual_weight = <pallet_contracts::Module<T>>::instantiate(origin, endowment, gas_limit, code_hash, data).map(|post_info| post_info.actual_weight).map_err(|err| err.error)?;
                 // Charge instantiation fee
-                T::ProtocolFee::charge_extension_instantiation_fee((meta_details.get_instantiation_fee().saturated_into::<u128>()).into(), meta_details.owner, T::NetworkShareInFee::get())
+                T::ProtocolFee::charge_extension_instantiation_fee((meta_details.get_instantiation_fee().saturated_into::<u128>()).into(), Self::get_primary_key(&meta_details.owner), T::NetworkShareInFee::get())
             })?;
 
             // Update the actual weight of the extrinsic.
@@ -282,6 +287,29 @@ decl_module! {
             Self::deposit_event(RawEvent::InstantiationUnFreezed(did, code_hash));
             Ok(())
         }
+
+        /// Transfer ownership of the template, Can only be called by the owner of template.
+        /// `new_owner` should posses the valid CDD claim.
+        ///
+        /// # Arguments
+        /// * origin Owner of the provided code_hash.
+        /// * code_hash Unique identifer of the template.
+        /// * new_owner Identity that will be the new owner of the provided code_hash.
+        #[weight = 1_600_000_000]
+        pub fn transfer_template_ownership(origin, code_hash: CodeHash<T>, new_owner: IdentityId) -> DispatchResult {
+            // Ensure whether the extrinsic is signed & validate the `code_hash`.
+            let (did, _) = Self::ensure_signed_and_template_exists(origin, code_hash)?;
+
+            // Ensuring the `new_owner` is CDD or not.
+            ensure!(Identity::<T>::has_valid_cdd(new_owner), Error::<T>::NewOwnerIsNotCDD);
+
+            // Change the `owner` variable value to the given did.
+            <TemplateMetaDetails<T>>::mutate(&code_hash, |meta_details| meta_details.owner = new_owner);
+
+            // Emit event.
+            Self::deposit_event(RawEvent::TemplateOwnershipTransferred(did, code_hash, new_owner));
+            Ok(())
+        }
     }
 }
 
@@ -291,7 +319,7 @@ impl<T: Trait> Module<T> {
     fn ensure_signed_and_template_exists(
         origin: T::Origin,
         code_hash: CodeHash<T>,
-    ) -> Result<(IdentityId, TemplateMetadata<BalanceOf<T>, T::AccountId>), DispatchError> {
+    ) -> Result<(IdentityId, TemplateMetadata<BalanceOf<T>>), DispatchError> {
         // Ensure the transaction is signed.
         let sender = ensure_signed(origin.clone())?;
         // Get the DID of the sender.
@@ -304,12 +332,16 @@ impl<T: Trait> Module<T> {
 
         // Access the meta details of SE template
         let meta_details = Self::get_template_meta_details(code_hash);
-        // Ensure sender is the owner of the template.
+        // Ensure sender's DID is the owner of the template.
         ensure!(
-            sender == meta_details.owner.clone(),
+            did == meta_details.owner,
             Error::<T>::UnAuthorizedOrigin
         );
-        // Return the DID
+        // Return the DID and the template details.
         Ok((did, meta_details))
+    }
+
+    fn get_primary_key(id: &IdentityId) -> T::AccountId {
+        Identity::<T>::did_records(id).primary_key
     }
 }

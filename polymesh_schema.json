@@ -395,7 +395,7 @@
         },
         "TemplateMetadata": {
             "meta_info": "SmartExtensionMetadata",
-            "owner": "AccountId",
+            "owner": "IdentityId",
             "frozen": "bool"
         },
         "ProportionMatch": {

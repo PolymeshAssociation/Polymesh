@@ -2,21 +2,22 @@ use frame_support::{
     assert_err, assert_ok, dispatch::DispatchResultWithPostInfo, weights::GetDispatchInfo,
     StorageMap,
 };
-use pallet_contracts::{ContractAddressFor, Gas};
+use pallet_contracts::{ContractAddressFor, Gas, ContractInfoOf};
 use sp_runtime::{traits::Hash, Perbill};
 
 use crate::{
     ext_builder::MockProtocolBaseFees,
-    storage::{account_from, make_account_without_cdd, AccountId, TestStorage},
+    storage::{account_from, make_account_without_cdd, make_account, AccountId, TestStorage},
     ExtBuilder,
 };
+use polymesh_contracts::TemplateMetaDetails;
 use codec::Encode;
 use hex_literal::hex;
 use pallet_balances as balances;
 use polymesh_common_utilities::{protocol_fee::ProtocolOp, traits::CddAndFeeDetails};
 use polymesh_contracts::{Call as ContractsCall, NonceBasedAddressDeterminer};
 use polymesh_primitives::{
-    SmartExtensionMetadata, SmartExtensionType, TemplateMetadata,
+    SmartExtensionMetadata, SmartExtensionType, TemplateMetadata, IdentityId, InvestorUid
 };
 use test_client::AccountKeyring;
 
@@ -28,6 +29,7 @@ type WrapperContracts = polymesh_contracts::Module<TestStorage>;
 type Origin = <TestStorage as frame_system::Trait>::Origin;
 type Contracts = pallet_contracts::Module<TestStorage>;
 type WrapperContractsError = polymesh_contracts::Error<TestStorage>;
+type ProtocolFeeError = pallet_protocol_fee::Error<TestStorage>;
 
 /// Load a given wasm module represented by a .wat file and returns a wasm binary contents along
 /// with it's hash.
@@ -51,6 +53,7 @@ where
 
 fn create_se_template<T>(
     template_creator: AccountId,
+    template_creator_did: IdentityId,
     instantiation_fee: u128,
     code_hash: <T::Hashing as Hash>::Output,
     wasm: Vec<u8>,
@@ -89,7 +92,7 @@ fn create_se_template<T>(
     // Expected data provide by the runtime.
     let expected_template_metadata = TemplateMetadata {
         meta_info: se_meta_data,
-        owner: template_creator,
+        owner: template_creator_did,
         frozen: false,
     };
 
@@ -151,12 +154,12 @@ fn check_put_code_functionality() {
         .execute_with(|| {
             let alice = AccountKeyring::Alice.public();
             // Create Alice account & the identity for her.
-            let (alice_signed, _) = make_account_without_cdd(alice).unwrap();
+            let (alice_signed, alice_did) = make_account_without_cdd(alice).unwrap();
 
             // Get the balance of the Alice
             let alice_balance = System::account(alice).data.free;
 
-            create_se_template::<TestStorage>(alice, 0, code_hash, wasm);
+            create_se_template::<TestStorage>(alice, alice_did, 0, code_hash, wasm);
 
             // Check the storage of the base pallet
             assert!(<pallet_contracts::PristineCode<TestStorage>>::get(code_hash).is_some());
@@ -196,9 +199,9 @@ fn check_instantiation_functionality() {
 
             let alice = AccountKeyring::Alice.public();
             // Create Alice account & the identity for her.
-            let (alice_signed, _) = make_account_without_cdd(alice).unwrap();
+            let (alice_signed, alice_did) = make_account_without_cdd(alice).unwrap();
 
-            create_se_template::<TestStorage>(alice, instantiation_fee, code_hash, wasm);
+            create_se_template::<TestStorage>(alice, alice_did, instantiation_fee, code_hash, wasm);
 
             // Get the balance of the Alice
             let alice_balance = System::account(alice).data.free;
@@ -268,7 +271,7 @@ fn allow_network_share_deduction() {
             let fee_collector = account_from(5000);
             let alice = AccountKeyring::Alice.public();
             // Create Alice account & the identity for her.
-            make_account_without_cdd(alice).unwrap();
+            let (_, alice_did) = make_account_without_cdd(alice).unwrap();
 
             // Bob will create a instance of it.
             let bob = AccountKeyring::Bob.public();
@@ -276,7 +279,7 @@ fn allow_network_share_deduction() {
             make_account_without_cdd(bob).unwrap();
 
             // Create template of se
-            create_se_template::<TestStorage>(alice, instantiation_fee, code_hash, wasm);
+            create_se_template::<TestStorage>(alice, alice_did, instantiation_fee, code_hash, wasm);
 
             // Get the balance of Alice
             let alice_balance = System::account(alice).data.free;
@@ -316,7 +319,7 @@ fn check_behavior_when_instantiation_fee_changes() {
             let fee_collector = account_from(5000);
             let alice = AccountKeyring::Alice.public();
             // Create Alice account & the identity for her.
-            make_account_without_cdd(alice).unwrap();
+            let (_, alice_did) = make_account_without_cdd(alice).unwrap();
 
             // Bob will create a instance of it.
             let bob = AccountKeyring::Bob.public();
@@ -324,7 +327,7 @@ fn check_behavior_when_instantiation_fee_changes() {
             make_account_without_cdd(bob).unwrap();
 
             // Create template of se
-            create_se_template::<TestStorage>(alice, instantiation_fee, code_hash, wasm);
+            create_se_template::<TestStorage>(alice, alice_did, instantiation_fee, code_hash, wasm);
 
             let new_instantiation_fee = 8000;
 
@@ -402,7 +405,7 @@ fn check_freeze_unfreeze_functionality() {
             let instantiation_fee = 5000;
             let alice = AccountKeyring::Alice.public();
             // Create Alice account & the identity for her.
-            let (alice_signed, _) = make_account_without_cdd(alice).unwrap();
+            let (alice_signed, alice_did) = make_account_without_cdd(alice).unwrap();
 
             // Bob will create a instance of it.
             let bob = AccountKeyring::Bob.public();
@@ -410,7 +413,7 @@ fn check_freeze_unfreeze_functionality() {
             make_account_without_cdd(bob).unwrap();
 
             // Create template of se
-            create_se_template::<TestStorage>(alice, instantiation_fee, code_hash, wasm);
+            create_se_template::<TestStorage>(alice, alice_did, instantiation_fee, code_hash, wasm);
 
             // Check whether freeze functionality is working or not
             // successfully freeze the instantiation of the SE template
@@ -453,5 +456,155 @@ fn check_freeze_unfreeze_functionality() {
 
             // Instantiation should passed
             assert_ok!(create_contract_instance::<TestStorage>(bob, code_hash));
+        });
+}
+
+#[test]
+fn validate_transfer_template_ownership_functionality() {
+    // Build wasm and get code_hash
+    let (wasm, code_hash) = compile_module::<TestStorage>("flipper").unwrap();
+
+    ExtBuilder::default()
+        .network_fee_share(Perbill::from_percent(30))
+        .cdd_providers(vec![AccountKeyring::Eve.public()])
+        .build()
+        .execute_with(|| {
+            let instantiation_fee = 5000;
+            let alice = AccountKeyring::Alice.public();
+            // Create Alice account & the identity for her.
+            let (alice_signed, alice_did) = make_account_without_cdd(alice).unwrap();
+
+            // Bob will create a instance of it.
+            let bob = AccountKeyring::Bob.public();
+            // Create Bob account & the identity for her.
+            let bob_uid = InvestorUid::from("bob_take_1");
+            let (_, bob_did) = make_account(bob, bob_uid).unwrap();
+
+            // Create template of se
+            create_se_template::<TestStorage>(alice, alice_did, instantiation_fee, code_hash, wasm);
+
+            // Call the transfer ownership functionality
+            // Should fail because provided identityId doesn't has the CDD
+            assert_err!(
+                WrapperContracts::transfer_template_ownership(
+                    alice_signed.clone(),
+                    code_hash,
+                    IdentityId::from(2)
+                ),
+                WrapperContractsError::NewOwnerIsNotCDD
+            );
+
+            // Not a valid sender.
+            assert_err!(
+                WrapperContracts::transfer_template_ownership(
+                    Origin::signed(account_from(45)),
+                    code_hash,
+                    bob_did
+                ),
+                WrapperContractsError::UnAuthorizedOrigin
+            );
+
+            // Successfully transfer ownership to the other DID.
+            assert_ok!(
+                WrapperContracts::transfer_template_ownership(
+                    alice_signed,
+                    code_hash,
+                    bob_did
+                )
+            );
+
+            assert!(matches!(WrapperContracts::get_template_meta_details(code_hash).owner, bob_did));
+        });
+}
+
+#[test]
+fn check_transaction_rollback_functionality_for_put_code() {
+    // Build wasm and get code_hash
+    let (wasm, code_hash) = compile_module::<TestStorage>("flipper").unwrap();
+    let protocol_fee = MockProtocolBaseFees(vec![(ProtocolOp::ContractsPutCode, 900000000)]);
+
+    ExtBuilder::default()
+        .network_fee_share(Perbill::from_percent(30))
+        .set_protocol_base_fees(protocol_fee)
+        .build()
+        .execute_with(|| {
+
+            let instantiation_fee = 5000;
+            let alice = AccountKeyring::Alice.public();
+            // Create Alice account & the identity for her.
+            let (alice_signed, alice_did) = make_account_without_cdd(alice).unwrap();
+
+            // Set payer in context
+            TestStorage::set_payer_context(Some(alice));
+
+            // Create smart extension metadata
+            let se_meta_data = SmartExtensionMetadata {
+                url: None,
+                se_type: SmartExtensionType::TransferManager,
+                instantiation_fee: instantiation_fee,
+                usage_fee: 0,
+                description: "This is a transfer manager type contract".into(),
+                version: "1.0.0".into(),
+            };
+
+            // Execute `put_code`
+            assert_err!(
+                WrapperContracts::put_code(
+                    alice_signed,
+                    se_meta_data.clone(),
+                    wasm
+                ),
+                ProtocolFeeError::InsufficientAccountBalance
+            );
+
+            // Verify that storage doesn't change.
+            assert!(!TemplateMetaDetails::<TestStorage>::contains_key(code_hash));
+            assert!(<pallet_contracts::PristineCode<TestStorage>>::get(code_hash).is_none())
+        });
+}
+
+#[test]
+fn check_transaction_rollback_functionality_for_instantiation() {
+    // Build wasm and get code_hash
+    let (wasm, code_hash) = compile_module::<TestStorage>("flipper").unwrap();
+    let protocol_fee = MockProtocolBaseFees(vec![(ProtocolOp::ContractsPutCode, 500)]);
+
+    ExtBuilder::default()
+        .network_fee_share(Perbill::from_percent(30))
+        .set_protocol_base_fees(protocol_fee)
+        .build()
+        .execute_with(|| {
+            let input_data = hex!("5EBD88D6");
+            let instantiation_fee = 10000000000;
+            let fee_collector = account_from(5000);
+            let alice = AccountKeyring::Alice.public();
+            // Create Alice account & the identity for her.
+            let (_, alice_did) = make_account_without_cdd(alice).unwrap();
+
+            // Bob will create a instance of it.
+            let bob = AccountKeyring::Bob.public();
+            // Create Alice account & the identity for her.
+            make_account_without_cdd(bob).unwrap();
+
+            // Create template of se
+            create_se_template::<TestStorage>(alice, alice_did, instantiation_fee, code_hash, wasm);
+
+            // Get the balance of Alice
+            let alice_balance = System::account(alice).data.free;
+            // Get Network fee collector balance
+            let fee_collector_balance = System::account(fee_collector).data.free;
+
+            // create instance of contract
+            assert_err!(create_contract_instance::<TestStorage>(bob, code_hash), ProtocolFeeError::InsufficientAccountBalance);
+
+            // Generate the contract address.
+            let flipper_address_1 =
+                NonceBasedAddressDeterminer::<TestStorage>::contract_address_for(
+                    &code_hash,
+                    &input_data.to_vec(),
+                    &bob,
+                );
+
+            assert!(!ContractInfoOf::<TestStorage>::contains_key(flipper_address_1));
         });
 }

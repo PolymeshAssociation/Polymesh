@@ -15,6 +15,7 @@
 
 use codec::{Decode, Encode};
 use polymesh_primitives_derive::VecU8StrongTyped;
+use crate::IdentityId;
 use sp_std::prelude::Vec;
 /// Smart Extension types
 #[allow(missing_docs)]
@@ -84,16 +85,16 @@ pub struct SmartExtensionMetadata<Balance> {
 
 /// Data structure that hold all the relevant metadata of the smart extension template.
 #[derive(Encode, Decode, Default, Debug, Clone, PartialEq)]
-pub struct TemplateMetadata<Balance, AccountId> {
+pub struct TemplateMetadata<Balance> {
     /// Meta details of the SE template
     pub meta_info: SmartExtensionMetadata<Balance>,
     /// Owner of the SE template.
-    pub owner: AccountId,
+    pub owner: IdentityId,
     /// power button to switch on/off the instantiation from the template
     pub frozen: bool,
 }
 
-impl<Balance, AccountId> TemplateMetadata<Balance, AccountId>
+impl<Balance> TemplateMetadata<Balance>
 where
     Balance: Clone + Copy,
 {
