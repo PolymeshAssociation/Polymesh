@@ -26,12 +26,12 @@ pub trait AcceptTransfer {
     /// * `to_did` did of the receiver
     /// * `auth_id` Authorization id of the authorization created by current ticker owner
     fn accept_ticker_transfer(to_did: IdentityId, auth_id: u64) -> DispatchResult;
-    /// Accept and process a treasury transfer
+    /// Accept and process a primary issuance agent transfer
     ///
     /// # Arguments
     /// * `to_did` did of the receiver
     /// * `auth_id` Authorization id of the authorization created by current ticker owner
-    fn accept_treasury_transfer(to_did: IdentityId, auth_id: u64) -> DispatchResult;
+    fn accept_primary_issuance_agent_transfer(to_did: IdentityId, auth_id: u64) -> DispatchResult;
     /// Accept and process a token ownership transfer
     ///
     /// # Arguments
@@ -84,6 +84,6 @@ pub trait Trait<V, U> {
         receiver_did: IdentityId,
         value: V,
     ) -> DispatchResultWithPostInfo;
-    fn treasury(ticker: &Ticker) -> IdentityId;
+    fn primary_issuance_agent(ticker: &Ticker) -> IdentityId;
     fn max_number_of_tm_extension() -> u32;
 }

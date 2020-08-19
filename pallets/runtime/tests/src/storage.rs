@@ -317,6 +317,7 @@ impl pallet_transaction_payment::Trait for TestStorage {
 
 impl group::Trait<group::DefaultInstance> for TestStorage {
     type Event = Event;
+    type LimitOrigin = frame_system::EnsureRoot<AccountId>;
     type AddOrigin = frame_system::EnsureRoot<AccountId>;
     type RemoveOrigin = frame_system::EnsureRoot<AccountId>;
     type SwapOrigin = frame_system::EnsureRoot<AccountId>;
@@ -328,6 +329,7 @@ impl group::Trait<group::DefaultInstance> for TestStorage {
 /// PolymeshCommittee as an instance of group
 impl group::Trait<group::Instance1> for TestStorage {
     type Event = Event;
+    type LimitOrigin = frame_system::EnsureRoot<AccountId>;
     type AddOrigin = frame_system::EnsureRoot<AccountId>;
     type RemoveOrigin = frame_system::EnsureRoot<AccountId>;
     type SwapOrigin = frame_system::EnsureRoot<AccountId>;
@@ -338,6 +340,7 @@ impl group::Trait<group::Instance1> for TestStorage {
 
 impl group::Trait<group::Instance2> for TestStorage {
     type Event = Event;
+    type LimitOrigin = frame_system::EnsureRoot<AccountId>;
     type AddOrigin = frame_system::EnsureRoot<AccountId>;
     type RemoveOrigin = frame_system::EnsureRoot<AccountId>;
     type SwapOrigin = frame_system::EnsureRoot<AccountId>;
@@ -392,7 +395,7 @@ impl AcceptTransfer for TestStorage {
         Ok(())
     }
 
-    fn accept_treasury_transfer(_: IdentityId, _: u64) -> DispatchResult {
+    fn accept_primary_issuance_agent_transfer(_: IdentityId, _: u64) -> DispatchResult {
         Ok(())
     }
 
