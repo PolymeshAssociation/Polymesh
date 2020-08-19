@@ -277,16 +277,19 @@ pub struct FocusedBalances<Balance> {
     pub portfolio: Balance,
 }
 
-// TODO(centril): Dummy data type, replace with real stuff.
-/// Representation of an owner account on the side of Ethereum, for Polymath Classic.
-pub type EthAddress = u64;
+/// An Ethereum address (i.e. 20 bytes, used to represent an Ethereum account).
+///
+/// This gets serialized to the 0x-prefixed hex representation.
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+#[derive(Clone, Copy, PartialEq, Eq, Encode, Decode, Default, Debug)]
+pub struct EthereumAddress([u8; 20]);
 
 /// Data imported from Polymath Classic regarding ticker registration/creation.
 /// Only used at genesis config and not stored on-chain.
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 pub struct ClassicTickerImport {
     /// Owner of the registration.
-    pub eth_owner: EthAddress,
+    pub eth_owner: EthereumAddress,
     /// Name of the ticker registered.
     pub ticker: Ticker,
     /// Is `eth_owner` an Ethereum contract (e.g., in case of a multisig)?
@@ -300,7 +303,7 @@ pub struct ClassicTickerImport {
 #[derive(Encode, Decode, Clone, Debug, PartialEq, Eq)]
 pub struct ClassicTickerRegistration {
     /// Owner of the registration.
-    pub eth_owner: EthAddress,
+    pub eth_owner: EthereumAddress,
     /// Has the ticker been elevated to a created asset on classic?
     pub is_created: bool,
 }
