@@ -2239,6 +2239,6 @@ impl<T: Trait> Module<T> {
             true => ERC1400_TRANSFER_SUCCESS,
             false => SMART_EXTENSION_FAILURE
         };
-        return (transfer_status, weight_for_valid_transfer);
+        (transfer_status, weight_for_valid_transfer)
     }
 }
