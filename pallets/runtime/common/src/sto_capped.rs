@@ -163,7 +163,7 @@ decl_module! {
         /// * `rate` Rate of asset in terms of native currency
         /// * `start_date` Unix timestamp at when STO starts
         /// * `end_date` Unix timestamp at when STO ends
-        #[weight = 1_000_000_000]
+        #[weight = 70_000_000_000]
         pub fn launch_sto(
             origin,
             ticker: Ticker,
@@ -216,7 +216,7 @@ decl_module! {
         /// * `ticker` Ticker of the token
         /// * `sto_id` A unique identifier to know which STO investor wants to invest in
         /// * `value` Amount of POLYX wants to invest in
-        #[weight = 900_000_000]
+        #[weight = 1_000_000_000]
         pub fn buy_tokens(origin, ticker: Ticker, sto_id: u32, value: T::Balance) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             let did = Context::current_identity_or::<Identity<T>>(&sender)?;
