@@ -108,7 +108,7 @@ use polymesh_common_utilities::{
     constants::*,
     identity::Trait as IdentityTrait,
     protocol_fee::{ChargeProtocolFee, ProtocolOp},
-    CommonTrait, Context,
+    CommonTrait, Context, SystematicIssuers,
 };
 use polymesh_primitives::{
     AuthorizationData, AuthorizationError, Document, DocumentName, IdentityId, Signatory,
@@ -279,20 +279,30 @@ pub struct FocusedBalances<Balance> {
 
 // TODO(centril): Dummy data type, replace with real stuff.
 /// Representation of an owner account on the side of Ethereum, for Polymath Classic.
-pub type EthOwner = u64;
+pub type EthAddress = u64;
 
 /// Data imported from Polymath Classic regarding ticker registration/creation.
 /// Only used at genesis config and not stored on-chain.
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 pub struct ClassicTickerImport {
     /// Owner of the registration.
-    pub eth_owner: EthOwner,
+    pub eth_owner: EthAddress,
     /// Name of the ticker registered.
     pub ticker: Ticker,
     /// Is `eth_owner` an Ethereum contract (e.g., in case of a multisig)?
     pub is_contract: bool,
     /// Has the ticker been elevated to a created asset on classic?
-    pub is_crated: bool,
+    pub is_created: bool,
+}
+
+/// Data about a ticker registration from Polymath Classic on-genesis importation.
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+#[derive(Encode, Decode, Clone, Debug, PartialEq, Eq)]
+pub struct ClassicTickerRegistration {
+    /// Owner of the registration.
+    pub eth_owner: EthAddress,
+    /// Has the ticker been elevated to a created asset on classic?
+    pub is_created: bool,
 }
 
 decl_storage! {
@@ -355,10 +365,28 @@ decl_storage! {
         /// (ticker, document_name) -> document
         pub AssetDocuments get(fn asset_documents):
             double_map hasher(blake2_128_concat) Ticker, hasher(blake2_128_concat) DocumentName => Document;
+
+        /// Ticker registration details on Polymath Classic / Ethereum.
+        pub ClassicTickers get(fn classic_ticker_registration): map hasher(blake2_128_concat) Ticker => Option<ClassicTickerRegistration>;
     }
     add_extra_genesis {
         config(classic_migration_tickers): Vec<ClassicTickerImport>;
+        config(classic_migration_tconfig): TickerRegistrationConfig<T::Moment>;
         build(|config: &GenesisConfig<T>| {
+            let did = SystematicIssuers::ClassicMigration.as_id();
+            for import in &config.classic_migration_tickers {
+                // Register the ticker...
+                let tconfig = || config.classic_migration_tconfig.clone();
+                let expiry = <Module<T>>::ticker_registration_checks(&import.ticker, did, tconfig);
+                <Module<T>>::_register_ticker_feeless(&import.ticker, did, expiry.unwrap());
+
+                // ..and associate it with additional info needed for claiming.
+                let classic_ticker = ClassicTickerRegistration {
+                    eth_owner: import.eth_owner,
+                    is_created: import.is_created,
+                };
+                ClassicTickers::insert(&import.ticker, classic_ticker);
+            }
         });
     }
 }

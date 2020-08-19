@@ -141,6 +141,11 @@ fn general_testnet_genesis(
                 max_ticker_length: 12,
                 registration_length: Some(5_184_000_000),
             },
+            classic_migration_tconfig: TickerRegistrationConfig {
+                max_ticker_length: 12,
+                // TODO(centril): use values per product team wishes.
+                registration_length: Some(5_184_000_000),
+            },
             // TODO(centril): fill with actual data from Ethereum.
             classic_migration_tickers: vec![],
         }),
@@ -500,6 +505,11 @@ fn alcyone_testnet_genesis(
         asset: Some(AlcyoneConfig::AssetConfig {
             ticker_registration_config: TickerRegistrationConfig {
                 max_ticker_length: 12,
+                registration_length: Some(5_184_000_000),
+            },
+            classic_migration_tconfig: TickerRegistrationConfig {
+                max_ticker_length: 12,
+                // TODO(centril): use values per product team wishes.
                 registration_length: Some(5_184_000_000),
             },
             // TODO(centril): fill with actual data from Ethereum.

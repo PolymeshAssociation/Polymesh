@@ -269,10 +269,15 @@ impl ExtBuilder {
         .unwrap();
 
         // Asset genesis.
+        let max_ticker_length = 8;
         asset::GenesisConfig::<TestStorage> {
             ticker_registration_config: TickerRegistrationConfig {
-                max_ticker_length: 8,
+                max_ticker_length,
                 registration_length: Some(10000),
+            },
+            classic_migration_tconfig: TickerRegistrationConfig {
+                max_ticker_length,
+                registration_length: Some(20000),
             },
             // TODO(centril): fill with test data.
             classic_migration_tickers: vec![],
