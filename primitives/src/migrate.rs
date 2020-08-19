@@ -18,15 +18,6 @@
 use codec::{Decode, Encode};
 use frame_support::migration::{put_storage_value, StorageIterator};
 
-// TODO(centril): Define derive for structural impls, e.g.,
-// ```rust
-// #[derive(..., Encode, Migrate)]
-// struct Foo {
-//     #[migrate]
-//     bar: u8,
-// }
-// ```
-
 /// A data type which is migrating through `migrate` to a new type as defined by `Into`.
 pub trait Migrate: Decode {
     /// The new type to migrate into.

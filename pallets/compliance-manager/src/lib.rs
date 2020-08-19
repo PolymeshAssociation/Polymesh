@@ -92,9 +92,8 @@ use polymesh_common_utilities::{
     protocol_fee::{ChargeProtocolFee, ProtocolOp},
     Context,
 };
-use polymesh_primitives::{
-    migrate::Migrate, predicate, Claim, ClaimType, IdentityId, Rule, RuleType, Ticker,
-};
+use polymesh_primitives::{predicate, Claim, ClaimType, IdentityId, Rule, RuleType, Ticker};
+use polymesh_primitives_derive::Migrate;
 #[cfg(feature = "std")]
 use sp_runtime::{Deserialize, Serialize};
 use sp_std::{
@@ -121,31 +120,12 @@ use polymesh_primitives::rule::RuleOld;
 
 /// An asset transfer rule.
 /// All sender and receiver rule of the same asset rule must be true in order to execute the transfer.
-#[derive(codec::Decode)]
-pub struct AssetTransferRuleOld {
-    pub sender_rules: Vec<RuleOld>,
-    pub receiver_rules: Vec<RuleOld>,
-    /// Unique identifier of the asset rule
-    pub rule_id: u32,
-}
-
-impl Migrate for AssetTransferRuleOld {
-    type Into = AssetTransferRule;
-    fn migrate(self) -> Option<Self::Into> {
-        Some(Self::Into {
-            sender_rules: self.sender_rules.migrate()?,
-            receiver_rules: self.receiver_rules.migrate()?,
-            rule_id: self.rule_id,
-        })
-    }
-}
-
-/// An asset transfer rule.
-/// All sender and receiver rule of the same asset rule must be true in order to execute the transfer.
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[derive(codec::Encode, codec::Decode, Default, Clone, PartialEq, Eq, Debug)]
+#[derive(codec::Encode, codec::Decode, Default, Clone, PartialEq, Eq, Debug, Migrate)]
 pub struct AssetTransferRule {
+    #[migrate(Rule)]
     pub sender_rules: Vec<Rule>,
+    #[migrate(Rule)]
     pub receiver_rules: Vec<Rule>,
     /// Unique identifier of the asset rule
     pub rule_id: u32,
@@ -199,31 +179,13 @@ impl From<Rule> for RuleResult {
 }
 
 /// List of rules associated to an asset.
-#[derive(codec::Decode)]
-pub struct AssetTransferRulesOld {
-    /// This flag indicates if asset transfer rules are active or paused.
-    pub is_paused: bool,
-    /// List of rules.
-    pub rules: Vec<AssetTransferRuleOld>,
-}
-
-impl Migrate for AssetTransferRulesOld {
-    type Into = AssetTransferRules;
-    fn migrate(self) -> Option<Self::Into> {
-        Some(Self::Into {
-            is_paused: self.is_paused,
-            rules: self.rules.migrate()?,
-        })
-    }
-}
-
-/// List of rules associated to an asset.
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize, Debug))]
-#[derive(codec::Encode, codec::Decode, Default, Clone, PartialEq, Eq)]
+#[derive(codec::Encode, codec::Decode, Default, Clone, PartialEq, Eq, Migrate)]
 pub struct AssetTransferRules {
     /// This flag indicates if asset transfer rules are active or paused.
     pub is_paused: bool,
     /// List of rules.
+    #[migrate(AssetTransferRule)]
     pub rules: Vec<AssetTransferRule>,
 }
 
