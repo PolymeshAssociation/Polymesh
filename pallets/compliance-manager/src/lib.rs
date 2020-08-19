@@ -866,13 +866,8 @@ impl<T: Trait> ComplianceManagerTrait<T::Balance> for Module<T> {
         from_did_opt: Option<IdentityId>,
         to_did_opt: Option<IdentityId>,
         _value: T::Balance,
-<<<<<<< HEAD
-        treasury_did: Option<IdentityId>,
-    ) -> Result<(u8, Weight), DispatchError> {
-=======
         primary_issuance_agent: Option<IdentityId>,
-    ) -> StdResult<u8, &'static str> {
->>>>>>> develop
+    ) -> Result<(u8, Weight), DispatchError> {
         // Transfer is valid if ALL receiver AND sender rules of ANY asset rule are valid.
         let asset_rules = Self::asset_rules(ticker);
         let mut skip_count: u64 = 0;
