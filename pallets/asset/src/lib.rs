@@ -1080,7 +1080,7 @@ decl_module! {
         /// and transfer it to the `origin`'s identity.
         ///
         /// To verify that the `origin` is in control of the Ethereum account on the books,
-        /// an `ethereum_signature` containing the `origin`'s `AccountId` as the message
+        /// an `ethereum_signature` containing the `origin`'s DID as the message
         /// must be provided by that Ethereum account.
         ///
         /// # Errors
@@ -1108,9 +1108,14 @@ decl_module! {
             let sender = ensure_signed(origin)?;
             let owner_did = Context::current_identity_or::<Identity<T>>(&sender)?;
 
-            // Have the signer prove that they own *some* Ethereum account
-            // by having the signed signature contain the `sender` signing key.
-            let eth_signer = ethereum::eth_check(sender, &ethereum_signature)
+            // Have the caller prove that they own *some* Ethereum account
+            // by having the signed signature contain the `owner_did`.
+            //
+            // We specifically use `owner_did` rather than `sender` such that
+            // if the signing key's owner DID is changed after the creating
+            // `ethereum_signature`, then the call is rejected
+            // (caller might not have Ethereum account's private key).
+            let eth_signer = ethereum::eth_check(owner_did, &ethereum_signature)
                 .ok_or(Error::<T>::InvalidEthereumSignature)?;
 
             // Now we have an Ethereum account; ensure it's the *right one*.
