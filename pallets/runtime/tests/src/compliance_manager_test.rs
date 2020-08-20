@@ -248,10 +248,10 @@ fn should_add_and_verify_asset_rule_we() {
             ticker,
             vec![sender_rule.clone()],
             vec![receiver_rule1.clone(), receiver_rule2.clone()],
-        )
+        );
     }
-    assert_ok!(ComplianceManager::remove_active_rule(1)); // OK; latest == 3
-    assert_err!(ComplianceManager::remove_active_rule(1)); // BAD OK; latest == 3, but 1 was just removed.
+    assert_ok!(ComplianceManager::remove_active_rule(token_owner_signed.clone(), ticker, 1)); // OK; latest == 3
+    assert_err!(ComplianceManager::remove_active_rule(token_owner_signed.clone(), ticker, 1), CMError::<TestStorage>::InvalidRuleId); // BAD OK; latest == 3, but 1 was just removed.
 }
 
 #[test]
