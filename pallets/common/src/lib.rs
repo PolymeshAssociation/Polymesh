@@ -34,7 +34,7 @@ pub use protocol_fee::ChargeProtocolFee;
 
 use core::convert::From;
 use polymesh_primitives::IdentityId;
-use sp_runtime::ModuleId;
+use sp_runtime::{DispatchResult, ModuleId};
 
 /// It defines the valid issuers for Systematic Claims.
 ///
@@ -115,4 +115,26 @@ impl SystematicIssuers {
             SystematicIssuers::Settlement => SETTLEMENT_MODULE_ID,
         }
     }
+}
+
+/// Execute the supplied function in a new storage transaction,
+/// committing on `Ok(_)` and rolling back on `Err(_)`, returning the result.
+///
+/// Transactions can be arbitrarily nested with commits happening to the parent.
+pub fn with_transaction<T, E>(tx: impl FnOnce() -> Result<T, E>) -> Result<T, E> {
+    use frame_support::storage::{with_transaction, TransactionOutcome};
+    with_transaction(|| match tx() {
+        r @ Ok(_) => TransactionOutcome::Commit(r),
+        r @ Err(_) => TransactionOutcome::Rollback(r),
+    })
+}
+
+/// In one transaction, execute the supplied function `tx` on each element in `iter`.
+///
+/// See `with_transaction` for details.
+pub fn with_each_transaction<A>(
+    iter: impl IntoIterator<Item = A>,
+    tx: impl FnMut(A) -> DispatchResult,
+) -> DispatchResult {
+    with_transaction(|| iter.into_iter().try_for_each(tx))
 }

@@ -89,7 +89,7 @@ decl_module! {
         fn deposit_event() = default;
 
         /// Create a new offering. A fixed amount of pre-minted tokens are put up for sale at the specified flat rate.
-        #[weight = 200_000_000]
+        #[weight = 800_000_000]
         pub fn create_fundraiser(
             origin,
             offering_token: Ticker,
@@ -120,7 +120,7 @@ decl_module! {
         }
 
         /// Purchase tokens from an ongoing offering.
-        #[weight = 200_000_000]
+        #[weight = 2_000_000_000]
         pub fn invest(origin, offering_token: Ticker, fundraiser_id: u64, offering_token_amount: T::Balance) -> DispatchResult {
             let sender = ensure_signed(origin.clone())?;
             let did = Context::current_identity_or::<Identity<T>>(&sender)?;
