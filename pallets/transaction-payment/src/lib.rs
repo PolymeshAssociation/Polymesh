@@ -211,11 +211,7 @@ decl_module! {
         const WeightToFee: Vec<WeightToFeeCoefficient<BalanceOf<T>>> =
             T::WeightToFee::polynomial().to_vec();
 
-        fn on_finalize() {
-            NextFeeMultiplier::mutate(|fm| {
-                *fm = T::FeeMultiplierUpdate::convert(*fm);
-            });
-        }
+        // Polymesh specific change: Fee multiplier update has been disabled for the testnet.
 
         fn integrity_test() {
             // given weight == u64, we build multipliers from `diff` of two weight values, which can

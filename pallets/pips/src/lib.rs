@@ -108,7 +108,7 @@ use polymesh_common_utilities::{
         balances::LockableCurrencyExt, governance_group::GovernanceGroupTrait, group::GroupTrait,
         pip::PipId,
     },
-    CommonTrait, Context, SystematicIssuers,
+    with_transaction, CommonTrait, Context, SystematicIssuers,
 };
 use polymesh_primitives::IdentityId;
 use polymesh_primitives_derive::VecU8StrongTyped;
@@ -537,7 +537,7 @@ decl_module! {
         ///
         /// # Arguments
         /// * `deposit` the new min deposit required to start a proposal
-        #[weight = (150_000_000, DispatchClass::Operational, Pays::Yes)]
+        #[weight = (550_000_000, DispatchClass::Operational, Pays::Yes)]
         pub fn set_prune_historical_pips(origin, new_value: bool) {
             T::CommitteeOrigin::ensure_origin(origin)?;
             Self::deposit_event(RawEvent::HistoricalPipsPruned(SystematicIssuers::Committee.as_id(), Self::prune_historical_pips(), new_value));
@@ -549,7 +549,7 @@ decl_module! {
         ///
         /// # Arguments
         /// * `deposit` the new min deposit required to start a proposal
-        #[weight = (150_000_000, DispatchClass::Operational, Pays::Yes)]
+        #[weight = (550_000_000, DispatchClass::Operational, Pays::Yes)]
         pub fn set_min_proposal_deposit(origin, deposit: BalanceOf<T>) {
             T::CommitteeOrigin::ensure_origin(origin)?;
             Self::deposit_event(RawEvent::MinimumProposalDepositChanged(SystematicIssuers::Committee.as_id(), Self::min_proposal_deposit(), deposit));
@@ -561,7 +561,7 @@ decl_module! {
         ///
         /// # Arguments
         /// * `duration` proposal cool off period duration in blocks
-        #[weight = (150_000_000, DispatchClass::Operational, Pays::Yes)]
+        #[weight = (550_000_000, DispatchClass::Operational, Pays::Yes)]
         pub fn set_proposal_cool_off_period(origin, duration: T::BlockNumber) {
             T::CommitteeOrigin::ensure_origin(origin)?;
             Self::deposit_event(RawEvent::ProposalCoolOffPeriodChanged(SystematicIssuers::Committee.as_id(), Self::proposal_cool_off_period(), duration));
@@ -569,7 +569,7 @@ decl_module! {
         }
 
         /// Change the default enact period.
-        #[weight = (150_000_000, DispatchClass::Operational, Pays::Yes)]
+        #[weight = (550_000_000, DispatchClass::Operational, Pays::Yes)]
         pub fn set_default_enactment_period(origin, duration: T::BlockNumber) {
             T::CommitteeOrigin::ensure_origin(origin)?;
             let prev = <DefaultEnactmentPeriod<T>>::get();
@@ -788,15 +788,6 @@ decl_module! {
             Self::is_proposal_state(id, ProposalState::Pending)?;
 
             let current_did = Self::current_did_or_missing()?;
-
-            // TODO(centril): move this to a suitable utils crate.
-            fn with_transaction<T, E>(tx: impl FnOnce() -> Result<T, E>) -> Result<T, E> {
-                use frame_support::storage::{with_transaction, TransactionOutcome};
-                with_transaction(|| match tx() {
-                    r @ Ok(_) => TransactionOutcome::Commit(r),
-                    r @ Err(_) => TransactionOutcome::Rollback(r),
-                })
-            }
 
             with_transaction(|| {
                 // 4. Reserve the deposit, or refund if needed.
