@@ -108,7 +108,7 @@ use polymesh_common_utilities::{
         balances::LockableCurrencyExt, governance_group::GovernanceGroupTrait, group::GroupTrait,
         pip::PipId,
     },
-    with_transaction, CommonTrait, Context, SystematicIssuers,
+    with_transaction, CommonTrait, Context, GC_DID,
 };
 use polymesh_primitives::IdentityId;
 use polymesh_primitives_derive::VecU8StrongTyped;
@@ -540,7 +540,7 @@ decl_module! {
         #[weight = (550_000_000, DispatchClass::Operational, Pays::Yes)]
         pub fn set_prune_historical_pips(origin, new_value: bool) {
             T::CommitteeOrigin::ensure_origin(origin)?;
-            Self::deposit_event(RawEvent::HistoricalPipsPruned(SystematicIssuers::Committee.as_id(), Self::prune_historical_pips(), new_value));
+            Self::deposit_event(RawEvent::HistoricalPipsPruned(GC_DID, Self::prune_historical_pips(), new_value));
             <PruneHistoricalPips>::put(new_value);
         }
 
@@ -552,7 +552,7 @@ decl_module! {
         #[weight = (550_000_000, DispatchClass::Operational, Pays::Yes)]
         pub fn set_min_proposal_deposit(origin, deposit: BalanceOf<T>) {
             T::CommitteeOrigin::ensure_origin(origin)?;
-            Self::deposit_event(RawEvent::MinimumProposalDepositChanged(SystematicIssuers::Committee.as_id(), Self::min_proposal_deposit(), deposit));
+            Self::deposit_event(RawEvent::MinimumProposalDepositChanged(GC_DID, Self::min_proposal_deposit(), deposit));
             <MinimumProposalDeposit<T>>::put(deposit);
         }
 
@@ -564,7 +564,7 @@ decl_module! {
         #[weight = (550_000_000, DispatchClass::Operational, Pays::Yes)]
         pub fn set_proposal_cool_off_period(origin, duration: T::BlockNumber) {
             T::CommitteeOrigin::ensure_origin(origin)?;
-            Self::deposit_event(RawEvent::ProposalCoolOffPeriodChanged(SystematicIssuers::Committee.as_id(), Self::proposal_cool_off_period(), duration));
+            Self::deposit_event(RawEvent::ProposalCoolOffPeriodChanged(GC_DID, Self::proposal_cool_off_period(), duration));
             <ProposalCoolOffPeriod<T>>::put(duration);
         }
 
@@ -574,7 +574,7 @@ decl_module! {
             T::CommitteeOrigin::ensure_origin(origin)?;
             let prev = <DefaultEnactmentPeriod<T>>::get();
             <DefaultEnactmentPeriod<T>>::put(duration);
-            Self::deposit_event(RawEvent::DefaultEnactmentPeriodChanged(SystematicIssuers::Committee.as_id(), prev, duration));
+            Self::deposit_event(RawEvent::DefaultEnactmentPeriodChanged(GC_DID, prev, duration));
         }
 
         /// Change the maximum skip count (`max_pip_skip_count`).
@@ -584,7 +584,7 @@ decl_module! {
             T::CommitteeOrigin::ensure_origin(origin)?;
             let prev_max = MaxPipSkipCount::get();
             MaxPipSkipCount::put(new_max);
-            Self::deposit_event(RawEvent::MaxPipSkipCountChanged(SystematicIssuers::Committee.as_id(), prev_max, new_max));
+            Self::deposit_event(RawEvent::MaxPipSkipCountChanged(GC_DID, prev_max, new_max));
         }
 
         /// Change the maximum number of active PIPs before community members cannot propose anything.
@@ -593,7 +593,7 @@ decl_module! {
             T::CommitteeOrigin::ensure_origin(origin)?;
             let prev_max = ActivePipLimit::get();
             ActivePipLimit::put(new_max);
-            Self::deposit_event(RawEvent::ActivePipLimitChanged(SystematicIssuers::Committee.as_id(), prev_max, new_max));
+            Self::deposit_event(RawEvent::ActivePipLimitChanged(GC_DID, prev_max, new_max));
         }
 
         /// A network member creates a PIP by submitting a dispatchable which
@@ -833,7 +833,7 @@ decl_module! {
             ensure!(matches!(meta.proposer, Proposer::Committee(_)), Error::<T>::NotByCommittee);
 
             // 4. All is good, schedule PIP for execution.
-            Self::schedule_pip_for_execution(SystematicIssuers::Committee.as_id(), id);
+            Self::schedule_pip_for_execution(GC_DID, id);
         }
 
         /// Rejects the PIP given by the `id`, refunding any bonded funds,
@@ -851,7 +851,7 @@ decl_module! {
             ensure!(Self::is_active(proposal.state), Error::<T>::IncorrectProposalState);
             Self::maybe_unschedule_pip(id, proposal.state);
             Self::maybe_unsnapshot_pip(id, proposal.state);
-            Self::unsafe_reject_proposal(SystematicIssuers::Committee.as_id(), id);
+            Self::unsafe_reject_proposal(GC_DID, id);
         }
 
         /// Prune the PIP given by the `id`, refunding any funds not already refunded.
@@ -868,7 +868,7 @@ decl_module! {
             T::VotingMajorityOrigin::ensure_origin(origin)?;
             let proposal = Self::proposals(id).ok_or_else(|| Error::<T>::NoSuchProposal)?;
             ensure!(!Self::is_active(proposal.state), Error::<T>::IncorrectProposalState);
-            Self::prune_data(SystematicIssuers::Committee.as_id(), id, proposal.state, true);
+            Self::prune_data(GC_DID, id, proposal.state, true);
         }
 
         /// Updates the execution schedule of the PIP given by `id`.
@@ -1011,7 +1011,6 @@ decl_module! {
         #[weight = (1_000_000_000, DispatchClass::Operational, Pays::Yes)]
         pub fn enact_snapshot_results(origin, results: Vec<(PipId, SnapshotResult)>) -> DispatchResult {
             T::VotingMajorityOrigin::ensure_origin(origin)?;
-            let gc_did = SystematicIssuers::Committee.as_id();
 
             let max_pip_skip_count = Self::max_pip_skip_count();
 
@@ -1051,20 +1050,20 @@ decl_module! {
                 // Update skip counts.
                 for (pip_id, new_count) in to_bump_skipped.iter().copied() {
                     PipSkipCount::insert(pip_id, new_count);
-                    Self::deposit_event(RawEvent::PipSkipped(gc_did, pip_id, new_count));
+                    Self::deposit_event(RawEvent::PipSkipped(GC_DID, pip_id, new_count));
                 }
 
                 // Reject proposals as instructed & refund.
                 for pip_id in to_reject.iter().copied() {
-                    Self::unsafe_reject_proposal(gc_did, pip_id);
+                    Self::unsafe_reject_proposal(GC_DID, pip_id);
                 }
 
                 // Approve proposals as instructed.
                 for pip_id in to_approve.iter().copied() {
-                    Self::schedule_pip_for_execution(gc_did, pip_id);
+                    Self::schedule_pip_for_execution(GC_DID, pip_id);
                 }
 
-                let event = RawEvent::SnapshotResultsEnacted(gc_did, to_bump_skipped, to_reject, to_approve);
+                let event = RawEvent::SnapshotResultsEnacted(GC_DID, to_bump_skipped, to_reject, to_approve);
                 Self::deposit_event(event);
 
                 Ok(())
