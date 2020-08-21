@@ -53,8 +53,8 @@ async function main() {
 
   await reqImports.issueTokenPerDid(api, [bob], prepend2);
 
-  await reqImports.addActiveRule(api, alice, ticker);
-  await reqImports.addActiveRule(api, bob, ticker2);
+  await reqImports.addComplianceRequirement(api, alice, ticker);
+  await reqImports.addComplianceRequirement(api, bob, ticker2);
 
   await reqImports.mintingAsset(api, alice, alice_did, prepend);
 

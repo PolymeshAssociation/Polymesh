@@ -40,7 +40,7 @@ The test scripts include those named below, and most make up `npm test`:
  - 4_permission_management
  - 5_claim_management
  - 6_create_assets
- - 7_create_claim_rules
+ - 7_create_claim_compliance
  - 8_asset_transfer
  - 9_offchain_worker_test
  - schema_test
