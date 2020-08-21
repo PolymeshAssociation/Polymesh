@@ -56,6 +56,7 @@ pub enum SystematicIssuers {
     Treasury,
     BlockRewardReserve,
     Settlement,
+    ClassicMigration,
 }
 
 impl core::fmt::Display for SystematicIssuers {
@@ -66,6 +67,7 @@ impl core::fmt::Display for SystematicIssuers {
             SystematicIssuers::Treasury => "Treasury",
             SystematicIssuers::BlockRewardReserve => "Block Reward Reserve",
             SystematicIssuers::Settlement => "Settlement module",
+            SystematicIssuers::ClassicMigration => "Polymath Classic Imports and Reservations",
         };
 
         write!(f, "'{}'", value)
@@ -78,22 +80,20 @@ pub const SYSTEMATIC_ISSUERS: &[SystematicIssuers] = &[
     SystematicIssuers::CDDProvider,
     SystematicIssuers::BlockRewardReserve,
     SystematicIssuers::Settlement,
+    SystematicIssuers::ClassicMigration,
 ];
 
 impl SystematicIssuers {
-    /// It returns the representation of this issuer as a raw public key.
+    /// Returns the representation of this issuer as a raw public key.
     pub fn as_bytes(self) -> &'static [u8; 32] {
-        use constants::did::{
-            BLOCK_REWARD_RESERVE_DID, CDD_PROVIDERS_DID, GOVERNANCE_COMMITTEE_DID,
-            SETTLEMENT_MODULE_DID, TREASURY_DID,
-        };
-
+        use constants::did;
         match self {
-            SystematicIssuers::Committee => GOVERNANCE_COMMITTEE_DID,
-            SystematicIssuers::CDDProvider => CDD_PROVIDERS_DID,
-            SystematicIssuers::Treasury => TREASURY_DID,
-            SystematicIssuers::BlockRewardReserve => BLOCK_REWARD_RESERVE_DID,
-            SystematicIssuers::Settlement => SETTLEMENT_MODULE_DID,
+            SystematicIssuers::Committee => did::GOVERNANCE_COMMITTEE_DID,
+            SystematicIssuers::CDDProvider => did::CDD_PROVIDERS_DID,
+            SystematicIssuers::Treasury => did::TREASURY_DID,
+            SystematicIssuers::BlockRewardReserve => did::BLOCK_REWARD_RESERVE_DID,
+            SystematicIssuers::Settlement => did::SETTLEMENT_MODULE_DID,
+            SystematicIssuers::ClassicMigration => did::CLASSIC_MIGRATION_DID,
         }
     }
 
@@ -103,16 +103,13 @@ impl SystematicIssuers {
     }
 
     pub fn as_module_id(self) -> ModuleId {
-        use constants::{
-            BRR_MODULE_ID, CDD_MODULE_ID, GC_MODULE_ID, SETTLEMENT_MODULE_ID, TREASURY_MODULE_ID,
-        };
-
         match self {
-            SystematicIssuers::Committee => GC_MODULE_ID,
-            SystematicIssuers::CDDProvider => CDD_MODULE_ID,
-            SystematicIssuers::Treasury => TREASURY_MODULE_ID,
-            SystematicIssuers::BlockRewardReserve => BRR_MODULE_ID,
-            SystematicIssuers::Settlement => SETTLEMENT_MODULE_ID,
+            SystematicIssuers::Committee => constants::GC_MODULE_ID,
+            SystematicIssuers::CDDProvider => constants::CDD_MODULE_ID,
+            SystematicIssuers::Treasury => constants::TREASURY_MODULE_ID,
+            SystematicIssuers::BlockRewardReserve => constants::BRR_MODULE_ID,
+            SystematicIssuers::Settlement => constants::SETTLEMENT_MODULE_ID,
+            SystematicIssuers::ClassicMigration => constants::CLASSIC_MIGRATION_MODULE_ID,
         }
     }
 }
