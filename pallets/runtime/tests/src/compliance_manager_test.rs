@@ -252,6 +252,7 @@ fn should_add_and_verify_asset_rule_we() {
     }
     assert_ok!(ComplianceManager::remove_active_rule(token_owner_signed.clone(), ticker, 1)); // OK; latest == 3
     assert_err!(ComplianceManager::remove_active_rule(token_owner_signed.clone(), ticker, 1), CMError::<TestStorage>::InvalidRuleId); // BAD OK; latest == 3, but 1 was just removed.
+    assert_noop!(ComplianceManager::remove_active_rule(token_owner_signed.clone(), ticker, 1), CMError::<TestStorage>::InvalidRuleId);
 }
 
 #[test]

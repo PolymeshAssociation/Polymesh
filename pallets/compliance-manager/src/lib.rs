@@ -306,9 +306,12 @@ decl_module! {
 
             ensure!(asset_rules.rules.iter().any(|rule| asset_rule_id == rule.rule_id), Error::<T>::InvalidRuleId);
 
-            <AssetRulesMap>::mutate(ticker, |old_asset_rules| {
-                old_asset_rules.rules.retain( |rule| { rule.rule_id != asset_rule_id });
-            });
+            <AssetRulesMap>::try_mutate(ticker, |asset_rules| {
+                let before = asset_rules.rules.len();
+                asset_rules.rules.retain(|rule| { rule.rule_id != asset_rule_id });
+                ensure!(before != asset_rules.rules.len(), Error::<T>::InvalidRuleId);
+                Ok(()) as DispatchResult
+            })?;
 
             Self::deposit_event(Event::AssetRuleRemoved(did, ticker, asset_rule_id));
 
