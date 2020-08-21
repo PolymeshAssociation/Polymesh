@@ -285,7 +285,7 @@ pub struct FocusedBalances<Balance> {
 
 decl_storage! {
     trait Store for Module<T: Trait> as Asset {
-        /// Ticker registration details.
+        /// Ticker registration details. The ticker names are in plaintext.
         /// (ticker) -> TickerRegistration
         pub Tickers get(fn ticker_registration): map hasher(blake2_128_concat) Ticker => TickerRegistration<T::Moment>;
         /// Ticker registration config.
@@ -296,51 +296,62 @@ decl_storage! {
         pub Tokens get(fn token_details): map hasher(blake2_128_concat) Ticker => SecurityToken<T::Balance>;
         /// The total asset ticker balance per identity.
         /// (ticker, DID) -> Balance
-        pub BalanceOf get(fn balance_of): double_map hasher(blake2_128_concat) Ticker, hasher(blake2_128_concat) IdentityId => T::Balance;
+        /// TODO: Mapping of plain ticker names to identities leaks secrets. Changing this to
+        ///       (DID, encrypted_asset_id) -> EncrytpedBalance
+        pub EncryptedBalanceOf get(fn balance_of): double_map hasher(blake2_128_concat) IdentityId, hasher(blake2_128_concat) EncryptedAssetId => T::EncryptedBalance;
         /// A map of pairs of a ticker name and an `IdentifierType` to asset identifiers.
+        /// TODO: I am not sure what this is.
         pub Identifiers get(fn identifiers): map hasher(blake2_128_concat) (Ticker, IdentifierType) => AssetIdentifier;
-        /// (ticker, sender (DID), spender(DID)) -> allowance amount
-        Allowance get(fn allowance): map hasher(blake2_128_concat) (Ticker, IdentityId, IdentityId) => T::Balance;
+        // /// (ticker, sender (DID), spender(DID)) -> allowance amount
+        // /// TODO: Do we need this for confidential assets? It seem like it would require more cryptographic proofs.
+        // ///       Commenting it for now.
+        // Allowance get(fn allowance): map hasher(blake2_128_concat) (Ticker, IdentityId, IdentityId) => T::Balance;
         /// Checkpoints created per token.
         /// (ticker) -> no. of checkpoints
         pub TotalCheckpoints get(fn total_checkpoints_of): map hasher(blake2_128_concat) Ticker => u64;
         /// Total supply of the token at the checkpoint.
         /// (ticker, checkpointId) -> total supply at given checkpoint
-        pub CheckpointTotalSupply get(fn total_supply_at): map hasher(blake2_128_concat) (Ticker, u64) => T::Balance;
+        /// TODO: Is it returning the sum of all the tokens held by different dids?
+        pub CheckpointTotalSupply get(fn total_supply_at): map hasher(blake2_128_concat) (Ticker, u64) => T::EncryptedBalance;
         /// Balance of a DID at a checkpoint.
         /// (ticker, did, checkpoint ID) -> Balance of a DID at a checkpoint
-        CheckpointBalance get(fn balance_at_checkpoint): map hasher(blake2_128_concat) (Ticker, IdentityId, u64) => T::Balance;
+        /// TODO: Similar to `EncryptedBalanceOf`, cannot have a link between plain tickers and DIDs.
+        ///       Changing to (IdentityId, EncryptedAssetId, u64)
+        CheckpointEncryptedBalance get(fn encrypted_balance_at_checkpoint): map hasher(blake2_128_concat) (IdentityId, EncryptedAssetId, u64) => T::EncryptedBalance;
         /// Last checkpoint updated for a DID's balance.
         /// (ticker, did) -> List of checkpoints where user balance changed
         UserCheckpoints get(fn user_checkpoints): map hasher(blake2_128_concat) (Ticker, IdentityId) => Vec<u64>;
-        /// Allowance provided to the custodian.
-        /// (ticker, token holder, custodian) -> balance
-        pub CustodianAllowance get(fn custodian_allowance): map hasher(blake2_128_concat) (Ticker, IdentityId, IdentityId) => T::Balance;
-        /// Total custodian allowance for a given token holder.
-        /// (ticker, token holder) -> balance
-        pub TotalCustodyAllowance get(fn total_custody_allowance): map hasher(blake2_128_concat) (Ticker, IdentityId) => T::Balance;
-        /// Store the nonce for off chain signature to increase the custody allowance.
-        /// (ticker, token holder, nonce) -> bool
-        AuthenticationNonce get(fn authentication_nonce): map hasher(blake2_128_concat) (Ticker, IdentityId, u16) => bool;
+        // /// Allowance provided to the custodian.
+        // /// (ticker, token holder, custodian) -> balance
+        // pub CustodianAllowance get(fn custodian_allowance): map hasher(blake2_128_concat) (Ticker, IdentityId, IdentityId) => T::Balance;
+        // /// Total custodian allowance for a given token holder.
+        // /// (ticker, token holder) -> balance
+        // pub TotalCustodyAllowance get(fn total_custody_allowance): map hasher(blake2_128_concat) (Ticker, IdentityId) => T::Balance;
+        // /// Store the nonce for off chain signature to increase the custody allowance.
+        // /// (ticker, token holder, nonce) -> bool
+        // AuthenticationNonce get(fn authentication_nonce): map hasher(blake2_128_concat) (Ticker, IdentityId, u16) => bool;
         /// The name of the current funding round.
         /// ticker -> funding round
         FundingRound get(fn funding_round): map hasher(blake2_128_concat) Ticker => FundingRoundName;
         /// The total balances of tokens issued in all recorded funding rounds.
         /// (ticker, funding round) -> balance
-        IssuedInFundingRound get(fn issued_in_funding_round): map hasher(blake2_128_concat) (Ticker, FundingRoundName) => T::Balance;
-        /// List of Smart extension added for the given tokens.
-        /// ticker, AccountId (SE address) -> SmartExtension detail
-        pub ExtensionDetails get(fn extension_details): map hasher(blake2_128_concat) (Ticker, T::AccountId) => SmartExtension<T::AccountId>;
+        IssuedInFundingRound get(fn issued_in_funding_round): map hasher(blake2_128_concat) (Ticker, FundingRoundName) => T::EncryptedBalance;
+        // /// List of Smart extension added for the given tokens.
+        // /// ticker, AccountId (SE address) -> SmartExtension detail
+        // /// TODO: do we need smart extensions for confidential assets?
+        // ///       commenting for now.
+        // pub ExtensionDetails get(fn extension_details): map hasher(blake2_128_concat) (Ticker, T::AccountId) => SmartExtension<T::AccountId>;
         /// List of Smart extension added for the given tokens and for the given type.
         /// ticker, type of SE -> address/AccountId of SE
-        pub Extensions get(fn extensions): map hasher(blake2_128_concat) (Ticker, SmartExtensionType) => Vec<T::AccountId>;
-        /// The set of frozen assets implemented as a membership map.
-        /// ticker -> bool
+        // pub Extensions get(fn extensions): map hasher(blake2_128_concat) (Ticker, SmartExtensionType) => Vec<T::AccountId>;
+        // /// The set of frozen assets implemented as a membership map.
+        // /// ticker -> bool
         pub Frozen get(fn frozen): map hasher(blake2_128_concat) Ticker => bool;
         /// Tickers and token owned by a user
         /// (user, ticker) -> AssetOwnership
+        /// TODO: Similar to before. Changing to encrypted asset id.
         pub AssetOwnershipRelations get(fn asset_ownership_relation):
-            double_map hasher(twox_64_concat) IdentityId, hasher(blake2_128_concat) Ticker => AssetOwnershipRelation;
+            double_map hasher(twox_64_concat) IdentityId, hasher(blake2_128_concat) EncryptedAssetId => AssetOwnershipRelation;
         /// Documents attached to an Asset
         /// (ticker, document_name) -> document
         pub AssetDocuments get(fn asset_documents):
@@ -397,6 +408,7 @@ decl_module! {
         /// # Arguments
         /// * `origin` It contains the secondary key of the caller (i.e who signed the transaction to execute this function).
         /// * `auth_id` Authorization ID of ticker transfer authorization.
+        /// TODO: does this function transfer the "issuer" role of a ticker?
         #[weight = T::DbWeight::get().reads_writes(4, 5) + 200_000_000]
         pub fn accept_ticker_transfer(origin, auth_id: u64) -> DispatchResult {
             let sender = ensure_signed(origin)?;
@@ -411,6 +423,7 @@ decl_module! {
         /// # Arguments
         /// * `origin` It contains the signing key of the caller (i.e who signed the transaction to execute this function).
         /// * `auth_id` Authorization ID of treasury transfer authorization.
+        /// TODO: What does this one do?
         #[weight = 300_000_000]
         pub fn accept_treasury_transfer(origin, auth_id: u64) -> DispatchResult {
             let sender = ensure_signed(origin)?;
@@ -433,6 +446,7 @@ decl_module! {
             Self::_accept_token_ownership_transfer(to_did, auth_id)
         }
 
+        /// TODO: this function seems like a good place to create the meract account.
         /// Initializes a new security token
         /// makes the initiating account the owner of the security token
         /// & the balance of the owner is set to total supply.
@@ -454,9 +468,9 @@ decl_module! {
             origin,
             name: AssetName,
             ticker: Ticker,
-            total_supply: T::Balance,
+            total_supply: T::Balance, // TODO: do we want to support this for confidential assets?
             divisible: bool,
-            asset_type: AssetType,
+            asset_type: AssetType, // TODO: I think we need an additional struct to show that an asset is confidential.
             identifiers: Vec<(IdentifierType, AssetIdentifier)>,
             funding_round: Option<FundingRoundName>,
         ) -> DispatchResult {
@@ -490,6 +504,8 @@ decl_module! {
                 asset_type: asset_type.clone(),
                 primary_issuance_did: Some(did),
             };
+            // TODO: Create a mercat account, get the encrypted asset id, change the following line to use the encrypted asset id.
+            //       NOTE: if these are all done publicly, it would still leak the connection of ticker name and did.
             <Tokens<T>>::insert(&ticker, token);
             <BalanceOf<T>>::insert(ticker, did, total_supply);
             Portfolio::<T>::set_default_portfolio_balance(did, &ticker, total_supply);
@@ -603,6 +619,8 @@ decl_module! {
         /// * `ticker` Ticker of the token.
         /// * `to_did` DID of the `to` token holder, to whom token needs to transferred.
         /// * `value` Value that needs to transferred.
+        /// TODO: How is this (and the following functions) different from a transfer in the settlement module?
+        ///       I am guessing that it is called by the settlement module?
         #[weight = T::DbWeight::get().reads_writes(5, 3) + 600_000_000]
         pub fn transfer(origin, ticker: Ticker, to_did: IdentityId, value: T::Balance) -> DispatchResult {
             let sender = ensure_signed(origin)?;
@@ -666,42 +684,43 @@ decl_module! {
             Ok(())
         }
 
-        /// If sufficient allowance provided, transfer from a DID to another DID without token owner's signature.
-        ///
-        /// # Arguments
-        /// * `origin` Secondary key of spender.
-        /// * `ticker` Ticker of the token.
-        /// * `from_did` DID from whom token is being transferred.
-        /// * `to_did` DID to whom token is being transferred.
-        /// * `value` Amount of the token for transfer.
-        #[weight = T::DbWeight::get().reads_writes(5, 3) + 800_000_000]
-        pub fn transfer_from(origin, ticker: Ticker, from_did: IdentityId, to_did: IdentityId, value: T::Balance) -> DispatchResult {
-            let sender = ensure_signed(origin)?;
-            let did = Context::current_identity_or::<Identity<T>>(&sender)?;
+        // /// TODO: does not seem like a good fit for confidential assets. Commenting for now.
+        // /// If sufficient allowance provided, transfer from a DID to another DID without token owner's signature.
+        // ///
+        // /// # Arguments
+        // /// * `origin` Secondary key of spender.
+        // /// * `ticker` Ticker of the token.
+        // /// * `from_did` DID from whom token is being transferred.
+        // /// * `to_did` DID to whom token is being transferred.
+        // /// * `value` Amount of the token for transfer.
+        // #[weight = T::DbWeight::get().reads_writes(5, 3) + 800_000_000]
+        // pub fn transfer_from(origin, ticker: Ticker, from_did: IdentityId, to_did: IdentityId, value: T::Balance) -> DispatchResult {
+        //     let sender = ensure_signed(origin)?;
+        //     let did = Context::current_identity_or::<Identity<T>>(&sender)?;
 
-            let ticker_from_did_did = (ticker, from_did, did);
-            ensure!(<Allowance<T>>::contains_key(&ticker_from_did_did), Error::<T>::NoSuchAllowance);
-            let allowance = Self::allowance(&ticker_from_did_did);
-            ensure!(allowance >= value, Error::<T>::InsufficientAllowance);
+        //     let ticker_from_did_did = (ticker, from_did, did);
+        //     ensure!(<Allowance<T>>::contains_key(&ticker_from_did_did), Error::<T>::NoSuchAllowance);
+        //     let allowance = Self::allowance(&ticker_from_did_did);
+        //     ensure!(allowance >= value, Error::<T>::InsufficientAllowance);
 
-            // using checked_sub (safe math) to avoid overflow
-            let updated_allowance = allowance.checked_sub(&value)
-                .ok_or(Error::<T>::AllowanceOverflow)?;
-            // Check whether the custody allowance remain intact or not
-            Self::_check_custody_allowance(&ticker, from_did, value)?;
+        //     // using checked_sub (safe math) to avoid overflow
+        //     let updated_allowance = allowance.checked_sub(&value)
+        //         .ok_or(Error::<T>::AllowanceOverflow)?;
+        //     // Check whether the custody allowance remain intact or not
+        //     Self::_check_custody_allowance(&ticker, from_did, value)?;
 
-            ensure!(
-                Self::_is_valid_transfer(&ticker, sender, Some(from_did), Some(to_did), value)? == ERC1400_TRANSFER_SUCCESS,
-                Error::<T>::InvalidTransfer
-            );
-            Self::unsafe_transfer(did, &ticker, from_did, to_did, value)?;
+        //     ensure!(
+        //         Self::_is_valid_transfer(&ticker, sender, Some(from_did), Some(to_did), value)? == ERC1400_TRANSFER_SUCCESS,
+        //         Error::<T>::InvalidTransfer
+        //     );
+        //     Self::unsafe_transfer(did, &ticker, from_did, to_did, value)?;
 
-            // Change allowance afterwards
-            <Allowance<T>>::insert(&ticker_from_did_did, updated_allowance);
+        //     // Change allowance afterwards
+        //     <Allowance<T>>::insert(&ticker_from_did_did, updated_allowance);
 
-            Self::deposit_event(RawEvent::Approval(did, ticker, from_did, did, value));
-            Ok(())
-        }
+        //     Self::deposit_event(RawEvent::Approval(did, ticker, from_did, did, value));
+        //     Ok(())
+        // }
 
         /// Function used to create the checkpoint.
         /// NB: Only called by the owner of the security token i.e owner DID.
@@ -737,6 +756,7 @@ decl_module! {
             Self::_mint(&ticker, sender, beneficiary, value, Some(ProtocolOp::AssetIssue))
         }
 
+        /// TODO: I am not sure how the following redeem functions fits into confidential assets.
         /// Used to redeem the security tokens.
         ///
         /// # Arguments
@@ -1033,77 +1053,77 @@ decl_module! {
             Ok(())
         }
 
-        /// ERC-2258 Implementation
+        // /// ERC-2258 Implementation
 
-        /// Used to increase the allowance for a given custodian
-        /// Any investor/token holder can add a custodian and transfer the token transfer ownership to the custodian
-        /// Through that investor balance will remain the same but the given token are only transfer by the custodian.
-        /// This implementation make sure to have an accurate investor count from omnibus wallets.
-        ///
-        /// # Arguments
-        /// * `origin` Secondary key of the token holder.
-        /// * `ticker` Ticker of the token.
-        /// * `custodian_did` DID of the custodian (i.e whom allowance provided).
-        /// * `value` Allowance amount.
-        #[weight = T::DbWeight::get().reads_writes(4, 2) + 500_000_000]
-        pub fn increase_custody_allowance(origin, ticker: Ticker, custodian_did: IdentityId, value: T::Balance) -> DispatchResult {
-            let sender = ensure_signed(origin)?;
-            let sender_did = Context::current_identity_or::<Identity<T>>(&sender)?;
-            Self::unsafe_increase_custody_allowance(sender_did, ticker, sender_did, custodian_did, value)?;
-            Ok(())
-        }
+        // /// Used to increase the allowance for a given custodian
+        // /// Any investor/token holder can add a custodian and transfer the token transfer ownership to the custodian
+        // /// Through that investor balance will remain the same but the given token are only transfer by the custodian.
+        // /// This implementation make sure to have an accurate investor count from omnibus wallets.
+        // ///
+        // /// # Arguments
+        // /// * `origin` Secondary key of the token holder.
+        // /// * `ticker` Ticker of the token.
+        // /// * `custodian_did` DID of the custodian (i.e whom allowance provided).
+        // /// * `value` Allowance amount.
+        // #[weight = T::DbWeight::get().reads_writes(4, 2) + 500_000_000]
+        // pub fn increase_custody_allowance(origin, ticker: Ticker, custodian_did: IdentityId, value: T::Balance) -> DispatchResult {
+        //     let sender = ensure_signed(origin)?;
+        //     let sender_did = Context::current_identity_or::<Identity<T>>(&sender)?;
+        //     Self::unsafe_increase_custody_allowance(sender_did, ticker, sender_did, custodian_did, value)?;
+        //     Ok(())
+        // }
 
-        /// Used to increase the allowance for a given custodian by providing the off chain signature.
-        ///
-        /// # Arguments
-        /// * `origin` Secondary key of a DID who posses off chain signature.
-        /// * `ticker` Ticker of the token.
-        /// * `holder_did` DID of the token holder (i.e who wants to increase the custody allowance).
-        /// * `holder_account_id` Secondary key which signs the off chain data blob.
-        /// * `custodian_did` DID of the custodian (i.e whom allowance provided).
-        /// * `value` Allowance amount.
-        /// * `nonce` A u16 number which avoid the replay attack.
-        /// * `signature` Signature provided by the holder_did.
-        #[weight = T::DbWeight::get().reads_writes(6, 3) + 600_000_000]
-        pub fn increase_custody_allowance_of(
-            origin,
-            ticker: Ticker,
-            holder_did: IdentityId,
-            holder_account_id: T::AccountId,
-            custodian_did: IdentityId,
-            value: T::Balance,
-            nonce: u16,
-            signature: T::OffChainSignature
-        ) -> DispatchResult {
-            let sender = ensure_signed(origin)?;
-            let caller_did = Context::current_identity_or::<Identity<T>>(&sender)?;
-            ensure!(
-                !Self::authentication_nonce((ticker, holder_did, nonce)),
-                Error::<T>::SignatureAlreadyUsed
-            );
+        // /// Used to increase the allowance for a given custodian by providing the off chain signature.
+        // ///
+        // /// # Arguments
+        // /// * `origin` Secondary key of a DID who posses off chain signature.
+        // /// * `ticker` Ticker of the token.
+        // /// * `holder_did` DID of the token holder (i.e who wants to increase the custody allowance).
+        // /// * `holder_account_id` Secondary key which signs the off chain data blob.
+        // /// * `custodian_did` DID of the custodian (i.e whom allowance provided).
+        // /// * `value` Allowance amount.
+        // /// * `nonce` A u16 number which avoid the replay attack.
+        // /// * `signature` Signature provided by the holder_did.
+        // #[weight = T::DbWeight::get().reads_writes(6, 3) + 600_000_000]
+        // pub fn increase_custody_allowance_of(
+        //     origin,
+        //     ticker: Ticker,
+        //     holder_did: IdentityId,
+        //     holder_account_id: T::AccountId,
+        //     custodian_did: IdentityId,
+        //     value: T::Balance,
+        //     nonce: u16,
+        //     signature: T::OffChainSignature
+        // ) -> DispatchResult {
+        //     let sender = ensure_signed(origin)?;
+        //     let caller_did = Context::current_identity_or::<Identity<T>>(&sender)?;
+        //     ensure!(
+        //         !Self::authentication_nonce((ticker, holder_did, nonce)),
+        //         Error::<T>::SignatureAlreadyUsed
+        //     );
 
-            let msg = SignData {
-                custodian_did,
-                holder_did,
-                ticker,
-                value,
-                nonce
-            };
-            // holder_account_id should be a part of the holder_did
-            ensure!(
-                signature.verify(&msg.encode()[..], &holder_account_id),
-                Error::<T>::InvalidSignature
-            );
-            // Validate the holder secondary key
-            let holder_signer = Signatory::Account(holder_account_id);
-            ensure!(
-                <identity::Module<T>>::is_signer_authorized(holder_did, &holder_signer),
-                Error::<T>::HolderMustBeSecondaryKeyForHolderDid
-            );
-            Self::unsafe_increase_custody_allowance(caller_did, ticker, holder_did, custodian_did, value)?;
-            <AuthenticationNonce>::insert((ticker, holder_did, nonce), true);
-            Ok(())
-        }
+        //     let msg = SignData {
+        //         custodian_did,
+        //         holder_did,
+        //         ticker,
+        //         value,
+        //         nonce
+        //     };
+        //     // holder_account_id should be a part of the holder_did
+        //     ensure!(
+        //         signature.verify(&msg.encode()[..], &holder_account_id),
+        //         Error::<T>::InvalidSignature
+        //     );
+        //     // Validate the holder secondary key
+        //     let holder_signer = Signatory::Account(holder_account_id);
+        //     ensure!(
+        //         <identity::Module<T>>::is_signer_authorized(holder_did, &holder_signer),
+        //         Error::<T>::HolderMustBeSecondaryKeyForHolderDid
+        //     );
+        //     Self::unsafe_increase_custody_allowance(caller_did, ticker, holder_did, custodian_did, value)?;
+        //     <AuthenticationNonce>::insert((ticker, holder_did, nonce), true);
+        //     Ok(())
+        // }
 
         /// Used to transfer the tokens by the approved custodian.
         ///
@@ -1145,6 +1165,7 @@ decl_module! {
             Ok(())
         }
 
+        /// TODO: this will most likely break the confidential transaction data. Needs investigating.
         /// Updates the asset identifiers. Can only be called by the token owner.
         ///
         /// # Arguments
@@ -1171,74 +1192,74 @@ decl_module! {
             Ok(())
         }
 
-        /// Permissioning the Smart-Extension address for a given ticker.
-        ///
-        /// # Arguments
-        /// * `origin` - Signatory who owns to ticker/asset.
-        /// * `ticker` - ticker for whom extension get added.
-        /// * `extension_details` - Details of the smart extension.
-        #[weight = T::DbWeight::get().reads_writes(2, 2) + 600_000_000]
-        pub fn add_extension(origin, ticker: Ticker, extension_details: SmartExtension<T::AccountId>) -> DispatchResult {
-            let sender = ensure_signed(origin)?;
-            let my_did = Context::current_identity_or::<identity::Module<T>>(&sender)?;
+        // /// Permissioning the Smart-Extension address for a given ticker.
+        // ///
+        // /// # Arguments
+        // /// * `origin` - Signatory who owns to ticker/asset.
+        // /// * `ticker` - ticker for whom extension get added.
+        // /// * `extension_details` - Details of the smart extension.
+        // #[weight = T::DbWeight::get().reads_writes(2, 2) + 600_000_000]
+        // pub fn add_extension(origin, ticker: Ticker, extension_details: SmartExtension<T::AccountId>) -> DispatchResult {
+        //     let sender = ensure_signed(origin)?;
+        //     let my_did = Context::current_identity_or::<identity::Module<T>>(&sender)?;
 
-            ensure!(Self::is_owner(&ticker, my_did), Error::<T>::Unauthorized);
+        //     ensure!(Self::is_owner(&ticker, my_did), Error::<T>::Unauthorized);
 
-            // Verify the details of smart extension & store it
-            ensure!(!<ExtensionDetails<T>>::contains_key((ticker, &extension_details.extension_id)), Error::<T>::ExtensionAlreadyPresent);
-            <ExtensionDetails<T>>::insert((ticker, &extension_details.extension_id), extension_details.clone());
-            <Extensions<T>>::mutate((ticker, &extension_details.extension_type), |ids| {
-                ids.push(extension_details.extension_id.clone())
-            });
-            Self::deposit_event(RawEvent::ExtensionAdded(my_did, ticker, extension_details.extension_id, extension_details.extension_name, extension_details.extension_type));
-            Ok(())
-        }
+        //     // Verify the details of smart extension & store it
+        //     ensure!(!<ExtensionDetails<T>>::contains_key((ticker, &extension_details.extension_id)), Error::<T>::ExtensionAlreadyPresent);
+        //     <ExtensionDetails<T>>::insert((ticker, &extension_details.extension_id), extension_details.clone());
+        //     <Extensions<T>>::mutate((ticker, &extension_details.extension_type), |ids| {
+        //         ids.push(extension_details.extension_id.clone())
+        //     });
+        //     Self::deposit_event(RawEvent::ExtensionAdded(my_did, ticker, extension_details.extension_id, extension_details.extension_name, extension_details.extension_type));
+        //     Ok(())
+        // }
 
-        /// Archived the extension. Extension is use to verify the compliance or any smart logic it posses.
-        ///
-        /// # Arguments
-        /// * `origin` - Signatory who owns the ticker/asset.
-        /// * `ticker` - Ticker symbol of the asset.
-        /// * `extension_id` - AccountId of the extension that need to be archived.
-        #[weight = T::DbWeight::get().reads_writes(3, 1) + 800_000_000]
-        pub fn archive_extension(origin, ticker: Ticker, extension_id: T::AccountId) -> DispatchResult {
-            let sender = ensure_signed(origin)?;
-            let my_did =  Context::current_identity_or::<identity::Module<T>>(&sender)?;
+        // /// Archived the extension. Extension is use to verify the compliance or any smart logic it posses.
+        // ///
+        // /// # Arguments
+        // /// * `origin` - Signatory who owns the ticker/asset.
+        // /// * `ticker` - Ticker symbol of the asset.
+        // /// * `extension_id` - AccountId of the extension that need to be archived.
+        // #[weight = T::DbWeight::get().reads_writes(3, 1) + 800_000_000]
+        // pub fn archive_extension(origin, ticker: Ticker, extension_id: T::AccountId) -> DispatchResult {
+        //     let sender = ensure_signed(origin)?;
+        //     let my_did =  Context::current_identity_or::<identity::Module<T>>(&sender)?;
 
-            ensure!(Self::is_owner(&ticker, my_did), Error::<T>::Unauthorized);
-            ensure!(
-                <ExtensionDetails<T>>::contains_key((ticker, &extension_id)),
-                Error::<T>::NoSuchSmartExtension
-            );
-            // Mutate the extension details
-            ensure!(!(<ExtensionDetails<T>>::get((ticker, &extension_id))).is_archive, Error::<T>::AlreadyArchived);
-            <ExtensionDetails<T>>::mutate((ticker, &extension_id), |details| { details.is_archive = true; });
-            Self::deposit_event(RawEvent::ExtensionArchived(my_did, ticker, extension_id));
-            Ok(())
-        }
+        //     ensure!(Self::is_owner(&ticker, my_did), Error::<T>::Unauthorized);
+        //     ensure!(
+        //         <ExtensionDetails<T>>::contains_key((ticker, &extension_id)),
+        //         Error::<T>::NoSuchSmartExtension
+        //     );
+        //     // Mutate the extension details
+        //     ensure!(!(<ExtensionDetails<T>>::get((ticker, &extension_id))).is_archive, Error::<T>::AlreadyArchived);
+        //     <ExtensionDetails<T>>::mutate((ticker, &extension_id), |details| { details.is_archive = true; });
+        //     Self::deposit_event(RawEvent::ExtensionArchived(my_did, ticker, extension_id));
+        //     Ok(())
+        // }
 
-        /// Un-archived the extension. Extension is use to verify the compliance or any smart logic it posses.
-        ///
-        /// # Arguments
-        /// * `origin` - Signatory who owns the ticker/asset.
-        /// * `ticker` - Ticker symbol of the asset.
-        /// * `extension_id` - AccountId of the extension that need to be un-archived.
-        #[weight = T::DbWeight::get().reads_writes(2, 2) + 800_000_000]
-        pub fn unarchive_extension(origin, ticker: Ticker, extension_id: T::AccountId) -> DispatchResult {
-            let sender = ensure_signed(origin)?;
-            let my_did = Context::current_identity_or::<identity::Module<T>>(&sender)?;
+        // /// Un-archived the extension. Extension is use to verify the compliance or any smart logic it posses.
+        // ///
+        // /// # Arguments
+        // /// * `origin` - Signatory who owns the ticker/asset.
+        // /// * `ticker` - Ticker symbol of the asset.
+        // /// * `extension_id` - AccountId of the extension that need to be un-archived.
+        // #[weight = T::DbWeight::get().reads_writes(2, 2) + 800_000_000]
+        // pub fn unarchive_extension(origin, ticker: Ticker, extension_id: T::AccountId) -> DispatchResult {
+        //     let sender = ensure_signed(origin)?;
+        //     let my_did = Context::current_identity_or::<identity::Module<T>>(&sender)?;
 
-            ensure!(Self::is_owner(&ticker, my_did), Error::<T>::Unauthorized);
-            ensure!(
-                <ExtensionDetails<T>>::contains_key((ticker, &extension_id)),
-                Error::<T>::NoSuchSmartExtension
-            );
-            // Mutate the extension details
-            ensure!((<ExtensionDetails<T>>::get((ticker, &extension_id))).is_archive, Error::<T>::AlreadyUnArchived);
-            <ExtensionDetails<T>>::mutate((ticker, &extension_id), |details| { details.is_archive = false; });
-            Self::deposit_event(RawEvent::ExtensionUnArchived(my_did, ticker, extension_id));
-            Ok(())
-        }
+        //     ensure!(Self::is_owner(&ticker, my_did), Error::<T>::Unauthorized);
+        //     ensure!(
+        //         <ExtensionDetails<T>>::contains_key((ticker, &extension_id)),
+        //         Error::<T>::NoSuchSmartExtension
+        //     );
+        //     // Mutate the extension details
+        //     ensure!((<ExtensionDetails<T>>::get((ticker, &extension_id))).is_archive, Error::<T>::AlreadyUnArchived);
+        //     <ExtensionDetails<T>>::mutate((ticker, &extension_id), |details| { details.is_archive = false; });
+        //     Self::deposit_event(RawEvent::ExtensionUnArchived(my_did, ticker, extension_id));
+        //     Ok(())
+        // }
 
         /// Sets the treasury DID to None. The caller must be the asset issuer. The asset
         /// issuer can always update the treasury DID using `transfer_treasury`. If the issuer
@@ -1645,6 +1666,7 @@ impl<T: Trait> Module<T> {
 
         // Store ticker registration details
         <Tickers<T>>::insert(ticker, ticker_registration);
+        // TODO: We should think about the registration process of confidential assets, if we don't want the DID <-> ticker name to be leaked.
         <AssetOwnershipRelations>::insert(to_did, ticker, AssetOwnershipRelation::TickerOwned);
 
         Self::deposit_event(RawEvent::TickerRegistered(to_did, *ticker, expiry));
