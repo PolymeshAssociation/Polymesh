@@ -90,13 +90,13 @@ fn make_ticker_env(owner: AccountKeyring, token_name: AssetName) -> (Ticker, Ide
 }
 
 #[test]
-fn should_add_and_verify_asset_rule() {
+fn should_add_and_verify_compliance_requirement() {
     ExtBuilder::default()
         .build()
-        .execute_with(should_add_and_verify_asset_rule_we);
+        .execute_with(should_add_and_verify_compliance_requirement_we);
 }
 
-fn should_add_and_verify_asset_rule_we() {
+fn should_add_and_verify_compliance_requirement_we() {
     // 0. Create accounts
     let root = Origin::from(frame_system::RawOrigin::Root);
     let token_owner_acc = AccountKeyring::Alice.public();
@@ -739,7 +739,7 @@ fn should_modify_vector_of_trusted_issuer_we() {
     let x = vec![sender_condition];
     let y = vec![receiver_condition_1, receiver_condition_2];
 
-    let asset_rule = ComplianceRequirement {
+    let compliance_requirement = ComplianceRequirement {
         sender_conditions: x.clone(),
         receiver_conditions: y.clone(),
         id: 1,
@@ -747,11 +747,11 @@ fn should_modify_vector_of_trusted_issuer_we() {
 
     // Failed because sender is not the owner of the ticker
     assert_err!(
-        ComplianceManager::change_compliance_requirement(receiver_signed.clone(), ticker, asset_rule.clone()),
+        ComplianceManager::change_compliance_requirement(receiver_signed.clone(), ticker, compliance_requirement.clone()),
         CMError::<TestStorage>::Unauthorized
     );
 
-    let asset_rule_failure = ComplianceRequirement {
+    let compliance_requirement_failure = ComplianceRequirement {
         sender_conditions: x,
         receiver_conditions: y,
         id: 5,
@@ -762,7 +762,7 @@ fn should_modify_vector_of_trusted_issuer_we() {
         ComplianceManager::change_compliance_requirement(
             token_owner_signed.clone(),
             ticker,
-            asset_rule_failure.clone()
+            compliance_requirement_failure.clone()
         ),
         CMError::<TestStorage>::InvalidConditionRequirementId
     );
@@ -771,7 +771,7 @@ fn should_modify_vector_of_trusted_issuer_we() {
     assert_ok!(ComplianceManager::change_compliance_requirement(
         token_owner_signed.clone(),
         ticker,
-        asset_rule
+        compliance_requirement
     ));
 
     // Now the transfer should pass

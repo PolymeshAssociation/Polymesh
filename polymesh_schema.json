@@ -158,7 +158,7 @@
             "id": "u32",
             "result": "bool"
         },
-        "RuleType": {
+        "ConditionType": {
             "_enum": {
                 "IsPresent": "Claim",
                 "IsAbsent": "Claim",
@@ -468,7 +468,7 @@
                 "AssetAddDocument",
                 "AssetCreateAsset",
                 "DividendNew",
-                "ComplianceManagerAddActiveRule",
+                "ComplianceManagerAddComplianceRequirement",
                 "IdentityRegisterDid",
                 "IdentityCddRegisterDid",
                 "IdentityAddClaim",
