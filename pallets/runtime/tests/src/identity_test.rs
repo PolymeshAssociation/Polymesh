@@ -16,7 +16,7 @@ use polymesh_common_utilities::{
         identity::{SecondaryKeyWithAuth, TargetIdAuthorization, Trait as IdentityTrait},
         transaction_payment::CddAndFeeDetails,
     },
-    SystematicIssuers,
+    SystematicIssuers, GC_DID,
 };
 use polymesh_primitives::{
     AuthorizationData, AuthorizationType, Claim, ClaimType, IdentityClaim, IdentityId, Permission,
@@ -50,9 +50,7 @@ type CddServiceProviders = <TestStorage as IdentityTrait>::CddServiceProviders;
 /// * CDD providers group.
 fn fetch_systematic_cdd(target: IdentityId) -> Option<IdentityClaim> {
     let claim_type = ClaimType::CustomerDueDiligence;
-    let gc_id = SystematicIssuers::Committee.as_id();
-
-    Identity::fetch_claim(target, claim_type, gc_id, None).or_else(|| {
+    Identity::fetch_claim(target, claim_type, GC_DID, None).or_else(|| {
         let cdd_id = SystematicIssuers::CDDProvider.as_id();
         Identity::fetch_claim(target, claim_type, cdd_id, None)
     })
