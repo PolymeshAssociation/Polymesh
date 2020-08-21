@@ -406,6 +406,9 @@ decl_event!(
         /// Minimum deposit amount modified
         /// (caller DID, old amount, new amount)
         MinimumProposalDepositChanged(IdentityId, Balance, Balance),
+        /// Minimum quorum threshold modified
+        /// (caller DID, old threshold, new threshold)
+        QuorumThresholdChanged(IdentityId, Balance, Balance),
         /// Cool off period for proposals modified
         /// (caller DID, old period, new period)
         ProposalCoolOffPeriodChanged(IdentityId, BlockNumber, BlockNumber),
@@ -503,7 +506,7 @@ decl_module! {
         #[weight = (550_000_000, DispatchClass::Operational, Pays::Yes)]
         pub fn set_quorum_threshold(origin, threshold: BalanceOf<T>) {
             T::CommitteeOrigin::ensure_origin(origin)?;
-            Self::deposit_event(RawEvent::MinimumProposalDepositChanged(SystematicIssuers::Committee.as_id(), Self::quorum_threshold(), threshold));
+            Self::deposit_event(RawEvent::QuorumThresholdChanged(SystematicIssuers::Committee.as_id(), Self::quorum_threshold(), threshold));
             <QuorumThreshold<T>>::put(threshold);
         }
 
