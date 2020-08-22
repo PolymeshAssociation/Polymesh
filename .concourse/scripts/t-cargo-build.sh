@@ -58,7 +58,7 @@ echo -n "${GIT_REF}-distroless" > ${ARTIFACT_DIR}/additional_tags.distroless
 echo -n "${GIT_REF}-debian"     > ${ARTIFACT_DIR}/additional_tags.debian
 cp    ${GIT_DIR}/.concourse/dockerfiles/Dockerfile.distroless ${ARTIFACT_DIR}/
 cp    ${GIT_DIR}/.concourse/dockerfiles/Dockerfile.debian     ${ARTIFACT_DIR}/
-cp    ${VERSION_DIR}/version                                   ${ARTIFACT_DIR}/tag_file
+cp    ${VERSION_DIR}/version                                  ${ARTIFACT_DIR}/tag_file
 cp    ${GIT_DIR}/target/release/polymesh                      ${ARTIFACT_DIR}/usr/local/bin/polymesh
 cp    ${GIT_DIR}/target/release/polymesh                      ${ARTIFACT_DIR}/polymesh-${VERSION}
 cp -a /lib/x86_64-linux-gnu/*                                 ${ARTIFACT_DIR}/lib/x86_64-linux-gnu
