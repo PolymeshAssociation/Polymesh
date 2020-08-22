@@ -5,10 +5,6 @@ resource_types:
     type: docker-image
     source:
       repository: teliaoss/github-pr-resource
-  - name: datetime-version
-    type: registry-image
-    source:
-      repository: dcsg/datetime-version-resource
 
 resources:
   - name: githubpr-polymesh
@@ -41,10 +37,6 @@ resources:
       branch: master
       file: polymesh/alcyone-version
       private_key: ((github-polymathnetwork-concourse-semver-tracking.id_rsa))
-  - name: datetime-polymesh
-    type: datetime-version
-    source:
-      timezone: 'UTC'
 
 jobs:
   - name: build-polymesh
@@ -58,12 +50,13 @@ jobs:
         params:
           path: githubpr-polymesh
           status: pending
-      - put: datetime-polymesh
-      - load_var: datetime
-        file: datetime-polymesh/version
-      - put: semver-git-polymesh
+      - load_var: scmpr
+        file: githubpr-polymesh/.git/resource/pr
+      - load_var: scmheadsha
+        file: githubpr-polymesh/.git/resource/head_sha
+      - get: semver-git-polymesh
         params:
-          pre: ((.:datetime))
+          pre: pr((.:scmpr))-((.:scmheadsha))
           pre_without_version: true
       - in_parallel:
           - task: run-lint
