@@ -302,10 +302,6 @@ decl_module! {
 
             ensure!(Self::is_owner(&ticker, did), Error::<T>::Unauthorized);
 
-            let asset_rules = <AssetRulesMap>::get(ticker);
-
-            ensure!(asset_rules.rules.iter().any(|rule| asset_rule_id == rule.rule_id), Error::<T>::InvalidRuleId);
-
             <AssetRulesMap>::try_mutate(ticker, |asset_rules| {
                 let before = asset_rules.rules.len();
                 asset_rules.rules.retain(|rule| { rule.rule_id != asset_rule_id });
