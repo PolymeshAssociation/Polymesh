@@ -1,14 +1,10 @@
 ---
 
 resource_types:
-  - name: pull-request
-    type: docker-image
-    source:
-      repository: teliaoss/github-pr-resource
-  - name: datetime-version
-    type: registry-image
-    source:
-      repository: dcsg/datetime-version-resource
+- name: pull-request
+  type: docker-image
+  source:
+    repository: teliaoss/github-pr-resource
 
 resources:
   - name: githubpr-polymesh
@@ -19,10 +15,6 @@ resources:
       access_token: ((github-concourse-access-token))
       base_branch: develop
       disable_forks: true
-  - name: datetime-polymesh
-    type: datetime-version
-    source:
-      timezone: 'UTC'
   - name: s3-polymesh
     type: s3
     source:
@@ -37,6 +29,14 @@ resources:
       repository: 414255671868.dkr.ecr.us-east-1.amazonaws.com/polymathnetwork/polymesh
       aws_access_key_id: ((polymath-ecr.aws-access-id))
       aws_secret_access_key: ((polymath-ecr.aws-access-secret))
+  - name: semver-git-polymesh
+    type: semver
+    source:
+      driver: git
+      uri: git@github.com:polymathnetwork/concourse-semver-tracking
+      branch: master
+      file: polymesh/alcyone-version
+      private_key: ((github-polymathnetwork-concourse-semver-tracking.id_rsa))
 
 jobs:
   - name: build-polymesh
@@ -50,7 +50,9 @@ jobs:
         params:
           path: githubpr-polymesh
           status: pending
-      - put: datetime-polymesh
+      - put: semver-git-polymesh
+        params:
+          pre: PR
       - in_parallel:
           - task: run-lint
             config:
@@ -75,7 +77,7 @@ jobs:
             config:
               inputs:
                 - name: githubpr-polymesh
-                - name: datetime-polymesh
+                - name: semver-git-polymesh
               caches:
                 - path: githubpr-polymesh/target
                 - path: /usr/local/cargo
@@ -90,7 +92,7 @@ jobs:
                   aws_region: us-east-1
               run:
                 path: bash
-                args: ["githubpr-polymesh/.concourse/scripts/t-cargo-build.sh", "githubpr-polymesh", "artifact", "datetime-polymesh"]
+                args: ["githubpr-polymesh/.concourse/scripts/t-cargo-build.sh", "githubpr-polymesh", "artifact", "semver-git-polymesh"]
               outputs:
                 - name: artifact
           - task: npm-install
