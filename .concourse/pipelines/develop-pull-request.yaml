@@ -50,7 +50,7 @@ jobs:
         params:
           path: githubpr-polymesh
           status: pending
-      - get: datetime-polymesh
+      - put: datetime-polymesh
       - in_parallel:
           - task: run-lint
             config:
@@ -75,6 +75,7 @@ jobs:
             config:
               inputs:
                 - name: githubpr-polymesh
+                - name: datetime-polymesh
               caches:
                 - path: githubpr-polymesh/target
                 - path: /usr/local/cargo
