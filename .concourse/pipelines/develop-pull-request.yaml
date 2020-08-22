@@ -63,7 +63,7 @@ jobs:
         file: datetime-polymesh/version
       - put: semver-git-polymesh
         params:
-          pre: ((.:datetime-polymesh/version))
+          pre: ((.:datetime))
           pre_without_version: true
       - in_parallel:
           - task: run-lint
