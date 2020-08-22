@@ -184,5 +184,10 @@ jobs:
       params:
         mode: normal
         alert_type: failed
+    on_error:
+      put: slack-polymesh
+      params:
+        mode: normal
+        alert_type: failed
 
 
