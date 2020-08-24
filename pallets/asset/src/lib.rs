@@ -527,25 +527,36 @@ decl_module! {
             let sender = ensure_signed(origin)?;
             let did = Context::current_identity_or::<Identity<T>>(&sender)?;
             Self::ensure_create_asset_parameters(&ticker, &name, total_supply)?;
-            let is_ticker_available_or_registered_to = Self::is_ticker_available_or_registered_to(&ticker, did);
-            ensure!(
-                is_ticker_available_or_registered_to != TickerRegistrationStatus::RegisteredByOther,
-                Error::<T>::TickerAlreadyRegistered
-            );
+
+            // Ensure its registered by DID or at least expired, thus available.
+            let available = match Self::is_ticker_available_or_registered_to(&ticker, did) {
+                TickerRegistrationStatus::RegisteredByOther => return Err(Error::<T>::TickerAlreadyRegistered.into()),
+                TickerRegistrationStatus::RegisteredByDid => false,
+                TickerRegistrationStatus::Available => true,
+            };
+
             if !divisible {
                 ensure!(total_supply % ONE_UNIT.into() == 0.into(), Error::<T>::InvalidTotalSupply);
             }
-            // Once all the checks are made, charge the protocol fee.
-            <<T as IdentityTrait>::ProtocolFee>::charge_fee(ProtocolOp::AssetCreateAsset)?;
+
+            // Once all the checks are made, charge the protocol fee if we should.
+            // Waive the fee iff classic ticker hasn't expired, and it was already created on classic.
+            if available || ClassicTickers::get(&ticker).filter(|r| r.is_created).is_none() {
+                <<T as IdentityTrait>::ProtocolFee>::charge_fee(ProtocolOp::AssetCreateAsset)?;
+            }
+
             <identity::Module<T>>::register_asset_did(&ticker)?;
+
             // Register the ticker or finish its registration.
-            if is_ticker_available_or_registered_to == TickerRegistrationStatus::Available {
-                // ticker not registered by anyone (or registry expired). we can charge fee and register this ticker
+            if available {
+                // Ticker not registered by anyone (or registry expired).
+                // We can charge fee and register this ticker.
                 Self::_register_ticker(&ticker, did, None)?;
             } else {
-                // Ticker already registered by the user
+                // Ticker already registered by the user.
                 <Tickers<T>>::mutate(&ticker, |tr| tr.expiry = None);
             }
+
             let token = SecurityToken {
                 name,
                 total_supply,
@@ -569,12 +580,8 @@ decl_module! {
             for (typ, val) in &identifiers {
                 <Identifiers>::insert((ticker, typ.clone()), val.clone());
             }
-            // Add funding round name
-            if let Some(round) = funding_round {
-                <FundingRound>::insert(ticker, round);
-            } else {
-                <FundingRound>::insert(ticker, FundingRoundName::default());
-            }
+            // Add funding round name.
+            <FundingRound>::insert(ticker, funding_round.unwrap_or_default());
 
             // Update the investor count of an asset.
             <statistics::Module<T>>::update_transfer_stats(&ticker, None, Some(total_supply), total_supply);

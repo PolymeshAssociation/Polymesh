@@ -1,10 +1,10 @@
 use crate::{
     committee_test::root,
+    ext_builder::{ExtBuilder, MockProtocolBaseFees},
     storage::{
         account_from, add_secondary_key, make_account_without_cdd, register_keyring_account,
         AccountId, TestStorage,
     },
-    ExtBuilder,
 };
 use frame_support::IterableStorageMap;
 use pallet_asset::ethereum;
@@ -18,7 +18,8 @@ use pallet_compliance_manager as compliance_manager;
 use pallet_identity as identity;
 use pallet_statistics as statistics;
 use polymesh_common_utilities::{
-    compliance_manager::Trait, constants::*, traits::balances::Memo, SystematicIssuers,
+    compliance_manager::Trait, constants::*, protocol_fee::ProtocolOp, traits::balances::Memo,
+    traits::CddAndFeeDetails as _, SystematicIssuers,
 };
 use polymesh_primitives::{
     AuthorizationData, Claim, Document, DocumentName, IdentityId, Rule, RuleType, Signatory,
@@ -2527,32 +2528,83 @@ fn classic_ticker_not_owner() {
 
 #[test]
 fn classic_ticker_claim_works() {
-    let ticker = ticker("ACME");
-    let classic_migration_tickers = vec![ClassicTickerImport {
-        eth_owner: ethereum::address(&alice_secret_key()),
-        ticker,
-        ..default_classic()
-    }];
-    let standard_config = default_reg_config();
+    let eth_owner = ethereum::address(&alice_secret_key());
+
+    // Define all the classic ticker imports.
+    let import = |name, is_created| ClassicTickerImport {
+        eth_owner,
+        ticker: ticker(name),
+        is_created,
+        is_contract: false,
+    };
+    let tickers = vec![
+        import("ALPHA", false),
+        import("BETA", true),
+        import("GAMMA", true),
+    ];
+
+    // Complete the genesis definition.
+    let expire_after = 42;
     let genesis = AssetGenesis {
-        classic_migration_tickers,
-        ticker_registration_config: standard_config.clone(),
-        classic_migration_tconfig: standard_config,
+        classic_migration_tickers: tickers.clone(),
+        ticker_registration_config: default_reg_config(),
+        classic_migration_tconfig: TickerRegistrationConfig {
+            registration_length: Some(expire_after),
+            ..default_reg_config()
+        },
         classic_migration_contract_did: 0.into(),
     };
-    with_asset_genesis(genesis).build().execute_with(move || {
+
+    // Define the fees and initial balance.
+    let init_bal = 150;
+    let fee = 50;
+    let fees = MockProtocolBaseFees(vec![(ProtocolOp::AssetCreateAsset, fee)]);
+
+    let ext = with_asset_genesis(genesis).set_protocol_base_fees(fees);
+    ext.build().execute_with(move || {
         System::set_block_number(1);
-        let signer = Origin::signed(AccountKeyring::Alice.public());
-        let did = register_keyring_account(AccountKeyring::Alice).unwrap();
+
+        // Initialize Alice and their signature.
+        let acc = AccountKeyring::Alice.public();
+        let signer = Origin::signed(acc);
+        let did = crate::register_keyring_account_with_balance(AccountKeyring::Alice, init_bal).unwrap();
         let eth_sig = ethereum::eth_msg(did, b"classic_claim", &alice_secret_key());
-        assert_ok!(Asset::claim_classic_ticker(signer, ticker, eth_sig));
-        assert_eq!(did, Tickers::<TestStorage>::get(ticker).owner);
-        assert!(matches!(
-            &*System::events(),
-            [.., frame_system::EventRecord {
-                event: super::storage::EventTest::asset(pallet_asset::RawEvent::ClassicTickerClaimed(..)),
-                ..
-            }]
-        ));
+
+        // Claim all the classic tickers successfully.
+        for ClassicTickerImport { ticker, .. } in tickers {
+            assert_ok!(Asset::claim_classic_ticker(signer.clone(), ticker, eth_sig.clone()));
+            assert_eq!(did, Tickers::<TestStorage>::get(ticker).owner);
+            assert!(matches!(
+                &*System::events(),
+                [.., frame_system::EventRecord {
+                    event: super::storage::EventTest::asset(pallet_asset::RawEvent::ClassicTickerClaimed(..)),
+                    ..
+                }]
+            ));
+        }
+
+        // Prepare for protocol fees.
+        TestStorage::set_payer_context(Some(acc));
+        assert_eq!(Balances::free_balance(&acc), init_bal);
+
+        // Create ALPHA asset; this will cost.
+        let create = |name: &str| {
+            let asset = name.try_into().unwrap();
+            let ticker = ticker(name);
+            Asset::create_asset(signer.clone(), asset, ticker, 1, true, <_>::default(), vec![], None)
+        };
+        assert_ok!(create("ALPHA"));
+        assert_eq!(Balances::free_balance(&acc), init_bal - fee);
+
+        // Create BETA; fee is waived as `is_created: true`.
+        assert_ok!(create("BETA"));
+        assert_eq!(Balances::free_balance(&acc), init_bal - fee);
+
+        // Fast forward, thereby expiring `GAMMA` for which `is_created: true` holds.
+        // Thus, fee isn't waived and is charged.
+        <pallet_timestamp::Module<TestStorage>>::set_timestamp(expire_after + 1);
+        assert_eq!(Balances::free_balance(&acc), init_bal - fee);
+        assert_ok!(create("GAMMA"));
+        assert_eq!(Balances::free_balance(&acc), init_bal - fee - fee);
     });
 }
