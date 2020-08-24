@@ -246,16 +246,16 @@ fn should_add_and_verify_compliance_requirement_we() {
     assert_eq!(result.requirements[0].receiver_conditions[1].condition, receiver_condition2);
 
     for _ in 0..2 {
-        ComplianceManager::add_active_rule(
+        ComplianceManager::add_compliance_requirement(
             token_owner_signed.clone(),
             ticker,
-            vec![sender_rule.clone()],
-            vec![receiver_rule1.clone(), receiver_rule2.clone()],
+            vec![sender_condition.clone()],
+            vec![receiver_condition1.clone(), receiver_condition2.clone()],
         );
     }
-    assert_ok!(ComplianceManager::remove_active_rule(token_owner_signed.clone(), ticker, 1)); // OK; latest == 3
-    assert_err!(ComplianceManager::remove_active_rule(token_owner_signed.clone(), ticker, 1), CMError::<TestStorage>::InvalidRuleId); // BAD OK; latest == 3, but 1 was just removed.
-    assert_noop!(ComplianceManager::remove_active_rule(token_owner_signed.clone(), ticker, 1), CMError::<TestStorage>::InvalidRuleId);
+    assert_ok!(ComplianceManager::remove_compliance_requirement(token_owner_signed.clone(), ticker, 1)); // OK; latest == 3
+    assert_err!(ComplianceManager::remove_compliance_requirement(token_owner_signed.clone(), ticker, 1), CMError::<TestStorage>::InvalidComplianceRequirementId); // BAD OK; latest == 3, but 1 was just removed.
+    assert_noop!(ComplianceManager::remove_compliance_requirement(token_owner_signed.clone(), ticker, 1), CMError::<TestStorage>::InvalidComplianceRequirementId);
 }
 
 #[test]
@@ -776,7 +776,7 @@ fn should_modify_vector_of_trusted_issuer_we() {
             ticker,
             compliance_requirement_failure.clone()
         ),
-        CMError::<TestStorage>::InvalidConditionRequirementId
+        CMError::<TestStorage>::InvalidComplianceRequirementId
     );
 
     // Should successfully change the asset rule
