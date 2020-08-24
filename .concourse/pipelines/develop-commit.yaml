@@ -13,8 +13,7 @@ resources:
     check_every: 5m
     source:
       uri: git@github.com:polymathnetwork/Polymesh.git
-      branch: DEVOPS-173/test
-      #branch: develop
+      branch: develop
       private_key: ((github-ssh-key-concourseatpolymath.id_rsa))
   - name: s3-polymesh
     type: s3
