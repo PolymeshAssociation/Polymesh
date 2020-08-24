@@ -93,6 +93,7 @@ use polymesh_common_utilities::{
     Context,
 };
 use polymesh_primitives::{predicate, Claim, ClaimType, IdentityId, Rule, RuleType, Ticker};
+use polymesh_primitives_derive::Migrate;
 #[cfg(feature = "std")]
 use sp_runtime::{Deserialize, Serialize};
 use sp_std::{
@@ -115,12 +116,16 @@ pub trait Trait:
     type MaxRuleComplexity: Get<u32>;
 }
 
+use polymesh_primitives::rule::RuleOld;
+
 /// An asset transfer rule.
 /// All sender and receiver rule of the same asset rule must be true in order to execute the transfer.
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[derive(codec::Encode, codec::Decode, Default, Clone, PartialEq, Eq, Debug)]
+#[derive(codec::Encode, codec::Decode, Default, Clone, PartialEq, Eq, Debug, Migrate)]
 pub struct AssetTransferRule {
+    #[migrate(Rule)]
     pub sender_rules: Vec<Rule>,
+    #[migrate(Rule)]
     pub receiver_rules: Vec<Rule>,
     /// Unique identifier of the asset rule
     pub rule_id: u32,
@@ -175,11 +180,12 @@ impl From<Rule> for RuleResult {
 
 /// List of rules associated to an asset.
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize, Debug))]
-#[derive(codec::Encode, codec::Decode, Default, Clone, PartialEq, Eq)]
+#[derive(codec::Encode, codec::Decode, Default, Clone, PartialEq, Eq, Migrate)]
 pub struct AssetTransferRules {
     /// This flag indicates if asset transfer rules are active or paused.
     pub is_paused: bool,
     /// List of rules.
+    #[migrate(AssetTransferRule)]
     pub rules: Vec<AssetTransferRule>,
 }
 
@@ -249,6 +255,14 @@ decl_module! {
         type Error = Error<T>;
 
         fn deposit_event() = default;
+
+        fn on_runtime_upgrade() -> frame_support::weights::Weight {
+            use polymesh_primitives::migrate::migrate_map;
+            migrate_map::<AssetTransferRulesOld>(b"ComplianceManager", b"AssetRulesMap");
+
+            // It's gonna be alot, so lets pretend its 0 anyways.
+            0
+        }
 
         /// Adds an asset rule to active rules for a ticker.
         /// If rules are duplicated, it does nothing.

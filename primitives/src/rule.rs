@@ -13,8 +13,10 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
-use crate::{Claim, IdentityId, Ticker};
+use crate as polymesh_primitives;
+use crate::{identity_claim::ClaimOld, Claim, IdentityId, Ticker};
 use codec::{Decode, Encode};
+use polymesh_primitives_derive::Migrate;
 #[cfg(feature = "std")]
 use sp_runtime::{Deserialize, Serialize};
 use sp_std::prelude::*;
@@ -29,19 +31,19 @@ pub enum TargetIdentity {
     Specific(IdentityId),
 }
 
-#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[derive(Encode, Decode, Clone, PartialEq, Eq, Debug)]
 /// It defines the type of rule supported, and the filter information we will use to evaluate as a
 /// predicate.
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+#[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, Migrate)]
 pub enum RuleType {
     /// Rule to ensure that claim filter produces one claim.
-    IsPresent(Claim),
+    IsPresent(#[migrate] Claim),
     /// Rule to ensure that claim filter produces an empty list.
-    IsAbsent(Claim),
+    IsAbsent(#[migrate] Claim),
     /// Rule to ensure that at least one claim is fetched when filter is applied.
-    IsAnyOf(Vec<Claim>),
+    IsAnyOf(#[migrate(Claim)] Vec<Claim>),
     /// Rule to ensure that at none of claims is fetched when filter is applied.
-    IsNoneOf(Vec<Claim>),
+    IsNoneOf(#[migrate(Claim)] Vec<Claim>),
     /// Rule to ensure that the sender/receiver is a particular identity or primary issuance agent
     IsIdentity(TargetIdentity),
     /// Rule to ensure that the target identity has a valid `InvestorZKProof` claim for the given
@@ -51,9 +53,10 @@ pub enum RuleType {
 
 /// Type of claim requirements that a rule can have
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[derive(Encode, Decode, Clone, PartialEq, Eq, Debug)]
+#[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, Migrate)]
 pub struct Rule {
     /// Type of rule.
+    #[migrate]
     pub rule_type: RuleType,
     /// Trusted issuers.
     pub issuers: Vec<IdentityId>,
