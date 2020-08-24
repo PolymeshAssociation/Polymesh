@@ -48,7 +48,7 @@ impl<T: Migrate> Migrate for Vec<T> {
 ///
 /// Migrations resulting in `old.migrate() == None` are silently dropped from storage.
 pub fn migrate_map<T: Migrate>(module: &[u8], item: &[u8]) {
-    migrate_map_rename(module, item, item)
+    migrate_map_rename::<T>(module, item, item)
 }
 
 
