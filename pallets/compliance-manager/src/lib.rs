@@ -264,12 +264,7 @@ decl_module! {
             use frame_support::migration::{StorageIterator, put_storage_value};
             use polymesh_primitives::migrate::migrate_map;
 
-            // ComplianceManager.AssetRulesMap -> ComplianceManager.AssetCompliance
-            for (key, value) in StorageIterator::<AssetCompliance>::new(b"ComplianceManager", b"AssetRulesMap").drain() {
-                put_storage_value(b"ComplianceManager", b"AssetCompliance", &key, value);
-            }
-
-            migrate_map::<AssetComplianceOld>(b"ComplianceManager", b"AssetCompliance");
+            migrate_map_rename::<AssetComplianceOld>(b"ComplianceManager", b"AssetRulesMap", b"AssetCompliance");
 
             1_000
         }
