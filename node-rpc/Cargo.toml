@@ -4,14 +4,14 @@ version = "0.1.0"
 authors = ["Parity Technologies <admin@parity.io>"]
 edition = "2018"
 license = "Apache-2.0"
-repository = "https://github.com/paritytech/substrate/"
+repository = "https://github.com/PolymathNetwork/substrate"
 
 [package.metadata.docs.rs]
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
 polymesh-primitives = { path = "../primitives" }
-pallet-contracts-rpc = { git = "https://github.com/paritytech/substrate", branch = "at-add-dispatch-call" }
+pallet-contracts-rpc = { git = "https://github.com/PolymathNetwork/substrate", branch = "remove-subtype-trait" }
 pallet-group-rpc = { path = "../pallets/group/rpc" }
 pallet-staking-rpc = { path = "../pallets/staking/rpc" }
 pallet-protocol-fee-rpc = {  path = "../pallets/protocol-fee/rpc" }
@@ -20,21 +20,21 @@ node-rpc = { path = "../rpc" }
 jsonrpc-core = "14.2.0"
 
 codec = { package = "parity-scale-codec", version = "1.3.0", default-features = false }
-sp-blockchain = { git = "https://github.com/paritytech/substrate", branch = "at-add-dispatch-call" }
-sp-runtime = { git = "https://github.com/paritytech/substrate", branch = "at-add-dispatch-call" }
-sp-api = { git = "https://github.com/paritytech/substrate", branch = "at-add-dispatch-call" }
-sc-client-api = { git = "https://github.com/paritytech/substrate", branch = "at-add-dispatch-call" }
-sp-consensus = { git = "https://github.com/paritytech/substrate", branch = "at-add-dispatch-call" }
-sp-consensus-babe = { git = "https://github.com/paritytech/substrate", branch = "at-add-dispatch-call" }
-sp-block-builder = { git = "https://github.com/paritytech/substrate", branch = "at-add-dispatch-call" }
-txpool-api = { package = "sp-transaction-pool", git = "https://github.com/paritytech/substrate", branch = "at-add-dispatch-call" }
+sp-blockchain = { git = "https://github.com/PolymathNetwork/substrate", branch = "remove-subtype-trait" }
+sp-runtime = { git = "https://github.com/PolymathNetwork/substrate", branch = "remove-subtype-trait" }
+sp-api = { git = "https://github.com/PolymathNetwork/substrate", branch = "remove-subtype-trait" }
+sc-client-api = { git = "https://github.com/PolymathNetwork/substrate", branch = "remove-subtype-trait" }
+sp-consensus = { git = "https://github.com/PolymathNetwork/substrate", branch = "remove-subtype-trait" }
+sp-consensus-babe = { git = "https://github.com/PolymathNetwork/substrate", branch = "remove-subtype-trait" }
+sp-block-builder = { git = "https://github.com/PolymathNetwork/substrate", branch = "remove-subtype-trait" }
+txpool-api = { package = "sp-transaction-pool", git = "https://github.com/PolymathNetwork/substrate", branch = "remove-subtype-trait" }
 
-sc-rpc = { git = "https://github.com/paritytech/substrate", branch = "at-add-dispatch-call" }
-sc-consensus-babe = { git = "https://github.com/paritytech/substrate", branch = "at-add-dispatch-call" }
-sc-consensus-babe-rpc = { git = "https://github.com/paritytech/substrate", branch = "at-add-dispatch-call" }
-sc-consensus-epochs = { git = "https://github.com/paritytech/substrate", branch = "at-add-dispatch-call" }
-sc-finality-grandpa = { git = "https://github.com/paritytech/substrate", branch = "at-add-dispatch-call" }
-sc-finality-grandpa-rpc = { git = "https://github.com/paritytech/substrate", branch = "at-add-dispatch-call" }
-sc-keystore = { git = "https://github.com/paritytech/substrate", branch = "at-add-dispatch-call" }
+sc-rpc = { git = "https://github.com/PolymathNetwork/substrate", branch = "remove-subtype-trait" }
+sc-consensus-babe = { git = "https://github.com/PolymathNetwork/substrate", branch = "remove-subtype-trait" }
+sc-consensus-babe-rpc = { git = "https://github.com/PolymathNetwork/substrate", branch = "remove-subtype-trait" }
+sc-consensus-epochs = { git = "https://github.com/PolymathNetwork/substrate", branch = "remove-subtype-trait" }
+sc-finality-grandpa = { git = "https://github.com/PolymathNetwork/substrate", branch = "remove-subtype-trait" }
+sc-finality-grandpa-rpc = { git = "https://github.com/PolymathNetwork/substrate", branch = "remove-subtype-trait" }
+sc-keystore = { git = "https://github.com/PolymathNetwork/substrate", branch = "remove-subtype-trait" }
 
-frame-rpc-system = { package = "substrate-frame-rpc-system", git = "https://github.com/paritytech/substrate", branch = "at-add-dispatch-call"  }
+frame-rpc-system = { package = "substrate-frame-rpc-system", git = "https://github.com/PolymathNetwork/substrate", branch = "remove-subtype-trait"  }

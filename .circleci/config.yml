@@ -32,9 +32,9 @@ jobs:
           command: rustc --version > rust.version
       - restore_cache:
           keys:
-            - v2-release-cache-{{ checksum "./rust.version" }}-{{ checksum "./Cargo.lock" }}
-            - v2-release-cache-{{ checksum "./rust.version" }}
-            - v2-cli-cache-{{ checksum "./rust.version" }}
+            - v3-release-cache-{{ checksum "./rust.version" }}-{{ checksum "./Cargo.lock" }}
+            - v3-release-cache-{{ checksum "./rust.version" }}
+            - v3-cli-cache-{{ checksum "./rust.version" }}
       - run:
           name: Pull submodules
           command: >-
@@ -45,7 +45,7 @@ jobs:
           command: cargo +nightly build --release || cargo +nightly build -j 1 --release
           no_output_timeout: 4h
       - save_cache:
-          key: v2-release-cache-{{ checksum "./rust.version" }}-{{ checksum "./Cargo.lock" }}
+          key: v3-release-cache-{{ checksum "./rust.version" }}-{{ checksum "./Cargo.lock" }}
           paths:
             - "~/.cargo"
             - "./target"
@@ -65,8 +65,8 @@ jobs:
           command: rustc --version > rust.version
       - restore_cache:
           keys:
-            - v8-test-cache-{{ checksum "./rust.version" }}-{{ checksum "./Cargo.lock" }}
-            - v8-test-cache-{{ checksum "./rust.version" }}
+            - v9-test-cache-{{ checksum "./rust.version" }}-{{ checksum "./Cargo.lock" }}
+            - v9-test-cache-{{ checksum "./rust.version" }}
       - run:
           name: Pull submodules
           command: >-
@@ -95,7 +95,7 @@ jobs:
             --features default_identity
           no_output_timeout: 30m
       - save_cache:
-          key: v8-test-cache-{{ checksum "./rust.version" }}-{{ checksum "./Cargo.lock" }}
+          key: v9-test-cache-{{ checksum "./rust.version" }}-{{ checksum "./Cargo.lock" }}
           paths:
             - "~/.cargo"
             - "./target"
@@ -115,7 +115,7 @@ jobs:
           command: rustc --version > rust.version
       - restore_cache:
           keys:
-            - v5-cli-cache-{{ checksum "./rust.version" }}-{{ checksum "./Cargo.lock" }}
+            - v6-cli-cache-{{ checksum "./rust.version" }}-{{ checksum "./Cargo.lock" }}
       - run:
           name: Pull submodules
           command: >-
@@ -140,7 +140,7 @@ jobs:
           working_directory: ./scripts/cli
           no_output_timeout: 10m
       - save_cache:
-          key: v5-cli-cache-{{ checksum "./rust.version" }}-{{ checksum "./Cargo.lock" }}
+          key: v6-cli-cache-{{ checksum "./rust.version" }}-{{ checksum "./Cargo.lock" }}
           paths:
             - "~/.cargo"
             - "./target"
@@ -161,8 +161,8 @@ jobs:
           command: rustc +nightly --version > rust.version
       - restore_cache:
           keys:
-            - v3-clippy-cache-{{ checksum "./rust.version" }}-{{ checksum "./Cargo.lock" }}
-            - v3-clippy-cache-{{ checksum "./rust.version" }}
+            - v4-clippy-cache-{{ checksum "./rust.version" }}-{{ checksum "./Cargo.lock" }}
+            - v4-clippy-cache-{{ checksum "./rust.version" }}
       - run:
           name: Pull submodules
           command: >-
@@ -173,7 +173,7 @@ jobs:
           command: cargo +nightly clippy -j 1
           no_output_timeout: 60m
       - save_cache:
-          key: v3-clippy-cache-{{ checksum "./rust.version" }}-{{ checksum "./Cargo.lock" }}
+          key: v4-clippy-cache-{{ checksum "./rust.version" }}-{{ checksum "./Cargo.lock" }}
           paths:
             - "~/.cargo"
             - "./target"

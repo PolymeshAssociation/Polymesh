@@ -21,10 +21,10 @@ jsonrpc-derive = "14.0.5"
 
 # Substrate
 codec = { package = "parity-scale-codec", version = "1.2.0" }
-sp-runtime = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "at-add-dispatch-call" }
-sp-blockchain = { git = 'https://github.com/paritytech/substrate', default_features = false, branch = "at-add-dispatch-call"}
-sp-std = {git = 'https://github.com/paritytech/substrate', default_features = false, branch = "at-add-dispatch-call" }
-sp-api = {git = 'https://github.com/paritytech/substrate', default_features = false, branch = "at-add-dispatch-call" }
+sp-runtime = { git = "https://github.com/PolymathNetwork/substrate", default-features = false, branch = "remove-subtype-trait" }
+sp-blockchain = { git = "https://github.com/PolymathNetwork/substrate", default_features = false, branch = "remove-subtype-trait"}
+sp-std = {git = "https://github.com/PolymathNetwork/substrate", default_features = false, branch = "remove-subtype-trait" }
+sp-api = {git = "https://github.com/PolymathNetwork/substrate", default_features = false, branch = "remove-subtype-trait" }
 
 [dev-dependencies]
-substrate-test-runtime-client = { git = 'https://github.com/paritytech/substrate', default_features = false, branch = "at-add-dispatch-call" }
+substrate-test-runtime-client = { git = "https://github.com/PolymathNetwork/substrate", default_features = false, branch = "remove-subtype-trait" }

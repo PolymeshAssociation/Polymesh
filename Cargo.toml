@@ -45,6 +45,7 @@ members = [
     "pallets/confidential",
     "pallets/utility",
     "pallets/staking/fuzzer",
+    "pallets/contracts",
     "rpc/runtime-api",
     "node-rpc",
     "rpc",
@@ -63,13 +64,13 @@ im-online = { package = "pallet-im-online", path = "pallets/im-online" }
 node-rpc = { path = "rpc" }
 node-rpc-runtime-api = { path = "rpc/runtime-api", default-features = false }
 pallet-protocol-fee-rpc-runtime-api = { path = "pallets/protocol-fee/rpc/runtime-api", default-features = false }
-pallet-contracts-rpc-runtime-api = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "at-add-dispatch-call" }
+pallet-contracts-rpc-runtime-api = { git = "https://github.com/PolymathNetwork/substrate", default-features = false, branch = "remove-subtype-trait" }
 pallet-staking-rpc-runtime-api = { path = "pallets/staking/rpc/runtime-api" }
 pallet-protocol-fee-rpc = { path = "pallets/protocol-fee/rpc" }
 pallet-group-rpc = { path = "pallets/group/rpc" }
 pallet-group-rpc-runtime-api = { path = "pallets/group/rpc/runtime-api", default-features = false }
 polymesh-node-rpc = { path = "node-rpc" }
-frame-system-rpc-runtime-api = { git = "https://github.com/paritytech/substrate", branch = "at-add-dispatch-call" }
+frame-system-rpc-runtime-api = { git = "https://github.com/PolymathNetwork/substrate", branch = "remove-subtype-trait" }
 
 # Runtimes
 polymesh-runtime-develop = { path = "pallets/runtime/develop" }
@@ -86,41 +87,41 @@ chrono = "0.4.11"
 
 # Substrate
 codec = { version = "1.2.0", package = "parity-scale-codec" }
-sp-core = { git = "https://github.com/paritytech/substrate", branch = "at-add-dispatch-call" }
-sp-runtime = { git = "https://github.com/paritytech/substrate", branch = "at-add-dispatch-call" }
-sp-api = { git = "https://github.com/paritytech/substrate", branch = "at-add-dispatch-call" }
-sp-offchain = { git = "https://github.com/paritytech/substrate", branch = "at-add-dispatch-call" }
-sp-block-builder = { git = "https://github.com/paritytech/substrate", branch = "at-add-dispatch-call" }
-sp-blockchain = { git = "https://github.com/paritytech/substrate", branch = "at-add-dispatch-call" }
-sp-session = { git = "https://github.com/paritytech/substrate", branch = "at-add-dispatch-call" }
-sp-consensus = { git = "https://github.com/paritytech/substrate", branch = "at-add-dispatch-call" }
-grandpa-primitives = { package = "sp-finality-grandpa", git = "https://github.com/paritytech/substrate", branch = "at-add-dispatch-call" }
-sp-inherents = { git = "https://github.com/paritytech/substrate", branch = "at-add-dispatch-call" }
-sp-transaction-pool = { package = "sp-transaction-pool", git = "https://github.com/paritytech/substrate", branch = "at-add-dispatch-call" }
-sp-consensus-babe = { git = "https://github.com/paritytech/substrate", branch = "at-add-dispatch-call" }
-sp-authority-discovery = { git = "https://github.com/paritytech/substrate", branch = "at-add-dispatch-call" }
+sp-core = { git = "https://github.com/PolymathNetwork/substrate", branch = "remove-subtype-trait" }
+sp-runtime = { git = "https://github.com/PolymathNetwork/substrate", branch = "remove-subtype-trait" }
+sp-api = { git = "https://github.com/PolymathNetwork/substrate", branch = "remove-subtype-trait" }
+sp-offchain = { git = "https://github.com/PolymathNetwork/substrate", branch = "remove-subtype-trait" }
+sp-block-builder = { git = "https://github.com/PolymathNetwork/substrate", branch = "remove-subtype-trait" }
+sp-blockchain = { git = "https://github.com/PolymathNetwork/substrate", branch = "remove-subtype-trait" }
+sp-session = { git = "https://github.com/PolymathNetwork/substrate", branch = "remove-subtype-trait" }
+sp-consensus = { git = "https://github.com/PolymathNetwork/substrate", branch = "remove-subtype-trait" }
+grandpa-primitives = { package = "sp-finality-grandpa", git = "https://github.com/PolymathNetwork/substrate", branch = "remove-subtype-trait" }
+sp-inherents = { git = "https://github.com/PolymathNetwork/substrate", branch = "remove-subtype-trait" }
+sp-transaction-pool = { package = "sp-transaction-pool", git = "https://github.com/PolymathNetwork/substrate", branch = "remove-subtype-trait" }
+sp-consensus-babe = { git = "https://github.com/PolymathNetwork/substrate", branch = "remove-subtype-trait" }
+sp-authority-discovery = { git = "https://github.com/PolymathNetwork/substrate", branch = "remove-subtype-trait" }
 
-contracts = { package = "pallet-contracts", git = "https://github.com/paritytech/substrate", default-features = false, branch = "at-add-dispatch-call" }
+contracts = { package = "pallet-contracts", git = "https://github.com/PolymathNetwork/substrate", default-features = false, branch = "remove-subtype-trait" }
 
-sc-service = { git = "https://github.com/paritytech/substrate", branch = "at-add-dispatch-call" }
-sc-chain-spec = { git = "https://github.com/paritytech/substrate", branch = "at-add-dispatch-call" }
-sc-client-api = { git = "https://github.com/paritytech/substrate", branch = "at-add-dispatch-call" }
-sc-executor = { git = "https://github.com/paritytech/substrate", branch = "at-add-dispatch-call" }
-sc-network = { git = "https://github.com/paritytech/substrate", branch = "at-add-dispatch-call" }
-sc-cli = { git = "https://github.com/paritytech/substrate", branch = "at-add-dispatch-call" }
-sc-telemetry = { git = "https://github.com/paritytech/substrate", branch = "at-add-dispatch-call" }
-sc-consensus-babe = { git = "https://github.com/paritytech/substrate", branch = "at-add-dispatch-call" }
-sc-consensus = { git = "https://github.com/paritytech/substrate", branch = "at-add-dispatch-call" }
-sc-rpc = { git = "https://github.com/paritytech/substrate", branch = "at-add-dispatch-call" }
-sc-transaction-pool = { git = "https://github.com/paritytech/substrate", branch = "at-add-dispatch-call" }
-grandpa = { package = "sc-finality-grandpa", git = "https://github.com/paritytech/substrate", branch = "at-add-dispatch-call" }
-sc-basic-authorship = { git = "https://github.com/paritytech/substrate", branch = "at-add-dispatch-call" }
-sc-authority-discovery = { git = "https://github.com/paritytech/substrate", branch = "at-add-dispatch-call" }
+sc-service = { git = "https://github.com/PolymathNetwork/substrate", branch = "remove-subtype-trait" }
+sc-chain-spec = { git = "https://github.com/PolymathNetwork/substrate", branch = "remove-subtype-trait" }
+sc-client-api = { git = "https://github.com/PolymathNetwork/substrate", branch = "remove-subtype-trait" }
+sc-executor = { git = "https://github.com/PolymathNetwork/substrate", branch = "remove-subtype-trait" }
+sc-network = { git = "https://github.com/PolymathNetwork/substrate", branch = "remove-subtype-trait" }
+sc-cli = { git = "https://github.com/PolymathNetwork/substrate", branch = "remove-subtype-trait" }
+sc-telemetry = { git = "https://github.com/PolymathNetwork/substrate", branch = "remove-subtype-trait" }
+sc-consensus-babe = { git = "https://github.com/PolymathNetwork/substrate", branch = "remove-subtype-trait" }
+sc-consensus = { git = "https://github.com/PolymathNetwork/substrate", branch = "remove-subtype-trait" }
+sc-rpc = { git = "https://github.com/PolymathNetwork/substrate", branch = "remove-subtype-trait" }
+sc-transaction-pool = { git = "https://github.com/PolymathNetwork/substrate", branch = "remove-subtype-trait" }
+grandpa = { package = "sc-finality-grandpa", git = "https://github.com/PolymathNetwork/substrate", branch = "remove-subtype-trait" }
+sc-basic-authorship = { git = "https://github.com/PolymathNetwork/substrate", branch = "remove-subtype-trait" }
+sc-authority-discovery = { git = "https://github.com/PolymathNetwork/substrate", branch = "remove-subtype-trait" }
 
-prometheus-endpoint = { package = "substrate-prometheus-endpoint", git = "https://github.com/paritytech/substrate", branch = "at-add-dispatch-call" }
+prometheus-endpoint = { package = "substrate-prometheus-endpoint", git = "https://github.com/PolymathNetwork/substrate", branch = "remove-subtype-trait" }
 
-frame-benchmarking = { git = "https://github.com/paritytech/substrate", branch = "at-add-dispatch-call" }
-frame-benchmarking-cli = { git = "https://github.com/paritytech/substrate", branch = "at-add-dispatch-call" }
+frame-benchmarking = { git = "https://github.com/PolymathNetwork/substrate", branch = "remove-subtype-trait" }
+frame-benchmarking-cli = { git = "https://github.com/PolymathNetwork/substrate", branch = "remove-subtype-trait" }
 
 [build-dependencies]
 vergen = "3.1.0"

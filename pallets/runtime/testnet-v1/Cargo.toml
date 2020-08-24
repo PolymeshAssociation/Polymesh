@@ -20,8 +20,8 @@ pallet-basic-sto = { path = "../../basic-sto", default-features = false }
 pallet-committee = { path = "../../committee", default-features = false }
 pallet-compliance-manager = { path = "../../compliance-manager", default-features = false }
 pallet-confidential = { path = "../../confidential", default-features = false }
-pallet-contracts = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "at-add-dispatch-call" }
-pallet-contracts-primitives = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "at-add-dispatch-call"}
+pallet-contracts = { git = "https://github.com/PolymathNetwork/substrate", default-features = false, branch = "remove-subtype-trait" }
+pallet-contracts-primitives = { git = "https://github.com/PolymathNetwork/substrate", default-features = false, branch = "remove-subtype-trait"}
 pallet-group = { path = "../../group", default-features = false }
 pallet-group-rpc-runtime-api = { path = "../../group/rpc/runtime-api", default-features = false }
 pallet-identity = { path = "../../identity", default-features = false }
@@ -37,12 +37,13 @@ pallet-statistics = { path = "../../statistics", default-features = false }
 pallet-transaction-payment = { path = "../../transaction-payment", default-features = false }
 pallet-treasury = { path = "../../treasury", default-features = false }
 pallet-utility = { path = "../../utility", default-features = false }
+polymesh-contracts = { path = "../../contracts", default-features = false }
 
 # RPC
 node-rpc-runtime-api = { path = "../../../rpc/runtime-api", default-features = false }
 pallet-staking-rpc-runtime-api = { package = "pallet-staking-rpc-runtime-api", path = "../../staking/rpc/runtime-api", default-features = false }
 pallet-protocol-fee-rpc-runtime-api = { package = "pallet-protocol-fee-rpc-runtime-api", path = "../../protocol-fee/rpc/runtime-api", default-features = false }
-pallet-contracts-rpc-runtime-api = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "at-add-dispatch-call" }
+pallet-contracts-rpc-runtime-api = { git = "https://github.com/PolymathNetwork/substrate", default-features = false, branch = "remove-subtype-trait" }
 
 
 # Others
@@ -56,50 +57,50 @@ serde_derive = { version = "1.0.104", optional = true }
 
 # Substrate
 codec = { package = "parity-scale-codec", version = "1.2.0", default-features = false, features = ["derive"] }
-sp-core = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "at-add-dispatch-call" }
-sp-std = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "at-add-dispatch-call" }
-sp-io = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "at-add-dispatch-call" }
-sp-runtime = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "at-add-dispatch-call" }
-sp-version = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "at-add-dispatch-call" }
-sp-api = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "at-add-dispatch-call" }
-sp-inherents = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "at-add-dispatch-call" }
-sp-offchain = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "at-add-dispatch-call" }
-sp-staking = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "at-add-dispatch-call" }
-sp-consensus-babe = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "at-add-dispatch-call" }
-sp-session = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "at-add-dispatch-call" }
-sp-authority-discovery = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "at-add-dispatch-call" }
-sp-transaction-pool = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "at-add-dispatch-call" }
-sp-block-builder = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "at-add-dispatch-call" }
-sp-arithmetic = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "at-add-dispatch-call" }
+sp-core = { git = "https://github.com/PolymathNetwork/substrate", default-features = false, branch = "remove-subtype-trait" }
+sp-std = { git = "https://github.com/PolymathNetwork/substrate", default-features = false, branch = "remove-subtype-trait" }
+sp-io = { git = "https://github.com/PolymathNetwork/substrate", default-features = false, branch = "remove-subtype-trait" }
+sp-runtime = { git = "https://github.com/PolymathNetwork/substrate", default-features = false, branch = "remove-subtype-trait" }
+sp-version = { git = "https://github.com/PolymathNetwork/substrate", default-features = false, branch = "remove-subtype-trait" }
+sp-api = { git = "https://github.com/PolymathNetwork/substrate", default-features = false, branch = "remove-subtype-trait" }
+sp-inherents = { git = "https://github.com/PolymathNetwork/substrate", default-features = false, branch = "remove-subtype-trait" }
+sp-offchain = { git = "https://github.com/PolymathNetwork/substrate", default-features = false, branch = "remove-subtype-trait" }
+sp-staking = { git = "https://github.com/PolymathNetwork/substrate", default-features = false, branch = "remove-subtype-trait" }
+sp-consensus-babe = { git = "https://github.com/PolymathNetwork/substrate", default-features = false, branch = "remove-subtype-trait" }
+sp-session = { git = "https://github.com/PolymathNetwork/substrate", default-features = false, branch = "remove-subtype-trait" }
+sp-authority-discovery = { git = "https://github.com/PolymathNetwork/substrate", default-features = false, branch = "remove-subtype-trait" }
+sp-transaction-pool = { git = "https://github.com/PolymathNetwork/substrate", default-features = false, branch = "remove-subtype-trait" }
+sp-block-builder = { git = "https://github.com/PolymathNetwork/substrate", default-features = false, branch = "remove-subtype-trait" }
+sp-arithmetic = { git = "https://github.com/PolymathNetwork/substrate", default-features = false, branch = "remove-subtype-trait" }
 
-pallet-authorship = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "at-add-dispatch-call" }
-pallet-executive = { package = "frame-executive", git = "https://github.com/paritytech/substrate", default-features = false, branch = "at-add-dispatch-call" }
-pallet-finality-tracker = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "at-add-dispatch-call" }
-pallet-grandpa = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "at-add-dispatch-call" }
-pallet-indices = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "at-add-dispatch-call" }
-pallet-offences = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "at-add-dispatch-call" }
-pallet-session = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "at-add-dispatch-call" }
-pallet-sudo = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "at-add-dispatch-call" }
-pallet-timestamp = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "at-add-dispatch-call" }
-pallet-babe = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "at-add-dispatch-call" }
-pallet-authority-discovery = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "at-add-dispatch-call" }
-pallet-randomness-collective-flip = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "at-add-dispatch-call" }
+pallet-authorship = { git = "https://github.com/PolymathNetwork/substrate", default-features = false, branch = "remove-subtype-trait" }
+pallet-executive = { package = "frame-executive", git = "https://github.com/PolymathNetwork/substrate", default-features = false, branch = "remove-subtype-trait" }
+pallet-finality-tracker = { git = "https://github.com/PolymathNetwork/substrate", default-features = false, branch = "remove-subtype-trait" }
+pallet-grandpa = { git = "https://github.com/PolymathNetwork/substrate", default-features = false, branch = "remove-subtype-trait" }
+pallet-indices = { git = "https://github.com/PolymathNetwork/substrate", default-features = false, branch = "remove-subtype-trait" }
+pallet-offences = { git = "https://github.com/PolymathNetwork/substrate", default-features = false, branch = "remove-subtype-trait" }
+pallet-session = { git = "https://github.com/PolymathNetwork/substrate", default-features = false, branch = "remove-subtype-trait" }
+pallet-sudo = { git = "https://github.com/PolymathNetwork/substrate", default-features = false, branch = "remove-subtype-trait" }
+pallet-timestamp = { git = "https://github.com/PolymathNetwork/substrate", default-features = false, branch = "remove-subtype-trait" }
+pallet-babe = { git = "https://github.com/PolymathNetwork/substrate", default-features = false, branch = "remove-subtype-trait" }
+pallet-authority-discovery = { git = "https://github.com/PolymathNetwork/substrate", default-features = false, branch = "remove-subtype-trait" }
+pallet-randomness-collective-flip = { git = "https://github.com/PolymathNetwork/substrate", default-features = false, branch = "remove-subtype-trait" }
 
-frame-system = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "at-add-dispatch-call" }
-frame-support = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "at-add-dispatch-call" }
-frame-system-rpc-runtime-api = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "at-add-dispatch-call" }
+frame-system = { git = "https://github.com/PolymathNetwork/substrate", default-features = false, branch = "remove-subtype-trait" }
+frame-support = { git = "https://github.com/PolymathNetwork/substrate", default-features = false, branch = "remove-subtype-trait" }
+frame-system-rpc-runtime-api = { git = "https://github.com/PolymathNetwork/substrate", default-features = false, branch = "remove-subtype-trait" }
 ink_primitives = { git = "https://github.com/paritytech/ink", tag = "v2.1.0", default-features = false }
 hex-literal = "0.2.1"
 smallvec = "1.4.0"
 
 # Benchmark
-frame-benchmarking = { default-features = false, git = "https://github.com/paritytech/substrate", branch = "at-add-dispatch-call", optional = true }
+frame-benchmarking = { default-features = false, git = "https://github.com/PolymathNetwork/substrate", branch = "remove-subtype-trait", optional = true }
 
 [dev-dependencies]
-test-client = { package = "substrate-test-runtime-client", git = "https://github.com/paritytech/substrate", branch = "at-add-dispatch-call" }
+test-client = { package = "substrate-test-runtime-client", git = "https://github.com/PolymathNetwork/substrate", branch = "remove-subtype-trait" }
 
 [build-dependencies]
-wasm-builder-runner = { package = "substrate-wasm-builder-runner", git = "https://github.com/paritytech/substrate", default-features = false, branch = "at-add-dispatch-call"}
+wasm-builder-runner = { package = "substrate-wasm-builder-runner", git = "https://github.com/PolymathNetwork/substrate", default-features = false, branch = "remove-subtype-trait"}
 
 [features]
 equalize = []
@@ -150,6 +151,7 @@ std = [
     "pallet-sudo/std",
     "pallet-timestamp/std",
     "pallet-treasury/std",
+    "polymesh-contracts/std",
     "polymesh-common-utilities/std",
     "polymesh-runtime-common/std",
     "rustc-hex/std",
