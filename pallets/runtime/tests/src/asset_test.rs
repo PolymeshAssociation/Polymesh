@@ -51,6 +51,7 @@ type Origin = <TestStorage as frame_system::Trait>::Origin;
 type DidRecords = identity::DidRecords<TestStorage>;
 type Statistics = statistics::Module<TestStorage>;
 type AssetGenesis = asset::GenesisConfig<TestStorage>;
+type System = frame_system::Module<TestStorage>;
 
 macro_rules! assert_add_claim {
     ($signer:expr, $target:expr, $claim:expr) => {
@@ -2526,9 +2527,10 @@ fn classic_ticker_not_owner() {
 
 #[test]
 fn classic_ticker_claim_works() {
+    let ticker = ticker("ACME");
     let classic_migration_tickers = vec![ClassicTickerImport {
         eth_owner: ethereum::address(&alice_secret_key()),
-        ticker: ticker("ACME"),
+        ticker,
         ..default_classic()
     }];
     let standard_config = default_reg_config();
@@ -2539,9 +2541,18 @@ fn classic_ticker_claim_works() {
         classic_migration_contract_did: 0.into(),
     };
     with_asset_genesis(genesis).build().execute_with(move || {
+        System::set_block_number(1);
         let signer = Origin::signed(AccountKeyring::Alice.public());
         let did = register_keyring_account(AccountKeyring::Alice).unwrap();
         let eth_sig = ethereum::eth_msg(did, b"classic_claim", &alice_secret_key());
-        assert_ok!(Asset::claim_classic_ticker(signer, ticker("ACME"), eth_sig));
+        assert_ok!(Asset::claim_classic_ticker(signer, ticker, eth_sig));
+        assert_eq!(did, Tickers::<TestStorage>::get(ticker).owner);
+        assert!(matches!(
+            &*System::events(),
+            [.., frame_system::EventRecord {
+                event: super::storage::EventTest::asset(pallet_asset::RawEvent::ClassicTickerClaimed(..)),
+                ..
+            }]
+        ));
     });
 }
