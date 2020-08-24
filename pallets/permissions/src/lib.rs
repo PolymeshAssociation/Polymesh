@@ -16,7 +16,10 @@ use sp_std::{fmt, marker::PhantomData, prelude::Vec, result::Result};
 
 pub trait Trait: frame_system::Trait {
     /// The origin that can be used with [`frame_system::ensure_signed`].
-    type Origin: Into<Result<frame_system::RawOrigin<Self::AccountId>, <Self as Trait>::Origin>>;
+    type Origin: Into<Result<RawOrigin<Self::AccountId, Self::Checker>, <Self as Trait>::Origin>>
+        + From<RawOrigin<Self::AccountId, Self::Checker>>;
+
+    type Checker: CheckAccountCallPermissions;
 }
 
 decl_storage! {
@@ -31,7 +34,7 @@ decl_module! {
     pub struct Module<T: Trait> for enum Call where origin: <T as Trait>::Origin {
         #[weight = 1]
         fn test(origin) -> DispatchResult {
-            let _ = ensure_signed(origin)?;
+            let _ = ensure_permissions(origin)?;
             Ok(())
         }
     }
