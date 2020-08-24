@@ -316,6 +316,7 @@ pub struct EthereumAddress([u8; 20]);
 /// Data imported from Polymath Classic regarding ticker registration/creation.
 /// Only used at genesis config and not stored on-chain.
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+#[derive(Clone)]
 pub struct ClassicTickerImport {
     /// Owner of the registration.
     pub eth_owner: ethereum::EthereumAddress,
@@ -413,7 +414,7 @@ decl_storage! {
 
                 // Register the ticker...
                 let tconfig = || config.classic_migration_tconfig.clone();
-                let expiry = <Module<T>>::ticker_registration_checks(&import.ticker, did, tconfig);
+                let expiry = <Module<T>>::ticker_registration_checks(&import.ticker, did, true, tconfig);
                 <Module<T>>::_register_ticker_feeless(&import.ticker, did, expiry.unwrap());
 
                 // ..and associate it with additional info needed for claiming.
@@ -448,7 +449,7 @@ decl_module! {
         pub fn register_ticker(origin, ticker: Ticker) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             let to_did = Context::current_identity_or::<Identity<T>>(&sender)?;
-            let expiry = Self::ticker_registration_checks(&ticker, to_did, || Self::ticker_registration_config())?;
+            let expiry = Self::ticker_registration_checks(&ticker, to_did, false, || Self::ticker_registration_config())?;
             Self::_register_ticker(&ticker, to_did, expiry)
         }
 
@@ -1132,7 +1133,7 @@ decl_module! {
     }
 }
 
-mod ethereum {
+pub mod ethereum {
     use codec::{Decode, Encode};
     #[cfg(feature = "std")]
     use sp_runtime::{Deserialize, Serialize};
@@ -1143,7 +1144,7 @@ mod ethereum {
     /// This gets serialized to the 0x-prefixed hex representation.
     #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
     #[derive(Clone, Copy, PartialEq, Eq, Encode, Decode, Default, Debug)]
-    pub struct EthereumAddress([u8; 20]);
+    pub struct EthereumAddress(pub [u8; 20]);
 
     #[derive(Encode, Decode, Clone)]
     pub struct EcdsaSignature(pub [u8; 65]);
@@ -1582,6 +1583,7 @@ impl<T: Trait> Module<T> {
     fn ticker_registration_checks(
         ticker: &Ticker,
         to_did: IdentityId,
+        no_re_register: bool,
         config: impl FnOnce() -> TickerRegistrationConfig<T::Moment>,
     ) -> Result<Option<T::Moment>, DispatchError> {
         ensure!(
@@ -1597,12 +1599,14 @@ impl<T: Trait> Module<T> {
             Error::<T>::TickerTooLong
         );
 
-        // Ensure that the ticker is not registered by someone else.
-        ensure!(
-            Self::is_ticker_available_or_registered_to(&ticker, to_did)
-                != TickerRegistrationStatus::RegisteredByOther,
-            Error::<T>::TickerAlreadyRegistered
-        );
+        // Ensure that the ticker is not registered by someone else (or `to_did`, possibly).
+        if match Self::is_ticker_available_or_registered_to(&ticker, to_did) {
+            TickerRegistrationStatus::RegisteredByOther => true,
+            TickerRegistrationStatus::RegisteredByDid => no_re_register,
+            _ => false,
+        } {
+            return Err(Error::<T>::TickerAlreadyRegistered.into());
+        }
 
         Ok(config
             .registration_length
