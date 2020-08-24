@@ -1,13 +1,13 @@
 use crate::{
+    committee_test::root,
     storage::{
         account_from, add_secondary_key, make_account_without_cdd, register_keyring_account,
         AccountId, TestStorage,
     },
     ExtBuilder,
 };
-
 use frame_support::IterableStorageMap;
-use pallet_asset::ethereum::EthereumAddress;
+use pallet_asset::ethereum;
 use pallet_asset::{
     self as asset, AssetOwnershipRelation, AssetType, ClassicTickerImport,
     ClassicTickerRegistration, ClassicTickers, FundingRoundName, IdentifierType, SecurityToken,
@@ -24,6 +24,7 @@ use polymesh_primitives::{
     AuthorizationData, Claim, Document, DocumentName, IdentityId, Rule, RuleType, Signatory,
     SmartExtension, SmartExtensionName, SmartExtensionType, Ticker,
 };
+use sp_io::hashing::keccak_256;
 
 use chrono::prelude::Utc;
 use codec::Encode;
@@ -2237,6 +2238,20 @@ fn default_reg_config() -> TickerRegistrationConfig<u64> {
     }
 }
 
+fn alice_secret_key() -> secp256k1::SecretKey {
+    secp256k1::SecretKey::parse(&keccak_256(b"Alice")).unwrap()
+}
+
+fn bob_secret_key() -> secp256k1::SecretKey {
+    secp256k1::SecretKey::parse(&keccak_256(b"Bob")).unwrap()
+}
+
+fn sorted<K: Ord + Clone, V>(iter: impl IntoIterator<Item = (K, V)>) -> Vec<(K, V)> {
+    let mut vec: Vec<_> = iter.into_iter().collect();
+    vec.sort_by_key(|x| x.0.clone());
+    vec
+}
+
 fn with_asset_genesis(genesis: AssetGenesis) -> ExtBuilder {
     ExtBuilder::default().adjust(Box::new(move |storage| {
         genesis.assimilate_storage(storage).unwrap();
@@ -2308,17 +2323,11 @@ fn classic_ticker_genesis_already_registered_other_did() {
     });
 }
 
-fn sorted<K: Ord + Clone, V>(iter: impl IntoIterator<Item = (K, V)>) -> Vec<(K, V)> {
-    let mut vec: Vec<_> = iter.into_iter().collect();
-    vec.sort_by_key(|x| x.0.clone());
-    vec
-}
-
 #[test]
 fn classic_ticker_genesis_works() {
-    let alice_eth = EthereumAddress(*b"0x012345678987654321");
-    let bob_eth = EthereumAddress(*b"0x212345678987654321");
-    let charlie_eth = EthereumAddress(*b"0x512345678987654321");
+    let alice_eth = ethereum::EthereumAddress(*b"0x012345678987654321");
+    let bob_eth = ethereum::EthereumAddress(*b"0x212345678987654321");
+    let charlie_eth = ethereum::EthereumAddress(*b"0x512345678987654321");
 
     // Define actual on-genesis asset config.
     let classic_migration_tickers = vec![
@@ -2400,5 +2409,139 @@ fn classic_ticker_genesis_works() {
         // Ensure actual permutes expected.
         assert_eq!(sorted(Tickers::<TestStorage>::iter()), sorted(tickers));
         assert_eq!(sorted(ClassicTickers::iter()), sorted(classic_tickers));
+    });
+}
+
+#[test]
+fn classic_ticker_no_such_classic_ticker() {
+    with_asset_genesis(AssetGenesis {
+        classic_migration_tconfig: default_reg_config(),
+        // There is a classic ticker, but not the one we're claiming.
+        classic_migration_tickers: vec![ClassicTickerImport {
+            ticker: ticker("ACME"),
+            ..default_classic()
+        }],
+        ..<_>::default()
+    })
+    .build()
+    .execute_with(|| {
+        assert_noop!(
+            Asset::claim_classic_ticker(root(), ticker("EMCA"), ethereum::EcdsaSignature([0; 65])),
+            AssetError::NoSuchClassicTicker
+        );
+    });
+}
+
+#[test]
+fn classic_ticker_registered_by_other() {
+    let ticker = ticker("ACME");
+    with_asset_genesis(AssetGenesis {
+        classic_migration_tconfig: default_reg_config(),
+        // There is a classic ticker, but its not owned by sys DID.
+        classic_migration_tickers: vec![ClassicTickerImport {
+            ticker,
+            is_contract: true,
+            ..default_classic()
+        }],
+        ..<_>::default()
+    })
+    .build()
+    .execute_with(|| {
+        assert_noop!(
+            Asset::claim_classic_ticker(root(), ticker, ethereum::EcdsaSignature([0; 65])),
+            AssetError::TickerAlreadyRegistered
+        );
+    });
+}
+
+#[test]
+fn classic_ticker_expired_thus_available() {
+    let ticker = ticker("ACME");
+    with_asset_genesis(AssetGenesis {
+        classic_migration_tconfig: TickerRegistrationConfig {
+            registration_length: Some(0),
+            ..default_reg_config()
+        },
+        classic_migration_tickers: vec![ClassicTickerImport {
+            ticker,
+            ..default_classic()
+        }],
+        ..<_>::default()
+    })
+    .build()
+    .execute_with(|| {
+        let rt_signer = Origin::signed(AccountKeyring::Dave.public());
+        <pallet_timestamp::Module<TestStorage>>::set_timestamp(1);
+        assert_noop!(
+            Asset::claim_classic_ticker(rt_signer, ticker, ethereum::EcdsaSignature([0; 65])),
+            AssetError::TickerRegistrationExpired
+        );
+    });
+}
+
+#[test]
+fn classic_ticker_garbage_signature() {
+    let ticker = ticker("ACME");
+    with_asset_genesis(AssetGenesis {
+        classic_migration_tconfig: default_reg_config(),
+        classic_migration_tickers: vec![ClassicTickerImport {
+            ticker,
+            ..default_classic()
+        }],
+        ..<_>::default()
+    })
+    .build()
+    .execute_with(|| {
+        let rt_signer = Origin::signed(AccountKeyring::Dave.public());
+        assert_noop!(
+            Asset::claim_classic_ticker(rt_signer, ticker, ethereum::EcdsaSignature([0; 65])),
+            AssetError::InvalidEthereumSignature
+        );
+    });
+}
+
+#[test]
+fn classic_ticker_not_owner() {
+    let ticker = ticker("ACME");
+    with_asset_genesis(AssetGenesis {
+        classic_migration_tconfig: default_reg_config(),
+        classic_migration_tickers: vec![ClassicTickerImport {
+            ticker,
+            eth_owner: ethereum::address(&alice_secret_key()),
+            ..default_classic()
+        }],
+        ..<_>::default()
+    })
+    .build()
+    .execute_with(|| {
+        let signer = Origin::signed(AccountKeyring::Bob.public());
+        let did = register_keyring_account(AccountKeyring::Bob).unwrap();
+        let eth_sig = ethereum::eth_msg(did, b"classic_claim", &bob_secret_key());
+        assert_noop!(
+            Asset::claim_classic_ticker(signer, ticker, eth_sig),
+            AssetError::NotAnOwner
+        );
+    });
+}
+
+#[test]
+fn classic_ticker_claim_works() {
+    let classic_migration_tickers = vec![ClassicTickerImport {
+        eth_owner: ethereum::address(&alice_secret_key()),
+        ticker: ticker("ACME"),
+        ..default_classic()
+    }];
+    let standard_config = default_reg_config();
+    let genesis = AssetGenesis {
+        classic_migration_tickers,
+        ticker_registration_config: standard_config.clone(),
+        classic_migration_tconfig: standard_config,
+        classic_migration_contract_did: 0.into(),
+    };
+    with_asset_genesis(genesis).build().execute_with(move || {
+        let signer = Origin::signed(AccountKeyring::Alice.public());
+        let did = register_keyring_account(AccountKeyring::Alice).unwrap();
+        let eth_sig = ethereum::eth_msg(did, b"classic_claim", &alice_secret_key());
+        assert_ok!(Asset::claim_classic_ticker(signer, ticker("ACME"), eth_sig));
     });
 }
