@@ -32,7 +32,6 @@ pub use batch_dispatch_info::BatchDispatchInfo;
 pub mod protocol_fee;
 pub use protocol_fee::ChargeProtocolFee;
 
-use core::convert::From;
 use polymesh_primitives::IdentityId;
 use sp_runtime::{DispatchResult, ModuleId};
 
@@ -85,7 +84,7 @@ pub const SYSTEMATIC_ISSUERS: &[SystematicIssuers] = &[
 
 impl SystematicIssuers {
     /// Returns the representation of this issuer as a raw public key.
-    pub fn as_bytes(self) -> &'static [u8; 32] {
+    pub const fn as_bytes(self) -> &'static [u8; 32] {
         use constants::did;
         match self {
             SystematicIssuers::Committee => did::GOVERNANCE_COMMITTEE_DID,
@@ -98,11 +97,11 @@ impl SystematicIssuers {
     }
 
     /// It returns the Identity Identifier of this issuer.
-    pub fn as_id(self) -> IdentityId {
-        IdentityId::from(*self.as_bytes())
+    pub const fn as_id(self) -> IdentityId {
+        IdentityId::from_bytes(*self.as_bytes())
     }
 
-    pub fn as_module_id(self) -> ModuleId {
+    pub const fn as_module_id(self) -> ModuleId {
         match self {
             SystematicIssuers::Committee => constants::GC_MODULE_ID,
             SystematicIssuers::CDDProvider => constants::CDD_MODULE_ID,
@@ -113,6 +112,8 @@ impl SystematicIssuers {
         }
     }
 }
+
+pub const GC_DID: IdentityId = SystematicIssuers::Committee.as_id();
 
 /// Execute the supplied function in a new storage transaction,
 /// committing on `Ok(_)` and rolling back on `Err(_)`, returning the result.

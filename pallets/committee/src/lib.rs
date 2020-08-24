@@ -69,7 +69,7 @@ use polymesh_common_utilities::{
     governance_group::GovernanceGroupTrait,
     group::{GroupTrait, InactiveMember, MemberCount},
     identity::{IdentityTrait, Trait as IdentityModuleTrait},
-    Context, SystematicIssuers,
+    Context, SystematicIssuers, GC_DID,
 };
 use polymesh_primitives::IdentityId;
 use sp_core::u32_trait::Value as U32;
@@ -239,9 +239,7 @@ decl_module! {
             // Proportion must be a rational number
             ensure!(d > 0 && n <= d, Error::<T, I>::InvalidProportion);
             <VoteThreshold<I>>::put((n, d));
-            // TODO(centril): did refers to GC only; consider adding variants for other committees.
-            let current_did = SystematicIssuers::Committee.as_id();
-            Self::deposit_event(RawEvent::VoteThresholdUpdated(current_did, n, d));
+            Self::deposit_event(RawEvent::VoteThresholdUpdated(GC_DID, n, d));
         }
 
         /// Changes the release coordinator.
@@ -256,8 +254,7 @@ decl_module! {
             T::CommitteeOrigin::ensure_origin(origin)?;
             ensure!(Self::members().contains(&id), Error::<T, I>::MemberNotFound);
             <ReleaseCoordinator<I>>::put(id);
-            let current_did = SystematicIssuers::Committee.as_id();
-            Self::deposit_event(RawEvent::ReleaseCoordinatorUpdated(current_did, Some(id)));
+            Self::deposit_event(RawEvent::ReleaseCoordinatorUpdated(GC_DID, Some(id)));
         }
 
         /// May be called by any signed account after the voting duration has ended in order to
