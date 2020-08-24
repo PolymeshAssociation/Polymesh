@@ -46,6 +46,7 @@ resources:
 
 jobs:
   - name: build-polymesh
+    serial: true
     plan:
       - put: semver-git-polymesh
         params:
