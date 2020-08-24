@@ -47,14 +47,16 @@ resources:
 jobs:
   - name: build-polymesh
     plan:
-      - put: semver-git-polymesh
-        params:
-          bump: patch
       - get: git-polymesh
         params:
           list_changed_files: true
         trigger: true
         version: every
+      - load_var: gitshortref
+        file: git-polymesh/.git/short_ref
+      - get: semver-git-polymesh
+        params:
+          pre: develop.((.:gitshortref))
       - in_parallel:
           - task: run-lint
             config:
@@ -180,6 +182,11 @@ jobs:
           message_file: semver-git-polymesh/version
           fail_if_message_file_missing: true
     on_failure:
+      put: slack-polymesh
+      params:
+        mode: normal
+        alert_type: failed
+    on_error:
       put: slack-polymesh
       params:
         mode: normal
