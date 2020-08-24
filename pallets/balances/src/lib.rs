@@ -183,7 +183,7 @@ use polymesh_common_utilities::{
         identity::IdentityTrait,
         NegativeImbalance, PositiveImbalance,
     },
-    Context, SystematicIssuers,
+    Context, SystematicIssuers, GC_DID,
 };
 use polymesh_primitives::traits::BlockRewardsReserveCurrency;
 use sp_runtime::{
@@ -364,7 +364,7 @@ decl_module! {
             ensure_root(origin)?;
             let who = T::Lookup::lookup(who)?;
             let caller_id = Context::current_identity_or::<T::Identity>(&who)
-                .unwrap_or_else(|_| SystematicIssuers::Committee.as_id());
+                .unwrap_or(GC_DID);
 
             let (free, reserved) = Self::mutate_account(&who, |account| {
                 if new_free > account.free {
@@ -1104,7 +1104,7 @@ where
 {
     type Moment = T::BlockNumber;
 
-    // Polymesh-note: The implementations below differ from subsrate in terms
+    // Polymesh-note: The implementations below differ from substrate in terms
     // of performance (ours uses in-place modification), but are functionally equivalent.
 
     // Set a lock on the balance of `who`.

@@ -28,6 +28,8 @@ pub mod did {
     pub const BLOCK_REWARD_RESERVE_DID: &[u8; 32] = b"system:block_reward_reserve_did\0";
     /// Settlement module DID
     pub const SETTLEMENT_MODULE_DID: &[u8; 32] = b"system:settlement_module_did\0\0\0\0";
+    /// Polymath Classic / Ethereum migration DID.
+    pub const CLASSIC_MIGRATION_DID: &[u8; 32] = b"system:polymath_classic_mig\0\0\0\0\0";
 }
 
 // ERC1400 transfer status codes
@@ -61,3 +63,4 @@ pub const BRR_MODULE_ID: ModuleId = ModuleId(*b"pm/blrwr");
 pub const GC_MODULE_ID: ModuleId = ModuleId(*b"pm/govcm");
 pub const CDD_MODULE_ID: ModuleId = ModuleId(*b"pm/cusdd");
 pub const SETTLEMENT_MODULE_ID: ModuleId = ModuleId(*b"pm/setmn");
+pub const CLASSIC_MIGRATION_MODULE_ID: ModuleId = ModuleId(*b"pm/ehmig");

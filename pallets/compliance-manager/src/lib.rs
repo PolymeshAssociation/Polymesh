@@ -316,9 +316,12 @@ decl_module! {
 
             ensure!(Self::is_owner(&ticker, did), Error::<T>::Unauthorized);
 
-            <AssetRulesMap>::mutate(ticker, |old_asset_rules| {
-                old_asset_rules.rules.retain( |rule| { rule.rule_id != asset_rule_id });
-            });
+            <AssetRulesMap>::try_mutate(ticker, |asset_rules| {
+                let before = asset_rules.rules.len();
+                asset_rules.rules.retain(|rule| { rule.rule_id != asset_rule_id });
+                ensure!(before != asset_rules.rules.len(), Error::<T>::InvalidRuleId);
+                Ok(()) as DispatchResult
+            })?;
 
             Self::deposit_event(Event::AssetRuleRemoved(did, ticker, asset_rule_id));
 
@@ -337,7 +340,7 @@ decl_module! {
         ///
         /// # Weight
         /// `read_and_write_weight + 100_000_000 + 500_000 * asset_rules.len()`
-        #[weight = T::DbWeight::get().reads_writes(1, 1) + 100_000_000 + 500_000 * u64::try_from(asset_rules.len()).unwrap_or_default()]
+        #[weight = T::DbWeight::get().reads_writes(1, 1) + 400_000_000 + 500_000 * u64::try_from(asset_rules.len()).unwrap_or_default()]
         pub fn replace_asset_rules(origin, ticker: Ticker, asset_rules: Vec<AssetTransferRule>) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             let did = Context::current_identity_or::<Identity<T>>(&sender)?;
@@ -465,7 +468,7 @@ decl_module! {
         /// * origin - Signer of the dispatchable. It should be the owner of the ticker.
         /// * ticker - Symbol of the asset.
         /// * asset_rule - Asset rule.
-        #[weight = T::DbWeight::get().reads_writes(2, 1) + 120_000_000]
+        #[weight = T::DbWeight::get().reads_writes(2, 1) + 720_000_000]
         pub fn change_asset_rule(origin, ticker: Ticker, new_asset_rule: AssetTransferRule) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             let did = Context::current_identity_or::<Identity<T>>(&sender)?;
@@ -496,8 +499,8 @@ decl_module! {
         /// * ticker - Symbol of the asset.
         ///
         /// # Weight
-        /// `read_and_write_weight + 12_000_000 + 100_000 * asset_rules.len().max(values.len())`
-        #[weight = T::DbWeight::get().reads_writes(2, 1) + 120_000_000 + 100_000 * u64::try_from(new_asset_rules.len()).unwrap_or_default()]
+        /// `read_and_write_weight + 720_000_000 + 100_000 * asset_rules.len().max(values.len())`
+        #[weight = T::DbWeight::get().reads_writes(2, 1) + 720_000_000 + 100_000 * u64::try_from(new_asset_rules.len()).unwrap_or_default()]
         pub fn batch_change_asset_rule(origin, new_asset_rules: Vec<AssetTransferRule> , ticker: Ticker) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             let did = Context::current_identity_or::<Identity<T>>(&sender)?;

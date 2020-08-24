@@ -16,7 +16,7 @@ use polymesh_common_utilities::{
         identity::{SecondaryKeyWithAuth, TargetIdAuthorization, Trait as IdentityTrait},
         transaction_payment::CddAndFeeDetails,
     },
-    SystematicIssuers,
+    SystematicIssuers, GC_DID,
 };
 use polymesh_primitives::{
     AuthorizationData, AuthorizationType, Claim, ClaimType, IdentityClaim, IdentityId, Permission,
@@ -50,9 +50,7 @@ type CddServiceProviders = <TestStorage as IdentityTrait>::CddServiceProviders;
 /// * CDD providers group.
 fn fetch_systematic_cdd(target: IdentityId) -> Option<IdentityClaim> {
     let claim_type = ClaimType::CustomerDueDiligence;
-    let gc_id = SystematicIssuers::Committee.as_id();
-
-    Identity::fetch_claim(target, claim_type, gc_id, None).or_else(|| {
+    Identity::fetch_claim(target, claim_type, GC_DID, None).or_else(|| {
         let cdd_id = SystematicIssuers::CDDProvider.as_id();
         Identity::fetch_claim(target, claim_type, cdd_id, None)
     })
@@ -940,7 +938,7 @@ fn adding_authorizations() {
             None,
         );
         assert_eq!(<AuthorizationsGiven>::get(alice_did, auth_id), bob_did);
-        let mut auth = Identity::get_authorization(bob_did, auth_id);
+        let mut auth = Identity::get_authorization(&bob_did, auth_id);
         assert_eq!(auth.authorized_by, alice_did);
         assert_eq!(auth.expiry, None);
         assert_eq!(
@@ -954,7 +952,7 @@ fn adding_authorizations() {
             Some(100),
         );
         assert_eq!(<AuthorizationsGiven>::get(alice_did, auth_id), bob_did);
-        auth = Identity::get_authorization(bob_did, auth_id);
+        auth = Identity::get_authorization(&bob_did, auth_id);
         assert_eq!(auth.authorized_by, alice_did);
         assert_eq!(auth.expiry, Some(100));
         assert_eq!(
@@ -996,7 +994,7 @@ fn removing_authorizations() {
             None,
         );
         assert_eq!(<AuthorizationsGiven>::get(alice_did, auth_id), bob_did);
-        let auth = Identity::get_authorization(bob_did, auth_id);
+        let auth = Identity::get_authorization(&bob_did, auth_id);
         assert_eq!(
             auth.authorization_data,
             AuthorizationData::TransferTicker(ticker50)
