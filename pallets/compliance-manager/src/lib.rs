@@ -117,16 +117,16 @@ pub trait Trait:
     type MaxConditionComplexity: Get<u32>;
 }
 
-use polymesh_primitives::rule::RuleOld;
+use polymesh_primitives::rule::ConditionOld;
 
 /// A compliance requirement.
 /// All sender and receiver conditions of the same compliance requirement must be true in order to execute the transfer.
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[derive(codec::Encode, codec::Decode, Default, Clone, PartialEq, Eq, Debug, Migrate)]
 pub struct ComplianceRequirement {
-    #[migrate(Rule)]
+    #[migrate(Condition)]
     pub sender_conditions: Vec<Condition>,
-    #[migrate(Rule)]
+    #[migrate(Condition)]
     pub receiver_conditions: Vec<Condition>,
     /// Unique identifier of the compliance requirement
     pub id: u32,
@@ -189,7 +189,7 @@ pub struct AssetCompliance {
     /// This flag indicates if asset compliance should be enforced
     pub paused: bool,
     /// List of compliance requirements.
-    #[migrate(AssetTransferRule)]
+    #[migrate(ComplianceRequirement)]
     pub requirements: Vec<ComplianceRequirement>,
 }
 
@@ -240,8 +240,8 @@ decl_error! {
         DidNotExist,
         /// When parameter has length < 1
         InvalidLength,
-        /// Condition id doesn't exist
-        InvalidConditionRequirementId,
+        /// Compliance requirement id doesn't exist
+        InvalidComplianceRequirementId,
         /// Issuer exist but trying to add it again
         IncorrectOperationOnTrustedIssuer,
         /// Missing current DID
@@ -264,12 +264,12 @@ decl_module! {
             use frame_support::migration::{StorageIterator, put_storage_value};
             use polymesh_primitives::migrate::migrate_map;
 
-            migrate_map::<AssetTransferRulesOld>(b"ComplianceManager", b"AssetRulesMap");
-
             // ComplianceManager.AssetRulesMap -> ComplianceManager.AssetCompliance
             for (key, value) in StorageIterator::<AssetCompliance>::new(b"ComplianceManager", b"AssetRulesMap").drain() {
-                put_storage_value(b"ComplianceManager", b"AssetCompliance", &key, did);
+                put_storage_value(b"ComplianceManager", b"AssetCompliance", &key, value);
             }
+
+            migrate_map::<AssetComplianceOld>(b"ComplianceManager", b"AssetCompliance");
 
             1_000
         }
@@ -326,10 +326,10 @@ decl_module! {
 
             ensure!(Self::is_owner(&ticker, did), Error::<T>::Unauthorized);
 
-            <AssetCompliance>::try_mutate(ticker, |asset_compliance| {
+            <AssetCompliances>::try_mutate(ticker, |asset_compliance| {
                 let before = asset_compliance.requirements.len();
-                asset_compliance.requirements.retain(|requirement| { requirements.id != id });
-                ensure!(before != asset_compliance.requirements.len(), Error::<T>::InvalidComplainceRequirementId);
+                asset_compliance.requirements.retain(|requirement| { requirement.id != id });
+                ensure!(before != asset_compliance.requirements.len(), Error::<T>::InvalidComplianceRequirementId);
                 Ok(()) as DispatchResult
             })?;
 
@@ -484,7 +484,7 @@ decl_module! {
             let did = Context::current_identity_or::<Identity<T>>(&sender)?;
 
             ensure!(Self::is_owner(&ticker, did), Error::<T>::Unauthorized);
-            ensure!(Self::get_latest_requirement_id(ticker) >= new_requirement.id, Error::<T>::InvalidConditionRequirementId);
+            ensure!(Self::get_latest_requirement_id(ticker) >= new_requirement.id, Error::<T>::InvalidComplianceRequirementId);
 
             let mut asset_compliance = <AssetCompliances>::get(ticker);
             if let Some(index) = asset_compliance
@@ -517,7 +517,7 @@ decl_module! {
 
             ensure!(Self::is_owner(&ticker, did), Error::<T>::Unauthorized);
             let latest_requirement_id = Self::get_latest_requirement_id(ticker);
-            ensure!(new_requirements.iter().any(|requirement| latest_requirement_id >= requirement.id), Error::<T>::InvalidConditionRequirementId);
+            ensure!(new_requirements.iter().any(|requirement| latest_requirement_id >= requirement.id), Error::<T>::InvalidComplianceRequirementId);
 
             let mut asset_compliance = <AssetCompliances>::get(ticker);
             let mut updated_requirements = Vec::with_capacity(new_requirements.len());
