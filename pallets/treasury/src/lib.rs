@@ -45,9 +45,9 @@ use pallet_identity as identity;
 use polymesh_common_utilities::{
     constants::TREASURY_MODULE_ID,
     traits::{balances::Trait as BalancesTrait, identity::Trait as IdentityTrait, CommonTrait},
-    Context, SystematicIssuers,
+    Context, GC_DID,
 };
-use polymesh_primitives::{traits::IdentityCurrency, Beneficiary, IdentityId};
+use polymesh_primitives::{Beneficiary, IdentityId};
 use sp_runtime::traits::{AccountIdConversion, Saturating};
 use sp_std::prelude::*;
 
@@ -63,7 +63,7 @@ pub trait Trait: frame_system::Trait + CommonTrait + BalancesTrait + IdentityTra
     // The overarching event type.
     type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
     /// The native currency.
-    type Currency: Currency<Self::AccountId> + IdentityCurrency<Self::AccountId>;
+    type Currency: Currency<Self::AccountId>;
 }
 
 pub trait TreasuryTrait<Balance> {
@@ -161,9 +161,9 @@ impl<T: Trait> Module<T> {
             WithdrawReason::Transfer.into(),
             ExistenceRequirement::AllowDeath,
         );
-        let _ = T::Currency::deposit_into_existing_identity(&target, amount);
-        let current_did = Context::current_identity::<Identity<T>>()
-            .unwrap_or_else(|| SystematicIssuers::Committee.as_id());
+        let primary_key = <identity::Module<T>>::did_records(target).primary_key;
+        let _ = T::Currency::deposit_into_existing(&primary_key, amount);
+        let current_did = Context::current_identity::<Identity<T>>().unwrap_or(GC_DID);
         Self::deposit_event(RawEvent::TreasuryDisbursement(current_did, target, amount));
     }
 

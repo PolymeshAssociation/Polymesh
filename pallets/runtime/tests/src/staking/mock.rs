@@ -187,9 +187,12 @@ impl_outer_origin! {
     pub enum Origin for Test  where system = frame_system {}
 }
 
+type Pips = pallet_pips::Module<Test>;
+
 impl_outer_dispatch! {
     pub enum Call for Test where origin: Origin {
         staking::Staking,
+        pallet_pips::Pips,
     }
 }
 
@@ -202,6 +205,8 @@ impl_outer_event! {
         system<T>,
         balances<T>,
         session,
+        pallet_pips<T>,
+        pallet_treasury<T>,
         staking<T>,
         protocol_fee<T>,
         identity<T>,
@@ -298,6 +303,22 @@ impl pallet_session::historical::Trait for Test {
     type FullIdentification = Exposure<AccountId, Balance>;
     type FullIdentificationOf = ExposureOf<Test>;
 }
+
+impl pallet_pips::Trait for Test {
+    type Currency = pallet_balances::Module<Self>;
+    type CommitteeOrigin = frame_system::EnsureRoot<AccountId>;
+    type VotingMajorityOrigin = frame_system::EnsureRoot<AccountId>;
+    type GovernanceCommittee = crate::storage::Committee;
+    type TechnicalCommitteeVMO = frame_system::EnsureRoot<AccountId>;
+    type UpgradeCommitteeVMO = frame_system::EnsureRoot<AccountId>;
+    type Treasury = pallet_treasury::Module<Self>;
+    type Event = MetaEvent;
+}
+impl pallet_treasury::Trait for Test {
+    type Event = MetaEvent;
+    type Currency = pallet_balances::Module<Self>;
+}
+
 impl pallet_authorship::Trait for Test {
     type FindAuthor = Author11;
     type UncleGenerations = UncleGenerations;
@@ -315,6 +336,7 @@ impl pallet_timestamp::Trait for Test {
 
 impl group::Trait<group::Instance2> for Test {
     type Event = MetaEvent;
+    type LimitOrigin = frame_system::EnsureRoot<AccountId>;
     type AddOrigin = frame_system::EnsureRoot<AccountId>;
     type RemoveOrigin = frame_system::EnsureRoot<AccountId>;
     type SwapOrigin = frame_system::EnsureRoot<AccountId>;
@@ -346,12 +368,12 @@ impl CddAndFeeDetails<AccountId, Call> for Test {
     fn get_valid_payer(
         _: &Call,
         _: &Signatory<AccountId>,
-    ) -> Result<Option<Signatory<AccountId>>, InvalidTransaction> {
+    ) -> Result<Option<AccountId>, InvalidTransaction> {
         Ok(None)
     }
     fn clear_context() {}
-    fn set_payer_context(_: Option<Signatory<AccountId>>) {}
-    fn get_payer_from_context() -> Option<Signatory<AccountId>> {
+    fn set_payer_context(_: Option<AccountId>) {}
+    fn get_payer_from_context() -> Option<AccountId> {
         None
     }
     fn set_current_identity(_: &IdentityId) {}
@@ -414,6 +436,9 @@ impl GroupTrait<Moment> for Test {
 
 impl AcceptTransfer for Test {
     fn accept_ticker_transfer(_: IdentityId, _: u64) -> DispatchResult {
+        Ok(())
+    }
+    fn accept_primary_issuance_agent_transfer(_: IdentityId, _: u64) -> DispatchResult {
         Ok(())
     }
     fn accept_asset_ownership_transfer(_: IdentityId, _: u64) -> DispatchResult {
@@ -683,11 +708,11 @@ impl ExtBuilder {
                 // This allows us to have a total_payout different from 0.
                 (999, 1_000_000_000_000),
             ],
-            identity_balances: vec![],
         }
         .assimilate_storage(&mut storage);
 
         let _ = group::GenesisConfig::<Test, group::Instance2> {
+            active_members_limit: u32::MAX,
             active_members: vec![IdentityId::from(1), IdentityId::from(2)],
             phantom: Default::default(),
         }

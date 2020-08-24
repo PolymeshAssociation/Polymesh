@@ -51,7 +51,7 @@
             "owner_did": "IdentityId",
             "divisible": "bool",
             "asset_type": "AssetType",
-            "treasury_did": "Option<IdentityId>"
+            "primary_issuance_agent": "Option<IdentityId>"
         },
         "LinkedKeyInfo": {
             "_enum": {
@@ -163,7 +163,8 @@
                 "IsPresent": "Claim",
                 "IsAbsent": "Claim",
                 "IsAnyOf": "Vec<Claim>",
-                "IsNoneOf": "Vec<Claim>"
+                "IsNoneOf": "Vec<Claim>",
+                "IsIdentity": "TargetIdentity"
             }
         },
         "Rule": {
@@ -354,6 +355,7 @@
                 "AttestPrimaryKeyRotation": "IdentityId",
                 "RotatePrimaryKey": "IdentityId",
                 "TransferTicker": "Ticker",
+                "TransferPrimaryIssuanceAgent": "Ticker",
                 "AddMultiSigSigner": "AccountId",
                 "TransferAssetOwnership": "Ticker",
                 "JoinIdentity": "Vec<Permission>",
@@ -682,6 +684,12 @@
             "negative": "bool",
             "degree": "u8"
         },
+        "TargetIdentity": {
+            "_enum": {
+                "PrimaryIssuanceAgent": "",
+                "Specific": "IdentityId"
+            }
+        },
         "Fundraiser": {
             "raise_token": "Ticker",
             "remaining_amount": "Balance",
@@ -710,7 +718,7 @@
                         "isOptional": false
                     },
                     {
-                        "name": "treasury_did",
+                        "name": "primary_issuance_agent",
                         "type": "Option<IdentityId>",
                         "isOptional": false
                     },

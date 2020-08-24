@@ -17,7 +17,7 @@
 use crate::chain_spec;
 use crate::cli::{Cli, Subcommand};
 use crate::service;
-use crate::service::IsAldebaranNetwork;
+use crate::service::IsAlcyoneNetwork;
 use log::info;
 use polymesh_primitives::Block;
 pub use sc_cli::{Result, SubstrateCli};
@@ -60,14 +60,12 @@ impl SubstrateCli for Cli {
             "dev" => Box::new(chain_spec::general_development_testnet_config()),
             "local" => Box::new(chain_spec::general_local_testnet_config()),
             "live" => Box::new(chain_spec::general_live_testnet_config()),
-            "aldebaran-dev" => Box::new(chain_spec::aldebaran_develop_testnet_config()),
-            "aldebaran-local" => Box::new(chain_spec::aldebaran_local_testnet_config()),
-            "aldebaran-live" => Box::new(chain_spec::aldebaran_live_testnet_config()),
-            "Aldebaran" | "aldebaran" | "" => {
-                Box::new(chain_spec::AldebaranChainSpec::from_json_bytes(
-                    &include_bytes!("./chain_specs/aldebaran_raw.json")[..],
-                )?)
-            }
+            "alcyone-dev" => Box::new(chain_spec::alcyone_develop_testnet_config()),
+            "alcyone-local" => Box::new(chain_spec::alcyone_local_testnet_config()),
+            "alcyone-live" => Box::new(chain_spec::alcyone_live_testnet_config()),
+            "Alcyone" | "alcyone" | "" => Box::new(chain_spec::AlcyoneChainSpec::from_json_bytes(
+                &include_bytes!("./chain_specs/alcyone_raw.json")[..],
+            )?),
             path => Box::new(chain_spec::GeneralChainSpec::from_json_file(
                 std::path::PathBuf::from(path),
             )?),
@@ -92,11 +90,11 @@ pub fn run() -> Result<()> {
                 cli.run.base.network_params.reserved_nodes
             );
 
-            if chain_spec.is_aldebaran_network() {
+            if chain_spec.is_alcyone_network() {
                 runtime.run_node(
-                    service::aldebaran_new_light,
-                    service::aldebaran_new_full,
-                    service::AldebaranExecutor::native_version().runtime_version,
+                    service::alcyone_new_light,
+                    service::alcyone_new_full,
+                    service::AlcyoneExecutor::native_version().runtime_version,
                 )
             } else {
                 runtime.run_node(
@@ -110,11 +108,11 @@ pub fn run() -> Result<()> {
             let runtime = cli.create_runner(subcommand)?;
             let chain_spec = &runtime.config().chain_spec;
 
-            if chain_spec.is_aldebaran_network() {
+            if chain_spec.is_alcyone_network() {
                 runtime.run_subcommand(subcommand, |config| {
                     service::chain_ops::<
                         service::polymesh_runtime_testnet_v1::RuntimeApi,
-                        service::AldebaranExecutor,
+                        service::AlcyoneExecutor,
                         service::polymesh_runtime_testnet_v1::UncheckedExtrinsic,
                     >(config)
                 })
@@ -132,8 +130,8 @@ pub fn run() -> Result<()> {
             let runtime = cli.create_runner(cmd)?;
             let chain_spec = &runtime.config().chain_spec;
 
-            if chain_spec.is_aldebaran_network() {
-                runtime.sync_run(|config| cmd.run::<Block, service::AldebaranExecutor>(config))
+            if chain_spec.is_alcyone_network() {
+                runtime.sync_run(|config| cmd.run::<Block, service::AlcyoneExecutor>(config))
             } else {
                 runtime.sync_run(|config| cmd.run::<Block, service::GeneralExecutor>(config))
             }

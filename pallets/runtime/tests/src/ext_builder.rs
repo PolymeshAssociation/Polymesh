@@ -264,7 +264,6 @@ impl ExtBuilder {
         // Balances genesis.
         balances::GenesisConfig::<TestStorage> {
             balances: self.make_balances(),
-            identity_balances: vec![],
         }
         .assimilate_storage(&mut storage)
         .unwrap();
@@ -294,6 +293,7 @@ impl ExtBuilder {
             .collect::<Vec<_>>();
 
         group::GenesisConfig::<TestStorage, group::Instance2> {
+            active_members_limit: u32::MAX,
             active_members: cdd_ids,
             ..Default::default()
         }
@@ -315,6 +315,7 @@ impl ExtBuilder {
             .collect::<Vec<_>>();
 
         group::GenesisConfig::<TestStorage, group::Instance1> {
+            active_members_limit: u32::MAX,
             active_members: gc_ids.clone(),
             ..Default::default()
         }

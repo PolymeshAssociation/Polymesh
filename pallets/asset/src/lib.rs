@@ -42,21 +42,12 @@
 //! - `freeze` - Freezes transfers and minting of a given token.
 //! - `unfreeze` - Unfreezes transfers and minting of a given token.
 //! - `rename_asset` - Renames a given asset.
-//! - `transfer` - Transfer tokens from one DID to another DID as tokens are stored/managed on the DID level.
 //! - `controller_transfer` - Forces a transfer between two DID.
-//! - `approve` - Approve token transfer from one DID to another.
-//! - `transfer_from` - If sufficient allowance provided, transfer from a DID to another DID without token owner's signature.
 //! - `create_checkpoint` - Function used to create the checkpoint.
-//! - `issue` - Function is used to issue(or mint) new tokens for the given DID.
-//! - `batch_issue` - Batch version of issue function.
-//! - `redeem` - Used to redeem the security tokens.
-//! - `redeem_from` - Used to redeem the security tokens by some other DID who has approval.
+//! - `issue` - Function is used to issue(or mint) new tokens to the primary issuance agent.
 //! - `controller_redeem` - Forces a redemption of an DID's tokens. Can only be called by token owner.
 //! - `make_divisible` - Change the divisibility of the token to divisible. Only called by the token owner.
 //! - `can_transfer` - Checks whether a transaction with given parameters can take place or not.
-//! - `transfer_with_data` - This function can be used by the exchanges of other third parties to dynamically validate the transaction by passing the data blob.
-//! - `transfer_from_with_data` - This function can be used by the exchanges of other third parties to dynamically validate the transaction by passing the data blob.
-//! - `is_issuable` - Used to know whether the given token will issue new tokens or not.
 //! - `batch_add_document` - Add documents for a given token, Only be called by the token owner.
 //! - `batch_remove_document` - Remove documents for a given token, Only be called by the token owner.
 //! - `increase_custody_allowance` - Used to increase the allowance for a given custodian.
@@ -109,7 +100,7 @@ use pallet_contracts::{ExecReturnValue, Gas};
 use pallet_identity as identity;
 use pallet_statistics::{self as statistics, Counter};
 use polymesh_common_utilities::{
-    asset::{AcceptTransfer, IssueAssetItem, Trait as AssetTrait},
+    asset::{AcceptTransfer, Trait as AssetTrait},
     balances::Trait as BalancesTrait,
     compliance_manager::Trait as ComplianceManagerTrait,
     constants::*,
@@ -224,7 +215,7 @@ pub struct SecurityToken<U> {
     pub owner_did: IdentityId,
     pub divisible: bool,
     pub asset_type: AssetType,
-    pub treasury_did: Option<IdentityId>,
+    pub primary_issuance_agent: Option<IdentityId>,
 }
 
 /// struct to store the signed data.
@@ -300,8 +291,6 @@ decl_storage! {
         pub BalanceOf get(fn balance_of): double_map hasher(blake2_128_concat) Ticker, hasher(blake2_128_concat) IdentityId => T::Balance;
         /// A map of pairs of a ticker name and an `IdentifierType` to asset identifiers.
         pub Identifiers get(fn identifiers): map hasher(blake2_128_concat) (Ticker, IdentifierType) => AssetIdentifier;
-        /// (ticker, sender (DID), spender(DID)) -> allowance amount
-        Allowance get(fn allowance): map hasher(blake2_128_concat) (Ticker, IdentityId, IdentityId) => T::Balance;
         /// Checkpoints created per token.
         /// (ticker) -> no. of checkpoints
         pub TotalCheckpoints get(fn total_checkpoints_of): map hasher(blake2_128_concat) Ticker => u64;
@@ -406,6 +395,20 @@ decl_module! {
             Self::_accept_ticker_transfer(to_did, auth_id)
         }
 
+        /// This function is used to accept a primary issuance agent transfer.
+        /// NB: To reject the transfer, call remove auth function in identity module.
+        ///
+        /// # Arguments
+        /// * `origin` It contains the signing key of the caller (i.e who signed the transaction to execute this function).
+        /// * `auth_id` Authorization ID of primary issuance agent transfer authorization.
+        #[weight = 300_000_000]
+        pub fn accept_primary_issuance_agent_transfer(origin, auth_id: u64) -> DispatchResult {
+            let sender = ensure_signed(origin)?;
+            let to_did = Context::current_identity_or::<Identity<T>>(&sender)?;
+
+            Self::_accept_primary_issuance_agent_transfer(to_did, auth_id)
+        }
+
         /// This function is used to accept a token ownership transfer.
         /// NB: To reject the transfer, call remove auth function in identity module.
         ///
@@ -435,8 +438,8 @@ decl_module! {
         /// * `funding_round` - name of the funding round.
         ///
         /// # Weight
-        /// `1_000_000_000 + 20_000 * identifiers.len()`
-        #[weight = 1_000_000_000 + 20_000 * u64::try_from(identifiers.len()).unwrap_or_default()]
+        /// `3_000_000_000 + 20_000 * identifiers.len()`
+        #[weight = 3_000_000_000 + 20_000 * u64::try_from(identifiers.len()).unwrap_or_default()]
         pub fn create_asset(
             origin,
             name: AssetName,
@@ -446,7 +449,6 @@ decl_module! {
             asset_type: AssetType,
             identifiers: Vec<(IdentifierType, AssetIdentifier)>,
             funding_round: Option<FundingRoundName>,
-            treasury_did: Option<IdentityId>,
         ) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             let did = Context::current_identity_or::<Identity<T>>(&sender)?;
@@ -476,12 +478,11 @@ decl_module! {
                 owner_did: did,
                 divisible,
                 asset_type: asset_type.clone(),
-                treasury_did,
+                primary_issuance_agent: Some(did),
             };
             <Tokens<T>>::insert(&ticker, token);
-            let beneficiary_did = treasury_did.unwrap_or(did);
-            <BalanceOf<T>>::insert(ticker, beneficiary_did, total_supply);
-            Portfolio::<T>::set_default_portfolio_balance(beneficiary_did, &ticker, total_supply);
+            <BalanceOf<T>>::insert(ticker, did, total_supply);
+            Portfolio::<T>::set_default_portfolio_balance(did, &ticker, total_supply);
             <AssetOwnershipRelations>::insert(did, ticker, AssetOwnershipRelation::AssetOwned);
             Self::deposit_event(RawEvent::AssetCreated(
                 did,
@@ -489,7 +490,7 @@ decl_module! {
                 total_supply,
                 divisible,
                 asset_type,
-                beneficiary_did,
+                did,
             ));
             for (typ, val) in &identifiers {
                 <Identifiers>::insert((ticker, typ.clone()), val.clone());
@@ -516,11 +517,11 @@ decl_module! {
             Self::deposit_event(RawEvent::Issued(
                 did,
                 ticker,
-                beneficiary_did,
+                did,
                 total_supply,
                 Self::funding_round(ticker),
                 total_supply,
-                treasury_did,
+                Some(did),
             ));
             Ok(())
         }
@@ -585,28 +586,6 @@ decl_module! {
             Ok(())
         }
 
-        /// Transfer tokens from one DID to another DID as tokens are stored/managed on the DID level.
-        ///
-        /// # Arguments
-        /// * `origin` secondary key of the sender.
-        /// * `ticker` Ticker of the token.
-        /// * `to_did` DID of the `to` token holder, to whom token needs to transferred.
-        /// * `value` Value that needs to transferred.
-        #[weight = T::DbWeight::get().reads_writes(5, 3) + 600_000_000]
-        pub fn transfer(origin, ticker: Ticker, to_did: IdentityId, value: T::Balance) -> DispatchResult {
-            let sender = ensure_signed(origin)?;
-            let did = Context::current_identity_or::<Identity<T>>(&sender)?;
-
-            // Check whether the custody allowance remain intact or not
-            Self::_check_custody_allowance(&ticker, did, value)?;
-            ensure!(
-                Self::_is_valid_transfer(&ticker, sender, Some(did), Some(to_did), value)? == ERC1400_TRANSFER_SUCCESS,
-                Error::<T>::InvalidTransfer
-            );
-
-            Self::unsafe_transfer(did, &ticker, did, to_did, value)
-        }
-
         /// Forces a transfer between two DIDs & This can only be called by security token owner.
         /// This function doesn't validate any type of restriction beside a valid CDD check.
         ///
@@ -632,66 +611,6 @@ decl_module! {
             Ok(())
         }
 
-        /// Approve token transfer from one DID to another.
-        /// once this is done, transfer_from can be called with corresponding values.
-        ///
-        /// # Arguments
-        /// * `origin` Secondary key of the token owner (i.e sender).
-        /// * `spender_did` DID of the spender.
-        /// * `value` Amount of the tokens approved.
-        #[weight = T::DbWeight::get().reads_writes(2, 1) + 400_000_000]
-        fn approve(origin, ticker: Ticker, spender_did: IdentityId, value: T::Balance) -> DispatchResult {
-            let sender = ensure_signed(origin)?;
-            let did = Context::current_identity_or::<Identity<T>>(&sender)?;
-
-            ensure!(<BalanceOf<T>>::contains_key(ticker, did), Error::<T>::NotAnOwner);
-            let allowance = Self::allowance((ticker, did, spender_did));
-            let updated_allowance = allowance.checked_add(&value)
-                .ok_or(Error::<T>::AllowanceOverflow)?;
-            <Allowance<T>>::insert((ticker, did, spender_did), updated_allowance);
-
-            Self::deposit_event(RawEvent::Approval(did, ticker, did, spender_did, value));
-
-            Ok(())
-        }
-
-        /// If sufficient allowance provided, transfer from a DID to another DID without token owner's signature.
-        ///
-        /// # Arguments
-        /// * `origin` Secondary key of spender.
-        /// * `ticker` Ticker of the token.
-        /// * `from_did` DID from whom token is being transferred.
-        /// * `to_did` DID to whom token is being transferred.
-        /// * `value` Amount of the token for transfer.
-        #[weight = T::DbWeight::get().reads_writes(5, 3) + 800_000_000]
-        pub fn transfer_from(origin, ticker: Ticker, from_did: IdentityId, to_did: IdentityId, value: T::Balance) -> DispatchResult {
-            let sender = ensure_signed(origin)?;
-            let did = Context::current_identity_or::<Identity<T>>(&sender)?;
-
-            let ticker_from_did_did = (ticker, from_did, did);
-            ensure!(<Allowance<T>>::contains_key(&ticker_from_did_did), Error::<T>::NoSuchAllowance);
-            let allowance = Self::allowance(&ticker_from_did_did);
-            ensure!(allowance >= value, Error::<T>::InsufficientAllowance);
-
-            // using checked_sub (safe math) to avoid overflow
-            let updated_allowance = allowance.checked_sub(&value)
-                .ok_or(Error::<T>::AllowanceOverflow)?;
-            // Check whether the custody allowance remain intact or not
-            Self::_check_custody_allowance(&ticker, from_did, value)?;
-
-            ensure!(
-                Self::_is_valid_transfer(&ticker, sender, Some(from_did), Some(to_did), value)? == ERC1400_TRANSFER_SUCCESS,
-                Error::<T>::InvalidTransfer
-            );
-            Self::unsafe_transfer(did, &ticker, from_did, to_did, value)?;
-
-            // Change allowance afterwards
-            <Allowance<T>>::insert(&ticker_from_did_did, updated_allowance);
-
-            Self::deposit_event(RawEvent::Approval(did, ticker, from_did, did, value));
-            Ok(())
-        }
-
         /// Function used to create the checkpoint.
         /// NB: Only called by the owner of the security token i.e owner DID.
         ///
@@ -709,248 +628,21 @@ decl_module! {
             Ok(())
         }
 
-        /// Function is used to issue(or mint) new tokens for the given DID
-        /// can only be executed by the token owner.
+        /// Function is used to issue(or mint) new tokens to the primary issuance agent.
+        /// It can only be executed by the token owner.
         ///
         /// # Arguments
         /// * `origin` Secondary key of token owner.
         /// * `ticker` Ticker of the token.
-        /// * `to_did` DID of the token holder to whom new tokens get issued.
         /// * `value` Amount of tokens that get issued.
         #[weight = T::DbWeight::get().reads_writes(6, 3) + 800_000_000]
-        pub fn issue(origin, ticker: Ticker, to_did: IdentityId, value: T::Balance, _data: Vec<u8>) -> DispatchResult {
+        pub fn issue(origin, ticker: Ticker, value: T::Balance) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             let did = Context::current_identity_or::<Identity<T>>(&sender)?;
 
             ensure!(Self::is_owner(&ticker, did), Error::<T>::Unauthorized);
-            Self::_mint(&ticker, sender, to_did, value, Some(ProtocolOp::AssetIssue))
-        }
-
-        /// Function is used issue(or mint) new tokens for the given DIDs
-        /// can only be executed by the token owner.
-        ///
-        /// # Arguments
-        /// * `origin` Secondary key of token owner.
-        /// * `ticker` Ticker of the token.
-        /// * `investor_dids` Array of the DID of the token holders to whom new tokens get issued.
-        /// * `values` Array of the Amount of tokens that get issued.
-        ///
-        /// # Weight
-        /// `800_000_000 + 900_000 * issue_asset_items.len().max(values.len())`
-        #[weight =
-            T::DbWeight::get().reads_writes(6, 3) + 800_000_000 + 900_000 * u64::try_from(issue_asset_items.len()).unwrap_or_default()
-        ]
-        pub fn batch_issue(origin, issue_asset_items: Vec<IssueAssetItem<T::Balance>>, ticker: Ticker) -> DispatchResult {
-            let sender = ensure_signed(origin)?;
-            let did = Context::current_identity_or::<Identity<T>>(&sender)?;
-
-            ensure!(!issue_asset_items.is_empty(), Error::<T>::NoInvestors);
-            ensure!(Self::is_owner(&ticker, did), Error::<T>::Unauthorized);
-
-            // A helper vec for calculated new investor balances
-            let mut updated_balances = Vec::with_capacity(issue_asset_items.len());
-            // A helper vec for calculated new investor balances
-            let mut current_total_balances = Vec::with_capacity(issue_asset_items.len());
-            // Get current token details for supply update
-            let mut token = Self::token_details(ticker);
-
-            let round = Self::funding_round(&ticker);
-            let ticker_round = (ticker, round.clone());
-            // Update the total token balance issued in this funding round.
-            let mut issued_in_this_round = Self::issued_in_funding_round(&ticker_round);
-
-            // A round of per-investor checks
-            for IssueAssetItem { investor_did, value } in &issue_asset_items {
-                ensure!(
-                    Self::check_granularity(&ticker, *value),
-                    Error::<T>::InvalidGranularity
-                );
-                let updated_total_supply = token
-                    .total_supply
-                    .checked_add(value)
-                    .ok_or(Error::<T>::TotalSupplyOverflow)?;
-                ensure!(updated_total_supply <= MAX_SUPPLY.into(), Error::<T>::TotalSupplyAboveLimit);
-
-                let bals = Self::balance(&ticker, *investor_did);
-                current_total_balances.push(bals.total);
-                // No check since the total balance is always <= the total
-                // supply. The total supply is already checked above.
-                let updated_total_balance = bals.total + *value;
-                // No check since the default portfolio balance is always <= the
-                // total supply. The total supply is already checked above.
-                let updated_def_balance = bals.portfolio + *value;
-                updated_balances.push(FocusedBalances {
-                    total: updated_total_balance,
-                    portfolio: updated_def_balance
-                });
-
-                // verify transfer check
-                ensure!(
-                    Self::_is_valid_transfer(&ticker, sender.clone(),  None, Some(*investor_did), *value)? == ERC1400_TRANSFER_SUCCESS,
-                    Error::<T>::InvalidTransfer
-                );
-
-                // No check since the issued balance is always <= the total
-                // supply. The total supply is already checked above.
-                issued_in_this_round += *value;
-
-                // New total supply must be valid
-                token.total_supply = updated_total_supply;
-            }
-            <<T as IdentityTrait>::ProtocolFee>::batch_charge_fee(
-                ProtocolOp::AssetIssue,
-                issue_asset_items.len()
-            )?;
-            <IssuedInFundingRound<T>>::insert(&ticker_round, issued_in_this_round);
-            // Update investor balances and emit events quoting the updated total token balance issued.
-            for (i, IssueAssetItem { investor_did, value }) in issue_asset_items.iter().enumerate() {
-                Self::_update_checkpoint(&ticker, *investor_did, current_total_balances[i]);
-                let FocusedBalances{
-                    total,
-                    portfolio
-                } = updated_balances[i];
-                <BalanceOf<T>>::insert(ticker, investor_did, total);
-                Portfolio::<T>::set_default_portfolio_balance(*investor_did, &ticker, portfolio);
-                <statistics::Module<T>>::update_transfer_stats(&ticker, None, Some(total), *value);
-                Self::deposit_event(RawEvent::Transfer(
-                    did,
-                    ticker,
-                    IdentityId::default(),
-                    issue_asset_items[i].investor_did,
-                    *value
-                ));
-                Self::deposit_event(RawEvent::Issued(
-                    did,
-                    ticker,
-                    *investor_did,
-                    *value,
-                    round.clone(),
-                    issued_in_this_round,
-                    token.treasury_did,
-                ));
-            }
-            <Tokens<T>>::insert(ticker, token);
-
-            Ok(())
-        }
-
-        /// Used to redeem the security tokens.
-        ///
-        /// # Arguments
-        /// * `origin` Secondary key of the token holder who wants to redeem the tokens.
-        /// * `ticker` Ticker of the token.
-        /// * `value` Amount of the tokens needs to redeem.
-        /// * `_data` An off chain data blob used to validate the redeem functionality.
-        #[weight = T::DbWeight::get().reads_writes(6, 3) + 800_000_000]
-        pub fn redeem(origin, ticker: Ticker, value: T::Balance, _data: Vec<u8>) -> DispatchResult {
-            let sender = ensure_signed(origin)?;
-            let did = Context::current_identity_or::<Identity<T>>(&sender)?;
-
-            // Granularity check
-            ensure!(Self::check_granularity(&ticker, value), Error::<T>::InvalidGranularity);
-            ensure!(<BalanceOf<T>>::contains_key(&ticker, &did), Error::<T>::NotAnOwner);
-            let FocusedBalances {
-                total: burner_balance,
-                portfolio: burner_def_balance,
-            } = Self::balance(&ticker, did);
-            ensure!(burner_def_balance >= value, Error::<T>::InsufficientDefaultPortfolioBalance);
-
-            // Reduce sender's balance
-            let updated_burner_def_balance = burner_def_balance
-                .checked_sub(&value)
-                .ok_or(Error::<T>::DefaultPortfolioBalanceUnderflow)?;
-            // No check since the total balance is always >= the default
-            // portfolio balance. The default portfolio balance is already checked above.
-            let updated_burner_balance = burner_balance - value;
-            // Check whether the custody allowance remain intact or not
-            Self::_check_custody_allowance(&ticker, did, value)?;
-
-            // verify transfer check
-            ensure!(
-                Self::_is_valid_transfer(&ticker, sender, Some(did), None, value)? == ERC1400_TRANSFER_SUCCESS,
-                Error::<T>::InvalidTransfer
-            );
-
-            //Decrease total supply
-            let mut token = Self::token_details(&ticker);
-            // No check since the total supply is always >= the default
-            // portfolio balance. The default portfolio balance is already checked above.
-            token.total_supply -= token.total_supply;
-
-            Self::_update_checkpoint(&ticker, did, burner_balance);
-
-            <BalanceOf<T>>::insert(ticker, did, updated_burner_balance);
-            Portfolio::<T>::set_default_portfolio_balance(did, &ticker, updated_burner_def_balance);
-            <Tokens<T>>::insert(&ticker, token);
-            <statistics::Module<T>>::update_transfer_stats(&ticker, Some(updated_burner_balance), None, value);
-
-            Self::deposit_event(RawEvent::Redeemed(did, ticker, did, value));
-            Ok(())
-        }
-
-        /// Used to redeem the security tokens by some other DID who has approval.
-        ///
-        /// # Arguments
-        /// * `origin` Secondary key of the spender who has valid approval to redeem the tokens.
-        /// * `ticker` Ticker of the token.
-        /// * `from_did` DID from whom balance get reduced.
-        /// * `value` Amount of the tokens needs to redeem.
-        /// * `_data` An off chain data blob used to validate the redeem functionality.
-        #[weight = T::DbWeight::get().reads_writes(6, 3) + 800_000_000]
-        pub fn redeem_from(origin, ticker: Ticker, from_did: IdentityId, value: T::Balance, _data: Vec<u8>) -> DispatchResult {
-            let sender = ensure_signed(origin)?;
-            let did = Context::current_identity_or::<Identity<T>>(&sender)?;
-
-            // Granularity check
-            ensure!(Self::check_granularity(&ticker, value), Error::<T>::InvalidGranularity);
-            ensure!(<BalanceOf<T>>::contains_key(&ticker, &did), Error::<T>::NotAnOwner);
-            let FocusedBalances {
-                total: burner_balance,
-                portfolio: burner_def_balance,
-            } = Self::balance(&ticker, did);
-            ensure!(burner_balance >= value, Error::<T>::InsufficientBalance);
-            ensure!(burner_def_balance >= value, Error::<T>::InsufficientDefaultPortfolioBalance);
-
-            // Reduce sender's balance
-            let updated_burner_def_balance = burner_def_balance
-                .checked_sub(&value)
-                .ok_or(Error::<T>::DefaultPortfolioBalanceUnderflow)?;
-            // No check since the total balance is always >= the default
-            // portfolio balance. The default portfolio balance is already checked above.
-            let updated_burner_balance = burner_balance - value;
-
-            let ticker_from_did_did = (ticker, from_did, did);
-            ensure!(<Allowance<T>>::contains_key(&ticker_from_did_did), Error::<T>::NoSuchAllowance);
-            let allowance = Self::allowance(&ticker_from_did_did);
-            ensure!(allowance >= value, Error::<T>::InsufficientAllowance);
-            // Check whether the custody allowance remain intact or not
-            Self::_check_custody_allowance(&ticker, did, value)?;
-            ensure!(
-                Self::_is_valid_transfer(&ticker, sender, Some(from_did), None, value)? == ERC1400_TRANSFER_SUCCESS,
-                Error::<T>::InvalidTransfer
-            );
-
-            let updated_allowance = allowance.checked_sub(&value)
-                .ok_or(Error::<T>::AllowanceOverflow)?;
-
-            //Decrease total supply
-            let mut token = Self::token_details(&ticker);
-            // No check since the total supply is always >= the default
-            // portfolio balance. The default portfolio balance is already checked above.
-            token.total_supply -= value;
-
-            Self::_update_checkpoint(&ticker, did, burner_balance);
-
-            <Allowance<T>>::insert(&ticker_from_did_did, updated_allowance);
-            <BalanceOf<T>>::insert(&ticker, &did, updated_burner_balance);
-            Portfolio::<T>::set_default_portfolio_balance(did, &ticker, updated_burner_def_balance);
-            <Tokens<T>>::insert(&ticker, token);
-            <statistics::Module<T>>::update_transfer_stats(&ticker, Some(updated_burner_balance), None, value);
-
-            Self::deposit_event(RawEvent::Redeemed(did, ticker, from_did, value));
-            Self::deposit_event(RawEvent::Approval(did, ticker, from_did, did, value));
-
-            Ok(())
+            let beneficiary = Self::token_details(&ticker).primary_issuance_agent.unwrap_or(did);
+            Self::_mint(&ticker, sender, beneficiary, value, Some(ProtocolOp::AssetIssue))
         }
 
         /// Forces a redemption of an DID's tokens. Can only be called by token owner.
@@ -1009,7 +701,7 @@ decl_module! {
         /// # Arguments
         /// * `origin` Secondary key of the token owner.
         /// * `ticker` Ticker of the token.
-        #[weight = T::DbWeight::get().reads_writes(2, 1) + 100_000_000]
+        #[weight = T::DbWeight::get().reads_writes(2, 1) + 300_000_000]
         pub fn make_divisible(origin, ticker: Ticker) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             let did = Context::current_identity_or::<Identity<T>>(&sender)?;
@@ -1022,60 +714,6 @@ decl_module! {
             <Tokens<T>>::insert(&ticker, token);
             Self::deposit_event(RawEvent::DivisibilityChanged(did, ticker, true));
             Ok(())
-        }
-
-        /// An ERC1594 transfer with data
-        /// This function can be used by the exchanges or other third parties to dynamically validate the transaction
-        /// by passing the data blob.
-        ///
-        /// # Arguments
-        /// * `origin` Secondary key of the sender.
-        /// * `ticker` Ticker of the token.
-        /// * `to_did` DID to whom tokens will be transferred.
-        /// * `value` Amount of the tokens.
-        /// * `data` Off chain data blob to validate the transfer.
-        #[weight = T::DbWeight::get().reads_writes(6, 3) + 800_000_000]
-        pub fn transfer_with_data(origin, ticker: Ticker, to_did: IdentityId, value: T::Balance, data: Vec<u8>) -> DispatchResult {
-
-            let sender = ensure_signed(origin.clone())?;
-            let did = Context::current_identity_or::<Identity<T>>(&sender)?;
-
-            Self::transfer(origin, ticker, to_did, value)?;
-
-            Self::deposit_event(RawEvent::TransferWithData(did, ticker, did, to_did, value, data));
-            Ok(())
-        }
-
-        /// An ERC1594 transfer_from with data
-        /// This function can be used by the exchanges or other third parties to dynamically validate the transaction
-        /// by passing the data blob.
-        ///
-        /// # Arguments
-        /// * `origin` Secondary key of the spender.
-        /// * `ticker` Ticker of the token.
-        /// * `from_did` DID from whom tokens will be transferred.
-        /// * `to_did` DID to whom tokens will be transferred.
-        /// * `value` Amount of the tokens.
-        /// * `data` Off chain data blob to validate the transfer.
-        #[weight = T::DbWeight::get().reads_writes(6, 3) + 800_000_000]
-        pub fn transfer_from_with_data(origin, ticker: Ticker, from_did: IdentityId, to_did: IdentityId, value: T::Balance, data: Vec<u8>) -> DispatchResult {
-            let sender = ensure_signed(origin.clone())?;
-            let did = Context::current_identity_or::<Identity<T>>(&sender)?;
-
-            Self::transfer_from(origin, ticker, from_did,  to_did, value)?;
-
-            Self::deposit_event(RawEvent::TransferWithData(did, ticker, from_did, to_did, value, data));
-            Ok(())
-        }
-
-        /// Used to know whether the given token will issue new tokens or not.
-        ///
-        /// # Arguments
-        /// * `_origin` Secondary key.
-        /// * `ticker` Ticker of the token whose issuance status need to know.
-        #[weight = 10_000_000]
-        pub fn is_issuable(_origin, ticker:Ticker) {
-            Self::deposit_event(RawEvent::IsIssuable(ticker, true));
         }
 
         /// Add documents for a given token. To be called only by the token owner.
@@ -1230,7 +868,7 @@ decl_module! {
         /// * `origin` - the secondary key of the token owner DID.
         /// * `ticker` - the ticker of the token.
         /// * `name` - the desired name of the current funding round.
-        #[weight = T::DbWeight::get().reads_writes(2, 1) + 100_000_000]
+        #[weight = T::DbWeight::get().reads_writes(2, 1) + 600_000_000]
         pub fn set_funding_round(origin, ticker: Ticker, name: FundingRoundName) ->
             DispatchResult
         {
@@ -1252,7 +890,7 @@ decl_module! {
         ///
         /// # Weight
         /// `150_000 + 20_000 * identifiers.len()`
-        #[weight = T::DbWeight::get().reads_writes(1, 1) + 100_000_000 + 20_000 * u64::try_from(identifiers.len()).unwrap_or_default()]
+        #[weight = T::DbWeight::get().reads_writes(1, 1) + 700_000_000 + 20_000 * u64::try_from(identifiers.len()).unwrap_or_default()]
         pub fn update_identifiers(
             origin,
             ticker: Ticker,
@@ -1337,27 +975,29 @@ decl_module! {
             Ok(())
         }
 
-        /// Sets the treasury DID to a given value. The caller must be the asset issuer. The asset
-        /// issuer can always update the treasury DID, including setting it to `None`. If the issuer
-        /// modifies their treasury DID to `None` then it will be immovable until either they change
-        /// the treasury DID to `Some` DID, or they add a claim to allow that DID to move the
+        /// Sets the primary issuance agent to None. The caller must be the asset issuer. The asset
+        /// issuer can always update the primary issuance agent using `transfer_primary_issuance_agent`. If the issuer
+        /// removes their primary issuance agent then it will be immovable until either they transfer
+        /// the primary issuance agent to an actual DID, or they add a claim to allow that DID to move the
         /// asset.
         ///
         /// # Arguments
         /// * `origin` - The asset issuer.
         /// * `ticker` - Ticker symbol of the asset.
-        /// * `treasury_did` - The treasury DID wrapped in a value of type [`Option`].
-        #[weight = T::DbWeight::get().reads_writes(1, 1) + 50_000_000]
-        pub fn set_treasury_did(
+        #[weight = 250_000_000]
+        pub fn remove_primary_issuance_agent(
             origin,
             ticker: Ticker,
-            treasury_did: Option<IdentityId>,
         ) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             let did = Context::current_identity_or::<Identity<T>>(&sender)?;
             ensure!(Self::is_owner(&ticker, did), Error::<T>::Unauthorized);
-            <Tokens<T>>::mutate(&ticker, |token| token.treasury_did = treasury_did);
-            Self::deposit_event(RawEvent::TreasuryDidSet(did, ticker, treasury_did));
+            let mut old_primary_issuance_agent = None;
+            <Tokens<T>>::mutate(&ticker, |token| {
+                old_primary_issuance_agent = token.primary_issuance_agent;
+                token.primary_issuance_agent = None
+            });
+            Self::deposit_event(RawEvent::PrimaryIssuanceAgentTransfered(did, ticker, old_primary_issuance_agent, None));
             Ok(())
         }
     }
@@ -1378,7 +1018,7 @@ decl_event! {
         Approval(IdentityId, Ticker, IdentityId, IdentityId, Balance),
         /// Emit when tokens get issued.
         /// caller DID, ticker, beneficiary DID, value, funding round, total issued in this funding round,
-        /// treasury DID
+        /// primary issuance agent
         Issued(IdentityId, Ticker, IdentityId, Balance, FundingRoundName, Balance, Option<IdentityId>),
         /// Emit when tokens get redeemed.
         /// caller DID, ticker,  from DID, value
@@ -1443,8 +1083,9 @@ decl_event! {
         /// Emitted event for Checkpoint creation.
         /// caller DID. ticker, checkpoint count.
         CheckpointCreated(IdentityId, Ticker, u64),
-        /// An event emitted when the treasury DID of an asset is set.
-        TreasuryDidSet(IdentityId, Ticker, Option<IdentityId>),
+        /// An event emitted when the primary issuance agent of an asset is transferred.
+        /// First DID is the old primary issuance agent and the second DID is the new primary issuance agent.
+        PrimaryIssuanceAgentTransfered(IdentityId, Ticker, Option<IdentityId>, Option<IdentityId>),
         /// A new document attached to an asset
         DocumentAdded(Ticker, DocumentName, Document),
         /// A document removed from an asset
@@ -1458,6 +1099,8 @@ decl_error! {
         DIDNotFound,
         /// Not a ticker transfer auth.
         NoTickerTransferAuth,
+        /// Not a primary issuance agent transfer auth.
+        NoPrimaryIssuanceAgentTransferAuth,
         /// Not a token ownership transfer auth.
         NotTickerOwnershipTransferAuth,
         /// The user is not authorized.
@@ -1619,10 +1262,10 @@ impl<T: Trait> AssetTrait<T::Balance, T::AccountId> for Module<T> {
         Self::unsafe_transfer_by_custodian(custodian_did, ticker, holder_did, receiver_did, value)
     }
 
-    fn treasury(ticker: &Ticker) -> IdentityId {
+    fn primary_issuance_agent(ticker: &Ticker) -> IdentityId {
         let token_details = Self::token_details(ticker);
         token_details
-            .treasury_did
+            .primary_issuance_agent
             .unwrap_or(token_details.owner_did)
     }
 }
@@ -1630,6 +1273,10 @@ impl<T: Trait> AssetTrait<T::Balance, T::AccountId> for Module<T> {
 impl<T: Trait> AcceptTransfer for Module<T> {
     fn accept_ticker_transfer(to_did: IdentityId, auth_id: u64) -> DispatchResult {
         Self::_accept_ticker_transfer(to_did, auth_id)
+    }
+
+    fn accept_primary_issuance_agent_transfer(to_did: IdentityId, auth_id: u64) -> DispatchResult {
+        Self::_accept_primary_issuance_agent_transfer(to_did, auth_id)
     }
 
     fn accept_asset_ownership_transfer(to_did: IdentityId, auth_id: u64) -> DispatchResult {
@@ -1811,7 +1458,7 @@ impl<T: Trait> Module<T> {
         arr[0]
     }
 
-    fn _is_valid_transfer(
+    pub fn _is_valid_transfer(
         ticker: &Ticker,
         extension_caller: T::AccountId,
         from_did: Option<IdentityId>,
@@ -1821,13 +1468,13 @@ impl<T: Trait> Module<T> {
         if Self::frozen(ticker) {
             return Ok(ERC1400_TRANSFERS_HALTED);
         }
-        let treasury_did = <Tokens<T>>::get(ticker).treasury_did;
+        let primary_issuance_agent = <Tokens<T>>::get(ticker).primary_issuance_agent;
         let general_status_code = T::ComplianceManager::verify_restriction(
             ticker,
             from_did,
             to_did,
             value,
-            treasury_did,
+            primary_issuance_agent,
         )?;
         Ok(if general_status_code != ERC1400_TRANSFER_SUCCESS {
             COMPLIANCE_MANAGER_FAILURE
@@ -1869,9 +1516,8 @@ impl<T: Trait> Module<T> {
         })
     }
 
-    // The SimpleToken standard transfer function
-    // internal
-    fn unsafe_transfer(
+    // Transfers tokens from one identity to another
+    pub fn unsafe_transfer(
         sender: IdentityId,
         ticker: &Ticker,
         from_did: IdentityId,
@@ -2009,12 +1655,6 @@ impl<T: Trait> Module<T> {
         // No check since the default portfolio balance is always <= the total
         // supply. The total supply is already checked above.
         let updated_to_def_balance = current_to_def_balance + value;
-        // verify transfer check
-        ensure!(
-            Self::_is_valid_transfer(ticker, caller.clone(), None, Some(to_did), value)?
-                == ERC1400_TRANSFER_SUCCESS,
-            Error::<T>::InvalidTransfer
-        );
 
         // Charge the given fee.
         if let Some(op) = protocol_fee_data {
@@ -2026,7 +1666,7 @@ impl<T: Trait> Module<T> {
         token.total_supply = updated_total_supply;
         <BalanceOf<T>>::insert(ticker, &to_did, updated_to_balance);
         Portfolio::<T>::set_default_portfolio_balance(to_did, ticker, updated_to_def_balance);
-        let treasury_did = token.treasury_did;
+        let primary_issuance_agent = token.primary_issuance_agent;
         <Tokens<T>>::insert(ticker, token);
 
         // Update the investor count of an asset.
@@ -2057,7 +1697,7 @@ impl<T: Trait> Module<T> {
             value,
             round,
             issued_in_this_round,
-            treasury_did,
+            primary_issuance_agent,
         ));
 
         Ok(())
@@ -2193,6 +1833,42 @@ impl<T: Trait> Module<T> {
             to_did,
             ticker,
             ticker_details.owner,
+        ));
+
+        Ok(())
+    }
+
+    /// Accept and process a primary issuance agent transfer.
+    pub fn _accept_primary_issuance_agent_transfer(
+        to_did: IdentityId,
+        auth_id: u64,
+    ) -> DispatchResult {
+        ensure!(
+            <identity::Authorizations<T>>::contains_key(Signatory::from(to_did), auth_id),
+            AuthorizationError::Invalid
+        );
+
+        let auth = <identity::Authorizations<T>>::get(Signatory::from(to_did), auth_id);
+
+        let ticker = match auth.authorization_data {
+            AuthorizationData::TransferPrimaryIssuanceAgent(ticker) => ticker,
+            _ => return Err(Error::<T>::NoPrimaryIssuanceAgentTransferAuth.into()),
+        };
+
+        let token = <Tokens<T>>::get(&ticker);
+        <identity::Module<T>>::consume_auth(token.owner_did, Signatory::from(to_did), auth_id)?;
+
+        let mut old_primary_issuance_agent = None;
+        <Tokens<T>>::mutate(&ticker, |token| {
+            old_primary_issuance_agent = token.primary_issuance_agent;
+            token.primary_issuance_agent = Some(to_did);
+        });
+
+        Self::deposit_event(RawEvent::PrimaryIssuanceAgentTransfered(
+            to_did,
+            ticker,
+            old_primary_issuance_agent,
+            Some(to_did),
         ));
 
         Ok(())

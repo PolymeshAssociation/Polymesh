@@ -27,11 +27,11 @@ fn batch_with_signed_works() {
 
 fn batch_with_signed_works_we() {
     let alice = AccountKeyring::Alice.public();
-    TestStorage::set_payer_context(Some(Signatory::Account(alice)));
+    TestStorage::set_payer_context(Some(alice));
     let _alice_did = register_keyring_account_with_balance(AccountKeyring::Alice, 1_000).unwrap();
 
     let bob = AccountKeyring::Bob.public();
-    TestStorage::set_payer_context(Some(Signatory::Account(bob)));
+    TestStorage::set_payer_context(Some(bob));
     let _bob_did = register_keyring_account_with_balance(AccountKeyring::Bob, 1_000).unwrap();
 
     assert_eq!(Balances::free_balance(alice), 959);
@@ -56,11 +56,11 @@ fn batch_early_exit_works() {
 
 fn batch_early_exit_works_we() {
     let alice = AccountKeyring::Alice.public();
-    TestStorage::set_payer_context(Some(Signatory::Account(alice)));
+    TestStorage::set_payer_context(Some(alice));
     let _alice_did = register_keyring_account_with_balance(AccountKeyring::Alice, 1_000).unwrap();
 
     let bob = AccountKeyring::Bob.public();
-    TestStorage::set_payer_context(Some(Signatory::Account(bob)));
+    TestStorage::set_payer_context(Some(bob));
     let _bob_did = register_keyring_account_with_balance(AccountKeyring::Bob, 1_000).unwrap();
 
     assert_eq!(Balances::free_balance(alice), 959);

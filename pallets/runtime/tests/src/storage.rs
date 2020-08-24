@@ -268,17 +268,21 @@ impl CddAndFeeDetails<AccountId, Call> for TestStorage {
     fn get_valid_payer(
         _: &Call,
         caller: &Signatory<AccountId>,
-    ) -> Result<Option<Signatory<AccountId>>, InvalidTransaction> {
-        Ok(Some(*caller))
+    ) -> Result<Option<AccountId>, InvalidTransaction> {
+        if let Signatory::Account(key) = caller {
+            Ok(Some(*key))
+        } else {
+            Err(InvalidTransaction::Call.into())
+        }
     }
     fn clear_context() {
         Context::set_current_identity::<Identity>(None);
         Context::set_current_payer::<Identity>(None);
     }
-    fn set_payer_context(payer: Option<Signatory<AccountId>>) {
+    fn set_payer_context(payer: Option<AccountId>) {
         Context::set_current_payer::<Identity>(payer);
     }
-    fn get_payer_from_context() -> Option<Signatory<AccountId>> {
+    fn get_payer_from_context() -> Option<AccountId> {
         Context::current_payer::<Identity>()
     }
     fn set_current_identity(did: &IdentityId) {
@@ -311,6 +315,7 @@ impl pallet_transaction_payment::Trait for TestStorage {
 
 impl group::Trait<group::DefaultInstance> for TestStorage {
     type Event = Event;
+    type LimitOrigin = frame_system::EnsureRoot<AccountId>;
     type AddOrigin = frame_system::EnsureRoot<AccountId>;
     type RemoveOrigin = frame_system::EnsureRoot<AccountId>;
     type SwapOrigin = frame_system::EnsureRoot<AccountId>;
@@ -322,6 +327,7 @@ impl group::Trait<group::DefaultInstance> for TestStorage {
 /// PolymeshCommittee as an instance of group
 impl group::Trait<group::Instance1> for TestStorage {
     type Event = Event;
+    type LimitOrigin = frame_system::EnsureRoot<AccountId>;
     type AddOrigin = frame_system::EnsureRoot<AccountId>;
     type RemoveOrigin = frame_system::EnsureRoot<AccountId>;
     type SwapOrigin = frame_system::EnsureRoot<AccountId>;
@@ -332,6 +338,7 @@ impl group::Trait<group::Instance1> for TestStorage {
 
 impl group::Trait<group::Instance2> for TestStorage {
     type Event = Event;
+    type LimitOrigin = frame_system::EnsureRoot<AccountId>;
     type AddOrigin = frame_system::EnsureRoot<AccountId>;
     type RemoveOrigin = frame_system::EnsureRoot<AccountId>;
     type SwapOrigin = frame_system::EnsureRoot<AccountId>;
@@ -385,6 +392,11 @@ impl AcceptTransfer for TestStorage {
     fn accept_ticker_transfer(_: IdentityId, _: u64) -> DispatchResult {
         Ok(())
     }
+
+    fn accept_primary_issuance_agent_transfer(_: IdentityId, _: u64) -> DispatchResult {
+        Ok(())
+    }
+
     fn accept_asset_ownership_transfer(_: IdentityId, _: u64) -> DispatchResult {
         Ok(())
     }
