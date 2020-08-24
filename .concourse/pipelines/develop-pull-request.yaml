@@ -1,10 +1,10 @@
 ---
 
 resource_types:
-- name: pull-request
-  type: docker-image
-  source:
-    repository: teliaoss/github-pr-resource
+  - name: pull-request
+    type: docker-image
+    source:
+      repository: teliaoss/github-pr-resource
 
 resources:
   - name: githubpr-polymesh
@@ -50,9 +50,14 @@ jobs:
         params:
           path: githubpr-polymesh
           status: pending
-      - put: semver-git-polymesh
+      - load_var: scmpr
+        file: githubpr-polymesh/.git/resource/pr
+      - load_var: scmheadsha
+        file: githubpr-polymesh/.git/resource/head_sha
+      - get: semver-git-polymesh
         params:
-          pre: rc
+          pre: pr((.:scmpr)).((.:scmheadsha))
+          pre_without_version: true
       - in_parallel:
           - task: run-lint
             config:
@@ -184,4 +189,9 @@ jobs:
       params:
         path: githubpr-polymesh
         status: failure
+    on_error:
+      put: githubpr-polymesh
+      params:
+        path: githubpr-polymesh
+        status: error
 
