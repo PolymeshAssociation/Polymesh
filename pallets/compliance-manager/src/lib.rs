@@ -254,6 +254,15 @@ decl_module! {
 
         fn deposit_event() = default;
 
+        fn on_runtime_upgrade() -> Weight {
+            // ComplianceManager.AssetRulesMap -> ComplianceManager.AssetCompliance
+            use frame_support::migration::{StorageIterator, put_storage_value};
+            for (key, value) in StorageIterator::<AssetCompliance>::new(b"ComplianceManager", b"AssetRulesMap").drain() {
+                put_storage_value(b"ComplianceManager", b"AssetCompliance", &key, did);
+            }
+            1_000
+        }
+
         /// Adds a compliance requirement to an asset's compliance by ticker.
         /// If the compliance requirement is a duplicate, it does nothing.
         ///
