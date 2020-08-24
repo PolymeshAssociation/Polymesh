@@ -94,6 +94,7 @@ use polymesh_common_utilities::{
 use polymesh_primitives::{
     proposition, Claim, ClaimType, Condition, ConditionType, IdentityId, Ticker,
 };
+use polymesh_primitives_derive::Migrate;
 #[cfg(feature = "std")]
 use sp_runtime::{Deserialize, Serialize};
 use sp_std::{
@@ -116,12 +117,16 @@ pub trait Trait:
     type MaxConditionComplexity: Get<u32>;
 }
 
+use polymesh_primitives::rule::RuleOld;
+
 /// A compliance requirement.
 /// All sender and receiver conditions of the same compliance requirement must be true in order to execute the transfer.
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[derive(codec::Encode, codec::Decode, Default, Clone, PartialEq, Eq, Debug)]
+#[derive(codec::Encode, codec::Decode, Default, Clone, PartialEq, Eq, Debug, Migrate)]
 pub struct ComplianceRequirement {
+    #[migrate(Rule)]
     pub sender_conditions: Vec<Condition>,
+    #[migrate(Rule)]
     pub receiver_conditions: Vec<Condition>,
     /// Unique identifier of the compliance requirement
     pub id: u32,
@@ -179,11 +184,12 @@ impl From<Condition> for ConditionResult {
 
 /// List of compliance requirements associated to an asset.
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize, Debug))]
-#[derive(codec::Encode, codec::Decode, Default, Clone, PartialEq, Eq)]
+#[derive(codec::Encode, codec::Decode, Default, Clone, PartialEq, Eq, Migrate)]
 pub struct AssetCompliance {
     /// This flag indicates if asset compliance should be enforced
     pub paused: bool,
     /// List of compliance requirements.
+    #[migrate(AssetTransferRule)]
     pub requirements: Vec<ComplianceRequirement>,
 }
 
@@ -254,12 +260,17 @@ decl_module! {
 
         fn deposit_event() = default;
 
-        fn on_runtime_upgrade() -> Weight {
-            // ComplianceManager.AssetRulesMap -> ComplianceManager.AssetCompliance
+        fn on_runtime_upgrade() -> frame_support::weights::Weight {
             use frame_support::migration::{StorageIterator, put_storage_value};
+            use polymesh_primitives::migrate::migrate_map;
+
+            migrate_map::<AssetTransferRulesOld>(b"ComplianceManager", b"AssetRulesMap");
+
+            // ComplianceManager.AssetRulesMap -> ComplianceManager.AssetCompliance
             for (key, value) in StorageIterator::<AssetCompliance>::new(b"ComplianceManager", b"AssetRulesMap").drain() {
                 put_storage_value(b"ComplianceManager", b"AssetCompliance", &key, did);
             }
+
             1_000
         }
 
@@ -315,9 +326,12 @@ decl_module! {
 
             ensure!(Self::is_owner(&ticker, did), Error::<T>::Unauthorized);
 
-            <AssetCompliances>::mutate(ticker, |asset_compliance| {
-                asset_compliance.requirements.retain( |requirement| { requirement.id != id });
-            });
+            <AssetCompliance>::try_mutate(ticker, |asset_compliance| {
+                let before = asset_compliance.requirements.len();
+                asset_compliance.requirements.retain(|requirement| { requirements.id != id });
+                ensure!(before != asset_compliance.requirements.len(), Error::<T>::InvalidComplainceRequirementId);
+                Ok(()) as DispatchResult
+            })?;
 
             Self::deposit_event(Event::ComplianceRequirementRemoved(did, ticker, id));
 

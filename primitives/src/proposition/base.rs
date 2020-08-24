@@ -202,7 +202,7 @@ impl<'a> Proposition for AnyProposition<'a> {
 mod tests {
     use crate::{
         proposition::{self, Context, Proposition},
-        CddId, Claim, Condition, ConditionType, IdentityId, InvestorUid, Scope, TargetIdentity,
+        CddId, Claim, Condition, ConditionType, CountryCode, IdentityId, InvestorUid, Scope, TargetIdentity,
     };
     use std::convert::From;
 
@@ -232,13 +232,13 @@ mod tests {
 
         // 1. Check jurisdiction "CAN" belongs to {ESP, CAN, IND}
         let valid_jurisdictions = vec![
-            Claim::Jurisdiction(b"Spain".into(), scope),
-            Claim::Jurisdiction(b"Canada".into(), scope),
-            Claim::Jurisdiction(b"India".into(), scope),
+            Claim::Jurisdiction(CountryCode::ES, scope),
+            Claim::Jurisdiction(CountryCode::CA, scope),
+            Claim::Jurisdiction(CountryCode::IN, scope),
         ];
 
         let context = Context {
-            claims: vec![Claim::Jurisdiction(b"Canada".into(), scope)],
+            claims: vec![Claim::Jurisdiction(CountryCode::CA, scope)],
             ..Default::default()
         };
         let in_juridisction_pre = proposition::any(&valid_jurisdictions);
@@ -246,7 +246,7 @@ mod tests {
 
         // 2. Check USA does not belong to {ESP, CAN, IND}.
         let context = Context {
-            claims: vec![Claim::Jurisdiction(b"USA".into(), scope)],
+            claims: vec![Claim::Jurisdiction(CountryCode::US, scope)],
             ..Default::default()
         };
         assert_eq!(in_juridisction_pre.evaluate(&context), false);
@@ -264,18 +264,18 @@ mod tests {
             ConditionType::IsPresent(Claim::Accredited(scope)).into(),
             ConditionType::IsAbsent(Claim::BuyLockup(scope)).into(),
             ConditionType::IsAnyOf(vec![
-                Claim::Jurisdiction(b"USA".into(), scope),
-                Claim::Jurisdiction(b"Canada".into(), scope),
+                Claim::Jurisdiction(CountryCode::US, scope),
+                Claim::Jurisdiction(CountryCode::CA, scope),
             ])
             .into(),
-            ConditionType::IsNoneOf(vec![Claim::Jurisdiction(b"Cuba".into(), scope)]).into(),
+            ConditionType::IsNoneOf(vec![Claim::Jurisdiction(CountryCode::CU, scope)]).into(),
         ];
 
         // Valid case
         let context = Context {
             claims: vec![
                 Claim::Accredited(scope),
-                Claim::Jurisdiction(b"Canada".into(), scope),
+                Claim::Jurisdiction(CountryCode::CA, scope),
             ],
             ..Default::default()
         };
@@ -288,7 +288,7 @@ mod tests {
             claims: vec![
                 Claim::Accredited(scope),
                 Claim::BuyLockup(scope),
-                Claim::Jurisdiction(b"Canada".into(), scope),
+                Claim::Jurisdiction(CountryCode::CA, scope),
             ],
             ..Default::default()
         };
@@ -300,7 +300,7 @@ mod tests {
         let context = Context {
             claims: vec![
                 Claim::BuyLockup(scope),
-                Claim::Jurisdiction(b"Canada".into(), scope),
+                Claim::Jurisdiction(CountryCode::CA, scope),
             ],
             ..Default::default()
         };
@@ -312,7 +312,7 @@ mod tests {
         let context = Context {
             claims: vec![
                 Claim::Accredited(scope),
-                Claim::Jurisdiction(b"Spain".into(), scope),
+                Claim::Jurisdiction(CountryCode::ES, scope),
             ],
             ..Default::default()
         };
@@ -324,7 +324,7 @@ mod tests {
         let context = Context {
             claims: vec![
                 Claim::Accredited(scope),
-                Claim::Jurisdiction(b"Cuba".into(), scope),
+                Claim::Jurisdiction(CountryCode::CU, scope),
             ],
             ..Default::default()
         };

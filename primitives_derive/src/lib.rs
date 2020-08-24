@@ -7,13 +7,14 @@ extern crate quote;
 use proc_macro::TokenStream;
 
 mod deserialize_u8_strong_typed;
+mod migrate;
 mod ristretto_strong_typed;
 mod serialize_u8_strong_typed;
 mod slice_u8_strong_typed;
 mod vec_u8_strong_typed;
 
 use crate::{
-    deserialize_u8_strong_typed::impl_deserialize_u8_strong_typed,
+    deserialize_u8_strong_typed::impl_deserialize_u8_strong_typed, migrate::impl_migrate,
     ristretto_strong_typed::impl_ristretto_strong_typed,
     serialize_u8_strong_typed::impl_serialize_u8_strong_typed,
     slice_u8_strong_typed::impl_slice_u8_strong_typed,
@@ -53,4 +54,23 @@ pub fn serialize_u8_strong_typed_derive(input: TokenStream) -> TokenStream {
 pub fn deserialize_u8_strong_typed_derive(input: TokenStream) -> TokenStream {
     let ast = syn::parse(input).unwrap();
     impl_deserialize_u8_strong_typed(&ast)
+}
+
+/// Implements `Migrate` for types structurally.
+///
+/// For example:
+/// ```rust
+/// #[derive(..., Encode, Migrate)]
+/// struct Foo {
+///     #[migrate]
+///     pub bar: Bar,
+///     pub baz: Baz,
+/// }
+/// ```
+///
+/// This will implement `Migrate for FooOld` and migrate `bar` but not `baz`.
+/// Additionally, it will also define `FooOld` for you using `BarOld` instead of `Bar`.
+#[proc_macro_derive(Migrate, attributes(migrate))]
+pub fn migrate_derive(input: TokenStream) -> TokenStream {
+    impl_migrate(syn::parse(input).unwrap()).into()
 }

@@ -17,7 +17,7 @@ use polymesh_common_utilities::{
     Context,
 };
 use polymesh_primitives::{
-    AuthorizationData, Claim, Condition, ConditionType, IdentityId, Scope, Signatory,
+    AuthorizationData, Claim, Condition, ConditionType,CountryCode, IdentityId, Scope, Signatory,
     TargetIdentity, Ticker,
 };
 use sp_std::{convert::TryFrom, prelude::*};
@@ -244,6 +244,18 @@ fn should_add_and_verify_compliance_requirement_we() {
     assert_eq!(result.requirements[0].sender_conditions[0].condition, sender_condition);
     assert_eq!(result.requirements[0].receiver_conditions[0].condition, receiver_condition1);
     assert_eq!(result.requirements[0].receiver_conditions[1].condition, receiver_condition2);
+
+    for _ in 0..2 {
+        ComplianceManager::add_active_rule(
+            token_owner_signed.clone(),
+            ticker,
+            vec![sender_rule.clone()],
+            vec![receiver_rule1.clone(), receiver_rule2.clone()],
+        );
+    }
+    assert_ok!(ComplianceManager::remove_active_rule(token_owner_signed.clone(), ticker, 1)); // OK; latest == 3
+    assert_err!(ComplianceManager::remove_active_rule(token_owner_signed.clone(), ticker, 1), CMError::<TestStorage>::InvalidRuleId); // BAD OK; latest == 3, but 1 was just removed.
+    assert_noop!(ComplianceManager::remove_active_rule(token_owner_signed.clone(), ticker, 1), CMError::<TestStorage>::InvalidRuleId);
 }
 
 #[test]
@@ -815,8 +827,8 @@ fn jurisdiction_asset_compliance_we() {
     let receiver_conditions = vec![
         Condition {
             condition_type: ConditionType::IsAnyOf(vec![
-                Claim::Jurisdiction(b"Canada".into(), scope),
-                Claim::Jurisdiction(b"Spain".into(), scope),
+                Claim::Jurisdiction(CountryCode::CA, scope),
+                Claim::Jurisdiction(CountryCode::ES, scope),
             ]),
             issuers: vec![cdd_id],
         },
@@ -838,7 +850,7 @@ fn jurisdiction_asset_compliance_we() {
     assert_ok!(Identity::add_claim(
         cdd_signed.clone(),
         user_id,
-        Claim::Jurisdiction(b"Canada".into(), scope),
+        Claim::Jurisdiction(CountryCode::CA, scope),
         None
     ));
     assert_valid_transfer!(ticker, token_owner_id, user_id, 10);
@@ -1007,8 +1019,8 @@ fn cm_test_case_11_we() {
         },
         Condition {
             condition_type: ConditionType::IsNoneOf(vec![
-                Claim::Jurisdiction(b"USA".into(), scope),
-                Claim::Jurisdiction(b"North Kore".into(), scope),
+                Claim::Jurisdiction(CountryCode::US, scope),
+                Claim::Jurisdiction(CountryCode::KP, scope),
             ]),
             issuers: vec![issuer_id],
         },
@@ -1049,7 +1061,7 @@ fn cm_test_case_11_we() {
     assert_ok!(Identity::add_claim(
         issuer.clone(),
         dave,
-        Claim::Jurisdiction(b"USA".into(), scope),
+        Claim::Jurisdiction(CountryCode::US, scope),
         None
     ));
 
@@ -1070,7 +1082,7 @@ fn cm_test_case_11_we() {
     assert_ok!(Identity::add_claim(
         issuer.clone(),
         eve,
-        Claim::Jurisdiction(b"UK".into(), scope),
+        Claim::Jurisdiction(CountryCode::GB, scope),
         None
     ));
 
@@ -1115,8 +1127,8 @@ fn cm_test_case_13_we() {
         },
         Condition {
             condition_type: ConditionType::IsNoneOf(vec![
-                Claim::Jurisdiction(b"USA".into(), scope),
-                Claim::Jurisdiction(b"North Kore".into(), scope),
+                Claim::Jurisdiction(CountryCode::US, scope),
+                Claim::Jurisdiction(CountryCode::KP, scope),
             ]),
             issuers: vec![issuer_id],
         },
@@ -1164,7 +1176,7 @@ fn cm_test_case_13_we() {
         },
         BatchAddClaimItem::<Moment> {
             target: dave,
-            claim: Claim::Jurisdiction(b"USA".into(), scope),
+            claim: Claim::Jurisdiction(CountryCode::US, scope),
             expiry: None,
         },
     ];
@@ -1193,7 +1205,7 @@ fn cm_test_case_13_we() {
         },
         BatchAddClaimItem::<Moment> {
             target: eve,
-            claim: Claim::Jurisdiction(b"UK".into(), scope),
+            claim: Claim::Jurisdiction(CountryCode::GB, scope),
             expiry: None,
         },
     ];
