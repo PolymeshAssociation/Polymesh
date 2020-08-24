@@ -48,10 +48,7 @@ impl<T: Migrate> Migrate for Vec<T> {
 ///
 /// Migrations resulting in `old.migrate() == None` are silently dropped from storage.
 pub fn migrate_map<T: Migrate>(module: &[u8], item: &[u8]) {
-    StorageIterator::<T>::new(module, item)
-        .drain()
-        .filter_map(|(key, old)| Some((key, old.migrate()?)))
-        .for_each(|(key, new)| put_storage_value(module, item, &key, new));
+    migrate_map_rename(module, item, item)
 }
 
 
