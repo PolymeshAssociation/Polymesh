@@ -92,9 +92,10 @@ use core::result::Result as StdResult;
 use currency::*;
 use frame_support::{
     decl_error, decl_event, decl_module, decl_storage,
-    dispatch::{DispatchError, DispatchResult},
+    dispatch::{DispatchError, DispatchResult, DispatchResultWithPostInfo},
     ensure,
     traits::{Currency, Get},
+    weights::Weight,
 };
 use frame_system::{self as system, ensure_signed};
 use hex_literal::hex;
@@ -102,7 +103,7 @@ use pallet_contracts::{ExecReturnValue, Gas};
 use pallet_identity as identity;
 use pallet_statistics::{self as statistics, Counter};
 use polymesh_common_utilities::{
-    asset::{AcceptTransfer, Trait as AssetTrait},
+    asset::{AcceptTransfer, Trait as AssetTrait, GAS_LIMIT},
     balances::Trait as BalancesTrait,
     compliance_manager::Trait as ComplianceManagerTrait,
     constants::*,
@@ -136,6 +137,10 @@ pub trait Trait:
     type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
     type Currency: Currency<Self::AccountId>;
     type ComplianceManager: ComplianceManagerTrait<Self::Balance>;
+    /// Maximum number of smart extensions can attach to a asset.
+    /// This hard limit is set to avoid the cases where a asset transfer
+    /// gas usage go beyond the block gas limit.
+    type MaxNumberOfTMExtensionForAsset: Get<u32>;
 }
 
 /// The type of an asset represented by a token.
@@ -275,6 +280,30 @@ pub struct FocusedBalances<Balance> {
     pub total: Balance,
     /// The balance of the asset in the default portfolio of the identity.
     pub portfolio: Balance,
+}
+
+
+pub mod weight_for {
+    use super::*;
+
+    /// Weight for `_is_valid_transfer()` transfer.
+    pub fn weight_for_is_valid_transfer<T: Trait>(
+        no_of_tms: u32,
+        weight_from_cm: Weight,
+    ) -> Weight {
+        8 * 10_000_000 // Weight used for encoding a param in `verify_restriction()` call.
+            .saturating_add(GAS_LIMIT.saturating_mul(no_of_tms.into())) // used gas limit for a single TM extension call.
+            .saturating_add(weight_from_cm) // weight that comes from the compliance manager.
+    }
+
+    /// Weight for `unsafe_transfer_by_custodian()`.
+    pub fn weight_for_unsafe_transfer_by_custodian<T: Trait>(
+        weight_for_transfer_rest: Weight,
+    ) -> Weight {
+        weight_for_transfer_rest
+            .saturating_add(T::DbWeight::get().reads_writes(3, 2)) // Read and write of `unsafe_transfer_by_custodian()`
+            .saturating_add(T::DbWeight::get().reads_writes(4, 5)) // read and write for `unsafe_transfer()`
+    }
 }
 
 /// An Ethereum address (i.e. 20 bytes, used to represent an Ethereum account).
@@ -897,7 +926,7 @@ decl_module! {
             holder_did: IdentityId,
             receiver_did: IdentityId,
             value: T::Balance
-        ) -> DispatchResult {
+        ) -> DispatchResultWithPostInfo {
             let sender = ensure_signed(origin)?;
             let custodian_did = Context::current_identity_or::<Identity<T>>(&sender)?;
 
@@ -963,6 +992,10 @@ decl_module! {
 
             // Verify the details of smart extension & store it
             ensure!(!<ExtensionDetails<T>>::contains_key((ticker, &extension_details.extension_id)), Error::<T>::ExtensionAlreadyPresent);
+
+            // Ensure the hard limit on the count of maximum transfer manager an asset can have.
+            Self::ensure_max_limit_for_tm_extension(&extension_details.extension_type, &ticker)?;
+
             <ExtensionDetails<T>>::insert((ticker, &extension_details.extension_id), extension_details.clone());
             <Extensions<T>>::mutate((ticker, &extension_details.extension_type), |ids| {
                 ids.push(extension_details.extension_id.clone())
@@ -1221,6 +1254,8 @@ decl_error! {
         AssetAlreadyDivisible,
         /// An invalid custodian DID.
         InvalidCustodianDid,
+        /// Number of Transfer Manager extensions attached to an asset is equal to MaxNumberOfTMExtensionForAsset.
+        MaximumTMExtensionLimitReached
     }
 }
 
@@ -1300,7 +1335,7 @@ impl<T: Trait> AssetTrait<T::Balance, T::AccountId> for Module<T> {
         holder_did: IdentityId,
         receiver_did: IdentityId,
         value: T::Balance,
-    ) -> DispatchResult {
+    ) -> DispatchResultWithPostInfo {
         Self::unsafe_transfer_by_custodian(custodian_did, ticker, holder_did, receiver_did, value)
     }
 
@@ -1309,6 +1344,10 @@ impl<T: Trait> AssetTrait<T::Balance, T::AccountId> for Module<T> {
         token_details
             .primary_issuance_agent
             .unwrap_or(token_details.owner_did)
+    }
+
+    fn max_number_of_tm_extension() -> u32 {
+        T::MaxNumberOfTMExtensionForAsset::get()
     }
 }
 
@@ -1530,20 +1569,20 @@ impl<T: Trait> Module<T> {
         from_did: Option<IdentityId>,
         to_did: Option<IdentityId>,
         value: T::Balance,
-    ) -> StdResult<u8, &'static str> {
+    ) -> StdResult<(u8, Weight), DispatchError> {
         if Self::frozen(ticker) {
-            return Ok(ERC1400_TRANSFERS_HALTED);
+            return Ok((ERC1400_TRANSFERS_HALTED, T::DbWeight::get().reads(1)));
         }
         let primary_issuance_agent = <Tokens<T>>::get(ticker).primary_issuance_agent;
-        let general_status_code = T::ComplianceManager::verify_restriction(
+        let (status_code, weight_for_transfer) = T::ComplianceManager::verify_restriction(
             ticker,
             from_did,
             to_did,
             value,
             primary_issuance_agent,
         )?;
-        Ok(if general_status_code != ERC1400_TRANSFER_SUCCESS {
-            COMPLIANCE_MANAGER_FAILURE
+        Ok(if status_code != ERC1400_TRANSFER_SUCCESS {
+            (COMPLIANCE_MANAGER_FAILURE, weight_for_transfer)
         } else {
             let mut final_result = true;
             let mut is_valid = false;
@@ -1554,6 +1593,7 @@ impl<T: Trait> Module<T> {
                 .into_iter()
                 .filter(|tm| !Self::extension_details((ticker, tm)).is_archive)
                 .collect::<Vec<T::AccountId>>();
+            let tm_count = u32::try_from(tms.len()).unwrap_or_default();
             if !tms.is_empty() {
                 for tm in tms.into_iter() {
                     let result = Self::verify_restriction(
@@ -1574,11 +1614,8 @@ impl<T: Trait> Module<T> {
                 //is_valid = force_valid ? true : (is_invalid ? false : is_valid);
                 final_result = force_valid || !is_invalid && is_valid;
             }
-            if final_result {
-                return Ok(ERC1400_TRANSFER_SUCCESS);
-            } else {
-                return Ok(SMART_EXTENSION_FAILURE);
-            }
+            // Compute the result for transfer
+            Self::compute_transfer_result(final_result, tm_count, weight_for_transfer)
         })
     }
 
@@ -2037,13 +2074,8 @@ impl<T: Trait> Module<T> {
         // native currency value should be `0` as no funds need to transfer to the smart extension
         // We are passing arbitrary high `gas_limit` value to make sure extension's function execute successfully
         // TODO: Once gas estimate function will be introduced, arbitrary gas value will be replaced by the estimated gas
-        let is_allowed = Self::call_extension(
-            extension_caller,
-            dest,
-            0.into(),
-            10_000_000_000_000,
-            encoded_data,
-        );
+        let is_allowed =
+            Self::call_extension(extension_caller, dest, 0.into(), GAS_LIMIT, encoded_data);
         if is_allowed.is_success() {
             if let Ok(allowed) = RestrictionResult::decode(&mut &is_allowed.data[..]) {
                 return allowed;
@@ -2123,6 +2155,7 @@ impl<T: Trait> Module<T> {
         // Compliance manager & Smart Extension check
         Ok(
             Self::_is_valid_transfer(&ticker, sender, from_did, to_did, amount)
+                .map(|(status, _)| status)
                 .unwrap_or(ERC1400_TRANSFER_FAILURE),
         )
     }
@@ -2134,7 +2167,7 @@ impl<T: Trait> Module<T> {
         holder_did: IdentityId,
         receiver_did: IdentityId,
         value: T::Balance,
-    ) -> DispatchResult {
+    ) -> DispatchResultWithPostInfo {
         let mut custodian_allowance =
             Self::custodian_allowance((ticker, holder_did, custodian_did));
         // using checked_sub (safe math) to avoid underflow
@@ -2146,14 +2179,15 @@ impl<T: Trait> Module<T> {
             .checked_sub(&value)
             .ok_or(Error::<T>::TotalAllowanceUnderflow)?;
         // Validate the transfer
+        let (is_transfer_success, weight_for_transfer) = Self::_is_valid_transfer(
+            &ticker,
+            <identity::Module<T>>::did_records(custodian_did).primary_key,
+            Some(holder_did),
+            Some(receiver_did),
+            value,
+        )?;
         ensure!(
-            Self::_is_valid_transfer(
-                &ticker,
-                <identity::Module<T>>::did_records(custodian_did).primary_key,
-                Some(holder_did),
-                Some(receiver_did),
-                value
-            )? == ERC1400_TRANSFER_SUCCESS,
+            is_transfer_success == ERC1400_TRANSFER_SUCCESS,
             Error::<T>::InvalidTransfer
         );
         Self::unsafe_transfer(custodian_did, &ticker, holder_did, receiver_did, value)?;
@@ -2167,7 +2201,12 @@ impl<T: Trait> Module<T> {
             receiver_did,
             value,
         ));
-        Ok(())
+        Ok(
+            Some(weight_for::weight_for_unsafe_transfer_by_custodian::<T>(
+                weight_for_transfer,
+            ))
+            .into(),
+        )
     }
 
     /// Internal function to process a transfer without any checks.
@@ -2240,5 +2279,33 @@ impl<T: Trait> Module<T> {
             Error::<T>::TotalSupplyAboveLimit
         );
         Ok(())
+    }
+
+    /// Ensure the number of attached transfer manager extension should be < `MaxNumberOfTMExtensionForAsset`.
+    fn ensure_max_limit_for_tm_extension(
+        ext_type: &SmartExtensionType,
+        ticker: &Ticker,
+    ) -> DispatchResult {
+        if *ext_type == SmartExtensionType::TransferManager {
+            let no_of_ext = u32::try_from(
+                <Extensions<T>>::get((ticker, SmartExtensionType::TransferManager)).len(),
+            )
+            .unwrap_or_default();
+            ensure!(
+                no_of_ext < T::MaxNumberOfTMExtensionForAsset::get(),
+                Error::<T>::MaximumTMExtensionLimitReached
+            );
+        }
+        Ok(())
+    }
+
+    /// Compute the result of the transfer
+    pub fn compute_transfer_result(final_result: bool, tm_count: u32, cm_result: Weight) -> (u8, Weight) {
+        let weight_for_valid_transfer = weight_for::weight_for_is_valid_transfer::<T>(tm_count, cm_result);
+        let transfer_status = match final_result {
+            true => ERC1400_TRANSFER_SUCCESS,
+            false => SMART_EXTENSION_FAILURE
+        };
+        (transfer_status, weight_for_valid_transfer)
     }
 }
