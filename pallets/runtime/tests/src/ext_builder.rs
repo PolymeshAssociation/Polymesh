@@ -83,7 +83,7 @@ pub struct ExtBuilder {
     /// Maximum number of transfer manager an asset can have.
     max_no_of_tm_allowed: u32,
     /// Maximum number of legs a instruction can have.
-    max_no_of_legs: u32
+    max_no_of_legs: u32,
 }
 
 thread_local! {
