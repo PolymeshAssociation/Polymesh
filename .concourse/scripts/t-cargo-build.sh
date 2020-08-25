@@ -6,9 +6,9 @@ set -o pipefail
 
 GIT_DIR=$1
 ARTIFACT_DIR=$2
-SEMVER_DIR=$3
+VERSION_DIR=$3
 
-SEMVER=$(cat $SEMVER_DIR/version)
+VERSION=$(cat $VERSION_DIR/version)
 GIT_REF=""
 if [[ -f ${GIT_DIR}/.git/short_ref ]]; then
     ## commit
@@ -41,7 +41,7 @@ fi
 #  - The polymesh binary is missing
 if [ ! -f ".git/resource/changed_files" ] || grep -v '^.concourse\|^Dockerfile\|^scripts/cli' ".git/resource/changed_files" || [ ! -f "target/release/polymesh" ]; then
     rm -f target/release/polymesh
-    sed -i -e "s/^version = .*$/version = \"$SEMVER\"/" Cargo.toml
+    sed -i -e "s/^version = .*$/version = \"$VERSION\"/" Cargo.toml
     cargo build --release
 fi
 popd
@@ -58,9 +58,9 @@ echo -n "${GIT_REF}-distroless" > ${ARTIFACT_DIR}/additional_tags.distroless
 echo -n "${GIT_REF}-debian"     > ${ARTIFACT_DIR}/additional_tags.debian
 cp    ${GIT_DIR}/.concourse/dockerfiles/Dockerfile.distroless ${ARTIFACT_DIR}/
 cp    ${GIT_DIR}/.concourse/dockerfiles/Dockerfile.debian     ${ARTIFACT_DIR}/
-cp    ${SEMVER_DIR}/version                                   ${ARTIFACT_DIR}/tag_file
+cp    ${VERSION_DIR}/version                                  ${ARTIFACT_DIR}/tag_file
 cp    ${GIT_DIR}/target/release/polymesh                      ${ARTIFACT_DIR}/usr/local/bin/polymesh
-cp    ${GIT_DIR}/target/release/polymesh                      ${ARTIFACT_DIR}/polymesh-${SEMVER}
+cp    ${GIT_DIR}/target/release/polymesh                      ${ARTIFACT_DIR}/polymesh-${VERSION}
 cp -a /lib/x86_64-linux-gnu/*                                 ${ARTIFACT_DIR}/lib/x86_64-linux-gnu
 for LIB in $LDLIBS; do
     mkdir -p ${ARTIFACT_DIR}/$(dirname $LIB | cut -c 2-)
@@ -69,7 +69,7 @@ done
 cat << EOF > ${ARTIFACT_DIR}/.dockerignore
 Dockerfile.distroless
 Dockerfile.debian
-polymesh-${SEMVER}
+polymesh-${VERSION}
 tag_file
 additional_tags.distroless
 additional_tags.debian
