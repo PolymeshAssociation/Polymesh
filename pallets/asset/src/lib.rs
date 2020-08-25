@@ -163,7 +163,7 @@ pub enum IdentifierType {
     Cins,
     Cusip,
     Isin,
-    DTI,
+    Dti,
 }
 
 impl Default for IdentifierType {
