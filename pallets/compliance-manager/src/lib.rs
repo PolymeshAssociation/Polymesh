@@ -907,7 +907,7 @@ impl<T: Trait> ComplianceManagerTrait<T::Balance> for Module<T> {
                     continue;
                 }
             }
-            
+
             if let Some(to_did) = to_did_opt {
                 rules_count += active_rule.receiver_rules.len();
                 if Self::are_all_rules_satisfied(
@@ -919,7 +919,9 @@ impl<T: Trait> ComplianceManagerTrait<T::Balance> for Module<T> {
                     // All rules satisfied, return early
                     return Ok((
                         ERC1400_TRANSFER_SUCCESS,
-                        weight_for::weight_for_verify_restriction::<T>(u64::try_from(rules_count).unwrap_or(0)),
+                        weight_for::weight_for_verify_restriction::<T>(
+                            u64::try_from(rules_count).unwrap_or(0),
+                        ),
                     ));
                 }
             }
