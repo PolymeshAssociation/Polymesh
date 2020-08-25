@@ -909,7 +909,7 @@ impl<T: Trait> ComplianceManagerTrait<T::Balance> for Module<T> {
             }
             
             if let Some(to_did) = to_did_opt {
-                rules_count = active_rule.receiver_rules.len();
+                rules_count += active_rule.receiver_rules.len();
                 if Self::are_all_rules_satisfied(
                     ticker,
                     to_did,
