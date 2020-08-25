@@ -18,7 +18,6 @@
 //! A `CodeExecutor` specialization which uses natively compiled runtime when the wasm to be
 //! executed is equivalent to the natively compiled code.
 
-pub use pallet_confidential::native_rng;
 use sc_executor::native_executor_instance;
 pub use sc_executor::NativeExecutor;
 
@@ -28,5 +27,5 @@ native_executor_instance!(
     pub Executor,
     node_runtime::api::dispatch,
     node_runtime::native_version,
-    (frame_benchmarking::benchmarking::HostFunctions, native_rng::HostFunctions)
+    (frame_benchmarking::benchmarking::HostFunctions)
 );

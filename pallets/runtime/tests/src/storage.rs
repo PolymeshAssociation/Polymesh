@@ -279,6 +279,9 @@ frame_support::construct_runtime!(
         TestUtils: pallet_test_utils::{Pallet, Call, Storage, Event<T> } = 50,
 
         Nft: pallet_nft::{Pallet, Call, Storage, Event} = 51,
+
+        // Confidential Asset pallets.
+        ConfidentialAsset: pallet_confidential_asset::{Pallet, Call, Storage, Event} = 60,
     }
 );
 

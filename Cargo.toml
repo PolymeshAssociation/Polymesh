@@ -107,6 +107,16 @@ substrate-wasm-builder = { git = "https://github.com/PolymeshAssociation/substra
 
 bulletproofs = { version = "4.0.0", git = "https://github.com/PolymeshAssociation/bulletproofs", branch = "polymesh" }
 
+#mercat = { path = "../cryptography/mercat" }
+#confidential_identity_core = { path = "../cryptography/confidential-identity-core" }
+#confidential_identity_v1 = { path = "../cryptography/confidential-identity-v1" }
+#confidential_identity_v2 = { path = "../cryptography/confidential-identity-v2" }
+
+mercat = { version = "1.0.0", git = "https://github.com/PolymeshAssociation/cryptography", branch = "mercat_update" }
+confidential_identity_core = { version = "1.0.0", git = "https://github.com/PolymeshAssociation/cryptography", branch = "mercat_update" }
+confidential_identity_v1 = { version = "1.0.0", git = "https://github.com/PolymeshAssociation/cryptography", branch = "mercat_update" }
+confidential_identity_v2 = { version = "2.0.0", git = "https://github.com/PolymeshAssociation/cryptography", branch = "mercat_update" }
+
 [workspace]
 members = [
     "bin/bench",
@@ -122,6 +132,7 @@ members = [
     "pallets/committee",
     "pallets/common",
     "pallets/compliance-manager",
+    "pallets/confidential-asset",
     "pallets/contracts",
     "pallets/corporate-actions",
     "pallets/external-agents",
@@ -169,6 +180,7 @@ pallet-asset = { path = "pallets/asset" }
 pallet-balances = { path = "pallets/balances", default-features = false  }
 pallet-bridge = { path = "pallets/bridge", default-features = false }
 pallet-committee = { path = "pallets/committee", default-features = false }
+pallet-confidential-asset = { path = "pallets/confidential-asset", default-features = false }
 pallet-corporate-actions = { path = "pallets/corporate-actions", default-features = false }
 pallet-external-agents = { path = "pallets/external-agents", default-features = false }
 pallet-group = { path = "pallets/group", default-features = false }

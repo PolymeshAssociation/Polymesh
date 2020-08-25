@@ -380,6 +380,9 @@ construct_runtime!(
         Preimage: pallet_preimage::{Pallet, Call, Storage, Event<T>},
 
         Nft: pallet_nft::{Pallet, Call, Storage, Event},
+
+        // Confidential Asset pallets.
+        ConfidentialAsset: pallet_confidential_asset::{Pallet, Call, Storage, Event},
     }
 );
 

@@ -1,0 +1,59 @@
+[package]
+name = "pallet-confidential-asset"
+version = "0.1.0"
+authors = ["Polymath"]
+edition = "2021"
+
+[dependencies]
+# Common
+polymesh-primitives = { path = "../../primitives", default-features = false }
+polymesh-primitives-derive = { path = "../../primitives_derive", default-features = false }
+polymesh-common-utilities = { path = "../common", default-features = false }
+
+# Our Pallets
+pallet-balances = { path = "../balances", default-features = false  }
+pallet-identity = { path = "../identity", default-features = false }
+pallet-portfolio = { path = "../portfolio", default-features = false }
+pallet-statistics = { path = "../statistics", default-features = false }
+
+# Crypto
+rand_core = { version = "0.6", default-features = false }
+rand_chacha = { version = "0.3", default-features = false }
+mercat = { version = "1.0.0", default-features = false }
+base64 = { version = "0.12.1", default-features = false, features = ["alloc"] }
+
+# Substrate
+codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = ["derive"] }
+scale-info = { version = "2.0", default-features = false, features = ["derive"] }
+frame-system = { version = "4.0.0-dev", default-features = false }
+frame-support = { version = "4.0.0-dev", default-features = false }
+sp-std = { version = "4.0.0", default-features = false }
+sp-runtime = { version = "6.0.0", default-features = false }
+
+[features]
+equalize = []
+default = ["std", "equalize", "u64_backend"]
+
+# Backends
+u64_backend = ["mercat/u64_backend"]
+avx2_backend = ["mercat/avx2_backend"]
+
+no_std = ["mercat/no_std", "u64_backend"]
+only-staking = []
+std = [
+    "rand_core/std",
+    "rand_chacha/std",
+    "codec/std",
+    "frame-support/std",
+    "frame-system/std",
+    "mercat/std",
+    "pallet-balances/std",
+    "pallet-identity/std",
+    "pallet-portfolio/std",
+    "pallet-statistics/std",
+    "polymesh-common-utilities/std",
+    "polymesh-primitives/std",
+    "polymesh-primitives-derive/std",
+    "sp-runtime/std",
+    "sp-std/std",
+]
