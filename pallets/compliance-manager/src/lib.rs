@@ -120,7 +120,7 @@ pub trait Trait:
     type MaxConditionComplexity: Get<u32>;
 }
 
-use polymesh_primitives::rule::ConditionOld;
+use polymesh_primitives::condition::ConditionOld;
 
 /// A compliance requirement.
 /// All sender and receiver conditions of the same compliance requirement must be true in order to execute the transfer.
@@ -227,11 +227,11 @@ impl From<AssetCompliance> for AssetComplianceResult {
 pub mod weight_for {
     use super::*;
 
-    pub fn weight_for_verify_restriction<T: Trait>(no_of_asset_rule: u64) -> Weight {
-        no_of_asset_rule * 100_000_000
+    pub fn weight_for_verify_restriction<T: Trait>(no_of_compliance_requirements: u64) -> Weight {
+        no_of_compliance_requirements * 100_000_000
     }
 
-    pub fn weight_for_reading_asset_rules<T: Trait>() -> Weight {
+    pub fn weight_for_reading_asset_compliance<T: Trait>() -> Weight {
         T::DbWeight::get().reads(1) + 1_000_000
     }
 }
@@ -892,16 +892,16 @@ impl<T: Trait> ComplianceManagerTrait<T::Balance> for Module<T> {
     ) -> Result<(u8, Weight), DispatchError> {
         // Transfer is valid if ALL receiver AND sender conditions of ANY asset conditions are valid.
         let asset_compliance = Self::asset_compliance(ticker);
-        let mut rules_count: usize = 0;
+        let mut requirement_count: usize = 0;
         if asset_compliance.paused {
             return Ok((
                 ERC1400_TRANSFER_SUCCESS,
-                weight_for::weight_for_reading_asset_rules::<T>(),
+                weight_for::weight_for_reading_asset_compliance::<T>(),
             ));
         }
         for requirement in asset_compliance.requirements {
             if let Some(from_did) = from_did_opt {
-                rules_count += active_rule.sender_rules.len();
+                requirement_count += requirement.sender_conditions.len();
                 if !Self::are_all_conditions_satisfied(
                     ticker,
                     from_did,
@@ -914,7 +914,7 @@ impl<T: Trait> ComplianceManagerTrait<T::Balance> for Module<T> {
             }
 
             if let Some(to_did) = to_did_opt {
-                rules_count += active_rule.receiver_rules.len();
+                requirement_count += requirement.receiver_conditions.len();
                 if Self::are_all_conditions_satisfied(
                     ticker,
                     to_did,
@@ -924,7 +924,7 @@ impl<T: Trait> ComplianceManagerTrait<T::Balance> for Module<T> {
                     // All conditions satisfied, return early
                     return Ok((
                         ERC1400_TRANSFER_SUCCESS,
-                        weight_for::weight_for_verify_restriction::<T>(u64::try_from(rules_count).unwrap_or(0)),
+                        weight_for::weight_for_verify_restriction::<T>(u64::try_from(requirement_count).unwrap_or(0)),
                     ));
                 }
             }
@@ -932,7 +932,7 @@ impl<T: Trait> ComplianceManagerTrait<T::Balance> for Module<T> {
         sp_runtime::print("Identity TM restrictions not satisfied");
         Ok((
             ERC1400_TRANSFER_FAILURE,
-            weight_for::weight_for_verify_restriction::<T>(u64::try_from(rules_count).unwrap_or(0)),
+            weight_for::weight_for_verify_restriction::<T>(u64::try_from(requirement_count).unwrap_or(0)),
         ))
     }
 }

@@ -103,7 +103,7 @@ fn scope_claims_we() {
     let inv_acc_3 = AccountKeyring::Dave.public();
     let (_, inv_did_3) = make_account_with_balance(inv_acc_3, other_investor, 3_000_000).unwrap();
 
-    // 1. Alice creates her ST and set up its rules.
+    // 1. Alice creates her ST and set up its compliance requirements.
     let st = SecurityToken {
         name: "ALI_ST".as_bytes().to_owned().into(),
         owner_did: alice_id,
@@ -126,7 +126,7 @@ fn scope_claims_we() {
         None,
     ));
 
-    // 2. Alice defines the asset complain rules.
+    // 2. Alice defines the asset complain compliance requirements.
     let st_scope = IdentityId::try_from(st_id.as_slice()).unwrap();
     let sender_conditions = vec![];
     let receiver_conditions = vec![Condition::from(ConditionType::HasValidProofOfInvestor(

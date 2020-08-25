@@ -14,7 +14,7 @@ use pallet_statistics as statistics;
 use polymesh_common_utilities::{constants::*, traits::balances::Memo, compliance_manager::Trait};
 use polymesh_primitives::{
     AuthorizationData, Document, DocumentName, IdentityId, Signatory, SmartExtension,
-    SmartExtensionType, Ticker, SmartExtensionName, Claim, Rule, RuleType
+    SmartExtensionType, Ticker, SmartExtensionName, Claim, Condition, ConditionType
 };
 
 use chrono::prelude::Utc;
@@ -2047,27 +2047,27 @@ fn test_weights_for_is_valid_transfer() {
             None,
         ));
 
-        // Adding different claim rules 
-        assert_ok!(ComplianceManager::add_active_rule(
+        // Adding different compliance requirements 
+        assert_ok!(ComplianceManager::add_compliance_requirement(
             alice_signed.clone(),
             ticker,
             vec![
-                Rule {
-                    rule_type: RuleType::IsPresent(Claim::Accredited(ticker_id)),
+                Condition {
+                    condition_type: ConditionType::IsPresent(Claim::Accredited(ticker_id)),
                     issuers: vec![eve_did]
                 },
-                Rule {
-                    rule_type: RuleType::IsAbsent(Claim::BuyLockup(ticker_id)),
+                Condition {
+                    condition_type: ConditionType::IsAbsent(Claim::BuyLockup(ticker_id)),
                     issuers: vec![eve_did]
                 }
             ],
             vec![
-                Rule {
-                    rule_type: RuleType::IsPresent(Claim::Accredited(ticker_id)),
+                Condition {
+                    condition_type: ConditionType::IsPresent(Claim::Accredited(ticker_id)),
                     issuers: vec![eve_did]
                 },
-                Rule {
-                    rule_type: RuleType::IsAnyOf(vec![Claim::BuyLockup(ticker_id), Claim::KnowYourCustomer(ticker_id)]),
+                Condition {
+                    condition_type: ConditionType::IsAnyOf(vec![Claim::BuyLockup(ticker_id), Claim::KnowYourCustomer(ticker_id)]),
                     issuers: vec![eve_did]
                 }
             ]
@@ -2111,7 +2111,7 @@ fn test_weights_for_is_valid_transfer() {
         // call is_valid_transfer()
         let result = Asset::_is_valid_transfer(&ticker, alice, Some(alice_did), Some(bob_did), 100).unwrap().1;
         let weight_from_verify_transfer = ComplianceManager::verify_restriction(&ticker, Some(alice_did), Some(bob_did), 100, Some(alice_did)).unwrap().1;
-        assert!(matches!(result, weight_from_verify_transfer)); // Only sender rules are processed.
+        assert!(matches!(result, weight_from_verify_transfer)); // Only sender conditions are processed.
 
         assert_revoke_claim!(eve_signed.clone(), alice_did, Claim::BuyLockup(ticker_id));
         assert_add_claim!(eve_signed.clone(), alice_did, Claim::Accredited(ticker_id));
@@ -2119,21 +2119,21 @@ fn test_weights_for_is_valid_transfer() {
         let result = Asset::_is_valid_transfer(&ticker, alice, Some(alice_did), Some(bob_did), 100).unwrap().1;
         let weight_from_verify_transfer = ComplianceManager::verify_restriction(&ticker, Some(alice_did), Some(bob_did), 100, Some(alice_did)).unwrap().1;
         let computed_weight = Asset::compute_transfer_result(false, 2, weight_from_verify_transfer).1;
-        assert!(matches!(result, computed_weight)); // Sender & receiver rules are processed.
+        assert!(matches!(result, computed_weight)); // Sender & receiver conditions are processed.
 
-        // Adding different claim rules 
-        assert_ok!(ComplianceManager::add_active_rule(
+        // Adding different compliance requirements 
+        assert_ok!(ComplianceManager::add_compliance_requirement(
             alice_signed.clone(),
             ticker,
             vec![
-                Rule {
-                    rule_type: RuleType::IsPresent(Claim::Exempted(ticker_id)),
+                Condition {
+                    condition_type: ConditionType::IsPresent(Claim::Exempted(ticker_id)),
                     issuers: vec![eve_did]
                 }
             ],
             vec![
-                Rule {
-                    rule_type: RuleType::IsPresent(Claim::Blocked(ticker_id)),
+                Condition {
+                    condition_type: ConditionType::IsPresent(Claim::Blocked(ticker_id)),
                     issuers: vec![eve_did]
                 }
             ]
@@ -2145,10 +2145,10 @@ fn test_weights_for_is_valid_transfer() {
         assert_eq!(verify_restriction_result.0, 81);
         let computed_weight = Asset::compute_transfer_result(false, 2, weight_from_verify_transfer).1;
         let transfer_weight = result.1;
-        assert!(matches!(transfer_weight, computed_weight)); // Sender & receiver rules are processed.
+        assert!(matches!(transfer_weight, computed_weight)); // Sender & receiver conditions are processed.
 
-        // pause transfer rules
-        assert_ok!(ComplianceManager::pause_asset_rules(alice_signed, ticker));
+        // pause asset compliance
+        assert_ok!(ComplianceManager::pause_asset_compliance(alice_signed, ticker));
 
         let result = Asset::_is_valid_transfer(&ticker, alice, Some(alice_did), Some(bob_did), 100).unwrap();
         let weight_from_verify_transfer = ComplianceManager::verify_restriction(&ticker, Some(alice_did), Some(bob_did), 100, Some(alice_did)).unwrap().1;

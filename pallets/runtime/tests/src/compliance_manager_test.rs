@@ -304,12 +304,12 @@ fn should_replace_asset_compliance_we() {
     let asset_compliance = ComplianceManager::asset_compliance(ticker);
     assert_eq!(asset_compliance.requirements.len(), 1);
 
-    // Create three rules with different rule IDs.
+    // Create three requirements with different requirement IDs.
     let new_asset_compliance: Vec<ComplianceRequirement> =
-        std::iter::repeat(|rule_id: u32| ComplianceRequirement {
+        std::iter::repeat(|id: u32| ComplianceRequirement {
             sender_conditions: vec![],
             receiver_conditions: vec![],
-            id: rule_id,
+            id,
         })
         .take(3)
         .enumerate()
@@ -430,7 +430,7 @@ fn pause_resume_asset_compliance_we() {
     let now = Utc::now();
     Timestamp::set_timestamp(now.timestamp() as u64);
 
-    // 4. Define rules
+    // 4. Define conditions
     let receiver_conditions = vec![Condition {
         issuers: vec![receiver_did],
         condition_type: ConditionType::IsAbsent(Claim::NoData),
@@ -448,7 +448,7 @@ fn pause_resume_asset_compliance_we() {
     assert_invalid_transfer!(ticker, token_owner_did, receiver_did, 10);
 
     Context::set_current_identity::<Identity>(Some(token_owner_did));
-    // 5.2. Pause asset rules, and run the transaction.
+    // 5.2. Pause asset compliance, and run the transaction.
     assert_ok!(ComplianceManager::pause_asset_compliance(
         token_owner_signed.clone(),
         ticker
@@ -457,7 +457,7 @@ fn pause_resume_asset_compliance_we() {
     assert_valid_transfer!(ticker, token_owner_did, receiver_did, 10);
 
     Context::set_current_identity::<Identity>(Some(token_owner_did));
-    // 5.3. Resume asset rules, and new transfer should fail again.
+    // 5.3. Resume asset compliance, and new transfer should fail again.
     assert_ok!(ComplianceManager::resume_asset_compliance(
         token_owner_signed.clone(),
         ticker
@@ -733,10 +733,10 @@ fn should_modify_vector_of_trusted_issuer_we() {
         vec![trusted_issuer_did_2]
     );
 
-    // Transfer should fail as issuer doesn't exist anymore but the rule data still exist
+    // Transfer should fail as issuer doesn't exist anymore but the compliance data still exist
     assert_invalid_transfer!(ticker, token_owner_did, receiver_did, 500);
 
-    // Change the asset rule to all the transfer happen again
+    // Change the compliance requirement to all the transfer happen again
 
     let receiver_condition_1 = Condition {
         issuers: vec![trusted_issuer_did_1],
@@ -769,7 +769,7 @@ fn should_modify_vector_of_trusted_issuer_we() {
         id: 5,
     };
 
-    // Failed because passed rule id is not valid
+    // Failed because passed id is not valid
     assert_err!(
         ComplianceManager::change_compliance_requirement(
             token_owner_signed.clone(),
@@ -779,7 +779,7 @@ fn should_modify_vector_of_trusted_issuer_we() {
         CMError::<TestStorage>::InvalidComplianceRequirementId
     );
 
-    // Should successfully change the asset rule
+    // Should successfully change the compliance requirement
     assert_ok!(ComplianceManager::change_compliance_requirement(
         token_owner_signed.clone(),
         ticker,
@@ -822,7 +822,7 @@ fn jurisdiction_asset_compliance_we() {
         vec![],
         None,
     ));
-    // 2. Set up rules for Asset transfer.
+    // 2. Set up compliance requirements for Asset transfer.
     let scope = Scope::from(0);
     let receiver_conditions = vec![
         Condition {
@@ -880,7 +880,7 @@ fn scope_asset_compliance_we() {
     // 1. Create a token.
     let (ticker, owner_did) = make_ticker_env(owner, vec![0x01].into());
 
-    // 2. Set up rules for Asset transfer.
+    // 2. Set up compliance requirements for Asset transfer.
     let scope = Identity::get_token_did(&ticker).unwrap();
     let receiver_conditions = vec![Condition {
         condition_type: ConditionType::IsPresent(Claim::Affiliate(scope)),
@@ -920,7 +920,7 @@ fn cm_test_case_9_we() {
 
     // 1. Create a token.
     let (ticker, owner_did) = make_ticker_env(AccountKeyring::Alice, vec![0x01].into());
-    // 2. Set up rules for Asset transfer.
+    // 2. Set up compliance requirements for Asset transfer.
     let scope = Identity::get_token_did(&ticker).unwrap();
     let receiver_conditions = vec![Condition {
         condition_type: ConditionType::IsAnyOf(vec![
@@ -1005,7 +1005,7 @@ fn cm_test_case_11_we() {
 
     // 1. Create a token.
     let (ticker, owner_did) = make_ticker_env(AccountKeyring::Alice, vec![0x01].into());
-    // 2. Set up rules for Asset transfer.
+    // 2. Set up compliance requirements for Asset transfer.
     let scope = Identity::get_token_did(&ticker).unwrap();
     let receiver_conditions = vec![
         Condition {
@@ -1110,7 +1110,7 @@ fn cm_test_case_13_we() {
 
     // 1. Create a token.
     let (ticker, owner_did) = make_ticker_env(AccountKeyring::Alice, vec![0x01].into());
-    // 2. Set up rules for Asset transfer.
+    // 2. Set up compliance requirements for Asset transfer.
     let scope = Identity::get_token_did(&ticker).unwrap();
     let receiver_conditions = vec![
         Condition {
@@ -1258,7 +1258,7 @@ fn can_verify_restriction_with_primary_issuance_agent_we() {
     ));
     let amount = 1_000;
 
-    // No rule is present, compliance should fail
+    // No compliance requirement is present, compliance should fail
     assert_ok!(
         ComplianceManager::verify_restriction(
             &ticker,
@@ -1270,7 +1270,7 @@ fn can_verify_restriction_with_primary_issuance_agent_we() {
         ERC1400_TRANSFER_FAILURE
     );
 
-    // Add rule that requires sender to be primary issuance agent (dynamic) and receiver to be a specific random_guy_id
+    // Add compliance requirement that requires sender to be primary issuance agent (dynamic) and receiver to be a specific random_guy_id
     assert_ok!(ComplianceManager::add_compliance_requirement(
         owner_origin,
         ticker,
@@ -1322,13 +1322,13 @@ fn can_verify_restriction_with_primary_issuance_agent_we() {
 }
 
 #[test]
-fn should_limit_rules_complexity() {
+fn should_limit_compliance_requirement_complexity() {
     ExtBuilder::default()
         .build()
-        .execute_with(should_reset_asset_compliance_we);
+        .execute_with(should_limit_compliance_requirements_complexity_we);
 }
 
-fn should_limit_rules_complexity_we() {
+fn should_limit_compliance_requirements_complexity_we() {
     let token_owner_acc = AccountKeyring::Alice.public();
     let token_owner_signed = Origin::signed(token_owner_acc.clone());
     let token_owner_did = register_keyring_account(AccountKeyring::Alice).unwrap();
@@ -1358,7 +1358,7 @@ fn should_limit_rules_complexity_we() {
         None,
     ));
 
-    let rules_with_issuer = vec![
+    let conditions_with_issuer = vec![
         Condition {
             condition_type: ConditionType::IsPresent(Claim::KnowYourCustomer(scope)),
             issuers: vec![token_owner_did],
@@ -1366,7 +1366,7 @@ fn should_limit_rules_complexity_we() {
         30
     ];
 
-    let rules_without_issuers = vec![
+    let conditions_without_issuers = vec![
         Condition {
             condition_type: ConditionType::IsPresent(Claim::KnowYourCustomer(scope)),
             issuers: vec![],
@@ -1379,8 +1379,8 @@ fn should_limit_rules_complexity_we() {
         ComplianceManager::add_compliance_requirement(
             token_owner_signed.clone(),
             ticker,
-            rules_with_issuer.clone(),
-            rules_with_issuer.clone()
+            conditions_with_issuer.clone(),
+            conditions_with_issuer.clone()
         ),
         CMError::<TestStorage>::ComplianceRequirementTooComplex
     );
@@ -1389,8 +1389,8 @@ fn should_limit_rules_complexity_we() {
     assert_ok!(ComplianceManager::add_compliance_requirement(
         token_owner_signed.clone(),
         ticker,
-        rules_with_issuer.clone(),
-        rules_without_issuers,
+        conditions_with_issuer.clone(),
+        conditions_without_issuers,
     ));
 
     // Complexity = 30*1 + 15*1 = 45

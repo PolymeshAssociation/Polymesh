@@ -260,7 +260,7 @@ mod tests {
     fn run_proposition() {
         let scope = Scope::from(0);
 
-        let rules: Vec<Condition> = vec![
+        let conditions: Vec<Condition> = vec![
             ConditionType::IsPresent(Claim::Accredited(scope)).into(),
             ConditionType::IsAbsent(Claim::BuyLockup(scope)).into(),
             ConditionType::IsAnyOf(vec![
@@ -280,7 +280,7 @@ mod tests {
             ..Default::default()
         };
 
-        let out = !rules.iter().any(|rule| !proposition::run(&rule, &context));
+        let out = !conditions.iter().any(|condition| !proposition::run(&condition, &context));
         assert_eq!(out, true);
 
         // Invalid case: `BuyLockup` is present.
@@ -293,7 +293,7 @@ mod tests {
             ..Default::default()
         };
 
-        let out = !rules.iter().any(|rule| !proposition::run(&rule, &context));
+        let out = !conditions.iter().any(|condition| !proposition::run(&condition, &context));
         assert_eq!(out, false);
 
         // Invalid case: Missing `Accredited`
@@ -305,7 +305,7 @@ mod tests {
             ..Default::default()
         };
 
-        let out = !rules.iter().any(|rule| !proposition::run(&rule, &context));
+        let out = !conditions.iter().any(|condition| !proposition::run(&condition, &context));
         assert_eq!(out, false);
 
         // Invalid case: Missing `Jurisdiction`
@@ -317,7 +317,7 @@ mod tests {
             ..Default::default()
         };
 
-        let out = !rules.iter().any(|rule| !proposition::run(&rule, &context));
+        let out = !conditions.iter().any(|condition| !proposition::run(&condition, &context));
         assert_eq!(out, false);
 
         // Check NoneOf
@@ -329,7 +329,7 @@ mod tests {
             ..Default::default()
         };
 
-        let out = !rules.iter().any(|rule| !proposition::run(&rule, &context));
+        let out = !conditions.iter().any(|condition| !proposition::run(&condition, &context));
         assert_eq!(out, false);
 
         let identity1 = IdentityId::from(1);

@@ -29,8 +29,8 @@ pub struct Context {
     /// Proposition evaluation will use those claims.
     pub claims: Vec<Claim>,
     /// Identity of this context.
-    /// It could be the sender DID during the evaluation of sender's rules or
-    /// the receiver DID on a receiver's rule evaluation.
+    /// It could be the sender DID during the evaluation of sender's conditions or
+    /// the receiver DID on a receiver's condition evaluation.
     pub id: IdentityId,
     /// Identity of the primary_issuance_agent of the token
     pub primary_issuance_agent: Option<IdentityId>,

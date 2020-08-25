@@ -56,7 +56,7 @@ fn basic_raise_with_ext() {
         None,
     ));
 
-    // Add empty transfer rules
+    // Add empty compliance requirements
     assert_ok!(ComplianceManager::add_compliance_requirement(
         alice_signed.clone(),
         ticker,
