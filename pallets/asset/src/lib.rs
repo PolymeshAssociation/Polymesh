@@ -1615,7 +1615,7 @@ impl<T: Trait> Module<T> {
                 result = force_valid || !is_invalid && is_valid;
             }
             // Compute the result for transfer
-            Self::compute_transfer_result(final_result, tm_count, weight_for_transfer)
+            Self::compute_transfer_result(result, tm_count, weight_for_transfer)
         })
     }
 
