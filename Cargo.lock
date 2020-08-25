@@ -867,6 +867,7 @@ version = "0.1.0"
 dependencies = [
  "blake2 0.9.0",
  "bulletproofs",
+ "byteorder",
  "criterion",
  "curve25519-dalek",
  "failure",
@@ -3413,6 +3414,25 @@ dependencies = [
 ]
 
 [[package]]
+name = "pallet-confidential-asset"
+version = "0.1.0"
+dependencies = [
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
+ "pallet-balances 0.1.0",
+ "pallet-contracts",
+ "pallet-identity",
+ "pallet-portfolio",
+ "pallet-session",
+ "pallet-statistics",
+ "parity-scale-codec",
+ "polymesh-common-utilities",
+ "polymesh-primitives",
+ "polymesh-primitives-derive",
+]
+
+[[package]]
 name = "pallet-contracts"
 version = "2.0.0-rc4"
 source = "git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call#b161460bf73e4cc73e29b8e01ab0323bb3d95e84"
@@ -4664,6 +4684,7 @@ dependencies = [
  "pallet-committee",
  "pallet-compliance-manager",
  "pallet-confidential",
+ "pallet-confidential-asset",
  "pallet-contracts",
  "pallet-group",
  "pallet-group-rpc-runtime-api",

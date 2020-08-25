@@ -1,0 +1,37 @@
+[package]
+name = "pallet-confidential-asset"
+version = "0.1.0"
+authors = ["Polymath"]
+edition = "2018"
+
+[dependencies]
+# Common
+polymesh-primitives = { path = "../../primitives", default-features = false }
+polymesh-primitives-derive = { path = "../../primitives_derive", default-features = false }
+polymesh-common-utilities = { path = "../common", default-features = false }
+
+# Our Pallets
+pallet-balances = { path = "../balances", default-features = false  }
+pallet-contracts = { git = "https://github.com/paritytech/substrate", branch = "at-add-dispatch-call", default-features = false }
+pallet-identity = { path = "../identity", default-features = false }
+pallet-portfolio = { path = "../portfolio", default-features = false }
+pallet-statistics = { path = "../statistics", default-features = false }
+
+# Substrate
+codec = { package = "parity-scale-codec", version = "1.1.0", default-features = false, features = ["derive"] }
+frame-system = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "at-add-dispatch-call" }
+frame-support = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "at-add-dispatch-call" }
+pallet-session = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "at-add-dispatch-call" }
+
+# Only in STD
+frame-benchmarking = { default-features = false, git = "https://github.com/paritytech/substrate", branch = "at-add-dispatch-call", optional = true }
+
+[features]
+equalize = []
+default = ["std", "equalize", "runtime-benchmarks"]
+no_std = []
+only-staking = []
+std = []
+runtime-benchmarks = [
+    "frame-benchmarking",
+]
