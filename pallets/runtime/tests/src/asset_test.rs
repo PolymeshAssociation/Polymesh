@@ -2616,7 +2616,7 @@ fn classic_ticker_claim_works() {
         assert!(ClassicTickers::get(&ticker("DELTA")).is_some());
         assert_ok!(Asset::register_ticker(Origin::signed(bob_acc), ticker("DELTA")));
         assert_eq!(ClassicTickers::get(&ticker("DELTA")), None);
-        assert_err!(create(bob_acc, "DELTA", 0), FeeError::InsufficientAccountBalance);
+        assert_noop!(create(bob_acc, "DELTA", 0), FeeError::InsufficientAccountBalance);
 
         // Repeat for `EPSILON`, but directly `create_asset` instead.
         let (charlie_acc, charlie_did) = focus_user(AccountKeyring::Charlie, 2 * fee);
