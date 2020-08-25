@@ -111,7 +111,7 @@ use polymesh_common_utilities::{
     constants::*,
     identity::Trait as IdentityTrait,
     protocol_fee::{ChargeProtocolFee, ProtocolOp},
-    with_transaction, CommonTrait, Context, SystematicIssuers,
+    CommonTrait, Context, SystematicIssuers,
 };
 use polymesh_primitives::{
     AuthorizationData, AuthorizationError, Document, DocumentName, IdentityId, Signatory,
@@ -547,19 +547,17 @@ decl_module! {
             identity::Module::<T>::ensure_no_id_record(token_did)?;
 
             // Charge protocol fees.
-            // This includes storage checks and modifications.
-            // As we have more than one, possibly, we need a transaction for atomicity.
-            with_transaction(|| -> DispatchResult {
+            T::ProtocolFee::charge_fees(&{
+                let mut fees = arrayvec::ArrayVec::<[_; 2]>::new();
                 if available {
-                    T::ProtocolFee::charge_fee(ProtocolOp::AssetRegisterTicker)?;
+                    fees.push(ProtocolOp::AssetRegisterTicker);
                 }
                 // Waive the asset fee iff classic ticker hasn't expired,
                 // and it was already created on classic.
                 if available || ClassicTickers::get(&ticker).filter(|r| r.is_created).is_none() {
-                    T::ProtocolFee::charge_fee(ProtocolOp::AssetCreateAsset)?;
+                    fees.push(ProtocolOp::AssetCreateAsset);
                 }
-
-                Ok(())
+                fees
             })?;
 
             //==========================================================================
