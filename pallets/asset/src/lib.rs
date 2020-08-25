@@ -82,6 +82,8 @@
 //! - `call_extension` - A helper function that is used to call the smart extension function.
 #![cfg_attr(not(feature = "std"), no_std)]
 #![recursion_limit = "256"]
+#![feature(bool_to_option)]
+
 #[cfg(feature = "runtime-benchmarks")]
 pub mod benchmarking;
 
@@ -90,7 +92,7 @@ use core::result::Result as StdResult;
 use currency::*;
 use frame_support::{
     decl_error, decl_event, decl_module, decl_storage,
-    dispatch::DispatchResult,
+    dispatch::{DispatchError, DispatchResult},
     ensure,
     traits::{Currency, Get},
 };
@@ -106,7 +108,7 @@ use polymesh_common_utilities::{
     constants::*,
     identity::Trait as IdentityTrait,
     protocol_fee::{ChargeProtocolFee, ProtocolOp},
-    CommonTrait, Context,
+    CommonTrait, Context, SystematicIssuers,
 };
 use polymesh_primitives::{
     AuthorizationData, AuthorizationError, Document, DocumentName, IdentityId, Signatory,
@@ -275,6 +277,37 @@ pub struct FocusedBalances<Balance> {
     pub portfolio: Balance,
 }
 
+/// An Ethereum address (i.e. 20 bytes, used to represent an Ethereum account).
+///
+/// This gets serialized to the 0x-prefixed hex representation.
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+#[derive(Clone, Copy, PartialEq, Eq, Encode, Decode, Default, Debug)]
+pub struct EthereumAddress([u8; 20]);
+
+/// Data imported from Polymath Classic regarding ticker registration/creation.
+/// Only used at genesis config and not stored on-chain.
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+pub struct ClassicTickerImport {
+    /// Owner of the registration.
+    pub eth_owner: EthereumAddress,
+    /// Name of the ticker registered.
+    pub ticker: Ticker,
+    /// Is `eth_owner` an Ethereum contract (e.g., in case of a multisig)?
+    pub is_contract: bool,
+    /// Has the ticker been elevated to a created asset on classic?
+    pub is_created: bool,
+}
+
+/// Data about a ticker registration from Polymath Classic on-genesis importation.
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+#[derive(Encode, Decode, Clone, Debug, PartialEq, Eq)]
+pub struct ClassicTickerRegistration {
+    /// Owner of the registration.
+    pub eth_owner: EthereumAddress,
+    /// Has the ticker been elevated to a created asset on classic?
+    pub is_created: bool,
+}
+
 decl_storage! {
     trait Store for Module<T: Trait> as Asset {
         /// Ticker registration details.
@@ -335,6 +368,33 @@ decl_storage! {
         /// (ticker, document_name) -> document
         pub AssetDocuments get(fn asset_documents):
             double_map hasher(blake2_128_concat) Ticker, hasher(blake2_128_concat) DocumentName => Document;
+
+        /// Ticker registration details on Polymath Classic / Ethereum.
+        pub ClassicTickers get(fn classic_ticker_registration): map hasher(blake2_128_concat) Ticker => Option<ClassicTickerRegistration>;
+    }
+    add_extra_genesis {
+        config(classic_migration_tickers): Vec<ClassicTickerImport>;
+        config(classic_migration_tconfig): TickerRegistrationConfig<T::Moment>;
+        config(classic_migration_contract_did): IdentityId;
+        build(|config: &GenesisConfig<T>| {
+            let cm_did = SystematicIssuers::ClassicMigration.as_id();
+            for import in &config.classic_migration_tickers {
+                // Use DID of someone at Polymath if it's a contract-made ticker registration.
+                let did = if import.is_contract { config.classic_migration_contract_did } else { cm_did };
+
+                // Register the ticker...
+                let tconfig = || config.classic_migration_tconfig.clone();
+                let expiry = <Module<T>>::ticker_registration_checks(&import.ticker, did, tconfig);
+                <Module<T>>::_register_ticker_feeless(&import.ticker, did, expiry.unwrap());
+
+                // ..and associate it with additional info needed for claiming.
+                let classic_ticker = ClassicTickerRegistration {
+                    eth_owner: import.eth_owner,
+                    is_created: import.is_created,
+                };
+                ClassicTickers::insert(&import.ticker, classic_ticker);
+            }
+        });
     }
 }
 
@@ -359,25 +419,7 @@ decl_module! {
         pub fn register_ticker(origin, ticker: Ticker) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             let to_did = Context::current_identity_or::<Identity<T>>(&sender)?;
-
-            ensure!(!<Tokens<T>>::contains_key(&ticker), Error::<T>::AssetAlreadyCreated);
-
-            let ticker_config = Self::ticker_registration_config();
-
-            ensure!(
-                ticker.len() <= usize::try_from(ticker_config.max_ticker_length).unwrap_or_default(),
-                Error::<T>::TickerTooLong
-            );
-
-            // Ensure that the ticker is not registered by someone else
-            ensure!(
-                Self::is_ticker_available_or_registered_to(&ticker, to_did) != TickerRegistrationStatus::RegisteredByOther,
-                Error::<T>::TickerAlreadyRegistered
-            );
-
-            let now = <pallet_timestamp::Module<T>>::get();
-            let expiry = if let Some(exp) = ticker_config.registration_length { Some(now + exp) } else { None };
-
+            let expiry = Self::ticker_registration_checks(&ticker, to_did, || Self::ticker_registration_config())?;
             Self::_register_ticker(&ticker, to_did, expiry)
         }
 
@@ -1297,92 +1339,116 @@ impl<T: Trait> Module<T> {
         token.owner_did == did
     }
 
+    fn maybe_ticker(ticker: &Ticker) -> Option<TickerRegistration<T::Moment>> {
+        <Tickers<T>>::contains_key(ticker).then(|| <Tickers<T>>::get(ticker))
+    }
+
     pub fn is_ticker_available(ticker: &Ticker) -> bool {
         // Assumes uppercase ticker
-        if <Tickers<T>>::contains_key(ticker) {
-            let now = <pallet_timestamp::Module<T>>::get();
-            if let Some(expiry) = Self::ticker_registration(*ticker).expiry {
-                if now <= expiry {
-                    return false;
-                }
-            } else {
-                return false;
-            }
+        if let Some(ticker) = Self::maybe_ticker(ticker) {
+            ticker
+                .expiry
+                .filter(|&e| <pallet_timestamp::Module<T>>::get() > e)
+                .is_some()
+        } else {
+            true
         }
-        true
     }
 
+    /// Returns `true` iff the ticker exists, is owned by `did`, and ticker hasn't expired.
     pub fn is_ticker_registry_valid(ticker: &Ticker, did: IdentityId) -> bool {
         // Assumes uppercase ticker
-        if <Tickers<T>>::contains_key(ticker) {
+        if let Some(ticker) = Self::maybe_ticker(ticker) {
             let now = <pallet_timestamp::Module<T>>::get();
-            let ticker_reg = Self::ticker_registration(ticker);
-            if ticker_reg.owner == did {
-                if let Some(expiry) = ticker_reg.expiry {
-                    if now > expiry {
-                        return false;
-                    }
-                } else {
-                    return true;
-                }
-                return true;
-            }
+            ticker.owner == did && ticker.expiry.filter(|&e| now > e).is_none()
+        } else {
+            false
         }
-        false
     }
 
-    /// Returns 0 if ticker is registered to someone else.
-    /// 1 if ticker is available for registry.
-    /// 2 if ticker is already registered to provided did.
+    /// Returns:
+    /// - `RegisteredByOther` if ticker is registered to someone else.
+    /// - `Available` if ticker is available for registry.
+    /// - `RegisteredByDid` if ticker is already registered to provided did.
     pub fn is_ticker_available_or_registered_to(
         ticker: &Ticker,
         did: IdentityId,
     ) -> TickerRegistrationStatus {
         // Assumes uppercase ticker
-        if <Tickers<T>>::contains_key(ticker) {
-            let ticker_reg = Self::ticker_registration(*ticker);
-            if let Some(expiry) = ticker_reg.expiry {
-                let now = <pallet_timestamp::Module<T>>::get();
-                if now > expiry {
-                    // ticker registered to someone but expired and can be registered again
-                    return TickerRegistrationStatus::Available;
-                } else if ticker_reg.owner == did {
-                    // ticker is already registered to provided did (but may expire in future)
-                    return TickerRegistrationStatus::RegisteredByDid;
+        match Self::maybe_ticker(ticker) {
+            Some(TickerRegistration { expiry, owner }) => match expiry {
+                // Ticker registered to someone but expired and can be registered again.
+                Some(expiry) if <pallet_timestamp::Module<T>>::get() > expiry => {
+                    TickerRegistrationStatus::Available
                 }
-            } else if ticker_reg.owner == did {
-                // ticker is already registered to provided did (and will never expire)
-                return TickerRegistrationStatus::RegisteredByDid;
-            }
-            // ticker registered to someone else
-            return TickerRegistrationStatus::RegisteredByOther;
+                // Ticker is already registered to provided did (may or may not expire in future).
+                _ if owner == did => TickerRegistrationStatus::RegisteredByDid,
+                // Ticker registered to someone else and hasn't expired.
+                _ => TickerRegistrationStatus::RegisteredByOther,
+            },
+            // Ticker not registered yet.
+            None => TickerRegistrationStatus::Available,
         }
-        // Ticker not registered yet
-        TickerRegistrationStatus::Available
     }
 
+    /// Before registering a ticker, do some checks, and return the expiry moment.
+    fn ticker_registration_checks(
+        ticker: &Ticker,
+        to_did: IdentityId,
+        config: impl FnOnce() -> TickerRegistrationConfig<T::Moment>,
+    ) -> Result<Option<T::Moment>, DispatchError> {
+        ensure!(
+            !<Tokens<T>>::contains_key(&ticker),
+            Error::<T>::AssetAlreadyCreated
+        );
+
+        let config = config();
+
+        // Ensure the ticker is not too long.
+        ensure!(
+            ticker.len() <= usize::try_from(config.max_ticker_length).unwrap_or_default(),
+            Error::<T>::TickerTooLong
+        );
+
+        // Ensure that the ticker is not registered by someone else.
+        ensure!(
+            Self::is_ticker_available_or_registered_to(&ticker, to_did)
+                != TickerRegistrationStatus::RegisteredByOther,
+            Error::<T>::TickerAlreadyRegistered
+        );
+
+        Ok(config
+            .registration_length
+            .map(|exp| <pallet_timestamp::Module<T>>::get() + exp))
+    }
+
+    /// Without charging any fees,
+    /// register the given `ticker` to the `owner` identity,
+    /// with the registration being removed at `expiry`.
+    fn _register_ticker_feeless(ticker: &Ticker, owner: IdentityId, expiry: Option<T::Moment>) {
+        if let Some(ticker_details) = Self::maybe_ticker(ticker) {
+            <AssetOwnershipRelations>::remove(ticker_details.owner, ticker);
+        }
+
+        let ticker_registration = TickerRegistration { owner, expiry };
+
+        // Store ticker registration details
+        <Tickers<T>>::insert(ticker, ticker_registration);
+        <AssetOwnershipRelations>::insert(owner, ticker, AssetOwnershipRelation::TickerOwned);
+
+        Self::deposit_event(RawEvent::TickerRegistered(owner, *ticker, expiry));
+    }
+
+    /// Register the given `ticker` to `to_did` identity,
+    /// with the registration being removed at `expiry`.
+    /// This version also charges protocol fees.
     fn _register_ticker(
         ticker: &Ticker,
         to_did: IdentityId,
         expiry: Option<T::Moment>,
     ) -> DispatchResult {
         <<T as IdentityTrait>::ProtocolFee>::charge_fee(ProtocolOp::AssetRegisterTicker)?;
-
-        if <Tickers<T>>::contains_key(ticker) {
-            let ticker_details = <Tickers<T>>::get(ticker);
-            <AssetOwnershipRelations>::remove(ticker_details.owner, ticker);
-        }
-
-        let ticker_registration = TickerRegistration {
-            owner: to_did,
-            expiry,
-        };
-
-        // Store ticker registration details
-        <Tickers<T>>::insert(ticker, ticker_registration);
-        <AssetOwnershipRelations>::insert(to_did, ticker, AssetOwnershipRelation::TickerOwned);
-
-        Self::deposit_event(RawEvent::TickerRegistered(to_did, *ticker, expiry));
+        Self::_register_ticker_feeless(ticker, to_did, expiry);
         Ok(())
     }
 
