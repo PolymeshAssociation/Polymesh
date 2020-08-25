@@ -159,7 +159,7 @@ decl_module! {
             )?;
 
             Settlement::<T>::unsafe_authorize_instruction(primary_issuance_agent, instruction_id)?;
-            Settlement::<T>::authorize_instruction(origin, instruction_id)?;
+            Settlement::<T>::authorize_instruction(origin, instruction_id).map_err(|err| err.error)?;
 
             Self::deposit_event(
                 RawEvent::FundsRaised(did, offering_token, fundraiser.raise_token, offering_token_amount, raise_token_amount, fundraiser_id)

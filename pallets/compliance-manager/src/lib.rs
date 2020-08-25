@@ -75,10 +75,13 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 #![recursion_limit = "256"]
 
-use core::result::Result as StdResult;
+use core::result::Result;
 use frame_support::{
-    decl_error, decl_event, decl_module, decl_storage, dispatch::DispatchResult, ensure,
+    decl_error, decl_event, decl_module, decl_storage,
+    dispatch::{DispatchError, DispatchResult},
+    ensure,
     traits::Get,
+    weights::Weight,
 };
 use frame_system::{self as system, ensure_signed};
 use pallet_identity as identity;
@@ -218,6 +221,18 @@ impl From<AssetCompliance> for AssetComplianceResult {
                 .collect(),
             result: false,
         }
+    }
+}
+
+pub mod weight_for {
+    use super::*;
+
+    pub fn weight_for_verify_restriction<T: Trait>(no_of_asset_rule: u64) -> Weight {
+        no_of_asset_rule * 100_000_000
+    }
+
+    pub fn weight_for_reading_asset_rules<T: Trait>() -> Weight {
+        T::DbWeight::get().reads(1) + 1_000_000
     }
 }
 
@@ -874,14 +889,19 @@ impl<T: Trait> ComplianceManagerTrait<T::Balance> for Module<T> {
         to_did_opt: Option<IdentityId>,
         _value: T::Balance,
         primary_issuance_agent: Option<IdentityId>,
-    ) -> StdResult<u8, &'static str> {
+    ) -> Result<(u8, Weight), DispatchError> {
         // Transfer is valid if ALL receiver AND sender conditions of ANY asset conditions are valid.
         let asset_compliance = Self::asset_compliance(ticker);
+        let mut rules_count: usize = 0;
         if asset_compliance.paused {
-            return Ok(ERC1400_TRANSFER_SUCCESS);
+            return Ok((
+                ERC1400_TRANSFER_SUCCESS,
+                weight_for::weight_for_reading_asset_rules::<T>(),
+            ));
         }
         for requirement in asset_compliance.requirements {
             if let Some(from_did) = from_did_opt {
+                rules_count += active_rule.sender_rules.len();
                 if !Self::are_all_conditions_satisfied(
                     ticker,
                     from_did,
@@ -892,7 +912,9 @@ impl<T: Trait> ComplianceManagerTrait<T::Balance> for Module<T> {
                     continue;
                 }
             }
+
             if let Some(to_did) = to_did_opt {
+                rules_count += active_rule.receiver_rules.len();
                 if Self::are_all_conditions_satisfied(
                     ticker,
                     to_did,
@@ -900,11 +922,17 @@ impl<T: Trait> ComplianceManagerTrait<T::Balance> for Module<T> {
                     primary_issuance_agent,
                 ) {
                     // All conditions satisfied, return early
-                    return Ok(ERC1400_TRANSFER_SUCCESS);
+                    return Ok((
+                        ERC1400_TRANSFER_SUCCESS,
+                        weight_for::weight_for_verify_restriction::<T>(u64::try_from(rules_count).unwrap_or(0)),
+                    ));
                 }
             }
         }
         sp_runtime::print("Identity TM restrictions not satisfied");
-        Ok(ERC1400_TRANSFER_FAILURE)
+        Ok((
+            ERC1400_TRANSFER_FAILURE,
+            weight_for::weight_for_verify_restriction::<T>(u64::try_from(rules_count).unwrap_or(0)),
+        ))
     }
 }
