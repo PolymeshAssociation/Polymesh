@@ -208,12 +208,12 @@ mod tests {
 
     #[test]
     fn existential_operators_test() {
-        let scope = Scope::from(0);
+        let scope = Scope::Identity(IdentityId::from(0));
         let did = IdentityId::from(1);
         let cdd_claim =
             Claim::CustomerDueDiligence(CddId::new(did, InvestorUid::from(b"UID1".as_ref())));
         let context = Context {
-            claims: vec![cdd_claim.clone(), Claim::Affiliate(scope)],
+            claims: vec![cdd_claim.clone(), Claim::Affiliate(scope.clone())],
             id: did,
             ..Default::default()
         };
@@ -228,17 +228,17 @@ mod tests {
 
     #[test]
     fn collection_operators_test() {
-        let scope = Scope::from(0);
+        let scope = Scope::Identity(IdentityId::from(0));
 
         // 1. Check jurisdiction "CAN" belongs to {ESP, CAN, IND}
         let valid_jurisdictions = vec![
-            Claim::Jurisdiction(b"Spain".into(), scope),
-            Claim::Jurisdiction(b"Canada".into(), scope),
-            Claim::Jurisdiction(b"India".into(), scope),
+            Claim::Jurisdiction(b"Spain".into(), scope.clone()),
+            Claim::Jurisdiction(b"Canada".into(), scope.clone()),
+            Claim::Jurisdiction(b"India".into(), scope.clone()),
         ];
 
         let context = Context {
-            claims: vec![Claim::Jurisdiction(b"Canada".into(), scope)],
+            claims: vec![Claim::Jurisdiction(b"Canada".into(), scope.clone())],
             ..Default::default()
         };
         let in_juridisction_pre = predicate::any(&valid_jurisdictions);
@@ -258,24 +258,24 @@ mod tests {
 
     #[test]
     fn run_predicate() {
-        let scope = Scope::from(0);
+        let scope = Scope::Identity(IdentityId::from(0));
 
         let rules: Vec<Rule> = vec![
-            RuleType::IsPresent(Claim::Accredited(scope)).into(),
-            RuleType::IsAbsent(Claim::BuyLockup(scope)).into(),
+            RuleType::IsPresent(Claim::Accredited(scope.clone())).into(),
+            RuleType::IsAbsent(Claim::BuyLockup(scope.clone())).into(),
             RuleType::IsAnyOf(vec![
-                Claim::Jurisdiction(b"USA".into(), scope),
-                Claim::Jurisdiction(b"Canada".into(), scope),
+                Claim::Jurisdiction(b"USA".into(), scope.clone()),
+                Claim::Jurisdiction(b"Canada".into(), scope.clone()),
             ])
             .into(),
-            RuleType::IsNoneOf(vec![Claim::Jurisdiction(b"Cuba".into(), scope)]).into(),
+            RuleType::IsNoneOf(vec![Claim::Jurisdiction(b"Cuba".into(), scope.clone())]).into(),
         ];
 
         // Valid case
         let context = Context {
             claims: vec![
-                Claim::Accredited(scope),
-                Claim::Jurisdiction(b"Canada".into(), scope),
+                Claim::Accredited(scope.clone()),
+                Claim::Jurisdiction(b"Canada".into(), scope.clone()),
             ],
             ..Default::default()
         };
@@ -286,9 +286,9 @@ mod tests {
         // Invalid case: `BuyLockup` is present.
         let context = Context {
             claims: vec![
-                Claim::Accredited(scope),
-                Claim::BuyLockup(scope),
-                Claim::Jurisdiction(b"Canada".into(), scope),
+                Claim::Accredited(scope.clone()),
+                Claim::BuyLockup(scope.clone()),
+                Claim::Jurisdiction(b"Canada".into(), scope.clone()),
             ],
             ..Default::default()
         };
@@ -299,8 +299,8 @@ mod tests {
         // Invalid case: Missing `Accredited`
         let context = Context {
             claims: vec![
-                Claim::BuyLockup(scope),
-                Claim::Jurisdiction(b"Canada".into(), scope),
+                Claim::BuyLockup(scope.clone()),
+                Claim::Jurisdiction(b"Canada".into(), scope.clone()),
             ],
             ..Default::default()
         };
@@ -311,8 +311,8 @@ mod tests {
         // Invalid case: Missing `Jurisdiction`
         let context = Context {
             claims: vec![
-                Claim::Accredited(scope),
-                Claim::Jurisdiction(b"Spain".into(), scope),
+                Claim::Accredited(scope.clone()),
+                Claim::Jurisdiction(b"Spain".into(), scope.clone()),
             ],
             ..Default::default()
         };
@@ -323,7 +323,7 @@ mod tests {
         // Check NoneOf
         let context = Context {
             claims: vec![
-                Claim::Accredited(scope),
+                Claim::Accredited(scope.clone()),
                 Claim::Jurisdiction(b"Cuba".into(), scope),
             ],
             ..Default::default()

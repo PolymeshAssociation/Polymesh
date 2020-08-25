@@ -162,7 +162,7 @@ fn should_add_and_verify_asset_rule_we() {
 
     let receiver_rule2 = Rule {
         issuers: vec![claim_issuer_did],
-        rule_type: RuleType::IsPresent(Claim::Accredited(token_owner_did)),
+        rule_type: RuleType::IsPresent(Claim::Accredited(token_owner_did.into())),
     };
 
     assert_ok!(ComplianceManager::add_active_rule(
@@ -175,7 +175,7 @@ fn should_add_and_verify_asset_rule_we() {
     assert_ok!(Identity::add_claim(
         claim_issuer_signed.clone(),
         token_rec_did,
-        Claim::Accredited(claim_issuer_did),
+        Claim::Accredited(claim_issuer_did.into()),
         None,
     ));
 
@@ -199,7 +199,7 @@ fn should_add_and_verify_asset_rule_we() {
     assert_ok!(Identity::add_claim(
         claim_issuer_signed.clone(),
         token_rec_did,
-        Claim::Accredited(token_owner_did),
+        Claim::Accredited(token_owner_did.into()),
         None,
     ));
 
@@ -808,17 +808,17 @@ fn jurisdiction_asset_rules_we() {
         None,
     ));
     // 2. Set up rules for Asset transfer.
-    let scope = Scope::from(0);
+    let scope = Scope::from(IdentityId::from(0));
     let receiver_rules = vec![
         Rule {
             rule_type: RuleType::IsAnyOf(vec![
-                Claim::Jurisdiction(b"Canada".into(), scope),
-                Claim::Jurisdiction(b"Spain".into(), scope),
+                Claim::Jurisdiction(b"Canada".into(), scope.clone()),
+                Claim::Jurisdiction(b"Spain".into(), scope.clone()),
             ]),
             issuers: vec![cdd_id],
         },
         Rule {
-            rule_type: RuleType::IsAbsent(Claim::Blocked(scope)),
+            rule_type: RuleType::IsAbsent(Claim::Blocked(scope.clone())),
             issuers: vec![token_owner_id],
         },
     ];
@@ -835,7 +835,7 @@ fn jurisdiction_asset_rules_we() {
     assert_ok!(Identity::add_claim(
         cdd_signed.clone(),
         user_id,
-        Claim::Jurisdiction(b"Canada".into(), scope),
+        Claim::Jurisdiction(b"Canada".into(), scope.clone()),
         None
     ));
     assert_valid_transfer!(ticker, token_owner_id, user_id, 10);
@@ -843,7 +843,7 @@ fn jurisdiction_asset_rules_we() {
     assert_ok!(Identity::add_claim(
         token_owner_signed.clone(),
         user_id,
-        Claim::Blocked(scope),
+        Claim::Blocked(scope.clone()),
         None,
     ));
     assert_invalid_transfer!(ticker, token_owner_id, user_id, 10);
@@ -866,9 +866,9 @@ fn scope_asset_rules_we() {
     let (ticker, owner_did) = make_ticker_env(owner, vec![0x01].into());
 
     // 2. Set up rules for Asset transfer.
-    let scope = Identity::get_token_did(&ticker).unwrap();
+    let scope = Scope::Identity(Identity::get_token_did(&ticker).unwrap());
     let receiver_rules = vec![Rule {
-        rule_type: RuleType::IsPresent(Claim::Affiliate(scope)),
+        rule_type: RuleType::IsPresent(Claim::Affiliate(scope.clone())),
         issuers: vec![cdd_id],
     }];
     assert_ok!(ComplianceManager::add_active_rule(
@@ -884,7 +884,7 @@ fn scope_asset_rules_we() {
     assert_ok!(Identity::add_claim(
         cdd_signed.clone(),
         user_id,
-        Claim::Affiliate(scope),
+        Claim::Affiliate(scope.clone()),
         None
     ));
     assert_valid_transfer!(ticker, owner_did, user_id, 10);
@@ -906,13 +906,13 @@ fn cm_test_case_9_we() {
     // 1. Create a token.
     let (ticker, owner_did) = make_ticker_env(AccountKeyring::Alice, vec![0x01].into());
     // 2. Set up rules for Asset transfer.
-    let scope = Identity::get_token_did(&ticker).unwrap();
+    let scope = Scope::Identity(Identity::get_token_did(&ticker).unwrap());
     let receiver_rules = vec![Rule {
         rule_type: RuleType::IsAnyOf(vec![
-            Claim::KnowYourCustomer(scope),
-            Claim::Affiliate(scope),
-            Claim::Accredited(scope),
-            Claim::Exempted(scope),
+            Claim::KnowYourCustomer(scope.clone()),
+            Claim::Affiliate(scope.clone()),
+            Claim::Accredited(scope.clone()),
+            Claim::Exempted(scope.clone()),
         ]),
         issuers: vec![issuer_id],
     }];
@@ -933,7 +933,7 @@ fn cm_test_case_9_we() {
     assert_ok!(Identity::add_claim(
         issuer.clone(),
         charlie,
-        Claim::KnowYourCustomer(scope),
+        Claim::KnowYourCustomer(scope.clone()),
         None
     ));
     assert_valid_transfer!(ticker, owner_did, charlie, 100);
@@ -946,7 +946,7 @@ fn cm_test_case_9_we() {
     assert_ok!(Identity::add_claim(
         issuer.clone(),
         dave,
-        Claim::Affiliate(scope),
+        Claim::Affiliate(scope.clone()),
         None
     ));
     assert_valid_transfer!(ticker, owner_did, dave, 100);
@@ -959,7 +959,7 @@ fn cm_test_case_9_we() {
     assert_ok!(Identity::add_claim(
         issuer.clone(),
         eve,
-        Claim::Exempted(scope),
+        Claim::Exempted(scope.clone()),
         None
     ));
     let result = ComplianceManager::granular_verify_restriction(&ticker, None, Some(eve), None);
@@ -991,21 +991,21 @@ fn cm_test_case_11_we() {
     // 1. Create a token.
     let (ticker, owner_did) = make_ticker_env(AccountKeyring::Alice, vec![0x01].into());
     // 2. Set up rules for Asset transfer.
-    let scope = Identity::get_token_did(&ticker).unwrap();
+    let scope = Scope::Identity(Identity::get_token_did(&ticker).unwrap());
     let receiver_rules = vec![
         Rule {
             rule_type: RuleType::IsAnyOf(vec![
-                Claim::KnowYourCustomer(scope),
-                Claim::Affiliate(scope),
-                Claim::Accredited(scope),
-                Claim::Exempted(scope),
+                Claim::KnowYourCustomer(scope.clone()),
+                Claim::Affiliate(scope.clone()),
+                Claim::Accredited(scope.clone()),
+                Claim::Exempted(scope.clone()),
             ]),
             issuers: vec![issuer_id],
         },
         Rule {
             rule_type: RuleType::IsNoneOf(vec![
-                Claim::Jurisdiction(b"USA".into(), scope),
-                Claim::Jurisdiction(b"North Kore".into(), scope),
+                Claim::Jurisdiction(b"USA".into(), scope.clone()),
+                Claim::Jurisdiction(b"North Kore".into(), scope.clone()),
             ]),
             issuers: vec![issuer_id],
         },
@@ -1026,7 +1026,7 @@ fn cm_test_case_11_we() {
     assert_ok!(Identity::add_claim(
         issuer.clone(),
         charlie,
-        Claim::KnowYourCustomer(scope),
+        Claim::KnowYourCustomer(scope.clone()),
         None
     ));
     assert_valid_transfer!(ticker, owner_did, charlie, 100);
@@ -1040,13 +1040,13 @@ fn cm_test_case_11_we() {
     assert_ok!(Identity::add_claim(
         issuer.clone(),
         dave,
-        Claim::Affiliate(scope),
+        Claim::Affiliate(scope.clone()),
         None
     ));
     assert_ok!(Identity::add_claim(
         issuer.clone(),
         dave,
-        Claim::Jurisdiction(b"USA".into(), scope),
+        Claim::Jurisdiction(b"USA".into(), scope.clone()),
         None
     ));
 
@@ -1061,13 +1061,13 @@ fn cm_test_case_11_we() {
     assert_ok!(Identity::add_claim(
         issuer.clone(),
         eve,
-        Claim::Exempted(scope),
+        Claim::Exempted(scope.clone()),
         None
     ));
     assert_ok!(Identity::add_claim(
         issuer.clone(),
         eve,
-        Claim::Jurisdiction(b"UK".into(), scope),
+        Claim::Jurisdiction(b"UK".into(), scope.clone()),
         None
     ));
 
@@ -1096,24 +1096,24 @@ fn cm_test_case_13_we() {
     // 1. Create a token.
     let (ticker, owner_did) = make_ticker_env(AccountKeyring::Alice, vec![0x01].into());
     // 2. Set up rules for Asset transfer.
-    let scope = Identity::get_token_did(&ticker).unwrap();
+    let scope = Scope::Identity(Identity::get_token_did(&ticker).unwrap());
     let receiver_rules = vec![
         Rule {
-            rule_type: RuleType::IsPresent(Claim::KnowYourCustomer(scope)),
+            rule_type: RuleType::IsPresent(Claim::KnowYourCustomer(scope.clone())),
             issuers: vec![issuer_id],
         },
         Rule {
             rule_type: RuleType::IsAnyOf(vec![
-                Claim::Affiliate(scope),
-                Claim::Accredited(scope),
-                Claim::Exempted(scope),
+                Claim::Affiliate(scope.clone()),
+                Claim::Accredited(scope.clone()),
+                Claim::Exempted(scope.clone()),
             ]),
             issuers: vec![issuer_id],
         },
         Rule {
             rule_type: RuleType::IsNoneOf(vec![
-                Claim::Jurisdiction(b"USA".into(), scope),
-                Claim::Jurisdiction(b"North Kore".into(), scope),
+                Claim::Jurisdiction(b"USA".into(), scope.clone()),
+                Claim::Jurisdiction(b"North Kore".into(), scope.clone()),
             ]),
             issuers: vec![issuer_id],
         },
@@ -1135,7 +1135,7 @@ fn cm_test_case_13_we() {
     assert_ok!(Identity::add_claim(
         issuer.clone(),
         charlie,
-        Claim::KnowYourCustomer(scope),
+        Claim::KnowYourCustomer(scope.clone()),
         None
     ));
 
@@ -1151,17 +1151,17 @@ fn cm_test_case_13_we() {
     let dave_claims = vec![
         BatchAddClaimItem::<Moment> {
             target: dave,
-            claim: Claim::Exempted(scope),
+            claim: Claim::Exempted(scope.clone()),
             expiry: None,
         },
         BatchAddClaimItem::<Moment> {
             target: dave,
-            claim: Claim::KnowYourCustomer(scope),
+            claim: Claim::KnowYourCustomer(scope.clone()),
             expiry: None,
         },
         BatchAddClaimItem::<Moment> {
             target: dave,
-            claim: Claim::Jurisdiction(b"USA".into(), scope),
+            claim: Claim::Jurisdiction(b"USA".into(), scope.clone()),
             expiry: None,
         },
     ];
@@ -1180,17 +1180,17 @@ fn cm_test_case_13_we() {
     let eve_claims = vec![
         BatchAddClaimItem::<Moment> {
             target: eve,
-            claim: Claim::Exempted(scope),
+            claim: Claim::Exempted(scope.clone()),
             expiry: None,
         },
         BatchAddClaimItem::<Moment> {
             target: eve,
-            claim: Claim::KnowYourCustomer(scope),
+            claim: Claim::KnowYourCustomer(scope.clone()),
             expiry: None,
         },
         BatchAddClaimItem::<Moment> {
             target: eve,
-            claim: Claim::Jurisdiction(b"UK".into(), scope),
+            claim: Claim::Jurisdiction(b"UK".into(), scope.clone()),
             expiry: None,
         },
     ];
@@ -1328,7 +1328,7 @@ fn should_limit_rules_complexity_we() {
         ..Default::default()
     };
     let ticker = Ticker::try_from(token.name.0.as_slice()).unwrap();
-    let scope = Identity::get_token_did(&ticker).unwrap();
+    let scope = Scope::Identity(Identity::get_token_did(&ticker).unwrap());
     Balances::make_free_balance_be(&token_owner_acc, 1_000_000);
 
     // Share issuance is successful
@@ -1345,7 +1345,7 @@ fn should_limit_rules_complexity_we() {
 
     let rules_with_issuer = vec![
         Rule {
-            rule_type: RuleType::IsPresent(Claim::KnowYourCustomer(scope)),
+            rule_type: RuleType::IsPresent(Claim::KnowYourCustomer(scope.clone())),
             issuers: vec![token_owner_did],
         };
         30
@@ -1353,7 +1353,7 @@ fn should_limit_rules_complexity_we() {
 
     let rules_without_issuers = vec![
         Rule {
-            rule_type: RuleType::IsPresent(Claim::KnowYourCustomer(scope)),
+            rule_type: RuleType::IsPresent(Claim::KnowYourCustomer(scope.clone())),
             issuers: vec![],
         };
         15

@@ -146,6 +146,12 @@ pub struct Claim2ndKey {
     pub scope: Option<Scope>,
 }
 
+#[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, PartialOrd, Ord)]
+pub struct Claim2ndKeyOld {
+    pub issuer: IdentityId,
+    pub scope: Option<IdentityId>,
+}
+
 #[derive(Encode, Decode, Clone, PartialEq, Eq, Default, Debug)]
 pub struct BatchAddClaimItem<M> {
     pub target: IdentityId,
@@ -267,6 +273,15 @@ decl_module! {
         fn deposit_event() = default;
 
         fn on_runtime_upgrade() -> Weight {
+            use frame_support::migration::{StorageIterator, put_storage_value};
+            // Covert old scopes to new scopes
+            for (key, value) in StorageIterator::<Claim2ndKeyOld>::new(b"Identity", b"Claims").drain() {
+                let new = Claim2ndKey {
+                    issuer: value.issuer,
+                    scope: value.scope.map(|scope| Scope::Identity(scope)),
+                };
+                put_storage_value(b"Identity", b"Claims", &key, new);
+            }
             // Rename "master" to "primary".
             <CddAuthForPrimaryKeyRotation>::put(<CddAuthForMasterKeyRotation>::take());
             // 3 writes
@@ -1818,7 +1833,7 @@ impl<T: Trait> Module<T> {
         let claim_type = claim.claim_type();
         let scope = claim.as_scope().cloned();
         let last_update_date = <pallet_timestamp::Module<T>>::get().saturated_into::<u64>();
-        let issuance_date = Self::fetch_claim(target, claim_type, issuer, scope)
+        let issuance_date = Self::fetch_claim(target, claim_type, issuer, scope.clone())
             .map_or(last_update_date, |id_claim| id_claim.issuance_date);
 
         let expiry = expiry.into_iter().map(|m| m.saturated_into::<u64>()).next();

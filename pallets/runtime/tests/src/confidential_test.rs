@@ -10,7 +10,7 @@ use pallet_confidential as confidential;
 use pallet_identity::{self as identity, Error};
 use polymesh_common_utilities::constants::ERC1400_TRANSFER_SUCCESS;
 use polymesh_primitives::{
-    Claim, IdentityId, InvestorUid, InvestorZKProofData, Rule, RuleType, Ticker,
+    Claim, IdentityId, InvestorUid, InvestorZKProofData, Rule, RuleType, Scope, Ticker,
 };
 
 use core::convert::TryFrom;
@@ -127,7 +127,7 @@ fn scope_claims_we() {
     ));
 
     // 2. Alice defines the asset complain rules.
-    let st_scope = IdentityId::try_from(st_id.as_slice()).unwrap();
+    let st_scope = Scope::Identity(IdentityId::try_from(st_id.as_slice()).unwrap());
     let sender_rules = vec![];
     let receiver_rules = vec![Rule::from(RuleType::HasValidProofOfInvestor(st_id))];
     assert_ok!(ComplianceManager::add_active_rule(
@@ -146,7 +146,7 @@ fn scope_claims_we() {
     let cdd_id_1 = compute_cdd_id(&cdd_claim_1).compress().to_bytes().into();
 
     let conf_scope_claim_1 =
-        Claim::InvestorZKProof(st_scope, scope_id, cdd_id_1, inv_1_proof.clone());
+        Claim::InvestorZKProof(st_scope.clone(), scope_id, cdd_id_1, inv_1_proof.clone());
 
     assert_ok!(Identity::add_claim(
         Origin::signed(inv_acc_1),
@@ -159,7 +159,7 @@ fn scope_claims_we() {
     let cdd_claim_2 = InvestorZKProofData::make_cdd_claim(&inv_did_2, &investor);
     let cdd_id_2 = compute_cdd_id(&cdd_claim_2).compress().to_bytes().into();
 
-    let conf_scope_claim_2 = Claim::InvestorZKProof(st_scope, scope_id, cdd_id_2, inv_2_proof);
+    let conf_scope_claim_2 = Claim::InvestorZKProof(st_scope.clone(), scope_id, cdd_id_2, inv_2_proof);
     assert_ok!(Identity::add_claim(
         Origin::signed(inv_acc_2),
         inv_did_2,
@@ -214,7 +214,7 @@ fn scope_claims_we() {
         None,
     ));
 
-    let st_scope = IdentityId::try_from(st2_id.as_slice()).unwrap();
+    let st_scope = Scope::Identity(IdentityId::try_from(st2_id.as_slice()).unwrap());
     let corrupted_scope_claim = InvestorZKProofData::make_scope_claim(&st2_id, &investor);
     let corrupted_scope_id = compute_scope_id(&corrupted_scope_claim)
         .compress()

@@ -13,7 +13,7 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
-use crate::{identity_id::IdentityId, CddId, InvestorZKProofData, Moment};
+use crate::{identity_id::IdentityId, CddId, InvestorZKProofData, Moment, Ticker};
 use polymesh_primitives_derive::VecU8StrongTyped;
 
 use codec::{Decode, Encode};
@@ -22,10 +22,38 @@ use sp_runtime::{Deserialize, Serialize};
 
 use sp_std::prelude::*;
 
-/// Scope: Almost all claim needs a valid scope identity.
-pub type Scope = IdentityId;
 /// It is the asset Id.
-pub type ScopeId = Scope;
+pub type ScopeId = IdentityId;
+
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+#[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, PartialOrd, Ord)]
+/// Scope: Almost all claim needs a valid scope.
+pub enum Scope {
+    /// Scoped to an Identity
+    Identity(IdentityId),
+    /// Scoped to an Ticker
+    Ticker(Ticker),
+    /// Scoped to arbitrary bytes
+    Custom(Vec<u8>),
+}
+
+impl From<IdentityId> for Scope {
+    fn from(did: IdentityId) -> Self {
+        Self::Identity(did)
+    }
+}
+
+impl From<Ticker> for Scope {
+    fn from(ticker: Ticker) -> Self {
+        Self::Ticker(ticker)
+    }
+}
+
+impl From<Vec<u8>> for Scope {
+    fn from(vec: Vec<u8>) -> Self {
+        Self::Custom(vec)
+    }
+}
 
 /// All possible claims in polymesh
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
