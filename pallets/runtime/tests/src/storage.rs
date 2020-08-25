@@ -1,4 +1,7 @@
-use super::ext_builder::{EXTRINSIC_BASE_WEIGHT, TRANSACTION_BYTE_FEE, WEIGHT_TO_FEE, MAX_NO_OF_TM_ALLOWED, MAX_NO_OF_LEGS};
+use super::ext_builder::{
+    EXTRINSIC_BASE_WEIGHT, MAX_NO_OF_LEGS, MAX_NO_OF_TM_ALLOWED, TRANSACTION_BYTE_FEE,
+    WEIGHT_TO_FEE,
+};
 use codec::Encode;
 use frame_support::{
     assert_ok,

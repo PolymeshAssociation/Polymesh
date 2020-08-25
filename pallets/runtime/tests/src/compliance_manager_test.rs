@@ -39,7 +39,8 @@ macro_rules! assert_invalid_transfer {
                 Some($from),
                 Some($to),
                 $amount
-            ).map(|(a, _)| a),
+            )
+            .map(|(a, _)| a),
             Ok(ERC1400_TRANSFER_SUCCESS)
         );
     };
@@ -54,7 +55,8 @@ macro_rules! assert_valid_transfer {
                 Some($from),
                 Some($to),
                 $amount
-            ).map(|(a, _)| a),
+            )
+            .map(|(a, _)| a),
             Ok(ERC1400_TRANSFER_SUCCESS)
         );
     };
@@ -251,9 +253,19 @@ fn should_add_and_verify_asset_rule_we() {
             vec![receiver_rule1.clone(), receiver_rule2.clone()],
         );
     }
-    assert_ok!(ComplianceManager::remove_active_rule(token_owner_signed.clone(), ticker, 1)); // OK; latest == 3
-    assert_err!(ComplianceManager::remove_active_rule(token_owner_signed.clone(), ticker, 1), CMError::<TestStorage>::InvalidRuleId); // BAD OK; latest == 3, but 1 was just removed.
-    assert_noop!(ComplianceManager::remove_active_rule(token_owner_signed.clone(), ticker, 1), CMError::<TestStorage>::InvalidRuleId);
+    assert_ok!(ComplianceManager::remove_active_rule(
+        token_owner_signed.clone(),
+        ticker,
+        1
+    )); // OK; latest == 3
+    assert_err!(
+        ComplianceManager::remove_active_rule(token_owner_signed.clone(), ticker, 1),
+        CMError::<TestStorage>::InvalidRuleId
+    ); // BAD OK; latest == 3, but 1 was just removed.
+    assert_noop!(
+        ComplianceManager::remove_active_rule(token_owner_signed.clone(), ticker, 1),
+        CMError::<TestStorage>::InvalidRuleId
+    );
 }
 
 #[test]
@@ -1264,7 +1276,8 @@ fn can_verify_restriction_with_primary_issuance_agent_we() {
             Some(issuer_id),
             amount,
             Some(issuer_id)
-        ).map(|(a, _)| a),
+        )
+        .map(|(a, _)| a),
         ERC1400_TRANSFER_FAILURE
     );
 
@@ -1290,7 +1303,8 @@ fn can_verify_restriction_with_primary_issuance_agent_we() {
             Some(random_guy_id),
             amount,
             Some(issuer_id)
-        ).map(|(a, _)| a),
+        )
+        .map(|(a, _)| a),
         ERC1400_TRANSFER_SUCCESS
     );
 
@@ -1302,7 +1316,8 @@ fn can_verify_restriction_with_primary_issuance_agent_we() {
             Some(owner_id),
             amount,
             Some(issuer_id)
-        ).map(|(a, _)| a),
+        )
+        .map(|(a, _)| a),
         ERC1400_TRANSFER_FAILURE
     );
 
@@ -1314,7 +1329,8 @@ fn can_verify_restriction_with_primary_issuance_agent_we() {
             Some(issuer_id),
             amount,
             Some(issuer_id)
-        ).map(|(a, _)| a),
+        )
+        .map(|(a, _)| a),
         ERC1400_TRANSFER_FAILURE
     );
 }

@@ -1,5 +1,8 @@
 use crate::{
-    storage::{add_secondary_key, register_keyring_account, account_from, make_account_without_cdd, AccountId, TestStorage},
+    storage::{
+        account_from, add_secondary_key, make_account_without_cdd, register_keyring_account,
+        AccountId, TestStorage,
+    },
     ExtBuilder,
 };
 
@@ -11,16 +14,17 @@ use pallet_balances as balances;
 use pallet_compliance_manager as compliance_manager;
 use pallet_identity as identity;
 use pallet_statistics as statistics;
-use polymesh_common_utilities::{constants::*, traits::balances::Memo, compliance_manager::Trait};
+use polymesh_common_utilities::{compliance_manager::Trait, constants::*, traits::balances::Memo};
 use polymesh_primitives::{
-    AuthorizationData, Document, DocumentName, IdentityId, Signatory, SmartExtension,
-    SmartExtensionType, Ticker, SmartExtensionName, Claim, Rule, RuleType
+    AuthorizationData, Claim, Document, DocumentName, IdentityId, Rule, RuleType, Signatory,
+    SmartExtension, SmartExtensionName, SmartExtensionType, Ticker,
 };
 
 use chrono::prelude::Utc;
 use codec::Encode;
 use frame_support::{
-    assert_err, assert_noop, assert_ok, traits::Currency, StorageDoubleMap, StorageMap, dispatch::DispatchResult
+    assert_err, assert_noop, assert_ok, dispatch::DispatchResult, traits::Currency,
+    StorageDoubleMap, StorageMap,
 };
 use hex_literal::hex;
 use ink_primitives::hash as FunctionSelectorHasher;
@@ -43,30 +47,22 @@ type Statistics = statistics::Module<TestStorage>;
 
 macro_rules! assert_add_claim {
     ($signer:expr, $target:expr, $claim:expr) => {
-        assert_ok!(
-            Identity::add_claim(
-                $signer,
-                $target,
-                $claim,
-                None,
-            )
-        );
+        assert_ok!(Identity::add_claim($signer, $target, $claim, None,));
     };
 }
 
 macro_rules! assert_revoke_claim {
     ($signer:expr, $target:expr, $claim:expr) => {
-        assert_ok!(
-            Identity::revoke_claim(
-                $signer,
-                $target,
-                $claim,
-            )
-        );
+        assert_ok!(Identity::revoke_claim($signer, $target, $claim,));
     };
 }
 
-fn smart_extension_addition(account_id: AccountId, extension_name: SmartExtensionName, signer: Origin, ticker: Ticker) -> DispatchResult{
+fn smart_extension_addition(
+    account_id: AccountId,
+    extension_name: SmartExtensionName,
+    signer: Origin,
+    ticker: Ticker,
+) -> DispatchResult {
     let extension_details = SmartExtension {
         extension_type: SmartExtensionType::TransferManager,
         extension_name: extension_name,
@@ -74,11 +70,7 @@ fn smart_extension_addition(account_id: AccountId, extension_name: SmartExtensio
         is_archive: false,
     };
 
-    Asset::add_extension(
-        signer,
-        ticker,
-        extension_details.clone(),
-    )
+    Asset::add_extension(signer, ticker, extension_details.clone())
 }
 
 #[test]
@@ -1144,139 +1136,157 @@ fn adding_removing_documents() {
 #[test]
 fn add_extension_successfully() {
     ExtBuilder::default()
-    .set_max_tms_allowed(2)
-    .build()
-    .execute_with(|| {
-        let owner_signed = Origin::signed(AccountKeyring::Dave.public());
-        let _ = register_keyring_account(AccountKeyring::Dave).unwrap();
+        .set_max_tms_allowed(2)
+        .build()
+        .execute_with(|| {
+            let owner_signed = Origin::signed(AccountKeyring::Dave.public());
+            let _ = register_keyring_account(AccountKeyring::Dave).unwrap();
 
-        // Expected token entry
-        let token = SecurityToken {
-            name: b"TEST".into(),
-            total_supply: 1_000_000,
-            divisible: true,
-            asset_type: AssetType::default(),
-            ..Default::default()
-        };
+            // Expected token entry
+            let token = SecurityToken {
+                name: b"TEST".into(),
+                total_supply: 1_000_000,
+                divisible: true,
+                asset_type: AssetType::default(),
+                ..Default::default()
+            };
 
-        let ticker = Ticker::try_from(token.name.as_slice()).unwrap();
-        assert!(!<DidRecords>::contains_key(
-            Identity::get_token_did(&ticker).unwrap()
-        ));
-        let identifier_value1 = b"ABC123";
-        let identifiers = vec![(IdentifierType::Cusip, identifier_value1.into())];
-        assert_ok!(Asset::create_asset(
-            owner_signed.clone(),
-            token.name.clone(),
-            ticker,
-            token.total_supply,
-            true,
-            token.asset_type.clone(),
-            identifiers.clone(),
-            None,
-        ));
+            let ticker = Ticker::try_from(token.name.as_slice()).unwrap();
+            assert!(!<DidRecords>::contains_key(
+                Identity::get_token_did(&ticker).unwrap()
+            ));
+            let identifier_value1 = b"ABC123";
+            let identifiers = vec![(IdentifierType::Cusip, identifier_value1.into())];
+            assert_ok!(Asset::create_asset(
+                owner_signed.clone(),
+                token.name.clone(),
+                ticker,
+                token.total_supply,
+                true,
+                token.asset_type.clone(),
+                identifiers.clone(),
+                None,
+            ));
 
-        // Add smart extension
-        let extension_name_1: SmartExtensionName = b"PTM1".into();
-        let extension_name_2 = b"PTM2".into();
-        let extension_name_3 = b"PTM3".into();
-        let extension_id_1 = account_from(1);
-        let extension_id_2 = account_from(2);
-        let extension_id_3 = account_from(3);
+            // Add smart extension
+            let extension_name_1: SmartExtensionName = b"PTM1".into();
+            let extension_name_2 = b"PTM2".into();
+            let extension_name_3 = b"PTM3".into();
+            let extension_id_1 = account_from(1);
+            let extension_id_2 = account_from(2);
+            let extension_id_3 = account_from(3);
 
-        assert_ok!(smart_extension_addition(extension_id_1, extension_name_1.clone(), owner_signed.clone(), ticker));
-        assert_ok!(smart_extension_addition(extension_id_2, extension_name_2, owner_signed.clone(), ticker));
+            assert_ok!(smart_extension_addition(
+                extension_id_1,
+                extension_name_1.clone(),
+                owner_signed.clone(),
+                ticker
+            ));
+            assert_ok!(smart_extension_addition(
+                extension_id_2,
+                extension_name_2,
+                owner_signed.clone(),
+                ticker
+            ));
 
-        // verify the data within the runtime
-        assert_eq!(
-            Asset::extension_details((ticker, extension_id_1)).extension_name,
-            extension_name_1
-        );
-        assert_eq!(
-            (Asset::extensions((ticker, SmartExtensionType::TransferManager))).len(),
-            2
-        );
-        assert_eq!(
-            (Asset::extensions((ticker, SmartExtensionType::TransferManager)))[0],
-            extension_id_1
-        );
+            // verify the data within the runtime
+            assert_eq!(
+                Asset::extension_details((ticker, extension_id_1)).extension_name,
+                extension_name_1
+            );
+            assert_eq!(
+                (Asset::extensions((ticker, SmartExtensionType::TransferManager))).len(),
+                2
+            );
+            assert_eq!(
+                (Asset::extensions((ticker, SmartExtensionType::TransferManager)))[0],
+                extension_id_1
+            );
 
-        assert_err!(smart_extension_addition(extension_id_3, extension_name_3, owner_signed.clone(), ticker), AssetError::MaximumTMExtensionLimitReached);
-    });
+            assert_err!(
+                smart_extension_addition(
+                    extension_id_3,
+                    extension_name_3,
+                    owner_signed.clone(),
+                    ticker
+                ),
+                AssetError::MaximumTMExtensionLimitReached
+            );
+        });
 }
 
 #[test]
 fn add_same_extension_should_fail() {
     ExtBuilder::default()
-    .set_max_tms_allowed(10)
-    .build()
-    .execute_with(|| {
-        let owner_signed = Origin::signed(AccountKeyring::Dave.public());
-        let owner_did = register_keyring_account(AccountKeyring::Dave).unwrap();
+        .set_max_tms_allowed(10)
+        .build()
+        .execute_with(|| {
+            let owner_signed = Origin::signed(AccountKeyring::Dave.public());
+            let owner_did = register_keyring_account(AccountKeyring::Dave).unwrap();
 
-        // Expected token entry
-        let token = SecurityToken {
-            name: b"TEST".into(),
-            owner_did,
-            total_supply: 1_000_000,
-            divisible: true,
-            asset_type: AssetType::default(),
-            ..Default::default()
-        };
+            // Expected token entry
+            let token = SecurityToken {
+                name: b"TEST".into(),
+                owner_did,
+                total_supply: 1_000_000,
+                divisible: true,
+                asset_type: AssetType::default(),
+                ..Default::default()
+            };
 
-        let ticker = Ticker::try_from(token.name.as_slice()).unwrap();
-        assert!(!<DidRecords>::contains_key(
-            Identity::get_token_did(&ticker).unwrap()
-        ));
-        let identifier_value1 = b"ABC123";
-        let identifiers = vec![(IdentifierType::Cusip, identifier_value1.into())];
-        assert_ok!(Asset::create_asset(
-            owner_signed.clone(),
-            token.name.clone(),
-            ticker,
-            token.total_supply,
-            true,
-            token.asset_type.clone(),
-            identifiers.clone(),
-            None,
-        ));
+            let ticker = Ticker::try_from(token.name.as_slice()).unwrap();
+            assert!(!<DidRecords>::contains_key(
+                Identity::get_token_did(&ticker).unwrap()
+            ));
+            let identifier_value1 = b"ABC123";
+            let identifiers = vec![(IdentifierType::Cusip, identifier_value1.into())];
+            assert_ok!(Asset::create_asset(
+                owner_signed.clone(),
+                token.name.clone(),
+                ticker,
+                token.total_supply,
+                true,
+                token.asset_type.clone(),
+                identifiers.clone(),
+                None,
+            ));
 
-        // Add smart extension
-        let extension_name = b"PTM".into();
-        let extension_id = AccountKeyring::Bob.public();
+            // Add smart extension
+            let extension_name = b"PTM".into();
+            let extension_id = AccountKeyring::Bob.public();
 
-        let extension_details = SmartExtension {
-            extension_type: SmartExtensionType::TransferManager,
-            extension_name,
-            extension_id: extension_id.clone(),
-            is_archive: false,
-        };
+            let extension_details = SmartExtension {
+                extension_type: SmartExtensionType::TransferManager,
+                extension_name,
+                extension_id: extension_id.clone(),
+                is_archive: false,
+            };
 
-        assert_ok!(Asset::add_extension(
-            owner_signed.clone(),
-            ticker,
-            extension_details.clone()
-        ));
+            assert_ok!(Asset::add_extension(
+                owner_signed.clone(),
+                ticker,
+                extension_details.clone()
+            ));
 
-        // verify the data within the runtime
-        assert_eq!(
-            Asset::extension_details((ticker, extension_id)),
-            extension_details.clone()
-        );
-        assert_eq!(
-            (Asset::extensions((ticker, SmartExtensionType::TransferManager))).len(),
-            1
-        );
-        assert_eq!(
-            (Asset::extensions((ticker, SmartExtensionType::TransferManager)))[0],
-            extension_id
-        );
+            // verify the data within the runtime
+            assert_eq!(
+                Asset::extension_details((ticker, extension_id)),
+                extension_details.clone()
+            );
+            assert_eq!(
+                (Asset::extensions((ticker, SmartExtensionType::TransferManager))).len(),
+                1
+            );
+            assert_eq!(
+                (Asset::extensions((ticker, SmartExtensionType::TransferManager)))[0],
+                extension_id
+            );
 
-        assert_err!(
-            Asset::add_extension(owner_signed.clone(), ticker, extension_details),
-            AssetError::ExtensionAlreadyPresent
-        );
-    });
+            assert_err!(
+                Asset::add_extension(owner_signed.clone(), ticker, extension_details),
+                AssetError::ExtensionAlreadyPresent
+            );
+        });
 }
 
 #[test]
@@ -2005,85 +2015,90 @@ fn can_set_primary_issuance_agent_we() {
 
 #[test]
 fn test_weights_for_is_valid_transfer() {
-
     ExtBuilder::default()
-    .set_max_tms_allowed(4)
-    .build()
-    .execute_with(|| {
-        let alice = AccountKeyring::Alice.public();
-        let (alice_signed, alice_did) = make_account_without_cdd(alice).unwrap();
+        .set_max_tms_allowed(4)
+        .build()
+        .execute_with(|| {
+            let alice = AccountKeyring::Alice.public();
+            let (alice_signed, alice_did) = make_account_without_cdd(alice).unwrap();
 
-        let bob = AccountKeyring::Bob.public();
-        let (bob_signed, bob_did) = make_account_without_cdd(bob).unwrap();
+            let bob = AccountKeyring::Bob.public();
+            let (bob_signed, bob_did) = make_account_without_cdd(bob).unwrap();
 
-        let charlie = AccountKeyring::Charlie.public();
-        let (charlie_signed, charlie_did) = make_account_without_cdd(charlie).unwrap();
-        
-        let eve = AccountKeyring::Eve.public();
-        let (eve_signed, eve_did) = make_account_without_cdd(eve).unwrap();
+            let charlie = AccountKeyring::Charlie.public();
+            let (charlie_signed, charlie_did) = make_account_without_cdd(charlie).unwrap();
 
-        let token = SecurityToken {
-            name: vec![0x01].into(),
-            owner_did: alice_did,
-            total_supply: 1_000_000_000,
-            divisible: true,
-            asset_type: AssetType::default(),
-            primary_issuance_agent: Some(alice_did),
-            ..Default::default()
-        };
-        let ticker = Ticker::try_from(token.name.as_slice()).unwrap();
+            let eve = AccountKeyring::Eve.public();
+            let (eve_signed, eve_did) = make_account_without_cdd(eve).unwrap();
 
-        // Get token Id.
-        let ticker_id = Identity::get_token_did(&ticker).unwrap();
-    
-        assert_ok!(Asset::create_asset(
-            alice_signed.clone(),
-            token.name.clone(),
-            ticker,
-            token.total_supply,
-            true,
-            token.asset_type.clone(),
-            vec![],
-            None,
-        ));
+            let token = SecurityToken {
+                name: vec![0x01].into(),
+                owner_did: alice_did,
+                total_supply: 1_000_000_000,
+                divisible: true,
+                asset_type: AssetType::default(),
+                primary_issuance_agent: Some(alice_did),
+                ..Default::default()
+            };
+            let ticker = Ticker::try_from(token.name.as_slice()).unwrap();
 
-        // Adding different claim rules 
-        assert_ok!(ComplianceManager::add_active_rule(
-            alice_signed.clone(),
-            ticker,
-            vec![
-                Rule {
-                    rule_type: RuleType::IsPresent(Claim::Accredited(ticker_id)),
-                    issuers: vec![eve_did]
-                },
-                Rule {
-                    rule_type: RuleType::IsAbsent(Claim::BuyLockup(ticker_id)),
-                    issuers: vec![eve_did]
-                }
-            ],
-            vec![
-                Rule {
-                    rule_type: RuleType::IsPresent(Claim::Accredited(ticker_id)),
-                    issuers: vec![eve_did]
-                },
-                Rule {
-                    rule_type: RuleType::IsAnyOf(vec![Claim::BuyLockup(ticker_id), Claim::KnowYourCustomer(ticker_id)]),
-                    issuers: vec![eve_did]
-                }
-            ]
-        ));
+            // Get token Id.
+            let ticker_id = Identity::get_token_did(&ticker).unwrap();
 
-        // Providing claim to sender and receiver
-        // For Alice
-        assert_add_claim!(eve_signed.clone(), alice_did, Claim::Accredited(alice_did));
-        assert_add_claim!(eve_signed.clone(), alice_did, Claim::BuyLockup(ticker_id));
-        // For Bob
-        assert_add_claim!(eve_signed.clone(), bob_did, Claim::Accredited(ticker_id));
-        assert_add_claim!(eve_signed.clone(), bob_did, Claim::KnowYourCustomer(ticker_id));
+            assert_ok!(Asset::create_asset(
+                alice_signed.clone(),
+                token.name.clone(),
+                ticker,
+                token.total_supply,
+                true,
+                token.asset_type.clone(),
+                vec![],
+                None,
+            ));
 
-        // Add Tms
-        assert_ok!(
-            Asset::add_extension(
+            // Adding different claim rules
+            assert_ok!(ComplianceManager::add_active_rule(
+                alice_signed.clone(),
+                ticker,
+                vec![
+                    Rule {
+                        rule_type: RuleType::IsPresent(Claim::Accredited(ticker_id)),
+                        issuers: vec![eve_did]
+                    },
+                    Rule {
+                        rule_type: RuleType::IsAbsent(Claim::BuyLockup(ticker_id)),
+                        issuers: vec![eve_did]
+                    }
+                ],
+                vec![
+                    Rule {
+                        rule_type: RuleType::IsPresent(Claim::Accredited(ticker_id)),
+                        issuers: vec![eve_did]
+                    },
+                    Rule {
+                        rule_type: RuleType::IsAnyOf(vec![
+                            Claim::BuyLockup(ticker_id),
+                            Claim::KnowYourCustomer(ticker_id)
+                        ]),
+                        issuers: vec![eve_did]
+                    }
+                ]
+            ));
+
+            // Providing claim to sender and receiver
+            // For Alice
+            assert_add_claim!(eve_signed.clone(), alice_did, Claim::Accredited(alice_did));
+            assert_add_claim!(eve_signed.clone(), alice_did, Claim::BuyLockup(ticker_id));
+            // For Bob
+            assert_add_claim!(eve_signed.clone(), bob_did, Claim::Accredited(ticker_id));
+            assert_add_claim!(
+                eve_signed.clone(),
+                bob_did,
+                Claim::KnowYourCustomer(ticker_id)
+            );
+
+            // Add Tms
+            assert_ok!(Asset::add_extension(
                 alice_signed.clone(),
                 ticker,
                 SmartExtension {
@@ -2092,11 +2107,9 @@ fn test_weights_for_is_valid_transfer() {
                     extension_id: account_from(1),
                     is_archive: false
                 }
-            )
-        );
+            ));
 
-        assert_ok!(
-            Asset::add_extension(
+            assert_ok!(Asset::add_extension(
                 alice_signed.clone(),
                 ticker,
                 SmartExtension {
@@ -2105,54 +2118,164 @@ fn test_weights_for_is_valid_transfer() {
                     extension_id: account_from(2),
                     is_archive: false
                 }
+            ));
+
+            // call is_valid_transfer()
+            let result =
+                Asset::_is_valid_transfer(&ticker, alice, Some(alice_did), Some(bob_did), 100)
+                    .unwrap()
+                    .1;
+            let weight_from_verify_transfer = ComplianceManager::verify_restriction(
+                &ticker,
+                Some(alice_did),
+                Some(bob_did),
+                100,
+                Some(alice_did),
             )
-        );
+            .unwrap()
+            .1;
+            assert!(matches!(result, weight_from_verify_transfer)); // Only sender rules are processed.
 
-        // call is_valid_transfer()
-        let result = Asset::_is_valid_transfer(&ticker, alice, Some(alice_did), Some(bob_did), 100).unwrap().1;
-        let weight_from_verify_transfer = ComplianceManager::verify_restriction(&ticker, Some(alice_did), Some(bob_did), 100, Some(alice_did)).unwrap().1;
-        assert!(matches!(result, weight_from_verify_transfer)); // Only sender rules are processed.
+            assert_revoke_claim!(eve_signed.clone(), alice_did, Claim::BuyLockup(ticker_id));
+            assert_add_claim!(eve_signed.clone(), alice_did, Claim::Accredited(ticker_id));
 
-        assert_revoke_claim!(eve_signed.clone(), alice_did, Claim::BuyLockup(ticker_id));
-        assert_add_claim!(eve_signed.clone(), alice_did, Claim::Accredited(ticker_id));
+            let result =
+                Asset::_is_valid_transfer(&ticker, alice, Some(alice_did), Some(bob_did), 100)
+                    .unwrap()
+                    .1;
+            let weight_from_verify_transfer = ComplianceManager::verify_restriction(
+                &ticker,
+                Some(alice_did),
+                Some(bob_did),
+                100,
+                Some(alice_did),
+            )
+            .unwrap()
+            .1;
+            let computed_weight =
+                Asset::compute_transfer_result(false, 2, weight_from_verify_transfer).1;
+            assert!(matches!(result, computed_weight)); // Sender & receiver rules are processed.
 
-        let result = Asset::_is_valid_transfer(&ticker, alice, Some(alice_did), Some(bob_did), 100).unwrap().1;
-        let weight_from_verify_transfer = ComplianceManager::verify_restriction(&ticker, Some(alice_did), Some(bob_did), 100, Some(alice_did)).unwrap().1;
-        let computed_weight = Asset::compute_transfer_result(false, 2, weight_from_verify_transfer).1;
-        assert!(matches!(result, computed_weight)); // Sender & receiver rules are processed.
-
-        // Adding different claim rules 
-        assert_ok!(ComplianceManager::add_active_rule(
-            alice_signed.clone(),
-            ticker,
-            vec![
-                Rule {
+            // Adding different claim rules
+            assert_ok!(ComplianceManager::add_active_rule(
+                alice_signed.clone(),
+                ticker,
+                vec![Rule {
                     rule_type: RuleType::IsPresent(Claim::Exempted(ticker_id)),
                     issuers: vec![eve_did]
-                }
-            ],
-            vec![
-                Rule {
+                }],
+                vec![Rule {
                     rule_type: RuleType::IsPresent(Claim::Blocked(ticker_id)),
                     issuers: vec![eve_did]
+                }]
+            ));
+
+            let result =
+                Asset::_is_valid_transfer(&ticker, alice, Some(alice_did), Some(bob_did), 100)
+                    .unwrap();
+            let verify_restriction_result = ComplianceManager::verify_restriction(
+                &ticker,
+                Some(alice_did),
+                Some(bob_did),
+                100,
+                Some(alice_did),
+            )
+            .unwrap();
+            let weight_from_verify_transfer = verify_restriction_result.1;
+            assert_eq!(verify_restriction_result.0, 81);
+            let computed_weight =
+                Asset::compute_transfer_result(false, 2, weight_from_verify_transfer).1;
+            let transfer_weight = result.1;
+            assert!(matches!(transfer_weight, computed_weight)); // Sender & receiver rules are processed.
+
+            // pause transfer rules
+            assert_ok!(ComplianceManager::pause_asset_rules(alice_signed, ticker));
+
+            let result =
+                Asset::_is_valid_transfer(&ticker, alice, Some(alice_did), Some(bob_did), 100)
+                    .unwrap();
+            let weight_from_verify_transfer = ComplianceManager::verify_restriction(
+                &ticker,
+                Some(alice_did),
+                Some(bob_did),
+                100,
+                Some(alice_did),
+            )
+            .unwrap()
+            .1;
+            let computed_weight =
+                Asset::compute_transfer_result(false, 2, weight_from_verify_transfer).1;
+            assert!(matches!(transfer_weight, computed_weight));
+        });
+}
+
+#[test]
+fn check_functionality_of_remove_extension() {
+    ExtBuilder::default()
+        .set_max_tms_allowed(5)
+        .build()
+        .execute_with(|| {
+            let alice = AccountKeyring::Alice.public();
+            let (alice_signed, alice_did) = make_account_without_cdd(alice).unwrap();
+
+            let token = SecurityToken {
+                name: vec![0x01].into(),
+                owner_did: alice_did,
+                total_supply: 1_000_000_000,
+                divisible: true,
+                asset_type: AssetType::default(),
+                primary_issuance_agent: Some(alice_did),
+                ..Default::default()
+            };
+            let ticker = Ticker::try_from(token.name.as_slice()).unwrap();
+
+            assert_ok!(Asset::create_asset(
+                alice_signed.clone(),
+                token.name.clone(),
+                ticker,
+                token.total_supply,
+                true,
+                token.asset_type.clone(),
+                vec![],
+                None,
+            ));
+
+            let extension_id = account_from(1);
+
+            // Add Tms
+            assert_ok!(Asset::add_extension(
+                alice_signed.clone(),
+                ticker,
+                SmartExtension {
+                    extension_type: SmartExtensionType::TransferManager,
+                    extension_name: b"ABC".into(),
+                    extension_id: extension_id,
+                    is_archive: false
                 }
-            ]
-        ));
+            ));
 
-        let result = Asset::_is_valid_transfer(&ticker, alice, Some(alice_did), Some(bob_did), 100).unwrap();
-        let verify_restriction_result = ComplianceManager::verify_restriction(&ticker, Some(alice_did), Some(bob_did), 100, Some(alice_did)).unwrap();
-        let weight_from_verify_transfer = verify_restriction_result.1;
-        assert_eq!(verify_restriction_result.0, 81);
-        let computed_weight = Asset::compute_transfer_result(false, 2, weight_from_verify_transfer).1;
-        let transfer_weight = result.1;
-        assert!(matches!(transfer_weight, computed_weight)); // Sender & receiver rules are processed.
+            // verify storage
+            assert_eq!(
+                Asset::extensions((ticker, SmartExtensionType::TransferManager)),
+                vec![extension_id]
+            );
+            // Remove the extension
+            assert_ok!(Asset::remove_smart_extension(
+                alice_signed.clone(),
+                ticker,
+                extension_id
+            ));
 
-        // pause transfer rules
-        assert_ok!(ComplianceManager::pause_asset_rules(alice_signed, ticker));
+            // verify storage
+            assert_eq!(
+                Asset::extensions((ticker, SmartExtensionType::TransferManager)),
+                vec![]
+            );
 
-        let result = Asset::_is_valid_transfer(&ticker, alice, Some(alice_did), Some(bob_did), 100).unwrap();
-        let weight_from_verify_transfer = ComplianceManager::verify_restriction(&ticker, Some(alice_did), Some(bob_did), 100, Some(alice_did)).unwrap().1;
-        let computed_weight = Asset::compute_transfer_result(false, 2, weight_from_verify_transfer).1;
-        assert!(matches!(transfer_weight, computed_weight));
-    });
+            // Removing the same extension gives the error.
+            assert_err!(
+                Asset::remove_smart_extension(alice_signed.clone(), ticker, extension_id),
+                AssetError::NoSuchSmartExtension
+            );
+        });
 }
