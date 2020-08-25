@@ -540,12 +540,14 @@ impl treasury::Trait for Runtime {
 
 parameter_types! {
     pub const MaxScheduledInstructionLegsPerBlock: u32 = 500;
+    pub const MaxLegsInAInstruction: u32 = 20;
 }
 
 impl settlement::Trait for Runtime {
     type Event = Event;
     type Asset = Asset;
     type MaxScheduledInstructionLegsPerBlock = MaxScheduledInstructionLegsPerBlock;
+    type MaxLegsInAInstruction = MaxLegsInAInstruction;
 }
 
 impl sto::Trait for Runtime {
@@ -637,10 +639,15 @@ impl portfolio::Trait for Runtime {
     type Event = Event;
 }
 
+parameter_types! {
+    pub const MaxNumberOfTMExtensionForAsset: u32 = 5;
+}
+
 impl asset::Trait for Runtime {
     type Event = Event;
     type Currency = Balances;
     type ComplianceManager = compliance_manager::Module<Runtime>;
+    type MaxNumberOfTMExtensionForAsset = MaxNumberOfTMExtensionForAsset;
 }
 
 parameter_types! {

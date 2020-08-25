@@ -39,7 +39,7 @@ macro_rules! assert_invalid_transfer {
                 Some($from),
                 Some($to),
                 $amount
-            ),
+            ).map(|(a, _)| a),
             Ok(ERC1400_TRANSFER_SUCCESS)
         );
     };
@@ -54,7 +54,7 @@ macro_rules! assert_valid_transfer {
                 Some($from),
                 Some($to),
                 $amount
-            ),
+            ).map(|(a, _)| a),
             Ok(ERC1400_TRANSFER_SUCCESS)
         );
     };
@@ -1264,7 +1264,7 @@ fn can_verify_restriction_with_primary_issuance_agent_we() {
             Some(issuer_id),
             amount,
             Some(issuer_id)
-        ),
+        ).map(|(a, _)| a),
         ERC1400_TRANSFER_FAILURE
     );
 
@@ -1290,7 +1290,7 @@ fn can_verify_restriction_with_primary_issuance_agent_we() {
             Some(random_guy_id),
             amount,
             Some(issuer_id)
-        ),
+        ).map(|(a, _)| a),
         ERC1400_TRANSFER_SUCCESS
     );
 
@@ -1302,7 +1302,7 @@ fn can_verify_restriction_with_primary_issuance_agent_we() {
             Some(owner_id),
             amount,
             Some(issuer_id)
-        ),
+        ).map(|(a, _)| a),
         ERC1400_TRANSFER_FAILURE
     );
 
@@ -1314,7 +1314,7 @@ fn can_verify_restriction_with_primary_issuance_agent_we() {
             Some(issuer_id),
             amount,
             Some(issuer_id)
-        ),
+        ).map(|(a, _)| a),
         ERC1400_TRANSFER_FAILURE
     );
 }

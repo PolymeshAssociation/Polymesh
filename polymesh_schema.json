@@ -468,6 +468,11 @@
             "max_ticker_length": "u8",
             "registration_length": "Option<Moment>"
         },
+        "ClassicTickerRegistration": {
+            "eth_owner": "EthereumAddress",
+            "is_created": "bool"
+        },
+        "EthereumAddress": "[u8; 20]",
         "SignData": {
             "custodian_did": "IdentityId",
             "holder_did": "IdentityId",

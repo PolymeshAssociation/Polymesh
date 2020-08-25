@@ -934,22 +934,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "custom-ink-env-types"
-version = "0.1.0"
-dependencies = [
- "derive_more",
- "frame-system",
- "ink_core",
- "ink_prelude",
- "parity-scale-codec",
- "polymesh-primitives-derive",
- "scale-info",
- "serde",
- "sp-runtime",
- "type-metadata",
-]
-
-[[package]]
 name = "data-encoding"
 version = "2.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2016,73 +2000,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "ink_abi"
-version = "2.1.0"
-source = "git+https://github.com/paritytech/ink?tag=v2.1.0#cca31543d338dcd69c7ac922988b91ebf170edb2"
-dependencies = [
- "derive_more",
- "ink_abi_derive",
- "ink_prelude",
- "ink_primitives",
- "serde",
- "type-metadata",
-]
-
-[[package]]
-name = "ink_abi_derive"
-version = "2.1.0"
-source = "git+https://github.com/paritytech/ink?tag=v2.1.0#cca31543d338dcd69c7ac922988b91ebf170edb2"
-dependencies = [
- "proc-macro2 1.0.19",
- "quote 1.0.7",
- "syn 1.0.35",
-]
-
-[[package]]
-name = "ink_alloc"
-version = "2.1.0"
-source = "git+https://github.com/paritytech/ink?tag=v2.1.0#cca31543d338dcd69c7ac922988b91ebf170edb2"
-dependencies = [
- "wee_alloc",
-]
-
-[[package]]
-name = "ink_core"
-version = "2.1.0"
-source = "git+https://github.com/paritytech/ink?tag=v2.1.0#cca31543d338dcd69c7ac922988b91ebf170edb2"
-dependencies = [
- "blake2-rfc",
- "byteorder",
- "cfg-if",
- "derive_more",
- "ink_abi",
- "ink_alloc",
- "ink_core_derive",
- "ink_prelude",
- "ink_primitives",
- "num-traits 0.2.12",
- "parity-scale-codec",
- "paste",
- "rand 0.7.3",
- "sha2 0.8.2",
- "smallvec 1.4.1",
- "tiny-keccak",
- "type-metadata",
-]
-
-[[package]]
-name = "ink_core_derive"
-version = "2.1.0"
-source = "git+https://github.com/paritytech/ink?tag=v2.1.0#cca31543d338dcd69c7ac922988b91ebf170edb2"
-dependencies = [
- "ink_primitives",
- "proc-macro2 1.0.19",
- "quote 1.0.7",
- "syn 1.0.35",
- "synstructure",
-]
-
-[[package]]
 name = "ink_prelude"
 version = "2.1.0"
 source = "git+https://github.com/paritytech/ink?tag=v2.1.0#cca31543d338dcd69c7ac922988b91ebf170edb2"
@@ -2859,12 +2776,6 @@ name = "memory_units"
 version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "71d96e3f3c0b6325d8ccd83c33b28acb183edcb6c67938ba104ec546854b0882"
-
-[[package]]
-name = "memory_units"
-version = "0.4.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8452105ba047068f40ff7093dd1d9da90898e63dd61736462e9cdda6a90ad3c3"
 
 [[package]]
 name = "merlin"
@@ -6321,28 +6232,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "scale-info"
-version = "0.3.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7919285337ce8aab83d156ab7516b5eeb4d76c412c60fbf0c2f55f63c4791e0c"
-dependencies = [
- "derive_more",
- "scale-info-derive",
- "serde",
-]
-
-[[package]]
-name = "scale-info-derive"
-version = "0.2.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "00498ee979e23cf6e9cc57e41d97a7c6dfc9927b95848d715358184b8a614860"
-dependencies = [
- "proc-macro2 1.0.19",
- "quote 1.0.7",
- "syn 1.0.35",
-]
-
-[[package]]
 name = "schannel"
 version = "0.1.19"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -8454,7 +8343,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "bf617d864d25af3587aa745529f7aaa541066c876d57e050c0d0c85c61c92aff"
 dependencies = [
  "libc",
- "memory_units 0.3.0",
+ "memory_units",
  "num-rational",
  "num-traits 0.2.12",
  "parity-wasm 0.41.0",
@@ -8506,18 +8395,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f8eff4b7516a57307f9349c64bf34caa34b940b66fed4b2fb3136cb7386e5739"
 dependencies = [
  "webpki",
-]
-
-[[package]]
-name = "wee_alloc"
-version = "0.4.5"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "dbb3b5a6b2bb17cb6ad44a2e68a43e8d2722c997da10e928665c72ec6c0a0b8e"
-dependencies = [
- "cfg-if",
- "libc",
- "memory_units 0.4.0",
- "winapi 0.3.9",
 ]
 
 [[package]]
