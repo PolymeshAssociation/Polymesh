@@ -262,7 +262,7 @@ decl_module! {
 
         fn on_runtime_upgrade() -> frame_support::weights::Weight {
             use frame_support::migration::{StorageIterator, put_storage_value};
-            use polymesh_primitives::migrate::migrate_map;
+            use polymesh_primitives::migrate::migrate_map_rename;
 
             migrate_map_rename::<AssetComplianceOld>(b"ComplianceManager", b"AssetRulesMap", b"AssetCompliance");
 
