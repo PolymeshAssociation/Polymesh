@@ -1563,6 +1563,7 @@ impl<T: Trait> Module<T> {
     ) -> DispatchResult {
         <<T as IdentityTrait>::ProtocolFee>::charge_fee(ProtocolOp::AssetRegisterTicker)?;
         Self::_register_ticker_feeless(ticker, to_did, expiry);
+        ClassicTickers::remove(&ticker); // Not a classic ticker anymore if it was.
         Ok(())
     }
 
@@ -2000,6 +2001,7 @@ impl<T: Trait> Module<T> {
         )?;
 
         Self::transfer_ticker(ticker, to_did, ticker_details.owner);
+        ClassicTickers::remove(&ticker); // Not a classic ticker anymore if it was.
         Ok(())
     }
 
