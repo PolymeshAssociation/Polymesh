@@ -82,6 +82,8 @@
 //! - `call_extension` - A helper function that is used to call the smart extension function.
 #![cfg_attr(not(feature = "std"), no_std)]
 #![recursion_limit = "256"]
+#![feature(bool_to_option)]
+
 #[cfg(feature = "runtime-benchmarks")]
 pub mod benchmarking;
 
@@ -90,9 +92,10 @@ use core::result::Result as StdResult;
 use currency::*;
 use frame_support::{
     decl_error, decl_event, decl_module, decl_storage,
-    dispatch::DispatchResult,
+    dispatch::{DispatchError, DispatchResult, DispatchResultWithPostInfo},
     ensure,
     traits::{Currency, Get},
+    weights::Weight,
 };
 use frame_system::{self as system, ensure_signed};
 use hex_literal::hex;
@@ -100,13 +103,13 @@ use pallet_contracts::{ExecReturnValue, Gas};
 use pallet_identity as identity;
 use pallet_statistics::{self as statistics, Counter};
 use polymesh_common_utilities::{
-    asset::{AcceptTransfer, Trait as AssetTrait},
+    asset::{AcceptTransfer, Trait as AssetTrait, GAS_LIMIT},
     balances::Trait as BalancesTrait,
     compliance_manager::Trait as ComplianceManagerTrait,
     constants::*,
     identity::Trait as IdentityTrait,
     protocol_fee::{ChargeProtocolFee, ProtocolOp},
-    CommonTrait, Context,
+    CommonTrait, Context, SystematicIssuers,
 };
 use polymesh_primitives::{
     AuthorizationData, AuthorizationError, Document, DocumentName, IdentityId, Signatory,
@@ -134,6 +137,10 @@ pub trait Trait:
     type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
     type Currency: Currency<Self::AccountId>;
     type ComplianceManager: ComplianceManagerTrait<Self::Balance>;
+    /// Maximum number of smart extensions can attach to a asset.
+    /// This hard limit is set to avoid the cases where a asset transfer
+    /// gas usage go beyond the block gas limit.
+    type MaxNumberOfTMExtensionForAsset: Get<u32>;
 }
 
 /// The type of an asset represented by a token.
@@ -275,6 +282,60 @@ pub struct FocusedBalances<Balance> {
     pub portfolio: Balance,
 }
 
+pub mod weight_for {
+    use super::*;
+
+    /// Weight for `_is_valid_transfer()` transfer.
+    pub fn weight_for_is_valid_transfer<T: Trait>(
+        no_of_tms: u32,
+        weight_from_cm: Weight,
+    ) -> Weight {
+        8 * 10_000_000 // Weight used for encoding a param in `verify_restriction()` call.
+            .saturating_add(GAS_LIMIT.saturating_mul(no_of_tms.into())) // used gas limit for a single TM extension call.
+            .saturating_add(weight_from_cm) // weight that comes from the compliance manager.
+    }
+
+    /// Weight for `unsafe_transfer_by_custodian()`.
+    pub fn weight_for_unsafe_transfer_by_custodian<T: Trait>(
+        weight_for_transfer_rest: Weight,
+    ) -> Weight {
+        weight_for_transfer_rest
+            .saturating_add(T::DbWeight::get().reads_writes(3, 2)) // Read and write of `unsafe_transfer_by_custodian()`
+            .saturating_add(T::DbWeight::get().reads_writes(4, 5)) // read and write for `unsafe_transfer()`
+    }
+}
+
+/// An Ethereum address (i.e. 20 bytes, used to represent an Ethereum account).
+///
+/// This gets serialized to the 0x-prefixed hex representation.
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+#[derive(Clone, Copy, PartialEq, Eq, Encode, Decode, Default, Debug)]
+pub struct EthereumAddress([u8; 20]);
+
+/// Data imported from Polymath Classic regarding ticker registration/creation.
+/// Only used at genesis config and not stored on-chain.
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+pub struct ClassicTickerImport {
+    /// Owner of the registration.
+    pub eth_owner: EthereumAddress,
+    /// Name of the ticker registered.
+    pub ticker: Ticker,
+    /// Is `eth_owner` an Ethereum contract (e.g., in case of a multisig)?
+    pub is_contract: bool,
+    /// Has the ticker been elevated to a created asset on classic?
+    pub is_created: bool,
+}
+
+/// Data about a ticker registration from Polymath Classic on-genesis importation.
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+#[derive(Encode, Decode, Clone, Debug, PartialEq, Eq)]
+pub struct ClassicTickerRegistration {
+    /// Owner of the registration.
+    pub eth_owner: EthereumAddress,
+    /// Has the ticker been elevated to a created asset on classic?
+    pub is_created: bool,
+}
+
 decl_storage! {
     trait Store for Module<T: Trait> as Asset {
         /// Ticker registration details.
@@ -335,6 +396,33 @@ decl_storage! {
         /// (ticker, document_name) -> document
         pub AssetDocuments get(fn asset_documents):
             double_map hasher(blake2_128_concat) Ticker, hasher(blake2_128_concat) DocumentName => Document;
+
+        /// Ticker registration details on Polymath Classic / Ethereum.
+        pub ClassicTickers get(fn classic_ticker_registration): map hasher(blake2_128_concat) Ticker => Option<ClassicTickerRegistration>;
+    }
+    add_extra_genesis {
+        config(classic_migration_tickers): Vec<ClassicTickerImport>;
+        config(classic_migration_tconfig): TickerRegistrationConfig<T::Moment>;
+        config(classic_migration_contract_did): IdentityId;
+        build(|config: &GenesisConfig<T>| {
+            let cm_did = SystematicIssuers::ClassicMigration.as_id();
+            for import in &config.classic_migration_tickers {
+                // Use DID of someone at Polymath if it's a contract-made ticker registration.
+                let did = if import.is_contract { config.classic_migration_contract_did } else { cm_did };
+
+                // Register the ticker...
+                let tconfig = || config.classic_migration_tconfig.clone();
+                let expiry = <Module<T>>::ticker_registration_checks(&import.ticker, did, tconfig);
+                <Module<T>>::_register_ticker_feeless(&import.ticker, did, expiry.unwrap());
+
+                // ..and associate it with additional info needed for claiming.
+                let classic_ticker = ClassicTickerRegistration {
+                    eth_owner: import.eth_owner,
+                    is_created: import.is_created,
+                };
+                ClassicTickers::insert(&import.ticker, classic_ticker);
+            }
+        });
     }
 }
 
@@ -359,25 +447,7 @@ decl_module! {
         pub fn register_ticker(origin, ticker: Ticker) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             let to_did = Context::current_identity_or::<Identity<T>>(&sender)?;
-
-            ensure!(!<Tokens<T>>::contains_key(&ticker), Error::<T>::AssetAlreadyCreated);
-
-            let ticker_config = Self::ticker_registration_config();
-
-            ensure!(
-                ticker.len() <= usize::try_from(ticker_config.max_ticker_length).unwrap_or_default(),
-                Error::<T>::TickerTooLong
-            );
-
-            // Ensure that the ticker is not registered by someone else
-            ensure!(
-                Self::is_ticker_available_or_registered_to(&ticker, to_did) != TickerRegistrationStatus::RegisteredByOther,
-                Error::<T>::TickerAlreadyRegistered
-            );
-
-            let now = <pallet_timestamp::Module<T>>::get();
-            let expiry = if let Some(exp) = ticker_config.registration_length { Some(now + exp) } else { None };
-
+            let expiry = Self::ticker_registration_checks(&ticker, to_did, || Self::ticker_registration_config())?;
             Self::_register_ticker(&ticker, to_did, expiry)
         }
 
@@ -855,7 +925,7 @@ decl_module! {
             holder_did: IdentityId,
             receiver_did: IdentityId,
             value: T::Balance
-        ) -> DispatchResult {
+        ) -> DispatchResultWithPostInfo {
             let sender = ensure_signed(origin)?;
             let custodian_did = Context::current_identity_or::<Identity<T>>(&sender)?;
 
@@ -921,6 +991,10 @@ decl_module! {
 
             // Verify the details of smart extension & store it
             ensure!(!<ExtensionDetails<T>>::contains_key((ticker, &extension_details.extension_id)), Error::<T>::ExtensionAlreadyPresent);
+
+            // Ensure the hard limit on the count of maximum transfer manager an asset can have.
+            Self::ensure_max_limit_for_tm_extension(&extension_details.extension_type, &ticker)?;
+
             <ExtensionDetails<T>>::insert((ticker, &extension_details.extension_id), extension_details.clone());
             <Extensions<T>>::mutate((ticker, &extension_details.extension_type), |ids| {
                 ids.push(extension_details.extension_id.clone())
@@ -1179,6 +1253,8 @@ decl_error! {
         AssetAlreadyDivisible,
         /// An invalid custodian DID.
         InvalidCustodianDid,
+        /// Number of Transfer Manager extensions attached to an asset is equal to MaxNumberOfTMExtensionForAsset.
+        MaximumTMExtensionLimitReached
     }
 }
 
@@ -1258,7 +1334,7 @@ impl<T: Trait> AssetTrait<T::Balance, T::AccountId> for Module<T> {
         holder_did: IdentityId,
         receiver_did: IdentityId,
         value: T::Balance,
-    ) -> DispatchResult {
+    ) -> DispatchResultWithPostInfo {
         Self::unsafe_transfer_by_custodian(custodian_did, ticker, holder_did, receiver_did, value)
     }
 
@@ -1267,6 +1343,10 @@ impl<T: Trait> AssetTrait<T::Balance, T::AccountId> for Module<T> {
         token_details
             .primary_issuance_agent
             .unwrap_or(token_details.owner_did)
+    }
+
+    fn max_number_of_tm_extension() -> u32 {
+        T::MaxNumberOfTMExtensionForAsset::get()
     }
 }
 
@@ -1297,92 +1377,116 @@ impl<T: Trait> Module<T> {
         token.owner_did == did
     }
 
+    fn maybe_ticker(ticker: &Ticker) -> Option<TickerRegistration<T::Moment>> {
+        <Tickers<T>>::contains_key(ticker).then(|| <Tickers<T>>::get(ticker))
+    }
+
     pub fn is_ticker_available(ticker: &Ticker) -> bool {
         // Assumes uppercase ticker
-        if <Tickers<T>>::contains_key(ticker) {
-            let now = <pallet_timestamp::Module<T>>::get();
-            if let Some(expiry) = Self::ticker_registration(*ticker).expiry {
-                if now <= expiry {
-                    return false;
-                }
-            } else {
-                return false;
-            }
+        if let Some(ticker) = Self::maybe_ticker(ticker) {
+            ticker
+                .expiry
+                .filter(|&e| <pallet_timestamp::Module<T>>::get() > e)
+                .is_some()
+        } else {
+            true
         }
-        true
     }
 
+    /// Returns `true` iff the ticker exists, is owned by `did`, and ticker hasn't expired.
     pub fn is_ticker_registry_valid(ticker: &Ticker, did: IdentityId) -> bool {
         // Assumes uppercase ticker
-        if <Tickers<T>>::contains_key(ticker) {
+        if let Some(ticker) = Self::maybe_ticker(ticker) {
             let now = <pallet_timestamp::Module<T>>::get();
-            let ticker_reg = Self::ticker_registration(ticker);
-            if ticker_reg.owner == did {
-                if let Some(expiry) = ticker_reg.expiry {
-                    if now > expiry {
-                        return false;
-                    }
-                } else {
-                    return true;
-                }
-                return true;
-            }
+            ticker.owner == did && ticker.expiry.filter(|&e| now > e).is_none()
+        } else {
+            false
         }
-        false
     }
 
-    /// Returns 0 if ticker is registered to someone else.
-    /// 1 if ticker is available for registry.
-    /// 2 if ticker is already registered to provided did.
+    /// Returns:
+    /// - `RegisteredByOther` if ticker is registered to someone else.
+    /// - `Available` if ticker is available for registry.
+    /// - `RegisteredByDid` if ticker is already registered to provided did.
     pub fn is_ticker_available_or_registered_to(
         ticker: &Ticker,
         did: IdentityId,
     ) -> TickerRegistrationStatus {
         // Assumes uppercase ticker
-        if <Tickers<T>>::contains_key(ticker) {
-            let ticker_reg = Self::ticker_registration(*ticker);
-            if let Some(expiry) = ticker_reg.expiry {
-                let now = <pallet_timestamp::Module<T>>::get();
-                if now > expiry {
-                    // ticker registered to someone but expired and can be registered again
-                    return TickerRegistrationStatus::Available;
-                } else if ticker_reg.owner == did {
-                    // ticker is already registered to provided did (but may expire in future)
-                    return TickerRegistrationStatus::RegisteredByDid;
+        match Self::maybe_ticker(ticker) {
+            Some(TickerRegistration { expiry, owner }) => match expiry {
+                // Ticker registered to someone but expired and can be registered again.
+                Some(expiry) if <pallet_timestamp::Module<T>>::get() > expiry => {
+                    TickerRegistrationStatus::Available
                 }
-            } else if ticker_reg.owner == did {
-                // ticker is already registered to provided did (and will never expire)
-                return TickerRegistrationStatus::RegisteredByDid;
-            }
-            // ticker registered to someone else
-            return TickerRegistrationStatus::RegisteredByOther;
+                // Ticker is already registered to provided did (may or may not expire in future).
+                _ if owner == did => TickerRegistrationStatus::RegisteredByDid,
+                // Ticker registered to someone else and hasn't expired.
+                _ => TickerRegistrationStatus::RegisteredByOther,
+            },
+            // Ticker not registered yet.
+            None => TickerRegistrationStatus::Available,
         }
-        // Ticker not registered yet
-        TickerRegistrationStatus::Available
     }
 
+    /// Before registering a ticker, do some checks, and return the expiry moment.
+    fn ticker_registration_checks(
+        ticker: &Ticker,
+        to_did: IdentityId,
+        config: impl FnOnce() -> TickerRegistrationConfig<T::Moment>,
+    ) -> Result<Option<T::Moment>, DispatchError> {
+        ensure!(
+            !<Tokens<T>>::contains_key(&ticker),
+            Error::<T>::AssetAlreadyCreated
+        );
+
+        let config = config();
+
+        // Ensure the ticker is not too long.
+        ensure!(
+            ticker.len() <= usize::try_from(config.max_ticker_length).unwrap_or_default(),
+            Error::<T>::TickerTooLong
+        );
+
+        // Ensure that the ticker is not registered by someone else.
+        ensure!(
+            Self::is_ticker_available_or_registered_to(&ticker, to_did)
+                != TickerRegistrationStatus::RegisteredByOther,
+            Error::<T>::TickerAlreadyRegistered
+        );
+
+        Ok(config
+            .registration_length
+            .map(|exp| <pallet_timestamp::Module<T>>::get() + exp))
+    }
+
+    /// Without charging any fees,
+    /// register the given `ticker` to the `owner` identity,
+    /// with the registration being removed at `expiry`.
+    fn _register_ticker_feeless(ticker: &Ticker, owner: IdentityId, expiry: Option<T::Moment>) {
+        if let Some(ticker_details) = Self::maybe_ticker(ticker) {
+            <AssetOwnershipRelations>::remove(ticker_details.owner, ticker);
+        }
+
+        let ticker_registration = TickerRegistration { owner, expiry };
+
+        // Store ticker registration details
+        <Tickers<T>>::insert(ticker, ticker_registration);
+        <AssetOwnershipRelations>::insert(owner, ticker, AssetOwnershipRelation::TickerOwned);
+
+        Self::deposit_event(RawEvent::TickerRegistered(owner, *ticker, expiry));
+    }
+
+    /// Register the given `ticker` to `to_did` identity,
+    /// with the registration being removed at `expiry`.
+    /// This version also charges protocol fees.
     fn _register_ticker(
         ticker: &Ticker,
         to_did: IdentityId,
         expiry: Option<T::Moment>,
     ) -> DispatchResult {
         <<T as IdentityTrait>::ProtocolFee>::charge_fee(ProtocolOp::AssetRegisterTicker)?;
-
-        if <Tickers<T>>::contains_key(ticker) {
-            let ticker_details = <Tickers<T>>::get(ticker);
-            <AssetOwnershipRelations>::remove(ticker_details.owner, ticker);
-        }
-
-        let ticker_registration = TickerRegistration {
-            owner: to_did,
-            expiry,
-        };
-
-        // Store ticker registration details
-        <Tickers<T>>::insert(ticker, ticker_registration);
-        <AssetOwnershipRelations>::insert(to_did, ticker, AssetOwnershipRelation::TickerOwned);
-
-        Self::deposit_event(RawEvent::TickerRegistered(to_did, *ticker, expiry));
+        Self::_register_ticker_feeless(ticker, to_did, expiry);
         Ok(())
     }
 
@@ -1464,20 +1568,20 @@ impl<T: Trait> Module<T> {
         from_did: Option<IdentityId>,
         to_did: Option<IdentityId>,
         value: T::Balance,
-    ) -> StdResult<u8, &'static str> {
+    ) -> StdResult<(u8, Weight), DispatchError> {
         if Self::frozen(ticker) {
-            return Ok(ERC1400_TRANSFERS_HALTED);
+            return Ok((ERC1400_TRANSFERS_HALTED, T::DbWeight::get().reads(1)));
         }
         let primary_issuance_agent = <Tokens<T>>::get(ticker).primary_issuance_agent;
-        let general_status_code = T::ComplianceManager::verify_restriction(
+        let (status_code, weight_for_transfer) = T::ComplianceManager::verify_restriction(
             ticker,
             from_did,
             to_did,
             value,
             primary_issuance_agent,
         )?;
-        Ok(if general_status_code != ERC1400_TRANSFER_SUCCESS {
-            COMPLIANCE_MANAGER_FAILURE
+        Ok(if status_code != ERC1400_TRANSFER_SUCCESS {
+            (COMPLIANCE_MANAGER_FAILURE, weight_for_transfer)
         } else {
             let mut final_result = true;
             let mut is_valid = false;
@@ -1488,6 +1592,7 @@ impl<T: Trait> Module<T> {
                 .into_iter()
                 .filter(|tm| !Self::extension_details((ticker, tm)).is_archive)
                 .collect::<Vec<T::AccountId>>();
+            let tm_count = u32::try_from(tms.len()).unwrap_or_default();
             if !tms.is_empty() {
                 for tm in tms.into_iter() {
                     let result = Self::verify_restriction(
@@ -1508,11 +1613,8 @@ impl<T: Trait> Module<T> {
                 //is_valid = force_valid ? true : (is_invalid ? false : is_valid);
                 final_result = force_valid || !is_invalid && is_valid;
             }
-            if final_result {
-                return Ok(ERC1400_TRANSFER_SUCCESS);
-            } else {
-                return Ok(SMART_EXTENSION_FAILURE);
-            }
+            // Compute the result for transfer
+            Self::compute_transfer_result(final_result, tm_count, weight_for_transfer)
         })
     }
 
@@ -1971,13 +2073,8 @@ impl<T: Trait> Module<T> {
         // native currency value should be `0` as no funds need to transfer to the smart extension
         // We are passing arbitrary high `gas_limit` value to make sure extension's function execute successfully
         // TODO: Once gas estimate function will be introduced, arbitrary gas value will be replaced by the estimated gas
-        let is_allowed = Self::call_extension(
-            extension_caller,
-            dest,
-            0.into(),
-            10_000_000_000_000,
-            encoded_data,
-        );
+        let is_allowed =
+            Self::call_extension(extension_caller, dest, 0.into(), GAS_LIMIT, encoded_data);
         if is_allowed.is_success() {
             if let Ok(allowed) = RestrictionResult::decode(&mut &is_allowed.data[..]) {
                 return allowed;
@@ -2057,6 +2154,7 @@ impl<T: Trait> Module<T> {
         // Compliance manager & Smart Extension check
         Ok(
             Self::_is_valid_transfer(&ticker, sender, from_did, to_did, amount)
+                .map(|(status, _)| status)
                 .unwrap_or(ERC1400_TRANSFER_FAILURE),
         )
     }
@@ -2068,7 +2166,7 @@ impl<T: Trait> Module<T> {
         holder_did: IdentityId,
         receiver_did: IdentityId,
         value: T::Balance,
-    ) -> DispatchResult {
+    ) -> DispatchResultWithPostInfo {
         let mut custodian_allowance =
             Self::custodian_allowance((ticker, holder_did, custodian_did));
         // using checked_sub (safe math) to avoid underflow
@@ -2080,14 +2178,15 @@ impl<T: Trait> Module<T> {
             .checked_sub(&value)
             .ok_or(Error::<T>::TotalAllowanceUnderflow)?;
         // Validate the transfer
+        let (is_transfer_success, weight_for_transfer) = Self::_is_valid_transfer(
+            &ticker,
+            <identity::Module<T>>::did_records(custodian_did).primary_key,
+            Some(holder_did),
+            Some(receiver_did),
+            value,
+        )?;
         ensure!(
-            Self::_is_valid_transfer(
-                &ticker,
-                <identity::Module<T>>::did_records(custodian_did).primary_key,
-                Some(holder_did),
-                Some(receiver_did),
-                value
-            )? == ERC1400_TRANSFER_SUCCESS,
+            is_transfer_success == ERC1400_TRANSFER_SUCCESS,
             Error::<T>::InvalidTransfer
         );
         Self::unsafe_transfer(custodian_did, &ticker, holder_did, receiver_did, value)?;
@@ -2101,7 +2200,12 @@ impl<T: Trait> Module<T> {
             receiver_did,
             value,
         ));
-        Ok(())
+        Ok(
+            Some(weight_for::weight_for_unsafe_transfer_by_custodian::<T>(
+                weight_for_transfer,
+            ))
+            .into(),
+        )
     }
 
     /// Internal function to process a transfer without any checks.
@@ -2174,5 +2278,38 @@ impl<T: Trait> Module<T> {
             Error::<T>::TotalSupplyAboveLimit
         );
         Ok(())
+    }
+
+    /// Ensure the number of attached transfer manager extension should be < `MaxNumberOfTMExtensionForAsset`.
+    fn ensure_max_limit_for_tm_extension(
+        ext_type: &SmartExtensionType,
+        ticker: &Ticker,
+    ) -> DispatchResult {
+        if *ext_type == SmartExtensionType::TransferManager {
+            let no_of_ext = u32::try_from(
+                <Extensions<T>>::get((ticker, SmartExtensionType::TransferManager)).len(),
+            )
+            .unwrap_or_default();
+            ensure!(
+                no_of_ext < T::MaxNumberOfTMExtensionForAsset::get(),
+                Error::<T>::MaximumTMExtensionLimitReached
+            );
+        }
+        Ok(())
+    }
+
+    /// Compute the result of the transfer
+    pub fn compute_transfer_result(
+        final_result: bool,
+        tm_count: u32,
+        cm_result: Weight,
+    ) -> (u8, Weight) {
+        let weight_for_valid_transfer =
+            weight_for::weight_for_is_valid_transfer::<T>(tm_count, cm_result);
+        let transfer_status = match final_result {
+            true => ERC1400_TRANSFER_SUCCESS,
+            false => SMART_EXTENSION_FAILURE,
+        };
+        (transfer_status, weight_for_valid_transfer)
     }
 }
