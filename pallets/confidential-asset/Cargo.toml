@@ -17,24 +17,10 @@ pallet-identity = { path = "../identity", default-features = false }
 pallet-portfolio = { path = "../portfolio", default-features = false }
 pallet-statistics = { path = "../statistics", default-features = false }
 
-# Other
-serde = { version = "1.0.104", default-features = false }
-serde_derive = { version = "1.0.104", optional = true, default-features = false }
-rustc-hex = { version = "2.1.0", default-features = false }
-hex-literal = "0.2.1"
-
 # Substrate
 codec = { package = "parity-scale-codec", version = "1.1.0", default-features = false, features = ["derive"] }
-sp-arithmetic = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "at-add-dispatch-call" }
-sp-core = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "at-add-dispatch-call" }
-sp-std = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "at-add-dispatch-call" }
-sp-io = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "at-add-dispatch-call" }
-sp-runtime = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "at-add-dispatch-call" }
-sp-version = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "at-add-dispatch-call" }
-sp-api = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "at-add-dispatch-call" }
 frame-system = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "at-add-dispatch-call" }
 frame-support = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "at-add-dispatch-call" }
-pallet-timestamp = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "at-add-dispatch-call" }
 pallet-session = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "at-add-dispatch-call" }
 
 # Only in STD
@@ -45,27 +31,7 @@ equalize = []
 default = ["std", "equalize", "runtime-benchmarks"]
 no_std = []
 only-staking = []
-std = [
-    "codec/std",
-    "frame-support/std",
-    "frame-system/std",
-    "pallet-balances/std",
-    "pallet-contracts/std",
-    "pallet-portfolio/std",
-    "pallet-session/std",
-    "pallet-timestamp/std",
-    "polymesh-common-utilities/std",
-    "polymesh-primitives/std",
-    "rustc-hex/std",
-    "serde/std",
-    "serde_derive",
-    "sp-api/std",
-    "sp-core/std",
-    "sp-io/std",
-    "sp-runtime/std",
-    "sp-std/std",
-    "sp-version/std",
-]
+std = []
 runtime-benchmarks = [
     "frame-benchmarking",
 ]
