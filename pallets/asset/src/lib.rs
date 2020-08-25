@@ -283,7 +283,6 @@ pub struct FocusedBalances<Balance> {
     pub portfolio: Balance,
 }
 
-
 pub mod weight_for {
     use super::*;
 
@@ -2301,11 +2300,16 @@ impl<T: Trait> Module<T> {
     }
 
     /// Compute the result of the transfer
-    pub fn compute_transfer_result(final_result: bool, tm_count: u32, cm_result: Weight) -> (u8, Weight) {
-        let weight_for_valid_transfer = weight_for::weight_for_is_valid_transfer::<T>(tm_count, cm_result);
+    pub fn compute_transfer_result(
+        final_result: bool,
+        tm_count: u32,
+        cm_result: Weight,
+    ) -> (u8, Weight) {
+        let weight_for_valid_transfer =
+            weight_for::weight_for_is_valid_transfer::<T>(tm_count, cm_result);
         let transfer_status = match final_result {
             true => ERC1400_TRANSFER_SUCCESS,
-            false => SMART_EXTENSION_FAILURE
+            false => SMART_EXTENSION_FAILURE,
         };
         (transfer_status, weight_for_valid_transfer)
     }
