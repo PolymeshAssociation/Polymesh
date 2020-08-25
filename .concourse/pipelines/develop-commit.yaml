@@ -23,6 +23,14 @@ resources:
       regexp: concourse/polymesh/polymesh-(.*)
       access_key_id: ((s3-polymath-concourse.access_key_id))
       secret_access_key: ((s3-polymath-concourse.secret_access_key))
+  - name: s3-polymesh-runtime
+    type: s3
+    source:
+      bucket: polymesh-testnet-artifacts
+      region_name: ca-central-1
+      regexp: concourse/polymesh-runtime/polymesh_runtime_(.*)
+      access_key_id: ((s3-polymath-concourse.access_key_id))
+      secret_access_key: ((s3-polymath-concourse.secret_access_key))
   - name: dockerimage-polymesh
     type: docker-image
     source:
@@ -46,6 +54,7 @@ resources:
 
 jobs:
   - name: build-polymesh
+    serial: true
     plan:
       - get: git-polymesh
         params:
@@ -57,6 +66,7 @@ jobs:
       - get: semver-git-polymesh
         params:
           pre: develop.((.:gitshortref))
+          pre_without_version: true
       - in_parallel:
           - task: run-lint
             config:
@@ -160,6 +170,14 @@ jobs:
           - put: s3-polymesh
             params:
               file: artifact/polymesh-*
+              acl: public-read
+          - put: s3-polymesh-runtime
+            params:
+              file: artifact/polymesh_runtime_develop-*
+              acl: public-read
+          - put: s3-polymesh-runtime
+            params:
+              file: artifact/polymesh_runtime_testnet_v1-*
               acl: public-read
           - put: dockerimage-polymesh
             params:
