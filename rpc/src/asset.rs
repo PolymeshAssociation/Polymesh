@@ -76,7 +76,7 @@ where
         value: number::NumberOrHex,
         at: Option<<Block as BlockT>::Hash>,
     ) -> Result<CanTransferResult> {
-        // Make sure that value fits into 128 bits.
+        // Make sure that value fits into 64 bits.
         let value: u64 = value.try_into().map_err(|_| Error {
             code: ErrorCode::InvalidParams,
             message: format!("{:?} doesn't fit in 64 bit unsigned value", value),
