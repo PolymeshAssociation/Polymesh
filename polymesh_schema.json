@@ -53,16 +53,27 @@
             "asset_type": "AssetType",
             "treasury_did": "Option<IdentityId>"
         },
+        "PalletName": "Text",
+        "FunctionName": "Text",
         "AssetPermissions": {
             "_enum": {
                 "All": "",
                 "Elems": "Vec<Ticker>"
             }
         },
+        "PalletPermissions": {
+            "pallet_name": "PalletName",
+            "function_names": {
+                "_enum": {
+                    "All": "",
+                    "Elems": "FunctionName"
+                }
+            }
+        },
         "ExtrinsicPermissions": {
             "_enum": {
                 "All": "",
-                "Elems": "Vec<Vec<u8>>"
+                "Elems": "PalletPermissions"
             }
         },
         "PortfolioPermissions": {
@@ -569,7 +580,7 @@
             "identity_did": "IdentityId",
             "value": "Balance"
         },
-        "PortfolioName": "Vec<u8>",
+        "PortfolioName": "Text",
         "PortfolioNumber": "u64",
         "PortfolioKind": {
             "_enum": {

@@ -122,8 +122,8 @@ use polymesh_common_utilities::{
 };
 use polymesh_primitives::{
     AuthIdentifier, Authorization, AuthorizationData, AuthorizationError, AuthorizationType, CddId,
-    Claim, ClaimType, Identity as DidRecord, IdentityClaim, IdentityId, InvestorUid, Permissions,
-    Scope, SecondaryKey, Signatory, Ticker,
+    Claim, ClaimType, FunctionName, Identity as DidRecord, IdentityClaim, IdentityId, InvestorUid,
+    PalletName, Permissions, Scope, SecondaryKey, Signatory, Ticker,
 };
 use sp_core::sr25519::Signature;
 use sp_io::hashing::blake2_256;
@@ -2308,11 +2308,35 @@ impl<T: Trait> InitializeMembers<IdentityId> for Module<T> {
 
 impl<T: Trait> CheckAccountCallPermissions<T::AccountId> for Module<T> {
     fn check_account_call_permissions(
-        _who: &T::AccountId,
-        _pallet_name: &[u8],
-        _function_name: &[u8],
+        who: &T::AccountId,
+        pallet_name: &PalletName,
+        function_name: &FunctionName,
     ) -> bool {
-        // TODO
-        true
+        if <AccountKeyDids<T>>::contains_key(who) {
+            let did = <AccountKeyDids<T>>::get(who);
+            if !<DidRecords<T>>::contains_key(&did) {
+                // The DID record is missing.
+                return false;
+            }
+            let did_record = <DidRecords<T>>::get(&did);
+            if who == &did_record.primary_key {
+                // `who` is the primary key.
+                if Self::is_did_frozen(&did) {
+                    // Frozen DIDs are not permitted to call extrinsics.
+                    return false;
+                }
+            } else {
+                // `who` can be a secondary key.
+                return did_record
+                    .secondary_keys
+                    .iter()
+                    .find(|sk| {
+                        sk.signer.as_account() == Some(who)
+                            && sk.has_extrinsic_permission(pallet_name, function_name)
+                    })
+                    .is_some();
+            }
+        }
+        false
     }
 }

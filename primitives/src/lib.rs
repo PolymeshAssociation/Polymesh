@@ -20,6 +20,7 @@
 
 use blake2::{Blake2b, Digest};
 use curve25519_dalek::scalar::Scalar;
+use polymesh_primitives_derive::VecU8StrongTyped;
 
 pub use codec::{Compact, Decode, Encode};
 pub use sp_runtime::{
@@ -231,6 +232,20 @@ pub struct Beneficiary<Balance> {
     /// Amount requested to this beneficiary.
     pub amount: Balance,
 }
+
+/// The name of a pallet.
+#[derive(
+    Decode, Encode, Clone, Debug, Default, Hash, PartialEq, Eq, PartialOrd, Ord, VecU8StrongTyped,
+)]
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+pub struct PalletName(pub Vec<u8>);
+
+/// The name of a function within a pallet.
+#[derive(
+    Decode, Encode, Clone, Debug, Default, Hash, PartialEq, Eq, PartialOrd, Ord, VecU8StrongTyped,
+)]
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+pub struct FunctionName(pub Vec<u8>);
 
 #[cfg(test)]
 mod tests {

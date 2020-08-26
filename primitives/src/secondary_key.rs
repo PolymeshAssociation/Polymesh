@@ -13,22 +13,26 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
-use crate::{IdentityId, PortfolioNumber, Subset, Ticker};
+use crate::{FunctionName, IdentityId, PalletName, PortfolioNumber, Subset, Ticker};
 use codec::{Decode, Encode};
 #[cfg(feature = "std")]
 use sp_runtime::{Deserialize, Serialize};
-use sp_std::{
-    cmp::{Ord, Ordering, PartialOrd},
-    prelude::Vec,
-};
+use sp_std::cmp::{Ord, Ordering, PartialOrd};
 
 /// Asset permissions.
 pub type AssetPermissions = Subset<Ticker>;
 
+/// The permission to call specific functions (using `Subset::Elem`) or all functions (using
+/// `Subset::All`) within a given pallet.
+#[derive(Decode, Encode, Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord)]
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+pub struct PalletPermissions {
+    pallet_name: PalletName,
+    function_names: Subset<FunctionName>,
+}
+
 /// Extrinsic permissions.
-///
-/// FIXME: correct the type of extrinsic.
-pub type ExtrinsicPermissions = Subset<Vec<u8>>;
+pub type ExtrinsicPermissions = Subset<PalletPermissions>;
 
 /// Portfolio permissions.
 pub type PortfolioPermissions = Subset<PortfolioNumber>;
@@ -176,10 +180,26 @@ impl<AccountId> SecondaryKey<AccountId> {
     }
 
     /// Checks if the given key has permission to call the given extrinsic.
-    ///
-    /// FIXME: replace the placeholder type of extrinsic with a correct one.
-    pub fn has_extrinsic_permission(&self, extrinsic: Vec<u8>) -> bool {
-        self.permissions.extrinsic.ge(&Subset::elem(extrinsic))
+    pub fn has_extrinsic_permission(
+        &self,
+        pallet_name: &PalletName,
+        function_name: &FunctionName,
+    ) -> bool {
+        match &self.permissions.extrinsic {
+            Subset::All => true,
+            Subset::Elems(pallet_perms) => pallet_perms
+                .iter()
+                .find(|perm| {
+                    if &perm.pallet_name != pallet_name {
+                        return false;
+                    }
+                    match &perm.function_names {
+                        Subset::All => true,
+                        Subset::Elems(funcs) => funcs.contains(function_name),
+                    }
+                })
+                .is_some(),
+        }
     }
 
     /// Checks if the given key has permission to access the given portfolio.

@@ -22,24 +22,23 @@
 
 use codec::{Decode, Encode};
 use frame_support::{
-    decl_error, decl_module, decl_storage,
-    dispatch::DispatchResult,
-    storage::StorageValue,
-    traits::{CallMetadata, GetCallMetadata},
+    decl_error, decl_module, decl_storage, dispatch::DispatchResult, storage::StorageValue,
+    traits::GetCallMetadata,
 };
 use polymesh_common_utilities::traits::{CheckAccountCallPermissions, PermissionChecker as Trait};
+use polymesh_primitives::{FunctionName, PalletName};
 use sp_runtime::{
     traits::{DispatchInfoOf, PostDispatchInfoOf, SignedExtension},
     transaction_validity::{TransactionValidity, TransactionValidityError, ValidTransaction},
 };
-use sp_std::{fmt, marker::PhantomData, prelude::Vec, result::Result};
+use sp_std::{fmt, marker::PhantomData, result::Result};
 
 decl_storage! {
     trait Store for Module<T: Trait> as Permissions {
-        /// The name of the pallet (aka module name).
-        pub PalletName get(fn pallet_name): Vec<u8>;
-        /// The name of the function (aka extrinsic).
-        pub FunctionName get(fn function_name): Vec<u8>;
+        /// The name of the current pallet (aka module name).
+        pub CurrentPalletName get(fn pallet_name): PalletName;
+        /// The name of the current function (aka extrinsic).
+        pub CurrentFunctionName get(fn function_name): FunctionName;
     }
 }
 
@@ -58,12 +57,10 @@ impl<T: Trait> Module<T> {
     /// Checks if `who` is permissioned to call the current extrinsic. Returns `Ok` if
     /// successful. Otherwise returns an `Err`.
     pub fn ensure_call_permissions(who: &T::AccountId) -> DispatchResult {
-        let pallet_name = Self::pallet_name();
-        let function_name = Self::function_name();
         if T::Checker::check_account_call_permissions(
             who,
-            pallet_name.as_ref(),
-            function_name.as_ref(),
+            &Self::pallet_name(),
+            &Self::function_name(),
         ) {
             return Ok(());
         }
@@ -98,13 +95,15 @@ where
     T::Call: GetCallMetadata,
 {
     fn store_call_metadata(pallet_name: &str, function_name: &str) {
-        <PalletName>::put(pallet_name.as_bytes());
-        <FunctionName>::put(function_name.as_bytes());
+        let p: PalletName = pallet_name.as_bytes().into();
+        let f: FunctionName = function_name.as_bytes().into();
+        <CurrentPalletName>::put(p);
+        <CurrentFunctionName>::put(f);
     }
 
     fn clear_call_metadata() {
-        <PalletName>::kill();
-        <FunctionName>::kill();
+        <CurrentPalletName>::kill();
+        <CurrentFunctionName>::kill();
     }
 }
 
