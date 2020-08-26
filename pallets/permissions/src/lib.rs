@@ -55,7 +55,9 @@ decl_error! {
 }
 
 impl<T: Trait> Module<T> {
-    pub fn ensure_call_permissions<AccountId>(who: &T::AccountId) -> DispatchResult {
+    /// Checks if `who` is permissioned to call the current extrinsic. Returns `Ok` if
+    /// successful. Otherwise returns an `Err`.
+    pub fn ensure_call_permissions(who: &T::AccountId) -> DispatchResult {
         let pallet_name = Self::pallet_name();
         let function_name = Self::function_name();
         if T::Checker::check_account_call_permissions(

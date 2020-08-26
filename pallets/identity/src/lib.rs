@@ -99,7 +99,7 @@ use frame_support::{
         with_transaction,
         TransactionOutcome::{Commit, Rollback},
     },
-    traits::{CallMetadata, ChangeMembers, Currency, InitializeMembers},
+    traits::{ChangeMembers, Currency, InitializeMembers},
     weights::{DispatchClass, GetDispatchInfo, Pays, Weight},
     StorageDoubleMap,
 };
@@ -137,6 +137,7 @@ use sp_runtime::{
 use sp_std::{convert::TryFrom, mem::swap, prelude::*, vec};
 
 pub type Event<T> = polymesh_common_utilities::traits::identity::Event<T>;
+pub type CallPermissions<T> = pallet_permissions::Module<T>;
 
 #[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, PartialOrd, Ord)]
 pub struct Claim1stKey {
@@ -284,7 +285,7 @@ decl_module! {
             uid: InvestorUid,
             secondary_keys: Vec<SecondaryKey<T::AccountId>>) -> DispatchResult {
             let sender = ensure_signed(origin)?;
-            ensure_call_permissions(&sender)?;
+            CallPermissions::<T>::ensure_call_permissions(&sender)?;
             Self::_register_did(sender.clone(), secondary_keys, Some(ProtocolOp::IdentityRegisterDid))?;
 
             // Add CDD claim
@@ -318,6 +319,7 @@ decl_module! {
         ) -> DispatchResult {
             // Sender has to be part of CDDProviders
             let cdd_sender = ensure_signed(origin)?;
+            CallPermissions::<T>::ensure_call_permissions(&cdd_sender)?;
             let cdd_id = Context::current_identity_or::<Self>(&cdd_sender)?;
 
             let cdd_providers = T::CddServiceProviders::get_members();
@@ -367,6 +369,7 @@ decl_module! {
         )]
         pub fn remove_secondary_keys(origin, signers_to_remove: Vec<Signatory<T::AccountId>>) -> DispatchResult {
             let sender = ensure_signed(origin)?;
+            CallPermissions::<T>::ensure_call_permissions(&sender)?;
             let did = Context::current_identity_or::<Self>(&sender)?;
             let _grants_checked = Self::grant_check_only_primary_key(&sender, did)?;
 
@@ -427,6 +430,7 @@ decl_module! {
         #[weight = 800_000_000]
         fn set_primary_key(origin, new_key: T::AccountId) -> DispatchResult {
             let sender = ensure_signed(origin)?;
+            CallPermissions::<T>::ensure_call_permissions(&sender)?;
             let did = Context::current_identity_or::<Self>(&sender)?;
             let _grants_checked = Self::grant_check_only_primary_key(&sender, did)?;
 
@@ -454,6 +458,7 @@ decl_module! {
         #[weight = 900_000_000]
         pub fn accept_primary_key(origin, rotation_auth_id: u64, optional_cdd_auth_id: Option<u64>) -> DispatchResult {
             let sender = ensure_signed(origin)?;
+            CallPermissions::<T>::ensure_call_permissions(&sender)?;
             Self::accept_primary_key_rotation(sender, rotation_auth_id, optional_cdd_auth_id)
         }
 
@@ -476,7 +481,9 @@ decl_module! {
         /// Join an identity as a secondary key.
         #[weight = 800_000_000]
         pub fn join_identity_as_key(origin, auth_id: u64) -> DispatchResult {
-            let signer = Signatory::Account(ensure_signed(origin)?);
+            let sender = ensure_signed(origin)?;
+            CallPermissions::<T>::ensure_call_permissions(&sender)?;
+            let signer = Signatory::Account(sender);
             Self::join_identity(signer, auth_id)
         }
 
@@ -484,6 +491,7 @@ decl_module! {
         #[weight = 800_000_000]
         pub fn join_identity_as_identity(origin, auth_id: u64) -> DispatchResult {
             let sender = ensure_signed(origin)?;
+            CallPermissions::<T>::ensure_call_permissions(&sender)?;
             let sender_did = Context::current_identity_or::<Self>(&sender)?;
             Self::join_identity(Signatory::from(sender_did), auth_id)
         }
@@ -492,6 +500,7 @@ decl_module! {
         #[weight = 800_000_000]
         pub fn leave_identity_as_key(origin) -> DispatchResult {
             let sender = ensure_signed(origin)?;
+            CallPermissions::<T>::ensure_call_permissions(&sender)?;
             if let Some(did) = Self::get_identity(&sender) {
                 return Self::leave_identity(Signatory::Account(sender), did);
             }
@@ -502,6 +511,7 @@ decl_module! {
         #[weight = 800_000_000]
         pub fn leave_identity_as_identity(origin, did: IdentityId) -> DispatchResult {
             let sender = ensure_signed(origin)?;
+            CallPermissions::<T>::ensure_call_permissions(&sender)?;
             let sender_did = Context::current_identity_or::<Self>(&sender)?;
             Self::leave_identity(Signatory::from(sender_did), did)
         }
@@ -515,6 +525,7 @@ decl_module! {
             expiry: Option<T::Moment>,
         ) -> DispatchResult {
             let sender = ensure_signed(origin)?;
+            CallPermissions::<T>::ensure_call_permissions(&sender)?;
             let issuer = Context::current_identity_or::<Self>(&sender)?;
             ensure!(<DidRecords<T>>::contains_key(target), Error::<T>::DidMustAlreadyExist);
 
@@ -550,7 +561,8 @@ decl_module! {
             origin,
             claims: Vec<BatchAddClaimItem<T::Moment>>
         ) -> DispatchResult {
-            ensure_signed(origin.clone())?;
+            let sender = ensure_signed(origin.clone())?;
+            CallPermissions::<T>::ensure_call_permissions(&sender)?;
 
             with_transaction(|| {
                 for bci in claims {
@@ -572,6 +584,7 @@ decl_module! {
         )]
         fn forwarded_call(origin, target_did: IdentityId, proposal: Box<T::Proposal>) -> DispatchResultWithPostInfo {
             let sender = ensure_signed(origin)?;
+            CallPermissions::<T>::ensure_call_permissions(&sender)?;
 
             // 1. Constraints.
             // 1.1. A valid current identity.
@@ -617,6 +630,7 @@ decl_module! {
             claim: Claim,
         ) -> DispatchResult {
             let sender = ensure_signed(origin)?;
+            CallPermissions::<T>::ensure_call_permissions(&sender)?;
             let issuer = Context::current_identity_or::<Self>(&sender)?;
             let claim_type = claim.claim_type();
             let scope = claim.as_scope().cloned();
@@ -647,7 +661,8 @@ decl_module! {
             origin,
             claims: Vec<BatchRevokeClaimItem>
         ) -> DispatchResult {
-            let _sender = ensure_signed(origin.clone())?;
+            let sender = ensure_signed(origin.clone())?;
+            CallPermissions::<T>::ensure_call_permissions(&sender)?;
 
             with_transaction(|| {
                 for bci in claims {
@@ -693,6 +708,7 @@ decl_module! {
             permissions: Permissions
         ) -> DispatchResult {
             let sender = ensure_signed(origin)?;
+            CallPermissions::<T>::ensure_call_permissions(&sender)?;
             let did = Context::current_identity_or::<Self>(&sender)?;
             let record = Self::grant_check_only_primary_key(&sender, did)?;
 
@@ -724,6 +740,7 @@ decl_module! {
         #[weight = 80_000_000]
         pub fn get_my_did(origin) -> DispatchResult {
             let sender = ensure_signed(origin)?;
+            CallPermissions::<T>::ensure_call_permissions(&sender)?;
             let did = Context::current_identity_or::<Self>(&sender)?;
 
             Self::deposit_event(RawEvent::DidStatus(did, sender));
@@ -733,7 +750,9 @@ decl_module! {
         // TODO: Remove before mainnet launch.
         /// Emits an event with caller's identity and CDD status.
         #[weight = 80_000_000]
-        pub fn get_cdd_of(_origin, of: T::AccountId) -> DispatchResult {
+        pub fn get_cdd_of(origin, of: T::AccountId) -> DispatchResult {
+            let sender = ensure_signed(origin)?;
+            CallPermissions::<T>::ensure_call_permissions(&sender)?;
             let did_opt = Self::get_identity(&of);
             let has_cdd = did_opt.iter()
                 .map(|did| Self::has_valid_cdd(*did))
@@ -754,6 +773,7 @@ decl_module! {
             expiry: Option<T::Moment>
         ) -> DispatchResult {
             let sender = ensure_signed(origin)?;
+            CallPermissions::<T>::ensure_call_permissions(&sender)?;
             let from_did = Context::current_identity_or::<Self>(&sender)?;
             Self::add_auth(from_did, target, authorization_data, expiry);
             Ok(())
@@ -775,6 +795,7 @@ decl_module! {
             auths: Vec<(Signatory<T::AccountId>, AuthorizationData<T::AccountId>, Option<T::Moment>)>
         ) -> DispatchResult {
             let sender = ensure_signed(origin)?;
+            CallPermissions::<T>::ensure_call_permissions(&sender)?;
             let from_did = Context::current_identity_or::<Self>(&sender)?;
             for auth in auths {
                 Self::add_auth(from_did, auth.0, auth.1, auth.2);
@@ -790,6 +811,7 @@ decl_module! {
             auth_id: u64
         ) -> DispatchResult {
             let sender = ensure_signed(origin)?;
+            CallPermissions::<T>::ensure_call_permissions(&sender)?;
             let from_did = Context::current_identity_or::<Self>(&sender)?;
 
             ensure!(
@@ -821,6 +843,7 @@ decl_module! {
             auth_identifiers: Vec<AuthIdentifier<T::AccountId>>
         ) -> DispatchResult {
             let sender = ensure_signed(origin)?;
+            CallPermissions::<T>::ensure_call_permissions(&sender)?;
             let from_did = Context::current_identity_or::<Self>(&sender)?;
             let mut auths = Vec::with_capacity(auth_identifiers.len());
             let mut revoked = Vec::with_capacity(auth_identifiers.len());
@@ -854,6 +877,7 @@ decl_module! {
             auth_id: u64
         ) -> DispatchResult {
             let sender = ensure_signed(origin)?;
+            CallPermissions::<T>::ensure_call_permissions(&sender)?;
             let signer_key = Signatory::Account(sender.clone());
             let signer_did = Context::current_identity_or::<Self>(&sender)
                 .map_or_else(
@@ -918,6 +942,7 @@ decl_module! {
             auth_ids: Vec<u64>
         ) -> DispatchResult {
             let sender = ensure_signed(origin)?;
+            CallPermissions::<T>::ensure_call_permissions(&sender)?;
             let signer = Context::current_identity_or::<Self>(&sender)
                 .map_or_else(
                     |_error| Signatory::Account(sender),
@@ -998,6 +1023,7 @@ decl_module! {
             expires_at: T::Moment
         ) -> DispatchResult {
             let sender = ensure_signed(origin)?;
+            CallPermissions::<T>::ensure_call_permissions(&sender)?;
             let id = Context::current_identity_or::<Self>(&sender)?;
             let _grants_checked = Self::grant_check_only_primary_key(&sender, id)?;
 
@@ -1091,6 +1117,7 @@ decl_module! {
             auth: TargetIdAuthorization<T::Moment>
         ) -> DispatchResult {
             let sender = ensure_signed(origin)?;
+            CallPermissions::<T>::ensure_call_permissions(&sender)?;
 
             match &signer {
                 Signatory::Account(key) => {
@@ -1692,6 +1719,7 @@ impl<T: Trait> Module<T> {
     /// Only primary key can freeze/unfreeze an identity.
     fn set_frozen_secondary_key_flags(origin: T::Origin, freeze: bool) -> DispatchResult {
         let sender = ensure_signed(origin)?;
+        CallPermissions::<T>::ensure_call_permissions(&sender)?;
         let did = Context::current_identity_or::<Self>(&sender)?;
         let _grants_checked = Self::grant_check_only_primary_key(&sender, did)?;
 
