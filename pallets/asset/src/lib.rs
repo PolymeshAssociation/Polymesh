@@ -1125,7 +1125,7 @@ decl_module! {
             ensure!(eth_signer == eth_owner, Error::<T>::NotAnOwner);
 
             // Success; transfer the ticker to `owner_did`.
-            <Tickers<T>>::mutate(ticker, |reg| reg.owner = owner_did);
+            Self::transfer_ticker(ticker, owner_did, sys_did);
 
             // Emit event.
             Self::deposit_event(RawEvent::ClassicTickerClaimed(owner_did, ticker, eth_signer));
@@ -1992,21 +1992,16 @@ impl<T: Trait> Module<T> {
             auth_id,
         )?;
 
-        <AssetOwnershipRelations>::remove(ticker_details.owner, ticker);
-
-        <AssetOwnershipRelations>::insert(to_did, ticker, AssetOwnershipRelation::TickerOwned);
-
-        <Tickers<T>>::mutate(&ticker, |tr| {
-            tr.owner = to_did;
-        });
-
-        Self::deposit_event(RawEvent::TickerTransferred(
-            to_did,
-            ticker,
-            ticker_details.owner,
-        ));
-
+        Self::transfer_ticker(ticker, to_did, ticker_details.owner);
         Ok(())
+    }
+
+    /// Transfer the given `ticker`'s registration from `from` to `to`.
+    fn transfer_ticker(ticker: Ticker, to: IdentityId, from: IdentityId) {
+        <AssetOwnershipRelations>::remove(from, ticker);
+        <AssetOwnershipRelations>::insert(to, ticker, AssetOwnershipRelation::TickerOwned);
+        <Tickers<T>>::mutate(&ticker, |tr| tr.owner = to);
+        Self::deposit_event(RawEvent::TickerTransferred(to, ticker, from));
     }
 
     /// Accept and process a primary issuance agent transfer.
