@@ -51,11 +51,10 @@ pub fn migrate_map<T: Migrate>(module: &[u8], item: &[u8]) {
     migrate_map_rename::<T>(module, item, item)
 }
 
-
 /// Migrate the values with old type `T` in `module::item` to `T::Into` in `module::new_item`.
 ///
 /// Migrations resulting in `old.migrate() == None` are silently dropped from storage.
-pub fn migrate_map_rename<T: Migrate>(module: &[u8], item: &[u8], new_item: &[u8],) {
+pub fn migrate_map_rename<T: Migrate>(module: &[u8], item: &[u8], new_item: &[u8]) {
     StorageIterator::<T>::new(module, item)
         .drain()
         .filter_map(|(key, old)| Some((key, old.migrate()?)))

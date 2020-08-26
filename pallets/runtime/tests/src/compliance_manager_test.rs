@@ -17,7 +17,7 @@ use polymesh_common_utilities::{
     Context,
 };
 use polymesh_primitives::{
-    AuthorizationData, Claim, Condition, ConditionType,CountryCode, IdentityId, Scope, Signatory,
+    AuthorizationData, Claim, Condition, ConditionType, CountryCode, IdentityId, Scope, Signatory,
     TargetIdentity, Ticker,
 };
 use sp_std::{convert::TryFrom, prelude::*};
@@ -41,7 +41,8 @@ macro_rules! assert_invalid_transfer {
                 Some($from),
                 Some($to),
                 $amount
-            ).map(|(a, _)| a),
+            )
+            .map(|(a, _)| a),
             Ok(ERC1400_TRANSFER_SUCCESS)
         );
     };
@@ -56,7 +57,8 @@ macro_rules! assert_valid_transfer {
                 Some($from),
                 Some($to),
                 $amount
-            ).map(|(a, _)| a),
+            )
+            .map(|(a, _)| a),
             Ok(ERC1400_TRANSFER_SUCCESS)
         );
     };
@@ -195,9 +197,18 @@ fn should_add_and_verify_compliance_requirement_we() {
     assert!(result.requirements[0].sender_conditions[0].result);
     assert!(result.requirements[0].receiver_conditions[0].result);
     assert!(!result.requirements[0].receiver_conditions[1].result);
-    assert_eq!(result.requirements[0].sender_conditions[0].condition, sender_condition);
-    assert_eq!(result.requirements[0].receiver_conditions[0].condition, receiver_condition1);
-    assert_eq!(result.requirements[0].receiver_conditions[1].condition, receiver_condition2);
+    assert_eq!(
+        result.requirements[0].sender_conditions[0].condition,
+        sender_condition
+    );
+    assert_eq!(
+        result.requirements[0].receiver_conditions[0].condition,
+        receiver_condition1
+    );
+    assert_eq!(
+        result.requirements[0].receiver_conditions[1].condition,
+        receiver_condition2
+    );
 
     assert_ok!(Identity::add_claim(
         claim_issuer_signed.clone(),
@@ -218,9 +229,18 @@ fn should_add_and_verify_compliance_requirement_we() {
     assert!(result.requirements[0].sender_conditions[0].result);
     assert!(result.requirements[0].receiver_conditions[0].result);
     assert!(result.requirements[0].receiver_conditions[1].result);
-    assert_eq!(result.requirements[0].sender_conditions[0].condition, sender_condition);
-    assert_eq!(result.requirements[0].receiver_conditions[0].condition, receiver_condition1);
-    assert_eq!(result.requirements[0].receiver_conditions[1].condition, receiver_condition2);
+    assert_eq!(
+        result.requirements[0].sender_conditions[0].condition,
+        sender_condition
+    );
+    assert_eq!(
+        result.requirements[0].receiver_conditions[0].condition,
+        receiver_condition1
+    );
+    assert_eq!(
+        result.requirements[0].receiver_conditions[1].condition,
+        receiver_condition2
+    );
 
     assert_ok!(Identity::add_claim(
         cdd_signed.clone(),
@@ -241,9 +261,18 @@ fn should_add_and_verify_compliance_requirement_we() {
     assert!(result.requirements[0].sender_conditions[0].result);
     assert!(!result.requirements[0].receiver_conditions[0].result);
     assert!(result.requirements[0].receiver_conditions[1].result);
-    assert_eq!(result.requirements[0].sender_conditions[0].condition, sender_condition);
-    assert_eq!(result.requirements[0].receiver_conditions[0].condition, receiver_condition1);
-    assert_eq!(result.requirements[0].receiver_conditions[1].condition, receiver_condition2);
+    assert_eq!(
+        result.requirements[0].sender_conditions[0].condition,
+        sender_condition
+    );
+    assert_eq!(
+        result.requirements[0].receiver_conditions[0].condition,
+        receiver_condition1
+    );
+    assert_eq!(
+        result.requirements[0].receiver_conditions[1].condition,
+        receiver_condition2
+    );
 
     for _ in 0..2 {
         ComplianceManager::add_compliance_requirement(
@@ -253,9 +282,19 @@ fn should_add_and_verify_compliance_requirement_we() {
             vec![receiver_condition1.clone(), receiver_condition2.clone()],
         );
     }
-    assert_ok!(ComplianceManager::remove_compliance_requirement(token_owner_signed.clone(), ticker, 1)); // OK; latest == 3
-    assert_err!(ComplianceManager::remove_compliance_requirement(token_owner_signed.clone(), ticker, 1), CMError::<TestStorage>::InvalidComplianceRequirementId); // BAD OK; latest == 3, but 1 was just removed.
-    assert_noop!(ComplianceManager::remove_compliance_requirement(token_owner_signed.clone(), ticker, 1), CMError::<TestStorage>::InvalidComplianceRequirementId);
+    assert_ok!(ComplianceManager::remove_compliance_requirement(
+        token_owner_signed.clone(),
+        ticker,
+        1
+    )); // OK; latest == 3
+    assert_err!(
+        ComplianceManager::remove_compliance_requirement(token_owner_signed.clone(), ticker, 1),
+        CMError::<TestStorage>::InvalidComplianceRequirementId
+    ); // BAD OK; latest == 3, but 1 was just removed.
+    assert_noop!(
+        ComplianceManager::remove_compliance_requirement(token_owner_signed.clone(), ticker, 1),
+        CMError::<TestStorage>::InvalidComplianceRequirementId
+    );
 }
 
 #[test]
@@ -759,7 +798,11 @@ fn should_modify_vector_of_trusted_issuer_we() {
 
     // Failed because sender is not the owner of the ticker
     assert_err!(
-        ComplianceManager::change_compliance_requirement(receiver_signed.clone(), ticker, compliance_requirement.clone()),
+        ComplianceManager::change_compliance_requirement(
+            receiver_signed.clone(),
+            ticker,
+            compliance_requirement.clone()
+        ),
         CMError::<TestStorage>::Unauthorized
     );
 
@@ -1266,7 +1309,8 @@ fn can_verify_restriction_with_primary_issuance_agent_we() {
             Some(issuer_id),
             amount,
             Some(issuer_id)
-        ).map(|(a, _)| a),
+        )
+        .map(|(a, _)| a),
         ERC1400_TRANSFER_FAILURE
     );
 
@@ -1292,7 +1336,8 @@ fn can_verify_restriction_with_primary_issuance_agent_we() {
             Some(random_guy_id),
             amount,
             Some(issuer_id)
-        ).map(|(a, _)| a),
+        )
+        .map(|(a, _)| a),
         ERC1400_TRANSFER_SUCCESS
     );
 
@@ -1304,7 +1349,8 @@ fn can_verify_restriction_with_primary_issuance_agent_we() {
             Some(owner_id),
             amount,
             Some(issuer_id)
-        ).map(|(a, _)| a),
+        )
+        .map(|(a, _)| a),
         ERC1400_TRANSFER_FAILURE
     );
 
@@ -1316,7 +1362,8 @@ fn can_verify_restriction_with_primary_issuance_agent_we() {
             Some(issuer_id),
             amount,
             Some(issuer_id)
-        ).map(|(a, _)| a),
+        )
+        .map(|(a, _)| a),
         ERC1400_TRANSFER_FAILURE
     );
 }

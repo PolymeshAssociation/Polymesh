@@ -46,9 +46,7 @@ mod RuntimeInteraction {
             key.extend_from_slice(&encoded_ticker);
 
             // fetch from runtime storage
-            let result = self
-                .env()
-                .get_runtime_storage::<AssetCompliances>(&key[..]);
+            let result = self.env().get_runtime_storage::<AssetCompliances>(&key[..]);
             env::println(&format!("PRINT THE KEY {:?}", key));
             match result {
                 Some(Ok(asset_compliance)) => {
@@ -69,7 +67,8 @@ mod RuntimeInteraction {
         #[ink(message)]
         fn call_runtime_dispatch(&self, ticker: Ticker, id: u32) {
             // Creating the instance of the runtime call
-            let remove_requirement_call = runtime_calls::cm_remove_compliance_requirement(ticker, id);
+            let remove_requirement_call =
+                runtime_calls::cm_remove_compliance_requirement(ticker, id);
             // dispatch the call to the runtime
             let result = self.env().invoke_runtime(&remove_requirement_call);
             // Print the result if the async call

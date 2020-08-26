@@ -239,7 +239,8 @@ fn scope_claims_we() {
             Some(alice_id),
             Some(inv_did_1),
             10
-        ).map(|(a, _)| a),
+        )
+        .map(|(a, _)| a),
         Ok(ERC1400_TRANSFER_SUCCESS)
     );
 }

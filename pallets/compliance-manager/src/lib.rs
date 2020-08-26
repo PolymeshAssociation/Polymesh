@@ -684,7 +684,8 @@ impl<T: Trait> Module<T> {
     ) -> bool {
         let mut result = true;
         for condition in conditions {
-            let context = Self::fetch_context(ticker, did, &condition.condition, primary_issuance_agent);
+            let context =
+                Self::fetch_context(ticker, did, &condition.condition, primary_issuance_agent);
             condition.result = proposition::run(&condition.condition, &context);
             if !condition.result {
                 result = false;
@@ -694,7 +695,11 @@ impl<T: Trait> Module<T> {
     }
 
     /// Pauses or resumes the asset compliance.
-    fn pause_resume_asset_compliance(origin: T::Origin, ticker: Ticker, pause: bool) -> DispatchResult {
+    fn pause_resume_asset_compliance(
+        origin: T::Origin,
+        ticker: Ticker,
+        pause: bool,
+    ) -> DispatchResult {
         let sender = ensure_signed(origin)?;
         let did = Context::current_identity_or::<Identity<T>>(&sender)?;
 
@@ -923,7 +928,9 @@ impl<T: Trait> ComplianceManagerTrait<T::Balance> for Module<T> {
                     // All conditions satisfied, return early
                     return Ok((
                         ERC1400_TRANSFER_SUCCESS,
-                        weight_for::weight_for_verify_restriction::<T>(u64::try_from(requirement_count).unwrap_or(0)),
+                        weight_for::weight_for_verify_restriction::<T>(
+                            u64::try_from(rules_count).unwrap_or(0),
+                        ),
                     ));
                 }
             }
@@ -931,7 +938,9 @@ impl<T: Trait> ComplianceManagerTrait<T::Balance> for Module<T> {
         sp_runtime::print("Identity TM restrictions not satisfied");
         Ok((
             ERC1400_TRANSFER_FAILURE,
-            weight_for::weight_for_verify_restriction::<T>(u64::try_from(requirement_count).unwrap_or(0)),
+            weight_for::weight_for_verify_restriction::<T>(
+                u64::try_from(requirement_count).unwrap_or(0),
+            ),
         ))
     }
 }

@@ -202,7 +202,8 @@ impl<'a> Proposition for AnyProposition<'a> {
 mod tests {
     use crate::{
         proposition::{self, Context, Proposition},
-        CddId, Claim, Condition, ConditionType, CountryCode, IdentityId, InvestorUid, Scope, TargetIdentity,
+        CddId, Claim, Condition, ConditionType, CountryCode, IdentityId, InvestorUid, Scope,
+        TargetIdentity,
     };
     use std::convert::From;
 
@@ -280,7 +281,9 @@ mod tests {
             ..Default::default()
         };
 
-        let out = !conditions.iter().any(|condition| !proposition::run(&condition, &context));
+        let out = !conditions
+            .iter()
+            .any(|condition| !proposition::run(&condition, &context));
         assert_eq!(out, true);
 
         // Invalid case: `BuyLockup` is present.
@@ -293,7 +296,9 @@ mod tests {
             ..Default::default()
         };
 
-        let out = !conditions.iter().any(|condition| !proposition::run(&condition, &context));
+        let out = !conditions
+            .iter()
+            .any(|condition| !proposition::run(&condition, &context));
         assert_eq!(out, false);
 
         // Invalid case: Missing `Accredited`
@@ -305,7 +310,9 @@ mod tests {
             ..Default::default()
         };
 
-        let out = !conditions.iter().any(|condition| !proposition::run(&condition, &context));
+        let out = !conditions
+            .iter()
+            .any(|condition| !proposition::run(&condition, &context));
         assert_eq!(out, false);
 
         // Invalid case: Missing `Jurisdiction`
@@ -317,7 +324,9 @@ mod tests {
             ..Default::default()
         };
 
-        let out = !conditions.iter().any(|condition| !proposition::run(&condition, &context));
+        let out = !conditions
+            .iter()
+            .any(|condition| !proposition::run(&condition, &context));
         assert_eq!(out, false);
 
         // Check NoneOf
@@ -329,7 +338,9 @@ mod tests {
             ..Default::default()
         };
 
-        let out = !conditions.iter().any(|condition| !proposition::run(&condition, &context));
+        let out = !conditions
+            .iter()
+            .any(|condition| !proposition::run(&condition, &context));
         assert_eq!(out, false);
 
         let identity1 = IdentityId::from(1);

@@ -207,7 +207,8 @@ pub use condition::{Condition, ConditionType, TargetIdentity};
 /// Predicate calculation for Claims.
 pub mod proposition;
 pub use proposition::{
-    AndProposition, Context, NotProposition, OrProposition, Proposition, ValidProofOfInvestorProposition,
+    AndProposition, Context, NotProposition, OrProposition, Proposition,
+    ValidProofOfInvestorProposition,
 };
 
 /// Represents custom transaction errors.

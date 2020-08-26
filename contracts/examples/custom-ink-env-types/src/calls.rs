@@ -42,5 +42,10 @@ pub fn cm_add_compliance_requirement(
     sender_conditions: Vec<Condition>,
     receiver_conditions: Vec<Condition>,
 ) -> Call {
-    ComplianceManager::<Condition, Ticker>::add_compliance_requirement(ticker, sender_conditions, receiver_conditions).into()
+    ComplianceManager::<Condition, Ticker>::add_compliance_requirement(
+        ticker,
+        sender_conditions,
+        receiver_conditions,
+    )
+    .into()
 }

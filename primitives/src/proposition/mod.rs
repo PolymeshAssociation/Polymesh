@@ -93,9 +93,14 @@ pub use valid_proof_of_investor::ValidProofOfInvestorProposition;
 
 /// It creates a proposition to evaluate the matching of `id` with primary_issuance_agent in the context.
 #[inline]
-pub fn equals<'a>(id: &'a TargetIdentity, primary_issuance_agent: &'a IdentityId) -> TargetIdentityProposition<'a> {
+pub fn equals<'a>(
+    id: &'a TargetIdentity,
+    primary_issuance_agent: &'a IdentityId,
+) -> TargetIdentityProposition<'a> {
     match id {
-        TargetIdentity::PrimaryIssuanceAgent => TargetIdentityProposition { identity: primary_issuance_agent },
+        TargetIdentity::PrimaryIssuanceAgent => TargetIdentityProposition {
+            identity: primary_issuance_agent,
+        },
         TargetIdentity::Specific(identity) => TargetIdentityProposition { identity },
     }
 }
