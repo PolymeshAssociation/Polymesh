@@ -929,7 +929,7 @@ impl<T: Trait> ComplianceManagerTrait<T::Balance> for Module<T> {
                     return Ok((
                         ERC1400_TRANSFER_SUCCESS,
                         weight_for::weight_for_verify_restriction::<T>(
-                            u64::try_from(rules_count).unwrap_or(0),
+                            u64::try_from(requirement_count).unwrap_or(0),
                         ),
                     ));
                 }

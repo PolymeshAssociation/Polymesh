@@ -16,8 +16,8 @@ use pallet_identity as identity;
 use pallet_statistics as statistics;
 use polymesh_common_utilities::{compliance_manager::Trait, constants::*, traits::balances::Memo};
 use polymesh_primitives::{
-    AuthorizationData, Claim, Document, DocumentName, IdentityId, Rule, RuleType, Signatory,
-    SmartExtension, SmartExtensionName, SmartExtensionType, Ticker,
+    AuthorizationData, Claim, Condition, ConditionType, Document, DocumentName, IdentityId,
+    Signatory, SmartExtension, SmartExtensionName, SmartExtensionType, Ticker,
 };
 
 use chrono::prelude::Utc;
@@ -2042,6 +2042,20 @@ fn test_weights_for_is_valid_transfer() {
             };
             let ticker = Ticker::try_from(token.name.as_slice()).unwrap();
 
+            assert_ok!(Asset::create_asset(
+                Origin::signed(alice),
+                token.name.clone(),
+                ticker,
+                token.total_supply,
+                true,
+                token.asset_type.clone(),
+                vec![],
+                None,
+            ));
+
+            // Get token Id.
+            let ticker_id = Identity::get_token_did(&ticker).unwrap();
+
             // Adding different compliance requirements
             assert_ok!(ComplianceManager::add_compliance_requirement(
                 alice_signed.clone(),
@@ -2143,15 +2157,15 @@ fn test_weights_for_is_valid_transfer() {
             assert!(matches!(result, computed_weight)); // Sender & receiver rules are processed.
 
             // Adding different claim rules
-            assert_ok!(ComplianceManager::add_active_rule(
+            assert_ok!(ComplianceManager::add_compliance_requirement(
                 alice_signed.clone(),
                 ticker,
-                vec![Rule {
-                    rule_type: RuleType::IsPresent(Claim::Exempted(ticker_id)),
+                vec![Condition {
+                    condition_type: ConditionType::IsPresent(Claim::Exempted(ticker_id)),
                     issuers: vec![eve_did]
                 }],
-                vec![Rule {
-                    rule_type: RuleType::IsPresent(Claim::Blocked(ticker_id)),
+                vec![Condition {
+                    condition_type: ConditionType::IsPresent(Claim::Blocked(ticker_id)),
                     issuers: vec![eve_did]
                 }]
             ));
@@ -2175,7 +2189,10 @@ fn test_weights_for_is_valid_transfer() {
             assert!(matches!(transfer_weight, computed_weight)); // Sender & receiver rules are processed.
 
             // pause transfer rules
-            assert_ok!(ComplianceManager::pause_asset_rules(alice_signed, ticker));
+            assert_ok!(ComplianceManager::pause_asset_compliance(
+                alice_signed,
+                ticker
+            ));
 
             let result =
                 Asset::_is_valid_transfer(&ticker, alice, Some(alice_did), Some(bob_did), 100)
