@@ -67,7 +67,7 @@ pub struct MetaVersion(pub Vec<u8>);
 
 /// Subset of the SE template metadata that is provided by the template owner.
 #[derive(Encode, Decode, Default, Debug, Clone, PartialEq)]
-pub struct SmartExtTemplateMetadata<Balance> {
+pub struct TemplateMetadata<Balance> {
     /// Url that can contain the details about the template
     /// Ex- license, audit report.
     pub url: Option<MetaUrl>,

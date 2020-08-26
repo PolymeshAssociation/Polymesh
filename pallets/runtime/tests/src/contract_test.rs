@@ -14,10 +14,10 @@ use codec::Encode;
 use hex_literal::hex;
 use pallet_balances as balances;
 use polymesh_common_utilities::{protocol_fee::ProtocolOp, traits::CddAndFeeDetails};
-use polymesh_contracts::SmartExtTemplateMetaInfo;
+use polymesh_contracts::MetadataOfTemplate;
 use polymesh_contracts::{Call as ContractsCall, NonceBasedAddressDeterminer};
 use polymesh_primitives::{
-    IdentityId, InvestorUid, SmartExtTemplateMetadata, SmartExtensionType, TemplateDetails,
+    IdentityId, InvestorUid, SmartExtensionType, TemplateDetails, TemplateMetadata,
 };
 use test_client::AccountKeyring;
 
@@ -66,7 +66,7 @@ fn create_se_template<T>(
     TestStorage::set_payer_context(Some(template_creator));
 
     // Create smart extension metadata
-    let se_meta_data = SmartExtTemplateMetadata {
+    let se_meta_data = TemplateMetadata {
         url: None,
         se_type: SmartExtensionType::TransferManager,
         usage_fee: 0,
@@ -105,10 +105,7 @@ fn create_se_template<T>(
         expected_template_metadata
     );
 
-    assert_eq!(
-        WrapperContracts::get_smart_ext_template_meta_info(code_hash),
-        se_meta_data
-    );
+    assert_eq!(WrapperContracts::get_metadata_of(code_hash), se_meta_data);
 
     // Set payer in context
     TestStorage::set_payer_context(None);
@@ -596,7 +593,7 @@ fn check_transaction_rollback_functionality_for_put_code() {
             TestStorage::set_payer_context(Some(alice));
 
             // Create smart extension metadata
-            let se_meta_data = SmartExtTemplateMetadata {
+            let se_meta_data = TemplateMetadata {
                 url: None,
                 se_type: SmartExtensionType::TransferManager,
                 usage_fee: 0,
@@ -616,9 +613,7 @@ fn check_transaction_rollback_functionality_for_put_code() {
             );
 
             // Verify that storage doesn't change.
-            assert!(!SmartExtTemplateMetaInfo::<TestStorage>::contains_key(
-                code_hash
-            ));
+            assert!(!MetadataOfTemplate::<TestStorage>::contains_key(code_hash));
             assert!(<pallet_contracts::PristineCode<TestStorage>>::get(code_hash).is_none())
         });
 }

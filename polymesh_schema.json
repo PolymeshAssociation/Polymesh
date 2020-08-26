@@ -385,7 +385,7 @@
         "MetaUrl": "Text",
         "MetaDescription": "Text",
         "MetaVersion": "Text",
-        "SmartExtTemplateMetadata": {
+        "TemplateMetadata": {
             "url": "Option<MetaUrl>",
             "se_type": "SmartExtensionType",
             "usage_fee": "Balance",

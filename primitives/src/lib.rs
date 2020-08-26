@@ -189,8 +189,8 @@ pub use ticker::Ticker;
 /// This module defines types used by smart extensions
 pub mod smart_extension;
 pub use smart_extension::{
-    MetaUrl, SmartExtTemplateMetadata, SmartExtension, SmartExtensionName, SmartExtensionType,
-    TemplateDetails,
+    MetaUrl, SmartExtension, SmartExtensionName, SmartExtensionType, TemplateDetails,
+    TemplateMetadata,
 };
 
 pub mod document;

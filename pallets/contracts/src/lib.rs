@@ -31,7 +31,7 @@ use polymesh_common_utilities::{
     protocol_fee::{ChargeProtocolFee, ProtocolOp},
     with_transaction, Context,
 };
-use polymesh_primitives::{IdentityId, MetaUrl, SmartExtTemplateMetadata, TemplateDetails};
+use polymesh_primitives::{IdentityId, MetaUrl, TemplateDetails, TemplateMetadata};
 use sp_core::crypto::UncheckedFrom;
 use sp_runtime::{
     traits::{Hash, Saturating, StaticLookup},
@@ -85,7 +85,7 @@ pub trait Trait: pallet_contracts::Trait + IdentityTrait {
 decl_storage! {
     trait Store for Module<T: Trait> as ContractsWrapper {
         /// Store the meta details of the smart extension template.
-        pub SmartExtTemplateMetaInfo get(fn get_smart_ext_template_meta_info): map hasher(identity) CodeHash<T> => SmartExtTemplateMetadata<BalanceOf<T>>;
+        pub MetadataOfTemplate get(fn get_metadata_of): map hasher(identity) CodeHash<T> => TemplateMetadata<BalanceOf<T>>;
         /// Store the details of the template (Ex- owner, frozen etc).
         pub TemplateInfo get(fn get_template_details): map hasher(identity) CodeHash<T> => TemplateDetails<BalanceOf<T>>;
         /// Usage fee for the SE instance.
@@ -118,8 +118,6 @@ decl_error! {
         NewOwnerIsNotCDD,
         /// Insufficient max_fee provided by the user to instantiate the SE.
         InsufficientMaxFee,
-        /// Extension address not found in the `ContractInfoOf` storage map of base contract pallet
-        ExtensionAddressNotExist
     }
 }
 
@@ -141,9 +139,12 @@ decl_event! {
         /// Emitted when the template ownership get transferred.
         /// IdentityId of the owner, Code hash of the template, IdentityId of the new owner of the template.
         TemplateOwnershipTransferred(IdentityId, CodeHash, IdentityId),
-        /// Emitted when the template fees (i.e instantiation fee and usage fee) gets changed.
-        /// IdentityId of the owner, Code hash of the template, New instantiation fee, New usage fee.
-        TemplateFeesChanged(IdentityId, CodeHash, Option<Balance>, Option<Balance>),
+        /// Emitted when the template usage fees gets changed.
+        /// IdentityId of the owner, Code hash of the template,Old usage fee, New usage fee.
+        TemplateUsageFeeChanged(IdentityId, CodeHash, Balance, Balance),
+        /// Emitted when the template instantiation fees gets changed.
+        /// IdentityId of the owner, Code hash of the template, Old instantiation fee, New instantiation fee.
+        TemplateInstantiationFeeChanged(IdentityId, CodeHash, Balance, Balance),
         /// Emitted when the template meta url get changed.
         /// IdentityId of the owner, Code hash of the template, old meta url, new meta url.
         TemplateMetaUrlChanged(IdentityId, CodeHash, Option<MetaUrl>, Option<MetaUrl>),
@@ -177,7 +178,7 @@ decl_module! {
         #[weight = 50_000_000.saturating_add(pallet_contracts::Call::<T>::put_code(code.clone()).get_dispatch_info().weight)]
         pub fn put_code(
             origin,
-            meta_info: SmartExtTemplateMetadata<BalanceOf<T>>,
+            meta_info: TemplateMetadata<BalanceOf<T>>,
             instantiation_fee: BalanceOf<T>,
             code: Vec<u8>
         ) -> DispatchResult {
@@ -199,7 +200,7 @@ decl_module! {
                     owner: did,
                     frozen: false
                 });
-                <SmartExtTemplateMetaInfo<T>>::insert(code_hash, meta_info);
+                <MetadataOfTemplate<T>>::insert(code_hash, meta_info);
                 // Charge the protocol fee
                 T::ProtocolFee::charge_fee(ProtocolOp::ContractsPutCode)
             })?;
@@ -227,7 +228,6 @@ decl_module! {
         /// # Errors
         /// InstantiationIsNotAllowed - It occurred when instantiation of the template is frozen.
         /// InsufficientMaxFee - Provided max_fee is less than required.
-        /// ExtensionAddressNotExist - Smart extension accountId is not exists.
         #[weight = 500_000_000 + *gas_limit]
         pub fn instantiate(
             origin,
@@ -347,16 +347,21 @@ decl_module! {
 
             // Update the fees
             if let Some(usage_fee) = new_usage_fee {
+                // Access the current usage fee.
+                let old_usage_fee = Self::get_metadata_of(code_hash).usage_fee;
                 // Update the usage fee for a given code hash.
-                <SmartExtTemplateMetaInfo<T>>::mutate(&code_hash, |metadata| metadata.usage_fee =  usage_fee)
+                <MetadataOfTemplate<T>>::mutate(&code_hash, |metadata| metadata.usage_fee =  usage_fee);
+                // Emit event with the old & new usage fee.
+                Self::deposit_event(RawEvent::TemplateUsageFeeChanged(did, code_hash, old_usage_fee, usage_fee));
             }
             if let Some(instantiation_fee) = new_instantiation_fee {
+                // Access the current instantiation fee.
+                let old_instantiation_fee = Self::get_template_details(code_hash).instantiation_fee;
                 // Update the instantiation fee for a given code_hash.
                 <TemplateInfo<T>>::mutate(&code_hash, |template_details| template_details.instantiation_fee = instantiation_fee);
+                // Emit event with the old & new instantiation fee.
+                Self::deposit_event(RawEvent::TemplateInstantiationFeeChanged(did, code_hash, old_instantiation_fee, instantiation_fee));
             }
-            // Emit event with the new instantiation fee & the new usage fee.
-            Self::deposit_event(RawEvent::TemplateFeesChanged(did, code_hash, new_instantiation_fee, new_usage_fee));
-
             Ok(())
         }
 
@@ -372,9 +377,9 @@ decl_module! {
             // Ensure whether the extrinsic is signed & validate the `code_hash`.
             let (did, _) = Self::ensure_signed_and_template_exists(origin, code_hash)?;
             // Emit event with old and new url.
-            Self::deposit_event(RawEvent::TemplateMetaUrlChanged(did, code_hash, Self::get_smart_ext_template_meta_info(code_hash).url, new_url.clone()));
+            Self::deposit_event(RawEvent::TemplateMetaUrlChanged(did, code_hash, Self::get_metadata_of(code_hash).url, new_url.clone()));
             // Update the usage fee for a given code hash.
-            <SmartExtTemplateMetaInfo<T>>::mutate(&code_hash, |metadata| metadata.url =  new_url);
+            <MetadataOfTemplate<T>>::mutate(&code_hash, |metadata| metadata.url =  new_url);
             Ok(())
         }
     }
@@ -413,6 +418,6 @@ impl<T: Trait> Module<T> {
     }
 
     fn get_usage_fee(code_hash: &CodeHash<T>) -> BalanceOf<T> {
-        Self::get_smart_ext_template_meta_info(code_hash).usage_fee
+        Self::get_metadata_of(code_hash).usage_fee
     }
 }
