@@ -76,10 +76,13 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 #![recursion_limit = "256"]
 
-use core::result::Result as StdResult;
+use core::result::Result;
 use frame_support::{
-    decl_error, decl_event, decl_module, decl_storage, dispatch::DispatchResult, ensure,
+    decl_error, decl_event, decl_module, decl_storage,
+    dispatch::{DispatchError, DispatchResult},
+    ensure,
     traits::Get,
+    weights::Weight,
 };
 use frame_system::{self as system, ensure_signed};
 use pallet_identity as identity;
@@ -93,6 +96,8 @@ use polymesh_common_utilities::{
     Context,
 };
 use polymesh_primitives::{predicate, Claim, ClaimType, IdentityId, Rule, RuleType, Scope, Ticker};
+use polymesh_primitives_derive::Migrate;
+
 #[cfg(feature = "std")]
 use sp_runtime::{Deserialize, Serialize};
 use sp_std::{
@@ -115,12 +120,16 @@ pub trait Trait:
     type MaxRuleComplexity: Get<u32>;
 }
 
+use polymesh_primitives::rule::RuleOld;
+
 /// An asset transfer rule.
 /// All sender and receiver rule of the same asset rule must be true in order to execute the transfer.
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[derive(codec::Encode, codec::Decode, Default, Clone, PartialEq, Eq, Debug)]
+#[derive(codec::Encode, codec::Decode, Default, Clone, PartialEq, Eq, Debug, Migrate)]
 pub struct AssetTransferRule {
+    #[migrate(Rule)]
     pub sender_rules: Vec<Rule>,
+    #[migrate(Rule)]
     pub receiver_rules: Vec<Rule>,
     /// Unique identifier of the asset rule
     pub rule_id: u32,
@@ -175,11 +184,12 @@ impl From<Rule> for RuleResult {
 
 /// List of rules associated to an asset.
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize, Debug))]
-#[derive(codec::Encode, codec::Decode, Default, Clone, PartialEq, Eq)]
+#[derive(codec::Encode, codec::Decode, Default, Clone, PartialEq, Eq, Migrate)]
 pub struct AssetTransferRules {
     /// This flag indicates if asset transfer rules are active or paused.
     pub is_paused: bool,
     /// List of rules.
+    #[migrate(AssetTransferRule)]
     pub rules: Vec<AssetTransferRule>,
 }
 
@@ -208,6 +218,18 @@ impl From<AssetTransferRules> for AssetTransferRulesResult {
                 .collect(),
             final_result: false,
         }
+    }
+}
+
+pub mod weight_for {
+    use super::*;
+
+    pub fn weight_for_verify_restriction<T: Trait>(no_of_asset_rule: u64) -> Weight {
+        no_of_asset_rule * 100_000_000
+    }
+
+    pub fn weight_for_reading_asset_rules<T: Trait>() -> Weight {
+        T::DbWeight::get().reads(1) + 1_000_000
     }
 }
 
@@ -249,6 +271,14 @@ decl_module! {
         type Error = Error<T>;
 
         fn deposit_event() = default;
+
+        fn on_runtime_upgrade() -> frame_support::weights::Weight {
+            use polymesh_primitives::migrate::migrate_map;
+            migrate_map::<AssetTransferRulesOld>(b"ComplianceManager", b"AssetRulesMap");
+
+            // It's gonna be alot, so lets pretend its 0 anyways.
+            0
+        }
 
         /// Adds an asset rule to active rules for a ticker.
         /// If rules are duplicated, it does nothing.
@@ -302,9 +332,12 @@ decl_module! {
 
             ensure!(Self::is_owner(&ticker, did), Error::<T>::Unauthorized);
 
-            <AssetRulesMap>::mutate(ticker, |old_asset_rules| {
-                old_asset_rules.rules.retain( |rule| { rule.rule_id != asset_rule_id });
-            });
+            <AssetRulesMap>::try_mutate(ticker, |asset_rules| {
+                let before = asset_rules.rules.len();
+                asset_rules.rules.retain(|rule| { rule.rule_id != asset_rule_id });
+                ensure!(before != asset_rules.rules.len(), Error::<T>::InvalidRuleId);
+                Ok(()) as DispatchResult
+            })?;
 
             Self::deposit_event(Event::AssetRuleRemoved(did, ticker, asset_rule_id));
 
@@ -852,14 +885,19 @@ impl<T: Trait> ComplianceManagerTrait<T::Balance> for Module<T> {
         to_did_opt: Option<IdentityId>,
         _value: T::Balance,
         primary_issuance_agent: Option<IdentityId>,
-    ) -> StdResult<u8, &'static str> {
+    ) -> Result<(u8, Weight), DispatchError> {
         // Transfer is valid if ALL receiver AND sender rules of ANY asset rule are valid.
         let asset_rules = Self::asset_rules(ticker);
+        let mut rules_count: usize = 0;
         if asset_rules.is_paused {
-            return Ok(ERC1400_TRANSFER_SUCCESS);
+            return Ok((
+                ERC1400_TRANSFER_SUCCESS,
+                weight_for::weight_for_reading_asset_rules::<T>(),
+            ));
         }
         for active_rule in asset_rules.rules {
             if let Some(from_did) = from_did_opt {
+                rules_count += active_rule.sender_rules.len();
                 if !Self::are_all_rules_satisfied(
                     ticker,
                     from_did,
@@ -870,7 +908,9 @@ impl<T: Trait> ComplianceManagerTrait<T::Balance> for Module<T> {
                     continue;
                 }
             }
+
             if let Some(to_did) = to_did_opt {
+                rules_count += active_rule.receiver_rules.len();
                 if Self::are_all_rules_satisfied(
                     ticker,
                     to_did,
@@ -878,11 +918,19 @@ impl<T: Trait> ComplianceManagerTrait<T::Balance> for Module<T> {
                     primary_issuance_agent,
                 ) {
                     // All rules satisfied, return early
-                    return Ok(ERC1400_TRANSFER_SUCCESS);
+                    return Ok((
+                        ERC1400_TRANSFER_SUCCESS,
+                        weight_for::weight_for_verify_restriction::<T>(
+                            u64::try_from(rules_count).unwrap_or(0),
+                        ),
+                    ));
                 }
             }
         }
         sp_runtime::print("Identity TM restrictions not satisfied");
-        Ok(ERC1400_TRANSFER_FAILURE)
+        Ok((
+            ERC1400_TRANSFER_FAILURE,
+            weight_for::weight_for_verify_restriction::<T>(u64::try_from(rules_count).unwrap_or(0)),
+        ))
     }
 }

@@ -202,7 +202,7 @@ impl<'a> Predicate for AnyPredicate<'a> {
 mod tests {
     use crate::{
         predicate::{self, Context, Predicate},
-        CddId, Claim, IdentityId, InvestorUid, Rule, RuleType, Scope, TargetIdentity,
+        CddId, Claim, CountryCode, IdentityId, InvestorUid, Rule, RuleType, Scope, TargetIdentity,
     };
     use std::convert::From;
 
@@ -232,13 +232,13 @@ mod tests {
 
         // 1. Check jurisdiction "CAN" belongs to {ESP, CAN, IND}
         let valid_jurisdictions = vec![
-            Claim::Jurisdiction(b"Spain".into(), scope.clone()),
-            Claim::Jurisdiction(b"Canada".into(), scope.clone()),
-            Claim::Jurisdiction(b"India".into(), scope.clone()),
+            Claim::Jurisdiction(CountryCode::ES, scope.clone()),
+            Claim::Jurisdiction(CountryCode::CA, scope.clone()),
+            Claim::Jurisdiction(CountryCode::IN, scope.clone()),
         ];
 
         let context = Context {
-            claims: vec![Claim::Jurisdiction(b"Canada".into(), scope.clone())],
+            claims: vec![Claim::Jurisdiction(CountryCode::CA, scope.clone())],
             ..Default::default()
         };
         let in_juridisction_pre = predicate::any(&valid_jurisdictions);
@@ -246,7 +246,7 @@ mod tests {
 
         // 2. Check USA does not belong to {ESP, CAN, IND}.
         let context = Context {
-            claims: vec![Claim::Jurisdiction(b"USA".into(), scope)],
+            claims: vec![Claim::Jurisdiction(CountryCode::US, scope)],
             ..Default::default()
         };
         assert_eq!(in_juridisction_pre.evaluate(&context), false);
@@ -264,18 +264,18 @@ mod tests {
             RuleType::IsPresent(Claim::Accredited(scope.clone())).into(),
             RuleType::IsAbsent(Claim::BuyLockup(scope.clone())).into(),
             RuleType::IsAnyOf(vec![
-                Claim::Jurisdiction(b"USA".into(), scope.clone()),
-                Claim::Jurisdiction(b"Canada".into(), scope.clone()),
+                Claim::Jurisdiction(CountryCode::US, scope.clone()),
+                Claim::Jurisdiction(CountryCode::CA, scope.clone()),
             ])
             .into(),
-            RuleType::IsNoneOf(vec![Claim::Jurisdiction(b"Cuba".into(), scope.clone())]).into(),
+            RuleType::IsNoneOf(vec![Claim::Jurisdiction(CountryCode::CU, scope)]).into(),
         ];
 
         // Valid case
         let context = Context {
             claims: vec![
-                Claim::Accredited(scope.clone()),
-                Claim::Jurisdiction(b"Canada".into(), scope.clone()),
+                Claim::Accredited(scope),
+                Claim::Jurisdiction(CountryCode::CA, scope.clone()),
             ],
             ..Default::default()
         };
@@ -288,7 +288,7 @@ mod tests {
             claims: vec![
                 Claim::Accredited(scope.clone()),
                 Claim::BuyLockup(scope.clone()),
-                Claim::Jurisdiction(b"Canada".into(), scope.clone()),
+                Claim::Jurisdiction(CountryCode::CA, scope.clone()),
             ],
             ..Default::default()
         };
@@ -300,7 +300,7 @@ mod tests {
         let context = Context {
             claims: vec![
                 Claim::BuyLockup(scope.clone()),
-                Claim::Jurisdiction(b"Canada".into(), scope.clone()),
+                Claim::Jurisdiction(CountryCode::CA, scope.clone()),
             ],
             ..Default::default()
         };
@@ -312,7 +312,7 @@ mod tests {
         let context = Context {
             claims: vec![
                 Claim::Accredited(scope.clone()),
-                Claim::Jurisdiction(b"Spain".into(), scope.clone()),
+                Claim::Jurisdiction(CountryCode::ES, scope.clone()),
             ],
             ..Default::default()
         };
@@ -324,7 +324,7 @@ mod tests {
         let context = Context {
             claims: vec![
                 Claim::Accredited(scope.clone()),
-                Claim::Jurisdiction(b"Cuba".into(), scope),
+                Claim::Jurisdiction(CountryCode::CU, scope.clone()),
             ],
             ..Default::default()
         };

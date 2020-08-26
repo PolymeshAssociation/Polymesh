@@ -15,7 +15,8 @@ use polymesh_common_utilities::{
     Context,
 };
 use polymesh_primitives::{
-    AuthorizationData, Claim, IdentityId, Rule, RuleType, Scope, Signatory, TargetIdentity, Ticker,
+    AuthorizationData, Claim, CountryCode, IdentityId, Rule, RuleType, Scope, Signatory,
+    TargetIdentity, Ticker,
 };
 use sp_std::{convert::TryFrom, prelude::*};
 use test_client::AccountKeyring;
@@ -38,7 +39,8 @@ macro_rules! assert_invalid_transfer {
                 Some($from),
                 Some($to),
                 $amount
-            ),
+            )
+            .map(|(a, _)| a),
             Ok(ERC1400_TRANSFER_SUCCESS)
         );
     };
@@ -53,7 +55,8 @@ macro_rules! assert_valid_transfer {
                 Some($from),
                 Some($to),
                 $amount
-            ),
+            )
+            .map(|(a, _)| a),
             Ok(ERC1400_TRANSFER_SUCCESS)
         );
     };
@@ -241,6 +244,28 @@ fn should_add_and_verify_asset_rule_we() {
     assert_eq!(result.rules[0].sender_rules[0].rule, sender_rule);
     assert_eq!(result.rules[0].receiver_rules[0].rule, receiver_rule1);
     assert_eq!(result.rules[0].receiver_rules[1].rule, receiver_rule2);
+
+    for _ in 0..2 {
+        ComplianceManager::add_active_rule(
+            token_owner_signed.clone(),
+            ticker,
+            vec![sender_rule.clone()],
+            vec![receiver_rule1.clone(), receiver_rule2.clone()],
+        );
+    }
+    assert_ok!(ComplianceManager::remove_active_rule(
+        token_owner_signed.clone(),
+        ticker,
+        1
+    )); // OK; latest == 3
+    assert_err!(
+        ComplianceManager::remove_active_rule(token_owner_signed.clone(), ticker, 1),
+        CMError::<TestStorage>::InvalidRuleId
+    ); // BAD OK; latest == 3, but 1 was just removed.
+    assert_noop!(
+        ComplianceManager::remove_active_rule(token_owner_signed.clone(), ticker, 1),
+        CMError::<TestStorage>::InvalidRuleId
+    );
 }
 
 #[test]
@@ -812,8 +837,8 @@ fn jurisdiction_asset_rules_we() {
     let receiver_rules = vec![
         Rule {
             rule_type: RuleType::IsAnyOf(vec![
-                Claim::Jurisdiction(b"Canada".into(), scope.clone()),
-                Claim::Jurisdiction(b"Spain".into(), scope.clone()),
+                Claim::Jurisdiction(CountryCode::CA, scope.clone()),
+                Claim::Jurisdiction(CountryCode::ES, scope.clone()),
             ]),
             issuers: vec![cdd_id],
         },
@@ -835,7 +860,7 @@ fn jurisdiction_asset_rules_we() {
     assert_ok!(Identity::add_claim(
         cdd_signed.clone(),
         user_id,
-        Claim::Jurisdiction(b"Canada".into(), scope.clone()),
+        Claim::Jurisdiction(CountryCode::CA, scope.clone()),
         None
     ));
     assert_valid_transfer!(ticker, token_owner_id, user_id, 10);
@@ -1004,8 +1029,8 @@ fn cm_test_case_11_we() {
         },
         Rule {
             rule_type: RuleType::IsNoneOf(vec![
-                Claim::Jurisdiction(b"USA".into(), scope.clone()),
-                Claim::Jurisdiction(b"North Kore".into(), scope.clone()),
+                Claim::Jurisdiction(CountryCode::US, scope.clone()),
+                Claim::Jurisdiction(CountryCode::KP, scope.clone()),
             ]),
             issuers: vec![issuer_id],
         },
@@ -1046,7 +1071,7 @@ fn cm_test_case_11_we() {
     assert_ok!(Identity::add_claim(
         issuer.clone(),
         dave,
-        Claim::Jurisdiction(b"USA".into(), scope.clone()),
+        Claim::Jurisdiction(CountryCode::US, scope.clone()),
         None
     ));
 
@@ -1067,7 +1092,7 @@ fn cm_test_case_11_we() {
     assert_ok!(Identity::add_claim(
         issuer.clone(),
         eve,
-        Claim::Jurisdiction(b"UK".into(), scope.clone()),
+        Claim::Jurisdiction(CountryCode::GB, scope.clone()),
         None
     ));
 
@@ -1112,8 +1137,8 @@ fn cm_test_case_13_we() {
         },
         Rule {
             rule_type: RuleType::IsNoneOf(vec![
-                Claim::Jurisdiction(b"USA".into(), scope.clone()),
-                Claim::Jurisdiction(b"North Kore".into(), scope.clone()),
+                Claim::Jurisdiction(CountryCode::US, scope.clone()),
+                Claim::Jurisdiction(CountryCode::KP, scope.clone()),
             ]),
             issuers: vec![issuer_id],
         },
@@ -1161,7 +1186,7 @@ fn cm_test_case_13_we() {
         },
         BatchAddClaimItem::<Moment> {
             target: dave,
-            claim: Claim::Jurisdiction(b"USA".into(), scope.clone()),
+            claim: Claim::Jurisdiction(CountryCode::US, scope.clone()),
             expiry: None,
         },
     ];
@@ -1190,7 +1215,7 @@ fn cm_test_case_13_we() {
         },
         BatchAddClaimItem::<Moment> {
             target: eve,
-            claim: Claim::Jurisdiction(b"UK".into(), scope.clone()),
+            claim: Claim::Jurisdiction(CountryCode::GB, scope.clone()),
             expiry: None,
         },
     ];
@@ -1251,7 +1276,8 @@ fn can_verify_restriction_with_primary_issuance_agent_we() {
             Some(issuer_id),
             amount,
             Some(issuer_id)
-        ),
+        )
+        .map(|(a, _)| a),
         ERC1400_TRANSFER_FAILURE
     );
 
@@ -1277,7 +1303,8 @@ fn can_verify_restriction_with_primary_issuance_agent_we() {
             Some(random_guy_id),
             amount,
             Some(issuer_id)
-        ),
+        )
+        .map(|(a, _)| a),
         ERC1400_TRANSFER_SUCCESS
     );
 
@@ -1289,7 +1316,8 @@ fn can_verify_restriction_with_primary_issuance_agent_we() {
             Some(owner_id),
             amount,
             Some(issuer_id)
-        ),
+        )
+        .map(|(a, _)| a),
         ERC1400_TRANSFER_FAILURE
     );
 
@@ -1301,7 +1329,8 @@ fn can_verify_restriction_with_primary_issuance_agent_we() {
             Some(issuer_id),
             amount,
             Some(issuer_id)
-        ),
+        )
+        .map(|(a, _)| a),
         ERC1400_TRANSFER_FAILURE
     );
 }

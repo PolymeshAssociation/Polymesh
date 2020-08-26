@@ -284,8 +284,12 @@ decl_module! {
             }
             // Rename "master" to "primary".
             <CddAuthForPrimaryKeyRotation>::put(<CddAuthForMasterKeyRotation>::take());
-            // 3 writes
-            30
+
+            use polymesh_primitives::{identity_claim::IdentityClaimOld, migrate::migrate_map};
+            migrate_map::<IdentityClaimOld>(b"Identity", b"Claims");
+
+            // It's gonna be alot, so lets pretend its 0 anyways.
+            0
         }
 
         // TODO: Remove this function before mainnet. cdd_register_did should be used instead.

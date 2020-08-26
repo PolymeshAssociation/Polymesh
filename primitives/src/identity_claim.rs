@@ -14,13 +14,15 @@
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
 use crate::{identity_id::IdentityId, CddId, InvestorZKProofData, Moment, Ticker};
-use polymesh_primitives_derive::VecU8StrongTyped;
+use crate as polymesh_primitives;
 
 use codec::{Decode, Encode};
+use polymesh_primitives_derive::Migrate;
 #[cfg(feature = "std")]
 use sp_runtime::{Deserialize, Serialize};
-
 use sp_std::prelude::*;
+
+use super::jurisdiction::{CountryCode, JurisdictionName};
 
 /// It is the asset Id.
 pub type ScopeId = IdentityId;
@@ -55,9 +57,11 @@ impl From<Vec<u8>> for Scope {
     }
 }
 
+type CountryCodeOld = JurisdictionName;
+
 /// All possible claims in polymesh
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[derive(Encode, Decode, Clone, PartialEq, Eq, Debug)]
+#[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, Migrate)]
 pub enum Claim {
     /// User is Accredited
     Accredited(Scope),
@@ -72,7 +76,7 @@ pub enum Claim {
     /// User is KYC'd
     KnowYourCustomer(Scope),
     /// This claim contains a string that represents the jurisdiction of the user
-    Jurisdiction(JurisdictionName, Scope),
+    Jurisdiction(#[migrate] CountryCode, Scope),
     /// User is exempted
     Exempted(Scope),
     /// User is Blocked
@@ -166,16 +170,9 @@ impl Default for ClaimType {
     }
 }
 
-/// A wrapper for Jurisdiction name.
-#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[derive(
-    Decode, Encode, Clone, Default, Hash, PartialEq, Eq, PartialOrd, Ord, VecU8StrongTyped, Debug,
-)]
-pub struct JurisdictionName(pub Vec<u8>);
-
 /// All information of a particular claim
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize, Debug))]
-#[derive(Encode, Decode, Clone, Default, PartialEq, Eq)]
+#[derive(Encode, Decode, Clone, Default, PartialEq, Eq, Migrate)]
 pub struct IdentityClaim {
     /// Issuer of the claim
     pub claim_issuer: IdentityId,
@@ -186,6 +183,7 @@ pub struct IdentityClaim {
     /// Expirty date
     pub expiry: Option<Moment>,
     /// Claim data
+    #[migrate]
     pub claim: Claim,
 }
 
