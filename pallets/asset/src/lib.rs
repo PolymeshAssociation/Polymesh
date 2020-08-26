@@ -1177,7 +1177,7 @@ decl_event! {
         DocumentAdded(Ticker, DocumentName, Document),
         /// A document removed from an asset
         DocumentRemoved(Ticker, DocumentName),
-        /// A extension get removed.
+        /// A extension got removed.
         /// caller DID, ticker, AccountId
         ExtensionRemoved(IdentityId, Ticker, AccountId),
     }
