@@ -16,7 +16,7 @@
 //! Runtime API definition for Identity module.
 
 use codec::Codec;
-use polymesh_primitives::{IdentityId, Ticker, Balance};
+use polymesh_primitives::{Balance, IdentityId, Ticker};
 use sp_std::vec::Vec;
 
 pub type Error = Vec<u8>;

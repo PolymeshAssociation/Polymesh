@@ -20,13 +20,13 @@ use jsonrpc_core::{Error as RpcError, ErrorCode, Result};
 use jsonrpc_derive::rpc;
 
 use codec::Codec;
+use jsonrpc_core::Error;
 use sp_api::{ApiRef, ProvideRuntimeApi};
 use sp_blockchain::HeaderBackend;
-use sp_runtime::{generic::BlockId, traits::Block as BlockT};
 use sp_rpc::number;
-use std::sync::Arc;
+use sp_runtime::{generic::BlockId, traits::Block as BlockT};
 use std::convert::TryInto;
-use jsonrpc_core::Error;
+use std::sync::Arc;
 
 #[rpc]
 pub trait AssetApi<BlockHash, AccountId> {
@@ -77,16 +77,22 @@ where
         at: Option<<Block as BlockT>::Hash>,
     ) -> Result<CanTransferResult> {
         // Make sure that value fits into 128 bits.
-		let value: u64 = value.try_into().map_err(|_| Error {
-			code: ErrorCode::InvalidParams,
-			message: format!("{:?} doesn't fit in 64 bit unsigned value", value),
-			data: None,
-		})?;
+        let value: u64 = value.try_into().map_err(|_| Error {
+            code: ErrorCode::InvalidParams,
+            message: format!("{:?} doesn't fit in 64 bit unsigned value", value),
+            data: None,
+        })?;
         rpc_forward_call!(
             self,
             at,
-            |api: ApiRef<<C as ProvideRuntimeApi<Block>>::Api>, at| api
-                .can_transfer(at, sender, ticker, from_did, to_did, value.into()),
+            |api: ApiRef<<C as ProvideRuntimeApi<Block>>::Api>, at| api.can_transfer(
+                at,
+                sender,
+                ticker,
+                from_did,
+                to_did,
+                value.into()
+            ),
             "Unable to check transfer"
         )
     }
