@@ -268,13 +268,13 @@ mod tests {
                 Claim::Jurisdiction(CountryCode::CA, scope.clone()),
             ])
             .into(),
-            RuleType::IsNoneOf(vec![Claim::Jurisdiction(CountryCode::CU, scope)]).into(),
+            RuleType::IsNoneOf(vec![Claim::Jurisdiction(CountryCode::CU, scope.clone())]).into(),
         ];
 
         // Valid case
         let context = Context {
             claims: vec![
-                Claim::Accredited(scope),
+                Claim::Accredited(scope.clone()),
                 Claim::Jurisdiction(CountryCode::CA, scope.clone()),
             ],
             ..Default::default()
