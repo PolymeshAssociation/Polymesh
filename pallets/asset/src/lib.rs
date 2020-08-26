@@ -87,6 +87,8 @@
 #[cfg(feature = "runtime-benchmarks")]
 pub mod benchmarking;
 
+pub mod ethereum;
+
 use codec::{Decode, Encode};
 use core::result::Result as StdResult;
 use currency::*;
@@ -316,9 +318,10 @@ pub struct EthereumAddress([u8; 20]);
 /// Data imported from Polymath Classic regarding ticker registration/creation.
 /// Only used at genesis config and not stored on-chain.
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+#[derive(Clone)]
 pub struct ClassicTickerImport {
     /// Owner of the registration.
-    pub eth_owner: EthereumAddress,
+    pub eth_owner: ethereum::EthereumAddress,
     /// Name of the ticker registered.
     pub ticker: Ticker,
     /// Is `eth_owner` an Ethereum contract (e.g., in case of a multisig)?
@@ -332,7 +335,7 @@ pub struct ClassicTickerImport {
 #[derive(Encode, Decode, Clone, Debug, PartialEq, Eq)]
 pub struct ClassicTickerRegistration {
     /// Owner of the registration.
-    pub eth_owner: EthereumAddress,
+    pub eth_owner: ethereum::EthereumAddress,
     /// Has the ticker been elevated to a created asset on classic?
     pub is_created: bool,
 }
@@ -413,7 +416,7 @@ decl_storage! {
 
                 // Register the ticker...
                 let tconfig = || config.classic_migration_tconfig.clone();
-                let expiry = <Module<T>>::ticker_registration_checks(&import.ticker, did, tconfig);
+                let expiry = <Module<T>>::ticker_registration_checks(&import.ticker, did, true, tconfig);
                 <Module<T>>::_register_ticker_feeless(&import.ticker, did, expiry.unwrap());
 
                 // ..and associate it with additional info needed for claiming.
@@ -448,7 +451,7 @@ decl_module! {
         pub fn register_ticker(origin, ticker: Ticker) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             let to_did = Context::current_identity_or::<Identity<T>>(&sender)?;
-            let expiry = Self::ticker_registration_checks(&ticker, to_did, || Self::ticker_registration_config())?;
+            let expiry = Self::ticker_registration_checks(&ticker, to_did, false, || Self::ticker_registration_config())?;
             Self::_register_ticker(&ticker, to_did, expiry)
         }
 
@@ -1075,6 +1078,60 @@ decl_module! {
             Self::deposit_event(RawEvent::PrimaryIssuanceAgentTransfered(did, ticker, old_primary_issuance_agent, None));
             Ok(())
         }
+
+        /// Claim a systematically reserved Polymath Classic (PMC) `ticker`
+        /// and transfer it to the `origin`'s identity.
+        ///
+        /// To verify that the `origin` is in control of the Ethereum account on the books,
+        /// an `ethereum_signature` containing the `origin`'s DID as the message
+        /// must be provided by that Ethereum account.
+        ///
+        /// # Errors
+        /// - `NoSuchClassicTicker` if this is not a systematically reserved PMC ticker.
+        /// - `TickerAlreadyRegistered` if the ticker was already registered, e.g., by `origin`.
+        /// - `TickerRegistrationExpired` if the ticker's registration has expired.
+        /// - `BadOrigin` if not signed.
+        /// - `InvalidEthereumSignature` if the `ethereum_signature` is not valid.
+        /// - `NotAnOwner` if the ethereum account is not the owner of the PMC ticker.
+        #[weight = 250_000_000]
+        pub fn claim_classic_ticker(origin, ticker: Ticker, ethereum_signature: ethereum::EcdsaSignature) -> DispatchResult {
+            // Ensure the ticker is a classic one and fetch details.
+            let ClassicTickerRegistration { eth_owner, .. } = ClassicTickers::get(ticker)
+                .ok_or(Error::<T>::NoSuchClassicTicker)?;
+
+            // Ensure ticker registration is still attached to the systematic DID.
+            let sys_did = SystematicIssuers::ClassicMigration.as_id();
+            match Self::is_ticker_available_or_registered_to(&ticker, sys_did) {
+                TickerRegistrationStatus::RegisteredByOther => return Err(Error::<T>::TickerAlreadyRegistered.into()),
+                TickerRegistrationStatus::Available => return Err(Error::<T>::TickerRegistrationExpired.into()),
+                TickerRegistrationStatus::RegisteredByDid => {}
+            }
+
+            // Ensure we're signed & get did.
+            let sender = ensure_signed(origin)?;
+            let owner_did = Context::current_identity_or::<Identity<T>>(&sender)?;
+
+            // Have the caller prove that they own *some* Ethereum account
+            // by having the signed signature contain the `owner_did`.
+            //
+            // We specifically use `owner_did` rather than `sender` such that
+            // if the signing key's owner DID is changed after the creating
+            // `ethereum_signature`, then the call is rejected
+            // (caller might not have Ethereum account's private key).
+            let eth_signer = ethereum::eth_check(owner_did, b"classic_claim", &ethereum_signature)
+                .ok_or(Error::<T>::InvalidEthereumSignature)?;
+
+            // Now we have an Ethereum account; ensure it's the *right one*.
+            ensure!(eth_signer == eth_owner, Error::<T>::NotAnOwner);
+
+            // Success; transfer the ticker to `owner_did`.
+            Self::transfer_ticker(ticker, owner_did, sys_did);
+
+            // Emit event.
+            Self::deposit_event(RawEvent::ClassicTickerClaimed(owner_did, ticker, eth_signer));
+
+            Ok(())
+        }
     }
 }
 
@@ -1165,6 +1222,8 @@ decl_event! {
         DocumentAdded(Ticker, DocumentName, Document),
         /// A document removed from an asset
         DocumentRemoved(Ticker, DocumentName),
+        /// A Polymath Classic token was claimed and transferred to a non-systematic DID.
+        ClassicTickerClaimed(IdentityId, Ticker, ethereum::EthereumAddress),
     }
 }
 
@@ -1255,7 +1314,13 @@ decl_error! {
         /// An invalid custodian DID.
         InvalidCustodianDid,
         /// Number of Transfer Manager extensions attached to an asset is equal to MaxNumberOfTMExtensionForAsset.
-        MaximumTMExtensionLimitReached
+        MaximumTMExtensionLimitReached,
+        /// An invalid Ethereum `EcdsaSignature`.
+        InvalidEthereumSignature,
+        /// The given ticker is not a classic one.
+        NoSuchClassicTicker,
+        /// Registration of ticker has expired.
+        TickerRegistrationExpired,
     }
 }
 
@@ -1434,6 +1499,7 @@ impl<T: Trait> Module<T> {
     fn ticker_registration_checks(
         ticker: &Ticker,
         to_did: IdentityId,
+        no_re_register: bool,
         config: impl FnOnce() -> TickerRegistrationConfig<T::Moment>,
     ) -> Result<Option<T::Moment>, DispatchError> {
         ensure!(
@@ -1449,12 +1515,14 @@ impl<T: Trait> Module<T> {
             Error::<T>::TickerTooLong
         );
 
-        // Ensure that the ticker is not registered by someone else.
-        ensure!(
-            Self::is_ticker_available_or_registered_to(&ticker, to_did)
-                != TickerRegistrationStatus::RegisteredByOther,
-            Error::<T>::TickerAlreadyRegistered
-        );
+        // Ensure that the ticker is not registered by someone else (or `to_did`, possibly).
+        if match Self::is_ticker_available_or_registered_to(&ticker, to_did) {
+            TickerRegistrationStatus::RegisteredByOther => true,
+            TickerRegistrationStatus::RegisteredByDid => no_re_register,
+            _ => false,
+        } {
+            return Err(Error::<T>::TickerAlreadyRegistered.into());
+        }
 
         Ok(config
             .registration_length
@@ -1924,21 +1992,16 @@ impl<T: Trait> Module<T> {
             auth_id,
         )?;
 
-        <AssetOwnershipRelations>::remove(ticker_details.owner, ticker);
-
-        <AssetOwnershipRelations>::insert(to_did, ticker, AssetOwnershipRelation::TickerOwned);
-
-        <Tickers<T>>::mutate(&ticker, |tr| {
-            tr.owner = to_did;
-        });
-
-        Self::deposit_event(RawEvent::TickerTransferred(
-            to_did,
-            ticker,
-            ticker_details.owner,
-        ));
-
+        Self::transfer_ticker(ticker, to_did, ticker_details.owner);
         Ok(())
+    }
+
+    /// Transfer the given `ticker`'s registration from `from` to `to`.
+    fn transfer_ticker(ticker: Ticker, to: IdentityId, from: IdentityId) {
+        <AssetOwnershipRelations>::remove(from, ticker);
+        <AssetOwnershipRelations>::insert(to, ticker, AssetOwnershipRelation::TickerOwned);
+        <Tickers<T>>::mutate(&ticker, |tr| tr.owner = to);
+        Self::deposit_event(RawEvent::TickerTransferred(to, ticker, from));
     }
 
     /// Accept and process a primary issuance agent transfer.
