@@ -497,7 +497,7 @@ async function createVenue(api, sender) {
 
   const transaction = await api.tx.settlement.createVenue(venueDetails, [
     sender.address,
-  ]);
+  ], 0);
 
   await sendTx(sender, transaction);
 
