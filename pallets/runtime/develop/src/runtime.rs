@@ -28,6 +28,7 @@ use polymesh_common_utilities::{
     constants::currency::*,
     protocol_fee::ProtocolOp,
     traits::{
+        PermissionChecker,
         balances::AccountData,
         identity::Trait as IdentityTrait,
         pip::{EnactProposalMaker, PipId},
@@ -479,7 +480,7 @@ where
             frame_system::CheckWeight::<Runtime>::new(),
             pallet_transaction_payment::ChargeTransactionPayment::<Runtime>::from(tip),
             pallet_grandpa::ValidateEquivocationReport::<Runtime>::new(),
-            pallet_permissions::CheckPermissions::<Runtime>::new(),
+            pallet_permissions::StoreCallMetadata::<Runtime>::new(),
         );
         let raw_payload = SignedPayload::new(call, extra)
             .map_err(|e| {
@@ -695,7 +696,9 @@ impl confidential::Trait for Runtime {
     type Event = Event;
 }
 
-impl pallet_permissions::Trait for Runtime {}
+impl PermissionChecker for Runtime {
+    type Checker = Identity;
+}
 
 // / A runtime transaction submitter for the cdd_offchain_worker
 // Comment it in the favour of Testnet v1 release
@@ -768,7 +771,7 @@ construct_runtime!(
         //Polymesh
         Asset: asset::{Module, Call, Storage, Config<T>, Event<T>},
         Dividend: dividend::{Module, Call, Storage, Event<T>},
-        Identity: identity::{Module, Call, Storage, Event<T>, Config<T>},
+        Identity: identity::{Module, Call, Storage, Event<T>, Config<T>, Origin<T>},
         Bridge: bridge::{Module, Call, Storage, Config<T>, Event<T>},
         ComplianceManager: compliance_manager::{Module, Call, Storage, Event},
         Voting: voting::{Module, Call, Storage, Event<T>},
@@ -783,8 +786,8 @@ construct_runtime!(
         // Comment it in the favour of Testnet v1 release
         // CddOffchainWorker: pallet_cdd_offchain_worker::{Module, Call, Storage, ValidateUnsigned, Event<T>}
         Portfolio: portfolio::{Module, Call, Storage, Event<T>},
-        Confidential: confidential::{Module, Call, Storage, Event },
-        Permissions: pallet_permissions::{Module},
+        Confidential: confidential::{Module, Call, Storage, Event},
+        Permissions: pallet_permissions::{Module, Storage},
     }
 );
 
@@ -808,7 +811,7 @@ pub type SignedExtra = (
     frame_system::CheckWeight<Runtime>,
     pallet_transaction_payment::ChargeTransactionPayment<Runtime>,
     pallet_grandpa::ValidateEquivocationReport<Runtime>,
-    pallet_permissions::CheckPermissions<Runtime>,
+    pallet_permissions::StoreCallMetadata<Runtime>,
 );
 /// Unchecked extrinsic type as expected by this runtime.
 pub type UncheckedExtrinsic = generic::UncheckedExtrinsic<Address, Call, Signature, SignedExtra>;

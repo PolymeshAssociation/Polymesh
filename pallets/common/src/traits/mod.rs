@@ -32,7 +32,7 @@ pub struct BalanceLock<Balance, BlockNumber> {
     pub reasons: WithdrawReasons,
 }
 
-pub trait CommonTrait: frame_system::Trait {
+pub trait CommonTrait: frame_system::Trait + PermissionChecker {
     /// The balance of an account.
     type Balance: Parameter
         + Member
@@ -67,3 +67,20 @@ pub mod multisig;
 pub mod pip;
 pub mod transaction_payment;
 pub use transaction_payment::{CddAndFeeDetails, ChargeTxFee};
+
+/// Permissions module configuration trait.
+pub trait PermissionChecker: frame_system::Trait {
+    /// The type that implements the permission check function.
+    type Checker: CheckAccountCallPermissions<Self::AccountId>;
+}
+
+/// A permission checker for calls from accounts to extrinsics.
+pub trait CheckAccountCallPermissions<AccountId> {
+    /// Checks whether `who` can call the current extrinsic represented by `pallet_name` and
+    /// `function_name`.
+    fn check_account_call_permissions(
+        who: &AccountId,
+        pallet_name: &[u8],
+        function_name: &[u8],
+    ) -> bool;
+}

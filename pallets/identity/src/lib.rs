@@ -91,6 +91,19 @@ use core::{
     convert::{From, TryInto},
     result::Result as StdResult,
 };
+use frame_support::{
+    debug, decl_error, decl_module, decl_storage,
+    dispatch::{DispatchError, DispatchResult, DispatchResultWithPostInfo},
+    ensure,
+    storage::{
+        with_transaction,
+        TransactionOutcome::{Commit, Rollback},
+    },
+    traits::{CallMetadata, ChangeMembers, Currency, InitializeMembers},
+    weights::{DispatchClass, GetDispatchInfo, Pays, Weight},
+    StorageDoubleMap,
+};
+use frame_system::{self as system, ensure_root, ensure_signed};
 use polymesh_common_utilities::{
     constants::did::{SECURITY_TOKEN, USER},
     protocol_fee::{ChargeProtocolFee, ProtocolOp},
@@ -103,6 +116,7 @@ use polymesh_common_utilities::{
         },
         multisig::MultiSigSubTrait,
         transaction_payment::{CddAndFeeDetails, ChargeTxFee},
+        CheckAccountCallPermissions,
     },
     Context, SystematicIssuers,
 };
@@ -121,20 +135,6 @@ use sp_runtime::{
     AnySignature,
 };
 use sp_std::{convert::TryFrom, mem::swap, prelude::*, vec};
-
-use frame_support::{
-    debug, decl_error, decl_module, decl_storage,
-    dispatch::{DispatchError, DispatchResult, DispatchResultWithPostInfo},
-    ensure,
-    storage::{
-        with_transaction,
-        TransactionOutcome::{Commit, Rollback},
-    },
-    traits::{ChangeMembers, Currency, InitializeMembers},
-    weights::{DispatchClass, GetDispatchInfo, Pays, Weight},
-    StorageDoubleMap,
-};
-use frame_system::{self as system, ensure_root, ensure_signed};
 
 pub type Event<T> = polymesh_common_utilities::traits::identity::Event<T>;
 
@@ -284,6 +284,7 @@ decl_module! {
             uid: InvestorUid,
             secondary_keys: Vec<SecondaryKey<T::AccountId>>) -> DispatchResult {
             let sender = ensure_signed(origin)?;
+            ensure_call_permissions(&sender)?;
             Self::_register_did(sender.clone(), secondary_keys, Some(ProtocolOp::IdentityRegisterDid))?;
 
             // Add CDD claim
@@ -2274,5 +2275,16 @@ impl<T: Trait> InitializeMembers<IdentityId> for Module<T> {
     /// Initializes members of a group by adding systematic claims for them.
     fn initialize_members(members: &[IdentityId]) {
         Self::add_systematic_cdd_claims(members, SystematicIssuers::CDDProvider);
+    }
+}
+
+impl<T: Trait> CheckAccountCallPermissions<T::AccountId> for Module<T> {
+    fn check_account_call_permissions(
+        _who: &T::AccountId,
+        _pallet_name: &[u8],
+        _function_name: &[u8],
+    ) -> bool {
+        // TODO
+        true
     }
 }
