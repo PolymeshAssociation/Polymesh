@@ -23,11 +23,13 @@ use codec::Codec;
 use sp_api::{ApiRef, ProvideRuntimeApi};
 use sp_blockchain::HeaderBackend;
 use sp_runtime::{generic::BlockId, traits::Block as BlockT};
-
+use sp_rpc::number;
 use std::sync::Arc;
+use std::convert::TryInto;
+use jsonrpc_core::Error;
 
 #[rpc]
-pub trait AssetApi<BlockHash, AccountId, T> {
+pub trait AssetApi<BlockHash, AccountId> {
     #[rpc(name = "asset_canTransfer")]
     fn can_transfer(
         &self,
@@ -35,7 +37,7 @@ pub trait AssetApi<BlockHash, AccountId, T> {
         ticker: Ticker,
         from_did: Option<IdentityId>,
         to_did: Option<IdentityId>,
-        value: T,
+        value: number::NumberOrHex,
         at: Option<BlockHash>,
     ) -> Result<CanTransferResult>;
 }
@@ -56,15 +58,14 @@ impl<T, U> Asset<T, U> {
     }
 }
 
-impl<C, Block, AccountId, T> AssetApi<<Block as BlockT>::Hash, AccountId, T> for Asset<C, Block>
+impl<C, Block, AccountId> AssetApi<<Block as BlockT>::Hash, AccountId> for Asset<C, Block>
 where
     Block: BlockT,
     C: Send + Sync + 'static,
     C: ProvideRuntimeApi<Block>,
     C: HeaderBackend<Block>,
-    C::Api: AssetRuntimeApi<Block, AccountId, T>,
+    C::Api: AssetRuntimeApi<Block, AccountId>,
     AccountId: Codec,
-    T: Codec,
 {
     fn can_transfer(
         &self,
@@ -72,14 +73,20 @@ where
         ticker: Ticker,
         from_did: Option<IdentityId>,
         to_did: Option<IdentityId>,
-        value: T,
+        value: number::NumberOrHex,
         at: Option<<Block as BlockT>::Hash>,
     ) -> Result<CanTransferResult> {
+        // Make sure that value fits into 128 bits.
+		let value: u64 = value.try_into().map_err(|_| Error {
+			code: ErrorCode::InvalidParams,
+			message: format!("{:?} doesn't fit in 64 bit unsigned value", value),
+			data: None,
+		})?;
         rpc_forward_call!(
             self,
             at,
             |api: ApiRef<<C as ProvideRuntimeApi<Block>>::Api>, at| api
-                .can_transfer(at, sender, ticker, from_did, to_did, value),
+                .can_transfer(at, sender, ticker, from_did, to_did, value.into()),
             "Unable to check transfer"
         )
     }
