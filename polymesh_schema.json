@@ -31,7 +31,8 @@
             "_enum": {
                 "Cins": "",
                 "Cusip": "",
-                "Isin": ""
+                "Isin": "",
+                "Dti": ""
             }
         },
         "AssetOwnershipRelation": {

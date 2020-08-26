@@ -2169,7 +2169,6 @@ fn test_weights_for_is_valid_transfer() {
                     issuers: vec![eve_did]
                 }]
             ));
-
             let result =
                 Asset::_is_valid_transfer(&ticker, alice, Some(alice_did), Some(bob_did), 100)
                     .unwrap();
