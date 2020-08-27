@@ -28,26 +28,26 @@ let synced_block_ts = 0;
 // Amount to seed each key with
 let transfer_amount = new BN(25000).mul(new BN(10).pow(new BN(6)));
 
-const senderRules1 = function (trusted_did, asset_did) {
+const senderConditions1 = function (trusted_did, asset_did) {
   return [
     {
-      rule_type: {
-        IsPresent: {
-          Exempted: asset_did,
-        },
+      "condition_type": {
+        "IsPresent": {
+          "Exempted": asset_did
+        }
       },
       issuers: [trusted_did],
     },
   ];
 };
 
-const receiverRules1 = function (trusted_did, asset_did) {
+const receiverConditions1 = function (trusted_did, asset_did) {
   return [
     {
-      rule_type: {
-        IsPresent: {
-          Exempted: asset_did,
-        },
+      "condition_type": {
+        "IsPresent": {
+          "Exempted": asset_did
+        }
       },
       issuers: [trusted_did],
     },
@@ -308,21 +308,21 @@ function tickerToDid(ticker) {
   );
 }
 
-// Creates claim rules for an asset
-async function createClaimRules(api, accounts, dids, prepend) {
+// Creates claim compliance for an asset
+async function createClaimCompliance(api, accounts, dids, prepend) {
   const ticker = `token${prepend}0`.toUpperCase();
   assert(ticker.length <= 12, "Ticker cannot be longer than 12 characters");
 
   const asset_did = tickerToDid(ticker);
 
-  let senderRules = senderRules1(dids[1], asset_did);
-  let receiverRules = receiverRules1(dids[1], asset_did);
+  let senderConditions = senderConditions1(dids[1], asset_did);
+  let receiverConditions = receiverConditions1(dids[1], asset_did);
 
   let nonceObj = { nonce: nonces.get(accounts[0].address) };
-  const transaction = api.tx.complianceManager.addActiveRule(
+  const transaction = api.tx.complianceManager.addComplianceRequirement(
     ticker,
-    senderRules,
-    receiverRules
+    senderConditions,
+    receiverConditions
   );
   await sendTransaction(transaction, accounts[0], nonceObj);
 
@@ -338,7 +338,7 @@ async function addClaimsToDids(
   claimValue,
   expiry
 ) {
-  // Receieving Rules Claim
+  // Receieving Conditions Claim
   let claim = { [claimType]: claimValue };
 
   let nonceObj = { nonce: nonces.get(accounts[1].address) };
@@ -481,8 +481,8 @@ async function sendTx(signer, tx) {
   nonces.set(signer.address, nonces.get(signer.address).addn(1));
 }
 
-async function addActiveRule(api, sender, ticker) {
-  const transaction = await api.tx.complianceManager.addActiveRule(
+async function addComplianceRequirement(api, sender, ticker) {
+  const transaction = await api.tx.complianceManager.addComplianceRequirement(
     ticker,
     [],
     []
@@ -497,7 +497,7 @@ async function createVenue(api, sender) {
 
   const transaction = await api.tx.settlement.createVenue(venueDetails, [
     sender.address,
-  ]);
+  ], 0);
 
   await sendTx(sender, transaction);
 
@@ -628,9 +628,9 @@ let reqImports = {
   addSecondaryKeys,
   authorizeJoinToIdentities,
   issueTokenPerDid,
-  senderRules1,
-  receiverRules1,
-  createClaimRules,
+  senderConditions1,
+  receiverConditions1,
+  createClaimCompliance,
   addClaimsToDids,
   tickerToDid,
   sendTransaction,
@@ -646,7 +646,7 @@ let reqImports = {
   keyToIdentityIds,
   mintingAsset,
   sendTx,
-  addActiveRule,
+  addComplianceRequirement,
   createVenue,
   addInstruction,
   authorizeInstruction,

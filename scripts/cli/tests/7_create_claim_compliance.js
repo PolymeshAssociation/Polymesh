@@ -22,7 +22,7 @@ async function main() {
 
   await reqImports.issueTokenPerDid( api, primary_keys, "DEMOCR" );
 
-  await createClaimRules( api, primary_keys, issuer_dids, "DEMOCR" );
+  await createClaimCompliance( api, primary_keys, issuer_dids, "DEMOCR" );
 
   if (reqImports.fail_count > 0) {
     console.log("Failed");
@@ -34,14 +34,14 @@ async function main() {
   process.exit();
 }
 
-async function createClaimRules(api, accounts, dids, prepend) {
+async function createClaimCompliance(api, accounts, dids, prepend) {
 
     const ticker = `token${prepend}0`.toUpperCase();
     assert( ticker.length <= 12, "Ticker cannot be longer than 12 characters");
-    let senderRules = reqImports.senderRules1(accounts[0].address);
-    let receiverRules = reqImports.receiverRules1(accounts[0].address);
+    let senderConditions = reqImports.senderConditions1(accounts[0].address);
+    let receiverConditions = reqImports.receiverConditions1(accounts[0].address);
     let nonceObj = {nonce: reqImports.nonces.get(accounts[0].address)};
-    const transaction = await api.tx.complianceManager.addActiveRule(ticker, senderRules, receiverRules);
+    const transaction = await api.tx.complianceManager.addComplianceRequirement(ticker, senderConditions, receiverConditions);
     const result = await reqImports.sendTransaction(transaction, accounts[0], nonceObj);
     const passed = result.findRecord('system', 'ExtrinsicSuccess');
     if (passed) reqImports.fail_count--;

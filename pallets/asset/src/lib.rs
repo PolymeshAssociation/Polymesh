@@ -417,7 +417,7 @@ decl_storage! {
                 // Register the ticker...
                 let tconfig = || config.classic_migration_tconfig.clone();
                 let expiry = <Module<T>>::ticker_registration_checks(&import.ticker, did, true, tconfig);
-                <Module<T>>::_register_ticker_feeless(&import.ticker, did, expiry.unwrap());
+                <Module<T>>::_register_ticker(&import.ticker, did, expiry.unwrap());
 
                 // ..and associate it with additional info needed for claiming.
                 let classic_ticker = ClassicTickerRegistration {
@@ -452,7 +452,9 @@ decl_module! {
             let sender = ensure_signed(origin)?;
             let to_did = Context::current_identity_or::<Identity<T>>(&sender)?;
             let expiry = Self::ticker_registration_checks(&ticker, to_did, false, || Self::ticker_registration_config())?;
-            Self::_register_ticker(&ticker, to_did, expiry)
+            T::ProtocolFee::charge_fee(ProtocolOp::AssetRegisterTicker)?;
+            Self::_register_ticker(&ticker, to_did, expiry);
+            Ok(())
         }
 
         /// This function is used to accept a ticker transfer.
@@ -527,25 +529,52 @@ decl_module! {
             let sender = ensure_signed(origin)?;
             let did = Context::current_identity_or::<Identity<T>>(&sender)?;
             Self::ensure_create_asset_parameters(&ticker, &name, total_supply)?;
-            let is_ticker_available_or_registered_to = Self::is_ticker_available_or_registered_to(&ticker, did);
-            ensure!(
-                is_ticker_available_or_registered_to != TickerRegistrationStatus::RegisteredByOther,
-                Error::<T>::TickerAlreadyRegistered
-            );
+
+            // Ensure its registered by DID or at least expired, thus available.
+            let available = match Self::is_ticker_available_or_registered_to(&ticker, did) {
+                TickerRegistrationStatus::RegisteredByOther => return Err(Error::<T>::TickerAlreadyRegistered.into()),
+                TickerRegistrationStatus::RegisteredByDid => false,
+                TickerRegistrationStatus::Available => true,
+            };
+
             if !divisible {
                 ensure!(total_supply % ONE_UNIT.into() == 0.into(), Error::<T>::InvalidTotalSupply);
             }
-            // Once all the checks are made, charge the protocol fee.
-            <<T as IdentityTrait>::ProtocolFee>::charge_fee(ProtocolOp::AssetCreateAsset)?;
-            <identity::Module<T>>::register_asset_did(&ticker)?;
+
+            let token_did = <identity::Module<T>>::get_token_did(&ticker)?;
+            // Ensure there's no pre-existing entry for the DID.
+            // This should never happen, but let's be defensive here.
+            identity::Module::<T>::ensure_no_id_record(token_did)?;
+
+            // Charge protocol fees.
+            T::ProtocolFee::charge_fees(&{
+                let mut fees = arrayvec::ArrayVec::<[_; 2]>::new();
+                if available {
+                    fees.push(ProtocolOp::AssetRegisterTicker);
+                }
+                // Waive the asset fee iff classic ticker hasn't expired,
+                // and it was already created on classic.
+                if available || ClassicTickers::get(&ticker).filter(|r| r.is_created).is_none() {
+                    fees.push(ProtocolOp::AssetCreateAsset);
+                }
+                fees
+            })?;
+
+            //==========================================================================
+            // At this point all checks have been made; **only** storage changes follow!
+            //==========================================================================
+
+            identity::Module::<T>::commit_token_did(token_did, ticker);
+
             // Register the ticker or finish its registration.
-            if is_ticker_available_or_registered_to == TickerRegistrationStatus::Available {
-                // ticker not registered by anyone (or registry expired). we can charge fee and register this ticker
-                Self::_register_ticker(&ticker, did, None)?;
+            if available {
+                // Ticker not registered by anyone (or registry expired), so register.
+                Self::_register_ticker(&ticker, did, None);
             } else {
-                // Ticker already registered by the user
+                // Ticker already registered by the user.
                 <Tickers<T>>::mutate(&ticker, |tr| tr.expiry = None);
             }
+
             let token = SecurityToken {
                 name,
                 total_supply,
@@ -569,12 +598,8 @@ decl_module! {
             for (typ, val) in &identifiers {
                 <Identifiers>::insert((ticker, typ.clone()), val.clone());
             }
-            // Add funding round name
-            if let Some(round) = funding_round {
-                <FundingRound>::insert(ticker, round);
-            } else {
-                <FundingRound>::insert(ticker, FundingRoundName::default());
-            }
+            // Add funding round name.
+            <FundingRound>::insert(ticker, funding_round.unwrap_or_default());
 
             // Update the investor count of an asset.
             <statistics::Module<T>>::update_transfer_stats(&ticker, None, Some(total_supply), total_supply);
@@ -806,10 +831,7 @@ decl_module! {
 
             ensure!(Self::is_owner(&ticker, did), Error::<T>::NotAnOwner);
 
-            <<T as IdentityTrait>::ProtocolFee>::batch_charge_fee(
-                ProtocolOp::AssetAddDocument,
-                documents.len()
-            )?;
+            T::ProtocolFee::batch_charge_fee(ProtocolOp::AssetAddDocument, documents.len())?;
 
             for (document_name, document) in documents {
                 <AssetDocuments>::insert(ticker, &document_name, document.clone());
@@ -1532,7 +1554,7 @@ impl<T: Trait> Module<T> {
     /// Without charging any fees,
     /// register the given `ticker` to the `owner` identity,
     /// with the registration being removed at `expiry`.
-    fn _register_ticker_feeless(ticker: &Ticker, owner: IdentityId, expiry: Option<T::Moment>) {
+    fn _register_ticker(ticker: &Ticker, owner: IdentityId, expiry: Option<T::Moment>) {
         if let Some(ticker_details) = Self::maybe_ticker(ticker) {
             <AssetOwnershipRelations>::remove(ticker_details.owner, ticker);
         }
@@ -1543,20 +1565,10 @@ impl<T: Trait> Module<T> {
         <Tickers<T>>::insert(ticker, ticker_registration);
         <AssetOwnershipRelations>::insert(owner, ticker, AssetOwnershipRelation::TickerOwned);
 
-        Self::deposit_event(RawEvent::TickerRegistered(owner, *ticker, expiry));
-    }
+        // Not a classic ticker anymore if it was.
+        ClassicTickers::remove(&ticker);
 
-    /// Register the given `ticker` to `to_did` identity,
-    /// with the registration being removed at `expiry`.
-    /// This version also charges protocol fees.
-    fn _register_ticker(
-        ticker: &Ticker,
-        to_did: IdentityId,
-        expiry: Option<T::Moment>,
-    ) -> DispatchResult {
-        <<T as IdentityTrait>::ProtocolFee>::charge_fee(ProtocolOp::AssetRegisterTicker)?;
-        Self::_register_ticker_feeless(ticker, to_did, expiry);
-        Ok(())
+        Self::deposit_event(RawEvent::TickerRegistered(owner, *ticker, expiry));
     }
 
     /// Get the asset `ticker` balance of `did`, both total and that of the default portfolio.
@@ -1652,7 +1664,7 @@ impl<T: Trait> Module<T> {
         Ok(if status_code != ERC1400_TRANSFER_SUCCESS {
             (COMPLIANCE_MANAGER_FAILURE, weight_for_transfer)
         } else {
-            let mut final_result = true;
+            let mut result = true;
             let mut is_valid = false;
             let mut is_invalid = false;
             let mut force_valid = false;
@@ -1680,10 +1692,10 @@ impl<T: Trait> Module<T> {
                     }
                 }
                 //is_valid = force_valid ? true : (is_invalid ? false : is_valid);
-                final_result = force_valid || !is_invalid && is_valid;
+                result = force_valid || !is_invalid && is_valid;
             }
             // Compute the result for transfer
-            Self::compute_transfer_result(final_result, tm_count, weight_for_transfer)
+            Self::compute_transfer_result(result, tm_count, weight_for_transfer)
         })
     }
 
@@ -1829,7 +1841,7 @@ impl<T: Trait> Module<T> {
 
         // Charge the given fee.
         if let Some(op) = protocol_fee_data {
-            <<T as IdentityTrait>::ProtocolFee>::charge_fee(op)?;
+            T::ProtocolFee::charge_fee(op)?;
         }
         Self::_update_checkpoint(ticker, to_did, current_to_balance);
 
@@ -1993,6 +2005,7 @@ impl<T: Trait> Module<T> {
         )?;
 
         Self::transfer_ticker(ticker, to_did, ticker_details.owner);
+        ClassicTickers::remove(&ticker); // Not a classic ticker anymore if it was.
         Ok(())
     }
 
@@ -2133,7 +2146,7 @@ impl<T: Trait> Module<T> {
         ]
         .concat();
 
-        // Calling extension to verify the compliance rule
+        // Calling extension to verify the compliance requirement
         // native currency value should be `0` as no funds need to transfer to the smart extension
         // We are passing arbitrary high `gas_limit` value to make sure extension's function execute successfully
         // TODO: Once gas estimate function will be introduced, arbitrary gas value will be replaced by the estimated gas

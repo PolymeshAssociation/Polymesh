@@ -10,7 +10,7 @@ use pallet_confidential as confidential;
 use pallet_identity::{self as identity, Error};
 use polymesh_common_utilities::constants::ERC1400_TRANSFER_SUCCESS;
 use polymesh_primitives::{
-    Claim, IdentityId, InvestorUid, InvestorZKProofData, Rule, RuleType, Scope, Ticker,
+    Claim, Condition, ConditionType, IdentityId, InvestorUid, InvestorZKProofData, Scope, Ticker,
 };
 
 use core::convert::TryFrom;
@@ -103,7 +103,7 @@ fn scope_claims_we() {
     let inv_acc_3 = AccountKeyring::Dave.public();
     let (_, inv_did_3) = make_account_with_balance(inv_acc_3, other_investor, 3_000_000).unwrap();
 
-    // 1. Alice creates her ST and set up its rules.
+    // 1. Alice creates her ST and set up its compliance requirements.
     let st = SecurityToken {
         name: "ALI_ST".as_bytes().to_owned().into(),
         owner_did: alice_id,
@@ -126,15 +126,17 @@ fn scope_claims_we() {
         None,
     ));
 
-    // 2. Alice defines the asset complain rules.
+    // 2. Alice defines the asset complain compliance requirements.
     let st_scope = Scope::Identity(IdentityId::try_from(st_id.as_slice()).unwrap());
-    let sender_rules = vec![];
-    let receiver_rules = vec![Rule::from(RuleType::HasValidProofOfInvestor(st_id))];
-    assert_ok!(ComplianceManager::add_active_rule(
+    let sender_conditions = vec![];
+    let receiver_conditions = vec![Condition::from(ConditionType::HasValidProofOfInvestor(
+        st_id,
+    ))];
+    assert_ok!(ComplianceManager::add_compliance_requirement(
         Origin::signed(alice),
         st_id,
-        sender_rules,
-        receiver_rules
+        sender_conditions,
+        receiver_conditions
     ));
 
     // 2. Investor adds its Confidential Scope claims.

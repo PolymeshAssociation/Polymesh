@@ -1143,7 +1143,13 @@ decl_error! {
 }
 
 impl<T: Trait> Module<T> {
-    fn ensure_no_id_record(id: IdentityId) -> DispatchResult {
+    /// Only used by `create_asset` since `AssetDidRegistered` is defined here instead of there.
+    pub fn commit_token_did(did: IdentityId, ticker: Ticker) {
+        <DidRecords<T>>::insert(did, DidRecord::default());
+        Self::deposit_event(RawEvent::AssetDidRegistered(did, ticker));
+    }
+
+    pub fn ensure_no_id_record(id: IdentityId) -> DispatchResult {
         ensure!(!Self::is_identity_exists(&id), Error::<T>::DidAlreadyExists);
         Ok(())
     }
@@ -1729,17 +1735,6 @@ impl<T: Trait> Module<T> {
             }
             Some(LinkedKeyInfo::Unique(_)) | None => {}
         }
-    }
-
-    /// It registers a did for a new asset. Only called by create_asset function.
-    pub fn register_asset_did(ticker: &Ticker) -> DispatchResult {
-        let did = Self::get_token_did(ticker)?;
-        // Making sure there's no pre-existing entry for the DID
-        // This should never happen but just being defensive here
-        Self::ensure_no_id_record(did)?;
-        <DidRecords<T>>::insert(did, DidRecord::default());
-        Self::deposit_event(RawEvent::AssetDidRegistered(did, *ticker));
-        Ok(())
     }
 
     /// IMPORTANT: No state change is allowed in this function
