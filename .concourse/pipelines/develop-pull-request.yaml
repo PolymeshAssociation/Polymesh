@@ -216,6 +216,7 @@ jobs:
           params:
             path: githubpr-polymesh
             status: failure
+          get_params:
             skip_download: true
     on_error:
       do:
@@ -228,5 +229,6 @@ jobs:
           params:
             path: githubpr-polymesh
             status: error
+          get_params:
             skip_download: true
 
