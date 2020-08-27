@@ -209,7 +209,8 @@ jobs:
       do:
         - get: githubpr-polymesh-failed-get
           resource: githubpr-polymesh
-          integration_tool: checkout
+          params:
+            skip_download: true
         - put: githubpr-polymesh-failed-put
           resource: githubpr-polymesh
           params:
@@ -218,16 +219,10 @@ jobs:
           get_params:
             skip_download: true
     on_error:
-      do:
-        - get: githubpr-polymesh-error-get
-          resource: githubpr-polymesh
-          params:
-            skip_download: true
-        - put: githubpr-polymesh-error-put
-          resource: githubpr-polymesh
-          params:
-            path: githubpr-polymesh
-            status: error
-          get_params:
-            skip_download: true
+      put: githubpr-polymesh
+      params:
+        path: githubpr-polymesh
+        status: error
+      get_params:
+        skip_download: true
 
