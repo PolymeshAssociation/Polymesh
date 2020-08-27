@@ -62,7 +62,7 @@ jobs:
         version: every
       - put: githubpr-polymesh
         params:
-          path: githubpr-polymesh
+          path: githubpr-polymesh-meta
           status: pending
         get_params:
           skip_download: true
@@ -211,14 +211,14 @@ jobs:
     on_failure:
       put: githubpr-polymesh
       params:
-        path: githubpr-polymesh
+        path: githubpr-polymesh-meta
         status: failure
       get_params:
         skip_download: true
     on_error:
       put: githubpr-polymesh
       params:
-        path: githubpr-polymesh
+        path: githubpr-polymesh-meta
         status: error
       get_params:
         skip_download: true
