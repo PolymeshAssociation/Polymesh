@@ -473,6 +473,7 @@
             "is_created": "bool"
         },
         "EthereumAddress": "[u8; 20]",
+        "EcdsaSignature": "[u8; 65]",
         "SignData": {
             "custodian_did": "IdentityId",
             "holder_did": "IdentityId",
