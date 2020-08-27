@@ -1075,7 +1075,7 @@ decl_module! {
                 old_primary_issuance_agent = token.primary_issuance_agent;
                 token.primary_issuance_agent = None
             });
-            Self::deposit_event(RawEvent::PrimaryIssuanceAgentTransfered(did, ticker, old_primary_issuance_agent, None));
+            Self::deposit_event(RawEvent::PrimaryIssuanceAgentTransferred(did, ticker, old_primary_issuance_agent, None));
             Ok(())
         }
 
@@ -1217,7 +1217,7 @@ decl_event! {
         CheckpointCreated(IdentityId, Ticker, u64),
         /// An event emitted when the primary issuance agent of an asset is transferred.
         /// First DID is the old primary issuance agent and the second DID is the new primary issuance agent.
-        PrimaryIssuanceAgentTransfered(IdentityId, Ticker, Option<IdentityId>, Option<IdentityId>),
+        PrimaryIssuanceAgentTransferred(IdentityId, Ticker, Option<IdentityId>, Option<IdentityId>),
         /// A new document attached to an asset
         DocumentAdded(Ticker, DocumentName, Document),
         /// A document removed from an asset
@@ -2030,7 +2030,7 @@ impl<T: Trait> Module<T> {
             token.primary_issuance_agent = Some(to_did);
         });
 
-        Self::deposit_event(RawEvent::PrimaryIssuanceAgentTransfered(
+        Self::deposit_event(RawEvent::PrimaryIssuanceAgentTransferred(
             to_did,
             ticker,
             old_primary_issuance_agent,

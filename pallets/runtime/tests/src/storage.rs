@@ -1,13 +1,12 @@
 use super::ext_builder::{
-    EXTRINSIC_BASE_WEIGHT, MAX_NO_OF_LEGS, MAX_NO_OF_TM_ALLOWED, TRANSACTION_BYTE_FEE,
-    WEIGHT_TO_FEE,
+    EXTRINSIC_BASE_WEIGHT, NETWORK_FEE_SHARE, TRANSACTION_BYTE_FEE, WEIGHT_TO_FEE,
 };
 use codec::Encode;
 use frame_support::{
     assert_ok,
     dispatch::DispatchResult,
     impl_outer_dispatch, impl_outer_event, impl_outer_origin, parameter_types,
-    traits::Currency,
+    traits::{Currency, Imbalance, OnUnbalanced},
     weights::DispatchInfo,
     weights::{
         RuntimeDbWeight, WeightToFeeCoefficient, WeightToFeeCoefficients, WeightToFeePolynomial,
@@ -87,6 +86,7 @@ impl_outer_dispatch! {
         asset::Asset,
         frame_system::System,
         pallet_utility::Utility,
+        polymesh_contracts::WrapperContracts,
         self::Committee,
         self::DefaultCommittee,
     }
@@ -119,6 +119,7 @@ impl_outer_event! {
         pallet_utility,
         portfolio<T>,
         confidential,
+        polymesh_contracts<T>,
     }
 }
 
@@ -155,6 +156,20 @@ parameter_types! {
         read: 10,
         write: 100,
     };
+    pub FeeCollector: AccountId = account_from(5000);
+}
+
+pub type NegativeImbalance<T> =
+    <balances::Module<T> as Currency<<T as system::Trait>::AccountId>>::NegativeImbalance;
+
+pub struct DealWithFees<T>(sp_std::marker::PhantomData<T>);
+
+impl OnUnbalanced<NegativeImbalance<TestStorage>> for DealWithFees<TestStorage> {
+    fn on_nonzero_unbalanced(amount: NegativeImbalance<TestStorage>) {
+        let target = account_from(5000);
+        let positive_imbalance = Balances::deposit_creating(&target, amount.peek());
+        let _ = amount.offset(positive_imbalance).map_err(|_| 4); // random value mapped for error
+    }
 }
 
 impl frame_system::Trait for TestStorage {
@@ -241,6 +256,15 @@ impl pallet_timestamp::Trait for TestStorage {
     type Moment = u64;
     type OnTimestampSet = ();
     type MinimumPeriod = MinimumPeriod;
+}
+
+parameter_types! {
+    pub NetworkShareInFee: Perbill = NETWORK_FEE_SHARE.with(|v| *v.borrow());
+}
+
+impl polymesh_contracts::Trait for TestStorage {
+    type Event = Event;
+    type NetworkShareInFee = NetworkShareInFee;
 }
 
 impl multisig::Trait for TestStorage {
@@ -424,7 +448,7 @@ impl pallet_contracts::Trait for TestStorage {
     type Currency = Balances;
     type Event = Event;
     type Call = Call;
-    type DetermineContractAddress = pallet_contracts::SimpleAddressDeterminer<TestStorage>;
+    type DetermineContractAddress = polymesh_contracts::NonceBasedAddressDeterminer<TestStorage>;
     type TrieIdGenerator = pallet_contracts::TrieIdFromParentCounter<TestStorage>;
     type RentPayment = ();
     type SignedClaimHandicap = SignedClaimHandicap;
@@ -452,7 +476,7 @@ impl compliance_manager::Trait for TestStorage {
 impl protocol_fee::Trait for TestStorage {
     type Event = Event;
     type Currency = Balances;
-    type OnProtocolFeePayment = ();
+    type OnProtocolFeePayment = DealWithFees<TestStorage>;
 }
 
 impl portfolio::Trait for TestStorage {
@@ -597,6 +621,7 @@ pub type DefaultCommittee = committee::Module<TestStorage, committee::DefaultIns
 pub type Utility = pallet_utility::Module<TestStorage>;
 pub type System = frame_system::Module<TestStorage>;
 pub type Portfolio = portfolio::Module<TestStorage>;
+pub type WrapperContracts = polymesh_contracts::Module<TestStorage>;
 
 pub fn make_account(
     id: AccountId,

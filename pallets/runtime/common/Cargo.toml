@@ -12,7 +12,7 @@ polymesh-primitives-derive = { path = "../../../primitives_derive", default-feat
 pallet-asset = { path = "../../asset", default-features = false }
 pallet-balances = { path = "../../balances", default-features = false  }
 pallet-compliance-manager = { path = "../../compliance-manager", default-features = false }
-pallet-contracts = { git = "https://github.com/paritytech/substrate", branch = "at-add-dispatch-call", default-features = false }
+pallet-contracts = { git = "https://github.com/PolymathNetwork/substrate", branch = "remove-subtype-trait", default-features = false }
 pallet-identity = { path = "../../identity", default-features = false  }
 pallet-multisig = { path = "../../multisig", default-features = false}
 pallet-portfolio = { path = "../../portfolio", default-features = false  }
@@ -26,17 +26,17 @@ rand = { version = "0.7.3", default-features = false }
 
 # Substrate
 codec = { package = "parity-scale-codec", version = "1.2.0", default-features = false, features = ["derive"] }
-sp-core = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "at-add-dispatch-call" }
-sp-std = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "at-add-dispatch-call" }
-sp-io = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "at-add-dispatch-call" }
-sp-runtime = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "at-add-dispatch-call" }
-frame-support = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "at-add-dispatch-call" }
-frame-system = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "at-add-dispatch-call" }
+sp-core = { git = "https://github.com/PolymathNetwork/substrate", default-features = false, branch = "remove-subtype-trait" }
+sp-std = { git = "https://github.com/PolymathNetwork/substrate", default-features = false, branch = "remove-subtype-trait" }
+sp-io = { git = "https://github.com/PolymathNetwork/substrate", default-features = false, branch = "remove-subtype-trait" }
+sp-runtime = { git = "https://github.com/PolymathNetwork/substrate", default-features = false, branch = "remove-subtype-trait" }
+frame-support = { git = "https://github.com/PolymathNetwork/substrate", default-features = false, branch = "remove-subtype-trait" }
+frame-system = { git = "https://github.com/PolymathNetwork/substrate", default-features = false, branch = "remove-subtype-trait" }
 
-pallet-timestamp = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "at-add-dispatch-call" }
-pallet-authorship = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "at-add-dispatch-call" }
+pallet-timestamp = { git = "https://github.com/PolymathNetwork/substrate", default-features = false, branch = "remove-subtype-trait" }
+pallet-authorship = { git = "https://github.com/PolymathNetwork/substrate", default-features = false, branch = "remove-subtype-trait" }
 
-frame-benchmarking = { git = "https://github.com/paritytech/substrate", branch = "at-add-dispatch-call", optional = true }
+frame-benchmarking = { git = "https://github.com/PolymathNetwork/substrate", branch = "remove-subtype-trait", optional = true }
 
 [features]
 equalize = []

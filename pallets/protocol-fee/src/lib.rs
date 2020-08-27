@@ -38,7 +38,7 @@
 use frame_support::{
     decl_error, decl_event, decl_module, decl_storage,
     dispatch::{DispatchError, DispatchResult},
-    traits::{Currency, ExistenceRequirement, OnUnbalanced, WithdrawReason},
+    traits::{Currency, ExistenceRequirement, Imbalance, OnUnbalanced, WithdrawReason},
     weights::{DispatchClass, Pays},
 };
 use frame_system::{self as system, ensure_root};
@@ -81,6 +81,8 @@ decl_error! {
         AccountIdDecode,
         /// Missing the current identity.
         MissingCurrentIdentity,
+        /// Not able to handled the imbalances
+        UnHandledImbalances
     }
 }
 
@@ -175,6 +177,31 @@ impl<T: Trait> Module<T> {
         Ok(())
     }
 
+    /// Used to charge the instantiation fee of the smart extension.
+    /// fee get divided between the owner of the template and the network (Treasury + Block Author).
+    pub fn charge_extension_instantiation_fee(
+        fee: BalanceOf<T>,
+        owner: T::AccountId,
+        network_share: Perbill,
+    ) -> DispatchResult {
+        if let Some(payer) = T::CddHandler::get_payer_from_context() {
+            // 1. Withdraw fee from the payer balance.
+            let negative_imbalance = Self::withdraw_fee(payer, fee)?;
+
+            // 2. Calculate the amount that need to transfer to the owner of the SE template.
+            let owner_amount = fee.saturating_sub(network_share * fee);
+            // 3. Deposit the `owner_amount` into the owner address.
+            let positive_imbalance = T::Currency::deposit_into_existing(&owner, owner_amount)?;
+
+            // It always return the negative imbalance as negative_imbalance always >= positive_imbalance.
+            let imbalance = negative_imbalance
+                .offset(positive_imbalance)
+                .map_err(|_| Error::<T>::UnHandledImbalances)?;
+            T::OnProtocolFeePayment::on_unbalanced(imbalance);
+        }
+        Ok(())
+    }
+
     /// Computes the fee for `count` similar operations, and charges that fee to the current payer.
     pub fn batch_charge_fee(op: ProtocolOp, count: usize) -> DispatchResult {
         let fee = Self::compute_fee(op).saturating_mul(<BalanceOf<T>>::from(count as u32));
@@ -203,12 +230,20 @@ impl<T: Trait> Module<T> {
     }
 }
 
-impl<T: Trait> ChargeProtocolFee<T::AccountId> for Module<T> {
+impl<T: Trait> ChargeProtocolFee<T::AccountId, BalanceOf<T>> for Module<T> {
     fn charge_fee(op: ProtocolOp) -> DispatchResult {
         Self::charge_fee(op)
     }
 
     fn batch_charge_fee(op: ProtocolOp, count: usize) -> DispatchResult {
         Self::batch_charge_fee(op, count)
+    }
+
+    fn charge_extension_instantiation_fee(
+        fee: BalanceOf<T>,
+        owner: T::AccountId,
+        network_share: Perbill,
+    ) -> DispatchResult {
+        Self::charge_extension_instantiation_fee(fee, owner, network_share)
     }
 }

@@ -37,7 +37,7 @@ use polymesh_primitives::{
 use polymesh_runtime_common::{
     bridge,
     cdd_check::CddChecker,
-    contracts_wrapper, dividend, exemption,
+    dividend, exemption,
     impls::{Author, CurrencyToVoteHandler},
     merge_active_and_inactive, sto_capped, voting, AvailableBlockRatio, BlockHashCount,
     MaximumBlockLength, MaximumBlockWeight, NegativeImbalance,
@@ -453,7 +453,7 @@ impl pallet_pips::Trait for Runtime {
 
 parameter_types! {
     pub const TombstoneDeposit: Balance = DOLLARS;
-    pub const RentByteFee: Balance = DOLLARS;
+    pub const RentByteFee: Balance = 0; // Assigning zero to switch off the rent logic in the contracts;
     pub const RentDepositOffset: Balance = 300 * DOLLARS;
     pub const SurchargeReward: Balance = 150 * DOLLARS;
 }
@@ -464,7 +464,7 @@ impl pallet_contracts::Trait for Runtime {
     type Currency = Balances;
     type Call = Call;
     type Event = Event;
-    type DetermineContractAddress = pallet_contracts::SimpleAddressDeterminer<Runtime>;
+    type DetermineContractAddress = polymesh_contracts::NonceBasedAddressDeterminer<Runtime>;
     type TrieIdGenerator = pallet_contracts::TrieIdFromParentCounter<Runtime>;
     type RentPayment = ();
     type SignedClaimHandicap = pallet_contracts::DefaultSignedClaimHandicap;
@@ -683,7 +683,14 @@ impl IdentityTrait for Runtime {
     type ProtocolFee = protocol_fee::Module<Runtime>;
 }
 
-impl contracts_wrapper::Trait for Runtime {}
+parameter_types! {
+    pub const NetworkShareInFee: Perbill = Perbill::from_percent(0);
+}
+
+impl polymesh_contracts::Trait for Runtime {
+    type Event = Event;
+    type NetworkShareInFee = NetworkShareInFee;
+}
 
 impl exemption::Trait for Runtime {
     type Event = Event;
@@ -777,8 +784,8 @@ construct_runtime!(
         MultiSig: multisig::{Module, Call, Storage, Event<T>},
 
         // Contracts
-        Contracts: pallet_contracts::{Module, Call, Config, Storage, Event<T>},
-        // ContractsWrapper: contracts_wrapper::{Module, Call, Storage},
+        BaseContracts: pallet_contracts::{Module, Config, Storage, Event<T>},
+        Contracts: polymesh_contracts::{Module, Call, Storage, Event<T>},
 
         // Polymesh Governance Committees
         Treasury: treasury::{Module, Call, Event<T>},
@@ -985,7 +992,7 @@ impl_runtime_apis! {
             input_data: Vec<u8>,
         ) -> ContractExecResult {
             let exec_result =
-                Contracts::bare_call(origin, dest, value, gas_limit, input_data);
+            BaseContracts::bare_call(origin, dest, value, gas_limit, input_data);
             match exec_result {
                 Ok(v) => ContractExecResult::Success {
                     status: v.status,
@@ -999,13 +1006,13 @@ impl_runtime_apis! {
             address: AccountId,
             key: [u8; 32],
         ) -> pallet_contracts_primitives::GetStorageResult {
-            Contracts::get_storage(address, key)
+            BaseContracts::get_storage(address, key)
         }
 
         fn rent_projection(
             address: AccountId,
         ) -> pallet_contracts_primitives::RentProjectionResult<BlockNumber> {
-            Contracts::rent_projection(address)
+            BaseContracts::rent_projection(address)
         }
     }
 

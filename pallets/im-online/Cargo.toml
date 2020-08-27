@@ -11,22 +11,22 @@ serde = { version = "1.0.104", optional = true }
 
 # Substrate
 codec = { package = "parity-scale-codec", version = "1.3.0", default-features = false, features = ["derive"] }
-sp-core = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "at-add-dispatch-call" }
-sp-std = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "at-add-dispatch-call" }
-sp-io = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "at-add-dispatch-call" }
-sp-runtime = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "at-add-dispatch-call" }
-sp-staking = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "at-add-dispatch-call" }
+sp-core = { git = "https://github.com/PolymathNetwork/substrate", default-features = false, branch = "remove-subtype-trait" }
+sp-std = { git = "https://github.com/PolymathNetwork/substrate", default-features = false, branch = "remove-subtype-trait" }
+sp-io = { git = "https://github.com/PolymathNetwork/substrate", default-features = false, branch = "remove-subtype-trait" }
+sp-runtime = { git = "https://github.com/PolymathNetwork/substrate", default-features = false, branch = "remove-subtype-trait" }
+sp-staking = { git = "https://github.com/PolymathNetwork/substrate", default-features = false, branch = "remove-subtype-trait" }
 
-pallet-authorship = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "at-add-dispatch-call" }
-pallet-session = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "at-add-dispatch-call", features = ["historical"] }
+pallet-authorship = { git = "https://github.com/PolymathNetwork/substrate", default-features = false, branch = "remove-subtype-trait" }
+pallet-session = { git = "https://github.com/PolymathNetwork/substrate", default-features = false, branch = "remove-subtype-trait", features = ["historical"] }
 
-frame-support = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "at-add-dispatch-call" }
-frame-system = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "at-add-dispatch-call" }
+frame-support = { git = "https://github.com/PolymathNetwork/substrate", default-features = false, branch = "remove-subtype-trait" }
+frame-system = { git = "https://github.com/PolymathNetwork/substrate", default-features = false, branch = "remove-subtype-trait" }
 
-sp-application-crypto = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "at-add-dispatch-call" }
+sp-application-crypto = { git = "https://github.com/PolymathNetwork/substrate", default-features = false, branch = "remove-subtype-trait" }
 
 # Only in STD
-frame-benchmarking = { git = "https://github.com/paritytech/substrate",  default-features = false, branch = "at-add-dispatch-call", optional = true }
+frame-benchmarking = { git = "https://github.com/PolymathNetwork/substrate",  default-features = false, branch = "remove-subtype-trait", optional = true }
 [features]
 default = ["std", "pallet-session/historical"]
 no_std = []

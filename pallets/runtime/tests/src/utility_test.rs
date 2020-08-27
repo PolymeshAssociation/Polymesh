@@ -10,8 +10,7 @@ use polymesh_common_utilities::traits::transaction_payment::CddAndFeeDetails;
 use codec::Encode;
 use frame_support::{assert_err, assert_ok, dispatch::DispatchError};
 use pallet_utility::UniqueCall;
-use polymesh_primitives::Signatory;
-use sp_core::sr25519::{Public, Signature};
+use sp_core::sr25519::Signature;
 use test_client::AccountKeyring;
 
 type Balances = balances::Module<TestStorage>;

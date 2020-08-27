@@ -17,14 +17,14 @@ pallet-transaction-payment = { path = "../pallets/transaction-payment", default-
 
 # Substrate
 codec = { package = "parity-scale-codec", version = "1.2.0" }
-sp-core = {git = 'https://github.com/paritytech/substrate', default_features = false, branch = "at-add-dispatch-call" }
-sp-std = {git = 'https://github.com/paritytech/substrate', default_features = false, branch = "at-add-dispatch-call" }
-sp-runtime = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "at-add-dispatch-call" }
-sp-api = { git = 'https://github.com/paritytech/substrate', default-features = false, branch = "at-add-dispatch-call" }
-sp-blockchain = { git = 'https://github.com/paritytech/substrate', branch = "at-add-dispatch-call" }
-sp-rpc = { git = 'https://github.com/paritytech/substrate', branch = "at-add-dispatch-call" }
-frame-support = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "at-add-dispatch-call" }
-frame-system = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "at-add-dispatch-call" }
+sp-core = {git = "https://github.com/PolymathNetwork/substrate", default_features = false, branch = "remove-subtype-trait" }
+sp-std = {git = "https://github.com/PolymathNetwork/substrate", default_features = false, branch = "remove-subtype-trait" }
+sp-runtime = { git = "https://github.com/PolymathNetwork/substrate", default-features = false, branch = "remove-subtype-trait" }
+sp-api = { git = "https://github.com/PolymathNetwork/substrate", default-features = false, branch = "remove-subtype-trait" }
+sp-blockchain = { git = "https://github.com/PolymathNetwork/substrate", branch = "remove-subtype-trait" }
+sp-rpc = { git = "https://github.com/PolymathNetwork/substrate", branch = "remove-subtype-trait" }
+frame-support = { git = "https://github.com/PolymathNetwork/substrate", default-features = false, branch = "remove-subtype-trait" }
+frame-system = { git = "https://github.com/PolymathNetwork/substrate", default-features = false, branch = "remove-subtype-trait" }
 
 # Others
 jsonrpc-core = "14.0.5"

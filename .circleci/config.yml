@@ -36,6 +36,7 @@ jobs:
           keys:
             - v3-release-cache-{{ checksum "./rust.version" }}-{{ checksum "./Cargo.lock" }}
             - v3-release-cache-{{ checksum "./rust.version" }}
+            - v3-cli-cache-{{ checksum "./rust.version" }}
       - run:
           name: Pull submodules
           command: >-
