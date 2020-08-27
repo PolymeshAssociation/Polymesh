@@ -1977,6 +1977,31 @@ impl<T: Trait> Module<T> {
 }
 
 impl<T: Trait> Module<T> {
+    /// RPC call to fetch some aggregate account data for fewer round trips.
+    pub fn get_key_id_data(acc: T::AccountId) -> Option<types::KeyIdData<IdentityId>> {
+        let identity = Self::get_identity(&acc)?;
+        let record = <DidRecords<T>>::get(identity);
+        let is_primary = acc == record.primary_key;
+        let permissions = if is_primary {
+            // Functionally equivalent to the below, but O(1) instead of O(n).
+            vec![]
+        } else {
+            record
+                .secondary_keys
+                .into_iter()
+                .find_map(|sk| {
+                    sk.signer.as_account().filter(|&a| a == &acc)?;
+                    Some(sk.permissions)
+                })
+                .unwrap_or_default()
+        };
+        Some(types::KeyIdData {
+            identity,
+            is_primary,
+            permissions,
+        })
+    }
+
     /// RPC call to know whether the given did has valid cdd claim or not
     pub fn is_identity_has_valid_cdd(
         target: IdentityId,

@@ -12,7 +12,7 @@ use pallet_compliance_manager::{self as compliance_manager, AssetComplianceResul
 use pallet_group as group;
 use pallet_identity::{
     self as identity,
-    types::{AssetDidResult, CddStatus, DidRecords, DidStatus},
+    types::{AssetDidResult, CddStatus, DidRecords, DidStatus, KeyIdData},
 };
 use pallet_multisig as multisig;
 use pallet_pips::{HistoricalVotingByAddress, HistoricalVotingById, Vote, VoteCount};
@@ -1074,6 +1074,10 @@ impl_runtime_apis! {
         /// Retrieve the status of the DIDs
         fn get_did_status(dids: Vec<IdentityId>) -> Vec<DidStatus> {
             Identity::get_did_status(dids)
+        }
+
+        fn get_key_id_data(acc: AccountId) -> Option<KeyIdData<IdentityId>> {
+            Identity::get_key_id_data(acc)
         }
 
         /// Retrieve list of a authorization for a given signatory
