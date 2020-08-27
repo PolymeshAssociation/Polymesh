@@ -50,15 +50,21 @@ jobs:
   - name: build-polymesh
     serial: true
     plan:
-      - get: githubpr-polymesh
+      - get: githubpr-polymesh-meta
+        resource: githubpr-polymesh
+        trigger: true
+        version: every
         params:
-          list_changed_files: true
+          integration_tool: checkout
+      - get: githubpr-polymesh
         trigger: true
         version: every
       - put: githubpr-polymesh
         params:
-          path: githubpr-polymesh
+          path: githubpr-polymesh-meta
           status: pending
+        get_params:
+          skip_download: true
       - load_var: scmpr
         file: githubpr-polymesh/.git/resource/pr
       - load_var: scmheadsha
@@ -204,11 +210,15 @@ jobs:
     on_failure:
       put: githubpr-polymesh
       params:
-        path: githubpr-polymesh
+        path: githubpr-polymesh-meta
         status: failure
+      get_params:
+        skip_download: true
     on_error:
       put: githubpr-polymesh
       params:
-        path: githubpr-polymesh
+        path: githubpr-polymesh-meta
         status: error
+      get_params:
+        skip_download: true
 
