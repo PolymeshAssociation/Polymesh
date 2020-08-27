@@ -206,14 +206,6 @@ impl<AccountId> SecondaryKey<AccountId> {
     pub fn has_portfolio_permission(&self, portfolio: PortfolioNumber) -> bool {
         self.permissions.portfolio.ge(&Subset::elem(portfolio))
     }
-
-    /// Checks if the signing key has the given permissions.
-    pub fn has_permissions(&self, them: &Permissions) -> bool {
-        let us = &self.permissions;
-        us.asset.ge(&them.asset)
-            && us.extrinsic.ge(&them.extrinsic)
-            && us.portfolio.ge(&them.portfolio)
-    }
 }
 
 impl<AccountId> From<IdentityId> for SecondaryKey<AccountId> {
@@ -318,15 +310,6 @@ mod tests {
         assert!(!restricted_key.has_asset_permission(ticker2));
         assert!(restricted_key.has_extrinsic_permission(vec![2]));
         assert!(!restricted_key.has_portfolio_permission(2));
-        assert!(free_key.has_permissions(&permissions));
-        assert!(restricted_key.has_permissions(&permissions));
-        let extended_permissions = Permissions {
-            asset: Subset::elem(ticker1),
-            extrinsic: Subset::All,
-            portfolio: Subset::from_iter(vec![1, 2].into_iter()),
-        };
-        assert!(free_key.has_permissions(&extended_permissions));
-        assert!(!restricted_key.has_permissions(&extended_permissions));
     }
 
     #[test]

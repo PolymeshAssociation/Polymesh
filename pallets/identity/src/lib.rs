@@ -1509,34 +1509,6 @@ impl<T: Trait> Module<T> {
         record.secondary_keys.iter().any(|si| si.signer == *signer)
     }
 
-    /// Checks if signer has correct permissions.
-    fn is_signer_authorized_with_permissions(
-        did: IdentityId,
-        signer: &Signatory<T::AccountId>,
-        permissions: Permissions,
-    ) -> bool {
-        let record = <DidRecords<T>>::get(did);
-
-        match signer {
-            Signatory::Account(ref signer_key) if record.primary_key == *signer_key => true,
-            Signatory::Identity(ref signer_id) if did == *signer_id => true,
-            _ => {
-                if !Self::is_did_frozen(did) {
-                    if let Some(secondary_key) = record
-                        .secondary_keys
-                        .iter()
-                        .find(|&si| &si.signer == signer)
-                    {
-                        return secondary_key.has_permissions(&permissions);
-                    }
-                }
-                // Signatory is not part of secondary items of `did`, or
-                // Did is frozen.
-                false
-            }
-        }
-    }
-
     /// Use `did` as reference.
     pub fn is_primary_key(did: &IdentityId, key: &T::AccountId) -> bool {
         key == &<DidRecords<T>>::get(did).primary_key
@@ -2247,15 +2219,6 @@ impl<T: Trait> IdentityTrait<T::AccountId> for Module<T> {
     /// Checks if the keys is the primary key of the identity.
     fn is_primary_key(did: &IdentityId, key: &T::AccountId) -> bool {
         Self::is_primary_key(did, key)
-    }
-
-    /// Checks if the signer is authorized and has certain permissions.
-    fn is_signer_authorized_with_permissions(
-        did: IdentityId,
-        signer: &Signatory<T::AccountId>,
-        permissions: Permissions,
-    ) -> bool {
-        Self::is_signer_authorized_with_permissions(did, signer, permissions)
     }
 
     /// Adds systematic CDD claims.

@@ -21,6 +21,9 @@
 use blake2::{Blake2b, Digest};
 use curve25519_dalek::scalar::Scalar;
 use polymesh_primitives_derive::VecU8StrongTyped;
+#[cfg(feature = "std")]
+use sp_runtime::{Deserialize, Serialize};
+use sp_std::prelude::Vec;
 
 pub use codec::{Compact, Decode, Encode};
 pub use sp_runtime::{
@@ -28,9 +31,6 @@ pub use sp_runtime::{
     traits::{BlakeTwo256, Hash as HashT, IdentifyAccount, Member, Verify},
     MultiSignature,
 };
-
-#[cfg(feature = "std")]
-use sp_runtime::{Deserialize, Serialize};
 
 /// An index to a block.
 /// 32-bits will allow for 136 years of blocks assuming 1 block per second.

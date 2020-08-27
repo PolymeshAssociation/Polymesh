@@ -187,11 +187,6 @@ pub trait IdentityTrait<AccountId> {
     fn set_current_payer(payer: Option<Signatory<AccountId>>);
 
     fn is_signer_authorized(did: IdentityId, signer: &Signatory<AccountId>) -> bool;
-    fn is_signer_authorized_with_permissions(
-        did: IdentityId,
-        signer: &Signatory<AccountId>,
-        permissions: Permissions,
-    ) -> bool;
     fn is_primary_key(did: &IdentityId, key: &AccountId) -> bool;
 
     /// It adds a systematic CDD claim for each `target` identity.

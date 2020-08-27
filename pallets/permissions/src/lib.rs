@@ -94,6 +94,12 @@ impl<T: Trait + Send + Sync> StoreCallMetadata<T>
 where
     T::Call: GetCallMetadata,
 {
+    /// Constructs a new store for call metadata.
+    pub fn new() -> Self {
+        Default::default()
+    }
+
+    /// Stores call metadata in runtime storage.
     fn store_call_metadata(pallet_name: &str, function_name: &str) {
         let p: PalletName = pallet_name.as_bytes().into();
         let f: FunctionName = function_name.as_bytes().into();
@@ -101,6 +107,7 @@ where
         <CurrentFunctionName>::put(f);
     }
 
+    /// Erases call metadata from runtime storage.
     fn clear_call_metadata() {
         <CurrentPalletName>::kill();
         <CurrentFunctionName>::kill();

@@ -118,14 +118,6 @@ mod test {
             false
         }
 
-        fn is_signer_authorized_with_permissions(
-            _did: IdentityId,
-            _signer: &Signatory<AccountId>,
-            _permissions: Vec<Permission>,
-        ) -> bool {
-            false
-        }
-
         fn current_payer() -> Option<Signatory<AccountId>> {
             None
         }

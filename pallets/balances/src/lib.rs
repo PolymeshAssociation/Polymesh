@@ -1078,11 +1078,7 @@ where
     fn charge_fee_to_identity(who: &T::AccountId) -> Option<IdentityId> {
         if <Module<T>>::charge_did(who) {
             if let Some(did) = <T::Identity>::get_identity(who) {
-                if <T::Identity>::is_signer_authorized_with_permissions(
-                    did,
-                    &Signatory::Account(who.clone()),
-                    Permissions::empty(),
-                ) {
+                if <T::Identity>::is_signer_authorized(did, &Signatory::Account(who.clone())) {
                     return Some(did);
                 }
             }
