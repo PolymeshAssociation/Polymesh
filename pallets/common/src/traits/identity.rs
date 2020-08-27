@@ -183,8 +183,8 @@ pub trait IdentityTrait<AccountId> {
     fn get_identity(key: &AccountId) -> Option<IdentityId>;
     fn current_identity() -> Option<IdentityId>;
     fn set_current_identity(id: Option<IdentityId>);
-    fn current_payer() -> Option<Signatory<AccountId>>;
-    fn set_current_payer(payer: Option<Signatory<AccountId>>);
+    fn current_payer() -> Option<AccountId>;
+    fn set_current_payer(payer: Option<AccountId>);
 
     fn is_signer_authorized(did: IdentityId, signer: &Signatory<AccountId>) -> bool;
     fn is_primary_key(did: &IdentityId, key: &AccountId) -> bool;

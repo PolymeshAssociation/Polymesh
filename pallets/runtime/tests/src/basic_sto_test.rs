@@ -5,7 +5,7 @@ use super::{
 use pallet_asset::{self as asset, AssetType};
 use pallet_basic_sto::{self as sto, Fundraiser};
 use pallet_compliance_manager as compliance_manager;
-use pallet_settlement::{self as settlement, VenueDetails};
+use pallet_settlement::{self as settlement, VenueDetails, VenueType};
 use polymesh_primitives::Ticker;
 
 use frame_support::assert_ok;
@@ -43,8 +43,8 @@ fn basic_raise_with_ext() {
         AssetType::default(),
         vec![],
         None,
-        Some(alice_did),
     ));
+
     assert_ok!(Asset::create_asset(
         bob_signed.clone(),
         vec![0x01].into(),
@@ -54,7 +54,6 @@ fn basic_raise_with_ext() {
         AssetType::default(),
         vec![],
         None,
-        Some(bob_did),
     ));
 
     // Add empty transfer rules
@@ -76,7 +75,8 @@ fn basic_raise_with_ext() {
     assert_ok!(Settlement::create_venue(
         alice_signed.clone(),
         VenueDetails::default(),
-        vec![]
+        vec![],
+        VenueType::Other
     ));
 
     let amount = 100u128;

@@ -46,7 +46,6 @@ fn add_ballot() {
             AssetType::default(),
             vec![],
             None,
-            None,
         ));
 
         assert_ok!(Asset::create_checkpoint(token_owner_acc.clone(), ticker,));
@@ -206,7 +205,6 @@ fn cancel_ballot() {
             AssetType::default(),
             vec![],
             None,
-            None,
         ));
 
         assert_ok!(Asset::create_checkpoint(token_owner_acc.clone(), ticker,));
@@ -297,7 +295,6 @@ fn vote() {
             AssetType::default(),
             vec![],
             None,
-            None,
         ));
 
         let sender_rules = vec![];
@@ -311,9 +308,10 @@ fn vote() {
             receiver_rules
         ));
 
-        assert_ok!(Asset::transfer(
-            token_owner_acc.clone(),
-            ticker,
+        assert_ok!(Asset::unsafe_transfer(
+            token_owner_did,
+            &ticker,
+            token_owner_did,
             tokenholder_did,
             500
         ));

@@ -15,8 +15,6 @@
 // along with Substrate.  If not, see <http://www.gnu.org/licenses/>.
 
 // Modified by Polymath Inc - 16th March 2020
-// Added ability to manage balances of identities with the balances module
-// In Polymesh, POLYX balances can be held at either the identity or account level
 // Implement `BlockRewardsReserveCurrency` trait in the balances module.
 // Remove migration functionality from the balances module as Polymesh doesn't needed
 // any migration data structure.
@@ -34,9 +32,7 @@
 //! This is a modified implementation of substrate's balances FRAME.
 //! The modifications made are as follows:
 //!
-//! - Added ability to pay transaction fees from identity's balance instead of user's balance.
 //! - To curb front running, sending a tip along with your transaction is now prohibited.
-//! - Added ability to store balance at identity level and use that to pay tx fees.
 //! - Added From<u128> trait to Balances type.
 //! - Removed existential amount requirement to prevent a replay attack scenario.
 //! - Added block rewards reserve that subsidize minting for block rewards.
@@ -96,17 +92,13 @@
 //!
 //! - `transfer` - Transfer some liquid free balance to another account.
 //! - `transfer_with_memo` - Transfer some liquid free balance to another account alon with a memo.
-//! - `top_up_identity_balance` - Move some POLYX from balance of self to balance of an identity.
-//! - `reclaim_identity_balance` - Claim back POLYX from an identity. Can only be called by primary key of the identity.
-//! - `change_charge_did_flag` - Change setting that governs if user pays fee via their own balance or identity's balance.
 //! - `set_balance` - Set the balances of a given account. The origin of this call must be root.
-//! - `top_up_brr_balance` - Transfer some liquid free balance to block rewards reserve.
+//! - `deposit_block_reward_reserve_balance` - Transfer some liquid free balance to block rewards reserve.
 //! - `force_transfer` - Force transfer some balance from one account to another. The origin of this call must be root.
 //! - `burn_account_balance` - Burn some liquid free balance.
 
 //! ### Public Functions
 //!
-//! - `unsafe_top_up_identity_balance` - Increase an Identity's balance without increasing total supply.
 //! - `free_balance` - Get the free balance of an account.
 //! - `usable_balance` - Get the balance of an account that can be used for transfers, reservations, or any other non-locking, non-transaction-fee activity.
 //! - `usable_balance_for_fees` - Get the balance of an account that can be used for paying transaction fees (not tipping, or any other kind of fees, though).
@@ -191,12 +183,9 @@ use polymesh_common_utilities::{
         identity::IdentityTrait,
         NegativeImbalance, PositiveImbalance,
     },
-    Context, SystematicIssuers,
+    Context, SystematicIssuers, GC_DID,
 };
-use polymesh_primitives::{
-    traits::{BlockRewardsReserveCurrency, IdentityCurrency},
-    IdentityId, Permissions, Signatory,
-};
+use polymesh_primitives::traits::BlockRewardsReserveCurrency;
 use sp_runtime::{
     traits::{
         AccountIdConversion, Bounded, CheckedAdd, CheckedSub, MaybeSerializeDeserialize,
@@ -206,7 +195,7 @@ use sp_runtime::{
 };
 use sp_std::{cmp, convert::Infallible, fmt::Debug, mem, prelude::*, result};
 
-pub use polymesh_common_utilities::traits::balances::Trait;
+pub use polymesh_common_utilities::traits::balances::{LockableCurrencyExt, Trait};
 
 pub type Event<T> = polymesh_common_utilities::traits::balances::Event<T>;
 
@@ -248,15 +237,10 @@ decl_storage! {
         /// The total units issued in the system.
         pub TotalIssuance get(fn total_issuance) build(|config: &GenesisConfig<T>| {
             let f = |u: T::Balance, &v| u + v;
-            let account_total = config.balances
+            config.balances
                 .iter()
                 .map(|(_, v)| v)
-                .fold(Zero::zero(), f);
-            let identity_total = config.identity_balances
-                .iter()
-                .map(|(_, v)| v)
-                .fold(Zero::zero(), f);
-            account_total.saturating_add(identity_total)
+                .fold(Zero::zero(), f)
         }): T::Balance;
 
 
@@ -264,25 +248,13 @@ decl_storage! {
         /// NOTE: Should only be accessed when setting, changing and freeing a lock.
         pub Locks get(fn locks): map hasher(blake2_128_concat) T::AccountId => Vec<BalanceLock<T::Balance>>;
 
-        // Polymesh modified code. The storage variables below this were added for Polymesh.
-        /// Balance held by the identity. It can be spent by its secondary keys.
-        pub IdentityBalance get(fn identity_balance): map hasher(blake2_128_concat) IdentityId => T::Balance;
-
-        // Polymesh-Note : Change to facilitate the DID charging
-        /// Secondary key => Charge Fee to did?. Default is false i.e. the fee will be charged from user balance
-        pub ChargeDid get(fn charge_did): map hasher(twox_64_concat) T::AccountId => bool;
     }
     add_extra_genesis {
         /// Account balances at genesis.
         config(balances): Vec<(T::AccountId, T::Balance)>;
-        /// Identity balances at genesis.
-        config(identity_balances): Vec<(IdentityId, T::Balance)>;
         build(|config: &GenesisConfig<T>| {
             for (who, free) in &config.balances {
                 T::AccountStore::insert(who, AccountData { free: *free, .. Default::default() });
-            }
-            for (id, v) in &config.identity_balances {
-                <IdentityBalance<T>>::mutate(id, |u| *u = u.saturating_add(*v));
             }
         });
     }
@@ -354,79 +326,10 @@ decl_module! {
             Self::safe_transfer_core(&transactor, &dest, value, memo, ExistenceRequirement::AllowDeath)?;
         }
 
-        // Polymesh modified code. New function to transfer balance to an identity.
-        /// Move some POLYX from balance of self to balance of an identity.
-        /// no-op when,
-        /// - value is zero
-        /// # <weight>
-        /// - Base Weight : 1_000_000
-        /// - DB Weight: 1 Read and 1 Write to the destination identityId,
-        /// - Origin account is already in memory, so no DB operations for them.
-        /// #</weight>
-        #[weight = T::DbWeight::get().reads_writes(1, 1) + 1_000_000]
-        pub fn top_up_identity_balance(
-            origin,
-            did: IdentityId,
-            #[compact] value: T::Balance
-        ) -> DispatchResult {
-            if value.is_zero() { return Ok(()) }
-            let transactor = ensure_signed(origin)?;
-            // Check whether the receiver DID has valid cdd or not.
-            ensure!(T::Identity::has_valid_cdd(did), Error::<T>::ReceiverCddMissing);
-
-            let negative_imbalance = <Self as Currency<_>>::withdraw(
-                &transactor,
-                value,
-                WithdrawReason::TransactionPayment.into(),
-                ExistenceRequirement::KeepAlive,
-            )?;
-            let positive_imbalance = Self::unsafe_top_up_identity_balance(&did, value);
-            // In Ideal coding standards: Should not emit an error as storage is already gets changed
-            // but use this hack to avoid automatic drop functionality which consumes more operations than this
-            // It will never spit an error because negative_imbalance always equal to positive_imbalance.
-            let _ = negative_imbalance.offset(positive_imbalance).map_err(|_| Error::<T>::UnHandledImbalances)?;
-            Ok(())
-        }
-
-        // Polymesh modified code. New function to withdraw balance from an identity.
-        /// Claim back POLYX from an identity. Can only be called by primary key of the identity.
-        /// no-op when,
-        /// - value is zero
-        /// # <weight>
-        /// - Base Weight : 1_000_000
-        /// - DB Weight: 1 Read and 1 Write to the destination identityId.
-        /// - Origin account is already in memory, so no DB operations for them.
-        /// #</weight>
-        #[weight = T::DbWeight::get().reads_writes(1, 1) + 1_000_000]
-        pub fn reclaim_identity_balance(
-            origin,
-            did: IdentityId,
-            #[compact] value: T::Balance
-        ) {
-            if value.is_zero() { return Ok(()) }
-            let transactor = ensure_signed(origin)?;
-            ensure!(<T::Identity>::is_primary_key(&did, &transactor), Error::<T>::UnAuthorized);
-            // Not managing imbalances because they will cancel out.
-            // withdraw function will create negative imbalance and
-            // deposit function will create positive imbalance
-            let _ = Self::withdraw_identity_balance(&did, value)?;
-            let _ = <Self as Currency<_>>::deposit_creating(&transactor, value);
-            return Ok(())
-        }
-
-
-        // Polymesh specific change. New function to set source of transaction fees.
-        /// Change setting that governs if user pays fee via their own balance or identity's balance.
-        #[weight = T::DbWeight::get().reads_writes(1, 1) + 500_000]
-        pub fn change_charge_did_flag(origin, charge_did: bool) {
-            let transactor = ensure_signed(origin)?;
-            <ChargeDid<T>>::insert(transactor, charge_did);
-        }
-
         // Polymesh specific change. New function to transfer balance to BRR.
         /// Move some POLYX from balance of self to balance of BRR.
         #[weight = T::DbWeight::get().reads_writes(1, 1) + 1_000_000]
-        pub fn top_up_brr_balance(
+        pub fn deposit_block_reward_reserve_balance(
             origin,
             #[compact] value: T::Balance
         ) {
@@ -461,7 +364,7 @@ decl_module! {
             ensure_root(origin)?;
             let who = T::Lookup::lookup(who)?;
             let caller_id = Context::current_identity_or::<T::Identity>(&who)
-                .unwrap_or_else(|_| SystematicIssuers::Committee.as_id());
+                .unwrap_or(GC_DID);
 
             let (free, reserved) = Self::mutate_account(&who, |account| {
                 if new_free > account.free {
@@ -527,17 +430,6 @@ decl_module! {
 
 impl<T: Trait> Module<T> {
     // PRIVATE MUTABLES
-
-    // Polymesh modified code. New public function to increase balance of an Identity.
-    /// It tops up the identity balance.
-    pub fn unsafe_top_up_identity_balance(
-        did: &IdentityId,
-        value: T::Balance,
-    ) -> PositiveImbalance<T> {
-        let new_balance = Self::identity_balance(did).saturating_add(value);
-        <IdentityBalance<T>>::insert(did, new_balance);
-        PositiveImbalance::<T>::new(value)
-    }
 
     /// Get the free balance of an account.
     pub fn free_balance(who: impl sp_std::borrow::Borrow<T::AccountId>) -> T::Balance {
@@ -1058,50 +950,6 @@ where
     }
 }
 
-// Polymesh modified code. Trait to manage funds stored in Identities.
-impl<T: Trait> IdentityCurrency<T::AccountId> for Module<T>
-where
-    T::Balance: MaybeSerializeDeserialize + Debug,
-{
-    fn withdraw_identity_balance(
-        who: &IdentityId,
-        value: Self::Balance,
-    ) -> result::Result<Self::NegativeImbalance, DispatchError> {
-        if let Some(new_balance) = Self::identity_balance(who).checked_sub(&value) {
-            <IdentityBalance<T>>::insert(who, new_balance);
-            Ok(NegativeImbalance::new(value))
-        } else {
-            return Err(Error::<T>::Overflow.into());
-        }
-    }
-
-    fn charge_fee_to_identity(who: &T::AccountId) -> Option<IdentityId> {
-        if <Module<T>>::charge_did(who) {
-            if let Some(did) = <T::Identity>::get_identity(who) {
-                if <T::Identity>::is_signer_authorized(did, &Signatory::Account(who.clone())) {
-                    return Some(did);
-                }
-            }
-        }
-        None
-    }
-
-    fn deposit_into_existing_identity(
-        who: &IdentityId,
-        value: Self::Balance,
-    ) -> result::Result<Self::PositiveImbalance, DispatchError> {
-        if value.is_zero() {
-            return Ok(PositiveImbalance::zero());
-        }
-        if let Some(new_balance) = Self::identity_balance(who).checked_add(&value) {
-            <IdentityBalance<T>>::insert(who, new_balance);
-            Ok(PositiveImbalance::new(value))
-        } else {
-            return Err(Error::<T>::Overflow.into());
-        }
-    }
-}
-
 impl<T: Trait> ReservableCurrency<T::AccountId> for Module<T>
 where
     T::Balance: MaybeSerializeDeserialize + Debug,
@@ -1256,6 +1104,9 @@ where
 {
     type Moment = T::BlockNumber;
 
+    // Polymesh-note: The implementations below differ from substrate in terms
+    // of performance (ours uses in-place modification), but are functionally equivalent.
+
     // Set a lock on the balance of `who`.
     // Is a no-op if lock amount is zero or `reasons` `is_none()`.
     fn set_lock(
@@ -1267,17 +1118,16 @@ where
         if amount.is_zero() || reasons.is_none() {
             return;
         }
-        let mut new_lock = Some(BalanceLock {
+        let new_lock = BalanceLock {
             id,
             amount,
             reasons: reasons.into(),
-        });
-        let mut locks = Self::locks(who)
-            .into_iter()
-            .filter_map(|l| if l.id == id { new_lock.take() } else { Some(l) })
-            .collect::<Vec<_>>();
-        if let Some(lock) = new_lock {
-            locks.push(lock)
+        };
+        let mut locks = Self::locks(who);
+        if let Some(pos) = locks.iter().position(|l| l.id == id) {
+            locks[pos] = new_lock;
+        } else {
+            locks.push(new_lock);
         }
         Self::update_locks(who, &locks[..]);
     }
@@ -1293,27 +1143,18 @@ where
         if amount.is_zero() || reasons.is_none() {
             return;
         }
-        let mut new_lock = Some(BalanceLock {
-            id,
-            amount,
-            reasons: reasons.into(),
-        });
-        let mut locks = Self::locks(who)
-            .into_iter()
-            .filter_map(|l| {
-                if l.id == id {
-                    new_lock.take().map(|nl| BalanceLock {
-                        id: l.id,
-                        amount: l.amount.max(nl.amount),
-                        reasons: l.reasons | nl.reasons,
-                    })
-                } else {
-                    Some(l)
-                }
-            })
-            .collect::<Vec<_>>();
-        if let Some(lock) = new_lock {
-            locks.push(lock)
+        let reasons = reasons.into();
+        let mut locks = Self::locks(who);
+        if let Some(pos) = locks.iter().position(|l| l.id == id) {
+            let slot = &mut locks[pos];
+            slot.amount = slot.amount.max(amount);
+            slot.reasons = slot.reasons | reasons;
+        } else {
+            locks.push(BalanceLock {
+                id,
+                amount,
+                reasons,
+            });
         }
         Self::update_locks(who, &locks[..]);
     }
@@ -1322,6 +1163,64 @@ where
         let mut locks = Self::locks(who);
         locks.retain(|l| l.id != id);
         Self::update_locks(who, &locks[..]);
+    }
+}
+
+impl<T: Trait> LockableCurrencyExt<T::AccountId> for Module<T>
+where
+    T::Balance: MaybeSerializeDeserialize + Debug,
+{
+    fn reduce_lock(id: LockIdentifier, who: &T::AccountId, amount: T::Balance) -> DispatchResult {
+        if amount.is_zero() {
+            return Ok(());
+        }
+        let mut locks = Self::locks(who);
+        locks
+            .iter()
+            .position(|l| l.id == id)
+            .and_then(|p| {
+                let slot = &mut locks[p].amount;
+                let new = slot.checked_sub(&amount).map(|n| *slot = n);
+                if slot.is_zero() {
+                    locks.swap_remove(p);
+                }
+                new
+            })
+            .ok_or(Error::<T>::InsufficientBalance)?;
+        Self::update_locks(who, &locks[..]);
+        Ok(())
+    }
+
+    fn increase_lock(
+        id: LockIdentifier,
+        who: &T::AccountId,
+        amount: T::Balance,
+        reasons: WithdrawReasons,
+        check_sum: impl FnOnce(T::Balance) -> DispatchResult,
+    ) -> DispatchResult {
+        if amount.is_zero() || reasons.is_none() {
+            return Ok(());
+        }
+        let reasons = reasons.into();
+        let mut locks = Self::locks(who);
+        check_sum(if let Some(pos) = locks.iter().position(|l| l.id == id) {
+            let slot = &mut locks[pos];
+            slot.amount = slot
+                .amount
+                .checked_add(&amount)
+                .ok_or(Error::<T>::Overflow)?;
+            slot.reasons = slot.reasons | reasons;
+            slot.amount
+        } else {
+            locks.push(BalanceLock {
+                id,
+                amount,
+                reasons,
+            });
+            amount
+        })?;
+        Self::update_locks(who, &locks[..]);
+        Ok(())
     }
 }
 

@@ -31,7 +31,6 @@ fn cdd_checks() {
             let alice_key_signatory = Signatory::Account(AccountKeyring::Alice.public());
             let alice_account_signatory =
                 Signatory::Account(AccountId32::from(AccountKeyring::Alice.public().0));
-            let alice_did_signatory = Signatory::from(alice_did);
             let _musig_address =
                 MultiSig::get_next_multisig_address(AccountKeyring::Alice.public());
 
@@ -40,13 +39,6 @@ fn cdd_checks() {
             let charlie_did = register_keyring_account(AccountKeyring::Charlie).unwrap();
             let charlie_account_signatory =
                 Signatory::Account(AccountId32::from(AccountKeyring::Charlie.public().0));
-            let charlie_did_signatory = Signatory::from(charlie_did);
-
-            assert_ok!(Balances::top_up_identity_balance(
-                alice_signed.clone(),
-                charlie_did,
-                PROTOCOL_OP_BASE_FEE * 2
-            ));
 
             // register did bypasses cdd checks
             assert_eq!(
@@ -55,16 +47,16 @@ fn cdd_checks() {
                         InvestorUid::default(),
                         Default::default()
                     )),
-                    &alice_did_signatory
+                    &alice_account_signatory
                 ),
-                Ok(Some(alice_did_signatory.clone()))
+                Ok(Some(AccountId32::from(AccountKeyring::Alice.public().0)))
             );
 
             // normal tx without cdd should fail
             assert_err!(
                 CddHandler::get_valid_payer(
                     &Call::MultiSig(multisig::Call::change_sigs_required(1)),
-                    &alice_did_signatory
+                    &alice_account_signatory
                 ),
                 InvalidTransaction::Custom(TransactionError::CddRequired as u8)
             );
@@ -118,7 +110,7 @@ fn cdd_checks() {
                     &Call::MultiSig(multisig::Call::accept_multisig_signer_as_key(alice_auth_id)),
                     &alice_account_signatory
                 ),
-                Ok(Some(charlie_did_signatory.clone()))
+                Ok(Some(AccountId32::from(AccountKeyring::Charlie.public().0)))
             );
 
             // normal tx with cdd should succeed
@@ -127,16 +119,7 @@ fn cdd_checks() {
                     &Call::MultiSig(multisig::Call::change_sigs_required(1)),
                     &charlie_account_signatory
                 ),
-                Ok(Some(charlie_account_signatory.clone()))
-            );
-
-            // tx to set did as fee payer should charge fee to did
-            assert_eq!(
-                CddHandler::get_valid_payer(
-                    &Call::Balances(balances::Call::change_charge_did_flag(true)),
-                    &charlie_account_signatory
-                ),
-                Ok(Some(charlie_did_signatory))
+                Ok(Some(AccountId32::from(AccountKeyring::Charlie.public().0)))
             );
         });
 }

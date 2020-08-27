@@ -15,62 +15,87 @@
 
 //! # Pips Module
 //!
-//! Polymesh Improvement Proposals (PIPs) are proposals (ballots) that can be proposed and voted on
-//! by all POLYX token holders. If a ballot passes this community token holder vote it is then passed to the
-//! governance council to ratify (or reject).
-//! - minimum of 5,000 POLYX needs to be staked by the proposer of the ballot
-//! in order to create a new ballot.
-//! - minimum of 100,000 POLYX (quorum) needs to vote in favour of the ballot in order for the
-//! ballot to be considered by the governing committee.
-//! - ballots run for 1 week
-//! - a simple majority is needed to pass the ballot so that it heads for the
-//! next stage (governing committee)
+//! Polymesh Improvement Proposals (PIPs) are dispatchables that can be `propose`d for execution.
+//! These PIPs can either be proposed by a committee, or they can be proposed by a community member,
+//! in which case they can `vote`d on by all POLYX token holders.
+//! Once created, a proposal first enters a cool-off period, during which it can be amended
+//! (via `amend_proposal` and `vote`) or cancelled (via `cancel_proposal`) but not approved.
+//! During cool-off, only the PIPs proposer can use `vote`.
+//!
+//! Voting, or rather "signalling", which currently scales linearly with POLX,
+//! in this system is used to direct the Governance Councils (GCs)
+//! attention by moving proposals up and down a review queue, specific to community proposals.
+//!
+//! From time to time, the GC will take a `snapshot` of this queue,
+//! meet and review PIPs, and reject, approve, or skip the proposal (via `enact_snapshot_results`).
+//! Any approved PIPs from this snapshot will then be scheduled,
+//! in order of signal value, to be executed automatically on the blockchain.
+//! However, using `reschedule_proposal`, a special Release Coordinator (RC), a member of the GC,
+//! can reschedule approved PIPs at will, except for a PIP to replace the RC.
+//! Once no longer relevant, the snapshot can be cleared by the GC through `clear_snapshot`.
+//!
+//! As aforementioned, the GC can skip a PIP, which will increments its "skipped count".
+//! Should a configurable limit for the skipped count be exceeded, a PIP can no longer be skipped.
+//!
+//! Committee proposals, as noted before, do not enter the snapshot or receive votes.
+//! However, the GC can at any moment approve such a PIP via `approve_committee_proposal`.
+//!
+//! Should the GC want to reject an active (scheduled or pending) proposal,
+//! they can do so at any time using `reject_proposal`.
+//! For garbage collection purposes, it is also possible to use `prune_proposal`,
+//! which will, without any restrictions on its state, remove the PIP's storage.
+//!
 //!
 //! ## Overview
 //!
 //! The Pips module provides functions for:
 //!
-//! - Creating Mesh Improvement Proposals
-//! - Voting on Mesh Improvement Proposals
-//! - Governance committee to ratify or reject proposals
+//! - Proposing and amending PIPs
+//! - Signalling (voting) on them for adjusting priority in the review queue
+//! - Taking and clearing snapshots of the queue
+//! - Approving, rejecting, skipping, and rescheduling PIPs
 //!
 //! ## Interface
 //!
 //! ### Dispatchable Functions
 //!
+//! #### Configuration changes
+//!
 //! - `set_prune_historical_pips` change whether historical PIPs are pruned
 //! - `set_min_proposal_deposit` change min deposit to create a proposal
-//! - `set_quorum_threshold` change stake required to make a proposal into a referendum
-//! - `set_proposal_duration` change duration in blocks for which proposal stays active
 //! - `set_proposal_cool_off_period` change duration in blocks for which a proposal can be amended
-//! - `set_default_enact_period` change the period after enactment after which the proposal is executed
-//! - `propose` - token holders can propose a new ballot.
+//! - `set_default_enactment_period` change the period after enactment after which the proposal is executed
+//! - `set_max_pip_skip_count` change the maximum times a PIP can be skipped
+//! - `set_active_pip_limit` change the maximum number of concurrently active PIPs
+//!
+//! #### Other
+//!
+//! - `propose` - token holders can propose a new PIP.
 //! - `amend_proposal` - allows the creator of a proposal to amend the proposal details
 //! - `cancel_proposal` - allows the creator of a proposal to cancel the proposal
-//! - `bond_additional_deposit` - allows the creator of a proposal to bond additional POLYX to it
-//! - `unbond_deposit` - allows the creator of a proposal to unbond POLYX from it
-//! - `vote` - Token holders can vote on a ballot.
-//! - `kill_proposal` - close a proposal and refund all deposits
-//! - `fast_track_proposal` - move a proposal to a referendum stage
-//! - `emergency_referendum` - create an emergency referndum, bypassing the token holder vote
-//! - `reject_referendum` - reject a referendum which will be closed without executing
-//! - `override_referendum_enactment_period` - release coordinator can reschedule a referendum
-//! - `enact_referendum` committee calls to execute a referendum
+//! - `vote` - token holders, including the PIP's proposer, can vote on a PIP.
+//! - `approve_committee_proposal` - allows the GC to approve a committee proposal
+//! - `reject_proposal` - reject an active proposal and refund deposits
+//! - `prune_proposal` - prune all storage associated with proposal and refund deposits
+//! - `reschedule_execution` - release coordinator can reschedule a PIPs execution
+//! - `clear_snapshot` - clears the snapshot
+//! - `snapshot` - takes a new snapshot of the review queue
+//! - `enact_snapshot_results` - enters results (approve, reject, and skip) for PIPs in snapshot
 //!
 //! ### Public Functions
 //!
-//! - `end_block` - processes pending proposals and referendums
+//! - `end_block` - executes scheduled proposals
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use codec::{Decode, Encode};
+use core::mem;
 use frame_support::{
     debug, decl_error, decl_event, decl_module, decl_storage,
     dispatch::{DispatchError, DispatchResult},
     ensure,
     storage::IterableStorageMap,
-    traits::{Currency, EnsureOrigin, LockableCurrency, ReservableCurrency},
+    traits::{Currency, EnsureOrigin, LockIdentifier, WithdrawReasons},
     weights::{DispatchClass, Pays, Weight},
-    Parameter,
 };
 use frame_system::{self as system, ensure_signed};
 use pallet_identity as identity;
@@ -79,10 +104,13 @@ use polymesh_common_utilities::{
     constants::PIP_MAX_REPORTING_SIZE,
     identity::Trait as IdentityTrait,
     protocol_fee::{ChargeProtocolFee, ProtocolOp},
-    traits::{governance_group::GovernanceGroupTrait, group::GroupTrait, pip::PipId},
-    CommonTrait, Context, SystematicIssuers,
+    traits::{
+        balances::LockableCurrencyExt, governance_group::GovernanceGroupTrait, group::GroupTrait,
+        pip::PipId,
+    },
+    with_transaction, CommonTrait, Context, GC_DID,
 };
-use polymesh_primitives::{Beneficiary, IdentityId};
+use polymesh_primitives::IdentityId;
 use polymesh_primitives_derive::VecU8StrongTyped;
 #[cfg(feature = "std")]
 use serde::{Deserialize, Serialize};
@@ -91,6 +119,8 @@ use sp_runtime::traits::{
     BlakeTwo256, CheckedAdd, CheckedSub, Dispatchable, Hash, Saturating, Zero,
 };
 use sp_std::{convert::From, prelude::*};
+
+const PIPS_LOCK_ID: LockIdentifier = *b"pips    ";
 
 /// Balance
 type BalanceOf<T> =
@@ -111,15 +141,13 @@ pub struct PipDescription(pub Vec<u8>);
 /// Represents a proposal
 #[derive(Encode, Decode, Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "std", derive(Debug))]
-pub struct Pip<Proposal, Balance> {
+pub struct Pip<Proposal> {
     /// The proposal's unique id.
     pub id: PipId,
     /// The proposal being voted on.
     pub proposal: Proposal,
     /// The latest state
     pub state: ProposalState,
-    /// Beneficiaries of this Pips
-    pub beneficiaries: Option<Vec<Beneficiary<Balance>>>,
 }
 
 /// A result of execution of get_votes.
@@ -147,15 +175,32 @@ pub enum ProposalData {
     Proposal(Vec<u8>),
 }
 
-/// Represents a proposal metadata
+/// The various sorts of committees that can make a PIP.
 #[derive(Encode, Decode, Clone, PartialEq, Eq, Debug)]
+pub enum Committee {
+    /// The technical committee.
+    Technical,
+    /// The upgrade committee tends to propose chain upgrades.
+    Upgrade,
+}
+
+/// The proposer of a certain PIP.
+#[derive(Encode, Decode, Clone, PartialEq, Eq, Debug)]
+pub enum Proposer<AccountId> {
+    /// The proposer is of the community.
+    Community(AccountId),
+    /// The proposer is a committee.
+    Committee(Committee),
+}
+
+/// Represents a proposal metadata
+#[derive(Encode, Decode, Clone, PartialEq, Eq)]
+#[cfg_attr(feature = "std", derive(Debug))]
 pub struct PipsMetadata<T: Trait> {
-    /// The creator
-    pub proposer: T::AccountId,
+    /// They creator
+    pub proposer: Proposer<T::AccountId>,
     /// The proposal's unique id.
     pub id: PipId,
-    /// When voting will end.
-    pub end: T::BlockNumber,
     /// The proposal url for proposal discussion.
     pub url: Option<Url>,
     /// The proposal description.
@@ -168,7 +213,7 @@ pub struct PipsMetadata<T: Trait> {
 /// For keeping track of proposal being voted on.
 #[derive(PartialEq, Eq, Clone, Encode, Decode, Default)]
 #[cfg_attr(feature = "std", derive(Debug))]
-pub struct VotingResult<Balance: Parameter> {
+pub struct VotingResult<Balance> {
     /// The current set of voters that approved with their stake.
     pub ayes_count: u32,
     pub ayes_stake: Balance,
@@ -177,19 +222,15 @@ pub struct VotingResult<Balance: Parameter> {
     pub nays_stake: Balance,
 }
 
-#[derive(PartialEq, Eq, Clone, Encode, Decode)]
+/// A "vote" or "signal" on a PIP to move it up or down the review queue.
+#[derive(PartialEq, Eq, Copy, Clone, Encode, Decode)]
 #[cfg_attr(feature = "std", derive(Debug, Serialize, Deserialize))]
-pub enum Vote<Balance> {
-    None,
-    Yes(Balance),
-    No(Balance),
-}
-
-impl<Balance> Default for Vote<Balance> {
-    fn default() -> Self {
-        Vote::None
-    }
-}
+pub struct Vote<Balance>(
+    /// `true` if there's agreement.
+    pub bool,
+    /// How strongly do they feel about it?
+    pub Balance,
+);
 
 #[derive(PartialEq, Eq, Clone, Encode, Decode)]
 #[cfg_attr(feature = "std", derive(Debug, Serialize, Deserialize))]
@@ -202,18 +243,21 @@ pub type HistoricalVotingByAddress<VoteType> = Vec<VoteByPip<VoteType>>;
 pub type HistoricalVotingById<AccountId, VoteType> =
     Vec<(AccountId, HistoricalVotingByAddress<VoteType>)>;
 
+/// The state a PIP is in.
 #[derive(Encode, Decode, Copy, Clone, Eq, PartialEq, Debug)]
 pub enum ProposalState {
-    /// Proposal is created and either in the cool-down period or open to voting
+    /// Proposal is created and either in the cool-down period or open to voting.
     Pending,
-    /// Proposal is cancelled by its owner
+    /// Proposal is cancelled by its owner.
     Cancelled,
-    /// Proposal was killed by the GC
-    Killed,
-    /// Proposal failed to pass by a community vote
+    /// Proposal was rejected by the GC.
     Rejected,
-    /// Proposal has moved to referendum stage
-    Referendum,
+    /// Proposal has been approved by the GC and scheduled for execution.
+    Scheduled,
+    /// Proposal execution was attempted by failed.
+    Failed,
+    /// Proposal was successfully executed.
+    Executed,
 }
 
 impl Default for ProposalState {
@@ -222,59 +266,54 @@ impl Default for ProposalState {
     }
 }
 
-#[derive(Encode, Decode, Copy, Clone, Eq, PartialEq)]
-#[cfg_attr(feature = "std", derive(Debug))]
-pub enum ReferendumState {
-    /// Pending GC ratification
-    Pending,
-    /// Execution of this PIP is scheduled, i.e. it needs to wait its enactment period.
-    Scheduled,
-    /// Rejected by the GC
-    Rejected,
-    /// It has been executed, but execution failed.
-    Failed,
-    /// It has been successfully executed.
-    Executed,
-}
-
-#[derive(Encode, Decode, Copy, Clone, Eq, PartialEq)]
-#[cfg_attr(feature = "std", derive(Debug))]
-pub enum ReferendumType {
-    /// Referendum pushed by GC (fast-tracked)
-    FastTracked,
-    /// Referendum created by GC
-    Emergency,
-    /// Created through a community vote
-    Community,
-}
-
-/// Properties of a referendum
-#[derive(Encode, Decode, Clone, PartialEq, Eq)]
-#[cfg_attr(feature = "std", derive(Debug))]
-pub struct Referendum<T: Trait> {
-    /// The proposal's unique id.
-    pub id: PipId,
-    /// Current state of this Referendum.
-    pub state: ReferendumState,
-    /// The type of the referendum
-    pub referendum_type: ReferendumType,
-    /// Enactment period.
-    pub enactment_period: T::BlockNumber,
-}
-
 /// Information about deposit.
 #[derive(Encode, Decode, Clone, PartialEq, Eq, Default)]
 #[cfg_attr(feature = "std", derive(Debug))]
-pub struct DepositInfo<AccountId, Balance>
-where
-    AccountId: Default,
-    Balance: Default,
-{
+pub struct DepositInfo<AccountId, Balance> {
     /// Owner of the deposit.
     pub owner: AccountId,
     /// Amount. It can be updated during the cool off period.
     pub amount: Balance,
 }
+
+/// A snapshot's metadata, containing when it was created and who triggered it.
+/// The priority queue is stored separately (see `SnapshottedPip`).
+#[derive(Encode, Decode, Clone, PartialEq, Eq)]
+#[cfg_attr(feature = "std", derive(Debug))]
+pub struct SnapshotMetadata<T: Trait> {
+    /// The block when the snapshot was made.
+    pub created_at: T::BlockNumber,
+    /// Who triggered this snapshot? Should refer to someone in the GC.
+    pub made_by: T::AccountId,
+}
+
+/// A PIP in the snapshot's priority queue for consideration by the GC.
+#[derive(Encode, Decode, Clone, PartialEq, Eq)]
+#[cfg_attr(feature = "std", derive(Debug))]
+pub struct SnapshottedPip<T: Trait> {
+    /// Identifies the PIP this refers to.
+    pub id: PipId,
+    /// Weight of the proposal in the snapshot's priority queue.
+    /// Higher weights come before lower weights.
+    /// The `bool` denotes the sign, where `true` siginfies a positive number.
+    pub weight: (bool, BalanceOf<T>),
+}
+
+/// A result to enact for one or many PIPs in the snapshot queue.
+// This type is only here due to `enact_snapshot_results`.
+#[derive(codec::Encode, codec::Decode, Copy, Clone, PartialEq, Eq, Debug)]
+pub enum SnapshotResult {
+    /// Approve the PIP and move it to the execution queue.
+    Approve,
+    /// Reject the PIP, removing it from future consideration.
+    Reject,
+    /// Skip the PIP, bumping the `skipped_count`,
+    /// or fail if the threshold for maximum skips is exceeded.
+    Skip,
+}
+
+/// The number of times a PIP has been skipped.
+pub type SkippedCount = u8;
 
 type Identity<T> = identity::Module<T>;
 
@@ -283,8 +322,7 @@ pub trait Trait:
     frame_system::Trait + pallet_timestamp::Trait + IdentityTrait + CommonTrait
 {
     /// Currency type for this module.
-    type Currency: ReservableCurrency<Self::AccountId>
-        + LockableCurrency<Self::AccountId, Moment = Self::BlockNumber>;
+    type Currency: LockableCurrencyExt<Self::AccountId, Moment = Self::BlockNumber>;
 
     /// Origin for proposals.
     type CommitteeOrigin: EnsureOrigin<Self::Origin>;
@@ -294,6 +332,12 @@ pub trait Trait:
 
     /// Committee
     type GovernanceCommittee: GovernanceGroupTrait<<Self as pallet_timestamp::Trait>::Moment>;
+
+    /// Voting majority origin for Technical Committee.
+    type TechnicalCommitteeVMO: EnsureOrigin<Self::Origin>;
+
+    /// Voting majority origin for Upgrade Committee.
+    type UpgradeCommitteeVMO: EnsureOrigin<Self::Origin>;
 
     type Treasury: TreasuryTrait<<Self as CommonTrait>::Balance>;
 
@@ -307,26 +351,31 @@ decl_storage! {
         /// Determines whether historical PIP data is persisted or removed
         pub PruneHistoricalPips get(fn prune_historical_pips) config(): bool;
 
-        /// The minimum amount to be used as a deposit for a public referendum proposal.
+        /// The minimum amount to be used as a deposit for community PIP creation.
         pub MinimumProposalDeposit get(fn min_proposal_deposit) config(): BalanceOf<T>;
-
-        /// Minimum stake a proposal must gather in order to be considered by the committee.
-        pub QuorumThreshold get(fn quorum_threshold) config(): BalanceOf<T>;
 
         /// During Cool-off period, proposal owner can amend any PIP detail or cancel the entire
         /// proposal.
         pub ProposalCoolOffPeriod get(fn proposal_cool_off_period) config(): T::BlockNumber;
 
-        /// How long (in blocks) a ballot runs
-        pub ProposalDuration get(fn proposal_duration) config(): T::BlockNumber;
+        /// Default enactment period that will be use after a proposal is accepted by GC.
+        pub DefaultEnactmentPeriod get(fn default_enactment_period) config(): T::BlockNumber;
+
+        /// Maximum times a PIP can be skipped before triggering `CannotSkipPip` in `enact_snapshot_results`.
+        pub MaxPipSkipCount get(fn max_pip_skip_count) config(): SkippedCount;
+
+        /// The maximum allowed number for `ActivePipCount`.
+        /// Once reached, new PIPs cannot be proposed by community members.
+        pub ActivePipLimit get(fn active_pip_limit) config(): u32;
 
         /// Proposals so far. id can be used to keep track of PIPs off-chain.
-        PipIdSequence: u32;
+        PipIdSequence get(fn pip_id_sequence): u32;
+
+        /// Total count of current pending or scheduled PIPs.
+        ActivePipCount get(fn active_pip_count): u32;
 
         /// The metadata of the active proposals.
         pub ProposalMetadata get(fn proposal_metadata): map hasher(twox_64_concat) PipId => Option<PipsMetadata<T>>;
-        /// It maps the block number where a list of proposal are considered as matured.
-        pub ProposalsMaturingAt get(fn proposals_maturing_at): map hasher(twox_64_concat) T::BlockNumber => Vec<PipId>;
 
         /// Those who have locked a deposit.
         /// proposal (id, proposer) -> deposit
@@ -334,7 +383,7 @@ decl_storage! {
 
         /// Actual proposal for a given id, if it's current.
         /// proposal id -> proposal
-        pub Proposals get(fn proposals): map hasher(twox_64_concat) PipId => Option<Pip<T::Proposal, T::Balance>>;
+        pub Proposals get(fn proposals): map hasher(twox_64_concat) PipId => Option<Pip<T::Proposal>>;
 
         /// PolymeshVotes on a given proposal, if it is ongoing.
         /// proposal id -> vote count
@@ -342,18 +391,28 @@ decl_storage! {
 
         /// Votes per Proposal and account. Used to avoid double vote issue.
         /// (proposal id, account) -> Vote
-        pub ProposalVotes get(fn proposal_vote): double_map hasher(twox_64_concat) PipId, hasher(twox_64_concat) T::AccountId => Vote<BalanceOf<T>>;
+        pub ProposalVotes get(fn proposal_vote): double_map hasher(twox_64_concat) PipId, hasher(twox_64_concat) T::AccountId => Option<Vote<BalanceOf<T>>>;
 
-        /// Proposals that have met the quorum threshold to be put forward to a governance committee
-        /// proposal id -> proposal
-        pub Referendums get(fn referendums): map hasher(twox_64_concat) PipId => Option<Referendum<T>>;
+        /// Maps PIPs to the block at which they will be executed, if any.
+        pub PipToSchedule get(fn pip_to_schedule): map hasher(twox_64_concat) PipId => Option<T::BlockNumber>;
 
-        /// List of id's of current scheduled referendums.
+        /// Maps block numbers to list of PIPs which should be executed at the block number.
         /// block number -> Pip id
-        pub ScheduledReferendumsAt get(fn scheduled_referendums_at): map hasher(twox_64_concat) T::BlockNumber => Vec<PipId>;
+        pub ExecutionSchedule get(fn execution_schedule): map hasher(twox_64_concat) T::BlockNumber => Vec<PipId>;
 
-        /// Default enactment period that will be use after a proposal is accepted by GC.
-        pub DefaultEnactmentPeriod get(fn default_enactment_period) config(): T::BlockNumber;
+        /// The priority queue (lowest priority at index 0) of PIPs at the point of snapshotting.
+        /// Priority is defined by the `weight` in the `SnapshottedPIP`.
+        ///
+        /// A queued PIP can be skipped. Doing so bumps the `pip_skip_count`.
+        /// Once a (configurable) threshhold is exceeded, a PIP cannot be skipped again.
+        pub SnapshotQueue get(fn snapshot_queue): Vec<SnapshottedPip<T>>;
+
+        /// The metadata of the snapshot, if there is one.
+        pub SnapshotMeta get(fn snapshot_metadata): Option<SnapshotMetadata<T>>;
+
+        /// The number of times a certain PIP has been skipped.
+        /// Once a (configurable) threshhold is exceeded, a PIP cannot be skipped again.
+        pub PipSkipCount get(fn pip_skip_count): map hasher(twox_64_concat) PipId => SkippedCount;
     }
 }
 
@@ -370,36 +429,27 @@ decl_event!(
         ///
         /// # Parameters:
         ///
-        /// Caller DID, Proposer, PIP ID, deposit, URL, description, cool-off period end, proposal end, proposal
-        /// data.
+        /// Caller DID, Proposer, PIP ID, deposit, URL, description, cool-off period end, proposal data.
         ProposalCreated(
             IdentityId,
-            AccountId,
+            Proposer<AccountId>,
             PipId,
             Balance,
             Option<Url>,
             Option<PipDescription>,
             BlockNumber,
-            BlockNumber,
             ProposalData,
         ),
         /// A PIP's details (url & description) were amended.
-        ProposalDetailsAmended(IdentityId, AccountId, PipId, Option<Url>, Option<PipDescription>),
-        /// The deposit of a vote on a PIP was adjusted, either by increasing or decreasing.
-        /// `true` represents an increase and `false` a decrease.
-        ProposalBondAdjusted(IdentityId, AccountId, PipId, bool, Balance),
+        ProposalDetailsAmended(IdentityId, Proposer<AccountId>, PipId, Option<Url>, Option<PipDescription>),
         /// Triggered each time the state of a proposal is amended
         ProposalStateUpdated(IdentityId, PipId, ProposalState),
         /// `AccountId` voted `bool` on the proposal referenced by `PipId`
         Voted(IdentityId, AccountId, PipId, bool, Balance),
         /// Pip has been closed, bool indicates whether data is pruned
         PipClosed(IdentityId, PipId, bool),
-        /// Referendum created for proposal.
-        ReferendumCreated(IdentityId, PipId, ReferendumType),
-        /// Referendum execution has been scheduled at specific block.
-        ReferendumScheduled(IdentityId, PipId, BlockNumber, BlockNumber),
-        /// Triggered each time the state of a referendum is amended
-        ReferendumStateUpdated(IdentityId, PipId, ReferendumState),
+        /// Execution of a PIP has been scheduled at specific block.
+        ExecutionScheduled(IdentityId, PipId, BlockNumber, BlockNumber),
         /// Default enactment period (in blocks) has been changed.
         /// (caller DID, old period, new period)
         DefaultEnactmentPeriodChanged(IdentityId, BlockNumber, BlockNumber),
@@ -409,12 +459,25 @@ decl_event!(
         /// Cool off period for proposals modified
         /// (caller DID, old period, new period)
         ProposalCoolOffPeriodChanged(IdentityId, BlockNumber, BlockNumber),
-        /// Proposal duration changed
-        /// (old value, new value)
-        ProposalDurationChanged(IdentityId, BlockNumber, BlockNumber),
+        /// The maximum times a PIP can be skipped was changed.
+        /// (caller DID, old value, new value)
+        MaxPipSkipCountChanged(IdentityId, SkippedCount, SkippedCount),
+        /// The maximum number of active PIPs was changed.
+        /// (caller DID, old value, new value)
+        ActivePipLimitChanged(IdentityId, u32, u32),
         /// Refund proposal
         /// (id, total amount)
         ProposalRefund(IdentityId, PipId, Balance),
+        /// The snapshot was cleared.
+        SnapshotCleared(IdentityId),
+        /// A new snapshot was taken.
+        SnapshotTaken(IdentityId),
+        /// A PIP in the snapshot queue was skipped.
+        /// (gc_did, pip_id, new_skip_count)
+        PipSkipped(IdentityId, PipId, SkippedCount),
+        /// Results (e.g., approved, rejected, and skipped), were enacted for some PIPs.
+        /// (gc_did, skipped_pips_with_new_count, rejected_pips, approved_pips)
+        SnapshotResultsEnacted(IdentityId, Vec<(PipId, SkippedCount)>, Vec<PipId>, Vec<PipId>),
     }
 );
 
@@ -422,14 +485,19 @@ decl_error! {
     pub enum Error for Module<T: Trait> {
         /// Incorrect origin
         BadOrigin,
+        /// The given dispatchable call is not valid for this proposal.
+        /// The proposal must be from the community, but isn't.
+        NotFromCommunity,
+        /// The given dispatchable call is not valid for this proposal.
+        /// The proposal must be by community, but isn't.
+        NotByCommittee,
+        /// The current number of active (pending | scheduled) PIPs exceed the maximum
+        /// and the proposal is not by a committee.
+        TooManyActivePips,
         /// Proposer specifies an incorrect deposit
         IncorrectDeposit,
         /// Proposer can't afford to lock minimum deposit
         InsufficientDeposit,
-        /// when voter vote gain
-        DuplicateVote,
-        /// Duplicate proposal.
-        DuplicateProposal,
         /// The proposal does not exist.
         NoSuchProposal,
         /// Not part of governance committee.
@@ -438,10 +506,6 @@ decl_error! {
         ProposalOnCoolOffPeriod,
         /// Proposal is immutable after cool-off period.
         ProposalIsImmutable,
-        /// Referendum is still on its enactment period.
-        ReferendumOnEnactmentPeriod,
-        /// Referendum is immutable.
-        ReferendumIsImmutable,
         /// When a block number is less than current block number.
         InvalidFutureBlockNumber,
         /// When number of votes overflows.
@@ -450,16 +514,14 @@ decl_error! {
         StakeAmountOfVotesExceeded,
         /// Missing current DID
         MissingCurrentIdentity,
-        /// Cool off period is too large relative to the proposal duration
-        BadCoolOffPeriod,
-        /// The proposal duration is too small relative to the cool off period
-        BadProposalDuration,
-        /// Referendum is not in the correct state
-        IncorrectReferendumState,
         /// Proposal is not in the correct state
         IncorrectProposalState,
-        /// Insufficient treasury funds to pay beneficiaries
-        InsufficientTreasuryFunds,
+        /// When enacting snapshot results, an unskippable PIP was skipped.
+        CannotSkipPip,
+        /// Tried to enact results for the snapshot queue overflowing its length.
+        SnapshotResultTooLarge,
+        /// Tried to enact result for PIP with id different from that at the position in the queue.
+        SnapshotIdMismatch
     }
 }
 
@@ -475,10 +537,10 @@ decl_module! {
         ///
         /// # Arguments
         /// * `deposit` the new min deposit required to start a proposal
-        #[weight = (150_000_000, DispatchClass::Operational, Pays::Yes)]
+        #[weight = (550_000_000, DispatchClass::Operational, Pays::Yes)]
         pub fn set_prune_historical_pips(origin, new_value: bool) {
             T::CommitteeOrigin::ensure_origin(origin)?;
-            Self::deposit_event(RawEvent::HistoricalPipsPruned(SystematicIssuers::Committee.as_id(), Self::prune_historical_pips(), new_value));
+            Self::deposit_event(RawEvent::HistoricalPipsPruned(GC_DID, Self::prune_historical_pips(), new_value));
             <PruneHistoricalPips>::put(new_value);
         }
 
@@ -487,136 +549,145 @@ decl_module! {
         ///
         /// # Arguments
         /// * `deposit` the new min deposit required to start a proposal
-        #[weight = (150_000_000, DispatchClass::Operational, Pays::Yes)]
+        #[weight = (550_000_000, DispatchClass::Operational, Pays::Yes)]
         pub fn set_min_proposal_deposit(origin, deposit: BalanceOf<T>) {
             T::CommitteeOrigin::ensure_origin(origin)?;
-            Self::deposit_event(RawEvent::MinimumProposalDepositChanged(SystematicIssuers::Committee.as_id(), Self::min_proposal_deposit(), deposit));
+            Self::deposit_event(RawEvent::MinimumProposalDepositChanged(GC_DID, Self::min_proposal_deposit(), deposit));
             <MinimumProposalDeposit<T>>::put(deposit);
         }
-
-        /// Change the quorum threshold amount. This is the amount which a proposal must gather so
-        /// as to be considered by a committee. Only Governance committee is allowed to change
-        /// this value.
-        ///
-        /// # Arguments
-        /// * `threshold` the new quorum threshold amount value
-        #[weight = (150_000_000, DispatchClass::Operational, Pays::Yes)]
-        pub fn set_quorum_threshold(origin, threshold: BalanceOf<T>) {
-            T::CommitteeOrigin::ensure_origin(origin)?;
-            Self::deposit_event(RawEvent::MinimumProposalDepositChanged(SystematicIssuers::Committee.as_id(), Self::quorum_threshold(), threshold));
-            <QuorumThreshold<T>>::put(threshold);
-        }
-
-        /// Change the proposal duration value. This is the number of blocks for which votes are
-        /// accepted on a proposal. Only Governance committee is allowed to change this value.
-        ///
-        /// # Arguments
-        /// * `duration` proposal duration in blocks
-        #[weight = (150_000_000, DispatchClass::Operational, Pays::Yes)]
-        pub fn set_proposal_duration(origin, duration: T::BlockNumber) {
-            T::CommitteeOrigin::ensure_origin(origin)?;
-            Self::deposit_event(RawEvent::ProposalDurationChanged(SystematicIssuers::Committee.as_id(), Self::proposal_duration(), duration));
-            <ProposalDuration<T>>::put(duration);
-        }
-
 
         /// Change the proposal cool off period value. This is the number of blocks after which the proposer of a pip
         /// can modify or cancel their proposal, and other voting is prohibited
         ///
         /// # Arguments
         /// * `duration` proposal cool off period duration in blocks
-        #[weight = (150_000_000, DispatchClass::Operational, Pays::Yes)]
+        #[weight = (550_000_000, DispatchClass::Operational, Pays::Yes)]
         pub fn set_proposal_cool_off_period(origin, duration: T::BlockNumber) {
             T::CommitteeOrigin::ensure_origin(origin)?;
-            Self::deposit_event(RawEvent::ProposalDurationChanged(SystematicIssuers::Committee.as_id(), Self::proposal_cool_off_period(), duration));
+            Self::deposit_event(RawEvent::ProposalCoolOffPeriodChanged(GC_DID, Self::proposal_cool_off_period(), duration));
             <ProposalCoolOffPeriod<T>>::put(duration);
         }
 
         /// Change the default enact period.
-        #[weight = (300_000_000, DispatchClass::Operational, Pays::Yes)]
+        #[weight = (550_000_000, DispatchClass::Operational, Pays::Yes)]
         pub fn set_default_enactment_period(origin, duration: T::BlockNumber) {
             T::CommitteeOrigin::ensure_origin(origin)?;
-            let previous_duration = <DefaultEnactmentPeriod<T>>::get();
+            let prev = <DefaultEnactmentPeriod<T>>::get();
             <DefaultEnactmentPeriod<T>>::put(duration);
-            Self::deposit_event(RawEvent::DefaultEnactmentPeriodChanged(SystematicIssuers::Committee.as_id(), duration, previous_duration));
+            Self::deposit_event(RawEvent::DefaultEnactmentPeriodChanged(GC_DID, prev, duration));
+        }
+
+        /// Change the maximum skip count (`max_pip_skip_count`).
+        /// New values only
+        #[weight = (150_000_000, DispatchClass::Operational, Pays::Yes)]
+        pub fn set_max_pip_skip_count(origin, new_max: SkippedCount) {
+            T::CommitteeOrigin::ensure_origin(origin)?;
+            let prev_max = MaxPipSkipCount::get();
+            MaxPipSkipCount::put(new_max);
+            Self::deposit_event(RawEvent::MaxPipSkipCountChanged(GC_DID, prev_max, new_max));
+        }
+
+        /// Change the maximum number of active PIPs before community members cannot propose anything.
+        #[weight = (150_000_000, DispatchClass::Operational, Pays::Yes)]
+        pub fn set_active_pip_limit(origin, new_max: u32) {
+            T::CommitteeOrigin::ensure_origin(origin)?;
+            let prev_max = ActivePipLimit::get();
+            ActivePipLimit::put(new_max);
+            Self::deposit_event(RawEvent::ActivePipLimitChanged(GC_DID, prev_max, new_max));
         }
 
         /// A network member creates a PIP by submitting a dispatchable which
         /// changes the network in someway. A minimum deposit is required to open a new proposal.
         ///
         /// # Arguments
+        /// * `proposer` is either a signing key or committee.
+        ///    Used to understand whether this is a committee proposal and verified against `origin`.
         /// * `proposal` a dispatchable call
-        /// * `deposit` minimum deposit value
+        /// * `deposit` minimum deposit value, which is ignored if `proposer` is a committee.
         /// * `url` a link to a website for proposal discussion
         #[weight = (1_850_000_000, DispatchClass::Operational, Pays::Yes)]
         pub fn propose(
             origin,
+            proposer: Proposer<T::AccountId>,
             proposal: Box<T::Proposal>,
             deposit: BalanceOf<T>,
             url: Option<Url>,
             description: Option<PipDescription>,
-            beneficiaries: Option<Vec<Beneficiary<T::Balance>>>
         ) -> DispatchResult {
-            let proposer = ensure_signed(origin)?;
+            // 1. Ensure it's really the `proposer`.
+            Self::ensure_signed_by(origin, &proposer)?;
 
-            // Pre conditions: caller must have min balance
-            ensure!(
-                deposit >= Self::min_proposal_deposit(),
-                Error::<T>::IncorrectDeposit
-            );
+            let did = Self::current_did_or_missing()?;
 
-            // Reserve the minimum deposit
-            <T as Trait>::Currency::reserve(&proposer, deposit).map_err(|_| Error::<T>::InsufficientDeposit)?;
+            // 2. Add a deposit for community PIPs.
+            if let Proposer::Community(ref proposer) = proposer {
+                // ...but first make sure active PIP limit isn't crossed.
+                // This doesn't apply to committee PIPs.
+                // `0` is special and denotes no limit.
+                let limit = ActivePipLimit::get();
+                ensure!(limit == 0 || ActivePipCount::get() < limit, Error::<T>::TooManyActivePips);
+
+                // Pre conditions: caller must have min balance.
+                ensure!(deposit >= Self::min_proposal_deposit(), Error::<T>::IncorrectDeposit);
+
+               // Lock the deposit.
+               Self::increase_lock(proposer, deposit)?;
+            } else {
+                // Committee PIPs cannot have a deposit.
+                ensure!(deposit.is_zero(), Error::<T>::NotFromCommunity);
+            }
+
+            // 3. Charge protocol fees, even for committee PIPs.
             <T as IdentityTrait>::ProtocolFee::charge_fee(ProtocolOp::PipsPropose)?;
 
+            // 4. Construct and add PIP to storage.
             let id = Self::next_pip_id();
-            let curr_block_number = <system::Module<T>>::block_number();
-            let cool_off_until = curr_block_number + Self::proposal_cool_off_period();
-            let end = cool_off_until + Self::proposal_duration();
+            ActivePipCount::mutate(|count| *count += 1);
+            let cool_off_until = <system::Module<T>>::block_number() + Self::proposal_cool_off_period();
             let proposal_metadata = PipsMetadata {
                 proposer: proposer.clone(),
                 id,
-                end: end,
                 url: url.clone(),
                 description: description.clone(),
                 cool_off_until: cool_off_until,
             };
-            <ProposalsMaturingAt<T>>::append(end, id);
             <ProposalMetadata<T>>::insert(id, proposal_metadata);
 
-            let deposit_info = DepositInfo {
-                owner: proposer.clone(),
-                amount: deposit
-            };
-            <Deposits<T>>::insert(id, &proposer, deposit_info);
             let proposal_data = Self::reportable_proposal_data(&*proposal);
             let pip = Pip {
                 id,
                 proposal: *proposal,
                 state: ProposalState::Pending,
-                beneficiaries,
             };
             <Proposals<T>>::insert(id, pip);
 
-            // Add vote and update voting counter.
-            // INTERNAL: It is impossible to overflow counters in the first vote.
-            Self::unsafe_vote( id, proposer.clone(), Vote::Yes(deposit))
-                .map_err(|vote_error| {
-                    debug::error!("The counters of voting (id={}) have an overflow during the 1st vote", id);
-                    vote_error
-                })?;
-            let current_did = Self::current_did_or_missing()?;
+            // 5. Record the deposit and as a signal if we have a community PIP.
+            if let Proposer::Community(ref proposer) = proposer {
+                let deposit_info = DepositInfo {
+                    owner: proposer.clone(),
+                    amount: deposit
+                };
+                <Deposits<T>>::insert(id, &proposer, deposit_info);
+
+                // Add vote and update voting counter.
+                // INTERNAL: It is impossible to overflow counters in the first vote.
+                Self::unsafe_vote(id, proposer.clone(), Vote(true, deposit))
+                    .map_err(|vote_error| {
+                        debug::error!("The counters of voting (id={}) have an overflow during the 1st vote", id);
+                        vote_error
+                    })?;
+            }
+
+            // 6. Emit the event.
             Self::deposit_event(RawEvent::ProposalCreated(
-                current_did,
+                did,
                 proposer,
                 id,
                 deposit,
                 url,
                 description,
                 cool_off_until,
-                end,
                 proposal_data,
-                //beneficiaries,
             ));
             Ok(())
         }
@@ -629,33 +700,24 @@ decl_module! {
         ///
         #[weight = (1_000_000_000, DispatchClass::Operational, Pays::Yes)]
         pub fn amend_proposal(
-                origin,
-                id: PipId,
-                url: Option<Url>,
-                description: Option<PipDescription>
+            origin,
+            id: PipId,
+            url: Option<Url>,
+            description: Option<PipDescription>,
         ) -> DispatchResult {
-            // 0. Initial info.
-            let proposer = ensure_signed(origin)?;
-            let meta = Self::proposal_metadata(id)
-                .ok_or_else(|| Error::<T>::NoSuchProposal)?;
+            // 1. Fetch proposer and perform sanity checks.
+            let proposer = Self::ensure_owned_by_alterable(origin, id)?;
+            let current_did = Self::current_did_or_missing()?;
 
-            // 1. Only owner can cancel it.
-            ensure!( meta.proposer == proposer, Error::<T>::BadOrigin);
-            // Check that the proposal is pending
-            Self::is_proposal_state(id, ProposalState::Pending)?;
-
-            // 2. Proposal can be cancelled *ONLY* during its cool-off period.
-            let curr_block_number = <system::Module<T>>::block_number();
-            ensure!( meta.cool_off_until > curr_block_number, Error::<T>::ProposalIsImmutable);
-
-            // 3. Update proposal metadata.
-            <ProposalMetadata<T>>::mutate( id, |meta| {
+            // 2. Update proposal metadata.
+            <ProposalMetadata<T>>::mutate(id, |meta| {
                 if let Some(meta) = meta {
                     meta.url = url.clone();
                     meta.description = description.clone();
                 }
             });
-            let current_did = Self::current_did_or_missing()?;
+
+            // 3. Emit event.
             Self::deposit_event(RawEvent::ProposalDetailsAmended(current_did, proposer, id, url, description));
 
             Ok(())
@@ -673,330 +735,339 @@ decl_module! {
             // 1. Fetch proposer and perform sanity checks.
             let _ = Self::ensure_owned_by_alterable(origin, id)?;
 
-            // 2. Refund the bond for the proposal.
-            Self::refund_proposal(id);
-
-            // 3. Close that proposal.
-            Self::update_proposal_state(id, ProposalState::Cancelled);
-            Self::prune_data(id, Self::prune_historical_pips());
+            // 2. Close that proposal (including refunding).
+            let did = Context::current_identity::<Identity<T>>().unwrap_or_default();
+            let new_state = Self::update_proposal_state(did, id, ProposalState::Cancelled);
+            Self::prune_data(did, id, new_state, Self::prune_historical_pips());
 
             Ok(())
         }
 
-        /// Id bonds an additional deposit to proposal with id `id`.
-        /// That amount is added to the current deposit.
+        /// Vote either in favor (`aye_or_nay` == true) or against a PIP with `id`.
+        /// The "convinction" or strength of the vote is given by `deposit`, which is reserved.
         ///
-        /// # Errors
-        /// * `BadOrigin`: Only the owner of the proposal can bond an additional deposit.
-        /// * `ProposalIsImmutable`: A Proposal is mutable only during its cool off period.
-        #[weight = 900_000_000]
-        pub fn bond_additional_deposit(origin,
-            id: PipId,
-            additional_deposit: BalanceOf<T>
-        ) -> DispatchResult {
-            // 1. Sanity checks.
-            let proposer = Self::ensure_owned_by_alterable(origin, id)?;
-
-            // 2. Reserve extra deposit & update deposit info for this proposal
-            let curr_deposit = Self::deposits(id, &proposer).amount;
-            let max_additional_deposit = curr_deposit.saturating_add( additional_deposit) - curr_deposit;
-            <T as Trait>::Currency::reserve(&proposer, max_additional_deposit)
-                .map_err(|_| Error::<T>::InsufficientDeposit)?;
-
-            <Deposits<T>>::mutate(
-                id,
-                &proposer,
-                |depo_info| depo_info.amount += max_additional_deposit);
-
-            // 3. Update vote details to record additional vote
-            <ProposalResult<T>>::mutate(
-                id,
-                |stats| stats.ayes_stake += max_additional_deposit
-            );
-            <ProposalVotes<T>>::insert(id, &proposer, Vote::Yes(curr_deposit + max_additional_deposit));
-
-            Self::emit_proposal_bond_adjusted(proposer, id, true, max_additional_deposit)
-        }
-
-        /// It unbonds any amount from the deposit of the proposal with id `id`.
-        ///
-        /// # Errors
-        /// * `BadOrigin`: Only the owner of the proposal can release part of the deposit.
-        /// * `ProposalIsImmutable`: A Proposal is mutable only during its cool off period.
-        /// * `InsufficientDeposit`: If the final deposit will be less that the minimum deposit for
-        /// a proposal.
-        #[weight = 900_000_000]
-        pub fn unbond_deposit(origin,
-            id: PipId,
-            amount: BalanceOf<T>
-        ) -> DispatchResult {
-            // 1. Sanity checks.
-            let proposer = Self::ensure_owned_by_alterable(origin, id)?;
-
-            // 2. Double-check that `amount` is valid.
-            let mut depo_info = Self::deposits(id, &proposer);
-            let new_deposit = depo_info.amount.checked_sub(&amount)
-                    .ok_or_else(|| Error::<T>::InsufficientDeposit)?;
-            ensure!(
-                new_deposit >= Self::min_proposal_deposit(),
-                Error::<T>::IncorrectDeposit);
-            let diff_amount = depo_info.amount - new_deposit;
-            depo_info.amount = new_deposit;
-
-            // 2.1. Unreserve and update deposit info.
-            <T as Trait>::Currency::unreserve(&depo_info.owner, diff_amount);
-            <Deposits<T>>::insert(id, &proposer, depo_info);
-
-            // 3. Update vote details to record reduced vote
-            <ProposalResult<T>>::mutate(
-                id,
-                |stats| stats.ayes_stake = new_deposit
-            );
-            <ProposalVotes<T>>::insert(id, &proposer, Vote::Yes(new_deposit));
-
-            Self::emit_proposal_bond_adjusted(proposer, id, false, amount)
-        }
-
-        /// A network member can vote on any PIP by selecting the id that
-        /// corresponds ot the dispatchable action and vote with some balance.
+        /// Note that `vote` is *not* additive.
+        /// That is, `vote(id, true, 50)` followed by `vote(id, true, 40)`
+        /// will first reserve `50` and then refund `50 - 10`, ending up with `40` in deposit.
+        /// To add atop of existing votes, you'll need `existing_deposit + addition`.
         ///
         /// # Arguments
-        /// * `proposal` a dispatchable call
-        /// * `id` proposal id
-        /// * `aye_or_nay` a bool representing for or against vote
-        /// * `deposit` minimum deposit value
+        /// * `id`, proposal id
+        /// * `aye_or_nay`, a bool representing for or against vote
+        /// * `deposit`, the "conviction" with which the vote is made.
+        ///
+        /// # Errors
+        /// * `NoSuchProposal` if `id` doesn't reference a valid PIP.
+        /// * `NotFromCommunity` if proposal was made by a committee.
+        /// * `ProposalOnCoolOffPeriod` if non-owner is voting and PIP is cooling off.
+        /// * `IncorrectProposalState` if PIP isn't pending.
+        /// * `InsufficientDeposit` if `origin` cannot reserve `deposit - old_deposit`.
         #[weight = 1_000_000_000]
         pub fn vote(origin, id: PipId, aye_or_nay: bool, deposit: BalanceOf<T>) {
-            let proposer = ensure_signed(origin)?;
+            let voter = ensure_signed(origin)?;
             let meta = Self::proposal_metadata(id)
                 .ok_or_else(|| Error::<T>::NoSuchProposal)?;
 
-            // No one should be able to vote during the proposal cool-off period.
-            let curr_block_number = <system::Module<T>>::block_number();
-            ensure!( meta.cool_off_until <= curr_block_number, Error::<T>::ProposalOnCoolOffPeriod);
+            // 1. Proposal must be from the community.
+            let proposer = match meta.proposer {
+                Proposer::Committee(_) => return Err(Error::<T>::NotFromCommunity.into()),
+                Proposer::Community(p) => p,
+            };
 
-            // Check that the proposal is pending
-            Self::is_proposal_state(id, ProposalState::Pending)?;
-
-            // Valid PipId
-            ensure!(<ProposalResult<T>>::contains_key(id), Error::<T>::NoSuchProposal);
-
-            // Double-check vote duplication.
-            ensure!( Self::proposal_vote(id, &proposer) == Vote::None, Error::<T>::DuplicateVote);
-
-            // Reserve the deposit
-            <T as Trait>::Currency::reserve(&proposer, deposit).map_err(|_| Error::<T>::InsufficientDeposit)?;
-
-            // Save your vote.
-            let vote = if aye_or_nay {
-                Vote::Yes(deposit)
+            if proposer == voter {
+                // 2a. Deposit must be above minimum.
+                // Note that proposer can still vote against their own PIP.
+                ensure!(deposit >= Self::min_proposal_deposit(), Error::<T>::IncorrectDeposit);
             } else {
-                Vote::No(deposit)
-            };
-            Self::unsafe_vote( id, proposer.clone(), vote)
-                .map_err( |vote_error| {
-                    debug::warn!("The counters of voting (id={}) have an overflow, transaction is roll-back", id);
-                    let _ = <T as Trait>::Currency::unreserve(&proposer, deposit);
-                    vote_error
-                })?;
+                // 2b. Only proposer can vote during PIP's cool-off period.
+                let curr_block_number = <system::Module<T>>::block_number();
+                ensure!(meta.cool_off_until <= curr_block_number, Error::<T>::ProposalOnCoolOffPeriod);
+            }
 
-            let depo_info = DepositInfo {
-                owner: proposer.clone(),
-                amount: deposit,
-            };
-            <Deposits<T>>::insert(id, &proposer, depo_info);
-            let current_did = Self::current_did_or_missing()?;
-            Self::deposit_event(RawEvent::Voted(current_did, proposer, id, aye_or_nay, deposit));
-        }
-
-        /// An emergency stop measure to kill a proposal. Governance committee can kill
-        /// a proposal at any time.
-        #[weight = (550_000_000, DispatchClass::Operational, Pays::Yes)]
-        pub fn kill_proposal(origin, id: PipId) {
-            T::VotingMajorityOrigin::ensure_origin(origin)?;
-            ensure!(<Proposals<T>>::contains_key(id), Error::<T>::NoSuchProposal);
-            // Check that the proposal is pending
+            // 3. Proposal must be pending.
             Self::is_proposal_state(id, ProposalState::Pending)?;
-            Self::refund_proposal(id);
-            Self::update_proposal_state(id, ProposalState::Killed);
-            Self::prune_data(id, Self::prune_historical_pips());
+
+            let current_did = Self::current_did_or_missing()?;
+
+            with_transaction(|| {
+                // 4. Reserve the deposit, or refund if needed.
+                let curr_deposit = Self::deposits(id, &voter).amount;
+                if deposit < curr_deposit {
+                    Self::reduce_lock(&voter, curr_deposit - deposit)?;
+                } else {
+                    Self::increase_lock(&voter, deposit - curr_deposit)?;
+                }
+                // 5. Save the vote.
+                Self::unsafe_vote(id, voter.clone(), Vote(aye_or_nay, deposit))
+            })?;
+
+            <Deposits<T>>::insert(id, &voter, DepositInfo {
+                owner: voter.clone(),
+                amount: deposit,
+            });
+
+            // 6. Emit event.
+            Self::deposit_event(RawEvent::Voted(current_did, voter, id, aye_or_nay, deposit));
         }
 
-        /// An emergency stop measure to kill a proposal. Governance committee can kill
-        /// a proposal at any time.
+        /// Approves the pending non-cooling committee PIP given by the `id`.
+        ///
+        /// # Errors
+        /// * `BadOrigin` unless a GC voting majority executes this function.
+        /// * `NoSuchProposal` if the PIP with `id` doesn't exist.
+        /// * `IncorrectProposalState` if the proposal isn't pending.
+        /// * `ProposalOnCoolOffPeriod` if the proposal is cooling off.
+        /// * `NotByCommittee` if the proposal isn't by a committee.
+        #[weight = (1_000_000_000, DispatchClass::Operational, Pays::Yes)]
+        pub fn approve_committee_proposal(origin, id: PipId) {
+            // 1. Only GC can do this.
+            T::VotingMajorityOrigin::ensure_origin(origin)?;
+
+            // 2. Proposal must be pending.
+            Self::is_proposal_state(id, ProposalState::Pending)?;
+
+            // 3. Proposal must not be cooling-off and must be by committee.
+            let meta = Self::proposal_metadata(id).ok_or_else(|| Error::<T>::NoSuchProposal)?;
+            let curr_block_number = <system::Module<T>>::block_number();
+            ensure!(meta.cool_off_until <= curr_block_number, Error::<T>::ProposalOnCoolOffPeriod);
+            ensure!(matches!(meta.proposer, Proposer::Committee(_)), Error::<T>::NotByCommittee);
+
+            // 4. All is good, schedule PIP for execution.
+            Self::schedule_pip_for_execution(GC_DID, id);
+        }
+
+        /// Rejects the PIP given by the `id`, refunding any bonded funds,
+        /// assuming it hasn't been cancelled or executed.
+        /// Note that cooling-off and proposals scheduled-for-execution can also be rejected.
+        ///
+        /// # Errors
+        /// * `BadOrigin` unless a GC voting majority executes this function.
+        /// * `NoSuchProposal` if the PIP with `id` doesn't exist.
+        /// * `IncorrectProposalState` if the proposal was cancelled or executed.
+        #[weight = (550_000_000, DispatchClass::Operational, Pays::Yes)]
+        pub fn reject_proposal(origin, id: PipId) {
+            T::VotingMajorityOrigin::ensure_origin(origin)?;
+            let proposal = Self::proposals(id).ok_or_else(|| Error::<T>::NoSuchProposal)?;
+            ensure!(Self::is_active(proposal.state), Error::<T>::IncorrectProposalState);
+            Self::maybe_unschedule_pip(id, proposal.state);
+            Self::maybe_unsnapshot_pip(id, proposal.state);
+            Self::unsafe_reject_proposal(GC_DID, id);
+        }
+
+        /// Prune the PIP given by the `id`, refunding any funds not already refunded.
+        /// The PIP may not be active
+        ///
+        /// This function is intended for storage garbage collection purposes.
+        ///
+        /// # Errors
+        /// * `BadOrigin` unless a GC voting majority executes this function.
+        /// * `NoSuchProposal` if the PIP with `id` doesn't exist.
+        /// * `IncorrectProposalState` if the proposal is active.
         #[weight = (550_000_000, DispatchClass::Operational, Pays::Yes)]
         pub fn prune_proposal(origin, id: PipId) {
             T::VotingMajorityOrigin::ensure_origin(origin)?;
-            // Check that the proposal is in a state valid for pruning
             let proposal = Self::proposals(id).ok_or_else(|| Error::<T>::NoSuchProposal)?;
-            if proposal.state == ProposalState::Referendum {
-                // Check that the referendum is in a state valid for pruning
-                let referendum = Self::referendums(id).ok_or_else(|| Error::<T>::NoSuchProposal)?;
-                ensure!(
-                    referendum.state == ReferendumState::Rejected ||
-                    referendum.state == ReferendumState::Failed ||
-                    referendum.state == ReferendumState::Executed,
-                    Error::<T>::IncorrectReferendumState
-                );
-            } else {
-                ensure!(
-                    proposal.state == ProposalState::Cancelled ||
-                    proposal.state == ProposalState::Killed ||
-                    proposal.state == ProposalState::Rejected,
-                    Error::<T>::IncorrectProposalState
-                );
-            }
-            Self::prune_data(id, true);
+            ensure!(!Self::is_active(proposal.state), Error::<T>::IncorrectProposalState);
+            Self::prune_data(GC_DID, id, proposal.state, true);
         }
 
-        /// Any governance committee member can fast track a proposal and turn it into a referendum
-        /// that will be voted on by the committee.
-        #[weight = (1_000_000_000, DispatchClass::Operational, Pays::Yes)]
-        pub fn fast_track_proposal(origin, id: PipId) -> DispatchResult {
-            let sender = ensure_signed(origin)?;
-            let did = Context::current_identity_or::<Identity<T>>(&sender)?;
-
-            ensure!(
-                T::GovernanceCommittee::is_member(&did),
-                Error::<T>::NotACommitteeMember
-            );
-
-            ensure!(<Proposals<T>>::contains_key(id), Error::<T>::NoSuchProposal);
-            // Check that the proposal is pending
-            Self::is_proposal_state(id, ProposalState::Pending)?;
-            Self::create_referendum(
-                id,
-                ReferendumState::Pending,
-                ReferendumType::FastTracked,
-            );
-            Self::refund_proposal(id);
-
-            Ok(())
-        }
-
-        /// Governance committee can make a proposal that automatically becomes a referendum on
-        /// which the committee can vote on.
-        #[weight = (1_000_000_000, DispatchClass::Operational, Pays::Yes)]
-        pub fn emergency_referendum(
-            origin,
-            proposal: Box<T::Proposal>,
-            url: Option<Url>,
-            description: Option<PipDescription>,
-            beneficiaries: Option<Vec<Beneficiary<T::Balance>>>
-        ) -> DispatchResult {
-            let proposer = ensure_signed(origin)?;
-            let did = Context::current_identity_or::<Identity<T>>(&proposer)?;
-
-            ensure!(
-                T::GovernanceCommittee::is_member(&did),
-                Error::<T>::NotACommitteeMember
-            );
-            let proposal_data = Self::reportable_proposal_data(&*proposal);
-            let id = Self::next_pip_id();
-            let pip = Pip {
-                id,
-                proposal: *proposal,
-                state: ProposalState::Pending,
-                beneficiaries,
-            };
-            <Proposals<T>>::insert(id, pip);
-
-            let proposal_metadata = PipsMetadata {
-                proposer: proposer.clone(),
-                id,
-                end: Zero::zero(),
-                url: url.clone(),
-                description: description.clone(),
-                cool_off_until: Zero::zero(),
-            };
-            <ProposalMetadata<T>>::insert(id, proposal_metadata);
-            Self::deposit_event(RawEvent::ProposalCreated(
-                did,
-                proposer,
-                id,
-                Zero::zero(),
-                url,
-                description,
-                Zero::zero(),
-                Zero::zero(),
-                proposal_data,
-                //beneficiaries,
-            ));
-            Self::create_referendum(
-                id,
-                ReferendumState::Pending,
-                ReferendumType::Emergency,
-            );
-            Ok(())
-        }
-
-        /// Moves a referendum instance into dispatch queue.
-        #[weight = (800_000_000, DispatchClass::Operational, Pays::Yes)]
-        pub fn enact_referendum(origin, id: PipId) -> DispatchResult {
-            T::VotingMajorityOrigin::ensure_origin(origin)?;
-            // Check that referendum is Pending
-            Self::is_referendum_state(id, ReferendumState::Pending)?;
-            Self::prepare_to_dispatch(id)
-        }
-
-        /// Moves a referendum instance into rejected state.
-        #[weight = (400_000_000, DispatchClass::Operational, Pays::Yes)]
-        pub fn reject_referendum(origin, id: PipId) -> DispatchResult {
-            T::VotingMajorityOrigin::ensure_origin(origin)?;
-            // Check that referendum is Pending
-            Self::is_referendum_state(id, ReferendumState::Pending)?;
-
-            // Close proposal
-            Self::update_referendum_state(id, ReferendumState::Rejected);
-            Self::prune_data(id, Self::prune_historical_pips());
-            Ok(())
-        }
-
-        /// It updates the enactment period of a specific referendum.
+        /// Updates the execution schedule of the PIP given by `id`.
         ///
         /// # Arguments
-        /// * `until`, It defines the future block where the enactment period will finished.  A
-        /// `None` value means that enactment period is going to finish in the next block.
+        /// * `until` defines the future block where the enactment period will finished.
+        ///    `None` value means that enactment period is going to finish in the next block.
         ///
         /// # Errors
-        /// * `BadOrigin`, Only the release coordinator can update the enactment period.
-        /// * ``,
+        /// * `BadOrigin` unless triggered by release coordinator.
+        /// * `IncorrectProposalState` unless the proposal was in a scheduled state.
         #[weight = (750_000_000, DispatchClass::Operational, Pays::Yes)]
-        pub fn override_referendum_enactment_period(origin, id: PipId, until: Option<T::BlockNumber>) -> DispatchResult {
+        pub fn reschedule_execution(origin, id: PipId, until: Option<T::BlockNumber>) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             let current_did = Context::current_identity_or::<Identity<T>>(&sender)?;
 
             // 1. Only release coordinator
             ensure!(
                 Some(current_did) == T::GovernanceCommittee::release_coordinator(),
-                Error::<T>::BadOrigin);
+                DispatchError::BadOrigin
+            );
 
-            Self::is_referendum_state(id, ReferendumState::Scheduled)?;
+            Self::is_proposal_state(id, ProposalState::Scheduled)?;
 
             // 2. New value should be valid block number.
             let next_block = <system::Module<T>>::block_number() + 1.into();
             let new_until = until.unwrap_or(next_block);
-            ensure!( new_until >= next_block, Error::<T>::InvalidFutureBlockNumber);
+            ensure!(new_until >= next_block, Error::<T>::InvalidFutureBlockNumber);
 
-            // 3. Update enactment period.
-            // 3.1 Update referendum.
-            let referendum = Self::referendums(id)
-                .ok_or_else(|| Error::<T>::NoSuchProposal)?;
+            // 3. Update enactment period & reschule it.
+            let old_until = <PipToSchedule<T>>::mutate(id, |old| mem::replace(old, Some(new_until))).unwrap();
+            <ExecutionSchedule<T>>::append(new_until, id);
+            Self::remove_pip_from_schedule(old_until, id);
 
-            let old_until = referendum.enactment_period;
+            // 4. Emit event.
+            Self::deposit_event(RawEvent::ExecutionScheduled(current_did, id, old_until, new_until));
+            Ok(())
+        }
 
-            <Referendums<T>>::mutate( id, |referendum| {
-                if let Some(ref mut referendum) = referendum {
-                    referendum.enactment_period = new_until;
-                }
+        /// Clears the snapshot and emits the event `SnapshotCleared`.
+        ///
+        /// # Errors
+        /// * `NotACommitteeMember` - triggered when a non-GC-member executes the function.
+        #[weight = (1_000_000_000, DispatchClass::Operational, Pays::Yes)]
+        pub fn clear_snapshot(origin) -> DispatchResult {
+            // 1. Check that a GC member is executing this.
+            let actor = ensure_signed(origin)?;
+            let did = Context::current_identity_or::<Identity<T>>(&actor)?;
+            ensure!(T::GovernanceCommittee::is_member(&did), Error::<T>::NotACommitteeMember);
+
+            // 2. Clear the snapshot.
+            <SnapshotMeta<T>>::kill();
+            <SnapshotQueue<T>>::kill();
+
+            // 3. Emit event.
+            Self::deposit_event(RawEvent::SnapshotCleared(did));
+            Ok(())
+        }
+
+        /// Takes a new snapshot of the current list of active && pending PIPs.
+        /// The PIPs are then sorted into a priority queue based on each PIP's weight.
+        ///
+        /// # Errors
+        /// * `NotACommitteeMember` - triggered when a non-GC-member executes the function.
+        #[weight = (1_000_000_000, DispatchClass::Operational, Pays::Yes)]
+        pub fn snapshot(origin) -> DispatchResult {
+            // 1. Check that a GC member is executing this.
+            let made_by = ensure_signed(origin)?;
+            let did = Context::current_identity_or::<Identity<T>>(&made_by)?;
+            ensure!(T::GovernanceCommittee::is_member(&did), Error::<T>::NotACommitteeMember);
+
+            // 2. Fetch intersection of pending && non-cooling PIPs and aggregate their votes.
+            let created_at = <system::Module<T>>::block_number();
+            let mut queue = <Proposals<T>>::iter_values()
+                // Only keep pending PIPs.
+                .filter(|pip| matches!(pip.state, ProposalState::Pending))
+                .map(|pip| pip.id)
+                // Only keep community PIPs not cooling-off.
+                .filter(|id| {
+                    <ProposalMetadata<T>>::get(id)
+                        .filter(|meta| meta.cool_off_until <= created_at)
+                        .filter(|meta| matches!(meta.proposer, Proposer::Community(_)))
+                        .is_some()
+                })
+                // Aggregate the votes; `true` denotes a positive sign.
+                .map(|id| {
+                    let VotingResult { ayes_stake, nays_stake, .. } = <ProposalResult<T>>::get(id);
+                    let weight = if ayes_stake >= nays_stake {
+                        (true, ayes_stake - nays_stake)
+                    } else {
+                        (false, nays_stake - ayes_stake)
+                    };
+                    SnapshottedPip { id, weight }
+                })
+                .collect::<Vec<_>>();
+
+            // 5. Sort pips into priority queue, with highest priority *last*.
+            // Having higher prio last allows efficient tail popping, so we have a LIFO structure.
+            queue.sort_unstable_by(|l, r| {
+                let (l_dir, l_stake): (bool, BalanceOf<T>) = l.weight;
+                let (r_dir, r_stake): (bool, BalanceOf<T>) = r.weight;
+                l_dir.cmp(&r_dir) // Negative has lower prio.
+                    .then_with(|| match l_dir {
+                        true => l_stake.cmp(&r_stake), // Higher stake, higher prio...
+                         // Unless negative stake, in which case lower abs stake, higher prio.
+                        false => r_stake.cmp(&l_stake)
+                    })
+                    // Lower id was made first, so assigned higher prio.
+                    // This also gives us sorting stability through a total order.
+                    // Moreover, as `queue` should be in by-id order originally.
+                    .then(r.id.cmp(&l.id))
             });
 
-            // 3.1. Re-schedule it
-            <ScheduledReferendumsAt<T>>::mutate( old_until, |ids| ids.retain( |i| *i != id));
-            <ScheduledReferendumsAt<T>>::mutate( new_until, |ids| ids.push(id));
+            // 4. Commit the new snapshot.
+            <SnapshotMeta<T>>::set(Some(SnapshotMetadata { created_at, made_by }));
+            <SnapshotQueue<T>>::set(queue);
 
-            Self::deposit_event(RawEvent::ReferendumScheduled(current_did, id, old_until, new_until));
+            // 5. Emit event.
+            Self::deposit_event(RawEvent::SnapshotTaken(did));
             Ok(())
+        }
+
+        /// Enacts `results` for the PIPs in the snapshot queue.
+        /// The snapshot will be available for further enactments until it is cleared.
+        ///
+        /// The `results` are encoded a list of `(id, result)` where `result` is applied to `id`.
+        /// Note that the snapshot priority queue is encoded with the *lowest priority first*.
+        /// so `results = [(id, Approve)]` will approve `SnapshotQueue[SnapshotQueue.len() - 1]`.
+        ///
+        /// # Errors
+        /// * `BadOrigin` - unless a GC voting majority executes this function.
+        /// * `CannotSkipPip` - a given PIP has already been skipped too many times.
+        /// * `SnapshotResultTooLarge` - on len(results) > len(snapshot_queue).
+        /// * `SnapshotIdMismatch` - if:
+        ///   ```
+        ///    ∃ (i ∈ 0..SnapshotQueue.len()).
+        ///      results[i].0 ≠ SnapshotQueue[SnapshotQueue.len() - i].id
+        ///   ```
+        ///    This is protects against clearing queue while GC is voting.
+        #[weight = (1_000_000_000, DispatchClass::Operational, Pays::Yes)]
+        pub fn enact_snapshot_results(origin, results: Vec<(PipId, SnapshotResult)>) -> DispatchResult {
+            T::VotingMajorityOrigin::ensure_origin(origin)?;
+
+            let max_pip_skip_count = Self::max_pip_skip_count();
+
+            <SnapshotQueue<T>>::try_mutate(|queue| {
+                let mut to_bump_skipped = Vec::new();
+                // Default after-first-push capacity is 4, we bump this slightly.
+                // Rationale: GC are humans sitting together and reaching conensus.
+                // This is time consuming, so considering 20 PIPs in total might take few hours.
+                let speculative_capacity = queue.len().max(10);
+                let mut to_reject = Vec::with_capacity(speculative_capacity);
+                let mut to_approve = Vec::with_capacity(speculative_capacity);
+
+                // Go over each result...
+                for (id, action) in results.iter().copied() {
+                    match queue.pop() { // ...and "zip" with the queue in reverse.
+                        // An action is missing a corresponding PIP in the queue, bail!
+                        None => return Err(Error::<T>::SnapshotResultTooLarge.into()),
+                        // The id at queue position vs. results mismatches.
+                        Some(p) if p.id != id => return Err(Error::<T>::SnapshotIdMismatch.into()),
+                        // All is right...
+                        Some(_) => {},
+                    }
+                    match action {
+                        // Make sure the PIP can be skipped and enqueue bumping of skip.
+                        SnapshotResult::Skip => {
+                            let count = PipSkipCount::get(id);
+                            ensure!(count < max_pip_skip_count, Error::<T>::CannotSkipPip);
+                            to_bump_skipped.push((id, count + 1));
+                        },
+                        // Mark PIP as rejected.
+                        SnapshotResult::Reject => to_reject.push(id),
+                        // Approve PIP.
+                        SnapshotResult::Approve => to_approve.push(id),
+                    }
+                }
+
+                // Update skip counts.
+                for (pip_id, new_count) in to_bump_skipped.iter().copied() {
+                    PipSkipCount::insert(pip_id, new_count);
+                    Self::deposit_event(RawEvent::PipSkipped(GC_DID, pip_id, new_count));
+                }
+
+                // Reject proposals as instructed & refund.
+                for pip_id in to_reject.iter().copied() {
+                    Self::unsafe_reject_proposal(GC_DID, pip_id);
+                }
+
+                // Approve proposals as instructed.
+                for pip_id in to_approve.iter().copied() {
+                    Self::schedule_pip_for_execution(GC_DID, pip_id);
+                }
+
+                let event = RawEvent::SnapshotResultsEnacted(GC_DID, to_bump_skipped, to_reject, to_approve);
+                Self::deposit_event(event);
+
+                Ok(())
+            })
         }
 
         /// When constructing a block check if it's time for a ballot to end. If ballot ends,
@@ -1007,42 +1078,51 @@ decl_module! {
                 0
             })
         }
-
     }
 }
 
 impl<T: Trait> Module<T> {
+    /// Ensure that `origin` represents a signed extrinsic (i.e. transaction)
+    /// and confirms that the account is the same as the given `proposer`.
+    ///
+    /// For example, if `proposer` denotes a committee,
+    /// then `origin` is checked against the committee's origin.
+    ///
+    /// # Errors
+    /// * `BadOrigin` unless the checks above pass.
+    fn ensure_signed_by(origin: T::Origin, proposer: &Proposer<T::AccountId>) -> DispatchResult {
+        match proposer {
+            Proposer::Community(acc) => {
+                ensure!(acc == &ensure_signed(origin)?, DispatchError::BadOrigin)
+            }
+            Proposer::Committee(Committee::Technical) => {
+                T::TechnicalCommitteeVMO::ensure_origin(origin)?;
+            }
+            Proposer::Committee(Committee::Upgrade) => {
+                T::UpgradeCommitteeVMO::ensure_origin(origin)?;
+            }
+        }
+        Ok(())
+    }
+
     /// Returns the current identity or emits `MissingCurrentIdentity`.
     fn current_did_or_missing() -> Result<IdentityId, Error<T>> {
         Context::current_identity::<Identity<T>>().ok_or_else(|| Error::<T>::MissingCurrentIdentity)
     }
 
-    fn emit_proposal_bond_adjusted(
-        proposer: T::AccountId,
-        id: PipId,
-        increased: bool,
-        amount: BalanceOf<T>,
-    ) -> DispatchResult {
-        let current_did = Self::current_did_or_missing()?;
-        let event = RawEvent::ProposalBondAdjusted(current_did, proposer, id, increased, amount);
-        Self::deposit_event(event);
-        Ok(())
-    }
-
-    /// Ensure that proposer is owner of the proposal which mustn't be in the cool off period.
+    /// Ensure that proposer is owner of the proposal which must be in the cool off period.
     ///
     /// # Errors
-    /// * `BadOrigin`: Only the owner of the proposal can mutate it.
     /// * `ProposalIsImmutable`: A Proposal is mutable only during its cool off period.
+    /// * `BadOrigin`: Only the owner of the proposal can mutate it.
     fn ensure_owned_by_alterable(
         origin: T::Origin,
         id: PipId,
-    ) -> Result<T::AccountId, DispatchError> {
-        let proposer = ensure_signed(origin)?;
-        let meta = Self::proposal_metadata(id).ok_or_else(|| Error::<T>::NoSuchProposal)?;
-
+    ) -> Result<Proposer<T::AccountId>, DispatchError> {
         // 1. Only owner can act on proposal.
-        ensure!(meta.proposer == proposer, Error::<T>::BadOrigin);
+        let meta = Self::proposal_metadata(id).ok_or_else(|| Error::<T>::NoSuchProposal)?;
+        Self::ensure_signed_by(origin, &meta.proposer)?;
+
         // 2. Check that the proposal is pending.
         Self::is_proposal_state(id, ProposalState::Pending)?;
 
@@ -1053,223 +1133,133 @@ impl<T: Trait> Module<T> {
             Error::<T>::ProposalIsImmutable
         );
 
-        Ok(proposer)
+        Ok(meta.proposer)
     }
 
     /// Runs the following procedure:
-    /// 1. Find all proposals that need to end as of this block and close voting
-    /// 2. Tally votes
-    /// 3. Submit any proposals that meet the quorum threshold, to the governance committee
-    /// 4. Automatically execute any referendum
+    /// 1. Executes all PIPs scheduled for this block.
     pub fn end_block(block_number: T::BlockNumber) -> Result<Weight, DispatchError> {
-        let mut weight: Weight = 50_000_000; // Some arbitrary number right now, It is subject to change after proper benchmarking
-                                             // Find all matured proposals...
-        <ProposalsMaturingAt<T>>::take(block_number)
+        // Some arbitrary number right now, It is subject to change after proper benchmarking
+        let mut weight: Weight = 50_000_000;
+        // 1. Execute all PIPs scheduled for this block.
+        <ExecutionSchedule<T>>::take(block_number)
             .into_iter()
             .for_each(|id| {
-                // It is possible the proposal has been killed, cancelled or fast tracked
-                if let Some(proposal) = Self::proposals(id) {
-                    if proposal.state == ProposalState::Pending {
-                        // Tally votes and create referendums
-                        let voting = Self::proposal_result(id);
-
-                        // 1. Ayes staked must be more than nays staked (simple majority)
-                        // 2. Ayes staked are more than the minimum quorum threshold
-                        if voting.ayes_stake > voting.nays_stake
-                            && voting.ayes_stake >= Self::quorum_threshold()
-                        {
-                            Self::refund_proposal(id);
-                            Self::create_referendum(
-                                id,
-                                ReferendumState::Pending,
-                                ReferendumType::Community,
-                            );
-                        } else {
-                            Self::update_proposal_state(id, ProposalState::Rejected);
-                            Self::refund_proposal(id);
-                            Self::prune_data(id, Self::prune_historical_pips());
-                        }
-                    }
-                }
+                <PipToSchedule<T>>::remove(id);
+                weight += Self::execute_proposal(id);
             });
-        <ProposalsMaturingAt<T>>::remove(block_number);
-        // Execute automatically referendums after its enactment period.
-        let referendum_ids = <ScheduledReferendumsAt<T>>::take(block_number);
-        referendum_ids.into_iter().for_each(|id| {
-            weight += Self::execute_referendum(id);
-        });
-        <ScheduledReferendumsAt<T>>::remove(block_number);
+        <ExecutionSchedule<T>>::remove(block_number);
         Ok(weight)
     }
 
-    /// Create a referendum object from a proposal. If governance committee is composed of less
-    /// than 2 members, enact it immediately. Otherwise, committee votes on this referendum and
-    /// decides whether it should be enacted.
-    fn create_referendum(id: PipId, state: ReferendumState, referendum_type: ReferendumType) {
-        let enactment_period: T::BlockNumber = 0.into();
-        let referendum = Referendum {
-            id,
-            state,
-            referendum_type,
-            enactment_period,
-        };
-        <Referendums<T>>::insert(id, referendum);
-        Self::update_proposal_state(id, ProposalState::Referendum);
-        let current_did = Context::current_identity::<Identity<T>>().unwrap_or_default();
-        Self::deposit_event(RawEvent::ReferendumCreated(
-            current_did,
-            id,
-            referendum_type,
-        ));
+    /// Rejects the given `id`, refunding the deposit, and possibly pruning the proposal's data.
+    fn unsafe_reject_proposal(did: IdentityId, id: PipId) {
+        let new_state = Self::update_proposal_state(did, id, ProposalState::Rejected);
+        Self::prune_data(did, id, new_state, Self::prune_historical_pips());
     }
 
-    /// Refunds any tokens used to vote or bond a proposal
-    fn refund_proposal(id: PipId) {
+    /// Refunds any tokens used to vote or bond a proposal.
+    ///
+    /// This operation is idempotent wrt. chain state,
+    /// i.e., once run, refunding again will refund nothing.
+    fn refund_proposal(did: IdentityId, id: PipId) {
         let total_refund =
             <Deposits<T>>::iter_prefix_values(id).fold(0.into(), |acc, depo_info| {
-                let amount = <T as Trait>::Currency::unreserve(&depo_info.owner, depo_info.amount);
-                amount.saturating_add(acc)
+                Self::reduce_lock(&depo_info.owner, depo_info.amount).unwrap();
+                depo_info.amount.saturating_add(acc)
             });
         <Deposits<T>>::remove_prefix(id);
-        let current_did = Context::current_identity::<Identity<T>>().unwrap_or_default();
-        Self::deposit_event(RawEvent::ProposalRefund(current_did, id, total_refund));
+        Self::deposit_event(RawEvent::ProposalRefund(did, id, total_refund));
     }
 
-    /// Close a proposal.
+    /// Unschedule PIP with given `id` if it's scheduled for execution.
+    fn maybe_unschedule_pip(id: PipId, state: ProposalState) {
+        if let ProposalState::Scheduled = state {
+            Self::remove_pip_from_schedule(<PipToSchedule<T>>::take(id).unwrap(), id);
+        }
+    }
+
+    /// Remove the PIP with `id` from the `ExecutionSchedule` at `block_no`.
+    fn remove_pip_from_schedule(block_no: T::BlockNumber, id: PipId) {
+        <ExecutionSchedule<T>>::mutate(block_no, |ids| ids.retain(|i| *i != id));
+    }
+
+    /// Remove the PIP with `id` from the snapshot if it is there.
+    fn maybe_unsnapshot_pip(id: PipId, state: ProposalState) {
+        if let ProposalState::Pending = state {
+            let cool_until = <ProposalMetadata<T>>::get(id).unwrap().cool_off_until;
+            if cool_until <= <system::Module<T>>::block_number()
+                && <SnapshotMeta<T>>::get()
+                    .filter(|m| cool_until <= m.created_at)
+                    .is_some()
+            {
+                // Proposal is pending, no longer in cool-down, and wasn't when snapshot was made.
+                // Hence, it is in the snapshot and filtering it out will have an effect.
+                // Note: These checks are not strictly necessary, but are done to avoid work.
+                <SnapshotQueue<T>>::mutate(|queue| queue.retain(|i| i.id != id));
+            }
+        }
+    }
+
+    /// Prunes (nearly) all data associated with a proposal, removing it from storage.
     ///
-    /// Voting ceases and proposal is removed from storage.
-    /// It also refunds all deposits.
-    ///
-    /// # Internal
-    /// * `ProposalsMaturingat` does not need to be deleted here.
-    ///
-    /// # TODO
-    /// * Should we remove the proposal when it is Cancelled?, killed?, rejected?
-    fn prune_data(id: PipId, prune: bool) {
-        let current_did = Context::current_identity::<Identity<T>>().unwrap_or_default();
+    /// For efficiency, some data (e.g., re. execution schedules) is not removed in this function,
+    /// but is removed in functions executing this one.
+    fn prune_data(did: IdentityId, id: PipId, state: ProposalState, prune: bool) {
+        Self::refund_proposal(did, id);
+        Self::decrement_count_if_active(state);
         if prune {
             <ProposalResult<T>>::remove(id);
             <ProposalVotes<T>>::remove_prefix(id);
             <ProposalMetadata<T>>::remove(id);
             <Proposals<T>>::remove(id);
-            <Referendums<T>>::remove(id);
+            PipSkipCount::remove(id);
         }
-        Self::deposit_event(RawEvent::PipClosed(current_did, id, prune));
+        Self::deposit_event(RawEvent::PipClosed(did, id, prune));
     }
 
-    fn prepare_to_dispatch(id: PipId) -> DispatchResult {
-        ensure!(
-            <Referendums<T>>::contains_key(id),
-            Error::<T>::NoSuchProposal
-        );
-
+    fn schedule_pip_for_execution(did: IdentityId, id: PipId) {
         // Set the default enactment period and move it to `Scheduled`
         let curr_block_number = <system::Module<T>>::block_number();
-        let enactment_period = curr_block_number + Self::default_enactment_period();
+        let executed_at = curr_block_number + Self::default_enactment_period();
 
-        <Referendums<T>>::mutate(id, |referendum| {
-            if let Some(ref mut referendum) = referendum {
-                referendum.enactment_period = enactment_period;
-                referendum.state = ReferendumState::Scheduled;
-            }
-        });
-        <ScheduledReferendumsAt<T>>::mutate(enactment_period, |ids| ids.push(id));
-        let current_did = Self::current_did_or_missing()?;
-        Self::deposit_event(RawEvent::ReferendumScheduled(
-            current_did,
-            id,
-            Zero::zero(),
-            enactment_period,
-        ));
-        Ok(())
+        Self::update_proposal_state(did, id, ProposalState::Scheduled);
+        <PipToSchedule<T>>::insert(id, executed_at);
+        <ExecutionSchedule<T>>::append(executed_at, id);
+        let event = RawEvent::ExecutionScheduled(did, id, Zero::zero(), executed_at);
+        Self::deposit_event(event);
     }
 
-    fn execute_referendum(id: PipId) -> Weight {
-        let mut actual_weight: Weight = 0;
-        if let Some(proposal) = Self::proposals(id) {
-            if proposal.state == ProposalState::Referendum {
-                match Self::check_beneficiaries(id) {
-                    Ok(_) => {
-                        match proposal.proposal.dispatch(system::RawOrigin::Root.into()) {
-                            Ok(post_info) => {
-                                actual_weight = post_info.actual_weight.unwrap_or(0);
-                                Self::pay_to_beneficiaries(id);
-                                Self::update_referendum_state(id, ReferendumState::Executed);
-                            }
-                            Err(e) => {
-                                Self::update_referendum_state(id, ReferendumState::Failed);
-                                debug::error!(
-                                    "Referendum {}, its execution fails: {:?}",
-                                    id,
-                                    e.error
-                                );
-                            }
-                        };
-                    }
-                    Err(e) => {
-                        Self::update_referendum_state(id, ReferendumState::Failed);
-                        debug::error!("Referendum {}, its beneficiaries fails: {:?}", id, e);
-                    }
-                }
-                Self::prune_data(id, Self::prune_historical_pips());
-            }
-        }
-        actual_weight
+    /// Execute the PIP given by `id`.
+    /// Panics if the PIP doesn't exist or isn't scheduled.
+    fn execute_proposal(id: PipId) -> Weight {
+        let proposal = Self::proposals(id).expect("PIP was scheduled but doesn't exist");
+        assert_eq!(proposal.state, ProposalState::Scheduled);
+        let res = proposal.proposal.dispatch(system::RawOrigin::Root.into());
+        let weight = res.unwrap_or_else(|e| e.post_info).actual_weight;
+        let new_state = res.map_or(ProposalState::Failed, |_| ProposalState::Executed);
+        let did = Context::current_identity::<Identity<T>>().unwrap_or_default();
+        Self::update_proposal_state(did, id, new_state);
+        Self::prune_data(did, id, new_state, Self::prune_historical_pips());
+        weight.unwrap_or(0)
     }
 
-    fn check_beneficiaries(id: PipId) -> DispatchResult {
-        if let Some(proposal) = Self::proposals(id) {
-            if let Some(beneficiaries) = proposal.beneficiaries {
-                let total_amount = beneficiaries
-                    .iter()
-                    .fold(0.into(), |acc, b| b.amount.saturating_add(acc));
-                ensure!(
-                    T::Treasury::balance() >= total_amount,
-                    Error::<T>::InsufficientTreasuryFunds
-                );
-            }
-        }
-        Ok(())
-    }
-
-    fn pay_to_beneficiaries(id: PipId) {
-        if let Some(proposal) = Self::proposals(id) {
-            if let Some(beneficiaries) = proposal.beneficiaries {
-                let _ = beneficiaries.into_iter().fold(0.into(), |acc, b| {
-                    T::Treasury::disbursement(b.id, b.amount);
-                    b.amount.saturating_add(acc)
-                });
-            }
-        }
-    }
-
-    fn update_proposal_state(id: PipId, new_state: ProposalState) {
+    fn update_proposal_state(
+        did: IdentityId,
+        id: PipId,
+        new_state: ProposalState,
+    ) -> ProposalState {
         <Proposals<T>>::mutate(id, |proposal| {
             if let Some(ref mut proposal) = proposal {
+                if (proposal.state, new_state) != (ProposalState::Pending, ProposalState::Scheduled)
+                {
+                    Self::decrement_count_if_active(proposal.state);
+                }
                 proposal.state = new_state;
             }
         });
-        let current_did = Context::current_identity::<Identity<T>>().unwrap_or_default();
-        Self::deposit_event(RawEvent::ProposalStateUpdated(current_did, id, new_state));
-    }
-
-    fn update_referendum_state(id: PipId, new_state: ReferendumState) {
-        <Referendums<T>>::mutate(id, |referendum| {
-            if let Some(ref mut referendum) = referendum {
-                referendum.state = new_state;
-            }
-        });
-        let current_did = Context::current_identity::<Identity<T>>().unwrap_or_default();
-        Self::deposit_event(RawEvent::ReferendumStateUpdated(current_did, id, new_state));
-    }
-
-    fn is_referendum_state(id: PipId, state: ReferendumState) -> DispatchResult {
-        let referendum = Self::referendums(id).ok_or_else(|| Error::<T>::NoSuchProposal)?;
-        ensure!(
-            referendum.state == state,
-            Error::<T>::IncorrectReferendumState
-        );
-        Ok(())
+        Self::deposit_event(RawEvent::ProposalStateUpdated(did, id, new_state));
+        new_state
     }
 
     fn is_proposal_state(id: PipId, state: ProposalState) -> DispatchResult {
@@ -1277,9 +1267,44 @@ impl<T: Trait> Module<T> {
         ensure!(proposal.state == state, Error::<T>::IncorrectProposalState);
         Ok(())
     }
+
+    /// Returns `true` if `state` is `Pending | Scheduled`.
+    fn is_active(state: ProposalState) -> bool {
+        matches!(state, ProposalState::Pending | ProposalState::Scheduled)
+    }
+
+    /// Decrement active proposal count if `state` signifies it is active.
+    fn decrement_count_if_active(state: ProposalState) {
+        if Self::is_active(state) {
+            ActivePipCount::mutate(|count| *count -= 1);
+        }
+    }
 }
 
 impl<T: Trait> Module<T> {
+    /// Increase `acc`'s locked deposit for all PIPs by `amount`,
+    /// or fail if there's not enough free balance after adding `amount` to lock.
+    fn increase_lock(acc: &T::AccountId, amount: BalanceOf<T>) -> DispatchResult {
+        <T as Trait>::Currency::increase_lock(
+            PIPS_LOCK_ID,
+            acc,
+            amount,
+            WithdrawReasons::all(),
+            |sum| {
+                <T as Trait>::Currency::free_balance(acc)
+                    .checked_sub(&sum)
+                    .ok_or(Error::<T>::InsufficientDeposit.into())
+                    .map(drop)
+            },
+        )
+    }
+
+    /// Reduce `acc`'s locked deposit for all PIPs by `amount`,
+    /// or fail if `amount` hasn't been locked for PIPs.
+    fn reduce_lock(acc: &T::AccountId, amount: BalanceOf<T>) -> DispatchResult {
+        <T as Trait>::Currency::reduce_lock(PIPS_LOCK_ID, acc, amount)
+    }
+
     /// Retrieve votes for a proposal represented by PipId `id`.
     pub fn get_votes(id: PipId) -> VoteCount<BalanceOf<T>>
     where
@@ -1297,10 +1322,10 @@ impl<T: Trait> Module<T> {
         }
     }
 
-    /// Retrieve proposals made by `address`.
-    pub fn proposed_by(address: T::AccountId) -> Vec<PipId> {
+    /// Retrieve proposals made by `proposer`.
+    pub fn proposed_by(proposer: Proposer<T::AccountId>) -> Vec<PipId> {
         <ProposalMetadata<T>>::iter()
-            .filter(|(_, meta)| meta.proposer == address)
+            .filter(|(_, meta)| meta.proposer == proposer)
             .map(|(_, meta)| meta.id)
             .collect()
     }
@@ -1308,10 +1333,7 @@ impl<T: Trait> Module<T> {
     /// Retrieve proposals `address` voted on
     pub fn voted_on(address: T::AccountId) -> Vec<PipId> {
         <ProposalMetadata<T>>::iter()
-            .filter_map(|(_, meta)| match Self::proposal_vote(meta.id, &address) {
-                Vote::None => None,
-                _ => Some(meta.id),
-            })
+            .filter_map(|(_, meta)| Self::proposal_vote(meta.id, &address).map(|_| meta.id))
             .collect::<Vec<_>>()
     }
 
@@ -1320,9 +1342,11 @@ impl<T: Trait> Module<T> {
         who: T::AccountId,
     ) -> HistoricalVotingByAddress<Vote<BalanceOf<T>>> {
         <ProposalMetadata<T>>::iter()
-            .map(|(_, meta)| VoteByPip {
-                pip: meta.id,
-                vote: Self::proposal_vote(meta.id, &who),
+            .filter_map(|(_, meta)| {
+                Some(VoteByPip {
+                    pip: meta.id,
+                    vote: Self::proposal_vote(meta.id, &who)?,
+                })
             })
             .collect::<Vec<_>>()
     }
@@ -1339,46 +1363,43 @@ impl<T: Trait> Module<T> {
             .collect::<HistoricalVotingById<_, _>>()
     }
 
-    /// It generates the next id for proposals and referendums.
+    /// Returns the id to use for the next PIP to be made.
+    /// Invariant: `next_pip_id() == next_pip_id() + 1`.
     fn next_pip_id() -> u32 {
-        let id = <PipIdSequence>::get();
-        <PipIdSequence>::put(id + 1);
-
-        id
+        <PipIdSequence>::mutate(|id| mem::replace(id, *id + 1))
     }
 
-    /// It inserts the vote and updates the accountability of target proposal.
-    fn unsafe_vote(id: PipId, proposer: T::AccountId, vote: Vote<BalanceOf<T>>) -> DispatchResult {
+    /// Changes the vote of `voter` to `vote`, if any.
+    fn unsafe_vote(id: PipId, voter: T::AccountId, vote: Vote<BalanceOf<T>>) -> DispatchResult {
         let mut stats = Self::proposal_result(id);
-        match vote {
-            Vote::Yes(deposit) => {
-                stats.ayes_count = stats
-                    .ayes_count
-                    .checked_add(1)
-                    .ok_or_else(|| Error::<T>::NumberOfVotesExceeded)?;
-                stats.ayes_stake = stats
-                    .ayes_stake
-                    .checked_add(&deposit)
-                    .ok_or_else(|| Error::<T>::StakeAmountOfVotesExceeded)?;
-            }
-            Vote::No(deposit) => {
-                stats.nays_count = stats
-                    .nays_count
-                    .checked_add(1)
-                    .ok_or_else(|| Error::<T>::NumberOfVotesExceeded)?;
-                stats.nays_stake = stats
-                    .nays_stake
-                    .checked_add(&deposit)
-                    .ok_or_else(|| Error::<T>::StakeAmountOfVotesExceeded)?;
-            }
-            Vote::None => {
-                // It should be unreachable because public API only allows binary options.
-                debug::warn!("Unexpected none vote");
-            }
-        };
 
+        // Update the vote and get the old one, if any, in which case also remove it from stats.
+        if let Some(Vote(direction, deposit)) = <ProposalVotes<T>>::get(id, voter.clone()) {
+            let (count, stake) = match direction {
+                true => (&mut stats.ayes_count, &mut stats.ayes_stake),
+                false => (&mut stats.nays_count, &mut stats.nays_stake),
+            };
+            *count -= 1;
+            *stake -= deposit;
+        }
+
+        // Add new vote to stats.
+        let Vote(direction, deposit) = vote;
+        let (count, stake) = match direction {
+            true => (&mut stats.ayes_count, &mut stats.ayes_stake),
+            false => (&mut stats.nays_count, &mut stats.nays_stake),
+        };
+        *count = count
+            .checked_add(1)
+            .ok_or_else(|| Error::<T>::NumberOfVotesExceeded)?;
+        *stake = stake
+            .checked_add(&deposit)
+            .ok_or_else(|| Error::<T>::StakeAmountOfVotesExceeded)?;
+
+        // Commit all changes.
         <ProposalResult<T>>::insert(id, stats);
-        <ProposalVotes<T>>::insert(id, proposer, vote);
+        <ProposalVotes<T>>::insert(id, voter, vote);
+
         Ok(())
     }
 
@@ -1392,11 +1413,5 @@ impl<T: Trait> Module<T> {
             ProposalData::Proposal(encoded_proposal)
         };
         proposal_data
-    }
-
-    /// A proposal is valid if there is an associated proposal and it is in pending state.
-    pub fn is_proposal_id_valid(id: PipId) -> bool {
-        <Proposals<T>>::contains_key(id)
-            && Self::is_referendum_state(id, ReferendumState::Pending).is_ok()
     }
 }

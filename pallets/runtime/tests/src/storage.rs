@@ -1,4 +1,7 @@
-use super::ext_builder::{EXTRINSIC_BASE_WEIGHT, TRANSACTION_BYTE_FEE, WEIGHT_TO_FEE};
+use super::ext_builder::{
+    EXTRINSIC_BASE_WEIGHT, MAX_NO_OF_LEGS, MAX_NO_OF_TM_ALLOWED, TRANSACTION_BYTE_FEE,
+    WEIGHT_TO_FEE,
+};
 use codec::Encode;
 use frame_support::{
     assert_ok,
@@ -33,7 +36,6 @@ use polymesh_common_utilities::traits::{
     balances::AccountData,
     group::GroupTrait,
     identity::Trait as IdentityTrait,
-    pip::{EnactProposalMaker, PipId},
     transaction_payment::{CddAndFeeDetails, ChargeTxFee},
     CommonTrait,
 };
@@ -85,6 +87,8 @@ impl_outer_dispatch! {
         asset::Asset,
         frame_system::System,
         pallet_utility::Utility,
+        self::Committee,
+        self::DefaultCommittee,
     }
 }
 
@@ -245,12 +249,14 @@ impl multisig::Trait for TestStorage {
 
 parameter_types! {
     pub const MaxScheduledInstructionLegsPerBlock: u32 = 500;
+    pub MaxLegsInAInstruction: u32 = MAX_NO_OF_LEGS.with(|v| *v.borrow());
 }
 
 impl settlement::Trait for TestStorage {
     type Event = Event;
     type Asset = asset::Module<TestStorage>;
     type MaxScheduledInstructionLegsPerBlock = MaxScheduledInstructionLegsPerBlock;
+    type MaxLegsInAInstruction = MaxLegsInAInstruction;
 }
 
 impl sto::Trait for TestStorage {
@@ -267,17 +273,21 @@ impl CddAndFeeDetails<AccountId, Call> for TestStorage {
     fn get_valid_payer(
         _: &Call,
         caller: &Signatory<AccountId>,
-    ) -> Result<Option<Signatory<AccountId>>, InvalidTransaction> {
-        Ok(Some(*caller))
+    ) -> Result<Option<AccountId>, InvalidTransaction> {
+        if let Signatory::Account(key) = caller {
+            Ok(Some(*key))
+        } else {
+            Err(InvalidTransaction::Call.into())
+        }
     }
     fn clear_context() {
         Context::set_current_identity::<Identity>(None);
         Context::set_current_payer::<Identity>(None);
     }
-    fn set_payer_context(payer: Option<Signatory<AccountId>>) {
+    fn set_payer_context(payer: Option<AccountId>) {
         Context::set_current_payer::<Identity>(payer);
     }
-    fn get_payer_from_context() -> Option<Signatory<AccountId>> {
+    fn get_payer_from_context() -> Option<AccountId> {
         Context::current_payer::<Identity>()
     }
     fn set_current_identity(did: &IdentityId) {
@@ -310,6 +320,7 @@ impl pallet_transaction_payment::Trait for TestStorage {
 
 impl group::Trait<group::DefaultInstance> for TestStorage {
     type Event = Event;
+    type LimitOrigin = frame_system::EnsureRoot<AccountId>;
     type AddOrigin = frame_system::EnsureRoot<AccountId>;
     type RemoveOrigin = frame_system::EnsureRoot<AccountId>;
     type SwapOrigin = frame_system::EnsureRoot<AccountId>;
@@ -321,6 +332,7 @@ impl group::Trait<group::DefaultInstance> for TestStorage {
 /// PolymeshCommittee as an instance of group
 impl group::Trait<group::Instance1> for TestStorage {
     type Event = Event;
+    type LimitOrigin = frame_system::EnsureRoot<AccountId>;
     type AddOrigin = frame_system::EnsureRoot<AccountId>;
     type RemoveOrigin = frame_system::EnsureRoot<AccountId>;
     type SwapOrigin = frame_system::EnsureRoot<AccountId>;
@@ -331,6 +343,7 @@ impl group::Trait<group::Instance1> for TestStorage {
 
 impl group::Trait<group::Instance2> for TestStorage {
     type Event = Event;
+    type LimitOrigin = frame_system::EnsureRoot<AccountId>;
     type AddOrigin = frame_system::EnsureRoot<AccountId>;
     type RemoveOrigin = frame_system::EnsureRoot<AccountId>;
     type SwapOrigin = frame_system::EnsureRoot<AccountId>;
@@ -357,7 +370,6 @@ impl committee::Trait<committee::Instance1> for TestStorage {
     type CommitteeOrigin = frame_system::EnsureRoot<AccountId>;
     type Event = Event;
     type MotionDuration = MotionDuration;
-    type EnactProposalMaker = TestStorage;
 }
 
 impl committee::Trait<committee::DefaultInstance> for TestStorage {
@@ -366,7 +378,6 @@ impl committee::Trait<committee::DefaultInstance> for TestStorage {
     type CommitteeOrigin = frame_system::EnsureRoot<AccountId>;
     type Event = Event;
     type MotionDuration = MotionDuration;
-    type EnactProposalMaker = TestStorage;
 }
 
 impl IdentityTrait for TestStorage {
@@ -386,6 +397,11 @@ impl AcceptTransfer for TestStorage {
     fn accept_ticker_transfer(_: IdentityId, _: u64) -> DispatchResult {
         Ok(())
     }
+
+    fn accept_primary_issuance_agent_transfer(_: IdentityId, _: u64) -> DispatchResult {
+        Ok(())
+    }
+
     fn accept_asset_ownership_transfer(_: IdentityId, _: u64) -> DispatchResult {
         Ok(())
     }
@@ -443,10 +459,15 @@ impl portfolio::Trait for TestStorage {
     type Event = Event;
 }
 
+parameter_types! {
+    pub MaxNumberOfTMExtensionForAsset: u32 = MAX_NO_OF_TM_ALLOWED.with(|v| *v.borrow());
+}
+
 impl asset::Trait for TestStorage {
     type Event = Event;
     type Currency = balances::Module<TestStorage>;
     type ComplianceManager = compliance_manager::Module<TestStorage>;
+    type MaxNumberOfTMExtensionForAsset = MaxNumberOfTMExtensionForAsset;
 }
 
 parameter_types! {
@@ -544,6 +565,8 @@ impl pips::Trait for TestStorage {
     type CommitteeOrigin = frame_system::EnsureRoot<AccountId>;
     type VotingMajorityOrigin = frame_system::EnsureRoot<AccountId>;
     type GovernanceCommittee = Committee;
+    type TechnicalCommitteeVMO = frame_system::EnsureRoot<AccountId>;
+    type UpgradeCommitteeVMO = frame_system::EnsureRoot<AccountId>;
     type Treasury = treasury::Module<Self>;
     type Event = Event;
 }
@@ -555,20 +578,6 @@ impl confidential::Trait for TestStorage {
 impl pallet_utility::Trait for TestStorage {
     type Event = Event;
     type Call = Call;
-}
-
-impl EnactProposalMaker<Origin, Call> for TestStorage {
-    fn is_pip_id_valid(id: PipId) -> bool {
-        Pips::is_proposal_id_valid(id)
-    }
-
-    fn enact_referendum_call(id: PipId) -> Call {
-        Call::Pips(pallet_pips::Call::enact_referendum(id))
-    }
-
-    fn reject_referendum_call(id: PipId) -> Call {
-        Call::Pips(pallet_pips::Call::reject_referendum(id))
-    }
 }
 
 // Publish type alias for each module
@@ -584,6 +593,7 @@ pub type Bridge = bridge::Module<TestStorage>;
 pub type GovernanceCommittee = group::Module<TestStorage, group::Instance1>;
 pub type CddServiceProvider = group::Module<TestStorage, group::Instance2>;
 pub type Committee = committee::Module<TestStorage, committee::Instance1>;
+pub type DefaultCommittee = committee::Module<TestStorage, committee::DefaultInstance>;
 pub type Utility = pallet_utility::Module<TestStorage>;
 pub type System = frame_system::Module<TestStorage>;
 pub type Portfolio = portfolio::Module<TestStorage>;
@@ -694,4 +704,8 @@ pub fn fast_forward_to_block(n: u64) {
         assert_ok!(pips::Module::<TestStorage>::end_block(block));
         frame_system::Module::<TestStorage>::set_block_number(block + 1);
     });
+}
+
+pub fn fast_forward_blocks(n: u64) {
+    fast_forward_to_block(n + frame_system::Module::<TestStorage>::block_number());
 }

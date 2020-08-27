@@ -87,12 +87,14 @@ mod tests {
         let context = Context {
             claims: vec![],
             id: investor_id,
+            primary_issuance_agent: None,
         };
         assert_eq!(predicate.evaluate(&context), false);
 
         let context = Context {
             claims: vec![Claim::Affiliate(asset_id)],
             id: investor_id,
+            primary_issuance_agent: None,
         };
         assert_eq!(predicate.evaluate(&context), false);
 
@@ -109,6 +111,7 @@ mod tests {
                 Claim::InvestorZKProof(asset_id, scope_id, cdd_id, proof),
             ],
             id: investor_id,
+            primary_issuance_agent: None,
         };
         assert_eq!(predicate.evaluate(&context), true);
     }

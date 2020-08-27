@@ -8,6 +8,7 @@ use pallet_asset::{self as asset, AssetType, IdentifierType, SecurityToken};
 use pallet_compliance_manager as compliance_manager;
 use pallet_confidential as confidential;
 use pallet_identity::{self as identity, Error};
+use polymesh_common_utilities::constants::ERC1400_TRANSFER_SUCCESS;
 use polymesh_primitives::{
     Claim, IdentityId, InvestorUid, InvestorZKProofData, Rule, RuleType, Ticker,
 };
@@ -57,7 +58,6 @@ fn range_proof_we() {
         token.asset_type.clone(),
         identifiers.clone(),
         None,
-        None
     ));
 
     // 2. X add a range proof
@@ -124,7 +124,6 @@ fn scope_claims_we() {
         st.asset_type.clone(),
         identifiers.clone(),
         None,
-        None
     ));
 
     // 2. Alice defines the asset complain rules.
@@ -170,11 +169,15 @@ fn scope_claims_we() {
 
     // 3. Transfer some tokens to Inv. 1 and 2.
     assert_eq!(Asset::balance_of(st_id, inv_did_1), 0);
-    assert_ok!(Asset::transfer(Origin::signed(alice), st_id, inv_did_1, 10));
+    assert_ok!(Asset::unsafe_transfer(
+        alice_id, &st_id, alice_id, inv_did_1, 10
+    ));
     assert_eq!(Asset::balance_of(st_id, inv_did_1), 10);
 
     assert_eq!(Asset::balance_of(st_id, inv_did_2), 0);
-    assert_ok!(Asset::transfer(Origin::signed(alice), st_id, inv_did_2, 20));
+    assert_ok!(Asset::unsafe_transfer(
+        alice_id, &st_id, alice_id, inv_did_2, 20
+    ));
     assert_eq!(Asset::balance_of(st_id, inv_did_2), 20);
 
     // 4. ERROR: Investor 2 cannot add a claim of the real investor.
@@ -209,7 +212,6 @@ fn scope_claims_we() {
         st_2.asset_type.clone(),
         identifiers.clone(),
         None,
-        None
     ));
 
     let st_scope = IdentityId::try_from(st2_id.as_slice()).unwrap();
@@ -227,8 +229,16 @@ fn scope_claims_we() {
         conf_scope_claim_3.clone(),
         None
     ));
-    assert_err!(
-        Asset::transfer(Origin::signed(alice), st2_id, inv_did_1, 10),
-        AssetError::InvalidTransfer
+
+    assert_ne!(
+        Asset::_is_valid_transfer(
+            &st2_id,
+            AccountKeyring::Alice.public(),
+            Some(alice_id),
+            Some(inv_did_1),
+            10
+        )
+        .map(|(a, _)| a),
+        Ok(ERC1400_TRANSFER_SUCCESS)
     );
 }

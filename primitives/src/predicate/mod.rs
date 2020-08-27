@@ -13,7 +13,7 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
-use crate::{Claim, IdentityId, Rule, RuleType, Ticker};
+use crate::{Claim, IdentityId, Rule, RuleType, TargetIdentity, Ticker};
 use codec::{Decode, Encode};
 
 use sp_std::prelude::*;
@@ -32,6 +32,8 @@ pub struct Context {
     /// It could be the sender DID during the evaluation of sender's rules or
     /// the receiver DID on a receiver's rule evaluation.
     pub id: IdentityId,
+    /// Identity of the primary issuance agent of the token
+    pub primary_issuance_agent: Option<IdentityId>,
 }
 
 // Predicate Trait
@@ -77,7 +79,10 @@ pub trait Predicate {
 
 /// Base and simple predicates
 pub mod base;
-pub use base::{AndPredicate, AnyPredicate, ExistentialPredicate, NotPredicate, OrPredicate};
+pub use base::{
+    AndPredicate, AnyPredicate, ExistentialPredicate, NotPredicate, OrPredicate,
+    TargetIdentityPredicate,
+};
 
 /// Predicates for confidential stuff.
 pub mod valid_proof_of_investor;
@@ -85,6 +90,20 @@ pub use valid_proof_of_investor::ValidProofOfInvestorPredicate;
 
 // Helper functions
 // ======================================
+
+/// It creates a predicate to evaluate the matching of `id` with primary issuance agent in the context.
+#[inline]
+pub fn equals<'a>(
+    id: &'a TargetIdentity,
+    primary_issuance_agent: &'a IdentityId,
+) -> TargetIdentityPredicate<'a> {
+    match id {
+        TargetIdentity::PrimaryIssuanceAgent => TargetIdentityPredicate {
+            identity: primary_issuance_agent,
+        },
+        TargetIdentity::Specific(identity) => TargetIdentityPredicate { identity },
+    }
+}
 
 /// It creates a predicate to evaluate the existential of `claim` in the context.
 #[inline]
@@ -123,6 +142,9 @@ pub fn run(rule: &Rule, context: &Context) -> bool {
         RuleType::IsNoneOf(ref claims) => not(any(claims)).evaluate(context),
         RuleType::HasValidProofOfInvestor(ref ticker) => {
             has_valid_proof_of_investor(ticker.clone()).evaluate(context)
+        }
+        RuleType::IsIdentity(ref id) => {
+            equals(id, &context.primary_issuance_agent.unwrap_or_default()).evaluate(context)
         }
     }
 }

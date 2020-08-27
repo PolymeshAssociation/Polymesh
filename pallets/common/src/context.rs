@@ -1,5 +1,5 @@
 use crate::traits::identity::IdentityTrait;
-use polymesh_primitives::{IdentityId, Signatory};
+use polymesh_primitives::IdentityId;
 use sp_runtime::DispatchError;
 use sp_std::marker::PhantomData;
 
@@ -31,12 +31,12 @@ impl<AccountId> Context<AccountId> {
     }
 
     #[inline]
-    pub fn current_payer<I: IdentityTrait<AccountId>>() -> Option<Signatory<AccountId>> {
+    pub fn current_payer<I: IdentityTrait<AccountId>>() -> Option<AccountId> {
         I::current_payer()
     }
 
     #[inline]
-    pub fn set_current_payer<I: IdentityTrait<AccountId>>(payer: Option<Signatory<AccountId>>) {
+    pub fn set_current_payer<I: IdentityTrait<AccountId>>(payer: Option<AccountId>) {
         I::set_current_payer(payer)
     }
 
@@ -122,7 +122,7 @@ mod test {
             None
         }
 
-        fn set_current_payer(_payer: Option<Signatory<AccountId>>) {}
+        fn set_current_payer(_payer: Option<AccountId>) {}
 
         fn has_valid_cdd(_target_did: IdentityId) -> bool {
             true

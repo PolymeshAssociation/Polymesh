@@ -204,7 +204,7 @@ decl_module! {
         /// # Arguments
         /// * `signers` - Signers of the multisig (They need to accept authorization before they are actually added).
         /// * `sigs_required` - Number of sigs required to process a multi-sig tx.
-        #[weight = 750_000_000]
+        #[weight = 2_000_000_000]
         pub fn create_multisig(origin, signers: Vec<Signatory<T::AccountId>>, sigs_required: u64) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             ensure!(!signers.is_empty(), Error::<T>::NoSigners);
@@ -487,7 +487,7 @@ decl_module! {
         ///
         /// # Arguments
         /// * `sigs_required` - New number of required signatures.
-        #[weight = 350_000_000]
+        #[weight = 550_000_000]
         pub fn change_sigs_required(origin, sigs_required: u64) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             ensure!(<MultiSigToIdentity<T>>::contains_key(&sender), Error::<T>::NoSuchMultisig);
@@ -1019,7 +1019,7 @@ impl<T: Trait> Module<T> {
             );
             // Don't allow a signer key that is already a secondary key on another identity
             ensure!(
-                !<identity::AccountKeyDids<T>>::contains_key(key),
+                !<identity::KeyToIdentityIds<T>>::contains_key(key),
                 Error::<T>::SignerAlreadyLinked
             );
             // Don't allow a multisig to add itself as a signer to itself

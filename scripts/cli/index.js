@@ -311,48 +311,40 @@ const createIdentities = async function(api, accounts, alice, submitBar, complet
 };
 
 const createIdentitiesWithExpiry = async function(api, accounts, alice, expiries, submitBar, completeBar, fast) {
-let dids = [];
+  let dids = [];
 
-if(!("CREATE IDENTITIES" in fail_type)) {
-  fail_type["CREATE IDENTITIES"] = 0;
-}
+  if(!("CREATE IDENTITIES" in fail_type)) {
+    fail_type["CREATE IDENTITIES"] = 0;
+  }
 
-for (let i = 0; i < accounts.length; i++) {
+  for (let i = 0; i < accounts.length; i++) {
 
-    let expiry = expiries.length == 0 ? null : expiries[i];
-    if(fast) {
-    await api.tx.identity
-      .cddRegisterDid(accounts[i].address, expiry, [])
-      .signAndSend(alice, { nonce: reqImports.nonces.get(alice.address) });
-    }
-    else {
-      let nonceObj = {nonce: reqImports.nonces.get(alice.address)};
-        const transaction = api.tx.identity.cddRegisterDid(accounts[i].address, null, []);
-        const result = await reqImports.sendTransaction(transaction, alice, nonceObj);
-        const passed = result.findRecord('system', 'ExtrinsicSuccess');
-        if (!passed) {
-              fail_count++;
-              completeBar.increment();
-              fail_type["CREATE IDENTITIES"]++;
-        } else {  completeBar.increment(); }
-    }
-  reqImports.nonces.set(alice.address, reqImports.nonces.get(alice.address).addn(1));
-  submitBar.increment();
-}
-await blockTillPoolEmpty(api);
-for (let i = 0; i < accounts.length; i++) {
-  const d = await api.query.identity.accountKeyDids(accounts[i].publicKey);
-  dids.push(d.raw.asUnique);
-}
-let did_balance = 10 * 10**12;
-for (let i = 0; i < dids.length; i++) {
-  let nonceObjTwo = {nonce: nonces.get(alice.address)};
-  const transactionTwo = api.tx.balances.topUpIdentityBalance(dids[i], did_balance);
-  await reqImports.sendTransaction(transactionTwo, alice, nonceObjTwo);
-
-  reqImports.nonces.set( alice.address, reqImports.nonces.get(alice.address).addn(1));
-}
-return dids;
+      let expiry = expiries.length == 0 ? null : expiries[i];
+      if(fast) {
+      await api.tx.identity
+        .cddRegisterDid(accounts[i].address, expiry, [])
+        .signAndSend(alice, { nonce: reqImports.nonces.get(alice.address) });
+      }
+      else {
+        let nonceObj = {nonce: reqImports.nonces.get(alice.address)};
+          const transaction = api.tx.identity.cddRegisterDid(accounts[i].address, null, []);
+          const result = await reqImports.sendTransaction(transaction, alice, nonceObj);
+          const passed = result.findRecord('system', 'ExtrinsicSuccess');
+          if (!passed) {
+                fail_count++;
+                completeBar.increment();
+                fail_type["CREATE IDENTITIES"]++;
+          } else {  completeBar.increment(); }
+      }
+    reqImports.nonces.set(alice.address, reqImports.nonces.get(alice.address).addn(1));
+    submitBar.increment();
+  }
+  await blockTillPoolEmpty(api);
+  for (let i = 0; i < accounts.length; i++) {
+    const d = await api.query.identity.keyToIdentityIds(accounts[i].publicKey);
+    dids.push(d.raw.asUnique);
+  }
+  return dids;
 }
 
 // Attach a secondary key to each DID

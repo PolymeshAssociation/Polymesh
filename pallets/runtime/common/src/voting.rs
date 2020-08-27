@@ -204,7 +204,7 @@ decl_module! {
         /// * `ticker` - Ticker of the token for which vote is to be cast
         /// * `ballot_name` - Name of the ballot
         /// * `votes` - The actual vote to be cast
-        #[weight = 600_000_000]
+        #[weight = 950_000_000]
         pub fn vote(origin, ticker: Ticker, ballot_name: Vec<u8>, votes: Vec<T::Balance>) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             let did = Context::current_identity_or::<Identity<T>>(&sender)?;

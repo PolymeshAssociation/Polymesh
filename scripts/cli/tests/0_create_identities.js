@@ -45,7 +45,7 @@ async function createIdentities(api, accounts, alice) {
       }
 
       for (let i = 0; i < accounts.length; i++) {
-        const d = await api.query.identity.accountKeyDids(accounts[i].publicKey);
+        const d = await api.query.identity.keyToIdentityIds(accounts[i].publicKey);
         dids.push(d.toHuman().Unique);
         console.log( `>>>> [Get DID ] acc: ${accounts[i].address} did: ${dids[i]}` );
       }
@@ -66,17 +66,6 @@ async function createIdentities(api, accounts, alice) {
       }
       await reqImports.blockTillPoolEmpty(api);
 
-      let did_balance = 1000 * 10**6;
-      for (let i = 0; i < dids.length; i++) {
-        let nonceObjTwo = {nonce: reqImports.nonces.get(alice.address)};
-        console.log( `>>>> [top up DID balance] did: ${dids[i]}, balance: ${did_balance}`);
-        const transactionTwo = api.tx.balances.topUpIdentityBalance(dids[i], did_balance);
-        const result = await reqImports.sendTransaction(transactionTwo, alice, nonceObjTwo);
-        const passed = result.findRecord('system', 'ExtrinsicSuccess');
-        if (passed) reqImports.fail_count--;
-
-        reqImports.nonces.set( alice.address, reqImports.nonces.get(alice.address).addn(1));
-      }
       return dids;
 
 }

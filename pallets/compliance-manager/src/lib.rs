@@ -76,10 +76,13 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 #![recursion_limit = "256"]
 
-use core::result::Result as StdResult;
+use core::result::Result;
 use frame_support::{
-    decl_error, decl_event, decl_module, decl_storage, dispatch::DispatchResult, ensure,
+    decl_error, decl_event, decl_module, decl_storage,
+    dispatch::{DispatchError, DispatchResult},
+    ensure,
     traits::Get,
+    weights::Weight,
 };
 use frame_system::{self as system, ensure_signed};
 use pallet_identity as identity;
@@ -93,6 +96,7 @@ use polymesh_common_utilities::{
     Context,
 };
 use polymesh_primitives::{predicate, Claim, ClaimType, IdentityId, Rule, RuleType, Ticker};
+use polymesh_primitives_derive::Migrate;
 #[cfg(feature = "std")]
 use sp_runtime::{Deserialize, Serialize};
 use sp_std::{
@@ -115,12 +119,16 @@ pub trait Trait:
     type MaxRuleComplexity: Get<u32>;
 }
 
+use polymesh_primitives::rule::RuleOld;
+
 /// An asset transfer rule.
 /// All sender and receiver rule of the same asset rule must be true in order to execute the transfer.
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[derive(codec::Encode, codec::Decode, Default, Clone, PartialEq, Eq, Debug)]
+#[derive(codec::Encode, codec::Decode, Default, Clone, PartialEq, Eq, Debug, Migrate)]
 pub struct AssetTransferRule {
+    #[migrate(Rule)]
     pub sender_rules: Vec<Rule>,
+    #[migrate(Rule)]
     pub receiver_rules: Vec<Rule>,
     /// Unique identifier of the asset rule
     pub rule_id: u32,
@@ -175,11 +183,12 @@ impl From<Rule> for RuleResult {
 
 /// List of rules associated to an asset.
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize, Debug))]
-#[derive(codec::Encode, codec::Decode, Default, Clone, PartialEq, Eq)]
+#[derive(codec::Encode, codec::Decode, Default, Clone, PartialEq, Eq, Migrate)]
 pub struct AssetTransferRules {
     /// This flag indicates if asset transfer rules are active or paused.
     pub is_paused: bool,
     /// List of rules.
+    #[migrate(AssetTransferRule)]
     pub rules: Vec<AssetTransferRule>,
 }
 
@@ -208,6 +217,18 @@ impl From<AssetTransferRules> for AssetTransferRulesResult {
                 .collect(),
             final_result: false,
         }
+    }
+}
+
+pub mod weight_for {
+    use super::*;
+
+    pub fn weight_for_verify_restriction<T: Trait>(no_of_asset_rule: u64) -> Weight {
+        no_of_asset_rule * 100_000_000
+    }
+
+    pub fn weight_for_reading_asset_rules<T: Trait>() -> Weight {
+        T::DbWeight::get().reads(1) + 1_000_000
     }
 }
 
@@ -249,6 +270,14 @@ decl_module! {
         type Error = Error<T>;
 
         fn deposit_event() = default;
+
+        fn on_runtime_upgrade() -> frame_support::weights::Weight {
+            use polymesh_primitives::migrate::migrate_map;
+            migrate_map::<AssetTransferRulesOld>(b"ComplianceManager", b"AssetRulesMap");
+
+            // It's gonna be alot, so lets pretend its 0 anyways.
+            0
+        }
 
         /// Adds an asset rule to active rules for a ticker.
         /// If rules are duplicated, it does nothing.
@@ -302,9 +331,12 @@ decl_module! {
 
             ensure!(Self::is_owner(&ticker, did), Error::<T>::Unauthorized);
 
-            <AssetRulesMap>::mutate(ticker, |old_asset_rules| {
-                old_asset_rules.rules.retain( |rule| { rule.rule_id != asset_rule_id });
-            });
+            <AssetRulesMap>::try_mutate(ticker, |asset_rules| {
+                let before = asset_rules.rules.len();
+                asset_rules.rules.retain(|rule| { rule.rule_id != asset_rule_id });
+                ensure!(before != asset_rules.rules.len(), Error::<T>::InvalidRuleId);
+                Ok(()) as DispatchResult
+            })?;
 
             Self::deposit_event(Event::AssetRuleRemoved(did, ticker, asset_rule_id));
 
@@ -323,7 +355,7 @@ decl_module! {
         ///
         /// # Weight
         /// `read_and_write_weight + 100_000_000 + 500_000 * asset_rules.len()`
-        #[weight = T::DbWeight::get().reads_writes(1, 1) + 100_000_000 + 500_000 * u64::try_from(asset_rules.len()).unwrap_or_default()]
+        #[weight = T::DbWeight::get().reads_writes(1, 1) + 400_000_000 + 500_000 * u64::try_from(asset_rules.len()).unwrap_or_default()]
         pub fn replace_asset_rules(origin, ticker: Ticker, asset_rules: Vec<AssetTransferRule>) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             let did = Context::current_identity_or::<Identity<T>>(&sender)?;
@@ -451,7 +483,7 @@ decl_module! {
         /// * origin - Signer of the dispatchable. It should be the owner of the ticker.
         /// * ticker - Symbol of the asset.
         /// * asset_rule - Asset rule.
-        #[weight = T::DbWeight::get().reads_writes(2, 1) + 120_000_000]
+        #[weight = T::DbWeight::get().reads_writes(2, 1) + 720_000_000]
         pub fn change_asset_rule(origin, ticker: Ticker, new_asset_rule: AssetTransferRule) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             let did = Context::current_identity_or::<Identity<T>>(&sender)?;
@@ -482,8 +514,8 @@ decl_module! {
         /// * ticker - Symbol of the asset.
         ///
         /// # Weight
-        /// `read_and_write_weight + 12_000_000 + 100_000 * asset_rules.len().max(values.len())`
-        #[weight = T::DbWeight::get().reads_writes(2, 1) + 120_000_000 + 100_000 * u64::try_from(new_asset_rules.len()).unwrap_or_default()]
+        /// `read_and_write_weight + 720_000_000 + 100_000 * asset_rules.len().max(values.len())`
+        #[weight = T::DbWeight::get().reads_writes(2, 1) + 720_000_000 + 100_000 * u64::try_from(new_asset_rules.len()).unwrap_or_default()]
         pub fn batch_change_asset_rule(origin, new_asset_rules: Vec<AssetTransferRule> , ticker: Ticker) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             let did = Context::current_identity_or::<Identity<T>>(&sender)?;
@@ -588,7 +620,12 @@ impl<T: Trait> Module<T> {
     ///
     /// If `rule` does not define trusted issuers, it will use the default trusted issuer for
     /// `ticker` asset.
-    fn fetch_context(ticker: &Ticker, id: IdentityId, rule: &Rule) -> predicate::Context {
+    fn fetch_context(
+        ticker: &Ticker,
+        id: IdentityId,
+        rule: &Rule,
+        primary_issuance_agent: Option<IdentityId>,
+    ) -> predicate::Context {
         let issuers = if !rule.issuers.is_empty() {
             rule.issuers.clone()
         } else {
@@ -609,15 +646,25 @@ impl<T: Trait> Module<T> {
             RuleType::HasValidProofOfInvestor(ref proof_ticker) => {
                 Self::fetch_confidential_claims(id, proof_ticker)
             }
+            RuleType::IsIdentity(_) => vec![],
         };
 
-        predicate::Context { claims, id }
+        predicate::Context {
+            claims,
+            id,
+            primary_issuance_agent,
+        }
     }
 
     /// Loads the context for each rule in `rules` and verifies that all of them evaluate to `true`.
-    fn are_all_rules_satisfied(ticker: &Ticker, did: IdentityId, rules: &[Rule]) -> bool {
+    fn are_all_rules_satisfied(
+        ticker: &Ticker,
+        did: IdentityId,
+        rules: &[Rule],
+        primary_issuance_agent: Option<IdentityId>,
+    ) -> bool {
         rules.iter().all(|rule| {
-            let context = Self::fetch_context(ticker, did, &rule);
+            let context = Self::fetch_context(ticker, did, &rule, primary_issuance_agent);
             predicate::run(&rule, &context)
         })
     }
@@ -625,10 +672,15 @@ impl<T: Trait> Module<T> {
     /// It loads a context for each rule in `rules` and evaluates them.
     /// It updates the internal result variable of every rule.
     /// It returns the final result of all rules combined.
-    fn evaluate_rules(ticker: &Ticker, did: IdentityId, rules: &mut Vec<RuleResult>) -> bool {
+    fn evaluate_rules(
+        ticker: &Ticker,
+        did: IdentityId,
+        rules: &mut Vec<RuleResult>,
+        primary_issuance_agent: Option<IdentityId>,
+    ) -> bool {
         let mut result = true;
         for rule in rules {
-            let context = Self::fetch_context(ticker, did, &rule.rule);
+            let context = Self::fetch_context(ticker, did, &rule.rule, primary_issuance_agent);
             rule.result = predicate::run(&rule.rule, &context);
             if !rule.result {
                 result = false;
@@ -743,11 +795,11 @@ impl<T: Trait> Module<T> {
 
     // TODO: Cache the latest_rule_id to avoid loading of all asset_rules in memory.
     fn get_latest_rule_id(ticker: Ticker) -> u32 {
-        let length = Self::asset_rules(ticker).rules.len();
-        match length > 0 {
-            true => Self::asset_rules(ticker).rules[length - 1].rule_id,
-            false => 0u32,
-        }
+        Self::asset_rules(ticker)
+            .rules
+            .last()
+            .map(|r| r.rule_id)
+            .unwrap_or(0)
     }
 
     /// verifies all rules and returns the result in an array of bools.
@@ -757,39 +809,32 @@ impl<T: Trait> Module<T> {
         ticker: &Ticker,
         from_did_opt: Option<IdentityId>,
         to_did_opt: Option<IdentityId>,
-        treasury_did: Option<IdentityId>,
+        primary_issuance_agent: Option<IdentityId>,
     ) -> AssetTransferRulesResult {
-        let (treasury_sender, treasury_receiver) = if treasury_did.is_some() {
-            (treasury_did == from_did_opt, treasury_did == to_did_opt)
-        } else {
-            (false, false)
-        };
         let asset_rules = Self::asset_rules(ticker);
-        let no_rules = asset_rules.rules.is_empty();
         let mut asset_rules_with_results = AssetTransferRulesResult::from(asset_rules);
-        // Check if either the sender or the receiver is the treasury DID as in the case of issuance
-        // and credemption transactions.
-        if no_rules
-            && ((from_did_opt == None && treasury_receiver)
-                || (treasury_sender && to_did_opt == None))
-        {
-            return asset_rules_with_results;
-        }
+
         for active_rule in &mut asset_rules_with_results.rules {
             if let Some(from_did) = from_did_opt {
-                // Evaluate all sender rules first before checking if the sender is the treasury account.
-                if !Self::evaluate_rules(ticker, from_did, &mut active_rule.sender_rules)
-                    && !treasury_sender
-                {
+                // Evaluate all sender rules
+                if !Self::evaluate_rules(
+                    ticker,
+                    from_did,
+                    &mut active_rule.sender_rules,
+                    primary_issuance_agent,
+                ) {
                     // If the result of any of the sender rules was false, set this asset rule result to false.
                     active_rule.transfer_rule_result = false;
                 }
             }
             if let Some(to_did) = to_did_opt {
-                // Evaluate all receiver rules first before checking if the receiver is the treasury account.
-                if !Self::evaluate_rules(ticker, to_did, &mut active_rule.receiver_rules)
-                    && !treasury_receiver
-                {
+                // Evaluate all receiver rules
+                if !Self::evaluate_rules(
+                    ticker,
+                    to_did,
+                    &mut active_rule.receiver_rules,
+                    primary_issuance_agent,
+                ) {
                     // If the result of any of the receiver rules was false, set this asset rule result to false.
                     active_rule.transfer_rule_result = false;
                 }
@@ -838,43 +883,53 @@ impl<T: Trait> ComplianceManagerTrait<T::Balance> for Module<T> {
         from_did_opt: Option<IdentityId>,
         to_did_opt: Option<IdentityId>,
         _value: T::Balance,
-        treasury_did: Option<IdentityId>,
-    ) -> StdResult<u8, &'static str> {
-        let (treasury_sender, treasury_receiver) = if treasury_did.is_some() {
-            (treasury_did == from_did_opt, treasury_did == to_did_opt)
-        } else {
-            (false, false)
-        };
-        // Transfer is valid if ALL receiver AND sender rules of ANY asset rule are valid. An
-        // exception is made for the cases when either the sender or the receiver is the treasury
-        // DID, which covers issuance and redemption transactions.
+        primary_issuance_agent: Option<IdentityId>,
+    ) -> Result<(u8, Weight), DispatchError> {
+        // Transfer is valid if ALL receiver AND sender rules of ANY asset rule are valid.
         let asset_rules = Self::asset_rules(ticker);
-        if asset_rules.is_paused
-            || (asset_rules.rules.is_empty()
-                && ((from_did_opt == None && treasury_receiver)
-                    || (treasury_sender && to_did_opt == None)))
-        {
-            return Ok(ERC1400_TRANSFER_SUCCESS);
+        let mut rules_count: usize = 0;
+        if asset_rules.is_paused {
+            return Ok((
+                ERC1400_TRANSFER_SUCCESS,
+                weight_for::weight_for_reading_asset_rules::<T>(),
+            ));
         }
         for active_rule in asset_rules.rules {
-            let mut rule_satisfied = false;
             if let Some(from_did) = from_did_opt {
-                rule_satisfied = treasury_sender
-                    || Self::are_all_rules_satisfied(ticker, from_did, &active_rule.sender_rules);
-                if !rule_satisfied {
+                rules_count += active_rule.sender_rules.len();
+                if !Self::are_all_rules_satisfied(
+                    ticker,
+                    from_did,
+                    &active_rule.sender_rules,
+                    primary_issuance_agent,
+                ) {
                     // Skips checking receiver rules because sender rules are not satisfied.
                     continue;
                 }
             }
+
             if let Some(to_did) = to_did_opt {
-                rule_satisfied = treasury_receiver
-                    || Self::are_all_rules_satisfied(ticker, to_did, &active_rule.receiver_rules);
-            }
-            if rule_satisfied {
-                return Ok(ERC1400_TRANSFER_SUCCESS);
+                rules_count += active_rule.receiver_rules.len();
+                if Self::are_all_rules_satisfied(
+                    ticker,
+                    to_did,
+                    &active_rule.receiver_rules,
+                    primary_issuance_agent,
+                ) {
+                    // All rules satisfied, return early
+                    return Ok((
+                        ERC1400_TRANSFER_SUCCESS,
+                        weight_for::weight_for_verify_restriction::<T>(
+                            u64::try_from(rules_count).unwrap_or(0),
+                        ),
+                    ));
+                }
             }
         }
         sp_runtime::print("Identity TM restrictions not satisfied");
-        Ok(ERC1400_TRANSFER_FAILURE)
+        Ok((
+            ERC1400_TRANSFER_FAILURE,
+            weight_for::weight_for_verify_restriction::<T>(u64::try_from(rules_count).unwrap_or(0)),
+        ))
     }
 }

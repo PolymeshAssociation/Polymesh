@@ -1,6 +1,15 @@
 const { ApiPromise, WsProvider, Keyring } = require("@polkadot/api");
-const { cryptoWaitReady, blake2AsHex, mnemonicGenerate } = require("@polkadot/util-crypto");
-const { stringToU8a, u8aConcat, u8aFixLength, u8aToHex } = require('@polkadot/util');
+const {
+  cryptoWaitReady,
+  blake2AsHex,
+  mnemonicGenerate,
+} = require("@polkadot/util-crypto");
+const {
+  stringToU8a,
+  u8aConcat,
+  u8aFixLength,
+  u8aToHex,
+} = require("@polkadot/util");
 const BN = require("bn.js");
 const assert = require("assert");
 const fs = require("fs");
@@ -19,31 +28,31 @@ let synced_block_ts = 0;
 // Amount to seed each key with
 let transfer_amount = new BN(25000).mul(new BN(10).pow(new BN(6)));
 
-const senderRules1 = function(trusted_did, asset_did) {
-    return [
+const senderRules1 = function (trusted_did, asset_did) {
+  return [
     {
-      "rule_type": {
-        "IsPresent": {
-          "Exempted": asset_did
-        }
+      rule_type: {
+        IsPresent: {
+          Exempted: asset_did,
+        },
       },
-      "issuers": [trusted_did]
-    }
+      issuers: [trusted_did],
+    },
   ];
-}
+};
 
-const receiverRules1 = function(trusted_did, asset_did) {
-    return [
+const receiverRules1 = function (trusted_did, asset_did) {
+  return [
     {
-      "rule_type": {
-        "IsPresent": {
-          "Exempted": asset_did
-        }
+      rule_type: {
+        IsPresent: {
+          Exempted: asset_did,
+        },
       },
-      "issuers": [trusted_did]
-    }
+      issuers: [trusted_did],
+    },
   ];
-}
+};
 
 // Initialization Main is used to generate all entities e.g (Alice, Bob, Dave)
 async function initMain(api) {
@@ -53,6 +62,7 @@ async function initMain(api) {
   let bob = await generateEntity(api, "Bob");
   let charlie = await generateEntity(api, "Charlie");
   let dave = await generateEntity(api, "Dave");
+  let eve = await generateEntity(api, "Eve");
   let relay = await generateEntity(api, "relay_1");
   let govCommittee1 = await generateEntity(api, "governance_committee_1");
   let govCommittee2 = await generateEntity(api, "governance_committee_2");
@@ -64,28 +74,33 @@ async function initMain(api) {
   entities.push(relay);
   entities.push(govCommittee1);
   entities.push(govCommittee2);
+  entities.push(eve);
 
   return entities;
 }
 
-const createApi = async function() {
+const createApi = async function () {
   // Schema path
-  const filePath = reqImports.path.join(__dirname + "/../../../polymesh_schema.json");
+  const filePath = reqImports.path.join(
+    __dirname + "/../../../polymesh_schema.json"
+  );
   const { types } = JSON.parse(reqImports.fs.readFileSync(filePath, "utf8"));
 
   // Start node instance
   const ws_provider = new reqImports.WsProvider("ws://127.0.0.1:9944/");
   const api = await reqImports.ApiPromise.create({
     types,
-    provider: ws_provider
+    provider: ws_provider,
   });
   return api;
-}
+};
 
 let generateEntity = async function (api, name) {
   let entity = [];
   await cryptoWaitReady();
-  entity = new Keyring({ type: "sr25519" }).addFromUri(`//${name}`, { name: `${name}` });
+  entity = new Keyring({ type: "sr25519" }).addFromUri(`//${name}`, {
+    name: `${name}`,
+  });
   let entityRawNonce = (await api.query.system.account(entity.address)).nonce;
   let entity_nonce = new BN(entityRawNonce.toString());
   nonces.set(entity.address, entity_nonce);
@@ -93,18 +108,20 @@ let generateEntity = async function (api, name) {
   return entity;
 };
 
-
-
 const generateKeys = async function (api, numberOfKeys, keyPrepend) {
   let keys = [];
   await cryptoWaitReady();
   for (let i = 0; i < numberOfKeys; i++) {
     keys.push(
-      new Keyring({ type: "sr25519" }).addFromUri("//" + keyPrepend + i.toString(), {
-        name: i.toString()
-      })
+      new Keyring({ type: "sr25519" }).addFromUri(
+        "//" + keyPrepend + i.toString(),
+        {
+          name: i.toString(),
+        }
+      )
     );
-    let accountRawNonce = (await api.query.system.account(keys[i].address)).nonce;
+    let accountRawNonce = (await api.query.system.account(keys[i].address))
+      .nonce;
     let account_nonce = new BN(accountRawNonce.toString());
     nonces.set(keys[i].address, account_nonce);
   }
@@ -124,7 +141,7 @@ const blockTillPoolEmpty = async function (api) {
   let prev_block_pending = 0;
   let done_something = false;
   let done = false;
-  const unsub = await api.rpc.chain.subscribeNewHeads(async header => {
+  const unsub = await api.rpc.chain.subscribeNewHeads(async (header) => {
     let last_synced_block = synced_block;
     if (header.number > last_synced_block) {
       for (let i = last_synced_block + 1; i <= header.number; i++) {
@@ -151,39 +168,46 @@ const blockTillPoolEmpty = async function (api) {
   });
   // Should use a mutex here...
   while (!done) {
-    await new Promise(resolve => setTimeout(resolve, 1000));
+    await new Promise((resolve) => setTimeout(resolve, 1000));
   }
 };
 
 // Create a new DID for each of accounts[]
 // precondition - accounts all have enough POLY
-const createIdentities = async function(api, accounts, alice) {
-    return await createIdentitiesWithExpiry(api, accounts, alice, []);
+const createIdentities = async function (api, accounts, alice) {
+  return await createIdentitiesWithExpiry(api, accounts, alice, []);
 };
 
-const createIdentitiesWithExpiry = async function(api, accounts, alice, expiries) {
+const createIdentitiesWithExpiry = async function (
+  api,
+  accounts,
+  alice,
+  expiries
+) {
   let dids = [];
 
   for (let i = 0; i < accounts.length; i++) {
     console.log( `>>>> [Register CDD Claim] acc: ${accounts[i].address}`);
     await api.tx.identity
-        .cddRegisterDid(accounts[i].address, [])
-        .signAndSend(alice, { nonce: nonces.get(alice.address) });
+      .cddRegisterDid(accounts[i].address, [])
+      .signAndSend(alice, { nonce: nonces.get(alice.address) });
 
     nonces.set(alice.address, nonces.get(alice.address).addn(1));
   }
   await blockTillPoolEmpty(api);
 
   for (let i = 0; i < accounts.length; i++) {
-    const d = await api.query.identity.accountKeyDids(accounts[i].publicKey);
+    const d = await api.query.identity.keyToIdentityIds(accounts[i].publicKey);
     dids.push(d.toHuman().Unique);
     console.log( `>>>> [Get DID ] acc: ${accounts[i].address} did: ${dids[i]}` );
   }
 
   // Add CDD Claim with CDD_ID
   for (let i = 0; i < dids.length; i++) {
-    const cdd_id_byte = (i+1).toString(16).padStart(2,'0');
-    const claim = { CustomerDueDiligence: `0x00000000000000000000000000000000000000000000000000000000000000${cdd_id_byte}`};
+    const cdd_id_byte = (i + 1).toString(16).padStart(2, "0");
+    const claim = {
+      CustomerDueDiligence: `0x00000000000000000000000000000000000000000000000000000000000000${cdd_id_byte}`,
+    };
     const expiry = expiries.length == 0 ? null : expiries[i];
 
     console.log( `>>>> [add CDD Claim] did: ${dids[i]}, claim: ${JSON.stringify( claim)}`);
@@ -194,38 +218,24 @@ const createIdentitiesWithExpiry = async function(api, accounts, alice, expiries
     nonces.set(alice.address, nonces.get(alice.address).addn(1));
   }
 
-  let did_balance = 1000 * 10**6;
-  for (let i = 0; i < dids.length; i++) {
-    await topUpIdentityBalance(api, alice, dids[i], did_balance);
-  }
   return dids;
-}
-
-// Top up identity balance
-async function topUpIdentityBalance(api, signer, did, did_balance) {
-  let nonceObj = {nonce: nonces.get(signer.address)};
-  const transaction = api.tx.balances.topUpIdentityBalance(did, did_balance);
-  await sendTransaction(transaction, signer, nonceObj);
-
-  nonces.set( signer.address, nonces.get(signer.address).addn(1));
-}
+};
 
 // Fetches DID that belongs to the Account Key
-async function accountKeyDids(api, accountKey) {
-  let account_did = await api.query.identity.accountKeyDids(accountKey);
+async function keyToIdentityIds(api, accountKey) {
+  let account_did = await api.query.identity.keyToIdentityIds(accountKey);
   return account_did;
 }
 
 // Sends transfer_amount to accounts[] from alice
 async function distributePoly(api, to, amount, from) {
-    // Perform the transfers
-    let nonceObj = {nonce: nonces.get(from.address)};
-    const transaction = api.tx.balances.transfer(to.address, amount);
-    await sendTransaction(transaction, from, nonceObj);
+  // Perform the transfers
+  let nonceObj = { nonce: nonces.get(from.address) };
+  const transaction = api.tx.balances.transfer(to.address, amount);
+  await sendTransaction(transaction, from, nonceObj);
 
-    nonces.set( from.address, nonces.get(from.address).addn(1));
+  nonces.set(from.address, nonces.get(from.address).addn(1));
 }
-
 
 async function distributePolyBatch(api, to, amount, from) {
   // Perform the transfers
@@ -257,7 +267,7 @@ async function authorizeJoinToIdentities(api, accounts, dids, secondary_accounts
     let last_auth_id = 0;
     for (let i = 0; i < auths.length; i++) {
       if (auths[i][1].auth_id.toNumber() > last_auth_id) {
-        last_auth_id = auths[i][1].auth_id.toNumber()
+        last_auth_id = auths[i][1].auth_id.toNumber();
       }
     }
 
@@ -276,137 +286,148 @@ async function authorizeJoinToIdentities(api, accounts, dids, secondary_accounts
 
 // Creates a token for a did
 async function issueTokenPerDid(api, accounts, prepend) {
-
   const ticker = `token${prepend}0`.toUpperCase();
   assert( ticker.length <= 12, "Ticker cannot be longer than 12 characters");
 
-  const unsub = await api.tx.asset
-        .createAsset(ticker, ticker, 1000000, true, 0, [], "abc", null)
-        .signAndSend(accounts[0], { nonce: nonces.get(accounts[0].address) });
-  nonces.set(accounts[0].address, nonces.get(accounts[0].address).addn(1));
+  let nonceObj = {nonce: nonces.get(accounts[0].address)};
+    const transaction = api.tx.asset.createAsset(
+      ticker, ticker, 1000000, true, 0, [], "abc"
+    );
+    await sendTransaction(transaction, accounts[0], nonceObj);
+
+    nonces.set(accounts[0].address, nonces.get(accounts[0].address).addn(1));
 }
 
 // Returns the asset did
 function tickerToDid(ticker) {
-    return blake2AsHex(
-      u8aConcat(stringToU8a("SECURITY_TOKEN:"), u8aFixLength(stringToU8a(ticker), 96, true)
-        ));
+  return blake2AsHex(
+    u8aConcat(
+      stringToU8a("SECURITY_TOKEN:"),
+      u8aFixLength(stringToU8a(ticker), 96, true)
+    )
+  );
 }
 
 // Creates claim rules for an asset
 async function createClaimRules(api, accounts, dids, prepend) {
+  const ticker = `token${prepend}0`.toUpperCase();
+  assert(ticker.length <= 12, "Ticker cannot be longer than 12 characters");
 
-    const ticker = `token${prepend}0`.toUpperCase();
-    assert( ticker.length <= 12, "Ticker cannot be longer than 12 characters");
+  const asset_did = tickerToDid(ticker);
 
-    const asset_did = tickerToDid(ticker);
+  let senderRules = senderRules1(dids[1], asset_did);
+  let receiverRules = receiverRules1(dids[1], asset_did);
 
-    let senderRules = senderRules1(dids[1], asset_did);
-    let receiverRules = receiverRules1(dids[1], asset_did);
+  let nonceObj = { nonce: nonces.get(accounts[0].address) };
+  const transaction = api.tx.complianceManager.addActiveRule(
+    ticker,
+    senderRules,
+    receiverRules
+  );
+  await sendTransaction(transaction, accounts[0], nonceObj);
 
-    let nonceObj = {nonce: nonces.get(accounts[0].address)};
-    const transaction = api.tx.complianceManager.addActiveRule(ticker, senderRules, receiverRules);
-    await sendTransaction(transaction, accounts[0], nonceObj);
-
-    nonces.set(accounts[0].address, nonces.get(accounts[0].address).addn(1));
-
-
+  nonces.set(accounts[0].address, nonces.get(accounts[0].address).addn(1));
 }
 
 // Adds claim to did
-async function addClaimsToDids(api, accounts, did, claimType, claimValue, expiry) {
-
+async function addClaimsToDids(
+  api,
+  accounts,
+  did,
+  claimType,
+  claimValue,
+  expiry
+) {
   // Receieving Rules Claim
-  let claim = {[claimType]: claimValue};
+  let claim = { [claimType]: claimValue };
 
-  let nonceObj = {nonce: nonces.get(accounts[1].address)};
+  let nonceObj = { nonce: nonces.get(accounts[1].address) };
   expiry = expiry == 0 ? null : expiry;
   const transaction = api.tx.identity.addClaim(did, claim, expiry);
   await sendTransaction(transaction, accounts[1], nonceObj);
 
   nonces.set(accounts[1].address, nonces.get(accounts[1].address).addn(1));
-
 }
 
-const generateStashKeys = async function(api, accounts) {
+const generateStashKeys = async function (api, accounts) {
   let keys = [];
   await cryptoWaitReady();
   for (let i = 0; i < accounts.length; i++) {
     keys.push(
-      new Keyring({ type: "sr25519" }).addFromUri(`//${accounts[i]}//stash`, { name: `${accounts[i]+ "_stash"}`
+      new Keyring({ type: "sr25519" }).addFromUri(`//${accounts[i]}//stash`, {
+        name: `${accounts[i] + "_stash"}`,
       })
     );
-    let accountRawNonce = (await api.query.system.account(keys[i].address)).nonce;
+    let accountRawNonce = (await api.query.system.account(keys[i].address))
+      .nonce;
     let account_nonce = new BN(accountRawNonce.toString());
     nonces.set(keys[i].address, account_nonce);
   }
   return keys;
-}
+};
 
 function sendTransaction(transaction, signer, nonceObj) {
   return new Promise((resolve, reject) => {
+    const gettingUnsub = transaction.signAndSend(
+      signer,
+      nonceObj,
+      (receipt) => {
+        const { status } = receipt;
 
-    const gettingUnsub = transaction.signAndSend(signer, nonceObj, receipt => {
+        if (receipt.isCompleted) {
+          /*
+           * isCompleted === isFinalized || isError, which means
+           * no further updates, so we unsubscribe
+           */
+          gettingUnsub.then((unsub) => {
+            unsub();
+          });
 
-      const { status } = receipt;
+          if (receipt.isInBlock) {
+            // tx included in a block and finalized
+            const failed = receipt.findRecord("system", "ExtrinsicFailed");
 
-      if (receipt.isCompleted) {
+            if (failed) {
+              // get revert message from event
+              let message = "";
+              const dispatchError = failed.event.data[0];
 
-        /*
-         * isCompleted === isFinalized || isError, which means
-         * no further updates, so we unsubscribe
-         */
-        gettingUnsub.then(unsub => {
+              if (dispatchError.isModule) {
+                // known error
+                const mod = dispatchError.asModule;
+                const {
+                  section,
+                  name,
+                  documentation,
+                } = mod.registry.findMetaError(
+                  new Uint8Array([mod.index.toNumber(), mod.error.toNumber()])
+                );
 
-          unsub();
+                message = `${section}.${name}: ${documentation.join(" ")}`;
+              } else if (dispatchError.isBadOrigin) {
+                message = "Bad origin";
+              } else if (dispatchError.isCannotLookup) {
+                message =
+                  "Could not lookup information required to validate the transaction";
+              } else {
+                message = "Unknown error";
+              }
 
-        });
-
-        if (receipt.isInBlock) {
-
-          // tx included in a block and finalized
-          const failed = receipt.findRecord('system', 'ExtrinsicFailed');
-
-          if (failed) {
-
-            // get revert message from event
-            let message = "";
-            const dispatchError = failed.event.data[0];
-
-            if (dispatchError.isModule) {
-
-              // known error
-              const mod = dispatchError.asModule;
-              const { section, name, documentation } = mod.registry.findMetaError(
-                new Uint8Array([mod.index.toNumber(), mod.error.toNumber()])
-              );
-
-              message = `${section}.${name}: ${documentation.join(' ')}`;
-            } else if (dispatchError.isBadOrigin) {
-              message = 'Bad origin';
-            } else if (dispatchError.isCannotLookup) {
-              message = 'Could not lookup information required to validate the transaction';
+              reject(new Error(message));
             } else {
-              message = 'Unknown error';
+              resolve(receipt);
             }
-
-            reject(new Error(message));
-          } else {
-
-            resolve(receipt);
+          } else if (receipt.isError) {
+            reject(new Error("Transaction Aborted"));
           }
-        } else if (receipt.isError) {
-
-          reject(new Error('Transaction Aborted'));
-
         }
       }
-    });
+    );
   });
 }
 
 async function signAndSendTransaction(transaction, signer) {
-  let nonceObj = {nonce: nonces.get(signer.address)};
+  let nonceObj = { nonce: nonces.get(signer.address) };
   await sendTransaction(transaction, signer, nonceObj);
   nonces.set(signer.address, nonces.get(signer.address).addn(1));
 }
@@ -414,7 +435,7 @@ async function signAndSendTransaction(transaction, signer) {
 async function generateOffchainKeys(api, keyType) {
   const PHRASE = mnemonicGenerate();
   await cryptoWaitReady();
-  const newPair = new Keyring({ type: 'sr25519' }).addFromUri(PHRASE);
+  const newPair = new Keyring({ type: "sr25519" }).addFromUri(PHRASE);
   await api.rpc.author.insertKey(keyType, PHRASE, u8aToHex(newPair.publicKey));
 }
 
@@ -424,26 +445,167 @@ async function signatory(api, entity, signer) {
   let entityDid = await createIdentities(api, [entity], signer);
 
   let signatoryObj = {
-      "Identity": entityDid,
-      "Account": entityKey
-  }
+    Identity: entityDid,
+    Account: entityKey,
+  };
   return signatoryObj;
 }
 
 // Creates a multiSig Key
-async function createMultiSig( api, signer, dids, numOfSigners ) {
-
-  let nonceObj = {nonce: nonces.get(signer.address)};
+async function createMultiSig(api, signer, dids, numOfSigners) {
+  let nonceObj = { nonce: nonces.get(signer.address) };
   const transaction = api.tx.multiSig.createMultisig(dids, numOfSigners);
   await sendTransaction(transaction, signer, nonceObj);
 
   nonces.set(signer.address, nonces.get(signer.address).addn(1));
-
 }
 
 async function jumpLightYears() {
+  await api.tx.timestamp.set();
+}
 
-  await api.tx.timestamp.set()
+async function mintingAsset(api, minter, did, prepend) {
+  const ticker = `token${prepend}0`.toUpperCase();
+  let nonceObj = { nonce: nonces.get(minter.address) };
+  const transaction = await api.tx.asset.issue(ticker, 100);
+  const result = await sendTransaction(transaction, minter, nonceObj);
+
+  nonces.set(minter.address, nonces.get(minter.address).addn(1));
+}
+
+async function sendTx(signer, tx) {
+  let nonceObj = { nonce: nonces.get(signer.address) };
+  const result = await sendTransaction(tx, signer, nonceObj);
+  const passed = result.findRecord("system", "ExtrinsicSuccess");
+  if (!passed) return -1;
+  nonces.set(signer.address, nonces.get(signer.address).addn(1));
+}
+
+async function addActiveRule(api, sender, ticker) {
+  const transaction = await api.tx.complianceManager.addActiveRule(
+    ticker,
+    [],
+    []
+  );
+
+  await sendTx(sender, transaction);
+}
+
+async function createVenue(api, sender) {
+  let venueCounter = await api.query.settlement.venueCounter();
+  let venueDetails = [0];
+
+  const transaction = await api.tx.settlement.createVenue(venueDetails, [
+    sender.address,
+  ], 0);
+
+  await sendTx(sender, transaction);
+
+  return venueCounter;
+}
+
+async function authorizeInstruction(api, sender, instructionCounter) {
+  const transaction = await api.tx.settlement.authorizeInstruction(
+    instructionCounter
+  );
+
+  await sendTx(sender, transaction);
+}
+
+async function unauthorizeInstruction(api, sender, instructionCounter) {
+  const transaction = await api.tx.settlement.unauthorizeInstruction(
+    instructionCounter
+  );
+
+  await sendTx(sender, transaction);
+}
+
+async function rejectInstruction(api, sender, instructionCounter) {
+  const transaction = await api.tx.settlement.rejectInstruction(
+    instructionCounter
+  );
+
+  await sendTx(sender, transaction);
+}
+
+async function addInstruction(
+  api,
+  venueCounter,
+  sender,
+  sender_did,
+  receiver_did,
+  ticker,
+  ticker2,
+  amount
+) {
+  let instructionCounter = await api.query.settlement.instructionCounter();
+  let transaction;
+  let leg = {
+    from: sender_did,
+    to: receiver_did,
+    asset: ticker,
+    amount: amount,
+  };
+
+  let leg2 = {
+    from: receiver_did,
+    to: sender_did,
+    asset: ticker2,
+    amount: amount,
+  };
+
+  if (ticker2 === null || ticker2 === undefined) {
+    transaction = await api.tx.settlement.addInstruction(
+      venueCounter,
+      0,
+      null,
+      [leg]
+    );
+  } else {
+    transaction = await api.tx.settlement.addInstruction(
+      venueCounter,
+      0,
+      null,
+      [leg, leg2]
+    );
+  }
+
+  await sendTx(sender, transaction);
+
+  return instructionCounter;
+}
+
+async function claimReceipt(
+  api,
+  sender,
+  sender_did,
+  receiver_did,
+  ticker,
+  amount,
+  instructionCounter
+) {
+  let nonceObj = { nonce: nonces.get(sender.address) };
+  let msg = {
+    receipt_uid: 0,
+    from: sender_did,
+    to: receiver_did,
+    asset: ticker,
+    amount: amount,
+  };
+
+  let receiptDetails = {
+    receipt_uid: 0,
+    leg_id: 0,
+    signer: sender.address,
+    signature: 1,
+  };
+
+  const transaction = await api.tx.settlement.claimReceipt(
+    instructionCounter,
+    receiptDetails
+  );
+
+  await sendTx(sender, transaction);
 }
 
 // this object holds the required imports for all the scripts
@@ -481,8 +643,16 @@ let reqImports = {
   signatory,
   createMultiSig,
   u8aToHex,
-  topUpIdentityBalance,
-  accountKeyDids
+  keyToIdentityIds,
+  mintingAsset,
+  sendTx,
+  addActiveRule,
+  createVenue,
+  addInstruction,
+  authorizeInstruction,
+  unauthorizeInstruction,
+  rejectInstruction,
+  claimReceipt,
 };
 
 export { reqImports };

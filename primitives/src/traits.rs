@@ -13,29 +13,6 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
-use crate::identity_id::IdentityId;
-
-use frame_support::{dispatch::DispatchError, traits::Currency};
-use sp_std::result;
-
-#[allow(missing_docs)]
-pub trait IdentityCurrency<AccountId>: Currency<AccountId> {
-    fn withdraw_identity_balance(
-        who: &IdentityId,
-        value: Self::Balance,
-    ) -> result::Result<Self::NegativeImbalance, DispatchError>;
-
-    fn charge_fee_to_identity(who: &AccountId) -> Option<IdentityId>;
-
-    /// Mints `value` to the free balance of `who`.
-    ///
-    /// If `who` doesn't exist, nothing is done and an `Err` returned.
-    fn deposit_into_existing_identity(
-        who: &IdentityId,
-        value: Self::Balance,
-    ) -> result::Result<Self::PositiveImbalance, DispatchError>;
-}
-
 /// A currency that has a block rewards reserve.
 pub trait BlockRewardsReserveCurrency<Balance, NegativeImbalance> {
     /// An instance of `Drop` for positive imbalance.

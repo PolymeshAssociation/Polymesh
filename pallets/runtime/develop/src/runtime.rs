@@ -31,7 +31,6 @@ use polymesh_common_utilities::{
         PermissionChecker,
         balances::AccountData,
         identity::Trait as IdentityTrait,
-        pip::{EnactProposalMaker, PipId},
     },
     CommonTrait,
 };
@@ -392,19 +391,22 @@ impl pallet_staking::Trait for Runtime {
 parameter_types! {
     pub const MotionDuration: BlockNumber = 0;
 }
+
+/// Voting majority origin for `Instance`.
+type VMO<Instance> = committee::EnsureProportionAtLeast<_1, _2, AccountId, Instance>;
+
 type GovernanceCommittee = committee::Instance1;
 impl committee::Trait<GovernanceCommittee> for Runtime {
     type Origin = Origin;
     type Proposal = Call;
-    type CommitteeOrigin = frame_system::EnsureRoot<AccountId>;
+    type CommitteeOrigin = VMO<GovernanceCommittee>;
     type Event = Event;
     type MotionDuration = MotionDuration;
-    type EnactProposalMaker = Runtime;
 }
-
 /// PolymeshCommittee as an instance of group
 impl group::Trait<group::Instance1> for Runtime {
     type Event = Event;
+    type LimitOrigin = frame_system::EnsureRoot<AccountId>;
     type AddOrigin = frame_system::EnsureRoot<AccountId>;
     type RemoveOrigin = frame_system::EnsureRoot<AccountId>;
     type SwapOrigin = frame_system::EnsureRoot<AccountId>;
@@ -413,12 +415,42 @@ impl group::Trait<group::Instance1> for Runtime {
     type MembershipChanged = PolymeshCommittee;
 }
 
+macro_rules! committee_config {
+    ($committee:ident, $instance:ident) => {
+        impl committee::Trait<committee::$instance> for Runtime {
+            type Origin = Origin;
+            type Proposal = Call;
+            // Can act upon itself.
+            type CommitteeOrigin = VMO<committee::$instance>;
+            type Event = Event;
+            type MotionDuration = MotionDuration;
+        }
+        impl group::Trait<group::$instance> for Runtime {
+            type Event = Event;
+            // Committee cannot alter its own active membership limit.
+            type LimitOrigin = frame_system::EnsureRoot<AccountId>;
+            // Can manage its own addition, deletion, and swapping of membership...
+            type AddOrigin = VMO<committee::$instance>;
+            type RemoveOrigin = VMO<committee::$instance>;
+            type SwapOrigin = VMO<committee::$instance>;
+            // ...but it cannot reset its own membership; GC needs to do that.
+            type ResetOrigin = VMO<GovernanceCommittee>;
+            type MembershipInitialized = $committee;
+            type MembershipChanged = $committee;
+        }
+    };
+}
+
+committee_config!(TechnicalCommittee, Instance3);
+committee_config!(UpgradeCommittee, Instance4);
+
 impl pallet_pips::Trait for Runtime {
     type Currency = Balances;
     type CommitteeOrigin = frame_system::EnsureRoot<AccountId>;
-    type VotingMajorityOrigin =
-        committee::EnsureProportionAtLeast<_1, _2, AccountId, GovernanceCommittee>;
+    type VotingMajorityOrigin = VMO<GovernanceCommittee>;
     type GovernanceCommittee = PolymeshCommittee;
+    type TechnicalCommitteeVMO = VMO<committee::Instance3>;
+    type UpgradeCommitteeVMO = VMO<committee::Instance4>;
     type Treasury = Treasury;
     type Event = Event;
 }
@@ -514,12 +546,14 @@ impl treasury::Trait for Runtime {
 
 parameter_types! {
     pub const MaxScheduledInstructionLegsPerBlock: u32 = 500;
+    pub const MaxLegsInAInstruction: u32 = 20;
 }
 
 impl settlement::Trait for Runtime {
     type Event = Event;
     type Asset = Asset;
     type MaxScheduledInstructionLegsPerBlock = MaxScheduledInstructionLegsPerBlock;
+    type MaxLegsInAInstruction = MaxLegsInAInstruction;
 }
 
 impl sto::Trait for Runtime {
@@ -611,10 +645,15 @@ impl portfolio::Trait for Runtime {
     type Event = Event;
 }
 
+parameter_types! {
+    pub const MaxNumberOfTMExtensionForAsset: u32 = 5;
+}
+
 impl asset::Trait for Runtime {
     type Event = Event;
     type Currency = Balances;
     type ComplianceManager = compliance_manager::Module<Runtime>;
+    type MaxNumberOfTMExtensionForAsset = MaxNumberOfTMExtensionForAsset;
 }
 
 parameter_types! {
@@ -663,6 +702,8 @@ impl dividend::Trait for Runtime {
 /// CddProviders instance of group
 impl group::Trait<group::Instance2> for Runtime {
     type Event = Event;
+    // Cannot alter its own active membership limit.
+    type LimitOrigin = frame_system::EnsureRoot<AccountId>;
     type AddOrigin = frame_system::EnsureRoot<AccountId>;
     type RemoveOrigin = frame_system::EnsureRoot<AccountId>;
     type SwapOrigin = frame_system::EnsureRoot<AccountId>;
@@ -676,20 +717,6 @@ impl statistics::Trait for Runtime {}
 impl pallet_utility::Trait for Runtime {
     type Event = Event;
     type Call = Call;
-}
-
-impl EnactProposalMaker<Origin, Call> for Runtime {
-    fn is_pip_id_valid(id: PipId) -> bool {
-        Pips::is_proposal_id_valid(id)
-    }
-
-    fn enact_referendum_call(id: PipId) -> Call {
-        Call::Pips(pallet_pips::Call::enact_referendum(id))
-    }
-
-    fn reject_referendum_call(id: PipId) -> Call {
-        Call::Pips(pallet_pips::Call::reject_referendum(id))
-    }
 }
 
 impl confidential::Trait for Runtime {
@@ -767,6 +794,12 @@ construct_runtime!(
         PolymeshCommittee: committee::<Instance1>::{Module, Call, Storage, Origin<T>, Event<T>, Config<T>},
         CommitteeMembership: group::<Instance1>::{Module, Call, Storage, Event<T>, Config<T>},
         Pips: pallet_pips::{Module, Call, Storage, Event<T>, Config<T>},
+
+        TechnicalCommittee: committee::<Instance3>::{Module, Call, Storage, Origin<T>, Event<T>, Config<T>},
+        TechnicalCommitteeMembership: group::<Instance3>::{Module, Call, Storage, Event<T>, Config<T>},
+
+        UpgradeCommittee: committee::<Instance4>::{Module, Call, Storage, Origin<T>, Event<T>, Config<T>},
+        UpgradeCommitteeMembership: group::<Instance4>::{Module, Call, Storage, Event<T>, Config<T>},
 
         //Polymesh
         Asset: asset::{Module, Call, Storage, Config<T>, Event<T>},
@@ -1025,7 +1058,7 @@ impl_runtime_apis! {
 
         /// Proposals voted by `address`
         fn proposed_by(address: AccountId) -> Vec<u32> {
-            Pips::proposed_by(address)
+            Pips::proposed_by(pallet_pips::Proposer::Community(address))
         }
 
         /// Proposals `address` voted on
@@ -1120,10 +1153,10 @@ impl_runtime_apis! {
             ticker: Ticker,
             from_did: Option<IdentityId>,
             to_did: Option<IdentityId>,
-            treasury_did: Option<IdentityId>,
+            primary_issuance_agent: Option<IdentityId>,
         ) -> AssetTransferRulesResult
         {
-            ComplianceManager::granular_verify_restriction(&ticker, from_did, to_did, treasury_did)
+            ComplianceManager::granular_verify_restriction(&ticker, from_did, to_did, primary_issuance_agent)
         }
     }
 

@@ -30,8 +30,11 @@ fn can_charge_fee_batch() {
             register_keyring_account_with_balance(AccountKeyring::Alice, PROTOCOL_OP_BASE_FEE * 10)
                 .unwrap();
         let alice_signer = Signatory::Account(AccountKeyring::Alice.public());
-        TestStorage::set_payer_context(Some(alice_signer));
-        assert_eq!(TestStorage::get_payer_from_context(), Some(alice_signer));
+        TestStorage::set_payer_context(Some(AccountKeyring::Alice.public()));
+        assert_eq!(
+            TestStorage::get_payer_from_context(),
+            Some(AccountKeyring::Alice.public())
+        );
         assert_ok!(ProtocolFee::batch_charge_fee(ProtocolOp::AssetIssue, 7));
         assert_err!(
             ProtocolFee::batch_charge_fee(ProtocolOp::AssetIssue, 7),

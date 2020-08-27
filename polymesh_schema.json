@@ -1,7 +1,7 @@
 {
     "types": {
-        "IdentityId":"[u8; 32]",
-        "InvestorUid":"[u8; 32]",
+        "IdentityId": "[u8; 32]",
+        "InvestorUid": "[u8; 32]",
         "Ticker": "[u8; 12]",
         "CddId": "[u8; 32]",
         "ScopeId": "[u8; 32]",
@@ -31,7 +31,8 @@
             "_enum": {
                 "Cins": "",
                 "Cusip": "",
-                "Isin": ""
+                "Isin": "",
+                "Dti": ""
             }
         },
         "AssetOwnershipRelation": {
@@ -51,7 +52,7 @@
             "owner_did": "IdentityId",
             "divisible": "bool",
             "asset_type": "AssetType",
-            "treasury_did": "Option<IdentityId>"
+            "primary_issuance_agent": "Option<IdentityId>"
         },
         "PalletName": "Text",
         "FunctionName": "Text",
@@ -97,7 +98,7 @@
             "signer": "Signatory",
             "permissions": "Permissions"
         },
-        "SecondaryKeyWithAuth":{
+        "SecondaryKeyWithAuth": {
             "secondary_key": "SecondaryKey",
             "auth_signature": "Signature"
         },
@@ -124,7 +125,257 @@
             "primary_key": "AccountId",
             "secondary_keys": "Vec<SecondaryKey>"
         },
-        "JurisdictionName": "Text",
+        "CountryCode": {
+            "_enum": [
+                "AF",
+                "AX",
+                "AL",
+                "DZ",
+                "AS",
+                "AD",
+                "AO",
+                "AI",
+                "AQ",
+                "AG",
+                "AR",
+                "AM",
+                "AW",
+                "AU",
+                "AT",
+                "AZ",
+                "BS",
+                "BH",
+                "BD",
+                "BB",
+                "BY",
+                "BE",
+                "BZ",
+                "BJ",
+                "BM",
+                "BT",
+                "BO",
+                "BA",
+                "BW",
+                "BV",
+                "BR",
+                "VG",
+                "IO",
+                "BN",
+                "BG",
+                "BF",
+                "BI",
+                "KH",
+                "CM",
+                "CA",
+                "CV",
+                "KY",
+                "CF",
+                "TD",
+                "CL",
+                "CN",
+                "HK",
+                "MO",
+                "CX",
+                "CC",
+                "CO",
+                "KM",
+                "CG",
+                "CD",
+                "CK",
+                "CR",
+                "CI",
+                "HR",
+                "CU",
+                "CY",
+                "CZ",
+                "DK",
+                "DJ",
+                "DM",
+                "DO",
+                "EC",
+                "EG",
+                "SV",
+                "GQ",
+                "ER",
+                "EE",
+                "ET",
+                "FK",
+                "FO",
+                "FJ",
+                "FI",
+                "FR",
+                "GF",
+                "PF",
+                "TF",
+                "GA",
+                "GM",
+                "GE",
+                "DE",
+                "GH",
+                "GI",
+                "GR",
+                "GL",
+                "GD",
+                "GP",
+                "GU",
+                "GT",
+                "GG",
+                "GN",
+                "GW",
+                "GY",
+                "HT",
+                "HM",
+                "VA",
+                "HN",
+                "HU",
+                "IS",
+                "IN",
+                "ID",
+                "IR",
+                "IQ",
+                "IE",
+                "IM",
+                "IL",
+                "IT",
+                "JM",
+                "JP",
+                "JE",
+                "JO",
+                "KZ",
+                "KE",
+                "KI",
+                "KP",
+                "KR",
+                "KW",
+                "KG",
+                "LA",
+                "LV",
+                "LB",
+                "LS",
+                "LR",
+                "LY",
+                "LI",
+                "LT",
+                "LU",
+                "MK",
+                "MG",
+                "MW",
+                "MY",
+                "MV",
+                "ML",
+                "MT",
+                "MH",
+                "MQ",
+                "MR",
+                "MU",
+                "YT",
+                "MX",
+                "FM",
+                "MD",
+                "MC",
+                "MN",
+                "ME",
+                "MS",
+                "MA",
+                "MZ",
+                "MM",
+                "NA",
+                "NR",
+                "NP",
+                "NL",
+                "AN",
+                "NC",
+                "NZ",
+                "NI",
+                "NE",
+                "NG",
+                "NU",
+                "NF",
+                "MP",
+                "NO",
+                "OM",
+                "PK",
+                "PW",
+                "PS",
+                "PA",
+                "PG",
+                "PY",
+                "PE",
+                "PH",
+                "PN",
+                "PL",
+                "PT",
+                "PR",
+                "QA",
+                "RE",
+                "RO",
+                "RU",
+                "RW",
+                "BL",
+                "SH",
+                "KN",
+                "LC",
+                "MF",
+                "PM",
+                "VC",
+                "WS",
+                "SM",
+                "ST",
+                "SA",
+                "SN",
+                "RS",
+                "SC",
+                "SL",
+                "SG",
+                "SK",
+                "SI",
+                "SB",
+                "SO",
+                "ZA",
+                "GS",
+                "SS",
+                "ES",
+                "LK",
+                "SD",
+                "SR",
+                "SJ",
+                "SZ",
+                "SE",
+                "CH",
+                "SY",
+                "TW",
+                "TJ",
+                "TZ",
+                "TH",
+                "TL",
+                "TG",
+                "TK",
+                "TO",
+                "TT",
+                "TN",
+                "TR",
+                "TM",
+                "TC",
+                "TV",
+                "UG",
+                "UA",
+                "AE",
+                "GB",
+                "US",
+                "UM",
+                "UY",
+                "UZ",
+                "VU",
+                "VE",
+                "VN",
+                "VI",
+                "WF",
+                "EH",
+                "YE",
+                "ZM",
+                "ZW"
+            ]
+        },
         "Scope": "IdentityId",
         "InvestorZKProofData": "[u8;64]",
         "Claim": {
@@ -135,10 +386,10 @@
                 "SellLockup": "Scope",
                 "CustomerDueDiligence": "CddId",
                 "KnowYourCustomer": "Scope",
-                "Jurisdiction": "(JurisdictionName, Scope)",
+                "Jurisdiction": "(CountryCode, Scope)",
                 "Exempted": "Scope",
                 "Blocked": "Scope",
-                "InvestorZKProof":"(Scope, ScopeId, CddId, InvestorZKProofData)",
+                "InvestorZKProof": "(Scope, ScopeId, CddId, InvestorZKProofData)",
                 "NoData": ""
             }
         },
@@ -169,21 +420,22 @@
         },
         "AssetTransferRule": {
             "sender_rules": "Vec<Rule>",
-            "receiver_rules":"Vec<Rule>",
+            "receiver_rules": "Vec<Rule>",
             "rule_id": "u32"
         },
         "AssetTransferRuleResult": {
             "sender_rules": "Vec<Rule>",
-            "receiver_rules":"Vec<Rule>",
+            "receiver_rules": "Vec<Rule>",
             "rule_id": "u32",
             "transfer_rule_result": "bool"
         },
         "RuleType": {
             "_enum": {
-                "IsPresent" : "Claim",
+                "IsPresent": "Claim",
                 "IsAbsent": "Claim",
                 "IsAnyOf": "Vec<Claim>",
-                "IsNoneOf": "Vec<Claim>"
+                "IsNoneOf": "Vec<Claim>",
+                "IsIdentity": "TargetIdentity"
             }
         },
         "Rule": {
@@ -236,6 +488,12 @@
             "max_ticker_length": "u8",
             "registration_length": "Option<Moment>"
         },
+        "ClassicTickerRegistration": {
+            "eth_owner": "EthereumAddress",
+            "is_created": "bool"
+        },
+        "EthereumAddress": "[u8; 20]",
+        "EcdsaSignature": "[u8; 65]",
         "SignData": {
             "custodian_did": "IdentityId",
             "holder_did": "IdentityId",
@@ -266,6 +524,34 @@
             "description": "Option<PipDescription>",
             "cool_off_until": "u32",
             "beneficiaries": "Vec<Beneficiary>"
+        },
+        "Proposer": {
+            "_enum": {
+                "Community": "AccountId",
+                "Committee": "Committee"
+            }
+        },
+        "Committee": {
+            "_enum": {
+                "Technical": "",
+                "Upgrade": ""
+            }
+        },
+        "SkippedCount": "u8",
+        "SnapshottedPip": {
+            "id": "PipId",
+            "weight": "(bool, Balance)"
+        },
+        "SnapshotMetadata": {
+            "created_at": "BlockNumber",
+            "made_by": "AccountId"
+        },
+        "SnapshotResult": {
+            "_enum": {
+                "Approve": "",
+                "Reject": "",
+                "Skip": ""
+            }
         },
         "Beneficiary": {
             "id": "IdentityId",
@@ -308,10 +594,10 @@
         },
         "Pip": {
             "id": "PipId",
-            "proposal":"Call",
-            "state":"ProposalState"
+            "proposal": "Call",
+            "state": "ProposalState"
         },
-        "ProposalData" : {
+        "ProposalData": {
             "_enum": {
                 "Hash": "Hash",
                 "Proposal": "Vec<u8>"
@@ -346,6 +632,7 @@
                 "AttestPrimaryKeyRotation": "IdentityId",
                 "RotatePrimaryKey": "IdentityId",
                 "TransferTicker": "Ticker",
+                "TransferPrimaryIssuanceAgent": "Ticker",
                 "AddMultiSigSigner": "AccountId",
                 "TransferAssetOwnership": "Ticker",
                 "JoinIdentity": "Permissions",
@@ -440,12 +727,12 @@
             "target": "IdentityId",
             "claim": "Claim"
         },
-        "InactiveMember" : {
+        "InactiveMember": {
             "id": "IdentityId",
             "deactivated_at": "Moment",
             "expiry": "Option<Moment>"
         },
-        "VotingResult" : {
+        "VotingResult": {
             "ayes_count": "u32",
             "ayes_stake": "Balance",
             "nays_count": "u32",
@@ -481,7 +768,7 @@
             }
         },
         "DidRecordsSuccess": {
-            "primary_key" : "AccountId",
+            "primary_key": "AccountId",
             "secondary_key": "Vec<SecondaryKey>"
         },
         "DidRecords": {
@@ -566,7 +853,7 @@
                 "ActiveOrExpired": "",
                 "ExecutionSuccessful": "",
                 "ExecutionFailed": "",
-                "Rejected":""
+                "Rejected": ""
             }
         },
         "DidStatus": {
@@ -588,7 +875,7 @@
                 "User": "PortfolioNumber"
             }
         },
-        "PortfolioId" : {
+        "PortfolioId": {
             "did": "IdentityId",
             "kind": "PortfolioKind"
         },
@@ -674,11 +961,25 @@
             "negative": "bool",
             "degree": "u8"
         },
+        "TargetIdentity": {
+            "_enum": {
+                "PrimaryIssuanceAgent": "",
+                "Specific": "IdentityId"
+            }
+        },
         "Fundraiser": {
             "raise_token": "Ticker",
             "remaining_amount": "Balance",
             "price_per_token": "Balance",
             "venue_id": "u64"
+        },
+        "VenueType": {
+            "_enum": [
+                "Other",
+                "Distribution",
+                "Sto",
+                "Exchange"
+            ]
         }
     },
     "rpc": {
@@ -702,7 +1003,7 @@
                         "isOptional": false
                     },
                     {
-                        "name": "treasury_did",
+                        "name": "primary_issuance_agent",
                         "type": "Option<IdentityId>",
                         "isOptional": false
                     },
@@ -716,7 +1017,7 @@
             }
         },
         "identity": {
-            "isIdentityHasValidCdd" : {
+            "isIdentityHasValidCdd": {
                 "description": "use to tell whether the given did has valid cdd claim or not",
                 "params": [
                     {
@@ -773,14 +1074,14 @@
                 "description": "Retrieve status of the DID",
                 "params": [
                     {
-                        "name":"did",
-                        "type":"Vec<IdentityId>",
+                        "name": "did",
+                        "type": "Vec<IdentityId>",
                         "isOptional": false
                     },
                     {
-                        "name":"blockHash",
-                        "type":"Hash",
-                        "isOptional":true
+                        "name": "blockHash",
+                        "type": "Hash",
+                        "isOptional": true
                     }
                 ],
                 "type": "Vec<DidStatus>"
@@ -812,7 +1113,7 @@
                 "type": "Vec<Authorization>"
             }
         },
-        "pips":{
+        "pips": {
             "getVotes": {
                 "description": "Summary of votes of a proposal given by index",
                 "params": [
@@ -925,7 +1226,7 @@
                 "type": "Vec<(Perbill, Perbill)>"
             }
         },
-        "asset" : {
+        "asset": {
             "canTransfer": {
                 "description": "Checks whether a transaction with given parameters can take place or not",
                 "params": [

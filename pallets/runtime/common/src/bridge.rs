@@ -112,7 +112,7 @@ use pallet_identity as identity;
 use pallet_multisig as multisig;
 use polymesh_common_utilities::{
     traits::{balances::CheckCdd, identity::Trait as IdentityTrait, CommonTrait},
-    Context, SystematicIssuers,
+    Context, GC_DID,
 };
 use polymesh_primitives::{IdentityId, Permissions, Signatory};
 use sp_core::H256;
@@ -705,8 +705,7 @@ impl<T: Trait> Module<T> {
             tx_details.status = BridgeTxStatus::Handled;
             tx_details.execution_block = <system::Module<T>>::block_number();
             <BridgeTxDetails<T>>::insert(&bridge_tx.recipient, &bridge_tx.nonce, tx_details);
-            let current_did = Context::current_identity::<Identity<T>>()
-                .unwrap_or_else(|| SystematicIssuers::Committee.as_id());
+            let current_did = Context::current_identity::<Identity<T>>().unwrap_or_else(|| GC_DID);
             Self::deposit_event(RawEvent::Bridged(current_did, bridge_tx));
         } else if !untrusted_manual_retry {
             // NB: If this was a manual retry, tx's automated retry schedule is not updated.
@@ -766,8 +765,7 @@ impl<T: Trait> Module<T> {
         <TimelockedTxs<T>>::mutate(&unlock_block_number, |txs| {
             txs.push(bridge_tx.clone());
         });
-        let current_did = Context::current_identity::<Identity<T>>()
-            .unwrap_or_else(|| SystematicIssuers::Committee.as_id());
+        let current_did = Context::current_identity::<Identity<T>>().unwrap_or_else(|| GC_DID);
         Self::deposit_event(RawEvent::BridgeTxScheduled(
             current_did,
             bridge_tx,

@@ -16,16 +16,7 @@ async function main() {
   let relay = testEntities[4];
 
   let alice_did = JSON.parse(
-    await reqImports.accountKeyDids(api, alice.publicKey)
-  );
-
-  let did_balance = 1000 * 10 ** 6;
-
-  await reqImports.topUpIdentityBalance(
-    api,
-    alice,
-    alice_did.Unique,
-    did_balance
+    await reqImports.keyToIdentityIds(api, alice.publicKey)
   );
 
   await acceptMultisigSignerAsKey(api, relay, 9);

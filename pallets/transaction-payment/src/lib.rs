@@ -39,7 +39,7 @@ pub mod runtime_dispatch_info;
 pub use runtime_dispatch_info::RuntimeDispatchInfo;
 
 use polymesh_common_utilities::traits::transaction_payment::{CddAndFeeDetails, ChargeTxFee};
-use polymesh_primitives::{traits::IdentityCurrency, Signatory, TransactionError};
+use polymesh_primitives::{Signatory, TransactionError};
 
 use codec::{Decode, Encode};
 use frame_support::{
@@ -177,7 +177,7 @@ where
 
 pub trait Trait: frame_system::Trait {
     /// The currency type in which fees will be paid.
-    type Currency: Currency<Self::AccountId> + Send + Sync + IdentityCurrency<Self::AccountId>;
+    type Currency: Currency<Self::AccountId> + Send + Sync;
 
     /// Handler for the unbalanced reduction when taking transaction fees.
     type OnTransactionPayment: OnUnbalanced<NegativeImbalanceOf<Self>>;
@@ -211,11 +211,7 @@ decl_module! {
         const WeightToFee: Vec<WeightToFeeCoefficient<BalanceOf<T>>> =
             T::WeightToFee::polynomial().to_vec();
 
-        fn on_finalize() {
-            NextFeeMultiplier::mutate(|fm| {
-                *fm = T::FeeMultiplierUpdate::convert(*fm);
-            });
-        }
+        // Polymesh specific change: Fee multiplier update has been disabled for the testnet.
 
         fn integrity_test() {
             // given weight == u64, we build multipliers from `diff` of two weight values, which can
@@ -403,25 +399,17 @@ where
             return Ok((fee, None));
         }
 
-        if let Some(payer) = T::CddHandler::get_valid_payer(call, &Signatory::Account(who.clone()))?
+        if let Some(payer_key) =
+            T::CddHandler::get_valid_payer(call, &Signatory::Account(who.clone()))?
         {
-            let imbalance;
-            match payer.clone() {
-                Signatory::Account(payer_key) => {
-                    imbalance = T::Currency::withdraw(
-                        &payer_key,
-                        fee,
-                        WithdrawReason::TransactionPayment.into(),
-                        ExistenceRequirement::KeepAlive,
-                    )
-                    .map_err(|_| InvalidTransaction::Payment)?;
-                }
-                Signatory::Identity(did) => {
-                    imbalance = T::Currency::withdraw_identity_balance(&did, fee)
-                        .map_err(|_| InvalidTransaction::Payment)?;
-                }
-            }
-            T::CddHandler::set_payer_context(Some(payer));
+            let imbalance = T::Currency::withdraw(
+                &payer_key,
+                fee,
+                WithdrawReason::TransactionPayment.into(),
+                ExistenceRequirement::KeepAlive,
+            )
+            .map_err(|_| InvalidTransaction::Payment)?;
+            T::CddHandler::set_payer_context(Some(payer_key));
             Ok((fee, Some(imbalance)))
         } else {
             Err(InvalidTransaction::Payment.into())
@@ -508,42 +496,21 @@ where
         if let Some(payed) = imbalance {
             let actual_fee = Module::<T>::compute_actual_fee(len as u32, info, post_info, tip);
             let refund = fee.saturating_sub(actual_fee);
-            if let Some(payer) = T::CddHandler::get_payer_from_context() {
-                let actual_payment;
-                match payer {
-                    Signatory::Account(payer_account) => {
-                        actual_payment =
-                            match T::Currency::deposit_into_existing(&payer_account, refund) {
-                                Ok(refund_imbalance) => {
-                                    // The refund cannot be larger than the up front payed max weight.
-                                    // `PostDispatchInfo::calc_unspent` guards against such a case.
-                                    match payed.offset(refund_imbalance) {
-                                        Ok(actual_payment) => actual_payment,
-                                        Err(_) => return Err(InvalidTransaction::Payment.into()),
-                                    }
-                                }
-                                // We do not recreate the account using the refund. The up front payment
-                                // is gone in that case.
-                                Err(_) => payed,
-                            };
-                    }
-                    Signatory::Identity(id) => {
-                        actual_payment =
-                            match T::Currency::deposit_into_existing_identity(&id, refund) {
-                                Ok(refund_imbalance) => {
-                                    // The refund cannot be larger than the up front payed max weight.
-                                    // `PostDispatchInfo::calc_unspent` guards against such a case.
-                                    match payed.offset(refund_imbalance) {
-                                        Ok(actual_payment) => actual_payment,
-                                        Err(_) => return Err(InvalidTransaction::Payment.into()),
-                                    }
-                                }
-                                // We do not recreate the account using the refund. The up front payment
-                                // is gone in that case.
-                                Err(_) => payed,
-                            };
-                    }
-                }
+            if let Some(payer_account) = T::CddHandler::get_payer_from_context() {
+                let actual_payment =
+                    match T::Currency::deposit_into_existing(&payer_account, refund) {
+                        Ok(refund_imbalance) => {
+                            // The refund cannot be larger than the up front payed max weight.
+                            // `PostDispatchInfo::calc_unspent` guards against such a case.
+                            match payed.offset(refund_imbalance) {
+                                Ok(actual_payment) => actual_payment,
+                                Err(_) => return Err(InvalidTransaction::Payment.into()),
+                            }
+                        }
+                        // We do not recreate the account using the refund. The up front payment
+                        // is gone in that case.
+                        Err(_) => payed,
+                    };
                 T::OnTransactionPayment::on_unbalanced(actual_payment);
             }
         }
@@ -561,18 +528,14 @@ where
 {
     fn charge_fee(len: u32, info: DispatchInfoOf<T::Call>) -> TransactionValidity {
         let fee = Self::compute_fee(len as u32, &info, 0u32.into());
-        if let Some(who) = T::CddHandler::get_payer_from_context() {
-            let imbalance = match who {
-                Signatory::Identity(did) => T::Currency::withdraw_identity_balance(&did, fee)
-                    .map_err(|_| InvalidTransaction::Payment),
-                Signatory::Account(account) => T::Currency::withdraw(
-                    &account,
-                    fee,
-                    WithdrawReason::TransactionPayment.into(),
-                    ExistenceRequirement::KeepAlive,
-                )
-                .map_err(|_| InvalidTransaction::Payment),
-            }?;
+        if let Some(account) = T::CddHandler::get_payer_from_context() {
+            let imbalance = T::Currency::withdraw(
+                &account,
+                fee,
+                WithdrawReason::TransactionPayment.into(),
+                ExistenceRequirement::KeepAlive,
+            )
+            .map_err(|_| InvalidTransaction::Payment)?;
             T::OnTransactionPayment::on_unbalanced(imbalance);
         }
         Ok(ValidTransaction::default())
