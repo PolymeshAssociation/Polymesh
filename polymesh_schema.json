@@ -952,6 +952,14 @@
             "remaining_amount": "Balance",
             "price_per_token": "Balance",
             "venue_id": "u64"
+        },
+        "VenueType": {
+            "_enum": [
+                "Other",
+                "Distribution",
+                "Sto",
+                "Exchange"
+            ]
         }
     },
     "rpc": {
