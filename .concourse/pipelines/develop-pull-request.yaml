@@ -51,13 +51,16 @@ jobs:
   - name: build-polymesh
     serial: true
     plan:
-      - get: githubpr-polymesh
-        params:
-          list_changed_files: true
+      - get: githubpr-polymesh-meta
+        resource: githubpr-polymesh
         trigger: true
         version: every
-      - put: githubpr-polymesh-pending
-        resource: githubpr-polymesh
+        params:
+          skip_download: true
+      - get: githubpr-polymesh
+        trigger: true
+        version: every
+      - put: githubpr-polymesh
         params:
           path: githubpr-polymesh
           status: pending
@@ -206,18 +209,12 @@ jobs:
           path: githubpr-polymesh
           status: success
     on_failure:
-      do:
-        - get: githubpr-polymesh-failed-get
-          resource: githubpr-polymesh
-          params:
-            skip_download: true
-        - put: githubpr-polymesh-failed-put
-          resource: githubpr-polymesh
-          params:
-            path: githubpr-polymesh
-            status: failure
-          get_params:
-            skip_download: true
+      put: githubpr-polymesh
+      params:
+        path: githubpr-polymesh
+        status: failure
+      get_params:
+        skip_download: true
     on_error:
       put: githubpr-polymesh
       params:
