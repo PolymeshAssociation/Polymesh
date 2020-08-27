@@ -27,11 +27,7 @@ use pallet_utility as utility;
 use polymesh_common_utilities::{
     constants::currency::*,
     protocol_fee::ProtocolOp,
-    traits::{
-        PermissionChecker,
-        balances::AccountData,
-        identity::Trait as IdentityTrait,
-    },
+    traits::{balances::AccountData, identity::Trait as IdentityTrait, PermissionChecker},
     CommonTrait,
 };
 use polymesh_primitives::{
