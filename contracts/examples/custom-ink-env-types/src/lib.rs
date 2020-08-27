@@ -147,26 +147,26 @@ pub enum Claim {
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[cfg_attr(feature = "ink-generate-abi", derive(type_metadata::Metadata))]
 #[derive(Encode, Decode, Clone, PartialEq, Eq, Debug)]
-/// It defines the type of rule supported, and the filter information we will use to evaluate as a
+/// It defines the type of Condition supported, and the filter information we will use to evaluate as a
 /// predicate.
-pub enum RuleType {
-    /// Rule to ensure that claim filter produces one claim.
+pub enum ConditionType {
+    /// Condition to ensure that claim filter produces one claim.
     IsPresent(Claim),
-    /// Rule to ensure that claim filter produces an empty list.
+    /// Condition to ensure that claim filter produces an empty list.
     IsAbsent(Claim),
-    /// Rule to ensure that at least one claim is fetched when filter is applied.
+    /// Condition to ensure that at least one claim is fetched when filter is applied.
     IsAnyOf(Vec<Claim>),
-    /// Rule to ensure that at none of claims is fetched when filter is applied.
+    /// Condition to ensure that at none of claims is fetched when filter is applied.
     IsNoneOf(Vec<Claim>),
 }
 
-/// Type of claim requirements that a rule can have
+/// Type of claim requirements that a condition can have
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[cfg_attr(feature = "ink-generate-abi", derive(type_metadata::Metadata))]
 #[derive(Encode, Decode, Clone, PartialEq, Eq, Debug)]
-pub struct Rule {
-    /// Type of rule.
-    pub rule_type: RuleType,
+pub struct Condition {
+    /// Type of condition.
+    pub condition_type: ConditionType,
     /// Trusted issuers.
     pub issuers: Vec<IdentityId>,
 }
@@ -174,22 +174,22 @@ pub struct Rule {
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[cfg_attr(feature = "ink-generate-abi", derive(type_metadata::Metadata))]
 #[derive(Encode, Decode, Default, Clone, PartialEq, Eq, Debug)]
-pub struct AssetTransferRule {
-    pub sender_rules: Vec<Rule>,
-    pub receiver_rules: Vec<Rule>,
-    /// Unique identifier of the asset rule
-    pub rule_id: u32,
+pub struct ComplianceRequirement {
+    pub sender_conditions: Vec<Condition>,
+    pub receiver_conditions: Vec<Condition>,
+    /// Unique identifier of the asset condition
+    pub id: u32,
 }
 
-/// List of rules associated to an asset.
+/// List of conditions associated to an asset.
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[cfg_attr(feature = "ink-generate-abi", derive(type_metadata::Metadata))]
 #[derive(Encode, Decode, Default, Clone, PartialEq, Eq, Debug)]
-pub struct AssetTransferRules {
-    /// This flag indicates if asset transfer rules are active or paused.
+pub struct AssetCompliance {
+    /// This flag indicates if asset transfer conditions are active or paused.
     pub is_paused: bool,
-    /// List of rules.
-    pub rules: Vec<AssetTransferRule>,
+    /// List of conditions.
+    pub requirements: Vec<ComplianceRequirement>,
 }
 
 /// Ticker symbol.

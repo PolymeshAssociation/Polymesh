@@ -53,7 +53,7 @@ fn investor_count_per_asset_with_ext() {
     ));
 
     let ticker = Ticker::try_from(token.name.as_slice()).unwrap();
-    assert_ok!(ComplianceManager::add_active_rule(
+    assert_ok!(ComplianceManager::add_compliance_requirement(
         alice_signed.clone(),
         ticker,
         vec![],

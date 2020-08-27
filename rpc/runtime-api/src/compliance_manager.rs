@@ -18,7 +18,7 @@
 
 use codec::Codec;
 use frame_support::traits::Currency;
-use pallet_compliance_manager::AssetTransferRulesResult;
+use pallet_compliance_manager::AssetComplianceResult;
 use polymesh_primitives::{IdentityId, Ticker};
 
 pub trait Trait: frame_system::Trait {
@@ -59,6 +59,6 @@ sp_api::decl_runtime_apis! {
             from_did: Option<IdentityId>,
             to_did: Option<IdentityId>,
             primary_issuance_agent: Option<IdentityId>,
-        ) -> AssetTransferRulesResult;
+        ) -> AssetComplianceResult;
     }
 }

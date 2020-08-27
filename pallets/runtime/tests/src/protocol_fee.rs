@@ -17,7 +17,7 @@ type ProtocolFee = pallet_protocol_fee::Module<TestStorage>;
 fn can_compute_fee() {
     ExtBuilder::default().build().execute_with(|| {
         assert_eq!(
-            ProtocolFee::compute_fee(ProtocolOp::AssetIssue),
+            ProtocolFee::compute_fee(&[ProtocolOp::AssetIssue]),
             PROTOCOL_OP_BASE_FEE
         );
     });
