@@ -51,14 +51,17 @@ jobs:
     serial: true
     plan:
       - get: githubpr-polymesh
-        params:
-          list_changed_files: true
         trigger: true
         version: every
-      - put: githubpr-polymesh
+        params:
+          integration_tool: merge
+      - put: githubpr-polymesh-put
+        resource: githubpr-polymesh
         params:
           path: githubpr-polymesh
           status: pending
+        get_params:
+          skip_download: true
       - load_var: scmpr
         file: githubpr-polymesh/.git/resource/pr
       - load_var: scmheadsha
@@ -201,13 +204,22 @@ jobs:
           path: githubpr-polymesh
           status: success
     on_failure:
-      put: githubpr-polymesh
-      params:
-        path: githubpr-polymesh
-        status: failure
+      do:
+        - get: githubpr-polymesh-meta
+          resource: githubpr-polymesh
+          params:
+            integration_tool: checkout
+        - put: githubpr-polymesh
+          params:
+            path: githubpr-polymesh-meta
+            status: failure
+          get_params:
+            skip_download: true
     on_error:
       put: githubpr-polymesh
       params:
         path: githubpr-polymesh
         status: error
+      get_params:
+        skip_download: true
 
