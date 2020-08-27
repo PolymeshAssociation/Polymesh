@@ -56,14 +56,14 @@ fn basic_raise_with_ext() {
         None,
     ));
 
-    // Add empty transfer rules
-    assert_ok!(ComplianceManager::add_active_rule(
+    // Add empty compliance requirements
+    assert_ok!(ComplianceManager::add_compliance_requirement(
         alice_signed.clone(),
         ticker,
         vec![],
         vec![]
     ));
-    assert_ok!(ComplianceManager::add_active_rule(
+    assert_ok!(ComplianceManager::add_compliance_requirement(
         bob_signed.clone(),
         raise_ticker,
         vec![],

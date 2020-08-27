@@ -1664,7 +1664,7 @@ impl<T: Trait> Module<T> {
         Ok(if status_code != ERC1400_TRANSFER_SUCCESS {
             (COMPLIANCE_MANAGER_FAILURE, weight_for_transfer)
         } else {
-            let mut final_result = true;
+            let mut result = true;
             let mut is_valid = false;
             let mut is_invalid = false;
             let mut force_valid = false;
@@ -1692,10 +1692,10 @@ impl<T: Trait> Module<T> {
                     }
                 }
                 //is_valid = force_valid ? true : (is_invalid ? false : is_valid);
-                final_result = force_valid || !is_invalid && is_valid;
+                result = force_valid || !is_invalid && is_valid;
             }
             // Compute the result for transfer
-            Self::compute_transfer_result(final_result, tm_count, weight_for_transfer)
+            Self::compute_transfer_result(result, tm_count, weight_for_transfer)
         })
     }
 
@@ -2146,7 +2146,7 @@ impl<T: Trait> Module<T> {
         ]
         .concat();
 
-        // Calling extension to verify the compliance rule
+        // Calling extension to verify the compliance requirement
         // native currency value should be `0` as no funds need to transfer to the smart extension
         // We are passing arbitrary high `gas_limit` value to make sure extension's function execute successfully
         // TODO: Once gas estimate function will be introduced, arbitrary gas value will be replaced by the estimated gas

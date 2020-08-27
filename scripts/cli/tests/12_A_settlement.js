@@ -38,7 +38,7 @@ async function main() {
 
   await reqImports.issueTokenPerDid(api, [alice], prepend);
 
-  await addActiveRule(api, alice, ticker);
+  await addComplianceRequirement(api, alice, ticker);
 
   let aliceACMEBalance = await api.query.asset.balanceOf(ticker, alice_did);
   let bobACMEBalance = await api.query.asset.balanceOf(ticker, bob_did);
@@ -84,9 +84,9 @@ async function main() {
 }
 
 
-async function addActiveRule(api, sender, ticker) {
+async function addComplianceRequirement(api, sender, ticker) {
 
-  const transaction = await api.tx.complianceManager.addActiveRule(
+  const transaction = await api.tx.complianceManager.addComplianceRequirement(
     ticker,
     [],
     []

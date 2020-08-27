@@ -201,13 +201,14 @@ pub mod document;
 pub use document::{Document, DocumentHash, DocumentName, DocumentUri};
 
 /// Rules for claims.
-pub mod rule;
-pub use rule::{Rule, RuleType, TargetIdentity};
+pub mod condition;
+pub use condition::{Condition, ConditionType, TargetIdentity};
 
 /// Predicate calculation for Claims.
-pub mod predicate;
-pub use predicate::{
-    AndPredicate, Context, NotPredicate, OrPredicate, Predicate, ValidProofOfInvestorPredicate,
+pub mod proposition;
+pub use proposition::{
+    AndProposition, Context, NotProposition, OrProposition, Proposition,
+    ValidProofOfInvestorProposition,
 };
 
 /// Represents custom transaction errors.

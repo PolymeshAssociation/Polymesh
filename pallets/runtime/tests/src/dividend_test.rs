@@ -122,14 +122,14 @@ fn correct_dividend_must_work() {
         drop(outer);
 
         // Allow all transfers
-        assert_ok!(ComplianceManager::add_active_rule(
+        assert_ok!(ComplianceManager::add_compliance_requirement(
             token_owner_acc.clone(),
             ticker,
             vec![],
             vec![]
         ));
 
-        assert_ok!(ComplianceManager::add_active_rule(
+        assert_ok!(ComplianceManager::add_compliance_requirement(
             payout_owner_acc.clone(),
             payout_ticker,
             vec![],
