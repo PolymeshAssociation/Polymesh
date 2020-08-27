@@ -569,7 +569,7 @@ decl_module! {
             Self::verify_sender_is_creator(sender_did, &multisig)?;
             <Identity<T>>::unsafe_join_identity(
                 sender_did,
-                Permissions::empty(),
+                Permissions::default(),
                 Signatory::Account(multisig)
             )
         }

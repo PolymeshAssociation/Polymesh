@@ -21,6 +21,7 @@ pallet-contracts = { git = "https://github.com/paritytech/substrate", branch = "
 pallet-group = { path = "../../group", default-features = false }
 pallet-identity = { path = "../../identity", default-features = false }
 pallet-multisig = { path = "../../multisig", default-features = false }
+pallet-permissions = { path = "../../permissions", default-features = false }
 pallet-pips = { path = "../../pips", default-features = false }
 pallet-portfolio = { path = "../../portfolio", default-features = false }
 pallet-protocol-fee = { path = "../../protocol-fee", default-features = false }
@@ -102,6 +103,7 @@ std = [
     "pallet-group/std",
     "pallet-identity/std",
     "pallet-multisig/std",
+    "pallet-permissions/std",
     "pallet-pips/std",
     "pallet-portfolio/std",
     "pallet-randomness-collective-flip/std",

@@ -884,7 +884,22 @@ pub fn provide_did_to_user(account: AccountId) -> bool {
     if <identity::KeyToIdentityIds<Test>>::contains_key(&account) {
         return false;
     }
-    let cdd = Origin::signed(1005);
+    let cdd_account_id = 1005;
+    let cdd = Origin::signed(cdd_account_id);
+    assert!(
+        <identity::KeyToIdentityIds<Test>>::contains_key(&cdd_account_id),
+        "CDD provider account not mapped to identity"
+    );
+    let cdd_did = <identity::KeyToIdentityIds<Test>>::get(&cdd_account_id);
+    assert!(
+        <identity::DidRecords<Test>>::contains_key(&cdd_did),
+        "CDD provider identity has no DID record"
+    );
+    let cdd_did_record = <identity::DidRecords<Test>>::get(&cdd_did);
+    assert!(
+        cdd_did_record.primary_key == cdd_account_id,
+        "CDD identity primary key mismatch"
+    );
     assert!(
         Identity::cdd_register_did(cdd.clone(), account, vec![]).is_ok(),
         "Error in registering the DID"

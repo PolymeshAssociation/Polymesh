@@ -303,7 +303,7 @@ decl_storage! {
                 .expect("bridge creator account has no identity");
             <identity::Module<T>>::unsafe_join_identity(
                 creator_did,
-                Permissions::empty(),
+                Permissions::default(),
                 Signatory::Account(multisig_id.clone())
             ).expect("cannot link the bridge multisig");
             debug::info!("Joined identity {} as signer {}", creator_did, multisig_id);

@@ -283,6 +283,9 @@ decl_module! {
         }
 
         // TODO: Remove this function before mainnet. cdd_register_did should be used instead.
+        //
+        // Unit tests call this function to create a DID for the origin, which means it should work
+        // in the exceptional case when the origin doesn't have a DID.
         /// Register a new did with a CDD claim for the caller.
         #[weight = 5_000_000_000]
         pub fn register_did(origin,
@@ -290,7 +293,7 @@ decl_module! {
             secondary_keys: Vec<SecondaryKey<T::AccountId>>,
         ) -> DispatchResult {
             let sender = ensure_signed(origin)?;
-            CallPermissions::<T>::ensure_call_permissions(&sender)?;
+            // CallPermissions::<T>::ensure_call_permissions(&sender)?;
             Self::_register_did(sender.clone(), secondary_keys, Some(ProtocolOp::IdentityRegisterDid))?;
 
             // Add CDD claim
@@ -2257,22 +2260,17 @@ impl<T: Trait> CheckAccountCallPermissions<T::AccountId> for Module<T> {
             let did_record = <DidRecords<T>>::get(&did);
             if who == &did_record.primary_key {
                 // `who` is the primary key.
-                if Self::is_did_frozen(&did) {
-                    // Frozen DIDs are not permitted to call extrinsics.
-                    return false;
-                }
+                // Frozen DIDs are not permitted to call extrinsics.
+                !Self::is_did_frozen(&did)
             } else {
                 // `who` can be a secondary key.
-                return did_record
-                    .secondary_keys
-                    .iter()
-                    .find(|sk| {
-                        sk.signer.as_account() == Some(who)
-                            && sk.has_extrinsic_permission(pallet_name, function_name)
-                    })
-                    .is_some();
+                did_record.secondary_keys.iter().any(|sk| {
+                    sk.signer.as_account() == Some(who)
+                        && sk.has_extrinsic_permission(pallet_name, function_name)
+                })
             }
+        } else {
+            false
         }
-        false
     }
 }
