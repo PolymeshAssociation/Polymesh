@@ -305,10 +305,12 @@ mod tests {
         let free_key = SecondaryKey::new(Signatory::Account(key.clone()), Permissions::default());
         let restricted_key = SecondaryKey::new(Signatory::Account(key), permissions.clone());
         assert!(free_key.has_asset_permission(ticker2));
-        assert!(free_key.has_extrinsic_permission(vec![2]));
+        assert!(free_key
+            .has_extrinsic_permission(&b"pallet".as_ref().into(), &b"function".as_ref().into()));
         assert!(free_key.has_portfolio_permission(2));
         assert!(!restricted_key.has_asset_permission(ticker2));
-        assert!(restricted_key.has_extrinsic_permission(vec![2]));
+        assert!(restricted_key
+            .has_extrinsic_permission(&b"pallet".as_ref().into(), &b"function".as_ref().into()));
         assert!(!restricted_key.has_portfolio_permission(2));
     }
 
