@@ -56,10 +56,13 @@ jobs:
           list_changed_files: true
         trigger: true
         version: every
-      - put: githubpr-polymesh
+      - put: githubpr-polymesh-pending
+        resource: githubpr-polymesh
         params:
           path: githubpr-polymesh
           status: pending
+        get_params:
+          skip_download: true
       - load_var: scmpr
         file: githubpr-polymesh/.git/resource/pr
       - load_var: scmheadsha
@@ -203,19 +206,27 @@ jobs:
           path: githubpr-polymesh
           status: success
     on_failure:
-      put: githubpr-polymesh-failed
-      resource: githubpr-polymesh
-      params:
-        path: githubpr-polymesh
-        status: failure
-      get_params:
-        skip_download: true
+      do:
+        - get: githubpr-polymesh-failed-get
+          resource: githubpr-polymesh
+          params:
+            skip_download: true
+        - put: githubpr-polymesh-failed-put
+          resource: githubpr-polymesh
+          params:
+            path: githubpr-polymesh
+            status: failure
+            skip_download: true
     on_error:
-      put: githubpr-polymesh-error
-      resource: githubpr-polymesh
-      params:
-        path: githubpr-polymesh
-        status: error
-      get_params:
-        skip_download: true
+      do:
+        - get: githubpr-polymesh-error-get
+          resource: githubpr-polymesh
+          params:
+            skip_download: true
+        - put: githubpr-polymesh-error-put
+          resource: githubpr-polymesh
+          params:
+            path: githubpr-polymesh
+            status: error
+            skip_download: true
 
