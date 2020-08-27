@@ -184,7 +184,6 @@ workflows:
   commit:
     jobs:
       - lint
-      - cli
       - test
   daily-builds:
     triggers:

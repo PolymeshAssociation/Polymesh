@@ -22,6 +22,7 @@ serde = { version = "1.0.104", default-features = false }
 serde_derive = { version = "1.0.104", optional = true, default-features = false }
 rustc-hex = { version = "2.1.0", default-features = false }
 hex-literal = "0.2.1"
+arrayvec = { version = "0.5.1", default-features = false }
 
 # Substrate
 codec = { package = "parity-scale-codec", version = "1.1.0", default-features = false, features = ["derive"] }
