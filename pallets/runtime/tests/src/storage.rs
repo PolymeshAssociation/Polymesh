@@ -37,7 +37,7 @@ use polymesh_common_utilities::traits::{
     group::GroupTrait,
     identity::Trait as IdentityTrait,
     transaction_payment::{CddAndFeeDetails, ChargeTxFee},
-    CommonTrait,
+    CheckAccountCallPermissions, CommonTrait, PermissionChecker,
 };
 use polymesh_common_utilities::Context;
 use polymesh_primitives::{
@@ -578,6 +578,10 @@ impl confidential::Trait for TestStorage {
 impl pallet_utility::Trait for TestStorage {
     type Event = Event;
     type Call = Call;
+}
+
+impl PermissionChecker for TestStorage {
+    type Checker = Identity;
 }
 
 // Publish type alias for each module

@@ -40,7 +40,7 @@ use polymesh_common_utilities::traits::{
     identity::Trait as IdentityTrait,
     multisig::MultiSigSubTrait,
     transaction_payment::{CddAndFeeDetails, ChargeTxFee},
-    CommonTrait,
+    CheckAccountCallPermissions, CommonTrait, PermissionChecker,
 };
 use polymesh_primitives::{
     AuthorizationData, Claim, IdentityId, InvestorUid, Moment, Permissions, Signatory,
@@ -471,6 +471,10 @@ impl CheckCdd<AccountId> for Test {
     fn get_key_cdd_did(_key: &AccountId) -> Option<IdentityId> {
         None
     }
+}
+
+impl PermissionChecker for Test {
+    type Checker = Identity;
 }
 
 parameter_types! {
