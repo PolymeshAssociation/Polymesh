@@ -1071,7 +1071,7 @@ impl_runtime_apis! {
         Block,
     > for Runtime {
         fn compute_fee(op: ProtocolOp) -> CappedFee {
-            ProtocolFee::compute_fee(op).into()
+            ProtocolFee::compute_fee(&[op]).into()
         }
     }
 

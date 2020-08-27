@@ -28,7 +28,7 @@ resources:
     source:
       bucket: polymesh-testnet-artifacts
       region_name: ca-central-1
-      regexp: concourse/polymesh-runtime/polymesh_runtime-(.*)
+      regexp: concourse/polymesh-runtime/polymesh_runtime_(.*)
       access_key_id: ((s3-polymath-concourse.access_key_id))
       secret_access_key: ((s3-polymath-concourse.secret_access_key))
   - name: dockerimage-polymesh
@@ -180,7 +180,7 @@ jobs:
               acl: public-read
           - put: s3-polymesh-runtime
             params:
-              file: artifact/polymesh_runtime_testnet-v1-*
+              file: artifact/polymesh_runtime_testnet_v1-*
               acl: public-read
           - put: dockerimage-polymesh
             params:

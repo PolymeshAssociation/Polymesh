@@ -59,16 +59,16 @@ async function main() {
     ticker,
     100
   );
- 
+
   await authorizeInstruction(api, alice, intructionCounterAB);
   await authorizeInstruction(api, bob, intructionCounterAB);
- 
+
   //await rejectInstruction(api, bob, intructionCounter);
   //await unathorizeInstruction(api, alice, instructionCounter);
 
   aliceACMEBalance = await api.query.asset.balanceOf(ticker, alice_did);
   bobACMEBalance = await api.query.asset.balanceOf(ticker, bob_did);
- 
+
   console.log(`alice asset balance -------->  ${aliceACMEBalance}`);
   console.log(`bob asset balance -------->  ${bobACMEBalance}`);
 
@@ -85,7 +85,7 @@ async function main() {
 
 
 async function addComplianceRequirement(api, sender, ticker) {
-  
+
   const transaction = await api.tx.complianceManager.addComplianceRequirement(
     ticker,
     [],
@@ -102,7 +102,7 @@ async function createVenue(api, sender) {
 
   const transaction = await api.tx.settlement.createVenue(venueDetails, [
     sender.address,
-  ]);
+  ], 0);
 
   let tx = await reqImports.sendTx(sender, transaction);
   if(tx !== -1) reqImports.fail_count--;
@@ -119,16 +119,16 @@ async function addInstruction(
   ticker,
   amount
 ) {
- 
+
   let instructionCounter = await api.query.settlement.instructionCounter();
- 
+
   let leg = {
     from: sender_did,
     to: receiver_did,
     asset: ticker,
     amount: amount,
   };
- 
+
     transaction = await api.tx.settlement.addInstruction(
       venueCounter,
       0,
@@ -143,31 +143,31 @@ async function addInstruction(
 }
 
 async function authorizeInstruction(api, sender, instructionCounter) {
-  
+
   const transaction = await api.tx.settlement.authorizeInstruction(
     instructionCounter
   );
- 
+
   let tx = await reqImports.sendTx(sender, transaction);
   if(tx !== -1) reqImports.fail_count--;
 }
 
 async function unauthorizeInstruction(api, sender, instructionCounter) {
- 
+
   const transaction = await api.tx.settlement.unauthorizeInstruction(
     instructionCounter
   );
- 
+
   let tx = await reqImports.sendTx(sender, transaction);
   if(tx !== -1) reqImports.fail_count--;
 }
 
 async function rejectInstruction(api, sender, instructionCounter) {
- 
+
   const transaction = await api.tx.settlement.rejectInstruction(
     instructionCounter
   );
- 
+
   let tx = await reqImports.sendTx(sender, transaction);
   if(tx !== -1) reqImports.fail_count--;
 }
