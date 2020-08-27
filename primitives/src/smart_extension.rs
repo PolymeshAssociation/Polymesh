@@ -54,7 +54,7 @@ pub struct SmartExtension<AccountId> {
 }
 
 /// The url string of the SE template.
-#[derive(Encode, Decode, Default, Debug, Clone, PartialEq, VecU8StrongTyped)]
+#[derive(Encode, Decode, Default, Debug, Clone, PartialEq, Eq, VecU8StrongTyped)]
 pub struct MetaUrl(pub Vec<u8>);
 
 /// The description string about the SE template.
@@ -67,14 +67,12 @@ pub struct MetaVersion(pub Vec<u8>);
 
 /// Subset of the SE template metadata that is provided by the template owner.
 #[derive(Encode, Decode, Default, Debug, Clone, PartialEq)]
-pub struct SmartExtensionMetadata<Balance> {
+pub struct TemplateMetadata<Balance> {
     /// Url that can contain the details about the template
     /// Ex- license, audit report.
     pub url: Option<MetaUrl>,
     /// Type of smart extension template.
     pub se_type: SmartExtensionType,
-    /// Fee paid at the time on creating new instance form the template.
-    pub instantiation_fee: Balance,
     /// Fee paid at the time of usage of the SE (A given operation performed).
     pub usage_fee: Balance,
     /// Description about the SE template.
@@ -85,22 +83,22 @@ pub struct SmartExtensionMetadata<Balance> {
 
 /// Data structure that hold all the relevant metadata of the smart extension template.
 #[derive(Encode, Decode, Default, Debug, Clone, PartialEq)]
-pub struct TemplateMetadata<Balance> {
-    /// Meta details of the SE template
-    pub meta_info: SmartExtensionMetadata<Balance>,
+pub struct TemplateDetails<Balance> {
+    /// Fee paid at the time on creating new instance form the template.
+    pub instantiation_fee: Balance,
     /// Owner of the SE template.
     pub owner: IdentityId,
     /// power button to switch on/off the instantiation from the template
     pub frozen: bool,
 }
 
-impl<Balance> TemplateMetadata<Balance>
+impl<Balance> TemplateDetails<Balance>
 where
     Balance: Clone + Copy,
 {
     /// Return the instantiation fee
     pub fn get_instantiation_fee(&self) -> Balance {
-        self.meta_info.instantiation_fee
+        self.instantiation_fee
     }
 
     /// Check whether the instantiation of the template is allowed or not.

@@ -385,16 +385,15 @@
         "MetaUrl": "Text",
         "MetaDescription": "Text",
         "MetaVersion": "Text",
-        "SmartExtensionMetadata": {
+        "TemplateMetadata": {
             "url": "Option<MetaUrl>",
             "se_type": "SmartExtensionType",
-            "instantiation_fee": "Balance",
             "usage_fee": "Balance",
             "description": "MetaDescription",
             "version": "MetaVersion"
         },
-        "TemplateMetadata": {
-            "meta_info": "SmartExtensionMetadata",
+        "TemplateDetails": {
+            "instantiation_fee": "Balance",
             "owner": "IdentityId",
             "frozen": "bool"
         },

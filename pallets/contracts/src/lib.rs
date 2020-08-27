@@ -17,6 +17,7 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use codec::Encode;
+use core::mem;
 use frame_support::{
     decl_error, decl_event, decl_module, decl_storage,
     dispatch::{DispatchError, DispatchResult, DispatchResultWithPostInfo},
@@ -24,14 +25,14 @@ use frame_support::{
     traits::Get,
 };
 use frame_system::{self as system, ensure_signed};
-use pallet_contracts::{BalanceOf, CodeHash, ContractAddressFor, Gas, Schedule};
+use pallet_contracts::{BalanceOf, CodeHash, ContractAddressFor, ContractInfoOf, Gas, Schedule};
 use pallet_identity as identity;
 use polymesh_common_utilities::{
     identity::Trait as IdentityTrait,
     protocol_fee::{ChargeProtocolFee, ProtocolOp},
     with_transaction, Context,
 };
-use polymesh_primitives::{IdentityId, SmartExtensionMetadata, TemplateMetadata};
+use polymesh_primitives::{IdentityId, MetaUrl, TemplateDetails, TemplateMetadata};
 use sp_core::crypto::UncheckedFrom;
 use sp_runtime::{
     traits::{Hash, Saturating, StaticLookup},
@@ -58,10 +59,7 @@ where
         origin: &T::AccountId,
     ) -> T::AccountId {
         let data_hash = T::Hashing::hash(data);
-        let nonce = ExtensionNonce::mutate(|n| {
-            *n = *n + 1u64;
-            *n
-        });
+        let nonce = ExtensionNonce::get();
         let nonce_hash = T::Hashing::hash(&(nonce.encode()));
         let mut buf = Vec::with_capacity(
             code_hash.as_ref().len()
@@ -88,7 +86,11 @@ pub trait Trait: pallet_contracts::Trait + IdentityTrait {
 decl_storage! {
     trait Store for Module<T: Trait> as ContractsWrapper {
         /// Store the meta details of the smart extension template.
-        pub TemplateMetaDetails get(fn get_template_meta_details): map hasher(twox_64_concat) CodeHash<T> => TemplateMetadata<BalanceOf<T>>;
+        pub MetadataOfTemplate get(fn get_metadata_of): map hasher(identity) CodeHash<T> => TemplateMetadata<BalanceOf<T>>;
+        /// Store the details of the template (Ex- owner, frozen etc).
+        pub TemplateInfo get(fn get_template_details): map hasher(identity) CodeHash<T> => TemplateDetails<BalanceOf<T>>;
+        /// Usage fee for the SE instance.
+        pub ExtensionUsageFee get(fn extension_usage_fee): map hasher(identity) T::AccountId => BalanceOf<T>;
         /// Nonce for the smart extension account id generation.
         /// Using explicit nonce as in batch transaction accounts nonce doesn't get incremented.
         pub ExtensionNonce get(fn extension_nonce): u64;
@@ -114,7 +116,9 @@ decl_error! {
         /// Failed To charge the instantiation fee for the smart extension.
         FailedToPayInstantiationFee,
         /// Given identityId is not CDD.
-        NewOwnerIsNotCDD
+        NewOwnerIsNotCDD,
+        /// Insufficient max_fee provided by the user to instantiate the SE.
+        InsufficientMaxFee,
     }
 }
 
@@ -136,6 +140,15 @@ decl_event! {
         /// Emitted when the template ownership get transferred.
         /// IdentityId of the owner, Code hash of the template, IdentityId of the new owner of the template.
         TemplateOwnershipTransferred(IdentityId, CodeHash, IdentityId),
+        /// Emitted when the template usage fees gets changed.
+        /// IdentityId of the owner, Code hash of the template,Old usage fee, New usage fee.
+        TemplateUsageFeeChanged(IdentityId, CodeHash, Balance, Balance),
+        /// Emitted when the template instantiation fees gets changed.
+        /// IdentityId of the owner, Code hash of the template, Old instantiation fee, New instantiation fee.
+        TemplateInstantiationFeeChanged(IdentityId, CodeHash, Balance, Balance),
+        /// Emitted when the template meta url get changed.
+        /// IdentityId of the owner, Code hash of the template, old meta url, new meta url.
+        TemplateMetaUrlChanged(IdentityId, CodeHash, Option<MetaUrl>, Option<MetaUrl>),
     }
 }
 
@@ -166,7 +179,8 @@ decl_module! {
         #[weight = 50_000_000.saturating_add(pallet_contracts::Call::<T>::put_code(code.clone()).get_dispatch_info().weight)]
         pub fn put_code(
             origin,
-            meta_info: SmartExtensionMetadata<BalanceOf<T>>,
+            meta_info: TemplateMetadata<BalanceOf<T>>,
+            instantiation_fee: BalanceOf<T>,
             code: Vec<u8>
         ) -> DispatchResult {
             let sender = ensure_signed(origin.clone())?;
@@ -182,11 +196,12 @@ decl_module! {
                 // Call underlying function
                 <pallet_contracts::Module<T>>::put_code(origin, code)?;
                 // Update the storage.
-                <TemplateMetaDetails<T>>::insert(code_hash, TemplateMetadata {
-                    meta_info: meta_info,
+                <TemplateInfo<T>>::insert(code_hash, TemplateDetails {
+                    instantiation_fee,
                     owner: did,
                     frozen: false
                 });
+                <MetadataOfTemplate<T>>::insert(code_hash, meta_info);
                 // Charge the protocol fee
                 T::ProtocolFee::charge_fee(ProtocolOp::ContractsPutCode)
             })?;
@@ -213,50 +228,46 @@ decl_module! {
         ///
         /// # Errors
         /// InstantiationIsNotAllowed - It occurred when instantiation of the template is frozen.
+        /// InsufficientMaxFee - Provided max_fee is less than required.
         #[weight = 500_000_000 + *gas_limit]
         pub fn instantiate(
             origin,
             #[compact] endowment: BalanceOf<T>,
             #[compact] gas_limit: Gas,
             code_hash: CodeHash<T>,
-            data: Vec<u8>
+            data: Vec<u8>,
+            max_fee: BalanceOf<T>
         ) -> DispatchResultWithPostInfo {
-            ensure_signed(origin.clone())?;
+            let sender = ensure_signed(origin.clone())?;
             // Access the meta details of SE template
-            let meta_details = Self::get_template_meta_details(code_hash);
+            let template_details = Self::get_template_details(code_hash);
 
             // Check whether instantiation is allowed or not.
-            ensure!(!meta_details.is_instantiation_frozen(), Error::<T>::InstantiationIsNotAllowed);
+            ensure!(!template_details.is_instantiation_frozen(), Error::<T>::InstantiationIsNotAllowed);
+
+            // Check instantiation fee should be <= max_fee.
+            let instantiation_fee = template_details.get_instantiation_fee();
+            ensure!(instantiation_fee <= max_fee, Error::<T>::InsufficientMaxFee);
 
             let mut actual_weight = None;
+            let mut contract_address = T::AccountId::default();
 
             with_transaction(|| {
+                // Update the extension nonce.
+                ExtensionNonce::mutate(|n| *n = *n + 1u64);
+                // Generate the contract address. Generating here to avoid cloning of the vec.
+                contract_address = T::DetermineContractAddress::contract_address_for(&code_hash, &data, &sender);
                 // transmit the call to the base `pallet-contracts` module.
                 actual_weight = <pallet_contracts::Module<T>>::instantiate(origin, endowment, gas_limit, code_hash, data).map(|post_info| post_info.actual_weight).map_err(|err| err.error)?;
                 // Charge instantiation fee
-                T::ProtocolFee::charge_extension_instantiation_fee((meta_details.get_instantiation_fee().saturated_into::<u128>()).into(), Self::get_primary_key(&meta_details.owner), T::NetworkShareInFee::get())
+                T::ProtocolFee::charge_extension_instantiation_fee((instantiation_fee.saturated_into::<u128>()).into(), Self::get_primary_key(&template_details.owner), T::NetworkShareInFee::get())
             })?;
+
+            // Update the usage fee for the extension instance.
+            <ExtensionUsageFee<T>>::insert(contract_address, Self::get_usage_fee(&code_hash));
 
             // Update the actual weight of the extrinsic.
             Ok(actual_weight.map(|w| w + 500_000_000).into())
-        }
-
-        /// Change the instantiation fee of the smart extension template
-        ///
-        /// # Arguments
-        /// * origin - Only owner of template is allowed to execute the dispatchable.
-        /// * code_hash - Unique hash of the smart extension template.
-        /// * new_instantiation_fee - New value of instantiation fee to the smart extension template.
-        #[weight = 1000_000_000]
-        pub fn change_instantiation_fee(origin, code_hash: CodeHash<T>, new_instantiation_fee: BalanceOf<T>) -> DispatchResult {
-            // Ensure whether the extrinsic is signed & validate the `code_hash`.
-            let (did, meta_details) = Self::ensure_signed_and_template_exists(origin, code_hash)?;
-            // Emit event with the old fee and the new instantiation fee.
-            Self::deposit_event(RawEvent::InstantiationFeeChanged(did, code_hash, meta_details.meta_info.instantiation_fee, new_instantiation_fee));
-
-            // Update the instantiation fee for a given code_hash.
-            <TemplateMetaDetails<T>>::mutate(&code_hash, |meta_details| meta_details.meta_info.instantiation_fee = new_instantiation_fee);
-            Ok(())
         }
 
         /// Allows a smart extension template owner to freeze the instantiation.
@@ -267,12 +278,12 @@ decl_module! {
         #[weight = 1_000_000_000]
         pub fn freeze_instantiation(origin, code_hash: CodeHash<T>) -> DispatchResult {
             // Ensure whether the extrinsic is signed & validate the `code_hash`.
-            let (did, meta_details) = Self::ensure_signed_and_template_exists(origin, code_hash)?;
+            let (did, template_details) = Self::ensure_signed_and_template_exists(origin, code_hash)?;
 
             // If instantiation is already frozen then there is no point of changing the storage value.
-            ensure!(!meta_details.is_instantiation_frozen(), Error::<T>::InstantiationAlreadyFrozen);
+            ensure!(!template_details.is_instantiation_frozen(), Error::<T>::InstantiationAlreadyFrozen);
             // Change the `frozen` variable to `true`.
-            <TemplateMetaDetails<T>>::mutate(&code_hash, |meta_details| meta_details.frozen = true);
+            <TemplateInfo<T>>::mutate(&code_hash, |template_details| template_details.frozen = true);
 
             // Emit event.
             Self::deposit_event(RawEvent::InstantiationFreezed(did, code_hash));
@@ -287,12 +298,12 @@ decl_module! {
         #[weight = 1_000_000_000]
         pub fn unfreeze_instantiation(origin, code_hash: CodeHash<T>) -> DispatchResult {
             // Ensure whether the extrinsic is signed & validate the `code_hash`.
-            let (did, meta_details) = Self::ensure_signed_and_template_exists(origin, code_hash)?;
+            let (did, template_details) = Self::ensure_signed_and_template_exists(origin, code_hash)?;
 
             // If instantiation is already un-frozen then there is no point of changing the storage value.
-            ensure!(meta_details.is_instantiation_frozen(), Error::<T>::InstantiationAlreadyUnFrozen);
+            ensure!(template_details.is_instantiation_frozen(), Error::<T>::InstantiationAlreadyUnFrozen);
             // Change the `frozen` variable to `false`.
-            <TemplateMetaDetails<T>>::mutate(&code_hash, |meta_details| meta_details.frozen = false);
+            <TemplateInfo<T>>::mutate(&code_hash, |template_details| template_details.frozen = false);
 
             // Emit event.
             Self::deposit_event(RawEvent::InstantiationUnFreezed(did, code_hash));
@@ -315,10 +326,57 @@ decl_module! {
             ensure!(Identity::<T>::has_valid_cdd(new_owner), Error::<T>::NewOwnerIsNotCDD);
 
             // Change the `owner` variable value to the given did.
-            <TemplateMetaDetails<T>>::mutate(&code_hash, |meta_details| meta_details.owner = new_owner);
+            <TemplateInfo<T>>::mutate(&code_hash, |template_details| template_details.owner = new_owner);
 
             // Emit event.
             Self::deposit_event(RawEvent::TemplateOwnershipTransferred(did, code_hash, new_owner));
+            Ok(())
+        }
+
+
+        /// Change the usage fee & the instantiation fee of the smart extension template
+        ///
+        /// # Arguments
+        /// * origin - Only owner of template is allowed to execute the dispatchable.
+        /// * code_hash - Unique hash of the smart extension template.
+        /// * new_instantiation_fee - New value of instantiation fee for the smart extension template.
+        /// * new_usage_fee - New value of usage fee for the smart extension template.
+        #[weight = 1000_000_000]
+        pub fn change_template_fees(origin, code_hash: CodeHash<T>, new_instantiation_fee: Option<BalanceOf<T>>, new_usage_fee: Option<BalanceOf<T>>) -> DispatchResult {
+            // Ensure whether the extrinsic is signed & validate the `code_hash`.
+            let (did, _) = Self::ensure_signed_and_template_exists(origin, code_hash)?;
+
+            // Update the fees
+            if let Some(usage_fee) = new_usage_fee {
+                // Update the usage fee for a given code hash.
+                let old_usage_fee = <MetadataOfTemplate<T>>::mutate(&code_hash, |metadata| mem::replace(&mut metadata.usage_fee, usage_fee));
+                // Emit event with the old & new usage fee.
+                Self::deposit_event(RawEvent::TemplateUsageFeeChanged(did, code_hash, old_usage_fee, usage_fee));
+            }
+            if let Some(instantiation_fee) = new_instantiation_fee {
+                // Update the instantiation fee for a given code_hash.
+                let old_instantiation_fee = <TemplateInfo<T>>::mutate(&code_hash, |template_details| mem::replace(&mut template_details.instantiation_fee, instantiation_fee));
+                // Emit event with the old & new instantiation fee.
+                Self::deposit_event(RawEvent::TemplateInstantiationFeeChanged(did, code_hash, old_instantiation_fee, instantiation_fee));
+            }
+            Ok(())
+        }
+
+
+        /// Change the template meta url.
+        ///
+        /// # Arguments
+        /// * origin - Only owner of template is allowed to execute the dispatchable.
+        /// * code_hash - Unique hash of the smart extension template.
+        /// * new_url - New meta url that need to replace with old url.
+        #[weight = 400_000_000]
+        pub fn change_template_meta_url(origin, code_hash: CodeHash<T>, new_url: Option<MetaUrl>) -> DispatchResult {
+            // Ensure whether the extrinsic is signed & validate the `code_hash`.
+            let (did, _) = Self::ensure_signed_and_template_exists(origin, code_hash)?;
+            // Update the usage fee for a given code hash.
+            let old_url = <MetadataOfTemplate<T>>::mutate(&code_hash, |metadata| mem::replace(&mut metadata.url, new_url.clone()));
+            // Emit event with old and new url.
+            Self::deposit_event(RawEvent::TemplateMetaUrlChanged(did, code_hash, old_url, new_url));
             Ok(())
         }
     }
@@ -330,26 +388,33 @@ impl<T: Trait> Module<T> {
     fn ensure_signed_and_template_exists(
         origin: T::Origin,
         code_hash: CodeHash<T>,
-    ) -> Result<(IdentityId, TemplateMetadata<BalanceOf<T>>), DispatchError> {
+    ) -> Result<(IdentityId, TemplateDetails<BalanceOf<T>>), DispatchError> {
         // Ensure the transaction is signed.
         let sender = ensure_signed(origin.clone())?;
         // Get the DID of the sender.
         let did = Context::current_identity_or::<Identity<T>>(&sender)?;
         // Validate whether the template exists or not for a given code_hash.
         ensure!(
-            <TemplateMetaDetails<T>>::contains_key(code_hash),
+            <TemplateInfo<T>>::contains_key(code_hash),
             Error::<T>::TemplateNotExists
         );
 
         // Access the meta details of SE template
-        let meta_details = Self::get_template_meta_details(code_hash);
+        let template_details = Self::get_template_details(code_hash);
         // Ensure sender's DID is the owner of the template.
-        ensure!(did == meta_details.owner, Error::<T>::UnAuthorizedOrigin);
+        ensure!(
+            did == template_details.owner,
+            Error::<T>::UnAuthorizedOrigin
+        );
         // Return the DID and the template details.
-        Ok((did, meta_details))
+        Ok((did, template_details))
     }
 
     fn get_primary_key(id: &IdentityId) -> T::AccountId {
         Identity::<T>::did_records(id).primary_key
+    }
+
+    fn get_usage_fee(code_hash: &CodeHash<T>) -> BalanceOf<T> {
+        Self::get_metadata_of(code_hash).usage_fee
     }
 }
