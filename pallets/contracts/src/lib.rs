@@ -347,7 +347,7 @@ decl_module! {
             let (did, _) = Self::ensure_signed_and_template_exists(origin, code_hash)?;
 
             // Update the fees
-            if let Some(usage_fee) = new_usage_fee {                
+            if let Some(usage_fee) = new_usage_fee {
                 // Update the usage fee for a given code hash.
                 let old_usage_fee = <MetadataOfTemplate<T>>::mutate(&code_hash, |metadata| mem::replace(&mut metadata.usage_fee, usage_fee));
                 // Emit event with the old & new usage fee.
