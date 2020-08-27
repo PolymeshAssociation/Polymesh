@@ -1,0 +1,75 @@
+[package]
+name = "RuntimeInteraction"
+version = "0.1.0"
+authors = ["Polymath Inc."]
+edition = "2018"
+
+[dependencies]
+ink_abi = { git = "https://github.com/paritytech/ink", tag = "v2.1.0", package = "ink_abi", default-features = false, features = ["derive"], optional = true }
+ink_primitives = { git = "https://github.com/paritytech/ink", tag = "v2.1.0", package = "ink_primitives", default-features = false }
+ink_core = { git = "https://github.com/paritytech/ink", tag = "v2.1.0", package = "ink_core", default-features = false }
+ink_lang = { git = "https://github.com/paritytech/ink", tag = "v2.1.0", package = "ink_lang", default-features = false }
+ink_prelude = { git = "https://github.com/paritytech/ink", tag = "v2.1.0", package = "ink_prelude", default-features = false }
+polymesh-derive = { path = "../../../primitives_derive", default-features = false, package = "polymesh-primitives-derive"}
+
+scale = { package = "parity-scale-codec", version = "1.2", default-features = false, features = ["derive"] }
+serde = { version = "1.0.104", optional = true, features = ["derive"] }
+custom-ink-env-types = { path = "../custom-ink-env-types", default-features = false }
+
+[dependencies.type-metadata]
+git = "https://github.com/type-metadata/type-metadata.git"
+rev = "02eae9f35c40c943b56af5b60616219f2b72b47d"
+default-features = false
+features = ["derive"]
+optional = true
+
+[lib]
+name = "RuntimeInteraction"
+path = "lib.rs"
+crate-type = [
+	# Used for normal contract Wasm blobs.
+	"cdylib",
+	# Required for ABI generation, and using this contract as a dependency.
+	# If using `cargo contract build`, it will be automatically disabled to produce a smaller Wasm binary
+	"rlib",
+]
+
+[features]
+default = ["test-env"]
+std = [
+    "serde",
+    "ink_abi/std",
+    "ink_core/std",
+    "ink_primitives/std",
+    "ink_prelude/std",
+    "scale/std",
+    "type-metadata/std",
+    "custom-ink-env-types/std"
+]
+test-env = [
+    "std",
+    "ink_lang/test-env",
+]
+ink-generate-abi = [
+    "std",
+    "ink_abi",
+    "type-metadata",
+    "ink_core/ink-generate-abi",
+    "ink_lang/ink-generate-abi",
+    "custom-ink-env-types/ink-generate-abi"
+]
+ink-as-dependency = []
+
+[profile.release]
+panic = "abort"
+lto = true
+opt-level = "z"
+# overflow-checks = true
+
+[workspace]
+members = [
+	".ink/abi_gen"
+]
+exclude = [
+	".ink"
+]

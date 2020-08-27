@@ -1,5 +1,5 @@
 use crate::traits::identity::IdentityTrait;
-use polymesh_primitives::{IdentityId, Signatory};
+use polymesh_primitives::IdentityId;
 use sp_runtime::DispatchError;
 use sp_std::marker::PhantomData;
 

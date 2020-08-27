@@ -15,7 +15,6 @@
 
 use crate::{runtime, Runtime};
 
-use pallet_balances as balances;
 use pallet_identity as identity;
 use pallet_multisig as multisig;
 use polymesh_runtime_common::bridge;
@@ -28,7 +27,6 @@ use codec::{Decode, Encode};
 use frame_support::{StorageDoubleMap, StorageMap};
 
 type Identity = identity::Module<Runtime>;
-type Balances = balances::Module<Runtime>;
 type Bridge = bridge::Module<Runtime>;
 
 type Call = runtime::Call;

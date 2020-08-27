@@ -13,9 +13,9 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
-use polymesh_primitives::{IdentityId, Ticker};
-
 use core::result::Result;
+use frame_support::{dispatch::DispatchError, weights::Weight};
+use polymesh_primitives::{IdentityId, Ticker};
 
 pub trait Trait<Balance> {
     fn verify_restriction(
@@ -23,6 +23,6 @@ pub trait Trait<Balance> {
         from_id: Option<IdentityId>,
         to_id: Option<IdentityId>,
         _value: Balance,
-        treasury_did: Option<IdentityId>,
-    ) -> Result<u8, &'static str>;
+        primary_issuance_agent: Option<IdentityId>,
+    ) -> Result<(u8, Weight), DispatchError>;
 }

@@ -23,6 +23,14 @@ resources:
       regexp: concourse/polymesh/polymesh-(.*)
       access_key_id: ((s3-polymath-concourse.access_key_id))
       secret_access_key: ((s3-polymath-concourse.secret_access_key))
+  - name: s3-polymesh-runtime
+    type: s3
+    source:
+      bucket: polymesh-testnet-artifacts
+      region_name: ca-central-1
+      regexp: concourse/polymesh-runtime/polymesh_runtime_(.*)
+      access_key_id: ((s3-polymath-concourse.access_key_id))
+      secret_access_key: ((s3-polymath-concourse.secret_access_key))
   - name: dockerimage-polymesh
     type: docker-image
     source:
@@ -46,15 +54,19 @@ resources:
 
 jobs:
   - name: build-polymesh
+    serial: true
     plan:
-      - put: semver-git-polymesh
-        params:
-          bump: patch
       - get: git-polymesh
         params:
           list_changed_files: true
         trigger: true
         version: every
+      - load_var: gitshortref
+        file: git-polymesh/.git/short_ref
+      - get: semver-git-polymesh
+        params:
+          pre: develop.((.:gitshortref))
+          pre_without_version: true
       - in_parallel:
           - task: run-lint
             config:
@@ -159,6 +171,14 @@ jobs:
             params:
               file: artifact/polymesh-*
               acl: public-read
+          - put: s3-polymesh-runtime
+            params:
+              file: artifact/polymesh_runtime_develop-*
+              acl: public-read
+          - put: s3-polymesh-runtime
+            params:
+              file: artifact/polymesh_runtime_testnet_v1-*
+              acl: public-read
           - put: dockerimage-polymesh
             params:
               build: artifact
@@ -180,6 +200,11 @@ jobs:
           message_file: semver-git-polymesh/version
           fail_if_message_file_missing: true
     on_failure:
+      put: slack-polymesh
+      params:
+        mode: normal
+        alert_type: failed
+    on_error:
       put: slack-polymesh
       params:
         mode: normal

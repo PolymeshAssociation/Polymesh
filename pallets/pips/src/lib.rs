@@ -94,7 +94,7 @@ use frame_support::{
     dispatch::{DispatchError, DispatchResult},
     ensure,
     storage::IterableStorageMap,
-    traits::{Currency, EnsureOrigin, LockableCurrency, ReservableCurrency},
+    traits::{Currency, EnsureOrigin, LockIdentifier, WithdrawReasons},
     weights::{DispatchClass, Pays, Weight},
 };
 use frame_system::{self as system, ensure_signed};
@@ -104,16 +104,23 @@ use polymesh_common_utilities::{
     constants::PIP_MAX_REPORTING_SIZE,
     identity::Trait as IdentityTrait,
     protocol_fee::{ChargeProtocolFee, ProtocolOp},
-    traits::{governance_group::GovernanceGroupTrait, group::GroupTrait, pip::PipId},
-    CommonTrait, Context, SystematicIssuers,
+    traits::{
+        balances::LockableCurrencyExt, governance_group::GovernanceGroupTrait, group::GroupTrait,
+        pip::PipId,
+    },
+    with_transaction, CommonTrait, Context, GC_DID,
 };
 use polymesh_primitives::IdentityId;
 use polymesh_primitives_derive::VecU8StrongTyped;
 #[cfg(feature = "std")]
 use serde::{Deserialize, Serialize};
 use sp_core::H256;
-use sp_runtime::traits::{BlakeTwo256, CheckedAdd, Dispatchable, Hash, Saturating, Zero};
+use sp_runtime::traits::{
+    BlakeTwo256, CheckedAdd, CheckedSub, Dispatchable, Hash, Saturating, Zero,
+};
 use sp_std::{convert::From, prelude::*};
+
+const PIPS_LOCK_ID: LockIdentifier = *b"pips    ";
 
 /// Balance
 type BalanceOf<T> =
@@ -315,8 +322,7 @@ pub trait Trait:
     frame_system::Trait + pallet_timestamp::Trait + IdentityTrait + CommonTrait
 {
     /// Currency type for this module.
-    type Currency: ReservableCurrency<Self::AccountId>
-        + LockableCurrency<Self::AccountId, Moment = Self::BlockNumber>;
+    type Currency: LockableCurrencyExt<Self::AccountId, Moment = Self::BlockNumber>;
 
     /// Origin for proposals.
     type CommitteeOrigin: EnsureOrigin<Self::Origin>;
@@ -531,10 +537,10 @@ decl_module! {
         ///
         /// # Arguments
         /// * `deposit` the new min deposit required to start a proposal
-        #[weight = (150_000_000, DispatchClass::Operational, Pays::Yes)]
+        #[weight = (550_000_000, DispatchClass::Operational, Pays::Yes)]
         pub fn set_prune_historical_pips(origin, new_value: bool) {
             T::CommitteeOrigin::ensure_origin(origin)?;
-            Self::deposit_event(RawEvent::HistoricalPipsPruned(SystematicIssuers::Committee.as_id(), Self::prune_historical_pips(), new_value));
+            Self::deposit_event(RawEvent::HistoricalPipsPruned(GC_DID, Self::prune_historical_pips(), new_value));
             <PruneHistoricalPips>::put(new_value);
         }
 
@@ -543,10 +549,10 @@ decl_module! {
         ///
         /// # Arguments
         /// * `deposit` the new min deposit required to start a proposal
-        #[weight = (150_000_000, DispatchClass::Operational, Pays::Yes)]
+        #[weight = (550_000_000, DispatchClass::Operational, Pays::Yes)]
         pub fn set_min_proposal_deposit(origin, deposit: BalanceOf<T>) {
             T::CommitteeOrigin::ensure_origin(origin)?;
-            Self::deposit_event(RawEvent::MinimumProposalDepositChanged(SystematicIssuers::Committee.as_id(), Self::min_proposal_deposit(), deposit));
+            Self::deposit_event(RawEvent::MinimumProposalDepositChanged(GC_DID, Self::min_proposal_deposit(), deposit));
             <MinimumProposalDeposit<T>>::put(deposit);
         }
 
@@ -555,20 +561,20 @@ decl_module! {
         ///
         /// # Arguments
         /// * `duration` proposal cool off period duration in blocks
-        #[weight = (150_000_000, DispatchClass::Operational, Pays::Yes)]
+        #[weight = (550_000_000, DispatchClass::Operational, Pays::Yes)]
         pub fn set_proposal_cool_off_period(origin, duration: T::BlockNumber) {
             T::CommitteeOrigin::ensure_origin(origin)?;
-            Self::deposit_event(RawEvent::ProposalCoolOffPeriodChanged(SystematicIssuers::Committee.as_id(), Self::proposal_cool_off_period(), duration));
+            Self::deposit_event(RawEvent::ProposalCoolOffPeriodChanged(GC_DID, Self::proposal_cool_off_period(), duration));
             <ProposalCoolOffPeriod<T>>::put(duration);
         }
 
         /// Change the default enact period.
-        #[weight = (150_000_000, DispatchClass::Operational, Pays::Yes)]
+        #[weight = (550_000_000, DispatchClass::Operational, Pays::Yes)]
         pub fn set_default_enactment_period(origin, duration: T::BlockNumber) {
             T::CommitteeOrigin::ensure_origin(origin)?;
             let prev = <DefaultEnactmentPeriod<T>>::get();
             <DefaultEnactmentPeriod<T>>::put(duration);
-            Self::deposit_event(RawEvent::DefaultEnactmentPeriodChanged(SystematicIssuers::Committee.as_id(), prev, duration));
+            Self::deposit_event(RawEvent::DefaultEnactmentPeriodChanged(GC_DID, prev, duration));
         }
 
         /// Change the maximum skip count (`max_pip_skip_count`).
@@ -578,7 +584,7 @@ decl_module! {
             T::CommitteeOrigin::ensure_origin(origin)?;
             let prev_max = MaxPipSkipCount::get();
             MaxPipSkipCount::put(new_max);
-            Self::deposit_event(RawEvent::MaxPipSkipCountChanged(SystematicIssuers::Committee.as_id(), prev_max, new_max));
+            Self::deposit_event(RawEvent::MaxPipSkipCountChanged(GC_DID, prev_max, new_max));
         }
 
         /// Change the maximum number of active PIPs before community members cannot propose anything.
@@ -587,7 +593,7 @@ decl_module! {
             T::CommitteeOrigin::ensure_origin(origin)?;
             let prev_max = ActivePipLimit::get();
             ActivePipLimit::put(new_max);
-            Self::deposit_event(RawEvent::ActivePipLimitChanged(SystematicIssuers::Committee.as_id(), prev_max, new_max));
+            Self::deposit_event(RawEvent::ActivePipLimitChanged(GC_DID, prev_max, new_max));
         }
 
         /// A network member creates a PIP by submitting a dispatchable which
@@ -624,9 +630,8 @@ decl_module! {
                 // Pre conditions: caller must have min balance.
                 ensure!(deposit >= Self::min_proposal_deposit(), Error::<T>::IncorrectDeposit);
 
-                // Reserve the minimum deposit.
-                <T as Trait>::Currency::reserve(&proposer, deposit)
-                    .map_err(|_| Error::<T>::InsufficientDeposit)?;
+               // Lock the deposit.
+               Self::increase_lock(proposer, deposit)?;
             } else {
                 // Committee PIPs cannot have a deposit.
                 ensure!(deposit.is_zero(), Error::<T>::NotFromCommunity);
@@ -784,22 +789,13 @@ decl_module! {
 
             let current_did = Self::current_did_or_missing()?;
 
-            // TODO(centril): move this to a suitable utils crate.
-            fn with_transaction<T, E>(tx: impl FnOnce() -> Result<T, E>) -> Result<T, E> {
-                use frame_support::storage::{with_transaction, TransactionOutcome};
-                with_transaction(|| match tx() {
-                    r @ Ok(_) => TransactionOutcome::Commit(r),
-                    r @ Err(_) => TransactionOutcome::Rollback(r),
-                })
-            }
-
             with_transaction(|| {
                 // 4. Reserve the deposit, or refund if needed.
                 let curr_deposit = Self::deposits(id, &voter).amount;
                 if deposit < curr_deposit {
-                    <T as Trait>::Currency::unreserve(&voter, curr_deposit - deposit);
+                    Self::reduce_lock(&voter, curr_deposit - deposit)?;
                 } else {
-                    <T as Trait>::Currency::reserve(&voter, deposit - curr_deposit).map_err(|_| Error::<T>::InsufficientDeposit)?;
+                    Self::increase_lock(&voter, deposit - curr_deposit)?;
                 }
                 // 5. Save the vote.
                 Self::unsafe_vote(id, voter.clone(), Vote(aye_or_nay, deposit))
@@ -837,7 +833,7 @@ decl_module! {
             ensure!(matches!(meta.proposer, Proposer::Committee(_)), Error::<T>::NotByCommittee);
 
             // 4. All is good, schedule PIP for execution.
-            Self::schedule_pip_for_execution(SystematicIssuers::Committee.as_id(), id);
+            Self::schedule_pip_for_execution(GC_DID, id);
         }
 
         /// Rejects the PIP given by the `id`, refunding any bonded funds,
@@ -855,7 +851,7 @@ decl_module! {
             ensure!(Self::is_active(proposal.state), Error::<T>::IncorrectProposalState);
             Self::maybe_unschedule_pip(id, proposal.state);
             Self::maybe_unsnapshot_pip(id, proposal.state);
-            Self::unsafe_reject_proposal(SystematicIssuers::Committee.as_id(), id);
+            Self::unsafe_reject_proposal(GC_DID, id);
         }
 
         /// Prune the PIP given by the `id`, refunding any funds not already refunded.
@@ -872,7 +868,7 @@ decl_module! {
             T::VotingMajorityOrigin::ensure_origin(origin)?;
             let proposal = Self::proposals(id).ok_or_else(|| Error::<T>::NoSuchProposal)?;
             ensure!(!Self::is_active(proposal.state), Error::<T>::IncorrectProposalState);
-            Self::prune_data(SystematicIssuers::Committee.as_id(), id, proposal.state, true);
+            Self::prune_data(GC_DID, id, proposal.state, true);
         }
 
         /// Updates the execution schedule of the PIP given by `id`.
@@ -1015,7 +1011,6 @@ decl_module! {
         #[weight = (1_000_000_000, DispatchClass::Operational, Pays::Yes)]
         pub fn enact_snapshot_results(origin, results: Vec<(PipId, SnapshotResult)>) -> DispatchResult {
             T::VotingMajorityOrigin::ensure_origin(origin)?;
-            let gc_did = SystematicIssuers::Committee.as_id();
 
             let max_pip_skip_count = Self::max_pip_skip_count();
 
@@ -1055,20 +1050,20 @@ decl_module! {
                 // Update skip counts.
                 for (pip_id, new_count) in to_bump_skipped.iter().copied() {
                     PipSkipCount::insert(pip_id, new_count);
-                    Self::deposit_event(RawEvent::PipSkipped(gc_did, pip_id, new_count));
+                    Self::deposit_event(RawEvent::PipSkipped(GC_DID, pip_id, new_count));
                 }
 
                 // Reject proposals as instructed & refund.
                 for pip_id in to_reject.iter().copied() {
-                    Self::unsafe_reject_proposal(gc_did, pip_id);
+                    Self::unsafe_reject_proposal(GC_DID, pip_id);
                 }
 
                 // Approve proposals as instructed.
                 for pip_id in to_approve.iter().copied() {
-                    Self::schedule_pip_for_execution(gc_did, pip_id);
+                    Self::schedule_pip_for_execution(GC_DID, pip_id);
                 }
 
-                let event = RawEvent::SnapshotResultsEnacted(gc_did, to_bump_skipped, to_reject, to_approve);
+                let event = RawEvent::SnapshotResultsEnacted(GC_DID, to_bump_skipped, to_reject, to_approve);
                 Self::deposit_event(event);
 
                 Ok(())
@@ -1170,8 +1165,8 @@ impl<T: Trait> Module<T> {
     fn refund_proposal(did: IdentityId, id: PipId) {
         let total_refund =
             <Deposits<T>>::iter_prefix_values(id).fold(0.into(), |acc, depo_info| {
-                let amount = <T as Trait>::Currency::unreserve(&depo_info.owner, depo_info.amount);
-                amount.saturating_add(acc)
+                Self::reduce_lock(&depo_info.owner, depo_info.amount).unwrap();
+                depo_info.amount.saturating_add(acc)
             });
         <Deposits<T>>::remove_prefix(id);
         Self::deposit_event(RawEvent::ProposalRefund(did, id, total_refund));
@@ -1287,6 +1282,29 @@ impl<T: Trait> Module<T> {
 }
 
 impl<T: Trait> Module<T> {
+    /// Increase `acc`'s locked deposit for all PIPs by `amount`,
+    /// or fail if there's not enough free balance after adding `amount` to lock.
+    fn increase_lock(acc: &T::AccountId, amount: BalanceOf<T>) -> DispatchResult {
+        <T as Trait>::Currency::increase_lock(
+            PIPS_LOCK_ID,
+            acc,
+            amount,
+            WithdrawReasons::all(),
+            |sum| {
+                <T as Trait>::Currency::free_balance(acc)
+                    .checked_sub(&sum)
+                    .ok_or(Error::<T>::InsufficientDeposit.into())
+                    .map(drop)
+            },
+        )
+    }
+
+    /// Reduce `acc`'s locked deposit for all PIPs by `amount`,
+    /// or fail if `amount` hasn't been locked for PIPs.
+    fn reduce_lock(acc: &T::AccountId, amount: BalanceOf<T>) -> DispatchResult {
+        <T as Trait>::Currency::reduce_lock(PIPS_LOCK_ID, acc, amount)
+    }
+
     /// Retrieve votes for a proposal represented by PipId `id`.
     pub fn get_votes(id: PipId) -> VoteCount<BalanceOf<T>>
     where
