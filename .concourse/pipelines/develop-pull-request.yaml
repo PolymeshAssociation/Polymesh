@@ -16,6 +16,8 @@ resources:
       base_branch: develop
       disable_forks: true
       disable_ci_skip: true
+      labels:
+        - concourse-test
   - name: s3-polymesh
     type: s3
     source:
@@ -51,18 +53,40 @@ jobs:
   - name: build-polymesh
     serial: true
     plan:
-      - get: githubpr-polymesh-meta
-        resource: githubpr-polymesh
-        trigger: true
-        version: every
-        params:
-          integration_tool: checkout
       - get: githubpr-polymesh
         trigger: true
         version: every
-      - put: githubpr-polymesh
         params:
-          path: githubpr-polymesh-meta
+          integration_tool: merge
+        on_failure:
+          do:
+            - get: githubpr-polymesh-meta
+              resource: githubpr-polymesh
+              params:
+                integration_tool: checkout
+            - task: show-prdata
+              config:
+                inputs:
+                  - name: githubpr-polymesh-meta
+                  - name: githubpr-polymesh
+                platform: linux
+                image_resource:
+                  type: registry-image
+                  source:
+                    repository: busybox
+                run:
+                  path: ls
+                  args: [ -a, githubpr-polymesh, githubpr-polymesh-meta ]
+            - put: githubpr-polymesh
+              params:
+                path: githubpr-polymesh-meta
+                status: failure
+              get_params:
+                skip_download: true
+      - put: githubpr-polymesh-put
+        resource: githubpr-polymesh
+        params:
+          path: githubpr-polymesh
           status: pending
         get_params:
           skip_download: true
@@ -211,14 +235,14 @@ jobs:
     on_failure:
       put: githubpr-polymesh
       params:
-        path: githubpr-polymesh-meta
+        path: githubpr-polymesh
         status: failure
       get_params:
         skip_download: true
     on_error:
       put: githubpr-polymesh
       params:
-        path: githubpr-polymesh-meta
+        path: githubpr-polymesh
         status: error
       get_params:
         skip_download: true
