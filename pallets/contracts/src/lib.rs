@@ -17,6 +17,7 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use codec::Encode;
+use core::mem;
 use frame_support::{
     decl_error, decl_event, decl_module, decl_storage,
     dispatch::{DispatchError, DispatchResult, DispatchResultWithPostInfo},
@@ -325,7 +326,7 @@ decl_module! {
             ensure!(Identity::<T>::has_valid_cdd(new_owner), Error::<T>::NewOwnerIsNotCDD);
 
             // Change the `owner` variable value to the given did.
-            <TemplateInfo<T>>::mutate(&code_hash, |template_details| template_details.owner = new_owner);
+            <TemplateInfo<T>>::mutate(&code_hash, |template_details| mem::replace(&mut template_details.owner, new_owner));
 
             // Emit event.
             Self::deposit_event(RawEvent::TemplateOwnershipTransferred(did, code_hash, new_owner));
@@ -343,22 +344,22 @@ decl_module! {
         #[weight = 1000_000_000]
         pub fn change_template_fees(origin, code_hash: CodeHash<T>, new_instantiation_fee: Option<BalanceOf<T>>, new_usage_fee: Option<BalanceOf<T>>) -> DispatchResult {
             // Ensure whether the extrinsic is signed & validate the `code_hash`.
-            let (did, _) = Self::ensure_signed_and_template_exists(origin, code_hash)?;
+            let (did, template_details) = Self::ensure_signed_and_template_exists(origin, code_hash)?;
 
             // Update the fees
             if let Some(usage_fee) = new_usage_fee {
                 // Access the current usage fee.
                 let old_usage_fee = Self::get_metadata_of(code_hash).usage_fee;
                 // Update the usage fee for a given code hash.
-                <MetadataOfTemplate<T>>::mutate(&code_hash, |metadata| metadata.usage_fee =  usage_fee);
+                <MetadataOfTemplate<T>>::mutate(&code_hash, |metadata| mem::replace(&mut metadata.usage_fee, usage_fee));
                 // Emit event with the old & new usage fee.
                 Self::deposit_event(RawEvent::TemplateUsageFeeChanged(did, code_hash, old_usage_fee, usage_fee));
             }
             if let Some(instantiation_fee) = new_instantiation_fee {
                 // Access the current instantiation fee.
-                let old_instantiation_fee = Self::get_template_details(code_hash).instantiation_fee;
+                let old_instantiation_fee = template_details.get_instantiation_fee();
                 // Update the instantiation fee for a given code_hash.
-                <TemplateInfo<T>>::mutate(&code_hash, |template_details| template_details.instantiation_fee = instantiation_fee);
+                <TemplateInfo<T>>::mutate(&code_hash, |template_details| mem::replace(&mut template_details.instantiation_fee, instantiation_fee));
                 // Emit event with the old & new instantiation fee.
                 Self::deposit_event(RawEvent::TemplateInstantiationFeeChanged(did, code_hash, old_instantiation_fee, instantiation_fee));
             }
@@ -379,7 +380,7 @@ decl_module! {
             // Emit event with old and new url.
             Self::deposit_event(RawEvent::TemplateMetaUrlChanged(did, code_hash, Self::get_metadata_of(code_hash).url, new_url.clone()));
             // Update the usage fee for a given code hash.
-            <MetadataOfTemplate<T>>::mutate(&code_hash, |metadata| metadata.url =  new_url);
+            <MetadataOfTemplate<T>>::mutate(&code_hash, |metadata| mem::replace(&mut metadata.url, new_url));
             Ok(())
         }
     }
