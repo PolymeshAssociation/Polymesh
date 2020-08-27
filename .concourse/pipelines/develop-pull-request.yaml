@@ -56,7 +56,7 @@ jobs:
         trigger: true
         version: every
         params:
-          skip_download: true
+          integration_tool: checkout
       - get: githubpr-polymesh
         trigger: true
         version: every
