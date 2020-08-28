@@ -29,16 +29,14 @@ fn cdd_checks() {
             let (alice_signed, alice_did) =
                 make_account_without_cdd(AccountKeyring::Alice.public()).unwrap();
             let alice_key_signatory = Signatory::Account(AccountKeyring::Alice.public());
-            let alice_account_signatory =
-                Signatory::Account(AccountId32::from(AccountKeyring::Alice.public().0));
+            let alice_account_signatory = AccountId32::from(AccountKeyring::Alice.public().0);
             let _musig_address =
                 MultiSig::get_next_multisig_address(AccountKeyring::Alice.public());
 
             // charlie has valid cdd
             let charlie_signed = Origin::signed(AccountKeyring::Charlie.public());
             let charlie_did = register_keyring_account(AccountKeyring::Charlie).unwrap();
-            let charlie_account_signatory =
-                Signatory::Account(AccountId32::from(AccountKeyring::Charlie.public().0));
+            let charlie_account_signatory = AccountId32::from(AccountKeyring::Charlie.public().0);
 
             // register did bypasses cdd checks
             assert_eq!(
