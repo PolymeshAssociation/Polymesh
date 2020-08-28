@@ -31,56 +31,60 @@ pub enum TargetIdentity {
     Specific(IdentityId),
 }
 
-/// It defines the type of rule supported, and the filter information we will use to evaluate as a
+/// It defines the type of condition supported, and the filter information we will use to evaluate as a
 /// predicate.
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, Migrate)]
-pub enum RuleType {
-    /// Rule to ensure that claim filter produces one claim.
+pub enum ConditionType {
+    /// Condition to ensure that claim filter produces one claim.
     IsPresent(#[migrate] Claim),
-    /// Rule to ensure that claim filter produces an empty list.
+    /// Condition to ensure that claim filter produces an empty list.
     IsAbsent(#[migrate] Claim),
-    /// Rule to ensure that at least one claim is fetched when filter is applied.
+    /// Condition to ensure that at least one claim is fetched when filter is applied.
     IsAnyOf(#[migrate(Claim)] Vec<Claim>),
-    /// Rule to ensure that at none of claims is fetched when filter is applied.
+    /// Condition to ensure that at none of claims is fetched when filter is applied.
     IsNoneOf(#[migrate(Claim)] Vec<Claim>),
-    /// Rule to ensure that the sender/receiver is a particular identity or primary issuance agent
+    /// Condition to ensure that the sender/receiver is a particular identity or primary issuance agent
     IsIdentity(TargetIdentity),
-    /// Rule to ensure that the target identity has a valid `InvestorZKProof` claim for the given
+    /// Condition to ensure that the target identity has a valid `InvestorZKProof` claim for the given
     /// ticker.
     HasValidProofOfInvestor(Ticker),
 }
 
-/// Type of claim requirements that a rule can have
+/// Type of claim requirements that a condition can have
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, Migrate)]
-pub struct Rule {
-    /// Type of rule.
+pub struct Condition {
+    /// Type of condition.
     #[migrate]
-    pub rule_type: RuleType,
+    pub condition_type: ConditionType,
     /// Trusted issuers.
     pub issuers: Vec<IdentityId>,
 }
 
-impl From<RuleType> for Rule {
-    fn from(rule_type: RuleType) -> Self {
-        Rule {
-            rule_type,
+impl From<ConditionType> for Condition {
+    fn from(condition_type: ConditionType) -> Self {
+        Condition {
+            condition_type,
             issuers: Vec::<IdentityId>::new(),
         }
     }
 }
 
-impl Rule {
-    /// Returns worst case complexity of a rule
+impl Condition {
+    /// Returns worst case complexity of a condition
     pub fn complexity(&self) -> (usize, usize) {
-        let claims_count = match self.rule_type {
-            RuleType::IsIdentity(..) | RuleType::IsPresent(..) | RuleType::IsAbsent(..) => 1,
-            RuleType::IsNoneOf(ref claims) | RuleType::IsAnyOf(ref claims) => claims.len(),
-            // NOTE: The complexity of this rule implies the use of cryptography libraries, which
+        let claims_count = match self.condition_type {
+            ConditionType::IsIdentity(..)
+            | ConditionType::IsPresent(..)
+            | ConditionType::IsAbsent(..) => 1,
+            ConditionType::IsNoneOf(ref claims) | ConditionType::IsAnyOf(ref claims) => {
+                claims.len()
+            }
+            // NOTE: The complexity of this condition implies the use of cryptography libraries, which
             // are computational expensive.
             // So we've added a 10 factor here.
-            RuleType::HasValidProofOfInvestor(..) => 10,
+            ConditionType::HasValidProofOfInvestor(..) => 10,
         };
         (claims_count, self.issuers.len())
     }

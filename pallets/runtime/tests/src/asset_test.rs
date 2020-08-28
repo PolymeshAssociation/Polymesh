@@ -1,24 +1,32 @@
 use crate::{
+    committee_test::root,
+    ext_builder::{ExtBuilder, MockProtocolBaseFees},
+    pips_test::assert_balance,
     storage::{
         account_from, add_secondary_key, make_account_without_cdd, register_keyring_account,
         AccountId, TestStorage,
     },
-    ExtBuilder,
 };
-
+use frame_support::IterableStorageMap;
+use pallet_asset::ethereum;
 use pallet_asset::{
-    self as asset, AssetOwnershipRelation, AssetType, FundingRoundName, IdentifierType,
-    SecurityToken, SignData,
+    self as asset, AssetOwnershipRelation, AssetType, ClassicTickerImport,
+    ClassicTickerRegistration, ClassicTickers, FundingRoundName, IdentifierType, SecurityToken,
+    SignData, TickerRegistration, TickerRegistrationConfig, Tickers,
 };
 use pallet_balances as balances;
 use pallet_compliance_manager as compliance_manager;
 use pallet_identity as identity;
 use pallet_statistics as statistics;
-use polymesh_common_utilities::{compliance_manager::Trait, constants::*, traits::balances::Memo};
-use polymesh_primitives::{
-    AuthorizationData, Claim, Document, DocumentName, IdentityId, Rule, RuleType, Signatory,
-    SmartExtension, SmartExtensionName, SmartExtensionType, Ticker,
+use polymesh_common_utilities::{
+    compliance_manager::Trait, constants::*, protocol_fee::ProtocolOp, traits::balances::Memo,
+    traits::CddAndFeeDetails as _, SystematicIssuers,
 };
+use polymesh_primitives::{
+    AuthorizationData, Claim, Condition, ConditionType, Document, DocumentName, IdentityId,
+    Signatory, SmartExtension, SmartExtensionName, SmartExtensionType, Ticker,
+};
+use sp_io::hashing::keccak_256;
 
 use chrono::prelude::Utc;
 use codec::Encode;
@@ -44,6 +52,9 @@ type OffChainSignature = AnySignature;
 type Origin = <TestStorage as frame_system::Trait>::Origin;
 type DidRecords = identity::DidRecords<TestStorage>;
 type Statistics = statistics::Module<TestStorage>;
+type AssetGenesis = asset::GenesisConfig<TestStorage>;
+type System = frame_system::Module<TestStorage>;
+type FeeError = pallet_protocol_fee::Error<TestStorage>;
 
 macro_rules! assert_add_claim {
     ($signer:expr, $target:expr, $claim:expr) => {
@@ -248,7 +259,7 @@ fn valid_custodian_allowance() {
         );
 
         // Allow all transfers
-        assert_ok!(ComplianceManager::add_active_rule(
+        assert_ok!(ComplianceManager::add_compliance_requirement(
             owner_signed.clone(),
             ticker,
             vec![],
@@ -389,7 +400,7 @@ fn valid_custodian_allowance_of() {
         );
 
         // Allow all transfers
-        assert_ok!(ComplianceManager::add_active_rule(
+        assert_ok!(ComplianceManager::add_compliance_requirement(
             owner_signed.clone(),
             ticker,
             vec![],
@@ -525,7 +536,7 @@ fn checkpoints_fuzz_test() {
             ));
 
             // Allow all transfers
-            assert_ok!(ComplianceManager::add_active_rule(
+            assert_ok!(ComplianceManager::add_compliance_requirement(
                 owner_signed.clone(),
                 ticker,
                 vec![],
@@ -1688,7 +1699,7 @@ fn freeze_unfreeze_asset() {
         ));
 
         // Allow all transfers.
-        assert_ok!(ComplianceManager::add_active_rule(
+        assert_ok!(ComplianceManager::add_compliance_requirement(
             alice_signed.clone(),
             ticker,
             vec![],
@@ -1934,7 +1945,7 @@ fn test_can_transfer_rpc() {
 
             // Case 7: when transaction get success by the compliance_manager
             // Allow all transfers.
-            assert_ok!(ComplianceManager::add_active_rule(
+            assert_ok!(ComplianceManager::add_compliance_requirement(
                 alice_signed.clone(),
                 ticker,
                 vec![],
@@ -2042,11 +2053,8 @@ fn test_weights_for_is_valid_transfer() {
             };
             let ticker = Ticker::try_from(token.name.as_slice()).unwrap();
 
-            // Get token Id.
-            let ticker_id = Identity::get_token_did(&ticker).unwrap();
-
             assert_ok!(Asset::create_asset(
-                alice_signed.clone(),
+                Origin::signed(alice),
                 token.name.clone(),
                 ticker,
                 token.total_supply,
@@ -2056,27 +2064,30 @@ fn test_weights_for_is_valid_transfer() {
                 None,
             ));
 
-            // Adding different claim rules
-            assert_ok!(ComplianceManager::add_active_rule(
+            // Get token Id.
+            let ticker_id = Identity::get_token_did(&ticker).unwrap();
+
+            // Adding different compliance requirements
+            assert_ok!(ComplianceManager::add_compliance_requirement(
                 alice_signed.clone(),
                 ticker,
                 vec![
-                    Rule {
-                        rule_type: RuleType::IsPresent(Claim::Accredited(ticker_id)),
+                    Condition {
+                        condition_type: ConditionType::IsPresent(Claim::Accredited(ticker_id)),
                         issuers: vec![eve_did]
                     },
-                    Rule {
-                        rule_type: RuleType::IsAbsent(Claim::BuyLockup(ticker_id)),
+                    Condition {
+                        condition_type: ConditionType::IsAbsent(Claim::BuyLockup(ticker_id)),
                         issuers: vec![eve_did]
                     }
                 ],
                 vec![
-                    Rule {
-                        rule_type: RuleType::IsPresent(Claim::Accredited(ticker_id)),
+                    Condition {
+                        condition_type: ConditionType::IsPresent(Claim::Accredited(ticker_id)),
                         issuers: vec![eve_did]
                     },
-                    Rule {
-                        rule_type: RuleType::IsAnyOf(vec![
+                    Condition {
+                        condition_type: ConditionType::IsAnyOf(vec![
                             Claim::BuyLockup(ticker_id),
                             Claim::KnowYourCustomer(ticker_id)
                         ]),
@@ -2157,15 +2168,15 @@ fn test_weights_for_is_valid_transfer() {
             assert!(matches!(result, computed_weight)); // Sender & receiver rules are processed.
 
             // Adding different claim rules
-            assert_ok!(ComplianceManager::add_active_rule(
+            assert_ok!(ComplianceManager::add_compliance_requirement(
                 alice_signed.clone(),
                 ticker,
-                vec![Rule {
-                    rule_type: RuleType::IsPresent(Claim::Exempted(ticker_id)),
+                vec![Condition {
+                    condition_type: ConditionType::IsPresent(Claim::Exempted(ticker_id)),
                     issuers: vec![eve_did]
                 }],
-                vec![Rule {
-                    rule_type: RuleType::IsPresent(Claim::Blocked(ticker_id)),
+                vec![Condition {
+                    condition_type: ConditionType::IsPresent(Claim::Blocked(ticker_id)),
                     issuers: vec![eve_did]
                 }]
             ));
@@ -2188,7 +2199,10 @@ fn test_weights_for_is_valid_transfer() {
             assert!(matches!(transfer_weight, computed_weight)); // Sender & receiver rules are processed.
 
             // pause transfer rules
-            assert_ok!(ComplianceManager::pause_asset_rules(alice_signed, ticker));
+            assert_ok!(ComplianceManager::pause_asset_compliance(
+                alice_signed,
+                ticker
+            ));
 
             let result =
                 Asset::_is_valid_transfer(&ticker, alice, Some(alice_did), Some(bob_did), 100)
@@ -2277,4 +2291,426 @@ fn check_functionality_of_remove_extension() {
                 AssetError::NoSuchSmartExtension
             );
         });
+}
+
+// Classic token tests:
+
+fn ticker(name: &str) -> Ticker {
+    name.as_bytes().try_into().unwrap()
+}
+
+fn default_classic() -> ClassicTickerImport {
+    ClassicTickerImport {
+        eth_owner: <_>::default(),
+        ticker: <_>::default(),
+        is_created: false,
+        is_contract: false,
+    }
+}
+
+fn default_reg_config() -> TickerRegistrationConfig<u64> {
+    TickerRegistrationConfig {
+        max_ticker_length: 8,
+        registration_length: Some(10000),
+    }
+}
+
+fn alice_secret_key() -> secp256k1::SecretKey {
+    secp256k1::SecretKey::parse(&keccak_256(b"Alice")).unwrap()
+}
+
+fn bob_secret_key() -> secp256k1::SecretKey {
+    secp256k1::SecretKey::parse(&keccak_256(b"Bob")).unwrap()
+}
+
+fn sorted<K: Ord + Clone, V>(iter: impl IntoIterator<Item = (K, V)>) -> Vec<(K, V)> {
+    let mut vec: Vec<_> = iter.into_iter().collect();
+    vec.sort_by_key(|x| x.0.clone());
+    vec
+}
+
+fn with_asset_genesis(genesis: AssetGenesis) -> ExtBuilder {
+    ExtBuilder::default().adjust(Box::new(move |storage| {
+        genesis.assimilate_storage(storage).unwrap();
+    }))
+}
+
+fn test_asset_genesis(genesis: AssetGenesis) {
+    with_asset_genesis(genesis).build().execute_with(|| {});
+}
+
+#[test]
+#[should_panic = "lowercase ticker"]
+fn classic_ticker_genesis_lowercase() {
+    test_asset_genesis(AssetGenesis {
+        classic_migration_tickers: vec![ClassicTickerImport {
+            ticker: ticker("lower"),
+            ..default_classic()
+        }],
+        ..<_>::default()
+    });
+}
+
+#[test]
+#[should_panic = "TickerTooLong"]
+fn classic_ticker_genesis_too_long() {
+    test_asset_genesis(AssetGenesis {
+        classic_migration_tconfig: TickerRegistrationConfig {
+            max_ticker_length: 3,
+            registration_length: None,
+        },
+        classic_migration_tickers: vec![ClassicTickerImport {
+            ticker: ticker("ACME"),
+            ..default_classic()
+        }],
+        ..<_>::default()
+    });
+}
+
+#[test]
+#[should_panic = "TickerAlreadyRegistered"]
+fn classic_ticker_genesis_already_registered_sys_did() {
+    let import = ClassicTickerImport {
+        ticker: ticker("ACME"),
+        ..default_classic()
+    };
+    test_asset_genesis(AssetGenesis {
+        classic_migration_tconfig: default_reg_config(),
+        classic_migration_tickers: vec![import.clone(), import],
+        ..<_>::default()
+    });
+}
+
+#[test]
+#[should_panic = "TickerAlreadyRegistered"]
+fn classic_ticker_genesis_already_registered_other_did() {
+    let import_a = ClassicTickerImport {
+        ticker: ticker("ACME"),
+        ..default_classic()
+    };
+    let import_b = ClassicTickerImport {
+        is_contract: true,
+        ..import_a.clone()
+    };
+    test_asset_genesis(AssetGenesis {
+        classic_migration_contract_did: 1.into(),
+        classic_migration_tconfig: default_reg_config(),
+        classic_migration_tickers: vec![import_a, import_b],
+        ..<_>::default()
+    });
+}
+
+#[test]
+fn classic_ticker_genesis_works() {
+    let alice_eth = ethereum::EthereumAddress(*b"0x012345678987654321");
+    let bob_eth = ethereum::EthereumAddress(*b"0x212345678987654321");
+    let charlie_eth = ethereum::EthereumAddress(*b"0x512345678987654321");
+
+    // Define actual on-genesis asset config.
+    let classic_migration_tickers = vec![
+        ClassicTickerImport {
+            eth_owner: alice_eth,
+            ticker: ticker("ALPHA"),
+            is_created: false,
+            is_contract: false,
+        },
+        ClassicTickerImport {
+            eth_owner: alice_eth,
+            ticker: ticker("BETA"),
+            is_created: true,
+            is_contract: false,
+        },
+        ClassicTickerImport {
+            eth_owner: bob_eth,
+            ticker: ticker("GAMMA"),
+            is_created: false,
+            is_contract: true,
+        },
+        ClassicTickerImport {
+            eth_owner: charlie_eth,
+            ticker: ticker("DELTA"),
+            is_created: true,
+            is_contract: true,
+        },
+    ];
+    let contract_did = IdentityId::from(1337);
+    let registration_length = Some(42);
+    let standard_config = default_reg_config();
+    let genesis = AssetGenesis {
+        classic_migration_tickers,
+        ticker_registration_config: standard_config.clone(),
+        classic_migration_contract_did: contract_did,
+        classic_migration_tconfig: TickerRegistrationConfig {
+            registration_length,
+            ..standard_config
+        },
+    };
+
+    // Define expected ticker data after genesis.
+    let reg = |owner, expiry| TickerRegistration { expiry, owner };
+    let cm_did = SystematicIssuers::ClassicMigration.as_id();
+    let mut tickers = vec![
+        (ticker("ALPHA"), reg(cm_did, registration_length)),
+        (ticker("BETA"), reg(cm_did, registration_length)),
+        (ticker("GAMMA"), reg(contract_did, registration_length)),
+        (ticker("DELTA"), reg(contract_did, registration_length)),
+    ];
+
+    // Define expected classic ticker data after genesis.
+    let classic_reg = |eth_owner, is_created| ClassicTickerRegistration {
+        eth_owner,
+        is_created,
+    };
+    let classic_tickers = vec![
+        (ticker("ALPHA"), classic_reg(alice_eth, false)),
+        (ticker("BETA"), classic_reg(alice_eth, true)),
+        (ticker("GAMMA"), classic_reg(bob_eth, false)),
+        (ticker("DELTA"), classic_reg(charlie_eth, true)),
+    ];
+
+    with_asset_genesis(genesis).build().execute_with(move || {
+        // Dave enters the room.
+        let rt_signer = Origin::signed(AccountKeyring::Dave.public());
+        let rt_did = register_keyring_account(AccountKeyring::Dave).unwrap();
+
+        // Ensure we have cm_did != contract_did != rt_did.
+        assert_ne!(cm_did, contract_did);
+        assert_ne!(rt_did, cm_did);
+        assert_ne!(rt_did, contract_did);
+
+        // Add another ticker to contrast expiry and DID and expect it.
+        let expiry = standard_config.registration_length;
+        assert_ok!(Asset::register_ticker(rt_signer, ticker("EPSILON")));
+        tickers.push((ticker("EPSILON"), reg(rt_did, expiry)));
+
+        // Ensure actual permutes expected.
+        assert_eq!(sorted(Tickers::<TestStorage>::iter()), sorted(tickers));
+        assert_eq!(sorted(ClassicTickers::iter()), sorted(classic_tickers));
+    });
+}
+
+#[test]
+fn classic_ticker_no_such_classic_ticker() {
+    with_asset_genesis(AssetGenesis {
+        classic_migration_tconfig: default_reg_config(),
+        // There is a classic ticker, but not the one we're claiming.
+        classic_migration_tickers: vec![ClassicTickerImport {
+            ticker: ticker("ACME"),
+            ..default_classic()
+        }],
+        ..<_>::default()
+    })
+    .build()
+    .execute_with(|| {
+        assert_noop!(
+            Asset::claim_classic_ticker(root(), ticker("EMCA"), ethereum::EcdsaSignature([0; 65])),
+            AssetError::NoSuchClassicTicker
+        );
+    });
+}
+
+#[test]
+fn classic_ticker_registered_by_other() {
+    let ticker = ticker("ACME");
+    with_asset_genesis(AssetGenesis {
+        classic_migration_tconfig: default_reg_config(),
+        // There is a classic ticker, but its not owned by sys DID.
+        classic_migration_tickers: vec![ClassicTickerImport {
+            ticker,
+            is_contract: true,
+            ..default_classic()
+        }],
+        ..<_>::default()
+    })
+    .build()
+    .execute_with(|| {
+        assert_noop!(
+            Asset::claim_classic_ticker(root(), ticker, ethereum::EcdsaSignature([0; 65])),
+            AssetError::TickerAlreadyRegistered
+        );
+    });
+}
+
+#[test]
+fn classic_ticker_expired_thus_available() {
+    let ticker = ticker("ACME");
+    with_asset_genesis(AssetGenesis {
+        classic_migration_tconfig: TickerRegistrationConfig {
+            registration_length: Some(0),
+            ..default_reg_config()
+        },
+        classic_migration_tickers: vec![ClassicTickerImport {
+            ticker,
+            ..default_classic()
+        }],
+        ..<_>::default()
+    })
+    .build()
+    .execute_with(|| {
+        let rt_signer = Origin::signed(AccountKeyring::Dave.public());
+        Timestamp::set_timestamp(1);
+        assert_noop!(
+            Asset::claim_classic_ticker(rt_signer, ticker, ethereum::EcdsaSignature([0; 65])),
+            AssetError::TickerRegistrationExpired
+        );
+    });
+}
+
+#[test]
+fn classic_ticker_garbage_signature() {
+    let ticker = ticker("ACME");
+    with_asset_genesis(AssetGenesis {
+        classic_migration_tconfig: default_reg_config(),
+        classic_migration_tickers: vec![ClassicTickerImport {
+            ticker,
+            ..default_classic()
+        }],
+        ..<_>::default()
+    })
+    .build()
+    .execute_with(|| {
+        let rt_signer = Origin::signed(AccountKeyring::Dave.public());
+        assert_noop!(
+            Asset::claim_classic_ticker(rt_signer, ticker, ethereum::EcdsaSignature([0; 65])),
+            AssetError::InvalidEthereumSignature
+        );
+    });
+}
+
+#[test]
+fn classic_ticker_not_owner() {
+    let ticker = ticker("ACME");
+    with_asset_genesis(AssetGenesis {
+        classic_migration_tconfig: default_reg_config(),
+        classic_migration_tickers: vec![ClassicTickerImport {
+            ticker,
+            eth_owner: ethereum::address(&alice_secret_key()),
+            ..default_classic()
+        }],
+        ..<_>::default()
+    })
+    .build()
+    .execute_with(|| {
+        let signer = Origin::signed(AccountKeyring::Bob.public());
+        let did = register_keyring_account(AccountKeyring::Bob).unwrap();
+        let eth_sig = ethereum::eth_msg(did, b"classic_claim", &bob_secret_key());
+        assert_noop!(
+            Asset::claim_classic_ticker(signer, ticker, eth_sig),
+            AssetError::NotAnOwner
+        );
+    });
+}
+
+#[test]
+fn classic_ticker_claim_works() {
+    let eth_owner = ethereum::address(&alice_secret_key());
+
+    // Define all the classic ticker imports.
+    let import = |name, is_created| ClassicTickerImport {
+        eth_owner,
+        ticker: ticker(name),
+        is_created,
+        is_contract: false,
+    };
+    let tickers = vec![
+        import("ALPHA", false),
+        import("BETA", true),
+        import("GAMMA", true),
+        import("DELTA", true),
+        import("EPSILON", true),
+        import("ZETA", true),
+    ];
+
+    // Complete the genesis definition.
+    let expire_after = 42;
+    let genesis = AssetGenesis {
+        classic_migration_tickers: tickers.clone(),
+        ticker_registration_config: default_reg_config(),
+        classic_migration_tconfig: TickerRegistrationConfig {
+            registration_length: Some(expire_after),
+            ..default_reg_config()
+        },
+        classic_migration_contract_did: 0.into(),
+    };
+
+    // Define the fees and initial balance.
+    let init_bal = 150;
+    let fee = 50;
+    let fees = MockProtocolBaseFees(vec![(ProtocolOp::AssetCreateAsset, fee)]);
+
+    let ext = with_asset_genesis(genesis).set_protocol_base_fees(fees);
+    ext.build().execute_with(move || {
+        System::set_block_number(1);
+
+        let focus_user = |key: AccountKeyring, bal| {
+            let acc = key.public();
+            let did = crate::register_keyring_account_with_balance(key, bal).unwrap();
+            TestStorage::set_payer_context(Some(acc));
+            (acc, did)
+        };
+
+        // Initialize Alice and let them claim classic tickers successfully.
+        let (alice_acc, alice_did) = focus_user(AccountKeyring::Alice, init_bal);
+        let eth_sig = ethereum::eth_msg(alice_did, b"classic_claim", &alice_secret_key());
+        for ClassicTickerImport { ticker, .. } in tickers {
+            let signer = Origin::signed(alice_acc);
+            assert_ok!(Asset::claim_classic_ticker(signer, ticker, eth_sig.clone()));
+            assert_eq!(alice_did, Tickers::<TestStorage>::get(ticker).owner);
+            assert!(matches!(
+                &*System::events(),
+                [.., frame_system::EventRecord {
+                    event: super::storage::EventTest::asset(pallet_asset::RawEvent::ClassicTickerClaimed(..)),
+                    ..
+                }]
+            ));
+        }
+
+        // Create `ALPHA` asset; this will cost.
+        let create = |acc, name: &str, bal_after| {
+            let asset = name.try_into().unwrap();
+            let ticker = ticker(name);
+            let signer = Origin::signed(acc);
+            let ret = Asset::create_asset(signer, asset, ticker, 1, true, <_>::default(), vec![], None);
+            assert_balance(acc, bal_after, 0);
+            ret
+        };
+        assert_ok!(create(alice_acc, "ALPHA", init_bal - fee));
+
+        // Create `BETA`; fee is waived as `is_created: true`.
+        assert_ok!(create(alice_acc, "BETA", init_bal - fee));
+
+        // Fast forward, thereby expiring `GAMMA` for which `is_created: true` holds.
+        // Thus, fee isn't waived and is charged.
+        Timestamp::set_timestamp(expire_after + 1);
+        assert_ok!(create(alice_acc, "GAMMA", init_bal - fee - fee));
+
+        // Now `DELTA` has expired as well. Bob registers it, so its not classic anymore and fee is charged.
+        let (bob_acc, _) = focus_user(AccountKeyring::Bob, 0);
+        assert!(ClassicTickers::get(&ticker("DELTA")).is_some());
+        assert_ok!(Asset::register_ticker(Origin::signed(bob_acc), ticker("DELTA")));
+        assert_eq!(ClassicTickers::get(&ticker("DELTA")), None);
+        assert_noop!(create(bob_acc, "DELTA", 0), FeeError::InsufficientAccountBalance);
+
+        // Repeat for `EPSILON`, but directly `create_asset` instead.
+        let (charlie_acc, charlie_did) = focus_user(AccountKeyring::Charlie, 2 * fee);
+        assert!(ClassicTickers::get(&ticker("EPSILON")).is_some());
+        assert_ok!(create(charlie_acc, "EPSILON", 1 * fee));
+        assert_eq!(ClassicTickers::get(&ticker("EPSILON")), None);
+
+        // Travel back in time to unexpire `ZETA`,
+        // transfer it to Charlie, and ensure its not classic anymore.
+        Timestamp::set_timestamp(0);
+        let zeta = ticker("ZETA");
+        assert!(ClassicTickers::get(&zeta).is_some());
+        let auth_id_alice = Identity::add_auth(
+            alice_did,
+            Signatory::from(charlie_did),
+            AuthorizationData::TransferTicker(zeta),
+            None,
+        );
+        assert_ok!(Asset::accept_ticker_transfer(Origin::signed(charlie_acc), auth_id_alice));
+        assert_eq!(ClassicTickers::get(&zeta), None);
+        assert_ok!(create(charlie_acc, "ZETA", 0 * fee));
+        assert_eq!(ClassicTickers::get(&zeta), None);
+    });
 }

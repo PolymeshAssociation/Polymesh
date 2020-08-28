@@ -154,17 +154,21 @@ decl_module! {
 
 impl<T: Trait> Module<T> {
     /// Computes the fee of the operation as `(base_fee * coefficient.0) / coefficient.1`.
-    pub fn compute_fee(op: ProtocolOp) -> BalanceOf<T> {
+    pub fn compute_fee(ops: &[ProtocolOp]) -> BalanceOf<T> {
         let coefficient = Self::coefficient();
         let ratio = Perbill::from_rational_approximation(coefficient.0, coefficient.1);
-        ratio * Self::base_fees(op)
+        let base = ops.iter().fold(<_>::zero(), |a, e| a + Self::base_fees(e));
+        ratio * base
     }
 
-    /// Computes the fee of the operation and charges it to the current payer. The fee is then
+    /// Computes the fee of the operations and charges it to the current payer. The fee is then
     /// credited to the intended recipients according to the implementation of
     /// `OnProtocolFeePayment`.
-    pub fn charge_fee(op: ProtocolOp) -> DispatchResult {
-        let fee = Self::compute_fee(op);
+    pub fn charge_fees(ops: &[ProtocolOp]) -> DispatchResult {
+        if ops.is_empty() {
+            return Ok(());
+        }
+        let fee = Self::compute_fee(ops);
         if fee.is_zero() {
             return Ok(());
         }
@@ -177,7 +181,7 @@ impl<T: Trait> Module<T> {
 
     /// Computes the fee for `count` similar operations, and charges that fee to the current payer.
     pub fn batch_charge_fee(op: ProtocolOp, count: usize) -> DispatchResult {
-        let fee = Self::compute_fee(op).saturating_mul(<BalanceOf<T>>::from(count as u32));
+        let fee = Self::compute_fee(&[op]).saturating_mul(<BalanceOf<T>>::from(count as u32));
         if fee.is_zero() {
             return Ok(());
         }
@@ -191,21 +195,25 @@ impl<T: Trait> Module<T> {
     /// Withdraws a precomputed fee from the current payer if it is defined or from the current
     /// identity otherwise.
     fn withdraw_fee(account: T::AccountId, fee: BalanceOf<T>) -> WithdrawFeeResult<T> {
-        let result = T::Currency::withdraw(
+        let ret = T::Currency::withdraw(
             &account,
             fee,
             WithdrawReason::Fee.into(),
             ExistenceRequirement::KeepAlive,
         )
-        .map_err(|_| Error::<T>::InsufficientAccountBalance.into());
+        .map_err(|_| Error::<T>::InsufficientAccountBalance)?;
         Self::deposit_event(RawEvent::FeeCharged(account, fee));
-        result
+        Ok(ret)
     }
 }
 
 impl<T: Trait> ChargeProtocolFee<T::AccountId> for Module<T> {
     fn charge_fee(op: ProtocolOp) -> DispatchResult {
-        Self::charge_fee(op)
+        Self::charge_fees(&[op])
+    }
+
+    fn charge_fees(ops: &[ProtocolOp]) -> DispatchResult {
+        Self::charge_fees(ops)
     }
 
     fn batch_charge_fee(op: ProtocolOp, count: usize) -> DispatchResult {

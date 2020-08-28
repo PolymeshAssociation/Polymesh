@@ -1,5 +1,5 @@
 use crate::{
-    scalar_blake2_from_bytes, CddId, Claim, Context, IdentityId, InvestorZKProofData, Predicate,
+    scalar_blake2_from_bytes, CddId, Claim, Context, IdentityId, InvestorZKProofData, Proposition,
     Ticker,
 };
 use cryptography::claim_proofs::ProofPublicKey;
@@ -8,16 +8,16 @@ use curve25519_dalek::{ristretto::CompressedRistretto, scalar::Scalar};
 // ZKProofs claims
 // =========================================================
 
-/// Predicate that checks if any of its internal claims exists in context.
+/// Proposition that checks if any of its internal claims exists in context.
 #[derive(Clone)]
 #[cfg_attr(feature = "std", derive(Debug))]
-pub struct ValidProofOfInvestorPredicate {
+pub struct ValidProofOfInvestorProposition {
     /// The Investor proof should be associated to this ticker.
     pub ticker: Ticker,
 }
 
-impl Predicate for ValidProofOfInvestorPredicate {
-    /// Evaluate predicate against `context`.
+impl Proposition for ValidProofOfInvestorProposition {
+    /// Evaluate proposition against `context`.
     fn evaluate(&self, context: &Context) -> bool {
         context
             .claims
@@ -26,7 +26,7 @@ impl Predicate for ValidProofOfInvestorPredicate {
     }
 }
 
-impl ValidProofOfInvestorPredicate {
+impl ValidProofOfInvestorProposition {
     /// Evaluates if the claim is a valid proof.
     fn evaluate_claim(&self, claim: &Claim, context: &Context) -> bool {
         match claim {
@@ -67,7 +67,7 @@ impl ValidProofOfInvestorPredicate {
 mod tests {
     use super::*;
     use crate::{
-        predicate::{exists, has_valid_proof_of_investor},
+        proposition::{exists, has_valid_proof_of_investor},
         Claim, Context, InvestorUid, InvestorZKProofData,
     };
     use cryptography::claim_proofs::{compute_cdd_id, compute_scope_id};
@@ -81,7 +81,7 @@ mod tests {
         let asset_id = IdentityId::try_from(asset_ticker.as_slice()).unwrap();
 
         let exists_affiliate_claim = Claim::Affiliate(asset_id);
-        let predicate =
+        let proposition =
             exists(&exists_affiliate_claim).and(has_valid_proof_of_investor(asset_ticker));
 
         let context = Context {
@@ -89,14 +89,14 @@ mod tests {
             id: investor_id,
             primary_issuance_agent: None,
         };
-        assert_eq!(predicate.evaluate(&context), false);
+        assert_eq!(proposition.evaluate(&context), false);
 
         let context = Context {
             claims: vec![Claim::Affiliate(asset_id)],
             id: investor_id,
             primary_issuance_agent: None,
         };
-        assert_eq!(predicate.evaluate(&context), false);
+        assert_eq!(proposition.evaluate(&context), false);
 
         let proof: InvestorZKProofData =
             InvestorZKProofData::new(&investor_id, &investor_uid, &asset_ticker);
@@ -113,6 +113,6 @@ mod tests {
             id: investor_id,
             primary_issuance_agent: None,
         };
-        assert_eq!(predicate.evaluate(&context), true);
+        assert_eq!(proposition.evaluate(&context), true);
     }
 }
