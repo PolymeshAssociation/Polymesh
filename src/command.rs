@@ -111,9 +111,9 @@ pub fn run() -> Result<()> {
             if chain_spec.is_alcyone_network() {
                 runtime.run_subcommand(subcommand, |config| {
                     service::chain_ops::<
-                        service::polymesh_runtime_testnet_v1::RuntimeApi,
+                        service::polymesh_runtime_testnet::RuntimeApi,
                         service::AlcyoneExecutor,
-                        service::polymesh_runtime_testnet_v1::UncheckedExtrinsic,
+                        service::polymesh_runtime_testnet::UncheckedExtrinsic,
                     >(config)
                 })
             } else {
