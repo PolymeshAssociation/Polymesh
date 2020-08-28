@@ -34,7 +34,7 @@ async function main() {
   // issuer Claim
   await reqImports.addClaimsToDids( api, primary_keys, issuer_dids[0], "Exempted", asset_did, null );
 
-  await reqImports.createClaimRules( api, primary_keys, issuer_dids, prepend );
+  await reqImports.createClaimCompliance( api, primary_keys, issuer_dids, prepend );
 
   await mintingAsset( api, primary_keys[0], prepend );
 

@@ -8,7 +8,7 @@ use pallet_asset as asset;
 use pallet_balances as balances;
 use pallet_basic_sto as sto;
 use pallet_committee as committee;
-use pallet_compliance_manager::{self as compliance_manager, AssetTransferRulesResult};
+use pallet_compliance_manager::{self as compliance_manager, AssetComplianceResult};
 use pallet_confidential as confidential;
 use pallet_group as group;
 use pallet_identity::{
@@ -652,13 +652,13 @@ impl asset::Trait for Runtime {
 }
 
 parameter_types! {
-    pub const MaxRuleComplexity: u32 = 50;
+    pub const MaxConditionComplexity: u32 = 50;
 }
 
 impl compliance_manager::Trait for Runtime {
     type Event = Event;
     type Asset = Asset;
-    type MaxRuleComplexity = MaxRuleComplexity;
+    type MaxConditionComplexity = MaxConditionComplexity;
 }
 
 impl voting::Trait for Runtime {
@@ -1071,7 +1071,7 @@ impl_runtime_apis! {
         Block,
     > for Runtime {
         fn compute_fee(op: ProtocolOp) -> CappedFee {
-            ProtocolFee::compute_fee(op).into()
+            ProtocolFee::compute_fee(&[op]).into()
         }
     }
 
@@ -1143,7 +1143,7 @@ impl_runtime_apis! {
             from_did: Option<IdentityId>,
             to_did: Option<IdentityId>,
             primary_issuance_agent: Option<IdentityId>,
-        ) -> AssetTransferRulesResult
+        ) -> AssetComplianceResult
         {
             ComplianceManager::granular_verify_restriction(&ticker, from_did, to_did, primary_issuance_agent)
         }
