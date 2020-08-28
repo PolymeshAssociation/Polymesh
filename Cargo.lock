@@ -3211,6 +3211,7 @@ dependencies = [
  "pallet-timestamp",
  "parity-scale-codec",
  "polymesh-common-utilities",
+ "polymesh-contracts",
  "polymesh-primitives",
  "polymesh-primitives-derive",
  "rustc-hex",

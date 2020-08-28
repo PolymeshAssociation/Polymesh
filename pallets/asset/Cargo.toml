@@ -16,6 +16,7 @@ pallet-contracts = { git = "https://github.com/PolymathNetwork/substrate", branc
 pallet-identity = { path = "../identity", default-features = false }
 pallet-portfolio = { path = "../portfolio", default-features = false }
 pallet-statistics = { path = "../statistics", default-features = false }
+polymesh-contracts = { path = "../contracts", default-features = false }
 
 # Other
 serde = { version = "1.0.104", default-features = false }
@@ -50,6 +51,7 @@ std = [
     "frame-support/std",
     "frame-system/std",
     "pallet-balances/std",
+    "polymesh-contracts/std",
     "pallet-contracts/std",
     "pallet-portfolio/std",
     "pallet-session/std",

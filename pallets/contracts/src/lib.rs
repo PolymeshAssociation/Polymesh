@@ -32,7 +32,7 @@ use polymesh_common_utilities::{
     protocol_fee::{ChargeProtocolFee, ProtocolOp},
     with_transaction, Context,
 };
-use polymesh_primitives::{IdentityId, MetaUrl, TemplateDetails, TemplateMetadata};
+use polymesh_primitives::{IdentityId, MetaUrl, TemplateDetails, TemplateMetadata, ExtensionAttributes};
 use sp_core::crypto::UncheckedFrom;
 use sp_runtime::{
     traits::{Hash, Saturating, StaticLookup},
@@ -89,8 +89,8 @@ decl_storage! {
         pub MetadataOfTemplate get(fn get_metadata_of): map hasher(identity) CodeHash<T> => TemplateMetadata<BalanceOf<T>>;
         /// Store the details of the template (Ex- owner, frozen etc).
         pub TemplateInfo get(fn get_template_details): map hasher(identity) CodeHash<T> => TemplateDetails<BalanceOf<T>>;
-        /// Usage fee for the SE instance.
-        pub ExtensionUsageFee get(fn extension_usage_fee): map hasher(identity) T::AccountId => BalanceOf<T>;
+        /// Details of extension get updated.
+        pub ExtensionInfo get(fn extension_info): map hasher(identity) T::AccountId => ExtensionAttributes<BalanceOf<T>>;
         /// Nonce for the smart extension account id generation.
         /// Using explicit nonce as in batch transaction accounts nonce doesn't get incremented.
         pub ExtensionNonce get(fn extension_nonce): u64;
@@ -264,7 +264,7 @@ decl_module! {
             })?;
 
             // Update the usage fee for the extension instance.
-            <ExtensionUsageFee<T>>::insert(contract_address, Self::get_usage_fee(&code_hash));
+            <ExtensionInfo<T>>::insert(contract_address, Self::ext_details(&code_hash));
 
             // Update the actual weight of the extrinsic.
             Ok(actual_weight.map(|w| w + 500_000_000).into())
@@ -414,7 +414,11 @@ impl<T: Trait> Module<T> {
         Identity::<T>::did_records(id).primary_key
     }
 
-    fn get_usage_fee(code_hash: &CodeHash<T>) -> BalanceOf<T> {
-        Self::get_metadata_of(code_hash).usage_fee
+    fn ext_details(code_hash: &CodeHash<T>) -> ExtensionAttributes<BalanceOf<T>> {
+        let meta_info = Self::get_metadata_of(code_hash);
+        ExtensionAttributes {
+            usage_fee: meta_info.usage_fee,
+            version: meta_info.version
+        }
     }
 }
