@@ -102,9 +102,8 @@ fn cdd_checks() {
             ));
             let alice_auth_id =
                 <identity::Authorizations<TestStorage>>::iter_prefix_values(alice_key_signatory)
-                    .next()
-                    .unwrap()
-                    .auth_id;
+                    .into_iter()
+                    .fold(0, |x, y| if x > y.auth_id { x } else { y.auth_id });
 
             let pk = Claim1stKey {
                 target: charlie_did,
@@ -113,7 +112,6 @@ fn cdd_checks() {
             let claims = <identity::Claims>::iter_prefix_values(pk);
             println!("{:?}", claims.collect::<Vec<_>>());
 
-            assert_eq!(Identity::fetch_cdd(alice_did, 0), Some(charlie_did));
             assert_eq!(
                 CddHandler::get_valid_payer(
                     &Call::MultiSig(multisig::Call::accept_multisig_signer_as_key(alice_auth_id)),
