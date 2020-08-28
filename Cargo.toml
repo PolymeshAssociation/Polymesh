@@ -15,7 +15,7 @@ members = [
     "primitives_derive",
     "pallets/runtime/common",
     "pallets/runtime/develop",
-    "pallets/runtime/testnet-v1",
+    "pallets/runtime/testnet",
     "pallets/runtime/tests",
     "pallets/common",
     "pallets/transaction-payment",
@@ -73,7 +73,7 @@ frame-system-rpc-runtime-api = { git = "https://github.com/paritytech/substrate"
 
 # Runtimes
 polymesh-runtime-develop = { path = "pallets/runtime/develop" }
-polymesh-runtime-testnet-v1 = { path = "pallets/runtime/testnet-v1" }
+polymesh-runtime-testnet-v1 = { path = "pallets/runtime/testnet" }
 
 # General
 ed25519-dalek = "=1.0.0-pre.3"
