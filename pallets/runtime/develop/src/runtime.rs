@@ -689,10 +689,10 @@ impl confidential::Trait for Runtime {
 }
 
 // / A runtime transaction submitter for the cdd_offchain_worker
-// Comment it in the favour of Testnet v1 release
+// Comment it in the favour of Testnet release
 //type SubmitTransactionCdd = TransactionSubmitter<CddOffchainWorkerId, Runtime, UncheckedExtrinsic>;
 
-// Comment it in the favour of Testnet v1 release
+// Comment it in the favour of Testnet release
 // parameter_types! {
 //     pub const CoolingInterval: BlockNumber = 3;
 //     pub const BufferInterval: BlockNumber = 5;
@@ -770,7 +770,7 @@ construct_runtime!(
         Statistic: statistics::{Module, Call, Storage},
         ProtocolFee: protocol_fee::{Module, Call, Storage, Event<T>, Config<T>},
         Utility: utility::{Module, Call, Storage, Event},
-        // Comment it in the favour of Testnet v1 release
+        // Comment it in the favour of Testnet release
         // CddOffchainWorker: pallet_cdd_offchain_worker::{Module, Call, Storage, ValidateUnsigned, Event<T>}
         Portfolio: portfolio::{Module, Call, Storage, Event<T>},
         Confidential: confidential::{Module, Call, Storage, Event },

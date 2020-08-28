@@ -8,7 +8,7 @@ use polymesh_runtime_develop::{
     config::{self as GeneralConfig},
     constants::time as generalTime,
 };
-use polymesh_runtime_testnet_v1::{
+use polymesh_runtime_testnet::{
     self as alcyone,
     config::{self as AlcyoneConfig},
     constants::time as alcyoneTime,
