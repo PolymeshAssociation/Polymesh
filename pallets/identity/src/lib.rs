@@ -2251,20 +2251,21 @@ impl<T: Trait> CheckAccountCallPermissions<T::AccountId> for Module<T> {
                 // The DID record is missing.
                 return false;
             }
-            let did_record = <DidRecords<T>>::get(&did);
-            if who == &did_record.primary_key {
-                // `who` is the primary key.
-                // Frozen DIDs are not permitted to call extrinsics.
-                !Self::is_did_frozen(&did)
-            } else {
+            if who != &<DidRecords<T>>::get(&did).primary_key {
                 // `who` can be a secondary key.
-                did_record.secondary_keys.iter().any(|sk| {
-                    sk.signer.as_account() == Some(who)
-                        && sk.has_extrinsic_permission(pallet_name, function_name)
-                })
+                //
+                // DIDs with frozen secondary keys (aka frozen DIDs) are not permitted to call
+                // extrinsics.
+                return !Self::is_did_frozen(&did)
+                    && did_record.secondary_keys.iter().any(|sk| {
+                        sk.signer.as_account() == Some(who)
+                            && sk.has_extrinsic_permission(pallet_name, function_name)
+                    });
             }
-        } else {
-            false
+            // `who` is the primary key.
+            return true;
         }
+        // `who` doesn't have an identity.
+        false
     }
 }
