@@ -327,7 +327,7 @@ decl_module! {
         ) -> DispatchResult {
             // Sender has to be part of CDDProviders
             let cdd_sender = ensure_signed(origin)?;
-            // CallPermissions::<T>::ensure_call_permissions(&cdd_sender)?;
+            CallPermissions::<T>::ensure_call_permissions(&cdd_sender)?;
             let cdd_id = Context::current_identity_or::<Self>(&cdd_sender)?;
 
             let cdd_providers = T::CddServiceProviders::get_members();
@@ -377,7 +377,7 @@ decl_module! {
         )]
         pub fn remove_secondary_keys(origin, signers_to_remove: Vec<Signatory<T::AccountId>>) -> DispatchResult {
             let sender = ensure_signed(origin)?;
-            // CallPermissions::<T>::ensure_call_permissions(&sender)?;
+            CallPermissions::<T>::ensure_call_permissions(&sender)?;
             let did = Context::current_identity_or::<Self>(&sender)?;
             let _grants_checked = Self::grant_check_only_primary_key(&sender, did)?;
 

@@ -1,8 +1,9 @@
 use super::{
     ext_builder::PROTOCOL_OP_BASE_FEE,
     storage::{
-        add_secondary_key, authorizations_to, get_identity_id, register_keyring_account,
-        register_keyring_account_with_balance, GovernanceCommittee, TestStorage,
+        add_secondary_key, authorizations_to, get_identity_id, get_last_auth_id,
+        register_keyring_account, register_keyring_account_with_balance, GovernanceCommittee,
+        TestStorage,
     },
     ExtBuilder,
 };
@@ -537,11 +538,7 @@ fn remove_secondary_keys_test_with_externalities() {
         vec![Signatory::from(alice_did), Signatory::Account(dave_key)],
         1,
     ));
-    let auth_id =
-        <identity::Authorizations<TestStorage>>::iter_prefix_values(Signatory::Account(dave_key))
-            .next()
-            .unwrap()
-            .auth_id;
+    let auth_id = get_last_auth_id(&Signatory::Account(dave_key));
     assert_ok!(MultiSig::unsafe_accept_multisig_signer(
         Signatory::Account(dave_key),
         auth_id
@@ -652,11 +649,7 @@ fn leave_identity_test_with_externalities() {
         vec![Signatory::from(alice_did), Signatory::Account(dave_key)],
         1,
     ));
-    let auth_id =
-        <identity::Authorizations<TestStorage>>::iter_prefix_values(Signatory::Account(dave_key))
-            .next()
-            .unwrap()
-            .auth_id;
+    let auth_id = get_last_auth_id(&Signatory::Account(dave_key));
     assert_ok!(MultiSig::unsafe_accept_multisig_signer(
         Signatory::Account(dave_key),
         auth_id
@@ -1595,18 +1588,8 @@ fn add_permission_with_secondary_key() {
                 None
             ));
 
-            let bob_auth_id = <identity::Authorizations<TestStorage>>::iter_prefix_values(
-                Signatory::Account(bob_acc),
-            )
-            .next()
-            .unwrap()
-            .auth_id;
-            let charlie_auth_id = <identity::Authorizations<TestStorage>>::iter_prefix_values(
-                Signatory::Account(charlie_acc),
-            )
-            .next()
-            .unwrap()
-            .auth_id;
+            let bob_auth_id = get_last_auth_id(&Signatory::Account(bob_acc));
+            let charlie_auth_id = get_last_auth_id(&Signatory::Account(charlie_acc));
 
             println!("Print the protocol base fee: {:?}", PROTOCOL_OP_BASE_FEE);
 

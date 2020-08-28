@@ -43,7 +43,8 @@ use polymesh_common_utilities::traits::{
     CheckAccountCallPermissions, CommonTrait, PermissionChecker,
 };
 use polymesh_primitives::{
-    AuthorizationData, Claim, IdentityId, InvestorUid, Moment, Permissions, Signatory,
+    Authorization, AuthorizationData, Claim, IdentityId, InvestorUid, Moment, Permissions,
+    Signatory,
 };
 use sp_core::H256;
 use sp_io;
@@ -925,12 +926,7 @@ pub fn add_secondary_key(stash_key: AccountId, to_secondary_key: AccountId) {
             .is_ok(),
             "Error in providing the authorization"
         );
-        let auth_id = <identity::Authorizations<Test>>::iter_prefix_values(Signatory::Account(
-            to_secondary_key,
-        ))
-        .next()
-        .unwrap()
-        .auth_id;
+        let auth_id = get_last_auth_id(&Signatory::Account(to_secondary_key));
         assert_ok!(Identity::join_identity_as_key(
             Origin::signed(to_secondary_key),
             auth_id
@@ -1526,4 +1522,18 @@ pub fn create_did_and_add_claim_with_expiry(stash: AccountId, expiry: u64) {
         Claim::make_cdd_wildcard(),
         Some(expiry.into())
     ));
+}
+
+// `iter_prefix_values` has no guarantee that it will iterate in a sequential
+// order. However, we need the latest `auth_id`. Which is why we search for the claim
+// with the highest `auth_id`.
+pub fn get_last_auth(signatory: &Signatory<AccountId>) -> Authorization<AccountId, u64> {
+    <identity::Authorizations<Test>>::iter_prefix_values(signatory)
+        .into_iter()
+        .max_by_key(|x| x.auth_id)
+        .expect("there are no authorizations")
+}
+
+pub fn get_last_auth_id(signatory: &Signatory<AccountId>) -> u64 {
+    get_last_auth(signatory).auth_id
 }
