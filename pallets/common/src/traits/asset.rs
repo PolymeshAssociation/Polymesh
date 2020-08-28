@@ -14,9 +14,10 @@
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
 use codec::{Decode, Encode};
-use frame_support::dispatch::DispatchResult;
+use frame_support::dispatch::{DispatchResult, DispatchResultWithPostInfo};
 use polymesh_primitives::{IdentityId, Ticker};
 
+pub const GAS_LIMIT: u64 = 1_000_000_000;
 /// This trait is used to call functions that accept transfer of a ticker or token ownership
 pub trait AcceptTransfer {
     /// Accept and process a ticker transfer
@@ -25,12 +26,12 @@ pub trait AcceptTransfer {
     /// * `to_did` did of the receiver
     /// * `auth_id` Authorization id of the authorization created by current ticker owner
     fn accept_ticker_transfer(to_did: IdentityId, auth_id: u64) -> DispatchResult;
-    /// Accept and process a treasury transfer
+    /// Accept and process a primary issuance agent transfer
     ///
     /// # Arguments
     /// * `to_did` did of the receiver
     /// * `auth_id` Authorization id of the authorization created by current ticker owner
-    fn accept_treasury_transfer(to_did: IdentityId, auth_id: u64) -> DispatchResult;
+    fn accept_primary_issuance_agent_transfer(to_did: IdentityId, auth_id: u64) -> DispatchResult;
     /// Accept and process a token ownership transfer
     ///
     /// # Arguments
@@ -82,6 +83,7 @@ pub trait Trait<V, U> {
         holder_did: IdentityId,
         receiver_did: IdentityId,
         value: V,
-    ) -> DispatchResult;
-    fn treasury(ticker: &Ticker) -> IdentityId;
+    ) -> DispatchResultWithPostInfo;
+    fn primary_issuance_agent(ticker: &Ticker) -> IdentityId;
+    fn max_number_of_tm_extension() -> u32;
 }

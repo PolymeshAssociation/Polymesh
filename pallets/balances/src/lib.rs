@@ -183,7 +183,7 @@ use polymesh_common_utilities::{
         identity::IdentityTrait,
         NegativeImbalance, PositiveImbalance,
     },
-    Context, SystematicIssuers,
+    Context, SystematicIssuers, GC_DID,
 };
 use polymesh_primitives::traits::BlockRewardsReserveCurrency;
 use sp_runtime::{
@@ -195,7 +195,7 @@ use sp_runtime::{
 };
 use sp_std::{cmp, convert::Infallible, fmt::Debug, mem, prelude::*, result};
 
-pub use polymesh_common_utilities::traits::balances::Trait;
+pub use polymesh_common_utilities::traits::balances::{LockableCurrencyExt, Trait};
 
 pub type Event<T> = polymesh_common_utilities::traits::balances::Event<T>;
 
@@ -364,7 +364,7 @@ decl_module! {
             ensure_root(origin)?;
             let who = T::Lookup::lookup(who)?;
             let caller_id = Context::current_identity_or::<T::Identity>(&who)
-                .unwrap_or_else(|_| SystematicIssuers::Committee.as_id());
+                .unwrap_or(GC_DID);
 
             let (free, reserved) = Self::mutate_account(&who, |account| {
                 if new_free > account.free {
@@ -1104,6 +1104,9 @@ where
 {
     type Moment = T::BlockNumber;
 
+    // Polymesh-note: The implementations below differ from substrate in terms
+    // of performance (ours uses in-place modification), but are functionally equivalent.
+
     // Set a lock on the balance of `who`.
     // Is a no-op if lock amount is zero or `reasons` `is_none()`.
     fn set_lock(
@@ -1115,17 +1118,16 @@ where
         if amount.is_zero() || reasons.is_none() {
             return;
         }
-        let mut new_lock = Some(BalanceLock {
+        let new_lock = BalanceLock {
             id,
             amount,
             reasons: reasons.into(),
-        });
-        let mut locks = Self::locks(who)
-            .into_iter()
-            .filter_map(|l| if l.id == id { new_lock.take() } else { Some(l) })
-            .collect::<Vec<_>>();
-        if let Some(lock) = new_lock {
-            locks.push(lock)
+        };
+        let mut locks = Self::locks(who);
+        if let Some(pos) = locks.iter().position(|l| l.id == id) {
+            locks[pos] = new_lock;
+        } else {
+            locks.push(new_lock);
         }
         Self::update_locks(who, &locks[..]);
     }
@@ -1141,27 +1143,18 @@ where
         if amount.is_zero() || reasons.is_none() {
             return;
         }
-        let mut new_lock = Some(BalanceLock {
-            id,
-            amount,
-            reasons: reasons.into(),
-        });
-        let mut locks = Self::locks(who)
-            .into_iter()
-            .filter_map(|l| {
-                if l.id == id {
-                    new_lock.take().map(|nl| BalanceLock {
-                        id: l.id,
-                        amount: l.amount.max(nl.amount),
-                        reasons: l.reasons | nl.reasons,
-                    })
-                } else {
-                    Some(l)
-                }
-            })
-            .collect::<Vec<_>>();
-        if let Some(lock) = new_lock {
-            locks.push(lock)
+        let reasons = reasons.into();
+        let mut locks = Self::locks(who);
+        if let Some(pos) = locks.iter().position(|l| l.id == id) {
+            let slot = &mut locks[pos];
+            slot.amount = slot.amount.max(amount);
+            slot.reasons = slot.reasons | reasons;
+        } else {
+            locks.push(BalanceLock {
+                id,
+                amount,
+                reasons,
+            });
         }
         Self::update_locks(who, &locks[..]);
     }
@@ -1170,6 +1163,64 @@ where
         let mut locks = Self::locks(who);
         locks.retain(|l| l.id != id);
         Self::update_locks(who, &locks[..]);
+    }
+}
+
+impl<T: Trait> LockableCurrencyExt<T::AccountId> for Module<T>
+where
+    T::Balance: MaybeSerializeDeserialize + Debug,
+{
+    fn reduce_lock(id: LockIdentifier, who: &T::AccountId, amount: T::Balance) -> DispatchResult {
+        if amount.is_zero() {
+            return Ok(());
+        }
+        let mut locks = Self::locks(who);
+        locks
+            .iter()
+            .position(|l| l.id == id)
+            .and_then(|p| {
+                let slot = &mut locks[p].amount;
+                let new = slot.checked_sub(&amount).map(|n| *slot = n);
+                if slot.is_zero() {
+                    locks.swap_remove(p);
+                }
+                new
+            })
+            .ok_or(Error::<T>::InsufficientBalance)?;
+        Self::update_locks(who, &locks[..]);
+        Ok(())
+    }
+
+    fn increase_lock(
+        id: LockIdentifier,
+        who: &T::AccountId,
+        amount: T::Balance,
+        reasons: WithdrawReasons,
+        check_sum: impl FnOnce(T::Balance) -> DispatchResult,
+    ) -> DispatchResult {
+        if amount.is_zero() || reasons.is_none() {
+            return Ok(());
+        }
+        let reasons = reasons.into();
+        let mut locks = Self::locks(who);
+        check_sum(if let Some(pos) = locks.iter().position(|l| l.id == id) {
+            let slot = &mut locks[pos];
+            slot.amount = slot
+                .amount
+                .checked_add(&amount)
+                .ok_or(Error::<T>::Overflow)?;
+            slot.reasons = slot.reasons | reasons;
+            slot.amount
+        } else {
+            locks.push(BalanceLock {
+                id,
+                amount,
+                reasons,
+            });
+            amount
+        })?;
+        Self::update_locks(who, &locks[..]);
+        Ok(())
     }
 }
 

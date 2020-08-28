@@ -31,7 +31,8 @@
             "_enum": {
                 "Cins": "",
                 "Cusip": "",
-                "Isin": ""
+                "Isin": "",
+                "Dti": ""
             }
         },
         "AssetOwnershipRelation": {
@@ -51,7 +52,7 @@
             "owner_did": "IdentityId",
             "divisible": "bool",
             "asset_type": "AssetType",
-            "treasury_did": "Option<IdentityId>"
+            "primary_issuance_agent": "Option<IdentityId>"
         },
         "LinkedKeyInfo": {
             "_enum": {
@@ -104,7 +105,257 @@
             "primary_key": "AccountId",
             "secondary_keys": "Vec<SecondaryKey>"
         },
-        "JurisdictionName": "Text",
+        "CountryCode": {
+            "_enum": [
+                "AF",
+                "AX",
+                "AL",
+                "DZ",
+                "AS",
+                "AD",
+                "AO",
+                "AI",
+                "AQ",
+                "AG",
+                "AR",
+                "AM",
+                "AW",
+                "AU",
+                "AT",
+                "AZ",
+                "BS",
+                "BH",
+                "BD",
+                "BB",
+                "BY",
+                "BE",
+                "BZ",
+                "BJ",
+                "BM",
+                "BT",
+                "BO",
+                "BA",
+                "BW",
+                "BV",
+                "BR",
+                "VG",
+                "IO",
+                "BN",
+                "BG",
+                "BF",
+                "BI",
+                "KH",
+                "CM",
+                "CA",
+                "CV",
+                "KY",
+                "CF",
+                "TD",
+                "CL",
+                "CN",
+                "HK",
+                "MO",
+                "CX",
+                "CC",
+                "CO",
+                "KM",
+                "CG",
+                "CD",
+                "CK",
+                "CR",
+                "CI",
+                "HR",
+                "CU",
+                "CY",
+                "CZ",
+                "DK",
+                "DJ",
+                "DM",
+                "DO",
+                "EC",
+                "EG",
+                "SV",
+                "GQ",
+                "ER",
+                "EE",
+                "ET",
+                "FK",
+                "FO",
+                "FJ",
+                "FI",
+                "FR",
+                "GF",
+                "PF",
+                "TF",
+                "GA",
+                "GM",
+                "GE",
+                "DE",
+                "GH",
+                "GI",
+                "GR",
+                "GL",
+                "GD",
+                "GP",
+                "GU",
+                "GT",
+                "GG",
+                "GN",
+                "GW",
+                "GY",
+                "HT",
+                "HM",
+                "VA",
+                "HN",
+                "HU",
+                "IS",
+                "IN",
+                "ID",
+                "IR",
+                "IQ",
+                "IE",
+                "IM",
+                "IL",
+                "IT",
+                "JM",
+                "JP",
+                "JE",
+                "JO",
+                "KZ",
+                "KE",
+                "KI",
+                "KP",
+                "KR",
+                "KW",
+                "KG",
+                "LA",
+                "LV",
+                "LB",
+                "LS",
+                "LR",
+                "LY",
+                "LI",
+                "LT",
+                "LU",
+                "MK",
+                "MG",
+                "MW",
+                "MY",
+                "MV",
+                "ML",
+                "MT",
+                "MH",
+                "MQ",
+                "MR",
+                "MU",
+                "YT",
+                "MX",
+                "FM",
+                "MD",
+                "MC",
+                "MN",
+                "ME",
+                "MS",
+                "MA",
+                "MZ",
+                "MM",
+                "NA",
+                "NR",
+                "NP",
+                "NL",
+                "AN",
+                "NC",
+                "NZ",
+                "NI",
+                "NE",
+                "NG",
+                "NU",
+                "NF",
+                "MP",
+                "NO",
+                "OM",
+                "PK",
+                "PW",
+                "PS",
+                "PA",
+                "PG",
+                "PY",
+                "PE",
+                "PH",
+                "PN",
+                "PL",
+                "PT",
+                "PR",
+                "QA",
+                "RE",
+                "RO",
+                "RU",
+                "RW",
+                "BL",
+                "SH",
+                "KN",
+                "LC",
+                "MF",
+                "PM",
+                "VC",
+                "WS",
+                "SM",
+                "ST",
+                "SA",
+                "SN",
+                "RS",
+                "SC",
+                "SL",
+                "SG",
+                "SK",
+                "SI",
+                "SB",
+                "SO",
+                "ZA",
+                "GS",
+                "SS",
+                "ES",
+                "LK",
+                "SD",
+                "SR",
+                "SJ",
+                "SZ",
+                "SE",
+                "CH",
+                "SY",
+                "TW",
+                "TJ",
+                "TZ",
+                "TH",
+                "TL",
+                "TG",
+                "TK",
+                "TO",
+                "TT",
+                "TN",
+                "TR",
+                "TM",
+                "TC",
+                "TV",
+                "UG",
+                "UA",
+                "AE",
+                "GB",
+                "US",
+                "UM",
+                "UY",
+                "UZ",
+                "VU",
+                "VE",
+                "VN",
+                "VI",
+                "WF",
+                "EH",
+                "YE",
+                "ZM",
+                "ZW"
+            ]
+        },
         "Scope": "IdentityId",
         "InvestorZKProofData": "[u8;64]",
         "Claim": {
@@ -115,7 +366,7 @@
                 "SellLockup": "Scope",
                 "CustomerDueDiligence": "CddId",
                 "KnowYourCustomer": "Scope",
-                "Jurisdiction": "(JurisdictionName, Scope)",
+                "Jurisdiction": "(CountryCode, Scope)",
                 "Exempted": "Scope",
                 "Blocked": "Scope",
                 "InvestorZKProof": "(Scope, ScopeId, CddId, InvestorZKProofData)",
@@ -147,18 +398,18 @@
             "id": "IdentityId",
             "claim_type": "ClaimType"
         },
-        "AssetTransferRule": {
-            "sender_rules": "Vec<Rule>",
-            "receiver_rules": "Vec<Rule>",
-            "rule_id": "u32"
+        "ComplianceRequirement": {
+            "sender_conditions": "Vec<Condition>",
+            "receiver_conditions": "Vec<Condition>",
+            "id": "u32"
         },
-        "AssetTransferRuleResult": {
-            "sender_rules": "Vec<Rule>",
-            "receiver_rules": "Vec<Rule>",
-            "rule_id": "u32",
-            "transfer_rule_result": "bool"
+        "ComplianceRequirementResult": {
+            "sender_conditions": "Vec<Condition>",
+            "receiver_conditions": "Vec<Condition>",
+            "id": "u32",
+            "result": "bool"
         },
-        "RuleType": {
+        "ConditionType": {
             "_enum": {
                 "IsPresent": "Claim",
                 "IsAbsent": "Claim",
@@ -167,12 +418,12 @@
                 "IsIdentity": "TargetIdentity"
             }
         },
-        "Rule": {
-            "rule_type": "RuleType",
+        "Condition": {
+            "condition_type": "ConditionType",
             "issuers": "Vec<IdentityId>"
         },
-        "RuleResult": {
-            "rule": "Rule",
+        "ConditionResult": {
+            "condition": "Condition",
             "result": "bool"
         },
         "STO": {
@@ -217,6 +468,12 @@
             "max_ticker_length": "u8",
             "registration_length": "Option<Moment>"
         },
+        "ClassicTickerRegistration": {
+            "eth_owner": "EthereumAddress",
+            "is_created": "bool"
+        },
+        "EthereumAddress": "[u8; 20]",
+        "EcdsaSignature": "[u8; 65]",
         "SignData": {
             "custodian_did": "IdentityId",
             "holder_did": "IdentityId",
@@ -355,7 +612,7 @@
                 "AttestPrimaryKeyRotation": "IdentityId",
                 "RotatePrimaryKey": "IdentityId",
                 "TransferTicker": "Ticker",
-                "TransferTreasury": "Ticker",
+                "TransferPrimaryIssuanceAgent": "Ticker",
                 "AddMultiSigSigner": "AccountId",
                 "TransferAssetOwnership": "Ticker",
                 "JoinIdentity": "Vec<Permission>",
@@ -424,14 +681,14 @@
             "constant": "u32",
             "max_slash_percent": "u32"
         },
-        "AssetTransferRules": {
+        "AssetCompliance": {
             "is_paused": "bool",
-            "rules": "Vec<AssetTransferRule>"
+            "requirements": "Vec<ComplianceRequirement>"
         },
-        "AssetTransferRulesResult": {
-            "is_paused": "bool",
-            "rules": "Vec<AssetTransferRuleResult>",
-            "final_result": "bool"
+        "AssetComplianceResult": {
+            "paused": "bool",
+            "requirements": "Vec<ComplianceRequirementResult>",
+            "result": "bool"
         },
         "Claim1stKey": {
             "target": "IdentityId",
@@ -468,7 +725,7 @@
                 "AssetAddDocument",
                 "AssetCreateAsset",
                 "DividendNew",
-                "ComplianceManagerAddActiveRule",
+                "ComplianceManagerAddComplianceRequirement",
                 "IdentityRegisterDid",
                 "IdentityCddRegisterDid",
                 "IdentityAddClaim",
@@ -686,7 +943,7 @@
         },
         "TargetIdentity": {
             "_enum": {
-                "Treasury": "",
+                "PrimaryIssuanceAgent": "",
                 "Specific": "IdentityId"
             }
         },
@@ -695,12 +952,20 @@
             "remaining_amount": "Balance",
             "price_per_token": "Balance",
             "venue_id": "u64"
+        },
+        "VenueType": {
+            "_enum": [
+                "Other",
+                "Distribution",
+                "Sto",
+                "Exchange"
+            ]
         }
     },
     "rpc": {
         "compliance": {
             "canTransfer": {
-                "description": "Checks whether a transaction with given parameters is compliant to the compliance manager rules",
+                "description": "Checks whether a transaction with given parameters is compliant to the compliance manager conditions",
                 "params": [
                     {
                         "name": "ticker",
@@ -718,7 +983,7 @@
                         "isOptional": false
                     },
                     {
-                        "name": "treasury_did",
+                        "name": "primary_issuance_agent",
                         "type": "Option<IdentityId>",
                         "isOptional": false
                     },
@@ -728,7 +993,7 @@
                         "isOptional": true
                     }
                 ],
-                "type": "AssetTransferRulesResult"
+                "type": "AssetComplianceResult"
             }
         },
         "identity": {

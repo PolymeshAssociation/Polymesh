@@ -1,4 +1,7 @@
-use super::ext_builder::{EXTRINSIC_BASE_WEIGHT, TRANSACTION_BYTE_FEE, WEIGHT_TO_FEE};
+use super::ext_builder::{
+    EXTRINSIC_BASE_WEIGHT, MAX_NO_OF_LEGS, MAX_NO_OF_TM_ALLOWED, TRANSACTION_BYTE_FEE,
+    WEIGHT_TO_FEE,
+};
 use codec::Encode;
 use frame_support::{
     assert_ok,
@@ -246,12 +249,14 @@ impl multisig::Trait for TestStorage {
 
 parameter_types! {
     pub const MaxScheduledInstructionLegsPerBlock: u32 = 500;
+    pub MaxLegsInAInstruction: u32 = MAX_NO_OF_LEGS.with(|v| *v.borrow());
 }
 
 impl settlement::Trait for TestStorage {
     type Event = Event;
     type Asset = asset::Module<TestStorage>;
     type MaxScheduledInstructionLegsPerBlock = MaxScheduledInstructionLegsPerBlock;
+    type MaxLegsInAInstruction = MaxLegsInAInstruction;
 }
 
 impl sto::Trait for TestStorage {
@@ -315,6 +320,7 @@ impl pallet_transaction_payment::Trait for TestStorage {
 
 impl group::Trait<group::DefaultInstance> for TestStorage {
     type Event = Event;
+    type LimitOrigin = frame_system::EnsureRoot<AccountId>;
     type AddOrigin = frame_system::EnsureRoot<AccountId>;
     type RemoveOrigin = frame_system::EnsureRoot<AccountId>;
     type SwapOrigin = frame_system::EnsureRoot<AccountId>;
@@ -326,6 +332,7 @@ impl group::Trait<group::DefaultInstance> for TestStorage {
 /// PolymeshCommittee as an instance of group
 impl group::Trait<group::Instance1> for TestStorage {
     type Event = Event;
+    type LimitOrigin = frame_system::EnsureRoot<AccountId>;
     type AddOrigin = frame_system::EnsureRoot<AccountId>;
     type RemoveOrigin = frame_system::EnsureRoot<AccountId>;
     type SwapOrigin = frame_system::EnsureRoot<AccountId>;
@@ -336,6 +343,7 @@ impl group::Trait<group::Instance1> for TestStorage {
 
 impl group::Trait<group::Instance2> for TestStorage {
     type Event = Event;
+    type LimitOrigin = frame_system::EnsureRoot<AccountId>;
     type AddOrigin = frame_system::EnsureRoot<AccountId>;
     type RemoveOrigin = frame_system::EnsureRoot<AccountId>;
     type SwapOrigin = frame_system::EnsureRoot<AccountId>;
@@ -391,7 +399,7 @@ impl AcceptTransfer for TestStorage {
         Ok(())
     }
 
-    fn accept_treasury_transfer(_: IdentityId, _: u64) -> DispatchResult {
+    fn accept_primary_issuance_agent_transfer(_: IdentityId, _: u64) -> DispatchResult {
         Ok(())
     }
 
@@ -434,12 +442,12 @@ impl pallet_contracts::Trait for TestStorage {
 impl statistics::Trait for TestStorage {}
 
 parameter_types! {
-    pub const MaxRuleComplexity: u32 = 50;
+    pub const MaxConditionComplexity: u32 = 50;
 }
 impl compliance_manager::Trait for TestStorage {
     type Event = Event;
     type Asset = Asset;
-    type MaxRuleComplexity = MaxRuleComplexity;
+    type MaxConditionComplexity = MaxConditionComplexity;
 }
 
 impl protocol_fee::Trait for TestStorage {
@@ -452,10 +460,15 @@ impl portfolio::Trait for TestStorage {
     type Event = Event;
 }
 
+parameter_types! {
+    pub MaxNumberOfTMExtensionForAsset: u32 = MAX_NO_OF_TM_ALLOWED.with(|v| *v.borrow());
+}
+
 impl asset::Trait for TestStorage {
     type Event = Event;
     type Currency = balances::Module<TestStorage>;
     type ComplianceManager = compliance_manager::Module<TestStorage>;
+    type MaxNumberOfTMExtensionForAsset = MaxNumberOfTMExtensionForAsset;
 }
 
 parameter_types! {

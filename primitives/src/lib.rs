@@ -167,7 +167,14 @@ pub use investor_zkproof_data::InvestorZKProofData;
 /// Claim information.
 /// Each claim is associated with this kind of record.
 pub mod identity_claim;
-pub use identity_claim::{Claim, ClaimType, IdentityClaim, JurisdictionName, Scope, ScopeId};
+pub use identity_claim::{Claim, ClaimType, IdentityClaim, Scope, ScopeId};
+
+// Defining and enumerating jurisdictions.
+pub mod jurisdiction;
+pub use jurisdiction::{CountryCode, JurisdictionName};
+
+/// Utilities for storage migration.
+pub mod migrate;
 
 /// This module contains entities related with secondary keys.
 pub mod secondary_key;
@@ -194,13 +201,14 @@ pub mod document;
 pub use document::{Document, DocumentHash, DocumentName, DocumentUri};
 
 /// Rules for claims.
-pub mod rule;
-pub use rule::{Rule, RuleType, TargetIdentity};
+pub mod condition;
+pub use condition::{Condition, ConditionType, TargetIdentity};
 
 /// Predicate calculation for Claims.
-pub mod predicate;
-pub use predicate::{
-    AndPredicate, Context, NotPredicate, OrPredicate, Predicate, ValidProofOfInvestorPredicate,
+pub mod proposition;
+pub use proposition::{
+    AndProposition, Context, NotProposition, OrProposition, Proposition,
+    ValidProofOfInvestorProposition,
 };
 
 /// Represents custom transaction errors.

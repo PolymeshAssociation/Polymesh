@@ -8,7 +8,7 @@ use pallet_asset as asset;
 use pallet_balances as balances;
 use pallet_basic_sto as sto;
 use pallet_committee as committee;
-use pallet_compliance_manager::{self as compliance_manager, AssetTransferRulesResult};
+use pallet_compliance_manager::{self as compliance_manager, AssetComplianceResult};
 use pallet_group as group;
 use pallet_identity::{
     self as identity,
@@ -402,6 +402,7 @@ impl committee::Trait<GovernanceCommittee> for Runtime {
 /// PolymeshCommittee as an instance of group
 impl group::Trait<group::Instance1> for Runtime {
     type Event = Event;
+    type LimitOrigin = frame_system::EnsureRoot<AccountId>;
     type AddOrigin = frame_system::EnsureRoot<AccountId>;
     type RemoveOrigin = frame_system::EnsureRoot<AccountId>;
     type SwapOrigin = frame_system::EnsureRoot<AccountId>;
@@ -422,6 +423,7 @@ macro_rules! committee_config {
         }
         impl group::Trait<group::$instance> for Runtime {
             type Event = Event;
+            type LimitOrigin = frame_system::EnsureRoot<AccountId>;
             // Can manage its own addition, deletion, and swapping of membership...
             type AddOrigin = VMO<committee::$instance>;
             type RemoveOrigin = VMO<committee::$instance>;
@@ -538,12 +540,14 @@ impl treasury::Trait for Runtime {
 
 parameter_types! {
     pub const MaxScheduledInstructionLegsPerBlock: u32 = 500;
+    pub const MaxLegsInAInstruction: u32 = 20;
 }
 
 impl settlement::Trait for Runtime {
     type Event = Event;
     type Asset = Asset;
     type MaxScheduledInstructionLegsPerBlock = MaxScheduledInstructionLegsPerBlock;
+    type MaxLegsInAInstruction = MaxLegsInAInstruction;
 }
 
 impl sto::Trait for Runtime {
@@ -635,20 +639,25 @@ impl portfolio::Trait for Runtime {
     type Event = Event;
 }
 
+parameter_types! {
+    pub const MaxNumberOfTMExtensionForAsset: u32 = 5;
+}
+
 impl asset::Trait for Runtime {
     type Event = Event;
     type Currency = Balances;
     type ComplianceManager = compliance_manager::Module<Runtime>;
+    type MaxNumberOfTMExtensionForAsset = MaxNumberOfTMExtensionForAsset;
 }
 
 parameter_types! {
-    pub const MaxRuleComplexity: u32 = 50;
+    pub const MaxConditionComplexity: u32 = 50;
 }
 
 impl compliance_manager::Trait for Runtime {
     type Event = Event;
     type Asset = Asset;
-    type MaxRuleComplexity = MaxRuleComplexity;
+    type MaxConditionComplexity = MaxConditionComplexity;
 }
 
 impl voting::Trait for Runtime {
@@ -688,6 +697,7 @@ impl dividend::Trait for Runtime {
 /// CddProviders instance of group
 impl group::Trait<group::Instance2> for Runtime {
     type Event = Event;
+    type LimitOrigin = frame_system::EnsureRoot<AccountId>;
     type AddOrigin = frame_system::EnsureRoot<AccountId>;
     type RemoveOrigin = frame_system::EnsureRoot<AccountId>;
     type SwapOrigin = frame_system::EnsureRoot<AccountId>;
@@ -1028,7 +1038,7 @@ impl_runtime_apis! {
         Block,
     > for Runtime {
         fn compute_fee(op: ProtocolOp) -> CappedFee {
-            ProtocolFee::compute_fee(op).into()
+            ProtocolFee::compute_fee(&[op]).into()
         }
     }
 
@@ -1099,10 +1109,10 @@ impl_runtime_apis! {
             ticker: Ticker,
             from_did: Option<IdentityId>,
             to_did: Option<IdentityId>,
-            treasury_did: Option<IdentityId>,
-        ) -> AssetTransferRulesResult
+            primary_issuance_agent: Option<IdentityId>,
+        ) -> AssetComplianceResult
         {
-            ComplianceManager::granular_verify_restriction(&ticker, from_did, to_did, treasury_did)
+            ComplianceManager::granular_verify_restriction(&ticker, from_did, to_did, primary_issuance_agent)
         }
     }
 
