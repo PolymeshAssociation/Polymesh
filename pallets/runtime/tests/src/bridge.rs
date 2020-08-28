@@ -1,5 +1,8 @@
 use super::{
-    storage::{register_keyring_account, register_keyring_account_with_balance, Call, TestStorage},
+    storage::{
+        get_last_auth_id, register_keyring_account, register_keyring_account_with_balance, Call,
+        TestStorage,
+    },
     ExtBuilder,
 };
 
@@ -19,7 +22,6 @@ use test_client::AccountKeyring;
 type Bridge = bridge::Module<TestStorage>;
 type Error = bridge::Error<TestStorage>;
 type Balances = balances::Module<TestStorage>;
-type Authorizations = identity::Authorizations<TestStorage>;
 type MultiSig = multisig::Module<TestStorage>;
 type Origin = <TestStorage as frame_system::Trait>::Origin;
 type System = frame_system::Module<TestStorage>;
@@ -65,24 +67,18 @@ fn can_issue_to_identity_we() {
     ));
 
     assert_eq!(MultiSig::ms_signs_required(controller), 2);
-    let last_authorization = |account| {
-        <Authorizations>::iter_prefix_values(Signatory::Account(account))
-            .next()
-            .unwrap()
-            .auth_id
-    };
 
     assert_ok!(MultiSig::accept_multisig_signer_as_key(
         bob.clone(),
-        last_authorization(bob_key)
+        get_last_auth_id(&Signatory::Account(bob_key))
     ));
     assert_ok!(MultiSig::accept_multisig_signer_as_key(
         charlie.clone(),
-        last_authorization(charlie_key)
+        get_last_auth_id(&Signatory::Account(charlie_key))
     ));
     assert_ok!(MultiSig::accept_multisig_signer_as_key(
         dave.clone(),
-        last_authorization(dave_key)
+        get_last_auth_id(&Signatory::Account(dave_key))
     ));
 
     assert_eq!(
@@ -176,24 +172,18 @@ fn can_change_controller() {
         ));
 
         assert_eq!(MultiSig::ms_signs_required(controller), 2);
-        let last_authorization = |account| {
-            <Authorizations>::iter_prefix_values(Signatory::Account(account))
-                .next()
-                .unwrap()
-                .auth_id
-        };
 
         assert_ok!(MultiSig::accept_multisig_signer_as_key(
             bob.clone(),
-            last_authorization(bob_key)
+            get_last_auth_id(&Signatory::Account(bob_key))
         ));
         assert_ok!(MultiSig::accept_multisig_signer_as_key(
             charlie.clone(),
-            last_authorization(charlie_key)
+            get_last_auth_id(&Signatory::Account(charlie_key))
         ));
         assert_ok!(MultiSig::accept_multisig_signer_as_key(
             dave.clone(),
-            last_authorization(dave_key)
+            get_last_auth_id(&Signatory::Account(dave_key))
         ));
 
         assert_eq!(
@@ -278,20 +268,14 @@ fn do_freeze_and_unfreeze_bridge() {
     ));
 
     assert_eq!(MultiSig::ms_signs_required(controller), 2);
-    let last_authorization = |account| {
-        <Authorizations>::iter_prefix_values(Signatory::Account(account))
-            .next()
-            .unwrap()
-            .auth_id
-    };
 
     assert_ok!(MultiSig::accept_multisig_signer_as_key(
         bob.clone(),
-        last_authorization(bob_key)
+        get_last_auth_id(&Signatory::Account(bob_key))
     ));
     assert_ok!(MultiSig::accept_multisig_signer_as_key(
         charlie.clone(),
-        last_authorization(charlie_key)
+        get_last_auth_id(&Signatory::Account(charlie_key))
     ));
 
     assert_eq!(
@@ -406,20 +390,14 @@ fn do_timelock_txs() {
     ));
 
     assert_eq!(MultiSig::ms_signs_required(controller), 1);
-    let last_authorization = |account| {
-        <Authorizations>::iter_prefix_values(Signatory::Account(account))
-            .next()
-            .unwrap()
-            .auth_id
-    };
 
     assert_ok!(MultiSig::accept_multisig_signer_as_key(
         bob.clone(),
-        last_authorization(bob_key)
+        get_last_auth_id(&Signatory::Account(bob_key))
     ));
     assert_ok!(MultiSig::accept_multisig_signer_as_key(
         charlie.clone(),
-        last_authorization(charlie_key)
+        get_last_auth_id(&Signatory::Account(charlie_key))
     ));
 
     assert_eq!(
@@ -520,20 +498,14 @@ fn do_rate_limit() {
     ));
 
     assert_eq!(MultiSig::ms_signs_required(controller), 1);
-    let last_authorization = |account| {
-        <Authorizations>::iter_prefix_values(Signatory::Account(account))
-            .next()
-            .unwrap()
-            .auth_id
-    };
 
     assert_ok!(MultiSig::accept_multisig_signer_as_key(
         bob.clone(),
-        last_authorization(bob_key)
+        get_last_auth_id(&Signatory::Account(bob_key))
     ));
     assert_ok!(MultiSig::accept_multisig_signer_as_key(
         charlie.clone(),
-        last_authorization(charlie_key)
+        get_last_auth_id(&Signatory::Account(charlie_key))
     ));
 
     assert_eq!(
@@ -641,20 +613,14 @@ fn do_exempted() {
     ));
 
     assert_eq!(MultiSig::ms_signs_required(controller), 1);
-    let last_authorization = |account| {
-        <Authorizations>::iter_prefix_values(Signatory::Account(account))
-            .next()
-            .unwrap()
-            .auth_id
-    };
 
     assert_ok!(MultiSig::accept_multisig_signer_as_key(
         bob.clone(),
-        last_authorization(bob_key)
+        get_last_auth_id(&Signatory::Account(bob_key))
     ));
     assert_ok!(MultiSig::accept_multisig_signer_as_key(
         charlie.clone(),
-        last_authorization(charlie_key)
+        get_last_auth_id(&Signatory::Account(charlie_key))
     ));
     assert_eq!(
         MultiSig::ms_signers(controller, Signatory::Account(bob_key)),
@@ -759,20 +725,14 @@ fn do_force_mint() {
     ));
 
     assert_eq!(MultiSig::ms_signs_required(controller), 1);
-    let last_authorization = |account| {
-        <Authorizations>::iter_prefix_values(Signatory::Account(account))
-            .next()
-            .unwrap()
-            .auth_id
-    };
 
     assert_ok!(MultiSig::accept_multisig_signer_as_key(
         bob.clone(),
-        last_authorization(bob_key)
+        get_last_auth_id(&Signatory::Account(bob_key))
     ));
     assert_ok!(MultiSig::accept_multisig_signer_as_key(
         charlie.clone(),
-        last_authorization(charlie_key)
+        get_last_auth_id(&Signatory::Account(charlie_key))
     ));
 
     assert_eq!(

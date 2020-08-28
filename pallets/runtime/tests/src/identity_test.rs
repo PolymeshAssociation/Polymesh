@@ -1197,13 +1197,7 @@ fn cdd_register_did_test_we() {
         true
     );
 
-    // Dave authorizes to be joined to Charlie.
-    let dave_auth_list = authorizations_to(&dave_si.signer);
-    let dave_auth_id = dave_auth_list
-        .iter()
-        .map(|auth| auth.auth_id)
-        .next()
-        .unwrap();
+    let dave_auth_id = get_last_auth_id(&dave_si.signer);
 
     assert_ok!(Identity::accept_authorization(
         Origin::signed(dave),
@@ -1214,12 +1208,7 @@ fn cdd_register_did_test_we() {
         vec![dave_si.clone()]
     );
 
-    let alice_auth_list = authorizations_to(&alice_si.signer);
-    let alice_auth_id = alice_auth_list
-        .iter()
-        .map(|auth| auth.auth_id)
-        .next()
-        .unwrap();
+    let alice_auth_id = get_last_auth_id(&alice_si.signer);
 
     assert_ok!(Identity::accept_authorization(
         Origin::signed(alice),
