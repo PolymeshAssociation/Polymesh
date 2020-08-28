@@ -235,8 +235,8 @@ impl WeightToFeePolynomial for WeightToFee {
     fn polynomial() -> WeightToFeeCoefficients<Self::Balance> {
         smallvec![WeightToFeeCoefficient {
             degree: 1,
-            coeff_frac: Perbill::from_percent(10),
-            coeff_integer: 0u128, // Coefficient is zero
+            coeff_frac: Perbill::from_percent(3), // use only 3% of the exact weight value.
+            coeff_integer: 0u128,                 // Coefficient is zero.
             negative: false,
         }]
     }
