@@ -105,6 +105,11 @@
             "primary_key": "AccountId",
             "secondary_keys": "Vec<SecondaryKey>"
         },
+        "KeyIdData": {
+            "identity": "IdentityId",
+            "is_primary": "bool",
+            "permissions": "Vec<Permission>"
+        },
         "CountryCode": {
             "_enum": [
                 "AF",
