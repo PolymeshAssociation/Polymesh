@@ -10,6 +10,7 @@ use polymesh_common_utilities::{protocol_fee::ProtocolOp, traits::identity::Link
 use polymesh_primitives::{Identity, IdentityId, PosRatio};
 use sp_core::sr25519::Public;
 use sp_io::TestExternalities;
+use sp_runtime::Storage;
 use std::{cell::RefCell, convert::From, iter};
 use test_client::AccountKeyring;
 
@@ -42,7 +43,7 @@ impl Default for MockProtocolBaseFees {
             ProtocolOp::AssetAddDocument,
             ProtocolOp::AssetCreateAsset,
             ProtocolOp::DividendNew,
-            ProtocolOp::ComplianceManagerAddActiveRule,
+            ProtocolOp::ComplianceManagerAddComplianceRequirement,
             ProtocolOp::IdentityRegisterDid,
             ProtocolOp::IdentityCddRegisterDid,
             ProtocolOp::IdentityAddClaim,
@@ -84,6 +85,7 @@ pub struct ExtBuilder {
     max_no_of_tm_allowed: u32,
     /// Maximum number of legs a instruction can have.
     max_no_of_legs: u32,
+    adjust: Option<Box<dyn FnOnce(&mut Storage)>>,
 }
 
 thread_local! {
@@ -188,6 +190,12 @@ impl ExtBuilder {
         self
     }
 
+    /// Provide a closure `with` to run on the storage for final adjustments.
+    pub fn adjust(mut self, with: Box<dyn FnOnce(&mut Storage)>) -> Self {
+        self.adjust = Some(with);
+        self
+    }
+
     fn set_associated_consts(&self) {
         EXTRINSIC_BASE_WEIGHT.with(|v| *v.borrow_mut() = self.extrinsic_base_weight);
         TRANSACTION_BYTE_FEE.with(|v| *v.borrow_mut() = self.transaction_byte_fee);
@@ -289,20 +297,15 @@ impl ExtBuilder {
         .unwrap();
 
         // Asset genesis.
-        let max_ticker_length = 8;
+        let ticker_registration_config = TickerRegistrationConfig {
+            max_ticker_length: 8,
+            registration_length: Some(10000),
+        };
         asset::GenesisConfig::<TestStorage> {
-            ticker_registration_config: TickerRegistrationConfig {
-                max_ticker_length,
-                registration_length: Some(10000),
-            },
-            classic_migration_tconfig: TickerRegistrationConfig {
-                max_ticker_length,
-                registration_length: Some(20000),
-            },
-            // Always use the first id, whomever that may be.
-            classic_migration_contract_did: IdentityId::from(1),
-            // TODO(centril): fill with test data.
             classic_migration_tickers: vec![],
+            classic_migration_contract_did: IdentityId::from(1),
+            classic_migration_tconfig: ticker_registration_config.clone(),
+            ticker_registration_config,
         }
         .assimilate_storage(&mut storage)
         .unwrap();
@@ -380,6 +383,10 @@ impl ExtBuilder {
         }
         .assimilate_storage(&mut storage)
         .unwrap();
+
+        if let Some(adjust) = self.adjust {
+            adjust(&mut storage);
+        }
 
         sp_io::TestExternalities::new(storage)
     }

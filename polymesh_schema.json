@@ -398,18 +398,18 @@
             "id": "IdentityId",
             "claim_type": "ClaimType"
         },
-        "AssetTransferRule": {
-            "sender_rules": "Vec<Rule>",
-            "receiver_rules": "Vec<Rule>",
-            "rule_id": "u32"
+        "ComplianceRequirement": {
+            "sender_conditions": "Vec<Condition>",
+            "receiver_conditions": "Vec<Condition>",
+            "id": "u32"
         },
-        "AssetTransferRuleResult": {
-            "sender_rules": "Vec<Rule>",
-            "receiver_rules": "Vec<Rule>",
-            "rule_id": "u32",
-            "transfer_rule_result": "bool"
+        "ComplianceRequirementResult": {
+            "sender_conditions": "Vec<Condition>",
+            "receiver_conditions": "Vec<Condition>",
+            "id": "u32",
+            "result": "bool"
         },
-        "RuleType": {
+        "ConditionType": {
             "_enum": {
                 "IsPresent": "Claim",
                 "IsAbsent": "Claim",
@@ -418,12 +418,12 @@
                 "IsIdentity": "TargetIdentity"
             }
         },
-        "Rule": {
-            "rule_type": "RuleType",
+        "Condition": {
+            "condition_type": "ConditionType",
             "issuers": "Vec<IdentityId>"
         },
-        "RuleResult": {
-            "rule": "Rule",
+        "ConditionResult": {
+            "condition": "Condition",
             "result": "bool"
         },
         "STO": {
@@ -473,6 +473,7 @@
             "is_created": "bool"
         },
         "EthereumAddress": "[u8; 20]",
+        "EcdsaSignature": "[u8; 65]",
         "SignData": {
             "custodian_did": "IdentityId",
             "holder_did": "IdentityId",
@@ -680,14 +681,14 @@
             "constant": "u32",
             "max_slash_percent": "u32"
         },
-        "AssetTransferRules": {
+        "AssetCompliance": {
             "is_paused": "bool",
-            "rules": "Vec<AssetTransferRule>"
+            "requirements": "Vec<ComplianceRequirement>"
         },
-        "AssetTransferRulesResult": {
-            "is_paused": "bool",
-            "rules": "Vec<AssetTransferRuleResult>",
-            "final_result": "bool"
+        "AssetComplianceResult": {
+            "paused": "bool",
+            "requirements": "Vec<ComplianceRequirementResult>",
+            "result": "bool"
         },
         "Claim1stKey": {
             "target": "IdentityId",
@@ -724,7 +725,7 @@
                 "AssetAddDocument",
                 "AssetCreateAsset",
                 "DividendNew",
-                "ComplianceManagerAddActiveRule",
+                "ComplianceManagerAddComplianceRequirement",
                 "IdentityRegisterDid",
                 "IdentityCddRegisterDid",
                 "IdentityAddClaim",
@@ -964,7 +965,7 @@
     "rpc": {
         "compliance": {
             "canTransfer": {
-                "description": "Checks whether a transaction with given parameters is compliant to the compliance manager rules",
+                "description": "Checks whether a transaction with given parameters is compliant to the compliance manager conditions",
                 "params": [
                     {
                         "name": "ticker",
@@ -992,7 +993,7 @@
                         "isOptional": true
                     }
                 ],
-                "type": "AssetTransferRulesResult"
+                "type": "AssetComplianceResult"
             }
         },
         "identity": {

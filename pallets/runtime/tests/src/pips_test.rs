@@ -178,7 +178,7 @@ fn assert_state(id: PipId, care_about_pruned: bool, state: ProposalState) {
     }
 }
 
-fn assert_balance(acc: Public, free: u128, locked: u128) {
+pub fn assert_balance(acc: Public, free: u128, locked: u128) {
     assert_eq!(Balances::free_balance(&acc), free);
     assert_eq!(Balances::usable_balance(&acc), free - locked);
 }
