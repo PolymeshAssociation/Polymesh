@@ -272,13 +272,9 @@ impl ChargeTxFee for TestStorage {
 impl CddAndFeeDetails<AccountId, Call> for TestStorage {
     fn get_valid_payer(
         _: &Call,
-        caller: &Signatory<AccountId>,
+        caller: &AccountId,
     ) -> Result<Option<AccountId>, InvalidTransaction> {
-        if let Signatory::Account(key) = caller {
-            Ok(Some(*key))
-        } else {
-            Err(InvalidTransaction::Call.into())
-        }
+        Ok(Some(*caller))
     }
     fn clear_context() {
         Context::set_current_identity::<Identity>(None);
@@ -441,12 +437,12 @@ impl pallet_contracts::Trait for TestStorage {
 impl statistics::Trait for TestStorage {}
 
 parameter_types! {
-    pub const MaxRuleComplexity: u32 = 50;
+    pub const MaxConditionComplexity: u32 = 50;
 }
 impl compliance_manager::Trait for TestStorage {
     type Event = Event;
     type Asset = Asset;
-    type MaxRuleComplexity = MaxRuleComplexity;
+    type MaxConditionComplexity = MaxConditionComplexity;
 }
 
 impl protocol_fee::Trait for TestStorage {

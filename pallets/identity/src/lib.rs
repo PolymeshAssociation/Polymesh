@@ -1128,7 +1128,13 @@ decl_error! {
 }
 
 impl<T: Trait> Module<T> {
-    fn ensure_no_id_record(id: IdentityId) -> DispatchResult {
+    /// Only used by `create_asset` since `AssetDidRegistered` is defined here instead of there.
+    pub fn commit_token_did(did: IdentityId, ticker: Ticker) {
+        <DidRecords<T>>::insert(did, DidRecord::default());
+        Self::deposit_event(RawEvent::AssetDidRegistered(did, ticker));
+    }
+
+    pub fn ensure_no_id_record(id: IdentityId) -> DispatchResult {
         ensure!(!Self::is_identity_exists(&id), Error::<T>::DidAlreadyExists);
         Ok(())
     }
@@ -1716,17 +1722,6 @@ impl<T: Trait> Module<T> {
         }
     }
 
-    /// It registers a did for a new asset. Only called by create_asset function.
-    pub fn register_asset_did(ticker: &Ticker) -> DispatchResult {
-        let did = Self::get_token_did(ticker)?;
-        // Making sure there's no pre-existing entry for the DID
-        // This should never happen but just being defensive here
-        Self::ensure_no_id_record(did)?;
-        <DidRecords<T>>::insert(did, DidRecord::default());
-        Self::deposit_event(RawEvent::AssetDidRegistered(did, *ticker));
-        Ok(())
-    }
-
     /// IMPORTANT: No state change is allowed in this function
     /// because this function is used within the RPC calls
     /// It is a helper function that can be used to get did for any asset
@@ -1935,14 +1930,11 @@ impl<T: Trait> Module<T> {
         target: &Signatory<T::AccountId>,
         auth_id: &u64,
     ) -> Option<Authorization<T::AccountId, T::Moment>> {
-        let auth = Self::maybe_authorization(target, *auth_id)?;
-        if let Some(expiry) = auth.expiry {
-            let now = <pallet_timestamp::Module<T>>::get();
-            if expiry > now {
-                return None;
-            }
-        }
-        Some(auth)
+        Self::maybe_authorization(target, *auth_id).filter(|auth| {
+            auth.expiry
+                .filter(|&expiry| <pallet_timestamp::Module<T>>::get() > expiry)
+                .is_none()
+        })
     }
 
     /// Returns identity of a signatory
