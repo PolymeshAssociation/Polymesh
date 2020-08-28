@@ -5,10 +5,10 @@ use super::{
 };
 use frame_support::{assert_err, assert_ok, StorageDoubleMap};
 use pallet_balances as balances;
-use pallet_identity::{self as identity, Claim1stKey};
+use pallet_identity as identity;
 use pallet_multisig as multisig;
 use polymesh_common_utilities::traits::transaction_payment::CddAndFeeDetails;
-use polymesh_primitives::{ClaimType, InvestorUid, Signatory, TransactionError};
+use polymesh_primitives::{InvestorUid, Signatory, TransactionError};
 use polymesh_runtime_develop::{fee_details::CddHandler, runtime::Call};
 use sp_core::crypto::AccountId32;
 use sp_runtime::transaction_validity::InvalidTransaction;
@@ -78,11 +78,16 @@ fn cdd_checks() {
                 1,
             ));
 
-            let alice_auth_id =
+            //  `iter_prefix_values` has no guarantee that it will iterate in a sequential
+            //  order. However, we need the latest `auth_id`. Which is why we search for the claim
+            //  with the highest `auth_id`.
+            let get_alice_auth_id = || {
                 <identity::Authorizations<TestStorage>>::iter_prefix_values(alice_key_signatory)
-                    .next()
-                    .unwrap()
-                    .auth_id;
+                    .into_iter()
+                    .fold(0, |x, y| if x > y.auth_id { x } else { y.auth_id })
+            };
+
+            let alice_auth_id = get_alice_auth_id();
             assert_err!(
                 CddHandler::get_valid_payer(
                     &Call::MultiSig(multisig::Call::accept_multisig_signer_as_key(alice_auth_id)),
@@ -100,18 +105,7 @@ fn cdd_checks() {
                 vec![Signatory::Account(AccountKeyring::Alice.public())],
                 1,
             ));
-            let alice_auth_id =
-                <identity::Authorizations<TestStorage>>::iter_prefix_values(alice_key_signatory)
-                    .into_iter()
-                    .fold(0, |x, y| if x > y.auth_id { x } else { y.auth_id });
-
-            let pk = Claim1stKey {
-                target: charlie_did,
-                claim_type: ClaimType::CustomerDueDiligence,
-            };
-            let claims = <identity::Claims>::iter_prefix_values(pk);
-            println!("{:?}", claims.collect::<Vec<_>>());
-
+            let alice_auth_id = get_alice_auth_id();
             assert_eq!(
                 CddHandler::get_valid_payer(
                     &Call::MultiSig(multisig::Call::accept_multisig_signer_as_key(alice_auth_id)),
