@@ -174,7 +174,7 @@ jobs:
               acl: public-read
           - put: s3-polymesh-runtime
             params:
-              file: artifact/polymesh_runtime_testnet_v1-*
+              file: artifact/polymesh_runtime_testnet-*
               acl: public-read
           - put: dockerimage-polymesh
             params:
@@ -206,5 +206,3 @@ jobs:
       params:
         mode: normal
         alert_type: failed
-
-
