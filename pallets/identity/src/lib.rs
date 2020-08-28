@@ -898,7 +898,7 @@ decl_module! {
                                 T::MultiSig::accept_multisig_signer(Signatory::from(*did), auth.auth_id),
                             AuthorizationData::JoinIdentity(_) =>
                                 Self::join_identity(Signatory::from(*did), auth.auth_id),
-                            AuthorizationData::PortfolioCustody(_) =>
+                            AuthorizationData::PortfolioCustody(..) =>
                                 T::Portfolio::accept_portfolio_custody(*did, auth.auth_id),
                             _ => Err(Error::<T>::UnknownAuthorization.into())
                         };
