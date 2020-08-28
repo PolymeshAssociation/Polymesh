@@ -1930,14 +1930,11 @@ impl<T: Trait> Module<T> {
         target: &Signatory<T::AccountId>,
         auth_id: &u64,
     ) -> Option<Authorization<T::AccountId, T::Moment>> {
-        let auth = Self::maybe_authorization(target, *auth_id)?;
-        if let Some(expiry) = auth.expiry {
-            let now = <pallet_timestamp::Module<T>>::get();
-            if expiry > now {
-                return None;
-            }
-        }
-        Some(auth)
+        Self::maybe_authorization(target, *auth_id).filter(|auth| {
+            auth.expiry
+                .filter(|&expiry| <pallet_timestamp::Module<T>>::get() > expiry)
+                .is_none()
+        })
     }
 
     /// Returns identity of a signatory
