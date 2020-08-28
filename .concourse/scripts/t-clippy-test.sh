@@ -19,4 +19,4 @@ if [ ! -z "$SUBMODULE_ACCESS_TOKEN" ]; then
     git submodule update external/cryptography
 fi
 
-cargo +nightly clippy -- -A clippy::all -W clippy::complexity -W clippy::perf
+cargo clippy -- -A clippy::all -W clippy::complexity -W clippy::perf
