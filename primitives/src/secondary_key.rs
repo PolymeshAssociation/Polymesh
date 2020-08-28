@@ -38,6 +38,10 @@ pub type ExtrinsicPermissions = Subset<PalletPermissions>;
 pub type PortfolioPermissions = Subset<PortfolioNumber>;
 
 /// Signing key permissions.
+///
+/// Common cases of permissions:
+/// - `Permissions::empty()`: no permissions,
+/// - `Permissions::default()`: full permissions.
 #[derive(Encode, Decode, Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 pub struct Permissions {
@@ -170,7 +174,8 @@ impl<AccountId> SecondaryKey<AccountId> {
     pub fn from_account_id(s: AccountId) -> Self {
         Self {
             signer: Signatory::Account(s),
-            permissions: Permissions::empty(),
+            // Full permissions.
+            permissions: Permissions::default(),
         }
     }
 
@@ -212,7 +217,7 @@ impl<AccountId> From<IdentityId> for SecondaryKey<AccountId> {
     fn from(id: IdentityId) -> Self {
         Self {
             signer: Signatory::Identity(id),
-            permissions: Permissions::empty(),
+            permissions: Permissions::default(),
         }
     }
 }
@@ -266,7 +271,7 @@ mod tests {
     #[test]
     fn build_test() {
         let key = Public::from_raw([b'A'; 32]);
-        let rk1 = SecondaryKey::new(Signatory::Account(key.clone()), Permissions::empty());
+        let rk1 = SecondaryKey::new(Signatory::Account(key.clone()), Permissions::default());
         let rk2 = SecondaryKey::from_account_id(key.clone());
         assert_eq!(rk1, rk2);
 

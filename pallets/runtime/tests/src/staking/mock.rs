@@ -919,7 +919,7 @@ pub fn add_secondary_key(stash_key: AccountId, to_secondary_key: AccountId) {
             Identity::add_authorization(
                 Origin::signed(stash_key),
                 Signatory::Account(to_secondary_key),
-                AuthorizationData::JoinIdentity(Permissions::empty()),
+                AuthorizationData::JoinIdentity(Permissions::default()),
                 None
             )
             .is_ok(),

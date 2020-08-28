@@ -299,7 +299,7 @@ fn only_primary_key_can_add_secondary_key_permissions_with_externalities() {
     assert_ok!(Identity::set_permission_to_signer(
         alice.clone(),
         Signatory::Account(charlie_key),
-        Permissions::default()
+        Permissions::empty()
     ));
 
     // Bob tries to get better permission by himself at `alice` Identity.
@@ -409,7 +409,7 @@ fn remove_frozen_secondary_keys_with_externalities() {
     );
 
     let charlie_secondary_key =
-        SecondaryKey::new(Signatory::Account(charlie_key), Permissions::empty());
+        SecondaryKey::new(Signatory::Account(charlie_key), Permissions::default());
 
     // Add secondary keys.
     let alice_did = register_keyring_account(AccountKeyring::Alice).unwrap();
@@ -639,9 +639,9 @@ fn leave_identity_test_with_externalities() {
     let alice_key = AccountKeyring::Alice.public();
     let charlie_did = register_keyring_account(AccountKeyring::Charlie).unwrap();
     let charlie = Origin::signed(AccountKeyring::Charlie.public());
-    let bob_secondary_key = SecondaryKey::new(Signatory::Account(bob_key), Permissions::empty());
+    let bob_secondary_key = SecondaryKey::new(Signatory::Account(bob_key), Permissions::default());
     let charlie_secondary_key =
-        SecondaryKey::new(Signatory::Identity(charlie_did), Permissions::empty());
+        SecondaryKey::new(Signatory::Identity(charlie_did), Permissions::default());
     let alice_secondary_keys = vec![bob_secondary_key, charlie_secondary_key.clone()];
     let dave_key = AccountKeyring::Dave.public();
 
@@ -1254,7 +1254,7 @@ fn add_identity_signers() {
         let auth_id_for_acc_to_id = Identity::add_auth(
             alice_did,
             bob_identity_signer,
-            AuthorizationData::JoinIdentity(Permissions::empty()),
+            AuthorizationData::JoinIdentity(Permissions::default()),
             None,
         );
 
@@ -1266,7 +1266,7 @@ fn add_identity_signers() {
         let auth_id_for_acc2_to_id = Identity::add_auth(
             charlie_did,
             bob_identity_signer,
-            AuthorizationData::JoinIdentity(Permissions::empty()),
+            AuthorizationData::JoinIdentity(Permissions::default()),
             None,
         );
 
@@ -1286,7 +1286,7 @@ fn add_identity_signers() {
         let auth_id_for_acc1_to_acc = Identity::add_auth(
             alice_did,
             dave_acc_signer,
-            AuthorizationData::JoinIdentity(Permissions::empty()),
+            AuthorizationData::JoinIdentity(Permissions::default()),
             None,
         );
 
@@ -1298,7 +1298,7 @@ fn add_identity_signers() {
         let auth_id_for_acc2_to_acc = Identity::add_auth(
             charlie_did,
             dave_acc_signer,
-            AuthorizationData::JoinIdentity(Permissions::empty()),
+            AuthorizationData::JoinIdentity(Permissions::default()),
             None,
         );
 

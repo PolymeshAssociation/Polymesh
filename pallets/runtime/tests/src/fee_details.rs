@@ -5,10 +5,10 @@ use super::{
 };
 use frame_support::{assert_err, assert_ok, StorageDoubleMap};
 use pallet_balances as balances;
-use pallet_identity as identity;
+use pallet_identity::{self as identity, Claim1stKey};
 use pallet_multisig as multisig;
 use polymesh_common_utilities::traits::transaction_payment::CddAndFeeDetails;
-use polymesh_primitives::{InvestorUid, Signatory, TransactionError};
+use polymesh_primitives::{ClaimType, InvestorUid, Signatory, TransactionError};
 use polymesh_runtime_develop::{fee_details::CddHandler, runtime::Call};
 use sp_core::crypto::AccountId32;
 use sp_runtime::transaction_validity::InvalidTransaction;
@@ -17,6 +17,7 @@ use test_client::AccountKeyring;
 type MultiSig = multisig::Module<TestStorage>;
 type Balances = balances::Module<TestStorage>;
 type Origin = <TestStorage as frame_system::Trait>::Origin;
+type Identity = identity::Module<TestStorage>;
 
 #[test]
 fn cdd_checks() {
@@ -105,6 +106,14 @@ fn cdd_checks() {
                     .unwrap()
                     .auth_id;
 
+            let pk = Claim1stKey {
+                target: charlie_did,
+                claim_type: ClaimType::CustomerDueDiligence,
+            };
+            let claims = <identity::Claims>::iter_prefix_values(pk);
+            println!("{:?}", claims.collect::<Vec<_>>());
+
+            assert_eq!(Identity::fetch_cdd(alice_did, 0), Some(charlie_did));
             assert_eq!(
                 CddHandler::get_valid_payer(
                     &Call::MultiSig(multisig::Call::accept_multisig_signer_as_key(alice_auth_id)),

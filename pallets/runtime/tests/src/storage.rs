@@ -677,7 +677,7 @@ pub fn add_secondary_key(did: IdentityId, signer: Signatory<AccountId>) {
     let auth_id = Identity::add_auth(
         did.clone(),
         signer,
-        AuthorizationData::JoinIdentity(Permissions::empty()),
+        AuthorizationData::JoinIdentity(Permissions::default()),
         None,
     );
     assert_ok!(Identity::join_identity(signer, auth_id));
