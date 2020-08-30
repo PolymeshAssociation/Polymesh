@@ -82,7 +82,7 @@ jobs:
             path: env
             args: []
           params:
-            RUST_TOOLCHAIN: rusttoolchain
+            RUST_TOOLCHAIN: ((.:rusttoolchain))
           pre_without_version: true
       - in_parallel:
           - task: run-lint
