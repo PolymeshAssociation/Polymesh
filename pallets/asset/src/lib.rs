@@ -342,9 +342,12 @@ decl_storage! {
         /// Smart Extension supported version at genesis.
         config(versions): Vec<(SmartExtensionType, ExtVersion)>;
         build(|config: &GenesisConfig<T>| {
-            for (se_type, ver) in config.versions.into_iter().enumerate() {
-                CompatibleSmartExtVersion::insert(se_type, ver);
-            }
+            config.versions
+                .iter()
+                .filter(|(t, _)| !<CompatibleSmartExtVersion>::contains_key(&t))
+                .for_each(|(se_type, ver)| {
+                    CompatibleSmartExtVersion::insert(se_type, ver);
+            });
         });
     }
 }

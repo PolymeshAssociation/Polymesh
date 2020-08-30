@@ -35,7 +35,7 @@ type ProtocolFeeError = pallet_protocol_fee::Error<TestStorage>;
 /// with it's hash.
 ///
 /// The fixture files are located under the `fixtures/` directory.
-fn compile_module<T>(
+pub fn compile_module<T>(
     fixture_name: &str,
 ) -> Result<(Vec<u8>, <T::Hashing as Hash>::Output), wabt::Error>
 where
@@ -51,7 +51,7 @@ where
     Ok((wasm_binary, code_hash))
 }
 
-fn create_se_template<T>(
+pub fn create_se_template<T>(
     template_creator: AccountId,
     template_creator_did: IdentityId,
     instantiation_fee: u128,
@@ -71,7 +71,7 @@ fn create_se_template<T>(
         se_type: SmartExtensionType::TransferManager,
         usage_fee: 0,
         description: "This is a transfer manager type contract".into(),
-        version: "1.0.0".into(),
+        version: 5000,
     };
 
     // verify the weight value of the put_code extrinsic.
@@ -111,7 +111,7 @@ fn create_se_template<T>(
     TestStorage::set_payer_context(None);
 }
 
-fn create_contract_instance<T>(
+pub fn create_contract_instance<T>(
     instance_creator: AccountId,
     code_hash: <T::Hashing as Hash>::Output,
     max_fee: u128,
@@ -598,7 +598,7 @@ fn check_transaction_rollback_functionality_for_put_code() {
                 se_type: SmartExtensionType::TransferManager,
                 usage_fee: 0,
                 description: "This is a transfer manager type contract".into(),
-                version: "1.0.0".into(),
+                version: 5000,
             };
 
             // Execute `put_code`

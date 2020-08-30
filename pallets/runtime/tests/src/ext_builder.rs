@@ -7,7 +7,7 @@ use pallet_group as group;
 use pallet_identity as identity;
 use pallet_pips as pips;
 use polymesh_common_utilities::{protocol_fee::ProtocolOp, traits::identity::LinkedKeyInfo};
-use polymesh_primitives::{Identity, IdentityId, PosRatio};
+use polymesh_primitives::{Identity, IdentityId, PosRatio, SmartExtensionType};
 use sp_core::sr25519::Public;
 use sp_io::TestExternalities;
 use sp_runtime::Perbill;
@@ -287,6 +287,11 @@ impl ExtBuilder {
                 max_ticker_length: 8,
                 registration_length: Some(10000),
             },
+            versions: vec![
+                (SmartExtensionType::TransferManager, 5000),
+                (SmartExtensionType::Offerings, 5000),
+                (SmartExtensionType::SmartWallet, 5000),
+            ]
         }
         .assimilate_storage(&mut storage)
         .unwrap();

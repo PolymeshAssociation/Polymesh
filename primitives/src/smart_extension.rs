@@ -115,32 +115,3 @@ pub struct ExtensionAttributes<Balance> {
     pub usage_fee: Balance,
     pub version: MetaVersion
 }
-
-// /// Smart Extension compatible version.
-// #[allow(missing_docs)]
-// #[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, PartialOrd, Ord)]
-// pub enum CompatibleSmartExtVersion {
-//     TransferManager(MetaVersion),
-//     Offerings(MetaVersion),
-//     SmartWallet(MetaVersion),
-// }
-
-// impl CompatibleSmartExtVersion {
-
-//     fn version(&self) -> MetaVersion {
-//         match self {
-//             CompatibleSmartExtVersion::TransferManager(ver) => ver,
-//             CompatibleSmartExtVersion::Offerings(ver) => ver,
-//             CompatibleSmartExtVersion::SmartWallet(ver) => ver
-//         }
-//     }
-
-//     fn ext_types(&self) -> SmartExtensionType {
-//         match self {
-//             CompatibleSmartExtVersion::TransferManager(..) => SmartExtensionType::TransferManager,
-//             CompatibleSmartExtVersion::Offerings(..) => SmartExtensionType::Offerings,
-//             CompatibleSmartExtVersion::SmartWallet(..) => SmartExtensionType::SmartWallet,
-//         }
-//     }
-// }
-
