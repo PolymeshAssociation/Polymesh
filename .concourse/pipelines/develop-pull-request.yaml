@@ -15,6 +15,9 @@ resources:
       access_token: ((github-concourse-access-token))
       base_branch: develop
       disable_forks: true
+      disable_ci_skip: true
+      labels:
+        - concourse-test-devops211
   - name: s3-polymesh
     type: s3
     source:
@@ -106,7 +109,11 @@ jobs:
                 type: registry-image
                 source:
                   repository: polymathnetwork/rust
+<<<<<<< HEAD
                   tag: debian-1.45.0-((.:rusttoolchain))
+=======
+                  tag: debian-1.45.0-(( rust-toolchain ))
+>>>>>>> DEVOPS-211
                   aws_access_key_id: ((polymath-ecr.aws-access-id))
                   aws_secret_access_key: ((polymath-ecr.aws-access-secret))
                   aws_region: us-east-1
@@ -171,7 +178,7 @@ jobs:
                 type: registry-image
                 source:
                   repository: polymathnetwork/rust
-                  tag: debian-1.45.0
+                  tag: debian-1.45.0-(( rust-toolchain ))
                   aws_access_key_id: ((polymath-ecr.aws-access-id))
                   aws_secret_access_key: ((polymath-ecr.aws-access-secret))
                   aws_region: us-east-1
