@@ -54,7 +54,6 @@ resources:
 
 jobs:
   - name: build-polymesh
-    serial: true
     plan:
       - get: git-polymesh
         params:

@@ -15,9 +15,6 @@ resources:
       access_token: ((github-concourse-access-token))
       base_branch: develop
       disable_forks: true
-      disable_ci_skip: true
-      labels:
-        - concourse-test-devops211
   - name: s3-polymesh
     type: s3
     source:
@@ -51,7 +48,6 @@ resources:
 
 jobs:
   - name: build-polymesh
-    serial: true
     plan:
       - get: githubpr-polymesh
         params:
