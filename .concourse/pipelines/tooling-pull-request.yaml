@@ -63,6 +63,8 @@ jobs:
         file: githubpr-polymesh/.git/resource/pr
       - load_var: scmheadsha
         file: githubpr-polymesh/.git/resource/head_sha
+      - load_var: rusttoolchain
+        file: githubpr-polymesh/rust-toolchain
       - put: semver-git-polymesh
         params:
           pre: rc
@@ -76,7 +78,7 @@ jobs:
                 type: registry-image
                 source:
                   repository: polymathnetwork/rust
-                  tag: debian-1.45.0
+                  tag: debian-1.45.0-((.:rusttoolchain))
                   aws_access_key_id: ((polymath-ecr.aws-access-id))
                   aws_secret_access_key: ((polymath-ecr.aws-access-secret))
                   aws_region: us-east-1
@@ -99,7 +101,7 @@ jobs:
                 type: registry-image
                 source:
                   repository: polymathnetwork/rust
-                  tag: debian-1.45.0
+                  tag: debian-1.45.0-((.:rusttoolchain))
                   aws_access_key_id: ((polymath-ecr.aws-access-id))
                   aws_secret_access_key: ((polymath-ecr.aws-access-secret))
                   aws_region: us-east-1
@@ -143,7 +145,7 @@ jobs:
                 type: registry-image
                 source:
                   repository: polymathnetwork/rust
-                  tag: debian-1.45.0
+                  tag: debian-1.45.0-((.:rusttoolchain))
                   aws_access_key_id: ((polymath-ecr.aws-access-id))
                   aws_secret_access_key: ((polymath-ecr.aws-access-secret))
                   aws_region: us-east-1
