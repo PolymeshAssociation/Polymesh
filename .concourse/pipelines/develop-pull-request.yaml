@@ -75,6 +75,18 @@ jobs:
       - get: semver-git-polymesh
         params:
           pre: pr((.:scmpr)).((.:scmheadsha))
+      - task: print-var
+        config:
+          platform: linux
+          image_resource:
+            type: docker-image
+            source:
+              repository: busybox
+          run:
+            path: env
+            args: []
+          params:
+            RUST_TOOLCHAIN: rusttoolchain
           pre_without_version: true
       - in_parallel:
           - task: run-lint
