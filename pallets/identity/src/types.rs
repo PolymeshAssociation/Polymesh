@@ -39,8 +39,7 @@ pub enum DidStatus {
 pub struct KeyIdentityData<IdentityId> {
     /// The identity of the provided `AccountId`.
     pub identity: IdentityId,
-    /// Is the `AccountId` the primary key of `identity`?
-    pub is_primary: bool,
     /// What permissions does the `AccountId` have within the `identity`?
-    pub permissions: Permissions,
+    /// If `None`, then this is a primary key.
+    pub permissions: Option<Permissions>,
 }

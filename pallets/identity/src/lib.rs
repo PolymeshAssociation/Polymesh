@@ -1981,23 +1981,16 @@ impl<T: Trait> Module<T> {
     pub fn get_key_identity_data(acc: T::AccountId) -> Option<types::KeyIdentityData<IdentityId>> {
         let identity = Self::get_identity(&acc)?;
         let record = <DidRecords<T>>::get(identity);
-        let is_primary = acc == record.primary_key;
-        let permissions = if is_primary {
-            // Functionally equivalent to the below, but O(1) instead of O(n).
-            vec![]
+        let permissions = if acc == record.primary_key {
+            None
         } else {
-            record
-                .secondary_keys
-                .into_iter()
-                .find_map(|sk| {
-                    sk.signer.as_account().filter(|&a| a == &acc)?;
-                    Some(sk.permissions)
-                })
-                .unwrap_or_default()
+            Some(record.secondary_keys.into_iter().find_map(|sk| {
+                sk.signer.as_account().filter(|&a| a == &acc)?;
+                Some(sk.permissions)
+            })?)
         };
         Some(types::KeyIdentityData {
             identity,
-            is_primary,
             permissions,
         })
     }
