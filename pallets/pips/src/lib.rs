@@ -422,6 +422,10 @@ decl_storage! {
         /// The number of times a certain PIP has been skipped.
         /// Once a (configurable) threshhold is exceeded, a PIP cannot be skipped again.
         pub PipSkipCount get(fn pip_skip_count): map hasher(twox_64_concat) PipId => SkippedCount;
+
+        /// All existing PIPs where the proposer is a committee.
+        /// This list is a cache of all ids in `Proposals` with `Proposer::Committee(_)`.
+        pub CommitteePips get(fn committee_pips): Vec<PipId>;
     }
 }
 
@@ -685,6 +689,8 @@ decl_module! {
                         debug::error!("The counters of voting (id={}) have an overflow during the 1st vote", id);
                         vote_error
                     })?;
+            } else {
+                CommitteePips::append(id);
             }
 
             // 6. Emit the event.
@@ -1220,6 +1226,9 @@ impl<T: Trait> Module<T> {
             <ProposalResult<T>>::remove(id);
             <ProposalVotes<T>>::remove_prefix(id);
             ProposalMetadata::remove(id);
+            if let Some(Proposer::Committee(_)) = Self::proposals(id).map(|p| p.proposer) {
+                CommitteePips::mutate(|list| list.retain(|&i| i != id));
+            }
             <Proposals<T>>::remove(id);
             PipSkipCount::remove(id);
         }

@@ -125,11 +125,21 @@ fn proposal(
     let before = Pips::pip_id_sequence();
     let active = Pips::active_pip_count();
     let signer = signer.clone();
-    let proposer = proposer.clone();
-    let result = Pips::propose(signer, proposer, Box::new(proposal), deposit, url, desc);
+    let result = Pips::propose(
+        signer,
+        proposer.clone(),
+        Box::new(proposal),
+        deposit,
+        url,
+        desc,
+    );
     let add = result.map_or(0, |_| 1);
     if let Ok(_) = result {
         assert_last_event!(Event::ProposalCreated(_, _, id, ..), *id == before);
+        assert_eq!(
+            Pips::committee_pips().contains(&before),
+            matches!(proposer, Proposer::Committee(_))
+        );
     }
     assert_eq!(Pips::pip_id_sequence(), before + add);
     assert_eq!(Pips::active_pip_count(), active + add);
