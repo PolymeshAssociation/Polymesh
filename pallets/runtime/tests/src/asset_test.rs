@@ -2180,7 +2180,6 @@ fn test_weights_for_is_valid_transfer() {
                     issuers: vec![eve_did]
                 }]
             ));
-
             let result =
                 Asset::_is_valid_transfer(&ticker, alice, Some(alice_did), Some(bob_did), 100)
                     .unwrap();
@@ -2220,6 +2219,77 @@ fn test_weights_for_is_valid_transfer() {
             let computed_weight =
                 Asset::compute_transfer_result(false, 2, weight_from_verify_transfer).1;
             assert!(matches!(transfer_weight, computed_weight));
+        });
+}
+
+#[test]
+fn check_functionality_of_remove_extension() {
+    ExtBuilder::default()
+        .set_max_tms_allowed(5)
+        .build()
+        .execute_with(|| {
+            let alice = AccountKeyring::Alice.public();
+            let (alice_signed, alice_did) = make_account_without_cdd(alice).unwrap();
+
+            let token = SecurityToken {
+                name: vec![0x01].into(),
+                owner_did: alice_did,
+                total_supply: 1_000_000_000,
+                divisible: true,
+                asset_type: AssetType::default(),
+                primary_issuance_agent: Some(alice_did),
+                ..Default::default()
+            };
+            let ticker = Ticker::try_from(token.name.as_slice()).unwrap();
+
+            assert_ok!(Asset::create_asset(
+                alice_signed.clone(),
+                token.name.clone(),
+                ticker,
+                token.total_supply,
+                true,
+                token.asset_type.clone(),
+                vec![],
+                None,
+            ));
+
+            let extension_id = account_from(1);
+
+            // Add Tms
+            assert_ok!(Asset::add_extension(
+                alice_signed.clone(),
+                ticker,
+                SmartExtension {
+                    extension_type: SmartExtensionType::TransferManager,
+                    extension_name: b"ABC".into(),
+                    extension_id: extension_id,
+                    is_archive: false
+                }
+            ));
+
+            // verify storage
+            assert_eq!(
+                Asset::extensions((ticker, SmartExtensionType::TransferManager)),
+                vec![extension_id]
+            );
+            // Remove the extension
+            assert_ok!(Asset::remove_smart_extension(
+                alice_signed.clone(),
+                ticker,
+                extension_id
+            ));
+
+            // verify storage
+            assert_eq!(
+                Asset::extensions((ticker, SmartExtensionType::TransferManager)),
+                vec![]
+            );
+
+            // Removing the same extension gives the error.
+            assert_err!(
+                Asset::remove_smart_extension(alice_signed.clone(), ticker, extension_id),
+                AssetError::NoSuchSmartExtension
+            );
         });
 }
 

@@ -272,13 +272,9 @@ impl ChargeTxFee for TestStorage {
 impl CddAndFeeDetails<AccountId, Call> for TestStorage {
     fn get_valid_payer(
         _: &Call,
-        caller: &Signatory<AccountId>,
+        caller: &AccountId,
     ) -> Result<Option<AccountId>, InvalidTransaction> {
-        if let Signatory::Account(key) = caller {
-            Ok(Some(*key))
-        } else {
-            Err(InvalidTransaction::Call.into())
-        }
+        Ok(Some(*caller))
     }
     fn clear_context() {
         Context::set_current_identity::<Identity>(None);
