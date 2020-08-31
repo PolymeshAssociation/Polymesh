@@ -291,7 +291,7 @@ impl ExtBuilder {
                 (SmartExtensionType::TransferManager, 5000),
                 (SmartExtensionType::Offerings, 5000),
                 (SmartExtensionType::SmartWallet, 5000),
-            ]
+            ],
         }
         .assimilate_storage(&mut storage)
         .unwrap();

@@ -1,30 +1,34 @@
 use crate::{
-    storage::{add_secondary_key, register_keyring_account, make_account_without_cdd, TestStorage, AccountId},
-    ExtBuilder, contract_test::{ compile_module, create_contract_instance, create_se_template}
+    contract_test::{compile_module, create_contract_instance, create_se_template},
+    storage::{
+        add_secondary_key, make_account_without_cdd, register_keyring_account, AccountId,
+        TestStorage,
+    },
+    ExtBuilder,
 };
 
+use chrono::prelude::Utc;
+use codec::Encode;
+use frame_support::{
+    assert_err, assert_noop, assert_ok, traits::Currency, StorageDoubleMap, StorageMap,
+};
+use hex_literal::hex;
+use ink_primitives::hash as FunctionSelectorHasher;
 use pallet_asset::{
     self as asset, AssetOwnershipRelation, AssetType, FundingRoundName, IdentifierType,
     SecurityToken, SignData,
 };
 use pallet_balances as balances;
 use pallet_compliance_manager as compliance_manager;
+use pallet_contracts::ContractAddressFor;
 use pallet_identity as identity;
 use pallet_statistics as statistics;
 use polymesh_common_utilities::{constants::*, traits::balances::Memo};
+use polymesh_contracts::NonceBasedAddressDeterminer;
 use polymesh_primitives::{
     AuthorizationData, Document, DocumentName, IdentityId, Signatory, SmartExtension,
     SmartExtensionType, Ticker,
 };
-use polymesh_contracts::NonceBasedAddressDeterminer;
-use chrono::prelude::Utc;
-use codec::Encode;
-use frame_support::{
-    assert_err, assert_noop, assert_ok, traits::Currency, StorageDoubleMap, StorageMap,
-};
-use pallet_contracts::ContractAddressFor;
-use hex_literal::hex;
-use ink_primitives::hash as FunctionSelectorHasher;
 use rand::Rng;
 use sp_runtime::AnySignature;
 use std::convert::{TryFrom, TryInto};
@@ -42,12 +46,10 @@ type Origin = <TestStorage as frame_system::Trait>::Origin;
 type DidRecords = identity::DidRecords<TestStorage>;
 type Statistics = statistics::Module<TestStorage>;
 
-
-fn setup_se_template<T>(creator: AccountId, creator_did: IdentityId) -> AccountId 
+fn setup_se_template<T>(creator: AccountId, creator_did: IdentityId) -> AccountId
 where
-    T: frame_system::Trait<Hash = sp_core::H256>
+    T: frame_system::Trait<Hash = sp_core::H256>,
 {
-
     let (wasm, code_hash) = compile_module::<TestStorage>("flipper").unwrap();
 
     let input_data = hex!("0222FF18");
@@ -55,7 +57,9 @@ where
     create_se_template::<TestStorage>(creator, creator_did, 0, code_hash, wasm);
 
     // Create SE instance.
-    assert_ok!(create_contract_instance::<TestStorage>(creator, code_hash, 0, false));
+    assert_ok!(create_contract_instance::<TestStorage>(
+        creator, code_hash, 0, false
+    ));
 
     NonceBasedAddressDeterminer::<TestStorage>::contract_address_for(
         &code_hash,
@@ -1156,7 +1160,6 @@ fn add_extension_successfully() {
             identifiers.clone(),
             None,
         ));
-
 
         // Add smart extension
         let extension_name = b"PTM".into();

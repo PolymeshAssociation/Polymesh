@@ -109,8 +109,9 @@ use polymesh_common_utilities::{
     CommonTrait, Context,
 };
 use polymesh_primitives::{
-    AuthorizationData, AuthorizationError, Document, DocumentName, IdentityId, Signatory,
-    SmartExtension, SmartExtensionName, SmartExtensionType, Ticker, MetaVersion as ExtVersion
+    AuthorizationData, AuthorizationError, Document, DocumentName, IdentityId,
+    MetaVersion as ExtVersion, Signatory, SmartExtension, SmartExtensionName, SmartExtensionType,
+    Ticker,
 };
 use polymesh_primitives_derive::VecU8StrongTyped;
 use sp_runtime::traits::{CheckedAdd, CheckedSub, Saturating, Verify};
@@ -1506,7 +1507,10 @@ impl<T: Trait> Module<T> {
             let current_holder_count = <statistics::Module<T>>::investor_count_per_asset(ticker);
             let tms = Self::extensions((ticker, SmartExtensionType::TransferManager))
                 .into_iter()
-                .filter(|tm| !Self::extension_details((ticker, tm)).is_archive && Self::is_ext_compatible(&SmartExtensionType::TransferManager, &tm))
+                .filter(|tm| {
+                    !Self::extension_details((ticker, tm)).is_archive
+                        && Self::is_ext_compatible(&SmartExtensionType::TransferManager, &tm)
+                })
                 .collect::<Vec<T::AccountId>>();
             if !tms.is_empty() {
                 for tm in tms.into_iter() {

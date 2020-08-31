@@ -32,7 +32,9 @@ use polymesh_common_utilities::{
     protocol_fee::{ChargeProtocolFee, ProtocolOp},
     with_transaction, Context,
 };
-use polymesh_primitives::{IdentityId, MetaUrl, TemplateDetails, TemplateMetadata, ExtensionAttributes};
+use polymesh_primitives::{
+    ExtensionAttributes, IdentityId, MetaUrl, TemplateDetails, TemplateMetadata,
+};
 use sp_core::crypto::UncheckedFrom;
 use sp_runtime::{
     traits::{Hash, Saturating, StaticLookup},
@@ -418,7 +420,7 @@ impl<T: Trait> Module<T> {
         let meta_info = Self::get_metadata_of(code_hash);
         ExtensionAttributes {
             usage_fee: meta_info.usage_fee,
-            version: meta_info.version
+            version: meta_info.version,
         }
     }
 }

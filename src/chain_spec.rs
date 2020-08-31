@@ -2,7 +2,9 @@ use grandpa::AuthorityId as GrandpaId;
 use im_online::sr25519::AuthorityId as ImOnlineId;
 use pallet_asset::TickerRegistrationConfig;
 use polymesh_common_utilities::{constants::currency::POLY, protocol_fee::ProtocolOp};
-use polymesh_primitives::{AccountId, IdentityId, InvestorUid, PosRatio, Signatory, Signature};
+use polymesh_primitives::{
+    AccountId, IdentityId, InvestorUid, PosRatio, Signatory, Signature, SmartExtensionType,
+};
 use polymesh_runtime_develop::{
     self as general,
     config::{self as GeneralConfig},
@@ -141,6 +143,11 @@ fn general_testnet_genesis(
                 max_ticker_length: 12,
                 registration_length: Some(5_184_000_000),
             },
+            versions: vec![
+                (SmartExtensionType::TransferManager, 5000),
+                (SmartExtensionType::Offerings, 5000),
+                (SmartExtensionType::SmartWallet, 5000),
+            ],
         }),
         identity: {
             let initial_identities = vec![
@@ -500,6 +507,11 @@ fn alcyone_testnet_genesis(
                 max_ticker_length: 12,
                 registration_length: Some(5_184_000_000),
             },
+            versions: vec![
+                (SmartExtensionType::TransferManager, 5000),
+                (SmartExtensionType::Offerings, 5000),
+                (SmartExtensionType::SmartWallet, 5000),
+            ],
         }),
         identity: {
             let initial_identities = vec![

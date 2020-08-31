@@ -16,9 +16,9 @@
 use crate::IdentityId;
 use codec::{Decode, Encode};
 use polymesh_primitives_derive::VecU8StrongTyped;
-use sp_std::prelude::Vec;
 #[cfg(feature = "std")]
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
+use sp_std::prelude::Vec;
 
 /// Smart Extension types
 #[allow(missing_docs)]
@@ -113,5 +113,5 @@ where
 #[derive(Encode, Decode, Default, Debug, Clone, PartialEq)]
 pub struct ExtensionAttributes<Balance> {
     pub usage_fee: Balance,
-    pub version: MetaVersion
+    pub version: MetaVersion,
 }
