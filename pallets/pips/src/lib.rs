@@ -141,13 +141,19 @@ pub struct PipDescription(pub Vec<u8>);
 /// Represents a proposal
 #[derive(Encode, Decode, Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "std", derive(Debug))]
-pub struct Pip<Proposal> {
+pub struct Pip<T: Trait> {
     /// The proposal's unique id.
     pub id: PipId,
     /// The proposal being voted on.
-    pub proposal: Proposal,
+    pub proposal: T::Proposal,
     /// The latest state
     pub state: ProposalState,
+    /// The issuer of `propose`.
+    pub proposer: Proposer<T::AccountId>,
+    /// The block until which the PIP is cooling off.
+    /// During the period, the `proposer` can amend details.
+    /// After the period, people can vote on community PIPs.
+    pub cool_off_until: T::BlockNumber,
 }
 
 /// A result of execution of get_votes.
@@ -196,18 +202,13 @@ pub enum Proposer<AccountId> {
 /// Represents a proposal metadata
 #[derive(Encode, Decode, Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "std", derive(Debug))]
-pub struct PipsMetadata<T: Trait> {
-    /// They creator
-    pub proposer: Proposer<T::AccountId>,
+pub struct PipsMetadata {
     /// The proposal's unique id.
     pub id: PipId,
     /// The proposal url for proposal discussion.
     pub url: Option<Url>,
     /// The proposal description.
     pub description: Option<PipDescription>,
-    /// This proposal allows any changes
-    /// During Cool-off period, proposal owner can amend any PIP detail or cancel the entire
-    pub cool_off_until: T::BlockNumber,
 }
 
 /// For keeping track of proposal being voted on.
@@ -375,7 +376,7 @@ decl_storage! {
         ActivePipCount get(fn active_pip_count): u32;
 
         /// The metadata of the active proposals.
-        pub ProposalMetadata get(fn proposal_metadata): map hasher(twox_64_concat) PipId => Option<PipsMetadata<T>>;
+        pub ProposalMetadata get(fn proposal_metadata): map hasher(twox_64_concat) PipId => Option<PipsMetadata>;
 
         /// Those who have locked a deposit.
         /// proposal (id, proposer) -> deposit
@@ -383,7 +384,7 @@ decl_storage! {
 
         /// Actual proposal for a given id, if it's current.
         /// proposal id -> proposal
-        pub Proposals get(fn proposals): map hasher(twox_64_concat) PipId => Option<Pip<T::Proposal>>;
+        pub Proposals get(fn proposals): map hasher(twox_64_concat) PipId => Option<Pip<T>>;
 
         /// PolymeshVotes on a given proposal, if it is ongoing.
         /// proposal id -> vote count
@@ -643,21 +644,21 @@ decl_module! {
             // 4. Construct and add PIP to storage.
             let id = Self::next_pip_id();
             ActivePipCount::mutate(|count| *count += 1);
-            let cool_off_until = <system::Module<T>>::block_number() + Self::proposal_cool_off_period();
             let proposal_metadata = PipsMetadata {
-                proposer: proposer.clone(),
                 id,
                 url: url.clone(),
                 description: description.clone(),
-                cool_off_until: cool_off_until,
             };
-            <ProposalMetadata<T>>::insert(id, proposal_metadata);
+            ProposalMetadata::insert(id, proposal_metadata);
 
             let proposal_data = Self::reportable_proposal_data(&*proposal);
+            let cool_off_until = <system::Module<T>>::block_number() + Self::proposal_cool_off_period();
             let pip = Pip {
                 id,
                 proposal: *proposal,
                 state: ProposalState::Pending,
+                proposer: proposer.clone(),
+                cool_off_until,
             };
             <Proposals<T>>::insert(id, pip);
 
@@ -710,7 +711,7 @@ decl_module! {
             let current_did = Self::current_did_or_missing()?;
 
             // 2. Update proposal metadata.
-            <ProposalMetadata<T>>::mutate(id, |meta| {
+            ProposalMetadata::mutate(id, |meta| {
                 if let Some(meta) = meta {
                     meta.url = url.clone();
                     meta.description = description.clone();
@@ -765,11 +766,11 @@ decl_module! {
         #[weight = 1_000_000_000]
         pub fn vote(origin, id: PipId, aye_or_nay: bool, deposit: BalanceOf<T>) {
             let voter = ensure_signed(origin)?;
-            let meta = Self::proposal_metadata(id)
+            let pip = Self::proposals(id)
                 .ok_or_else(|| Error::<T>::NoSuchProposal)?;
 
             // 1. Proposal must be from the community.
-            let proposer = match meta.proposer {
+            let proposer = match pip.proposer {
                 Proposer::Committee(_) => return Err(Error::<T>::NotFromCommunity.into()),
                 Proposer::Community(p) => p,
             };
@@ -781,7 +782,7 @@ decl_module! {
             } else {
                 // 2b. Only proposer can vote during PIP's cool-off period.
                 let curr_block_number = <system::Module<T>>::block_number();
-                ensure!(meta.cool_off_until <= curr_block_number, Error::<T>::ProposalOnCoolOffPeriod);
+                ensure!(pip.cool_off_until <= curr_block_number, Error::<T>::ProposalOnCoolOffPeriod);
             }
 
             // 3. Proposal must be pending.
@@ -827,10 +828,10 @@ decl_module! {
             Self::is_proposal_state(id, ProposalState::Pending)?;
 
             // 3. Proposal must not be cooling-off and must be by committee.
-            let meta = Self::proposal_metadata(id).ok_or_else(|| Error::<T>::NoSuchProposal)?;
+            let pip = Self::proposals(id).ok_or_else(|| Error::<T>::NoSuchProposal)?;
             let curr_block_number = <system::Module<T>>::block_number();
-            ensure!(meta.cool_off_until <= curr_block_number, Error::<T>::ProposalOnCoolOffPeriod);
-            ensure!(matches!(meta.proposer, Proposer::Committee(_)), Error::<T>::NotByCommittee);
+            ensure!(pip.cool_off_until <= curr_block_number, Error::<T>::ProposalOnCoolOffPeriod);
+            ensure!(matches!(pip.proposer, Proposer::Committee(_)), Error::<T>::NotByCommittee);
 
             // 4. All is good, schedule PIP for execution.
             Self::schedule_pip_for_execution(GC_DID, id);
@@ -943,16 +944,11 @@ decl_module! {
             // 2. Fetch intersection of pending && non-cooling PIPs and aggregate their votes.
             let created_at = <system::Module<T>>::block_number();
             let mut queue = <Proposals<T>>::iter_values()
-                // Only keep pending PIPs.
+                // Only keep non-cooling pending community PIPs.
                 .filter(|pip| matches!(pip.state, ProposalState::Pending))
+                .filter(|pip| matches!(pip.proposer, Proposer::Community(_)))
+                .filter(|pip| pip.cool_off_until <= created_at)
                 .map(|pip| pip.id)
-                // Only keep community PIPs not cooling-off.
-                .filter(|id| {
-                    <ProposalMetadata<T>>::get(id)
-                        .filter(|meta| meta.cool_off_until <= created_at)
-                        .filter(|meta| matches!(meta.proposer, Proposer::Community(_)))
-                        .is_some()
-                })
                 // Aggregate the votes; `true` denotes a positive sign.
                 .map(|id| {
                     let VotingResult { ayes_stake, nays_stake, .. } = <ProposalResult<T>>::get(id);
@@ -1120,8 +1116,8 @@ impl<T: Trait> Module<T> {
         id: PipId,
     ) -> Result<Proposer<T::AccountId>, DispatchError> {
         // 1. Only owner can act on proposal.
-        let meta = Self::proposal_metadata(id).ok_or_else(|| Error::<T>::NoSuchProposal)?;
-        Self::ensure_signed_by(origin, &meta.proposer)?;
+        let pip = Self::proposals(id).ok_or_else(|| Error::<T>::NoSuchProposal)?;
+        Self::ensure_signed_by(origin, &pip.proposer)?;
 
         // 2. Check that the proposal is pending.
         Self::is_proposal_state(id, ProposalState::Pending)?;
@@ -1129,11 +1125,11 @@ impl<T: Trait> Module<T> {
         // 3. Proposal is *ONLY* alterable during its cool-off period.
         let curr_block_number = <system::Module<T>>::block_number();
         ensure!(
-            meta.cool_off_until > curr_block_number,
+            pip.cool_off_until > curr_block_number,
             Error::<T>::ProposalIsImmutable
         );
 
-        Ok(meta.proposer)
+        Ok(pip.proposer)
     }
 
     /// Runs the following procedure:
@@ -1187,7 +1183,7 @@ impl<T: Trait> Module<T> {
     /// Remove the PIP with `id` from the snapshot if it is there.
     fn maybe_unsnapshot_pip(id: PipId, state: ProposalState) {
         if let ProposalState::Pending = state {
-            let cool_until = <ProposalMetadata<T>>::get(id).unwrap().cool_off_until;
+            let cool_until = Self::proposals(id).unwrap().cool_off_until;
             if cool_until <= <system::Module<T>>::block_number()
                 && <SnapshotMeta<T>>::get()
                     .filter(|m| cool_until <= m.created_at)
@@ -1211,7 +1207,7 @@ impl<T: Trait> Module<T> {
         if prune {
             <ProposalResult<T>>::remove(id);
             <ProposalVotes<T>>::remove_prefix(id);
-            <ProposalMetadata<T>>::remove(id);
+            ProposalMetadata::remove(id);
             <Proposals<T>>::remove(id);
             PipSkipCount::remove(id);
         }
@@ -1324,16 +1320,16 @@ impl<T: Trait> Module<T> {
 
     /// Retrieve proposals made by `proposer`.
     pub fn proposed_by(proposer: Proposer<T::AccountId>) -> Vec<PipId> {
-        <ProposalMetadata<T>>::iter()
-            .filter(|(_, meta)| meta.proposer == proposer)
-            .map(|(_, meta)| meta.id)
+        <Proposals<T>>::iter()
+            .filter(|(_, pip)| pip.proposer == proposer)
+            .map(|(_, pip)| pip.id)
             .collect()
     }
 
     /// Retrieve proposals `address` voted on
     pub fn voted_on(address: T::AccountId) -> Vec<PipId> {
-        <ProposalMetadata<T>>::iter()
-            .filter_map(|(_, meta)| Self::proposal_vote(meta.id, &address).map(|_| meta.id))
+        <Proposals<T>>::iter()
+            .filter_map(|(_, pip)| Self::proposal_vote(pip.id, &address).map(|_| pip.id))
             .collect::<Vec<_>>()
     }
 
@@ -1341,11 +1337,11 @@ impl<T: Trait> Module<T> {
     pub fn voting_history_by_address(
         who: T::AccountId,
     ) -> HistoricalVotingByAddress<Vote<BalanceOf<T>>> {
-        <ProposalMetadata<T>>::iter()
-            .filter_map(|(_, meta)| {
+        <Proposals<T>>::iter()
+            .filter_map(|(_, pip)| {
                 Some(VoteByPip {
-                    pip: meta.id,
-                    vote: Self::proposal_vote(meta.id, &who)?,
+                    pip: pip.id,
+                    vote: Self::proposal_vote(pip.id, &who)?,
                 })
             })
             .collect::<Vec<_>>()

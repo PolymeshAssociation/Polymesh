@@ -497,13 +497,9 @@
         "Url": "Text",
         "PipDescription": "Text",
         "PipsMetadata": {
-            "proposer": "AccountId",
             "id": "PipId",
-            "end": "u32",
             "url": "Option<Url>",
-            "description": "Option<PipDescription>",
-            "cool_off_until": "u32",
-            "beneficiaries": "Vec<Beneficiary>"
+            "description": "Option<PipDescription>"
         },
         "Proposer": {
             "_enum": {
@@ -575,7 +571,9 @@
         "Pip": {
             "id": "PipId",
             "proposal": "Call",
-            "state": "ProposalState"
+            "state": "ProposalState",
+            "proposer": "Proposer",
+            "cool_off_until": "u32"
         },
         "ProposalData": {
             "_enum": {
