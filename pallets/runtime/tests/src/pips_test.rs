@@ -1690,13 +1690,23 @@ fn snapshot_works() {
                 },
             ]
         );
-        assert_eq!(
-            Pips::snapshot_metadata(),
-            Some(SnapshotMetadata {
-                created_at: 1,
-                made_by: user.acc(),
-            })
-        );
+        let assert_snapshot = |id| {
+            assert_eq!(
+                Pips::snapshot_metadata(),
+                Some(SnapshotMetadata {
+                    created_at: 1,
+                    made_by: user.acc(),
+                    id,
+                })
+            );
+        };
+        assert_snapshot(0);
+
+        assert_ok!(Pips::snapshot(user.signer()));
+        assert_snapshot(1);
+
+        assert_ok!(Pips::snapshot(user.signer()));
+        assert_snapshot(2);
     });
 }
 

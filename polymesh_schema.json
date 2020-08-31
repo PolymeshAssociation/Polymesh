@@ -518,9 +518,11 @@
             "id": "PipId",
             "weight": "(bool, Balance)"
         },
+        "SnapshotId": "u32",
         "SnapshotMetadata": {
             "created_at": "BlockNumber",
-            "made_by": "AccountId"
+            "made_by": "AccountId",
+            "id": "SnapshotId"
         },
         "SnapshotResult": {
             "_enum": {

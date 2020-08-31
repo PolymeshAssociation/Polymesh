@@ -277,6 +277,9 @@ pub struct DepositInfo<AccountId, Balance> {
     pub amount: Balance,
 }
 
+/// ID of the taken snapshot in a sequence.
+pub type SnapshotId = u32;
+
 /// A snapshot's metadata, containing when it was created and who triggered it.
 /// The priority queue is stored separately (see `SnapshottedPip`).
 #[derive(Encode, Decode, Clone, PartialEq, Eq)]
@@ -286,6 +289,8 @@ pub struct SnapshotMetadata<T: Trait> {
     pub created_at: T::BlockNumber,
     /// Who triggered this snapshot? Should refer to someone in the GC.
     pub made_by: T::AccountId,
+    /// Unique ID of this snapshot.
+    pub id: SnapshotId,
 }
 
 /// A PIP in the snapshot's priority queue for consideration by the GC.
@@ -371,6 +376,9 @@ decl_storage! {
 
         /// Proposals so far. id can be used to keep track of PIPs off-chain.
         PipIdSequence get(fn pip_id_sequence): u32;
+
+        /// Snapshots so far. id can be used to keep track of snapshots off-chain.
+        SnapshotIdSequence get(fn snapshot_id_sequence): u32;
 
         /// Total count of current pending or scheduled PIPs.
         ActivePipCount get(fn active_pip_count): u32;
@@ -470,9 +478,9 @@ decl_event!(
         /// (id, total amount)
         ProposalRefund(IdentityId, PipId, Balance),
         /// The snapshot was cleared.
-        SnapshotCleared(IdentityId),
+        SnapshotCleared(IdentityId, SnapshotId),
         /// A new snapshot was taken.
-        SnapshotTaken(IdentityId),
+        SnapshotTaken(IdentityId, SnapshotId),
         /// A PIP in the snapshot queue was skipped.
         /// (gc_did, pip_id, new_skip_count)
         PipSkipped(IdentityId, PipId, SkippedCount),
@@ -920,12 +928,15 @@ decl_module! {
             let did = Context::current_identity_or::<Identity<T>>(&actor)?;
             ensure!(T::GovernanceCommittee::is_member(&did), Error::<T>::NotACommitteeMember);
 
-            // 2. Clear the snapshot.
-            <SnapshotMeta<T>>::kill();
-            <SnapshotQueue<T>>::kill();
+            if let Some(meta) = <SnapshotMeta<T>>::get() {
+                // 2. Clear the snapshot.
+                <SnapshotMeta<T>>::kill();
+                <SnapshotQueue<T>>::kill();
 
-            // 3. Emit event.
-            Self::deposit_event(RawEvent::SnapshotCleared(did));
+                // 3. Emit event.
+                Self::deposit_event(RawEvent::SnapshotCleared(did, meta.id));
+            }
+
             Ok(())
         }
 
@@ -979,11 +990,12 @@ decl_module! {
             });
 
             // 4. Commit the new snapshot.
-            <SnapshotMeta<T>>::set(Some(SnapshotMetadata { created_at, made_by }));
+            let id = SnapshotIdSequence::mutate(|id| mem::replace(id, *id + 1));
+            <SnapshotMeta<T>>::set(Some(SnapshotMetadata { created_at, made_by, id }));
             <SnapshotQueue<T>>::set(queue);
 
             // 5. Emit event.
-            Self::deposit_event(RawEvent::SnapshotTaken(did));
+            Self::deposit_event(RawEvent::SnapshotTaken(did, id));
             Ok(())
         }
 
