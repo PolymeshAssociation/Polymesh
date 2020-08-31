@@ -126,6 +126,27 @@ jobs:
               outputs:
                 - name: npm-caches
       - in_parallel:
+          - task: clippy-test
+            params:
+              SUBMODULE_ACCESS_TOKEN: ((github-concourse-access-token))
+            config:
+              inputs:
+                - name: githubpr-polymesh
+              caches:
+                - path: githubpr-polymesh/target
+                - path: /usr/local/cargo
+              platform: linux
+              image_resource:
+                type: registry-image
+                source:
+                  repository: polymathnetwork/rust
+                  tag: debian-1.45.0
+                  aws_access_key_id: ((polymath-ecr.aws-access-id))
+                  aws_secret_access_key: ((polymath-ecr.aws-access-secret))
+                  aws_region: us-east-1
+              run:
+                path: bash
+                args: ["githubpr-polymesh/.concourse/scripts/t-clippy-test.sh", "githubpr-polymesh"]
           - task: cargo-test
             config:
               inputs:
@@ -175,7 +196,7 @@ jobs:
               acl: public-read
           - put: s3-polymesh-runtime
             params:
-              file: artifact/polymesh_runtime_testnet_v1-*
+              file: artifact/polymesh_runtime_testnet-*
               acl: public-read
           - put: dockerimage-polymesh
             params:
@@ -207,5 +228,3 @@ jobs:
       params:
         mode: normal
         alert_type: failed
-
-
