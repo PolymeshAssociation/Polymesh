@@ -310,7 +310,7 @@ fn only_primary_key_can_add_secondary_key_permissions_with_externalities() {
             Signatory::Account(bob_key),
             Permissions::default()
         ),
-        Error::<TestStorage>::KeyNotAllowed
+        pallet_permissions::Error::<TestStorage>::UnauthorizedCaller
     );
 
     // Bob tries to remove Charlie's permissions at `alice` Identity.

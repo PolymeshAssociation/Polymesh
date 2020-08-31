@@ -36,9 +36,9 @@ use sp_std::{fmt, marker::PhantomData, result::Result};
 decl_storage! {
     trait Store for Module<T: Trait> as Permissions {
         /// The name of the current pallet (aka module name).
-        pub CurrentPalletName get(fn pallet_name): PalletName;
+        pub CurrentPalletName get(fn current_pallet_name): PalletName;
         /// The name of the current function (aka extrinsic).
-        pub CurrentFunctionName get(fn function_name): FunctionName;
+        pub CurrentFunctionName get(fn current_function_name): FunctionName;
     }
 }
 
@@ -59,8 +59,8 @@ impl<T: Trait> Module<T> {
     pub fn ensure_call_permissions(who: &T::AccountId) -> DispatchResult {
         if T::Checker::check_account_call_permissions(
             who,
-            &Self::pallet_name(),
-            &Self::function_name(),
+            &Self::current_pallet_name(),
+            &Self::current_function_name(),
         ) {
             return Ok(());
         }
@@ -99,12 +99,22 @@ where
         Default::default()
     }
 
+    /// Replaces the current call metadata with the given ones and returns the old, replaced call
+    /// metadata.
+    pub fn swap_call_metadata(
+        pallet_name: PalletName,
+        function_name: FunctionName,
+    ) -> (PalletName, FunctionName) {
+        let old_pallet_name = <CurrentPalletName>::get();
+        let old_function_name = <CurrentFunctionName>::get();
+        Self::store_call_metadata(pallet_name, function_name);
+        (old_pallet_name, old_function_name)
+    }
+
     /// Stores call metadata in runtime storage.
-    fn store_call_metadata(pallet_name: &str, function_name: &str) {
-        let p: PalletName = pallet_name.as_bytes().into();
-        let f: FunctionName = function_name.as_bytes().into();
-        <CurrentPalletName>::put(p);
-        <CurrentFunctionName>::put(f);
+    pub fn store_call_metadata(pallet_name: PalletName, function_name: FunctionName) {
+        <CurrentPalletName>::put(pallet_name);
+        <CurrentFunctionName>::put(function_name);
     }
 
     /// Erases call metadata from runtime storage.
@@ -146,7 +156,10 @@ where
         _len: usize,
     ) -> Result<Self::Pre, TransactionValidityError> {
         let metadata = call.get_call_metadata();
-        Self::store_call_metadata(metadata.pallet_name, metadata.function_name);
+        Self::store_call_metadata(
+            metadata.pallet_name.as_bytes().into(),
+            metadata.function_name.as_bytes().into(),
+        );
         Ok(())
     }
 
