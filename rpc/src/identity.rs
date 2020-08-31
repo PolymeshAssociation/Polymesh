@@ -1,4 +1,6 @@
-pub use pallet_identity::types::{AssetDidResult, CddStatus, DidRecords, DidStatus, KeyIdData};
+pub use pallet_identity::types::{
+    AssetDidResult, CddStatus, DidRecords, DidStatus, KeyIdentityData,
+};
 use polymesh_primitives::{Authorization, AuthorizationType};
 
 pub use node_rpc_runtime_api::identity::IdentityApi as IdentityRuntimeApi;
@@ -58,18 +60,18 @@ pub trait IdentityApi<BlockHash, IdentityId, Ticker, AccountId, SecondaryKey, Si
         at: Option<BlockHash>,
     ) -> Result<Vec<DidStatus>>;
 
-    /// Provide the `KeyIdData` from a given `AccountId`, including:
+    /// Provide the `KeyIdentityData` from a given `AccountId`, including:
     /// - the corresponding DID,
     /// - whether the `AccountId` is a primary or secondary key,
     /// - any permissions related to the key.
     ///
     /// This is an aggregate call provided for UX convenience.
-    #[rpc(name = "identity_getKeyIdData")]
-    fn get_key_id_data(
+    #[rpc(name = "identity_getKeyIdentityData")]
+    fn get_key_identity_data(
         &self,
         acc: AccountId,
         at: Option<BlockHash>,
-    ) -> Result<Option<KeyIdData<IdentityId>>>;
+    ) -> Result<Option<KeyIdentityData<IdentityId>>>;
 }
 
 /// A struct that implements the [`IdentityApi`].
@@ -219,18 +221,18 @@ where
         })
     }
 
-    fn get_key_id_data(
+    fn get_key_identity_data(
         &self,
         acc: AccountId,
         at: Option<<Block as BlockT>::Hash>,
-    ) -> Result<Option<KeyIdData<IdentityId>>> {
+    ) -> Result<Option<KeyIdentityData<IdentityId>>> {
         rpc_forward_call!(
             self,
             at,
             |api: ApiRef<<C as ProvideRuntimeApi<Block>>::Api>, at| {
-                api.get_key_id_data(at, acc)
+                api.get_key_identity_data(at, acc)
             },
-            "Unable to query `get_key_id_data`."
+            "Unable to query `get_key_identity_data`."
         )
     }
 }

@@ -36,7 +36,7 @@ pub enum DidStatus {
 /// Aggregate information about an `AccountId` in relation to an `IdentityId`.
 #[derive(Eq, PartialEq, Encode, Decode)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-pub struct KeyIdData<IdentityId> {
+pub struct KeyIdentityData<IdentityId> {
     /// The identity of the provided `AccountId`.
     pub identity: IdentityId,
     /// Is the `AccountId` the primary key of `identity`?

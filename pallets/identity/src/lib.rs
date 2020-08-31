@@ -1978,7 +1978,7 @@ impl<T: Trait> Module<T> {
 
 impl<T: Trait> Module<T> {
     /// RPC call to fetch some aggregate account data for fewer round trips.
-    pub fn get_key_id_data(acc: T::AccountId) -> Option<types::KeyIdData<IdentityId>> {
+    pub fn get_key_identity_data(acc: T::AccountId) -> Option<types::KeyIdentityData<IdentityId>> {
         let identity = Self::get_identity(&acc)?;
         let record = <DidRecords<T>>::get(identity);
         let is_primary = acc == record.primary_key;
@@ -1995,7 +1995,7 @@ impl<T: Trait> Module<T> {
                 })
                 .unwrap_or_default()
         };
-        Some(types::KeyIdData {
+        Some(types::KeyIdentityData {
             identity,
             is_primary,
             permissions,

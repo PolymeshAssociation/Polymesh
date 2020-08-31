@@ -1,5 +1,5 @@
 use codec::Codec;
-use pallet_identity::types::{AssetDidResult, CddStatus, DidRecords, DidStatus, KeyIdData};
+use pallet_identity::types::{AssetDidResult, CddStatus, DidRecords, DidStatus, KeyIdentityData};
 use polymesh_primitives::{Authorization, AuthorizationType};
 use sp_std::prelude::*;
 
@@ -31,12 +31,12 @@ sp_api::decl_runtime_apis! {
         /// Retrieve the status of the DID
         fn get_did_status(dids: Vec<IdentityId>) -> Vec<DidStatus>;
 
-        /// Provide the `KeyIdData` from a given `AccountId`, including:
+        /// Provide the `KeyIdentityData` from a given `AccountId`, including:
         /// - the corresponding DID,
         /// - whether the `AccountId` is a primary or secondary key,
         /// - any permissions related to the key.
         ///
         /// This is an aggregate call provided for UX convenience.
-        fn get_key_id_data(acc: AccountId) -> Option<KeyIdData<IdentityId>>;
+        fn get_key_identity_data(acc: AccountId) -> Option<KeyIdentityData<IdentityId>>;
     }
 }
