@@ -479,7 +479,7 @@ fn frozen_secondary_keys_cdd_verification_test_we() {
             1_000,
             None,
         )),
-        &Signatory::Account(AccountId32::from(AccountKeyring::Bob.public().0)),
+        &AccountId32::from(AccountKeyring::Bob.public().0),
     );
     assert_err!(
         payer,
