@@ -131,9 +131,9 @@ jobs:
               SUBMODULE_ACCESS_TOKEN: ((github-concourse-access-token))
             config:
               inputs:
-                - name: githubpr-polymesh
+                - name: git-polymesh
               caches:
-                - path: githubpr-polymesh/target
+                - path: git-polymesh/target
                 - path: /usr/local/cargo
               platform: linux
               image_resource:
@@ -146,7 +146,7 @@ jobs:
                   aws_region: us-east-1
               run:
                 path: bash
-                args: ["githubpr-polymesh/.concourse/scripts/t-clippy-test.sh", "githubpr-polymesh"]
+                args: ["git-polymesh/.concourse/scripts/t-clippy-test.sh", "git-polymesh"]
           - task: cargo-test
             config:
               inputs:
