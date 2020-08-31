@@ -24,7 +24,7 @@ use frame_support::{
     weights::{DispatchInfo, Weight},
 };
 use frame_system::EnsureSignedBy;
-use pallet_cdd_offchain_worker::{Trait, crypto};
+use pallet_cdd_offchain_worker::{crypto, Trait};
 use pallet_group as group;
 use pallet_identity::{self as identity};
 use pallet_protocol_fee as protocol_fee;
@@ -35,8 +35,7 @@ use polymesh_common_utilities::traits::{
     group::{GroupTrait, InactiveMember},
     identity::Trait as IdentityTrait,
     multisig::MultiSigSubTrait,
-    portfolio::PortfolioSubTrait,
-    transaction_payment::{ CddAndFeeDetails, ChargeTxFee },
+    transaction_payment::{CddAndFeeDetails, ChargeTxFee},
     CommonTrait,
 };
 use polymesh_primitives::{IdentityId, Signatory};
@@ -288,10 +287,7 @@ impl IdentityTrait for Test {
 }
 
 impl CddAndFeeDetails<AccountId, Call> for Test {
-    fn get_valid_payer(
-        _: &Call,
-        _: &Signatory<AccountId>,
-    ) -> Result<Option<AccountId>, InvalidTransaction> {
+    fn get_valid_payer(_: &Call, _: &AccountId) -> Result<Option<AccountId>, InvalidTransaction> {
         Ok(None)
     }
     fn clear_context() {}
@@ -632,7 +628,7 @@ impl ExtBuilder {
                     account_key_ring.get(&999).unwrap().clone(),
                     1_000_000_000_000,
                 ),
-            ]
+            ],
         }
         .assimilate_storage(&mut storage);
 

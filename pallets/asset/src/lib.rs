@@ -930,18 +930,13 @@ decl_module! {
         /// * `extension_id` - AccountId of the extension that need to be archived.
         #[weight = T::DbWeight::get().reads_writes(3, 1) + 800_000_000]
         pub fn archive_extension(origin, ticker: Ticker, extension_id: T::AccountId) -> DispatchResult {
-            let sender = ensure_signed(origin)?;
-            let my_did =  Context::current_identity_or::<identity::Module<T>>(&sender)?;
+            // Ensure the extrinsic is signed and have valid extension id.
+            let did = Self::ensure_signed_and_validate_extension_id(origin, &ticker, &extension_id)?;
 
-            ensure!(Self::is_owner(&ticker, my_did), Error::<T>::Unauthorized);
-            ensure!(
-                <ExtensionDetails<T>>::contains_key((ticker, &extension_id)),
-                Error::<T>::NoSuchSmartExtension
-            );
             // Mutate the extension details
             ensure!(!(<ExtensionDetails<T>>::get((ticker, &extension_id))).is_archive, Error::<T>::AlreadyArchived);
-            <ExtensionDetails<T>>::mutate((ticker, &extension_id), |details| { details.is_archive = true; });
-            Self::deposit_event(RawEvent::ExtensionArchived(my_did, ticker, extension_id));
+            <ExtensionDetails<T>>::mutate((ticker, &extension_id), |details| details.is_archive = true);
+            Self::deposit_event(RawEvent::ExtensionArchived(did, ticker, extension_id));
             Ok(())
         }
 
@@ -953,18 +948,13 @@ decl_module! {
         /// * `extension_id` - AccountId of the extension that need to be un-archived.
         #[weight = T::DbWeight::get().reads_writes(2, 2) + 800_000_000]
         pub fn unarchive_extension(origin, ticker: Ticker, extension_id: T::AccountId) -> DispatchResult {
-            let sender = ensure_signed(origin)?;
-            let my_did = Context::current_identity_or::<identity::Module<T>>(&sender)?;
+            // Ensure the extrinsic is signed and have valid extension id.
+            let did = Self::ensure_signed_and_validate_extension_id(origin, &ticker, &extension_id)?;
 
-            ensure!(Self::is_owner(&ticker, my_did), Error::<T>::Unauthorized);
-            ensure!(
-                <ExtensionDetails<T>>::contains_key((ticker, &extension_id)),
-                Error::<T>::NoSuchSmartExtension
-            );
             // Mutate the extension details
             ensure!((<ExtensionDetails<T>>::get((ticker, &extension_id))).is_archive, Error::<T>::AlreadyUnArchived);
-            <ExtensionDetails<T>>::mutate((ticker, &extension_id), |details| { details.is_archive = false; });
-            Self::deposit_event(RawEvent::ExtensionUnArchived(my_did, ticker, extension_id));
+            <ExtensionDetails<T>>::mutate((ticker, &extension_id), |details| details.is_archive = false);
+            Self::deposit_event(RawEvent::ExtensionUnArchived(did, ticker, extension_id));
             Ok(())
         }
 
@@ -991,6 +981,29 @@ decl_module! {
                 token.primary_issuance_agent = None
             });
             Self::deposit_event(RawEvent::PrimaryIssuanceAgentTransfered(did, ticker, old_primary_issuance_agent, None));
+            Ok(())
+        }
+
+        /// Remove the given smart extension id from the list of extension under a given ticker.
+        ///
+        /// # Arguments
+        /// * `origin` - The asset issuer.
+        /// * `ticker` - Ticker symbol of the asset.
+        #[weight = 250_000_000]
+        pub fn remove_smart_extension(origin, ticker: Ticker, extension_id: T::AccountId) -> DispatchResult {
+            // Ensure the extrinsic is signed and have valid extension id.
+            let did = Self::ensure_signed_and_validate_extension_id(origin, &ticker, &extension_id)?;
+
+            let extension_type = Self::extension_details((&ticker, &extension_id)).extension_type;
+
+            // Remove the storage reference for the given extension_id.
+            <Extensions<T>>::mutate(&(ticker, extension_type), |extension_list| {
+                if let Some(pos) = extension_list.iter().position(|ext| ext == &extension_id) {
+                    extension_list.remove(pos);
+                }
+            });
+            <ExtensionDetails<T>>::remove((&ticker, &extension_id));
+            Self::deposit_event(RawEvent::ExtensionRemoved(did, ticker, extension_id));
             Ok(())
         }
 
@@ -1137,6 +1150,9 @@ decl_event! {
         DocumentAdded(Ticker, DocumentName, Document),
         /// A document removed from an asset
         DocumentRemoved(Ticker, DocumentName),
+        /// A extension got removed.
+        /// caller DID, ticker, AccountId
+        ExtensionRemoved(IdentityId, Ticker, AccountId),
         /// A Polymath Classic token was claimed and transferred to a non-systematic DID.
         ClassicTickerClaimed(IdentityId, Ticker, ethereum::EthereumAddress),
     }
@@ -2281,5 +2297,22 @@ impl<T: Trait> Module<T> {
             false => SMART_EXTENSION_FAILURE,
         };
         (transfer_status, weight_for_valid_transfer)
+    }
+
+    /// Ensure the extrinsic is signed and have valid extension id.
+    fn ensure_signed_and_validate_extension_id(
+        origin: T::Origin,
+        ticker: &Ticker,
+        id: &T::AccountId,
+    ) -> Result<IdentityId, DispatchError> {
+        let sender = ensure_signed(origin)?;
+        let did = Context::current_identity_or::<identity::Module<T>>(&sender)?;
+
+        ensure!(Self::is_owner(ticker, did), Error::<T>::Unauthorized);
+        ensure!(
+            <ExtensionDetails<T>>::contains_key((ticker, id)),
+            Error::<T>::NoSuchSmartExtension
+        );
+        Ok(did)
     }
 }

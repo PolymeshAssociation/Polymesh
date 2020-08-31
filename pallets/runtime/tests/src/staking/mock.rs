@@ -367,10 +367,7 @@ impl IdentityTrait for Test {
 }
 
 impl CddAndFeeDetails<AccountId, Call> for Test {
-    fn get_valid_payer(
-        _: &Call,
-        _: &Signatory<AccountId>,
-    ) -> Result<Option<AccountId>, InvalidTransaction> {
+    fn get_valid_payer(_: &Call, _: &AccountId) -> Result<Option<AccountId>, InvalidTransaction> {
         Ok(None)
     }
     fn clear_context() {}
