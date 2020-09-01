@@ -12,9 +12,9 @@ serde = { version = "1.0.104", optional = true, features = ["derive"] }
 
 # Substrate
 codec = { package = "parity-scale-codec", version = "1.2.0", default-features = false, features = ["derive"] }
-sp-api = { git = 'https://github.com/paritytech/substrate', default_features = false, branch = "at-add-dispatch-call"}
-sp-runtime = { git = 'https://github.com/paritytech/substrate', default_features = false,  branch = "at-add-dispatch-call"}
-frame-support = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "at-add-dispatch-call" }
+sp-api = { git = 'https://github.com/paritytech/substrate', default_features = false, tag = "v2.0.0-rc5+2"}
+sp-runtime = { git = 'https://github.com/paritytech/substrate', default_features = false,  tag = "v2.0.0-rc5+2"}
+frame-support = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0-rc5+2" }
 
 [dev-dependencies]
 serde_json = "1.0.48"

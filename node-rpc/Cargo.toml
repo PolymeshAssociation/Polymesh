@@ -11,7 +11,7 @@ targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
 polymesh-primitives = { path = "../primitives" }
-pallet-contracts-rpc = { git = "https://github.com/paritytech/substrate", branch = "at-add-dispatch-call" }
+pallet-contracts-rpc = { git = "https://github.com/paritytech/substrate", tag = "v2.0.0-rc5+2" }
 pallet-group-rpc = { path = "../pallets/group/rpc" }
 pallet-staking-rpc = { path = "../pallets/staking/rpc" }
 pallet-protocol-fee-rpc = {  path = "../pallets/protocol-fee/rpc" }
@@ -20,21 +20,21 @@ node-rpc = { path = "../rpc" }
 jsonrpc-core = "14.2.0"
 
 codec = { package = "parity-scale-codec", version = "1.3.0", default-features = false }
-sp-blockchain = { git = "https://github.com/paritytech/substrate", branch = "at-add-dispatch-call" }
-sp-runtime = { git = "https://github.com/paritytech/substrate", branch = "at-add-dispatch-call" }
-sp-api = { git = "https://github.com/paritytech/substrate", branch = "at-add-dispatch-call" }
-sc-client-api = { git = "https://github.com/paritytech/substrate", branch = "at-add-dispatch-call" }
-sp-consensus = { git = "https://github.com/paritytech/substrate", branch = "at-add-dispatch-call" }
-sp-consensus-babe = { git = "https://github.com/paritytech/substrate", branch = "at-add-dispatch-call" }
-sp-block-builder = { git = "https://github.com/paritytech/substrate", branch = "at-add-dispatch-call" }
-txpool-api = { package = "sp-transaction-pool", git = "https://github.com/paritytech/substrate", branch = "at-add-dispatch-call" }
+sp-blockchain = { git = "https://github.com/paritytech/substrate", tag = "v2.0.0-rc5+2" }
+sp-runtime = { git = "https://github.com/paritytech/substrate", tag = "v2.0.0-rc5+2" }
+sp-api = { git = "https://github.com/paritytech/substrate", tag = "v2.0.0-rc5+2" }
+sc-client-api = { git = "https://github.com/paritytech/substrate", tag = "v2.0.0-rc5+2" }
+sp-consensus = { git = "https://github.com/paritytech/substrate", tag = "v2.0.0-rc5+2" }
+sp-consensus-babe = { git = "https://github.com/paritytech/substrate", tag = "v2.0.0-rc5+2" }
+sp-block-builder = { git = "https://github.com/paritytech/substrate", tag = "v2.0.0-rc5+2" }
+txpool-api = { package = "sp-transaction-pool", git = "https://github.com/paritytech/substrate", tag = "v2.0.0-rc5+2" }
 
-sc-rpc = { git = "https://github.com/paritytech/substrate", branch = "at-add-dispatch-call" }
-sc-consensus-babe = { git = "https://github.com/paritytech/substrate", branch = "at-add-dispatch-call" }
-sc-consensus-babe-rpc = { git = "https://github.com/paritytech/substrate", branch = "at-add-dispatch-call" }
-sc-consensus-epochs = { git = "https://github.com/paritytech/substrate", branch = "at-add-dispatch-call" }
-sc-finality-grandpa = { git = "https://github.com/paritytech/substrate", branch = "at-add-dispatch-call" }
-sc-finality-grandpa-rpc = { git = "https://github.com/paritytech/substrate", branch = "at-add-dispatch-call" }
-sc-keystore = { git = "https://github.com/paritytech/substrate", branch = "at-add-dispatch-call" }
+sc-rpc = { git = "https://github.com/paritytech/substrate", tag = "v2.0.0-rc5+2" }
+sc-consensus-babe = { git = "https://github.com/paritytech/substrate", tag = "v2.0.0-rc5+2" }
+sc-consensus-babe-rpc = { git = "https://github.com/paritytech/substrate", tag = "v2.0.0-rc5+2" }
+sc-consensus-epochs = { git = "https://github.com/paritytech/substrate", tag = "v2.0.0-rc5+2" }
+sc-finality-grandpa = { git = "https://github.com/paritytech/substrate", tag = "v2.0.0-rc5+2" }
+sc-finality-grandpa-rpc = { git = "https://github.com/paritytech/substrate", tag = "v2.0.0-rc5+2" }
+sc-keystore = { git = "https://github.com/paritytech/substrate", tag = "v2.0.0-rc5+2" }
 
-frame-rpc-system = { package = "substrate-frame-rpc-system", git = "https://github.com/paritytech/substrate", branch = "at-add-dispatch-call"  }
+frame-rpc-system = { package = "substrate-frame-rpc-system", git = "https://github.com/paritytech/substrate", tag = "v2.0.0-rc5+2"  }

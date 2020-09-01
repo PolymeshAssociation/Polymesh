@@ -18,10 +18,10 @@ serde = { version = "1.0.104", default-features = false }
 
 # Substrate
 codec = { package = "parity-scale-codec", version = "1.1.0", default-features = false, features = ["derive"] }
-frame-support = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "at-add-dispatch-call" }
-frame-system = { package = "frame-system", git = "https://github.com/paritytech/substrate", default-features = false, branch = "at-add-dispatch-call" }
-sp-arithmetic = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "at-add-dispatch-call" }
-sp-std = { package = "sp-std", git = "https://github.com/paritytech/substrate", default-features = false, branch = "at-add-dispatch-call" }
+frame-support = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0-rc5+2" }
+frame-system = { package = "frame-system", git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0-rc5+2" }
+sp-arithmetic = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0-rc5+2" }
+sp-std = { package = "sp-std", git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0-rc5+2" }
 
 [features]
 equalize = []
