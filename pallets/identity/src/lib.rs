@@ -857,7 +857,7 @@ decl_module! {
             auth_id: u64
         ) -> DispatchResult {
             let sender = ensure_signed(origin)?;
-            CallPermissions::<T>::ensure_call_permissions(&sender)?;
+            // CallPermissions::<T>::ensure_call_permissions(&sender)?;
             let signer_key = Signatory::Account(sender.clone());
             let signer_did = Context::current_identity_or::<Self>(&sender)
                 .map_or_else(
@@ -926,7 +926,7 @@ decl_module! {
             auth_ids: Vec<u64>
         ) -> DispatchResult {
             let sender = ensure_signed(origin)?;
-            CallPermissions::<T>::ensure_call_permissions(&sender)?;
+            // CallPermissions::<T>::ensure_call_permissions(&sender)?;
             let signer = Context::current_identity_or::<Self>(&sender)
                 .map_or_else(
                     |_error| Signatory::Account(sender),

@@ -98,10 +98,10 @@ use polymesh_common_utilities::{
     Context,
 };
 use polymesh_primitives::{
-    AuthorizationData, AuthorizationError, IdentityId, Permissions, Signatory,
+    AuthorizationData, AuthorizationError, IdentityId, PalletPermissions, Permissions, Signatory,
 };
 use sp_runtime::traits::{Dispatchable, Hash};
-use sp_std::{convert::TryFrom, prelude::*};
+use sp_std::{convert::TryFrom, iter, prelude::*};
 type Identity<T> = identity::Module<T>;
 
 /// Either the ID of a successfully created multisig account or an error.
@@ -569,7 +569,11 @@ decl_module! {
             Self::verify_sender_is_creator(sender_did, &multisig)?;
             <Identity<T>>::unsafe_join_identity(
                 sender_did,
-                Permissions::default(),
+                Permissions::from_pallet_permissions(
+                    // TODO: Check if there is a variable for the pallet name and, if there is, use
+                    // it instead of b"_".
+                    iter::once(PalletPermissions::entire_pallet(b"multisig".as_ref().into()))
+                ),
                 Signatory::Account(multisig)
             )
         }

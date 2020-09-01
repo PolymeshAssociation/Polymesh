@@ -320,7 +320,7 @@ fn only_primary_key_can_add_secondary_key_permissions_with_externalities() {
             Signatory::Account(charlie_key),
             Permissions::empty()
         ),
-        Error::<TestStorage>::KeyNotAllowed
+        pallet_permissions::Error::<TestStorage>::UnauthorizedCaller
     );
 
     // Alice over-write some permissions.
@@ -777,10 +777,10 @@ fn add_remove_secondary_identities_with_externalities() {
     ));
 
     let alice_rec = Identity::did_records(alice_id);
-    assert_eq!(
-        alice_rec.secondary_keys,
-        vec![SecondaryKey::from(charlie_id)]
-    );
+    let mut charlie_sk = SecondaryKey::from(charlie_id);
+    // Correct the permissions to ones set by `add_secondary_key`.
+    charlie_sk.permissions = Permissions::default();
+    assert_eq!(alice_rec.secondary_keys, vec![charlie_sk]);
 
     // Check is_authorized_identity
     assert_eq!(
@@ -1291,6 +1291,9 @@ fn add_identity_signers() {
 
         let alice_secondary_keys = Identity::did_records(alice_did).secondary_keys;
         let charlie_secondary_keys = Identity::did_records(charlie_did).secondary_keys;
+        let mut dave_sk = SecondaryKey::from_account_id(AccountKeyring::Dave.public());
+        // Correct the permissions to ones set by `add_secondary_key`.
+        dave_sk.permissions = Permissions::default();
         assert!(alice_secondary_keys
             .iter()
             .find(|si| **si == bob_did)
@@ -1301,11 +1304,11 @@ fn add_identity_signers() {
             .is_some());
         assert!(alice_secondary_keys
             .iter()
-            .find(|si| **si == SecondaryKey::from_account_id(AccountKeyring::Dave.public()))
+            .find(|si| **si == dave_sk)
             .is_some());
         assert!(charlie_secondary_keys
             .iter()
-            .find(|si| **si == SecondaryKey::from_account_id(AccountKeyring::Dave.public()))
+            .find(|si| **si == dave_sk)
             .is_none());
     });
 }
@@ -1556,12 +1559,12 @@ fn add_permission_with_secondary_key() {
             // SecondaryKey added
             let sig_1 = SecondaryKey {
                 signer: Signatory::Account(bob_acc),
-                permissions: Permissions::default(),
+                permissions: Permissions::empty(),
             };
 
             let sig_2 = SecondaryKey {
                 signer: Signatory::Account(charlie_acc),
-                permissions: Permissions::default(),
+                permissions: Permissions::empty(),
             };
 
             assert_ok!(Identity::cdd_register_did(

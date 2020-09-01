@@ -180,8 +180,8 @@ pub mod migrate;
 /// This module contains entities related with secondary keys.
 pub mod secondary_key;
 pub use secondary_key::{
-    AssetPermissions, ExtrinsicPermissions, Permissions, PortfolioPermissions, SecondaryKey,
-    Signatory,
+    AssetPermissions, ExtrinsicPermissions, PalletPermissions, Permissions, PortfolioPermissions,
+    SecondaryKey, Signatory,
 };
 
 /// Subset type.

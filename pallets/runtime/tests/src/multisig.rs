@@ -8,7 +8,7 @@ use pallet_balances as balances;
 use pallet_identity as identity;
 use pallet_multisig as multisig;
 use polymesh_common_utilities::Context;
-use polymesh_primitives::{SecondaryKey, Signatory};
+use polymesh_primitives::{PalletPermissions, Permissions, SecondaryKey, Signatory};
 use sp_core::sr25519::Public;
 use test_client::AccountKeyring;
 
@@ -604,11 +604,16 @@ fn make_multisig_signer() {
             vec![Signatory::from(alice_did)],
             1,
         ));
-
+        let permissions =
+            Permissions::from_pallet_permissions(vec![PalletPermissions::entire_pallet(
+                b"multisig".as_ref().into(),
+            )]);
+        // The desired secondary key record.
+        let musig_secondary = SecondaryKey::new(Signatory::Account(musig_address), permissions);
         let secondary_keys = Identity::did_records(alice_did).secondary_keys;
         assert!(secondary_keys
             .iter()
-            .find(|si| **si == SecondaryKey::from_account_id(musig_address))
+            .find(|si| **si == musig_secondary)
             .is_none());
 
         assert_err!(
@@ -624,7 +629,7 @@ fn make_multisig_signer() {
         let secondary_keys2 = Identity::did_records(alice_did).secondary_keys;
         assert!(secondary_keys2
             .iter()
-            .find(|si| **si == SecondaryKey::from_account_id(musig_address))
+            .find(|si| **si == musig_secondary)
             .is_some());
     });
 }

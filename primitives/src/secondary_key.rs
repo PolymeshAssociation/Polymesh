@@ -17,7 +17,10 @@ use crate::{FunctionName, IdentityId, PalletName, PortfolioNumber, Subset, Ticke
 use codec::{Decode, Encode};
 #[cfg(feature = "std")]
 use sp_runtime::{Deserialize, Serialize};
-use sp_std::cmp::{Ord, Ordering, PartialOrd};
+use sp_std::{
+    cmp::{Ord, Ordering, PartialOrd},
+    iter,
+};
 
 /// Asset permissions.
 pub type AssetPermissions = Subset<Ticker>;
@@ -27,8 +30,28 @@ pub type AssetPermissions = Subset<Ticker>;
 #[derive(Decode, Encode, Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 pub struct PalletPermissions {
-    pallet_name: PalletName,
-    function_names: Subset<FunctionName>,
+    /// The name of a pallet.
+    pub pallet_name: PalletName,
+    /// A subset of function names within the pallet.
+    pub function_names: Subset<FunctionName>,
+}
+
+impl PalletPermissions {
+    /// Constructs new pallet permissions from given arguments.
+    pub fn new(pallet_name: PalletName, function_names: Subset<FunctionName>) -> Self {
+        PalletPermissions {
+            pallet_name,
+            function_names,
+        }
+    }
+
+    /// Constructs new pallet permissions for full access to pallet `pallet_name`.
+    pub fn entire_pallet(pallet_name: PalletName) -> Self {
+        PalletPermissions {
+            pallet_name,
+            function_names: Subset::All,
+        }
+    }
 }
 
 /// Extrinsic permissions.
@@ -61,6 +84,26 @@ impl Permissions {
             extrinsic: Subset::empty(),
             portfolio: Subset::empty(),
         }
+    }
+
+    /// Empty permissions apart from given extrinsic permissions.
+    pub fn from_pallet_permissions<I>(pallet_permissions: I) -> Self
+    where
+        I: IntoIterator<Item = PalletPermissions>,
+    {
+        Self {
+            asset: Subset::empty(),
+            extrinsic: Subset::Elems(pallet_permissions.into_iter().collect()),
+            portfolio: Subset::empty(),
+        }
+    }
+
+    /// Adds extra extrinsic permissions to `self` for just one pallet. The result is stored in
+    /// `self`.
+    pub fn add_pallet_permissions(&mut self, pallet_permissions: PalletPermissions) {
+        self.extrinsic = self
+            .extrinsic
+            .union(&Subset::Elems(iter::once(pallet_permissions).collect()));
     }
 }
 
@@ -156,6 +199,7 @@ where
 #[derive(Encode, Decode, Default, Clone, Eq, Debug)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 pub struct SecondaryKey<AccountId> {
+    /// The account or identity that is the signatory of this key.
     pub signer: Signatory<AccountId>,
     /// The access permissions of the signing key.
     pub permissions: Permissions,
@@ -175,7 +219,7 @@ impl<AccountId> SecondaryKey<AccountId> {
         Self {
             signer: Signatory::Account(s),
             // Full permissions.
-            permissions: Permissions::default(),
+            permissions: Permissions::empty(),
         }
     }
 
@@ -217,7 +261,7 @@ impl<AccountId> From<IdentityId> for SecondaryKey<AccountId> {
     fn from(id: IdentityId) -> Self {
         Self {
             signer: Signatory::Identity(id),
-            permissions: Permissions::default(),
+            permissions: Permissions::empty(),
         }
     }
 }
@@ -271,7 +315,7 @@ mod tests {
     #[test]
     fn build_test() {
         let key = Public::from_raw([b'A'; 32]);
-        let rk1 = SecondaryKey::new(Signatory::Account(key.clone()), Permissions::default());
+        let rk1 = SecondaryKey::new(Signatory::Account(key.clone()), Permissions::empty());
         let rk2 = SecondaryKey::from_account_id(key.clone());
         assert_eq!(rk1, rk2);
 

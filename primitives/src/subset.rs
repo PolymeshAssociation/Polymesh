@@ -119,6 +119,16 @@ where
             None
         }
     }
+
+    /// Set union operation on `self` and `other`.
+    pub fn union(&self, other: &Self) -> Self {
+        match (self, other) {
+            (Subset::All, _) | (_, Subset::All) => Subset::All,
+            (Subset::Elems(elems1), Subset::Elems(elems2)) => {
+                Subset::Elems(elems1.union(elems2).cloned().collect())
+            }
+        }
+    }
 }
 
 #[cfg(test)]
