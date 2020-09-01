@@ -4363,7 +4363,7 @@ dependencies = [
  "polymesh-primitives",
  "polymesh-runtime-common",
  "polymesh-runtime-develop",
- "polymesh-runtime-testnet-v1",
+ "polymesh-runtime-testnet",
  "sc-authority-discovery",
  "sc-basic-authorship",
  "sc-chain-spec",
@@ -4583,7 +4583,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "polymesh-runtime-testnet-v1"
+name = "polymesh-runtime-testnet"
 version = "0.1.0"
 dependencies = [
  "frame-benchmarking",
