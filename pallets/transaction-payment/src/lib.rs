@@ -212,6 +212,10 @@ decl_module! {
             T::WeightToFee::polynomial().to_vec();
 
         // Polymesh specific change: Fee multiplier update has been disabled for the testnet.
+        fn on_runtime_upgrade() -> Weight {
+            NextFeeMultiplier::put(Multiplier::saturating_from_integer(1));
+            1
+        }
 
         fn integrity_test() {
             // given weight == u64, we build multipliers from `diff` of two weight values, which can
