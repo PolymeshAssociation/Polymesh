@@ -497,7 +497,7 @@ fn should_change_all_signers_and_sigs_required() {
             true
         );
         assert_eq!(
-            MultiSig::ms_signers(musig_address.clone(), Signatory::from(alice_did)),
+            MultiSig::ms_signers(musig_address.clone(), Signatory::from(bob_did)),
             true
         );
 
@@ -763,7 +763,7 @@ fn add_multisig_signers_via_creator() {
                 musig_address.clone(),
                 vec![bob_signer]
             ),
-            Error::IdentityNotCreator
+            pallet_permissions::Error::<TestStorage>::UnauthorizedCaller
         );
 
         assert_ok!(MultiSig::add_multisig_signers_via_creator(
