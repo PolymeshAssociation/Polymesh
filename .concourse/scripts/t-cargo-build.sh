@@ -62,7 +62,7 @@ cp    ${VERSION_DIR}/version                                                    
 cp    ${GIT_DIR}/target/release/polymesh                                                                    ${ARTIFACT_DIR}/usr/local/bin/polymesh
 cp    ${GIT_DIR}/target/release/polymesh                                                                    ${ARTIFACT_DIR}/polymesh-${VERSION}
 cp    ${GIT_DIR}/target/release/wbuild/polymesh-runtime-develop/polymesh_runtime_develop.compact.wasm       ${ARTIFACT_DIR}/polymesh_runtime_develop-${VERSION}.wasm
-cp    ${GIT_DIR}/target/release/wbuild/polymesh-runtime-testnet-v1/polymesh_runtime_testnet_v1.compact.wasm ${ARTIFACT_DIR}/polymesh_runtime_testnet_v1-${VERSION}.wasm
+cp    ${GIT_DIR}/target/release/wbuild/polymesh-runtime-testnet/polymesh_runtime_testnet.compact.wasm       ${ARTIFACT_DIR}/polymesh_runtime_testnet-${VERSION}.wasm
 cp -a /lib/x86_64-linux-gnu/*                                                                               ${ARTIFACT_DIR}/lib/x86_64-linux-gnu
 for LIB in $LDLIBS; do
     mkdir -p ${ARTIFACT_DIR}/$(dirname $LIB | cut -c 2-)
@@ -76,4 +76,3 @@ tag_file
 additional_tags.distroless
 additional_tags.debian
 EOF
-
