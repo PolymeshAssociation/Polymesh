@@ -168,7 +168,9 @@ decl_error! {
         /// The authorization is for something other than portfolio custody
         IrrelevantAuthorization,
         /// Can not unlock more tokens than what are locked
-        InsufficientTokensLocked
+        InsufficientTokensLocked,
+        /// Transfers from and to the portfolio are not allowed
+        SelfTransferNotAllowed
     }
 }
 
@@ -397,40 +399,23 @@ impl<T: Trait> Module<T> {
         Ok(())
     }
 
-    pub fn transfer_portfolio_balance(
+    pub fn unchecked_transfer_portfolio_balance(
         from_did: IdentityId,
         from_num: Option<PortfolioNumber>,
         to_did: IdentityId,
         to_num: Option<PortfolioNumber>,
         amount: <T as CommonTrait>::Balance,
         ticker: &Ticker,
-    ) -> DispatchResult {
-        // 1. Ensure sender has enough free balance
+    ) {
         let from_portfolio_id = Self::get_portfolio_id(from_did, from_num);
-        let from_balance = Self::portfolio_asset_balances(&from_portfolio_id, ticker);
-        ensure!(
-            from_balance
-                .saturating_sub(Self::locked_assets(&from_portfolio_id, ticker))
-                .checked_sub(&amount)
-                .is_some(),
-            Error::<T>::InsufficientPortfolioBalance
-        );
-
-        // 2. Transfer tokens
-        <PortfolioAssetBalances<T>>::insert(
-            &from_portfolio_id,
-            ticker,
-            // Cannot underflow, as verified by `ensure!` above.
-            from_balance - amount,
-        );
+        <PortfolioAssetBalances<T>>::mutate(&from_portfolio_id, ticker, |from_balance| {
+            *from_balance = from_balance.saturating_sub(amount)
+        });
 
         let to_portfolio_id = Self::get_portfolio_id(to_did, to_num);
-        <PortfolioAssetBalances<T>>::mutate(
-            &to_portfolio_id,
-            ticker,
-            | to_balance | to_balance.saturating_add(amount),
-        );
-        Ok(())
+        <PortfolioAssetBalances<T>>::mutate(&to_portfolio_id, ticker, |to_balance| {
+            *to_balance = to_balance.saturating_add(amount)
+        });
     }
 
     fn get_portfolio_id(did: IdentityId, num: Option<PortfolioNumber>) -> PortfolioId {
@@ -441,7 +426,7 @@ impl<T: Trait> Module<T> {
     pub fn check_portfolio_custody(
         did: IdentityId,
         num: Option<PortfolioNumber>,
-        custodian: Option<IdentityId>
+        custodian: Option<IdentityId>,
     ) -> DispatchResult {
         let portfolio_id = Self::get_portfolio_id(did, num);
 
@@ -464,11 +449,40 @@ impl<T: Trait> Module<T> {
         Ok(())
     }
 
+    pub fn check_portfolio_transfer_validity(
+        from_did: IdentityId,
+        from_num: Option<PortfolioNumber>,
+        to_did: IdentityId,
+        to_num: Option<PortfolioNumber>,
+        amount: <T as CommonTrait>::Balance,
+        ticker: &Ticker,
+    ) -> DispatchResult {
+        // 1. Ensure from and to portfolio are different
+        let from_portfolio_id = Self::get_portfolio_id(from_did, from_num);
+        let to_portfolio_id = Self::get_portfolio_id(to_did, to_num);
+        ensure!(
+            from_portfolio_id != to_portfolio_id,
+            Error::<T>::SelfTransferNotAllowed
+        );
+
+        // 2. Ensure sender has enough free balance
+        let from_balance = Self::portfolio_asset_balances(&from_portfolio_id, ticker);
+        ensure!(
+            from_balance
+                .saturating_sub(Self::locked_assets(&from_portfolio_id, ticker))
+                .checked_sub(&amount)
+                .is_some(),
+            Error::<T>::InsufficientPortfolioBalance
+        );
+
+        Ok(())
+    }
+
     pub fn lock_tokens(
         did: IdentityId,
         num: Option<PortfolioNumber>,
         amount: <T as CommonTrait>::Balance,
-        ticker: &Ticker
+        ticker: &Ticker,
     ) -> DispatchResult {
         // 1. Ensure portfolio has enough free balance
         let portfolio_id = Self::get_portfolio_id(did, num);
@@ -483,11 +497,9 @@ impl<T: Trait> Module<T> {
 
         // 2. Lock tokens.
         // Locks are stacked so if there were X tokens already locked, there will now be X + N tokens locked
-        <PortfolioLockedAssets<T>>::mutate(
-            &portfolio_id,
-            ticker,
-            | locked | *locked = locked.saturating_add(amount)
-        );
+        <PortfolioLockedAssets<T>>::mutate(&portfolio_id, ticker, |locked| {
+            *locked = locked.saturating_add(amount)
+        });
         Ok(())
     }
 
@@ -495,7 +507,7 @@ impl<T: Trait> Module<T> {
         did: IdentityId,
         num: Option<PortfolioNumber>,
         amount: <T as CommonTrait>::Balance,
-        ticker: &Ticker
+        ticker: &Ticker,
     ) -> DispatchResult {
         // 1. Ensure portfolio has enough locked tokens
         let portfolio_id = Self::get_portfolio_id(did, num);
@@ -503,11 +515,7 @@ impl<T: Trait> Module<T> {
         ensure!(locked >= amount, Error::<T>::InsufficientTokensLocked);
 
         // 2. Unlock tokens. Can not underflow due to above ensure.
-        <PortfolioLockedAssets<T>>::insert(
-            &portfolio_id,
-            ticker,
-            locked - amount
-        );
+        <PortfolioLockedAssets<T>>::insert(&portfolio_id, ticker, locked - amount);
         Ok(())
     }
 }

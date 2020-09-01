@@ -56,34 +56,6 @@ pub trait Trait<V, U> {
     ) -> DispatchResult;
     fn is_owner(ticker: &Ticker, did: IdentityId) -> bool;
     fn get_balance_at(ticker: &Ticker, did: IdentityId, at: u64) -> V;
-    fn unsafe_increase_custody_allowance(
-        caller_did: IdentityId,
-        ticker: Ticker,
-        holder_did: IdentityId,
-        custodian_did: IdentityId,
-        value: V,
-    ) -> DispatchResult;
-    fn unsafe_decrease_custody_allowance(
-        caller_did: IdentityId,
-        ticker: Ticker,
-        holder_did: IdentityId,
-        custodian_did: IdentityId,
-        value: V,
-    );
-    fn unsafe_system_transfer(
-        sender: IdentityId,
-        ticker: &Ticker,
-        from_did: IdentityId,
-        to_did: IdentityId,
-        value: V,
-    );
-    fn unsafe_transfer_by_custodian(
-        custodian_did: IdentityId,
-        ticker: Ticker,
-        holder_did: IdentityId,
-        receiver_did: IdentityId,
-        value: V,
-    ) -> DispatchResultWithPostInfo;
     fn primary_issuance_agent(ticker: &Ticker) -> IdentityId;
     fn max_number_of_tm_extension() -> u32;
 }
