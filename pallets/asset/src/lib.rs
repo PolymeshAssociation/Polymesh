@@ -315,6 +315,22 @@ pub struct ClassicTickerRegistration {
     pub is_created: bool,
 }
 
+macro_rules! custodian_check {
+    ($user:expr, $portfolio_num:expr, $custodian:expr) => {
+        if let Some(did) = $user {
+            if Portfolio::<T>::check_portfolio_custody(
+                did,
+                $portfolio_num,
+                $custodian
+            )
+            .is_err()
+            {
+                return Ok((CUSTODIAN_ERROR, T::DbWeight::get().reads(4)));
+            }
+        }
+    }
+}
+
 decl_storage! {
     trait Store for Module<T: Trait> as Asset {
         /// Ticker registration details.
@@ -1485,7 +1501,10 @@ impl<T: Trait> Module<T> {
         if Self::frozen(ticker) {
             return Ok((ERC1400_TRANSFERS_HALTED, T::DbWeight::get().reads(1)));
         }
-        let primary_issuance_agent = <Tokens<T>>::get(ticker).primary_issuance_agent;
+
+        custodian_check!(from_did, from_num, from_custodian);
+        custodian_check!(to_did, to_num, to_custodian);
+
         if Portfolio::<T>::check_portfolio_transfer_validity(
             from_did.unwrap_or_default(),
             from_num,
@@ -1499,6 +1518,7 @@ impl<T: Trait> Module<T> {
             return Ok((PORTFOLIO_FAILURE, T::DbWeight::get().reads(4)));
         }
 
+        let primary_issuance_agent = <Tokens<T>>::get(ticker).primary_issuance_agent;
         let (status_code, weight_for_transfer) = T::ComplianceManager::verify_restriction(
             ticker,
             from_did,
