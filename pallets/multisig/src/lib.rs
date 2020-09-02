@@ -104,7 +104,7 @@ use sp_runtime::traits::{Dispatchable, Hash};
 use sp_std::{convert::TryFrom, iter, prelude::*};
 
 type Identity<T> = identity::Module<T>;
-pub type CallPermissions<T> = pallet_permissions::Module<T>;
+type CallPermissions<T> = pallet_permissions::Module<T>;
 
 /// Either the ID of a successfully created multisig account or an error.
 pub type CreateMultisigAccountResult<T> =
@@ -241,7 +241,6 @@ decl_module! {
             auto_close: bool
         ) -> DispatchResult {
             let sender = ensure_signed(origin)?;
-            CallPermissions::<T>::ensure_call_permissions(&sender)?;
             let sender_did = Context::current_identity_or::<Identity<T>>(&sender)?;
             let sender_signer = Signatory::from(sender_did);
             Self::create_or_approve_proposal(multisig, sender_signer, proposal, expiry, auto_close)
@@ -264,7 +263,6 @@ decl_module! {
             auto_close: bool
         ) -> DispatchResult {
             let sender = ensure_signed(origin)?;
-            CallPermissions::<T>::ensure_call_permissions(&sender)?;
             let sender_signer = Signatory::Account(sender);
             Self::create_or_approve_proposal(multisig, sender_signer, proposal, expiry, auto_close)
         }
@@ -286,7 +284,6 @@ decl_module! {
             auto_close: bool
         ) -> DispatchResult {
             let sender = ensure_signed(origin)?;
-            CallPermissions::<T>::ensure_call_permissions(&sender)?;
             let sender_did = Context::current_identity_or::<Identity<T>>(&sender)?;
 
             let sender_signer = Signatory::from(sender_did);
@@ -311,7 +308,6 @@ decl_module! {
             auto_close: bool
         ) -> DispatchResult {
             let sender = ensure_signed(origin)?;
-            CallPermissions::<T>::ensure_call_permissions(&sender)?;
             let sender_signer = Signatory::Account(sender);
             Self::create_proposal(multisig, sender_signer, proposal, expiry, auto_close)?;
             Ok(())
@@ -326,7 +322,6 @@ decl_module! {
         #[weight = 500_000_000]
         pub fn approve_as_identity(origin, multisig: T::AccountId, proposal_id: u64) -> DispatchResult {
             let sender = ensure_signed(origin)?;
-            CallPermissions::<T>::ensure_call_permissions(&sender)?;
             let sender_did = Context::current_identity_or::<Identity<T>>(&sender)?;
             let signer = Signatory::from(sender_did);
             Self::unsafe_approve(multisig, signer, proposal_id)
@@ -341,7 +336,6 @@ decl_module! {
         #[weight = 500_000_000]
         pub fn approve_as_key(origin, multisig: T::AccountId, proposal_id: u64) -> DispatchResult {
             let sender = ensure_signed(origin)?;
-            CallPermissions::<T>::ensure_call_permissions(&sender)?;
             let signer = Signatory::Account(sender);
             Self::unsafe_approve(multisig, signer, proposal_id)
         }
@@ -355,7 +349,6 @@ decl_module! {
         #[weight = 500_000_000]
         pub fn reject_as_identity(origin, multisig: T::AccountId, proposal_id: u64) -> DispatchResult {
             let sender = ensure_signed(origin)?;
-            CallPermissions::<T>::ensure_call_permissions(&sender)?;
             let sender_did = Context::current_identity_or::<Identity<T>>(&sender)?;
             let signer = Signatory::from(sender_did);
             Self::unsafe_reject(multisig, signer, proposal_id)
@@ -370,8 +363,6 @@ decl_module! {
         #[weight = 500_000_000]
         pub fn reject_as_key(origin, multisig: T::AccountId, proposal_id: u64) -> DispatchResult {
             let sender = ensure_signed(origin)?;
-            // Don't check extrinsic permissions of the key because it may not be linked to an
-            // identity.
             let signer = Signatory::Account(sender);
             Self::unsafe_reject(multisig, signer, proposal_id)
         }
@@ -383,7 +374,6 @@ decl_module! {
         #[weight = 720_000_000]
         pub fn accept_multisig_signer_as_identity(origin, auth_id: u64) -> DispatchResult {
             let sender = ensure_signed(origin)?;
-            CallPermissions::<T>::ensure_call_permissions(&sender)?;
             let sender_did = Context::current_identity_or::<Identity<T>>(&sender)?;
 
             let signer = Signatory::from(sender_did);
@@ -397,8 +387,6 @@ decl_module! {
         #[weight = 720_000_000]
         pub fn accept_multisig_signer_as_key(origin, auth_id: u64) -> DispatchResult {
             let sender = ensure_signed(origin)?;
-            // Don't check extrinsic permissions of the key because it may not be linked to an
-            // identity.
             let signer = Signatory::Account(sender);
             Self::unsafe_accept_multisig_signer(signer, auth_id)
         }
@@ -410,7 +398,6 @@ decl_module! {
         #[weight = 900_000_000]
         pub fn add_multisig_signer(origin, signer: Signatory<T::AccountId>) -> DispatchResult {
             let sender = ensure_signed(origin)?;
-            CallPermissions::<T>::ensure_call_permissions(&sender)?;
             ensure!(<MultiSigToIdentity<T>>::contains_key(&sender), Error::<T>::NoSuchMultisig);
             let did = <MultiSigToIdentity<T>>::get(&sender);
             Self::unsafe_add_auth_for_signers(did, signer, sender);
@@ -424,7 +411,6 @@ decl_module! {
         #[weight = 900_000_000]
         pub fn remove_multisig_signer(origin, signer: Signatory<T::AccountId>) -> DispatchResult {
             let sender = ensure_signed(origin)?;
-            CallPermissions::<T>::ensure_call_permissions(&sender)?;
             ensure!(<MultiSigToIdentity<T>>::contains_key(&sender), Error::<T>::NoSuchMultisig);
             ensure!(<MultiSigSigners<T>>::contains_key(&sender, &signer), Error::<T>::NotASigner);
             ensure!(
@@ -449,7 +435,6 @@ decl_module! {
         #[weight = 900_000_000 + 3_000_000 * u64::try_from(signers.len()).unwrap_or_default()]
         pub fn add_multisig_signers_via_creator(origin, multisig: T::AccountId, signers: Vec<Signatory<T::AccountId>>) -> DispatchResult {
             let sender = ensure_signed(origin)?;
-            CallPermissions::<T>::ensure_call_permissions(&sender)?;
             let sender_did = Context::current_identity_or::<Identity<T>>(&sender)?;
             Self::verify_sender_is_creator(sender_did, &multisig)?;
             ensure!(<MultiSigToIdentity<T>>::get(&multisig) == sender_did, Error::<T>::IdentityNotCreator);
@@ -476,7 +461,6 @@ decl_module! {
         #[weight = 900_000_000 + 3_000_000 * u64::try_from(signers.len()).unwrap_or_default()]
         pub fn remove_multisig_signers_via_creator(origin, multisig: T::AccountId, signers: Vec<Signatory<T::AccountId>>) -> DispatchResult {
             let sender = ensure_signed(origin)?;
-            CallPermissions::<T>::ensure_call_permissions(&sender)?;
             let sender_did = Context::current_identity_or::<Identity<T>>(&sender)?;
             Self::verify_sender_is_creator(sender_did, &multisig)?;
             ensure!(<Identity<T>>::is_primary_key(&sender_did, &sender), Error::<T>::NotPrimaryKey);
@@ -509,7 +493,6 @@ decl_module! {
         #[weight = 550_000_000]
         pub fn change_sigs_required(origin, sigs_required: u64) -> DispatchResult {
             let sender = ensure_signed(origin)?;
-            CallPermissions::<T>::ensure_call_permissions(&sender)?;
             ensure!(<MultiSigToIdentity<T>>::contains_key(&sender), Error::<T>::NoSuchMultisig);
             ensure!(
                 <NumberOfSigners<T>>::get(&sender) >= sigs_required,
@@ -540,7 +523,6 @@ decl_module! {
             sigs_required: u64
         ) -> DispatchResult {
             let sender = ensure_signed(origin)?;
-            CallPermissions::<T>::ensure_call_permissions(&sender)?;
             ensure!(<MultiSigToIdentity<T>>::contains_key(&sender), Error::<T>::NoSuchMultisig);
             // The creator is always the authorising agent for multisig issued authorisations
             let authorising_did = <MultiSigToIdentity<T>>::get(&sender);
@@ -585,7 +567,6 @@ decl_module! {
         #[weight = 300_000_000]
         pub fn make_multisig_signer(origin, multisig: T::AccountId) -> DispatchResult {
             let sender = ensure_signed(origin)?;
-            CallPermissions::<T>::ensure_call_permissions(&sender)?;
             ensure!(<MultiSigSignsRequired<T>>::contains_key(&multisig), Error::<T>::NoSuchMultisig);
             let sender_did = Context::current_identity_or::<Identity<T>>(&sender)?;
             Self::verify_sender_is_creator(sender_did, &multisig)?;
@@ -608,7 +589,6 @@ decl_module! {
         #[weight = 300_000_000]
         pub fn make_multisig_primary(origin, multisig: T::AccountId, optional_cdd_auth_id: Option<u64>) -> DispatchResult {
             let sender = ensure_signed(origin)?;
-            CallPermissions::<T>::ensure_call_permissions(&sender)?;
             ensure!(<MultiSigToIdentity<T>>::contains_key(&multisig), Error::<T>::NoSuchMultisig);
             let sender_did = Context::current_identity_or::<Identity<T>>(&sender)?;
             Self::verify_sender_is_creator(sender_did, &multisig)?;

@@ -180,6 +180,13 @@ fn change_multisig_sigs_required() {
 
         assert_eq!(MultiSig::ms_signs_required(musig_address.clone()), 2);
 
+        let proposal = (musig_address.clone(), 0);
+        let proposal_details = MultiSig::proposal_detail(&proposal);
+        assert_eq!(
+            proposal_details.status,
+            multisig::ProposalStatus::ActiveOrExpired
+        );
+
         Context::set_current_identity::<Identity>(Some(alice_did));
         assert_ok!(MultiSig::approve_as_identity(
             alice.clone(),
@@ -763,7 +770,7 @@ fn add_multisig_signers_via_creator() {
                 musig_address.clone(),
                 vec![bob_signer]
             ),
-            pallet_permissions::Error::<TestStorage>::UnauthorizedCaller
+            Error::IdentityNotCreator
         );
 
         assert_ok!(MultiSig::add_multisig_signers_via_creator(

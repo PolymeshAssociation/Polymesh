@@ -90,10 +90,6 @@ use frame_support::{
     debug, decl_error, decl_module, decl_storage,
     dispatch::{DispatchError, DispatchResult, DispatchResultWithPostInfo},
     ensure,
-    storage::{
-        with_transaction,
-        TransactionOutcome::{Commit, Rollback},
-    },
     traits::{ChangeMembers, Currency, InitializeMembers},
     weights::{DispatchClass, GetDispatchInfo, Pays, Weight},
     StorageDoubleMap,
@@ -113,11 +109,11 @@ use polymesh_common_utilities::{
         transaction_payment::{CddAndFeeDetails, ChargeTxFee},
         CheckAccountCallPermissions,
     },
-    with_each_transaction, Context, SystematicIssuers,
+    Context, SystematicIssuers,
 };
 use polymesh_primitives::{
-    AuthIdentifier, Authorization, AuthorizationData, AuthorizationError, AuthorizationType, CddId,
-    Claim, ClaimType, FunctionName, Identity as DidRecord, IdentityClaim, IdentityId, InvestorUid,
+    Authorization, AuthorizationData, AuthorizationError, AuthorizationType, CddId, Claim,
+    ClaimType, FunctionName, Identity as DidRecord, IdentityClaim, IdentityId, InvestorUid,
     PalletName, Permissions, Scope, SecondaryKey, Signatory, Ticker,
 };
 use sp_core::sr25519::Signature;
@@ -132,7 +128,7 @@ use sp_runtime::{
 use sp_std::{convert::TryFrom, mem::swap, prelude::*, vec};
 
 pub type Event<T> = polymesh_common_utilities::traits::identity::Event<T>;
-pub type CallPermissions<T> = pallet_permissions::Module<T>;
+type CallPermissions<T> = pallet_permissions::Module<T>;
 
 #[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, PartialOrd, Ord)]
 pub struct Claim1stKey {
