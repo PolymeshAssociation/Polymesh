@@ -161,7 +161,8 @@ fn scope_claims_we() {
     let cdd_claim_2 = InvestorZKProofData::make_cdd_claim(&inv_did_2, &investor);
     let cdd_id_2 = compute_cdd_id(&cdd_claim_2).compress().to_bytes().into();
 
-    let conf_scope_claim_2 = Claim::InvestorZKProof(st_scope.clone(), scope_id, cdd_id_2, inv_2_proof);
+    let conf_scope_claim_2 =
+        Claim::InvestorZKProof(st_scope.clone(), scope_id, cdd_id_2, inv_2_proof);
     assert_ok!(Identity::add_claim(
         Origin::signed(inv_acc_2),
         inv_did_2,

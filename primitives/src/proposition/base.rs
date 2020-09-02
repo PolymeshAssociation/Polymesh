@@ -269,7 +269,8 @@ mod tests {
                 Claim::Jurisdiction(CountryCode::CA, scope.clone()),
             ])
             .into(),
-            ConditionType::IsNoneOf(vec![Claim::Jurisdiction(CountryCode::CU, scope.clone())]).into(),
+            ConditionType::IsNoneOf(vec![Claim::Jurisdiction(CountryCode::CU, scope.clone())])
+                .into(),
         ];
 
         // Valid case

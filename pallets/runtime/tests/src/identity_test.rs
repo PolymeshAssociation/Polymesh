@@ -113,8 +113,13 @@ fn add_claims_batch() {
     )
     .unwrap();
 
-    let claim2 =
-        Identity::fetch_claim(alice_did, ClaimType::Affiliate, cdd_claim_did, Some(scope.clone())).unwrap();
+    let claim2 = Identity::fetch_claim(
+        alice_did,
+        ClaimType::Affiliate,
+        cdd_claim_did,
+        Some(scope.clone()),
+    )
+    .unwrap();
 
     assert_eq!(claim1.expiry, None);
     assert_eq!(claim2.expiry, None);

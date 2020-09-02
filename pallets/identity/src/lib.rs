@@ -128,7 +128,7 @@ use frame_support::{
     ensure,
     traits::{ChangeMembers, Currency, InitializeMembers},
     weights::{DispatchClass, GetDispatchInfo, Pays, Weight},
-    StorageDoubleMap,
+    Blake2_128Concat, ReversibleStorageHasher, StorageDoubleMap, StorageHasher,
 };
 use frame_system::{self as system, ensure_root, ensure_signed};
 
@@ -273,20 +273,36 @@ decl_module! {
         fn deposit_event() = default;
 
         fn on_runtime_upgrade() -> Weight {
-            use frame_support::migration::{StorageIterator, put_storage_value};
-            // Covert old scopes to new scopes
-            for (key, value) in StorageIterator::<Claim2ndKeyOld>::new(b"Identity", b"Claims").drain() {
-                let new = Claim2ndKey {
-                    issuer: value.issuer,
-                    scope: value.scope.map(|scope| Scope::Identity(scope)),
-                };
-                put_storage_value(b"Identity", b"Claims", &key, new);
-            }
             // Rename "master" to "primary".
             <CddAuthForPrimaryKeyRotation>::put(<CddAuthForMasterKeyRotation>::take());
 
             use polymesh_primitives::{identity_claim::IdentityClaimOld, migrate::migrate_map};
             migrate_map::<IdentityClaimOld>(b"Identity", b"Claims");
+
+            // Covert old scopes to new scopes
+            use frame_support::migration::{StorageIterator, put_storage_value};
+            let old_map = StorageIterator::<IdentityClaim>::new(b"Identity", b"Claims")
+                .drain().
+                collect::<Vec<(Vec<u8>, IdentityClaim)>>();
+
+            for (raw_key, value) in old_map.iter() {
+                let mut unhashed_key = Blake2_128Concat::reverse(&raw_key);
+                if let Ok(k1) = Claim1stKey::decode(&mut unhashed_key) {
+                    let mut raw_k2 = Blake2_128Concat::reverse(unhashed_key);
+                    if let Ok(k2) = Claim2ndKeyOld::decode(&mut raw_k2) {
+                        let k2 = Claim2ndKey {
+                            issuer: k2.issuer,
+                            scope: k2.scope.map(|did| Scope::Identity(did)),
+                        };
+                        let mut k1_hashed = k1.using_encoded(Blake2_128Concat::hash);
+                        let mut k2_hashed = k2.using_encoded(Blake2_128Concat::hash);
+                        let mut key = Vec::new();
+                        key.append(&mut k1_hashed);
+                        key.append(&mut k2_hashed);
+                        put_storage_value(b"Identity", b"Claims", &key, value);
+                    }
+                }
+            }
 
             // It's gonna be alot, so lets pretend its 0 anyways.
             0

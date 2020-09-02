@@ -13,8 +13,8 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
-use crate::{identity_id::IdentityId, CddId, InvestorZKProofData, Moment, Ticker};
 use crate as polymesh_primitives;
+use crate::{identity_id::IdentityId, CddId, InvestorZKProofData, Moment, Ticker};
 
 use codec::{Decode, Encode};
 use polymesh_primitives_derive::Migrate;

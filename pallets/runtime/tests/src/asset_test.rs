@@ -2073,7 +2073,9 @@ fn test_weights_for_is_valid_transfer() {
                 ticker,
                 vec![
                     Condition {
-                        condition_type: ConditionType::IsPresent(Claim::Accredited(ticker_id.into())),
+                        condition_type: ConditionType::IsPresent(Claim::Accredited(
+                            ticker_id.into()
+                        )),
                         issuers: vec![eve_did]
                     },
                     Condition {
@@ -2083,7 +2085,9 @@ fn test_weights_for_is_valid_transfer() {
                 ],
                 vec![
                     Condition {
-                        condition_type: ConditionType::IsPresent(Claim::Accredited(ticker_id.into())),
+                        condition_type: ConditionType::IsPresent(Claim::Accredited(
+                            ticker_id.into()
+                        )),
                         issuers: vec![eve_did]
                     },
                     Condition {
@@ -2098,10 +2102,22 @@ fn test_weights_for_is_valid_transfer() {
 
             // Providing claim to sender and receiver
             // For Alice
-            assert_add_claim!(eve_signed.clone(), alice_did, Claim::Accredited(alice_did.into()));
-            assert_add_claim!(eve_signed.clone(), alice_did, Claim::BuyLockup(ticker_id.into()));
+            assert_add_claim!(
+                eve_signed.clone(),
+                alice_did,
+                Claim::Accredited(alice_did.into())
+            );
+            assert_add_claim!(
+                eve_signed.clone(),
+                alice_did,
+                Claim::BuyLockup(ticker_id.into())
+            );
             // For Bob
-            assert_add_claim!(eve_signed.clone(), bob_did, Claim::Accredited(ticker_id.into()));
+            assert_add_claim!(
+                eve_signed.clone(),
+                bob_did,
+                Claim::Accredited(ticker_id.into())
+            );
             assert_add_claim!(
                 eve_signed.clone(),
                 bob_did,
@@ -2147,8 +2163,16 @@ fn test_weights_for_is_valid_transfer() {
             .1;
             assert!(matches!(result, weight_from_verify_transfer)); // Only sender rules are processed.
 
-            assert_revoke_claim!(eve_signed.clone(), alice_did, Claim::BuyLockup(ticker_id.into()));
-            assert_add_claim!(eve_signed.clone(), alice_did, Claim::Accredited(ticker_id.into()));
+            assert_revoke_claim!(
+                eve_signed.clone(),
+                alice_did,
+                Claim::BuyLockup(ticker_id.into())
+            );
+            assert_add_claim!(
+                eve_signed.clone(),
+                alice_did,
+                Claim::Accredited(ticker_id.into())
+            );
 
             let result =
                 Asset::_is_valid_transfer(&ticker, alice, Some(alice_did), Some(bob_did), 100)
