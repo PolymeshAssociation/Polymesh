@@ -1206,7 +1206,12 @@ fn cm_test_case_13_we() {
 
     // 3.3. Eve has a 'Exempted' Claim
     assert_add_claim!(issuer.clone(), eve, Claim::Exempted(scope.clone()), None);
-    assert_add_claim!(issuer.clone(), eve, Claim::KnowYourCustomer(scope.clone()), None);
+    assert_add_claim!(
+        issuer.clone(),
+        eve,
+        Claim::KnowYourCustomer(scope.clone()),
+        None
+    );
     assert_add_claim!(
         issuer.clone(),
         eve,
