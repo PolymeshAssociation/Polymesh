@@ -175,7 +175,7 @@ fn revoking_batch_claims() {
         assert_ok!(Identity::revoke_claim(
             claim_issuer.clone(),
             claim_issuer_did,
-            Claim::Accredited(scope),
+            Claim::Accredited(scope.clone()),
         ));
 
         assert_ok!(Identity::revoke_claim(
