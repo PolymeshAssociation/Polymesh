@@ -103,9 +103,9 @@ impl CddAndFeeDetails<AccountId, Call> for CddHandler {
             ) => handle_multisig(multisig, caller),
             // Call made by an Account key to propose or approve a multisig transaction via the bridge helper
             // The multisig must have valid CDD and the caller must be a signer of the multisig.
-            Call::Bridge(
-                bridge::Call::propose_bridge_tx(..) | bridge::Call::batch_propose_bridge_tx(..),
-            ) => handle_multisig(&Bridge::controller_key(), caller),
+            Call::Bridge(bridge::Call::propose_bridge_tx(..)) => {
+                handle_multisig(&Bridge::controller_key(), caller)
+            }
             // All other calls.
             //
             // If the account has enabled charging fee to identity then the identity should be charged

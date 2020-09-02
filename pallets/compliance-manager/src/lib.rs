@@ -60,12 +60,9 @@
 //! transaction.
 //! - [add_default_trusted_claim_issuer](Module::add_default_trusted_claim_issuer) - Adds a default
 //!  trusted claim issuer for a given asset.
-//!  - [batch_add_default_trusted_claim_issuer](Module::batch_add_default_trusted_claim_issuer) -
-//!  Adds a list of claim issuer to the default trusted claim issuers for a given asset.
 //! - [remove_default_trusted_claim_issuer](Module::remove_default_trusted_claim_issuer) - Removes
 //!  the default claim issuer.
 //! - [change_compliance_requirement](Module::change_compliance_requirement) - Updates a compliance requirement, based on its id.
-//! - [batch_change_compliance_requirement](Module::batch_change_compliance_requirement) - Updates a list of compliance requirements,
 //! based on its id for a given asset.
 //!
 //! ### Public Functions
@@ -447,40 +444,6 @@ decl_module! {
             Self::modify_default_trusted_claim_issuer(origin, ticker, trusted_issuer, false)
         }
 
-        /// To add a list of default trusted claim issuers for a given asset
-        /// Addition - When the given element is not exist
-        ///
-        /// # Arguments
-        /// * origin - Signer of the dispatchable. It should be the owner of the ticker.
-        /// * ticker - Symbol of the asset.
-        /// * trusted_issuers - Vector of IdentityId of the trusted claim issuers.
-        ///
-        /// # Weight
-        /// `read_and_write_weight + 30_000_000 + 250_000 * trusted_issuers.len().max(values.len())`
-        #[weight = T::DbWeight::get().reads_writes(3, 1) + 300_000_000 + 250_000 * u64::try_from(trusted_issuers.len()).unwrap_or_default()]
-        pub fn batch_add_default_trusted_claim_issuer(origin, trusted_issuers: Vec<IdentityId>, ticker: Ticker) -> DispatchResult {
-            Self::verify_compliance_complexity(
-                &<AssetCompliances>::get(ticker).requirements,
-                <TrustedClaimIssuer>::decode_len(ticker).unwrap_or_default().saturating_add(trusted_issuers.len())
-            )?;
-            Self::batch_modify_default_trusted_claim_issuer(origin, ticker, trusted_issuers, true)
-        }
-
-        /// To remove the default trusted claim issuer for a given asset
-        /// Removal - When the given element is already present
-        ///
-        /// # Arguments
-        /// * origin - Signer of the dispatchable. It should be the owner of the ticker.
-        /// * ticker - Symbol of the asset.
-        /// * trusted_issuers - Vector of IdentityId of the trusted claim issuers.
-        ///
-        /// # Weight
-        /// `100_000_000 + 250_000 * trusted_issuers.len().max(values.len())`
-        #[weight = 100_000_000 + 250_000 * u64::try_from(trusted_issuers.len()).unwrap_or_default()]
-        pub fn batch_remove_default_trusted_claim_issuer(origin, trusted_issuers: Vec<IdentityId>, ticker: Ticker) -> DispatchResult {
-            Self::batch_modify_default_trusted_claim_issuer(origin, ticker, trusted_issuers, false)
-        }
-
         /// Change/Modify an existing compliance requirement of a given ticker
         ///
         /// # Arguments
@@ -506,48 +469,6 @@ decl_module! {
                 <AssetCompliances>::insert(&ticker, asset_compliance);
                 Self::deposit_event(Event::ComplianceRequirementChanged(did, ticker, new_requirement));
             }
-
-            Ok(())
-        }
-
-        /// Change/Modify an existing compliance requirement of a given ticker in batch
-        ///
-        /// # Arguments
-        /// * origin - Signer of the dispatchable. It should be the owner of the ticker.
-        /// * new_requirements - Vector of compliance requirements.
-        /// * ticker - Symbol of the asset.
-        ///
-        /// # Weight
-        /// `read_and_write_weight + 720_000_000 + 100_000 * new_requirements.len().max(values.len())`
-        #[weight = T::DbWeight::get().reads_writes(2, 1) + 720_000_000 + 100_000 * u64::try_from(new_requirements.len()).unwrap_or_default()]
-        pub fn batch_change_compliance_requirement(origin, new_requirements: Vec<ComplianceRequirement> , ticker: Ticker) -> DispatchResult {
-            let sender = ensure_signed(origin)?;
-            let did = Context::current_identity_or::<Identity<T>>(&sender)?;
-
-            ensure!(Self::is_owner(&ticker, did), Error::<T>::Unauthorized);
-            let latest_requirement_id = Self::get_latest_requirement_id(ticker);
-            ensure!(new_requirements.iter().any(|requirement| latest_requirement_id >= requirement.id), Error::<T>::InvalidComplianceRequirementId);
-
-            let mut asset_compliance = <AssetCompliances>::get(ticker);
-            let mut updated_requirements = Vec::with_capacity(new_requirements.len());
-
-            new_requirements.into_iter().for_each(|new_requirement| {
-                if let Some(index) = asset_compliance
-                    .requirements
-                    .iter()
-                    .position(|requirement| requirement.id == new_requirement.id)
-                {
-                    asset_compliance.requirements[index] = new_requirement;
-                    updated_requirements.push(index);
-                }
-            });
-
-            Self::verify_compliance_complexity(&asset_compliance.requirements, <TrustedClaimIssuer>::decode_len(ticker).unwrap_or_default())?;
-
-            for index in updated_requirements {
-                Self::deposit_event(Event::ComplianceRequirementChanged(did, ticker, asset_compliance.requirements[index].clone()));
-            }
-            <AssetCompliances>::insert(&ticker, asset_compliance);
 
             Ok(())
         }
@@ -760,45 +681,6 @@ impl<T: Trait> Module<T> {
             Error::<T>::IncorrectOperationOnTrustedIssuer
         );
         Self::unsafe_modify_default_trusted_claim_issuer(did, ticker, trusted_issuer, is_add_call);
-        Ok(())
-    }
-
-    fn batch_modify_default_trusted_claim_issuer(
-        origin: T::Origin,
-        ticker: Ticker,
-        trusted_issuers: Vec<IdentityId>,
-        is_add_call: bool,
-    ) -> DispatchResult {
-        let sender = ensure_signed(origin)?;
-        let did = Context::current_identity_or::<Identity<T>>(&sender)?;
-
-        ensure!(!trusted_issuers.is_empty(), Error::<T>::InvalidLength);
-        ensure!(Self::is_owner(&ticker, did), Error::<T>::Unauthorized);
-        // Perform validity checks on the data set
-        for trusted_issuer in trusted_issuers.iter() {
-            // Ensure whether the right operation is performed on trusted issuer or not
-            // if is_add_call == true then trusted_claim_issuer should not exists.
-            // if is_add_call == false then trusted_claim_issuer should exists.
-            ensure!(
-                Self::trusted_claim_issuer(&ticker).contains(&trusted_issuer) != is_add_call,
-                Error::<T>::IncorrectOperationOnTrustedIssuer
-            );
-            // ensure whether the trusted issuer's did is register did or not
-            ensure!(
-                <Identity<T>>::is_identity_exists(trusted_issuer),
-                Error::<T>::DidNotExist
-            );
-        }
-
-        // iterate all the trusted issuer and modify the data of those.
-        trusted_issuers.into_iter().for_each(|default_issuer| {
-            Self::unsafe_modify_default_trusted_claim_issuer(
-                did,
-                ticker,
-                default_issuer,
-                is_add_call,
-            );
-        });
         Ok(())
     }
 
