@@ -198,6 +198,7 @@ use sp_std::{cmp, convert::Infallible, fmt::Debug, mem, prelude::*, result};
 pub use polymesh_common_utilities::traits::balances::{LockableCurrencyExt, Trait};
 
 pub type Event<T> = polymesh_common_utilities::traits::balances::Event<T>;
+type CallPermissions<T> = pallet_permissions::Module<T>;
 
 decl_error! {
     pub enum Error for Module<T: Trait> {
@@ -300,6 +301,7 @@ decl_module! {
             #[compact] value: T::Balance
         ) {
             let transactor = ensure_signed(origin)?;
+            CallPermissions::<T>::ensure_call_permissions(&transactor)?;
             let dest = T::Lookup::lookup(dest)?;
             // Polymesh modified code. CDD is checked before processing transfer.
             Self::safe_transfer_core(&transactor, &dest, value, None, ExistenceRequirement::AllowDeath)?;
@@ -322,6 +324,7 @@ decl_module! {
             memo: Option<Memo>
         ) {
             let transactor = ensure_signed(origin)?;
+            CallPermissions::<T>::ensure_call_permissions(&transactor)?;
             let dest = T::Lookup::lookup(dest)?;
             Self::safe_transfer_core(&transactor, &dest, value, memo, ExistenceRequirement::AllowDeath)?;
         }
@@ -334,6 +337,7 @@ decl_module! {
             #[compact] value: T::Balance
         ) {
             let transactor = ensure_signed(origin)?;
+            CallPermissions::<T>::ensure_call_permissions(&transactor)?;
             let dest = Self::block_rewards_reserve();
             Self::transfer_core(&transactor, &dest, value, None, ExistenceRequirement::AllowDeath)?;
         }
@@ -412,6 +416,7 @@ decl_module! {
         #[weight = T::DbWeight::get().reads_writes(1, 1) + 2_000_000]
         pub fn burn_account_balance(origin, amount: T::Balance) -> DispatchResult {
             let who = ensure_signed(origin)?;
+            CallPermissions::<T>::ensure_call_permissions(&who)?;
             let caller_id = Context::current_identity_or::<T::Identity>(&who)?;
             // Withdraw the account balance and burn the resulting imbalance by dropping it.
             let _ = <Self as Currency<T::AccountId>>::withdraw(

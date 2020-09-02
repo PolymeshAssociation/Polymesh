@@ -52,6 +52,7 @@ use sp_arithmetic::traits::Saturating;
 use sp_std::{convert::TryFrom, prelude::Vec};
 
 type Identity<T> = pallet_identity::Module<T>;
+type CallPermissions<T> = pallet_permissions::Module<T>;
 
 /// The ticker and balance of an asset to be moved from one portfolio to another.
 #[derive(Encode, Decode, Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord)]
@@ -157,6 +158,7 @@ decl_module! {
         #[weight = 600_000_000]
         pub fn create_portfolio(origin, name: PortfolioName) -> DispatchResult {
             let sender = ensure_signed(origin)?;
+            CallPermissions::<T>::ensure_call_permissions(&sender)?;
             let did = Context::current_identity_or::<Identity<T>>(&sender)?;
             Self::ensure_name_unique(&did, &name)?;
             let num = Self::get_next_portfolio_number(&did);
@@ -169,6 +171,7 @@ decl_module! {
         #[weight = 1_000_000_000]
         pub fn delete_portfolio(origin, num: PortfolioNumber) -> DispatchResult {
             let sender = ensure_signed(origin)?;
+            CallPermissions::<T>::ensure_call_permissions(&sender)?;
             let did = Context::current_identity_or::<Identity<T>>(&sender)?;
             // Check that the portfolio exists.
             ensure!(Self::portfolios(&did, &num).is_some(), Error::<T>::PortfolioDoesNotExist);
@@ -204,6 +207,7 @@ decl_module! {
             items: Vec<MovePortfolioItem<<T as CommonTrait>::Balance>>,
         ) -> DispatchResult {
             let sender = ensure_signed(origin)?;
+            CallPermissions::<T>::ensure_call_permissions(&sender)?;
             let did = Context::current_identity_or::<Identity<T>>(&sender)?;
             // Check that the source and destination portfolios are in fact different.
             ensure!(from_num != to_num, Error::<T>::DestinationIsSamePortfolio);
@@ -262,6 +266,7 @@ decl_module! {
             to_name: PortfolioName,
         ) -> DispatchResult {
             let sender = ensure_signed(origin)?;
+            CallPermissions::<T>::ensure_call_permissions(&sender)?;
             let did = Context::current_identity_or::<Identity<T>>(&sender)?;
             // Check that the portfolio exists.
             ensure!(Self::portfolios(&did, &num).is_some(), Error::<T>::PortfolioDoesNotExist);

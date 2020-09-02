@@ -112,6 +112,8 @@ fn mint_subsidy_works() {
             assert_eq!(Balances::free_balance(&brr), 0);
             let mut ti = Balances::total_issuance();
             let alice = AccountKeyring::Alice.public();
+            // Create Eve's identity for `Balances::deposit_block_reward_reserve_balance`.
+            let _ = register_keyring_account(AccountKeyring::Eve).unwrap();
             let mut balance_alice = Balances::free_balance(&alice);
 
             // When there is no balance in BRR, minting should increase total supply
@@ -160,6 +162,8 @@ fn issue_must_work() {
         .cdd_providers(vec![AccountKeyring::Ferdie.public()])
         .build()
         .execute_with(|| {
+            // Create Eve's identity for `Balances::deposit_block_reward_reserve_balance`.
+            let _ = register_keyring_account(AccountKeyring::Eve).unwrap();
             let init_total_issuance = Balances::total_issuance();
             let imbalance = Balances::burn(10);
             assert_eq!(Balances::total_issuance(), init_total_issuance - 10);

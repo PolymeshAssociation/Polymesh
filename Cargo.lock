@@ -3271,6 +3271,7 @@ version = "0.1.0"
 dependencies = [
  "frame-support",
  "frame-system",
+ "pallet-permissions",
  "pallet-timestamp",
  "pallet-transaction-payment",
  "parity-scale-codec",
@@ -3705,6 +3706,7 @@ dependencies = [
  "frame-system",
  "pallet-balances 0.1.0",
  "pallet-identity",
+ "pallet-permissions",
  "parity-scale-codec",
  "polymesh-common-utilities",
  "polymesh-primitives",
