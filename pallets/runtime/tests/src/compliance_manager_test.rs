@@ -1,5 +1,5 @@
 use super::{
-    storage::{register_keyring_account, TestStorage},
+    storage::{provide_scope_claim_to_multiple_parties, register_keyring_account, TestStorage},
     ExtBuilder,
 };
 use chrono::prelude::Utc;
@@ -111,11 +111,11 @@ fn should_add_and_verify_compliance_requirement_we() {
     let token_owner_signed = Origin::signed(AccountKeyring::Alice.public());
     let token_owner_did = register_keyring_account(AccountKeyring::Alice).unwrap();
     let token_rec_did = register_keyring_account(AccountKeyring::Charlie).unwrap();
-    let cdd_signed = Origin::signed(AccountKeyring::Eve.public());
+    let eve = AccountKeyring::Eve.public();
+    let cdd_signed = Origin::signed(eve);
     let cdd_id = register_keyring_account(AccountKeyring::Eve).unwrap();
 
     assert_ok!(CDDGroup::reset_members(root, vec![cdd_id]));
-
     // A token representing 1M shares
     let token = SecurityToken {
         name: vec![0x01].into(),
@@ -168,7 +168,7 @@ fn should_add_and_verify_compliance_requirement_we() {
 
     let receiver_condition1 = Condition {
         issuers: vec![cdd_id],
-        condition_type: ConditionType::IsAbsent(Claim::make_cdd_wildcard()),
+        condition_type: ConditionType::IsAbsent(Claim::KnowYourCustomer(token_owner_did)),
     };
 
     let receiver_condition2 = Condition {
@@ -189,6 +189,9 @@ fn should_add_and_verify_compliance_requirement_we() {
         Claim::Accredited(claim_issuer_did),
         None,
     ));
+
+    // Provide scope claim to sender and receiver of the transaction.
+    provide_scope_claim_to_multiple_parties(vec![token_owner_did, token_rec_did], ticker, eve);
 
     //Transfer tokens to investor - fails wrong Accredited scope
     assert_invalid_transfer!(ticker, token_owner_did, token_rec_did, token.total_supply);
@@ -251,7 +254,7 @@ fn should_add_and_verify_compliance_requirement_we() {
     assert_ok!(Identity::add_claim(
         cdd_signed.clone(),
         token_rec_did,
-        Claim::make_cdd_wildcard(),
+        Claim::KnowYourCustomer(token_owner_did),
         None,
     ));
 
@@ -609,12 +612,12 @@ fn should_successfully_add_and_use_default_issuers_we() {
     // fail when token owner doesn't has the valid claim
     assert_invalid_transfer!(ticker, token_owner_did, receiver_did, 100);
 
-    assert_ok!(Identity::add_claim(
-        trusted_issuer_signed.clone(),
-        token_owner_did.clone(),
-        Claim::make_cdd_wildcard(),
-        Some(99999999999999999u64),
-    ));
+    // Provide scope claim to sender and receiver of the transaction.
+    provide_scope_claim_to_multiple_parties(
+        vec![token_owner_did, receiver_did],
+        ticker,
+        AccountKeyring::Charlie.public(),
+    );
 
     assert_valid_transfer!(ticker, token_owner_did, receiver_did, 100);
 }
@@ -737,6 +740,13 @@ fn should_modify_vector_of_trusted_issuer_we() {
         y
     ));
 
+    // Provide scope claim to sender and receiver of the transaction.
+    provide_scope_claim_to_multiple_parties(
+        vec![token_owner_did, receiver_did],
+        ticker,
+        AccountKeyring::Charlie.public(),
+    );
+
     assert_valid_transfer!(ticker, token_owner_did, receiver_did, 10);
 
     // Remove the trusted issuer 1 from the list
@@ -816,6 +826,7 @@ fn should_modify_vector_of_trusted_issuer_we() {
 #[test]
 fn jurisdiction_asset_compliance() {
     ExtBuilder::default()
+        .cdd_providers(vec![AccountKeyring::Eve.public()])
         .build()
         .execute_with(jurisdiction_asset_compliance_we);
 }
@@ -845,6 +856,14 @@ fn jurisdiction_asset_compliance_we() {
         vec![],
         None,
     ));
+
+    // Provide scope claim to sender and receiver of the transaction.
+    provide_scope_claim_to_multiple_parties(
+        vec![token_owner_id, user_id],
+        ticker,
+        AccountKeyring::Eve.public(),
+    );
+
     // 2. Set up compliance requirements for Asset transfer.
     let scope = Scope::from(0);
     let receiver_conditions = vec![
@@ -890,6 +909,7 @@ fn jurisdiction_asset_compliance_we() {
 #[test]
 fn scope_asset_compliance() {
     ExtBuilder::default()
+        .cdd_providers(vec![AccountKeyring::Eve.public()])
         .build()
         .execute_with(scope_asset_compliance_we);
 }
@@ -902,6 +922,13 @@ fn scope_asset_compliance_we() {
     let user_id = register_keyring_account(AccountKeyring::Charlie).unwrap();
     // 1. Create a token.
     let (ticker, owner_did) = make_ticker_env(owner, vec![0x01].into());
+
+    // Provide scope claim for sender and receiver.
+    provide_scope_claim_to_multiple_parties(
+        vec![owner_did, user_id],
+        ticker,
+        AccountKeyring::Eve.public(),
+    );
 
     // 2. Set up compliance requirements for Asset transfer.
     let scope = Identity::get_token_did(&ticker).unwrap();
@@ -931,6 +958,7 @@ fn scope_asset_compliance_we() {
 #[test]
 fn cm_test_case_9() {
     ExtBuilder::default()
+        .cdd_providers(vec![AccountKeyring::One.public()])
         .build()
         .execute_with(cm_test_case_9_we);
 }
@@ -966,6 +994,13 @@ fn cm_test_case_9_we() {
     let dave = register_keyring_account(AccountKeyring::Dave).unwrap();
     let eve = register_keyring_account(AccountKeyring::Eve).unwrap();
     let ferdie = register_keyring_account(AccountKeyring::Ferdie).unwrap();
+
+    // Provide scope claim
+    provide_scope_claim_to_multiple_parties(
+        vec![owner_did, charlie, dave, eve, ferdie],
+        ticker,
+        AccountKeyring::One.public(),
+    );
 
     // 3.1. Charlie has a 'KnowYourCustomer' Claim.
     assert_ok!(Identity::add_claim(
@@ -1015,6 +1050,7 @@ fn cm_test_case_9_we() {
 #[test]
 fn cm_test_case_11() {
     ExtBuilder::default()
+        .cdd_providers(vec![AccountKeyring::Ferdie.public()])
         .build()
         .execute_with(cm_test_case_11_we);
 }
@@ -1025,6 +1061,7 @@ fn cm_test_case_11_we() {
     let owner = Origin::signed(AccountKeyring::Alice.public());
     let issuer = Origin::signed(AccountKeyring::Bob.public());
     let issuer_id = register_keyring_account(AccountKeyring::Bob).unwrap();
+    let ferdie = AccountKeyring::Ferdie.public();
 
     // 1. Create a token.
     let (ticker, owner_did) = make_ticker_env(AccountKeyring::Alice, vec![0x01].into());
@@ -1059,6 +1096,9 @@ fn cm_test_case_11_we() {
     let charlie = register_keyring_account(AccountKeyring::Charlie).unwrap();
     let dave = register_keyring_account(AccountKeyring::Dave).unwrap();
     let eve = register_keyring_account(AccountKeyring::Eve).unwrap();
+
+    // Provide scope claim
+    provide_scope_claim_to_multiple_parties(vec![owner_did, charlie, dave, eve], ticker, ferdie);
 
     // 3.1. Charlie has a 'KnowYourCustomer' Claim.
     assert_ok!(Identity::add_claim(
@@ -1120,6 +1160,7 @@ fn cm_test_case_11_we() {
 #[test]
 fn cm_test_case_13() {
     ExtBuilder::default()
+        .cdd_providers(vec![AccountKeyring::Ferdie.public()])
         .build()
         .execute_with(cm_test_case_13_we);
 }
@@ -1167,6 +1208,13 @@ fn cm_test_case_13_we() {
     let charlie = register_keyring_account(AccountKeyring::Charlie).unwrap();
     let dave = register_keyring_account(AccountKeyring::Dave).unwrap();
     let eve = register_keyring_account(AccountKeyring::Eve).unwrap();
+
+    // Provide scope claim
+    provide_scope_claim_to_multiple_parties(
+        vec![owner_did, charlie, dave, eve],
+        ticker,
+        AccountKeyring::Ferdie.public(),
+    );
 
     // 3.1. Charlie has a 'KnowYourCustomer' Claim BUT he does not have any of { 'Affiliate',
     //   'Accredited', 'Exempted'}.
@@ -1226,6 +1274,7 @@ fn cm_test_case_13_we() {
 #[test]
 fn can_verify_restriction_with_primary_issuance_agent() {
     ExtBuilder::default()
+        .cdd_providers(vec![AccountKeyring::Eve.public()])
         .build()
         .execute_with(can_verify_restriction_with_primary_issuance_agent_we);
 }
@@ -1260,6 +1309,13 @@ fn can_verify_restriction_with_primary_issuance_agent_we() {
         auth_id
     ));
     let amount = 1_000;
+
+    // Provide scope claim for sender and receiver.
+    provide_scope_claim_to_multiple_parties(
+        vec![owner_id, random_guy_id, issuer_id],
+        ticker,
+        AccountKeyring::Eve.public(),
+    );
 
     // No compliance requirement is present, compliance should fail
     assert_ok!(

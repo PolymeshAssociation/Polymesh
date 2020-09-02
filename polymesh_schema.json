@@ -415,7 +415,14 @@
                 "IsAbsent": "Claim",
                 "IsAnyOf": "Vec<Claim>",
                 "IsNoneOf": "Vec<Claim>",
-                "IsIdentity": "TargetIdentity"
+                "IsIdentity": "TargetIdentity",
+                "HasValidProofOfInvestor": "Ticker"
+            }
+        },
+        "ImplicitRequirementStatus": {
+            "_enum": {
+                "Active":"",
+                "Inactive":""
             }
         },
         "Condition": {
