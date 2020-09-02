@@ -406,7 +406,7 @@ fn valid_custodian_allowance_of() {
 
             // Provide scope claim for sender and receiver.
             provide_scope_claim_to_multiple_parties(
-                vec![owner_did, investor1_did, investor2_did],
+                &[owner_did, investor1_did, investor2_did],
                 ticker,
                 alice,
             );
@@ -1865,7 +1865,7 @@ fn test_can_transfer_rpc() {
             );
 
             // Provide scope claim for sender and receiver.
-            provide_scope_claim_to_multiple_parties(vec![alice_did, bob_did], ticker, eve);
+            provide_scope_claim_to_multiple_parties(&[alice_did, bob_did], ticker, eve);
 
             // case 1: When passed invalid granularity
             assert_eq!(
@@ -2085,7 +2085,7 @@ fn test_weights_for_is_valid_transfer() {
             ));
 
             // Provide scope claim to sender and receiver.
-            provide_scope_claim_to_multiple_parties(vec![alice_did, bob_did], ticker, dave);
+            provide_scope_claim_to_multiple_parties(&[alice_did, bob_did], ticker, dave);
             // Get token Id.
             let ticker_id = Identity::get_token_did(&ticker).unwrap();
 

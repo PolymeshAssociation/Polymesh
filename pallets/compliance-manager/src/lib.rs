@@ -760,7 +760,7 @@ impl<T: Trait> Module<T> {
             .unwrap_or(0)
     }
 
-    /// verifies all requirements and returns the result in an array of boolean.
+    /// verifies all requirements and returns the result in an array of booleans.
     /// this does not care if the requirements are paused or not. It is meant to be
     /// called only in failure conditions
     pub fn granular_verify_restriction(
@@ -840,33 +840,13 @@ impl<T: Trait> Module<T> {
         to_did_opt: Option<IdentityId>,
         primary_issuance_agent: Option<IdentityId>,
     ) -> bool {
+        let has_scope_claim = |default: bool, did_opt: Option<IdentityId>| did_opt.map_or(default, |did| {
+            let condition_type = ConditionType::HasValidProofOfInvestor(*ticker);
+            let condition = &Condition::new(condition_type, vec![did]);
+            Self::is_condition_satisfied(ticker, did, condition, primary_issuance_agent)
+        });
         // When from_did is `None` then return true by assuming the case of issuance.
-        let is_from_has_scope_claim = from_did_opt.map_or_else(
-            || true,
-            |from_did| {
-                let from_condition = &Condition::new(
-                    ConditionType::HasValidProofOfInvestor(*ticker),
-                    vec![from_did],
-                );
-                Self::is_condition_satisfied(
-                    ticker,
-                    from_did,
-                    from_condition,
-                    primary_issuance_agent,
-                )
-            },
-        );
-        let is_to_has_scope_claim = to_did_opt.map_or_else(
-            || false,
-            |to_did| {
-                let to_condition = &Condition::new(
-                    ConditionType::HasValidProofOfInvestor(*ticker),
-                    vec![to_did],
-                );
-                Self::is_condition_satisfied(ticker, to_did, to_condition, primary_issuance_agent)
-            },
-        );
-        is_to_has_scope_claim && is_from_has_scope_claim
+        has_scope_claim(false, to_did_opt) && has_scope_claim(true, from_did_opt)
     }
 
     /// Change the implicit requirement status. Once active all the implicit requirements are in effect.

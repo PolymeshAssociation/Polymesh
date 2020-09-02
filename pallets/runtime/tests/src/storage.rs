@@ -744,7 +744,7 @@ pub fn provide_scope_claim(
 }
 
 pub fn provide_scope_claim_to_multiple_parties(
-    parties: Vec<IdentityId>,
+    parties: &[IdentityId],
     ticker: Ticker,
     cdd_provider: AccountId,
 ) {

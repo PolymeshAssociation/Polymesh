@@ -191,7 +191,7 @@ fn should_add_and_verify_compliance_requirement_we() {
     ));
 
     // Provide scope claim to sender and receiver of the transaction.
-    provide_scope_claim_to_multiple_parties(vec![token_owner_did, token_rec_did], ticker, eve);
+    provide_scope_claim_to_multiple_parties(&[token_owner_did, token_rec_did], ticker, eve);
 
     //Transfer tokens to investor - fails wrong Accredited scope
     assert_invalid_transfer!(ticker, token_owner_did, token_rec_did, token.total_supply);
@@ -614,7 +614,7 @@ fn should_successfully_add_and_use_default_issuers_we() {
 
     // Provide scope claim to sender and receiver of the transaction.
     provide_scope_claim_to_multiple_parties(
-        vec![token_owner_did, receiver_did],
+        &[token_owner_did, receiver_did],
         ticker,
         AccountKeyring::Charlie.public(),
     );
@@ -742,7 +742,7 @@ fn should_modify_vector_of_trusted_issuer_we() {
 
     // Provide scope claim to sender and receiver of the transaction.
     provide_scope_claim_to_multiple_parties(
-        vec![token_owner_did, receiver_did],
+        &[token_owner_did, receiver_did],
         ticker,
         AccountKeyring::Charlie.public(),
     );
@@ -859,7 +859,7 @@ fn jurisdiction_asset_compliance_we() {
 
     // Provide scope claim to sender and receiver of the transaction.
     provide_scope_claim_to_multiple_parties(
-        vec![token_owner_id, user_id],
+        &[token_owner_id, user_id],
         ticker,
         AccountKeyring::Eve.public(),
     );
@@ -925,7 +925,7 @@ fn scope_asset_compliance_we() {
 
     // Provide scope claim for sender and receiver.
     provide_scope_claim_to_multiple_parties(
-        vec![owner_did, user_id],
+        &[owner_did, user_id],
         ticker,
         AccountKeyring::Eve.public(),
     );
@@ -997,7 +997,7 @@ fn cm_test_case_9_we() {
 
     // Provide scope claim
     provide_scope_claim_to_multiple_parties(
-        vec![owner_did, charlie, dave, eve, ferdie],
+        &[owner_did, charlie, dave, eve, ferdie],
         ticker,
         AccountKeyring::One.public(),
     );
@@ -1098,7 +1098,7 @@ fn cm_test_case_11_we() {
     let eve = register_keyring_account(AccountKeyring::Eve).unwrap();
 
     // Provide scope claim
-    provide_scope_claim_to_multiple_parties(vec![owner_did, charlie, dave, eve], ticker, ferdie);
+    provide_scope_claim_to_multiple_parties(&[owner_did, charlie, dave, eve], ticker, ferdie);
 
     // 3.1. Charlie has a 'KnowYourCustomer' Claim.
     assert_ok!(Identity::add_claim(
@@ -1211,7 +1211,7 @@ fn cm_test_case_13_we() {
 
     // Provide scope claim
     provide_scope_claim_to_multiple_parties(
-        vec![owner_did, charlie, dave, eve],
+        &[owner_did, charlie, dave, eve],
         ticker,
         AccountKeyring::Ferdie.public(),
     );
@@ -1312,7 +1312,7 @@ fn can_verify_restriction_with_primary_issuance_agent_we() {
 
     // Provide scope claim for sender and receiver.
     provide_scope_claim_to_multiple_parties(
-        vec![owner_id, random_guy_id, issuer_id],
+        &[owner_id, random_guy_id, issuer_id],
         ticker,
         AccountKeyring::Eve.public(),
     );
