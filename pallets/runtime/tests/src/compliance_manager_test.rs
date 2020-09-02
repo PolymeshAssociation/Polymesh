@@ -1188,7 +1188,12 @@ fn cm_test_case_13_we() {
     // 3.2. Dave has a 'Affiliate' Claim but he is from USA
 
     assert_add_claim!(issuer.clone(), dave, Claim::Exempted(scope.clone()), None);
-    assert_add_claim!(issuer.clone(), dave, Claim::KnowYourCustomer(scope.clone()), None);
+    assert_add_claim!(
+        issuer.clone(),
+        dave,
+        Claim::KnowYourCustomer(scope.clone()),
+        None
+    );
     assert_add_claim!(
         issuer.clone(),
         dave,
