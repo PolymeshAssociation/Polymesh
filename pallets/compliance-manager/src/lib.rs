@@ -840,11 +840,13 @@ impl<T: Trait> Module<T> {
         to_did_opt: Option<IdentityId>,
         primary_issuance_agent: Option<IdentityId>,
     ) -> bool {
-        let has_scope_claim = |default: bool, did_opt: Option<IdentityId>| did_opt.map_or(default, |did| {
-            let condition_type = ConditionType::HasValidProofOfInvestor(*ticker);
-            let condition = &Condition::new(condition_type, vec![did]);
-            Self::is_condition_satisfied(ticker, did, condition, primary_issuance_agent)
-        });
+        let has_scope_claim = |default: bool, did_opt: Option<IdentityId>| {
+            did_opt.map_or(default, |did| {
+                let condition_type = ConditionType::HasValidProofOfInvestor(*ticker);
+                let condition = &Condition::new(condition_type, vec![did]);
+                Self::is_condition_satisfied(ticker, did, condition, primary_issuance_agent)
+            })
+        };
         // When from_did is `None` then return true by assuming the case of issuance.
         has_scope_claim(false, to_did_opt) && has_scope_claim(true, from_did_opt)
     }
