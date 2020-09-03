@@ -87,8 +87,8 @@ use frame_support::{
     weights::{DispatchClass, Weight},
     Parameter,
 };
+use frame_system::ensure_none;
 use frame_system::offchain::{SendTransactionTypes, SubmitTransaction};
-use frame_system::{self as system, ensure_none};
 use pallet_session::historical::IdentificationTuple;
 use sp_application_crypto::RuntimeAppPublic;
 use sp_core::offchain::OpaqueNetworkState;

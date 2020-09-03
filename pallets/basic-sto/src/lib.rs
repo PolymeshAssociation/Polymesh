@@ -11,7 +11,7 @@ use codec::{Decode, Encode};
 use frame_support::{
     decl_error, decl_event, decl_module, decl_storage, dispatch::DispatchResult, ensure,
 };
-use frame_system::{self as system, ensure_signed};
+use frame_system::ensure_signed;
 use pallet_identity as identity;
 use pallet_settlement::{Leg, SettlementType};
 use polymesh_common_utilities::{

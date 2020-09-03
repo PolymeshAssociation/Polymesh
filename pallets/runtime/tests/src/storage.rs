@@ -15,7 +15,6 @@ use frame_support::{
     },
     StorageDoubleMap,
 };
-use frame_system as system;
 use pallet_asset as asset;
 use pallet_balances as balances;
 use pallet_basic_sto as sto;
@@ -222,6 +221,7 @@ impl frame_system::Trait for TestStorage {
     /// independent of the logic of that extrinsics. (Roughly max block weight - average on
     /// initialize cost).
     type MaximumExtrinsicWeight = MaximumExtrinsicWeight;
+    type SystemWeightInfo = ();
 }
 
 parameter_types! {
@@ -251,6 +251,7 @@ impl pallet_timestamp::Trait for TestStorage {
     type Moment = u64;
     type OnTimestampSet = ();
     type MinimumPeriod = MinimumPeriod;
+    type WeightInfo = ();
 }
 
 impl multisig::Trait for TestStorage {
@@ -427,7 +428,6 @@ impl pallet_contracts::Trait for TestStorage {
     type Randomness = Randomness;
     type Currency = Balances;
     type Event = Event;
-    type Call = Call;
     type DetermineContractAddress = pallet_contracts::SimpleAddressDeterminer<TestStorage>;
     type TrieIdGenerator = pallet_contracts::TrieIdFromParentCounter<TestStorage>;
     type RentPayment = ();
@@ -558,6 +558,7 @@ impl pallet_session::Trait for TestStorage {
     type SessionHandler = TestSessionHandler;
     type Keys = MockSessionKeys;
     type DisabledValidatorsThreshold = DisabledValidatorsThreshold;
+    type WeightInfo = ();
 }
 
 impl dividend::Trait for TestStorage {

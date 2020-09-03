@@ -936,7 +936,7 @@ pub trait Trait:
     type ElectionLookahead: Get<Self::BlockNumber>;
 
     /// The overarching call type.
-    type Call: Dispatchable + From<Call<Self>> + IsSubType<Module<Self>, Self> + Clone;
+    type Call: Dispatchable + From<Call<Self>> + IsSubType<Call<Self>> + Clone;
 
     /// Maximum number of balancing iterations to run in the offchain submission.
     ///
@@ -3819,6 +3819,10 @@ where
             <Module<T>>::deposit_event(RawEvent::OldSlashingReportDiscarded(offence_session));
             Ok(())
         }
+    }
+
+    fn is_known_offence(offenders: &[Offender], time_slot: &O::TimeSlot) -> bool {
+        R::is_known_offence(offenders, time_slot)
     }
 }
 
