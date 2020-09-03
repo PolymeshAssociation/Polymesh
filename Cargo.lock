@@ -3404,7 +3404,6 @@ dependencies = [
  "frame-support",
  "frame-system",
  "pallet-identity",
- "pallet-permissions",
  "pallet-timestamp",
  "parity-scale-codec",
  "polymesh-common-utilities",

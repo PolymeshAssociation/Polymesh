@@ -415,9 +415,7 @@ decl_module! {
         /// Only called by primary key owner.
         #[weight = 800_000_000]
         fn set_primary_key(origin, new_key: T::AccountId) -> DispatchResult {
-            let sender = ensure_signed(origin)?;
-            CallPermissions::<T>::ensure_call_permissions(&sender)?;
-            let did = Context::current_identity_or::<Self>(&sender)?;
+            let (sender, did) = Self::ensure_origin_call_permissions(origin)?;
             let _grants_checked = Self::grant_check_only_primary_key(&sender, did)?;
 
             ensure!(
@@ -493,9 +491,7 @@ decl_module! {
         /// Leave an identity as a secondary identity.
         #[weight = 800_000_000]
         pub fn leave_identity_as_identity(origin, did: IdentityId) -> DispatchResult {
-            let sender = ensure_signed(origin)?;
-            CallPermissions::<T>::ensure_call_permissions(&sender)?;
-            let sender_did = Context::current_identity_or::<Self>(&sender)?;
+            let sender_did = Self::ensure_origin_call_permissions(origin)?.1;
             Self::leave_identity(Signatory::from(sender_did), did)
         }
 
@@ -1953,6 +1949,17 @@ impl<T: Trait> Module<T> {
             })
             .collect::<Vec<_>>()
     }
+
+    /// Checks call permissions and, if successful, returns the caller's account and identity.
+    pub fn ensure_origin_call_permissions(
+        origin: <T as frame_system::Trait>::Origin,
+    ) -> Result<(<T as frame_system::Trait>::AccountId, IdentityId), DispatchError> {
+        let sender = ensure_signed(origin)?;
+        CallPermissions::<T>::ensure_call_permissions(&sender)?;
+        let did = Context::current_identity_or::<Self>(&sender)?;
+        Ok((sender, did))
+    }
+
 }
 
 impl<T: Trait> IdentityTrait<T::AccountId> for Module<T> {

@@ -335,11 +335,14 @@ impl<T: Trait> Module<T> {
     /// the function succeeds only if `origin` is signed and has permissions to call the current
     /// extrinsic.
     fn is_root_with_permissions(origin: T::Origin) -> Result<bool, DispatchError> {
-        let is_root = ensure_root(origin.clone()).is_ok();
-        if !is_root {
-            let sender = ensure_signed(origin)?;
-            CallPermissions::<T>::ensure_call_permissions(&sender)?;
-        }
+        let is_root = match origin.into() {
+            Ok(RawOrigin::Root) => true,
+            Ok(RawOrigin::Signed(sender)) => {
+                CallPermissions::<T>::ensure_call_permissions(&sender)?;
+                false
+            }
+            _ => false,
+        };
         Ok(is_root)
     }
 }

@@ -31,7 +31,7 @@ use codec::{Decode, Encode};
 use frame_support::{
     debug, decl_error, decl_event, decl_module, decl_storage, dispatch::DispatchResult,
 };
-use frame_system::{self as system, ensure_signed};
+use frame_system as system;
 use sp_std::prelude::*;
 
 pub mod rng;
@@ -57,7 +57,6 @@ pub trait Trait: frame_system::Trait + IdentityTrait {
 }
 
 type Identity<T> = identity::Module<T>;
-type CallPermissions<T> = pallet_permissions::Module<T>;
 
 #[derive(Encode, Decode, Clone, Debug, PartialEq, Eq)]
 pub struct ProverTickerKey {
@@ -87,9 +86,7 @@ decl_module! {
             secret_value: u64,
         ) -> DispatchResult
         {
-            let prover_acc = ensure_signed(origin)?;
-            CallPermissions::<T>::ensure_call_permissions(&prover_acc)?;
-            let prover = Context::current_identity_or::<Identity<T>>(&prover_acc)?;
+            let prover = Identity::<T>::ensure_origin_call_permissions(origin)?.1;
 
             // Create proof
             let mut rng = rng::Rng::default();
@@ -116,13 +113,11 @@ decl_module! {
             prover: IdentityId,
             ticker: Ticker) -> DispatchResult
         {
-            let verifier = ensure_signed(origin)?;
-            CallPermissions::<T>::ensure_call_permissions(&verifier)?;
-            let verifier_id = Context::current_identity_or::<Identity<T>>(&verifier)?;
+            let verifier_id = Identity::<T>::ensure_origin_call_permissions(origin)?.1;
 
             Self::verify_range_proof(target, prover, ticker)?;
 
-            <RangeProofVerifications>::insert((target,ticker), verifier_id, true);
+            <RangeProofVerifications>::insert((target, ticker), verifier_id, true);
             Ok(())
         }
     }

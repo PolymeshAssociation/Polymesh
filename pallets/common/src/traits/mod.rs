@@ -18,7 +18,9 @@ use frame_support::{
     traits::{LockIdentifier, WithdrawReasons},
     Parameter,
 };
-use polymesh_primitives::{traits::BlockRewardsReserveCurrency, FunctionName, PalletName};
+use polymesh_primitives::{
+    traits::BlockRewardsReserveCurrency, FunctionName, IdentityId, PalletName,
+};
 use sp_arithmetic::traits::{AtLeast32BitUnsigned, CheckedSub, Saturating, Unsigned};
 use sp_runtime::traits::{MaybeSerializeDeserialize, Member};
 use sp_std::fmt::Debug;

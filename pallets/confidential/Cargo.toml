@@ -10,7 +10,6 @@ polymesh-primitives-derive = { path = "../../primitives_derive", default-feature
 polymesh-common-utilities = { path = "../common", default-features = false }
 
 pallet-identity = { path = "../identity", default-features = false }
-pallet-permissions = { path = "../permissions", default-features = false }
 
 # Substrate
 codec = { package = "parity-scale-codec", version = "1.2.0", default-features = false, features = ["derive"] }
