@@ -23,6 +23,7 @@ use sp_runtime::{Deserialize, Serialize};
 use sp_std::prelude::*;
 
 use super::jurisdiction::{CountryCode, JurisdictionName};
+use crate::migrate::Migrate;
 
 /// It is the asset Id.
 pub type ScopeId = IdentityId;
@@ -57,32 +58,41 @@ impl From<Vec<u8>> for Scope {
     }
 }
 
+impl Migrate for ScopeOld {
+    type Into = Scope;
+
+    fn migrate(self) -> Option<Self::Into> {
+        Some(Scope::Identity(self))
+    }
+}
+
 type CountryCodeOld = JurisdictionName;
+pub type ScopeOld = IdentityId;
 
 /// All possible claims in polymesh
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, Migrate)]
 pub enum Claim {
     /// User is Accredited
-    Accredited(Scope),
+    Accredited(#[migrate] Scope),
     /// User is Accredited
-    Affiliate(Scope),
+    Affiliate(#[migrate] Scope),
     /// User has an active BuyLockup (end date defined in claim expiry)
-    BuyLockup(Scope),
+    BuyLockup(#[migrate] Scope),
     /// User has an active SellLockup (date defined in claim expiry)
-    SellLockup(Scope),
+    SellLockup(#[migrate] Scope),
     /// User has passed CDD
     CustomerDueDiligence(CddId),
     /// User is KYC'd
-    KnowYourCustomer(Scope),
+    KnowYourCustomer(#[migrate] Scope),
     /// This claim contains a string that represents the jurisdiction of the user
-    Jurisdiction(#[migrate] CountryCode, Scope),
+    Jurisdiction(#[migrate] CountryCode, #[migrate] Scope),
     /// User is exempted
-    Exempted(Scope),
+    Exempted(#[migrate] Scope),
     /// User is Blocked
-    Blocked(Scope),
+    Blocked(#[migrate] Scope),
     /// Confidential Scope claim
-    InvestorZKProof(Scope, ScopeId, CddId, InvestorZKProofData),
+    InvestorZKProof(#[migrate] Scope, ScopeId, CddId, InvestorZKProofData),
     /// Empty claim
     NoData,
 }
