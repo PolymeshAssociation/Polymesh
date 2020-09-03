@@ -83,6 +83,8 @@ pub mod benchmarking;
 
 pub mod ethereum;
 
+pub mod identifier;
+
 use codec::{Decode, Encode};
 use core::result::Result as StdResult;
 use currency::*;
