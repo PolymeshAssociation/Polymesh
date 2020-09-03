@@ -360,7 +360,13 @@
                 "ZW"
             ]
         },
-        "Scope": "IdentityId",
+        "Scope": {
+            "_enum": {
+                "Identity": "IdentityId",
+                "Ticker": "Ticker",
+                "Custom": "Vec<u8>"
+            }
+        },
         "InvestorZKProofData": "[u8;64]",
         "Claim": {
             "_enum": {
