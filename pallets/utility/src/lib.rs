@@ -66,6 +66,8 @@ use polymesh_common_utilities::{
 use sp_runtime::{traits::Dispatchable, traits::Verify, DispatchError, RuntimeDebug};
 use sp_std::prelude::*;
 
+type CallPermissions<T> = pallet_permissions::Module<T>;
+
 /// Configuration trait.
 pub trait Trait: frame_system::Trait + IdentityTrait {
     /// The overarching event type.
@@ -188,6 +190,10 @@ decl_module! {
         #[weight = batch_weight(&calls)]
         pub fn batch(origin, calls: Vec<<T as Trait>::Call>) {
             let is_root = ensure_root(origin.clone()).is_ok();
+            if !is_root {
+                let sender = ensure_signed(origin.clone())?;
+                CallPermissions::<T>::ensure_call_permissions(&sender)?;
+            }
             for (index, call) in calls.into_iter().enumerate() {
                 if let Err(e) = dispatch_call::<T>(origin.clone(), is_root, call) {
                     Self::deposit_event(Event::BatchInterrupted(index as u32, e.error));
@@ -218,7 +224,7 @@ decl_module! {
         /// If all were successful, then the `BatchCompleted` event is deposited.
         #[weight = batch_weight(&calls)]
         pub fn batch_atomic(origin, calls: Vec<<T as Trait>::Call>) {
-            let is_root = ensure_root(origin.clone()).is_ok();
+            let is_root = Self::is_root_with_permissions(origin.clone())?;
             Self::deposit_event(match with_transaction(|| {
                 for (index, call) in calls.into_iter().enumerate() {
                     if let Err(e) = dispatch_call::<T>(origin.clone(), is_root, call) {
@@ -253,7 +259,7 @@ decl_module! {
         /// If all were successful, then the `BatchCompleted` event is deposited.
         #[weight = batch_weight(&calls)]
         pub fn batch_optimistic(origin, calls: Vec<<T as Trait>::Call>) {
-            let is_root = ensure_root(origin.clone()).is_ok();
+            let is_root = Self::is_root_with_permissions(origin.clone())?;
             // Optimistically (hey, it's in the function name, :wink:) assume no errors.
             let mut errors = Vec::new();
             for (index, call) in calls.into_iter().enumerate() {
@@ -292,7 +298,8 @@ decl_module! {
             signature: <T as IdentityTrait>::OffChainSignature,
             call: UniqueCall<<T as Trait>::Call>
         ) -> DispatchResultWithPostInfo {
-            let _ = ensure_signed(origin)?;
+            let sender = ensure_signed(origin)?;
+            CallPermissions::<T>::ensure_call_permissions(&sender)?;
 
             let target_nonce = <Nonces<T>>::get(&target);
 
@@ -320,5 +327,19 @@ decl_module! {
                     post_info: e.post_info.actual_weight.map(|w| w.saturating_add(90_000_000)).into()
                 })
         }
+    }
+}
+
+impl<T: Trait> Module<T> {
+    /// Returns a boolean value designating whether `origin` is root. If the origin is not root then
+    /// the function succeeds only if `origin` is signed and has permissions to call the current
+    /// extrinsic.
+    fn is_root_with_permissions(origin: T::Origin) -> Result<bool, DispatchError> {
+        let is_root = ensure_root(origin.clone()).is_ok();
+        if !is_root {
+            let sender = ensure_signed(origin)?;
+            CallPermissions::<T>::ensure_call_permissions(&sender)?;
+        }
+        Ok(is_root)
     }
 }

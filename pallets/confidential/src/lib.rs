@@ -57,6 +57,7 @@ pub trait Trait: frame_system::Trait + IdentityTrait {
 }
 
 type Identity<T> = identity::Module<T>;
+type CallPermissions<T> = pallet_permissions::Module<T>;
 
 #[derive(Encode, Decode, Clone, Debug, PartialEq, Eq)]
 pub struct ProverTickerKey {
@@ -87,6 +88,7 @@ decl_module! {
         ) -> DispatchResult
         {
             let prover_acc = ensure_signed(origin)?;
+            CallPermissions::<T>::ensure_call_permissions(&prover_acc)?;
             let prover = Context::current_identity_or::<Identity<T>>(&prover_acc)?;
 
             // Create proof
@@ -115,6 +117,7 @@ decl_module! {
             ticker: Ticker) -> DispatchResult
         {
             let verifier = ensure_signed(origin)?;
+            CallPermissions::<T>::ensure_call_permissions(&verifier)?;
             let verifier_id = Context::current_identity_or::<Identity<T>>(&verifier)?;
 
             Self::verify_range_proof(target, prover, ticker)?;
