@@ -124,6 +124,7 @@ use sp_runtime::{Deserialize, Serialize};
 use sp_std::{convert::TryFrom, prelude::*};
 
 type Portfolio<T> = pallet_portfolio::Module<T>;
+type CallPermissions<T> = pallet_permissions::Module<T>;
 
 /// The module's configuration trait.
 pub trait Trait:
@@ -450,6 +451,7 @@ decl_module! {
         #[weight = T::DbWeight::get().reads_writes(4, 3) + 500_000_000]
         pub fn register_ticker(origin, ticker: Ticker) -> DispatchResult {
             let sender = ensure_signed(origin)?;
+            CallPermissions::<T>::ensure_call_permissions(&sender)?;
             let to_did = Context::current_identity_or::<Identity<T>>(&sender)?;
             let expiry = Self::ticker_registration_checks(&ticker, to_did, false, || Self::ticker_registration_config())?;
             T::ProtocolFee::charge_fee(ProtocolOp::AssetRegisterTicker)?;
@@ -466,6 +468,7 @@ decl_module! {
         #[weight = T::DbWeight::get().reads_writes(4, 5) + 200_000_000]
         pub fn accept_ticker_transfer(origin, auth_id: u64) -> DispatchResult {
             let sender = ensure_signed(origin)?;
+            CallPermissions::<T>::ensure_call_permissions(&sender)?;
             let to_did = Context::current_identity_or::<Identity<T>>(&sender)?;
 
             Self::_accept_ticker_transfer(to_did, auth_id)
@@ -480,6 +483,7 @@ decl_module! {
         #[weight = 300_000_000]
         pub fn accept_primary_issuance_agent_transfer(origin, auth_id: u64) -> DispatchResult {
             let sender = ensure_signed(origin)?;
+            CallPermissions::<T>::ensure_call_permissions(&sender)?;
             let to_did = Context::current_identity_or::<Identity<T>>(&sender)?;
 
             Self::_accept_primary_issuance_agent_transfer(to_did, auth_id)
@@ -494,6 +498,7 @@ decl_module! {
         #[weight = T::DbWeight::get().reads_writes(4, 5) + 200_000_000]
         pub fn accept_asset_ownership_transfer(origin, auth_id: u64) -> DispatchResult {
             let sender = ensure_signed(origin)?;
+            CallPermissions::<T>::ensure_call_permissions(&sender)?;
             let to_did = Context::current_identity_or::<Identity<T>>(&sender)?;
 
             Self::_accept_token_ownership_transfer(to_did, auth_id)
@@ -527,6 +532,7 @@ decl_module! {
             funding_round: Option<FundingRoundName>,
         ) -> DispatchResult {
             let sender = ensure_signed(origin)?;
+            CallPermissions::<T>::ensure_call_permissions(&sender)?;
             let did = Context::current_identity_or::<Identity<T>>(&sender)?;
             Self::ensure_create_asset_parameters(&ticker, &name, total_supply)?;
 
@@ -633,6 +639,7 @@ decl_module! {
         #[weight = T::DbWeight::get().reads_writes(4, 1) + 300_000_000]
         pub fn freeze(origin, ticker: Ticker) -> DispatchResult {
             let sender = ensure_signed(origin)?;
+            CallPermissions::<T>::ensure_call_permissions(&sender)?;
             let sender_did = Context::current_identity_or::<Identity<T>>(&sender)?;
 
             // verify the ownership of the token
@@ -653,6 +660,7 @@ decl_module! {
         #[weight = T::DbWeight::get().reads_writes(4, 1) + 300_000_000]
         pub fn unfreeze(origin, ticker: Ticker) -> DispatchResult {
             let sender = ensure_signed(origin)?;
+            CallPermissions::<T>::ensure_call_permissions(&sender)?;
             let sender_did = Context::current_identity_or::<Identity<T>>(&sender)?;
 
             // verify the ownership of the token
@@ -674,6 +682,7 @@ decl_module! {
         #[weight = T::DbWeight::get().reads_writes(2, 1) + 300_000_000]
         pub fn rename_asset(origin, ticker: Ticker, name: AssetName) -> DispatchResult {
             let sender = ensure_signed(origin)?;
+            CallPermissions::<T>::ensure_call_permissions(&sender)?;
             let sender_did = Context::current_identity_or::<Identity<T>>(&sender)?;
 
             // verify the ownership of the token
@@ -699,6 +708,7 @@ decl_module! {
         #[weight = T::DbWeight::get().reads_writes(3, 2) + 500_000_000]
         pub fn controller_transfer(origin, ticker: Ticker, from_did: IdentityId, to_did: IdentityId, value: T::Balance, data: Vec<u8>, operator_data: Vec<u8>) -> DispatchResult {
             let sender = ensure_signed(origin)?;
+            CallPermissions::<T>::ensure_call_permissions(&sender)?;
             let did = Context::current_identity_or::<Identity<T>>(&sender)?;
 
             ensure!(Self::is_owner(&ticker, did), Error::<T>::Unauthorized);
@@ -719,6 +729,7 @@ decl_module! {
         #[weight = T::DbWeight::get().reads_writes(3, 2) + 400_000_000]
         pub fn create_checkpoint(origin, ticker: Ticker) -> DispatchResult {
             let sender = ensure_signed(origin)?;
+            CallPermissions::<T>::ensure_call_permissions(&sender)?;
             let did = Context::current_identity_or::<Identity<T>>(&sender)?;
 
             ensure!(Self::is_owner(&ticker, did), Error::<T>::Unauthorized);
@@ -737,6 +748,7 @@ decl_module! {
         #[weight = T::DbWeight::get().reads_writes(6, 3) + 800_000_000]
         pub fn issue(origin, ticker: Ticker, value: T::Balance) -> DispatchResult {
             let sender = ensure_signed(origin)?;
+            CallPermissions::<T>::ensure_call_permissions(&sender)?;
             let did = Context::current_identity_or::<Identity<T>>(&sender)?;
 
             ensure!(Self::is_owner(&ticker, did), Error::<T>::Unauthorized);
@@ -756,6 +768,7 @@ decl_module! {
         #[weight = T::DbWeight::get().reads_writes(6, 3) + 800_000_000]
         pub fn controller_redeem(origin, ticker: Ticker, token_holder_did: IdentityId, value: T::Balance, data: Vec<u8>, operator_data: Vec<u8>) -> DispatchResult {
             let sender = ensure_signed(origin)?;
+            CallPermissions::<T>::ensure_call_permissions(&sender)?;
             let did = Context::current_identity_or::<Identity<T>>(&sender)?;
 
             ensure!(Self::is_owner(&ticker, did), Error::<T>::NotAnOwner);
@@ -803,6 +816,7 @@ decl_module! {
         #[weight = T::DbWeight::get().reads_writes(2, 1) + 300_000_000]
         pub fn make_divisible(origin, ticker: Ticker) -> DispatchResult {
             let sender = ensure_signed(origin)?;
+            CallPermissions::<T>::ensure_call_permissions(&sender)?;
             let did = Context::current_identity_or::<Identity<T>>(&sender)?;
 
             ensure!(Self::is_owner(&ticker, did), Error::<T>::Unauthorized);
@@ -827,6 +841,7 @@ decl_module! {
         #[weight = T::DbWeight::get().reads_writes(2, 1) + 500_000_000 + 600_000 * u64::try_from(documents.len()).unwrap_or_default()]
         pub fn add_documents(origin, documents: Vec<(DocumentName, Document)>, ticker: Ticker) -> DispatchResult {
             let sender = ensure_signed(origin)?;
+            CallPermissions::<T>::ensure_call_permissions(&sender)?;
             let did = Context::current_identity_or::<Identity<T>>(&sender)?;
 
             ensure!(Self::is_owner(&ticker, did), Error::<T>::NotAnOwner);
@@ -853,6 +868,7 @@ decl_module! {
         #[weight = T::DbWeight::get().reads_writes(2, 1) + 500_000_000 + 600_000 * u64::try_from(doc_names.len()).unwrap_or_default()]
         pub fn remove_documents(origin, doc_names: Vec<DocumentName>, ticker: Ticker) -> DispatchResult {
             let sender = ensure_signed(origin)?;
+            CallPermissions::<T>::ensure_call_permissions(&sender)?;
             let did = Context::current_identity_or::<Identity<T>>(&sender)?;
             ensure!(Self::is_owner(&ticker, did), Error::<T>::NotAnOwner);
 
@@ -879,6 +895,7 @@ decl_module! {
         #[weight = T::DbWeight::get().reads_writes(4, 2) + 500_000_000]
         pub fn increase_custody_allowance(origin, ticker: Ticker, custodian_did: IdentityId, value: T::Balance) -> DispatchResult {
             let sender = ensure_signed(origin)?;
+            CallPermissions::<T>::ensure_call_permissions(&sender)?;
             let sender_did = Context::current_identity_or::<Identity<T>>(&sender)?;
             Self::unsafe_increase_custody_allowance(sender_did, ticker, sender_did, custodian_did, value)?;
             Ok(())
@@ -907,6 +924,7 @@ decl_module! {
             signature: T::OffChainSignature
         ) -> DispatchResult {
             let sender = ensure_signed(origin)?;
+            CallPermissions::<T>::ensure_call_permissions(&sender)?;
             let caller_did = Context::current_identity_or::<Identity<T>>(&sender)?;
             ensure!(
                 !Self::authentication_nonce((ticker, holder_did, nonce)),
@@ -953,6 +971,7 @@ decl_module! {
             value: T::Balance
         ) -> DispatchResultWithPostInfo {
             let sender = ensure_signed(origin)?;
+            CallPermissions::<T>::ensure_call_permissions(&sender)?;
             let custodian_did = Context::current_identity_or::<Identity<T>>(&sender)?;
 
             Self::unsafe_transfer_by_custodian(custodian_did, ticker, holder_did, receiver_did, value)
@@ -969,6 +988,7 @@ decl_module! {
             DispatchResult
         {
             let sender = ensure_signed(origin)?;
+            CallPermissions::<T>::ensure_call_permissions(&sender)?;
             let did = Context::current_identity_or::<Identity<T>>(&sender)?;
             ensure!(Self::is_owner(&ticker, did), Error::<T>::NotAnOwner);
             <FundingRound>::insert(ticker, name.clone());
@@ -993,6 +1013,7 @@ decl_module! {
             identifiers: Vec<(IdentifierType, AssetIdentifier)>
         ) -> DispatchResult {
             let sender = ensure_signed(origin)?;
+            CallPermissions::<T>::ensure_call_permissions(&sender)?;
             let did = Context::current_identity_or::<Identity<T>>(&sender)?;
             ensure!(Self::is_owner(&ticker, did), Error::<T>::Unauthorized);
             for (typ, val) in &identifiers {
@@ -1011,6 +1032,7 @@ decl_module! {
         #[weight = T::DbWeight::get().reads_writes(2, 2) + 600_000_000]
         pub fn add_extension(origin, ticker: Ticker, extension_details: SmartExtension<T::AccountId>) -> DispatchResult {
             let sender = ensure_signed(origin)?;
+            CallPermissions::<T>::ensure_call_permissions(&sender)?;
             let my_did = Context::current_identity_or::<identity::Module<T>>(&sender)?;
 
             ensure!(Self::is_owner(&ticker, my_did), Error::<T>::Unauthorized);
@@ -1080,6 +1102,7 @@ decl_module! {
             ticker: Ticker,
         ) -> DispatchResult {
             let sender = ensure_signed(origin)?;
+            CallPermissions::<T>::ensure_call_permissions(&sender)?;
             let did = Context::current_identity_or::<Identity<T>>(&sender)?;
             ensure!(Self::is_owner(&ticker, did), Error::<T>::Unauthorized);
             let mut old_primary_issuance_agent = None;
@@ -1144,6 +1167,7 @@ decl_module! {
 
             // Ensure we're signed & get did.
             let sender = ensure_signed(origin)?;
+            CallPermissions::<T>::ensure_call_permissions(&sender)?;
             let owner_did = Context::current_identity_or::<Identity<T>>(&sender)?;
 
             // Have the caller prove that they own *some* Ethereum account
@@ -2413,6 +2437,7 @@ impl<T: Trait> Module<T> {
         id: &T::AccountId,
     ) -> Result<IdentityId, DispatchError> {
         let sender = ensure_signed(origin)?;
+        CallPermissions::<T>::ensure_call_permissions(&sender)?;
         let did = Context::current_identity_or::<identity::Module<T>>(&sender)?;
 
         ensure!(Self::is_owner(ticker, did), Error::<T>::Unauthorized);

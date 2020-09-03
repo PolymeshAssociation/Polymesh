@@ -2572,7 +2572,7 @@ fn classic_ticker_garbage_signature() {
         let rt_signer = Origin::signed(AccountKeyring::Dave.public());
         assert_noop!(
             Asset::claim_classic_ticker(rt_signer, ticker, ethereum::EcdsaSignature([0; 65])),
-            AssetError::InvalidEthereumSignature
+            pallet_permissions::Error::<TestStorage>::UnauthorizedCaller
         );
     });
 }

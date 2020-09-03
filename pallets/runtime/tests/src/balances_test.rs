@@ -110,11 +110,11 @@ fn mint_subsidy_works() {
         .execute_with(|| {
             let brr = Balances::block_rewards_reserve();
             assert_eq!(Balances::free_balance(&brr), 0);
-            let mut ti = Balances::total_issuance();
             let alice = AccountKeyring::Alice.public();
             // Create Eve's identity for `Balances::deposit_block_reward_reserve_balance`.
             let _ = register_keyring_account(AccountKeyring::Eve).unwrap();
             let mut balance_alice = Balances::free_balance(&alice);
+            let mut ti = Balances::total_issuance();
 
             // When there is no balance in BRR, minting should increase total supply
             assert_ok!(Balances::deposit_into_existing(&alice, 10).map(drop));

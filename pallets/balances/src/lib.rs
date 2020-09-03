@@ -301,7 +301,6 @@ decl_module! {
             #[compact] value: T::Balance
         ) {
             let transactor = ensure_signed(origin)?;
-            CallPermissions::<T>::ensure_call_permissions(&transactor)?;
             let dest = T::Lookup::lookup(dest)?;
             // Polymesh modified code. CDD is checked before processing transfer.
             Self::safe_transfer_core(&transactor, &dest, value, None, ExistenceRequirement::AllowDeath)?;
@@ -324,7 +323,6 @@ decl_module! {
             memo: Option<Memo>
         ) {
             let transactor = ensure_signed(origin)?;
-            CallPermissions::<T>::ensure_call_permissions(&transactor)?;
             let dest = T::Lookup::lookup(dest)?;
             Self::safe_transfer_core(&transactor, &dest, value, memo, ExistenceRequirement::AllowDeath)?;
         }
