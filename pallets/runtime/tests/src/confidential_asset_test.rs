@@ -2,6 +2,7 @@ use super::{
     storage::{register_keyring_account, TestStorage},
     ExtBuilder,
 };
+use codec::Decode;
 use core::convert::TryFrom;
 use frame_support::assert_ok;
 use pallet_asset::{self as asset, AssetType, IdentifierType, SecurityToken};
@@ -16,7 +17,7 @@ use cryptography::{
     asset_proofs::{CommitmentWitness, ElgamalSecretKey},
     mercat::{
         account::{convert_asset_ids, AccountCreator},
-        AccountCreatorInitializer, EncryptionKeys, SecAccount,
+        AccountCreatorInitializer, EncryptedAmount, EncryptionKeys, SecAccount,
     },
     AssetId,
 };
@@ -80,7 +81,8 @@ fn account_create_tx_valid_asset_id() {
     // ------------- END: Computations that will happen in the Wallet ----------
 
     // Wallet submits the transaction to the chain for verification.
-    ConfidentialAsset::validate_mercat_account(Origin::signed(alice), mercat_account_tx.clone());
+    ConfidentialAsset::validate_mercat_account(Origin::signed(alice), mercat_account_tx.clone())
+        .unwrap();
 
     // Ensure that the transaction was verified and that MERCAT account is created on the chain.
     let wrapped_enc_asset_id =
@@ -95,4 +97,11 @@ fn account_create_tx_valid_asset_id() {
         stored_account.encryption_pub_key,
         mercat_account_tx.pub_account.owner_enc_pub_key,
     );
+
+    // Ensure that the account has an initial balance of zero.
+    let stored_balance =
+        ConfidentialAsset::mercat_account_balance(alice_id, wrapped_enc_asset_id.clone());
+    let stored_balance = EncryptedAmount::decode(&mut &stored_balance.0[..]).unwrap();
+    let stored_balance = scrt_account.enc_keys.scrt.decrypt(&stored_balance).unwrap();
+    assert_eq!(stored_balance, 0);
 }

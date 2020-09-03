@@ -78,10 +78,10 @@ decl_storage! {
     trait Store for Module<T: Trait> as ConfidentialAsset {
 
         /// Contains the mercat accounts for an identity.
-        pub MercatAccounts get(fn mercat_account): double_map hasher(blake2_128_concat) IdentityId, hasher(blake2_128_concat) EncryptedAssetIdWrapper  => MercatAccount;
+        pub MercatAccounts get(fn mercat_account): double_map hasher(twox_64_concat) IdentityId, hasher(blake2_128_concat) EncryptedAssetIdWrapper  => MercatAccount;
 
         /// Contains the encrypted balance of a mercat account.
-        pub MercatAccountBalance get(fn mercat_account_balance):  double_map hasher(blake2_128_concat) IdentityId, hasher(blake2_128_concat) EncryptedAssetIdWrapper =>EncryptedAssetIdWrapper;
+        pub MercatAccountBalance get(fn mercat_account_balance):  double_map hasher(twox_64_concat) IdentityId, hasher(blake2_128_concat) EncryptedAssetIdWrapper => EncryptedBalanceWrapper;
 
         /// Contains the list of all valid ticker names.
         /// The process around creating and storing this data will likely change as a result of CRYP-153.
@@ -122,9 +122,11 @@ decl_module! {
             AccountValidator{}.verify(&tx, &valid_asset_ids).map_err(|_| Error::<T>::InvalidAccountCreationProof)?;
             let wrapped_enc_asset_id = EncryptedAssetIdWrapper::from(tx.pub_account.enc_asset_id.encode());
             <MercatAccounts>::insert(&owner_id, &wrapped_enc_asset_id.clone(), MercatAccount {
-                encrypted_asset_id: wrapped_enc_asset_id,
+                encrypted_asset_id: wrapped_enc_asset_id.clone(),
                 encryption_pub_key: tx.pub_account.owner_enc_pub_key,
             });
+            let wrapped_enc_balance = EncryptedBalanceWrapper::from(tx.initial_balance.encode());
+            <MercatAccountBalance>::insert(&owner_id, &wrapped_enc_asset_id.clone(), wrapped_enc_balance);
 
             Ok(())
         }
