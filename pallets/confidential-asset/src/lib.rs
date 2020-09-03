@@ -111,8 +111,12 @@ decl_module! {
             Ok(())
         }
 
-        /// It receives the transaction data for creating a mercat account and verifies the proofs.
-        /// If all proofs pass, it stores the mercat account for the origin identity.
+        /// This function receives the transaction data for creating a mercat account and verifies the proofs.
+        /// If all proofs pass, it stores the mercat account for the origin identity, sets the initial encrypted
+        /// balance, and emits account creation event.
+        ///
+        /// # Arguments
+        /// * `tx` The account creation transaction created by the mercat lib.
         #[weight = 1_000_000_000]
         pub fn validate_mercat_account(origin,
             tx: PubAccountTx,
