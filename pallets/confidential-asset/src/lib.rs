@@ -25,8 +25,8 @@ use cryptography::{
     },
     AssetId,
 };
-use frame_support::{decl_error, decl_module, decl_storage, dispatch::DispatchResult};
-use frame_system::ensure_signed;
+use frame_support::{decl_error, decl_event, decl_module, decl_storage, dispatch::DispatchResult};
+use frame_system::{self as system, ensure_signed};
 use pallet_identity as identity;
 use pallet_statistics::{self as statistics};
 use polymesh_common_utilities::Context;
@@ -49,6 +49,7 @@ pub trait Trait:
     + pallet_contracts::Trait
     + pallet_portfolio::Trait
 {
+    type Event: From<Event> + Into<<Self as frame_system::Trait>::Event>;
 }
 
 /// Wrapper for Ciphertexts that correspond to EncryptedAssetId.
@@ -93,6 +94,9 @@ decl_storage! {
 decl_module! {
     pub struct Module<T: Trait> for enum Call where origin: T::Origin {
 
+        /// Initialize the default event for this module
+        fn deposit_event() = default;
+
         /// TODO: CRYP-153 will most likely change it into a private function that is called
         /// when a new ticker name is registered.
         #[weight = 1_000_000_000]
@@ -126,11 +130,20 @@ decl_module! {
                 encryption_pub_key: tx.pub_account.owner_enc_pub_key,
             });
             let wrapped_enc_balance = EncryptedBalanceWrapper::from(tx.initial_balance.encode());
-            <MercatAccountBalance>::insert(&owner_id, &wrapped_enc_asset_id.clone(), wrapped_enc_balance);
+            <MercatAccountBalance>::insert(&owner_id, &wrapped_enc_asset_id.clone(), wrapped_enc_balance.clone());
 
+            Self::deposit_event(Event::AccountCreated(owner_id, wrapped_enc_asset_id, wrapped_enc_balance));
             Ok(())
         }
 
+    }
+}
+
+decl_event! {
+    pub enum Event
+    {
+        /// Mercat account created.
+        AccountCreated(IdentityId, EncryptedAssetIdWrapper, EncryptedBalanceWrapper),
     }
 }
 
