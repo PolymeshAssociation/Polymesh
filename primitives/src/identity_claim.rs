@@ -33,7 +33,7 @@ pub type ScopeId = IdentityId;
 pub enum Scope {
     /// Scoped to an Identity
     Identity(IdentityId),
-    /// Scoped to an Ticker
+    /// Scoped to a `Ticker`.
     Ticker(Ticker),
     /// Scoped to arbitrary bytes
     Custom(Vec<u8>),
