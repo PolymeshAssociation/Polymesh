@@ -1,7 +1,7 @@
 //! Runtime API definition for Identity module.
 
 use codec::{Decode, Encode};
-pub use polymesh_primitives::{Authorization, AuthorizationType, IdentityId, Moment};
+pub use polymesh_primitives::{Authorization, AuthorizationType, IdentityId, Moment, Permissions};
 #[cfg(feature = "std")]
 use serde::{Deserialize, Serialize};
 use sp_std::{prelude::*, vec::Vec};
@@ -9,7 +9,6 @@ use sp_std::{prelude::*, vec::Vec};
 pub type Error = Vec<u8>;
 pub type CddStatus = Result<IdentityId, Error>;
 pub type AssetDidResult = Result<IdentityId, Error>;
-type Permissions = Vec<polymesh_primitives::Permission>;
 
 /// A result of execution of get_votes.
 #[derive(Eq, PartialEq, Encode, Decode)]

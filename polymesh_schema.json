@@ -127,7 +127,7 @@
         },
         "KeyIdentityData": {
             "identity": "IdentityId",
-            "permissions": "Option<Vec<Permission>>"
+            "permissions": "Option<Permissions>"
         },
         "CountryCode": {
             "_enum": [
