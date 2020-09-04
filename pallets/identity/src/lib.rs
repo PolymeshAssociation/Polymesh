@@ -112,8 +112,8 @@ use polymesh_common_utilities::{
     Context, SystematicIssuers,
 };
 use polymesh_primitives::{
-    Authorization, AuthorizationData, AuthorizationError, AuthorizationType, CddId, Claim,
-    ClaimType, FunctionName, Identity as DidRecord, IdentityClaim, IdentityId, InvestorUid,
+    secondary_key, Authorization, AuthorizationData, AuthorizationError, AuthorizationType, CddId,
+    Claim, ClaimType, FunctionName, Identity as DidRecord, IdentityClaim, IdentityId, InvestorUid,
     PalletName, Permissions, Scope, SecondaryKey, Signatory, Ticker,
 };
 use sp_core::sr25519::Signature;
@@ -599,13 +599,13 @@ decl_module! {
                 + 20_000_000 * (
                     1
                         + u64::try_from(
-                            permissions.asset.elems_len().unwrap_or_default()
+                            permissions.asset.as_ref().map(|elems| elems.len()).unwrap_or_default()
                         ).unwrap_or_default()
                         + u64::try_from(
-                            permissions.extrinsic.elems_len().unwrap_or_default()
+                            permissions.extrinsic.as_ref().map(|elems| *&elems.len()).unwrap_or_default()
                         ).unwrap_or_default()
                         + u64::try_from(
-                            permissions.portfolio.elems_len().unwrap_or_default()
+                            permissions.portfolio.as_ref().map(|elems| *&elems.len()).unwrap_or_default()
                         ).unwrap_or_default()
                 ),
             DispatchClass::Normal,
@@ -614,7 +614,7 @@ decl_module! {
         pub fn set_permission_to_signer(
             origin,
             signer: Signatory<T::AccountId>,
-            permissions: Permissions
+            permissions: secondary_key::api::Permissions
         ) -> DispatchResult {
             let (sender, did) = Self::ensure_origin_call_permissions(origin)?;
             let record = Self::grant_check_only_primary_key(&sender, did)?;
@@ -622,7 +622,9 @@ decl_module! {
             // You are trying to add a permission to did's primary key. It is not needed.
             match signer {
                 Signatory::Account(ref key) if record.primary_key == *key => Ok(()),
-                _ if record.secondary_keys.iter().any(|si| si.signer == signer) => Self::update_secondary_key_permissions(did, &signer, permissions),
+                _ if record.secondary_keys.iter().any(|si| si.signer == signer) => {
+                    Self::update_secondary_key_permissions(did, &signer, permissions.into())
+                }
                 _ => Err(Error::<T>::InvalidSender.into()),
             }
         }
@@ -703,13 +705,15 @@ decl_module! {
         }
 
         /// Accepts an authorization.
+        ///
+        /// Does not check extrinsic permission checks for the caller in order to allow it to be an
+        /// account without an identity.
         #[weight = 2_000_000_000]
         pub fn accept_authorization(
             origin,
             auth_id: u64
         ) -> DispatchResult {
             let sender = ensure_signed(origin)?;
-            // CallPermissions::<T>::ensure_call_permissions(&sender)?;
             let signer_key = Signatory::Account(sender.clone());
             let signer_did = Context::current_identity_or::<Self>(&sender)
                 .map_or_else(
@@ -1004,7 +1008,7 @@ impl<T: Trait> Module<T> {
 
         Self::consume_auth(auth.authorized_by, signer.clone(), auth_id)?;
 
-        Self::unsafe_join_identity(auth.authorized_by, permissions, signer)
+        Self::unsafe_join_identity(auth.authorized_by, permissions.into(), signer)
     }
 
     /// Joins an identity as signer
@@ -1267,7 +1271,7 @@ impl<T: Trait> Module<T> {
             Self::deposit_event(RawEvent::SecondaryKeyPermissionsUpdated(
                 target_did,
                 s,
-                permissions,
+                permissions.into(),
             ));
         }
         Ok(())

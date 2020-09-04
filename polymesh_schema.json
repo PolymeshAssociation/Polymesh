@@ -56,13 +56,13 @@
         },
         "PalletName": "Text",
         "FunctionName": "Text",
-        "AssetPermissions": "Option<BTreeSet<Ticker>>",
+        "AssetPermissions": "Option<Vec<Ticker>>",
         "PalletPermissions": {
             "pallet_name": "PalletName",
-            "function_names": "Option<BTreeSet<FunctionName>>"
+            "function_names": "Option<Vec<FunctionName>>"
         },
-        "ExtrinsicPermissions": "Option<BTreeSet<PalletPermissions>>",
-        "PortfolioPermissions": "Option<BTreeSet<PortfolioNumber>>",
+        "ExtrinsicPermissions": "Option<Vec<PalletPermissions>>",
+        "PortfolioPermissions": "Option<Vec<PortfolioNumber>>",
         "Permissions": {
             "asset": "AssetPermissions",
             "extrinsic": "ExtrinsicPermissions",

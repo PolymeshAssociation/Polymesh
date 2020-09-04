@@ -24,7 +24,8 @@ use crate::{
     ChargeProtocolFee, SystematicIssuers,
 };
 use polymesh_primitives::{
-    AuthorizationData, IdentityClaim, IdentityId, Permissions, SecondaryKey, Signatory, Ticker,
+    secondary_key::api::Permissions, AuthorizationData, IdentityClaim, IdentityId, SecondaryKey,
+    Signatory, Ticker,
 };
 
 use codec::{Decode, Encode};

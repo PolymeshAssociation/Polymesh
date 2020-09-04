@@ -311,6 +311,133 @@ where
     }
 }
 
+/// Vectorized redefinitions of runtime types for the sake of Polkadot.JS.
+pub mod api {
+    use crate::{FunctionName, PalletName, PortfolioNumber, SubsetRestriction, Ticker};
+    use codec::{Decode, Encode};
+    #[cfg(feature = "std")]
+    use sp_runtime::{Deserialize, Serialize};
+    use sp_std::vec::Vec;
+
+    /// Asset permissions.
+    pub type AssetPermissions = Option<Vec<Ticker>>;
+
+    /// A permission to call functions within a given pallet.
+    #[derive(Decode, Encode, Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord)]
+    #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+    pub struct PalletPermissions {
+        /// The name of a pallet.
+        pub pallet_name: PalletName,
+        /// A subset of function names within the pallet.
+        pub function_names: Option<Vec<FunctionName>>,
+    }
+
+    /// Extrinsic permissions.
+    pub type ExtrinsicPermissions = Option<Vec<PalletPermissions>>;
+
+    /// Portfolio permissions.
+    pub type PortfolioPermissions = Option<Vec<PortfolioNumber>>;
+
+    /// Signing key permissions.
+    #[derive(Encode, Decode, Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord)]
+    #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+    pub struct Permissions {
+        /// The subset of assets under management.
+        pub asset: AssetPermissions,
+        /// The subset of callable extrinsics.
+        pub extrinsic: ExtrinsicPermissions,
+        /// The subset of portfolios management.
+        pub portfolio: PortfolioPermissions,
+    }
+
+    impl Permissions {
+        /// The empty permissions.
+        pub fn empty() -> Self {
+            Self {
+                asset: Some(Vec::new()),
+                extrinsic: Some(Vec::new()),
+                portfolio: Some(Vec::new()),
+            }
+        }
+    }
+
+    impl From<super::AssetPermissions> for AssetPermissions {
+        fn from(p: super::AssetPermissions) -> AssetPermissions {
+            p.0.map(|elems| elems.into_iter().collect())
+        }
+    }
+
+    impl From<super::PalletPermissions> for PalletPermissions {
+        fn from(p: super::PalletPermissions) -> PalletPermissions {
+            PalletPermissions {
+                pallet_name: p.pallet_name,
+                function_names: p.function_names.0.map(|elems| elems.into_iter().collect()),
+            }
+        }
+    }
+
+    impl From<super::ExtrinsicPermissions> for ExtrinsicPermissions {
+        fn from(p: super::ExtrinsicPermissions) -> ExtrinsicPermissions {
+            p.0.map(|elems| elems.into_iter().map(|e| e.into()).collect())
+        }
+    }
+
+    impl From<super::PortfolioPermissions> for PortfolioPermissions {
+        fn from(p: super::PortfolioPermissions) -> PortfolioPermissions {
+            p.0.map(|elems| elems.into_iter().collect())
+        }
+    }
+
+    impl From<super::Permissions> for Permissions {
+        fn from(p: super::Permissions) -> Permissions {
+            Permissions {
+                asset: p.asset.into(),
+                extrinsic: p.extrinsic.into(),
+                portfolio: p.portfolio.into(),
+            }
+        }
+    }
+
+    impl From<AssetPermissions> for super::AssetPermissions {
+        fn from(p: AssetPermissions) -> super::AssetPermissions {
+            SubsetRestriction(p.map(|elems| elems.into_iter().collect()))
+        }
+    }
+
+    impl From<PalletPermissions> for super::PalletPermissions {
+        fn from(p: PalletPermissions) -> super::PalletPermissions {
+            super::PalletPermissions {
+                pallet_name: p.pallet_name,
+                function_names: SubsetRestriction(
+                    p.function_names.map(|elems| elems.into_iter().collect()),
+                ),
+            }
+        }
+    }
+
+    impl From<ExtrinsicPermissions> for super::ExtrinsicPermissions {
+        fn from(p: ExtrinsicPermissions) -> super::ExtrinsicPermissions {
+            SubsetRestriction(p.map(|elems| elems.into_iter().map(|e| e.into()).collect()))
+        }
+    }
+
+    impl From<PortfolioPermissions> for super::PortfolioPermissions {
+        fn from(p: PortfolioPermissions) -> super::PortfolioPermissions {
+            SubsetRestriction(p.map(|elems| elems.into_iter().collect()))
+        }
+    }
+
+    impl From<Permissions> for super::Permissions {
+        fn from(p: Permissions) -> super::Permissions {
+            super::Permissions {
+                asset: p.asset.into(),
+                extrinsic: p.extrinsic.into(),
+                portfolio: p.portfolio.into(),
+            }
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::{Permissions, SecondaryKey, Signatory, SubsetRestriction};

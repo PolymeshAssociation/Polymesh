@@ -21,7 +21,7 @@ use polymesh_common_utilities::{
 };
 use polymesh_primitives::{
     AuthorizationData, AuthorizationType, Claim, ClaimType, IdentityClaim, IdentityId, Permissions,
-    Scope, SecondaryKey, Signatory, Ticker, TransactionError,
+    Scope, SecondaryKey, Signatory, Ticker, TransactionError, secondary_key,
 };
 use polymesh_runtime_develop::{fee_details::CddHandler, runtime::Call};
 use sp_core::crypto::AccountId32;
@@ -229,12 +229,12 @@ fn only_primary_key_can_add_secondary_key_permissions_with_externalities() {
     assert_ok!(Identity::set_permission_to_signer(
         alice.clone(),
         Signatory::Account(bob_key),
-        Permissions::empty()
+        secondary_key::api::Permissions::empty()
     ));
     assert_ok!(Identity::set_permission_to_signer(
         alice.clone(),
         Signatory::Account(charlie_key),
-        Permissions::empty()
+        secondary_key::api::Permissions::empty()
     ));
 
     // Bob tries to get better permission by himself at `alice` Identity.
@@ -242,7 +242,7 @@ fn only_primary_key_can_add_secondary_key_permissions_with_externalities() {
         Identity::set_permission_to_signer(
             bob.clone(),
             Signatory::Account(bob_key),
-            Permissions::default()
+            secondary_key::api::Permissions::default()
         ),
         pallet_permissions::Error::<TestStorage>::UnauthorizedCaller
     );
@@ -252,7 +252,7 @@ fn only_primary_key_can_add_secondary_key_permissions_with_externalities() {
         Identity::set_permission_to_signer(
             bob,
             Signatory::Account(charlie_key),
-            Permissions::empty()
+            secondary_key::api::Permissions::empty()
         ),
         pallet_permissions::Error::<TestStorage>::UnauthorizedCaller
     );
@@ -261,7 +261,7 @@ fn only_primary_key_can_add_secondary_key_permissions_with_externalities() {
     assert_ok!(Identity::set_permission_to_signer(
         alice,
         Signatory::Account(bob_key),
-        Permissions::empty()
+        secondary_key::api::Permissions::empty()
     ));
 }
 
@@ -311,7 +311,7 @@ fn freeze_secondary_keys_with_externalities() {
     assert_ok!(Identity::set_permission_to_signer(
         alice.clone(),
         Signatory::Account(bob_key),
-        Permissions::default()
+        secondary_key::api::Permissions::default()
     ));
 
     // unfreeze all
