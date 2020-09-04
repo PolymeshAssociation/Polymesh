@@ -22,9 +22,30 @@ impl Identifier {
     }
 
     pub fn isin(bytes: [u8; 12]) -> Option<Identifier> {
-        if isin_checksum(&bytes[..11]) == bytes[11] - b'0' {
+        let s: String = bytes
+            .iter()
+            .map(|b| byte_value(*b))
+            .map(|b| b.to_string())
+            .collect();
+
+        let mut s1 = 0;
+        let mut s2 = 0;
+        for (i, c) in s.chars().rev().enumerate() {
+            let digit = c.to_digit(10)?;
+            if i % 2 == 0 {
+                s1 += digit;
+            } else {
+                s2 += 2 * digit;
+                if digit >= 5 {
+                    s2 -= 9;
+                }
+            }
+        }
+
+        if (s1 + s2) % 10 == 0 {
             return Some(Identifier::ISIN(bytes));
         }
+
         None
     }
 
@@ -41,43 +62,6 @@ fn cusip_checksum(bytes: &[u8]) -> u8 {
             v *= 2
         }
         total += (v / 10) + v % 10;
-    }
-    (10 - (total % 10)) % 10
-}
-
-fn isin_checksum(bytes: &[u8]) -> u8 {
-    let mut total = 0;
-    let parity = (bytes.len() - 1) % 2;
-    let mut i = 0;
-    for b in bytes.iter() {
-        let mut v = byte_value(*b);
-        if v > 9 {
-            let mut v1 = v / 10;
-            let mut v2 = v % 10;
-            if i % 2 == parity {
-                v1 *= 2;
-            }
-            if (i + 1) % 2 == parity {
-                v2 *= 2;
-            }
-            if v1 > 9 {
-                v1 -= 9;
-            }
-            if v2 > 9 {
-                v2 -= 9;
-            }
-            total += v1 + v2;
-            i += 2;
-        } else {
-            if i % 2 == parity {
-                v *= 2
-            }
-            if v > 9 {
-                v -= 9;
-            }
-            total += v;
-            i += 1;
-        }
     }
     (10 - (total % 10)) % 10
 }
@@ -143,12 +127,17 @@ mod tests {
             Some(Identifier::ISIN(*b"US0004026250"))
         );
         assert_eq!(
-            Identifier::isin(*b"JP000K0VF054"),
-            Some(Identifier::ISIN(*b"JP000K0VF054"))
+            Identifier::isin(*b"AU0000XVGZA3"),
+            Some(Identifier::ISIN(*b"AU0000XVGZA3"))
         );
-        assert_eq!(isin_checksum(b"896101950123440000"), 1);
-        assert_eq!(isin_checksum(b"950123440000"), 8);
-        assert_eq!(Identifier::isin(*b"US0378331006"), None);
-        assert_eq!(Identifier::isin(*b"CA0378331005"), None);
+        assert_eq!(
+            Identifier::isin(*b"AU0000VXGZA3"),
+            Some(Identifier::ISIN(*b"AU0000VXGZA3"))
+        );
+        assert_eq!(
+            Identifier::isin(*b"FR0000988040"),
+            Some(Identifier::ISIN(*b"FR0000988040"))
+        );
+        assert_eq!(Identifier::isin(*b"US0373831005"), None);
     }
 }
