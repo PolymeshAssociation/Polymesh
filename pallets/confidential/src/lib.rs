@@ -15,7 +15,7 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 #![feature(box_syntax)]
 
-use polymesh_common_utilities::{identity::Trait as IdentityTrait, Context};
+use polymesh_common_utilities::identity::Trait as IdentityTrait;
 use polymesh_primitives::{IdentityId, Ticker};
 use polymesh_primitives_derive::{SliceU8StrongTyped, VecU8StrongTyped};
 

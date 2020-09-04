@@ -33,8 +33,6 @@ use frame_support::{
 };
 use sp_core::H512;
 use sp_runtime::traits::{Dispatchable, IdentifyAccount, Member, Verify};
-#[cfg(feature = "std")]
-use sp_runtime::{Deserialize, Serialize};
 use sp_std::vec::Vec;
 
 pub type AuthorizationNonce = u64;

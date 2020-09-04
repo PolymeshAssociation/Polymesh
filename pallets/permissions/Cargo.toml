@@ -15,7 +15,6 @@ serde = { version = "1.0.104", default-features = false }
 # Substrate
 codec = { package = "parity-scale-codec", version = "1.1.0", default-features = false, features = ["derive"] }
 frame-support = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "at-add-dispatch-call" }
-frame-system = { package = "frame-system", git = "https://github.com/paritytech/substrate", default-features = false, branch = "at-add-dispatch-call" }
 sp-runtime = { package = "sp-runtime", git = "https://github.com/paritytech/substrate", default-features = false, branch = "at-add-dispatch-call" }
 sp-std = { package = "sp-std", git = "https://github.com/paritytech/substrate", default-features = false, branch = "at-add-dispatch-call" }
 frame-benchmarking = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "at-add-dispatch-call", optional = true }
@@ -28,7 +27,6 @@ only-staking = []
 std = [
     "codec/std",
     "frame-support/std",
-    "frame-system/std",
     "polymesh-common-utilities/std",
     "polymesh-primitives/std",
     "serde/std",
@@ -37,6 +35,5 @@ std = [
 ]
 runtime-benchmarks = [
     "frame-benchmarking",
-    "frame-system/runtime-benchmarks",
     "sp-runtime/runtime-benchmarks",
 ]

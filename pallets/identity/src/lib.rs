@@ -271,7 +271,6 @@ decl_module! {
             secondary_keys: Vec<SecondaryKey<T::AccountId>>,
         ) -> DispatchResult {
             let sender = ensure_signed(origin)?;
-            // CallPermissions::<T>::ensure_call_permissions(&sender)?;
             Self::_register_did(sender.clone(), secondary_keys, Some(ProtocolOp::IdentityRegisterDid))?;
 
             // Add CDD claim
@@ -304,9 +303,7 @@ decl_module! {
             secondary_keys: Vec<SecondaryKey<T::AccountId>>
         ) -> DispatchResult {
             // Sender has to be part of CDDProviders
-            let cdd_sender = ensure_signed(origin)?;
-            CallPermissions::<T>::ensure_call_permissions(&cdd_sender)?;
-            let cdd_id = Context::current_identity_or::<Self>(&cdd_sender)?;
+            let cdd_id = Self::ensure_origin_call_permissions(origin)?.1;
 
             let cdd_providers = T::CddServiceProviders::get_members();
             ensure!(cdd_providers.contains(&cdd_id), Error::<T>::UnAuthorizedCddProvider);
@@ -354,9 +351,7 @@ decl_module! {
             Pays::Yes
         )]
         pub fn remove_secondary_keys(origin, signers_to_remove: Vec<Signatory<T::AccountId>>) -> DispatchResult {
-            let sender = ensure_signed(origin)?;
-            CallPermissions::<T>::ensure_call_permissions(&sender)?;
-            let did = Context::current_identity_or::<Self>(&sender)?;
+            let (sender, did) = Self::ensure_origin_call_permissions(origin)?;
             let _grants_checked = Self::grant_check_only_primary_key(&sender, did)?;
 
             // Remove links and get all authorization IDs per signer.
@@ -503,9 +498,7 @@ decl_module! {
             claim: Claim,
             expiry: Option<T::Moment>,
         ) -> DispatchResult {
-            let sender = ensure_signed(origin)?;
-            CallPermissions::<T>::ensure_call_permissions(&sender)?;
-            let issuer = Context::current_identity_or::<Self>(&sender)?;
+            let issuer = Self::ensure_origin_call_permissions(origin)?.1;
             ensure!(<DidRecords<T>>::contains_key(target), Error::<T>::DidMustAlreadyExist);
 
             match &claim {
@@ -579,9 +572,7 @@ decl_module! {
             target: IdentityId,
             claim: Claim,
         ) -> DispatchResult {
-            let sender = ensure_signed(origin)?;
-            CallPermissions::<T>::ensure_call_permissions(&sender)?;
-            let issuer = Context::current_identity_or::<Self>(&sender)?;
+            let issuer = Self::ensure_origin_call_permissions(origin)?.1;
             let claim_type = claim.claim_type();
             let scope = claim.as_scope().cloned();
 
@@ -625,9 +616,7 @@ decl_module! {
             signer: Signatory<T::AccountId>,
             permissions: Permissions
         ) -> DispatchResult {
-            let sender = ensure_signed(origin)?;
-            CallPermissions::<T>::ensure_call_permissions(&sender)?;
-            let did = Context::current_identity_or::<Self>(&sender)?;
+            let (sender, did) = Self::ensure_origin_call_permissions(origin)?;
             let record = Self::grant_check_only_primary_key(&sender, did)?;
 
             // You are trying to add a permission to did's primary key. It is not needed.
@@ -657,10 +646,7 @@ decl_module! {
         /// Emits an event with caller's identity.
         #[weight = 800_000_000]
         pub fn get_my_did(origin) -> DispatchResult {
-            let sender = ensure_signed(origin)?;
-            CallPermissions::<T>::ensure_call_permissions(&sender)?;
-            let did = Context::current_identity_or::<Self>(&sender)?;
-
+            let (sender, did) = Self::ensure_origin_call_permissions(origin)?;
             Self::deposit_event(RawEvent::DidStatus(did, sender));
             Ok(())
         }
@@ -691,9 +677,7 @@ decl_module! {
             authorization_data: AuthorizationData<T::AccountId>,
             expiry: Option<T::Moment>
         ) -> DispatchResult {
-            let sender = ensure_signed(origin)?;
-            CallPermissions::<T>::ensure_call_permissions(&sender)?;
-            let from_did = Context::current_identity_or::<Self>(&sender)?;
+            let from_did = Self::ensure_origin_call_permissions(origin)?.1;
             Self::add_auth(from_did, target, authorization_data, expiry);
             Ok(())
         }
@@ -705,9 +689,7 @@ decl_module! {
             target: Signatory<T::AccountId>,
             auth_id: u64
         ) -> DispatchResult {
-            let sender = ensure_signed(origin)?;
-            CallPermissions::<T>::ensure_call_permissions(&sender)?;
-            let from_did = Context::current_identity_or::<Self>(&sender)?;
+            let (sender, from_did) = Self::ensure_origin_call_permissions(origin)?;
 
             let auth = Self::ensure_authorization(&target, auth_id)?;
             let revoked = auth.authorized_by == from_did;
@@ -805,17 +787,15 @@ decl_module! {
             additional_keys: Vec<SecondaryKeyWithAuth<T::AccountId>>,
             expires_at: T::Moment
         ) -> DispatchResult {
-            let sender = ensure_signed(origin)?;
-            CallPermissions::<T>::ensure_call_permissions(&sender)?;
-            let id = Context::current_identity_or::<Self>(&sender)?;
-            let _grants_checked = Self::grant_check_only_primary_key(&sender, id)?;
+            let (sender, did) = Self::ensure_origin_call_permissions(origin)?;
+            let _grants_checked = Self::grant_check_only_primary_key(&sender, did)?;
 
             // 0. Check expiration
             let now = <pallet_timestamp::Module<T>>::get();
             ensure!(now < expires_at, Error::<T>::AuthorizationExpired);
             let authorization = TargetIdAuthorization {
-                target_id: id,
-                nonce: Self::offchain_authorization_nonce(id),
+                target_id: did,
+                nonce: Self::offchain_authorization_nonce(did),
                 expires_at
             };
             let auth_encoded = authorization.encode();
@@ -870,18 +850,18 @@ decl_module! {
 
             additional_keys_si.iter().for_each(|sk| {
                 if let Signatory::Account(key) = &sk.signer {
-                    Self::link_account_key_to_did(key, id);
+                    Self::link_account_key_to_did(key, did);
                 }
             });
             // 2.2. Update that identity information and its offchain authorization nonce.
-            <DidRecords<T>>::mutate(id, |record| {
+            <DidRecords<T>>::mutate(did, |record| {
                 (*record).add_secondary_keys(&additional_keys_si[..]);
             });
-            <OffChainAuthorizationNonce>::mutate(id, |offchain_nonce| {
+            <OffChainAuthorizationNonce>::mutate(did, |offchain_nonce| {
                 *offchain_nonce = authorization.nonce + 1;
             });
 
-            Self::deposit_event(RawEvent::SecondaryKeysAdded(id, additional_keys_si));
+            Self::deposit_event(RawEvent::SecondaryKeysAdded(did, additional_keys_si));
 
             Ok(())
         }
@@ -1047,9 +1027,7 @@ impl<T: Trait> Module<T> {
                 charge_fee()?;
                 Self::link_account_key_to_did(key, target_did);
             }
-            Signatory::Identity(source_did) => {
-                charge_fee()?;
-            }
+            Signatory::Identity(_) => charge_fee()?,
         }
 
         // Link the secondary key.
@@ -1959,7 +1937,6 @@ impl<T: Trait> Module<T> {
         let did = Context::current_identity_or::<Self>(&sender)?;
         Ok((sender, did))
     }
-
 }
 
 impl<T: Trait> IdentityTrait<T::AccountId> for Module<T> {
