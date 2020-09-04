@@ -18,10 +18,7 @@ impl Identifier {
     }
 
     pub fn cins(bytes: [u8; 9]) -> Option<Identifier> {
-        if luhn_checksum(&bytes[..8]) == bytes[8] - b'0' {
-            return Some(Identifier::CINS(bytes));
-        }
-        None
+        unimplemented!()
     }
 
     pub fn isin(bytes: [u8; 12]) -> Option<Identifier> {
@@ -29,6 +26,10 @@ impl Identifier {
             return Some(Identifier::ISIN(bytes));
         }
         None
+    }
+
+    pub fn lei(bytes: [u8; 20]) -> Option<Identifier> {
+        unimplemented!()
     }
 }
 
@@ -57,7 +58,7 @@ fn isin_checksum(bytes: &[u8]) -> u8 {
             if i % 2 == parity {
                 v1 *= 2;
             }
-            if (i + 1) % 2 == parity{
+            if (i + 1) % 2 == parity {
                 v2 *= 2;
             }
             if v1 > 9 {
@@ -129,17 +130,18 @@ mod tests {
             Identifier::cins(*b"S08000AA4"),
             Some(Identifier::CINS(*b"S08000AA4"))
         );
-        assert_eq!(
-            Identifier::cins(*b"S08000AA2"),
-            None
-        );
+        assert_eq!(Identifier::cins(*b"S08000AA2"), None);
     }
 
-     #[test]
+    #[test]
     fn isin() {
         assert_eq!(
             Identifier::isin(*b"US0378331005"),
             Some(Identifier::ISIN(*b"US0378331005"))
         );
+        assert_eq!(isin_checksum(b"896101950123440000"), 1);
+        assert_eq!(isin_checksum(b"950123440000"), 8);
+        assert_eq!(Identifier::isin(*b"US0378331006"), None);
+        assert_eq!(Identifier::isin(*b"CA0378331005"), None);
     }
 }
