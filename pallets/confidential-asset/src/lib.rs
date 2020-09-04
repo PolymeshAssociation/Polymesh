@@ -97,10 +97,10 @@ decl_module! {
         /// Initialize the default event for this module
         fn deposit_event() = default;
 
-        /// TODO: CRYP-153 will most likely change it into a private function that is called
-        /// when a new ticker name is registered.
+        /// TODO: CRYP-153 will most likely change this. The modified version of this function
+        /// will be called when a new ticker name is registered.
         #[weight = 1_000_000_000]
-        pub fn store_valid_asset_ids(
+        pub fn create_confidential_asset(
             origin,
             valid_asset_ids: Vec<AssetId>,
         ) -> DispatchResult

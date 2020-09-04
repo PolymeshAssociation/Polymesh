@@ -41,7 +41,7 @@ fn account_create_tx_valid_asset_id() {
         .map(|id| AssetId::from(id.clone()))
         .collect();
 
-    ConfidentialAsset::store_valid_asset_ids(Origin::signed(issuer), valid_asset_ids.clone())
+    ConfidentialAsset::create_confidential_asset(Origin::signed(issuer), valid_asset_ids.clone())
         .unwrap();
 
     // ------------- START: Computations that will happen in Alice's Wallet ----------
