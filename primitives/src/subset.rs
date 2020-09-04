@@ -44,31 +44,25 @@ pub trait LatticeOrd {
 /// The type of subsets of an open set of elements of type `A` where the whole set is always
 /// considered to be bigger than any finite set of its elements. This is true for infinite
 /// sets. When talking about finite sets, we have to add that they are _open_.
-#[derive(Encode, Decode, Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
+///
+/// The meaning of the parameter:
+/// - `None`: no restrictions, the whole set.
+/// - `Some(elems)`: the subset of elements in `elems`.
+///    A particular case is the empty set where `elems` is empty.
+#[derive(Encode, Decode, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Default)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-pub enum Subset<A: Ord> {
-    /// The set of all elements.
-    All,
-    /// A subset of given elements. It is strictly contained in [`Subset::All`].
-    Elems(BTreeSet<A>),
-}
+pub struct SubsetRestriction<A: Ord>(pub Option<BTreeSet<A>>);
 
-impl<A: Ord> Default for Subset<A> {
-    fn default() -> Self {
-        Self::All
-    }
-}
-
-impl<A> LatticeOrd for Subset<A>
+impl<A> LatticeOrd for SubsetRestriction<A>
 where
     A: Clone + Ord + PartialEq,
 {
     fn lattice_cmp(&self, other: &Self) -> LatticeOrdering {
-        match (self, other) {
-            (Subset::All, Subset::All) => LatticeOrdering::Equal,
-            (_, Subset::All) => LatticeOrdering::Less,
-            (Subset::All, _) => LatticeOrdering::Greater,
-            (Subset::Elems(a), Subset::Elems(b)) => match (a.is_subset(&b), b.is_subset(&a)) {
+        match (&self.0, &other.0) {
+            (None, None) => LatticeOrdering::Equal,
+            (_, None) => LatticeOrdering::Less,
+            (None, _) => LatticeOrdering::Greater,
+            (Some(a), Some(b)) => match (a.is_subset(b), b.is_subset(a)) {
                 (true, true) => LatticeOrdering::Equal,
                 (true, false) => LatticeOrdering::Less,
                 (false, true) => LatticeOrdering::Greater,
@@ -78,29 +72,18 @@ where
     }
 }
 
-impl<A> FromIterator<A> for Subset<A>
-where
-    A: Clone + Ord + PartialEq,
-{
-    fn from_iter<I: IntoIterator<Item = A>>(iter: I) -> Subset<A> {
-        let mut set = BTreeSet::new();
-        set.extend(iter);
-        Subset::Elems(set)
-    }
-}
-
-impl<A> Subset<A>
+impl<A> SubsetRestriction<A>
 where
     A: Clone + Ord + PartialEq,
 {
     /// Constructs the empty subset.
     pub fn empty() -> Self {
-        Subset::Elems(BTreeSet::new())
+        Self(Some(BTreeSet::new()))
     }
 
     /// Constructs a subset with one element.
     pub fn elem(a: A) -> Self {
-        Subset::Elems(BTreeSet::from_iter(iter::once(a)))
+        Self(Some(BTreeSet::from_iter(iter::once(a))))
     }
 
     /// Computes whether the first subset is greater than or equal to the second subset.
@@ -113,20 +96,14 @@ where
 
     /// Returns the number of elements in the subset if known. Otherwise returns `None`.
     pub fn elems_len(&self) -> Option<usize> {
-        if let Self::Elems(elems) = self {
-            Some(elems.len())
-        } else {
-            None
-        }
+        self.0.as_ref().map(|elems| elems.len())
     }
 
     /// Set union operation on `self` and `other`.
     pub fn union(&self, other: &Self) -> Self {
-        match (self, other) {
-            (Subset::All, _) | (_, Subset::All) => Subset::All,
-            (Subset::Elems(elems1), Subset::Elems(elems2)) => {
-                Subset::Elems(elems1.union(elems2).cloned().collect())
-            }
+        match (&self.0, &other.0) {
+            (None, _) | (_, None) => Self(None),
+            (Some(elems1), Some(elems2)) => Self(Some(elems1.union(elems2).cloned().collect())),
         }
     }
 }
@@ -138,11 +115,11 @@ mod tests {
 
     #[test]
     fn lattice_cmp() {
-        let t: Subset<bool> = Subset::elem(true);
-        let f: Subset<bool> = Subset::elem(false);
-        let tf: Subset<bool> = Subset::from_iter(vec![true, false].into_iter());
-        let ft: Subset<bool> = Subset::from_iter(vec![false, true].into_iter());
-        let all = Subset::All;
+        let t: SubsetRestriction<bool> = SubsetRestriction::elem(true);
+        let f: SubsetRestriction<bool> = SubsetRestriction::elem(false);
+        let tf: SubsetRestriction<bool> = SubsetRestriction::from_iter(vec![true, false].into_iter());
+        let ft: SubsetRestriction<bool> = SubsetRestriction::from_iter(vec![false, true].into_iter());
+        let all = SubsetRestriction(None);
         assert_eq!(t.lattice_cmp(&t), LatticeOrdering::Equal);
         assert_eq!(t.lattice_cmp(&tf), LatticeOrdering::Less);
         assert_eq!(f.lattice_cmp(&tf), LatticeOrdering::Less);

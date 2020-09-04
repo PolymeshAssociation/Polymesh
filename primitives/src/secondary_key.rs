@@ -13,7 +13,7 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
-use crate::{FunctionName, IdentityId, PalletName, PortfolioNumber, Subset, Ticker};
+use crate::{FunctionName, IdentityId, PalletName, PortfolioNumber, SubsetRestriction, Ticker};
 use codec::{Decode, Encode};
 #[cfg(feature = "std")]
 use sp_runtime::{Deserialize, Serialize};
@@ -23,22 +23,27 @@ use sp_std::{
 };
 
 /// Asset permissions.
-pub type AssetPermissions = Subset<Ticker>;
+pub type AssetPermissions = SubsetRestriction<Ticker>;
 
-/// The permission to call specific functions (using `Subset::Elem`) or all functions (using
-/// `Subset::All`) within a given pallet.
+/// A permission to call
+///
+/// - specific functions, using `SubsetRestriction(Some(_))`, or
+///
+/// - all functions, using `SubsetRestriction(None)`
+///
+/// within a given pallet `pallet_name`.
 #[derive(Decode, Encode, Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 pub struct PalletPermissions {
     /// The name of a pallet.
     pub pallet_name: PalletName,
     /// A subset of function names within the pallet.
-    pub function_names: Subset<FunctionName>,
+    pub function_names: SubsetRestriction<FunctionName>,
 }
 
 impl PalletPermissions {
     /// Constructs new pallet permissions from given arguments.
-    pub fn new(pallet_name: PalletName, function_names: Subset<FunctionName>) -> Self {
+    pub fn new(pallet_name: PalletName, function_names: SubsetRestriction<FunctionName>) -> Self {
         PalletPermissions {
             pallet_name,
             function_names,
@@ -49,16 +54,16 @@ impl PalletPermissions {
     pub fn entire_pallet(pallet_name: PalletName) -> Self {
         PalletPermissions {
             pallet_name,
-            function_names: Subset::All,
+            function_names: SubsetRestriction(None),
         }
     }
 }
 
 /// Extrinsic permissions.
-pub type ExtrinsicPermissions = Subset<PalletPermissions>;
+pub type ExtrinsicPermissions = SubsetRestriction<PalletPermissions>;
 
 /// Portfolio permissions.
-pub type PortfolioPermissions = Subset<PortfolioNumber>;
+pub type PortfolioPermissions = SubsetRestriction<PortfolioNumber>;
 
 /// Signing key permissions.
 ///
@@ -80,9 +85,9 @@ impl Permissions {
     /// The empty permissions.
     pub fn empty() -> Self {
         Self {
-            asset: Subset::empty(),
-            extrinsic: Subset::empty(),
-            portfolio: Subset::empty(),
+            asset: SubsetRestriction::empty(),
+            extrinsic: SubsetRestriction::empty(),
+            portfolio: SubsetRestriction::empty(),
         }
     }
 
@@ -92,18 +97,18 @@ impl Permissions {
         I: IntoIterator<Item = PalletPermissions>,
     {
         Self {
-            asset: Subset::empty(),
-            extrinsic: Subset::Elems(pallet_permissions.into_iter().collect()),
-            portfolio: Subset::empty(),
+            asset: SubsetRestriction::empty(),
+            extrinsic: SubsetRestriction(Some(pallet_permissions.into_iter().collect())),
+            portfolio: SubsetRestriction::empty(),
         }
     }
 
     /// Adds extra extrinsic permissions to `self` for just one pallet. The result is stored in
     /// `self`.
     pub fn add_pallet_permissions(&mut self, pallet_permissions: PalletPermissions) {
-        self.extrinsic = self
-            .extrinsic
-            .union(&Subset::Elems(iter::once(pallet_permissions).collect()));
+        self.extrinsic = self.extrinsic.union(&SubsetRestriction(Some(
+            iter::once(pallet_permissions).collect(),
+        )));
     }
 }
 
@@ -225,7 +230,7 @@ impl<AccountId> SecondaryKey<AccountId> {
 
     /// Checks if the given key has permission to access the given asset.
     pub fn has_asset_permission(&self, asset: Ticker) -> bool {
-        self.permissions.asset.ge(&Subset::elem(asset))
+        self.permissions.asset.ge(&SubsetRestriction::elem(asset))
     }
 
     /// Checks if the given key has permission to call the given extrinsic.
@@ -234,17 +239,17 @@ impl<AccountId> SecondaryKey<AccountId> {
         pallet_name: &PalletName,
         function_name: &FunctionName,
     ) -> bool {
-        match &self.permissions.extrinsic {
-            Subset::All => true,
-            Subset::Elems(pallet_perms) => pallet_perms
+        match &self.permissions.extrinsic.0 {
+            None => true,
+            Some(pallet_perms) => pallet_perms
                 .iter()
                 .find(|perm| {
                     if &perm.pallet_name != pallet_name {
                         return false;
                     }
-                    match &perm.function_names {
-                        Subset::All => true,
-                        Subset::Elems(funcs) => funcs.contains(function_name),
+                    match &perm.function_names.0 {
+                        None => true,
+                        Some(funcs) => funcs.contains(function_name),
                     }
                 })
                 .is_some(),
@@ -253,7 +258,9 @@ impl<AccountId> SecondaryKey<AccountId> {
 
     /// Checks if the given key has permission to access the given portfolio.
     pub fn has_portfolio_permission(&self, portfolio: PortfolioNumber) -> bool {
-        self.permissions.portfolio.ge(&Subset::elem(portfolio))
+        self.permissions
+            .portfolio
+            .ge(&SubsetRestriction::elem(portfolio))
     }
 }
 
@@ -306,7 +313,7 @@ where
 
 #[cfg(test)]
 mod tests {
-    use super::{Permissions, SecondaryKey, Signatory, Subset};
+    use super::{Permissions, SecondaryKey, Signatory, SubsetRestriction};
     use crate::{IdentityId, Ticker};
     use sp_core::sr25519::Public;
     use std::convert::{From, TryFrom};
@@ -320,9 +327,9 @@ mod tests {
         assert_eq!(rk1, rk2);
 
         let rk3_permissions = Permissions {
-            asset: Subset::elem(Ticker::try_from(&[1][..]).unwrap()),
-            extrinsic: Subset::All,
-            portfolio: Subset::elem(1),
+            asset: SubsetRestriction::elem(Ticker::try_from(&[1][..]).unwrap()),
+            extrinsic: SubsetRestriction(None),
+            portfolio: SubsetRestriction::elem(1),
         };
         let rk3 = SecondaryKey::new(Signatory::Account(key.clone()), rk3_permissions.clone());
         assert_ne!(rk1, rk3);
@@ -347,9 +354,9 @@ mod tests {
         let ticker1 = Ticker::try_from(&[1][..]).unwrap();
         let ticker2 = Ticker::try_from(&[2][..]).unwrap();
         let permissions = Permissions {
-            asset: Subset::elem(ticker1),
-            extrinsic: Subset::All,
-            portfolio: Subset::elem(1),
+            asset: SubsetRestriction::elem(ticker1),
+            extrinsic: SubsetRestriction(None),
+            portfolio: SubsetRestriction::elem(1),
         };
         let free_key = SecondaryKey::new(Signatory::Account(key.clone()), Permissions::default());
         let restricted_key = SecondaryKey::new(Signatory::Account(key), permissions.clone());

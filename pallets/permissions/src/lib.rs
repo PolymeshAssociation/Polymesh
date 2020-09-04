@@ -69,14 +69,8 @@ impl<T: Trait> Module<T> {
 }
 
 /// A signed extension used in checking call permissions.
-#[derive(Encode, Decode, Clone, Eq, PartialEq)]
+#[derive(Encode, Decode, Clone, Eq, PartialEq, Default)]
 pub struct StoreCallMetadata<T: Trait + Send + Sync>(PhantomData<T>);
-
-impl<T: Trait + Send + Sync> Default for StoreCallMetadata<T> {
-    fn default() -> Self {
-        StoreCallMetadata(PhantomData::<T>::default())
-    }
-}
 
 impl<T: Trait + Send + Sync> fmt::Debug for StoreCallMetadata<T> {
     #[cfg(feature = "std")]
@@ -96,7 +90,7 @@ where
 {
     /// Constructs a new store for call metadata.
     pub fn new() -> Self {
-        Default::default()
+        Self(Default::default())
     }
 
     /// Replaces the current call metadata with the given ones and returns the old, replaced call
