@@ -13,7 +13,7 @@ use pallet_confidential as confidential;
 use pallet_group as group;
 use pallet_identity::{
     self as identity,
-    types::{AssetDidResult, CddStatus, DidRecords, DidStatus},
+    types::{AssetDidResult, CddStatus, DidRecords, DidStatus, KeyIdentityData},
 };
 use pallet_multisig as multisig;
 use pallet_pips::{HistoricalVotingByAddress, HistoricalVotingById, Vote, VoteCount};
@@ -1101,10 +1101,8 @@ impl_runtime_apis! {
 
         /// RPC call to query the given ticker did
         fn get_asset_did(ticker: Ticker) -> AssetDidResult {
-            match Identity::get_asset_did(ticker) {
-                Ok(did) => Ok(did),
-                Err(_) => Err("Error in computing the given ticker error".into()),
-            }
+            Identity::get_asset_did(ticker)
+                .map_err(|_| "Error in computing the given ticker error".into())
         }
 
         /// Retrieve primary key and secondary keys for a given IdentityId
@@ -1115,6 +1113,10 @@ impl_runtime_apis! {
         /// Retrieve the status of the DIDs
         fn get_did_status(dids: Vec<IdentityId>) -> Vec<DidStatus> {
             Identity::get_did_status(dids)
+        }
+
+        fn get_key_identity_data(acc: AccountId) -> Option<KeyIdentityData<IdentityId>> {
+            Identity::get_key_identity_data(acc)
         }
 
         /// Retrieve list of a authorization for a given signatory

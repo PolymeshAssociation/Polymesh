@@ -125,6 +125,10 @@
             "primary_key": "AccountId",
             "secondary_keys": "Vec<SecondaryKey>"
         },
+        "KeyIdentityData": {
+            "identity": "IdentityId",
+            "permissions": "Option<Vec<Permission>>"
+        },
         "CountryCode": {
             "_enum": [
                 "AF",
@@ -1111,6 +1115,22 @@
                     }
                 ],
                 "type": "Vec<Authorization>"
+            },
+            "getKeyIdentityData": {
+                "description": "Query relation between a signing key and a DID",
+                "params": [
+                    {
+                        "name": "acc",
+                        "type": "AccountId",
+                        "isOptional": false
+                    },
+                    {
+                        "name": "blockHash",
+                        "type": "Hash",
+                        "isOptional": true
+                    }
+                ],
+                "type": "Option<KeyIdentityData<IdentityId>>"
             }
         },
         "pips": {
