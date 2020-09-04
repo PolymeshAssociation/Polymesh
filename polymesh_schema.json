@@ -406,7 +406,7 @@
         "ComplianceRequirementResult": {
             "sender_conditions": "Vec<Condition>",
             "receiver_conditions": "Vec<Condition>",
-            "id": "u32",
+            "id": "Option<u32>",
             "result": "bool"
         },
         "ConditionType": {
@@ -695,6 +695,7 @@
         "AssetComplianceResult": {
             "paused": "bool",
             "requirements": "Vec<ComplianceRequirementResult>",
+            "implicit_requirements": "Option<ComplianceRequirementResult>",
             "result": "bool"
         },
         "Claim1stKey": {
