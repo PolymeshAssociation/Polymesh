@@ -11,7 +11,7 @@ pub enum Identifier {
 
 impl Identifier {
     pub fn cusip(bytes: [u8; 9]) -> Option<Identifier> {
-        if luhn_checksum(&bytes[..8]) == bytes[8] - b'0' {
+        if cusip_checksum(&bytes[..8]) == bytes[8] - b'0' {
             return Some(Identifier::CUSIP(bytes));
         }
         None
@@ -33,8 +33,7 @@ impl Identifier {
     }
 }
 
-// Luhn algorithm - https://en.wikipedia.org/wiki/Luhn_algorithm
-fn luhn_checksum(bytes: &[u8]) -> u8 {
+fn cusip_checksum(bytes: &[u8]) -> u8 {
     let mut total = 0;
     for (i, b) in bytes.iter().enumerate() {
         let mut v = byte_value(*b);
@@ -138,6 +137,14 @@ mod tests {
         assert_eq!(
             Identifier::isin(*b"US0378331005"),
             Some(Identifier::ISIN(*b"US0378331005"))
+        );
+        assert_eq!(
+            Identifier::isin(*b"US0004026250"),
+            Some(Identifier::ISIN(*b"US0004026250"))
+        );
+        assert_eq!(
+            Identifier::isin(*b"JP000K0VF054"),
+            Some(Identifier::ISIN(*b"JP000K0VF054"))
         );
         assert_eq!(isin_checksum(b"896101950123440000"), 1);
         assert_eq!(isin_checksum(b"950123440000"), 8);
