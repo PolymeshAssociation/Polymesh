@@ -10,8 +10,8 @@ serde = { version = "1.0.104", features = ["derive"] }
 jsonrpc-core = "14.0.5"
 jsonrpc-core-client = "14.0.5"
 jsonrpc-derive = "14.0.5"
-sp-runtime = { git = 'https://github.com/paritytech/substrate', default_features = false, tag = "v2.0.0-rc5+2" }
-sp-blockchain = { git = 'https://github.com/paritytech/substrate', default_features = false, tag = "v2.0.0-rc5+2"}
-sp-api = { git = 'https://github.com/paritytech/substrate', default_features = false, tag = "v2.0.0-rc5+2"}
+sp-runtime = { git = 'https://github.com/paritytech/substrate', default_features = false, tag = "v2.0.0-rc6" }
+sp-blockchain = { git = 'https://github.com/paritytech/substrate', default_features = false, tag = "v2.0.0-rc6"}
+sp-api = { git = 'https://github.com/paritytech/substrate', default_features = false, tag = "v2.0.0-rc6"}
 
 pallet-staking-rpc-runtime-api = { version = "2.0.0", path = "./runtime-api" }
