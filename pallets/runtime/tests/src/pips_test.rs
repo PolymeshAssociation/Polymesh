@@ -1852,6 +1852,10 @@ fn enact_snapshot_results_works() {
             root(),
             vec![(1, SnapshotResult::Approve)]
         ));
+        assert_last_event!(
+            Event::SnapshotResultsEnacted(_, Some(1), a, b, c),
+            a.is_empty() && b.is_empty() && c == &[1]
+        );
         assert_state(1, false, ProposalState::Scheduled);
         assert_eq!(Pips::snapshot_queue(), mk_queue(&[3]));
 
@@ -1859,7 +1863,7 @@ fn enact_snapshot_results_works() {
         assert_ok!(Pips::clear_snapshot(user.signer()));
         assert_ok!(Pips::enact_snapshot_results(root(), vec![]));
         assert_last_event!(
-            Event::SnapshotResultsEnacted(_, a, b, c),
+            Event::SnapshotResultsEnacted(_, None, a, b, c),
             a.is_empty() && b.is_empty() && c.is_empty()
         )
     });

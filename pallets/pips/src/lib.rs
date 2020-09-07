@@ -491,8 +491,8 @@ decl_event!(
         /// (gc_did, pip_id, new_skip_count)
         PipSkipped(IdentityId, PipId, SkippedCount),
         /// Results (e.g., approved, rejected, and skipped), were enacted for some PIPs.
-        /// (gc_did, skipped_pips_with_new_count, rejected_pips, approved_pips)
-        SnapshotResultsEnacted(IdentityId, Vec<(PipId, SkippedCount)>, Vec<PipId>, Vec<PipId>),
+        /// (gc_did, snapshot_id_opt, skipped_pips_with_new_count, rejected_pips, approved_pips)
+        SnapshotResultsEnacted(IdentityId, Option<SnapshotId>, Vec<(PipId, SkippedCount)>, Vec<PipId>, Vec<PipId>),
     }
 );
 
@@ -1081,7 +1081,8 @@ decl_module! {
                     Self::schedule_pip_for_execution(GC_DID, pip_id);
                 }
 
-                let event = RawEvent::SnapshotResultsEnacted(GC_DID, to_bump_skipped, to_reject, to_approve);
+                let id = Self::snapshot_metadata().map(|m| m.id);
+                let event = RawEvent::SnapshotResultsEnacted(GC_DID, id, to_bump_skipped, to_reject, to_approve);
                 Self::deposit_event(event);
 
                 Ok(())
