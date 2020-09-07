@@ -51,30 +51,21 @@ async function addSecondaryKeys( api, accounts, dids, secondary_accounts ) {
 
   for (let i = 0; i < accounts.length; i++) {
 
-
     // 1. Add Secondary Item to identity.
-    let nonceObj = {nonce: reqImports.nonces.get(accounts[i].address)};
     const transaction = api.tx.identity.addAuthorization({Account: secondary_accounts[i].publicKey}, {JoinIdentity: []}, null);
-    const result = await reqImports.sendTransaction(transaction, accounts[i], nonceObj);
-    const passed = result.findRecord('system', 'ExtrinsicSuccess');
-    if (passed) reqImports.fail_count--;
+    let tx = await reqImports.sendTx(accounts[i], transaction);
+    if(tx !== -1) reqImports.fail_count--;
 
-    reqImports.nonces.set(accounts[i].address, reqImports.nonces.get(accounts[i].address).addn(1));
   }
 }
 
 // Creates a multiSig Key
 async function createMultiSig( api, alice, dids, numOfSigners ) {
 
-    let nonceObj = {nonce: reqImports.nonces.get(alice.address)};
     const transaction = api.tx.multiSig.createMultisig(dids, numOfSigners);
-    const result = await reqImports.sendTransaction(transaction, alice, nonceObj);
-    const passed = result.findRecord('system', 'ExtrinsicSuccess');
-    if (passed) reqImports.fail_count--;
-
-    if (!passed) console.log('multiSig Failed');
-    reqImports.nonces.set(alice.address, reqImports.nonces.get(alice.address).addn(1));
-
+    let tx = await reqImports.sendTx(alice, transaction);
+    if(tx !== -1) reqImports.fail_count--;
+  
 }
 
 
