@@ -199,8 +199,7 @@ where
     }
 }
 
-/// A secondary key contains a type and a group of permissions.
-#[allow(missing_docs)]
+/// A secondary key is a signatory with defined permissions.
 #[derive(Encode, Decode, Default, Clone, Eq, Debug)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 pub struct SecondaryKey<AccountId> {
@@ -313,7 +312,7 @@ where
 
 /// Vectorized redefinitions of runtime types for the sake of Polkadot.JS.
 pub mod api {
-    use crate::{FunctionName, PalletName, PortfolioNumber, SubsetRestriction, Ticker};
+    use crate::{FunctionName, PalletName, PortfolioNumber, Signatory, SubsetRestriction, Ticker};
     use codec::{Decode, Encode};
     #[cfg(feature = "std")]
     use sp_runtime::{Deserialize, Serialize};
@@ -361,6 +360,16 @@ pub mod api {
         }
     }
 
+    /// A secondary key is a signatory with defined permissions.
+    #[derive(Encode, Decode, Default, Clone, PartialEq, Eq, Debug)]
+    #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+    pub struct SecondaryKey<AccountId> {
+        /// The account or identity that is the signatory of this key.
+        pub signer: Signatory<AccountId>,
+        /// The access permissions of the signing key.
+        pub permissions: Permissions,
+    }
+
     impl From<super::AssetPermissions> for AssetPermissions {
         fn from(p: super::AssetPermissions) -> AssetPermissions {
             p.0.map(|elems| elems.into_iter().collect())
@@ -394,6 +403,15 @@ pub mod api {
                 asset: p.asset.into(),
                 extrinsic: p.extrinsic.into(),
                 portfolio: p.portfolio.into(),
+            }
+        }
+    }
+
+    impl<AccountId> From<super::SecondaryKey<AccountId>> for SecondaryKey<AccountId> {
+        fn from(k: super::SecondaryKey<AccountId>) -> SecondaryKey<AccountId> {
+            SecondaryKey {
+                signer: k.signer,
+                permissions: k.permissions.into(),
             }
         }
     }
@@ -433,6 +451,15 @@ pub mod api {
                 asset: p.asset.into(),
                 extrinsic: p.extrinsic.into(),
                 portfolio: p.portfolio.into(),
+            }
+        }
+    }
+
+    impl<AccountId> From<SecondaryKey<AccountId>> for super::SecondaryKey<AccountId> {
+        fn from(k: SecondaryKey<AccountId>) -> super::SecondaryKey<AccountId> {
+            super::SecondaryKey {
+                signer: k.signer,
+                permissions: k.permissions.into(),
             }
         }
     }

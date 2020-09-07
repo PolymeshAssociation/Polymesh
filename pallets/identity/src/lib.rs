@@ -125,7 +125,7 @@ use sp_runtime::{
     },
     AnySignature,
 };
-use sp_std::{convert::TryFrom, mem::swap, prelude::*, vec};
+use sp_std::{convert::TryFrom, iter, mem::swap, prelude::*, vec};
 
 pub type Event<T> = polymesh_common_utilities::traits::identity::Event<T>;
 type CallPermissions<T> = pallet_permissions::Module<T>;
@@ -231,9 +231,9 @@ decl_storage! {
                 <Module<T>>::link_account_key_to_did(secondary_account_id, did);
                 let sk = SecondaryKey::from_account_id(secondary_account_id.clone());
                 <DidRecords<T>>::mutate(did, |record| {
-                    (*record).add_secondary_keys(&[sk.clone()]);
+                    (*record).add_secondary_keys(iter::once(sk.clone()));
                 });
-                <Module<T>>::deposit_event(RawEvent::SecondaryKeysAdded(did, [sk].to_vec()));
+                <Module<T>>::deposit_event(RawEvent::SecondaryKeysAdded(did, [sk.into()].to_vec()));
             }
         });
     }
@@ -268,7 +268,7 @@ decl_module! {
         #[weight = 5_000_000_000]
         pub fn register_did(origin,
             uid: InvestorUid,
-            secondary_keys: Vec<SecondaryKey<T::AccountId>>,
+            secondary_keys: Vec<secondary_key::api::SecondaryKey<T::AccountId>>,
         ) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             Self::_register_did(sender.clone(), secondary_keys, Some(ProtocolOp::IdentityRegisterDid))?;
@@ -300,7 +300,7 @@ decl_module! {
         pub fn cdd_register_did(
             origin,
             target_account: T::AccountId,
-            secondary_keys: Vec<SecondaryKey<T::AccountId>>
+            secondary_keys: Vec<secondary_key::api::SecondaryKey<T::AccountId>>
         ) -> DispatchResult {
             // Sender has to be part of CDDProviders
             let cdd_id = Self::ensure_origin_call_permissions(origin)?.1;
@@ -397,7 +397,7 @@ decl_module! {
 
             // Update secondary keys at Identity.
             <DidRecords<T>>::mutate(did, |record| {
-                (*record).remove_secondary_keys(&signers_to_remove);
+                (*record).remove_secondary_keys(signers_to_remove.clone().into_iter());
             });
 
             Self::deposit_event(RawEvent::SecondaryKeysRemoved(did, signers_to_remove));
@@ -806,7 +806,7 @@ decl_module! {
 
             // 1. Verify signatures.
             for si_with_auth in additional_keys.iter() {
-                let si = &si_with_auth.secondary_key;
+                let si: SecondaryKey<T::AccountId> = si_with_auth.secondary_key.clone().into();
 
                 // Get account_id from signer
                 let account_id_found = match si.signer.clone() {
@@ -848,9 +848,10 @@ decl_module! {
                 additional_keys.len()
             )?;
             // 2.1. Link keys to identity
-            let additional_keys_si = additional_keys.into_iter()
-                .map( |si_with_auth| si_with_auth.secondary_key)
-                .collect::<Vec<_>>();
+            let additional_keys_si: Vec<secondary_key::api::SecondaryKey<T::AccountId>> =
+                additional_keys.into_iter()
+                .map(|si_with_auth| si_with_auth.secondary_key)
+                .collect();
 
             additional_keys_si.iter().for_each(|sk| {
                 if let Signatory::Account(key) = &sk.signer {
@@ -859,7 +860,7 @@ decl_module! {
             });
             // 2.2. Update that identity information and its offchain authorization nonce.
             <DidRecords<T>>::mutate(did, |record| {
-                (*record).add_secondary_keys(&additional_keys_si[..]);
+                (*record).add_secondary_keys(additional_keys_si.iter().map(|sk| sk.clone().into()));
             });
             <OffChainAuthorizationNonce>::mutate(did, |offchain_nonce| {
                 *offchain_nonce = authorization.nonce + 1;
@@ -1037,9 +1038,9 @@ impl<T: Trait> Module<T> {
         // Link the secondary key.
         let sk = SecondaryKey::new(signer, permissions);
         <DidRecords<T>>::mutate(target_did, |identity| {
-            identity.add_secondary_keys(&[sk.clone()]);
+            identity.add_secondary_keys(iter::once(sk.clone()));
         });
-        Self::deposit_event(RawEvent::SecondaryKeysAdded(target_did, vec![sk]));
+        Self::deposit_event(RawEvent::SecondaryKeysAdded(target_did, vec![sk.into()]));
 
         Ok(())
     }
@@ -1270,7 +1271,7 @@ impl<T: Trait> Module<T> {
         if let Some(s) = new_s_item {
             Self::deposit_event(RawEvent::SecondaryKeyPermissionsUpdated(
                 target_did,
-                s,
+                s.into(),
                 permissions.into(),
             ));
         }
@@ -1531,7 +1532,7 @@ impl<T: Trait> Module<T> {
     /// Registers a did without adding a CDD claim for it.
     pub fn _register_did(
         sender: T::AccountId,
-        secondary_keys: Vec<SecondaryKey<T::AccountId>>,
+        secondary_keys: Vec<secondary_key::api::SecondaryKey<T::AccountId>>,
         protocol_fee_data: Option<ProtocolOp>,
     ) -> Result<IdentityId, DispatchError> {
         // Adding extrensic count to did nonce for some unpredictability
@@ -1586,7 +1587,7 @@ impl<T: Trait> Module<T> {
                 Self::add_auth(
                     did,
                     sk.signer.clone(),
-                    AuthorizationData::JoinIdentity(sk.permissions.clone()),
+                    AuthorizationData::JoinIdentity(sk.permissions.clone().into()),
                     None,
                 )
             })
@@ -1758,7 +1759,7 @@ impl<T: Trait> Module<T> {
         }
         // Update secondary keys at Identity.
         <DidRecords<T>>::mutate(did, |record| {
-            record.remove_secondary_keys(&[signer.clone()]);
+            record.remove_secondary_keys(iter::once(signer.clone()));
         });
         Self::deposit_event(RawEvent::SignerLeft(did, signer));
         Ok(())
