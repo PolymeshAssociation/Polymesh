@@ -1799,6 +1799,24 @@ impl<T: Trait> Module<T> {
 }
 
 impl<T: Trait> Module<T> {
+    /// RPC call to fetch some aggregate account data for fewer round trips.
+    pub fn get_key_identity_data(acc: T::AccountId) -> Option<types::KeyIdentityData<IdentityId>> {
+        let identity = Self::get_identity(&acc)?;
+        let record = <DidRecords<T>>::get(identity);
+        let permissions = if acc == record.primary_key {
+            None
+        } else {
+            Some(record.secondary_keys.into_iter().find_map(|sk| {
+                sk.signer.as_account().filter(|&a| a == &acc)?;
+                Some(sk.permissions)
+            })?)
+        };
+        Some(types::KeyIdentityData {
+            identity,
+            permissions,
+        })
+    }
+
     /// RPC call to know whether the given did has valid cdd claim or not
     pub fn is_identity_has_valid_cdd(
         target: IdentityId,
