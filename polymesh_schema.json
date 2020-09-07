@@ -56,17 +56,14 @@
         },
         "PalletName": "Text",
         "FunctionName": "Text",
-        "AssetPermissions": "Option<Vec<Ticker>>",
         "PalletPermissions": {
             "pallet_name": "PalletName",
             "function_names": "Option<Vec<FunctionName>>"
         },
-        "ExtrinsicPermissions": "Option<Vec<PalletPermissions>>",
-        "PortfolioPermissions": "Option<Vec<PortfolioNumber>>",
         "Permissions": {
-            "asset": "AssetPermissions",
-            "extrinsic": "ExtrinsicPermissions",
-            "portfolio": "PortfolioPermissions"
+            "asset": "Option<Vec<Ticker>>",
+            "extrinsic": "Option<Vec<PalletPermissions>>",
+            "portfolio": "Option<Vec<PortfolioNumber>>"
         },
         "Signatory": {
             "_enum": {

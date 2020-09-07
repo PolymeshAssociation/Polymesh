@@ -332,10 +332,14 @@ pub mod api {
     }
 
     /// Extrinsic permissions.
-    pub type ExtrinsicPermissions = Option<Vec<PalletPermissions>>;
+    #[derive(Encode, Decode, Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord)]
+    #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+    pub struct ExtrinsicPermissions(pub Option<Vec<PalletPermissions>>);
 
     /// Portfolio permissions.
-    pub type PortfolioPermissions = Option<Vec<PortfolioNumber>>;
+    #[derive(Encode, Decode, Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord)]
+    #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+    pub struct PortfolioPermissions(pub Option<Vec<PortfolioNumber>>);
 
     /// Signing key permissions.
     #[derive(Encode, Decode, Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord)]
