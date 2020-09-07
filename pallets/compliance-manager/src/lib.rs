@@ -843,7 +843,20 @@ impl<T: Trait> Module<T> {
                 asset_compliance_with_results.result = true;
             }
         }
+        // Aggregating the result with the implicit requirement result.
+        asset_compliance_with_results.result =
+            Self::compute_final_result(&asset_compliance_with_results);
         asset_compliance_with_results
+    }
+
+    fn compute_final_result(asset_compliance: &AssetComplianceResult) -> bool {
+        let compliance_result = asset_compliance.result;
+        asset_compliance
+            .implicit_requirements
+            .as_ref()
+            .map_or(compliance_result, |imp_result| {
+                imp_result.result && compliance_result
+            })
     }
 
     fn verify_compliance_complexity(
@@ -1029,7 +1042,6 @@ impl<T: Trait> ComplianceManagerTrait<T::Balance> for Module<T> {
                 }
             }
         }
-        sp_runtime::print("Identity TM restrictions not satisfied");
         Ok((
             ERC1400_TRANSFER_FAILURE,
             weight_for::weight_for_verify_restriction::<T>(
