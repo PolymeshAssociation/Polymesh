@@ -9,6 +9,7 @@ use sp_std::{prelude::*, vec::Vec};
 pub type Error = Vec<u8>;
 pub type CddStatus = Result<IdentityId, Error>;
 pub type AssetDidResult = Result<IdentityId, Error>;
+type Permissions = Vec<polymesh_primitives::Permission>;
 
 /// A result of execution of get_votes.
 #[derive(Eq, PartialEq, Encode, Decode)]
@@ -30,4 +31,15 @@ pub enum DidStatus {
     Unknown,
     Exists,
     CddVerified,
+}
+
+/// Aggregate information about an `AccountId` in relation to an `IdentityId`.
+#[derive(Eq, PartialEq, Encode, Decode)]
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+pub struct KeyIdentityData<IdentityId> {
+    /// The identity of the provided `AccountId`.
+    pub identity: IdentityId,
+    /// What permissions does the `AccountId` have within the `identity`?
+    /// If `None`, then this is a primary key.
+    pub permissions: Option<Permissions>,
 }
