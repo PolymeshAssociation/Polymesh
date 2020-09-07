@@ -10,7 +10,7 @@ pub use polymesh_primitives::{
 };
 
 pub use polymesh_runtime_develop;
-pub use polymesh_runtime_testnet_v1;
+pub use polymesh_runtime_testnet;
 use prometheus_endpoint::Registry;
 pub use sc_client_api::backend::Backend;
 pub use sc_consensus::LongestChain;
@@ -42,8 +42,8 @@ impl IsAlcyoneNetwork for dyn ChainSpec {
 // Our native executor instance.
 native_executor_instance!(
     pub AlcyoneExecutor,
-    polymesh_runtime_testnet_v1::api::dispatch,
-    polymesh_runtime_testnet_v1::native_version,
+    polymesh_runtime_testnet::api::dispatch,
+    polymesh_runtime_testnet::native_version,
     frame_benchmarking::benchmarking::HostFunctions,
 );
 
@@ -425,14 +425,14 @@ pub fn alcyone_new_full(
 ) -> Result<
     impl AbstractService<
         Block = Block,
-        RuntimeApi = polymesh_runtime_testnet_v1::RuntimeApi,
+        RuntimeApi = polymesh_runtime_testnet::RuntimeApi,
         Backend = TFullBackend<Block>,
     >,
     ServiceError,
 > {
     new_full!(
         config,
-        polymesh_runtime_testnet_v1::RuntimeApi,
+        polymesh_runtime_testnet::RuntimeApi,
         AlcyoneExecutor,
     )
     .map(|(service, _)| service)
@@ -571,7 +571,7 @@ pub fn alcyone_new_light(
 ) -> Result<
     impl AbstractService<
         Block = Block,
-        RuntimeApi = polymesh_runtime_testnet_v1::RuntimeApi,
+        RuntimeApi = polymesh_runtime_testnet::RuntimeApi,
         Backend = TLightBackend<Block>,
         SelectChain = LongestChain<TLightBackend<Block>, Block>,
         CallExecutor = TLightCallExecutor<Block, AlcyoneExecutor>,
@@ -580,7 +580,7 @@ pub fn alcyone_new_light(
 > {
     new_light!(
         config,
-        polymesh_runtime_testnet_v1::RuntimeApi,
+        polymesh_runtime_testnet::RuntimeApi,
         AlcyoneExecutor
     )
 }
