@@ -20,8 +20,8 @@ use polymesh_common_utilities::{
     SystematicIssuers, GC_DID,
 };
 use polymesh_primitives::{
-    secondary_key, AuthorizationData, AuthorizationType, Claim, ClaimType, IdentityClaim,
-    IdentityId, Permissions, Scope, SecondaryKey, Signatory, Ticker, TransactionError,
+    AuthorizationData, AuthorizationType, Claim, ClaimType, IdentityClaim, IdentityId, Permissions,
+    Scope, SecondaryKey, Signatory, Ticker, TransactionError,
 };
 use polymesh_runtime_develop::{fee_details::CddHandler, runtime::Call};
 use sp_core::crypto::AccountId32;
@@ -229,12 +229,12 @@ fn only_primary_key_can_add_secondary_key_permissions_with_externalities() {
     assert_ok!(Identity::set_permission_to_signer(
         alice.clone(),
         Signatory::Account(bob_key),
-        secondary_key::api::Permissions::empty()
+        Permissions::empty().into(),
     ));
     assert_ok!(Identity::set_permission_to_signer(
         alice.clone(),
         Signatory::Account(charlie_key),
-        secondary_key::api::Permissions::empty()
+        Permissions::empty().into(),
     ));
 
     // Bob tries to get better permission by himself at `alice` Identity.
@@ -242,7 +242,7 @@ fn only_primary_key_can_add_secondary_key_permissions_with_externalities() {
         Identity::set_permission_to_signer(
             bob.clone(),
             Signatory::Account(bob_key),
-            secondary_key::api::Permissions::default()
+            Permissions::default().into()
         ),
         pallet_permissions::Error::<TestStorage>::UnauthorizedCaller
     );
@@ -252,7 +252,7 @@ fn only_primary_key_can_add_secondary_key_permissions_with_externalities() {
         Identity::set_permission_to_signer(
             bob,
             Signatory::Account(charlie_key),
-            secondary_key::api::Permissions::empty()
+            Permissions::empty().into()
         ),
         pallet_permissions::Error::<TestStorage>::UnauthorizedCaller
     );
@@ -261,7 +261,7 @@ fn only_primary_key_can_add_secondary_key_permissions_with_externalities() {
     assert_ok!(Identity::set_permission_to_signer(
         alice,
         Signatory::Account(bob_key),
-        secondary_key::api::Permissions::empty()
+        Permissions::empty().into()
     ));
 }
 
@@ -311,7 +311,7 @@ fn freeze_secondary_keys_with_externalities() {
     assert_ok!(Identity::set_permission_to_signer(
         alice.clone(),
         Signatory::Account(bob_key),
-        secondary_key::api::Permissions::default()
+        Permissions::default().into(),
     ));
 
     // unfreeze all
@@ -761,15 +761,15 @@ fn one_step_join_id_with_ext() {
 
     let secondary_keys_with_auth = vec![
         SecondaryKeyWithAuth {
-            secondary_key: SecondaryKey::from(b_id.clone()),
+            secondary_key: SecondaryKey::from(b_id.clone()).into(),
             auth_signature: signatures[0].clone(),
         },
         SecondaryKeyWithAuth {
-            secondary_key: SecondaryKey::from(c_id.clone()),
+            secondary_key: SecondaryKey::from(c_id.clone()).into(),
             auth_signature: signatures[1].clone(),
         },
         SecondaryKeyWithAuth {
-            secondary_key: SecondaryKey::from(d_id.clone()),
+            secondary_key: SecondaryKey::from(d_id.clone()).into(),
             auth_signature: signatures[2].clone(),
         },
     ];
@@ -814,7 +814,7 @@ fn one_step_join_id_with_ext() {
     assert_ne!(authorization.nonce, eve_auth.nonce);
 
     let eve_secondary_key_with_auth = SecondaryKeyWithAuth {
-        secondary_key: SecondaryKey::from(e_id),
+        secondary_key: SecondaryKey::from(e_id).into(),
         auth_signature: H512::from(AccountKeyring::Eve.sign(eve_auth.encode().as_slice())),
     };
 
@@ -844,7 +844,7 @@ fn one_step_join_id_with_ext() {
         expires_at,
     };
     let ferdie_secondary_key_with_auth = SecondaryKeyWithAuth {
-        secondary_key: SecondaryKey::from(f_id.clone()),
+        secondary_key: SecondaryKey::from(f_id.clone()).into(),
         auth_signature: H512::from(AccountKeyring::Eve.sign(ferdie_auth.encode().as_slice())),
     };
 
@@ -1110,7 +1110,7 @@ fn cdd_register_did_test_we() {
     let dave = AccountKeyring::Dave.public();
     let dave_si = SecondaryKey::from_account_id(dave.clone());
     let alice_si = SecondaryKey::from(alice_id);
-    let secondary_keys = vec![dave_si.clone(), alice_si.clone()];
+    let secondary_keys = vec![dave_si.clone().into(), alice_si.clone().into()];
     assert_ok!(Identity::cdd_register_did(
         cdd1.clone(),
         charlie,
@@ -1504,7 +1504,7 @@ fn add_permission_with_secondary_key() {
             assert_ok!(Identity::cdd_register_did(
                 Origin::signed(cdd_1_acc),
                 alice_acc,
-                vec![sig_1.clone(), sig_2.clone()]
+                vec![sig_1.clone().into(), sig_2.clone().into()]
             ));
             let alice_did = Identity::get_identity(&alice_acc).unwrap();
             assert_ok!(Identity::add_claim(
