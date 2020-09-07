@@ -54,7 +54,6 @@ resources:
 
 jobs:
   - name: build-polymesh
-    serial: true
     plan:
       - get: git-polymesh
         params:
@@ -64,6 +63,9 @@ jobs:
       - load_var: gitshortref
         file: git-polymesh/.git/short_ref
       - get: semver-git-polymesh
+      - load_var: rusttoolchain
+        file: git-polymesh/rust-toolchain
+      - put: semver-git-polymesh
         params:
           pre: tooling.((.:gitshortref))
           pre_without_version: true
@@ -77,7 +79,7 @@ jobs:
                 type: registry-image
                 source:
                   repository: polymathnetwork/rust
-                  tag: debian-1.45.0
+                  tag: debian-1.45.0-((.:rusttoolchain))
                   aws_access_key_id: ((polymath-ecr.aws-access-id))
                   aws_secret_access_key: ((polymath-ecr.aws-access-secret))
                   aws_region: us-east-1
@@ -98,7 +100,7 @@ jobs:
                 type: registry-image
                 source:
                   repository: polymathnetwork/rust
-                  tag: debian-1.45.0
+                  tag: debian-1.45.0-((.:rusttoolchain))
                   aws_access_key_id: ((polymath-ecr.aws-access-id))
                   aws_secret_access_key: ((polymath-ecr.aws-access-secret))
                   aws_region: us-east-1
@@ -133,22 +135,22 @@ jobs:
               SUBMODULE_ACCESS_TOKEN: ((github-concourse-access-token))
             config:
               inputs:
-                - name: githubpr-polymesh
+                - name: git-polymesh
               caches:
-                - path: githubpr-polymesh/target
+                - path: git-polymesh/target
                 - path: /usr/local/cargo
               platform: linux
               image_resource:
                 type: registry-image
                 source:
                   repository: polymathnetwork/rust
-                  tag: debian-1.45.0
+                  tag: debian-1.45.0-((.:rusttoolchain))
                   aws_access_key_id: ((polymath-ecr.aws-access-id))
                   aws_secret_access_key: ((polymath-ecr.aws-access-secret))
                   aws_region: us-east-1
               run:
                 path: bash
-                args: ["githubpr-polymesh/.concourse/scripts/t-clippy-test.sh", "githubpr-polymesh"]
+                args: ["git-polymesh/.concourse/scripts/t-clippy-test.sh", "git-polymesh"]
           - task: cargo-test
             config:
               inputs:
@@ -161,7 +163,7 @@ jobs:
                 type: registry-image
                 source:
                   repository: polymathnetwork/rust
-                  tag: debian-1.45.0
+                  tag: debian-1.45.0-((.:rusttoolchain))
                   aws_access_key_id: ((polymath-ecr.aws-access-id))
                   aws_secret_access_key: ((polymath-ecr.aws-access-secret))
                   aws_region: us-east-1
