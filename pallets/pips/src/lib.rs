@@ -202,13 +202,15 @@ pub enum Proposer<AccountId> {
 /// Represents a proposal metadata
 #[derive(Encode, Decode, Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "std", derive(Debug))]
-pub struct PipsMetadata {
+pub struct PipsMetadata<T: Trait> {
     /// The proposal's unique id.
     pub id: PipId,
     /// The proposal url for proposal discussion.
     pub url: Option<Url>,
     /// The proposal description.
     pub description: Option<PipDescription>,
+    /// The block when the PIP was made.
+    pub created_at: T::BlockNumber,
 }
 
 /// For keeping track of proposal being voted on.
@@ -384,7 +386,7 @@ decl_storage! {
         ActivePipCount get(fn active_pip_count): u32;
 
         /// The metadata of the active proposals.
-        pub ProposalMetadata get(fn proposal_metadata): map hasher(twox_64_concat) PipId => Option<PipsMetadata>;
+        pub ProposalMetadata get(fn proposal_metadata): map hasher(twox_64_concat) PipId => Option<PipsMetadata<T>>;
 
         /// Those who have locked a deposit.
         /// proposal (id, proposer) -> deposit
@@ -655,16 +657,17 @@ decl_module! {
 
             // 4. Construct and add PIP to storage.
             let id = Self::next_pip_id();
-            ActivePipCount::mutate(|count| *count += 1);
+            let created_at = <system::Module<T>>::block_number();
             let proposal_metadata = PipsMetadata {
                 id,
+                created_at,
                 url: url.clone(),
                 description: description.clone(),
             };
-            ProposalMetadata::insert(id, proposal_metadata);
+            <ProposalMetadata<T>>::insert(id, proposal_metadata);
 
             let proposal_data = Self::reportable_proposal_data(&*proposal);
-            let cool_off_until = <system::Module<T>>::block_number() + Self::proposal_cool_off_period();
+            let cool_off_until = created_at + Self::proposal_cool_off_period();
             let pip = Pip {
                 id,
                 proposal: *proposal,
@@ -673,6 +676,7 @@ decl_module! {
                 cool_off_until,
             };
             <Proposals<T>>::insert(id, pip);
+            ActivePipCount::mutate(|count| *count += 1);
 
             // 5. Record the deposit and as a signal if we have a community PIP.
             if let Proposer::Community(ref proposer) = proposer {
@@ -725,7 +729,7 @@ decl_module! {
             let current_did = Self::current_did_or_missing()?;
 
             // 2. Update proposal metadata.
-            ProposalMetadata::mutate(id, |meta| {
+            <ProposalMetadata<T>>::mutate(id, |meta| {
                 if let Some(meta) = meta {
                     meta.url = url.clone();
                     meta.description = description.clone();
@@ -1225,7 +1229,7 @@ impl<T: Trait> Module<T> {
         if prune {
             <ProposalResult<T>>::remove(id);
             <ProposalVotes<T>>::remove_prefix(id);
-            ProposalMetadata::remove(id);
+            <ProposalMetadata<T>>::remove(id);
             if let Some(Proposer::Committee(_)) = Self::proposals(id).map(|p| p.proposer) {
                 CommitteePips::mutate(|list| list.retain(|&i| i != id));
             }
