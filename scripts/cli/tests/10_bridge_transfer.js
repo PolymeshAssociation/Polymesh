@@ -49,14 +49,8 @@ async function acceptMultisigSignerAsKey(api, signer, authId) {
 
   const transaction = api.tx.multiSig.acceptMultisigSignerAsKey(authId);
 
-  const result = await reqImports.sendTransaction(
-    transaction,
-    signer,
-    nonceObj
-  );
-
-  const passed = result.findRecord("system", "ExtrinsicSuccess");
-  if (passed) reqImports.fail_count--;
+  let tx = await reqImports.sendTx(signer, transaction);
+  if(tx !== -1) reqImports.fail_count--;
 
   reqImports.nonces.set(
     signer.address,
@@ -74,22 +68,11 @@ async function bridgeTransfer(api, signer, alice) {
     tx_hash: reqImports.u8aToHex(1, 256),
   };
 
-  let nonceObj = { nonce: reqImports.nonces.get(signer.address) };
   const transaction = api.tx.bridge.proposeBridgeTx(bridge_tx);
 
-  const result = await reqImports.sendTransaction(
-    transaction,
-    signer,
-    nonceObj
-  );
+  let tx = await reqImports.sendTx(signer, transaction);
+  if(tx !== -1) reqImports.fail_count--;
 
-  const passed = result.findRecord("system", "ExtrinsicSuccess");
-  if (passed) reqImports.fail_count--;
-
-  reqImports.nonces.set(
-    signer.address,
-    reqImports.nonces.get(signer.address).addn(1)
-  );
 }
 
 async function freezeTransaction(api, signer, alice) {
@@ -97,14 +80,8 @@ async function freezeTransaction(api, signer, alice) {
   let nonceObj = { nonce: reqImports.nonces.get(signer.address) };
   const transaction = api.tx.bridge.freeze();
 
-  const result = await reqImports.sendTransaction(
-    transaction,
-    signer,
-    nonceObj
-  );
-
-  const passed = result.findRecord("system", "ExtrinsicSuccess");
-  if (passed) reqImports.fail_count--;
+  let tx = await reqImports.sendTx(signer, transaction);
+  if(tx !== -1) reqImports.fail_count--;
 
   reqImports.nonces.set(
     signer.address,
@@ -118,14 +95,8 @@ async function unfreezeTransaction(api, signer) {
   let nonceObj = { nonce: reqImports.nonces.get(signer.address) };
   const transaction = api.tx.bridge.unfreeze();
 
-  const result = await reqImports.sendTransaction(
-    transaction,
-    signer,
-    nonceObj
-  );
-
-  const passed = result.findRecord("system", "ExtrinsicSuccess");
-  if (passed) reqImports.fail_count--;
+  let tx = await reqImports.sendTx(signer, transaction);
+  if(tx !== -1) reqImports.fail_count--;
 
   reqImports.nonces.set(
     signer.address,

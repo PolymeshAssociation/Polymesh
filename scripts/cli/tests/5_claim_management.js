@@ -39,13 +39,10 @@ async function addClaimsToDids(api, accounts, dids, claim_dids) {
     //accounts should have the same length as claim_dids
     for (let i = 0; i < dids.length; i++) {
 
-        let nonceObj = {nonce: reqImports.nonces.get(accounts[i%claim_dids.length].address)};
         const transaction = await api.tx.identity.addClaim(dids[i], 0, 0);
-        const result = await reqImports.sendTransaction(transaction, accounts[i%claim_dids.length], nonceObj);
-        const passed = result.findRecord('system', 'ExtrinsicSuccess');
-        if (passed) reqImports.fail_count--;
+        let tx = await reqImports.sendTx(accounts[i%claim_dids.length], transaction);
+        if(tx !== -1) reqImports.fail_count--;
 
-      reqImports.nonces.set(accounts[i%claim_dids.length].address, reqImports.nonces.get(accounts[i%claim_dids.length].address).addn(1));
     }
   }
 
