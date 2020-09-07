@@ -20,8 +20,8 @@ use polymesh_common_utilities::{
     SystematicIssuers, GC_DID,
 };
 use polymesh_primitives::{
-    AuthorizationData, AuthorizationType, Claim, ClaimType, IdentityClaim, IdentityId, Permissions,
-    Scope, SecondaryKey, Signatory, Ticker, TransactionError, secondary_key,
+    secondary_key, AuthorizationData, AuthorizationType, Claim, ClaimType, IdentityClaim,
+    IdentityId, Permissions, Scope, SecondaryKey, Signatory, Ticker, TransactionError,
 };
 use polymesh_runtime_develop::{fee_details::CddHandler, runtime::Call};
 use sp_core::crypto::AccountId32;

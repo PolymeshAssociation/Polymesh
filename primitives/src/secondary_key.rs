@@ -444,7 +444,6 @@ mod tests {
     use crate::{IdentityId, Ticker};
     use sp_core::sr25519::Public;
     use std::convert::{From, TryFrom};
-    use std::iter::FromIterator;
 
     #[test]
     fn build_test() {

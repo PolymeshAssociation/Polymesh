@@ -110,15 +110,16 @@ where
 
 #[cfg(test)]
 mod tests {
-    use super::{LatticeOrd, LatticeOrdering, Subset};
-    use std::iter::FromIterator;
+    use super::{LatticeOrd, LatticeOrdering, SubsetRestriction};
 
     #[test]
     fn lattice_cmp() {
         let t: SubsetRestriction<bool> = SubsetRestriction::elem(true);
         let f: SubsetRestriction<bool> = SubsetRestriction::elem(false);
-        let tf: SubsetRestriction<bool> = SubsetRestriction::from_iter(vec![true, false].into_iter());
-        let ft: SubsetRestriction<bool> = SubsetRestriction::from_iter(vec![false, true].into_iter());
+        let tf: SubsetRestriction<bool> =
+            SubsetRestriction(Some(vec![true, false].into_iter().collect()));
+        let ft: SubsetRestriction<bool> =
+            SubsetRestriction(Some(vec![false, true].into_iter().collect()));
         let all = SubsetRestriction(None);
         assert_eq!(t.lattice_cmp(&t), LatticeOrdering::Equal);
         assert_eq!(t.lattice_cmp(&tf), LatticeOrdering::Less);
