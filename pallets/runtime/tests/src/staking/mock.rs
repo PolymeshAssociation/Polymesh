@@ -497,12 +497,14 @@ parameter_types! {
     pub const ExpectedBlockTime: u64 = 1;
 }
 
+use frame_support::traits::KeyOwnerProofSystem;
 use polymesh_runtime_develop::runtime::{Historical, Offences};
 use sp_runtime::KeyTypeId;
-use frame_support::traits::KeyOwnerProofSystem;
 
 impl From<pallet_babe::Call<Test>> for Call {
-    fn from(_: pallet_babe::Call<Test>) -> Self { unimplemented!() }
+    fn from(_: pallet_babe::Call<Test>) -> Self {
+        unimplemented!()
+    }
 }
 
 impl pallet_babe::Trait for Test {
@@ -512,15 +514,14 @@ impl pallet_babe::Trait for Test {
 
     type KeyOwnerProofSystem = ();
     type KeyOwnerProof = <Self::KeyOwnerProofSystem as KeyOwnerProofSystem<(
-            KeyTypeId,
-            pallet_babe::AuthorityId,
-        )>>::Proof;
+        KeyTypeId,
+        pallet_babe::AuthorityId,
+    )>>::Proof;
     type KeyOwnerIdentification = <Self::KeyOwnerProofSystem as KeyOwnerProofSystem<(
-            KeyTypeId,
-            pallet_babe::AuthorityId,
-        )>>::IdentificationTuple;
-    type HandleEquivocation =
-        pallet_babe::EquivocationHandler<Self::KeyOwnerIdentification, ()>;
+        KeyTypeId,
+        pallet_babe::AuthorityId,
+    )>>::IdentificationTuple;
+    type HandleEquivocation = pallet_babe::EquivocationHandler<Self::KeyOwnerIdentification, ()>;
 }
 
 pallet_staking_reward_curve::build! {

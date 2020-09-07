@@ -95,7 +95,7 @@ use frame_support::{
 };
 use frame_system::ensure_signed;
 use hex_literal::hex;
-use pallet_contracts::{ExecReturnValue, Gas};
+use pallet_contracts::{ExecResult, Gas};
 use pallet_identity as identity;
 use pallet_statistics::{self as statistics, Counter};
 use polymesh_common_utilities::{
@@ -1843,7 +1843,7 @@ impl<T: Trait> Module<T> {
         _value: T::Balance,
         gas_limit: Gas,
         data: Vec<u8>,
-    ) -> (Result<ExecReturnValue, DispatchError>, Gas) {
+    ) -> (ExecResult, Gas) {
         // TODO: Fix the value conversion into Currency
         <pallet_contracts::Module<T>>::bare_call(from, dest, 0.into(), gas_limit, data)
     }

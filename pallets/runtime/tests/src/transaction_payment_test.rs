@@ -30,12 +30,14 @@ pub fn info_from_weight(w: Weight) -> DispatchInfo {
 fn post_info_from_weight(w: Weight) -> PostDispatchInfo {
     PostDispatchInfo {
         actual_weight: Some(w),
+        pays_fee: Pays::Yes,
     }
 }
 
 fn default_post_info() -> PostDispatchInfo {
     PostDispatchInfo {
         actual_weight: None,
+        pays_fee: Pays::Yes,
     }
 }
 

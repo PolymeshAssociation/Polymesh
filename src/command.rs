@@ -20,9 +20,9 @@ use crate::service;
 use crate::service::IsAlcyoneNetwork;
 use log::info;
 use polymesh_primitives::Block;
+use sc_cli::{ChainSpec, RuntimeVersion};
 pub use sc_cli::{Result, SubstrateCli};
 use sc_service::config::Role;
-use sc_cli::{ChainSpec, RuntimeVersion};
 
 #[cfg(feature = "runtime-benchmarks")]
 use polymesh_runtime::runtime;
@@ -102,12 +102,12 @@ pub fn run() -> Result<()> {
             if chain_spec.is_alcyone_network() {
                 runtime.run_node_until_exit(|config| match config.role {
                     Role::Light => service::alcyone_new_light(config),
-                    _ => service::alcyone_new_full(config)
+                    _ => service::alcyone_new_full(config),
                 })
             } else {
                 runtime.run_node_until_exit(|config| match config.role {
                     Role::Light => service::general_new_light(config),
-                    _ => service::general_new_full(config)
+                    _ => service::general_new_full(config),
                 })
             }
         }
