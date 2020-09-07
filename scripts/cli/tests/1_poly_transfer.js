@@ -35,14 +35,9 @@ async function distributePoly( api, accounts, transfer_amount, secondaryEntity )
   // Perform the transfers
   for (let i = 0; i < accounts.length; i++) {
 
-    let nonceObj = {nonce: reqImports.nonces.get(secondaryEntity.address)};
-    //console.log(accounts[i].address, transfer_amount.toString());
     const transaction = api.tx.balances.transfer(accounts[i].address, transfer_amount);
-    const result = await reqImports.sendTransaction(transaction, secondaryEntity, nonceObj);
-    const passed = result.findRecord('system', 'ExtrinsicSuccess');
-    if (passed) reqImports.fail_count--;
-
-    reqImports.nonces.set(secondaryEntity.address, reqImports.nonces.get(secondaryEntity.address).addn(1));
+    let tx = await reqImports.sendTx(secondaryEntity, transaction);
+    if(tx !== -1) reqImports.fail_count--;
 
   }
 }
