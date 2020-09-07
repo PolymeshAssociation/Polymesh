@@ -16,10 +16,14 @@
 use crate::IdentityId;
 use codec::{Decode, Encode};
 use polymesh_primitives_derive::VecU8StrongTyped;
+#[cfg(feature = "std")]
+use serde::{Deserialize, Serialize};
 use sp_std::prelude::Vec;
+
 /// Smart Extension types
 #[allow(missing_docs)]
 #[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, PartialOrd, Ord)]
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 pub enum SmartExtensionType {
     TransferManager,
     Offerings,
@@ -61,9 +65,8 @@ pub struct MetaUrl(pub Vec<u8>);
 #[derive(Encode, Decode, Default, Debug, Clone, PartialEq, VecU8StrongTyped)]
 pub struct MetaDescription(pub Vec<u8>);
 
-/// The version string of the SE template.
-#[derive(Encode, Decode, Default, Debug, Clone, PartialEq, VecU8StrongTyped)]
-pub struct MetaVersion(pub Vec<u8>);
+/// The version no. of the SE template.
+pub type MetaVersion = u32;
 
 /// Subset of the SE template metadata that is provided by the template owner.
 #[derive(Encode, Decode, Default, Debug, Clone, PartialEq)]
@@ -105,4 +108,10 @@ where
     pub fn is_instantiation_frozen(&self) -> bool {
         self.frozen
     }
+}
+/// Data structure to hold the details of the smart extension instance.
+#[derive(Encode, Decode, Default, Debug, Clone, PartialEq)]
+pub struct ExtensionAttributes<Balance> {
+    pub usage_fee: Balance,
+    pub version: MetaVersion,
 }

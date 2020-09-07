@@ -1,20 +1,10 @@
 use crate::{
-    storage::{add_secondary_key, register_keyring_account, TestStorage},
+    contract_test::{compile_module, create_contract_instance, create_se_template},
+    storage::{
+        add_secondary_key, make_account_without_cdd, register_keyring_account, AccountId,
+        TestStorage,
+    },
     ExtBuilder,
-};
-
-use pallet_asset::{
-    self as asset, AssetOwnershipRelation, AssetType, FundingRoundName, IdentifierType,
-    SecurityToken, SignData,
-};
-use pallet_balances as balances;
-use pallet_compliance_manager as compliance_manager;
-use pallet_identity as identity;
-use pallet_statistics as statistics;
-use polymesh_common_utilities::{constants::*, traits::balances::Memo};
-use polymesh_primitives::{
-    AuthorizationData, Document, DocumentName, IdentityId, Signatory, SmartExtension,
-    SmartExtensionType, Ticker,
 };
 
 use chrono::prelude::Utc;
@@ -24,6 +14,21 @@ use frame_support::{
 };
 use hex_literal::hex;
 use ink_primitives::hash as FunctionSelectorHasher;
+use pallet_asset::{
+    self as asset, AssetOwnershipRelation, AssetType, FundingRoundName, IdentifierType,
+    SecurityToken, SignData,
+};
+use pallet_balances as balances;
+use pallet_compliance_manager as compliance_manager;
+use pallet_contracts::ContractAddressFor;
+use pallet_identity as identity;
+use pallet_statistics as statistics;
+use polymesh_common_utilities::{constants::*, traits::balances::Memo};
+use polymesh_contracts::NonceBasedAddressDeterminer;
+use polymesh_primitives::{
+    AuthorizationData, Document, DocumentName, IdentityId, Signatory, SmartExtension,
+    SmartExtensionType, Ticker,
+};
 use rand::Rng;
 use sp_runtime::AnySignature;
 use std::convert::{TryFrom, TryInto};
@@ -40,6 +45,28 @@ type OffChainSignature = AnySignature;
 type Origin = <TestStorage as frame_system::Trait>::Origin;
 type DidRecords = identity::DidRecords<TestStorage>;
 type Statistics = statistics::Module<TestStorage>;
+
+fn setup_se_template<T>(creator: AccountId, creator_did: IdentityId) -> AccountId
+where
+    T: frame_system::Trait<Hash = sp_core::H256>,
+{
+    let (wasm, code_hash) = compile_module::<TestStorage>("flipper").unwrap();
+
+    let input_data = hex!("0222FF18");
+    // Create SE template.
+    create_se_template::<TestStorage>(creator, creator_did, 0, code_hash, wasm);
+
+    // Create SE instance.
+    assert_ok!(create_contract_instance::<TestStorage>(
+        creator, code_hash, 0, false
+    ));
+
+    NonceBasedAddressDeterminer::<TestStorage>::contract_address_for(
+        &code_hash,
+        &input_data.to_vec(),
+        &creator,
+    )
+}
 
 #[test]
 fn check_the_test_hex() {
@@ -1104,8 +1131,9 @@ fn adding_removing_documents() {
 #[test]
 fn add_extension_successfully() {
     ExtBuilder::default().build().execute_with(|| {
-        let owner_signed = Origin::signed(AccountKeyring::Dave.public());
-        let _ = register_keyring_account(AccountKeyring::Dave).unwrap();
+        let dave = AccountKeyring::Dave.public();
+        // Create did and singed version of dave account.
+        let (owner_signed, dave_did) = make_account_without_cdd(dave).unwrap();
 
         // Expected token entry
         let token = SecurityToken {
@@ -1135,7 +1163,7 @@ fn add_extension_successfully() {
 
         // Add smart extension
         let extension_name = b"PTM".into();
-        let extension_id = AccountKeyring::Bob.public();
+        let extension_id = setup_se_template::<TestStorage>(dave, dave_did);
 
         let extension_details = SmartExtension {
             extension_type: SmartExtensionType::TransferManager,
@@ -1169,8 +1197,8 @@ fn add_extension_successfully() {
 #[test]
 fn add_same_extension_should_fail() {
     ExtBuilder::default().build().execute_with(|| {
-        let owner_signed = Origin::signed(AccountKeyring::Dave.public());
-        let owner_did = register_keyring_account(AccountKeyring::Dave).unwrap();
+        let dave = AccountKeyring::Dave.public();
+        let (owner_signed, owner_did) = make_account_without_cdd(dave).unwrap();
 
         // Expected token entry
         let token = SecurityToken {
@@ -1201,7 +1229,7 @@ fn add_same_extension_should_fail() {
 
         // Add smart extension
         let extension_name = b"PTM".into();
-        let extension_id = AccountKeyring::Bob.public();
+        let extension_id = setup_se_template::<TestStorage>(dave, owner_did);
 
         let extension_details = SmartExtension {
             extension_type: SmartExtensionType::TransferManager,
@@ -1240,8 +1268,8 @@ fn add_same_extension_should_fail() {
 #[test]
 fn should_successfully_archive_extension() {
     ExtBuilder::default().build().execute_with(|| {
-        let owner_signed = Origin::signed(AccountKeyring::Dave.public());
-        let owner_did = register_keyring_account(AccountKeyring::Dave).unwrap();
+        let dave = AccountKeyring::Dave.public();
+        let (owner_signed, owner_did) = make_account_without_cdd(dave).unwrap();
 
         // Expected token entry
         let token = SecurityToken {
@@ -1271,7 +1299,7 @@ fn should_successfully_archive_extension() {
         ));
         // Add smart extension
         let extension_name = b"STO".into();
-        let extension_id = AccountKeyring::Bob.public();
+        let extension_id = setup_se_template::<TestStorage>(dave, owner_did);
 
         let extension_details = SmartExtension {
             extension_type: SmartExtensionType::Offerings,
@@ -1316,8 +1344,8 @@ fn should_successfully_archive_extension() {
 #[test]
 fn should_fail_to_archive_an_already_archived_extension() {
     ExtBuilder::default().build().execute_with(|| {
-        let owner_signed = Origin::signed(AccountKeyring::Dave.public());
-        let owner_did = register_keyring_account(AccountKeyring::Dave).unwrap();
+        let dave = AccountKeyring::Dave.public();
+        let (owner_signed, owner_did) = make_account_without_cdd(dave).unwrap();
 
         // Expected token entry
         let token = SecurityToken {
@@ -1347,7 +1375,7 @@ fn should_fail_to_archive_an_already_archived_extension() {
         ));
         // Add smart extension
         let extension_name = b"STO".into();
-        let extension_id = AccountKeyring::Bob.public();
+        let extension_id = setup_se_template::<TestStorage>(dave, owner_did);
 
         let extension_details = SmartExtension {
             extension_type: SmartExtensionType::Offerings,
@@ -1439,8 +1467,8 @@ fn should_fail_to_archive_a_non_existent_extension() {
 #[test]
 fn should_successfuly_unarchive_an_extension() {
     ExtBuilder::default().build().execute_with(|| {
-        let owner_signed = Origin::signed(AccountKeyring::Dave.public());
-        let owner_did = register_keyring_account(AccountKeyring::Dave).unwrap();
+        let dave = AccountKeyring::Dave.public();
+        let (owner_signed, owner_did) = make_account_without_cdd(dave).unwrap();
 
         // Expected token entry
         let token = SecurityToken {
@@ -1470,7 +1498,7 @@ fn should_successfuly_unarchive_an_extension() {
         ));
         // Add smart extension
         let extension_name = b"STO".into();
-        let extension_id = AccountKeyring::Bob.public();
+        let extension_id = setup_se_template::<TestStorage>(dave, owner_did);
 
         let extension_details = SmartExtension {
             extension_type: SmartExtensionType::Offerings,
@@ -1525,8 +1553,8 @@ fn should_successfuly_unarchive_an_extension() {
 #[test]
 fn should_fail_to_unarchive_an_already_unarchived_extension() {
     ExtBuilder::default().build().execute_with(|| {
-        let owner_signed = Origin::signed(AccountKeyring::Dave.public());
-        let owner_did = register_keyring_account(AccountKeyring::Dave).unwrap();
+        let dave = AccountKeyring::Dave.public();
+        let (owner_signed, owner_did) = make_account_without_cdd(dave).unwrap();
 
         // Expected token entry
         let token = SecurityToken {
@@ -1556,7 +1584,7 @@ fn should_fail_to_unarchive_an_already_unarchived_extension() {
         ));
         // Add smart extension
         let extension_name = b"STO".into();
-        let extension_id = AccountKeyring::Bob.public();
+        let extension_id = setup_se_template::<TestStorage>(dave, owner_did);
 
         let extension_details = SmartExtension {
             extension_type: SmartExtensionType::Offerings,

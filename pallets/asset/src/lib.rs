@@ -109,8 +109,9 @@ use polymesh_common_utilities::{
     CommonTrait, Context,
 };
 use polymesh_primitives::{
-    AuthorizationData, AuthorizationError, Document, DocumentName, IdentityId, Signatory,
-    SmartExtension, SmartExtensionName, SmartExtensionType, Ticker,
+    AuthorizationData, AuthorizationError, Document, DocumentName, IdentityId,
+    MetaVersion as ExtVersion, Signatory, SmartExtension, SmartExtensionName, SmartExtensionType,
+    Ticker,
 };
 use polymesh_primitives_derive::VecU8StrongTyped;
 use sp_runtime::traits::{CheckedAdd, CheckedSub, Saturating, Verify};
@@ -127,7 +128,7 @@ pub trait Trait:
     + IdentityTrait
     + pallet_session::Trait
     + statistics::Trait
-    + pallet_contracts::Trait
+    + polymesh_contracts::Trait
     + pallet_portfolio::Trait
 {
     /// The overarching event type.
@@ -335,6 +336,20 @@ decl_storage! {
         /// (ticker, document_name) -> document
         pub AssetDocuments get(fn asset_documents):
             double_map hasher(blake2_128_concat) Ticker, hasher(blake2_128_concat) DocumentName => Document;
+        /// Supported extension version.
+        pub CompatibleSmartExtVersion get(fn compatible_extension_version): map hasher(blake2_128_concat) SmartExtensionType => ExtVersion;
+    }
+    add_extra_genesis {
+        /// Smart Extension supported version at genesis.
+        config(versions): Vec<(SmartExtensionType, ExtVersion)>;
+        build(|config: &GenesisConfig<T>| {
+            config.versions
+                .iter()
+                .filter(|(t, _)| !<CompatibleSmartExtVersion>::contains_key(&t))
+                .for_each(|(se_type, ver)| {
+                    CompatibleSmartExtVersion::insert(se_type, ver);
+            });
+        });
     }
 }
 
@@ -921,6 +936,10 @@ decl_module! {
 
             // Verify the details of smart extension & store it
             ensure!(!<ExtensionDetails<T>>::contains_key((ticker, &extension_details.extension_id)), Error::<T>::ExtensionAlreadyPresent);
+            // Ensure the version compatibility with the asset.
+            ensure!(Self::is_ext_compatible(&extension_details.extension_type, &extension_details.extension_id), Error::<T>::IncompatibleExtensionVersion);
+
+            // Update the storage
             <ExtensionDetails<T>>::insert((ticker, &extension_details.extension_id), extension_details.clone());
             <Extensions<T>>::mutate((ticker, &extension_details.extension_type), |ids| {
                 ids.push(extension_details.extension_id.clone())
@@ -1179,6 +1198,8 @@ decl_error! {
         AssetAlreadyDivisible,
         /// An invalid custodian DID.
         InvalidCustodianDid,
+        /// Given smart extension is not compatible with the asset.
+        IncompatibleExtensionVersion,
     }
 }
 
@@ -1486,7 +1507,10 @@ impl<T: Trait> Module<T> {
             let current_holder_count = <statistics::Module<T>>::investor_count_per_asset(ticker);
             let tms = Self::extensions((ticker, SmartExtensionType::TransferManager))
                 .into_iter()
-                .filter(|tm| !Self::extension_details((ticker, tm)).is_archive)
+                .filter(|tm| {
+                    !Self::extension_details((ticker, tm)).is_archive
+                        && Self::is_ext_compatible(&SmartExtensionType::TransferManager, &tm)
+                })
                 .collect::<Vec<T::AccountId>>();
             if !tms.is_empty() {
                 for tm in tms.into_iter() {
@@ -2174,5 +2198,12 @@ impl<T: Trait> Module<T> {
             Error::<T>::TotalSupplyAboveLimit
         );
         Ok(())
+    }
+
+    // Return bool to know whether the given extension is compatible with the supported version of asset.
+    fn is_ext_compatible(ext_type: &SmartExtensionType, extension_id: &T::AccountId) -> bool {
+        // Access version.
+        let ext_version = <polymesh_contracts::Module<T>>::extension_info(extension_id).version;
+        Self::compatible_extension_version(ext_type) == ext_version
     }
 }
