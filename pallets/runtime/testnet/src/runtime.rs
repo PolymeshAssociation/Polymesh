@@ -1097,7 +1097,7 @@ impl_runtime_apis! {
         }
     }
 
-    impl node_rpc_runtime_api::asset::AssetApi<Block, AccountId, Balance> for Runtime {
+    impl node_rpc_runtime_api::asset::AssetApi<Block, AccountId> for Runtime {
         #[inline]
         fn can_transfer(
             sender: AccountId,
