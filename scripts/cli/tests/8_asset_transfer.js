@@ -53,13 +53,10 @@ async function main() {
 
 async function mintingAsset(api, minter, prepend) {
   const ticker = `token${prepend}0`.toUpperCase();
-  let nonceObj = {nonce: reqImports.nonces.get(minter.address)};
   const transaction = await api.tx.asset.issue(ticker, 100);
-  const result = await reqImports.sendTransaction(transaction, minter, nonceObj);
-  const passed = result.findRecord('system', 'ExtrinsicSuccess');
-  if (passed) reqImports.fail_count--;
+  let tx = await reqImports.sendTx(minter, transaction);
+  if(tx !== -1) reqImports.fail_count--;
 
-  reqImports.nonces.set(minter.address, reqImports.nonces.get(minter.address).addn(1));
 }
 
 // TODO: Use settlement module
