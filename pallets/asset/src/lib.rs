@@ -318,17 +318,11 @@ pub struct ClassicTickerRegistration {
 macro_rules! custodian_check {
     ($user:expr, $portfolio_num:expr, $custodian:expr) => {
         if let Some(did) = $user {
-            if Portfolio::<T>::check_portfolio_custody(
-                did,
-                $portfolio_num,
-                $custodian
-            )
-            .is_err()
-            {
+            if Portfolio::<T>::check_portfolio_custody(did, $portfolio_num, $custodian).is_err() {
                 return Ok((CUSTODIAN_ERROR, T::DbWeight::get().reads(4)));
             }
         }
-    }
+    };
 }
 
 decl_storage! {
