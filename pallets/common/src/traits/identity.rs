@@ -36,6 +36,22 @@ use sp_core::H512;
 use sp_runtime::traits::{Dispatchable, IdentifyAccount, Member, Verify};
 use sp_std::vec::Vec;
 
+/// Old type definition kept here for upgrade purposes.
+#[derive(codec::Decode, Clone)]
+pub enum OldLinkedKeyInfo {
+    Unique(IdentityId),
+    Group(Vec<IdentityId>),
+}
+
+impl From<OldLinkedKeyInfo> for IdentityId {
+    fn from(info: OldLinkedKeyInfo) -> Self {
+        match info {
+            OldLinkedKeyInfo::Unique(did) => did,
+            OldLinkedKeyInfo::Group(mut v) => v.pop().unwrap_or_default(),
+        }
+    }
+}
+
 pub type AuthorizationNonce = u64;
 
 /// It represents an authorization that any account could sign to allow operations related with a

@@ -309,6 +309,40 @@ where
     }
 }
 
+pub mod runtime_upgrade {
+    use crate::Signatory;
+    use codec::Decode;
+
+    /// Old permission type for runtime upgrade purposes.
+    #[allow(missing_docs)]
+    #[derive(Decode, Clone)]
+    pub enum Permission {
+        Full,
+        Admin,
+        Operator,
+        SpendFunds,
+        Custom(u8),
+    }
+
+    /// Old secondary key type for runtime upgrade purposes.
+    #[derive(Decode, Clone)]
+    pub struct SecondaryKey<AccountId> {
+        /// The account or identity that is the signatory of this key.
+        pub signer: Signatory<AccountId>,
+        /// Signer permissions.
+        pub permissions: Vec<Permission>,
+    }
+
+    impl<AccountId> From<SecondaryKey<AccountId>> for super::SecondaryKey<AccountId> {
+        fn from(sk: SecondaryKey<AccountId>) -> Self {
+            super::SecondaryKey {
+                signer: sk.signer,
+                permissions: super::Permissions::empty(),
+            }
+        }
+    }
+}
+
 /// Vectorized redefinitions of runtime types for the sake of Polkadot.JS.
 pub mod api {
     use crate::{FunctionName, PalletName, PortfolioNumber, Signatory, SubsetRestriction, Ticker};

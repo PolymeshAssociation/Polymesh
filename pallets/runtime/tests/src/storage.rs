@@ -37,7 +37,7 @@ use polymesh_common_utilities::traits::{
     group::GroupTrait,
     identity::Trait as IdentityTrait,
     transaction_payment::{CddAndFeeDetails, ChargeTxFee},
-    CheckAccountCallPermissions, CommonTrait, PermissionChecker,
+    CommonTrait, PermissionChecker,
 };
 use polymesh_common_utilities::Context;
 use polymesh_primitives::{

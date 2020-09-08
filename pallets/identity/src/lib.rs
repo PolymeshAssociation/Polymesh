@@ -250,11 +250,17 @@ decl_module! {
         fn deposit_event() = default;
 
         fn on_runtime_upgrade() -> Weight {
+            use polymesh_primitives::{
+                secondary_key::OldSecondaryKey, identity_claim::IdentityClaimOld, migrate::migrate_map
+            };
+            use polymesh_common_utilities::traits::identity::OldLinkedKeyInfo;
+
             // Rename "master" to "primary".
             <CddAuthForPrimaryKeyRotation>::put(<CddAuthForMasterKeyRotation>::take());
 
-            use polymesh_primitives::{identity_claim::IdentityClaimOld, migrate::migrate_map};
             migrate_map::<IdentityClaimOld>(b"Identity", b"Claims");
+            migrate_map::<OldLinkedKeyInfo>(b"Identity", b"KeyToIdentityIds");
+            migrate_map::<OldIdentity>(b"Identity", b"DidRecords");
 
             // It's gonna be alot, so lets pretend its 0 anyways.
             0
