@@ -15,7 +15,8 @@
 
 //! # Confidential Asset Module
 //!
-//! The Confidential Asset module is one place to create the MERCAT security tokens on the Polymesh blockchain.
+//! The Confidential Asset module is one place to create the MERCAT security tokens on the
+//! Polymesh blockchain.
 
 use codec::{Decode, Encode};
 use cryptography::{
@@ -79,13 +80,20 @@ decl_storage! {
     trait Store for Module<T: Trait> as ConfidentialAsset {
 
         /// Contains the mercat accounts for an identity.
-        pub MercatAccounts get(fn mercat_account): double_map hasher(twox_64_concat) IdentityId, hasher(blake2_128_concat) EncryptedAssetIdWrapper  => MercatAccount;
+        pub MercatAccounts get(fn mercat_account):
+              double_map hasher(twox_64_concat) IdentityId,
+              hasher(blake2_128_concat) EncryptedAssetIdWrapper
+              => MercatAccount;
 
         /// Contains the encrypted balance of a mercat account.
-        pub MercatAccountBalance get(fn mercat_account_balance):  double_map hasher(twox_64_concat) IdentityId, hasher(blake2_128_concat) EncryptedAssetIdWrapper => EncryptedBalanceWrapper;
+        pub MercatAccountBalance get(fn mercat_account_balance):
+              double_map hasher(twox_64_concat) IdentityId,
+              hasher(blake2_128_concat) EncryptedAssetIdWrapper
+              => EncryptedBalanceWrapper;
 
         /// Contains the list of all valid ticker names.
-        /// The process around creating and storing this data will likely change as a result of CRYP-153.
+        /// The process around creating and storing this data will likely change as a result of
+        /// CRYP-153.
         pub ValidAssetIds get(fn valid_asset_ids): Vec<AssetId>;
     }
 }
@@ -103,8 +111,7 @@ decl_module! {
         pub fn create_confidential_asset(
             origin,
             valid_asset_ids: Vec<AssetId>,
-        ) -> DispatchResult
-        {
+        ) -> DispatchResult {
             ensure_signed(origin)?;
 
             <ValidAssetIds>::put(valid_asset_ids);
@@ -112,10 +119,10 @@ decl_module! {
         }
 
         /// Verifies the proofs given the `tx` (transaction) for creating a mercat account.
-        /// If all proofs pass, it stores the mercat account for the origin identity, sets the initial encrypted
-        /// balance, and emits account creation event. The proofs for the transaction require that the encrypted
-        /// asset id inside the `tx` (`tx.pub_account.enc_asset_id`) is a member of the list of all the
-        /// confidential asset ids.
+        /// If all proofs pass, it stores the mercat account for the origin identity, sets the
+        /// initial encrypted balance, and emits account creation event. The proofs for the
+        /// transaction require that the encrypted asset id inside the `tx`
+        /// (`tx.pub_account.enc_asset_id`) is a member of the list of all the confidential asset ids.
         ///
         /// # Arguments
         /// * `tx` The account creation transaction created by the mercat lib.
@@ -125,8 +132,7 @@ decl_module! {
         #[weight = 1_000_000_000]
         pub fn validate_mercat_account(origin,
             tx: PubAccountTx,
-        ) -> DispatchResult
-        {
+        ) -> DispatchResult {
             let owner_acc = ensure_signed(origin)?;
             let owner_id = Context::current_identity_or::<Identity<T>>(&owner_acc)?;
 
@@ -167,5 +173,6 @@ decl_error! {
 /// However, in the impl module section (this, below) the functions can be public and private
 /// Private functions are internal to this module.
 /// Public functions can be called from other modules e.g.: lock and unlock (being called from the tcr module)
-/// All functions in the impl module section are not part of public interface because they are not part of the Call enum.
+/// All functions in the impl module section are not part of public interface because they are not part of the
+/// Call enum.
 impl<T: Trait> Module<T> {}
