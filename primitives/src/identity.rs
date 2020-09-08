@@ -13,13 +13,12 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
+use crate::{IdentityRole, SecondaryKey, Signatory};
 use codec::{Decode, Encode};
 use sp_core::{crypto::Public as PublicType, sr25519::Public};
 #[cfg(feature = "std")]
 use sp_runtime::{Deserialize, Serialize};
 use sp_std::{convert::From, prelude::Vec};
-
-use crate::{IdentityRole, SecondaryKey, Signatory};
 
 /// Identity information.
 #[allow(missing_docs)]
@@ -28,6 +27,7 @@ use crate::{IdentityRole, SecondaryKey, Signatory};
 pub struct Identity<AccountId> {
     pub roles: Vec<IdentityRole>,
     pub primary_key: AccountId,
+    // TODO: #[migrate_from(Vec<crate::secondary_key::runtime_upgrade::SecondaryKey<AccountId>>)]
     pub secondary_keys: Vec<SecondaryKey<AccountId>>,
 }
 
