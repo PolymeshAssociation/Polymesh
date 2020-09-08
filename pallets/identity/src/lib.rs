@@ -104,12 +104,12 @@ use polymesh_common_utilities::{
         multisig::MultiSigSubTrait,
         transaction_payment::{CddAndFeeDetails, ChargeTxFee},
     },
-    Context, SystematicIssuers,
+    with_each_transaction, Context, SystematicIssuers,
 };
 use polymesh_primitives::{
-    Authorization, AuthorizationData, AuthorizationError, AuthorizationType, CddId, Claim,
-    ClaimType, Identity as DidRecord, IdentityClaim, IdentityId, InvestorUid, Permission, Scope,
-    SecondaryKey, Signatory, Ticker,
+    AuthIdentifier, Authorization, AuthorizationData, AuthorizationError, AuthorizationType, CddId,
+    Claim, ClaimType, Identity as DidRecord, IdentityClaim, IdentityId, InvestorUid, Permission,
+    Scope, SecondaryKey, Signatory, Ticker,
 };
 use sp_core::sr25519::Signature;
 use sp_io::hashing::blake2_256;
