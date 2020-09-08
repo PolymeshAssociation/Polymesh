@@ -56,7 +56,7 @@ pub mod runtime_upgrade {
         fn migrate(self) -> Option<Self::Into> {
             match self {
                 LinkedKeyInfo::Unique(did) => Some(did),
-                LinkedKeyInfo::Group(mut v) => None,
+                LinkedKeyInfo::Group(_) => None,
             }
         }
     }
