@@ -330,7 +330,9 @@ pub trait Trait:
     frame_system::Trait + pallet_timestamp::Trait + IdentityTrait + CommonTrait
 {
     /// Currency type for this module.
-    type Currency: LockableCurrencyExt<Self::AccountId, Moment = Self::BlockNumber>;
+    // TODO(centril): Remove `ReservableCurrency` bound once `on_runtime_upgrade` is nixed.
+    type Currency: LockableCurrencyExt<Self::AccountId, Moment = Self::BlockNumber>
+        + frame_support::traits::ReservableCurrency<Self::AccountId>;
 
     /// Origin for proposals.
     type CommitteeOrigin: EnsureOrigin<Self::Origin>;
@@ -547,6 +549,56 @@ decl_module! {
         type Error = Error<T>;
 
         fn deposit_event() = default;
+
+        fn on_runtime_upgrade() -> Weight {
+            // Larger goal here is to clear Governance V1.
+            use frame_support::{
+                storage::{unhashed, IterableStorageDoubleMap, migration::StorageIterator},
+                traits::ReservableCurrency,
+                Twox128, StorageHasher
+            };
+
+            // 1. Start with refunding all deposits.
+            // As we've `drain`ed  `Deposits`, we need not do so again below.
+            for (_, _, depo) in <Deposits<T>>::drain() {
+                <T as Trait>::Currency::unreserve(&depo.owner, depo.amount);
+            }
+
+            // 2. Then we clear various storage items that were present on V1.
+            // For future reference, the storage items are defined in:
+            // https://github.com/PolymathNetwork/Polymesh/blob/0047b2570e7ac57771b4153d25867166e8091b9a/pallets/pips/src/lib.rs#L308-L357
+
+            // 2a) Clear all the `map`s and `double_map`s by fully consuming a draining iterator.
+            for item in &[
+                "ProposalMetadata",
+                "ProposalsMaturingAt",
+                "Proposals",
+                "ProposalResult",
+                "Referendums",
+                "ScheduledReferendumsAt",
+                "ProposalVotes",
+            ] {
+                StorageIterator::<()>::new(b"Pips", item.as_bytes()).drain().for_each(drop)
+            }
+
+            // 2b) Reset the PIP ID sequence to `0`.
+            PipIdSequence::kill();
+
+            // 2c) Remove items no longer used in V2.
+            fn storage_value_final_key(module: &[u8], item: &[u8]) -> [u8; 32] {
+                let mut final_key = [0u8; 32];
+                final_key[0..16].copy_from_slice(&Twox128::hash(module));
+                final_key[16..32].copy_from_slice(&Twox128::hash(item));
+                final_key
+            }
+            for item in &["ProposalDuration", "QuorumThreshold"] {
+                unhashed::kill(&storage_value_final_key(b"Pips", item.as_bytes()));
+            }
+
+            // Done; we've cleared all V1 storage needed; V2 can now be filled in.
+            // As for the weight, clearing costs much more than this, but let's pretend.
+            0
+        }
 
         /// Change whether completed PIPs are pruned. Can only be called by governance council
         ///
