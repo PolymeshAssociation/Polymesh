@@ -251,9 +251,10 @@ decl_module! {
 
         fn on_runtime_upgrade() -> Weight {
             use polymesh_primitives::{
-                secondary_key::OldSecondaryKey, identity_claim::IdentityClaimOld, migrate::migrate_map
+                secondary_key::runtime_upgrade::OldSecondaryKey, identity_claim::IdentityClaimOld,
+                migrate::migrate_map
             };
-            use polymesh_common_utilities::traits::identity::OldLinkedKeyInfo;
+            use polymesh_common_utilities::traits::identity::runtime_upgrade::LinkedKeyInfo;
 
             // Rename "master" to "primary".
             <CddAuthForPrimaryKeyRotation>::put(<CddAuthForMasterKeyRotation>::take());

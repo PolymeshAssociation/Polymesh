@@ -309,13 +309,14 @@ where
     }
 }
 
+/// Runtime upgrade definitions.
 pub mod runtime_upgrade {
-    use crate::Signatory;
-    use codec::Decode;
+    use crate::{migrate::Migrate, Signatory};
+    use codec::{Decode, Encode};
+    use sp_std::vec::Vec;
 
     /// Old permission type for runtime upgrade purposes.
-    #[allow(missing_docs)]
-    #[derive(Decode, Clone)]
+    #[derive(Decode)]
     pub enum Permission {
         Full,
         Admin,
@@ -325,20 +326,25 @@ pub mod runtime_upgrade {
     }
 
     /// Old secondary key type for runtime upgrade purposes.
-    #[derive(Decode, Clone)]
-    pub struct SecondaryKey<AccountId> {
+    #[derive(Decode)]
+    pub struct SecondaryKey<AccountId: Decode> {
         /// The account or identity that is the signatory of this key.
         pub signer: Signatory<AccountId>,
         /// Signer permissions.
         pub permissions: Vec<Permission>,
     }
 
-    impl<AccountId> From<SecondaryKey<AccountId>> for super::SecondaryKey<AccountId> {
-        fn from(sk: SecondaryKey<AccountId>) -> Self {
-            super::SecondaryKey {
-                signer: sk.signer,
+    impl<AccountId> Migrate for SecondaryKey<AccountId>
+    where
+        AccountId: Decode + Encode,
+    {
+        type Into = super::SecondaryKey<AccountId>;
+
+        fn migrate(self) -> Option<Self::Into> {
+            Some(super::SecondaryKey {
+                signer: self.signer,
                 permissions: super::Permissions::empty(),
-            }
+            })
         }
     }
 }

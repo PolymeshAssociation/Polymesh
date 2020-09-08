@@ -36,18 +36,26 @@ use sp_core::H512;
 use sp_runtime::traits::{Dispatchable, IdentifyAccount, Member, Verify};
 use sp_std::vec::Vec;
 
-/// Old type definition kept here for upgrade purposes.
-#[derive(codec::Decode, Clone)]
-pub enum OldLinkedKeyInfo {
-    Unique(IdentityId),
-    Group(Vec<IdentityId>),
-}
+/// Runtime upgrade definitions.
+pub mod runtime_upgrade {
+    use codec::Decode;
+    use polymesh_primitives::{migrate::Migrate, IdentityId};
 
-impl From<OldLinkedKeyInfo> for IdentityId {
-    fn from(info: OldLinkedKeyInfo) -> Self {
-        match info {
-            OldLinkedKeyInfo::Unique(did) => did,
-            OldLinkedKeyInfo::Group(mut v) => v.pop().unwrap_or_default(),
+    /// Old type definition kept here for upgrade purposes.
+    #[derive(Decode)]
+    pub enum LinkedKeyInfo {
+        Unique(IdentityId),
+        Group(Vec<IdentityId>),
+    }
+
+    impl Migrate for LinkedKeyInfo {
+        type Into = IdentityId;
+
+        fn migrate(self) -> Option<Self::Into> {
+            match self {
+                LinkedKeyInfo::Unique(did) => Some(did),
+                LinkedKeyInfo::Group(mut v) => None,
+            }
         }
     }
 }
