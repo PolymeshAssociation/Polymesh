@@ -30,7 +30,7 @@ while ! nc -z localhost 9944; do
     WAIT_COUNT=$((WAIT_COUNT+1))
 done
 
-npm test
+timeout 30m npm test
 
 # Terminate polymesh
 kill $POLYMESH_PID

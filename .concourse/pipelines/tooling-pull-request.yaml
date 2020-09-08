@@ -195,7 +195,6 @@ jobs:
               run:
                 path: bash
                 args: ["githubpr-polymesh/.concourse/scripts/t-npm-test.sh", "githubpr-polymesh", "npm-caches", "artifact"]
-            timeout: 30m
       - in_parallel:
           - put: s3-polymesh
             params:
