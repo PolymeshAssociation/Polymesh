@@ -70,7 +70,13 @@ pub fn deserialize_u8_strong_typed_derive(input: TokenStream) -> TokenStream {
 ///
 /// This will implement `Migrate for FooOld` and migrate `bar` but not `baz`.
 /// Additionally, it will also define `FooOld` for you using `BarOld` instead of `Bar`.
-#[proc_macro_derive(Migrate, attributes(migrate))]
+///
+/// Another form of `#[migrate]` is `#[migrate(Foo, Bar)]` which on
+/// `field: Vec<(Foo, Bar, Baz)>` will produce `field: Vec<(FooOld, BarOld, Baz)>`.
+///
+/// Additionally, you may specify `#[migrate_from(TypeToReplaceWithInOld)]`
+/// which will perform an exact replacement of the type in the generated old type.
+#[proc_macro_derive(Migrate, attributes(migrate, migrate_from))]
 pub fn migrate_derive(input: TokenStream) -> TokenStream {
     impl_migrate(syn::parse(input).unwrap()).into()
 }
