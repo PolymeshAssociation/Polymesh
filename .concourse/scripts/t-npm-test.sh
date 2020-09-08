@@ -14,7 +14,7 @@ mkdir -p ${NPM_CACHE_DIR}/scripts/cli/node_modules
 rsync -auv --size-only ${NPM_CACHE_DIR}/scripts/cli/node_modules/ ${GIT_DIR}/scripts/cli/node_modules | grep -e "^total size" -B1 --color=never
 
 # Run polymesh silently in the background
-$ARTIFACT_DIR/usr/local/bin/polymesh --dev --pool-limit 100000 -d /tmp/pmesh-primary-node 2>&1 /dev/null &
+$ARTIFACT_DIR/usr/local/bin/polymesh --dev --pool-limit 100000 -d /tmp/pmesh-primary-node &> /dev/null &
 POLYMESH_PID=$!
 
 cd $GIT_DIR/scripts/cli

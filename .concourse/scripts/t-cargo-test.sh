@@ -19,6 +19,7 @@ if [ ! -z "$SUBMODULE_ACCESS_TOKEN" ]; then
     git submodule update external/cryptography
 fi
 
+cargo sweep -s -r
 cargo test \
   --package node-rpc-runtime-api \
   --package pallet-cdd-offchain-worker \
@@ -27,7 +28,6 @@ cargo test \
   --package pallet-transaction-payment \
   --package polymesh-primitives \
   --package polymesh-runtime-tests \
-  --features default_identity \
-
-cargo sweep -t 3
+  --features default_identity
+cargo sweep -f -r
 
