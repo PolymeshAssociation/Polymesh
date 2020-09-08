@@ -251,7 +251,7 @@ fn valid_transfers_pass() {
         ));
 
         assert_eq!(
-            Asset::balance(&ticker, token.owner_did).total,
+            Asset::balance_of(&ticker, token.owner_did),
             token.total_supply
         );
 
@@ -1640,9 +1640,11 @@ fn test_can_transfer_rpc() {
             assert_eq!(
                 Asset::unsafe_can_transfer(
                     AccountKeyring::Alice.public(),
-                    ticker,
-                    Some(alice_did),
-                    Some(bob_did),
+                    None,
+                    alice_did.into(),
+                    None,
+                    bob_did.into(),
+                    &ticker,
                     100 // It only passed when it should be the multiple of currency::ONE_UNIT
                 )
                 .unwrap(),
@@ -1653,9 +1655,11 @@ fn test_can_transfer_rpc() {
             assert_eq!(
                 Asset::unsafe_can_transfer(
                     AccountKeyring::Bob.public(),
-                    ticker,
-                    Some(bob_did),
-                    Some(alice_did),
+                    None,
+                    bob_did.into(),
+                    None,
+                    alice_did.into(),
+                    &ticker,
                     100 * currency::ONE_UNIT
                 )
                 .unwrap(),
@@ -1697,9 +1701,11 @@ fn test_can_transfer_rpc() {
             assert_eq!(
                 Asset::unsafe_can_transfer(
                     AccountKeyring::Alice.public(),
-                    ticker,
-                    Some(alice_did),
-                    Some(bob_did),
+                    None,
+                    alice_did.into(),
+                    None,
+                    bob_did.into(),
+                    &ticker,
                     20 * currency::ONE_UNIT
                 )
                 .unwrap(),
@@ -1719,9 +1725,11 @@ fn test_can_transfer_rpc() {
             assert_eq!(
                 Asset::unsafe_can_transfer(
                     AccountKeyring::Alice.public(),
-                    ticker,
-                    Some(alice_did),
-                    Some(bob_did),
+                    None,
+                    alice_did.into(),
+                    None,
+                    bob_did.into(),
+                    &ticker,
                     20 * currency::ONE_UNIT
                 )
                 .unwrap(),

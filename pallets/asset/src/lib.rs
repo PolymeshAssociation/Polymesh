@@ -109,10 +109,10 @@ use polymesh_common_utilities::{
 };
 use polymesh_primitives::{
     AuthorizationData, AuthorizationError, Document, DocumentName, IdentityId, PortfolioId,
-    PortfolioNumber, Signatory, SmartExtension, SmartExtensionName, SmartExtensionType, Ticker,
+    Signatory, SmartExtension, SmartExtensionName, SmartExtensionType, Ticker,
 };
 use polymesh_primitives_derive::VecU8StrongTyped;
-use sp_runtime::traits::{CheckedAdd, CheckedSub, Saturating};
+use sp_runtime::traits::{CheckedAdd, Saturating};
 #[cfg(feature = "std")]
 use sp_runtime::{Deserialize, Serialize};
 use sp_std::{convert::TryFrom, prelude::*};
@@ -257,16 +257,6 @@ impl Default for RestrictionResult {
     fn default() -> Self {
         RestrictionResult::Invalid
     }
-}
-
-/// The total asset balance and the balance of the asset in a specified portfolio of an identity.
-#[cfg_attr(feature = "std", derive(Debug))]
-#[derive(Clone, PartialEq, Eq, PartialOrd, Ord)]
-pub struct FocusedBalances<Balance> {
-    /// The total balance of the asset held by the identity.
-    pub total: Balance,
-    /// The balance of the asset in the default portfolio of the identity.
-    pub portfolio: Balance,
 }
 
 pub mod weight_for {
@@ -683,57 +673,6 @@ decl_module! {
             ensure!(Self::is_owner(&ticker, did), Error::<T>::Unauthorized);
             let beneficiary = Self::token_details(&ticker).primary_issuance_agent.unwrap_or(did);
             Self::_mint(&ticker, sender, beneficiary, value, Some(ProtocolOp::AssetIssue))
-        }
-
-        /// Forces a redemption of an DID's tokens. Can only be called by token owner.
-        ///
-        /// # Arguments
-        /// * `origin` Secondary key of the token owner.
-        /// * `ticker` Ticker of the token.
-        /// * `token_holder_did` DID from whom balance get reduced.
-        /// * `value` Amount of the tokens needs to redeem.
-        /// * `data` An off chain data blob used to validate the redeem functionality.
-        /// * `operator_data` Any data blob that defines the reason behind the force redeem.
-        #[weight = T::DbWeight::get().reads_writes(6, 3) + 800_000_000]
-        pub fn controller_redeem(origin, ticker: Ticker, token_holder_did: IdentityId, value: T::Balance, data: Vec<u8>, operator_data: Vec<u8>) -> DispatchResult {
-            let sender = ensure_signed(origin)?;
-            let did = Context::current_identity_or::<Identity<T>>(&sender)?;
-
-            ensure!(Self::is_owner(&ticker, did), Error::<T>::NotAnOwner);
-            // Granularity check
-            ensure!(Self::check_granularity(&ticker, value), Error::<T>::InvalidGranularity);
-            ensure!(<BalanceOf<T>>::contains_key(&ticker, &token_holder_did), Error::<T>::NotAnAssetHolder);
-            let FocusedBalances {
-                total: burner_balance,
-                portfolio: burner_def_balance,
-            } = Self::balance(&ticker, token_holder_did);
-            ensure!(burner_balance >= value, Error::<T>::InsufficientBalance);
-            ensure!(burner_def_balance >= value, Error::<T>::InsufficientDefaultPortfolioBalance);
-
-            // Reduce sender's balance
-            let updated_burner_def_balance = burner_def_balance
-                .checked_sub(&value)
-                .ok_or(Error::<T>::DefaultPortfolioBalanceUnderflow)?;
-            // No check since the total balance is always >= the default
-            // portfolio balance. The default portfolio balance is already checked above.
-            let updated_burner_balance = burner_balance - value;
-
-            // Decrease total supply
-            let mut token = Self::token_details(&ticker);
-            // No check since the total supply is always >= the default
-            // portfolio balance. The default portfolio balance is already checked above.
-            token.total_supply -= value;
-
-            Self::_update_checkpoint(&ticker, token_holder_did, burner_balance);
-
-            <BalanceOf<T>>::insert(&ticker, &token_holder_did, updated_burner_balance);
-            Portfolio::<T>::set_default_portfolio_balance(token_holder_did, &ticker, updated_burner_def_balance);
-            <Tokens<T>>::insert(&ticker, token);
-            <statistics::Module<T>>::update_transfer_stats( &ticker, Some(updated_burner_balance), None, value);
-
-            Self::deposit_event(RawEvent::ControllerRedemption(did, ticker, token_holder_did, value, data, operator_data));
-
-            Ok(())
         }
 
         /// Makes an indivisible token divisible. Only called by the token owner.
@@ -1383,14 +1322,6 @@ impl<T: Trait> Module<T> {
         Self::deposit_event(RawEvent::TickerRegistered(owner, *ticker, expiry));
     }
 
-    /// Get the asset `ticker` balance of `did`, both total and that of the default portfolio.
-    pub fn balance(ticker: &Ticker, did: IdentityId) -> FocusedBalances<T::Balance> {
-        FocusedBalances {
-            total: Self::balance_of(ticker, &did),
-            portfolio: Portfolio::<T>::default_portfolio_balance(did, ticker),
-        }
-    }
-
     // Get the total supply of an asset `id`.
     pub fn total_supply(ticker: Ticker) -> T::Balance {
         Self::token_details(ticker).total_supply
@@ -1543,50 +1474,28 @@ impl<T: Trait> Module<T> {
             from_portfolio.did != to_portfolio.did,
             Error::<T>::InvalidTransfer
         );
-        let FocusedBalances {
-            total: from_total_balance,
-            portfolio: from_def_balance,
-        } = Self::balance(ticker, from_portfolio.did);
+
+        let from_total_balance = Self::balance_of(ticker, from_portfolio.did);
         ensure!(from_total_balance >= value, Error::<T>::InsufficientBalance);
-        ensure!(
-            from_def_balance >= value,
-            Error::<T>::InsufficientDefaultPortfolioBalance
-        );
-        let updated_from_def_balance = from_def_balance
-            .checked_sub(&value)
-            .ok_or(Error::<T>::DefaultPortfolioBalanceUnderflow)?;
-        // No check since the total balance is always >= the default
-        // portfolio balance. The default portfolio balance is already checked above.
         let updated_from_total_balance = from_total_balance - value;
 
-        let FocusedBalances {
-            total: to_total_balance,
-            portfolio: to_def_balance,
-        } = Self::balance(ticker, to_portfolio.did);
+        let to_total_balance = Self::balance_of(ticker, to_portfolio.did);
         let updated_to_total_balance = to_total_balance
             .checked_add(&value)
             .ok_or(Error::<T>::BalanceOverflow)?;
-        // No check since the default portfolio balance is always <= the total
-        // balance. The total balance is already checked above.
-        let updated_to_def_balance = to_def_balance + value;
 
         Self::_update_checkpoint(ticker, from_portfolio.did, from_total_balance);
         Self::_update_checkpoint(ticker, to_portfolio.did, to_total_balance);
         // reduce sender's balance
         <BalanceOf<T>>::insert(ticker, &from_portfolio.did, updated_from_total_balance);
-        // TODO: Update specific portfolio balance
-        Portfolio::<T>::set_default_portfolio_balance(
-            from_portfolio.did,
-            ticker,
-            updated_from_def_balance,
-        );
-
         // increase receiver's balance
         <BalanceOf<T>>::insert(ticker, &to_portfolio.did, updated_to_total_balance);
-        Portfolio::<T>::set_default_portfolio_balance(
-            to_portfolio.did,
+        // transfer portfolio balances
+        Portfolio::<T>::unchecked_transfer_portfolio_balance(
+            from_portfolio,
+            to_portfolio,
+            value,
             ticker,
-            updated_to_def_balance,
         );
 
         // Update statistic info.
@@ -1669,16 +1578,14 @@ impl<T: Trait> Module<T> {
             Error::<T>::TotalSupplyAboveLimit
         );
         //Increase receiver balance
-        let FocusedBalances {
-            total: current_to_balance,
-            portfolio: current_to_def_balance,
-        } = Self::balance(ticker, to_did);
+        let current_to_balance = Self::balance_of(ticker, to_did);
         // No check since the total balance is always <= the total supply. The
         // total supply is already checked above.
         let updated_to_balance = current_to_balance + value;
         // No check since the default portfolio balance is always <= the total
         // supply. The total supply is already checked above.
-        let updated_to_def_balance = current_to_def_balance + value;
+        let updated_to_def_balance =
+            Portfolio::<T>::portfolio_asset_balances(PortfolioId::from(to_did), ticker) + value;
 
         // Charge the given fee.
         if let Some(op) = protocol_fee_data {
@@ -1948,46 +1855,71 @@ impl<T: Trait> Module<T> {
     /// will be valid or not beforehand.
     pub fn unsafe_can_transfer(
         sender: T::AccountId,
-        ticker: Ticker,
-        from_did: Option<IdentityId>,
-        to_did: Option<IdentityId>,
-        amount: T::Balance,
+        from_custodian: Option<IdentityId>,
+        from_portfolio: PortfolioId,
+        to_custodian: Option<IdentityId>,
+        to_portfolio: PortfolioId,
+        ticker: &Ticker,
+        value: T::Balance,
     ) -> StdResult<u8, &'static str> {
         // TODO: Fix RPC to work with portfolios
         // Granularity check
-        if !Self::check_granularity(&ticker, amount) {
+        if !Self::check_granularity(&ticker, value) {
             return Ok(INVALID_GRANULARITY);
         }
-        if from_did == to_did {
+
+        if from_portfolio.did == to_portfolio.did {
             return Ok(INVALID_RECEIVER_DID);
         }
-        // Non-Issuance case check
-        if let Some(from_id) = from_did {
-            if Identity::<T>::has_valid_cdd(from_id) {
-                let FocusedBalances {
-                    total: balance,
-                    portfolio: def_balance,
-                } = Self::balance(&ticker, from_id);
-                if balance < amount || def_balance < amount {
-                    return Ok(ERC1400_INSUFFICIENT_BALANCE);
-                }
-            } else {
-                return Ok(INVALID_SENDER_DID);
-            }
+
+        if !Identity::<T>::has_valid_cdd(from_portfolio.did) {
+            return Ok(INVALID_SENDER_DID);
         }
-        // Non-Redeem case check
-        if let Some(to_id) = to_did {
-            if !Identity::<T>::has_valid_cdd(to_id) {
-                return Ok(INVALID_RECEIVER_DID);
-            }
+
+        if Portfolio::<T>::check_portfolio_custody(
+            from_portfolio,
+            from_custodian.unwrap_or(from_portfolio.did),
+        )
+        .is_err()
+        {
+            return Ok(CUSTODIAN_ERROR);
         }
-        Ok(INVALID_RECEIVER_DID)
+
+        if !Identity::<T>::has_valid_cdd(to_portfolio.did) {
+            return Ok(INVALID_RECEIVER_DID);
+        }
+
+        if Portfolio::<T>::check_portfolio_custody(
+            to_portfolio,
+            to_custodian.unwrap_or(to_portfolio.did),
+        )
+        .is_err()
+        {
+            return Ok(CUSTODIAN_ERROR);
+        }
+
+        if Self::balance_of(&ticker, from_portfolio.did) < value {
+            return Ok(ERC1400_INSUFFICIENT_BALANCE);
+        }
+
+        if Portfolio::<T>::check_portfolio_transfer_validity(
+            from_portfolio,
+            to_portfolio,
+            value,
+            ticker,
+        )
+        .is_err()
+        {
+            return Ok(PORTFOLIO_FAILURE);
+        }
+
+        // TODO fix this
         // Compliance manager & Smart Extension check
-        // Ok(Self::_is_valid_transfer(
-        //     &ticker, sender, from_did, None, None, to_did, None, None, amount,
-        // )
-        // .map(|(status, _)| status)
-        // .unwrap_or(ERC1400_TRANSFER_FAILURE))
+        Ok(
+            Self::_is_valid_transfer(&ticker, sender, from_portfolio, to_portfolio, value)
+                .map(|(status, _)| status)
+                .unwrap_or(ERC1400_TRANSFER_FAILURE),
+        )
     }
 
     /// Transfers an asset from one identity portfolio to another

@@ -134,33 +134,32 @@ decl_module! {
                 / ONE_UNIT.into();
 
             let primary_issuance_agent = T::Asset::primary_issuance_agent(&offering_token);
-            // TODO: fix sto
-            // let legs = vec![
-            //     Leg {
-            //         // TODO: Replace with did that actually hold the offering token
-            //         from: primary_issuance_agent,
-            //         to: did,
-            //         asset: offering_token,
-            //         amount: offering_token_amount
-            //     },
-            //     Leg {
-            //         from: did,
-            //         to: primary_issuance_agent,
-            //         asset: fundraiser.raise_token,
-            //         amount: raise_token_amount
-            //     }
-            // ];
+            let legs = vec![
+                Leg {
+                    // TODO: Replace with did that actually hold the offering token
+                    from: primary_issuance_agent.into(),
+                    to: did.into(),
+                    asset: offering_token,
+                    amount: offering_token_amount
+                },
+                Leg {
+                    from: did.into(),
+                    to: primary_issuance_agent.into(),
+                    asset: fundraiser.raise_token,
+                    amount: raise_token_amount
+                }
+            ];
 
-            // let instruction_id = Settlement::<T>::base_add_instruction(
-            //     primary_issuance_agent,
-            //     fundraiser.venue_id,
-            //     SettlementType::SettleOnAuthorization,
-            //     None,
-            //     legs
-            // )?;
+            let instruction_id = Settlement::<T>::base_add_instruction(
+                primary_issuance_agent,
+                fundraiser.venue_id,
+                SettlementType::SettleOnAuthorization,
+                None,
+                legs
+            )?;
 
-            // Settlement::<T>::unsafe_authorize_instruction(primary_issuance_agent, instruction_id)?;
-            // Settlement::<T>::authorize_instruction(origin, instruction_id).map_err(|err| err.error)?;
+            Settlement::<T>::unsafe_authorize_instruction(primary_issuance_agent, instruction_id, primary_issuance_agent.into())?;
+            Settlement::<T>::authorize_instruction(origin, instruction_id, did.into()).map_err(|err| err.error)?;
 
             Self::deposit_event(
                 RawEvent::FundsRaised(did, offering_token, fundraiser.raise_token, offering_token_amount, raise_token_amount, fundraiser_id)
