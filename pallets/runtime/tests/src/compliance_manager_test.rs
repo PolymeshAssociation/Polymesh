@@ -38,8 +38,8 @@ macro_rules! assert_invalid_transfer {
             Asset::_is_valid_transfer(
                 &$ticker,
                 AccountKeyring::Alice.public(),
-                Some($from),
-                Some($to),
+                $from.into(),
+                $to.into(),
                 $amount
             )
             .map(|(a, _)| a),
@@ -54,8 +54,8 @@ macro_rules! assert_valid_transfer {
             Asset::_is_valid_transfer(
                 &$ticker,
                 AccountKeyring::Alice.public(),
-                Some($from),
-                Some($to),
+                $from.into(),
+                $to.into(),
                 $amount
             )
             .map(|(a, _)| a),

@@ -172,13 +172,19 @@ fn scope_claims_we() {
     // 3. Transfer some tokens to Inv. 1 and 2.
     assert_eq!(Asset::balance_of(st_id, inv_did_1), 0);
     assert_ok!(Asset::unsafe_transfer(
-        alice_id, &st_id, alice_id, inv_did_1, 10
+        alice_id.into(),
+        inv_did_1.into(),
+        &st_id,
+        10
     ));
     assert_eq!(Asset::balance_of(st_id, inv_did_1), 10);
 
     assert_eq!(Asset::balance_of(st_id, inv_did_2), 0);
     assert_ok!(Asset::unsafe_transfer(
-        alice_id, &st_id, alice_id, inv_did_2, 20
+        alice_id.into(),
+        inv_did_2.into(),
+        &st_id,
+        20
     ));
     assert_eq!(Asset::balance_of(st_id, inv_did_2), 20);
 
@@ -236,8 +242,8 @@ fn scope_claims_we() {
         Asset::_is_valid_transfer(
             &st2_id,
             AccountKeyring::Alice.public(),
-            Some(alice_id),
-            Some(inv_did_1),
+            alice_id.into(),
+            inv_did_1.into(),
             10
         )
         .map(|(a, _)| a),

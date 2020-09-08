@@ -12,7 +12,7 @@ use pallet_asset::ethereum;
 use pallet_asset::{
     self as asset, AssetOwnershipRelation, AssetType, ClassicTickerImport,
     ClassicTickerRegistration, ClassicTickers, FundingRoundName, IdentifierType, SecurityToken,
-    SignData, TickerRegistration, TickerRegistrationConfig, Tickers,
+    TickerRegistration, TickerRegistrationConfig, Tickers,
 };
 use pallet_balances as balances;
 use pallet_compliance_manager as compliance_manager;
@@ -265,14 +265,14 @@ fn valid_transfers_pass() {
 
         // Should fail as sender matches receiver
         assert_noop!(
-            Asset::transfer(owner_signed.clone(), ticker, owner_did, 500),
+            Asset::base_transfer(owner_did.into(), owner_did.into(), &ticker, 500),
             AssetError::InvalidTransfer
         );
 
-        assert_ok!(Asset::transfer(
-            owner_signed.clone(),
-            ticker,
-            alice_did,
+        assert_ok!(Asset::base_transfer(
+            owner_did.into(),
+            alice_did.into(),
+            &ticker,
             500
         ));
 
@@ -342,7 +342,10 @@ fn checkpoints_fuzz_test() {
                     owner_balance[j] -= 1;
                     bob_balance[j] += 1;
                     assert_ok!(Asset::unsafe_transfer(
-                        owner_did, &ticker, owner_did, bob_did, 1
+                        owner_did.into(),
+                        bob_did.into(),
+                        &ticker,
+                        1
                     ));
                 }
                 assert_ok!(Asset::create_checkpoint(owner_signed.clone(), ticker));
@@ -1894,7 +1897,7 @@ fn test_weights_for_is_valid_transfer() {
 
             // call is_valid_transfer()
             let result =
-                Asset::_is_valid_transfer(&ticker, alice, Some(alice_did), Some(bob_did), 100)
+                Asset::_is_valid_transfer(&ticker, alice, alice_did.into(), bob_did.into(), 100)
                     .unwrap()
                     .1;
             let weight_from_verify_transfer = ComplianceManager::verify_restriction(
@@ -1912,7 +1915,7 @@ fn test_weights_for_is_valid_transfer() {
             assert_add_claim!(eve_signed.clone(), alice_did, Claim::Accredited(ticker_id));
 
             let result =
-                Asset::_is_valid_transfer(&ticker, alice, Some(alice_did), Some(bob_did), 100)
+                Asset::_is_valid_transfer(&ticker, alice, alice_did.into(), bob_did.into(), 100)
                     .unwrap()
                     .1;
             let weight_from_verify_transfer = ComplianceManager::verify_restriction(
@@ -1942,7 +1945,7 @@ fn test_weights_for_is_valid_transfer() {
                 }]
             ));
             let result =
-                Asset::_is_valid_transfer(&ticker, alice, Some(alice_did), Some(bob_did), 100)
+                Asset::_is_valid_transfer(&ticker, alice, alice_did.into(), bob_did.into(), 100)
                     .unwrap();
             let verify_restriction_result = ComplianceManager::verify_restriction(
                 &ticker,
@@ -1966,7 +1969,7 @@ fn test_weights_for_is_valid_transfer() {
             ));
 
             let result =
-                Asset::_is_valid_transfer(&ticker, alice, Some(alice_did), Some(bob_did), 100)
+                Asset::_is_valid_transfer(&ticker, alice, alice_did.into(), bob_did.into(), 100)
                     .unwrap();
             let weight_from_verify_transfer = ComplianceManager::verify_restriction(
                 &ticker,

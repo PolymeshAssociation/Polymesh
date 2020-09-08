@@ -309,10 +309,9 @@ fn vote() {
         ));
 
         assert_ok!(Asset::unsafe_transfer(
-            token_owner_did,
+            token_owner_did.into(),
+            tokenholder_did.into(),
             &ticker,
-            token_owner_did,
-            tokenholder_did,
             500
         ));
 

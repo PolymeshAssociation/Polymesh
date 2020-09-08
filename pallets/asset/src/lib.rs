@@ -1991,7 +1991,7 @@ impl<T: Trait> Module<T> {
     }
 
     /// Transfers an asset from one identity portfolio to another
-    fn transfer(
+    pub fn transfer(
         from_custodian: Option<IdentityId>,
         from_portfolio: PortfolioId,
         to_custodian: Option<IdentityId>,
@@ -2012,7 +2012,7 @@ impl<T: Trait> Module<T> {
     }
 
     /// Transfers an asset from one identity portfolio to another
-    fn base_transfer(
+    pub fn base_transfer(
         from_portfolio: PortfolioId,
         to_portfolio: PortfolioId,
         ticker: &Ticker,

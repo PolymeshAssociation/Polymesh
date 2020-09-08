@@ -25,16 +25,15 @@ fn can_create_rename_delete_portfolio() {
             owner_signed.clone(),
             name.clone()
         ));
-        assert_eq!(Portfolio::portfolios(&owner_did, num), Some(name));
+        assert_eq!(Portfolio::portfolios(&owner_did, num), name);
         let new_name = PortfolioName::from([55u8].to_vec());
         assert_ok!(Portfolio::rename_portfolio(
             owner_signed.clone(),
             num,
             new_name.clone()
         ));
-        assert_eq!(Portfolio::portfolios(&owner_did, num), Some(new_name));
+        assert_eq!(Portfolio::portfolios(&owner_did, num), new_name);
         assert_ok!(Portfolio::delete_portfolio(owner_signed.clone(), num));
-        assert!(Portfolio::portfolios(&owner_did, num).is_none());
     });
 }
 
@@ -80,7 +79,7 @@ fn do_move_asset_from_portfolio() {
         owner_signed.clone(),
         name.clone(),
     ));
-    assert_eq!(Portfolio::portfolios(&owner_did, num), Some(name));
+    assert_eq!(Portfolio::portfolios(&owner_did, num), name);
     assert_eq!(
         Portfolio::user_portfolio_balance(owner_did, num, &ticker),
         0,
