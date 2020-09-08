@@ -342,7 +342,7 @@ pub mod runtime_upgrade {
         type Into = super::SecondaryKey<AccountId>;
 
         fn migrate(self) -> Option<Self::Into> {
-            Some(super::SecondaryKey {
+            Some(Self::Into {
                 signer: self.signer,
                 permissions: super::Permissions::empty(),
             })
@@ -364,7 +364,7 @@ pub mod runtime_upgrade {
         type Into = crate::Identity<AccountId>;
 
         fn migrate(self) -> Option<Self::Into> {
-            Some(crate::Identity {
+            Some(Self::Into {
                 roles: self.roles,
                 primary_key: self.primary_key,
                 secondary_keys: self
