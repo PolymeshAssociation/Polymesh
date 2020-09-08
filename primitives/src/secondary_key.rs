@@ -310,8 +310,9 @@ where
 }
 
 /// Runtime upgrade definitions.
+#[allow(missing_docs)]
 pub mod runtime_upgrade {
-    use crate::{migrate::Migrate, Signatory};
+    use crate::{migrate::Migrate, IdentityRole, Signatory};
     use codec::{Decode, Encode};
     use sp_std::vec::Vec;
 
@@ -344,6 +345,33 @@ pub mod runtime_upgrade {
             Some(super::SecondaryKey {
                 signer: self.signer,
                 permissions: super::Permissions::empty(),
+            })
+        }
+    }
+
+    /// Old DID record type.
+    #[derive(Decode)]
+    pub struct Identity<AccountId: Decode> {
+        pub roles: Vec<IdentityRole>,
+        pub primary_key: AccountId,
+        pub secondary_keys: Vec<SecondaryKey<AccountId>>,
+    }
+
+    impl<AccountId> Migrate for Identity<AccountId>
+    where
+        AccountId: Decode + Encode,
+    {
+        type Into = crate::Identity<AccountId>;
+
+        fn migrate(self) -> Option<Self::Into> {
+            Some(crate::Identity {
+                roles: self.roles,
+                primary_key: self.primary_key,
+                secondary_keys: self
+                    .secondary_keys
+                    .into_iter()
+                    .filter_map(|sks| sks.migrate())
+                    .collect(),
             })
         }
     }

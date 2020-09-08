@@ -37,9 +37,11 @@ use sp_runtime::traits::{Dispatchable, IdentifyAccount, Member, Verify};
 use sp_std::vec::Vec;
 
 /// Runtime upgrade definitions.
+#[allow(missing_docs)]
 pub mod runtime_upgrade {
     use codec::Decode;
     use polymesh_primitives::{migrate::Migrate, IdentityId};
+    use sp_std::vec::Vec;
 
     /// Old type definition kept here for upgrade purposes.
     #[derive(Decode)]
