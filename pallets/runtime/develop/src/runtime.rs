@@ -13,7 +13,7 @@ use pallet_confidential as confidential;
 use pallet_group as group;
 use pallet_identity::{
     self as identity,
-    types::{AssetDidResult, CddStatus, DidRecords, DidStatus},
+    types::{AssetDidResult, CddStatus, DidRecords, DidStatus, KeyIdentityData},
 };
 use pallet_multisig as multisig;
 use pallet_pips::{HistoricalVotingByAddress, HistoricalVotingById, Vote, VoteCount};
@@ -720,10 +720,10 @@ impl confidential::Trait for Runtime {
 }
 
 // / A runtime transaction submitter for the cdd_offchain_worker
-// Comment it in the favour of Testnet v1 release
+// Comment it in the favour of Testnet release
 //type SubmitTransactionCdd = TransactionSubmitter<CddOffchainWorkerId, Runtime, UncheckedExtrinsic>;
 
-// Comment it in the favour of Testnet v1 release
+// Comment it in the favour of Testnet release
 // parameter_types! {
 //     pub const CoolingInterval: BlockNumber = 3;
 //     pub const BufferInterval: BlockNumber = 5;
@@ -808,7 +808,7 @@ construct_runtime!(
         Statistic: statistics::{Module, Call, Storage},
         ProtocolFee: protocol_fee::{Module, Call, Storage, Event<T>, Config<T>},
         Utility: utility::{Module, Call, Storage, Event},
-        // Comment it in the favour of Testnet v1 release
+        // Comment it in the favour of Testnet release
         // CddOffchainWorker: pallet_cdd_offchain_worker::{Module, Call, Storage, ValidateUnsigned, Event<T>}
         Portfolio: portfolio::{Module, Call, Storage, Event<T>},
         Confidential: confidential::{Module, Call, Storage, Event },
@@ -1095,10 +1095,8 @@ impl_runtime_apis! {
 
         /// RPC call to query the given ticker did
         fn get_asset_did(ticker: Ticker) -> AssetDidResult {
-            match Identity::get_asset_did(ticker) {
-                Ok(did) => Ok(did),
-                Err(_) => Err("Error in computing the given ticker error".into()),
-            }
+            Identity::get_asset_did(ticker)
+                .map_err(|_| "Error in computing the given ticker error".into())
         }
 
         /// Retrieve primary key and secondary keys for a given IdentityId
@@ -1111,6 +1109,10 @@ impl_runtime_apis! {
             Identity::get_did_status(dids)
         }
 
+        fn get_key_identity_data(acc: AccountId) -> Option<KeyIdentityData<IdentityId>> {
+            Identity::get_key_identity_data(acc)
+        }
+
         /// Retrieve list of a authorization for a given signatory
         fn get_filtered_authorizations(
             signatory: Signatory<AccountId>,
@@ -1121,7 +1123,7 @@ impl_runtime_apis! {
         }
     }
 
-    impl node_rpc_runtime_api::asset::AssetApi<Block, AccountId, Balance> for Runtime {
+    impl node_rpc_runtime_api::asset::AssetApi<Block, AccountId> for Runtime {
         #[inline]
         fn can_transfer(
             sender: AccountId,

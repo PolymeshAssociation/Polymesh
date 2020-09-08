@@ -47,8 +47,8 @@
 //! - `controller_redeem` - Forces a redemption of an DID's tokens. Can only be called by token owner.
 //! - `make_divisible` - Change the divisibility of the token to divisible. Only called by the token owner.
 //! - `can_transfer` - Checks whether a transaction with given parameters can take place or not.
-//! - `batch_add_document` - Add documents for a given token, Only be called by the token owner.
-//! - `batch_remove_document` - Remove documents for a given token, Only be called by the token owner.
+//! - `add_documents` - Add documents for a given token, Only be called by the token owner.
+//! - `remove_documents` - Remove documents for a given token, Only be called by the token owner.
 //! - `set_funding_round` - Sets the name of the current funding round.
 //! - `update_identifiers` - Updates the asset identifiers. Only called by the token owner.
 //! - `add_extension` - It is used to permission the Smart-Extension address for a given ticker.
@@ -766,7 +766,7 @@ decl_module! {
         /// # Weight
         /// `500_000_000 + 600_000 * documents.len()`
         #[weight = T::DbWeight::get().reads_writes(2, 1) + 500_000_000 + 600_000 * u64::try_from(documents.len()).unwrap_or_default()]
-        pub fn batch_add_document(origin, documents: Vec<(DocumentName, Document)>, ticker: Ticker) -> DispatchResult {
+        pub fn add_documents(origin, documents: Vec<(DocumentName, Document)>, ticker: Ticker) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             let did = Context::current_identity_or::<Identity<T>>(&sender)?;
 
@@ -792,7 +792,7 @@ decl_module! {
         /// # Weight
         /// `500_000_000 + 600_000 * do_ids.len()`
         #[weight = T::DbWeight::get().reads_writes(2, 1) + 500_000_000 + 600_000 * u64::try_from(doc_names.len()).unwrap_or_default()]
-        pub fn batch_remove_document(origin, doc_names: Vec<DocumentName>, ticker: Ticker) -> DispatchResult {
+        pub fn remove_documents(origin, doc_names: Vec<DocumentName>, ticker: Ticker) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             let did = Context::current_identity_or::<Identity<T>>(&sender)?;
             ensure!(Self::is_owner(&ticker, did), Error::<T>::NotAnOwner);

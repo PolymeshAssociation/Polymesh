@@ -43,14 +43,10 @@ async function addSecondaryKeyRoles(api, accounts, dids, secondary_accounts) {
     for (let i = 0; i < accounts.length; i++) {
       let signer = {  Account: secondary_accounts[i].publicKey };
 
+      const transaction = api.tx.identity.setPermissionToSigner(signer, reqImports.sk_roles[i%reqImports.sk_roles.length]);
+      let tx = await reqImports.sendTx(accounts[i], transaction);
+      if(tx !== -1) reqImports.fail_count--;
 
-        let nonceObj = {nonce: reqImports.nonces.get(accounts[i].address)};
-        const transaction = api.tx.identity.setPermissionToSigner(signer, reqImports.sk_roles[i%reqImports.sk_roles.length]);
-        const result = await reqImports.sendTransaction(transaction, accounts[i], nonceObj);
-        const passed = result.findRecord('system', 'ExtrinsicSuccess');
-        if (passed) reqImports.fail_count--;
-
-      reqImports.nonces.set(accounts[i].address, reqImports.nonces.get(accounts[i].address).addn(1));
     }
 
     return dids;

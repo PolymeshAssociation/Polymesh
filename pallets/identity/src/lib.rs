@@ -61,20 +61,15 @@
 //! - `join_identity_as_key` - Join an identity as a secondary key.
 //! - `join_identity_as_identity` - Join an identity as a secondary identity.
 //! - `add_claim` - Adds a new claim record or edits an existing one.
-//! - `batch_add_claim` - Adds a new batch of claim records or edits an existing one.
 //! - `forwarded_call` - Creates a call on behalf of another DID.
 //! - `revoke_claim` - Marks the specified claim as revoked.
-//! - `batch_revoke_claim` - Revokes multiple claims in a batch.
 //! - `set_permission_to_signer` - Sets permissions for an specific `target_key` key.
 //! - `freeze_secondary_keys` - Disables all secondary keys at `did` identity.
 //! - `unfreeze_secondary_keys` - Re-enables all secondary keys of the caller's identity.
 //! - `add_authorization` - Adds an authorization.
-//! - `batch_add_authorization` - Adds an array of authorizations.
 //! - `remove_authorization` - Removes an authorization.
-//! - `batch_remove_authorization` - Removes an array of authorizations.
 //! - `accept_authorization` - Accepts an authorization.
-//! - `batch_accept_authorization` - Accepts an array of authorizations.
-//! - `batch_add_secondary_key_with_authorization` - Adds secondary keys to target identity `id`.
+//! - `add_secondary_keys_with_authorization` - Adds secondary keys to target identity `id`.
 //! - `revoke_offchain_authorization` - Revokes the `auth` off-chain authorization of `signer`.
 
 #![cfg_attr(not(feature = "std"), no_std)]
@@ -105,12 +100,12 @@ use polymesh_common_utilities::{
         portfolio::PortfolioSubTrait,
         transaction_payment::{CddAndFeeDetails, ChargeTxFee},
     },
-    with_each_transaction, Context, SystematicIssuers,
+    Context, SystematicIssuers,
 };
 use polymesh_primitives::{
-    AuthIdentifier, Authorization, AuthorizationData, AuthorizationError, AuthorizationType, CddId,
-    Claim, ClaimType, Identity as DidRecord, IdentityClaim, IdentityId, InvestorUid, Permission,
-    Scope, SecondaryKey, Signatory, Ticker,
+    Authorization, AuthorizationData, AuthorizationError, AuthorizationType, CddId, Claim,
+    ClaimType, Identity as DidRecord, IdentityClaim, IdentityId, InvestorUid, Permission, Scope,
+    SecondaryKey, Signatory, Ticker,
 };
 use sp_core::sr25519::Signature;
 use sp_io::hashing::blake2_256;
@@ -145,19 +140,6 @@ pub struct Claim1stKey {
 pub struct Claim2ndKey {
     pub issuer: IdentityId,
     pub scope: Option<Scope>,
-}
-
-#[derive(Encode, Decode, Clone, PartialEq, Eq, Default, Debug)]
-pub struct BatchAddClaimItem<M> {
-    pub target: IdentityId,
-    pub claim: Claim,
-    pub expiry: Option<M>,
-}
-
-#[derive(Encode, Decode, Clone, PartialEq, Eq, Default, Debug)]
-pub struct BatchRevokeClaimItem {
-    pub target: IdentityId,
-    pub claim: Claim,
 }
 
 decl_storage! {
@@ -532,26 +514,6 @@ decl_module! {
             Ok(())
         }
 
-        /// Adds a new batch of claim records or edits an existing one. Only called by
-        /// `did_issuer`'s secondary key.
-        ///
-        /// # Weight
-        /// `950_000_000 + 1_000_000 * claims.len()`
-        #[weight =(
-            950_000_000 + 1_000_000 * u64::try_from(claims.len()).unwrap_or_default(),
-            DispatchClass::Normal,
-            Pays::Yes
-        )]
-        pub fn batch_add_claim(
-            origin,
-            claims: Vec<BatchAddClaimItem<T::Moment>>
-        ) -> DispatchResult {
-            ensure_signed(origin.clone())?;
-            with_each_transaction(claims, |bci| {
-                Self::add_claim(origin.clone(), bci.target, bci.claim, bci.expiry)
-            })
-        }
-
         /// Creates a call on behalf of another DID.
         #[weight =(
             500_000_000 + proposal.get_dispatch_info().weight,
@@ -616,29 +578,6 @@ decl_module! {
                     Ok(())
                 }
             }
-        }
-
-        /// Revoke multiple claims in a batch.
-        ///
-        /// # Arguments
-        /// * origin - did issuer
-        /// * did_and_claim_data - Vector of the identities & the corresponding claim data whom claim needs to be revoked
-        ///
-        /// # Weight
-        /// `500_000_000 + 150_000 * claims.len()`
-        #[weight = (
-            500_000_000 + 150_000 * u64::try_from(claims.len()).unwrap_or_default(),
-            DispatchClass::Normal,
-            Pays::Yes
-        )]
-        pub fn batch_revoke_claim(
-            origin,
-            claims: Vec<BatchRevokeClaimItem>
-        ) -> DispatchResult {
-            let _sender = ensure_signed(origin.clone())?;
-            with_each_transaction(claims, |bci| {
-                Self::revoke_claim(origin.clone(), bci.target, bci.claim)
-            })
         }
 
         /// It sets permissions for an specific `target_key` key.
@@ -724,29 +663,6 @@ decl_module! {
             Ok(())
         }
 
-        // Manage generic authorizations
-        /// Adds an array of authorizations.
-        ///
-        /// # Weight
-        /// `900_000_000 + 50_000 * auths.len()`
-        #[weight =(
-            900_000_000 + 500_000 * u64::try_from(auths.len()).unwrap_or_default(),
-            DispatchClass::Normal,
-            Pays::Yes
-        )]
-        pub fn batch_add_authorization(
-            origin,
-            // Vec<(target_did, auth_data, expiry)>
-            auths: Vec<(Signatory<T::AccountId>, AuthorizationData<T::AccountId>, Option<T::Moment>)>
-        ) -> DispatchResult {
-            let sender = ensure_signed(origin)?;
-            let from_did = Context::current_identity_or::<Self>(&sender)?;
-            for auth in auths {
-                Self::add_auth(from_did, auth.0, auth.1, auth.2);
-            }
-            Ok(())
-        }
-
         /// Removes an authorization.
         #[weight = 900_000_000]
         pub fn remove_authorization(
@@ -764,40 +680,6 @@ decl_module! {
                 Error::<T>::Unauthorized
             );
             Self::unsafe_remove_auth(&target, auth_id, &auth.authorized_by, revoked);
-
-            Ok(())
-        }
-
-        /// Removes an array of authorizations.
-        ///
-        /// # Weight
-        /// `900_000_000 + 1_000_000 * auths.len()`
-        #[weight =(
-            900_000_000 + 1_000_000 * u64::try_from(auth_identifiers.len()).unwrap_or_default(),
-            DispatchClass::Normal,
-            Pays::Yes
-        )]
-        pub fn batch_remove_authorization(
-            origin,
-            auth_identifiers: Vec<AuthIdentifier<T::AccountId>>
-        ) -> DispatchResult {
-            let sender = ensure_signed(origin)?;
-            let from_did = Context::current_identity_or::<Self>(&sender)?;
-            let mut auths = Vec::with_capacity(auth_identifiers.len());
-            let mut revoked = Vec::with_capacity(auth_identifiers.len());
-            for (i, AuthIdentifier(ref sig, ref auth_id)) in auth_identifiers.iter().enumerate() {
-                auths.push(Self::ensure_authorization(sig, *auth_id)?);
-                revoked.push(auths[i].authorized_by == from_did);
-                ensure!(
-                    revoked[i] || sig.eq_either(&from_did, &sender),
-                    Error::<T>::Unauthorized
-                );
-            }
-
-            for ((auth_id, auth), revoked) in auth_identifiers.into_iter().zip(auths).zip(revoked) {
-                Self::unsafe_remove_auth(&auth_id.0, auth_id.1, &auth.authorized_by, revoked);
-
-            }
 
             Ok(())
         }
@@ -864,68 +746,6 @@ decl_module! {
             }
         }
 
-        /// Accepts an array of authorizations.
-        /// NB: Even if an auth is invalid (due to any reason), this batch function does NOT return an error.
-        /// It will just skip that particular authorization.
-        ///
-        /// # Weight
-        /// `2_000_000_000 + 5_000_000 * auth_ids.len()`
-        #[weight =(
-            2_000_000_000 + 5_000_000 * u64::try_from(auth_ids.len()).unwrap_or_default(),
-            DispatchClass::Normal,
-            Pays::Yes
-        )]
-        pub fn batch_accept_authorization(
-            origin,
-            auth_ids: Vec<u64>
-        ) -> DispatchResult {
-            let sender = ensure_signed(origin)?;
-            let signer = Context::current_identity_or::<Self>(&sender)
-                .map_or_else(
-                    |_error| Signatory::Account(sender),
-                    Signatory::from);
-
-            match &signer {
-                Signatory::Identity(did) => {
-                    for auth in auth_ids.into_iter().filter_map(|id| Self::maybe_authorization(&signer, id)) {
-                            // NB: Result is not handled, invalid auths are just ignored to let the batch function continue.
-                        let _ = match auth.authorization_data {
-                            AuthorizationData::TransferTicker(_) =>
-                                T::AcceptTransferTarget::accept_ticker_transfer(*did, auth.auth_id),
-                            AuthorizationData::TransferAssetOwnership(_) =>
-                                T::AcceptTransferTarget::accept_asset_ownership_transfer(*did, auth.auth_id),
-                            AuthorizationData::AddMultiSigSigner(_) =>
-                                T::MultiSig::accept_multisig_signer(Signatory::from(*did), auth.auth_id),
-                            AuthorizationData::JoinIdentity(_) =>
-                                Self::join_identity(Signatory::from(*did), auth.auth_id),
-                            AuthorizationData::PortfolioCustody(..) =>
-                                T::Portfolio::accept_portfolio_custody(*did, auth.auth_id),
-                            _ => Err(Error::<T>::UnknownAuthorization.into())
-                        };
-                    }
-                },
-                Signatory::Account(key) => {
-                    for auth in auth_ids.into_iter().filter_map(|id| Self::maybe_authorization(&signer, id)) {
-                        // NB: Result is not handled, invalid auths are just ignored to let the batch function continue.
-                        let _ = match auth.authorization_data {
-                            AuthorizationData::AddMultiSigSigner(_) =>
-                                T::MultiSig::accept_multisig_signer(
-                                    Signatory::Account(key.clone()),
-                                    auth.auth_id
-                                ),
-                            AuthorizationData::RotatePrimaryKey(_identityid) =>
-                                Self::accept_primary_key_rotation(key.clone(), auth.auth_id, None),
-                            AuthorizationData::JoinIdentity(_) =>
-                                Self::join_identity(Signatory::Account(key.clone()), auth.auth_id),
-                            _ => Err(Error::<T>::UnknownAuthorization.into())
-                        };
-                    }
-                }
-            }
-
-            Ok(())
-        }
-
         /// It adds secondary keys to target identity `id`.
         /// Keys are directly added to identity because each of them has an authorization.
         ///
@@ -946,7 +766,7 @@ decl_module! {
             DispatchClass::Normal,
             Pays::Yes
         )]
-        pub fn batch_add_secondary_key_with_authorization(
+        pub fn add_secondary_keys_with_authorization(
             origin,
             additional_keys: Vec<SecondaryKeyWithAuth<T::AccountId>>,
             expires_at: T::Moment
@@ -1983,6 +1803,24 @@ impl<T: Trait> Module<T> {
 }
 
 impl<T: Trait> Module<T> {
+    /// RPC call to fetch some aggregate account data for fewer round trips.
+    pub fn get_key_identity_data(acc: T::AccountId) -> Option<types::KeyIdentityData<IdentityId>> {
+        let identity = Self::get_identity(&acc)?;
+        let record = <DidRecords<T>>::get(identity);
+        let permissions = if acc == record.primary_key {
+            None
+        } else {
+            Some(record.secondary_keys.into_iter().find_map(|sk| {
+                sk.signer.as_account().filter(|&a| a == &acc)?;
+                Some(sk.permissions)
+            })?)
+        };
+        Some(types::KeyIdentityData {
+            identity,
+            permissions,
+        })
+    }
+
     /// RPC call to know whether the given did has valid cdd claim or not
     pub fn is_identity_has_valid_cdd(
         target: IdentityId,
