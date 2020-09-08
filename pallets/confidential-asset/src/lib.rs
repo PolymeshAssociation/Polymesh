@@ -52,9 +52,9 @@ pub trait Trait:
     type Event: From<Event> + Into<<Self as frame_system::Trait>::Event>;
 }
 
-/// Wrapper for Ciphertexts that correspond to EncryptedAssetId.
+/// Wrapper for Ciphertexts that correspond to `EncryptedAssetId`.
 /// This is needed since `mercat::asset_proofs::elgamal_encryption::CipherText` implements
-/// Encode and Decode, instead of deriving them. As a result, the EncodeLike operator is
+/// Encode and Decode, instead of deriving them. As a result, the `EncodeLike` operator is
 /// not automatically implemented.
 #[derive(Encode, Decode, Clone, Debug, PartialEq, Eq, VecU8StrongTyped, Default)]
 pub struct EncryptedAssetIdWrapper(pub Vec<u8>);
@@ -111,12 +111,17 @@ decl_module! {
             Ok(())
         }
 
-        /// This function receives the transaction data for creating a mercat account and verifies the proofs.
+        /// Verifies the proofs given the `tx` (transaction) for creating a mercat account.
         /// If all proofs pass, it stores the mercat account for the origin identity, sets the initial encrypted
-        /// balance, and emits account creation event.
+        /// balance, and emits account creation event. The proofs for the transaction require that the encrypted
+        /// asset id inside the `tx` (`tx.pub_account.enc_asset_id`) is a member of the list of all the
+        /// confidential asset ids.
         ///
         /// # Arguments
         /// * `tx` The account creation transaction created by the mercat lib.
+        ///
+        /// # Errors
+        /// * `InvalidAccountCreationProof` if the provided proofs fail to verify.
         #[weight = 1_000_000_000]
         pub fn validate_mercat_account(origin,
             tx: PubAccountTx,
@@ -125,16 +130,15 @@ decl_module! {
             let owner_acc = ensure_signed(origin)?;
             let owner_id = Context::current_identity_or::<Identity<T>>(&owner_acc)?;
 
-            let valid_asset_ids = Self::valid_asset_ids();
-            let valid_asset_ids = convert_asset_ids(valid_asset_ids);
+            let valid_asset_ids = convert_asset_ids(Self::valid_asset_ids());
             AccountValidator{}.verify(&tx, &valid_asset_ids).map_err(|_| Error::<T>::InvalidAccountCreationProof)?;
             let wrapped_enc_asset_id = EncryptedAssetIdWrapper::from(tx.pub_account.enc_asset_id.encode());
-            <MercatAccounts>::insert(&owner_id, &wrapped_enc_asset_id.clone(), MercatAccount {
+            <MercatAccounts>::insert(&owner_id, &wrapped_enc_asset_id, MercatAccount {
                 encrypted_asset_id: wrapped_enc_asset_id.clone(),
                 encryption_pub_key: tx.pub_account.owner_enc_pub_key,
             });
             let wrapped_enc_balance = EncryptedBalanceWrapper::from(tx.initial_balance.encode());
-            <MercatAccountBalance>::insert(&owner_id, &wrapped_enc_asset_id.clone(), wrapped_enc_balance.clone());
+            <MercatAccountBalance>::insert(&owner_id, &wrapped_enc_asset_id, wrapped_enc_balance.clone());
 
             Self::deposit_event(Event::AccountCreated(owner_id, wrapped_enc_asset_id, wrapped_enc_balance));
             Ok(())
