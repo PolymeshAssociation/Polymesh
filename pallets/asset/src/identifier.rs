@@ -1,5 +1,4 @@
 use codec::{Decode, Encode};
-use std::thread::sleep_ms;
 
 #[derive(Encode, Decode, Clone, Debug, PartialEq, Eq)]
 pub enum Identifier {
@@ -18,7 +17,10 @@ impl Identifier {
     }
 
     pub fn cins(bytes: [u8; 9]) -> Option<Identifier> {
-        unimplemented!()
+        if cusip_checksum(&bytes[..8]) == bytes[8] - b'0' {
+            return Some(Identifier::CINS(bytes));
+        }
+        None
     }
 
     pub fn isin(bytes: [u8; 12]) -> Option<Identifier> {
@@ -55,14 +57,14 @@ impl Identifier {
 }
 
 fn cusip_checksum(bytes: &[u8]) -> u8 {
-    let mut total = 0;
-    for (i, b) in bytes.iter().enumerate() {
-        let mut v = byte_value(*b);
+    let mut v = 0;
+    let total = bytes.iter().enumerate().fold(0, |total, (i, c)| {
+        v = byte_value(*c);
         if i % 2 != 0 {
             v *= 2
         }
-        total += (v / 10) + v % 10;
-    }
+        total + (v / 10) + v % 10
+    });
     (10 - (total % 10)) % 10
 }
 
@@ -107,13 +109,13 @@ mod tests {
         );
     }
 
-    // #[test]
+    #[test]
     fn cins() {
         assert_eq!(
-            Identifier::cins(*b"S08000AA4"),
-            Some(Identifier::CINS(*b"S08000AA4"))
+            Identifier::cins(*b"S08000AA9"),
+            Some(Identifier::CINS(*b"S08000AA9"))
         );
-        assert_eq!(Identifier::cins(*b"S08000AA2"), None);
+        assert_eq!(Identifier::cins(*b"S08000AA4"), None);
     }
 
     #[test]
