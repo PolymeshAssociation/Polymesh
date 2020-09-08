@@ -58,7 +58,8 @@
         "FunctionName": "Text",
         "PalletPermissions": {
             "pallet_name": "PalletName",
-            "function_names": "Option<Vec<FunctionName>>"
+            "total": "bool",
+            "function_names": "Vec<FunctionName>"
         },
         "Permissions": {
             "asset": "Option<Vec<Ticker>>",
@@ -500,7 +501,8 @@
         "PipsMetadata": {
             "id": "PipId",
             "url": "Option<Url>",
-            "description": "Option<PipDescription>"
+            "description": "Option<PipDescription>",
+            "created_at": "BlockNumber"
         },
         "Proposer": {
             "_enum": {

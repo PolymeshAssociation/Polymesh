@@ -599,13 +599,13 @@ decl_module! {
                 + 20_000_000 * (
                     1
                         + u64::try_from(
-                            permissions.asset.as_ref().map(|elems| elems.len()).unwrap_or_default()
+                            permissions.asset.0.as_ref().map(|elems| elems.len()).unwrap_or_default()
                         ).unwrap_or_default()
                         + u64::try_from(
-                            permissions.extrinsic.as_ref().map(|elems| *&elems.len()).unwrap_or_default()
+                            permissions.extrinsic.0.as_ref().map(|elems| *&elems.len()).unwrap_or_default()
                         ).unwrap_or_default()
                         + u64::try_from(
-                            permissions.portfolio.as_ref().map(|elems| *&elems.len()).unwrap_or_default()
+                            permissions.portfolio.0.as_ref().map(|elems| *&elems.len()).unwrap_or_default()
                         ).unwrap_or_default()
                 ),
             DispatchClass::Normal,

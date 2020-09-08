@@ -319,7 +319,9 @@ pub mod api {
     use sp_std::vec::Vec;
 
     /// Asset permissions.
-    pub type AssetPermissions = Option<Vec<Ticker>>;
+    #[derive(Encode, Decode, Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord)]
+    #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+    pub struct AssetPermissions(pub Option<Vec<Ticker>>);
 
     /// A permission to call functions within a given pallet.
     #[derive(Decode, Encode, Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord)]
@@ -327,8 +329,16 @@ pub mod api {
     pub struct PalletPermissions {
         /// The name of a pallet.
         pub pallet_name: PalletName,
-        /// A subset of function names within the pallet.
-        pub function_names: Option<Vec<FunctionName>>,
+        /// A workaround for https://github.com/polkadot-js/apps/issues/3632.
+        ///
+        /// - `total == false` - only the functions listed in `function_names` are allowed to be
+        /// called.
+        ///
+        /// - `total == true` - `function_names` is ignored. Such permissions allow any function in
+        /// `pallet_name` to be called.
+        pub total: bool,
+        /// A subset of function names within the pallet taken into account when `total == false`.
+        pub function_names: Vec<FunctionName>,
     }
 
     /// Extrinsic permissions.
@@ -357,9 +367,9 @@ pub mod api {
         /// The empty permissions.
         pub fn empty() -> Self {
             Self {
-                asset: Some(Vec::new()),
-                extrinsic: Some(Vec::new()),
-                portfolio: Some(Vec::new()),
+                asset: AssetPermissions(Some(Vec::new())),
+                extrinsic: ExtrinsicPermissions(Some(Vec::new())),
+                portfolio: PortfolioPermissions(Some(Vec::new())),
             }
         }
     }
@@ -376,7 +386,7 @@ pub mod api {
 
     impl From<super::AssetPermissions> for AssetPermissions {
         fn from(p: super::AssetPermissions) -> AssetPermissions {
-            p.0.map(|elems| elems.into_iter().collect())
+            AssetPermissions(p.0.map(|elems| elems.into_iter().collect()))
         }
     }
 
@@ -384,20 +394,25 @@ pub mod api {
         fn from(p: super::PalletPermissions) -> PalletPermissions {
             PalletPermissions {
                 pallet_name: p.pallet_name,
-                function_names: p.function_names.0.map(|elems| elems.into_iter().collect()),
+                total: p.function_names.0.is_none(),
+                function_names: if let Some(elems) = p.function_names.0 {
+                    elems.into_iter().collect()
+                } else {
+                    Default::default()
+                },
             }
         }
     }
 
     impl From<super::ExtrinsicPermissions> for ExtrinsicPermissions {
         fn from(p: super::ExtrinsicPermissions) -> ExtrinsicPermissions {
-            p.0.map(|elems| elems.into_iter().map(|e| e.into()).collect())
+            ExtrinsicPermissions(p.0.map(|elems| elems.into_iter().map(|e| e.into()).collect()))
         }
     }
 
     impl From<super::PortfolioPermissions> for PortfolioPermissions {
         fn from(p: super::PortfolioPermissions) -> PortfolioPermissions {
-            p.0.map(|elems| elems.into_iter().collect())
+            PortfolioPermissions(p.0.map(|elems| elems.into_iter().collect()))
         }
     }
 
@@ -422,7 +437,7 @@ pub mod api {
 
     impl From<AssetPermissions> for super::AssetPermissions {
         fn from(p: AssetPermissions) -> super::AssetPermissions {
-            SubsetRestriction(p.map(|elems| elems.into_iter().collect()))
+            SubsetRestriction(p.0.map(|elems| elems.into_iter().collect()))
         }
     }
 
@@ -430,22 +445,24 @@ pub mod api {
         fn from(p: PalletPermissions) -> super::PalletPermissions {
             super::PalletPermissions {
                 pallet_name: p.pallet_name,
-                function_names: SubsetRestriction(
-                    p.function_names.map(|elems| elems.into_iter().collect()),
-                ),
+                function_names: SubsetRestriction(if !p.total {
+                    Some(p.function_names.into_iter().collect())
+                } else {
+                    Default::default()
+                }),
             }
         }
     }
 
     impl From<ExtrinsicPermissions> for super::ExtrinsicPermissions {
         fn from(p: ExtrinsicPermissions) -> super::ExtrinsicPermissions {
-            SubsetRestriction(p.map(|elems| elems.into_iter().map(|e| e.into()).collect()))
+            SubsetRestriction(p.0.map(|elems| elems.into_iter().map(|e| e.into()).collect()))
         }
     }
 
     impl From<PortfolioPermissions> for super::PortfolioPermissions {
         fn from(p: PortfolioPermissions) -> super::PortfolioPermissions {
-            SubsetRestriction(p.map(|elems| elems.into_iter().collect()))
+            SubsetRestriction(p.0.map(|elems| elems.into_iter().collect()))
         }
     }
 
