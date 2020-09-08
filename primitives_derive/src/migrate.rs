@@ -144,16 +144,16 @@ enum MigrateRefs {
 fn extract_migrate_refs(attrs: &mut Vec<syn::Attribute>) -> Option<MigrateRefs> {
     let mut mig_ref = None;
     attrs.retain(|attr| {
-        // Only care about `migrate`, and remove all of those, irrespective of form.
-        if attr.path.is_ident("migrate") {
-            mig_ref = Some(if attr.tokens.is_empty() {
-                // Got exactly `#[migrate]`.
-                // User doesn't wish to specify which types to migrate, so assume all.
-                MigrateRefs::Any
-            } else {
+        // Only care about `migrate{_from}`, and remove all of those, irrespective of form.
+        let ident_str = attr.path.get_ident().map(|i| i.to_string());
+        mig_ref = Some(match ident_str.as_deref() {
+            // Got exactly `#[migrate]`.
+            // User doesn't wish to specify which types to migrate, so assume all.
+            Some("migrate") if attr.tokens.is_empty() => MigrateRefs::Any,
+            // Got `#[migrate(ident, ident, ...)]` or maybe `#[migrate = "..."]`.
+            Some("migrate") => {
                 MigrateRefs::Listed(
                     attr.parse_args_with(|ps: ParseStream| {
-                        // Got `migrate(ident, ident, ...)`.
                         // User only wants to oldify the given identifiers.
                         // Applies in e.g., `field: Vec<Foo>` where `Foo` is being migrated
                         // but `Vec` shouldn't be renamed as it is a container of `Foo`s.
@@ -162,15 +162,12 @@ fn extract_migrate_refs(attrs: &mut Vec<syn::Attribute>) -> Option<MigrateRefs> 
                     })
                     .unwrap(),
                 )
-            });
-            false
-        } else if attr.path.is_ident("migrate_from") {
+            }
             // Expect and parse `#[migrate_from($ty)]`.
-            mig_ref = Some(MigrateRefs::Exact(attr.parse_args().unwrap()));
-            false
-        } else {
-            true
-        }
+            Some("migrate_from") => MigrateRefs::Exact(attr.parse_args().unwrap()),
+            _ => return true,
+        });
+        false
     });
     mig_ref
 }
