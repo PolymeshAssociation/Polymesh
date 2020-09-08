@@ -887,8 +887,8 @@ impl<T: Trait> Module<T> {
         Err(Error::<T>::ComplianceRequirementTooComplex.into())
     }
 
-    // Helper function for the RPC to know the result of the scope claim (i.e investor does posses the valid `InvestorZKProof` claim)
-    // & also generate the condition for the same.
+    /// Helper function for the RPC to know the result of the scope claim (i.e investor does posses the valid `InvestorZKProof` claim)
+    /// & also generate the condition for the same.
     fn get_implicit_condition_result(
         ticker: &Ticker,
         from_did_opt: Option<IdentityId>,
@@ -909,13 +909,13 @@ impl<T: Trait> Module<T> {
         (None, None)
     }
 
-    // Generate the condition for `HasValidProofOfInvestor` condition type.
+    /// Generate the condition for `HasValidProofOfInvestor` condition type.
     fn generate_valid_proof_of_investor_condition(ticker: Ticker, whom: IdentityId) -> Condition {
         let condition_type = ConditionType::HasValidProofOfInvestor(ticker);
         Condition::new(condition_type, vec![whom])
     }
 
-    // Helper function to know whether the given did has the valid scope claim or not.
+    /// Helper function to know whether the given did has the valid scope claim or not.
     fn has_scope_claim(
         ticker: &Ticker,
         did: IdentityId,
@@ -925,7 +925,7 @@ impl<T: Trait> Module<T> {
         Self::is_condition_satisfied(ticker, did, condition, primary_issuance_agent)
     }
 
-    // Know whether sender and receiver has valid scope claim or not before checking the transfer conditions.
+    /// Know whether sender and receiver has valid scope claim or not before checking the transfer conditions.
     fn is_sender_and_receiver_has_valid_scope_claim(
         ticker: &Ticker,
         from_did_opt: Option<IdentityId>,
