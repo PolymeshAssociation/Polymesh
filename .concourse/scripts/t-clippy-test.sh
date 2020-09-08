@@ -20,3 +20,5 @@ if [ ! -z "$SUBMODULE_ACCESS_TOKEN" ]; then
 fi
 
 cargo clippy -- -A clippy::all -W clippy::complexity -W clippy::perf
+cargo sweep -t 3
+

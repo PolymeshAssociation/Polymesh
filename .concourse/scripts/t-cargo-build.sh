@@ -43,6 +43,7 @@ if [ ! -f ".git/resource/changed_files" ] || grep -v '^.concourse\|^Dockerfile\|
     rm -f target/release/polymesh
     sed -i -e "s/^version = .*$/version = \"$VERSION\"/" Cargo.toml
     cargo build --release
+    cargo sweep -t 3
 fi
 popd
 

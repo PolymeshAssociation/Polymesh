@@ -28,4 +28,5 @@ cargo test \
   --package polymesh-primitives \
   --package polymesh-runtime-tests \
   --features default_identity \
+cargo sweep -t 3
 
