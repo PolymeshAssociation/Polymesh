@@ -39,11 +39,9 @@ Run unit tests:
 
 # Branches
 
-The `develop` branch is the working branch with the latest code changes.
-
-The `alcyone` branch tracks code deployed to the Polymesh Alcyone Public Testnet.
-
-The `tooling` branch tracks the next candidate release for the Polymesh Alcyone Public Testnet.
+ - The `develop` branch is the working branch with the latest code changes.
+ - The `alcyone` branch tracks code deployed to the Polymesh Alcyone Public Testnet.
+ - The `tooling` branch tracks the next candidate release for the Polymesh Alcyone Public Testnet.
 
 # Polymesh Alcyone Public Testnet
 
@@ -79,9 +77,9 @@ Test cases are built in *debug mode* by default.
 
 ## Using GDB
 
-Using `rust-gdb` you will get more pretty printed values of different types than go directly with `gdb`.
+Using `rust-gdb` you will get pretty printed values for more types than directly with `gdb`.
 
-The following example, start `gdb`, set a breakpoint and start it:
+The following example, starts `gdb`, sets a breakpoint, and starts our compiled `polymesh`:
 
 ```bash
 $> rust-gdb ./target/debug/polymesh
