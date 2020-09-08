@@ -423,7 +423,7 @@ impl<T: Trait> Module<T> {
         portfolio: PortfolioId,
         custodian: IdentityId,
     ) -> DispatchResult {
-        if <PortfolioCustodian>::contains_key(&portfolio_id) {
+        if <PortfolioCustodian>::contains_key(&portfolio) {
             // If a custodian is assigned, only they are allowed.
             ensure!(
                 Self::portfolio_custodian(portfolio) == custodian,
@@ -513,11 +513,15 @@ impl<T: Trait> PortfolioSubTrait<T::Balance> for Module<T> {
         Self::check_portfolio_custody(portfolio, custodian)
     }
 
-    fn lock_tokens(portfolio: PortfolioId, amount: Balance, ticker: &Ticker) -> DispatchResult {
+    fn lock_tokens(portfolio: PortfolioId, amount: T::Balance, ticker: &Ticker) -> DispatchResult {
         Self::lock_tokens(portfolio, amount, ticker)
     }
 
-    fn unlock_tokens(portfolio: PortfolioId, amount: Balance, ticker: &Ticker) -> DispatchResult {
+    fn unlock_tokens(
+        portfolio: PortfolioId,
+        amount: T::Balance,
+        ticker: &Ticker,
+    ) -> DispatchResult {
         Self::unlock_tokens(portfolio, amount, ticker)
     }
 }

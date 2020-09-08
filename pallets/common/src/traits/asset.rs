@@ -15,7 +15,7 @@
 
 use codec::{Decode, Encode};
 use frame_support::dispatch::{DispatchResult, DispatchResultWithPostInfo};
-use polymesh_primitives::{IdentityId, Ticker};
+use polymesh_primitives::{IdentityId, PortfolioId, Ticker};
 
 pub const GAS_LIMIT: u64 = 1_000_000_000;
 /// This trait is used to call functions that accept transfer of a ticker or token ownership
@@ -58,4 +58,10 @@ pub trait Trait<V, U> {
     fn get_balance_at(ticker: &Ticker, did: IdentityId, at: u64) -> V;
     fn primary_issuance_agent(ticker: &Ticker) -> IdentityId;
     fn max_number_of_tm_extension() -> u32;
+    fn base_transfer(
+        from_portfolio: PortfolioId,
+        to_portfolio: PortfolioId,
+        ticker: &Ticker,
+        value: V,
+    ) -> DispatchResultWithPostInfo;
 }

@@ -96,7 +96,7 @@ pub trait Trait: CommonTrait + pallet_timestamp::Trait + balances::Trait {
     /// MultiSig module
     type MultiSig: MultiSigSubTrait<Self::AccountId>;
     /// Portfolio module. Required to accept portfolio custody transfers.
-    type Portfolio: PortfolioSubTrait;
+    type Portfolio: PortfolioSubTrait<Self::Balance>;
     /// Group module
     type CddServiceProviders: GroupTrait<Self::Moment>;
     /// Balances module

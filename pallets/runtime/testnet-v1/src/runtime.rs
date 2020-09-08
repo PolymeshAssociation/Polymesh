@@ -546,7 +546,6 @@ parameter_types! {
 impl settlement::Trait for Runtime {
     type Event = Event;
     type Asset = Asset;
-    type Portfolio = Portfolio;
     type MaxScheduledInstructionLegsPerBlock = MaxScheduledInstructionLegsPerBlock;
     type MaxLegsInAInstruction = MaxLegsInAInstruction;
 }

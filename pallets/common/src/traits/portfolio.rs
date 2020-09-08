@@ -18,7 +18,7 @@
 //! The interface allows to accept portfolio custody
 
 use frame_support::dispatch::DispatchResult;
-use polymesh_primitives::IdentityId;
+use polymesh_primitives::{IdentityId, PortfolioId, Ticker};
 
 /// This trait is used to accept custody of a portfolio
 pub trait PortfolioSubTrait<Balance> {

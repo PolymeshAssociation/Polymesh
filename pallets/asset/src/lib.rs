@@ -108,8 +108,8 @@ use polymesh_common_utilities::{
     CommonTrait, Context, SystematicIssuers,
 };
 use polymesh_primitives::{
-    AuthorizationData, AuthorizationError, Document, DocumentName, IdentityId, PortfolioNumber,
-    Signatory, SmartExtension, SmartExtensionName, SmartExtensionType, Ticker,
+    AuthorizationData, AuthorizationError, Document, DocumentName, IdentityId, PortfolioId,
+    PortfolioNumber, Signatory, SmartExtension, SmartExtensionName, SmartExtensionType, Ticker,
 };
 use polymesh_primitives_derive::VecU8StrongTyped;
 use sp_runtime::traits::{CheckedAdd, CheckedSub, Saturating};
@@ -313,16 +313,6 @@ pub struct ClassicTickerRegistration {
     pub eth_owner: ethereum::EthereumAddress,
     /// Has the ticker been elevated to a created asset on classic?
     pub is_created: bool,
-}
-
-macro_rules! custodian_check {
-    ($user:expr, $portfolio_num:expr, $custodian:expr) => {
-        if let Some(did) = $user {
-            if Portfolio::<T>::check_portfolio_custody(did, $portfolio_num, $custodian).is_err() {
-                return Ok((CUSTODIAN_ERROR, T::DbWeight::get().reads(4)));
-            }
-        }
-    };
 }
 
 decl_storage! {
@@ -660,31 +650,6 @@ decl_module! {
             Self::deposit_event(RawEvent::AssetRenamed(sender_did, ticker, name));
             Ok(())
         }
-
-        // /// Forces a transfer between two DIDs & This can only be called by security token owner.
-        // /// This function doesn't validate any type of restriction beside a valid CDD check.
-        // ///
-        // /// # Arguments
-        // /// * `origin` secondary key of the token owner DID.
-        // /// * `ticker` symbol of the token.
-        // /// * `from_did` DID of the token holder from whom balance token will be transferred.
-        // /// * `to_did` DID of token holder to whom token balance will be transferred.
-        // /// * `value` Amount of tokens.
-        // /// * `data` Some off chain data to validate the restriction.
-        // /// * `operator_data` It is a string which describes the reason of this control transfer call.
-        // #[weight = T::DbWeight::get().reads_writes(3, 2) + 500_000_000]
-        // pub fn controller_transfer(origin, ticker: Ticker, from_did: IdentityId, to_did: IdentityId, value: T::Balance, data: Vec<u8>, operator_data: Vec<u8>) -> DispatchResult {
-        //     let sender = ensure_signed(origin)?;
-        //     let did = Context::current_identity_or::<Identity<T>>(&sender)?;
-
-        //     ensure!(Self::is_owner(&ticker, did), Error::<T>::Unauthorized);
-
-        //     Self::unsafe_transfer(did, &ticker, from_did, to_did, value)?;
-
-        //     Self::deposit_event(RawEvent::ControllerTransfer(did, ticker, from_did, to_did, value, data, operator_data));
-
-        //     Ok(())
-        // }
 
         /// Function used to create the checkpoint.
         /// NB: Only called by the owner of the security token i.e owner DID.
@@ -1274,6 +1239,15 @@ impl<T: Trait> AssetTrait<T::Balance, T::AccountId> for Module<T> {
     fn max_number_of_tm_extension() -> u32 {
         T::MaxNumberOfTMExtensionForAsset::get()
     }
+
+    fn base_transfer(
+        from_portfolio: PortfolioId,
+        to_portfolio: PortfolioId,
+        ticker: &Ticker,
+        value: T::Balance,
+    ) -> DispatchResultWithPostInfo {
+        Self::base_transfer(from_portfolio, to_portfolio, ticker, value)
+    }
 }
 
 impl<T: Trait> AcceptTransfer for Module<T> {
@@ -1484,26 +1458,17 @@ impl<T: Trait> Module<T> {
     pub fn _is_valid_transfer(
         ticker: &Ticker,
         extension_caller: T::AccountId,
-        from_did: Option<IdentityId>,
-        from_num: Option<PortfolioNumber>,
-        from_custodian: Option<IdentityId>,
-        to_did: Option<IdentityId>,
-        to_num: Option<PortfolioNumber>,
-        to_custodian: Option<IdentityId>,
+        from_portfolio: PortfolioId,
+        to_portfolio: PortfolioId,
         value: T::Balance,
     ) -> StdResult<(u8, Weight), DispatchError> {
         if Self::frozen(ticker) {
             return Ok((ERC1400_TRANSFERS_HALTED, T::DbWeight::get().reads(1)));
         }
 
-        custodian_check!(from_did, from_num, from_custodian);
-        custodian_check!(to_did, to_num, to_custodian);
-
         if Portfolio::<T>::check_portfolio_transfer_validity(
-            from_did.unwrap_or_default(),
-            from_num,
-            to_did.unwrap_or_default(),
-            to_num,
+            from_portfolio,
+            to_portfolio,
             value,
             ticker,
         )
@@ -1515,8 +1480,8 @@ impl<T: Trait> Module<T> {
         let primary_issuance_agent = <Tokens<T>>::get(ticker).primary_issuance_agent;
         let (status_code, weight_for_transfer) = T::ComplianceManager::verify_restriction(
             ticker,
-            from_did,
-            to_did,
+            Some(from_portfolio.did),
+            Some(to_portfolio.did),
             value,
             primary_issuance_agent,
         )?;
@@ -1538,8 +1503,8 @@ impl<T: Trait> Module<T> {
                     let result = Self::verify_restriction(
                         ticker,
                         extension_caller.clone(),
-                        from_did,
-                        to_did,
+                        Some(from_portfolio.did),
+                        Some(to_portfolio.did),
                         value,
                         current_holder_count,
                         tm,
@@ -1560,12 +1525,8 @@ impl<T: Trait> Module<T> {
 
     // Transfers tokens from one identity to another
     pub fn unsafe_transfer(
-        from_custodian: IdentityId,
-        from_did: IdentityId,
-        from_num: Option<PortfolioNumber>,
-        to_custodian: IdentityId,
-        to_did: IdentityId,
-        to_num: Option<PortfolioNumber>,
+        from_portfolio: PortfolioId,
+        to_portfolio: PortfolioId,
         ticker: &Ticker,
         value: T::Balance,
     ) -> DispatchResult {
@@ -1575,14 +1536,17 @@ impl<T: Trait> Module<T> {
             Error::<T>::InvalidGranularity
         );
         ensure!(
-            <BalanceOf<T>>::contains_key(ticker, &from_did),
+            <BalanceOf<T>>::contains_key(ticker, &from_portfolio.did),
             Error::<T>::NotAnAssetHolder
         );
-        ensure!(from_did != to_did, Error::<T>::InvalidTransfer);
+        ensure!(
+            from_portfolio.did != to_portfolio.did,
+            Error::<T>::InvalidTransfer
+        );
         let FocusedBalances {
             total: from_total_balance,
             portfolio: from_def_balance,
-        } = Self::balance(ticker, from_did);
+        } = Self::balance(ticker, from_portfolio.did);
         ensure!(from_total_balance >= value, Error::<T>::InsufficientBalance);
         ensure!(
             from_def_balance >= value,
@@ -1598,7 +1562,7 @@ impl<T: Trait> Module<T> {
         let FocusedBalances {
             total: to_total_balance,
             portfolio: to_def_balance,
-        } = Self::balance(ticker, to_did);
+        } = Self::balance(ticker, to_portfolio.did);
         let updated_to_total_balance = to_total_balance
             .checked_add(&value)
             .ok_or(Error::<T>::BalanceOverflow)?;
@@ -1606,15 +1570,24 @@ impl<T: Trait> Module<T> {
         // balance. The total balance is already checked above.
         let updated_to_def_balance = to_def_balance + value;
 
-        Self::_update_checkpoint(ticker, from_did, from_total_balance);
-        Self::_update_checkpoint(ticker, to_did, to_total_balance);
+        Self::_update_checkpoint(ticker, from_portfolio.did, from_total_balance);
+        Self::_update_checkpoint(ticker, to_portfolio.did, to_total_balance);
         // reduce sender's balance
-        <BalanceOf<T>>::insert(ticker, &from_did, updated_from_total_balance);
-        Portfolio::<T>::set_default_portfolio_balance(from_did, ticker, updated_from_def_balance);
+        <BalanceOf<T>>::insert(ticker, &from_portfolio.did, updated_from_total_balance);
+        // TODO: Update specific portfolio balance
+        Portfolio::<T>::set_default_portfolio_balance(
+            from_portfolio.did,
+            ticker,
+            updated_from_def_balance,
+        );
 
         // increase receiver's balance
-        <BalanceOf<T>>::insert(ticker, &to_did, updated_to_total_balance);
-        Portfolio::<T>::set_default_portfolio_balance(to_did, ticker, updated_to_def_balance);
+        <BalanceOf<T>>::insert(ticker, &to_portfolio.did, updated_to_total_balance);
+        Portfolio::<T>::set_default_portfolio_balance(
+            to_portfolio.did,
+            ticker,
+            updated_to_def_balance,
+        );
 
         // Update statistic info.
         <statistics::Module<T>>::update_transfer_stats(
@@ -1625,10 +1598,10 @@ impl<T: Trait> Module<T> {
         );
 
         Self::deposit_event(RawEvent::Transfer(
-            from_custodian,
+            from_portfolio.did,
             *ticker,
-            from_did,
-            to_did,
+            from_portfolio.did,
+            to_portfolio.did,
             value,
         ));
         Ok(())
@@ -2008,35 +1981,49 @@ impl<T: Trait> Module<T> {
                 return Ok(INVALID_RECEIVER_DID);
             }
         }
+        Ok(INVALID_RECEIVER_DID)
         // Compliance manager & Smart Extension check
-        Ok(Self::_is_valid_transfer(
-            &ticker, sender, from_did, None, None, to_did, None, None, amount,
-        )
-        .map(|(status, _)| status)
-        .unwrap_or(ERC1400_TRANSFER_FAILURE))
+        // Ok(Self::_is_valid_transfer(
+        //     &ticker, sender, from_did, None, None, to_did, None, None, amount,
+        // )
+        // .map(|(status, _)| status)
+        // .unwrap_or(ERC1400_TRANSFER_FAILURE))
     }
 
     /// Transfers an asset from one identity portfolio to another
     fn transfer(
-        from_custodian: IdentityId,
-        from_did: IdentityId,
-        from_num: Option<PortfolioNumber>,
-        to_custodian: IdentityId,
-        to_did: IdentityId,
-        to_num: Option<PortfolioNumber>,
+        from_custodian: Option<IdentityId>,
+        from_portfolio: PortfolioId,
+        to_custodian: Option<IdentityId>,
+        to_portfolio: PortfolioId,
+        ticker: &Ticker,
+        value: T::Balance,
+    ) -> DispatchResultWithPostInfo {
+        Portfolio::<T>::check_portfolio_custody(
+            from_portfolio,
+            from_custodian.unwrap_or(from_portfolio.did),
+        )?;
+        Portfolio::<T>::check_portfolio_custody(
+            to_portfolio,
+            to_custodian.unwrap_or(to_portfolio.did),
+        )?;
+
+        Self::base_transfer(from_portfolio, to_portfolio, ticker, value)
+    }
+
+    /// Transfers an asset from one identity portfolio to another
+    fn base_transfer(
+        from_portfolio: PortfolioId,
+        to_portfolio: PortfolioId,
         ticker: &Ticker,
         value: T::Balance,
     ) -> DispatchResultWithPostInfo {
         // Validate the transfer
         let (is_transfer_success, weight_for_transfer) = Self::_is_valid_transfer(
             &ticker,
-            <identity::Module<T>>::did_records(from_did).primary_key,
-            Some(from_did),
-            from_num,
-            Some(from_custodian),
-            Some(to_did),
-            to_num,
-            Some(to_custodian),
+            <identity::Module<T>>::did_records(from_portfolio.did).primary_key,
+            from_portfolio,
+            to_portfolio,
             value,
         )?;
 
@@ -2044,19 +2031,12 @@ impl<T: Trait> Module<T> {
             is_transfer_success == ERC1400_TRANSFER_SUCCESS,
             Error::<T>::InvalidTransfer
         );
-        Self::unsafe_transfer(
-            from_custodian,
-            from_did,
-            from_num,
-            to_custodian,
-            to_did,
-            to_num,
-            ticker,
-            value,
-        )?;
+
+        Self::unsafe_transfer(from_portfolio, to_portfolio, ticker, value)?;
 
         Ok(Some(weight_for_transfer).into())
     }
+
     /// Performs necessary checks on parameters of `create_asset`.
     fn ensure_create_asset_parameters(
         ticker: &Ticker,
