@@ -32,7 +32,7 @@ async function main() {
   await reqImports.addClaimsToDids( api, primary_keys, issuer_dids[1], "Exempted", { "Ticker": ticker }, null );
 
   // issuer Claim
-  await reqImports.addClaimsToDids( api, primary_keys, { "Identity": issuer_dids[0] }, "Exempted", { "Ticker": ticker }, null );
+  await reqImports.addClaimsToDids( api, primary_keys, issuer_dids[0], "Exempted", { "Ticker": ticker }, null );
 
   await reqImports.createClaimCompliance( api, primary_keys, issuer_dids, prepend );
 
