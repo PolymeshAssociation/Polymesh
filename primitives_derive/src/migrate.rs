@@ -9,19 +9,24 @@ fn oldify_ident(ident: &Ident) -> Ident {
 }
 
 /// Appends `Old` suffix to those identifiers in `ty` as instructed by `refs`.
-fn oldify_type(ty: &mut Type, refs: &Option<MigrateRefs>) {
+fn oldify_type(ty: &mut Type, refs: Option<MigrateRefs>) {
     let refs = match refs {
         None => return,
-        Some(refs) => refs,
+        Some(MigrateRefs::Any) => None,
+        Some(MigrateRefs::Listed(list)) => Some(list),
+        Some(MigrateRefs::Exact(old_ty)) => {
+            *ty = old_ty;
+            return;
+        }
     };
-    struct Vis<'a>(&'a MigrateRefs);
-    impl visit_mut::VisitMut for Vis<'_> {
+    struct Vis(Option<Vec<Ident>>);
+    impl visit_mut::VisitMut for Vis {
         fn visit_ident_mut(&mut self, ident: &mut Ident) {
             match &self.0 {
                 // Got `#[migrate]`; instructed oldify any identifier.
-                MigrateRefs::Any => {}
+                None => {}
                 // Got `#[migrate(TypeA, TypeB, ...)]`, so check if `ident` is one of those.
-                MigrateRefs::Listed(list)
+                Some(list)
                     if {
                         let ident = ident.to_string();
                         list.iter().any(|elem| elem == &ident)
@@ -31,7 +36,7 @@ fn oldify_type(ty: &mut Type, refs: &Option<MigrateRefs>) {
             *ident = oldify_ident(ident);
         }
     }
-    visit_mut::visit_type_mut(&mut Vis(&refs), ty);
+    visit_mut::visit_type_mut(&mut Vis(refs), ty);
 }
 
 /// Go over the given `fields`,
@@ -41,8 +46,9 @@ fn fields_with_migration(fields: &mut syn::Fields) -> Vec<(bool, &syn::Field)> {
     let mut fields_vec = Vec::with_capacity(fields.len());
     for f in fields.iter_mut() {
         let refs = extract_migrate_refs(&mut f.attrs);
-        oldify_type(&mut f.ty, &refs);
-        fields_vec.push((refs.is_some(), &*f));
+        let has_migrate = refs.is_some();
+        oldify_type(&mut f.ty, refs);
+        fields_vec.push((has_migrate, &*f));
     }
     fields_vec
 }
@@ -126,31 +132,41 @@ enum MigrateRefs {
     Any,
     /// Derived from `#[migrate(ident, ident, ...)]`.
     /// Only those identifiers in the list and which match in the type of the field should be migrated.
-    Listed(Vec<syn::Ident>),
+    Listed(Vec<Ident>),
+    /// Do an exact replacement of the field type with the one given in `#[migrate_from(Type)]`.
+    Exact(Type),
 }
 
-/// Returns information about any `#[migrate]` attributes while also stripping them.
+/// Returns information about any `#[migrate]` or `#[migrate_from]` attributes.
+/// We also strip those attributes while at it.
 ///
 /// The form `#[migrate = ".."]` does qualify.
 fn extract_migrate_refs(attrs: &mut Vec<syn::Attribute>) -> Option<MigrateRefs> {
     let mut mig_ref = None;
     attrs.retain(|attr| {
-        // Only care about `migrate], and remove all of those, irrespective of form.
+        // Only care about `migrate`, and remove all of those, irrespective of form.
         if attr.path.is_ident("migrate") {
-            if attr.tokens.is_empty() {
+            mig_ref = Some(if attr.tokens.is_empty() {
                 // Got exactly `#[migrate]`.
                 // User doesn't wish to specify which types to migrate, so assume all.
-                mig_ref = Some(MigrateRefs::Any);
-            } else if let Ok(refs) = attr.parse_args_with(|ps: ParseStream| {
-                // Got `migrate(ident, ident, ...)`.
-                // User only wants to oldify the given identifiers.
-                // Applies in e.g., `field: Vec<Foo>` where `Foo` is being migrated
-                // but `Vec` shouldn't be renamed as it is a container of `Foo`s.
-                ps.parse_terminated::<_, syn::Token![,]>(Ident::parse)
-                    .map(|iter| iter.into_iter().collect())
-            }) {
-                mig_ref = Some(MigrateRefs::Listed(refs));
-            }
+                MigrateRefs::Any
+            } else {
+                MigrateRefs::Listed(
+                    attr.parse_args_with(|ps: ParseStream| {
+                        // Got `migrate(ident, ident, ...)`.
+                        // User only wants to oldify the given identifiers.
+                        // Applies in e.g., `field: Vec<Foo>` where `Foo` is being migrated
+                        // but `Vec` shouldn't be renamed as it is a container of `Foo`s.
+                        ps.parse_terminated::<_, syn::Token![,]>(Ident::parse)
+                            .map(|iter| iter.into_iter().collect())
+                    })
+                    .unwrap(),
+                )
+            });
+            false
+        } else if attr.path.is_ident("migrate_from") {
+            // Expect and parse `#[migrate_from($ty)]`.
+            mig_ref = Some(MigrateRefs::Exact(attr.parse_args().unwrap()));
             false
         } else {
             true
