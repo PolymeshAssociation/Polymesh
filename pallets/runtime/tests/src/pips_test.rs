@@ -17,8 +17,8 @@ use pallet_balances as balances;
 use pallet_committee as committee;
 use pallet_group as group;
 use pallet_pips::{
-    self as pips, DepositInfo, Pip, PipDescription, ProposalState, Proposer, RawEvent as Event,
-    SnapshotMetadata, SnapshotResult, SnapshottedPip, Url, Vote, VotingResult,
+    self as pips, DepositInfo, Pip, PipDescription, PipsMetadata, ProposalState, Proposer,
+    RawEvent as Event, SnapshotMetadata, SnapshotResult, SnapshottedPip, Url, Vote, VotingResult,
 };
 use pallet_treasury as treasury;
 use polymesh_common_utilities::pip::PipId;
@@ -494,7 +494,7 @@ fn assert_votes(id: PipId, owner: Public, amount: u128) {
 #[test]
 fn proposal_details_are_correct() {
     ExtBuilder::default().build().execute_with(|| {
-        System::set_block_number(1);
+        System::set_block_number(42);
 
         let alice = User::new(AccountKeyring::Alice).balance(300);
 
@@ -525,10 +525,13 @@ fn proposal_details_are_correct() {
             System::block_number() + Pips::proposal_cool_off_period()
         );
 
-        let meta = Pips::proposal_metadata(0).unwrap();
-        assert_eq!(meta.id, 0);
-        assert_eq!(meta.url, Some(proposal_url));
-        assert_eq!(meta.description, Some(proposal_desc));
+        let expected = PipsMetadata {
+            id: 0,
+            created_at: 42,
+            url: Some(proposal_url),
+            description: Some(proposal_desc),
+        };
+        assert_eq!(Pips::proposal_metadata(0).unwrap(), expected);
 
         assert_balance(alice.acc(), 300, 60);
         assert_votes(0, alice.acc(), 60);
@@ -610,11 +613,20 @@ fn amend_proposal_works() {
         assert_ok!(alice_proposal(Pips::min_proposal_deposit()));
         let signer = Origin::signed(AccountKeyring::Alice.public());
         let url = Some("https:://example.com".into());
-        let desc = Some("foo bar baz".into());
-        assert_ok!(Pips::amend_proposal(signer, 0, url.clone(), desc.clone()));
-        let meta = Pips::proposal_metadata(0).unwrap();
-        assert_eq!(meta.url, url);
-        assert_eq!(meta.description, desc);
+        let description = Some("foo bar baz".into());
+        assert_ok!(Pips::amend_proposal(
+            signer,
+            0,
+            url.clone(),
+            description.clone()
+        ));
+        let expected = PipsMetadata {
+            id: 0,
+            created_at: 1,
+            url,
+            description,
+        };
+        assert_eq!(Pips::proposal_metadata(0).unwrap(), expected);
     });
 }
 
@@ -1840,6 +1852,10 @@ fn enact_snapshot_results_works() {
             root(),
             vec![(1, SnapshotResult::Approve)]
         ));
+        assert_last_event!(
+            Event::SnapshotResultsEnacted(_, Some(1), a, b, c),
+            a.is_empty() && b.is_empty() && c == &[1]
+        );
         assert_state(1, false, ProposalState::Scheduled);
         assert_eq!(Pips::snapshot_queue(), mk_queue(&[3]));
 
@@ -1847,7 +1863,7 @@ fn enact_snapshot_results_works() {
         assert_ok!(Pips::clear_snapshot(user.signer()));
         assert_ok!(Pips::enact_snapshot_results(root(), vec![]));
         assert_last_event!(
-            Event::SnapshotResultsEnacted(_, a, b, c),
+            Event::SnapshotResultsEnacted(_, None, a, b, c),
             a.is_empty() && b.is_empty() && c.is_empty()
         )
     });
