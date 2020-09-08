@@ -92,10 +92,9 @@ impl Permissions {
     }
 
     /// Empty permissions apart from given extrinsic permissions.
-    pub fn from_pallet_permissions<I>(pallet_permissions: I) -> Self
-    where
-        I: IntoIterator<Item = PalletPermissions>,
-    {
+    pub fn from_pallet_permissions(
+        pallet_permissions: impl IntoIterator<Item = PalletPermissions>,
+    ) -> Self {
         Self {
             asset: SubsetRestriction::empty(),
             extrinsic: SubsetRestriction(Some(pallet_permissions.into_iter().collect())),
