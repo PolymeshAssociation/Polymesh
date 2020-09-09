@@ -471,11 +471,11 @@ impl PortfolioSubTrait<Balance> for Test {
         unimplemented!()
     }
 
-    fn lock_tokens(portfolio: PortfolioId, amount: Balance, ticker: &Ticker) -> DispatchResult {
+    fn lock_tokens(portfolio: &PortfolioId, ticker: &Ticker, amount: &Balance) -> DispatchResult {
         unimplemented!()
     }
 
-    fn unlock_tokens(portfolio: PortfolioId, amount: Balance, ticker: &Ticker) -> DispatchResult {
+    fn unlock_tokens(portfolio: &PortfolioId, ticker: &Ticker, amount: &Balance) -> DispatchResult {
         unimplemented!()
     }
 }

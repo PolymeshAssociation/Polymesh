@@ -1398,10 +1398,10 @@ impl<T: Trait> Module<T> {
         }
 
         if Portfolio::<T>::check_portfolio_transfer_validity(
-            from_portfolio,
-            to_portfolio,
-            value,
+            &from_portfolio,
+            &to_portfolio,
             ticker,
+            &value,
         )
         .is_err()
         {
@@ -1492,10 +1492,10 @@ impl<T: Trait> Module<T> {
         <BalanceOf<T>>::insert(ticker, &to_portfolio.did, updated_to_total_balance);
         // transfer portfolio balances
         Portfolio::<T>::unchecked_transfer_portfolio_balance(
-            from_portfolio,
-            to_portfolio,
-            value,
+            &from_portfolio,
+            &to_portfolio,
             ticker,
+            value,
         );
 
         // Update statistic info.
@@ -1903,10 +1903,10 @@ impl<T: Trait> Module<T> {
         }
 
         if Portfolio::<T>::check_portfolio_transfer_validity(
-            from_portfolio,
-            to_portfolio,
-            value,
+            &from_portfolio,
+            &to_portfolio,
             ticker,
+            &value,
         )
         .is_err()
         {

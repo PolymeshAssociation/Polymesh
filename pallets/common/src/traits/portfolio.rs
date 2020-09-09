@@ -40,15 +40,16 @@ pub trait PortfolioSubTrait<Balance> {
     ///
     /// # Arguments
     /// * `portfolio` - Portfolio to lock tokens
-    /// * `amount` - Amount of tokens to lock
     /// * `ticker` - Ticker of the token to lock
-    fn lock_tokens(portfolio: PortfolioId, amount: Balance, ticker: &Ticker) -> DispatchResult;
+    /// * `amount` - Amount of tokens to lock
+
+    fn lock_tokens(portfolio: &PortfolioId, ticker: &Ticker, amount: &Balance) -> DispatchResult;
 
     /// Unlocks some tokens of a portfolio
     ///
     /// # Arguments
     /// * `portfolio` - Portfolio to unlock tokens
-    /// * `amount` - Amount of tokens to unlock
     /// * `ticker` - Ticker of the token to unlock
-    fn unlock_tokens(portfolio: PortfolioId, amount: Balance, ticker: &Ticker) -> DispatchResult;
+    /// * `amount` - Amount of tokens to unlock
+    fn unlock_tokens(portfolio: &PortfolioId, ticker: &Ticker, amount: &Balance) -> DispatchResult;
 }

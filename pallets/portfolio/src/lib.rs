@@ -168,9 +168,7 @@ decl_error! {
         /// The authorization is for something other than portfolio custody
         IrrelevantAuthorization,
         /// Can not unlock more tokens than what are locked
-        InsufficientTokensLocked,
-        /// Transfers from and to the portfolio are not allowed
-        SelfTransferNotAllowed
+        InsufficientTokensLocked
     }
 }
 
@@ -355,16 +353,16 @@ impl<T: Trait> Module<T> {
     }
 
     pub fn unchecked_transfer_portfolio_balance(
-        from_portfolio: PortfolioId,
-        to_portfolio: PortfolioId,
-        amount: <T as CommonTrait>::Balance,
+        from_portfolio: &PortfolioId,
+        to_portfolio: &PortfolioId,
         ticker: &Ticker,
+        amount: <T as CommonTrait>::Balance,
     ) {
-        <PortfolioAssetBalances<T>>::mutate(&from_portfolio, ticker, |from_balance| {
+        <PortfolioAssetBalances<T>>::mutate(from_portfolio, ticker, |from_balance| {
             *from_balance = from_balance.saturating_sub(amount)
         });
 
-        <PortfolioAssetBalances<T>>::mutate(&to_portfolio, ticker, |to_balance| {
+        <PortfolioAssetBalances<T>>::mutate(to_portfolio, ticker, |to_balance| {
             *to_balance = to_balance.saturating_add(amount)
         });
     }
@@ -390,15 +388,15 @@ impl<T: Trait> Module<T> {
     }
 
     pub fn check_portfolio_transfer_validity(
-        from_portfolio: PortfolioId,
-        to_portfolio: PortfolioId,
-        amount: <T as CommonTrait>::Balance,
+        from_portfolio: &PortfolioId,
+        to_portfolio: &PortfolioId,
         ticker: &Ticker,
+        amount: &<T as CommonTrait>::Balance,
     ) -> DispatchResult {
         // 1. Ensure from and to portfolio are different
         ensure!(
             from_portfolio != to_portfolio,
-            Error::<T>::SelfTransferNotAllowed
+            Error::<T>::DestinationIsSamePortfolio
         );
 
         // 2. Ensure sender has enough free balance
@@ -406,7 +404,7 @@ impl<T: Trait> Module<T> {
         ensure!(
             from_balance
                 .saturating_sub(Self::locked_assets(&from_portfolio, ticker))
-                .checked_sub(&amount)
+                .checked_sub(amount)
                 .is_some(),
             Error::<T>::InsufficientPortfolioBalance
         );
@@ -448,12 +446,16 @@ impl<T: Trait> PortfolioSubTrait<T::Balance> for Module<T> {
         Ok(())
     }
 
-    fn lock_tokens(portfolio: PortfolioId, amount: T::Balance, ticker: &Ticker) -> DispatchResult {
+    fn lock_tokens(
+        portfolio: &PortfolioId,
+        ticker: &Ticker,
+        amount: &T::Balance,
+    ) -> DispatchResult {
         // 1. Ensure portfolio has enough free balance
-        let balance = Self::portfolio_asset_balances(&portfolio, ticker);
+        let balance = Self::portfolio_asset_balances(portfolio, ticker);
         ensure!(
             balance
-                .saturating_sub(Self::locked_assets(&portfolio, ticker))
+                .saturating_sub(Self::locked_assets(portfolio, ticker))
                 .checked_sub(&amount)
                 .is_some(),
             Error::<T>::InsufficientPortfolioBalance
@@ -461,23 +463,23 @@ impl<T: Trait> PortfolioSubTrait<T::Balance> for Module<T> {
 
         // 2. Lock tokens.
         // Locks are stacked so if there were X tokens already locked, there will now be X + N tokens locked
-        <PortfolioLockedAssets<T>>::mutate(&portfolio, ticker, |locked| {
-            *locked = locked.saturating_add(amount)
+        <PortfolioLockedAssets<T>>::mutate(portfolio, ticker, |locked| {
+            *locked = locked.saturating_add(*amount)
         });
         Ok(())
     }
 
     fn unlock_tokens(
-        portfolio: PortfolioId,
-        amount: T::Balance,
+        portfolio: &PortfolioId,
         ticker: &Ticker,
+        amount: &T::Balance,
     ) -> DispatchResult {
         // 1. Ensure portfolio has enough locked tokens
-        let locked = Self::locked_assets(&portfolio, ticker);
-        ensure!(locked >= amount, Error::<T>::InsufficientTokensLocked);
+        let locked = Self::locked_assets(portfolio, ticker);
+        ensure!(locked >= *amount, Error::<T>::InsufficientTokensLocked);
 
         // 2. Unlock tokens. Can not underflow due to above ensure.
-        <PortfolioLockedAssets<T>>::insert(&portfolio, ticker, locked - amount);
+        <PortfolioLockedAssets<T>>::insert(portfolio, ticker, locked - *amount);
         Ok(())
     }
 
