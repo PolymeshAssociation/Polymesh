@@ -312,12 +312,12 @@ where
 /// Runtime upgrade definitions.
 #[allow(missing_docs)]
 pub mod runtime_upgrade {
-    use crate::{migrate::Migrate, IdentityRole, Signatory};
+    use crate::{migrate::Migrate, Signatory};
     use codec::{Decode, Encode};
     use sp_std::vec::Vec;
 
     /// Old permission type for runtime upgrade purposes.
-    #[derive(Decode)]
+    #[derive(Decode, PartialEq)]
     pub enum Permission {
         Full,
         Admin,
@@ -325,6 +325,18 @@ pub mod runtime_upgrade {
         SpendFunds,
         Custom(u8),
     }
+
+    // impl Migrate for Vec<Permission> {
+    //     type Into = super::Permissions;
+
+    //     fn migrate(self) -> Option<Self::Into> {
+    //         Some(if self.contains(&Permission::Full) {
+    //             super::Permissions::default()
+    //         } else {
+    //             super::Permissions::empty()
+    //         })
+    //     }
+    // }
 
     /// Old secondary key type for runtime upgrade purposes.
     #[derive(Decode)]
@@ -349,32 +361,32 @@ pub mod runtime_upgrade {
         }
     }
 
-    /// Old DID record type.
-    #[derive(Decode)]
-    pub struct Identity<AccountId: Decode> {
-        pub roles: Vec<IdentityRole>,
-        pub primary_key: AccountId,
-        pub secondary_keys: Vec<SecondaryKey<AccountId>>,
-    }
+    // /// Old DID record type.
+    // #[derive(Decode)]
+    // pub struct Identity<AccountId: Decode> {
+    //     pub roles: Vec<IdentityRole>,
+    //     pub primary_key: AccountId,
+    //     pub secondary_keys: Vec<SecondaryKey<AccountId>>,
+    // }
 
-    impl<AccountId> Migrate for Identity<AccountId>
-    where
-        AccountId: Decode + Encode,
-    {
-        type Into = crate::Identity<AccountId>;
+    // impl<AccountId> Migrate for Identity<AccountId>
+    // where
+    //     AccountId: Decode + Encode,
+    // {
+    //     type Into = crate::Identity<AccountId>;
 
-        fn migrate(self) -> Option<Self::Into> {
-            Some(Self::Into {
-                roles: self.roles,
-                primary_key: self.primary_key,
-                secondary_keys: self
-                    .secondary_keys
-                    .into_iter()
-                    .filter_map(|sks| sks.migrate())
-                    .collect(),
-            })
-        }
-    }
+    //     fn migrate(self) -> Option<Self::Into> {
+    //         Some(Self::Into {
+    //             roles: self.roles,
+    //             primary_key: self.primary_key,
+    //             secondary_keys: self
+    //                 .secondary_keys
+    //                 .into_iter()
+    //                 .filter_map(|sks| sks.migrate())
+    //                 .collect(),
+    //         })
+    //     }
+    // }
 }
 
 /// Vectorized redefinitions of runtime types for the sake of Polkadot.JS.

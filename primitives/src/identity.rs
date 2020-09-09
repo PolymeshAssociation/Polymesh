@@ -15,6 +15,7 @@
 
 use crate::{IdentityRole, SecondaryKey, Signatory};
 use codec::{Decode, Encode};
+use polymesh_primitives_derive::Migrate;
 use sp_core::{crypto::Public as PublicType, sr25519::Public};
 #[cfg(feature = "std")]
 use sp_runtime::{Deserialize, Serialize};
@@ -22,12 +23,11 @@ use sp_std::{convert::From, prelude::Vec};
 
 /// Identity information.
 #[allow(missing_docs)]
-#[derive(Encode, Decode, Default, Clone, PartialEq, Debug)]
+#[derive(Encode, Decode, Default, Clone, PartialEq, Debug, Migrate)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 pub struct Identity<AccountId> {
     pub roles: Vec<IdentityRole>,
     pub primary_key: AccountId,
-    // TODO: #[migrate_from(Vec<crate::secondary_key::runtime_upgrade::SecondaryKey<AccountId>>)]
     pub secondary_keys: Vec<SecondaryKey<AccountId>>,
 }
 
