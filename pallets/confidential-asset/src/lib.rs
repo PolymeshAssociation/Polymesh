@@ -129,6 +129,7 @@ decl_module! {
         ///
         /// # Errors
         /// * `InvalidAccountCreationProof` if the provided proofs fail to verify.
+        /// * `BadOrigin` if `origin` isn't signed.
         #[weight = 1_000_000_000]
         pub fn validate_mercat_account(origin,
             tx: PubAccountTx,
