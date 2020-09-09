@@ -60,11 +60,15 @@ jobs:
           list_changed_files: true
         trigger: true
         version: every
+      - load_var: gitshortref
+        file: git-polymesh/.git/short_ref
+      - get: semver-git-polymesh
       - load_var: rusttoolchain
         file: git-polymesh/rust-toolchain
       - put: semver-git-polymesh
         params:
-          bump: patch
+          pre: tooling.((.:gitshortref))
+          pre_without_version: true
       - in_parallel:
           - task: run-lint
             config:
