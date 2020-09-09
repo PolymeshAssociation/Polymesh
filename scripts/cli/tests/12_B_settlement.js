@@ -99,16 +99,16 @@ async function main() {
     100
   );
 
-  await reqImports.authorizeInstruction(api, alice, instructionCounter);
+  await reqImports.authorizeInstruction(api, alice, instructionCounter, alice_did);
 
-  await reqImports.authorizeInstruction(api, bob, instructionCounter);
+  await reqImports.authorizeInstruction(api, bob, instructionCounter, bob_did);
 
-  await reqImports.authorizeInstruction(api, charlie, instructionCounter);
+  await reqImports.authorizeInstruction(api, charlie, instructionCounter, charlie_did);
 
-  await reqImports.authorizeInstruction(api, dave, instructionCounter);
+  await reqImports.authorizeInstruction(api, dave, instructionCounter, dave_did);
 
   //await reqImports.rejectInstruction(api, eve, instructionCounter);
-  await reqImports.authorizeInstruction(api, eve, instructionCounter);
+  await reqImports.authorizeInstruction(api, eve, instructionCounter, eve_did);
 
   aliceACMEBalance = await api.query.asset.balanceOf(ticker, alice_did);
   bobACMEBalance = await api.query.asset.balanceOf(ticker, bob_did);
