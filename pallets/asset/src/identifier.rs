@@ -1,4 +1,5 @@
 use codec::{Decode, Encode};
+use std::convert::TryInto;
 
 #[derive(Encode, Decode, Clone, Debug, PartialEq, Eq)]
 pub enum Identifier {
@@ -52,15 +53,7 @@ impl Identifier {
     }
 
     pub fn lei(bytes: [u8; 20]) -> Option<Identifier> {
-        let mut s = bytes
-            .iter()
-            .take(18)
-            .map(|b| byte_value(*b))
-            .map(|b| b.to_string())
-            .collect::<String>();
-        s.push_str("00");
-        let check = 98 - (s.parse::<u128>().ok()? % 97);
-        if check == (((bytes[18] - b'0') * 10) + (bytes[19] - b'0')) as u128 {
+        if lei_checksum(bytes[..18].try_into().ok()?)? == (bytes[18] - b'0') * 10 + (bytes[19] - b'0') {
             return Some(Identifier::LEI(bytes));
         }
         None
@@ -77,6 +70,16 @@ fn cusip_checksum(bytes: &[u8]) -> u8 {
         total + (v / 10) + v % 10
     });
     (10 - (total % 10)) % 10
+}
+
+fn lei_checksum(bytes: [u8; 18]) -> Option<u8> {
+    let mut s = bytes
+        .iter()
+        .map(|b| byte_value(*b))
+        .map(|b| b.to_string())
+        .collect::<String>();
+    s.push_str("00");
+    Some(98 - (s.parse::<u128>().ok()? % 97) as u8)
 }
 
 fn byte_value(b: u8) -> u8 {
@@ -169,5 +172,6 @@ mod tests {
             Some(Identifier::LEI(*b"549300GFX6WN7JDUSN34"))
         );
         assert_eq!(Identifier::lei(*b"549300GFXDSN7JDUSN34"), None);
+        assert!(lei_checksum(*b"ZZZZZZZZZZZZZZZZZZ").is_some());
     }
 }
