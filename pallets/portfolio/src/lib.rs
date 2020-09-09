@@ -86,9 +86,9 @@ decl_storage! {
         /// The next portfolio sequence number of an identity.
         pub NextPortfolioNumber get(fn next_portfolio_number):
             map hasher(twox_64_concat) IdentityId => PortfolioNumber;
-        /// The custodian of a particular portfolio. If key is missing, it implies that the identity owner is the custodian.
+        /// The custodian of a particular portfolio. None implies that the identity owner is the custodian.
         pub PortfolioCustodian get(fn portfolio_custodian):
-            map hasher(twox_64_concat) PortfolioId => IdentityId;
+            map hasher(twox_64_concat) PortfolioId => Option<IdentityId>;
         /// Amount of assets locked in a portfolio.
         /// These assets show up in portfolio balance but can not be transferred away.
         pub PortfolioLockedAssets get(fn locked_assets):
@@ -354,42 +354,6 @@ impl<T: Trait> Module<T> {
         Ok(())
     }
 
-    /// Accept custody of a Portfolio
-    fn accept_portfolio_custody(new_custodian: IdentityId, auth_id: u64) -> DispatchResult {
-        ensure!(
-            <identity::Authorizations<T>>::contains_key(Signatory::from(new_custodian), auth_id),
-            AuthorizationError::Invalid
-        );
-
-        let auth = <identity::Authorizations<T>>::get(Signatory::from(new_custodian), auth_id);
-
-        let portfolio_id = match auth.authorization_data {
-            AuthorizationData::PortfolioCustody(pid) => pid,
-            _ => return Err(Error::<T>::IrrelevantAuthorization.into()),
-        };
-
-        let current_custodian = if <PortfolioCustodian>::contains_key(&portfolio_id) {
-            <PortfolioCustodian>::get(&portfolio_id)
-        } else {
-            portfolio_id.did
-        };
-
-        <identity::Module<T>>::consume_auth(
-            current_custodian,
-            Signatory::from(new_custodian),
-            auth_id,
-        )?;
-
-        <PortfolioCustodian>::insert(&portfolio_id, new_custodian);
-
-        Self::deposit_event(RawEvent::PortfolioCustodianChanged(
-            new_custodian,
-            portfolio_id,
-            new_custodian,
-        ));
-        Ok(())
-    }
-
     pub fn unchecked_transfer_portfolio_balance(
         from_portfolio: PortfolioId,
         to_portfolio: PortfolioId,
@@ -414,20 +378,13 @@ impl<T: Trait> Module<T> {
         portfolio: PortfolioId,
         custodian: IdentityId,
     ) -> DispatchResult {
-        if <PortfolioCustodian>::contains_key(&portfolio) {
-            // If a custodian is assigned, only they are allowed.
-            ensure!(
-                Self::portfolio_custodian(portfolio) == custodian,
-                Error::<T>::UnauthorizedCustodian
-            );
-        } else {
-            // Else, only the portfolio owner is allowed
-            // TODO: support portfolio permissions
-            ensure!(
-                portfolio.did == custodian,
-                Error::<T>::UnauthorizedCustodian
-            );
-        }
+        // If a custodian is assigned, only they are allowed.
+        // Else, only the portfolio owner is allowed
+        // TODO: support portfolio permissions
+        ensure!(
+            Self::portfolio_custodian(portfolio).unwrap_or(portfolio.did) == custodian,
+            Error::<T>::UnauthorizedCustodian
+        );
 
         Ok(())
     }
@@ -456,12 +413,42 @@ impl<T: Trait> Module<T> {
 
         Ok(())
     }
+}
 
-    pub fn lock_tokens(
-        portfolio: PortfolioId,
-        amount: <T as CommonTrait>::Balance,
-        ticker: &Ticker,
-    ) -> DispatchResult {
+impl<T: Trait> PortfolioSubTrait<T::Balance> for Module<T> {
+    fn accept_portfolio_custody(new_custodian: IdentityId, auth_id: u64) -> DispatchResult {
+        ensure!(
+            <identity::Authorizations<T>>::contains_key(Signatory::from(new_custodian), auth_id),
+            AuthorizationError::Invalid
+        );
+
+        let auth = <identity::Authorizations<T>>::get(Signatory::from(new_custodian), auth_id);
+
+        let portfolio_id = match auth.authorization_data {
+            AuthorizationData::PortfolioCustody(pid) => pid,
+            _ => return Err(Error::<T>::IrrelevantAuthorization.into()),
+        };
+
+        let current_custodian =
+            <PortfolioCustodian>::get(&portfolio_id).unwrap_or(portfolio_id.did);
+
+        <identity::Module<T>>::consume_auth(
+            current_custodian,
+            Signatory::from(new_custodian),
+            auth_id,
+        )?;
+
+        <PortfolioCustodian>::insert(&portfolio_id, new_custodian);
+
+        Self::deposit_event(RawEvent::PortfolioCustodianChanged(
+            new_custodian,
+            portfolio_id,
+            new_custodian,
+        ));
+        Ok(())
+    }
+
+    fn lock_tokens(portfolio: PortfolioId, amount: T::Balance, ticker: &Ticker) -> DispatchResult {
         // 1. Ensure portfolio has enough free balance
         let balance = Self::portfolio_asset_balances(&portfolio, ticker);
         ensure!(
@@ -480,9 +467,9 @@ impl<T: Trait> Module<T> {
         Ok(())
     }
 
-    pub fn unlock_tokens(
+    fn unlock_tokens(
         portfolio: PortfolioId,
-        amount: <T as CommonTrait>::Balance,
+        amount: T::Balance,
         ticker: &Ticker,
     ) -> DispatchResult {
         // 1. Ensure portfolio has enough locked tokens
@@ -493,26 +480,8 @@ impl<T: Trait> Module<T> {
         <PortfolioLockedAssets<T>>::insert(&portfolio, ticker, locked - amount);
         Ok(())
     }
-}
-
-impl<T: Trait> PortfolioSubTrait<T::Balance> for Module<T> {
-    fn accept_portfolio_custody(new_custodian: IdentityId, auth_id: u64) -> DispatchResult {
-        Self::accept_portfolio_custody(new_custodian, auth_id)
-    }
 
     fn check_portfolio_custody(portfolio: PortfolioId, custodian: IdentityId) -> DispatchResult {
         Self::check_portfolio_custody(portfolio, custodian)
-    }
-
-    fn lock_tokens(portfolio: PortfolioId, amount: T::Balance, ticker: &Ticker) -> DispatchResult {
-        Self::lock_tokens(portfolio, amount, ticker)
-    }
-
-    fn unlock_tokens(
-        portfolio: PortfolioId,
-        amount: T::Balance,
-        ticker: &Ticker,
-    ) -> DispatchResult {
-        Self::unlock_tokens(portfolio, amount, ticker)
     }
 }
