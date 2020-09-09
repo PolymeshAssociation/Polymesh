@@ -16,6 +16,7 @@ pallet-contracts = { git = "https://github.com/paritytech/substrate", branch = "
 pallet-identity = { path = "../identity", default-features = false }
 pallet-portfolio = { path = "../portfolio", default-features = false }
 pallet-statistics = { path = "../statistics", default-features = false }
+pallet-asset = { path = "../asset", default-features = false  }
 
 # Crypto
 cryptography = { path = "../../external/cryptography", default-features = false }

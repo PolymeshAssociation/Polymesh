@@ -34,6 +34,8 @@ use polymesh_common_utilities::Context;
 use polymesh_common_utilities::{
     balances::Trait as BalancesTrait, identity::Trait as IdentityTrait,
 };
+use pallet_asset as asset;
+use pallet_asset::{AssetIdentifier, AssetName, AssetType, FundingRoundName, IdentifierType};
 use polymesh_primitives::IdentityId;
 use polymesh_primitives_derive::VecU8StrongTyped;
 use sp_std::prelude::*;
@@ -41,15 +43,9 @@ use sp_std::prelude::*;
 type Identity<T> = identity::Module<T>;
 
 /// The module's configuration trait.
-pub trait Trait:
-    frame_system::Trait
-    + BalancesTrait
-    + IdentityTrait
-    + pallet_session::Trait
-    + statistics::Trait
-    + pallet_contracts::Trait
-    + pallet_portfolio::Trait
-{
+pub trait Trait: frame_system::Trait + BalancesTrait + IdentityTrait {
+    /// Asset module
+    type Asset: AssetTrait<Self::Balance, Self::AccountId>;
     type Event: From<Event> + Into<<Self as frame_system::Trait>::Event>;
 }
 
@@ -76,6 +72,10 @@ pub struct MercatAccount {
     pub encryption_pub_key: EncryptionPubKey,
 }
 
+type Asset<T> = asset::Module<T>;
+// type Asset = asset::Module<TestStorage>;
+type Identity<T> = identity::Module<T>;
+
 decl_storage! {
     trait Store for Module<T: Trait> as ConfidentialAsset {
 
@@ -95,13 +95,17 @@ decl_storage! {
         /// The process around creating and storing this data will likely change as a result of
         /// CRYP-153.
         pub ValidAssetIds get(fn valid_asset_ids): Vec<AssetId>;
+
+        /// List of Tickers of the type ConfidentialAsset.
+        /// () -> List of confidential tickers
+        // todo change ticker to assetid
+        pub ConfidentialTickers get(fn confidential_tickers): Vec<Ticker>;
     }
 }
 
 // Public interface for this runtime module.
 decl_module! {
     pub struct Module<T: Trait> for enum Call where origin: T::Origin {
-
         /// Initialize the default event for this module
         fn deposit_event() = default;
 
@@ -151,6 +155,47 @@ decl_module! {
             Ok(())
         }
 
+        /// Initializes a new security token
+        /// makes the initiating account the owner of the security token
+        /// & the balance of the owner is set to total supply.
+        ///
+        /// # Arguments
+        /// * `origin` - contains the secondary key of the caller (i.e who signed the transaction to execute this function).
+        /// * `name` - the name of the token.
+        /// * `ticker` - the ticker symbol of the token.
+        /// * `total_supply` - the total supply of the token.
+        /// * `divisible` - a boolean to identify the divisibility status of the token.
+        /// * `asset_type` - the asset type.
+        /// * `identifiers` - a vector of asset identifiers.
+        /// * `funding_round` - name of the funding round.
+        ///
+        /// # Weight
+        /// `3_000_000_000 + 20_000 * identifiers.len()`
+        #[weight = 3_000_000_000 + 20_000 * u64::try_from(identifiers.len()).unwrap_or_default()]
+        pub fn create_confidential_asset(
+            origin,
+            name: AssetName,
+            ticker: Ticker,
+            total_supply: T::Balance,
+            divisible: bool,
+            asset_type: AssetType,
+            identifiers: Vec<(IdentifierType, AssetIdentifier)>,
+            funding_round: Option<FundingRoundName>,
+        ) -> DispatchResult {
+            let sender = ensure_signed(origin)?;
+            let did = Context::current_identity_or::<Identity<T>>(&sender)?;
+            // do we make sure this did has a confidential account registered so they can receive assets?
+            T::Asset::unsafe_create_asset(did, name, ticker, total_supply, divisible, asset_type, identifiers, funding_round, true);
+            // continue to update our storage and emit events.
+            // Add the ticker to the list of confidential tickers.
+            // Now that it's registered get the details:
+            let mut token_list = Self::confidential_tickers();//<ConfidentialTickers>::get();
+            token_list.push(ticker);
+            <ConfidentialTickers>::put(token_list); // tried: put(), mutate().
+
+            Ok(())
+        }
+
     }
 }
 
@@ -169,11 +214,12 @@ decl_error! {
     }
 }
 
+/*
 /// All functions in the decl_module macro become part of the public interface of the module
 /// If they are there, they are accessible via extrinsics calls whether they are public or not
 /// However, in the impl module section (this, below) the functions can be public and private
 /// Private functions are internal to this module.
 /// Public functions can be called from other modules e.g.: lock and unlock (being called from the tcr module)
-/// All functions in the impl module section are not part of public interface because they are not part of the
-/// Call enum.
-impl<T: Trait> Module<T> {}
+/// All functions in the impl module section are not part of public interface because they are not part of the Call enum.
+// impl<T: Trait> AssetTrait<T::Balance, T::AccountId> Module<T> {}
+*/

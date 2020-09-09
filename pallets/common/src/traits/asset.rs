@@ -15,6 +15,9 @@
 
 use codec::{Decode, Encode};
 use frame_support::dispatch::{DispatchResult, DispatchResultWithPostInfo};
+use polymesh_pallet_asset::{
+    AssetIdentifier, AssetName, AssetType, FundingRoundName, IdentifierType,
+};
 use polymesh_primitives::{IdentityId, Ticker};
 
 pub const GAS_LIMIT: u64 = 1_000_000_000;
@@ -86,4 +89,15 @@ pub trait Trait<V, U> {
     ) -> DispatchResultWithPostInfo;
     fn primary_issuance_agent(ticker: &Ticker) -> IdentityId;
     fn max_number_of_tm_extension() -> u32;
+    fn unsafe_create_asset(
+        did: IdentityId,
+        name: AssetName,
+        ticker: Ticker,
+        total_supply: V,
+        divisible: bool,
+        asset_type: AssetType,
+        identifiers: Vec<(IdentifierType, AssetIdentifier)>,
+        funding_round: Option<FundingRoundName>,
+        is_confidential: bool,
+    ) -> DispatchResult;
 }
