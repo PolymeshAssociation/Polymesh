@@ -504,6 +504,10 @@ async function createVenue(api, sender) {
   return venueCounter;
 }
 
+function getDefaultPortfolio(did) {
+  return { "did": did, "kind": "Default" };
+}
+
 async function authorizeInstruction(api, sender, instructionCounter, did) {
   const transaction = await api.tx.settlement.authorizeInstruction(
     instructionCounter,
