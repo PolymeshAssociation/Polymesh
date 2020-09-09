@@ -69,7 +69,7 @@ jobs:
         file: githubpr-polymesh/.git/resource/head_sha
       - load_var: rusttoolchain
         file: githubpr-polymesh/rust-toolchain
-      - put: semver-git-polymesh
+      - get: semver-git-polymesh
         params:
           pre: toolingpr((.:scmpr)).((.:scmheadsha))
           pre_without_version: true
