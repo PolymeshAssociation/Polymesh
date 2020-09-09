@@ -613,7 +613,7 @@
                 "AddMultiSigSigner": "AccountId",
                 "TransferAssetOwnership": "Ticker",
                 "JoinIdentity": "Vec<Permission>",
-                "PortfolioCustody": "(IdentityId, Option<PortfolioNumber>)",
+                "PortfolioCustody": "PortfolioId",
                 "Custom": "Ticker",
                 "NoData": ""
             }

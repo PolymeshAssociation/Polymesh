@@ -16,7 +16,7 @@
 use crate::{
     identity_id::IdentityId,
     secondary_key::{Permission, Signatory},
-    PortfolioNumber, Ticker,
+    PortfolioId, Ticker,
 };
 use codec::{Decode, Encode};
 use frame_support::dispatch::DispatchError;
@@ -48,7 +48,7 @@ pub enum AuthorizationData<AccountId> {
     /// Must be issued by the identity which is being joined
     JoinIdentity(Vec<Permission>),
     /// Authorization to take custody of a portfolio
-    PortfolioCustody(IdentityId, Option<PortfolioNumber>),
+    PortfolioCustody(PortfolioId),
     /// Any other authorization
     /// TODO: Is this used?
     Custom(Ticker),

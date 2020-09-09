@@ -363,24 +363,15 @@ impl<T: Trait> Module<T> {
 
         let auth = <identity::Authorizations<T>>::get(Signatory::from(new_custodian), auth_id);
 
-        let (portfolio_owner, portfolio_number) = match auth.authorization_data {
-            AuthorizationData::PortfolioCustody(did, number) => (did, number),
+        let portfolio_id = match auth.authorization_data {
+            AuthorizationData::PortfolioCustody(pid) => pid,
             _ => return Err(Error::<T>::IrrelevantAuthorization.into()),
         };
-
-        let portfolio_id = Self::get_portfolio_id(portfolio_owner, portfolio_number);
-
-        if let Some(num) = portfolio_number {
-            ensure!(
-                <Portfolios>::contains_key(portfolio_owner, num),
-                Error::<T>::PortfolioDoesNotExist
-            );
-        }
 
         let current_custodian = if <PortfolioCustodian>::contains_key(&portfolio_id) {
             <PortfolioCustodian>::get(&portfolio_id)
         } else {
-            portfolio_owner
+            portfolio_id.did
         };
 
         <identity::Module<T>>::consume_auth(
