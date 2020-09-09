@@ -123,8 +123,8 @@ pub trait Trait:
 
 use polymesh_primitives::condition::ConditionOld;
 /// Implicit requirement status.
-#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[derive(Encode, Decode, Clone, Copy, PartialEq, Eq, Debug)]
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize, Debug))]
+#[derive(Encode, Decode, Clone, Copy, PartialEq, Eq)]
 pub enum ImplicitRequirementStatus {
     /// It means all the implicit requirements will be checked
     /// at the time of compliance check for a transfer of a given asset.
