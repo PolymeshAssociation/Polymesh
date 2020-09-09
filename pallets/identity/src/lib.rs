@@ -251,8 +251,7 @@ decl_module! {
 
         fn on_runtime_upgrade() -> Weight {
             use polymesh_primitives::{
-                identity_claim::IdentityClaimOld, migrate::migrate_map,
-                secondary_key::runtime_upgrade::Identity as OldIdentity
+                identity_claim::IdentityClaimOld, migrate::migrate_map, identity::IdentityOld,
             };
             use polymesh_common_utilities::traits::identity::runtime_upgrade::LinkedKeyInfo;
 
@@ -261,7 +260,7 @@ decl_module! {
 
             migrate_map::<IdentityClaimOld>(b"Identity", b"Claims");
             migrate_map::<LinkedKeyInfo>(b"Identity", b"KeyToIdentityIds");
-            migrate_map::<OldIdentity<T::AccountId>>(b"Identity", b"DidRecords");
+            migrate_map::<IdentityOld<T::AccountId>>(b"Identity", b"DidRecords");
 
             // It's gonna be alot, so lets pretend its 0 anyways.
             0

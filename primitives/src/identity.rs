@@ -37,7 +37,7 @@ pub struct Identity<AccountId: Encode + Decode> {
 
 impl<AccountId> Identity<AccountId>
 where
-    AccountId: Clone + Default + Eq + Ord,
+    AccountId: Encode + Decode + Clone + Default + Eq + Ord,
 {
     /// Creates an [`Identity`] from an `AccountId`.
     pub fn new(primary_key: AccountId) -> Self {
@@ -78,7 +78,7 @@ where
 
 impl<AccountId> From<Public> for Identity<AccountId>
 where
-    AccountId: PublicType,
+    AccountId: Encode + Decode + PublicType,
 {
     fn from(p: Public) -> Self {
         Identity {
