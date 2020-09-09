@@ -52,7 +52,18 @@ impl Identifier {
     }
 
     pub fn lei(bytes: [u8; 20]) -> Option<Identifier> {
-        unimplemented!()
+        let mut s = bytes
+            .iter()
+            .take(18)
+            .map(|b| byte_value(*b))
+            .map(|b| b.to_string())
+            .collect::<String>();
+        s.push_str("00");
+        let check = 98 - (s.parse::<u128>().ok()? % 97);
+        if check == (((bytes[18] - b'0') * 10) + (bytes[19] - b'0')) as u128 {
+            return Some(Identifier::LEI(bytes));
+        }
+        None
     }
 }
 
@@ -141,5 +152,22 @@ mod tests {
             Some(Identifier::ISIN(*b"FR0000988040"))
         );
         assert_eq!(Identifier::isin(*b"US0373831005"), None);
+    }
+
+    #[test]
+    fn lei() {
+        assert_eq!(
+            Identifier::lei(*b"YZ83GD8L7GG84979J516"),
+            Some(Identifier::LEI(*b"YZ83GD8L7GG84979J516"))
+        );
+        assert_eq!(
+            Identifier::lei(*b"815600306702171A6844"),
+            Some(Identifier::LEI(*b"815600306702171A6844"))
+        );
+        assert_eq!(
+            Identifier::lei(*b"549300GFX6WN7JDUSN34"),
+            Some(Identifier::LEI(*b"549300GFX6WN7JDUSN34"))
+        );
+        assert_eq!(Identifier::lei(*b"549300GFXDSN7JDUSN34"), None);
     }
 }
