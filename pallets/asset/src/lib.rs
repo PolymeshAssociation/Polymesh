@@ -285,6 +285,12 @@ pub struct FocusedBalances<Balance> {
     pub portfolio: Balance,
 }
 
+/// The Countries Currency Codes
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+pub struct CountryCurrencyCodes<String> {
+    codes: Vec<String>
+}
+
 pub mod weight_for {
     use super::*;
 
@@ -426,6 +432,20 @@ decl_storage! {
                 };
                 ClassicTickers::insert(&import.ticker, classic_ticker);
             }
+
+            use std::io;
+            use std::io::prelude::*;
+            use std::fs::File;
+
+            let settlement_did = SystematicIssuers::Settlement.as_id();
+           
+            let mut file = File::open("~/src/data/currency_symbols.json").unwrap();
+            let mut buff = String::new();
+            file.read_to_string(&mut buff).unwrap();
+
+            let currency: CountryCurrencyCodes<String> = serde_json::from_str(&buff).unwrap();
+
+            
         });
     }
 }
