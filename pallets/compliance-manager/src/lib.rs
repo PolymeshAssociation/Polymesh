@@ -163,11 +163,8 @@ pub struct ComplianceRequirement {
 pub struct ComplianceRequirementResult {
     pub sender_conditions: Vec<ConditionResult>,
     pub receiver_conditions: Vec<ConditionResult>,
-    /// `Some(u32)` refers to requirement set by the asset issuer
-    /// whilst `None` refers to implicit requirements.
-    ///
     /// Unique identifier of the compliance requirement.
-    pub id: Option<u32>,
+    pub id: u32,
     /// Result of this transfer condition's evaluation.
     pub result: bool,
 }
@@ -185,7 +182,7 @@ impl From<ComplianceRequirement> for ComplianceRequirementResult {
                 .iter()
                 .map(|condition| ConditionResult::from(condition.clone()))
                 .collect(),
-            id: Some(requirement.id),
+            id: requirement.id,
             result: true,
         }
     }
@@ -221,6 +218,16 @@ pub struct AssetCompliance {
     pub requirements: Vec<ComplianceRequirement>,
 }
 
+/// Implicit requirement result.
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize, Debug))]
+#[derive(Encode, Decode, Default, Clone, PartialEq, Eq)]
+pub struct ImplicitRequirementResult {
+    /// Result of implicit condition for the sender of the extrinsic.
+    pub from_result: bool,
+    /// Result of implicit condition for the receiver of the extrinsic.
+    pub to_result: bool,
+}
+
 type Identity<T> = identity::Module<T>;
 
 /// Asset compliance and it's evaluation result
@@ -237,27 +244,10 @@ pub struct AssetComplianceResult {
     /// the asset issuer. But it can fail the txn if it gets failed independently from
     /// the result of other requirements.
     ///
-    /// List of implicit requirements.
-    pub implicit_requirements: Option<ComplianceRequirementResult>,
+    /// Implicit requirements result.
+    pub implicit_requirements_result: Option<ImplicitRequirementResult>,
     // Final evaluation result of the asset compliance
     pub result: bool,
-}
-
-impl AssetComplianceResult {
-    pub fn get_implicit_requirements(
-        from_result: Option<ConditionResult>,
-        to_result: Option<ConditionResult>,
-    ) -> Option<ComplianceRequirementResult> {
-        from_result.zip(to_result).and_then(|(f, t)| {
-            let final_result = f.result && t.result;
-            Some(ComplianceRequirementResult {
-                sender_conditions: vec![f],
-                receiver_conditions: vec![t],
-                id: None,
-                result: final_result,
-            })
-        })
-    }
 }
 
 impl From<AssetCompliance> for AssetComplianceResult {
@@ -269,7 +259,7 @@ impl From<AssetCompliance> for AssetComplianceResult {
                 .into_iter()
                 .map(ComplianceRequirementResult::from)
                 .collect(),
-            implicit_requirements: None,
+            implicit_requirements_result: None,
             result: false,
         }
     }
@@ -800,18 +790,17 @@ impl<T: Trait> Module<T> {
     ) -> AssetComplianceResult {
         let asset_compliance = Self::asset_compliance(ticker);
         // To know whether the given ticker has the implicit requirements active or not.
-        // if `yes` then it returns the `Some(ConditionResult)` for the `from_did_opt` and `to_did_opt`.
-        // if `no` then it returns None for both.
-        let (from_result, to_result) = Self::get_implicit_condition_result(
+        // if `yes` then it returns the `Some(ImplicitRequirementResult)` for the `from_did_opt` and `to_did_opt`.
+        // if `no` then it returns None.
+        let implicit_result = Self::get_implicit_condition_result(
             ticker,
             from_did_opt,
             to_did_opt,
             primary_issuance_agent,
         );
         let mut asset_compliance_with_results = AssetComplianceResult::from(asset_compliance);
-        // `implicit_requirements` by default is `None` here but we re-compute them as per the above results.
-        asset_compliance_with_results.implicit_requirements =
-            AssetComplianceResult::get_implicit_requirements(from_result, to_result);
+        // `implicit_requirements_result` by default is `None` here but we assign them here as per the above results.
+        asset_compliance_with_results.implicit_requirements_result = implicit_result;
 
         for requirements in &mut asset_compliance_with_results.requirements {
             if let Some(from_did) = from_did_opt {
@@ -852,10 +841,10 @@ impl<T: Trait> Module<T> {
     fn compute_final_result(asset_compliance: &AssetComplianceResult) -> bool {
         let compliance_result = asset_compliance.result;
         asset_compliance
-            .implicit_requirements
+            .implicit_requirements_result
             .as_ref()
             .map_or(compliance_result, |imp_result| {
-                imp_result.result && compliance_result
+                imp_result.from_result && imp_result.to_result && compliance_result
             })
     }
 
@@ -887,32 +876,25 @@ impl<T: Trait> Module<T> {
         Err(Error::<T>::ComplianceRequirementTooComplex.into())
     }
 
-    /// Helper function for the RPC to know the result of the scope claim (i.e investor does posses the valid `InvestorZKProof` claim)
-    /// & also generate the condition for the same.
+    /// Helper function for the RPC to know the result of the scope claim (i.e investor does posses the valid `InvestorZKProof` claim).
     fn get_implicit_condition_result(
         ticker: &Ticker,
         from_did_opt: Option<IdentityId>,
         to_did_opt: Option<IdentityId>,
         primary_issuance_agent: Option<IdentityId>,
-    ) -> (Option<ConditionResult>, Option<ConditionResult>) {
+    ) -> Option<ImplicitRequirementResult> {
         if Self::implicit_requirements_status(ticker) == ImplicitRequirementStatus::Active {
             let condition_result = |did_opt: Option<IdentityId>| {
-                did_opt.and_then(|did| {
-                    Some(ConditionResult {
-                        condition: Self::generate_valid_proof_of_investor_condition(*ticker, did),
-                        result: Self::has_scope_claim(ticker, did, primary_issuance_agent),
-                    })
+                did_opt.map_or(false, |did| {
+                    Self::has_scope_claim(ticker, did, primary_issuance_agent)
                 })
             };
-            return (condition_result(from_did_opt), condition_result(to_did_opt));
+            return Some(ImplicitRequirementResult {
+                from_result: condition_result(from_did_opt),
+                to_result: condition_result(to_did_opt),
+            });
         }
-        (None, None)
-    }
-
-    /// Generate the condition for `HasValidProofOfInvestor` condition type.
-    fn generate_valid_proof_of_investor_condition(ticker: Ticker, whom: IdentityId) -> Condition {
-        let condition_type = ConditionType::HasValidProofOfInvestor(ticker);
-        Condition::new(condition_type, vec![whom])
+        None
     }
 
     /// Helper function to know whether the given did has the valid scope claim or not.
@@ -921,7 +903,8 @@ impl<T: Trait> Module<T> {
         did: IdentityId,
         primary_issuance_agent: Option<IdentityId>,
     ) -> bool {
-        let condition = &Self::generate_valid_proof_of_investor_condition(*ticker, did);
+        // Generate the condition for `HasValidProofOfInvestor` condition type.
+        let condition = &Condition::new(ConditionType::HasValidProofOfInvestor(*ticker), vec![did]);
         Self::is_condition_satisfied(ticker, did, condition, primary_issuance_agent)
     }
 

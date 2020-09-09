@@ -8,7 +8,7 @@ use pallet_asset::{self as asset, AssetName, AssetType, Error as AssetError, Sec
 use pallet_balances as balances;
 use pallet_compliance_manager::{
     self as compliance_manager, ComplianceRequirement, ComplianceRequirementResult,
-    ConditionResult, Error as CMError,
+    ConditionResult, Error as CMError, ImplicitRequirementResult,
 };
 use pallet_group as group;
 use pallet_identity::{self as identity};
@@ -1011,7 +1011,12 @@ fn cm_test_case_9_we() {
         None
     ));
     assert_valid_transfer!(ticker, owner_did, charlie, 100);
-    let result = ComplianceManager::granular_verify_restriction(&ticker, None, Some(charlie), None);
+    let result = ComplianceManager::granular_verify_restriction(
+        &ticker,
+        Some(owner_did),
+        Some(charlie),
+        None,
+    );
     assert!(result.result);
     assert!(result.requirements[0].result);
     assert!(result.requirements[0].receiver_conditions[0].result);
@@ -1024,7 +1029,8 @@ fn cm_test_case_9_we() {
         None
     ));
     assert_valid_transfer!(ticker, owner_did, dave, 100);
-    let result = ComplianceManager::granular_verify_restriction(&ticker, None, Some(dave), None);
+    let result =
+        ComplianceManager::granular_verify_restriction(&ticker, Some(owner_did), Some(dave), None);
     assert!(result.result);
     assert!(result.requirements[0].result);
     assert!(result.requirements[0].receiver_conditions[0].result);
@@ -1036,13 +1042,19 @@ fn cm_test_case_9_we() {
         Claim::Exempted(scope),
         None
     ));
-    let result = ComplianceManager::granular_verify_restriction(&ticker, None, Some(eve), None);
+    let result =
+        ComplianceManager::granular_verify_restriction(&ticker, Some(owner_did), Some(eve), None);
     assert!(result.requirements[0].result);
     assert!(result.requirements[0].receiver_conditions[0].result);
 
     // 3.4 Ferdie has none of the required claims
     assert_invalid_transfer!(ticker, owner_did, ferdie, 100);
-    let result = ComplianceManager::granular_verify_restriction(&ticker, None, Some(ferdie), None);
+    let result = ComplianceManager::granular_verify_restriction(
+        &ticker,
+        Some(owner_did),
+        Some(ferdie),
+        None,
+    );
     assert!(!result.result);
     assert!(!result.requirements[0].result);
     assert!(!result.requirements[0].receiver_conditions[0].result);
@@ -1109,7 +1121,12 @@ fn cm_test_case_11_we() {
         None
     ));
     assert_valid_transfer!(ticker, owner_did, charlie, 100);
-    let result = ComplianceManager::granular_verify_restriction(&ticker, None, Some(charlie), None);
+    let result = ComplianceManager::granular_verify_restriction(
+        &ticker,
+        Some(owner_did),
+        Some(charlie),
+        None,
+    );
     assert!(result.result);
     assert!(result.requirements[0].result);
     assert!(result.requirements[0].receiver_conditions[0].result);
@@ -1130,7 +1147,8 @@ fn cm_test_case_11_we() {
     ));
 
     assert_invalid_transfer!(ticker, owner_did, dave, 100);
-    let result = ComplianceManager::granular_verify_restriction(&ticker, None, Some(dave), None);
+    let result =
+        ComplianceManager::granular_verify_restriction(&ticker, Some(owner_did), Some(dave), None);
     assert!(!result.result);
     assert!(!result.requirements[0].result);
     assert!(result.requirements[0].receiver_conditions[0].result);
@@ -1151,7 +1169,8 @@ fn cm_test_case_11_we() {
     ));
 
     assert_valid_transfer!(ticker, owner_did, eve, 100);
-    let result = ComplianceManager::granular_verify_restriction(&ticker, None, Some(eve), None);
+    let result =
+        ComplianceManager::granular_verify_restriction(&ticker, Some(owner_did), Some(eve), None);
     assert!(result.result);
     assert!(result.requirements[0].result);
     assert!(result.requirements[0].receiver_conditions[0].result);
@@ -1264,7 +1283,8 @@ fn cm_test_case_13_we() {
     );
 
     assert_valid_transfer!(ticker, owner_did, eve, 100);
-    let result = ComplianceManager::granular_verify_restriction(&ticker, None, Some(eve), None);
+    let result =
+        ComplianceManager::granular_verify_restriction(&ticker, Some(owner_did), Some(eve), None);
     assert!(result.result);
     assert!(result.requirements[0].result);
     assert!(result.requirements[0].receiver_conditions[0].result);
@@ -1528,36 +1548,25 @@ fn check_implicit_requirement_switch() {
             None,
         );
 
-        let expected_result = ComplianceRequirementResult {
-            sender_conditions: vec![ConditionResult {
-                condition: Condition::new(
-                    ConditionType::HasValidProofOfInvestor(ticker),
-                    vec![token_owner_did],
-                ),
-                result: false,
-            }],
-            receiver_conditions: vec![ConditionResult {
-                condition: Condition::new(
-                    ConditionType::HasValidProofOfInvestor(ticker),
-                    vec![receiver_did],
-                ),
-                result: false,
-            }],
-            id: None,
-            result: false,
+        let expected_result = ImplicitRequirementResult {
+            from_result: false,
+            to_result: false,
         };
 
         let compliance_requirement = ComplianceRequirementResult {
             sender_conditions: vec![],
             receiver_conditions: vec![],
-            id: Some(1),
+            id: 1,
             result: true,
         };
 
         assert!(result.requirements.len() == 1);
         assert_eq!(result.requirements[0], compliance_requirement);
-        assert!(result.implicit_requirements.is_some());
-        assert_eq!(result.implicit_requirements.unwrap(), expected_result);
+        assert!(result.implicit_requirements_result.is_some());
+        assert_eq!(
+            result.implicit_requirements_result.unwrap(),
+            expected_result
+        );
         assert_eq!(result.result, false);
 
         // Should fail txn as implicit requirements are active.
@@ -1586,7 +1595,7 @@ fn check_implicit_requirement_switch() {
         );
 
         assert!(result2.requirements.len() == 1);
-        assert!(!result2.implicit_requirements.is_some());
+        assert!(!result2.implicit_requirements_result.is_some());
 
         // check for transfer.
         assert_valid_transfer!(ticker, token_owner_did, receiver_did, 100);
