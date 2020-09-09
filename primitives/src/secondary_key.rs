@@ -13,13 +13,18 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
-use crate::{FunctionName, IdentityId, PalletName, PortfolioNumber, SubsetRestriction, Ticker};
+use crate::{
+    self as polymesh_primitives, FunctionName, IdentityId, PalletName, PortfolioNumber,
+    SubsetRestriction, Ticker,
+};
 use codec::{Decode, Encode};
+use polymesh_primitives_derive::Migrate;
 #[cfg(feature = "std")]
 use sp_runtime::{Deserialize, Serialize};
 use sp_std::{
     cmp::{Ord, Ordering, PartialOrd},
     iter,
+    prelude::Vec,
 };
 
 /// Asset permissions.
@@ -199,16 +204,20 @@ where
 }
 
 /// A secondary key is a signatory with defined permissions.
-#[derive(Encode, Decode, Default, Clone, Eq, Debug)]
+#[derive(Encode, Decode, Default, Clone, Eq, Debug, Migrate)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-pub struct SecondaryKey<AccountId> {
+pub struct SecondaryKey<AccountId: Encode + Decode> {
     /// The account or identity that is the signatory of this key.
     pub signer: Signatory<AccountId>,
     /// The access permissions of the signing key.
+    #[migrate_from(Vec<runtime_upgrade::Permission>)]
     pub permissions: Permissions,
 }
 
-impl<AccountId> SecondaryKey<AccountId> {
+impl<AccountId> SecondaryKey<AccountId>
+where
+    AccountId: Encode + Decode,
+{
     /// Creates a [`SecondaryKey`].
     pub fn new(signer: Signatory<AccountId>, permissions: Permissions) -> Self {
         Self {
@@ -262,7 +271,10 @@ impl<AccountId> SecondaryKey<AccountId> {
     }
 }
 
-impl<AccountId> From<IdentityId> for SecondaryKey<AccountId> {
+impl<AccountId> From<IdentityId> for SecondaryKey<AccountId>
+where
+    AccountId: Encode + Decode,
+{
     fn from(id: IdentityId) -> Self {
         Self {
             signer: Signatory::Identity(id),
@@ -273,14 +285,17 @@ impl<AccountId> From<IdentityId> for SecondaryKey<AccountId> {
 
 impl<AccountId> PartialEq for SecondaryKey<AccountId>
 where
-    AccountId: PartialEq,
+    AccountId: Encode + Decode + PartialEq,
 {
     fn eq(&self, other: &Self) -> bool {
         self.signer == other.signer && self.permissions == other.permissions
     }
 }
 
-impl<AccountId> PartialEq<IdentityId> for SecondaryKey<AccountId> {
+impl<AccountId> PartialEq<IdentityId> for SecondaryKey<AccountId>
+where
+    AccountId: Encode + Decode,
+{
     fn eq(&self, other: &IdentityId) -> bool {
         if let Signatory::Identity(id) = self.signer {
             id == *other
@@ -292,7 +307,7 @@ impl<AccountId> PartialEq<IdentityId> for SecondaryKey<AccountId> {
 
 impl<AccountId> PartialOrd for SecondaryKey<AccountId>
 where
-    AccountId: Ord,
+    AccountId: Encode + Decode + Ord,
 {
     /// Any key is less than any Identity.
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
@@ -302,7 +317,7 @@ where
 
 impl<AccountId> Ord for SecondaryKey<AccountId>
 where
-    AccountId: Ord,
+    AccountId: Encode + Decode + Ord,
 {
     fn cmp(&self, other: &Self) -> Ordering {
         self.signer.cmp(&other.signer)
@@ -312,8 +327,8 @@ where
 /// Runtime upgrade definitions.
 #[allow(missing_docs)]
 pub mod runtime_upgrade {
-    use crate::{migrate::Migrate, Signatory};
-    use codec::{Decode, Encode};
+    use crate::migrate::Migrate;
+    use codec::Decode;
     use sp_std::vec::Vec;
 
     /// Old permission type for runtime upgrade purposes.
@@ -326,67 +341,17 @@ pub mod runtime_upgrade {
         Custom(u8),
     }
 
-    // impl Migrate for Vec<Permission> {
-    //     type Into = super::Permissions;
-
-    //     fn migrate(self) -> Option<Self::Into> {
-    //         Some(if self.contains(&Permission::Full) {
-    //             super::Permissions::default()
-    //         } else {
-    //             super::Permissions::empty()
-    //         })
-    //     }
-    // }
-
-    /// Old secondary key type for runtime upgrade purposes.
-    #[derive(Decode)]
-    pub struct SecondaryKey<AccountId: Decode> {
-        /// The account or identity that is the signatory of this key.
-        pub signer: Signatory<AccountId>,
-        /// Signer permissions.
-        pub permissions: Vec<Permission>,
-    }
-
-    impl<AccountId> Migrate for SecondaryKey<AccountId>
-    where
-        AccountId: Decode + Encode,
-    {
-        type Into = super::SecondaryKey<AccountId>;
+    impl Migrate for Vec<Permission> {
+        type Into = super::Permissions;
 
         fn migrate(self) -> Option<Self::Into> {
-            Some(Self::Into {
-                signer: self.signer,
-                permissions: super::Permissions::empty(),
+            Some(if self.contains(&Permission::Full) {
+                super::Permissions::default()
+            } else {
+                super::Permissions::empty()
             })
         }
     }
-
-    // /// Old DID record type.
-    // #[derive(Decode)]
-    // pub struct Identity<AccountId: Decode> {
-    //     pub roles: Vec<IdentityRole>,
-    //     pub primary_key: AccountId,
-    //     pub secondary_keys: Vec<SecondaryKey<AccountId>>,
-    // }
-
-    // impl<AccountId> Migrate for Identity<AccountId>
-    // where
-    //     AccountId: Decode + Encode,
-    // {
-    //     type Into = crate::Identity<AccountId>;
-
-    //     fn migrate(self) -> Option<Self::Into> {
-    //         Some(Self::Into {
-    //             roles: self.roles,
-    //             primary_key: self.primary_key,
-    //             secondary_keys: self
-    //                 .secondary_keys
-    //                 .into_iter()
-    //                 .filter_map(|sks| sks.migrate())
-    //                 .collect(),
-    //         })
-    //     }
-    // }
 }
 
 /// Vectorized redefinitions of runtime types for the sake of Polkadot.JS.
@@ -505,7 +470,10 @@ pub mod api {
         }
     }
 
-    impl<AccountId> From<super::SecondaryKey<AccountId>> for SecondaryKey<AccountId> {
+    impl<AccountId> From<super::SecondaryKey<AccountId>> for SecondaryKey<AccountId>
+    where
+        AccountId: Encode + Decode,
+    {
         fn from(k: super::SecondaryKey<AccountId>) -> SecondaryKey<AccountId> {
             SecondaryKey {
                 signer: k.signer,
@@ -555,7 +523,10 @@ pub mod api {
         }
     }
 
-    impl<AccountId> From<SecondaryKey<AccountId>> for super::SecondaryKey<AccountId> {
+    impl<AccountId> From<SecondaryKey<AccountId>> for super::SecondaryKey<AccountId>
+    where
+        AccountId: Encode + Decode,
+    {
         fn from(k: SecondaryKey<AccountId>) -> super::SecondaryKey<AccountId> {
             super::SecondaryKey {
                 signer: k.signer,

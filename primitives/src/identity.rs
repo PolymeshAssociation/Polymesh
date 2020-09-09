@@ -14,8 +14,8 @@
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
 use crate::{
-    self as polymesh_primitives, secondary_key::runtime_upgrade::SecondaryKey as OldSecondaryKey,
-    IdentityRole, SecondaryKey, Signatory,
+    self as polymesh_primitives, secondary_key::SecondaryKeyOld, IdentityRole, SecondaryKey,
+    Signatory,
 };
 use codec::{Decode, Encode};
 use polymesh_primitives_derive::Migrate;
@@ -31,7 +31,7 @@ use sp_std::{convert::From, prelude::Vec};
 pub struct Identity<AccountId: Encode + Decode> {
     pub roles: Vec<IdentityRole>,
     pub primary_key: AccountId,
-    #[migrate_from(Vec<OldSecondaryKey<AccountId>>)]
+    #[migrate_from(Vec<SecondaryKeyOld<AccountId>>)]
     pub secondary_keys: Vec<SecondaryKey<AccountId>>,
 }
 
