@@ -97,32 +97,32 @@ fn revoking_claims() {
         let _issuer = Origin::signed(AccountKeyring::Bob.public());
         let claim_issuer_did = register_keyring_account(AccountKeyring::Charlie).unwrap();
         let claim_issuer = Origin::signed(AccountKeyring::Charlie.public());
-        let scope = Scope::from(0);
+        let scope = Scope::from(IdentityId::from(0));
 
         assert_ok!(Identity::add_claim(
             claim_issuer.clone(),
             claim_issuer_did,
-            Claim::Accredited(scope),
+            Claim::Accredited(scope.clone()),
             Some(100u64),
         ));
         assert!(Identity::fetch_claim(
             claim_issuer_did,
             ClaimType::Accredited,
             claim_issuer_did,
-            Some(scope)
+            Some(scope.clone())
         )
         .is_some());
 
         assert_ok!(Identity::revoke_claim(
             claim_issuer.clone(),
             claim_issuer_did,
-            Claim::Accredited(scope),
+            Claim::Accredited(scope.clone()),
         ));
         assert!(Identity::fetch_claim(
             claim_issuer_did,
             ClaimType::Accredited,
             claim_issuer_did,
-            Some(scope)
+            Some(scope.clone())
         )
         .is_none());
     });
@@ -136,12 +136,12 @@ fn revoking_batch_claims() {
         let _issuer = Origin::signed(AccountKeyring::Bob.public());
         let claim_issuer_did = register_keyring_account(AccountKeyring::Charlie).unwrap();
         let claim_issuer = Origin::signed(AccountKeyring::Charlie.public());
-        let scope = Scope::from(0);
+        let scope = Scope::from(IdentityId::from(0));
 
         assert_ok!(Identity::add_claim(
             claim_issuer.clone(),
             claim_issuer_did,
-            Claim::Accredited(scope),
+            Claim::Accredited(scope.clone()),
             Some(100u64),
         ));
 
@@ -155,7 +155,7 @@ fn revoking_batch_claims() {
             claim_issuer_did,
             ClaimType::Accredited,
             claim_issuer_did,
-            Some(scope)
+            Some(scope.clone())
         )
         .is_some());
 
@@ -168,14 +168,14 @@ fn revoking_batch_claims() {
             claim_issuer_did,
             ClaimType::Accredited,
             claim_issuer_did,
-            Some(scope),
+            Some(scope.clone()),
         )
         .is_some());
 
         assert_ok!(Identity::revoke_claim(
             claim_issuer.clone(),
             claim_issuer_did,
-            Claim::Accredited(scope),
+            Claim::Accredited(scope.clone()),
         ));
 
         assert_ok!(Identity::revoke_claim(
@@ -188,7 +188,7 @@ fn revoking_batch_claims() {
             claim_issuer_did,
             ClaimType::Accredited,
             claim_issuer_did,
-            Some(scope)
+            Some(scope.clone())
         )
         .is_none());
 
@@ -201,7 +201,7 @@ fn revoking_batch_claims() {
             claim_issuer_did,
             ClaimType::Accredited,
             claim_issuer_did,
-            Some(scope),
+            Some(scope.clone()),
         )
         .is_none());
     });

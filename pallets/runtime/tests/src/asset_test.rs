@@ -2073,23 +2073,27 @@ fn test_weights_for_is_valid_transfer() {
                 ticker,
                 vec![
                     Condition {
-                        condition_type: ConditionType::IsPresent(Claim::Accredited(ticker_id)),
+                        condition_type: ConditionType::IsPresent(Claim::Accredited(
+                            ticker_id.into()
+                        )),
                         issuers: vec![eve_did]
                     },
                     Condition {
-                        condition_type: ConditionType::IsAbsent(Claim::BuyLockup(ticker_id)),
+                        condition_type: ConditionType::IsAbsent(Claim::BuyLockup(ticker_id.into())),
                         issuers: vec![eve_did]
                     }
                 ],
                 vec![
                     Condition {
-                        condition_type: ConditionType::IsPresent(Claim::Accredited(ticker_id)),
+                        condition_type: ConditionType::IsPresent(Claim::Accredited(
+                            ticker_id.into()
+                        )),
                         issuers: vec![eve_did]
                     },
                     Condition {
                         condition_type: ConditionType::IsAnyOf(vec![
-                            Claim::BuyLockup(ticker_id),
-                            Claim::KnowYourCustomer(ticker_id)
+                            Claim::BuyLockup(ticker_id.into()),
+                            Claim::KnowYourCustomer(ticker_id.into())
                         ]),
                         issuers: vec![eve_did]
                     }
@@ -2098,14 +2102,26 @@ fn test_weights_for_is_valid_transfer() {
 
             // Providing claim to sender and receiver
             // For Alice
-            assert_add_claim!(eve_signed.clone(), alice_did, Claim::Accredited(alice_did));
-            assert_add_claim!(eve_signed.clone(), alice_did, Claim::BuyLockup(ticker_id));
+            assert_add_claim!(
+                eve_signed.clone(),
+                alice_did,
+                Claim::Accredited(alice_did.into())
+            );
+            assert_add_claim!(
+                eve_signed.clone(),
+                alice_did,
+                Claim::BuyLockup(ticker_id.into())
+            );
             // For Bob
-            assert_add_claim!(eve_signed.clone(), bob_did, Claim::Accredited(ticker_id));
             assert_add_claim!(
                 eve_signed.clone(),
                 bob_did,
-                Claim::KnowYourCustomer(ticker_id)
+                Claim::Accredited(ticker_id.into())
+            );
+            assert_add_claim!(
+                eve_signed.clone(),
+                bob_did,
+                Claim::KnowYourCustomer(ticker_id.into())
             );
 
             // Add Tms
@@ -2147,8 +2163,16 @@ fn test_weights_for_is_valid_transfer() {
             .1;
             assert!(matches!(result, weight_from_verify_transfer)); // Only sender rules are processed.
 
-            assert_revoke_claim!(eve_signed.clone(), alice_did, Claim::BuyLockup(ticker_id));
-            assert_add_claim!(eve_signed.clone(), alice_did, Claim::Accredited(ticker_id));
+            assert_revoke_claim!(
+                eve_signed.clone(),
+                alice_did,
+                Claim::BuyLockup(ticker_id.into())
+            );
+            assert_add_claim!(
+                eve_signed.clone(),
+                alice_did,
+                Claim::Accredited(ticker_id.into())
+            );
 
             let result =
                 Asset::_is_valid_transfer(&ticker, alice, Some(alice_did), Some(bob_did), 100)
@@ -2172,11 +2196,11 @@ fn test_weights_for_is_valid_transfer() {
                 alice_signed.clone(),
                 ticker,
                 vec![Condition {
-                    condition_type: ConditionType::IsPresent(Claim::Exempted(ticker_id)),
+                    condition_type: ConditionType::IsPresent(Claim::Exempted(ticker_id.into())),
                     issuers: vec![eve_did]
                 }],
                 vec![Condition {
-                    condition_type: ConditionType::IsPresent(Claim::Blocked(ticker_id)),
+                    condition_type: ConditionType::IsPresent(Claim::Blocked(ticker_id.into())),
                     issuers: vec![eve_did]
                 }]
             ));
