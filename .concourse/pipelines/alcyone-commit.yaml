@@ -13,7 +13,7 @@ resources:
     check_every: 5m
     source:
       uri: git@github.com:polymathnetwork/Polymesh.git
-      branch: develop
+      branch: alcyone
       private_key: ((github-ssh-key-concourseatpolymath.id_rsa))
   - name: s3-polymesh
     type: s3
@@ -60,14 +60,9 @@ jobs:
           list_changed_files: true
         trigger: true
         version: every
-      - load_var: gitshortref
-        file: git-polymesh/.git/short_ref
-      - load_var: rusttoolchain
-        file: git-polymesh/rust-toolchain
-      - get: semver-git-polymesh
+      - put: semver-git-polymesh
         params:
-          pre: develop.((.:gitshortref))
-          pre_without_version: true
+          bump: patch
       - in_parallel:
           - task: run-lint
             config:
@@ -78,7 +73,7 @@ jobs:
                 type: registry-image
                 source:
                   repository: polymathnetwork/rust
-                  tag: debian-1.45.0-((.:rusttoolchain))
+                  tag: debian-1.45.0
                   aws_access_key_id: ((polymath-ecr.aws-access-id))
                   aws_secret_access_key: ((polymath-ecr.aws-access-secret))
                   aws_region: us-east-1
@@ -99,7 +94,7 @@ jobs:
                 type: registry-image
                 source:
                   repository: polymathnetwork/rust
-                  tag: debian-1.45.0-((.:rusttoolchain))
+                  tag: debian-1.45.0
                   aws_access_key_id: ((polymath-ecr.aws-access-id))
                   aws_secret_access_key: ((polymath-ecr.aws-access-secret))
                   aws_region: us-east-1
@@ -129,27 +124,6 @@ jobs:
               outputs:
                 - name: npm-caches
       - in_parallel:
-          - task: clippy-test
-            params:
-              SUBMODULE_ACCESS_TOKEN: ((github-concourse-access-token))
-            config:
-              inputs:
-                - name: git-polymesh
-              caches:
-                - path: git-polymesh/target
-                - path: /usr/local/cargo
-              platform: linux
-              image_resource:
-                type: registry-image
-                source:
-                  repository: polymathnetwork/rust
-                  tag: debian-1.45.0-((.:rusttoolchain))
-                  aws_access_key_id: ((polymath-ecr.aws-access-id))
-                  aws_secret_access_key: ((polymath-ecr.aws-access-secret))
-                  aws_region: us-east-1
-              run:
-                path: bash
-                args: ["git-polymesh/.concourse/scripts/t-clippy-test.sh", "git-polymesh"]
           - task: cargo-test
             config:
               inputs:
@@ -162,7 +136,7 @@ jobs:
                 type: registry-image
                 source:
                   repository: polymathnetwork/rust
-                  tag: debian-1.45.0-((.:rusttoolchain))
+                  tag: debian-1.45.0
                   aws_access_key_id: ((polymath-ecr.aws-access-id))
                   aws_secret_access_key: ((polymath-ecr.aws-access-secret))
                   aws_region: us-east-1

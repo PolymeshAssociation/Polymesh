@@ -40,13 +40,10 @@ async function createClaimCompliance(api, accounts, dids, prepend) {
     assert( ticker.length <= 12, "Ticker cannot be longer than 12 characters");
     let senderConditions = reqImports.senderConditions1(accounts[0].address);
     let receiverConditions = reqImports.receiverConditions1(accounts[0].address);
-    let nonceObj = {nonce: reqImports.nonces.get(accounts[0].address)};
+   
     const transaction = await api.tx.complianceManager.addComplianceRequirement(ticker, senderConditions, receiverConditions);
-    const result = await reqImports.sendTransaction(transaction, accounts[0], nonceObj);
-    const passed = result.findRecord('system', 'ExtrinsicSuccess');
-    if (passed) reqImports.fail_count--;
-
-    reqImports.nonces.set( accounts[0].address, reqImports.nonces.get(accounts[0].address).addn(1));
+    let tx = await reqImports.sendTx(accounts[0], transaction);
+    if(tx !== -1) reqImports.fail_count--;
 
 }
 

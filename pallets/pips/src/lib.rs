@@ -202,13 +202,15 @@ pub enum Proposer<AccountId> {
 /// Represents a proposal metadata
 #[derive(Encode, Decode, Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "std", derive(Debug))]
-pub struct PipsMetadata {
+pub struct PipsMetadata<T: Trait> {
     /// The proposal's unique id.
     pub id: PipId,
     /// The proposal url for proposal discussion.
     pub url: Option<Url>,
     /// The proposal description.
     pub description: Option<PipDescription>,
+    /// The block when the PIP was made.
+    pub created_at: T::BlockNumber,
 }
 
 /// For keeping track of proposal being voted on.
@@ -328,7 +330,9 @@ pub trait Trait:
     frame_system::Trait + pallet_timestamp::Trait + IdentityTrait + CommonTrait
 {
     /// Currency type for this module.
-    type Currency: LockableCurrencyExt<Self::AccountId, Moment = Self::BlockNumber>;
+    // TODO(centril): Remove `ReservableCurrency` bound once `on_runtime_upgrade` is nixed.
+    type Currency: LockableCurrencyExt<Self::AccountId, Moment = Self::BlockNumber>
+        + frame_support::traits::ReservableCurrency<Self::AccountId>;
 
     /// Origin for proposals.
     type CommitteeOrigin: EnsureOrigin<Self::Origin>;
@@ -384,7 +388,7 @@ decl_storage! {
         ActivePipCount get(fn active_pip_count): u32;
 
         /// The metadata of the active proposals.
-        pub ProposalMetadata get(fn proposal_metadata): map hasher(twox_64_concat) PipId => Option<PipsMetadata>;
+        pub ProposalMetadata get(fn proposal_metadata): map hasher(twox_64_concat) PipId => Option<PipsMetadata<T>>;
 
         /// Those who have locked a deposit.
         /// proposal (id, proposer) -> deposit
@@ -489,8 +493,8 @@ decl_event!(
         /// (gc_did, pip_id, new_skip_count)
         PipSkipped(IdentityId, PipId, SkippedCount),
         /// Results (e.g., approved, rejected, and skipped), were enacted for some PIPs.
-        /// (gc_did, skipped_pips_with_new_count, rejected_pips, approved_pips)
-        SnapshotResultsEnacted(IdentityId, Vec<(PipId, SkippedCount)>, Vec<PipId>, Vec<PipId>),
+        /// (gc_did, snapshot_id_opt, skipped_pips_with_new_count, rejected_pips, approved_pips)
+        SnapshotResultsEnacted(IdentityId, Option<SnapshotId>, Vec<(PipId, SkippedCount)>, Vec<PipId>, Vec<PipId>),
     }
 );
 
@@ -545,6 +549,56 @@ decl_module! {
         type Error = Error<T>;
 
         fn deposit_event() = default;
+
+        fn on_runtime_upgrade() -> Weight {
+            // Larger goal here is to clear Governance V1.
+            use frame_support::{
+                storage::{unhashed, IterableStorageDoubleMap, migration::StorageIterator},
+                traits::ReservableCurrency,
+                Twox128, StorageHasher
+            };
+
+            // 1. Start with refunding all deposits.
+            // As we've `drain`ed  `Deposits`, we need not do so again below.
+            for (_, _, depo) in <Deposits<T>>::drain() {
+                <T as Trait>::Currency::unreserve(&depo.owner, depo.amount);
+            }
+
+            // 2. Then we clear various storage items that were present on V1.
+            // For future reference, the storage items are defined in:
+            // https://github.com/PolymathNetwork/Polymesh/blob/0047b2570e7ac57771b4153d25867166e8091b9a/pallets/pips/src/lib.rs#L308-L357
+
+            // 2a) Clear all the `map`s and `double_map`s by fully consuming a draining iterator.
+            for item in &[
+                "ProposalMetadata",
+                "ProposalsMaturingAt",
+                "Proposals",
+                "ProposalResult",
+                "Referendums",
+                "ScheduledReferendumsAt",
+                "ProposalVotes",
+            ] {
+                StorageIterator::<()>::new(b"Pips", item.as_bytes()).drain().for_each(drop)
+            }
+
+            // 2b) Reset the PIP ID sequence to `0`.
+            PipIdSequence::kill();
+
+            // 2c) Remove items no longer used in V2.
+            fn storage_value_final_key(module: &[u8], item: &[u8]) -> [u8; 32] {
+                let mut final_key = [0u8; 32];
+                final_key[0..16].copy_from_slice(&Twox128::hash(module));
+                final_key[16..32].copy_from_slice(&Twox128::hash(item));
+                final_key
+            }
+            for item in &["ProposalDuration", "QuorumThreshold"] {
+                unhashed::kill(&storage_value_final_key(b"Pips", item.as_bytes()));
+            }
+
+            // Done; we've cleared all V1 storage needed; V2 can now be filled in.
+            // As for the weight, clearing costs much more than this, but let's pretend.
+            0
+        }
 
         /// Change whether completed PIPs are pruned. Can only be called by governance council
         ///
@@ -655,16 +709,17 @@ decl_module! {
 
             // 4. Construct and add PIP to storage.
             let id = Self::next_pip_id();
-            ActivePipCount::mutate(|count| *count += 1);
+            let created_at = <system::Module<T>>::block_number();
             let proposal_metadata = PipsMetadata {
                 id,
+                created_at,
                 url: url.clone(),
                 description: description.clone(),
             };
-            ProposalMetadata::insert(id, proposal_metadata);
+            <ProposalMetadata<T>>::insert(id, proposal_metadata);
 
             let proposal_data = Self::reportable_proposal_data(&*proposal);
-            let cool_off_until = <system::Module<T>>::block_number() + Self::proposal_cool_off_period();
+            let cool_off_until = created_at + Self::proposal_cool_off_period();
             let pip = Pip {
                 id,
                 proposal: *proposal,
@@ -673,6 +728,7 @@ decl_module! {
                 cool_off_until,
             };
             <Proposals<T>>::insert(id, pip);
+            ActivePipCount::mutate(|count| *count += 1);
 
             // 5. Record the deposit and as a signal if we have a community PIP.
             if let Proposer::Community(ref proposer) = proposer {
@@ -725,7 +781,7 @@ decl_module! {
             let current_did = Self::current_did_or_missing()?;
 
             // 2. Update proposal metadata.
-            ProposalMetadata::mutate(id, |meta| {
+            <ProposalMetadata<T>>::mutate(id, |meta| {
                 if let Some(meta) = meta {
                     meta.url = url.clone();
                     meta.description = description.clone();
@@ -1077,7 +1133,8 @@ decl_module! {
                     Self::schedule_pip_for_execution(GC_DID, pip_id);
                 }
 
-                let event = RawEvent::SnapshotResultsEnacted(GC_DID, to_bump_skipped, to_reject, to_approve);
+                let id = Self::snapshot_metadata().map(|m| m.id);
+                let event = RawEvent::SnapshotResultsEnacted(GC_DID, id, to_bump_skipped, to_reject, to_approve);
                 Self::deposit_event(event);
 
                 Ok(())
@@ -1225,7 +1282,7 @@ impl<T: Trait> Module<T> {
         if prune {
             <ProposalResult<T>>::remove(id);
             <ProposalVotes<T>>::remove_prefix(id);
-            ProposalMetadata::remove(id);
+            <ProposalMetadata<T>>::remove(id);
             if let Some(Proposer::Committee(_)) = Self::proposals(id).map(|p| p.proposer) {
                 CommitteePips::mutate(|list| list.retain(|&i| i != id));
             }
