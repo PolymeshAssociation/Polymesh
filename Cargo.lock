@@ -3203,6 +3203,7 @@ dependencies = [
  "rustc-hex",
  "serde",
  "serde_derive",
+ "serde_json",
  "sp-api",
  "sp-arithmetic",
  "sp-core",

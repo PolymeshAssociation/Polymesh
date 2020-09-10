@@ -1,6 +1,6 @@
 use grandpa::AuthorityId as GrandpaId;
 use im_online::sr25519::AuthorityId as ImOnlineId;
-use pallet_asset::TickerRegistrationConfig;
+use pallet_asset::{TickerRegistrationConfig, CountryCurrencyCodes};
 use polymesh_common_utilities::{constants::currency::POLY, protocol_fee::ProtocolOp};
 use polymesh_primitives::{AccountId, IdentityId, InvestorUid, PosRatio, Signatory, Signature};
 use polymesh_runtime_develop::{
@@ -24,6 +24,9 @@ use sp_runtime::{
     traits::{IdentifyAccount, Verify},
     PerThing,
 };
+use std::io;
+use std::io::prelude::*;
+use std::fs::File;
 
 const STAGING_TELEMETRY_URL: &str = "wss://telemetry.polymesh.live/submit/";
 
@@ -136,7 +139,15 @@ fn general_testnet_genesis(
             code: general::WASM_BINARY.to_vec(),
             changes_trie_config: Default::default(),
         }),
-        asset: Some(GeneralConfig::AssetConfig {
+        asset: {
+
+            let mut file = File::open("~/src/data/currency_symbols.json").unwrap();
+            let mut buff = String::new();
+            file.read_to_string(&mut buff).unwrap();
+
+            let currency_codes: CountryCurrencyCodes = serde_json::from_str(&buff).unwrap();
+
+            Some(GeneralConfig::AssetConfig {
             ticker_registration_config: TickerRegistrationConfig {
                 max_ticker_length: 12,
                 registration_length: Some(5_184_000_000),
@@ -150,7 +161,9 @@ fn general_testnet_genesis(
             classic_migration_contract_did: IdentityId::from(1),
             // TODO(centril): fill with actual data from Ethereum.
             classic_migration_tickers: vec![],
-        }),
+            reserved_country_currency_codes: vec![(IdentityId::from(1), vec![currency_codes])]
+        })
+        },
         identity: {
             let initial_identities = vec![
                 // (primary_account_id, service provider did, target did, expiry time of CustomerDueDiligence claim i.e 10 days is ms)
@@ -504,7 +517,15 @@ fn alcyone_testnet_genesis(
             code: alcyone::WASM_BINARY.to_vec(),
             changes_trie_config: Default::default(),
         }),
-        asset: Some(AlcyoneConfig::AssetConfig {
+        asset: {
+
+            let mut file = File::open("~/src/data/currency_symbols.json").unwrap();
+            let mut buff = String::new();
+            file.read_to_string(&mut buff).unwrap();
+
+            let currency_codes = serde_json::from_str(&buff).unwrap();
+
+            Some(AlcyoneConfig::AssetConfig {
             ticker_registration_config: TickerRegistrationConfig {
                 max_ticker_length: 12,
                 registration_length: Some(5_184_000_000),
@@ -518,7 +539,9 @@ fn alcyone_testnet_genesis(
             classic_migration_contract_did: IdentityId::from(1),
             // TODO(centril): fill with actual data from Ethereum.
             classic_migration_tickers: vec![],
-        }),
+            reserved_country_currency_codes: vec![(IdentityId::from(1), vec![currency_codes])]
+            })
+        },
         identity: {
             let initial_identities = vec![
                 // (primary_account_id, service provider did, target did, expiry time of CustomerDueDiligence claim i.e 10 days is ms)

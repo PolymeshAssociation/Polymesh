@@ -118,7 +118,9 @@ use polymesh_primitives::{
     SmartExtension, SmartExtensionName, SmartExtensionType, Ticker,
 };
 use polymesh_primitives_derive::VecU8StrongTyped;
+use polymesh_primitives_derive::SliceU8StrongTyped;
 use sp_runtime::traits::{CheckedAdd, CheckedSub, Saturating, Verify};
+
 #[cfg(feature = "std")]
 use sp_runtime::{Deserialize, Serialize};
 use sp_std::{convert::TryFrom, prelude::*};
@@ -287,9 +289,10 @@ pub struct FocusedBalances<Balance> {
 
 /// The Countries Currency Codes
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-pub struct CountryCurrencyCodes<String> {
-    codes: Vec<String>
-}
+#[derive(
+    Default, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Encode, Decode, SliceU8StrongTyped,
+)]
+pub struct CountryCurrencyCodes([u8; 3]);
 
 pub mod weight_for {
     use super::*;
@@ -414,6 +417,7 @@ decl_storage! {
         config(classic_migration_tickers): Vec<ClassicTickerImport>;
         config(classic_migration_tconfig): TickerRegistrationConfig<T::Moment>;
         config(classic_migration_contract_did): IdentityId;
+        config(reserved_country_currency_codes): Vec<(IdentityId, Vec<CountryCurrencyCodes>)>;
         build(|config: &GenesisConfig<T>| {
             let cm_did = SystematicIssuers::ClassicMigration.as_id();
             for import in &config.classic_migration_tickers {
@@ -433,18 +437,11 @@ decl_storage! {
                 ClassicTickers::insert(&import.ticker, classic_ticker);
             }
 
-            use std::io;
-            use std::io::prelude::*;
-            use std::fs::File;
-
-            let settlement_did = SystematicIssuers::Settlement.as_id();
-           
-            let mut file = File::open("~/src/data/currency_symbols.json").unwrap();
-            let mut buff = String::new();
-            file.read_to_string(&mut buff).unwrap();
-
-            let currency: CountryCurrencyCodes<String> = serde_json::from_str(&buff).unwrap();
-
+            let sys_did = &config.reserved_country_currency_codes[0].0;
+            for code in &config.reserved_country_currency_codes[0].1 { 
+                let expiry = <Module<T>>::ticker_registration_checks(&code, *sys_did, true, config);
+                <Module<T>>::_register_ticker(&code, *sys_did, expiry.unwrap());
+            }
             
         });
     }
