@@ -17,6 +17,9 @@ use codec::{Decode, Encode};
 use frame_support::dispatch::{DispatchResult, DispatchResultWithPostInfo};
 use pallet_asset_types::{AssetIdentifier, AssetName, AssetType, FundingRoundName, IdentifierType};
 use polymesh_primitives::{IdentityId, Ticker};
+use sp_std::vec::Vec;
+
+// #![cfg_attr(not(feature = "std"), no_std)]
 
 pub const GAS_LIMIT: u64 = 1_000_000_000;
 /// This trait is used to call functions that accept transfer of a ticker or token ownership

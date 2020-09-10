@@ -3436,7 +3436,6 @@ version = "0.1.0"
 dependencies = [
  "cryptography",
  "curve25519-dalek",
- "frame-benchmarking",
  "frame-support",
  "frame-system",
  "pallet-asset",
@@ -4369,6 +4368,7 @@ dependencies = [
  "node-rpc",
  "node-rpc-runtime-api",
  "pallet-asset",
+ "pallet-asset-types",
  "pallet-confidential",
  "pallet-contracts",
  "pallet-contracts-rpc-runtime-api",
@@ -4699,6 +4699,7 @@ dependencies = [
  "lazy_static",
  "libsecp256k1",
  "pallet-asset",
+ "pallet-asset-types",
  "pallet-authorship",
  "pallet-babe",
  "pallet-balances 0.1.0",

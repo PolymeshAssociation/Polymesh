@@ -58,6 +58,7 @@ polymesh-primitives = { path = "primitives" }
 polymesh-common-utilities = { path = "pallets/common" }
 polymesh-runtime-common = { path = "pallets/runtime/common" }
 pallet-asset = { path = "pallets/asset" }
+pallet-asset-types = { path = "pallets/asset/types" }
 pallet-confidential = { path = "pallets/confidential" }
 im-online = { package = "pallet-im-online", path = "pallets/im-online" }
 

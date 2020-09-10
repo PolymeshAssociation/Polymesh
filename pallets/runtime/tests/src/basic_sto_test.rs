@@ -2,7 +2,8 @@ use super::{
     storage::{register_keyring_account, TestStorage},
     ExtBuilder,
 };
-use pallet_asset::{self as asset, AssetType};
+use pallet_asset::{self as asset};
+use pallet_asset_types::AssetType;
 use pallet_basic_sto::{self as sto, Fundraiser};
 use pallet_compliance_manager as compliance_manager;
 use pallet_settlement::{self as settlement, VenueDetails, VenueType};

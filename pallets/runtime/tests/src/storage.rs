@@ -578,6 +578,7 @@ impl confidential::Trait for TestStorage {
 }
 
 impl confidential_asset::Trait for TestStorage {
+    type Asset = asset::Module<TestStorage>;
     type Event = Event;
 }
 

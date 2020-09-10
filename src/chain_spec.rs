@@ -1,6 +1,6 @@
 use grandpa::AuthorityId as GrandpaId;
 use im_online::sr25519::AuthorityId as ImOnlineId;
-use pallet_asset::TickerRegistrationConfig;
+use pallet_asset_types::TickerRegistrationConfig;
 use polymesh_common_utilities::{constants::currency::POLY, protocol_fee::ProtocolOp};
 use polymesh_primitives::{AccountId, IdentityId, InvestorUid, PosRatio, Signatory, Signature};
 use polymesh_runtime_develop::{

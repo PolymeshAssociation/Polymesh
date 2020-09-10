@@ -3,7 +3,7 @@ use super::{
     ExtBuilder,
 };
 use frame_support::{assert_err, assert_ok};
-use pallet_asset::{AssetType, SecurityToken};
+use pallet_asset_types::{AssetType, SecurityToken};
 use pallet_portfolio::MovePortfolioItem;
 use polymesh_primitives::{PortfolioName, Ticker};
 use std::convert::TryFrom;

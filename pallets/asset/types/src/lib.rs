@@ -1,3 +1,5 @@
+#![cfg_attr(not(feature = "std"), no_std)]
+
 use codec::{Decode, Encode};
 use polymesh_primitives::{IdentityId, Ticker};
 use polymesh_primitives_derive::VecU8StrongTyped;

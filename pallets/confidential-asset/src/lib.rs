@@ -28,24 +28,21 @@ use cryptography::{
 };
 use frame_support::{decl_error, decl_event, decl_module, decl_storage, dispatch::DispatchResult};
 use frame_system::{self as system, ensure_signed};
+use pallet_asset as asset;
 use pallet_asset_types::{AssetIdentifier, AssetName, AssetType, FundingRoundName, IdentifierType};
 use pallet_identity as identity;
-use pallet_statistics::{self as statistics};
-use polymesh_common_utilities::Context;
 use polymesh_common_utilities::{
-    asset::Trait as AssetTrait, identity::Trait as IdentityTrait, CommonTrait, Context,
+    asset::Trait as AssetTrait, identity::Trait as IdentityTrait, Context,
 };
-use pallet_asset as asset;
-use pallet_asset::{AssetIdentifier, AssetName, AssetType, FundingRoundName, IdentifierType};
-use polymesh_primitives::IdentityId;
+use polymesh_primitives::{IdentityId, Ticker};
 use polymesh_primitives_derive::VecU8StrongTyped;
-use sp_std::prelude::*;
-
-type Identity<T> = identity::Module<T>;
+use sp_std::{
+    convert::{From, TryFrom},
+    prelude::*,
+};
 
 /// The module's configuration trait.
-pub trait Trait: IdentityTrait {
-    /// Asset module
+pub trait Trait: frame_system::Trait + IdentityTrait {
     type Asset: AssetTrait<Self::Balance, Self::AccountId>;
     type Event: From<Event> + Into<<Self as frame_system::Trait>::Event>;
 }
@@ -74,7 +71,6 @@ pub struct MercatAccount {
 }
 
 type Asset<T> = asset::Module<T>;
-// type Asset = asset::Module<TestStorage>;
 type Identity<T> = identity::Module<T>;
 
 decl_storage! {
@@ -92,15 +88,9 @@ decl_storage! {
               hasher(blake2_128_concat) EncryptedAssetIdWrapper
               => EncryptedBalanceWrapper;
 
-        /// Contains the list of all valid ticker names.
-        /// The process around creating and storing this data will likely change as a result of
-        /// CRYP-153.
-        pub ValidAssetIds get(fn valid_asset_ids): Vec<AssetId>;
-
         /// List of Tickers of the type ConfidentialAsset.
         /// () -> List of confidential tickers
-        // todo change ticker to assetid
-        pub ConfidentialTickers get(fn confidential_tickers): Vec<Ticker>;
+        pub ConfidentialTickers get(fn confidential_tickers): Vec<AssetId>;
     }
 }
 
@@ -109,19 +99,6 @@ decl_module! {
     pub struct Module<T: Trait> for enum Call where origin: T::Origin {
         /// Initialize the default event for this module
         fn deposit_event() = default;
-
-        /// TODO: CRYP-153 will most likely change this. The modified version of this function
-        /// will be called when a new ticker name is registered.
-        #[weight = 1_000_000_000]
-        pub fn create_confidential_asset(
-            origin,
-            valid_asset_ids: Vec<AssetId>,
-        ) -> DispatchResult {
-            ensure_signed(origin)?;
-
-            <ValidAssetIds>::put(valid_asset_ids);
-            Ok(())
-        }
 
         /// Verifies the proofs given the `tx` (transaction) for creating a mercat account.
         /// If all proofs pass, it stores the mercat account for the origin identity, sets the
@@ -142,7 +119,7 @@ decl_module! {
             let owner_acc = ensure_signed(origin)?;
             let owner_id = Context::current_identity_or::<Identity<T>>(&owner_acc)?;
 
-            let valid_asset_ids = convert_asset_ids(Self::valid_asset_ids());
+            let valid_asset_ids = convert_asset_ids(Self::confidential_tickers().into());
             AccountValidator{}.verify(&tx, &valid_asset_ids).map_err(|_| Error::<T>::InvalidAccountCreationProof)?;
             let wrapped_enc_asset_id = EncryptedAssetIdWrapper::from(tx.pub_account.enc_asset_id.encode());
             <MercatAccounts>::insert(&owner_id, &wrapped_enc_asset_id, MercatAccount {
@@ -156,8 +133,8 @@ decl_module! {
             Ok(())
         }
 
-        /// Initializes a new security token
-        /// makes the initiating account the owner of the security token
+        /// Initializes a new confidential security token.
+        /// Makes the initiating account the owner of the security token
         /// & the balance of the owner is set to total supply.
         ///
         /// # Arguments
@@ -169,6 +146,13 @@ decl_module! {
         /// * `asset_type` - the asset type.
         /// * `identifiers` - a vector of asset identifiers.
         /// * `funding_round` - name of the funding round.
+        ///
+        /// # Errors
+        /// - `TickerAlreadyRegistered` if the ticker was already registered, e.g., by `origin`.
+        /// - `TickerRegistrationExpired` if the ticker's registration has expired.
+        /// - `InvalidTotalSupply` if not `divisible` but `total_supply` is not a multiply of unit.
+        /// - `TotalSupplyAboveLimit` if `total_supply` exceeds the limit.
+        /// - `BadOrigin` if not signed.
         ///
         /// # Weight
         /// `3_000_000_000 + 20_000 * identifiers.len()`
@@ -183,17 +167,19 @@ decl_module! {
             identifiers: Vec<(IdentifierType, AssetIdentifier)>,
             funding_round: Option<FundingRoundName>,
         ) -> DispatchResult {
-            let sender = ensure_signed(origin)?;
-            let did = Context::current_identity_or::<Identity<T>>(&sender)?;
-            // do we make sure this did has a confidential account registered so they can receive assets?
-            T::Asset::unsafe_create_asset(did, name, ticker, total_supply, divisible, asset_type, identifiers, funding_round, true);
-            // continue to update our storage and emit events.
-            // Add the ticker to the list of confidential tickers.
-            // Now that it's registered get the details:
-            let mut token_list = Self::confidential_tickers();//<ConfidentialTickers>::get();
-            token_list.push(ticker);
-            <ConfidentialTickers>::put(token_list); // tried: put(), mutate().
+            let primary_owner = ensure_signed(origin)?;
+            let primary_owner_did = Context::current_identity_or::<Identity<T>>(&primary_owner)?;
 
+            T::Asset::unsafe_create_asset(primary_owner_did, name, ticker, total_supply, divisible, asset_type, identifiers, funding_round, true)?;
+
+            // Append the ticker to the list of confidential tickers.
+            let mut token_list = Self::confidential_tickers();
+            token_list.push(AssetId{id: ticker.as_bytes().clone()});
+            <ConfidentialTickers>::put(token_list);
+
+            // TODO(CRYP-160) : mint `total_supply` assets to the primary asset issuer here.
+
+            Self::deposit_event(Event::ConfidentialAssetCreated(primary_owner_did, ticker));
             Ok(())
         }
 
@@ -205,6 +191,9 @@ decl_event! {
     {
         /// Mercat account created.
         AccountCreated(IdentityId, EncryptedAssetIdWrapper, EncryptedBalanceWrapper),
+
+        /// A new confidential asset is created.
+        ConfidentialAssetCreated(IdentityId, Ticker),
     }
 }
 
@@ -214,13 +203,3 @@ decl_error! {
         InvalidAccountCreationProof,
     }
 }
-
-/*
-/// All functions in the decl_module macro become part of the public interface of the module
-/// If they are there, they are accessible via extrinsics calls whether they are public or not
-/// However, in the impl module section (this, below) the functions can be public and private
-/// Private functions are internal to this module.
-/// Public functions can be called from other modules e.g.: lock and unlock (being called from the tcr module)
-/// All functions in the impl module section are not part of public interface because they are not part of the Call enum.
-// impl<T: Trait> AssetTrait<T::Balance, T::AccountId> Module<T> {}
-*/
