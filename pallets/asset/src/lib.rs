@@ -97,7 +97,8 @@ use frame_support::{
 };
 use frame_system::ensure_signed;
 use hex_literal::hex;
-use pallet_contracts::{ExecResult, Gas};
+use identifier::Identifier;
+use pallet_contracts::{ExecReturnValue, Gas};
 use pallet_identity as identity;
 use pallet_statistics::{self as statistics, Counter};
 use polymesh_common_utilities::{
@@ -321,8 +322,8 @@ decl_storage! {
         /// The total asset ticker balance per identity.
         /// (ticker, DID) -> Balance
         pub BalanceOf get(fn balance_of): double_map hasher(blake2_128_concat) Ticker, hasher(blake2_128_concat) IdentityId => T::Balance;
-        /// A map of pairs of a ticker name and an `IdentifierType` to asset identifiers.
-        pub Identifiers get(fn identifiers): map hasher(blake2_128_concat) (Ticker, IdentifierType) => AssetIdentifier;
+        /// A map of a ticker name and asset identifiers.
+        pub Identifiers get(fn identifiers): map hasher(blake2_128_concat) Ticker => Vec<Identifier>;
         /// Checkpoints created per token.
         /// (ticker) -> no. of checkpoints
         pub TotalCheckpoints get(fn total_checkpoints_of): map hasher(blake2_128_concat) Ticker => u64;
@@ -481,7 +482,7 @@ decl_module! {
             total_supply: T::Balance,
             divisible: bool,
             asset_type: AssetType,
-            identifiers: Vec<(IdentifierType, AssetIdentifier)>,
+            identifiers: Vec<Identifier>,
             funding_round: Option<FundingRoundName>,
         ) -> DispatchResult {
             let sender = ensure_signed(origin)?;
@@ -553,9 +554,9 @@ decl_module! {
                 asset_type,
                 did,
             ));
-            for (typ, val) in &identifiers {
-                <Identifiers>::insert((ticker, typ.clone()), val.clone());
-            }
+
+            <Identifiers>::insert(ticker, identifiers.clone());
+
             // Add funding round name.
             <FundingRound>::insert(ticker, funding_round.unwrap_or_default());
 
@@ -778,14 +779,12 @@ decl_module! {
         pub fn update_identifiers(
             origin,
             ticker: Ticker,
-            identifiers: Vec<(IdentifierType, AssetIdentifier)>
+            identifiers: Vec<Identifier>
         ) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             let did = Context::current_identity_or::<Identity<T>>(&sender)?;
             ensure!(Self::is_owner(&ticker, did), Error::<T>::Unauthorized);
-            for (typ, val) in &identifiers {
-                <Identifiers>::insert((ticker, typ.clone()), val.clone());
-            }
+            <Identifiers>::insert(ticker, identifiers.clone());
             Self::deposit_event(RawEvent::IdentifiersUpdated(did, ticker, identifiers));
             Ok(())
         }
@@ -989,7 +988,7 @@ decl_event! {
         AssetCreated(IdentityId, Ticker, Balance, bool, AssetType, IdentityId),
         /// Event emitted when a token identifiers are updated.
         /// caller DID, ticker, a vector of (identifier type, identifier value)
-        IdentifiersUpdated(IdentityId, Ticker, Vec<(IdentifierType, AssetIdentifier)>),
+        IdentifiersUpdated(IdentityId, Ticker, Vec<Identifier>),
         /// Event for change in divisibility.
         /// caller DID, ticker, divisibility
         DivisibilityChanged(IdentityId, Ticker, bool),

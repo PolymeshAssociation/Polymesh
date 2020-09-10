@@ -7,6 +7,13 @@ pub enum Identifier {
     CINS([u8; 9]),
     ISIN([u8; 12]),
     LEI([u8; 20]),
+    EMPTY
+}
+
+impl Default for Identifier {
+    fn default() -> Self {
+        Identifier::EMPTY
+    }
 }
 
 impl Identifier {
@@ -53,7 +60,9 @@ impl Identifier {
     }
 
     pub fn lei(bytes: [u8; 20]) -> Option<Identifier> {
-        if lei_checksum(bytes[..18].try_into().ok()?)? == (bytes[18] - b'0') * 10 + (bytes[19] - b'0') {
+        if lei_checksum(bytes[..18].try_into().ok()?)?
+            == (bytes[18] - b'0') * 10 + (bytes[19] - b'0')
+        {
             return Some(Identifier::LEI(bytes));
         }
         None

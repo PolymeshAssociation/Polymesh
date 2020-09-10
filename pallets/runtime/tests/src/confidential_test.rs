@@ -17,6 +17,7 @@ use polymesh_primitives::{
 use core::convert::TryFrom;
 use frame_support::{assert_err, assert_ok};
 use test_client::AccountKeyring;
+use pallet_asset::identifier::Identifier;
 
 type Identity = identity::Module<TestStorage>;
 type Asset = asset::Module<TestStorage>;
@@ -47,7 +48,7 @@ fn range_proof_we() {
         asset_type: AssetType::default(),
         ..Default::default()
     };
-    let identifiers = vec![(IdentifierType::Isin, b"0123".into())];
+    let identifiers = vec![Identifier::isin(*b"US0378331005").unwrap()];
     let ticker = Ticker::try_from(token.name.as_slice()).unwrap();
 
     assert_ok!(Asset::create_asset(
@@ -113,7 +114,7 @@ fn scope_claims_we() {
         asset_type: AssetType::default(),
         ..Default::default()
     };
-    let identifiers = vec![(IdentifierType::Isin, b"0123".into())];
+    let identifiers = vec![Identifier::isin(*b"US0378331005").unwrap()];
     let st_id = Ticker::try_from(st.name.as_slice()).unwrap();
 
     assert_ok!(Asset::create_asset(
@@ -210,7 +211,7 @@ fn scope_claims_we() {
         asset_type: AssetType::default(),
         ..Default::default()
     };
-    let identifiers = vec![(IdentifierType::Isin, b"X123".into())];
+    let identifiers = vec![Identifier::isin(*b"US0378331005").unwrap()];
     let st2_id = Ticker::try_from(st_2.name.as_slice()).unwrap();
 
     assert_ok!(Asset::create_asset(

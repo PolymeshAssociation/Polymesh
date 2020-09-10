@@ -10,6 +10,7 @@ use polymesh_primitives::{PortfolioId, Ticker};
 use frame_support::assert_ok;
 use sp_std::convert::TryFrom;
 use test_client::AccountKeyring;
+use pallet_asset::identifier::Identifier;
 
 type Origin = <TestStorage as frame_system::Trait>::Origin;
 type Asset = asset::Module<TestStorage>;
@@ -39,7 +40,7 @@ fn investor_count_per_asset_with_ext() {
         ..Default::default()
     };
 
-    let identifiers = vec![(IdentifierType::default(), b"undefined".into())];
+    let identifiers = vec![Identifier::default()];
     let ticker = Ticker::try_from(token.name.as_slice()).unwrap();
     assert_ok!(Asset::create_asset(
         alice_signed.clone(),
