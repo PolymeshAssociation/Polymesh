@@ -42,9 +42,13 @@ fi
 if [ ! -f ".git/resource/changed_files" ] || grep -v '^.concourse\|^Dockerfile\|^scripts/cli' ".git/resource/changed_files" || [ ! -f "target/release/polymesh" ]; then
     rm -f target/release/polymesh
     sed -i -e "s/^version = .*$/version = \"$VERSION\"/" Cargo.toml
-    cargo sweep -s -r
     cargo build --release
-    cargo sweep -f -r
+    CACHE_SIZE=$(du -s target | awk '{ print $1 }')
+    if [[ $CACHE_SIZE -gt 10000000 ]]; then
+        cargo sweep -s
+        cargo sweep -f -r
+        cargo clean
+    fi
 fi
 popd
 

@@ -19,7 +19,11 @@ if [ ! -z "$SUBMODULE_ACCESS_TOKEN" ]; then
     git submodule update external/cryptography
 fi
 
-cargo sweep -s -r
 cargo clippy -- -A clippy::all -W clippy::complexity -W clippy::perf
-cargo sweep -f -r
+CACHE_SIZE=$(du -s target | awk '{ print $1 }')
+if [[ $CACHE_SIZE -gt 10000000 ]]; then
+    cargo sweep -s
+    cargo sweep -f -r
+    cargo clean
+fi
 

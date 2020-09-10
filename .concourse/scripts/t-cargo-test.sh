@@ -19,7 +19,6 @@ if [ ! -z "$SUBMODULE_ACCESS_TOKEN" ]; then
     git submodule update external/cryptography
 fi
 
-cargo sweep -s -r
 cargo test \
   --package node-rpc-runtime-api \
   --package pallet-cdd-offchain-worker \
@@ -29,5 +28,10 @@ cargo test \
   --package polymesh-primitives \
   --package polymesh-runtime-tests \
   --features default_identity
-cargo sweep -f -r
+CACHE_SIZE=$(du -s target | awk '{ print $1 }')
+if [[ $CACHE_SIZE -gt 10000000 ]]; then
+    cargo sweep -s
+    cargo sweep -f -r
+    cargo clean
+fi
 
