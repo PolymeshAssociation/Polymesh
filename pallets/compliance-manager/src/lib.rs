@@ -789,18 +789,13 @@ impl<T: Trait> Module<T> {
         primary_issuance_agent: Option<IdentityId>,
     ) -> AssetComplianceResult {
         let asset_compliance = Self::asset_compliance(ticker);
+
+        let mut asset_compliance_with_results = AssetComplianceResult::from(asset_compliance);
         // To know whether the given ticker has the implicit requirements active or not.
         // if `yes` then it returns the `Some(ImplicitRequirementResult)` for the `from_did_opt` and `to_did_opt`.
         // if `no` then it returns None.
-        let implicit_result = Self::get_implicit_condition_result(
-            ticker,
-            from_did_opt,
-            to_did_opt,
-            primary_issuance_agent,
-        );
-        let mut asset_compliance_with_results = AssetComplianceResult::from(asset_compliance);
-        // `implicit_requirements_result` by default is `None` here but we assign them here as per the above results.
-        asset_compliance_with_results.implicit_requirements_result = implicit_result;
+        asset_compliance_with_results.implicit_requirements_result =
+            Self::get_implicit_condition_result(ticker, from_did_opt, to_did_opt);
 
         for requirements in &mut asset_compliance_with_results.requirements {
             if let Some(from_did) = from_did_opt {
@@ -827,25 +822,17 @@ impl<T: Trait> Module<T> {
                     requirements.result = false;
                 }
             }
-            // If the requirements result is positive, update the final result to be positive
+            // If the requirements result is positive, update the final result.
             if requirements.result {
-                asset_compliance_with_results.result = true;
+                asset_compliance_with_results.result = asset_compliance_with_results
+                    .implicit_requirements_result
+                    .as_ref()
+                    .map_or(true, |imp_result| {
+                        imp_result.from_result && imp_result.to_result
+                    });
             }
         }
-        // Aggregating the result with the implicit requirement result.
-        asset_compliance_with_results.result =
-            Self::compute_final_result(&asset_compliance_with_results);
         asset_compliance_with_results
-    }
-
-    fn compute_final_result(asset_compliance: &AssetComplianceResult) -> bool {
-        let compliance_result = asset_compliance.result;
-        asset_compliance
-            .implicit_requirements_result
-            .as_ref()
-            .map_or(compliance_result, |imp_result| {
-                imp_result.from_result && imp_result.to_result && compliance_result
-            })
     }
 
     fn verify_compliance_complexity(
@@ -881,31 +868,24 @@ impl<T: Trait> Module<T> {
         ticker: &Ticker,
         from_did_opt: Option<IdentityId>,
         to_did_opt: Option<IdentityId>,
-        primary_issuance_agent: Option<IdentityId>,
     ) -> Option<ImplicitRequirementResult> {
         if Self::implicit_requirements_status(ticker) == ImplicitRequirementStatus::Active {
-            let condition_result = |did_opt: Option<IdentityId>| {
-                did_opt.map_or(false, |did| {
-                    Self::has_scope_claim(ticker, did, primary_issuance_agent)
-                })
-            };
             return Some(ImplicitRequirementResult {
-                from_result: condition_result(from_did_opt),
-                to_result: condition_result(to_did_opt),
+                from_result: Self::has_scope_claim(ticker, from_did_opt),
+                to_result: Self::has_scope_claim(ticker, to_did_opt),
             });
         }
         None
     }
 
     /// Helper function to know whether the given did has the valid scope claim or not.
-    fn has_scope_claim(
-        ticker: &Ticker,
-        did: IdentityId,
-        primary_issuance_agent: Option<IdentityId>,
-    ) -> bool {
-        // Generate the condition for `HasValidProofOfInvestor` condition type.
-        let condition = &Condition::new(ConditionType::HasValidProofOfInvestor(*ticker), vec![did]);
-        Self::is_condition_satisfied(ticker, did, condition, primary_issuance_agent)
+    fn has_scope_claim(ticker: &Ticker, did_opt: Option<IdentityId>) -> bool {
+        did_opt.map_or(false, |did| {
+            // Generate the condition for `HasValidProofOfInvestor` condition type.
+            let condition =
+                &Condition::new(ConditionType::HasValidProofOfInvestor(*ticker), vec![did]);
+            Self::is_condition_satisfied(ticker, did, condition, None)
+        })
     }
 
     /// Know whether sender and receiver has valid scope claim or not before checking the transfer conditions.
@@ -913,15 +893,9 @@ impl<T: Trait> Module<T> {
         ticker: &Ticker,
         from_did_opt: Option<IdentityId>,
         to_did_opt: Option<IdentityId>,
-        primary_issuance_agent: Option<IdentityId>,
     ) -> bool {
-        let has_scope_claim = |did_opt: Option<IdentityId>| {
-            did_opt.map_or(false, |did| {
-                Self::has_scope_claim(ticker, did, primary_issuance_agent)
-            })
-        };
         // Return the final boolean result.
-        has_scope_claim(to_did_opt) && has_scope_claim(from_did_opt)
+        Self::has_scope_claim(ticker, to_did_opt) && Self::has_scope_claim(ticker, from_did_opt)
     }
 
     /// Change the implicit requirement status. Once active all the implicit requirements are in effect.
@@ -973,55 +947,49 @@ impl<T: Trait> ComplianceManagerTrait<T::Balance> for Module<T> {
             ));
         }
 
-        // Check for whether sender & has the scope claim or not if not then fail the txn.
+        // Check for whether sender & receiver has the scope claim or not if not then fail the txn.
         // To optimize we are not checking it again and again with the respective conditions, it
         // gets checked only once and if it is valid then its result is tied up with the conditions result.
         //
         // Note - Due to this check `ConditionType::HasValidProofOfInvestor` is an implicit transfer condition and it only
         // lookup for the claims those are provided by the trusted_claim_issuers.
-        let is_requirements_needed_to_check = match Self::implicit_requirements_status(ticker) {
-            ImplicitRequirementStatus::Active => {
-                Self::is_sender_and_receiver_has_valid_scope_claim(
+        if Self::implicit_requirements_status(ticker) == ImplicitRequirementStatus::Active
+            && !Self::is_sender_and_receiver_has_valid_scope_claim(ticker, from_did_opt, to_did_opt)
+        {
+            return Ok((
+                ERC1400_TRANSFER_FAILURE,
+                weight_for::weight_for_reading_asset_compliance::<T>(),
+            ));
+        }
+        for requirement in asset_compliance.requirements {
+            if let Some(from_did) = from_did_opt {
+                requirement_count += requirement.sender_conditions.len();
+                if !Self::are_all_conditions_satisfied(
                     ticker,
-                    from_did_opt,
-                    to_did_opt,
+                    from_did,
+                    &requirement.sender_conditions,
                     primary_issuance_agent,
-                )
-            }
-            ImplicitRequirementStatus::Inactive => true,
-        };
-
-        if is_requirements_needed_to_check {
-            for requirement in asset_compliance.requirements {
-                if let Some(from_did) = from_did_opt {
-                    requirement_count += requirement.sender_conditions.len();
-                    if !Self::are_all_conditions_satisfied(
-                        ticker,
-                        from_did,
-                        &requirement.sender_conditions,
-                        primary_issuance_agent,
-                    ) {
-                        // Skips checking receiver conditions because sender conditions are not satisfied.
-                        continue;
-                    }
+                ) {
+                    // Skips checking receiver conditions because sender conditions are not satisfied.
+                    continue;
                 }
+            }
 
-                if let Some(to_did) = to_did_opt {
-                    requirement_count += requirement.receiver_conditions.len();
-                    if Self::are_all_conditions_satisfied(
-                        ticker,
-                        to_did,
-                        &requirement.receiver_conditions,
-                        primary_issuance_agent,
-                    ) {
-                        // All conditions satisfied, return early
-                        return Ok((
-                            ERC1400_TRANSFER_SUCCESS,
-                            weight_for::weight_for_verify_restriction::<T>(
-                                u64::try_from(requirement_count).unwrap_or(0),
-                            ),
-                        ));
-                    }
+            if let Some(to_did) = to_did_opt {
+                requirement_count += requirement.receiver_conditions.len();
+                if Self::are_all_conditions_satisfied(
+                    ticker,
+                    to_did,
+                    &requirement.receiver_conditions,
+                    primary_issuance_agent,
+                ) {
+                    // All conditions satisfied, return early
+                    return Ok((
+                        ERC1400_TRANSFER_SUCCESS,
+                        weight_for::weight_for_verify_restriction::<T>(
+                            u64::try_from(requirement_count).unwrap_or(0),
+                        ),
+                    ));
                 }
             }
         }
