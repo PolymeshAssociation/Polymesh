@@ -34,7 +34,7 @@ pub trait PortfolioSubTrait<Balance> {
     /// # Arguments
     /// * `portfolio` - Portfolio to check
     /// * `custodian` - DID of the custodian
-    fn check_portfolio_custody(portfolio: PortfolioId, custodian: IdentityId) -> DispatchResult;
+    fn ensure_portfolio_custody(portfolio: PortfolioId, custodian: IdentityId) -> DispatchResult;
 
     /// Locks some tokens of a portfolio
     ///

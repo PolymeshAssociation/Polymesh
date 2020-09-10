@@ -228,7 +228,7 @@ decl_module! {
         /// * `DestinationIsSamePortfolio` if both sender and receiver portfolio are the same
         /// * `DifferentIdentityPortfolios` if the sender and receiver portfolios belong to different identities
         /// * `UnauthorizedCustodian` if the caller is not the custodian of the from portfolio
-        /// * `InsufficientPortfolioBalance` if the sender does not have enough balance
+        /// * `InsufficientPortfolioBalance` if the sender does not have enough free balance
         #[weight = 1_000_000_000 + 10_050_000 * u64::try_from(items.len()).unwrap_or_default()]
         pub fn move_portfolio_funds(
             origin,
@@ -243,14 +243,19 @@ decl_module! {
             // Check that the source and destination did are in fact same.
             ensure!(from.did == to.did, Error::<T>::DifferentIdentityPortfolios);
             // Check that the portfolios exist.
-            Self::check_portfolio_validity(&from)?;
-            Self::check_portfolio_validity(&to)?;
+            Self::ensure_portfolio_validity(&from)?;
+            Self::ensure_portfolio_validity(&to)?;
             // Check that the sender is the custodian of the `from` portfolio
-            Self::check_portfolio_custody(from, did)?;
+            Self::ensure_portfolio_custody(from, did)?;
 
             for item in items {
                 let from_balance = Self::portfolio_asset_balances(&from, &item.ticker);
-                ensure!(from_balance >= item.amount, Error::<T>::InsufficientPortfolioBalance);
+                ensure!(
+                    from_balance.saturating_sub(Self::locked_assets(&from, &item.ticker))
+                        .checked_sub(&item.amount)
+                        .is_some(),
+                    Error::<T>::InsufficientPortfolioBalance
+                );
                 <PortfolioAssetBalances<T>>::insert(
                     &from,
                     &item.ticker,
@@ -275,6 +280,9 @@ decl_module! {
         }
 
         /// Renames a non-default portfolio.
+        ///
+        /// # Errors
+        /// * `PortfolioDoesNotExist` if `num` doesn't reference a valid portfolio.
         #[weight = 600_000_000]
         pub fn rename_portfolio(
             origin,
@@ -350,6 +358,9 @@ impl<T: Trait> Module<T> {
         Ok(())
     }
 
+    /// Transfers some funds from one portfolio to another.
+    /// This function does not do any data validity checks.
+    /// The caller must make sure that the portfolio, custodianship and free balance are valid before calling this function.
     pub fn unchecked_transfer_portfolio_balance(
         from_portfolio: &PortfolioId,
         to_portfolio: &PortfolioId,
@@ -365,7 +376,9 @@ impl<T: Trait> Module<T> {
         });
     }
 
-    fn check_portfolio_validity(portfolio: &PortfolioId) -> DispatchResult {
+    /// Makes sure that the portfolio exists
+    fn ensure_portfolio_validity(portfolio: &PortfolioId) -> DispatchResult {
+        // Default portfolio are always valid. Custom portfolios must be created explicitly.
         if let PortfolioKind::User(num) = portfolio.kind {
             ensure!(
                 <Portfolios>::contains_key(portfolio.did, num),
@@ -375,7 +388,8 @@ impl<T: Trait> Module<T> {
         Ok(())
     }
 
-    pub fn check_portfolio_custody(
+    /// Makes sure that the portfolio's custody is with the provided identity
+    pub fn ensure_portfolio_custody(
         portfolio: PortfolioId,
         custodian: IdentityId,
     ) -> DispatchResult {
@@ -390,7 +404,8 @@ impl<T: Trait> Module<T> {
         Ok(())
     }
 
-    pub fn check_portfolio_transfer_validity(
+    /// Makes sure that a portfolio transfer is valid
+    pub fn ensure_portfolio_transfer_validity(
         from_portfolio: &PortfolioId,
         to_portfolio: &PortfolioId,
         ticker: &Ticker,
@@ -402,7 +417,11 @@ impl<T: Trait> Module<T> {
             Error::<T>::DestinationIsSamePortfolio
         );
 
-        // 2. Ensure sender has enough free balance
+        // 2. Ensure that the portfolios exist
+        Self::ensure_portfolio_validity(from_portfolio)?;
+        Self::ensure_portfolio_validity(to_portfolio)?;
+
+        // 3. Ensure sender has enough free balance
         let from_balance = Self::portfolio_asset_balances(&from_portfolio, ticker);
         ensure!(
             from_balance
@@ -417,6 +436,7 @@ impl<T: Trait> Module<T> {
 }
 
 impl<T: Trait> PortfolioSubTrait<T::Balance> for Module<T> {
+    /// Accepts custody of a portfolio. The authorization must have been issued by the current custodian.
     fn accept_portfolio_custody(new_custodian: IdentityId, auth_id: u64) -> DispatchResult {
         ensure!(
             <identity::Authorizations<T>>::contains_key(Signatory::from(new_custodian), auth_id),
@@ -449,6 +469,9 @@ impl<T: Trait> PortfolioSubTrait<T::Balance> for Module<T> {
         Ok(())
     }
 
+    /// Locks some user tokens so that they can not be used for transfers.
+    /// This is used internally by the settlement engine to prevent users from using the same funds
+    /// in multiple ongoing settlements
     fn lock_tokens(
         portfolio: &PortfolioId,
         ticker: &Ticker,
@@ -472,6 +495,7 @@ impl<T: Trait> PortfolioSubTrait<T::Balance> for Module<T> {
         Ok(())
     }
 
+    /// Unlocks some user tokens
     fn unlock_tokens(
         portfolio: &PortfolioId,
         ticker: &Ticker,
@@ -486,7 +510,7 @@ impl<T: Trait> PortfolioSubTrait<T::Balance> for Module<T> {
         Ok(())
     }
 
-    fn check_portfolio_custody(portfolio: PortfolioId, custodian: IdentityId) -> DispatchResult {
-        Self::check_portfolio_custody(portfolio, custodian)
+    fn ensure_portfolio_custody(portfolio: PortfolioId, custodian: IdentityId) -> DispatchResult {
+        Self::ensure_portfolio_custody(portfolio, custodian)
     }
 }

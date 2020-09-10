@@ -1397,7 +1397,7 @@ impl<T: Trait> Module<T> {
             return Ok((ERC1400_TRANSFERS_HALTED, T::DbWeight::get().reads(1)));
         }
 
-        if Portfolio::<T>::check_portfolio_transfer_validity(
+        if Portfolio::<T>::ensure_portfolio_transfer_validity(
             &from_portfolio,
             &to_portfolio,
             ticker,
@@ -1876,7 +1876,7 @@ impl<T: Trait> Module<T> {
             return Ok(INVALID_SENDER_DID);
         }
 
-        if Portfolio::<T>::check_portfolio_custody(
+        if Portfolio::<T>::ensure_portfolio_custody(
             from_portfolio,
             from_custodian.unwrap_or(from_portfolio.did),
         )
@@ -1889,7 +1889,7 @@ impl<T: Trait> Module<T> {
             return Ok(INVALID_RECEIVER_DID);
         }
 
-        if Portfolio::<T>::check_portfolio_custody(
+        if Portfolio::<T>::ensure_portfolio_custody(
             to_portfolio,
             to_custodian.unwrap_or(to_portfolio.did),
         )
@@ -1902,7 +1902,7 @@ impl<T: Trait> Module<T> {
             return Ok(ERC1400_INSUFFICIENT_BALANCE);
         }
 
-        if Portfolio::<T>::check_portfolio_transfer_validity(
+        if Portfolio::<T>::ensure_portfolio_transfer_validity(
             &from_portfolio,
             &to_portfolio,
             ticker,
@@ -1931,11 +1931,11 @@ impl<T: Trait> Module<T> {
         ticker: &Ticker,
         value: T::Balance,
     ) -> DispatchResultWithPostInfo {
-        Portfolio::<T>::check_portfolio_custody(
+        Portfolio::<T>::ensure_portfolio_custody(
             from_portfolio,
             from_custodian.unwrap_or(from_portfolio.did),
         )?;
-        Portfolio::<T>::check_portfolio_custody(
+        Portfolio::<T>::ensure_portfolio_custody(
             to_portfolio,
             to_custodian.unwrap_or(to_portfolio.did),
         )?;
