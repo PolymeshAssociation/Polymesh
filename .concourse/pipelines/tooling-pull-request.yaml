@@ -71,7 +71,8 @@ jobs:
         file: githubpr-polymesh/rust-toolchain
       - put: semver-git-polymesh
         params:
-          pre: rc
+          pre: toolingpr((.:scmpr)).((.:scmheadsha))
+          pre_without_version: true
       - in_parallel:
           - task: run-lint
             config:
