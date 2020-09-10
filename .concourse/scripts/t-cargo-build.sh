@@ -43,6 +43,10 @@ if [ ! -f ".git/resource/changed_files" ] || grep -v '^.concourse\|^Dockerfile\|
     rm -f target/release/polymesh
     sed -i -e "s/^version = .*$/version = \"$VERSION\"/" Cargo.toml
     cargo build --release
+    CACHE_SIZE=$(du -s target | awk '{ print $1 }')
+    if [[ $CACHE_SIZE -gt 10000000 ]]; then
+        find target -type f -delete
+    fi
 fi
 popd
 
