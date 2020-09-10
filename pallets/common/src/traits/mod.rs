@@ -18,7 +18,7 @@ use frame_support::{
     traits::{LockIdentifier, WithdrawReasons},
     Parameter,
 };
-use polymesh_primitives::{traits::BlockRewardsReserveCurrency, FunctionName, PalletName};
+use polymesh_primitives::traits::BlockRewardsReserveCurrency;
 use sp_arithmetic::traits::{AtLeast32BitUnsigned, CheckedSub, Saturating, Unsigned};
 use sp_runtime::traits::{MaybeSerializeDeserialize, Member};
 use sp_std::fmt::Debug;
@@ -67,20 +67,5 @@ pub mod multisig;
 pub mod pip;
 pub mod transaction_payment;
 pub use transaction_payment::{CddAndFeeDetails, ChargeTxFee};
-
-/// Permissions module configuration trait.
-pub trait PermissionChecker: frame_system::Trait {
-    /// The type that implements the permission check function.
-    type Checker: CheckAccountCallPermissions<Self::AccountId>;
-}
-
-/// A permission checker for calls from accounts to extrinsics.
-pub trait CheckAccountCallPermissions<AccountId> {
-    /// Checks whether `who` can call the current extrinsic represented by `pallet_name` and
-    /// `function_name`.
-    fn check_account_call_permissions(
-        who: &AccountId,
-        pallet_name: &PalletName,
-        function_name: &FunctionName,
-    ) -> bool;
-}
+pub mod permissions;
+pub use permissions::{CheckAccountCallPermissions, PermissionChecker};

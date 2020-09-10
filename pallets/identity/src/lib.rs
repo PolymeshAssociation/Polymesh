@@ -113,8 +113,8 @@ use polymesh_common_utilities::{
 };
 use polymesh_primitives::{
     secondary_key, Authorization, AuthorizationData, AuthorizationError, AuthorizationType, CddId,
-    Claim, ClaimType, FunctionName, Identity as DidRecord, IdentityClaim, IdentityId, InvestorUid,
-    PalletName, Permissions, Scope, SecondaryKey, Signatory, Ticker,
+    Claim, ClaimType, DispatchableName, Identity as DidRecord, IdentityClaim, IdentityId,
+    InvestorUid, PalletName, Permissions, Scope, SecondaryKey, Signatory, Ticker,
 };
 use sp_core::sr25519::Signature;
 use sp_io::hashing::blake2_256;
@@ -2064,7 +2064,7 @@ impl<T: Trait> CheckAccountCallPermissions<T::AccountId> for Module<T> {
     fn check_account_call_permissions(
         who: &T::AccountId,
         pallet_name: &PalletName,
-        function_name: &FunctionName,
+        function_name: &DispatchableName,
     ) -> bool {
         if <KeyToIdentityIds<T>>::contains_key(who) {
             let did = <KeyToIdentityIds<T>>::get(who);

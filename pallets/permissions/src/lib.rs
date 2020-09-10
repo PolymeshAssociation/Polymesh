@@ -26,7 +26,7 @@ use frame_support::{
     traits::GetCallMetadata,
 };
 use polymesh_common_utilities::traits::{CheckAccountCallPermissions, PermissionChecker as Trait};
-use polymesh_primitives::{FunctionName, PalletName};
+use polymesh_primitives::{DispatchableName, PalletName};
 use sp_runtime::{
     traits::{DispatchInfoOf, PostDispatchInfoOf, SignedExtension},
     transaction_validity::{TransactionValidity, TransactionValidityError, ValidTransaction},
@@ -38,7 +38,7 @@ decl_storage! {
         /// The name of the current pallet (aka module name).
         pub CurrentPalletName get(fn current_pallet_name): PalletName;
         /// The name of the current function (aka extrinsic).
-        pub CurrentFunctionName get(fn current_function_name): FunctionName;
+        pub CurrentDispatchableName get(fn current_dispatchable_name): DispatchableName;
     }
 }
 
@@ -60,7 +60,7 @@ impl<T: Trait> Module<T> {
         if T::Checker::check_account_call_permissions(
             who,
             &Self::current_pallet_name(),
-            &Self::current_function_name(),
+            &Self::current_dispatchable_name(),
         ) {
             return Ok(());
         }
@@ -97,24 +97,24 @@ where
     /// metadata.
     pub fn swap_call_metadata(
         pallet_name: PalletName,
-        function_name: FunctionName,
-    ) -> (PalletName, FunctionName) {
+        dispatchable_name: DispatchableName,
+    ) -> (PalletName, DispatchableName) {
         let old_pallet_name = <CurrentPalletName>::get();
-        let old_function_name = <CurrentFunctionName>::get();
-        Self::store_call_metadata(pallet_name, function_name);
-        (old_pallet_name, old_function_name)
+        let old_dispatchable_name = <CurrentDispatchableName>::get();
+        Self::set_call_metadata(pallet_name, dispatchable_name);
+        (old_pallet_name, old_dispatchable_name)
     }
 
     /// Stores call metadata in runtime storage.
-    pub fn store_call_metadata(pallet_name: PalletName, function_name: FunctionName) {
+    pub fn set_call_metadata(pallet_name: PalletName, dispatchable_name: DispatchableName) {
         <CurrentPalletName>::put(pallet_name);
-        <CurrentFunctionName>::put(function_name);
+        <CurrentDispatchableName>::put(dispatchable_name);
     }
 
     /// Erases call metadata from runtime storage.
     fn clear_call_metadata() {
         <CurrentPalletName>::kill();
-        <CurrentFunctionName>::kill();
+        <CurrentDispatchableName>::kill();
     }
 }
 
@@ -150,7 +150,7 @@ where
         _len: usize,
     ) -> Result<Self::Pre, TransactionValidityError> {
         let metadata = call.get_call_metadata();
-        Self::store_call_metadata(
+        Self::set_call_metadata(
             metadata.pallet_name.as_bytes().into(),
             metadata.function_name.as_bytes().into(),
         );

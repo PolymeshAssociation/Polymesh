@@ -14,7 +14,7 @@
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
 use crate::{
-    self as polymesh_primitives, FunctionName, IdentityId, PalletName, PortfolioNumber,
+    self as polymesh_primitives, DispatchableName, IdentityId, PalletName, PortfolioNumber,
     SubsetRestriction, Ticker,
 };
 use codec::{Decode, Encode};
@@ -43,15 +43,18 @@ pub struct PalletPermissions {
     /// The name of a pallet.
     pub pallet_name: PalletName,
     /// A subset of function names within the pallet.
-    pub function_names: SubsetRestriction<FunctionName>,
+    pub dispatchable_names: SubsetRestriction<DispatchableName>,
 }
 
 impl PalletPermissions {
     /// Constructs new pallet permissions from given arguments.
-    pub fn new(pallet_name: PalletName, function_names: SubsetRestriction<FunctionName>) -> Self {
+    pub fn new(
+        pallet_name: PalletName,
+        dispatchable_names: SubsetRestriction<DispatchableName>,
+    ) -> Self {
         PalletPermissions {
             pallet_name,
-            function_names,
+            dispatchable_names,
         }
     }
 
@@ -59,7 +62,7 @@ impl PalletPermissions {
     pub fn entire_pallet(pallet_name: PalletName) -> Self {
         PalletPermissions {
             pallet_name,
-            function_names: SubsetRestriction(None),
+            dispatchable_names: SubsetRestriction(None),
         }
     }
 }
@@ -244,7 +247,7 @@ where
     pub fn has_extrinsic_permission(
         &self,
         pallet_name: &PalletName,
-        function_name: &FunctionName,
+        dispatchable_name: &DispatchableName,
     ) -> bool {
         match &self.permissions.extrinsic.0 {
             None => true,
@@ -254,9 +257,9 @@ where
                     if &perm.pallet_name != pallet_name {
                         return false;
                     }
-                    match &perm.function_names.0 {
+                    match &perm.dispatchable_names.0 {
                         None => true,
-                        Some(funcs) => funcs.contains(function_name),
+                        Some(funcs) => funcs.contains(dispatchable_name),
                     }
                 })
                 .is_some(),
@@ -356,7 +359,9 @@ pub mod runtime_upgrade {
 
 /// Vectorized redefinitions of runtime types for the sake of Polkadot.JS.
 pub mod api {
-    use crate::{FunctionName, PalletName, PortfolioNumber, Signatory, SubsetRestriction, Ticker};
+    use crate::{
+        DispatchableName, PalletName, PortfolioNumber, Signatory, SubsetRestriction, Ticker,
+    };
     use codec::{Decode, Encode};
     #[cfg(feature = "std")]
     use sp_runtime::{Deserialize, Serialize};
@@ -375,14 +380,14 @@ pub mod api {
         pub pallet_name: PalletName,
         /// A workaround for https://github.com/polkadot-js/apps/issues/3632.
         ///
-        /// - `total == false` - only the functions listed in `function_names` are allowed to be
+        /// - `total == false` - only the functions listed in `dispatchable_names` are allowed to be
         /// called.
         ///
-        /// - `total == true` - `function_names` is ignored. Such permissions allow any function in
+        /// - `total == true` - `dispatchable_names` is ignored. Such permissions allow any function in
         /// `pallet_name` to be called.
         pub total: bool,
         /// A subset of function names within the pallet taken into account when `total == false`.
-        pub function_names: Vec<FunctionName>,
+        pub dispatchable_names: Vec<DispatchableName>,
     }
 
     /// Extrinsic permissions.
@@ -438,8 +443,8 @@ pub mod api {
         fn from(p: super::PalletPermissions) -> PalletPermissions {
             PalletPermissions {
                 pallet_name: p.pallet_name,
-                total: p.function_names.0.is_none(),
-                function_names: if let Some(elems) = p.function_names.0 {
+                total: p.dispatchable_names.0.is_none(),
+                dispatchable_names: if let Some(elems) = p.dispatchable_names.0 {
                     elems.into_iter().collect()
                 } else {
                     Default::default()
@@ -492,8 +497,8 @@ pub mod api {
         fn from(p: PalletPermissions) -> super::PalletPermissions {
             super::PalletPermissions {
                 pallet_name: p.pallet_name,
-                function_names: SubsetRestriction(if !p.total {
-                    Some(p.function_names.into_iter().collect())
+                dispatchable_names: SubsetRestriction(if !p.total {
+                    Some(p.dispatchable_names.into_iter().collect())
                 } else {
                     Default::default()
                 }),

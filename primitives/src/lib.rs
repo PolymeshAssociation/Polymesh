@@ -253,7 +253,7 @@ pub struct PalletName(pub Vec<u8>);
     Decode, Encode, Clone, Debug, Default, Hash, PartialEq, Eq, PartialOrd, Ord, VecU8StrongTyped,
 )]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-pub struct FunctionName(pub Vec<u8>);
+pub struct DispatchableName(pub Vec<u8>);
 
 #[cfg(test)]
 mod tests {
