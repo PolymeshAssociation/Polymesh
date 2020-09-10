@@ -59,7 +59,7 @@
         "PalletPermissions": {
             "pallet_name": "PalletName",
             "total": "bool",
-            "function_names": "Vec<DispatchableName>"
+            "dispatchable_names": "Vec<DispatchableName>"
         },
         "Permissions": {
             "asset": "Option<Vec<Ticker>>",
