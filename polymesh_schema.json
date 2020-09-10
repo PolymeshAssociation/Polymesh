@@ -55,11 +55,11 @@
             "primary_issuance_agent": "Option<IdentityId>"
         },
         "PalletName": "Text",
-        "FunctionName": "Text",
+        "DispatchableName": "Text",
         "PalletPermissions": {
             "pallet_name": "PalletName",
             "total": "bool",
-            "function_names": "Vec<FunctionName>"
+            "function_names": "Vec<DispatchableName>"
         },
         "Permissions": {
             "asset": "Option<Vec<Ticker>>",
