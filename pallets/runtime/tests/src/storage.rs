@@ -21,6 +21,7 @@ use pallet_basic_sto as sto;
 use pallet_committee as committee;
 use pallet_compliance_manager as compliance_manager;
 use pallet_confidential as confidential;
+use pallet_confidential_asset as confidential_asset;
 use pallet_group as group;
 use pallet_identity as identity;
 use pallet_multisig as multisig;
@@ -119,6 +120,7 @@ impl_outer_event! {
         pallet_utility,
         portfolio<T>,
         confidential,
+        confidential_asset,
     }
 }
 
@@ -572,6 +574,10 @@ impl pips::Trait for TestStorage {
 }
 
 impl confidential::Trait for TestStorage {
+    type Event = Event;
+}
+
+impl confidential_asset::Trait for TestStorage {
     type Event = Event;
 }
 

@@ -3420,6 +3420,8 @@ dependencies = [
 name = "pallet-confidential-asset"
 version = "0.1.0"
 dependencies = [
+ "cryptography",
+ "curve25519-dalek",
  "frame-benchmarking",
  "frame-support",
  "frame-system",
@@ -3433,6 +3435,8 @@ dependencies = [
  "polymesh-common-utilities",
  "polymesh-primitives",
  "polymesh-primitives-derive",
+ "schnorrkel",
+ "sp-std",
 ]
 
 [[package]]
@@ -4671,6 +4675,7 @@ version = "1.0.0"
 dependencies = [
  "chrono",
  "cryptography",
+ "curve25519-dalek",
  "env_logger",
  "frame-benchmarking",
  "frame-support",

@@ -24,6 +24,8 @@ mod committee_test;
 #[cfg(test)]
 mod compliance_manager_test;
 #[cfg(test)]
+mod confidential_asset_test;
+#[cfg(test)]
 mod confidential_test;
 #[cfg(test)]
 mod dividend_test;
