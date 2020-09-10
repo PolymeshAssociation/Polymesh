@@ -37,6 +37,9 @@
 //! - `set_default_portfolio_balance`: Sets the ticker balance of the identity's default portfolio.
 //! - `rpc_get_portfolios`: An RPC function that lists all user-defined portfolio number-name pairs.
 //! - `rpc_get_portfolio_assets`: Ensures that there is no portfolio with the desired name yet.
+//! - `unchecked_transfer_portfolio_balance`: Transfers funds from one portfolio to another.
+//! - `ensure_portfolio_custody`: Makes sure that the given identity has custodian access over the portfolio.
+//! - `ensure_portfolio_transfer_validity`: Makes sure that a transfer between two portfolios is valid.
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
@@ -437,6 +440,12 @@ impl<T: Trait> Module<T> {
 
 impl<T: Trait> PortfolioSubTrait<T::Balance> for Module<T> {
     /// Accepts custody of a portfolio. The authorization must have been issued by the current custodian.
+    ///
+    /// # Errors
+    /// * `AuthorizationError::Invalid` if auth_id reference an invalid authorization id
+    /// * `AuthorizationError::Unauthorized` if identity who created the authorization is not the current custodian
+    /// * `AuthorizationError::Expired` if the authorization has expired
+    /// * `IrrelevantAuthorization` if the authorization is for something other than a portfolio custody
     fn accept_portfolio_custody(new_custodian: IdentityId, auth_id: u64) -> DispatchResult {
         ensure!(
             <identity::Authorizations<T>>::contains_key(Signatory::from(new_custodian), auth_id),
@@ -447,6 +456,8 @@ impl<T: Trait> PortfolioSubTrait<T::Balance> for Module<T> {
 
         let portfolio_id = match auth.authorization_data {
             AuthorizationData::PortfolioCustody(pid) => pid,
+            // Since this function is only called by the Identity pallet after making this check, this line will never be triggered.
+            // Being defensive here anyway since we might want to expose this function via other forms some day.
             _ => return Err(Error::<T>::IrrelevantAuthorization.into()),
         };
 
@@ -472,6 +483,9 @@ impl<T: Trait> PortfolioSubTrait<T::Balance> for Module<T> {
     /// Locks some user tokens so that they can not be used for transfers.
     /// This is used internally by the settlement engine to prevent users from using the same funds
     /// in multiple ongoing settlements
+    ///
+    /// # Errors
+    /// * `InsufficientPortfolioBalance` if the portfolio does not have enough free balance to lock
     fn lock_tokens(
         portfolio: &PortfolioId,
         ticker: &Ticker,
@@ -495,7 +509,13 @@ impl<T: Trait> PortfolioSubTrait<T::Balance> for Module<T> {
         Ok(())
     }
 
-    /// Unlocks some user tokens
+    /// Unlocks some locked tokens of a user.
+    /// Since this is only ever called by the settlement engine,
+    /// it will never be called under circumstances when it has to return an error.
+    /// We are being defensive with the checks anyway.
+    ///
+    /// # Errors
+    /// * `InsufficientTokensLocked` if the portfolio does not have enough locked tokens to unlock
     fn unlock_tokens(
         portfolio: &PortfolioId,
         ticker: &Ticker,

@@ -5,7 +5,7 @@ use super::{
 use frame_support::{assert_err, assert_ok};
 use pallet_asset::{AssetType, SecurityToken};
 use pallet_portfolio::MovePortfolioItem;
-use polymesh_primitives::{PortfolioName, Ticker};
+use polymesh_primitives::{PortfolioId, PortfolioName, Ticker};
 use std::convert::TryFrom;
 use test_client::AccountKeyring;
 
@@ -88,8 +88,8 @@ fn do_move_asset_from_portfolio() {
     assert_err!(
         Portfolio::move_portfolio_funds(
             owner_signed.clone(),
-            PortfolioId::default_portfolio(did),
-            PortfolioId::user_portfolio(did, num),
+            PortfolioId::default_portfolio(owner_did),
+            PortfolioId::user_portfolio(owner_did, num),
             vec![MovePortfolioItem {
                 ticker,
                 amount: total_supply * 2,
@@ -101,8 +101,8 @@ fn do_move_asset_from_portfolio() {
     assert_err!(
         Portfolio::move_portfolio_funds(
             owner_signed.clone(),
-            PortfolioId::default_portfolio(did),
-            PortfolioId::default_portfolio(did),
+            PortfolioId::default_portfolio(owner_did),
+            PortfolioId::default_portfolio(owner_did),
             vec![MovePortfolioItem { ticker, amount: 1 }]
         ),
         Error::DestinationIsSamePortfolio
@@ -111,8 +111,8 @@ fn do_move_asset_from_portfolio() {
     assert_err!(
         Portfolio::move_portfolio_funds(
             owner_signed.clone(),
-            PortfolioId::default_portfolio(did),
-            PortfolioId::user_portfolio(did, num + 666),
+            PortfolioId::default_portfolio(owner_did),
+            PortfolioId::user_portfolio(owner_did, num + 666),
             vec![MovePortfolioItem { ticker, amount: 1 }]
         ),
         Error::PortfolioDoesNotExist
@@ -121,18 +121,18 @@ fn do_move_asset_from_portfolio() {
     assert_err!(
         Portfolio::move_portfolio_funds(
             bob_signed.clone(),
-            PortfolioId::default_portfolio(did),
-            PortfolioId::user_portfolio(did, num),
+            PortfolioId::default_portfolio(owner_did),
+            PortfolioId::user_portfolio(owner_did, num),
             vec![MovePortfolioItem { ticker, amount: 1 }]
         ),
-        Error::PortfolioDoesNotExist
+        Error::UnauthorizedCustodian
     );
     // Move an amount within bounds.
     let move_amount = total_supply / 2;
     assert_ok!(Portfolio::move_portfolio_funds(
         owner_signed.clone(),
-        PortfolioId::default_portfolio(did),
-        PortfolioId::user_portfolio(did, num),
+        PortfolioId::default_portfolio(owner_did),
+        PortfolioId::user_portfolio(owner_did, num),
         vec![MovePortfolioItem {
             ticker,
             amount: move_amount,
