@@ -86,10 +86,10 @@ fn do_move_asset_from_portfolio() {
     );
     // Attempt to move more than the total supply.
     assert_err!(
-        Portfolio::move_portfolio(
+        Portfolio::move_portfolio_funds(
             owner_signed.clone(),
-            None,
-            Some(num),
+            PortfolioId::default_portfolio(did),
+            PortfolioId::user_portfolio(did, num),
             vec![MovePortfolioItem {
                 ticker,
                 amount: total_supply * 2,
@@ -99,40 +99,40 @@ fn do_move_asset_from_portfolio() {
     );
     // Attempt to move to the same portfolio.
     assert_err!(
-        Portfolio::move_portfolio(
+        Portfolio::move_portfolio_funds(
             owner_signed.clone(),
-            None,
-            None,
+            PortfolioId::default_portfolio(did),
+            PortfolioId::default_portfolio(did),
             vec![MovePortfolioItem { ticker, amount: 1 }]
         ),
         Error::DestinationIsSamePortfolio
     );
     // Attempt to move to a non-existent portfolio.
     assert_err!(
-        Portfolio::move_portfolio(
+        Portfolio::move_portfolio_funds(
             owner_signed.clone(),
-            None,
-            Some(num + 777),
+            PortfolioId::default_portfolio(did),
+            PortfolioId::user_portfolio(did, num + 666),
             vec![MovePortfolioItem { ticker, amount: 1 }]
         ),
         Error::PortfolioDoesNotExist
     );
     // Attempt to move by another identity.
     assert_err!(
-        Portfolio::move_portfolio(
+        Portfolio::move_portfolio_funds(
             bob_signed.clone(),
-            None,
-            Some(num),
+            PortfolioId::default_portfolio(did),
+            PortfolioId::user_portfolio(did, num),
             vec![MovePortfolioItem { ticker, amount: 1 }]
         ),
         Error::PortfolioDoesNotExist
     );
     // Move an amount within bounds.
     let move_amount = total_supply / 2;
-    assert_ok!(Portfolio::move_portfolio(
+    assert_ok!(Portfolio::move_portfolio_funds(
         owner_signed.clone(),
-        None,
-        Some(num),
+        PortfolioId::default_portfolio(did),
+        PortfolioId::user_portfolio(did, num),
         vec![MovePortfolioItem {
             ticker,
             amount: move_amount,
