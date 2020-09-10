@@ -1,6 +1,6 @@
 use crate::{
     scalar_blake2_from_bytes, CddId, Claim, Context, IdentityId, InvestorZKProofData, Proposition,
-    Ticker,
+    Scope, Ticker,
 };
 use cryptography::claim_proofs::ProofPublicKey;
 use curve25519_dalek::{ristretto::CompressedRistretto, scalar::Scalar};
@@ -80,7 +80,7 @@ mod tests {
         let asset_ticker = Ticker::try_from(b"1".as_ref()).unwrap();
         let asset_id = IdentityId::try_from(asset_ticker.as_slice()).unwrap();
 
-        let exists_affiliate_claim = Claim::Affiliate(asset_id);
+        let exists_affiliate_claim = Claim::Affiliate(Scope::Ticker(asset_ticker));
         let proposition =
             exists(&exists_affiliate_claim).and(has_valid_proof_of_investor(asset_ticker));
 
@@ -92,7 +92,7 @@ mod tests {
         assert_eq!(proposition.evaluate(&context), false);
 
         let context = Context {
-            claims: vec![Claim::Affiliate(asset_id)],
+            claims: vec![Claim::Affiliate(Scope::Ticker(asset_ticker))],
             id: investor_id,
             primary_issuance_agent: None,
         };
@@ -107,8 +107,8 @@ mod tests {
 
         let context = Context {
             claims: vec![
-                Claim::Affiliate(asset_id),
-                Claim::InvestorZKProof(asset_id, scope_id, cdd_id, proof),
+                Claim::Affiliate(Scope::Ticker(asset_ticker)),
+                Claim::InvestorZKProof(Scope::Ticker(asset_ticker), scope_id, cdd_id, proof),
             ],
             id: investor_id,
             primary_issuance_agent: None,
