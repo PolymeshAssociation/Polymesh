@@ -1,3 +1,5 @@
+#![feature(bool_to_option)]
+
 extern crate proc_macro;
 extern crate syn;
 
@@ -76,7 +78,33 @@ pub fn deserialize_u8_strong_typed_derive(input: TokenStream) -> TokenStream {
 ///
 /// Additionally, you may specify `#[migrate_from(TypeToReplaceWithInOld)]`
 /// which will perform an exact replacement of the type in the generated old type.
-#[proc_macro_derive(Migrate, attributes(migrate, migrate_from))]
+///
+/// In the context of an enum variant, you can also specify `#[migrate_from(OldVariant)]`, e.g.,
+/// ```rust
+/// #[derive(..., Encode, Migrate)]
+/// enum Foo {
+///     #[migrate_from(OldVariantName(u8))]
+///     Variant,
+/// }
+/// ```
+///
+/// When you want control over the expression used for migration,
+/// you can use `#[migrate_with($expr)]` on a given field.
+/// For example, to write a migration that simply increments, you may write:
+/// ```rust
+/// #[derive(..., Encode, Migrate)]
+/// struct Foo {
+///     #[migrate_with(bar + 1)]
+///     bar: u8,
+/// }
+/// ```
+///
+/// By default, `#[derive(Migrate)]` will use `Empty` for `type Context`.
+/// This can however be changed by specifying the type with `#[migrate_context(TheContextType)]`.
+#[proc_macro_derive(
+    Migrate,
+    attributes(migrate, migrate_from, migrate_context, migrate_with)
+)]
 pub fn migrate_derive(input: TokenStream) -> TokenStream {
     impl_migrate(syn::parse(input).unwrap()).into()
 }
