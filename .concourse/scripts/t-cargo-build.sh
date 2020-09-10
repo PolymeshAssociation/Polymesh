@@ -45,9 +45,7 @@ if [ ! -f ".git/resource/changed_files" ] || grep -v '^.concourse\|^Dockerfile\|
     cargo build --release
     CACHE_SIZE=$(du -s target | awk '{ print $1 }')
     if [[ $CACHE_SIZE -gt 10000000 ]]; then
-        cargo sweep -s
-        cargo sweep -f -r
-        cargo clean
+        find target -type f -delete
     fi
 fi
 popd

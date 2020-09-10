@@ -30,8 +30,6 @@ cargo test \
   --features default_identity
 CACHE_SIZE=$(du -s target | awk '{ print $1 }')
 if [[ $CACHE_SIZE -gt 10000000 ]]; then
-    cargo sweep -s
-    cargo sweep -f -r
-    cargo clean
+    find target -type f -delete
 fi
 
