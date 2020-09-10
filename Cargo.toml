@@ -40,6 +40,7 @@ members = [
     "pallets/settlement",
     "pallets/cdd-offchain-worker",
     "pallets/asset",
+    "pallets/asset/types",
     "pallets/confidential-asset",
     "pallets/compliance-manager",
     "pallets/statistics",

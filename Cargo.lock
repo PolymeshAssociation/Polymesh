@@ -3190,6 +3190,7 @@ dependencies = [
  "frame-system",
  "hex-literal 0.2.1",
  "libsecp256k1",
+ "pallet-asset-types",
  "pallet-balances 0.1.0",
  "pallet-contracts",
  "pallet-identity",
@@ -3211,6 +3212,19 @@ dependencies = [
  "sp-runtime",
  "sp-std",
  "sp-version",
+]
+
+[[package]]
+name = "pallet-asset-types"
+version = "0.1.0"
+dependencies = [
+ "parity-scale-codec",
+ "polymesh-primitives",
+ "polymesh-primitives-derive",
+ "serde",
+ "serde_derive",
+ "sp-core",
+ "sp-std",
 ]
 
 [[package]]
@@ -3426,11 +3440,9 @@ dependencies = [
  "frame-support",
  "frame-system",
  "pallet-asset",
- "pallet-balances 0.1.0",
- "pallet-contracts",
+ "pallet-asset-types",
  "pallet-identity",
  "pallet-portfolio",
- "pallet-session",
  "pallet-statistics",
  "parity-scale-codec",
  "polymesh-common-utilities",
@@ -4413,6 +4425,7 @@ dependencies = [
  "frame-support",
  "frame-system",
  "lazy_static",
+ "pallet-asset-types",
  "pallet-session",
  "pallet-timestamp",
  "parity-scale-codec",

@@ -28,11 +28,12 @@ use cryptography::{
 };
 use frame_support::{decl_error, decl_event, decl_module, decl_storage, dispatch::DispatchResult};
 use frame_system::{self as system, ensure_signed};
+use pallet_asset_types::{AssetIdentifier, AssetName, AssetType, FundingRoundName, IdentifierType};
 use pallet_identity as identity;
 use pallet_statistics::{self as statistics};
 use polymesh_common_utilities::Context;
 use polymesh_common_utilities::{
-    balances::Trait as BalancesTrait, identity::Trait as IdentityTrait,
+    asset::Trait as AssetTrait, identity::Trait as IdentityTrait, CommonTrait, Context,
 };
 use pallet_asset as asset;
 use pallet_asset::{AssetIdentifier, AssetName, AssetType, FundingRoundName, IdentifierType};
@@ -43,7 +44,7 @@ use sp_std::prelude::*;
 type Identity<T> = identity::Module<T>;
 
 /// The module's configuration trait.
-pub trait Trait: frame_system::Trait + BalancesTrait + IdentityTrait {
+pub trait Trait: IdentityTrait {
     /// Asset module
     type Asset: AssetTrait<Self::Balance, Self::AccountId>;
     type Event: From<Event> + Into<<Self as frame_system::Trait>::Event>;

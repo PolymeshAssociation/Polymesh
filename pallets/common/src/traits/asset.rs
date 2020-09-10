@@ -15,9 +15,7 @@
 
 use codec::{Decode, Encode};
 use frame_support::dispatch::{DispatchResult, DispatchResultWithPostInfo};
-use polymesh_pallet_asset::{
-    AssetIdentifier, AssetName, AssetType, FundingRoundName, IdentifierType,
-};
+use pallet_asset_types::{AssetIdentifier, AssetName, AssetType, FundingRoundName, IdentifierType};
 use polymesh_primitives::{IdentityId, Ticker};
 
 pub const GAS_LIMIT: u64 = 1_000_000_000;

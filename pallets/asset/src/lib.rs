@@ -101,6 +101,12 @@ use frame_support::{
 };
 use frame_system::{self as system, ensure_signed};
 use hex_literal::hex;
+use pallet_asset_types::{
+    AssetIdentifier, AssetName, AssetOwnershipRelation, AssetType, ClassicTickerImport,
+    ClassicTickerRegistration, EcdsaSignature, EthereumAddress, FocusedBalances, FundingRoundName,
+    IdentifierType, RestrictionResult, SecurityToken, SignData, TickerRegistration,
+    TickerRegistrationConfig, TickerRegistrationStatus,
+};
 use pallet_contracts::{ExecReturnValue, Gas};
 use pallet_identity as identity;
 use pallet_statistics::{self as statistics, Counter};
@@ -117,10 +123,7 @@ use polymesh_primitives::{
     AuthorizationData, AuthorizationError, Document, DocumentName, IdentityId, Signatory,
     SmartExtension, SmartExtensionName, SmartExtensionType, Ticker,
 };
-use polymesh_primitives_derive::VecU8StrongTyped;
 use sp_runtime::traits::{CheckedAdd, CheckedSub, Saturating, Verify};
-#[cfg(feature = "std")]
-use sp_runtime::{Deserialize, Serialize};
 use sp_std::{convert::TryFrom, prelude::*};
 
 type Portfolio<T> = pallet_portfolio::Module<T>;
@@ -145,147 +148,6 @@ pub trait Trait:
     type MaxNumberOfTMExtensionForAsset: Get<u32>;
 }
 
-/// The type of an asset represented by a token.
-#[derive(Encode, Decode, Clone, Debug, PartialEq, Eq)]
-pub enum AssetType {
-    EquityCommon,
-    EquityPreferred,
-    Commodity,
-    FixedIncome,
-    REIT,
-    Fund,
-    RevenueShareAgreement,
-    StructuredProduct,
-    Derivative,
-    Custom(Vec<u8>),
-}
-
-impl Default for AssetType {
-    fn default() -> Self {
-        AssetType::Custom(b"undefined".to_vec())
-    }
-}
-
-/// The type of an identifier associated with a token.
-// these are used off-chain.
-#[derive(Encode, Decode, Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
-pub enum IdentifierType {
-    Cins,
-    Cusip,
-    Isin,
-    Dti,
-}
-
-impl Default for IdentifierType {
-    fn default() -> Self {
-        IdentifierType::Isin
-    }
-}
-
-/// Ownership status of a ticker/token.
-#[derive(Encode, Decode, Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
-pub enum AssetOwnershipRelation {
-    NotOwned,
-    TickerOwned,
-    AssetOwned,
-}
-
-impl Default for AssetOwnershipRelation {
-    fn default() -> Self {
-        Self::NotOwned
-    }
-}
-
-/// A wrapper for a token name.
-#[derive(
-    Decode, Encode, Clone, Debug, Default, Hash, PartialEq, Eq, PartialOrd, Ord, VecU8StrongTyped,
-)]
-pub struct AssetName(pub Vec<u8>);
-
-/// A wrapper for an asset ID.
-#[derive(
-    Decode, Encode, Clone, Debug, Default, Hash, PartialEq, Eq, PartialOrd, Ord, VecU8StrongTyped,
-)]
-pub struct AssetIdentifier(pub Vec<u8>);
-
-/// A wrapper for a funding round name.
-#[derive(Decode, Encode, Clone, Debug, Hash, PartialEq, Eq, PartialOrd, Ord, VecU8StrongTyped)]
-pub struct FundingRoundName(pub Vec<u8>);
-
-impl Default for FundingRoundName {
-    fn default() -> Self {
-        FundingRoundName("".as_bytes().to_vec())
-    }
-}
-
-/// struct to store the token details.
-#[derive(Encode, Decode, Default, Clone, PartialEq, Debug)]
-pub struct SecurityToken<U> {
-    pub name: AssetName,
-    pub total_supply: U,
-    pub owner_did: IdentityId,
-    pub divisible: bool,
-    pub asset_type: AssetType,
-    pub primary_issuance_agent: Option<IdentityId>,
-}
-
-/// struct to store the signed data.
-#[derive(Encode, Decode, Default, Clone, PartialEq, Debug)]
-pub struct SignData<U> {
-    pub custodian_did: IdentityId,
-    pub holder_did: IdentityId,
-    pub ticker: Ticker,
-    pub value: U,
-    pub nonce: u16,
-}
-
-/// struct to store the ticker registration details.
-#[derive(Encode, Decode, Clone, Default, PartialEq, Debug)]
-pub struct TickerRegistration<U> {
-    pub owner: IdentityId,
-    pub expiry: Option<U>,
-}
-
-/// struct to store the ticker registration config.
-#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[derive(Encode, Decode, Clone, Default, PartialEq, Debug)]
-pub struct TickerRegistrationConfig<U> {
-    pub max_ticker_length: u8,
-    pub registration_length: Option<U>,
-}
-
-/// Enum that represents the current status of a ticker.
-#[derive(Encode, Decode, Clone, Eq, PartialEq, Debug)]
-pub enum TickerRegistrationStatus {
-    RegisteredByOther,
-    Available,
-    RegisteredByDid,
-}
-
-/// Enum that uses as the return type for the restriction verification.
-#[derive(Encode, Decode, Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
-pub enum RestrictionResult {
-    Valid,
-    Invalid,
-    ForceValid,
-}
-
-impl Default for RestrictionResult {
-    fn default() -> Self {
-        RestrictionResult::Invalid
-    }
-}
-
-/// The total asset balance and the balance of the asset in a specified portfolio of an identity.
-#[cfg_attr(feature = "std", derive(Debug))]
-#[derive(Clone, PartialEq, Eq, PartialOrd, Ord)]
-pub struct FocusedBalances<Balance> {
-    /// The total balance of the asset held by the identity.
-    pub total: Balance,
-    /// The balance of the asset in the default portfolio of the identity.
-    pub portfolio: Balance,
-}
-
 pub mod weight_for {
     use super::*;
 
@@ -307,38 +169,6 @@ pub mod weight_for {
             .saturating_add(T::DbWeight::get().reads_writes(3, 2)) // Read and write of `unsafe_transfer_by_custodian()`
             .saturating_add(T::DbWeight::get().reads_writes(4, 5)) // read and write for `unsafe_transfer()`
     }
-}
-
-/// An Ethereum address (i.e. 20 bytes, used to represent an Ethereum account).
-///
-/// This gets serialized to the 0x-prefixed hex representation.
-#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[derive(Clone, Copy, PartialEq, Eq, Encode, Decode, Default, Debug)]
-pub struct EthereumAddress([u8; 20]);
-
-/// Data imported from Polymath Classic regarding ticker registration/creation.
-/// Only used at genesis config and not stored on-chain.
-#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[derive(Clone)]
-pub struct ClassicTickerImport {
-    /// Owner of the registration.
-    pub eth_owner: ethereum::EthereumAddress,
-    /// Name of the ticker registered.
-    pub ticker: Ticker,
-    /// Is `eth_owner` an Ethereum contract (e.g., in case of a multisig)?
-    pub is_contract: bool,
-    /// Has the ticker been elevated to a created asset on classic?
-    pub is_created: bool,
-}
-
-/// Data about a ticker registration from Polymath Classic on-genesis importation.
-#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[derive(Encode, Decode, Clone, Debug, PartialEq, Eq)]
-pub struct ClassicTickerRegistration {
-    /// Owner of the registration.
-    pub eth_owner: ethereum::EthereumAddress,
-    /// Has the ticker been elevated to a created asset on classic?
-    pub is_created: bool,
 }
 
 decl_storage! {
@@ -1120,7 +950,7 @@ decl_module! {
         /// - `InvalidEthereumSignature` if the `ethereum_signature` is not valid.
         /// - `NotAnOwner` if the ethereum account is not the owner of the PMC ticker.
         #[weight = 250_000_000]
-        pub fn claim_classic_ticker(origin, ticker: Ticker, ethereum_signature: ethereum::EcdsaSignature) -> DispatchResult {
+        pub fn claim_classic_ticker(origin, ticker: Ticker, ethereum_signature: EcdsaSignature) -> DispatchResult {
             // Ensure the ticker is a classic one and fetch details.
             let ClassicTickerRegistration { eth_owner, .. } = ClassicTickers::get(ticker)
                 .ok_or(Error::<T>::NoSuchClassicTicker)?;
@@ -1249,7 +1079,7 @@ decl_event! {
         /// A document removed from an asset
         DocumentRemoved(Ticker, DocumentName),
         /// A Polymath Classic token was claimed and transferred to a non-systematic DID.
-        ClassicTickerClaimed(IdentityId, Ticker, ethereum::EthereumAddress),
+        ClassicTickerClaimed(IdentityId, Ticker, EthereumAddress),
     }
 }
 
@@ -1418,6 +1248,30 @@ impl<T: Trait> AssetTrait<T::Balance, T::AccountId> for Module<T> {
         value: T::Balance,
     ) {
         Self::unsafe_system_transfer(sender, ticker, from_did, to_did, value);
+    }
+
+    fn unsafe_create_asset(
+        did: IdentityId,
+        name: AssetName,
+        ticker: Ticker,
+        total_supply: T::Balance,
+        divisible: bool,
+        asset_type: AssetType,
+        identifiers: Vec<(IdentifierType, AssetIdentifier)>,
+        funding_round: Option<FundingRoundName>,
+        is_confidential: bool,
+    ) -> DispatchResult {
+        Self::unsafe_create_asset(
+            did,
+            name,
+            ticker,
+            total_supply,
+            divisible,
+            asset_type,
+            identifiers,
+            funding_round,
+            is_confidential,
+        )
     }
 
     fn unsafe_transfer_by_custodian(

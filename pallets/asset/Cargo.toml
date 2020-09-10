@@ -16,6 +16,7 @@ pallet-contracts = { git = "https://github.com/paritytech/substrate", branch = "
 pallet-identity = { path = "../identity", default-features = false }
 pallet-portfolio = { path = "../portfolio", default-features = false }
 pallet-statistics = { path = "../statistics", default-features = false }
+pallet-asset-types = { path = "./types", default-features = false }
 
 # Other
 serde = { version = "1.0.104", default-features = false }
@@ -49,6 +50,7 @@ no_std = []
 only-staking = []
 std = [
     "codec/std",
+    "pallet-asset-types/std",
     "frame-support/std",
     "frame-system/std",
     "pallet-balances/std",

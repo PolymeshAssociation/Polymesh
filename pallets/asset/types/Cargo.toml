@@ -1,0 +1,32 @@
+[package]
+name = "pallet-asset-types"
+version = "0.1.0"
+authors = ["Polymath"]
+edition = "2018"
+
+[dependencies]
+# Common
+polymesh-primitives = { path = "../../../primitives", default-features = false }
+polymesh-primitives-derive = { path = "../../../primitives_derive", default-features = false }
+
+# Other
+serde = { version = "1.0.104", default-features = false }
+serde_derive = { version = "1.0.104", optional = true, default-features = false }
+
+# Substrate
+codec = { package = "parity-scale-codec", version = "1.1.0", default-features = false, features = ["derive"] }
+sp-core = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "at-add-dispatch-call" }
+sp-std = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "at-add-dispatch-call" }
+
+[features]
+equalize = []
+default = ["std"]
+no_std = []
+only-staking = []
+std = [
+    "codec/std",
+    "serde/std",
+    "serde_derive",
+    "sp-core/std",
+    "sp-std/std",
+]

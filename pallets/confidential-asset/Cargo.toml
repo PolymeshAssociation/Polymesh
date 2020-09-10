@@ -11,12 +11,13 @@ polymesh-primitives-derive = { path = "../../primitives_derive", default-feature
 polymesh-common-utilities = { path = "../common", default-features = false }
 
 # Our Pallets
-pallet-balances = { path = "../balances", default-features = false  }
-pallet-contracts = { git = "https://github.com/paritytech/substrate", branch = "at-add-dispatch-call", default-features = false }
+# pallet-balances = { path = "../balances", default-features = false  }
+# pallet-contracts = { git = "https://github.com/paritytech/substrate", branch = "at-add-dispatch-call", default-features = false }
 pallet-identity = { path = "../identity", default-features = false }
 pallet-portfolio = { path = "../portfolio", default-features = false }
 pallet-statistics = { path = "../statistics", default-features = false }
 pallet-asset = { path = "../asset", default-features = false  }
+pallet-asset-types = { path = "../asset/types", default-features = false  }
 
 # Crypto
 cryptography = { path = "../../external/cryptography", default-features = false }
@@ -27,18 +28,17 @@ schnorrkel = { version = "0.9.1", default-features = false }
 codec = { package = "parity-scale-codec", version = "1.1.0", default-features = false, features = ["derive"] }
 frame-system = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "at-add-dispatch-call" }
 frame-support = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "at-add-dispatch-call" }
-pallet-session = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "at-add-dispatch-call" }
 sp-std = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "at-add-dispatch-call" }
-
-# Only in STD
-frame-benchmarking = { default-features = false, git = "https://github.com/paritytech/substrate", branch = "at-add-dispatch-call", optional = true }
 
 [features]
 equalize = []
-default = ["std", "equalize", "runtime-benchmarks"]
+default = ["std"]
 no_std = []
 only-staking = []
-std = []
-runtime-benchmarks = [
-    "frame-benchmarking",
+std = [
+    "pallet-asset-types/std",
+    "sp-std/std",
+    "polymesh-primitives/std",
+    "frame-system/std",
+    "frame-support/std",
 ]
