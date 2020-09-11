@@ -27,5 +27,9 @@ cargo test \
   --package pallet-transaction-payment \
   --package polymesh-primitives \
   --package polymesh-runtime-tests \
-  --features default_identity \
+  --features default_identity
+CACHE_SIZE=$(du -s target | awk '{ print $1 }')
+if [[ $CACHE_SIZE -gt 10000000 ]]; then
+    find target -type f -delete
+fi
 

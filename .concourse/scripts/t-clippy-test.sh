@@ -20,3 +20,8 @@ if [ ! -z "$SUBMODULE_ACCESS_TOKEN" ]; then
 fi
 
 cargo clippy -- -A clippy::all -W clippy::complexity -W clippy::perf
+CACHE_SIZE=$(du -s target | awk '{ print $1 }')
+if [[ $CACHE_SIZE -gt 10000000 ]]; then
+    find target -type f -delete
+fi
+

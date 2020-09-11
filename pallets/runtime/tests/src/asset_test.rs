@@ -3,8 +3,8 @@ use crate::{
     ext_builder::{ExtBuilder, MockProtocolBaseFees},
     pips_test::assert_balance,
     storage::{
-        account_from, add_secondary_key, make_account_without_cdd, register_keyring_account,
-        AccountId, TestStorage,
+        account_from, add_secondary_key, make_account_without_cdd,
+        provide_scope_claim_to_multiple_parties, register_keyring_account, AccountId, TestStorage,
     },
 };
 use frame_support::IterableStorageMap;
@@ -357,110 +357,99 @@ fn valid_custodian_allowance() {
 
 #[test]
 fn valid_custodian_allowance_of() {
-    ExtBuilder::default().build().execute_with(|| {
-        let owner_signed = Origin::signed(AccountKeyring::Dave.public());
-        let owner_did = register_keyring_account(AccountKeyring::Dave).unwrap();
+    ExtBuilder::default()
+        .cdd_providers(vec![AccountKeyring::Alice.public()])
+        .build()
+        .execute_with(|| {
+            let owner_signed = Origin::signed(AccountKeyring::Dave.public());
+            let owner_did = register_keyring_account(AccountKeyring::Dave).unwrap();
 
-        let now = Utc::now();
-        Timestamp::set_timestamp(now.timestamp() as u64);
+            let alice = AccountKeyring::Alice.public();
 
-        // Expected token entry
-        let token = SecurityToken {
-            name: vec![0x01].into(),
-            owner_did,
-            total_supply: 1_000_000,
-            divisible: true,
-            asset_type: AssetType::default(),
-            ..Default::default()
-        };
-        let ticker = Ticker::try_from(token.name.as_slice()).unwrap();
+            let now = Utc::now();
+            Timestamp::set_timestamp(now.timestamp() as u64);
 
-        let investor1_signed = Origin::signed(AccountKeyring::Bob.public());
-        let investor1_did = register_keyring_account(AccountKeyring::Bob).unwrap();
-        let investor2_signed = Origin::signed(AccountKeyring::Charlie.public());
-        let investor2_did = register_keyring_account(AccountKeyring::Charlie).unwrap();
-        let custodian_signed = Origin::signed(AccountKeyring::Eve.public());
-        let custodian_did = register_keyring_account(AccountKeyring::Eve).unwrap();
+            // Expected token entry
+            let token = SecurityToken {
+                name: vec![0x01].into(),
+                owner_did,
+                total_supply: 1_000_000,
+                divisible: true,
+                asset_type: AssetType::default(),
+                ..Default::default()
+            };
+            let ticker = Ticker::try_from(token.name.as_slice()).unwrap();
 
-        // Issuance is successful
-        assert_ok!(Asset::create_asset(
-            owner_signed.clone(),
-            token.name.clone(),
-            ticker,
-            token.total_supply,
-            true,
-            token.asset_type.clone(),
-            vec![],
-            None,
-        ));
+            let investor1_signed = Origin::signed(AccountKeyring::Bob.public());
+            let investor1_did = register_keyring_account(AccountKeyring::Bob).unwrap();
+            let investor2_signed = Origin::signed(AccountKeyring::Charlie.public());
+            let investor2_did = register_keyring_account(AccountKeyring::Charlie).unwrap();
+            let custodian_signed = Origin::signed(AccountKeyring::Eve.public());
+            let custodian_did = register_keyring_account(AccountKeyring::Eve).unwrap();
 
-        assert_eq!(
-            Asset::balance(&ticker, token.owner_did).total,
-            token.total_supply
-        );
+            // Issuance is successful
+            assert_ok!(Asset::create_asset(
+                owner_signed.clone(),
+                token.name.clone(),
+                ticker,
+                token.total_supply,
+                true,
+                token.asset_type.clone(),
+                vec![],
+                None,
+            ));
 
-        // Allow all transfers
-        assert_ok!(ComplianceManager::add_compliance_requirement(
-            owner_signed.clone(),
-            ticker,
-            vec![],
-            vec![]
-        ));
+            assert_eq!(
+                Asset::balance(&ticker, token.owner_did).total,
+                token.total_supply
+            );
 
-        // Mint some tokens to investor1
-        assert_ok!(Asset::issue(
-            owner_signed.clone(),
-            ticker,
-            200_00_00 as u128,
-        ));
-        assert_ok!(Asset::unsafe_transfer(
-            owner_did,
-            &ticker,
-            owner_did,
-            investor1_did,
-            2_000_000 as u128
-        ));
+            // Provide scope claim for sender and receiver.
+            provide_scope_claim_to_multiple_parties(
+                &[owner_did, investor1_did, investor2_did],
+                ticker,
+                alice,
+            );
 
-        assert_eq!(
-            Asset::balance(&ticker, investor1_did).total,
-            2_000_000 as u128
-        );
+            // Allow all transfers
+            assert_ok!(ComplianceManager::add_compliance_requirement(
+                owner_signed.clone(),
+                ticker,
+                vec![],
+                vec![]
+            ));
 
-        let msg = SignData {
-            custodian_did,
-            holder_did: investor1_did,
-            ticker,
-            value: 50_00_00 as u128,
-            nonce: 1,
-        };
+            // Mint some tokens to investor1
+            assert_ok!(Asset::issue(
+                owner_signed.clone(),
+                ticker,
+                200_00_00 as u128,
+            ));
+            assert_ok!(Asset::unsafe_transfer(
+                owner_did,
+                &ticker,
+                owner_did,
+                investor1_did,
+                2_000_000 as u128
+            ));
 
-        let investor1_key = AccountKeyring::Bob;
+            assert_eq!(
+                Asset::balance(&ticker, investor1_did).total,
+                2_000_000 as u128
+            );
 
-        // Add custodian
-        assert_ok!(Asset::increase_custody_allowance_of(
-            investor2_signed.clone(),
-            ticker,
-            investor1_did,
-            AccountKeyring::Bob.public(),
-            custodian_did,
-            50_00_00 as u128,
-            1,
-            OffChainSignature::from(investor1_key.sign(&msg.encode()))
-        ));
+            let msg = SignData {
+                custodian_did,
+                holder_did: investor1_did,
+                ticker,
+                value: 50_00_00 as u128,
+                nonce: 1,
+            };
 
-        assert_eq!(
-            Asset::custodian_allowance((ticker, investor1_did, custodian_did)),
-            50_00_00 as u128
-        );
+            let investor1_key = AccountKeyring::Bob;
 
-        assert_eq!(
-            Asset::total_custody_allowance((ticker, investor1_did)),
-            50_00_00 as u128
-        );
-
-        // use the same signature with the same nonce should fail
-        assert_noop!(
-            Asset::increase_custody_allowance_of(
+            // Add custodian
+            assert_ok!(Asset::increase_custody_allowance_of(
                 investor2_signed.clone(),
                 ticker,
                 investor1_did,
@@ -469,34 +458,57 @@ fn valid_custodian_allowance_of() {
                 50_00_00 as u128,
                 1,
                 OffChainSignature::from(investor1_key.sign(&msg.encode()))
-            ),
-            AssetError::SignatureAlreadyUsed
-        );
+            ));
 
-        // use the same signature with the different nonce should fail
-        assert_noop!(
-            Asset::increase_custody_allowance_of(
-                investor2_signed.clone(),
+            assert_eq!(
+                Asset::custodian_allowance((ticker, investor1_did, custodian_did)),
+                50_00_00 as u128
+            );
+
+            assert_eq!(
+                Asset::total_custody_allowance((ticker, investor1_did)),
+                50_00_00 as u128
+            );
+
+            // use the same signature with the same nonce should fail
+            assert_noop!(
+                Asset::increase_custody_allowance_of(
+                    investor2_signed.clone(),
+                    ticker,
+                    investor1_did,
+                    AccountKeyring::Bob.public(),
+                    custodian_did,
+                    50_00_00 as u128,
+                    1,
+                    OffChainSignature::from(investor1_key.sign(&msg.encode()))
+                ),
+                AssetError::SignatureAlreadyUsed
+            );
+
+            // use the same signature with the different nonce should fail
+            assert_noop!(
+                Asset::increase_custody_allowance_of(
+                    investor2_signed.clone(),
+                    ticker,
+                    investor1_did,
+                    AccountKeyring::Bob.public(),
+                    custodian_did,
+                    50_00_00 as u128,
+                    3,
+                    OffChainSignature::from(investor1_key.sign(&msg.encode()))
+                ),
+                AssetError::InvalidSignature
+            );
+
+            // Successfully transfer by the custodian
+            assert_ok!(Asset::transfer_by_custodian(
+                custodian_signed.clone(),
                 ticker,
                 investor1_did,
-                AccountKeyring::Bob.public(),
-                custodian_did,
-                50_00_00 as u128,
-                3,
-                OffChainSignature::from(investor1_key.sign(&msg.encode()))
-            ),
-            AssetError::InvalidSignature
-        );
-
-        // Successfully transfer by the custodian
-        assert_ok!(Asset::transfer_by_custodian(
-            custodian_signed.clone(),
-            ticker,
-            investor1_did,
-            investor2_did,
-            45_00_00 as u128
-        ));
-    });
+                investor2_did,
+                45_00_00 as u128
+            ));
+        });
 }
 
 #[test]
@@ -1831,6 +1843,8 @@ fn test_can_transfer_rpc() {
             let _custodian_signed = Origin::signed(AccountKeyring::Charlie.public());
             let custodian_did = register_keyring_account(AccountKeyring::Charlie).unwrap();
 
+            let eve = AccountKeyring::Eve.public();
+
             let token_name = b"COOL";
             let ticker = Ticker::try_from(&token_name[..]).unwrap();
             assert_ok!(Asset::create_asset(
@@ -1849,6 +1863,9 @@ fn test_can_transfer_rpc() {
                 Asset::balance_of(&ticker, alice_did),
                 1_000 * currency::ONE_UNIT
             );
+
+            // Provide scope claim for sender and receiver.
+            provide_scope_claim_to_multiple_parties(&[alice_did, bob_did], ticker, eve);
 
             // case 1: When passed invalid granularity
             assert_eq!(
@@ -2027,6 +2044,7 @@ fn can_set_primary_issuance_agent_we() {
 #[test]
 fn test_weights_for_is_valid_transfer() {
     ExtBuilder::default()
+        .cdd_providers(vec![AccountKeyring::Dave.public()])
         .set_max_tms_allowed(4)
         .build()
         .execute_with(|| {
@@ -2041,6 +2059,8 @@ fn test_weights_for_is_valid_transfer() {
 
             let eve = AccountKeyring::Eve.public();
             let (eve_signed, eve_did) = make_account_without_cdd(eve).unwrap();
+
+            let dave = AccountKeyring::Dave.public();
 
             let token = SecurityToken {
                 name: vec![0x01].into(),
@@ -2064,6 +2084,8 @@ fn test_weights_for_is_valid_transfer() {
                 None,
             ));
 
+            // Provide scope claim to sender and receiver.
+            provide_scope_claim_to_multiple_parties(&[alice_did, bob_did], ticker, dave);
             // Get token Id.
             let ticker_id = Identity::get_token_did(&ticker).unwrap();
 
@@ -2073,23 +2095,27 @@ fn test_weights_for_is_valid_transfer() {
                 ticker,
                 vec![
                     Condition {
-                        condition_type: ConditionType::IsPresent(Claim::Accredited(ticker_id)),
+                        condition_type: ConditionType::IsPresent(Claim::Accredited(
+                            ticker_id.into()
+                        )),
                         issuers: vec![eve_did]
                     },
                     Condition {
-                        condition_type: ConditionType::IsAbsent(Claim::BuyLockup(ticker_id)),
+                        condition_type: ConditionType::IsAbsent(Claim::BuyLockup(ticker_id.into())),
                         issuers: vec![eve_did]
                     }
                 ],
                 vec![
                     Condition {
-                        condition_type: ConditionType::IsPresent(Claim::Accredited(ticker_id)),
+                        condition_type: ConditionType::IsPresent(Claim::Accredited(
+                            ticker_id.into()
+                        )),
                         issuers: vec![eve_did]
                     },
                     Condition {
                         condition_type: ConditionType::IsAnyOf(vec![
-                            Claim::BuyLockup(ticker_id),
-                            Claim::KnowYourCustomer(ticker_id)
+                            Claim::BuyLockup(ticker_id.into()),
+                            Claim::KnowYourCustomer(ticker_id.into())
                         ]),
                         issuers: vec![eve_did]
                     }
@@ -2098,14 +2124,26 @@ fn test_weights_for_is_valid_transfer() {
 
             // Providing claim to sender and receiver
             // For Alice
-            assert_add_claim!(eve_signed.clone(), alice_did, Claim::Accredited(alice_did));
-            assert_add_claim!(eve_signed.clone(), alice_did, Claim::BuyLockup(ticker_id));
+            assert_add_claim!(
+                eve_signed.clone(),
+                alice_did,
+                Claim::Accredited(alice_did.into())
+            );
+            assert_add_claim!(
+                eve_signed.clone(),
+                alice_did,
+                Claim::BuyLockup(ticker_id.into())
+            );
             // For Bob
-            assert_add_claim!(eve_signed.clone(), bob_did, Claim::Accredited(ticker_id));
             assert_add_claim!(
                 eve_signed.clone(),
                 bob_did,
-                Claim::KnowYourCustomer(ticker_id)
+                Claim::Accredited(ticker_id.into())
+            );
+            assert_add_claim!(
+                eve_signed.clone(),
+                bob_did,
+                Claim::KnowYourCustomer(ticker_id.into())
             );
 
             // Add Tms
@@ -2147,8 +2185,16 @@ fn test_weights_for_is_valid_transfer() {
             .1;
             assert!(matches!(result, weight_from_verify_transfer)); // Only sender rules are processed.
 
-            assert_revoke_claim!(eve_signed.clone(), alice_did, Claim::BuyLockup(ticker_id));
-            assert_add_claim!(eve_signed.clone(), alice_did, Claim::Accredited(ticker_id));
+            assert_revoke_claim!(
+                eve_signed.clone(),
+                alice_did,
+                Claim::BuyLockup(ticker_id.into())
+            );
+            assert_add_claim!(
+                eve_signed.clone(),
+                alice_did,
+                Claim::Accredited(ticker_id.into())
+            );
 
             let result =
                 Asset::_is_valid_transfer(&ticker, alice, Some(alice_did), Some(bob_did), 100)
@@ -2172,11 +2218,11 @@ fn test_weights_for_is_valid_transfer() {
                 alice_signed.clone(),
                 ticker,
                 vec![Condition {
-                    condition_type: ConditionType::IsPresent(Claim::Exempted(ticker_id)),
+                    condition_type: ConditionType::IsPresent(Claim::Exempted(ticker_id.into())),
                     issuers: vec![eve_did]
                 }],
                 vec![Condition {
-                    condition_type: ConditionType::IsPresent(Claim::Blocked(ticker_id)),
+                    condition_type: ConditionType::IsPresent(Claim::Blocked(ticker_id.into())),
                     issuers: vec![eve_did]
                 }]
             ));

@@ -360,7 +360,13 @@
                 "ZW"
             ]
         },
-        "Scope": "IdentityId",
+        "Scope": {
+            "_enum": {
+                "Identity": "IdentityId",
+                "Ticker": "Ticker",
+                "Custom": "Vec<u8>"
+            }
+        },
         "InvestorZKProofData": "[u8;64]",
         "Claim": {
             "_enum": {
@@ -419,7 +425,14 @@
                 "IsAbsent": "Claim",
                 "IsAnyOf": "Vec<Claim>",
                 "IsNoneOf": "Vec<Claim>",
-                "IsIdentity": "TargetIdentity"
+                "IsIdentity": "TargetIdentity",
+                "HasValidProofOfInvestor": "Ticker"
+            }
+        },
+        "ImplicitRequirementStatus": {
+            "_enum": {
+                "Active":"",
+                "Inactive":""
             }
         },
         "Condition": {
@@ -693,6 +706,7 @@
         "AssetComplianceResult": {
             "paused": "bool",
             "requirements": "Vec<ComplianceRequirementResult>",
+            "implicit_requirements_result": "Option<ImplicitRequirementResult>",
             "result": "bool"
         },
         "Claim1stKey": {
@@ -965,6 +979,10 @@
                 "Sto",
                 "Exchange"
             ]
+        },
+        "ImplicitRequirementResult": {
+            "from_result": "bool",
+            "to_result": "bool"
         }
     },
     "rpc": {

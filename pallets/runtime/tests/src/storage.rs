@@ -3,6 +3,7 @@ use super::ext_builder::{
     WEIGHT_TO_FEE,
 };
 use codec::Encode;
+use cryptography::claim_proofs::{compute_cdd_id, compute_scope_id};
 use frame_support::{
     assert_ok,
     dispatch::DispatchResult,
@@ -41,7 +42,8 @@ use polymesh_common_utilities::traits::{
 };
 use polymesh_common_utilities::Context;
 use polymesh_primitives::{
-    Authorization, AuthorizationData, CddId, Claim, IdentityId, InvestorUid, Signatory,
+    Authorization, AuthorizationData, CddId, Claim, IdentityId, InvestorUid, InvestorZKProofData,
+    Scope, Signatory, Ticker,
 };
 use polymesh_runtime_common::{bridge, cdd_check::CddChecker, dividend, exemption, voting};
 use smallvec::smallvec;
@@ -58,6 +60,7 @@ use sp_runtime::{
     AnySignature, KeyTypeId, Perbill,
 };
 use std::cell::RefCell;
+use std::convert::{From, TryFrom};
 use test_client::AccountKeyring;
 
 impl_opaque_keys! {
@@ -593,6 +596,7 @@ pub type DefaultCommittee = committee::Module<TestStorage, committee::DefaultIns
 pub type Utility = pallet_utility::Module<TestStorage>;
 pub type System = frame_system::Module<TestStorage>;
 pub type Portfolio = portfolio::Module<TestStorage>;
+pub type ComplianceManager = compliance_manager::Module<TestStorage>;
 
 pub fn make_account(
     id: AccountId,
@@ -704,4 +708,48 @@ pub fn fast_forward_to_block(n: u64) {
 
 pub fn fast_forward_blocks(n: u64) {
     fast_forward_to_block(n + frame_system::Module::<TestStorage>::block_number());
+}
+
+pub fn provide_scope_claim(
+    claim_to: IdentityId,
+    scope: Ticker,
+    investor_uid: InvestorUid,
+    cdd_provider: AccountId,
+) {
+    let asset_id = IdentityId::try_from(scope.as_slice()).unwrap();
+
+    let proof: InvestorZKProofData = InvestorZKProofData::new(&claim_to, &investor_uid, &scope);
+    let cdd_claim = InvestorZKProofData::make_cdd_claim(&claim_to, &investor_uid);
+    let cdd_id = compute_cdd_id(&cdd_claim).compress().to_bytes().into();
+    let scope_claim = InvestorZKProofData::make_scope_claim(&scope, &investor_uid);
+    let scope_id = compute_scope_id(&scope_claim).compress().to_bytes().into();
+
+    let signed_claim_to = Origin::signed(Identity::did_records(claim_to).primary_key);
+
+    // Add cdd claim first
+    assert_ok!(Identity::add_claim(
+        Origin::signed(cdd_provider),
+        claim_to,
+        Claim::CustomerDueDiligence(cdd_id),
+        None
+    ));
+
+    // Provide the InvestorZKProof.
+    assert_ok!(Identity::add_claim(
+        signed_claim_to,
+        claim_to,
+        Claim::InvestorZKProof(Scope::Ticker(scope), scope_id, cdd_id, proof),
+        None
+    ));
+}
+
+pub fn provide_scope_claim_to_multiple_parties(
+    parties: &[IdentityId],
+    ticker: Ticker,
+    cdd_provider: AccountId,
+) {
+    parties.iter().enumerate().for_each(|(index, id)| {
+        let uid = InvestorUid::from(format!("uid_{}", index).as_bytes());
+        provide_scope_claim(*id, ticker, uid, cdd_provider);
+    });
 }

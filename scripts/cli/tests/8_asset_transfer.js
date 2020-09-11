@@ -26,13 +26,13 @@ async function main() {
   await reqImports.issueTokenPerDid( api, primary_keys, prepend);
 
   // receiverRules Claim
-  await reqImports.addClaimsToDids( api, primary_keys, issuer_dids[2], "Exempted", asset_did, null );
+  await reqImports.addClaimsToDids( api, primary_keys, issuer_dids[2], "Exempted", { "Ticker": ticker }, null );
 
   // senderRules Claim
-  await reqImports.addClaimsToDids( api, primary_keys, issuer_dids[1], "Exempted", asset_did, null );
+  await reqImports.addClaimsToDids( api, primary_keys, issuer_dids[1], "Exempted", { "Ticker": ticker }, null );
 
   // issuer Claim
-  await reqImports.addClaimsToDids( api, primary_keys, issuer_dids[0], "Exempted", asset_did, null );
+  await reqImports.addClaimsToDids( api, primary_keys, issuer_dids[0], "Exempted", { "Ticker": ticker }, null );
 
   await reqImports.createClaimCompliance( api, primary_keys, issuer_dids, prepend );
 
