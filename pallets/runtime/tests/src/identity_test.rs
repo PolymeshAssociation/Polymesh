@@ -244,7 +244,7 @@ fn only_primary_key_can_add_secondary_key_permissions_with_externalities() {
             Signatory::Account(bob_key),
             Permissions::default().into()
         ),
-        Error::<TestStorage>::KeyNotAllowed
+        pallet_identity::Error::<TestStorage>::UnauthorizedCaller
     );
 
     // Bob tries to remove Charlie's permissions at `alice` Identity.
@@ -254,7 +254,7 @@ fn only_primary_key_can_add_secondary_key_permissions_with_externalities() {
             Signatory::Account(charlie_key),
             Permissions::empty().into()
         ),
-        Error::<TestStorage>::KeyNotAllowed
+        pallet_identity::Error::<TestStorage>::UnauthorizedCaller
     );
 
     // Alice over-write some permissions.
