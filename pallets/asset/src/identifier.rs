@@ -1,5 +1,5 @@
 use codec::{Decode, Encode};
-use std::convert::TryInto;
+use core::convert::TryInto;
 
 #[derive(Encode, Decode, Clone, Debug, PartialEq, Eq)]
 pub enum Identifier {
@@ -7,7 +7,7 @@ pub enum Identifier {
     CINS([u8; 9]),
     ISIN([u8; 12]),
     LEI([u8; 20]),
-    EMPTY
+    EMPTY,
 }
 
 impl Default for Identifier {
@@ -18,77 +18,67 @@ impl Default for Identifier {
 
 impl Identifier {
     pub fn cusip(bytes: [u8; 9]) -> Option<Identifier> {
-        if cusip_checksum(&bytes[..8]) == bytes[8] - b'0' {
-            return Some(Identifier::CUSIP(bytes));
-        }
-        None
+        (cusip_checksum(&bytes[..8]) == bytes[8] - b'0').then_some(Identifier::CUSIP(bytes))
     }
 
     pub fn cins(bytes: [u8; 9]) -> Option<Identifier> {
-        if cusip_checksum(&bytes[..8]) == bytes[8] - b'0' {
-            return Some(Identifier::CINS(bytes));
-        }
-        None
+        (cusip_checksum(&bytes[..8]) == bytes[8] - b'0').then_some(Identifier::CINS(bytes))
     }
 
     pub fn isin(bytes: [u8; 12]) -> Option<Identifier> {
-        let s: String = bytes
+        let (s1, s2) = bytes
             .iter()
             .map(|b| byte_value(*b))
-            .map(|b| b.to_string())
-            .collect();
-
-        let mut s1 = 0;
-        let mut s2 = 0;
-        for (i, c) in s.chars().rev().enumerate() {
-            let digit = c.to_digit(10)?;
-            if i % 2 == 0 {
-                s1 += digit;
-            } else {
-                s2 += 2 * digit;
-                if digit >= 5 {
-                    s2 -= 9;
+            .flat_map(|b| if b > 9 { vec![b / 10, b % 10] } else { vec![b] })
+            .rev()
+            .enumerate()
+            .fold((0, 0), |(mut s1, mut s2), (i, digit)| {
+                if i % 2 == 0 {
+                    s1 += digit;
+                } else {
+                    s2 += 2 * digit;
+                    if digit >= 5 {
+                        s2 -= 9;
+                    }
                 }
-            }
-        }
-
-        if (s1 + s2) % 10 == 0 {
-            return Some(Identifier::ISIN(bytes));
-        }
-
-        None
+                (s1, s2)
+            });
+        ((s1 + s2) % 10 == 0).then_some(Identifier::ISIN(bytes))
     }
 
     pub fn lei(bytes: [u8; 20]) -> Option<Identifier> {
-        if lei_checksum(bytes[..18].try_into().ok()?)?
-            == (bytes[18] - b'0') * 10 + (bytes[19] - b'0')
-        {
-            return Some(Identifier::LEI(bytes));
-        }
-        None
+        (lei_checksum(bytes[..18].try_into().ok()?) == (bytes[18] - b'0') * 10 + (bytes[19] - b'0'))
+            .then_some(Identifier::LEI(bytes))
     }
 }
 
 fn cusip_checksum(bytes: &[u8]) -> u8 {
-    let mut v = 0;
-    let total = bytes.iter().enumerate().fold(0, |total, (i, c)| {
-        v = byte_value(*c);
-        if i % 2 != 0 {
-            v *= 2
-        }
-        total + (v / 10) + v % 10
-    });
-    (10 - (total % 10)) % 10
+    let total: usize = bytes
+        .iter()
+        .copied()
+        .map(byte_value)
+        .enumerate()
+        .map(|(i, v)| v << (i % 2))
+        .map(|v| (v / 10) + v % 10)
+        .map(|i| i as usize)
+        .sum();
+    ((10 - (total % 10)) % 10) as u8
 }
 
-fn lei_checksum(bytes: [u8; 18]) -> Option<u8> {
-    let mut s = bytes
+fn lei_checksum(bytes: [u8; 18]) -> u8 {
+    let (total, _) = bytes
         .iter()
-        .map(|b| byte_value(*b))
-        .map(|b| b.to_string())
-        .collect::<String>();
-    s.push_str("00");
-    Some(98 - (s.parse::<u128>().ok()? % 97) as u8)
+        .rev()
+        .fold((0u128, 0usize), |(mut total, mut i), b| {
+            total += byte_value(*b) as u128 * 10u128.pow(i as u32);
+            if byte_value(*b) > 9 {
+                i += 2;
+            } else {
+                i += 1;
+            }
+            (total, i)
+        });
+    (98 - (total * 100 % 97)) as u8
 }
 
 fn byte_value(b: u8) -> u8 {
@@ -181,6 +171,5 @@ mod tests {
             Some(Identifier::LEI(*b"549300GFX6WN7JDUSN34"))
         );
         assert_eq!(Identifier::lei(*b"549300GFXDSN7JDUSN34"), None);
-        assert!(lei_checksum(*b"ZZZZZZZZZZZZZZZZZZ").is_some());
     }
 }
