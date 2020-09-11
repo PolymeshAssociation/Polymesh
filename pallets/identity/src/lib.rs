@@ -107,7 +107,7 @@ use polymesh_common_utilities::{
         },
         multisig::MultiSigSubTrait,
         transaction_payment::{CddAndFeeDetails, ChargeTxFee},
-        CheckAccountCallPermissions,
+        AccountCallPermissionsData, CheckAccountCallPermissions,
     },
     Context, SystematicIssuers,
 };
@@ -2020,16 +2020,14 @@ impl<T: Trait> Module<T> {
         origin: <T as frame_system::Trait>::Origin,
     ) -> Result<PermissionedCallOriginData<T::AccountId>, DispatchError> {
         let sender = ensure_signed(origin)?;
-        let primary_did = CallPermissions::<T>::ensure_call_permissions(&sender)?;
-        let secondary_did = Context::current_identity_or::<Self>(&sender)?;
+        let AccountCallPermissionsData {
+            primary_did,
+            secondary_key,
+        } = CallPermissions::<T>::ensure_call_permissions(&sender)?;
         let origin_data = PermissionedCallOriginData {
             sender,
             primary_did,
-            secondary_did: if primary_did != secondary_did {
-                Some(secondary_did)
-            } else {
-                None
-            },
+            secondary_key,
         };
         Ok(origin_data)
     }
@@ -2132,31 +2130,40 @@ impl<T: Trait> CheckAccountCallPermissions<T::AccountId> for Module<T> {
         who: &T::AccountId,
         pallet_name: &PalletName,
         function_name: &DispatchableName,
-    ) -> Option<IdentityId> {
+    ) -> Option<AccountCallPermissionsData<T::AccountId>> {
         if <KeyToIdentityIds<T>>::contains_key(who) {
-            let did = <KeyToIdentityIds<T>>::get(who);
-            if !<DidRecords<T>>::contains_key(&did) {
+            let primary_did = <KeyToIdentityIds<T>>::get(who);
+            if !<DidRecords<T>>::contains_key(&primary_did) {
                 // The DID record is missing.
                 return None;
             }
-            let did_record = <DidRecords<T>>::get(&did);
+            let did_record = <DidRecords<T>>::get(&primary_did);
             if who != &did_record.primary_key {
                 // `who` can be a secondary key.
                 //
                 // DIDs with frozen secondary keys (aka frozen DIDs) are not permitted to call
                 // extrinsics.
-                if !Self::is_did_frozen(&did)
-                    && did_record.secondary_keys.iter().any(|sk| {
-                        sk.signer.as_account() == Some(who)
-                            && sk.has_extrinsic_permission(pallet_name, function_name)
-                    })
-                {
-                    // `who` is a secondary key of `did`.
-                    return Some(did);
+                if !Self::is_did_frozen(&primary_did) {
+                    let current_did = Context::current_identity_or::<Self>(&sender)?;
+                    return did_record
+                        .secondary_keys
+                        .iter()
+                        .find(|sk| {
+                            sk.signer == Signatory::Account(who)
+                                || sk.signer == Signatory::Identity(current_did)
+                        })
+                        .filter(|sk| sk.has_extrinsic_permission(pallet_name, function_name))
+                        .map(|sk| AccountCallPermissionsData {
+                            primary_did,
+                            secondary_key: Some(sk),
+                        });
                 }
             }
             // `who` is the primary key.
-            return Some(did);
+            return Some(AccountCallPermissionsData {
+                primary_did: did,
+                secondary_key: None,
+            });
         }
         // `who` doesn't have an identity.
         None

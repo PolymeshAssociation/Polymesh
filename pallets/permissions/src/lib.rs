@@ -27,7 +27,9 @@ use frame_support::{
     storage::StorageValue,
     traits::GetCallMetadata,
 };
-use polymesh_common_utilities::traits::{CheckAccountCallPermissions, PermissionChecker as Trait};
+use polymesh_common_utilities::traits::{
+    AccountCallPermissionsData, CheckAccountCallPermissions, PermissionChecker as Trait,
+};
 use polymesh_primitives::{DispatchableName, IdentityId, PalletName};
 use sp_runtime::{
     traits::{DispatchInfoOf, PostDispatchInfoOf, SignedExtension},
@@ -59,13 +61,15 @@ impl<T: Trait> Module<T> {
     /// Checks if `who` is permissioned to call the current extrinsic. Returns `Ok(did)` if
     /// successful where `did` is the primary identity associated with the current call. Otherwise
     /// returns an `Err`.
-    pub fn ensure_call_permissions(who: &T::AccountId) -> Result<IdentityId, DispatchError> {
-        if let Some(did) = T::Checker::check_account_call_permissions(
+    pub fn ensure_call_permissions(
+        who: &T::AccountId,
+    ) -> Result<AccountCallPermissionsData<T::AccountId>, DispatchError> {
+        if let Some(data) = T::Checker::check_account_call_permissions(
             who,
             &Self::current_pallet_name(),
             &Self::current_dispatchable_name(),
         ) {
-            return Ok(did);
+            return Ok(data);
         }
         Err(Error::<T>::UnauthorizedCaller.into())
     }

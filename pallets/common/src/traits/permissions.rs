@@ -13,12 +13,20 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
-use polymesh_primitives::{DispatchableName, IdentityId, PalletName};
+use polymesh_primitives::{DispatchableName, IdentityId, PalletName, SecondaryKey};
 
 /// Permissions module configuration trait.
 pub trait PermissionChecker: frame_system::Trait {
     /// The type that implements the permission check function.
     type Checker: CheckAccountCallPermissions<Self::AccountId>;
+}
+
+/// Result of `CheckAccountCallPermissions::check_account_call_permissions`.
+pub struct AccountCallPermissionsData<AccountId> {
+    /// The primary identity of the call.
+    pub primary_did: IdentityId,
+    /// The secondary key of the call, if it is defined.
+    pub secondary_key: Option<SecondaryKey<AccountId>>,
 }
 
 /// A permission checker for calls from accounts to extrinsics.
@@ -28,13 +36,14 @@ pub trait CheckAccountCallPermissions<AccountId> {
     ///
     /// Returns:
     ///
-    /// - `Some(did)` where `did` is the idenitity ID on behalf of which the caller is allowed to
-    /// make tis call.
+    /// - `Some(data)` where `data` contains the primary identity ID on behalf of which the caller
+    /// is allowed to make this call and the secondary key of the caller if the caller is a
+    /// secondary key of the primary identity.
     ///
-    /// - `None` if there is no such identity.
+    /// - `None` if the call is not allowed.
     fn check_account_call_permissions(
         who: &AccountId,
         pallet_name: &PalletName,
         function_name: &DispatchableName,
-    ) -> Option<IdentityId>;
+    ) -> Option<AccountCallPermissionsData<AccountId>>;
 }

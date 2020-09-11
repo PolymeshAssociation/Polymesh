@@ -1,7 +1,9 @@
 //! Runtime API definition for Identity module.
 
 use codec::{Decode, Encode};
-pub use polymesh_primitives::{Authorization, AuthorizationType, IdentityId, Moment, Permissions};
+pub use polymesh_primitives::{
+    Authorization, AuthorizationType, IdentityId, Moment, Permissions, SecondaryKey,
+};
 #[cfg(feature = "std")]
 use serde::{Deserialize, Serialize};
 use sp_std::{prelude::*, vec::Vec};
@@ -54,5 +56,5 @@ pub struct PermissionedCallOriginData<AccountId> {
     /// `primary_did`. This field can be used when checking asset and portfolio permissions. It is
     /// `Some(did)` iff the current identity (the identity that the call is made from) is a
     /// secondary identity `did` of `primary_did`.
-    pub secondary_did: Option<IdentityId>,
+    pub secondary_key: Option<SecondaryKey<AccountId>>,
 }
