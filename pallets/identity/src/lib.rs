@@ -124,7 +124,7 @@ use frame_support::{
     ensure,
     traits::{ChangeMembers, Currency, InitializeMembers},
     weights::{DispatchClass, GetDispatchInfo, Pays, Weight},
-    StorageDoubleMap,
+    Blake2_128Concat, ReversibleStorageHasher, StorageDoubleMap, StorageHasher,
 };
 use frame_system::{self as system, ensure_root, ensure_signed};
 
@@ -140,6 +140,12 @@ pub struct Claim1stKey {
 pub struct Claim2ndKey {
     pub issuer: IdentityId,
     pub scope: Option<Scope>,
+}
+
+#[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, PartialOrd, Ord)]
+pub struct Claim2ndKeyOld {
+    pub issuer: IdentityId,
+    pub scope: Option<IdentityId>,
 }
 
 decl_storage! {
@@ -255,6 +261,31 @@ decl_module! {
 
             use polymesh_primitives::{identity_claim::IdentityClaimOld, migrate::migrate_map};
             migrate_map::<IdentityClaimOld>(b"Identity", b"Claims");
+
+            // Covert old scopes to new scopes
+            use frame_support::migration::{StorageIterator, put_storage_value};
+            let old_map = StorageIterator::<IdentityClaim>::new(b"Identity", b"Claims")
+                .drain().
+                collect::<Vec<(Vec<u8>, IdentityClaim)>>();
+
+            for (raw_key, value) in old_map.iter() {
+                let mut unhashed_key = Blake2_128Concat::reverse(&raw_key);
+                if let Ok(k1) = Claim1stKey::decode(&mut unhashed_key) {
+                    let mut raw_k2 = Blake2_128Concat::reverse(unhashed_key);
+                    if let Ok(k2) = Claim2ndKeyOld::decode(&mut raw_k2) {
+                        let k2 = Claim2ndKey {
+                            issuer: k2.issuer,
+                            scope: k2.scope.map(|did| Scope::Identity(did)),
+                        };
+                        let mut k1_hashed = k1.using_encoded(Blake2_128Concat::hash);
+                        let mut k2_hashed = k2.using_encoded(Blake2_128Concat::hash);
+                        let mut key = Vec::new();
+                        key.append(&mut k1_hashed);
+                        key.append(&mut k2_hashed);
+                        put_storage_value(b"Identity", b"Claims", &key, value);
+                    }
+                }
+            }
 
             // It's gonna be alot, so lets pretend its 0 anyways.
             0
@@ -1643,7 +1674,7 @@ impl<T: Trait> Module<T> {
         let claim_type = claim.claim_type();
         let scope = claim.as_scope().cloned();
         let last_update_date = <pallet_timestamp::Module<T>>::get().saturated_into::<u64>();
-        let issuance_date = Self::fetch_claim(target, claim_type, issuer, scope)
+        let issuance_date = Self::fetch_claim(target, claim_type, issuer, scope.clone())
             .map_or(last_update_date, |id_claim| id_claim.issuance_date);
 
         let expiry = expiry.into_iter().map(|m| m.saturated_into::<u64>()).next();

@@ -92,9 +92,10 @@ use polymesh_common_utilities::{
     Context,
 };
 use polymesh_primitives::{
-    proposition, Claim, ClaimType, Condition, ConditionType, IdentityId, Ticker,
+    proposition, Claim, ClaimType, Condition, ConditionType, IdentityId, Scope, Ticker,
 };
 use polymesh_primitives_derive::Migrate;
+
 #[cfg(feature = "std")]
 use sp_runtime::{Deserialize, Serialize};
 use sp_std::{
@@ -522,7 +523,7 @@ impl<T: Trait> Module<T> {
         issuers
             .iter()
             .flat_map(|issuer| {
-                <identity::Module<T>>::fetch_claim(target, claim_type, *issuer, scope)
+                <identity::Module<T>>::fetch_claim(target, claim_type, *issuer, scope.clone())
                     .map(|id_claim| id_claim.claim)
             })
             .collect::<Vec<_>>()
@@ -533,7 +534,7 @@ impl<T: Trait> Module<T> {
     fn fetch_confidential_claims(id: IdentityId, ticker: &Ticker) -> Vec<Claim> {
         let claim_type = ClaimType::InvestorZKProof;
         // NOTE: Ticker lenght is less by design that IdentityId.
-        let asset_scope = IdentityId::try_from(ticker.as_slice()).unwrap_or_default();
+        let asset_scope = Scope::from(*ticker);
 
         <identity::Module<T>>::fetch_claim(id, claim_type, id, Some(asset_scope))
             .into_iter()

@@ -69,9 +69,10 @@ jobs:
         file: githubpr-polymesh/.git/resource/head_sha
       - load_var: rusttoolchain
         file: githubpr-polymesh/rust-toolchain
-      - put: semver-git-polymesh
+      - get: semver-git-polymesh
         params:
-          pre: rc
+          pre: toolingpr((.:scmpr)).((.:scmheadsha))
+          pre_without_version: true
       - in_parallel:
           - task: run-lint
             config:
@@ -195,7 +196,6 @@ jobs:
               run:
                 path: bash
                 args: ["githubpr-polymesh/.concourse/scripts/t-npm-test.sh", "githubpr-polymesh", "npm-caches", "artifact"]
-            timeout: 30m
       - in_parallel:
           - put: s3-polymesh
             params:

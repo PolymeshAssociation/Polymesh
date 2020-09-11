@@ -13,9 +13,8 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
-use crate::{identity_id::IdentityId, CddId, InvestorZKProofData, Moment};
-
 use crate as polymesh_primitives;
+use crate::{identity_id::IdentityId, CddId, InvestorZKProofData, Moment, Ticker};
 
 use codec::{Decode, Encode};
 use polymesh_primitives_derive::Migrate;
@@ -24,38 +23,76 @@ use sp_runtime::{Deserialize, Serialize};
 use sp_std::prelude::*;
 
 use super::jurisdiction::{CountryCode, JurisdictionName};
+use crate::migrate::Migrate;
 
-/// Scope: Almost all claim needs a valid scope identity.
-pub type Scope = IdentityId;
 /// It is the asset Id.
-pub type ScopeId = Scope;
+pub type ScopeId = IdentityId;
+
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+#[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, PartialOrd, Ord)]
+/// Scope: Almost all claim needs a valid scope.
+pub enum Scope {
+    /// Scoped to an Identity
+    Identity(IdentityId),
+    /// Scoped to a `Ticker`.
+    Ticker(Ticker),
+    /// Scoped to arbitrary bytes
+    Custom(Vec<u8>),
+}
+
+impl From<IdentityId> for Scope {
+    fn from(did: IdentityId) -> Self {
+        Self::Identity(did)
+    }
+}
+
+impl From<Ticker> for Scope {
+    fn from(ticker: Ticker) -> Self {
+        Self::Ticker(ticker)
+    }
+}
+
+impl From<Vec<u8>> for Scope {
+    fn from(vec: Vec<u8>) -> Self {
+        Self::Custom(vec)
+    }
+}
+
+impl Migrate for ScopeOld {
+    type Into = Scope;
+
+    fn migrate(self) -> Option<Self::Into> {
+        Some(Scope::Identity(self))
+    }
+}
 
 type CountryCodeOld = JurisdictionName;
+pub type ScopeOld = IdentityId;
 
 /// All possible claims in polymesh
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, Migrate)]
 pub enum Claim {
     /// User is Accredited
-    Accredited(Scope),
+    Accredited(#[migrate] Scope),
     /// User is Accredited
-    Affiliate(Scope),
+    Affiliate(#[migrate] Scope),
     /// User has an active BuyLockup (end date defined in claim expiry)
-    BuyLockup(Scope),
+    BuyLockup(#[migrate] Scope),
     /// User has an active SellLockup (date defined in claim expiry)
-    SellLockup(Scope),
+    SellLockup(#[migrate] Scope),
     /// User has passed CDD
     CustomerDueDiligence(CddId),
     /// User is KYC'd
-    KnowYourCustomer(Scope),
+    KnowYourCustomer(#[migrate] Scope),
     /// This claim contains a string that represents the jurisdiction of the user
-    Jurisdiction(#[migrate] CountryCode, Scope),
+    Jurisdiction(#[migrate] CountryCode, #[migrate] Scope),
     /// User is exempted
-    Exempted(Scope),
+    Exempted(#[migrate] Scope),
     /// User is Blocked
-    Blocked(Scope),
+    Blocked(#[migrate] Scope),
     /// Confidential Scope claim
-    InvestorZKProof(Scope, ScopeId, CddId, InvestorZKProofData),
+    InvestorZKProof(#[migrate] Scope, ScopeId, CddId, InvestorZKProofData),
     /// Empty claim
     NoData,
 }

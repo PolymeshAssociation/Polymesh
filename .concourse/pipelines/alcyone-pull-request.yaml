@@ -1,25 +1,34 @@
 ---
 
 resource_types:
-- name: pull-request
-  type: docker-image
-  source:
-    repository: teliaoss/github-pr-resource
+  - name: pull-request
+    type: docker-image
+    source:
+      repository: teliaoss/github-pr-resource
 
 resources:
   - name: githubpr-polymesh
     type: pull-request
-    webhook_token: ((polymathnetwork-polymesh-webhook-token-master))
+    webhook_token: ((polymathnetwork-polymesh-webhook-token-develop))
     source:
       repository: polymathnetwork/Polymesh
       access_token: ((github-concourse-access-token))
-      base_branch: master
+      base_branch: alcyone
+      disable_forks: true
   - name: s3-polymesh
     type: s3
     source:
       bucket: polymesh-testnet-artifacts
       region_name: ca-central-1
       regexp: concourse/polymesh/polymesh-(.*)
+      access_key_id: ((s3-polymath-concourse.access_key_id))
+      secret_access_key: ((s3-polymath-concourse.secret_access_key))
+  - name: s3-polymesh-runtime
+    type: s3
+    source:
+      bucket: polymesh-testnet-artifacts
+      region_name: ca-central-1
+      regexp: concourse/polymesh-runtime/polymesh_runtime_(.*)
       access_key_id: ((s3-polymath-concourse.access_key_id))
       secret_access_key: ((s3-polymath-concourse.secret_access_key))
   - name: dockerimage-polymesh
@@ -34,7 +43,7 @@ resources:
       driver: git
       uri: git@github.com:polymathnetwork/concourse-semver-tracking
       branch: master
-      file: polymesh/aldebaran-version
+      file: polymesh/alcyone-version
       private_key: ((github-polymathnetwork-concourse-semver-tracking.id_rsa))
 
 jobs:
@@ -49,6 +58,10 @@ jobs:
         params:
           path: githubpr-polymesh
           status: pending
+      - load_var: scmpr
+        file: githubpr-polymesh/.git/resource/pr
+      - load_var: scmheadsha
+        file: githubpr-polymesh/.git/resource/head_sha
       - put: semver-git-polymesh
         params:
           pre: rc
@@ -115,27 +128,6 @@ jobs:
               outputs:
                 - name: npm-caches
       - in_parallel:
-          - task: clippy-test
-            params:
-              SUBMODULE_ACCESS_TOKEN: ((github-concourse-access-token))
-            config:
-              inputs:
-                - name: githubpr-polymesh
-              caches:
-                - path: githubpr-polymesh/target
-                - path: /usr/local/cargo
-              platform: linux
-              image_resource:
-                type: registry-image
-                source:
-                  repository: polymathnetwork/rust
-                  tag: debian-1.45.0
-                  aws_access_key_id: ((polymath-ecr.aws-access-id))
-                  aws_secret_access_key: ((polymath-ecr.aws-access-secret))
-                  aws_region: us-east-1
-              run:
-                path: bash
-                args: ["githubpr-polymesh/.concourse/scripts/t-clippy-test.sh", "githubpr-polymesh"]
           - task: cargo-test
             params:
               SUBMODULE_ACCESS_TOKEN: ((github-concourse-access-token))
@@ -150,7 +142,7 @@ jobs:
                 type: registry-image
                 source:
                   repository: polymathnetwork/rust
-                  tag: debian-1.44.1
+                  tag: debian-1.45.0
                   aws_access_key_id: ((polymath-ecr.aws-access-id))
                   aws_secret_access_key: ((polymath-ecr.aws-access-secret))
                   aws_region: us-east-1
@@ -175,11 +167,18 @@ jobs:
               run:
                 path: bash
                 args: ["githubpr-polymesh/.concourse/scripts/t-npm-test.sh", "githubpr-polymesh", "npm-caches", "artifact"]
-            timeout: 30m
       - in_parallel:
           - put: s3-polymesh
             params:
               file: artifact/polymesh-*
+              acl: public-read
+          - put: s3-polymesh-runtime
+            params:
+              file: artifact/polymesh_runtime_develop-*
+              acl: public-read
+          - put: s3-polymesh-runtime
+            params:
+              file: artifact/polymesh_runtime_testnet-*
               acl: public-read
           - put: dockerimage-polymesh
             params:
@@ -204,4 +203,8 @@ jobs:
       params:
         path: githubpr-polymesh
         status: failure
-
+    on_error:
+      put: githubpr-polymesh
+      params:
+        path: githubpr-polymesh
+        status: error

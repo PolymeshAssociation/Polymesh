@@ -313,10 +313,9 @@ async function createClaimCompliance(api, accounts, dids, prepend) {
   const ticker = `token${prepend}0`.toUpperCase();
   assert(ticker.length <= 12, "Ticker cannot be longer than 12 characters");
 
-  const asset_did = tickerToDid(ticker);
 
-  let senderConditions = senderConditions1(dids[1], asset_did);
-  let receiverConditions = receiverConditions1(dids[1], asset_did);
+  let senderConditions = senderConditions1(dids[1], { "Ticker": ticker });
+  let receiverConditions = receiverConditions1(dids[1], { "Ticker": ticker });
 
   let nonceObj = { nonce: nonces.get(accounts[0].address) };
   const transaction = api.tx.complianceManager.addComplianceRequirement(

@@ -60,11 +60,14 @@ jobs:
           list_changed_files: true
         trigger: true
         version: every
+      - load_var: gitshortref
+        file: git-polymesh/.git/short_ref
       - load_var: rusttoolchain
         file: git-polymesh/rust-toolchain
-      - put: semver-git-polymesh
+      - get: semver-git-polymesh
         params:
-          bump: patch
+          pre: tooling.((.:gitshortref))
+          pre_without_version: true
       - in_parallel:
           - task: run-lint
             config:
@@ -184,7 +187,6 @@ jobs:
               run:
                 path: bash
                 args: ["git-polymesh/.concourse/scripts/t-npm-test.sh", "git-polymesh", "npm-caches", "artifact"]
-            timeout: 30m
       - in_parallel:
           - put: s3-polymesh
             params:
