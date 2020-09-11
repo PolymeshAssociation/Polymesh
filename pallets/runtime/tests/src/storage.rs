@@ -43,7 +43,7 @@ use polymesh_common_utilities::traits::{
 use polymesh_common_utilities::Context;
 use polymesh_primitives::{
     Authorization, AuthorizationData, CddId, Claim, IdentityId, InvestorUid, InvestorZKProofData,
-    Signatory, Ticker, Scope
+    Scope, Signatory, Ticker,
 };
 use polymesh_runtime_common::{bridge, cdd_check::CddChecker, dividend, exemption, voting};
 use smallvec::smallvec;
