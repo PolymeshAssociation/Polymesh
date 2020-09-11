@@ -117,8 +117,7 @@ use polymesh_primitives::{
     AuthorizationData, AuthorizationError, Document, DocumentName, IdentityId, Signatory,
     SmartExtension, SmartExtensionName, SmartExtensionType, Ticker,
 };
-use polymesh_primitives_derive::VecU8StrongTyped;
-use polymesh_primitives_derive::SliceU8StrongTyped;
+use polymesh_primitives_derive::{SliceU8StrongTyped, VecU8StrongTyped};
 use sp_runtime::traits::{CheckedAdd, CheckedSub, Saturating, Verify};
 
 #[cfg(feature = "std")]
@@ -437,12 +436,15 @@ decl_storage! {
                 ClassicTickers::insert(&import.ticker, classic_ticker);
             }
 
+            // Reserving country currency logic
+            let tconfig = || config.ticker_registration_config.clone();
             let sys_did = &config.reserved_country_currency_codes[0].0;
-            for code in &config.reserved_country_currency_codes[0].1 { 
-                let expiry = <Module<T>>::ticker_registration_checks(&code, *sys_did, true, config);
-                <Module<T>>::_register_ticker(&code, *sys_did, expiry.unwrap());
+            for code in &config.reserved_country_currency_codes[0].1 {
+                let ticker = Ticker::try_from(code.as_slice()).expect("cannot convert country code to ticker");
+                let expiry = <Module<T>>::ticker_registration_checks(&ticker, *sys_did, true, tconfig);
+                <Module<T>>::_register_ticker(&ticker, *sys_did, expiry.unwrap());
             }
-            
+
         });
     }
 }
