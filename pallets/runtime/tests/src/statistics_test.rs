@@ -5,7 +5,7 @@ use super::{
 use pallet_asset::{self as asset, IdentifierType, SecurityToken};
 use pallet_compliance_manager as compliance_manager;
 use pallet_statistics as statistics;
-use polymesh_primitives::Ticker;
+use polymesh_primitives::{PortfolioId, Ticker};
 
 use frame_support::assert_ok;
 use sp_std::convert::TryFrom;
@@ -62,8 +62,8 @@ fn investor_count_per_asset_with_ext() {
 
     // Alice sends some tokens to Bob. Token has only one investor.
     assert_ok!(Asset::unsafe_transfer(
-        alice_did.into(),
-        bob_did.into(),
+        PortfolioId::default_portfolio(alice_did),
+        PortfolioId::default_portfolio(bob_did),
         &ticker,
         500
     ));
@@ -71,8 +71,8 @@ fn investor_count_per_asset_with_ext() {
 
     // Alice sends some tokens to Charlie. Token has now two investors.
     assert_ok!(Asset::unsafe_transfer(
-        alice_did.into(),
-        charlie_did.into(),
+        PortfolioId::default_portfolio(alice_did),
+        PortfolioId::default_portfolio(charlie_did),
         &ticker,
         5000
     ));
@@ -80,8 +80,8 @@ fn investor_count_per_asset_with_ext() {
 
     // Bob sends all his tokens to Charlie, so now we have one investor again.
     assert_ok!(Asset::unsafe_transfer(
-        bob_did.into(),
-        charlie_did.into(),
+        PortfolioId::default_portfolio(bob_did),
+        PortfolioId::default_portfolio(charlie_did),
         &ticker,
         500
     ));

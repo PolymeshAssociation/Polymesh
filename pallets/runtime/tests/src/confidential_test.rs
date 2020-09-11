@@ -10,7 +10,8 @@ use pallet_confidential as confidential;
 use pallet_identity::{self as identity, Error};
 use polymesh_common_utilities::constants::ERC1400_TRANSFER_SUCCESS;
 use polymesh_primitives::{
-    Claim, Condition, ConditionType, IdentityId, InvestorUid, InvestorZKProofData, Scope, Ticker,
+    Claim, Condition, ConditionType, IdentityId, InvestorUid, InvestorZKProofData, PortfolioId,
+    Scope, Ticker,
 };
 
 use core::convert::TryFrom;
@@ -173,8 +174,8 @@ fn scope_claims_we() {
     // 3. Transfer some tokens to Inv. 1 and 2.
     assert_eq!(Asset::balance_of(st_id, inv_did_1), 0);
     assert_ok!(Asset::unsafe_transfer(
-        alice_id.into(),
-        inv_did_1.into(),
+        PortfolioId::default_portfolio(alice_id),
+        PortfolioId::default_portfolio(inv_did_1),
         &st_id,
         10
     ));
@@ -182,8 +183,8 @@ fn scope_claims_we() {
 
     assert_eq!(Asset::balance_of(st_id, inv_did_2), 0);
     assert_ok!(Asset::unsafe_transfer(
-        alice_id.into(),
-        inv_did_2.into(),
+        PortfolioId::default_portfolio(alice_id),
+        PortfolioId::default_portfolio(inv_did_2),
         &st_id,
         20
     ));
@@ -243,8 +244,8 @@ fn scope_claims_we() {
         Asset::_is_valid_transfer(
             &st2_id,
             AccountKeyring::Alice.public(),
-            alice_id.into(),
-            inv_did_1.into(),
+            PortfolioId::default_portfolio(alice_id),
+            PortfolioId::default_portfolio(inv_did_1),
             10
         )
         .map(|(a, _)| a),

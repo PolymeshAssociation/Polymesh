@@ -24,12 +24,11 @@ use polymesh_common_utilities::{
 };
 use polymesh_primitives::{
     AuthorizationData, Claim, Condition, ConditionType, Document, DocumentName, IdentityId,
-    Signatory, SmartExtension, SmartExtensionName, SmartExtensionType, Ticker,
+    PortfolioId, Signatory, SmartExtension, SmartExtensionName, SmartExtensionType, Ticker,
 };
 use sp_io::hashing::keccak_256;
 
 use chrono::prelude::Utc;
-use codec::Encode;
 use frame_support::{
     assert_err, assert_noop, assert_ok, dispatch::DispatchResult, traits::Currency,
     StorageDoubleMap, StorageMap,
@@ -265,13 +264,18 @@ fn valid_transfers_pass() {
 
         // Should fail as sender matches receiver
         assert_noop!(
-            Asset::base_transfer(owner_did.into(), owner_did.into(), &ticker, 500),
+            Asset::base_transfer(
+                PortfolioId::default_portfolio(owner_did),
+                PortfolioId::default_portfolio(owner_did),
+                &ticker,
+                500
+            ),
             AssetError::InvalidTransfer
         );
 
         assert_ok!(Asset::base_transfer(
-            owner_did.into(),
-            alice_did.into(),
+            PortfolioId::default_portfolio(owner_did),
+            PortfolioId::default_portfolio(alice_did),
             &ticker,
             500
         ));
@@ -342,8 +346,8 @@ fn checkpoints_fuzz_test() {
                     owner_balance[j] -= 1;
                     bob_balance[j] += 1;
                     assert_ok!(Asset::unsafe_transfer(
-                        owner_did.into(),
-                        bob_did.into(),
+                        PortfolioId::default_portfolio(owner_did),
+                        PortfolioId::default_portfolio(bob_did),
                         &ticker,
                         1
                     ));
@@ -1641,9 +1645,9 @@ fn test_can_transfer_rpc() {
                 Asset::unsafe_can_transfer(
                     AccountKeyring::Alice.public(),
                     None,
-                    alice_did.into(),
+                    PortfolioId::default_portfolio(alice_did),
                     None,
-                    bob_did.into(),
+                    PortfolioId::default_portfolio(bob_did),
                     &ticker,
                     100 // It only passed when it should be the multiple of currency::ONE_UNIT
                 )
@@ -1656,9 +1660,9 @@ fn test_can_transfer_rpc() {
                 Asset::unsafe_can_transfer(
                     AccountKeyring::Bob.public(),
                     None,
-                    bob_did.into(),
+                    PortfolioId::default_portfolio(bob_did),
                     None,
-                    alice_did.into(),
+                    PortfolioId::default_portfolio(alice_did),
                     &ticker,
                     100 * currency::ONE_UNIT
                 )
@@ -1702,9 +1706,9 @@ fn test_can_transfer_rpc() {
                 Asset::unsafe_can_transfer(
                     AccountKeyring::Alice.public(),
                     None,
-                    alice_did.into(),
+                    PortfolioId::default_portfolio(alice_did),
                     None,
-                    bob_did.into(),
+                    PortfolioId::default_portfolio(bob_did),
                     &ticker,
                     20 * currency::ONE_UNIT
                 )
@@ -1726,9 +1730,9 @@ fn test_can_transfer_rpc() {
                 Asset::unsafe_can_transfer(
                     AccountKeyring::Alice.public(),
                     None,
-                    alice_did.into(),
+                    PortfolioId::default_portfolio(alice_did),
                     None,
-                    bob_did.into(),
+                    PortfolioId::default_portfolio(bob_did),
                     &ticker,
                     20 * currency::ONE_UNIT
                 )
@@ -1920,10 +1924,15 @@ fn test_weights_for_is_valid_transfer() {
             ));
 
             // call is_valid_transfer()
-            let result =
-                Asset::_is_valid_transfer(&ticker, alice, alice_did.into(), bob_did.into(), 100)
-                    .unwrap()
-                    .1;
+            let result = Asset::_is_valid_transfer(
+                &ticker,
+                alice,
+                PortfolioId::default_portfolio(alice_did),
+                PortfolioId::default_portfolio(bob_did),
+                100,
+            )
+            .unwrap()
+            .1;
             let weight_from_verify_transfer = ComplianceManager::verify_restriction(
                 &ticker,
                 Some(alice_did),
@@ -1946,10 +1955,15 @@ fn test_weights_for_is_valid_transfer() {
                 Claim::Accredited(ticker_id.into())
             );
 
-            let result =
-                Asset::_is_valid_transfer(&ticker, alice, alice_did.into(), bob_did.into(), 100)
-                    .unwrap()
-                    .1;
+            let result = Asset::_is_valid_transfer(
+                &ticker,
+                alice,
+                PortfolioId::default_portfolio(alice_did),
+                PortfolioId::default_portfolio(bob_did),
+                100,
+            )
+            .unwrap()
+            .1;
             let weight_from_verify_transfer = ComplianceManager::verify_restriction(
                 &ticker,
                 Some(alice_did),
@@ -1976,9 +1990,14 @@ fn test_weights_for_is_valid_transfer() {
                     issuers: vec![eve_did]
                 }]
             ));
-            let result =
-                Asset::_is_valid_transfer(&ticker, alice, alice_did.into(), bob_did.into(), 100)
-                    .unwrap();
+            let result = Asset::_is_valid_transfer(
+                &ticker,
+                alice,
+                PortfolioId::default_portfolio(alice_did),
+                PortfolioId::default_portfolio(bob_did),
+                100,
+            )
+            .unwrap();
             let verify_restriction_result = ComplianceManager::verify_restriction(
                 &ticker,
                 Some(alice_did),
@@ -2000,9 +2019,14 @@ fn test_weights_for_is_valid_transfer() {
                 ticker
             ));
 
-            let result =
-                Asset::_is_valid_transfer(&ticker, alice, alice_did.into(), bob_did.into(), 100)
-                    .unwrap();
+            let result = Asset::_is_valid_transfer(
+                &ticker,
+                alice,
+                PortfolioId::default_portfolio(alice_did),
+                PortfolioId::default_portfolio(bob_did),
+                100,
+            )
+            .unwrap();
             let weight_from_verify_transfer = ComplianceManager::verify_restriction(
                 &ticker,
                 Some(alice_did),

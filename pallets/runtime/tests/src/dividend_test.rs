@@ -4,7 +4,7 @@ use super::{
 };
 
 use polymesh_common_utilities::traits::CommonTrait;
-use polymesh_primitives::Ticker;
+use polymesh_primitives::{PortfolioId, Ticker};
 use polymesh_runtime_common::dividend::{self, Dividend};
 
 use pallet_asset::{self as asset, AssetType, SecurityToken};
@@ -138,8 +138,8 @@ fn correct_dividend_must_work() {
 
         // Transfer tokens to investor
         assert_ok!(Asset::unsafe_transfer(
-            token_owner_did.into(),
-            investor_did.into(),
+            PortfolioId::default_portfolio(token_owner_did),
+            PortfolioId::default_portfolio(investor_did),
             &ticker,
             amount_invested
         ));
@@ -162,8 +162,8 @@ fn correct_dividend_must_work() {
 
         // Transfer payout tokens to asset owner
         assert_ok!(Asset::unsafe_transfer(
-            payout_owner_did.into(),
-            token_owner_did.into(),
+            PortfolioId::default_portfolio(payout_owner_did),
+            PortfolioId::default_portfolio(token_owner_did),
             &payout_ticker,
             dividend.amount
         ));
