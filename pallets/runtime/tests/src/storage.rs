@@ -41,7 +41,8 @@ use polymesh_common_utilities::traits::{
 };
 use polymesh_common_utilities::Context;
 use polymesh_primitives::{
-    Authorization, AuthorizationData, CddId, Claim, IdentityId, InvestorUid, PortfolioId, Signatory,
+    Authorization, AuthorizationData, CddId, Claim, IdentityId, InvestorUid, PortfolioId,
+    PortfolioNumber, Signatory,
 };
 use polymesh_runtime_common::{bridge, cdd_check::CddChecker, dividend, exemption, voting};
 use smallvec::smallvec;
@@ -712,5 +713,11 @@ pub fn fast_forward_blocks(n: u64) {
 pub fn default_portfolio_btreeset(did: IdentityId) -> BTreeSet<PortfolioId> {
     let mut set = BTreeSet::new();
     set.insert(PortfolioId::default_portfolio(did));
+    set
+}
+/// Returns a btreeset that contains a portfolio for the identity.
+pub fn user_portfolio_btreeset(did: IdentityId, num: PortfolioNumber) -> BTreeSet<PortfolioId> {
+    let mut set = BTreeSet::new();
+    set.insert(PortfolioId::user_portfolio(did, num));
     set
 }
