@@ -22,7 +22,7 @@ use polymesh_primitives_derive::{DeserializeU8StrongTyped, SerializeU8StrongType
 #[cfg(feature = "std")]
 use serde::{Deserialize, Serialize};
 use sp_runtime::traits::Printable;
-use sp_std::{collections::btree_set::BTreeSet, prelude::Vec};
+use sp_std::prelude::Vec;
 
 const _POLY_DID_PREFIX: &str = "did:poly:";
 const POLY_DID_PREFIX_LEN: usize = 9; // _POLY_DID_PREFIX.len(); // CI does not support: #![feature(const_str_len)]
@@ -162,16 +162,6 @@ impl IdentityId {
     }
 }
 
-impl Into<BTreeSet<PortfolioId>> for IdentityId {
-    // Returns a btreeset that contains default portfolio for the identity.
-    // Useful for tests.
-    fn into(self) -> BTreeSet<PortfolioId> {
-        let mut set = BTreeSet::new();
-        set.insert(PortfolioId::from(self));
-        set
-    }
-}
-
 impl AsRef<[u8]> for IdentityId {
     #[inline]
     fn as_ref(&self) -> &[u8] {
@@ -252,16 +242,6 @@ impl PortfolioId {
         Self {
             did,
             kind: PortfolioKind::User(num),
-        }
-    }
-}
-
-impl From<IdentityId> for PortfolioId {
-    // Returns default portfolio for did. Useful for tests.
-    fn from(did: IdentityId) -> Self {
-        Self {
-            did,
-            kind: PortfolioKind::Default,
         }
     }
 }

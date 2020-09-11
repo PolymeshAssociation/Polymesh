@@ -57,6 +57,7 @@ use sp_runtime::{
     transaction_validity::{InvalidTransaction, TransactionValidity, ValidTransaction},
     AnySignature, KeyTypeId, Perbill,
 };
+use sp_std::collections::btree_set::BTreeSet;
 use std::cell::RefCell;
 use test_client::AccountKeyring;
 
@@ -705,4 +706,11 @@ pub fn fast_forward_to_block(n: u64) {
 
 pub fn fast_forward_blocks(n: u64) {
     fast_forward_to_block(n + frame_system::Module::<TestStorage>::block_number());
+}
+
+/// Returns a btreeset that contains default portfolio for the identity.
+pub fn default_portfolio_btreeset(did: IdentityId) -> BTreeSet<PortfolioId> {
+    let mut set = BTreeSet::new();
+    set.insert(PortfolioId::from(self));
+    set
 }

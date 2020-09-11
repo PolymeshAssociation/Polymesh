@@ -1586,8 +1586,10 @@ impl<T: Trait> Module<T> {
         let updated_to_balance = current_to_balance + value;
         // No check since the default portfolio balance is always <= the total
         // supply. The total supply is already checked above.
-        let updated_to_def_balance =
-            Portfolio::<T>::portfolio_asset_balances(PortfolioId::from(to_did), ticker) + value;
+        let updated_to_def_balance = Portfolio::<T>::portfolio_asset_balances(
+            PortfolioId::default_portfolio(to_did),
+            ticker,
+        ) + value;
 
         // Charge the given fee.
         if let Some(op) = protocol_fee_data {

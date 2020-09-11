@@ -137,14 +137,14 @@ decl_module! {
             let legs = vec![
                 Leg {
                     // TODO: Replace with did that actually hold the offering token
-                    from: primary_issuance_agent.into(),
-                    to: did.into(),
+                    from: PortfolioId::default_portfolio(primary_issuance_agent),
+                    to: PortfolioId::default_portfolio(did),
                     asset: offering_token,
                     amount: offering_token_amount
                 },
                 Leg {
-                    from: did.into(),
-                    to: primary_issuance_agent.into(),
+                    from: PortfolioId::default_portfolio(did),
+                    to: PortfolioId::default_portfolio(primary_issuance_agent),
                     asset: fundraiser.raise_token,
                     amount: raise_token_amount
                 }

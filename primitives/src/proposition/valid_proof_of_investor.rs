@@ -1,6 +1,6 @@
 use crate::{
     scalar_blake2_from_bytes, CddId, Claim, Context, IdentityId, InvestorZKProofData, Proposition,
-    Scope, Ticker,
+    Ticker,
 };
 use cryptography::claim_proofs::ProofPublicKey;
 use curve25519_dalek::{ristretto::CompressedRistretto, scalar::Scalar};

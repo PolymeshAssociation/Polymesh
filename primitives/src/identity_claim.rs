@@ -67,6 +67,7 @@ impl Migrate for ScopeOld {
 }
 
 type CountryCodeOld = JurisdictionName;
+/// Scope that was used in the last version
 pub type ScopeOld = IdentityId;
 
 /// All possible claims in polymesh
