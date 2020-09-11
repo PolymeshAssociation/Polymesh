@@ -30,7 +30,7 @@ use frame_support::{
 use polymesh_common_utilities::traits::{
     AccountCallPermissionsData, CheckAccountCallPermissions, PermissionChecker as Trait,
 };
-use polymesh_primitives::{DispatchableName, IdentityId, PalletName};
+use polymesh_primitives::{DispatchableName, PalletName};
 use sp_runtime::{
     traits::{DispatchInfoOf, PostDispatchInfoOf, SignedExtension},
     transaction_validity::{TransactionValidity, TransactionValidityError, ValidTransaction},
@@ -58,9 +58,8 @@ decl_error! {
 }
 
 impl<T: Trait> Module<T> {
-    /// Checks if `who` is permissioned to call the current extrinsic. Returns `Ok(did)` if
-    /// successful where `did` is the primary identity associated with the current call. Otherwise
-    /// returns an `Err`.
+    /// Checks if the caller identified with the account `who` is permissioned to call the current
+    /// extrinsic. Returns `Ok(data)` if successful. Otherwise returns an `Err`.
     pub fn ensure_call_permissions(
         who: &T::AccountId,
     ) -> Result<AccountCallPermissionsData<T::AccountId>, DispatchError> {

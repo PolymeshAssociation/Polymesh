@@ -266,11 +266,9 @@ where
         }
     }
 
-    /// Checks if the given key has permission to access the given portfolio.
-    pub fn has_portfolio_permission(&self, portfolio: PortfolioNumber) -> bool {
-        self.permissions
-            .portfolio
-            .ge(&SubsetRestriction::elem(portfolio))
+    /// Checks if the given key has permission to access all given portfolios.
+    pub fn has_portfolio_permission(&self, it: impl IntoIterator<Item = PortfolioNumber>) -> bool {
+        self.permissions.portfolio.ge(&SubsetRestriction::elems(it))
     }
 }
 
@@ -592,11 +590,11 @@ mod tests {
         assert!(free_key.has_asset_permission(ticker2));
         assert!(free_key
             .has_extrinsic_permission(&b"pallet".as_ref().into(), &b"function".as_ref().into()));
-        assert!(free_key.has_portfolio_permission(2));
+        assert!(free_key.has_portfolio_permission(vec![2]));
         assert!(!restricted_key.has_asset_permission(ticker2));
         assert!(restricted_key
             .has_extrinsic_permission(&b"pallet".as_ref().into(), &b"function".as_ref().into()));
-        assert!(!restricted_key.has_portfolio_permission(2));
+        assert!(!restricted_key.has_portfolio_permission(vec![2]));
     }
 
     #[test]

@@ -2143,25 +2143,28 @@ impl<T: Trait> CheckAccountCallPermissions<T::AccountId> for Module<T> {
                 //
                 // DIDs with frozen secondary keys (aka frozen DIDs) are not permitted to call
                 // extrinsics.
-                if !Self::is_did_frozen(&primary_did) {
-                    let current_did = Context::current_identity_or::<Self>(&sender)?;
-                    return did_record
-                        .secondary_keys
-                        .iter()
-                        .find(|sk| {
-                            sk.signer == Signatory::Account(who)
-                                || sk.signer == Signatory::Identity(current_did)
-                        })
-                        .filter(|sk| sk.has_extrinsic_permission(pallet_name, function_name))
-                        .map(|sk| AccountCallPermissionsData {
-                            primary_did,
-                            secondary_key: Some(sk),
-                        });
+                if Self::is_did_frozen(&primary_did) {
+                    // `primary_did` has its secondary keys frozen.
+                    return None;
                 }
+                let maybe_current_did_signer =
+                    Context::current_identity::<Self>().map(|did| Signatory::Identity(did));
+                return did_record
+                    .secondary_keys
+                    .iter()
+                    .find(|sk| {
+                        sk.signer == Signatory::Account(who.clone())
+                            || Some(sk.signer.clone()) == maybe_current_did_signer
+                    })
+                    .filter(|sk| sk.has_extrinsic_permission(pallet_name, function_name))
+                    .map(|sk| AccountCallPermissionsData {
+                        primary_did,
+                        secondary_key: Some(sk.clone()),
+                    });
             }
             // `who` is the primary key.
             return Some(AccountCallPermissionsData {
-                primary_did: did,
+                primary_did,
                 secondary_key: None,
             });
         }

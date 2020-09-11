@@ -45,15 +45,14 @@ use frame_support::{
     decl_error, decl_event, decl_module, decl_storage, dispatch::DispatchResult, ensure,
     IterableStorageDoubleMap,
 };
-use frame_system::{self as system, ensure_signed};
+use frame_system as system;
 use pallet_identity::PermissionedCallOriginData;
-use polymesh_common_utilities::{identity::Trait as IdentityTrait, CommonTrait, Context};
+use polymesh_common_utilities::{identity::Trait as IdentityTrait, CommonTrait};
 use polymesh_primitives::{IdentityId, PortfolioId, PortfolioName, PortfolioNumber, Ticker};
 use sp_arithmetic::traits::Saturating;
-use sp_std::{convert::TryFrom, prelude::Vec};
+use sp_std::{convert::TryFrom, iter, prelude::Vec};
 
 type Identity<T> = pallet_identity::Module<T>;
-type CallPermissions<T> = pallet_permissions::Module<T>;
 
 /// The ticker and balance of an asset to be moved from one portfolio to another.
 #[derive(Encode, Decode, Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord)]
@@ -145,6 +144,10 @@ decl_error! {
         DestinationIsSamePortfolio,
         /// The portfolio couldn't be renamed because the chosen name is already in use.
         PortfolioNameAlreadyInUse,
+        /// The secondary key is restricted and hence cannot create new portfolios.
+        SecondaryKeyCannotCreatePortfolios,
+        /// The secondary key is not authorized to access the portfolio(s).
+        SecondaryKeyNotAuthorizedForPortfolio,
     }
 }
 
@@ -160,11 +163,15 @@ decl_module! {
         pub fn create_portfolio(origin, name: PortfolioName) -> DispatchResult {
             let PermissionedCallOriginData {
                 primary_did,
-                secondary_did,
+                secondary_key,
                 ..
             } = Identity::<T>::ensure_origin_call_permissions(origin)?;
-            if let Some(_did) = secondary_did {
-                // TODO: Check that the secondary signer is not limited to particular portfolios.
+            if let Some(sk) = secondary_key {
+                // Check that the secondary signer is not limited to particular portfolios.
+                ensure!(
+                    sk.permissions.portfolio.is_unrestricted(),
+                    Error::<T>::SecondaryKeyCannotCreatePortfolios
+                );
             }
             Self::ensure_name_unique(&primary_did, &name)?;
             let num = Self::get_next_portfolio_number(&primary_did);
@@ -178,11 +185,15 @@ decl_module! {
         pub fn delete_portfolio(origin, num: PortfolioNumber) -> DispatchResult {
             let PermissionedCallOriginData {
                 primary_did,
-                secondary_did,
+                secondary_key,
                 ..
             } = Identity::<T>::ensure_origin_call_permissions(origin)?;
-            if let Some(_did) = secondary_did {
-                // TODO: Check that the secondary signer is allowed to work with this portfolio.
+            if let Some(sk) = secondary_key {
+                // Check that the secondary signer is allowed to work with this portfolio.
+                ensure!(
+                    sk.has_portfolio_permission(iter::once(num)),
+                    Error::<T>::SecondaryKeyNotAuthorizedForPortfolio
+                );
             }
             // Check that the portfolio exists.
             ensure!(Self::portfolios(&primary_did, &num).is_some(), Error::<T>::PortfolioDoesNotExist);
@@ -219,16 +230,19 @@ decl_module! {
         ) -> DispatchResult {
             let PermissionedCallOriginData {
                 primary_did,
-                secondary_did,
+                secondary_key,
                 ..
             } = Identity::<T>::ensure_origin_call_permissions(origin)?;
-            if let Some(_did) = secondary_did {
-                // TODO: Check that the secondary signer is allowed to work with this portfolio.
-            }
             // Check that the source and destination portfolios are in fact different.
             ensure!(from_num != to_num, Error::<T>::DestinationIsSamePortfolio);
             // Check that the source portfolio exists.
             if let Some(from_num) = from_num {
+                if let Some(sk) = &secondary_key {
+                    ensure!(
+                        sk.has_portfolio_permission(iter::once(from_num)),
+                        Error::<T>::SecondaryKeyNotAuthorizedForPortfolio
+                    );
+                }
                 ensure!(
                     Self::portfolios(&primary_did, from_num).is_some(),
                     Error::<T>::PortfolioDoesNotExist
@@ -236,6 +250,12 @@ decl_module! {
             }
             // Check that the destination portfolio exists.
             if let Some(to_num) = to_num {
+                if let Some(sk) = &secondary_key {
+                    ensure!(
+                        sk.has_portfolio_permission(iter::once(to_num)),
+                        Error::<T>::SecondaryKeyNotAuthorizedForPortfolio
+                    );
+                }
                 ensure!(
                     Self::portfolios(&primary_did, to_num).is_some(),
                     Error::<T>::PortfolioDoesNotExist
@@ -283,11 +303,15 @@ decl_module! {
         ) -> DispatchResult {
             let PermissionedCallOriginData {
                 primary_did,
-                secondary_did,
+                secondary_key,
                 ..
             } = Identity::<T>::ensure_origin_call_permissions(origin)?;
-            if let Some(_did) = secondary_did {
-                // TODO: Check that the secondary signer is allowed to work with this portfolio.
+            if let Some(sk) = secondary_key {
+                // Check that the secondary signer is allowed to work with this portfolio.
+                ensure!(
+                    sk.has_portfolio_permission(iter::once(num)),
+                    Error::<T>::SecondaryKeyNotAuthorizedForPortfolio
+                );
             }
             // Check that the portfolio exists.
             ensure!(Self::portfolios(&primary_did, &num).is_some(), Error::<T>::PortfolioDoesNotExist);

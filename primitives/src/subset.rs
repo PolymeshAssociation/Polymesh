@@ -86,6 +86,11 @@ where
         Self(Some(BTreeSet::from_iter(iter::once(a))))
     }
 
+    /// Constructs a subset from an iterator over elements.
+    pub fn elems(it: impl IntoIterator<Item = A>) -> Self {
+        Self(Some(BTreeSet::from_iter(it)))
+    }
+
     /// Computes whether the first subset is greater than or equal to the second subset.
     pub fn ge(&self, other: &Self) -> bool {
         matches!(
@@ -105,6 +110,11 @@ where
             (None, _) | (_, None) => Self(None),
             (Some(elems1), Some(elems2)) => Self(Some(elems1.union(elems2).cloned().collect())),
         }
+    }
+
+    /// Checks whether there is no restriction.
+    pub fn is_unrestricted(&self) -> bool {
+        self.0.is_none()
     }
 }
 

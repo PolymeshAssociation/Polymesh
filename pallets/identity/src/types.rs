@@ -47,7 +47,7 @@ pub struct KeyIdentityData<IdentityId> {
 
 /// Result of a successful call permission check.
 #[derive(Clone, Eq, PartialEq)]
-pub struct PermissionedCallOriginData<AccountId> {
+pub struct PermissionedCallOriginData<AccountId: Encode + Decode> {
     /// The origin account.
     pub sender: AccountId,
     /// The primary identity associated with the call.
