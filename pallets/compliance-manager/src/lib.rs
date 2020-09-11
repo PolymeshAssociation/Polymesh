@@ -669,7 +669,7 @@ impl<T: Trait> Module<T> {
         })
     }
 
-    // Checks whether the given condition is satisfied or not.
+    /// Checks whether the given condition is satisfied or not.
     fn is_condition_satisfied(
         ticker: &Ticker,
         did: IdentityId,
@@ -797,6 +797,13 @@ impl<T: Trait> Module<T> {
         asset_compliance_with_results.implicit_requirements_result =
             Self::get_implicit_condition_result(ticker, from_did_opt, to_did_opt);
 
+        let implicit_result = asset_compliance_with_results
+            .implicit_requirements_result
+            .as_ref()
+            .map_or(true, |imp_result| {
+                imp_result.from_result && imp_result.to_result
+            });
+
         for requirements in &mut asset_compliance_with_results.requirements {
             if let Some(from_did) = from_did_opt {
                 // Evaluate all sender conditions
@@ -824,12 +831,7 @@ impl<T: Trait> Module<T> {
             }
             // If the requirements result is positive, update the final result.
             if requirements.result {
-                asset_compliance_with_results.result = asset_compliance_with_results
-                    .implicit_requirements_result
-                    .as_ref()
-                    .map_or(true, |imp_result| {
-                        imp_result.from_result && imp_result.to_result
-                    });
+                asset_compliance_with_results.result = implicit_result;
             }
         }
         asset_compliance_with_results
