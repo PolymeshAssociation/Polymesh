@@ -42,3 +42,17 @@ pub struct KeyIdentityData<IdentityId> {
     /// If `None`, then this is a primary key.
     pub permissions: Option<Permissions>,
 }
+
+/// Result of a successful call permission check.
+#[derive(Clone, Eq, PartialEq)]
+pub struct PermissionedCallOriginData<AccountId> {
+    /// The origin account.
+    pub sender: AccountId,
+    /// The primary identity associated with the call.
+    pub primary_did: IdentityId,
+    /// The secondary identity associated with the call, if the caller is a secondary identity of
+    /// `primary_did`. This field can be used when checking asset and portfolio permissions. It is
+    /// `Some(did)` iff the current identity (the identity that the call is made from) is a
+    /// secondary identity `did` of `primary_did`.
+    pub secondary_did: Option<IdentityId>,
+}

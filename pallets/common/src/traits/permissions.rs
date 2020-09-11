@@ -13,7 +13,7 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
-use polymesh_primitives::{DispatchableName, PalletName};
+use polymesh_primitives::{DispatchableName, IdentityId, PalletName};
 
 /// Permissions module configuration trait.
 pub trait PermissionChecker: frame_system::Trait {
@@ -25,9 +25,16 @@ pub trait PermissionChecker: frame_system::Trait {
 pub trait CheckAccountCallPermissions<AccountId> {
     /// Checks whether `who` can call the current extrinsic represented by `pallet_name` and
     /// `function_name`.
+    ///
+    /// Returns:
+    ///
+    /// - `Some(did)` where `did` is the idenitity ID on behalf of which the caller is allowed to
+    /// make tis call.
+    ///
+    /// - `None` if there is no such identity.
     fn check_account_call_permissions(
         who: &AccountId,
         pallet_name: &PalletName,
         function_name: &DispatchableName,
-    ) -> bool;
+    ) -> Option<IdentityId>;
 }

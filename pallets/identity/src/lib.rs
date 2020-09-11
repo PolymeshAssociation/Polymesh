@@ -76,7 +76,7 @@
 #![recursion_limit = "256"]
 
 pub mod types;
-pub use types::{DidRecords as RpcDidRecords, DidStatus};
+pub use types::{DidRecords as RpcDidRecords, DidStatus, PermissionedCallOriginData};
 
 #[cfg(feature = "runtime-benchmarks")]
 pub mod benchmarking;
@@ -340,7 +340,7 @@ decl_module! {
             secondary_keys: Vec<secondary_key::api::SecondaryKey<T::AccountId>>
         ) -> DispatchResult {
             // Sender has to be part of CDDProviders
-            let cdd_id = Self::ensure_origin_call_permissions(origin)?.1;
+            let cdd_id = Self::ensure_origin_call_permissions(origin)?.primary_did;
 
             let cdd_providers = T::CddServiceProviders::get_members();
             ensure!(cdd_providers.contains(&cdd_id), Error::<T>::UnAuthorizedCddProvider);
@@ -388,7 +388,11 @@ decl_module! {
             Pays::Yes
         )]
         pub fn remove_secondary_keys(origin, signers_to_remove: Vec<Signatory<T::AccountId>>) -> DispatchResult {
-            let (sender, did) = Self::ensure_origin_call_permissions(origin)?;
+            let PermissionedCallOriginData {
+                sender,
+                primary_did: did,
+                ..
+            } = Self::ensure_origin_call_permissions(origin)?;
             let _grants_checked = Self::grant_check_only_primary_key(&sender, did)?;
 
             // Remove links and get all authorization IDs per signer.
@@ -447,7 +451,11 @@ decl_module! {
         /// Only called by primary key owner.
         #[weight = 800_000_000]
         fn set_primary_key(origin, new_key: T::AccountId) -> DispatchResult {
-            let (sender, did) = Self::ensure_origin_call_permissions(origin)?;
+            let PermissionedCallOriginData {
+                sender,
+                primary_did: did,
+                ..
+            } = Self::ensure_origin_call_permissions(origin)?;
             let _grants_checked = Self::grant_check_only_primary_key(&sender, did)?;
 
             ensure!(
@@ -513,7 +521,7 @@ decl_module! {
         #[weight = 800_000_000]
         pub fn leave_identity_as_key(origin) -> DispatchResult {
             let sender = ensure_signed(origin)?;
-            CallPermissions::<T>::ensure_call_permissions(&sender)?;
+            let _ = CallPermissions::<T>::ensure_call_permissions(&sender)?;
             if let Some(did) = Self::get_identity(&sender) {
                 return Self::leave_identity(Signatory::Account(sender), did);
             }
@@ -523,7 +531,7 @@ decl_module! {
         /// Leave an identity as a secondary identity.
         #[weight = 800_000_000]
         pub fn leave_identity_as_identity(origin, did: IdentityId) -> DispatchResult {
-            let sender_did = Self::ensure_origin_call_permissions(origin)?.1;
+            let sender_did = Self::ensure_origin_call_permissions(origin)?.primary_did;
             Self::leave_identity(Signatory::from(sender_did), did)
         }
 
@@ -535,7 +543,7 @@ decl_module! {
             claim: Claim,
             expiry: Option<T::Moment>,
         ) -> DispatchResult {
-            let issuer = Self::ensure_origin_call_permissions(origin)?.1;
+            let issuer = Self::ensure_origin_call_permissions(origin)?.primary_did;
             ensure!(<DidRecords<T>>::contains_key(target), Error::<T>::DidMustAlreadyExist);
 
             match &claim {
@@ -609,7 +617,7 @@ decl_module! {
             target: IdentityId,
             claim: Claim,
         ) -> DispatchResult {
-            let issuer = Self::ensure_origin_call_permissions(origin)?.1;
+            let issuer = Self::ensure_origin_call_permissions(origin)?.primary_did;
             let claim_type = claim.claim_type();
             let scope = claim.as_scope().cloned();
 
@@ -653,7 +661,11 @@ decl_module! {
             signer: Signatory<T::AccountId>,
             permissions: secondary_key::api::Permissions
         ) -> DispatchResult {
-            let (sender, did) = Self::ensure_origin_call_permissions(origin)?;
+            let PermissionedCallOriginData {
+                sender,
+                primary_did: did,
+                ..
+            } = Self::ensure_origin_call_permissions(origin)?;
             let record = Self::grant_check_only_primary_key(&sender, did)?;
 
             // You are trying to add a permission to did's primary key. It is not needed.
@@ -685,7 +697,11 @@ decl_module! {
         /// Emits an event with caller's identity.
         #[weight = 800_000_000]
         pub fn get_my_did(origin) -> DispatchResult {
-            let (sender, did) = Self::ensure_origin_call_permissions(origin)?;
+            let PermissionedCallOriginData {
+                sender,
+                primary_did: did,
+                ..
+            } = Self::ensure_origin_call_permissions(origin)?;
             Self::deposit_event(RawEvent::DidStatus(did, sender));
             Ok(())
         }
@@ -716,7 +732,7 @@ decl_module! {
             authorization_data: AuthorizationData<T::AccountId>,
             expiry: Option<T::Moment>
         ) -> DispatchResult {
-            let from_did = Self::ensure_origin_call_permissions(origin)?.1;
+            let from_did = Self::ensure_origin_call_permissions(origin)?.primary_did;
             Self::add_auth(from_did, target, authorization_data, expiry);
             Ok(())
         }
@@ -728,7 +744,11 @@ decl_module! {
             target: Signatory<T::AccountId>,
             auth_id: u64
         ) -> DispatchResult {
-            let (sender, from_did) = Self::ensure_origin_call_permissions(origin)?;
+            let PermissionedCallOriginData {
+                sender,
+                primary_did: from_did,
+                ..
+            } = Self::ensure_origin_call_permissions(origin)?;
 
             let auth = Self::ensure_authorization(&target, auth_id)?;
             let revoked = auth.authorized_by == from_did;
@@ -828,7 +848,11 @@ decl_module! {
             additional_keys: Vec<SecondaryKeyWithAuth<T::AccountId>>,
             expires_at: T::Moment
         ) -> DispatchResult {
-            let (sender, did) = Self::ensure_origin_call_permissions(origin)?;
+            let PermissionedCallOriginData {
+                sender,
+                primary_did: did,
+                ..
+            } = Self::ensure_origin_call_permissions(origin)?;
             let _grants_checked = Self::grant_check_only_primary_key(&sender, did)?;
 
             // 0. Check expiration
@@ -1988,14 +2012,23 @@ impl<T: Trait> Module<T> {
             .collect::<Vec<_>>()
     }
 
-    /// Checks call permissions and, if successful, returns the caller's account and identity.
+    /// Checks call permissions and, if successful, returns the caller's account, primary and secondary identities.
     pub fn ensure_origin_call_permissions(
         origin: <T as frame_system::Trait>::Origin,
-    ) -> Result<(<T as frame_system::Trait>::AccountId, IdentityId), DispatchError> {
+    ) -> Result<PermissionedCallOriginData<T::AccountId>, DispatchError> {
         let sender = ensure_signed(origin)?;
-        CallPermissions::<T>::ensure_call_permissions(&sender)?;
-        let did = Context::current_identity_or::<Self>(&sender)?;
-        Ok((sender, did))
+        let primary_did = CallPermissions::<T>::ensure_call_permissions(&sender)?;
+        let secondary_did = Context::current_identity_or::<Self>(&sender)?;
+        let origin_data = PermissionedCallOriginData {
+            sender,
+            primary_did,
+            secondary_did: if primary_did != secondary_did {
+                Some(secondary_did)
+            } else {
+                None
+            },
+        };
+        Ok(origin_data)
     }
 }
 
@@ -2096,12 +2129,12 @@ impl<T: Trait> CheckAccountCallPermissions<T::AccountId> for Module<T> {
         who: &T::AccountId,
         pallet_name: &PalletName,
         function_name: &DispatchableName,
-    ) -> bool {
+    ) -> Option<IdentityId> {
         if <KeyToIdentityIds<T>>::contains_key(who) {
             let did = <KeyToIdentityIds<T>>::get(who);
             if !<DidRecords<T>>::contains_key(&did) {
                 // The DID record is missing.
-                return false;
+                return None;
             }
             let did_record = <DidRecords<T>>::get(&did);
             if who != &did_record.primary_key {
@@ -2109,16 +2142,20 @@ impl<T: Trait> CheckAccountCallPermissions<T::AccountId> for Module<T> {
                 //
                 // DIDs with frozen secondary keys (aka frozen DIDs) are not permitted to call
                 // extrinsics.
-                return !Self::is_did_frozen(&did)
+                if !Self::is_did_frozen(&did)
                     && did_record.secondary_keys.iter().any(|sk| {
                         sk.signer.as_account() == Some(who)
                             && sk.has_extrinsic_permission(pallet_name, function_name)
-                    });
+                    })
+                {
+                    // `who` is a secondary key of `did`.
+                    return Some(did);
+                }
             }
             // `who` is the primary key.
-            return true;
+            return Some(did);
         }
         // `who` doesn't have an identity.
-        false
+        None
     }
 }

@@ -22,11 +22,13 @@
 
 use codec::{Decode, Encode};
 use frame_support::{
-    decl_error, decl_module, decl_storage, dispatch::DispatchResult, storage::StorageValue,
+    decl_error, decl_module, decl_storage,
+    dispatch::{DispatchError, DispatchResult},
+    storage::StorageValue,
     traits::GetCallMetadata,
 };
 use polymesh_common_utilities::traits::{CheckAccountCallPermissions, PermissionChecker as Trait};
-use polymesh_primitives::{DispatchableName, PalletName};
+use polymesh_primitives::{DispatchableName, IdentityId, PalletName};
 use sp_runtime::{
     traits::{DispatchInfoOf, PostDispatchInfoOf, SignedExtension},
     transaction_validity::{TransactionValidity, TransactionValidityError, ValidTransaction},
@@ -54,15 +56,16 @@ decl_error! {
 }
 
 impl<T: Trait> Module<T> {
-    /// Checks if `who` is permissioned to call the current extrinsic. Returns `Ok` if
-    /// successful. Otherwise returns an `Err`.
-    pub fn ensure_call_permissions(who: &T::AccountId) -> DispatchResult {
-        if T::Checker::check_account_call_permissions(
+    /// Checks if `who` is permissioned to call the current extrinsic. Returns `Ok(did)` if
+    /// successful where `did` is the primary identity associated with the current call. Otherwise
+    /// returns an `Err`.
+    pub fn ensure_call_permissions(who: &T::AccountId) -> Result<IdentityId, DispatchError> {
+        if let Some(did) = T::Checker::check_account_call_permissions(
             who,
             &Self::current_pallet_name(),
             &Self::current_dispatchable_name(),
         ) {
-            return Ok(());
+            return Ok(did);
         }
         Err(Error::<T>::UnauthorizedCaller.into())
     }

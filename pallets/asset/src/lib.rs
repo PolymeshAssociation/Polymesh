@@ -102,7 +102,7 @@ use frame_support::{
 use frame_system::{self as system, ensure_signed};
 use hex_literal::hex;
 use pallet_contracts::{ExecReturnValue, Gas};
-use pallet_identity as identity;
+use pallet_identity::{self as identity, PermissionedCallOriginData};
 use pallet_statistics::{self as statistics, Counter};
 use polymesh_common_utilities::{
     asset::{AcceptTransfer, Trait as AssetTrait, GAS_LIMIT},
@@ -450,7 +450,7 @@ decl_module! {
         /// * `ticker` ticker to register.
         #[weight = T::DbWeight::get().reads_writes(4, 3) + 500_000_000]
         pub fn register_ticker(origin, ticker: Ticker) -> DispatchResult {
-            let to_did = Identity::<T>::ensure_origin_call_permissions(origin)?.1;
+            let to_did = Identity::<T>::ensure_origin_call_permissions(origin)?.primary_did;
             let expiry = Self::ticker_registration_checks(&ticker, to_did, false, || Self::ticker_registration_config())?;
             T::ProtocolFee::charge_fee(ProtocolOp::AssetRegisterTicker)?;
             Self::_register_ticker(&ticker, to_did, expiry);
@@ -465,7 +465,7 @@ decl_module! {
         /// * `auth_id` Authorization ID of ticker transfer authorization.
         #[weight = T::DbWeight::get().reads_writes(4, 5) + 200_000_000]
         pub fn accept_ticker_transfer(origin, auth_id: u64) -> DispatchResult {
-            let to_did = Identity::<T>::ensure_origin_call_permissions(origin)?.1;
+            let to_did = Identity::<T>::ensure_origin_call_permissions(origin)?.primary_did;
             Self::_accept_ticker_transfer(to_did, auth_id)
         }
 
@@ -477,7 +477,7 @@ decl_module! {
         /// * `auth_id` Authorization ID of primary issuance agent transfer authorization.
         #[weight = 300_000_000]
         pub fn accept_primary_issuance_agent_transfer(origin, auth_id: u64) -> DispatchResult {
-            let to_did = Identity::<T>::ensure_origin_call_permissions(origin)?.1;
+            let to_did = Identity::<T>::ensure_origin_call_permissions(origin)?.primary_did;
             Self::_accept_primary_issuance_agent_transfer(to_did, auth_id)
         }
 
@@ -489,7 +489,7 @@ decl_module! {
         /// * `auth_id` Authorization ID of the token ownership transfer authorization.
         #[weight = T::DbWeight::get().reads_writes(4, 5) + 200_000_000]
         pub fn accept_asset_ownership_transfer(origin, auth_id: u64) -> DispatchResult {
-            let to_did = Identity::<T>::ensure_origin_call_permissions(origin)?.1;
+            let to_did = Identity::<T>::ensure_origin_call_permissions(origin)?.primary_did;
             Self::_accept_token_ownership_transfer(to_did, auth_id)
         }
 
@@ -520,7 +520,7 @@ decl_module! {
             identifiers: Vec<(IdentifierType, AssetIdentifier)>,
             funding_round: Option<FundingRoundName>,
         ) -> DispatchResult {
-            let did = Identity::<T>::ensure_origin_call_permissions(origin)?.1;
+            let did = Identity::<T>::ensure_origin_call_permissions(origin)?.primary_did;
             Self::ensure_create_asset_parameters(&ticker, &name, total_supply)?;
 
             // Ensure its registered by DID or at least expired, thus available.
@@ -646,7 +646,7 @@ decl_module! {
         /// * `ticker` - the ticker of the frozen token.
         #[weight = T::DbWeight::get().reads_writes(4, 1) + 300_000_000]
         pub fn unfreeze(origin, ticker: Ticker) -> DispatchResult {
-            let sender_did = Identity::<T>::ensure_origin_call_permissions(origin)?.1;
+            let sender_did = Identity::<T>::ensure_origin_call_permissions(origin)?.primary_did;
 
             // verify the ownership of the token
             ensure!(Self::is_owner(&ticker, sender_did), Error::<T>::Unauthorized);
@@ -666,7 +666,7 @@ decl_module! {
         /// * `name` - the new name of the token.
         #[weight = T::DbWeight::get().reads_writes(2, 1) + 300_000_000]
         pub fn rename_asset(origin, ticker: Ticker, name: AssetName) -> DispatchResult {
-            let sender_did = Identity::<T>::ensure_origin_call_permissions(origin)?.1;
+            let sender_did = Identity::<T>::ensure_origin_call_permissions(origin)?.primary_did;
 
             // verify the ownership of the token
             ensure!(Self::is_owner(&ticker, sender_did), Error::<T>::Unauthorized);
@@ -690,7 +690,7 @@ decl_module! {
         /// * `operator_data` It is a string which describes the reason of this control transfer call.
         #[weight = T::DbWeight::get().reads_writes(3, 2) + 500_000_000]
         pub fn controller_transfer(origin, ticker: Ticker, from_did: IdentityId, to_did: IdentityId, value: T::Balance, data: Vec<u8>, operator_data: Vec<u8>) -> DispatchResult {
-            let did = Identity::<T>::ensure_origin_call_permissions(origin)?.1;
+            let did = Identity::<T>::ensure_origin_call_permissions(origin)?.primary_did;
 
             ensure!(Self::is_owner(&ticker, did), Error::<T>::Unauthorized);
 
@@ -709,7 +709,7 @@ decl_module! {
         /// * `ticker` Ticker of the token.
         #[weight = T::DbWeight::get().reads_writes(3, 2) + 400_000_000]
         pub fn create_checkpoint(origin, ticker: Ticker) -> DispatchResult {
-            let did = Identity::<T>::ensure_origin_call_permissions(origin)?.1;
+            let did = Identity::<T>::ensure_origin_call_permissions(origin)?.primary_did;
 
             ensure!(Self::is_owner(&ticker, did), Error::<T>::Unauthorized);
             let _ = Self::_create_checkpoint(&ticker)?;
@@ -726,7 +726,11 @@ decl_module! {
         /// * `value` Amount of tokens that get issued.
         #[weight = T::DbWeight::get().reads_writes(6, 3) + 800_000_000]
         pub fn issue(origin, ticker: Ticker, value: T::Balance) -> DispatchResult {
-            let (sender, did) = Identity::<T>::ensure_origin_call_permissions(origin)?;
+            let PermissionedCallOriginData {
+                sender,
+                primary_did: did,
+                ..
+            } = Identity::<T>::ensure_origin_call_permissions(origin)?;
 
             ensure!(Self::is_owner(&ticker, did), Error::<T>::Unauthorized);
             let beneficiary = Self::token_details(&ticker).primary_issuance_agent.unwrap_or(did);
@@ -744,7 +748,7 @@ decl_module! {
         /// * `operator_data` Any data blob that defines the reason behind the force redeem.
         #[weight = T::DbWeight::get().reads_writes(6, 3) + 800_000_000]
         pub fn controller_redeem(origin, ticker: Ticker, token_holder_did: IdentityId, value: T::Balance, data: Vec<u8>, operator_data: Vec<u8>) -> DispatchResult {
-            let did = Identity::<T>::ensure_origin_call_permissions(origin)?.1;
+            let did = Identity::<T>::ensure_origin_call_permissions(origin)?.primary_did;
 
             ensure!(Self::is_owner(&ticker, did), Error::<T>::NotAnOwner);
             // Granularity check
@@ -790,7 +794,7 @@ decl_module! {
         /// * `ticker` Ticker of the token.
         #[weight = T::DbWeight::get().reads_writes(2, 1) + 300_000_000]
         pub fn make_divisible(origin, ticker: Ticker) -> DispatchResult {
-            let did = Identity::<T>::ensure_origin_call_permissions(origin)?.1;
+            let did = Identity::<T>::ensure_origin_call_permissions(origin)?.primary_did;
 
             ensure!(Self::is_owner(&ticker, did), Error::<T>::Unauthorized);
             // Read the token details
@@ -813,7 +817,7 @@ decl_module! {
         /// `500_000_000 + 600_000 * documents.len()`
         #[weight = T::DbWeight::get().reads_writes(2, 1) + 500_000_000 + 600_000 * u64::try_from(documents.len()).unwrap_or_default()]
         pub fn add_documents(origin, documents: Vec<(DocumentName, Document)>, ticker: Ticker) -> DispatchResult {
-            let did = Identity::<T>::ensure_origin_call_permissions(origin)?.1;
+            let did = Identity::<T>::ensure_origin_call_permissions(origin)?.primary_did;
 
             ensure!(Self::is_owner(&ticker, did), Error::<T>::NotAnOwner);
 
@@ -838,7 +842,7 @@ decl_module! {
         /// `500_000_000 + 600_000 * do_ids.len()`
         #[weight = T::DbWeight::get().reads_writes(2, 1) + 500_000_000 + 600_000 * u64::try_from(doc_names.len()).unwrap_or_default()]
         pub fn remove_documents(origin, doc_names: Vec<DocumentName>, ticker: Ticker) -> DispatchResult {
-            let did = Identity::<T>::ensure_origin_call_permissions(origin)?.1;
+            let did = Identity::<T>::ensure_origin_call_permissions(origin)?.primary_did;
             ensure!(Self::is_owner(&ticker, did), Error::<T>::NotAnOwner);
 
             for document_name in doc_names {
@@ -863,7 +867,7 @@ decl_module! {
         /// * `value` Allowance amount.
         #[weight = T::DbWeight::get().reads_writes(4, 2) + 500_000_000]
         pub fn increase_custody_allowance(origin, ticker: Ticker, custodian_did: IdentityId, value: T::Balance) -> DispatchResult {
-            let sender_did = Identity::<T>::ensure_origin_call_permissions(origin)?.1;
+            let sender_did = Identity::<T>::ensure_origin_call_permissions(origin)?.primary_did;
             Self::unsafe_increase_custody_allowance(sender_did, ticker, sender_did, custodian_did, value)?;
             Ok(())
         }
@@ -890,7 +894,7 @@ decl_module! {
             nonce: u16,
             signature: T::OffChainSignature
         ) -> DispatchResult {
-            let caller_did = Identity::<T>::ensure_origin_call_permissions(origin)?.1;
+            let caller_did = Identity::<T>::ensure_origin_call_permissions(origin)?.primary_did;
             ensure!(
                 !Self::authentication_nonce((ticker, holder_did, nonce)),
                 Error::<T>::SignatureAlreadyUsed
@@ -935,7 +939,7 @@ decl_module! {
             receiver_did: IdentityId,
             value: T::Balance
         ) -> DispatchResultWithPostInfo {
-            let custodian_did = Identity::<T>::ensure_origin_call_permissions(origin)?.1;
+            let custodian_did = Identity::<T>::ensure_origin_call_permissions(origin)?.primary_did;
             Self::unsafe_transfer_by_custodian(custodian_did, ticker, holder_did, receiver_did, value)
         }
 
@@ -949,7 +953,7 @@ decl_module! {
         pub fn set_funding_round(origin, ticker: Ticker, name: FundingRoundName) ->
             DispatchResult
         {
-            let did = Identity::<T>::ensure_origin_call_permissions(origin)?.1;
+            let did = Identity::<T>::ensure_origin_call_permissions(origin)?.primary_did;
             ensure!(Self::is_owner(&ticker, did), Error::<T>::NotAnOwner);
             <FundingRound>::insert(ticker, name.clone());
             Self::deposit_event(RawEvent::FundingRoundSet(did, ticker, name));
@@ -972,7 +976,7 @@ decl_module! {
             ticker: Ticker,
             identifiers: Vec<(IdentifierType, AssetIdentifier)>
         ) -> DispatchResult {
-            let did = Identity::<T>::ensure_origin_call_permissions(origin)?.1;
+            let did = Identity::<T>::ensure_origin_call_permissions(origin)?.primary_did;
             ensure!(Self::is_owner(&ticker, did), Error::<T>::Unauthorized);
             for (typ, val) in &identifiers {
                 <Identifiers>::insert((ticker, typ.clone()), val.clone());
@@ -989,7 +993,7 @@ decl_module! {
         /// * `extension_details` - Details of the smart extension.
         #[weight = T::DbWeight::get().reads_writes(2, 2) + 600_000_000]
         pub fn add_extension(origin, ticker: Ticker, extension_details: SmartExtension<T::AccountId>) -> DispatchResult {
-            let my_did = Identity::<T>::ensure_origin_call_permissions(origin)?.1;
+            let my_did = Identity::<T>::ensure_origin_call_permissions(origin)?.primary_did;
             ensure!(Self::is_owner(&ticker, my_did), Error::<T>::Unauthorized);
 
             // Verify the details of smart extension & store it
@@ -1056,7 +1060,7 @@ decl_module! {
             origin,
             ticker: Ticker,
         ) -> DispatchResult {
-            let did = Identity::<T>::ensure_origin_call_permissions(origin)?.1;
+            let did = Identity::<T>::ensure_origin_call_permissions(origin)?.primary_did;
             ensure!(Self::is_owner(&ticker, did), Error::<T>::Unauthorized);
             let mut old_primary_issuance_agent = None;
             <Tokens<T>>::mutate(&ticker, |token| {
@@ -1119,7 +1123,7 @@ decl_module! {
             }
 
             // Ensure we're signed & get did.
-            let owner_did = Identity::<T>::ensure_origin_call_permissions(origin)?.1;
+            let owner_did = Identity::<T>::ensure_origin_call_permissions(origin)?.primary_did;
 
             // Have the caller prove that they own *some* Ethereum account
             // by having the signed signature contain the `owner_did`.
@@ -2387,7 +2391,7 @@ impl<T: Trait> Module<T> {
         ticker: &Ticker,
         id: &T::AccountId,
     ) -> Result<IdentityId, DispatchError> {
-        let did = Identity::<T>::ensure_origin_call_permissions(origin)?.1;
+        let did = Identity::<T>::ensure_origin_call_permissions(origin)?.primary_did;
         ensure!(Self::is_owner(ticker, did), Error::<T>::Unauthorized);
         ensure!(
             <ExtensionDetails<T>>::contains_key((ticker, id)),

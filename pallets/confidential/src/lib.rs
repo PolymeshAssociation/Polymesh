@@ -86,7 +86,7 @@ decl_module! {
             secret_value: u64,
         ) -> DispatchResult
         {
-            let prover = Identity::<T>::ensure_origin_call_permissions(origin)?.1;
+            let prover = Identity::<T>::ensure_origin_call_permissions(origin)?.primary_did;
 
             // Create proof
             let mut rng = rng::Rng::default();
@@ -113,7 +113,7 @@ decl_module! {
             prover: IdentityId,
             ticker: Ticker) -> DispatchResult
         {
-            let verifier_id = Identity::<T>::ensure_origin_call_permissions(origin)?.1;
+            let verifier_id = Identity::<T>::ensure_origin_call_permissions(origin)?.primary_did;
 
             Self::verify_range_proof(target, prover, ticker)?;
 
