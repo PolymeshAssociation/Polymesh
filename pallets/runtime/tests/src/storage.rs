@@ -43,7 +43,7 @@ use polymesh_common_utilities::traits::{
 use polymesh_common_utilities::Context;
 use polymesh_primitives::{
     Authorization, AuthorizationData, CddId, Claim, IdentityId, InvestorUid, InvestorZKProofData,
-    Signatory, Ticker,
+    Signatory, Ticker, Scope
 };
 use polymesh_runtime_common::{bridge, cdd_check::CddChecker, dividend, exemption, voting};
 use smallvec::smallvec;
@@ -738,7 +738,7 @@ pub fn provide_scope_claim(
     assert_ok!(Identity::add_claim(
         signed_claim_to,
         claim_to,
-        Claim::InvestorZKProof(asset_id, scope_id, cdd_id, proof),
+        Claim::InvestorZKProof(Scope::Ticker(scope), scope_id, cdd_id, proof),
         None
     ));
 }
