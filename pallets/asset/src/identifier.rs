@@ -1,5 +1,6 @@
 use codec::{Decode, Encode};
 use core::convert::TryInto;
+use alloc::vec::Vec;
 
 #[derive(Encode, Decode, Clone, Debug, PartialEq, Eq)]
 pub enum Identifier {
