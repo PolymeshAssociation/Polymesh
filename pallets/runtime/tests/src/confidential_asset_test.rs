@@ -2,7 +2,7 @@ use super::{
     storage::{register_keyring_account, TestStorage},
     ExtBuilder,
 };
-use codec::{Encode, Decode};
+use codec::{Decode, Encode};
 use confidential_asset::EncryptedAssetIdWrapper;
 use core::convert::TryFrom;
 use cryptography::{

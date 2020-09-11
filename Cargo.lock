@@ -3447,7 +3447,6 @@ dependencies = [
  "polymesh-common-utilities",
  "polymesh-primitives",
  "polymesh-primitives-derive",
- "schnorrkel",
  "sp-std",
 ]
 

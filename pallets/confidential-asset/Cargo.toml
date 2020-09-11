@@ -11,8 +11,6 @@ polymesh-primitives-derive = { path = "../../primitives_derive", default-feature
 polymesh-common-utilities = { path = "../common", default-features = false }
 
 # Our Pallets
-# pallet-balances = { path = "../balances", default-features = false  }
-# pallet-contracts = { git = "https://github.com/paritytech/substrate", branch = "at-add-dispatch-call", default-features = false }
 pallet-identity = { path = "../identity", default-features = false }
 pallet-portfolio = { path = "../portfolio", default-features = false }
 pallet-statistics = { path = "../statistics", default-features = false }
@@ -22,7 +20,6 @@ pallet-asset-types = { path = "../asset/types", default-features = false  }
 # Crypto
 cryptography = { path = "../../external/cryptography", default-features = false }
 curve25519-dalek = { version = "2", default-features = false, features = ["nightly"] }
-schnorrkel = { version = "0.9.1", default-features = false }
 
 # Substrate
 codec = { package = "parity-scale-codec", version = "1.1.0", default-features = false, features = ["derive"] }

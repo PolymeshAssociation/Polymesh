@@ -70,7 +70,6 @@ pub struct MercatAccount {
     pub encryption_pub_key: EncryptionPubKey,
 }
 
-type Asset<T> = asset::Module<T>;
 type Identity<T> = identity::Module<T>;
 
 decl_storage! {
@@ -119,7 +118,7 @@ decl_module! {
             let owner_acc = ensure_signed(origin)?;
             let owner_id = Context::current_identity_or::<Identity<T>>(&owner_acc)?;
 
-            let valid_asset_ids = convert_asset_ids(Self::confidential_tickers().into());
+            let valid_asset_ids = convert_asset_ids(Self::confidential_tickers());
             AccountValidator{}.verify(&tx, &valid_asset_ids).map_err(|_| Error::<T>::InvalidAccountCreationProof)?;
             let wrapped_enc_asset_id = EncryptedAssetIdWrapper::from(tx.pub_account.enc_asset_id.encode());
             <MercatAccounts>::insert(&owner_id, &wrapped_enc_asset_id, MercatAccount {
