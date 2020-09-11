@@ -8,9 +8,9 @@ use pallet_statistics as statistics;
 use polymesh_primitives::{PortfolioId, Ticker};
 
 use frame_support::assert_ok;
+use pallet_asset::identifier::Identifier;
 use sp_std::convert::TryFrom;
 use test_client::AccountKeyring;
-use pallet_asset::identifier::Identifier;
 
 type Origin = <TestStorage as frame_system::Trait>::Origin;
 type Asset = asset::Module<TestStorage>;

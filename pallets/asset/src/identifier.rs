@@ -29,7 +29,7 @@ impl Identifier {
         let (s1, s2) = bytes
             .iter()
             .map(|b| byte_value(*b))
-            .flat_map(|b| if b > 9 { vec![b / 10, b % 10] } else { vec![b] })
+            .flat_map(|b| if b > 9 { Vec::from([b / 10, b % 10]) } else { Vec::from([b]) })
             .rev()
             .enumerate()
             .fold((0, 0), |(mut s1, mut s2), (i, digit)| {

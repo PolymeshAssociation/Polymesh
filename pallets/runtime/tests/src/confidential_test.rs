@@ -16,8 +16,8 @@ use polymesh_primitives::{
 
 use core::convert::TryFrom;
 use frame_support::{assert_err, assert_ok};
-use test_client::AccountKeyring;
 use pallet_asset::identifier::Identifier;
+use test_client::AccountKeyring;
 
 type Identity = identity::Module<TestStorage>;
 type Asset = asset::Module<TestStorage>;

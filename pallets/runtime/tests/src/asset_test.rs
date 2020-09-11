@@ -35,11 +35,11 @@ use frame_support::{
 };
 use hex_literal::hex;
 use ink_primitives::hash as FunctionSelectorHasher;
+use pallet_asset::identifier::Identifier;
 use rand::Rng;
 use sp_runtime::AnySignature;
 use std::convert::{TryFrom, TryInto};
 use test_client::AccountKeyring;
-use pallet_asset::identifier::Identifier;
 
 type Identity = identity::Module<TestStorage>;
 type Balances = balances::Module<TestStorage>;
@@ -837,10 +837,7 @@ fn update_identifiers() {
 
         // A correct entry was added
         assert_eq!(Asset::token_details(ticker), token);
-        assert_eq!(
-            Asset::identifiers(ticker),
-            identifiers
-        );
+        assert_eq!(Asset::identifiers(ticker), identifiers);
         let identifier_value2 = b"US0378331005";
         let updated_identifiers = vec![
             Identifier::cusip(*b"17275R102").unwrap(),
