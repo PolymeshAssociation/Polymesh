@@ -2013,6 +2013,9 @@ impl<T: Trait> Module<T> {
     }
 
     /// Checks call permissions and, if successful, returns the caller's account, primary and secondary identities.
+    ///
+    /// TODO: `Context::current_identity_or` fails for origins that do not have an identity. Hence
+    /// secondary keys without an identity are not functional.
     pub fn ensure_origin_call_permissions(
         origin: <T as frame_system::Trait>::Origin,
     ) -> Result<PermissionedCallOriginData<T::AccountId>, DispatchError> {

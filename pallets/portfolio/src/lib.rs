@@ -46,6 +46,7 @@ use frame_support::{
     IterableStorageDoubleMap,
 };
 use frame_system::{self as system, ensure_signed};
+use pallet_identity::PermissionedCallOriginData;
 use polymesh_common_utilities::{identity::Trait as IdentityTrait, CommonTrait, Context};
 use polymesh_primitives::{IdentityId, PortfolioId, PortfolioName, PortfolioNumber, Ticker};
 use sp_arithmetic::traits::Saturating;
@@ -157,26 +158,36 @@ decl_module! {
         /// Creates a portfolio with the given `name`.
         #[weight = 600_000_000]
         pub fn create_portfolio(origin, name: PortfolioName) -> DispatchResult {
-            let sender = ensure_signed(origin)?;
-            CallPermissions::<T>::ensure_call_permissions(&sender)?;
-            let did = Context::current_identity_or::<Identity<T>>(&sender)?;
-            Self::ensure_name_unique(&did, &name)?;
-            let num = Self::get_next_portfolio_number(&did);
-            <Portfolios>::insert(&did, &num, name.clone());
-            Self::deposit_event(RawEvent::PortfolioCreated(did, num, name));
+            let PermissionedCallOriginData {
+                primary_did,
+                secondary_did,
+                ..
+            } = Identity::<T>::ensure_origin_call_permissions(origin)?;
+            if let Some(_did) = secondary_did {
+                // TODO: Check that the secondary signer is not limited to particular portfolios.
+            }
+            Self::ensure_name_unique(&primary_did, &name)?;
+            let num = Self::get_next_portfolio_number(&primary_did);
+            <Portfolios>::insert(&primary_did, &num, name.clone());
+            Self::deposit_event(RawEvent::PortfolioCreated(primary_did, num, name));
             Ok(())
         }
 
         /// Deletes a user portfolio and moves all its assets to the default portfolio.
         #[weight = 1_000_000_000]
         pub fn delete_portfolio(origin, num: PortfolioNumber) -> DispatchResult {
-            let sender = ensure_signed(origin)?;
-            CallPermissions::<T>::ensure_call_permissions(&sender)?;
-            let did = Context::current_identity_or::<Identity<T>>(&sender)?;
+            let PermissionedCallOriginData {
+                primary_did,
+                secondary_did,
+                ..
+            } = Identity::<T>::ensure_origin_call_permissions(origin)?;
+            if let Some(_did) = secondary_did {
+                // TODO: Check that the secondary signer is allowed to work with this portfolio.
+            }
             // Check that the portfolio exists.
-            ensure!(Self::portfolios(&did, &num).is_some(), Error::<T>::PortfolioDoesNotExist);
-            let portfolio_id = PortfolioId::user_portfolio(did, num);
-            let def_portfolio_id = PortfolioId::default_portfolio(did);
+            ensure!(Self::portfolios(&primary_did, &num).is_some(), Error::<T>::PortfolioDoesNotExist);
+            let portfolio_id = PortfolioId::user_portfolio(primary_did, num);
+            let def_portfolio_id = PortfolioId::default_portfolio(primary_did);
             // Move all the assets from the portfolio that is being deleted to the default
             // portfolio.
             for (ticker, balance) in <PortfolioAssetBalances<T>>::iter_prefix(&portfolio_id) {
@@ -184,7 +195,7 @@ decl_module! {
                     *v = v.saturating_add(balance)
                 });
                 Self::deposit_event(RawEvent::MovedBetweenPortfolios(
-                    did,
+                    primary_did,
                     Some(num),
                     None,
                     ticker,
@@ -192,8 +203,8 @@ decl_module! {
                 ));
             }
             <PortfolioAssetBalances<T>>::remove_prefix(&portfolio_id);
-            <Portfolios>::remove(&did, &num);
-            Self::deposit_event(RawEvent::PortfolioDeleted(did, num));
+            <Portfolios>::remove(&primary_did, &num);
+            Self::deposit_event(RawEvent::PortfolioDeleted(primary_did, num));
             Ok(())
         }
 
@@ -206,29 +217,34 @@ decl_module! {
             to_num: Option<PortfolioNumber>,
             items: Vec<MovePortfolioItem<<T as CommonTrait>::Balance>>,
         ) -> DispatchResult {
-            let sender = ensure_signed(origin)?;
-            CallPermissions::<T>::ensure_call_permissions(&sender)?;
-            let did = Context::current_identity_or::<Identity<T>>(&sender)?;
+            let PermissionedCallOriginData {
+                primary_did,
+                secondary_did,
+                ..
+            } = Identity::<T>::ensure_origin_call_permissions(origin)?;
+            if let Some(_did) = secondary_did {
+                // TODO: Check that the secondary signer is allowed to work with this portfolio.
+            }
             // Check that the source and destination portfolios are in fact different.
             ensure!(from_num != to_num, Error::<T>::DestinationIsSamePortfolio);
             // Check that the source portfolio exists.
             if let Some(from_num) = from_num {
                 ensure!(
-                    Self::portfolios(&did, from_num).is_some(),
+                    Self::portfolios(&primary_did, from_num).is_some(),
                     Error::<T>::PortfolioDoesNotExist
                 );
             }
             // Check that the destination portfolio exists.
             if let Some(to_num) = to_num {
                 ensure!(
-                    Self::portfolios(&did, to_num).is_some(),
+                    Self::portfolios(&primary_did, to_num).is_some(),
                     Error::<T>::PortfolioDoesNotExist
                 );
             }
             let get_portfolio_id = |num: Option<PortfolioNumber>| {
                 num
-                    .map(|num| PortfolioId::user_portfolio(did, num))
-                    .unwrap_or_else(|| PortfolioId::default_portfolio(did))
+                    .map(|num| PortfolioId::user_portfolio(primary_did, num))
+                    .unwrap_or_else(|| PortfolioId::default_portfolio(primary_did))
             };
             let from_portfolio_id = get_portfolio_id(from_num);
             let to_portfolio_id = get_portfolio_id(to_num);
@@ -248,7 +264,7 @@ decl_module! {
                     to_balance.saturating_add(item.amount)
                 );
                 Self::deposit_event(RawEvent::MovedBetweenPortfolios(
-                    did,
+                    primary_did,
                     from_num,
                     to_num,
                     item.ticker,
@@ -265,15 +281,20 @@ decl_module! {
             num: PortfolioNumber,
             to_name: PortfolioName,
         ) -> DispatchResult {
-            let sender = ensure_signed(origin)?;
-            CallPermissions::<T>::ensure_call_permissions(&sender)?;
-            let did = Context::current_identity_or::<Identity<T>>(&sender)?;
+            let PermissionedCallOriginData {
+                primary_did,
+                secondary_did,
+                ..
+            } = Identity::<T>::ensure_origin_call_permissions(origin)?;
+            if let Some(_did) = secondary_did {
+                // TODO: Check that the secondary signer is allowed to work with this portfolio.
+            }
             // Check that the portfolio exists.
-            ensure!(Self::portfolios(&did, &num).is_some(), Error::<T>::PortfolioDoesNotExist);
-            Self::ensure_name_unique(&did, &to_name)?;
-            <Portfolios>::mutate(&did, &num, |p| *p = Some(to_name.clone()));
+            ensure!(Self::portfolios(&primary_did, &num).is_some(), Error::<T>::PortfolioDoesNotExist);
+            Self::ensure_name_unique(&primary_did, &to_name)?;
+            <Portfolios>::mutate(&primary_did, &num, |p| *p = Some(to_name.clone()));
             Self::deposit_event(RawEvent::PortfolioRenamed(
-                did,
+                primary_did,
                 num,
                 to_name,
             ));
