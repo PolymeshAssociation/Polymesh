@@ -21,8 +21,7 @@ use polymesh_common_utilities::{
 };
 use polymesh_primitives::{IdentityId, PortfolioId, Ticker};
 use sp_runtime::traits::{CheckedMul, Saturating};
-use sp_std::{collections::btree_set::BTreeSet, prelude::*};
-
+use sp_std::{collections::btree_set::BTreeSet, iter, prelude::*};
 type Identity<T> = identity::Module<T>;
 type Settlement<T> = pallet_settlement::Module<T>;
 
@@ -158,12 +157,10 @@ decl_module! {
                 legs
             )?;
 
-            let mut pia_portfolios = BTreeSet::new();
-            pia_portfolios.insert(PortfolioId::default_portfolio(primary_issuance_agent));
+            let pia_portfolios = iter::once(PortfolioId::default_portfolio(primary_issuance_agent)).collect::<BTreeSet<_>>();
             Settlement::<T>::unsafe_authorize_instruction(primary_issuance_agent, instruction_id, pia_portfolios)?;
 
-            let mut sender_portfolios = BTreeSet::new();
-            sender_portfolios.insert(PortfolioId::default_portfolio(did));
+            let sender_portfolios = iter::once(PortfolioId::default_portfolio(did)).collect::<BTreeSet<_>>();
             Settlement::<T>::authorize_instruction(origin, instruction_id, sender_portfolios).map_err(|err| err.error)?;
 
             Self::deposit_event(
