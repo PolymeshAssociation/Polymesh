@@ -117,8 +117,7 @@ decl_event! {
         /// * origin DID
         /// * portfolio number
         PortfolioDeleted(IdentityId, PortfolioNumber),
-        /// A token amount has been moved from one portfolio to another. `None` denotes the default
-        /// portfolio of the DID.
+        /// A token amount has been moved from one portfolio to another.
         ///
         /// # Parameters
         /// * origin DID

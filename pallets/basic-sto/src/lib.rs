@@ -19,9 +19,9 @@ use polymesh_common_utilities::{
     traits::{asset::Trait as AssetTrait, identity::Trait as IdentityTrait, CommonTrait},
     Context,
 };
-use polymesh_primitives::{IdentityId, Ticker};
+use polymesh_primitives::{IdentityId, PortfolioId, Ticker};
 use sp_runtime::traits::{CheckedMul, Saturating};
-use sp_std::prelude::*;
+use sp_std::collections::btree_set::BTreeSet;
 
 type Identity<T> = identity::Module<T>;
 type Settlement<T> = pallet_settlement::Module<T>;
@@ -158,8 +158,13 @@ decl_module! {
                 legs
             )?;
 
-            Settlement::<T>::unsafe_authorize_instruction(primary_issuance_agent, instruction_id, primary_issuance_agent.into())?;
-            Settlement::<T>::authorize_instruction(origin, instruction_id, did.into()).map_err(|err| err.error)?;
+            let mut pia_portfolios = BTreeSet::new();
+            pia_portfolios.insert(PortfolioId::default_portfolio(primary_issuance_agent));
+            Settlement::<T>::unsafe_authorize_instruction(primary_issuance_agent, instruction_id, pia_portfolios)?;
+
+            let mut sender_portfolios = BTreeSet::new();
+            sender_portfolios.insert(PortfolioId::default_portfolio(did));
+            Settlement::<T>::authorize_instruction(origin, instruction_id, sender_portfolios).map_err(|err| err.error)?;
 
             Self::deposit_event(
                 RawEvent::FundsRaised(did, offering_token, fundraiser.raise_token, offering_token_amount, raise_token_amount, fundraiser_id)

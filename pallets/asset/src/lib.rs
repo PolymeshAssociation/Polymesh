@@ -1137,6 +1137,8 @@ decl_error! {
         NoSuchClassicTicker,
         /// Registration of ticker has expired.
         TickerRegistrationExpired,
+        /// Transfers to self are not allowed
+        SenderSameAsReceiver
     }
 }
 
@@ -1472,7 +1474,7 @@ impl<T: Trait> Module<T> {
         );
         ensure!(
             from_portfolio.did != to_portfolio.did,
-            Error::<T>::InvalidTransfer
+            Error::<T>::SenderSameAsReceiver
         );
 
         let from_total_balance = Self::balance_of(ticker, from_portfolio.did);
