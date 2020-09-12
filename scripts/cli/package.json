@@ -33,7 +33,7 @@
     "12_A_settlement": "node ./tests/12_A_settlement.js",
     "12_B_settlement": "node ./tests/12_B_settlement.js",
     "schema_test": "./util/schema_test.sh",
-    "test": "npm run -s schema_test && npm run -s 0_create_identities && npm run -s 1_poly_transfer && npm run -s 2_key_management && npm run -s 3_auth_join_did && npm run -s 4_permission_management && npm run -s 5_claim_management && npm run -s 6_create_assets && npm run -s 7_create_claim_compliance && npm run -s 8_asset_transfer && npm run -s 10_bridge_transfer && npm run -s 11_governance_management && npm run -s 12_A_settlement && npm run -s 12_B_settlement"
+    "test": "npm run -s schema_test && npm run -s 0_create_identities && npm run -s 1_poly_transfer && npm run -s 2_key_management && npm run -s 3_auth_join_did && npm run -s 4_permission_management && npm run -s 5_claim_management && npm run -s 6_create_assets && npm run -s 7_create_claim_compliance && npm run -s 8_asset_transfer  npm run -s 10_bridge_transfer && npm run -s 11_governance_management && npm run -s 12_A_settlement && npm run -s 12_B_settlement"
   },
   "author": "Polymath Network",
   "license": "UNLICENSED",
