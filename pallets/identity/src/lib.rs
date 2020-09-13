@@ -2151,7 +2151,7 @@ impl<T: Trait> CheckAccountCallPermissions<T::AccountId> for Module<T> {
                     Context::current_identity::<Self>().map(|did| Signatory::Identity(did));
                 return did_record
                     .secondary_keys
-                    .iter()
+                    .into_iter()
                     .find(|sk| {
                         sk.signer == Signatory::Account(who.clone())
                             || Some(sk.signer.clone()) == maybe_current_did_signer
@@ -2159,7 +2159,7 @@ impl<T: Trait> CheckAccountCallPermissions<T::AccountId> for Module<T> {
                     .filter(|sk| sk.has_extrinsic_permission(pallet_name, function_name))
                     .map(|sk| AccountCallPermissionsData {
                         primary_did,
-                        secondary_key: Some(sk.clone()),
+                        secondary_key: Some(sk),
                     });
             }
             // `who` is the primary key.

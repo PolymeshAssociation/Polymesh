@@ -148,12 +148,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "arbitrary"
-version = "0.4.5"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7cb544f1057eaaff4b34f8c4dcf56fc3cd04debd291998405d135017a7c3c0f4"
-
-[[package]]
 name = "arc-swap"
 version = "0.4.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1785,17 +1779,6 @@ dependencies = [
  "digest 0.8.1",
  "generic-array 0.12.3",
  "hmac",
-]
-
-[[package]]
-name = "honggfuzz"
-version = "0.5.49"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "832bac18a82ec7d6c21887daa8616b238fe90d5d5e762d0d4b9372cdaa9e097f"
-dependencies = [
- "arbitrary",
- "lazy_static",
- "memmap",
 ]
 
 [[package]]
@@ -3845,27 +3828,6 @@ dependencies = [
  "sp-staking",
  "sp-std",
  "static_assertions",
-]
-
-[[package]]
-name = "pallet-staking-fuzz"
-version = "0.0.0"
-dependencies = [
- "frame-support",
- "frame-system",
- "honggfuzz",
- "pallet-balances 0.1.0",
- "pallet-indices",
- "pallet-session",
- "pallet-staking",
- "pallet-staking-reward-curve",
- "pallet-timestamp",
- "parity-scale-codec",
- "sp-core",
- "sp-io",
- "sp-npos-elections",
- "sp-runtime",
- "sp-std",
 ]
 
 [[package]]
