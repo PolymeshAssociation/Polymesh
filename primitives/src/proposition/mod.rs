@@ -13,7 +13,7 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
-use crate::{Claim, Condition, ConditionType, IdentityId, TargetIdentity, Ticker};
+use crate::{Claim, Condition, ConditionType, IdentityId, TargetIdentity};
 use codec::{Decode, Encode};
 
 use sp_std::prelude::*;
@@ -41,7 +41,7 @@ pub struct Context {
 
 /// It allows composition and evaluation of claims based on a context.
 pub trait Proposition {
-    /// It evaluates this propositiond based on `context` context.
+    /// It evaluates this propositioned based on `context` context.
     fn evaluate(&self, context: &Context) -> bool;
 
     /// It generates a new proposition that represents the logical AND
@@ -84,10 +84,6 @@ pub use base::{
     TargetIdentityProposition,
 };
 
-/// Propositions for confidential stuff.
-pub mod valid_proof_of_investor;
-pub use valid_proof_of_investor::ValidProofOfInvestorProposition;
-
 // Helper functions
 // ======================================
 
@@ -126,13 +122,6 @@ where
     NotProposition::new(proposition)
 }
 
-/// It verifies if the Identifier in the context has got a valid `InvestorZKProof` and its
-/// associate `CustomDueDiligence`.
-#[inline]
-pub fn has_valid_proof_of_investor(ticker: Ticker) -> ValidProofOfInvestorProposition {
-    ValidProofOfInvestorProposition { ticker }
-}
-
 /// Helper function to run propositions from a context.
 pub fn run(condition: &Condition, context: &Context) -> bool {
     match condition.condition_type {
@@ -140,8 +129,11 @@ pub fn run(condition: &Condition, context: &Context) -> bool {
         ConditionType::IsAbsent(ref claim) => not(exists(claim)).evaluate(context),
         ConditionType::IsAnyOf(ref claims) => any(claims).evaluate(context),
         ConditionType::IsNoneOf(ref claims) => not(any(claims)).evaluate(context),
-        ConditionType::HasValidProofOfInvestor(ref ticker) => {
-            has_valid_proof_of_investor(ticker.clone()).evaluate(context)
+        ConditionType::HasValidProofOfInvestor(..) => {
+            context
+                .claims
+                .iter()
+                .any(|claim| exists(claim).evaluate(context))
         }
         ConditionType::IsIdentity(ref id) => {
             equals(id, &context.primary_issuance_agent.unwrap_or_default()).evaluate(context)

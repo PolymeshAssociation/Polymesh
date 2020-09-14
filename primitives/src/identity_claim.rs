@@ -20,7 +20,7 @@ use codec::{Decode, Encode};
 use polymesh_primitives_derive::Migrate;
 #[cfg(feature = "std")]
 use sp_runtime::{Deserialize, Serialize};
-use sp_std::prelude::*;
+use sp_std::{ convert::From, prelude::* };
 
 use super::jurisdiction::{CountryCode, JurisdictionName};
 use crate::migrate::Migrate;
@@ -38,6 +38,29 @@ pub enum Scope {
     Ticker(Ticker),
     /// Scoped to arbitrary bytes
     Custom(Vec<u8>),
+}
+
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+#[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, PartialOrd, Ord)]
+/// Scope type.
+pub enum ScopeType {
+    /// Scoped to an `IdentityId`.
+    Identity,
+    /// Scoped to a `Ticker`.
+    Ticker,
+    /// Scoped to arbitrary bytes
+    Custom
+}
+
+impl Scope {
+    /// Matches scope type.
+    pub fn scope_type(&self) -> ScopeType {
+        match self {
+            Scope::Identity(..) => ScopeType::Identity,
+            Scope::Ticker(..) => ScopeType::Ticker,
+            Scope::Custom(..) => ScopeType::Custom,
+        }
+    }
 }
 
 impl From<IdentityId> for Scope {

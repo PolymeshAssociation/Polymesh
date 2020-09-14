@@ -167,7 +167,7 @@ pub use investor_zkproof_data::InvestorZKProofData;
 /// Claim information.
 /// Each claim is associated with this kind of record.
 pub mod identity_claim;
-pub use identity_claim::{Claim, ClaimType, IdentityClaim, Scope, ScopeId};
+pub use identity_claim::{Claim, ClaimType, IdentityClaim, Scope, ScopeId, ScopeType};
 
 // Defining and enumerating jurisdictions.
 pub mod jurisdiction;
@@ -208,8 +208,11 @@ pub use condition::{Condition, ConditionType, TargetIdentity};
 pub mod proposition;
 pub use proposition::{
     AndProposition, Context, NotProposition, OrProposition, Proposition,
-    ValidProofOfInvestorProposition,
 };
+
+/// For confidential stuff.
+pub mod valid_proof_of_investor;
+pub use valid_proof_of_investor::ValidProofOfInvestor;
 
 /// Represents custom transaction errors.
 #[repr(u8)]
