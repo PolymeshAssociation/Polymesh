@@ -35,6 +35,7 @@ pub enum TargetIdentity {
 /// predicate.
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, Migrate)]
+#[migrate_context(Option<crate::CddId>)]
 pub enum ConditionType {
     /// Condition to ensure that claim filter produces one claim.
     IsPresent(#[migrate] Claim),
@@ -54,6 +55,7 @@ pub enum ConditionType {
 /// Type of claim requirements that a condition can have
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, Migrate)]
+#[migrate_context(Option<crate::CddId>)]
 pub struct Condition {
     /// Type of condition.
     #[migrate]

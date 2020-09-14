@@ -1,6 +1,6 @@
 use crate::{
     scalar_blake2_from_bytes, CddId, Claim, Context, IdentityId, InvestorZKProofData, Proposition,
-    Scope, Ticker,
+    Ticker,
 };
 use cryptography::claim_proofs::ProofPublicKey;
 use curve25519_dalek::{ristretto::CompressedRistretto, scalar::Scalar};
@@ -68,7 +68,7 @@ mod tests {
     use super::*;
     use crate::{
         proposition::{exists, has_valid_proof_of_investor},
-        Claim, Context, InvestorUid, InvestorZKProofData,
+        Claim, Context, InvestorUid, InvestorZKProofData, Scope,
     };
     use cryptography::claim_proofs::{compute_cdd_id, compute_scope_id};
     use sp_std::convert::{From, TryFrom};
