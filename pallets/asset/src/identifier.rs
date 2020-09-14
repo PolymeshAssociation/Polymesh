@@ -1,6 +1,6 @@
 use codec::{Decode, Encode};
 use core::convert::TryInto;
-use sp_std::vec::Vec;
+use sp_std::vec;
 
 #[derive(Encode, Decode, Clone, Debug, PartialEq, Eq)]
 pub enum Identifier {
@@ -23,14 +23,15 @@ impl Identifier {
     }
 
     pub fn cins(bytes: [u8; 9]) -> Option<Identifier> {
-        (cusip_checksum(&bytes[..8]) == bytes[8] - b'0').then_some(Identifier::CINS(bytes))
+        Self::cusip(bytes).map(|_| Identifier::CINS(bytes))
     }
 
     pub fn isin(bytes: [u8; 12]) -> Option<Identifier> {
         let (s1, s2) = bytes
             .iter()
-            .map(|b| byte_value(*b))
-            .flat_map(|b| if b > 9 { Vec::from([b / 10, b % 10]) } else { Vec::from([b]) })
+            .copied()
+            .map(byte_value)
+            .flat_map(|b| if b > 9 { vec![b / 10, b % 10] } else { vec![b] })
             .rev()
             .enumerate()
             .fold((0, 0), |(mut s1, mut s2), (i, digit)| {
@@ -48,8 +49,12 @@ impl Identifier {
     }
 
     pub fn lei(bytes: [u8; 20]) -> Option<Identifier> {
-        (lei_checksum(bytes[..18].try_into().ok()?) == (bytes[18] - b'0') * 10 + (bytes[19] - b'0'))
-            .then_some(Identifier::LEI(bytes))
+        bytes[..18]
+            .try_into()
+            .ok()
+            .map(lei_checksum)
+            .filter(|hash| *hash == (bytes[18] - b'0') * 10 + (bytes[19] - b'0'))
+            .map(|_| Identifier::LEI(bytes))
     }
 }
 
@@ -61,23 +66,27 @@ fn cusip_checksum(bytes: &[u8]) -> u8 {
         .enumerate()
         .map(|(i, v)| v << (i % 2))
         .map(|v| (v / 10) + v % 10)
-        .map(|i| i as usize)
+        .map(|x| x as usize)
         .sum();
     ((10 - (total % 10)) % 10) as u8
 }
 
 fn lei_checksum(bytes: [u8; 18]) -> u8 {
-    let (total, _) = bytes
+    let mut i = 0;
+    let total = bytes
         .iter()
+        .copied()
         .rev()
-        .fold((0u128, 0usize), |(mut total, mut i), b| {
-            total += byte_value(*b) as u128 * 10u128.pow(i as u32);
-            if byte_value(*b) > 9 {
+        .map(byte_value)
+        .map(|x| x as u128)
+        .fold(0, |mut total, b| {
+            total += b * 10u128.pow(i as u32);
+            if b > 9 {
                 i += 2;
             } else {
                 i += 1;
             }
-            (total, i)
+            total
         });
     (98 - (total * 100 % 97)) as u8
 }
