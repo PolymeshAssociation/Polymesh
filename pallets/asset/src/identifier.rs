@@ -56,6 +56,16 @@ impl Identifier {
             .filter(|hash| *hash == (bytes[18] - b'0') * 10 + (bytes[19] - b'0'))
             .map(|_| Identifier::LEI(bytes))
     }
+
+    pub fn validate(self) -> Option<Self> {
+        match self {
+            Identifier::CUSIP(bytes) => Self::cusip(bytes),
+            Identifier::CINS(bytes) => Self::cins(bytes),
+            Identifier::ISIN(bytes) => Self::isin(bytes),
+            Identifier::LEI(bytes) => Self::lei(bytes),
+            Identifier::EMPTY => Some(Identifier::EMPTY),
+        }
+    }
 }
 
 fn cusip_checksum(bytes: &[u8]) -> u8 {
