@@ -99,8 +99,11 @@ pub fn deserialize_u8_strong_typed_derive(input: TokenStream) -> TokenStream {
 /// }
 /// ```
 ///
-/// By default, `#[derive(Migrate)]` will use `Empty` for `type Context`.
-/// This can however be changed by specifying the type with `#[migrate_context(TheContextType)]`.
+/// By default, `#[derive(Migrate)]` will use `type Context = polymesh_primitives::migrate::Empty`.
+/// This can be changed by specifying a different type with `#[migrate_context(TheContextType)]`,
+/// in which case the macro expansion will include `type Context = TheContextType`.
+/// The associated type `Context` specifies what external data source, if any, to pass to `migrate`.
+/// For more on `Context`, see the `Migrate` trait's documentation.
 #[proc_macro_derive(
     Migrate,
     attributes(migrate, migrate_from, migrate_context, migrate_with)
