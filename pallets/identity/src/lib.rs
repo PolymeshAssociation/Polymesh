@@ -104,7 +104,7 @@ use polymesh_common_utilities::{
 use polymesh_primitives::{
     Authorization, AuthorizationData, AuthorizationError, AuthorizationType, CddId, Claim,
     ClaimType, Identity as DidRecord, IdentityClaim, IdentityId, InvestorUid, Permission, Scope,
-    SecondaryKey, Signatory, Ticker, ValidProofOfInvestor, ScopeType
+    ScopeType, SecondaryKey, Signatory, Ticker, ValidProofOfInvestor,
 };
 use sp_core::sr25519::Signature;
 use sp_io::hashing::blake2_256;
@@ -1721,7 +1721,7 @@ impl<T: Trait> Module<T> {
         target: IdentityId,
         claim: Claim,
         issuer: IdentityId,
-        expiry: Option<T::Moment>
+        expiry: Option<T::Moment>,
     ) -> DispatchResult {
         // Only owner of the identity can add that confidential claim.
         ensure!(
@@ -1730,10 +1730,19 @@ impl<T: Trait> Module<T> {
         );
 
         // Ensure scope should be `Ticker` for this claim.
-        ensure!(claim.as_scope().cloned().map_or(false, |scope| scope.scope_type() == ScopeType::Ticker), Error::<T>::InvalidScopeType);
+        ensure!(
+            claim
+                .as_scope()
+                .cloned()
+                .map_or(false, |scope| scope.scope_type() == ScopeType::Ticker),
+            Error::<T>::InvalidScopeType
+        );
 
         // Verify the confidential claim.
-        ensure!(ValidProofOfInvestor::evaluate_claim(&claim, &target), Error::<T>::InvalidScopeClaim);
+        ensure!(
+            ValidProofOfInvestor::evaluate_claim(&claim, &target),
+            Error::<T>::InvalidScopeClaim
+        );
 
         Self::base_add_claim(target, claim, issuer, expiry);
         Ok(())

@@ -129,12 +129,10 @@ pub fn run(condition: &Condition, context: &Context) -> bool {
         ConditionType::IsAbsent(ref claim) => not(exists(claim)).evaluate(context),
         ConditionType::IsAnyOf(ref claims) => any(claims).evaluate(context),
         ConditionType::IsNoneOf(ref claims) => not(any(claims)).evaluate(context),
-        ConditionType::HasValidProofOfInvestor(..) => {
-            context
-                .claims
-                .iter()
-                .any(|claim| exists(claim).evaluate(context))
-        }
+        ConditionType::HasValidProofOfInvestor(..) => context
+            .claims
+            .iter()
+            .any(|claim| exists(claim).evaluate(context)),
         ConditionType::IsIdentity(ref id) => {
             equals(id, &context.primary_issuance_agent.unwrap_or_default()).evaluate(context)
         }

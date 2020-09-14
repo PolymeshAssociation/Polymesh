@@ -20,7 +20,7 @@ use codec::{Decode, Encode};
 use polymesh_primitives_derive::Migrate;
 #[cfg(feature = "std")]
 use sp_runtime::{Deserialize, Serialize};
-use sp_std::{ convert::From, prelude::* };
+use sp_std::{convert::From, prelude::*};
 
 use super::jurisdiction::{CountryCode, JurisdictionName};
 use crate::migrate::Migrate;
@@ -49,7 +49,7 @@ pub enum ScopeType {
     /// Scoped to a `Ticker`.
     Ticker,
     /// Scoped to arbitrary bytes
-    Custom
+    Custom,
 }
 
 impl Scope {
