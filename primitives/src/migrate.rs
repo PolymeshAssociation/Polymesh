@@ -17,6 +17,7 @@
 
 use codec::{Decode, Encode};
 use frame_support::migration::{put_storage_value, StorageIterator};
+use frame_support::ReversibleStorageHasher;
 use sp_std::vec::Vec;
 
 /// A data type which is migrating through `migrate` to a new type as defined by `Into`.
@@ -59,4 +60,40 @@ pub fn migrate_map_rename<T: Migrate>(module: &[u8], item: &[u8], new_item: &[u8
         .drain()
         .filter_map(|(key, old)| Some((key, old.migrate()?)))
         .for_each(|(key, new)| put_storage_value(module, new_item, &key, new));
+}
+
+/// Migrate the keys of a double map `K1, K2` to keys of type `KN1, KN2` via `map`.
+/// The double map is located in `module::item` and the value of type `V` is ontouched.
+/// This assumes that the hashers are all the same, which is the common case.
+pub fn migrate_double_map_keys<V, H, K1, K2, KN1, KN2, F>(module: &[u8], item: &[u8], mut map: F)
+where
+    F: FnMut(K1, K2) -> (KN1, KN2),
+    V: Decode + Encode,
+    H: ReversibleStorageHasher,
+    K1: Decode,
+    K2: Decode,
+    KN1: Encode,
+    KN2: Encode,
+{
+    let old_map = StorageIterator::<V>::new(module, item)
+        .drain()
+        .collect::<Vec<(Vec<u8>, _)>>();
+
+    for (raw_key, value) in old_map.iter() {
+        let mut unhashed_key = H::reverse(&raw_key);
+        if let Ok(k1) = K1::decode(&mut unhashed_key) {
+            let mut raw_k2 = H::reverse(unhashed_key);
+            if let Ok(k2) = K2::decode(&mut raw_k2) {
+                let (kn1, kn2) = map(k1, k2);
+                let kn1 = kn1.using_encoded(H::hash);
+                let kn2 = kn2.using_encoded(H::hash);
+                let kn1 = kn1.as_ref();
+                let kn2 = kn2.as_ref();
+                let mut key = Vec::with_capacity(kn1.len() + kn2.len());
+                key.extend_from_slice(kn1);
+                key.extend_from_slice(kn2);
+                put_storage_value(module, item, &key, value);
+            }
+        }
+    }
 }
