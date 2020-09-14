@@ -1,5 +1,5 @@
 use super::{
-    storage::{register_keyring_account, TestStorage},
+    storage::{provide_scope_claim_to_multiple_parties, register_keyring_account, TestStorage},
     ExtBuilder,
 };
 use chrono::prelude::Utc;
@@ -7,7 +7,8 @@ use frame_support::{assert_err, assert_noop, assert_ok, traits::Currency};
 use pallet_asset::{self as asset, AssetName, AssetType, SecurityToken};
 use pallet_balances as balances;
 use pallet_compliance_manager::{
-    self as compliance_manager, ComplianceRequirement, Error as CMError,
+    self as compliance_manager, ComplianceRequirement, ComplianceRequirementResult,
+    ConditionResult, Error as CMError, ImplicitRequirementResult,
 };
 use pallet_group as group;
 use pallet_identity::{self as identity};
@@ -111,11 +112,11 @@ fn should_add_and_verify_compliance_requirement_we() {
     let token_owner_signed = Origin::signed(AccountKeyring::Alice.public());
     let token_owner_did = register_keyring_account(AccountKeyring::Alice).unwrap();
     let token_rec_did = register_keyring_account(AccountKeyring::Charlie).unwrap();
-    let cdd_signed = Origin::signed(AccountKeyring::Eve.public());
+    let eve = AccountKeyring::Eve.public();
+    let cdd_signed = Origin::signed(eve);
     let cdd_id = register_keyring_account(AccountKeyring::Eve).unwrap();
 
     assert_ok!(CDDGroup::reset_members(root, vec![cdd_id]));
-
     // A token representing 1M shares
     let token = SecurityToken {
         name: vec![0x01].into(),
@@ -168,7 +169,7 @@ fn should_add_and_verify_compliance_requirement_we() {
 
     let receiver_condition1 = Condition {
         issuers: vec![cdd_id],
-        condition_type: ConditionType::IsAbsent(Claim::make_cdd_wildcard()),
+        condition_type: ConditionType::IsAbsent(Claim::KnowYourCustomer(token_owner_did.into())),
     };
 
     let receiver_condition2 = Condition {
@@ -189,6 +190,9 @@ fn should_add_and_verify_compliance_requirement_we() {
         Claim::Accredited(claim_issuer_did.into()),
         None,
     ));
+
+    // Provide scope claim to sender and receiver of the transaction.
+    provide_scope_claim_to_multiple_parties(&[token_owner_did, token_rec_did], ticker, eve);
 
     //Transfer tokens to investor - fails wrong Accredited scope
     assert_invalid_transfer!(ticker, token_owner_did, token_rec_did, token.total_supply);
@@ -251,7 +255,7 @@ fn should_add_and_verify_compliance_requirement_we() {
     assert_ok!(Identity::add_claim(
         cdd_signed.clone(),
         token_rec_did,
-        Claim::make_cdd_wildcard(),
+        Claim::KnowYourCustomer(token_owner_did.into()),
         None,
     ));
 
@@ -609,12 +613,12 @@ fn should_successfully_add_and_use_default_issuers_we() {
     // fail when token owner doesn't has the valid claim
     assert_invalid_transfer!(ticker, token_owner_did, receiver_did, 100);
 
-    assert_ok!(Identity::add_claim(
-        trusted_issuer_signed.clone(),
-        token_owner_did.clone(),
-        Claim::make_cdd_wildcard(),
-        Some(99999999999999999u64),
-    ));
+    // Provide scope claim to sender and receiver of the transaction.
+    provide_scope_claim_to_multiple_parties(
+        &[token_owner_did, receiver_did],
+        ticker,
+        AccountKeyring::Charlie.public(),
+    );
 
     assert_valid_transfer!(ticker, token_owner_did, receiver_did, 100);
 }
@@ -737,6 +741,13 @@ fn should_modify_vector_of_trusted_issuer_we() {
         y
     ));
 
+    // Provide scope claim to sender and receiver of the transaction.
+    provide_scope_claim_to_multiple_parties(
+        &[token_owner_did, receiver_did],
+        ticker,
+        AccountKeyring::Charlie.public(),
+    );
+
     assert_valid_transfer!(ticker, token_owner_did, receiver_did, 10);
 
     // Remove the trusted issuer 1 from the list
@@ -816,6 +827,7 @@ fn should_modify_vector_of_trusted_issuer_we() {
 #[test]
 fn jurisdiction_asset_compliance() {
     ExtBuilder::default()
+        .cdd_providers(vec![AccountKeyring::Eve.public()])
         .build()
         .execute_with(jurisdiction_asset_compliance_we);
 }
@@ -845,6 +857,14 @@ fn jurisdiction_asset_compliance_we() {
         vec![],
         None,
     ));
+
+    // Provide scope claim to sender and receiver of the transaction.
+    provide_scope_claim_to_multiple_parties(
+        &[token_owner_id, user_id],
+        ticker,
+        AccountKeyring::Eve.public(),
+    );
+
     // 2. Set up compliance requirements for Asset transfer.
     let scope = Scope::from(IdentityId::from(0));
     let receiver_conditions = vec![
@@ -890,6 +910,7 @@ fn jurisdiction_asset_compliance_we() {
 #[test]
 fn scope_asset_compliance() {
     ExtBuilder::default()
+        .cdd_providers(vec![AccountKeyring::Eve.public()])
         .build()
         .execute_with(scope_asset_compliance_we);
 }
@@ -902,6 +923,13 @@ fn scope_asset_compliance_we() {
     let user_id = register_keyring_account(AccountKeyring::Charlie).unwrap();
     // 1. Create a token.
     let (ticker, owner_did) = make_ticker_env(owner, vec![0x01].into());
+
+    // Provide scope claim for sender and receiver.
+    provide_scope_claim_to_multiple_parties(
+        &[owner_did, user_id],
+        ticker,
+        AccountKeyring::Eve.public(),
+    );
 
     // 2. Set up compliance requirements for Asset transfer.
     let scope = Scope::Identity(Identity::get_token_did(&ticker).unwrap());
@@ -931,6 +959,7 @@ fn scope_asset_compliance_we() {
 #[test]
 fn cm_test_case_9() {
     ExtBuilder::default()
+        .cdd_providers(vec![AccountKeyring::One.public()])
         .build()
         .execute_with(cm_test_case_9_we);
 }
@@ -967,6 +996,13 @@ fn cm_test_case_9_we() {
     let eve = register_keyring_account(AccountKeyring::Eve).unwrap();
     let ferdie = register_keyring_account(AccountKeyring::Ferdie).unwrap();
 
+    // Provide scope claim
+    provide_scope_claim_to_multiple_parties(
+        &[owner_did, charlie, dave, eve, ferdie],
+        ticker,
+        AccountKeyring::One.public(),
+    );
+
     // 3.1. Charlie has a 'KnowYourCustomer' Claim.
     assert_ok!(Identity::add_claim(
         issuer.clone(),
@@ -975,7 +1011,12 @@ fn cm_test_case_9_we() {
         None
     ));
     assert_valid_transfer!(ticker, owner_did, charlie, 100);
-    let result = ComplianceManager::granular_verify_restriction(&ticker, None, Some(charlie), None);
+    let result = ComplianceManager::granular_verify_restriction(
+        &ticker,
+        Some(owner_did),
+        Some(charlie),
+        None,
+    );
     assert!(result.result);
     assert!(result.requirements[0].result);
     assert!(result.requirements[0].receiver_conditions[0].result);
@@ -988,7 +1029,8 @@ fn cm_test_case_9_we() {
         None
     ));
     assert_valid_transfer!(ticker, owner_did, dave, 100);
-    let result = ComplianceManager::granular_verify_restriction(&ticker, None, Some(dave), None);
+    let result =
+        ComplianceManager::granular_verify_restriction(&ticker, Some(owner_did), Some(dave), None);
     assert!(result.result);
     assert!(result.requirements[0].result);
     assert!(result.requirements[0].receiver_conditions[0].result);
@@ -1000,13 +1042,19 @@ fn cm_test_case_9_we() {
         Claim::Exempted(scope.clone()),
         None
     ));
-    let result = ComplianceManager::granular_verify_restriction(&ticker, None, Some(eve), None);
+    let result =
+        ComplianceManager::granular_verify_restriction(&ticker, Some(owner_did), Some(eve), None);
     assert!(result.requirements[0].result);
     assert!(result.requirements[0].receiver_conditions[0].result);
 
     // 3.4 Ferdie has none of the required claims
     assert_invalid_transfer!(ticker, owner_did, ferdie, 100);
-    let result = ComplianceManager::granular_verify_restriction(&ticker, None, Some(ferdie), None);
+    let result = ComplianceManager::granular_verify_restriction(
+        &ticker,
+        Some(owner_did),
+        Some(ferdie),
+        None,
+    );
     assert!(!result.result);
     assert!(!result.requirements[0].result);
     assert!(!result.requirements[0].receiver_conditions[0].result);
@@ -1015,6 +1063,7 @@ fn cm_test_case_9_we() {
 #[test]
 fn cm_test_case_11() {
     ExtBuilder::default()
+        .cdd_providers(vec![AccountKeyring::Ferdie.public()])
         .build()
         .execute_with(cm_test_case_11_we);
 }
@@ -1025,6 +1074,7 @@ fn cm_test_case_11_we() {
     let owner = Origin::signed(AccountKeyring::Alice.public());
     let issuer = Origin::signed(AccountKeyring::Bob.public());
     let issuer_id = register_keyring_account(AccountKeyring::Bob).unwrap();
+    let ferdie = AccountKeyring::Ferdie.public();
 
     // 1. Create a token.
     let (ticker, owner_did) = make_ticker_env(AccountKeyring::Alice, vec![0x01].into());
@@ -1060,6 +1110,9 @@ fn cm_test_case_11_we() {
     let dave = register_keyring_account(AccountKeyring::Dave).unwrap();
     let eve = register_keyring_account(AccountKeyring::Eve).unwrap();
 
+    // Provide scope claim
+    provide_scope_claim_to_multiple_parties(&[owner_did, charlie, dave, eve], ticker, ferdie);
+
     // 3.1. Charlie has a 'KnowYourCustomer' Claim.
     assert_ok!(Identity::add_claim(
         issuer.clone(),
@@ -1068,7 +1121,12 @@ fn cm_test_case_11_we() {
         None
     ));
     assert_valid_transfer!(ticker, owner_did, charlie, 100);
-    let result = ComplianceManager::granular_verify_restriction(&ticker, None, Some(charlie), None);
+    let result = ComplianceManager::granular_verify_restriction(
+        &ticker,
+        Some(owner_did),
+        Some(charlie),
+        None,
+    );
     assert!(result.result);
     assert!(result.requirements[0].result);
     assert!(result.requirements[0].receiver_conditions[0].result);
@@ -1089,7 +1147,8 @@ fn cm_test_case_11_we() {
     ));
 
     assert_invalid_transfer!(ticker, owner_did, dave, 100);
-    let result = ComplianceManager::granular_verify_restriction(&ticker, None, Some(dave), None);
+    let result =
+        ComplianceManager::granular_verify_restriction(&ticker, Some(owner_did), Some(dave), None);
     assert!(!result.result);
     assert!(!result.requirements[0].result);
     assert!(result.requirements[0].receiver_conditions[0].result);
@@ -1110,7 +1169,8 @@ fn cm_test_case_11_we() {
     ));
 
     assert_valid_transfer!(ticker, owner_did, eve, 100);
-    let result = ComplianceManager::granular_verify_restriction(&ticker, None, Some(eve), None);
+    let result =
+        ComplianceManager::granular_verify_restriction(&ticker, Some(owner_did), Some(eve), None);
     assert!(result.result);
     assert!(result.requirements[0].result);
     assert!(result.requirements[0].receiver_conditions[0].result);
@@ -1120,6 +1180,7 @@ fn cm_test_case_11_we() {
 #[test]
 fn cm_test_case_13() {
     ExtBuilder::default()
+        .cdd_providers(vec![AccountKeyring::Ferdie.public()])
         .build()
         .execute_with(cm_test_case_13_we);
 }
@@ -1167,6 +1228,13 @@ fn cm_test_case_13_we() {
     let charlie = register_keyring_account(AccountKeyring::Charlie).unwrap();
     let dave = register_keyring_account(AccountKeyring::Dave).unwrap();
     let eve = register_keyring_account(AccountKeyring::Eve).unwrap();
+
+    // Provide scope claim
+    provide_scope_claim_to_multiple_parties(
+        &[owner_did, charlie, dave, eve],
+        ticker,
+        AccountKeyring::Ferdie.public(),
+    );
 
     // 3.1. Charlie has a 'KnowYourCustomer' Claim BUT he does not have any of { 'Affiliate',
     //   'Accredited', 'Exempted'}.
@@ -1225,7 +1293,8 @@ fn cm_test_case_13_we() {
     );
 
     assert_valid_transfer!(ticker, owner_did, eve, 100);
-    let result = ComplianceManager::granular_verify_restriction(&ticker, None, Some(eve), None);
+    let result =
+        ComplianceManager::granular_verify_restriction(&ticker, Some(owner_did), Some(eve), None);
     assert!(result.result);
     assert!(result.requirements[0].result);
     assert!(result.requirements[0].receiver_conditions[0].result);
@@ -1236,6 +1305,7 @@ fn cm_test_case_13_we() {
 #[test]
 fn can_verify_restriction_with_primary_issuance_agent() {
     ExtBuilder::default()
+        .cdd_providers(vec![AccountKeyring::Eve.public()])
         .build()
         .execute_with(can_verify_restriction_with_primary_issuance_agent_we);
 }
@@ -1270,6 +1340,13 @@ fn can_verify_restriction_with_primary_issuance_agent_we() {
         auth_id
     ));
     let amount = 1_000;
+
+    // Provide scope claim for sender and receiver.
+    provide_scope_claim_to_multiple_parties(
+        &[owner_id, random_guy_id, issuer_id],
+        ticker,
+        AccountKeyring::Eve.public(),
+    );
 
     // No compliance requirement is present, compliance should fail
     assert_ok!(
@@ -1429,4 +1506,136 @@ fn should_limit_compliance_requirements_complexity_we() {
 
     let asset_compliance = ComplianceManager::asset_compliance(ticker);
     assert_eq!(asset_compliance.requirements.len(), 1);
+}
+
+#[test]
+fn check_implicit_requirement_switch() {
+    ExtBuilder::default().build().execute_with(|| {
+        // 0. Create accounts
+        let token_owner_acc = AccountKeyring::Alice.public();
+        let token_owner_signed = Origin::signed(AccountKeyring::Alice.public());
+        let token_owner_did = register_keyring_account(AccountKeyring::Alice).unwrap();
+        let receiver_signed = Origin::signed(AccountKeyring::Charlie.public());
+        let receiver_did = register_keyring_account(AccountKeyring::Charlie).unwrap();
+
+        // 1. A token representing 1M shares
+        let token = SecurityToken {
+            name: vec![0x01].into(),
+            owner_did: token_owner_did.clone(),
+            total_supply: 1_000_000,
+            divisible: true,
+            asset_type: AssetType::default(),
+            ..Default::default()
+        };
+        let ticker = Ticker::try_from(token.name.0.as_slice()).unwrap();
+        Balances::make_free_balance_be(&token_owner_acc, 1_000_000);
+
+        // 2. Share issuance is successful
+        assert_ok!(Asset::create_asset(
+            token_owner_signed.clone(),
+            token.name.clone(),
+            ticker,
+            token.total_supply,
+            true,
+            token.asset_type.clone(),
+            vec![],
+            None,
+        ));
+
+        // By default all asset have implicit requirements
+        // Add empty rules
+        assert_ok!(ComplianceManager::add_compliance_requirement(
+            token_owner_signed.clone(),
+            ticker,
+            vec![],
+            vec![]
+        ));
+
+        let result = ComplianceManager::granular_verify_restriction(
+            &ticker,
+            Some(token_owner_did),
+            Some(receiver_did),
+            None,
+        );
+
+        let expected_result = ImplicitRequirementResult {
+            from_result: false,
+            to_result: false,
+        };
+
+        let compliance_requirement = ComplianceRequirementResult {
+            sender_conditions: vec![],
+            receiver_conditions: vec![],
+            id: 1,
+            result: true,
+        };
+
+        assert!(result.requirements.len() == 1);
+        assert_eq!(result.requirements[0], compliance_requirement);
+        assert!(result.implicit_requirements_result.is_some());
+        assert_eq!(
+            result.implicit_requirements_result.unwrap(),
+            expected_result
+        );
+        assert_eq!(result.result, false);
+
+        // Should fail txn as implicit requirements are active.
+        assert_invalid_transfer!(ticker, token_owner_did, receiver_did, 100);
+
+        // Inactivate implicit requirements and then check for transfers.
+        // Should fail because of wrong owner.
+        assert_err!(
+            ComplianceManager::inactivate_implicit_requirement_checks(
+                receiver_signed.clone(),
+                ticker
+            ),
+            CMError::<TestStorage>::Unauthorized
+        );
+
+        assert_ok!(ComplianceManager::inactivate_implicit_requirement_checks(
+            token_owner_signed.clone(),
+            ticker
+        ));
+
+        let result2 = ComplianceManager::granular_verify_restriction(
+            &ticker,
+            Some(token_owner_did),
+            Some(receiver_did),
+            None,
+        );
+
+        assert!(result2.requirements.len() == 1);
+        assert!(!result2.implicit_requirements_result.is_some());
+
+        // check for transfer.
+        assert_valid_transfer!(ticker, token_owner_did, receiver_did, 100);
+
+        // Try to check inactivate the implicit requirement checks again.
+        // Should fail because of it is already inactive.
+        assert_err!(
+            ComplianceManager::inactivate_implicit_requirement_checks(
+                token_owner_signed.clone(),
+                ticker
+            ),
+            CMError::<TestStorage>::ImplicitRequirementsAlreadyInactive
+        );
+
+        // Again switch it back to active state
+        assert_ok!(ComplianceManager::activate_implicit_requirement_checks(
+            token_owner_signed.clone(),
+            ticker
+        ));
+
+        // Should fail because of it is already inactive.
+        assert_err!(
+            ComplianceManager::activate_implicit_requirement_checks(
+                token_owner_signed.clone(),
+                ticker
+            ),
+            CMError::<TestStorage>::ImplicitRequirementsAlreadyActive
+        );
+
+        // Should fail txn as implicit requirements are active.
+        assert_invalid_transfer!(ticker, token_owner_did, receiver_did, 200);
+    });
 }

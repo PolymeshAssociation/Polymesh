@@ -3,8 +3,8 @@ use crate::{
     ext_builder::{ExtBuilder, MockProtocolBaseFees},
     pips_test::assert_balance,
     storage::{
-        account_from, add_secondary_key, make_account_without_cdd, register_keyring_account,
-        AccountId, TestStorage,
+        account_from, add_secondary_key, make_account_without_cdd,
+        provide_scope_claim_to_multiple_parties, register_keyring_account, AccountId, TestStorage,
     },
 };
 use frame_support::IterableStorageMap;
@@ -234,7 +234,6 @@ fn valid_transfers_pass() {
             ..Default::default()
         };
         let ticker = Ticker::try_from(token.name.as_slice()).unwrap();
-
         let alice_did = register_keyring_account(AccountKeyring::Alice).unwrap();
 
         // Issuance is successful
@@ -253,14 +252,6 @@ fn valid_transfers_pass() {
             Asset::balance_of(&ticker, token.owner_did),
             token.total_supply
         );
-
-        // Allow all transfers
-        assert_ok!(ComplianceManager::add_compliance_requirement(
-            owner_signed.clone(),
-            ticker,
-            vec![],
-            vec![]
-        ));
 
         // Should fail as sender matches receiver
         assert_noop!(
@@ -1621,6 +1612,8 @@ fn test_can_transfer_rpc() {
             let _bob_signed = Origin::signed(AccountKeyring::Bob.public());
             let bob_did = register_keyring_account(AccountKeyring::Bob).unwrap();
 
+            let eve = AccountKeyring::Eve.public();
+
             let token_name = b"COOL";
             let ticker = Ticker::try_from(&token_name[..]).unwrap();
             assert_ok!(Asset::create_asset(
@@ -1639,6 +1632,9 @@ fn test_can_transfer_rpc() {
                 Asset::balance_of(&ticker, alice_did),
                 1_000 * currency::ONE_UNIT
             );
+
+            // Provide scope claim for sender and receiver.
+            provide_scope_claim_to_multiple_parties(&[alice_did, bob_did], ticker, eve);
 
             // case 1: When passed invalid granularity
             assert_eq!(
@@ -1803,6 +1799,7 @@ fn can_set_primary_issuance_agent_we() {
 #[test]
 fn test_weights_for_is_valid_transfer() {
     ExtBuilder::default()
+        .cdd_providers(vec![AccountKeyring::Dave.public()])
         .set_max_tms_allowed(4)
         .build()
         .execute_with(|| {
@@ -1817,6 +1814,8 @@ fn test_weights_for_is_valid_transfer() {
 
             let eve = AccountKeyring::Eve.public();
             let (eve_signed, eve_did) = make_account_without_cdd(eve).unwrap();
+
+            let dave = AccountKeyring::Dave.public();
 
             let token = SecurityToken {
                 name: vec![0x01].into(),
@@ -1840,6 +1839,8 @@ fn test_weights_for_is_valid_transfer() {
                 None,
             ));
 
+            // Provide scope claim to sender and receiver.
+            provide_scope_claim_to_multiple_parties(&[alice_did, bob_did], ticker, dave);
             // Get token Id.
             let ticker_id = Identity::get_token_did(&ticker).unwrap();
 

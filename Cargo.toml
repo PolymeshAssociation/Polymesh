@@ -44,12 +44,12 @@ members = [
     "pallets/statistics",
     "pallets/confidential",
     "pallets/utility",
-    "pallets/staking/fuzzer",
     "rpc/runtime-api",
     "node-rpc",
     "rpc",
-    "utils/wasm-builder",
+    "utils/wasm-builder"
 ]
+exclude = ["pallets/staking/fuzzer"]
 
 [dependencies]
 polymesh-primitives = { path = "primitives" }
