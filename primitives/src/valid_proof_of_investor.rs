@@ -55,10 +55,8 @@ impl ValidProofOfInvestor {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{
-        proposition::{exists, has_valid_proof_of_investor},
-        Claim, Context, InvestorUid, InvestorZKProofData,
-    };
+    use crate::proposition::{exists, Proposition};
+    use crate::{Claim, Context, InvestorUid, InvestorZKProofData};
     use cryptography::claim_proofs::{compute_cdd_id, compute_scope_id};
     use sp_std::convert::{From, TryFrom};
 
@@ -70,8 +68,7 @@ mod tests {
         let asset_id = IdentityId::try_from(asset_ticker.as_slice()).unwrap();
 
         let exists_affiliate_claim = Claim::Affiliate(Scope::Ticker(asset_ticker));
-        let proposition =
-            exists(&exists_affiliate_claim).and(has_valid_proof_of_investor(asset_ticker));
+        let proposition = exists(&exists_affiliate_claim);
 
         let context = Context {
             claims: vec![],
@@ -85,7 +82,7 @@ mod tests {
             id: investor_id,
             primary_issuance_agent: None,
         };
-        assert_eq!(proposition.evaluate(&context), false);
+        assert_eq!(proposition.evaluate(&context), true);
 
         let proof: InvestorZKProofData =
             InvestorZKProofData::new(&investor_id, &investor_uid, &asset_ticker);
@@ -94,14 +91,8 @@ mod tests {
         let scope_claim = InvestorZKProofData::make_scope_claim(&asset_ticker, &investor_uid);
         let scope_id = compute_scope_id(&scope_claim).compress().to_bytes().into();
 
-        let context = Context {
-            claims: vec![
-                Claim::Affiliate(Scope::Ticker(asset_ticker)),
-                Claim::InvestorZKProof(Scope::Ticker(asset_ticker), scope_id, cdd_id, proof),
-            ],
-            id: investor_id,
-            primary_issuance_agent: None,
-        };
-        assert_eq!(proposition.evaluate(&context), true);
+        let claim = Claim::InvestorZKProof(Scope::Ticker(asset_ticker), scope_id, cdd_id, proof);
+
+        assert!(ValidProofOfInvestor::evaluate_claim(&claim, &investor_id));
     }
 }
