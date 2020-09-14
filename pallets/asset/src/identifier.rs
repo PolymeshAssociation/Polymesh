@@ -2,6 +2,8 @@ use codec::{Decode, Encode};
 use core::convert::TryInto;
 use sp_std::vec;
 
+/// Implementation of common asset identifiers
+/// https://www.cusip.com/identifiers.html
 #[derive(Encode, Decode, Clone, Debug, PartialEq, Eq)]
 pub enum Identifier {
     CUSIP([u8; 9]),
@@ -18,14 +20,17 @@ impl Default for Identifier {
 }
 
 impl Identifier {
+    /// Validate `bytes` is a valid CUSIP identifier, returns an instance of `Identifier` if successful
     pub fn cusip(bytes: [u8; 9]) -> Option<Identifier> {
         (cusip_checksum(&bytes[..8]) == bytes[8] - b'0').then_some(Identifier::CUSIP(bytes))
     }
 
+    /// Validate `bytes` is a valid CINS identifier, returns an instance of `Identifier` if successful
     pub fn cins(bytes: [u8; 9]) -> Option<Identifier> {
         Self::cusip(bytes).map(|_| Identifier::CINS(bytes))
     }
 
+    /// Validate `bytes` is a valid ISIN identifier, returns an instance of `Identifier` if successful
     pub fn isin(bytes: [u8; 12]) -> Option<Identifier> {
         let (s1, s2) = bytes
             .iter()
@@ -48,6 +53,7 @@ impl Identifier {
         ((s1 + s2) % 10 == 0).then_some(Identifier::ISIN(bytes))
     }
 
+    /// Validate `bytes` is a valid LEI identifier, returns an instance of `Identifier` if successful
     pub fn lei(bytes: [u8; 20]) -> Option<Identifier> {
         bytes[..18]
             .try_into()
@@ -57,6 +63,8 @@ impl Identifier {
             .map(|_| Identifier::LEI(bytes))
     }
 
+    /// Ensures the identifier is valid.
+    /// Mainly used for validating manual constructions of the enum (user input).
     pub fn validate(self) -> Option<Self> {
         match self {
             Identifier::CUSIP(bytes) => Self::cusip(bytes),
