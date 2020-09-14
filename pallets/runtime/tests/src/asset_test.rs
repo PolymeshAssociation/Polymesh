@@ -217,66 +217,81 @@ fn non_issuers_cant_create_tokens() {
 
 #[test]
 fn valid_transfers_pass() {
-    ExtBuilder::default().build().execute_with(|| {
-        let now = Utc::now();
-        Timestamp::set_timestamp(now.timestamp() as u64);
+    ExtBuilder::default()
+        .cdd_providers(vec![AccountKeyring::Eve.public()])
+        .build()
+        .execute_with(|| {
+            let now = Utc::now();
+            Timestamp::set_timestamp(now.timestamp() as u64);
 
-        let owner_signed = Origin::signed(AccountKeyring::Dave.public());
-        let owner_did = register_keyring_account(AccountKeyring::Dave).unwrap();
+            let owner_signed = Origin::signed(AccountKeyring::Dave.public());
+            let owner_did = register_keyring_account(AccountKeyring::Dave).unwrap();
 
-        // Expected token entry
-        let token = SecurityToken {
-            name: vec![0x01].into(),
-            owner_did,
-            total_supply: 1_000_000,
-            divisible: true,
-            asset_type: AssetType::default(),
-            ..Default::default()
-        };
-        let ticker = Ticker::try_from(token.name.as_slice()).unwrap();
-        let alice_did = register_keyring_account(AccountKeyring::Alice).unwrap();
+            // Expected token entry
+            let token = SecurityToken {
+                name: vec![0x01].into(),
+                owner_did,
+                total_supply: 1_000_000,
+                divisible: true,
+                asset_type: AssetType::default(),
+                ..Default::default()
+            };
+            let ticker = Ticker::try_from(token.name.as_slice()).unwrap();
+            let alice_did = register_keyring_account(AccountKeyring::Alice).unwrap();
+            let eve = AccountKeyring::Eve.public();
 
-        // Issuance is successful
-        assert_ok!(Asset::create_asset(
-            owner_signed.clone(),
-            token.name.clone(),
-            ticker,
-            token.total_supply,
-            true,
-            token.asset_type.clone(),
-            vec![],
-            None,
-        ));
+            // Provide scope claim to sender and receiver of the transaction.
+            provide_scope_claim_to_multiple_parties(&[alice_did, owner_did], ticker, eve);
 
-        assert_eq!(
-            Asset::balance_of(&ticker, token.owner_did),
-            token.total_supply
-        );
+            // Issuance is successful
+            assert_ok!(Asset::create_asset(
+                owner_signed.clone(),
+                token.name.clone(),
+                ticker,
+                token.total_supply,
+                true,
+                token.asset_type.clone(),
+                vec![],
+                None,
+            ));
 
-        // Should fail as sender matches receiver
-        assert_noop!(
-            Asset::base_transfer(
+            assert_eq!(
+                Asset::balance_of(&ticker, token.owner_did),
+                token.total_supply
+            );
+
+            // Allow all transfers
+            assert_ok!(ComplianceManager::add_compliance_requirement(
+                owner_signed.clone(),
+                ticker,
+                vec![],
+                vec![]
+            ));
+
+            // Should fail as sender matches receiver
+            assert_noop!(
+                Asset::base_transfer(
+                    PortfolioId::default_portfolio(owner_did),
+                    PortfolioId::default_portfolio(owner_did),
+                    &ticker,
+                    500
+                ),
+                AssetError::InvalidTransfer
+            );
+
+            assert_ok!(Asset::base_transfer(
                 PortfolioId::default_portfolio(owner_did),
-                PortfolioId::default_portfolio(owner_did),
+                PortfolioId::default_portfolio(alice_did),
                 &ticker,
                 500
-            ),
-            AssetError::InvalidTransfer
-        );
+            ));
 
-        assert_ok!(Asset::base_transfer(
-            PortfolioId::default_portfolio(owner_did),
-            PortfolioId::default_portfolio(alice_did),
-            &ticker,
-            500
-        ));
-
-        let mut cap_table = <asset::BalanceOf<TestStorage>>::iter_prefix_values(ticker);
-        let balance_alice = cap_table.next().unwrap();
-        let balance_owner = cap_table.next().unwrap();
-        assert_eq!(balance_owner, 1_000_000 - 500);
-        assert_eq!(balance_alice, 500);
-    })
+            let mut cap_table = <asset::BalanceOf<TestStorage>>::iter_prefix_values(ticker);
+            let balance_alice = cap_table.next().unwrap();
+            let balance_owner = cap_table.next().unwrap();
+            assert_eq!(balance_owner, 1_000_000 - 500);
+            assert_eq!(balance_alice, 500);
+        })
 }
 
 #[test]
