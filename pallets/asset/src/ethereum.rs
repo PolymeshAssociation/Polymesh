@@ -4,9 +4,32 @@
 // https://github.com/paritytech/polkadot/blob/013c4a8041e6f1739cc5b785a2874061919c5db9/runtime/common/src/claims.rs#L248-L251
 
 use codec::{Decode, Encode};
-use pallet_asset_types::{EcdsaSignature, EthereumAddress};
 use sp_io::{crypto::secp256k1_ecdsa_recover, hashing::keccak_256};
+#[cfg(feature = "std")]
+use sp_runtime::{Deserialize, Serialize};
 use sp_std::vec::Vec;
+
+/// An Ethereum address (i.e. 20 bytes, used to represent an Ethereum account).
+///
+/// This gets serialized to the 0x-prefixed hex representation.
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+#[derive(Clone, Copy, PartialEq, Eq, Encode, Decode, Default, Debug)]
+pub struct EthereumAddress(pub [u8; 20]);
+
+#[derive(Encode, Decode, Clone)]
+pub struct EcdsaSignature(pub [u8; 65]);
+
+impl PartialEq for EcdsaSignature {
+    fn eq(&self, other: &Self) -> bool {
+        &self.0[..] == &other.0[..]
+    }
+}
+
+impl sp_std::fmt::Debug for EcdsaSignature {
+    fn fmt(&self, f: &mut sp_std::fmt::Formatter<'_>) -> sp_std::fmt::Result {
+        write!(f, "EcdsaSignature({:?})", &self.0[..])
+    }
+}
 
 /// Check that `data` is the message of `ecdsa_sig` and return the Ethereum address.
 pub fn eth_check(

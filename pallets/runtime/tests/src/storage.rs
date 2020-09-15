@@ -120,7 +120,7 @@ impl_outer_event! {
         pallet_utility,
         portfolio<T>,
         confidential,
-        confidential_asset,
+        confidential_asset<T>,
     }
 }
 

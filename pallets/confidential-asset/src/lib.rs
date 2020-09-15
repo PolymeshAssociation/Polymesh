@@ -28,11 +28,11 @@ use cryptography::{
 };
 use frame_support::{decl_error, decl_event, decl_module, decl_storage, dispatch::DispatchResult};
 use frame_system::{self as system, ensure_signed};
-use pallet_asset as asset;
 use pallet_asset_types::{AssetIdentifier, AssetName, AssetType, FundingRoundName, IdentifierType};
 use pallet_identity as identity;
 use polymesh_common_utilities::{
-    asset::Trait as AssetTrait, identity::Trait as IdentityTrait, Context,
+    asset::Trait as AssetTrait, identity::Trait as IdentityTrait, Context, CommonTrait,
+    balances::Trait as BalancesTrait,
 };
 use polymesh_primitives::{IdentityId, Ticker};
 use polymesh_primitives_derive::VecU8StrongTyped;
@@ -42,9 +42,9 @@ use sp_std::{
 };
 
 /// The module's configuration trait.
-pub trait Trait: frame_system::Trait + IdentityTrait {
+pub trait Trait: frame_system::Trait + IdentityTrait + BalancesTrait {
     type Asset: AssetTrait<Self::Balance, Self::AccountId>;
-    type Event: From<Event> + Into<<Self as frame_system::Trait>::Event>;
+    type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
 }
 
 /// Wrapper for Ciphertexts that correspond to `EncryptedAssetId`.
@@ -128,7 +128,7 @@ decl_module! {
             let wrapped_enc_balance = EncryptedBalanceWrapper::from(tx.initial_balance.encode());
             <MercatAccountBalance>::insert(&owner_id, &wrapped_enc_asset_id, wrapped_enc_balance.clone());
 
-            Self::deposit_event(Event::AccountCreated(owner_id, wrapped_enc_asset_id, wrapped_enc_balance));
+            Self::deposit_event(RawEvent::AccountCreated(owner_id, wrapped_enc_asset_id, wrapped_enc_balance));
             Ok(())
         }
 
@@ -169,7 +169,7 @@ decl_module! {
             let primary_owner = ensure_signed(origin)?;
             let primary_owner_did = Context::current_identity_or::<Identity<T>>(&primary_owner)?;
 
-            T::Asset::unsafe_create_asset(primary_owner_did, name, ticker, total_supply, divisible, asset_type, identifiers, funding_round, true)?;
+            T::Asset::base_create_asset(primary_owner_did, name, ticker, total_supply, divisible, asset_type.clone(), identifiers, funding_round, true)?;
 
             // Append the ticker to the list of confidential tickers.
             let mut token_list = Self::confidential_tickers();
@@ -178,7 +178,14 @@ decl_module! {
 
             // TODO(CRYP-160) : mint `total_supply` assets to the primary asset issuer here.
 
-            Self::deposit_event(Event::ConfidentialAssetCreated(primary_owner_did, ticker));
+            Self::deposit_event(RawEvent::ConfidentialAssetCreated(
+                primary_owner_did,
+                ticker,
+                total_supply,
+                divisible,
+                asset_type,
+                primary_owner_did,
+            ));
             Ok(())
         }
 
@@ -186,13 +193,15 @@ decl_module! {
 }
 
 decl_event! {
-    pub enum Event
+    pub enum Event<T> where Balance = <T as CommonTrait>::Balance,
     {
-        /// Mercat account created.
+        /// Event for creation of a Mercat account.
+        /// caller DID/ owner DID, encrypted asset ID, encrypted balance
         AccountCreated(IdentityId, EncryptedAssetIdWrapper, EncryptedBalanceWrapper),
 
-        /// A new confidential asset is created.
-        ConfidentialAssetCreated(IdentityId, Ticker),
+        /// Event for creation of a confidential asset.
+        /// caller DID/ owner DID, ticker, total supply, divisibility, asset type, beneficiary DID
+        ConfidentialAssetCreated(IdentityId, Ticker, Balance, bool, AssetType, IdentityId),
     }
 }
 

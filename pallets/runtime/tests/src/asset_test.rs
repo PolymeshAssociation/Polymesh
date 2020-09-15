@@ -8,10 +8,12 @@ use crate::{
     },
 };
 use frame_support::IterableStorageMap;
-use pallet_asset::{self as asset, ethereum, ClassicTickers, Tickers};
+use pallet_asset::{
+    self as asset, ethereum, ClassicTickerImport, ClassicTickerRegistration, ClassicTickers,
+    Tickers,
+};
 use pallet_asset_types::{
-    AssetOwnershipRelation, AssetType, ClassicTickerImport, ClassicTickerRegistration,
-    EcdsaSignature, EthereumAddress, FundingRoundName, IdentifierType, SecurityToken, SignData,
+    AssetOwnershipRelation, AssetType, FundingRoundName, IdentifierType, SecurityToken, SignData,
     TickerRegistration, TickerRegistrationConfig,
 };
 use pallet_balances as balances;
@@ -2332,9 +2334,9 @@ fn classic_ticker_genesis_already_registered_other_did() {
 
 #[test]
 fn classic_ticker_genesis_works() {
-    let alice_eth = EthereumAddress(*b"0x012345678987654321");
-    let bob_eth = EthereumAddress(*b"0x212345678987654321");
-    let charlie_eth = EthereumAddress(*b"0x512345678987654321");
+    let alice_eth = ethereum::EthereumAddress(*b"0x012345678987654321");
+    let bob_eth = ethereum::EthereumAddress(*b"0x212345678987654321");
+    let charlie_eth = ethereum::EthereumAddress(*b"0x512345678987654321");
 
     // Define actual on-genesis asset config.
     let classic_migration_tickers = vec![
@@ -2433,7 +2435,7 @@ fn classic_ticker_no_such_classic_ticker() {
     .build()
     .execute_with(|| {
         assert_noop!(
-            Asset::claim_classic_ticker(root(), ticker("EMCA"), EcdsaSignature([0; 65])),
+            Asset::claim_classic_ticker(root(), ticker("EMCA"), ethereum::EcdsaSignature([0; 65])),
             AssetError::NoSuchClassicTicker
         );
     });
@@ -2455,7 +2457,7 @@ fn classic_ticker_registered_by_other() {
     .build()
     .execute_with(|| {
         assert_noop!(
-            Asset::claim_classic_ticker(root(), ticker, EcdsaSignature([0; 65])),
+            Asset::claim_classic_ticker(root(), ticker, ethereum::EcdsaSignature([0; 65])),
             AssetError::TickerAlreadyRegistered
         );
     });
@@ -2480,7 +2482,7 @@ fn classic_ticker_expired_thus_available() {
         let rt_signer = Origin::signed(AccountKeyring::Dave.public());
         Timestamp::set_timestamp(1);
         assert_noop!(
-            Asset::claim_classic_ticker(rt_signer, ticker, EcdsaSignature([0; 65])),
+            Asset::claim_classic_ticker(rt_signer, ticker, ethereum::EcdsaSignature([0; 65])),
             AssetError::TickerRegistrationExpired
         );
     });
@@ -2501,7 +2503,7 @@ fn classic_ticker_garbage_signature() {
     .execute_with(|| {
         let rt_signer = Origin::signed(AccountKeyring::Dave.public());
         assert_noop!(
-            Asset::claim_classic_ticker(rt_signer, ticker, EcdsaSignature([0; 65])),
+            Asset::claim_classic_ticker(rt_signer, ticker, ethereum::EcdsaSignature([0; 65])),
             AssetError::InvalidEthereumSignature
         );
     });

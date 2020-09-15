@@ -88,7 +88,7 @@ pub trait Trait<V, U> {
     ) -> DispatchResultWithPostInfo;
     fn primary_issuance_agent(ticker: &Ticker) -> IdentityId;
     fn max_number_of_tm_extension() -> u32;
-    fn unsafe_create_asset(
+    fn base_create_asset(
         did: IdentityId,
         name: AssetName,
         ticker: Ticker,

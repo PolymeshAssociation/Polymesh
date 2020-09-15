@@ -102,10 +102,9 @@ use frame_support::{
 use frame_system::{self as system, ensure_signed};
 use hex_literal::hex;
 use pallet_asset_types::{
-    AssetIdentifier, AssetName, AssetOwnershipRelation, AssetType, ClassicTickerImport,
-    ClassicTickerRegistration, EcdsaSignature, EthereumAddress, FocusedBalances, FundingRoundName,
-    IdentifierType, RestrictionResult, SecurityToken, SignData, TickerRegistration,
-    TickerRegistrationConfig, TickerRegistrationStatus,
+    AssetIdentifier, AssetName, AssetOwnershipRelation, AssetType, FocusedBalances,
+    FundingRoundName, IdentifierType, RestrictionResult, SecurityToken, SignData,
+    TickerRegistration, TickerRegistrationConfig, TickerRegistrationStatus,
 };
 use pallet_contracts::{ExecReturnValue, Gas};
 use pallet_identity as identity;
@@ -124,6 +123,8 @@ use polymesh_primitives::{
     SmartExtension, SmartExtensionName, SmartExtensionType, Ticker,
 };
 use sp_runtime::traits::{CheckedAdd, CheckedSub, Saturating, Verify};
+#[cfg(feature = "std")]
+use sp_runtime::{Deserialize, Serialize};
 use sp_std::{convert::TryFrom, prelude::*};
 
 type Portfolio<T> = pallet_portfolio::Module<T>;
@@ -169,6 +170,31 @@ pub mod weight_for {
             .saturating_add(T::DbWeight::get().reads_writes(3, 2)) // Read and write of `unsafe_transfer_by_custodian()`
             .saturating_add(T::DbWeight::get().reads_writes(4, 5)) // read and write for `unsafe_transfer()`
     }
+}
+
+/// Data imported from Polymath Classic regarding ticker registration/creation.
+/// Only used at genesis config and not stored on-chain.
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+#[derive(Clone)]
+pub struct ClassicTickerImport {
+    /// Owner of the registration.
+    pub eth_owner: ethereum::EthereumAddress,
+    /// Name of the ticker registered.
+    pub ticker: Ticker,
+    /// Is `eth_owner` an Ethereum contract (e.g., in case of a multisig)?
+    pub is_contract: bool,
+    /// Has the ticker been elevated to a created asset on classic?
+    pub is_created: bool,
+}
+
+/// Data about a ticker registration from Polymath Classic on-genesis importation.
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+#[derive(Encode, Decode, Clone, Debug, PartialEq, Eq)]
+pub struct ClassicTickerRegistration {
+    /// Owner of the registration.
+    pub eth_owner: ethereum::EthereumAddress,
+    /// Has the ticker been elevated to a created asset on classic?
+    pub is_created: bool,
 }
 
 decl_storage! {
@@ -360,7 +386,7 @@ decl_module! {
             let sender = ensure_signed(origin)?;
             let did = Context::current_identity_or::<Identity<T>>(&sender)?;
 
-            Self::unsafe_create_asset(did, name, ticker, total_supply, divisible, asset_type, identifiers, funding_round, false)
+            Self::base_create_asset(did, name, ticker, total_supply, divisible, asset_type, identifiers, funding_round, false)
         }
 
         /// Freezes transfers and minting of a given token.
@@ -854,7 +880,7 @@ decl_module! {
         /// - `InvalidEthereumSignature` if the `ethereum_signature` is not valid.
         /// - `NotAnOwner` if the ethereum account is not the owner of the PMC ticker.
         #[weight = 250_000_000]
-        pub fn claim_classic_ticker(origin, ticker: Ticker, ethereum_signature: EcdsaSignature) -> DispatchResult {
+        pub fn claim_classic_ticker(origin, ticker: Ticker, ethereum_signature: ethereum::EcdsaSignature) -> DispatchResult {
             // Ensure the ticker is a classic one and fetch details.
             let ClassicTickerRegistration { eth_owner, .. } = ClassicTickers::get(ticker)
                 .ok_or(Error::<T>::NoSuchClassicTicker)?;
@@ -983,7 +1009,7 @@ decl_event! {
         /// A document removed from an asset
         DocumentRemoved(Ticker, DocumentName),
         /// A Polymath Classic token was claimed and transferred to a non-systematic DID.
-        ClassicTickerClaimed(IdentityId, Ticker, EthereumAddress),
+        ClassicTickerClaimed(IdentityId, Ticker, ethereum::EthereumAddress),
     }
 }
 
@@ -1154,7 +1180,7 @@ impl<T: Trait> AssetTrait<T::Balance, T::AccountId> for Module<T> {
         Self::unsafe_system_transfer(sender, ticker, from_did, to_did, value);
     }
 
-    fn unsafe_create_asset(
+    fn base_create_asset(
         did: IdentityId,
         name: AssetName,
         ticker: Ticker,
@@ -1165,7 +1191,7 @@ impl<T: Trait> AssetTrait<T::Balance, T::AccountId> for Module<T> {
         funding_round: Option<FundingRoundName>,
         is_confidential: bool,
     ) -> DispatchResult {
-        Self::unsafe_create_asset(
+        Self::base_create_asset(
             did,
             name,
             ticker,
@@ -2152,7 +2178,7 @@ impl<T: Trait> Module<T> {
         (transfer_status, weight_for_valid_transfer)
     }
 
-    pub fn unsafe_create_asset(
+    pub fn base_create_asset(
         did: IdentityId,
         name: AssetName,
         ticker: Ticker,
@@ -2235,14 +2261,16 @@ impl<T: Trait> Module<T> {
             Portfolio::<T>::set_default_portfolio_balance(did, &ticker, total_supply);
         }
         <AssetOwnershipRelations>::insert(did, ticker, AssetOwnershipRelation::AssetOwned);
-        Self::deposit_event(RawEvent::AssetCreated(
-            did,
-            ticker,
-            total_supply,
-            divisible,
-            asset_type,
-            did,
-        ));
+        if !is_confidential {
+            Self::deposit_event(RawEvent::AssetCreated(
+                did,
+                ticker,
+                total_supply,
+                divisible,
+                asset_type,
+                did,
+            ));
+        }
 
         for (typ, val) in &identifiers {
             <Identifiers>::insert((ticker, typ.clone()), val.clone());
