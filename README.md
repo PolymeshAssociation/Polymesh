@@ -25,6 +25,12 @@ Install required tools:
 ./scripts/init.sh
 ```
 
+The Polymesh repo includes submodules that link to other Github repos. To ensure these are synced out before building you can execute:  
+
+```bash
+git submodule update --init --recursive
+```
+
 Build Wasm and native code:
 
 ```bash
