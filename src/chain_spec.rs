@@ -137,7 +137,6 @@ fn general_testnet_genesis(
             changes_trie_config: Default::default(),
         }),
         asset: {
-
             let currency_codes: Vec<Vec<u8>> = vec![
                 b"AED", b"AFN", b"ALL", b"AMD", b"ANG", b"AOA", b"ARS", b"AUD", b"AWG", b"AZN",
                 b"BAM", b"BBD", b"BDT", b"BGN", b"BHD", b"BIF", b"BMD", b"BND", b"BOB", b"BOV",
