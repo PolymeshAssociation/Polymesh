@@ -49,9 +49,15 @@ use frame_support::{
     IterableStorageDoubleMap,
 };
 use frame_system::ensure_signed;
-use polymesh_common_utilities::{identity::Trait as IdentityTrait, CommonTrait, Context};
-use polymesh_primitives::{IdentityId, PortfolioId, PortfolioName, PortfolioNumber, Ticker};
-use sp_arithmetic::traits::Saturating;
+use pallet_identity as identity;
+use polymesh_common_utilities::{
+    identity::Trait as IdentityTrait, portfolio::PortfolioSubTrait, CommonTrait, Context,
+};
+use polymesh_primitives::{
+    AuthorizationData, AuthorizationError, IdentityId, PortfolioId, PortfolioKind, PortfolioName,
+    PortfolioNumber, Signatory, Ticker,
+};
+use sp_arithmetic::traits::{CheckedSub, Saturating};
 use sp_std::{convert::TryFrom, prelude::Vec};
 
 type Identity<T> = identity::Module<T>;
