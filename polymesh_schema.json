@@ -367,6 +367,13 @@
                 "Custom": "Vec<u8>"
             }
         },
+        "ScopeType": {
+            "_enum": {
+                "Identity": "",
+                "Ticker": "",
+                "Custom": ""
+            }
+        },
         "InvestorZKProofData": "[u8;64]",
         "Claim": {
             "_enum": {
