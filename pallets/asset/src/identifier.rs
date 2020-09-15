@@ -71,7 +71,7 @@ impl Identifier {
             Identifier::CINS(bytes) => Self::cins(bytes),
             Identifier::ISIN(bytes) => Self::isin(bytes),
             Identifier::LEI(bytes) => Self::lei(bytes),
-            Identifier::EMPTY => Some(Identifier::EMPTY),
+            Identifier::EMPTY => None,
         }
     }
 }

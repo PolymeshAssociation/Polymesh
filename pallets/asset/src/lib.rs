@@ -560,6 +560,11 @@ decl_module! {
                 did,
             ));
 
+            let identifiers: Vec<Identifier> = identifiers
+                .into_iter()
+                .filter_map(|identifier| identifier.validate())
+                .collect();
+
             <Identifiers>::insert(ticker, identifiers.clone());
 
             // Add funding round name.
@@ -789,6 +794,10 @@ decl_module! {
             let sender = ensure_signed(origin)?;
             let did = Context::current_identity_or::<Identity<T>>(&sender)?;
             ensure!(Self::is_owner(&ticker, did), Error::<T>::Unauthorized);
+            let identifiers: Vec<Identifier> = identifiers
+                .into_iter()
+                .filter_map(|identifier| identifier.validate())
+                .collect();
             <Identifiers>::insert(ticker, identifiers.clone());
             Self::deposit_event(RawEvent::IdentifiersUpdated(did, ticker, identifiers));
             Ok(())
