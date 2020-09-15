@@ -31,8 +31,8 @@ use frame_system::{self as system, ensure_signed};
 use pallet_asset_types::{AssetIdentifier, AssetName, AssetType, FundingRoundName, IdentifierType};
 use pallet_identity as identity;
 use polymesh_common_utilities::{
-    asset::Trait as AssetTrait, identity::Trait as IdentityTrait, Context, CommonTrait,
-    balances::Trait as BalancesTrait,
+    asset::Trait as AssetTrait, balances::Trait as BalancesTrait, identity::Trait as IdentityTrait,
+    CommonTrait, Context,
 };
 use polymesh_primitives::{IdentityId, Ticker};
 use polymesh_primitives_derive::VecU8StrongTyped;
