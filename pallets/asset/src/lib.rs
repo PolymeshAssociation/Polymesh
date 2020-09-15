@@ -1866,7 +1866,6 @@ impl<T: Trait> Module<T> {
         ticker: &Ticker,
         value: T::Balance,
     ) -> StdResult<u8, &'static str> {
-        // TODO: Fix RPC to work with portfolios
         // Granularity check
         if !Self::check_granularity(&ticker, value) {
             return Ok(INVALID_GRANULARITY);
@@ -1917,7 +1916,6 @@ impl<T: Trait> Module<T> {
             return Ok(PORTFOLIO_FAILURE);
         }
 
-        // TODO fix this
         // Compliance manager & Smart Extension check
         Ok(
             Self::_is_valid_transfer(&ticker, sender, from_portfolio, to_portfolio, value)
