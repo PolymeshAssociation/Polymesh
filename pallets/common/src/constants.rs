@@ -30,6 +30,8 @@ pub mod did {
     pub const SETTLEMENT_MODULE_DID: &[u8; 32] = b"system:settlement_module_did\0\0\0\0";
     /// Polymath Classic / Ethereum migration DID.
     pub const CLASSIC_MIGRATION_DID: &[u8; 32] = b"system:polymath_classic_mig\0\0\0\0\0";
+    /// Fiat Currency Reservation DID
+    pub const FIAT_TICKERS_RESERVATION_DID: &[u8; 32] = b"system:fiat_tickers_reservation\0";
 }
 
 // ERC1400 transfer status codes
@@ -64,3 +66,4 @@ pub const GC_MODULE_ID: ModuleId = ModuleId(*b"pm/govcm");
 pub const CDD_MODULE_ID: ModuleId = ModuleId(*b"pm/cusdd");
 pub const SETTLEMENT_MODULE_ID: ModuleId = ModuleId(*b"pm/setmn");
 pub const CLASSIC_MIGRATION_MODULE_ID: ModuleId = ModuleId(*b"pm/ehmig");
+pub const FIAT_TICKERS_RESERVATION_MODULE_ID: ModuleId = ModuleId(*b"pm/ftres");
