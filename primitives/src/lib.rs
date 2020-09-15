@@ -17,6 +17,7 @@
 
 #![warn(missing_docs)]
 #![cfg_attr(not(feature = "std"), no_std)]
+#![feature(bool_to_option)]
 
 use blake2::{Blake2b, Digest};
 use curve25519_dalek::scalar::Scalar;
@@ -140,6 +141,10 @@ pub use sp_runtime::OpaqueExtrinsic as UncheckedExtrinsic;
 /// Utility byte container where equality comparison are ignored case.
 pub mod ignored_case_string;
 pub use ignored_case_string::IgnoredCaseString;
+
+/// Asset identifiers.
+pub mod identifier;
+pub use identifier::AssetIdentifier;
 
 /// Role for identities.
 pub mod identity_role;

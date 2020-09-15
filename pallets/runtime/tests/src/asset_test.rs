@@ -11,8 +11,8 @@ use frame_support::IterableStorageMap;
 use pallet_asset::ethereum;
 use pallet_asset::{
     self as asset, AssetOwnershipRelation, AssetType, ClassicTickerImport,
-    ClassicTickerRegistration, ClassicTickers, FundingRoundName, IdentifierType, SecurityToken,
-    TickerRegistration, TickerRegistrationConfig, Tickers,
+    ClassicTickerRegistration, ClassicTickers, FundingRoundName, SecurityToken,
+    SignData, TickerRegistration, TickerRegistrationConfig, Tickers,
 };
 use pallet_balances as balances;
 use pallet_compliance_manager as compliance_manager;
@@ -23,8 +23,8 @@ use polymesh_common_utilities::{
     traits::CddAndFeeDetails as _, SystematicIssuers,
 };
 use polymesh_primitives::{
-    AuthorizationData, Claim, Condition, ConditionType, Document, DocumentName, IdentityId,
-    PortfolioId, Signatory, SmartExtension, SmartExtensionName, SmartExtensionType, Ticker,
+    AssetIdentifier, AuthorizationData, Claim, Condition, ConditionType, Document, DocumentName, IdentityId,
+    Signatory, SmartExtension, SmartExtensionName, SmartExtensionType, Ticker,
 };
 use sp_io::hashing::keccak_256;
 
@@ -35,7 +35,6 @@ use frame_support::{
 };
 use hex_literal::hex;
 use ink_primitives::hash as FunctionSelectorHasher;
-use pallet_asset::identifier::Identifier;
 use rand::Rng;
 use sp_runtime::AnySignature;
 use std::convert::{TryFrom, TryInto};
@@ -117,7 +116,7 @@ fn issuers_can_create_and_rename_tokens() {
         assert!(!<DidRecords>::contains_key(
             Identity::get_token_did(&ticker).unwrap()
         ));
-        let identifiers = vec![Identifier::default()];
+        let identifiers = vec![AssetIdentifier::default()];
         let ticker = Ticker::try_from(token.name.as_slice()).unwrap();
         assert_err!(
             Asset::create_asset(
@@ -184,7 +183,7 @@ fn issuers_can_create_and_rename_tokens() {
             renamed_token.name.clone()
         ));
         assert_eq!(Asset::token_details(ticker), renamed_token);
-        assert_eq!(Asset::identifiers(ticker), identifiers);
+        assert!(Asset::identifiers(ticker).is_empty());
     });
 }
 
@@ -417,7 +416,7 @@ fn register_ticker() {
             asset_type: AssetType::default(),
             ..Default::default()
         };
-        let identifiers = vec![Identifier::isin(*b"US0378331005").unwrap()];
+        let identifiers = vec![AssetIdentifier::isin(*b"US0378331005").unwrap()];
         let ticker = Ticker::try_from(token.name.as_slice()).unwrap();
         // Issuance is successful
         assert_ok!(Asset::create_asset(
@@ -823,7 +822,7 @@ fn update_identifiers() {
             Identity::get_token_did(&ticker).unwrap()
         ));
         let identifier_value1 = b"037833100";
-        let identifiers = vec![Identifier::cusip(*identifier_value1).unwrap()];
+        let identifiers = vec![AssetIdentifier::cusip(*identifier_value1).unwrap()];
         assert_ok!(Asset::create_asset(
             owner_signed.clone(),
             token.name.clone(),
@@ -840,8 +839,8 @@ fn update_identifiers() {
         assert_eq!(Asset::identifiers(ticker), identifiers);
         let identifier_value2 = b"US0378331005";
         let updated_identifiers = vec![
-            Identifier::cusip(*b"17275R102").unwrap(),
-            Identifier::isin(*identifier_value2).unwrap(),
+            AssetIdentifier::cusip(*b"17275R102").unwrap(),
+            AssetIdentifier::isin(*identifier_value2).unwrap(),
         ];
         assert_ok!(Asset::update_identifiers(
             owner_signed.clone(),
@@ -873,7 +872,7 @@ fn adding_removing_documents() {
             Identity::get_token_did(&ticker).unwrap()
         ));
 
-        let identifiers = vec![Identifier::default()];
+        let identifiers = vec![AssetIdentifier::default()];
         let _ticker_did = Identity::get_token_did(&ticker).unwrap();
 
         // Issuance is successful
@@ -956,7 +955,7 @@ fn add_extension_successfully() {
                 Identity::get_token_did(&ticker).unwrap()
             ));
             let identifier_value1 = b"037833100";
-            let identifiers = vec![Identifier::cusip(*identifier_value1).unwrap()];
+            let identifiers = vec![AssetIdentifier::cusip(*identifier_value1).unwrap()];
             assert_ok!(Asset::create_asset(
                 owner_signed.clone(),
                 token.name.clone(),
@@ -1039,7 +1038,7 @@ fn add_same_extension_should_fail() {
                 Identity::get_token_did(&ticker).unwrap()
             ));
             let identifier_value1 = b"037833100";
-            let identifiers = vec![Identifier::cusip(*identifier_value1).unwrap()];
+            let identifiers = vec![AssetIdentifier::cusip(*identifier_value1).unwrap()];
             assert_ok!(Asset::create_asset(
                 owner_signed.clone(),
                 token.name.clone(),
@@ -1110,7 +1109,7 @@ fn should_successfully_archive_extension() {
             Identity::get_token_did(&ticker).unwrap()
         ));
         let identifier_value1 = b"037833100";
-        let identifiers = vec![Identifier::cusip(*identifier_value1).unwrap()];
+        let identifiers = vec![AssetIdentifier::cusip(*identifier_value1).unwrap()];
         assert_ok!(Asset::create_asset(
             owner_signed.clone(),
             token.name.clone(),
@@ -1186,7 +1185,7 @@ fn should_fail_to_archive_an_already_archived_extension() {
             Identity::get_token_did(&ticker).unwrap()
         ));
         let identifier_value1 = b"037833100";
-        let identifiers = vec![Identifier::cusip(*identifier_value1).unwrap()];
+        let identifiers = vec![AssetIdentifier::cusip(*identifier_value1).unwrap()];
         assert_ok!(Asset::create_asset(
             owner_signed.clone(),
             token.name.clone(),
@@ -1267,7 +1266,7 @@ fn should_fail_to_archive_a_non_existent_extension() {
             Identity::get_token_did(&ticker).unwrap()
         ));
         let identifier_value1 = b"037833100";
-        let identifiers = vec![Identifier::cusip(*identifier_value1).unwrap()];
+        let identifiers = vec![AssetIdentifier::cusip(*identifier_value1).unwrap()];
         assert_ok!(Asset::create_asset(
             owner_signed.clone(),
             token.name.clone(),
@@ -1309,7 +1308,7 @@ fn should_successfuly_unarchive_an_extension() {
             Identity::get_token_did(&ticker).unwrap()
         ));
         let identifier_value1 = b"037833100";
-        let identifiers = vec![Identifier::cusip(*identifier_value1).unwrap()];
+        let identifiers = vec![AssetIdentifier::cusip(*identifier_value1).unwrap()];
         assert_ok!(Asset::create_asset(
             owner_signed.clone(),
             token.name.clone(),
@@ -1395,7 +1394,7 @@ fn should_fail_to_unarchive_an_already_unarchived_extension() {
             Identity::get_token_did(&ticker).unwrap()
         ));
         let identifier_value1 = b"037833100";
-        let identifiers = vec![Identifier::cusip(*identifier_value1).unwrap()];
+        let identifiers = vec![AssetIdentifier::cusip(*identifier_value1).unwrap()];
         assert_ok!(Asset::create_asset(
             owner_signed.clone(),
             token.name.clone(),

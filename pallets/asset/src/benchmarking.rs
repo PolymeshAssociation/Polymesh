@@ -61,7 +61,7 @@ fn make_token<T: Trait>(
     let name = AssetName::from(vec![b'N'; token_name_len as usize].as_slice());
     let total_supply: T::Balance = 1_000_000_000.into();
     let asset_type = AssetType::default();
-    let identifiers: Vec<Identifier> = iter::repeat(Default::default())
+    let identifiers: Vec<AssetIdentifier> = iter::repeat(Default::default())
         .take(identifiers_len as usize)
         .collect();
     let fundr = FundingRoundName::from(vec![b'F'; funding_round_len as usize].as_slice());
@@ -155,7 +155,7 @@ benchmarks! {
         let ticker = Ticker::try_from(vec![b'T'; t as usize].as_slice()).unwrap();
         let total_supply: T::Balance = 1_000_000.into();
         let asset_type = AssetType::default();
-        let identifiers: Vec<Identifier> =
+        let identifiers: Vec<AssetIdentifier> =
             iter::repeat(Default::default()).take(i as usize).collect();
         let fundr = FundingRoundName::from(vec![b'F'; f as usize].as_slice());
         let origin = make_account::<T>("caller", u).1;

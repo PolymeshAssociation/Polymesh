@@ -83,8 +83,6 @@ pub mod benchmarking;
 
 pub mod ethereum;
 
-pub mod identifier;
-
 use codec::{Decode, Encode};
 use core::result::Result as StdResult;
 use currency::*;
@@ -97,7 +95,6 @@ use frame_support::{
 };
 use frame_system::ensure_signed;
 use hex_literal::hex;
-use identifier::Identifier;
 use pallet_contracts::{ExecReturnValue, Gas};
 use pallet_identity as identity;
 use pallet_statistics::{self as statistics, Counter};
@@ -111,7 +108,7 @@ use polymesh_common_utilities::{
     CommonTrait, Context, SystematicIssuers,
 };
 use polymesh_primitives::{
-    AuthorizationData, AuthorizationError, Document, DocumentName, IdentityId, PortfolioId,
+    AssetIdentifier, AuthorizationData, AuthorizationError, Document, DocumentName, IdentityId,
     Signatory, SmartExtension, SmartExtensionName, SmartExtensionType, Ticker,
 };
 use polymesh_primitives_derive::VecU8StrongTyped;
@@ -163,21 +160,6 @@ impl Default for AssetType {
     }
 }
 
-/// The type of an identifier associated with a token.
-#[derive(Encode, Decode, Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
-pub enum IdentifierType {
-    Cins,
-    Cusip,
-    Isin,
-    Dti,
-}
-
-impl Default for IdentifierType {
-    fn default() -> Self {
-        IdentifierType::Isin
-    }
-}
-
 /// Ownership status of a ticker/token.
 #[derive(Encode, Decode, Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub enum AssetOwnershipRelation {
@@ -197,12 +179,6 @@ impl Default for AssetOwnershipRelation {
     Decode, Encode, Clone, Debug, Default, Hash, PartialEq, Eq, PartialOrd, Ord, VecU8StrongTyped,
 )]
 pub struct AssetName(pub Vec<u8>);
-
-/// A wrapper for an asset ID.
-#[derive(
-    Decode, Encode, Clone, Debug, Default, Hash, PartialEq, Eq, PartialOrd, Ord, VecU8StrongTyped,
-)]
-pub struct AssetIdentifier(pub Vec<u8>);
 
 /// A wrapper for a funding round name.
 #[derive(Decode, Encode, Clone, Debug, Hash, PartialEq, Eq, PartialOrd, Ord, VecU8StrongTyped)]
@@ -323,7 +299,7 @@ decl_storage! {
         /// (ticker, DID) -> Balance
         pub BalanceOf get(fn balance_of): double_map hasher(blake2_128_concat) Ticker, hasher(blake2_128_concat) IdentityId => T::Balance;
         /// A map of a ticker name and asset identifiers.
-        pub Identifiers get(fn identifiers): map hasher(blake2_128_concat) Ticker => Vec<Identifier>;
+        pub Identifiers get(fn identifiers): map hasher(blake2_128_concat) Ticker => Vec<AssetIdentifier>;
         /// Checkpoints created per token.
         /// (ticker) -> no. of checkpoints
         pub TotalCheckpoints get(fn total_checkpoints_of): map hasher(blake2_128_concat) Ticker => u64;
@@ -487,7 +463,7 @@ decl_module! {
             total_supply: T::Balance,
             divisible: bool,
             asset_type: AssetType,
-            identifiers: Vec<Identifier>,
+            identifiers: Vec<AssetIdentifier>,
             funding_round: Option<FundingRoundName>,
         ) -> DispatchResult {
             let sender = ensure_signed(origin)?;
@@ -560,7 +536,7 @@ decl_module! {
                 did,
             ));
 
-            let identifiers: Vec<Identifier> = identifiers
+            let identifiers: Vec<AssetIdentifier> = identifiers
                 .into_iter()
                 .filter_map(|identifier| identifier.validate())
                 .collect();
@@ -789,12 +765,12 @@ decl_module! {
         pub fn update_identifiers(
             origin,
             ticker: Ticker,
-            identifiers: Vec<Identifier>
+            identifiers: Vec<AssetIdentifier>
         ) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             let did = Context::current_identity_or::<Identity<T>>(&sender)?;
             ensure!(Self::is_owner(&ticker, did), Error::<T>::Unauthorized);
-            let identifiers: Vec<Identifier> = identifiers
+            let identifiers: Vec<AssetIdentifier> = identifiers
                 .into_iter()
                 .filter_map(|identifier| identifier.validate())
                 .collect();
@@ -1002,7 +978,7 @@ decl_event! {
         AssetCreated(IdentityId, Ticker, Balance, bool, AssetType, IdentityId),
         /// Event emitted when a token identifiers are updated.
         /// caller DID, ticker, a vector of (identifier type, identifier value)
-        IdentifiersUpdated(IdentityId, Ticker, Vec<Identifier>),
+        IdentifiersUpdated(IdentityId, Ticker, Vec<AssetIdentifier>),
         /// Event for change in divisibility.
         /// caller DID, ticker, divisibility
         DivisibilityChanged(IdentityId, Ticker, bool),
