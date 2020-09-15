@@ -123,7 +123,7 @@ use frame_support::{
     ensure,
     traits::{ChangeMembers, Currency, InitializeMembers},
     weights::{DispatchClass, GetDispatchInfo, Pays, Weight},
-    Blake2_128Concat, StorageDoubleMap,
+    Blake2_128Concat, ReversibleStorageHasher, StorageDoubleMap,
 };
 use frame_system::{self as system, ensure_root, ensure_signed};
 
@@ -258,9 +258,15 @@ decl_module! {
             // Rename "master" to "primary".
             <CddAuthForPrimaryKeyRotation>::put(<CddAuthForMasterKeyRotation>::take());
 
-            use polymesh_primitives::identity_claim::IdentityClaimOld;
-            use polymesh_primitives::migrate::{migrate_map, migrate_double_map_keys};
-            migrate_map::<IdentityClaimOld>(b"Identity", b"Claims");
+            use polymesh_primitives::{
+                identity_claim::IdentityClaimOld,
+                migrate::{migrate_map, migrate_double_map_keys}
+            };
+            migrate_map::<IdentityClaimOld, _>(b"Identity", b"Claims", |raw_key| {
+                Claim1stKey::decode(&mut Blake2_128Concat::reverse(&raw_key))
+                    .ok()
+                    .map(|k1| (*k1.target.as_fixed_bytes()).into())
+            });
 
             // Covert old scopes to new scopes
             migrate_double_map_keys::<IdentityClaim, Blake2_128Concat, _, _, _, _, _>(
