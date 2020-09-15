@@ -47,7 +47,7 @@ impl<T: Trait> Module<T> {
         updated_to_balance: Option<T::Balance>,
         amount: T::Balance,
     ) {
-        // 1. Investor count per asset.
+        // 1. Unique investor count per asset.
         if amount != 0u128.into() {
             let counter = Self::investor_count_per_asset(ticker);
             let mut new_counter = counter;

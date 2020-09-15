@@ -123,27 +123,6 @@ pub trait Trait:
 }
 
 use polymesh_primitives::condition::ConditionOld;
-/// Implicit requirement status.
-#[cfg_attr(feature = "std", derive(Serialize, Deserialize, Debug))]
-#[derive(Encode, Decode, Clone, Copy, PartialEq, Eq)]
-pub enum ImplicitRequirementStatus {
-    /// It means all the implicit requirements will be checked
-    /// at the time of compliance check for a transfer of a given asset.
-    /// Ex - ConditionType::HasValidProofOfInvestor is a implicit requirement
-    /// for sender and receiver both.
-    ///
-    /// By default every asset has the implicit requirement active.
-    Active,
-    /// No implicit requirements will be checked during the asset transfer.
-    Inactive,
-}
-
-// Default implementation.
-impl Default for ImplicitRequirementStatus {
-    fn default() -> Self {
-        ImplicitRequirementStatus::Active
-    }
-}
 
 /// A compliance requirement.
 /// All sender and receiver conditions of the same compliance requirement must be true in order to execute the transfer.
@@ -248,7 +227,7 @@ pub struct AssetComplianceResult {
     /// the result of other requirements.
     ///
     /// Implicit requirements result.
-    pub implicit_requirements_result: Option<ImplicitRequirementResult>,
+    pub implicit_requirements_result: ImplicitRequirementResult,
     // Final evaluation result of the asset compliance
     pub result: bool,
 }
@@ -262,7 +241,7 @@ impl From<AssetCompliance> for AssetComplianceResult {
                 .into_iter()
                 .map(ComplianceRequirementResult::from)
                 .collect(),
-            implicit_requirements_result: None,
+            implicit_requirements_result: ImplicitRequirementResult::default(),
             result: false,
         }
     }
@@ -286,9 +265,6 @@ decl_storage! {
         pub AssetCompliances get(fn asset_compliance): map hasher(blake2_128_concat) Ticker => AssetCompliance;
         /// List of trusted claim issuer Ticker -> Issuer Identity
         pub TrustedClaimIssuer get(fn trusted_claim_issuer): map hasher(blake2_128_concat) Ticker => Vec<IdentityId>;
-        /// Status to switch on/off the implicit requirements.
-        /// By default it is active for every ticker.
-        pub ImplicitRequirements get(fn implicit_requirements_status): map hasher(blake2_128_concat) Ticker => ImplicitRequirementStatus;
     }
 }
 
@@ -526,28 +502,6 @@ decl_module! {
 
             Ok(())
         }
-
-        /// Activate the implicit requirement check. Once it is active all the implicit requirements are in effect.
-        ///
-        /// # Arguments
-        /// * origin - Signer of the dispatchable. It should be the owner of the ticker.
-        /// * ticker - Symbol of the asset.
-        #[weight = T::DbWeight::get().reads_writes(2, 1) + 100_000_000]
-        pub fn activate_implicit_requirement_checks(origin, ticker: Ticker) -> DispatchResult {
-            // Pass new_status as `ImplicitRequirementStatus::Active`
-            Self::change_implicit_requirement_status(origin, ticker, ImplicitRequirementStatus::Active)
-        }
-
-        /// Inactivate the implicit requirement check. Once it is inactive all the implicit requirements are skipped.
-        ///
-        /// # Arguments
-        /// * origin - Signer of the dispatchable. It should be the owner of the ticker.
-        /// * ticker - Symbol of the asset.
-        #[weight = T::DbWeight::get().reads_writes(2, 1) + 100_000_000]
-        pub fn inactivate_implicit_requirement_checks(origin, ticker: Ticker) -> DispatchResult {
-            // Pass new_status as `ImplicitRequirementStatus::Active`
-            Self::change_implicit_requirement_status(origin, ticker, ImplicitRequirementStatus::Inactive)
-        }
     }
 }
 
@@ -580,9 +534,6 @@ decl_event!(
         /// Emitted when default claim issuer list for a given ticker get removed.
         /// (caller DID, Ticker, Removed Claim issuer DID).
         TrustedDefaultClaimIssuerRemoved(IdentityId, Ticker, IdentityId),
-        /// Emitted when implicit requirements status changed for a given ticker.
-        /// (caller DID, Ticker, New Status).
-        ImplicitRequirementStatusChanged(IdentityId, Ticker, ImplicitRequirementStatus),
     }
 );
 
@@ -873,14 +824,11 @@ impl<T: Trait> Module<T> {
         ticker: &Ticker,
         from_did_opt: Option<IdentityId>,
         to_did_opt: Option<IdentityId>,
-    ) -> Option<ImplicitRequirementResult> {
-        if Self::implicit_requirements_status(ticker) == ImplicitRequirementStatus::Active {
-            return Some(ImplicitRequirementResult {
-                from_result: Self::has_scope_claim(ticker, from_did_opt),
-                to_result: Self::has_scope_claim(ticker, to_did_opt),
-            });
-        }
-        None
+    ) -> ImplicitRequirementResult {
+        return Some(ImplicitRequirementResult {
+            from_result: Self::has_scope_claim(ticker, from_did_opt),
+            to_result: Self::has_scope_claim(ticker, to_did_opt),
+        });
     }
 
     /// Helper function to know whether the given did has the valid scope claim or not.
@@ -901,35 +849,6 @@ impl<T: Trait> Module<T> {
     ) -> bool {
         // Return the final boolean result.
         Self::has_scope_claim(ticker, to_did_opt) && Self::has_scope_claim(ticker, from_did_opt)
-    }
-
-    /// Change the implicit requirement status. Once active all the implicit requirements are in effect.
-    fn change_implicit_requirement_status(
-        origin: T::Origin,
-        ticker: Ticker,
-        new_status: ImplicitRequirementStatus,
-    ) -> DispatchResult {
-        let sender = ensure_signed(origin)?;
-        let did = Context::current_identity_or::<Identity<T>>(&sender)?;
-
-        // Ensure owner.
-        ensure!(Self::is_owner(&ticker, did), Error::<T>::Unauthorized);
-
-        let error = match new_status {
-            ImplicitRequirementStatus::Active => Error::<T>::ImplicitRequirementsAlreadyActive,
-            ImplicitRequirementStatus::Inactive => Error::<T>::ImplicitRequirementsAlreadyInactive,
-        };
-        // Current status should not be same as `new_status`
-        ensure!(
-            Self::implicit_requirements_status(&ticker) != new_status,
-            error
-        );
-
-        <ImplicitRequirements>::insert(ticker, new_status);
-        Self::deposit_event(Event::ImplicitRequirementStatusChanged(
-            did, ticker, new_status,
-        ));
-        Ok(())
     }
 }
 

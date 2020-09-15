@@ -88,8 +88,8 @@
 pub mod benchmarking;
 
 pub mod ethereum;
-
 use codec::{Decode, Encode};
+use core::mem;
 use core::result::Result as StdResult;
 use currency::*;
 use frame_support::{
@@ -105,7 +105,7 @@ use pallet_contracts::{ExecReturnValue, Gas};
 use pallet_identity as identity;
 use pallet_statistics::{self as statistics, Counter};
 use polymesh_common_utilities::{
-    asset::{AcceptTransfer, Trait as AssetTrait, GAS_LIMIT},
+    asset::{CommunicateAsset, Trait as AssetTrait, GAS_LIMIT},
     balances::Trait as BalancesTrait,
     compliance_manager::Trait as ComplianceManagerTrait,
     constants::*,
@@ -114,7 +114,7 @@ use polymesh_common_utilities::{
     CommonTrait, Context, SystematicIssuers,
 };
 use polymesh_primitives::{
-    AuthorizationData, AuthorizationError, Document, DocumentName, IdentityId, Signatory,
+    AuthorizationData, AuthorizationError, Document, DocumentName, IdentityId, ScopeId, Signatory,
     SmartExtension, SmartExtensionName, SmartExtensionType, Ticker,
 };
 use polymesh_primitives_derive::VecU8StrongTyped;
@@ -403,6 +403,16 @@ decl_storage! {
 
         /// Ticker registration details on Polymath Classic / Ethereum.
         pub ClassicTickers get(fn classic_ticker_registration): map hasher(blake2_128_concat) Ticker => Option<ClassicTickerRegistration>;
+        /// Balances get stored on the basis of the `ScopeId`.
+        /// (ScopeId, IdentityId) => Balance.
+        pub BalanceOfAtScope get(fn balance_of_at_scope): double_map hasher(identity) ScopeId, hasher(identity) IdentityId => T::Balance;
+        /// Store aggregate balance of those identities that has the same `ScopeId`.
+        /// (Ticker, ScopeId) => Balance.
+        pub AggregateBalance get(fn aggregate_balance_of): double_map hasher(blake2_128_concat) Ticker, hasher(identity) ScopeId => T::Balance;
+        /// Tracks the ScopeId of the identity for a given ticker.
+        /// (Ticker, IdentityId) => ScopeId.
+        pub ScopeIdOf get(fn scope_id_of): double_map hasher(blake2_128_concat) Ticker, hasher(identity) IdentityId => ScopeId;
+
     }
     add_extra_genesis {
         config(classic_migration_tickers): Vec<ClassicTickerImport>;
@@ -1454,7 +1464,7 @@ impl<T: Trait> AssetTrait<T::Balance, T::AccountId> for Module<T> {
     }
 }
 
-impl<T: Trait> AcceptTransfer for Module<T> {
+impl<T: Trait> CommunicateAsset for Module<T> {
     fn accept_ticker_transfer(to_did: IdentityId, auth_id: u64) -> DispatchResult {
         Self::_accept_ticker_transfer(to_did, auth_id)
     }
@@ -1466,10 +1476,21 @@ impl<T: Trait> AcceptTransfer for Module<T> {
     fn accept_asset_ownership_transfer(to_did: IdentityId, auth_id: u64) -> DispatchResult {
         Self::_accept_token_ownership_transfer(to_did, auth_id)
     }
+
+    fn update_balance_of_scope_id(of: ScopeId, whom: IdentityId, ticker: Ticker) -> DispatchResult {
+        let current_balance = Self::balance_of(ticker, whom);
+        <BalanceOfAtScope<T>>::insert(of, whom, current_balance);
+        // bal + current_balance is always less then the total_supply of given ticker.
+        <AggregateBalance<T>>::mutate(ticker, of, |bal| *bal + current_balance);
+        // Caches the `ScopeId` for a given IdentityId and ticker.
+        // this is needed to avoid the on-chain iteration of the claims to find the ScopeId.
+        <ScopeIdOf>::insert(ticker, whom, of);
+        Ok(())
+    }
 }
 
 /// All functions in the decl_module macro become part of the public interface of the module
-/// If they are there, they are accessible via extrinsics calls whether they are public or not
+/// If they are there, they are accessible via extrinsic calls whether they are public or not
 /// However, in the impl module section (this, below) the functions can be public and private
 /// Private functions are internal to this module e.g.: _transfer
 /// Public functions can be called from other modules e.g.: lock and unlock (being called from the tcr module)
@@ -1770,11 +1791,37 @@ impl<T: Trait> Module<T> {
         <BalanceOf<T>>::insert(ticker, &to_did, updated_to_total_balance);
         Portfolio::<T>::set_default_portfolio_balance(to_did, ticker, updated_to_def_balance);
 
+        // Update the storage on the basis of the `ScopeId`.
+        let to_scope_id = Self::scope_id_of(ticker, &to_did);
+        let current_to_aggregate_balance = Self::aggregate_balance_of(ticker, &to_scope_id) + value;
+
+        let from_scope_id = Self::scope_id_of(ticker, &from_did);
+        let current_from_aggregate_balance =
+            Self::aggregate_balance_of(ticker, &from_scope_id) - value;
+
+        let update_balance = |scope_id, did, update_balance, agg_balance| {
+            <AggregateBalance<T>>::insert(ticker, &scope_id, agg_balance);
+            <BalanceOfAtScope<T>>::insert(scope_id, did, update_balance);
+        };
+
+        update_balance(
+            to_scope_id,
+            to_did,
+            updated_to_total_balance,
+            current_to_aggregate_balance,
+        );
+        update_balance(
+            from_scope_id,
+            from_did,
+            updated_from_total_balance,
+            current_from_aggregate_balance,
+        );
+
         // Update statistic info.
         <statistics::Module<T>>::update_transfer_stats(
             ticker,
-            Some(updated_from_total_balance),
-            Some(updated_to_total_balance),
+            Some(current_from_aggregate_balance),
+            Some(current_to_aggregate_balance),
             value,
         );
 
@@ -2126,11 +2173,19 @@ impl<T: Trait> Module<T> {
         // 4 byte selector of verify_transfer - 0xD9386E41
         let selector = hex!("D9386E41");
         let balance_to = match to_did {
-            Some(did) => T::Balance::encode(&<BalanceOf<T>>::get(ticker, &did)),
+            Some(did) => {
+                let scope_id = Self::scope_id_of(ticker, &did);
+                // Using aggregate balance instead of individual identity balance.
+                T::Balance::encode(&Self::aggregate_balance_of(ticker, &scope_id))
+            }
             None => T::Balance::encode(&(0.into())),
         };
         let balance_from = match from_did {
-            Some(did) => T::Balance::encode(&<BalanceOf<T>>::get(ticker, &did)),
+            Some(did) => {
+                let scope_id = Self::scope_id_of(ticker, &did);
+                // Using aggregate balance instead of individual identity balance.
+                T::Balance::encode(&Self::aggregate_balance_of(ticker, &scope_id))
+            }
             None => T::Balance::encode(&(0.into())),
         };
         let encoded_to = Option::<IdentityId>::encode(&to_did);

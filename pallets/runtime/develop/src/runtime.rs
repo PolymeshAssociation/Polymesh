@@ -257,7 +257,7 @@ impl pallet_transaction_payment::Trait for Runtime {
 
 impl CommonTrait for Runtime {
     type Balance = Balance;
-    type AcceptTransferTarget = Asset;
+    type CommunicateAssetTarget = Asset;
     type BlockRewardsReserve = balances::Module<Runtime>;
 }
 

@@ -90,7 +90,7 @@ use polymesh_common_utilities::{
     constants::did::{SECURITY_TOKEN, USER},
     protocol_fee::{ChargeProtocolFee, ProtocolOp},
     traits::{
-        asset::AcceptTransfer,
+        asset::CommunicateAsset,
         group::{GroupTrait, InactiveMember},
         identity::{
             AuthorizationNonce, IdentityTrait, LinkedKeyInfo, RawEvent, SecondaryKeyWithAuth,
@@ -519,13 +519,18 @@ decl_module! {
 
             match &claim {
                 Claim::CustomerDueDiligence(..) => Self::base_add_cdd_claim(target, claim, issuer, expiry)?,
-                Claim::InvestorZKProof(..) => {
+                Claim::InvestorZKProof(scope, scope_id, ..) => {
+                    // Verifying & adding the confidential claim.
                     Self::base_add_confidential_scope_claim(
                         target,
                         claim.clone(),
                         issuer,
                         expiry
-                    )?
+                    )?;
+                    if let Scope::Ticker(ticker) = scope {
+                        // Update the balance of the IdentityId under the ScopeId provided in claim data.
+                        T::CommunicateAssetTarget::update_balance_of_scope_id(*scope_id, target, *ticker)?
+                    }
                 },
                 _ => {
                     T::ProtocolFee::charge_fee(ProtocolOp::IdentityAddClaim)?;
@@ -728,11 +733,11 @@ decl_module! {
                 Signatory::Identity(did) => {
                     match auth.authorization_data {
                         AuthorizationData::TransferTicker(_) =>
-                            T::AcceptTransferTarget::accept_ticker_transfer(did, auth_id),
+                            T::CommunicateAssetTarget::accept_ticker_transfer(did, auth_id),
                         AuthorizationData::TransferPrimaryIssuanceAgent(_) =>
-                            T::AcceptTransferTarget::accept_primary_issuance_agent_transfer(did, auth_id),
+                            T::CommunicateAssetTarget::accept_primary_issuance_agent_transfer(did, auth_id),
                         AuthorizationData::TransferAssetOwnership(_) =>
-                            T::AcceptTransferTarget::accept_asset_ownership_transfer(did, auth_id),
+                            T::CommunicateAssetTarget::accept_asset_ownership_transfer(did, auth_id),
                         AuthorizationData::AddMultiSigSigner(_) =>
                             T::MultiSig::accept_multisig_signer(Signatory::from(did), auth_id),
                         AuthorizationData::JoinIdentity(_) =>
