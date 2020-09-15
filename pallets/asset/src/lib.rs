@@ -117,7 +117,7 @@ use polymesh_primitives::{
     AuthorizationData, AuthorizationError, Document, DocumentName, IdentityId, Signatory,
     SmartExtension, SmartExtensionName, SmartExtensionType, Ticker,
 };
-use polymesh_primitives_derive::{SliceU8StrongTyped, VecU8StrongTyped};
+use polymesh_primitives_derive::VecU8StrongTyped;
 use sp_runtime::traits::{CheckedAdd, CheckedSub, Saturating, Verify};
 
 #[cfg(feature = "std")]
@@ -286,13 +286,6 @@ pub struct FocusedBalances<Balance> {
     pub portfolio: Balance,
 }
 
-/// The Countries Currency Codes
-#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[derive(
-    Default, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Encode, Decode, SliceU8StrongTyped,
-)]
-pub struct CountryCurrencyCodes([u8; 3]);
-
 pub mod weight_for {
     use super::*;
 
@@ -416,7 +409,7 @@ decl_storage! {
         config(classic_migration_tickers): Vec<ClassicTickerImport>;
         config(classic_migration_tconfig): TickerRegistrationConfig<T::Moment>;
         config(classic_migration_contract_did): IdentityId;
-        config(reserved_country_currency_codes): Vec<(IdentityId, Vec<CountryCurrencyCodes>)>;
+        config(reserved_country_currency_codes): Vec<Vec<u8>>;
         build(|config: &GenesisConfig<T>| {
             let cm_did = SystematicIssuers::ClassicMigration.as_id();
             for import in &config.classic_migration_tickers {
@@ -437,12 +430,10 @@ decl_storage! {
             }
 
             // Reserving country currency logic
-            let tconfig = || config.ticker_registration_config.clone();
-            let sys_did = &config.reserved_country_currency_codes[0].0;
-            for code in &config.reserved_country_currency_codes[0].1 {
-                let ticker = Ticker::try_from(code.as_slice()).expect("cannot convert country code to ticker");
-                let expiry = <Module<T>>::ticker_registration_checks(&ticker, *sys_did, true, tconfig);
-                <Module<T>>::_register_ticker(&ticker, *sys_did, expiry.unwrap());
+            let fiat_tickers_reservation_did = SystematicIssuers::FiatTickersReservation.as_id();
+            for code in &config.reserved_country_currency_codes {
+                let ticker = Ticker::try_from(code.as_slice()).unwrap();
+                <Module<T>>::_register_ticker(&ticker, fiat_tickers_reservation_did, None);
             }
 
         });

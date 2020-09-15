@@ -1,6 +1,6 @@
 use grandpa::AuthorityId as GrandpaId;
 use im_online::sr25519::AuthorityId as ImOnlineId;
-use pallet_asset::{CountryCurrencyCodes, TickerRegistrationConfig};
+use pallet_asset::TickerRegistrationConfig;
 use polymesh_common_utilities::{constants::currency::POLY, protocol_fee::ProtocolOp};
 use polymesh_primitives::{AccountId, IdentityId, InvestorUid, PosRatio, Signatory, Signature};
 use polymesh_runtime_develop::{
@@ -137,22 +137,29 @@ fn general_testnet_genesis(
             changes_trie_config: Default::default(),
         }),
         asset: {
-            let currency_codes: CountryCurrencyCodes = vec![
-                b"AED", b"AFN", b"ALL", b"AMD", b"ANG", b"AOA", b"ARS", b"AUD", b"AWG", b"AZN", b"BAM", b"BBD",
-                b"BDT", b"BGN", b"BHD", b"BIF", b"BMD", b"BND", b"BOB", b"BOV", b"BRL", b"BSD", b"BTN", b"BWP",
-                b"BYN", b"BZD", b"CAD", b"CDF", b"CHE", b"CHF", b"CHW", b"CLF", b"CLP", b"CNY", b"COP", b"COU",
-                b"CRC", b"CUC", b"CUP", b"CVE", b"CZK", b"DJF", b"DKK", b"DOP", b"DZD", b"EGP", b"ERN", b"ETB",
-                b"EUR", b"FJD", b"FKP", b"GBP", b"GEL", b"GHS", b"GIP", b"GMD", b"GNF", b"GTQ", b"GYD", b"HYD",
-                b"HNL", b"HRK", b"HTG", b"HUF", b"IDR", b"ILS", b"INR", b"IQD", b"IRR", b"ISK", b"JMD", b"JOD",
-                b"JPY", b"KES", b"KGS", b"KHR", b"KMF", b"KPW", b"KRW", b"KWD", b"KYD", b"KZT", b"LAK", b"LBP",
-                b"LKR", b"LRD", b"LSL", b"LYD", b"MAD", b"MDL", b"MGA", b"MKD", b"MMK", b"MNT", b"MOP", b"MRU",
-                b"MUR", b"MVR", b"MWK", b"MXN", b"MXV", b"MYR", b"MZN", b"NAD", b"NGN", b"NIO", b"NOK", b"NPR",
-                b"NZD", b"OMR", b"PAB", b"PEN", b"PGK", b"PHP", b"PKR", b"PLN", b"PYG", b"QAR", b"RON", b"RSD",
-                b"RUB", b"RWF", b"SAR", b"SBD", b"SCR", b"SDG", b"SEK", b"SGD", b"SHP", b"SLL", b"SOS", b"SRD",
-                b"SSP", b"STN", b"SVC", b"SYP", b"SZL", b"THB", b"TJS", b"TMT", b"TND", b"TOP", b"TRY", b"TTD",
-                b"TWD", b"TZS", b"UAH", b"UGX", b"USD", b"USN", b"UYI", b"UYU", b"UZS", b"VEF", b"VND", b"VUV",
-                b"WST", b"XAF", b"XCD", b"XDR", b"XOF", b"XPF", b"XSU", b"XUA", b"YER", b"ZAR", b"ZMW", b"ZWL",
-            ];
+
+            let currency_codes: Vec<Vec<u8>> = vec![
+                b"AED", b"AFN", b"ALL", b"AMD", b"ANG", b"AOA", b"ARS", b"AUD", b"AWG", b"AZN",
+                b"BAM", b"BBD", b"BDT", b"BGN", b"BHD", b"BIF", b"BMD", b"BND", b"BOB", b"BOV",
+                b"BRL", b"BSD", b"BTN", b"BWP", b"BYN", b"BZD", b"CAD", b"CDF", b"CHE", b"CHF",
+                b"CHW", b"CLF", b"CLP", b"CNY", b"COP", b"COU", b"CRC", b"CUC", b"CUP", b"CVE",
+                b"CZK", b"DJF", b"DKK", b"DOP", b"DZD", b"EGP", b"ERN", b"ETB", b"EUR", b"FJD",
+                b"FKP", b"GBP", b"GEL", b"GHS", b"GIP", b"GMD", b"GNF", b"GTQ", b"GYD", b"HYD",
+                b"HNL", b"HRK", b"HTG", b"HUF", b"IDR", b"ILS", b"INR", b"IQD", b"IRR", b"ISK",
+                b"JMD", b"JOD", b"JPY", b"KES", b"KGS", b"KHR", b"KMF", b"KPW", b"KRW", b"KWD",
+                b"KYD", b"KZT", b"LAK", b"LBP", b"LKR", b"LRD", b"LSL", b"LYD", b"MAD", b"MDL",
+                b"MGA", b"MKD", b"MMK", b"MNT", b"MOP", b"MRU", b"MUR", b"MVR", b"MWK", b"MXN",
+                b"MXV", b"MYR", b"MZN", b"NAD", b"NGN", b"NIO", b"NOK", b"NPR", b"NZD", b"OMR",
+                b"PAB", b"PEN", b"PGK", b"PHP", b"PKR", b"PLN", b"PYG", b"QAR", b"RON", b"RSD",
+                b"RUB", b"RWF", b"SAR", b"SBD", b"SCR", b"SDG", b"SEK", b"SGD", b"SHP", b"SLL",
+                b"SOS", b"SRD", b"SSP", b"STN", b"SVC", b"SYP", b"SZL", b"THB", b"TJS", b"TMT",
+                b"TND", b"TOP", b"TRY", b"TTD", b"TWD", b"TZS", b"UAH", b"UGX", b"USD", b"USN",
+                b"UYI", b"UYU", b"UZS", b"VEF", b"VND", b"VUV", b"WST", b"XAF", b"XCD", b"XDR",
+                b"XOF", b"XPF", b"XSU", b"XUA", b"YER", b"ZAR", b"ZMW", b"ZWL",
+            ]
+            .iter()
+            .map(|x| x.to_vec())
+            .collect::<Vec<_>>();
 
             Some(GeneralConfig::AssetConfig {
                 ticker_registration_config: TickerRegistrationConfig {
@@ -168,7 +175,8 @@ fn general_testnet_genesis(
                 classic_migration_contract_did: IdentityId::from(1),
                 // TODO(centril): fill with actual data from Ethereum.
                 classic_migration_tickers: vec![],
-                reserved_country_currency_codes: vec![(IdentityId::from(1), vec![currency_codes])],
+                //  reserved_country_currency_codes: vec![currency_codes_bytes.to_vec()],
+                reserved_country_currency_codes: currency_codes,
             })
         },
         identity: {
@@ -525,24 +533,29 @@ fn alcyone_testnet_genesis(
             changes_trie_config: Default::default(),
         }),
         asset: {
+            let currency_codes: Vec<Vec<u8>> = vec![
+                b"AED", b"AFN", b"ALL", b"AMD", b"ANG", b"AOA", b"ARS", b"AUD", b"AWG", b"AZN",
+                b"BAM", b"BBD", b"BDT", b"BGN", b"BHD", b"BIF", b"BMD", b"BND", b"BOB", b"BOV",
+                b"BRL", b"BSD", b"BTN", b"BWP", b"BYN", b"BZD", b"CAD", b"CDF", b"CHE", b"CHF",
+                b"CHW", b"CLF", b"CLP", b"CNY", b"COP", b"COU", b"CRC", b"CUC", b"CUP", b"CVE",
+                b"CZK", b"DJF", b"DKK", b"DOP", b"DZD", b"EGP", b"ERN", b"ETB", b"EUR", b"FJD",
+                b"FKP", b"GBP", b"GEL", b"GHS", b"GIP", b"GMD", b"GNF", b"GTQ", b"GYD", b"HYD",
+                b"HNL", b"HRK", b"HTG", b"HUF", b"IDR", b"ILS", b"INR", b"IQD", b"IRR", b"ISK",
+                b"JMD", b"JOD", b"JPY", b"KES", b"KGS", b"KHR", b"KMF", b"KPW", b"KRW", b"KWD",
+                b"KYD", b"KZT", b"LAK", b"LBP", b"LKR", b"LRD", b"LSL", b"LYD", b"MAD", b"MDL",
+                b"MGA", b"MKD", b"MMK", b"MNT", b"MOP", b"MRU", b"MUR", b"MVR", b"MWK", b"MXN",
+                b"MXV", b"MYR", b"MZN", b"NAD", b"NGN", b"NIO", b"NOK", b"NPR", b"NZD", b"OMR",
+                b"PAB", b"PEN", b"PGK", b"PHP", b"PKR", b"PLN", b"PYG", b"QAR", b"RON", b"RSD",
+                b"RUB", b"RWF", b"SAR", b"SBD", b"SCR", b"SDG", b"SEK", b"SGD", b"SHP", b"SLL",
+                b"SOS", b"SRD", b"SSP", b"STN", b"SVC", b"SYP", b"SZL", b"THB", b"TJS", b"TMT",
+                b"TND", b"TOP", b"TRY", b"TTD", b"TWD", b"TZS", b"UAH", b"UGX", b"USD", b"USN",
+                b"UYI", b"UYU", b"UZS", b"VEF", b"VND", b"VUV", b"WST", b"XAF", b"XCD", b"XDR",
+                b"XOF", b"XPF", b"XSU", b"XUA", b"YER", b"ZAR", b"ZMW", b"ZWL",
+            ]
+            .iter()
+            .map(|x| x.to_vec())
+            .collect::<Vec<_>>();
 
-            let currency_codes: CountryCurrencyCodes = vec![
-                b"AED", b"AFN", b"ALL", b"AMD", b"ANG", b"AOA", b"ARS", b"AUD", b"AWG", b"AZN", b"BAM", b"BBD",
-                b"BDT", b"BGN", b"BHD", b"BIF", b"BMD", b"BND", b"BOB", b"BOV", b"BRL", b"BSD", b"BTN", b"BWP",
-                b"BYN", b"BZD", b"CAD", b"CDF", b"CHE", b"CHF", b"CHW", b"CLF", b"CLP", b"CNY", b"COP", b"COU",
-                b"CRC", b"CUC", b"CUP", b"CVE", b"CZK", b"DJF", b"DKK", b"DOP", b"DZD", b"EGP", b"ERN", b"ETB",
-                b"EUR", b"FJD", b"FKP", b"GBP", b"GEL", b"GHS", b"GIP", b"GMD", b"GNF", b"GTQ", b"GYD", b"HYD",
-                b"HNL", b"HRK", b"HTG", b"HUF", b"IDR", b"ILS", b"INR", b"IQD", b"IRR", b"ISK", b"JMD", b"JOD",
-                b"JPY", b"KES", b"KGS", b"KHR", b"KMF", b"KPW", b"KRW", b"KWD", b"KYD", b"KZT", b"LAK", b"LBP",
-                b"LKR", b"LRD", b"LSL", b"LYD", b"MAD", b"MDL", b"MGA", b"MKD", b"MMK", b"MNT", b"MOP", b"MRU",
-                b"MUR", b"MVR", b"MWK", b"MXN", b"MXV", b"MYR", b"MZN", b"NAD", b"NGN", b"NIO", b"NOK", b"NPR",
-                b"NZD", b"OMR", b"PAB", b"PEN", b"PGK", b"PHP", b"PKR", b"PLN", b"PYG", b"QAR", b"RON", b"RSD",
-                b"RUB", b"RWF", b"SAR", b"SBD", b"SCR", b"SDG", b"SEK", b"SGD", b"SHP", b"SLL", b"SOS", b"SRD",
-                b"SSP", b"STN", b"SVC", b"SYP", b"SZL", b"THB", b"TJS", b"TMT", b"TND", b"TOP", b"TRY", b"TTD",
-                b"TWD", b"TZS", b"UAH", b"UGX", b"USD", b"USN", b"UYI", b"UYU", b"UZS", b"VEF", b"VND", b"VUV",
-                b"WST", b"XAF", b"XCD", b"XDR", b"XOF", b"XPF", b"XSU", b"XUA", b"YER", b"ZAR", b"ZMW", b"ZWL",
-            ];
-            
             Some(AlcyoneConfig::AssetConfig {
                 ticker_registration_config: TickerRegistrationConfig {
                     max_ticker_length: 12,
@@ -557,7 +570,7 @@ fn alcyone_testnet_genesis(
                 classic_migration_contract_did: IdentityId::from(1),
                 // TODO(centril): fill with actual data from Ethereum.
                 classic_migration_tickers: vec![],
-                reserved_country_currency_codes: vec![(IdentityId::from(1), vec![currency_codes])],
+                reserved_country_currency_codes: currency_codes,
             })
         },
         identity: {
