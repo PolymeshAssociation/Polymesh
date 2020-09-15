@@ -1927,33 +1927,17 @@ impl<T: Trait> Module<T> {
     }
 
     /// Transfers an asset from one identity portfolio to another
-    pub fn transfer(
-        from_custodian: Option<IdentityId>,
-        from_portfolio: PortfolioId,
-        to_custodian: Option<IdentityId>,
-        to_portfolio: PortfolioId,
-        ticker: &Ticker,
-        value: T::Balance,
-    ) -> DispatchResultWithPostInfo {
-        Portfolio::<T>::ensure_portfolio_custody(
-            from_portfolio,
-            from_custodian.unwrap_or(from_portfolio.did),
-        )?;
-        Portfolio::<T>::ensure_portfolio_custody(
-            to_portfolio,
-            to_custodian.unwrap_or(to_portfolio.did),
-        )?;
-
-        Self::base_transfer(from_portfolio, to_portfolio, ticker, value)
-    }
-
-    /// Transfers an asset from one identity portfolio to another
     pub fn base_transfer(
         from_portfolio: PortfolioId,
         to_portfolio: PortfolioId,
         ticker: &Ticker,
         value: T::Balance,
     ) -> DispatchResultWithPostInfo {
+        // NB: This function does not check if the sender/receiver have custodian permissions on the portfolios.
+        // The custodian permissions must be checked before this function is called.
+        // The only place this function is used right now is the settlement engine and the settlement engine
+        // checks custodial permissions when the instruction is authorized.
+
         // Validate the transfer
         let (is_transfer_success, weight_for_transfer) = Self::_is_valid_transfer(
             &ticker,
