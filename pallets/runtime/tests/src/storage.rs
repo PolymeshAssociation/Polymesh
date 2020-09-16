@@ -43,7 +43,7 @@ use polymesh_common_utilities::traits::{
 use polymesh_common_utilities::Context;
 use polymesh_primitives::{
     Authorization, AuthorizationData, CddId, Claim, IdentityId, InvestorUid, InvestorZKProofData,
-    Scope, Signatory, Ticker,
+    PortfolioId, PortfolioNumber, Scope, Signatory, Ticker,
 };
 use polymesh_runtime_common::{bridge, cdd_check::CddChecker, dividend, exemption, voting};
 use smallvec::smallvec;
@@ -60,6 +60,7 @@ use sp_runtime::{
     transaction_validity::{InvalidTransaction, TransactionValidity, ValidTransaction},
     AnySignature, KeyTypeId, Perbill,
 };
+use sp_std::{collections::btree_set::BTreeSet, iter};
 use std::cell::RefCell;
 use std::convert::{From, TryFrom};
 use test_client::AccountKeyring;
@@ -386,6 +387,7 @@ impl IdentityTrait for TestStorage {
     type Event = Event;
     type Proposal = Call;
     type MultiSig = multisig::Module<TestStorage>;
+    type Portfolio = portfolio::Module<TestStorage>;
     type CddServiceProviders = group::Module<TestStorage, group::Instance2>;
     type Balances = balances::Module<TestStorage>;
     type ChargeTxFeeTarget = TestStorage;
@@ -711,6 +713,16 @@ pub fn fast_forward_to_block(n: u64) {
 
 pub fn fast_forward_blocks(n: u64) {
     fast_forward_to_block(n + frame_system::Module::<TestStorage>::block_number());
+}
+
+/// Returns a btreeset that contains default portfolio for the identity.
+pub fn default_portfolio_btreeset(did: IdentityId) -> BTreeSet<PortfolioId> {
+    iter::once(PortfolioId::default_portfolio(did)).collect::<BTreeSet<_>>()
+}
+
+/// Returns a btreeset that contains a portfolio for the identity.
+pub fn user_portfolio_btreeset(did: IdentityId, num: PortfolioNumber) -> BTreeSet<PortfolioId> {
+    iter::once(PortfolioId::user_portfolio(did, num)).collect::<BTreeSet<_>>()
 }
 
 pub fn provide_scope_claim(
