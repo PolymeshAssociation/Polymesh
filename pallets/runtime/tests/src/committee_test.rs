@@ -13,7 +13,7 @@ use frame_system::{EventRecord, Phase};
 use pallet_committee::{self as committee, PolymeshVotes, RawEvent as CommitteeRawEvent};
 use pallet_group as group;
 use pallet_identity as identity;
-use pallet_pips::{self as pips, ProposalState, Proposer, SnapshotResult};
+use pallet_pips::{self as pips, ProposalState, SnapshotResult};
 use polymesh_common_utilities::traits::pip::PipId;
 use polymesh_primitives::IdentityId;
 use sp_core::H256;
@@ -79,7 +79,6 @@ fn prepare_proposal(ring: AccountKeyring) {
     let acc = ring.public();
     assert_ok!(Pips::propose(
         Origin::signed(acc),
-        Proposer::Community(acc),
         Box::new(proposal.clone()),
         50,
         None,
@@ -282,9 +281,34 @@ fn changing_vote_threshold_works() {
         .execute_with(changing_vote_threshold_works_we);
 }
 
+/// Constructs an origin for the governance council voting majority.
+pub fn gc_vmo() -> Origin {
+    pallet_committee::Origin::<TestStorage, committee::Instance1>::Members(0, 0).into()
+}
+
 fn changing_vote_threshold_works_we() {
+    let alice_signer = Origin::signed(AccountKeyring::Alice.public());
+    let alice_did = register_keyring_account(AccountKeyring::Alice).unwrap();
+    let bob_signer = Origin::signed(AccountKeyring::Bob.public());
+    let bob_did = register_keyring_account(AccountKeyring::Bob).unwrap();
+    set_members(vec![alice_did, bob_did]);
+
     assert_eq!(Committee::vote_threshold(), (1, 1));
-    assert_ok!(Committee::set_vote_threshold(root(), 4, 17));
+
+    let call_svt = Box::new(Call::Committee(pallet_committee::Call::set_vote_threshold(
+        4, 17,
+    )));
+    assert_ok!(Committee::vote_or_propose(
+        alice_signer,
+        true,
+        call_svt.clone()
+    ));
+    assert_ok!(Committee::vote_or_propose(
+        bob_signer,
+        true,
+        call_svt.clone()
+    ));
+
     assert_eq!(Committee::vote_threshold(), (4, 17));
 }
 
@@ -387,15 +411,16 @@ fn rage_quit_we() {
     );
 
     // Alice should not quit because she is the last member.
+    System::reset_events();
     abdicate_membership(charlie_did, &charlie_signer, 3);
     abdicate_membership(bob_did, &bob_signer, 2);
+    assert_eq!(Committee::voting(&enact_hash), None);
     assert_mem(alice_did, true);
     assert_err!(
         CommitteeGroup::abdicate_membership(alice_signer),
         group::Error::<TestStorage, group::Instance1>::LastMemberCannotQuit
     );
     assert_mem(alice_did, true);
-    assert_eq!(Committee::voting(&enact_hash), None);
 
     // By quitting, only alice remains, so threshold passes, and therefore proposal is executed.
     check_scheduled(0);
@@ -437,18 +462,18 @@ fn release_coordinator_we() {
     );
 
     assert_err!(
-        Committee::set_release_coordinator(root(), charlie_id),
+        Committee::set_release_coordinator(gc_vmo(), charlie_id),
         committee::Error::<TestStorage, committee::Instance1>::MemberNotFound
     );
 
-    assert_ok!(Committee::set_release_coordinator(root(), bob_id));
+    assert_ok!(Committee::set_release_coordinator(gc_vmo(), bob_id));
     assert_eq!(Committee::release_coordinator(), Some(bob_id));
 
     // Bob abdicates
     assert_ok!(CommitteeGroup::abdicate_membership(bob));
     assert_eq!(Committee::release_coordinator(), None);
 
-    assert_ok!(Committee::set_release_coordinator(root(), alice_id));
+    assert_ok!(Committee::set_release_coordinator(gc_vmo(), alice_id));
     assert_eq!(Committee::release_coordinator(), Some(alice_id));
 }
 
