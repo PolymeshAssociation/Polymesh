@@ -1713,7 +1713,7 @@ impl<T: Trait> Module<T> {
         claim: Claim,
         issuer: IdentityId,
         expiry: Option<T::Moment>,
-        cdd_id: CddId
+        cdd_id: CddId,
     ) -> DispatchResult {
         // Only owner of the identity can add that confidential claim.
         ensure!(

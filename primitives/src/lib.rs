@@ -167,7 +167,7 @@ pub use investor_zkproof_data::InvestorZKProofData;
 /// Claim information.
 /// Each claim is associated with this kind of record.
 pub mod identity_claim;
-pub use identity_claim::{Claim, ClaimType, IdentityClaim, Scope, ScopeId, ScopeType};
+pub use identity_claim::{Claim, ClaimType, IdentityClaim, Scope, ScopeId};
 
 // Defining and enumerating jurisdictions.
 pub mod jurisdiction;

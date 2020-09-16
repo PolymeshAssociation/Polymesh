@@ -40,29 +40,6 @@ pub enum Scope {
     Custom(Vec<u8>),
 }
 
-#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, PartialOrd, Ord)]
-/// Enum variable to keep the list of all scope type facilitate by the chain.
-pub enum ScopeType {
-    /// Scoped to an `IdentityId`.
-    Identity,
-    /// Scoped to a `Ticker`.
-    Ticker,
-    /// Scoped to arbitrary bytes
-    Custom,
-}
-
-impl Scope {
-    /// Matches scope type.
-    pub fn scope_type(&self) -> ScopeType {
-        match self {
-            Scope::Identity(..) => ScopeType::Identity,
-            Scope::Ticker(..) => ScopeType::Ticker,
-            Scope::Custom(..) => ScopeType::Custom,
-        }
-    }
-}
-
 impl From<IdentityId> for Scope {
     fn from(did: IdentityId) -> Self {
         Self::Identity(did)
