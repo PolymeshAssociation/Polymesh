@@ -160,7 +160,7 @@ fn scope_claims_we() {
             conf_scope_claim_error.clone(),
             None
         ),
-        IdentityError::InvalidScopeType
+        IdentityError::InvalidScopeClaim
     );
 
     assert_ok!(Identity::add_claim(
@@ -203,7 +203,7 @@ fn scope_claims_we() {
             conf_scope_claim_1,
             None
         ),
-        IdentityError::InvalidScopeClaim
+        IdentityError::ConfidentialScopeClaimNotAllowed
     );
 
     // 5. ERROR: Replace the scope

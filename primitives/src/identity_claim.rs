@@ -42,7 +42,7 @@ pub enum Scope {
 
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, PartialOrd, Ord)]
-/// Scope type.
+/// Enum variable to keep the list of all scope type facilitate by the chain.
 pub enum ScopeType {
     /// Scoped to an `IdentityId`.
     Identity,
