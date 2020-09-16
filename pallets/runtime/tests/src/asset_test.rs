@@ -12,7 +12,7 @@ use pallet_asset::ethereum;
 use pallet_asset::{
     self as asset, AssetOwnershipRelation, AssetType, ClassicTickerImport,
     ClassicTickerRegistration, ClassicTickers, FundingRoundName, IdentifierType, SecurityToken,
-    SignData, TickerRegistration, TickerRegistrationConfig, Tickers,
+    TickerRegistration, TickerRegistrationConfig, Tickers,
 };
 use pallet_balances as balances;
 use pallet_compliance_manager as compliance_manager;
@@ -24,12 +24,11 @@ use polymesh_common_utilities::{
 };
 use polymesh_primitives::{
     AuthorizationData, Claim, Condition, ConditionType, Document, DocumentName, IdentityId,
-    Signatory, SmartExtension, SmartExtensionName, SmartExtensionType, Ticker,
+    PortfolioId, Signatory, SmartExtension, SmartExtensionName, SmartExtensionType, Ticker,
 };
 use sp_io::hashing::keccak_256;
 
 use chrono::prelude::Utc;
-use codec::Encode;
 use frame_support::{
     assert_err, assert_noop, assert_ok, dispatch::DispatchResult, traits::Currency,
     StorageDoubleMap, StorageMap,
@@ -213,145 +212,6 @@ fn non_issuers_cant_create_tokens() {
 
         let wrong_did = IdentityId::try_from("did:poly:wrong");
         assert!(wrong_did.is_err());
-    });
-}
-
-fn valid_custodian_allowance() {
-    ExtBuilder::default().build().execute_with(|| {
-        let owner_signed = Origin::signed(AccountKeyring::Dave.public());
-        let owner_did = register_keyring_account(AccountKeyring::Dave).unwrap();
-
-        let now = Utc::now();
-        Timestamp::set_timestamp(now.timestamp() as u64);
-
-        // Expected token entry
-        let token = SecurityToken {
-            name: vec![0x01].into(),
-            owner_did,
-            total_supply: 1_000_000,
-            divisible: true,
-            asset_type: AssetType::default(),
-            ..Default::default()
-        };
-        let ticker = Ticker::try_from(token.name.as_slice()).unwrap();
-
-        let investor1_signed = Origin::signed(AccountKeyring::Bob.public());
-        let investor1_did = register_keyring_account(AccountKeyring::Bob).unwrap();
-        let investor2_did = register_keyring_account(AccountKeyring::Charlie).unwrap();
-        let custodian_signed = Origin::signed(AccountKeyring::Eve.public());
-        let custodian_did = register_keyring_account(AccountKeyring::Eve).unwrap();
-
-        // Issuance is successful
-        assert_ok!(Asset::create_asset(
-            owner_signed.clone(),
-            token.name.clone(),
-            ticker,
-            token.total_supply,
-            true,
-            token.asset_type.clone(),
-            vec![],
-            None,
-        ));
-
-        assert_eq!(
-            Asset::balance_of(&ticker, &token.owner_did),
-            token.total_supply
-        );
-
-        // Allow all transfers
-        assert_ok!(ComplianceManager::add_compliance_requirement(
-            owner_signed.clone(),
-            ticker,
-            vec![],
-            vec![]
-        ));
-        let funding_round1: FundingRoundName = b"Round One".into();
-        assert_ok!(Asset::set_funding_round(
-            owner_signed.clone(),
-            ticker,
-            funding_round1.clone()
-        ));
-        // Mint some tokens to investor1
-        let num_tokens1: u128 = 2_000_000;
-
-        assert_ok!(Asset::issue(owner_signed.clone(), ticker, num_tokens1));
-        assert_ok!(Asset::unsafe_transfer(
-            owner_did,
-            &ticker,
-            owner_did,
-            investor1_did,
-            num_tokens1
-        ));
-
-        assert_eq!(Asset::funding_round(&ticker), funding_round1.clone());
-        assert_eq!(
-            Asset::issued_in_funding_round((ticker, funding_round1.clone())),
-            num_tokens1
-        );
-        // Check the expected default behaviour of the map.
-        let no_such_round: FundingRoundName = b"No such round".into();
-        assert_eq!(Asset::issued_in_funding_round((ticker, no_such_round)), 0);
-        assert_eq!(Asset::balance_of(&ticker, &investor1_did), num_tokens1);
-
-        // Failed to add custodian because of insufficient balance
-        assert_noop!(
-            Asset::increase_custody_allowance(
-                investor1_signed.clone(),
-                ticker,
-                custodian_did,
-                250_00_00 as u128
-            ),
-            AssetError::InsufficientBalance
-        );
-
-        // Failed to add/increase the custodian allowance because of Invalid custodian did
-        let custodian_did_not_register = IdentityId::from(5u128);
-        assert_noop!(
-            Asset::increase_custody_allowance(
-                investor1_signed.clone(),
-                ticker,
-                custodian_did_not_register,
-                50_00_00 as u128
-            ),
-            AssetError::InvalidCustodianDid
-        );
-
-        // Add custodian
-        assert_ok!(Asset::increase_custody_allowance(
-            investor1_signed.clone(),
-            ticker,
-            custodian_did,
-            50_00_00 as u128
-        ));
-
-        assert_eq!(
-            Asset::custodian_allowance((ticker, investor1_did, custodian_did)),
-            50_00_00 as u128
-        );
-
-        assert_eq!(
-            Asset::total_custody_allowance((ticker, investor1_did)),
-            50_00_00 as u128
-        );
-
-        // Successfully transfer by the custodian
-        assert_ok!(Asset::transfer_by_custodian(
-            custodian_signed.clone(),
-            ticker,
-            investor1_did,
-            investor2_did,
-            45_00_00 as u128
-        ));
-
-        assert_eq!(
-            Asset::custodian_allowance((ticker, investor1_did, custodian_did)),
-            50_000 as u128
-        );
-
-        assert_eq!(
-            Asset::total_custody_allowance((ticker, investor1_did)),
-            50_000 as u128
-        );
     });
 }
 
@@ -557,7 +417,10 @@ fn checkpoints_fuzz_test() {
                     owner_balance[j] -= 1;
                     bob_balance[j] += 1;
                     assert_ok!(Asset::unsafe_transfer(
-                        owner_did, &ticker, owner_did, bob_did, 1
+                        PortfolioId::default_portfolio(owner_did),
+                        PortfolioId::default_portfolio(bob_did),
+                        &ticker,
+                        1
                     ));
                 }
                 assert_ok!(Asset::create_checkpoint(owner_signed.clone(), ticker));
@@ -1828,8 +1691,6 @@ fn test_can_transfer_rpc() {
             let alice_did = register_keyring_account(AccountKeyring::Alice).unwrap();
             let _bob_signed = Origin::signed(AccountKeyring::Bob.public());
             let bob_did = register_keyring_account(AccountKeyring::Bob).unwrap();
-            let _custodian_signed = Origin::signed(AccountKeyring::Charlie.public());
-            let custodian_did = register_keyring_account(AccountKeyring::Charlie).unwrap();
 
             let token_name = b"COOL";
             let ticker = Ticker::try_from(&token_name[..]).unwrap();
@@ -1853,48 +1714,31 @@ fn test_can_transfer_rpc() {
             // case 1: When passed invalid granularity
             assert_eq!(
                 Asset::unsafe_can_transfer(
-                    AccountKeyring::Alice.public(),
-                    ticker,
-                    Some(alice_did),
-                    Some(bob_did),
-                    100 // It only passed when it should be the multiple of currency::ONE_UNIT
+                    sender_account,
+                    None,
+                    PortfolioId::default_portfolio(from_did),
+                    None,
+                    PortfolioId::default_portfolio(to_did),
+                    &ticker,
+                    amount, // It only passed when it should be the multiple of currency::ONE_UNIT
                 )
-                .unwrap(),
+                .unwrap()
+            };
+
+            // case 1: When passed invalid granularity
+            assert_eq!(
+                unsafe_can_transfer_result(AccountKeyring::Alice.public(), alice_did, bob_did, 100),
                 INVALID_GRANULARITY
             );
 
             // Case 2: when from_did balance is 0
             assert_eq!(
-                Asset::unsafe_can_transfer(
+                unsafe_can_transfer_result(
                     AccountKeyring::Bob.public(),
-                    ticker,
-                    Some(bob_did),
-                    Some(alice_did),
+                    bob_did,
+                    alice_did,
                     100 * currency::ONE_UNIT
-                )
-                .unwrap(),
-                ERC1400_INSUFFICIENT_BALANCE
-            );
-
-            // Case 3: When custody allowance is provided and amount of transfer is more than free balance
-            // 3.1: Add custody provider
-            assert_ok!(Asset::increase_custody_allowance(
-                alice_signed.clone(),
-                ticker,
-                custodian_did,
-                900 * currency::ONE_UNIT
-            ));
-
-            // 3.2: Execute can_transfer
-            assert_eq!(
-                Asset::unsafe_can_transfer(
-                    AccountKeyring::Alice.public(),
-                    ticker,
-                    Some(alice_did),
-                    Some(bob_did),
-                    901 * currency::ONE_UNIT
-                )
-                .unwrap(),
+                ),
                 ERC1400_INSUFFICIENT_BALANCE
             );
 
@@ -1931,14 +1775,12 @@ fn test_can_transfer_rpc() {
             // 6.1: pause the transfer
             assert_ok!(Asset::freeze(alice_signed.clone(), ticker));
             assert_eq!(
-                Asset::unsafe_can_transfer(
+                unsafe_can_transfer_result(
                     AccountKeyring::Alice.public(),
-                    ticker,
-                    Some(alice_did),
-                    Some(bob_did),
+                    alice_did,
+                    bob_did,
                     20 * currency::ONE_UNIT
-                )
-                .unwrap(),
+                ),
                 ERC1400_TRANSFERS_HALTED
             );
             assert_ok!(Asset::unfreeze(alice_signed.clone(), ticker));
@@ -1953,14 +1795,12 @@ fn test_can_transfer_rpc() {
             ));
 
             assert_eq!(
-                Asset::unsafe_can_transfer(
-                    AccountKeyring::Alice.public(),
-                    ticker,
-                    Some(alice_did),
-                    Some(bob_did),
+                unsafe_can_transfer_result(
+                    AccountKeyring::Bob.public(),
+                    alice_did,
+                    bob_did,
                     20 * currency::ONE_UNIT
-                )
-                .unwrap(),
+                ),
                 ERC1400_TRANSFER_SUCCESS
             );
         })
@@ -2131,38 +1971,40 @@ fn test_weights_for_is_valid_transfer() {
                 }
             ));
 
+            let is_valid_transfer_result = || {
+                Asset::_is_valid_transfer(
+                    &ticker,
+                    alice,
+                    PortfolioId::default_portfolio(alice_did),
+                    PortfolioId::default_portfolio(bob_did),
+                    100,
+                )
+                .unwrap()
+                .1
+            };
+
+            let verify_restriction_weight = || {
+                ComplianceManager::verify_restriction(
+                    &ticker,
+                    Some(alice_did),
+                    Some(bob_did),
+                    100,
+                    Some(alice_did),
+                )
+                .unwrap()
+                .1
+            };
+
             // call is_valid_transfer()
-            let result =
-                Asset::_is_valid_transfer(&ticker, alice, Some(alice_did), Some(bob_did), 100)
-                    .unwrap()
-                    .1;
-            let weight_from_verify_transfer = ComplianceManager::verify_restriction(
-                &ticker,
-                Some(alice_did),
-                Some(bob_did),
-                100,
-                Some(alice_did),
-            )
-            .unwrap()
-            .1;
+            let result = is_valid_transfer_result();
+            let weight_from_verify_transfer = verify_restriction_weight();
             assert!(matches!(result, weight_from_verify_transfer)); // Only sender rules are processed.
 
             assert_revoke_claim!(eve_signed.clone(), alice_did, Claim::BuyLockup(ticker_id));
             assert_add_claim!(eve_signed.clone(), alice_did, Claim::Accredited(ticker_id));
 
-            let result =
-                Asset::_is_valid_transfer(&ticker, alice, Some(alice_did), Some(bob_did), 100)
-                    .unwrap()
-                    .1;
-            let weight_from_verify_transfer = ComplianceManager::verify_restriction(
-                &ticker,
-                Some(alice_did),
-                Some(bob_did),
-                100,
-                Some(alice_did),
-            )
-            .unwrap()
-            .1;
+            let result = is_valid_transfer_result();
+            let weight_from_verify_transfer = verify_restriction_weight();
             let computed_weight =
                 Asset::compute_transfer_result(false, 2, weight_from_verify_transfer).1;
             assert!(matches!(result, computed_weight)); // Sender & receiver rules are processed.
@@ -2180,23 +2022,11 @@ fn test_weights_for_is_valid_transfer() {
                     issuers: vec![eve_did]
                 }]
             ));
-            let result =
-                Asset::_is_valid_transfer(&ticker, alice, Some(alice_did), Some(bob_did), 100)
-                    .unwrap();
-            let verify_restriction_result = ComplianceManager::verify_restriction(
-                &ticker,
-                Some(alice_did),
-                Some(bob_did),
-                100,
-                Some(alice_did),
-            )
-            .unwrap();
-            let weight_from_verify_transfer = verify_restriction_result.1;
-            assert_eq!(verify_restriction_result.0, 81);
+            let result = is_valid_transfer_result();
+            let weight_from_verify_transfer = verify_restriction_weight();
             let computed_weight =
                 Asset::compute_transfer_result(false, 2, weight_from_verify_transfer).1;
-            let transfer_weight = result.1;
-            assert!(matches!(transfer_weight, computed_weight)); // Sender & receiver rules are processed.
+            assert!(matches!(result, computed_weight)); // Sender & receiver rules are processed.
 
             // pause transfer rules
             assert_ok!(ComplianceManager::pause_asset_compliance(
@@ -2204,21 +2034,11 @@ fn test_weights_for_is_valid_transfer() {
                 ticker
             ));
 
-            let result =
-                Asset::_is_valid_transfer(&ticker, alice, Some(alice_did), Some(bob_did), 100)
-                    .unwrap();
-            let weight_from_verify_transfer = ComplianceManager::verify_restriction(
-                &ticker,
-                Some(alice_did),
-                Some(bob_did),
-                100,
-                Some(alice_did),
-            )
-            .unwrap()
-            .1;
+            let result = is_valid_transfer_result();
+            let weight_from_verify_transfer = verify_restriction_weight();
             let computed_weight =
                 Asset::compute_transfer_result(false, 2, weight_from_verify_transfer).1;
-            assert!(matches!(transfer_weight, computed_weight));
+            assert!(matches!(result, computed_weight));
         });
 }
 

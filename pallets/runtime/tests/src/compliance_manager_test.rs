@@ -4,7 +4,7 @@ use super::{
 };
 use chrono::prelude::Utc;
 use frame_support::{assert_err, assert_noop, assert_ok, traits::Currency};
-use pallet_asset::{self as asset, AssetName, AssetType, Error as AssetError, SecurityToken};
+use pallet_asset::{self as asset, AssetName, AssetType, SecurityToken};
 use pallet_balances as balances;
 use pallet_compliance_manager::{
     self as compliance_manager, ComplianceRequirement, Error as CMError,
@@ -17,8 +17,8 @@ use polymesh_common_utilities::{
     Context,
 };
 use polymesh_primitives::{
-    AuthorizationData, Claim, Condition, ConditionType, CountryCode, IdentityId, Scope, Signatory,
-    TargetIdentity, Ticker,
+    AuthorizationData, Claim, Condition, ConditionType, CountryCode, IdentityId, PortfolioId,
+    Scope, Signatory, TargetIdentity, Ticker,
 };
 use sp_std::{convert::TryFrom, prelude::*};
 use test_client::AccountKeyring;
@@ -38,8 +38,8 @@ macro_rules! assert_invalid_transfer {
             Asset::_is_valid_transfer(
                 &$ticker,
                 AccountKeyring::Alice.public(),
-                Some($from),
-                Some($to),
+                PortfolioId::default_portfolio($from),
+                PortfolioId::default_portfolio($to),
                 $amount
             )
             .map(|(a, _)| a),
@@ -54,8 +54,8 @@ macro_rules! assert_valid_transfer {
             Asset::_is_valid_transfer(
                 &$ticker,
                 AccountKeyring::Alice.public(),
-                Some($from),
-                Some($to),
+                PortfolioId::default_portfolio($from),
+                PortfolioId::default_portfolio($to),
                 $amount
             )
             .map(|(a, _)| a),

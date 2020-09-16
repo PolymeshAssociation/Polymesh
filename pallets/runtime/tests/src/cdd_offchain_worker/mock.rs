@@ -377,6 +377,23 @@ impl MultiSigSubTrait<AccountId> for Test {
     }
 }
 
+impl PortfolioSubTrait<Balance> for Test {
+    fn accept_portfolio_custody(_: IdentityId, _: u64) -> DispatchResult {
+        unimplemented!()
+    }
+    fn ensure_portfolio_custody(portfolio: PortfolioId, custodian: IdentityId) -> DispatchResult {
+        unimplemented!()
+    }
+
+    fn lock_tokens(portfolio: &PortfolioId, ticker: &Ticker, amount: &Balance) -> DispatchResult {
+        unimplemented!()
+    }
+
+    fn unlock_tokens(portfolio: &PortfolioId, ticker: &Ticker, amount: &Balance) -> DispatchResult {
+        unimplemented!()
+    }
+}
+
 impl CheckCdd<AccountId> for Test {
     fn check_key_cdd(key: &AccountId) -> bool {
         true

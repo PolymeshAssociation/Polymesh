@@ -39,10 +39,13 @@ use polymesh_common_utilities::traits::{
     group::{GroupTrait, InactiveMember},
     identity::{LinkedKeyInfo, Trait as IdentityTrait},
     multisig::MultiSigSubTrait,
+    portfolio::PortfolioSubTrait,
     transaction_payment::{CddAndFeeDetails, ChargeTxFee},
     CommonTrait,
 };
-use polymesh_primitives::{AuthorizationData, Claim, IdentityId, InvestorUid, Moment, Signatory};
+use polymesh_primitives::{
+    AuthorizationData, Claim, IdentityId, InvestorUid, Moment, PortfolioId, Signatory, Ticker,
+};
 use sp_core::H256;
 use sp_io;
 use sp_npos_elections::{
@@ -355,6 +358,7 @@ impl IdentityTrait for Test {
     type Event = MetaEvent;
     type Proposal = Call;
     type MultiSig = Test;
+    type Portfolio = Test;
     type CddServiceProviders = group::Module<Test, group::Instance2>;
     type Balances = Balances;
     type ChargeTxFeeTarget = Test;
@@ -456,6 +460,23 @@ impl MultiSigSubTrait<AccountId> for Test {
     fn is_signer(_key: &AccountId) -> bool {
         // Allow all keys when mocked
         false
+    }
+}
+
+impl PortfolioSubTrait<Balance> for Test {
+    fn accept_portfolio_custody(_: IdentityId, _: u64) -> DispatchResult {
+        unimplemented!()
+    }
+    fn ensure_portfolio_custody(portfolio: PortfolioId, custodian: IdentityId) -> DispatchResult {
+        unimplemented!()
+    }
+
+    fn lock_tokens(portfolio: &PortfolioId, ticker: &Ticker, amount: &Balance) -> DispatchResult {
+        unimplemented!()
+    }
+
+    fn unlock_tokens(portfolio: &PortfolioId, ticker: &Ticker, amount: &Balance) -> DispatchResult {
+        unimplemented!()
     }
 }
 

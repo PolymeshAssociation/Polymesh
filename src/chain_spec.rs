@@ -353,6 +353,7 @@ fn general_testnet_genesis(
         committee_Instance3: Some(GeneralConfig::TechnicalCommitteeConfig {
             vote_threshold: (1, 2),
             members: vec![],
+            //TODO Make optional
             release_coordinator: IdentityId::from(3),
             phantom: Default::default(),
         }),

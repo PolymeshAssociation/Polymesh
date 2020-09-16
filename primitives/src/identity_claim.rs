@@ -30,7 +30,10 @@ pub type Scope = IdentityId;
 /// It is the asset Id.
 pub type ScopeId = Scope;
 
+/// Old country code
 type CountryCodeOld = JurisdictionName;
+/// Scope that was used in the last version
+pub type ScopeOld = IdentityId;
 
 /// All possible claims in polymesh
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]

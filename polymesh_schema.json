@@ -478,13 +478,6 @@
         },
         "EthereumAddress": "[u8; 20]",
         "EcdsaSignature": "[u8; 65]",
-        "SignData": {
-            "custodian_did": "IdentityId",
-            "holder_did": "IdentityId",
-            "ticker": "Ticker",
-            "value": "Balance",
-            "nonce": "u16"
-        },
         "MotionTitle": "Text",
         "MotionInfoLink": "Text",
         "Motion": {
@@ -621,6 +614,7 @@
                 "AddMultiSigSigner": "AccountId",
                 "TransferAssetOwnership": "Ticker",
                 "JoinIdentity": "Vec<Permission>",
+                "PortfolioCustody": "PortfolioId",
                 "Custom": "Ticker",
                 "NoData": ""
             }
@@ -821,6 +815,7 @@
                 "AddMultiSigSigner": "",
                 "TransferAssetOwnership": "",
                 "JoinIdentity": "",
+                "PortfolioCustody": "",
                 "Custom": "",
                 "NoData": ""
             }
@@ -909,8 +904,8 @@
             "valid_from": "Option<Moment>"
         },
         "Leg": {
-            "from": "IdentityId",
-            "to": "IdentityId",
+            "from": "PortfolioId",
+            "to": "PortfolioId",
             "asset": "Ticker",
             "amount": "Balance"
         },
@@ -921,8 +916,8 @@
         },
         "Receipt": {
             "receipt_uid": "u64",
-            "from": "IdentityId",
-            "to": "IdentityId",
+            "from": "PortfolioId",
+            "to": "PortfolioId",
             "asset": "Ticker",
             "amount": "Balance"
         },
@@ -1237,18 +1232,28 @@
                         "isOptional": false
                     },
                     {
+                        "name": "from_custodian",
+                        "type": "Option<IdentityId>",
+                        "isOptional": false
+                    },
+                    {
+                        "name": "from_portfolio",
+                        "type": "PortfolioId",
+                        "isOptional": false
+                    },
+                    {
+                        "name": "to_custodian",
+                        "type": "Option<IdentityId>",
+                        "isOptional": false
+                    },
+                    {
+                        "name": "to_portfolio",
+                        "type": "PortfolioId",
+                        "isOptional": false
+                    },
+                    {
                         "name": "ticker",
                         "type": "Ticker",
-                        "isOptional": false
-                    },
-                    {
-                        "name": "from_did",
-                        "type": "Option<IdentityId>",
-                        "isOptional": false
-                    },
-                    {
-                        "name": "to_did",
-                        "type": "Option<IdentityId>",
                         "isOptional": false
                     },
                     {

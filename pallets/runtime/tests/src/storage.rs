@@ -41,7 +41,8 @@ use polymesh_common_utilities::traits::{
 };
 use polymesh_common_utilities::Context;
 use polymesh_primitives::{
-    Authorization, AuthorizationData, CddId, Claim, IdentityId, InvestorUid, Signatory,
+    Authorization, AuthorizationData, CddId, Claim, IdentityId, InvestorUid, InvestorZKProofData,
+    PortfolioId, PortfolioNumber, Scope, Signatory, Ticker,
 };
 use polymesh_runtime_common::{bridge, cdd_check::CddChecker, dividend, exemption, voting};
 use smallvec::smallvec;
@@ -58,6 +59,7 @@ use sp_runtime::{
     transaction_validity::{InvalidTransaction, TransactionValidity, ValidTransaction},
     AnySignature, KeyTypeId, Perbill,
 };
+use sp_std::{collections::btree_set::BTreeSet, iter};
 use std::cell::RefCell;
 use test_client::AccountKeyring;
 
@@ -383,6 +385,7 @@ impl IdentityTrait for TestStorage {
     type Event = Event;
     type Proposal = Call;
     type MultiSig = multisig::Module<TestStorage>;
+    type Portfolio = portfolio::Module<TestStorage>;
     type CddServiceProviders = group::Module<TestStorage, group::Instance2>;
     type Balances = balances::Module<TestStorage>;
     type ChargeTxFeeTarget = TestStorage;
@@ -707,4 +710,58 @@ pub fn fast_forward_to_block(n: u64) {
 
 pub fn fast_forward_blocks(n: u64) {
     fast_forward_to_block(n + frame_system::Module::<TestStorage>::block_number());
+}
+
+/// Returns a btreeset that contains default portfolio for the identity.
+pub fn default_portfolio_btreeset(did: IdentityId) -> BTreeSet<PortfolioId> {
+    iter::once(PortfolioId::default_portfolio(did)).collect::<BTreeSet<_>>()
+}
+
+/// Returns a btreeset that contains a portfolio for the identity.
+pub fn user_portfolio_btreeset(did: IdentityId, num: PortfolioNumber) -> BTreeSet<PortfolioId> {
+    iter::once(PortfolioId::user_portfolio(did, num)).collect::<BTreeSet<_>>()
+}
+
+pub fn provide_scope_claim(
+    claim_to: IdentityId,
+    scope: Ticker,
+    investor_uid: InvestorUid,
+    cdd_provider: AccountId,
+) {
+    let asset_id = IdentityId::try_from(scope.as_slice()).unwrap();
+
+    let proof: InvestorZKProofData = InvestorZKProofData::new(&claim_to, &investor_uid, &scope);
+    let cdd_claim = InvestorZKProofData::make_cdd_claim(&claim_to, &investor_uid);
+    let cdd_id = compute_cdd_id(&cdd_claim).compress().to_bytes().into();
+    let scope_claim = InvestorZKProofData::make_scope_claim(&scope, &investor_uid);
+    let scope_id = compute_scope_id(&scope_claim).compress().to_bytes().into();
+
+    let signed_claim_to = Origin::signed(Identity::did_records(claim_to).primary_key);
+
+    // Add cdd claim first
+    assert_ok!(Identity::add_claim(
+        Origin::signed(cdd_provider),
+        claim_to,
+        Claim::CustomerDueDiligence(cdd_id),
+        None
+    ));
+
+    // Provide the InvestorZKProof.
+    assert_ok!(Identity::add_claim(
+        signed_claim_to,
+        claim_to,
+        Claim::InvestorZKProof(Scope::Ticker(scope), scope_id, cdd_id, proof),
+        None
+    ));
+}
+
+pub fn provide_scope_claim_to_multiple_parties(
+    parties: &[IdentityId],
+    ticker: Ticker,
+    cdd_provider: AccountId,
+) {
+    parties.iter().enumerate().for_each(|(index, id)| {
+        let uid = InvestorUid::from(format!("uid_{}", index).as_bytes());
+        provide_scope_claim(*id, ticker, uid, cdd_provider);
+    });
 }

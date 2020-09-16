@@ -78,7 +78,6 @@ mod tests {
         let investor_id = IdentityId::from(100);
         let investor_uid = InvestorUid::from(b"inv0".as_ref());
         let asset_ticker = Ticker::try_from(b"1".as_ref()).unwrap();
-        let asset_id = IdentityId::try_from(asset_ticker.as_slice()).unwrap();
 
         let exists_affiliate_claim = Claim::Affiliate(asset_id);
         let proposition =
