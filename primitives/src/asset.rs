@@ -1,13 +1,29 @@
+// This file is part of the Polymesh distribution (https://github.com/PolymathNetwork/Polymesh).
+// Copyright (c) 2020 Polymath
+
+// This program is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, version 3.
+
+// This program is distributed in the hope that it will be useful, but
+// WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+// General Public License for more details.
+
+// You should have received a copy of the GNU General Public License
+// along with this program. If not, see <http://www.gnu.org/licenses/>.
+
 #![cfg_attr(not(feature = "std"), no_std)]
 
+use crate::{IdentityId, Ticker};
 use codec::{Decode, Encode};
-use polymesh_primitives::{IdentityId, Ticker};
 use polymesh_primitives_derive::VecU8StrongTyped;
 #[cfg(feature = "std")]
 use serde::{Deserialize, Serialize};
 use sp_std::prelude::*;
 
 /// The type of an asset represented by a token.
+#[allow(missing_docs)]
 #[derive(Encode, Decode, Clone, Debug, PartialEq, Eq)]
 pub enum AssetType {
     EquityCommon,
@@ -29,7 +45,8 @@ impl Default for AssetType {
 }
 
 /// The type of an identifier associated with a token.
-// these are used off-chain.
+/// these are used off-chain.
+#[allow(missing_docs)]
 #[derive(Encode, Decode, Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub enum IdentifierType {
     Cins,
@@ -45,6 +62,7 @@ impl Default for IdentifierType {
 }
 
 /// Ownership status of a ticker/token.
+#[allow(missing_docs)]
 #[derive(Encode, Decode, Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub enum AssetOwnershipRelation {
     NotOwned,
@@ -81,6 +99,7 @@ impl Default for FundingRoundName {
 }
 
 /// struct to store the token details.
+#[allow(missing_docs)]
 #[derive(Encode, Decode, Default, Clone, PartialEq, Debug)]
 pub struct SecurityToken<U> {
     pub name: AssetName,
@@ -92,6 +111,7 @@ pub struct SecurityToken<U> {
 }
 
 /// struct to store the signed data.
+#[allow(missing_docs)]
 #[derive(Encode, Decode, Default, Clone, PartialEq, Debug)]
 pub struct SignData<U> {
     pub custodian_did: IdentityId,
@@ -102,6 +122,7 @@ pub struct SignData<U> {
 }
 
 /// struct to store the ticker registration details.
+#[allow(missing_docs)]
 #[derive(Encode, Decode, Clone, Default, PartialEq, Debug)]
 pub struct TickerRegistration<U> {
     pub owner: IdentityId,
@@ -109,6 +130,7 @@ pub struct TickerRegistration<U> {
 }
 
 /// struct to store the ticker registration config.
+#[allow(missing_docs)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[derive(Encode, Decode, Clone, Default, PartialEq, Debug)]
 pub struct TickerRegistrationConfig<U> {
@@ -117,6 +139,7 @@ pub struct TickerRegistrationConfig<U> {
 }
 
 /// Enum that represents the current status of a ticker.
+#[allow(missing_docs)]
 #[derive(Encode, Decode, Clone, Eq, PartialEq, Debug)]
 pub enum TickerRegistrationStatus {
     RegisteredByOther,
@@ -125,6 +148,7 @@ pub enum TickerRegistrationStatus {
 }
 
 /// Enum that uses as the return type for the restriction verification.
+#[allow(missing_docs)]
 #[derive(Encode, Decode, Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub enum RestrictionResult {
     Valid,

@@ -3,9 +3,8 @@ use super::{
     ExtBuilder,
 };
 use frame_support::{assert_err, assert_ok};
-use pallet_asset_types::{AssetType, SecurityToken};
 use pallet_portfolio::MovePortfolioItem;
-use polymesh_primitives::{PortfolioName, Ticker};
+use polymesh_primitives::{AssetType, PortfolioName, SecurityToken, Ticker};
 use std::convert::TryFrom;
 use test_client::AccountKeyring;
 

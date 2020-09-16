@@ -16,9 +16,6 @@ use cryptography::{
 use curve25519_dalek::scalar::Scalar;
 use frame_support::IterableStorageMap;
 use pallet_asset::{self as asset};
-use pallet_asset_types::{
-    AssetOwnershipRelation, AssetType, FundingRoundName, IdentifierType, SecurityToken,
-};
 use pallet_confidential_asset as confidential_asset;
 use pallet_statistics as statistics;
 use rand::{rngs::StdRng, SeedableRng};
@@ -26,7 +23,9 @@ use test_client::AccountKeyring;
 
 use frame_support::{assert_err, assert_ok, StorageDoubleMap, StorageMap};
 use pallet_identity as identity;
-use polymesh_primitives::Ticker;
+use polymesh_primitives::{
+    AssetOwnershipRelation, AssetType, FundingRoundName, IdentifierType, SecurityToken, Ticker,
+};
 use sp_core::sr25519::Public;
 use sp_runtime::AnySignature;
 

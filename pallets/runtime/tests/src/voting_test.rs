@@ -3,9 +3,8 @@ use super::{
     ExtBuilder,
 };
 use pallet_asset::{self as asset};
-use pallet_asset_types::{AssetType, SecurityToken};
 use pallet_compliance_manager as compliance_manager;
-use polymesh_primitives::Ticker;
+use polymesh_primitives::{AssetType, SecurityToken, Ticker};
 use polymesh_runtime_common::voting::{self, Ballot, Motion};
 
 use chrono::prelude::Utc;

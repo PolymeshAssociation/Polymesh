@@ -12,10 +12,6 @@ use pallet_asset::{
     self as asset, ethereum, ClassicTickerImport, ClassicTickerRegistration, ClassicTickers,
     Tickers,
 };
-use pallet_asset_types::{
-    AssetOwnershipRelation, AssetType, FundingRoundName, IdentifierType, SecurityToken, SignData,
-    TickerRegistration, TickerRegistrationConfig,
-};
 use pallet_balances as balances;
 use pallet_compliance_manager as compliance_manager;
 use pallet_identity as identity;
@@ -25,8 +21,10 @@ use polymesh_common_utilities::{
     traits::CddAndFeeDetails as _, SystematicIssuers,
 };
 use polymesh_primitives::{
-    AuthorizationData, Claim, Condition, ConditionType, Document, DocumentName, IdentityId,
-    Signatory, SmartExtension, SmartExtensionName, SmartExtensionType, Ticker,
+    AssetOwnershipRelation, AssetType, AuthorizationData, Claim, Condition, ConditionType,
+    Document, DocumentName, FundingRoundName, IdentifierType, IdentityId, SecurityToken, SignData,
+    Signatory, SmartExtension, SmartExtensionName, SmartExtensionType, Ticker, TickerRegistration,
+    TickerRegistrationConfig,
 };
 use sp_io::hashing::keccak_256;
 

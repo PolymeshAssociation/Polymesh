@@ -28,13 +28,14 @@ use cryptography::{
 };
 use frame_support::{decl_error, decl_event, decl_module, decl_storage, dispatch::DispatchResult};
 use frame_system::{self as system, ensure_signed};
-use pallet_asset_types::{AssetIdentifier, AssetName, AssetType, FundingRoundName, IdentifierType};
 use pallet_identity as identity;
 use polymesh_common_utilities::{
     asset::Trait as AssetTrait, balances::Trait as BalancesTrait, identity::Trait as IdentityTrait,
     CommonTrait, Context,
 };
-use polymesh_primitives::{IdentityId, Ticker};
+use polymesh_primitives::{
+    AssetIdentifier, AssetName, AssetType, FundingRoundName, IdentifierType, IdentityId, Ticker,
+};
 use polymesh_primitives_derive::VecU8StrongTyped;
 use sp_std::{
     convert::{From, TryFrom},

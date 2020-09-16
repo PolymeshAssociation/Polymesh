@@ -3,11 +3,10 @@ use super::{
     ExtBuilder,
 };
 use pallet_asset::{self as asset};
-use pallet_asset_types::AssetType;
 use pallet_basic_sto::{self as sto, Fundraiser};
 use pallet_compliance_manager as compliance_manager;
 use pallet_settlement::{self as settlement, VenueDetails, VenueType};
-use polymesh_primitives::Ticker;
+use polymesh_primitives::{AssetType, Ticker};
 
 use frame_support::assert_ok;
 use sp_std::convert::TryFrom;

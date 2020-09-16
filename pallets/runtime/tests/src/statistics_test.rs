@@ -3,10 +3,9 @@ use super::{
     ExtBuilder,
 };
 use pallet_asset::{self as asset};
-use pallet_asset_types::{IdentifierType, SecurityToken};
 use pallet_compliance_manager as compliance_manager;
 use pallet_statistics as statistics;
-use polymesh_primitives::Ticker;
+use polymesh_primitives::{IdentifierType, SecurityToken, Ticker};
 
 use frame_support::assert_ok;
 use sp_std::convert::TryFrom;

@@ -101,11 +101,6 @@ use frame_support::{
 };
 use frame_system::{self as system, ensure_signed};
 use hex_literal::hex;
-use pallet_asset_types::{
-    AssetIdentifier, AssetName, AssetOwnershipRelation, AssetType, FocusedBalances,
-    FundingRoundName, IdentifierType, RestrictionResult, SecurityToken, SignData,
-    TickerRegistration, TickerRegistrationConfig, TickerRegistrationStatus,
-};
 use pallet_contracts::{ExecReturnValue, Gas};
 use pallet_identity as identity;
 use pallet_statistics::{self as statistics, Counter};
@@ -119,8 +114,11 @@ use polymesh_common_utilities::{
     CommonTrait, Context, SystematicIssuers,
 };
 use polymesh_primitives::{
-    AuthorizationData, AuthorizationError, Document, DocumentName, IdentityId, Signatory,
-    SmartExtension, SmartExtensionName, SmartExtensionType, Ticker,
+    AssetIdentifier, AssetName, AssetOwnershipRelation, AssetType, AuthorizationData,
+    AuthorizationError, Document, DocumentName, FocusedBalances, FundingRoundName, IdentifierType,
+    IdentityId, RestrictionResult, SecurityToken, SignData, Signatory, SmartExtension,
+    SmartExtensionName, SmartExtensionType, Ticker, TickerRegistration, TickerRegistrationConfig,
+    TickerRegistrationStatus,
 };
 use sp_runtime::traits::{CheckedAdd, CheckedSub, Saturating, Verify};
 #[cfg(feature = "std")]
@@ -2259,9 +2257,7 @@ impl<T: Trait> Module<T> {
         if !is_confidential {
             <BalanceOf<T>>::insert(ticker, did, total_supply);
             Portfolio::<T>::set_default_portfolio_balance(did, &ticker, total_supply);
-        }
-        <AssetOwnershipRelations>::insert(did, ticker, AssetOwnershipRelation::AssetOwned);
-        if !is_confidential {
+
             Self::deposit_event(RawEvent::AssetCreated(
                 did,
                 ticker,
@@ -2271,6 +2267,7 @@ impl<T: Trait> Module<T> {
                 did,
             ));
         }
+        <AssetOwnershipRelations>::insert(did, ticker, AssetOwnershipRelation::AssetOwned);
 
         for (typ, val) in &identifiers {
             <Identifiers>::insert((ticker, typ.clone()), val.clone());

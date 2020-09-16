@@ -5,7 +5,6 @@ use super::{
 use chrono::prelude::Utc;
 use frame_support::{assert_err, assert_noop, assert_ok, traits::Currency};
 use pallet_asset::{self as asset, Error as AssetError};
-use pallet_asset_types::{AssetName, AssetType, SecurityToken};
 use pallet_balances as balances;
 use pallet_compliance_manager::{
     self as compliance_manager, ComplianceRequirement, Error as CMError,
@@ -18,8 +17,8 @@ use polymesh_common_utilities::{
     Context,
 };
 use polymesh_primitives::{
-    AuthorizationData, Claim, Condition, ConditionType, CountryCode, IdentityId, Scope, Signatory,
-    TargetIdentity, Ticker,
+    AssetName, AssetType, AuthorizationData, Claim, Condition, ConditionType, CountryCode,
+    IdentityId, Scope, SecurityToken, Signatory, TargetIdentity, Ticker,
 };
 use sp_std::{convert::TryFrom, prelude::*};
 use test_client::AccountKeyring;

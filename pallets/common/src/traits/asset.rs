@@ -15,8 +15,9 @@
 
 use codec::{Decode, Encode};
 use frame_support::dispatch::{DispatchResult, DispatchResultWithPostInfo};
-use pallet_asset_types::{AssetIdentifier, AssetName, AssetType, FundingRoundName, IdentifierType};
-use polymesh_primitives::{IdentityId, Ticker};
+use polymesh_primitives::{
+    AssetIdentifier, AssetName, AssetType, FundingRoundName, IdentifierType, IdentityId, Ticker,
+};
 use sp_std::vec::Vec;
 
 pub const GAS_LIMIT: u64 = 1_000_000_000;

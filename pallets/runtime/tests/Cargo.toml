@@ -11,7 +11,6 @@ polymesh-primitives-derive = { path = "../../../primitives_derive", default-feat
 polymesh-runtime-common = { path = "../common", default-features = false }
 
 pallet-asset = { path = "../../asset", default-features = false }
-pallet-asset-types = { path = "../../asset/types", default-features = false }
 pallet-confidential-asset = { path = "../../confidential-asset", default-features = false }
 pallet-confidential = { path = "../../confidential", default-features = false }
 pallet-balances = { path = "../../balances", default-features = false }
