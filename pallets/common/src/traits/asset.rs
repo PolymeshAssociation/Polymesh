@@ -18,8 +18,8 @@ use frame_support::dispatch::{DispatchResult, DispatchResultWithPostInfo};
 use polymesh_primitives::{IdentityId, PortfolioId, ScopeId, Ticker};
 
 pub const GAS_LIMIT: u64 = 1_000_000_000;
-/// This trait is used to call functions that accept transfer of a ticker or token ownership
-pub trait CommunicateAsset {
+/// This trait is used by the `identity` pallet to interact with the `pallet-asset`.
+pub trait AssetSubTrait {
     /// Accept and process a ticker transfer
     ///
     /// # Arguments

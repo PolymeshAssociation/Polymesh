@@ -90,7 +90,7 @@ use polymesh_common_utilities::{
     constants::did::{SECURITY_TOKEN, USER},
     protocol_fee::{ChargeProtocolFee, ProtocolOp},
     traits::{
-        asset::CommunicateAsset,
+        asset::AssetSubTrait,
         group::{GroupTrait, InactiveMember},
         identity::{
             AuthorizationNonce, IdentityTrait, LinkedKeyInfo, RawEvent, SecondaryKeyWithAuth,
@@ -531,7 +531,7 @@ decl_module! {
                     )?;
                     if let Scope::Ticker(ticker) = scope {
                         // Update the balance of the IdentityId under the ScopeId provided in claim data.
-                        T::CommunicateAssetTarget::update_balance_of_scope_id(*scope_id, target, *ticker)?
+                        T::AssetSubTraitTarget::update_balance_of_scope_id(*scope_id, target, *ticker)?
                     }
                 },
                 _ => {
@@ -735,11 +735,11 @@ decl_module! {
                 Signatory::Identity(did) => {
                     match auth.authorization_data {
                         AuthorizationData::TransferTicker(_) =>
-                            T::CommunicateAssetTarget::accept_ticker_transfer(did, auth_id),
+                            T::AssetSubTraitTarget::accept_ticker_transfer(did, auth_id),
                         AuthorizationData::TransferPrimaryIssuanceAgent(_) =>
-                            T::CommunicateAssetTarget::accept_primary_issuance_agent_transfer(did, auth_id),
+                            T::AssetSubTraitTarget::accept_primary_issuance_agent_transfer(did, auth_id),
                         AuthorizationData::TransferAssetOwnership(_) =>
-                            T::CommunicateAssetTarget::accept_asset_ownership_transfer(did, auth_id),
+                            T::AssetSubTraitTarget::accept_asset_ownership_transfer(did, auth_id),
                         AuthorizationData::AddMultiSigSigner(_) =>
                             T::MultiSig::accept_multisig_signer(Signatory::from(did), auth_id),
                         AuthorizationData::JoinIdentity(_) =>

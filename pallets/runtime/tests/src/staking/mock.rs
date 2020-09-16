@@ -34,7 +34,7 @@ use pallet_protocol_fee as protocol_fee;
 use pallet_staking::{self as staking, *};
 
 use polymesh_common_utilities::traits::{
-    asset::AcceptTransfer,
+    asset::AssetSubTrait,
     balances::{AccountData, CheckCdd},
     group::{GroupTrait, InactiveMember},
     identity::{LinkedKeyInfo, Trait as IdentityTrait},
@@ -44,7 +44,8 @@ use polymesh_common_utilities::traits::{
     CommonTrait,
 };
 use polymesh_primitives::{
-    AuthorizationData, Claim, IdentityId, InvestorUid, Moment, PortfolioId, Signatory, Ticker,
+    AuthorizationData, Claim, IdentityId, InvestorUid, Moment, PortfolioId, ScopeId, Signatory,
+    Ticker,
 };
 use sp_core::H256;
 use sp_io;
@@ -267,7 +268,7 @@ impl frame_system::Trait for Test {
 
 impl CommonTrait for Test {
     type Balance = Balance;
-    type AcceptTransferTarget = Test;
+    type AssetSubTraitTarget = Test;
     type BlockRewardsReserve = balances::Module<Test>;
 }
 
@@ -435,7 +436,7 @@ impl GroupTrait<Moment> for Test {
     }
 }
 
-impl AcceptTransfer for Test {
+impl AssetSubTrait for Test {
     fn accept_ticker_transfer(_: IdentityId, _: u64) -> DispatchResult {
         Ok(())
     }
@@ -443,6 +444,9 @@ impl AcceptTransfer for Test {
         Ok(())
     }
     fn accept_asset_ownership_transfer(_: IdentityId, _: u64) -> DispatchResult {
+        Ok(())
+    }
+    fn update_balance_of_scope_id(of: ScopeId, whom: IdentityId, ticker: Ticker) -> DispatchResult {
         Ok(())
     }
 }

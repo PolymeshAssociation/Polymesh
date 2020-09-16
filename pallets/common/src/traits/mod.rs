@@ -48,7 +48,7 @@ pub trait CommonTrait: frame_system::Trait {
         + From<u128>
         + From<Self::BlockNumber>;
 
-    type CommunicateAssetTarget: asset::CommunicateAsset;
+    type AssetSubTraitTarget: asset::AssetSubTrait;
 
     type BlockRewardsReserve: BlockRewardsReserveCurrency<Self::Balance, NegativeImbalance<Self>>;
 }

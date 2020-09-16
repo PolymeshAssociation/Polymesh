@@ -83,7 +83,6 @@ pub mod benchmarking;
 
 pub mod ethereum;
 use codec::{Decode, Encode};
-use core::mem;
 use core::result::Result as StdResult;
 use currency::*;
 use frame_support::{
@@ -99,7 +98,7 @@ use pallet_contracts::{ExecReturnValue, Gas};
 use pallet_identity as identity;
 use pallet_statistics::{self as statistics, Counter};
 use polymesh_common_utilities::{
-    asset::{CommunicateAsset, Trait as AssetTrait, GAS_LIMIT},
+    asset::{AssetSubTrait, Trait as AssetTrait, GAS_LIMIT},
     balances::Trait as BalancesTrait,
     compliance_manager::Trait as ComplianceManagerTrait,
     constants::*,
@@ -109,7 +108,7 @@ use polymesh_common_utilities::{
 };
 use polymesh_primitives::{
     AuthorizationData, AuthorizationError, Document, DocumentName, IdentityId, PortfolioId,
-    Signatory, SmartExtension, SmartExtensionName, SmartExtensionType, Ticker, ScopeId
+    ScopeId, Signatory, SmartExtension, SmartExtensionName, SmartExtensionType, Ticker,
 };
 use polymesh_primitives_derive::VecU8StrongTyped;
 use sp_runtime::traits::{CheckedAdd, Saturating};
@@ -360,6 +359,7 @@ decl_storage! {
         /// Ticker registration details on Polymath Classic / Ethereum.
         pub ClassicTickers get(fn classic_ticker_registration): map hasher(blake2_128_concat) Ticker => Option<ClassicTickerRegistration>;
         /// Balances get stored on the basis of the `ScopeId`.
+        /// Right now it is only helpful for the UI purposes but in future it can be used to do miracles on-chain.
         /// (ScopeId, IdentityId) => Balance.
         pub BalanceOfAtScope get(fn balance_of_at_scope): double_map hasher(identity) ScopeId, hasher(identity) IdentityId => T::Balance;
         /// Store aggregate balance of those identities that has the same `ScopeId`.
@@ -883,7 +883,7 @@ decl_module! {
                 old_primary_issuance_agent = token.primary_issuance_agent;
                 token.primary_issuance_agent = None
             });
-            Self::deposit_event(RawEvent::PrimaryIssuanceAgentTransfered(did, ticker, old_primary_issuance_agent, None));
+            Self::deposit_event(RawEvent::PrimaryIssuanceAgentTransferred(did, ticker, old_primary_issuance_agent, None));
             Ok(())
         }
 
@@ -1042,7 +1042,7 @@ decl_event! {
         CheckpointCreated(IdentityId, Ticker, u64),
         /// An event emitted when the primary issuance agent of an asset is transferred.
         /// First DID is the old primary issuance agent and the second DID is the new primary issuance agent.
-        PrimaryIssuanceAgentTransfered(IdentityId, Ticker, Option<IdentityId>, Option<IdentityId>),
+        PrimaryIssuanceAgentTransferred(IdentityId, Ticker, Option<IdentityId>, Option<IdentityId>),
         /// A new document attached to an asset
         DocumentAdded(Ticker, DocumentName, Document),
         /// A document removed from an asset
@@ -1201,7 +1201,7 @@ impl<T: Trait> AssetTrait<T::Balance, T::AccountId> for Module<T> {
     }
 }
 
-impl<T: Trait> CommunicateAsset for Module<T> {
+impl<T: Trait> AssetSubTrait for Module<T> {
     fn accept_ticker_transfer(to_did: IdentityId, auth_id: u64) -> DispatchResult {
         Self::_accept_ticker_transfer(to_did, auth_id)
     }
@@ -1522,12 +1522,18 @@ impl<T: Trait> Module<T> {
         );
 
         // Update the storage on the basis of the `ScopeId`.
-        let to_scope_id = Self::scope_id_of(ticker, &to_did);
-        let current_to_aggregate_balance = Self::aggregate_balance_of(ticker, &to_scope_id) + value;
 
-        let from_scope_id = Self::scope_id_of(ticker, &from_did);
+        // a). For the receiver.
+        let to_scope_id = Self::scope_id_of(ticker, &to_portfolio.did);
+        // Aggregate balance always <= total_supply but still to be defensive.
+        let current_to_aggregate_balance =
+            Self::aggregate_balance_of(ticker, &to_scope_id).saturating_add(value);
+
+        // b). For the sender.
+        let from_scope_id = Self::scope_id_of(ticker, &from_portfolio.did);
+        // Aggregate balance always <= total_supply but still to be defensive.
         let current_from_aggregate_balance =
-            Self::aggregate_balance_of(ticker, &from_scope_id) - value;
+            Self::aggregate_balance_of(ticker, &from_scope_id).saturating_sub(value);
 
         let update_balance = |scope_id, did, update_balance, agg_balance| {
             <AggregateBalance<T>>::insert(ticker, &scope_id, agg_balance);
@@ -1536,18 +1542,19 @@ impl<T: Trait> Module<T> {
 
         update_balance(
             to_scope_id,
-            to_did,
+            to_portfolio.did,
             updated_to_total_balance,
             current_to_aggregate_balance,
         );
         update_balance(
             from_scope_id,
-            from_did,
+            from_portfolio.did,
             updated_from_total_balance,
             current_from_aggregate_balance,
         );
 
         // Update statistic info.
+        // Using the aggregate balance to update the unique investor count.
         <statistics::Module<T>>::update_transfer_stats(
             ticker,
             Some(current_from_aggregate_balance),
@@ -1652,6 +1659,9 @@ impl<T: Trait> Module<T> {
         <Tokens<T>>::insert(ticker, token);
 
         // Update the investor count of an asset.
+        // Note - Not passing the scope_id based balance because at the time of mint PIA may not
+        // have the scope claim even it exists that doesn't matter as we are not respecting the compliance
+        // restriction for the mint.
         <statistics::Module<T>>::update_transfer_stats(
             &ticker,
             None,
@@ -1756,7 +1766,7 @@ impl<T: Trait> Module<T> {
             token.primary_issuance_agent = Some(to_did);
         });
 
-        Self::deposit_event(RawEvent::PrimaryIssuanceAgentTransfered(
+        Self::deposit_event(RawEvent::PrimaryIssuanceAgentTransferred(
             to_did,
             ticker,
             old_primary_issuance_agent,

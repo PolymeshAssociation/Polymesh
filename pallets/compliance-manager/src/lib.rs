@@ -64,9 +64,6 @@
 //!  the default claim issuer.
 //! - [change_compliance_requirement](Module::change_compliance_requirement) - Updates a compliance requirement, based on its id.
 //! based on its id for a given asset.
-//! - [activate_implicit_requirement_checks](Module::activate_implicit_requirement_checks) - Activate the implicit requirement check.
-//! - [inactivate_implicit_requirement_checks](Module::inactivate_implicit_requirement_checks) - Make implicit requirement check skipped
-//! for a given ticker transaction.
 //!
 //! ### Public Functions
 //!
@@ -288,10 +285,6 @@ decl_error! {
         DuplicateComplianceRequirements,
         /// The worst case scenario of the compliance requirement is too complex
         ComplianceRequirementTooComplex,
-        /// When implicit requirements are already active but still user tries to activate it.
-        ImplicitRequirementsAlreadyActive,
-        /// When implicit requirements are already inactive but still user tries to inactivate it.
-        ImplicitRequirementsAlreadyInactive
     }
 }
 
@@ -745,18 +738,16 @@ impl<T: Trait> Module<T> {
         let asset_compliance = Self::asset_compliance(ticker);
 
         let mut asset_compliance_with_results = AssetComplianceResult::from(asset_compliance);
-        // To know whether the given ticker has the implicit requirements active or not.
-        // if `yes` then it returns the `Some(ImplicitRequirementResult)` for the `from_did_opt` and `to_did_opt`.
-        // if `no` then it returns None.
-        asset_compliance_with_results.implicit_requirements_result =
-            Self::get_implicit_condition_result(ticker, from_did_opt, to_did_opt);
+        // It is to know the result of the scope claim (i.e investor does posses the valid `InvestorZKProof` claim or not).
+        let from_has_scope_claim = Self::has_scope_claim(ticker, from_did_opt);
+        let to_has_scope_claim = Self::has_scope_claim(ticker, to_did_opt);
+        // Assigning the implicit requirement result.
+        asset_compliance_with_results.implicit_requirements_result = ImplicitRequirementResult {
+            from_result: from_has_scope_claim,
+            to_result: to_has_scope_claim,
+        };
 
-        let implicit_result = asset_compliance_with_results
-            .implicit_requirements_result
-            .as_ref()
-            .map_or(true, |imp_result| {
-                imp_result.from_result && imp_result.to_result
-            });
+        let implicit_result = from_has_scope_claim && to_has_scope_claim;
 
         for requirements in &mut asset_compliance_with_results.requirements {
             if let Some(from_did) = from_did_opt {
@@ -819,18 +810,6 @@ impl<T: Trait> Module<T> {
         Err(Error::<T>::ComplianceRequirementTooComplex.into())
     }
 
-    /// Helper function for the RPC to know the result of the scope claim (i.e investor does posses the valid `InvestorZKProof` claim).
-    fn get_implicit_condition_result(
-        ticker: &Ticker,
-        from_did_opt: Option<IdentityId>,
-        to_did_opt: Option<IdentityId>,
-    ) -> ImplicitRequirementResult {
-        return Some(ImplicitRequirementResult {
-            from_result: Self::has_scope_claim(ticker, from_did_opt),
-            to_result: Self::has_scope_claim(ticker, to_did_opt),
-        });
-    }
-
     /// Helper function to know whether the given did has the valid scope claim or not.
     fn has_scope_claim(ticker: &Ticker, did_opt: Option<IdentityId>) -> bool {
         did_opt.map_or(false, |did| {
@@ -876,10 +855,8 @@ impl<T: Trait> ComplianceManagerTrait<T::Balance> for Module<T> {
         // gets checked only once and if it is valid then its result is tied up with the conditions result.
         //
         // Note - Due to this check `ConditionType::HasValidProofOfInvestor` is an implicit transfer condition and it only
-        // lookup for the claims those are provided by the trusted_claim_issuers.
-        if Self::implicit_requirements_status(ticker) == ImplicitRequirementStatus::Active
-            && !Self::is_sender_and_receiver_has_valid_scope_claim(ticker, from_did_opt, to_did_opt)
-        {
+        // lookup for the claims those are provided by the user itself.
+        if !Self::is_sender_and_receiver_has_valid_scope_claim(ticker, from_did_opt, to_did_opt) {
             return Ok((
                 ERC1400_TRANSFER_FAILURE,
                 weight_for::weight_for_reading_asset_compliance::<T>(),
