@@ -27,7 +27,7 @@
                 "Custom": "Vec<u8>"
             }
         },
-        "Identifier": {
+        "AssetIdentifier": {
             "_enum": {
                 "CUSIP": "[u8; 9]",
                 "CINS": "[u8; 9]",
