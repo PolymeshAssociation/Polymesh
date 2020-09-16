@@ -116,11 +116,7 @@ fn lei_checksum(bytes: [u8; 18]) -> u8 {
         .map(|x| x as u128)
         .fold(0, |mut total, b| {
             total += b * 10u128.pow(i as u32);
-            if b > 9 {
-                i += 2;
-            } else {
-                i += 1;
-            }
+            i += if b > 9 { 2 } else { 1 };
             total
         });
     (98 - (total * 100 % 97)) as u8
