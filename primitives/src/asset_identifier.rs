@@ -26,14 +26,6 @@ pub enum AssetIdentifier {
     /// LOU PREFIX ENTITY INDENTIFIER VERIFICATION ID LEI
     /// 5493       00SAMIRN1R27UP     42              549300SAMIRN1R27UP42
     LEI([u8; 20]),
-    /// Used as a placeholder for the `Default` trait impl.
-    EMPTY,
-}
-
-impl Default for AssetIdentifier {
-    fn default() -> Self {
-        AssetIdentifier::EMPTY
-    }
 }
 
 impl AssetIdentifier {
@@ -88,7 +80,6 @@ impl AssetIdentifier {
             AssetIdentifier::CINS(bytes) => Self::cins(bytes),
             AssetIdentifier::ISIN(bytes) => Self::isin(bytes),
             AssetIdentifier::LEI(bytes) => Self::lei(bytes),
-            AssetIdentifier::EMPTY => None,
         }
     }
 }

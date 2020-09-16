@@ -11,8 +11,8 @@ use frame_support::IterableStorageMap;
 use pallet_asset::ethereum;
 use pallet_asset::{
     self as asset, AssetOwnershipRelation, AssetType, ClassicTickerImport,
-    ClassicTickerRegistration, ClassicTickers, FundingRoundName, SecurityToken,
-    SignData, TickerRegistration, TickerRegistrationConfig, Tickers,
+    ClassicTickerRegistration, ClassicTickers, FundingRoundName, SecurityToken, SignData,
+    TickerRegistration, TickerRegistrationConfig, Tickers,
 };
 use pallet_balances as balances;
 use pallet_compliance_manager as compliance_manager;
@@ -23,8 +23,8 @@ use polymesh_common_utilities::{
     traits::CddAndFeeDetails as _, SystematicIssuers,
 };
 use polymesh_primitives::{
-    AssetIdentifier, AuthorizationData, Claim, Condition, ConditionType, Document, DocumentName, IdentityId,
-    Signatory, SmartExtension, SmartExtensionName, SmartExtensionType, Ticker,
+    AssetIdentifier, AuthorizationData, Claim, Condition, ConditionType, Document, DocumentName,
+    IdentityId, Signatory, SmartExtension, SmartExtensionName, SmartExtensionType, Ticker,
 };
 use sp_io::hashing::keccak_256;
 
@@ -116,7 +116,7 @@ fn issuers_can_create_and_rename_tokens() {
         assert!(!<DidRecords>::contains_key(
             Identity::get_token_did(&ticker).unwrap()
         ));
-        let identifiers = vec![AssetIdentifier::default()];
+        let identifiers = Vec::new();
         let ticker = Ticker::try_from(token.name.as_slice()).unwrap();
         assert_err!(
             Asset::create_asset(
@@ -872,7 +872,7 @@ fn adding_removing_documents() {
             Identity::get_token_did(&ticker).unwrap()
         ));
 
-        let identifiers = vec![AssetIdentifier::default()];
+        let identifiers = Vec::new();
         let _ticker_did = Identity::get_token_did(&ticker).unwrap();
 
         // Issuance is successful

@@ -10,7 +10,8 @@ use pallet_confidential as confidential;
 use pallet_identity::{self as identity, Error};
 use polymesh_common_utilities::constants::ERC1400_TRANSFER_SUCCESS;
 use polymesh_primitives::{
-    AssetIdentifier, Claim, Condition, ConditionType, IdentityId, InvestorUid, InvestorZKProofData, Scope, Ticker,
+    AssetIdentifier, Claim, Condition, ConditionType, IdentityId, InvestorUid, InvestorZKProofData,
+    Scope, Ticker,
 };
 
 use core::convert::TryFrom;

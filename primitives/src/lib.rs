@@ -143,8 +143,8 @@ pub mod ignored_case_string;
 pub use ignored_case_string::IgnoredCaseString;
 
 /// Asset identifiers.
-pub mod identifier;
-pub use identifier::AssetIdentifier;
+pub mod asset_identifier;
+pub use asset_identifier::AssetIdentifier;
 
 /// Role for identities.
 pub mod identity_role;
