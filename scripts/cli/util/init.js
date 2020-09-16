@@ -503,25 +503,32 @@ async function createVenue(api, sender) {
   return venueCounter;
 }
 
-async function authorizeInstruction(api, sender, instructionCounter) {
+function getDefaultPortfolio(did) {
+  return { "did": did, "kind": "Default" };
+}
+
+async function authorizeInstruction(api, sender, instructionCounter, did) {
   const transaction = await api.tx.settlement.authorizeInstruction(
-    instructionCounter
+    instructionCounter,
+    [getDefaultPortfolio(did)]
   );
 
   await sendTx(sender, transaction);
 }
 
-async function unauthorizeInstruction(api, sender, instructionCounter) {
+async function unauthorizeInstruction(api, sender, instructionCounter, did) {
   const transaction = await api.tx.settlement.unauthorizeInstruction(
-    instructionCounter
+    instructionCounter,
+    [getDefaultPortfolio(did)]
   );
 
   await sendTx(sender, transaction);
 }
 
-async function rejectInstruction(api, sender, instructionCounter) {
+async function rejectInstruction(api, sender, instructionCounter, did) {
   const transaction = await api.tx.settlement.rejectInstruction(
-    instructionCounter
+    instructionCounter,
+    [getDefaultPortfolio(did)]
   );
 
   await sendTx(sender, transaction);

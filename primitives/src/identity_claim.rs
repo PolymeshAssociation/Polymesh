@@ -67,8 +67,9 @@ impl Migrate for ScopeOld {
     }
 }
 
+/// Old country code
 type CountryCodeOld = JurisdictionName;
-#[allow(missing_docs)]
+/// Scope that was used in the last version
 pub type ScopeOld = IdentityId;
 
 impl From<Option<CddId>> for Empty {

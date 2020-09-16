@@ -97,6 +97,7 @@ use polymesh_common_utilities::{
             TargetIdAuthorization, Trait,
         },
         multisig::MultiSigSubTrait,
+        portfolio::PortfolioSubTrait,
         transaction_payment::{CddAndFeeDetails, ChargeTxFee},
     },
     Context, SystematicIssuers,
@@ -738,6 +739,8 @@ decl_module! {
                             T::MultiSig::accept_multisig_signer(Signatory::from(did), auth_id),
                         AuthorizationData::JoinIdentity(_) =>
                             Self::join_identity(Signatory::from(did), auth_id),
+                        AuthorizationData::PortfolioCustody(..) =>
+                            T::Portfolio::accept_portfolio_custody(did, auth_id),
                         AuthorizationData::RotatePrimaryKey(..)
                         | AuthorizationData::AttestPrimaryKeyRotation(..)
                         | AuthorizationData::Custom(..)
@@ -757,6 +760,7 @@ decl_module! {
                         | AuthorizationData::TransferPrimaryIssuanceAgent(..)
                         | AuthorizationData::TransferAssetOwnership(..)
                         | AuthorizationData::AttestPrimaryKeyRotation(..)
+                        | AuthorizationData::PortfolioCustody(..)
                         | AuthorizationData::Custom(..)
                         | AuthorizationData::NoData =>
                             Err(Error::<T>::UnknownAuthorization.into())
@@ -1916,6 +1920,7 @@ impl<T: Trait> Module<T> {
                     AuthorizationType::TransferAssetOwnership
                 }
                 AuthorizationData::JoinIdentity(..) => AuthorizationType::JoinIdentity,
+                AuthorizationData::PortfolioCustody(..) => AuthorizationType::PortfolioCustody,
                 AuthorizationData::Custom(..) => AuthorizationType::Custom,
                 AuthorizationData::NoData => AuthorizationType::NoData,
             }

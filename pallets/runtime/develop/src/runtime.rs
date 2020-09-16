@@ -674,6 +674,7 @@ impl IdentityTrait for Runtime {
     type Event = Event;
     type Proposal = Call;
     type MultiSig = MultiSig;
+    type Portfolio = Portfolio;
     type CddServiceProviders = CddServiceProviders;
     type Balances = balances::Module<Runtime>;
     type ChargeTxFeeTarget = TransactionPayment;
@@ -1126,12 +1127,14 @@ impl_runtime_apis! {
         #[inline]
         fn can_transfer(
             sender: AccountId,
-            ticker: Ticker,
-            from_did: Option<IdentityId>,
-            to_did: Option<IdentityId>,
+            from_custodian: Option<IdentityId>,
+            from_portfolio: PortfolioId,
+            to_custodian: Option<IdentityId>,
+            to_portfolio: PortfolioId,
+            ticker: &Ticker,
             value: Balance) -> node_rpc_runtime_api::asset::CanTransferResult
         {
-            Asset::unsafe_can_transfer(sender, ticker, from_did, to_did, value)
+            Asset::unsafe_can_transfer(sender, from_custodian, from_portfolio, to_custodian, to_portfolio, ticker, value)
                 .map_err(|msg| msg.as_bytes().to_vec())
         }
     }

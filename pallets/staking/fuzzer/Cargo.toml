@@ -33,3 +33,6 @@ sp-runtime = { git = "https://github.com/paritytech/substrate", branch = "at-add
 [[bin]]
 name = "submit_solution"
 path = "src/submit_solution.rs"
+
+[workspace]
+exclude = ["fuzzer"]
