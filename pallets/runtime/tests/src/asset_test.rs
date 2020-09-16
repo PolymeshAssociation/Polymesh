@@ -1651,33 +1651,33 @@ fn test_can_transfer_rpc() {
             // Provide scope claim for sender and receiver.
             provide_scope_claim_to_multiple_parties(&[alice_did, bob_did], ticker, eve);
 
+            let unsafe_can_transfer_result = |sender_account, from_did, to_did, amount| {
+                Asset::unsafe_can_transfer(
+                    sender_account,
+                    None,
+                    PortfolioId::default_portfolio(from_did),
+                    None,
+                    PortfolioId::default_portfolio(to_did),
+                    &ticker,
+                    amount, // It only passed when it should be the multiple of currency::ONE_UNIT
+                )
+                .unwrap()
+            };
+
             // case 1: When passed invalid granularity
             assert_eq!(
-                Asset::unsafe_can_transfer(
-                    AccountKeyring::Alice.public(),
-                    None,
-                    PortfolioId::default_portfolio(alice_did),
-                    None,
-                    PortfolioId::default_portfolio(bob_did),
-                    &ticker,
-                    100 // It only passed when it should be the multiple of currency::ONE_UNIT
-                )
-                .unwrap(),
+                unsafe_can_transfer_result(AccountKeyring::Alice.public(), alice_did, bob_did, 100),
                 INVALID_GRANULARITY
             );
 
             // Case 2: when from_did balance is 0
             assert_eq!(
-                Asset::unsafe_can_transfer(
+                unsafe_can_transfer_result(
                     AccountKeyring::Bob.public(),
-                    None,
-                    PortfolioId::default_portfolio(bob_did),
-                    None,
-                    PortfolioId::default_portfolio(alice_did),
-                    &ticker,
+                    bob_did,
+                    alice_did,
                     100 * currency::ONE_UNIT
-                )
-                .unwrap(),
+                ),
                 ERC1400_INSUFFICIENT_BALANCE
             );
 
@@ -1714,16 +1714,12 @@ fn test_can_transfer_rpc() {
             // 6.1: pause the transfer
             assert_ok!(Asset::freeze(alice_signed.clone(), ticker));
             assert_eq!(
-                Asset::unsafe_can_transfer(
+                unsafe_can_transfer_result(
                     AccountKeyring::Alice.public(),
-                    None,
-                    PortfolioId::default_portfolio(alice_did),
-                    None,
-                    PortfolioId::default_portfolio(bob_did),
-                    &ticker,
+                    alice_did,
+                    bob_did,
                     20 * currency::ONE_UNIT
-                )
-                .unwrap(),
+                ),
                 ERC1400_TRANSFERS_HALTED
             );
             assert_ok!(Asset::unfreeze(alice_signed.clone(), ticker));
@@ -1738,16 +1734,12 @@ fn test_can_transfer_rpc() {
             ));
 
             assert_eq!(
-                Asset::unsafe_can_transfer(
-                    AccountKeyring::Alice.public(),
-                    None,
-                    PortfolioId::default_portfolio(alice_did),
-                    None,
-                    PortfolioId::default_portfolio(bob_did),
-                    &ticker,
+                unsafe_can_transfer_result(
+                    AccountKeyring::Bob.public(),
+                    alice_did,
+                    bob_did,
                     20 * currency::ONE_UNIT
-                )
-                .unwrap(),
+                ),
                 ERC1400_TRANSFER_SUCCESS
             );
         })
@@ -1939,25 +1931,33 @@ fn test_weights_for_is_valid_transfer() {
                 }
             ));
 
+            let is_valid_transfer_result = || {
+                Asset::_is_valid_transfer(
+                    &ticker,
+                    alice,
+                    PortfolioId::default_portfolio(alice_did),
+                    PortfolioId::default_portfolio(bob_did),
+                    100,
+                )
+                .unwrap()
+                .1
+            };
+
+            let verify_restriction_weight = || {
+                ComplianceManager::verify_restriction(
+                    &ticker,
+                    Some(alice_did),
+                    Some(bob_did),
+                    100,
+                    Some(alice_did),
+                )
+                .unwrap()
+                .1
+            };
+
             // call is_valid_transfer()
-            let result = Asset::_is_valid_transfer(
-                &ticker,
-                alice,
-                PortfolioId::default_portfolio(alice_did),
-                PortfolioId::default_portfolio(bob_did),
-                100,
-            )
-            .unwrap()
-            .1;
-            let weight_from_verify_transfer = ComplianceManager::verify_restriction(
-                &ticker,
-                Some(alice_did),
-                Some(bob_did),
-                100,
-                Some(alice_did),
-            )
-            .unwrap()
-            .1;
+            let result = is_valid_transfer_result();
+            let weight_from_verify_transfer = verify_restriction_weight();
             assert!(matches!(result, weight_from_verify_transfer)); // Only sender rules are processed.
 
             assert_revoke_claim!(
@@ -1971,24 +1971,8 @@ fn test_weights_for_is_valid_transfer() {
                 Claim::Accredited(ticker_id.into())
             );
 
-            let result = Asset::_is_valid_transfer(
-                &ticker,
-                alice,
-                PortfolioId::default_portfolio(alice_did),
-                PortfolioId::default_portfolio(bob_did),
-                100,
-            )
-            .unwrap()
-            .1;
-            let weight_from_verify_transfer = ComplianceManager::verify_restriction(
-                &ticker,
-                Some(alice_did),
-                Some(bob_did),
-                100,
-                Some(alice_did),
-            )
-            .unwrap()
-            .1;
+            let result = is_valid_transfer_result();
+            let weight_from_verify_transfer = verify_restriction_weight();
             let computed_weight =
                 Asset::compute_transfer_result(false, 2, weight_from_verify_transfer).1;
             assert!(matches!(result, computed_weight)); // Sender & receiver rules are processed.
@@ -2006,28 +1990,11 @@ fn test_weights_for_is_valid_transfer() {
                     issuers: vec![eve_did]
                 }]
             ));
-            let result = Asset::_is_valid_transfer(
-                &ticker,
-                alice,
-                PortfolioId::default_portfolio(alice_did),
-                PortfolioId::default_portfolio(bob_did),
-                100,
-            )
-            .unwrap();
-            let verify_restriction_result = ComplianceManager::verify_restriction(
-                &ticker,
-                Some(alice_did),
-                Some(bob_did),
-                100,
-                Some(alice_did),
-            )
-            .unwrap();
-            let weight_from_verify_transfer = verify_restriction_result.1;
-            assert_eq!(verify_restriction_result.0, 81);
+            let result = is_valid_transfer_result();
+            let weight_from_verify_transfer = verify_restriction_weight();
             let computed_weight =
                 Asset::compute_transfer_result(false, 2, weight_from_verify_transfer).1;
-            let transfer_weight = result.1;
-            assert!(matches!(transfer_weight, computed_weight)); // Sender & receiver rules are processed.
+            assert!(matches!(result, computed_weight)); // Sender & receiver rules are processed.
 
             // pause transfer rules
             assert_ok!(ComplianceManager::pause_asset_compliance(
@@ -2035,26 +2002,11 @@ fn test_weights_for_is_valid_transfer() {
                 ticker
             ));
 
-            let result = Asset::_is_valid_transfer(
-                &ticker,
-                alice,
-                PortfolioId::default_portfolio(alice_did),
-                PortfolioId::default_portfolio(bob_did),
-                100,
-            )
-            .unwrap();
-            let weight_from_verify_transfer = ComplianceManager::verify_restriction(
-                &ticker,
-                Some(alice_did),
-                Some(bob_did),
-                100,
-                Some(alice_did),
-            )
-            .unwrap()
-            .1;
+            let result = is_valid_transfer_result();
+            let weight_from_verify_transfer = verify_restriction_weight();
             let computed_weight =
                 Asset::compute_transfer_result(false, 2, weight_from_verify_transfer).1;
-            assert!(matches!(transfer_weight, computed_weight));
+            assert!(matches!(result, computed_weight));
         });
 }
 
