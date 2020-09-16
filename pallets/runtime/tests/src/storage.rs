@@ -50,6 +50,7 @@ use smallvec::smallvec;
 use sp_core::{
     crypto::{key_types, Pair as PairTrait},
     sr25519::{Pair, Public},
+    u32_trait::{_1, _2},
     H256,
 };
 use sp_runtime::{
@@ -77,7 +78,12 @@ impl From<UintAuthorityId> for MockSessionKeys {
 }
 
 impl_outer_origin! {
-    pub enum Origin for TestStorage {}
+    pub enum Origin for TestStorage {
+        committee Instance1 <T>,
+        committee DefaultInstance <T>,
+        committee Instance3 <T>,
+        committee Instance4 <T>
+    }
 }
 
 impl_outer_dispatch! {
@@ -354,20 +360,17 @@ impl group::Trait<group::Instance2> for TestStorage {
 
 pub type CommitteeOrigin<T, I> = committee::RawOrigin<<T as frame_system::Trait>::AccountId, I>;
 
-impl<I> From<CommitteeOrigin<TestStorage, I>> for Origin {
-    fn from(_co: CommitteeOrigin<TestStorage, I>) -> Origin {
-        Origin::from(frame_system::RawOrigin::Root)
-    }
-}
-
 parameter_types! {
     pub const MotionDuration: BlockNumber = 0u64;
 }
 
+/// Voting majority origin for `Instance`.
+type VMO<Instance> = committee::EnsureProportionAtLeast<_1, _2, AccountId, Instance>;
+
 impl committee::Trait<committee::Instance1> for TestStorage {
     type Origin = Origin;
     type Proposal = Call;
-    type CommitteeOrigin = frame_system::EnsureRoot<AccountId>;
+    type CommitteeOrigin = VMO<committee::Instance1>;
     type Event = Event;
     type MotionDuration = MotionDuration;
 }
@@ -564,10 +567,10 @@ impl dividend::Trait for TestStorage {
 impl pips::Trait for TestStorage {
     type Currency = balances::Module<Self>;
     type CommitteeOrigin = frame_system::EnsureRoot<AccountId>;
-    type VotingMajorityOrigin = frame_system::EnsureRoot<AccountId>;
+    type VotingMajorityOrigin = VMO<committee::Instance1>;
     type GovernanceCommittee = Committee;
-    type TechnicalCommitteeVMO = frame_system::EnsureRoot<AccountId>;
-    type UpgradeCommitteeVMO = frame_system::EnsureRoot<AccountId>;
+    type TechnicalCommitteeVMO = VMO<committee::Instance3>;
+    type UpgradeCommitteeVMO = VMO<committee::Instance4>;
     type Treasury = treasury::Module<Self>;
     type Event = Event;
 }
