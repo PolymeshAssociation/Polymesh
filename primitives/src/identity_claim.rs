@@ -40,29 +40,6 @@ pub enum Scope {
     Custom(Vec<u8>),
 }
 
-#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, PartialOrd, Ord)]
-/// Scope type.
-pub enum ScopeType {
-    /// Scoped to an `IdentityId`.
-    Identity,
-    /// Scoped to a `Ticker`.
-    Ticker,
-    /// Scoped to arbitrary bytes
-    Custom,
-}
-
-impl Scope {
-    /// Matches scope type.
-    pub fn scope_type(&self) -> ScopeType {
-        match self {
-            Scope::Identity(..) => ScopeType::Identity,
-            Scope::Ticker(..) => ScopeType::Ticker,
-            Scope::Custom(..) => ScopeType::Custom,
-        }
-    }
-}
-
 impl From<IdentityId> for Scope {
     fn from(did: IdentityId) -> Self {
         Self::Identity(did)
@@ -90,8 +67,9 @@ impl Migrate for ScopeOld {
     }
 }
 
+/// Old country code
 type CountryCodeOld = JurisdictionName;
-#[allow(missing_docs)]
+/// Scope that was used in the last version
 pub type ScopeOld = IdentityId;
 
 impl From<Option<CddId>> for Empty {

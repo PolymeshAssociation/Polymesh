@@ -122,6 +122,13 @@ where
     NotProposition::new(proposition)
 }
 
+/// It is used to check whether the given context object posses the claim vector
+/// which has length > 0.
+#[inline]
+pub fn has_scope_claim_exists(context: &Context) -> bool {
+    context.claims.len() > 0
+}
+
 /// Helper function to run propositions from a context.
 pub fn run(condition: &Condition, context: &Context) -> bool {
     match condition.condition_type {
@@ -129,10 +136,7 @@ pub fn run(condition: &Condition, context: &Context) -> bool {
         ConditionType::IsAbsent(ref claim) => not(exists(claim)).evaluate(context),
         ConditionType::IsAnyOf(ref claims) => any(claims).evaluate(context),
         ConditionType::IsNoneOf(ref claims) => not(any(claims)).evaluate(context),
-        ConditionType::HasValidProofOfInvestor(..) => context
-            .claims
-            .iter()
-            .any(|claim| exists(claim).evaluate(context)),
+        ConditionType::HasValidProofOfInvestor(..) => has_scope_claim_exists(context),
         ConditionType::IsIdentity(ref id) => {
             equals(id, &context.primary_issuance_agent.unwrap_or_default()).evaluate(context)
         }

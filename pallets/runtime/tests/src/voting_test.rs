@@ -4,7 +4,7 @@ use super::{
 };
 use pallet_asset::{self as asset, AssetType, SecurityToken};
 use pallet_compliance_manager as compliance_manager;
-use polymesh_primitives::Ticker;
+use polymesh_primitives::{PortfolioId, Ticker};
 use polymesh_runtime_common::voting::{self, Ballot, Motion};
 
 use chrono::prelude::Utc;
@@ -309,10 +309,9 @@ fn vote() {
         ));
 
         assert_ok!(Asset::unsafe_transfer(
-            token_owner_did,
+            PortfolioId::default_portfolio(token_owner_did),
+            PortfolioId::default_portfolio(tokenholder_did),
             &ticker,
-            token_owner_did,
-            tokenholder_did,
             500
         ));
 

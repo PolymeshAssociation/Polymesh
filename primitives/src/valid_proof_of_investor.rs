@@ -16,7 +16,7 @@ impl ValidProofOfInvestor {
     /// Evaluates if the claim is a valid proof.
     pub fn evaluate_claim(claim: &Claim, id: &IdentityId) -> bool {
         match claim {
-            Claim::InvestorZKProof(ref scope, ref scope_id, ref cdd_id, ref proof) => {
+            Claim::InvestorZKProof(ref scope, scope_id, cdd_id, proof) => {
                 if let Scope::Ticker(ticker) = scope {
                     let message = InvestorZKProofData::make_message(id, ticker);
                     return Self::verify_proof(cdd_id, id, scope_id, ticker, proof, &message);
@@ -65,7 +65,6 @@ mod tests {
         let investor_id = IdentityId::from(100);
         let investor_uid = InvestorUid::from(b"inv0".as_ref());
         let asset_ticker = Ticker::try_from(b"1".as_ref()).unwrap();
-        let asset_id = IdentityId::try_from(asset_ticker.as_slice()).unwrap();
 
         let exists_affiliate_claim = Claim::Affiliate(Scope::Ticker(asset_ticker));
         let proposition = exists(&exists_affiliate_claim);

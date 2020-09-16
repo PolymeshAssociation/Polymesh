@@ -60,8 +60,8 @@ async function main() {
     100
   );
 
-  await authorizeInstruction(api, alice, intructionCounterAB);
-  await authorizeInstruction(api, bob, intructionCounterAB);
+  await authorizeInstruction(api, alice, intructionCounterAB, alice_did);
+  await authorizeInstruction(api, bob, intructionCounterAB, bob_did);
 
   //await rejectInstruction(api, bob, intructionCounter);
   //await unathorizeInstruction(api, alice, instructionCounter);
@@ -110,6 +110,10 @@ async function createVenue(api, sender) {
   return venueCounter;
 }
 
+function getDefaultPortfolio(did) {
+  return { "did": did, "kind": "Default" };
+}
+
 async function addInstruction(
   api,
   venueCounter,
@@ -123,8 +127,8 @@ async function addInstruction(
   let instructionCounter = await api.query.settlement.instructionCounter();
 
   let leg = {
-    from: sender_did,
-    to: receiver_did,
+    from: getDefaultPortfolio(sender_did),
+    to: getDefaultPortfolio(receiver_did),
     asset: ticker,
     amount: amount,
   };
@@ -142,30 +146,33 @@ async function addInstruction(
   return instructionCounter;
 }
 
-async function authorizeInstruction(api, sender, instructionCounter) {
+async function authorizeInstruction(api, sender, instructionCounter, did) {
 
   const transaction = await api.tx.settlement.authorizeInstruction(
-    instructionCounter
+    instructionCounter,
+    [getDefaultPortfolio(did)]
   );
 
   let tx = await reqImports.sendTx(sender, transaction);
   if(tx !== -1) reqImports.fail_count--;
 }
 
-async function unauthorizeInstruction(api, sender, instructionCounter) {
+async function unauthorizeInstruction(api, sender, instructionCounter, did) {
 
   const transaction = await api.tx.settlement.unauthorizeInstruction(
-    instructionCounter
+    instructionCounter,
+    [getDefaultPortfolio(did)]
   );
 
   let tx = await reqImports.sendTx(sender, transaction);
   if(tx !== -1) reqImports.fail_count--;
 }
 
-async function rejectInstruction(api, sender, instructionCounter) {
+async function rejectInstruction(api, sender, instructionCounter, did) {
 
   const transaction = await api.tx.settlement.rejectInstruction(
-    instructionCounter
+    instructionCounter,
+    [getDefaultPortfolio(did)]
   );
 
   let tx = await reqImports.sendTx(sender, transaction);
