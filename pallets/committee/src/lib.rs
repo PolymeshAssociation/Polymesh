@@ -98,7 +98,7 @@ pub trait Trait<I>: frame_system::Trait + IdentityModuleTrait {
 }
 
 /// Origin for the committee module.
-#[derive(PartialEq, Eq, Clone, Debug)]
+#[derive(PartialEq, Eq, Clone, Debug, Encode, Decode)]
 pub enum RawOrigin<AccountId, I> {
     /// It has been condoned by M of N members of this committee.
     Members(MemberCount, MemberCount),
