@@ -95,7 +95,7 @@ use frame_support::{
 };
 use frame_system::ensure_signed;
 use hex_literal::hex;
-use pallet_contracts::{ExecReturnValue, Gas};
+use pallet_contracts::{ExecResult, Gas};
 use pallet_identity as identity;
 use pallet_statistics::{self as statistics, Counter};
 use polymesh_common_utilities::{
@@ -109,7 +109,7 @@ use polymesh_common_utilities::{
 };
 use polymesh_primitives::{
     AssetIdentifier, AuthorizationData, AuthorizationError, Document, DocumentName, IdentityId,
-    Signatory, SmartExtension, SmartExtensionName, SmartExtensionType, Ticker,
+    PortfolioId, Signatory, SmartExtension, SmartExtensionName, SmartExtensionType, Ticker,
 };
 use polymesh_primitives_derive::VecU8StrongTyped;
 use sp_runtime::traits::{CheckedAdd, Saturating};

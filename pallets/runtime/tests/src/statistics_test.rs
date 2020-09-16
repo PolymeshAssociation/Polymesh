@@ -6,7 +6,7 @@ use frame_support::assert_ok;
 use pallet_asset::{self as asset, SecurityToken};
 use pallet_compliance_manager as compliance_manager;
 use pallet_statistics as statistics;
-use polymesh_primitives::{AssetIdentifier, Ticker};
+use polymesh_primitives::{AssetIdentifier, PortfolioId, Ticker};
 use sp_std::convert::TryFrom;
 use test_client::AccountKeyring;
 

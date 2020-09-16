@@ -11,8 +11,8 @@ use frame_support::IterableStorageMap;
 use pallet_asset::ethereum;
 use pallet_asset::{
     self as asset, AssetOwnershipRelation, AssetType, ClassicTickerImport,
-    ClassicTickerRegistration, ClassicTickers, FundingRoundName, SecurityToken, SignData,
-    TickerRegistration, TickerRegistrationConfig, Tickers,
+    ClassicTickerRegistration, ClassicTickers, FundingRoundName, SecurityToken, TickerRegistration,
+    TickerRegistrationConfig, Tickers,
 };
 use pallet_balances as balances;
 use pallet_compliance_manager as compliance_manager;
@@ -24,7 +24,8 @@ use polymesh_common_utilities::{
 };
 use polymesh_primitives::{
     AssetIdentifier, AuthorizationData, Claim, Condition, ConditionType, Document, DocumentName,
-    IdentityId, Signatory, SmartExtension, SmartExtensionName, SmartExtensionType, Ticker,
+    IdentityId, PortfolioId, Signatory, SmartExtension, SmartExtensionName, SmartExtensionType,
+    Ticker,
 };
 use sp_io::hashing::keccak_256;
 
