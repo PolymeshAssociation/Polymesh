@@ -1534,17 +1534,7 @@ impl<T: Trait> Module<T> {
 
         // b). For the sender.
         let from_scope_id = Self::scope_id_of(ticker, &from_portfolio.did);
-
-        // Calculate the new aggregate balance for sender.
-        // // Note- else statement will only be true for the `PIA` because at the time of asset creation
-        // // total_supply get assigned to
-        // let from_aggregate_balance = Self::aggregate_balance_of(ticker, &from_scope_id);
-        // let current_from_aggregate_balance = if from_aggregate_balance != 0 {
-        //     from_aggregate_balance - value
-        // } else {
-        //     updated_from_total_balance
-        // };
-
+        // Calculate the new aggregate balance for sender. It should not underflow but still to be defensive.
         let current_from_aggregate_balance =
             Self::aggregate_balance_of(ticker, &from_scope_id).saturating_sub(value);
 
