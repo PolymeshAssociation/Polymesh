@@ -174,7 +174,6 @@ runtime-benchmarks = [
     "pallet-asset/runtime-benchmarks",
     "pallet-identity/runtime-benchmarks",
     "polymesh-runtime-common/runtime-benchmarks",
-    "pallet-portfolio/runtime-benchmarks",
     "sp-runtime/runtime-benchmarks",
     "frame-system-benchmarking",
     "hex-literal",

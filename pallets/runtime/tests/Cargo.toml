@@ -82,7 +82,7 @@ libsecp256k1 = { version = "0.3.5", default-features = false }
 [features]
 equalize = []
 only-staking = []
-default = ["std", "equalize", "runtime-benchmarks"]
+default = ["std", "equalize"]
 std = [
     "cryptography/std",
     "frame-benchmarking/std",

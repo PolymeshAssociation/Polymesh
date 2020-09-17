@@ -1202,9 +1202,9 @@ impl_runtime_apis! {
             let mut batches = Vec::<BenchmarkBatch>::new();
             let params = (&pallet, &benchmark, &lowest_range_values, &highest_range_values, &steps, repeat);
 
-            add_benchmark!(params, batches, b"asset", Asset);
-            add_benchmark!(params, batches, b"identity", Identity);
-            add_benchmark!(params, batches, b"im-online", ImOnline);
+            //add_benchmark!(params, batches, b"asset", Asset);
+            //add_benchmark!(params, batches, b"identity", Identity);
+            //add_benchmark!(params, batches, b"im-online", ImOnline);
             add_benchmark!(params, batches, b"staking", Staking);
 
             if batches.is_empty() { return Err("Benchmark not found for this pallet.".into()) }

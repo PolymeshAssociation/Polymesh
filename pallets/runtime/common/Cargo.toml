@@ -41,7 +41,7 @@ frame-benchmarking = { git = "https://github.com/paritytech/substrate", tag = "v
 [features]
 equalize = []
 only-staking = []
-default = ["std", "equalize", "runtime-benchmarks"]
+default = ["std", "equalize"]
 no_std = []
 std = [
     "frame-benchmarking/std",

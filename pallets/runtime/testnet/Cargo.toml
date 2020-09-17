@@ -98,8 +98,7 @@ test-client = { package = "substrate-test-runtime-client", git = "https://github
 wasm-builder-runner = { package = "substrate-wasm-builder-runner", git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0-rc6"}
 
 [features]
-equalize = []
-default = ["std", "equalize"]
+default = ["std"]
 no_std = [
     "pallet-confidential/no_std",
     "pallet-confidential/u64_backend",

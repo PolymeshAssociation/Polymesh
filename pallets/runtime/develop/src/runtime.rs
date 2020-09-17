@@ -1270,9 +1270,9 @@ impl_runtime_apis! {
             let params = (&config, &whitelist);
 
             add_benchmark!(params, batches, frame_system, SystemBench::<Runtime>);
-            add_benchmark!(params, batches, pallet_balances, Balances);
-            add_benchmark!(params, batches, pallet_timestamp, Timestamp);
-            add_benchmark!(params, batches, pallet_asset, Asset);
+            //add_benchmark!(params, batches, pallet_balances, Balances);
+            //add_benchmark!(params, batches, pallet_timestamp, Timestamp);
+            //add_benchmark!(params, batches, pallet_asset, Asset);
             // add_benchmark!(params, batches, b"identity", Identity);
             // add_benchmark!(params, batches, b"im-online", ImOnline);
             // add_benchmark!(params, batches, b"staking", Staking);
