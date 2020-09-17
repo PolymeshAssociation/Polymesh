@@ -1216,9 +1216,12 @@ impl<T: Trait> AssetSubTrait for Module<T> {
 
     fn update_balance_of_scope_id(of: ScopeId, whom: IdentityId, ticker: Ticker) -> DispatchResult {
         let current_balance = Self::balance_of(ticker, whom);
-        <BalanceOfAtScope<T>>::insert(of, whom, current_balance);
-        // bal + current_balance is always less then the total_supply of given ticker.
-        <AggregateBalance<T>>::mutate(ticker, of, |bal| *bal + current_balance);
+        if current_balance > Zero::zero() {
+            // Update the balance on the identityId under the given scopeId.
+            <BalanceOfAtScope<T>>::insert(of, whom, current_balance);
+            // current aggregate balance + current identity balance is always less then the total_supply of given ticker.
+            <AggregateBalance<T>>::mutate(ticker, of, |bal| *bal = *bal + current_balance);
+        }
         // Caches the `ScopeId` for a given IdentityId and ticker.
         // this is needed to avoid the on-chain iteration of the claims to find the ScopeId.
         <ScopeIdOf>::insert(ticker, whom, of);
@@ -1531,7 +1534,17 @@ impl<T: Trait> Module<T> {
 
         // b). For the sender.
         let from_scope_id = Self::scope_id_of(ticker, &from_portfolio.did);
-        // Aggregate balance always <= total_supply but still to be defensive.
+
+        // Calculate the new aggregate balance for sender.
+        // // Note- else statement will only be true for the `PIA` because at the time of asset creation
+        // // total_supply get assigned to
+        // let from_aggregate_balance = Self::aggregate_balance_of(ticker, &from_scope_id);
+        // let current_from_aggregate_balance = if from_aggregate_balance != 0 {
+        //     from_aggregate_balance - value
+        // } else {
+        //     updated_from_total_balance
+        // };
+
         let current_from_aggregate_balance =
             Self::aggregate_balance_of(ticker, &from_scope_id).saturating_sub(value);
 

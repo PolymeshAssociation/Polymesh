@@ -1508,134 +1508,74 @@ fn should_limit_compliance_requirements_complexity_we() {
     assert_eq!(asset_compliance.requirements.len(), 1);
 }
 
-// #[test]
-// fn check_implicit_requirement_switch() {
-//     ExtBuilder::default().build().execute_with(|| {
-//         // 0. Create accounts
-//         let token_owner_acc = AccountKeyring::Alice.public();
-//         let token_owner_signed = Origin::signed(AccountKeyring::Alice.public());
-//         let token_owner_did = register_keyring_account(AccountKeyring::Alice).unwrap();
-//         let receiver_signed = Origin::signed(AccountKeyring::Charlie.public());
-//         let receiver_did = register_keyring_account(AccountKeyring::Charlie).unwrap();
+#[test]
+fn check_new_return_type_of_rpc() {
+    ExtBuilder::default().build().execute_with(|| {
+        // 0. Create accounts
+        let token_owner_acc = AccountKeyring::Alice.public();
+        let token_owner_signed = Origin::signed(AccountKeyring::Alice.public());
+        let token_owner_did = register_keyring_account(AccountKeyring::Alice).unwrap();
+        let receiver_signed = Origin::signed(AccountKeyring::Charlie.public());
+        let receiver_did = register_keyring_account(AccountKeyring::Charlie).unwrap();
 
-//         // 1. A token representing 1M shares
-//         let token = SecurityToken {
-//             name: vec![0x01].into(),
-//             owner_did: token_owner_did.clone(),
-//             total_supply: 1_000_000,
-//             divisible: true,
-//             asset_type: AssetType::default(),
-//             ..Default::default()
-//         };
-//         let ticker = Ticker::try_from(token.name.0.as_slice()).unwrap();
-//         Balances::make_free_balance_be(&token_owner_acc, 1_000_000);
+        // 1. A token representing 1M shares
+        let token = SecurityToken {
+            name: vec![0x01].into(),
+            owner_did: token_owner_did.clone(),
+            total_supply: 1_000_000,
+            divisible: true,
+            asset_type: AssetType::default(),
+            ..Default::default()
+        };
+        let ticker = Ticker::try_from(token.name.0.as_slice()).unwrap();
+        Balances::make_free_balance_be(&token_owner_acc, 1_000_000);
 
-//         // 2. Share issuance is successful
-//         assert_ok!(Asset::create_asset(
-//             token_owner_signed.clone(),
-//             token.name.clone(),
-//             ticker,
-//             token.total_supply,
-//             true,
-//             token.asset_type.clone(),
-//             vec![],
-//             None,
-//         ));
+        // 2. Share issuance is successful
+        assert_ok!(Asset::create_asset(
+            token_owner_signed.clone(),
+            token.name.clone(),
+            ticker,
+            token.total_supply,
+            true,
+            token.asset_type.clone(),
+            vec![],
+            None,
+        ));
 
-//         // By default all asset have implicit requirements
-//         // Add empty rules
-//         assert_ok!(ComplianceManager::add_compliance_requirement(
-//             token_owner_signed.clone(),
-//             ticker,
-//             vec![],
-//             vec![]
-//         ));
+        // By default all asset have implicit requirements
+        // Add empty rules
+        assert_ok!(ComplianceManager::add_compliance_requirement(
+            token_owner_signed.clone(),
+            ticker,
+            vec![],
+            vec![]
+        ));
 
-//         let result = ComplianceManager::granular_verify_restriction(
-//             &ticker,
-//             Some(token_owner_did),
-//             Some(receiver_did),
-//             None,
-//         );
+        let result = ComplianceManager::granular_verify_restriction(
+            &ticker,
+            Some(token_owner_did),
+            Some(receiver_did),
+            None,
+        );
 
-//         let expected_result = ImplicitRequirementResult {
-//             from_result: false,
-//             to_result: false,
-//         };
+        let expected_result = ImplicitRequirementResult {
+            from_result: false,
+            to_result: false,
+        };
 
-//         let compliance_requirement = ComplianceRequirementResult {
-//             sender_conditions: vec![],
-//             receiver_conditions: vec![],
-//             id: 1,
-//             result: true,
-//         };
+        let compliance_requirement = ComplianceRequirementResult {
+            sender_conditions: vec![],
+            receiver_conditions: vec![],
+            id: 1,
+            result: true,
+        };
 
-//         assert!(result.requirements.len() == 1);
-//         assert_eq!(result.requirements[0], compliance_requirement);
-//         assert!(result.implicit_requirements_result.is_some());
-//         assert_eq!(
-//             result.implicit_requirements_result.unwrap(),
-//             expected_result
-//         );
-//         assert_eq!(result.result, false);
+        assert!(result.requirements.len() == 1);
+        assert_eq!(result.requirements[0], compliance_requirement);
+        assert_eq!(result.implicit_requirements_result, expected_result);
+        assert_eq!(result.result, false);
 
-//         // Should fail txn as implicit requirements are active.
-//         assert_invalid_transfer!(ticker, token_owner_did, receiver_did, 100);
-
-//         // Inactivate implicit requirements and then check for transfers.
-//         // Should fail because of wrong owner.
-//         assert_err!(
-//             ComplianceManager::inactivate_implicit_requirement_checks(
-//                 receiver_signed.clone(),
-//                 ticker
-//             ),
-//             CMError::<TestStorage>::Unauthorized
-//         );
-
-//         assert_ok!(ComplianceManager::inactivate_implicit_requirement_checks(
-//             token_owner_signed.clone(),
-//             ticker
-//         ));
-
-//         let result2 = ComplianceManager::granular_verify_restriction(
-//             &ticker,
-//             Some(token_owner_did),
-//             Some(receiver_did),
-//             None,
-//         );
-
-//         assert!(result2.requirements.len() == 1);
-//         assert!(!result2.implicit_requirements_result.is_some());
-
-//         // check for transfer.
-//         assert_valid_transfer!(ticker, token_owner_did, receiver_did, 100);
-
-//         // Try to check inactivate the implicit requirement checks again.
-//         // Should fail because of it is already inactive.
-//         assert_err!(
-//             ComplianceManager::inactivate_implicit_requirement_checks(
-//                 token_owner_signed.clone(),
-//                 ticker
-//             ),
-//             CMError::<TestStorage>::ImplicitRequirementsAlreadyInactive
-//         );
-
-//         // Again switch it back to active state
-//         assert_ok!(ComplianceManager::activate_implicit_requirement_checks(
-//             token_owner_signed.clone(),
-//             ticker
-//         ));
-
-//         // Should fail because of it is already inactive.
-//         assert_err!(
-//             ComplianceManager::activate_implicit_requirement_checks(
-//                 token_owner_signed.clone(),
-//                 ticker
-//             ),
-//             CMError::<TestStorage>::ImplicitRequirementsAlreadyActive
-//         );
-
-//         // Should fail txn as implicit requirements are active.
-//         assert_invalid_transfer!(ticker, token_owner_did, receiver_did, 200);
-//     });
-// }
+        // Should fail txn as implicit requirements are active.
+        assert_invalid_transfer!(ticker, token_owner_did, receiver_did, 100);
+    });
+}
