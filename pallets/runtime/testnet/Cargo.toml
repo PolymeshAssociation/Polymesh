@@ -172,16 +172,10 @@ std = [
 ]
 runtime-benchmarks = [
     "frame-benchmarking",
-    "frame-support/runtime-benchmarks",
-    "frame-system/runtime-benchmarks",
-    "pallet-committee/runtime-benchmarks",
-    "pallet-im-online/runtime-benchmarks",
-    "pallet-staking/runtime-benchmarks",
-    "pallet-asset/runtime-benchmarks",
-    "pallet-identity/runtime-benchmarks",
-    "polymesh-runtime-common/runtime-benchmarks",
-    "pallet-portfolio/runtime-benchmarks",
-    "sp-runtime/runtime-benchmarks",
     "frame-system-benchmarking",
     "hex-literal",
+    "frame-support/runtime-benchmarks",
+    "frame-system/runtime-benchmarks",
+    "sp-runtime/runtime-benchmarks",
+    "pallet-committee/runtime-benchmarks",
 ]

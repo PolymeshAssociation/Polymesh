@@ -6,7 +6,7 @@ edition = "2018"
 
 [dependencies]
 # Ours
-polymesh-primitives-derive = { path = "../primitives_derive" }
+polymesh-primitives-derive = { path = "../primitives_derive", default-features = false }
 
 # Other
 serde = { version = "1.0.104", optional = true, features = ["derive"] }
@@ -60,4 +60,7 @@ std = [
 	"schnorrkel/std",
 	"blake2/std",
 	"blake2/simd",
+	"polymesh-primitives-derive/std",
+	"curve25519-dalek/std",
+	"sp-application-crypto/std"
 ]

@@ -10,3 +10,8 @@ proc-macro = true
 [dependencies]
 syn = "1.0.38"
 quote = "1.0.7"
+
+[features]
+default = ["std"]
+no_std = []
+std = []
