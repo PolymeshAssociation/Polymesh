@@ -32,14 +32,15 @@ use frame_support::{decl_error, decl_event, decl_module, decl_storage, dispatch:
 use frame_system::ensure_signed;
 use pallet_identity as identity;
 use polymesh_common_utilities::{
-    asset::Trait as AssetTrait, balances::Trait as BalancesTrait, identity::Trait as IdentityTrait,
-    CommonTrait, Context,
-};
-use polymesh_primitives::{
-    AssetIdentifier, AssetName, AssetType, FundingRoundName, IdentifierType, IdentityId, Ticker,
+    asset::Trait as AssetTrait, balances::Trait as BalancesTrait, constants::currency::ONE_UNIT,
+    identity::Trait as IdentityTrait, AssetIdentifier, AssetName, AssetType, CommonTrait, Context,
+    FundingRoundName, IdentifierType, IdentityId, Ticker,
 };
 use polymesh_primitives_derive::VecU8StrongTyped;
-use sp_runtime::{traits::Zero, SaturatedConversion};
+use sp_runtime::{
+    traits::{Saturating, Zero},
+    SaturatedConversion,
+};
 use sp_std::{
     convert::{From, TryFrom},
     prelude::*,
@@ -217,45 +218,60 @@ decl_module! {
         ///
         /// # Arguments
         /// * `origin` - contains the secondary key of the caller (i.e who signed the transaction to execute this function).
+        /// * `ticker` - the ticker symbol of the token.
         /// * `total_supply` - the total supply of the token.
         /// * `asset_mint_proof` - The proofs that the encrypted asset id is a valid ticker name and that the `total_supply` matches encrypted value.
         ///
         /// # Errors
-        /// - `InvalidTotalSupply` if not `divisible` but `total_supply` is not a multiply of unit.
-        /// - `TotalSupplyAboveLimit` if `total_supply` exceeds the limit.
+        /// - `InvalidTotalSupply` if `total_supply` is not a multiply of unit.
+        /// - `TotalSupplyAboveU32Limit` if `total_supply` exceeds the u32 limit. This is imposed by the MERCAT lib.
         /// - `BadOrigin` if not signed.
         /// - `InvalidAccountMintProof` if the proofs of ticker name and total supply are incorrect.
         ///
         /// # Weight
-        /// `3_000_000_000 + 20_000 * identifiers.len()`
+        /// `3_000_000_000`
         #[weight = 1_000_000_000]
         pub fn mint_confidential_asset(
             origin,
+            ticker: Ticker,
             total_supply: T::Balance,
             asset_mint_proof: InitializedAssetTx,
         ) -> DispatchResult {
-            let primary_owner = ensure_signed(origin)?;
-            let primary_owner_did = Context::current_identity_or::<Identity<T>>(&primary_owner)?;
+            let owner = ensure_signed(origin)?;
+            let owner_did = Context::current_identity_or::<Identity<T>>(&owner)?;
 
-            // TODO ensure that total_supply fits within u32
+            //  TODO: get the divisibility state.
+            if total_supply % ONE_UNIT.into() != 0.into() {
+                return Err(Error::<T>::InvalidTotalSupply.into());
+            }
+
+            // At the moment, mercat lib imposes that balances can be at most u32 integers.
+            let max_balance_mercat = u32::MAX.saturated_into::<T::Balance>();
+            if total_supply > max_balance_mercat {
+                return Err(Error::<T>::TotalSupplyAboveU32Limit.into());
+            }
+
+            let total_supply = total_supply.saturated_into::<u32>();
 
             let wrapped_encrypted_asset_id = EncryptedAssetIdWrapper::from(asset_mint_proof.account_id.encode());
-
-            //let aa: u128 = total_supply.into();
             let new_encrypted_balance = AssetValidator{}
                                           .verify_asset_transaction(
-                                              //total_supply.saturate_into::<u32>,
-                                              0,
+                                              total_supply,
                                               &asset_mint_proof,
-                                              &Self::mercat_account(primary_owner_did, wrapped_encrypted_asset_id.clone()).to_mercat::<T>()?,
-                                              &Self::mercat_account_balance(primary_owner_did, wrapped_encrypted_asset_id ).to_mercat::<T>()?,
+                                              &Self::mercat_account(owner_did, wrapped_encrypted_asset_id.clone()).to_mercat::<T>()?,
+                                              &Self::mercat_account_balance(owner_did, wrapped_encrypted_asset_id.clone()).to_mercat::<T>()?,
                                               &[]
                                           ).map_err(|_| Error::<T>::InvalidAccountMintProof)?;
 
-            // Set the total supply
-            // TODO: call base_create_asset
-            // Check the divisibility error
-            // Check the limit errors
+            // Set the total supply (both encrypted and plain)
+            <MercatAccountBalance>::insert(
+                &owner_did,
+                &wrapped_encrypted_asset_id,
+                EncryptedBalanceWrapper::from(new_encrypted_balance.encode()),
+            );
+
+            // This will emit the total supply changed event.
+            T::Asset::set_total_supply(owner_did, ticker, total_supply)?;
 
             Ok(())
         }
@@ -285,5 +301,11 @@ decl_error! {
 
         /// Mercat library has rejected the asset issuance proofs.
         InvalidAccountMintProof,
+
+        /// Thrown when the total supply of a confidential asset is not divisible.
+        InvalidTotalSupply,
+
+        /// The balance values does not fit `u32`.
+        TotalSupplyAboveU32Limit,
     }
 }

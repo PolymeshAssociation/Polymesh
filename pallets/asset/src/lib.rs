@@ -46,6 +46,7 @@
 //! - `issue` - Function is used to issue(or mint) new tokens to the primary issuance agent.
 //! - `controller_redeem` - Forces a redemption of an DID's tokens. Can only be called by token owner.
 //! - `make_divisible` - Change the divisibility of the token to divisible. Only called by the token owner.
+//! - `set_total_supply` - Sets the initial total supply of a confidential asset. Only called by the token owner of a confidential asset. Can be called only once.
 //! - `can_transfer` - Checks whether a transaction with given parameters can take place or not.
 //! - `add_documents` - Add documents for a given token, Only be called by the token owner.
 //! - `remove_documents` - Remove documents for a given token, Only be called by the token owner.
@@ -114,7 +115,7 @@ use polymesh_primitives::{
     SmartExtensionType, Ticker, TickerRegistration, TickerRegistrationConfig,
     TickerRegistrationStatus,
 };
-use sp_runtime::traits::{CheckedAdd, Saturating};
+use sp_runtime::traits::{CheckedAdd, CheckedSub, Saturating, Verify, Zero};
 #[cfg(feature = "std")]
 use sp_runtime::{Deserialize, Serialize};
 use sp_std::{convert::TryFrom, prelude::*};
@@ -477,6 +478,31 @@ decl_module! {
             Ok(())
         }
 
+        /// Sets the initial total supply of a confidential asset.
+        /// Only called by the token owner of a confidential asset. Can be called only once.
+        ///
+        /// # Arguments
+        /// * `origin` Secondary key of the token owner.
+        /// * `ticker` Ticker of the token.
+        /// * `total_supply` Ticker of the token.
+        #[weight = T::DbWeight::get().reads_writes(2, 1) + 300_000_000]
+        pub fn set_total_supply(origin, ticker: Ticker, total_supply: T::Balance) -> DispatchResult {
+            let sender = ensure_signed(origin)?;
+            let did = Context::current_identity_or::<Identity<T>>(&sender)?;
+
+            ensure!(Self::is_owner(&ticker, did), Error::<T>::Unauthorized);
+            // Read the token details
+            let mut token = Self::token_details(&ticker);
+            // TODO: either change SecurityToken, or add a new Storage
+            //ensure!(token.is_confidential, Error::<T>::NonConfidentialAssetsCannotSetTotalSupply);
+            ensure!(token.total_supply == Zero::zero(), Error::<T>::CanSetTotalSupplyOnlyOnce);
+            ensure!(total_supply != Zero::zero(), Error::<T>::TotalSupplyMustBePositive);
+            token.total_supply = total_supply;
+            <Tokens<T>>::insert(&ticker, token);
+            Self::deposit_event(RawEvent::TotalSupplyChanged(did, ticker, total_supply));
+            Ok(())
+        }
+
         /// Add documents for a given token. To be called only by the token owner.
         ///
         /// # Arguments
@@ -773,6 +799,9 @@ decl_event! {
         /// Event for change in divisibility.
         /// caller DID, ticker, divisibility
         DivisibilityChanged(IdentityId, Ticker, bool),
+        /// Event for change in total supply of confidential assets.
+        /// caller DID, ticker, total supply
+        TotalSupplyChanged(IdentityId, Ticker, Balance),
         /// An additional event to Transfer; emitted when transfer_with_data is called.
         /// caller DID , ticker, from DID, to DID, value, data
         TransferWithData(IdentityId, Ticker, IdentityId, IdentityId, Balance, Vec<u8>),
@@ -921,6 +950,10 @@ decl_error! {
         TickerRegistrationExpired,
         /// Transfers to self are not allowed
         SenderSameAsReceiver
+        /// After registering the confidential asset, its total supply can change once from zero to a positive value.
+        CanSetTotalSupplyOnlyOnce,
+        /// After registering the confidential asset, its total supply can change once from zero to a positive value.
+        TotalSupplyMustBePositive,
     }
 }
 
