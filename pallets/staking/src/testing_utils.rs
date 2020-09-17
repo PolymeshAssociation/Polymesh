@@ -24,7 +24,7 @@ use frame_benchmarking::account;
 use frame_support::traits::Currency;
 use frame_system::RawOrigin;
 use polymesh_common_utilities::traits::identity::LinkedKeyInfo;
-use primitives::{IdentityId, Signatory};
+use polymesh_primitives::{IdentityId, Signatory};
 use rand_chacha::{
     rand_core::{RngCore, SeedableRng},
     ChaChaRng,
@@ -266,7 +266,7 @@ pub fn get_weak_solution<T: Trait>(
     let low_accuracy_assignment: Vec<Assignment<T::AccountId, OffchainAccuracy>> =
         staked_assignments
             .into_iter()
-            .map(|sa| sa.into_assignment(true))
+            .map(|sa| sa.into_assignment())
             .collect();
 
     // re-calculate score based on what the chain will decode.
