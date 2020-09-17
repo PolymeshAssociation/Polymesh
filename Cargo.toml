@@ -86,6 +86,7 @@ chrono = "0.4.11"
 # Substrate
 codec = { version = "1.2.0", package = "parity-scale-codec" }
 sp-core = { git = "https://github.com/paritytech/substrate", branch = "at-add-dispatch-call" }
+sp-std = { git = "https://github.com/paritytech/substrate", branch = "at-add-dispatch-call" }
 sp-runtime = { git = "https://github.com/paritytech/substrate", branch = "at-add-dispatch-call" }
 sp-api = { git = "https://github.com/paritytech/substrate", branch = "at-add-dispatch-call" }
 sp-offchain = { git = "https://github.com/paritytech/substrate", branch = "at-add-dispatch-call" }

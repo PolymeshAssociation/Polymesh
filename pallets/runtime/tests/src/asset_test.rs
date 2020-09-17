@@ -11,8 +11,8 @@ use frame_support::IterableStorageMap;
 use pallet_asset::ethereum;
 use pallet_asset::{
     self as asset, AssetOwnershipRelation, AssetType, ClassicTickerImport,
-    ClassicTickerRegistration, ClassicTickers, FundingRoundName, IdentifierType, SecurityToken,
-    SignData, TickerRegistration, TickerRegistrationConfig, Tickers,
+    ClassicTickerRegistration, ClassicTickers, FiatCurrency, FundingRoundName, IdentifierType,
+    SecurityToken, SignData, TickerRegistration, TickerRegistrationConfig, Tickers,
 };
 use pallet_balances as balances;
 use pallet_compliance_manager as compliance_manager;
@@ -2490,6 +2490,7 @@ fn classic_ticker_genesis_works() {
             registration_length,
             ..standard_config
         },
+        reserved_country_currency_codes: vec![],
     };
 
     // Define expected ticker data after genesis.
@@ -2677,6 +2678,7 @@ fn classic_ticker_claim_works() {
             ..default_reg_config()
         },
         classic_migration_contract_did: 0.into(),
+        reserved_country_currency_codes: vec![],
     };
 
     // Define the fees and initial balance.
