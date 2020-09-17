@@ -343,6 +343,7 @@ fn issue_tokens() {
         // Wallet submits the transaction to the chain for verification.
         ConfidentialAsset::mint_confidential_asset(
             Origin::signed(alice),
+            &token_names[1][..],
             amount.into(), // convert to u128
             initialized_asset_tx,
         )
