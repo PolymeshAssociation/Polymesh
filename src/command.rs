@@ -24,9 +24,6 @@ use sc_cli::{ChainSpec, RuntimeVersion};
 pub use sc_cli::{Result, SubstrateCli};
 use sc_service::config::Role;
 
-#[cfg(feature = "runtime-benchmarks")]
-use polymesh_runtime::runtime;
-
 impl SubstrateCli for Cli {
     fn impl_name() -> String {
         "Polymesh Node".into()
