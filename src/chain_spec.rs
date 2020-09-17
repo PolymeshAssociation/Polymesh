@@ -1,3 +1,4 @@
+use codec::{Decode, Encode};
 use grandpa::AuthorityId as GrandpaId;
 use im_online::sr25519::AuthorityId as ImOnlineId;
 use pallet_asset::{FiatCurrency, TickerRegistrationConfig};
@@ -24,7 +25,7 @@ use sp_consensus_babe::AuthorityId as BabeId;
 use sp_core::{sr25519, Pair, Public};
 use sp_runtime::{
     traits::{IdentifyAccount, Verify},
-    PerThing,
+    Deserialize, PerThing, Serialize,
 };
 
 use sp_std::convert::TryFrom;
@@ -120,19 +121,20 @@ fn polymath_props() -> Properties {
 }
 
 fn currency_codes() -> Vec<Ticker> {
+    // Fiat Currency Struct
+    #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+    #[derive(Encode, Decode, Clone, Debug, PartialEq, Eq)]
+    pub struct FiatCurrency<String> {
+        pub codes: Vec<String>,
+    }
+
     let currency_file = fs::read_to_string("src/data/currency_symbols.json").unwrap();
     let currency_data: FiatCurrency<String> = serde_json::from_str(&currency_file).unwrap();
-    let currency_bytes = currency_data
+    currency_data
         .codes
-        .iter()
-        .map(|y| y.as_bytes())
-        .collect::<Vec<_>>();
-    let currency_tickers = currency_bytes
-        .iter()
-        .map(|y| Ticker::try_from(*y).unwrap())
-        .collect::<Vec<_>>();
-
-    currency_tickers
+        .into_iter()
+        .map(|y| y.as_bytes().try_into())
+        .collect()
 }
 
 fn general_testnet_genesis(

@@ -305,13 +305,6 @@ pub struct ClassicTickerRegistration {
     pub is_created: bool,
 }
 
-// Fiat Currency Struct
-#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[derive(Encode, Decode, Clone, Debug, PartialEq, Eq)]
-pub struct FiatCurrency<String> {
-    pub codes: Vec<String>,
-}
-
 decl_storage! {
     trait Store for Module<T: Trait> as Asset {
         /// Ticker registration details.
