@@ -1,8 +1,0 @@
-[submodule "external/cryptography"]
-	path = external/cryptography
-	url = git@github.com:PolymathNetwork/cryptography.git
-	branch = master
-
-[submodule "pallets/settlement"]
-	path = pallets/settlement
-	url = git@github.com:PolymathNetwork/polymesh-settlement-module.git
