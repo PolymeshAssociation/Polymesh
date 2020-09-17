@@ -1,7 +1,7 @@
 use codec::{Decode, Encode};
 use grandpa::AuthorityId as GrandpaId;
 use im_online::sr25519::AuthorityId as ImOnlineId;
-use pallet_asset::{FiatCurrency, TickerRegistrationConfig};
+use pallet_asset::TickerRegistrationConfig;
 use polymesh_common_utilities::{constants::currency::POLY, protocol_fee::ProtocolOp};
 use polymesh_primitives::{
     AccountId, IdentityId, InvestorUid, PosRatio, Signatory, Signature, Ticker,
@@ -25,10 +25,13 @@ use sp_consensus_babe::AuthorityId as BabeId;
 use sp_core::{sr25519, Pair, Public};
 use sp_runtime::{
     traits::{IdentifyAccount, Verify},
-    Deserialize, PerThing, Serialize,
+    PerThing,
 };
+#[cfg(feature = "std")]
+use sp_runtime::{Deserialize, Serialize};
 
-use sp_std::convert::TryFrom;
+use std::convert::TryInto;
+
 use std::fs;
 const STAGING_TELEMETRY_URL: &str = "wss://telemetry.polymesh.live/submit/";
 
@@ -133,7 +136,7 @@ fn currency_codes() -> Vec<Ticker> {
     currency_data
         .codes
         .into_iter()
-        .map(|y| y.as_bytes().try_into())
+        .map(|y| y.as_bytes().try_into().unwrap())
         .collect()
 }
 

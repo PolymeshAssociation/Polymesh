@@ -86,7 +86,7 @@ structopt = "0.3.15"
 chrono = "0.4.11"
 
 # Substrate
-codec = { version = "1.2.0", package = "parity-scale-codec" }
+codec = { package = "parity-scale-codec", version = "1.1.0", default-features = false, features = ["derive"] }
 sp-core = { git = "https://github.com/paritytech/substrate", tag = "v2.0.0-rc6" }
 sp-std = { git = "https://github.com/paritytech/substrate", tag = "v2.0.0-rc6" }
 sp-runtime = { git = "https://github.com/paritytech/substrate", tag = "v2.0.0-rc6" }
@@ -127,15 +127,28 @@ prometheus-endpoint = { package = "substrate-prometheus-endpoint", git = "https:
 frame-benchmarking = { git = "https://github.com/paritytech/substrate", tag = "v2.0.0-rc6" }
 frame-benchmarking-cli = { git = "https://github.com/paritytech/substrate", tag = "v2.0.0-rc6" }
 
+# Other
+serde = { version = "1.0.104", default-features = false }
+
 [build-dependencies]
 vergen = "3.1.0"
 
 [features]
-default = []
+default = ["std"]
 default_identity = [
     "polymesh-common-utilities/default_identity"
 ]
 runtime-benchmarks = [
     "polymesh-runtime-develop/runtime-benchmarks",
     "polymesh-runtime-testnet/runtime-benchmarks"
+]
+std = [
+    "codec/std",
+    "polymesh-common-utilities/std",
+    "polymesh-primitives/std",
+    "serde/std",
+    "sp-api/std",
+    "sp-core/std",
+    "sp-runtime/std",
+    "sp-std/std",
 ]
