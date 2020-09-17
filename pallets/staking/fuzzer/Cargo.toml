@@ -29,7 +29,6 @@ sp-core = { git = "https://github.com/paritytech/substrate", tag = "v2.0.0-rc6" 
 sp-npos-elections = { git = "https://github.com/paritytech/substrate", tag = "v2.0.0-rc6" }
 sp-runtime = { git = "https://github.com/paritytech/substrate", tag = "v2.0.0-rc6" }
 
-
 [[bin]]
 name = "submit_solution"
 path = "src/submit_solution.rs"
