@@ -64,3 +64,8 @@ std = [
 	"curve25519-dalek/std",
 	"sp-application-crypto/std"
 ]
+
+runtime-benchmarks = [
+	"sp-io/disable_panic_handler",
+	"sp-io/disable_oom"
+]

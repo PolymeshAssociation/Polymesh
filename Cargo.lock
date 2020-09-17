@@ -4359,6 +4359,7 @@ dependencies = [
  "parity-scale-codec",
  "serde",
  "sp-inherents",
+ "sp-io",
  "sp-runtime",
  "sp-std",
  "sp-timestamp",
@@ -4944,7 +4945,6 @@ dependencies = [
 name = "polymesh-runtime-common"
 version = "1.0.0"
 dependencies = [
- "frame-benchmarking",
  "frame-support",
  "frame-system",
  "pallet-asset",
