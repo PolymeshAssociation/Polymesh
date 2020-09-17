@@ -3432,6 +3432,9 @@ dependencies = [
  "polymesh-common-utilities",
  "polymesh-primitives",
  "polymesh-primitives-derive",
+ "rand 0.7.3",
+ "rand_core 0.5.1",
+ "sp-runtime",
  "sp-std",
 ]
 

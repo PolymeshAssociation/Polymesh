@@ -18,6 +18,8 @@ pallet-asset = { path = "../asset", default-features = false  }
 
 # Crypto
 cryptography = { path = "../../external/cryptography", default-features = false }
+rand_core = { version = "0.5", default-features = false}
+rand = { version = "0.7", default-features = false }
 curve25519-dalek = { version = "2", default-features = false, features = ["nightly"] }
 
 # Substrate
@@ -25,6 +27,7 @@ codec = { package = "parity-scale-codec", version = "1.1.0", default-features = 
 frame-system = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "at-add-dispatch-call" }
 frame-support = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "at-add-dispatch-call" }
 sp-std = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "at-add-dispatch-call" }
+sp-runtime = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "at-add-dispatch-call" }
 
 [features]
 equalize = []
