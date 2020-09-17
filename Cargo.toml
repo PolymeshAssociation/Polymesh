@@ -49,7 +49,6 @@ members = [
     "rpc",
     "utils/wasm-builder"
 ]
-exclude = ["pallets/staking/fuzzer"]
 
 [dependencies]
 polymesh-primitives = { path = "primitives" }
@@ -61,13 +60,13 @@ im-online = { package = "pallet-im-online", path = "pallets/im-online" }
 
 # RPC
 node-rpc = { path = "rpc" }
-node-rpc-runtime-api = { path = "rpc/runtime-api", default-features = false }
-pallet-protocol-fee-rpc-runtime-api = { path = "pallets/protocol-fee/rpc/runtime-api", default-features = false }
-pallet-contracts-rpc-runtime-api = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0-rc6" }
+node-rpc-runtime-api = { path = "rpc/runtime-api" }
+pallet-protocol-fee-rpc-runtime-api = { path = "pallets/protocol-fee/rpc/runtime-api" }
+pallet-contracts-rpc-runtime-api = { git = "https://github.com/paritytech/substrate", tag = "v2.0.0-rc6" }
 pallet-staking-rpc-runtime-api = { path = "pallets/staking/rpc/runtime-api" }
 pallet-protocol-fee-rpc = { path = "pallets/protocol-fee/rpc" }
 pallet-group-rpc = { path = "pallets/group/rpc" }
-pallet-group-rpc-runtime-api = { path = "pallets/group/rpc/runtime-api", default-features = false }
+pallet-group-rpc-runtime-api = { path = "pallets/group/rpc/runtime-api" }
 polymesh-node-rpc = { path = "node-rpc" }
 frame-system-rpc-runtime-api = { git = "https://github.com/paritytech/substrate", tag = "v2.0.0-rc6" }
 
@@ -101,7 +100,7 @@ sp-transaction-pool = { package = "sp-transaction-pool", git = "https://github.c
 sp-consensus-babe = { git = "https://github.com/paritytech/substrate", tag = "v2.0.0-rc6" }
 sp-authority-discovery = { git = "https://github.com/paritytech/substrate", tag = "v2.0.0-rc6" }
 
-contracts = { package = "pallet-contracts", git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0-rc6" }
+contracts = { package = "pallet-contracts", git = "https://github.com/paritytech/substrate", tag = "v2.0.0-rc6" }
 
 sc-service = { git = "https://github.com/paritytech/substrate", tag = "v2.0.0-rc6" }
 sc-chain-spec = { git = "https://github.com/paritytech/substrate", tag = "v2.0.0-rc6" }
