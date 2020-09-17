@@ -11,8 +11,8 @@ use frame_support::IterableStorageMap;
 use pallet_asset::ethereum;
 use pallet_asset::{
     self as asset, AssetOwnershipRelation, AssetType, ClassicTickerImport,
-    ClassicTickerRegistration, ClassicTickers, FiatCurrency, FundingRoundName, IdentifierType, SecurityToken,
-    TickerRegistration, TickerRegistrationConfig, Tickers,
+    ClassicTickerRegistration, ClassicTickers, FiatCurrency, FundingRoundName, IdentifierType,
+    SecurityToken, TickerRegistration, TickerRegistrationConfig, Tickers,
 };
 use pallet_balances as balances;
 use pallet_compliance_manager as compliance_manager;
