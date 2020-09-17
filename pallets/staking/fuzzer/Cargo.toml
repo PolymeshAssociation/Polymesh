@@ -26,7 +26,6 @@ frame-support = { git = "https://github.com/paritytech/substrate", tag = "v2.0.0
 sp-std = { git = "https://github.com/paritytech/substrate", tag = "v2.0.0-rc6" }
 sp-io ={ git = "https://github.com/paritytech/substrate", tag = "v2.0.0-rc6" }
 sp-core = { git = "https://github.com/paritytech/substrate", tag = "v2.0.0-rc6" }
-sp-npos-elections = { git = "https://github.com/paritytech/substrate", tag = "v2.0.0-rc6" }
 sp-runtime = { git = "https://github.com/paritytech/substrate", tag = "v2.0.0-rc6" }
 
 

@@ -89,11 +89,12 @@ frame-system = { git = "https://github.com/paritytech/substrate", default-featur
 frame-support = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0-rc6" }
 frame-system-rpc-runtime-api = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0-rc6" }
 ink_primitives = { git = "https://github.com/paritytech/ink", tag = "v2.1.0", default-features = false }
-hex-literal = "0.2.1"
 smallvec = "1.4.0"
 
-# Benchmark
+# Used for runtime benchmarking
 frame-benchmarking = { default-features = false, git = "https://github.com/paritytech/substrate", tag = "v2.0.0-rc6", optional = true }
+frame-system-benchmarking = { default-features = false, git = "https://github.com/paritytech/substrate", tag = "v2.0.0-rc6", optional = true }
+hex-literal = { version = "0.3.1", optional = true }
 
 [dev-dependencies]
 test-client = { package = "substrate-test-runtime-client", git = "https://github.com/paritytech/substrate", tag = "v2.0.0-rc6" }
@@ -144,6 +145,7 @@ std = [
     "pallet-protocol-fee/std",
     "pallet-session/std",
     "pallet-settlement/std",
+    "pallet-staking-reward-curve/std",
     "pallet-staking-rpc-runtime-api/std",
     "pallet-staking/std",
     "pallet-statistics/std",
@@ -179,4 +181,6 @@ runtime-benchmarks = [
     "pallet-staking/runtime-benchmarks",
     "polymesh-runtime-common/runtime-benchmarks",
     "sp-runtime/runtime-benchmarks",
+    "frame-system-benchmarking",
+    "hex-literal",
 ]

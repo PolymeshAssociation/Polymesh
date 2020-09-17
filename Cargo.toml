@@ -123,6 +123,7 @@ sc-client-db = { git = "https://github.com/paritytech/substrate", tag = "v2.0.0-
 
 prometheus-endpoint = { package = "substrate-prometheus-endpoint", git = "https://github.com/paritytech/substrate", tag = "v2.0.0-rc6" }
 
+# These dependencies are used for runtime benchmarking
 frame-benchmarking = { git = "https://github.com/paritytech/substrate", tag = "v2.0.0-rc6" }
 frame-benchmarking-cli = { git = "https://github.com/paritytech/substrate", tag = "v2.0.0-rc6" }
 
