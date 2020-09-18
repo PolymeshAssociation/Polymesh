@@ -264,6 +264,7 @@ impl frame_system::Trait for Test {
     type AccountData = AccountData<Balance>;
     type OnNewAccount = ();
     type OnKilledAccount = ();
+    type SystemWeightInfo = ();
 }
 
 impl CommonTrait for Test {
@@ -301,6 +302,7 @@ impl pallet_session::Trait for Test {
     type ValidatorIdOf = StashOf<Test>;
     type DisabledValidatorsThreshold = DisabledValidatorsThreshold;
     type NextSessionRotation = pallet_session::PeriodicSessions<Period, Offset>;
+    type WeightInfo = ();
 }
 
 impl pallet_session::historical::Trait for Test {
@@ -336,6 +338,7 @@ impl pallet_timestamp::Trait for Test {
     type Moment = u64;
     type OnTimestampSet = ();
     type MinimumPeriod = MinimumPeriod;
+    type WeightInfo = ();
 }
 
 impl group::Trait<group::Instance2> for Test {
@@ -498,10 +501,31 @@ parameter_types! {
     pub const ExpectedBlockTime: u64 = 1;
 }
 
+use frame_support::traits::KeyOwnerProofSystem;
+use polymesh_runtime_develop::runtime::{Historical, Offences};
+use sp_runtime::KeyTypeId;
+
+impl From<pallet_babe::Call<Test>> for Call {
+    fn from(_: pallet_babe::Call<Test>) -> Self {
+        unimplemented!()
+    }
+}
+
 impl pallet_babe::Trait for Test {
     type EpochDuration = EpochDuration;
     type ExpectedBlockTime = ExpectedBlockTime;
     type EpochChangeTrigger = pallet_babe::ExternalTrigger;
+
+    type KeyOwnerProofSystem = ();
+    type KeyOwnerProof = <Self::KeyOwnerProofSystem as KeyOwnerProofSystem<(
+        KeyTypeId,
+        pallet_babe::AuthorityId,
+    )>>::Proof;
+    type KeyOwnerIdentification = <Self::KeyOwnerProofSystem as KeyOwnerProofSystem<(
+        KeyTypeId,
+        pallet_babe::AuthorityId,
+    )>>::IdentificationTuple;
+    type HandleEquivocation = pallet_babe::EquivocationHandler<Self::KeyOwnerIdentification, ()>;
 }
 
 pallet_staking_reward_curve::build! {

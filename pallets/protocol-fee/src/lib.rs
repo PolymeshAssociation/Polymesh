@@ -41,7 +41,7 @@ use frame_support::{
     traits::{Currency, ExistenceRequirement, OnUnbalanced, WithdrawReason},
     weights::{DispatchClass, Pays},
 };
-use frame_system::{self as system, ensure_root};
+use frame_system::ensure_root;
 use pallet_identity as identity;
 use polymesh_common_utilities::{
     identity::Trait as IdentityTrait,

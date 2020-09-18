@@ -48,7 +48,7 @@ use frame_support::{
     decl_error, decl_event, decl_module, decl_storage, dispatch::DispatchResult, ensure,
     IterableStorageDoubleMap,
 };
-use frame_system::{self as system, ensure_signed};
+use frame_system::ensure_signed;
 use pallet_identity as identity;
 use polymesh_common_utilities::{
     identity::Trait as IdentityTrait, portfolio::PortfolioSubTrait, CommonTrait, Context,
@@ -59,6 +59,7 @@ use polymesh_primitives::{
 };
 use sp_arithmetic::traits::{CheckedSub, Saturating};
 use sp_std::{convert::TryFrom, prelude::Vec};
+
 type Identity<T> = identity::Module<T>;
 
 /// The ticker and balance of an asset to be moved from one portfolio to another.

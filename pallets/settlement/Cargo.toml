@@ -1,27 +1,28 @@
 [package]
-name = "pallet-treasury"
+name = "pallet-settlement"
 version = "0.1.0"
 authors = ["Polymath"]
 edition = "2018"
 
 [dependencies]
 polymesh-common-utilities = { path = "../common", default-features = false }
-polymesh-primitives = { path = "../../primitives", default-features = false }
 pallet-balances = { path = "../balances", default-features = false  }
 pallet-identity = { path = "../identity", default-features = false  }
+polymesh-primitives = { path = "../../primitives", default-features = false }
+polymesh-primitives-derive = { path = "../../primitives_derive", default-features = false }
 
-# General
 serde = { version = "1.0.104", default-features = false }
 serde_derive = { version = "1.0.104", optional = true, default-features = false  }
-
-# Substrate
 codec = { package = "parity-scale-codec", version = "1.1.0", default-features = false, features = ["derive"] }
+
 sp-core = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0-rc6" }
 sp-std = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0-rc6" }
 sp-io = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0-rc6" }
+sp-serializer = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0-rc6" }
 sp-runtime = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0-rc6" }
 sp-version = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0-rc6" }
 sp-api = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0-rc6" }
+pallet-timestamp = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0-rc6" }
 
 frame-system = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0-rc6" }
 frame-support = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0-rc6" }
