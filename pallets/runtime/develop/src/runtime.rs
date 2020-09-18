@@ -1261,8 +1261,7 @@ impl_runtime_apis! {
                 extra,
             );
 
-            // Substrate
-            add_benchmark!(params, batches, pallet_timestamp, Timestamp);
+            add_benchmark!(params, batches, pallet_asset, Asset);
 
             if batches.is_empty() { return Err("Benchmark not found for this pallet.".into()) }
             Ok(batches)

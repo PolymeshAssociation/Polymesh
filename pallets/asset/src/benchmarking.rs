@@ -29,8 +29,7 @@ const MAX_TICKER_LENGTH: u8 = 12;
 const MAX_NAME_LENGTH: u32 = 64;
 
 fn uid_from_name_and_idx(name: &'static str, u: u32) -> InvestorUid {
-    let name_u = format!("{}-{}", name, u);
-    InvestorUid::from(name_u.as_str())
+    InvestorUid::from((name, u).encode().as_slice())
 }
 
 fn make_account<T: Trait>(

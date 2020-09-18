@@ -43,10 +43,8 @@ libsecp256k1 = { version = "0.3.5", default-features = false, features = ["hmac"
 frame-benchmarking = { default-features = false, git = "https://github.com/paritytech/substrate", tag = "v2.0.0-rc6", optional = true }
 
 [features]
-equalize = []
-default = ["std", "equalize", "runtime-benchmarks"]
+default = ["std"]
 no_std = []
-only-staking = []
 std = [
     "codec/std",
     "frame-support/std",
@@ -71,4 +69,5 @@ std = [
 ]
 runtime-benchmarks = [
     "frame-benchmarking",
+
 ]
