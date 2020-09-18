@@ -561,6 +561,7 @@
                 "Pending",
                 "Cancelled",
                 "Killed",
+                "Scheduled",
                 "Rejected",
                 "Referendum"
             ]
