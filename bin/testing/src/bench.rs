@@ -246,10 +246,17 @@ impl<'a> Iterator for BlockContentIterator<'a> {
         }
 
         let sender = self.keyring.at(self.iteration);
-        let receiver = get_account_id_from_seed::<sr25519::Public>(&format!(
-            "random-user//{}",
-            self.iteration
-        ));
+        // let receiver = get_account_id_from_seed::<sr25519::Public>(&format!(
+        //     "random-user//{}",
+        //     self.iteration
+        // ));
+        let receiver =
+            self.keyring
+                .at(if self.iteration >= self.content.size.unwrap_or_default() {
+                    0
+                } else {
+                    self.iteration + 1
+                });
 
         let signed = self.keyring.sign(
             CheckedExtrinsic {
