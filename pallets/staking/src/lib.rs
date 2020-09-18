@@ -2204,6 +2204,9 @@ decl_module! {
             <Self as Store>::UnappliedSlashes::insert(&era, &unapplied);
         }
 
+        /// Polymesh-Note - Weight changes to 1/4 of the actual weight that is calculated using the
+        /// upstream benchmarking process.
+        ///
         /// Pay out all the stakers behind a single validator for a single era.
         ///
         /// - `validator_stash` is the stash account of the validator. Their nominators, up to
@@ -2230,11 +2233,11 @@ decl_module! {
         /// - Write Each: System Account, Locks, Ledger (3 items)
         /// # </weight>
         #[weight =
-            120 * WEIGHT_PER_MICROS
+            ((120 * WEIGHT_PER_MICROS
             + 54 * WEIGHT_PER_MICROS * Weight::from(T::MaxNominatorRewardedPerValidator::get())
             + T::DbWeight::get().reads(7)
             + T::DbWeight::get().reads(5)  * Weight::from(T::MaxNominatorRewardedPerValidator::get() + 1)
-            + T::DbWeight::get().writes(3) * Weight::from(T::MaxNominatorRewardedPerValidator::get() + 1)
+            + T::DbWeight::get().writes(3) * Weight::from(T::MaxNominatorRewardedPerValidator::get() + 1)) * 25) / 100
         ]
         pub fn payout_stakers(origin, validator_stash: T::AccountId, era: EraIndex) -> DispatchResult {
             ensure!(Self::era_election_status().is_closed(), Error::<T>::CallNotAllowed);
