@@ -132,9 +132,7 @@ impl Clone for BenchDb {
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub enum BlockType {
     /// Bunch of random transfers.
-    RandomTransfersKeepAlive,
-    /// Bunch of random transfers that drain all of the source balance.
-    RandomTransfersReaping,
+    RandomTransfers,
     /// Bunch of "no-op" calls.
     Noop,
 }
@@ -257,13 +255,9 @@ impl<'a> Iterator for BlockContentIterator<'a> {
             CheckedExtrinsic {
                 signed: Some((sender, signed_extra(0, 1))),
                 function: match self.content.block_type {
-                    BlockType::RandomTransfersKeepAlive => Call::Balances(BalancesCall::transfer(
+                    BlockType::RandomTransfers => Call::Balances(BalancesCall::transfer(
                         pallet_indices::address::Address::Id(receiver),
                         1,
-                    )),
-                    BlockType::RandomTransfersReaping => Call::Balances(BalancesCall::transfer(
-                        pallet_indices::address::Address::Id(receiver),
-                        10 * DOLLARS,
                     )),
                     BlockType::Noop => Call::System(SystemCall::remark(Vec::new())),
                 },
@@ -403,9 +397,13 @@ impl BenchDb {
     pub fn generate_block(&mut self, content: BlockContent) -> Block {
         let client = self.client();
 
+		log::info!("creating block");
+
         let mut block = client
             .new_block(Default::default())
-            .expect("Block creation failed");
+			.expect("Block creation failed");
+
+		log::info!("block created");
 
         for extrinsic in self.generate_inherents(&client) {
             block.push(extrinsic).expect("Push inherent failed");

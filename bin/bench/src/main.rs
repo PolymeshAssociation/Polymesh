@@ -97,8 +97,7 @@ fn main() {
         .iter()
         {
             for block_type in [
-                BlockType::RandomTransfersKeepAlive,
-                BlockType::RandomTransfersReaping,
+                BlockType::RandomTransfers,
                 BlockType::Noop,
             ]
             .iter()
@@ -151,14 +150,14 @@ fn main() {
         ConstructionBenchmarkDescription {
             profile: Profile::Wasm,
             key_types: KeyTypes::Sr25519,
-            block_type: BlockType::RandomTransfersKeepAlive,
+            block_type: BlockType::RandomTransfers,
             size: SizeType::Medium,
             database_type: BenchDataBaseType::RocksDb,
         },
         ConstructionBenchmarkDescription {
             profile: Profile::Wasm,
             key_types: KeyTypes::Sr25519,
-            block_type: BlockType::RandomTransfersKeepAlive,
+            block_type: BlockType::RandomTransfers,
             size: SizeType::Large,
             database_type: BenchDataBaseType::RocksDb,
         },

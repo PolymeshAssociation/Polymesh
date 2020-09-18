@@ -76,7 +76,7 @@ impl core::Benchmark for PoolBenchmark {
         let generated_transactions = self
             .database
             .block_content(
-                BlockType::RandomTransfersKeepAlive.to_content(Some(100)),
+                BlockType::RandomTransfers.to_content(Some(100)),
                 &context.client,
             )
             .into_iter()
