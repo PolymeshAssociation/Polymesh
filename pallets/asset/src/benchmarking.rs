@@ -79,20 +79,18 @@ fn make_token<T: Trait>(
 }
 
 benchmarks! {
-    _ {
-        // User account seed.
-        let u in 1 .. MAX_USER_INDEX => ();
-    }
+    _ { }
 
     register_ticker {
-        let u in ...;
         let t in 1 .. MAX_TICKER_LENGTH as u32;
+
         <TickerConfig<T>>::put(TickerRegistrationConfig {
             max_ticker_length: MAX_TICKER_LENGTH,
             registration_length: Some((60 * 24 * 60 * 60).into()),
         });
-        let origin = make_account::<T>("caller", u).1;
-        // Generate a ticker of length `l`.
+
+        let origin = make_account::<T>("caller", 1).1;
+        // Generate a ticker of length `t`.
         let ticker = Ticker::try_from(vec![b'A'; t as usize].as_slice()).unwrap();
     }: _(origin, ticker)
 
