@@ -11,6 +11,8 @@ path = "src/main.rs"
 
 [workspace]
 members = [
+    "bin/bench",
+    "bin/testing",
     "primitives",
     "primitives_derive",
     "pallets/runtime/common",
