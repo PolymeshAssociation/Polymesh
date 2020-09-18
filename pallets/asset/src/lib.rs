@@ -121,13 +121,9 @@ use polymesh_primitives::{
     SmartExtensionName, SmartExtensionType, Ticker, TickerRegistration, TickerRegistrationConfig,
     TickerRegistrationStatus,
 };
-<<<<<<< HEAD
-use sp_runtime::traits::{CheckedAdd, CheckedSub, Saturating, Verify};
+use sp_runtime::traits::{CheckedAdd, CheckedSub, Saturating, Verify, Zero};
 #[cfg(feature = "std")]
 use sp_runtime::{Deserialize, Serialize};
-=======
-use sp_runtime::traits::{CheckedAdd, CheckedSub, Saturating, Verify, Zero};
->>>>>>> Adds more cherks to minting
 use sp_std::{convert::TryFrom, prelude::*};
 
 type Portfolio<T> = pallet_portfolio::Module<T>;
@@ -579,31 +575,6 @@ decl_module! {
             token.divisible = true;
             <Tokens<T>>::insert(&ticker, token);
             Self::deposit_event(RawEvent::DivisibilityChanged(did, ticker, true));
-            Ok(())
-        }
-
-        /// Sets the initial total supply of a confidential asset.
-        /// Only called by the token owner of a confidential asset. Can be called only once.
-        ///
-        /// # Arguments
-        /// * `origin` Secondary key of the token owner.
-        /// * `ticker` Ticker of the token.
-        /// * `total_supply` Ticker of the token.
-        #[weight = T::DbWeight::get().reads_writes(2, 1) + 300_000_000]
-        pub fn set_total_supply(origin, ticker: Ticker, total_supply: T::Balance) -> DispatchResult {
-            let sender = ensure_signed(origin)?;
-            let did = Context::current_identity_or::<Identity<T>>(&sender)?;
-
-            ensure!(Self::is_owner(&ticker, did), Error::<T>::Unauthorized);
-            // Read the token details
-            let mut token = Self::token_details(&ticker);
-            // TODO: either change SecurityToken, or add a new Storage
-            //ensure!(token.is_confidential, Error::<T>::NonConfidentialAssetsCannotSetTotalSupply);
-            ensure!(token.total_supply == Zero::zero(), Error::<T>::CanSetTotalSupplyOnlyOnce);
-            ensure!(total_supply != Zero::zero(), Error::<T>::TotalSupplyMustBePositive);
-            token.total_supply = total_supply;
-            <Tokens<T>>::insert(&ticker, token);
-            Self::deposit_event(RawEvent::TotalSupplyChanged(did, ticker, total_supply));
             Ok(())
         }
 
@@ -1215,6 +1186,14 @@ impl<T: Trait> AssetTrait<T::Balance, T::AccountId> for Module<T> {
         value: T::Balance,
     ) {
         Self::unsafe_system_transfer(sender, ticker, from_did, to_did, value);
+    }
+
+    fn set_total_supply(
+        did: IdentityId,
+        ticker: Ticker,
+        total_supply: T::Balance,
+    ) -> DispatchResult {
+        Self::set_total_supply(did, ticker, total_supply)
     }
 
     fn base_create_asset(
@@ -2213,6 +2192,37 @@ impl<T: Trait> Module<T> {
             false => SMART_EXTENSION_FAILURE,
         };
         (transfer_status, weight_for_valid_transfer)
+    }
+
+    /// Sets the initial total supply of a confidential asset.
+    /// Only called by the token owner of a confidential asset. Can be called only once.
+    ///
+    /// # Arguments
+    /// * `origin` Secondary key of the token owner.
+    /// * `ticker` Ticker of the token.
+    /// * `total_supply` Ticker of the token.
+    pub fn set_total_supply(
+        did: IdentityId,
+        ticker: Ticker,
+        total_supply: T::Balance,
+    ) -> DispatchResult {
+        ensure!(Self::is_owner(&ticker, did), Error::<T>::Unauthorized);
+        // Read the token details
+        let mut token = Self::token_details(&ticker);
+        // TODO: either change SecurityToken, or add a new Storage
+        //ensure!(token.is_confidential, Error::<T>::NonConfidentialAssetsCannotSetTotalSupply);
+        ensure!(
+            token.total_supply == Zero::zero(),
+            Error::<T>::CanSetTotalSupplyOnlyOnce
+        );
+        ensure!(
+            total_supply != Zero::zero(),
+            Error::<T>::TotalSupplyMustBePositive
+        );
+        token.total_supply = total_supply;
+        <Tokens<T>>::insert(&ticker, token);
+        Self::deposit_event(RawEvent::TotalSupplyChanged(did, ticker, total_supply));
+        Ok(())
     }
 
     pub fn base_create_asset(

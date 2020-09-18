@@ -33,8 +33,10 @@ use frame_system::{self as system, ensure_signed};
 use pallet_identity as identity;
 use polymesh_common_utilities::{
     asset::Trait as AssetTrait, balances::Trait as BalancesTrait, constants::currency::ONE_UNIT,
-    identity::Trait as IdentityTrait, AssetIdentifier, AssetName, AssetType, CommonTrait, Context,
-    FundingRoundName, IdentifierType, IdentityId, Ticker,
+    identity::Trait as IdentityTrait, CommonTrait, Context,
+};
+use polymesh_primitives::{
+    AssetIdentifier, AssetName, AssetType, FundingRoundName, IdentifierType, IdentityId, Ticker,
 };
 use polymesh_primitives_derive::VecU8StrongTyped;
 use sp_runtime::{
@@ -253,12 +255,10 @@ decl_module! {
                 return Err(Error::<T>::TotalSupplyAboveU32Limit.into());
             }
 
-            let total_supply = total_supply.saturated_into::<u32>();
-
             let wrapped_encrypted_asset_id = EncryptedAssetIdWrapper::from(asset_mint_proof.account_id.encode());
             let new_encrypted_balance = AssetValidator{}
                                           .verify_asset_transaction(
-                                              total_supply,
+                                              total_supply.saturated_into::<u32>(),
                                               &asset_mint_proof,
                                               &Self::mercat_account(owner_did, wrapped_encrypted_asset_id.clone()).to_mercat::<T>()?,
                                               &Self::mercat_account_balance(owner_did, wrapped_encrypted_asset_id.clone()).to_mercat::<T>()?,

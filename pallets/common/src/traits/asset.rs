@@ -100,4 +100,5 @@ pub trait Trait<V, U> {
         funding_round: Option<FundingRoundName>,
         is_confidential: bool,
     ) -> DispatchResult;
+    fn set_total_supply(did: IdentityId, ticker: Ticker, total_supply: V) -> DispatchResult;
 }

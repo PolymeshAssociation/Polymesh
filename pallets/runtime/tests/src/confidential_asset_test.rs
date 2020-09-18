@@ -234,6 +234,68 @@ fn issuers_can_create_and_rename_confidential_tokens() {
 }
 
 #[test]
+fn mint_tokens() {
+    ExtBuilder::default().build().execute_with(|| {
+        // ------------ Setup
+        let token_names = [[2u8], [1u8], [5u8]];
+        for token_name in token_names.iter() {
+            create_confidential_token(
+                &token_name[..],
+                Ticker::try_from(&token_name[..]).unwrap(),
+                AccountKeyring::Bob.public(),
+            );
+        }
+
+        let valid_asset_ids: Vec<AssetId> = ConfidentialAsset::confidential_tickers();
+
+        let (scrt_account, mercat_account_tx) = gen_account(
+            0, // Transaction id. Not important in this test.
+            [10u8; 32],
+            &token_names[1][..],
+            valid_asset_ids,
+        );
+
+        let alice = AccountKeyring::Alice.public();
+        let alice_id = register_keyring_account(AccountKeyring::Alice).unwrap();
+
+        ConfidentialAsset::validate_mercat_account(
+            Origin::signed(alice),
+            mercat_account_tx.clone(),
+        )
+        .unwrap();
+
+        // ------------- START: Computations that will happen in Alice's Wallet ----------
+        let amount: u32 = 11; // mercat amounts are 32 bit integers.
+        let mut rng = StdRng::from_seed([42u8; 32]);
+        let issuer_account = Account {
+            scrt: scrt_account,
+            pblc: mercat_account_tx.pub_account.clone(),
+        };
+
+        let initialized_asset_tx = AssetIssuer {}
+            .initialize_asset_transaction(
+                1, // Transaction id. Not important in this test.
+                &issuer_account,
+                &[],
+                amount,
+                &mut rng,
+            )
+            .unwrap();
+
+        // ------------- END: Computations that will happen in the Wallet ----------
+
+        // Wallet submits the transaction to the chain for verification.
+        ConfidentialAsset::mint_confidential_asset(
+            Origin::signed(alice),
+            Ticker::try_from(&token_names[1][..]).unwrap(),
+            amount.into(), // convert to u128
+            initialized_asset_tx,
+        )
+        .unwrap();
+    })
+}
+
+#[test]
 fn account_create_tx() {
     ExtBuilder::default().build().execute_with(|| {
         // Simulating the case were issuers have registered some tickers and therefore the list of
@@ -287,66 +349,4 @@ fn account_create_tx() {
         let stored_balance = scrt_account.enc_keys.scrt.decrypt(&stored_balance).unwrap();
         assert_eq!(stored_balance, 0);
     });
-}
-
-#[test]
-fn issue_tokens() {
-    ExtBuilder::default().build().execute_with(|| {
-        // ------------ Setup
-        let token_names = [[2u8], [1u8], [5u8]];
-        for token_name in token_names.iter() {
-            create_confidential_token(
-                &token_name[..],
-                Ticker::try_from(&token_name[..]).unwrap(),
-                AccountKeyring::Bob.public(),
-            );
-        }
-
-        let valid_asset_ids: Vec<AssetId> = ConfidentialAsset::confidential_tickers();
-
-        let (scrt_account, mercat_account_tx) = gen_account(
-            0, // Transaction id. Not important in this test.
-            [10u8; 32],
-            &token_names[1][..],
-            valid_asset_ids,
-        );
-
-        let alice = AccountKeyring::Alice.public();
-        let alice_id = register_keyring_account(AccountKeyring::Alice).unwrap();
-
-        ConfidentialAsset::validate_mercat_account(
-            Origin::signed(alice),
-            mercat_account_tx.clone(),
-        )
-        .unwrap();
-
-        // ------------- START: Computations that will happen in Alice's Wallet ----------
-        let amount: u32 = 11; // mercat amounts are 32 bit integers.
-        let mut rng = StdRng::from_seed([42u8; 32]);
-        let issuer_account = Account {
-            scrt: scrt_account,
-            pblc: mercat_account_tx.pub_account.clone(),
-        };
-
-        let initialized_asset_tx = AssetIssuer {}
-            .initialize_asset_transaction(
-                1, // Transaction id. Not important in this test.
-                &issuer_account,
-                &[],
-                amount,
-                &mut rng,
-            )
-            .unwrap();
-
-        // ------------- END: Computations that will happen in the Wallet ----------
-
-        // Wallet submits the transaction to the chain for verification.
-        ConfidentialAsset::mint_confidential_asset(
-            Origin::signed(alice),
-            &token_names[1][..],
-            amount.into(), // convert to u128
-            initialized_asset_tx,
-        )
-        .unwrap();
-    })
 }
