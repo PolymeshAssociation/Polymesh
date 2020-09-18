@@ -431,8 +431,8 @@
         },
         "ImplicitRequirementStatus": {
             "_enum": {
-                "Active":"",
-                "Inactive":""
+                "Active": "",
+                "Inactive": ""
             }
         },
         "Condition": {
@@ -510,7 +510,8 @@
             "id": "PipId",
             "url": "Option<Url>",
             "description": "Option<PipDescription>",
-            "created_at": "BlockNumber"
+            "created_at": "BlockNumber",
+            "transaction_version": "u32"
         },
         "Proposer": {
             "_enum": {
