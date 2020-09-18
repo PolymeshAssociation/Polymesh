@@ -46,11 +46,10 @@ async function authorizeJoinToIdentities(api, accounts, dids, secondary_accounts
         last_auth_id = auths[i][1].auth_id.toNumber()
       }
     }
-    let nonceObj = {nonce: reqImports.nonces.get(secondary_accounts[i].address)};
+    
     const transaction = api.tx.identity.joinIdentityAsKey(last_auth_id);
-    const result = await reqImports.sendTransaction(transaction, secondary_accounts[i], nonceObj);
-    const passed = result.findRecord('system', 'ExtrinsicSuccess');
-    if (passed) reqImports.fail_count--;
+    let tx = await reqImports.sendTx(secondary_accounts[i], transaction);
+    if(tx !== -1) reqImports.fail_count--;
   }
 
   return dids;

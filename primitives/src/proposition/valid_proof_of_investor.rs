@@ -68,7 +68,7 @@ mod tests {
     use super::*;
     use crate::{
         proposition::{exists, has_valid_proof_of_investor},
-        Claim, Context, InvestorUid, InvestorZKProofData,
+        Claim, Context, InvestorUid, InvestorZKProofData, Scope,
     };
     use cryptography::claim_proofs::{compute_cdd_id, compute_scope_id};
     use sp_std::convert::{From, TryFrom};
@@ -78,9 +78,8 @@ mod tests {
         let investor_id = IdentityId::from(100);
         let investor_uid = InvestorUid::from(b"inv0".as_ref());
         let asset_ticker = Ticker::try_from(b"1".as_ref()).unwrap();
-        let asset_id = IdentityId::try_from(asset_ticker.as_slice()).unwrap();
 
-        let exists_affiliate_claim = Claim::Affiliate(asset_id);
+        let exists_affiliate_claim = Claim::Affiliate(Scope::Ticker(asset_ticker));
         let proposition =
             exists(&exists_affiliate_claim).and(has_valid_proof_of_investor(asset_ticker));
 
@@ -92,7 +91,7 @@ mod tests {
         assert_eq!(proposition.evaluate(&context), false);
 
         let context = Context {
-            claims: vec![Claim::Affiliate(asset_id)],
+            claims: vec![Claim::Affiliate(Scope::Ticker(asset_ticker))],
             id: investor_id,
             primary_issuance_agent: None,
         };
@@ -107,8 +106,8 @@ mod tests {
 
         let context = Context {
             claims: vec![
-                Claim::Affiliate(asset_id),
-                Claim::InvestorZKProof(asset_id, scope_id, cdd_id, proof),
+                Claim::Affiliate(Scope::Ticker(asset_ticker)),
+                Claim::InvestorZKProof(Scope::Ticker(asset_ticker), scope_id, cdd_id, proof),
             ],
             id: investor_id,
             primary_issuance_agent: None,

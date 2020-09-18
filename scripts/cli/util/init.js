@@ -313,10 +313,9 @@ async function createClaimCompliance(api, accounts, dids, prepend) {
   const ticker = `token${prepend}0`.toUpperCase();
   assert(ticker.length <= 12, "Ticker cannot be longer than 12 characters");
 
-  const asset_did = tickerToDid(ticker);
 
-  let senderConditions = senderConditions1(dids[1], asset_did);
-  let receiverConditions = receiverConditions1(dids[1], asset_did);
+  let senderConditions = senderConditions1(dids[1], { "Ticker": ticker });
+  let receiverConditions = receiverConditions1(dids[1], { "Ticker": ticker });
 
   let nonceObj = { nonce: nonces.get(accounts[0].address) };
   const transaction = api.tx.complianceManager.addComplianceRequirement(
@@ -504,25 +503,32 @@ async function createVenue(api, sender) {
   return venueCounter;
 }
 
-async function authorizeInstruction(api, sender, instructionCounter) {
+function getDefaultPortfolio(did) {
+  return { "did": did, "kind": "Default" };
+}
+
+async function authorizeInstruction(api, sender, instructionCounter, did) {
   const transaction = await api.tx.settlement.authorizeInstruction(
-    instructionCounter
+    instructionCounter,
+    [getDefaultPortfolio(did)]
   );
 
   await sendTx(sender, transaction);
 }
 
-async function unauthorizeInstruction(api, sender, instructionCounter) {
+async function unauthorizeInstruction(api, sender, instructionCounter, did) {
   const transaction = await api.tx.settlement.unauthorizeInstruction(
-    instructionCounter
+    instructionCounter,
+    [getDefaultPortfolio(did)]
   );
 
   await sendTx(sender, transaction);
 }
 
-async function rejectInstruction(api, sender, instructionCounter) {
+async function rejectInstruction(api, sender, instructionCounter, did) {
   const transaction = await api.tx.settlement.rejectInstruction(
-    instructionCounter
+    instructionCounter,
+    [getDefaultPortfolio(did)]
   );
 
   await sendTx(sender, transaction);

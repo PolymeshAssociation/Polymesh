@@ -57,7 +57,6 @@ use frame_support::{
     weights::{DispatchClass, GetDispatchInfo, Weight},
     Parameter,
 };
-use frame_system as system;
 use frame_system::{ensure_root, ensure_signed, RawOrigin};
 use polymesh_common_utilities::{
     balances::CheckCdd, identity::AuthorizationNonce, identity::Trait as IdentityTrait,

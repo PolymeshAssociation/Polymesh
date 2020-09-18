@@ -18,6 +18,7 @@ use crate::{
         balances,
         group::GroupTrait,
         multisig::MultiSigSubTrait,
+        portfolio::PortfolioSubTrait,
         transaction_payment::{CddAndFeeDetails, ChargeTxFee},
         CommonTrait,
     },
@@ -94,6 +95,8 @@ pub trait Trait: CommonTrait + pallet_timestamp::Trait + balances::Trait {
         + GetDispatchInfo;
     /// MultiSig module
     type MultiSig: MultiSigSubTrait<Self::AccountId>;
+    /// Portfolio module. Required to accept portfolio custody transfers.
+    type Portfolio: PortfolioSubTrait<Self::Balance>;
     /// Group module
     type CddServiceProviders: GroupTrait<Self::Moment>;
     /// Balances module

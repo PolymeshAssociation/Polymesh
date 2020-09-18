@@ -15,7 +15,7 @@
 
 //! Data types and definitions of jurisdictions.
 
-use crate::migrate::Migrate;
+use crate::migrate::{Empty, Migrate};
 use codec::{Decode, Encode};
 use core::str;
 use polymesh_primitives_derive::VecU8StrongTyped;
@@ -32,7 +32,8 @@ pub struct JurisdictionName(pub Vec<u8>);
 
 impl Migrate for JurisdictionName {
     type Into = CountryCode;
-    fn migrate(self) -> Option<Self::Into> {
+    type Context = Empty;
+    fn migrate(self, _: Self::Context) -> Option<Self::Into> {
         str::from_utf8(&self.0).ok().and_then(CountryCode::by_any)
     }
 }

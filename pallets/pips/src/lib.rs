@@ -94,7 +94,7 @@ use frame_support::{
     dispatch::{DispatchError, DispatchResult},
     ensure,
     storage::IterableStorageMap,
-    traits::{Currency, EnsureOrigin, LockIdentifier, WithdrawReasons},
+    traits::{Currency, EnsureOrigin, Get, LockIdentifier, WithdrawReasons},
     weights::{DispatchClass, Pays, Weight},
 };
 use frame_system::{self as system, ensure_signed};
@@ -119,6 +119,7 @@ use sp_runtime::traits::{
     BlakeTwo256, CheckedAdd, CheckedSub, Dispatchable, Hash, Saturating, Zero,
 };
 use sp_std::{convert::From, prelude::*};
+use sp_version::RuntimeVersion;
 
 const PIPS_LOCK_ID: LockIdentifier = *b"pips    ";
 
@@ -141,13 +142,19 @@ pub struct PipDescription(pub Vec<u8>);
 /// Represents a proposal
 #[derive(Encode, Decode, Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "std", derive(Debug))]
-pub struct Pip<Proposal> {
+pub struct Pip<T: Trait> {
     /// The proposal's unique id.
     pub id: PipId,
     /// The proposal being voted on.
-    pub proposal: Proposal,
+    pub proposal: T::Proposal,
     /// The latest state
     pub state: ProposalState,
+    /// The issuer of `propose`.
+    pub proposer: Proposer<T::AccountId>,
+    /// The block until which the PIP is cooling off.
+    /// During the period, the `proposer` can amend details.
+    /// After the period, people can vote on community PIPs.
+    pub cool_off_until: T::BlockNumber,
 }
 
 /// A result of execution of get_votes.
@@ -197,17 +204,20 @@ pub enum Proposer<AccountId> {
 #[derive(Encode, Decode, Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "std", derive(Debug))]
 pub struct PipsMetadata<T: Trait> {
-    /// They creator
-    pub proposer: Proposer<T::AccountId>,
     /// The proposal's unique id.
     pub id: PipId,
     /// The proposal url for proposal discussion.
     pub url: Option<Url>,
     /// The proposal description.
     pub description: Option<PipDescription>,
-    /// This proposal allows any changes
-    /// During Cool-off period, proposal owner can amend any PIP detail or cancel the entire
-    pub cool_off_until: T::BlockNumber,
+    /// The block when the PIP was made.
+    pub created_at: T::BlockNumber,
+    /// Assuming the runtime has a given `rv: RuntimeVersion` at the point of `Pips::propose`,
+    /// then this field contains `rv.transaction_version`.
+    ///
+    /// Currently, this is only used for off-chain purposes to highlight any differences
+    /// in the proposal's transaction version from the current one.
+    pub transaction_version: u32,
 }
 
 /// For keeping track of proposal being voted on.
@@ -276,6 +286,9 @@ pub struct DepositInfo<AccountId, Balance> {
     pub amount: Balance,
 }
 
+/// ID of the taken snapshot in a sequence.
+pub type SnapshotId = u32;
+
 /// A snapshot's metadata, containing when it was created and who triggered it.
 /// The priority queue is stored separately (see `SnapshottedPip`).
 #[derive(Encode, Decode, Clone, PartialEq, Eq)]
@@ -285,6 +298,8 @@ pub struct SnapshotMetadata<T: Trait> {
     pub created_at: T::BlockNumber,
     /// Who triggered this snapshot? Should refer to someone in the GC.
     pub made_by: T::AccountId,
+    /// Unique ID of this snapshot.
+    pub id: SnapshotId,
 }
 
 /// A PIP in the snapshot's priority queue for consideration by the GC.
@@ -322,7 +337,9 @@ pub trait Trait:
     frame_system::Trait + pallet_timestamp::Trait + IdentityTrait + CommonTrait
 {
     /// Currency type for this module.
-    type Currency: LockableCurrencyExt<Self::AccountId, Moment = Self::BlockNumber>;
+    // TODO(centril): Remove `ReservableCurrency` bound once `on_runtime_upgrade` is nixed.
+    type Currency: LockableCurrencyExt<Self::AccountId, Moment = Self::BlockNumber>
+        + frame_support::traits::ReservableCurrency<Self::AccountId>;
 
     /// Origin for proposals.
     type CommitteeOrigin: EnsureOrigin<Self::Origin>;
@@ -371,6 +388,9 @@ decl_storage! {
         /// Proposals so far. id can be used to keep track of PIPs off-chain.
         PipIdSequence get(fn pip_id_sequence): u32;
 
+        /// Snapshots so far. id can be used to keep track of snapshots off-chain.
+        SnapshotIdSequence get(fn snapshot_id_sequence): u32;
+
         /// Total count of current pending or scheduled PIPs.
         ActivePipCount get(fn active_pip_count): u32;
 
@@ -383,7 +403,7 @@ decl_storage! {
 
         /// Actual proposal for a given id, if it's current.
         /// proposal id -> proposal
-        pub Proposals get(fn proposals): map hasher(twox_64_concat) PipId => Option<Pip<T::Proposal>>;
+        pub Proposals get(fn proposals): map hasher(twox_64_concat) PipId => Option<Pip<T>>;
 
         /// PolymeshVotes on a given proposal, if it is ongoing.
         /// proposal id -> vote count
@@ -413,6 +433,10 @@ decl_storage! {
         /// The number of times a certain PIP has been skipped.
         /// Once a (configurable) threshhold is exceeded, a PIP cannot be skipped again.
         pub PipSkipCount get(fn pip_skip_count): map hasher(twox_64_concat) PipId => SkippedCount;
+
+        /// All existing PIPs where the proposer is a committee.
+        /// This list is a cache of all ids in `Proposals` with `Proposer::Committee(_)`.
+        pub CommitteePips get(fn committee_pips): Vec<PipId>;
     }
 }
 
@@ -469,15 +493,15 @@ decl_event!(
         /// (id, total amount)
         ProposalRefund(IdentityId, PipId, Balance),
         /// The snapshot was cleared.
-        SnapshotCleared(IdentityId),
+        SnapshotCleared(IdentityId, SnapshotId),
         /// A new snapshot was taken.
-        SnapshotTaken(IdentityId),
+        SnapshotTaken(IdentityId, SnapshotId),
         /// A PIP in the snapshot queue was skipped.
         /// (gc_did, pip_id, new_skip_count)
         PipSkipped(IdentityId, PipId, SkippedCount),
         /// Results (e.g., approved, rejected, and skipped), were enacted for some PIPs.
-        /// (gc_did, skipped_pips_with_new_count, rejected_pips, approved_pips)
-        SnapshotResultsEnacted(IdentityId, Vec<(PipId, SkippedCount)>, Vec<PipId>, Vec<PipId>),
+        /// (gc_did, snapshot_id_opt, skipped_pips_with_new_count, rejected_pips, approved_pips)
+        SnapshotResultsEnacted(IdentityId, Option<SnapshotId>, Vec<(PipId, SkippedCount)>, Vec<PipId>, Vec<PipId>),
     }
 );
 
@@ -532,6 +556,56 @@ decl_module! {
         type Error = Error<T>;
 
         fn deposit_event() = default;
+
+        fn on_runtime_upgrade() -> Weight {
+            // Larger goal here is to clear Governance V1.
+            use frame_support::{
+                storage::{unhashed, IterableStorageDoubleMap, migration::StorageIterator},
+                traits::ReservableCurrency,
+                Twox128, StorageHasher
+            };
+
+            // 1. Start with refunding all deposits.
+            // As we've `drain`ed  `Deposits`, we need not do so again below.
+            for (_, _, depo) in <Deposits<T>>::drain() {
+                <T as Trait>::Currency::unreserve(&depo.owner, depo.amount);
+            }
+
+            // 2. Then we clear various storage items that were present on V1.
+            // For future reference, the storage items are defined in:
+            // https://github.com/PolymathNetwork/Polymesh/blob/0047b2570e7ac57771b4153d25867166e8091b9a/pallets/pips/src/lib.rs#L308-L357
+
+            // 2a) Clear all the `map`s and `double_map`s by fully consuming a draining iterator.
+            for item in &[
+                "ProposalMetadata",
+                "ProposalsMaturingAt",
+                "Proposals",
+                "ProposalResult",
+                "Referendums",
+                "ScheduledReferendumsAt",
+                "ProposalVotes",
+            ] {
+                StorageIterator::<()>::new(b"Pips", item.as_bytes()).drain().for_each(drop)
+            }
+
+            // 2b) Reset the PIP ID sequence to `0`.
+            PipIdSequence::kill();
+
+            // 2c) Remove items no longer used in V2.
+            fn storage_value_final_key(module: &[u8], item: &[u8]) -> [u8; 32] {
+                let mut final_key = [0u8; 32];
+                final_key[0..16].copy_from_slice(&Twox128::hash(module));
+                final_key[16..32].copy_from_slice(&Twox128::hash(item));
+                final_key
+            }
+            for item in &["ProposalDuration", "QuorumThreshold"] {
+                unhashed::kill(&storage_value_final_key(b"Pips", item.as_bytes()));
+            }
+
+            // Done; we've cleared all V1 storage needed; V2 can now be filled in.
+            // As for the weight, clearing costs much more than this, but let's pretend.
+            0
+        }
 
         /// Change whether completed PIPs are pruned. Can only be called by governance council
         ///
@@ -608,14 +682,13 @@ decl_module! {
         #[weight = (1_850_000_000, DispatchClass::Operational, Pays::Yes)]
         pub fn propose(
             origin,
-            proposer: Proposer<T::AccountId>,
             proposal: Box<T::Proposal>,
             deposit: BalanceOf<T>,
             url: Option<Url>,
             description: Option<PipDescription>,
         ) -> DispatchResult {
-            // 1. Ensure it's really the `proposer`.
-            Self::ensure_signed_by(origin, &proposer)?;
+            // 1. Infer the proposer from `origin`.
+            let proposer = Self::ensure_infer_proposer(origin)?;
 
             let did = Self::current_did_or_missing()?;
 
@@ -642,24 +715,27 @@ decl_module! {
 
             // 4. Construct and add PIP to storage.
             let id = Self::next_pip_id();
-            ActivePipCount::mutate(|count| *count += 1);
-            let cool_off_until = <system::Module<T>>::block_number() + Self::proposal_cool_off_period();
+            let created_at = <system::Module<T>>::block_number();
             let proposal_metadata = PipsMetadata {
-                proposer: proposer.clone(),
                 id,
+                created_at,
                 url: url.clone(),
                 description: description.clone(),
-                cool_off_until: cool_off_until,
+                transaction_version: <T::Version as Get<RuntimeVersion>>::get().transaction_version,
             };
             <ProposalMetadata<T>>::insert(id, proposal_metadata);
 
             let proposal_data = Self::reportable_proposal_data(&*proposal);
+            let cool_off_until = created_at + Self::proposal_cool_off_period();
             let pip = Pip {
                 id,
                 proposal: *proposal,
                 state: ProposalState::Pending,
+                proposer: proposer.clone(),
+                cool_off_until,
             };
             <Proposals<T>>::insert(id, pip);
+            ActivePipCount::mutate(|count| *count += 1);
 
             // 5. Record the deposit and as a signal if we have a community PIP.
             if let Proposer::Community(ref proposer) = proposer {
@@ -676,6 +752,8 @@ decl_module! {
                         debug::error!("The counters of voting (id={}) have an overflow during the 1st vote", id);
                         vote_error
                     })?;
+            } else {
+                CommitteePips::append(id);
             }
 
             // 6. Emit the event.
@@ -765,11 +843,11 @@ decl_module! {
         #[weight = 1_000_000_000]
         pub fn vote(origin, id: PipId, aye_or_nay: bool, deposit: BalanceOf<T>) {
             let voter = ensure_signed(origin)?;
-            let meta = Self::proposal_metadata(id)
+            let pip = Self::proposals(id)
                 .ok_or_else(|| Error::<T>::NoSuchProposal)?;
 
             // 1. Proposal must be from the community.
-            let proposer = match meta.proposer {
+            let proposer = match pip.proposer {
                 Proposer::Committee(_) => return Err(Error::<T>::NotFromCommunity.into()),
                 Proposer::Community(p) => p,
             };
@@ -781,7 +859,7 @@ decl_module! {
             } else {
                 // 2b. Only proposer can vote during PIP's cool-off period.
                 let curr_block_number = <system::Module<T>>::block_number();
-                ensure!(meta.cool_off_until <= curr_block_number, Error::<T>::ProposalOnCoolOffPeriod);
+                ensure!(pip.cool_off_until <= curr_block_number, Error::<T>::ProposalOnCoolOffPeriod);
             }
 
             // 3. Proposal must be pending.
@@ -827,10 +905,10 @@ decl_module! {
             Self::is_proposal_state(id, ProposalState::Pending)?;
 
             // 3. Proposal must not be cooling-off and must be by committee.
-            let meta = Self::proposal_metadata(id).ok_or_else(|| Error::<T>::NoSuchProposal)?;
+            let pip = Self::proposals(id).ok_or_else(|| Error::<T>::NoSuchProposal)?;
             let curr_block_number = <system::Module<T>>::block_number();
-            ensure!(meta.cool_off_until <= curr_block_number, Error::<T>::ProposalOnCoolOffPeriod);
-            ensure!(matches!(meta.proposer, Proposer::Committee(_)), Error::<T>::NotByCommittee);
+            ensure!(pip.cool_off_until <= curr_block_number, Error::<T>::ProposalOnCoolOffPeriod);
+            ensure!(matches!(pip.proposer, Proposer::Committee(_)), Error::<T>::NotByCommittee);
 
             // 4. All is good, schedule PIP for execution.
             Self::schedule_pip_for_execution(GC_DID, id);
@@ -919,12 +997,15 @@ decl_module! {
             let did = Context::current_identity_or::<Identity<T>>(&actor)?;
             ensure!(T::GovernanceCommittee::is_member(&did), Error::<T>::NotACommitteeMember);
 
-            // 2. Clear the snapshot.
-            <SnapshotMeta<T>>::kill();
-            <SnapshotQueue<T>>::kill();
+            if let Some(meta) = <SnapshotMeta<T>>::get() {
+                // 2. Clear the snapshot.
+                <SnapshotMeta<T>>::kill();
+                <SnapshotQueue<T>>::kill();
 
-            // 3. Emit event.
-            Self::deposit_event(RawEvent::SnapshotCleared(did));
+                // 3. Emit event.
+                Self::deposit_event(RawEvent::SnapshotCleared(did, meta.id));
+            }
+
             Ok(())
         }
 
@@ -943,16 +1024,11 @@ decl_module! {
             // 2. Fetch intersection of pending && non-cooling PIPs and aggregate their votes.
             let created_at = <system::Module<T>>::block_number();
             let mut queue = <Proposals<T>>::iter_values()
-                // Only keep pending PIPs.
+                // Only keep non-cooling pending community PIPs.
                 .filter(|pip| matches!(pip.state, ProposalState::Pending))
+                .filter(|pip| matches!(pip.proposer, Proposer::Community(_)))
+                .filter(|pip| pip.cool_off_until <= created_at)
                 .map(|pip| pip.id)
-                // Only keep community PIPs not cooling-off.
-                .filter(|id| {
-                    <ProposalMetadata<T>>::get(id)
-                        .filter(|meta| meta.cool_off_until <= created_at)
-                        .filter(|meta| matches!(meta.proposer, Proposer::Community(_)))
-                        .is_some()
-                })
                 // Aggregate the votes; `true` denotes a positive sign.
                 .map(|id| {
                     let VotingResult { ayes_stake, nays_stake, .. } = <ProposalResult<T>>::get(id);
@@ -983,11 +1059,12 @@ decl_module! {
             });
 
             // 4. Commit the new snapshot.
-            <SnapshotMeta<T>>::set(Some(SnapshotMetadata { created_at, made_by }));
+            let id = SnapshotIdSequence::mutate(|id| mem::replace(id, *id + 1));
+            <SnapshotMeta<T>>::set(Some(SnapshotMetadata { created_at, made_by, id }));
             <SnapshotQueue<T>>::set(queue);
 
             // 5. Emit event.
-            Self::deposit_event(RawEvent::SnapshotTaken(did));
+            Self::deposit_event(RawEvent::SnapshotTaken(did, id));
             Ok(())
         }
 
@@ -1063,7 +1140,8 @@ decl_module! {
                     Self::schedule_pip_for_execution(GC_DID, pip_id);
                 }
 
-                let event = RawEvent::SnapshotResultsEnacted(GC_DID, to_bump_skipped, to_reject, to_approve);
+                let id = Self::snapshot_metadata().map(|m| m.id);
+                let event = RawEvent::SnapshotResultsEnacted(GC_DID, id, to_bump_skipped, to_reject, to_approve);
                 Self::deposit_event(event);
 
                 Ok(())
@@ -1082,27 +1160,27 @@ decl_module! {
 }
 
 impl<T: Trait> Module<T> {
-    /// Ensure that `origin` represents a signed extrinsic (i.e. transaction)
-    /// and confirms that the account is the same as the given `proposer`.
+    /// Ensure that `origin` represents one of:
+    /// - a signed extrinsic (i.e. transaction), and infer the account id, as a community proposer.
+    /// - a committee, where the committee is also inferred.
     ///
-    /// For example, if `proposer` denotes a committee,
-    /// then `origin` is checked against the committee's origin.
+    /// Returns the inferred proposer.
     ///
     /// # Errors
-    /// * `BadOrigin` unless the checks above pass.
-    fn ensure_signed_by(origin: T::Origin, proposer: &Proposer<T::AccountId>) -> DispatchResult {
-        match proposer {
-            Proposer::Community(acc) => {
-                ensure!(acc == &ensure_signed(origin)?, DispatchError::BadOrigin)
-            }
-            Proposer::Committee(Committee::Technical) => {
-                T::TechnicalCommitteeVMO::ensure_origin(origin)?;
-            }
-            Proposer::Committee(Committee::Upgrade) => {
-                T::UpgradeCommitteeVMO::ensure_origin(origin)?;
-            }
-        }
-        Ok(())
+    /// * `BadOrigin` if not a signed extrinsic.
+    fn ensure_infer_proposer(
+        origin: T::Origin,
+    ) -> Result<Proposer<T::AccountId>, sp_runtime::traits::BadOrigin> {
+        ensure_signed(origin.clone())
+            .map(Proposer::Community)
+            .or_else(|_| {
+                T::TechnicalCommitteeVMO::ensure_origin(origin.clone())
+                    .map(|_| Committee::Technical)
+                    .or_else(|_| {
+                        T::UpgradeCommitteeVMO::ensure_origin(origin).map(|_| Committee::Upgrade)
+                    })
+                    .map(Proposer::Committee)
+            })
     }
 
     /// Returns the current identity or emits `MissingCurrentIdentity`.
@@ -1110,7 +1188,8 @@ impl<T: Trait> Module<T> {
         Context::current_identity::<Identity<T>>().ok_or_else(|| Error::<T>::MissingCurrentIdentity)
     }
 
-    /// Ensure that proposer is owner of the proposal which must be in the cool off period.
+    /// Ensure that the proposer inferred via `origin` is the owner of the proposal,
+    /// which must be in the cool off period.
     ///
     /// # Errors
     /// * `ProposalIsImmutable`: A Proposal is mutable only during its cool off period.
@@ -1120,8 +1199,9 @@ impl<T: Trait> Module<T> {
         id: PipId,
     ) -> Result<Proposer<T::AccountId>, DispatchError> {
         // 1. Only owner can act on proposal.
-        let meta = Self::proposal_metadata(id).ok_or_else(|| Error::<T>::NoSuchProposal)?;
-        Self::ensure_signed_by(origin, &meta.proposer)?;
+        let pip = Self::proposals(id).ok_or_else(|| Error::<T>::NoSuchProposal)?;
+        let proposer = Self::ensure_infer_proposer(origin)?;
+        ensure!(proposer == pip.proposer, DispatchError::BadOrigin);
 
         // 2. Check that the proposal is pending.
         Self::is_proposal_state(id, ProposalState::Pending)?;
@@ -1129,11 +1209,11 @@ impl<T: Trait> Module<T> {
         // 3. Proposal is *ONLY* alterable during its cool-off period.
         let curr_block_number = <system::Module<T>>::block_number();
         ensure!(
-            meta.cool_off_until > curr_block_number,
+            pip.cool_off_until > curr_block_number,
             Error::<T>::ProposalIsImmutable
         );
 
-        Ok(meta.proposer)
+        Ok(pip.proposer)
     }
 
     /// Runs the following procedure:
@@ -1187,7 +1267,7 @@ impl<T: Trait> Module<T> {
     /// Remove the PIP with `id` from the snapshot if it is there.
     fn maybe_unsnapshot_pip(id: PipId, state: ProposalState) {
         if let ProposalState::Pending = state {
-            let cool_until = <ProposalMetadata<T>>::get(id).unwrap().cool_off_until;
+            let cool_until = Self::proposals(id).unwrap().cool_off_until;
             if cool_until <= <system::Module<T>>::block_number()
                 && <SnapshotMeta<T>>::get()
                     .filter(|m| cool_until <= m.created_at)
@@ -1212,6 +1292,9 @@ impl<T: Trait> Module<T> {
             <ProposalResult<T>>::remove(id);
             <ProposalVotes<T>>::remove_prefix(id);
             <ProposalMetadata<T>>::remove(id);
+            if let Some(Proposer::Committee(_)) = Self::proposals(id).map(|p| p.proposer) {
+                CommitteePips::mutate(|list| list.retain(|&i| i != id));
+            }
             <Proposals<T>>::remove(id);
             PipSkipCount::remove(id);
         }
@@ -1324,16 +1407,16 @@ impl<T: Trait> Module<T> {
 
     /// Retrieve proposals made by `proposer`.
     pub fn proposed_by(proposer: Proposer<T::AccountId>) -> Vec<PipId> {
-        <ProposalMetadata<T>>::iter()
-            .filter(|(_, meta)| meta.proposer == proposer)
-            .map(|(_, meta)| meta.id)
+        <Proposals<T>>::iter()
+            .filter(|(_, pip)| pip.proposer == proposer)
+            .map(|(_, pip)| pip.id)
             .collect()
     }
 
     /// Retrieve proposals `address` voted on
     pub fn voted_on(address: T::AccountId) -> Vec<PipId> {
-        <ProposalMetadata<T>>::iter()
-            .filter_map(|(_, meta)| Self::proposal_vote(meta.id, &address).map(|_| meta.id))
+        <Proposals<T>>::iter()
+            .filter_map(|(_, pip)| Self::proposal_vote(pip.id, &address).map(|_| pip.id))
             .collect::<Vec<_>>()
     }
 
@@ -1341,11 +1424,11 @@ impl<T: Trait> Module<T> {
     pub fn voting_history_by_address(
         who: T::AccountId,
     ) -> HistoricalVotingByAddress<Vote<BalanceOf<T>>> {
-        <ProposalMetadata<T>>::iter()
-            .filter_map(|(_, meta)| {
+        <Proposals<T>>::iter()
+            .filter_map(|(_, pip)| {
                 Some(VoteByPip {
-                    pip: meta.id,
-                    vote: Self::proposal_vote(meta.id, &who)?,
+                    pip: pip.id,
+                    vote: Self::proposal_vote(pip.id, &who)?,
                 })
             })
             .collect::<Vec<_>>()
