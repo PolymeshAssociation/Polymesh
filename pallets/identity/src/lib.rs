@@ -222,6 +222,7 @@ decl_storage! {
                 let expiry = expiry.iter().map(|m| T::Moment::from(*m as u32)).next();
                 <Module<T>>::unsafe_register_id(primary_account_id.clone(), did);
                 <Module<T>>::base_add_claim( did, cdd_claim, issuer, expiry);
+                //debug::info!( "Add CDD Claims from {} to {}", issuer, did);
             }
 
             for &(ref signer_id, did) in &config.secondary_keys {

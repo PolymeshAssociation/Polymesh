@@ -253,7 +253,7 @@ impl<'a> Iterator for BlockContentIterator<'a> {
 
         let signed = self.keyring.sign(
             CheckedExtrinsic {
-                signed: Some((sender, signed_extra(0, 1))),
+                signed: Some((sender, signed_extra(0, 0))),
                 function: match self.content.block_type {
                     BlockType::RandomTransfers => Call::Balances(BalancesCall::transfer(
                         pallet_indices::address::Address::Id(receiver),

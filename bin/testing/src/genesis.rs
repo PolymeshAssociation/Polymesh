@@ -62,7 +62,9 @@ pub fn config_endowed(support_changes_trie: bool, extra_endowed: Vec<AccountId>)
             code: node_runtime::WASM_BINARY.to_vec(),
         }),
         pallet_indices: Some(IndicesConfig { indices: vec![] }),
-        balances: Some(BalancesConfig { balances: endowed }),
+        balances: Some(BalancesConfig {
+            balances: endowed.clone(),
+        }),
         pallet_session: Some(SessionConfig {
             keys: vec![
                 (
@@ -106,63 +108,19 @@ pub fn config_endowed(support_changes_trie: bool, extra_endowed: Vec<AccountId>)
         pallet_sudo: Some(Default::default()),
         asset: Some(Default::default()),
         identity: {
-			let initial_identities = endowed.enumerate().map(|(account, i)| (
-				alice(),
-				IdentityId::from(1),
-				IdentityId::from(1),
-				InvestorUid::from(b"uid1".as_ref()),
-				None,
-			)).collect::<Vec<_>>();
-			for (account, i) in endowed.enumerate() {
-
-			}
-            let initial_identities = vec![
-                // (primary_account_id, service provider did, target did, expiry time of CustomerDueDiligence claim i.e 10 days is ms)
-                // Service providers
-                (
-                    alice(),
-                    IdentityId::from(1),
-                    IdentityId::from(1),
-                    InvestorUid::from(b"uid1".as_ref()),
-                    None,
-                ),
-                (
-                    bob(),
-                    IdentityId::from(2),
-                    IdentityId::from(2),
-                    InvestorUid::from(b"uid2".as_ref()),
-                    None,
-                ),
-                (
-                    charlie(),
-                    IdentityId::from(3),
-                    IdentityId::from(3),
-                    InvestorUid::from(b"uid3".as_ref()),
-                    None,
-                ),
-                // Governance committee members
-                (
-                    dave(),
-                    IdentityId::from(1),
-                    IdentityId::from(4),
-                    InvestorUid::from(b"uid4".as_ref()),
-                    None,
-                ),
-                (
-                    eve(),
-                    IdentityId::from(2),
-                    IdentityId::from(5),
-                    InvestorUid::from(b"uid5".as_ref()),
-                    None,
-                ),
-                (
-                    ferdie(),
-                    IdentityId::from(3),
-                    IdentityId::from(6),
-                    InvestorUid::from(b"uid6".as_ref()),
-                    None,
-                ),
-            ];
+            let initial_identities = endowed
+                .into_iter()
+                .enumerate()
+                .map(|(i, (account, _))| {
+                    (
+                        account,
+                        IdentityId::from(1usize as u128),
+                        IdentityId::from(i as u128),
+                        InvestorUid::from([i as u8; 32]),
+                        None,
+                    )
+                })
+                .collect::<Vec<_>>();
 
             Some(IdentityConfig {
                 identities: initial_identities,
@@ -171,30 +129,11 @@ pub fn config_endowed(support_changes_trie: bool, extra_endowed: Vec<AccountId>)
         },
         bridge: Some(Default::default()),
         pallet_pips: Some(Default::default()),
-        group_Instance1: Some(node_runtime::runtime::CommitteeMembershipConfig {
-            active_members_limit: 20,
-            active_members: vec![
-                IdentityId::from(3),
-                IdentityId::from(4),
-                IdentityId::from(5),
-                IdentityId::from(6),
-            ],
-            phantom: Default::default(),
-        }),
-        committee_Instance1: Some(PolymeshCommitteeConfig {
-            vote_threshold: (1, 2),
-            members: vec![],
-            release_coordinator: IdentityId::from(6),
-            phantom: Default::default(),
-        }),
+        group_Instance1: Some(Default::default()),
+        committee_Instance1: Some(Default::default()),
         group_Instance2: Some(node_runtime::runtime::CddServiceProvidersConfig {
             active_members_limit: u32::MAX,
-            // sp1, sp2, first authority
-            active_members: vec![
-                IdentityId::from(1),
-                IdentityId::from(2),
-                IdentityId::from(6),
-            ],
+            active_members: vec![IdentityId::from(5u128), IdentityId::from(1usize as u128)],
             phantom: Default::default(),
         }),
         // Technical Committee:

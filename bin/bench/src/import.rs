@@ -155,7 +155,7 @@ impl core::Benchmark for ImportBenchmark {
                             // those 2 events per signed are:
                             //    - deposit event for charging transaction fee
                             //    - extrinsic success
-                            (self.block.extrinsics.len() - 1) * 2 + 1,
+                            (self.block.extrinsics.len() - 1) * 2 + 5,
                         );
                     }
                     _ => {}
