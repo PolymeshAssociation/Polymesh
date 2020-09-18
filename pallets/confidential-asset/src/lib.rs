@@ -188,7 +188,6 @@ decl_module! {
             origin,
             name: AssetName,
             ticker: Ticker,
-            _total_supply: T::Balance, // TODO: keeping it temporarily to let the tests compile
             divisible: bool,
             asset_type: AssetType,
             identifiers: Vec<(IdentifierType, AssetIdentifier)>,
@@ -205,7 +204,7 @@ decl_module! {
             Self::deposit_event(RawEvent::ConfidentialAssetCreated(
                 primary_owner_did,
                 ticker,
-                _total_supply,
+                Zero::zero(),
                 divisible,
                 asset_type,
                 primary_owner_did,
@@ -239,6 +238,11 @@ decl_module! {
         ) -> DispatchResult {
             let owner = ensure_signed(origin)?;
             let owner_did = Context::current_identity_or::<Identity<T>>(&owner)?;
+
+            // TODO: how to use `ensure!` in this pallet?
+            if !T::Asset::is_owner(&ticker, owner_did) {
+                return Err(Error::<T>::Unauthorized.into());
+            }
 
             //  TODO: get the divisibility state.
             if total_supply % ONE_UNIT.into() != 0.into() {
@@ -307,5 +311,8 @@ decl_error! {
 
         /// The balance values does not fit `u32`.
         TotalSupplyAboveU32Limit,
+
+        /// The user is not authorized.
+        Unauthorized,
     }
 }
