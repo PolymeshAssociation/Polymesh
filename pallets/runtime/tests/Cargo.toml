@@ -18,7 +18,6 @@ pallet-basic-sto = { path = "../../basic-sto", default-features = false }
 pallet-cdd-offchain-worker = { path = "../../cdd-offchain-worker", default-features = false }
 pallet-committee = { path = "../../committee", default-features = false }
 pallet-compliance-manager = { path = "../../compliance-manager", default-features = false }
-pallet-confidential = { path = "../../confidential", default-features = false }
 pallet-contracts = { git = "https://github.com/paritytech/substrate", tag = "v2.0.0-rc6", default-features = false }
 pallet-group = { path = "../../group", default-features = false }
 pallet-identity = { path = "../../identity", default-features = false }
