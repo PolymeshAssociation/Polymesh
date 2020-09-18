@@ -17,14 +17,14 @@ pallet-transaction-payment = { path = "../pallets/transaction-payment", default-
 
 # Substrate
 codec = { package = "parity-scale-codec", version = "1.2.0" }
-sp-core = {git = 'https://github.com/paritytech/substrate', default_features = false, branch = "at-add-dispatch-call" }
-sp-std = {git = 'https://github.com/paritytech/substrate', default_features = false, branch = "at-add-dispatch-call" }
-sp-runtime = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "at-add-dispatch-call" }
-sp-api = { git = 'https://github.com/paritytech/substrate', default-features = false, branch = "at-add-dispatch-call" }
-sp-blockchain = { git = 'https://github.com/paritytech/substrate', branch = "at-add-dispatch-call" }
-sp-rpc = { git = 'https://github.com/paritytech/substrate', branch = "at-add-dispatch-call" }
-frame-support = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "at-add-dispatch-call" }
-frame-system = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "at-add-dispatch-call" }
+sp-core = {git = 'https://github.com/paritytech/substrate', default_features = false, tag = "v2.0.0-rc6" }
+sp-std = {git = 'https://github.com/paritytech/substrate', default_features = false, tag = "v2.0.0-rc6" }
+sp-runtime = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0-rc6" }
+sp-api = { git = 'https://github.com/paritytech/substrate', default-features = false, tag = "v2.0.0-rc6" }
+sp-blockchain = { git = 'https://github.com/paritytech/substrate', tag = "v2.0.0-rc6" }
+sp-rpc = { git = 'https://github.com/paritytech/substrate', tag = "v2.0.0-rc6" }
+frame-support = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0-rc6" }
+frame-system = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0-rc6" }
 
 # Others
 jsonrpc-core = "14.0.5"

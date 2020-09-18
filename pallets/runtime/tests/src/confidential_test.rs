@@ -10,7 +10,8 @@ use pallet_confidential as confidential;
 use pallet_identity::{self as identity, Error};
 use polymesh_common_utilities::constants::ERC1400_TRANSFER_SUCCESS;
 use polymesh_primitives::{
-    Claim, Condition, ConditionType, IdentityId, InvestorUid, InvestorZKProofData, Ticker,
+    Claim, Condition, ConditionType, IdentityId, InvestorUid, InvestorZKProofData, PortfolioId,
+    Scope, Ticker,
 };
 
 use core::convert::TryFrom;
@@ -127,7 +128,7 @@ fn scope_claims_we() {
     ));
 
     // 2. Alice defines the asset complain compliance requirements.
-    let st_scope = IdentityId::try_from(st_id.as_slice()).unwrap();
+    let st_scope = Scope::Identity(IdentityId::try_from(st_id.as_slice()).unwrap());
     let sender_conditions = vec![];
     let receiver_conditions = vec![Condition::from(ConditionType::HasValidProofOfInvestor(
         st_id,
@@ -148,7 +149,7 @@ fn scope_claims_we() {
     let cdd_id_1 = compute_cdd_id(&cdd_claim_1).compress().to_bytes().into();
 
     let conf_scope_claim_1 =
-        Claim::InvestorZKProof(st_scope, scope_id, cdd_id_1, inv_1_proof.clone());
+        Claim::InvestorZKProof(st_scope.clone(), scope_id, cdd_id_1, inv_1_proof.clone());
 
     assert_ok!(Identity::add_claim(
         Origin::signed(inv_acc_1),
@@ -161,7 +162,8 @@ fn scope_claims_we() {
     let cdd_claim_2 = InvestorZKProofData::make_cdd_claim(&inv_did_2, &investor);
     let cdd_id_2 = compute_cdd_id(&cdd_claim_2).compress().to_bytes().into();
 
-    let conf_scope_claim_2 = Claim::InvestorZKProof(st_scope, scope_id, cdd_id_2, inv_2_proof);
+    let conf_scope_claim_2 =
+        Claim::InvestorZKProof(st_scope.clone(), scope_id, cdd_id_2, inv_2_proof);
     assert_ok!(Identity::add_claim(
         Origin::signed(inv_acc_2),
         inv_did_2,
@@ -172,13 +174,19 @@ fn scope_claims_we() {
     // 3. Transfer some tokens to Inv. 1 and 2.
     assert_eq!(Asset::balance_of(st_id, inv_did_1), 0);
     assert_ok!(Asset::unsafe_transfer(
-        alice_id, &st_id, alice_id, inv_did_1, 10
+        PortfolioId::default_portfolio(alice_id),
+        PortfolioId::default_portfolio(inv_did_1),
+        &st_id,
+        10
     ));
     assert_eq!(Asset::balance_of(st_id, inv_did_1), 10);
 
     assert_eq!(Asset::balance_of(st_id, inv_did_2), 0);
     assert_ok!(Asset::unsafe_transfer(
-        alice_id, &st_id, alice_id, inv_did_2, 20
+        PortfolioId::default_portfolio(alice_id),
+        PortfolioId::default_portfolio(inv_did_2),
+        &st_id,
+        20
     ));
     assert_eq!(Asset::balance_of(st_id, inv_did_2), 20);
 
@@ -216,7 +224,7 @@ fn scope_claims_we() {
         None,
     ));
 
-    let st_scope = IdentityId::try_from(st2_id.as_slice()).unwrap();
+    let st_scope = Scope::Identity(IdentityId::try_from(st2_id.as_slice()).unwrap());
     let corrupted_scope_claim = InvestorZKProofData::make_scope_claim(&st2_id, &investor);
     let corrupted_scope_id = compute_scope_id(&corrupted_scope_claim)
         .compress()
@@ -236,8 +244,8 @@ fn scope_claims_we() {
         Asset::_is_valid_transfer(
             &st2_id,
             AccountKeyring::Alice.public(),
-            Some(alice_id),
-            Some(inv_did_1),
+            PortfolioId::default_portfolio(alice_id),
+            PortfolioId::default_portfolio(inv_did_1),
             10
         )
         .map(|(a, _)| a),

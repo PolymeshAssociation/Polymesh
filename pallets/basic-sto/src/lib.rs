@@ -11,7 +11,7 @@ use codec::{Decode, Encode};
 use frame_support::{
     decl_error, decl_event, decl_module, decl_storage, dispatch::DispatchResult, ensure,
 };
-use frame_system::{self as system, ensure_signed};
+use frame_system::ensure_signed;
 use pallet_identity as identity;
 use pallet_settlement::{Leg, SettlementType};
 use polymesh_common_utilities::{
@@ -19,10 +19,9 @@ use polymesh_common_utilities::{
     traits::{asset::Trait as AssetTrait, identity::Trait as IdentityTrait, CommonTrait},
     Context,
 };
-use polymesh_primitives::{IdentityId, Ticker};
+use polymesh_primitives::{IdentityId, PortfolioId, Ticker};
 use sp_runtime::traits::{CheckedMul, Saturating};
-use sp_std::prelude::*;
-
+use sp_std::{collections::btree_set::BTreeSet, iter, prelude::*};
 type Identity<T> = identity::Module<T>;
 type Settlement<T> = pallet_settlement::Module<T>;
 
@@ -137,14 +136,14 @@ decl_module! {
             let legs = vec![
                 Leg {
                     // TODO: Replace with did that actually hold the offering token
-                    from: primary_issuance_agent,
-                    to: did,
+                    from: PortfolioId::default_portfolio(primary_issuance_agent),
+                    to: PortfolioId::default_portfolio(did),
                     asset: offering_token,
                     amount: offering_token_amount
                 },
                 Leg {
-                    from: did,
-                    to: primary_issuance_agent,
+                    from: PortfolioId::default_portfolio(did),
+                    to: PortfolioId::default_portfolio(primary_issuance_agent),
                     asset: fundraiser.raise_token,
                     amount: raise_token_amount
                 }
@@ -158,8 +157,11 @@ decl_module! {
                 legs
             )?;
 
-            Settlement::<T>::unsafe_authorize_instruction(primary_issuance_agent, instruction_id)?;
-            Settlement::<T>::authorize_instruction(origin, instruction_id).map_err(|err| err.error)?;
+            let pia_portfolios = iter::once(PortfolioId::default_portfolio(primary_issuance_agent)).collect::<BTreeSet<_>>();
+            Settlement::<T>::unsafe_authorize_instruction(primary_issuance_agent, instruction_id, pia_portfolios)?;
+
+            let sender_portfolios = iter::once(PortfolioId::default_portfolio(did)).collect::<BTreeSet<_>>();
+            Settlement::<T>::authorize_instruction(origin, instruction_id, sender_portfolios).map_err(|err| err.error)?;
 
             Self::deposit_event(
                 RawEvent::FundsRaised(did, offering_token, fundraiser.raise_token, offering_token_amount, raise_token_amount, fundraiser_id)

@@ -105,6 +105,10 @@
             "primary_key": "AccountId",
             "secondary_keys": "Vec<SecondaryKey>"
         },
+        "KeyIdentityData": {
+            "identity": "IdentityId",
+            "permissions": "Option<Vec<Permission>>"
+        },
         "CountryCode": {
             "_enum": [
                 "AF",
@@ -356,7 +360,13 @@
                 "ZW"
             ]
         },
-        "Scope": "IdentityId",
+        "Scope": {
+            "_enum": {
+                "Identity": "IdentityId",
+                "Ticker": "Ticker",
+                "Custom": "Vec<u8>"
+            }
+        },
         "InvestorZKProofData": "[u8;64]",
         "Claim": {
             "_enum": {
@@ -415,7 +425,14 @@
                 "IsAbsent": "Claim",
                 "IsAnyOf": "Vec<Claim>",
                 "IsNoneOf": "Vec<Claim>",
-                "IsIdentity": "TargetIdentity"
+                "IsIdentity": "TargetIdentity",
+                "HasValidProofOfInvestor": "Ticker"
+            }
+        },
+        "ImplicitRequirementStatus": {
+            "_enum": {
+                "Active": "",
+                "Inactive": ""
             }
         },
         "Condition": {
@@ -474,13 +491,6 @@
         },
         "EthereumAddress": "[u8; 20]",
         "EcdsaSignature": "[u8; 65]",
-        "SignData": {
-            "custodian_did": "IdentityId",
-            "holder_did": "IdentityId",
-            "ticker": "Ticker",
-            "value": "Balance",
-            "nonce": "u16"
-        },
         "MotionTitle": "Text",
         "MotionInfoLink": "Text",
         "Motion": {
@@ -497,13 +507,11 @@
         "Url": "Text",
         "PipDescription": "Text",
         "PipsMetadata": {
-            "proposer": "AccountId",
             "id": "PipId",
-            "end": "u32",
             "url": "Option<Url>",
             "description": "Option<PipDescription>",
-            "cool_off_until": "u32",
-            "beneficiaries": "Vec<Beneficiary>"
+            "created_at": "BlockNumber",
+            "transaction_version": "u32"
         },
         "Proposer": {
             "_enum": {
@@ -522,9 +530,11 @@
             "id": "PipId",
             "weight": "(bool, Balance)"
         },
+        "SnapshotId": "u32",
         "SnapshotMetadata": {
             "created_at": "BlockNumber",
-            "made_by": "AccountId"
+            "made_by": "AccountId",
+            "id": "SnapshotId"
         },
         "SnapshotResult": {
             "_enum": {
@@ -575,7 +585,9 @@
         "Pip": {
             "id": "PipId",
             "proposal": "Call",
-            "state": "ProposalState"
+            "state": "ProposalState",
+            "proposer": "Proposer",
+            "cool_off_until": "u32"
         },
         "ProposalData": {
             "_enum": {
@@ -616,6 +628,7 @@
                 "AddMultiSigSigner": "AccountId",
                 "TransferAssetOwnership": "Ticker",
                 "JoinIdentity": "Vec<Permission>",
+                "PortfolioCustody": "PortfolioId",
                 "Custom": "Ticker",
                 "NoData": ""
             }
@@ -688,6 +701,7 @@
         "AssetComplianceResult": {
             "paused": "bool",
             "requirements": "Vec<ComplianceRequirementResult>",
+            "implicit_requirements_result": "Option<ImplicitRequirementResult>",
             "result": "bool"
         },
         "Claim1stKey": {
@@ -816,6 +830,7 @@
                 "AddMultiSigSigner": "",
                 "TransferAssetOwnership": "",
                 "JoinIdentity": "",
+                "PortfolioCustody": "",
                 "Custom": "",
                 "NoData": ""
             }
@@ -904,8 +919,8 @@
             "valid_from": "Option<Moment>"
         },
         "Leg": {
-            "from": "IdentityId",
-            "to": "IdentityId",
+            "from": "PortfolioId",
+            "to": "PortfolioId",
             "asset": "Ticker",
             "amount": "Balance"
         },
@@ -916,8 +931,8 @@
         },
         "Receipt": {
             "receipt_uid": "u64",
-            "from": "IdentityId",
-            "to": "IdentityId",
+            "from": "PortfolioId",
+            "to": "PortfolioId",
             "asset": "Ticker",
             "amount": "Balance"
         },
@@ -960,6 +975,10 @@
                 "Sto",
                 "Exchange"
             ]
+        },
+        "ImplicitRequirementResult": {
+            "from_result": "bool",
+            "to_result": "bool"
         }
     },
     "rpc": {
@@ -1091,6 +1110,22 @@
                     }
                 ],
                 "type": "Vec<Authorization>"
+            },
+            "getKeyIdentityData": {
+                "description": "Query relation between a signing key and a DID",
+                "params": [
+                    {
+                        "name": "acc",
+                        "type": "AccountId",
+                        "isOptional": false
+                    },
+                    {
+                        "name": "blockHash",
+                        "type": "Hash",
+                        "isOptional": true
+                    }
+                ],
+                "type": "Option<KeyIdentityData<IdentityId>>"
             }
         },
         "pips": {
@@ -1216,18 +1251,28 @@
                         "isOptional": false
                     },
                     {
+                        "name": "from_custodian",
+                        "type": "Option<IdentityId>",
+                        "isOptional": false
+                    },
+                    {
+                        "name": "from_portfolio",
+                        "type": "PortfolioId",
+                        "isOptional": false
+                    },
+                    {
+                        "name": "to_custodian",
+                        "type": "Option<IdentityId>",
+                        "isOptional": false
+                    },
+                    {
+                        "name": "to_portfolio",
+                        "type": "PortfolioId",
+                        "isOptional": false
+                    },
+                    {
                         "name": "ticker",
                         "type": "Ticker",
-                        "isOptional": false
-                    },
-                    {
-                        "name": "from_did",
-                        "type": "Option<IdentityId>",
-                        "isOptional": false
-                    },
-                    {
-                        "name": "to_did",
-                        "type": "Option<IdentityId>",
                         "isOptional": false
                     },
                     {

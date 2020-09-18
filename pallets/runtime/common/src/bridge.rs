@@ -89,11 +89,8 @@
 //! - `change_bridge_exempted`: Changes the bridge limit exempted.
 //! - `force_handle_bridge_tx`: Forces handling a transaction by bypassing the bridge limit and
 //! timelock.
-//! - `batch_force_handle_bridge_tx`: Forces handling a vector of transactions.
 //! - `propose_bridge_tx`: Proposes a bridge transaction, which amounts to making a multisig
-//! - `batch_propose_bridge_tx`: Proposes a vector of bridge transactions.
 //! - `handle_bridge_tx`: Handles an approved bridge transaction proposal.
-//! - `batch_handle_bridge_tx`: Handles a vector of approved bridge transaction proposals.
 //! - `freeze_txs`: Freezes given bridge transactions.
 //! - `unfreeze_txs`: Unfreezes given bridge transactions.
 
@@ -497,26 +494,6 @@ decl_module! {
             Self::force_handle_signed_bridge_tx(bridge_tx)
         }
 
-        /// Forces handling a vector of transactions by bypassing the bridge limit and timelock.
-        /// It collects results of processing every transaction in the given vector and outputs
-        /// the vector of results (In event) which has the same length as the `bridge_txs` have
-        ///
-        /// # Weight
-        /// `600_000_000 + 200_000 * bridge_txs.len()`
-        #[weight = (600_000_000 + 200_000 * u64::try_from(bridge_txs.len()).unwrap_or_default(), DispatchClass::Operational, Pays::Yes)]
-        pub fn batch_force_handle_bridge_tx(origin, bridge_txs: Vec<BridgeTx<T::AccountId, T::Balance>>) ->
-            DispatchResult
-        {
-            let sender = ensure_signed(origin)?;
-            ensure!(sender == Self::admin(), Error::<T>::BadAdmin);
-            let stati = Self::apply_handler(
-                Self::force_handle_signed_bridge_tx,
-                bridge_txs
-            );
-            Self::deposit_event(RawEvent::TxsHandled(stati));
-            Ok(())
-        }
-
         /// Proposes a bridge transaction, which amounts to making a multisig proposal for the
         /// bridge transaction if the transaction is new or approving an existing proposal if the
         /// transaction has already been proposed.
@@ -529,25 +506,6 @@ decl_module! {
             Self::propose_signed_bridge_tx(sender, bridge_tx)
         }
 
-        /// Proposes a vector of bridge transactions. The vector is processed until the first
-        /// proposal which causes an error, in which case the error is returned and the rest of
-        /// proposals are not processed.
-        ///
-        /// # Weight
-        /// `500_000_000 + 7_000_000 * bridge_txs.len()`
-        #[weight =(
-            500_000_000 + 7_000_000 * u64::try_from(bridge_txs.len()).unwrap_or_default(),
-            DispatchClass::Operational,
-            Pays::Yes
-        )]
-        pub fn batch_propose_bridge_tx(origin, bridge_txs: Vec<BridgeTx<T::AccountId, T::Balance>>) ->
-            DispatchResult
-        {
-            ensure!(Self::controller() != Default::default(), Error::<T>::ControllerNotSet);
-            let sender = ensure_signed(origin)?;
-            Self::batch_propose_signed_bridge_tx(sender, bridge_txs)
-        }
-
         /// Handles an approved bridge transaction proposal.
         #[weight = (900_000_000, DispatchClass::Operational, Pays::Yes)]
         pub fn handle_bridge_tx(origin, bridge_tx: BridgeTx<T::AccountId, T::Balance>) ->
@@ -555,28 +513,6 @@ decl_module! {
         {
             let sender = ensure_signed(origin)?;
             Self::handle_signed_bridge_tx(&sender, bridge_tx)
-        }
-
-        /// Handles a vector of approved bridge transaction proposals.
-        /// It deposits an event (i.e TxsHandled) which consist the result of every BridgeTx.
-        ///
-        /// # Weight
-        /// `900_000_000 + 2_000_000 * bridge_txs.len()`
-        #[weight = (
-            900_000_000 + 2_000_000 * u64::try_from(bridge_txs.len()).unwrap_or_default(),
-            DispatchClass::Operational,
-            Pays::Yes
-        )]
-        pub fn batch_handle_bridge_tx(origin, bridge_txs: Vec<BridgeTx<T::AccountId, T::Balance>>) ->
-            DispatchResult
-        {
-            let sender = ensure_signed(origin)?;
-            let stati = Self::apply_handler(
-                |tx| Self::handle_signed_bridge_tx(&sender, tx),
-                bridge_txs
-            );
-            Self::deposit_event(RawEvent::TxsHandled(stati));
-            Ok(())
         }
 
         /// Freezes given bridge transactions.
@@ -589,7 +525,7 @@ decl_module! {
             DispatchClass::Operational,
             Pays::Yes
         )]
-        pub fn batch_freeze_tx(origin, bridge_txs: Vec<BridgeTx<T::AccountId, T::Balance>>) ->
+        pub fn freeze_txs(origin, bridge_txs: Vec<BridgeTx<T::AccountId, T::Balance>>) ->
             DispatchResult
         {
             let sender = ensure_signed(origin)?;
@@ -615,7 +551,7 @@ decl_module! {
             DispatchClass::Operational,
             Pays::Yes
         )]
-        pub fn batch_unfreeze_tx(origin, bridge_txs: Vec<BridgeTx<T::AccountId, T::Balance>>) ->
+        pub fn unfreeze_txs(origin, bridge_txs: Vec<BridgeTx<T::AccountId, T::Balance>>) ->
             DispatchResult
         {
             // NB: An admin can call Freeze + Unfreeze on a transaction to bypass the timelock
@@ -808,28 +744,6 @@ impl<T: Trait> Module<T> {
         )
     }
 
-    /// Proposes a vector of bridge transaction. The bridge controller must be set.
-    fn batch_propose_signed_bridge_tx(
-        sender: T::AccountId,
-        bridge_txs: Vec<BridgeTx<T::AccountId, T::Balance>>,
-    ) -> DispatchResult {
-        let sender_signer = Signatory::Account(sender);
-        let propose = |tx| {
-            let proposal = <T as Trait>::Proposal::from(Call::<T>::handle_bridge_tx(tx));
-            let boxed_proposal = Box::new(proposal.into());
-            <multisig::Module<T>>::create_or_approve_proposal(
-                Self::controller(),
-                sender_signer.clone(),
-                boxed_proposal,
-                None,
-                true,
-            )
-        };
-        let stati = Self::apply_handler(propose, bridge_txs);
-        Self::deposit_event(RawEvent::TxsHandled(stati));
-        Ok(())
-    }
-
     /// Handles an approved bridge transaction proposal.
     fn handle_signed_bridge_tx(
         sender: &T::AccountId,
@@ -895,28 +809,5 @@ impl<T: Trait> Module<T> {
             return Err(Error::<T>::NoValidCdd.into());
         }
         Ok(())
-    }
-
-    /// Applies a handler `f` to a vector of transactions `bridge_txs` and outputs a vector of
-    /// processing results.
-    fn apply_handler<F>(
-        f: F,
-        bridge_txs: Vec<BridgeTx<T::AccountId, T::Balance>>,
-    ) -> Vec<(u32, HandledTxStatus)>
-    where
-        F: Fn(BridgeTx<T::AccountId, T::Balance>) -> DispatchResult,
-    {
-        let g = |tx: BridgeTx<T::AccountId, T::Balance>| {
-            let nonce = tx.nonce;
-            (
-                nonce,
-                if let Err(e) = f(tx) {
-                    HandledTxStatus::Error(e.encode())
-                } else {
-                    HandledTxStatus::Success
-                },
-            )
-        };
-        bridge_txs.into_iter().map(g).collect()
     }
 }

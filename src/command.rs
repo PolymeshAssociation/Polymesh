@@ -20,42 +20,43 @@ use crate::service;
 use crate::service::IsAlcyoneNetwork;
 use log::info;
 use polymesh_primitives::Block;
+use sc_cli::{ChainSpec, RuntimeVersion};
 pub use sc_cli::{Result, SubstrateCli};
-use sc_executor::NativeExecutionDispatch;
+use sc_service::config::Role;
 
 #[cfg(feature = "runtime-benchmarks")]
 use polymesh_runtime::runtime;
 
 impl SubstrateCli for Cli {
-    fn impl_name() -> &'static str {
-        "Polymesh Node"
+    fn impl_name() -> String {
+        "Polymesh Node".into()
     }
 
-    fn impl_version() -> &'static str {
-        env!("CARGO_PKG_VERSION")
+    fn impl_version() -> String {
+        env!("CARGO_PKG_VERSION").into()
     }
 
-    fn description() -> &'static str {
-        env!("CARGO_PKG_DESCRIPTION")
+    fn description() -> String {
+        env!("CARGO_PKG_DESCRIPTION").into()
     }
 
-    fn author() -> &'static str {
-        env!("CARGO_PKG_AUTHORS")
+    fn author() -> String {
+        env!("CARGO_PKG_AUTHORS").into()
     }
 
-    fn support_url() -> &'static str {
-        "https://github.com/PolymathNetwork/polymesh/issues/new"
+    fn support_url() -> String {
+        "https://github.com/PolymathNetwork/polymesh/issues/new".into()
     }
 
     fn copyright_start_year() -> i32 {
         2017
     }
 
-    fn executable_name() -> &'static str {
-        "polymesh"
+    fn executable_name() -> String {
+        "polymesh".into()
     }
 
-    fn load_spec(&self, id: &str) -> std::result::Result<Box<dyn sc_service::ChainSpec>, String> {
+    fn load_spec(&self, id: &str) -> std::result::Result<Box<dyn ChainSpec>, String> {
         Ok(match id {
             "dev" => Box::new(chain_spec::general_development_testnet_config()),
             "local" => Box::new(chain_spec::general_local_testnet_config()),
@@ -70,6 +71,14 @@ impl SubstrateCli for Cli {
                 std::path::PathBuf::from(path),
             )?),
         })
+    }
+
+    fn native_runtime_version(chain_spec: &Box<dyn ChainSpec>) -> &'static RuntimeVersion {
+        if chain_spec.is_alcyone_network() {
+            &polymesh_runtime_testnet::runtime::VERSION
+        } else {
+            &polymesh_runtime_develop::runtime::VERSION
+        }
     }
 }
 
@@ -91,17 +100,15 @@ pub fn run() -> Result<()> {
             );
 
             if chain_spec.is_alcyone_network() {
-                runtime.run_node(
-                    service::alcyone_new_light,
-                    service::alcyone_new_full,
-                    service::AlcyoneExecutor::native_version().runtime_version,
-                )
+                runtime.run_node_until_exit(|config| match config.role {
+                    Role::Light => service::alcyone_new_light(config),
+                    _ => service::alcyone_new_full(config),
+                })
             } else {
-                runtime.run_node(
-                    service::general_new_light,
-                    service::general_new_full,
-                    service::GeneralExecutor::native_version().runtime_version,
-                )
+                runtime.run_node_until_exit(|config| match config.role {
+                    Role::Light => service::general_new_light(config),
+                    _ => service::general_new_full(config),
+                })
             }
         }
         Some(Subcommand::Base(subcommand)) => {
@@ -111,9 +118,9 @@ pub fn run() -> Result<()> {
             if chain_spec.is_alcyone_network() {
                 runtime.run_subcommand(subcommand, |config| {
                     service::chain_ops::<
-                        service::polymesh_runtime_testnet_v1::RuntimeApi,
+                        service::polymesh_runtime_testnet::RuntimeApi,
                         service::AlcyoneExecutor,
-                        service::polymesh_runtime_testnet_v1::UncheckedExtrinsic,
+                        service::polymesh_runtime_testnet::UncheckedExtrinsic,
                     >(config)
                 })
             } else {
