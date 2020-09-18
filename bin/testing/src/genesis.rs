@@ -106,6 +106,16 @@ pub fn config_endowed(support_changes_trie: bool, extra_endowed: Vec<AccountId>)
         pallet_sudo: Some(Default::default()),
         asset: Some(Default::default()),
         identity: {
+			let initial_identities = endowed.enumerate().map(|(account, i)| (
+				alice(),
+				IdentityId::from(1),
+				IdentityId::from(1),
+				InvestorUid::from(b"uid1".as_ref()),
+				None,
+			)).collect::<Vec<_>>();
+			for (account, i) in endowed.enumerate() {
+
+			}
             let initial_identities = vec![
                 // (primary_account_id, service provider did, target did, expiry time of CustomerDueDiligence claim i.e 10 days is ms)
                 // Service providers

@@ -15,7 +15,7 @@ targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
 node-primitives = { package = "polymesh-primitives", path = "../../primitives" }
-node-runtime = { package = "polymesh-runtime-develop", path = "../../pallets/runtime/develop" }
+node-runtime = { package = "polymesh-runtime-develop", path = "../../pallets/runtime/develop", features = ["node-bench"] }
 polymesh-common-utilities =  { path = "../../pallets/common" }
 pallet-transaction-payment = { path = "../../pallets/transaction-payment" }
 pallet-staking = { path = "../../pallets/staking" }

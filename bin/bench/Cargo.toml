@@ -11,7 +11,7 @@ license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
 
 [dependencies]
 node-primitives = { package = "polymesh-primitives", path = "../../primitives" }
-node-runtime = { package = "polymesh-runtime-develop", path = "../../pallets/runtime/develop" }
+node-runtime = { package = "polymesh-runtime-develop", path = "../../pallets/runtime/develop", features = ["node-bench"] }
 node-testing = { path = "../testing" }
 sc-cli = { git = "https://github.com/paritytech/substrate", tag = "v2.0.0-rc6" }
 sc-client-api = { git = "https://github.com/paritytech/substrate", tag = "v2.0.0-rc6" }
