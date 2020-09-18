@@ -995,7 +995,7 @@ dependencies = [
 [[package]]
 name = "cryptography"
 version = "0.1.0"
-source = "git+https://github.com/PolymathNetwork/cryptography.git?branch=substrate-up-rc6#c6b64fe749f7e1a9c636d1fb0c68a76ff689a7e3"
+source = "git+https://github.com/PolymathNetwork/cryptography.git?branch=master#dc249f0417168a67569000aefea2ed930b7cfd73"
 dependencies = [
  "blake2",
  "bulletproofs",
@@ -1012,7 +1012,7 @@ dependencies = [
  "serde",
  "serde_json",
  "sha3 0.8.2",
- "sp-std",
+ "sp-std 2.0.0-rc4",
  "zeroize",
 ]
 
@@ -1377,7 +1377,7 @@ dependencies = [
  "sp-io",
  "sp-runtime",
  "sp-runtime-interface",
- "sp-std",
+ "sp-std 2.0.0-rc6",
  "sp-storage",
 ]
 
@@ -1410,7 +1410,7 @@ dependencies = [
  "serde",
  "sp-io",
  "sp-runtime",
- "sp-std",
+ "sp-std 2.0.0-rc6",
  "sp-tracing",
 ]
 
@@ -1422,7 +1422,7 @@ dependencies = [
  "parity-scale-codec",
  "serde",
  "sp-core",
- "sp-std",
+ "sp-std 2.0.0-rc6",
 ]
 
 [[package]]
@@ -1446,7 +1446,7 @@ dependencies = [
  "sp-io",
  "sp-runtime",
  "sp-state-machine",
- "sp-std",
+ "sp-std 2.0.0-rc6",
  "sp-tracing",
 ]
 
@@ -1495,7 +1495,7 @@ dependencies = [
  "sp-core",
  "sp-io",
  "sp-runtime",
- "sp-std",
+ "sp-std 2.0.0-rc6",
  "sp-version",
 ]
 
@@ -3449,7 +3449,7 @@ dependencies = [
  "sp-core",
  "sp-rpc",
  "sp-runtime",
- "sp-std",
+ "sp-std 2.0.0-rc6",
 ]
 
 [[package]]
@@ -3469,7 +3469,7 @@ dependencies = [
  "serde_json",
  "sp-api",
  "sp-runtime",
- "sp-std",
+ "sp-std 2.0.0-rc6",
 ]
 
 [[package]]
@@ -3652,7 +3652,7 @@ dependencies = [
  "sp-core",
  "sp-io",
  "sp-runtime",
- "sp-std",
+ "sp-std 2.0.0-rc6",
  "sp-version",
 ]
 
@@ -3669,7 +3669,7 @@ dependencies = [
  "sp-application-crypto",
  "sp-authority-discovery",
  "sp-runtime",
- "sp-std",
+ "sp-std 2.0.0-rc6",
 ]
 
 [[package]]
@@ -3684,7 +3684,7 @@ dependencies = [
  "sp-authorship",
  "sp-inherents",
  "sp-runtime",
- "sp-std",
+ "sp-std 2.0.0-rc6",
 ]
 
 [[package]]
@@ -3708,7 +3708,7 @@ dependencies = [
  "sp-runtime",
  "sp-session",
  "sp-staking",
- "sp-std",
+ "sp-std 2.0.0-rc6",
  "sp-timestamp",
 ]
 
@@ -3730,7 +3730,7 @@ dependencies = [
  "sp-core",
  "sp-io",
  "sp-runtime",
- "sp-std",
+ "sp-std 2.0.0-rc6",
  "sp-version",
  "substrate-test-runtime-client",
 ]
@@ -3746,7 +3746,7 @@ dependencies = [
  "parity-scale-codec",
  "serde",
  "sp-runtime",
- "sp-std",
+ "sp-std 2.0.0-rc6",
 ]
 
 [[package]]
@@ -3770,7 +3770,7 @@ dependencies = [
  "sp-io",
  "sp-runtime",
  "sp-serializer",
- "sp-std",
+ "sp-std 2.0.0-rc6",
  "sp-version",
 ]
 
@@ -3788,7 +3788,7 @@ dependencies = [
  "sp-core",
  "sp-io",
  "sp-runtime",
- "sp-std",
+ "sp-std 2.0.0-rc6",
 ]
 
 [[package]]
@@ -3809,7 +3809,7 @@ dependencies = [
  "sp-core",
  "sp-io",
  "sp-runtime",
- "sp-std",
+ "sp-std 2.0.0-rc6",
  "sp-version",
 ]
 
@@ -3831,7 +3831,7 @@ dependencies = [
  "sp-core",
  "sp-io",
  "sp-runtime",
- "sp-std",
+ "sp-std 2.0.0-rc6",
  "sp-version",
 ]
 
@@ -3858,7 +3858,7 @@ dependencies = [
  "sp-io",
  "sp-runtime",
  "sp-runtime-interface",
- "sp-std",
+ "sp-std 2.0.0-rc6",
 ]
 
 [[package]]
@@ -3878,7 +3878,7 @@ dependencies = [
  "sp-io",
  "sp-runtime",
  "sp-sandbox",
- "sp-std",
+ "sp-std 2.0.0-rc6",
  "wasmi-validation",
 ]
 
@@ -3889,7 +3889,7 @@ source = "git+https://github.com/paritytech/substrate?tag=v2.0.0-rc6#be8bb186d87
 dependencies = [
  "parity-scale-codec",
  "sp-runtime",
- "sp-std",
+ "sp-std 2.0.0-rc6",
 ]
 
 [[package]]
@@ -3920,7 +3920,7 @@ dependencies = [
  "parity-scale-codec",
  "sp-api",
  "sp-runtime",
- "sp-std",
+ "sp-std 2.0.0-rc6",
 ]
 
 [[package]]
@@ -3936,7 +3936,7 @@ dependencies = [
  "sp-finality-tracker",
  "sp-inherents",
  "sp-runtime",
- "sp-std",
+ "sp-std 2.0.0-rc6",
 ]
 
 [[package]]
@@ -3958,7 +3958,7 @@ dependencies = [
  "sp-runtime",
  "sp-session",
  "sp-staking",
- "sp-std",
+ "sp-std 2.0.0-rc6",
 ]
 
 [[package]]
@@ -3978,7 +3978,7 @@ dependencies = [
  "sp-core",
  "sp-io",
  "sp-runtime",
- "sp-std",
+ "sp-std 2.0.0-rc6",
  "sp-version",
 ]
 
@@ -3996,7 +3996,7 @@ dependencies = [
  "sp-api",
  "sp-blockchain",
  "sp-runtime",
- "sp-std",
+ "sp-std 2.0.0-rc6",
  "substrate-test-runtime-client",
 ]
 
@@ -4011,7 +4011,7 @@ dependencies = [
  "serde_json",
  "sp-api",
  "sp-runtime",
- "sp-std",
+ "sp-std 2.0.0-rc6",
 ]
 
 [[package]]
@@ -4032,7 +4032,7 @@ dependencies = [
  "sp-core",
  "sp-io",
  "sp-runtime",
- "sp-std",
+ "sp-std 2.0.0-rc6",
  "sp-version",
  "substrate-test-runtime-client",
 ]
@@ -4053,7 +4053,7 @@ dependencies = [
  "sp-io",
  "sp-runtime",
  "sp-staking",
- "sp-std",
+ "sp-std 2.0.0-rc6",
 ]
 
 [[package]]
@@ -4069,7 +4069,7 @@ dependencies = [
  "sp-io",
  "sp-keyring",
  "sp-runtime",
- "sp-std",
+ "sp-std 2.0.0-rc6",
 ]
 
 [[package]]
@@ -4086,7 +4086,7 @@ dependencies = [
  "serde",
  "sp-core",
  "sp-runtime",
- "sp-std",
+ "sp-std 2.0.0-rc6",
 ]
 
 [[package]]
@@ -4101,7 +4101,7 @@ dependencies = [
  "serde",
  "sp-runtime",
  "sp-staking",
- "sp-std",
+ "sp-std 2.0.0-rc6",
 ]
 
 [[package]]
@@ -4125,7 +4125,7 @@ dependencies = [
  "sp-core",
  "sp-io",
  "sp-runtime",
- "sp-std",
+ "sp-std 2.0.0-rc6",
  "sp-version",
 ]
 
@@ -4142,7 +4142,7 @@ dependencies = [
  "polymesh-primitives",
  "serde",
  "sp-arithmetic",
- "sp-std",
+ "sp-std 2.0.0-rc6",
 ]
 
 [[package]]
@@ -4159,7 +4159,7 @@ dependencies = [
  "sp-core",
  "sp-io",
  "sp-runtime",
- "sp-std",
+ "sp-std 2.0.0-rc6",
 ]
 
 [[package]]
@@ -4201,7 +4201,7 @@ dependencies = [
  "parity-scale-codec",
  "safe-mix",
  "sp-runtime",
- "sp-std",
+ "sp-std 2.0.0-rc6",
 ]
 
 [[package]]
@@ -4220,7 +4220,7 @@ dependencies = [
  "sp-runtime",
  "sp-session",
  "sp-staking",
- "sp-std",
+ "sp-std 2.0.0-rc6",
  "sp-trie",
 ]
 
@@ -4244,7 +4244,7 @@ dependencies = [
  "sp-io",
  "sp-runtime",
  "sp-serializer",
- "sp-std",
+ "sp-std 2.0.0-rc6",
  "sp-version",
 ]
 
@@ -4270,7 +4270,7 @@ dependencies = [
  "sp-npos-elections",
  "sp-runtime",
  "sp-staking",
- "sp-std",
+ "sp-std 2.0.0-rc6",
  "static_assertions",
 ]
 
@@ -4329,7 +4329,7 @@ dependencies = [
  "sp-core",
  "sp-io",
  "sp-runtime",
- "sp-std",
+ "sp-std 2.0.0-rc6",
  "substrate-test-runtime-client",
 ]
 
@@ -4344,7 +4344,7 @@ dependencies = [
  "serde",
  "sp-io",
  "sp-runtime",
- "sp-std",
+ "sp-std 2.0.0-rc6",
 ]
 
 [[package]]
@@ -4361,7 +4361,7 @@ dependencies = [
  "sp-inherents",
  "sp-io",
  "sp-runtime",
- "sp-std",
+ "sp-std 2.0.0-rc6",
  "sp-timestamp",
 ]
 
@@ -4378,7 +4378,7 @@ dependencies = [
  "serde_json",
  "sp-api",
  "sp-runtime",
- "sp-std",
+ "sp-std 2.0.0-rc6",
 ]
 
 [[package]]
@@ -4398,7 +4398,7 @@ dependencies = [
  "sp-core",
  "sp-io",
  "sp-runtime",
- "sp-std",
+ "sp-std 2.0.0-rc6",
  "sp-version",
 ]
 
@@ -4415,7 +4415,7 @@ dependencies = [
  "sp-core",
  "sp-io",
  "sp-runtime",
- "sp-std",
+ "sp-std 2.0.0-rc6",
 ]
 
 [[package]]
@@ -4875,7 +4875,7 @@ dependencies = [
  "sp-core",
  "sp-io",
  "sp-runtime",
- "sp-std",
+ "sp-std 2.0.0-rc6",
  "substrate-test-runtime-client",
 ]
 
@@ -4929,7 +4929,7 @@ dependencies = [
  "sp-core",
  "sp-io",
  "sp-runtime",
- "sp-std",
+ "sp-std 2.0.0-rc6",
  "sp-version",
 ]
 
@@ -4966,7 +4966,7 @@ dependencies = [
  "sp-core",
  "sp-io",
  "sp-runtime",
- "sp-std",
+ "sp-std 2.0.0-rc6",
 ]
 
 [[package]]
@@ -5036,7 +5036,7 @@ dependencies = [
  "sp-runtime",
  "sp-session",
  "sp-staking",
- "sp-std",
+ "sp-std 2.0.0-rc6",
  "sp-transaction-pool",
  "sp-version",
  "substrate-wasm-builder-runner",
@@ -5111,7 +5111,7 @@ dependencies = [
  "sp-runtime",
  "sp-session",
  "sp-staking",
- "sp-std",
+ "sp-std 2.0.0-rc6",
  "sp-transaction-pool",
  "sp-version",
  "substrate-test-runtime-client",
@@ -5175,7 +5175,7 @@ dependencies = [
  "sp-npos-elections",
  "sp-runtime",
  "sp-staking",
- "sp-std",
+ "sp-std 2.0.0-rc6",
  "substrate-test-runtime-client",
  "substrate-test-utils",
 ]
@@ -6026,7 +6026,7 @@ dependencies = [
  "sp-keyring",
  "sp-runtime",
  "sp-state-machine",
- "sp-std",
+ "sp-std 2.0.0-rc6",
  "sp-storage",
  "sp-transaction-pool",
  "sp-trie",
@@ -7100,7 +7100,7 @@ dependencies = [
  "derive_more",
  "log",
  "sp-core",
- "sp-std",
+ "sp-std 2.0.0-rc6",
  "sp-wasm-interface",
 ]
 
@@ -7115,7 +7115,7 @@ dependencies = [
  "sp-core",
  "sp-runtime",
  "sp-state-machine",
- "sp-std",
+ "sp-std 2.0.0-rc6",
  "sp-version",
 ]
 
@@ -7140,7 +7140,7 @@ dependencies = [
  "serde",
  "sp-core",
  "sp-io",
- "sp-std",
+ "sp-std 2.0.0-rc6",
 ]
 
 [[package]]
@@ -7153,7 +7153,7 @@ dependencies = [
  "parity-scale-codec",
  "serde",
  "sp-debug-derive",
- "sp-std",
+ "sp-std 2.0.0-rc6",
 ]
 
 [[package]]
@@ -7165,7 +7165,7 @@ dependencies = [
  "sp-api",
  "sp-application-crypto",
  "sp-runtime",
- "sp-std",
+ "sp-std 2.0.0-rc6",
 ]
 
 [[package]]
@@ -7176,7 +7176,7 @@ dependencies = [
  "parity-scale-codec",
  "sp-inherents",
  "sp-runtime",
- "sp-std",
+ "sp-std 2.0.0-rc6",
 ]
 
 [[package]]
@@ -7188,7 +7188,7 @@ dependencies = [
  "sp-api",
  "sp-inherents",
  "sp-runtime",
- "sp-std",
+ "sp-std 2.0.0-rc6",
 ]
 
 [[package]]
@@ -7235,7 +7235,7 @@ dependencies = [
  "sp-inherents",
  "sp-runtime",
  "sp-state-machine",
- "sp-std",
+ "sp-std 2.0.0-rc6",
  "sp-trie",
  "sp-utils",
  "sp-version",
@@ -7253,7 +7253,7 @@ dependencies = [
  "sp-application-crypto",
  "sp-inherents",
  "sp-runtime",
- "sp-std",
+ "sp-std 2.0.0-rc6",
  "sp-timestamp",
 ]
 
@@ -7272,7 +7272,7 @@ dependencies = [
  "sp-core",
  "sp-inherents",
  "sp-runtime",
- "sp-std",
+ "sp-std 2.0.0-rc6",
  "sp-timestamp",
 ]
 
@@ -7294,7 +7294,7 @@ dependencies = [
  "schnorrkel",
  "sp-core",
  "sp-runtime",
- "sp-std",
+ "sp-std 2.0.0-rc6",
 ]
 
 [[package]]
@@ -7331,7 +7331,7 @@ dependencies = [
  "sp-debug-derive",
  "sp-externalities",
  "sp-runtime-interface",
- "sp-std",
+ "sp-std 2.0.0-rc6",
  "sp-storage",
  "substrate-bip39",
  "tiny-bip39",
@@ -7367,7 +7367,7 @@ source = "git+https://github.com/paritytech/substrate?tag=v2.0.0-rc6#be8bb186d87
 dependencies = [
  "environmental",
  "parity-scale-codec",
- "sp-std",
+ "sp-std 2.0.0-rc6",
  "sp-storage",
 ]
 
@@ -7384,7 +7384,7 @@ dependencies = [
  "sp-application-crypto",
  "sp-core",
  "sp-runtime",
- "sp-std",
+ "sp-std 2.0.0-rc6",
 ]
 
 [[package]]
@@ -7394,7 +7394,7 @@ source = "git+https://github.com/paritytech/substrate?tag=v2.0.0-rc6#be8bb186d87
 dependencies = [
  "parity-scale-codec",
  "sp-inherents",
- "sp-std",
+ "sp-std 2.0.0-rc6",
 ]
 
 [[package]]
@@ -7406,7 +7406,7 @@ dependencies = [
  "parity-scale-codec",
  "parking_lot 0.10.2",
  "sp-core",
- "sp-std",
+ "sp-std 2.0.0-rc6",
 ]
 
 [[package]]
@@ -7424,7 +7424,7 @@ dependencies = [
  "sp-externalities",
  "sp-runtime-interface",
  "sp-state-machine",
- "sp-std",
+ "sp-std 2.0.0-rc6",
  "sp-tracing",
  "sp-trie",
  "sp-wasm-interface",
@@ -7450,7 +7450,7 @@ dependencies = [
  "serde",
  "sp-arithmetic",
  "sp-npos-elections-compact",
- "sp-std",
+ "sp-std 2.0.0-rc6",
 ]
 
 [[package]]
@@ -7511,7 +7511,7 @@ dependencies = [
  "sp-core",
  "sp-inherents",
  "sp-io",
- "sp-std",
+ "sp-std 2.0.0-rc6",
 ]
 
 [[package]]
@@ -7523,7 +7523,7 @@ dependencies = [
  "primitive-types",
  "sp-externalities",
  "sp-runtime-interface-proc-macro",
- "sp-std",
+ "sp-std 2.0.0-rc6",
  "sp-storage",
  "sp-tracing",
  "sp-wasm-interface",
@@ -7550,7 +7550,7 @@ dependencies = [
  "parity-scale-codec",
  "sp-core",
  "sp-io",
- "sp-std",
+ "sp-std 2.0.0-rc6",
  "sp-wasm-interface",
  "wasmi",
 ]
@@ -7574,7 +7574,7 @@ dependencies = [
  "sp-core",
  "sp-runtime",
  "sp-staking",
- "sp-std",
+ "sp-std 2.0.0-rc6",
 ]
 
 [[package]]
@@ -7584,7 +7584,7 @@ source = "git+https://github.com/paritytech/substrate?tag=v2.0.0-rc6#be8bb186d87
 dependencies = [
  "parity-scale-codec",
  "sp-runtime",
- "sp-std",
+ "sp-std 2.0.0-rc6",
 ]
 
 [[package]]
@@ -7610,6 +7610,11 @@ dependencies = [
 
 [[package]]
 name = "sp-std"
+version = "2.0.0-rc4"
+source = "git+https://github.com/paritytech/substrate?branch=at-add-dispatch-call#b161460bf73e4cc73e29b8e01ab0323bb3d95e84"
+
+[[package]]
+name = "sp-std"
 version = "2.0.0-rc6"
 source = "git+https://github.com/paritytech/substrate?tag=v2.0.0-rc6#be8bb186d87b9d2b47a2907c9b51ae1e252362c3"
 
@@ -7623,7 +7628,7 @@ dependencies = [
  "ref-cast",
  "serde",
  "sp-debug-derive",
- "sp-std",
+ "sp-std 2.0.0-rc6",
 ]
 
 [[package]]
@@ -7636,7 +7641,7 @@ dependencies = [
  "sp-api",
  "sp-inherents",
  "sp-runtime",
- "sp-std",
+ "sp-std 2.0.0-rc6",
  "wasm-timer",
 ]
 
@@ -7674,7 +7679,7 @@ dependencies = [
  "memory-db",
  "parity-scale-codec",
  "sp-core",
- "sp-std",
+ "sp-std 2.0.0-rc6",
  "trie-db",
  "trie-root",
 ]
@@ -7700,7 +7705,7 @@ dependencies = [
  "parity-scale-codec",
  "serde",
  "sp-runtime",
- "sp-std",
+ "sp-std 2.0.0-rc6",
 ]
 
 [[package]]
@@ -7710,7 +7715,7 @@ source = "git+https://github.com/paritytech/substrate?tag=v2.0.0-rc6#be8bb186d87
 dependencies = [
  "impl-trait-for-tuples",
  "parity-scale-codec",
- "sp-std",
+ "sp-std 2.0.0-rc6",
  "wasmi",
 ]
 
@@ -7927,7 +7932,7 @@ dependencies = [
  "sp-runtime",
  "sp-runtime-interface",
  "sp-session",
- "sp-std",
+ "sp-std 2.0.0-rc6",
  "sp-transaction-pool",
  "sp-trie",
  "sp-version",
