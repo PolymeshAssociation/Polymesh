@@ -81,15 +81,15 @@ decl_storage! {
 
         /// Contains the mercat accounts for an identity.
         pub MercatAccounts get(fn mercat_account):
-              double_map hasher(twox_64_concat) IdentityId,
-              hasher(blake2_128_concat) EncryptedAssetIdWrapper
-              => MercatAccount;
+            double_map hasher(twox_64_concat) IdentityId,
+            hasher(blake2_128_concat) EncryptedAssetIdWrapper
+            => MercatAccount;
 
         /// Contains the encrypted balance of a mercat account.
         pub MercatAccountBalance get(fn mercat_account_balance):
-              double_map hasher(twox_64_concat) IdentityId,
-              hasher(blake2_128_concat) EncryptedAssetIdWrapper
-              => EncryptedBalanceWrapper;
+            double_map hasher(twox_64_concat) IdentityId,
+            hasher(blake2_128_concat) EncryptedAssetIdWrapper
+            => EncryptedBalanceWrapper;
 
         /// Contains the list of all valid ticker names.
         /// The process around creating and storing this data will likely change as a result of
