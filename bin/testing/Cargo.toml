@@ -20,6 +20,8 @@ polymesh-common-utilities =  { path = "../../pallets/common" }
 pallet-transaction-payment = { path = "../../pallets/transaction-payment" }
 pallet-staking = { path = "../../pallets/staking" }
 pallet-balances = { path = "../../pallets/balances" }
+node-executor = { path = "../executor" }
+
 sc-service = { git = "https://github.com/paritytech/substrate", tag = "v2.0.0-rc6", features = ["test-helpers", "db"] }
 sc-client-db = { git = "https://github.com/paritytech/substrate", tag = "v2.0.0-rc6", features = ["kvdb-rocksdb", "parity-db"] }
 sc-client-api = { git = "https://github.com/paritytech/substrate", tag = "v2.0.0-rc6" }
@@ -28,7 +30,6 @@ pallet-contracts = { git = "https://github.com/paritytech/substrate", tag = "v2.
 pallet-grandpa = { git = "https://github.com/paritytech/substrate", tag = "v2.0.0-rc6" }
 pallet-indices = { git = "https://github.com/paritytech/substrate", tag = "v2.0.0-rc6" }
 sp-keyring = { git = "https://github.com/paritytech/substrate", tag = "v2.0.0-rc6" }
-node-executor = { git = "https://github.com/paritytech/substrate", tag = "v2.0.0-rc6" }
 sp-core = { git = "https://github.com/paritytech/substrate", tag = "v2.0.0-rc6" }
 sp-io = { git = "https://github.com/paritytech/substrate", tag = "v2.0.0-rc6" }
 frame-support = { git = "https://github.com/paritytech/substrate", tag = "v2.0.0-rc6" }

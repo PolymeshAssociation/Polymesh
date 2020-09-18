@@ -96,12 +96,7 @@ fn main() {
         ]
         .iter()
         {
-            for block_type in [
-                BlockType::RandomTransfers,
-                BlockType::Noop,
-            ]
-            .iter()
-            {
+            for block_type in [BlockType::RandomTransfers, BlockType::Noop].iter() {
                 for database_type in
                     [BenchDataBaseType::RocksDb, BenchDataBaseType::ParityDb].iter()
                 {

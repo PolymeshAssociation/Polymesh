@@ -397,13 +397,13 @@ impl BenchDb {
     pub fn generate_block(&mut self, content: BlockContent) -> Block {
         let client = self.client();
 
-		log::info!("creating block");
+        log::info!("creating block");
 
         let mut block = client
             .new_block(Default::default())
-			.expect("Block creation failed");
+            .expect("Block creation failed");
 
-		log::info!("block created");
+        log::info!("block created");
 
         for extrinsic in self.generate_inherents(&client) {
             block.push(extrinsic).expect("Push inherent failed");
