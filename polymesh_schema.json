@@ -561,9 +561,10 @@
             "_enum": [
                 "Pending",
                 "Cancelled",
-                "Killed",
                 "Rejected",
-                "Referendum"
+                "Scheduled",
+                "Failed",
+                "Executed"
             ]
         },
         "ReferendumState": {
