@@ -3736,32 +3736,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "pallet-basic-sto"
-version = "0.1.0"
-dependencies = [
- "frame-support",
- "frame-system",
- "pallet-asset",
- "pallet-balances 0.1.0",
- "pallet-identity",
- "pallet-settlement",
- "pallet-timestamp",
- "parity-scale-codec",
- "polymesh-common-utilities",
- "polymesh-primitives",
- "polymesh-primitives-derive",
- "serde",
- "serde_derive",
- "sp-api",
- "sp-core",
- "sp-io",
- "sp-runtime",
- "sp-serializer",
- "sp-std 2.0.0-rc6",
- "sp-version",
-]
-
-[[package]]
 name = "pallet-cdd-offchain-worker"
 version = "2.0.0"
 dependencies = [
@@ -4318,6 +4292,32 @@ dependencies = [
  "sp-runtime",
  "sp-std 2.0.0-rc6",
  "substrate-test-runtime-client",
+]
+
+[[package]]
+name = "pallet-sto"
+version = "0.1.0"
+dependencies = [
+ "frame-support",
+ "frame-system",
+ "pallet-asset",
+ "pallet-balances 0.1.0",
+ "pallet-identity",
+ "pallet-settlement",
+ "pallet-timestamp",
+ "parity-scale-codec",
+ "polymesh-common-utilities",
+ "polymesh-primitives",
+ "polymesh-primitives-derive",
+ "serde",
+ "serde_derive",
+ "sp-api",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+ "sp-serializer",
+ "sp-std 2.0.0-rc6",
+ "sp-version",
 ]
 
 [[package]]
@@ -4971,7 +4971,6 @@ dependencies = [
  "pallet-authorship",
  "pallet-babe",
  "pallet-balances 0.1.0",
- "pallet-basic-sto",
  "pallet-committee",
  "pallet-compliance-manager",
  "pallet-confidential",
@@ -4998,6 +4997,7 @@ dependencies = [
  "pallet-staking-reward-curve",
  "pallet-staking-rpc-runtime-api",
  "pallet-statistics",
+ "pallet-sto",
  "pallet-sudo",
  "pallet-timestamp",
  "pallet-transaction-payment",
@@ -5046,7 +5046,6 @@ dependencies = [
  "pallet-authorship",
  "pallet-babe",
  "pallet-balances 0.1.0",
- "pallet-basic-sto",
  "pallet-committee",
  "pallet-compliance-manager",
  "pallet-confidential",
@@ -5073,6 +5072,7 @@ dependencies = [
  "pallet-staking-reward-curve",
  "pallet-staking-rpc-runtime-api",
  "pallet-statistics",
+ "pallet-sto",
  "pallet-sudo",
  "pallet-timestamp",
  "pallet-transaction-payment",
@@ -5125,7 +5125,6 @@ dependencies = [
  "pallet-authorship",
  "pallet-babe",
  "pallet-balances 0.1.0",
- "pallet-basic-sto",
  "pallet-cdd-offchain-worker",
  "pallet-committee",
  "pallet-compliance-manager",
@@ -5144,6 +5143,7 @@ dependencies = [
  "pallet-staking",
  "pallet-staking-reward-curve",
  "pallet-statistics",
+ "pallet-sto",
  "pallet-timestamp",
  "pallet-transaction-payment",
  "pallet-treasury",

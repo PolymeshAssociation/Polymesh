@@ -13,7 +13,10 @@ use frame_support::{
 };
 use frame_system::ensure_signed;
 use pallet_identity as identity;
-use pallet_settlement::{Leg, SettlementType};
+use pallet_settlement::{
+    self as settlement, Leg, SettlementType, Trait as SettlementTrait, VenueInfo,
+};
+use pallet_timestamp::{self as timestamp, Trait as TimestampTrait};
 use polymesh_common_utilities::{
     constants::currency::*,
     traits::{asset::Trait as AssetTrait, identity::Trait as IdentityTrait, CommonTrait},
@@ -22,11 +25,13 @@ use polymesh_common_utilities::{
 use polymesh_primitives::{IdentityId, PortfolioId, Ticker};
 use sp_runtime::traits::{CheckedMul, Saturating};
 use sp_std::{collections::btree_set::BTreeSet, iter, prelude::*};
+
 type Identity<T> = identity::Module<T>;
-type Settlement<T> = pallet_settlement::Module<T>;
+type Settlement<T> = settlement::Module<T>;
+type Timestamp<T> = timestamp::Module<T>;
 
 pub trait Trait:
-    frame_system::Trait + CommonTrait + IdentityTrait + pallet_settlement::Trait
+    frame_system::Trait + CommonTrait + IdentityTrait + pallet_settlement::Trait + TimestampTrait
 {
     /// The overarching event type.
     type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
@@ -35,25 +40,60 @@ pub trait Trait:
 /// Details about the Fundraiser
 #[cfg_attr(feature = "std", derive(Debug))]
 #[derive(Encode, Decode, Default, Clone, PartialEq, Eq, PartialOrd, Ord)]
-pub struct Fundraiser<Balance> {
+pub struct Fundraiser<Balance, Moment> {
     /// Token to raise funds in
     pub raise_token: Ticker,
-    /// Amount of offering token available for sale
-    pub remaining_amount: Balance,
-    /// Price of one million offering token units (one full token) in terms of raise token units
-    pub price_per_token: Balance,
+    /// Tiers of the fundraiser.
+    /// Each tier has a set amount of tokens available at a fixed price.
+    /// The sum of the tiers is the total amount available in this fundraiser.
+    pub tiers: Vec<PriceTier<Balance>>,
     /// Id of the venue to use for this fundraise
     pub venue_id: u64,
+    /// Start of the fundraiser
+    pub start: Moment,
+    /// End of the fundraiser
+    pub end: Moment,
+    /// Fundraiser is frozen
+    pub frozen: bool,
+}
+
+/// Single tier of a tiered pricing model
+#[cfg_attr(feature = "std", derive(Debug))]
+#[derive(Encode, Decode, Default, Clone, PartialEq, Eq, PartialOrd, Ord)]
+pub struct PriceTier<Balance> {
+    amount: u64,
+    price: Balance,
+}
+
+/// Single price tier of a `Fundraiser`.
+/// Similar to a `PriceTier` but with an extra field `remaining` for tracking the amount available in a tier.
+#[cfg_attr(feature = "std", derive(Debug))]
+#[derive(Encode, Decode, Default, Clone, PartialEq, Eq, PartialOrd, Ord)]
+pub struct FundraiserTier<Balance> {
+    amount: u64,
+    price: Balance,
+    remaining: u64,
+}
+
+impl<Balance> From<PriceTier<Balance>> for FundraiserTier<Balance> {
+    fn from(tier: PriceTier<Balance>) -> Self {
+        Self {
+            amount: tier.amount,
+            price: tier.price,
+            remaining: 0
+        }
+    }
 }
 
 decl_event!(
     pub enum Event<T>
     where
         Balance = <T as CommonTrait>::Balance,
+        Moment = <T as TimestampTrait>::Moment,
     {
         /// A new fundraiser has been created
-        /// (offering token, raise token, amount to sell, price, venue id, fundraiser_id)
-        FundraiserCreated(IdentityId, Ticker, Ticker, Balance, Balance, u64, u64),
+        /// (primary issuance agent, fundraiser)
+        FundraiserCreated(IdentityId, Fundraiser<Balance, Moment>),
         /// An investor invested in the fundraiser
         /// (offering token, raise token, offering_token_amount, raise_token_amount, fundraiser_id)
         FundsRaised(IdentityId, Ticker, Ticker, Balance, Balance, u64),
@@ -68,14 +108,22 @@ decl_error! {
         /// An arithmetic operation overflowed
         Overflow,
         /// Not enough tokens left for sale
-        InsufficientTokensRemaining
+        InsufficientTokensRemaining,
+        /// Fundraiser is frozen
+        FundraiserFrozen,
+        // Interacting with a fundraiser past the end `Moment`.
+        FundraiserExpired,
+        // Interacting with a fundraiser before the start `Moment`.
+        FundraiserNotStated,
+        // Using an invalid venue
+        InvalidVenue,
     }
 }
 
 decl_storage! {
     trait Store for Module<T: Trait> as StoCapped {
         /// All fundraisers that are currently running. (ticker, fundraiser_id) -> Fundraiser
-        Fundraisers get(fn fundraisers): double_map hasher(blake2_128_concat) Ticker, hasher(twox_64_concat) u64 => Fundraiser<T::Balance>;
+        Fundraisers get(fn fundraisers): double_map hasher(blake2_128_concat) Ticker, hasher(twox_64_concat) u64 => Fundraiser<T::Balance, T::Moment>;
         /// Total fundraisers created for a token
         FundraiserCount get(fn fundraiser_count): map hasher(twox_64_concat) Ticker => u64;
     }
@@ -93,27 +141,37 @@ decl_module! {
             origin,
             offering_token: Ticker,
             raise_token: Ticker,
-            sell_amount: T::Balance,
-            price_per_token: T::Balance,
-            venue_id: u64
+            price_tiers: Vec<PriceTier<T::Balance>>,
+            venue_id: u64,
+            start: Option<T::Moment>,
+            end: T::Moment,
         ) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             let did = Context::current_identity_or::<Identity<T>>(&sender)?;
+
             ensure!(T::Asset::primary_issuance_agent(&offering_token) == did, Error::<T>::Unauthorized);
+
+            ensure!(VenueInfo::contains_key(venue_id), Error::<T>::InvalidVenue);
+
             // TODO: Take custodial ownership of $sell_amount of $offering_token from primary issuance agent?
             let fundraiser_id = Self::fundraiser_count(offering_token) + 1;
+            // TODO revise the defaults
+            let fundraiser = Fundraiser {
+                    raise_token,
+                    tiers: price_tiers.into(),
+                    venue_id,
+                    start: start.unwrap_or(Timestamp::<T>::get()),
+                    end,
+                    frozen: false,
+                };
             <Fundraisers<T>>::insert(
                 offering_token,
                 fundraiser_id,
-                Fundraiser {
-                    raise_token,
-                    price_per_token,
-                    venue_id,
-                    remaining_amount: sell_amount
-                }
+                fundraiser
             );
+            FundraiserCount::insert(offering_token, fundraiser_id);
             Self::deposit_event(
-                RawEvent::FundraiserCreated(did, offering_token, raise_token, sell_amount, price_per_token, venue_id, fundraiser_id)
+                RawEvent::FundraiserCreated(did, fundraiser)
             );
             Ok(())
         }

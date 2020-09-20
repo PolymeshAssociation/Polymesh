@@ -25,7 +25,7 @@ pallet-compliance-manager = { path = "../../compliance-manager", default-feature
 pallet-multisig = { path = "../../multisig", default-features = false }
 pallet-pips = { path = "../../pips", default-features = false }
 pallet-committee = { path = "../../committee", default-features = false }
-pallet-basic-sto = { path = "../../basic-sto", default-features = false }
+pallet-sto = { path = "../../sto", default-features = false }
 pallet-treasury = { path = "../../treasury", default-features = false }
 pallet-settlement = { path = "../../settlement", default-features = false }
 pallet-im-online = { path = "../../im-online", default-features = false }
@@ -129,7 +129,7 @@ std = [
     "pallet-authorship/std",
     "pallet-babe/std",
     "pallet-balances/std",
-    "pallet-basic-sto/std",
+    "pallet-sto/std",
     "pallet-committee/std",
     "pallet-compliance-manager/std",
     "pallet-confidential/std",

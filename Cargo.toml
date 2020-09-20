@@ -42,6 +42,7 @@ members = [
     "pallets/asset",
     "pallets/compliance-manager",
     "pallets/statistics",
+    "pallets/sto",
     "pallets/confidential",
     "pallets/utility",
     "rpc/runtime-api",
