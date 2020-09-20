@@ -4,14 +4,14 @@ use super::{
 };
 
 use cryptography::claim_proofs::{compute_cdd_id, compute_scope_id};
-use pallet_asset::{self as asset, AssetType, IdentifierType, SecurityToken};
+use pallet_asset::{self as asset, AssetType, SecurityToken};
 use pallet_compliance_manager as compliance_manager;
 use pallet_confidential as confidential;
 use pallet_identity::{self as identity, Error};
 use polymesh_common_utilities::constants::ERC1400_TRANSFER_SUCCESS;
 use polymesh_primitives::{
-    Claim, Condition, ConditionType, IdentityId, InvestorUid, InvestorZKProofData, PortfolioId,
-    Scope, Ticker,
+    AssetIdentifier, Claim, Condition, ConditionType, IdentityId, InvestorUid, InvestorZKProofData,
+    PortfolioId, Scope, Ticker,
 };
 
 use core::convert::TryFrom;
@@ -47,7 +47,7 @@ fn range_proof_we() {
         asset_type: AssetType::default(),
         ..Default::default()
     };
-    let identifiers = vec![(IdentifierType::Isin, b"0123".into())];
+    let identifiers = vec![AssetIdentifier::isin(*b"US0378331005").unwrap()];
     let ticker = Ticker::try_from(token.name.as_slice()).unwrap();
 
     assert_ok!(Asset::create_asset(
@@ -113,7 +113,7 @@ fn scope_claims_we() {
         asset_type: AssetType::default(),
         ..Default::default()
     };
-    let identifiers = vec![(IdentifierType::Isin, b"0123".into())];
+    let identifiers = vec![AssetIdentifier::isin(*b"US0378331005").unwrap()];
     let st_id = Ticker::try_from(st.name.as_slice()).unwrap();
 
     assert_ok!(Asset::create_asset(
@@ -210,7 +210,7 @@ fn scope_claims_we() {
         asset_type: AssetType::default(),
         ..Default::default()
     };
-    let identifiers = vec![(IdentifierType::Isin, b"X123".into())];
+    let identifiers = vec![AssetIdentifier::isin(*b"US0378331005").unwrap()];
     let st2_id = Ticker::try_from(st_2.name.as_slice()).unwrap();
 
     assert_ok!(Asset::create_asset(

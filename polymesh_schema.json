@@ -27,12 +27,13 @@
                 "Custom": "Vec<u8>"
             }
         },
-        "IdentifierType": {
+        "AssetIdentifier": {
             "_enum": {
-                "Cins": "",
-                "Cusip": "",
-                "Isin": "",
-                "Dti": ""
+                "CUSIP": "[u8; 9]",
+                "CINS": "[u8; 9]",
+                "ISIN": "[u8; 12]",
+                "LEI": "[u8; 20]",
+                "EMPTY": ""
             }
         },
         "AssetOwnershipRelation": {
@@ -43,7 +44,6 @@
             }
         },
         "AssetName": "Text",
-        "AssetIdentifier": "Text",
         "FundingRoundName": "Text",
         "VenueDetails": "Text",
         "SecurityToken": {

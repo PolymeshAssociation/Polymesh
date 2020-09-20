@@ -108,8 +108,8 @@ use polymesh_common_utilities::{
     CommonTrait, Context, SystematicIssuers,
 };
 use polymesh_primitives::{
-    AuthorizationData, AuthorizationError, Document, DocumentName, IdentityId, PortfolioId,
-    Signatory, SmartExtension, SmartExtensionName, SmartExtensionType, Ticker,
+    AssetIdentifier, AuthorizationData, AuthorizationError, Document, DocumentName, IdentityId,
+    PortfolioId, Signatory, SmartExtension, SmartExtensionName, SmartExtensionType, Ticker,
 };
 use polymesh_primitives_derive::VecU8StrongTyped;
 use sp_runtime::traits::{CheckedAdd, Saturating};
@@ -160,21 +160,6 @@ impl Default for AssetType {
     }
 }
 
-/// The type of an identifier associated with a token.
-#[derive(Encode, Decode, Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
-pub enum IdentifierType {
-    Cins,
-    Cusip,
-    Isin,
-    Dti,
-}
-
-impl Default for IdentifierType {
-    fn default() -> Self {
-        IdentifierType::Isin
-    }
-}
-
 /// Ownership status of a ticker/token.
 #[derive(Encode, Decode, Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub enum AssetOwnershipRelation {
@@ -194,12 +179,6 @@ impl Default for AssetOwnershipRelation {
     Decode, Encode, Clone, Debug, Default, Hash, PartialEq, Eq, PartialOrd, Ord, VecU8StrongTyped,
 )]
 pub struct AssetName(pub Vec<u8>);
-
-/// A wrapper for an asset ID.
-#[derive(
-    Decode, Encode, Clone, Debug, Default, Hash, PartialEq, Eq, PartialOrd, Ord, VecU8StrongTyped,
-)]
-pub struct AssetIdentifier(pub Vec<u8>);
 
 /// A wrapper for a funding round name.
 #[derive(Decode, Encode, Clone, Debug, Hash, PartialEq, Eq, PartialOrd, Ord, VecU8StrongTyped)]
@@ -319,8 +298,8 @@ decl_storage! {
         /// The total asset ticker balance per identity.
         /// (ticker, DID) -> Balance
         pub BalanceOf get(fn balance_of): double_map hasher(blake2_128_concat) Ticker, hasher(blake2_128_concat) IdentityId => T::Balance;
-        /// A map of pairs of a ticker name and an `IdentifierType` to asset identifiers.
-        pub Identifiers get(fn identifiers): map hasher(blake2_128_concat) (Ticker, IdentifierType) => AssetIdentifier;
+        /// A map of a ticker name and asset identifiers.
+        pub Identifiers get(fn identifiers): map hasher(blake2_128_concat) Ticker => Vec<AssetIdentifier>;
         /// Checkpoints created per token.
         /// (ticker) -> no. of checkpoints
         pub TotalCheckpoints get(fn total_checkpoints_of): map hasher(blake2_128_concat) Ticker => u64;
@@ -396,6 +375,11 @@ decl_module! {
 
         /// initialize the default event for this module
         fn deposit_event() = default;
+
+        fn on_runtime_upgrade() -> frame_support::weights::Weight {
+            <Identifiers>::remove_all();
+            1_000
+        }
 
         /// This function is used to either register a new ticker or extend validity of an existing ticker.
         /// NB: Ticker validity does not get carry forward when renewing ticker.
@@ -479,7 +463,7 @@ decl_module! {
             total_supply: T::Balance,
             divisible: bool,
             asset_type: AssetType,
-            identifiers: Vec<(IdentifierType, AssetIdentifier)>,
+            identifiers: Vec<AssetIdentifier>,
             funding_round: Option<FundingRoundName>,
         ) -> DispatchResult {
             let sender = ensure_signed(origin)?;
@@ -551,9 +535,14 @@ decl_module! {
                 asset_type,
                 did,
             ));
-            for (typ, val) in &identifiers {
-                <Identifiers>::insert((ticker, typ.clone()), val.clone());
-            }
+
+            let identifiers: Vec<AssetIdentifier> = identifiers
+                .into_iter()
+                .filter_map(|identifier| identifier.validate())
+                .collect();
+
+            <Identifiers>::insert(ticker, identifiers.clone());
+
             // Add funding round name.
             <FundingRound>::insert(ticker, funding_round.unwrap_or_default());
 
@@ -776,14 +765,16 @@ decl_module! {
         pub fn update_identifiers(
             origin,
             ticker: Ticker,
-            identifiers: Vec<(IdentifierType, AssetIdentifier)>
+            identifiers: Vec<AssetIdentifier>
         ) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             let did = Context::current_identity_or::<Identity<T>>(&sender)?;
             ensure!(Self::is_owner(&ticker, did), Error::<T>::Unauthorized);
-            for (typ, val) in &identifiers {
-                <Identifiers>::insert((ticker, typ.clone()), val.clone());
-            }
+            let identifiers: Vec<AssetIdentifier> = identifiers
+                .into_iter()
+                .filter_map(|identifier| identifier.validate())
+                .collect();
+            <Identifiers>::insert(ticker, identifiers.clone());
             Self::deposit_event(RawEvent::IdentifiersUpdated(did, ticker, identifiers));
             Ok(())
         }
@@ -987,7 +978,7 @@ decl_event! {
         AssetCreated(IdentityId, Ticker, Balance, bool, AssetType, IdentityId),
         /// Event emitted when a token identifiers are updated.
         /// caller DID, ticker, a vector of (identifier type, identifier value)
-        IdentifiersUpdated(IdentityId, Ticker, Vec<(IdentifierType, AssetIdentifier)>),
+        IdentifiersUpdated(IdentityId, Ticker, Vec<AssetIdentifier>),
         /// Event for change in divisibility.
         /// caller DID, ticker, divisibility
         DivisibilityChanged(IdentityId, Ticker, bool),
