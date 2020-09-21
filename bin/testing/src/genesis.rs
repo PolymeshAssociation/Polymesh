@@ -19,16 +19,31 @@
 //! Genesis Configuration.
 
 use crate::keyring::*;
-use node_primitives::{AccountId, IdentityId, InvestorUid};
+use node_primitives::{AccountId, IdentityId, InvestorUid, Signature, IdentifyAccount};
 use node_runtime::{config::*, StakerStatus};
 use polymesh_common_utilities::constants::currency::*;
 use sp_core::ChangesTrieConfiguration;
 use sp_keyring::{Ed25519Keyring, Sr25519Keyring};
-use sp_runtime::Perbill;
-
+use sp_runtime::{Perbill, traits::Verify};
+use sp_core::{sr25519, Pair, Public};
 /// Create genesis runtime configuration for tests.
 pub fn config(support_changes_trie: bool) -> GenesisConfig {
     config_endowed(support_changes_trie, Default::default())
+}
+
+type AccountPublic = <Signature as Verify>::Signer;
+
+fn get_from_seed<TPublic: Public>(seed: &str) -> <TPublic::Pair as Pair>::Public {
+    TPublic::Pair::from_string(&format!("//{}", seed), None)
+        .expect("static values are valid; qed")
+        .public()
+}
+
+fn get_account_id_from_seed<TPublic: Public>(seed: &str) -> AccountId
+where
+    AccountPublic: From<<TPublic::Pair as Pair>::Public>,
+{
+    AccountPublic::from(get_from_seed::<TPublic>(seed)).into_account()
 }
 
 /// Create genesis runtime configuration for tests with some extra
@@ -108,7 +123,7 @@ pub fn config_endowed(support_changes_trie: bool, extra_endowed: Vec<AccountId>)
         pallet_sudo: Some(Default::default()),
         asset: Some(Default::default()),
         identity: {
-            let initial_identities = endowed
+            let mut initial_identities = endowed
                 .into_iter()
                 .enumerate()
                 .map(|(i, (account, _))| {
@@ -116,11 +131,28 @@ pub fn config_endowed(support_changes_trie: bool, extra_endowed: Vec<AccountId>)
                         account,
                         IdentityId::from(1usize as u128),
                         IdentityId::from(i as u128),
-                        InvestorUid::from([i as u8; 32]),
+                        InvestorUid::from([1u8; 32]),
                         None,
                     )
                 })
                 .collect::<Vec<_>>();
+
+            let initial_len = initial_identities.len();
+            initial_identities.reserve(initial_len);
+            for i in 0..initial_len {
+                initial_identities.push(
+                    (
+                        get_account_id_from_seed::<sr25519::Public>(&format!(
+                            "random-user//{}",
+                            i
+                        )),
+                        IdentityId::from(1usize as u128),
+                        IdentityId::from((i + initial_len) as u128),
+                        InvestorUid::from([1u8; 32]),
+                        None,
+                    )
+                )
+            }
 
             Some(IdentityConfig {
                 identities: initial_identities,

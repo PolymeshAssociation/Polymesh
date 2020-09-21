@@ -37,7 +37,6 @@ use node_primitives::{AccountId, Signature};
 use node_runtime::{
     BalancesCall, Call, CheckedExtrinsic, MinimumPeriod, SystemCall, UncheckedExtrinsic,
 };
-use polymesh_common_utilities::constants::currency::*;
 use sc_block_builder::BlockBuilderProvider;
 use sc_client_api::{
     execution_extensions::{ExecutionExtensions, ExecutionStrategies},
@@ -246,17 +245,10 @@ impl<'a> Iterator for BlockContentIterator<'a> {
         }
 
         let sender = self.keyring.at(self.iteration);
-        // let receiver = get_account_id_from_seed::<sr25519::Public>(&format!(
-        //     "random-user//{}",
-        //     self.iteration
-        // ));
-        let receiver =
-            self.keyring
-                .at(if self.iteration >= self.content.size.unwrap_or_default() {
-                    0
-                } else {
-                    self.iteration + 1
-                });
+        let receiver = get_account_id_from_seed::<sr25519::Public>(&format!(
+            "random-user//{}",
+            self.iteration
+        ));
 
         let signed = self.keyring.sign(
             CheckedExtrinsic {
