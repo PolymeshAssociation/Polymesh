@@ -343,6 +343,7 @@ decl_storage! {
         config(classic_migration_tickers): Vec<ClassicTickerImport>;
         config(classic_migration_tconfig): TickerRegistrationConfig<T::Moment>;
         config(classic_migration_contract_did): IdentityId;
+        config(reserved_country_currency_codes): Vec<Ticker>;
         build(|config: &GenesisConfig<T>| {
             let cm_did = SystematicIssuers::ClassicMigration.as_id();
             for import in &config.classic_migration_tickers {
@@ -361,6 +362,13 @@ decl_storage! {
                 };
                 ClassicTickers::insert(&import.ticker, classic_ticker);
             }
+
+            // Reserving country currency logic
+            let fiat_tickers_reservation_did = SystematicIssuers::FiatTickersReservation.as_id();
+            for currency_ticker in &config.reserved_country_currency_codes {
+                <Module<T>>::_register_ticker(&currency_ticker, fiat_tickers_reservation_did, None);
+            }
+
         });
     }
 }
