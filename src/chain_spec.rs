@@ -32,7 +32,6 @@ use sp_runtime::{Deserialize, Serialize};
 
 use std::convert::TryInto;
 
-use std::fs;
 const STAGING_TELEMETRY_URL: &str = "wss://telemetry.polymesh.live/submit/";
 
 pub type AlcyoneChainSpec = sc_service::GenericChainSpec<AlcyoneConfig::GenesisConfig>;
@@ -131,7 +130,7 @@ fn currency_codes() -> Vec<Ticker> {
         pub codes: Vec<String>,
     }
 
-    let currency_file = fs::read_to_string("src/data/currency_symbols.json").unwrap();
+    let currency_file = include_str!("data/currency_symbols.json");
     let currency_data: FiatCurrency<String> = serde_json::from_str(&currency_file).unwrap();
     currency_data
         .codes
