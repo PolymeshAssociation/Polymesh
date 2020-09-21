@@ -24,7 +24,7 @@ use cryptography::{
         account::{convert_asset_ids, AccountValidator},
         asset::AssetValidator,
         AccountCreatorVerifier, AssetTransactionVerifier, EncryptedAmount, EncryptedAssetId,
-        EncryptionKeys, EncryptionPubKey, InitializedAssetTx, PubAccount, PubAccountTx,
+        EncryptionPubKey, InitializedAssetTx, PubAccount, PubAccountTx,
     },
     AssetId,
 };
@@ -35,11 +35,8 @@ use frame_system::ensure_signed;
 use pallet_identity as identity;
 use pallet_statistics::{self as statistics};
 use polymesh_common_utilities::{
-    asset::{ConfidentialTrait as ConfidentialAssetTrait, Trait as AssetTrait},
-    balances::Trait as BalancesTrait,
-    constants::currency::ONE_UNIT,
-    identity::Trait as IdentityTrait,
-    CommonTrait, Context,
+    asset::Trait as AssetTrait, balances::Trait as BalancesTrait, constants::currency::ONE_UNIT,
+    identity::Trait as IdentityTrait, CommonTrait, Context,
 };
 use polymesh_primitives::{
     AssetIdentifier, AssetName, AssetType, FundingRoundName, IdentifierType, IdentityId, Ticker,
@@ -249,9 +246,18 @@ decl_module! {
                 Error::<T>::Unauthorized
             );
 
-            //  TODO: get the divisibility state.
-            if total_supply % ONE_UNIT.into() != 0.into() {
-                return Err(Error::<T>::InvalidTotalSupply.into());
+            ensure!(
+                Self::confidential_tickers().contains(&AssetId {
+                    id: *ticker.as_bytes(),
+                }),
+                Error::<T>::NonConfidentialAssetTotalSupplyCannotBeSet
+            );
+
+            if T::Asset::is_divisible(ticker) {
+                ensure!(
+                    total_supply % ONE_UNIT.into() == 0.into(),
+                    Error::<T>::InvalidTotalSupply
+                );
             }
 
             // At the moment, mercat lib imposes that balances can be at most u32 integers.
@@ -281,7 +287,7 @@ decl_module! {
             );
 
             // This will emit the total supply changed event.
-            T::Asset::set_total_supply(owner_did, ticker, total_supply)?;
+            T::Asset::unchecked_set_total_supply(owner_did, ticker, total_supply)?;
 
             // Update statistic info.
             <statistics::Module<T>>::update_transfer_stats(
@@ -328,13 +334,8 @@ decl_error! {
 
         /// The user is not authorized.
         Unauthorized,
-    }
-}
 
-impl<T: Trait> ConfidentialAssetTrait for Module<T> {
-    fn is_confidential(ticker: Ticker) -> bool {
-        Self::confidential_tickers().contains(&AssetId {
-            id: *ticker.as_bytes(),
-        })
+        /// Only confidential assets' total supply can change after registering the asset.
+        NonConfidentialAssetTotalSupplyCannotBeSet,
     }
 }

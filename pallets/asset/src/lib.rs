@@ -46,7 +46,8 @@
 //! - `issue` - Function is used to issue(or mint) new tokens to the primary issuance agent.
 //! - `controller_redeem` - Forces a redemption of an DID's tokens. Can only be called by token owner.
 //! - `make_divisible` - Change the divisibility of the token to divisible. Only called by the token owner.
-//! - `set_total_supply` - Sets the initial total supply of a confidential asset. Only called by the token owner of a confidential asset. Can be called only once.
+//! - `unchecked_set_total_supply` - Sets the initial total supply of a confidential asset.
+//!                                  Should only called by the token owner of a confidential asset. Should be called only once.
 //! - `can_transfer` - Checks whether a transaction with given parameters can take place or not.
 //! - `add_documents` - Add documents for a given token, Only be called by the token owner.
 //! - `remove_documents` - Remove documents for a given token, Only be called by the token owner.
@@ -100,9 +101,7 @@ use pallet_contracts::{ExecResult, Gas};
 use pallet_identity as identity;
 use pallet_statistics::{self as statistics, Counter};
 use polymesh_common_utilities::{
-    asset::{
-        AcceptTransfer, ConfidentialTrait as ConfidentialAssetTrait, Trait as AssetTrait, GAS_LIMIT,
-    },
+    asset::{AcceptTransfer, Trait as AssetTrait, GAS_LIMIT},
     balances::Trait as BalancesTrait,
     compliance_manager::Trait as ComplianceManagerTrait,
     constants::*,
@@ -142,7 +141,6 @@ pub trait Trait:
     /// This hard limit is set to avoid the cases where a asset transfer
     /// gas usage go beyond the block gas limit.
     type MaxNumberOfTMExtensionForAsset: Get<u32>;
-    type ConfidentialAsset: ConfidentialAssetTrait;
 }
 
 pub mod weight_for {
@@ -1004,8 +1002,25 @@ impl<T: Trait> AssetTrait<T::Balance, T::AccountId> for Module<T> {
         to_portfolio: PortfolioId,
         ticker: &Ticker,
         value: T::Balance,
+<<<<<<< HEAD
     ) -> DispatchResultWithPostInfo {
         Self::base_transfer(from_portfolio, to_portfolio, ticker, value)
+=======
+    ) {
+        Self::unsafe_system_transfer(sender, ticker, from_did, to_did, value);
+    }
+
+    fn unchecked_set_total_supply(
+        did: IdentityId,
+        ticker: Ticker,
+        total_supply: T::Balance,
+    ) -> DispatchResult {
+        Self::unchecked_set_total_supply(did, ticker, total_supply)
+    }
+
+    fn is_divisible(ticker: Ticker) -> bool {
+        Self::token_details(ticker).divisible
+>>>>>>> 818ddfe4... perform checks in the confidential asset pallet
     }
 
     /// Create and add a new security token.
@@ -1876,7 +1891,7 @@ impl<T: Trait> Module<T> {
     /// * `origin` Secondary key of the token owner.
     /// * `ticker` Ticker of the token.
     /// * `total_supply` Ticker of the token.
-    pub fn set_total_supply(
+    pub fn unchecked_set_total_supply(
         did: IdentityId,
         ticker: Ticker,
         total_supply: T::Balance,
@@ -1884,10 +1899,6 @@ impl<T: Trait> Module<T> {
         ensure!(Self::is_owner(&ticker, did), Error::<T>::Unauthorized);
         // Read the token details
         let mut token = Self::token_details(&ticker);
-        ensure!(
-            T::ConfidentialAsset::is_confidential(ticker),
-            Error::<T>::NonConfidentialAssetsCannotSetTotalSupply
-        );
         ensure!(
             token.total_supply == Zero::zero(),
             Error::<T>::CanSetTotalSupplyOnlyOnce

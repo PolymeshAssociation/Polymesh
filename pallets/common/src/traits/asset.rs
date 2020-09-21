@@ -80,8 +80,10 @@ pub trait Trait<V, U> {
         funding_round: Option<FundingRoundName>,
         is_confidential: bool,
     ) -> DispatchResult;
-}
-
-pub trait ConfidentialTrait {
-    fn is_confidential(ticker: Ticker) -> bool;
+    fn unchecked_set_total_supply(
+        did: IdentityId,
+        ticker: Ticker,
+        total_supply: V,
+    ) -> DispatchResult;
+    fn is_divisible(ticker: Ticker) -> bool;
 }
