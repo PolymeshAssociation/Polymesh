@@ -42,14 +42,11 @@ use polymesh_common_utilities::traits::{
     multisig::MultiSigSubTrait,
     portfolio::PortfolioSubTrait,
     transaction_payment::{CddAndFeeDetails, ChargeTxFee},
-    CheckAccountCallPermissions, CommonTrait, PermissionChecker,
+    CommonTrait, PermissionChecker,
 };
 use polymesh_primitives::{
     Authorization, AuthorizationData, Claim, IdentityId, InvestorUid, Moment, Permissions,
-    Signatory,
-};
-use polymesh_primitives::{
-    AuthorizationData, Claim, IdentityId, InvestorUid, Moment, PortfolioId, Signatory, Ticker,
+    PortfolioId, Signatory, Ticker,
 };
 use sp_core::H256;
 use sp_io;
