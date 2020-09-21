@@ -4,7 +4,7 @@ use super::{
 };
 use codec::{Decode, Encode};
 use confidential_asset::EncryptedAssetIdWrapper;
-use core::convert::TryFrom;
+use core::convert::{TryFrom, TryInto};
 use cryptography::{
     asset_proofs::{CommitmentWitness, ElgamalSecretKey},
     mercat::{
@@ -249,7 +249,7 @@ fn issuers_can_create_and_mint_tokens() {
                 AccountKeyring::Bob.public(), // Alice does not own any of these tokens.
             );
         }
-        let total_supply = 10_000_000u128;
+        let total_supply: u128 = 10_000_000;
         // Expected token entry
         let token = SecurityToken {
             name: vec![0x07].into(),
