@@ -84,7 +84,7 @@ use frame_support::{
     traits::Get,
     weights::Weight,
 };
-use frame_system::{self as system, ensure_signed};
+use frame_system::ensure_signed;
 use pallet_identity as identity;
 use polymesh_common_utilities::{
     asset::Trait as AssetTrait,
@@ -151,6 +151,7 @@ impl Default for ImplicitRequirementStatus {
 /// All sender and receiver conditions of the same compliance requirement must be true in order to execute the transfer.
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[derive(Encode, Decode, Default, Clone, PartialEq, Eq, Debug, Migrate)]
+#[migrate_context(Option<polymesh_primitives::CddId>)]
 pub struct ComplianceRequirement {
     #[migrate(Condition)]
     pub sender_conditions: Vec<Condition>,
@@ -213,6 +214,7 @@ impl From<Condition> for ConditionResult {
 /// List of compliance requirements associated to an asset.
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize, Debug))]
 #[derive(Encode, Decode, Default, Clone, PartialEq, Eq, Migrate)]
+#[migrate_context(Option<polymesh_primitives::CddId>)]
 pub struct AssetCompliance {
     /// This flag indicates if asset compliance should be enforced
     pub paused: bool,
@@ -329,7 +331,7 @@ decl_module! {
         fn on_runtime_upgrade() -> frame_support::weights::Weight {
             use polymesh_primitives::migrate::migrate_map_rename;
 
-            migrate_map_rename::<AssetComplianceOld>(b"ComplianceManager", b"AssetRulesMap", b"AssetCompliance");
+            migrate_map_rename::<AssetComplianceOld, _>(b"ComplianceManager", b"AssetRulesMap", b"AssetCompliance", |_| None);
 
             1_000
         }

@@ -47,8 +47,9 @@ members = [
     "rpc/runtime-api",
     "node-rpc",
     "rpc",
-    "utils/wasm-builder",
+    "utils/wasm-builder"
 ]
+exclude = ["pallets/staking/fuzzer"]
 
 [dependencies]
 polymesh-primitives = { path = "primitives" }
@@ -62,64 +63,68 @@ im-online = { package = "pallet-im-online", path = "pallets/im-online" }
 node-rpc = { path = "rpc" }
 node-rpc-runtime-api = { path = "rpc/runtime-api", default-features = false }
 pallet-protocol-fee-rpc-runtime-api = { path = "pallets/protocol-fee/rpc/runtime-api", default-features = false }
-pallet-contracts-rpc-runtime-api = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "at-add-dispatch-call" }
+pallet-contracts-rpc-runtime-api = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0-rc6" }
 pallet-staking-rpc-runtime-api = { path = "pallets/staking/rpc/runtime-api" }
 pallet-protocol-fee-rpc = { path = "pallets/protocol-fee/rpc" }
 pallet-group-rpc = { path = "pallets/group/rpc" }
 pallet-group-rpc-runtime-api = { path = "pallets/group/rpc/runtime-api", default-features = false }
 polymesh-node-rpc = { path = "node-rpc" }
-frame-system-rpc-runtime-api = { git = "https://github.com/paritytech/substrate", branch = "at-add-dispatch-call" }
+frame-system-rpc-runtime-api = { git = "https://github.com/paritytech/substrate", tag = "v2.0.0-rc6" }
 
 # Runtimes
 polymesh-runtime-develop = { path = "pallets/runtime/develop" }
 polymesh-runtime-testnet = { path = "pallets/runtime/testnet" }
 
 # General
-ed25519-dalek = "=1.0.0-pre.3"
+ed25519-dalek = "1.0.0"
 log = "0.4.8"
 futures = "0.3.4"
-jsonrpc-core = "14.0.5"
+jsonrpc-core = "14.2.0"
+jsonrpc-pubsub = "14.2.0"
 serde_json = '1.0.48'
 structopt = "0.3.15"
 chrono = "0.4.11"
 
 # Substrate
 codec = { version = "1.2.0", package = "parity-scale-codec" }
-sp-core = { git = "https://github.com/paritytech/substrate", branch = "at-add-dispatch-call" }
-sp-runtime = { git = "https://github.com/paritytech/substrate", branch = "at-add-dispatch-call" }
-sp-api = { git = "https://github.com/paritytech/substrate", branch = "at-add-dispatch-call" }
-sp-offchain = { git = "https://github.com/paritytech/substrate", branch = "at-add-dispatch-call" }
-sp-block-builder = { git = "https://github.com/paritytech/substrate", branch = "at-add-dispatch-call" }
-sp-blockchain = { git = "https://github.com/paritytech/substrate", branch = "at-add-dispatch-call" }
-sp-session = { git = "https://github.com/paritytech/substrate", branch = "at-add-dispatch-call" }
-sp-consensus = { git = "https://github.com/paritytech/substrate", branch = "at-add-dispatch-call" }
-grandpa-primitives = { package = "sp-finality-grandpa", git = "https://github.com/paritytech/substrate", branch = "at-add-dispatch-call" }
-sp-inherents = { git = "https://github.com/paritytech/substrate", branch = "at-add-dispatch-call" }
-sp-transaction-pool = { package = "sp-transaction-pool", git = "https://github.com/paritytech/substrate", branch = "at-add-dispatch-call" }
-sp-consensus-babe = { git = "https://github.com/paritytech/substrate", branch = "at-add-dispatch-call" }
-sp-authority-discovery = { git = "https://github.com/paritytech/substrate", branch = "at-add-dispatch-call" }
+sp-core = { git = "https://github.com/paritytech/substrate", tag = "v2.0.0-rc6" }
+sp-runtime = { git = "https://github.com/paritytech/substrate", tag = "v2.0.0-rc6" }
+sp-api = { git = "https://github.com/paritytech/substrate", tag = "v2.0.0-rc6" }
+sp-offchain = { git = "https://github.com/paritytech/substrate", tag = "v2.0.0-rc6" }
+sp-block-builder = { git = "https://github.com/paritytech/substrate", tag = "v2.0.0-rc6" }
+sp-blockchain = { git = "https://github.com/paritytech/substrate", tag = "v2.0.0-rc6" }
+sp-session = { git = "https://github.com/paritytech/substrate", tag = "v2.0.0-rc6" }
+sp-consensus = { git = "https://github.com/paritytech/substrate", tag = "v2.0.0-rc6" }
+grandpa-primitives = { package = "sp-finality-grandpa", git = "https://github.com/paritytech/substrate", tag = "v2.0.0-rc6" }
+sp-inherents = { git = "https://github.com/paritytech/substrate", tag = "v2.0.0-rc6" }
+sp-transaction-pool = { package = "sp-transaction-pool", git = "https://github.com/paritytech/substrate", tag = "v2.0.0-rc6" }
+sp-consensus-babe = { git = "https://github.com/paritytech/substrate", tag = "v2.0.0-rc6" }
+sp-authority-discovery = { git = "https://github.com/paritytech/substrate", tag = "v2.0.0-rc6" }
 
-contracts = { package = "pallet-contracts", git = "https://github.com/paritytech/substrate", default-features = false, branch = "at-add-dispatch-call" }
+contracts = { package = "pallet-contracts", git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0-rc6" }
 
-sc-service = { git = "https://github.com/paritytech/substrate", branch = "at-add-dispatch-call" }
-sc-chain-spec = { git = "https://github.com/paritytech/substrate", branch = "at-add-dispatch-call" }
-sc-client-api = { git = "https://github.com/paritytech/substrate", branch = "at-add-dispatch-call" }
-sc-executor = { git = "https://github.com/paritytech/substrate", branch = "at-add-dispatch-call" }
-sc-network = { git = "https://github.com/paritytech/substrate", branch = "at-add-dispatch-call" }
-sc-cli = { git = "https://github.com/paritytech/substrate", branch = "at-add-dispatch-call" }
-sc-telemetry = { git = "https://github.com/paritytech/substrate", branch = "at-add-dispatch-call" }
-sc-consensus-babe = { git = "https://github.com/paritytech/substrate", branch = "at-add-dispatch-call" }
-sc-consensus = { git = "https://github.com/paritytech/substrate", branch = "at-add-dispatch-call" }
-sc-rpc = { git = "https://github.com/paritytech/substrate", branch = "at-add-dispatch-call" }
-sc-transaction-pool = { git = "https://github.com/paritytech/substrate", branch = "at-add-dispatch-call" }
-grandpa = { package = "sc-finality-grandpa", git = "https://github.com/paritytech/substrate", branch = "at-add-dispatch-call" }
-sc-basic-authorship = { git = "https://github.com/paritytech/substrate", branch = "at-add-dispatch-call" }
-sc-authority-discovery = { git = "https://github.com/paritytech/substrate", branch = "at-add-dispatch-call" }
+sc-service = { git = "https://github.com/paritytech/substrate", tag = "v2.0.0-rc6" }
+sc-chain-spec = { git = "https://github.com/paritytech/substrate", tag = "v2.0.0-rc6" }
+sc-client-api = { git = "https://github.com/paritytech/substrate", tag = "v2.0.0-rc6" }
+sc-executor = { git = "https://github.com/paritytech/substrate", tag = "v2.0.0-rc6" }
+sc-network = { git = "https://github.com/paritytech/substrate", tag = "v2.0.0-rc6" }
+sc-cli = { git = "https://github.com/paritytech/substrate", tag = "v2.0.0-rc6" }
+sc-telemetry = { git = "https://github.com/paritytech/substrate", tag = "v2.0.0-rc6" }
+sc-consensus-babe = { git = "https://github.com/paritytech/substrate", tag = "v2.0.0-rc6" }
+sc-consensus = { git = "https://github.com/paritytech/substrate", tag = "v2.0.0-rc6" }
+sc-rpc = { git = "https://github.com/paritytech/substrate", tag = "v2.0.0-rc6" }
+sc-transaction-pool = { git = "https://github.com/paritytech/substrate", tag = "v2.0.0-rc6" }
+grandpa = { package = "sc-finality-grandpa", git = "https://github.com/paritytech/substrate", tag = "v2.0.0-rc6" }
+sc-basic-authorship = { git = "https://github.com/paritytech/substrate", tag = "v2.0.0-rc6" }
+sc-authority-discovery = { git = "https://github.com/paritytech/substrate", tag = "v2.0.0-rc6" }
 
-prometheus-endpoint = { package = "substrate-prometheus-endpoint", git = "https://github.com/paritytech/substrate", branch = "at-add-dispatch-call" }
+sc-light = { git = "https://github.com/paritytech/substrate", tag = "v2.0.0-rc6" }
+sc-client-db = { git = "https://github.com/paritytech/substrate", tag = "v2.0.0-rc6" }
 
-frame-benchmarking = { git = "https://github.com/paritytech/substrate", branch = "at-add-dispatch-call" }
-frame-benchmarking-cli = { git = "https://github.com/paritytech/substrate", branch = "at-add-dispatch-call" }
+prometheus-endpoint = { package = "substrate-prometheus-endpoint", git = "https://github.com/paritytech/substrate", tag = "v2.0.0-rc6" }
+
+frame-benchmarking = { git = "https://github.com/paritytech/substrate", tag = "v2.0.0-rc6" }
+frame-benchmarking-cli = { git = "https://github.com/paritytech/substrate", tag = "v2.0.0-rc6" }
 
 [build-dependencies]
 vergen = "3.1.0"

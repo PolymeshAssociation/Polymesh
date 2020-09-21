@@ -5378,7 +5378,6 @@ fn voting_for_pip_overlays_with_staking() {
     type Pips = pallet_pips::Module<Test>;
     type Error = pallet_pips::Error<Test>;
     use crate::staking::mock::Call;
-    use pallet_pips::Proposer;
 
     ExtBuilder::default().build().execute_with(|| {
         System::set_block_number(1);
@@ -5395,8 +5394,7 @@ fn voting_for_pip_overlays_with_staking() {
         let alice_proposal = |deposit: u128| {
             let signer = Origin::signed(alice_acc);
             let proposal = Box::new(Call::Pips(pallet_pips::Call::set_min_proposal_deposit(0)));
-            let proposer = Proposer::Community(alice_acc);
-            Pips::propose(signer, proposer, proposal, deposit, None, None)
+            Pips::propose(signer, proposal, deposit, None, None)
         };
 
         // Bond all but 10.

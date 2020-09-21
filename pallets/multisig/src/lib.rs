@@ -89,7 +89,7 @@ use frame_support::{
     weights::GetDispatchInfo,
     StorageDoubleMap, StorageValue,
 };
-use frame_system::{self as system, ensure_signed};
+use frame_system::ensure_signed;
 use pallet_identity as identity;
 use polymesh_common_utilities::{
     identity::Trait as IdentityTrait,

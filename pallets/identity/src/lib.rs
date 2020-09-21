@@ -92,7 +92,7 @@ use frame_support::{
     ensure,
     traits::{ChangeMembers, Currency, InitializeMembers},
     weights::{DispatchClass, GetDispatchInfo, Pays, Weight},
-    Blake2_128Concat, ReversibleStorageHasher, StorageDoubleMap, StorageHasher,
+    Blake2_128Concat, ReversibleStorageHasher, StorageDoubleMap,
 };
 use frame_system::{self as system, ensure_root, ensure_signed};
 use polymesh_common_utilities::{
@@ -106,6 +106,7 @@ use polymesh_common_utilities::{
             TargetIdAuthorization, Trait,
         },
         multisig::MultiSigSubTrait,
+        portfolio::PortfolioSubTrait,
         transaction_payment::{CddAndFeeDetails, ChargeTxFee},
         AccountCallPermissionsData, CheckAccountCallPermissions,
     },
@@ -257,41 +258,32 @@ decl_module! {
 
         fn on_runtime_upgrade() -> Weight {
             use polymesh_primitives::{
-                identity_claim::IdentityClaimOld, migrate::migrate_map, identity::IdentityOld,
+                identity_claim::IdentityClaimOld,
+                identity::IdentityOld,
+                migrate::{migrate_map,  migrate_double_map_keys},
             };
             use polymesh_common_utilities::traits::identity::runtime_upgrade::LinkedKeyInfo;
 
             // Rename "master" to "primary".
             <CddAuthForPrimaryKeyRotation>::put(<CddAuthForMasterKeyRotation>::take());
 
-            migrate_map::<IdentityClaimOld>(b"Identity", b"Claims");
-            migrate_map::<LinkedKeyInfo>(b"Identity", b"KeyToIdentityIds");
-            migrate_map::<IdentityOld<T::AccountId>>(b"Identity", b"DidRecords");
+            migrate_map::<IdentityClaimOld, _>(b"Identity", b"Claims", |raw_key| {
+                Claim1stKey::decode(&mut Blake2_128Concat::reverse(&raw_key))
+                    .ok()
+                    .map(|k1| (*k1.target.as_fixed_bytes()).into())
+            });
 
             // Covert old scopes to new scopes
-            use frame_support::migration::{StorageIterator, put_storage_value};
-            let old_map = StorageIterator::<IdentityClaim>::new(b"Identity", b"Claims")
-                .drain().
-                collect::<Vec<(Vec<u8>, IdentityClaim)>>();
+            migrate_double_map_keys::<IdentityClaim, Blake2_128Concat, _, _, _, _, _>(
+                b"Identity", b"Claims",
+                |k1: Claim1stKey, k2: Claim2ndKeyOld| (
+                    k1,
+                    Claim2ndKey { issuer: k2.issuer, scope: k2.scope.map(Scope::Identity) }
+                )
+            );
 
-            for (raw_key, value) in old_map.iter() {
-                let mut unhashed_key = Blake2_128Concat::reverse(&raw_key);
-                if let Ok(k1) = Claim1stKey::decode(&mut unhashed_key) {
-                    let mut raw_k2 = Blake2_128Concat::reverse(unhashed_key);
-                    if let Ok(k2) = Claim2ndKeyOld::decode(&mut raw_k2) {
-                        let k2 = Claim2ndKey {
-                            issuer: k2.issuer,
-                            scope: k2.scope.map(|did| Scope::Identity(did)),
-                        };
-                        let mut k1_hashed = k1.using_encoded(Blake2_128Concat::hash);
-                        let mut k2_hashed = k2.using_encoded(Blake2_128Concat::hash);
-                        let mut key = Vec::new();
-                        key.append(&mut k1_hashed);
-                        key.append(&mut k2_hashed);
-                        put_storage_value(b"Identity", b"Claims", &key, value);
-                    }
-                }
-            }
+            migrate_map::<LinkedKeyInfo>(b"Identity", b"KeyToIdentityIds");
+            migrate_map::<IdentityOld<T::AccountId>>(b"Identity", b"DidRecords");
 
             // It's gonna be alot, so lets pretend its 0 anyways.
             0
@@ -796,6 +788,8 @@ decl_module! {
                             T::MultiSig::accept_multisig_signer(Signatory::from(did), auth_id),
                         AuthorizationData::JoinIdentity(_) =>
                             Self::join_identity(Signatory::from(did), auth_id),
+                        AuthorizationData::PortfolioCustody(..) =>
+                            T::Portfolio::accept_portfolio_custody(did, auth_id),
                         AuthorizationData::RotatePrimaryKey(..)
                         | AuthorizationData::AttestPrimaryKeyRotation(..)
                         | AuthorizationData::Custom(..)
@@ -815,6 +809,7 @@ decl_module! {
                         | AuthorizationData::TransferPrimaryIssuanceAgent(..)
                         | AuthorizationData::TransferAssetOwnership(..)
                         | AuthorizationData::AttestPrimaryKeyRotation(..)
+                        | AuthorizationData::PortfolioCustody(..)
                         | AuthorizationData::Custom(..)
                         | AuthorizationData::NoData =>
                             Err(Error::<T>::UnknownAuthorization.into())
@@ -1919,6 +1914,7 @@ impl<T: Trait> Module<T> {
                     AuthorizationType::TransferAssetOwnership
                 }
                 AuthorizationData::JoinIdentity(..) => AuthorizationType::JoinIdentity,
+                AuthorizationData::PortfolioCustody(..) => AuthorizationType::PortfolioCustody,
                 AuthorizationData::Custom(..) => AuthorizationType::Custom,
                 AuthorizationData::NoData => AuthorizationType::NoData,
             }
