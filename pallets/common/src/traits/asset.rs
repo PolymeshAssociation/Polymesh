@@ -81,3 +81,7 @@ pub trait Trait<V, U> {
         is_confidential: bool,
     ) -> DispatchResult;
 }
+
+pub trait ConfidentialTrait {
+    fn is_confidential(ticker: Ticker) -> bool;
+}

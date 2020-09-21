@@ -100,7 +100,9 @@ use pallet_contracts::{ExecResult, Gas};
 use pallet_identity as identity;
 use pallet_statistics::{self as statistics, Counter};
 use polymesh_common_utilities::{
-    asset::{AcceptTransfer, Trait as AssetTrait, GAS_LIMIT},
+    asset::{
+        AcceptTransfer, ConfidentialTrait as ConfidentialAssetTrait, Trait as AssetTrait, GAS_LIMIT,
+    },
     balances::Trait as BalancesTrait,
     compliance_manager::Trait as ComplianceManagerTrait,
     constants::*,
@@ -140,6 +142,7 @@ pub trait Trait:
     /// This hard limit is set to avoid the cases where a asset transfer
     /// gas usage go beyond the block gas limit.
     type MaxNumberOfTMExtensionForAsset: Get<u32>;
+    type ConfidentialAsset: ConfidentialAssetTrait;
 }
 
 pub mod weight_for {
@@ -1859,6 +1862,36 @@ impl<T: Trait> Module<T> {
         let did = Context::current_identity_or::<identity::Module<T>>(&sender)?;
 
         ensure!(Self::is_owner(ticker, did), Error::<T>::Unauthorized);
+        ensure!(
+            <ExtensionDetails<T>>::contains_key((ticker, id)),
+            Error::<T>::NoSuchSmartExtension
+        );
+        Ok(did)
+    }
+
+    /// Sets the initial total supply of a confidential asset.
+    /// Only called by the token owner of a confidential asset. Can be called only once.
+    ///
+    /// # Arguments
+    /// * `origin` Secondary key of the token owner.
+    /// * `ticker` Ticker of the token.
+    /// * `total_supply` Ticker of the token.
+    pub fn set_total_supply(
+        did: IdentityId,
+        ticker: Ticker,
+        total_supply: T::Balance,
+    ) -> DispatchResult {
+        ensure!(Self::is_owner(&ticker, did), Error::<T>::Unauthorized);
+        // Read the token details
+        let mut token = Self::token_details(&ticker);
+        ensure!(
+            T::ConfidentialAsset::is_confidential(ticker),
+            Error::<T>::NonConfidentialAssetsCannotSetTotalSupply
+        );
+        ensure!(
+            token.total_supply == Zero::zero(),
+            Error::<T>::CanSetTotalSupplyOnlyOnce
+        );
         ensure!(
             <ExtensionDetails<T>>::contains_key((ticker, id)),
             Error::<T>::NoSuchSmartExtension

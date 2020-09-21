@@ -27,7 +27,7 @@ use polymesh_primitives::{
 };
 use rand::{rngs::StdRng, SeedableRng};
 use sp_core::sr25519::Public;
-use sp_runtime::{traits::Zero};
+use sp_runtime::traits::Zero;
 use test_client::AccountKeyring;
 
 type Identity = identity::Module<TestStorage>;
@@ -114,12 +114,9 @@ fn issuers_can_create_and_rename_confidential_tokens() {
             Some(funding_round_name.clone()),
         ));
 
-<<<<<<< HEAD
-=======
-        // Check the update investor count for the newly created asset.
-        // assert_eq!(Statistics::investor_count_per_asset(ticker), 1); // TODO not sure why this one fails
+        // Since the total_supply is zero, the investor count should remain zero.
+        assert_eq!(Statistics::investor_count_per_asset(ticker), 0);
 
->>>>>>> e04e7d89... fix test cases
         // A correct entry is added.
         let token_with_zero_supply = SecurityToken {
             name: token.name,
@@ -255,7 +252,7 @@ fn issuers_can_create_and_mint_tokens() {
                 AccountKeyring::Bob.public(), // Alice does not own any of these tokens.
             );
         }
-        let total_supply = 10_000_000;
+        let total_supply = 10_000_000u128;
         // Expected token entry
         let token = SecurityToken {
             name: vec![0x07].into(),
@@ -300,7 +297,7 @@ fn issuers_can_create_and_mint_tokens() {
         .unwrap();
 
         // ------------- START: Computations that will happen in Alice's Wallet ----------
-        let amount: u32 = token.total_supply; // mercat amounts are 32 bit integers.
+        let amount: u32 = token.total_supply.try_into().unwrap(); // mercat amounts are 32 bit integers.
         let mut rng = StdRng::from_seed([42u8; 32]);
         let issuer_account = Account {
             scrt: scrt_account,
@@ -330,10 +327,10 @@ fn issuers_can_create_and_mint_tokens() {
 
         // ------------------------- Ensuring that the asset details are set correctly
         // Check the update investor count for the newly created asset.
-        //assert_eq!(Statistics::investor_count_per_asset(ticker), 1); // TODO not sure why this fails!
+        assert_eq!(Statistics::investor_count_per_asset(ticker), 1);
 
         // A correct entry is added.
-        // assert_eq!(Asset::token_details(ticker), token); //  TODO: this one causes a compile error!
+        assert_eq!(Asset::token_details(ticker), token);
         assert_eq!(
             Asset::asset_ownership_relation(token.owner_did, ticker),
             AssetOwnershipRelation::AssetOwned

@@ -28,26 +28,31 @@ use cryptography::{
     },
     AssetId,
 };
-use frame_support::{decl_error, decl_event, decl_module, decl_storage, dispatch::DispatchResult};
+use frame_support::{
+    decl_error, decl_event, decl_module, decl_storage, dispatch::DispatchResult, ensure,
+};
 use frame_system::ensure_signed;
 use pallet_identity as identity;
+use pallet_statistics::{self as statistics};
 use polymesh_common_utilities::{
-    asset::Trait as AssetTrait, balances::Trait as BalancesTrait, constants::currency::ONE_UNIT,
-    identity::Trait as IdentityTrait, AssetIdentifier, AssetName, AssetType, CommonTrait, Context,
-    FundingRoundName, IdentifierType, IdentityId, Ticker,
+    asset::{ConfidentialTrait as ConfidentialAssetTrait, Trait as AssetTrait},
+    balances::Trait as BalancesTrait,
+    constants::currency::ONE_UNIT,
+    identity::Trait as IdentityTrait,
+    CommonTrait, Context,
+};
+use polymesh_primitives::{
+    AssetIdentifier, AssetName, AssetType, FundingRoundName, IdentifierType, IdentityId, Ticker,
 };
 use polymesh_primitives_derive::VecU8StrongTyped;
-use sp_runtime::{
-    traits::{Saturating, Zero},
-    SaturatedConversion,
-};
+use sp_runtime::{traits::Zero, SaturatedConversion};
 use sp_std::{
     convert::{From, TryFrom},
     prelude::*,
 };
 
 /// The module's configuration trait.
-pub trait Trait: frame_system::Trait + IdentityTrait + BalancesTrait {
+pub trait Trait: frame_system::Trait + IdentityTrait + BalancesTrait + statistics::Trait {
     type Asset: AssetTrait<Self::Balance, Self::AccountId>;
     type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
 }
@@ -239,10 +244,10 @@ decl_module! {
             let owner = ensure_signed(origin)?;
             let owner_did = Context::current_identity_or::<Identity<T>>(&owner)?;
 
-            // TODO: how to use `ensure!` in this pallet?
-            if !T::Asset::is_owner(&ticker, owner_did) {
-                return Err(Error::<T>::Unauthorized.into());
-            }
+            ensure!(
+                T::Asset::is_owner(&ticker, owner_did),
+                Error::<T>::Unauthorized
+            );
 
             //  TODO: get the divisibility state.
             if total_supply % ONE_UNIT.into() != 0.into() {
@@ -251,9 +256,10 @@ decl_module! {
 
             // At the moment, mercat lib imposes that balances can be at most u32 integers.
             let max_balance_mercat = u32::MAX.saturated_into::<T::Balance>();
-            if total_supply > max_balance_mercat {
-                return Err(Error::<T>::TotalSupplyAboveU32Limit.into());
-            }
+            ensure!(
+                total_supply <= max_balance_mercat,
+                Error::<T>::TotalSupplyAboveU32Limit
+            );
 
             let total_supply = total_supply.saturated_into::<u32>();
 
@@ -276,6 +282,14 @@ decl_module! {
 
             // This will emit the total supply changed event.
             T::Asset::set_total_supply(owner_did, ticker, total_supply)?;
+
+            // Update statistic info.
+            <statistics::Module<T>>::update_transfer_stats(
+                &ticker,
+                None,
+                Some(total_supply),
+                total_supply,
+            );
 
             Ok(())
         }
@@ -314,5 +328,13 @@ decl_error! {
 
         /// The user is not authorized.
         Unauthorized,
+    }
+}
+
+impl<T: Trait> ConfidentialAssetTrait for Module<T> {
+    fn is_confidential(ticker: Ticker) -> bool {
+        Self::confidential_tickers().contains(&AssetId {
+            id: *ticker.as_bytes(),
+        })
     }
 }
