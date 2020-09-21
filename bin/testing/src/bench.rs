@@ -92,39 +92,7 @@ pub struct BenchDb {
     keyring: BenchKeyring,
     directory_guard: Guard,
     database_type: DatabaseType,
-}
-
-impl Clone for BenchDb {
-    fn clone(&self) -> Self {
-        let keyring = self.keyring.clone();
-        let database_type = self.database_type;
-        let dir = tempfile::tempdir().expect("temp dir creation failed");
-
-        let seed_dir = self.directory_guard.0.path();
-
-        log::trace!(
-            target: "bench-logistics",
-            "Copying seed db from {} to {}",
-            seed_dir.to_string_lossy(),
-            dir.path().to_string_lossy(),
-        );
-        let seed_db_files = std::fs::read_dir(seed_dir)
-            .expect("failed to list file in seed dir")
-            .map(|f_result| f_result.expect("failed to read file in seed db").path())
-            .collect::<Vec<PathBuf>>();
-        fs_extra::copy_items(
-            &seed_db_files,
-            dir.path(),
-            &fs_extra::dir::CopyOptions::new(),
-        )
-        .expect("Copy of seed database is ok");
-
-        BenchDb {
-            keyring,
-            directory_guard: Guard(dir),
-            database_type,
-        }
-    }
+    config: node_runtime::config::GenesisConfig,
 }
 
 /// Type of block for generation
@@ -294,15 +262,43 @@ impl BenchDb {
             "Created seed db at {}",
             dir.path().to_string_lossy(),
         );
-        let (_client, _backend) =
-            Self::bench_client(database_type, dir.path(), Profile::Native, &keyring);
+
+        let config = keyring.generate_genesis();
+
         let directory_guard = Guard(dir);
 
         BenchDb {
             keyring,
             directory_guard,
             database_type,
+            config,
         }
+    }
+
+    /// Create a new temp dir with the seed data and returns the guard struct referencing it
+    fn create_dir(&self) -> Guard {
+        let dir = tempfile::tempdir().expect("temp dir creation failed");
+
+        let seed_dir = self.directory_guard.0.path();
+
+        log::trace!(
+            target: "bench-logistics",
+            "Copying seed db from {} to {}",
+            seed_dir.to_string_lossy(),
+            dir.path().to_string_lossy(),
+        );
+        let seed_db_files = std::fs::read_dir(seed_dir)
+            .expect("failed to list file in seed dir")
+            .map(|f_result| f_result.expect("failed to read file in seed db").path())
+            .collect::<Vec<PathBuf>>();
+        fs_extra::copy_items(
+            &seed_db_files,
+            dir.path(),
+            &fs_extra::dir::CopyOptions::new(),
+        )
+        .expect("Copy of seed database is ok");
+
+        Guard(dir)
     }
 
     /// New immutable benchmarking database.
@@ -310,8 +306,7 @@ impl BenchDb {
     /// This will generate database files in random temporary directory
     /// and keep it there until struct is dropped.
     ///
-    /// You can `clone` this database or you can `create_context` from it
-    /// (which also does `clone`) to run actual operation against new database
+    /// You can use `create_context` to run actual operation against new database
     /// which will be identical to the original.
     pub fn new(database_type: DatabaseType, keyring_length: usize) -> Self {
         Self::with_key_types(database_type, keyring_length, KeyTypes::Sr25519)
@@ -326,7 +321,7 @@ impl BenchDb {
         database_type: DatabaseType,
         dir: &std::path::Path,
         profile: Profile,
-        keyring: &BenchKeyring,
+        genesis_config: &node_runtime::config::GenesisConfig,
     ) -> (Client, std::sync::Arc<Backend>) {
         let db_config = sc_client_db::DatabaseSettings {
             state_cache_size: 16 * 1024 * 1024,
@@ -338,7 +333,7 @@ impl BenchDb {
         let (client, backend) = sc_service::new_client(
             db_config,
             NativeExecutor::new(WasmExecutionMethod::Compiled, None, 8),
-            &keyring.generate_genesis(),
+            genesis_config,
             None,
             None,
             ExecutionExtensions::new(profile.into_execution_strategies(), None),
@@ -380,13 +375,13 @@ impl BenchDb {
         BlockContentIterator::new(content, &self.keyring, client)
     }
 
-    /// Get cliet for this database operations.
+    /// Get client for this database operations.
     pub fn client(&mut self) -> Client {
         let (client, _backend) = Self::bench_client(
             self.database_type,
             self.directory_guard.path(),
             Profile::Wasm,
-            &self.keyring,
+            &self.config,
         );
 
         client
@@ -439,13 +434,13 @@ impl BenchDb {
 
     /// Clone this database and create context for testing/benchmarking.
     pub fn create_context(&self, profile: Profile) -> BenchContext {
-        let BenchDb {
-            directory_guard,
-            keyring,
-            database_type,
-        } = self.clone();
-        let (client, backend) =
-            Self::bench_client(database_type, directory_guard.path(), profile, &keyring);
+        let directory_guard = self.create_dir();
+        let (client, backend) = Self::bench_client(
+            self.database_type.clone(),
+            directory_guard.path(),
+            profile,
+            &self.config,
+        );
 
         BenchContext {
             client: Arc::new(client),
@@ -554,7 +549,17 @@ impl BenchKeyring {
 
     /// Generate genesis with accounts from this keyring endowed with some balance.
     pub fn generate_genesis(&self) -> node_runtime::config::GenesisConfig {
-        crate::genesis::config_endowed(false, self.collect_account_ids())
+        let start = std::time::Instant::now();
+        let config = crate::genesis::config_endowed(false, self.collect_account_ids());
+        let elapsed = start.elapsed();
+
+        log::info!(
+            target: "bench-logistics",
+            "creating genesis config took: {:#?}",
+            elapsed,
+        );
+
+        config
     }
 }
 
