@@ -30,10 +30,6 @@ pallet-pips = { path = "../../pips", default-features = false }
 pallet-portfolio = { path = "../../portfolio", default-features = false  }
 pallet-protocol-fee = { path = "../../protocol-fee", default-features = false }
 pallet-settlement = { path = "../../settlement", default-features = false }
-pallet-statistics = { path = "../../statistics", default-features = false }
-pallet-transaction-payment = { path = "../../transaction-payment", default-features = false }
-pallet-contracts = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0-rc6" }
-pallet-contracts-primitives = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0-rc6" }
 pallet-staking = { path = "../../staking", default-features = false }
 pallet-staking-reward-curve = { path = "../../staking/reward-curve", default-features = false }
 pallet-statistics = { path = "../../statistics", default-features = false }
