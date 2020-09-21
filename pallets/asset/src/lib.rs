@@ -108,10 +108,13 @@ use polymesh_common_utilities::{
     CommonTrait, Context, SystematicIssuers,
 };
 use polymesh_primitives::{
-    AuthorizationData, AuthorizationError, Document, DocumentName, IdentityId, PortfolioId,
-    Signatory, SmartExtension, SmartExtensionName, SmartExtensionType, Ticker,
+    AssetIdentifier, AssetName, AssetOwnershipRelation, AssetType, AuthorizationData,
+    AuthorizationError, Document, DocumentName, FundingRoundName, IdentifierType, IdentityId,
+    PortfolioId, RestrictionResult, SecurityToken, Signatory, SmartExtension, SmartExtensionName,
+    SmartExtensionType, Ticker, TickerRegistration, TickerRegistrationConfig,
+    TickerRegistrationStatus,
 };
-use polymesh_primitives_derive::VecU8StrongTyped;
+
 use sp_runtime::traits::{CheckedAdd, Saturating};
 #[cfg(feature = "std")]
 use sp_runtime::{Deserialize, Serialize};
@@ -139,126 +142,6 @@ pub trait Trait:
     type MaxNumberOfTMExtensionForAsset: Get<u32>;
 }
 
-/// The type of an asset represented by a token.
-#[derive(Encode, Decode, Clone, Debug, PartialEq, Eq)]
-pub enum AssetType {
-    EquityCommon,
-    EquityPreferred,
-    Commodity,
-    FixedIncome,
-    REIT,
-    Fund,
-    RevenueShareAgreement,
-    StructuredProduct,
-    Derivative,
-    Custom(Vec<u8>),
-}
-
-impl Default for AssetType {
-    fn default() -> Self {
-        AssetType::Custom(b"undefined".to_vec())
-    }
-}
-
-/// The type of an identifier associated with a token.
-#[derive(Encode, Decode, Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
-pub enum IdentifierType {
-    Cins,
-    Cusip,
-    Isin,
-    Dti,
-}
-
-impl Default for IdentifierType {
-    fn default() -> Self {
-        IdentifierType::Isin
-    }
-}
-
-/// Ownership status of a ticker/token.
-#[derive(Encode, Decode, Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
-pub enum AssetOwnershipRelation {
-    NotOwned,
-    TickerOwned,
-    AssetOwned,
-}
-
-impl Default for AssetOwnershipRelation {
-    fn default() -> Self {
-        Self::NotOwned
-    }
-}
-
-/// A wrapper for a token name.
-#[derive(
-    Decode, Encode, Clone, Debug, Default, Hash, PartialEq, Eq, PartialOrd, Ord, VecU8StrongTyped,
-)]
-pub struct AssetName(pub Vec<u8>);
-
-/// A wrapper for an asset ID.
-#[derive(
-    Decode, Encode, Clone, Debug, Default, Hash, PartialEq, Eq, PartialOrd, Ord, VecU8StrongTyped,
-)]
-pub struct AssetIdentifier(pub Vec<u8>);
-
-/// A wrapper for a funding round name.
-#[derive(Decode, Encode, Clone, Debug, Hash, PartialEq, Eq, PartialOrd, Ord, VecU8StrongTyped)]
-pub struct FundingRoundName(pub Vec<u8>);
-
-impl Default for FundingRoundName {
-    fn default() -> Self {
-        FundingRoundName("".as_bytes().to_vec())
-    }
-}
-
-/// struct to store the token details.
-#[derive(Encode, Decode, Default, Clone, PartialEq, Debug)]
-pub struct SecurityToken<U> {
-    pub name: AssetName,
-    pub total_supply: U,
-    pub owner_did: IdentityId,
-    pub divisible: bool,
-    pub asset_type: AssetType,
-    pub primary_issuance_agent: Option<IdentityId>,
-}
-
-/// struct to store the ticker registration details.
-#[derive(Encode, Decode, Clone, Default, PartialEq, Debug)]
-pub struct TickerRegistration<U> {
-    pub owner: IdentityId,
-    pub expiry: Option<U>,
-}
-
-/// struct to store the ticker registration config.
-#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[derive(Encode, Decode, Clone, Default, PartialEq, Debug)]
-pub struct TickerRegistrationConfig<U> {
-    pub max_ticker_length: u8,
-    pub registration_length: Option<U>,
-}
-
-/// Enum that represents the current status of a ticker.
-#[derive(Encode, Decode, Clone, Eq, PartialEq, Debug)]
-pub enum TickerRegistrationStatus {
-    RegisteredByOther,
-    Available,
-    RegisteredByDid,
-}
-
-/// Enum that uses as the return type for the restriction verification.
-#[derive(Encode, Decode, Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
-pub enum RestrictionResult {
-    Valid,
-    Invalid,
-    ForceValid,
-}
-
-impl Default for RestrictionResult {
-    fn default() -> Self {
-        RestrictionResult::Invalid
-    }
-}
-
 pub mod weight_for {
     use super::*;
 
@@ -272,13 +155,6 @@ pub mod weight_for {
             .saturating_add(weight_from_cm) // weight that comes from the compliance manager.
     }
 }
-
-/// An Ethereum address (i.e. 20 bytes, used to represent an Ethereum account).
-///
-/// This gets serialized to the 0x-prefixed hex representation.
-#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[derive(Clone, Copy, PartialEq, Eq, Encode, Decode, Default, Debug)]
-pub struct EthereumAddress([u8; 20]);
 
 /// Data imported from Polymath Classic regarding ticker registration/creation.
 /// Only used at genesis config and not stored on-chain.
@@ -484,101 +360,8 @@ decl_module! {
         ) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             let did = Context::current_identity_or::<Identity<T>>(&sender)?;
-            Self::ensure_create_asset_parameters(&ticker, &name, total_supply)?;
 
-            // Ensure its registered by DID or at least expired, thus available.
-            let available = match Self::is_ticker_available_or_registered_to(&ticker, did) {
-                TickerRegistrationStatus::RegisteredByOther => return Err(Error::<T>::TickerAlreadyRegistered.into()),
-                TickerRegistrationStatus::RegisteredByDid => false,
-                TickerRegistrationStatus::Available => true,
-            };
-
-            if !divisible {
-                ensure!(total_supply % ONE_UNIT.into() == 0.into(), Error::<T>::InvalidTotalSupply);
-            }
-
-            let token_did = <identity::Module<T>>::get_token_did(&ticker)?;
-            // Ensure there's no pre-existing entry for the DID.
-            // This should never happen, but let's be defensive here.
-            identity::Module::<T>::ensure_no_id_record(token_did)?;
-
-            // Charge protocol fees.
-            T::ProtocolFee::charge_fees(&{
-                let mut fees = arrayvec::ArrayVec::<[_; 2]>::new();
-                if available {
-                    fees.push(ProtocolOp::AssetRegisterTicker);
-                }
-                // Waive the asset fee iff classic ticker hasn't expired,
-                // and it was already created on classic.
-                if available || ClassicTickers::get(&ticker).filter(|r| r.is_created).is_none() {
-                    fees.push(ProtocolOp::AssetCreateAsset);
-                }
-                fees
-            })?;
-
-            //==========================================================================
-            // At this point all checks have been made; **only** storage changes follow!
-            //==========================================================================
-
-            identity::Module::<T>::commit_token_did(token_did, ticker);
-
-            // Register the ticker or finish its registration.
-            if available {
-                // Ticker not registered by anyone (or registry expired), so register.
-                Self::_register_ticker(&ticker, did, None);
-            } else {
-                // Ticker already registered by the user.
-                <Tickers<T>>::mutate(&ticker, |tr| tr.expiry = None);
-            }
-
-            let token = SecurityToken {
-                name,
-                total_supply,
-                owner_did: did,
-                divisible,
-                asset_type: asset_type.clone(),
-                primary_issuance_agent: Some(did),
-            };
-            <Tokens<T>>::insert(&ticker, token);
-            <BalanceOf<T>>::insert(ticker, did, total_supply);
-            Portfolio::<T>::set_default_portfolio_balance(did, &ticker, total_supply);
-            <AssetOwnershipRelations>::insert(did, ticker, AssetOwnershipRelation::AssetOwned);
-            Self::deposit_event(RawEvent::AssetCreated(
-                did,
-                ticker,
-                total_supply,
-                divisible,
-                asset_type,
-                did,
-            ));
-            for (typ, val) in &identifiers {
-                <Identifiers>::insert((ticker, typ.clone()), val.clone());
-            }
-            // Add funding round name.
-            <FundingRound>::insert(ticker, funding_round.unwrap_or_default());
-
-            // Update the investor count of an asset.
-            <statistics::Module<T>>::update_transfer_stats(&ticker, None, Some(total_supply), total_supply);
-
-            Self::deposit_event(RawEvent::IdentifiersUpdated(did, ticker, identifiers));
-            <IssuedInFundingRound<T>>::insert((ticker, Self::funding_round(ticker)), total_supply);
-            Self::deposit_event(RawEvent::Transfer(
-                did,
-                ticker,
-                IdentityId::default(),
-                did,
-                total_supply
-            ));
-            Self::deposit_event(RawEvent::Issued(
-                did,
-                ticker,
-                did,
-                total_supply,
-                Self::funding_round(ticker),
-                total_supply,
-                Some(did),
-            ));
-            Ok(())
+            Self::base_create_asset(did, name, ticker, total_supply, divisible, asset_type, identifiers, funding_round, false)
         }
 
         /// Freezes transfers and minting of a given token.
@@ -1188,6 +971,30 @@ impl<T: Trait> AssetTrait<T::Balance, T::AccountId> for Module<T> {
         value: T::Balance,
     ) -> DispatchResultWithPostInfo {
         Self::base_transfer(from_portfolio, to_portfolio, ticker, value)
+    }
+
+    fn base_create_asset(
+        did: IdentityId,
+        name: AssetName,
+        ticker: Ticker,
+        total_supply: T::Balance,
+        divisible: bool,
+        asset_type: AssetType,
+        identifiers: Vec<(IdentifierType, AssetIdentifier)>,
+        funding_round: Option<FundingRoundName>,
+        is_confidential: bool,
+    ) -> DispatchResult {
+        Self::base_create_asset(
+            did,
+            name,
+            ticker,
+            total_supply,
+            divisible,
+            asset_type,
+            identifiers,
+            funding_round,
+            is_confidential,
+        )
     }
 }
 
@@ -2024,5 +1831,134 @@ impl<T: Trait> Module<T> {
             Error::<T>::NoSuchSmartExtension
         );
         Ok(did)
+    }
+
+    /// Create and add a new security token.
+    pub fn base_create_asset(
+        did: IdentityId,
+        name: AssetName,
+        ticker: Ticker,
+        total_supply: T::Balance,
+        divisible: bool,
+        asset_type: AssetType,
+        identifiers: Vec<(IdentifierType, AssetIdentifier)>,
+        funding_round: Option<FundingRoundName>,
+        is_confidential: bool,
+    ) -> DispatchResult {
+        Self::ensure_create_asset_parameters(&ticker, &name, total_supply)?;
+
+        // Ensure its registered by DID or at least expired, thus available.
+        let available = match Self::is_ticker_available_or_registered_to(&ticker, did) {
+            TickerRegistrationStatus::RegisteredByOther => {
+                return Err(Error::<T>::TickerAlreadyRegistered.into())
+            }
+            TickerRegistrationStatus::RegisteredByDid => false,
+            TickerRegistrationStatus::Available => true,
+        };
+
+        if !divisible {
+            ensure!(
+                total_supply % ONE_UNIT.into() == 0.into(),
+                Error::<T>::InvalidTotalSupply
+            );
+        }
+
+        let token_did = <identity::Module<T>>::get_token_did(&ticker)?;
+        // Ensure there's no pre-existing entry for the DID.
+        // This should never happen, but let's be defensive here.
+        identity::Module::<T>::ensure_no_id_record(token_did)?;
+
+        // Charge protocol fees.
+        T::ProtocolFee::charge_fees(&{
+            let mut fees = arrayvec::ArrayVec::<[_; 2]>::new();
+            if available {
+                fees.push(ProtocolOp::AssetRegisterTicker);
+            }
+            // Waive the asset fee iff classic ticker hasn't expired,
+            // and it was already created on classic.
+            if available
+                || ClassicTickers::get(&ticker)
+                    .filter(|r| r.is_created)
+                    .is_none()
+            {
+                fees.push(ProtocolOp::AssetCreateAsset);
+            }
+            fees
+        })?;
+
+        //==========================================================================
+        // At this point all checks have been made; **only** storage changes follow!
+        //==========================================================================
+
+        identity::Module::<T>::commit_token_did(token_did, ticker);
+
+        // Register the ticker or finish its registration.
+        if available {
+            // Ticker not registered by anyone (or registry expired), so register.
+            Self::_register_ticker(&ticker, did, None);
+        } else {
+            // Ticker already registered by the user.
+            <Tickers<T>>::mutate(&ticker, |tr| tr.expiry = None);
+        }
+
+        let token = SecurityToken {
+            name,
+            total_supply,
+            owner_did: did,
+            divisible,
+            asset_type: asset_type.clone(),
+            primary_issuance_agent: Some(did),
+        };
+        <Tokens<T>>::insert(&ticker, token);
+
+        // If asset is not confidential mint assets to the primary asset issuer account here.
+        if !is_confidential {
+            <BalanceOf<T>>::insert(ticker, did, total_supply);
+            Portfolio::<T>::set_default_portfolio_balance(did, &ticker, total_supply);
+
+            Self::deposit_event(RawEvent::AssetCreated(
+                did,
+                ticker,
+                total_supply,
+                divisible,
+                asset_type,
+                did,
+            ));
+        }
+        <AssetOwnershipRelations>::insert(did, ticker, AssetOwnershipRelation::AssetOwned);
+
+        for (typ, val) in &identifiers {
+            <Identifiers>::insert((ticker, typ.clone()), val.clone());
+        }
+        // Add funding round name.
+        <FundingRound>::insert(ticker, funding_round.unwrap_or_default());
+
+        // Update the investor count of an asset.
+        <statistics::Module<T>>::update_transfer_stats(
+            &ticker,
+            None,
+            Some(total_supply),
+            total_supply,
+        );
+
+        Self::deposit_event(RawEvent::IdentifiersUpdated(did, ticker, identifiers));
+        <IssuedInFundingRound<T>>::insert((ticker, Self::funding_round(ticker)), total_supply);
+        Self::deposit_event(RawEvent::Transfer(
+            did,
+            ticker,
+            IdentityId::default(),
+            did,
+            total_supply,
+        ));
+        Self::deposit_event(RawEvent::Issued(
+            did,
+            ticker,
+            did,
+            total_supply,
+            Self::funding_round(ticker),
+            total_supply,
+            Some(did),
+        ));
+        Ok(())
     }
 }

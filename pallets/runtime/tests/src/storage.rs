@@ -129,7 +129,7 @@ impl_outer_event! {
         pallet_utility,
         portfolio<T>,
         confidential,
-        confidential_asset,
+        confidential_asset<T>,
     }
 }
 
@@ -583,6 +583,7 @@ impl confidential::Trait for TestStorage {
 }
 
 impl confidential_asset::Trait for TestStorage {
+    type Asset = asset::Module<TestStorage>;
     type Event = Event;
 }
 

@@ -3,11 +3,11 @@ use super::{
     ExtBuilder,
 };
 use frame_support::{assert_err, assert_noop, assert_ok};
-use pallet_asset::{AssetType, SecurityToken};
 use pallet_portfolio::MovePortfolioItem;
 use polymesh_common_utilities::portfolio::PortfolioSubTrait;
 use polymesh_primitives::{
-    AuthorizationData, AuthorizationError, PortfolioId, PortfolioName, Signatory, Ticker,
+    AssetType, AuthorizationData, AuthorizationError, PortfolioId, PortfolioName, SecurityToken,
+    Signatory, Ticker,
 };
 use std::convert::TryFrom;
 use test_client::AccountKeyring;

@@ -15,7 +15,11 @@
 
 use codec::{Decode, Encode};
 use frame_support::dispatch::{DispatchResult, DispatchResultWithPostInfo};
-use polymesh_primitives::{IdentityId, PortfolioId, Ticker};
+use polymesh_primitives::{
+    AssetIdentifier, AssetName, AssetType, FundingRoundName, IdentifierType, IdentityId,
+    PortfolioId, Ticker,
+};
+use sp_std::vec::Vec;
 
 pub const GAS_LIMIT: u64 = 1_000_000_000;
 /// This trait is used to call functions that accept transfer of a ticker or token ownership
@@ -64,4 +68,15 @@ pub trait Trait<V, U> {
         ticker: &Ticker,
         value: V,
     ) -> DispatchResultWithPostInfo;
+    fn base_create_asset(
+        did: IdentityId,
+        name: AssetName,
+        ticker: Ticker,
+        total_supply: V,
+        divisible: bool,
+        asset_type: AssetType,
+        identifiers: Vec<(IdentifierType, AssetIdentifier)>,
+        funding_round: Option<FundingRoundName>,
+        is_confidential: bool,
+    ) -> DispatchResult;
 }

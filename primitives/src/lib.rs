@@ -180,6 +180,14 @@ pub mod migrate;
 pub mod secondary_key;
 pub use secondary_key::{Permission, SecondaryKey, Signatory};
 
+/// Generic asset data types.
+pub mod asset;
+pub use asset::{
+    AssetIdentifier, AssetName, AssetOwnershipRelation, AssetType, FocusedBalances,
+    FundingRoundName, IdentifierType, RestrictionResult, SecurityToken, SignData,
+    TickerRegistration, TickerRegistrationConfig, TickerRegistrationStatus,
+};
+
 /// Generic authorization data types for all two step processes
 pub mod authorization;
 /// Pub Traits

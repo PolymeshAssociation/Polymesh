@@ -7,7 +7,7 @@ use super::{
     ExtBuilder,
 };
 
-use pallet_asset::{self as asset, AssetType};
+use pallet_asset::{self as asset};
 use pallet_balances as balances;
 use pallet_compliance_manager as compliance_manager;
 use pallet_identity as identity;
@@ -18,8 +18,8 @@ use pallet_settlement::{
     VenueType,
 };
 use polymesh_primitives::{
-    AuthorizationData, Claim, Condition, ConditionType, IdentityId, PortfolioId, PortfolioName,
-    Signatory, Ticker,
+    AssetType, AuthorizationData, Claim, Condition, ConditionType, IdentityId, PortfolioId,
+    PortfolioName, Signatory, Ticker,
 };
 
 use codec::Encode;

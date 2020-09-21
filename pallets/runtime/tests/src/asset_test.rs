@@ -10,9 +10,7 @@ use crate::{
 use frame_support::IterableStorageMap;
 use pallet_asset::ethereum;
 use pallet_asset::{
-    self as asset, AssetOwnershipRelation, AssetType, ClassicTickerImport,
-    ClassicTickerRegistration, ClassicTickers, FundingRoundName, IdentifierType, SecurityToken,
-    TickerRegistration, TickerRegistrationConfig, Tickers,
+    self as asset, ClassicTickerImport, ClassicTickerRegistration, ClassicTickers, Tickers,
 };
 use pallet_balances as balances;
 use pallet_compliance_manager as compliance_manager;
@@ -23,8 +21,10 @@ use polymesh_common_utilities::{
     traits::CddAndFeeDetails as _, SystematicIssuers,
 };
 use polymesh_primitives::{
-    AuthorizationData, Claim, Condition, ConditionType, Document, DocumentName, IdentityId,
-    PortfolioId, Signatory, SmartExtension, SmartExtensionName, SmartExtensionType, Ticker,
+    AssetOwnershipRelation, AssetType, AuthorizationData, Claim, Condition, ConditionType,
+    Document, DocumentName, FundingRoundName, IdentifierType, IdentityId, PortfolioId,
+    SecurityToken, Signatory, SmartExtension, SmartExtensionName, SmartExtensionType, Ticker,
+    TickerRegistration, TickerRegistrationConfig,
 };
 use sp_io::hashing::keccak_256;
 

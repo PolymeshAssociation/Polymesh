@@ -2,10 +2,10 @@ use super::{
     storage::{register_keyring_account, TestStorage},
     ExtBuilder,
 };
-use pallet_asset::{self as asset, IdentifierType, SecurityToken};
+use pallet_asset::{self as asset};
 use pallet_compliance_manager as compliance_manager;
 use pallet_statistics as statistics;
-use polymesh_primitives::{PortfolioId, Ticker};
+use polymesh_primitives::{IdentifierType, PortfolioId, SecurityToken, Ticker};
 
 use frame_support::assert_ok;
 use sp_std::convert::TryFrom;
