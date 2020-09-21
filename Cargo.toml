@@ -86,9 +86,8 @@ structopt = "0.3.15"
 chrono = "0.4.11"
 
 # Substrate
-codec = { package = "parity-scale-codec", version = "1.1.0", default-features = false, features = ["derive"] }
+codec = { version = "1.2.0", package = "parity-scale-codec" }
 sp-core = { git = "https://github.com/paritytech/substrate", tag = "v2.0.0-rc6" }
-sp-std = { git = "https://github.com/paritytech/substrate", tag = "v2.0.0-rc6" }
 sp-runtime = { git = "https://github.com/paritytech/substrate", tag = "v2.0.0-rc6" }
 sp-api = { git = "https://github.com/paritytech/substrate", tag = "v2.0.0-rc6" }
 sp-offchain = { git = "https://github.com/paritytech/substrate", tag = "v2.0.0-rc6" }
@@ -143,12 +142,5 @@ runtime-benchmarks = [
     "polymesh-runtime-testnet/runtime-benchmarks"
 ]
 std = [
-    "codec/std",
-    "polymesh-common-utilities/std",
-    "polymesh-primitives/std",
     "serde/std",
-    "sp-api/std",
-    "sp-core/std",
-    "sp-runtime/std",
-    "sp-std/std",
 ]
