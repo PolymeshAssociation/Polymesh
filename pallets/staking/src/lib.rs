@@ -318,9 +318,9 @@ use pallet_session::historical;
 use polymesh_common_utilities::{identity::Trait as IdentityTrait, Context};
 use polymesh_primitives::{traits::BlockRewardsReserveCurrency, IdentityId};
 use sp_npos_elections::{
-    build_support_map, evaluate_support, generate_compact_solution_type, is_score_better,
-    seq_phragmen, Assignment, ElectionResult as PrimitiveElectionResult, ElectionScore,
-    ExtendedBalance, SupportMap, VoteWeight, VotingLimit,
+    build_support_map, evaluate_support, generate_solution_type, is_score_better, seq_phragmen,
+    Assignment, ElectionResult as PrimitiveElectionResult, ElectionScore, ExtendedBalance,
+    SupportMap, VoteWeight, VotingLimit,
 };
 use sp_runtime::{
     curve::PiecewiseLinear,
@@ -387,7 +387,10 @@ pub type EraIndex = u32;
 pub type RewardPoint = u32;
 
 // Note: Maximum nomination limit is set here -- 16.
-generate_compact_solution_type!(pub GenericCompactAssignments, 16);
+generate_solution_type!(
+    #[compact]
+    pub struct CompactAssignments::<NominatorIndex, ValidatorIndex, OffchainAccuracy>(16)
+);
 
 /// Information regarding the active era (era in used in session).
 #[derive(Encode, Decode, RuntimeDebug)]
@@ -411,17 +414,19 @@ pub type OffchainAccuracy = PerU16;
 pub type BalanceOf<T> =
     <<T as Trait>::Currency as Currency<<T as frame_system::Trait>::AccountId>>::Balance;
 
-/// The compact type for election solutions.
-pub type CompactAssignments =
-    GenericCompactAssignments<NominatorIndex, ValidatorIndex, OffchainAccuracy>;
-
 #[cfg(debug_assertions)]
-impl<N, V, O> GenericCompactAssignments<N, V, O> {
-    pub fn push_votes1(&mut self, v: (N, V)) {
+impl CompactAssignments {
+    pub fn push_votes1(&mut self, v: (NominatorIndex, ValidatorIndex)) {
         self.votes1.push(v)
     }
 
-    pub fn get_votes3(&mut self) -> &mut Vec<(N, [(V, O); 2], V)> {
+    pub fn get_votes3(
+        &mut self,
+    ) -> &mut Vec<(
+        NominatorIndex,
+        [(ValidatorIndex, OffchainAccuracy); 2],
+        ValidatorIndex,
+    )> {
         &mut self.votes3
     }
 }
@@ -936,7 +941,7 @@ pub trait Trait:
     type ElectionLookahead: Get<Self::BlockNumber>;
 
     /// The overarching call type.
-    type Call: Dispatchable + From<Call<Self>> + IsSubType<Module<Self>, Self> + Clone;
+    type Call: Dispatchable + From<Call<Self>> + IsSubType<Call<Self>> + Clone;
 
     /// Maximum number of balancing iterations to run in the offchain submission.
     ///
@@ -2197,6 +2202,9 @@ decl_module! {
             <Self as Store>::UnappliedSlashes::insert(&era, &unapplied);
         }
 
+        /// Polymesh-Note - Weight changes to 1/4 of the actual weight that is calculated using the
+        /// upstream benchmarking process.
+        ///
         /// Pay out all the stakers behind a single validator for a single era.
         ///
         /// - `validator_stash` is the stash account of the validator. Their nominators, up to
@@ -2223,11 +2231,11 @@ decl_module! {
         /// - Write Each: System Account, Locks, Ledger (3 items)
         /// # </weight>
         #[weight =
-            120 * WEIGHT_PER_MICROS
+            ((120 * WEIGHT_PER_MICROS
             + 54 * WEIGHT_PER_MICROS * Weight::from(T::MaxNominatorRewardedPerValidator::get())
             + T::DbWeight::get().reads(7)
             + T::DbWeight::get().reads(5)  * Weight::from(T::MaxNominatorRewardedPerValidator::get() + 1)
-            + T::DbWeight::get().writes(3) * Weight::from(T::MaxNominatorRewardedPerValidator::get() + 1)
+            + T::DbWeight::get().writes(3) * Weight::from(T::MaxNominatorRewardedPerValidator::get() + 1)) * 25) / 100
         ]
         pub fn payout_stakers(origin, validator_stash: T::AccountId, era: EraIndex) -> DispatchResult {
             ensure!(Self::era_election_status().is_closed(), Error::<T>::CallNotAllowed);
@@ -3819,6 +3827,10 @@ where
             <Module<T>>::deposit_event(RawEvent::OldSlashingReportDiscarded(offence_session));
             Ok(())
         }
+    }
+
+    fn is_known_offence(offenders: &[Offender], time_slot: &O::TimeSlot) -> bool {
+        R::is_known_offence(offenders, time_slot)
     }
 }
 

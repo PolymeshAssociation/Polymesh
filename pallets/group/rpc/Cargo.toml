@@ -21,10 +21,10 @@ jsonrpc-derive = "14.0.5"
 
 # Substrate
 codec = { package = "parity-scale-codec", version = "1.2.0" }
-sp-runtime = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "at-add-dispatch-call" }
-sp-blockchain = { git = 'https://github.com/paritytech/substrate', default_features = false, branch = "at-add-dispatch-call"}
-sp-std = {git = 'https://github.com/paritytech/substrate', default_features = false, branch = "at-add-dispatch-call" }
-sp-api = {git = 'https://github.com/paritytech/substrate', default_features = false, branch = "at-add-dispatch-call" }
+sp-runtime = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0-rc6" }
+sp-blockchain = { git = 'https://github.com/paritytech/substrate', default_features = false, tag = "v2.0.0-rc6"}
+sp-std = {git = 'https://github.com/paritytech/substrate', default_features = false, tag = "v2.0.0-rc6" }
+sp-api = {git = 'https://github.com/paritytech/substrate', default_features = false, tag = "v2.0.0-rc6" }
 
 [dev-dependencies]
-substrate-test-runtime-client = { git = 'https://github.com/paritytech/substrate', default_features = false, branch = "at-add-dispatch-call" }
+substrate-test-runtime-client = { git = 'https://github.com/paritytech/substrate', default_features = false, tag = "v2.0.0-rc6" }
