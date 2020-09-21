@@ -102,3 +102,7 @@ pub trait Trait<V, U> {
     ) -> DispatchResult;
     fn set_total_supply(did: IdentityId, ticker: Ticker, total_supply: V) -> DispatchResult;
 }
+
+pub trait ConfidentialTrait {
+    fn is_confidential(ticker: Ticker) -> bool;
+}

@@ -25,6 +25,7 @@ pub use pallet_transaction_payment::{Multiplier, RuntimeDispatchInfo, TargetedFe
 use pallet_treasury as treasury;
 use pallet_utility as utility;
 use polymesh_common_utilities::{
+    asset::ConfidentialTrait as ConfidentialAssetTrait,
     constants::currency::*,
     protocol_fee::ProtocolOp,
     traits::{balances::AccountData, identity::Trait as IdentityTrait},
@@ -649,6 +650,7 @@ impl asset::Trait for Runtime {
     type Currency = Balances;
     type ComplianceManager = compliance_manager::Module<Runtime>;
     type MaxNumberOfTMExtensionForAsset = MaxNumberOfTMExtensionForAsset;
+    type ConfidentialAsset = ConfidentialAssetTrait;
 }
 
 parameter_types! {
