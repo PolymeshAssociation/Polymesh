@@ -20,6 +20,7 @@ pallet-statistics = { path = "../statistics", default-features = false }
 # Other
 serde = { version = "1.0.104", default-features = false }
 serde_derive = { version = "1.0.104", optional = true, default-features = false }
+serde_json = "1.0.48"
 rustc-hex = { version = "2.1.0", default-features = false }
 hex-literal = "0.2.1"
 arrayvec = { version = "0.5.1", default-features = false }
