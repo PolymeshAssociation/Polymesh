@@ -260,7 +260,7 @@ decl_module! {
             use polymesh_primitives::{
                 identity_claim::IdentityClaimOld,
                 identity::IdentityOld,
-                migrate::{migrate_map,  migrate_double_map_keys},
+                migrate::{migrate_map,  migrate_double_map_keys, Empty},
             };
             use polymesh_common_utilities::traits::identity::runtime_upgrade::LinkedKeyInfo;
 
@@ -282,8 +282,16 @@ decl_module! {
                 )
             );
 
-            migrate_map::<LinkedKeyInfo>(b"Identity", b"KeyToIdentityIds");
-            migrate_map::<IdentityOld<T::AccountId>>(b"Identity", b"DidRecords");
+            migrate_map::<LinkedKeyInfo, _>(
+                b"Identity",
+                b"KeyToIdentityIds",
+                |_| Empty
+            );
+            migrate_map::<IdentityOld<T::AccountId>, _>(
+                b"Identity",
+                b"DidRecords",
+                |_| Empty
+            );
 
             // It's gonna be alot, so lets pretend its 0 anyways.
             0

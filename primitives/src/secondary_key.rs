@@ -328,7 +328,7 @@ where
 /// Runtime upgrade definitions.
 #[allow(missing_docs)]
 pub mod runtime_upgrade {
-    use crate::migrate::Migrate;
+    use crate::migrate::{Empty, Migrate};
     use codec::Decode;
     use sp_std::vec::Vec;
 
@@ -344,8 +344,9 @@ pub mod runtime_upgrade {
 
     impl Migrate for Vec<Permission> {
         type Into = super::Permissions;
+        type Context = Empty;
 
-        fn migrate(self) -> Option<Self::Into> {
+        fn migrate(self, _: Self::Context) -> Option<Self::Into> {
             Some(if self.contains(&Permission::Full) {
                 super::Permissions::default()
             } else {

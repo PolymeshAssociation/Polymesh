@@ -41,7 +41,10 @@ use sp_std::vec::Vec;
 #[allow(missing_docs)]
 pub mod runtime_upgrade {
     use codec::Decode;
-    use polymesh_primitives::{migrate::Migrate, IdentityId};
+    use polymesh_primitives::{
+        migrate::{Empty, Migrate},
+        IdentityId,
+    };
     use sp_std::vec::Vec;
 
     /// Old type definition kept here for upgrade purposes.
@@ -53,8 +56,9 @@ pub mod runtime_upgrade {
 
     impl Migrate for LinkedKeyInfo {
         type Into = IdentityId;
+        type Context = Empty;
 
-        fn migrate(self) -> Option<Self::Into> {
+        fn migrate(self, _: Self::Context) -> Option<Self::Into> {
             match self {
                 LinkedKeyInfo::Unique(did) => Some(did),
                 LinkedKeyInfo::Group(_) => None,
