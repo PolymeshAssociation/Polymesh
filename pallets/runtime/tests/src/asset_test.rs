@@ -285,9 +285,8 @@ fn valid_transfers_pass() {
                 500
             ));
 
-            let mut cap_table = <asset::BalanceOf<TestStorage>>::iter_prefix_values(ticker);
-            let balance_alice = cap_table.next().unwrap();
-            let balance_owner = cap_table.next().unwrap();
+            let balance_alice = <asset::BalanceOf<TestStorage>>::get(&ticker, &alice_did);
+            let balance_owner = <asset::BalanceOf<TestStorage>>::get(&ticker, &owner_did);
             assert_eq!(balance_owner, 1_000_000 - 500);
             assert_eq!(balance_alice, 500);
         })
