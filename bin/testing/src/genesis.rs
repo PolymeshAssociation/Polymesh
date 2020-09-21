@@ -19,13 +19,13 @@
 //! Genesis Configuration.
 
 use crate::keyring::*;
-use node_primitives::{AccountId, IdentityId, InvestorUid, Signature, IdentifyAccount};
+use node_primitives::{AccountId, IdentifyAccount, IdentityId, InvestorUid, Signature};
 use node_runtime::{config::*, StakerStatus};
 use polymesh_common_utilities::constants::currency::*;
 use sp_core::ChangesTrieConfiguration;
-use sp_keyring::{Ed25519Keyring, Sr25519Keyring};
-use sp_runtime::{Perbill, traits::Verify};
 use sp_core::{sr25519, Pair, Public};
+use sp_keyring::{Ed25519Keyring, Sr25519Keyring};
+use sp_runtime::{traits::Verify, Perbill};
 /// Create genesis runtime configuration for tests.
 pub fn config(support_changes_trie: bool) -> GenesisConfig {
     config_endowed(support_changes_trie, Default::default())
@@ -140,18 +140,13 @@ pub fn config_endowed(support_changes_trie: bool, extra_endowed: Vec<AccountId>)
             let initial_len = initial_identities.len();
             initial_identities.reserve(initial_len);
             for i in 0..initial_len {
-                initial_identities.push(
-                    (
-                        get_account_id_from_seed::<sr25519::Public>(&format!(
-                            "random-user//{}",
-                            i
-                        )),
-                        IdentityId::from(1usize as u128),
-                        IdentityId::from((i + initial_len) as u128),
-                        InvestorUid::from([1u8; 32]),
-                        None,
-                    )
-                )
+                initial_identities.push((
+                    get_account_id_from_seed::<sr25519::Public>(&format!("random-user//{}", i)),
+                    IdentityId::from(1usize as u128),
+                    IdentityId::from((i + initial_len) as u128),
+                    InvestorUid::from([1u8; 32]),
+                    None,
+                ))
             }
 
             Some(IdentityConfig {

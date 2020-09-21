@@ -135,13 +135,13 @@ impl core::Benchmark for ImportBenchmark {
                 match self.block_type {
                     BlockType::RandomTransfers => {
                         // should be 5 per signed extrinsic + 1 per unsigned
-						// we have 1 unsigned and the rest are signed in the block
-						// those 5 events per signed are:
-						//    - new account (RawEvent::NewAccount) as we always transfer fund to non-existant account
-						//    - endowed (RawEvent::Endowed) for this new account
-						//    - successful transfer (RawEvent::Transfer) for this transfer operation
-						//    - deposit event for charging transaction fee
-						//    - extrinsic success
+                        // we have 1 unsigned and the rest are signed in the block
+                        // those 5 events per signed are:
+                        //    - new account (RawEvent::NewAccount) as we always transfer fund to non-existant account
+                        //    - endowed (RawEvent::Endowed) for this new account
+                        //    - successful transfer (RawEvent::Transfer) for this transfer operation
+                        //    - deposit event for charging transaction fee
+                        //    - extrinsic success
                         assert_eq!(
                             node_runtime::System::events().len(),
                             (self.block.extrinsics.len() - 1) * 5 + 5,
