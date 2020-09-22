@@ -64,17 +64,6 @@ pub struct Condition {
     pub issuers: Vec<IdentityId>,
 }
 
-#[allow(missing_docs)]
-impl Condition {
-    /// Generate condition on the basis of `condition_type` & `issuers`.
-    pub fn new(condition_type: ConditionType, issuers: Vec<IdentityId>) -> Self {
-        Self {
-            condition_type,
-            issuers,
-        }
-    }
-}
-
 impl From<ConditionType> for Condition {
     fn from(condition_type: ConditionType) -> Self {
         Condition {
