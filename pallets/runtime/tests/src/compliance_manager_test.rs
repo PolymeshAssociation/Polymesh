@@ -65,6 +65,12 @@ macro_rules! assert_valid_transfer {
     };
 }
 
+macro_rules! assert_add_claim {
+    ($signer:expr, $target:expr, $claim:expr, $expiry:expr) => {
+        assert_ok!(Identity::add_claim($signer, $target, $claim, $expiry));
+    };
+}
+
 fn make_ticker_env(owner: AccountKeyring, token_name: AssetName) -> (Ticker, IdentityId) {
     let owner_id = register_keyring_account(owner.clone()).unwrap();
 
@@ -1305,7 +1311,6 @@ fn cm_test_case_13_we() {
         Claim::Jurisdiction(CountryCode::US, scope.clone()),
         None
     );
-
     assert_ok!(Identity::batch_add_claim(issuer.clone(), dave_claims));
 
     assert_invalid_transfer!(ticker, owner_did, dave, 100);

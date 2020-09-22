@@ -41,10 +41,7 @@
 //! - `freeze` - Freezes transfers and minting of a given token.
 //! - `unfreeze` - Unfreezes transfers and minting of a given token.
 //! - `rename_asset` - Renames a given asset.
-//! - `transfer` - Transfer tokens from one DID to another DID as tokens are stored/managed on the DID level.
 //! - `controller_transfer` - Forces a transfer between two DID.
-//! - `approve` - Approve token transfer from one DID to another.
-//! - `transfer_from` - If sufficient allowance provided, transfer from a DID to another DID without token owner's signature.
 //! - `create_checkpoint` - Function used to create the checkpoint.
 //! - `issue` - Function is used to issue(or mint) new tokens to the primary issuance agent.
 //! - `controller_redeem` - Forces a redemption of an DID's tokens. Can only be called by token owner.
@@ -675,7 +672,6 @@ decl_module! {
             Self::_mint(&ticker, sender, beneficiary, value, Some(ProtocolOp::AssetIssue))
         }
 
-
         /// Makes an indivisible token divisible. Only called by the token owner.
         ///
         /// # Arguments
@@ -694,60 +690,6 @@ decl_module! {
             <Tokens<T>>::insert(&ticker, token);
             Self::deposit_event(RawEvent::DivisibilityChanged(did, ticker, true));
             Ok(())
-        }
-
-        /// An ERC1594 transfer with data
-        /// This function can be used by the exchanges or other third parties to dynamically validate the transaction
-        /// by passing the data blob.
-        ///
-        /// # Arguments
-        /// * `origin` Secondary key of the sender.
-        /// * `ticker` Ticker of the token.
-        /// * `to_did` DID to whom tokens will be transferred.
-        /// * `value` Amount of the tokens.
-        /// * `data` Off chain data blob to validate the transfer.
-        #[weight = T::DbWeight::get().reads_writes(6, 3) + 800_000_000]
-        pub fn transfer_with_data(origin, ticker: Ticker, to_did: IdentityId, value: T::Balance, data: Vec<u8>) -> DispatchResult {
-
-            let sender = ensure_signed(origin.clone())?;
-            let did = Context::current_identity_or::<Identity<T>>(&sender)?;
-
-            Self::transfer(origin, ticker, to_did, value)?;
-
-            Self::deposit_event(RawEvent::TransferWithData(did, ticker, did, to_did, value, data));
-            Ok(())
-        }
-
-        /// An ERC1594 transfer_from with data
-        /// This function can be used by the exchanges or other third parties to dynamically validate the transaction
-        /// by passing the data blob.
-        ///
-        /// # Arguments
-        /// * `origin` Secondary key of the spender.
-        /// * `ticker` Ticker of the token.
-        /// * `from_did` DID from whom tokens will be transferred.
-        /// * `to_did` DID to whom tokens will be transferred.
-        /// * `value` Amount of the tokens.
-        /// * `data` Off chain data blob to validate the transfer.
-        #[weight = T::DbWeight::get().reads_writes(6, 3) + 800_000_000]
-        pub fn transfer_from_with_data(origin, ticker: Ticker, from_did: IdentityId, to_did: IdentityId, value: T::Balance, data: Vec<u8>) -> DispatchResult {
-            let sender = ensure_signed(origin.clone())?;
-            let did = Context::current_identity_or::<Identity<T>>(&sender)?;
-
-            Self::transfer_from(origin, ticker, from_did,  to_did, value)?;
-
-            Self::deposit_event(RawEvent::TransferWithData(did, ticker, from_did, to_did, value, data));
-            Ok(())
-        }
-
-        /// Used to know whether the given token will issue new tokens or not.
-        ///
-        /// # Arguments
-        /// * `_origin` Secondary key.
-        /// * `ticker` Ticker of the token whose issuance status need to know.
-        #[weight = 10_000_000]
-        pub fn is_issuable(_origin, ticker:Ticker) {
-            Self::deposit_event(RawEvent::IsIssuable(ticker, true));
         }
 
         /// Add documents for a given token. To be called only by the token owner.
