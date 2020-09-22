@@ -178,7 +178,7 @@ runtime-benchmarks = [
     "hex-literal",
     "pallet-asset/runtime-benchmarks",
     "pallet-committee/runtime-benchmarks",
-    #"pallet-identity/runtime-benchmarks",
+    "pallet-identity/runtime-benchmarks",
     "pallet-im-online/runtime-benchmarks",
     "pallet-staking/runtime-benchmarks",
     "pallet-timestamp/runtime-benchmarks",

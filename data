@@ -1,0 +1,27 @@
+max@max-GF63-8RC:~/Desktop/Polymesh/Polymesh$ ./target/release/node-bench ::trie::read::medium
+2020-09-21 17:25:08.819 main INFO node_bench  Starting Trie read benchmark(medium database (100,000 keys), db_type: RocksDb)
+2020-09-21 17:25:26.866 main INFO node_bench  Trie read benchmark(medium database (100,000 keys), db_type: RocksDb): avg 26.3 µs, w_avg 22.5 µs
+2020-09-21 17:25:26.866 main INFO node_bench  Starting Trie read benchmark(medium database (100,000 keys), db_type: ParityDb)
+2020-09-21 17:25:42.445 main INFO node_bench  Trie read benchmark(medium database (100,000 keys), db_type: ParityDb): avg 8.7 µs, w_avg 8.6 µs
+max@max-GF63-8RC:~/Desktop/Polymesh/Polymesh$ ./target/release/node-bench ::trie::read::medium
+2020-09-21 17:27:09.328 main INFO node_bench  Starting Trie read benchmark(medium database (100,000 keys), db_type: RocksDb)
+2020-09-21 17:27:27.231 main INFO node_bench  Trie read benchmark(medium database (100,000 keys), db_type: RocksDb): avg 25.7 µs, w_avg 20.8 µs
+2020-09-21 17:27:27.231 main INFO node_bench  Starting Trie read benchmark(medium database (100,000 keys), db_type: ParityDb)
+2020-09-21 17:27:42.609 main INFO node_bench  Trie read benchmark(medium database (100,000 keys), db_type: ParityDb): avg 8.8 µs, w_avg 8.7 µs
+max@max-GF63-8RC:~/Desktop/Polymesh/Polymesh$ ./target/release/node-bench ::trie::write::medium
+2020-09-21 17:27:48.883 main INFO node_bench  Starting Trie write benchmark(medium database (100,000 keys), db_type = RocksDb)
+2020-09-21 17:28:07.141 main INFO node_bench  Trie write benchmark(medium database (100,000 keys), db_type = RocksDb): avg 0.1145 ms, w_avg 95.9 µs
+2020-09-21 17:28:07.141 main INFO node_bench  Starting Trie write benchmark(medium database (100,000 keys), db_type = ParityDb)
+2020-09-21 17:28:22.540 main INFO node_bench  Trie write benchmark(medium database (100,000 keys), db_type = ParityDb): avg 48.4 µs, w_avg 48.0 µs
+max@max-GF63-8RC:~/Desktop/Polymesh/Polymesh$ ./target/release/node-bench ::trie::write::medium
+2020-09-21 17:28:26.798 main INFO node_bench  Starting Trie write benchmark(medium database (100,000 keys), db_type = RocksDb)
+2020-09-21 17:28:44.450 main INFO node_bench  Trie write benchmark(medium database (100,000 keys), db_type = RocksDb): avg 0.1064 ms, w_avg 87.7 µs
+2020-09-21 17:28:44.450 main INFO node_bench  Starting Trie write benchmark(medium database (100,000 keys), db_type = ParityDb)
+2020-09-21 17:28:59.855 main INFO node_bench  Trie write benchmark(medium database (100,000 keys), db_type = ParityDb): avg 46.8 µs, w_avg 47.1 µs
+
+read:         25_000_000 // 25 us
+write:       100_000_000 // 100 us
+base:      4_000_000_000 // 4 ms -> Time needed to import an empty transaction
+limit: 2_O00_000_000_000 // 2 s -> Maximum computation time per block
+
+Computation complexity of a tx = base + n*read + m*write + tx_computation

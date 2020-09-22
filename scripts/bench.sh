@@ -1,2 +1,1 @@
-cargo build --release --features=runtime-benchmarks &&\
-./target/release/polymesh benchmark -p=* -e=*
+cargo run --release --features=runtime-benchmarks -- benchmark -p=* -e=*

@@ -4342,6 +4342,7 @@ dependencies = [
 name = "pallet-identity"
 version = "0.1.0"
 dependencies = [
+ "cryptography",
  "frame-benchmarking",
  "frame-support",
  "frame-system",
