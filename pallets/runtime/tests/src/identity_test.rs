@@ -9,7 +9,7 @@ use super::{
 use codec::Encode;
 use frame_support::{assert_err, assert_ok, traits::Currency, StorageDoubleMap};
 use pallet_balances as balances;
-use pallet_identity::{self as identity, Error};
+use pallet_identity::{self as identity, BatchAddClaimItem, BatchRevokeClaimItem, Error};
 use polymesh_common_utilities::{
     traits::{
         group::GroupTrait,
@@ -57,7 +57,77 @@ fn fetch_systematic_cdd(target: IdentityId) -> Option<IdentityClaim> {
 }
 
 // Tests
-// ======================================
+// =======================================
+
+#[test]
+fn add_claims_batch_test() {
+    ExtBuilder::default()
+        .balance_factor(1_000)
+        .monied(true)
+        .cdd_providers(vec![
+            AccountKeyring::Eve.public(),
+            AccountKeyring::Ferdie.public(),
+        ])
+        .build()
+        .execute_with(|| add_claims_batch());
+}
+
+fn add_claims_batch() {
+    let alice_did = register_keyring_account(AccountKeyring::Alice).unwrap();
+    let bob_issuer = AccountKeyring::Bob.public();
+    let _bob_did = register_keyring_account(AccountKeyring::Bob).unwrap();
+    let cdd_claim_issuer = AccountKeyring::Eve.public();
+    let cdd_claim_did = get_identity_id(AccountKeyring::Eve).unwrap();
+
+    let scope = Scope::from(IdentityId::from(0));
+
+    let claim_records = vec![
+        BatchAddClaimItem {
+            target: alice_did,
+            claim: Claim::make_cdd_wildcard(),
+            expiry: None,
+        },
+        BatchAddClaimItem {
+            target: alice_did,
+            claim: Claim::Affiliate(scope.clone()),
+            expiry: None,
+        },
+    ];
+
+    assert_ok!(Identity::batch_add_claim(
+        Origin::signed(cdd_claim_issuer),
+        claim_records.clone(),
+    ));
+
+    // Using Bob as the singer who is not a CDD Provider to check if the transaction fails
+    assert_err!(
+        Identity::batch_add_claim(Origin::signed(bob_issuer), claim_records.clone(),),
+        Error::<TestStorage>::UnAuthorizedCddProvider
+    );
+
+    let claim1 = Identity::fetch_claim(
+        alice_did,
+        ClaimType::CustomerDueDiligence,
+        cdd_claim_did,
+        None,
+    )
+    .unwrap();
+
+    let claim2 = Identity::fetch_claim(
+        alice_did,
+        ClaimType::Affiliate,
+        cdd_claim_did,
+        Some(scope.clone()),
+    )
+    .unwrap();
+
+    assert_eq!(claim1.expiry, None);
+    assert_eq!(claim2.expiry, None);
+
+    assert_eq!(claim1.claim, Claim::make_cdd_wildcard());
+    assert_eq!(claim2.claim, Claim::Affiliate(scope));
+}
+
 /// TODO Add `Signatory::Identity(..)` test.
 #[test]
 fn only_primary_or_secondary_keys_can_authenticate_as_an_identity() {
@@ -178,12 +248,19 @@ fn revoking_batch_claims() {
             Claim::Accredited(scope.clone()),
         ));
 
-        assert_ok!(Identity::revoke_claim(
+        assert_ok!(Identity::batch_revoke_claim(
             claim_issuer.clone(),
-            claim_issuer_did,
-            Claim::NoData,
+            vec![
+                BatchRevokeClaimItem {
+                    target: claim_issuer_did,
+                    claim: Claim::Accredited(scope.clone()),
+                },
+                BatchRevokeClaimItem {
+                    target: claim_issuer_did,
+                    claim: Claim::NoData,
+                }
+            ]
         ));
-
         assert!(Identity::fetch_claim(
             claim_issuer_did,
             ClaimType::Accredited,
@@ -775,7 +852,7 @@ fn one_step_join_id_with_ext() {
         },
     ];
 
-    assert_ok!(Identity::add_secondary_keys_with_authorization(
+    assert_ok!(Identity::batch_add_secondary_key_with_authorization(
         a.clone(),
         secondary_keys_with_auth[..2].to_owned(),
         expires_at
@@ -796,7 +873,7 @@ fn one_step_join_id_with_ext() {
     System::inc_account_nonce(&a_pub);
 
     assert_err!(
-        Identity::add_secondary_keys_with_authorization(
+        Identity::batch_add_secondary_key_with_authorization(
             a.clone(),
             secondary_keys_with_auth[2..].to_owned(),
             expires_at
@@ -825,7 +902,7 @@ fn one_step_join_id_with_ext() {
         eve_auth
     ));
     assert_err!(
-        Identity::add_secondary_keys_with_authorization(
+        Identity::batch_add_secondary_key_with_authorization(
             a,
             vec![eve_secondary_key_with_auth],
             expires_at
@@ -850,7 +927,7 @@ fn one_step_join_id_with_ext() {
     };
 
     assert_err!(
-        Identity::add_secondary_keys_with_authorization(
+        Identity::batch_add_secondary_key_with_authorization(
             f,
             vec![ferdie_secondary_key_with_auth],
             expires_at

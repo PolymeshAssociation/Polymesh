@@ -905,7 +905,7 @@ fn adding_removing_documents() {
             ),
         ];
 
-        assert_ok!(Asset::add_documents(
+        assert_ok!(Asset::batch_add_document(
             owner_signed.clone(),
             documents.clone(),
             ticker
@@ -920,7 +920,7 @@ fn adding_removing_documents() {
             documents[1].1
         );
 
-        assert_ok!(Asset::remove_documents(
+        assert_ok!(Asset::batch_remove_document(
             owner_signed.clone(),
             vec![b"A".into(), b"B".into()],
             ticker

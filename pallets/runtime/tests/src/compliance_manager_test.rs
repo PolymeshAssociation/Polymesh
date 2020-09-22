@@ -11,7 +11,7 @@ use pallet_compliance_manager::{
     ConditionResult, Error as CMError, ImplicitRequirementResult,
 };
 use pallet_group as group;
-use pallet_identity::{self as identity};
+use pallet_identity::{self as identity, BatchAddClaimItem};
 use polymesh_common_utilities::traits::compliance_manager::Trait as ComplianceManagerTrait;
 use polymesh_common_utilities::{
     constants::{ERC1400_TRANSFER_FAILURE, ERC1400_TRANSFER_SUCCESS},
@@ -671,16 +671,40 @@ fn should_modify_vector_of_trusted_issuer_we() {
         None,
     ));
 
-    assert_ok!(ComplianceManager::add_default_trusted_claim_issuer(
-        token_owner_signed.clone(),
-        ticker,
-        trusted_issuer_did_1
-    ));
+    // Failed because caller is not the owner of the ticker
+    assert_err!(
+        ComplianceManager::batch_add_default_trusted_claim_issuer(
+            receiver_signed.clone(),
+            vec![trusted_issuer_did_1, trusted_issuer_did_2],
+            ticker,
+        ),
+        CMError::<TestStorage>::Unauthorized
+    );
 
-    assert_ok!(ComplianceManager::add_default_trusted_claim_issuer(
+    // Failed because trusted issuer identity not exist
+    assert_err!(
+        ComplianceManager::batch_add_default_trusted_claim_issuer(
+            token_owner_signed.clone(),
+            vec![IdentityId::from(1), IdentityId::from(2)],
+            ticker,
+        ),
+        CMError::<TestStorage>::DidNotExist
+    );
+
+    // Failed because trusted issuers length < 0
+    assert_err!(
+        ComplianceManager::batch_add_default_trusted_claim_issuer(
+            token_owner_signed.clone(),
+            vec![],
+            ticker,
+        ),
+        CMError::<TestStorage>::InvalidLength
+    );
+
+    assert_ok!(ComplianceManager::batch_add_default_trusted_claim_issuer(
         token_owner_signed.clone(),
+        vec![trusted_issuer_did_1, trusted_issuer_did_2],
         ticker,
-        trusted_issuer_did_2
     ));
 
     assert_eq!(ComplianceManager::trusted_claim_issuer(ticker).len(), 2);
@@ -751,11 +775,13 @@ fn should_modify_vector_of_trusted_issuer_we() {
     assert_valid_transfer!(ticker, token_owner_did, receiver_did, 10);
 
     // Remove the trusted issuer 1 from the list
-    assert_ok!(ComplianceManager::remove_default_trusted_claim_issuer(
-        token_owner_signed.clone(),
-        ticker,
-        trusted_issuer_did_1
-    ));
+    assert_ok!(
+        ComplianceManager::batch_remove_default_trusted_claim_issuer(
+            token_owner_signed.clone(),
+            vec![trusted_issuer_did_1],
+            ticker,
+        )
+    );
 
     assert_eq!(ComplianceManager::trusted_claim_issuer(ticker).len(), 1);
     assert_eq!(
@@ -1254,6 +1280,23 @@ fn cm_test_case_13_we() {
     assert!(result.requirements[0].receiver_conditions[2].result);
 
     // 3.2. Dave has a 'Affiliate' Claim but he is from USA
+    let dave_claims = vec![
+        BatchAddClaimItem::<Moment> {
+            target: dave,
+            claim: Claim::Exempted(scope.clone()),
+            expiry: None,
+        },
+        BatchAddClaimItem::<Moment> {
+            target: dave,
+            claim: Claim::KnowYourCustomer(scope.clone()),
+            expiry: None,
+        },
+        BatchAddClaimItem::<Moment> {
+            target: dave,
+            claim: Claim::Jurisdiction(CountryCode::US, scope.clone()),
+            expiry: None,
+        },
+    ];
 
     assert_add_claim!(issuer.clone(), dave, Claim::Exempted(scope.clone()), None);
     assert_add_claim!(
@@ -1268,6 +1311,7 @@ fn cm_test_case_13_we() {
         Claim::Jurisdiction(CountryCode::US, scope.clone()),
         None
     );
+    assert_ok!(Identity::batch_add_claim(issuer.clone(), dave_claims));
 
     assert_invalid_transfer!(ticker, owner_did, dave, 100);
     let result = ComplianceManager::granular_verify_restriction(&ticker, None, Some(dave), None);
@@ -1291,7 +1335,25 @@ fn cm_test_case_13_we() {
         Claim::Jurisdiction(CountryCode::GB, scope.clone()),
         None
     );
+    let eve_claims = vec![
+        BatchAddClaimItem::<Moment> {
+            target: eve,
+            claim: Claim::Exempted(scope.clone()),
+            expiry: None,
+        },
+        BatchAddClaimItem::<Moment> {
+            target: eve,
+            claim: Claim::KnowYourCustomer(scope.clone()),
+            expiry: None,
+        },
+        BatchAddClaimItem::<Moment> {
+            target: eve,
+            claim: Claim::Jurisdiction(CountryCode::GB, scope.clone()),
+            expiry: None,
+        },
+    ];
 
+    assert_ok!(Identity::batch_add_claim(issuer.clone(), eve_claims));
     assert_valid_transfer!(ticker, owner_did, eve, 100);
     let result =
         ComplianceManager::granular_verify_restriction(&ticker, Some(owner_did), Some(eve), None);
