@@ -7,10 +7,12 @@ use frame_support::weights::{Weight, constants::RocksDbWeight as DbWeight};
 
 pub struct WeightInfo;
 impl pallet_asset::WeightInfo for WeightInfo {
-	// WARNING! Some components were not used: ["t"]
-	fn register_ticker() -> Weight {
-		(50468000 as Weight)
-			.saturating_add(DbWeight::get().reads(10 as Weight))
-			.saturating_add(DbWeight::get().writes(3 as Weight))
+	fn create_asset(n: u32, i: u32, f: u32, ) -> Weight {
+		(92299000 as Weight)
+			.saturating_add((49000 as Weight).saturating_mul(n as Weight))
+			.saturating_add((74000 as Weight).saturating_mul(i as Weight))
+			.saturating_add((14000 as Weight).saturating_mul(f as Weight))
+			.saturating_add(DbWeight::get().reads(12 as Weight))
+			.saturating_add(DbWeight::get().writes(11 as Weight))
 	}
 }

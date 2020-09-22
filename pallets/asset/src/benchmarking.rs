@@ -26,7 +26,7 @@ use sp_std::{convert::TryFrom, iter, prelude::*};
 const SEED: u32 = 0;
 const MAX_USER_INDEX: u32 = 1_000;
 const MAX_TICKER_LENGTH: u8 = 12;
-const MAX_NAME_LENGTH: u32 = 128;
+const MAX_NAME_LENGTH: u32 = 64;
 
 fn uid_from_name_and_idx(name: &'static str, u: u32) -> InvestorUid {
     InvestorUid::from((name, u).encode().as_slice())
@@ -138,15 +138,12 @@ benchmarks! {
     create_asset {
         // TODO: Limit name length
         // TODO: Remove custom asset type
-        let u in ...;
         // Token name length.
         let n in 1 .. MAX_NAME_LENGTH;
         // Length of the vector of identifiers.
         let i in 1 .. 100;
         // Funding round name length.
         let f in 1 .. MAX_NAME_LENGTH;
-        // Identifier count
-        let ic in 1 .. 10;
         <TickerConfig<T>>::put(TickerRegistrationConfig {
             max_ticker_length: MAX_TICKER_LENGTH,
             registration_length: Some((60 * 24 * 60 * 60).into()),
@@ -157,9 +154,9 @@ benchmarks! {
         let divisible = true;
         let asset_type = AssetType::Derivative;
         let identifiers: Vec<AssetIdentifier> =
-            iter::repeat(AssetIdentifier::cusip(*b"023135106").unwrap()).take(i as usize).collect();
+            iter::repeat(AssetIdentifier::cusip(*b"17275R102").unwrap()).take(i as usize).collect();
         let fundr = FundingRoundName::from(vec![b'F'; f as usize].as_slice());
-        let origin = make_account::<T>("caller", u).1;
+        let origin = make_account::<T>("caller", 1).1;
     }: _(origin, name, ticker, total_supply, divisible, asset_type, identifiers, Some(fundr))
 
     // freeze {
