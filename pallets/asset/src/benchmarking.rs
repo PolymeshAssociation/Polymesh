@@ -207,6 +207,23 @@ benchmarks! {
         let ticker = make_token::<T>(origin.clone(), t, n, i, f);
     }: _(origin, ticker, new_name)
 
+    transfer {
+        let u in ...;
+        // Token name length.
+        let n in 1 .. MAX_NAME_LENGTH;
+        // Ticker length.
+        let t in 1 .. MAX_TICKER_LENGTH as u32;
+        // Length of the vector of identifiers.
+        let i in 1 .. 100;
+        // Funding round name length.
+        let f in 1 .. MAX_NAME_LENGTH;
+        // Token amount.
+        let a in 1 .. 100_000;
+        let (_, alice_origin, _) = make_account::<T>("alice", u);
+        let (_, _, bob_did) = make_account::<T>("bob", u);
+        let ticker = make_token::<T>(alice_origin.clone(), t, n, i, f);
+    }: _(alice_origin, ticker, bob_did, a.into())
+
     issue {
         let u in ...;
         // Token name length.
@@ -222,4 +239,5 @@ benchmarks! {
         let (_, alice_origin, _) = make_account::<T>("alice", u);
         let ticker = make_token::<T>(alice_origin.clone(), t, n, i, f);
     }: _(alice_origin, ticker, a.into())
+
 }

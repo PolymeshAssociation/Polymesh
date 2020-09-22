@@ -38,8 +38,7 @@ async function main() {
 
   await mintingAsset( api, primary_keys[0], prepend );
 
-  // TODO: Use settlement module
-  // await assetTransfer( api, primary_keys[0], issuer_dids[2], prepend );
+  await assetTransfer( api, primary_keys[0], issuer_dids[2], prepend );
 
   if (reqImports.fail_count > 0) {
     console.log("Failed");
@@ -59,17 +58,16 @@ async function mintingAsset(api, minter, prepend) {
 
 }
 
-// TODO: Use settlement module
-// async function assetTransfer(api, from_account, did, prepend) {
-//     const ticker = `token${prepend}0`.toUpperCase();
-//     let nonceObj = {nonce: reqImports.nonces.get(from_account)};
-//     const transaction = await api.tx.asset.transfer(ticker, did, 100);
-//     const result = await reqImports.sendTransaction(transaction, from_account, nonceObj);
-//     const passed = result.findRecord('system', 'ExtrinsicSuccess');
-//     if (passed) reqImports.fail_count--;
+async function assetTransfer(api, from_account, did, prepend) {
+    const ticker = `token${prepend}0`.toUpperCase();
+    let nonceObj = {nonce: reqImports.nonces.get(from_account)};
+    const transaction = await api.tx.asset.transfer(ticker, did, 100);
+    const result = await reqImports.sendTransaction(transaction, from_account, nonceObj);
+    const passed = result.findRecord('system', 'ExtrinsicSuccess');
+    if (passed) reqImports.fail_count--;
 
-//     reqImports.nonces.set( from_account.address, reqImports.nonces.get(from_account.address).addn(1));
+    reqImports.nonces.set( from_account.address, reqImports.nonces.get(from_account.address).addn(1));
 
-// }
+}
 
 main().catch(console.error);
