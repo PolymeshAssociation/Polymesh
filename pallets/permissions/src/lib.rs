@@ -96,18 +96,6 @@ impl<T: Trait> StoreCallMetadata<T> {
         Self(Default::default())
     }
 
-    /// Replaces the current call metadata with the given ones and returns the old, replaced call
-    /// metadata.
-    pub fn swap_call_metadata(
-        pallet_name: PalletName,
-        dispatchable_name: DispatchableName,
-    ) -> (PalletName, DispatchableName) {
-        let old_pallet_name = <CurrentPalletName>::get();
-        let old_dispatchable_name = <CurrentDispatchableName>::get();
-        Self::set_call_metadata(pallet_name, dispatchable_name);
-        (old_pallet_name, old_dispatchable_name)
-    }
-
     /// Stores call metadata in runtime storage.
     pub fn set_call_metadata(pallet_name: PalletName, dispatchable_name: DispatchableName) {
         <CurrentPalletName>::put(pallet_name);
@@ -178,17 +166,19 @@ pub fn with_call_metadata<Succ, Err>(
     tx: impl FnOnce() -> Result<Succ, Err>,
 ) -> Result<Succ, Err> {
     // Set the dispatchable call metadata and save the current call metadata.
-    let (pallet_name, function_name) = sw_call_metadata(
+    let (pallet_name, function_name) = swap_call_metadata(
         metadata.pallet_name.as_bytes().into(),
         metadata.function_name.as_bytes().into(),
     );
     let result = tx();
     // Restore the current call metadata.
-    let _ = sw_call_metadata(pallet_name, function_name);
+    let _ = swap_call_metadata(pallet_name, function_name);
     result
 }
 
-pub fn sw_call_metadata(
+/// Replaces the current call metadata with the given ones and returns the old, replaced call
+/// metadata.
+pub fn swap_call_metadata(
     pallet_name: PalletName,
     dispatchable_name: DispatchableName,
 ) -> (PalletName, DispatchableName) {

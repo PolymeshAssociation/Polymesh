@@ -237,8 +237,11 @@ decl_module! {
             let is_root = Self::is_root_with_permissions(origin.clone())?;
             Self::deposit_event(match with_transaction(|| {
                 for (index, call) in calls.into_iter().enumerate() {
-                    if let Err(e) = dispatch_call::<T>(origin.clone(), is_root, call) {
-                        return Err((index as u32, e.error))
+                    if let Err(e) = with_call_metadata(call.get_call_metadata(), || {
+                        dispatch_call::<T>(origin.clone(), is_root, call)
+                    }) {
+                        // Abort the batch.
+                        return Err((index as u32, e.error));
                     }
                 }
                 Ok(())
@@ -273,7 +276,9 @@ decl_module! {
             // Optimistically (hey, it's in the function name, :wink:) assume no errors.
             let mut errors = Vec::new();
             for (index, call) in calls.into_iter().enumerate() {
-                if let Err(e) = dispatch_call::<T>(origin.clone(), is_root, call) {
+                if let Err(e) = with_call_metadata(call.get_call_metadata(), || {
+                    dispatch_call::<T>(origin.clone(), is_root, call)
+                }) {
                     errors.push((index as u32, e.error));
                 }
             }
@@ -330,12 +335,22 @@ decl_module! {
 
             <Nonces<T>>::insert(target.clone(), target_nonce + 1);
 
-            call.call.dispatch(RawOrigin::Signed(target).into())
-                .map(|info| info.actual_weight.map(|w| w.saturating_add(90_000_000)).into())
-                .map_err(|e| DispatchErrorWithPostInfo {
-                    error: e.error,
-                    post_info: e.post_info.actual_weight.map(|w| w.saturating_add(90_000_000)).into()
-                })
+            let call = call.call;
+            with_call_metadata(call.get_call_metadata(), || {
+                call.dispatch(RawOrigin::Signed(target).into())
+                    .map(|info| info
+                         .actual_weight
+                         .map(|w| w.saturating_add(90_000_000))
+                         .into())
+                    .map_err(|e| DispatchErrorWithPostInfo {
+                        error: e.error,
+                        post_info: e
+                            .post_info
+                            .actual_weight
+                            .map(|w| w.saturating_add(90_000_000))
+                            .into()
+                    })
+            })
         }
     }
 }

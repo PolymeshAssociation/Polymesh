@@ -969,17 +969,10 @@ pub fn add_secondary_key(stash_key: AccountId, to_secondary_key: AccountId) {
             "Error in providing the authorization"
         );
         let auth_id = get_last_auth_id(&Signatory::Account(to_secondary_key));
-        // Set call metadata thus simulating dispatch.
-        // let (fname, pname) = StoreCallMetadata::<Test>::swap_call_metadata(
-        //     "identity".as_bytes().into(),
-        //     "join_identity_as_key".as_bytes().into(),
-        // );
         assert_ok!(Identity::join_identity_as_key(
             Origin::signed(to_secondary_key),
             auth_id
         ));
-        // // Restore previous call metadata.
-        // StoreCallMetadata::<Test>::store_call_metadata(fname, pname);
     }
 }
 
