@@ -114,7 +114,6 @@ use polymesh_primitives::{
     SmartExtensionType, Ticker, TickerRegistration, TickerRegistrationConfig,
     TickerRegistrationStatus,
 };
-
 use sp_runtime::traits::{CheckedAdd, Saturating};
 #[cfg(feature = "std")]
 use sp_runtime::{Deserialize, Serialize};
@@ -1944,22 +1943,24 @@ impl<T: Trait> Module<T> {
 
         Self::deposit_event(RawEvent::IdentifiersUpdated(did, ticker, identifiers));
         <IssuedInFundingRound<T>>::insert((ticker, Self::funding_round(ticker)), total_supply);
-        Self::deposit_event(RawEvent::Transfer(
-            did,
-            ticker,
-            IdentityId::default(),
-            did,
-            total_supply,
-        ));
-        Self::deposit_event(RawEvent::Issued(
-            did,
-            ticker,
-            did,
-            total_supply,
-            Self::funding_round(ticker),
-            total_supply,
-            Some(did),
-        ));
+        if !is_confidential {
+            Self::deposit_event(RawEvent::Transfer(
+                did,
+                ticker,
+                IdentityId::default(),
+                did,
+                total_supply,
+            ));
+            Self::deposit_event(RawEvent::Issued(
+                did,
+                ticker,
+                did,
+                total_supply,
+                Self::funding_round(ticker),
+                total_supply,
+                Some(did),
+            ));
+        }
         Ok(())
     }
 }

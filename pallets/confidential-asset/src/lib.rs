@@ -77,19 +77,19 @@ decl_storage! {
     trait Store for Module<T: Trait> as ConfidentialAsset {
 
         /// Contains the mercat accounts for an identity.
-        pub MercatAccounts get(fn mercat_account):
-              double_map hasher(twox_64_concat) IdentityId,
-              hasher(blake2_128_concat) EncryptedAssetIdWrapper
-              => MercatAccount;
+        pub MercatAccounts get(fn mercat_accounts):
+            double_map hasher(twox_64_concat) IdentityId,
+            hasher(blake2_128_concat) EncryptedAssetIdWrapper
+            => MercatAccount;
 
         /// Contains the encrypted balance of a mercat account.
         pub MercatAccountBalance get(fn mercat_account_balance):
-              double_map hasher(twox_64_concat) IdentityId,
-              hasher(blake2_128_concat) EncryptedAssetIdWrapper
-              => EncryptedBalanceWrapper;
+            double_map hasher(twox_64_concat) IdentityId,
+            hasher(blake2_128_concat) EncryptedAssetIdWrapper
+            => EncryptedBalanceWrapper;
 
         /// List of Tickers of the type ConfidentialAsset.
-        /// () -> List of confidential tickers
+        /// Returns a list of confidential tickers.
         pub ConfidentialTickers get(fn confidential_tickers): Vec<AssetId>;
     }
 }

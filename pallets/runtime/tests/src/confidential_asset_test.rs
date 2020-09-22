@@ -265,7 +265,7 @@ fn account_create_tx() {
         let wrapped_enc_asset_id =
             EncryptedAssetIdWrapper::from(mercat_account_tx.pub_account.enc_asset_id.encode());
         let stored_account =
-            ConfidentialAsset::mercat_account(alice_id, wrapped_enc_asset_id.clone());
+            ConfidentialAsset::mercat_accounts(alice_id, wrapped_enc_asset_id.clone());
 
         assert_eq!(stored_account.encrypted_asset_id, wrapped_enc_asset_id,);
         assert_eq!(
