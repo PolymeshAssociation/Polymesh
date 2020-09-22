@@ -121,7 +121,7 @@ pub trait Trait: CommonTrait + pallet_timestamp::Trait + balances::Trait {
     /// Charges fee for forwarded call
     type ChargeTxFeeTarget: ChargeTxFee;
     /// Used to check and update CDD
-    type CddHandler: CddAndFeeDetails<Self::AccountId, Self::Call>;
+    type CddHandler: CddAndFeeDetails<Self::AccountId, <Self as frame_system::Trait>::Call>;
 
     type Public: IdentifyAccount<AccountId = Self::AccountId>;
     type OffChainSignature: Verify<Signer = Self::Public> + Member + Decode + Encode;

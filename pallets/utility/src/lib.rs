@@ -53,11 +53,12 @@ use frame_support::{
     decl_error, decl_event, decl_module, decl_storage,
     dispatch::{DispatchErrorWithPostInfo, DispatchResultWithPostInfo, PostDispatchInfo},
     ensure,
-    traits::UnfilteredDispatchable,
+    traits::{GetCallMetadata, UnfilteredDispatchable},
     weights::{DispatchClass, GetDispatchInfo, Weight},
     Parameter,
 };
 use frame_system::{ensure_root, ensure_signed, RawOrigin};
+use pallet_permissions::with_call_metadata;
 use polymesh_common_utilities::{
     balances::CheckCdd, identity::AuthorizationNonce, identity::Trait as IdentityTrait,
     with_transaction,
@@ -75,6 +76,7 @@ pub trait Trait: frame_system::Trait + IdentityTrait {
     /// The overarching call type.
     type Call: Parameter
         + Dispatchable<Origin = Self::Origin, PostInfo = PostDispatchInfo>
+        + GetCallMetadata
         + GetDispatchInfo
         + From<frame_system::Call<Self>>
         + UnfilteredDispatchable<Origin = Self::Origin>;
@@ -194,8 +196,17 @@ decl_module! {
                 CallPermissions::<T>::ensure_call_permissions(&sender)?;
             }
             for (index, call) in calls.into_iter().enumerate() {
-                if let Err(e) = dispatch_call::<T>(origin.clone(), is_root, call) {
-                    Self::deposit_event(Event::BatchInterrupted(index as u32, e.error));
+                // Dispatch the call in a modified metadata context.
+                let result = with_call_metadata(call.get_call_metadata(), || {
+                    if let Err(e) = dispatch_call::<T>(origin.clone(), is_root, call) {
+                        Self::deposit_event(Event::BatchInterrupted(index as u32, e.error));
+                        Err(e)
+                    } else {
+                        Ok(())
+                    }
+                });
+                if result.is_err() {
+                    // Abort the batch.
                     return Ok(());
                 }
             }

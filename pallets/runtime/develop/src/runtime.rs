@@ -735,6 +735,7 @@ impl confidential::Trait for Runtime {
 }
 
 impl PermissionChecker for Runtime {
+    type Call = Call;
     type Checker = Identity;
 }
 

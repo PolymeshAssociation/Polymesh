@@ -25,7 +25,7 @@ use frame_support::{
     decl_error, decl_module, decl_storage,
     dispatch::{DispatchError, DispatchResult},
     storage::StorageValue,
-    traits::GetCallMetadata,
+    traits::{CallMetadata, GetCallMetadata},
 };
 use polymesh_common_utilities::traits::{
     AccountCallPermissionsData, CheckAccountCallPermissions, PermissionChecker as Trait,
@@ -76,9 +76,9 @@ impl<T: Trait> Module<T> {
 
 /// A signed extension used in checking call permissions.
 #[derive(Encode, Decode, Clone, Eq, PartialEq, Default)]
-pub struct StoreCallMetadata<T: Trait + Send + Sync>(PhantomData<T>);
+pub struct StoreCallMetadata<T: Trait>(PhantomData<T>);
 
-impl<T: Trait + Send + Sync> fmt::Debug for StoreCallMetadata<T> {
+impl<T: Trait> fmt::Debug for StoreCallMetadata<T> {
     #[cfg(feature = "std")]
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "StoreCallMetadata<{:?}>", self.0)
@@ -90,10 +90,7 @@ impl<T: Trait + Send + Sync> fmt::Debug for StoreCallMetadata<T> {
     }
 }
 
-impl<T: Trait + Send + Sync> StoreCallMetadata<T>
-where
-    T::Call: GetCallMetadata,
-{
+impl<T: Trait> StoreCallMetadata<T> {
     /// Constructs a new store for call metadata.
     pub fn new() -> Self {
         Self(Default::default())
@@ -124,13 +121,10 @@ where
     }
 }
 
-impl<T: Trait + Send + Sync> SignedExtension for StoreCallMetadata<T>
-where
-    T::Call: GetCallMetadata,
-{
+impl<T: Trait + Send + Sync> SignedExtension for StoreCallMetadata<T> {
     const IDENTIFIER: &'static str = "StoreCallMetadata";
     type AccountId = T::AccountId;
-    type Call = T::Call;
+    type Call = <T as Trait>::Call;
     type AdditionalSigned = ();
     type Pre = ();
 
@@ -173,4 +167,34 @@ where
         Self::clear_call_metadata();
         Ok(())
     }
+}
+
+/// Transacts `tx` while setting the call metadata to that of `call` until the call is
+/// finished. Restores the current call metadata at the end.
+///
+/// Returns the result of `tx`.
+pub fn with_call_metadata<Succ, Err>(
+    metadata: CallMetadata,
+    tx: impl FnOnce() -> Result<Succ, Err>,
+) -> Result<Succ, Err> {
+    // Set the dispatchable call metadata and save the current call metadata.
+    let (pallet_name, function_name) = sw_call_metadata(
+        metadata.pallet_name.as_bytes().into(),
+        metadata.function_name.as_bytes().into(),
+    );
+    let result = tx();
+    // Restore the current call metadata.
+    let _ = sw_call_metadata(pallet_name, function_name);
+    result
+}
+
+pub fn sw_call_metadata(
+    pallet_name: PalletName,
+    dispatchable_name: DispatchableName,
+) -> (PalletName, DispatchableName) {
+    let old_pallet_name = <CurrentPalletName>::get();
+    let old_dispatchable_name = <CurrentDispatchableName>::get();
+    <CurrentPalletName>::put(pallet_name);
+    <CurrentDispatchableName>::put(dispatchable_name);
+    (old_pallet_name, old_dispatchable_name)
 }

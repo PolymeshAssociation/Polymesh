@@ -14,10 +14,16 @@
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
 use codec::{Decode, Encode};
+use frame_support::{dispatch::PostDispatchInfo, traits::GetCallMetadata};
 use polymesh_primitives::{DispatchableName, IdentityId, PalletName, SecondaryKey};
+use sp_runtime::traits::Dispatchable;
 
 /// Permissions module configuration trait.
 pub trait PermissionChecker: frame_system::Trait {
+    /// The call type with additional traits.
+    type Call: From<<Self as frame_system::Trait>::Call>
+        + GetCallMetadata
+        + Dispatchable<Origin = <Self as frame_system::Trait>::Origin, PostInfo = PostDispatchInfo>;
     /// The type that implements the permission check function.
     type Checker: CheckAccountCallPermissions<Self::AccountId>;
 }
