@@ -2222,6 +2222,7 @@ fn classic_ticker_genesis_works() {
             registration_length,
             ..standard_config
         },
+        reserved_country_currency_codes: vec![],
     };
 
     // Define expected ticker data after genesis.
@@ -2409,6 +2410,7 @@ fn classic_ticker_claim_works() {
             ..default_reg_config()
         },
         classic_migration_contract_did: 0.into(),
+        reserved_country_currency_codes: vec![],
     };
 
     // Define the fees and initial balance.

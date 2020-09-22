@@ -780,13 +780,7 @@
                 "ProposalNotFound": "Vec<u8>"
             }
         },
-        "Vote": {
-            "_enum": {
-                "None": "",
-                "Yes": "Balance",
-                "No": "Balance"
-            }
-        },
+        "Vote": "(bool, Balance)",
         "VoteByPip": {
             "pip": "PipId",
             "vote": "Vote"

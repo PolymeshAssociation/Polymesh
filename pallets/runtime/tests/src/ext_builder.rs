@@ -301,6 +301,7 @@ impl ExtBuilder {
             classic_migration_contract_did: IdentityId::from(1),
             classic_migration_tconfig: ticker_registration_config.clone(),
             ticker_registration_config,
+            reserved_country_currency_codes: vec![],
         }
         .assimilate_storage(&mut storage)
         .unwrap();
