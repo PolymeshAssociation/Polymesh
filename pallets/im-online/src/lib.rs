@@ -38,6 +38,9 @@
 //!
 //! ## Interface
 //!
+//! ### Dispatchable functions
+//! * [set_slashing_params](Module::set_slashing_params) - Set slashing params.
+//!
 //! ### Public Functions
 //!
 //! - `is_online` - True if the validator sent a heartbeat in the current session.
