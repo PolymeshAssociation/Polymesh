@@ -68,6 +68,7 @@ pub trait Trait<V, U> {
         ticker: &Ticker,
         value: V,
     ) -> DispatchResultWithPostInfo;
+    /// Create and add a new security token.
     fn base_create_asset(
         did: IdentityId,
         name: AssetName,

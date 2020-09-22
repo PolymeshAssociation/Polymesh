@@ -173,9 +173,7 @@ decl_module! {
             T::Asset::base_create_asset(primary_owner_did, name, ticker, total_supply, divisible, asset_type.clone(), identifiers, funding_round, true)?;
 
             // Append the ticker to the list of confidential tickers.
-            let mut token_list = Self::confidential_tickers();
-            token_list.push(AssetId{id: ticker.as_bytes().clone()});
-            <ConfidentialTickers>::put(token_list);
+            <ConfidentialTickers>::append(AssetId { id: ticker.as_bytes().clone() });
 
             // TODO(CRYP-160) : mint `total_supply` assets to the primary asset issuer here.
 

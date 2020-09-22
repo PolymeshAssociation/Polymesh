@@ -973,6 +973,7 @@ impl<T: Trait> AssetTrait<T::Balance, T::AccountId> for Module<T> {
         Self::base_transfer(from_portfolio, to_portfolio, ticker, value)
     }
 
+    /// Create and add a new security token.
     fn base_create_asset(
         did: IdentityId,
         name: AssetName,

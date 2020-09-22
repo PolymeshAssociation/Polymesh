@@ -4,7 +4,7 @@ use super::{
 };
 use chrono::prelude::Utc;
 use frame_support::{assert_err, assert_noop, assert_ok, traits::Currency};
-use pallet_asset::{self as asset};
+use pallet_asset as asset;
 use pallet_balances as balances;
 use pallet_compliance_manager::{
     self as compliance_manager, ComplianceRequirement, ComplianceRequirementResult,

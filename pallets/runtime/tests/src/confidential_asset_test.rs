@@ -15,7 +15,7 @@ use cryptography::{
 };
 use curve25519_dalek::scalar::Scalar;
 use frame_support::IterableStorageMap;
-use pallet_asset::{self as asset};
+use pallet_asset as asset;
 use pallet_confidential_asset as confidential_asset;
 use pallet_statistics as statistics;
 use rand::{rngs::StdRng, SeedableRng};
@@ -123,7 +123,7 @@ fn issuers_can_create_and_rename_confidential_tokens() {
         let eve_signed = Origin::signed(AccountKeyring::Eve.public());
         let _eve_did = register_keyring_account(AccountKeyring::Eve).unwrap();
         assert_err!(
-            Asset::rename_asset(eve_signed, ticker, vec![0xde, 0xad, 0xbe, 0xef].into()),
+            Asset::rename_asset(eve_signed, ticker, b"ABCD".into()),
             AssetError::Unauthorized
         );
         // The token should remain unchanged in storage.
@@ -213,7 +213,7 @@ fn account_create_tx() {
             );
         }
 
-        let valid_asset_ids: Vec<AssetId> = ConfidentialAsset::confidential_tickers();
+        let valid_asset_ids = ConfidentialAsset::confidential_tickers();
 
         // ------------- START: Computations that will happen in Alice's Wallet ----------
         let alice = AccountKeyring::Alice.public();

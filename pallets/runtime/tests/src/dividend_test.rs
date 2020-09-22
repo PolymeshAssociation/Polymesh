@@ -7,7 +7,7 @@ use polymesh_common_utilities::traits::CommonTrait;
 use polymesh_primitives::{AssetType, PortfolioId, SecurityToken, Ticker};
 use polymesh_runtime_common::dividend::{self, Dividend};
 
-use pallet_asset::{self as asset};
+use pallet_asset as asset;
 use pallet_balances as balances;
 use pallet_compliance_manager as compliance_manager;
 

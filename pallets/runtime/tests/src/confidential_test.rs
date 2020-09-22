@@ -4,7 +4,7 @@ use super::{
 };
 
 use cryptography::claim_proofs::{compute_cdd_id, compute_scope_id};
-use pallet_asset::{self as asset};
+use pallet_asset as asset;
 use pallet_compliance_manager as compliance_manager;
 use pallet_confidential as confidential;
 use pallet_identity::{self as identity, Error};

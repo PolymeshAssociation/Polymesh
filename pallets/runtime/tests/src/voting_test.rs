@@ -2,7 +2,7 @@ use super::{
     storage::{register_keyring_account, TestStorage},
     ExtBuilder,
 };
-use pallet_asset::{self as asset};
+use pallet_asset as asset;
 use pallet_compliance_manager as compliance_manager;
 use polymesh_primitives::{AssetType, PortfolioId, SecurityToken, Ticker};
 use polymesh_runtime_common::voting::{self, Ballot, Motion};

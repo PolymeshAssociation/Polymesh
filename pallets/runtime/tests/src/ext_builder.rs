@@ -1,6 +1,6 @@
 use super::storage::AccountId;
 use crate::TestStorage;
-use pallet_asset::{self as asset};
+use pallet_asset as asset;
 use pallet_balances as balances;
 use pallet_committee as committee;
 use pallet_group as group;
