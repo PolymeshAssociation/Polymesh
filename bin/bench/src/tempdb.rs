@@ -81,7 +81,7 @@ impl KeyValueDB for ParityDbWrapper {
 
 impl TempDatabase {
     pub fn new() -> Self {
-        let dir = tempfile::tempdir().expect("temp dir creation failed");
+        let dir = tempfile::tempdir_in(std::env::current_dir().unwrap()).expect("temp dir creation failed");
         log::trace!(
             target: "bench-logistics",
             "Created temp db at {}",
@@ -113,7 +113,7 @@ impl TempDatabase {
 
 impl Clone for TempDatabase {
     fn clone(&self) -> Self {
-        let new_dir = tempfile::tempdir().expect("temp dir creation failed");
+        let new_dir = tempfile::tempdir_in(std::env::current_dir().unwrap()).expect("temp dir creation failed");
         let self_dir = self.0.path();
 
         log::trace!(
