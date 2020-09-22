@@ -7,7 +7,7 @@ use curve25519_dalek::{ristretto::CompressedRistretto, scalar::Scalar};
 // ZKProofs claims
 // =========================================================
 
-/// Data structure that checks if any of its internal claims exists in context.
+/// Data structure used to check if any of its internal claims exist in context.
 #[derive(Clone)]
 #[cfg_attr(feature = "std", derive(Debug))]
 pub struct ValidProofOfInvestor;
