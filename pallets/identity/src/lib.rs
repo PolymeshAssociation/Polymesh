@@ -526,7 +526,6 @@ decl_module! {
                         claim.clone(),
                         issuer,
                         expiry,
-                        cdd_id.clone()
                     )?
                 },
                 _ => {
@@ -1717,7 +1716,6 @@ impl<T: Trait> Module<T> {
         claim: Claim,
         issuer: IdentityId,
         expiry: Option<T::Moment>,
-        cdd_id: CddId,
     ) -> DispatchResult {
         // Only owner of the identity can add that confidential claim.
         ensure!(
@@ -1725,12 +1723,13 @@ impl<T: Trait> Module<T> {
             Error::<T>::ConfidentialScopeClaimNotAllowed
         );
 
-        // Verify the owner of that CDD_ID.
-        ensure!(
-            Self::base_fetch_cdd(target, T::Moment::zero(), Some(cdd_id)).is_some(),
-            Error::<T>::ConfidentialScopeClaimNotAllowed
-        );
-
+        if let Claim::InvestorZKProof(_s, _s_id, cdd_id, _p) = &claim {
+            // Verify the owner of that CDD_ID.
+            ensure!(
+                Self::base_fetch_cdd(target, T::Moment::zero(), Some(*cdd_id)).is_some(),
+                Error::<T>::ConfidentialScopeClaimNotAllowed
+            );
+        }
         // Verify the confidential claim.
         ensure!(
             ValidProofOfInvestor::evaluate_claim(&claim, &target),
