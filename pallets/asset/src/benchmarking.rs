@@ -26,7 +26,7 @@ use sp_std::{convert::TryFrom, iter, prelude::*};
 const SEED: u32 = 0;
 const MAX_USER_INDEX: u32 = 1_000;
 const MAX_TICKER_LENGTH: u8 = 12;
-const MAX_NAME_LENGTH: u32 = 64;
+const MAX_NAME_LENGTH: u32 = 128;
 
 fn uid_from_name_and_idx(name: &'static str, u: u32) -> InvestorUid {
     InvestorUid::from((name, u).encode().as_slice())
@@ -134,29 +134,32 @@ benchmarks! {
     //     );
     // }: _(bob_origin, bob_auth_id)
 
-    // create_asset {
-    //     let u in ...;
-    //     // Token name length.
-    //     let n in 1 .. MAX_NAME_LENGTH;
-    //     // Ticker length.
-    //     let t in 1 .. MAX_TICKER_LENGTH as u32;
-    //     // Length of the vector of identifiers.
-    //     let i in 1 .. 100;
-    //     // Funding round name length.
-    //     let f in 1 .. MAX_NAME_LENGTH;
-    //     <TickerConfig<T>>::put(TickerRegistrationConfig {
-    //         max_ticker_length: MAX_TICKER_LENGTH,
-    //         registration_length: None,
-    //     });
-    //     let name = AssetName::from(vec![b'N'; n as usize].as_slice());
-    //     let ticker = Ticker::try_from(vec![b'T'; t as usize].as_slice()).unwrap();
-    //     let total_supply: T::Balance = 1_000_000.into();
-    //     let asset_type = AssetType::default();
-    //     let identifiers: Vec<(IdentifierType, AssetIdentifier)> =
-    //         iter::repeat(Default::default()).take(i as usize).collect();
-    //     let fundr = FundingRoundName::from(vec![b'F'; f as usize].as_slice());
-    //     let origin = make_account::<T>("caller", u).1;
-    // }: _(origin, name, ticker, total_supply, true, asset_type, identifiers, Some(fundr))
+    create_asset {
+        // TODO: Limit name length
+        // TODO: Remove custom asset type
+        let u in ...;
+        // Token name length.
+        let n in 1 .. MAX_NAME_LENGTH;
+        // Length of the vector of identifiers.
+        let i in 1 .. 100;
+        // Funding round name length.
+        let f in 1 .. MAX_NAME_LENGTH;
+        // Identifier count
+        let ic in 1 .. 10;
+        <TickerConfig<T>>::put(TickerRegistrationConfig {
+            max_ticker_length: MAX_TICKER_LENGTH,
+            registration_length: Some((60 * 24 * 60 * 60).into()),
+        });
+        let ticker = Ticker::try_from(vec![b'A'; MAX_TICKER_LENGTH as usize].as_slice()).unwrap();
+        let name = AssetName::from(vec![b'N'; n as usize].as_slice());
+        let total_supply: T::Balance = 1_000_000.into();
+        let divisible = true;
+        let asset_type = AssetType::Derivative;
+        let identifiers: Vec<(IdentifierType, AssetIdentifier)> =
+            iter::repeat(Default::default()).take(i as usize).collect();
+        let fundr = FundingRoundName::from(vec![b'F'; f as usize].as_slice());
+        let origin = make_account::<T>("caller", u).1;
+    }: _(origin, name, ticker, total_supply, divisible, asset_type, identifiers, Some(fundr))
 
     // freeze {
     //     let u in ...;

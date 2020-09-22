@@ -18,7 +18,7 @@ use frame_benchmarking::{account, benchmarks};
 use frame_support::traits::Currency;
 use frame_system::RawOrigin;
 use pallet_balances as balances;
-use polymesh_primitives::{Claim, CddId, IdentityId, InvestorUid, InvestorZKProofData, SecondaryKey, Scope};
+use polymesh_primitives::{Claim, CddId, CountryCode, IdentityId, InvestorUid, InvestorZKProofData, SecondaryKey, Scope};
 use sp_std::{iter, prelude::*};
 use cryptography::claim_proofs::{compute_cdd_id, compute_scope_id};
 
@@ -68,17 +68,23 @@ benchmarks! {
     //         .collect();
     // }: _(origin, uid, secondary_keys)
 
+    // add_claim {
+    //     let u in ...;
+    //     let (_, origin, origin_did) = make_account::<T>("caller", u);
+    //     let uid = uid_from_name_and_idx("caller", u);
+    //     let ticker = Ticker::try_from(vec![b'T'; 12].as_slice()).unwrap();
+    //     let st_scope = Scope::Identity(IdentityId::try_from(ticker.as_slice()).unwrap());
+    //     let scope_claim = InvestorZKProofData::make_scope_claim(&ticker, &uid);
+    //     let scope_id = compute_scope_id(&scope_claim).compress().to_bytes().into();
+    //     let inv_proof = InvestorZKProofData::new(&origin_did, &uid, &ticker);
+    //     let cdd_claim = InvestorZKProofData::make_cdd_claim(&origin_did, &uid);
+    //     let cdd_id = compute_cdd_id(&cdd_claim).compress().to_bytes().into();
+    //     let conf_scope_claim = Claim::InvestorZKProof(st_scope, scope_id, cdd_id, inv_proof);
+    // }: _(origin, origin_did, conf_scope_claim, Some(666.into()))
+
     add_claim {
         let u in ...;
         let (_, origin, origin_did) = make_account::<T>("caller", u);
-        let uid = uid_from_name_and_idx("caller", u);
-        let ticker = Ticker::try_from(vec![b'T'; 12].as_slice()).unwrap();
-        let st_scope = Scope::Identity(IdentityId::try_from(ticker.as_slice()).unwrap());
-        let scope_claim = InvestorZKProofData::make_scope_claim(&ticker, &uid);
-        let scope_id = compute_scope_id(&scope_claim).compress().to_bytes().into();
-        let inv_proof = InvestorZKProofData::new(&origin_did, &uid, &ticker);
-        let cdd_claim = InvestorZKProofData::make_cdd_claim(&origin_did, &uid);
-        let cdd_id = compute_cdd_id(&cdd_claim).compress().to_bytes().into();
-        let conf_scope_claim = Claim::InvestorZKProof(st_scope, scope_id, cdd_id, inv_proof);
-    }: _(origin, origin_did, conf_scope_claim, Some(666.into()))
+        let (_, _, target_did) = make_account::<T>("target", u);
+    }: _(origin, target_did, Claim::Jurisdiction(CountryCode::BB, Scope::Identity(origin_did)), Some(666.into()))
 }

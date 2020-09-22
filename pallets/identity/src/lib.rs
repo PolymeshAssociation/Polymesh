@@ -1421,6 +1421,9 @@ impl<T: Trait> Module<T> {
                 Self::is_identity_cdd_claim_valid(
                     id_claim,
                     exp_with_leeway,
+                    #[cfg(feature = "runtime-benchmarks")]
+                    &vec![claim_for],
+                    #[cfg(not(feature = "runtime-benchmarks"))]
                     &active_cdds,
                     &inactive_not_expired_cdds,
                 )
