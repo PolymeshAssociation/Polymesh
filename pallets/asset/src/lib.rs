@@ -107,7 +107,7 @@ use pallet_contracts::{ExecReturnValue, Gas};
 use pallet_identity as identity;
 use pallet_statistics::{self as statistics, Counter};
 use polymesh_common_utilities::{
-    asset::{AcceptTransfer, Trait as AssetTrait, GAS_LIMIT},
+    asset::{AcceptTransfer, ConfidentialTrait as ConfidentialAssetTrait, Trait as AssetTrait, GAS_LIMIT},
     balances::Trait as BalancesTrait,
     compliance_manager::Trait as ComplianceManagerTrait,
     constants::*,
@@ -147,6 +147,7 @@ pub trait Trait:
     /// This hard limit is set to avoid the cases where a asset transfer
     /// gas usage go beyond the block gas limit.
     type MaxNumberOfTMExtensionForAsset: Get<u32>;
+    type ConfidentialAsset: ConfidentialAssetTrait;
 }
 
 pub mod weight_for {
@@ -1114,6 +1115,8 @@ decl_error! {
         CanSetTotalSupplyOnlyOnce,
         /// After registering the confidential asset, its total supply can change once from zero to a positive value.
         TotalSupplyMustBePositive,
+        /// Only confidential assets' total supply can change after registering the asset.
+        NonConfidentialAssetTotalSupplyCannotBeSet,
     }
 }
 
@@ -2211,6 +2214,10 @@ impl<T: Trait> Module<T> {
     ) -> DispatchResult {
         ensure!(Self::is_owner(&ticker, did), Error::<T>::Unauthorized);
         // Read the token details
+        ensure!(
+            T::ConfidentialAsset::is_confidential(ticker),
+            Error::<T>::NonConfidentialAssetTotalSupplyCannotBeSet
+        );
         let mut token = Self::token_details(&ticker);
         ensure!(
             token.total_supply == Zero::zero(),

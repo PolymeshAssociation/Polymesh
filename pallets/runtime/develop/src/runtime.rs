@@ -25,6 +25,7 @@ pub use pallet_transaction_payment::{Multiplier, RuntimeDispatchInfo, TargetedFe
 use pallet_treasury as treasury;
 use pallet_utility as utility;
 use polymesh_common_utilities::{
+    asset::ConfidentialTrait as ConfidentialAssetTrait,
     constants::currency::*,
     protocol_fee::ProtocolOp,
     traits::{balances::AccountData, identity::Trait as IdentityTrait},
@@ -649,6 +650,7 @@ impl asset::Trait for Runtime {
     type Currency = Balances;
     type ComplianceManager = compliance_manager::Module<Runtime>;
     type MaxNumberOfTMExtensionForAsset = MaxNumberOfTMExtensionForAsset;
+    type ConfidentialAsset = ConfidentialAsset;
 }
 
 parameter_types! {
@@ -716,6 +718,11 @@ impl pallet_utility::Trait for Runtime {
 
 impl confidential::Trait for Runtime {
     type Event = Event;
+}
+
+impl pallet_confidential_asset::Trait for Runtime {
+    type Event = Event;
+    type Asset = Asset;
 }
 
 // / A runtime transaction submitter for the cdd_offchain_worker
@@ -810,7 +817,8 @@ construct_runtime!(
         // Comment it in the favour of Testnet v1 release
         // CddOffchainWorker: pallet_cdd_offchain_worker::{Module, Call, Storage, ValidateUnsigned, Event<T>}
         Portfolio: portfolio::{Module, Call, Storage, Event<T>},
-        Confidential: confidential::{Module, Call, Storage, Event },
+        Confidential: confidential::{Module, Call, Storage, Event},
+        ConfidentialAsset: pallet_confidential_asset::{Module, Call, Storage, Event<T>},
     }
 );
 

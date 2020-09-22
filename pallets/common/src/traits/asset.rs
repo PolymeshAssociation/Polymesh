@@ -107,3 +107,8 @@ pub trait Trait<V, U> {
     ) -> DispatchResult;
     fn is_divisible(ticker: Ticker) -> bool;
 }
+
+/// This trait is used to call into the confidential asset pallet
+pub trait ConfidentialTrait {
+    fn is_confidential(ticker: Ticker) -> bool;
+}

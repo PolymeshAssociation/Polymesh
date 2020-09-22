@@ -35,7 +35,7 @@ use frame_system::{self as system, ensure_signed};
 use pallet_identity as identity;
 use pallet_statistics::{self as statistics};
 use polymesh_common_utilities::{
-    asset::Trait as AssetTrait, balances::Trait as BalancesTrait, constants::currency::ONE_UNIT,
+    asset::{ConfidentialTrait as ConfidentialAssetTrait, Trait as AssetTrait}, balances::Trait as BalancesTrait, constants::currency::ONE_UNIT,
     identity::Trait as IdentityTrait, CommonTrait, Context,
 };
 use polymesh_primitives::{
@@ -299,6 +299,14 @@ decl_module! {
 
             Ok(())
         }
+    }
+}
+
+impl<T: Trait> ConfidentialAssetTrait for Module<T> {
+    fn is_confidential(ticker: Ticker) -> bool {
+        Self::confidential_tickers().contains(&AssetId {
+            id: *ticker.as_bytes(),
+        })
     }
 }
 
