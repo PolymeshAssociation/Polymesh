@@ -2,12 +2,11 @@ use super::{
     storage::{register_keyring_account, TestStorage},
     ExtBuilder,
 };
-use pallet_asset::{self as asset, IdentifierType, SecurityToken};
+use frame_support::assert_ok;
+use pallet_asset::{self as asset, SecurityToken};
 use pallet_compliance_manager as compliance_manager;
 use pallet_statistics as statistics;
-use polymesh_primitives::{PortfolioId, Ticker};
-
-use frame_support::assert_ok;
+use polymesh_primitives::{AssetIdentifier, PortfolioId, Ticker};
 use sp_std::convert::TryFrom;
 use test_client::AccountKeyring;
 
@@ -39,7 +38,7 @@ fn investor_count_per_asset_with_ext() {
         ..Default::default()
     };
 
-    let identifiers = vec![(IdentifierType::default(), b"undefined".into())];
+    let identifiers = Vec::new();
     let ticker = Ticker::try_from(token.name.as_slice()).unwrap();
     assert_ok!(Asset::create_asset(
         alice_signed.clone(),
