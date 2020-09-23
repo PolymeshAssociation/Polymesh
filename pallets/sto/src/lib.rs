@@ -14,7 +14,7 @@ use frame_support::{
 use frame_system::ensure_signed;
 use pallet_identity as identity;
 use pallet_settlement::{
-    self as settlement, Leg, SettlementType, Trait as SettlementTrait, VenueInfo,
+    self as settlement, Leg, SettlementType, Trait as SettlementTrait, VenueInfo, VenueType,
 };
 use pallet_timestamp::{self as timestamp, Trait as TimestampTrait};
 use polymesh_common_utilities::{
@@ -41,8 +41,10 @@ pub trait Trait:
 #[cfg_attr(feature = "std", derive(Debug))]
 #[derive(Encode, Decode, Default, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Fundraiser<Balance, Moment> {
-    /// Token to raise funds in
-    pub raise_token: Ticker,
+    /// Asset being offered
+    pub offering_asset: Ticker,
+    /// Asset to receive payment in
+    pub raising_asset: Ticker,
     /// Tiers of the fundraiser.
     /// Each tier has a set amount of tokens available at a fixed price.
     /// The sum of the tiers is the total amount available in this fundraiser.
@@ -70,17 +72,15 @@ pub struct PriceTier<Balance> {
 #[cfg_attr(feature = "std", derive(Debug))]
 #[derive(Encode, Decode, Default, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct FundraiserTier<Balance> {
-    amount: u64,
-    price: Balance,
+    tier: PriceTier<Balance>,
     remaining: u64,
 }
 
 impl<Balance> From<PriceTier<Balance>> for FundraiserTier<Balance> {
     fn from(tier: PriceTier<Balance>) -> Self {
         Self {
-            amount: tier.amount,
-            price: tier.price,
-            remaining: 0
+            tier,
+            remaining: 0,
         }
     }
 }
@@ -109,6 +109,8 @@ decl_error! {
         Overflow,
         /// Not enough tokens left for sale
         InsufficientTokensRemaining,
+        /// Fundraiser not found
+        FundraiserNotFound,
         /// Fundraiser is frozen
         FundraiserFrozen,
         // Interacting with a fundraiser past the end `Moment`.
@@ -135,12 +137,12 @@ decl_module! {
 
         fn deposit_event() = default;
 
-        /// Create a new offering. A fixed amount of pre-minted tokens are put up for sale at the specified flat rate.
+        /// Create a new offering. A fixed amount of pre-minted tokens are put up for sale at the specified tiered rate.
         #[weight = 800_000_000]
         pub fn create_fundraiser(
             origin,
-            offering_token: Ticker,
-            raise_token: Ticker,
+            offering_asset: Ticker,
+            raising_asset: Ticker,
             price_tiers: Vec<PriceTier<T::Balance>>,
             venue_id: u64,
             start: Option<T::Moment>,
@@ -148,28 +150,32 @@ decl_module! {
         ) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             let did = Context::current_identity_or::<Identity<T>>(&sender)?;
-
-            ensure!(T::Asset::primary_issuance_agent(&offering_token) == did, Error::<T>::Unauthorized);
+            ensure!(T::Asset::primary_issuance_agent(&offering_asset) == did, Error::<T>::Unauthorized);
 
             ensure!(VenueInfo::contains_key(venue_id), Error::<T>::InvalidVenue);
+            let venue = VenueInfo::get(venue_id);
+
+            ensure!(venue.creator == did, Error::<T>::InvalidVenue);
+            ensure!(venue.venue_type == VenueType::Sto, Error::<T>::InvalidVenue);
 
             // TODO: Take custodial ownership of $sell_amount of $offering_token from primary issuance agent?
-            let fundraiser_id = Self::fundraiser_count(offering_token) + 1;
+            let fundraiser_id = Self::fundraiser_count(offering_asset) + 1;
             // TODO revise the defaults
             let fundraiser = Fundraiser {
-                    raise_token,
+                    offering_asset,
+                    raising_asset,
                     tiers: price_tiers.into(),
                     venue_id,
                     start: start.unwrap_or(Timestamp::<T>::get()),
                     end,
                     frozen: false,
                 };
+            <FundraiserCount>::insert(offering_asset, fundraiser_id);
             <Fundraisers<T>>::insert(
-                offering_token,
+                offering_asset,
                 fundraiser_id,
                 fundraiser
             );
-            FundraiserCount::insert(offering_token, fundraiser_id);
             Self::deposit_event(
                 RawEvent::FundraiserCreated(did, fundraiser)
             );
@@ -228,6 +234,45 @@ decl_module! {
             fundraiser.remaining_amount -= offering_token_amount;
             <Fundraisers<T>>::insert(offering_token, fundraiser_id, fundraiser);
 
+            Ok(())
+        }
+
+        #[weight = 1_000]
+        pub fn freeze_fundraiser(origin, offering_asset: Ticker, fundraiser_id: u64) -> DispatchResult {
+            let sender = ensure_signed(origin)?;
+            let did = Context::current_identity_or::<Identity<T>>(&sender)?;
+            ensure!(T::Asset::primary_issuance_agent(&offering_asset) == did, Error::<T>::Unauthorized);
+
+            ensure!(<Fundraisers<T>>::contains_key(offering_asset, fundraiser_id), Error::<T>::FundraiserNotFound);
+
+            <Fundraisers<T>>::mutate(offering_asset, fundraiser_id, |fundraiser| fundraiser.frozen = true);
+            Ok(())
+        }
+
+        #[weight = 1_000]
+        pub fn unfreeze_fundraiser(origin, offering_asset: Ticker, fundraiser_id: u64) -> DispatchResult {
+            let sender = ensure_signed(origin)?;
+            let did = Context::current_identity_or::<Identity<T>>(&sender)?;
+            ensure!(T::Asset::primary_issuance_agent(&offering_asset) == did, Error::<T>::Unauthorized);
+
+            ensure!(<Fundraisers<T>>::contains_key(offering_asset, fundraiser_id), Error::<T>::FundraiserNotFound);
+
+            <Fundraisers<T>>::mutate(offering_asset, fundraiser_id, |fundraiser| fundraiser.frozen = false);
+            Ok(())
+        }
+
+        #[weight = 1_000]
+        pub fn modify_fundraiser_window(origin, offering_asset: Ticker, fundraiser_id: u64, start: T::Moment, end: T::Moment) -> DispatchResult {
+            let sender = ensure_signed(origin)?;
+            let did = Context::current_identity_or::<Identity<T>>(&sender)?;
+            ensure!(T::Asset::primary_issuance_agent(&offering_asset) == did, Error::<T>::Unauthorized);
+
+            ensure!(<Fundraisers<T>>::contains_key(offering_asset, fundraiser_id), Error::<T>::FundraiserNotFound);
+
+            <Fundraisers<T>>::mutate(offering_asset, fundraiser_id, |fundraiser| {
+                fundraiser.start = start;
+                fundraiser.end = end;
+            });
             Ok(())
         }
     }
