@@ -4364,6 +4364,7 @@ dependencies = [
  "serde",
  "serde_json",
  "sp-api",
+ "sp-io",
  "sp-runtime",
  "sp-std 2.0.0-rc6",
 ]
