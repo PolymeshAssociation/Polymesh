@@ -41,7 +41,7 @@ pub struct Context {
 
 /// It allows composition and evaluation of claims based on a context.
 pub trait Proposition {
-    /// It evaluates this propositioned based on `context` context.
+    /// Evaluates this proposition based on `context`.
     fn evaluate(&self, context: &Context) -> bool;
 
     /// It generates a new proposition that represents the logical AND
@@ -122,8 +122,7 @@ where
     NotProposition::new(proposition)
 }
 
-/// It is used to check whether the given context object posses the claim vector
-/// which has length > 0.
+/// Checks whether the length of the vector of claims of a given context object is > 0.
 #[inline]
 pub fn has_scope_claim_exists(context: &Context) -> bool {
     context.claims.len() > 0

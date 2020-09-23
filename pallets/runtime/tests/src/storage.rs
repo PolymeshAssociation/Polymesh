@@ -718,8 +718,6 @@ pub fn provide_scope_claim(
     investor_uid: InvestorUid,
     cdd_provider: AccountId,
 ) {
-    let asset_id = IdentityId::try_from(scope.as_slice()).unwrap();
-
     let proof: InvestorZKProofData = InvestorZKProofData::new(&claim_to, &investor_uid, &scope);
     let cdd_claim = InvestorZKProofData::make_cdd_claim(&claim_to, &investor_uid);
     let cdd_id = compute_cdd_id(&cdd_claim).compress().to_bytes().into();
