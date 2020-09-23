@@ -86,11 +86,13 @@ use frame_support::{
     decl_error, decl_event, decl_module, decl_storage,
     dispatch::{DispatchError, DispatchResult},
     ensure,
+    traits::GetCallMetadata,
     weights::GetDispatchInfo,
     StorageDoubleMap, StorageValue,
 };
 use frame_system::ensure_signed;
 use pallet_identity as identity;
+use pallet_permissions::with_call_metadata;
 use polymesh_common_utilities::{
     identity::Trait as IdentityTrait,
     multisig::MultiSigSubTrait,
@@ -903,19 +905,20 @@ impl<T: Trait> Module<T> {
                 Error::<T>::FailedToChargeFee
             );
 
-            let res =
-                match proposal.dispatch(frame_system::RawOrigin::Signed(multisig.clone()).into()) {
-                    Ok(_) => {
-                        proposal_details.status = ProposalStatus::ExecutionSuccessful;
-                        true
-                    }
-                    Err(e) => {
-                        let e: DispatchError = e.error;
-                        sp_runtime::print(e);
-                        proposal_details.status = ProposalStatus::ExecutionFailed;
-                        false
-                    }
-                };
+            let res = match with_call_metadata(proposal.get_call_metadata(), || {
+                proposal.dispatch(frame_system::RawOrigin::Signed(multisig.clone()).into())
+            }) {
+                Ok(_) => {
+                    proposal_details.status = ProposalStatus::ExecutionSuccessful;
+                    true
+                }
+                Err(e) => {
+                    let e: DispatchError = e.error;
+                    sp_runtime::print(e);
+                    proposal_details.status = ProposalStatus::ExecutionFailed;
+                    false
+                }
+            };
             Self::deposit_event(RawEvent::ProposalExecuted(
                 current_did,
                 multisig,

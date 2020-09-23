@@ -90,11 +90,12 @@ use frame_support::{
     debug, decl_error, decl_module, decl_storage,
     dispatch::{DispatchError, DispatchResult, DispatchResultWithPostInfo},
     ensure,
-    traits::{ChangeMembers, Currency, InitializeMembers},
+    traits::{ChangeMembers, Currency, GetCallMetadata, InitializeMembers},
     weights::{DispatchClass, GetDispatchInfo, Pays, Weight},
     Blake2_128Concat, ReversibleStorageHasher, StorageDoubleMap,
 };
 use frame_system::{self as system, ensure_root, ensure_signed};
+use pallet_permissions::with_call_metadata;
 use polymesh_common_utilities::{
     constants::did::{SECURITY_TOKEN, USER},
     protocol_fee::{ChargeProtocolFee, ProtocolOp},
@@ -601,11 +602,12 @@ decl_module! {
             // Re-dispatch call - e.g. to asset::doSomething...
             let new_origin = frame_system::RawOrigin::Signed(sender).into();
 
-            let actual_weight = match proposal.dispatch(new_origin) {
+            let actual_weight = match with_call_metadata(proposal.get_call_metadata(), || {
+                proposal.dispatch(new_origin)
+            }) {
                 Ok(post_info) => post_info.actual_weight,
                 Err(err) => err.post_info.actual_weight,
             };
-
             // If actual_weight retrieve from the proposal is `None` then refunds = 0
             // otherwise refunds = ((500_000_000 + proposal.get_dispatch_info().weight) - `actual_weight of proposal + 500_000_000`).
             Ok((actual_weight.map(|w| w + 500_000_000)).into())

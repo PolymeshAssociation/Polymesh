@@ -31,7 +31,11 @@ use polymesh_primitives::{
 
 use codec::{Decode, Encode};
 use frame_support::{
-    decl_event, dispatch::PostDispatchInfo, traits::Currency, weights::GetDispatchInfo, Parameter,
+    decl_event,
+    dispatch::PostDispatchInfo,
+    traits::{Currency, GetCallMetadata},
+    weights::GetDispatchInfo,
+    Parameter,
 };
 use sp_core::H512;
 use sp_runtime::traits::{Dispatchable, IdentifyAccount, Member, Verify};
@@ -109,6 +113,7 @@ pub trait Trait: CommonTrait + pallet_timestamp::Trait + balances::Trait {
     /// An extrinsic call.
     type Proposal: Parameter
         + Dispatchable<Origin = <Self as frame_system::Trait>::Origin, PostInfo = PostDispatchInfo>
+        + GetCallMetadata
         + GetDispatchInfo;
     /// MultiSig module
     type MultiSig: MultiSigSubTrait<Self::AccountId>;
