@@ -529,6 +529,7 @@ fn proposal_details_are_correct() {
             url: Some(proposal_url),
             description: Some(proposal_desc),
             transaction_version: 0,
+            expiry: None,
         };
         assert_eq!(Pips::proposal_metadata(0).unwrap(), expected);
 
@@ -625,6 +626,7 @@ fn amend_proposal_works() {
             url,
             description,
             transaction_version: 0,
+            expiry: None,
         };
         assert_eq!(Pips::proposal_metadata(0).unwrap(), expected);
     });

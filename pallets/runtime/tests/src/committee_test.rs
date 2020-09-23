@@ -227,6 +227,7 @@ fn motions_revoting_works_we() {
             ayes: vec![alice_did],
             nays: vec![],
             end: System::block_number(),
+            expiry: None,
         })
     );
     assert_noop!(
@@ -241,6 +242,7 @@ fn motions_revoting_works_we() {
             ayes: vec![],
             nays: vec![alice_did],
             end: System::block_number(),
+            expiry: None,
         })
     );
     assert_noop!(
@@ -357,6 +359,7 @@ fn rage_quit_we() {
             ayes: vec![bob_did],
             nays: vec![charlie_did],
             end: System::block_number(),
+            expiry: None,
         })
     );
 
@@ -369,6 +372,7 @@ fn rage_quit_we() {
             ayes: vec![],
             nays: vec![charlie_did],
             end: System::block_number(),
+            expiry: None,
         })
     );
 
@@ -381,6 +385,7 @@ fn rage_quit_we() {
             ayes: vec![],
             nays: vec![],
             end: System::block_number(),
+            expiry: None,
         })
     );
 
@@ -396,7 +401,8 @@ fn rage_quit_we() {
             index: 0,
             ayes: vec![],
             nays: vec![bob_did],
-            end: System::block_number()
+            end: System::block_number(),
+            expiry: None,
         })
     );
     assert_ok!(vote(&alice_signer, true));
@@ -406,7 +412,8 @@ fn rage_quit_we() {
             index: 0,
             ayes: vec![alice_did],
             nays: vec![bob_did],
-            end: System::block_number()
+            end: System::block_number(),
+            expiry: None,
         })
     );
 
@@ -578,6 +585,7 @@ fn mesh_1065_regression_test() {
                     ayes,
                     nays: vec![],
                     end: System::block_number(),
+                    expiry: None,
                 })
             );
         };

@@ -218,6 +218,12 @@ pub struct PipsMetadata<T: Trait> {
     /// Currently, this is only used for off-chain purposes to highlight any differences
     /// in the proposal's transaction version from the current one.
     pub transaction_version: u32,
+    /// The point, if any, at which this PIP, if still in a `Pending` state,
+    /// is expired, and thus no longer valid. Currently, this is always set to `None`.
+    ///
+    /// This field has no operational on-chain effect and is provided for UI purposes only.
+    /// On-chain effects are instead handled via scheduling.
+    pub expiry: Option<T::BlockNumber>,
 }
 
 /// For keeping track of proposal being voted on.
@@ -268,6 +274,8 @@ pub enum ProposalState {
     Failed,
     /// Proposal was successfully executed.
     Executed,
+    /// Proposal has expired. Only previously `Pending` PIPs may end up here.
+    Expired,
 }
 
 impl Default for ProposalState {
@@ -722,6 +730,7 @@ decl_module! {
                 url: url.clone(),
                 description: description.clone(),
                 transaction_version: <T::Version as Get<RuntimeVersion>>::get().transaction_version,
+                expiry: None,
             };
             <ProposalMetadata<T>>::insert(id, proposal_metadata);
 

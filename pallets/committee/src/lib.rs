@@ -122,6 +122,9 @@ pub struct PolymeshVotes<IdentityId, BlockNumber> {
     pub nays: Vec<IdentityId>,
     /// The hard end time of this vote.
     pub end: BlockNumber,
+    /// The time **at** which the proposal is expired.
+    /// This is currently always `None`.
+    pub expiry: Option<BlockNumber>,
 }
 
 decl_storage! {
@@ -550,6 +553,7 @@ impl<T: Trait<I>, I: Instance> Module<T, I> {
                 ayes: vec![did],
                 nays: vec![],
                 end: system::Module::<T>::block_number() + T::MotionDuration::get(),
+                expiry: None,
             };
             <Voting<T, I>>::insert(proposal_hash, votes);
 
