@@ -27,12 +27,13 @@
                 "Custom": "Vec<u8>"
             }
         },
-        "IdentifierType": {
+        "AssetIdentifier": {
             "_enum": {
-                "Cins": "",
-                "Cusip": "",
-                "Isin": "",
-                "Dti": ""
+                "CUSIP": "[u8; 9]",
+                "CINS": "[u8; 9]",
+                "ISIN": "[u8; 12]",
+                "LEI": "[u8; 20]",
+                "EMPTY": ""
             }
         },
         "AssetOwnershipRelation": {
@@ -43,7 +44,6 @@
             }
         },
         "AssetName": "Text",
-        "AssetIdentifier": "Text",
         "FundingRoundName": "Text",
         "VenueDetails": "Text",
         "SecurityToken": {
@@ -360,7 +360,13 @@
                 "ZW"
             ]
         },
-        "Scope": "IdentityId",
+        "Scope": {
+            "_enum": {
+                "Identity": "IdentityId",
+                "Ticker": "Ticker",
+                "Custom": "Vec<u8>"
+            }
+        },
         "InvestorZKProofData": "[u8;64]",
         "Claim": {
             "_enum": {
@@ -478,13 +484,6 @@
         },
         "EthereumAddress": "[u8; 20]",
         "EcdsaSignature": "[u8; 65]",
-        "SignData": {
-            "custodian_did": "IdentityId",
-            "holder_did": "IdentityId",
-            "ticker": "Ticker",
-            "value": "Balance",
-            "nonce": "u16"
-        },
         "MotionTitle": "Text",
         "MotionInfoLink": "Text",
         "Motion": {
@@ -504,7 +503,8 @@
             "id": "PipId",
             "url": "Option<Url>",
             "description": "Option<PipDescription>",
-            "created_at": "BlockNumber"
+            "created_at": "BlockNumber",
+            "transaction_version": "u32"
         },
         "Proposer": {
             "_enum": {
@@ -554,9 +554,10 @@
             "_enum": [
                 "Pending",
                 "Cancelled",
-                "Killed",
                 "Rejected",
-                "Referendum"
+                "Scheduled",
+                "Failed",
+                "Executed"
             ]
         },
         "ReferendumState": {
@@ -621,6 +622,7 @@
                 "AddMultiSigSigner": "AccountId",
                 "TransferAssetOwnership": "Ticker",
                 "JoinIdentity": "Vec<Permission>",
+                "PortfolioCustody": "PortfolioId",
                 "Custom": "Ticker",
                 "NoData": ""
             }
@@ -772,13 +774,7 @@
                 "ProposalNotFound": "Vec<u8>"
             }
         },
-        "Vote": {
-            "_enum": {
-                "None": "",
-                "Yes": "Balance",
-                "No": "Balance"
-            }
-        },
+        "Vote": "(bool, Balance)",
         "VoteByPip": {
             "pip": "PipId",
             "vote": "Vote"
@@ -821,6 +817,7 @@
                 "AddMultiSigSigner": "",
                 "TransferAssetOwnership": "",
                 "JoinIdentity": "",
+                "PortfolioCustody": "",
                 "Custom": "",
                 "NoData": ""
             }
@@ -909,8 +906,8 @@
             "valid_from": "Option<Moment>"
         },
         "Leg": {
-            "from": "IdentityId",
-            "to": "IdentityId",
+            "from": "PortfolioId",
+            "to": "PortfolioId",
             "asset": "Ticker",
             "amount": "Balance"
         },
@@ -921,8 +918,8 @@
         },
         "Receipt": {
             "receipt_uid": "u64",
-            "from": "IdentityId",
-            "to": "IdentityId",
+            "from": "PortfolioId",
+            "to": "PortfolioId",
             "asset": "Ticker",
             "amount": "Balance"
         },
@@ -1237,18 +1234,28 @@
                         "isOptional": false
                     },
                     {
+                        "name": "from_custodian",
+                        "type": "Option<IdentityId>",
+                        "isOptional": false
+                    },
+                    {
+                        "name": "from_portfolio",
+                        "type": "PortfolioId",
+                        "isOptional": false
+                    },
+                    {
+                        "name": "to_custodian",
+                        "type": "Option<IdentityId>",
+                        "isOptional": false
+                    },
+                    {
+                        "name": "to_portfolio",
+                        "type": "PortfolioId",
+                        "isOptional": false
+                    },
+                    {
                         "name": "ticker",
                         "type": "Ticker",
-                        "isOptional": false
-                    },
-                    {
-                        "name": "from_did",
-                        "type": "Option<IdentityId>",
-                        "isOptional": false
-                    },
-                    {
-                        "name": "to_did",
-                        "type": "Option<IdentityId>",
                         "isOptional": false
                     },
                     {

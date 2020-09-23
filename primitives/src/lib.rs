@@ -17,6 +17,7 @@
 
 #![warn(missing_docs)]
 #![cfg_attr(not(feature = "std"), no_std)]
+#![feature(bool_to_option)]
 
 use blake2::{Blake2b, Digest};
 use curve25519_dalek::scalar::Scalar;
@@ -141,13 +142,17 @@ pub use sp_runtime::OpaqueExtrinsic as UncheckedExtrinsic;
 pub mod ignored_case_string;
 pub use ignored_case_string::IgnoredCaseString;
 
+/// Asset identifiers.
+pub mod asset_identifier;
+pub use asset_identifier::AssetIdentifier;
+
 /// Role for identities.
 pub mod identity_role;
 pub use identity_role::IdentityRole;
 
 /// Polymesh Distributed Identity.
 pub mod identity_id;
-pub use identity_id::{IdentityId, PortfolioId, PortfolioName, PortfolioNumber};
+pub use identity_id::{IdentityId, PortfolioId, PortfolioKind, PortfolioName, PortfolioNumber};
 
 /// Identity information.
 /// Each DID is associated with this kind of record.

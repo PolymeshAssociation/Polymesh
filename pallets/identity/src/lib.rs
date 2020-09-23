@@ -102,6 +102,7 @@ use polymesh_common_utilities::{
             TargetIdAuthorization, Trait,
         },
         multisig::MultiSigSubTrait,
+        portfolio::PortfolioSubTrait,
         transaction_payment::{CddAndFeeDetails, ChargeTxFee},
     },
     with_each_transaction, Context, SystematicIssuers,
@@ -128,7 +129,7 @@ use frame_support::{
     ensure,
     traits::{ChangeMembers, Currency, InitializeMembers},
     weights::{DispatchClass, GetDispatchInfo, Pays, Weight},
-    StorageDoubleMap,
+    Blake2_128Concat, ReversibleStorageHasher, StorageDoubleMap,
 };
 use frame_system::{self as system, ensure_root, ensure_signed};
 
@@ -144,6 +145,12 @@ pub struct Claim1stKey {
 pub struct Claim2ndKey {
     pub issuer: IdentityId,
     pub scope: Option<Scope>,
+}
+
+#[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, PartialOrd, Ord)]
+pub struct Claim2ndKeyOld {
+    pub issuer: IdentityId,
+    pub scope: Option<IdentityId>,
 }
 
 #[derive(Encode, Decode, Clone, PartialEq, Eq, Default, Debug)]
@@ -270,8 +277,24 @@ decl_module! {
             // Rename "master" to "primary".
             <CddAuthForPrimaryKeyRotation>::put(<CddAuthForMasterKeyRotation>::take());
 
-            use polymesh_primitives::{identity_claim::IdentityClaimOld, migrate::migrate_map};
-            migrate_map::<IdentityClaimOld>(b"Identity", b"Claims");
+            use polymesh_primitives::{
+                identity_claim::IdentityClaimOld,
+                migrate::{migrate_map, migrate_double_map_keys}
+            };
+            migrate_map::<IdentityClaimOld, _>(b"Identity", b"Claims", |raw_key| {
+                Claim1stKey::decode(&mut Blake2_128Concat::reverse(&raw_key))
+                    .ok()
+                    .map(|k1| (*k1.target.as_fixed_bytes()).into())
+            });
+
+            // Covert old scopes to new scopes
+            migrate_double_map_keys::<IdentityClaim, Blake2_128Concat, _, _, _, _, _>(
+                b"Identity", b"Claims",
+                |k1: Claim1stKey, k2: Claim2ndKeyOld| (
+                    k1,
+                    Claim2ndKey { issuer: k2.issuer, scope: k2.scope.map(Scope::Identity) }
+                )
+            );
 
             // It's gonna be alot, so lets pretend its 0 anyways.
             0
@@ -833,6 +856,8 @@ decl_module! {
                             T::MultiSig::accept_multisig_signer(Signatory::from(did), auth_id),
                         AuthorizationData::JoinIdentity(_) =>
                             Self::join_identity(Signatory::from(did), auth_id),
+                        AuthorizationData::PortfolioCustody(..) =>
+                            T::Portfolio::accept_portfolio_custody(did, auth_id),
                         AuthorizationData::RotatePrimaryKey(..)
                         | AuthorizationData::AttestPrimaryKeyRotation(..)
                         | AuthorizationData::Custom(..)
@@ -852,6 +877,7 @@ decl_module! {
                         | AuthorizationData::TransferPrimaryIssuanceAgent(..)
                         | AuthorizationData::TransferAssetOwnership(..)
                         | AuthorizationData::AttestPrimaryKeyRotation(..)
+                        | AuthorizationData::PortfolioCustody(..)
                         | AuthorizationData::Custom(..)
                         | AuthorizationData::NoData =>
                             Err(Error::<T>::UnknownAuthorization.into())
@@ -1817,7 +1843,7 @@ impl<T: Trait> Module<T> {
         let claim_type = claim.claim_type();
         let scope = claim.as_scope().cloned();
         let last_update_date = <pallet_timestamp::Module<T>>::get().saturated_into::<u64>();
-        let issuance_date = Self::fetch_claim(target, claim_type, issuer, scope)
+        let issuance_date = Self::fetch_claim(target, claim_type, issuer, scope.clone())
             .map_or(last_update_date, |id_claim| id_claim.issuance_date);
 
         let expiry = expiry.into_iter().map(|m| m.saturated_into::<u64>()).next();
@@ -2062,6 +2088,7 @@ impl<T: Trait> Module<T> {
                     AuthorizationType::TransferAssetOwnership
                 }
                 AuthorizationData::JoinIdentity(..) => AuthorizationType::JoinIdentity,
+                AuthorizationData::PortfolioCustody(..) => AuthorizationType::PortfolioCustody,
                 AuthorizationData::Custom(..) => AuthorizationType::Custom,
                 AuthorizationData::NoData => AuthorizationType::NoData,
             }

@@ -39,10 +39,13 @@ use polymesh_common_utilities::traits::{
     group::{GroupTrait, InactiveMember},
     identity::{LinkedKeyInfo, Trait as IdentityTrait},
     multisig::MultiSigSubTrait,
+    portfolio::PortfolioSubTrait,
     transaction_payment::{CddAndFeeDetails, ChargeTxFee},
     CommonTrait,
 };
-use polymesh_primitives::{AuthorizationData, Claim, IdentityId, InvestorUid, Moment, Signatory};
+use polymesh_primitives::{
+    AuthorizationData, Claim, IdentityId, InvestorUid, Moment, PortfolioId, Signatory, Ticker,
+};
 use sp_core::H256;
 use sp_io;
 use sp_npos_elections::{
@@ -260,6 +263,7 @@ impl frame_system::Trait for Test {
     type AccountData = AccountData<Balance>;
     type OnNewAccount = ();
     type OnKilledAccount = ();
+    type SystemWeightInfo = ();
 }
 
 impl CommonTrait for Test {
@@ -297,6 +301,7 @@ impl pallet_session::Trait for Test {
     type ValidatorIdOf = StashOf<Test>;
     type DisabledValidatorsThreshold = DisabledValidatorsThreshold;
     type NextSessionRotation = pallet_session::PeriodicSessions<Period, Offset>;
+    type WeightInfo = ();
 }
 
 impl pallet_session::historical::Trait for Test {
@@ -332,6 +337,7 @@ impl pallet_timestamp::Trait for Test {
     type Moment = u64;
     type OnTimestampSet = ();
     type MinimumPeriod = MinimumPeriod;
+    type WeightInfo = ();
 }
 
 impl group::Trait<group::Instance2> for Test {
@@ -355,6 +361,7 @@ impl IdentityTrait for Test {
     type Event = MetaEvent;
     type Proposal = Call;
     type MultiSig = Test;
+    type Portfolio = Test;
     type CddServiceProviders = group::Module<Test, group::Instance2>;
     type Balances = Balances;
     type ChargeTxFeeTarget = Test;
@@ -459,6 +466,23 @@ impl MultiSigSubTrait<AccountId> for Test {
     }
 }
 
+impl PortfolioSubTrait<Balance> for Test {
+    fn accept_portfolio_custody(_: IdentityId, _: u64) -> DispatchResult {
+        unimplemented!()
+    }
+    fn ensure_portfolio_custody(portfolio: PortfolioId, custodian: IdentityId) -> DispatchResult {
+        unimplemented!()
+    }
+
+    fn lock_tokens(portfolio: &PortfolioId, ticker: &Ticker, amount: &Balance) -> DispatchResult {
+        unimplemented!()
+    }
+
+    fn unlock_tokens(portfolio: &PortfolioId, ticker: &Ticker, amount: &Balance) -> DispatchResult {
+        unimplemented!()
+    }
+}
+
 impl CheckCdd<AccountId> for Test {
     fn check_key_cdd(_key: &AccountId) -> bool {
         true
@@ -473,10 +497,31 @@ parameter_types! {
     pub const ExpectedBlockTime: u64 = 1;
 }
 
+use frame_support::traits::KeyOwnerProofSystem;
+use polymesh_runtime_develop::runtime::{Historical, Offences};
+use sp_runtime::KeyTypeId;
+
+impl From<pallet_babe::Call<Test>> for Call {
+    fn from(_: pallet_babe::Call<Test>) -> Self {
+        unimplemented!()
+    }
+}
+
 impl pallet_babe::Trait for Test {
     type EpochDuration = EpochDuration;
     type ExpectedBlockTime = ExpectedBlockTime;
     type EpochChangeTrigger = pallet_babe::ExternalTrigger;
+
+    type KeyOwnerProofSystem = ();
+    type KeyOwnerProof = <Self::KeyOwnerProofSystem as KeyOwnerProofSystem<(
+        KeyTypeId,
+        pallet_babe::AuthorityId,
+    )>>::Proof;
+    type KeyOwnerIdentification = <Self::KeyOwnerProofSystem as KeyOwnerProofSystem<(
+        KeyTypeId,
+        pallet_babe::AuthorityId,
+    )>>::IdentificationTuple;
+    type HandleEquivocation = pallet_babe::EquivocationHandler<Self::KeyOwnerIdentification, ()>;
 }
 
 pallet_staking_reward_curve::build! {

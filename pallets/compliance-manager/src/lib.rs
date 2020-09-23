@@ -75,6 +75,7 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 #![recursion_limit = "256"]
 
+use codec::{Decode, Encode};
 use core::result::Result;
 use frame_support::{
     decl_error, decl_event, decl_module, decl_storage,
@@ -83,7 +84,7 @@ use frame_support::{
     traits::Get,
     weights::Weight,
 };
-use frame_system::{self as system, ensure_signed};
+use frame_system::ensure_signed;
 use pallet_identity as identity;
 use polymesh_common_utilities::{
     asset::Trait as AssetTrait,
@@ -95,9 +96,10 @@ use polymesh_common_utilities::{
     Context,
 };
 use polymesh_primitives::{
-    proposition, Claim, ClaimType, Condition, ConditionType, IdentityId, Ticker,
+    proposition, Claim, ClaimType, Condition, ConditionType, IdentityId, Scope, Ticker,
 };
 use polymesh_primitives_derive::Migrate;
+
 #[cfg(feature = "std")]
 use sp_runtime::{Deserialize, Serialize};
 use sp_std::{
@@ -125,7 +127,8 @@ use polymesh_primitives::condition::ConditionOld;
 /// A compliance requirement.
 /// All sender and receiver conditions of the same compliance requirement must be true in order to execute the transfer.
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[derive(codec::Encode, codec::Decode, Default, Clone, PartialEq, Eq, Debug, Migrate)]
+#[derive(Encode, Decode, Default, Clone, PartialEq, Eq, Debug, Migrate)]
+#[migrate_context(Option<polymesh_primitives::CddId>)]
 pub struct ComplianceRequirement {
     #[migrate(Condition)]
     pub sender_conditions: Vec<Condition>,
@@ -137,7 +140,7 @@ pub struct ComplianceRequirement {
 
 /// A compliance requirement along with its evaluation result
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize, Debug))]
-#[derive(codec::Encode, codec::Decode, Clone, PartialEq, Eq)]
+#[derive(Encode, Decode, Clone, PartialEq, Eq)]
 pub struct ComplianceRequirementResult {
     pub sender_conditions: Vec<ConditionResult>,
     pub receiver_conditions: Vec<ConditionResult>,
@@ -168,7 +171,7 @@ impl From<ComplianceRequirement> for ComplianceRequirementResult {
 
 /// An individual condition along with its evaluation result
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize, Debug))]
-#[derive(codec::Encode, codec::Decode, Clone, PartialEq, Eq)]
+#[derive(Encode, Decode, Clone, PartialEq, Eq)]
 pub struct ConditionResult {
     // Condition being evaluated
     pub condition: Condition,
@@ -187,7 +190,8 @@ impl From<Condition> for ConditionResult {
 
 /// List of compliance requirements associated to an asset.
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize, Debug))]
-#[derive(codec::Encode, codec::Decode, Default, Clone, PartialEq, Eq, Migrate)]
+#[derive(Encode, Decode, Default, Clone, PartialEq, Eq, Migrate)]
+#[migrate_context(Option<polymesh_primitives::CddId>)]
 pub struct AssetCompliance {
     /// This flag indicates if asset compliance should be enforced
     pub paused: bool,
@@ -200,7 +204,7 @@ type Identity<T> = identity::Module<T>;
 
 /// Asset compliance and it's evaluation result
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize, Debug))]
-#[derive(codec::Encode, codec::Decode, Clone, PartialEq, Eq)]
+#[derive(Encode, Decode, Clone, PartialEq, Eq)]
 pub struct AssetComplianceResult {
     /// This flag indicates if asset compliance should be enforced
     pub paused: bool,
@@ -278,7 +282,7 @@ decl_module! {
         fn on_runtime_upgrade() -> frame_support::weights::Weight {
             use polymesh_primitives::migrate::migrate_map_rename;
 
-            migrate_map_rename::<AssetComplianceOld>(b"ComplianceManager", b"AssetRulesMap", b"AssetCompliance");
+            migrate_map_rename::<AssetComplianceOld, _>(b"ComplianceManager", b"AssetRulesMap", b"AssetCompliance", |_| None);
 
             1_000
         }
@@ -601,7 +605,7 @@ impl<T: Trait> Module<T> {
         issuers
             .iter()
             .flat_map(|issuer| {
-                <identity::Module<T>>::fetch_claim(target, claim_type, *issuer, scope)
+                <identity::Module<T>>::fetch_claim(target, claim_type, *issuer, scope.clone())
                     .map(|id_claim| id_claim.claim)
             })
             .collect::<Vec<_>>()
@@ -612,7 +616,7 @@ impl<T: Trait> Module<T> {
     fn fetch_confidential_claims(id: IdentityId, ticker: &Ticker) -> Vec<Claim> {
         let claim_type = ClaimType::InvestorZKProof;
         // NOTE: Ticker lenght is less by design that IdentityId.
-        let asset_scope = IdentityId::try_from(ticker.as_slice()).unwrap_or_default();
+        let asset_scope = Scope::from(*ticker);
 
         <identity::Module<T>>::fetch_claim(id, claim_type, id, Some(asset_scope))
             .into_iter()

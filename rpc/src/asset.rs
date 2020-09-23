@@ -14,7 +14,7 @@
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
 pub use node_rpc_runtime_api::asset::{AssetApi as AssetRuntimeApi, CanTransferResult};
-use polymesh_primitives::{IdentityId, Ticker};
+use polymesh_primitives::{IdentityId, PortfolioId, Ticker};
 
 use jsonrpc_core::{Error as RpcError, ErrorCode, Result};
 use jsonrpc_derive::rpc;
@@ -34,9 +34,11 @@ pub trait AssetApi<BlockHash, AccountId> {
     fn can_transfer(
         &self,
         sender: AccountId,
+        from_custodian: Option<IdentityId>,
+        from_portfolio: PortfolioId,
+        to_custodian: Option<IdentityId>,
+        to_portfolio: PortfolioId,
         ticker: Ticker,
-        from_did: Option<IdentityId>,
-        to_did: Option<IdentityId>,
         value: number::NumberOrHex,
         at: Option<BlockHash>,
     ) -> Result<CanTransferResult>;
@@ -70,9 +72,11 @@ where
     fn can_transfer(
         &self,
         sender: AccountId,
+        from_custodian: Option<IdentityId>,
+        from_portfolio: PortfolioId,
+        to_custodian: Option<IdentityId>,
+        to_portfolio: PortfolioId,
         ticker: Ticker,
-        from_did: Option<IdentityId>,
-        to_did: Option<IdentityId>,
         value: number::NumberOrHex,
         at: Option<<Block as BlockT>::Hash>,
     ) -> Result<CanTransferResult> {
@@ -88,9 +92,11 @@ where
             |api: ApiRef<<C as ProvideRuntimeApi<Block>>::Api>, at| api.can_transfer(
                 at,
                 sender,
-                ticker,
-                from_did,
-                to_did,
+                from_custodian,
+                from_portfolio,
+                to_custodian,
+                to_portfolio,
+                &ticker,
                 value.into()
             ),
             "Unable to check transfer"

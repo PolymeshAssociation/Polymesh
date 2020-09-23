@@ -20,7 +20,7 @@ pub mod constants;
 pub mod traits;
 pub use traits::{
     asset, balances, compliance_manager, exemption, governance_group, group, identity, multisig,
-    pip, transaction_payment, CommonTrait,
+    pip, portfolio, transaction_payment, CommonTrait,
 };
 
 pub mod context;
@@ -56,6 +56,7 @@ pub enum SystematicIssuers {
     BlockRewardReserve,
     Settlement,
     ClassicMigration,
+    FiatTickersReservation,
 }
 
 impl core::fmt::Display for SystematicIssuers {
@@ -67,6 +68,7 @@ impl core::fmt::Display for SystematicIssuers {
             SystematicIssuers::BlockRewardReserve => "Block Reward Reserve",
             SystematicIssuers::Settlement => "Settlement module",
             SystematicIssuers::ClassicMigration => "Polymath Classic Imports and Reservations",
+            SystematicIssuers::FiatTickersReservation => "Fiat Ticker Reservation",
         };
 
         write!(f, "'{}'", value)
@@ -80,6 +82,7 @@ pub const SYSTEMATIC_ISSUERS: &[SystematicIssuers] = &[
     SystematicIssuers::BlockRewardReserve,
     SystematicIssuers::Settlement,
     SystematicIssuers::ClassicMigration,
+    SystematicIssuers::FiatTickersReservation,
 ];
 
 impl SystematicIssuers {
@@ -93,6 +96,7 @@ impl SystematicIssuers {
             SystematicIssuers::BlockRewardReserve => did::BLOCK_REWARD_RESERVE_DID,
             SystematicIssuers::Settlement => did::SETTLEMENT_MODULE_DID,
             SystematicIssuers::ClassicMigration => did::CLASSIC_MIGRATION_DID,
+            SystematicIssuers::FiatTickersReservation => did::FIAT_TICKERS_RESERVATION_DID,
         }
     }
 
@@ -109,6 +113,9 @@ impl SystematicIssuers {
             SystematicIssuers::BlockRewardReserve => constants::BRR_MODULE_ID,
             SystematicIssuers::Settlement => constants::SETTLEMENT_MODULE_ID,
             SystematicIssuers::ClassicMigration => constants::CLASSIC_MIGRATION_MODULE_ID,
+            SystematicIssuers::FiatTickersReservation => {
+                constants::FIAT_TICKERS_RESERVATION_MODULE_ID
+            }
         }
     }
 }
