@@ -241,9 +241,22 @@ decl_module! {
             let owner = ensure_signed(origin)?;
             let owner_did = Context::current_identity_or::<Identity<T>>(&owner)?;
 
+            // Only the owner of the asset can change its total supply.
             ensure!(
                 T::Asset::is_owner(&ticker, owner_did),
                 Error::<T>::Unauthorized
+            );
+
+            // Current total supply must be zero.
+            ensure!(
+                T::Asset::token_details(&ticker).total_supply == Zero::zero(),
+                Error::<T>::CanSetTotalSupplyOnlyOnce
+            );
+
+            // New total supply must be positive.
+            ensure!(
+                total_supply != Zero::zero(),
+                Error::<T>::TotalSupplyMustBePositive
             );
 
             ensure!(
@@ -337,5 +350,11 @@ decl_error! {
 
         /// Only confidential assets' total supply can change after registering the asset.
         NonConfidentialAssetTotalSupplyCannotBeSet,
+
+        /// After registering the confidential asset, its total supply can change once from zero to a positive value.
+        CanSetTotalSupplyOnlyOnce,
+
+        /// After registering the confidential asset, its total supply can change once from zero to a positive value.
+        TotalSupplyMustBePositive,
     }
 }

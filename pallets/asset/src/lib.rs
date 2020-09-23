@@ -116,7 +116,7 @@ use polymesh_primitives::{
     SmartExtensionType, Ticker, TickerRegistration, TickerRegistrationConfig,
     TickerRegistrationStatus,
 };
-use sp_runtime::traits::{CheckedAdd, CheckedSub, Saturating, Verify, Zero};
+use sp_runtime::traits::{CheckedAdd, CheckedSub, Saturating, Verify};
 #[cfg(feature = "std")]
 use sp_runtime::{Deserialize, Serialize};
 use sp_std::{convert::TryFrom, prelude::*};
@@ -800,9 +800,6 @@ decl_event! {
         /// Event for change in divisibility.
         /// caller DID, ticker, divisibility
         DivisibilityChanged(IdentityId, Ticker, bool),
-        /// Event for change in total supply of confidential assets.
-        /// caller DID, ticker, total supply
-        TotalSupplyChanged(IdentityId, Ticker, Balance),
         /// An additional event to Transfer; emitted when transfer_with_data is called.
         /// caller DID , ticker, from DID, to DID, value, data
         TransferWithData(IdentityId, Ticker, IdentityId, IdentityId, Balance, Vec<u8>),
@@ -1002,12 +999,8 @@ impl<T: Trait> AssetTrait<T::Balance, T::AccountId> for Module<T> {
         to_portfolio: PortfolioId,
         ticker: &Ticker,
         value: T::Balance,
-<<<<<<< HEAD
     ) -> DispatchResultWithPostInfo {
         Self::base_transfer(from_portfolio, to_portfolio, ticker, value)
-=======
-    ) {
-        Self::unsafe_system_transfer(sender, ticker, from_did, to_did, value);
     }
 
     fn unchecked_set_total_supply(
@@ -1020,7 +1013,9 @@ impl<T: Trait> AssetTrait<T::Balance, T::AccountId> for Module<T> {
 
     fn is_divisible(ticker: Ticker) -> bool {
         Self::token_details(ticker).divisible
->>>>>>> 818ddfe4... perform checks in the confidential asset pallet
+    }
+    fn token_details(ticker: &Ticker) -> SecurityToken<T::Balance> {
+        Self::token_details(ticker)
     }
 
     /// Create and add a new security token.
@@ -1896,18 +1891,20 @@ impl<T: Trait> Module<T> {
         ticker: Ticker,
         total_supply: T::Balance,
     ) -> DispatchResult {
-        ensure!(Self::is_owner(&ticker, did), Error::<T>::Unauthorized);
         // Read the token details
         let mut token = Self::token_details(&ticker);
-        ensure!(
-            token.total_supply == Zero::zero(),
-            Error::<T>::CanSetTotalSupplyOnlyOnce
-        );
-        ensure!(
-            <ExtensionDetails<T>>::contains_key((ticker, id)),
-            Error::<T>::NoSuchSmartExtension
-        );
-        Ok(did)
+        token.total_supply = total_supply;
+        <Tokens<T>>::insert(&ticker, token);
+        Self::deposit_event(RawEvent::Issued(
+            did,
+            ticker,
+            did,
+            total_supply,
+            Self::funding_round(&ticker),
+            total_supply,
+            None,
+        ));
+        Ok(())
     }
 
     /// Create and add a new security token.

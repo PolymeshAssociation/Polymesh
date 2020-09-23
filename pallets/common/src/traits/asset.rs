@@ -17,7 +17,7 @@ use codec::{Decode, Encode};
 use frame_support::dispatch::{DispatchResult, DispatchResultWithPostInfo};
 use polymesh_primitives::{
     AssetIdentifier, AssetName, AssetType, FundingRoundName, IdentifierType, IdentityId,
-    PortfolioId, Ticker,
+    PortfolioId, SecurityToken, Ticker,
 };
 use sp_std::vec::Vec;
 
@@ -86,4 +86,5 @@ pub trait Trait<V, U> {
         total_supply: V,
     ) -> DispatchResult;
     fn is_divisible(ticker: Ticker) -> bool;
+    fn token_details(ticker: &Ticker) -> SecurityToken<V>;
 }
