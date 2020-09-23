@@ -34,7 +34,7 @@ pallet-transaction-payment = { path = "../../transaction-payment", default-featu
 pallet-contracts = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0-rc6" }
 pallet-contracts-primitives = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0-rc6" }
 pallet-staking = { path = "../../staking", default-features = false }
-pallet-staking-reward-curve = { path = "../../staking/reward-curve", default-features = false }
+pallet-staking-reward-curve = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0-rc6" }
 
 # Others
 serde = { version = "1.0.104", default-features = false }
@@ -149,7 +149,6 @@ std = [
     "pallet-protocol-fee/std",
     "pallet-randomness-collective-flip/std",
     "pallet-settlement/std",
-    "pallet-staking-reward-curve/std",
     "pallet-staking/std",
     "pallet-statistics/std",
     "pallet-sudo/std",
