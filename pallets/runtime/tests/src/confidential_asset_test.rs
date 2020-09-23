@@ -10,13 +10,12 @@ use cryptography::{
     mercat::{
         account::{convert_asset_ids, AccountCreator},
         asset::AssetIssuer,
-        Account, AccountCreatorInitializer, AssetTransactionIssuer, AssetTransactionVerifier,
-        EncryptedAmount, EncryptionKeys, InitializedAssetTx, PubAccountTx, SecAccount,
+        Account, AccountCreatorInitializer, AssetTransactionIssuer, EncryptedAmount,
+        EncryptionKeys, PubAccountTx, SecAccount,
     },
     AssetId,
 };
 use curve25519_dalek::scalar::Scalar;
-use frame_support::IterableStorageMap;
 use frame_support::{assert_err, assert_ok};
 use pallet_asset as asset;
 use pallet_confidential_asset as confidential_asset;
@@ -107,7 +106,6 @@ fn issuers_can_create_and_rename_confidential_tokens() {
             owner_signed.clone(),
             token.name.clone(),
             ticker,
-            //token.total_supply,
             true,
             token.asset_type.clone(),
             identifiers.clone(),
@@ -132,9 +130,6 @@ fn issuers_can_create_and_rename_confidential_tokens() {
             Asset::asset_ownership_relation(token.owner_did, ticker),
             AssetOwnershipRelation::AssetOwned
         );
-        assert!(<DidRecords>::contains_key(
-            Identity::get_token_did(&ticker).unwrap()
-        ));
         assert_eq!(Asset::funding_round(ticker), funding_round_name.clone());
 
         // Ticker is added to the list of confidential tokens.
@@ -149,7 +144,7 @@ fn issuers_can_create_and_rename_confidential_tokens() {
         let eve_signed = Origin::signed(AccountKeyring::Eve.public());
         let _eve_did = register_keyring_account(AccountKeyring::Eve).unwrap();
         assert_err!(
-            Asset::rename_asset(eve_signed, ticker, b"ABCD".into()),
+            Asset::rename_asset(eve_signed, ticker, vec![0xde, 0xad, 0xbe, 0xef].into()),
             AssetError::Unauthorized
         );
         // The token should remain unchanged in storage.
@@ -215,9 +210,6 @@ fn issuers_can_create_and_rename_confidential_tokens() {
             Asset::asset_ownership_relation(token.owner_did, ticker2),
             AssetOwnershipRelation::AssetOwned
         );
-        assert!(<DidRecords>::contains_key(
-            Identity::get_token_did(&ticker2).unwrap()
-        ));
         assert_eq!(Asset::funding_round(ticker2), funding_round_name.clone());
         // Ticker is added to the list of confidential tokens.
         assert_eq!(
@@ -318,8 +310,8 @@ fn issuers_can_create_and_mint_tokens() {
 
         // Wallet submits the transaction to the chain for verification.
         ConfidentialAsset::mint_confidential_asset(
-            Origin::signed(alice),
-            &token_names[1][..],
+            Origin::signed(owner),
+            ticker,
             amount.into(), // convert to u128
             initialized_asset_tx,
         )
@@ -335,9 +327,6 @@ fn issuers_can_create_and_mint_tokens() {
             Asset::asset_ownership_relation(token.owner_did, ticker),
             AssetOwnershipRelation::AssetOwned
         );
-        assert!(<DidRecords>::contains_key(
-            Identity::get_token_did(&ticker).unwrap()
-        ));
         assert_eq!(Asset::funding_round(ticker), funding_round_name.clone());
 
         // Ticker is added to the list of confidential tokens.
@@ -348,4 +337,60 @@ fn issuers_can_create_and_mint_tokens() {
             })
         );
     })
+}
+
+#[test]
+fn account_create_tx() {
+    ExtBuilder::default().build().execute_with(|| {
+        // Simulating the case were issuers have registered some tickers and therefore the list of
+        // valid asset ids contains some values.
+        let token_names = [[2u8], [1u8], [5u8]];
+        for token_name in token_names.iter() {
+            create_confidential_token(
+                &token_name[..],
+                Ticker::try_from(&token_name[..]).unwrap(),
+                AccountKeyring::Bob.public(),
+            );
+        }
+
+        let valid_asset_ids: Vec<AssetId> = ConfidentialAsset::confidential_tickers();
+
+        // ------------- START: Computations that will happen in Alice's Wallet ----------
+        let alice = AccountKeyring::Alice.public();
+        let alice_id = register_keyring_account(AccountKeyring::Alice).unwrap();
+
+        let (scrt_account, mercat_account_tx) = gen_account(
+            0, // Transaction id. Not used in this test.
+            [10u8; 32],
+            &token_names[1][..],
+            valid_asset_ids,
+        );
+        // ------------- END: Computations that will happen in the Wallet ----------
+
+        // Wallet submits the transaction to the chain for verification.
+        ConfidentialAsset::validate_mercat_account(
+            Origin::signed(alice),
+            mercat_account_tx.clone(),
+        )
+        .unwrap();
+
+        // Ensure that the transaction was verified and that MERCAT account is created on the chain.
+        let wrapped_enc_asset_id =
+            EncryptedAssetIdWrapper::from(mercat_account_tx.pub_account.enc_asset_id.encode());
+        let stored_account =
+            ConfidentialAsset::mercat_accounts(alice_id, wrapped_enc_asset_id.clone());
+
+        assert_eq!(stored_account.encrypted_asset_id, wrapped_enc_asset_id,);
+        assert_eq!(
+            stored_account.encryption_pub_key,
+            mercat_account_tx.pub_account.owner_enc_pub_key,
+        );
+
+        // Ensure that the account has an initial balance of zero.
+        let stored_balance =
+            ConfidentialAsset::mercat_account_balance(alice_id, wrapped_enc_asset_id.clone());
+        let stored_balance = EncryptedAmount::decode(&mut &stored_balance.0[..]).unwrap();
+        let stored_balance = scrt_account.enc_keys.scrt.decrypt(&stored_balance).unwrap();
+        assert_eq!(stored_balance, 0);
+    });
 }

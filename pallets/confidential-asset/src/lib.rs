@@ -231,7 +231,7 @@ decl_module! {
         ///
         /// # Weight
         /// `3_000_000_000`
-        #[weight = 1_000_000_000]
+        #[weight = 3_000_000_000]
         pub fn mint_confidential_asset(
             origin,
             ticker: Ticker,
@@ -280,14 +280,12 @@ decl_module! {
                 Error::<T>::TotalSupplyAboveU32Limit
             );
 
-            let total_supply = total_supply.saturated_into::<u32>();
-
             let wrapped_encrypted_asset_id = EncryptedAssetIdWrapper::from(asset_mint_proof.account_id.encode());
             let new_encrypted_balance = AssetValidator{}
                                           .verify_asset_transaction(
-                                              total_supply,
+                                              total_supply.saturated_into::<u32>(),
                                               &asset_mint_proof,
-                                              &Self::mercat_account(owner_did, wrapped_encrypted_asset_id.clone()).to_mercat::<T>()?,
+                                              &Self::mercat_accounts(owner_did, wrapped_encrypted_asset_id.clone()).to_mercat::<T>()?,
                                               &Self::mercat_account_balance(owner_did, wrapped_encrypted_asset_id.clone()).to_mercat::<T>()?,
                                               &[]
                                           ).map_err(|_| Error::<T>::InvalidAccountMintProof)?;

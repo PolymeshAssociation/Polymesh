@@ -116,7 +116,7 @@ use polymesh_primitives::{
     SmartExtensionType, Ticker, TickerRegistration, TickerRegistrationConfig,
     TickerRegistrationStatus,
 };
-use sp_runtime::traits::{CheckedAdd, CheckedSub, Saturating, Verify};
+use sp_runtime::traits::{CheckedAdd, Saturating};
 #[cfg(feature = "std")]
 use sp_runtime::{Deserialize, Serialize};
 use sp_std::{convert::TryFrom, prelude::*};
@@ -476,31 +476,6 @@ decl_module! {
             token.divisible = true;
             <Tokens<T>>::insert(&ticker, token);
             Self::deposit_event(RawEvent::DivisibilityChanged(did, ticker, true));
-            Ok(())
-        }
-
-        /// Sets the initial total supply of a confidential asset.
-        /// Only called by the token owner of a confidential asset. Can be called only once.
-        ///
-        /// # Arguments
-        /// * `origin` Secondary key of the token owner.
-        /// * `ticker` Ticker of the token.
-        /// * `total_supply` Ticker of the token.
-        #[weight = T::DbWeight::get().reads_writes(2, 1) + 300_000_000]
-        pub fn set_total_supply(origin, ticker: Ticker, total_supply: T::Balance) -> DispatchResult {
-            let sender = ensure_signed(origin)?;
-            let did = Context::current_identity_or::<Identity<T>>(&sender)?;
-
-            ensure!(Self::is_owner(&ticker, did), Error::<T>::Unauthorized);
-            // Read the token details
-            let mut token = Self::token_details(&ticker);
-            // TODO: either change SecurityToken, or add a new Storage
-            //ensure!(token.is_confidential, Error::<T>::NonConfidentialAssetsCannotSetTotalSupply);
-            ensure!(token.total_supply == Zero::zero(), Error::<T>::CanSetTotalSupplyOnlyOnce);
-            ensure!(total_supply != Zero::zero(), Error::<T>::TotalSupplyMustBePositive);
-            token.total_supply = total_supply;
-            <Tokens<T>>::insert(&ticker, token);
-            Self::deposit_event(RawEvent::TotalSupplyChanged(did, ticker, total_supply));
             Ok(())
         }
 
@@ -947,7 +922,7 @@ decl_error! {
         /// Registration of ticker has expired.
         TickerRegistrationExpired,
         /// Transfers to self are not allowed
-        SenderSameAsReceiver
+        SenderSameAsReceiver,
         /// After registering the confidential asset, its total supply can change once from zero to a positive value.
         CanSetTotalSupplyOnlyOnce,
         /// After registering the confidential asset, its total supply can change once from zero to a positive value.
