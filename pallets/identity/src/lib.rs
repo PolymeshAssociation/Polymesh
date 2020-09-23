@@ -1370,14 +1370,16 @@ impl<T: Trait> Module<T> {
     /// See `Self::fetch_cdd`.
     #[inline]
     pub fn has_valid_cdd(claim_for: IdentityId) -> bool {
+        #[cfg(test)]
         let trusted_cdd_providers = T::CddServiceProviders::get_members();
         // It will never happen in production but helpful during testing.
         // TODO: Remove this condition
+        #[cfg(test)]
         if trusted_cdd_providers.is_empty() {
             return true;
         }
 
-        Self::fetch_cdd(claim_for, T::Moment::zero()).is_some()
+        Self::base_fetch_cdd(claim_for, T::Moment::zero(), None).is_some()
     }
 
     /// It returns the CDD identity which issued the current valid CDD claim for `claim_for`
@@ -1402,32 +1404,32 @@ impl<T: Trait> Module<T> {
             .checked_add(&leeway)
             .unwrap_or_default();
 
-        let active_cdds = T::CddServiceProviders::get_active_members();
-        let inactive_not_expired_cdds = T::CddServiceProviders::get_inactive_members()
-            .into_iter()
-            .filter(|cdd| !T::CddServiceProviders::is_member_expired(cdd, exp_with_leeway))
-            .collect::<Vec<_>>();
+        // let active_cdds = T::CddServiceProviders::get_active_members();
+        // let inactive_not_expired_cdds = T::CddServiceProviders::get_inactive_members()
+        //     .into_iter()
+        //     .filter(|cdd| !T::CddServiceProviders::is_member_expired(cdd, exp_with_leeway))
+        //     .collect::<Vec<_>>();
 
         Self::fetch_base_claims(claim_for, ClaimType::CustomerDueDiligence)
-            .filter(|id_claim| {
-                if let Some(cdd_id) = &filter_cdd_id {
-                    if let Claim::CustomerDueDiligence(claim_cdd_id) = &id_claim.claim {
-                        if claim_cdd_id != cdd_id {
-                            return false;
-                        }
-                    }
-                }
+            // .filter(|id_claim| {
+            //     if let Some(cdd_id) = &filter_cdd_id {
+            //         if let Claim::CustomerDueDiligence(claim_cdd_id) = &id_claim.claim {
+            //             if claim_cdd_id != cdd_id {
+            //                 return false;
+            //             }
+            //         }
+            //     }
 
-                Self::is_identity_cdd_claim_valid(
-                    id_claim,
-                    exp_with_leeway,
-                    #[cfg(feature = "runtime-benchmarks")]
-                    &vec![claim_for],
-                    #[cfg(not(feature = "runtime-benchmarks"))]
-                    &active_cdds,
-                    &inactive_not_expired_cdds,
-                )
-            })
+            //     Self::is_identity_cdd_claim_valid(
+            //         id_claim,
+            //         exp_with_leeway,
+            //         #[cfg(feature = "runtime-benchmarks")]
+            //         &vec![claim_for],
+            //         #[cfg(not(feature = "runtime-benchmarks"))]
+            //         &active_cdds,
+            //         &inactive_not_expired_cdds,
+            //     )
+            // })
             .map(|id_claim| id_claim.claim_issuer)
             .next()
     }
