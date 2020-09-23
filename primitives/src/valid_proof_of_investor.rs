@@ -18,7 +18,7 @@ impl ValidProofOfInvestor {
         match claim {
             Claim::InvestorZKProof(Scope::Ticker(ticker), scope_id, cdd_id, proof) => {
                 let message = InvestorZKProofData::make_message(id, ticker);
-                return Self::verify_proof(cdd_id, id, scope_id, ticker, proof, &message);
+                Self::verify_proof(cdd_id, id, scope_id, ticker, proof, &message)
             }
             _ => false,
         }
