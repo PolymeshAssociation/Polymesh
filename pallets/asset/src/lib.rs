@@ -1858,7 +1858,7 @@ impl<T: Trait> Module<T> {
     /// Only called by the token owner of a confidential asset. Can be called only once.
     ///
     /// # Arguments
-    /// * `origin` Secondary key of the token owner.
+    /// * `did` Identity id of the owner the caller.
     /// * `ticker` Ticker of the token.
     /// * `total_supply` Ticker of the token.
     pub fn unchecked_set_total_supply(
@@ -1866,7 +1866,7 @@ impl<T: Trait> Module<T> {
         ticker: Ticker,
         total_supply: T::Balance,
     ) -> DispatchResult {
-        // Read the token details
+        // Read the token details.
         let mut token = Self::token_details(&ticker);
         token.total_supply = total_supply;
         <Tokens<T>>::insert(&ticker, token);

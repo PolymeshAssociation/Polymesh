@@ -333,7 +333,7 @@ fn issuers_can_create_and_mint_tokens() {
         assert_eq!(
             ConfidentialAsset::confidential_tickers().last(),
             Some(&AssetId {
-                id: ticker.as_bytes().clone()
+                id: *ticker.as_bytes()
             })
         );
     })

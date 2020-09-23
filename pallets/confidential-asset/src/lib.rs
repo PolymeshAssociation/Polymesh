@@ -62,6 +62,7 @@ pub trait Trait: frame_system::Trait + IdentityTrait + BalancesTrait + statistic
 pub struct EncryptedAssetIdWrapper(pub Vec<u8>);
 
 impl EncryptedAssetIdWrapper {
+    /// Unwraps the value so that it can be passed to meract library.
     fn to_mercat<T: Trait>(&self) -> Result<EncryptedAssetId, Error<T>> {
         let mut data: &[u8] = &self.0;
         EncryptedAssetId::decode(&mut data).map_err(|_| Error::<T>::UnwrapMercatDataError)
@@ -76,6 +77,7 @@ impl EncryptedAssetIdWrapper {
 pub struct EncryptedBalanceWrapper(pub Vec<u8>);
 
 impl EncryptedBalanceWrapper {
+    /// Unwraps the value so that it can be passed to meract library.
     fn to_mercat<T: Trait>(&self) -> Result<EncryptedAmount, Error<T>> {
         let mut data: &[u8] = &self.0;
         EncryptedAmount::decode(&mut data).map_err(|_| Error::<T>::UnwrapMercatDataError)
@@ -92,6 +94,7 @@ pub struct MercatAccount {
 }
 
 impl MercatAccount {
+    /// Unwraps the value so that it can be passed to meract library.
     fn to_mercat<T: Trait>(&self) -> Result<PubAccount, Error<T>> {
         Ok(PubAccount {
             enc_asset_id: self.encrypted_asset_id.to_mercat()?,
@@ -215,7 +218,8 @@ decl_module! {
         }
 
         /// Verifies the proof of the asset minting, `asset_mint_proof`. If successful, it sets the total
-        /// balance of the owner to `total_supply`.
+        /// balance of the owner to `total_supply`. This function should only be called once with a non-zero total supply,
+        /// after `create_confidential_asset` is called.
         ///
         /// # Arguments
         /// * `origin` - contains the secondary key of the caller (i.e who signed the transaction to execute this function).
@@ -224,9 +228,13 @@ decl_module! {
         /// * `asset_mint_proof` - The proofs that the encrypted asset id is a valid ticker name and that the `total_supply` matches encrypted value.
         ///
         /// # Errors
+        /// - `BadOrigin` if not signed.
+        /// - `Unauthorized` if origin is not the owner of the asset.
+        /// - `CanSetTotalSupplyOnlyOnce` if this function is called more than once.
+        /// - `TotalSupplyMustBePositive` if total supply is zero.
         /// - `InvalidTotalSupply` if `total_supply` is not a multiply of unit.
         /// - `TotalSupplyAboveU32Limit` if `total_supply` exceeds the u32 limit. This is imposed by the MERCAT lib.
-        /// - `BadOrigin` if not signed.
+        /// - `NonConfidentialAssetTotalSupplyCannotBeSet` if this function is called for a non-confidential asset.
         /// - `InvalidAccountMintProof` if the proofs of ticker name and total supply are incorrect.
         ///
         /// # Weight
