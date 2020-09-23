@@ -646,6 +646,22 @@ decl_module! {
             Ok(())
         }
 
+        /// Creates a checkpoint schedule. Can only be called by the token owner primary or
+        /// secondary key.
+        #[weight = T::DbWeight::get().reads_writes(3, 2) + 400_000_000]
+        pub fn create_checkpoint_schedule(
+            origin,
+            ticker: Ticker,
+            schedule: CheckpointSchedule
+        ) -> DispatchResult {
+            let primary_did = Identity::<T>::ensure_origin_call_permissions(origin)?.primary_did;
+            ensure!(Self::is_owner(&ticker, primary_did), Error::<T>::Unauthorized);
+
+            // TODO
+
+            Ok(())
+        }
+
         /// Function is used to issue(or mint) new tokens to the primary issuance agent.
         /// It can only be executed by the token owner.
         ///
