@@ -13,6 +13,7 @@ use frame_support::{
 };
 use frame_system::ensure_signed;
 use pallet_identity as identity;
+use pallet_portfilio::PortfolioAssetBalances;
 use pallet_settlement::{
     self as settlement, Leg, SettlementType, Trait as SettlementTrait, VenueInfo, VenueType,
 };
@@ -41,6 +42,8 @@ pub trait Trait:
 #[cfg_attr(feature = "std", derive(Debug))]
 #[derive(Encode, Decode, Default, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Fundraiser<Balance, Moment> {
+    /// Portfolio containing the asset being offered
+    pub offering_portfolio: PortfolioId,
     /// Asset being offered
     pub offering_asset: Ticker,
     /// Asset to receive payment in
@@ -78,10 +81,7 @@ pub struct FundraiserTier<Balance> {
 
 impl<Balance> From<PriceTier<Balance>> for FundraiserTier<Balance> {
     fn from(tier: PriceTier<Balance>) -> Self {
-        Self {
-            tier,
-            remaining: 0,
-        }
+        Self { tier, remaining: 0 }
     }
 }
 
@@ -119,6 +119,8 @@ decl_error! {
         FundraiserNotStated,
         // Using an invalid venue
         InvalidVenue,
+        // Using an invalid portfolio
+        InvalidPortfolio,
     }
 }
 
@@ -141,6 +143,7 @@ decl_module! {
         #[weight = 800_000_000]
         pub fn create_fundraiser(
             origin,
+            offering_portfolio: PortfolioId,
             offering_asset: Ticker,
             raising_asset: Ticker,
             price_tiers: Vec<PriceTier<T::Balance>>,
@@ -158,10 +161,22 @@ decl_module! {
             ensure!(venue.creator == did, Error::<T>::InvalidVenue);
             ensure!(venue.venue_type == VenueType::Sto, Error::<T>::InvalidVenue);
 
+            ensure!(offering_portfolio.did == did, Error::<T>::InvalidPortfolio);
+            ensure!(<PortfolioAssetBalances<T>>::contains_key(offering_portfolio, offering_asset), Error::<T>::InvalidPortfolio);
+            let asset_balance = <PortfolioAssetBalances<T>>::get(offering_portfolio, offering_asset);
+
+            let offering_amount = price_tiers
+                .iter()
+                .map(|t| t.amount)
+                .sum();
+
+            ensure!(offering_amount >= asset_balance, Error::<T>::InsufficientTokensRemaining);
+
             // TODO: Take custodial ownership of $sell_amount of $offering_token from primary issuance agent?
             let fundraiser_id = Self::fundraiser_count(offering_asset) + 1;
             // TODO revise the defaults
             let fundraiser = Fundraiser {
+                    offering_portfolio,
                     offering_asset,
                     raising_asset,
                     tiers: price_tiers.into(),
@@ -264,7 +279,7 @@ decl_module! {
         }
 
         #[weight = 1_000]
-        pub fn modify_fundraiser_window(origin, offering_asset: Ticker, fundraiser_id: u64, start: T::Moment, end: T::Moment) -> DispatchResult {
+        pub fn modify_fundraiser_window(origin, offering_asset: Ticker, fundraiser_id: u64, start: T::Moment, end: Option<T::Moment>) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             let did = Context::current_identity_or::<Identity<T>>(&sender)?;
             ensure!(T::Asset::primary_issuance_agent(&offering_asset) == did, Error::<T>::Unauthorized);
