@@ -117,6 +117,7 @@ use polymesh_primitives::{
     secondary_key, Authorization, AuthorizationData, AuthorizationError, AuthorizationType, CddId,
     Claim, ClaimType, DispatchableName, Identity as DidRecord, IdentityClaim, IdentityId,
     InvestorUid, PalletName, Permissions, Scope, SecondaryKey, Signatory, Ticker,
+    ValidProofOfInvestor,
 };
 use sp_core::sr25519::Signature;
 use sp_io::hashing::blake2_256;
@@ -549,13 +550,13 @@ decl_module! {
 
             match &claim {
                 Claim::CustomerDueDiligence(..) => Self::base_add_cdd_claim(target, claim, issuer, expiry)?,
-                Claim::InvestorZKProof(_t, _s, cdd_id, _p) => {
+                Claim::InvestorZKProof(..) => {
                     Self::base_add_confidential_scope_claim(
                         target,
                         claim.clone(),
                         issuer,
                         expiry,
-                        cdd_id.clone())?
+                    )?
                 },
                 _ => {
                     T::ProtocolFee::charge_fee(ProtocolOp::IdentityAddClaim)?;
@@ -1034,7 +1035,9 @@ decl_error! {
         /// Multisig can not be unlinked from an identity while it still holds POLYX
         MultiSigHasBalance,
         /// Confidential Scope claims can be added by an Identity to it-self.
-        ConfidentialScopeClaimNotAllowed
+        ConfidentialScopeClaimNotAllowed,
+        /// Addition of a new scope claim gets invalidated.
+        InvalidScopeClaim,
     }
 }
 
@@ -1722,24 +1725,31 @@ impl<T: Trait> Module<T> {
     /// - 'ConfidentialScopeClaimNotAllowed` if :
     ///     - Sender is not the issuer. That claim can be only added by your-self.
     ///     - You are not the owner of that CDD_ID.
+    ///     - If claim is not valid.
     ///
     fn base_add_confidential_scope_claim(
         target: IdentityId,
         claim: Claim,
         issuer: IdentityId,
         expiry: Option<T::Moment>,
-        cdd_id: CddId,
     ) -> DispatchResult {
-        // Only onwer of the identity can add that confidential claim.
+        // Only owner of the identity can add that confidential claim.
         ensure!(
             issuer == target,
             Error::<T>::ConfidentialScopeClaimNotAllowed
         );
 
-        // Verify the onwer of that CDD_ID.
+        if let Claim::InvestorZKProof(_s, _s_id, cdd_id, _p) = &claim {
+            // Verify the owner of that CDD_ID.
+            ensure!(
+                Self::base_fetch_cdd(target, T::Moment::zero(), Some(*cdd_id)).is_some(),
+                Error::<T>::ConfidentialScopeClaimNotAllowed
+            );
+        }
+        // Verify the confidential claim.
         ensure!(
-            Self::base_fetch_cdd(target, T::Moment::zero(), Some(cdd_id)).is_some(),
-            Error::<T>::ConfidentialScopeClaimNotAllowed
+            ValidProofOfInvestor::evaluate_claim(&claim, &target),
+            Error::<T>::InvalidScopeClaim
         );
 
         Self::base_add_claim(target, claim, issuer, expiry);
