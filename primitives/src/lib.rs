@@ -17,6 +17,7 @@
 
 #![warn(missing_docs)]
 #![cfg_attr(not(feature = "std"), no_std)]
+#![feature(bool_to_option)]
 
 use blake2::{Blake2b, Digest};
 use curve25519_dalek::scalar::Scalar;
@@ -141,6 +142,10 @@ pub use sp_runtime::OpaqueExtrinsic as UncheckedExtrinsic;
 pub mod ignored_case_string;
 pub use ignored_case_string::IgnoredCaseString;
 
+/// Asset identifiers.
+pub mod asset_identifier;
+pub use asset_identifier::AssetIdentifier;
+
 /// Role for identities.
 pub mod identity_role;
 pub use identity_role::IdentityRole;
@@ -206,10 +211,11 @@ pub use condition::{Condition, ConditionType, TargetIdentity};
 
 /// Predicate calculation for Claims.
 pub mod proposition;
-pub use proposition::{
-    AndProposition, Context, NotProposition, OrProposition, Proposition,
-    ValidProofOfInvestorProposition,
-};
+pub use proposition::{AndProposition, Context, NotProposition, OrProposition, Proposition};
+
+/// For confidential stuff.
+pub mod valid_proof_of_investor;
+pub use valid_proof_of_investor::ValidProofOfInvestor;
 
 /// Represents custom transaction errors.
 #[repr(u8)]
