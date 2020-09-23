@@ -25,6 +25,8 @@ async function main() {
 
   await reqImports.authorizeJoinToIdentities( api, primary_keys, issuer_dids, secondary_keys);
 
+  await setPermissionToSigner(api, primary_keys, secondary_keys);
+
   if (reqImports.fail_count > 0) {
     console.log("Failed");
   } else {
@@ -33,6 +35,15 @@ async function main() {
   }
 
   process.exit();
+}
+
+async function setPermissionToSigner(api, accounts, secondary_accounts) {
+  for (let i = 0; i < accounts.length; i++) {
+    let signer = { Account: secondary_accounts[i].publicKey };
+    let transaction = api.tx.identity.setPermissionToSigner(signer, reqImports.total_permissions);
+    let tx = await reqImports.sendTx(accounts[i], transaction);
+    if(tx !== -1) reqImports.fail_count--;
+  }
 }
 
 main().catch(console.error);
