@@ -54,7 +54,7 @@ pub struct Fundraiser<Balance, Moment> {
     /// Start of the fundraiser
     pub start: Moment,
     /// End of the fundraiser
-    pub end: Moment,
+    pub end: Option<Moment>,
     /// Fundraiser is frozen
     pub frozen: bool,
 }
@@ -146,7 +146,7 @@ decl_module! {
             price_tiers: Vec<PriceTier<T::Balance>>,
             venue_id: u64,
             start: Option<T::Moment>,
-            end: T::Moment,
+            end: Option<T::Moment>,
         ) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             let did = Context::current_identity_or::<Identity<T>>(&sender)?;
@@ -184,55 +184,57 @@ decl_module! {
 
         /// Purchase tokens from an ongoing offering.
         #[weight = 2_000_000_000]
-        pub fn invest(origin, offering_token: Ticker, fundraiser_id: u64, offering_token_amount: T::Balance) -> DispatchResult {
+        pub fn invest(origin, portfolio: PortfolioId, offering_asset: Ticker, fundraiser_id: u64, offering_token_amount: T::Balance) -> DispatchResult {
             let sender = ensure_signed(origin.clone())?;
             let did = Context::current_identity_or::<Identity<T>>(&sender)?;
-            let mut fundraiser = Self::fundraisers(offering_token, fundraiser_id);
-            ensure!(fundraiser.remaining_amount >= offering_token_amount, Error::<T>::InsufficientTokensRemaining);
-            // Ceil of offering_token_amount * price_per_million
-            let raise_token_amount = offering_token_amount
-                .checked_mul(&fundraiser.price_per_token)
-                .ok_or(Error::<T>::Overflow)?
-                .saturating_add((ONE_UNIT - 1).into())
-                / ONE_UNIT.into();
 
-            let primary_issuance_agent = T::Asset::primary_issuance_agent(&offering_token);
-            let legs = vec![
-                Leg {
-                    // TODO: Replace with did that actually hold the offering token
-                    from: PortfolioId::default_portfolio(primary_issuance_agent),
-                    to: PortfolioId::default_portfolio(did),
-                    asset: offering_token,
-                    amount: offering_token_amount
-                },
-                Leg {
-                    from: PortfolioId::default_portfolio(did),
-                    to: PortfolioId::default_portfolio(primary_issuance_agent),
-                    asset: fundraiser.raise_token,
-                    amount: raise_token_amount
-                }
-            ];
+            ensure!(<Fundraisers<T>>::contains_key(offering_asset, fundraiser_id), Error::<T>::FundraiserNotFound);
+            let fundraiser = <Fundraisers<T>>::get(offering_asset, fundraiser_id);
 
-            let instruction_id = Settlement::<T>::base_add_instruction(
-                primary_issuance_agent,
-                fundraiser.venue_id,
-                SettlementType::SettleOnAuthorization,
-                None,
-                legs
-            )?;
-
-            let pia_portfolios = iter::once(PortfolioId::default_portfolio(primary_issuance_agent)).collect::<BTreeSet<_>>();
-            Settlement::<T>::unsafe_authorize_instruction(primary_issuance_agent, instruction_id, pia_portfolios)?;
-
-            let sender_portfolios = iter::once(PortfolioId::default_portfolio(did)).collect::<BTreeSet<_>>();
-            Settlement::<T>::authorize_instruction(origin, instruction_id, sender_portfolios).map_err(|err| err.error)?;
-
-            Self::deposit_event(
-                RawEvent::FundsRaised(did, offering_token, fundraiser.raise_token, offering_token_amount, raise_token_amount, fundraiser_id)
-            );
-
-            fundraiser.remaining_amount -= offering_token_amount;
-            <Fundraisers<T>>::insert(offering_token, fundraiser_id, fundraiser);
+            // // Ceil of offering_token_amount * price_per_million
+            // let raise_token_amount = offering_token_amount
+            //     .checked_mul(&fundraiser.price_per_token)
+            //     .ok_or(Error::<T>::Overflow)?
+            //     .saturating_add((ONE_UNIT - 1).into())
+            //     / ONE_UNIT.into();
+            //
+            // let primary_issuance_agent = T::Asset::primary_issuance_agent(&offering_token);
+            // let legs = vec![
+            //     Leg {
+            //         // TODO: Replace with did that actually hold the offering token
+            //         from: PortfolioId::default_portfolio(primary_issuance_agent),
+            //         to: PortfolioId::default_portfolio(did),
+            //         asset: offering_token,
+            //         amount: offering_token_amount
+            //     },
+            //     Leg {
+            //         from: PortfolioId::default_portfolio(did),
+            //         to: PortfolioId::default_portfolio(primary_issuance_agent),
+            //         asset: fundraiser.raise_token,
+            //         amount: raise_token_amount
+            //     }
+            // ];
+            //
+            // let instruction_id = Settlement::<T>::base_add_instruction(
+            //     primary_issuance_agent,
+            //     fundraiser.venue_id,
+            //     SettlementType::SettleOnAuthorization,
+            //     None,
+            //     legs
+            // )?;
+            //
+            // let pia_portfolios = iter::once(PortfolioId::default_portfolio(primary_issuance_agent)).collect::<BTreeSet<_>>();
+            // Settlement::<T>::unsafe_authorize_instruction(primary_issuance_agent, instruction_id, pia_portfolios)?;
+            //
+            // let sender_portfolios = iter::once(PortfolioId::default_portfolio(did)).collect::<BTreeSet<_>>();
+            // Settlement::<T>::authorize_instruction(origin, instruction_id, sender_portfolios).map_err(|err| err.error)?;
+            //
+            // Self::deposit_event(
+            //     RawEvent::FundsRaised(did, offering_token, fundraiser.raise_token, offering_token_amount, raise_token_amount, fundraiser_id)
+            // );
+            //
+            // fundraiser.remaining_amount -= offering_token_amount;
+            // <Fundraisers<T>>::insert(offering_token, fundraiser_id, fundraiser);
 
             Ok(())
         }
