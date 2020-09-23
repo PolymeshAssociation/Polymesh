@@ -19,9 +19,9 @@ let nonces = new Map();
 
 let totalPermissions =
   {
-    "asset": "None",
-    "extrinsic": "None",
-    "portfolio": "None"
+    "asset": null,
+    "extrinsic": null,
+    "portfolio": null
   };
 
 let fail_count = 1;
