@@ -20,7 +20,6 @@ let alice, bob, dave;
 let primary_keys = [];
 let secondary_keys = [];
 let claim_keys = [];
-let sk_roles = [[0], [1], [2], [1, 2]];
 
 let fail_count = 0;
 let fail_type = {};
@@ -180,8 +179,6 @@ async function main() {
   await addSecondaryKeys(api, primary_keys, issuer_dids, secondary_keys, init_bars[6], init_bars[7], fast);
 
   await authorizeJoinToIdentities( api, primary_keys, issuer_dids, secondary_keys, init_bars[16], init_bars[17], fast);
-
-  await addSecondaryKeyRoles(api, primary_keys, issuer_dids, secondary_keys, init_bars[8], init_bars[9], fast);
 
   await issueTokenPerDid(api, primary_keys, issuer_dids, prepend, init_bars[10], init_bars[11], fast);
 
@@ -354,12 +351,12 @@ async function addSecondaryKeys(api, accounts, dids, secondary_accounts, submitB
     // 1. Add Secondary Item to identity.
     if (fast) {
       let nonceObj = {nonce: reqImports.nonces.get(accounts[i].address)};
-      const transaction = api.tx.identity.addAuthorization({Account: secondary_accounts[i].publicKey}, {JoinIdentity: []}, null);
+      const transaction = api.tx.identity.addAuthorization({Account: secondary_accounts[i].publicKey}, {JoinIdentity: reqImports.totalPermissions}, null);
       await reqImports.sendTransaction(transaction, accounts[i], nonceObj);
     } else {
 
       let nonceObj = {nonce: reqImports.nonces.get(accounts[i].address)};
-      const transaction = api.tx.identity.addAuthorization({Account: secondary_accounts[i].publicKey}, {JoinIdentity: []}, null);
+      const transaction = api.tx.identity.addAuthorization({Account: secondary_accounts[i].publicKey}, {JoinIdentity: reqImports.totalPermissions}, null);
       const result = await reqImports.sendTransaction(transaction, accounts[i], nonceObj);
       const passed = result.findRecord('system', 'ExtrinsicSuccess');
       if (!passed) {
@@ -407,37 +404,6 @@ async function authorizeJoinToIdentities(api, accounts, dids, secondary_accounts
 
     }
 
-    submitBar.increment();
-  }
-
-  return dids;
-}
-
-// Attach a secondary key to each DID
-async function addSecondaryKeyRoles(api, accounts, dids, secondary_accounts, submitBar, completeBar, fast) {
-  fail_type["SET SECONDARY KEY ROLES"] = 0;
-  for (let i = 0; i < accounts.length; i++) {
-    let signer = { Account: secondary_accounts[i].publicKey };
-    if (fast) {
-      let nonceObj = {nonce: reqImports.nonces.get(accounts[i].address)};
-      const transaction = api.tx.identity.setPermissionToSigner( signer, sk_roles[i%sk_roles.length]);
-      await reqImports.sendTransaction(transaction, accounts[i], nonceObj);
-    } else {
-
-      let nonceObj = {nonce: reqImports.nonces.get(accounts[i].address)};
-      const transaction = api.tx.identity.setPermissionToSigner( signer, sk_roles[i%sk_roles.length]);
-      const result = await reqImports.sendTransaction(transaction, accounts[i], nonceObj);
-      const passed = result.findRecord('system', 'ExtrinsicSuccess');
-
-      if (!passed) {
-        fail_count++;
-        completeBar.increment();
-        fail_type["SET SECONDARY KEY ROLES"]++;
-      } else {  completeBar.increment(); }
-
-    }
-
-    reqImports.nonces.set(accounts[i].address, reqImports.nonces.get(accounts[i].address).addn(1));
     submitBar.increment();
   }
 

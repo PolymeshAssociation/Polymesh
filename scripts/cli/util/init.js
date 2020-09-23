@@ -16,7 +16,13 @@ const fs = require("fs");
 const path = require("path");
 
 let nonces = new Map();
-let sk_roles = [[0], [1], [2], [1, 2]];
+
+let totalPermissions =
+  {
+    "asset": "None",
+    "extrinsic": "None",
+    "portfolio": "None"
+  };
 
 let fail_count = 1;
 let block_sizes = {};
@@ -250,7 +256,7 @@ async function addSecondaryKeys(api, accounts, dids, secondary_accounts) {
     // 1. Add Secondary Item to identity.
 
     let nonceObj = {nonce: nonces.get(accounts[i].address)};
-    const transaction = api.tx.identity.addAuthorization({Account: secondary_accounts[i].publicKey}, {JoinIdentity: []}, null);
+    const transaction = api.tx.identity.addAuthorization({Account: secondary_accounts[i].publicKey}, {JoinIdentity: reqImports.totalPermissions}, null);
     await sendTransaction(transaction, accounts[i], nonceObj);
     nonces.set(accounts[i].address, nonces.get(accounts[i].address).addn(1));
   }
@@ -621,9 +627,9 @@ let reqImports = {
   path,
   fs,
   nonces,
+  totalPermissions,
   transfer_amount,
   fail_count,
-  sk_roles,
   createApi,
   createIdentities,
   initMain,

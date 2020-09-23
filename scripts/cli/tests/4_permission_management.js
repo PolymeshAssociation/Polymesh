@@ -25,8 +25,6 @@ async function main() {
 
   await reqImports.authorizeJoinToIdentities( api, primary_keys, issuer_dids, secondary_keys);
 
-  await addSecondaryKeyRoles(api, primary_keys, issuer_dids, secondary_keys);
-
   if (reqImports.fail_count > 0) {
     console.log("Failed");
   } else {
@@ -36,20 +34,5 @@ async function main() {
 
   process.exit();
 }
-
-// Attach a secondary key to each DID
-async function addSecondaryKeyRoles(api, accounts, dids, secondary_accounts) {
-
-    for (let i = 0; i < accounts.length; i++) {
-      let signer = {  Account: secondary_accounts[i].publicKey };
-
-      const transaction = api.tx.identity.setPermissionToSigner(signer, reqImports.sk_roles[i%reqImports.sk_roles.length]);
-      let tx = await reqImports.sendTx(accounts[i], transaction);
-      if(tx !== -1) reqImports.fail_count--;
-
-    }
-
-    return dids;
-  }
 
 main().catch(console.error);
