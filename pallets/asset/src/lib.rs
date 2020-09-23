@@ -1933,17 +1933,18 @@ impl<T: Trait> Module<T> {
         // Add funding round name.
         <FundingRound>::insert(ticker, funding_round.unwrap_or_default());
 
-        // Update the investor count of an asset.
-        <statistics::Module<T>>::update_transfer_stats(
-            &ticker,
-            None,
-            Some(total_supply),
-            total_supply,
-        );
-
         Self::deposit_event(RawEvent::IdentifiersUpdated(did, ticker, identifiers));
         <IssuedInFundingRound<T>>::insert((ticker, Self::funding_round(ticker)), total_supply);
+
         if !is_confidential {
+            // Update the investor count of an asset.
+            <statistics::Module<T>>::update_transfer_stats(
+                &ticker,
+                None,
+                Some(total_supply),
+                total_supply,
+            );
+
             Self::deposit_event(RawEvent::Transfer(
                 did,
                 ticker,

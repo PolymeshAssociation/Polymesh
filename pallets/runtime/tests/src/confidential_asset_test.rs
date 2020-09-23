@@ -97,9 +97,6 @@ fn issuers_can_create_and_rename_confidential_tokens() {
             Some(funding_round_name.clone()),
         ));
 
-        // Check the update investor count for the newly created asset.
-        assert_eq!(Statistics::investor_count_per_asset(ticker), 1);
-
         // A correct entry is added.
         assert_eq!(Asset::token_details(ticker), token);
         assert_eq!(
