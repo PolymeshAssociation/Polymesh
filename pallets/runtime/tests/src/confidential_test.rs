@@ -4,14 +4,14 @@ use super::{
 };
 
 use cryptography::claim_proofs::{compute_cdd_id, compute_scope_id};
-use pallet_asset::{self as asset, AssetType, IdentifierType, SecurityToken};
+use pallet_asset as asset;
 use pallet_compliance_manager as compliance_manager;
 use pallet_confidential as confidential;
 use pallet_identity::{self as identity, Error};
 use polymesh_common_utilities::constants::ERC1400_TRANSFER_SUCCESS;
 use polymesh_primitives::{
-    Claim, Condition, ConditionType, IdentityId, InvestorUid, InvestorZKProofData, PortfolioId,
-    Scope, Ticker,
+    AssetType, Claim, Condition, ConditionType, IdentifierType, IdentityId, InvestorUid,
+    InvestorZKProofData, PortfolioId, Scope, SecurityToken, Ticker,
 };
 
 use core::convert::TryFrom;
