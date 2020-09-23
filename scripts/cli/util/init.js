@@ -198,7 +198,7 @@ const createIdentitiesWithExpiry = async function (
 
   for (let i = 0; i < accounts.length; i++) {
     const d = await api.query.identity.keyToIdentityIds(accounts[i].publicKey);
-    dids.push(d.toHuman().Unique);
+    dids.push(d.toHuman());
     console.log( `>>>> [Get DID ] acc: ${accounts[i].address} did: ${dids[i]}` );
   }
 

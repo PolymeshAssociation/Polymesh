@@ -27,7 +27,6 @@ async function main() {
   let alice_did = JSON.parse(
     await reqImports.keyToIdentityIds(api, alice.publicKey)
   );
-  alice_did = alice_did.Unique;
 
   await reqImports.distributePolyBatch(
     api,
