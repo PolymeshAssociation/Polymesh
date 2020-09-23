@@ -13,7 +13,7 @@ use frame_support::{
 };
 use frame_system::ensure_signed;
 use pallet_identity as identity;
-use pallet_portfilio::PortfolioAssetBalances;
+use pallet_portfolio::{self as portfolio, PortfolioAssetBalances, Trait as PortfolioTrait};
 use pallet_settlement::{
     self as settlement, Leg, SettlementType, Trait as SettlementTrait, VenueInfo, VenueType,
 };
@@ -24,19 +24,12 @@ use polymesh_common_utilities::{
     Context,
 };
 use polymesh_primitives::{IdentityId, PortfolioId, Ticker};
-use sp_runtime::traits::{CheckedMul, Saturating};
+use sp_runtime::traits::{CheckedAdd, CheckedMul, Saturating};
 use sp_std::{collections::btree_set::BTreeSet, iter, prelude::*};
 
 type Identity<T> = identity::Module<T>;
 type Settlement<T> = settlement::Module<T>;
 type Timestamp<T> = timestamp::Module<T>;
-
-pub trait Trait:
-    frame_system::Trait + CommonTrait + IdentityTrait + pallet_settlement::Trait + TimestampTrait
-{
-    /// The overarching event type.
-    type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
-}
 
 /// Details about the Fundraiser
 #[cfg_attr(feature = "std", derive(Debug))]
@@ -51,7 +44,7 @@ pub struct Fundraiser<Balance, Moment> {
     /// Tiers of the fundraiser.
     /// Each tier has a set amount of tokens available at a fixed price.
     /// The sum of the tiers is the total amount available in this fundraiser.
-    pub tiers: Vec<PriceTier<Balance>>,
+    pub tiers: Vec<FundraiserTier<Balance>>,
     /// Id of the venue to use for this fundraise
     pub venue_id: u64,
     /// Start of the fundraiser
@@ -66,7 +59,7 @@ pub struct Fundraiser<Balance, Moment> {
 #[cfg_attr(feature = "std", derive(Debug))]
 #[derive(Encode, Decode, Default, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct PriceTier<Balance> {
-    amount: u64,
+    amount: Balance,
     price: Balance,
 }
 
@@ -75,14 +68,29 @@ pub struct PriceTier<Balance> {
 #[cfg_attr(feature = "std", derive(Debug))]
 #[derive(Encode, Decode, Default, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct FundraiserTier<Balance> {
-    tier: PriceTier<Balance>,
-    remaining: u64,
+    inner: PriceTier<Balance>,
+    remaining: Balance,
 }
 
-impl<Balance> From<PriceTier<Balance>> for FundraiserTier<Balance> {
-    fn from(tier: PriceTier<Balance>) -> Self {
-        Self { tier, remaining: 0 }
+impl<Balance: From<u8>> Into<FundraiserTier<Balance>> for PriceTier<Balance> {
+    fn into(self) -> FundraiserTier<Balance> {
+        FundraiserTier {
+            inner: self,
+            remaining: Balance::from(0),
+        }
     }
+}
+
+pub trait Trait:
+    frame_system::Trait
+    + CommonTrait
+    + IdentityTrait
+    + SettlementTrait
+    + TimestampTrait
+    + PortfolioTrait
+{
+    /// The overarching event type.
+    type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
 }
 
 decl_event!(
@@ -146,7 +154,7 @@ decl_module! {
             offering_portfolio: PortfolioId,
             offering_asset: Ticker,
             raising_asset: Ticker,
-            price_tiers: Vec<PriceTier<T::Balance>>,
+            tiers: Vec<PriceTier<T::Balance>>,
             venue_id: u64,
             start: Option<T::Moment>,
             end: Option<T::Moment>,
@@ -165,12 +173,15 @@ decl_module! {
             ensure!(<PortfolioAssetBalances<T>>::contains_key(offering_portfolio, offering_asset), Error::<T>::InvalidPortfolio);
             let asset_balance = <PortfolioAssetBalances<T>>::get(offering_portfolio, offering_asset);
 
-            let offering_amount = price_tiers
+            let offering_amount: T::Balance = tiers
                 .iter()
                 .map(|t| t.amount)
-                .sum();
+                .fold(0.into(), |x, total| total + x);
 
             ensure!(offering_amount >= asset_balance, Error::<T>::InsufficientTokensRemaining);
+
+            // Sort by price
+            tiers.sort_by(|a, b| a.price.cmp(&b.price));
 
             // TODO: Take custodial ownership of $sell_amount of $offering_token from primary issuance agent?
             let fundraiser_id = Self::fundraiser_count(offering_asset) + 1;
@@ -179,7 +190,7 @@ decl_module! {
                     offering_portfolio,
                     offering_asset,
                     raising_asset,
-                    tiers: price_tiers.into(),
+                    tiers: tiers.into_iter().map(Into::into).collect(),
                     venue_id,
                     start: start.unwrap_or(Timestamp::<T>::get()),
                     end,
@@ -199,12 +210,37 @@ decl_module! {
 
         /// Purchase tokens from an ongoing offering.
         #[weight = 2_000_000_000]
-        pub fn invest(origin, portfolio: PortfolioId, offering_asset: Ticker, fundraiser_id: u64, offering_token_amount: T::Balance) -> DispatchResult {
+        pub fn invest(origin, portfolio: PortfolioId, offering_asset: Ticker, fundraiser_id: u64, offering_token_amount: T::Balance, max_price: T::Balance) -> DispatchResult {
             let sender = ensure_signed(origin.clone())?;
             let did = Context::current_identity_or::<Identity<T>>(&sender)?;
 
             ensure!(<Fundraisers<T>>::contains_key(offering_asset, fundraiser_id), Error::<T>::FundraiserNotFound);
             let fundraiser = <Fundraisers<T>>::get(offering_asset, fundraiser_id);
+
+            let mut remaining = offering_token_amount;
+            let mut cost = T::Balance::from(0);
+            let mut order = Vec::new();
+            for (id, tier) in fundraiser.tiers.iter().enumerate() {
+                if remaining == 0.into() {
+                    break
+                }
+
+                if tier.remaining == tier.inner.amount {
+                    break
+                }
+
+                if tier.remaining > remaining {
+                    order.push((id, remaining));
+                    cost.checked_add(
+                        &remaining
+                        .checked_mul(&tier.inner.price)
+                        .ok_or(Error::<T>::Overflow)?
+                    )
+                    .ok_or(Error::<T>::Overflow)?;
+                    remaining = 0.into();
+                    break;
+                }
+            }
 
             // // Ceil of offering_token_amount * price_per_million
             // let raise_token_amount = offering_token_amount
