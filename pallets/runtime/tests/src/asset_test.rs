@@ -1804,10 +1804,7 @@ fn test_weights_for_is_valid_transfer() {
             let (alice_signed, alice_did) = make_account_without_cdd(alice).unwrap();
 
             let bob = AccountKeyring::Bob.public();
-            let (bob_signed, bob_did) = make_account_without_cdd(bob).unwrap();
-
-            let charlie = AccountKeyring::Charlie.public();
-            let (charlie_signed, charlie_did) = make_account_without_cdd(charlie).unwrap();
+            let (_, bob_did) = make_account_without_cdd(bob).unwrap();
 
             let eve = AccountKeyring::Eve.public();
             let (eve_signed, eve_did) = make_account_without_cdd(eve).unwrap();
@@ -1932,9 +1929,8 @@ fn test_weights_for_is_valid_transfer() {
             };
 
             // call is_valid_transfer()
-            let result = is_valid_transfer_result();
-            let weight_from_verify_transfer = verify_restriction_weight();
-            assert!(matches!(result, weight_from_verify_transfer)); // Only sender rules are processed.
+            // Only sender rules are processed.
+            assert_eq!(is_valid_transfer_result(), verify_restriction_weight());
 
             assert_revoke_claim!(
                 eve_signed.clone(),
@@ -1951,7 +1947,7 @@ fn test_weights_for_is_valid_transfer() {
             let weight_from_verify_transfer = verify_restriction_weight();
             let computed_weight =
                 Asset::compute_transfer_result(false, 2, weight_from_verify_transfer).1;
-            assert!(matches!(result, computed_weight)); // Sender & receiver rules are processed.
+            assert_eq!(result, computed_weight); // Sender & receiver rules are processed.
 
             // Adding different claim rules
             let cond = |ty| Condition::from_dids(ty, &[eve_did]);
@@ -1969,7 +1965,7 @@ fn test_weights_for_is_valid_transfer() {
             let weight_from_verify_transfer = verify_restriction_weight();
             let computed_weight =
                 Asset::compute_transfer_result(false, 2, weight_from_verify_transfer).1;
-            assert!(matches!(result, computed_weight)); // Sender & receiver rules are processed.
+            assert_eq!(result, computed_weight); // Sender & receiver rules are processed.
 
             // pause transfer rules
             assert_ok!(ComplianceManager::pause_asset_compliance(
@@ -1981,7 +1977,7 @@ fn test_weights_for_is_valid_transfer() {
             let weight_from_verify_transfer = verify_restriction_weight();
             let computed_weight =
                 Asset::compute_transfer_result(false, 2, weight_from_verify_transfer).1;
-            assert!(matches!(result, computed_weight));
+            assert_eq!(result, computed_weight);
         });
 }
 

@@ -61,7 +61,7 @@ use sp_runtime::{
 };
 use sp_std::{collections::btree_set::BTreeSet, iter};
 use std::cell::RefCell;
-use std::convert::{From, TryFrom};
+use std::convert::From;
 use test_client::AccountKeyring;
 
 impl_opaque_keys! {

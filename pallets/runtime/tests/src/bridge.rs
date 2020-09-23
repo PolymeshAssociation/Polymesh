@@ -45,7 +45,7 @@ fn can_issue_to_identity() {
 }
 
 fn can_issue_to_identity_we() {
-    let alice_did = register_keyring_account_with_balance(AccountKeyring::Alice, 1_000).unwrap();
+    let _ = register_keyring_account_with_balance(AccountKeyring::Alice, 1_000).unwrap();
     let alice = Origin::signed(AccountKeyring::Alice.public());
 
     let bob_key = AccountKeyring::Bob.public();
@@ -149,8 +149,7 @@ fn can_issue_to_identity_we() {
 #[test]
 fn can_change_controller() {
     ExtBuilder::default().build().execute_with(|| {
-        let alice_did =
-            register_keyring_account_with_balance(AccountKeyring::Alice, 1_000).unwrap();
+        let _ = register_keyring_account_with_balance(AccountKeyring::Alice, 1_000).unwrap();
         let alice = Origin::signed(AccountKeyring::Alice.public());
 
         let bob_key = AccountKeyring::Bob.public();
@@ -252,7 +251,7 @@ fn can_freeze_and_unfreeze_bridge() {
 }
 
 fn do_freeze_and_unfreeze_bridge() {
-    let alice_did = register_keyring_account_with_balance(AccountKeyring::Alice, 1_000).unwrap();
+    let _ = register_keyring_account_with_balance(AccountKeyring::Alice, 1_000).unwrap();
     let alice = Origin::signed(AccountKeyring::Alice.public());
 
     let bob_key = AccountKeyring::Bob.public();
@@ -374,7 +373,7 @@ fn can_timelock_txs() {
 }
 
 fn do_timelock_txs() {
-    let alice_did = register_keyring_account_with_balance(AccountKeyring::Alice, 1_000).unwrap();
+    let _ = register_keyring_account_with_balance(AccountKeyring::Alice, 1_000).unwrap();
     let alice = Origin::signed(AccountKeyring::Alice.public());
 
     let bob_key = AccountKeyring::Bob.public();
@@ -482,7 +481,7 @@ fn can_rate_limit() {
 }
 
 fn do_rate_limit() {
-    let alice_did = register_keyring_account_with_balance(AccountKeyring::Alice, 1_000).unwrap();
+    let _ = register_keyring_account_with_balance(AccountKeyring::Alice, 1_000).unwrap();
     let alice = Origin::signed(AccountKeyring::Alice.public());
 
     let bob_key = AccountKeyring::Bob.public();
@@ -709,7 +708,7 @@ fn can_force_mint() {
 
 fn do_force_mint() {
     let admin = Origin::from(frame_system::RawOrigin::Signed(Default::default()));
-    let alice_did = register_keyring_account_with_balance(AccountKeyring::Alice, 1_000).unwrap();
+    let _ = register_keyring_account_with_balance(AccountKeyring::Alice, 1_000).unwrap();
     let alice = Origin::signed(AccountKeyring::Alice.public());
 
     let bob_key = AccountKeyring::Bob.public();
