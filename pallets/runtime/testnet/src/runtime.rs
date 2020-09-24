@@ -187,7 +187,7 @@ impl frame_system::Trait for Runtime {
     type OnKilledAccount = ();
     /// The data to be stored in an account.
     type AccountData = AccountData<Balance>;
-    type SystemWeightInfo = ();
+    type SystemWeightInfo = polymesh_weights::frame_system::WeightInfo;
 }
 
 parameter_types! {
@@ -300,7 +300,7 @@ impl pallet_timestamp::Trait for Runtime {
     type Moment = Moment;
     type OnTimestampSet = Babe;
     type MinimumPeriod = MinimumPeriod;
-    type WeightInfo = ();
+    type WeightInfo = polymesh_weights::pallet_timestamp::WeightInfo;
 }
 
 parameter_types! {

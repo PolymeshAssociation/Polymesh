@@ -11,6 +11,7 @@ edition = "2018"
 polymesh-common-utilities = { path = "../../common", default-features = false }
 polymesh-runtime-common = { path = "../common", default-features = false }
 polymesh-primitives = { path = "../../../primitives", default-features = false }
+polymesh-weights = { path = "../../weights", default-features = false }
 
 # Our pallets
 pallet-confidential = { path = "../../confidential", default-features = false }
@@ -162,7 +163,8 @@ std = [
     "pallet-staking-rpc-runtime-api/std",
     "node-rpc-runtime-api/std",
     "frame-benchmarking/std",
-    "frame-system-benchmarking/std"
+    "frame-system-benchmarking/std",
+    "polymesh-weights/std"
 ]
 
 runtime-benchmarks = [

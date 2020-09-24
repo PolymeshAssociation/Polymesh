@@ -5396,6 +5396,7 @@ dependencies = [
  "polymesh-common-utilities",
  "polymesh-primitives",
  "polymesh-runtime-common",
+ "polymesh-weights",
  "serde",
  "smallvec 1.4.2",
  "sp-api",
@@ -5470,6 +5471,7 @@ dependencies = [
  "polymesh-common-utilities",
  "polymesh-primitives",
  "polymesh-runtime-common",
+ "polymesh-weights",
  "serde",
  "serde_derive",
  "smallvec 1.4.2",
@@ -5553,6 +5555,15 @@ dependencies = [
  "sp-std 2.0.0-rc6",
  "substrate-test-runtime-client",
  "substrate-test-utils",
+]
+
+[[package]]
+name = "polymesh-weights"
+version = "0.1.0"
+dependencies = [
+ "frame-support",
+ "frame-system",
+ "pallet-timestamp",
 ]
 
 [[package]]

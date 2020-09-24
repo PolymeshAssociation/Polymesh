@@ -189,7 +189,7 @@ impl frame_system::Trait for Runtime {
     type OnKilledAccount = ();
     /// The data to be stored in an account.
     type AccountData = AccountData<Balance>;
-    type SystemWeightInfo = ();
+    type SystemWeightInfo = polymesh_weights::frame_system::WeightInfo;
 }
 
 parameter_types! {
@@ -302,7 +302,7 @@ impl pallet_timestamp::Trait for Runtime {
     type Moment = Moment;
     type OnTimestampSet = Babe;
     type MinimumPeriod = MinimumPeriod;
-    type WeightInfo = ();
+    type WeightInfo = polymesh_weights::pallet_timestamp::WeightInfo;
 }
 
 parameter_types! {
@@ -1233,6 +1233,7 @@ impl_runtime_apis! {
         ) -> Result<Vec<frame_benchmarking::BenchmarkBatch>, sp_runtime::RuntimeString> {
             use frame_benchmarking::{Benchmarking, BenchmarkBatch, add_benchmark, TrackedStorageKey};
 
+            use frame_system_benchmarking::Module as SystemBench;
             impl frame_system_benchmarking::Trait for Runtime {}
 
             let whitelist: Vec<TrackedStorageKey> = vec![
@@ -1264,6 +1265,8 @@ impl_runtime_apis! {
 
             add_benchmark!(params, batches, pallet_asset, Asset);
             add_benchmark!(params, batches, pallet_identity, Identity);
+            add_benchmark!(params, batches, frame_system, SystemBench::<Runtime>);
+            add_benchmark!(params, batches, pallet_timestamp, Timestamp);
 
             if batches.is_empty() { return Err("Benchmark not found for this pallet.".into()) }
             Ok(batches)

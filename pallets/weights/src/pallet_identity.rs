@@ -9,7 +9,7 @@ pub struct WeightInfo;
 impl pallet_identity::WeightInfo for WeightInfo {
 	// WARNING! Some components were not used: ["u"]
 	fn add_claim() -> Weight {
-		(46103000 as Weight)
+		(44592000 as Weight)
 			.saturating_add(DbWeight::get().reads(8 as Weight))
 			.saturating_add(DbWeight::get().writes(1 as Weight))
 	}

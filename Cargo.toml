@@ -46,6 +46,7 @@ members = [
     "pallets/statistics",
     "pallets/confidential",
     "pallets/utility",
+    "pallets/weights",
     "rpc/runtime-api",
     "node-rpc",
     "rpc",
