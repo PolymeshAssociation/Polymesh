@@ -609,3 +609,37 @@ fn mesh_1065_regression_test() {
         assert_ayes(vec![bob_did]);
     });
 }
+
+#[test]
+fn expiry_works() {
+    ExtBuilder::default().build().execute_with(|| {
+        System::set_block_number(1);
+
+        assert_ok!(Committee::set_expires_after(gc_vmo(), Some(13)));
+
+        let alice_ring = AccountKeyring::Alice;
+        let alice_signer = Origin::signed(alice_ring.public());
+        let alice_did = register_keyring_account(alice_ring).unwrap();
+        let _bob_signer = Origin::signed(AccountKeyring::Bob.public());
+        let bob_did = register_keyring_account(AccountKeyring::Bob).unwrap();
+        let _charlie_signer = Origin::signed(AccountKeyring::Charlie.public());
+        let charlie_did = register_keyring_account(AccountKeyring::Charlie).unwrap();
+
+        set_members(vec![alice_did, bob_did, charlie_did]);
+        prepare_proposal(alice_ring);
+        assert_eq!(Committee::proposals(), vec![]);
+
+        assert_ok!(vote(&alice_signer, true));
+        assert_eq!(
+            Committee::voting(&hash_enact_snapshot_results())
+                .unwrap()
+                .expiry,
+            Some(System::block_number() + 13),
+        );
+        fast_forward_blocks(13 + 1);
+        assert_err!(
+            vote(&alice_signer, true),
+            committee::Error::<TestStorage, committee::Instance1>::ProposalExpired
+        );
+    });
+}
