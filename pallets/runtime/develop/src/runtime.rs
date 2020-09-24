@@ -285,6 +285,7 @@ impl balances::Trait for Runtime {
     type AccountStore = frame_system::Module<Runtime>;
     type Identity = Identity;
     type CddChecker = CddChecker<Runtime>;
+    type WeightInfo = ();
 }
 
 impl protocol_fee::Trait for Runtime {
@@ -396,6 +397,7 @@ impl pallet_staking::Trait for Runtime {
     type MinSolutionScoreBump = MinSolutionScoreBump;
     type MaxNominatorRewardedPerValidator = MaxNominatorRewardedPerValidator;
     type UnsignedPriority = StakingUnsignedPriority;
+    type WeightInfo = ();
     type RequiredAddOrigin = frame_system::EnsureRoot<AccountId>;
     type RequiredRemoveOrigin = frame_system::EnsureRoot<AccountId>;
     type RequiredComplianceOrigin = frame_system::EnsureRoot<AccountId>;

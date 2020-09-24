@@ -241,6 +241,7 @@ impl balances::Trait for TestStorage {
     type AccountStore = frame_system::Module<TestStorage>;
     type Identity = identity::Module<TestStorage>;
     type CddChecker = CddChecker<Self>;
+    type WeightInfo = ();
 }
 
 parameter_types! {
