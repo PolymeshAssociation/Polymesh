@@ -515,19 +515,17 @@ decl_module! {
             claim: Claim,
             expiry: Option<T::Moment>,
         ) -> DispatchResult {
-            // Validate whether the origin is signed or not. Also validate whether the given IdentityId (i.e target) has
-            // already been in the system or not.
-            let issuer = Self::ensure_signer_and_validate_claim_target(origin, target)?;
+            let issuer = Self::ensure_signed_and_validate_claim_target(origin, target)?;
 
             match &claim {
-                Claim::CustomerDueDiligence(..) => Self::base_add_cdd_claim(target, claim, issuer, expiry)?,
-                Claim::InvestorUniqueness(..) => return Err(Error::<T>::ClaimVariantNotAllowed.into()),
+                Claim::CustomerDueDiligence(..) => Self::base_add_cdd_claim(target, claim, issuer, expiry),
+                Claim::InvestorUniqueness(..) => Err(Error::<T>::ClaimVariantNotAllowed.into()),
                 _ => {
                     T::ProtocolFee::charge_fee(ProtocolOp::IdentityAddClaim)?;
-                    Self::base_add_claim(target, claim, issuer, expiry)
+                    Self::base_add_claim(target, claim, issuer, expiry);
+                    Ok(())
                 }
-            };
-            Ok(())
+            }
         }
 
         /// Creates a call on behalf of another DID.
@@ -900,13 +898,12 @@ decl_module! {
         ///
         /// # <weight>
         ///  Weight of the this extrinsic is depend on the computation that used to validate
-        ///  the proof of claim and that will be constant and not depend on the user inputs.
+        ///  the proof of claim, which will be a constant independent of user inputs.
         /// # </weight>
         ///
         /// # Arguments
-        /// * origin - Who provides the claim to the user, In this case user's account id as user provide
-        /// this claim to itself.
-        /// * target - IdentityId whom claim get assigned.
+        /// * origin - Who provides the claim to the user? In this case, it's the user's account id as the user provides.
+        /// * target - `IdentityId` to which the claim gets assigned.
         /// * claim - `InvestorUniqueness` claim details.
         /// * proof - To validate the self attestation.
         /// * expiry - Expiry of claim.
@@ -915,12 +912,10 @@ decl_module! {
         /// * `DidMustAlreadyExist` Target should already been a part of the ecosystem.
         /// * `ClaimVariantNotAllowed` When origin trying to pass claim variant other than `InvestorUniqueness`.
         /// * `ConfidentialScopeClaimNotAllowed` When issuer is different from target or CDD_ID is invalid for given user.
-        /// * `InvalidScopeClaim1 When proof is invalid.
+        /// * `InvalidScopeClaim When proof is invalid.
         #[weight = 7_500_000_000]
         pub fn add_investor_uniqueness_claim(origin, target: IdentityId, claim: Claim, proof: InvestorZKProofData, expiry: Option<T::Moment>) -> DispatchResult {
-            // Validate whether the origin is signed or not. Also validate whether the given IdentityId (i.e target) has
-            // already been in the system or not.
-            let issuer = Self::ensure_signer_and_validate_claim_target(origin, target)?;
+            let issuer = Self::ensure_signed_and_validate_claim_target(origin, target)?;
 
             // Validate proof and add claim only when the claim variant is `InvestorUniqueness` only
             // otherwise throw and error.
@@ -1871,9 +1866,8 @@ impl<T: Trait> Module<T> {
         }
     }
 
-    /// Validate whether the origin is signed or not. Also validate whether the given IdentityId (i.e target) has
-    /// already been in the system or not.
-    fn ensure_signer_and_validate_claim_target(
+    /// Ensure that the origin is signed and that the given `target` is already in the system.
+    fn ensure_signed_and_validate_claim_target(
         origin: T::Origin,
         target: IdentityId,
     ) -> StdResult<IdentityId, DispatchError> {

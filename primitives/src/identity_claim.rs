@@ -105,9 +105,9 @@ pub enum Claim {
     /// Confidential claim that will allow an investor to justify that it's identity can be
     /// a potential asset holder of given `scope`.
     ///
-    /// This claim is mandatory to have for an investor. It will help issuer to apply compliance rules
-    /// on the `ScopeId` instead of investor identityId as ScopeId is unique at investor entity level
-    /// for a given scope (always be a Ticker).
+    /// All investors must have this claim, which will help the issuer apply compliance rules
+    /// on the `ScopeId` instead of the investor's `IdentityId`, as `ScopeId` is unique at the
+    /// investor entity level for a given scope (will always be a `Ticker`).
     InvestorUniqueness(#[migrate] Scope, ScopeId, CddId),
     /// Empty claim
     NoData,
