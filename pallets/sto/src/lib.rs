@@ -13,14 +13,14 @@ use frame_support::{
 };
 use frame_system::ensure_signed;
 use pallet_identity as identity;
-use pallet_portfolio::{self as portfolio, PortfolioAssetBalances, Trait as PortfolioTrait};
+use pallet_portfolio::PortfolioAssetBalances;
 use pallet_settlement::{
     self as settlement, Leg, SettlementType, Trait as SettlementTrait, VenueInfo, VenueType,
 };
-use pallet_timestamp::{self as timestamp, Trait as TimestampTrait};
+use pallet_timestamp::{self as timestamp};
 use polymesh_common_utilities::{
     constants::currency::*,
-    traits::{asset::Trait as AssetTrait, identity::Trait as IdentityTrait, CommonTrait},
+    traits::{asset::Trait as AssetTrait, identity::Trait as IdentityTrait},
     Context,
 };
 use polymesh_primitives::{IdentityId, PortfolioId, Ticker};
@@ -81,14 +81,7 @@ impl<Balance: From<u8>> Into<FundraiserTier<Balance>> for PriceTier<Balance> {
     }
 }
 
-pub trait Trait:
-    frame_system::Trait
-    + CommonTrait
-    + IdentityTrait
-    + SettlementTrait
-    + TimestampTrait
-    + PortfolioTrait
-{
+pub trait Trait: frame_system::Trait + IdentityTrait + SettlementTrait + PortfolioTrait {
     /// The overarching event type.
     type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
 }
@@ -180,8 +173,9 @@ decl_module! {
 
             ensure!(offering_amount >= asset_balance, Error::<T>::InsufficientTokensRemaining);
 
-            // Sort by price
-            tiers.sort_by(|a, b| a.price.cmp(&b.price));
+            let mut tiers = tiers;
+            // (Stable) sort by price.
+            tiers.sort_by_key(|a| a.price);
 
             // TODO: Take custodial ownership of $sell_amount of $offering_token from primary issuance agent?
             let fundraiser_id = Self::fundraiser_count(offering_asset) + 1;
@@ -196,7 +190,7 @@ decl_module! {
                     end,
                     frozen: false,
                 };
-            <FundraiserCount>::insert(offering_asset, fundraiser_id);
+            FundraiserCount::insert(offering_asset, fundraiser_id);
             <Fundraisers<T>>::insert(
                 offering_asset,
                 fundraiser_id,
