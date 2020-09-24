@@ -46,6 +46,8 @@
 //! - `issue` - Function is used to issue(or mint) new tokens to the primary issuance agent.
 //! - `controller_redeem` - Forces a redemption of an DID's tokens. Can only be called by token owner.
 //! - `make_divisible` - Change the divisibility of the token to divisible. Only called by the token owner.
+//! - `unchecked_set_total_supply` - Sets the initial total supply of a confidential asset.
+//!                                  Should only called by the token owner of a confidential asset. Should be called only once.
 //! - `can_transfer` - Checks whether a transaction with given parameters can take place or not.
 //! - `add_documents` - Add documents for a given token, Only be called by the token owner.
 //! - `remove_documents` - Remove documents for a given token, Only be called by the token owner.
@@ -920,7 +922,7 @@ decl_error! {
         /// Registration of ticker has expired.
         TickerRegistrationExpired,
         /// Transfers to self are not allowed
-        SenderSameAsReceiver
+        SenderSameAsReceiver,
     }
 }
 
@@ -970,6 +972,21 @@ impl<T: Trait> AssetTrait<T::Balance, T::AccountId> for Module<T> {
         value: T::Balance,
     ) -> DispatchResultWithPostInfo {
         Self::base_transfer(from_portfolio, to_portfolio, ticker, value)
+    }
+
+    fn unchecked_set_total_supply(
+        did: IdentityId,
+        ticker: Ticker,
+        total_supply: T::Balance,
+    ) -> DispatchResult {
+        Self::unchecked_set_total_supply(did, ticker, total_supply)
+    }
+
+    fn is_divisible(ticker: Ticker) -> bool {
+        Self::token_details(ticker).divisible
+    }
+    fn token_details(ticker: &Ticker) -> SecurityToken<T::Balance> {
+        Self::token_details(ticker)
     }
 
     /// Create and add a new security token.
@@ -1831,6 +1848,34 @@ impl<T: Trait> Module<T> {
             Error::<T>::NoSuchSmartExtension
         );
         Ok(did)
+    }
+
+    /// Sets the initial total supply of a confidential asset.
+    /// Only called by the token owner of a confidential asset. Can be called only once.
+    ///
+    /// # Arguments
+    /// * `did` Identity id of the owner the caller.
+    /// * `ticker` Ticker of the token.
+    /// * `total_supply` Ticker of the token.
+    pub fn unchecked_set_total_supply(
+        did: IdentityId,
+        ticker: Ticker,
+        total_supply: T::Balance,
+    ) -> DispatchResult {
+        // Read the token details.
+        let mut token = Self::token_details(&ticker);
+        token.total_supply = total_supply;
+        <Tokens<T>>::insert(&ticker, token);
+        Self::deposit_event(RawEvent::Issued(
+            did,
+            ticker,
+            did,
+            total_supply,
+            Self::funding_round(&ticker),
+            total_supply,
+            None,
+        ));
+        Ok(())
     }
 
     /// Create and add a new security token.
