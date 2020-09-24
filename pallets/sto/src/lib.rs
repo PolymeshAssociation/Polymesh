@@ -18,7 +18,11 @@ use pallet_settlement::{
     self as settlement, Leg, SettlementType, Trait as SettlementTrait, VenueInfo, VenueType,
 };
 use pallet_timestamp::{self as timestamp, Trait as TimestampTrait};
-use polymesh_common_utilities::{constants::currency::*, traits::{asset::Trait as AssetTrait, identity::Trait as IdentityTrait}, Context, CommonTrait};
+use polymesh_common_utilities::{
+    constants::currency::*,
+    traits::{asset::Trait as AssetTrait, identity::Trait as IdentityTrait},
+    CommonTrait, Context,
+};
 use polymesh_primitives::{IdentityId, PortfolioId, Ticker};
 use sp_runtime::traits::{CheckedAdd, CheckedMul, Saturating};
 use sp_std::{collections::btree_set::BTreeSet, iter, prelude::*};
