@@ -13,16 +13,12 @@ use frame_support::{
 };
 use frame_system::ensure_signed;
 use pallet_identity as identity;
-use pallet_portfolio::PortfolioAssetBalances;
+use pallet_portfolio::{PortfolioAssetBalances, Trait as PortfolioTrait};
 use pallet_settlement::{
     self as settlement, Leg, SettlementType, Trait as SettlementTrait, VenueInfo, VenueType,
 };
-use pallet_timestamp::{self as timestamp};
-use polymesh_common_utilities::{
-    constants::currency::*,
-    traits::{asset::Trait as AssetTrait, identity::Trait as IdentityTrait},
-    Context,
-};
+use pallet_timestamp::{self as timestamp, Trait as TimestampTrait};
+use polymesh_common_utilities::{constants::currency::*, traits::{asset::Trait as AssetTrait, identity::Trait as IdentityTrait}, Context, CommonTrait};
 use polymesh_primitives::{IdentityId, PortfolioId, Ticker};
 use sp_runtime::traits::{CheckedAdd, CheckedMul, Saturating};
 use sp_std::{collections::btree_set::BTreeSet, iter, prelude::*};
@@ -59,12 +55,12 @@ pub struct Fundraiser<Balance, Moment> {
 #[cfg_attr(feature = "std", derive(Debug))]
 #[derive(Encode, Decode, Default, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct PriceTier<Balance> {
-    amount: Balance,
+    total: Balance,
     price: Balance,
 }
 
 /// Single price tier of a `Fundraiser`.
-/// Similar to a `PriceTier` but with an extra field `remaining` for tracking the amount available in a tier.
+/// Similar to a `PriceTier` but with an extra field `remaining` for tracking the amount available for purchase in a tier.
 #[cfg_attr(feature = "std", derive(Debug))]
 #[derive(Encode, Decode, Default, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct FundraiserTier<Balance> {
@@ -72,11 +68,11 @@ pub struct FundraiserTier<Balance> {
     remaining: Balance,
 }
 
-impl<Balance: From<u8>> Into<FundraiserTier<Balance>> for PriceTier<Balance> {
+impl<Balance> Into<FundraiserTier<Balance>> for PriceTier<Balance> {
     fn into(self) -> FundraiserTier<Balance> {
         FundraiserTier {
+            remaining: self.total.clone(),
             inner: self,
-            remaining: Balance::from(0),
         }
     }
 }
@@ -122,6 +118,8 @@ decl_error! {
         InvalidVenue,
         // Using an invalid portfolio
         InvalidPortfolio,
+        // An individual price tier was invalid or a set of price tiers was invalid
+        InvalidPriceTiers,
     }
 }
 
@@ -166,10 +164,13 @@ decl_module! {
             ensure!(<PortfolioAssetBalances<T>>::contains_key(offering_portfolio, offering_asset), Error::<T>::InvalidPortfolio);
             let asset_balance = <PortfolioAssetBalances<T>>::get(offering_portfolio, offering_asset);
 
+            ensure!(tiers.len() > 0, Error::<T>::InvalidPriceTiers);
+            ensure!(tiers.iter().all(|t| t.total > 0.into()), Error::<T>::InvalidPriceTiers);
+
             let offering_amount: T::Balance = tiers
                 .iter()
-                .map(|t| t.amount)
-                .fold(0.into(), |x, total| total + x);
+                .map(|t| t.total)
+                .fold(0.into(), |total, x| total + x);
 
             ensure!(offering_amount >= asset_balance, Error::<T>::InsufficientTokensRemaining);
 
@@ -186,7 +187,7 @@ decl_module! {
                     raising_asset,
                     tiers: tiers.into_iter().map(Into::into).collect(),
                     venue_id,
-                    start: start.unwrap_or(Timestamp::<T>::get()),
+                    start: start.unwrap_or_else(Timestamp::<T>::get),
                     end,
                     frozen: false,
                 };
@@ -204,45 +205,54 @@ decl_module! {
 
         /// Purchase tokens from an ongoing offering.
         #[weight = 2_000_000_000]
-        pub fn invest(origin, portfolio: PortfolioId, offering_asset: Ticker, fundraiser_id: u64, offering_token_amount: T::Balance, max_price: T::Balance) -> DispatchResult {
+        pub fn invest(origin, portfolio: PortfolioId, offering_asset: Ticker, fundraiser_id: u64, amount: T::Balance, max_price: T::Balance) -> DispatchResult {
             let sender = ensure_signed(origin.clone())?;
             let did = Context::current_identity_or::<Identity<T>>(&sender)?;
 
             ensure!(<Fundraisers<T>>::contains_key(offering_asset, fundraiser_id), Error::<T>::FundraiserNotFound);
             let fundraiser = <Fundraisers<T>>::get(offering_asset, fundraiser_id);
 
-            let mut remaining = offering_token_amount;
+            // Remaining tokens to fulfil the investment amount
+            let mut remaining = amount;
+            // Total cost to to fulfil the investment amount.
+            // Primary use is to calculate the blended price (offering_token_amount / cost).
+            // Blended price must be <= to max_price or the investment will fail.
             let mut cost = T::Balance::from(0);
-            let mut order = Vec::new();
+            // Individual purchases from each tier that accumulate to fulfil the investment amount.
+            // Tuple of (tier_id, amount to purchase from that tier).
+            let mut purchases = Vec::new();
+
             for (id, tier) in fundraiser.tiers.iter().enumerate() {
+                // fulfilled the investment amount
                 if remaining == 0.into() {
                     break
                 }
 
-                if tier.remaining == tier.inner.amount {
-                    break
+                // tier is exhausted, move on
+                if tier.remaining == 0.into() {
+                    continue
                 }
 
-                if tier.remaining > remaining {
-                    order.push((id, remaining));
-                    cost.checked_add(
-                        &remaining
-                        .checked_mul(&tier.inner.price)
-                        .ok_or(Error::<T>::Overflow)?
-                    )
-                    .ok_or(Error::<T>::Overflow)?;
-                    remaining = 0.into();
-                    break;
+                // Check if this tier can fulfil the remaining investment amount.
+                // If it can, purchase the remaining amount.
+                // If it can't, purchase what's remaining in the tier.
+                let purchase_amount = if tier.remaining >= remaining {
+                    remaining
+                } else {
+                    tier.remaining
                 }
+
+                remaining -= purchase_amount;
+                purchases.push((id, purchase_amount));
+                cost.checked_add(
+                    &remaining
+                    .checked_mul(&tier.inner.price)
+                    .ok_or(Error::<T>::Overflow)?
+                ).ok_or(Error::<T>::Overflow)?;
             }
 
-            // // Ceil of offering_token_amount * price_per_million
-            // let raise_token_amount = offering_token_amount
-            //     .checked_mul(&fundraiser.price_per_token)
-            //     .ok_or(Error::<T>::Overflow)?
-            //     .saturating_add((ONE_UNIT - 1).into())
-            //     / ONE_UNIT.into();
-            //
+            ensure!(remaining == 0.into(), Error::<T>::InsufficientTokensRemaining);
+
             // let primary_issuance_agent = T::Asset::primary_issuance_agent(&offering_token);
             // let legs = vec![
             //     Leg {
