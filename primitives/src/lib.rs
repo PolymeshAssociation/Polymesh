@@ -211,10 +211,11 @@ pub use condition::{Condition, ConditionType, TargetIdentity};
 
 /// Predicate calculation for Claims.
 pub mod proposition;
-pub use proposition::{
-    AndProposition, Context, NotProposition, OrProposition, Proposition,
-    ValidProofOfInvestorProposition,
-};
+pub use proposition::{AndProposition, Context, NotProposition, OrProposition, Proposition};
+
+/// For confidential stuff.
+pub mod valid_proof_of_investor;
+pub use valid_proof_of_investor::ValidProofOfInvestor;
 
 /// Represents custom transaction errors.
 #[repr(u8)]

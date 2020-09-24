@@ -279,6 +279,7 @@ impl balances::Trait for Test {
     type AccountStore = System;
     type Identity = identity::Module<Test>;
     type CddChecker = Test;
+    type WeightInfo = ();
 }
 
 parameter_types! {
@@ -597,6 +598,7 @@ impl Trait for Test {
     type RequiredComplianceOrigin = frame_system::EnsureRoot<AccountId>;
     type RequiredCommissionOrigin = frame_system::EnsureRoot<AccountId>;
     type RequiredChangeHistoryDepthOrigin = frame_system::EnsureRoot<AccountId>;
+    type WeightInfo = ();
 }
 
 impl<LocalCall> frame_system::offchain::SendTransactionTypes<LocalCall> for Test

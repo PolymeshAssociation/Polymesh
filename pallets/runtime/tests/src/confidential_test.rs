@@ -19,6 +19,7 @@ use frame_support::{assert_err, assert_ok};
 use test_client::AccountKeyring;
 
 type Identity = identity::Module<TestStorage>;
+type IdentityError = identity::Error<TestStorage>;
 type Asset = asset::Module<TestStorage>;
 type AssetError = asset::Error<TestStorage>;
 type Confidential = confidential::Module<TestStorage>;
@@ -148,22 +149,33 @@ fn scope_claims_we() {
     let cdd_claim_1 = InvestorZKProofData::make_cdd_claim(&inv_did_1, &investor);
     let cdd_id_1 = compute_cdd_id(&cdd_claim_1).compress().to_bytes().into();
 
-    let conf_scope_claim_1 =
+    let conf_scope_claim_error =
         Claim::InvestorZKProof(st_scope.clone(), scope_id, cdd_id_1, inv_1_proof.clone());
+    let conf_scope_claim_1 =
+        Claim::InvestorZKProof(st_id.into(), scope_id, cdd_id_1, inv_1_proof.clone());
+
+    assert_err!(
+        Identity::add_claim(
+            Origin::signed(inv_acc_1),
+            inv_did_1,
+            conf_scope_claim_error.clone(),
+            None
+        ),
+        IdentityError::InvalidScopeClaim
+    );
 
     assert_ok!(Identity::add_claim(
         Origin::signed(inv_acc_1),
         inv_did_1,
         conf_scope_claim_1.clone(),
         None
-    ));
+    ),);
 
     let inv_2_proof = InvestorZKProofData::new(&inv_did_2, &investor, &st_id);
     let cdd_claim_2 = InvestorZKProofData::make_cdd_claim(&inv_did_2, &investor);
     let cdd_id_2 = compute_cdd_id(&cdd_claim_2).compress().to_bytes().into();
 
-    let conf_scope_claim_2 =
-        Claim::InvestorZKProof(st_scope.clone(), scope_id, cdd_id_2, inv_2_proof);
+    let conf_scope_claim_2 = Claim::InvestorZKProof(st_id.into(), scope_id, cdd_id_2, inv_2_proof);
     assert_ok!(Identity::add_claim(
         Origin::signed(inv_acc_2),
         inv_did_2,
@@ -198,7 +210,7 @@ fn scope_claims_we() {
             conf_scope_claim_1,
             None
         ),
-        Error::<TestStorage>::ConfidentialScopeClaimNotAllowed
+        IdentityError::ConfidentialScopeClaimNotAllowed
     );
 
     // 5. ERROR: Replace the scope
@@ -224,7 +236,6 @@ fn scope_claims_we() {
         None,
     ));
 
-    let st_scope = Scope::Identity(IdentityId::try_from(st2_id.as_slice()).unwrap());
     let corrupted_scope_claim = InvestorZKProofData::make_scope_claim(&st2_id, &investor);
     let corrupted_scope_id = compute_scope_id(&corrupted_scope_claim)
         .compress()
@@ -232,13 +243,16 @@ fn scope_claims_we() {
         .into();
 
     let conf_scope_claim_3 =
-        Claim::InvestorZKProof(st_scope, corrupted_scope_id, cdd_id_1, inv_1_proof);
-    assert_ok!(Identity::add_claim(
-        Origin::signed(inv_acc_1),
-        inv_did_1,
-        conf_scope_claim_3.clone(),
-        None
-    ));
+        Claim::InvestorZKProof(st2_id.into(), corrupted_scope_id, cdd_id_1, inv_1_proof);
+    assert_err!(
+        Identity::add_claim(
+            Origin::signed(inv_acc_1),
+            inv_did_1,
+            conf_scope_claim_3.clone(),
+            None
+        ),
+        IdentityError::InvalidScopeClaim
+    );
 
     assert_ne!(
         Asset::_is_valid_transfer(
