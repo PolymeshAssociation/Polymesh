@@ -20,10 +20,10 @@ async function main() {
   const testEntities = await reqImports.initMain(api);
 
   let alice = testEntities[0];
-  let bob = testEntities[1];
-  let charlie = testEntities[2];
-  let dave = testEntities[3];
-  let eve = testEntities[7];
+  let bob = await reqImports.generateRandomEntity(api);
+  let charlie = await reqImports.generateRandomEntity(api);
+  let dave = await reqImports.generateRandomEntity(api);
+  let eve = await reqImports.generateRandomEntity(api);
 
   let eve_did = await reqImports.createIdentities(api, [eve], alice);
   eve_did = eve_did[0];

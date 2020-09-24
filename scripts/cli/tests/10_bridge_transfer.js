@@ -13,7 +13,7 @@ async function main() {
   const testEntities = await reqImports.initMain(api);
 
   let alice = testEntities[0];
-  let relay = testEntities[4];
+  let relay = testEntities[1];
 
   let alice_did = JSON.parse(
     await reqImports.keyToIdentityIds(api, alice.publicKey)

@@ -19,7 +19,7 @@ async function main() {
   const testEntities = await reqImports.initMain(api);
 
   let alice = testEntities[0];
-  let bob = testEntities[1];
+  let bob = await reqImports.generateRandomEntity(api);
 
   let bob_did = await reqImports.createIdentities(api, [bob], alice);
   bob_did = bob_did[0];

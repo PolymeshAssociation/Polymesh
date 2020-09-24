@@ -14,6 +14,7 @@ const BN = require("bn.js");
 const assert = require("assert");
 const fs = require("fs");
 const path = require("path");
+const cryptoRandomString = require('crypto-random-string');
 
 let nonces = new Map();
 let sk_roles = [[0], [1], [2], [1, 2]];
@@ -59,22 +60,14 @@ async function initMain(api) {
   let entities = [];
 
   let alice = await generateEntity(api, "Alice");
-  let bob = await generateEntity(api, "Bob");
-  let charlie = await generateEntity(api, "Charlie");
-  let dave = await generateEntity(api, "Dave");
-  let eve = await generateEntity(api, "Eve");
   let relay = await generateEntity(api, "relay_1");
   let govCommittee1 = await generateEntity(api, "governance_committee_1");
   let govCommittee2 = await generateEntity(api, "governance_committee_2");
 
   entities.push(alice);
-  entities.push(bob);
-  entities.push(charlie);
-  entities.push(dave);
   entities.push(relay);
   entities.push(govCommittee1);
   entities.push(govCommittee2);
-  entities.push(eve);
 
   return entities;
 }
@@ -136,6 +129,11 @@ const generateEntityFromUri = async function (api, uri) {
   nonces.set(entity.address, account_nonce);
   return entity;
 };
+
+const generateRandomEntity = async function (api) {
+  let entity = await generateEntityFromUri(api, cryptoRandomString({length: 10}));
+  return entity;
+}
 
 const blockTillPoolEmpty = async function (api) {
   let prev_block_pending = 0;
@@ -659,6 +657,7 @@ let reqImports = {
   unauthorizeInstruction,
   rejectInstruction,
   claimReceipt,
+  generateRandomEntity,
 };
 
 export { reqImports };
