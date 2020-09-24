@@ -22,28 +22,34 @@ use codec::{Decode, Encode};
 use cryptography::{
     mercat::{
         account::{convert_asset_ids, AccountValidator},
-        AccountCreatorVerifier, EncryptionPubKey, PubAccountTx,
+        asset::AssetValidator,
+        AccountCreatorVerifier, AssetTransactionVerifier, EncryptedAmount, EncryptedAssetId,
+        EncryptionPubKey, InitializedAssetTx, PubAccount, PubAccountTx,
     },
     AssetId,
 };
-use frame_support::{decl_error, decl_event, decl_module, decl_storage, dispatch::DispatchResult};
+use frame_support::{
+    decl_error, decl_event, decl_module, decl_storage, dispatch::DispatchResult, ensure,
+};
 use frame_system::ensure_signed;
 use pallet_identity as identity;
+use pallet_statistics::{self as statistics};
 use polymesh_common_utilities::{
-    asset::Trait as AssetTrait, balances::Trait as BalancesTrait, identity::Trait as IdentityTrait,
-    CommonTrait, Context,
+    asset::Trait as AssetTrait, balances::Trait as BalancesTrait, constants::currency::ONE_UNIT,
+    identity::Trait as IdentityTrait, CommonTrait, Context,
 };
 use polymesh_primitives::{
     AssetIdentifier, AssetName, AssetType, FundingRoundName, IdentifierType, IdentityId, Ticker,
 };
 use polymesh_primitives_derive::VecU8StrongTyped;
+use sp_runtime::{traits::Zero, SaturatedConversion};
 use sp_std::{
     convert::{From, TryFrom},
     prelude::*,
 };
 
 /// The module's configuration trait.
-pub trait Trait: frame_system::Trait + IdentityTrait + BalancesTrait {
+pub trait Trait: frame_system::Trait + IdentityTrait + BalancesTrait + statistics::Trait {
     type Asset: AssetTrait<Self::Balance, Self::AccountId>;
     type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
 }
@@ -55,12 +61,28 @@ pub trait Trait: frame_system::Trait + IdentityTrait + BalancesTrait {
 #[derive(Encode, Decode, Clone, Debug, PartialEq, Eq, VecU8StrongTyped, Default)]
 pub struct EncryptedAssetIdWrapper(pub Vec<u8>);
 
+impl EncryptedAssetIdWrapper {
+    /// Unwraps the value so that it can be passed to meract library.
+    fn to_mercat<T: Trait>(&self) -> Result<EncryptedAssetId, Error<T>> {
+        let mut data: &[u8] = &self.0;
+        EncryptedAssetId::decode(&mut data).map_err(|_| Error::<T>::UnwrapMercatDataError)
+    }
+}
+
 /// Wrapper for Ciphertexts that correspond to EncryptedBalance.
 /// This is needed since `mercat::asset_proofs::elgamal_encryption::CipherText` implements
 /// Encode and Decode, instead of deriving them. As a result, the EncodeLike operator is
 /// not automatically implemented.
 #[derive(Encode, Decode, Clone, Debug, PartialEq, Eq, VecU8StrongTyped, Default)]
 pub struct EncryptedBalanceWrapper(pub Vec<u8>);
+
+impl EncryptedBalanceWrapper {
+    /// Unwraps the value so that it can be passed to meract library.
+    fn to_mercat<T: Trait>(&self) -> Result<EncryptedAmount, Error<T>> {
+        let mut data: &[u8] = &self.0;
+        EncryptedAmount::decode(&mut data).map_err(|_| Error::<T>::UnwrapMercatDataError)
+    }
+}
 
 /// A mercat account consists of the public key that is used for encryption purposes and the
 /// encrypted asset id. The encrypted asset id also acts as the unique identifier of this
@@ -69,6 +91,16 @@ pub struct EncryptedBalanceWrapper(pub Vec<u8>);
 pub struct MercatAccount {
     pub encrypted_asset_id: EncryptedAssetIdWrapper,
     pub encryption_pub_key: EncryptionPubKey,
+}
+
+impl MercatAccount {
+    /// Unwraps the value so that it can be passed to meract library.
+    fn to_mercat<T: Trait>(&self) -> Result<PubAccount, Error<T>> {
+        Ok(PubAccount {
+            enc_asset_id: self.encrypted_asset_id.to_mercat()?,
+            owner_enc_pub_key: self.encryption_pub_key,
+        })
+    }
 }
 
 type Identity<T> = identity::Module<T>;
@@ -135,13 +167,13 @@ decl_module! {
 
         /// Initializes a new confidential security token.
         /// Makes the initiating account the owner of the security token
-        /// & the balance of the owner is set to total supply.
+        /// & the balance of the owner is set to total zero. To set to total supply, `mint_confidential_asset` should
+        /// be called after a successful call of this function.
         ///
         /// # Arguments
         /// * `origin` - contains the secondary key of the caller (i.e who signed the transaction to execute this function).
         /// * `name` - the name of the token.
         /// * `ticker` - the ticker symbol of the token.
-        /// * `total_supply` - the total supply of the token.
         /// * `divisible` - a boolean to identify the divisibility status of the token.
         /// * `asset_type` - the asset type.
         /// * `identifiers` - a vector of asset identifiers.
@@ -161,7 +193,6 @@ decl_module! {
             origin,
             name: AssetName,
             ticker: Ticker,
-            total_supply: T::Balance,
             divisible: bool,
             asset_type: AssetType,
             identifiers: Vec<(IdentifierType, AssetIdentifier)>,
@@ -170,17 +201,15 @@ decl_module! {
             let primary_owner = ensure_signed(origin)?;
             let primary_owner_did = Context::current_identity_or::<Identity<T>>(&primary_owner)?;
 
-            T::Asset::base_create_asset(primary_owner_did, name, ticker, total_supply, divisible, asset_type.clone(), identifiers, funding_round, true)?;
+            T::Asset::base_create_asset(primary_owner_did, name, ticker, Zero::zero(), divisible, asset_type.clone(), identifiers, funding_round, true)?;
 
             // Append the ticker to the list of confidential tickers.
             <ConfidentialTickers>::append(AssetId { id: ticker.as_bytes().clone() });
 
-            // TODO(CRYP-160) : mint `total_supply` assets to the primary asset issuer here.
-
             Self::deposit_event(RawEvent::ConfidentialAssetCreated(
                 primary_owner_did,
                 ticker,
-                total_supply,
+                Zero::zero(),
                 divisible,
                 asset_type,
                 primary_owner_did,
@@ -188,6 +217,107 @@ decl_module! {
             Ok(())
         }
 
+        /// Verifies the proof of the asset minting, `asset_mint_proof`. If successful, it sets the total
+        /// balance of the owner to `total_supply`. This function should only be called once with a non-zero total supply,
+        /// after `create_confidential_asset` is called.
+        ///
+        /// # Arguments
+        /// * `origin` - contains the secondary key of the caller (i.e who signed the transaction to execute this function).
+        /// * `ticker` - the ticker symbol of the token.
+        /// * `total_supply` - the total supply of the token.
+        /// * `asset_mint_proof` - The proofs that the encrypted asset id is a valid ticker name and that the `total_supply` matches encrypted value.
+        ///
+        /// # Errors
+        /// - `BadOrigin` if not signed.
+        /// - `Unauthorized` if origin is not the owner of the asset.
+        /// - `CanSetTotalSupplyOnlyOnce` if this function is called more than once.
+        /// - `TotalSupplyMustBePositive` if total supply is zero.
+        /// - `InvalidTotalSupply` if `total_supply` is not a multiply of unit.
+        /// - `TotalSupplyAboveU32Limit` if `total_supply` exceeds the u32 limit. This is imposed by the MERCAT lib.
+        /// - `NonConfidentialAssetTotalSupplyCannotBeSet` if this function is called for a non-confidential asset.
+        /// - `InvalidAccountMintProof` if the proofs of ticker name and total supply are incorrect.
+        ///
+        /// # Weight
+        /// `3_000_000_000`
+        #[weight = 3_000_000_000]
+        pub fn mint_confidential_asset(
+            origin,
+            ticker: Ticker,
+            total_supply: T::Balance,
+            asset_mint_proof: InitializedAssetTx,
+        ) -> DispatchResult {
+            let owner = ensure_signed(origin)?;
+            let owner_did = Context::current_identity_or::<Identity<T>>(&owner)?;
+
+            // Only the owner of the asset can change its total supply.
+            ensure!(
+                T::Asset::is_owner(&ticker, owner_did),
+                Error::<T>::Unauthorized
+            );
+
+            // Current total supply must be zero.
+            ensure!(
+                T::Asset::token_details(&ticker).total_supply == Zero::zero(),
+                Error::<T>::CanSetTotalSupplyOnlyOnce
+            );
+
+            // New total supply must be positive.
+            ensure!(
+                total_supply != Zero::zero(),
+                Error::<T>::TotalSupplyMustBePositive
+            );
+
+            ensure!(
+                Self::confidential_tickers().contains(&AssetId {
+                    id: *ticker.as_bytes(),
+                }),
+                Error::<T>::NonConfidentialAssetTotalSupplyCannotBeSet
+            );
+
+            if T::Asset::is_divisible(ticker) {
+                ensure!(
+                    total_supply % ONE_UNIT.into() == 0.into(),
+                    Error::<T>::InvalidTotalSupply
+                );
+            }
+
+            // At the moment, mercat lib imposes that balances can be at most u32 integers.
+            let max_balance_mercat = u32::MAX.saturated_into::<T::Balance>();
+            ensure!(
+                total_supply <= max_balance_mercat,
+                Error::<T>::TotalSupplyAboveU32Limit
+            );
+
+            let wrapped_encrypted_asset_id = EncryptedAssetIdWrapper::from(asset_mint_proof.account_id.encode());
+            let new_encrypted_balance = AssetValidator{}
+                                          .verify_asset_transaction(
+                                              total_supply.saturated_into::<u32>(),
+                                              &asset_mint_proof,
+                                              &Self::mercat_accounts(owner_did, wrapped_encrypted_asset_id.clone()).to_mercat::<T>()?,
+                                              &Self::mercat_account_balance(owner_did, wrapped_encrypted_asset_id.clone()).to_mercat::<T>()?,
+                                              &[]
+                                          ).map_err(|_| Error::<T>::InvalidAccountMintProof)?;
+
+            // Set the total supply (both encrypted and plain)
+            <MercatAccountBalance>::insert(
+                &owner_did,
+                &wrapped_encrypted_asset_id,
+                EncryptedBalanceWrapper::from(new_encrypted_balance.encode()),
+            );
+
+            // This will emit the total supply changed event.
+            T::Asset::unchecked_set_total_supply(owner_did, ticker, total_supply)?;
+
+            // Update statistic info.
+            <statistics::Module<T>>::update_transfer_stats(
+                &ticker,
+                None,
+                Some(total_supply),
+                total_supply,
+            );
+
+            Ok(())
+        }
     }
 }
 
@@ -208,5 +338,29 @@ decl_error! {
     pub enum Error for Module<T: Trait> {
         /// Mercat library has rejected the account creation proofs.
         InvalidAccountCreationProof,
+
+        /// Error during the converting of wrapped data types into mercat data types.
+        UnwrapMercatDataError,
+
+        /// Mercat library has rejected the asset issuance proofs.
+        InvalidAccountMintProof,
+
+        /// Thrown when the total supply of a confidential asset is not divisible.
+        InvalidTotalSupply,
+
+        /// The balance values does not fit `u32`.
+        TotalSupplyAboveU32Limit,
+
+        /// The user is not authorized.
+        Unauthorized,
+
+        /// Only confidential assets' total supply can change after registering the asset.
+        NonConfidentialAssetTotalSupplyCannotBeSet,
+
+        /// After registering the confidential asset, its total supply can change once from zero to a positive value.
+        CanSetTotalSupplyOnlyOnce,
+
+        /// After registering the confidential asset, its total supply can change once from zero to a positive value.
+        TotalSupplyMustBePositive,
     }
 }
