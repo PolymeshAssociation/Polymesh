@@ -401,6 +401,7 @@ impl pallet_staking::Trait for Runtime {
     type RequiredComplianceOrigin = frame_system::EnsureRoot<AccountId>;
     type RequiredCommissionOrigin = frame_system::EnsureRoot<AccountId>;
     type RequiredChangeHistoryDepthOrigin = frame_system::EnsureRoot<AccountId>;
+    type WeightInfo = ();
 }
 
 parameter_types! {
