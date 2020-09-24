@@ -279,6 +279,7 @@ impl balances::Trait for Test {
     type AccountStore = System;
     type Identity = identity::Module<Test>;
     type CddChecker = Test;
+    type WeightInfo = ();
 }
 
 parameter_types! {
