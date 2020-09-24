@@ -24,7 +24,7 @@ use lazy_static::lazy_static;
 use rand::Rng;
 use sp_state_machine::Backend as _;
 use sp_trie::{trie_types::TrieDBMut, TrieMut as _};
-use std::{borrow::Cow, collections::HashMap, sync::Arc, process::Command};
+use std::{borrow::Cow, collections::HashMap, process::Command, sync::Arc};
 
 use node_primitives::Hash;
 
