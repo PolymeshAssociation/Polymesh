@@ -377,6 +377,7 @@ impl ExtBuilder {
             default_enactment_period: 100,
             max_pip_skip_count: 1,
             active_pip_limit: 5,
+            pending_pip_expiry: None,
         }
         .assimilate_storage(&mut storage)
         .unwrap();

@@ -217,6 +217,11 @@ fn updating_pips_variables_works() {
         assert_last_event!(Event::DefaultEnactmentPeriodChanged(_, 100, 10));
         assert_eq!(Pips::default_enactment_period(), 10);
 
+        assert_eq!(Pips::pending_pip_expiry(), None);
+        assert_ok!(Pips::set_pending_pip_expiry(root(), Some(13)));
+        assert_last_event!(Event::PendingPipExpiryChanged(_, None, Some(13)));
+        assert_eq!(Pips::pending_pip_expiry(), Some(13));
+
         assert_eq!(Pips::max_pip_skip_count(), 1);
         assert_ok!(Pips::set_max_pip_skip_count(root(), 42));
         assert_last_event!(Event::MaxPipSkipCountChanged(_, 1, 42));
@@ -277,6 +282,7 @@ fn historical_prune_works() {
         set_members(vec![bob.did]);
         assert_pruned(executed_community_proposal(&bob.signer()));
         assert_pruned(failed_community_proposal(bob, 1337));
+        assert_pruned(expired_proposal(7, 13));
     });
 }
 
@@ -513,15 +519,14 @@ fn proposal_details_are_correct() {
         ));
         assert_last_event!(Event::ProposalCreated(..));
 
-        let prop = Pips::proposals(0).unwrap();
-        assert_eq!(prop.id, 0);
-        assert_eq!(prop.proposal, call);
-        assert_eq!(prop.state, ProposalState::Pending);
-        assert_eq!(prop.proposer, proposer);
-        assert_eq!(
-            prop.cool_off_until,
-            System::block_number() + Pips::proposal_cool_off_period()
-        );
+        let expected = Pip {
+            id: 0,
+            proposal: call,
+            state: ProposalState::Pending,
+            proposer,
+            cool_off_until: System::block_number() + Pips::proposal_cool_off_period(),
+        };
+        assert_eq!(Pips::proposals(0).unwrap(), expected);
 
         let expected = PipsMetadata {
             id: 0,
@@ -586,6 +591,7 @@ fn amend_proposal_not_pending() {
             op_and_check(alice.signer(), executed_community_proposal(&alice.signer()));
             op_and_check(alice.signer(), failed_community_proposal(alice, 1337));
             op_and_check(alice.signer(), scheduled_proposal(&alice.signer(), 0));
+            op_and_check(alice.signer(), expired_proposal(42, 24));
         })
     };
     op_and_check(&|o, id| assert_bad_state!(Pips::amend_proposal(o, id, None, None)));
@@ -944,6 +950,7 @@ fn approve_committee_proposal_not_pending() {
         acp_bad_state(executed_community_proposal(&alice.signer()));
         acp_bad_state(failed_community_proposal(alice, 1337));
         acp_bad_state(scheduled_proposal(&alice.signer(), 0));
+        acp_bad_state(expired_proposal(8, 9));
     });
 }
 
@@ -1166,6 +1173,36 @@ fn rejected_proposal() -> PipId {
     next_id
 }
 
+fn expired_proposal(cool_off: u64, expiry: u64) -> PipId {
+    let next_id = Pips::pip_id_sequence();
+
+    // Save old config data and set new ones for cool-off/expiry.
+    let old_cool_off = Pips::proposal_cool_off_period();
+    let old_expiry = Pips::pending_pip_expiry();
+    assert_ok!(Pips::set_proposal_cool_off_period(root(), cool_off));
+    assert_ok!(Pips::set_pending_pip_expiry(root(), Some(expiry)));
+    let expiry_time = cool_off + expiry;
+
+    // Create a proposal and verify its pending.
+    let active = Pips::active_pip_count();
+    assert_ok!(alice_proposal(Pips::min_proposal_deposit()));
+    assert_state(next_id, false, ProposalState::Pending);
+    assert_eq!(
+        Pips::proposal_metadata(next_id).unwrap().expiry,
+        Some(expiry_time + System::block_number())
+    );
+
+    // Now fast forward.
+    fast_forward_blocks(expiry_time + 1); // Forward exactly to expiry point + 1.
+    assert_eq!(Pips::active_pip_count(), active);
+
+    // Restore config to before function was called.
+    assert_ok!(Pips::set_proposal_cool_off_period(root(), old_cool_off));
+    assert_ok!(Pips::set_pending_pip_expiry(root(), old_expiry));
+
+    next_id
+}
+
 #[test]
 fn cannot_reject_incorrect_state() {
     ExtBuilder::default().build().execute_with(|| {
@@ -1183,6 +1220,7 @@ fn cannot_reject_incorrect_state() {
         reject_bad_state(executed_community_proposal(&bob.signer()));
         reject_bad_state(failed_community_proposal(bob, cancelled_id));
         reject_bad_state(rejected_proposal());
+        reject_bad_state(expired_proposal(77, 23));
     });
 }
 
@@ -1531,6 +1569,8 @@ fn reschedule_execution_not_scheduled() {
         assert_bad_state!(Pips::reschedule_execution(rc.clone(), id, None));
         let id = failed_community_proposal(User::existing(AccountKeyring::Alice), 1337);
         assert_bad_state!(Pips::reschedule_execution(rc.clone(), id, None));
+        let id = expired_proposal(3, 2);
+        assert_bad_state!(Pips::reschedule_execution(rc.clone(), id, None));
     });
 }
 
@@ -1640,10 +1680,11 @@ fn snapshot_only_pending_hot_community() {
         let e = executed_community_proposal(&rc);
         let f = failed_community_proposal(User::existing(AccountKeyring::Alice), 1337);
         let s = scheduled_proposal(&rc, 0);
+        let ex = expired_proposal(9, 1);
         assert_ok!(Pips::set_proposal_cool_off_period(root(), 100));
         assert_ok!(alice_proposal(0));
         let p = Pips::pip_id_sequence() - 1;
-        for id in &[c, r, e, f, s, p] {
+        for id in &[c, r, e, f, s, p, ex] {
             assert!(matches!(
                 Pips::proposals(*id).unwrap().proposer,
                 Proposer::Community(_)
@@ -1868,5 +1909,38 @@ fn enact_snapshot_results_works() {
             Event::SnapshotResultsEnacted(_, None, a, b, c),
             a.is_empty() && b.is_empty() && c.is_empty()
         )
+    });
+}
+
+#[test]
+fn expiry_works() {
+    ExtBuilder::default().build().execute_with(|| {
+        System::set_block_number(1);
+        assert_ok!(Pips::set_min_proposal_deposit(root(), 0));
+
+        // Test non-prune logic. Prune logic is tested elsewhere.
+        assert_ok!(Pips::set_prune_historical_pips(root(), false));
+        let id = expired_proposal(7, 13);
+        assert_state(id, true, ProposalState::Expired);
+        // Travel back in time, and ensure expiry is sticky.
+        // This doesn't arise in a real world scenario, but tests an edge case in the code.
+        System::set_block_number(1);
+        assert_state(id, true, ProposalState::Expired);
+
+        // Make sure non-pending PIPs cannot expire.
+        assert_ok!(Pips::set_prune_historical_pips(root(), false));
+        assert_ok!(Pips::set_proposal_cool_off_period(root(), 7));
+        assert_ok!(Pips::set_pending_pip_expiry(root(), Some(13)));
+        let alice = User::new(AccountKeyring::Alice);
+        set_members(vec![alice.did]);
+        let c = cancelled_proposal();
+        let r = rejected_proposal();
+        let e = executed_community_proposal(&alice.signer());
+        let f = failed_community_proposal(User::existing(AccountKeyring::Alice), 1337);
+        let s = scheduled_proposal(&alice.signer(), 0);
+        fast_forward_blocks(7 + 13 + 100);
+        for id in &[c, r, e, f, s] {
+            assert_ne!(Pips::proposals(id).unwrap().state, ProposalState::Expired);
+        }
     });
 }

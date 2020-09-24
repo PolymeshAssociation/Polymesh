@@ -326,6 +326,7 @@ fn general_testnet_genesis(
             default_enactment_period: generalTime::MINUTES,
             max_pip_skip_count: 1,
             active_pip_limit: 25,
+            pending_pip_expiry: None,
         }),
         pallet_im_online: Some(GeneralConfig::ImOnlineConfig {
             slashing_params: general::OfflineSlashingParams {
@@ -703,6 +704,7 @@ fn alcyone_testnet_genesis(
             default_enactment_period: alcyoneTime::DAYS * 7,
             max_pip_skip_count: 1,
             active_pip_limit: 1000,
+            pending_pip_expiry: None,
         }),
         pallet_im_online: Some(AlcyoneConfig::ImOnlineConfig {
             slashing_params: alcyone::OfflineSlashingParams {
