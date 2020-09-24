@@ -520,8 +520,7 @@ decl_module! {
 
             match &claim {
                 Claim::CustomerDueDiligence(..) => Self::base_add_cdd_claim(target, claim, issuer, expiry)?,
-                // Verifying & adding the confidential claim.
-                Claim::InvestorZKProof(scope, scope_id, _cdd_id, _p) => {
+                Claim::InvestorZKProof(scope, scope_id, ..) => {
                     Self::base_add_confidential_scope_claim(
                         target,
                         claim.clone(),
