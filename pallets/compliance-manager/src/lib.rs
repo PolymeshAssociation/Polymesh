@@ -610,7 +610,7 @@ impl<T: Trait> Module<T> {
     /// It fetches the `ConfidentialScopeClaim` of users `id` for the given ticker.
     /// Note that this vector could be 0 or 1 items.
     fn fetch_confidential_claims(id: IdentityId, ticker: &Ticker) -> Vec<Claim> {
-        let claim_type = ClaimType::InvestorZKProof;
+        let claim_type = ClaimType::InvestorUniqueness;
         // NOTE: Ticker length is less by design that IdentityId.
         let asset_scope = Scope::from(*ticker);
 
@@ -868,7 +868,7 @@ impl<T: Trait> Module<T> {
         Err(Error::<T>::ComplianceRequirementTooComplex.into())
     }
 
-    /// Helper function for the RPC to know the result of the scope claim (i.e investor does posses the valid `InvestorZKProof` claim).
+    /// Helper function for the RPC to know the result of the scope claim (i.e investor does posses the valid `InvestorUniqueness` claim).
     fn get_implicit_condition_result(
         ticker: &Ticker,
         from_did_opt: Option<IdentityId>,

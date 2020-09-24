@@ -748,11 +748,12 @@ pub fn provide_scope_claim(
         None
     ));
 
-    // Provide the InvestorZKProof.
-    assert_ok!(Identity::add_claim(
+    // Provide the InvestorUniqueness.
+    assert_ok!(Identity::add_investor_uniqueness_claim(
         signed_claim_to,
         claim_to,
-        Claim::InvestorZKProof(Scope::Ticker(scope), scope_id, cdd_id, proof),
+        Claim::InvestorUniqueness(Scope::Ticker(scope), scope_id, cdd_id),
+        proof,
         None
     ));
 }

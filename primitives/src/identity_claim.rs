@@ -14,7 +14,7 @@
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
 use crate as polymesh_primitives;
-use crate::{identity_id::IdentityId, CddId, InvestorZKProofData, Moment, Ticker};
+use crate::{identity_id::IdentityId, CddId, Moment, Ticker};
 
 use codec::{Decode, Encode};
 use polymesh_primitives_derive::Migrate;
@@ -102,8 +102,13 @@ pub enum Claim {
     Exempted(#[migrate] Scope),
     /// User is Blocked
     Blocked(#[migrate] Scope),
-    /// Confidential Scope claim
-    InvestorZKProof(#[migrate] Scope, ScopeId, CddId, InvestorZKProofData),
+    /// Confidential claim that will allow an investor to justify that it's identity can be
+    /// a potential asset holder of given `scope`.
+    ///
+    /// This claim is mandatory to have for an investor. It will help issuer to apply compliance rules
+    /// on the `ScopeId` instead of investor identityId as ScopeId is unique at investor entity level
+    /// for a given scope (always be a Ticker).
+    InvestorUniqueness(#[migrate] Scope, ScopeId, CddId),
     /// Empty claim
     NoData,
 }
@@ -127,7 +132,7 @@ impl Claim {
             Claim::Jurisdiction(..) => ClaimType::Jurisdiction,
             Claim::Exempted(..) => ClaimType::Exempted,
             Claim::Blocked(..) => ClaimType::Blocked,
-            Claim::InvestorZKProof(..) => ClaimType::InvestorZKProof,
+            Claim::InvestorUniqueness(..) => ClaimType::InvestorUniqueness,
             Claim::NoData => ClaimType::NoType,
         }
     }
@@ -144,7 +149,7 @@ impl Claim {
             Claim::Jurisdiction(.., ref scope) => Some(scope),
             Claim::Exempted(ref scope) => Some(scope),
             Claim::Blocked(ref scope) => Some(scope),
-            Claim::InvestorZKProof(ref ticker_scope, ..) => Some(ticker_scope),
+            Claim::InvestorUniqueness(ref ticker_scope, ..) => Some(ticker_scope),
             Claim::NoData => None,
         }
     }
@@ -158,7 +163,7 @@ impl Claim {
 /// Claim type represent the claim without its data.
 ///
 /// # TODO
-/// - Could we use `std::mem::Discriminat`?
+/// - Could we use `std::mem::Discriminant`?
 #[derive(Encode, Decode, Copy, Clone, PartialEq, Eq, Debug, PartialOrd, Ord)]
 pub enum ClaimType {
     /// User is Accredited
@@ -179,8 +184,8 @@ pub enum ClaimType {
     Exempted,
     /// User is Blocked.
     Blocked,
-    ///
-    InvestorZKProof,
+    /// User identity can be bounded under a `ScopeId`.
+    InvestorUniqueness,
     /// Empty type
     NoType,
 }
@@ -202,7 +207,7 @@ pub struct IdentityClaim {
     pub issuance_date: Moment,
     /// Last updated date
     pub last_update_date: Moment,
-    /// Expirty date
+    /// Expiry date
     pub expiry: Option<Moment>,
     /// Claim data
     #[migrate]
