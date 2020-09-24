@@ -399,19 +399,29 @@ where
             return Ok((fee, None));
         }
 
-        if let Some(payer_key) = T::CddHandler::get_valid_payer(call, &who)? {
-            let imbalance = T::Currency::withdraw(
-                &payer_key,
-                fee,
-                WithdrawReason::TransactionPayment.into(),
-                ExistenceRequirement::KeepAlive,
-            )
-            .map_err(|_| InvalidTransaction::Payment)?;
-            T::CddHandler::set_payer_context(Some(payer_key));
-            Ok((fee, Some(imbalance)))
-        } else {
-            Err(InvalidTransaction::Payment.into())
-        }
+        let imbalance = T::Currency::withdraw(
+            &who,
+            fee,
+            WithdrawReason::TransactionPayment.into(),
+            ExistenceRequirement::KeepAlive,
+        )
+        .map_err(|_| InvalidTransaction::Payment)?;
+
+        Ok((fee, Some(imbalance)))
+
+        // if let Some(payer_key) = T::CddHandler::get_valid_payer(call, &who)? {
+        //     let imbalance = T::Currency::withdraw(
+        //         &payer_key,
+        //         fee,
+        //         WithdrawReason::TransactionPayment.into(),
+        //         ExistenceRequirement::KeepAlive,
+        //     )
+        //     .map_err(|_| InvalidTransaction::Payment)?;
+        //     T::CddHandler::set_payer_context(Some(payer_key));
+        //     Ok((fee, Some(imbalance)))
+        // } else {
+        //     Err(InvalidTransaction::Payment.into())
+        // }
     }
 }
 
