@@ -923,10 +923,6 @@ decl_error! {
         TickerRegistrationExpired,
         /// Transfers to self are not allowed
         SenderSameAsReceiver,
-        /// After registering the confidential asset, its total supply can change once from zero to a positive value.
-        CanSetTotalSupplyOnlyOnce,
-        /// After registering the confidential asset, its total supply can change once from zero to a positive value.
-        TotalSupplyMustBePositive,
     }
 }
 
