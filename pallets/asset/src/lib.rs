@@ -285,6 +285,47 @@ pub struct ClassicTickerRegistration {
     pub is_created: bool,
 }
 
+/// Calendar units for timing recurring operations.
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+#[derive(Encode, Decode, Clone, Debug, PartialEq, Eq)]
+pub enum CalendarUnit {
+    /// A unit of one second.
+    Second,
+    /// A unit of one minute.
+    Minute,
+    /// A unit of one hour.
+    Hour,
+    /// A unit of one day.
+    Day,
+    /// A unit of one week.
+    Week,
+    /// A unit of one month.
+    Month,
+    /// A unit of one year.
+    Year,
+}
+
+/// A simple period which is a multiple of a `CalendarUnit`.
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+#[derive(Encode, Decode, Clone, Debug, PartialEq, Eq)]
+pub struct CalendarPeriod {
+    /// The base calendar unit.
+    pub unit: CalendarUnit,
+    /// The number of base units in the period.
+    pub multiplier: u64,
+}
+
+/// The schedule of an asset checkpoint containing the start time `start` and the optional period
+/// `period` in case the checkpoint is to recur after `start` at regular intervals.
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+#[derive(Encode, Decode, Clone, Debug, PartialEq, Eq)]
+pub struct CheckpointSchedule {
+    /// Unix time in seconds (UTC).
+    pub start: u64,
+    /// The period at which the checkpoint is set to recur after `start`.
+    pub period: CalendarPeriod,
+}
+
 decl_storage! {
     trait Store for Module<T: Trait> as Asset {
         /// Ticker registration details.
@@ -336,9 +377,12 @@ decl_storage! {
         /// (ticker, document_name) -> document
         pub AssetDocuments get(fn asset_documents):
             double_map hasher(blake2_128_concat) Ticker, hasher(blake2_128_concat) DocumentName => Document;
-
         /// Ticker registration details on Polymath Classic / Ethereum.
         pub ClassicTickers get(fn classic_ticker_registration): map hasher(blake2_128_concat) Ticker => Option<ClassicTickerRegistration>;
+        /// Checkpoint schedules.
+        /// (ticker, schedule_id) -> schedule
+        pub CheckpointSchedules get(fn checkpoint_schedules): double_map hasher(blake2_128_concat) Ticker, hasher(twox_64_concat) u64 =>
+            CheckpointSchedule;
     }
     add_extra_genesis {
         config(classic_migration_tickers): Vec<ClassicTickerImport>;
@@ -657,8 +701,17 @@ decl_module! {
             let primary_did = Identity::<T>::ensure_origin_call_permissions(origin)?.primary_did;
             ensure!(Self::is_owner(&ticker, primary_did), Error::<T>::Unauthorized);
 
-            // TODO
+            // FIXME
+            let schedule_id = 0;
+            <CheckpointSchedules>::insert(&ticker, &schedule_id, schedule.clone());
 
+            // TODO
+            Self::deposit_event(RawEvent::CheckpointScheduleCreated(
+                ticker,
+                primary_did,
+                schedule,
+                schedule_id
+            ));
             Ok(())
         }
 
@@ -1042,6 +1095,9 @@ decl_event! {
         ExtensionRemoved(IdentityId, Ticker, AccountId),
         /// A Polymath Classic token was claimed and transferred to a non-systematic DID.
         ClassicTickerClaimed(IdentityId, Ticker, ethereum::EthereumAddress),
+        /// A checkpoint schedule has been created.
+        /// Parameters: ticker, primary DID, schedule, schedule ID.
+        CheckpointScheduleCreated(Ticker, IdentityId, CheckpointSchedule, u64),
     }
 }
 
