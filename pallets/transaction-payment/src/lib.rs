@@ -400,7 +400,7 @@ where
         }
 
         let imbalance = T::Currency::withdraw(
-            &who,
+            who,
             fee,
             WithdrawReason::TransactionPayment.into(),
             ExistenceRequirement::KeepAlive,

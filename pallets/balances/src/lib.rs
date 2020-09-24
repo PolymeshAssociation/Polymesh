@@ -650,22 +650,23 @@ where
 impl<T: Trait> BlockRewardsReserveCurrency<T::Balance, NegativeImbalance<T>> for Module<T> {
     // Polymesh modified code. Drop behavious modified to reduce BRR balance instead of inflating total supply.
     fn drop_positive_imbalance(mut amount: T::Balance) {
-        if amount.is_zero() {
-            return;
-        }
-        let brr = Self::block_rewards_reserve();
-        let _ = Self::try_mutate_account(&brr, |account, _| -> DispatchResult {
-            if account.free > Zero::zero() {
-                let old_brr_free_balance = account.free;
-                let new_brr_free_balance = old_brr_free_balance.saturating_sub(amount);
-                account.free = new_brr_free_balance;
-                // Calculate how much amount to mint that is not available with the Brr
-                // eg. amount = 100 and the account.free = 60 then `amount_to_mint` = 40
-                amount -= old_brr_free_balance - new_brr_free_balance;
-            }
-            <TotalIssuance<T>>::mutate(|v| *v = v.saturating_add(amount));
-            Ok(())
-        });
+        <TotalIssuance<T>>::mutate(|v| *v = v.saturating_add(amount));
+        // if amount.is_zero() {
+        //     return;
+        // }
+        // let brr = Self::block_rewards_reserve();
+        // let _ = Self::try_mutate_account(&brr, |account, _| -> DispatchResult {
+        //     if account.free > Zero::zero() {
+        //         let old_brr_free_balance = account.free;
+        //         let new_brr_free_balance = old_brr_free_balance.saturating_sub(amount);
+        //         account.free = new_brr_free_balance;
+        //         // Calculate how much amount to mint that is not available with the Brr
+        //         // eg. amount = 100 and the account.free = 60 then `amount_to_mint` = 40
+        //         amount -= old_brr_free_balance - new_brr_free_balance;
+        //     }
+        //     <TotalIssuance<T>>::mutate(|v| *v = v.saturating_add(amount));
+        //     Ok(())
+        // });
     }
 
     fn drop_negative_imbalance(amount: T::Balance) {
