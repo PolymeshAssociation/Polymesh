@@ -741,9 +741,19 @@ pub fn default_portfolio_btreeset(did: IdentityId) -> BTreeSet<PortfolioId> {
     iter::once(PortfolioId::default_portfolio(did)).collect::<BTreeSet<_>>()
 }
 
+/// Returns a vector that contains default portfolio for the identity.
+pub fn default_portfolio_vec(did: IdentityId) -> Vec<PortfolioId> {
+    vec![PortfolioId::default_portfolio(did)]
+}
+
 /// Returns a btreeset that contains a portfolio for the identity.
 pub fn user_portfolio_btreeset(did: IdentityId, num: PortfolioNumber) -> BTreeSet<PortfolioId> {
     iter::once(PortfolioId::user_portfolio(did, num)).collect::<BTreeSet<_>>()
+}
+
+/// Returns a vector that contains a portfolio for the identity.
+pub fn user_portfolio_vec(did: IdentityId, num: PortfolioNumber) -> Vec<PortfolioId> {
+    vec![PortfolioId::user_portfolio(did, num)]
 }
 
 pub fn provide_scope_claim(
