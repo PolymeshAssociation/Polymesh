@@ -244,7 +244,7 @@ version = "1.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d373d78ded7d0b3fa8039375718cde0aace493f2e34fb60f51cbf567562ca801"
 dependencies = [
- "async-task 4.0.2",
+ "async-task 4.0.1",
  "concurrent-queue",
  "fastrand",
  "futures-lite",
@@ -254,9 +254,9 @@ dependencies = [
 
 [[package]]
 name = "async-global-executor"
-version = "1.2.1"
+version = "1.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5586e693d02f9b439742e9d5d68bd64d923c6861954f7d78f91001a0e152d589"
+checksum = "ffd4f132a18f3fe7329c7b907047684f1b06174a900c559b661b2da8bb9cad5f"
 dependencies = [
  "async-executor",
  "async-io",
@@ -267,9 +267,9 @@ dependencies = [
 
 [[package]]
 name = "async-io"
-version = "1.1.3"
+version = "1.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a9951f92a2b4f7793f8fc06a80bdb89b62c618c993497d4606474fb8c34941b5"
+checksum = "64c629684e697f58c0e99e5e2d84a840e3b336afbcfdbac7b44c3b1e222c2fd8"
 dependencies = [
  "concurrent-queue",
  "fastrand",
@@ -285,9 +285,9 @@ dependencies = [
 
 [[package]]
 name = "async-mutex"
-version = "1.4.0"
+version = "1.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "479db852db25d9dbf6204e6cb6253698f175c15726470f78af0d918e99d6156e"
+checksum = "66941c2577c4fa351e4ce5fdde8f86c69b88d623f3b955be1bc7362a23434632"
 dependencies = [
  "event-listener",
 ]
@@ -328,9 +328,9 @@ checksum = "c17772156ef2829aadc587461c7753af20b7e8db1529bc66855add962a3b35d3"
 
 [[package]]
 name = "async-task"
-version = "4.0.2"
+version = "4.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8ab27c1aa62945039e44edaeee1dc23c74cc0c303dd5fe0fb462a184f1c3a518"
+checksum = "6725e96011a83fae25074a8734932e8d67763522839be7473dcfe8a0d6a378b1"
 
 [[package]]
 name = "async-tls"
@@ -1218,9 +1218,9 @@ dependencies = [
 
 [[package]]
 name = "ed25519-dalek"
-version = "1.0.1"
+version = "1.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c762bae6dcaf24c4c84667b8579785430908723d5c889f469d76a41d59cc7a9d"
+checksum = "53d2e93f837d749c16d118e7ddf7a4dfd0ac8f452cf51e46e9348824e5ef6851"
 dependencies = [
  "curve25519-dalek 3.0.0",
  "ed25519",
@@ -1266,9 +1266,9 @@ dependencies = [
 
 [[package]]
 name = "event-listener"
-version = "2.5.1"
+version = "2.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f7531096570974c3a9dcf9e4b8e1cede1ec26cf5046219fb3b9d897503b9be59"
+checksum = "e1cd41440ae7e4734bbd42302f63eaba892afc93a3912dad84006247f0dedb0e"
 
 [[package]]
 name = "exit-future"
@@ -1669,9 +1669,9 @@ checksum = "de27142b013a8e869c14957e6d2edeef89e97c289e69d042ee3a49acd8b51789"
 
 [[package]]
 name = "futures-lite"
-version = "1.8.0"
+version = "1.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0db18c5f58083b54b0c416638ea73066722c2815c1e54dd8ba85ee3def593c3a"
+checksum = "5b77e08e656f472d8ea84c472fa8b0a7a917883048e1cf2d4e34a323cd0aaf63"
 dependencies = [
  "fastrand",
  "futures-core",
@@ -1976,9 +1976,9 @@ dependencies = [
 
 [[package]]
 name = "hermit-abi"
-version = "0.1.16"
+version = "0.1.15"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4c30f6d0bc6b00693347368a67d41b58f2fb851215ff1da49e90fe2c5c667151"
+checksum = "3deed196b6e7f9e44a2ae8d94225d80302d81208b1bb673fd21fe634645c85a9"
 dependencies = [
  "libc",
 ]
@@ -3645,6 +3645,7 @@ dependencies = [
  "pallet-balances 0.1.0",
  "pallet-contracts",
  "pallet-identity",
+ "pallet-permissions",
  "pallet-portfolio",
  "pallet-session",
  "pallet-statistics",
@@ -3728,6 +3729,7 @@ version = "0.1.0"
 dependencies = [
  "frame-support",
  "frame-system",
+ "pallet-permissions",
  "pallet-timestamp",
  "pallet-transaction-payment",
  "parity-scale-codec",
@@ -3760,6 +3762,33 @@ dependencies = [
 ]
 
 [[package]]
+name = "pallet-basic-sto"
+version = "0.1.0"
+dependencies = [
+ "frame-support",
+ "frame-system",
+ "pallet-asset",
+ "pallet-balances 0.1.0",
+ "pallet-identity",
+ "pallet-permissions",
+ "pallet-settlement",
+ "pallet-timestamp",
+ "parity-scale-codec",
+ "polymesh-common-utilities",
+ "polymesh-primitives",
+ "polymesh-primitives-derive",
+ "serde",
+ "serde_derive",
+ "sp-api",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+ "sp-serializer",
+ "sp-std 2.0.0-rc6",
+ "sp-version",
+]
+
+[[package]]
 name = "pallet-cdd-offchain-worker"
 version = "2.0.0"
 dependencies = [
@@ -3784,6 +3813,7 @@ dependencies = [
  "frame-support",
  "frame-system",
  "pallet-identity",
+ "pallet-permissions",
  "pallet-timestamp",
  "parity-scale-codec",
  "polymesh-common-utilities",
@@ -3805,6 +3835,7 @@ dependencies = [
  "frame-support",
  "frame-system",
  "pallet-identity",
+ "pallet-permissions",
  "pallet-timestamp",
  "parity-scale-codec",
  "polymesh-common-utilities",
@@ -4007,6 +4038,7 @@ dependencies = [
  "frame-support",
  "frame-system",
  "pallet-balances 0.1.0",
+ "pallet-permissions",
  "pallet-timestamp",
  "parity-scale-codec",
  "polymesh-common-utilities",
@@ -4064,6 +4096,7 @@ dependencies = [
  "frame-support",
  "frame-system",
  "pallet-identity",
+ "pallet-permissions",
  "pallet-timestamp",
  "parity-scale-codec",
  "polymesh-common-utilities",
@@ -4086,6 +4119,20 @@ dependencies = [
  "serde",
  "sp-runtime",
  "sp-staking",
+ "sp-std 2.0.0-rc6",
+]
+
+[[package]]
+name = "pallet-permissions"
+version = "0.1.0"
+dependencies = [
+ "frame-benchmarking",
+ "frame-support",
+ "parity-scale-codec",
+ "polymesh-common-utilities",
+ "polymesh-primitives",
+ "serde",
+ "sp-runtime",
  "sp-std 2.0.0-rc6",
 ]
 
@@ -4122,6 +4169,7 @@ dependencies = [
  "frame-system",
  "pallet-balances 0.1.0",
  "pallet-identity",
+ "pallet-permissions",
  "parity-scale-codec",
  "polymesh-common-utilities",
  "polymesh-primitives",
@@ -4319,33 +4367,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "pallet-sto"
-version = "0.1.0"
-dependencies = [
- "frame-support",
- "frame-system",
- "pallet-asset",
- "pallet-balances 0.1.0",
- "pallet-identity",
- "pallet-portfolio",
- "pallet-settlement",
- "pallet-timestamp",
- "parity-scale-codec",
- "polymesh-common-utilities",
- "polymesh-primitives",
- "polymesh-primitives-derive",
- "serde",
- "serde_derive",
- "sp-api",
- "sp-core",
- "sp-io",
- "sp-runtime",
- "sp-serializer",
- "sp-std 2.0.0-rc6",
- "sp-version",
-]
-
-[[package]]
 name = "pallet-sudo"
 version = "2.0.0-rc6"
 source = "git+https://github.com/paritytech/substrate?tag=v2.0.0-rc6#be8bb186d87b9d2b47a2907c9b51ae1e252362c3"
@@ -4401,6 +4422,7 @@ dependencies = [
  "frame-system",
  "pallet-balances 0.1.0",
  "pallet-identity",
+ "pallet-permissions",
  "parity-scale-codec",
  "polymesh-common-utilities",
  "polymesh-primitives",
@@ -4420,6 +4442,7 @@ version = "0.1.0"
 dependencies = [
  "frame-support",
  "frame-system",
+ "pallet-permissions",
  "parity-scale-codec",
  "polymesh-common-utilities",
  "polymesh-primitives",
@@ -4992,6 +5015,7 @@ dependencies = [
  "pallet-authorship",
  "pallet-babe",
  "pallet-balances 0.1.0",
+ "pallet-basic-sto",
  "pallet-committee",
  "pallet-compliance-manager",
  "pallet-confidential",
@@ -5007,6 +5031,7 @@ dependencies = [
  "pallet-indices",
  "pallet-multisig",
  "pallet-offences",
+ "pallet-permissions",
  "pallet-pips",
  "pallet-portfolio",
  "pallet-protocol-fee",
@@ -5018,7 +5043,6 @@ dependencies = [
  "pallet-staking-reward-curve",
  "pallet-staking-rpc-runtime-api",
  "pallet-statistics",
- "pallet-sto",
  "pallet-sudo",
  "pallet-timestamp",
  "pallet-transaction-payment",
@@ -5067,6 +5091,7 @@ dependencies = [
  "pallet-authorship",
  "pallet-babe",
  "pallet-balances 0.1.0",
+ "pallet-basic-sto",
  "pallet-committee",
  "pallet-compliance-manager",
  "pallet-confidential",
@@ -5082,6 +5107,7 @@ dependencies = [
  "pallet-indices",
  "pallet-multisig",
  "pallet-offences",
+ "pallet-permissions",
  "pallet-pips",
  "pallet-portfolio",
  "pallet-protocol-fee",
@@ -5093,7 +5119,6 @@ dependencies = [
  "pallet-staking-reward-curve",
  "pallet-staking-rpc-runtime-api",
  "pallet-statistics",
- "pallet-sto",
  "pallet-sudo",
  "pallet-timestamp",
  "pallet-transaction-payment",
@@ -5146,6 +5171,7 @@ dependencies = [
  "pallet-authorship",
  "pallet-babe",
  "pallet-balances 0.1.0",
+ "pallet-basic-sto",
  "pallet-cdd-offchain-worker",
  "pallet-committee",
  "pallet-compliance-manager",
@@ -5155,6 +5181,7 @@ dependencies = [
  "pallet-group-rpc-runtime-api",
  "pallet-identity",
  "pallet-multisig",
+ "pallet-permissions",
  "pallet-pips",
  "pallet-portfolio",
  "pallet-protocol-fee",
@@ -5164,7 +5191,6 @@ dependencies = [
  "pallet-staking",
  "pallet-staking-reward-curve",
  "pallet-statistics",
- "pallet-sto",
  "pallet-timestamp",
  "pallet-transaction-payment",
  "pallet-treasury",
@@ -7780,9 +7806,9 @@ checksum = "8ea5119cdb4c55b55d432abb513a0429384878c15dde60cc77b1c99de1a95a6a"
 
 [[package]]
 name = "structopt"
-version = "0.3.18"
+version = "0.3.17"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a33f6461027d7f08a13715659b2948e1602c31a3756aeae9378bfe7518c72e82"
+checksum = "6cc388d94ffabf39b5ed5fadddc40147cb21e605f53db6f8f36a625d27489ac5"
 dependencies = [
  "clap",
  "lazy_static",
@@ -7791,9 +7817,9 @@ dependencies = [
 
 [[package]]
 name = "structopt-derive"
-version = "0.4.11"
+version = "0.4.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c92e775028122a4b3dd55d58f14fc5120289c69bee99df1d117ae30f84b225c9"
+checksum = "5e2513111825077552a6751dfad9e11ce0fba07d7276a3943a037d7e93e64c5f"
 dependencies = [
  "heck",
  "proc-macro-error",

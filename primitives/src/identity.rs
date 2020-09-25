@@ -13,27 +13,31 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
+use crate::{
+    self as polymesh_primitives, secondary_key::SecondaryKeyOld, IdentityRole, SecondaryKey,
+    Signatory,
+};
 use codec::{Decode, Encode};
+use polymesh_primitives_derive::Migrate;
 use sp_core::{crypto::Public as PublicType, sr25519::Public};
 #[cfg(feature = "std")]
 use sp_runtime::{Deserialize, Serialize};
 use sp_std::{convert::From, prelude::Vec};
 
-use crate::{IdentityRole, SecondaryKey, Signatory};
-
 /// Identity information.
 #[allow(missing_docs)]
-#[derive(Encode, Decode, Default, Clone, PartialEq, Debug)]
+#[derive(Encode, Decode, Default, Clone, PartialEq, Debug, Migrate)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-pub struct Identity<AccountId> {
+pub struct Identity<AccountId: Encode + Decode> {
     pub roles: Vec<IdentityRole>,
     pub primary_key: AccountId,
+    #[migrate_from(Vec<SecondaryKeyOld<AccountId>>)]
     pub secondary_keys: Vec<SecondaryKey<AccountId>>,
 }
 
 impl<AccountId> Identity<AccountId>
 where
-    AccountId: Clone + Default + Eq + Ord,
+    AccountId: Encode + Decode + Clone + Default + Eq + Ord,
 {
     /// Creates an [`Identity`] from an `AccountId`.
     pub fn new(primary_key: AccountId) -> Self {
@@ -52,9 +56,9 @@ where
     /// It also keeps its internal list sorted and removes duplicate elements.
     pub fn add_secondary_keys(
         &mut self,
-        new_secondary_keys: &[SecondaryKey<AccountId>],
+        new_secondary_keys: impl IntoIterator<Item = SecondaryKey<AccountId>>,
     ) -> &mut Self {
-        self.secondary_keys.extend_from_slice(new_secondary_keys);
+        self.secondary_keys.extend(new_secondary_keys);
         self.secondary_keys.sort();
         self.secondary_keys.dedup();
 
@@ -64,22 +68,17 @@ where
     /// It removes `keys_to_remove` from secondary keys.
     pub fn remove_secondary_keys(
         &mut self,
-        signers_to_remove: &[Signatory<AccountId>],
+        mut signers_to_remove: impl Iterator<Item = Signatory<AccountId>>,
     ) -> &mut Self {
-        self.secondary_keys.retain(|curr_si| {
-            signers_to_remove
-                .iter()
-                .find(|&signer| curr_si.signer == *signer)
-                .is_none()
-        });
-
+        self.secondary_keys
+            .retain(|curr_si| !signers_to_remove.any(|signer| curr_si.signer == signer));
         self
     }
 }
 
 impl<AccountId> From<Public> for Identity<AccountId>
 where
-    AccountId: PublicType,
+    AccountId: Encode + Decode + PublicType,
 {
     fn from(p: Public) -> Self {
         Identity {

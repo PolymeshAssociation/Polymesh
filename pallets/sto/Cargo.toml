@@ -5,11 +5,12 @@ authors = ["Polymath"]
 edition = "2018"
 
 [dependencies]
-polymesh-common-utilities = { path = "../common", default-features = false }
-pallet-balances = { path = "../balances", default-features = false  }
 pallet-asset = { path = "../asset", default-features = false  }
+pallet-balances = { path = "../balances", default-features = false  }
 pallet-identity = { path = "../identity", default-features = false  }
+pallet-permissions = { path = "../permissions", default-features = false }
 pallet-settlement = { path = "../settlement", default-features = false  }
+polymesh-common-utilities = { path = "../common", default-features = false }
 pallet-portfolio = { path = "../portfolio", default-features = false  }
 polymesh-primitives = { path = "../../primitives", default-features = false }
 polymesh-primitives-derive = { path = "../../primitives_derive", default-features = false }
