@@ -32,8 +32,7 @@
                 "CUSIP": "[u8; 9]",
                 "CINS": "[u8; 9]",
                 "ISIN": "[u8; 12]",
-                "LEI": "[u8; 20]",
-                "EMPTY": ""
+                "LEI": "[u8; 20]"
             }
         },
         "AssetOwnershipRelation": {
