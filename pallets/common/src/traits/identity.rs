@@ -222,4 +222,6 @@ pub trait IdentityTrait<AccountId> {
 
     // Provides the DID status for the given DID
     fn has_valid_cdd(target_did: IdentityId) -> bool;
+
+    fn create_did_with_cdd(target: AccountId) -> IdentityId;
 }

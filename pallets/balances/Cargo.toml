@@ -29,12 +29,15 @@ pallet-timestamp = { git = "https://github.com/paritytech/substrate", default-fe
 # Only for test in STD
 substrate-test-runtime-client = { git = "https://github.com/paritytech/substrate", tag = "v2.0.0-rc6", optional = true}
 
+# Benchmarking
+frame-benchmarking = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0-rc6", optional = true }
+
 [features]
 equalize = []
 default = ["std", "equalize"]
 no_std = []
 only-staking = []
-std = [ 
+std = [
 	"substrate-test-runtime-client",
 	"serde_derive",
 	"serde/std",
@@ -52,3 +55,4 @@ std = [
 	"polymesh-primitives/std",
 	"pallet-transaction-payment/std"
 ]
+runtime-benchmarks = ["frame-benchmarking"]

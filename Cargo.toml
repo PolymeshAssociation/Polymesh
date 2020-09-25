@@ -105,12 +105,12 @@ sp-authority-discovery = { git = "https://github.com/paritytech/substrate", tag 
 
 contracts = { package = "pallet-contracts", git = "https://github.com/paritytech/substrate", tag = "v2.0.0-rc6" }
 
-sc-service = { git = "https://github.com/paritytech/substrate", tag = "v2.0.0-rc6" }
+sc-service = { git = "https://github.com/paritytech/substrate", tag = "v2.0.0-rc6", features = ["wasmtime"] }
 sc-chain-spec = { git = "https://github.com/paritytech/substrate", tag = "v2.0.0-rc6" }
 sc-client-api = { git = "https://github.com/paritytech/substrate", tag = "v2.0.0-rc6" }
-sc-executor = { git = "https://github.com/paritytech/substrate", tag = "v2.0.0-rc6" }
+sc-executor = { git = "https://github.com/paritytech/substrate", tag = "v2.0.0-rc6", features = ["wasmtime"] }
 sc-network = { git = "https://github.com/paritytech/substrate", tag = "v2.0.0-rc6" }
-sc-cli = { git = "https://github.com/paritytech/substrate", tag = "v2.0.0-rc6" }
+sc-cli = { git = "https://github.com/paritytech/substrate", tag = "v2.0.0-rc6", features = ["wasmtime"] }
 sc-telemetry = { git = "https://github.com/paritytech/substrate", tag = "v2.0.0-rc6" }
 sc-consensus-babe = { git = "https://github.com/paritytech/substrate", tag = "v2.0.0-rc6" }
 sc-consensus = { git = "https://github.com/paritytech/substrate", tag = "v2.0.0-rc6" }

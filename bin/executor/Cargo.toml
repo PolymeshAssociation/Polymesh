@@ -15,7 +15,7 @@ targets = ["x86_64-unknown-linux-gnu"]
 codec = { package = "parity-scale-codec", version = "1.3.4" }
 node-primitives = { package = "polymesh-primitives", path = "../../primitives" }
 node-runtime = { package = "polymesh-runtime-develop", path = "../../pallets/runtime/develop", features = ["node-bench"] }
-sc-executor = { git = "https://github.com/paritytech/substrate", tag = "v2.0.0-rc6" }
+sc-executor = { git = "https://github.com/paritytech/substrate", tag = "v2.0.0-rc6", features = ["wasmtime"] }
 sp-core = { git = "https://github.com/paritytech/substrate", tag = "v2.0.0-rc6" }
 sp-io = { git = "https://github.com/paritytech/substrate", tag = "v2.0.0-rc6" }
 sp-state-machine = { git = "https://github.com/paritytech/substrate", tag = "v2.0.0-rc6" }
@@ -46,9 +46,6 @@ substrate-test-client = { git = "https://github.com/paritytech/substrate", tag =
 wabt = "0.9.1"
 
 [features]
-wasmtime = [
-	"sc-executor/wasmtime",
-]
 wasmi-errno = [
 	"sc-executor/wasmi-errno",
 ]

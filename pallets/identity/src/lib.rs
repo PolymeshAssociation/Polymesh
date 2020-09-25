@@ -2089,6 +2089,15 @@ impl<T: Trait> IdentityTrait<T::AccountId> for Module<T> {
     fn has_valid_cdd(target_did: IdentityId) -> bool {
         Self::has_valid_cdd(target_did)
     }
+
+    // Creates a new DID with a CDD claim issued by self
+    fn create_did_with_cdd(target: T::AccountId) -> IdentityId {
+        let did = Self::_register_did(target, vec![], None).unwrap_or_default();
+        // Add CDD claim
+        let cdd_claim = Claim::CustomerDueDiligence(CddId::new(did, InvestorUid::default()));
+        Self::base_add_claim(did, cdd_claim, did, None);
+        did
+    }
 }
 
 impl<T: Trait> ChangeMembers<IdentityId> for Module<T> {

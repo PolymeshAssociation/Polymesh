@@ -34,7 +34,6 @@ sp-core = { git = "https://github.com/paritytech/substrate", tag = "v2.0.0-rc6" 
 sp-io = { git = "https://github.com/paritytech/substrate", tag = "v2.0.0-rc6" }
 frame-support = { git = "https://github.com/paritytech/substrate", tag = "v2.0.0-rc6" }
 pallet-session = { git = "https://github.com/paritytech/substrate", tag = "v2.0.0-rc6" }
-pallet-society = { git = "https://github.com/paritytech/substrate", tag = "v2.0.0-rc6" }
 sp-runtime = { git = "https://github.com/paritytech/substrate", tag = "v2.0.0-rc6" }
 sc-executor = { git = "https://github.com/paritytech/substrate", tag = "v2.0.0-rc6", features = ["wasmtime"] }
 sp-consensus = { git = "https://github.com/paritytech/substrate", tag = "v2.0.0-rc6" }

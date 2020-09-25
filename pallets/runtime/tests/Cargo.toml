@@ -127,3 +127,6 @@ std = [
     "substrate-test-utils",
     "test_client",
 ]
+runtime-benchmarks = [
+    "frame-benchmarking",
+]

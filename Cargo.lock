@@ -3754,7 +3754,6 @@ dependencies = [
  "pallet-grandpa",
  "pallet-indices",
  "pallet-session",
- "pallet-society",
  "pallet-staking",
  "pallet-timestamp",
  "pallet-transaction-payment",
@@ -4041,6 +4040,7 @@ dependencies = [
 name = "pallet-balances"
 version = "0.1.0"
 dependencies = [
+ "frame-benchmarking",
  "frame-support",
  "frame-system",
  "pallet-timestamp",
@@ -4591,20 +4591,6 @@ dependencies = [
  "sp-serializer",
  "sp-std 2.0.0-rc6",
  "sp-version",
-]
-
-[[package]]
-name = "pallet-society"
-version = "2.0.0-rc6"
-source = "git+https://github.com/paritytech/substrate?tag=v2.0.0-rc6#be8bb186d87b9d2b47a2907c9b51ae1e252362c3"
-dependencies = [
- "frame-support",
- "frame-system",
- "parity-scale-codec",
- "rand_chacha 0.2.2",
- "serde",
- "sp-runtime",
- "sp-std 2.0.0-rc6",
 ]
 
 [[package]]
