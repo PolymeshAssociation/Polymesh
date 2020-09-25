@@ -24,6 +24,7 @@ use sp_runtime::traits::{CheckedMul, Saturating};
 use sp_std::{collections::btree_set::BTreeSet, iter, prelude::*};
 type Identity<T> = identity::Module<T>;
 type Settlement<T> = pallet_settlement::Module<T>;
+type CallPermissions<T> = pallet_permissions::Module<T>;
 
 pub trait Trait:
     frame_system::Trait + CommonTrait + IdentityTrait + pallet_settlement::Trait
@@ -98,6 +99,7 @@ decl_module! {
             venue_id: u64
         ) -> DispatchResult {
             let sender = ensure_signed(origin)?;
+            CallPermissions::<T>::ensure_call_permissions(&sender)?;
             let did = Context::current_identity_or::<Identity<T>>(&sender)?;
             ensure!(T::Asset::primary_issuance_agent(&offering_token) == did, Error::<T>::Unauthorized);
             // TODO: Take custodial ownership of $sell_amount of $offering_token from primary issuance agent?
@@ -122,6 +124,7 @@ decl_module! {
         #[weight = 2_000_000_000]
         pub fn invest(origin, offering_token: Ticker, fundraiser_id: u64, offering_token_amount: T::Balance) -> DispatchResult {
             let sender = ensure_signed(origin.clone())?;
+            CallPermissions::<T>::ensure_call_permissions(&sender)?;
             let did = Context::current_identity_or::<Identity<T>>(&sender)?;
             let mut fundraiser = Self::fundraisers(offering_token, fundraiser_id);
             ensure!(fundraiser.remaining_amount >= offering_token_amount, Error::<T>::InsufficientTokensRemaining);

@@ -18,7 +18,7 @@ use frame_benchmarking::{account, benchmarks};
 use frame_support::traits::Currency;
 use frame_system::RawOrigin;
 use pallet_balances as balances;
-use polymesh_primitives::{Claim, IdentityId, InvestorUid, SecondaryKey};
+use polymesh_primitives::{secondary_key::api::SecondaryKey, Claim, IdentityId, InvestorUid};
 use sp_std::{iter, prelude::*};
 
 const SEED: u32 = 0;
