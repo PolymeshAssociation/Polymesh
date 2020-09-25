@@ -87,7 +87,7 @@ impl core::BenchmarkDescription for ConstructionBenchmarkDescription {
     fn setup(self: Box<Self>) -> Box<dyn core::Benchmark> {
         let mut extrinsics: Vec<Arc<PoolTransaction>> = Vec::new();
 
-        let mut bench_db = BenchDb::with_key_types(self.database_type, 50_000, self.key_types);
+        let mut bench_db = BenchDb::with_key_types(self.database_type, 10_000, self.key_types);
 
         let client = bench_db.client();
 

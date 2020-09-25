@@ -24,7 +24,7 @@ use lazy_static::lazy_static;
 use rand::Rng;
 use sp_state_machine::Backend as _;
 use sp_trie::{trie_types::TrieDBMut, TrieMut as _};
-use std::{borrow::Cow, collections::HashMap, process::Command, sync::Arc};
+use std::{borrow::Cow, collections::HashMap, sync::Arc};
 
 use node_primitives::Hash;
 
@@ -195,8 +195,6 @@ impl core::Benchmark for TrieReadBenchmark {
         if mode == Mode::Profile {
             std::thread::park_timeout(std::time::Duration::from_secs(3));
         }
-
-        Command::new("sync; echo 3 | sudo tee /proc/sys/vm/drop_caches");
 
         let started = std::time::Instant::now();
         for (key, _) in self.query_keys.iter() {

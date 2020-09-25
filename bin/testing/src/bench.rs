@@ -135,7 +135,7 @@ impl DatabaseType {
         match self {
             Self::RocksDb => sc_client_db::DatabaseSettingsSrc::RocksDb {
                 path,
-                cache_size: 512,
+                cache_size: 512 * 1024 * 1024,
             },
             Self::ParityDb => sc_client_db::DatabaseSettingsSrc::ParityDb { path },
         }
@@ -256,7 +256,7 @@ impl BenchDb {
     ) -> Self {
         let keyring = BenchKeyring::new(keyring_length, key_types);
 
-        let dir = tempfile::tempdir().expect("temp dir creation failed");
+        let dir = tempfile::tempdir_in(std::env::current_dir().unwrap()).expect("temp dir creation failed");
         log::trace!(
             target: "bench-logistics",
             "Created seed db at {}",
@@ -277,7 +277,7 @@ impl BenchDb {
 
     /// Create a new temp dir with the seed data and returns the guard struct referencing it
     fn create_dir(&self) -> Guard {
-        let dir = tempfile::tempdir().expect("temp dir creation failed");
+        let dir = tempfile::tempdir_in(std::env::current_dir().unwrap()).expect("temp dir creation failed");
 
         let seed_dir = self.directory_guard.0.path();
 

@@ -46,7 +46,7 @@ impl core::BenchmarkDescription for PoolBenchmarkDescription {
 
     fn setup(self: Box<Self>) -> Box<dyn core::Benchmark> {
         Box::new(PoolBenchmark {
-            database: BenchDb::with_key_types(self.database_type, 50_000, KeyTypes::Sr25519),
+            database: BenchDb::with_key_types(self.database_type, 10_000, KeyTypes::Sr25519),
         })
     }
 
