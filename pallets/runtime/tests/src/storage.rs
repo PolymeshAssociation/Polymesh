@@ -473,6 +473,7 @@ impl asset::Trait for TestStorage {
     type Currency = balances::Module<TestStorage>;
     type ComplianceManager = compliance_manager::Module<TestStorage>;
     type MaxNumberOfTMExtensionForAsset = MaxNumberOfTMExtensionForAsset;
+    type UnixTime = pallet_timestamp::Module<TestStorage>;
 }
 
 parameter_types! {

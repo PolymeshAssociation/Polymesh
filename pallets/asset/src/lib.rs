@@ -85,12 +85,13 @@ pub mod ethereum;
 
 use codec::{Decode, Encode};
 use core::result::Result as StdResult;
+use core::time::Duration;
 use currency::*;
 use frame_support::{
     decl_error, decl_event, decl_module, decl_storage,
     dispatch::{DispatchError, DispatchResult, DispatchResultWithPostInfo},
     ensure,
-    traits::{Currency, Get},
+    traits::{Currency, Get, UnixTime},
     weights::Weight,
 };
 use frame_system::ensure_signed;
@@ -112,7 +113,7 @@ use polymesh_primitives::{
     PortfolioId, Signatory, SmartExtension, SmartExtensionName, SmartExtensionType, Ticker,
 };
 use polymesh_primitives_derive::VecU8StrongTyped;
-use sp_runtime::traits::{CheckedAdd, Saturating};
+use sp_runtime::traits::{CheckedAdd, SaturatedConversion, Saturating};
 #[cfg(feature = "std")]
 use sp_runtime::{Deserialize, Serialize};
 use sp_std::{convert::TryFrom, prelude::*};
@@ -138,6 +139,8 @@ pub trait Trait:
     /// This hard limit is set to avoid the cases where a asset transfer
     /// gas usage go beyond the block gas limit.
     type MaxNumberOfTMExtensionForAsset: Get<u32>;
+    /// Time used in computation of checkpoints.
+    type UnixTime: UnixTime;
 }
 
 /// The type of an asset represented by a token.
@@ -305,9 +308,15 @@ pub enum CalendarUnit {
     Year,
 }
 
+impl Default for CalendarUnit {
+    fn default() -> Self {
+        Self::Second
+    }
+}
+
 /// A simple period which is a multiple of a `CalendarUnit`.
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[derive(Encode, Decode, Clone, Debug, PartialEq, Eq)]
+#[derive(Encode, Decode, Clone, Debug, Default, PartialEq, Eq)]
 pub struct CalendarPeriod {
     /// The base calendar unit.
     pub unit: CalendarUnit,
@@ -318,7 +327,7 @@ pub struct CalendarPeriod {
 /// The schedule of an asset checkpoint containing the start time `start` and the optional period
 /// `period` in case the checkpoint is to recur after `start` at regular intervals.
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[derive(Encode, Decode, Clone, Debug, PartialEq, Eq)]
+#[derive(Encode, Decode, Clone, Debug, Default, PartialEq, Eq)]
 pub struct CheckpointSchedule {
     /// Unix time in seconds (UTC).
     pub start: u64,
@@ -383,6 +392,9 @@ decl_storage! {
         /// ticker -> schedule
         pub CheckpointSchedules get(fn checkpoint_schedules): map hasher(blake2_128_concat) Ticker =>
             CheckpointSchedule;
+        /// The next checkpoint of a ticker.
+        /// ticker -> Unix time in seconds
+        pub NextCheckpoints get(fn next_checkpoints): map hasher(blake2_128_concat) Ticker => u64;
     }
     add_extra_genesis {
         config(classic_migration_tickers): Vec<ClassicTickerImport>;
@@ -702,6 +714,9 @@ decl_module! {
         /// # Errors
         /// * `Unauthorized` - The caller does not own the asset.
         /// * `CheckpointScheduleAlreadyExists` - A schedule already exists.
+        //
+        // TODO: Make the weight inversely proportional to the length of the period?
+        //
         #[weight = T::DbWeight::get().reads_writes(3, 2) + 400_000_000]
         pub fn create_checkpoint_schedule(
             origin,
@@ -710,8 +725,39 @@ decl_module! {
         ) -> DispatchResult {
             let primary_did = Identity::<T>::ensure_origin_call_permissions(origin)?.primary_did;
             ensure!(Self::is_owner(&ticker, primary_did), Error::<T>::Unauthorized);
+            ensure!(
+                !<CheckpointSchedules>::contains_key(&ticker),
+                Error::<T>::CheckpointScheduleAlreadyExists
+            );
 
-            // TODO: Schedule the first checkpoint.
+            let now_as_secs = T::UnixTime::now().as_secs().saturated_into::<u64>();
+            if schedule.start > now_as_secs {
+                // The start time is in the future.
+                <NextCheckpoints>::insert(&ticker, schedule.start);
+            } else {
+                let multiplier = schedule.period.multiplier;
+                // The start time is in the past.
+                if multiplier > 0 {
+                    // The period is non-empty.
+                    let secs_since_start = now_as_secs - schedule.start;
+                    // TODO
+
+                    let period_as_secs: u64 = match schedule.period.unit {
+                        CalendarUnit::Second => multiplier,
+                        CalendarUnit::Minute => multiplier * 60,
+                        CalendarUnit::Hour => multiplier * 60 * 60,
+                        CalendarUnit::Day => multiplier * 60 * 60 * 24,
+                        CalendarUnit::Week => multiplier * 60 * 60 * 24 * 8,
+                        _ => 1 /* FIXME: non-uniform durations */
+                    };
+                    let elapsed_periods: u64 = secs_since_start / period_as_secs;
+                    // Schedule the first checkpoint.
+                    <NextCheckpoints>::insert(
+                        &ticker,
+                        secs_since_start + elapsed_periods * period_as_secs
+                    );
+                }
+            }
 
             // Assign the schedule.
             <CheckpointSchedules>::insert(&ticker, schedule.clone());
@@ -732,6 +778,7 @@ decl_module! {
         ///
         /// # Errors
         /// * `Unauthorized` - The caller does not own the asset.
+        #[weight = T::DbWeight::get().reads_writes(3, 2) + 400_000_000]
         pub fn remove_checkpoint_schedule(
             origin,
             ticker: Ticker,
@@ -739,9 +786,8 @@ decl_module! {
             let primary_did = Identity::<T>::ensure_origin_call_permissions(origin)?.primary_did;
             ensure!(Self::is_owner(&ticker, primary_did), Error::<T>::Unauthorized);
             ensure!(<CheckpointSchedules>::contains_key(&ticker), Error::<T>::NoCheckpointSchedule);
-
-            // TODO: Remove the next scheduled checkpoint for `ticker`.
-
+            // Remove the next scheduled checkpoint for `ticker`.
+            <NextCheckpoints>::remove(&ticker);
             // Remove and return the schedule from storage.
             let schedule = <CheckpointSchedules>::take(&ticker);
             Self::deposit_event(RawEvent::CheckpointScheduleRemoved(
@@ -1135,6 +1181,9 @@ decl_event! {
         /// A checkpoint schedule has been created.
         /// Parameters: ticker, primary DID, schedule.
         CheckpointScheduleCreated(Ticker, IdentityId, CheckpointSchedule),
+        /// A checkpoint schedule has been removed.
+        /// Parameters: ticker, primary DID, schedule.
+        CheckpointScheduleRemoved(Ticker, IdentityId, CheckpointSchedule),
     }
 }
 
@@ -1235,7 +1284,7 @@ decl_error! {
         /// A checkpoint schedule already exists and cannot be updated.
         CheckpointScheduleAlreadyExists,
         /// A checkpoint schedule does not exist for the asset.
-        NoCheckpointSchedule,
+        NoCheckpointSchedule
     }
 }
 

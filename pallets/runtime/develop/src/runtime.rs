@@ -666,6 +666,7 @@ impl asset::Trait for Runtime {
     type Currency = Balances;
     type ComplianceManager = compliance_manager::Module<Runtime>;
     type MaxNumberOfTMExtensionForAsset = MaxNumberOfTMExtensionForAsset;
+    type UnixTime = pallet_timestamp::Module<Runtime>;
 }
 
 parameter_types! {
