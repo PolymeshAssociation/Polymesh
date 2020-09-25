@@ -380,8 +380,8 @@ decl_storage! {
         /// Ticker registration details on Polymath Classic / Ethereum.
         pub ClassicTickers get(fn classic_ticker_registration): map hasher(blake2_128_concat) Ticker => Option<ClassicTickerRegistration>;
         /// Checkpoint schedules.
-        /// (ticker, schedule_id) -> schedule
-        pub CheckpointSchedules get(fn checkpoint_schedules): double_map hasher(blake2_128_concat) Ticker, hasher(twox_64_concat) u64 =>
+        /// ticker -> schedule
+        pub CheckpointSchedules get(fn checkpoint_schedules): map hasher(blake2_128_concat) Ticker =>
             CheckpointSchedule;
     }
     add_extra_genesis {
@@ -674,7 +674,7 @@ decl_module! {
             Ok(())
         }
 
-        /// Function used to create the checkpoint.
+        /// Create a single checkpoint.
         /// NB: Only called by the owner of the security token i.e owner DID.
         ///
         /// # Arguments
@@ -691,7 +691,17 @@ decl_module! {
         }
 
         /// Creates a checkpoint schedule. Can only be called by the token owner primary or
-        /// secondary key.
+        /// secondary key. Only one schedule is allowed for an asset. In order to change an existing
+        /// schedule, it must be removed first.
+        ///
+        /// # Arguments
+        /// * `origin` - A primary or secondary key of the asset owner.
+        /// * `ticker` - The asset ticker.
+        /// * `schedule` - The checkpoint schedule to be assigned to the asset.
+        ///
+        /// # Errors
+        /// * `Unauthorized` - The caller does not own the asset.
+        /// * `CheckpointScheduleAlreadyExists` - A schedule already exists.
         #[weight = T::DbWeight::get().reads_writes(3, 2) + 400_000_000]
         pub fn create_checkpoint_schedule(
             origin,
@@ -701,16 +711,43 @@ decl_module! {
             let primary_did = Identity::<T>::ensure_origin_call_permissions(origin)?.primary_did;
             ensure!(Self::is_owner(&ticker, primary_did), Error::<T>::Unauthorized);
 
-            // FIXME
-            let schedule_id = 0;
-            <CheckpointSchedules>::insert(&ticker, &schedule_id, schedule.clone());
+            // TODO: Schedule the first checkpoint.
 
-            // TODO
+            // Assign the schedule.
+            <CheckpointSchedules>::insert(&ticker, schedule.clone());
             Self::deposit_event(RawEvent::CheckpointScheduleCreated(
                 ticker,
                 primary_did,
                 schedule,
-                schedule_id
+            ));
+            Ok(())
+        }
+
+        /// Removes the checkpoint schedule of an asset. Can only be called by the token owner
+        /// primary or secondary key.
+        ///
+        /// # Arguments
+        /// * `origin` - A primary or secondary key of the asset owner.
+        /// * `ticker` - The asset ticker.
+        ///
+        /// # Errors
+        /// * `Unauthorized` - The caller does not own the asset.
+        pub fn remove_checkpoint_schedule(
+            origin,
+            ticker: Ticker,
+        ) -> DispatchResult {
+            let primary_did = Identity::<T>::ensure_origin_call_permissions(origin)?.primary_did;
+            ensure!(Self::is_owner(&ticker, primary_did), Error::<T>::Unauthorized);
+            ensure!(<CheckpointSchedules>::contains_key(&ticker), Error::<T>::NoCheckpointSchedule);
+
+            // TODO: Remove the next scheduled checkpoint for `ticker`.
+
+            // Remove and return the schedule from storage.
+            let schedule = <CheckpointSchedules>::take(&ticker);
+            Self::deposit_event(RawEvent::CheckpointScheduleRemoved(
+                ticker,
+                primary_did,
+                schedule,
             ));
             Ok(())
         }
@@ -1096,8 +1133,8 @@ decl_event! {
         /// A Polymath Classic token was claimed and transferred to a non-systematic DID.
         ClassicTickerClaimed(IdentityId, Ticker, ethereum::EthereumAddress),
         /// A checkpoint schedule has been created.
-        /// Parameters: ticker, primary DID, schedule, schedule ID.
-        CheckpointScheduleCreated(Ticker, IdentityId, CheckpointSchedule, u64),
+        /// Parameters: ticker, primary DID, schedule.
+        CheckpointScheduleCreated(Ticker, IdentityId, CheckpointSchedule),
     }
 }
 
@@ -1194,7 +1231,11 @@ decl_error! {
         /// Registration of ticker has expired.
         TickerRegistrationExpired,
         /// Transfers to self are not allowed
-        SenderSameAsReceiver
+        SenderSameAsReceiver,
+        /// A checkpoint schedule already exists and cannot be updated.
+        CheckpointScheduleAlreadyExists,
+        /// A checkpoint schedule does not exist for the asset.
+        NoCheckpointSchedule,
     }
 }
 
