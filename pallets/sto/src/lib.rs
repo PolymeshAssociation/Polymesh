@@ -19,13 +19,12 @@ use pallet_settlement::{
 };
 use pallet_timestamp::{self as timestamp, Trait as TimestampTrait};
 use polymesh_common_utilities::{
-    constants::currency::*,
     traits::{asset::Trait as AssetTrait, identity::Trait as IdentityTrait},
     CommonTrait, Context,
 };
 use polymesh_primitives::{IdentityId, PortfolioId, Ticker};
-use sp_runtime::traits::{CheckedAdd, CheckedMul, Saturating};
-use sp_std::{collections::btree_set::BTreeSet, iter, prelude::*};
+use sp_runtime::traits::{CheckedAdd, CheckedMul};
+use sp_std::prelude::*;
 
 type Identity<T> = identity::Module<T>;
 type Settlement<T> = settlement::Module<T>;
@@ -74,7 +73,7 @@ pub struct FundraiserTier<Balance> {
     remaining: Balance,
 }
 
-impl<Balance> Into<FundraiserTier<Balance>> for PriceTier<Balance> {
+impl<Balance: Clone> Into<FundraiserTier<Balance>> for PriceTier<Balance> {
     fn into(self) -> FundraiserTier<Balance> {
         FundraiserTier {
             remaining: self.total.clone(),
@@ -226,6 +225,12 @@ decl_module! {
 
             ensure!(<Fundraisers<T>>::contains_key(offering_asset, fundraiser_id), Error::<T>::FundraiserNotFound);
             let fundraiser = <Fundraisers<T>>::get(offering_asset, fundraiser_id);
+
+            let now = Timestamp::<T>::get();
+            ensure!(fundraiser.start <= now, Error::<T>::FundraiserNotStated);
+            if let Some(end) = fundraiser.end {
+                ensure!(end > now, Error::<T>::FundraiserExpired);
+            }
 
             // Remaining tokens to fulfil the investment amount
             let mut remaining = investment_amount;
