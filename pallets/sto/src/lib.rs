@@ -15,12 +15,13 @@ use frame_system::ensure_signed;
 use pallet_identity as identity;
 use pallet_portfolio::{PortfolioAssetBalances, Trait as PortfolioTrait};
 use pallet_settlement::{
-    self as settlement, Leg, SettlementType, Trait as SettlementTrait, VenueInfo, VenueType,
+    self as settlement, Leg, ReceiptDetails, SettlementType, Trait as SettlementTrait, VenueInfo,
+    VenueType,
 };
 use pallet_timestamp::{self as timestamp, Trait as TimestampTrait};
 use polymesh_common_utilities::{
     traits::{asset::Trait as AssetTrait, identity::Trait as IdentityTrait},
-    CommonTrait, Context,
+    with_transaction, CommonTrait, Context,
 };
 use polymesh_primitives::{IdentityId, PortfolioId, Ticker};
 use sp_runtime::traits::{CheckedAdd, CheckedMul};
@@ -218,7 +219,8 @@ decl_module! {
             offering_asset: Ticker,
             fundraiser_id: u64,
             investment_amount: T::Balance,
-            max_price: T::Balance
+            max_price: T::Balance,
+            reciept: Option<ReceiptDetails<T::AccountId, T::OffChainSignature>>
         ) -> DispatchResult {
             let sender = ensure_signed(origin.clone())?;
             let did = Context::current_identity_or::<Identity<T>>(&sender)?;
@@ -273,7 +275,7 @@ decl_module! {
 
             ensure!(remaining == 0.into(), Error::<T>::InsufficientTokensRemaining);
 
-            let primary_issuance_agent = T::Asset::primary_issuance_agent(&offering_token);
+            let primary_issuance_agent = T::Asset::primary_issuance_agent(&offering_asset);
             let legs = vec![
                 Leg {
                     from: fundraiser.offering_portfolio,
@@ -289,17 +291,23 @@ decl_module! {
                 }
             ];
 
-            let instruction_id = Settlement::<T>::base_add_instruction(
-                primary_issuance_agent,
-                fundraiser.venue_id,
-                SettlementType::SettleOnAuthorization,
-                None,
-                legs
-            )?;
+            with_transaction(|| {
+               let instruction_id = Settlement::<T>::base_add_instruction(
+                    primary_issuance_agent,
+                    fundraiser.venue_id,
+                    SettlementType::SettleOnAuthorization,
+                    None,
+                    legs
+                )?;
 
-            //TODO handle settlement and receipt
+                match reciept {
+                    Some(reciept) => {
+                        Settlement::<T>::authorize_with_receipts(instruction_id, vec![reciept])
+                    }
+                }
 
-            Ok(())
+                Ok(())
+            })
         }
 
         #[weight = 1_000]
