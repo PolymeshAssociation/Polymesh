@@ -18,7 +18,7 @@ async function main() {
   let alice_did = JSON.parse(
     await reqImports.keyToIdentityIds(api, alice.publicKey)
   );
-  
+
   await acceptMultisigSignerAsKey(api, relay, 9);
 
   await reqImports.distributePolyBatch( api, [relay], reqImports.transfer_amount, alice );
@@ -26,9 +26,9 @@ async function main() {
   await bridgeTransfer(api, relay, alice);
 
   await freezeTransaction(api, alice);
-  
+
   await sleep(50000).then(async() => { await unfreezeTransaction(api, alice); });
-  
+
   if (reqImports.fail_count > 0) {
     console.log("Failed");
   } else {

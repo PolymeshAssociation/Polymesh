@@ -12,6 +12,7 @@ polymesh-common-utilities = { path = "../common", default-features = false }
 
 # Our pallets
 pallet-identity = { path = "../identity", default-features = false  }
+pallet-permissions = { path = "../permissions", default-features = false }
 
 # Other
 serde = { version = "1.0.104", default-features = false }
