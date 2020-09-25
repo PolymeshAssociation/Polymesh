@@ -160,7 +160,7 @@ decl_module! {
             let pia_portfolios = iter::once(PortfolioId::default_portfolio(primary_issuance_agent)).collect::<BTreeSet<_>>();
             Settlement::<T>::unsafe_authorize_instruction(primary_issuance_agent, instruction_id, pia_portfolios)?;
 
-            let sender_portfolios = iter::once(PortfolioId::default_portfolio(did)).collect::<BTreeSet<_>>();
+            let sender_portfolios = vec![PortfolioId::default_portfolio(did)];
             Settlement::<T>::authorize_instruction(origin, instruction_id, sender_portfolios).map_err(|err| err.error)?;
 
             Self::deposit_event(
