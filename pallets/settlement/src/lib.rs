@@ -412,7 +412,7 @@ decl_error! {
 decl_storage! {
     trait Store for Module<T: Trait> as StoCapped {
         /// Info about a venue. venue_id -> venue_details
-        pub VenueInfo get(fn venue_info): map hasher(twox_64_concat) u64 => Venue;
+        VenueInfo get(fn venue_info): map hasher(twox_64_concat) u64 => Venue;
         /// Signers authorized by the venue. (venue_id, signer) -> authorized_bool
         VenueSigners get(fn venue_signers): double_map hasher(twox_64_concat) u64, hasher(twox_64_concat) T::AccountId => bool;
         /// Array of venues created by an identity. Only needed for the UI. IdentityId -> Vec<venue_id>
