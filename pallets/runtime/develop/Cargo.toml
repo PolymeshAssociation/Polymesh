@@ -15,7 +15,6 @@ polymesh-primitives = { path = "../../../primitives", default-features = false }
 # Our pallets
 pallet-asset = { path = "../../asset", default-features = false }
 pallet-balances = { path = "../../balances", default-features = false }
-pallet-basic-sto = { path = "../../basic-sto", default-features = false }
 pallet-committee = { path = "../../committee", default-features = false }
 pallet-compliance-manager = { path = "../../compliance-manager", default-features = false }
 pallet-confidential = { path = "../../confidential", default-features = false }

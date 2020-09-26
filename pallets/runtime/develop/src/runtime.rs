@@ -6,7 +6,7 @@ use crate::{
 use codec::Encode;
 use pallet_asset as asset;
 use pallet_balances as balances;
-use pallet_basic_sto as sto;
+use pallet_sto as sto;
 use pallet_committee as committee;
 use pallet_compliance_manager::{self as compliance_manager, AssetComplianceResult};
 use pallet_confidential as confidential;

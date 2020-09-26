@@ -32,8 +32,7 @@ type Settlement<T> = settlement::Module<T>;
 type Timestamp<T> = timestamp::Module<T>;
 
 /// Details about the Fundraiser
-#[cfg_attr(feature = "std", derive(Debug))]
-#[derive(Encode, Decode, Default, Clone, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Encode, Decode, Debug, Default, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Fundraiser<Balance, Moment> {
     /// Portfolio containing the asset being offered
     pub offering_portfolio: PortfolioId,
@@ -58,8 +57,7 @@ pub struct Fundraiser<Balance, Moment> {
 }
 
 /// Single tier of a tiered pricing model
-#[cfg_attr(feature = "std", derive(Debug))]
-#[derive(Encode, Decode, Default, Clone, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Encode, Decode, Debug, Default, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct PriceTier<Balance> {
     total: Balance,
     price: Balance,
@@ -67,18 +65,19 @@ pub struct PriceTier<Balance> {
 
 /// Single price tier of a `Fundraiser`.
 /// Similar to a `PriceTier` but with an extra field `remaining` for tracking the amount available for purchase in a tier.
-#[cfg_attr(feature = "std", derive(Debug))]
-#[derive(Encode, Decode, Default, Clone, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Encode, Decode, Debug, Default, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct FundraiserTier<Balance> {
-    inner: PriceTier<Balance>,
+    total: Balance,
+    price: Balance,
     remaining: Balance,
 }
 
 impl<Balance: Clone> Into<FundraiserTier<Balance>> for PriceTier<Balance> {
     fn into(self) -> FundraiserTier<Balance> {
         FundraiserTier {
+            total: self.total.clone(),
+            price: self.price.clone(),
             remaining: self.total.clone(),
-            inner: self,
         }
     }
 }
@@ -203,7 +202,7 @@ decl_module! {
             <Fundraisers<T>>::insert(
                 offering_asset,
                 fundraiser_id,
-                fundraiser
+                fundraiser.clone()
             );
             Self::deposit_event(
                 RawEvent::FundraiserCreated(did, fundraiser)
@@ -262,11 +261,11 @@ decl_module! {
                     remaining
                 } else {
                     tier.remaining
-                }
+                };
 
                 remaining -= purchase_amount;
                 purchases.push((id, purchase_amount));
-                cost.checked_add(
+                cost = cost.checked_add(
                     &remaining
                     .checked_mul(&tier.inner.price)
                     .ok_or(Error::<T>::Overflow)?
@@ -300,11 +299,22 @@ decl_module! {
                     legs
                 )?;
 
+                let portfolios = vec![investment_portfolio, funding_portfolio];
+
                 match reciept {
-                    Some(reciept) => {
-                        Settlement::<T>::authorize_with_receipts(instruction_id, vec![reciept])
-                    }
-                }
+                    Some(reciept) => Settlement::<T>::authorize_with_receipts(
+                        origin,
+                        instruction_id,
+                        vec![reciept],
+                        portfolios
+                    ).map_err(|e| e.error)?,
+                    None => Settlement::<T>::authorize_instruction(origin, instruction_id, portfolios).map_err(|e| e.error)?,
+                };
+
+                let portfolios= vec![investment_portfolio, funding_portfolio].into_iter();
+                Settlement::<T>::unsafe_authorize_instruction(primary_issuance_agent, instruction_id, portfolios)?;
+
+
 
                 Ok(())
             })
