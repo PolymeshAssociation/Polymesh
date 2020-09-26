@@ -63,7 +63,7 @@ use sp_std::{collections::btree_set::BTreeSet, convert::TryFrom, prelude::*};
 type Identity<T> = identity::Module<T>;
 
 pub trait Trait:
-frame_system::Trait + CommonTrait + IdentityTrait + pallet_timestamp::Trait
+    frame_system::Trait + CommonTrait + IdentityTrait + pallet_timestamp::Trait
 {
     /// The overarching event type.
     type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
@@ -78,7 +78,7 @@ frame_system::Trait + CommonTrait + IdentityTrait + pallet_timestamp::Trait
 
 /// A wrapper for VenueDetails
 #[derive(
-Decode, Encode, Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord, VecU8StrongTyped,
+    Decode, Encode, Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord, VecU8StrongTyped,
 )]
 pub struct VenueDetails(Vec<u8>);
 
@@ -1020,7 +1020,7 @@ impl<T: Trait> Module<T> {
         // Unlock tokens that were previously locked during the authorization
         let legs = <InstructionLegs<T>>::iter_prefix(instruction_id);
         for (leg_id, leg_details) in
-        legs.filter(|(_leg_id, leg_details)| portfolios.contains(&leg_details.from))
+            legs.filter(|(_leg_id, leg_details)| portfolios.contains(&leg_details.from))
         {
             match Self::instruction_leg_status(instruction_id, leg_id) {
                 LegStatus::ExecutionToBeSkipped(signer, receipt_uid) => {
@@ -1194,14 +1194,14 @@ impl<T: Trait> Module<T> {
         with_transaction(|| {
             let legs = <InstructionLegs<T>>::iter_prefix(instruction_id);
             for (leg_id, leg_details) in
-            legs.filter(|(_leg_id, leg_details)| portfolios.contains(&leg_details.from))
+                legs.filter(|(_leg_id, leg_details)| portfolios.contains(&leg_details.from))
             {
                 if T::Portfolio::lock_tokens(
                     &leg_details.from,
                     &leg_details.asset,
                     &leg_details.amount,
                 )
-                    .is_err()
+                .is_err()
                 {
                     // rustc fails to infer return type of `with_transaction` if you use ?/map_err here
                     return Err(DispatchError::from(Error::<T>::FailedToLockTokens));
@@ -1314,7 +1314,7 @@ impl<T: Trait> Module<T> {
                         &leg_details.asset,
                         &leg_details.amount,
                     )
-                        .ok();
+                    .ok();
                 }
                 LegStatus::PendingTokenLock => {}
             }
