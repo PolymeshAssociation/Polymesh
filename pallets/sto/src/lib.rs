@@ -314,7 +314,7 @@ decl_module! {
                 let portfolios= vec![investment_portfolio, funding_portfolio].into_iter();
                 Settlement::<T>::unsafe_authorize_instruction(primary_issuance_agent, instruction_id, portfolios)?;
 
-
+                //todo iter over orders and subtract from remaining
 
                 Ok(())
             })
