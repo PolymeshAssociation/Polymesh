@@ -59,7 +59,7 @@ std = [
     "sp-runtime/std",
     "sp-std/std",
     "sp-version/std",
-    "time/std"
+    "time/std",
 
     # Crypto
     "blake2/simd",
