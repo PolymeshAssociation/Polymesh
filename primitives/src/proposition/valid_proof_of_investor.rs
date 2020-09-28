@@ -1,9 +1,6 @@
-use crate::{
-    scalar_blake2_from_bytes, CddId, Claim, Context, IdentityId, InvestorZKProofData, Proposition,
-    Ticker,
-};
+use crate::{CddId, Claim, Context, IdentityId, InvestorZKProofData, Proposition, Ticker};
 use cryptography::claim_proofs::ProofPublicKey;
-use curve25519_dalek::{ristretto::CompressedRistretto, scalar::Scalar};
+use curve25519_dalek::ristretto::CompressedRistretto;
 
 // ZKProofs claims
 // =========================================================
@@ -47,14 +44,16 @@ impl ValidProofOfInvestorProposition {
         proof: &InvestorZKProofData,
         message: impl AsRef<[u8]>,
     ) -> bool {
-        let investor = Scalar::from_bits(investor_raw.to_bytes());
-        let scope_did = scalar_blake2_from_bytes(ticker.as_slice());
-
         if let Some(cdd_id) = CompressedRistretto::from_slice(cdd_id_raw.as_slice()).decompress() {
             if let Some(scope_id) =
                 CompressedRistretto::from_slice(scope_id_raw.as_bytes()).decompress()
             {
-                let verifier = ProofPublicKey::new(cdd_id, investor, scope_id, scope_did);
+                let verifier = ProofPublicKey::new(
+                    cdd_id,
+                    investor_raw.as_bytes(),
+                    scope_id,
+                    ticker.as_slice(),
+                );
                 return verifier.verify_id_match_proof(message.as_ref(), &proof.0);
             }
         }

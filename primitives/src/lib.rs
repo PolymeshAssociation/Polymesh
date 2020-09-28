@@ -18,9 +18,6 @@
 #![warn(missing_docs)]
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use blake2::{Blake2b, Digest};
-use curve25519_dalek::scalar::Scalar;
-
 pub use codec::{Compact, Decode, Encode};
 pub use sp_runtime::{
     generic,
@@ -104,18 +101,6 @@ impl From<(u32, u32)> for PosRatio {
     fn from((n, d): (u32, u32)) -> Self {
         PosRatio(n, d)
     }
-}
-
-/// It creates a scalar from the blake2_512 hash of `data` parameter.
-pub fn scalar_blake2_from_bytes(data: impl AsRef<[u8]>) -> Scalar {
-    let mut hash = [0u8; 64];
-    hash.copy_from_slice(
-        Blake2b::default()
-            .chain(data.as_ref())
-            .finalize()
-            .as_slice(),
-    );
-    Scalar::from_bytes_mod_order_wide(&hash)
 }
 
 /// The balance of an account.

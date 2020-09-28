@@ -37,7 +37,7 @@ pallet-utility = { path = "../../utility", default-features = false }
 pallet-group-rpc-runtime-api = { path = "../../group/rpc/runtime-api", default-features = false }
 
 # Crypto
-cryptography = { git = "https://github.com/PolymathNetwork/cryptography.git", branch = "develop", default-features = false }
+cryptography = { git = "https://github.com/PolymathNetwork/cryptography.git", branch = "CRYP-166/take_in_slices", default-features = false }
 
 # Runtime
 polymesh-runtime-develop = { path = "../develop" }
