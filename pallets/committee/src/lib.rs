@@ -222,7 +222,7 @@ decl_error! {
         /// Proportion must be a rational number.
         InvalidProportion,
         /// The close call is made too early, before the end of the voting.
-        TooEarly,
+        CloseBeforeVoteEnd,
         /// When `MotionDuration` is set to 0.
         NotAllowed,
         /// The current DID is missing.
@@ -314,10 +314,9 @@ decl_module! {
             let now = system::Module::<T>::block_number();
             Self::ensure_not_expired(&proposal, voting.expiry, now)?;
 
-            // POLYMESH-NOTE- Change specific to Polymesh
             ensure!(T::MotionDuration::get() > Zero::zero(), Error::<T, I>::NotAllowed);
             ensure!(voting.index == index, Error::<T, I>::MismatchedVotingIndex);
-            ensure!(now >= voting.end, Error::<T, I>::TooEarly);
+            ensure!(now >= voting.end, Error::<T, I>::CloseBeforeVoteEnd);
 
             let mut no_votes = voting.nays.len() as MemberCount;
             let yes_votes = voting.ayes.len() as MemberCount;
