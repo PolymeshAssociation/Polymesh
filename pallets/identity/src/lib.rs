@@ -2142,6 +2142,7 @@ impl<T: Trait> InitializeMembers<IdentityId> for Module<T> {
 }
 
 impl<T: Trait> CheckAccountCallPermissions<T::AccountId> for Module<T> {
+    // For weighting purposes, the function reads 4 storage values.
     fn check_account_call_permissions(
         who: &T::AccountId,
         pallet_name: &PalletName,

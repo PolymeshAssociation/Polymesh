@@ -109,8 +109,9 @@ use polymesh_common_utilities::{
     CommonTrait, Context, SystematicIssuers,
 };
 use polymesh_primitives::{
-    AssetIdentifier, AuthorizationData, AuthorizationError, Document, DocumentName, IdentityId,
-    PortfolioId, Signatory, SmartExtension, SmartExtensionName, SmartExtensionType, Ticker,
+    AssetIdentifier, AuthorizationData, AuthorizationError, CheckpointSchedule, Document,
+    DocumentName, IdentityId, PortfolioId, Signatory, SmartExtension, SmartExtensionName,
+    SmartExtensionType, Ticker,
 };
 use polymesh_primitives_derive::VecU8StrongTyped;
 use sp_runtime::traits::{CheckedAdd, SaturatedConversion, Saturating};
@@ -286,53 +287,6 @@ pub struct ClassicTickerRegistration {
     pub eth_owner: ethereum::EthereumAddress,
     /// Has the ticker been elevated to a created asset on classic?
     pub is_created: bool,
-}
-
-/// Calendar units for timing recurring operations.
-#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[derive(Encode, Decode, Clone, Debug, PartialEq, Eq)]
-pub enum CalendarUnit {
-    /// A unit of one second.
-    Second,
-    /// A unit of one minute.
-    Minute,
-    /// A unit of one hour.
-    Hour,
-    /// A unit of one day.
-    Day,
-    /// A unit of one week.
-    Week,
-    /// A unit of one month.
-    Month,
-    /// A unit of one year.
-    Year,
-}
-
-impl Default for CalendarUnit {
-    fn default() -> Self {
-        Self::Second
-    }
-}
-
-/// A simple period which is a multiple of a `CalendarUnit`.
-#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[derive(Encode, Decode, Clone, Debug, Default, PartialEq, Eq)]
-pub struct CalendarPeriod {
-    /// The base calendar unit.
-    pub unit: CalendarUnit,
-    /// The number of base units in the period.
-    pub multiplier: u64,
-}
-
-/// The schedule of an asset checkpoint containing the start time `start` and the optional period
-/// `period` in case the checkpoint is to recur after `start` at regular intervals.
-#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[derive(Encode, Decode, Clone, Debug, Default, PartialEq, Eq)]
-pub struct CheckpointSchedule {
-    /// Unix time in seconds (UTC).
-    pub start: u64,
-    /// The period at which the checkpoint is set to recur after `start`.
-    pub period: CalendarPeriod,
 }
 
 decl_storage! {
@@ -717,7 +671,7 @@ decl_module! {
         //
         // TODO: Make the weight inversely proportional to the length of the period?
         //
-        #[weight = T::DbWeight::get().reads_writes(3, 2) + 400_000_000]
+        #[weight = T::DbWeight::get().reads_writes(6, 2) + 1_000_000_000]
         pub fn create_checkpoint_schedule(
             origin,
             ticker: Ticker,
@@ -739,23 +693,19 @@ decl_module! {
                 // The start time is in the past.
                 if multiplier > 0 {
                     // The period is non-empty.
-                    let secs_since_start = now_as_secs - schedule.start;
-                    // TODO
+                    if let Some(period_as_secs) = schedule.period.as_secs() {
+                        // The period is of fixed length.
+                        let secs_since_start = now_as_secs - schedule.start;
+                        let elapsed_periods: u64 = secs_since_start / period_as_secs;
+                        // Schedule the first checkpoint.
+                        <NextCheckpoints>::insert(
+                            &ticker,
+                            secs_since_start + period_as_secs * (elapsed_periods + 1)
+                        );
+                    } else {
+                        // The period is of variable length.
 
-                    let period_as_secs: u64 = match schedule.period.unit {
-                        CalendarUnit::Second => multiplier,
-                        CalendarUnit::Minute => multiplier * 60,
-                        CalendarUnit::Hour => multiplier * 60 * 60,
-                        CalendarUnit::Day => multiplier * 60 * 60 * 24,
-                        CalendarUnit::Week => multiplier * 60 * 60 * 24 * 8,
-                        _ => 1 /* FIXME: non-uniform durations */
-                    };
-                    let elapsed_periods: u64 = secs_since_start / period_as_secs;
-                    // Schedule the first checkpoint.
-                    <NextCheckpoints>::insert(
-                        &ticker,
-                        secs_since_start + elapsed_periods * period_as_secs
-                    );
+                    }
                 }
             }
 
@@ -778,7 +728,7 @@ decl_module! {
         ///
         /// # Errors
         /// * `Unauthorized` - The caller does not own the asset.
-        #[weight = T::DbWeight::get().reads_writes(3, 2) + 400_000_000]
+        #[weight = T::DbWeight::get().reads_writes(5, 2) + 400_000_000]
         pub fn remove_checkpoint_schedule(
             origin,
             ticker: Ticker,

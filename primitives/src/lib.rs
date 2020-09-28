@@ -225,6 +225,10 @@ pub use proposition::{AndProposition, Context, NotProposition, OrProposition, Pr
 pub mod valid_proof_of_investor;
 pub use valid_proof_of_investor::ValidProofOfInvestor;
 
+/// Timekeeping and checkpoints.
+pub mod calendar;
+pub use calendar::{CalendarUnit, CalendarPeriod, CheckpointSchedule};
+
 /// Represents custom transaction errors.
 #[repr(u8)]
 pub enum TransactionError {
