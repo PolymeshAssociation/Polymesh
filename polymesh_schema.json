@@ -511,6 +511,12 @@
             "voting_end": "Moment",
             "motions": "Vec<Motion>"
         },
+        "MaybeBlock": {
+            "_enum": {
+                "Some": "BlockNumber",
+                "None": ""
+            }
+        },
         "Url": "Text",
         "PipDescription": "Text",
         "PipsMetadata": {

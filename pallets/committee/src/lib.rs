@@ -71,7 +71,7 @@ use polymesh_common_utilities::{
     governance_group::GovernanceGroupTrait,
     group::{GroupTrait, InactiveMember, MemberCount},
     identity::{IdentityTrait, Trait as IdentityModuleTrait},
-    Context, SystematicIssuers, GC_DID,
+    Context, MaybeBlock, SystematicIssuers, GC_DID,
 };
 use polymesh_primitives::IdentityId;
 use sp_core::u32_trait::Value as U32;
@@ -125,11 +125,8 @@ pub struct PolymeshVotes<IdentityId, BlockNumber> {
     /// The hard end time of this vote.
     pub end: BlockNumber,
     /// The time **at** which the proposal is expired.
-    pub expiry: Option<BlockNumber>,
+    pub expiry: MaybeBlock<BlockNumber>,
 }
-
-// Fool `decl_storage!` below into not strip the `Option` in the genesis config.
-use Option as Maybe;
 
 decl_storage! {
     trait Store for Module<T: Trait<I>, I: Instance=DefaultInstance> as Committee {
@@ -148,7 +145,7 @@ decl_storage! {
         /// Release coordinator.
         pub ReleaseCoordinator get(fn release_coordinator) config(): Option<IdentityId>;
         /// Time after which a proposal will expire.
-        pub ExpiresAfter get(fn expires_after) config(): Maybe<T::BlockNumber>;
+        pub ExpiresAfter get(fn expires_after) config(): MaybeBlock<T::BlockNumber>;
     }
     add_extra_genesis {
         config(phantom): sp_std::marker::PhantomData<(T, I)>;
@@ -192,7 +189,7 @@ decl_event!(
         ReleaseCoordinatorUpdated(IdentityId, Option<IdentityId>),
         /// Proposal expiry time has been updated.
         /// Parameters: caller DID, new expiry time (if any).
-        ExpiresAfterUpdated(IdentityId, Option<BlockNumber>),
+        ExpiresAfterUpdated(IdentityId, MaybeBlock<BlockNumber>),
         /// Voting threshold has been updated
         /// Parameters: caller DID, numerator, denominator
         VoteThresholdUpdated(IdentityId, u32, u32),
@@ -279,7 +276,7 @@ decl_module! {
         /// # Arguments
         /// * `expiry` - The new expiry time.
         #[weight = (T::DbWeight::get().reads_writes(1, 1) + 200_000_000, Operational, Pays::Yes)]
-        pub fn set_expires_after(origin, expiry: Option<T::BlockNumber>) {
+        pub fn set_expires_after(origin, expiry: MaybeBlock<T::BlockNumber>) {
             T::CommitteeOrigin::ensure_origin(origin)?;
             <ExpiresAfter<T, I>>::put(expiry);
             Self::deposit_event(RawEvent::ExpiresAfterUpdated(GC_DID, expiry));
@@ -559,16 +556,16 @@ impl<T: Trait<I>, I: Instance> Module<T, I> {
     /// As a side-effect, on error, any existing proposal data is pruned.
     fn ensure_not_expired(
         proposal: &T::Hash,
-        expiry: Option<T::BlockNumber>,
+        expiry: MaybeBlock<T::BlockNumber>,
         now: T::BlockNumber,
     ) -> Result<(), Error<T, I>> {
-        match expiry.filter(|&e| e <= now) {
-            None => Ok(()),
-            Some(_) => {
+        match expiry {
+            MaybeBlock::Some(e) if e <= now => {
                 Self::clear_proposal(proposal);
                 <ProposalOf<T, I>>::remove(proposal);
                 Err(Error::<T, I>::ProposalExpired)
             }
+            _ => Ok(()),
         }
     }
 
@@ -616,7 +613,7 @@ impl<T: Trait<I>, I: Instance> Module<T, I> {
                 ayes: vec![did],
                 nays: vec![],
                 end: now + T::MotionDuration::get(),
-                expiry: Self::expires_after().map(|e| e + now),
+                expiry: Self::expires_after() + now,
             };
             <Voting<T, I>>::insert(proposal_hash, votes);
 

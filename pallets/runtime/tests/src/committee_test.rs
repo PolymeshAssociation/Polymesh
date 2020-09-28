@@ -14,7 +14,7 @@ use pallet_committee::{self as committee, PolymeshVotes, RawEvent as CommitteeRa
 use pallet_group as group;
 use pallet_identity as identity;
 use pallet_pips::{self as pips, ProposalState, SnapshotResult};
-use polymesh_common_utilities::traits::pip::PipId;
+use polymesh_common_utilities::{traits::pip::PipId, MaybeBlock};
 use polymesh_primitives::IdentityId;
 use sp_core::H256;
 use sp_runtime::traits::Hash;
@@ -227,7 +227,7 @@ fn motions_revoting_works_we() {
             ayes: vec![alice_did],
             nays: vec![],
             end: System::block_number(),
-            expiry: None,
+            expiry: <_>::default(),
         })
     );
     assert_noop!(
@@ -242,7 +242,7 @@ fn motions_revoting_works_we() {
             ayes: vec![],
             nays: vec![alice_did],
             end: System::block_number(),
-            expiry: None,
+            expiry: <_>::default(),
         })
     );
     assert_noop!(
@@ -359,7 +359,7 @@ fn rage_quit_we() {
             ayes: vec![bob_did],
             nays: vec![charlie_did],
             end: System::block_number(),
-            expiry: None,
+            expiry: <_>::default(),
         })
     );
 
@@ -372,7 +372,7 @@ fn rage_quit_we() {
             ayes: vec![],
             nays: vec![charlie_did],
             end: System::block_number(),
-            expiry: None,
+            expiry: <_>::default(),
         })
     );
 
@@ -385,7 +385,7 @@ fn rage_quit_we() {
             ayes: vec![],
             nays: vec![],
             end: System::block_number(),
-            expiry: None,
+            expiry: <_>::default(),
         })
     );
 
@@ -402,7 +402,7 @@ fn rage_quit_we() {
             ayes: vec![],
             nays: vec![bob_did],
             end: System::block_number(),
-            expiry: None,
+            expiry: <_>::default(),
         })
     );
     assert_ok!(vote(&alice_signer, true));
@@ -413,7 +413,7 @@ fn rage_quit_we() {
             ayes: vec![alice_did],
             nays: vec![bob_did],
             end: System::block_number(),
-            expiry: None,
+            expiry: <_>::default(),
         })
     );
 
@@ -585,7 +585,7 @@ fn mesh_1065_regression_test() {
                     ayes,
                     nays: vec![],
                     end: System::block_number(),
-                    expiry: None,
+                    expiry: <_>::default(),
                 })
             );
         };
@@ -615,7 +615,7 @@ fn expiry_works() {
     ExtBuilder::default().build().execute_with(|| {
         System::set_block_number(1);
 
-        assert_ok!(Committee::set_expires_after(gc_vmo(), Some(13)));
+        assert_ok!(Committee::set_expires_after(gc_vmo(), MaybeBlock::Some(13)));
 
         let alice_ring = AccountKeyring::Alice;
         let alice_signer = Origin::signed(alice_ring.public());
@@ -634,7 +634,7 @@ fn expiry_works() {
             Committee::voting(&hash_enact_snapshot_results())
                 .unwrap()
                 .expiry,
-            Some(System::block_number() + 13),
+            MaybeBlock::Some(System::block_number() + 13),
         );
         fast_forward_blocks(13 + 1);
         assert_err!(

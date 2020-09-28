@@ -21,7 +21,7 @@ use pallet_pips::{
     RawEvent as Event, SnapshotMetadata, SnapshotResult, SnapshottedPip, Url, Vote, VotingResult,
 };
 use pallet_treasury as treasury;
-use polymesh_common_utilities::pip::PipId;
+use polymesh_common_utilities::{pip::PipId, MaybeBlock};
 use polymesh_primitives::IdentityId;
 use sp_core::sr25519::Public;
 use test_client::AccountKeyring;
@@ -217,10 +217,12 @@ fn updating_pips_variables_works() {
         assert_last_event!(Event::DefaultEnactmentPeriodChanged(_, 100, 10));
         assert_eq!(Pips::default_enactment_period(), 10);
 
-        assert_eq!(Pips::pending_pip_expiry(), None);
-        assert_ok!(Pips::set_pending_pip_expiry(root(), Some(13)));
-        assert_last_event!(Event::PendingPipExpiryChanged(_, None, Some(13)));
-        assert_eq!(Pips::pending_pip_expiry(), Some(13));
+        assert_eq!(Pips::pending_pip_expiry(), MaybeBlock::None);
+        assert_ok!(Pips::set_pending_pip_expiry(root(), MaybeBlock::Some(13)));
+        assert_last_event!(
+            Event::PendingPipExpiryChanged(_, MaybeBlock::None, MaybeBlock::Some(13))
+        );
+        assert_eq!(Pips::pending_pip_expiry(), MaybeBlock::Some(13));
 
         assert_eq!(Pips::max_pip_skip_count(), 1);
         assert_ok!(Pips::set_max_pip_skip_count(root(), 42));
@@ -534,7 +536,7 @@ fn proposal_details_are_correct() {
             url: Some(proposal_url),
             description: Some(proposal_desc),
             transaction_version: 0,
-            expiry: None,
+            expiry: <_>::default(),
         };
         assert_eq!(Pips::proposal_metadata(0).unwrap(), expected);
 
@@ -632,7 +634,7 @@ fn amend_proposal_works() {
             url,
             description,
             transaction_version: 0,
-            expiry: None,
+            expiry: <_>::default(),
         };
         assert_eq!(Pips::proposal_metadata(0).unwrap(), expected);
     });
@@ -1180,7 +1182,10 @@ fn expired_proposal(cool_off: u64, expiry: u64) -> PipId {
     let old_cool_off = Pips::proposal_cool_off_period();
     let old_expiry = Pips::pending_pip_expiry();
     assert_ok!(Pips::set_proposal_cool_off_period(root(), cool_off));
-    assert_ok!(Pips::set_pending_pip_expiry(root(), Some(expiry)));
+    assert_ok!(Pips::set_pending_pip_expiry(
+        root(),
+        MaybeBlock::Some(expiry)
+    ));
     let expiry_time = cool_off + expiry;
 
     // Create a proposal and verify its pending.
@@ -1189,7 +1194,7 @@ fn expired_proposal(cool_off: u64, expiry: u64) -> PipId {
     assert_state(next_id, false, ProposalState::Pending);
     assert_eq!(
         Pips::proposal_metadata(next_id).unwrap().expiry,
-        Some(expiry_time + System::block_number())
+        MaybeBlock::Some(expiry_time + System::block_number())
     );
 
     // Now fast forward.
@@ -1930,7 +1935,7 @@ fn expiry_works() {
         // Make sure non-pending PIPs cannot expire.
         assert_ok!(Pips::set_prune_historical_pips(root(), false));
         assert_ok!(Pips::set_proposal_cool_off_period(root(), 7));
-        assert_ok!(Pips::set_pending_pip_expiry(root(), Some(13)));
+        assert_ok!(Pips::set_pending_pip_expiry(root(), MaybeBlock::Some(13)));
         let alice = User::new(AccountKeyring::Alice);
         set_members(vec![alice.did]);
         let c = cancelled_proposal();

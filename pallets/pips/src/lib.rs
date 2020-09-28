@@ -108,7 +108,7 @@ use polymesh_common_utilities::{
         balances::LockableCurrencyExt, governance_group::GovernanceGroupTrait, group::GroupTrait,
         pip::PipId,
     },
-    with_transaction, CommonTrait, Context, GC_DID,
+    with_transaction, CommonTrait, Context, MaybeBlock, GC_DID,
 };
 use polymesh_primitives::IdentityId;
 use polymesh_primitives_derive::VecU8StrongTyped;
@@ -223,7 +223,7 @@ pub struct PipsMetadata<T: Trait> {
     ///
     /// This field has no operational on-chain effect and is provided for UI purposes only.
     /// On-chain effects are instead handled via scheduling.
-    pub expiry: Option<T::BlockNumber>,
+    pub expiry: MaybeBlock<T::BlockNumber>,
 }
 
 /// For keeping track of proposal being voted on.
@@ -370,9 +370,6 @@ pub trait Trait:
     type Event: From<Event<Self>> + Into<<Self as system::Trait>::Event>;
 }
 
-// Fool `decl_storage!` below into not strip the `Option` in the genesis config.
-use Option as Maybe;
-
 // This module's storage items.
 decl_storage! {
     trait Store for Module<T: Trait> as Pips {
@@ -391,7 +388,7 @@ decl_storage! {
 
         /// How many blocks will it take, after a `Pending` PIP's cooling-off period is over,
         /// until the the PIP expires, assuming it has not transitioned to another `ProposalState`?
-        pub PendingPipExpiry get(fn pending_pip_expiry) config(): Maybe<T::BlockNumber>;
+        pub PendingPipExpiry get(fn pending_pip_expiry) config(): MaybeBlock<T::BlockNumber>;
 
         /// Maximum times a PIP can be skipped before triggering `CannotSkipPip` in `enact_snapshot_results`.
         pub MaxPipSkipCount get(fn max_pip_skip_count) config(): SkippedCount;
@@ -481,7 +478,7 @@ decl_event!(
             Option<Url>,
             Option<PipDescription>,
             BlockNumber,
-            Option<BlockNumber>,
+            MaybeBlock<BlockNumber>,
             ProposalData,
         ),
         /// A PIP's details (url & description) were amended.
@@ -505,7 +502,7 @@ decl_event!(
         ProposalCoolOffPeriodChanged(IdentityId, BlockNumber, BlockNumber),
         /// Amount of blocks, after the cool-off period, after which a pending PIP expires.
         /// (caller DID, old expiry, new expiry)
-        PendingPipExpiryChanged(IdentityId, Option<BlockNumber>, Option<BlockNumber>),
+        PendingPipExpiryChanged(IdentityId, MaybeBlock<BlockNumber>, MaybeBlock<BlockNumber>),
         /// The maximum times a PIP can be skipped was changed.
         /// (caller DID, old value, new value)
         MaxPipSkipCountChanged(IdentityId, SkippedCount, SkippedCount),
@@ -677,7 +674,7 @@ decl_module! {
         /// Change the amount of blocks, after the cool-off, for which a pending PIP is expired.
         /// If `expiry` is `None` then PIPs never expire.
         #[weight = (550_000_000, DispatchClass::Operational, Pays::Yes)]
-        pub fn set_pending_pip_expiry(origin, expiry: Option<T::BlockNumber>) {
+        pub fn set_pending_pip_expiry(origin, expiry: MaybeBlock<T::BlockNumber>) {
             T::CommitteeOrigin::ensure_origin(origin)?;
             let prev = <PendingPipExpiry<T>>::get();
             <PendingPipExpiry<T>>::put(expiry);
@@ -750,7 +747,7 @@ decl_module! {
             let id = Self::next_pip_id();
             let created_at = <system::Module<T>>::block_number();
             let cool_off_until = created_at + Self::proposal_cool_off_period();
-            let expiry = Self::pending_pip_expiry().map(|expiry_add| expiry_add + cool_off_until);
+            let expiry = Self::pending_pip_expiry() + cool_off_until;
             let transaction_version = <T::Version as Get<RuntimeVersion>>::get().transaction_version;
             let proposal_data = Self::reportable_proposal_data(&*proposal);
             <ProposalMetadata<T>>::insert(id, PipsMetadata {
@@ -771,7 +768,7 @@ decl_module! {
             ActivePipCount::mutate(|count| *count += 1);
 
             // 5. Schedule for expiry as long as `Pending` at block with number `expiring_at`.
-            if let Some(expiring_at) = expiry {
+            if let MaybeBlock::Some(expiring_at) = expiry {
                 <ExpirySchedule<T>>::append(expiring_at, id);
             }
 
