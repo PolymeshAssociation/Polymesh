@@ -31,7 +31,6 @@ use frame_support::{
 use frame_system::EnsureSignedBy;
 use pallet_group as group;
 use pallet_identity as identity;
-use pallet_permissions::StoreCallMetadata;
 use pallet_protocol_fee as protocol_fee;
 use pallet_staking::{self as staking, *};
 use polymesh_common_utilities::traits::{

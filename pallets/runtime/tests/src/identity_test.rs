@@ -2,9 +2,8 @@ use super::{
     committee_test::gc_vmo,
     ext_builder::PROTOCOL_OP_BASE_FEE,
     storage::{
-        add_secondary_key, authorizations_to, get_identity_id, get_last_auth_id,
-        register_keyring_account, register_keyring_account_with_balance, GovernanceCommittee,
-        TestStorage,
+        add_secondary_key, get_identity_id, get_last_auth_id, register_keyring_account,
+        register_keyring_account_with_balance, GovernanceCommittee, TestStorage,
     },
     ExtBuilder,
 };

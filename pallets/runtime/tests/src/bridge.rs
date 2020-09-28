@@ -10,10 +10,8 @@ use frame_support::{
     assert_err, assert_ok,
     traits::{Currency, OnInitialize},
     weights::Weight,
-    StorageDoubleMap,
 };
 use pallet_balances as balances;
-use pallet_identity as identity;
 use pallet_multisig as multisig;
 use polymesh_primitives::Signatory;
 use polymesh_runtime_common::bridge::{self, BridgeTx, BridgeTxStatus};

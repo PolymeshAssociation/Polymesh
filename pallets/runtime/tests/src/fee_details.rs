@@ -2,7 +2,7 @@ use super::{
     storage::{get_last_auth_id, make_account_without_cdd, register_keyring_account, TestStorage},
     ExtBuilder,
 };
-use frame_support::{assert_err, assert_ok, StorageDoubleMap};
+use frame_support::{assert_err, assert_ok};
 use pallet_balances as balances;
 use pallet_identity as identity;
 use pallet_multisig as multisig;
