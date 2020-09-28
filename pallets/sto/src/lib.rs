@@ -170,8 +170,10 @@ decl_module! {
             ensure!(<PortfolioAssetBalances<T>>::contains_key(offering_portfolio, offering_asset), Error::<T>::InvalidPortfolio);
             let asset_balance = <PortfolioAssetBalances<T>>::get(offering_portfolio, offering_asset);
 
-            ensure!(tiers.len() > 0, Error::<T>::InvalidPriceTiers);
-            ensure!(tiers.iter().all(|t| t.total > 0.into()), Error::<T>::InvalidPriceTiers);
+            ensure!(
+                tiers.len() > 0 && tiers.iter().all(|t| t.total > 0.into()),
+                Error::<T>::InvalidPriceTiers
+            );
 
             let offering_amount: T::Balance = tiers
                 .iter()
