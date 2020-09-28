@@ -131,7 +131,7 @@ decl_error! {
 decl_storage! {
     trait Store for Module<T: Trait> as StoCapped {
         /// All fundraisers that are currently running. (ticker, fundraiser_id) -> Fundraiser
-        Fundraisers get(fn fundraisers): double_map hasher(blake2_128_concat) Ticker, hasher(twox_64_concat) u64 => Fundraiser<T::Balance, T::Moment>;
+        Fundraisers get(fn fundraisers): double_map hasher(blake2_128_concat) Ticker, hasher(twox_64_concat) u64 => Option<Fundraiser<T::Balance, T::Moment>>;
         /// Total fundraisers created for a token
         FundraiserCount get(fn fundraiser_count): map hasher(twox_64_concat) Ticker => u64;
     }
@@ -160,11 +160,11 @@ decl_module! {
             let did = Context::current_identity_or::<Identity<T>>(&sender)?;
             ensure!(T::Asset::primary_issuance_agent(&offering_asset) == did, Error::<T>::Unauthorized);
 
-            ensure!(VenueInfo::contains_key(venue_id), Error::<T>::InvalidVenue);
-            let venue = VenueInfo::get(venue_id);
-
-            ensure!(venue.creator == did, Error::<T>::InvalidVenue);
-            ensure!(venue.venue_type == VenueType::Sto, Error::<T>::InvalidVenue);
+            let venue = VenueInfo::get(venue_id).ok_or(Error::<T>::InvalidVenue)?;
+            ensure!(
+                venue.creator == did && venue.venue_type == VenueType::Sto,
+                Error::<T>::InvalidVenue
+            );
 
             ensure!(offering_portfolio.did == did, Error::<T>::InvalidPortfolio);
             ensure!(<PortfolioAssetBalances<T>>::contains_key(offering_portfolio, offering_asset), Error::<T>::InvalidPortfolio);
@@ -226,10 +226,8 @@ decl_module! {
             let sender = ensure_signed(origin.clone())?;
             let did = Context::current_identity_or::<Identity<T>>(&sender)?;
 
-            ensure!(<Fundraisers<T>>::contains_key(offering_asset, fundraiser_id), Error::<T>::FundraiserNotFound);
-            let fundraiser = <Fundraisers<T>>::get(offering_asset, fundraiser_id);
-
             let now = Timestamp::<T>::get();
+            let fundraiser = <Fundraisers<T>>::get(offering_asset, fundraiser_id).ok_or(Error::<T>::FundraiserNotFound);
             ensure!(fundraiser.start <= now, Error::<T>::FundraiserNotStated);
             if let Some(end) = fundraiser.end {
                 ensure!(end > now, Error::<T>::FundraiserExpired);
@@ -316,7 +314,11 @@ decl_module! {
                 let portfolios= vec![investment_portfolio, funding_portfolio].into_iter();
                 Settlement::<T>::unsafe_authorize_instruction(primary_issuance_agent, instruction_id, portfolios)?;
 
-                //todo iter over orders and subtract from remaining
+                <Fundraisers<T>>::mutate(offering_asset, fundraiser_id, |fundraiser| {
+                    for (id, amount) in purchases {
+                        fundraiser.tiers[id].remaining -= amount;
+                    }
+                });
 
                 Ok(())
             })
@@ -328,7 +330,12 @@ decl_module! {
             let did = Context::current_identity_or::<Identity<T>>(&sender)?;
             ensure!(T::Asset::primary_issuance_agent(&offering_asset) == did, Error::<T>::Unauthorized);
 
-            ensure!(<Fundraisers<T>>::contains_key(offering_asset, fundraiser_id), Error::<T>::FundraiserNotFound);
+            let now = Timestamp::<T>::get();
+            let fundraiser = <Fundraisers<T>>::get(offering_asset, fundraiser_id).ok_or(Error::<T>::FundraiserNotFound);
+            ensure!(fundraiser.start <= now, Error::<T>::FundraiserNotStated);
+            if let Some(end) = fundraiser.end {
+                ensure!(end > now, Error::<T>::FundraiserExpired);
+            }
 
             <Fundraisers<T>>::mutate(offering_asset, fundraiser_id, |fundraiser| fundraiser.frozen = true);
             Ok(())
@@ -340,7 +347,12 @@ decl_module! {
             let did = Context::current_identity_or::<Identity<T>>(&sender)?;
             ensure!(T::Asset::primary_issuance_agent(&offering_asset) == did, Error::<T>::Unauthorized);
 
-            ensure!(<Fundraisers<T>>::contains_key(offering_asset, fundraiser_id), Error::<T>::FundraiserNotFound);
+            let now = Timestamp::<T>::get();
+            let fundraiser = <Fundraisers<T>>::get(offering_asset, fundraiser_id).ok_or(Error::<T>::FundraiserNotFound);
+            ensure!(fundraiser.start <= now, Error::<T>::FundraiserNotStated);
+            if let Some(end) = fundraiser.end {
+                ensure!(end > now, Error::<T>::FundraiserExpired);
+            }
 
             <Fundraisers<T>>::mutate(offering_asset, fundraiser_id, |fundraiser| fundraiser.frozen = false);
             Ok(())
@@ -352,7 +364,12 @@ decl_module! {
             let did = Context::current_identity_or::<Identity<T>>(&sender)?;
             ensure!(T::Asset::primary_issuance_agent(&offering_asset) == did, Error::<T>::Unauthorized);
 
-            ensure!(<Fundraisers<T>>::contains_key(offering_asset, fundraiser_id), Error::<T>::FundraiserNotFound);
+            let now = Timestamp::<T>::get();
+            let fundraiser = <Fundraisers<T>>::get(offering_asset, fundraiser_id).ok_or(Error::<T>::FundraiserNotFound);
+            ensure!(fundraiser.start <= now, Error::<T>::FundraiserNotStated);
+            if let Some(end) = fundraiser.end {
+                ensure!(end > now, Error::<T>::FundraiserExpired);
+            }
 
             <Fundraisers<T>>::mutate(offering_asset, fundraiser_id, |fundraiser| {
                 fundraiser.start = start;
