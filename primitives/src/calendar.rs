@@ -130,8 +130,7 @@ impl CheckpointSchedule {
                     next_period_month + 1,
                     next_period_day,
                 );
-                NaiveDateTime::new(date_next, date_time_start.time())
-                    .map(|dt| dt.timestamp() as u64)
+                Some(date_next.and_time(date_time_start.time()).timestamp() as u64)
             }
             CalendarUnit::Year => {
                 // Convert the multiplier to match the type of year.
