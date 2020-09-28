@@ -268,7 +268,7 @@ decl_module! {
             let who = ensure_signed(origin)?;
             let remove_id = Context::current_identity_or::<Identity<T>>(&who)?;
 
-            ensure!(<Identity<T>>::is_primary_key(remove_id, &who),
+            ensure!(<Identity<T>>::is_primary_key(&remove_id, &who),
                 Error::<T,I>::OnlyPrimaryKeyAllowed);
 
             let mut members = Self::get_members();

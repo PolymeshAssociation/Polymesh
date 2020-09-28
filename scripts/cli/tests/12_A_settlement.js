@@ -24,10 +24,7 @@ async function main() {
   let bob_did = await reqImports.createIdentities(api, [bob], alice);
   bob_did = bob_did[0];
 
-  let alice_did = JSON.parse(
-    await reqImports.keyToIdentityIds(api, alice.publicKey)
-  );
-  alice_did = alice_did.Unique;
+  let alice_did = await reqImports.keyToIdentityIds(api, alice.publicKey);
 
   await reqImports.distributePolyBatch(
     api,

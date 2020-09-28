@@ -68,7 +68,7 @@ async function getValidCddProvider(api, alice) {
 
     // match the identity within the identity pallet
     const service_provider_1_identity = await api.query.identity.keyToIdentityIds(service_provider_1_key.publicKey);
-    assert.equal((JSON.parse(service_provider_1_identity).Unique).toString(), service_providers[0].toString());
+    assert.equal(JSON.parse(service_provider_1_identity).toString(), service_providers[0].toString());
 
     // fund the service_provider_1 account key to successfully call the `register_did` dispatchable
     let old_balance = (await api.query.system.account(service_provider_1_key.address)).data.free;

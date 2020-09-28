@@ -86,21 +86,27 @@ use frame_support::{
     decl_error, decl_event, decl_module, decl_storage,
     dispatch::{DispatchError, DispatchResult},
     ensure,
+    traits::GetCallMetadata,
     weights::GetDispatchInfo,
     StorageDoubleMap, StorageValue,
 };
 use frame_system::ensure_signed;
 use pallet_identity as identity;
+use pallet_permissions::with_call_metadata;
 use polymesh_common_utilities::{
     identity::Trait as IdentityTrait,
     multisig::MultiSigSubTrait,
     transaction_payment::{CddAndFeeDetails, ChargeTxFee},
     Context,
 };
-use polymesh_primitives::{AuthorizationData, AuthorizationError, IdentityId, Signatory};
+use polymesh_primitives::{
+    AuthorizationData, AuthorizationError, IdentityId, PalletPermissions, Permissions, Signatory,
+};
 use sp_runtime::traits::{Dispatchable, Hash};
-use sp_std::{convert::TryFrom, prelude::*};
+use sp_std::{convert::TryFrom, iter, prelude::*};
+
 type Identity<T> = identity::Module<T>;
+type CallPermissions<T> = pallet_permissions::Module<T>;
 
 /// Either the ID of a successfully created multisig account or an error.
 pub type CreateMultisigAccountResult<T> =
@@ -205,6 +211,7 @@ decl_module! {
         #[weight = 2_000_000_000]
         pub fn create_multisig(origin, signers: Vec<Signatory<T::AccountId>>, sigs_required: u64) -> DispatchResult {
             let sender = ensure_signed(origin)?;
+            CallPermissions::<T>::ensure_call_permissions(&sender)?;
             ensure!(!signers.is_empty(), Error::<T>::NoSigners);
             ensure!(u64::try_from(signers.len()).unwrap_or_default() >= sigs_required && sigs_required > 0,
                 Error::<T>::RequiredSignaturesOutOfBounds
@@ -433,7 +440,7 @@ decl_module! {
             let sender_did = Context::current_identity_or::<Identity<T>>(&sender)?;
             Self::verify_sender_is_creator(sender_did, &multisig)?;
             ensure!(<MultiSigToIdentity<T>>::get(&multisig) == sender_did, Error::<T>::IdentityNotCreator);
-            ensure!(<Identity<T>>::is_primary_key(sender_did, &sender), Error::<T>::NotPrimaryKey);
+            ensure!(<Identity<T>>::is_primary_key(&sender_did, &sender), Error::<T>::NotPrimaryKey);
             for signer in signers {
                 Self::unsafe_add_auth_for_signers(
                     sender_did,
@@ -458,7 +465,7 @@ decl_module! {
             let sender = ensure_signed(origin)?;
             let sender_did = Context::current_identity_or::<Identity<T>>(&sender)?;
             Self::verify_sender_is_creator(sender_did, &multisig)?;
-            ensure!(<Identity<T>>::is_primary_key(sender_did, &sender), Error::<T>::NotPrimaryKey);
+            ensure!(<Identity<T>>::is_primary_key(&sender_did, &sender), Error::<T>::NotPrimaryKey);
             ensure!(Self::is_changing_signers_allowed(&multisig), Error::<T>::ChangeNotAllowed);
             let signers_len:u64 = u64::try_from(signers.len()).unwrap_or_default();
 
@@ -567,7 +574,11 @@ decl_module! {
             Self::verify_sender_is_creator(sender_did, &multisig)?;
             <Identity<T>>::unsafe_join_identity(
                 sender_did,
-                vec![],
+                Permissions::from_pallet_permissions(
+                    // TODO: Check if there is a variable for the pallet name and, if there is, use
+                    // it instead of b"_".
+                    iter::once(PalletPermissions::entire_pallet(b"multisig".as_ref().into()))
+                ),
                 Signatory::Account(multisig)
             )
         }
@@ -583,7 +594,7 @@ decl_module! {
             ensure!(<MultiSigToIdentity<T>>::contains_key(&multisig), Error::<T>::NoSuchMultisig);
             let sender_did = Context::current_identity_or::<Identity<T>>(&sender)?;
             Self::verify_sender_is_creator(sender_did, &multisig)?;
-            ensure!(<Identity<T>>::is_primary_key(sender_did, &sender), Error::<T>::NotPrimaryKey);
+            ensure!(<Identity<T>>::is_primary_key(&sender_did, &sender), Error::<T>::NotPrimaryKey);
             <Identity<T>>::unsafe_primary_key_rotation(
                 multisig,
                 sender_did,
@@ -894,19 +905,20 @@ impl<T: Trait> Module<T> {
                 Error::<T>::FailedToChargeFee
             );
 
-            let res =
-                match proposal.dispatch(frame_system::RawOrigin::Signed(multisig.clone()).into()) {
-                    Ok(_) => {
-                        proposal_details.status = ProposalStatus::ExecutionSuccessful;
-                        true
-                    }
-                    Err(e) => {
-                        let e: DispatchError = e.error;
-                        sp_runtime::print(e);
-                        proposal_details.status = ProposalStatus::ExecutionFailed;
-                        false
-                    }
-                };
+            let res = match with_call_metadata(proposal.get_call_metadata(), || {
+                proposal.dispatch(frame_system::RawOrigin::Signed(multisig.clone()).into())
+            }) {
+                Ok(_) => {
+                    proposal_details.status = ProposalStatus::ExecutionSuccessful;
+                    true
+                }
+                Err(e) => {
+                    let e: DispatchError = e.error;
+                    sp_runtime::print(e);
+                    proposal_details.status = ProposalStatus::ExecutionFailed;
+                    false
+                }
+            };
             Self::deposit_event(RawEvent::ProposalExecuted(
                 current_did,
                 multisig,

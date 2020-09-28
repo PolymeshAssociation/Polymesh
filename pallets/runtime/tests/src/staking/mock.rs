@@ -33,18 +33,20 @@ use pallet_identity as identity;
 use pallet_protocol_fee as protocol_fee;
 use pallet_staking::{self as staking, *};
 
+use pallet_permissions::StoreCallMetadata;
 use polymesh_common_utilities::traits::{
     asset::AcceptTransfer,
     balances::{AccountData, CheckCdd},
     group::{GroupTrait, InactiveMember},
-    identity::{LinkedKeyInfo, Trait as IdentityTrait},
+    identity::Trait as IdentityTrait,
     multisig::MultiSigSubTrait,
     portfolio::PortfolioSubTrait,
     transaction_payment::{CddAndFeeDetails, ChargeTxFee},
-    CommonTrait,
+    CommonTrait, PermissionChecker,
 };
 use polymesh_primitives::{
-    AuthorizationData, Claim, IdentityId, InvestorUid, Moment, PortfolioId, Signatory, Ticker,
+    Authorization, AuthorizationData, Claim, IdentityId, InvestorUid, Moment, Permissions,
+    PortfolioId, Signatory, Ticker,
 };
 use sp_core::H256;
 use sp_io;
@@ -493,6 +495,11 @@ impl CheckCdd<AccountId> for Test {
     }
 }
 
+impl PermissionChecker for Test {
+    type Call = Call;
+    type Checker = Identity;
+}
+
 parameter_types! {
     pub const EpochDuration: u64 = 10;
     pub const ExpectedBlockTime: u64 = 1;
@@ -919,23 +926,35 @@ pub(crate) fn active_era() -> EraIndex {
 }
 
 pub fn provide_did_to_user(account: AccountId) -> bool {
-    match Identity::key_to_identity_ids(account) {
-        None => {
-            let cdd = Origin::signed(1005);
-            assert!(
-                Identity::cdd_register_did(cdd.clone(), account, vec![]).is_ok(),
-                "Error in registering the DID"
-            );
-
-            let did = Identity::get_identity(&account).expect("DID not find in the storage");
-            assert!(
-                Identity::add_claim(cdd.clone(), did, Claim::make_cdd_wildcard(), None).is_ok(),
-                "Error CDD Claim cannot be added to DID"
-            );
-            true
-        }
-        _ => false,
+    if <identity::KeyToIdentityIds<Test>>::contains_key(&account) {
+        return false;
     }
+    let cdd_account_id = 1005;
+    let cdd = Origin::signed(cdd_account_id);
+    assert!(
+        <identity::KeyToIdentityIds<Test>>::contains_key(&cdd_account_id),
+        "CDD provider account not mapped to identity"
+    );
+    let cdd_did = <identity::KeyToIdentityIds<Test>>::get(&cdd_account_id);
+    assert!(
+        <identity::DidRecords<Test>>::contains_key(&cdd_did),
+        "CDD provider identity has no DID record"
+    );
+    let cdd_did_record = <identity::DidRecords<Test>>::get(&cdd_did);
+    assert!(
+        cdd_did_record.primary_key == cdd_account_id,
+        "CDD identity primary key mismatch"
+    );
+    assert!(
+        Identity::cdd_register_did(cdd.clone(), account, vec![]).is_ok(),
+        "Error in registering the DID"
+    );
+    let did = Identity::get_identity(&account).expect("DID not find in the storage");
+    assert!(
+        Identity::add_claim(cdd.clone(), did, Claim::make_cdd_wildcard(), None).is_ok(),
+        "Error CDD Claim cannot be added to DID"
+    );
+    true
 }
 
 pub fn add_secondary_key(stash_key: AccountId, to_secondary_key: AccountId) {
@@ -945,18 +964,13 @@ pub fn add_secondary_key(stash_key: AccountId, to_secondary_key: AccountId) {
             Identity::add_authorization(
                 Origin::signed(stash_key),
                 Signatory::Account(to_secondary_key),
-                AuthorizationData::JoinIdentity(vec![]),
+                AuthorizationData::JoinIdentity(Permissions::default()),
                 None
             )
             .is_ok(),
             "Error in providing the authorization"
         );
-        let auth_id = <identity::Authorizations<Test>>::iter_prefix_values(Signatory::Account(
-            to_secondary_key,
-        ))
-        .next()
-        .unwrap()
-        .auth_id;
+        let auth_id = get_last_auth_id(&Signatory::Account(to_secondary_key));
         assert_ok!(Identity::join_identity_as_key(
             Origin::signed(to_secondary_key),
             auth_id
@@ -965,14 +979,7 @@ pub fn add_secondary_key(stash_key: AccountId, to_secondary_key: AccountId) {
 }
 
 pub fn get_identity(key: AccountId) -> bool {
-    let mut have_id = false;
-    if let Some(linked_key_info) = <identity::KeyToIdentityIds<Test>>::get(key) {
-        have_id = match linked_key_info {
-            LinkedKeyInfo::Unique(_id) => true,
-            LinkedKeyInfo::Group(_id) => true,
-        };
-    }
-    have_id
+    <identity::KeyToIdentityIds<Test>>::contains_key(&key)
 }
 
 fn check_ledgers() {
@@ -1559,4 +1566,18 @@ pub fn create_did_and_add_claim_with_expiry(stash: AccountId, expiry: u64) {
         Claim::make_cdd_wildcard(),
         Some(expiry.into())
     ));
+}
+
+// `iter_prefix_values` has no guarantee that it will iterate in a sequential
+// order. However, we need the latest `auth_id`. Which is why we search for the claim
+// with the highest `auth_id`.
+pub fn get_last_auth(signatory: &Signatory<AccountId>) -> Authorization<AccountId, u64> {
+    <identity::Authorizations<Test>>::iter_prefix_values(signatory)
+        .into_iter()
+        .max_by_key(|x| x.auth_id)
+        .expect("there are no authorizations")
+}
+
+pub fn get_last_auth_id(signatory: &Signatory<AccountId>) -> u64 {
+    get_last_auth(signatory).auth_id
 }

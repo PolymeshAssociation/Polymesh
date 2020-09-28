@@ -76,7 +76,7 @@
 #![recursion_limit = "256"]
 
 pub mod types;
-pub use types::{DidRecords as RpcDidRecords, DidStatus};
+pub use types::{DidRecords as RpcDidRecords, DidStatus, PermissionedCallOriginData};
 
 #[cfg(feature = "runtime-benchmarks")]
 pub mod benchmarking;
@@ -86,6 +86,16 @@ use core::{
     convert::{From, TryInto},
     result::Result as StdResult,
 };
+use frame_support::{
+    debug, decl_error, decl_module, decl_storage,
+    dispatch::{DispatchError, DispatchResult, DispatchResultWithPostInfo},
+    ensure,
+    traits::{ChangeMembers, Currency, GetCallMetadata, InitializeMembers},
+    weights::{DispatchClass, GetDispatchInfo, Pays, Weight},
+    Blake2_128Concat, ReversibleStorageHasher, StorageDoubleMap,
+};
+use frame_system::{self as system, ensure_root, ensure_signed};
+use pallet_permissions::with_call_metadata;
 use polymesh_common_utilities::{
     constants::did::{SECURITY_TOKEN, USER},
     protocol_fee::{ChargeProtocolFee, ProtocolOp},
@@ -93,19 +103,21 @@ use polymesh_common_utilities::{
         asset::AcceptTransfer,
         group::{GroupTrait, InactiveMember},
         identity::{
-            AuthorizationNonce, IdentityTrait, LinkedKeyInfo, RawEvent, SecondaryKeyWithAuth,
+            AuthorizationNonce, IdentityTrait, RawEvent, SecondaryKeyWithAuth,
             TargetIdAuthorization, Trait,
         },
         multisig::MultiSigSubTrait,
         portfolio::PortfolioSubTrait,
         transaction_payment::{CddAndFeeDetails, ChargeTxFee},
+        AccountCallPermissionsData, CheckAccountCallPermissions,
     },
     Context, SystematicIssuers,
 };
 use polymesh_primitives::{
-    Authorization, AuthorizationData, AuthorizationError, AuthorizationType, CddId, Claim,
-    ClaimType, Identity as DidRecord, IdentityClaim, IdentityId, InvestorUid, Permission, Scope,
-    SecondaryKey, Signatory, Ticker, ValidProofOfInvestor,
+    secondary_key, Authorization, AuthorizationData, AuthorizationError, AuthorizationType, CddId,
+    Claim, ClaimType, DispatchableName, Identity as DidRecord, IdentityClaim, IdentityId,
+    InvestorUid, PalletName, Permissions, Scope, SecondaryKey, Signatory, Ticker,
+    ValidProofOfInvestor,
 };
 use sp_core::sr25519::Signature;
 use sp_io::hashing::blake2_256;
@@ -116,19 +128,10 @@ use sp_runtime::{
     },
     AnySignature,
 };
-use sp_std::{convert::TryFrom, mem::swap, prelude::*, vec};
-
-use frame_support::{
-    debug, decl_error, decl_module, decl_storage,
-    dispatch::{DispatchError, DispatchResult, DispatchResultWithPostInfo},
-    ensure,
-    traits::{ChangeMembers, Currency, InitializeMembers},
-    weights::{DispatchClass, GetDispatchInfo, Pays, Weight},
-    Blake2_128Concat, ReversibleStorageHasher, StorageDoubleMap,
-};
-use frame_system::{self as system, ensure_root, ensure_signed};
+use sp_std::{convert::TryFrom, iter, mem::swap, prelude::*, vec};
 
 pub type Event<T> = polymesh_common_utilities::traits::identity::Event<T>;
+type CallPermissions<T> = pallet_permissions::Module<T>;
 
 #[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, PartialOrd, Ord)]
 pub struct Claim1stKey {
@@ -166,8 +169,10 @@ decl_storage! {
         /// (Target ID, claim type) (issuer,scope) -> Associated claims
         pub Claims: double_map hasher(blake2_128_concat) Claim1stKey, hasher(blake2_128_concat) Claim2ndKey => IdentityClaim;
 
-        // Account => DID
-        pub KeyToIdentityIds get(fn key_to_identity_ids) config(): map hasher(blake2_128_concat) T::AccountId => Option<LinkedKeyInfo>;
+        // A map from AccountId primary or secondary keys to DIDs.
+        // Account keys map to at most one identity.
+        pub KeyToIdentityIds get(fn key_to_identity_dids) config():
+            map hasher(blake2_128_concat) T::AccountId => IdentityId;
 
         /// Nonce to ensure unique actions. starts from 1.
         pub MultiPurposeNonce get(fn multi_purpose_nonce) build(|_| 1u64): u64;
@@ -224,22 +229,20 @@ decl_storage! {
                 <Module<T>>::base_add_claim( did, cdd_claim, issuer, expiry);
             }
 
-            for &(ref signer_id, did) in &config.secondary_keys {
+            for &(ref secondary_account_id, did) in &config.secondary_keys {
                 // Direct storage change for attaching some secondary keys to identities
                 <Module<T>>::ensure_id_record_exists(did).unwrap();
                 assert!(
-                    <Module<T>>::can_key_be_linked_to_did(&signer_id),
+                    <Module<T>>::can_link_account_key_to_did(secondary_account_id),
                     "Secondary key already linked"
                 );
                 <MultiPurposeNonce>::mutate(|n| *n += 1_u64);
-                <Module<T>>::link_key_to_did(&signer_id, did);
+                <Module<T>>::link_account_key_to_did(secondary_account_id, did);
+                let sk = SecondaryKey::from_account_id(secondary_account_id.clone());
                 <DidRecords<T>>::mutate(did, |record| {
-                    (*record).add_secondary_keys(&[SecondaryKey::from_account_id(signer_id.clone())]);
+                    (*record).add_secondary_keys(iter::once(sk.clone()));
                 });
-                <Module<T>>::deposit_event(RawEvent::SecondaryKeysAdded(
-                    did,
-                    [SecondaryKey::from_account_id(signer_id.clone())].to_vec(),
-                ));
+                <Module<T>>::deposit_event(RawEvent::SecondaryKeysAdded(did, [sk.into()].to_vec()));
             }
         });
     }
@@ -256,13 +259,16 @@ decl_module! {
         fn deposit_event() = default;
 
         fn on_runtime_upgrade() -> Weight {
+            use polymesh_primitives::{
+                identity_claim::IdentityClaimOld,
+                identity::IdentityOld,
+                migrate::{migrate_map,  migrate_double_map_keys, Empty},
+            };
+            use polymesh_common_utilities::traits::identity::runtime_upgrade::LinkedKeyInfo;
+
             // Rename "master" to "primary".
             <CddAuthForPrimaryKeyRotation>::put(<CddAuthForMasterKeyRotation>::take());
 
-            use polymesh_primitives::{
-                identity_claim::IdentityClaimOld,
-                migrate::{migrate_map, migrate_double_map_keys}
-            };
             migrate_map::<IdentityClaimOld, _>(b"Identity", b"Claims", |raw_key| {
                 Claim1stKey::decode(&mut Blake2_128Concat::reverse(&raw_key))
                     .ok()
@@ -278,16 +284,30 @@ decl_module! {
                 )
             );
 
+            migrate_map::<LinkedKeyInfo, _>(
+                b"Identity",
+                b"KeyToIdentityIds",
+                |_| Empty
+            );
+            migrate_map::<IdentityOld<T::AccountId>, _>(
+                b"Identity",
+                b"DidRecords",
+                |_| Empty
+            );
+
             // It's gonna be alot, so lets pretend its 0 anyways.
             0
         }
 
         // TODO: Remove this function before mainnet. cdd_register_did should be used instead.
+        //
+        // Unit tests call this function to create a DID for the origin, which means it should work
+        // in the exceptional case when the origin doesn't have a DID.
         /// Register a new did with a CDD claim for the caller.
         #[weight = 5_000_000_000]
         pub fn register_did(origin,
             uid: InvestorUid,
-            secondary_keys: Vec<SecondaryKey<T::AccountId>>,
+            secondary_keys: Vec<secondary_key::api::SecondaryKey<T::AccountId>>,
         ) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             Self::_register_did(sender.clone(), secondary_keys, Some(ProtocolOp::IdentityRegisterDid))?;
@@ -319,11 +339,10 @@ decl_module! {
         pub fn cdd_register_did(
             origin,
             target_account: T::AccountId,
-            secondary_keys: Vec<SecondaryKey<T::AccountId>>
+            secondary_keys: Vec<secondary_key::api::SecondaryKey<T::AccountId>>
         ) -> DispatchResult {
             // Sender has to be part of CDDProviders
-            let cdd_sender = ensure_signed(origin)?;
-            let cdd_id = Context::current_identity_or::<Self>(&cdd_sender)?;
+            let cdd_id = Self::ensure_origin_call_permissions(origin)?.primary_did;
 
             let cdd_providers = T::CddServiceProviders::get_members();
             ensure!(cdd_providers.contains(&cdd_id), Error::<T>::UnAuthorizedCddProvider);
@@ -371,13 +390,18 @@ decl_module! {
             Pays::Yes
         )]
         pub fn remove_secondary_keys(origin, signers_to_remove: Vec<Signatory<T::AccountId>>) -> DispatchResult {
-            let sender = ensure_signed(origin)?;
-            let did = Context::current_identity_or::<Self>(&sender)?;
+            let PermissionedCallOriginData {
+                sender,
+                primary_did: did,
+                ..
+            } = Self::ensure_origin_call_permissions(origin)?;
             let _grants_checked = Self::grant_check_only_primary_key(&sender, did)?;
 
             // Remove links and get all authorization IDs per signer.
             let signer_and_auth_id_list = signers_to_remove.iter().filter_map(|signer| {
+                // Unlink each of the given secondary keys from `did`.
                 if let Signatory::Account(key) = &signer {
+                    // Unlink multisig signers.
                     if T::MultiSig::is_multisig(key) {
                         if !T::Balances::total_balance(key).is_zero() {
                             return None;
@@ -388,12 +412,13 @@ decl_module! {
                             did
                         );
                     }
-                    Self::unlink_key_from_did(key, did)
+                    // Unlink the secondary account key.
+                    Self::unlink_account_key_from_did(key, did);
                 }
 
                 // It returns the list of `auth_id` from `did`.
                 let auth_ids = <Authorizations<T>>::iter_prefix_values(signer)
-                    .filter_map( |authorization| {
+                    .filter_map(|authorization| {
                         if authorization.authorized_by == did {
                             Some(authorization.auth_id)
                         } else {
@@ -407,14 +432,15 @@ decl_module! {
             .collect::<Vec<_>>();
 
             // Remove authorizations
-            signer_and_auth_id_list.into_iter().for_each( |(signer, auth_ids)| {
-                auth_ids.into_iter().for_each( |auth_id|
-                        Self::unsafe_remove_auth( signer, auth_id, &did, true));
+            signer_and_auth_id_list.into_iter().for_each(|(signer, auth_ids)| {
+                auth_ids.into_iter().for_each(|auth_id| {
+                    Self::unsafe_remove_auth(signer, auth_id, &did, true);
+                });
             });
 
             // Update secondary keys at Identity.
             <DidRecords<T>>::mutate(did, |record| {
-                (*record).remove_secondary_keys(&signers_to_remove);
+                (*record).remove_secondary_keys(signers_to_remove.clone().into_iter());
             });
 
             Self::deposit_event(RawEvent::SecondaryKeysRemoved(did, signers_to_remove));
@@ -427,12 +453,15 @@ decl_module! {
         /// Only called by primary key owner.
         #[weight = 800_000_000]
         fn set_primary_key(origin, new_key: T::AccountId) -> DispatchResult {
-            let sender = ensure_signed(origin)?;
-            let did = Context::current_identity_or::<Self>(&sender)?;
+            let PermissionedCallOriginData {
+                sender,
+                primary_did: did,
+                ..
+            } = Self::ensure_origin_call_permissions(origin)?;
             let _grants_checked = Self::grant_check_only_primary_key(&sender, did)?;
 
             ensure!(
-                Self::can_key_be_linked_to_did(&new_key),
+                Self::can_link_account_key_to_did(&new_key),
                 Error::<T>::AlreadyLinked
             );
             T::ProtocolFee::charge_fee(ProtocolOp::IdentitySetPrimaryKey)?;
@@ -454,6 +483,7 @@ decl_module! {
         #[weight = 900_000_000]
         pub fn accept_primary_key(origin, rotation_auth_id: u64, optional_cdd_auth_id: Option<u64>) -> DispatchResult {
             let sender = ensure_signed(origin)?;
+            CallPermissions::<T>::ensure_call_permissions(&sender)?;
             Self::accept_primary_key_rotation(sender, rotation_auth_id, optional_cdd_auth_id)
         }
 
@@ -476,7 +506,8 @@ decl_module! {
         /// Join an identity as a secondary key.
         #[weight = 800_000_000]
         pub fn join_identity_as_key(origin, auth_id: u64) -> DispatchResult {
-            let signer = Signatory::Account(ensure_signed(origin)?);
+            let sender = ensure_signed(origin)?;
+            let signer = Signatory::Account(sender);
             Self::join_identity(signer, auth_id)
         }
 
@@ -492,6 +523,7 @@ decl_module! {
         #[weight = 800_000_000]
         pub fn leave_identity_as_key(origin) -> DispatchResult {
             let sender = ensure_signed(origin)?;
+            let _ = CallPermissions::<T>::ensure_call_permissions(&sender)?;
             if let Some(did) = Self::get_identity(&sender) {
                 return Self::leave_identity(Signatory::Account(sender), did);
             }
@@ -501,8 +533,7 @@ decl_module! {
         /// Leave an identity as a secondary identity.
         #[weight = 800_000_000]
         pub fn leave_identity_as_identity(origin, did: IdentityId) -> DispatchResult {
-            let sender = ensure_signed(origin)?;
-            let sender_did = Context::current_identity_or::<Self>(&sender)?;
+            let sender_did = Self::ensure_origin_call_permissions(origin)?.primary_did;
             Self::leave_identity(Signatory::from(sender_did), did)
         }
 
@@ -514,8 +545,7 @@ decl_module! {
             claim: Claim,
             expiry: Option<T::Moment>,
         ) -> DispatchResult {
-            let sender = ensure_signed(origin)?;
-            let issuer = Context::current_identity_or::<Self>(&sender)?;
+            let issuer = Self::ensure_origin_call_permissions(origin)?.primary_did;
             ensure!(<DidRecords<T>>::contains_key(target), Error::<T>::DidMustAlreadyExist);
 
             match &claim {
@@ -544,6 +574,7 @@ decl_module! {
         )]
         fn forwarded_call(origin, target_did: IdentityId, proposal: Box<T::Proposal>) -> DispatchResultWithPostInfo {
             let sender = ensure_signed(origin)?;
+            CallPermissions::<T>::ensure_call_permissions(&sender)?;
 
             // 1. Constraints.
             // 1.1. A valid current identity.
@@ -572,11 +603,12 @@ decl_module! {
             // Re-dispatch call - e.g. to asset::doSomething...
             let new_origin = frame_system::RawOrigin::Signed(sender).into();
 
-            let actual_weight = match proposal.dispatch(new_origin) {
+            let actual_weight = match with_call_metadata(proposal.get_call_metadata(), || {
+                proposal.dispatch(new_origin)
+            }) {
                 Ok(post_info) => post_info.actual_weight,
                 Err(err) => err.post_info.actual_weight,
             };
-
             // If actual_weight retrieve from the proposal is `None` then refunds = 0
             // otherwise refunds = ((500_000_000 + proposal.get_dispatch_info().weight) - `actual_weight of proposal + 500_000_000`).
             Ok((actual_weight.map(|w| w + 500_000_000)).into())
@@ -588,8 +620,7 @@ decl_module! {
             target: IdentityId,
             claim: Claim,
         ) -> DispatchResult {
-            let sender = ensure_signed(origin)?;
-            let issuer = Context::current_identity_or::<Self>(&sender)?;
+            let issuer = Self::ensure_origin_call_permissions(origin)?.primary_did;
             let claim_type = claim.claim_type();
             let scope = claim.as_scope().cloned();
 
@@ -606,25 +637,46 @@ decl_module! {
         /// Only the primary key of an identity is able to set secondary key permissions.
         ///
         /// # Weight
-        /// `600_000_000 + 300_000 * permissions.len()`
+        /// `600_000_000 + 20_000_000 * (
+        ///   1 + permissions.asset.elems_len()
+        ///     + permissions.extrinsic.elems_len()
+        ///     + permissions.portfolio.elems_len()
+        /// )`
         #[weight =(
-            600_000_000 + 300_000 * u64::try_from(permissions.len()).unwrap_or_default(),
+            600_000_000
+                + 20_000_000 * (
+                    1
+                        + u64::try_from(
+                            permissions.asset.0.as_ref().map(|elems| elems.len()).unwrap_or_default()
+                        ).unwrap_or_default()
+                        + u64::try_from(
+                            permissions.extrinsic.0.as_ref().map(|elems| *&elems.len()).unwrap_or_default()
+                        ).unwrap_or_default()
+                        + u64::try_from(
+                            permissions.portfolio.0.as_ref().map(|elems| *&elems.len()).unwrap_or_default()
+                        ).unwrap_or_default()
+                ),
             DispatchClass::Normal,
             Pays::Yes
         )]
         pub fn set_permission_to_signer(
             origin,
             signer: Signatory<T::AccountId>,
-            permissions: Vec<Permission>
+            permissions: secondary_key::api::Permissions
         ) -> DispatchResult {
-            let sender = ensure_signed(origin)?;
-            let did = Context::current_identity_or::<Self>(&sender)?;
+            let PermissionedCallOriginData {
+                sender,
+                primary_did: did,
+                ..
+            } = Self::ensure_origin_call_permissions(origin)?;
             let record = Self::grant_check_only_primary_key(&sender, did)?;
 
             // You are trying to add a permission to did's primary key. It is not needed.
             match signer {
                 Signatory::Account(ref key) if record.primary_key == *key => Ok(()),
-                _ if record.secondary_keys.iter().any(|si| si.signer == signer) => Self::update_secondary_key_permissions(did, &signer, permissions),
+                _ if record.secondary_keys.iter().any(|si| si.signer == signer) => {
+                    Self::update_secondary_key_permissions(did, &signer, permissions.into())
+                }
                 _ => Err(Error::<T>::InvalidSender.into()),
             }
         }
@@ -648,9 +700,11 @@ decl_module! {
         /// Emits an event with caller's identity.
         #[weight = 800_000_000]
         pub fn get_my_did(origin) -> DispatchResult {
-            let sender = ensure_signed(origin)?;
-            let did = Context::current_identity_or::<Self>(&sender)?;
-
+            let PermissionedCallOriginData {
+                sender,
+                primary_did: did,
+                ..
+            } = Self::ensure_origin_call_permissions(origin)?;
             Self::deposit_event(RawEvent::DidStatus(did, sender));
             Ok(())
         }
@@ -658,7 +712,9 @@ decl_module! {
         // TODO: Remove before mainnet launch.
         /// Emits an event with caller's identity and CDD status.
         #[weight = 800_000_000]
-        pub fn get_cdd_of(_origin, of: T::AccountId) -> DispatchResult {
+        pub fn get_cdd_of(origin, of: T::AccountId) -> DispatchResult {
+            let sender = ensure_signed(origin)?;
+            CallPermissions::<T>::ensure_call_permissions(&sender)?;
             let did_opt = Self::get_identity(&of);
             let has_cdd = did_opt.iter()
                 .copied()
@@ -679,8 +735,7 @@ decl_module! {
             authorization_data: AuthorizationData<T::AccountId>,
             expiry: Option<T::Moment>
         ) -> DispatchResult {
-            let sender = ensure_signed(origin)?;
-            let from_did = Context::current_identity_or::<Self>(&sender)?;
+            let from_did = Self::ensure_origin_call_permissions(origin)?.primary_did;
             Self::add_auth(from_did, target, authorization_data, expiry);
             Ok(())
         }
@@ -692,8 +747,11 @@ decl_module! {
             target: Signatory<T::AccountId>,
             auth_id: u64
         ) -> DispatchResult {
-            let sender = ensure_signed(origin)?;
-            let from_did = Context::current_identity_or::<Self>(&sender)?;
+            let PermissionedCallOriginData {
+                sender,
+                primary_did: from_did,
+                ..
+            } = Self::ensure_origin_call_permissions(origin)?;
 
             let auth = Self::ensure_authorization(&target, auth_id)?;
             let revoked = auth.authorized_by == from_did;
@@ -707,6 +765,9 @@ decl_module! {
         }
 
         /// Accepts an authorization.
+        ///
+        /// Does not check extrinsic permission checks for the caller in order to allow it to be an
+        /// account without an identity.
         #[weight = 2_000_000_000]
         pub fn accept_authorization(
             origin,
@@ -793,23 +854,26 @@ decl_module! {
             additional_keys: Vec<SecondaryKeyWithAuth<T::AccountId>>,
             expires_at: T::Moment
         ) -> DispatchResult {
-            let sender = ensure_signed(origin)?;
-            let id = Context::current_identity_or::<Self>(&sender)?;
-            let _grants_checked = Self::grant_check_only_primary_key(&sender, id)?;
+            let PermissionedCallOriginData {
+                sender,
+                primary_did: did,
+                ..
+            } = Self::ensure_origin_call_permissions(origin)?;
+            let _grants_checked = Self::grant_check_only_primary_key(&sender, did)?;
 
             // 0. Check expiration
             let now = <pallet_timestamp::Module<T>>::get();
             ensure!(now < expires_at, Error::<T>::AuthorizationExpired);
             let authorization = TargetIdAuthorization {
-                target_id: id,
-                nonce: Self::offchain_authorization_nonce(id),
+                target_id: did,
+                nonce: Self::offchain_authorization_nonce(did),
                 expires_at
             };
             let auth_encoded = authorization.encode();
 
             // 1. Verify signatures.
             for si_with_auth in additional_keys.iter() {
-                let si = &si_with_auth.secondary_key;
+                let si: SecondaryKey<T::AccountId> = si_with_auth.secondary_key.clone().into();
 
                 // Get account_id from signer
                 let account_id_found = match si.signer.clone() {
@@ -821,7 +885,7 @@ decl_module! {
                     if let Signatory::Account(key) = &si.signer {
                         // 1.1. Constraint 1-to-1 account to DID
                         ensure!(
-                            Self::can_key_be_linked_to_did(key),
+                            Self::can_link_account_key_to_did(key),
                             Error::<T>::AlreadyLinked
                         );
                     }
@@ -851,24 +915,25 @@ decl_module! {
                 additional_keys.len()
             )?;
             // 2.1. Link keys to identity
-            let additional_keys_si = additional_keys.into_iter()
-                .map( |si_with_auth| si_with_auth.secondary_key)
-                .collect::<Vec<_>>();
+            let additional_keys_si: Vec<secondary_key::api::SecondaryKey<T::AccountId>> =
+                additional_keys.into_iter()
+                .map(|si_with_auth| si_with_auth.secondary_key)
+                .collect();
 
-            additional_keys_si.iter().for_each( |si| {
-                if let Signatory::Account(ref key) = si.signer {
-                    Self::link_key_to_did(key, id);
+            additional_keys_si.iter().for_each(|sk| {
+                if let Signatory::Account(key) = &sk.signer {
+                    Self::link_account_key_to_did(key, did);
                 }
             });
             // 2.2. Update that identity information and its offchain authorization nonce.
-            <DidRecords<T>>::mutate(id, |record| {
-                (*record).add_secondary_keys(&additional_keys_si[..]);
+            <DidRecords<T>>::mutate(did, |record| {
+                (*record).add_secondary_keys(additional_keys_si.iter().map(|sk| sk.clone().into()));
             });
-            <OffChainAuthorizationNonce>::mutate(id, |offchain_nonce| {
+            <OffChainAuthorizationNonce>::mutate(did, |offchain_nonce| {
                 *offchain_nonce = authorization.nonce + 1;
             });
 
-            Self::deposit_event(RawEvent::SecondaryKeysAdded(id, additional_keys_si));
+            Self::deposit_event(RawEvent::SecondaryKeysAdded(did, additional_keys_si));
 
             Ok(())
         }
@@ -882,13 +947,14 @@ decl_module! {
             auth: TargetIdAuthorization<T::Moment>
         ) -> DispatchResult {
             let sender = ensure_signed(origin)?;
+            CallPermissions::<T>::ensure_call_permissions(&sender)?;
 
             match &signer {
                 Signatory::Account(key) => {
                     ensure!(&sender == key, Error::<T>::KeyNotAllowed);
                 }
                 Signatory::Identity(id) => {
-                    ensure!(Self::is_primary_key(*id, &sender), Error::<T>::NotPrimaryKey);
+                    ensure!(Self::is_primary_key(id, &sender), Error::<T>::NotPrimaryKey);
                 }
             }
 
@@ -944,8 +1010,6 @@ decl_error! {
         AuthorizationDoesNotExist,
         /// The offchain authorization has expired.
         AuthorizationExpired,
-        /// The primary key is already linked to an identity.
-        PrimaryKeyAlreadyLinked,
         /// The target DID has no valid CDD.
         TargetHasNoCdd,
         /// Authorization has been explicitly revoked.
@@ -1014,32 +1078,38 @@ impl<T: Trait> Module<T> {
 
         Self::consume_auth(auth.authorized_by, signer.clone(), auth_id)?;
 
-        Self::unsafe_join_identity(auth.authorized_by, permissions, signer)
+        Self::unsafe_join_identity(auth.authorized_by, permissions.into(), signer)
     }
 
     /// Joins an identity as signer
     pub fn unsafe_join_identity(
         target_did: IdentityId,
-        permissions: Vec<Permission>,
+        permissions: Permissions,
         signer: Signatory<T::AccountId>,
     ) -> DispatchResult {
-        T::ProtocolFee::charge_fee(ProtocolOp::IdentityAddSecondaryKeysWithAuthorization)?;
-        if let Signatory::Account(key) = &signer {
-            ensure!(
-                Self::can_key_be_linked_to_did(key),
-                Error::<T>::AlreadyLinked
-            );
-            Self::link_key_to_did(key, target_did);
+        let charge_fee =
+            || T::ProtocolFee::charge_fee(ProtocolOp::IdentityAddSecondaryKeysWithAuthorization);
+
+        // Link the secondary key.
+        match &signer {
+            Signatory::Account(key) => {
+                ensure!(
+                    Self::can_link_account_key_to_did(key),
+                    Error::<T>::AlreadyLinked
+                );
+                // Charge the protocol fee after all checks.
+                charge_fee()?;
+                Self::link_account_key_to_did(key, target_did);
+            }
+            Signatory::Identity(_) => charge_fee()?,
         }
 
-        // create the SecondaryKey
-        let sg_item = SecondaryKey::new(signer, permissions);
-
+        // Link the secondary key.
+        let sk = SecondaryKey::new(signer, permissions);
         <DidRecords<T>>::mutate(target_did, |identity| {
-            identity.add_secondary_keys(&[sg_item.clone()]);
+            identity.add_secondary_keys(iter::once(sk.clone()));
         });
-
-        Self::deposit_event(RawEvent::SecondaryKeysAdded(target_did, [sg_item].to_vec()));
+        Self::deposit_event(RawEvent::SecondaryKeysAdded(target_did, vec![sk.into()]));
 
         Ok(())
     }
@@ -1230,9 +1300,9 @@ impl<T: Trait> Module<T> {
         // Replace primary key of the owner that initiated key rotation
         let old_primary_key = Self::did_records(&rotation_for_did).primary_key;
         <DidRecords<T>>::mutate(&rotation_for_did, |record| {
-            Self::unlink_key_from_did(&record.primary_key, rotation_for_did);
+            Self::unlink_account_key_from_did(&record.primary_key, rotation_for_did);
             record.primary_key = sender.clone();
-            Self::link_key_to_did(&sender, rotation_for_did);
+            Self::link_account_key_to_did(&sender, rotation_for_did);
         });
 
         Self::deposit_event(RawEvent::PrimaryKeyUpdated(
@@ -1249,12 +1319,8 @@ impl<T: Trait> Module<T> {
     fn update_secondary_key_permissions(
         target_did: IdentityId,
         signer: &Signatory<T::AccountId>,
-        mut permissions: Vec<Permission>,
+        mut permissions: Permissions,
     ) -> DispatchResult {
-        // Remove duplicates.
-        permissions.sort();
-        permissions.dedup();
-
         let mut new_s_item: Option<SecondaryKey<T::AccountId>> = None;
 
         <DidRecords<T>>::mutate(target_did, |record| {
@@ -1272,16 +1338,16 @@ impl<T: Trait> Module<T> {
         });
 
         if let Some(s) = new_s_item {
-            Self::deposit_event(RawEvent::SecondaryPermissionsUpdated(
+            Self::deposit_event(RawEvent::SecondaryKeyPermissionsUpdated(
                 target_did,
-                s,
-                permissions,
+                s.into(),
+                permissions.into(),
             ));
         }
         Ok(())
     }
 
-    /// It checks if `key` is a secondary key of `did` identity.
+    /// It checks if `signer` is a secondary key of `did` identity.
     /// # IMPORTANT
     /// If secondary keys are frozen this function always returns false.
     /// Primary key cannot be frozen.
@@ -1306,39 +1372,8 @@ impl<T: Trait> Module<T> {
         record.secondary_keys.iter().any(|si| si.signer == *signer)
     }
 
-    /// Checks if signer has correct permissions.
-    fn is_signer_authorized_with_permissions(
-        did: IdentityId,
-        signer: &Signatory<T::AccountId>,
-        permissions: Vec<Permission>,
-    ) -> bool {
-        let record = <DidRecords<T>>::get(did);
-
-        match signer {
-            Signatory::Account(ref signer_key) if record.primary_key == *signer_key => true,
-            Signatory::Identity(ref signer_id) if did == *signer_id => true,
-            _ => {
-                if !Self::is_did_frozen(did) {
-                    if let Some(secondary_key) = record
-                        .secondary_keys
-                        .iter()
-                        .find(|&si| &si.signer == signer)
-                    {
-                        // It retruns true if all requested permission are in this secondary item.
-                        return permissions.iter().all(|required_permission| {
-                            secondary_key.has_permission(*required_permission)
-                        });
-                    }
-                }
-                // Signatory is not part of secondary items of `did`, or
-                // Did is frozen.
-                false
-            }
-        }
-    }
-
     /// Use `did` as reference.
-    pub fn is_primary_key(did: IdentityId, key: &T::AccountId) -> bool {
+    pub fn is_primary_key(did: &IdentityId, key: &T::AccountId) -> bool {
         key == &<DidRecords<T>>::get(did).primary_key
     }
 
@@ -1501,14 +1536,13 @@ impl<T: Trait> Module<T> {
     ///
     /// An Option object containing the `IdentityId` that belongs to the key.
     pub fn get_identity(key: &T::AccountId) -> Option<IdentityId> {
-        match <KeyToIdentityIds<T>>::get(key)? {
-            LinkedKeyInfo::Unique(id)
-                if !Self::is_did_frozen(id) || Self::is_primary_key(id, key) =>
-            {
-                Some(id)
+        if <KeyToIdentityIds<T>>::contains_key(key) {
+            let did = <KeyToIdentityIds<T>>::get(key);
+            if !Self::is_did_frozen(did) || Self::is_primary_key(&did, key) {
+                return Some(did);
             }
-            _ => None,
         }
+        None
     }
 
     /// It freezes/unfreezes the target `did` identity.
@@ -1517,6 +1551,7 @@ impl<T: Trait> Module<T> {
     /// Only primary key can freeze/unfreeze an identity.
     fn set_frozen_secondary_key_flags(origin: T::Origin, freeze: bool) -> DispatchResult {
         let sender = ensure_signed(origin)?;
+        CallPermissions::<T>::ensure_call_permissions(&sender)?;
         let did = Context::current_identity_or::<Self>(&sender)?;
         let _grants_checked = Self::grant_check_only_primary_key(&sender, did)?;
 
@@ -1531,44 +1566,26 @@ impl<T: Trait> Module<T> {
         Ok(())
     }
 
-    /// It checks that any external account can only be associated with at most one.
-    /// Primary keys are considered as external accounts.
-    pub fn can_key_be_linked_to_did(key: &T::AccountId) -> bool {
-        if <KeyToIdentityIds<T>>::get(key).is_some() {
-            false
-        } else {
-            !T::MultiSig::is_signer(key)
-        }
+    /// Checks that a primary key is not linked to any identity or multisig.
+    pub fn can_link_account_key_to_did(key: &T::AccountId) -> bool {
+        !<KeyToIdentityIds<T>>::contains_key(key) && !T::MultiSig::is_signer(key)
     }
 
-    /// It links `key` key to `did` identity as a `key_type` type.
-    /// # Errors
-    /// This function can be used if `can_key_be_linked_to_did` returns true. Otherwise, it will do
-    /// nothing.
-    fn link_key_to_did(key: &T::AccountId, did: IdentityId) {
-        if <KeyToIdentityIds<T>>::get(key).is_none() {
+    /// Links a primary or secondary `AccountId` key `key` to an identity `did`.
+    ///
+    /// This function applies the change if `can_link_account_key_to_did` returns `true`. Otherwise,
+    /// it does nothing.
+    fn link_account_key_to_did(key: &T::AccountId, did: IdentityId) {
+        if !<KeyToIdentityIds<T>>::contains_key(key) {
             // `key` is not yet linked to any identity, so no constraints.
-            let linked_key_info = LinkedKeyInfo::Unique(did);
-            <KeyToIdentityIds<T>>::insert(key, linked_key_info);
+            <KeyToIdentityIds<T>>::insert(key, did);
         }
     }
 
-    /// It unlinks the `key` key from `did`.
-    /// If there is no more associated identities, its full entry is removed.
-    fn unlink_key_from_did(key: &T::AccountId, did: IdentityId) {
-        match <KeyToIdentityIds<T>>::get(key) {
-            Some(LinkedKeyInfo::Unique(did_linked)) if did_linked == did => {
-                <KeyToIdentityIds<T>>::remove(key);
-            }
-            Some(LinkedKeyInfo::Group(mut dids)) => {
-                dids.retain(|ref_did| *ref_did != did);
-                if dids.is_empty() {
-                    <KeyToIdentityIds<T>>::remove(key);
-                } else {
-                    <KeyToIdentityIds<T>>::insert(key, LinkedKeyInfo::Group(dids));
-                }
-            }
-            Some(LinkedKeyInfo::Unique(_)) | None => {}
+    /// Unlinks an `AccountId` key `key` from an identity `did`.
+    fn unlink_account_key_from_did(key: &T::AccountId, did: IdentityId) {
+        if <KeyToIdentityIds<T>>::contains_key(key) && <KeyToIdentityIds<T>>::get(key) == did {
+            <KeyToIdentityIds<T>>::remove(key)
         }
     }
 
@@ -1584,7 +1601,7 @@ impl<T: Trait> Module<T> {
     /// Registers a did without adding a CDD claim for it.
     pub fn _register_did(
         sender: T::AccountId,
-        secondary_keys: Vec<SecondaryKey<T::AccountId>>,
+        secondary_keys: Vec<secondary_key::api::SecondaryKey<T::AccountId>>,
         protocol_fee_data: Option<ProtocolOp>,
     ) -> Result<IdentityId, DispatchError> {
         // Adding extrensic count to did nonce for some unpredictability
@@ -1597,15 +1614,14 @@ impl<T: Trait> Module<T> {
         // 1 Check constraints.
         // 1.1. Primary key is not linked to any identity.
         ensure!(
-            Self::can_key_be_linked_to_did(&sender),
-            Error::<T>::PrimaryKeyAlreadyLinked
+            Self::can_link_account_key_to_did(&sender),
+            Error::<T>::AlreadyLinked
         );
         // 1.2. Primary key is not part of secondary keys.
         ensure!(
-            secondary_keys
+            !secondary_keys
                 .iter()
-                .find(|sk| sk.signer.as_account() == Some(&sender))
-                .is_none(),
+                .any(|sk| sk.signer.as_account() == Some(&sender)),
             Error::<T>::SecondaryKeysContainPrimaryKey
         );
 
@@ -1617,10 +1633,10 @@ impl<T: Trait> Module<T> {
         Self::ensure_no_id_record(did)?;
 
         // 1.4. Secondary keys can be linked to the new identity.
-        for s_item in &secondary_keys {
-            if let Signatory::Account(ref key) = s_item.signer {
+        for sk in &secondary_keys {
+            if let Signatory::Account(ref key) = sk.signer {
                 ensure!(
-                    Self::can_key_be_linked_to_did(key),
+                    Self::can_link_account_key_to_did(key),
                     Error::<T>::AlreadyLinked
                 );
             }
@@ -1633,14 +1649,14 @@ impl<T: Trait> Module<T> {
 
         // 2. Apply changes to our extrinsic.
         // 2.1. Link primary key and add pre-authorized secondary keys.
-        Self::link_key_to_did(&sender, did);
+        Self::link_account_key_to_did(&sender, did);
         let _auth_ids = secondary_keys
             .iter()
-            .map(|s_item| {
+            .map(|sk| {
                 Self::add_auth(
                     did,
-                    s_item.signer.clone(),
-                    AuthorizationData::JoinIdentity(s_item.permissions.clone()),
+                    sk.signer.clone(),
+                    AuthorizationData::JoinIdentity(sk.permissions.clone().into()),
                     None,
                 )
             })
@@ -1806,6 +1822,7 @@ impl<T: Trait> Module<T> {
         ensure!(Self::is_signer(did, &signer), Error::<T>::NotASigner);
 
         if let Signatory::Account(key) = &signer {
+            // Unlink multisig signers.
             if T::MultiSig::is_multisig(key) {
                 ensure!(
                     T::Balances::total_balance(key).is_zero(),
@@ -1814,21 +1831,19 @@ impl<T: Trait> Module<T> {
                 // Unlink multisig signers from the identity.
                 Self::unlink_multisig_signers_from_did(T::MultiSig::get_key_signers(key), did);
             }
-            Self::unlink_key_from_did(key, did)
+            Self::unlink_account_key_from_did(key, did);
         }
-
         // Update secondary keys at Identity.
         <DidRecords<T>>::mutate(did, |record| {
-            record.remove_secondary_keys(&[signer.clone()]);
+            record.remove_secondary_keys(iter::once(signer.clone()));
         });
-
         Self::deposit_event(RawEvent::SignerLeft(did, signer));
         Ok(())
     }
 
     fn unlink_multisig_signers_from_did(signers: Vec<T::AccountId>, did: IdentityId) {
         for signer in signers {
-            Self::unlink_key_from_did(&signer, did)
+            Self::unlink_account_key_from_did(&signer, did)
         }
     }
 }
@@ -1963,7 +1978,7 @@ impl<T: Trait> Module<T> {
     /// Registers `primary_key` as `id` identity.
     #[allow(dead_code)]
     fn unsafe_register_id(primary_key: T::AccountId, id: IdentityId) {
-        <Module<T>>::link_key_to_did(&primary_key, id);
+        <Module<T>>::link_account_key_to_did(&primary_key, id);
         let record = DidRecord {
             primary_key: primary_key.clone(),
             ..Default::default()
@@ -2012,6 +2027,26 @@ impl<T: Trait> Module<T> {
             })
             .collect::<Vec<_>>()
     }
+
+    /// Checks call permissions and, if successful, returns the caller's account, primary and secondary identities.
+    ///
+    /// TODO: `Context::current_identity_or` fails for origins that do not have an identity. Hence
+    /// secondary keys without an identity are not functional.
+    pub fn ensure_origin_call_permissions(
+        origin: <T as frame_system::Trait>::Origin,
+    ) -> Result<PermissionedCallOriginData<T::AccountId>, DispatchError> {
+        let sender = ensure_signed(origin)?;
+        let AccountCallPermissionsData {
+            primary_did,
+            secondary_key,
+        } = CallPermissions::<T>::ensure_call_permissions(&sender)?;
+        let origin_data = PermissionedCallOriginData {
+            sender,
+            primary_did,
+            secondary_key,
+        };
+        Ok(origin_data)
+    }
 }
 
 impl<T: Trait> IdentityTrait<T::AccountId> for Module<T> {
@@ -2054,17 +2089,8 @@ impl<T: Trait> IdentityTrait<T::AccountId> for Module<T> {
     }
 
     /// Checks if the keys is the primary key of the identity.
-    fn is_primary_key(did: IdentityId, key: &T::AccountId) -> bool {
+    fn is_primary_key(did: &IdentityId, key: &T::AccountId) -> bool {
         Self::is_primary_key(did, key)
-    }
-
-    /// Checks if the signer is authorized and has certain permissions.
-    fn is_signer_authorized_with_permissions(
-        did: IdentityId,
-        signer: &Signatory<T::AccountId>,
-        permissions: Vec<Permission>,
-    ) -> bool {
-        Self::is_signer_authorized_with_permissions(did, signer, permissions)
     }
 
     /// Adds systematic CDD claims.
@@ -2112,5 +2138,53 @@ impl<T: Trait> InitializeMembers<IdentityId> for Module<T> {
     /// Initializes members of a group by adding systematic claims for them.
     fn initialize_members(members: &[IdentityId]) {
         Self::add_systematic_cdd_claims(members, SystematicIssuers::CDDProvider);
+    }
+}
+
+impl<T: Trait> CheckAccountCallPermissions<T::AccountId> for Module<T> {
+    fn check_account_call_permissions(
+        who: &T::AccountId,
+        pallet_name: &PalletName,
+        function_name: &DispatchableName,
+    ) -> Option<AccountCallPermissionsData<T::AccountId>> {
+        if <KeyToIdentityIds<T>>::contains_key(who) {
+            let primary_did = <KeyToIdentityIds<T>>::get(who);
+            if !<DidRecords<T>>::contains_key(&primary_did) {
+                // The DID record is missing.
+                return None;
+            }
+            let did_record = <DidRecords<T>>::get(&primary_did);
+            if who != &did_record.primary_key {
+                // `who` can be a secondary key.
+                //
+                // DIDs with frozen secondary keys (aka frozen DIDs) are not permitted to call
+                // extrinsics.
+                if Self::is_did_frozen(&primary_did) {
+                    // `primary_did` has its secondary keys frozen.
+                    return None;
+                }
+                let maybe_current_did_signer =
+                    Context::current_identity::<Self>().map(|did| Signatory::Identity(did));
+                return did_record
+                    .secondary_keys
+                    .into_iter()
+                    .find(|sk| {
+                        sk.signer == Signatory::Account(who.clone())
+                            || Some(sk.signer.clone()) == maybe_current_did_signer
+                    })
+                    .filter(|sk| sk.has_extrinsic_permission(pallet_name, function_name))
+                    .map(|sk| AccountCallPermissionsData {
+                        primary_did,
+                        secondary_key: Some(sk),
+                    });
+            }
+            // `who` is the primary key.
+            return Some(AccountCallPermissionsData {
+                primary_did,
+                secondary_key: None,
+            });
+        }
+        // `who` doesn't have an identity.
+        None
     }
 }
