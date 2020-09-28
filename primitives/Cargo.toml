@@ -6,7 +6,6 @@ edition = "2018"
 
 [dependencies]
 chrono = {version = "0.4.18", default-features = false }
-time = {version = "0.2.22", default-features = false }
 
 # Ours
 polymesh-primitives-derive = { path = "../primitives_derive" }
@@ -59,7 +58,6 @@ std = [
     "sp-runtime/std",
     "sp-std/std",
     "sp-version/std",
-    "time/std",
 
     # Crypto
     "blake2/simd",
