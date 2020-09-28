@@ -176,7 +176,7 @@ pub fn is_leap_year(year: i32) -> bool {
 #[cfg(test)]
 mod tests {
     use super::{CalendarPeriod, CalendarUnit, CheckpointSchedule};
-    use chrono::{NaiveDate, NaiveTime};
+    use chrono::{NaiveDate, NaiveDateTime, NaiveTime};
 
     #[test]
     fn next_checkpoint_months_test() {
@@ -188,16 +188,18 @@ mod tests {
             start: 0,
             period: period_5_months,
         };
+        let checkpoint = schedule_5_months.next_checkpoint(
+            NaiveDate::from_ymd(1970, 4, 1)
+                .and_time(NaiveTime::from_hms(1, 2, 3))
+                .timestamp() as u64,
+        );
+        let format_dt = |timestamp| format!("{}", NaiveDateTime::from_timestamp(timestamp, 0));
         assert_eq!(
-            schedule_5_months.next_checkpoint(
-                NaiveDate::from_ymd(1970, 4, 1)
-                    .and_time(NaiveTime::from_hms(1, 2, 3))
-                    .timestamp() as u64
-            ),
-            Some(
+            format_dt(checkpoint.unwrap() as i64),
+            format_dt(
                 NaiveDate::from_ymd(1970, 5, 1)
                     .and_time(NaiveTime::from_hms(0, 0, 0))
-                    .timestamp() as u64
+                    .timestamp()
             )
         );
     }
