@@ -698,6 +698,7 @@ impl IdentityTrait for Runtime {
     type Public = <MultiSignature as Verify>::Signer;
     type OffChainSignature = MultiSignature;
     type ProtocolFee = protocol_fee::Module<Runtime>;
+    type GCVotingMajorityOrigin = VMO<GovernanceCommittee>;
 }
 
 impl contracts_wrapper::Trait for Runtime {}
