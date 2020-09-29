@@ -289,6 +289,18 @@ pub struct ClassicTickerRegistration {
     pub is_created: bool,
 }
 
+/// A single record of a scheduled checkpoint.
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+#[derive(Encode, Decode, Clone, Debug, Default, PartialEq, Eq)]
+pub struct CheckpointRecord<Balance> {
+    /// The time when the checkpoint is due to be recorded.
+    schedule_timestamp: u64,
+    /// The actual time when the checkpoint record is created.
+    record_timestamp: u64,
+    /// The balance at the checkpoint.
+    balance: Balance,
+}
+
 decl_storage! {
     trait Store for Module<T: Trait> as Asset {
         /// Ticker registration details.
@@ -344,11 +356,17 @@ decl_storage! {
         pub ClassicTickers get(fn classic_ticker_registration): map hasher(blake2_128_concat) Ticker => Option<ClassicTickerRegistration>;
         /// Checkpoint schedules.
         /// ticker -> schedule
-        pub CheckpointSchedules get(fn checkpoint_schedules): map hasher(blake2_128_concat) Ticker =>
+        pub CheckpointSchedules get(fn checkpoint_schedules):
+            double_map hasher(blake2_128_concat) Ticker, hasher(twox_64_concat) IdentityId =>
             CheckpointSchedule;
         /// The next checkpoint of a ticker.
         /// ticker -> Unix time in seconds
-        pub NextCheckpoints get(fn next_checkpoints): map hasher(blake2_128_concat) Ticker => u64;
+        pub NextCheckpoints get(fn next_checkpoints):
+            double_map hasher(blake2_128_concat) Ticker, hasher(twox_64_concat) IdentityId => u64;
+        /// Checkpoint records.
+        pub CheckpointRecords get(fn checkpoint_records):
+            double_map hasher(blake2_128_concat) Ticker, hasher(twox_64_concat) IdentityId =>
+            Vec<CheckpointRecord<T::Balance>>;
     }
     add_extra_genesis {
         config(classic_migration_tickers): Vec<ClassicTickerImport>;
@@ -680,16 +698,16 @@ decl_module! {
             let primary_did = Identity::<T>::ensure_origin_call_permissions(origin)?.primary_did;
             ensure!(Self::is_owner(&ticker, primary_did), Error::<T>::Unauthorized);
             ensure!(
-                !<CheckpointSchedules>::contains_key(&ticker),
+                !<CheckpointSchedules>::contains_key(&ticker, &primary_did),
                 Error::<T>::CheckpointScheduleAlreadyExists
             );
 
             let now_as_secs = T::UnixTime::now().as_secs().saturated_into::<u64>();
             let timestamp = schedule.next_checkpoint(now_as_secs)
                 .ok_or(Error::<T>::FailedToComputeNextCheckpoint)?;
-            <NextCheckpoints>::insert(&ticker, timestamp);
+            <NextCheckpoints>::insert(&ticker, &primary_did, timestamp);
             // Assign the schedule.
-            <CheckpointSchedules>::insert(&ticker, schedule.clone());
+            <CheckpointSchedules>::insert(&ticker, &primary_did, schedule.clone());
             Self::deposit_event(RawEvent::CheckpointScheduleCreated(
                 ticker,
                 primary_did,
@@ -714,11 +732,14 @@ decl_module! {
         ) -> DispatchResult {
             let primary_did = Identity::<T>::ensure_origin_call_permissions(origin)?.primary_did;
             ensure!(Self::is_owner(&ticker, primary_did), Error::<T>::Unauthorized);
-            ensure!(<CheckpointSchedules>::contains_key(&ticker), Error::<T>::NoCheckpointSchedule);
+            ensure!(
+                <CheckpointSchedules>::contains_key(&ticker, &primary_did),
+                Error::<T>::NoCheckpointSchedule
+            );
             // Remove the next scheduled checkpoint for `ticker`.
-            <NextCheckpoints>::remove(&ticker);
+            <NextCheckpoints>::remove(&ticker, &primary_did);
             // Remove and return the schedule from storage.
-            let schedule = <CheckpointSchedules>::take(&ticker);
+            let schedule = <CheckpointSchedules>::take(&ticker, &primary_did);
             Self::deposit_event(RawEvent::CheckpointScheduleRemoved(
                 ticker,
                 primary_did,
@@ -1617,15 +1638,35 @@ impl<T: Trait> Module<T> {
         Ok(())
     }
 
-    fn _update_checkpoint(ticker: &Ticker, user_did: IdentityId, user_balance: T::Balance) {
+    fn _update_checkpoint(ticker: &Ticker, user_did: IdentityId, balance: T::Balance) {
         if <TotalCheckpoints>::contains_key(ticker) {
             let checkpoint_count = Self::total_checkpoints_of(ticker);
             let ticker_user_did_checkpont = (*ticker, user_did, checkpoint_count);
             if !<CheckpointBalance<T>>::contains_key(&ticker_user_did_checkpont) {
-                <CheckpointBalance<T>>::insert(&ticker_user_did_checkpont, user_balance);
+                <CheckpointBalance<T>>::insert(&ticker_user_did_checkpont, balance);
                 <UserCheckpoints>::mutate(&(*ticker, user_did), |user_checkpoints| {
                     user_checkpoints.push(checkpoint_count);
                 });
+            }
+        }
+        // Record the scheduled checkpoint if one exists and is due.
+        if <NextCheckpoints>::contains_key(ticker, &user_did) {
+            let record_timestamp = T::UnixTime::now().as_secs().saturated_into::<u64>();
+            let schedule_timestamp = Self::next_checkpoints(ticker, &user_did);
+            if schedule_timestamp < record_timestamp {
+                // Record the checkpoint.
+                <CheckpointRecords<T>>::mutate(ticker, &user_did, |records| {
+                    records.push(CheckpointRecord {
+                        schedule_timestamp,
+                        record_timestamp,
+                        balance,
+                    })
+                });
+                // Update the next checkpoint timestamp.
+                let schedule = Self::checkpoint_schedules(ticker, &user_did);
+                if let Some(timestamp) = schedule.next_checkpoint(record_timestamp) {
+                    <NextCheckpoints>::insert(ticker, &user_did, timestamp);
+                }
             }
         }
     }

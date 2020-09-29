@@ -875,6 +875,30 @@
             "final_response": "Vec<u8>",
             "max_two_exp": "u32"
         },
+        "CalendarUnit": {
+            "_enum": [
+                "Second",
+                "Minute",
+                "Hour",
+                "Day",
+                "Week",
+                "Month",
+                "Year"
+            ]
+        },
+        "CalendarPeriod": {
+            "unit": "CalendarUnit",
+            "multiplier": "u64"
+        },
+        "CheckpointSchedule": {
+            "start": "u64",
+            "period": "CalendarPeriod"
+        },
+        "CheckpointRecord": {
+            "schedule_timestamp": "u64",
+            "record_timestamp": "u64",
+            "balance": "Balance"
+        },
         "InstructionStatus": {
             "_enum": {
                 "Unknown": "",
