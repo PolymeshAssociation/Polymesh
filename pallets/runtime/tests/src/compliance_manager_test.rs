@@ -1509,7 +1509,7 @@ fn should_limit_compliance_requirements_complexity_we() {
 }
 
 #[test]
-fn check_implicit_requirement_switch() {
+fn check_new_return_type_of_rpc() {
     ExtBuilder::default().build().execute_with(|| {
         // 0. Create accounts
         let token_owner_acc = AccountKeyring::Alice.public();
@@ -1572,70 +1572,10 @@ fn check_implicit_requirement_switch() {
 
         assert!(result.requirements.len() == 1);
         assert_eq!(result.requirements[0], compliance_requirement);
-        assert!(result.implicit_requirements_result.is_some());
-        assert_eq!(
-            result.implicit_requirements_result.unwrap(),
-            expected_result
-        );
+        assert_eq!(result.implicit_requirements_result, expected_result);
         assert_eq!(result.result, false);
 
         // Should fail txn as implicit requirements are active.
         assert_invalid_transfer!(ticker, token_owner_did, receiver_did, 100);
-
-        // Inactivate implicit requirements and then check for transfers.
-        // Should fail because of wrong owner.
-        assert_err!(
-            ComplianceManager::inactivate_implicit_requirement_checks(
-                receiver_signed.clone(),
-                ticker
-            ),
-            CMError::<TestStorage>::Unauthorized
-        );
-
-        assert_ok!(ComplianceManager::inactivate_implicit_requirement_checks(
-            token_owner_signed.clone(),
-            ticker
-        ));
-
-        let result2 = ComplianceManager::granular_verify_restriction(
-            &ticker,
-            Some(token_owner_did),
-            Some(receiver_did),
-            None,
-        );
-
-        assert!(result2.requirements.len() == 1);
-        assert!(!result2.implicit_requirements_result.is_some());
-
-        // check for transfer.
-        assert_valid_transfer!(ticker, token_owner_did, receiver_did, 100);
-
-        // Try to check inactivate the implicit requirement checks again.
-        // Should fail because of it is already inactive.
-        assert_err!(
-            ComplianceManager::inactivate_implicit_requirement_checks(
-                token_owner_signed.clone(),
-                ticker
-            ),
-            CMError::<TestStorage>::ImplicitRequirementsAlreadyInactive
-        );
-
-        // Again switch it back to active state
-        assert_ok!(ComplianceManager::activate_implicit_requirement_checks(
-            token_owner_signed.clone(),
-            ticker
-        ));
-
-        // Should fail because of it is already inactive.
-        assert_err!(
-            ComplianceManager::activate_implicit_requirement_checks(
-                token_owner_signed.clone(),
-                ticker
-            ),
-            CMError::<TestStorage>::ImplicitRequirementsAlreadyActive
-        );
-
-        // Should fail txn as implicit requirements are active.
-        assert_invalid_transfer!(ticker, token_owner_did, receiver_did, 200);
     });
 }
