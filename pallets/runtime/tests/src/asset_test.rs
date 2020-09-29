@@ -32,12 +32,12 @@ use polymesh_common_utilities::{
     compliance_manager::Trait, constants::*, protocol_fee::ProtocolOp, traits::balances::Memo,
     traits::CddAndFeeDetails as _, SystematicIssuers,
 };
+use polymesh_contracts::NonceBasedAddressDeterminer;
 use polymesh_primitives::{
     AssetIdentifier, AuthorizationData, Claim, Condition, ConditionType, Document, DocumentName,
     IdentityId, PortfolioId, Signatory, SmartExtension, SmartExtensionName, SmartExtensionType,
     Ticker,
 };
-use polymesh_contracts::NonceBasedAddressDeterminer;
 use rand::Rng;
 use sp_io::hashing::keccak_256;
 use sp_runtime::AnySignature;
@@ -2249,7 +2249,7 @@ fn classic_ticker_genesis_works() {
             ..standard_config
         },
         reserved_country_currency_codes: vec![],
-        versions: vec![]
+        versions: vec![],
     };
 
     // Define expected ticker data after genesis.
@@ -2438,7 +2438,7 @@ fn classic_ticker_claim_works() {
         },
         classic_migration_contract_did: 0.into(),
         reserved_country_currency_codes: vec![],
-        versions: vec![]
+        versions: vec![],
     };
 
     // Define the fees and initial balance.
