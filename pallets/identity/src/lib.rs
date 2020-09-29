@@ -999,7 +999,7 @@ decl_module! {
                 _ => Err(Error::<T>::ClaimVariantNotAllowed.into())
             }
         }
-      
+
         /// Assuming this is executed by the GC voting majority, adds a new cdd claim record.
         #[weight = 950_000_000]
         pub fn gc_add_cdd_claim(
