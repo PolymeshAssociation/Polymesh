@@ -6,31 +6,48 @@ use super::{
     },
     ExtBuilder,
 };
-
+use codec::{Decode, Encode};
+use confidential_asset::{EncryptedAssetIdWrapper, MercatAccountId};
+use core::convert::{TryFrom, TryInto};
+use cryptography::{
+    asset_proofs::{CommitmentWitness, ElgamalSecretKey},
+    mercat::{
+        account::{convert_asset_ids, AccountCreator},
+        asset::AssetIssuer,
+        transaction::{CtxMediator, CtxReceiver, CtxSender},
+        Account, AccountCreatorInitializer, AssetTransactionIssuer, EncryptedAmount,
+        EncryptedAssetId, EncryptionKeys, FinalizedTransferTx, InitializedTransferTx, PubAccount,
+        PubAccountTx, SecAccount, TransferTransactionMediator, TransferTransactionReceiver,
+        TransferTransactionSender,
+    },
+    AssetId,
+};
+use curve25519_dalek::scalar::Scalar;
+use frame_support::dispatch::GetDispatchInfo;
+use frame_support::{assert_noop, assert_ok};
 use pallet_asset as asset;
 use pallet_balances as balances;
 use pallet_compliance_manager as compliance_manager;
+use pallet_confidential_asset as confidential_asset;
 use pallet_identity as identity;
 use pallet_portfolio::MovePortfolioItem;
 use pallet_settlement::{
-    self as settlement, weight_for, AuthorizationStatus, Call as SettlementCall, Instruction,
-    InstructionStatus, Leg, LegStatus, Receipt, ReceiptDetails, SettlementType, VenueDetails,
-    VenueType,
+    self as settlement, weight_for, AuthorizationStatus, Call as SettlementCall, ConfidentialLeg,
+    Instruction, InstructionStatus, Leg, LegStatus, MercatTxData, NonConfidentialLeg, Receipt,
+    ReceiptDetails, SettlementType, VenueDetails, VenueType,
 };
 use polymesh_primitives::{
-    AssetType, AuthorizationData, Claim, Condition, ConditionType, IdentityId, PortfolioId,
-    PortfolioName, Signatory, Ticker,
+    AssetOwnershipRelation, AssetType, AuthorizationData, Claim, Condition, ConditionType,
+    FundingRoundName, IdentifierType, IdentityId, PortfolioId, PortfolioName, SecurityToken,
+    Signatory, Ticker,
 };
-
-use codec::Encode;
-use frame_support::dispatch::GetDispatchInfo;
-use frame_support::{assert_noop, assert_ok};
 use rand::{prelude::*, thread_rng};
 use sp_core::sr25519::Public;
+use sp_runtime::traits::Zero;
 use sp_runtime::AnySignature;
 use sp_std::collections::btree_set::BTreeSet;
 use std::collections::HashMap;
-use std::convert::TryFrom;
+use std::prelude::*;
 use test_client::AccountKeyring;
 
 type Identity = identity::Module<TestStorage>;
@@ -47,6 +64,7 @@ type DidRecords = identity::DidRecords<TestStorage>;
 type Settlement = settlement::Module<TestStorage>;
 type System = frame_system::Module<TestStorage>;
 type Error = settlement::Error<TestStorage>;
+type ConfidentialAsset = confidential_asset::Module<TestStorage>;
 
 macro_rules! assert_add_claim {
     ($signer:expr, $target:expr, $claim:expr) => {
@@ -181,12 +199,12 @@ fn basic_settlement() {
                 venue_counter,
                 SettlementType::SettleOnAuthorization,
                 None,
-                vec![Leg {
+                vec![Leg::NonConfidentialLeg(NonConfidentialLeg {
                     from: PortfolioId::default_portfolio(alice_did),
                     to: PortfolioId::default_portfolio(bob_did),
                     asset: ticker,
                     amount: amount
-                }]
+                })]
             ));
             assert_eq!(Asset::balance_of(&ticker, alice_did), alice_init_balance);
             assert_eq!(Asset::balance_of(&ticker, bob_did), bob_init_balance);
@@ -244,12 +262,12 @@ fn create_and_authorize_instruction() {
                 venue_counter,
                 SettlementType::SettleOnAuthorization,
                 None,
-                vec![Leg {
+                vec![Leg::NonConfidentialLeg(NonConfidentialLeg {
                     from: PortfolioId::default_portfolio(alice_did),
                     to: PortfolioId::default_portfolio(bob_did),
                     asset: ticker,
                     amount: amount
-                }],
+                })],
                 default_portfolio_btreeset(alice_did)
             ));
 
@@ -311,12 +329,12 @@ fn overdraft_failure() {
                 venue_counter,
                 SettlementType::SettleOnAuthorization,
                 None,
-                vec![Leg {
+                vec![Leg::NonConfidentialLeg(NonConfidentialLeg {
                     from: PortfolioId::default_portfolio(alice_did),
                     to: PortfolioId::default_portfolio(bob_did),
                     asset: ticker,
                     amount: amount
-                }]
+                })]
             ));
             assert_eq!(Asset::balance_of(&ticker, alice_did), alice_init_balance);
             assert_eq!(Asset::balance_of(&ticker, bob_did), bob_init_balance);
@@ -361,18 +379,18 @@ fn token_swap() {
 
             let amount = 100u128;
             let legs = vec![
-                Leg {
+                Leg::NonConfidentialLeg(NonConfidentialLeg {
                     from: PortfolioId::default_portfolio(alice_did),
                     to: PortfolioId::default_portfolio(bob_did),
                     asset: ticker,
                     amount: amount,
-                },
-                Leg {
+                }),
+                Leg::NonConfidentialLeg(NonConfidentialLeg {
                     from: PortfolioId::default_portfolio(bob_did),
                     to: PortfolioId::default_portfolio(alice_did),
                     asset: ticker2,
                     amount: amount,
-                },
+                }),
             ];
 
             assert_ok!(Settlement::add_instruction(
@@ -676,18 +694,18 @@ fn claiming_receipt() {
 
             let amount = 100u128;
             let legs = vec![
-                Leg {
+                Leg::NonConfidentialLeg(NonConfidentialLeg {
                     from: PortfolioId::default_portfolio(alice_did),
                     to: PortfolioId::default_portfolio(bob_did),
                     asset: ticker,
                     amount: amount,
-                },
-                Leg {
+                }),
+                Leg::NonConfidentialLeg(NonConfidentialLeg {
                     from: PortfolioId::default_portfolio(bob_did),
                     to: PortfolioId::default_portfolio(alice_did),
                     asset: ticker2,
                     amount: amount,
-                },
+                }),
             ];
 
             assert_ok!(Settlement::add_instruction(
@@ -1105,18 +1123,18 @@ fn settle_on_block() {
 
             let amount = 100u128;
             let legs = vec![
-                Leg {
+                Leg::NonConfidentialLeg(NonConfidentialLeg {
                     from: PortfolioId::default_portfolio(alice_did),
                     to: PortfolioId::default_portfolio(bob_did),
                     asset: ticker,
                     amount: amount,
-                },
-                Leg {
+                }),
+                Leg::NonConfidentialLeg(NonConfidentialLeg {
                     from: PortfolioId::default_portfolio(bob_did),
                     to: PortfolioId::default_portfolio(alice_did),
                     asset: ticker2,
                     amount: amount,
-                },
+                }),
             ];
 
             assert_ok!(Settlement::add_instruction(
@@ -1372,18 +1390,18 @@ fn failed_execution() {
 
             let amount = 100u128;
             let legs = vec![
-                Leg {
+                Leg::NonConfidentialLeg(NonConfidentialLeg {
                     from: PortfolioId::default_portfolio(alice_did),
                     to: PortfolioId::default_portfolio(bob_did),
                     asset: ticker,
                     amount: amount,
-                },
-                Leg {
+                }),
+                Leg::NonConfidentialLeg(NonConfidentialLeg {
                     from: PortfolioId::default_portfolio(bob_did),
                     to: PortfolioId::default_portfolio(alice_did),
                     asset: ticker2,
                     amount: amount,
-                },
+                }),
             ];
 
             assert_ok!(Settlement::add_instruction(
@@ -1618,12 +1636,12 @@ fn venue_filtering() {
             // provide scope claim.
             provide_scope_claim_to_multiple_parties(&[alice_did, bob_did], ticker, eve);
 
-            let legs = vec![Leg {
+            let legs = vec![Leg::NonConfidentialLeg(NonConfidentialLeg {
                 from: PortfolioId::default_portfolio(alice_did),
                 to: PortfolioId::default_portfolio(bob_did),
                 asset: ticker,
                 amount: 10,
-            }];
+            })];
             assert_ok!(Settlement::add_instruction(
                 alice_signed.clone(),
                 venue_counter,
@@ -1807,12 +1825,12 @@ fn basic_fuzzing() {
                                 tickers[i * 4 + j],
                                 eve,
                             );
-                            legs.push(Leg {
+                            legs.push(Leg::NonConfidentialLeg(NonConfidentialLeg {
                                 from: PortfolioId::default_portfolio(dids[j]),
                                 to: PortfolioId::default_portfolio(dids[k]),
                                 asset: tickers[i * 4 + j],
                                 amount: 1,
-                            });
+                            }));
                             if legs.len() >= 100 {
                                 break;
                             }
@@ -1975,18 +1993,18 @@ fn claim_multiple_receipts_during_authorization() {
 
             let amount = 100u128;
             let legs = vec![
-                Leg {
+                Leg::NonConfidentialLeg(NonConfidentialLeg {
                     from: PortfolioId::default_portfolio(alice_did),
                     to: PortfolioId::default_portfolio(bob_did),
                     asset: ticker,
                     amount: amount,
-                },
-                Leg {
+                }),
+                Leg::NonConfidentialLeg(NonConfidentialLeg {
                     from: PortfolioId::default_portfolio(alice_did),
                     to: PortfolioId::default_portfolio(bob_did),
                     asset: ticker2,
                     amount: amount,
-                },
+                }),
             ];
 
             assert_ok!(Settlement::add_instruction(
@@ -2178,12 +2196,12 @@ fn overload_settle_on_block() {
             let block_number = System::block_number() + 1;
 
             let legs = vec![
-                Leg {
+                Leg::NonConfidentialLeg(NonConfidentialLeg {
                     from: PortfolioId::default_portfolio(alice_did),
                     to: PortfolioId::default_portfolio(bob_did),
                     asset: ticker,
                     amount: 1u128,
-                };
+                });
                 500
             ];
 
@@ -2444,12 +2462,12 @@ fn test_weights_for_settlement_transaction() {
             provide_scope_claim_to_multiple_parties(&[alice_did, bob_did], ticker, dave);
 
             // Create instruction
-            let legs = vec![Leg {
+            let legs = vec![Leg::NonConfidentialLeg(NonConfidentialLeg {
                 from: PortfolioId::default_portfolio(alice_did),
                 to: PortfolioId::default_portfolio(bob_did),
                 asset: ticker,
                 amount: 100u128,
-            }];
+            })];
 
             let weight_to_add_instruction = SettlementCall::<TestStorage>::add_instruction(
                 venue_counter,
@@ -2559,12 +2577,12 @@ fn cross_portfolio_settlement() {
                 venue_counter,
                 SettlementType::SettleOnAuthorization,
                 None,
-                vec![Leg {
+                vec![Leg::NonConfidentialLeg(NonConfidentialLeg {
                     from: PortfolioId::default_portfolio(alice_did),
                     to: PortfolioId::user_portfolio(bob_did, num),
                     asset: ticker,
                     amount: amount
-                }]
+                })]
             ));
             assert_eq!(Asset::balance_of(&ticker, alice_did), alice_init_balance);
             assert_eq!(Asset::balance_of(&ticker, bob_did), bob_init_balance);
@@ -2691,18 +2709,18 @@ fn multiple_portfolio_settlement() {
                 SettlementType::SettleOnAuthorization,
                 None,
                 vec![
-                    Leg {
+                    Leg::NonConfidentialLeg(NonConfidentialLeg {
                         from: PortfolioId::user_portfolio(alice_did, alice_num),
                         to: PortfolioId::default_portfolio(bob_did),
                         asset: ticker,
                         amount: amount
-                    },
-                    Leg {
+                    }),
+                    Leg::NonConfidentialLeg(NonConfidentialLeg {
                         from: PortfolioId::default_portfolio(alice_did),
                         to: PortfolioId::user_portfolio(bob_did, bob_num),
                         asset: ticker,
                         amount: amount
-                    }
+                    })
                 ]
             ));
             assert_eq!(Asset::balance_of(&ticker, alice_did), alice_init_balance);
@@ -2908,18 +2926,18 @@ fn multiple_custodian_settlement() {
                 SettlementType::SettleOnAuthorization,
                 None,
                 vec![
-                    Leg {
+                    Leg::NonConfidentialLeg(NonConfidentialLeg {
                         from: PortfolioId::user_portfolio(alice_did, alice_num),
                         to: PortfolioId::default_portfolio(bob_did),
                         asset: ticker,
                         amount: amount
-                    },
-                    Leg {
+                    }),
+                    Leg::NonConfidentialLeg(NonConfidentialLeg {
                         from: PortfolioId::default_portfolio(alice_did),
                         to: PortfolioId::user_portfolio(bob_did, bob_num),
                         asset: ticker,
                         amount: amount
-                    }
+                    })
                 ]
             ));
             assert_eq!(Asset::balance_of(&ticker, alice_did), alice_init_balance);
@@ -3064,5 +3082,440 @@ fn multiple_custodian_settlement() {
                 Portfolio::locked_assets(PortfolioId::default_portfolio(alice_did), &ticker),
                 0
             );
+        });
+}
+
+// ----------------------------------------- Confidential transfer tests -----------------------------------
+
+/// Creates a mercat account and returns its secret part (to be stored in the wallet) and
+/// the account creation proofs (to be submitted to the chain).
+pub fn gen_account(
+    tx_id: u32,
+    seed: [u8; 32],
+    token_name: &[u8],
+    valid_asset_ids: Vec<AssetId>,
+) -> (SecAccount, PubAccountTx) {
+    // These are the encryptions keys used by MERCAT and are different from the signing keys
+    // that Polymesh uses.
+    let mut rng = StdRng::from_seed(seed);
+    let elg_secret = ElgamalSecretKey::new(Scalar::random(&mut rng));
+    let elg_pub = elg_secret.get_public_key();
+    let enc_keys = EncryptionKeys {
+        pblc: elg_pub.into(),
+        scrt: elg_secret.into(),
+    };
+
+    let asset_id = AssetId {
+        id: *Ticker::try_from(token_name).unwrap().as_bytes(),
+    };
+    let asset_id_witness = CommitmentWitness::from((asset_id.clone().into(), &mut rng));
+    let secret_account = SecAccount {
+        enc_keys,
+        asset_id_witness,
+    };
+    let valid_asset_ids = convert_asset_ids(valid_asset_ids);
+    let mercat_account_tx = AccountCreator {}
+        .create(tx_id, &secret_account, &valid_asset_ids, &mut rng)
+        .unwrap();
+
+    (secret_account, mercat_account_tx)
+}
+
+/// Creates a mercat account for the `owner` and submits the proofs to the chain and validates them.
+/// It then return the secret part of the account, the account id, the public portion of the account and the initial
+/// encrypted balance of zero.
+pub fn init_account(
+    tx_id: u32,
+    seed: [u8; 32],
+    token_name: &[u8],
+    owner: Public,
+    did: IdentityId,
+) -> (SecAccount, MercatAccountId, PubAccount, EncryptedAmount) {
+    let valid_asset_ids = ConfidentialAsset::confidential_tickers();
+    let (scrt_account, mercat_account_tx) = gen_account(tx_id, seed, token_name, valid_asset_ids);
+
+    assert_ok!(ConfidentialAsset::validate_mercat_account(
+        Origin::signed(owner),
+        mercat_account_tx.clone()
+    ));
+
+    let account_id = MercatAccountId::from(mercat_account_tx.pub_account.enc_asset_id.encode());
+    (
+        scrt_account,
+        account_id.clone(),
+        ConfidentialAsset::mercat_accounts(did, account_id.clone())
+            .to_mercat::<TestStorage>()
+            .unwrap(),
+        ConfidentialAsset::mercat_account_balance(did, account_id)
+            .to_mercat::<TestStorage>()
+            .unwrap(),
+    )
+}
+
+/// Performs mercat account creation, validation, and minting of the account with `total_supply` tokens.
+/// It returns the next transaction id, the secret portion of the account, the account id, the public portion of the account,
+/// and the encrypted balance of `total_supply`.
+pub fn create_account_and_mint_token(
+    owner: Public,
+    owner_did: IdentityId,
+    total_supply: u128,
+    token_name: Vec<u8>,
+    tx_id: u32,
+    seed: [u8; 32],
+) -> (
+    u32,
+    SecAccount,
+    MercatAccountId,
+    PubAccount,
+    EncryptedAmount,
+) {
+    let funding_round_name: FundingRoundName = b"round1".into();
+
+    let token = SecurityToken {
+        name: token_name.clone().into(),
+        owner_did,
+        total_supply: total_supply,
+        divisible: false,
+        asset_type: AssetType::default(),
+        primary_issuance_agent: Some(owner_did),
+        ..Default::default()
+    };
+    let ticker = Ticker::try_from(token.name.as_slice()).unwrap();
+    let identifiers = vec![(IdentifierType::default(), b"undefined".into())];
+
+    assert_ok!(ConfidentialAsset::create_confidential_asset(
+        Origin::signed(owner),
+        token.name.clone(),
+        ticker,
+        true,
+        token.asset_type.clone(),
+        identifiers.clone(),
+        Some(funding_round_name.clone()),
+    ));
+
+    // In the initial call, the total_supply must be zero.
+    assert_eq!(Asset::token_details(ticker).total_supply, Zero::zero());
+
+    // ---------------- prepare for minting the asset
+
+    let valid_asset_ids = ConfidentialAsset::confidential_tickers();
+
+    let (scrt_account, mercat_account_tx) = gen_account(tx_id, seed, &token_name, valid_asset_ids);
+
+    assert_ok!(ConfidentialAsset::validate_mercat_account(
+        Origin::signed(owner),
+        mercat_account_tx.clone()
+    ));
+
+    // ------------- Computations that will happen in owner's Wallet ----------
+    let amount: u32 = token.total_supply.try_into().unwrap(); // mercat amounts are 32 bit integers.
+    let mut new_seed = seed;
+    new_seed[0] += 1;
+    let mut rng = StdRng::from_seed(new_seed);
+    let issuer_account = Account {
+        scrt: scrt_account.clone(),
+        pblc: mercat_account_tx.pub_account.clone(),
+    };
+
+    let tx_id = tx_id + 1;
+    let initialized_asset_tx = AssetIssuer {}
+        .initialize_asset_transaction(tx_id, &issuer_account, &[], amount, &mut rng)
+        .unwrap();
+
+    // Wallet submits the transaction to the chain for verification.
+    assert_ok!(ConfidentialAsset::mint_confidential_asset(
+        Origin::signed(owner),
+        ticker,
+        amount.into(), // convert to u128
+        initialized_asset_tx,
+    ));
+
+    // ------------------------- Ensuring that the asset details are set correctly
+
+    // A correct entry is added.
+    assert_eq!(
+        Asset::asset_ownership_relation(token.owner_did, ticker),
+        AssetOwnershipRelation::AssetOwned
+    );
+    assert_eq!(Asset::funding_round(ticker), funding_round_name.clone());
+
+    // Ticker is added to the list of confidential tokens.
+    assert_eq!(
+        ConfidentialAsset::confidential_tickers().last(),
+        Some(&AssetId {
+            id: *ticker.as_bytes()
+        })
+    );
+
+    // -------------------------- Ensure the encrypted balance matches the minted amount.
+    let account_id = MercatAccountId::from(mercat_account_tx.pub_account.enc_asset_id.encode());
+    let stored_balance = ConfidentialAsset::mercat_account_balance(owner_did, account_id.clone())
+        .to_mercat::<TestStorage>()
+        .unwrap();
+    let stored_balance = scrt_account.enc_keys.scrt.decrypt(&stored_balance).unwrap();
+
+    assert_eq!(stored_balance, amount);
+
+    (
+        tx_id,
+        scrt_account,
+        account_id.clone(),
+        ConfidentialAsset::mercat_accounts(owner_did, account_id.clone())
+            .to_mercat::<TestStorage>()
+            .unwrap(),
+        ConfidentialAsset::mercat_account_balance(owner_did, account_id)
+            .to_mercat::<TestStorage>()
+            .unwrap(),
+    )
+}
+
+#[test]
+fn basic_confidential_settlement() {
+    ExtBuilder::default()
+        .cdd_providers(vec![AccountKeyring::Eve.public()])
+        .set_max_legs_allowed(500)
+        .build()
+        .execute_with(|| {
+            // Setting:
+            //   - Alice is the token issuer.
+            //   - Alice is also the sender of the token.
+            //   - Bob is the receiver of the token.
+            //   - Charlie is the mediator.
+            //   - Eve is the CDD provider.
+            let alice_signed = Origin::signed(AccountKeyring::Alice.public());
+            let alice_did = register_keyring_account(AccountKeyring::Alice).unwrap();
+
+            let bob_signed = Origin::signed(AccountKeyring::Bob.public());
+            let bob_did = register_keyring_account(AccountKeyring::Bob).unwrap();
+
+            let charlie = AccountKeyring::Charlie.public();
+            let charlie_did = register_keyring_account(AccountKeyring::Charlie).unwrap();
+
+            // ------------ Setup mercat
+            let token_name = b"ACME";
+            let ticker = Ticker::try_from(&token_name[..]).unwrap();
+
+            // Create an account for Alice and mint 10,000,000 tokens to ACME.
+            let total_supply = 1_1000_000;
+            let (
+                tx_id,
+                alice_secret_account,
+                alice_account_id,
+                alice_public_account,
+                alice_encrypted_init_balance,
+            ) = create_account_and_mint_token(
+                AccountKeyring::Alice.public(), // owner of ACME.
+                alice_did,
+                total_supply,
+                token_name.to_vec(),
+                0,          // transaction id: not important in this test.
+                [10u8; 32], // seed. TODO: replace all these seeds with rng. Use `proptest`
+            );
+
+            // Create accounts for Bob, and Charlie.
+            let tx_id = tx_id + 1;
+            let (bob_secret_account, bob_account_id, bob_public_account, _) = init_account(
+                tx_id,
+                [12u8; 32], // seed. TODO: replace all these seeds with rng
+                token_name,
+                AccountKeyring::Bob.public(),
+                bob_did,
+            );
+
+            let tx_id = tx_id + 1;
+            let (charlie_secret_account, charlie_account_id, charlie_public_account, _) =
+                init_account(
+                    tx_id,
+                    [13u8; 32], // seed. TODO: replace all these seeds with rng
+                    token_name,
+                    charlie,
+                    charlie_did,
+                );
+
+            // Mediator creates a venue
+            let venue_counter = Settlement::venue_counter();
+            assert_ok!(Settlement::create_venue(
+                Origin::signed(charlie),
+                VenueDetails::default(),
+                vec![charlie],
+                VenueType::Other
+            ));
+
+            // Mediator creates an instruction
+            let instruction_counter = Settlement::instruction_counter();
+
+            //// Provide scope claim to sender and receiver of the transaction.
+            //provide_scope_claim_to_multiple_parties(&[alice_did, bob_did], ticker, alice); // TODO: CRYP-172 I think we decided not to do this as it would leak the ticker name
+
+            assert_ok!(Settlement::add_instruction(
+                Origin::signed(charlie),
+                venue_counter,
+                SettlementType::SettleOnAuthorization,
+                None,
+                vec![Leg::ConfidentialLeg(ConfidentialLeg {
+                    from: PortfolioId::default_portfolio(alice_did),
+                    to: PortfolioId::default_portfolio(bob_did),
+                    mediator: PortfolioId::default_portfolio(charlie_did),
+                    from_account_id: alice_account_id.clone(),
+                    to_account_id: bob_account_id.clone(),
+                })]
+            ));
+
+            // -------------------------- Perform the transfer
+            let amount = 100u32; // This plain format is only used on functions that emulate the work of the wallet.
+
+            println!("-------------> Checking if alice has enough funds.");
+            // Ensure that Alice has minted enough tokens.
+            assert!(
+                alice_secret_account
+                    .enc_keys
+                    .scrt
+                    .decrypt(&alice_encrypted_init_balance)
+                    .unwrap()
+                    > amount
+            );
+
+            // ----- Sender authorizes.
+            // Sender computes the proofs in the wallet.
+            println!("-------------> Alice is going to authorize.");
+            let mut rng = StdRng::from_seed([14u8; 32]);
+            let tx_id = tx_id + 1;
+            let initialized_tx = MercatTxData::InitializedTransfer(
+                CtxSender {}
+                    .create_transaction(
+                        tx_id,
+                        &Account {
+                            pblc: alice_public_account.clone(),
+                            scrt: alice_secret_account.clone(),
+                        },
+                        &alice_encrypted_init_balance,
+                        &bob_public_account,
+                        &charlie_public_account.owner_enc_pub_key,
+                        &[],
+                        amount,
+                        &mut rng,
+                    )
+                    .unwrap()
+                    .encode(),
+            );
+            // Sender authorizes the instruction and passes in the proofs.
+            assert_ok!(Settlement::authorize_confidential_instruction(
+                Origin::signed(AccountKeyring::Alice.public()),
+                instruction_counter,
+                initialized_tx,
+                default_portfolio_btreeset(alice_did),
+            ));
+
+            // ------ Receiver authorizes.
+            // Receiver reads the sender's proof from the chain.
+            println!("-------------> Bob is going to authorize.");
+            let mut tx_data = Settlement::mercat_tx_data(instruction_counter);
+            assert_eq!(tx_data.len(), 1);
+
+            let tx_data = tx_data.remove(0);
+
+            let decoded_initialized_tx = match tx_data {
+                MercatTxData::InitializedTransfer(init) => {
+                    let mut data: &[u8] = &init;
+                    InitializedTransferTx::decode(&mut data).unwrap()
+                }
+                _ => {
+                    println!("{:?}", tx_data);
+                    panic!("Unexpected data type");
+                }
+            };
+
+            // Receiver computes the proofs in the wallet.
+            let finalized_tx = MercatTxData::FinalizedTransfer(
+                CtxReceiver {}
+                    .finalize_transaction(
+                        tx_id,
+                        decoded_initialized_tx,
+                        Account {
+                            pblc: bob_public_account.clone(),
+                            scrt: bob_secret_account.clone(),
+                        },
+                        amount,
+                        &mut rng,
+                    )
+                    .unwrap()
+                    .encode(),
+            );
+
+            // Receiver submits the proof to the chain.
+            assert_ok!(Settlement::authorize_confidential_instruction(
+                Origin::signed(AccountKeyring::Bob.public()),
+                instruction_counter,
+                finalized_tx,
+                default_portfolio_btreeset(bob_did),
+            ));
+
+            // ------ Mediator authorizes.
+            // Mediator reads the receiver's proofs from the chain (it contains the sender's proofs as well).
+            println!("-------------> Charlie is going to authorize.");
+            let mut tx_data = Settlement::mercat_tx_data(instruction_counter);
+            assert_eq!(tx_data.len(), 2);
+
+            let tx_data = tx_data.remove(1);
+            let decoded_finalized_tx = match tx_data {
+                MercatTxData::FinalizedTransfer(finalized) => {
+                    let mut data: &[u8] = &finalized;
+                    FinalizedTransferTx::decode(&mut data).unwrap()
+                }
+                _ => {
+                    panic!("Unexpected data type");
+                }
+            };
+
+            // Mediator verifies the proofs in the wallet.
+            let justified_tx = MercatTxData::JustifiedTransfer(
+                CtxMediator {}
+                    .justify_transaction(
+                        decoded_finalized_tx,
+                        &charlie_secret_account.enc_keys,
+                        &alice_public_account,
+                        &alice_encrypted_init_balance,
+                        &bob_public_account,
+                        &[],
+                        AssetId {
+                            id: *ticker.as_bytes(),
+                        },
+                        &mut rng,
+                    )
+                    .unwrap()
+                    .encode(),
+            );
+
+            println!("-------------> This should trigger the execution");
+            assert_ok!(Settlement::authorize_confidential_instruction(
+                Origin::signed(charlie),
+                instruction_counter,
+                justified_tx,
+                default_portfolio_btreeset(charlie_did),
+            ));
+
+            // Instruction should've settled.
+            // Verify by decrypting the new balance of both Alice and Bob.
+            let new_alice_balance =
+                ConfidentialAsset::mercat_account_balance(alice_did, alice_account_id)
+                    .to_mercat::<TestStorage>()
+                    .unwrap();
+            let new_alice_balance = alice_secret_account
+                .enc_keys
+                .scrt
+                .decrypt(&new_alice_balance)
+                .unwrap();
+            assert_eq!(new_alice_balance as u128, total_supply - amount as u128);
+
+            let new_bob_balance =
+                ConfidentialAsset::mercat_account_balance(bob_did, bob_account_id)
+                    .to_mercat::<TestStorage>()
+                    .unwrap();
+            let new_bob_balance = bob_secret_account
+                .enc_keys
+                .scrt
+                .decrypt(&new_bob_balance)
+                .unwrap();
+            assert_eq!(new_bob_balance, amount);
         });
 }

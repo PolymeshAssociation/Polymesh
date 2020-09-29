@@ -13,7 +13,7 @@ use frame_support::{
 };
 use frame_system::ensure_signed;
 use pallet_identity as identity;
-use pallet_settlement::{Leg, SettlementType};
+use pallet_settlement::{Leg, NonConfidentialLeg, SettlementType};
 use polymesh_common_utilities::{
     constants::currency::*,
     traits::{asset::Trait as AssetTrait, identity::Trait as IdentityTrait, CommonTrait},
@@ -134,19 +134,19 @@ decl_module! {
 
             let primary_issuance_agent = T::Asset::primary_issuance_agent(&offering_token);
             let legs = vec![
-                Leg {
+                Leg::NonConfidentialLeg(NonConfidentialLeg {
                     // TODO: Replace with did that actually hold the offering token
                     from: PortfolioId::default_portfolio(primary_issuance_agent),
                     to: PortfolioId::default_portfolio(did),
                     asset: offering_token,
                     amount: offering_token_amount
-                },
-                Leg {
+                }),
+                Leg::NonConfidentialLeg(NonConfidentialLeg {
                     from: PortfolioId::default_portfolio(did),
                     to: PortfolioId::default_portfolio(primary_issuance_agent),
                     asset: fundraiser.raise_token,
                     amount: raise_token_amount
-                }
+                })
             ];
 
             let instruction_id = Settlement::<T>::base_add_instruction(

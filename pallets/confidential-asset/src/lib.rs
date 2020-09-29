@@ -17,6 +17,7 @@
 //!
 //! The Confidential Asset module is one place to create the MERCAT security tokens on the
 //! Polymesh blockchain.
+#![cfg_attr(not(feature = "std"), no_std)]
 
 use codec::{Decode, Encode};
 use cryptography::{
@@ -35,8 +36,8 @@ use frame_system::ensure_signed;
 use pallet_identity as identity;
 use pallet_statistics::{self as statistics};
 use polymesh_common_utilities::{
-    asset::Trait as AssetTrait, balances::Trait as BalancesTrait, constants::currency::ONE_UNIT,
-    identity::Trait as IdentityTrait, CommonTrait, Context,
+    asset::Trait as AssetTrait, constants::currency::ONE_UNIT, identity::Trait as IdentityTrait,
+    CommonTrait, Context,
 };
 use polymesh_primitives::{
     AssetIdentifier, AssetName, AssetType, FundingRoundName, IdentifierType, IdentityId, Ticker,
@@ -49,9 +50,9 @@ use sp_std::{
 };
 
 /// The module's configuration trait.
-pub trait Trait: frame_system::Trait + IdentityTrait + BalancesTrait + statistics::Trait {
-    type Asset: AssetTrait<Self::Balance, Self::AccountId>;
+pub trait Trait: frame_system::Trait + IdentityTrait + statistics::Trait {
     type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
+    type NonConfidentialAsset: AssetTrait<Self::Balance, Self::AccountId>;
 }
 
 /// Wrapper for Ciphertexts that correspond to `EncryptedAssetId`.
@@ -63,11 +64,17 @@ pub struct EncryptedAssetIdWrapper(pub Vec<u8>);
 
 impl EncryptedAssetIdWrapper {
     /// Unwraps the value so that it can be passed to meract library.
-    fn to_mercat<T: Trait>(&self) -> Result<EncryptedAssetId, Error<T>> {
+    pub fn to_mercat<T: Trait>(&self) -> Result<EncryptedAssetId, Error<T>> {
         let mut data: &[u8] = &self.0;
         EncryptedAssetId::decode(&mut data).map_err(|_| Error::<T>::UnwrapMercatDataError)
     }
 }
+
+/// Created for better code readability. Its content are the same as the `pallet_confidential_asset::EncryptedAssetIdWrapper`.
+#[derive(
+    Encode, Decode, Clone, Debug, PartialEq, Eq, VecU8StrongTyped, Default, PartialOrd, Ord,
+)]
+pub struct MercatAccountId(pub Vec<u8>);
 
 /// Wrapper for Ciphertexts that correspond to EncryptedBalance.
 /// This is needed since `mercat::asset_proofs::elgamal_encryption::CipherText` implements
@@ -77,8 +84,8 @@ impl EncryptedAssetIdWrapper {
 pub struct EncryptedBalanceWrapper(pub Vec<u8>);
 
 impl EncryptedBalanceWrapper {
-    /// Unwraps the value so that it can be passed to meract library.
-    fn to_mercat<T: Trait>(&self) -> Result<EncryptedAmount, Error<T>> {
+    /// Unwraps the value so that it can be passed to mercat library.
+    pub fn to_mercat<T: Trait>(&self) -> Result<EncryptedAmount, Error<T>> {
         let mut data: &[u8] = &self.0;
         EncryptedAmount::decode(&mut data).map_err(|_| Error::<T>::UnwrapMercatDataError)
     }
@@ -94,8 +101,8 @@ pub struct MercatAccount {
 }
 
 impl MercatAccount {
-    /// Unwraps the value so that it can be passed to meract library.
-    fn to_mercat<T: Trait>(&self) -> Result<PubAccount, Error<T>> {
+    /// Unwraps the value so that it can be passed to mercat library.
+    pub fn to_mercat<T: Trait>(&self) -> Result<PubAccount, Error<T>> {
         Ok(PubAccount {
             enc_asset_id: self.encrypted_asset_id.to_mercat()?,
             owner_enc_pub_key: self.encryption_pub_key,
@@ -111,13 +118,13 @@ decl_storage! {
         /// Contains the mercat accounts for an identity.
         pub MercatAccounts get(fn mercat_accounts):
             double_map hasher(twox_64_concat) IdentityId,
-            hasher(blake2_128_concat) EncryptedAssetIdWrapper
+            hasher(blake2_128_concat) MercatAccountId
             => MercatAccount;
 
         /// Contains the encrypted balance of a mercat account.
         pub MercatAccountBalance get(fn mercat_account_balance):
             double_map hasher(twox_64_concat) IdentityId,
-            hasher(blake2_128_concat) EncryptedAssetIdWrapper
+            hasher(blake2_128_concat) MercatAccountId
             => EncryptedBalanceWrapper;
 
         /// List of Tickers of the type ConfidentialAsset.
@@ -154,14 +161,15 @@ decl_module! {
             let valid_asset_ids = convert_asset_ids(Self::confidential_tickers());
             AccountValidator{}.verify(&tx, &valid_asset_ids).map_err(|_| Error::<T>::InvalidAccountCreationProof)?;
             let wrapped_enc_asset_id = EncryptedAssetIdWrapper::from(tx.pub_account.enc_asset_id.encode());
-            <MercatAccounts>::insert(&owner_id, &wrapped_enc_asset_id, MercatAccount {
-                encrypted_asset_id: wrapped_enc_asset_id.clone(),
+            let account_id = MercatAccountId(wrapped_enc_asset_id.0.clone());
+            <MercatAccounts>::insert(&owner_id, &account_id, MercatAccount {
+                encrypted_asset_id: wrapped_enc_asset_id,
                 encryption_pub_key: tx.pub_account.owner_enc_pub_key,
             });
             let wrapped_enc_balance = EncryptedBalanceWrapper::from(tx.initial_balance.encode());
-            <MercatAccountBalance>::insert(&owner_id, &wrapped_enc_asset_id, wrapped_enc_balance.clone());
+            <MercatAccountBalance>::insert(&owner_id, &account_id, wrapped_enc_balance.clone());
 
-            Self::deposit_event(RawEvent::AccountCreated(owner_id, wrapped_enc_asset_id, wrapped_enc_balance));
+            Self::deposit_event(RawEvent::AccountCreated(owner_id, account_id, wrapped_enc_balance));
             Ok(())
         }
 
@@ -201,7 +209,7 @@ decl_module! {
             let primary_owner = ensure_signed(origin)?;
             let primary_owner_did = Context::current_identity_or::<Identity<T>>(&primary_owner)?;
 
-            T::Asset::base_create_asset(primary_owner_did, name, ticker, Zero::zero(), divisible, asset_type.clone(), identifiers, funding_round, true)?;
+            T::NonConfidentialAsset::base_create_asset(primary_owner_did, name, ticker, Zero::zero(), divisible, asset_type.clone(), identifiers, funding_round, true)?;
 
             // Append the ticker to the list of confidential tickers.
             <ConfidentialTickers>::append(AssetId { id: ticker.as_bytes().clone() });
@@ -251,13 +259,13 @@ decl_module! {
 
             // Only the owner of the asset can change its total supply.
             ensure!(
-                T::Asset::is_owner(&ticker, owner_did),
+                T::NonConfidentialAsset::is_owner(&ticker, owner_did),
                 Error::<T>::Unauthorized
             );
 
             // Current total supply must be zero.
             ensure!(
-                T::Asset::token_details(&ticker).total_supply == Zero::zero(),
+                T::NonConfidentialAsset::token_details(&ticker).total_supply == Zero::zero(),
                 Error::<T>::CanSetTotalSupplyOnlyOnce
             );
 
@@ -274,7 +282,7 @@ decl_module! {
                 Error::<T>::NonConfidentialAssetTotalSupplyCannotBeSet
             );
 
-            if T::Asset::is_divisible(ticker) {
+            if T::NonConfidentialAsset::is_divisible(ticker) {
                 ensure!(
                     total_supply % ONE_UNIT.into() == 0.into(),
                     Error::<T>::InvalidTotalSupply
@@ -288,25 +296,25 @@ decl_module! {
                 Error::<T>::TotalSupplyAboveU32Limit
             );
 
-            let wrapped_encrypted_asset_id = EncryptedAssetIdWrapper::from(asset_mint_proof.account_id.encode());
+            let account_id = MercatAccountId::from(asset_mint_proof.account_id.encode());
             let new_encrypted_balance = AssetValidator{}
-                                          .verify_asset_transaction(
-                                              total_supply.saturated_into::<u32>(),
-                                              &asset_mint_proof,
-                                              &Self::mercat_accounts(owner_did, wrapped_encrypted_asset_id.clone()).to_mercat::<T>()?,
-                                              &Self::mercat_account_balance(owner_did, wrapped_encrypted_asset_id.clone()).to_mercat::<T>()?,
-                                              &[]
-                                          ).map_err(|_| Error::<T>::InvalidAccountMintProof)?;
+                                        .verify_asset_transaction(
+                                            total_supply.saturated_into::<u32>(),
+                                            &asset_mint_proof,
+                                            &Self::mercat_accounts(owner_did, account_id.clone()).to_mercat::<T>()?,
+                                            &Self::mercat_account_balance(owner_did, account_id.clone()).to_mercat::<T>()?,
+                                            &[]
+                                        ).map_err(|_| Error::<T>::InvalidAccountMintProof)?;
 
             // Set the total supply (both encrypted and plain)
             <MercatAccountBalance>::insert(
                 &owner_did,
-                &wrapped_encrypted_asset_id,
+                &account_id,
                 EncryptedBalanceWrapper::from(new_encrypted_balance.encode()),
             );
 
             // This will emit the total supply changed event.
-            T::Asset::unchecked_set_total_supply(owner_did, ticker, total_supply)?;
+            T::NonConfidentialAsset::unchecked_set_total_supply(owner_did, ticker, total_supply)?;
 
             // Update statistic info.
             <statistics::Module<T>>::update_transfer_stats(
@@ -321,12 +329,27 @@ decl_module! {
     }
 }
 
+impl<T: Trait> Module<T> {
+    /// TODO: wrapper around MercatAccountBalance. Can be removed if I can call the storage function directly from settlement pallet.
+    pub fn update_mercat_account_balance(
+        owner_did: &IdentityId,
+        account_id: &MercatAccountId,
+        new_encrypted_balance: EncryptedAmount,
+    ) {
+        <MercatAccountBalance>::insert(
+            owner_did,
+            account_id,
+            EncryptedBalanceWrapper::from(new_encrypted_balance.encode()),
+        );
+    }
+}
+
 decl_event! {
     pub enum Event<T> where Balance = <T as CommonTrait>::Balance,
     {
         /// Event for creation of a Mercat account.
-        /// caller DID/ owner DID, encrypted asset ID, encrypted balance
-        AccountCreated(IdentityId, EncryptedAssetIdWrapper, EncryptedBalanceWrapper),
+        /// caller DID/ owner DID, mercat account id (which is equal to encrypted asset ID), encrypted balance
+        AccountCreated(IdentityId, MercatAccountId, EncryptedBalanceWrapper),
 
         /// Event for creation of a confidential asset.
         /// caller DID/ owner DID, ticker, total supply, divisibility, asset type, beneficiary DID

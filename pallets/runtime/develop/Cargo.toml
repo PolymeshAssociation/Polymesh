@@ -35,6 +35,7 @@ pallet-contracts = { git = "https://github.com/paritytech/substrate", default-fe
 pallet-contracts-primitives = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0-rc6" }
 pallet-staking = { path = "../../staking", default-features = false }
 pallet-staking-reward-curve = { path = "../../staking/reward-curve", default-features = false }
+pallet-confidential-asset = { path = "../../confidential-asset", default-features = false }
 
 # Others
 serde = { version = "1.0.104", default-features = false }
@@ -165,6 +166,7 @@ std = [
     "pallet-group-rpc-runtime-api/std",
     "pallet-protocol-fee-rpc-runtime-api/std",
     "pallet-staking-rpc-runtime-api/std",
+    "pallet-confidential-asset/std"
 ]
 
 runtime-benchmarks = [
