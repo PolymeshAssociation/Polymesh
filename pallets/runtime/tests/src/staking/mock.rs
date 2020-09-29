@@ -372,6 +372,7 @@ impl IdentityTrait for Test {
     type Public = UintAuthorityId;
     type OffChainSignature = TestSignature;
     type ProtocolFee = protocol_fee::Module<Test>;
+    type GCVotingMajorityOrigin = frame_system::EnsureRoot<AccountId>;
 }
 
 impl CddAndFeeDetails<AccountId, Call> for Test {

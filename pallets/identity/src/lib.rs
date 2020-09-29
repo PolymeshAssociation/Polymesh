@@ -91,7 +91,7 @@ use frame_support::{
     debug, decl_error, decl_module, decl_storage,
     dispatch::{DispatchError, DispatchResult, DispatchResultWithPostInfo},
     ensure,
-    traits::{ChangeMembers, Currency, GetCallMetadata, InitializeMembers},
+    traits::{ChangeMembers, Currency, EnsureOrigin, GetCallMetadata, InitializeMembers},
     weights::{DispatchClass, GetDispatchInfo, Pays, Weight},
     Blake2_128Concat, ReversibleStorageHasher, StorageDoubleMap,
 };
@@ -112,7 +112,7 @@ use polymesh_common_utilities::{
         transaction_payment::{CddAndFeeDetails, ChargeTxFee},
         AccountCallPermissionsData, CheckAccountCallPermissions,
     },
-    Context, SystematicIssuers,
+    Context, SystematicIssuers, GC_DID,
 };
 use polymesh_primitives::{
     secondary_key, Authorization, AuthorizationData, AuthorizationError, AuthorizationType, CddId,
@@ -998,6 +998,24 @@ decl_module! {
                 },
                 _ => Err(Error::<T>::ClaimVariantNotAllowed.into())
             }
+        }
+      
+        /// Assuming this is executed by the GC voting majority, adds a new cdd claim record.
+        #[weight = 950_000_000]
+        pub fn gc_add_cdd_claim(
+            origin,
+            target: IdentityId,
+            expiry: Option<T::Moment>,
+        ) -> DispatchResult {
+            T::GCVotingMajorityOrigin::ensure_origin(origin)?;
+            Self::base_add_cdd_claim(target, Claim::make_cdd_wildcard(), GC_DID, expiry)
+        }
+
+        /// Assuming this is executed by the GC voting majority, removes an existing cdd claim record.
+        #[weight = 500_000_000]
+        pub fn gc_revoke_cdd_claim(origin, target: IdentityId) {
+            T::GCVotingMajorityOrigin::ensure_origin(origin)?;
+            Self::base_revoke_claim(target, ClaimType::CustomerDueDiligence, GC_DID, None)
         }
     }
 }
