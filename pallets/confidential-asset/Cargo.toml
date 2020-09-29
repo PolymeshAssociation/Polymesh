@@ -18,7 +18,7 @@ pallet-portfolio = { path = "../portfolio", default-features = false }
 pallet-statistics = { path = "../statistics", default-features = false }
 
 # Crypto
-cryptography = { git = "https://github.com/PolymathNetwork/cryptography.git", branch = "CRYP-166/take_in_slices", default-features = false }
+cryptography = { git = "https://github.com/PolymathNetwork/cryptography.git", branch = "develop", default-features = false }
 curve25519-dalek = { version = "2", default-features = false, features = ["nightly"] }
 schnorrkel = { version = "0.9.1", default-features = false }
 

@@ -1014,7 +1014,7 @@ dependencies = [
 [[package]]
 name = "cryptography"
 version = "0.1.0"
-source = "git+https://github.com/PolymathNetwork/cryptography.git?branch=CRYP-166/take_in_slices#58043ad6a97940b667565aabe5d1bf80ac64d3fa"
+source = "git+https://github.com/PolymathNetwork/cryptography.git?branch=develop"
 dependencies = [
  "blake2",
  "bulletproofs",

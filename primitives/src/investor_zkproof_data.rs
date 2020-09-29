@@ -1,6 +1,6 @@
 use crate::{IdentityId, InvestorUid, Ticker};
 use cryptography::claim_proofs::{
-    build_scope_claim_proof_data, CDDClaimData, ProofKeyPair, ScopeClaimData,
+    build_scope_claim_proof_data, CddClaimData, ProofKeyPair, ScopeClaimData,
 };
 
 use blake2::{Blake2s, Digest};
@@ -34,8 +34,8 @@ impl InvestorZKProofData {
     }
 
     /// Returns the CDD claim of the given `investor_did` and `investor_uid`.
-    pub fn make_cdd_claim(investor_did: &IdentityId, investor_uid: &InvestorUid) -> CDDClaimData {
-        CDDClaimData::new(investor_did.as_bytes(), &investor_uid)
+    pub fn make_cdd_claim(investor_did: &IdentityId, investor_uid: &InvestorUid) -> CddClaimData {
+        CddClaimData::new(investor_did.as_bytes(), &investor_uid)
     }
 
     /// Returns the Scope claim of the given `ticker` and `investor_uid`.
