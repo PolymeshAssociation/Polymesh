@@ -124,7 +124,6 @@ std = [
     "pallet-contracts/std",
     "pallet-contracts-primitives/std",
     "pallet-staking/std",
-    "pallet-staking-reward-curve/std",
     "serde/std",
     "codec/std",
     "sp-core/std",
