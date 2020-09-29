@@ -21,7 +21,6 @@
 use crate::Module as Staking;
 use crate::*;
 use frame_benchmarking::account;
-use frame_support::traits::Currency;
 use frame_system::RawOrigin;
 use rand_chacha::{
     rand_core::{RngCore, SeedableRng},
@@ -31,12 +30,6 @@ use sp_io::hashing::blake2_256;
 use sp_npos_elections::*;
 
 const SEED: u32 = 0;
-pub type Balance<T> =
-    <<T as Trait>::Currency as Currency<<T as frame_system::Trait>::AccountId>>::Balance;
-
-pub fn get_minimum_balance<T: Trait>() -> Balance<T> {
-    return 100.into();
-}
 
 /// Grab a funded user.
 pub fn create_funded_user<T: Trait>(
@@ -45,11 +38,31 @@ pub fn create_funded_user<T: Trait>(
     balance_factor: u32,
 ) -> T::AccountId {
     let user = account(string, n, SEED);
-    let balance = get_minimum_balance::<T>() * balance_factor.into();
+    let balance = T::Currency::minimum_balance() * balance_factor.into();
     T::Currency::make_free_balance_be(&user, balance);
     // ensure T::CurrencyToVote will work correctly.
     T::Currency::issue(balance);
     user
+}
+
+/// Create a stash and controller pair.
+pub fn create_stash_controller<T: Trait>(
+    n: u32,
+    balance_factor: u32,
+) -> Result<(T::AccountId, T::AccountId), &'static str> {
+    let stash = create_funded_user::<T>("stash", n, balance_factor);
+    let controller = create_funded_user::<T>("controller", n, balance_factor);
+    let controller_lookup: <T::Lookup as StaticLookup>::Source =
+        T::Lookup::unlookup(controller.clone());
+    let reward_destination = RewardDestination::Staked;
+    let amount = T::Currency::minimum_balance() * (balance_factor / 10).max(1).into();
+    Staking::<T>::bond(
+        RawOrigin::Signed(stash.clone()).into(),
+        controller_lookup,
+        amount,
+        reward_destination,
+    )?;
+    return Ok((stash, controller));
 }
 
 /// Create a stash and controller pair, where the controller is dead, and payouts go to controller.
@@ -64,27 +77,7 @@ pub fn create_stash_and_dead_controller<T: Trait>(
     let controller_lookup: <T::Lookup as StaticLookup>::Source =
         T::Lookup::unlookup(controller.clone());
     let reward_destination = RewardDestination::Controller;
-    let amount = get_minimum_balance::<T>() * (balance_factor / 10).max(1).into();
-    Staking::<T>::bond(
-        RawOrigin::Signed(stash.clone()).into(),
-        controller_lookup,
-        amount,
-        reward_destination,
-    )?;
-    return Ok((stash, controller));
-}
-
-/// Create a stash and controller pair.
-pub fn create_stash_controller<T: Trait>(
-    n: u32,
-    balance_factor: u32,
-) -> Result<(T::AccountId, T::AccountId), &'static str> {
-    let stash = create_funded_user::<T>("stash", n, balance_factor);
-    let controller = create_funded_user::<T>("controller", n, balance_factor);
-    let controller_lookup: <T::Lookup as StaticLookup>::Source =
-        T::Lookup::unlookup(controller.clone());
-    let reward_destination = RewardDestination::Staked;
-    let amount = get_minimum_balance::<T>() * (balance_factor / 10).max(1).into();
+    let amount = T::Currency::minimum_balance() * (balance_factor / 10).max(1).into();
     Staking::<T>::bond(
         RawOrigin::Signed(stash.clone()).into(),
         controller_lookup,
@@ -203,8 +196,9 @@ pub fn get_weak_solution<T: Trait>(
 
     // self stake
     <Validators<T>>::iter().for_each(|(who, _p)| {
-        *backing_stake_of.entry(who.clone()).or_insert(Zero::zero()) +=
-            <Module<T>>::slashable_balance_of(&who)
+        *backing_stake_of
+            .entry(who.clone())
+            .or_insert_with(|| Zero::zero()) += <Module<T>>::slashable_balance_of(&who)
     });
 
     // elect winners. We chose the.. least backed ones.
@@ -261,11 +255,16 @@ pub fn get_weak_solution<T: Trait>(
     };
 
     // convert back to ratio assignment. This takes less space.
+<<<<<<< HEAD
     let low_accuracy_assignment: Vec<Assignment<T::AccountId, OffchainAccuracy>> =
         staked_assignments
             .into_iter()
             .map(|sa| sa.into_assignment())
             .collect();
+=======
+    let low_accuracy_assignment =
+        assignment_staked_to_ratio_normalized(staked_assignments).expect("Failed to normalize");
+>>>>>>> origin/develop
 
     // re-calculate score based on what the chain will decode.
     let score = {

@@ -19,9 +19,13 @@ use frame_benchmarking::{account, benchmarks};
 use frame_support::traits::Currency;
 use frame_system::RawOrigin;
 use pallet_balances as balances;
+<<<<<<< HEAD
 use polymesh_primitives::{
     CddId, Claim, CountryCode, IdentityId, InvestorUid, InvestorZKProofData, Scope, SecondaryKey,
 };
+=======
+use polymesh_primitives::{secondary_key::api::SecondaryKey, Claim, IdentityId, InvestorUid};
+>>>>>>> origin/develop
 use sp_std::{iter, prelude::*};
 
 const SEED: u32 = 0;

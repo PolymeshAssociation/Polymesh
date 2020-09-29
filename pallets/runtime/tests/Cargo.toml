@@ -21,12 +21,13 @@ pallet-contracts = { git = "https://github.com/paritytech/substrate", tag = "v2.
 pallet-group = { path = "../../group", default-features = false }
 pallet-identity = { path = "../../identity", default-features = false }
 pallet-multisig = { path = "../../multisig", default-features = false }
+pallet-permissions = { path = "../../permissions", default-features = false }
 pallet-pips = { path = "../../pips", default-features = false }
 pallet-portfolio = { path = "../../portfolio", default-features = false }
 pallet-protocol-fee = { path = "../../protocol-fee", default-features = false }
 pallet-settlement = { path = "../../settlement", default-features = false }
 pallet-staking = { path = "../../staking", default-features = false }
-pallet-staking-reward-curve = { path = "../../staking/reward-curve", default-features = false }
+pallet-staking-reward-curve = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0-rc6" }
 pallet-statistics = { path = "../../statistics", default-features = false }
 pallet-transaction-payment = { path = "../../transaction-payment", default-features = false }
 pallet-treasury = { path = "../../treasury", default-features = false }
@@ -103,11 +104,11 @@ std = [
     "pallet-group/std",
     "pallet-identity/std",
     "pallet-multisig/std",
+    "pallet-permissions/std",
     "pallet-pips/std",
     "pallet-portfolio/std",
     "pallet-randomness-collective-flip/std",
     "pallet-session/std",
-    "pallet-staking-reward-curve/std",
     "pallet-staking/std",
     "pallet-statistics/std",
     "pallet-timestamp/std",

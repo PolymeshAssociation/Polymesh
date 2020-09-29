@@ -52,6 +52,7 @@ use sp_runtime::traits::{AccountIdConversion, Saturating};
 use sp_std::prelude::*;
 
 pub type ProposalIndex = u32;
+type CallPermissions<T> = pallet_permissions::Module<T>;
 
 type Identity<T> = identity::Module<T>;
 type BalanceOf<T> =
@@ -128,6 +129,7 @@ decl_module! {
         #[weight = (800_000_000, DispatchClass::Operational, Pays::Yes)]
         pub fn reimbursement(origin, amount: BalanceOf<T>) -> DispatchResult {
             let sender = ensure_signed(origin)?;
+            CallPermissions::<T>::ensure_call_permissions(&sender)?;
             let did = Context::current_identity_or::<Identity<T>>(&sender)?;
 
             // Not checking the cdd for the treasury account as it is assumed

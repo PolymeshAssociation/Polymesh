@@ -5,10 +5,11 @@ authors = ["Polymath"]
 edition = "2018"
 
 [dependencies]
+pallet-permissions = { path = "../permissions", default-features = false }
+pallet-transaction-payment = { path = "../transaction-payment", default-features = false }
 polymesh-common-utilities = { path = "../common", default-features = false }
 polymesh-primitives = { path = "../../primitives", default-features = false }
 polymesh-primitives-derive = { path = "../../primitives_derive", default-features = false }
-pallet-transaction-payment = { path = "../transaction-payment", default-features = false }
 
 serde = { version = "1.0.104", default-features = false }
 serde_derive = { version = "1.0.104", optional = true, default-features = false}

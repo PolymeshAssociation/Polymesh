@@ -1,6 +1,5 @@
 use codec::{Decode, Encode};
 use core::convert::TryInto;
-use sp_std::vec;
 
 /// Implementation of common asset identifiers
 /// https://www.cusip.com/identifiers.html
@@ -41,11 +40,46 @@ impl AssetIdentifier {
 
     /// Validate `bytes` is a valid ISIN identifier, returns an instance of `Identifier` if successful
     pub fn isin(bytes: [u8; 12]) -> Option<AssetIdentifier> {
+        enum UpToTwo {
+            Zero,
+            One(u8),
+            Two(u8, u8),
+        }
+        impl Iterator for UpToTwo {
+            type Item = u8;
+            fn next(&mut self) -> Option<Self::Item> {
+                let (this, next) = match self {
+                    Self::Zero => return None,
+                    Self::One(x) => (Self::Zero, Some(*x)),
+                    Self::Two(x, y) => (Self::One(*y), Some(*x)),
+                };
+                *self = this;
+                next
+            }
+        }
+        impl core::iter::DoubleEndedIterator for UpToTwo {
+            fn next_back(&mut self) -> Option<Self::Item> {
+                let (this, next) = match self {
+                    Self::Zero => return None,
+                    Self::One(x) => (Self::Zero, Some(*x)),
+                    Self::Two(x, y) => (Self::One(*x), Some(*y)),
+                };
+                *self = this;
+                next
+            }
+        }
+
         let (s1, s2) = bytes
             .iter()
             .copied()
             .map(byte_value)
-            .flat_map(|b| if b > 9 { vec![b / 10, b % 10] } else { vec![b] })
+            .flat_map(|b| {
+                if b > 9 {
+                    UpToTwo::Two(b / 10, b % 10)
+                } else {
+                    UpToTwo::One(b)
+                }
+            })
             .rev()
             .enumerate()
             .fold((0, 0), |(mut s1, mut s2), (i, digit)| {

@@ -24,7 +24,6 @@ members = [
     "pallets/staking",
     "pallets/staking/rpc",
     "pallets/staking/rpc/runtime-api",
-    "pallets/staking/reward-curve",
     "pallets/pips",
     "pallets/identity",
     "pallets/im-online",

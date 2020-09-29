@@ -1,5 +1,5 @@
 use super::{
-    storage::{make_account_without_cdd, register_keyring_account, TestStorage},
+    storage::{get_last_auth_id, make_account_without_cdd, register_keyring_account, TestStorage},
     ExtBuilder,
 };
 use frame_support::{assert_err, assert_ok, StorageDoubleMap};
@@ -74,11 +74,7 @@ fn cdd_checks() {
                 1,
             ));
 
-            let alice_auth_id =
-                <identity::Authorizations<TestStorage>>::iter_prefix_values(alice_key_signatory)
-                    .next()
-                    .unwrap()
-                    .auth_id;
+            let alice_auth_id = get_last_auth_id(&alice_key_signatory);
             assert_err!(
                 CddHandler::get_valid_payer(
                     &Call::MultiSig(multisig::Call::accept_multisig_signer_as_key(alice_auth_id)),
@@ -96,12 +92,7 @@ fn cdd_checks() {
                 vec![Signatory::Account(AccountKeyring::Alice.public())],
                 1,
             ));
-            let alice_auth_id =
-                <identity::Authorizations<TestStorage>>::iter_prefix_values(alice_key_signatory)
-                    .next()
-                    .unwrap()
-                    .auth_id;
-
+            let alice_auth_id = get_last_auth_id(&alice_key_signatory);
             assert_eq!(
                 CddHandler::get_valid_payer(
                     &Call::MultiSig(multisig::Call::accept_multisig_signer_as_key(alice_auth_id)),
