@@ -222,7 +222,6 @@ decl_storage! {
                 let expiry = expiry.iter().map(|m| T::Moment::from(*m as u32)).next();
                 <Module<T>>::unsafe_register_id(primary_account_id.clone(), did);
                 <Module<T>>::base_add_claim( did, cdd_claim, issuer, expiry);
-                //debug::info!( "Add CDD Claims from {} to {}", issuer, did);
             }
 
             for &(ref signer_id, did) in &config.secondary_keys {
@@ -1370,12 +1369,9 @@ impl<T: Trait> Module<T> {
     /// See `Self::fetch_cdd`.
     #[inline]
     pub fn has_valid_cdd(claim_for: IdentityId) -> bool {
-        #[cfg(test)]
-        let trusted_cdd_providers = T::CddServiceProviders::get_members();
         // It will never happen in production but helpful during testing.
-        // TODO: Remove this condition
         #[cfg(test)]
-        if trusted_cdd_providers.is_empty() {
+        if T::CddServiceProviders::get_members().is_empty() {
             return true;
         }
 
@@ -1404,7 +1400,11 @@ impl<T: Trait> Module<T> {
             .checked_add(&leeway)
             .unwrap_or_default();
 
+        #[cfg(feature = "runtime-benchmarks")]
+        let active_cdds = [T::CddServiceProviders::get_active_members()[..], claim_for].concat();
+        #[cfg(not(feature = "runtime-benchmarks"))]
         let active_cdds = T::CddServiceProviders::get_active_members();
+
         let inactive_not_expired_cdds = T::CddServiceProviders::get_inactive_members()
             .into_iter()
             .filter(|cdd| !T::CddServiceProviders::is_member_expired(cdd, exp_with_leeway))
@@ -1423,9 +1423,6 @@ impl<T: Trait> Module<T> {
                 Self::is_identity_cdd_claim_valid(
                     id_claim,
                     exp_with_leeway,
-                    #[cfg(feature = "runtime-benchmarks")]
-                    &vec![claim_for],
-                    #[cfg(not(feature = "runtime-benchmarks"))]
                     &active_cdds,
                     &inactive_not_expired_cdds,
                 )
@@ -2085,12 +2082,13 @@ impl<T: Trait> IdentityTrait<T::AccountId> for Module<T> {
         });
     }
 
-    // Provides the DID status for the given DID
+    // /Provides the DID status for the given DID
     fn has_valid_cdd(target_did: IdentityId) -> bool {
         Self::has_valid_cdd(target_did)
     }
 
-    // Creates a new DID with a CDD claim issued by self
+    #[cfg(feature = "runtime-benchmarks")]
+    /// Creates a new DID with a CDD claim issued by self
     fn create_did_with_cdd(target: T::AccountId) -> IdentityId {
         let did = Self::_register_did(target, vec![], None).unwrap_or_default();
         // Add CDD claim

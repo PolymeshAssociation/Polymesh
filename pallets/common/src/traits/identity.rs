@@ -220,8 +220,10 @@ pub trait IdentityTrait<AccountId> {
     /// It is used when we remove a member from CDD providers or Governance Committee.
     fn revoke_systematic_cdd_claims(targets: &[IdentityId], issuer: SystematicIssuers);
 
-    // Provides the DID status for the given DID
+    /// Provides the DID status for the given DID
     fn has_valid_cdd(target_did: IdentityId) -> bool;
 
+    #[cfg(feature = "runtime-benchmarks")]
+    /// Creates a new did and attaches a CDD claim to it.
     fn create_did_with_cdd(target: AccountId) -> IdentityId;
 }
