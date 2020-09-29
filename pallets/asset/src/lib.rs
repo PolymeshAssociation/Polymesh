@@ -1204,13 +1204,12 @@ impl<T: Trait> AssetSubTrait for Module<T> {
         target_did: IdentityId,
         ticker: Ticker,
     ) -> DispatchResult {
-        let current_balance = Self::balance_of(ticker, target_did);
         let balance_at_scope = Self::balance_of_at_scope(of, target_did);
         // Conditions to check.
-        // 1. Check of `current_balance` is used to skip storage changes when user has 0 current balance.
-        // 2. Used `balance_at_scope` variable to skip re-updating the aggregate balance of the given identityId whom
+        // Used `balance_at_scope` variable to skip re-updating the aggregate balance of the given identityId whom
         // has the scope claim already.
-        if current_balance > Zero::zero() && balance_at_scope == Zero::zero() {
+        if balance_at_scope == Zero::zero() {
+            let current_balance = Self::balance_of(ticker, target_did);
             // Update the balance on the identityId under the given scopeId.
             <BalanceOfAtScope<T>>::insert(of, target_did, current_balance);
             // current aggregate balance + current identity balance is always less then the total_supply of given ticker.
