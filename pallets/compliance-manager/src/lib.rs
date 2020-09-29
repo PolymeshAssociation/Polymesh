@@ -561,7 +561,7 @@ impl<T: Trait> Module<T> {
     /// It fetches the `ConfidentialScopeClaim` of users `id` for the given ticker.
     /// Note that this vector could be 0 or 1 items.
     fn fetch_confidential_claims(id: IdentityId, ticker: &Ticker) -> Vec<Claim> {
-        let claim_type = ClaimType::InvestorZKProof;
+        let claim_type = ClaimType::InvestorUniqueness;
         // NOTE: Ticker length is less by design that IdentityId.
         let asset_scope = Scope::from(*ticker);
 
