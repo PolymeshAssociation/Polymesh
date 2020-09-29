@@ -14,7 +14,11 @@
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
 use crate as polymesh_primitives;
-use crate::{identity_claim::ClaimOld, Claim, IdentityId, Ticker};
+use crate::{
+    identity_claim::ClaimOld,
+    migrate::{Empty, Migrate},
+    Claim, ClaimType, IdentityId, Ticker,
+};
 use codec::{Decode, Encode};
 use polymesh_primitives_derive::Migrate;
 #[cfg(feature = "std")]
@@ -52,6 +56,64 @@ pub enum ConditionType {
     HasValidProofOfInvestor(Ticker),
 }
 
+/// Denotes the set of `ClaimType`s for which an issuer is trusted.
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+#[derive(Encode, Decode, Clone, PartialEq, Eq, Debug)]
+pub enum TrustedFor {
+    /// Issuer is trusted for any `ClaimType`.
+    Any,
+    /// Issuer is trusted only for the specific `ClaimType`s contained within.
+    Specific(Vec<ClaimType>),
+}
+
+/// A trusted issuer for a certain compliance `Condition` and what `ClaimType`s is trusted for.
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+#[derive(Encode, Decode, Clone, PartialEq, Eq, Debug)]
+pub struct TrustedIssuer {
+    /// The issuer trusted for the `Condition` or for the `Ticker`,
+    /// depending on where `TrustedClaimIssuer` is included.
+    pub issuer: IdentityId,
+    /// The set of `ClaimType`s for which `issuer` is trusted.
+    pub trusted_for: TrustedFor,
+}
+
+impl TrustedIssuer {
+    /// Deduplicate any `ClaimType`s in `TrustedFor::Specific`.
+    pub fn dedup(&mut self) {
+        match &mut self.trusted_for {
+            TrustedFor::Any => {}
+            TrustedFor::Specific(types) => types.dedup(),
+        }
+    }
+}
+
+/// Create a `TrustedIssuer` trusted for any claim type.
+impl From<IdentityId> for TrustedIssuer {
+    fn from(issuer: IdentityId) -> Self {
+        Self {
+            issuer,
+            trusted_for: TrustedFor::Any,
+        }
+    }
+}
+
+/// Old version of `TrustedClaimIssuer`.
+#[derive(Decode)]
+#[repr(transparent)]
+pub struct TrustedIssuerOld(IdentityId);
+
+impl Migrate for TrustedIssuerOld {
+    type Into = TrustedIssuer;
+    type Context = Empty;
+    fn migrate(self, _: Self::Context) -> Option<Self::Into> {
+        Some(Self::Into {
+            issuer: self.0,
+            // This preserves existing semantics.
+            trusted_for: TrustedFor::Any,
+        })
+    }
+}
+
 /// Type of claim requirements that a condition can have
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, Migrate)]
@@ -61,26 +123,32 @@ pub struct Condition {
     #[migrate]
     pub condition_type: ConditionType,
     /// Trusted issuers.
-    pub issuers: Vec<IdentityId>,
+    #[migrate(TrustedIssuer)]
+    pub issuers: Vec<TrustedIssuer>,
 }
 
 #[allow(missing_docs)]
 impl Condition {
     /// Generate condition on the basis of `condition_type` & `issuers`.
-    pub fn new(condition_type: ConditionType, issuers: Vec<IdentityId>) -> Self {
+    pub fn new(condition_type: ConditionType, issuers: Vec<TrustedIssuer>) -> Self {
         Self {
             condition_type,
             issuers,
         }
     }
+
+    /// Create a condition with the given type and issuers trusted for any claim type.
+    pub fn from_dids(condition_type: ConditionType, issuers: &[IdentityId]) -> Self {
+        Self::new(
+            condition_type,
+            issuers.iter().copied().map(TrustedIssuer::from).collect(),
+        )
+    }
 }
 
 impl From<ConditionType> for Condition {
     fn from(condition_type: ConditionType) -> Self {
-        Condition {
-            condition_type,
-            issuers: Vec::<IdentityId>::new(),
-        }
+        Condition::new(condition_type, Vec::new())
     }
 }
 
