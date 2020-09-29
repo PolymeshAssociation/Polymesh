@@ -41,6 +41,7 @@ use polymesh_runtime_common::{
     impls::{Author, CurrencyToVoteHandler},
     merge_active_and_inactive, sto_capped, voting, AvailableBlockRatio, BlockExecutionWeight,
     BlockHashCount, ExtrinsicBaseWeight, MaximumBlockLength, MaximumBlockWeight, NegativeImbalance,
+    RocksDbWeight,
 };
 
 use sp_api::impl_runtime_apis;
@@ -70,10 +71,7 @@ use sp_version::RuntimeVersion;
 use frame_support::{
     construct_runtime, debug, parameter_types,
     traits::{KeyOwnerProofSystem, Randomness, SplitTwoWays},
-    weights::{
-        constants::RocksDbWeight, Weight, WeightToFeeCoefficient, WeightToFeeCoefficients,
-        WeightToFeePolynomial,
-    },
+    weights::{Weight, WeightToFeeCoefficient, WeightToFeeCoefficients, WeightToFeePolynomial},
 };
 use pallet_contracts_rpc_runtime_api::ContractExecResult;
 

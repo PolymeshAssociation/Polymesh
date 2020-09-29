@@ -34,7 +34,7 @@ use frame_support::{
     traits::Currency,
     weights::{
         constants::{WEIGHT_PER_MICROS, WEIGHT_PER_MILLIS, WEIGHT_PER_SECOND},
-        Weight,
+        RuntimeDbWeight, Weight,
     },
 };
 use frame_system::{self as system};
@@ -52,10 +52,18 @@ parameter_types! {
     pub const MaximumBlockWeight: Weight = 2 * WEIGHT_PER_SECOND;
     pub const AvailableBlockRatio: Perbill = Perbill::from_percent(75);
     pub const MaximumBlockLength: u32 = 5 * 1024 * 1024;
-    // 20 ms is needed to create a block
+    /// 20 ms is needed to create a block
     pub const BlockExecutionWeight: Weight = 20 * WEIGHT_PER_MILLIS;
     // 0.5 ms is needed to process an empty extrinsic
     pub const ExtrinsicBaseWeight: Weight = 500 * WEIGHT_PER_MICROS;
+    /// When the read/writes are cached, they take 25, 10 microseconds
+    /// but when they are uncached, they take 250, 450 microseconds.
+    /// Most of the read/writes will be ached in production
+    /// so we are taking a defensive middle number here
+    pub const RocksDbWeight: RuntimeDbWeight = RuntimeDbWeight {
+        read: 100 * WEIGHT_PER_MICROS,   // ~100 µs @ 100,000 items
+        write: 200 * WEIGHT_PER_MICROS, // ~200 µs @ 100,000 items
+    };
 }
 
 use pallet_group_rpc_runtime_api::Member;
