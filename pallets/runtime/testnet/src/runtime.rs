@@ -258,7 +258,7 @@ impl WeightToFeePolynomial for WeightToFee {
 
 impl CommonTrait for Runtime {
     type Balance = Balance;
-    type AcceptTransferTarget = Asset;
+    type AssetSubTraitTarget = Asset;
     type BlockRewardsReserve = balances::Module<Runtime>;
 }
 

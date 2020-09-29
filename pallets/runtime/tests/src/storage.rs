@@ -32,7 +32,7 @@ use pallet_statistics as statistics;
 use pallet_treasury as treasury;
 use pallet_utility;
 use polymesh_common_utilities::traits::{
-    asset::AcceptTransfer,
+    asset::AssetSubTrait,
     balances::AccountData,
     group::GroupTrait,
     identity::Trait as IdentityTrait,
@@ -230,7 +230,7 @@ parameter_types! {
 
 impl CommonTrait for TestStorage {
     type Balance = Balance;
-    type AcceptTransferTarget = TestStorage;
+    type AssetSubTraitTarget = Asset;
     type BlockRewardsReserve = balances::Module<TestStorage>;
 }
 
@@ -398,20 +398,6 @@ impl IdentityTrait for TestStorage {
     type OffChainSignature = OffChainSignature;
     type ProtocolFee = protocol_fee::Module<TestStorage>;
     type GCVotingMajorityOrigin = VMO<committee::Instance1>;
-}
-
-impl AcceptTransfer for TestStorage {
-    fn accept_ticker_transfer(_: IdentityId, _: u64) -> DispatchResult {
-        Ok(())
-    }
-
-    fn accept_primary_issuance_agent_transfer(_: IdentityId, _: u64) -> DispatchResult {
-        Ok(())
-    }
-
-    fn accept_asset_ownership_transfer(_: IdentityId, _: u64) -> DispatchResult {
-        Ok(())
-    }
 }
 
 parameter_types! {

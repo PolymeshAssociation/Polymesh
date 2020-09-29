@@ -101,7 +101,7 @@ use polymesh_common_utilities::{
     constants::did::{SECURITY_TOKEN, USER},
     protocol_fee::{ChargeProtocolFee, ProtocolOp},
     traits::{
-        asset::AcceptTransfer,
+        asset::AssetSubTrait,
         group::{GroupTrait, InactiveMember},
         identity::{
             AuthorizationNonce, IdentityTrait, RawEvent, SecondaryKeyWithAuth,
@@ -783,11 +783,11 @@ decl_module! {
                 Signatory::Identity(did) => {
                     match auth.authorization_data {
                         AuthorizationData::TransferTicker(_) =>
-                            T::AcceptTransferTarget::accept_ticker_transfer(did, auth_id),
+                            T::AssetSubTraitTarget::accept_ticker_transfer(did, auth_id),
                         AuthorizationData::TransferPrimaryIssuanceAgent(_) =>
-                            T::AcceptTransferTarget::accept_primary_issuance_agent_transfer(did, auth_id),
+                            T::AssetSubTraitTarget::accept_primary_issuance_agent_transfer(did, auth_id),
                         AuthorizationData::TransferAssetOwnership(_) =>
-                            T::AcceptTransferTarget::accept_asset_ownership_transfer(did, auth_id),
+                            T::AssetSubTraitTarget::accept_asset_ownership_transfer(did, auth_id),
                         AuthorizationData::AddMultiSigSigner(_) =>
                             T::MultiSig::accept_multisig_signer(Signatory::from(did), auth_id),
                         AuthorizationData::JoinIdentity(_) =>
@@ -1804,6 +1804,11 @@ impl<T: Trait> Module<T> {
             ValidProofOfInvestor::evaluate_claim(&claim, &target, &proof),
             Error::<T>::InvalidScopeClaim
         );
+
+        if let Claim::InvestorUniqueness(Scope::Ticker(scope), scope_id, _cdd_id) = &claim {
+            // Update the balance of the IdentityId under the ScopeId provided in claim data.
+            T::AssetSubTraitTarget::update_balance_of_scope_id(*scope_id, target, *scope)?
+        }
 
         Self::base_add_claim(target, claim, issuer, expiry);
         Ok(())
