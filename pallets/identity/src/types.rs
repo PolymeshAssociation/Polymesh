@@ -1,7 +1,9 @@
 //! Runtime API definition for Identity module.
 
 use codec::{Decode, Encode};
-pub use polymesh_primitives::{Authorization, AuthorizationType, IdentityId, Moment};
+pub use polymesh_primitives::{
+    Authorization, AuthorizationType, IdentityId, Moment, Permissions, SecondaryKey,
+};
 #[cfg(feature = "std")]
 use serde::{Deserialize, Serialize};
 use sp_std::{prelude::*, vec::Vec};
@@ -9,7 +11,6 @@ use sp_std::{prelude::*, vec::Vec};
 pub type Error = Vec<u8>;
 pub type CddStatus = Result<IdentityId, Error>;
 pub type AssetDidResult = Result<IdentityId, Error>;
-type Permissions = Vec<polymesh_primitives::Permission>;
 
 /// A result of execution of get_votes.
 #[derive(Eq, PartialEq, Encode, Decode)]
@@ -42,4 +43,18 @@ pub struct KeyIdentityData<IdentityId> {
     /// What permissions does the `AccountId` have within the `identity`?
     /// If `None`, then this is a primary key.
     pub permissions: Option<Permissions>,
+}
+
+/// Result of a successful call permission check.
+#[derive(Clone, Eq, PartialEq)]
+pub struct PermissionedCallOriginData<AccountId: Encode + Decode> {
+    /// The origin account.
+    pub sender: AccountId,
+    /// The primary identity associated with the call.
+    pub primary_did: IdentityId,
+    /// The secondary identity associated with the call, if the caller is a secondary identity of
+    /// `primary_did`. This field can be used when checking asset and portfolio permissions. It is
+    /// `Some(did)` iff the current identity (the identity that the call is made from) is a
+    /// secondary identity `did` of `primary_did`.
+    pub secondary_key: Option<SecondaryKey<AccountId>>,
 }

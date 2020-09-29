@@ -4,7 +4,7 @@ set -e
 
 ( set -x; node ./util/schema_check.js args...; ) 2>&1 | tee output.log
 
-errLen=$(cat output.log | grep 'Unknown\|ErrorOccurred' | wc -l)
+errLen=$(cat output.log | grep 'Unknown\ types\ found\|ErrorOccurred' | wc -l)
 
 if [[ $errLen -le 0 ]]
 then
