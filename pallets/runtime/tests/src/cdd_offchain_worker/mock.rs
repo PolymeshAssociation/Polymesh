@@ -30,7 +30,7 @@ use pallet_identity::{self as identity};
 use pallet_protocol_fee as protocol_fee;
 use pallet_staking::{EraIndex, Exposure, ExposureOf, StakerStatus, StashOf};
 use polymesh_common_utilities::traits::{
-    asset::AcceptTransfer,
+    asset::AssetSubTrait,
     balances::{AccountData, CheckCdd},
     group::{GroupTrait, InactiveMember},
     identity::Trait as IdentityTrait,
@@ -230,7 +230,7 @@ impl frame_system::Trait for Test {
 
 impl CommonTrait for Test {
     type Balance = Balance;
-    type AcceptTransferTarget = Test;
+    type AssetSubTraitTarget = Test;
     type BlockRewardsReserve = pallet_balances::Module<Test>;
 }
 
@@ -353,7 +353,7 @@ impl GroupTrait<Moment> for Test {
     }
 }
 
-impl AcceptTransfer for Test {
+impl AssetSubTrait for Test {
     fn accept_ticker_transfer(_: IdentityId, _: u64) -> DispatchResult {
         Ok(())
     }
