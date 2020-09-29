@@ -1407,7 +1407,7 @@ impl<T: Trait> Module<T> {
     #[inline]
     pub fn has_valid_cdd(claim_for: IdentityId) -> bool {
         // It will never happen in production but helpful during testing.
-        #[cfg(test)]
+        #[cfg(feature = "no_cdd")]
         if T::CddServiceProviders::get_members().is_empty() {
             return true;
         }

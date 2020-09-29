@@ -19,7 +19,7 @@ pallet-compliance-manager = { path = "../../compliance-manager", default-feature
 pallet-confidential = { path = "../../confidential", default-features = false }
 pallet-contracts = { git = "https://github.com/paritytech/substrate", tag = "v2.0.0-rc6", default-features = false }
 pallet-group = { path = "../../group", default-features = false }
-pallet-identity = { path = "../../identity", default-features = false }
+pallet-identity = { path = "../../identity", default-features = false, features = ["no_cdd"] }
 pallet-multisig = { path = "../../multisig", default-features = false }
 pallet-permissions = { path = "../../permissions", default-features = false }
 pallet-pips = { path = "../../pips", default-features = false }
