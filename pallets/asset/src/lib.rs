@@ -1205,7 +1205,6 @@ impl<T: Trait> AssetSubTrait for Module<T> {
         ticker: Ticker,
     ) -> DispatchResult {
         let balance_at_scope = Self::balance_of_at_scope(of, target_did);
-        // Conditions to check.
         // Used `balance_at_scope` variable to skip re-updating the aggregate balance of the given identityId whom
         // has the scope claim already.
         if balance_at_scope == Zero::zero() {
