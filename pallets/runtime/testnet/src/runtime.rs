@@ -88,8 +88,8 @@ use sp_inherents::{CheckInherentsResult, InherentData};
 use sp_version::NativeVersion;
 
 pub use balances::Call as BalancesCall;
-pub use frame_system::Call as SystemCall;
 pub use frame_support::StorageValue;
+pub use frame_system::Call as SystemCall;
 pub use pallet_contracts::Gas;
 pub use pallet_staking::StakerStatus;
 pub use pallet_timestamp::Call as TimestampCall;
