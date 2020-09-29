@@ -59,7 +59,7 @@ parameter_types! {
     /// When the read/writes are cached, they take 25, 10 microseconds
     /// but when they are uncached, they take 250, 450 microseconds.
     /// Most read/writes are cached in production
-    /// so we are taking a defensive middle number here
+    /// so we are taking a defensive middle number here.
     pub const RocksDbWeight: RuntimeDbWeight = RuntimeDbWeight {
         read: 100 * WEIGHT_PER_MICROS,   // ~100 µs @ 100,000 items
         write: 200 * WEIGHT_PER_MICROS, // ~200 µs @ 100,000 items
