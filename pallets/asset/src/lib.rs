@@ -685,30 +685,9 @@ decl_module! {
             );
 
             let now_as_secs = T::UnixTime::now().as_secs().saturated_into::<u64>();
-            if schedule.start > now_as_secs {
-                // The start time is in the future.
-                <NextCheckpoints>::insert(&ticker, schedule.start);
-            } else {
-                let multiplier = schedule.period.multiplier;
-                // The start time is in the past.
-                if multiplier > 0 {
-                    // The period is non-empty.
-                    if let Some(period_as_secs) = schedule.period.as_secs() {
-                        // The period is of fixed length.
-                        let secs_since_start = now_as_secs - schedule.start;
-                        let elapsed_periods: u64 = secs_since_start / period_as_secs;
-                        // Schedule the first checkpoint.
-                        <NextCheckpoints>::insert(
-                            &ticker,
-                            secs_since_start + period_as_secs * (elapsed_periods + 1)
-                        );
-                    } else {
-                        // The period is of variable length.
-
-                    }
-                }
-            }
-
+            let timestamp = schedule.next_checkpoint(now_as_secs)
+                .ok_or(Error::<T>::FailedToComputeNextCheckpoint)?;
+            <NextCheckpoints>::insert(&ticker, timestamp);
             // Assign the schedule.
             <CheckpointSchedules>::insert(&ticker, schedule.clone());
             Self::deposit_event(RawEvent::CheckpointScheduleCreated(
@@ -1234,7 +1213,10 @@ decl_error! {
         /// A checkpoint schedule already exists and cannot be updated.
         CheckpointScheduleAlreadyExists,
         /// A checkpoint schedule does not exist for the asset.
-        NoCheckpointSchedule
+        NoCheckpointSchedule,
+        /// Failed to compute the next checkpoint. The schedule does not have any upcoming
+        /// checkpoints.
+        FailedToComputeNextCheckpoint
     }
 }
 

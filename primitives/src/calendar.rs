@@ -178,6 +178,35 @@ mod tests {
     use super::{CalendarPeriod, CalendarUnit, CheckpointSchedule};
     use chrono::{NaiveDate, NaiveDateTime, NaiveTime};
 
+    fn format_date_time(timestamp: i64) {
+        format!("{}", NaiveDateTime::from_timestamp(timestamp, 0));
+    }
+
+    #[test]
+    fn next_checkpoint_seconds_test() {
+        let period_day_seconds = CalendarPeriod {
+            unit: CalendarUnit::Second,
+            multiplier: 60 * 60 * 24,
+        };
+        let schedule_day_seconds = CheckpointSchedule {
+            start: 60 * 60, // 1:00:00
+            period: period_day_seconds,
+        };
+        let checkpoint = schedule_day_seconds.next_checkpoint(
+            NaiveDate::from_ymd(2020, 12, 12)
+                .and_time(NaiveTime::from_hms(1, 2, 3))
+                .timestamp() as u64,
+        );
+        assert_eq!(
+            format_date_time(checkpoint.unwrap() as i64),
+            format_date_time(
+                NaiveDate::from_ymd(2020, 12, 13)
+                    .and_time(NaiveTime::from_hms(13, 0, 0))
+                    .timestamp()
+            )
+        );
+    }
+
     #[test]
     fn next_checkpoint_months_test() {
         let period_5_months = CalendarPeriod {
@@ -193,12 +222,64 @@ mod tests {
                 .and_time(NaiveTime::from_hms(1, 2, 3))
                 .timestamp() as u64,
         );
-        let format_dt = |timestamp| format!("{}", NaiveDateTime::from_timestamp(timestamp, 0));
         assert_eq!(
-            format_dt(checkpoint.unwrap() as i64),
-            format_dt(
+            format_date_time(checkpoint.unwrap() as i64),
+            format_date_time(
                 NaiveDate::from_ymd(1970, 5, 1)
                     .and_time(NaiveTime::from_hms(0, 0, 0))
+                    .timestamp()
+            )
+        );
+    }
+
+    #[test]
+    fn next_checkpoint_end_of_month_test() {
+        let period_1_month = CalendarPeriod {
+            unit: CalendarUnit::Month,
+            multiplier: 1,
+        };
+        let schedule_end_of_month = CheckpointSchedule {
+            start: NaiveDate::from_ymd(2024, 1, 31)
+                .and_time(NaiveTime::from_hms(1, 2, 3))
+                .timestamp() as u64,
+            period: period_1_month,
+        };
+        let checkpoint_leap_feb = schedule_end_of_month.next_checkpoint(
+            NaiveDate::from_ymd(2024, 1, 31)
+                .and_time(NaiveTime::from_hms(1, 2, 30))
+                .timestamp() as u64,
+        );
+        assert_eq!(
+            format_date_time(checkpoint_leap_feb.unwrap() as i64),
+            format_date_time(
+                NaiveDate::from_ymd(2024, 2, 29)
+                    .and_time(NaiveTime::from_hms(1, 2, 3))
+                    .timestamp()
+            )
+        );
+        let checkpoint_nonleap_feb = schedule_end_of_month.next_checkpoint(
+            NaiveDate::from_ymd(2025, 1, 31)
+                .and_time(NaiveTime::from_hms(1, 2, 30))
+                .timestamp() as u64,
+        );
+        assert_eq!(
+            format_date_time(checkpoint_nonleap_feb.unwrap() as i64),
+            format_date_time(
+                NaiveDate::from_ymd(2024, 2, 28)
+                    .and_time(NaiveTime::from_hms(1, 2, 3))
+                    .timestamp()
+            )
+        );
+        let checkpoint_apr = schedule_end_of_month.next_checkpoint(
+            NaiveDate::from_ymd(2025, 3, 31)
+                .and_time(NaiveTime::from_hms(1, 2, 30))
+                .timestamp() as u64,
+        );
+        assert_eq!(
+            format_date_time(checkpoint_apr.unwrap() as i64),
+            format_date_time(
+                NaiveDate::from_ymd(2025, 4, 30)
+                    .and_time(NaiveTime::from_hms(1, 2, 3))
                     .timestamp()
             )
         );
