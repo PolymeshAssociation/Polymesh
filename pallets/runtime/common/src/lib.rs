@@ -32,7 +32,10 @@ pub use sp_runtime::{Perbill, Permill};
 use frame_support::{
     parameter_types,
     traits::Currency,
-    weights::{constants::WEIGHT_PER_SECOND, Weight},
+    weights::{
+        constants::{WEIGHT_PER_MICROS, WEIGHT_PER_MILLIS, WEIGHT_PER_SECOND},
+        Weight,
+    },
 };
 use frame_system::{self as system};
 use pallet_balances as balances;
@@ -45,10 +48,14 @@ pub type NegativeImbalance<T> =
 
 parameter_types! {
     pub const BlockHashCount: BlockNumber = 250;
-    /// We allow for 0.5 seconds of compute with a 6 second average block time.
+    /// We allow for 2 seconds of compute with a 6 second average block time.
     pub const MaximumBlockWeight: Weight = 2 * WEIGHT_PER_SECOND;
     pub const AvailableBlockRatio: Perbill = Perbill::from_percent(75);
     pub const MaximumBlockLength: u32 = 5 * 1024 * 1024;
+    // 20 ms is needed to create a block
+    pub const BlockExecutionWeight: Weight = 20 * WEIGHT_PER_MILLIS;
+    // 0.5 ms is needed to process an empty extrinsic
+    pub const ExtrinsicBaseWeight: Weight = 500 * WEIGHT_PER_MICROS;
 }
 
 use pallet_group_rpc_runtime_api::Member;
