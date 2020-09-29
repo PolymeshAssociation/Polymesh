@@ -4,7 +4,7 @@ use super::{
 };
 
 use polymesh_common_utilities::traits::CommonTrait;
-use polymesh_primitives::Ticker;
+use polymesh_primitives::{PortfolioId, Ticker};
 use polymesh_runtime_common::dividend::{self, Dividend};
 
 use pallet_asset::{self as asset, AssetType, SecurityToken};
@@ -122,14 +122,14 @@ fn correct_dividend_must_work() {
         drop(outer);
 
         // Allow all transfers
-        assert_ok!(ComplianceManager::add_active_rule(
+        assert_ok!(ComplianceManager::add_compliance_requirement(
             token_owner_acc.clone(),
             ticker,
             vec![],
             vec![]
         ));
 
-        assert_ok!(ComplianceManager::add_active_rule(
+        assert_ok!(ComplianceManager::add_compliance_requirement(
             payout_owner_acc.clone(),
             payout_ticker,
             vec![],
@@ -138,10 +138,9 @@ fn correct_dividend_must_work() {
 
         // Transfer tokens to investor
         assert_ok!(Asset::unsafe_transfer(
-            token_owner_did,
+            PortfolioId::default_portfolio(token_owner_did),
+            PortfolioId::default_portfolio(investor_did),
             &ticker,
-            token_owner_did,
-            investor_did,
             amount_invested
         ));
 
@@ -163,10 +162,9 @@ fn correct_dividend_must_work() {
 
         // Transfer payout tokens to asset owner
         assert_ok!(Asset::unsafe_transfer(
-            payout_owner_did,
+            PortfolioId::default_portfolio(payout_owner_did),
+            PortfolioId::default_portfolio(token_owner_did),
             &payout_ticker,
-            payout_owner_did,
-            token_owner_did,
             dividend.amount
         ));
 

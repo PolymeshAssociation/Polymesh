@@ -7,23 +7,24 @@ edition = "2018"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+pallet-identity = { path = "../identity", default-features = false}
+pallet-permissions = { path = "../permissions", default-features = false }
 polymesh-common-utilities = {path = "../common", default-features = false}
 polymesh-primitives = { path = "../../primitives", default-features = false}
-pallet-identity = { path = "../identity", default-features = false}
 
 # General
 serde = { version = "1.0.104", default-features = false }
 
 # Substrate
 codec = { package = "parity-scale-codec", version = "1.2.0", default-features = false, features = ["derive"] }
-sp-runtime = { git = "https://github.com/PolymathNetwork/substrate", default-features = false, branch = "remove-subtype-trait" }
-sp-std = { git = "https://github.com/PolymathNetwork/substrate", default-features = false, branch = "remove-subtype-trait" }
-sp-core = { git = "https://github.com/PolymathNetwork/substrate", default-features = false, branch = "remove-subtype-trait" }
+sp-runtime = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0-rc6" }
+sp-std = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0-rc6" }
+sp-core = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0-rc6" }
 
-frame-system = { git = "https://github.com/PolymathNetwork/substrate", default-features = false, branch = "remove-subtype-trait" }
-frame-support = { git = "https://github.com/PolymathNetwork/substrate", default-features = false, branch = "remove-subtype-trait" }
+frame-system = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0-rc6" }
+frame-support = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0-rc6" }
 
-pallet-timestamp = { git = "https://github.com/PolymathNetwork/substrate", default-features = false, branch = "remove-subtype-trait" }
+pallet-timestamp = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0-rc6" }
 
 [features]
 equalize = []

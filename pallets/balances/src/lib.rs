@@ -170,7 +170,7 @@ use codec::{Decode, Encode};
 use frame_support::{
     decl_error, decl_module, decl_storage, ensure,
     traits::{
-        BalanceStatus as Status, Currency, ExistenceRequirement, Get, Imbalance, IsDeadAccount,
+        BalanceStatus as Status, Currency, ExistenceRequirement, Imbalance, IsDeadAccount,
         LockIdentifier, LockableCurrency, ReservableCurrency, SignedImbalance, StoredMap,
         WithdrawReason, WithdrawReasons,
     },
@@ -179,7 +179,9 @@ use frame_support::{
 use frame_system::{self as system, ensure_root, ensure_signed};
 use polymesh_common_utilities::{
     traits::{
-        balances::{AccountData, BalancesTrait, CheckCdd, Memo, RawEvent, Reasons},
+        balances::{
+            AccountData, BalancesTrait, CheckCdd, Memo, RawEvent, Reasons, WeightInfo as _,
+        },
         identity::IdentityTrait,
         NegativeImbalance, PositiveImbalance,
     },
@@ -198,6 +200,7 @@ use sp_std::{cmp, convert::Infallible, fmt::Debug, mem, prelude::*, result};
 pub use polymesh_common_utilities::traits::balances::{LockableCurrencyExt, Trait};
 
 pub type Event<T> = polymesh_common_utilities::traits::balances::Event<T>;
+type CallPermissions<T> = pallet_permissions::Module<T>;
 
 decl_error! {
     pub enum Error for Module<T: Trait> {
@@ -293,7 +296,7 @@ decl_module! {
         /// - DB Weight: 1 Read and 1 Write to destination account.
         /// - Origin account is already in memory, so no DB operations for them.
         /// # </weight>
-        #[weight = T::DbWeight::get().reads_writes(1, 1) + 70_000_000]
+        #[weight = T::WeightInfo::transfer()]
         pub fn transfer(
             origin,
             dest: <T::Lookup as StaticLookup>::Source,
@@ -314,7 +317,7 @@ decl_module! {
         /// - DB Weight: 1 Read and 1 Write to destination account.
         /// - Origin account is already in memory, so no DB operations for them.
         /// # </weight>
-        #[weight = T::DbWeight::get().reads_writes(1, 1) + 70_000_000]
+        #[weight = T::WeightInfo::transfer_with_memo()]
         pub fn transfer_with_memo(
             origin,
             dest: <T::Lookup as StaticLookup>::Source,
@@ -328,12 +331,13 @@ decl_module! {
 
         // Polymesh specific change. New function to transfer balance to BRR.
         /// Move some POLYX from balance of self to balance of BRR.
-        #[weight = T::DbWeight::get().reads_writes(1, 1) + 1_000_000]
+        #[weight = T::WeightInfo::deposit_block_reward_reserve_balance()]
         pub fn deposit_block_reward_reserve_balance(
             origin,
             #[compact] value: T::Balance
         ) {
             let transactor = ensure_signed(origin)?;
+            CallPermissions::<T>::ensure_call_permissions(&transactor)?;
             let dest = Self::block_rewards_reserve();
             Self::transfer_core(&transactor, &dest, value, None, ExistenceRequirement::AllowDeath)?;
         }
@@ -354,7 +358,9 @@ decl_module! {
         ///     - Killing: 35.11 µs
         /// - DB Weight: 1 Read, 1 Write to `who`
         /// # </weight>
-        #[weight = T::DbWeight::get().reads_writes(1, 1) + 35_000_000]
+        #[weight = T::WeightInfo::set_balance_creating() // Creates a new account.
+            .max(T::WeightInfo::set_balance_killing()) // Kills an existing account.
+        ]
         fn set_balance(
             origin,
             who: <T::Lookup as StaticLookup>::Source,
@@ -394,7 +400,7 @@ decl_module! {
         /// - Same as transfer, but additional read and write because the source account is
         ///   not assumed to be in the overlay.
         /// # </weight>
-        #[weight = T::DbWeight::get().reads_writes(2, 2) + 70_000_000]
+        #[weight = T::WeightInfo::force_transfer()]
         pub fn force_transfer(
             origin,
             source: <T::Lookup as StaticLookup>::Source,
@@ -409,9 +415,10 @@ decl_module! {
 
         // Polymesh modified code. New dispatchable function that anyone can call to burn their balance.
         /// Burns the given amount of tokens from the caller's free, unlocked balance.
-        #[weight = T::DbWeight::get().reads_writes(1, 1) + 2_000_000]
+        #[weight = T::WeightInfo::burn_account_balance()]
         pub fn burn_account_balance(origin, amount: T::Balance) -> DispatchResult {
             let who = ensure_signed(origin)?;
+            CallPermissions::<T>::ensure_call_permissions(&who)?;
             let caller_id = Context::current_identity_or::<T::Identity>(&who)?;
             // Withdraw the account balance and burn the resulting imbalance by dropping it.
             let _ = <Self as Currency<T::AccountId>>::withdraw(

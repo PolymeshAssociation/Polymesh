@@ -17,16 +17,17 @@ pallet-cdd-offchain-worker = { path = "../../cdd-offchain-worker", default-featu
 pallet-committee = { path = "../../committee", default-features = false }
 pallet-compliance-manager = { path = "../../compliance-manager", default-features = false }
 pallet-confidential = { path = "../../confidential", default-features = false }
-pallet-contracts = { git = "https://github.com/PolymathNetwork/substrate", branch = "remove-subtype-trait", default-features = false }
+pallet-contracts = { git = "https://github.com/paritytech/substrate", tag = "v2.0.0-rc6", default-features = false }
 pallet-group = { path = "../../group", default-features = false }
 pallet-identity = { path = "../../identity", default-features = false }
 pallet-multisig = { path = "../../multisig", default-features = false }
+pallet-permissions = { path = "../../permissions", default-features = false }
 pallet-pips = { path = "../../pips", default-features = false }
 pallet-portfolio = { path = "../../portfolio", default-features = false }
 pallet-protocol-fee = { path = "../../protocol-fee", default-features = false }
 pallet-settlement = { path = "../../settlement", default-features = false }
 pallet-staking = { path = "../../staking", default-features = false }
-pallet-staking-reward-curve = { path = "../../staking/reward-curve", default-features = false }
+pallet-staking-reward-curve = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0-rc6" }
 pallet-statistics = { path = "../../statistics", default-features = false }
 pallet-transaction-payment = { path = "../../transaction-payment", default-features = false }
 pallet-treasury = { path = "../../treasury", default-features = false }
@@ -37,7 +38,7 @@ polymesh-contracts = { path = "../../contracts", default-features = false }
 pallet-group-rpc-runtime-api = { path = "../../group/rpc/runtime-api", default-features = false }
 
 # Crypto
-cryptography = { path = "../../../external/cryptography", default-features = false }
+cryptography = { git = "https://github.com/PolymathNetwork/cryptography.git", branch = "master", default-features = false }
 
 # Runtime
 polymesh-runtime-develop = { path = "../develop" }
@@ -51,32 +52,36 @@ smallvec = "1.4.1"
 lazy_static = "1.4.0"
 parking_lot = "=0.10.2"
 env_logger = "0.7"
+serde_json = '1.0.48'
 wabt = "0.10.0"
 
 # Substrate
 codec = { package = "parity-scale-codec", version = "1.2.0", default-features = false, features = ["derive"] }
-sp-core = { git = "https://github.com/PolymathNetwork/substrate", default-features = false, branch = "remove-subtype-trait" }
-sp-std = { git = "https://github.com/PolymathNetwork/substrate", default-features = false, branch = "remove-subtype-trait" }
-sp-io = { git = "https://github.com/PolymathNetwork/substrate", default-features = false, branch = "remove-subtype-trait" }
-sp-runtime = { git = "https://github.com/PolymathNetwork/substrate", default-features = false, branch = "remove-subtype-trait" }
-sp-arithmetic = { git = "https://github.com/PolymathNetwork/substrate", default-features = false, branch = "remove-subtype-trait" }
-sp-staking = { git = "https://github.com/PolymathNetwork/substrate", default-features = false, branch = "remove-subtype-trait" }
-sp-npos-elections = { git = "https://github.com/PolymathNetwork/substrate", default-features = false, branch = "remove-subtype-trait"}
-frame-support = { git = "https://github.com/PolymathNetwork/substrate", default-features = false, branch = "remove-subtype-trait" }
-frame-system = { git = "https://github.com/PolymathNetwork/substrate", default-features = false, branch = "remove-subtype-trait" }
+sp-core = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0-rc6" }
+sp-std = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0-rc6" }
+sp-io = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0-rc6" }
+sp-runtime = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0-rc6" }
+sp-arithmetic = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0-rc6" }
+sp-staking = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0-rc6" }
+sp-npos-elections = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0-rc6"}
+frame-support = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0-rc6" }
+frame-system = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0-rc6" }
 
-pallet-timestamp = { git = "https://github.com/PolymathNetwork/substrate", default-features = false, branch = "remove-subtype-trait" }
-pallet-authorship = { git = "https://github.com/PolymathNetwork/substrate", default-features = false, branch = "remove-subtype-trait" }
-pallet-session = { git = "https://github.com/PolymathNetwork/substrate", default-features = false, branch = "remove-subtype-trait", features = ["historical"] }
-pallet-randomness-collective-flip = { git = "https://github.com/PolymathNetwork/substrate", default-features = false, branch = "remove-subtype-trait" }
-pallet-babe = { git = "https://github.com/PolymathNetwork/substrate", default-features = false, branch = "remove-subtype-trait" }
+pallet-timestamp = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0-rc6" }
+pallet-authorship = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0-rc6" }
+pallet-session = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0-rc6", features = ["historical"] }
+pallet-randomness-collective-flip = { git = "https://github.com/paritytech/substrate/", default-features = false, tag = "v2.0.0-rc6" }
+pallet-babe = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0-rc6" }
 
 ink_primitives = { git = "https://github.com/paritytech/ink", tag = "v2.1.0", default-features = false }
 
-frame-benchmarking = { git = "https://github.com/PolymathNetwork/substrate", branch = "remove-subtype-trait", optional = true }
+frame-benchmarking = { git = "https://github.com/paritytech/substrate", tag = "v2.0.0-rc6", optional = true }
 
-test_client = { package = "substrate-test-runtime-client", git = "https://github.com/PolymathNetwork/substrate", branch = "remove-subtype-trait", optional = true }
-substrate-test-utils = { git = "https://github.com/PolymathNetwork/substrate", branch = "remove-subtype-trait", optional = true }
+test_client = { package = "substrate-test-runtime-client", git = "https://github.com/paritytech/substrate", tag = "v2.0.0-rc6", optional = true }
+substrate-test-utils = { git = "https://github.com/paritytech/substrate", tag = "v2.0.0-rc6", optional = true }
+
+[dev-dependencies]
+libsecp256k1 = { version = "0.3.5", default-features = false }
 
 [features]
 equalize = []
@@ -101,11 +106,11 @@ std = [
     "pallet-group/std",
     "pallet-identity/std",
     "pallet-multisig/std",
+    "pallet-permissions/std",
     "pallet-pips/std",
     "pallet-portfolio/std",
     "pallet-randomness-collective-flip/std",
     "pallet-session/std",
-    "pallet-staking-reward-curve/std",
     "pallet-staking/std",
     "pallet-statistics/std",
     "pallet-timestamp/std",

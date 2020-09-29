@@ -5,9 +5,10 @@ authors = ["Polymath"]
 edition = "2018"
 
 [dependencies]
+pallet-balances = { path = "../balances", default-features = false }
+pallet-permissions = { path = "../permissions", default-features = false }
 polymesh-common-utilities = { path = "../common", default-features = false }
 polymesh-primitives = { path = "../../primitives", default-features = false }
-pallet-balances = { path = "../balances", default-features = false }
 
 # Others
 serde = { version = "1.0.104", default-features = false }
@@ -15,20 +16,20 @@ serde_derive = { version = "1.0.104", optional = true, default-features = false 
 
 # Substrate
 codec = { package = "parity-scale-codec", version = "1.1.0", default-features = false, features = ["derive"] }
-sp-core = { git = "https://github.com/PolymathNetwork/substrate", default-features = false, branch = "remove-subtype-trait" }
-sp-std = { git = "https://github.com/PolymathNetwork/substrate", default-features = false, branch = "remove-subtype-trait" }
-sp-io = { git = "https://github.com/PolymathNetwork/substrate", default-features = false, branch = "remove-subtype-trait" }
-sp-runtime = { git = "https://github.com/PolymathNetwork/substrate", default-features = false, branch = "remove-subtype-trait" }
-sp-version = { git = "https://github.com/PolymathNetwork/substrate", default-features = false, branch = "remove-subtype-trait" }
-sp-api = { git = "https://github.com/PolymathNetwork/substrate", default-features = false, branch = "remove-subtype-trait" }
+sp-core = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0-rc6" }
+sp-std = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0-rc6" }
+sp-io = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0-rc6" }
+sp-runtime = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0-rc6" }
+sp-version = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0-rc6" }
+sp-api = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0-rc6" }
 
-frame-system = { git = "https://github.com/PolymathNetwork/substrate", default-features = false, branch = "remove-subtype-trait" }
-frame-support = { git = "https://github.com/PolymathNetwork/substrate", default-features = false, branch = "remove-subtype-trait" }
-pallet-timestamp = { git = "https://github.com/PolymathNetwork/substrate", default-features = false, branch = "remove-subtype-trait" }
+frame-system = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0-rc6" }
+frame-support = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0-rc6" }
+pallet-timestamp = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0-rc6" }
 
 # Only in STD
-frame-benchmarking = { default-features = false, git = "https://github.com/PolymathNetwork/substrate", branch = "remove-subtype-trait", optional = true }
-substrate-test-runtime-client = { git = "https://github.com/PolymathNetwork/substrate", branch = "remove-subtype-trait", default-features = false, optional = true  }
+frame-benchmarking = { default-features = false, git = "https://github.com/paritytech/substrate", tag = "v2.0.0-rc6", optional = true }
+substrate-test-runtime-client = { git = "https://github.com/paritytech/substrate", tag = "v2.0.0-rc6", default-features = false, optional = true  }
 
 [features]
 equalize = []
@@ -36,23 +37,24 @@ default = ["std", "equalize"]
 no_std = []
 only-staking = []
 std = [
-	"substrate-test-runtime-client",
-	"serde_derive",
-	"serde/std",
-	"codec/std",
-	"sp-std/std",
-	"sp-io/std",
-	"sp-core/std",
-	"sp-runtime/std",
-	"sp-version/std",
-	"sp-api/std",
-	"frame-benchmarking/std",
-	"frame-system/std",
-	"frame-support/std",
-	"pallet-timestamp/std",
-	"pallet-balances/std",
-	"polymesh-common-utilities/std",
-	"polymesh-primitives/std",
+    "codec/std",
+    "frame-benchmarking/std",
+    "frame-support/std",
+    "frame-system/std",
+    "pallet-balances/std",
+    "pallet-permissions/std",
+    "pallet-timestamp/std",
+    "polymesh-common-utilities/std",
+    "polymesh-primitives/std",
+    "serde/std",
+    "serde_derive",
+    "sp-api/std",
+    "sp-core/std",
+    "sp-io/std",
+    "sp-runtime/std",
+    "sp-std/std",
+    "sp-version/std",
+    "substrate-test-runtime-client",
 ]
 runtime-benchmarks = [
 	"frame-benchmarking",

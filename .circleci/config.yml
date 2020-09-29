@@ -11,9 +11,6 @@ jobs:
           fingerprints:
             - "a1:99:47:ca:fa:32:4c:9d:4b:b8:50:99:c7:64:e3:80"
       - run:
-          name: Pull submodules
-          command: GIT_SSH_COMMAND="ssh -i /root/.ssh/id_rsa_a19947cafa324c9d4bb85099c764e380" git submodule update --init pallets/settlement
-      - run:
           name: Check formatting
           command: ./scripts/rustfmt.sh
   build:
@@ -34,12 +31,6 @@ jobs:
           keys:
             - v3-release-cache-{{ checksum "./rust.version" }}-{{ checksum "./Cargo.lock" }}
             - v3-release-cache-{{ checksum "./rust.version" }}
-            - v3-cli-cache-{{ checksum "./rust.version" }}
-      - run:
-          name: Pull submodules
-          command: >-
-            GIT_SSH_COMMAND="ssh -i /root/.ssh/id_rsa_a19947cafa324c9d4bb85099c764e380" git submodule update --init pallets/settlement &&
-            GIT_SSH_COMMAND="ssh -i /root/.ssh/id_rsa_b3bb01c59077ef5ce65bf2db162fe861" git submodule update --init external/cryptography
       - run:
           name: Build release
           command: cargo +nightly build --release || cargo +nightly build -j 1 --release
@@ -67,11 +58,6 @@ jobs:
           keys:
             - v9-test-cache-{{ checksum "./rust.version" }}-{{ checksum "./Cargo.lock" }}
             - v9-test-cache-{{ checksum "./rust.version" }}
-      - run:
-          name: Pull submodules
-          command: >-
-            GIT_SSH_COMMAND="ssh -i /root/.ssh/id_rsa_a19947cafa324c9d4bb85099c764e380" git submodule update --init pallets/settlement &&
-            GIT_SSH_COMMAND="ssh -i /root/.ssh/id_rsa_b3bb01c59077ef5ce65bf2db162fe861" git submodule update --init external/cryptography
       - run:
           name: Tests
           command: >-
@@ -117,11 +103,6 @@ jobs:
           keys:
             - v6-cli-cache-{{ checksum "./rust.version" }}-{{ checksum "./Cargo.lock" }}
       - run:
-          name: Pull submodules
-          command: >-
-            GIT_SSH_COMMAND="ssh -i /root/.ssh/id_rsa_a19947cafa324c9d4bb85099c764e380" git submodule update --init pallets/settlement &&
-            GIT_SSH_COMMAND="ssh -i /root/.ssh/id_rsa_b3bb01c59077ef5ce65bf2db162fe861" git submodule update --init external/cryptography
-      - run:
           name: Build release
           command: cargo +nightly build --release || cargo +nightly build -j 1 --release
           no_output_timeout: 4h
@@ -164,11 +145,6 @@ jobs:
             - v4-clippy-cache-{{ checksum "./rust.version" }}-{{ checksum "./Cargo.lock" }}
             - v4-clippy-cache-{{ checksum "./rust.version" }}
       - run:
-          name: Pull submodules
-          command: >-
-            GIT_SSH_COMMAND="ssh -i /root/.ssh/id_rsa_a19947cafa324c9d4bb85099c764e380" git submodule update --init pallets/settlement &&
-            GIT_SSH_COMMAND="ssh -i /root/.ssh/id_rsa_b3bb01c59077ef5ce65bf2db162fe861" git submodule update --init external/cryptography
-      - run:
           name: run clippy
           command: cargo +nightly clippy -j 1
           no_output_timeout: 60m
@@ -182,7 +158,6 @@ workflows:
   commit:
     jobs:
       - lint
-      - cli
       - test
   daily-builds:
     triggers:

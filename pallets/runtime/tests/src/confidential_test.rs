@@ -4,13 +4,14 @@ use super::{
 };
 
 use cryptography::claim_proofs::{compute_cdd_id, compute_scope_id};
-use pallet_asset::{self as asset, AssetType, IdentifierType, SecurityToken};
+use pallet_asset::{self as asset, AssetType, SecurityToken};
 use pallet_compliance_manager as compliance_manager;
 use pallet_confidential as confidential;
 use pallet_identity::{self as identity, Error};
 use polymesh_common_utilities::constants::ERC1400_TRANSFER_SUCCESS;
 use polymesh_primitives::{
-    Claim, IdentityId, InvestorUid, InvestorZKProofData, Rule, RuleType, Ticker,
+    AssetIdentifier, Claim, Condition, ConditionType, IdentityId, InvestorUid, InvestorZKProofData,
+    PortfolioId, Scope, Ticker,
 };
 
 use core::convert::TryFrom;
@@ -18,6 +19,7 @@ use frame_support::{assert_err, assert_ok};
 use test_client::AccountKeyring;
 
 type Identity = identity::Module<TestStorage>;
+type IdentityError = identity::Error<TestStorage>;
 type Asset = asset::Module<TestStorage>;
 type AssetError = asset::Error<TestStorage>;
 type Confidential = confidential::Module<TestStorage>;
@@ -46,7 +48,7 @@ fn range_proof_we() {
         asset_type: AssetType::default(),
         ..Default::default()
     };
-    let identifiers = vec![(IdentifierType::Isin, b"0123".into())];
+    let identifiers = vec![AssetIdentifier::isin(*b"US0378331005").unwrap()];
     let ticker = Ticker::try_from(token.name.as_slice()).unwrap();
 
     assert_ok!(Asset::create_asset(
@@ -103,7 +105,7 @@ fn scope_claims_we() {
     let inv_acc_3 = AccountKeyring::Dave.public();
     let (_, inv_did_3) = make_account_with_balance(inv_acc_3, other_investor, 3_000_000).unwrap();
 
-    // 1. Alice creates her ST and set up its rules.
+    // 1. Alice creates her ST and set up its compliance requirements.
     let st = SecurityToken {
         name: "ALI_ST".as_bytes().to_owned().into(),
         owner_did: alice_id,
@@ -112,7 +114,7 @@ fn scope_claims_we() {
         asset_type: AssetType::default(),
         ..Default::default()
     };
-    let identifiers = vec![(IdentifierType::Isin, b"0123".into())];
+    let identifiers = vec![AssetIdentifier::isin(*b"US0378331005").unwrap()];
     let st_id = Ticker::try_from(st.name.as_slice()).unwrap();
 
     assert_ok!(Asset::create_asset(
@@ -126,15 +128,17 @@ fn scope_claims_we() {
         None,
     ));
 
-    // 2. Alice defines the asset complain rules.
-    let st_scope = IdentityId::try_from(st_id.as_slice()).unwrap();
-    let sender_rules = vec![];
-    let receiver_rules = vec![Rule::from(RuleType::HasValidProofOfInvestor(st_id))];
-    assert_ok!(ComplianceManager::add_active_rule(
+    // 2. Alice defines the asset complain compliance requirements.
+    let st_scope = Scope::Identity(IdentityId::try_from(st_id.as_slice()).unwrap());
+    let sender_conditions = vec![];
+    let receiver_conditions = vec![Condition::from(ConditionType::HasValidProofOfInvestor(
+        st_id,
+    ))];
+    assert_ok!(ComplianceManager::add_compliance_requirement(
         Origin::signed(alice),
         st_id,
-        sender_rules,
-        receiver_rules
+        sender_conditions,
+        receiver_conditions
     ));
 
     // 2. Investor adds its Confidential Scope claims.
@@ -145,21 +149,33 @@ fn scope_claims_we() {
     let cdd_claim_1 = InvestorZKProofData::make_cdd_claim(&inv_did_1, &investor);
     let cdd_id_1 = compute_cdd_id(&cdd_claim_1).compress().to_bytes().into();
 
+    let conf_scope_claim_error =
+        Claim::InvestorZKProof(st_scope.clone(), scope_id, cdd_id_1, inv_1_proof.clone());
     let conf_scope_claim_1 =
-        Claim::InvestorZKProof(st_scope, scope_id, cdd_id_1, inv_1_proof.clone());
+        Claim::InvestorZKProof(st_id.into(), scope_id, cdd_id_1, inv_1_proof.clone());
+
+    assert_err!(
+        Identity::add_claim(
+            Origin::signed(inv_acc_1),
+            inv_did_1,
+            conf_scope_claim_error.clone(),
+            None
+        ),
+        IdentityError::InvalidScopeClaim
+    );
 
     assert_ok!(Identity::add_claim(
         Origin::signed(inv_acc_1),
         inv_did_1,
         conf_scope_claim_1.clone(),
         None
-    ));
+    ),);
 
     let inv_2_proof = InvestorZKProofData::new(&inv_did_2, &investor, &st_id);
     let cdd_claim_2 = InvestorZKProofData::make_cdd_claim(&inv_did_2, &investor);
     let cdd_id_2 = compute_cdd_id(&cdd_claim_2).compress().to_bytes().into();
 
-    let conf_scope_claim_2 = Claim::InvestorZKProof(st_scope, scope_id, cdd_id_2, inv_2_proof);
+    let conf_scope_claim_2 = Claim::InvestorZKProof(st_id.into(), scope_id, cdd_id_2, inv_2_proof);
     assert_ok!(Identity::add_claim(
         Origin::signed(inv_acc_2),
         inv_did_2,
@@ -170,13 +186,19 @@ fn scope_claims_we() {
     // 3. Transfer some tokens to Inv. 1 and 2.
     assert_eq!(Asset::balance_of(st_id, inv_did_1), 0);
     assert_ok!(Asset::unsafe_transfer(
-        alice_id, &st_id, alice_id, inv_did_1, 10
+        PortfolioId::default_portfolio(alice_id),
+        PortfolioId::default_portfolio(inv_did_1),
+        &st_id,
+        10
     ));
     assert_eq!(Asset::balance_of(st_id, inv_did_1), 10);
 
     assert_eq!(Asset::balance_of(st_id, inv_did_2), 0);
     assert_ok!(Asset::unsafe_transfer(
-        alice_id, &st_id, alice_id, inv_did_2, 20
+        PortfolioId::default_portfolio(alice_id),
+        PortfolioId::default_portfolio(inv_did_2),
+        &st_id,
+        20
     ));
     assert_eq!(Asset::balance_of(st_id, inv_did_2), 20);
 
@@ -188,7 +210,7 @@ fn scope_claims_we() {
             conf_scope_claim_1,
             None
         ),
-        Error::<TestStorage>::ConfidentialScopeClaimNotAllowed
+        IdentityError::ConfidentialScopeClaimNotAllowed
     );
 
     // 5. ERROR: Replace the scope
@@ -200,7 +222,7 @@ fn scope_claims_we() {
         asset_type: AssetType::default(),
         ..Default::default()
     };
-    let identifiers = vec![(IdentifierType::Isin, b"X123".into())];
+    let identifiers = vec![AssetIdentifier::isin(*b"US0378331005").unwrap()];
     let st2_id = Ticker::try_from(st_2.name.as_slice()).unwrap();
 
     assert_ok!(Asset::create_asset(
@@ -214,7 +236,6 @@ fn scope_claims_we() {
         None,
     ));
 
-    let st_scope = IdentityId::try_from(st2_id.as_slice()).unwrap();
     let corrupted_scope_claim = InvestorZKProofData::make_scope_claim(&st2_id, &investor);
     let corrupted_scope_id = compute_scope_id(&corrupted_scope_claim)
         .compress()
@@ -222,22 +243,26 @@ fn scope_claims_we() {
         .into();
 
     let conf_scope_claim_3 =
-        Claim::InvestorZKProof(st_scope, corrupted_scope_id, cdd_id_1, inv_1_proof);
-    assert_ok!(Identity::add_claim(
-        Origin::signed(inv_acc_1),
-        inv_did_1,
-        conf_scope_claim_3.clone(),
-        None
-    ));
+        Claim::InvestorZKProof(st2_id.into(), corrupted_scope_id, cdd_id_1, inv_1_proof);
+    assert_err!(
+        Identity::add_claim(
+            Origin::signed(inv_acc_1),
+            inv_did_1,
+            conf_scope_claim_3.clone(),
+            None
+        ),
+        IdentityError::InvalidScopeClaim
+    );
 
     assert_ne!(
         Asset::_is_valid_transfer(
             &st2_id,
             AccountKeyring::Alice.public(),
-            Some(alice_id),
-            Some(inv_did_1),
+            PortfolioId::default_portfolio(alice_id),
+            PortfolioId::default_portfolio(inv_did_1),
             10
-        ),
+        )
+        .map(|(a, _)| a),
         Ok(ERC1400_TRANSFER_SUCCESS)
     );
 }

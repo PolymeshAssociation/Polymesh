@@ -16,7 +16,13 @@ const fs = require("fs");
 const path = require("path");
 
 let nonces = new Map();
-let sk_roles = [[0], [1], [2], [1, 2]];
+
+let totalPermissions =
+  {
+    "asset": null,
+    "extrinsic": null,
+    "portfolio": null
+  };
 
 let fail_count = 1;
 let block_sizes = {};
@@ -28,26 +34,26 @@ let synced_block_ts = 0;
 // Amount to seed each key with
 let transfer_amount = new BN(25000).mul(new BN(10).pow(new BN(6)));
 
-const senderRules1 = function (trusted_did, asset_did) {
+const senderConditions1 = function (trusted_did, asset_did) {
   return [
     {
-      rule_type: {
-        IsPresent: {
-          Exempted: asset_did,
-        },
+      "condition_type": {
+        "IsPresent": {
+          "Exempted": asset_did
+        }
       },
       issuers: [trusted_did],
     },
   ];
 };
 
-const receiverRules1 = function (trusted_did, asset_did) {
+const receiverConditions1 = function (trusted_did, asset_did) {
   return [
     {
-      rule_type: {
-        IsPresent: {
-          Exempted: asset_did,
-        },
+      "condition_type": {
+        "IsPresent": {
+          "Exempted": asset_did
+        }
       },
       issuers: [trusted_did],
     },
@@ -198,7 +204,7 @@ const createIdentitiesWithExpiry = async function (
 
   for (let i = 0; i < accounts.length; i++) {
     const d = await api.query.identity.keyToIdentityIds(accounts[i].publicKey);
-    dids.push(d.toHuman().Unique);
+    dids.push(d.toHuman());
     console.log( `>>>> [Get DID ] acc: ${accounts[i].address} did: ${dids[i]}` );
   }
 
@@ -224,7 +230,7 @@ const createIdentitiesWithExpiry = async function (
 // Fetches DID that belongs to the Account Key
 async function keyToIdentityIds(api, accountKey) {
   let account_did = await api.query.identity.keyToIdentityIds(accountKey);
-  return account_did;
+  return account_did.toHuman();
 }
 
 // Sends transfer_amount to accounts[] from alice
@@ -250,7 +256,7 @@ async function addSecondaryKeys(api, accounts, dids, secondary_accounts) {
     // 1. Add Secondary Item to identity.
 
     let nonceObj = {nonce: nonces.get(accounts[i].address)};
-    const transaction = api.tx.identity.addAuthorization({Account: secondary_accounts[i].publicKey}, {JoinIdentity: []}, null);
+    const transaction = api.tx.identity.addAuthorization({Account: secondary_accounts[i].publicKey}, {JoinIdentity: reqImports.totalPermissions}, null);
     await sendTransaction(transaction, accounts[i], nonceObj);
     nonces.set(accounts[i].address, nonces.get(accounts[i].address).addn(1));
   }
@@ -308,21 +314,20 @@ function tickerToDid(ticker) {
   );
 }
 
-// Creates claim rules for an asset
-async function createClaimRules(api, accounts, dids, prepend) {
+// Creates claim compliance for an asset
+async function createClaimCompliance(api, accounts, dids, prepend) {
   const ticker = `token${prepend}0`.toUpperCase();
   assert(ticker.length <= 12, "Ticker cannot be longer than 12 characters");
 
-  const asset_did = tickerToDid(ticker);
 
-  let senderRules = senderRules1(dids[1], asset_did);
-  let receiverRules = receiverRules1(dids[1], asset_did);
+  let senderConditions = senderConditions1(dids[1], { "Ticker": ticker });
+  let receiverConditions = receiverConditions1(dids[1], { "Ticker": ticker });
 
   let nonceObj = { nonce: nonces.get(accounts[0].address) };
-  const transaction = api.tx.complianceManager.addActiveRule(
+  const transaction = api.tx.complianceManager.addComplianceRequirement(
     ticker,
-    senderRules,
-    receiverRules
+    senderConditions,
+    receiverConditions
   );
   await sendTransaction(transaction, accounts[0], nonceObj);
 
@@ -338,7 +343,7 @@ async function addClaimsToDids(
   claimValue,
   expiry
 ) {
-  // Receieving Rules Claim
+  // Receieving Conditions Claim
   let claim = { [claimType]: claimValue };
 
   let nonceObj = { nonce: nonces.get(accounts[1].address) };
@@ -481,8 +486,8 @@ async function sendTx(signer, tx) {
   nonces.set(signer.address, nonces.get(signer.address).addn(1));
 }
 
-async function addActiveRule(api, sender, ticker) {
-  const transaction = await api.tx.complianceManager.addActiveRule(
+async function addComplianceRequirement(api, sender, ticker) {
+  const transaction = await api.tx.complianceManager.addComplianceRequirement(
     ticker,
     [],
     []
@@ -497,32 +502,39 @@ async function createVenue(api, sender) {
 
   const transaction = await api.tx.settlement.createVenue(venueDetails, [
     sender.address,
-  ]);
+  ], 0);
 
   await sendTx(sender, transaction);
 
   return venueCounter;
 }
 
-async function authorizeInstruction(api, sender, instructionCounter) {
+function getDefaultPortfolio(did) {
+  return { "did": did, "kind": "Default" };
+}
+
+async function authorizeInstruction(api, sender, instructionCounter, did) {
   const transaction = await api.tx.settlement.authorizeInstruction(
-    instructionCounter
+    instructionCounter,
+    [getDefaultPortfolio(did)]
   );
 
   await sendTx(sender, transaction);
 }
 
-async function unauthorizeInstruction(api, sender, instructionCounter) {
+async function unauthorizeInstruction(api, sender, instructionCounter, did) {
   const transaction = await api.tx.settlement.unauthorizeInstruction(
-    instructionCounter
+    instructionCounter,
+    [getDefaultPortfolio(did)]
   );
 
   await sendTx(sender, transaction);
 }
 
-async function rejectInstruction(api, sender, instructionCounter) {
+async function rejectInstruction(api, sender, instructionCounter, did) {
   const transaction = await api.tx.settlement.rejectInstruction(
-    instructionCounter
+    instructionCounter,
+    [getDefaultPortfolio(did)]
   );
 
   await sendTx(sender, transaction);
@@ -615,9 +627,9 @@ let reqImports = {
   path,
   fs,
   nonces,
+  totalPermissions,
   transfer_amount,
   fail_count,
-  sk_roles,
   createApi,
   createIdentities,
   initMain,
@@ -628,9 +640,9 @@ let reqImports = {
   addSecondaryKeys,
   authorizeJoinToIdentities,
   issueTokenPerDid,
-  senderRules1,
-  receiverRules1,
-  createClaimRules,
+  senderConditions1,
+  receiverConditions1,
+  createClaimCompliance,
   addClaimsToDids,
   tickerToDid,
   sendTransaction,
@@ -646,7 +658,7 @@ let reqImports = {
   keyToIdentityIds,
   mintingAsset,
   sendTx,
-  addActiveRule,
+  addComplianceRequirement,
   createVenue,
   addInstruction,
   authorizeInstruction,

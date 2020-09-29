@@ -180,9 +180,9 @@ fn check_put_code_functionality() {
             assert!(<pallet_contracts::PristineCode<TestStorage>>::get(code_hash).is_some());
 
             // Check for fee
-            let fee_deducted = <pallet_protocol_fee::Module<TestStorage>>::compute_fee(
+            let fee_deducted = <pallet_protocol_fee::Module<TestStorage>>::compute_fee(&[
                 ProtocolOp::ContractsPutCode,
-            );
+            ]);
 
             // Check for protocol fee deduction
             let current_alice_balance = System::account(alice).data.free;

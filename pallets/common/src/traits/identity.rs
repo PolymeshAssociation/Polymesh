@@ -18,35 +18,57 @@ use crate::{
         balances,
         group::GroupTrait,
         multisig::MultiSigSubTrait,
+        portfolio::PortfolioSubTrait,
         transaction_payment::{CddAndFeeDetails, ChargeTxFee},
         CommonTrait,
     },
     ChargeProtocolFee, SystematicIssuers,
 };
 use polymesh_primitives::{
-    AuthorizationData, IdentityClaim, IdentityId, Permission, SecondaryKey, Signatory, Ticker,
+    secondary_key::api::{Permissions, SecondaryKey},
+    AuthorizationData, IdentityClaim, IdentityId, Signatory, Ticker,
 };
 
 use codec::{Decode, Encode};
 use frame_support::{
-    decl_event, dispatch::PostDispatchInfo, traits::Currency, weights::GetDispatchInfo, Parameter,
+    decl_event,
+    dispatch::PostDispatchInfo,
+    traits::{Currency, GetCallMetadata},
+    weights::GetDispatchInfo,
+    Parameter,
 };
 use sp_core::H512;
 use sp_runtime::traits::{Dispatchable, IdentifyAccount, Member, Verify};
-#[cfg(feature = "std")]
-use sp_runtime::{Deserialize, Serialize};
 use sp_std::vec::Vec;
 
-/// Keys could be linked to several identities (`IdentityId`) as primary key or secondary key.
-/// Primary key or external type secondary key are restricted to be linked to just one identity.
-/// Other types of secondary key could be associated with more than one identity.
-/// # TODO
-/// * Use of `Primary` and `Signer` (instead of `Unique`) will optimize the access.
-#[derive(codec::Encode, codec::Decode, Clone, PartialEq, Eq, Debug)]
-#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-pub enum LinkedKeyInfo {
-    Unique(IdentityId),
-    Group(Vec<IdentityId>),
+/// Runtime upgrade definitions.
+#[allow(missing_docs)]
+pub mod runtime_upgrade {
+    use codec::Decode;
+    use polymesh_primitives::{
+        migrate::{Empty, Migrate},
+        IdentityId,
+    };
+    use sp_std::vec::Vec;
+
+    /// Old type definition kept here for upgrade purposes.
+    #[derive(Decode)]
+    pub enum LinkedKeyInfo {
+        Unique(IdentityId),
+        Group(Vec<IdentityId>),
+    }
+
+    impl Migrate for LinkedKeyInfo {
+        type Into = IdentityId;
+        type Context = Empty;
+
+        fn migrate(self, _: Self::Context) -> Option<Self::Into> {
+            match self {
+                LinkedKeyInfo::Unique(did) => Some(did),
+                LinkedKeyInfo::Group(_) => None,
+            }
+        }
+    }
 }
 
 pub type AuthorizationNonce = u64;
@@ -91,9 +113,12 @@ pub trait Trait: CommonTrait + pallet_timestamp::Trait + balances::Trait {
     /// An extrinsic call.
     type Proposal: Parameter
         + Dispatchable<Origin = <Self as frame_system::Trait>::Origin, PostInfo = PostDispatchInfo>
+        + GetCallMetadata
         + GetDispatchInfo;
     /// MultiSig module
     type MultiSig: MultiSigSubTrait<Self::AccountId>;
+    /// Portfolio module. Required to accept portfolio custody transfers.
+    type Portfolio: PortfolioSubTrait<Self::Balance>;
     /// Group module
     type CddServiceProviders: GroupTrait<Self::Moment>;
     /// Balances module
@@ -101,7 +126,7 @@ pub trait Trait: CommonTrait + pallet_timestamp::Trait + balances::Trait {
     /// Charges fee for forwarded call
     type ChargeTxFeeTarget: ChargeTxFee;
     /// Used to check and update CDD
-    type CddHandler: CddAndFeeDetails<Self::AccountId, Self::Call>;
+    type CddHandler: CddAndFeeDetails<Self::AccountId, <Self as frame_system::Trait>::Call>;
 
     type Public: IdentifyAccount<AccountId = Self::AccountId>;
     type OffChainSignature: Verify<Signer = Self::Public> + Member + Decode + Encode;
@@ -129,8 +154,7 @@ decl_event!(
         SignerLeft(IdentityId, Signatory<AccountId>),
 
         /// DID, updated secondary key, previous permissions
-        SecondaryPermissionsUpdated(IdentityId, SecondaryKey<AccountId>, Vec<Permission>),
-
+        SecondaryKeyPermissionsUpdated(IdentityId, SecondaryKey<AccountId>, Permissions),
 
         /// DID, old primary key account ID, new ID
         PrimaryKeyUpdated(IdentityId, AccountId, AccountId),
@@ -200,12 +224,7 @@ pub trait IdentityTrait<AccountId> {
     fn set_current_payer(payer: Option<AccountId>);
 
     fn is_signer_authorized(did: IdentityId, signer: &Signatory<AccountId>) -> bool;
-    fn is_signer_authorized_with_permissions(
-        did: IdentityId,
-        signer: &Signatory<AccountId>,
-        permissions: Vec<Permission>,
-    ) -> bool;
-    fn is_primary_key(did: IdentityId, key: &AccountId) -> bool;
+    fn is_primary_key(did: &IdentityId, key: &AccountId) -> bool;
 
     /// It adds a systematic CDD claim for each `target` identity.
     ///

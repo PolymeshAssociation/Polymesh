@@ -11,7 +11,7 @@ use codec::{Decode, Encode};
 use frame_support::{
     decl_error, decl_event, decl_module, decl_storage, dispatch::DispatchResult, ensure,
 };
-use frame_system::{self as system, ensure_signed};
+use frame_system::ensure_signed;
 use pallet_identity as identity;
 use pallet_settlement::{Leg, SettlementType};
 use polymesh_common_utilities::{
@@ -19,12 +19,12 @@ use polymesh_common_utilities::{
     traits::{asset::Trait as AssetTrait, identity::Trait as IdentityTrait, CommonTrait},
     Context,
 };
-use polymesh_primitives::{IdentityId, Ticker};
+use polymesh_primitives::{IdentityId, PortfolioId, Ticker};
 use sp_runtime::traits::{CheckedMul, Saturating};
-use sp_std::prelude::*;
-
+use sp_std::{collections::btree_set::BTreeSet, iter, prelude::*};
 type Identity<T> = identity::Module<T>;
 type Settlement<T> = pallet_settlement::Module<T>;
+type CallPermissions<T> = pallet_permissions::Module<T>;
 
 pub trait Trait:
     frame_system::Trait + CommonTrait + IdentityTrait + pallet_settlement::Trait
@@ -99,6 +99,7 @@ decl_module! {
             venue_id: u64
         ) -> DispatchResult {
             let sender = ensure_signed(origin)?;
+            CallPermissions::<T>::ensure_call_permissions(&sender)?;
             let did = Context::current_identity_or::<Identity<T>>(&sender)?;
             ensure!(T::Asset::primary_issuance_agent(&offering_token) == did, Error::<T>::Unauthorized);
             // TODO: Take custodial ownership of $sell_amount of $offering_token from primary issuance agent?
@@ -123,6 +124,7 @@ decl_module! {
         #[weight = 2_000_000_000]
         pub fn invest(origin, offering_token: Ticker, fundraiser_id: u64, offering_token_amount: T::Balance) -> DispatchResult {
             let sender = ensure_signed(origin.clone())?;
+            CallPermissions::<T>::ensure_call_permissions(&sender)?;
             let did = Context::current_identity_or::<Identity<T>>(&sender)?;
             let mut fundraiser = Self::fundraisers(offering_token, fundraiser_id);
             ensure!(fundraiser.remaining_amount >= offering_token_amount, Error::<T>::InsufficientTokensRemaining);
@@ -137,14 +139,14 @@ decl_module! {
             let legs = vec![
                 Leg {
                     // TODO: Replace with did that actually hold the offering token
-                    from: primary_issuance_agent,
-                    to: did,
+                    from: PortfolioId::default_portfolio(primary_issuance_agent),
+                    to: PortfolioId::default_portfolio(did),
                     asset: offering_token,
                     amount: offering_token_amount
                 },
                 Leg {
-                    from: did,
-                    to: primary_issuance_agent,
+                    from: PortfolioId::default_portfolio(did),
+                    to: PortfolioId::default_portfolio(primary_issuance_agent),
                     asset: fundraiser.raise_token,
                     amount: raise_token_amount
                 }
@@ -158,8 +160,11 @@ decl_module! {
                 legs
             )?;
 
-            Settlement::<T>::unsafe_authorize_instruction(primary_issuance_agent, instruction_id)?;
-            Settlement::<T>::authorize_instruction(origin, instruction_id)?;
+            let pia_portfolios = iter::once(PortfolioId::default_portfolio(primary_issuance_agent)).collect::<BTreeSet<_>>();
+            Settlement::<T>::unsafe_authorize_instruction(primary_issuance_agent, instruction_id, pia_portfolios)?;
+
+            let sender_portfolios = vec![PortfolioId::default_portfolio(did)];
+            Settlement::<T>::authorize_instruction(origin, instruction_id, sender_portfolios).map_err(|err| err.error)?;
 
             Self::deposit_event(
                 RawEvent::FundsRaised(did, offering_token, fundraiser.raise_token, offering_token_amount, raise_token_amount, fundraiser_id)

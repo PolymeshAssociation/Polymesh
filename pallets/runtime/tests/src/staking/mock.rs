@@ -33,16 +33,21 @@ use pallet_identity as identity;
 use pallet_protocol_fee as protocol_fee;
 use pallet_staking::{self as staking, *};
 
+use pallet_permissions::StoreCallMetadata;
 use polymesh_common_utilities::traits::{
     asset::AcceptTransfer,
     balances::{AccountData, CheckCdd},
     group::{GroupTrait, InactiveMember},
-    identity::{LinkedKeyInfo, Trait as IdentityTrait},
+    identity::Trait as IdentityTrait,
     multisig::MultiSigSubTrait,
+    portfolio::PortfolioSubTrait,
     transaction_payment::{CddAndFeeDetails, ChargeTxFee},
-    CommonTrait,
+    CommonTrait, PermissionChecker,
 };
-use polymesh_primitives::{AuthorizationData, Claim, IdentityId, InvestorUid, Moment, Signatory};
+use polymesh_primitives::{
+    Authorization, AuthorizationData, Claim, IdentityId, InvestorUid, Moment, Permissions,
+    PortfolioId, Signatory, Ticker,
+};
 use sp_core::H256;
 use sp_io;
 use sp_npos_elections::{
@@ -260,6 +265,7 @@ impl frame_system::Trait for Test {
     type AccountData = AccountData<Balance>;
     type OnNewAccount = ();
     type OnKilledAccount = ();
+    type SystemWeightInfo = ();
 }
 
 impl CommonTrait for Test {
@@ -275,6 +281,7 @@ impl balances::Trait for Test {
     type AccountStore = System;
     type Identity = identity::Module<Test>;
     type CddChecker = Test;
+    type WeightInfo = ();
 }
 
 parameter_types! {
@@ -297,6 +304,7 @@ impl pallet_session::Trait for Test {
     type ValidatorIdOf = StashOf<Test>;
     type DisabledValidatorsThreshold = DisabledValidatorsThreshold;
     type NextSessionRotation = pallet_session::PeriodicSessions<Period, Offset>;
+    type WeightInfo = ();
 }
 
 impl pallet_session::historical::Trait for Test {
@@ -332,6 +340,7 @@ impl pallet_timestamp::Trait for Test {
     type Moment = u64;
     type OnTimestampSet = ();
     type MinimumPeriod = MinimumPeriod;
+    type WeightInfo = ();
 }
 
 impl group::Trait<group::Instance2> for Test {
@@ -355,6 +364,7 @@ impl IdentityTrait for Test {
     type Event = MetaEvent;
     type Proposal = Call;
     type MultiSig = Test;
+    type Portfolio = Test;
     type CddServiceProviders = group::Module<Test, group::Instance2>;
     type Balances = Balances;
     type ChargeTxFeeTarget = Test;
@@ -365,10 +375,7 @@ impl IdentityTrait for Test {
 }
 
 impl CddAndFeeDetails<AccountId, Call> for Test {
-    fn get_valid_payer(
-        _: &Call,
-        _: &Signatory<AccountId>,
-    ) -> Result<Option<AccountId>, InvalidTransaction> {
+    fn get_valid_payer(_: &Call, _: &AccountId) -> Result<Option<AccountId>, InvalidTransaction> {
         Ok(None)
     }
     fn clear_context() {}
@@ -462,6 +469,23 @@ impl MultiSigSubTrait<AccountId> for Test {
     }
 }
 
+impl PortfolioSubTrait<Balance> for Test {
+    fn accept_portfolio_custody(_: IdentityId, _: u64) -> DispatchResult {
+        unimplemented!()
+    }
+    fn ensure_portfolio_custody(portfolio: PortfolioId, custodian: IdentityId) -> DispatchResult {
+        unimplemented!()
+    }
+
+    fn lock_tokens(portfolio: &PortfolioId, ticker: &Ticker, amount: &Balance) -> DispatchResult {
+        unimplemented!()
+    }
+
+    fn unlock_tokens(portfolio: &PortfolioId, ticker: &Ticker, amount: &Balance) -> DispatchResult {
+        unimplemented!()
+    }
+}
+
 impl CheckCdd<AccountId> for Test {
     fn check_key_cdd(_key: &AccountId) -> bool {
         true
@@ -471,15 +495,41 @@ impl CheckCdd<AccountId> for Test {
     }
 }
 
+impl PermissionChecker for Test {
+    type Call = Call;
+    type Checker = Identity;
+}
+
 parameter_types! {
     pub const EpochDuration: u64 = 10;
     pub const ExpectedBlockTime: u64 = 1;
+}
+
+use frame_support::traits::KeyOwnerProofSystem;
+use polymesh_runtime_develop::runtime::{Historical, Offences};
+use sp_runtime::KeyTypeId;
+
+impl From<pallet_babe::Call<Test>> for Call {
+    fn from(_: pallet_babe::Call<Test>) -> Self {
+        unimplemented!()
+    }
 }
 
 impl pallet_babe::Trait for Test {
     type EpochDuration = EpochDuration;
     type ExpectedBlockTime = ExpectedBlockTime;
     type EpochChangeTrigger = pallet_babe::ExternalTrigger;
+
+    type KeyOwnerProofSystem = ();
+    type KeyOwnerProof = <Self::KeyOwnerProofSystem as KeyOwnerProofSystem<(
+        KeyTypeId,
+        pallet_babe::AuthorityId,
+    )>>::Proof;
+    type KeyOwnerIdentification = <Self::KeyOwnerProofSystem as KeyOwnerProofSystem<(
+        KeyTypeId,
+        pallet_babe::AuthorityId,
+    )>>::IdentificationTuple;
+    type HandleEquivocation = pallet_babe::EquivocationHandler<Self::KeyOwnerIdentification, ()>;
 }
 
 pallet_staking_reward_curve::build! {
@@ -555,6 +605,7 @@ impl Trait for Test {
     type RequiredComplianceOrigin = frame_system::EnsureRoot<AccountId>;
     type RequiredCommissionOrigin = frame_system::EnsureRoot<AccountId>;
     type RequiredChangeHistoryDepthOrigin = frame_system::EnsureRoot<AccountId>;
+    type WeightInfo = ();
 }
 
 impl<LocalCall> frame_system::offchain::SendTransactionTypes<LocalCall> for Test
@@ -875,23 +926,35 @@ pub(crate) fn active_era() -> EraIndex {
 }
 
 pub fn provide_did_to_user(account: AccountId) -> bool {
-    match Identity::key_to_identity_ids(account) {
-        None => {
-            let cdd = Origin::signed(1005);
-            assert!(
-                Identity::cdd_register_did(cdd.clone(), account, vec![]).is_ok(),
-                "Error in registering the DID"
-            );
-
-            let did = Identity::get_identity(&account).expect("DID not find in the storage");
-            assert!(
-                Identity::add_claim(cdd.clone(), did, Claim::make_cdd_wildcard(), None).is_ok(),
-                "Error CDD Claim cannot be added to DID"
-            );
-            true
-        }
-        _ => false,
+    if <identity::KeyToIdentityIds<Test>>::contains_key(&account) {
+        return false;
     }
+    let cdd_account_id = 1005;
+    let cdd = Origin::signed(cdd_account_id);
+    assert!(
+        <identity::KeyToIdentityIds<Test>>::contains_key(&cdd_account_id),
+        "CDD provider account not mapped to identity"
+    );
+    let cdd_did = <identity::KeyToIdentityIds<Test>>::get(&cdd_account_id);
+    assert!(
+        <identity::DidRecords<Test>>::contains_key(&cdd_did),
+        "CDD provider identity has no DID record"
+    );
+    let cdd_did_record = <identity::DidRecords<Test>>::get(&cdd_did);
+    assert!(
+        cdd_did_record.primary_key == cdd_account_id,
+        "CDD identity primary key mismatch"
+    );
+    assert!(
+        Identity::cdd_register_did(cdd.clone(), account, vec![]).is_ok(),
+        "Error in registering the DID"
+    );
+    let did = Identity::get_identity(&account).expect("DID not find in the storage");
+    assert!(
+        Identity::add_claim(cdd.clone(), did, Claim::make_cdd_wildcard(), None).is_ok(),
+        "Error CDD Claim cannot be added to DID"
+    );
+    true
 }
 
 pub fn add_secondary_key(stash_key: AccountId, to_secondary_key: AccountId) {
@@ -901,18 +964,13 @@ pub fn add_secondary_key(stash_key: AccountId, to_secondary_key: AccountId) {
             Identity::add_authorization(
                 Origin::signed(stash_key),
                 Signatory::Account(to_secondary_key),
-                AuthorizationData::JoinIdentity(vec![]),
+                AuthorizationData::JoinIdentity(Permissions::default()),
                 None
             )
             .is_ok(),
             "Error in providing the authorization"
         );
-        let auth_id = <identity::Authorizations<Test>>::iter_prefix_values(Signatory::Account(
-            to_secondary_key,
-        ))
-        .next()
-        .unwrap()
-        .auth_id;
+        let auth_id = get_last_auth_id(&Signatory::Account(to_secondary_key));
         assert_ok!(Identity::join_identity_as_key(
             Origin::signed(to_secondary_key),
             auth_id
@@ -921,14 +979,7 @@ pub fn add_secondary_key(stash_key: AccountId, to_secondary_key: AccountId) {
 }
 
 pub fn get_identity(key: AccountId) -> bool {
-    let mut have_id = false;
-    if let Some(linked_key_info) = <identity::KeyToIdentityIds<Test>>::get(key) {
-        have_id = match linked_key_info {
-            LinkedKeyInfo::Unique(_id) => true,
-            LinkedKeyInfo::Group(_id) => true,
-        };
-    }
-    have_id
+    <identity::KeyToIdentityIds<Test>>::contains_key(&key)
 }
 
 fn check_ledgers() {
@@ -1515,4 +1566,18 @@ pub fn create_did_and_add_claim_with_expiry(stash: AccountId, expiry: u64) {
         Claim::make_cdd_wildcard(),
         Some(expiry.into())
     ));
+}
+
+// `iter_prefix_values` has no guarantee that it will iterate in a sequential
+// order. However, we need the latest `auth_id`. Which is why we search for the claim
+// with the highest `auth_id`.
+pub fn get_last_auth(signatory: &Signatory<AccountId>) -> Authorization<AccountId, u64> {
+    <identity::Authorizations<Test>>::iter_prefix_values(signatory)
+        .into_iter()
+        .max_by_key(|x| x.auth_id)
+        .expect("there are no authorizations")
+}
+
+pub fn get_last_auth_id(signatory: &Signatory<AccountId>) -> u64 {
+    get_last_auth(signatory).auth_id
 }

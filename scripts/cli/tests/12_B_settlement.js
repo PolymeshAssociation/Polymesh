@@ -37,10 +37,7 @@ async function main() {
   let bob_did = await reqImports.createIdentities(api, [bob], alice);
   bob_did = bob_did[0];
 
-  let alice_did = JSON.parse(
-    await reqImports.keyToIdentityIds(api, alice.publicKey)
-  );
-  alice_did = alice_did.Unique;
+  let alice_did = await reqImports.keyToIdentityIds(api, alice.publicKey);
 
   await reqImports.distributePolyBatch(
     api,
@@ -53,8 +50,8 @@ async function main() {
 
   await reqImports.issueTokenPerDid(api, [bob], prepend2);
 
-  await reqImports.addActiveRule(api, alice, ticker);
-  await reqImports.addActiveRule(api, bob, ticker2);
+  await reqImports.addComplianceRequirement(api, alice, ticker);
+  await reqImports.addComplianceRequirement(api, bob, ticker2);
 
   await reqImports.mintingAsset(api, alice, alice_did, prepend);
 
@@ -99,16 +96,16 @@ async function main() {
     100
   );
 
-  await reqImports.authorizeInstruction(api, alice, instructionCounter);
+  await reqImports.authorizeInstruction(api, alice, instructionCounter, alice_did);
 
-  await reqImports.authorizeInstruction(api, bob, instructionCounter);
+  await reqImports.authorizeInstruction(api, bob, instructionCounter, bob_did);
 
-  await reqImports.authorizeInstruction(api, charlie, instructionCounter);
+  await reqImports.authorizeInstruction(api, charlie, instructionCounter, charlie_did);
 
-  await reqImports.authorizeInstruction(api, dave, instructionCounter);
+  await reqImports.authorizeInstruction(api, dave, instructionCounter, dave_did);
 
   //await reqImports.rejectInstruction(api, eve, instructionCounter);
-  await reqImports.authorizeInstruction(api, eve, instructionCounter);
+  await reqImports.authorizeInstruction(api, eve, instructionCounter, eve_did);
 
   aliceACMEBalance = await api.query.asset.balanceOf(ticker, alice_did);
   bobACMEBalance = await api.query.asset.balanceOf(ticker, bob_did);

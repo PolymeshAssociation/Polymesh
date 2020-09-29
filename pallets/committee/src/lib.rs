@@ -79,6 +79,8 @@ use sp_std::{prelude::*, vec};
 /// Simple index type for proposal counting.
 pub type ProposalIndex = u32;
 
+type CallPermissions<T> = pallet_permissions::Module<T>;
+
 /// The committee trait.
 pub trait Trait<I>: frame_system::Trait + IdentityModuleTrait {
     /// The outer origin type.
@@ -98,7 +100,7 @@ pub trait Trait<I>: frame_system::Trait + IdentityModuleTrait {
 }
 
 /// Origin for the committee module.
-#[derive(PartialEq, Eq, Clone, Debug)]
+#[derive(PartialEq, Eq, Clone, Debug, Encode, Decode)]
 pub enum RawOrigin<AccountId, I> {
     /// It has been condoned by M of N members of this committee.
     Members(MemberCount, MemberCount),
@@ -277,6 +279,7 @@ decl_module! {
         #[weight = (T::DbWeight::get().reads_writes(6, 2) + 650_000_000, Operational, Pays::Yes)]
         fn close(origin, proposal: T::Hash, #[compact] index: ProposalIndex) {
             let who = ensure_signed(origin)?;
+            CallPermissions::<T>::ensure_call_permissions(&who)?;
             let did = Context::current_identity_or::<Identity<T>>(&who)?;
 
             let voting = Self::voting(&proposal).ok_or(Error::<T, I>::NoSuchProposal)?;
@@ -385,6 +388,7 @@ impl<T: Trait<I>, I: Instance> Module<T, I> {
         origin: <T as frame_system::Trait>::Origin,
     ) -> Result<IdentityId, DispatchError> {
         let who = ensure_signed(origin)?;
+        CallPermissions::<T>::ensure_call_permissions(&who)?;
         let who_id = Context::current_identity_or::<Identity<T>>(&who)?;
         ensure!(Self::is_member(&who_id), Error::<T, I>::BadOrigin);
         Ok(who_id)

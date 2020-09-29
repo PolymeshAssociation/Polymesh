@@ -28,7 +28,7 @@ pub enum ProtocolOp {
     AssetAddDocument,
     AssetCreateAsset,
     DividendNew,
-    ComplianceManagerAddActiveRule,
+    ComplianceManagerAddComplianceRequirement,
     IdentityRegisterDid,
     IdentityCddRegisterDid,
     IdentityAddClaim,
@@ -42,7 +42,13 @@ pub enum ProtocolOp {
 /// Common interface to protocol fees for runtime modules.
 pub trait ChargeProtocolFee<AccountId, Balance> {
     /// Computes the fee of the operation and charges it to the given signatory.
+    /// Equivalent to `charge_fees(&[op])`.
     fn charge_fee(op: ProtocolOp) -> DispatchResult;
+
+    /// Computes the fee of the operations and charges them to the given signatory.
+    /// If all fees cannot be charged, none are. That is, the operation is transactional.
+    /// When `ops.is_empty()`, no storage changes may be made.
+    fn charge_fees(ops: &[ProtocolOp]) -> DispatchResult;
 
     /// Computes the fee for `count` similar operations, and charges that fee to the given
     /// signatory.

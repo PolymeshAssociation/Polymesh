@@ -3697,7 +3697,7 @@ mod offchain_phragmen {
                         current_era(),
                         ElectionSize::default(),
                     ),
-                    Error::<Test>::PhragmenEarlySubmission,
+                    Error::<Test>::OffchainElectionEarlySubmission,
                     Some(<Test as frame_system::Trait>::DbWeight::get().reads(1)),
                 );
             })
@@ -3723,7 +3723,7 @@ mod offchain_phragmen {
                 let (compact, winners, score) = horrible_phragmen_with_post_processing(false);
                 assert_err_with_weight!(
                     submit_solution(Origin::signed(10), winners.clone(), compact.clone(), score,),
-                    Error::<Test>::PhragmenWeakSubmission,
+                    Error::<Test>::OffchainElectionWeakSubmission,
                     Some(<Test as frame_system::Trait>::DbWeight::get().reads(3))
                 );
             })
@@ -3894,7 +3894,7 @@ mod offchain_phragmen {
 
                 assert_noop!(
                     submit_solution(Origin::signed(10), winners, compact, score,),
-                    Error::<Test>::PhragmenBogusWinnerCount,
+                    Error::<Test>::OffchainElectionBogusWinnerCount,
                 );
             })
     }
@@ -3918,7 +3918,7 @@ mod offchain_phragmen {
                         current_era(),
                         ElectionSize::default(),
                     ),
-                    Error::<Test>::PhragmenBogusElectionSize,
+                    Error::<Test>::OffchainElectionBogusElectionSize,
                 );
             })
     }
@@ -3943,7 +3943,7 @@ mod offchain_phragmen {
 
                 assert_noop!(
                     submit_solution(Origin::signed(10), winners, compact, score,),
-                    Error::<Test>::PhragmenBogusWinnerCount,
+                    Error::<Test>::OffchainElectionBogusWinnerCount,
                 );
             })
     }
@@ -3991,7 +3991,7 @@ mod offchain_phragmen {
                 // The error type sadly cannot be more specific now.
                 assert_noop!(
                     submit_solution(Origin::signed(10), winners, compact, score,),
-                    Error::<Test>::PhragmenBogusCompact,
+                    Error::<Test>::OffchainElectionBogusCompact,
                 );
             })
     }
@@ -4018,7 +4018,7 @@ mod offchain_phragmen {
                 // The error type sadly cannot be more specific now.
                 assert_noop!(
                     submit_solution(Origin::signed(10), winners, compact, score,),
-                    Error::<Test>::PhragmenBogusCompact,
+                    Error::<Test>::OffchainElectionBogusCompact,
                 );
             })
     }
@@ -4044,7 +4044,7 @@ mod offchain_phragmen {
 
                 assert_noop!(
                     submit_solution(Origin::signed(10), winners, compact, score,),
-                    Error::<Test>::PhragmenBogusWinner,
+                    Error::<Test>::OffchainElectionBogusWinner,
                 );
             })
     }
@@ -4074,7 +4074,7 @@ mod offchain_phragmen {
 
                 assert_noop!(
                     submit_solution(Origin::signed(10), winners, compact, score,),
-                    Error::<Test>::PhragmenBogusEdge,
+                    Error::<Test>::OffchainElectionBogusEdge,
                 );
             })
     }
@@ -4104,7 +4104,7 @@ mod offchain_phragmen {
 
                 assert_noop!(
                     submit_solution(Origin::signed(10), winners, compact, score,),
-                    Error::<Test>::PhragmenBogusSelfVote,
+                    Error::<Test>::OffchainElectionBogusSelfVote,
                 );
             })
     }
@@ -4134,7 +4134,7 @@ mod offchain_phragmen {
                 // This raises score issue.
                 assert_noop!(
                     submit_solution(Origin::signed(10), winners, compact, score,),
-                    Error::<Test>::PhragmenBogusSelfVote,
+                    Error::<Test>::OffchainElectionBogusSelfVote,
                 );
             })
     }
@@ -4163,7 +4163,7 @@ mod offchain_phragmen {
 
                 assert_noop!(
                     submit_solution(Origin::signed(10), winners, compact, score,),
-                    Error::<Test>::PhragmenBogusCompact,
+                    Error::<Test>::OffchainElectionBogusCompact,
                 );
             })
     }
@@ -4199,7 +4199,7 @@ mod offchain_phragmen {
 
                 assert_noop!(
                     submit_solution(Origin::signed(10), winners, compact, score,),
-                    Error::<Test>::PhragmenBogusNomination,
+                    Error::<Test>::OffchainElectionBogusNomination,
                 );
             })
     }
@@ -4264,7 +4264,7 @@ mod offchain_phragmen {
                 // is rejected.
                 assert_noop!(
                     submit_solution(Origin::signed(10), winners, compact, score,),
-                    Error::<Test>::PhragmenSlashedNomination,
+                    Error::<Test>::OffchainElectionSlashedNomination,
                 );
             })
     }
@@ -4286,7 +4286,7 @@ mod offchain_phragmen {
 
                 assert_noop!(
                     submit_solution(Origin::signed(10), winners, compact, score,),
-                    Error::<Test>::PhragmenBogusScore,
+                    Error::<Test>::OffchainElectionBogusScore,
                 );
             })
     }
@@ -5378,7 +5378,6 @@ fn voting_for_pip_overlays_with_staking() {
     type Pips = pallet_pips::Module<Test>;
     type Error = pallet_pips::Error<Test>;
     use crate::staking::mock::Call;
-    use pallet_pips::Proposer;
 
     ExtBuilder::default().build().execute_with(|| {
         System::set_block_number(1);
@@ -5395,8 +5394,7 @@ fn voting_for_pip_overlays_with_staking() {
         let alice_proposal = |deposit: u128| {
             let signer = Origin::signed(alice_acc);
             let proposal = Box::new(Call::Pips(pallet_pips::Call::set_min_proposal_deposit(0)));
-            let proposer = Proposer::Community(alice_acc);
-            Pips::propose(signer, proposer, proposal, deposit, None, None)
+            Pips::propose(signer, proposal, deposit, None, None)
         };
 
         // Bond all but 10.

@@ -15,7 +15,7 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 #![feature(box_syntax)]
 
-use polymesh_common_utilities::{identity::Trait as IdentityTrait, Context};
+use polymesh_common_utilities::identity::Trait as IdentityTrait;
 use polymesh_primitives::{IdentityId, Ticker};
 use polymesh_primitives_derive::{SliceU8StrongTyped, VecU8StrongTyped};
 
@@ -31,7 +31,6 @@ use codec::{Decode, Encode};
 use frame_support::{
     debug, decl_error, decl_event, decl_module, decl_storage, dispatch::DispatchResult,
 };
-use frame_system::{self as system, ensure_signed};
 use sp_std::prelude::*;
 
 pub mod rng;
@@ -86,8 +85,7 @@ decl_module! {
             secret_value: u64,
         ) -> DispatchResult
         {
-            let prover_acc = ensure_signed(origin)?;
-            let prover = Context::current_identity_or::<Identity<T>>(&prover_acc)?;
+            let prover = Identity::<T>::ensure_origin_call_permissions(origin)?.primary_did;
 
             // Create proof
             let mut rng = rng::Rng::default();
@@ -114,12 +112,11 @@ decl_module! {
             prover: IdentityId,
             ticker: Ticker) -> DispatchResult
         {
-            let verifier = ensure_signed(origin)?;
-            let verifier_id = Context::current_identity_or::<Identity<T>>(&verifier)?;
+            let verifier_id = Identity::<T>::ensure_origin_call_permissions(origin)?.primary_did;
 
             Self::verify_range_proof(target, prover, ticker)?;
 
-            <RangeProofVerifications>::insert((target,ticker), verifier_id, true);
+            <RangeProofVerifications>::insert((target, ticker), verifier_id, true);
             Ok(())
         }
     }

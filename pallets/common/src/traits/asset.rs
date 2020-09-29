@@ -14,9 +14,10 @@
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
 use codec::{Decode, Encode};
-use frame_support::dispatch::DispatchResult;
-use polymesh_primitives::{IdentityId, Ticker};
+use frame_support::dispatch::{DispatchResult, DispatchResultWithPostInfo};
+use polymesh_primitives::{IdentityId, PortfolioId, Ticker};
 
+pub const GAS_LIMIT: u64 = 1_000_000_000;
 /// This trait is used to call functions that accept transfer of a ticker or token ownership
 pub trait AcceptTransfer {
     /// Accept and process a ticker transfer
@@ -55,33 +56,12 @@ pub trait Trait<V, U> {
     ) -> DispatchResult;
     fn is_owner(ticker: &Ticker, did: IdentityId) -> bool;
     fn get_balance_at(ticker: &Ticker, did: IdentityId, at: u64) -> V;
-    fn unsafe_increase_custody_allowance(
-        caller_did: IdentityId,
-        ticker: Ticker,
-        holder_did: IdentityId,
-        custodian_did: IdentityId,
-        value: V,
-    ) -> DispatchResult;
-    fn unsafe_decrease_custody_allowance(
-        caller_did: IdentityId,
-        ticker: Ticker,
-        holder_did: IdentityId,
-        custodian_did: IdentityId,
-        value: V,
-    );
-    fn unsafe_system_transfer(
-        sender: IdentityId,
-        ticker: &Ticker,
-        from_did: IdentityId,
-        to_did: IdentityId,
-        value: V,
-    );
-    fn unsafe_transfer_by_custodian(
-        custodian_did: IdentityId,
-        ticker: Ticker,
-        holder_did: IdentityId,
-        receiver_did: IdentityId,
-        value: V,
-    ) -> DispatchResult;
     fn primary_issuance_agent(ticker: &Ticker) -> IdentityId;
+    fn max_number_of_tm_extension() -> u32;
+    fn base_transfer(
+        from_portfolio: PortfolioId,
+        to_portfolio: PortfolioId,
+        ticker: &Ticker,
+        value: V,
+    ) -> DispatchResultWithPostInfo;
 }

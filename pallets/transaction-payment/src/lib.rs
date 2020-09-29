@@ -1,4 +1,4 @@
-// Copyright 2019 Parity Technologies (UK) Ltd.
+// Copyright (C) 2019-2020 Parity Technologies (UK) Ltd.
 // This file is part of Substrate.
 
 // Substrate is free software: you can redistribute it and/or modify
@@ -17,6 +17,7 @@
 // Modified by Polymath Inc - 13rd March 2020
 // - Charge fee from the identity in the signed extension
 // - Introduce `ChargeTxFee` trait to compute and charge transaction fee for Multisig.
+// - Tips have been removed.
 
 //! # Transaction Payment Module
 //!
@@ -28,18 +29,15 @@
 //!     chance to be included by the transaction queue.
 //!
 //! Additionally, this module allows one to configure:
-//!   - The mapping between one unit of weight to one unit of fee via [`WeightToFee`].
+//!   - The mapping between one unit of weight to one unit of fee via [`Trait::WeightToFee`].
 //!   - A means of updating the fee for the next block, via defining a multiplier, based on the
 //!     final state of the chain at the end of the previous block. This can be configured via
-//!     [`FeeMultiplierUpdate`]
+//!     [`Trait::FeeMultiplierUpdate`]
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
 pub mod runtime_dispatch_info;
 pub use runtime_dispatch_info::RuntimeDispatchInfo;
-
-use polymesh_common_utilities::traits::transaction_payment::{CddAndFeeDetails, ChargeTxFee};
-use polymesh_primitives::{Signatory, TransactionError};
 
 use codec::{Decode, Encode};
 use frame_support::{
@@ -51,6 +49,8 @@ use frame_support::{
         WeightToFeePolynomial,
     },
 };
+use polymesh_common_utilities::traits::transaction_payment::{CddAndFeeDetails, ChargeTxFee};
+use polymesh_primitives::TransactionError;
 use sp_runtime::{
     traits::{
         Convert, DispatchInfoOf, Dispatchable, PostDispatchInfoOf, SaturatedConversion, Saturating,
@@ -60,12 +60,12 @@ use sp_runtime::{
         InvalidTransaction, TransactionPriority, TransactionValidity, TransactionValidityError,
         ValidTransaction,
     },
-    FixedI128, FixedPointNumber, FixedPointOperand, Perquintill,
+    FixedPointNumber, FixedPointOperand, FixedU128, Perquintill,
 };
 use sp_std::prelude::*;
 
 /// Fee multiplier.
-pub type Multiplier = FixedI128;
+pub type Multiplier = FixedU128;
 
 type BalanceOf<T> =
     <<T as Trait>::Currency as Currency<<T as frame_system::Trait>::AccountId>>::Balance;
@@ -78,15 +78,15 @@ type NegativeImbalanceOf<T> =
 /// system module.
 ///
 /// given:
-///     s = previous block weight
-///     s'= ideal block weight
-///     m = maximum block weight
-///        diff = (s - s')/m
-///        v = 0.00001
-///        t1 = (v * diff)
-///        t2 = (v * diff)^2 / 2
-///    then:
-///     next_multiplier = prev_multiplier * (1 + t1 + t2)
+/// 	s = previous block weight
+/// 	s'= ideal block weight
+/// 	m = maximum block weight
+///		diff = (s - s')/m
+///		v = 0.00001
+///		t1 = (v * diff)
+///		t2 = (v * diff)^2 / 2
+///	then:
+/// 	next_multiplier = prev_multiplier * (1 + t1 + t2)
 ///
 /// Where `(s', v)` must be given as the `Get` implementation of the `T` generic type. Moreover, `M`
 /// must provide the minimum allowed value for the multiplier. Note that a runtime should ensure
@@ -118,6 +118,46 @@ type NegativeImbalanceOf<T> =
 /// More info can be found at:
 /// https://w3f-research.readthedocs.io/en/latest/polkadot/Token%20Economics.html
 pub struct TargetedFeeAdjustment<T, S, V, M>(sp_std::marker::PhantomData<(T, S, V, M)>);
+
+/// Something that can convert the current multiplier to the next one.
+pub trait MultiplierUpdate: Convert<Multiplier, Multiplier> {
+    /// Minimum multiplier
+    fn min() -> Multiplier;
+    /// Target block saturation level
+    fn target() -> Perquintill;
+    /// Variability factor
+    fn variability() -> Multiplier;
+}
+
+impl MultiplierUpdate for () {
+    fn min() -> Multiplier {
+        Default::default()
+    }
+    fn target() -> Perquintill {
+        Default::default()
+    }
+    fn variability() -> Multiplier {
+        Default::default()
+    }
+}
+
+impl<T, S, V, M> MultiplierUpdate for TargetedFeeAdjustment<T, S, V, M>
+where
+    T: frame_system::Trait,
+    S: Get<Perquintill>,
+    V: Get<Multiplier>,
+    M: Get<Multiplier>,
+{
+    fn min() -> Multiplier {
+        M::get()
+    }
+    fn target() -> Perquintill {
+        S::get()
+    }
+    fn variability() -> Multiplier {
+        V::get()
+    }
+}
 
 impl<T, S, V, M> Convert<Multiplier, Multiplier> for TargetedFeeAdjustment<T, S, V, M>
 where
@@ -189,7 +229,7 @@ pub trait Trait: frame_system::Trait {
     type WeightToFee: WeightToFeePolynomial<Balance = BalanceOf<Self>>;
 
     /// Update the multiplier of the next block, based on the previous block's weight.
-    type FeeMultiplierUpdate: Convert<Multiplier, Multiplier>;
+    type FeeMultiplierUpdate: MultiplierUpdate;
 
     // Polymesh note: This was specifically added for Polymesh
     /// Fetch the signatory to charge fee from. Also sets fee payer and identity in context.
@@ -211,7 +251,7 @@ decl_module! {
         const WeightToFee: Vec<WeightToFeeCoefficient<BalanceOf<T>>> =
             T::WeightToFee::polynomial().to_vec();
 
-        // Polymesh specific change: Fee multiplier update has been disabled for the testnet.
+         // Polymesh specific change: Fee multiplier update has been disabled for the testnet.
 
         fn integrity_test() {
             // given weight == u64, we build multipliers from `diff` of two weight values, which can
@@ -224,6 +264,32 @@ decl_module! {
                     <T as frame_system::Trait>::MaximumBlockWeight::get().try_into().unwrap()
                 ).unwrap(),
             );
+
+            // This is the minimum value of the multiplier. Make sure that if we collapse to this
+            // value, we can recover with a reasonable amount of traffic. For this test we assert
+            // that if we collapse to minimum, the trend will be positive with a weight value
+            // which is 1% more than the target.
+            let min_value = T::FeeMultiplierUpdate::min();
+            let mut target =
+                T::FeeMultiplierUpdate::target() *
+                (T::AvailableBlockRatio::get() * T::MaximumBlockWeight::get());
+
+            // add 1 percent;
+            let addition = target / 100;
+            if addition == 0 {
+                // this is most likely because in a test setup we set everything to ().
+                return;
+            }
+            target += addition;
+
+            sp_io::TestExternalities::new_empty().execute_with(|| {
+                <frame_system::Module<T>>::set_block_limits(target, 0);
+                let next = T::FeeMultiplierUpdate::convert(min_value);
+                assert!(next > min_value, "The minimum bound of the multiplier is too low. When \
+                    block saturation is more than target by 1% and multiplier is minimal then \
+                    the multiplier doesn't increase."
+                );
+            })
         }
     }
 }
@@ -234,7 +300,7 @@ where
 {
     /// Query the data that we know about the fee of a given `call`.
     ///
-    /// As this module is not and cannot be aware of the internals of a signed extension, It only
+    /// As this module is not and cannot be aware of the internals of a signed extension, it only
     /// interprets the extrinsic as some encoded value and accounts for its weight
     /// and length, the runtime's extrinsic base weight, and the current fee multiplier.
     ///
@@ -308,7 +374,12 @@ where
     where
         T::Call: Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>,
     {
-        Self::compute_fee_raw(len, post_info.calc_actual_weight(info), tip, info.pays_fee)
+        Self::compute_fee_raw(
+            len,
+            post_info.calc_actual_weight(info),
+            tip,
+            post_info.pays_fee(info),
+        )
     }
 
     fn compute_fee_raw(
@@ -399,9 +470,7 @@ where
             return Ok((fee, None));
         }
 
-        if let Some(payer_key) =
-            T::CddHandler::get_valid_payer(call, &Signatory::Account(who.clone()))?
-        {
+        if let Some(payer_key) = T::CddHandler::get_valid_payer(call, &who)? {
             let imbalance = T::Currency::withdraw(
                 &payer_key,
                 fee,
@@ -446,6 +515,7 @@ where
     fn additional_signed(&self) -> sp_std::result::Result<(), TransactionValidityError> {
         Ok(())
     }
+
     // Polymesh note: Almost all of this function was re written to enforce zero tip and charge fee to proper payer.
     fn validate(
         &self,
@@ -499,14 +569,11 @@ where
             if let Some(payer_account) = T::CddHandler::get_payer_from_context() {
                 let actual_payment =
                     match T::Currency::deposit_into_existing(&payer_account, refund) {
-                        Ok(refund_imbalance) => {
-                            // The refund cannot be larger than the up front payed max weight.
-                            // `PostDispatchInfo::calc_unspent` guards against such a case.
-                            match payed.offset(refund_imbalance) {
-                                Ok(actual_payment) => actual_payment,
-                                Err(_) => return Err(InvalidTransaction::Payment.into()),
-                            }
-                        }
+                        // The refund cannot be larger than the up front payed max weight.
+                        // `PostDispatchInfo::calc_unspent` guards against such a case.
+                        Ok(refund_imbalance) => payed
+                            .offset(refund_imbalance)
+                            .map_err(|_| InvalidTransaction::Payment)?,
                         // We do not recreate the account using the refund. The up front payment
                         // is gone in that case.
                         Err(_) => payed,

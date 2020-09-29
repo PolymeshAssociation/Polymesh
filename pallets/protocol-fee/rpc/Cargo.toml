@@ -16,6 +16,6 @@ jsonrpc-derive = "14.0.5"
 
 # Substrate
 codec = { package = "parity-scale-codec", version = "1.2.0" }
-sp-runtime = { git = "https://github.com/PolymathNetwork/substrate", default_features = false, branch = "remove-subtype-trait" }
-sp-blockchain = { git = "https://github.com/PolymathNetwork/substrate", default_features = false, branch = "remove-subtype-trait"}
-sp-api = { git = "https://github.com/PolymathNetwork/substrate", default_features = false, branch = "remove-subtype-trait"}
+sp-runtime = { git = 'https://github.com/paritytech/substrate', default_features = false, tag = "v2.0.0-rc6" }
+sp-blockchain = { git = 'https://github.com/paritytech/substrate', default_features = false, tag = "v2.0.0-rc6"}
+sp-api = { git = 'https://github.com/paritytech/substrate', default_features = false, tag = "v2.0.0-rc6"}

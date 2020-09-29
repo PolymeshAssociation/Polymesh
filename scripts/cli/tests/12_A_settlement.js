@@ -24,10 +24,7 @@ async function main() {
   let bob_did = await reqImports.createIdentities(api, [bob], alice);
   bob_did = bob_did[0];
 
-  let alice_did = JSON.parse(
-    await reqImports.keyToIdentityIds(api, alice.publicKey)
-  );
-  alice_did = alice_did.Unique;
+  let alice_did = await reqImports.keyToIdentityIds(api, alice.publicKey);
 
   await reqImports.distributePolyBatch(
     api,
@@ -38,7 +35,7 @@ async function main() {
 
   await reqImports.issueTokenPerDid(api, [alice], prepend);
 
-  await addActiveRule(api, alice, ticker);
+  await addComplianceRequirement(api, alice, ticker);
 
   let aliceACMEBalance = await api.query.asset.balanceOf(ticker, alice_did);
   let bobACMEBalance = await api.query.asset.balanceOf(ticker, bob_did);
@@ -59,16 +56,16 @@ async function main() {
     ticker,
     100
   );
- 
-  await authorizeInstruction(api, alice, intructionCounterAB);
-  await authorizeInstruction(api, bob, intructionCounterAB);
- 
+
+  await authorizeInstruction(api, alice, intructionCounterAB, alice_did);
+  await authorizeInstruction(api, bob, intructionCounterAB, bob_did);
+
   //await rejectInstruction(api, bob, intructionCounter);
   //await unathorizeInstruction(api, alice, instructionCounter);
 
   aliceACMEBalance = await api.query.asset.balanceOf(ticker, alice_did);
   bobACMEBalance = await api.query.asset.balanceOf(ticker, bob_did);
- 
+
   console.log(`alice asset balance -------->  ${aliceACMEBalance}`);
   console.log(`bob asset balance -------->  ${bobACMEBalance}`);
 
@@ -84,9 +81,9 @@ async function main() {
 }
 
 
-async function addActiveRule(api, sender, ticker) {
-  
-  const transaction = await api.tx.complianceManager.addActiveRule(
+async function addComplianceRequirement(api, sender, ticker) {
+
+  const transaction = await api.tx.complianceManager.addComplianceRequirement(
     ticker,
     [],
     []
@@ -102,12 +99,16 @@ async function createVenue(api, sender) {
 
   const transaction = await api.tx.settlement.createVenue(venueDetails, [
     sender.address,
-  ]);
+  ], 0);
 
   let tx = await reqImports.sendTx(sender, transaction);
   if(tx !== -1) reqImports.fail_count--;
 
   return venueCounter;
+}
+
+function getDefaultPortfolio(did) {
+  return { "did": did, "kind": "Default" };
 }
 
 async function addInstruction(
@@ -119,16 +120,16 @@ async function addInstruction(
   ticker,
   amount
 ) {
- 
+
   let instructionCounter = await api.query.settlement.instructionCounter();
- 
+
   let leg = {
-    from: sender_did,
-    to: receiver_did,
+    from: getDefaultPortfolio(sender_did),
+    to: getDefaultPortfolio(receiver_did),
     asset: ticker,
     amount: amount,
   };
- 
+
     transaction = await api.tx.settlement.addInstruction(
       venueCounter,
       0,
@@ -142,32 +143,35 @@ async function addInstruction(
   return instructionCounter;
 }
 
-async function authorizeInstruction(api, sender, instructionCounter) {
-  
+async function authorizeInstruction(api, sender, instructionCounter, did) {
+
   const transaction = await api.tx.settlement.authorizeInstruction(
-    instructionCounter
+    instructionCounter,
+    [getDefaultPortfolio(did)]
   );
- 
+
   let tx = await reqImports.sendTx(sender, transaction);
   if(tx !== -1) reqImports.fail_count--;
 }
 
-async function unauthorizeInstruction(api, sender, instructionCounter) {
- 
+async function unauthorizeInstruction(api, sender, instructionCounter, did) {
+
   const transaction = await api.tx.settlement.unauthorizeInstruction(
-    instructionCounter
+    instructionCounter,
+    [getDefaultPortfolio(did)]
   );
- 
+
   let tx = await reqImports.sendTx(sender, transaction);
   if(tx !== -1) reqImports.fail_count--;
 }
 
-async function rejectInstruction(api, sender, instructionCounter) {
- 
+async function rejectInstruction(api, sender, instructionCounter, did) {
+
   const transaction = await api.tx.settlement.rejectInstruction(
-    instructionCounter
+    instructionCounter,
+    [getDefaultPortfolio(did)]
   );
- 
+
   let tx = await reqImports.sendTx(sender, transaction);
   if(tx !== -1) reqImports.fail_count--;
 }

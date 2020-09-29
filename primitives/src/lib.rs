@@ -17,9 +17,14 @@
 
 #![warn(missing_docs)]
 #![cfg_attr(not(feature = "std"), no_std)]
+#![feature(bool_to_option)]
 
 use blake2::{Blake2b, Digest};
 use curve25519_dalek::scalar::Scalar;
+use polymesh_primitives_derive::VecU8StrongTyped;
+#[cfg(feature = "std")]
+use sp_runtime::{Deserialize, Serialize};
+use sp_std::prelude::Vec;
 
 pub use codec::{Compact, Decode, Encode};
 pub use sp_runtime::{
@@ -27,9 +32,6 @@ pub use sp_runtime::{
     traits::{BlakeTwo256, Hash as HashT, IdentifyAccount, Member, Verify},
     MultiSignature,
 };
-
-#[cfg(feature = "std")]
-use sp_runtime::{Deserialize, Serialize};
 
 /// An index to a block.
 /// 32-bits will allow for 136 years of blocks assuming 1 block per second.
@@ -141,13 +143,17 @@ pub use sp_runtime::OpaqueExtrinsic as UncheckedExtrinsic;
 pub mod ignored_case_string;
 pub use ignored_case_string::IgnoredCaseString;
 
+/// Asset identifiers.
+pub mod asset_identifier;
+pub use asset_identifier::AssetIdentifier;
+
 /// Role for identities.
 pub mod identity_role;
 pub use identity_role::IdentityRole;
 
 /// Polymesh Distributed Identity.
 pub mod identity_id;
-pub use identity_id::{IdentityId, PortfolioId, PortfolioName, PortfolioNumber};
+pub use identity_id::{IdentityId, PortfolioId, PortfolioKind, PortfolioName, PortfolioNumber};
 
 /// Identity information.
 /// Each DID is associated with this kind of record.
@@ -167,11 +173,25 @@ pub use investor_zkproof_data::InvestorZKProofData;
 /// Claim information.
 /// Each claim is associated with this kind of record.
 pub mod identity_claim;
-pub use identity_claim::{Claim, ClaimType, IdentityClaim, JurisdictionName, Scope, ScopeId};
+pub use identity_claim::{Claim, ClaimType, IdentityClaim, Scope, ScopeId};
+
+// Defining and enumerating jurisdictions.
+pub mod jurisdiction;
+pub use jurisdiction::{CountryCode, JurisdictionName};
+
+/// Utilities for storage migration.
+pub mod migrate;
 
 /// This module contains entities related with secondary keys.
 pub mod secondary_key;
-pub use secondary_key::{Permission, SecondaryKey, Signatory};
+pub use secondary_key::{
+    AssetPermissions, ExtrinsicPermissions, PalletPermissions, Permissions, PortfolioPermissions,
+    SecondaryKey, Signatory,
+};
+
+/// Subset type.
+pub mod subset;
+pub use subset::{LatticeOrd, LatticeOrdering, SubsetRestriction};
 
 /// Generic authorization data types for all two step processes
 pub mod authorization;
@@ -197,14 +217,16 @@ pub mod document;
 pub use document::{Document, DocumentHash, DocumentName, DocumentUri};
 
 /// Rules for claims.
-pub mod rule;
-pub use rule::{Rule, RuleType, TargetIdentity};
+pub mod condition;
+pub use condition::{Condition, ConditionType, TargetIdentity};
 
 /// Predicate calculation for Claims.
-pub mod predicate;
-pub use predicate::{
-    AndPredicate, Context, NotPredicate, OrPredicate, Predicate, ValidProofOfInvestorPredicate,
-};
+pub mod proposition;
+pub use proposition::{AndProposition, Context, NotProposition, OrProposition, Proposition};
+
+/// For confidential stuff.
+pub mod valid_proof_of_investor;
+pub use valid_proof_of_investor::ValidProofOfInvestor;
 
 /// Represents custom transaction errors.
 #[repr(u8)]
@@ -227,6 +249,20 @@ pub struct Beneficiary<Balance> {
     /// Amount requested to this beneficiary.
     pub amount: Balance,
 }
+
+/// The name of a pallet.
+#[derive(
+    Decode, Encode, Clone, Debug, Default, Hash, PartialEq, Eq, PartialOrd, Ord, VecU8StrongTyped,
+)]
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+pub struct PalletName(pub Vec<u8>);
+
+/// The name of a function within a pallet.
+#[derive(
+    Decode, Encode, Clone, Debug, Default, Hash, PartialEq, Eq, PartialOrd, Ord, VecU8StrongTyped,
+)]
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+pub struct DispatchableName(pub Vec<u8>);
 
 #[cfg(test)]
 mod tests {

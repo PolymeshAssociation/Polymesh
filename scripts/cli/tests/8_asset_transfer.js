@@ -26,15 +26,15 @@ async function main() {
   await reqImports.issueTokenPerDid( api, primary_keys, prepend);
 
   // receiverRules Claim
-  await reqImports.addClaimsToDids( api, primary_keys, issuer_dids[2], "Exempted", asset_did, null );
+  await reqImports.addClaimsToDids( api, primary_keys, issuer_dids[2], "Exempted", { "Ticker": ticker }, null );
 
   // senderRules Claim
-  await reqImports.addClaimsToDids( api, primary_keys, issuer_dids[1], "Exempted", asset_did, null );
+  await reqImports.addClaimsToDids( api, primary_keys, issuer_dids[1], "Exempted", { "Ticker": ticker }, null );
 
   // issuer Claim
-  await reqImports.addClaimsToDids( api, primary_keys, issuer_dids[0], "Exempted", asset_did, null );
+  await reqImports.addClaimsToDids( api, primary_keys, issuer_dids[0], "Exempted", { "Ticker": ticker }, null );
 
-  await reqImports.createClaimRules( api, primary_keys, issuer_dids, prepend );
+  await reqImports.createClaimCompliance( api, primary_keys, issuer_dids, prepend );
 
   await mintingAsset( api, primary_keys[0], prepend );
 
@@ -53,13 +53,10 @@ async function main() {
 
 async function mintingAsset(api, minter, prepend) {
   const ticker = `token${prepend}0`.toUpperCase();
-  let nonceObj = {nonce: reqImports.nonces.get(minter.address)};
   const transaction = await api.tx.asset.issue(ticker, 100);
-  const result = await reqImports.sendTransaction(transaction, minter, nonceObj);
-  const passed = result.findRecord('system', 'ExtrinsicSuccess');
-  if (passed) reqImports.fail_count--;
+  let tx = await reqImports.sendTx(minter, transaction);
+  if(tx !== -1) reqImports.fail_count--;
 
-  reqImports.nonces.set(minter.address, reqImports.nonces.get(minter.address).addn(1));
 }
 
 // TODO: Use settlement module
