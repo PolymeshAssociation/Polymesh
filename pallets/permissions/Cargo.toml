@@ -1,5 +1,5 @@
 [package]
-name = "pallet-portfolio"
+name = "pallet-permissions"
 version = "0.1.0"
 authors = ["Polymath"]
 edition = "2018"
@@ -9,20 +9,15 @@ edition = "2018"
 polymesh-common-utilities = { package = "polymesh-common-utilities", path = "../common", default-features = false }
 polymesh-primitives = { path = "../../primitives", default-features = false }
 
-# Our Pallets
-pallet-balances = { package = "pallet-balances", path = "../balances", default-features = false  }
-pallet-identity = { package = "pallet-identity", path = "../identity", default-features = false  }
-pallet-permissions = { path = "../permissions", default-features = false }
-
 # Other
 serde = { version = "1.0.104", default-features = false }
 
 # Substrate
 codec = { package = "parity-scale-codec", version = "1.1.0", default-features = false, features = ["derive"] }
 frame-support = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0-rc6" }
-frame-system = { package = "frame-system", git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0-rc6" }
-sp-arithmetic = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0-rc6" }
+sp-runtime = { package = "sp-runtime", git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0-rc6" }
 sp-std = { package = "sp-std", git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0-rc6" }
+frame-benchmarking = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0-rc6", optional = true }
 
 [features]
 equalize = []
@@ -32,12 +27,13 @@ only-staking = []
 std = [
     "codec/std",
     "frame-support/std",
-    "frame-system/std",
-    "pallet-balances/std",
     "polymesh-common-utilities/std",
     "polymesh-primitives/std",
     "serde/std",
+    "sp-runtime/std",
     "sp-std/std",
 ]
 runtime-benchmarks = [
+    "frame-benchmarking",
+    "sp-runtime/runtime-benchmarks",
 ]

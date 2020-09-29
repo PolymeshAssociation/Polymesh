@@ -105,6 +105,8 @@ use sp_std::{
     prelude::*,
 };
 
+type CallPermissions<T> = pallet_permissions::Module<T>;
+
 /// The module's configuration trait.
 pub trait Trait:
     pallet_timestamp::Trait + frame_system::Trait + BalancesTrait + IdentityTrait
@@ -314,6 +316,7 @@ decl_module! {
         #[weight = T::DbWeight::get().reads_writes(1, 1) + 600_000_000 + 1_000_000 * u64::try_from(max(sender_conditions.len(), receiver_conditions.len())).unwrap_or_default()]
         pub fn add_compliance_requirement(origin, ticker: Ticker, sender_conditions: Vec<Condition>, receiver_conditions: Vec<Condition>) -> DispatchResult {
             let sender = ensure_signed(origin)?;
+            CallPermissions::<T>::ensure_call_permissions(&sender)?;
             let did = Context::current_identity_or::<Identity<T>>(&sender)?;
 
             ensure!(Self::is_owner(&ticker, did), Error::<T>::Unauthorized);
@@ -351,6 +354,7 @@ decl_module! {
         #[weight = T::DbWeight::get().reads_writes(1, 1) + 200_000_000]
         pub fn remove_compliance_requirement(origin, ticker: Ticker, id: u32) -> DispatchResult {
             let sender = ensure_signed(origin)?;
+            CallPermissions::<T>::ensure_call_permissions(&sender)?;
             let did = Context::current_identity_or::<Identity<T>>(&sender)?;
 
             ensure!(Self::is_owner(&ticker, did), Error::<T>::Unauthorized);
@@ -382,6 +386,7 @@ decl_module! {
         #[weight = T::DbWeight::get().reads_writes(1, 1) + 400_000_000 + 500_000 * u64::try_from(asset_compliance.len()).unwrap_or_default()]
         pub fn replace_asset_compliance(origin, ticker: Ticker, asset_compliance: Vec<ComplianceRequirement>) -> DispatchResult {
             let sender = ensure_signed(origin)?;
+            CallPermissions::<T>::ensure_call_permissions(&sender)?;
             let did = Context::current_identity_or::<Identity<T>>(&sender)?;
             ensure!(Self::is_owner(&ticker, did), Error::<T>::Unauthorized);
             let mut asset_compliance_dedup = asset_compliance.clone();
@@ -403,6 +408,7 @@ decl_module! {
         #[weight = T::DbWeight::get().reads_writes(1, 1) + 100_000_000]
         pub fn reset_asset_compliance(origin, ticker: Ticker) -> DispatchResult {
             let sender = ensure_signed(origin)?;
+            CallPermissions::<T>::ensure_call_permissions(&sender)?;
             let did = Context::current_identity_or::<Identity<T>>(&sender)?;
             ensure!(Self::is_owner(&ticker, did), Error::<T>::Unauthorized);
 
@@ -476,6 +482,7 @@ decl_module! {
         #[weight = T::DbWeight::get().reads_writes(2, 1) + 720_000_000]
         pub fn change_compliance_requirement(origin, ticker: Ticker, new_requirement: ComplianceRequirement) -> DispatchResult {
             let sender = ensure_signed(origin)?;
+            CallPermissions::<T>::ensure_call_permissions(&sender)?;
             let did = Context::current_identity_or::<Identity<T>>(&sender)?;
 
             ensure!(Self::is_owner(&ticker, did), Error::<T>::Unauthorized);
@@ -655,6 +662,7 @@ impl<T: Trait> Module<T> {
         pause: bool,
     ) -> DispatchResult {
         let sender = ensure_signed(origin)?;
+        CallPermissions::<T>::ensure_call_permissions(&sender)?;
         let did = Context::current_identity_or::<Identity<T>>(&sender)?;
 
         ensure!(Self::is_owner(&ticker, did), Error::<T>::Unauthorized);
@@ -701,6 +709,7 @@ impl<T: Trait> Module<T> {
         is_add_call: bool,
     ) -> DispatchResult {
         let sender = ensure_signed(origin)?;
+        CallPermissions::<T>::ensure_call_permissions(&sender)?;
         let did = Context::current_identity_or::<Identity<T>>(&sender)?;
 
         ensure!(Self::is_owner(&ticker, did), Error::<T>::Unauthorized);
