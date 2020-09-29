@@ -587,18 +587,15 @@ impl<T: Trait> Module<T> {
             Self::trusted_claim_issuer(ticker)
         };
 
-        let claims = match condition.condition_type {
-            ConditionType::IsPresent(ref claim) => Self::fetch_claims(id, claim, &issuers),
-            ConditionType::IsAbsent(ref claim) => Self::fetch_claims(id, claim, &issuers),
-            ConditionType::IsAnyOf(ref claims) => claims
+        let claims = match &condition.condition_type {
+            ConditionType::IsPresent(claim) | ConditionType::IsAbsent(claim) => {
+                Self::fetch_claims(id, claim, &issuers)
+            }
+            ConditionType::IsAnyOf(claims) | ConditionType::IsNoneOf(claims) => claims
                 .iter()
                 .flat_map(|claim| Self::fetch_claims(id, claim, &issuers))
                 .collect::<Vec<_>>(),
-            ConditionType::IsNoneOf(ref claims) => claims
-                .iter()
-                .flat_map(|claim| Self::fetch_claims(id, claim, &issuers))
-                .collect::<Vec<_>>(),
-            ConditionType::HasValidProofOfInvestor(ref proof_ticker) => {
+            ConditionType::HasValidProofOfInvestor(proof_ticker) => {
                 Self::fetch_confidential_claims(id, proof_ticker)
             }
             ConditionType::IsIdentity(_) => vec![],
@@ -634,25 +631,21 @@ impl<T: Trait> Module<T> {
         proposition::run(&condition, &context)
     }
 
-    /// It loads a context for each condition in `conditions` and evaluates them.
-    /// It updates the internal result variable of every condition.
-    /// It returns the final result of all conditions combined.
+    /// Returns whether all conditions, in their proper context, hold when evaluated.
+    /// As a side-effect, each condition will be updated with its result,
+    /// implying strict (non-lazy) evaluation of the conditions.
     fn evaluate_conditions(
         ticker: &Ticker,
         did: IdentityId,
-        conditions: &mut Vec<ConditionResult>,
+        conditions: &mut [ConditionResult],
         primary_issuance_agent: Option<IdentityId>,
     ) -> bool {
-        let mut result = true;
-        for condition in conditions {
+        conditions.iter_mut().fold(true, |result, condition| {
             let context =
                 Self::fetch_context(ticker, did, &condition.condition, primary_issuance_agent);
             condition.result = proposition::run(&condition.condition, &context);
-            if !condition.result {
-                result = false;
-            }
-        }
-        result
+            result & condition.result
+        })
     }
 
     /// Pauses or resumes the asset compliance.
