@@ -1214,22 +1214,26 @@ impl<T: Trait> AssetSubTrait for Module<T> {
         Self::_accept_token_ownership_transfer(to_did, auth_id)
     }
 
-    fn update_balance_of_scope_id(of: ScopeId, whom: IdentityId, ticker: Ticker) -> DispatchResult {
-        let current_balance = Self::balance_of(ticker, whom);
-        let balance_at_scope = Self::balance_of_at_scope(of, whom);
+    fn update_balance_of_scope_id(
+        of: ScopeId,
+        target_did: IdentityId,
+        ticker: Ticker,
+    ) -> DispatchResult {
+        let current_balance = Self::balance_of(ticker, target_did);
+        let balance_at_scope = Self::balance_of_at_scope(of, target_did);
         // Conditions to check.
         // 1. Check of `current_balance` is used to skip storage changes when user has 0 current balance.
         // 2. Used `balance_at_scope` variable to skip re-updating the aggregate balance of the given identityId whom
         // has the scope claim already.
         if current_balance > Zero::zero() && balance_at_scope == Zero::zero() {
             // Update the balance on the identityId under the given scopeId.
-            <BalanceOfAtScope<T>>::insert(of, whom, current_balance);
+            <BalanceOfAtScope<T>>::insert(of, target_did, current_balance);
             // current aggregate balance + current identity balance is always less then the total_supply of given ticker.
             <AggregateBalance<T>>::mutate(ticker, of, |bal| *bal = *bal + current_balance);
         }
         // Caches the `ScopeId` for a given IdentityId and ticker.
         // this is needed to avoid the on-chain iteration of the claims to find the ScopeId.
-        <ScopeIdOf>::insert(ticker, whom, of);
+        <ScopeIdOf>::insert(ticker, target_did, of);
         Ok(())
     }
 }
@@ -1529,44 +1533,42 @@ impl<T: Trait> Module<T> {
             value,
         );
 
-        // Update the storage on the basis of the `ScopeId`.
+        // Update the storage on the basis of the `ScopeId`
+        let update_balance = |scope_id, did, update_balance, is_sender| {
+            // Calculate the new aggregate balance for given did.
+            // It should not underflow/overflow but still to be defensive.
+            let new_aggregate_balance = if is_sender {
+                Self::aggregate_balance_of(ticker, &scope_id).saturating_sub(value)
+            } else {
+                Self::aggregate_balance_of(ticker, &scope_id).saturating_add(value)
+            };
 
-        // a). For the receiver.
-        let to_scope_id = Self::scope_id_of(ticker, &to_portfolio.did);
-        // Aggregate balance always <= total_supply but still to be defensive.
-        let current_to_aggregate_balance =
-            Self::aggregate_balance_of(ticker, &to_scope_id).saturating_add(value);
-
-        // b). For the sender.
-        let from_scope_id = Self::scope_id_of(ticker, &from_portfolio.did);
-        // Calculate the new aggregate balance for sender. It should not underflow but still to be defensive.
-        let current_from_aggregate_balance =
-            Self::aggregate_balance_of(ticker, &from_scope_id).saturating_sub(value);
-
-        let update_balance = |scope_id, did, update_balance, agg_balance| {
-            <AggregateBalance<T>>::insert(ticker, &scope_id, agg_balance);
+            <AggregateBalance<T>>::insert(ticker, &scope_id, new_aggregate_balance);
             <BalanceOfAtScope<T>>::insert(scope_id, did, update_balance);
         };
 
-        update_balance(
-            to_scope_id,
-            to_portfolio.did,
-            updated_to_total_balance,
-            current_to_aggregate_balance,
-        );
+        let from_scope_id = Self::scope_id_of(ticker, &from_portfolio.did);
+        let to_scope_id = Self::scope_id_of(ticker, &to_portfolio.did);
+
         update_balance(
             from_scope_id,
             from_portfolio.did,
             updated_from_total_balance,
-            current_from_aggregate_balance,
+            true,
+        );
+        update_balance(
+            to_scope_id,
+            to_portfolio.did,
+            updated_to_total_balance,
+            false,
         );
 
         // Update statistic info.
         // Using the aggregate balance to update the unique investor count.
         <statistics::Module<T>>::update_transfer_stats(
             ticker,
-            Some(current_from_aggregate_balance),
-            Some(current_to_aggregate_balance),
+            Some(Self::aggregate_balance_of(ticker, &from_scope_id)),
+            Some(Self::aggregate_balance_of(ticker, &to_scope_id)),
             value,
         );
 
