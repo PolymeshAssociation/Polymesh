@@ -60,7 +60,7 @@ pub fn create_se_template<T>(
 ) where
     T: frame_system::Trait<Hash = sp_core::H256>,
 {
-    let wasm_length_weight = 3598000000;
+    let wasm_length_weight = 1194500000;
 
     // Set payer in context
     TestStorage::set_payer_context(Some(template_creator));
@@ -242,7 +242,7 @@ fn check_instantiation_functionality() {
             let new_alice_balance = System::account(alice).data.free;
             let new_bob_balance = System::account(bob).data.free;
 
-            assert_eq!(bob_balance - new_bob_balance, instantiation_fee);
+            assert_eq!(bob_balance - new_bob_balance, instantiation_fee + 100); // 100 for instantiation.
             assert_eq!(alice_balance + instantiation_fee, new_alice_balance);
 
             // Generate the contract address.

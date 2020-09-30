@@ -71,32 +71,19 @@ macro_rules! assert_revoke_claim {
     };
 }
 
-// fn smart_extension_addition(
-//     account_id: AccountId,
-//     extension_name: SmartExtensionName,
-//     signer: Origin,
-//     ticker: Ticker,
-// ) -> DispatchResult {
-//     let extension_details = SmartExtension {
-//         extension_type: SmartExtensionType::TransferManager,
-//         extension_name: extension_name,
-//         extension_id: account_id,
-//         is_archive: false,
-//     };
-
-//     Asset::add_extension(signer, ticker, extension_details.clone())
-// }
-
-fn setup_se_template<T>(creator: AccountId, creator_did: IdentityId) -> AccountId
+fn setup_se_template<T>(creator: AccountId, creator_did: IdentityId, create_instance: bool) -> AccountId
 where
     T: frame_system::Trait<Hash = sp_core::H256>,
 {
     let (wasm, code_hash) = compile_module::<TestStorage>("flipper").unwrap();
 
     let input_data = hex!("0222FF18");
-    // Create SE template.
-    create_se_template::<TestStorage>(creator, creator_did, 0, code_hash, wasm);
 
+    if create_instance {
+        // Create SE template.
+        create_se_template::<TestStorage>(creator, creator_did, 0, code_hash, wasm);
+    }
+    
     // Create SE instance.
     assert_ok!(create_contract_instance::<TestStorage>(
         creator, code_hash, 0, false
@@ -994,7 +981,7 @@ fn add_extension_successfully() {
 
             // Add smart extension
             let extension_name = b"PTM".into();
-            let extension_id = setup_se_template::<TestStorage>(dave, dave_did);
+            let extension_id = setup_se_template::<TestStorage>(dave, dave_did, true);
 
             let extension_details = SmartExtension {
                 extension_type: SmartExtensionType::TransferManager,
@@ -1063,7 +1050,7 @@ fn add_same_extension_should_fail() {
 
             // Add smart extension
             let extension_name = b"PTM".into();
-            let extension_id = setup_se_template::<TestStorage>(dave, owner_did);
+            let extension_id = setup_se_template::<TestStorage>(dave, owner_did, true);
 
             let extension_details = SmartExtension {
                 extension_type: SmartExtensionType::TransferManager,
@@ -1136,7 +1123,7 @@ fn should_successfully_archive_extension() {
             ));
             // Add smart extension
             let extension_name = b"STO".into();
-            let extension_id = setup_se_template::<TestStorage>(dave, owner_did);
+            let extension_id = setup_se_template::<TestStorage>(dave, owner_did, true);
 
             let extension_details = SmartExtension {
                 extension_type: SmartExtensionType::Offerings,
@@ -1215,7 +1202,7 @@ fn should_fail_to_archive_an_already_archived_extension() {
             ));
             // Add smart extension
             let extension_name = b"STO".into();
-            let extension_id = setup_se_template::<TestStorage>(dave, owner_did);
+            let extension_id = setup_se_template::<TestStorage>(dave, owner_did, true);
 
             let extension_details = SmartExtension {
                 extension_type: SmartExtensionType::Offerings,
@@ -1344,7 +1331,7 @@ fn should_successfuly_unarchive_an_extension() {
             ));
             // Add smart extension
             let extension_name = b"STO".into();
-            let extension_id = setup_se_template::<TestStorage>(dave, owner_did);
+            let extension_id = setup_se_template::<TestStorage>(dave, owner_did, true);
 
             let extension_details = SmartExtension {
                 extension_type: SmartExtensionType::Offerings,
@@ -1433,7 +1420,7 @@ fn should_fail_to_unarchive_an_already_unarchived_extension() {
             ));
             // Add smart extension
             let extension_name = b"STO".into();
-            let extension_id = setup_se_template::<TestStorage>(dave, owner_did);
+            let extension_id = setup_se_template::<TestStorage>(dave, owner_did, true);
 
             let extension_details = SmartExtension {
                 extension_type: SmartExtensionType::Offerings,
@@ -1924,6 +1911,8 @@ fn test_weights_for_is_valid_transfer() {
                 Claim::KnowYourCustomer(ticker_id.into())
             );
 
+            let extension_id_1 = setup_se_template::<TestStorage>(alice, alice_did, true);
+
             // Add Tms
             assert_ok!(Asset::add_extension(
                 alice_signed.clone(),
@@ -1931,10 +1920,12 @@ fn test_weights_for_is_valid_transfer() {
                 SmartExtension {
                     extension_type: SmartExtensionType::TransferManager,
                     extension_name: b"ABC".into(),
-                    extension_id: account_from(1),
+                    extension_id: extension_id_1,
                     is_archive: false
                 }
             ));
+
+            let extension_id_2 = setup_se_template::<TestStorage>(alice, alice_did, false);
 
             assert_ok!(Asset::add_extension(
                 alice_signed.clone(),
@@ -1942,7 +1933,7 @@ fn test_weights_for_is_valid_transfer() {
                 SmartExtension {
                     extension_type: SmartExtensionType::TransferManager,
                     extension_name: b"ABC".into(),
-                    extension_id: account_from(2),
+                    extension_id: extension_id_2,
                     is_archive: false
                 }
             ));
@@ -2057,7 +2048,7 @@ fn check_functionality_of_remove_extension() {
                 None,
             ));
 
-            let extension_id = account_from(1);
+            let extension_id = setup_se_template::<TestStorage>(alice, alice_did, true);
 
             // Add Tms
             assert_ok!(Asset::add_extension(
