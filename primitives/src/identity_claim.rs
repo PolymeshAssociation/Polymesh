@@ -164,6 +164,7 @@ impl Claim {
 ///
 /// # TODO
 /// - Could we use `std::mem::Discriminant`?
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[derive(Encode, Decode, Copy, Clone, PartialEq, Eq, Debug, PartialOrd, Ord)]
 pub enum ClaimType {
     /// User is Accredited
