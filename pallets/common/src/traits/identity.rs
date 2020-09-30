@@ -24,18 +24,17 @@ use crate::{
     },
     ChargeProtocolFee, SystematicIssuers,
 };
-use polymesh_primitives::{
-    secondary_key::api::{Permissions, SecondaryKey},
-    AuthorizationData, IdentityClaim, IdentityId, Signatory, Ticker,
-};
-
 use codec::{Decode, Encode};
 use frame_support::{
     decl_event,
     dispatch::PostDispatchInfo,
-    traits::{Currency, GetCallMetadata},
+    traits::{Currency, EnsureOrigin, GetCallMetadata},
     weights::GetDispatchInfo,
     Parameter,
+};
+use polymesh_primitives::{
+    secondary_key::api::{Permissions, SecondaryKey},
+    AuthorizationData, IdentityClaim, IdentityId, Signatory, Ticker,
 };
 use sp_core::H512;
 use sp_runtime::traits::{Dispatchable, IdentifyAccount, Member, Verify};
@@ -131,6 +130,9 @@ pub trait Trait: CommonTrait + pallet_timestamp::Trait + balances::Trait {
     type Public: IdentifyAccount<AccountId = Self::AccountId>;
     type OffChainSignature: Verify<Signer = Self::Public> + Member + Decode + Encode;
     type ProtocolFee: ChargeProtocolFee<Self::AccountId, Self::Balance>;
+
+    /// Origin for Governance Committee voting majority origin.
+    type GCVotingMajorityOrigin: EnsureOrigin<Self::Origin>;
 }
 
 // rustfmt adds a comma after Option<Moment> in NewAuthorization and it breaks compilation

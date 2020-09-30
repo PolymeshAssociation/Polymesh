@@ -4,7 +4,7 @@ use crate::{
     ext_builder::{ExtBuilder, MockProtocolBaseFees},
     pips_test::assert_balance,
     storage::{
-        account_from, add_secondary_key, make_account_without_cdd,
+        account_from, add_secondary_key, make_account_without_cdd, provide_scope_claim,
         provide_scope_claim_to_multiple_parties, register_keyring_account, AccountId, TestStorage,
     },
 };
@@ -20,8 +20,8 @@ use ink_primitives::hash as FunctionSelectorHasher;
 use pallet_asset::ethereum;
 use pallet_asset::{
     self as asset, AssetOwnershipRelation, AssetType, ClassicTickerImport,
-    ClassicTickerRegistration, ClassicTickers, FundingRoundName, SecurityToken, TickerRegistration,
-    TickerRegistrationConfig, Tickers,
+    ClassicTickerRegistration, ClassicTickers, FundingRoundName, ScopeIdOf, SecurityToken,
+    TickerRegistration, TickerRegistrationConfig, Tickers,
 };
 use pallet_balances as balances;
 use pallet_compliance_manager as compliance_manager;
@@ -35,8 +35,8 @@ use polymesh_common_utilities::{
 use polymesh_contracts::NonceBasedAddressDeterminer;
 use polymesh_primitives::{
     AssetIdentifier, AuthorizationData, Claim, Condition, ConditionType, Document, DocumentName,
-    IdentityId, PortfolioId, Signatory, SmartExtension, SmartExtensionName, SmartExtensionType,
-    Ticker,
+    IdentityId, InvestorUid, PortfolioId, Signatory, SmartExtension, SmartExtensionName,
+    SmartExtensionType, Ticker,
 };
 use rand::Rng;
 use sp_io::hashing::keccak_256;
@@ -2516,4 +2516,150 @@ fn classic_ticker_claim_works() {
         assert_ok!(create(charlie_acc, "ZETA", 0 * fee));
         assert_eq!(ClassicTickers::get(&zeta), None);
     });
+}
+
+fn generate_uid(entity_name: String) -> InvestorUid {
+    InvestorUid::from(format!("uid_{}", entity_name).as_bytes())
+}
+
+// Test for the validating the code for unique investors and aggregation of balances.
+#[test]
+fn check_unique_investor_count() {
+    ExtBuilder::default()
+        .set_max_tms_allowed(5)
+        .cdd_providers(vec![AccountKeyring::Charlie.public()])
+        .build()
+        .execute_with(|| {
+            // cdd provider.
+            let cdd_provider = AccountKeyring::Charlie.public();
+
+            let alice = AccountKeyring::Alice.public();
+            let (alice_signed, alice_did) = make_account_without_cdd(alice).unwrap();
+
+            // Bob entity as investor in given ticker.
+            let bob_1 = AccountKeyring::Bob.public();
+            let (bob_1_signed, bob_1_did) = make_account_without_cdd(bob_1).unwrap();
+
+            // Eve also comes under the `Bob` entity.
+            let bob_2 = AccountKeyring::Eve.public();
+            let (bob_2_signed, bob_2_did) = make_account_without_cdd(bob_2).unwrap();
+
+            let total_supply = 1_000_000_000;
+
+            let token = SecurityToken {
+                name: vec![0x01].into(),
+                owner_did: alice_did,
+                total_supply: total_supply,
+                divisible: true,
+                asset_type: AssetType::default(),
+                primary_issuance_agent: Some(alice_did),
+                ..Default::default()
+            };
+            let ticker = Ticker::try_from(token.name.as_slice()).unwrap();
+
+            assert_ok!(Asset::create_asset(
+                alice_signed.clone(),
+                token.name.clone(),
+                ticker,
+                token.total_supply,
+                true,
+                token.asset_type.clone(),
+                vec![],
+                None,
+            ));
+
+            // Verify the asset creation
+            assert_eq!(Asset::token_details(&ticker), token);
+
+            // Verify the balance of the alice and the investor count for the asset.
+            assert_eq!(Asset::balance_of(&ticker, alice_did), total_supply); // It should be equal to total supply.
+                                                                             // Alice act as the unique investor but not on the basis of ScopeId as alice doesn't posses the claim yet.
+            assert_eq!(Statistics::investor_count_per_asset(&ticker), 1);
+            assert!(!ScopeIdOf::contains_key(&ticker, alice_did));
+
+            // 1. Transfer some funds to bob_1_did.
+
+            // 1a). Add empty compliance requirement.
+            assert_ok!(ComplianceManager::add_compliance_requirement(
+                alice_signed.clone(),
+                ticker,
+                vec![],
+                vec![]
+            ));
+
+            // 1b). Should fail when transferring funds to bob_1_did because it doesn't posses scope_claim.
+            // portfolio Id -
+            let sender_portfolio = PortfolioId::default_portfolio(alice_did);
+            let receiver_portfolio = PortfolioId::default_portfolio(bob_1_did);
+            assert_err!(
+                Asset::base_transfer(sender_portfolio, receiver_portfolio, &ticker, 1000),
+                AssetError::InvalidTransfer
+            );
+
+            // 1c). Provide the valid scope claim.
+            // Create Investor unique Id, In an ideal scenario it will be generated from the PUIS system.
+            let bob_uid = generate_uid("BOB_ENTITY".to_string());
+            provide_scope_claim(bob_1_did, ticker, bob_uid, cdd_provider);
+
+            let alice_uid = generate_uid("ALICE_ENTITY".to_string());
+            provide_scope_claim(alice_did, ticker, alice_uid, cdd_provider);
+            let alice_scope_id = Asset::scope_id_of(&ticker, &alice_did);
+
+            // 1d). Validate the storage changes.
+            let bob_scope_id = Asset::scope_id_of(&ticker, &bob_1_did);
+            assert_eq!(Asset::aggregate_balance_of(&ticker, bob_scope_id), 0);
+            assert_eq!(Asset::balance_of_at_scope(bob_scope_id, bob_1_did), 0);
+
+            assert_eq!(
+                Asset::aggregate_balance_of(&ticker, alice_scope_id),
+                total_supply
+            );
+            assert_eq!(
+                Asset::balance_of_at_scope(alice_scope_id, alice_did),
+                total_supply
+            );
+
+            // 1e). successfully transfer funds.
+            assert_ok!(Asset::base_transfer(
+                sender_portfolio,
+                receiver_portfolio,
+                &ticker,
+                1000
+            ));
+
+            // validate the storage changes for Bob.
+            assert_eq!(Asset::aggregate_balance_of(&ticker, &bob_scope_id), 1000);
+            assert_eq!(Asset::balance_of_at_scope(&bob_scope_id, &bob_1_did), 1000);
+            assert_eq!(Asset::balance_of(&ticker, &bob_1_did), 1000);
+            assert_eq!(Statistics::investor_count_per_asset(&ticker), 2);
+
+            // validate the storage changes for Alice.
+            assert_eq!(
+                Asset::aggregate_balance_of(&ticker, &alice_scope_id),
+                total_supply - 1000
+            );
+            assert_eq!(
+                Asset::balance_of_at_scope(&alice_scope_id, &alice_did),
+                total_supply - 1000
+            );
+            assert_eq!(Asset::balance_of(&ticker, &alice_did), total_supply - 1000);
+            assert_eq!(Statistics::investor_count_per_asset(&ticker), 2);
+
+            // Provide scope claim to bob_2_did
+            provide_scope_claim(bob_2_did, ticker, bob_uid, cdd_provider);
+
+            // 1f). successfully transfer funds.
+            assert_ok!(Asset::base_transfer(
+                sender_portfolio,
+                PortfolioId::default_portfolio(bob_2_did),
+                &ticker,
+                1000
+            ));
+
+            // validate the storage changes for Bob.
+            assert_eq!(Asset::aggregate_balance_of(&ticker, &bob_scope_id), 2000);
+            assert_eq!(Asset::balance_of_at_scope(&bob_scope_id, &bob_2_did), 1000);
+            assert_eq!(Asset::balance_of(&ticker, &bob_2_did), 1000);
+            assert_eq!(Statistics::investor_count_per_asset(&ticker), 2);
+        });
 }

@@ -2,7 +2,7 @@ use codec::{Decode, Encode};
 use grandpa::AuthorityId as GrandpaId;
 use im_online::sr25519::AuthorityId as ImOnlineId;
 use pallet_asset::TickerRegistrationConfig;
-use polymesh_common_utilities::{constants::currency::POLY, protocol_fee::ProtocolOp};
+use polymesh_common_utilities::{constants::currency::POLY, protocol_fee::ProtocolOp, GC_DID};
 use polymesh_primitives::{
     AccountId, IdentityId, InvestorUid, PosRatio, Signatory, Signature, SmartExtensionType, Ticker,
 };
@@ -373,6 +373,7 @@ fn general_testnet_genesis(
                 IdentityId::from(1),
                 IdentityId::from(2),
                 IdentityId::from(6),
+                GC_DID,
             ],
             phantom: Default::default(),
         }),
@@ -752,6 +753,7 @@ fn alcyone_testnet_genesis(
                 IdentityId::from(1),
                 IdentityId::from(2),
                 IdentityId::from(3),
+                GC_DID,
             ],
             phantom: Default::default(),
         }),

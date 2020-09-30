@@ -376,7 +376,7 @@
                 "Jurisdiction": "(CountryCode, Scope)",
                 "Exempted": "Scope",
                 "Blocked": "Scope",
-                "InvestorZKProof": "(Scope, ScopeId, CddId, InvestorZKProofData)",
+                "InvestorUniqueness": "(Scope, ScopeId, CddId)",
                 "NoData": ""
             }
         },

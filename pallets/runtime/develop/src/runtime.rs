@@ -274,7 +274,7 @@ impl pallet_transaction_payment::Trait for Runtime {
 
 impl CommonTrait for Runtime {
     type Balance = Balance;
-    type AcceptTransferTarget = Asset;
+    type AssetSubTraitTarget = Asset;
     type BlockRewardsReserve = balances::Module<Runtime>;
 }
 
@@ -699,6 +699,7 @@ impl IdentityTrait for Runtime {
     type Public = <MultiSignature as Verify>::Signer;
     type OffChainSignature = MultiSignature;
     type ProtocolFee = protocol_fee::Module<Runtime>;
+    type GCVotingMajorityOrigin = VMO<GovernanceCommittee>;
 }
 
 parameter_types! {
