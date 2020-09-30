@@ -5520,7 +5520,6 @@ dependencies = [
  "sp-std 2.0.0-rc6",
  "sp-transaction-pool",
  "sp-version",
- "substrate-test-runtime-client",
  "substrate-wasm-builder-runner",
 ]
 

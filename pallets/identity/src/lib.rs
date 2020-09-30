@@ -1441,7 +1441,7 @@ impl<T: Trait> Module<T> {
         #[allow(unused_mut)]
         let mut active_cdds_temp = T::CddServiceProviders::get_active_members();
 
-        // For the becnhmarks, self cdd claims are allowed and hence the claim target is added to the cdd providers list.
+        // For the benchmarks, self cdd claims are allowed and hence the claim target is added to the cdd providers list.
         #[cfg(feature = "runtime-benchmarks")]
         active_cdds_temp.push(claim_for);
 

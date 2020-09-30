@@ -93,9 +93,6 @@ frame-benchmarking = { default-features = false, git = "https://github.com/parit
 frame-system-benchmarking = { default-features = false, git = "https://github.com/paritytech/substrate", tag = "v2.0.0-rc6", optional = true }
 hex-literal = { version = "0.3.1", optional = true }
 
-[dev-dependencies]
-test-client = { package = "substrate-test-runtime-client", git = "https://github.com/paritytech/substrate", tag = "v2.0.0-rc6" }
-
 [build-dependencies]
 wasm-builder-runner = { package = "substrate-wasm-builder-runner", git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0-rc6"}
 

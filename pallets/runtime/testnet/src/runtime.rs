@@ -100,7 +100,7 @@ use smallvec::smallvec;
 #[cfg(feature = "std")]
 include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 
-//// Runtime version.
+/// Runtime version.
 pub const VERSION: RuntimeVersion = RuntimeVersion {
     spec_name: create_runtime_str!("polymesh"),
     impl_name: create_runtime_str!("polymath-polymesh"),
