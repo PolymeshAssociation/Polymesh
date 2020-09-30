@@ -117,11 +117,7 @@ impl Migrate for TrustedIssuerOld {
     type Into = TrustedIssuer;
     type Context = Empty;
     fn migrate(self, _: Self::Context) -> Option<Self::Into> {
-        Some(Self::Into {
-            issuer: self.0,
-            // This preserves existing semantics.
-            trusted_for: TrustedFor::Any,
-        })
+        Some(self.0.into())
     }
 }
 
