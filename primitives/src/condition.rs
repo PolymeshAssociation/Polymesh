@@ -47,7 +47,7 @@ pub enum ConditionType {
     IsNoneOf(#[migrate(Claim)] Vec<Claim>),
     /// Condition to ensure that the sender/receiver is a particular identity or primary issuance agent
     IsIdentity(TargetIdentity),
-    /// Condition to ensure that the target identity has a valid `InvestorZKProof` claim for the given
+    /// Condition to ensure that the target identity has a valid `InvestorUniqueness` claim for the given
     /// ticker.
     HasValidProofOfInvestor(Ticker),
 }
