@@ -3,16 +3,15 @@
 use ink_lang as ink;
 
 mod custom_types {
-
-    use ink_core::storage::Flush;
     use scale::{Decode, Encode};
+    use ink_core::storage::traits::{
+        PackedLayout,
+        SpreadLayout,
+    };
 
-    #[derive(Decode, Encode, PartialEq, Ord, Eq, PartialOrd, Copy, Hash, Clone, Default)]
-    #[cfg_attr(feature = "ink-generate-abi", derive(type_metadata::Metadata))]
-    #[cfg_attr(feature = "std", derive(Debug))]
+    #[derive(Decode, Encode, PartialEq, Ord, Eq, PartialOrd, Copy, Hash, Clone, Default, SpreadLayout, PackedLayout)]
+    #[cfg_attr(feature = "std", derive(::scale_info::TypeInfo, Debug, ink_core::storage::traits::StorageLayout))]
     pub struct IdentityId([u8; 32]);
-
-    impl Flush for IdentityId {}
 
     impl From<u128> for IdentityId {
         fn from(id: u128) -> Self {
@@ -25,8 +24,7 @@ mod custom_types {
     }
 
     #[derive(Decode, Encode, PartialEq, Ord, Eq, PartialOrd)]
-    #[cfg_attr(feature = "ink-generate-abi", derive(type_metadata::Metadata))]
-    #[cfg_attr(feature = "std", derive(Debug))]
+    #[cfg_attr(feature = "std", derive(::scale_info::TypeInfo, Debug))]
     pub enum RestrictionResult {
         Valid,
         Invalid,
@@ -34,32 +32,33 @@ mod custom_types {
     }
 }
 
-#[ink::contract(version = "0.1.0")]
+#[ink::contract]
 mod percentage_transfer_manager {
     use crate::custom_types::{IdentityId, RestrictionResult};
-    use ink_core::storage;
+    use ink_core::storage::{ collections::HashMap as StorageHashMap };
     use ink_prelude::vec::Vec;
 
     /// Defines the storage of your contract.
     /// Add new fields to the below struct in order
     /// to add new static storage fields to your contract.
     #[ink(storage)]
-    struct PercentageTransferManagerStorage {
+    #[derive(Default)]
+    pub struct PercentageTransferManagerStorage {
         /// Owner of the smart extension
-        pub owner: storage::Value<AccountId>,
+        pub owner: AccountId,
         /// Maximum allowed percentage of the tokens hold by an investor
         /// %age is based on the total supply of the asset. Multiplier of 10^6
-        pub max_allowed_percentage: storage::Value<u128>,
+        pub max_allowed_percentage: u128,
         /// By toggling the primary issuance variable it will bypass
         /// all the restrictions imposed by this smart extension
-        pub allow_primary_issuance: storage::Value<bool>,
+        pub allow_primary_issuance: bool,
         /// Exemption list that contains the list of investor's identities
         /// which are not affected by this module restrictions
-        pub exemption_list: storage::HashMap<IdentityId, bool>,
+        pub exemption_list: StorageHashMap<IdentityId, bool>,
     }
 
     #[ink(event)]
-    struct ChangeAllowedPercentage {
+    pub struct ChangeAllowedPercentage {
         #[ink(topic)]
         old_percentage: u128,
         #[ink(topic)]
@@ -67,13 +66,13 @@ mod percentage_transfer_manager {
     }
 
     #[ink(event)]
-    struct ChangePrimaryIssuance {
+    pub struct ChangePrimaryIssuance {
         #[ink(topic)]
         allow_primary_issuance: bool,
     }
 
     #[ink(event)]
-    struct ModifyExemptionList {
+    pub struct ModifyExemptionList {
         #[ink(topic)]
         identity: IdentityId,
         #[ink(topic)]
@@ -81,7 +80,7 @@ mod percentage_transfer_manager {
     }
 
     #[ink(event)]
-    struct TransferOwnership {
+    pub struct TransferOwnership {
         #[ink(topic)]
         new_owner: AccountId,
         #[ink(topic)]
@@ -92,10 +91,13 @@ mod percentage_transfer_manager {
         /// Constructor that initializes the `u128` value to the given `max_allowed_percentage`,
         /// boolean value for the `allow_primary_issuance` & `owner` of the SE.
         #[ink(constructor)]
-        fn new(&mut self, max_percentage: u128, primary_issuance: bool) {
-            self.owner.set(self.env().caller());
-            self.max_allowed_percentage.set(max_percentage);
-            self.allow_primary_issuance.set(primary_issuance);
+        pub fn new(max_percentage: u128, primary_issuance: bool) -> Self {
+            Self {
+                owner: Self::env().caller(),
+                max_allowed_percentage: max_percentage,
+                allow_primary_issuance: primary_issuance,
+                exemption_list: StorageHashMap::default()
+            }
         }
 
         /// This function is used to verify transfers initiated by the
@@ -110,7 +112,7 @@ mod percentage_transfer_manager {
         /// * `total_supply` - Total supply of the asset
         /// * `current_holder_count - Total no. of investors of a ticker
         #[ink(message)]
-        fn verify_transfer(
+        pub fn verify_transfer(
             &self,
             from: Option<IdentityId>,
             to: Option<IdentityId>,
@@ -120,10 +122,10 @@ mod percentage_transfer_manager {
             total_supply: Balance,
             current_holder_count: u64,
         ) -> RestrictionResult {
-            if from == None && *self.allow_primary_issuance.get()
+            if from == None && self.allow_primary_issuance
                 || self.is_exempted_or_not(&(to.unwrap_or_default()))
                 || ((balance_to + value) * 10u128.pow(6)) / total_supply
-                    <= *self.max_allowed_percentage.get()
+                    <= self.max_allowed_percentage
             {
                 return RestrictionResult::Valid;
             }
@@ -135,17 +137,17 @@ mod percentage_transfer_manager {
         /// # Arguments
         /// * `new_percentage` - New value of Max percentage of assets hold by an investor
         #[ink(message)]
-        fn change_allowed_percentage(&mut self, new_percentage: u128) {
+        pub fn change_allowed_percentage(&mut self, new_percentage: u128) {
             self.ensure_owner(self.env().caller());
             assert!(
-                *self.max_allowed_percentage.get() != new_percentage,
+                self.max_allowed_percentage != new_percentage,
                 "Must change setting"
             );
             self.env().emit_event(ChangeAllowedPercentage {
-                old_percentage: *self.max_allowed_percentage.get(),
-                new_percentage: new_percentage,
+                old_percentage: self.max_allowed_percentage,
+                new_percentage,
             });
-            self.max_allowed_percentage.set(new_percentage);
+            self.max_allowed_percentage = new_percentage;
         }
 
         /// Sets whether or not to consider primary issuance transfers
@@ -153,13 +155,13 @@ mod percentage_transfer_manager {
         /// # Arguments
         /// * `primary_issuance` - whether to allow all primary issuance transfers
         #[ink(message)]
-        fn change_primary_issuance(&mut self, primary_issuance: bool) {
+        pub fn change_primary_issuance(&mut self, primary_issuance: bool) {
             self.ensure_owner(self.env().caller());
             assert!(
-                *self.allow_primary_issuance.get() != primary_issuance,
+                self.allow_primary_issuance != primary_issuance,
                 "Must change setting"
             );
-            self.allow_primary_issuance.set(primary_issuance);
+            self.allow_primary_issuance = primary_issuance;
             self.env().emit_event(ChangePrimaryIssuance {
                 allow_primary_issuance: primary_issuance,
             });
@@ -171,7 +173,7 @@ mod percentage_transfer_manager {
         /// * `identity` - Identity of the token holder whose exemption status needs to change
         /// * `is_exempted` - New exemption status of the identity
         #[ink(message)]
-        fn modify_exemption_list(&mut self, identity: IdentityId, is_exempted: bool) {
+        pub fn modify_exemption_list(&mut self, identity: IdentityId, is_exempted: bool) {
             self.ensure_owner(self.env().caller());
             assert!(
                 self.is_exempted_or_not(&identity) != is_exempted,
@@ -179,7 +181,7 @@ mod percentage_transfer_manager {
             );
             self.exemption_list.insert(identity, is_exempted);
             self.env().emit_event(ModifyExemptionList {
-                identity: identity,
+                identity,
                 exempted: is_exempted,
             });
         }
@@ -189,7 +191,7 @@ mod percentage_transfer_manager {
         /// # Arguments
         /// * `exemptions` - Identities & exemption status of the identities
         #[ink(message)]
-        fn modify_exemption_list_batch(&mut self, exemptions: Vec<(IdentityId, bool)>) {
+        pub fn modify_exemption_list_batch(&mut self, exemptions: Vec<(IdentityId, bool)>) {
             for (identity, status) in exemptions.into_iter() {
                 self.modify_exemption_list(identity, status);
             }
@@ -200,36 +202,36 @@ mod percentage_transfer_manager {
         /// # Arguments
         /// * `new_owner` - AccountId of the new owner
         #[ink(message)]
-        fn transfer_ownership(&mut self, new_owner: AccountId) {
+        pub fn transfer_ownership(&mut self, new_owner: AccountId) {
             self.ensure_owner(self.env().caller());
             self.env().emit_event(TransferOwnership {
                 old_owner: self.env().caller(),
-                new_owner: new_owner,
+                new_owner,
             });
-            self.owner.set(new_owner);
+            self.owner = new_owner;
         }
 
         /// Simply returns the current value of `max_allowed_percentage`.
         #[ink(message)]
-        fn get_max_allowed_percentage(&self) -> u128 {
-            *self.max_allowed_percentage.get()
+        pub fn get_max_allowed_percentage(&self) -> u128 {
+            self.max_allowed_percentage
         }
 
         /// Simply returns the current value of `allow_primary_issuance`.
         #[ink(message)]
-        fn is_primary_issuance_allowed(&self) -> bool {
-            *self.allow_primary_issuance.get()
+        pub fn is_primary_issuance_allowed(&self) -> bool {
+            self.allow_primary_issuance
         }
 
         /// Simply returns the current value of `owner`.
         #[ink(message)]
-        fn owner(&self) -> AccountId {
-            *self.owner.get()
+        pub fn owner(&self) -> AccountId {
+            self.owner
         }
 
         /// Function to know whether given Identity is exempted or not
         #[ink(message)]
-        fn is_identity_exempted_or_not(&self, of: IdentityId) -> bool {
+        pub fn is_identity_exempted_or_not(&self, of: IdentityId) -> bool {
             self.is_exempted_or_not(&of)
         }
 
@@ -238,7 +240,7 @@ mod percentage_transfer_manager {
         }
 
         fn ensure_owner(&self, owner: AccountId) {
-            assert!(owner == *self.owner.get(), "Not Authorized");
+            assert!(owner == self.owner, "Not Authorized");
         }
     }
 
