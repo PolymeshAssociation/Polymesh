@@ -432,9 +432,19 @@
                 "Inactive": ""
             }
         },
+        "TrustedFor": {
+            "_enum": {
+                "Any": "",
+                "Specific": "Vec<ClaimType>"
+            }
+        },
+        "TrustedIssuer": {
+            "issuer": "IdentityId",
+            "trusted_for": "TrustedFor"
+        },
         "Condition": {
             "condition_type": "ConditionType",
-            "issuers": "Vec<IdentityId>"
+            "issuers": "Vec<TrustedIssuer>"
         },
         "ConditionResult": {
             "condition": "Condition",

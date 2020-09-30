@@ -1842,35 +1842,21 @@ fn test_weights_for_is_valid_transfer() {
             let ticker_id = Identity::get_token_did(&ticker).unwrap();
 
             // Adding different compliance requirements
+            let is_present = ConditionType::IsPresent(Claim::Accredited(ticker_id.into()));
+            let cond = |ty| Condition::from_dids(ty, &[eve_did]);
             assert_ok!(ComplianceManager::add_compliance_requirement(
                 alice_signed.clone(),
                 ticker,
                 vec![
-                    Condition {
-                        condition_type: ConditionType::IsPresent(Claim::Accredited(
-                            ticker_id.into()
-                        )),
-                        issuers: vec![eve_did]
-                    },
-                    Condition {
-                        condition_type: ConditionType::IsAbsent(Claim::BuyLockup(ticker_id.into())),
-                        issuers: vec![eve_did]
-                    }
+                    cond(is_present.clone()),
+                    cond(ConditionType::IsAbsent(Claim::BuyLockup(ticker_id.into()))),
                 ],
                 vec![
-                    Condition {
-                        condition_type: ConditionType::IsPresent(Claim::Accredited(
-                            ticker_id.into()
-                        )),
-                        issuers: vec![eve_did]
-                    },
-                    Condition {
-                        condition_type: ConditionType::IsAnyOf(vec![
-                            Claim::BuyLockup(ticker_id.into()),
-                            Claim::KnowYourCustomer(ticker_id.into())
-                        ]),
-                        issuers: vec![eve_did]
-                    }
+                    cond(is_present),
+                    cond(ConditionType::IsAnyOf(vec![
+                        Claim::BuyLockup(ticker_id.into()),
+                        Claim::KnowYourCustomer(ticker_id.into())
+                    ])),
                 ]
             ));
 
@@ -1968,17 +1954,16 @@ fn test_weights_for_is_valid_transfer() {
             assert!(matches!(result, computed_weight)); // Sender & receiver rules are processed.
 
             // Adding different claim rules
+            let cond = |ty| Condition::from_dids(ty, &[eve_did]);
             assert_ok!(ComplianceManager::add_compliance_requirement(
                 alice_signed.clone(),
                 ticker,
-                vec![Condition {
-                    condition_type: ConditionType::IsPresent(Claim::Exempted(ticker_id.into())),
-                    issuers: vec![eve_did]
-                }],
-                vec![Condition {
-                    condition_type: ConditionType::IsPresent(Claim::Blocked(ticker_id.into())),
-                    issuers: vec![eve_did]
-                }]
+                vec![cond(ConditionType::IsPresent(Claim::Exempted(
+                    ticker_id.into()
+                )))],
+                vec![cond(ConditionType::IsPresent(Claim::Blocked(
+                    ticker_id.into()
+                )))],
             ));
             let result = is_valid_transfer_result();
             let weight_from_verify_transfer = verify_restriction_weight();

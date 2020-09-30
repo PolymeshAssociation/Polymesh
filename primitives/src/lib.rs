@@ -215,7 +215,7 @@ pub use document::{Document, DocumentHash, DocumentName, DocumentUri};
 
 /// Rules for claims.
 pub mod condition;
-pub use condition::{Condition, ConditionType, TargetIdentity};
+pub use condition::{Condition, ConditionType, TargetIdentity, TrustedFor, TrustedIssuer};
 
 /// Predicate calculation for Claims.
 pub mod proposition;
