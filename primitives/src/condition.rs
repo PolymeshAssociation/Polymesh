@@ -82,7 +82,18 @@ impl TrustedIssuer {
     pub fn dedup(&mut self) {
         match &mut self.trusted_for {
             TrustedFor::Any => {}
-            TrustedFor::Specific(types) => types.dedup(),
+            TrustedFor::Specific(types) => {
+                types.sort();
+                types.dedup();
+            }
+        }
+    }
+
+    /// Is the given issuer trusted for `ty`?
+    pub fn is_trusted_for(&self, ty: ClaimType) -> bool {
+        match &self.trusted_for {
+            TrustedFor::Any => true,
+            TrustedFor::Specific(ok_types) => ok_types.contains(&ty),
         }
     }
 }

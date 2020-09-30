@@ -93,7 +93,7 @@ use polymesh_common_utilities::{
     Context,
 };
 use polymesh_primitives::{
-    proposition, Claim, ClaimType, Condition, ConditionType, IdentityId, Scope, Ticker, TrustedFor,
+    proposition, Claim, ClaimType, Condition, ConditionType, IdentityId, Scope, Ticker,
     TrustedIssuer,
 };
 use polymesh_primitives_derive::Migrate;
@@ -575,10 +575,7 @@ impl<T: Trait> Module<T> {
 
         issuers
             .iter()
-            .filter(|issuer| match &issuer.trusted_for {
-                TrustedFor::Any => true,
-                TrustedFor::Specific(ok_types) => ok_types.contains(&claim_type),
-            })
+            .filter(|issuer| issuer.is_trusted_for(claim_type))
             .flat_map(|issuer| {
                 Identity::<T>::fetch_claim(target, claim_type, issuer.issuer, scope.cloned())
                     .map(|id_claim| id_claim.claim)
