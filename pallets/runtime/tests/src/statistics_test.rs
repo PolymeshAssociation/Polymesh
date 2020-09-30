@@ -6,7 +6,7 @@ use frame_support::assert_ok;
 use pallet_asset::{self as asset, SecurityToken};
 use pallet_compliance_manager as compliance_manager;
 use pallet_statistics as statistics;
-use polymesh_primitives::{AssetIdentifier, PortfolioId, Ticker};
+use polymesh_primitives::{PortfolioId, Ticker};
 use sp_std::convert::TryFrom;
 use test_client::AccountKeyring;
 
@@ -26,7 +26,6 @@ fn investor_count_per_asset_with_ext() {
     let alice_did = register_keyring_account(AccountKeyring::Alice).unwrap();
     let alice_signed = Origin::signed(AccountKeyring::Alice.public());
     let bob_did = register_keyring_account(AccountKeyring::Bob).unwrap();
-    let bob_signed = Origin::signed(AccountKeyring::Bob.public());
     let charlie_did = register_keyring_account(AccountKeyring::Charlie).unwrap();
 
     // 1. Alice create an asset.

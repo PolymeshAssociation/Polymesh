@@ -27,7 +27,6 @@ use frame_support::{assert_noop, assert_ok};
 use rand::{prelude::*, thread_rng};
 use sp_core::sr25519::Public;
 use sp_runtime::AnySignature;
-use sp_std::collections::btree_set::BTreeSet;
 use std::collections::HashMap;
 use std::convert::TryFrom;
 use test_client::AccountKeyring;

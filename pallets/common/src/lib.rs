@@ -32,7 +32,11 @@ pub use batch_dispatch_info::BatchDispatchInfo;
 pub mod protocol_fee;
 pub use protocol_fee::ChargeProtocolFee;
 
+use core::ops::Add;
+use frame_support::codec::{Decode, Encode};
 use polymesh_primitives::IdentityId;
+#[cfg(feature = "std")]
+use serde::{Deserialize, Serialize};
 use sp_runtime::{DispatchResult, ModuleId};
 
 /// It defines the valid issuers for Systematic Claims.
@@ -142,4 +146,28 @@ pub fn with_each_transaction<A>(
     tx: impl FnMut(A) -> DispatchResult,
 ) -> DispatchResult {
     with_transaction(|| iter.into_iter().try_for_each(tx))
+}
+
+/// Either a block number, or nothing.
+#[derive(Copy, Clone, PartialEq, Eq, Encode, Decode, Debug)]
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+pub enum MaybeBlock<BlockNumber> {
+    Some(BlockNumber),
+    None,
+}
+
+impl<T> Default for MaybeBlock<T> {
+    fn default() -> Self {
+        Self::None
+    }
+}
+
+impl<T: Add<Output = T>> Add<T> for MaybeBlock<T> {
+    type Output = Self;
+    fn add(self, rhs: T) -> Self::Output {
+        match self {
+            MaybeBlock::Some(lhs) => MaybeBlock::Some(lhs + rhs),
+            MaybeBlock::None => MaybeBlock::None,
+        }
+    }
 }
