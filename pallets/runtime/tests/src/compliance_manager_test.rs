@@ -1549,7 +1549,6 @@ fn check_new_return_type_of_rpc() {
         let token_owner_acc = AccountKeyring::Alice.public();
         let token_owner_signed = Origin::signed(AccountKeyring::Alice.public());
         let token_owner_did = register_keyring_account(AccountKeyring::Alice).unwrap();
-        let receiver_signed = Origin::signed(AccountKeyring::Charlie.public());
         let receiver_did = register_keyring_account(AccountKeyring::Charlie).unwrap();
 
         // 1. A token representing 1M shares

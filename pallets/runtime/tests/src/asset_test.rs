@@ -2496,11 +2496,11 @@ fn check_unique_investor_count() {
 
             // Bob entity as investor in given ticker.
             let bob_1 = AccountKeyring::Bob.public();
-            let (bob_1_signed, bob_1_did) = make_account_without_cdd(bob_1).unwrap();
+            let (_, bob_1_did) = make_account_without_cdd(bob_1).unwrap();
 
             // Eve also comes under the `Bob` entity.
             let bob_2 = AccountKeyring::Eve.public();
-            let (bob_2_signed, bob_2_did) = make_account_without_cdd(bob_2).unwrap();
+            let (_, bob_2_did) = make_account_without_cdd(bob_2).unwrap();
 
             let total_supply = 1_000_000_000;
 
