@@ -897,7 +897,8 @@
         "CheckpointRecord": {
             "schedule_timestamp": "u64",
             "record_timestamp": "u64",
-            "balance": "Balance"
+            "balance": "Balance",
+            "total_supply": "Balance"
         },
         "InstructionStatus": {
             "_enum": {

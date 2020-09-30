@@ -299,6 +299,8 @@ pub struct CheckpointRecord<Balance> {
     record_timestamp: u64,
     /// The balance at the checkpoint.
     balance: Balance,
+    /// The asset total supply.
+    total_supply: Balance,
 }
 
 decl_storage! {
@@ -1716,12 +1718,14 @@ impl<T: Trait> Module<T> {
             let record_timestamp = T::UnixTime::now().as_secs().saturated_into::<u64>();
             let schedule_timestamp = Self::next_checkpoints(ticker, &user_did);
             if schedule_timestamp < record_timestamp {
+                let total_supply = Self::token_details(ticker).total_supply;
                 // Record the checkpoint.
                 <CheckpointRecords<T>>::mutate(ticker, &user_did, |records| {
                     records.push(CheckpointRecord {
                         schedule_timestamp,
                         record_timestamp,
                         balance,
+                        total_supply,
                     })
                 });
                 // Update the next checkpoint timestamp.
