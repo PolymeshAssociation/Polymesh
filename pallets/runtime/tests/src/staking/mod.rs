@@ -4949,7 +4949,6 @@ fn offences_weight_calculated_correctly() {
 			},
 		];
 
-		let n = 1; // Number of offenders
 		let rw = 3; // rw reads and writes
 		let one_offence_unapplied_weight = <Test as frame_system::Trait>::DbWeight::get().reads_writes(4, 1)
 			+ <Test as frame_system::Trait>::DbWeight::get().reads_writes(rw, rw)

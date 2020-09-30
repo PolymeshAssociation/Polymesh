@@ -5,9 +5,7 @@ use super::ext_builder::{
 use codec::Encode;
 use cryptography::claim_proofs::{compute_cdd_id, compute_scope_id};
 use frame_support::{
-    assert_ok,
-    dispatch::DispatchResult,
-    impl_outer_dispatch, impl_outer_event, impl_outer_origin, parameter_types,
+    assert_ok, impl_outer_dispatch, impl_outer_event, impl_outer_origin, parameter_types,
     traits::Currency,
     weights::DispatchInfo,
     weights::{
@@ -32,7 +30,6 @@ use pallet_statistics as statistics;
 use pallet_treasury as treasury;
 use pallet_utility;
 use polymesh_common_utilities::traits::{
-    asset::AssetSubTrait,
     balances::AccountData,
     group::GroupTrait,
     identity::Trait as IdentityTrait,
@@ -61,7 +58,7 @@ use sp_runtime::{
 };
 use sp_std::{collections::btree_set::BTreeSet, iter};
 use std::cell::RefCell;
-use std::convert::{From, TryFrom};
+use std::convert::From;
 use test_client::AccountKeyring;
 
 impl_opaque_keys! {
