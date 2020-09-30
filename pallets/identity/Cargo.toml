@@ -35,7 +35,6 @@ cryptography = { git = "https://github.com/PolymathNetwork/cryptography.git", br
 [features]
 equalize = []
 default = ["std", "equalize"]
-no_cdd = []
 no_std = []
 only-staking = []
 std = [
