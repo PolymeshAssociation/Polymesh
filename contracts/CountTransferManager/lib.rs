@@ -62,7 +62,7 @@ mod count_transfer_manager {
         pub fn new(max_holders: Counter) -> Self {
             Self {
                 max_holders,
-                owner: Lazy::new(Self::env().caller())
+                owner: Lazy::new(Self::env().caller()),
             }
         }
 
@@ -111,10 +111,7 @@ mod count_transfer_manager {
             current_holder_count: Counter,
         ) -> RestrictionResult {
             // Strict checking only the cases where no. of holders get increases.
-            if self.max_holders == current_holder_count
-                && balance_to == 0
-                && balance_from > value
-            {
+            if self.max_holders == current_holder_count && balance_to == 0 && balance_from > value {
                 return RestrictionResult::Invalid; // INVALID
             }
             RestrictionResult::Valid // VALID
@@ -135,7 +132,7 @@ mod count_transfer_manager {
     mod tests {
         /// Imports all the definitions from the outer scope so we can use them here.
         use super::*;
-        use ink_core::env::{ call, test };
+        use ink_core::env::{call, test};
         type Accounts = test::DefaultAccounts<EnvTypes>;
         const CALLEE: [u8; 32] = [7; 32];
 
@@ -155,8 +152,7 @@ mod count_transfer_manager {
         }
 
         fn default_accounts() -> Accounts {
-            test::default_accounts()
-                .expect("Test environment is expected to be initialized.")
+            test::default_accounts().expect("Test environment is expected to be initialized.")
         }
 
         /// We test if the default constructor does its job.

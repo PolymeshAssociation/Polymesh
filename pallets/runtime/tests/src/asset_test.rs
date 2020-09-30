@@ -71,7 +71,11 @@ macro_rules! assert_revoke_claim {
     };
 }
 
-fn setup_se_template<T>(creator: AccountId, creator_did: IdentityId, create_instance: bool) -> AccountId
+fn setup_se_template<T>(
+    creator: AccountId,
+    creator_did: IdentityId,
+    create_instance: bool,
+) -> AccountId
 where
     T: frame_system::Trait<Hash = sp_core::H256>,
 {
@@ -83,7 +87,7 @@ where
         // Create SE template.
         create_se_template::<TestStorage>(creator, creator_did, 0, code_hash, wasm);
     }
-    
+
     // Create SE instance.
     assert_ok!(create_contract_instance::<TestStorage>(
         creator, code_hash, 0, false
