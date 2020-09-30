@@ -17,6 +17,7 @@
 
 //! Test utilities
 use chrono::prelude::Utc;
+use frame_support::traits::KeyOwnerProofSystem;
 use frame_support::{
     assert_ok,
     dispatch::DispatchResult,
@@ -32,8 +33,6 @@ use pallet_group as group;
 use pallet_identity as identity;
 use pallet_protocol_fee as protocol_fee;
 use pallet_staking::{self as staking, *};
-
-use pallet_permissions::StoreCallMetadata;
 use polymesh_common_utilities::traits::{
     asset::AssetSubTrait,
     balances::{AccountData, CheckCdd},
@@ -49,7 +48,6 @@ use polymesh_primitives::{
     PortfolioId, ScopeId, Signatory, Ticker,
 };
 use sp_core::H256;
-use sp_io;
 use sp_npos_elections::{
     build_support_map, evaluate_support, reduce, ElectionScore, ExtendedBalance, StakedAssignment,
     VoteWeight,
@@ -59,7 +57,7 @@ use sp_runtime::{
     testing::{Header, TestSignature, TestXt, UintAuthorityId},
     traits::{Convert, IdentityLookup, SaturatedConversion, Zero},
     transaction_validity::{InvalidTransaction, TransactionValidity, ValidTransaction},
-    Perbill,
+    KeyTypeId, Perbill,
 };
 use sp_staking::{
     offence::{OffenceDetails, OnOffenceHandler},
@@ -452,7 +450,7 @@ impl AssetSubTrait for Test {
     fn accept_asset_ownership_transfer(_: IdentityId, _: u64) -> DispatchResult {
         Ok(())
     }
-    fn update_balance_of_scope_id(of: ScopeId, whom: IdentityId, ticker: Ticker) -> DispatchResult {
+    fn update_balance_of_scope_id(_: ScopeId, _: IdentityId, _: Ticker) -> DispatchResult {
         Ok(())
     }
 }
@@ -477,15 +475,15 @@ impl PortfolioSubTrait<Balance> for Test {
     fn accept_portfolio_custody(_: IdentityId, _: u64) -> DispatchResult {
         unimplemented!()
     }
-    fn ensure_portfolio_custody(portfolio: PortfolioId, custodian: IdentityId) -> DispatchResult {
+    fn ensure_portfolio_custody(_: PortfolioId, _: IdentityId) -> DispatchResult {
         unimplemented!()
     }
 
-    fn lock_tokens(portfolio: &PortfolioId, ticker: &Ticker, amount: &Balance) -> DispatchResult {
+    fn lock_tokens(_: &PortfolioId, _: &Ticker, _: &Balance) -> DispatchResult {
         unimplemented!()
     }
 
-    fn unlock_tokens(portfolio: &PortfolioId, ticker: &Ticker, amount: &Balance) -> DispatchResult {
+    fn unlock_tokens(_: &PortfolioId, _: &Ticker, _: &Balance) -> DispatchResult {
         unimplemented!()
     }
 }
@@ -508,10 +506,6 @@ parameter_types! {
     pub const EpochDuration: u64 = 10;
     pub const ExpectedBlockTime: u64 = 1;
 }
-
-use frame_support::traits::KeyOwnerProofSystem;
-use polymesh_runtime_develop::runtime::{Historical, Offences};
-use sp_runtime::KeyTypeId;
 
 impl From<pallet_babe::Call<Test>> for Call {
     fn from(_: pallet_babe::Call<Test>) -> Self {

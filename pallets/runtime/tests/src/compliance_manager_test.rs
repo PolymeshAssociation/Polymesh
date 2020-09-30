@@ -8,7 +8,7 @@ use pallet_asset::{self as asset, AssetName, AssetType, SecurityToken};
 use pallet_balances as balances;
 use pallet_compliance_manager::{
     self as compliance_manager, AssetComplianceResult, ComplianceRequirement,
-    ComplianceRequirementResult, ConditionResult, Error as CMError, ImplicitRequirementResult,
+    ComplianceRequirementResult, Error as CMError, ImplicitRequirementResult,
 };
 use pallet_group as group;
 use pallet_identity::{self as identity};
@@ -299,12 +299,12 @@ fn should_add_and_verify_compliance_requirement_we() {
     );
 
     for _ in 0..2 {
-        ComplianceManager::add_compliance_requirement(
+        assert_ok!(ComplianceManager::add_compliance_requirement(
             token_owner_signed.clone(),
             ticker,
             vec![sender_condition.clone()],
             vec![receiver_condition1.clone(), receiver_condition2.clone()],
-        );
+        ));
     }
     assert_ok!(ComplianceManager::remove_compliance_requirement(
         token_owner_signed.clone(),
@@ -1549,7 +1549,6 @@ fn check_new_return_type_of_rpc() {
         let token_owner_acc = AccountKeyring::Alice.public();
         let token_owner_signed = Origin::signed(AccountKeyring::Alice.public());
         let token_owner_did = register_keyring_account(AccountKeyring::Alice).unwrap();
-        let receiver_signed = Origin::signed(AccountKeyring::Charlie.public());
         let receiver_did = register_keyring_account(AccountKeyring::Charlie).unwrap();
 
         // 1. A token representing 1M shares
