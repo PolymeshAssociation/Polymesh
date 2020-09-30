@@ -157,7 +157,7 @@ fn general_testnet_genesis(
 
     GeneralConfig::GenesisConfig {
         frame_system: Some(GeneralConfig::SystemConfig {
-            code: general::WASM_BINARY.to_vec(),
+            code: general::WASM_BINARY.unwrap().to_vec(),
             changes_trie_config: Default::default(),
         }),
         asset: {

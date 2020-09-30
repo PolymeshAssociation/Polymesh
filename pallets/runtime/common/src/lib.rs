@@ -56,7 +56,7 @@ parameter_types! {
     pub const BlockExecutionWeight: Weight = 20 * WEIGHT_PER_MILLIS;
     // 0.5 ms is needed to process an empty extrinsic
     pub const ExtrinsicBaseWeight: Weight = 500 * WEIGHT_PER_MICROS;
-    /// When the read/writes are cached, they take 25, 10 microseconds
+    /// When the read/writes are cached, they take 25, 100 microseconds
     /// but when they are uncached, they take 250, 450 microseconds.
     /// Most read/writes are cached in production
     /// so we are taking a defensive middle number here.

@@ -16,7 +16,7 @@
 use crate::*;
 use pallet_balances as balances;
 use pallet_identity as identity;
-use polymesh_primitives::{AuthorizationData, IdentityId, InvestorUid, Signatory, Ticker};
+use polymesh_primitives::{IdentityId, InvestorUid, Ticker};
 
 use frame_benchmarking::{account, benchmarks};
 use frame_support::{traits::Currency, StorageValue};
@@ -24,7 +24,6 @@ use frame_system::RawOrigin;
 use sp_std::{convert::TryFrom, iter, prelude::*};
 
 const SEED: u32 = 0;
-const MAX_USER_INDEX: u32 = 1_000;
 const MAX_TICKER_LENGTH: u8 = 12;
 const MAX_NAME_LENGTH: u32 = 64;
 
@@ -45,39 +44,39 @@ fn make_account<T: Trait>(
     (account, origin, did)
 }
 
-fn make_token<T: Trait>(
-    origin: RawOrigin<T::AccountId>,
-    ticker_len: u32,
-    token_name_len: u32,
-    identifiers_len: u32,
-    funding_round_len: u32,
-) -> Ticker {
-    <TickerConfig<T>>::put(TickerRegistrationConfig {
-        max_ticker_length: MAX_TICKER_LENGTH,
-        registration_length: None,
-    });
-    let ticker = Ticker::try_from(vec![b'T'; ticker_len as usize].as_slice()).unwrap();
-    let name = AssetName::from(vec![b'N'; token_name_len as usize].as_slice());
-    let total_supply: T::Balance = 1_000_000_000.into();
-    let asset_type = AssetType::default();
-    let identifiers: Vec<AssetIdentifier> =
-        iter::repeat(AssetIdentifier::cusip(*b"023135106").unwrap())
-            .take(identifiers_len as usize)
-            .collect();
-    let fundr = FundingRoundName::from(vec![b'F'; funding_round_len as usize].as_slice());
-    Module::<T>::create_asset(
-        origin.into(),
-        name,
-        ticker,
-        total_supply,
-        true,
-        asset_type,
-        identifiers,
-        Some(fundr),
-    )
-    .unwrap();
-    ticker
-}
+// fn make_token<T: Trait>(
+//     origin: RawOrigin<T::AccountId>,
+//     ticker_len: u32,
+//     token_name_len: u32,
+//     identifiers_len: u32,
+//     funding_round_len: u32,
+// ) -> Ticker {
+//     <TickerConfig<T>>::put(TickerRegistrationConfig {
+//         max_ticker_length: MAX_TICKER_LENGTH,
+//         registration_length: None,
+//     });
+//     let ticker = Ticker::try_from(vec![b'T'; ticker_len as usize].as_slice()).unwrap();
+//     let name = AssetName::from(vec![b'N'; token_name_len as usize].as_slice());
+//     let total_supply: T::Balance = 1_000_000_000.into();
+//     let asset_type = AssetType::default();
+//     let identifiers: Vec<AssetIdentifier> =
+//         iter::repeat(AssetIdentifier::cusip(*b"023135106").unwrap())
+//             .take(identifiers_len as usize)
+//             .collect();
+//     let fundr = FundingRoundName::from(vec![b'F'; funding_round_len as usize].as_slice());
+//     Module::<T>::create_asset(
+//         origin.into(),
+//         name,
+//         ticker,
+//         total_supply,
+//         true,
+//         asset_type,
+//         identifiers,
+//         Some(fundr),
+//     )
+//     .unwrap();
+//     ticker
+// }
 
 benchmarks! {
     _ { }

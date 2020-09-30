@@ -1437,11 +1437,15 @@ impl<T: Trait> Module<T> {
             .checked_add(&leeway)
             .unwrap_or_default();
 
-        #[cfg(feature = "runtime-benchmarks")]
-        let active_cdds = [T::CddServiceProviders::get_active_members()[..], claim_for].concat();
-        #[cfg(not(feature = "runtime-benchmarks"))]
-        let active_cdds = T::CddServiceProviders::get_active_members();
+        // Supressing `mut` warning since we need mut in `runtime-benchmarks` feature but not otherwise.
+        #[allow(unused_mut)]
+        let mut active_cdds_temp = T::CddServiceProviders::get_active_members();
 
+        // For the becnhmarks, self cdd claims are allowed and hence the claim target is added to the cdd providers list.
+        #[cfg(feature = "runtime-benchmarks")]
+        active_cdds_temp.push(claim_for);
+
+        let active_cdds = active_cdds_temp;
         let inactive_not_expired_cdds = T::CddServiceProviders::get_inactive_members()
             .into_iter()
             .filter(|cdd| !T::CddServiceProviders::is_member_expired(cdd, exp_with_leeway))

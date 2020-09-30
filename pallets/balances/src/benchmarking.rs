@@ -23,8 +23,7 @@ use super::*;
 
 use frame_benchmarking::{account, benchmarks, whitelisted_caller};
 use frame_system::RawOrigin;
-use polymesh_primitives::{CddId, Claim, IdentityId, InvestorUid};
-use sp_runtime::traits::Bounded;
+// use polymesh_primitives::{CddId, Claim, IdentityId, InvestorUid};
 
 use crate::Module as Balances;
 
