@@ -3774,7 +3774,6 @@ mod offchain_phragmen {
             let call = extrinsic.call;
             let inner = match call {
                 mock::Call::Staking(inner) => inner,
-                _ => panic!(),
             };
 
             assert_eq!(
@@ -3818,7 +3817,6 @@ mod offchain_phragmen {
             let call = extrinsic.call;
             let inner = match call {
                 mock::Call::Staking(inner) => inner,
-                _ => panic!(),
             };
 
             assert_eq!(
@@ -3861,7 +3859,6 @@ mod offchain_phragmen {
             let call = extrinsic.call;
             let inner = match call {
                 mock::Call::Staking(inner) => inner,
-                _ => panic!(),
             };
 
             // pass this call to ValidateUnsigned
@@ -5371,46 +5368,4 @@ fn check_whether_nominator_selected_or_not_when_its_cdd_claim_expired() {
                 197
             );
         });
-}
-
-#[test]
-fn voting_for_pip_overlays_with_staking() {
-    type Pips = pallet_pips::Module<Test>;
-    type Error = pallet_pips::Error<Test>;
-    use crate::staking::mock::Call;
-    use pallet_pips::Proposer;
-
-    ExtBuilder::default().build().execute_with(|| {
-        System::set_block_number(1);
-
-        assert_ok!(Pips::set_min_proposal_deposit(
-            Origin::from(frame_system::RawOrigin::Root),
-            0
-        ));
-
-        // Initialize with 100 POLYX.
-        let alice_acc = 500;
-        let (alice_signer, _) = make_account_with_balance(alice_acc, 100).unwrap();
-
-        let alice_proposal = |deposit: u128| {
-            let signer = Origin::signed(alice_acc);
-            let proposal = Box::new(Call::Pips(pallet_pips::Call::set_min_proposal_deposit(0)));
-            let proposer = Proposer::Community(alice_acc);
-            Pips::propose(signer, proposer, proposal, deposit, None, None)
-        };
-
-        // Bond all but 10.
-        assert_ok!(Staking::bond(
-            alice_signer,
-            alice_acc,
-            90,
-            RewardDestination::Stash
-        ));
-        // OK, because we're overlaying with 90 tokens already locked.
-        assert_ok!(alice_proposal(50));
-        // OK, because we're still overlaying, but also increasing it by 10.
-        assert_ok!(alice_proposal(50));
-        // Error, because we don't have 101 tokens to bond.
-        assert_noop!(alice_proposal(1), Error::InsufficientDeposit);
-    });
 }
