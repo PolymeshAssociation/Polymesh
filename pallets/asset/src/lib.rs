@@ -356,16 +356,18 @@ decl_storage! {
             double_map hasher(blake2_128_concat) Ticker, hasher(blake2_128_concat) DocumentName => Document;
         /// Ticker registration details on Polymath Classic / Ethereum.
         pub ClassicTickers get(fn classic_ticker_registration): map hasher(blake2_128_concat) Ticker => Option<ClassicTickerRegistration>;
-        /// Checkpoint schedules.
-        /// ticker -> schedule
+        /// Checkpoint schedules for pairs of a ticker and an identity. Every identity can have at
+        /// most one schedule for a given ticker.
+        /// (ticker, identity ID) -> schedule
         pub CheckpointSchedules get(fn checkpoint_schedules):
             double_map hasher(blake2_128_concat) Ticker, hasher(twox_64_concat) IdentityId =>
             CheckpointSchedule;
-        /// The next checkpoint of a ticker.
-        /// ticker -> Unix time in seconds
+        /// The next checkpoint of a ticker and the identity that created the schedule with this checkpoint.
+        /// (ticker, identity ID) -> Unix time in seconds
         pub NextCheckpoints get(fn next_checkpoints):
             double_map hasher(blake2_128_concat) Ticker, hasher(twox_64_concat) IdentityId => u64;
-        /// Checkpoint records.
+        /// Checkpoint records. Every ticker-identity pair has a vector of checkpoint records.
+        /// (ticker, identity ID) -> schedule
         pub CheckpointRecords get(fn checkpoint_records):
             double_map hasher(blake2_128_concat) Ticker, hasher(twox_64_concat) IdentityId =>
             Vec<CheckpointRecord<T::Balance>>;
