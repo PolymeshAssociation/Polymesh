@@ -202,15 +202,13 @@ pub enum Proposer<AccountId> {
 /// Represents a proposal metadata
 #[derive(Encode, Decode, Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "std", derive(Debug))]
-pub struct PipsMetadata<T: Trait> {
+pub struct PipsMetadata {
     /// The proposal's unique id.
     pub id: PipId,
     /// The proposal url for proposal discussion.
     pub url: Option<Url>,
     /// The proposal description.
     pub description: Option<PipDescription>,
-    /// The block when the PIP was made.
-    pub created_at: T::BlockNumber,
 }
 
 /// For keeping track of proposal being voted on.
@@ -388,7 +386,7 @@ decl_storage! {
         ActivePipCount get(fn active_pip_count): u32;
 
         /// The metadata of the active proposals.
-        pub ProposalMetadata get(fn proposal_metadata): map hasher(twox_64_concat) PipId => Option<PipsMetadata<T>>;
+        pub ProposalMetadata get(fn proposal_metadata): map hasher(twox_64_concat) PipId => Option<PipsMetadata>;
 
         /// Those who have locked a deposit.
         /// proposal (id, proposer) -> deposit
@@ -493,8 +491,8 @@ decl_event!(
         /// (gc_did, pip_id, new_skip_count)
         PipSkipped(IdentityId, PipId, SkippedCount),
         /// Results (e.g., approved, rejected, and skipped), were enacted for some PIPs.
-        /// (gc_did, snapshot_id_opt, skipped_pips_with_new_count, rejected_pips, approved_pips)
-        SnapshotResultsEnacted(IdentityId, Option<SnapshotId>, Vec<(PipId, SkippedCount)>, Vec<PipId>, Vec<PipId>),
+        /// (gc_did, skipped_pips_with_new_count, rejected_pips, approved_pips)
+        SnapshotResultsEnacted(IdentityId, Vec<(PipId, SkippedCount)>, Vec<PipId>, Vec<PipId>),
     }
 );
 
@@ -709,17 +707,16 @@ decl_module! {
 
             // 4. Construct and add PIP to storage.
             let id = Self::next_pip_id();
-            let created_at = <system::Module<T>>::block_number();
+            ActivePipCount::mutate(|count| *count += 1);
             let proposal_metadata = PipsMetadata {
                 id,
-                created_at,
                 url: url.clone(),
                 description: description.clone(),
             };
-            <ProposalMetadata<T>>::insert(id, proposal_metadata);
+            ProposalMetadata::insert(id, proposal_metadata);
 
             let proposal_data = Self::reportable_proposal_data(&*proposal);
-            let cool_off_until = created_at + Self::proposal_cool_off_period();
+            let cool_off_until = <system::Module<T>>::block_number() + Self::proposal_cool_off_period();
             let pip = Pip {
                 id,
                 proposal: *proposal,
@@ -728,7 +725,6 @@ decl_module! {
                 cool_off_until,
             };
             <Proposals<T>>::insert(id, pip);
-            ActivePipCount::mutate(|count| *count += 1);
 
             // 5. Record the deposit and as a signal if we have a community PIP.
             if let Proposer::Community(ref proposer) = proposer {
@@ -781,7 +777,7 @@ decl_module! {
             let current_did = Self::current_did_or_missing()?;
 
             // 2. Update proposal metadata.
-            <ProposalMetadata<T>>::mutate(id, |meta| {
+            ProposalMetadata::mutate(id, |meta| {
                 if let Some(meta) = meta {
                     meta.url = url.clone();
                     meta.description = description.clone();
@@ -1133,8 +1129,7 @@ decl_module! {
                     Self::schedule_pip_for_execution(GC_DID, pip_id);
                 }
 
-                let id = Self::snapshot_metadata().map(|m| m.id);
-                let event = RawEvent::SnapshotResultsEnacted(GC_DID, id, to_bump_skipped, to_reject, to_approve);
+                let event = RawEvent::SnapshotResultsEnacted(GC_DID, to_bump_skipped, to_reject, to_approve);
                 Self::deposit_event(event);
 
                 Ok(())
@@ -1282,7 +1277,7 @@ impl<T: Trait> Module<T> {
         if prune {
             <ProposalResult<T>>::remove(id);
             <ProposalVotes<T>>::remove_prefix(id);
-            <ProposalMetadata<T>>::remove(id);
+            ProposalMetadata::remove(id);
             if let Some(Proposer::Committee(_)) = Self::proposals(id).map(|p| p.proposer) {
                 CommitteePips::mutate(|list| list.retain(|&i| i != id));
             }
