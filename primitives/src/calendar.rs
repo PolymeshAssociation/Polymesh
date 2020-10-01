@@ -110,10 +110,10 @@ impl CheckpointSchedule {
     ///
     /// The checkpoint timestamps are going to be
     ///
-    /// * 00:01:00T2020-01-31
-    /// * 00:01:00T2020-02-28
-    /// * 00:01:00T2020-03-31
-    /// * 00:01:00T2020-04-30
+    /// * 2021-01-31T00:01:00
+    /// * 2021-02-28T00:01:00
+    /// * 2021-03-31T00:01:00
+    /// * 2020-04-30T00:01:00
     ///
     /// and so on.
     pub fn next_checkpoint(&self, now_as_secs_utc: u64) -> Option<u64> {

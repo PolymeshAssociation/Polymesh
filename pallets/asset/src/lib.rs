@@ -291,6 +291,11 @@ pub struct ClassicTickerRegistration {
 }
 
 /// A single record of a scheduled checkpoint.
+///
+/// A checkpoint of an asset is recorded as soon as there is a transaction involving that asset
+/// following the time when the checkpoint was due. Thus checkpoints are recorded lazily and any
+/// upcoming checkpoints are not going to be recorded or even scheduled for some time at all if
+/// transactions are absent during that time.
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[derive(Encode, Decode, Clone, Debug, Default, PartialEq, Eq)]
 pub struct CheckpointRecord<Balance> {
@@ -1628,11 +1633,12 @@ impl<T: Trait> Module<T> {
         let is_checkpoint_due = |did| Self::is_checkpoint_due(ticker, did);
         let maybe_due_checkpoint_from = is_checkpoint_due(from_portfolio.did);
         let maybe_due_checkpoint_to = is_checkpoint_due(to_portfolio.did);
-        let ops = vec![&maybe_due_checkpoint_from, &maybe_due_checkpoint_to]
-            .iter()
-            .filter_map(|_| Some(ProtocolOp::AssetCheckpoint))
-            .collect::<ArrayVec<[_; 2]>>();
-        T::ProtocolFee::charge_fees(&*ops)?;
+        if let Some(_) = maybe_due_checkpoint_from
+            .as_ref()
+            .or(maybe_due_checkpoint_to.as_ref())
+        {
+            T::ProtocolFee::charge_fee(ProtocolOp::AssetCheckpoint)?;
+        }
 
         Self::_update_checkpoint(
             ticker,
