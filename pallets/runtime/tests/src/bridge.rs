@@ -12,9 +12,9 @@ use frame_support::{
     weights::Weight,
 };
 use pallet_balances as balances;
+use pallet_bridge::{self as bridge, BridgeTx, BridgeTxStatus};
 use pallet_multisig as multisig;
 use polymesh_primitives::Signatory;
-use polymesh_runtime_common::bridge::{self, BridgeTx, BridgeTxStatus};
 use test_client::AccountKeyring;
 
 type Bridge = bridge::Module<TestStorage>;
