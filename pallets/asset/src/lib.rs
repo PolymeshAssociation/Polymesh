@@ -685,7 +685,7 @@ decl_module! {
         }
 
         /// Creates a checkpoint schedule. Can only be called by the token owner primary or
-        /// secondary key. Only one schedule is allowed for an asset. In order to change an existing
+        /// secondary key. Only one schedule is allowed for an asset. To change an existing
         /// schedule, it must be removed first.
         ///
         /// # Arguments
