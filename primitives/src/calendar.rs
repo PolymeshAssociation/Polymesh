@@ -175,10 +175,8 @@ impl CheckpointSchedule {
                             month_start,
                             next_period_day,
                         );
-                        Some(
-                            u64::try_from(date_next.and_time(date_time_start.time()).timestamp())
-                                .ok()?,
-                        )
+                        u64::try_from(date_next.and_time(date_time_start.time()).timestamp())
+                                .ok()
                     }
                 }
             }
