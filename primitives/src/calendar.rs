@@ -136,19 +136,16 @@ impl CheckpointSchedule {
                             year_start + i32::try_from(denormalized_next_period_month / 12).ok()?;
                         // Month in base 12.
                         let next_period_month = denormalized_next_period_month % 12;
-                        let next_period_day = if matches!(next_period_month, 3 | 5 | 8 | 10) {
+                        let max_month_days = match next_period_month {
                             // Handle 30-day months.
-                            u32::min(day_start, 30)
-                        } else if next_period_month == 1 {
-                            // Handle February
-                            if is_leap_year(next_period_year) {
-                                u32::min(day_start, 29)
-                            } else {
-                                u32::min(day_start, 28)
-                            }
-                        } else {
-                            day_start
+                            3 | 5 | 8 | 10 => 30,
+                            // Handle February.
+                            1 if is_leap_year(next_period_year) => 29,
+                            1 => 28,
+                            // No month has more than 31 days.
+                            _ => 31,
                         };
+                        let next_period_day = u32::min(day_start, max_month_days);
                         let date_next = NaiveDate::from_ymd(
                             i32::try_from(next_period_year).ok()?,
                             // Convert months back to calendar numbering.
