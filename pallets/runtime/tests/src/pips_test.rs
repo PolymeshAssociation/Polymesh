@@ -528,7 +528,6 @@ fn proposal_details_are_correct() {
             created_at: 42,
             url: Some(proposal_url),
             description: Some(proposal_desc),
-            transaction_version: 0,
         };
         assert_eq!(Pips::proposal_metadata(0).unwrap(), expected);
 
@@ -624,7 +623,6 @@ fn amend_proposal_works() {
             created_at: 1,
             url,
             description,
-            transaction_version: 0,
         };
         assert_eq!(Pips::proposal_metadata(0).unwrap(), expected);
     });

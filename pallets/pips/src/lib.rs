@@ -94,7 +94,7 @@ use frame_support::{
     dispatch::{DispatchError, DispatchResult},
     ensure,
     storage::IterableStorageMap,
-    traits::{Currency, EnsureOrigin, Get, LockIdentifier, WithdrawReasons},
+    traits::{Currency, EnsureOrigin, LockIdentifier, WithdrawReasons},
     weights::{DispatchClass, Pays, Weight},
 };
 use frame_system::{self as system, ensure_signed};
@@ -119,7 +119,6 @@ use sp_runtime::traits::{
     BlakeTwo256, CheckedAdd, CheckedSub, Dispatchable, Hash, Saturating, Zero,
 };
 use sp_std::{convert::From, prelude::*};
-use sp_version::RuntimeVersion;
 
 const PIPS_LOCK_ID: LockIdentifier = *b"pips    ";
 
@@ -212,12 +211,6 @@ pub struct PipsMetadata<T: Trait> {
     pub description: Option<PipDescription>,
     /// The block when the PIP was made.
     pub created_at: T::BlockNumber,
-    /// Assuming the runtime has a given `rv: RuntimeVersion` at the point of `Pips::propose`,
-    /// then this field contains `rv.transaction_version`.
-    ///
-    /// Currently, this is only used for off-chain purposes to highlight any differences
-    /// in the proposal's transaction version from the current one.
-    pub transaction_version: u32,
 }
 
 /// For keeping track of proposal being voted on.
@@ -721,7 +714,6 @@ decl_module! {
                 created_at,
                 url: url.clone(),
                 description: description.clone(),
-                transaction_version: <T::Version as Get<RuntimeVersion>>::get().transaction_version,
             };
             <ProposalMetadata<T>>::insert(id, proposal_metadata);
 

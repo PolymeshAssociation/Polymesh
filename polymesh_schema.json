@@ -425,7 +425,14 @@
                 "IsAbsent": "Claim",
                 "IsAnyOf": "Vec<Claim>",
                 "IsNoneOf": "Vec<Claim>",
-                "IsIdentity": "TargetIdentity"
+                "IsIdentity": "TargetIdentity",
+                "HasValidProofOfInvestor": "Ticker"
+            }
+        },
+        "ImplicitRequirementStatus": {
+            "_enum": {
+                "Active":"",
+                "Inactive":""
             }
         },
         "Condition": {
@@ -503,8 +510,7 @@
             "id": "PipId",
             "url": "Option<Url>",
             "description": "Option<PipDescription>",
-            "created_at": "BlockNumber",
-            "transaction_version": "u32"
+            "created_at": "BlockNumber"
         },
         "Proposer": {
             "_enum": {
