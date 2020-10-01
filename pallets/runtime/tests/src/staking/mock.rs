@@ -342,7 +342,6 @@ impl pallet_timestamp::Trait for Test {
 
 impl group::Trait<group::Instance2> for Test {
     type Event = MetaEvent;
-    type LimitOrigin = frame_system::EnsureRoot<AccountId>;
     type AddOrigin = frame_system::EnsureRoot<AccountId>;
     type RemoveOrigin = frame_system::EnsureRoot<AccountId>;
     type SwapOrigin = frame_system::EnsureRoot<AccountId>;
@@ -754,7 +753,6 @@ impl ExtBuilder {
         .assimilate_storage(&mut storage);
 
         let _ = group::GenesisConfig::<Test, group::Instance2> {
-            active_members_limit: u32::MAX,
             active_members: vec![IdentityId::from(1), IdentityId::from(2)],
             phantom: Default::default(),
         }

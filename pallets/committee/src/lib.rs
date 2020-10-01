@@ -67,7 +67,7 @@ use frame_system::{self as system, ensure_signed};
 use pallet_identity as identity;
 use polymesh_common_utilities::{
     governance_group::GovernanceGroupTrait,
-    group::{GroupTrait, InactiveMember, MemberCount},
+    group::{GroupTrait, InactiveMember},
     identity::{IdentityTrait, Trait as IdentityModuleTrait},
     Context, SystematicIssuers, GC_DID,
 };
@@ -78,6 +78,9 @@ use sp_std::{prelude::*, vec};
 
 /// Simple index type for proposal counting.
 pub type ProposalIndex = u32;
+
+/// The number of committee members
+pub type MemberCount = u32;
 
 /// The committee trait.
 pub trait Trait<I>: frame_system::Trait + IdentityModuleTrait {

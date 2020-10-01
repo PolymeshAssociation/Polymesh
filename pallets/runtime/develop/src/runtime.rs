@@ -421,7 +421,6 @@ impl committee::Trait<GovernanceCommittee> for Runtime {
 /// PolymeshCommittee as an instance of group
 impl group::Trait<group::Instance1> for Runtime {
     type Event = Event;
-    type LimitOrigin = frame_system::EnsureRoot<AccountId>;
     type AddOrigin = frame_system::EnsureRoot<AccountId>;
     type RemoveOrigin = frame_system::EnsureRoot<AccountId>;
     type SwapOrigin = frame_system::EnsureRoot<AccountId>;
@@ -442,8 +441,6 @@ macro_rules! committee_config {
         }
         impl group::Trait<group::$instance> for Runtime {
             type Event = Event;
-            // Committee cannot alter its own active membership limit.
-            type LimitOrigin = frame_system::EnsureRoot<AccountId>;
             // Can manage its own addition, deletion, and swapping of membership...
             type AddOrigin = VMO<committee::$instance>;
             type RemoveOrigin = VMO<committee::$instance>;
@@ -712,8 +709,6 @@ impl dividend::Trait for Runtime {
 /// CddProviders instance of group
 impl group::Trait<group::Instance2> for Runtime {
     type Event = Event;
-    // Cannot alter its own active membership limit.
-    type LimitOrigin = frame_system::EnsureRoot<AccountId>;
     type AddOrigin = frame_system::EnsureRoot<AccountId>;
     type RemoveOrigin = frame_system::EnsureRoot<AccountId>;
     type SwapOrigin = frame_system::EnsureRoot<AccountId>;
