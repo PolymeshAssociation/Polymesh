@@ -432,9 +432,19 @@
                 "Inactive": ""
             }
         },
+        "TrustedFor": {
+            "_enum": {
+                "Any": "",
+                "Specific": "Vec<ClaimType>"
+            }
+        },
+        "TrustedIssuer": {
+            "issuer": "IdentityId",
+            "trusted_for": "TrustedFor"
+        },
         "Condition": {
             "condition_type": "ConditionType",
-            "issuers": "Vec<IdentityId>"
+            "issuers": "Vec<TrustedIssuer>"
         },
         "ConditionResult": {
             "condition": "Condition",
@@ -501,6 +511,12 @@
             "voting_end": "Moment",
             "motions": "Vec<Motion>"
         },
+        "MaybeBlock": {
+            "_enum": {
+                "Some": "BlockNumber",
+                "None": ""
+            }
+        },
         "Url": "Text",
         "PipDescription": "Text",
         "PipsMetadata": {
@@ -508,7 +524,8 @@
             "url": "Option<Url>",
             "description": "Option<PipDescription>",
             "created_at": "BlockNumber",
-            "transaction_version": "u32"
+            "transaction_version": "u32",
+            "expiry": "Option<BlockNumber>"
         },
         "Proposer": {
             "_enum": {
@@ -551,7 +568,9 @@
         "PolymeshVotes": {
             "index": "u32",
             "ayes": "Vec<(IdentityId, Balance)>",
-            "nays": "Vec<(IdentityId, Balance)>"
+            "nays": "Vec<(IdentityId, Balance)>",
+            "end": "BlockNumber",
+            "expiry": "Option<BlockNumber>"
         },
         "PipId": "u32",
         "ProposalState": {
@@ -561,7 +580,8 @@
                 "Rejected",
                 "Scheduled",
                 "Failed",
-                "Executed"
+                "Executed",
+                "Expired"
             ]
         },
         "ReferendumState": {

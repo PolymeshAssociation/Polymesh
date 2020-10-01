@@ -7,19 +7,19 @@ use frame_support::{assert_err, assert_noop, assert_ok, traits::Currency};
 use pallet_asset::{self as asset, AssetName, AssetType, SecurityToken};
 use pallet_balances as balances;
 use pallet_compliance_manager::{
-    self as compliance_manager, ComplianceRequirement, ComplianceRequirementResult,
-    ConditionResult, Error as CMError, ImplicitRequirementResult,
+    self as compliance_manager, AssetComplianceResult, ComplianceRequirement,
+    ComplianceRequirementResult, Error as CMError, ImplicitRequirementResult,
 };
 use pallet_group as group;
 use pallet_identity::{self as identity};
-use polymesh_common_utilities::traits::compliance_manager::Trait as ComplianceManagerTrait;
 use polymesh_common_utilities::{
     constants::{ERC1400_TRANSFER_FAILURE, ERC1400_TRANSFER_SUCCESS},
+    traits::compliance_manager::Trait as ComplianceManagerTrait,
     Context,
 };
 use polymesh_primitives::{
-    AuthorizationData, Claim, Condition, ConditionType, CountryCode, IdentityId, PortfolioId,
-    Scope, Signatory, TargetIdentity, Ticker,
+    AuthorizationData, Claim, ClaimType, Condition, ConditionType, CountryCode, IdentityId,
+    PortfolioId, Scope, Signatory, TargetIdentity, Ticker, TrustedFor, TrustedIssuer,
 };
 use sp_std::{convert::TryFrom, prelude::*};
 use test_client::AccountKeyring;
@@ -144,6 +144,8 @@ fn should_add_and_verify_compliance_requirement_we() {
     Balances::make_free_balance_be(&claim_issuer_acc, 1_000_000);
     let claim_issuer_signed = Origin::signed(AccountKeyring::Bob.public());
     let claim_issuer_did = register_keyring_account(AccountKeyring::Bob).unwrap();
+    let ferdie_signer = Origin::signed(AccountKeyring::Ferdie.public());
+    let ferdie_did = register_keyring_account(AccountKeyring::Ferdie).unwrap();
 
     assert_ok!(Identity::add_claim(
         claim_issuer_signed.clone(),
@@ -162,19 +164,26 @@ fn should_add_and_verify_compliance_requirement_we() {
     let now = Utc::now();
     Timestamp::set_timestamp(now.timestamp() as u64);
 
-    let sender_condition = Condition {
-        issuers: vec![claim_issuer_did],
-        condition_type: ConditionType::IsPresent(Claim::NoData),
-    };
+    let sender_condition =
+        Condition::from_dids(ConditionType::IsPresent(Claim::NoData), &[claim_issuer_did]);
 
-    let receiver_condition1 = Condition {
-        issuers: vec![cdd_id],
-        condition_type: ConditionType::IsAbsent(Claim::KnowYourCustomer(token_owner_did.into())),
-    };
+    let receiver_condition1 = Condition::from_dids(
+        ConditionType::IsAbsent(Claim::KnowYourCustomer(token_owner_did.into())),
+        &[cdd_id],
+    );
 
     let receiver_condition2 = Condition {
-        issuers: vec![claim_issuer_did],
         condition_type: ConditionType::IsPresent(Claim::Accredited(token_owner_did.into())),
+        issuers: vec![
+            TrustedIssuer {
+                issuer: claim_issuer_did,
+                trusted_for: TrustedFor::Specific(vec![ClaimType::Accredited]),
+            },
+            TrustedIssuer {
+                issuer: ferdie_did,
+                trusted_for: TrustedFor::Specific(vec![ClaimType::Affiliate, ClaimType::BuyLockup]),
+            },
+        ],
     };
 
     assert_ok!(ComplianceManager::add_compliance_requirement(
@@ -196,44 +205,54 @@ fn should_add_and_verify_compliance_requirement_we() {
 
     //Transfer tokens to investor - fails wrong Accredited scope
     assert_invalid_transfer!(ticker, token_owner_did, token_rec_did, token.total_supply);
-    let result = ComplianceManager::granular_verify_restriction(
-        &ticker,
-        Some(token_owner_did),
-        Some(token_rec_did),
-        None,
-    );
-    assert!(!result.result);
-    assert!(!result.requirements[0].result);
-    assert!(result.requirements[0].sender_conditions[0].result);
-    assert!(result.requirements[0].receiver_conditions[0].result);
-    assert!(!result.requirements[0].receiver_conditions[1].result);
-    assert_eq!(
-        result.requirements[0].sender_conditions[0].condition,
-        sender_condition
-    );
-    assert_eq!(
-        result.requirements[0].receiver_conditions[0].condition,
-        receiver_condition1
-    );
-    assert_eq!(
-        result.requirements[0].receiver_conditions[1].condition,
-        receiver_condition2
-    );
+    let get_result = || {
+        ComplianceManager::granular_verify_restriction(
+            &ticker,
+            Some(token_owner_did),
+            Some(token_rec_did),
+            None,
+        )
+    };
+    let second_unpassed = |result: AssetComplianceResult| {
+        assert!(!result.result);
+        assert!(!result.requirements[0].result);
+        assert!(result.requirements[0].sender_conditions[0].result);
+        assert!(result.requirements[0].receiver_conditions[0].result);
+        assert!(!result.requirements[0].receiver_conditions[1].result);
+        assert_eq!(
+            result.requirements[0].sender_conditions[0].condition,
+            sender_condition
+        );
+        assert_eq!(
+            result.requirements[0].receiver_conditions[0].condition,
+            receiver_condition1
+        );
+        assert_eq!(
+            result.requirements[0].receiver_conditions[1].condition,
+            receiver_condition2
+        );
+    };
+    second_unpassed(get_result());
 
+    // Ferdie isn't trusted for `Accredited`, so the claim isn't enough.
+    assert_ok!(Identity::add_claim(
+        ferdie_signer,
+        token_rec_did,
+        Claim::Accredited(token_owner_did.into()),
+        None,
+    ));
+    assert_invalid_transfer!(ticker, token_owner_did, token_rec_did, 10);
+    second_unpassed(get_result());
+
+    // Now we add a claim from a trusted issuer, so the transfer will be valid.
     assert_ok!(Identity::add_claim(
         claim_issuer_signed.clone(),
         token_rec_did,
         Claim::Accredited(token_owner_did.into()),
         None,
     ));
-
     assert_valid_transfer!(ticker, token_owner_did, token_rec_did, 10);
-    let result = ComplianceManager::granular_verify_restriction(
-        &ticker,
-        Some(token_owner_did),
-        Some(token_rec_did),
-        None,
-    );
+    let result = get_result();
     assert!(result.result);
     assert!(result.requirements[0].result);
     assert!(result.requirements[0].sender_conditions[0].result);
@@ -260,12 +279,7 @@ fn should_add_and_verify_compliance_requirement_we() {
     ));
 
     assert_invalid_transfer!(ticker, token_owner_did, token_rec_did, 10);
-    let result = ComplianceManager::granular_verify_restriction(
-        &ticker,
-        Some(token_owner_did),
-        Some(token_rec_did),
-        None,
-    );
+    let result = get_result();
     assert!(!result.result);
     assert!(!result.requirements[0].result);
     assert!(result.requirements[0].sender_conditions[0].result);
@@ -285,12 +299,12 @@ fn should_add_and_verify_compliance_requirement_we() {
     );
 
     for _ in 0..2 {
-        ComplianceManager::add_compliance_requirement(
+        assert_ok!(ComplianceManager::add_compliance_requirement(
             token_owner_signed.clone(),
             ticker,
             vec![sender_condition.clone()],
             vec![receiver_condition1.clone(), receiver_condition2.clone()],
-        );
+        ));
     }
     assert_ok!(ComplianceManager::remove_compliance_requirement(
         token_owner_signed.clone(),
@@ -480,10 +494,10 @@ fn pause_resume_asset_compliance_we() {
     Timestamp::set_timestamp(now.timestamp() as u64);
 
     // 4. Define conditions
-    let receiver_conditions = vec![Condition {
-        issuers: vec![receiver_did],
-        condition_type: ConditionType::IsAbsent(Claim::NoData),
-    }];
+    let receiver_conditions = vec![Condition::from_dids(
+        ConditionType::IsAbsent(Claim::NoData),
+        &[receiver_did],
+    )];
 
     assert_ok!(ComplianceManager::add_compliance_requirement(
         token_owner_signed.clone(),
@@ -530,6 +544,10 @@ fn should_successfully_add_and_use_default_issuers_we() {
     let trusted_issuer_signed = Origin::signed(AccountKeyring::Charlie.public());
     let trusted_issuer_did = register_keyring_account(AccountKeyring::Charlie).unwrap();
     let receiver_did = register_keyring_account(AccountKeyring::Dave).unwrap();
+    let eve_signed = Origin::signed(AccountKeyring::Eve.public());
+    let eve_did = register_keyring_account(AccountKeyring::Eve).unwrap();
+    let ferdie_signed = Origin::signed(AccountKeyring::Ferdie.public());
+    let ferdie_did = register_keyring_account(AccountKeyring::Ferdie).unwrap();
 
     assert_ok!(CDDGroup::reset_members(root, vec![trusted_issuer_did]));
 
@@ -566,48 +584,59 @@ fn should_successfully_add_and_use_default_issuers_we() {
         ComplianceManager::add_default_trusted_claim_issuer(
             token_owner_signed.clone(),
             ticker,
-            IdentityId::from(1)
+            IdentityId::from(1).into()
         ),
         CMError::<TestStorage>::DidNotExist
     );
 
-    assert_ok!(ComplianceManager::add_default_trusted_claim_issuer(
-        token_owner_signed.clone(),
-        ticker,
-        trusted_issuer_did
-    ));
+    let add_issuer = |ti| {
+        assert_ok!(ComplianceManager::add_default_trusted_claim_issuer(
+            token_owner_signed.clone(),
+            ticker,
+            ti
+        ));
+    };
 
-    assert_eq!(ComplianceManager::trusted_claim_issuer(ticker).len(), 1);
+    let trusted_issuers = vec![
+        trusted_issuer_did.into(),
+        TrustedIssuer {
+            issuer: eve_did,
+            trusted_for: TrustedFor::Specific(vec![ClaimType::Affiliate]),
+        },
+        TrustedIssuer {
+            issuer: ferdie_did,
+            trusted_for: TrustedFor::Specific(vec![ClaimType::Accredited]),
+        },
+    ];
+    for ti in trusted_issuers.clone() {
+        add_issuer(ti);
+    }
+
+    assert_eq!(ComplianceManager::trusted_claim_issuer(ticker).len(), 3);
     assert_eq!(
         ComplianceManager::trusted_claim_issuer(ticker),
-        vec![trusted_issuer_did]
+        trusted_issuers
     );
 
     assert_ok!(Identity::add_claim(
         trusted_issuer_signed.clone(),
         receiver_did.clone(),
         Claim::make_cdd_wildcard(),
-        Some(99999999999999999u64),
+        Some(u64::MAX),
     ));
 
     let now = Utc::now();
     Timestamp::set_timestamp(now.timestamp() as u64);
 
-    let sender_condition = Condition {
-        issuers: vec![],
-        condition_type: ConditionType::IsPresent(Claim::make_cdd_wildcard()),
-    };
-
-    let receiver_condition = Condition {
-        issuers: vec![],
-        condition_type: ConditionType::IsPresent(Claim::make_cdd_wildcard()),
-    };
-
+    let sender_condition = ConditionType::IsPresent(Claim::make_cdd_wildcard()).into();
+    let receiver_condition1 = ConditionType::IsPresent(Claim::make_cdd_wildcard()).into();
+    let receiver_condition2 =
+        ConditionType::IsPresent(Claim::Accredited(token_owner_did.into())).into();
     assert_ok!(ComplianceManager::add_compliance_requirement(
         token_owner_signed.clone(),
         ticker,
         vec![sender_condition],
-        vec![receiver_condition]
+        vec![receiver_condition1, receiver_condition2]
     ));
 
     // fail when token owner doesn't has the valid claim
@@ -620,6 +649,22 @@ fn should_successfully_add_and_use_default_issuers_we() {
         AccountKeyring::Charlie.public(),
     );
 
+    // Right claim, but Eve not trusted for this asset.
+    assert_ok!(Identity::add_claim(
+        eve_signed,
+        receiver_did.clone(),
+        Claim::Accredited(token_owner_did.into()),
+        Some(u64::MAX),
+    ));
+    assert_invalid_transfer!(ticker, token_owner_did, receiver_did, 100);
+
+    // Right claim, and Ferdie is trusted for this asset.
+    assert_ok!(Identity::add_claim(
+        ferdie_signed,
+        receiver_did.clone(),
+        Claim::Accredited(token_owner_did.into()),
+        Some(u64::MAX),
+    ));
     assert_valid_transfer!(ticker, token_owner_did, receiver_did, 100);
 }
 
@@ -674,19 +719,19 @@ fn should_modify_vector_of_trusted_issuer_we() {
     assert_ok!(ComplianceManager::add_default_trusted_claim_issuer(
         token_owner_signed.clone(),
         ticker,
-        trusted_issuer_did_1
+        trusted_issuer_did_1.into()
     ));
 
     assert_ok!(ComplianceManager::add_default_trusted_claim_issuer(
         token_owner_signed.clone(),
         ticker,
-        trusted_issuer_did_2
+        trusted_issuer_did_2.into()
     ));
 
     assert_eq!(ComplianceManager::trusted_claim_issuer(ticker).len(), 2);
     assert_eq!(
         ComplianceManager::trusted_claim_issuer(ticker),
-        vec![trusted_issuer_did_1, trusted_issuer_did_2]
+        vec![trusted_issuer_did_1.into(), trusted_issuer_did_2.into()]
     );
 
     // adding claim by trusted issuer 1
@@ -754,13 +799,13 @@ fn should_modify_vector_of_trusted_issuer_we() {
     assert_ok!(ComplianceManager::remove_default_trusted_claim_issuer(
         token_owner_signed.clone(),
         ticker,
-        trusted_issuer_did_1
+        trusted_issuer_did_1.into()
     ));
 
     assert_eq!(ComplianceManager::trusted_claim_issuer(ticker).len(), 1);
     assert_eq!(
         ComplianceManager::trusted_claim_issuer(ticker),
-        vec![trusted_issuer_did_2]
+        vec![trusted_issuer_did_2.into()]
     );
 
     // Transfer should fail as issuer doesn't exist anymore but the compliance data still exist
@@ -768,15 +813,15 @@ fn should_modify_vector_of_trusted_issuer_we() {
 
     // Change the compliance requirement to all the transfer happen again
 
-    let receiver_condition_1 = Condition {
-        issuers: vec![trusted_issuer_did_1],
-        condition_type: ConditionType::IsPresent(Claim::make_cdd_wildcard()),
-    };
+    let receiver_condition_1 = Condition::from_dids(
+        ConditionType::IsPresent(Claim::make_cdd_wildcard()),
+        &[trusted_issuer_did_1],
+    );
 
-    let receiver_condition_2 = Condition {
-        issuers: vec![trusted_issuer_did_1],
-        condition_type: ConditionType::IsPresent(Claim::NoData),
-    };
+    let receiver_condition_2 = Condition::from_dids(
+        ConditionType::IsPresent(Claim::NoData),
+        &[trusted_issuer_did_1],
+    );
 
     let x = vec![sender_condition];
     let y = vec![receiver_condition_1, receiver_condition_2];
@@ -868,17 +913,17 @@ fn jurisdiction_asset_compliance_we() {
     // 2. Set up compliance requirements for Asset transfer.
     let scope = Scope::from(IdentityId::from(0));
     let receiver_conditions = vec![
-        Condition {
-            condition_type: ConditionType::IsAnyOf(vec![
+        Condition::from_dids(
+            ConditionType::IsAnyOf(vec![
                 Claim::Jurisdiction(CountryCode::CA, scope.clone()),
                 Claim::Jurisdiction(CountryCode::ES, scope.clone()),
             ]),
-            issuers: vec![cdd_id],
-        },
-        Condition {
-            condition_type: ConditionType::IsAbsent(Claim::Blocked(scope.clone())),
-            issuers: vec![token_owner_id],
-        },
+            &[cdd_id],
+        ),
+        Condition::from_dids(
+            ConditionType::IsAbsent(Claim::Blocked(scope.clone())),
+            &[token_owner_id],
+        ),
     ];
     assert_ok!(ComplianceManager::add_compliance_requirement(
         token_owner_signed.clone(),
@@ -933,10 +978,10 @@ fn scope_asset_compliance_we() {
 
     // 2. Set up compliance requirements for Asset transfer.
     let scope = Scope::Identity(Identity::get_token_did(&ticker).unwrap());
-    let receiver_conditions = vec![Condition {
-        condition_type: ConditionType::IsPresent(Claim::Affiliate(scope.clone())),
-        issuers: vec![cdd_id],
-    }];
+    let receiver_conditions = vec![Condition::from_dids(
+        ConditionType::IsPresent(Claim::Affiliate(scope.clone())),
+        &[cdd_id],
+    )];
     assert_ok!(ComplianceManager::add_compliance_requirement(
         owner_signed.clone(),
         ticker,
@@ -974,15 +1019,15 @@ fn cm_test_case_9_we() {
     let (ticker, owner_did) = make_ticker_env(AccountKeyring::Alice, vec![0x01].into());
     // 2. Set up compliance requirements for Asset transfer.
     let scope = Scope::Identity(Identity::get_token_did(&ticker).unwrap());
-    let receiver_conditions = vec![Condition {
-        condition_type: ConditionType::IsAnyOf(vec![
+    let receiver_conditions = vec![Condition::from_dids(
+        ConditionType::IsAnyOf(vec![
             Claim::KnowYourCustomer(scope.clone()),
             Claim::Affiliate(scope.clone()),
             Claim::Accredited(scope.clone()),
             Claim::Exempted(scope.clone()),
         ]),
-        issuers: vec![issuer_id],
-    }];
+        &[issuer_id],
+    )];
     assert_ok!(ComplianceManager::add_compliance_requirement(
         owner.clone(),
         ticker,
@@ -1081,22 +1126,22 @@ fn cm_test_case_11_we() {
     // 2. Set up compliance requirements for Asset transfer.
     let scope = Scope::Identity(Identity::get_token_did(&ticker).unwrap());
     let receiver_conditions = vec![
-        Condition {
-            condition_type: ConditionType::IsAnyOf(vec![
+        Condition::from_dids(
+            ConditionType::IsAnyOf(vec![
                 Claim::KnowYourCustomer(scope.clone()),
                 Claim::Affiliate(scope.clone()),
                 Claim::Accredited(scope.clone()),
                 Claim::Exempted(scope.clone()),
             ]),
-            issuers: vec![issuer_id],
-        },
-        Condition {
-            condition_type: ConditionType::IsNoneOf(vec![
+            &[issuer_id],
+        ),
+        Condition::from_dids(
+            ConditionType::IsNoneOf(vec![
                 Claim::Jurisdiction(CountryCode::US, scope.clone()),
                 Claim::Jurisdiction(CountryCode::KP, scope.clone()),
             ]),
-            issuers: vec![issuer_id],
-        },
+            &[issuer_id],
+        ),
     ];
     assert_ok!(ComplianceManager::add_compliance_requirement(
         owner.clone(),
@@ -1197,25 +1242,25 @@ fn cm_test_case_13_we() {
     // 2. Set up compliance requirements for Asset transfer.
     let scope = Scope::Identity(Identity::get_token_did(&ticker).unwrap());
     let receiver_conditions = vec![
-        Condition {
-            condition_type: ConditionType::IsPresent(Claim::KnowYourCustomer(scope.clone())),
-            issuers: vec![issuer_id],
-        },
-        Condition {
-            condition_type: ConditionType::IsAnyOf(vec![
+        Condition::from_dids(
+            ConditionType::IsPresent(Claim::KnowYourCustomer(scope.clone())),
+            &[issuer_id],
+        ),
+        Condition::from_dids(
+            ConditionType::IsAnyOf(vec![
                 Claim::Affiliate(scope.clone()),
                 Claim::Accredited(scope.clone()),
                 Claim::Exempted(scope.clone()),
             ]),
-            issuers: vec![issuer_id],
-        },
-        Condition {
-            condition_type: ConditionType::IsNoneOf(vec![
+            &[issuer_id],
+        ),
+        Condition::from_dids(
+            ConditionType::IsNoneOf(vec![
                 Claim::Jurisdiction(CountryCode::US, scope.clone()),
                 Claim::Jurisdiction(CountryCode::KP, scope.clone()),
             ]),
-            issuers: vec![issuer_id],
-        },
+            &[issuer_id],
+        ),
     ];
     assert_ok!(ComplianceManager::add_compliance_requirement(
         owner.clone(),
@@ -1452,21 +1497,10 @@ fn should_limit_compliance_requirements_complexity_we() {
         None,
     ));
 
-    let conditions_with_issuer = vec![
-        Condition {
-            condition_type: ConditionType::IsPresent(Claim::KnowYourCustomer(scope.clone())),
-            issuers: vec![token_owner_did],
-        };
-        30
-    ];
+    let ty = ConditionType::IsPresent(Claim::KnowYourCustomer(scope.clone()));
+    let conditions_with_issuer = vec![Condition::from_dids(ty.clone(), &[token_owner_did]); 30];
 
-    let conditions_without_issuers = vec![
-        Condition {
-            condition_type: ConditionType::IsPresent(Claim::KnowYourCustomer(scope.clone())),
-            issuers: vec![],
-        };
-        15
-    ];
+    let conditions_without_issuers = vec![Condition::from_dids(ty, &[]); 15];
 
     // Complexity = 30*1 + 30*1 = 60
     assert_noop!(
@@ -1491,7 +1525,7 @@ fn should_limit_compliance_requirements_complexity_we() {
     assert_ok!(ComplianceManager::add_default_trusted_claim_issuer(
         token_owner_signed.clone(),
         ticker,
-        token_owner_did
+        token_owner_did.into(),
     ));
 
     // Complexity = 30*1 + 15*2 = 60
@@ -1499,7 +1533,7 @@ fn should_limit_compliance_requirements_complexity_we() {
         ComplianceManager::add_default_trusted_claim_issuer(
             token_owner_signed.clone(),
             ticker,
-            token_owner_did
+            token_owner_did.into(),
         ),
         CMError::<TestStorage>::ComplianceRequirementTooComplex
     );
@@ -1515,7 +1549,6 @@ fn check_new_return_type_of_rpc() {
         let token_owner_acc = AccountKeyring::Alice.public();
         let token_owner_signed = Origin::signed(AccountKeyring::Alice.public());
         let token_owner_did = register_keyring_account(AccountKeyring::Alice).unwrap();
-        let receiver_signed = Origin::signed(AccountKeyring::Charlie.public());
         let receiver_did = register_keyring_account(AccountKeyring::Charlie).unwrap();
 
         // 1. A token representing 1M shares

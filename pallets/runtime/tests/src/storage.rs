@@ -8,7 +8,7 @@ use frame_support::{
     assert_ok,
     dispatch::DispatchResult,
     impl_outer_dispatch, impl_outer_event, impl_outer_origin, parameter_types,
-    traits::{Currency, Imbalance, OnUnbalanced},
+    traits::{Currency, OnUnbalanced},
     weights::DispatchInfo,
     weights::{
         RuntimeDbWeight, WeightToFeeCoefficient, WeightToFeeCoefficients, WeightToFeePolynomial,
@@ -32,7 +32,6 @@ use pallet_statistics as statistics;
 use pallet_treasury as treasury;
 use pallet_utility;
 use polymesh_common_utilities::traits::{
-    asset::AssetSubTrait,
     balances::AccountData,
     group::GroupTrait,
     identity::Trait as IdentityTrait,
@@ -61,7 +60,7 @@ use sp_runtime::{
 };
 use sp_std::{collections::btree_set::BTreeSet, iter};
 use std::cell::RefCell;
-use std::convert::{From, TryFrom};
+use std::convert::From;
 use test_client::AccountKeyring;
 
 impl_opaque_keys! {

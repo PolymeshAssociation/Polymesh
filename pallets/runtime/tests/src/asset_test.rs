@@ -1821,10 +1821,7 @@ fn test_weights_for_is_valid_transfer() {
             let (alice_signed, alice_did) = make_account_without_cdd(alice).unwrap();
 
             let bob = AccountKeyring::Bob.public();
-            let (bob_signed, bob_did) = make_account_without_cdd(bob).unwrap();
-
-            let charlie = AccountKeyring::Charlie.public();
-            let (charlie_signed, charlie_did) = make_account_without_cdd(charlie).unwrap();
+            let (_, bob_did) = make_account_without_cdd(bob).unwrap();
 
             let eve = AccountKeyring::Eve.public();
             let (eve_signed, eve_did) = make_account_without_cdd(eve).unwrap();
@@ -1859,35 +1856,21 @@ fn test_weights_for_is_valid_transfer() {
             let ticker_id = Identity::get_token_did(&ticker).unwrap();
 
             // Adding different compliance requirements
+            let is_present = ConditionType::IsPresent(Claim::Accredited(ticker_id.into()));
+            let cond = |ty| Condition::from_dids(ty, &[eve_did]);
             assert_ok!(ComplianceManager::add_compliance_requirement(
                 alice_signed.clone(),
                 ticker,
                 vec![
-                    Condition {
-                        condition_type: ConditionType::IsPresent(Claim::Accredited(
-                            ticker_id.into()
-                        )),
-                        issuers: vec![eve_did]
-                    },
-                    Condition {
-                        condition_type: ConditionType::IsAbsent(Claim::BuyLockup(ticker_id.into())),
-                        issuers: vec![eve_did]
-                    }
+                    cond(is_present.clone()),
+                    cond(ConditionType::IsAbsent(Claim::BuyLockup(ticker_id.into()))),
                 ],
                 vec![
-                    Condition {
-                        condition_type: ConditionType::IsPresent(Claim::Accredited(
-                            ticker_id.into()
-                        )),
-                        issuers: vec![eve_did]
-                    },
-                    Condition {
-                        condition_type: ConditionType::IsAnyOf(vec![
-                            Claim::BuyLockup(ticker_id.into()),
-                            Claim::KnowYourCustomer(ticker_id.into())
-                        ]),
-                        issuers: vec![eve_did]
-                    }
+                    cond(is_present),
+                    cond(ConditionType::IsAnyOf(vec![
+                        Claim::BuyLockup(ticker_id.into()),
+                        Claim::KnowYourCustomer(ticker_id.into())
+                    ])),
                 ]
             ));
 
@@ -1967,9 +1950,8 @@ fn test_weights_for_is_valid_transfer() {
             };
 
             // call is_valid_transfer()
-            let result = is_valid_transfer_result();
-            let weight_from_verify_transfer = verify_restriction_weight();
-            assert!(matches!(result, weight_from_verify_transfer)); // Only sender rules are processed.
+            // Only sender rules are processed.
+            assert_eq!(is_valid_transfer_result(), verify_restriction_weight());
 
             assert_revoke_claim!(
                 eve_signed.clone(),
@@ -1986,26 +1968,25 @@ fn test_weights_for_is_valid_transfer() {
             let weight_from_verify_transfer = verify_restriction_weight();
             let computed_weight =
                 Asset::compute_transfer_result(false, 2, weight_from_verify_transfer).1;
-            assert!(matches!(result, computed_weight)); // Sender & receiver rules are processed.
+            assert_eq!(result, computed_weight); // Sender & receiver rules are processed.
 
             // Adding different claim rules
+            let cond = |ty| Condition::from_dids(ty, &[eve_did]);
             assert_ok!(ComplianceManager::add_compliance_requirement(
                 alice_signed.clone(),
                 ticker,
-                vec![Condition {
-                    condition_type: ConditionType::IsPresent(Claim::Exempted(ticker_id.into())),
-                    issuers: vec![eve_did]
-                }],
-                vec![Condition {
-                    condition_type: ConditionType::IsPresent(Claim::Blocked(ticker_id.into())),
-                    issuers: vec![eve_did]
-                }]
+                vec![cond(ConditionType::IsPresent(Claim::Exempted(
+                    ticker_id.into()
+                )))],
+                vec![cond(ConditionType::IsPresent(Claim::Blocked(
+                    ticker_id.into()
+                )))],
             ));
             let result = is_valid_transfer_result();
             let weight_from_verify_transfer = verify_restriction_weight();
             let computed_weight =
                 Asset::compute_transfer_result(false, 2, weight_from_verify_transfer).1;
-            assert!(matches!(result, computed_weight)); // Sender & receiver rules are processed.
+            assert_eq!(result, computed_weight); // Sender & receiver rules are processed.
 
             // pause transfer rules
             assert_ok!(ComplianceManager::pause_asset_compliance(
@@ -2017,7 +1998,7 @@ fn test_weights_for_is_valid_transfer() {
             let weight_from_verify_transfer = verify_restriction_weight();
             let computed_weight =
                 Asset::compute_transfer_result(false, 2, weight_from_verify_transfer).1;
-            assert!(matches!(result, computed_weight));
+            assert_eq!(result, computed_weight);
         });
 }
 
@@ -2538,11 +2519,11 @@ fn check_unique_investor_count() {
 
             // Bob entity as investor in given ticker.
             let bob_1 = AccountKeyring::Bob.public();
-            let (bob_1_signed, bob_1_did) = make_account_without_cdd(bob_1).unwrap();
+            let (_, bob_1_did) = make_account_without_cdd(bob_1).unwrap();
 
             // Eve also comes under the `Bob` entity.
             let bob_2 = AccountKeyring::Eve.public();
-            let (bob_2_signed, bob_2_did) = make_account_without_cdd(bob_2).unwrap();
+            let (_, bob_2_did) = make_account_without_cdd(bob_2).unwrap();
 
             let total_supply = 1_000_000_000;
 
