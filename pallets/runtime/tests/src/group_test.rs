@@ -47,7 +47,7 @@ fn add_member_works_we() {
     let non_root_did = get_identity_id(AccountKeyring::Alice).unwrap();
 
     Context::set_current_identity::<Identity>(Some(non_root_did));
-    assert_noop!(
+    assert_err!(
         CommitteeGroup::add_member(non_root, IdentityId::from(3)),
         DispatchError::BadOrigin
     );
@@ -58,91 +58,11 @@ fn add_member_works_we() {
         CommitteeGroup::add_member(root.clone(), alice_id),
         group::Error::<TestStorage, group::Instance1>::DuplicateMember
     );
-    assert_ok!(CommitteeGroup::add_member(
-        root.clone(),
-        IdentityId::from(4)
-    ));
+    assert_ok!(CommitteeGroup::add_member(root, IdentityId::from(4)));
     assert_eq!(
         CommitteeGroup::get_members(),
         vec![alice_id, IdentityId::from(4)]
     );
-}
-
-#[test]
-fn active_limit_works() {
-    ExtBuilder::default()
-        .governance_committee([AccountKeyring::Alice.public()].to_vec())
-        .build()
-        .execute_with(|| {
-            let root = Origin::from(frame_system::RawOrigin::Root);
-            let alice_signer = Origin::signed(AccountKeyring::Alice.public());
-            let alice_id = get_identity_id(AccountKeyring::Alice).unwrap();
-
-            assert_ok!(CommitteeGroup::add_member(
-                root.clone(),
-                IdentityId::from(4)
-            ));
-            assert_eq!(
-                CommitteeGroup::get_members(),
-                vec![alice_id, IdentityId::from(4)]
-            );
-
-            let bob_id = register_keyring_account(AccountKeyring::Bob).unwrap();
-            let charlie_id = register_keyring_account(AccountKeyring::Charlie).unwrap();
-            assert_ok!(CommitteeGroup::set_active_members_limit(root.clone(), 1));
-            assert_noop!(
-                CommitteeGroup::add_member(root.clone(), bob_id),
-                group::Error::<TestStorage, group::Instance1>::ActiveMembersLimitExceeded,
-            );
-            assert_ok!(CommitteeGroup::set_active_members_limit(root.clone(), 2));
-            assert_noop!(
-                CommitteeGroup::add_member(root.clone(), bob_id),
-                group::Error::<TestStorage, group::Instance1>::ActiveMembersLimitExceeded,
-            );
-            assert_ok!(CommitteeGroup::set_active_members_limit(root.clone(), 3));
-            assert_ok!(CommitteeGroup::add_member(root.clone(), bob_id));
-            assert_eq!(
-                CommitteeGroup::get_members(),
-                vec![alice_id, IdentityId::from(4), bob_id]
-            );
-            assert_noop!(
-                CommitteeGroup::add_member(root.clone(), charlie_id),
-                group::Error::<TestStorage, group::Instance1>::ActiveMembersLimitExceeded,
-            );
-
-            // Test swap, remove, and abdicate.
-            assert_ok!(CommitteeGroup::swap_member(
-                root.clone(),
-                alice_id,
-                charlie_id,
-            ));
-            assert_ok!(CommitteeGroup::remove_member(root.clone(), charlie_id));
-            assert_ok!(CommitteeGroup::add_member(root.clone(), alice_id));
-            assert_ok!(CommitteeGroup::abdicate_membership(alice_signer));
-            assert_ok!(CommitteeGroup::add_member(root.clone(), alice_id));
-
-            // Lower limit below current size; remove, but then we cannot add.
-            assert_ok!(CommitteeGroup::set_active_members_limit(root.clone(), 0));
-            assert_ok!(CommitteeGroup::remove_member(root.clone(), alice_id));
-            assert_noop!(
-                CommitteeGroup::add_member(root.clone(), charlie_id),
-                group::Error::<TestStorage, group::Instance1>::ActiveMembersLimitExceeded,
-            );
-
-            // Limit is 0, try to reset to empty vec.
-            assert_ok!(CommitteeGroup::reset_members(root.clone(), vec![]));
-            // Raise to 2, and reset to 2 members, should also work.
-            assert_ok!(CommitteeGroup::set_active_members_limit(root.clone(), 2));
-            assert_ok!(CommitteeGroup::reset_members(
-                root.clone(),
-                vec![alice_id, bob_id]
-            ));
-            // Resetting to 3 members doesn't, however.
-            assert_noop!(
-                CommitteeGroup::reset_members(root, vec![alice_id, bob_id, charlie_id]),
-                group::Error::<TestStorage, group::Instance1>::ActiveMembersLimitExceeded,
-            );
-        });
 }
 
 #[test]

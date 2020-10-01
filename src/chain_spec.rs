@@ -346,7 +346,6 @@ fn general_testnet_genesis(
         }),
         // Governance Council:
         group_Instance1: Some(general::runtime::CommitteeMembershipConfig {
-            active_members_limit: 20,
             active_members: vec![
                 IdentityId::from(3),
                 IdentityId::from(4),
@@ -362,7 +361,6 @@ fn general_testnet_genesis(
             phantom: Default::default(),
         }),
         group_Instance2: Some(general::runtime::CddServiceProvidersConfig {
-            active_members_limit: u32::MAX,
             // sp1, sp2, first authority
             active_members: vec![
                 IdentityId::from(1),
@@ -373,7 +371,6 @@ fn general_testnet_genesis(
         }),
         // Technical Committee:
         group_Instance3: Some(general::runtime::TechnicalCommitteeMembershipConfig {
-            active_members_limit: 20,
             active_members: vec![IdentityId::from(3)],
             phantom: Default::default(),
         }),
@@ -385,7 +382,6 @@ fn general_testnet_genesis(
         }),
         // Upgrade Committee:
         group_Instance4: Some(general::runtime::UpgradeCommitteeMembershipConfig {
-            active_members_limit: 20,
             active_members: vec![IdentityId::from(4)],
             phantom: Default::default(),
         }),
@@ -721,7 +717,6 @@ fn alcyone_testnet_genesis(
             },
         }),
         group_Instance1: Some(alcyone::runtime::CommitteeMembershipConfig {
-            active_members_limit: 20,
             active_members: vec![
                 IdentityId::from(4),
                 IdentityId::from(5),
@@ -736,7 +731,6 @@ fn alcyone_testnet_genesis(
             phantom: Default::default(),
         }),
         group_Instance2: Some(alcyone::runtime::CddServiceProvidersConfig {
-            active_members_limit: u32::MAX,
             // sp1, sp2, sp3
             active_members: vec![
                 IdentityId::from(1),
@@ -747,7 +741,6 @@ fn alcyone_testnet_genesis(
         }),
         // Technical Committee:
         group_Instance3: Some(alcyone::runtime::TechnicalCommitteeMembershipConfig {
-            active_members_limit: 20,
             active_members: vec![IdentityId::from(4)],
             phantom: Default::default(),
         }),
@@ -759,7 +752,6 @@ fn alcyone_testnet_genesis(
         }),
         // Upgrade Committee:
         group_Instance4: Some(alcyone::runtime::UpgradeCommitteeMembershipConfig {
-            active_members_limit: 20,
             active_members: vec![IdentityId::from(5)],
             phantom: Default::default(),
         }),
