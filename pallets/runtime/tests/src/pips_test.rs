@@ -125,21 +125,11 @@ fn proposal(
     let before = Pips::pip_id_sequence();
     let active = Pips::active_pip_count();
     let signer = signer.clone();
-    let result = Pips::propose(
-        signer,
-        proposer.clone(),
-        Box::new(proposal),
-        deposit,
-        url,
-        desc,
-    );
+    let proposer = proposer.clone();
+    let result = Pips::propose(signer, proposer, Box::new(proposal), deposit, url, desc);
     let add = result.map_or(0, |_| 1);
     if let Ok(_) = result {
         assert_last_event!(Event::ProposalCreated(_, _, id, ..), *id == before);
-        assert_eq!(
-            Pips::committee_pips().contains(&before),
-            matches!(proposer, Proposer::Committee(_))
-        );
     }
     assert_eq!(Pips::pip_id_sequence(), before + add);
     assert_eq!(Pips::active_pip_count(), active + add);
@@ -299,7 +289,7 @@ fn min_deposit_works() {
         assert_ok!(alice_proposal(deposit + 1));
         assert_state(0, false, ProposalState::Pending);
         assert_eq!(
-            Pips::proposals(0).unwrap().proposer,
+            Pips::proposal_metadata(0).unwrap().proposer,
             Proposer::Community(alice.acc())
         );
 
@@ -307,7 +297,7 @@ fn min_deposit_works() {
         assert_ok!(committee_proposal(0));
         assert_state(1, false, ProposalState::Pending);
         let prop_committee = Proposer::Committee(pallet_pips::Committee::Technical);
-        assert_eq!(Pips::proposals(1).unwrap().proposer, prop_committee);
+        assert_eq!(Pips::proposal_metadata(1).unwrap().proposer, prop_committee);
         assert_vote_details(1, VotingResult::default(), vec![], vec![]);
     })
 }
@@ -360,7 +350,7 @@ fn cool_off_period_works() {
             assert_ok!(alice_proposal(0));
             assert_eq!(
                 block + cooling_until,
-                Pips::proposals(Pips::pip_id_sequence() - 1)
+                Pips::proposal_metadata(Pips::pip_id_sequence() - 1)
                     .unwrap()
                     .cool_off_until,
             );
@@ -519,16 +509,16 @@ fn proposal_details_are_correct() {
         assert_eq!(prop.id, 0);
         assert_eq!(prop.proposal, call);
         assert_eq!(prop.state, ProposalState::Pending);
-        assert_eq!(prop.proposer, proposer);
-        assert_eq!(
-            prop.cool_off_until,
-            System::block_number() + Pips::proposal_cool_off_period()
-        );
 
         let meta = Pips::proposal_metadata(0).unwrap();
         assert_eq!(meta.id, 0);
+        assert_eq!(meta.proposer, proposer);
         assert_eq!(meta.url, Some(proposal_url));
         assert_eq!(meta.description, Some(proposal_desc));
+        assert_eq!(
+            meta.cool_off_until,
+            System::block_number() + Pips::proposal_cool_off_period()
+        );
 
         assert_balance(alice.acc(), 300, 60);
         assert_votes(0, alice.acc(), 60);
@@ -724,7 +714,7 @@ fn vote_on_cool_off() {
         assert_ok!(Pips::set_min_proposal_deposit(root(), 0));
         assert_ok!(Pips::set_proposal_cool_off_period(root(), 42));
         assert_ok!(alice_proposal(0));
-        assert!(Pips::proposals(0).unwrap().cool_off_until > System::block_number());
+        assert!(Pips::proposal_metadata(0).unwrap().cool_off_until > System::block_number());
         // Alice made the PIP, so they can vote during cool-off period.
         let signer = User::new(AccountKeyring::Alice).signer();
         assert_ok!(Pips::vote(signer, 0, false, 0));
@@ -947,7 +937,7 @@ fn approve_committee_proposal_on_cool_off() {
         System::set_block_number(1);
         assert_ok!(Pips::set_proposal_cool_off_period(root(), 42));
         assert_ok!(committee_proposal(0));
-        assert!(Pips::proposals(0).unwrap().cool_off_until > System::block_number());
+        assert!(Pips::proposal_metadata(0).unwrap().cool_off_until > System::block_number());
         assert_noop!(
             Pips::approve_committee_proposal(root(), 0),
             Error::ProposalOnCoolOffPeriod,
@@ -1348,8 +1338,6 @@ fn reject_proposal_works() {
                 id: 0,
                 proposal: make_proposal(42),
                 state: ProposalState::Rejected,
-                proposer: Proposer::Community(alice.acc()),
-                cool_off_until: 1 + Pips::proposal_cool_off_period(),
             }
         );
         assert_balance(alice.acc(), init_bal, 0);
@@ -1388,8 +1376,6 @@ fn reject_proposal_works() {
                 id: 1,
                 proposal: make_proposal(42),
                 state: ProposalState::Rejected,
-                proposer: Proposer::Community(alice.acc()),
-                cool_off_until: 1 + Pips::proposal_cool_off_period(),
             }
         );
         assert_balance(alice.acc(), init_bal, 0);
@@ -1631,7 +1617,7 @@ fn snapshot_only_pending_hot_community() {
         let p = Pips::pip_id_sequence() - 1;
         for id in &[c, r, e, f, s, p] {
             assert!(matches!(
-                Pips::proposals(*id).unwrap().proposer,
+                Pips::proposal_metadata(*id).unwrap().proposer,
                 Proposer::Community(_)
             ));
         }
@@ -1700,23 +1686,13 @@ fn snapshot_works() {
                 },
             ]
         );
-        let assert_snapshot = |id| {
-            assert_eq!(
-                Pips::snapshot_metadata(),
-                Some(SnapshotMetadata {
-                    created_at: 1,
-                    made_by: user.acc(),
-                    id,
-                })
-            );
-        };
-        assert_snapshot(0);
-
-        assert_ok!(Pips::snapshot(user.signer()));
-        assert_snapshot(1);
-
-        assert_ok!(Pips::snapshot(user.signer()));
-        assert_snapshot(2);
+        assert_eq!(
+            Pips::snapshot_metadata(),
+            Some(SnapshotMetadata {
+                created_at: 1,
+                made_by: user.acc(),
+            })
+        );
     });
 }
 
