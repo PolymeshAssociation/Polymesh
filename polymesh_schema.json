@@ -1007,6 +1007,10 @@
         "ImplicitRequirementResult": {
             "from_result": "bool",
             "to_result": "bool"
+        },
+        "ExtensionAttributes": {
+            "usage_fee": "Balance",
+            "version":"MetaVersion"
         }
     },
     "rpc": {
