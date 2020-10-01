@@ -675,13 +675,14 @@ decl_module! {
         #[weight = (1_850_000_000, DispatchClass::Operational, Pays::Yes)]
         pub fn propose(
             origin,
+            proposer: Proposer<T::AccountId>,
             proposal: Box<T::Proposal>,
             deposit: BalanceOf<T>,
             url: Option<Url>,
             description: Option<PipDescription>,
         ) -> DispatchResult {
-            // 1. Infer the proposer from `origin`.
-            let proposer = Self::ensure_infer_proposer(origin)?;
+            // 1. Ensure it's really the `proposer`.
+            Self::ensure_signed_by(origin, &proposer)?;
 
             let did = Self::current_did_or_missing()?;
 
@@ -1152,27 +1153,27 @@ decl_module! {
 }
 
 impl<T: Trait> Module<T> {
-    /// Ensure that `origin` represents one of:
-    /// - a signed extrinsic (i.e. transaction), and infer the account id, as a community proposer.
-    /// - a committee, where the committee is also inferred.
+    /// Ensure that `origin` represents a signed extrinsic (i.e. transaction)
+    /// and confirms that the account is the same as the given `proposer`.
     ///
-    /// Returns the inferred proposer.
+    /// For example, if `proposer` denotes a committee,
+    /// then `origin` is checked against the committee's origin.
     ///
     /// # Errors
-    /// * `BadOrigin` if not a signed extrinsic.
-    fn ensure_infer_proposer(
-        origin: T::Origin,
-    ) -> Result<Proposer<T::AccountId>, sp_runtime::traits::BadOrigin> {
-        ensure_signed(origin.clone())
-            .map(Proposer::Community)
-            .or_else(|_| {
-                T::TechnicalCommitteeVMO::ensure_origin(origin.clone())
-                    .map(|_| Committee::Technical)
-                    .or_else(|_| {
-                        T::UpgradeCommitteeVMO::ensure_origin(origin).map(|_| Committee::Upgrade)
-                    })
-                    .map(Proposer::Committee)
-            })
+    /// * `BadOrigin` unless the checks above pass.
+    fn ensure_signed_by(origin: T::Origin, proposer: &Proposer<T::AccountId>) -> DispatchResult {
+        match proposer {
+            Proposer::Community(acc) => {
+                ensure!(acc == &ensure_signed(origin)?, DispatchError::BadOrigin)
+            }
+            Proposer::Committee(Committee::Technical) => {
+                T::TechnicalCommitteeVMO::ensure_origin(origin)?;
+            }
+            Proposer::Committee(Committee::Upgrade) => {
+                T::UpgradeCommitteeVMO::ensure_origin(origin)?;
+            }
+        }
+        Ok(())
     }
 
     /// Returns the current identity or emits `MissingCurrentIdentity`.
@@ -1180,8 +1181,7 @@ impl<T: Trait> Module<T> {
         Context::current_identity::<Identity<T>>().ok_or_else(|| Error::<T>::MissingCurrentIdentity)
     }
 
-    /// Ensure that the proposer inferred via `origin` is the owner of the proposal,
-    /// which must be in the cool off period.
+    /// Ensure that proposer is owner of the proposal which must be in the cool off period.
     ///
     /// # Errors
     /// * `ProposalIsImmutable`: A Proposal is mutable only during its cool off period.
@@ -1192,8 +1192,7 @@ impl<T: Trait> Module<T> {
     ) -> Result<Proposer<T::AccountId>, DispatchError> {
         // 1. Only owner can act on proposal.
         let pip = Self::proposals(id).ok_or_else(|| Error::<T>::NoSuchProposal)?;
-        let proposer = Self::ensure_infer_proposer(origin)?;
-        ensure!(proposer == pip.proposer, DispatchError::BadOrigin);
+        Self::ensure_signed_by(origin, &pip.proposer)?;
 
         // 2. Check that the proposal is pending.
         Self::is_proposal_state(id, ProposalState::Pending)?;
