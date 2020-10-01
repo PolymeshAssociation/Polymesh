@@ -300,7 +300,7 @@ pub struct CheckpointRecord<Balance> {
     record_timestamp: u64,
     /// The balance at the checkpoint.
     balance: Balance,
-    /// The asset total supply.
+    /// The total asset supply.
     total_supply: Balance,
 }
 
@@ -669,7 +669,7 @@ decl_module! {
             Ok(())
         }
 
-        /// Create a single checkpoint.
+        /// Creates a single checkpoint.
         /// NB: Only called by the owner of the security token i.e owner DID.
         ///
         /// # Arguments
@@ -686,7 +686,7 @@ decl_module! {
         }
 
         /// Creates a checkpoint schedule. Can only be called by the token owner primary or
-        /// secondary key. Only one schedule is allowed for an asset. In order to change an existing
+        /// secondary key. Only one schedule is allowed for an asset. To change an existing
         /// schedule, it must be removed first.
         ///
         /// # Arguments
@@ -1763,9 +1763,7 @@ impl<T: Trait> Module<T> {
             let ticker_user_did_checkpont = (*ticker, user_did, checkpoint_count);
             if !<CheckpointBalance<T>>::contains_key(&ticker_user_did_checkpont) {
                 <CheckpointBalance<T>>::insert(&ticker_user_did_checkpont, balance);
-                <UserCheckpoints>::mutate(&(*ticker, user_did), |user_checkpoints| {
-                    user_checkpoints.push(checkpoint_count);
-                });
+                UserCheckpoints::append(&(*ticker, user_did), checkpoint_count);
             }
         }
         // Record the scheduled checkpoint if one exists and is due and we are the asset owner.
