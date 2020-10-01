@@ -112,6 +112,8 @@ where
 /// Data structure to hold the details of the smart extension instance.
 #[derive(Encode, Decode, Default, Debug, Clone, PartialEq)]
 pub struct ExtensionAttributes<Balance> {
+    /// Fee that needs to be paid when extension's specific feature get used.
     pub usage_fee: Balance,
+    /// Version of extension. It should be compatible with asset version.
     pub version: MetaVersion,
 }
