@@ -7,7 +7,7 @@ use cryptography::claim_proofs::{compute_cdd_id, compute_scope_id};
 use pallet_asset::{self as asset, AssetType, SecurityToken};
 use pallet_compliance_manager as compliance_manager;
 use pallet_confidential as confidential;
-use pallet_identity::{self as identity, Error};
+use pallet_identity as identity;
 use polymesh_common_utilities::constants::ERC1400_TRANSFER_SUCCESS;
 use polymesh_primitives::{
     AssetIdentifier, Claim, Condition, ConditionType, IdentityId, InvestorUid, InvestorZKProofData,
@@ -149,25 +149,25 @@ fn scope_claims_we() {
     let cdd_claim_1 = InvestorZKProofData::make_cdd_claim(&inv_did_1, &investor);
     let cdd_id_1 = compute_cdd_id(&cdd_claim_1).compress().to_bytes().into();
 
-    let conf_scope_claim_error =
-        Claim::InvestorZKProof(st_scope.clone(), scope_id, cdd_id_1, inv_1_proof.clone());
-    let conf_scope_claim_1 =
-        Claim::InvestorZKProof(st_id.into(), scope_id, cdd_id_1, inv_1_proof.clone());
+    let conf_scope_claim_error = Claim::InvestorUniqueness(st_scope.clone(), scope_id, cdd_id_1);
+    let conf_scope_claim_1 = Claim::InvestorUniqueness(st_id.into(), scope_id, cdd_id_1);
 
     assert_err!(
-        Identity::add_claim(
+        Identity::add_investor_uniqueness_claim(
             Origin::signed(inv_acc_1),
             inv_did_1,
             conf_scope_claim_error.clone(),
+            inv_1_proof.clone(),
             None
         ),
         IdentityError::InvalidScopeClaim
     );
 
-    assert_ok!(Identity::add_claim(
+    assert_ok!(Identity::add_investor_uniqueness_claim(
         Origin::signed(inv_acc_1),
         inv_did_1,
         conf_scope_claim_1.clone(),
+        inv_1_proof.clone(),
         None
     ),);
 
@@ -175,11 +175,12 @@ fn scope_claims_we() {
     let cdd_claim_2 = InvestorZKProofData::make_cdd_claim(&inv_did_2, &investor);
     let cdd_id_2 = compute_cdd_id(&cdd_claim_2).compress().to_bytes().into();
 
-    let conf_scope_claim_2 = Claim::InvestorZKProof(st_id.into(), scope_id, cdd_id_2, inv_2_proof);
-    assert_ok!(Identity::add_claim(
+    let conf_scope_claim_2 = Claim::InvestorUniqueness(st_id.into(), scope_id, cdd_id_2);
+    assert_ok!(Identity::add_investor_uniqueness_claim(
         Origin::signed(inv_acc_2),
         inv_did_2,
         conf_scope_claim_2,
+        inv_2_proof,
         None
     ));
 
@@ -204,10 +205,11 @@ fn scope_claims_we() {
 
     // 4. ERROR: Investor 2 cannot add a claim of the real investor.
     assert_err!(
-        Identity::add_claim(
+        Identity::add_investor_uniqueness_claim(
             Origin::signed(inv_acc_3),
             inv_did_3,
             conf_scope_claim_1,
+            inv_1_proof.clone(),
             None
         ),
         IdentityError::ConfidentialScopeClaimNotAllowed
@@ -242,13 +244,13 @@ fn scope_claims_we() {
         .to_bytes()
         .into();
 
-    let conf_scope_claim_3 =
-        Claim::InvestorZKProof(st2_id.into(), corrupted_scope_id, cdd_id_1, inv_1_proof);
+    let conf_scope_claim_3 = Claim::InvestorUniqueness(st2_id.into(), corrupted_scope_id, cdd_id_1);
     assert_err!(
-        Identity::add_claim(
+        Identity::add_investor_uniqueness_claim(
             Origin::signed(inv_acc_1),
             inv_did_1,
             conf_scope_claim_3.clone(),
+            inv_1_proof.clone(),
             None
         ),
         IdentityError::InvalidScopeClaim

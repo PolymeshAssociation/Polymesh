@@ -2527,11 +2527,11 @@ fn reporters_receive_their_slice() {
     // This test verifies that the reporters of the offence receive their slice from the slashed
     // amount.
     ExtBuilder::default().build_and_execute(|| {
-        // The reporters' reward is calculated from the total exposure.
-        let initial_balance = 1125;
+        // The reporters' reward is calculated from the validator's exposure only.
+        let initial_balance = 1000;
 
         assert_eq!(
-            Staking::eras_stakers(Staking::active_era().unwrap().index, 11).total,
+            Staking::eras_stakers(Staking::active_era().unwrap().index, 11).own,
             initial_balance
         );
 
@@ -2560,11 +2560,11 @@ fn subsequent_reports_in_same_span_pay_out_less() {
     // This test verifies that the reporters of the offence receive their slice from the slashed
     // amount, but less and less if they submit multiple reports in one span.
     ExtBuilder::default().build_and_execute(|| {
-        // The reporters' reward is calculated from the total exposure.
-        let initial_balance = 1125;
+        // The reporters' reward is calculated from the validator's exposure only not the total.
+        let initial_balance = 1000;
 
         assert_eq!(
-            Staking::eras_stakers(Staking::active_era().unwrap().index, 11).total,
+            Staking::eras_stakers(Staking::active_era().unwrap().index, 11).own,
             initial_balance
         );
 
@@ -2822,13 +2822,13 @@ fn garbage_collection_on_window_pruning() {
         assert_eq!(Balances::free_balance(101), 2000);
 
         assert!(mock::Staking::get_validator_slash_in_era(&now, &11).is_some());
-        // Storage get update even the nominator didn't get slashed
-        assert!(mock::Staking::get_nominators_slash_in_era(&now, &101).is_some());
+        // Storage will not be updates as nominator didn't get slashed so it will be none.
+        assert!(mock::Staking::get_nominators_slash_in_era(&now, &101).is_none());
 
         // + 1 because we have to exit the bonding window.
         for era in (0..(BondingDuration::get() + 1)).map(|offset| offset + now + 1) {
             assert!(mock::Staking::get_validator_slash_in_era(&now, &11).is_some());
-            assert!(mock::Staking::get_nominators_slash_in_era(&now, &101).is_some());
+            assert!(mock::Staking::get_nominators_slash_in_era(&now, &101).is_none());
 
             mock::start_era(era);
         }
@@ -2839,6 +2839,7 @@ fn garbage_collection_on_window_pruning() {
 }
 
 #[test]
+#[ignore] // Ignored because nominator will no more slashed and no storage will be updated.
 fn slashing_nominators_by_span_max() {
     ExtBuilder::default().build_and_execute(|| {
         mock::start_era(1);
@@ -4948,13 +4949,10 @@ fn offences_weight_calculated_correctly() {
 			},
 		];
 
-		let n = 1; // Number of offenders
-		let rw = 3 + 3 * n; // rw reads and writes
+		let rw = 3; // rw reads and writes
 		let one_offence_unapplied_weight = <Test as frame_system::Trait>::DbWeight::get().reads_writes(4, 1)
 			+ <Test as frame_system::Trait>::DbWeight::get().reads_writes(rw, rw)
 			// One `slash_cost`
-			+ <Test as frame_system::Trait>::DbWeight::get().reads_writes(6, 5)
-			// `slash_cost` * nominators (1)
 			+ <Test as frame_system::Trait>::DbWeight::get().reads_writes(6, 5)
 			// `reward_cost` * reporters (1)
 			+ <Test as frame_system::Trait>::DbWeight::get().reads_writes(2, 2);

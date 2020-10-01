@@ -6,7 +6,7 @@ use pallet_committee as committee;
 use pallet_group as group;
 use pallet_identity as identity;
 use pallet_pips as pips;
-use polymesh_common_utilities::protocol_fee::ProtocolOp;
+use polymesh_common_utilities::{protocol_fee::ProtocolOp, GC_DID};
 use polymesh_primitives::{Identity, IdentityId, PosRatio};
 use sp_core::sr25519::Public;
 use sp_io::TestExternalities;
@@ -318,6 +318,7 @@ impl ExtBuilder {
                 id
             })
             .cloned()
+            .chain(core::iter::once(GC_DID))
             .collect::<Vec<_>>();
 
         group::GenesisConfig::<TestStorage, group::Instance2> {
@@ -376,6 +377,7 @@ impl ExtBuilder {
             default_enactment_period: 100,
             max_pip_skip_count: 1,
             active_pip_limit: 5,
+            pending_pip_expiry: <_>::default(),
         }
         .assimilate_storage(&mut storage)
         .unwrap();
