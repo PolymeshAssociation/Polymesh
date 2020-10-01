@@ -153,7 +153,8 @@ impl CheckpointSchedule {
                         // Convert months to base 12.
                         let month_start_0_indexed = month_start - 1;
                         let month_now_0_indexed = date_now.month() - 1;
-                        let elapsed_months = year_diff * 12 + month_now_0_indexed - month_start_0_indexed;
+                        let elapsed_months =
+                            year_diff * 12 + month_now_0_indexed - month_start_0_indexed;
                         let elapsed_periods = elapsed_months / multiplier;
                         let next_period_months = multiplier * (elapsed_periods + 1);
                         // The month of the next period counting from the beginning of `year_start`.
@@ -179,8 +180,7 @@ impl CheckpointSchedule {
                             next_period_month + 1,
                             next_period_day,
                         );
-                        u64::try_from(date_next.and_time(date_time_start.time()).timestamp())
-                            .ok()
+                        u64::try_from(date_next.and_time(date_time_start.time()).timestamp()).ok()
                     }
                     VariableCalendarUnit::Year => {
                         // Convert the multiplier to match the type of year.
@@ -200,8 +200,7 @@ impl CheckpointSchedule {
                             month_start,
                             next_period_day,
                         );
-                        u64::try_from(date_next.and_time(date_time_start.time()).timestamp())
-                                .ok()
+                        u64::try_from(date_next.and_time(date_time_start.time()).timestamp()).ok()
                     }
                 }
             }
