@@ -48,6 +48,7 @@ use polymesh_common_utilities::{
 use polymesh_primitives::{IdentityId, PortfolioId, Ticker};
 
 use codec::{Decode, Encode};
+use frame_support::weights::PostDispatchInfo;
 use frame_support::{
     decl_error, decl_event, decl_module, decl_storage,
     dispatch::{DispatchError, DispatchResult, DispatchResultWithPostInfo},
@@ -59,7 +60,9 @@ use frame_support::{
 use frame_system::{self as system, ensure_signed};
 use polymesh_primitives_derive::VecU8StrongTyped;
 use sp_runtime::traits::{Verify, Zero};
+use sp_runtime::DispatchErrorWithPostInfo;
 use sp_std::{collections::btree_set::BTreeSet, convert::TryFrom, prelude::*};
+
 type Identity<T> = identity::Module<T>;
 
 pub trait Trait:
@@ -392,6 +395,8 @@ decl_error! {
         UnauthorizedVenue,
         /// While authorizing the transfer, system failed to lock the assets involved
         FailedToLockTokens,
+        /// Instruction failed to execute
+        InstructionFailed,
         /// Instruction validity has not started yet
         InstructionWaitingValidity,
         /// Instruction's target settle block reached
@@ -508,7 +513,7 @@ decl_module! {
             let sender = ensure_signed(origin)?;
             let did = Context::current_identity_or::<Identity<T>>(&sender)?;
             // Check if a venue exists and the sender is the creator of the venue
-            let mut venue = Self::venue_info(venue_id);
+            let mut venue = Self::venue_info(venue_id).ok_or(Error::<T>::Unauthorized)?;
             ensure!(venue.creator == did, Error::<T>::Unauthorized);
             if let Some(venue_details) = details {
                 venue.details = venue_details;
@@ -601,7 +606,12 @@ decl_module! {
             let auths_pending = Self::instruction_auths_pending(instruction_id);
             let weight_for_instruction_execution = Self::is_instruction_executed(auths_pending, Self::instruction_details(instruction_id).settlement_type, instruction_id);
 
-            Ok(Some(weight_for::weight_for_authorize_instruction::<T>() + weight_for_instruction_execution).into())
+            weight_for_instruction_execution
+                .map(|info| info
+                    .actual_weight
+                    .map(|w| w.saturating_add(weight_for::weight_for_authorize_instruction::<T>()))
+                    .into()
+                )
         }
 
         /// Unauthorizes an existing instruction.
@@ -661,7 +671,12 @@ decl_module! {
             let weight_for_instruction_execution = Self::is_instruction_executed(Zero::zero(), Self::instruction_details(instruction_id).settlement_type, instruction_id);
 
             Self::deposit_event(RawEvent::InstructionRejected(did, instruction_id));
-            Ok(Some(weight_for::weight_for_reject_instruction::<T>() + weight_for_instruction_execution).into())
+            weight_for_instruction_execution
+                .map(|info| info
+                    .actual_weight
+                    .map(|w| w.saturating_add(weight_for::weight_for_reject_instruction::<T>()))
+                    .into()
+                )
         }
 
         /// Accepts an instruction and claims a signed receipt.
@@ -769,7 +784,12 @@ decl_module! {
             // Execute instruction if conditions are met.
             let execute_instruction_weight = Self::is_instruction_executed(auths_pending, instruction_details.settlement_type, instruction_id);
 
-            Ok(Some(weight_for::weight_for_authorize_with_receipts::<T>(u32::try_from(receipt_details.len()).unwrap_or_default()) + execute_instruction_weight).into())
+            execute_instruction_weight
+            .map(|info| info
+                .actual_weight
+                .map(|w| w.saturating_add(weight_for::weight_for_authorize_with_receipts::<T>(u32::try_from(receipt_details.len()).unwrap_or_default())))
+                .into()
+            )
         }
 
         /// Claims a signed receipt.
@@ -899,7 +919,7 @@ impl<T: Trait> Module<T> {
             Error::<T>::LegsCountExceededMaxLimit
         );
         // Check if a venue exists and the sender is the creator of the venue
-        let mut venue = Self::venue_info(venue_id);
+        let mut venue = Self::venue_info(venue_id).ok_or(Error::<T>::Unauthorized)?;
         ensure!(venue.creator == did, Error::<T>::Unauthorized);
 
         // Prepare data to store in storage
@@ -999,7 +1019,13 @@ impl<T: Trait> Module<T> {
             let (temp_legs_executed, temp_weight_for_initialize) =
                 Self::execute_instruction(*scheduled_tx);
             legs_executed += temp_legs_executed;
-            weight_for_initialize += temp_weight_for_initialize;
+            weight_for_initialize += match temp_weight_for_initialize
+                .map(|info| info.actual_weight.unwrap_or(0))
+                .map_err(|error| error.post_info.actual_weight.unwrap_or(0))
+            {
+                Ok(weight) => weight,
+                Err(weight) => weight,
+            };
         }
         weight_for_initialize
     }
@@ -1088,10 +1114,11 @@ impl<T: Trait> Module<T> {
         Ok(())
     }
 
-    fn execute_instruction(instruction_id: u64) -> (u32, Weight) {
+    fn execute_instruction(instruction_id: u64) -> (u32, DispatchResultWithPostInfo) {
         let legs = <InstructionLegs<T>>::iter_prefix(instruction_id).collect::<Vec<_>>();
         let instructions_processed: u32 = u32::try_from(legs.len()).unwrap_or_default();
         Self::unchecked_release_locks(instruction_id, &legs);
+        let mut result = DispatchResult::Ok(());
         let weight_for_execution = if Self::instruction_auths_pending(instruction_id) > 0 {
             // Instruction rejected. Unlock any locked tokens and mark receipts as unused.
             // NB: Leg status is not updated because Instruction related details are deleted after settlement in any case.
@@ -1154,6 +1181,7 @@ impl<T: Trait> Module<T> {
                             SettlementDID.as_id(),
                             instruction_id,
                         ));
+                        result = DispatchResult::Err(Error::<T>::InstructionFailed.into());
                     }
                 }
             }
@@ -1169,7 +1197,22 @@ impl<T: Trait> Module<T> {
         // NB UserAuths mapping is not cleared
         (
             instructions_processed,
-            weight_for_execution.saturating_add(T::DbWeight::get().writes(5)),
+            result
+                .map(|_| PostDispatchInfo {
+                    actual_weight: Some(
+                        weight_for_execution.saturating_add(T::DbWeight::get().writes(5)),
+                    ),
+                    pays_fee: Default::default(),
+                })
+                .map_err(|error| DispatchErrorWithPostInfo {
+                    post_info: PostDispatchInfo {
+                        actual_weight: Some(
+                            weight_for_execution.saturating_add(T::DbWeight::get().writes(5)),
+                        ),
+                        pays_fee: Default::default(),
+                    },
+                    error,
+                }),
         )
     }
 
@@ -1325,13 +1368,16 @@ impl<T: Trait> Module<T> {
         auths_pending: u64,
         settlement_type: SettlementType<T::BlockNumber>,
         id: u64,
-    ) -> Weight {
-        let execute_instruction_weight =
+    ) -> DispatchResultWithPostInfo {
+        let execute_instruction_result =
             if auths_pending == 0 && settlement_type == SettlementType::SettleOnAuthorization {
                 Self::execute_instruction(id).1
             } else {
-                Zero::zero()
+                Ok(PostDispatchInfo {
+                    actual_weight: Some(Zero::zero()),
+                    pays_fee: Default::default(),
+                })
             };
-        execute_instruction_weight
+        execute_instruction_result
     }
 }

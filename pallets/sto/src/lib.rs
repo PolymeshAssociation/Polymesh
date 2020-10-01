@@ -25,7 +25,7 @@ use polymesh_common_utilities::{
 };
 use polymesh_primitives::{IdentityId, PortfolioId, Ticker};
 use sp_runtime::traits::{CheckedAdd, CheckedMul};
-use sp_std::prelude::*;
+use sp_std::{collections::btree_set::BTreeSet, prelude::*};
 
 type Identity<T> = identity::Module<T>;
 type Settlement<T> = settlement::Module<T>;
@@ -226,8 +226,11 @@ decl_module! {
             let sender = ensure_signed(origin.clone())?;
             let did = Context::current_identity_or::<Identity<T>>(&sender)?;
 
+            ensure!(investment_portfolio.did == did, Error::<T>::InvalidPortfolio);
+            ensure!(funding_portfolio.did == did, Error::<T>::InvalidPortfolio);
+
             let now = Timestamp::<T>::get();
-            let fundraiser = <Fundraisers<T>>::get(offering_asset, fundraiser_id).ok_or(Error::<T>::FundraiserNotFound);
+            let fundraiser = <Fundraisers<T>>::get(offering_asset, fundraiser_id).ok_or(Error::<T>::FundraiserNotFound)?;
             ensure!(fundraiser.start <= now, Error::<T>::FundraiserNotStated);
             if let Some(end) = fundraiser.end {
                 ensure!(end > now, Error::<T>::FundraiserExpired);
@@ -267,7 +270,7 @@ decl_module! {
                 purchases.push((id, purchase_amount));
                 cost = cost.checked_add(
                     &remaining
-                    .checked_mul(&tier.inner.price)
+                    .checked_mul(&tier.price)
                     .ok_or(Error::<T>::Overflow)?
                 ).ok_or(Error::<T>::Overflow)?;
             }
@@ -311,12 +314,14 @@ decl_module! {
                     None => Settlement::<T>::authorize_instruction(origin, instruction_id, portfolios).map_err(|e| e.error)?,
                 };
 
-                let portfolios= vec![investment_portfolio, funding_portfolio].into_iter();
+                let portfolios= vec![investment_portfolio, funding_portfolio].into_iter().collect::<BTreeSet<_>>();
                 Settlement::<T>::unsafe_authorize_instruction(primary_issuance_agent, instruction_id, portfolios)?;
 
                 <Fundraisers<T>>::mutate(offering_asset, fundraiser_id, |fundraiser| {
-                    for (id, amount) in purchases {
-                        fundraiser.tiers[id].remaining -= amount;
+                    if let Some(fundraiser) = fundraiser {
+                        for (id, amount) in purchases {
+                            fundraiser.tiers[id].remaining -= amount;
+                        }
                     }
                 });
 
@@ -331,13 +336,15 @@ decl_module! {
             ensure!(T::Asset::primary_issuance_agent(&offering_asset) == did, Error::<T>::Unauthorized);
 
             let now = Timestamp::<T>::get();
-            let fundraiser = <Fundraisers<T>>::get(offering_asset, fundraiser_id).ok_or(Error::<T>::FundraiserNotFound);
+            let fundraiser = <Fundraisers<T>>::get(offering_asset, fundraiser_id).ok_or(Error::<T>::FundraiserNotFound)?;
             ensure!(fundraiser.start <= now, Error::<T>::FundraiserNotStated);
             if let Some(end) = fundraiser.end {
                 ensure!(end > now, Error::<T>::FundraiserExpired);
             }
 
-            <Fundraisers<T>>::mutate(offering_asset, fundraiser_id, |fundraiser| fundraiser.frozen = true);
+            <Fundraisers<T>>::mutate(offering_asset, fundraiser_id, |fundraiser| if let Some(fundraiser) = fundraiser {
+            fundraiser.frozen = true
+            });
             Ok(())
         }
 
@@ -348,13 +355,15 @@ decl_module! {
             ensure!(T::Asset::primary_issuance_agent(&offering_asset) == did, Error::<T>::Unauthorized);
 
             let now = Timestamp::<T>::get();
-            let fundraiser = <Fundraisers<T>>::get(offering_asset, fundraiser_id).ok_or(Error::<T>::FundraiserNotFound);
+            let fundraiser = <Fundraisers<T>>::get(offering_asset, fundraiser_id).ok_or(Error::<T>::FundraiserNotFound)?;
             ensure!(fundraiser.start <= now, Error::<T>::FundraiserNotStated);
             if let Some(end) = fundraiser.end {
                 ensure!(end > now, Error::<T>::FundraiserExpired);
             }
 
-            <Fundraisers<T>>::mutate(offering_asset, fundraiser_id, |fundraiser| fundraiser.frozen = false);
+            <Fundraisers<T>>::mutate(offering_asset, fundraiser_id, |fundraiser| if let Some(fundraiser) = fundraiser {
+            fundraiser.frozen = false
+            });
             Ok(())
         }
 
@@ -365,15 +374,17 @@ decl_module! {
             ensure!(T::Asset::primary_issuance_agent(&offering_asset) == did, Error::<T>::Unauthorized);
 
             let now = Timestamp::<T>::get();
-            let fundraiser = <Fundraisers<T>>::get(offering_asset, fundraiser_id).ok_or(Error::<T>::FundraiserNotFound);
+            let fundraiser = <Fundraisers<T>>::get(offering_asset, fundraiser_id).ok_or(Error::<T>::FundraiserNotFound)?;
             ensure!(fundraiser.start <= now, Error::<T>::FundraiserNotStated);
             if let Some(end) = fundraiser.end {
                 ensure!(end > now, Error::<T>::FundraiserExpired);
             }
 
             <Fundraisers<T>>::mutate(offering_asset, fundraiser_id, |fundraiser| {
-                fundraiser.start = start;
-                fundraiser.end = end;
+                if let Some(fundraiser) = fundraiser {
+                    fundraiser.start = start;
+                    fundraiser.end = end;
+                }
             });
             Ok(())
         }
