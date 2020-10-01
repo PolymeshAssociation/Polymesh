@@ -191,12 +191,16 @@ const createIdentitiesWithExpiry = async function (
   let dids = [];
 
   for (let i = 0; i < accounts.length; i++) {
-    console.log( `>>>> [Register CDD Claim] acc: ${accounts[i].address}`);
-    await api.tx.identity
-      .cddRegisterDid(accounts[i].address, [])
-      .signAndSend(alice, { nonce: nonces.get(alice.address) });
-
-    nonces.set(alice.address, nonces.get(alice.address).addn(1));
+    let account_did = await keyToIdentityIds(api, accounts[i].publicKey);
+   
+    if(account_did == 0) {
+        console.log( `>>>> [Register CDD Claim] acc: ${accounts[i].address}`);
+        const transaction = await api.tx.identity.cddRegisterDid(accounts[i].address, []);
+        await sendTx(alice, transaction);
+    } 
+    else {
+        console.log('Identity Already Linked.');
+    }
   }
   await blockTillPoolEmpty(api);
 
