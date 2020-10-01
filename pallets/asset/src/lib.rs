@@ -299,7 +299,7 @@ pub struct CheckpointRecord<Balance> {
     record_timestamp: u64,
     /// The balance at the checkpoint.
     balance: Balance,
-    /// The asset total supply.
+    /// The total asset supply.
     total_supply: Balance,
 }
 
