@@ -1765,9 +1765,7 @@ impl<T: Trait> Module<T> {
             let ticker_user_did_checkpont = (*ticker, user_did, checkpoint_count);
             if !<CheckpointBalance<T>>::contains_key(&ticker_user_did_checkpont) {
                 <CheckpointBalance<T>>::insert(&ticker_user_did_checkpont, balance);
-                <UserCheckpoints>::mutate(&(*ticker, user_did), |user_checkpoints| {
-                    user_checkpoints.push(checkpoint_count);
-                });
+                UserCheckpoints::append(&(*ticker, user_did), checkpoint_count);
             }
         }
         // Record the scheduled checkpoint if one exists and is due and we are the asset owner.
