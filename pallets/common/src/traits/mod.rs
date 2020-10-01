@@ -32,7 +32,7 @@ pub struct BalanceLock<Balance, BlockNumber> {
     pub reasons: WithdrawReasons,
 }
 
-pub trait CommonTrait: frame_system::Trait {
+pub trait CommonTrait: frame_system::Trait + PermissionChecker {
     /// The balance of an account.
     type Balance: Parameter
         + Member
@@ -48,7 +48,7 @@ pub trait CommonTrait: frame_system::Trait {
         + From<u128>
         + From<Self::BlockNumber>;
 
-    type AcceptTransferTarget: asset::AcceptTransfer;
+    type AssetSubTraitTarget: asset::AssetSubTrait;
 
     type BlockRewardsReserve: BlockRewardsReserveCurrency<Self::Balance, NegativeImbalance<Self>>;
 }
@@ -68,3 +68,5 @@ pub mod pip;
 pub mod portfolio;
 pub mod transaction_payment;
 pub use transaction_payment::{CddAndFeeDetails, ChargeTxFee};
+pub mod permissions;
+pub use permissions::{AccountCallPermissionsData, CheckAccountCallPermissions, PermissionChecker};

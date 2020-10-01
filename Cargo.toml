@@ -22,7 +22,6 @@ members = [
     "pallets/staking",
     "pallets/staking/rpc",
     "pallets/staking/rpc/runtime-api",
-    "pallets/staking/reward-curve",
     "pallets/pips",
     "pallets/identity",
     "pallets/im-online",
@@ -127,15 +126,21 @@ prometheus-endpoint = { package = "substrate-prometheus-endpoint", git = "https:
 frame-benchmarking = { git = "https://github.com/paritytech/substrate", tag = "v2.0.0-rc6" }
 frame-benchmarking-cli = { git = "https://github.com/paritytech/substrate", tag = "v2.0.0-rc6" }
 
+# Other
+serde = { version = "1.0.104", default-features = false }
+
 [build-dependencies]
 vergen = "3.1.0"
 
 [features]
-default = []
+default = ["std"]
 default_identity = [
     "polymesh-common-utilities/default_identity"
 ]
 runtime-benchmarks = [
     "polymesh-runtime-develop/runtime-benchmarks",
     "polymesh-runtime-testnet/runtime-benchmarks"
+]
+std = [
+    "serde/std",
 ]

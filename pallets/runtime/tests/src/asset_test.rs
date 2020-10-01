@@ -3,14 +3,15 @@ use crate::{
     ext_builder::{ExtBuilder, MockProtocolBaseFees},
     pips_test::assert_balance,
     storage::{
-        account_from, add_secondary_key, make_account_without_cdd,
+        account_from, add_secondary_key, make_account_without_cdd, provide_scope_claim,
         provide_scope_claim_to_multiple_parties, register_keyring_account, AccountId, TestStorage,
     },
 };
 use frame_support::IterableStorageMap;
 use pallet_asset::ethereum;
 use pallet_asset::{
-    self as asset, ClassicTickerImport, ClassicTickerRegistration, ClassicTickers, Tickers,
+    self as asset, ClassicTickerImport, ClassicTickerRegistration, ClassicTickers, ScopeIdOf,
+    Tickers,
 };
 use pallet_balances as balances;
 use pallet_compliance_manager as compliance_manager;
@@ -21,8 +22,8 @@ use polymesh_common_utilities::{
     traits::CddAndFeeDetails as _, SystematicIssuers,
 };
 use polymesh_primitives::{
-    AssetOwnershipRelation, AssetType, AuthorizationData, Claim, Condition, ConditionType,
-    Document, DocumentName, FundingRoundName, IdentifierType, IdentityId, PortfolioId,
+    AssetIdentifier, AssetOwnershipRelation, AssetType, AuthorizationData, Claim, Condition,
+    ConditionType, Document, DocumentName, FundingRoundName, IdentityId, InvestorUid, PortfolioId,
     SecurityToken, Signatory, SmartExtension, SmartExtensionName, SmartExtensionType, Ticker,
     TickerRegistration, TickerRegistrationConfig,
 };
@@ -116,7 +117,7 @@ fn issuers_can_create_and_rename_tokens() {
         assert!(!<DidRecords>::contains_key(
             Identity::get_token_did(&ticker).unwrap()
         ));
-        let identifiers = vec![(IdentifierType::default(), b"undefined".into())];
+        let identifiers = Vec::new();
         let ticker = Ticker::try_from(token.name.as_slice()).unwrap();
         assert_err!(
             Asset::create_asset(
@@ -183,9 +184,7 @@ fn issuers_can_create_and_rename_tokens() {
             renamed_token.name.clone()
         ));
         assert_eq!(Asset::token_details(ticker), renamed_token);
-        for (typ, val) in identifiers {
-            assert_eq!(Asset::identifiers((ticker, typ)), val);
-        }
+        assert!(Asset::identifiers(ticker).is_empty());
     });
 }
 
@@ -286,9 +285,8 @@ fn valid_transfers_pass() {
                 500
             ));
 
-            let mut cap_table = <asset::BalanceOf<TestStorage>>::iter_prefix_values(ticker);
-            let balance_alice = cap_table.next().unwrap();
-            let balance_owner = cap_table.next().unwrap();
+            let balance_alice = <asset::BalanceOf<TestStorage>>::get(&ticker, &alice_did);
+            let balance_owner = <asset::BalanceOf<TestStorage>>::get(&ticker, &owner_did);
             assert_eq!(balance_owner, 1_000_000 - 500);
             assert_eq!(balance_alice, 500);
         })
@@ -418,7 +416,7 @@ fn register_ticker() {
             asset_type: AssetType::default(),
             ..Default::default()
         };
-        let identifiers = vec![(IdentifierType::Isin, b"0123".into())];
+        let identifiers = vec![AssetIdentifier::isin(*b"US0378331005").unwrap()];
         let ticker = Ticker::try_from(token.name.as_slice()).unwrap();
         // Issuance is successful
         assert_ok!(Asset::create_asset(
@@ -436,10 +434,7 @@ fn register_ticker() {
         assert_eq!(Asset::is_ticker_available(&ticker), false);
         let stored_token = Asset::token_details(&ticker);
         assert_eq!(stored_token.asset_type, token.asset_type);
-        for (typ, val) in identifiers {
-            assert_eq!(Asset::identifiers((ticker, typ)), val);
-        }
-
+        assert_eq!(Asset::identifiers(ticker), identifiers);
         assert_err!(
             Asset::register_ticker(owner_signed.clone(), Ticker::try_from(&[0x01][..]).unwrap()),
             AssetError::AssetAlreadyCreated
@@ -826,8 +821,8 @@ fn update_identifiers() {
         assert!(!<DidRecords>::contains_key(
             Identity::get_token_did(&ticker).unwrap()
         ));
-        let identifier_value1 = b"ABC123";
-        let identifiers = vec![(IdentifierType::Cusip, identifier_value1.into())];
+        let identifier_value1 = b"037833100";
+        let identifiers = vec![AssetIdentifier::cusip(*identifier_value1).unwrap()];
         assert_ok!(Asset::create_asset(
             owner_signed.clone(),
             token.name.clone(),
@@ -841,23 +836,18 @@ fn update_identifiers() {
 
         // A correct entry was added
         assert_eq!(Asset::token_details(ticker), token);
-        assert_eq!(
-            Asset::identifiers((ticker, IdentifierType::Cusip)),
-            identifier_value1.into()
-        );
-        let identifier_value2 = b"XYZ555";
+        assert_eq!(Asset::identifiers(ticker), identifiers);
+        let identifier_value2 = b"US0378331005";
         let updated_identifiers = vec![
-            (IdentifierType::Cusip, Default::default()),
-            (IdentifierType::Isin, identifier_value2.into()),
+            AssetIdentifier::cusip(*b"17275R102").unwrap(),
+            AssetIdentifier::isin(*identifier_value2).unwrap(),
         ];
         assert_ok!(Asset::update_identifiers(
             owner_signed.clone(),
             ticker,
             updated_identifiers.clone(),
         ));
-        for (typ, val) in updated_identifiers {
-            assert_eq!(Asset::identifiers((ticker, typ)), val);
-        }
+        assert_eq!(Asset::identifiers(ticker), updated_identifiers);
     });
 }
 
@@ -882,7 +872,7 @@ fn adding_removing_documents() {
             Identity::get_token_did(&ticker).unwrap()
         ));
 
-        let identifiers = vec![(IdentifierType::default(), b"undefined".into())];
+        let identifiers = Vec::new();
         let _ticker_did = Identity::get_token_did(&ticker).unwrap();
 
         // Issuance is successful
@@ -964,8 +954,8 @@ fn add_extension_successfully() {
             assert!(!<DidRecords>::contains_key(
                 Identity::get_token_did(&ticker).unwrap()
             ));
-            let identifier_value1 = b"ABC123";
-            let identifiers = vec![(IdentifierType::Cusip, identifier_value1.into())];
+            let identifier_value1 = b"037833100";
+            let identifiers = vec![AssetIdentifier::cusip(*identifier_value1).unwrap()];
             assert_ok!(Asset::create_asset(
                 owner_signed.clone(),
                 token.name.clone(),
@@ -1047,8 +1037,8 @@ fn add_same_extension_should_fail() {
             assert!(!<DidRecords>::contains_key(
                 Identity::get_token_did(&ticker).unwrap()
             ));
-            let identifier_value1 = b"ABC123";
-            let identifiers = vec![(IdentifierType::Cusip, identifier_value1.into())];
+            let identifier_value1 = b"037833100";
+            let identifiers = vec![AssetIdentifier::cusip(*identifier_value1).unwrap()];
             assert_ok!(Asset::create_asset(
                 owner_signed.clone(),
                 token.name.clone(),
@@ -1118,8 +1108,8 @@ fn should_successfully_archive_extension() {
         assert!(!<DidRecords>::contains_key(
             Identity::get_token_did(&ticker).unwrap()
         ));
-        let identifier_value1 = b"ABC123";
-        let identifiers = vec![(IdentifierType::Cusip, identifier_value1.into())];
+        let identifier_value1 = b"037833100";
+        let identifiers = vec![AssetIdentifier::cusip(*identifier_value1).unwrap()];
         assert_ok!(Asset::create_asset(
             owner_signed.clone(),
             token.name.clone(),
@@ -1194,8 +1184,8 @@ fn should_fail_to_archive_an_already_archived_extension() {
         assert!(!<DidRecords>::contains_key(
             Identity::get_token_did(&ticker).unwrap()
         ));
-        let identifier_value1 = b"ABC123";
-        let identifiers = vec![(IdentifierType::Cusip, identifier_value1.into())];
+        let identifier_value1 = b"037833100";
+        let identifiers = vec![AssetIdentifier::cusip(*identifier_value1).unwrap()];
         assert_ok!(Asset::create_asset(
             owner_signed.clone(),
             token.name.clone(),
@@ -1275,8 +1265,8 @@ fn should_fail_to_archive_a_non_existent_extension() {
         assert!(!<DidRecords>::contains_key(
             Identity::get_token_did(&ticker).unwrap()
         ));
-        let identifier_value1 = b"ABC123";
-        let identifiers = vec![(IdentifierType::Cusip, identifier_value1.into())];
+        let identifier_value1 = b"037833100";
+        let identifiers = vec![AssetIdentifier::cusip(*identifier_value1).unwrap()];
         assert_ok!(Asset::create_asset(
             owner_signed.clone(),
             token.name.clone(),
@@ -1317,8 +1307,8 @@ fn should_successfuly_unarchive_an_extension() {
         assert!(!<DidRecords>::contains_key(
             Identity::get_token_did(&ticker).unwrap()
         ));
-        let identifier_value1 = b"ABC123";
-        let identifiers = vec![(IdentifierType::Cusip, identifier_value1.into())];
+        let identifier_value1 = b"037833100";
+        let identifiers = vec![AssetIdentifier::cusip(*identifier_value1).unwrap()];
         assert_ok!(Asset::create_asset(
             owner_signed.clone(),
             token.name.clone(),
@@ -1403,8 +1393,8 @@ fn should_fail_to_unarchive_an_already_unarchived_extension() {
         assert!(!<DidRecords>::contains_key(
             Identity::get_token_did(&ticker).unwrap()
         ));
-        let identifier_value1 = b"ABC123";
-        let identifiers = vec![(IdentifierType::Cusip, identifier_value1.into())];
+        let identifier_value1 = b"037833100";
+        let identifiers = vec![AssetIdentifier::cusip(*identifier_value1).unwrap()];
         assert_ok!(Asset::create_asset(
             owner_signed.clone(),
             token.name.clone(),
@@ -1814,10 +1804,7 @@ fn test_weights_for_is_valid_transfer() {
             let (alice_signed, alice_did) = make_account_without_cdd(alice).unwrap();
 
             let bob = AccountKeyring::Bob.public();
-            let (bob_signed, bob_did) = make_account_without_cdd(bob).unwrap();
-
-            let charlie = AccountKeyring::Charlie.public();
-            let (charlie_signed, charlie_did) = make_account_without_cdd(charlie).unwrap();
+            let (_, bob_did) = make_account_without_cdd(bob).unwrap();
 
             let eve = AccountKeyring::Eve.public();
             let (eve_signed, eve_did) = make_account_without_cdd(eve).unwrap();
@@ -1852,35 +1839,21 @@ fn test_weights_for_is_valid_transfer() {
             let ticker_id = Identity::get_token_did(&ticker).unwrap();
 
             // Adding different compliance requirements
+            let is_present = ConditionType::IsPresent(Claim::Accredited(ticker_id.into()));
+            let cond = |ty| Condition::from_dids(ty, &[eve_did]);
             assert_ok!(ComplianceManager::add_compliance_requirement(
                 alice_signed.clone(),
                 ticker,
                 vec![
-                    Condition {
-                        condition_type: ConditionType::IsPresent(Claim::Accredited(
-                            ticker_id.into()
-                        )),
-                        issuers: vec![eve_did]
-                    },
-                    Condition {
-                        condition_type: ConditionType::IsAbsent(Claim::BuyLockup(ticker_id.into())),
-                        issuers: vec![eve_did]
-                    }
+                    cond(is_present.clone()),
+                    cond(ConditionType::IsAbsent(Claim::BuyLockup(ticker_id.into()))),
                 ],
                 vec![
-                    Condition {
-                        condition_type: ConditionType::IsPresent(Claim::Accredited(
-                            ticker_id.into()
-                        )),
-                        issuers: vec![eve_did]
-                    },
-                    Condition {
-                        condition_type: ConditionType::IsAnyOf(vec![
-                            Claim::BuyLockup(ticker_id.into()),
-                            Claim::KnowYourCustomer(ticker_id.into())
-                        ]),
-                        issuers: vec![eve_did]
-                    }
+                    cond(is_present),
+                    cond(ConditionType::IsAnyOf(vec![
+                        Claim::BuyLockup(ticker_id.into()),
+                        Claim::KnowYourCustomer(ticker_id.into())
+                    ])),
                 ]
             ));
 
@@ -1956,9 +1929,8 @@ fn test_weights_for_is_valid_transfer() {
             };
 
             // call is_valid_transfer()
-            let result = is_valid_transfer_result();
-            let weight_from_verify_transfer = verify_restriction_weight();
-            assert!(matches!(result, weight_from_verify_transfer)); // Only sender rules are processed.
+            // Only sender rules are processed.
+            assert_eq!(is_valid_transfer_result(), verify_restriction_weight());
 
             assert_revoke_claim!(
                 eve_signed.clone(),
@@ -1975,26 +1947,25 @@ fn test_weights_for_is_valid_transfer() {
             let weight_from_verify_transfer = verify_restriction_weight();
             let computed_weight =
                 Asset::compute_transfer_result(false, 2, weight_from_verify_transfer).1;
-            assert!(matches!(result, computed_weight)); // Sender & receiver rules are processed.
+            assert_eq!(result, computed_weight); // Sender & receiver rules are processed.
 
             // Adding different claim rules
+            let cond = |ty| Condition::from_dids(ty, &[eve_did]);
             assert_ok!(ComplianceManager::add_compliance_requirement(
                 alice_signed.clone(),
                 ticker,
-                vec![Condition {
-                    condition_type: ConditionType::IsPresent(Claim::Exempted(ticker_id.into())),
-                    issuers: vec![eve_did]
-                }],
-                vec![Condition {
-                    condition_type: ConditionType::IsPresent(Claim::Blocked(ticker_id.into())),
-                    issuers: vec![eve_did]
-                }]
+                vec![cond(ConditionType::IsPresent(Claim::Exempted(
+                    ticker_id.into()
+                )))],
+                vec![cond(ConditionType::IsPresent(Claim::Blocked(
+                    ticker_id.into()
+                )))],
             ));
             let result = is_valid_transfer_result();
             let weight_from_verify_transfer = verify_restriction_weight();
             let computed_weight =
                 Asset::compute_transfer_result(false, 2, weight_from_verify_transfer).1;
-            assert!(matches!(result, computed_weight)); // Sender & receiver rules are processed.
+            assert_eq!(result, computed_weight); // Sender & receiver rules are processed.
 
             // pause transfer rules
             assert_ok!(ComplianceManager::pause_asset_compliance(
@@ -2006,7 +1977,7 @@ fn test_weights_for_is_valid_transfer() {
             let weight_from_verify_transfer = verify_restriction_weight();
             let computed_weight =
                 Asset::compute_transfer_result(false, 2, weight_from_verify_transfer).1;
-            assert!(matches!(result, computed_weight));
+            assert_eq!(result, computed_weight);
         });
 }
 
@@ -2232,6 +2203,7 @@ fn classic_ticker_genesis_works() {
             registration_length,
             ..standard_config
         },
+        reserved_country_currency_codes: vec![],
     };
 
     // Define expected ticker data after genesis.
@@ -2360,7 +2332,7 @@ fn classic_ticker_garbage_signature() {
         let rt_signer = Origin::signed(AccountKeyring::Dave.public());
         assert_noop!(
             Asset::claim_classic_ticker(rt_signer, ticker, ethereum::EcdsaSignature([0; 65])),
-            AssetError::InvalidEthereumSignature
+            pallet_permissions::Error::<TestStorage>::UnauthorizedCaller
         );
     });
 }
@@ -2419,6 +2391,7 @@ fn classic_ticker_claim_works() {
             ..default_reg_config()
         },
         classic_migration_contract_did: 0.into(),
+        reserved_country_currency_codes: vec![],
     };
 
     // Define the fees and initial balance.
@@ -2501,4 +2474,150 @@ fn classic_ticker_claim_works() {
         assert_ok!(create(charlie_acc, "ZETA", 0 * fee));
         assert_eq!(ClassicTickers::get(&zeta), None);
     });
+}
+
+fn generate_uid(entity_name: String) -> InvestorUid {
+    InvestorUid::from(format!("uid_{}", entity_name).as_bytes())
+}
+
+// Test for the validating the code for unique investors and aggregation of balances.
+#[test]
+fn check_unique_investor_count() {
+    ExtBuilder::default()
+        .set_max_tms_allowed(5)
+        .cdd_providers(vec![AccountKeyring::Charlie.public()])
+        .build()
+        .execute_with(|| {
+            // cdd provider.
+            let cdd_provider = AccountKeyring::Charlie.public();
+
+            let alice = AccountKeyring::Alice.public();
+            let (alice_signed, alice_did) = make_account_without_cdd(alice).unwrap();
+
+            // Bob entity as investor in given ticker.
+            let bob_1 = AccountKeyring::Bob.public();
+            let (_, bob_1_did) = make_account_without_cdd(bob_1).unwrap();
+
+            // Eve also comes under the `Bob` entity.
+            let bob_2 = AccountKeyring::Eve.public();
+            let (_, bob_2_did) = make_account_without_cdd(bob_2).unwrap();
+
+            let total_supply = 1_000_000_000;
+
+            let token = SecurityToken {
+                name: vec![0x01].into(),
+                owner_did: alice_did,
+                total_supply: total_supply,
+                divisible: true,
+                asset_type: AssetType::default(),
+                primary_issuance_agent: Some(alice_did),
+                ..Default::default()
+            };
+            let ticker = Ticker::try_from(token.name.as_slice()).unwrap();
+
+            assert_ok!(Asset::create_asset(
+                alice_signed.clone(),
+                token.name.clone(),
+                ticker,
+                token.total_supply,
+                true,
+                token.asset_type.clone(),
+                vec![],
+                None,
+            ));
+
+            // Verify the asset creation
+            assert_eq!(Asset::token_details(&ticker), token);
+
+            // Verify the balance of the alice and the investor count for the asset.
+            assert_eq!(Asset::balance_of(&ticker, alice_did), total_supply); // It should be equal to total supply.
+                                                                             // Alice act as the unique investor but not on the basis of ScopeId as alice doesn't posses the claim yet.
+            assert_eq!(Statistics::investor_count_per_asset(&ticker), 1);
+            assert!(!ScopeIdOf::contains_key(&ticker, alice_did));
+
+            // 1. Transfer some funds to bob_1_did.
+
+            // 1a). Add empty compliance requirement.
+            assert_ok!(ComplianceManager::add_compliance_requirement(
+                alice_signed.clone(),
+                ticker,
+                vec![],
+                vec![]
+            ));
+
+            // 1b). Should fail when transferring funds to bob_1_did because it doesn't posses scope_claim.
+            // portfolio Id -
+            let sender_portfolio = PortfolioId::default_portfolio(alice_did);
+            let receiver_portfolio = PortfolioId::default_portfolio(bob_1_did);
+            assert_err!(
+                Asset::base_transfer(sender_portfolio, receiver_portfolio, &ticker, 1000),
+                AssetError::InvalidTransfer
+            );
+
+            // 1c). Provide the valid scope claim.
+            // Create Investor unique Id, In an ideal scenario it will be generated from the PUIS system.
+            let bob_uid = generate_uid("BOB_ENTITY".to_string());
+            provide_scope_claim(bob_1_did, ticker, bob_uid, cdd_provider);
+
+            let alice_uid = generate_uid("ALICE_ENTITY".to_string());
+            provide_scope_claim(alice_did, ticker, alice_uid, cdd_provider);
+            let alice_scope_id = Asset::scope_id_of(&ticker, &alice_did);
+
+            // 1d). Validate the storage changes.
+            let bob_scope_id = Asset::scope_id_of(&ticker, &bob_1_did);
+            assert_eq!(Asset::aggregate_balance_of(&ticker, bob_scope_id), 0);
+            assert_eq!(Asset::balance_of_at_scope(bob_scope_id, bob_1_did), 0);
+
+            assert_eq!(
+                Asset::aggregate_balance_of(&ticker, alice_scope_id),
+                total_supply
+            );
+            assert_eq!(
+                Asset::balance_of_at_scope(alice_scope_id, alice_did),
+                total_supply
+            );
+
+            // 1e). successfully transfer funds.
+            assert_ok!(Asset::base_transfer(
+                sender_portfolio,
+                receiver_portfolio,
+                &ticker,
+                1000
+            ));
+
+            // validate the storage changes for Bob.
+            assert_eq!(Asset::aggregate_balance_of(&ticker, &bob_scope_id), 1000);
+            assert_eq!(Asset::balance_of_at_scope(&bob_scope_id, &bob_1_did), 1000);
+            assert_eq!(Asset::balance_of(&ticker, &bob_1_did), 1000);
+            assert_eq!(Statistics::investor_count_per_asset(&ticker), 2);
+
+            // validate the storage changes for Alice.
+            assert_eq!(
+                Asset::aggregate_balance_of(&ticker, &alice_scope_id),
+                total_supply - 1000
+            );
+            assert_eq!(
+                Asset::balance_of_at_scope(&alice_scope_id, &alice_did),
+                total_supply - 1000
+            );
+            assert_eq!(Asset::balance_of(&ticker, &alice_did), total_supply - 1000);
+            assert_eq!(Statistics::investor_count_per_asset(&ticker), 2);
+
+            // Provide scope claim to bob_2_did
+            provide_scope_claim(bob_2_did, ticker, bob_uid, cdd_provider);
+
+            // 1f). successfully transfer funds.
+            assert_ok!(Asset::base_transfer(
+                sender_portfolio,
+                PortfolioId::default_portfolio(bob_2_did),
+                &ticker,
+                1000
+            ));
+
+            // validate the storage changes for Bob.
+            assert_eq!(Asset::aggregate_balance_of(&ticker, &bob_scope_id), 2000);
+            assert_eq!(Asset::balance_of_at_scope(&bob_scope_id, &bob_2_did), 1000);
+            assert_eq!(Asset::balance_of(&ticker, &bob_2_did), 1000);
+            assert_eq!(Statistics::investor_count_per_asset(&ticker), 2);
+        });
 }

@@ -2527,11 +2527,11 @@ fn reporters_receive_their_slice() {
     // This test verifies that the reporters of the offence receive their slice from the slashed
     // amount.
     ExtBuilder::default().build_and_execute(|| {
-        // The reporters' reward is calculated from the total exposure.
-        let initial_balance = 1125;
+        // The reporters' reward is calculated from the validator's exposure only.
+        let initial_balance = 1000;
 
         assert_eq!(
-            Staking::eras_stakers(Staking::active_era().unwrap().index, 11).total,
+            Staking::eras_stakers(Staking::active_era().unwrap().index, 11).own,
             initial_balance
         );
 
@@ -2560,11 +2560,11 @@ fn subsequent_reports_in_same_span_pay_out_less() {
     // This test verifies that the reporters of the offence receive their slice from the slashed
     // amount, but less and less if they submit multiple reports in one span.
     ExtBuilder::default().build_and_execute(|| {
-        // The reporters' reward is calculated from the total exposure.
-        let initial_balance = 1125;
+        // The reporters' reward is calculated from the validator's exposure only not the total.
+        let initial_balance = 1000;
 
         assert_eq!(
-            Staking::eras_stakers(Staking::active_era().unwrap().index, 11).total,
+            Staking::eras_stakers(Staking::active_era().unwrap().index, 11).own,
             initial_balance
         );
 
@@ -2822,13 +2822,13 @@ fn garbage_collection_on_window_pruning() {
         assert_eq!(Balances::free_balance(101), 2000);
 
         assert!(mock::Staking::get_validator_slash_in_era(&now, &11).is_some());
-        // Storage get update even the nominator didn't get slashed
-        assert!(mock::Staking::get_nominators_slash_in_era(&now, &101).is_some());
+        // Storage will not be updates as nominator didn't get slashed so it will be none.
+        assert!(mock::Staking::get_nominators_slash_in_era(&now, &101).is_none());
 
         // + 1 because we have to exit the bonding window.
         for era in (0..(BondingDuration::get() + 1)).map(|offset| offset + now + 1) {
             assert!(mock::Staking::get_validator_slash_in_era(&now, &11).is_some());
-            assert!(mock::Staking::get_nominators_slash_in_era(&now, &101).is_some());
+            assert!(mock::Staking::get_nominators_slash_in_era(&now, &101).is_none());
 
             mock::start_era(era);
         }
@@ -2839,6 +2839,7 @@ fn garbage_collection_on_window_pruning() {
 }
 
 #[test]
+#[ignore] // Ignored because nominator will no more slashed and no storage will be updated.
 fn slashing_nominators_by_span_max() {
     ExtBuilder::default().build_and_execute(|| {
         mock::start_era(1);
@@ -3697,7 +3698,7 @@ mod offchain_phragmen {
                         current_era(),
                         ElectionSize::default(),
                     ),
-                    Error::<Test>::PhragmenEarlySubmission,
+                    Error::<Test>::OffchainElectionEarlySubmission,
                     Some(<Test as frame_system::Trait>::DbWeight::get().reads(1)),
                 );
             })
@@ -3723,7 +3724,7 @@ mod offchain_phragmen {
                 let (compact, winners, score) = horrible_phragmen_with_post_processing(false);
                 assert_err_with_weight!(
                     submit_solution(Origin::signed(10), winners.clone(), compact.clone(), score,),
-                    Error::<Test>::PhragmenWeakSubmission,
+                    Error::<Test>::OffchainElectionWeakSubmission,
                     Some(<Test as frame_system::Trait>::DbWeight::get().reads(3))
                 );
             })
@@ -3894,7 +3895,7 @@ mod offchain_phragmen {
 
                 assert_noop!(
                     submit_solution(Origin::signed(10), winners, compact, score,),
-                    Error::<Test>::PhragmenBogusWinnerCount,
+                    Error::<Test>::OffchainElectionBogusWinnerCount,
                 );
             })
     }
@@ -3918,7 +3919,7 @@ mod offchain_phragmen {
                         current_era(),
                         ElectionSize::default(),
                     ),
-                    Error::<Test>::PhragmenBogusElectionSize,
+                    Error::<Test>::OffchainElectionBogusElectionSize,
                 );
             })
     }
@@ -3943,7 +3944,7 @@ mod offchain_phragmen {
 
                 assert_noop!(
                     submit_solution(Origin::signed(10), winners, compact, score,),
-                    Error::<Test>::PhragmenBogusWinnerCount,
+                    Error::<Test>::OffchainElectionBogusWinnerCount,
                 );
             })
     }
@@ -3991,7 +3992,7 @@ mod offchain_phragmen {
                 // The error type sadly cannot be more specific now.
                 assert_noop!(
                     submit_solution(Origin::signed(10), winners, compact, score,),
-                    Error::<Test>::PhragmenBogusCompact,
+                    Error::<Test>::OffchainElectionBogusCompact,
                 );
             })
     }
@@ -4018,7 +4019,7 @@ mod offchain_phragmen {
                 // The error type sadly cannot be more specific now.
                 assert_noop!(
                     submit_solution(Origin::signed(10), winners, compact, score,),
-                    Error::<Test>::PhragmenBogusCompact,
+                    Error::<Test>::OffchainElectionBogusCompact,
                 );
             })
     }
@@ -4044,7 +4045,7 @@ mod offchain_phragmen {
 
                 assert_noop!(
                     submit_solution(Origin::signed(10), winners, compact, score,),
-                    Error::<Test>::PhragmenBogusWinner,
+                    Error::<Test>::OffchainElectionBogusWinner,
                 );
             })
     }
@@ -4074,7 +4075,7 @@ mod offchain_phragmen {
 
                 assert_noop!(
                     submit_solution(Origin::signed(10), winners, compact, score,),
-                    Error::<Test>::PhragmenBogusEdge,
+                    Error::<Test>::OffchainElectionBogusEdge,
                 );
             })
     }
@@ -4104,7 +4105,7 @@ mod offchain_phragmen {
 
                 assert_noop!(
                     submit_solution(Origin::signed(10), winners, compact, score,),
-                    Error::<Test>::PhragmenBogusSelfVote,
+                    Error::<Test>::OffchainElectionBogusSelfVote,
                 );
             })
     }
@@ -4134,7 +4135,7 @@ mod offchain_phragmen {
                 // This raises score issue.
                 assert_noop!(
                     submit_solution(Origin::signed(10), winners, compact, score,),
-                    Error::<Test>::PhragmenBogusSelfVote,
+                    Error::<Test>::OffchainElectionBogusSelfVote,
                 );
             })
     }
@@ -4163,7 +4164,7 @@ mod offchain_phragmen {
 
                 assert_noop!(
                     submit_solution(Origin::signed(10), winners, compact, score,),
-                    Error::<Test>::PhragmenBogusCompact,
+                    Error::<Test>::OffchainElectionBogusCompact,
                 );
             })
     }
@@ -4199,7 +4200,7 @@ mod offchain_phragmen {
 
                 assert_noop!(
                     submit_solution(Origin::signed(10), winners, compact, score,),
-                    Error::<Test>::PhragmenBogusNomination,
+                    Error::<Test>::OffchainElectionBogusNomination,
                 );
             })
     }
@@ -4264,7 +4265,7 @@ mod offchain_phragmen {
                 // is rejected.
                 assert_noop!(
                     submit_solution(Origin::signed(10), winners, compact, score,),
-                    Error::<Test>::PhragmenSlashedNomination,
+                    Error::<Test>::OffchainElectionSlashedNomination,
                 );
             })
     }
@@ -4286,7 +4287,7 @@ mod offchain_phragmen {
 
                 assert_noop!(
                     submit_solution(Origin::signed(10), winners, compact, score,),
-                    Error::<Test>::PhragmenBogusScore,
+                    Error::<Test>::OffchainElectionBogusScore,
                 );
             })
     }
@@ -4948,13 +4949,10 @@ fn offences_weight_calculated_correctly() {
 			},
 		];
 
-		let n = 1; // Number of offenders
-		let rw = 3 + 3 * n; // rw reads and writes
+		let rw = 3; // rw reads and writes
 		let one_offence_unapplied_weight = <Test as frame_system::Trait>::DbWeight::get().reads_writes(4, 1)
 			+ <Test as frame_system::Trait>::DbWeight::get().reads_writes(rw, rw)
 			// One `slash_cost`
-			+ <Test as frame_system::Trait>::DbWeight::get().reads_writes(6, 5)
-			// `slash_cost` * nominators (1)
 			+ <Test as frame_system::Trait>::DbWeight::get().reads_writes(6, 5)
 			// `reward_cost` * reporters (1)
 			+ <Test as frame_system::Trait>::DbWeight::get().reads_writes(2, 2);

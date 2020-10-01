@@ -21,7 +21,6 @@ use serde::{Deserialize, Serialize};
 use sp_std::prelude::*;
 
 /// The type of an asset represented by a token.
-#[allow(missing_docs)]
 #[derive(Encode, Decode, Clone, Debug, PartialEq, Eq)]
 pub enum AssetType {
     EquityCommon,
@@ -42,25 +41,7 @@ impl Default for AssetType {
     }
 }
 
-/// The type of an identifier associated with a token.
-/// these are used off-chain.
-#[allow(missing_docs)]
-#[derive(Encode, Decode, Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
-pub enum IdentifierType {
-    Cins,
-    Cusip,
-    Isin,
-    Dti,
-}
-
-impl Default for IdentifierType {
-    fn default() -> Self {
-        IdentifierType::Isin
-    }
-}
-
 /// Ownership status of a ticker/token.
-#[allow(missing_docs)]
 #[derive(Encode, Decode, Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub enum AssetOwnershipRelation {
     NotOwned,
@@ -80,12 +61,6 @@ impl Default for AssetOwnershipRelation {
 )]
 pub struct AssetName(pub Vec<u8>);
 
-/// A wrapper for an asset ID.
-#[derive(
-    Decode, Encode, Clone, Debug, Default, Hash, PartialEq, Eq, PartialOrd, Ord, VecU8StrongTyped,
-)]
-pub struct AssetIdentifier(pub Vec<u8>);
-
 /// A wrapper for a funding round name.
 #[derive(Decode, Encode, Clone, Debug, Hash, PartialEq, Eq, PartialOrd, Ord, VecU8StrongTyped)]
 pub struct FundingRoundName(pub Vec<u8>);
@@ -97,7 +72,6 @@ impl Default for FundingRoundName {
 }
 
 /// struct to store the token details.
-#[allow(missing_docs)]
 #[derive(Encode, Decode, Default, Clone, PartialEq, Debug)]
 pub struct SecurityToken<U> {
     pub name: AssetName,
@@ -108,19 +82,7 @@ pub struct SecurityToken<U> {
     pub primary_issuance_agent: Option<IdentityId>,
 }
 
-/// struct to store the signed data.
-#[allow(missing_docs)]
-#[derive(Encode, Decode, Default, Clone, PartialEq, Debug)]
-pub struct SignData<U> {
-    pub custodian_did: IdentityId,
-    pub holder_did: IdentityId,
-    pub ticker: Ticker,
-    pub value: U,
-    pub nonce: u16,
-}
-
 /// struct to store the ticker registration details.
-#[allow(missing_docs)]
 #[derive(Encode, Decode, Clone, Default, PartialEq, Debug)]
 pub struct TickerRegistration<U> {
     pub owner: IdentityId,
@@ -128,7 +90,6 @@ pub struct TickerRegistration<U> {
 }
 
 /// struct to store the ticker registration config.
-#[allow(missing_docs)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[derive(Encode, Decode, Clone, Default, PartialEq, Debug)]
 pub struct TickerRegistrationConfig<U> {
@@ -137,7 +98,6 @@ pub struct TickerRegistrationConfig<U> {
 }
 
 /// Enum that represents the current status of a ticker.
-#[allow(missing_docs)]
 #[derive(Encode, Decode, Clone, Eq, PartialEq, Debug)]
 pub enum TickerRegistrationStatus {
     RegisteredByOther,
@@ -146,7 +106,6 @@ pub enum TickerRegistrationStatus {
 }
 
 /// Enum that uses as the return type for the restriction verification.
-#[allow(missing_docs)]
 #[derive(Encode, Decode, Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub enum RestrictionResult {
     Valid,
@@ -158,14 +117,4 @@ impl Default for RestrictionResult {
     fn default() -> Self {
         RestrictionResult::Invalid
     }
-}
-
-/// The total asset balance and the balance of the asset in a specified portfolio of an identity.
-#[cfg_attr(feature = "std", derive(Debug))]
-#[derive(Clone, PartialEq, Eq, PartialOrd, Ord)]
-pub struct FocusedBalances<Balance> {
-    /// The total balance of the asset held by the identity.
-    pub total: Balance,
-    /// The balance of the asset in the default portfolio of the identity.
-    pub portfolio: Balance,
 }

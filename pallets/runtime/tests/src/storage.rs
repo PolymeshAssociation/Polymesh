@@ -5,9 +5,7 @@ use super::ext_builder::{
 use codec::Encode;
 use cryptography::claim_proofs::{compute_cdd_id, compute_scope_id};
 use frame_support::{
-    assert_ok,
-    dispatch::DispatchResult,
-    impl_outer_dispatch, impl_outer_event, impl_outer_origin, parameter_types,
+    assert_ok, impl_outer_dispatch, impl_outer_event, impl_outer_origin, parameter_types,
     traits::Currency,
     weights::DispatchInfo,
     weights::{
@@ -33,17 +31,16 @@ use pallet_statistics as statistics;
 use pallet_treasury as treasury;
 use pallet_utility;
 use polymesh_common_utilities::traits::{
-    asset::AcceptTransfer,
     balances::AccountData,
     group::GroupTrait,
     identity::Trait as IdentityTrait,
     transaction_payment::{CddAndFeeDetails, ChargeTxFee},
-    CommonTrait,
+    CommonTrait, PermissionChecker,
 };
 use polymesh_common_utilities::Context;
 use polymesh_primitives::{
     Authorization, AuthorizationData, CddId, Claim, IdentityId, InvestorUid, InvestorZKProofData,
-    PortfolioId, PortfolioNumber, Scope, Signatory, Ticker,
+    Permissions, PortfolioId, PortfolioNumber, Scope, Signatory, Ticker,
 };
 use polymesh_runtime_common::{bridge, cdd_check::CddChecker, dividend, exemption, voting};
 use smallvec::smallvec;
@@ -62,7 +59,7 @@ use sp_runtime::{
 };
 use sp_std::{collections::btree_set::BTreeSet, iter};
 use std::cell::RefCell;
-use std::convert::{From, TryFrom};
+use std::convert::From;
 use test_client::AccountKeyring;
 
 impl_opaque_keys! {
@@ -232,7 +229,7 @@ parameter_types! {
 
 impl CommonTrait for TestStorage {
     type Balance = Balance;
-    type AcceptTransferTarget = TestStorage;
+    type AssetSubTraitTarget = Asset;
     type BlockRewardsReserve = balances::Module<TestStorage>;
 }
 
@@ -243,6 +240,7 @@ impl balances::Trait for TestStorage {
     type AccountStore = frame_system::Module<TestStorage>;
     type Identity = identity::Module<TestStorage>;
     type CddChecker = CddChecker<Self>;
+    type WeightInfo = ();
 }
 
 parameter_types! {
@@ -391,27 +389,14 @@ impl IdentityTrait for TestStorage {
     type Proposal = Call;
     type MultiSig = multisig::Module<TestStorage>;
     type Portfolio = portfolio::Module<TestStorage>;
-    type CddServiceProviders = group::Module<TestStorage, group::Instance2>;
+    type CddServiceProviders = CddServiceProvider;
     type Balances = balances::Module<TestStorage>;
     type ChargeTxFeeTarget = TestStorage;
     type CddHandler = TestStorage;
     type Public = AccountId;
     type OffChainSignature = OffChainSignature;
     type ProtocolFee = protocol_fee::Module<TestStorage>;
-}
-
-impl AcceptTransfer for TestStorage {
-    fn accept_ticker_transfer(_: IdentityId, _: u64) -> DispatchResult {
-        Ok(())
-    }
-
-    fn accept_primary_issuance_agent_transfer(_: IdentityId, _: u64) -> DispatchResult {
-        Ok(())
-    }
-
-    fn accept_asset_ownership_transfer(_: IdentityId, _: u64) -> DispatchResult {
-        Ok(())
-    }
+    type GCVotingMajorityOrigin = VMO<committee::Instance1>;
 }
 
 parameter_types! {
@@ -592,6 +577,11 @@ impl pallet_utility::Trait for TestStorage {
     type Call = Call;
 }
 
+impl PermissionChecker for TestStorage {
+    type Call = Call;
+    type Checker = Identity;
+}
+
 // Publish type alias for each module
 pub type Identity = identity::Module<TestStorage>;
 pub type Pips = pips::Module<TestStorage>;
@@ -686,7 +676,7 @@ pub fn add_secondary_key(did: IdentityId, signer: Signatory<AccountId>) {
     let auth_id = Identity::add_auth(
         did.clone(),
         signer,
-        AuthorizationData::JoinIdentity(vec![]),
+        AuthorizationData::JoinIdentity(Permissions::default()),
         None,
     );
     assert_ok!(Identity::join_identity(signer, auth_id));
@@ -723,14 +713,38 @@ pub fn fast_forward_blocks(n: u64) {
     fast_forward_to_block(n + frame_system::Module::<TestStorage>::block_number());
 }
 
+// `iter_prefix_values` has no guarantee that it will iterate in a sequential
+// order. However, we need the latest `auth_id`. Which is why we search for the claim
+// with the highest `auth_id`.
+pub fn get_last_auth(signatory: &Signatory<AccountId>) -> Authorization<AccountId, u64> {
+    <identity::Authorizations<TestStorage>>::iter_prefix_values(signatory)
+        .into_iter()
+        .max_by_key(|x| x.auth_id)
+        .expect("there are no authorizations")
+}
+
+pub fn get_last_auth_id(signatory: &Signatory<AccountId>) -> u64 {
+    get_last_auth(signatory).auth_id
+}
+
 /// Returns a btreeset that contains default portfolio for the identity.
 pub fn default_portfolio_btreeset(did: IdentityId) -> BTreeSet<PortfolioId> {
     iter::once(PortfolioId::default_portfolio(did)).collect::<BTreeSet<_>>()
 }
 
+/// Returns a vector that contains default portfolio for the identity.
+pub fn default_portfolio_vec(did: IdentityId) -> Vec<PortfolioId> {
+    vec![PortfolioId::default_portfolio(did)]
+}
+
 /// Returns a btreeset that contains a portfolio for the identity.
 pub fn user_portfolio_btreeset(did: IdentityId, num: PortfolioNumber) -> BTreeSet<PortfolioId> {
     iter::once(PortfolioId::user_portfolio(did, num)).collect::<BTreeSet<_>>()
+}
+
+/// Returns a vector that contains a portfolio for the identity.
+pub fn user_portfolio_vec(did: IdentityId, num: PortfolioNumber) -> Vec<PortfolioId> {
+    vec![PortfolioId::user_portfolio(did, num)]
 }
 
 pub fn provide_scope_claim(
@@ -739,8 +753,6 @@ pub fn provide_scope_claim(
     investor_uid: InvestorUid,
     cdd_provider: AccountId,
 ) {
-    let asset_id = IdentityId::try_from(scope.as_slice()).unwrap();
-
     let proof: InvestorZKProofData = InvestorZKProofData::new(&claim_to, &investor_uid, &scope);
     let cdd_claim = InvestorZKProofData::make_cdd_claim(&claim_to, &investor_uid);
     let cdd_id = compute_cdd_id(&cdd_claim).compress().to_bytes().into();
@@ -757,11 +769,12 @@ pub fn provide_scope_claim(
         None
     ));
 
-    // Provide the InvestorZKProof.
-    assert_ok!(Identity::add_claim(
+    // Provide the InvestorUniqueness.
+    assert_ok!(Identity::add_investor_uniqueness_claim(
         signed_claim_to,
         claim_to,
-        Claim::InvestorZKProof(Scope::Ticker(scope), scope_id, cdd_id, proof),
+        Claim::InvestorUniqueness(Scope::Ticker(scope), scope_id, cdd_id),
+        proof,
         None
     ));
 }

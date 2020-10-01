@@ -13,28 +13,27 @@ polymesh-runtime-common = { path = "../common", default-features = false }
 polymesh-primitives = { path = "../../../primitives", default-features = false }
 
 # Our pallets
-pallet-confidential = { path = "../../confidential", default-features = false }
-pallet-identity = { path = "../../identity", default-features = false }
-pallet-balances = { path = "../../balances", default-features = false }
-pallet-protocol-fee = { path = "../../protocol-fee", default-features = false }
-pallet-utility = { path = "../../utility", default-features = false }
-pallet-group = { path = "../../group", default-features = false }
 pallet-asset = { path = "../../asset", default-features = false }
-pallet-portfolio = { path = "../../portfolio", default-features = false  }
-pallet-compliance-manager = { path = "../../compliance-manager", default-features = false }
-pallet-multisig = { path = "../../multisig", default-features = false }
-pallet-pips = { path = "../../pips", default-features = false }
-pallet-committee = { path = "../../committee", default-features = false }
+pallet-balances = { path = "../../balances", default-features = false }
 pallet-basic-sto = { path = "../../basic-sto", default-features = false }
-pallet-treasury = { path = "../../treasury", default-features = false }
-pallet-settlement = { path = "../../settlement", default-features = false }
+pallet-committee = { path = "../../committee", default-features = false }
+pallet-compliance-manager = { path = "../../compliance-manager", default-features = false }
+pallet-confidential = { path = "../../confidential", default-features = false }
+pallet-group = { path = "../../group", default-features = false }
+pallet-identity = { path = "../../identity", default-features = false }
 pallet-im-online = { path = "../../im-online", default-features = false }
+pallet-multisig = { path = "../../multisig", default-features = false }
+pallet-permissions = { path = "../../permissions", default-features = false  }
+pallet-pips = { path = "../../pips", default-features = false }
+pallet-portfolio = { path = "../../portfolio", default-features = false  }
+pallet-protocol-fee = { path = "../../protocol-fee", default-features = false }
+pallet-settlement = { path = "../../settlement", default-features = false }
+pallet-staking = { path = "../../staking", default-features = false }
+pallet-staking-reward-curve = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0-rc6" }
 pallet-statistics = { path = "../../statistics", default-features = false }
 pallet-transaction-payment = { path = "../../transaction-payment", default-features = false }
-pallet-contracts = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0-rc6" }
-pallet-contracts-primitives = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0-rc6" }
-pallet-staking = { path = "../../staking", default-features = false }
-pallet-staking-reward-curve = { path = "../../staking/reward-curve", default-features = false }
+pallet-treasury = { path = "../../treasury", default-features = false }
+pallet-utility = { path = "../../utility", default-features = false }
 
 # Others
 serde = { version = "1.0.104", default-features = false }
@@ -59,6 +58,8 @@ sp-block-builder = { git = "https://github.com/paritytech/substrate", default-fe
 sp-arithmetic = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0-rc6" }
 #
 pallet-authorship = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0-rc6" }
+pallet-contracts = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0-rc6" }
+pallet-contracts-primitives = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0-rc6" }
 pallet-executive = { package = "frame-executive", git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0-rc6" }
 pallet-finality-tracker = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0-rc6" }
 pallet-grandpa = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0-rc6" }
@@ -144,12 +145,12 @@ std = [
     "pallet-indices/std",
     "pallet-multisig/std",
     "pallet-offences/std",
+    "pallet-permissions/std",
     "pallet-pips/std",
     "pallet-portfolio/std",
     "pallet-protocol-fee/std",
     "pallet-randomness-collective-flip/std",
     "pallet-settlement/std",
-    "pallet-staking-reward-curve/std",
     "pallet-staking/std",
     "pallet-statistics/std",
     "pallet-sudo/std",

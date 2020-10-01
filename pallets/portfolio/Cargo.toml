@@ -12,6 +12,7 @@ polymesh-primitives = { path = "../../primitives", default-features = false }
 # Our Pallets
 pallet-balances = { package = "pallet-balances", path = "../balances", default-features = false  }
 pallet-identity = { package = "pallet-identity", path = "../identity", default-features = false  }
+pallet-permissions = { path = "../permissions", default-features = false }
 
 # Other
 serde = { version = "1.0.104", default-features = false }

@@ -1,13 +1,13 @@
 use super::{
-    storage::{register_keyring_account, Call, TestStorage},
+    storage::{get_last_auth_id, register_keyring_account, Call, TestStorage},
     ExtBuilder,
 };
-use frame_support::{assert_err, assert_ok, StorageDoubleMap};
+use frame_support::{assert_err, assert_ok};
 use pallet_balances as balances;
 use pallet_identity as identity;
 use pallet_multisig as multisig;
 use polymesh_common_utilities::Context;
-use polymesh_primitives::{SecondaryKey, Signatory};
+use polymesh_primitives::{PalletPermissions, Permissions, SecondaryKey, Signatory};
 use sp_core::sr25519::Public;
 use test_client::AccountKeyring;
 
@@ -86,21 +86,14 @@ fn join_multisig() {
             false
         );
 
-        let alice_auth_id =
-            <identity::Authorizations<TestStorage>>::iter_prefix_values(Signatory::from(alice_did))
-                .next()
-                .unwrap()
-                .auth_id;
+        let alice_auth_id = get_last_auth_id(&Signatory::from(alice_did));
         Context::set_current_identity::<Identity>(Some(alice_did));
         assert_ok!(MultiSig::accept_multisig_signer_as_identity(
             alice.clone(),
             alice_auth_id
         ));
 
-        let bob_auth_id = <identity::Authorizations<TestStorage>>::iter_prefix_values(bob_signer)
-            .next()
-            .unwrap()
-            .auth_id;
+        let bob_auth_id = get_last_auth_id(&bob_signer);
         Context::set_current_identity::<Identity>(Some(alice_did));
         assert_ok!(MultiSig::accept_multisig_signer_as_key(
             bob.clone(),
@@ -123,10 +116,7 @@ fn join_multisig() {
             1,
         ));
 
-        let bob_auth_id2 = <identity::Authorizations<TestStorage>>::iter_prefix_values(bob_signer)
-            .next()
-            .unwrap()
-            .auth_id;
+        let bob_auth_id2 = get_last_auth_id(&bob_signer);
         Context::set_current_identity::<Identity>(Some(alice_did));
         assert_err!(
             MultiSig::accept_multisig_signer_as_key(bob.clone(), bob_auth_id2),
@@ -151,21 +141,14 @@ fn change_multisig_sigs_required() {
             2,
         ));
 
-        let alice_auth_id =
-            <identity::Authorizations<TestStorage>>::iter_prefix_values(Signatory::from(alice_did))
-                .next()
-                .unwrap()
-                .auth_id;
+        let alice_auth_id = get_last_auth_id(&Signatory::from(alice_did));
         Context::set_current_identity::<Identity>(Some(alice_did));
         assert_ok!(MultiSig::accept_multisig_signer_as_identity(
             alice.clone(),
             alice_auth_id
         ));
 
-        let bob_auth_id = <identity::Authorizations<TestStorage>>::iter_prefix_values(bob_signer)
-            .next()
-            .unwrap()
-            .auth_id;
+        let bob_auth_id = get_last_auth_id(&bob_signer);
 
         Context::set_current_identity::<Identity>(Some(alice_did));
         assert_ok!(MultiSig::accept_multisig_signer_as_key(
@@ -196,6 +179,13 @@ fn change_multisig_sigs_required() {
 
         assert_eq!(MultiSig::ms_signs_required(musig_address.clone()), 2);
 
+        let proposal = (musig_address.clone(), 0);
+        let proposal_details = MultiSig::proposal_detail(&proposal);
+        assert_eq!(
+            proposal_details.status,
+            multisig::ProposalStatus::ActiveOrExpired
+        );
+
         Context::set_current_identity::<Identity>(Some(alice_did));
         assert_ok!(MultiSig::approve_as_identity(
             alice.clone(),
@@ -220,21 +210,14 @@ fn create_or_approve_change_multisig_sigs_required() {
             vec![Signatory::from(alice_did), bob_signer],
             2,
         ));
-        let alice_auth_id =
-            <identity::Authorizations<TestStorage>>::iter_prefix_values(Signatory::from(alice_did))
-                .next()
-                .unwrap()
-                .auth_id;
+        let alice_auth_id = get_last_auth_id(&Signatory::from(alice_did));
 
         Context::set_current_identity::<Identity>(Some(alice_did));
         assert_ok!(MultiSig::accept_multisig_signer_as_identity(
             alice.clone(),
             alice_auth_id
         ));
-        let bob_auth_id = <identity::Authorizations<TestStorage>>::iter_prefix_values(bob_signer)
-            .next()
-            .unwrap()
-            .auth_id;
+        let bob_auth_id = get_last_auth_id(&bob_signer);
         assert_ok!(MultiSig::accept_multisig_signer_as_key(
             bob.clone(),
             bob_auth_id
@@ -286,11 +269,7 @@ fn remove_multisig_signer() {
 
         assert_eq!(MultiSig::number_of_signers(musig_address.clone()), 0);
 
-        let alice_auth_id =
-            <identity::Authorizations<TestStorage>>::iter_prefix_values(alice_signer)
-                .next()
-                .unwrap()
-                .auth_id;
+        let alice_auth_id = get_last_auth_id(&alice_signer);
 
         Context::set_current_identity::<Identity>(Some(alice_did));
         assert_ok!(MultiSig::accept_multisig_signer_as_identity(
@@ -300,10 +279,7 @@ fn remove_multisig_signer() {
 
         assert_eq!(MultiSig::number_of_signers(musig_address.clone()), 1);
 
-        let bob_auth_id = <identity::Authorizations<TestStorage>>::iter_prefix_values(bob_signer)
-            .next()
-            .unwrap()
-            .auth_id;
+        let bob_auth_id = get_last_auth_id(&bob_signer);
 
         assert_ok!(MultiSig::accept_multisig_signer_as_key(
             bob.clone(),
@@ -393,11 +369,7 @@ fn add_multisig_signer() {
             1,
         ));
 
-        let alice_auth_id =
-            <identity::Authorizations<TestStorage>>::iter_prefix_values(Signatory::from(alice_did))
-                .next()
-                .unwrap()
-                .auth_id;
+        let alice_auth_id = get_last_auth_id(&Signatory::from(alice_did));
 
         Context::set_current_identity::<Identity>(Some(alice_did));
         assert_ok!(MultiSig::accept_multisig_signer_as_identity(
@@ -448,16 +420,8 @@ fn add_multisig_signer() {
             false
         );
 
-        let bob_auth_id = <identity::Authorizations<TestStorage>>::iter_prefix_values(bob_signer)
-            .next()
-            .unwrap()
-            .auth_id;
-
-        let charlie_auth_id =
-            <identity::Authorizations<TestStorage>>::iter_prefix_values(charlie_signer)
-                .next()
-                .unwrap()
-                .auth_id;
+        let bob_auth_id = get_last_auth_id(&bob_signer);
+        let charlie_auth_id = get_last_auth_id(&charlie_signer);
 
         let root = Origin::from(frame_system::RawOrigin::Root);
 
@@ -521,17 +485,8 @@ fn should_change_all_signers_and_sigs_required() {
             1,
         ));
 
-        let alice_auth_id =
-            <identity::Authorizations<TestStorage>>::iter_prefix_values(Signatory::from(alice_did))
-                .next()
-                .unwrap()
-                .auth_id;
-
-        let bob_auth_id =
-            <identity::Authorizations<TestStorage>>::iter_prefix_values(Signatory::from(bob_did))
-                .next()
-                .unwrap()
-                .auth_id;
+        let alice_auth_id = get_last_auth_id(&Signatory::from(alice_did));
+        let bob_auth_id = get_last_auth_id(&Signatory::from(bob_did));
 
         assert_ok!(MultiSig::accept_multisig_signer_as_identity(
             alice.clone(),
@@ -548,7 +503,7 @@ fn should_change_all_signers_and_sigs_required() {
             true
         );
         assert_eq!(
-            MultiSig::ms_signers(musig_address.clone(), Signatory::from(alice_did)),
+            MultiSig::ms_signers(musig_address.clone(), Signatory::from(bob_did)),
             true
         );
 
@@ -577,25 +532,8 @@ fn should_change_all_signers_and_sigs_required() {
             false
         );
 
-        let charlie_auth_id = <identity::Authorizations<TestStorage>>::iter_prefix_values(
-            Signatory::from(charlie_did),
-        )
-        .next()
-        .unwrap()
-        .auth_id;
-
-        let dave_auth_id =
-            <identity::Authorizations<TestStorage>>::iter_prefix_values(Signatory::from(dave_did))
-                .next()
-                .unwrap()
-                .auth_id;
-
-        let _by = <identity::Authorizations<TestStorage>>::iter_prefix_values(Signatory::from(
-            charlie_did,
-        ))
-        .next()
-        .unwrap()
-        .authorized_by;
+        let charlie_auth_id = get_last_auth_id(&Signatory::from(charlie_did));
+        let dave_auth_id = get_last_auth_id(&Signatory::from(dave_did));
 
         assert_ok!(MultiSig::accept_multisig_signer_as_identity(
             charlie,
@@ -672,11 +610,16 @@ fn make_multisig_signer() {
             vec![Signatory::from(alice_did)],
             1,
         ));
-
+        let permissions =
+            Permissions::from_pallet_permissions(vec![PalletPermissions::entire_pallet(
+                b"multisig".as_ref().into(),
+            )]);
+        // The desired secondary key record.
+        let musig_secondary = SecondaryKey::new(Signatory::Account(musig_address), permissions);
         let secondary_keys = Identity::did_records(alice_did).secondary_keys;
         assert!(secondary_keys
             .iter()
-            .find(|si| **si == SecondaryKey::from_account_id(musig_address))
+            .find(|si| **si == musig_secondary)
             .is_none());
 
         assert_err!(
@@ -692,7 +635,7 @@ fn make_multisig_signer() {
         let secondary_keys2 = Identity::did_records(alice_did).secondary_keys;
         assert!(secondary_keys2
             .iter()
-            .find(|si| **si == SecondaryKey::from_account_id(musig_address))
+            .find(|si| **si == musig_secondary)
             .is_some());
     });
 }
@@ -716,11 +659,7 @@ fn remove_multisig_signers_via_creator() {
 
         assert_eq!(MultiSig::number_of_signers(musig_address.clone()), 0);
 
-        let alice_auth_id =
-            <identity::Authorizations<TestStorage>>::iter_prefix_values(alice_signer)
-                .next()
-                .unwrap()
-                .auth_id;
+        let alice_auth_id = get_last_auth_id(&alice_signer);
 
         assert_ok!(MultiSig::accept_multisig_signer_as_identity(
             alice.clone(),
@@ -729,10 +668,7 @@ fn remove_multisig_signers_via_creator() {
 
         assert_eq!(MultiSig::number_of_signers(musig_address.clone()), 1);
 
-        let bob_auth_id = <identity::Authorizations<TestStorage>>::iter_prefix_values(bob_signer)
-            .next()
-            .unwrap()
-            .auth_id;
+        let bob_auth_id = get_last_auth_id(&bob_signer);
 
         assert_ok!(MultiSig::accept_multisig_signer_as_key(
             bob.clone(),
@@ -811,11 +747,7 @@ fn add_multisig_signers_via_creator() {
             1,
         ));
 
-        let alice_auth_id =
-            <identity::Authorizations<TestStorage>>::iter_prefix_values(Signatory::from(alice_did))
-                .next()
-                .unwrap()
-                .auth_id;
+        let alice_auth_id = get_last_auth_id(&Signatory::from(alice_did));
 
         assert_ok!(MultiSig::accept_multisig_signer_as_identity(
             alice.clone(),
@@ -856,10 +788,7 @@ fn add_multisig_signers_via_creator() {
             false
         );
 
-        let bob_auth_id = <identity::Authorizations<TestStorage>>::iter_prefix_values(bob_signer)
-            .next()
-            .unwrap()
-            .auth_id;
+        let bob_auth_id = get_last_auth_id(&bob_signer);
 
         assert_ok!(MultiSig::accept_multisig_signer_as_key(
             bob.clone(),
@@ -890,11 +819,7 @@ fn check_for_approval_closure() {
             1,
         ));
 
-        let alice_auth_id =
-            <identity::Authorizations<TestStorage>>::iter_prefix_values(Signatory::from(alice_did))
-                .next()
-                .unwrap()
-                .auth_id;
+        let alice_auth_id = get_last_auth_id(&Signatory::from(alice_did));
 
         Context::set_current_identity::<Identity>(Some(alice_did));
         assert_ok!(MultiSig::accept_multisig_signer_as_identity(
@@ -907,11 +832,7 @@ fn check_for_approval_closure() {
             true
         );
 
-        let eve_auth_id =
-            <identity::Authorizations<TestStorage>>::iter_prefix_values(Signatory::from(eve_did))
-                .next()
-                .unwrap()
-                .auth_id;
+        let eve_auth_id = get_last_auth_id(&Signatory::from(eve_did));
 
         Context::set_current_identity::<Identity>(Some(eve_did));
         assert_ok!(MultiSig::accept_multisig_signer_as_identity(
@@ -941,8 +862,7 @@ fn check_for_approval_closure() {
             false
         ));
         let proposal_id = MultiSig::proposal_ids(musig_address.clone(), call).unwrap();
-        let mut auth = <identity::Authorizations<TestStorage>>::iter_prefix_values(bob_signer);
-        let bob_auth_id = auth.next().unwrap().auth_id;
+        let bob_auth_id = get_last_auth_id(&bob_signer);
         let multi_purpose_nonce = Identity::multi_purpose_nonce();
 
         Context::set_current_identity::<Identity>(Some(eve_did));
@@ -951,8 +871,7 @@ fn check_for_approval_closure() {
             musig_address.clone(),
             proposal_id
         ));
-        auth = <identity::Authorizations<TestStorage>>::iter_prefix_values(bob_signer);
-        let after_extra_approval_auth_id = auth.next().unwrap().auth_id;
+        let after_extra_approval_auth_id = get_last_auth_id(&bob_signer);
         let after_extra_approval_multi_purpose_nonce = Identity::multi_purpose_nonce();
         // To validate that no new auth is created
         assert_eq!(bob_auth_id, after_extra_approval_auth_id);
@@ -1182,10 +1101,7 @@ fn setup_multisig(creator_origin: Origin, sigs_required: u64, signers: Vec<Signa
     ));
 
     for signer in signers {
-        let auth_id = <identity::Authorizations<TestStorage>>::iter_prefix_values(signer)
-            .next()
-            .unwrap()
-            .auth_id;
+        let auth_id = get_last_auth_id(&signer);
         assert_ok!(MultiSig::unsafe_accept_multisig_signer(signer, auth_id));
     }
 }

@@ -39,7 +39,7 @@ use polymesh_common_utilities::{
     identity::Trait as IdentityTrait, CommonTrait, Context,
 };
 use polymesh_primitives::{
-    AssetIdentifier, AssetName, AssetType, FundingRoundName, IdentifierType, IdentityId, Ticker,
+    AssetIdentifier, AssetName, AssetType, FundingRoundName, IdentityId, Ticker,
 };
 use polymesh_primitives_derive::VecU8StrongTyped;
 use sp_runtime::{traits::Zero, SaturatedConversion};
@@ -195,7 +195,7 @@ decl_module! {
             ticker: Ticker,
             divisible: bool,
             asset_type: AssetType,
-            identifiers: Vec<(IdentifierType, AssetIdentifier)>,
+            identifiers: Vec<AssetIdentifier>,
             funding_round: Option<FundingRoundName>,
         ) -> DispatchResult {
             let primary_owner = ensure_signed(origin)?;
@@ -290,13 +290,13 @@ decl_module! {
 
             let wrapped_encrypted_asset_id = EncryptedAssetIdWrapper::from(asset_mint_proof.account_id.encode());
             let new_encrypted_balance = AssetValidator{}
-                                          .verify_asset_transaction(
-                                              total_supply.saturated_into::<u32>(),
-                                              &asset_mint_proof,
-                                              &Self::mercat_accounts(owner_did, wrapped_encrypted_asset_id.clone()).to_mercat::<T>()?,
-                                              &Self::mercat_account_balance(owner_did, wrapped_encrypted_asset_id.clone()).to_mercat::<T>()?,
-                                              &[]
-                                          ).map_err(|_| Error::<T>::InvalidAccountMintProof)?;
+                                        .verify_asset_transaction(
+                                            total_supply.saturated_into::<u32>(),
+                                            &asset_mint_proof,
+                                            &Self::mercat_accounts(owner_did, wrapped_encrypted_asset_id.clone()).to_mercat::<T>()?,
+                                            &Self::mercat_account_balance(owner_did, wrapped_encrypted_asset_id.clone()).to_mercat::<T>()?,
+                                            &[]
+                                        ).map_err(|_| Error::<T>::InvalidAccountMintProof)?;
 
             // Set the total supply (both encrypted and plain)
             <MercatAccountBalance>::insert(

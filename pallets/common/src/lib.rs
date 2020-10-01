@@ -32,7 +32,11 @@ pub use batch_dispatch_info::BatchDispatchInfo;
 pub mod protocol_fee;
 pub use protocol_fee::ChargeProtocolFee;
 
+use core::ops::Add;
+use frame_support::codec::{Decode, Encode};
 use polymesh_primitives::IdentityId;
+#[cfg(feature = "std")]
+use serde::{Deserialize, Serialize};
 use sp_runtime::{DispatchResult, ModuleId};
 
 /// It defines the valid issuers for Systematic Claims.
@@ -56,6 +60,7 @@ pub enum SystematicIssuers {
     BlockRewardReserve,
     Settlement,
     ClassicMigration,
+    FiatTickersReservation,
 }
 
 impl core::fmt::Display for SystematicIssuers {
@@ -67,6 +72,7 @@ impl core::fmt::Display for SystematicIssuers {
             SystematicIssuers::BlockRewardReserve => "Block Reward Reserve",
             SystematicIssuers::Settlement => "Settlement module",
             SystematicIssuers::ClassicMigration => "Polymath Classic Imports and Reservations",
+            SystematicIssuers::FiatTickersReservation => "Fiat Ticker Reservation",
         };
 
         write!(f, "'{}'", value)
@@ -80,6 +86,7 @@ pub const SYSTEMATIC_ISSUERS: &[SystematicIssuers] = &[
     SystematicIssuers::BlockRewardReserve,
     SystematicIssuers::Settlement,
     SystematicIssuers::ClassicMigration,
+    SystematicIssuers::FiatTickersReservation,
 ];
 
 impl SystematicIssuers {
@@ -93,6 +100,7 @@ impl SystematicIssuers {
             SystematicIssuers::BlockRewardReserve => did::BLOCK_REWARD_RESERVE_DID,
             SystematicIssuers::Settlement => did::SETTLEMENT_MODULE_DID,
             SystematicIssuers::ClassicMigration => did::CLASSIC_MIGRATION_DID,
+            SystematicIssuers::FiatTickersReservation => did::FIAT_TICKERS_RESERVATION_DID,
         }
     }
 
@@ -109,6 +117,9 @@ impl SystematicIssuers {
             SystematicIssuers::BlockRewardReserve => constants::BRR_MODULE_ID,
             SystematicIssuers::Settlement => constants::SETTLEMENT_MODULE_ID,
             SystematicIssuers::ClassicMigration => constants::CLASSIC_MIGRATION_MODULE_ID,
+            SystematicIssuers::FiatTickersReservation => {
+                constants::FIAT_TICKERS_RESERVATION_MODULE_ID
+            }
         }
     }
 }
@@ -135,4 +146,28 @@ pub fn with_each_transaction<A>(
     tx: impl FnMut(A) -> DispatchResult,
 ) -> DispatchResult {
     with_transaction(|| iter.into_iter().try_for_each(tx))
+}
+
+/// Either a block number, or nothing.
+#[derive(Copy, Clone, PartialEq, Eq, Encode, Decode, Debug)]
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+pub enum MaybeBlock<BlockNumber> {
+    Some(BlockNumber),
+    None,
+}
+
+impl<T> Default for MaybeBlock<T> {
+    fn default() -> Self {
+        Self::None
+    }
+}
+
+impl<T: Add<Output = T>> Add<T> for MaybeBlock<T> {
+    type Output = Self;
+    fn add(self, rhs: T) -> Self::Output {
+        match self {
+            MaybeBlock::Some(lhs) => MaybeBlock::Some(lhs + rhs),
+            MaybeBlock::None => MaybeBlock::None,
+        }
+    }
 }
