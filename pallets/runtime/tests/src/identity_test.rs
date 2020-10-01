@@ -1,9 +1,9 @@
 use super::{
+    committee_test::gc_vmo,
     ext_builder::PROTOCOL_OP_BASE_FEE,
     storage::{
-        add_secondary_key, authorizations_to, get_identity_id, get_last_auth_id,
-        register_keyring_account, register_keyring_account_with_balance, GovernanceCommittee,
-        TestStorage,
+        add_secondary_key, get_identity_id, get_last_auth_id, register_keyring_account,
+        register_keyring_account_with_balance, GovernanceCommittee, TestStorage,
     },
     ExtBuilder,
 };
@@ -87,6 +87,34 @@ fn only_primary_or_secondary_keys_can_authenticate_as_an_identity() {
             vec![charlie_signer.clone()]
         ));
         assert!(Identity::is_signer_authorized(a_did, &charlie_signer) == false);
+    });
+}
+
+#[test]
+fn gc_add_remove_cdd_claim() {
+    ExtBuilder::default().build().execute_with(|| {
+        let target_did = register_keyring_account(AccountKeyring::Charlie).unwrap();
+        let fetch =
+            || Identity::fetch_claim(target_did, ClaimType::CustomerDueDiligence, GC_DID, None);
+
+        assert_ok!(Identity::gc_add_cdd_claim(
+            gc_vmo(),
+            target_did,
+            Some(100u64)
+        ));
+        assert_eq!(
+            fetch(),
+            Some(IdentityClaim {
+                claim_issuer: GC_DID,
+                issuance_date: 0,
+                last_update_date: 0,
+                expiry: Some(100),
+                claim: Claim::make_cdd_wildcard(),
+            })
+        );
+
+        assert_ok!(Identity::gc_revoke_cdd_claim(gc_vmo(), target_did));
+        assert_eq!(fetch(), None);
     });
 }
 
@@ -670,8 +698,7 @@ fn enforce_uniqueness_keys_in_identity_tests() {
 fn enforce_uniqueness_keys_in_identity() {
     // Register identities
     let alice_id = register_keyring_account(AccountKeyring::Alice).unwrap();
-    let alice = Origin::signed(AccountKeyring::Alice.public());
-    let _bob_id = register_keyring_account(AccountKeyring::Bob).unwrap();
+    let _ = register_keyring_account(AccountKeyring::Bob).unwrap();
 
     // Check external signed key uniqueness.
     let charlie_key = AccountKeyring::Charlie.public();
@@ -1157,10 +1184,8 @@ fn cdd_register_did_test_we() {
 #[test]
 fn add_identity_signers() {
     ExtBuilder::default().monied(true).build().execute_with(|| {
-        let alice = Origin::signed(AccountKeyring::Alice.public());
         let alice_did = register_keyring_account(AccountKeyring::Alice).unwrap();
         let bob_did = register_keyring_account(AccountKeyring::Bob).unwrap();
-        let charlie = Origin::signed(AccountKeyring::Charlie.public());
         let charlie_did = register_keyring_account(AccountKeyring::Charlie).unwrap();
         let _alice_acc_signer = Signatory::Account(AccountKeyring::Alice.public());
         let bob_identity_signer = Signatory::from(bob_did);

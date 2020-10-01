@@ -257,7 +257,7 @@ impl WeightToFeePolynomial for WeightToFee {
 
 impl CommonTrait for Runtime {
     type Balance = Balance;
-    type AcceptTransferTarget = Asset;
+    type AssetSubTraitTarget = Asset;
     type BlockRewardsReserve = balances::Module<Runtime>;
 }
 
@@ -697,6 +697,7 @@ impl IdentityTrait for Runtime {
     type Public = <MultiSignature as Verify>::Signer;
     type OffChainSignature = MultiSignature;
     type ProtocolFee = protocol_fee::Module<Runtime>;
+    type GCVotingMajorityOrigin = VMO<GovernanceCommittee>;
 }
 
 impl contracts_wrapper::Trait for Runtime {}
