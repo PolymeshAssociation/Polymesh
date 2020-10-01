@@ -9,7 +9,6 @@ use super::{
 use frame_support::{
     assert_noop, assert_ok,
     dispatch::{DispatchError, DispatchResult},
-    traits::{LockableCurrency, WithdrawReasons},
     StorageDoubleMap, StoragePrefixedMap,
 };
 use frame_system::{self, EventRecord};
@@ -176,11 +175,6 @@ fn assert_state(id: PipId, care_about_pruned: bool, state: ProposalState) {
     } else {
         assert_eq!(prop.unwrap().state, state);
     }
-}
-
-pub fn assert_balance(acc: Public, free: u128, locked: u128) {
-    assert_eq!(Balances::free_balance(&acc), free);
-    assert_eq!(Balances::usable_balance(&acc), free - locked);
 }
 
 #[test]
@@ -520,7 +514,7 @@ fn proposal_details_are_correct() {
             System::block_number() + Pips::proposal_cool_off_period()
         );
 
-        assert_balance(alice.acc(), 300, 60);
+        assert_eq!(Balances::free_balance(&alice.acc()), 300 - 60);
         assert_votes(0, alice.acc(), 60);
     });
 }
@@ -621,12 +615,12 @@ fn vote_bond_additional_deposit_works() {
 
         let acc = AccountKeyring::Alice.public();
         let signer = Origin::signed(acc);
-        assert_balance(acc, init_free, 0);
+        assert_eq!(Balances::free_balance(&acc), init_free);
 
         assert_ok!(alice_proposal(init_amount));
-        assert_balance(acc, init_free, init_amount);
+        assert_eq!(Balances::free_balance(&acc), init_free - init_amount);
         assert_ok!(Pips::vote(signer, 0, true, amount));
-        assert_balance(acc, init_free, amount);
+        assert_eq!(Balances::free_balance(&acc), init_free - amount);
         assert_last_event!(Event::Voted(.., true, _));
         assert_votes(0, acc, amount);
     });
@@ -689,9 +683,9 @@ fn vote_unbond_deposit_works() {
         assert_eq!(Balances::free_balance(&acc), init_free);
 
         assert_ok!(alice_proposal(init_amount));
-        assert_balance(acc, init_free, init_amount);
+        assert_eq!(Balances::free_balance(&acc), init_free - init_amount);
         assert_ok!(Pips::vote(signer, 0, true, then_amount));
-        assert_balance(acc, init_free, then_amount);
+        assert_eq!(Balances::free_balance(&acc), init_free - then_amount);
         assert_last_event!(Event::Voted(.., true, _));
         assert_votes(0, acc, then_amount);
     });
@@ -847,14 +841,14 @@ fn vote_works() {
         let charlie_acc = AccountKeyring::Charlie.public();
         let charlie = Origin::signed(charlie_acc);
         assert_ok!(alice_proposal(100));
-        assert_balance(bob_acc, 2000, 0);
-        assert_balance(charlie_acc, 3000, 0);
+        assert_eq!(Balances::free_balance(&bob_acc), 2000);
+        assert_eq!(Balances::free_balance(&charlie_acc), 3000);
         assert_ok!(Pips::vote(bob, 0, false, 1337));
         assert_last_event!(Event::Voted(.., false, 1337));
         assert_ok!(Pips::vote(charlie, 0, true, 2441));
         assert_last_event!(Event::Voted(.., true, 2441));
-        assert_balance(bob_acc, 2000, 1337);
-        assert_balance(charlie_acc, 3000, 2441);
+        assert_eq!(Balances::free_balance(&bob_acc), 2000 - 1337);
+        assert_eq!(Balances::free_balance(&charlie_acc), 3000 - 2441);
         assert_vote_details(
             0,
             VotingResult {
@@ -879,28 +873,6 @@ fn vote_works() {
             ],
             vec![Vote(true, 100), Vote(false, 1337), Vote(true, 2441)],
         );
-    });
-}
-
-#[test]
-fn voting_for_pip_uses_stack_over_overlay() {
-    ExtBuilder::default().build().execute_with(|| {
-        System::set_block_number(1);
-
-        assert_ok!(Pips::set_min_proposal_deposit(root(), 0));
-        // Initialize with 100 POLYX.
-        let alice = User::new(AccountKeyring::Alice).balance(100);
-        // Lock all but 10.
-        Balances::set_lock(*b"deadbeef", &alice.acc(), 90, WithdrawReasons::all());
-        assert_balance(alice.acc(), 100, 90);
-        // OK, because we're overlaying with 90 tokens already locked.
-        assert_ok!(alice_proposal(50));
-        assert_balance(alice.acc(), 100, 90);
-        // OK, because we're still overlaying, but also increasing it by 10.
-        assert_ok!(alice_proposal(50));
-        assert_balance(alice.acc(), 100, 100);
-        // Error, because we don't have 101 tokens to bond.
-        assert_noop!(alice_proposal(1), Error::InsufficientDeposit);
     });
 }
 
@@ -1188,24 +1160,23 @@ fn can_prune_states_that_cannot_be_rejected() {
 
         // Can prune cancelled:
         assert_ok!(alice_proposal(100));
-        assert_balance(alice.acc(), init_bal, 100);
+        assert_eq!(Balances::free_balance(&alice.acc()), init_bal - 100);
         assert_eq!(Pips::pip_id_sequence(), 1);
         assert_eq!(Pips::active_pip_count(), 1);
         assert_ok!(Pips::cancel_proposal(alice.signer(), 0));
         assert_state(0, false, ProposalState::Cancelled);
-        assert_balance(alice.acc(), init_bal, 0);
+        assert_eq!(Balances::free_balance(&alice.acc()), init_bal);
         assert_eq!(Pips::pip_id_sequence(), 1);
         assert_eq!(Pips::active_pip_count(), 0);
         assert_ok!(Pips::prune_proposal(root(), 0));
-        assert_balance(alice.acc(), init_bal, 0);
+        assert_eq!(Balances::free_balance(&alice.acc()), init_bal);
         assert_pruned(0);
 
         // Can prune executed:
         assert_ok!(Pips::set_proposal_cool_off_period(root(), 0));
-        assert_balance(alice.acc(), init_bal, 0);
         assert_eq!(Balances::free_balance(&alice.acc()), init_bal);
         assert_ok!(alice_proposal(200));
-        assert_balance(alice.acc(), init_bal, 200);
+        assert_eq!(Balances::free_balance(&alice.acc()), init_bal - 200);
         assert_eq!(Pips::pip_id_sequence(), 2);
         assert_eq!(Pips::active_pip_count(), 1);
         assert_ok!(Pips::snapshot(bob.signer()));
@@ -1214,14 +1185,14 @@ fn can_prune_states_that_cannot_be_rejected() {
             vec![(1, SnapshotResult::Approve)]
         ));
         assert_state(1, false, ProposalState::Scheduled);
-        assert_balance(alice.acc(), init_bal, 200);
+        assert_eq!(Balances::free_balance(&alice.acc()), init_bal - 200);
         assert_eq!(Pips::active_pip_count(), 1);
         fast_forward_blocks(Pips::default_enactment_period() + 1);
         assert_state(1, false, ProposalState::Executed);
-        assert_balance(alice.acc(), init_bal, 0);
+        assert_eq!(Balances::free_balance(&alice.acc()), init_bal);
         assert_eq!(Pips::active_pip_count(), 0);
         assert_ok!(Pips::prune_proposal(root(), 1));
-        assert_balance(alice.acc(), init_bal, 0);
+        assert_eq!(Balances::free_balance(&alice.acc()), init_bal);
         assert_pruned(1);
 
         // Can prune failed:
@@ -1233,7 +1204,7 @@ fn can_prune_states_that_cannot_be_rejected() {
             None,
             None
         ));
-        assert_balance(alice.acc(), init_bal, 300);
+        assert_eq!(Balances::free_balance(&alice.acc()), init_bal - 300);
         assert_eq!(Pips::pip_id_sequence(), 3);
         assert_eq!(Pips::active_pip_count(), 1);
         assert_ok!(Pips::snapshot(bob.signer()));
@@ -1242,27 +1213,27 @@ fn can_prune_states_that_cannot_be_rejected() {
             vec![(2, SnapshotResult::Approve)]
         ));
         assert_state(2, false, ProposalState::Scheduled);
-        assert_balance(alice.acc(), init_bal, 300);
+        assert_eq!(Balances::free_balance(&alice.acc()), init_bal - 300);
         assert_eq!(Pips::active_pip_count(), 1);
         fast_forward_blocks(Pips::default_enactment_period() + 1);
         assert_state(2, false, ProposalState::Failed);
-        assert_balance(alice.acc(), init_bal, 0);
+        assert_eq!(Balances::free_balance(&alice.acc()), init_bal);
         assert_eq!(Pips::active_pip_count(), 0);
         assert_ok!(Pips::prune_proposal(root(), 2));
-        assert_balance(alice.acc(), init_bal, 0);
+        assert_eq!(Balances::free_balance(&alice.acc()), init_bal);
         assert_pruned(2);
 
         // Can prune rejected:
         assert_ok!(alice_proposal(400));
-        assert_balance(alice.acc(), init_bal, 400);
+        assert_eq!(Balances::free_balance(&alice.acc()), init_bal - 400);
         assert_eq!(Pips::pip_id_sequence(), 4);
         assert_eq!(Pips::active_pip_count(), 1);
         assert_ok!(Pips::reject_proposal(root(), 3));
-        assert_balance(alice.acc(), init_bal, 0);
+        assert_eq!(Balances::free_balance(&alice.acc()), init_bal);
         assert_state(3, false, ProposalState::Rejected);
         assert_eq!(Pips::active_pip_count(), 0);
         assert_ok!(Pips::prune_proposal(root(), 3));
-        assert_balance(alice.acc(), init_bal, 0);
+        assert_eq!(Balances::free_balance(&alice.acc()), init_bal);
         assert_pruned(4);
     });
 }
@@ -1278,19 +1249,19 @@ fn cannot_prune_active() {
 
         // Alice starts a proposal with some deposit.
         assert_ok!(alice_proposal(50));
-        assert_balance(alice.acc(), init_bal, 50);
+        assert_eq!(Balances::free_balance(&alice.acc()), init_bal - 50);
         // Now remove that PIP and check that funds are back.
         assert_ok!(Pips::set_prune_historical_pips(root(), false));
         assert_state(0, false, ProposalState::Pending);
         assert_bad_state!(Pips::prune_proposal(root(), 0));
         assert_eq!(Pips::pip_id_sequence(), 1);
         assert_eq!(Pips::active_pip_count(), 1);
-        assert_balance(alice.acc(), init_bal, 50);
+        assert_eq!(Balances::free_balance(&alice.acc()), init_bal - 50);
 
         // Alice starts a proposal with some deposit.
         assert_ok!(Pips::set_proposal_cool_off_period(root(), 0));
         assert_ok!(alice_proposal(60));
-        assert_balance(alice.acc(), init_bal, 50 + 60);
+        assert_eq!(Balances::free_balance(&alice.acc()), init_bal - 50 - 60);
         // Schedule the PIP.
         assert_ok!(Pips::snapshot(alice.signer()));
         assert_ok!(Pips::enact_snapshot_results(
@@ -1302,7 +1273,7 @@ fn cannot_prune_active() {
         assert_bad_state!(Pips::prune_proposal(root(), 1));
         assert_eq!(Pips::pip_id_sequence(), 2);
         assert_eq!(Pips::active_pip_count(), 2);
-        assert_balance(alice.acc(), init_bal, 50 + 60);
+        assert_eq!(Balances::free_balance(&alice.acc()), init_bal - 50 - 60);
     });
 }
 
@@ -1317,7 +1288,7 @@ fn reject_proposal_works() {
 
         // Alice starts a proposal with some deposit.
         assert_ok!(alice_proposal(50));
-        assert_balance(alice.acc(), init_bal, 50);
+        assert_eq!(Balances::free_balance(&alice.acc()), init_bal - 50);
         let result = VotingResult {
             ayes_count: 1,
             ayes_stake: 50,
@@ -1340,7 +1311,7 @@ fn reject_proposal_works() {
                 state: ProposalState::Rejected,
             }
         );
-        assert_balance(alice.acc(), init_bal, 0);
+        assert_eq!(Balances::free_balance(&alice.acc()), init_bal);
         assert_eq!(Deposits::iter_prefix_values(0).count(), 0);
         // We keep this info for posterity.
         assert_eq!(Votes::iter_prefix_values(0).count(), 1);
@@ -1349,7 +1320,7 @@ fn reject_proposal_works() {
         // Alice starts a proposal with some deposit.
         assert_ok!(Pips::set_proposal_cool_off_period(root(), 0));
         assert_ok!(alice_proposal(60));
-        assert_balance(alice.acc(), init_bal, 60);
+        assert_eq!(Balances::free_balance(&alice.acc()), init_bal - 60);
         let result = VotingResult {
             ayes_count: 1,
             ayes_stake: 60,
@@ -1378,7 +1349,7 @@ fn reject_proposal_works() {
                 state: ProposalState::Rejected,
             }
         );
-        assert_balance(alice.acc(), init_bal, 0);
+        assert_eq!(Balances::free_balance(&alice.acc()), init_bal);
         assert_eq!(Deposits::iter_prefix_values(1).count(), 0);
         // We keep this info for posterity.
         assert_eq!(Votes::iter_prefix_values(1).count(), 1);
