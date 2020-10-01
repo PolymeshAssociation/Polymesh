@@ -117,7 +117,7 @@ use polymesh_primitives_derive::VecU8StrongTyped;
 use sp_runtime::traits::{CheckedAdd, SaturatedConversion, Saturating, Zero};
 #[cfg(feature = "std")]
 use sp_runtime::{Deserialize, Serialize};
-use sp_std::{convert::TryFrom, prelude::*};
+use sp_std::{convert::TryFrom, iter, prelude::*};
 
 type Portfolio<T> = pallet_portfolio::Module<T>;
 type CallPermissions<T> = pallet_permissions::Module<T>;
@@ -356,20 +356,16 @@ decl_storage! {
             double_map hasher(blake2_128_concat) Ticker, hasher(blake2_128_concat) DocumentName => Document;
         /// Ticker registration details on Polymath Classic / Ethereum.
         pub ClassicTickers get(fn classic_ticker_registration): map hasher(blake2_128_concat) Ticker => Option<ClassicTickerRegistration>;
-        /// Checkpoint schedules for pairs of a ticker and an identity. Every identity can have at
-        /// most one schedule for a given ticker.
-        /// (ticker, identity ID) -> schedule
-        pub CheckpointSchedules get(fn checkpoint_schedules):
-            double_map hasher(blake2_128_concat) Ticker, hasher(twox_64_concat) IdentityId =>
+        /// Checkpoint schedules for tickers.
+        /// ticker -> schedule
+        pub CheckpointSchedules get(fn checkpoint_schedules): map hasher(blake2_128_concat) Ticker =>
             CheckpointSchedule;
-        /// The next checkpoint of a ticker and the identity that created the schedule with this checkpoint.
-        /// (ticker, identity ID) -> Unix time in seconds
-        pub NextCheckpoints get(fn next_checkpoints):
-            double_map hasher(blake2_128_concat) Ticker, hasher(twox_64_concat) IdentityId => u64;
-        /// Checkpoint records. Every ticker-identity pair has a vector of checkpoint records.
-        /// (ticker, identity ID) -> schedule
-        pub CheckpointRecords get(fn checkpoint_records):
-            double_map hasher(blake2_128_concat) Ticker, hasher(twox_64_concat) IdentityId =>
+        /// The next checkpoint of a ticker.
+        /// ticker -> Unix time in seconds
+        pub NextCheckpoints get(fn next_checkpoints): map hasher(blake2_128_concat) Ticker => u64;
+        /// Checkpoint records. Every ticker has a vector of checkpoint records.
+        /// ticker -> schedule
+        pub CheckpointRecords get(fn checkpoint_records): map hasher(blake2_128_concat) Ticker =>
             Vec<CheckpointRecord<T::Balance>>;
         /// Balances get stored on the basis of the `ScopeId`.
         /// Right now it is only helpful for the UI purposes but in future it can be used to do miracles on-chain.
@@ -712,16 +708,16 @@ decl_module! {
             let primary_did = Identity::<T>::ensure_origin_call_permissions(origin)?.primary_did;
             ensure!(Self::is_owner(&ticker, primary_did), Error::<T>::Unauthorized);
             ensure!(
-                !<CheckpointSchedules>::contains_key(&ticker, &primary_did),
+                !<CheckpointSchedules>::contains_key(&ticker),
                 Error::<T>::CheckpointScheduleAlreadyExists
             );
 
             let now_as_secs = T::UnixTime::now().as_secs().saturated_into::<u64>();
             let timestamp = schedule.next_checkpoint(now_as_secs)
                 .ok_or(Error::<T>::FailedToComputeNextCheckpoint)?;
-            <NextCheckpoints>::insert(&ticker, &primary_did, timestamp);
+            <NextCheckpoints>::insert(&ticker, timestamp);
             // Assign the schedule.
-            <CheckpointSchedules>::insert(&ticker, &primary_did, schedule.clone());
+            <CheckpointSchedules>::insert(&ticker, schedule.clone());
             Self::deposit_event(RawEvent::CheckpointScheduleCreated(
                 ticker,
                 primary_did,
@@ -747,13 +743,13 @@ decl_module! {
             let primary_did = Identity::<T>::ensure_origin_call_permissions(origin)?.primary_did;
             ensure!(Self::is_owner(&ticker, primary_did), Error::<T>::Unauthorized);
             ensure!(
-                <CheckpointSchedules>::contains_key(&ticker, &primary_did),
+                <CheckpointSchedules>::contains_key(&ticker),
                 Error::<T>::NoCheckpointSchedule
             );
             // Remove the next scheduled checkpoint for `ticker` and `primary_did`.
-            <NextCheckpoints>::remove(&ticker, &primary_did);
+            <NextCheckpoints>::remove(&ticker);
             // Remove and return the schedule from storage.
-            let schedule = <CheckpointSchedules>::take(&ticker, &primary_did);
+            let schedule = <CheckpointSchedules>::take(&ticker);
             Self::deposit_event(RawEvent::CheckpointScheduleRemoved(
                 ticker,
                 primary_did,
@@ -1620,6 +1616,9 @@ impl<T: Trait> Module<T> {
             .checked_add(&value)
             .ok_or(Error::<T>::BalanceOverflow)?;
 
+        let ops: Vec<_> = iter::repeat(ProtocolOp::AssetCheckpoint).take(2).collect();
+        T::ProtocolFee::charge_fees(ops.as_ref())?;
+
         Self::_update_checkpoint(ticker, from_portfolio.did, from_total_balance);
         Self::_update_checkpoint(ticker, to_portfolio.did, to_total_balance);
         // reduce sender's balance
@@ -1722,14 +1721,14 @@ impl<T: Trait> Module<T> {
                 });
             }
         }
-        // Record the scheduled checkpoint if one exists and is due.
-        if <NextCheckpoints>::contains_key(ticker, &user_did) {
+        // Record the scheduled checkpoint if one exists and is due and we are the asset owner.
+        if Self::is_owner(ticker, user_did) && <NextCheckpoints>::contains_key(ticker) {
             let record_timestamp = T::UnixTime::now().as_secs().saturated_into::<u64>();
-            let schedule_timestamp = Self::next_checkpoints(ticker, &user_did);
+            let schedule_timestamp = Self::next_checkpoints(ticker);
             if schedule_timestamp <= record_timestamp {
                 let total_supply = Self::token_details(ticker).total_supply;
                 // Record the checkpoint.
-                <CheckpointRecords<T>>::mutate(ticker, &user_did, |records| {
+                <CheckpointRecords<T>>::mutate(ticker, |records| {
                     records.push(CheckpointRecord {
                         schedule_timestamp,
                         record_timestamp,
@@ -1738,11 +1737,11 @@ impl<T: Trait> Module<T> {
                     })
                 });
                 // Update the next checkpoint timestamp.
-                let schedule = Self::checkpoint_schedules(ticker, &user_did);
+                let schedule = Self::checkpoint_schedules(ticker);
                 if let Some(timestamp) = schedule.next_checkpoint(record_timestamp) {
-                    <NextCheckpoints>::insert(ticker, &user_did, timestamp);
+                    <NextCheckpoints>::insert(ticker, timestamp);
                 } else {
-                    <NextCheckpoints>::remove(ticker, &user_did);
+                    <NextCheckpoints>::remove(ticker);
                 }
             }
         }
@@ -1787,10 +1786,14 @@ impl<T: Trait> Module<T> {
             ticker,
         ) + value;
 
-        // Charge the given fee.
-        if let Some(op) = protocol_fee_data {
-            T::ProtocolFee::charge_fee(op)?;
-        }
+        // Charge the fees.
+        let ops: Vec<_> = if let Some(op) = protocol_fee_data {
+            vec![op, ProtocolOp::AssetCheckpoint]
+        } else {
+            vec![ProtocolOp::AssetCheckpoint]
+        };
+        T::ProtocolFee::charge_fees(ops.as_ref())?;
+
         Self::_update_checkpoint(ticker, to_did, current_to_balance);
 
         // Increase total supply

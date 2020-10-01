@@ -755,6 +755,7 @@
                 "AssetRegisterTicker",
                 "AssetIssue",
                 "AssetAddDocument",
+                "AssetCheckpoint",
                 "AssetCreateAsset",
                 "DividendNew",
                 "ComplianceManagerAddComplianceRequirement",

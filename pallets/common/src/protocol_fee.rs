@@ -25,6 +25,7 @@ pub enum ProtocolOp {
     AssetRegisterTicker,
     AssetIssue,
     AssetAddDocument,
+    AssetCheckpoint,
     AssetCreateAsset,
     DividendNew,
     ComplianceManagerAddComplianceRequirement,
