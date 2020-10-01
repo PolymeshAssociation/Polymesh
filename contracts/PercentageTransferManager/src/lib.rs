@@ -3,14 +3,31 @@
 use ink_lang as ink;
 
 mod custom_types {
+    use ink_core::storage::traits::{PackedLayout, SpreadLayout};
     use scale::{Decode, Encode};
-    use ink_core::storage::traits::{
-        PackedLayout,
-        SpreadLayout,
-    };
 
-    #[derive(Decode, Encode, PartialEq, Ord, Eq, PartialOrd, Copy, Hash, Clone, Default, SpreadLayout, PackedLayout)]
-    #[cfg_attr(feature = "std", derive(::scale_info::TypeInfo, Debug, ink_core::storage::traits::StorageLayout))]
+    #[derive(
+        Decode,
+        Encode,
+        PartialEq,
+        Ord,
+        Eq,
+        PartialOrd,
+        Copy,
+        Hash,
+        Clone,
+        Default,
+        SpreadLayout,
+        PackedLayout,
+    )]
+    #[cfg_attr(
+        feature = "std",
+        derive(
+            ::scale_info::TypeInfo,
+            Debug,
+            ink_core::storage::traits::StorageLayout
+        )
+    )]
     pub struct IdentityId([u8; 32]);
 
     impl From<u128> for IdentityId {
@@ -35,7 +52,7 @@ mod custom_types {
 #[ink::contract]
 mod percentage_transfer_manager {
     use crate::custom_types::{IdentityId, RestrictionResult};
-    use ink_core::storage::{ collections::HashMap as StorageHashMap };
+    use ink_core::storage::collections::HashMap as StorageHashMap;
     use ink_prelude::vec::Vec;
 
     /// Defines the storage of your contract.
@@ -96,7 +113,7 @@ mod percentage_transfer_manager {
                 owner: Self::env().caller(),
                 max_allowed_percentage: max_percentage,
                 allow_primary_issuance: primary_issuance,
-                exemption_list: StorageHashMap::default()
+                exemption_list: StorageHashMap::default(),
             }
         }
 
@@ -251,13 +268,34 @@ mod percentage_transfer_manager {
     mod tests {
         /// Imports all the definitions from the outer scope so we can use them here.
         use super::*;
-        use ink_core::env::test::*;
-        type EnvTypes = ink_core::env::DefaultEnvTypes;
+        use ink_core::env::{call, test};
+        type Accounts = test::DefaultAccounts<EnvTypes>;
+        const CALLEE: [u8; 32] = [7; 32];
+
+        fn set_sender(sender: AccountId) {
+            test::push_execution_context::<EnvTypes>(
+                sender,
+                CALLEE.into(),
+                1000000,
+                1000000,
+                test::CallData::new(call::Selector::new([0x00; 4])), // dummy
+            );
+        }
+
+        fn set_from_owner() {
+            let accounts = default_accounts();
+            set_sender(accounts.alice);
+        }
+
+        fn default_accounts() -> Accounts {
+            test::default_accounts().expect("Test environment is expected to be initialized.")
+        }
 
         /// We test if the default constructor does its job.
         #[test]
         fn constructor_initialization_check() {
-            let default_accounts = default_accounts::<EnvTypes>().unwrap();
+            let default_accounts = default_accounts();
+            set_from_owner();
             let percentage_transfer_manager =
                 PercentageTransferManagerStorage::new(200000u128, false);
             assert_eq!(
@@ -273,6 +311,7 @@ mod percentage_transfer_manager {
 
         #[test]
         fn test_verify_transfer_successfully() {
+            set_from_owner();
             let mut percentage_transfer_manager =
                 PercentageTransferManagerStorage::new(200000, false);
             let from = IdentityId::from(1);
@@ -384,6 +423,7 @@ mod percentage_transfer_manager {
 
         #[test]
         fn test_verify_transfer_with_decimal_percentage() {
+            set_from_owner();
             let percentage_transfer_manager = PercentageTransferManagerStorage::new(278940, false); // it is 27.894% of the totalSupply
             let from = IdentityId::from(1);
             let to = IdentityId::from(2);
@@ -420,12 +460,13 @@ mod percentage_transfer_manager {
 
         #[test]
         fn should_successfully_change_allowed_percentage() {
+            set_from_owner();
             let mut percentage_transfer_manager =
                 PercentageTransferManagerStorage::new(200000, false);
             let from = IdentityId::from(1);
             let to = IdentityId::from(2);
             let multiplier: u128 = 1000000;
-            let default_accounts = default_accounts::<EnvTypes>().unwrap();
+            let default_accounts = default_accounts();
 
             // Should fail if the transfer value is more than the restriction
             assert_eq!(
@@ -461,6 +502,7 @@ mod percentage_transfer_manager {
         #[test]
         #[should_panic(expected = "Must change setting")]
         fn should_panic_when_same_value_submitted_as_param() {
+            set_from_owner();
             let mut percentage_transfer_manager =
                 PercentageTransferManagerStorage::new(200000, false);
             let from = IdentityId::from(1);
@@ -473,7 +515,8 @@ mod percentage_transfer_manager {
         #[test]
         #[should_panic(expected = "Not Authorized")]
         fn should_panic_when_wrong_owner_call() {
-            let default_accounts = default_accounts::<EnvTypes>().unwrap();
+            let default_accounts = default_accounts();
+            set_from_owner();
             let mut percentage_transfer_manager =
                 PercentageTransferManagerStorage::new(200000, false);
             let from = IdentityId::from(1);
@@ -489,7 +532,8 @@ mod percentage_transfer_manager {
         #[test]
         #[should_panic(expected = "Not Authorized")]
         fn should_panic_when_calling_modify_exemption_list_by_wrong_owner() {
-            let default_accounts = default_accounts::<EnvTypes>().unwrap();
+            let default_accounts = default_accounts();
+            set_from_owner();
             let mut percentage_transfer_manager =
                 PercentageTransferManagerStorage::new(200000, false);
             let from = IdentityId::from(1);
@@ -504,7 +548,8 @@ mod percentage_transfer_manager {
         #[test]
         #[should_panic(expected = "Must change setting")]
         fn should_panic_when_calling_modify_exemption_list_when_same_value_passed() {
-            let default_accounts = default_accounts::<EnvTypes>().unwrap();
+            let default_accounts = default_accounts();
+            set_from_owner();
             let mut percentage_transfer_manager =
                 PercentageTransferManagerStorage::new(200000, false);
             let from = IdentityId::from(1);
@@ -519,7 +564,8 @@ mod percentage_transfer_manager {
         #[test]
         #[should_panic(expected = "Not Authorized")]
         fn should_panic_when_calling_change_primary_issuance_by_wrong_owner() {
-            let default_accounts = default_accounts::<EnvTypes>().unwrap();
+            let default_accounts = default_accounts();
+            set_from_owner();
             let mut percentage_transfer_manager =
                 PercentageTransferManagerStorage::new(200000, false);
             let from = IdentityId::from(1);
@@ -534,7 +580,8 @@ mod percentage_transfer_manager {
         #[test]
         #[should_panic(expected = "Must change setting")]
         fn should_panic_when_calling_change_primary_issuance_when_same_value_passed() {
-            let default_accounts = default_accounts::<EnvTypes>().unwrap();
+            let default_accounts = default_accounts();
+            set_from_owner();
             let mut percentage_transfer_manager =
                 PercentageTransferManagerStorage::new(200000, false);
             let from = IdentityId::from(1);
@@ -547,6 +594,7 @@ mod percentage_transfer_manager {
 
         #[test]
         fn should_exempt_multiple_identities() {
+            set_from_owner();
             let mut percentage_transfer_manager =
                 PercentageTransferManagerStorage::new(200000, false);
             let exempted_identities = vec![
