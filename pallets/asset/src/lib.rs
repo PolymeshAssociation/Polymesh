@@ -748,7 +748,7 @@ decl_module! {
                 <CheckpointSchedules>::contains_key(&ticker, &primary_did),
                 Error::<T>::NoCheckpointSchedule
             );
-            // Remove the next scheduled checkpoint for `ticker`.
+            // Remove the next scheduled checkpoint for `ticker` and `primary_did`.
             <NextCheckpoints>::remove(&ticker, &primary_did);
             // Remove and return the schedule from storage.
             let schedule = <CheckpointSchedules>::take(&ticker, &primary_did);
@@ -1702,6 +1702,13 @@ impl<T: Trait> Module<T> {
         Ok(())
     }
 
+    /// Updates manual and scheduled checkpoints if those are defined.
+    ///
+    /// # Assumptions
+    ///
+    /// * When minting, the total supply of `ticker` is updated **after** this function is called.
+    /// * TODO: Vectors of `CheckpointRecord` are managed outside of this function - e.g., old
+    /// records are cleaned up - so that reasonable read/write times are maintained.
     fn _update_checkpoint(ticker: &Ticker, user_did: IdentityId, balance: T::Balance) {
         if <TotalCheckpoints>::contains_key(ticker) {
             let checkpoint_count = Self::total_checkpoints_of(ticker);
