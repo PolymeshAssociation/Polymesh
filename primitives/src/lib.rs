@@ -227,7 +227,6 @@ pub use valid_proof_of_investor::ValidProofOfInvestor;
 
 /// Timekeeping and checkpoints.
 pub mod calendar;
-pub use calendar::{is_leap_year, CalendarPeriod, CalendarUnit, CheckpointSchedule};
 
 /// Represents custom transaction errors.
 #[repr(u8)]

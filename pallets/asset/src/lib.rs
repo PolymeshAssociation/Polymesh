@@ -82,8 +82,9 @@
 
 #[cfg(feature = "runtime-benchmarks")]
 pub mod benchmarking;
-
 pub mod ethereum;
+
+use arrayvec::ArrayVec;
 use codec::{Decode, Encode};
 use core::result::Result as StdResult;
 use currency::*;
@@ -109,7 +110,7 @@ use polymesh_common_utilities::{
     CommonTrait, Context, SystematicIssuers,
 };
 use polymesh_primitives::{
-    AssetIdentifier, AuthorizationData, AuthorizationError, CheckpointSchedule, Document,
+    calendar::CheckpointSchedule, AssetIdentifier, AuthorizationData, AuthorizationError, Document,
     DocumentName, IdentityId, PortfolioId, ScopeId, Signatory, SmartExtension, SmartExtensionName,
     SmartExtensionType, Ticker,
 };
@@ -117,7 +118,7 @@ use polymesh_primitives_derive::VecU8StrongTyped;
 use sp_runtime::traits::{CheckedAdd, SaturatedConversion, Saturating, Zero};
 #[cfg(feature = "std")]
 use sp_runtime::{Deserialize, Serialize};
-use sp_std::{convert::TryFrom, iter, prelude::*};
+use sp_std::{convert::TryFrom, prelude::*};
 
 type Portfolio<T> = pallet_portfolio::Module<T>;
 type CallPermissions<T> = pallet_permissions::Module<T>;
@@ -527,7 +528,7 @@ decl_module! {
 
             // Charge protocol fees.
             T::ProtocolFee::charge_fees(&{
-                let mut fees = arrayvec::ArrayVec::<[_; 2]>::new();
+                let mut fees = ArrayVec::<[_; 2]>::new();
                 if available {
                     fees.push(ProtocolOp::AssetRegisterTicker);
                 }
@@ -715,9 +716,9 @@ decl_module! {
             let now_as_secs = T::UnixTime::now().as_secs().saturated_into::<u64>();
             let timestamp = schedule.next_checkpoint(now_as_secs)
                 .ok_or(Error::<T>::FailedToComputeNextCheckpoint)?;
-            <NextCheckpoints>::insert(&ticker, timestamp);
+            NextCheckpoints::insert(&ticker, timestamp);
             // Assign the schedule.
-            <CheckpointSchedules>::insert(&ticker, schedule.clone());
+            CheckpointSchedules::insert(&ticker, schedule.clone());
             Self::deposit_event(RawEvent::CheckpointScheduleCreated(
                 ticker,
                 primary_did,
@@ -743,13 +744,13 @@ decl_module! {
             let primary_did = Identity::<T>::ensure_origin_call_permissions(origin)?.primary_did;
             ensure!(Self::is_owner(&ticker, primary_did), Error::<T>::Unauthorized);
             ensure!(
-                <CheckpointSchedules>::contains_key(&ticker),
+                CheckpointSchedules::contains_key(&ticker),
                 Error::<T>::NoCheckpointSchedule
             );
             // Remove the next scheduled checkpoint for `ticker` and `primary_did`.
-            <NextCheckpoints>::remove(&ticker);
+            NextCheckpoints::remove(&ticker);
             // Remove and return the schedule from storage.
-            let schedule = <CheckpointSchedules>::take(&ticker);
+            let schedule = CheckpointSchedules::take(&ticker);
             Self::deposit_event(RawEvent::CheckpointScheduleRemoved(
                 ticker,
                 primary_did,
@@ -1627,14 +1628,11 @@ impl<T: Trait> Module<T> {
         let is_checkpoint_due = |did| Self::is_checkpoint_due(ticker, did);
         let maybe_due_checkpoint_from = is_checkpoint_due(from_portfolio.did);
         let maybe_due_checkpoint_to = is_checkpoint_due(to_portfolio.did);
-        let num_ops = vec![&maybe_due_checkpoint_from, &maybe_due_checkpoint_to]
+        let ops = vec![&maybe_due_checkpoint_from, &maybe_due_checkpoint_to]
             .iter()
-            .filter(|m| m.is_some())
-            .count();
-        let ops: Vec<_> = iter::repeat(ProtocolOp::AssetCheckpoint)
-            .take(num_ops)
-            .collect();
-        T::ProtocolFee::charge_fees(ops.as_ref())?;
+            .filter_map(|_| Some(ProtocolOp::AssetCheckpoint))
+            .collect::<ArrayVec<[_; 2]>>();
+        T::ProtocolFee::charge_fees(&*ops)?;
 
         Self::_update_checkpoint(
             ticker,
@@ -1734,7 +1732,7 @@ impl<T: Trait> Module<T> {
     /// storage that can be reused or `None` if there is no due checkpoint. The function is used to
     /// check if a protocol fee payment should be made in advance of recording the checkpoint.
     fn is_checkpoint_due(ticker: &Ticker, did: IdentityId) -> Option<DueCheckpointData> {
-        if Self::is_owner(ticker, did) && <NextCheckpoints>::contains_key(ticker) {
+        if Self::is_owner(ticker, did) && NextCheckpoints::contains_key(ticker) {
             let record_timestamp = T::UnixTime::now().as_secs().saturated_into::<u64>();
             let schedule_timestamp = Self::next_checkpoints(ticker);
             if schedule_timestamp <= record_timestamp {
@@ -1774,7 +1772,7 @@ impl<T: Trait> Module<T> {
         if let Some(due_checkpoint) = maybe_due_checkpoint {
             let total_supply = Self::token_details(ticker).total_supply;
             // Record the checkpoint.
-            <CheckpointRecords<T>>::mutate(ticker, |records| {
+            CheckpointRecords::<T>::mutate(ticker, |records| {
                 records.push(CheckpointRecord {
                     schedule_timestamp: due_checkpoint.schedule_timestamp,
                     record_timestamp: due_checkpoint.record_timestamp,
@@ -1785,9 +1783,9 @@ impl<T: Trait> Module<T> {
             // Update the next checkpoint timestamp.
             let schedule = Self::checkpoint_schedules(ticker);
             if let Some(timestamp) = schedule.next_checkpoint(due_checkpoint.record_timestamp) {
-                <NextCheckpoints>::insert(ticker, timestamp);
+                NextCheckpoints::insert(ticker, timestamp);
             } else {
-                <NextCheckpoints>::remove(ticker);
+                NextCheckpoints::remove(ticker);
             }
         }
     }
@@ -1832,7 +1830,7 @@ impl<T: Trait> Module<T> {
         ) + value;
 
         // Charge the fees.
-        let mut ops = Vec::new();
+        let mut ops = ArrayVec::<[_; 2]>::new();
         if let Some(op) = protocol_fee_data {
             ops.push(op);
         }
@@ -1840,7 +1838,7 @@ impl<T: Trait> Module<T> {
         if maybe_due_checkpoint.is_some() {
             ops.push(ProtocolOp::AssetCheckpoint)
         }
-        T::ProtocolFee::charge_fees(ops.as_ref())?;
+        T::ProtocolFee::charge_fees(&*ops)?;
 
         Self::_update_checkpoint(ticker, to_did, current_to_balance, maybe_due_checkpoint);
 

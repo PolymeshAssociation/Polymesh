@@ -40,7 +40,7 @@ pub enum VariableCalendarUnit {
 
 /// Either a duration in seconds or a variable length calendar unit.
 pub enum FixedOrVariableCalendarUnit {
-    /// A fixed duration in seconds UTC, not counting leap seconds.
+    /// A fixed duration in seconds Unix time, not counting leap seconds.
     Fixed(u64),
     /// A variable length calendar unit.
     Variable(VariableCalendarUnit),
@@ -57,8 +57,9 @@ pub struct CalendarPeriod {
 }
 
 impl CalendarPeriod {
-    /// For fixed length calendar periods (in UTC, without leap seconds), computes the number of
-    /// seconds they contain. For variable length periods, returns a `VariableLengthCalendarPeriod`.
+    /// For fixed length calendar periods (in Unix time, without leap seconds), computes the number
+    /// of seconds they contain. For variable length periods, returns a
+    /// `VariableLengthCalendarPeriod`.
     pub fn as_fixed_or_variable(&self) -> FixedOrVariableCalendarUnit {
         match self.unit {
             CalendarUnit::Second => FixedOrVariableCalendarUnit::Fixed(self.multiplier),
@@ -77,18 +78,44 @@ impl CalendarPeriod {
 }
 
 /// The schedule of an asset checkpoint containing the start time `start` and the optional period
-/// `period` in case the checkpoint is to recur after `start` at regular intervals.
+/// `period` - defined with a non-0 multiplier - in case the checkpoint is to recur after `start` at
+/// regular intervals.
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[derive(Encode, Decode, Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct CheckpointSchedule {
-    /// Unix time in seconds (UTC).
+    /// Unix time in seconds.
     pub start: u64,
     /// The period at which the checkpoint is set to recur after `start`.
     pub period: CalendarPeriod,
 }
 
 impl CheckpointSchedule {
-    /// Computes the next checkpoint for the schedule given the current timestamp in seconds UTC.
+    /// Computes the next checkpoint for the schedule given the current timestamp in seconds Unix
+    /// time.
+    ///
+    /// If the schedule period unit is fixed - from seconds to weeks - the function adds the length
+    /// of that period in seconds to `now_as_secs_utc`.
+    ///
+    /// If that unit is not fixed then it is variable - months or years - meaning that, for example,
+    /// the last days of every month do not have the same number. In that case the next timestamp
+    /// computation takes into account the day of the month at the start of the schedule. Every
+    /// checkpoint gets a day of the month that is at most that of the start of the schedule.
+    ///
+    /// # Example
+    ///
+    /// Assume we have the checkpoint schedule that
+    ///
+    /// * starts on 00:01:00 the 31st of January, 2021 (Unix time) and
+    /// * has a period of one month.
+    ///
+    /// The checkpoint timestamps are going to be
+    ///
+    /// * 00:01:00T2020-01-31
+    /// * 00:01:00T2020-02-28
+    /// * 00:01:00T2020-03-31
+    /// * 00:01:00T2020-04-30
+    ///
+    /// and so on.
     pub fn next_checkpoint(&self, now_as_secs_utc: u64) -> Option<u64> {
         if self.start > now_as_secs_utc {
             // The start time is in the future.
@@ -102,7 +129,7 @@ impl CheckpointSchedule {
         }
         match self.period.as_fixed_or_variable() {
             FixedOrVariableCalendarUnit::Fixed(period_as_secs) => {
-                // The period is of fixed length in seconds UTC.
+                // The period is of fixed length in seconds Unix time.
                 let secs_since_start = now_as_secs_utc - self.start;
                 let elapsed_periods: u64 = secs_since_start / period_as_secs;
                 Some(secs_since_start + period_as_secs * (elapsed_periods + 1))
@@ -124,14 +151,14 @@ impl CheckpointSchedule {
                         let multiplier = u32::try_from(multiplier).ok()?;
                         let year_diff = u32::try_from(date_now.year() - year_start).ok()?;
                         // Convert months to base 12.
-                        let month_start_base12 = month_start - 1;
-                        let month_now_base12 = date_now.month() - 1;
-                        let elapsed_months = year_diff * 12 + month_now_base12 - month_start_base12;
+                        let month_start_0_indexed = month_start - 1;
+                        let month_now_0_indexed = date_now.month() - 1;
+                        let elapsed_months = year_diff * 12 + month_now_0_indexed - month_start_0_indexed;
                         let elapsed_periods = elapsed_months / multiplier;
                         let next_period_months = multiplier * (elapsed_periods + 1);
                         // The month of the next period counting from the beginning of `year_start`.
                         let denormalized_next_period_month =
-                            month_start_base12 + next_period_months;
+                            month_start_0_indexed + next_period_months;
                         let next_period_year =
                             year_start + i32::try_from(denormalized_next_period_month / 12).ok()?;
                         // Month in base 12.
