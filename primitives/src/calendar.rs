@@ -152,10 +152,8 @@ impl CheckpointSchedule {
                             next_period_month + 1,
                             next_period_day,
                         );
-                        Some(
-                            u64::try_from(date_next.and_time(date_time_start.time()).timestamp())
-                                .ok()?,
-                        )
+                        u64::try_from(date_next.and_time(date_time_start.time()).timestamp())
+                            .ok()
                     }
                     VariableCalendarUnit::Year => {
                         // Convert the multiplier to match the type of year.
