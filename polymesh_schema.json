@@ -509,8 +509,7 @@
         "PipsMetadata": {
             "id": "PipId",
             "url": "Option<Url>",
-            "description": "Option<PipDescription>",
-            "created_at": "BlockNumber"
+            "description": "Option<PipDescription>"
         },
         "Proposer": {
             "_enum": {
