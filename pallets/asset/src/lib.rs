@@ -668,7 +668,7 @@ decl_module! {
             Ok(())
         }
 
-        /// Create a single checkpoint.
+        /// Creates a single checkpoint.
         /// NB: Only called by the owner of the security token i.e owner DID.
         ///
         /// # Arguments
