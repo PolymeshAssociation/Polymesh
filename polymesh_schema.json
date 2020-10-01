@@ -384,7 +384,7 @@
         },
         "MetaUrl": "Text",
         "MetaDescription": "Text",
-        "MetaVersion": "Text",
+        "MetaVersion": "u32",
         "TemplateMetadata": {
             "url": "Option<MetaUrl>",
             "se_type": "SmartExtensionType",
@@ -711,6 +711,10 @@
             "remaining_amount": "Balance",
             "price_per_token": "Balance",
             "venue_id": "u64"
+        },
+        "ExtensionAttributes": {
+            "usage_fee":"Balance",
+            "version":"MetaVersion"
         }
     },
     "rpc": {
