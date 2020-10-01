@@ -1147,6 +1147,14 @@ decl_event! {
     }
 }
 
+/// Checkpoint timestamp values read from storage and intended to be reused.
+struct DueCheckpointData {
+    /// The timestamp at which the checkpoint was due.
+    schedule_timestamp: u64,
+    /// The current timestamp that should be recorded alongside the due timestamp.
+    record_timestamp: u64,
+}
+
 decl_error! {
     pub enum Error for Module<T: Trait> {
         /// DID not found.
@@ -1616,11 +1624,30 @@ impl<T: Trait> Module<T> {
             .checked_add(&value)
             .ok_or(Error::<T>::BalanceOverflow)?;
 
-        let ops: Vec<_> = iter::repeat(ProtocolOp::AssetCheckpoint).take(2).collect();
+        let is_checkpoint_due = |did| Self::is_checkpoint_due(ticker, did);
+        let maybe_due_checkpoint_from = is_checkpoint_due(from_portfolio.did);
+        let maybe_due_checkpoint_to = is_checkpoint_due(to_portfolio.did);
+        let num_ops = vec![&maybe_due_checkpoint_from, &maybe_due_checkpoint_to]
+            .iter()
+            .filter(|m| m.is_some())
+            .count();
+        let ops: Vec<_> = iter::repeat(ProtocolOp::AssetCheckpoint)
+            .take(num_ops)
+            .collect();
         T::ProtocolFee::charge_fees(ops.as_ref())?;
 
-        Self::_update_checkpoint(ticker, from_portfolio.did, from_total_balance);
-        Self::_update_checkpoint(ticker, to_portfolio.did, to_total_balance);
+        Self::_update_checkpoint(
+            ticker,
+            from_portfolio.did,
+            from_total_balance,
+            maybe_due_checkpoint_from,
+        );
+        Self::_update_checkpoint(
+            ticker,
+            to_portfolio.did,
+            to_total_balance,
+            maybe_due_checkpoint_to,
+        );
         // reduce sender's balance
         <BalanceOf<T>>::insert(ticker, &from_portfolio.did, updated_from_total_balance);
         // increase receiver's balance
@@ -1703,6 +1730,23 @@ impl<T: Trait> Module<T> {
         Ok(())
     }
 
+    /// Checks whether a scheduled checkpoint is due for `ticker` and `did`. Returns data read from
+    /// storage that can be reused or `None` if there is no due checkpoint. The function is used to
+    /// check if a protocol fee payment should be made in advance of recording the checkpoint.
+    fn is_checkpoint_due(ticker: &Ticker, did: IdentityId) -> Option<DueCheckpointData> {
+        if Self::is_owner(ticker, did) && <NextCheckpoints>::contains_key(ticker) {
+            let record_timestamp = T::UnixTime::now().as_secs().saturated_into::<u64>();
+            let schedule_timestamp = Self::next_checkpoints(ticker);
+            if schedule_timestamp <= record_timestamp {
+                return Some(DueCheckpointData {
+                    schedule_timestamp,
+                    record_timestamp,
+                });
+            }
+        }
+        None
+    }
+
     /// Updates manual and scheduled checkpoints if those are defined.
     ///
     /// # Assumptions
@@ -1710,7 +1754,12 @@ impl<T: Trait> Module<T> {
     /// * When minting, the total supply of `ticker` is updated **after** this function is called.
     /// * TODO: Vectors of `CheckpointRecord` are managed outside of this function - e.g., old
     /// records are cleaned up - so that reasonable read/write times are maintained.
-    fn _update_checkpoint(ticker: &Ticker, user_did: IdentityId, balance: T::Balance) {
+    fn _update_checkpoint(
+        ticker: &Ticker,
+        user_did: IdentityId,
+        balance: T::Balance,
+        maybe_due_checkpoint: Option<DueCheckpointData>,
+    ) {
         if <TotalCheckpoints>::contains_key(ticker) {
             let checkpoint_count = Self::total_checkpoints_of(ticker);
             let ticker_user_did_checkpont = (*ticker, user_did, checkpoint_count);
@@ -1722,27 +1771,23 @@ impl<T: Trait> Module<T> {
             }
         }
         // Record the scheduled checkpoint if one exists and is due and we are the asset owner.
-        if Self::is_owner(ticker, user_did) && <NextCheckpoints>::contains_key(ticker) {
-            let record_timestamp = T::UnixTime::now().as_secs().saturated_into::<u64>();
-            let schedule_timestamp = Self::next_checkpoints(ticker);
-            if schedule_timestamp <= record_timestamp {
-                let total_supply = Self::token_details(ticker).total_supply;
-                // Record the checkpoint.
-                <CheckpointRecords<T>>::mutate(ticker, |records| {
-                    records.push(CheckpointRecord {
-                        schedule_timestamp,
-                        record_timestamp,
-                        balance,
-                        total_supply,
-                    })
-                });
-                // Update the next checkpoint timestamp.
-                let schedule = Self::checkpoint_schedules(ticker);
-                if let Some(timestamp) = schedule.next_checkpoint(record_timestamp) {
-                    <NextCheckpoints>::insert(ticker, timestamp);
-                } else {
-                    <NextCheckpoints>::remove(ticker);
-                }
+        if let Some(due_checkpoint) = maybe_due_checkpoint {
+            let total_supply = Self::token_details(ticker).total_supply;
+            // Record the checkpoint.
+            <CheckpointRecords<T>>::mutate(ticker, |records| {
+                records.push(CheckpointRecord {
+                    schedule_timestamp: due_checkpoint.schedule_timestamp,
+                    record_timestamp: due_checkpoint.record_timestamp,
+                    balance,
+                    total_supply,
+                })
+            });
+            // Update the next checkpoint timestamp.
+            let schedule = Self::checkpoint_schedules(ticker);
+            if let Some(timestamp) = schedule.next_checkpoint(due_checkpoint.record_timestamp) {
+                <NextCheckpoints>::insert(ticker, timestamp);
+            } else {
+                <NextCheckpoints>::remove(ticker);
             }
         }
     }
@@ -1787,14 +1832,17 @@ impl<T: Trait> Module<T> {
         ) + value;
 
         // Charge the fees.
-        let ops: Vec<_> = if let Some(op) = protocol_fee_data {
-            vec![op, ProtocolOp::AssetCheckpoint]
-        } else {
-            vec![ProtocolOp::AssetCheckpoint]
-        };
+        let mut ops = Vec::new();
+        if let Some(op) = protocol_fee_data {
+            ops.push(op);
+        }
+        let maybe_due_checkpoint = Self::is_checkpoint_due(ticker, to_did);
+        if maybe_due_checkpoint.is_some() {
+            ops.push(ProtocolOp::AssetCheckpoint)
+        }
         T::ProtocolFee::charge_fees(ops.as_ref())?;
 
-        Self::_update_checkpoint(ticker, to_did, current_to_balance);
+        Self::_update_checkpoint(ticker, to_did, current_to_balance, maybe_due_checkpoint);
 
         // Increase total supply
         token.total_supply = updated_total_supply;
