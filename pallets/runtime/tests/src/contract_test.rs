@@ -35,18 +35,12 @@ type ProtocolFeeError = pallet_protocol_fee::Error<TestStorage>;
 /// with it's hash.
 ///
 /// The fixture files are located under the `fixtures/` directory.
-pub fn compile_module<T>(
-    fixture_name: &str,
-) -> Result<(Vec<u8>, <T::Hashing as Hash>::Output), wabt::Error>
+pub fn compile_module<T>(fixture_name: &str) -> wat::Result<(Vec<u8>, <T::Hashing as Hash>::Output)>
 where
     T: frame_system::Trait,
 {
-    use std::fs;
-
     let fixture_path = ["fixtures/", fixture_name, ".wat"].concat();
-    let module_wat_source = fs::read_to_string(&fixture_path)
-        .expect(&format!("Unable to find {} fixture", fixture_name));
-    let wasm_binary = wabt::wat2wasm(module_wat_source)?;
+    let wasm_binary = wat::parse_file(fixture_path)?;
     let code_hash = T::Hashing::hash(&wasm_binary);
     Ok((wasm_binary, code_hash))
 }
@@ -60,7 +54,7 @@ pub fn create_se_template<T>(
 ) where
     T: frame_system::Trait<Hash = sp_core::H256>,
 {
-    let wasm_length_weight = 1194500000;
+    let wasm_length_weight = 1426500000;
 
     // Set payer in context
     TestStorage::set_payer_context(Some(template_creator));

@@ -8,7 +8,7 @@ use frame_support::{
     assert_ok,
     dispatch::DispatchResult,
     impl_outer_dispatch, impl_outer_event, impl_outer_origin, parameter_types,
-    traits::{Currency, OnUnbalanced},
+    traits::{Currency, Imbalance, OnUnbalanced},
     weights::DispatchInfo,
     weights::{
         RuntimeDbWeight, WeightToFeeCoefficient, WeightToFeeCoefficients, WeightToFeePolynomial,
