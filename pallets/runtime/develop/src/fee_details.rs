@@ -15,9 +15,9 @@
 
 use crate::{runtime, Runtime};
 
+use pallet_bridge as bridge;
 use pallet_identity as identity;
 use pallet_multisig as multisig;
-use pallet_bridge as bridge;
 
 use polymesh_common_utilities::{traits::transaction_payment::CddAndFeeDetails, Context};
 use polymesh_primitives::{AccountId, AuthorizationData, IdentityId, Signatory, TransactionError};
