@@ -24,8 +24,8 @@ use frame_support::{
     ensure,
     traits::Get,
 };
-use frame_system::{self as system, ensure_signed};
-use pallet_contracts::{BalanceOf, CodeHash, ContractAddressFor, ContractInfoOf, Gas, Schedule};
+use frame_system::ensure_signed;
+use pallet_contracts::{BalanceOf, CodeHash, ContractAddressFor, Gas, Schedule};
 use pallet_identity as identity;
 use polymesh_common_utilities::{
     identity::Trait as IdentityTrait,
