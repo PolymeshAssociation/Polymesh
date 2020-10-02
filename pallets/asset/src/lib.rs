@@ -704,9 +704,6 @@ decl_module! {
         /// # Errors
         /// * `Unauthorized` - The caller does not own the asset.
         /// * `CheckpointScheduleAlreadyExists` - A schedule already exists.
-        //
-        // TODO: Make the weight inversely proportional to the length of the period?
-        //
         #[weight = T::DbWeight::get().reads_writes(6, 2) + 1_000_000_000]
         pub fn create_checkpoint_schedule(
             origin,
