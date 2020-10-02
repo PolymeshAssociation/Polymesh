@@ -1788,14 +1788,15 @@ impl<T: Trait> Module<T> {
         if let Some(due_checkpoint) = maybe_due_checkpoint {
             let total_supply = Self::token_details(ticker).total_supply;
             // Record the checkpoint.
-            CheckpointRecords::<T>::mutate(ticker, |records| {
-                records.push(CheckpointRecord {
+            CheckpointRecords::<T>::append(
+                ticker,
+                CheckpointRecord {
                     schedule_timestamp: due_checkpoint.schedule_timestamp,
                     record_timestamp: due_checkpoint.record_timestamp,
                     balance,
                     total_supply,
-                })
-            });
+                },
+            );
             // Update the next checkpoint timestamp.
             let schedule = Self::checkpoint_schedules(ticker);
             if let Some(timestamp) = schedule.next_checkpoint(due_checkpoint.record_timestamp) {
