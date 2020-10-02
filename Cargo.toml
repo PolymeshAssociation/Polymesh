@@ -82,8 +82,7 @@ polymesh-runtime-testnet = { path = "pallets/runtime/testnet" }
 ed25519-dalek = "1.0.0"
 log = "0.4.8"
 futures = "0.3.4"
-jsonrpc-core = "14.2.0"
-jsonrpc-pubsub = "14.2.0"
+jsonrpc-core = "15.0.0"
 serde_json = '1.0.48'
 structopt = "0.3.15"
 chrono = "0.4.11"
