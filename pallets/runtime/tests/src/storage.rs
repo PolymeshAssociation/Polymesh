@@ -450,6 +450,7 @@ impl portfolio::Trait for TestStorage {
 
 parameter_types! {
     pub MaxNumberOfTMExtensionForAsset: u32 = MAX_NO_OF_TM_ALLOWED.with(|v| *v.borrow());
+    pub const MinCheckpointDurationSecs: u64 = MIN_CHECKPOINT_DURATION.with(|v| *v.borrow());
 }
 
 impl asset::Trait for TestStorage {
@@ -458,6 +459,7 @@ impl asset::Trait for TestStorage {
     type ComplianceManager = compliance_manager::Module<TestStorage>;
     type MaxNumberOfTMExtensionForAsset = MaxNumberOfTMExtensionForAsset;
     type UnixTime = pallet_timestamp::Module<TestStorage>;
+    type MinCheckpointDurationSecs = MinCheckpointDurationSecs;
 }
 
 parameter_types! {

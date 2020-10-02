@@ -85,6 +85,8 @@ pub struct ExtBuilder {
     max_no_of_tm_allowed: u32,
     /// Maximum number of legs a instruction can have.
     max_no_of_legs: u32,
+    /// The minimum duration for a checkpoint period, in seconds.
+    min_checkpoint_duration: u64,
     adjust: Option<Box<dyn FnOnce(&mut Storage)>>,
 }
 
@@ -94,6 +96,7 @@ thread_local! {
     pub static WEIGHT_TO_FEE: RefCell<u128> = RefCell::new(0);
     pub static MAX_NO_OF_TM_ALLOWED: RefCell<u32> = RefCell::new(0);
     pub static MAX_NO_OF_LEGS: RefCell<u32> = RefCell::new(0); // default value
+    pub static MIN_CHECKPOINT_DURATION: RefCell<u64> = RefCell::new(0);
 }
 
 impl ExtBuilder {
@@ -202,6 +205,7 @@ impl ExtBuilder {
         WEIGHT_TO_FEE.with(|v| *v.borrow_mut() = self.weight_to_fee);
         MAX_NO_OF_TM_ALLOWED.with(|v| *v.borrow_mut() = self.max_no_of_tm_allowed);
         MAX_NO_OF_LEGS.with(|v| *v.borrow_mut() = self.max_no_of_legs);
+        MIN_CHECKPOINT_DURATION.with(|v| *v.borrow_mut() = self.min_checkpoint_duration);
     }
 
     fn make_balances(&self) -> Vec<(Public, u128)> {

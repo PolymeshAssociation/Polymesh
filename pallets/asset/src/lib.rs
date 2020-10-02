@@ -143,6 +143,8 @@ pub trait Trait:
     type MaxNumberOfTMExtensionForAsset: Get<u32>;
     /// Time used in computation of checkpoints.
     type UnixTime: UnixTime;
+    /// The minimum duration of a checkpoint period, in seconds.
+    type MinCheckpointDurationSecs: Get<u64>;
 }
 
 /// The type of an asset represented by a token.
@@ -714,13 +716,19 @@ decl_module! {
             let primary_did = Identity::<T>::ensure_origin_call_permissions(origin)?.primary_did;
             ensure!(Self::is_owner(&ticker, primary_did), Error::<T>::Unauthorized);
             ensure!(
-                !<CheckpointSchedules>::contains_key(&ticker),
+                !CheckpointSchedules::contains_key(&ticker),
                 Error::<T>::CheckpointScheduleAlreadyExists
             );
-
             let now_as_secs = T::UnixTime::now().as_secs().saturated_into::<u64>();
             let timestamp = schedule.next_checkpoint(now_as_secs)
                 .ok_or(Error::<T>::FailedToComputeNextCheckpoint)?;
+            // Check the lower limit of the checkpoint period duration by computing the next
+            // checkpoint from the start of the schedule.
+            ensure!(
+                schedule.next_checkpoint(schedule.start) >= Some(T::MinCheckpointDurationSecs::get()),
+                Error::<T>::CheckpointDurationTooShort
+            );
+
             NextCheckpoints::insert(&ticker, timestamp);
             // Assign the schedule.
             CheckpointSchedules::insert(&ticker, schedule.clone());
@@ -1261,7 +1269,9 @@ decl_error! {
         NoCheckpointSchedule,
         /// Failed to compute the next checkpoint. The schedule does not have any upcoming
         /// checkpoints.
-        FailedToComputeNextCheckpoint
+        FailedToComputeNextCheckpoint,
+        /// The duration of a checkpoint period is too short.
+        CheckpointDurationTooShort
     }
 }
 
