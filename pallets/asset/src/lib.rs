@@ -1632,7 +1632,12 @@ impl<T: Trait> Module<T> {
 
         let is_checkpoint_due = |did| Self::is_checkpoint_due(ticker, did);
         let maybe_due_checkpoint_from = is_checkpoint_due(from_portfolio.did);
-        let maybe_due_checkpoint_to = is_checkpoint_due(to_portfolio.did);
+        let maybe_due_checkpoint_to = if maybe_due_checkpoint_from.is_none() {
+            // Compute the checkpoint only once for either the sender or recipient.
+            is_checkpoint_due(to_portfolio.did)
+        } else {
+            None
+        };
         if let Some(_) = maybe_due_checkpoint_from
             .as_ref()
             .or(maybe_due_checkpoint_to.as_ref())
