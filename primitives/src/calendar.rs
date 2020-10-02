@@ -132,7 +132,7 @@ impl CheckpointSchedule {
                 // The period is of fixed length in seconds Unix time.
                 let secs_since_start = now_as_secs_utc - self.start;
                 let elapsed_periods: u64 = secs_since_start / period_as_secs;
-                Some(secs_since_start + period_as_secs * (elapsed_periods + 1))
+                Some(self.start + period_as_secs * (elapsed_periods + 1))
             }
             FixedOrVariableCalendarUnit::Variable(variable_unit) => {
                 // The period is of variable length.
