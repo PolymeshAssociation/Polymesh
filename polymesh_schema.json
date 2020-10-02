@@ -915,11 +915,9 @@
             "start": "u64",
             "period": "CalendarPeriod"
         },
-        "CheckpointRecord": {
+        "DueCheckpointData": {
             "schedule_timestamp": "u64",
-            "record_timestamp": "u64",
-            "balance": "Balance",
-            "total_supply": "Balance"
+            "record_timestamp": "u64"
         },
         "InstructionStatus": {
             "_enum": {
