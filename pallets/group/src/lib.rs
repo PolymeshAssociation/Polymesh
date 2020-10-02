@@ -77,7 +77,7 @@
 use pallet_identity as identity;
 pub use polymesh_common_utilities::{
     group::{GroupTrait, InactiveMember, RawEvent, Trait},
-    Context, SystematicIssuers,
+    Context, SystematicIssuers, GC_DID,
 };
 use polymesh_primitives::IdentityId;
 

@@ -4122,6 +4122,7 @@ dependencies = [
  "frame-support",
  "frame-system",
  "pallet-balances 0.1.0",
+ "pallet-committee",
  "pallet-group",
  "pallet-identity",
  "pallet-timestamp",

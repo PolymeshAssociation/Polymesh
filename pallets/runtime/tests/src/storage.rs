@@ -36,6 +36,7 @@ use polymesh_common_utilities::traits::{
     balances::AccountData,
     group::GroupTrait,
     identity::Trait as IdentityTrait,
+    pip::{EnactProposalMaker, PipId},
     transaction_payment::{CddAndFeeDetails, ChargeTxFee},
     CommonTrait,
 };
@@ -90,8 +91,6 @@ impl_outer_dispatch! {
         asset::Asset,
         frame_system::System,
         pallet_utility::Utility,
-        self::Committee,
-        self::DefaultCommittee,
     }
 }
 
@@ -368,6 +367,7 @@ impl committee::Trait<committee::Instance1> for TestStorage {
     type CommitteeOrigin = frame_system::EnsureRoot<AccountId>;
     type Event = Event;
     type MotionDuration = MotionDuration;
+    type EnactProposalMaker = TestStorage;
 }
 
 impl committee::Trait<committee::DefaultInstance> for TestStorage {
@@ -376,6 +376,7 @@ impl committee::Trait<committee::DefaultInstance> for TestStorage {
     type CommitteeOrigin = frame_system::EnsureRoot<AccountId>;
     type Event = Event;
     type MotionDuration = MotionDuration;
+    type EnactProposalMaker = TestStorage;
 }
 
 impl IdentityTrait for TestStorage {
@@ -564,8 +565,6 @@ impl pips::Trait for TestStorage {
     type CommitteeOrigin = frame_system::EnsureRoot<AccountId>;
     type VotingMajorityOrigin = frame_system::EnsureRoot<AccountId>;
     type GovernanceCommittee = Committee;
-    type TechnicalCommitteeVMO = frame_system::EnsureRoot<AccountId>;
-    type UpgradeCommitteeVMO = frame_system::EnsureRoot<AccountId>;
     type Treasury = treasury::Module<Self>;
     type Event = Event;
 }
@@ -577,6 +576,20 @@ impl confidential::Trait for TestStorage {
 impl pallet_utility::Trait for TestStorage {
     type Event = Event;
     type Call = Call;
+}
+
+impl EnactProposalMaker<Origin, Call> for TestStorage {
+    fn is_pip_id_valid(id: PipId) -> bool {
+        Pips::is_proposal_id_valid(id)
+    }
+
+    fn enact_referendum_call(id: PipId) -> Call {
+        Call::Pips(pallet_pips::Call::enact_referendum(id))
+    }
+
+    fn reject_referendum_call(id: PipId) -> Call {
+        Call::Pips(pallet_pips::Call::reject_referendum(id))
+    }
 }
 
 // Publish type alias for each module
@@ -592,7 +605,6 @@ pub type Bridge = bridge::Module<TestStorage>;
 pub type GovernanceCommittee = group::Module<TestStorage, group::Instance1>;
 pub type CddServiceProvider = group::Module<TestStorage, group::Instance2>;
 pub type Committee = committee::Module<TestStorage, committee::Instance1>;
-pub type DefaultCommittee = committee::Module<TestStorage, committee::DefaultInstance>;
 pub type Utility = pallet_utility::Module<TestStorage>;
 pub type System = frame_system::Module<TestStorage>;
 pub type Portfolio = portfolio::Module<TestStorage>;
