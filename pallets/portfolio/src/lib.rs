@@ -98,6 +98,11 @@ decl_storage! {
         pub PortfolioLockedAssets get(fn locked_assets):
             double_map hasher(twox_64_concat) PortfolioId, hasher(blake2_128_concat) Ticker =>
             T::Balance;
+        /// Tracks all the portfolios in custody of a particular identity. Only used by the UIs.
+        /// When `true` is stored as the value for a given `(did, pid)`, it means that `pid` is in custody of `did`.
+        /// `false` values are never explicitly stored in the map, and are instead inferred by the absence of a key.
+        pub PortfoliosInCustody get(fn portfolios_in_custody):
+            double_map hasher(twox_64_concat) IdentityId, hasher(twox_64_concat) PortfolioId => bool;
     }
 }
 
@@ -470,7 +475,10 @@ impl<T: Trait> PortfolioSubTrait<T::Balance> for Module<T> {
             auth_id,
         )?;
 
-        <PortfolioCustodian>::insert(&portfolio_id, new_custodian);
+        // Transfer custody of `portfolio_id` over to `new_custodian`, removing it from `current_custodian`.
+        PortfolioCustodian::insert(&portfolio_id, new_custodian);
+        PortfoliosInCustody::remove(&current_custodian, &portfolio_id);
+        PortfoliosInCustody::insert(&new_custodian, &portfolio_id, true);
 
         Self::deposit_event(RawEvent::PortfolioCustodianChanged(
             new_custodian,
