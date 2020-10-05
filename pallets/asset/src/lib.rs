@@ -1627,10 +1627,7 @@ impl<T: Trait> Module<T> {
             .checked_add(&value)
             .ok_or(Error::<T>::BalanceOverflow)?;
 
-        let is_checkpoint_due = |did| Self::is_checkpoint_due(ticker, did);
-        let maybe_due_checkpoint =
-            is_checkpoint_due(from_portfolio.did).or(is_checkpoint_due(to_portfolio.did));
-
+        let maybe_due_checkpoint = Self::is_checkpoint_due(ticker);
         Self::_update_checkpoint(ticker, from_portfolio.did, from_total_balance);
         Self::_update_checkpoint(ticker, to_portfolio.did, to_total_balance);
         if let Some(timestamp) = maybe_due_checkpoint {
@@ -1721,10 +1718,10 @@ impl<T: Trait> Module<T> {
         Ok(())
     }
 
-    /// Checks whether a scheduled checkpoint is due for `ticker` and `did`. Returns the due
-    /// timestamp read from storage that can be reused or `None` if there is no due checkpoint.
-    fn is_checkpoint_due(ticker: &Ticker, did: IdentityId) -> Option<u64> {
-        if Self::is_owner(ticker, did) && NextCheckpoints::contains_key(ticker) {
+    /// Checks whether a scheduled checkpoint is due for `ticker`. Returns the due timestamp read
+    /// from storage that can be reused or `None` if there is no due checkpoint.
+    fn is_checkpoint_due(ticker: &Ticker) -> Option<u64> {
+        if NextCheckpoints::contains_key(ticker) {
             let record_timestamp = T::UnixTime::now().as_secs().saturated_into::<u64>();
             let schedule_timestamp = Self::next_checkpoints(ticker);
             if schedule_timestamp <= record_timestamp {
@@ -1794,7 +1791,7 @@ impl<T: Trait> Module<T> {
             T::ProtocolFee::charge_fee(op)?;
         }
 
-        let maybe_due_checkpoint = Self::is_checkpoint_due(ticker, to_did);
+        let maybe_due_checkpoint = Self::is_checkpoint_due(ticker);
         Self::_update_checkpoint(ticker, to_did, current_to_balance);
         if let Some(timestamp) = maybe_due_checkpoint {
             // Record the scheduled checkpoint.
