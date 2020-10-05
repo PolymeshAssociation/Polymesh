@@ -7,7 +7,6 @@ edition = "2018"
 [dependencies]
 polymesh-primitives = { path = "../../primitives", default-features = false}
 polymesh-common-utilities = { path = "../common", default-features = false }
-pallet-staking = { path = "../staking", default-features = false }
 
 # Substrate
 codec = { package = "parity-scale-codec", version = "1.2.0", default-features = false, features = ["derive"] }
@@ -18,7 +17,6 @@ sp-runtime = { git = "https://github.com/paritytech/substrate", default-features
 # 
 frame-system = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0-rc6" }
 frame-support = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0-rc6" }
- 
 sp-application-crypto = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0-rc6" }
 
 [features]
@@ -36,6 +34,5 @@ std = [
 	"frame-support/std",
 	"frame-system/std",
 	"sp-runtime/std",
-	"pallet-staking/std",
 	"sp-application-crypto/std",
 ]

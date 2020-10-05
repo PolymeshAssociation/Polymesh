@@ -65,8 +65,6 @@ use sp_runtime::{
 use sp_std::prelude::*;
 use sp_version::RuntimeVersion;
 
-// Comment in the favour of not using the Offchain worker
-//use pallet_cdd_offchain_worker::crypto::SignerId as CddOffchainWorkerId;
 use frame_support::{
     construct_runtime, debug, parameter_types,
     traits::{KeyOwnerProofSystem, Randomness, SplitTwoWays},
@@ -75,6 +73,7 @@ use frame_support::{
         Weight, WeightToFeeCoefficient, WeightToFeeCoefficients, WeightToFeePolynomial,
     },
 };
+use pallet_cdd_offchain_worker::crypto::SignerAppCrypto as CddOffchainWorkerId;
 use pallet_contracts_rpc_runtime_api::ContractExecResult;
 
 use pallet_grandpa::{
@@ -541,19 +540,6 @@ where
     }
 }
 
-impl frame_system::offchain::SigningTypes for Runtime {
-    type Public = <Signature as Verify>::Signer;
-    type Signature = Signature;
-}
-
-impl<C> frame_system::offchain::SendTransactionTypes<C> for Runtime
-where
-    Call: From<C>,
-{
-    type Extrinsic = UncheckedExtrinsic;
-    type OverarchingCall = Call;
-}
-
 impl treasury::Trait for Runtime {
     type Event = Event;
     type Currency = Balances;
@@ -742,30 +728,41 @@ impl PermissionChecker for Runtime {
     type Checker = Identity;
 }
 
-// / A runtime transaction submitter for the cdd_offchain_worker
-// Comment it in the favour of Testnet release
-//type SubmitTransactionCdd = TransactionSubmitter<CddOffchainWorkerId, Runtime, UncheckedExtrinsic>;
+parameter_types! {
+    pub const CoolingInterval: BlockNumber = 3;
+    pub const BufferInterval: BlockNumber = 5;
+    pub const UnsignedPriority: u64 = 2^25;
+}
 
-// Comment it in the favour of Testnet release
-// parameter_types! {
-//     pub const CoolingInterval: BlockNumber = 3;
-//     pub const BufferInterval: BlockNumber = 5;
-// }
+impl pallet_cdd_offchain_worker::Trait for Runtime {
+    /// SignerId
+    type AuthorityId = CddOffchainWorkerId;
+    /// The overarching event type.
+    type Event = Event;
+    /// The overarching dispatch call type
+    type Call = Call;
+    /// No. of blocks delayed to execute the offchain worker
+    type CoolingInterval = CoolingInterval;
+    /// Buffer given to check the validity of the cdd claim. It is in block numbers.
+    type BufferInterval = BufferInterval;
+    /// A configuration for base priority of unsigned transactions.
+    type UnsignedPriority = UnsignedPriority;
+    /// Staking interface.
+    type StakingInterface = Staking;
+}
 
-// impl pallet_cdd_offchain_worker::Trait for Runtime {
-//     /// SignerId
-//     type SignerId = CddOffchainWorkerId;
-//     /// The overarching event type.
-//     type Event = Event;
-//     /// The overarching dispatch call type
-//     type Call = Call;
-//     /// No. of blocks delayed to execute the offchain worker
-//     type CoolingInterval = CoolingInterval;
-//     /// Buffer given to check the validity of the cdd claim. It is in block numbers.
-//     type BufferInterval = BufferInterval;
-//     /// The type submit transactions.
-//     type SubmitUnsignedTransaction = SubmitTransactionCdd;
-// }
+impl frame_system::offchain::SigningTypes for Runtime {
+    type Public = <Signature as Verify>::Signer;
+    type Signature = Signature;
+}
+
+impl<C> frame_system::offchain::SendTransactionTypes<C> for Runtime
+where
+    Call: From<C>,
+{
+    type Extrinsic = UncheckedExtrinsic;
+    type OverarchingCall = Call;
+}
 
 construct_runtime!(
     pub enum Runtime where
@@ -831,11 +828,10 @@ construct_runtime!(
         Statistic: statistics::{Module, Call, Storage},
         ProtocolFee: protocol_fee::{Module, Call, Storage, Event<T>, Config<T>},
         Utility: utility::{Module, Call, Storage, Event},
-        // Comment it in the favour of Testnet release
-        // CddOffchainWorker: pallet_cdd_offchain_worker::{Module, Call, Storage, ValidateUnsigned, Event<T>}
         Portfolio: portfolio::{Module, Call, Storage, Event<T>},
         Confidential: confidential::{Module, Call, Storage, Event},
         Permissions: pallet_permissions::{Module, Storage},
+        CddOffchainWorker: pallet_cdd_offchain_worker::{Module, Call, Storage, ValidateUnsigned, Event<T>}
     }
 );
 
