@@ -311,14 +311,6 @@ pub struct CheckpointRecord<Balance> {
     total_supply: Balance,
 }
 
-/// Checkpoint timestamp values read from storage and intended to be reused.
-struct DueCheckpointData {
-    /// The timestamp at which the checkpoint was due.
-    schedule_timestamp: u64,
-    /// The current timestamp that should be recorded alongside the due timestamp.
-    record_timestamp: u64,
-}
-
 decl_storage! {
     trait Store for Module<T: Trait> as Asset {
         /// Ticker registration details.
@@ -379,12 +371,11 @@ decl_storage! {
         /// The next checkpoint of a ticker.
         /// ticker -> Unix time in seconds
         pub NextCheckpoints get(fn next_checkpoints): map hasher(blake2_128_concat) Ticker => u64;
-        /// Checkpoint timestamps. Every index of a recorder scheduled checkpoint is mapped to the
-        /// time when the checkpoint was due and the time when the recording took place (which can
-        /// be on or after the due time).
-        ///
-        /// ticker -> schedule
-        pub CheckpointTimestamps(fn checkpoint_timestamps): map hasher(identity) u64 => DueCheckpointData;
+        /// Checkpoint timestamps. Every index of a recorded scheduled checkpoint is mapped to the
+        /// time when the checkpoint was due. Every index of a manual checkpoint is mapped to the
+        /// time when the recording took place.
+        /// checkpoint number -> checkpoint timestamp
+        pub CheckpointTimestamps get(fn checkpoint_timestamps): map hasher(identity) u64 => u64;
         /// Balances get stored on the basis of the `ScopeId`.
         /// Right now it is only helpful for the UI purposes but in future it can be used to do miracles on-chain.
         /// (ScopeId, IdentityId) => Balance.
@@ -697,7 +688,8 @@ decl_module! {
             let did = Identity::<T>::ensure_origin_call_permissions(origin)?.primary_did;
 
             ensure!(Self::is_owner(&ticker, did), Error::<T>::Unauthorized);
-            let _ = Self::_create_checkpoint(&ticker, None)?;
+            let now_as_secs = T::UnixTime::now().as_secs().saturated_into::<u64>();
+            let _ = Self::_create_checkpoint(&ticker, now_as_secs)?;
             Self::deposit_event(RawEvent::CheckpointCreated(did, ticker, Self::total_checkpoints_of(&ticker)));
             Ok(())
         }
@@ -1645,9 +1637,9 @@ impl<T: Trait> Module<T> {
 
         Self::_update_checkpoint(ticker, from_portfolio.did, from_total_balance);
         Self::_update_checkpoint(ticker, to_portfolio.did, to_total_balance);
-        if maybe_due_checkpoint.is_some() {
+        if let Some(timestamp) = maybe_due_checkpoint {
             // Record the scheduled checkpoint.
-            Self::_create_checkpoint(ticker, maybe_due_checkpoint);
+            Self::_create_checkpoint(ticker, timestamp);
         }
 
         // reduce sender's balance
@@ -1713,52 +1705,34 @@ impl<T: Trait> Module<T> {
 
     /// Creates a checkpoint.
     ///
-    /// FIXME
-    ///
     /// This amounts to recording the total supply, mapping the current checkpoint index to
-    /// `DueCheckpointData` in case the checkpoint was scheduled, and incrementing the checkpoint
+    /// the due timestamp in case the checkpoint was scheduled, and incrementing the checkpoint
     /// index by 1.
-    pub fn _create_checkpoint(
-        ticker: &Ticker,
-        maybe_due_checkpoint_data: Option<DueCheckpointData>,
-    ) -> DispatchResult {
-        let checkpoint_index = if <TotalCheckpoints>::contains_key(ticker) {
-            let checkpoint_count = Self::total_checkpoints_of(ticker);
-            let new_checkpoint_count = checkpoint_count
+    pub fn _create_checkpoint(ticker: &Ticker, timestamp: u64) -> DispatchResult {
+        let checkpoint_count = if <TotalCheckpoints>::contains_key(ticker) {
+            Self::total_checkpoints_of(ticker)
                 .checked_add(1)
-                .ok_or(Error::<T>::CheckpointOverflow)?;
-            <TotalCheckpoints>::insert(ticker, new_checkpoint_count);
-            <CheckpointTotalSupply<T>>::insert(
-                &(*ticker, checkpoint_count),
-                Self::token_details(ticker).total_supply,
-            );
-            checkpoint_count
+                .ok_or(Error::<T>::CheckpointOverflow)?
         } else {
-            <TotalCheckpoints>::insert(ticker, 1);
-            <CheckpointTotalSupply<T>>::insert(
-                &(*ticker, 1),
-                Self::token_details(ticker).total_supply,
-            );
-            0
+            1
         };
-        if Some(due_checkpoint_data) = maybe_due_checkpoint_data {
-            CheckpointTimestamps::insert(checkpoint_index, due_checkpoint_data);
-        }
+        <TotalCheckpoints>::insert(ticker, checkpoint_count);
+        <CheckpointTotalSupply<T>>::insert(
+            &(*ticker, checkpoint_count),
+            Self::token_details(ticker).total_supply,
+        );
+        CheckpointTimestamps::insert(checkpoint_count, timestamp);
         Ok(())
     }
 
-    /// Checks whether a scheduled checkpoint is due for `ticker` and `did`. Returns data read from
-    /// storage that can be reused or `None` if there is no due checkpoint. The function is used to
-    /// check if a protocol fee payment should be made in advance of recording the checkpoint.
-    fn is_checkpoint_due(ticker: &Ticker, did: IdentityId) -> Option<DueCheckpointData> {
+    /// Checks whether a scheduled checkpoint is due for `ticker` and `did`. Returns the due
+    /// timestamp read from storage that can be reused or `None` if there is no due checkpoint.
+    fn is_checkpoint_due(ticker: &Ticker, did: IdentityId) -> Option<u64> {
         if Self::is_owner(ticker, did) && NextCheckpoints::contains_key(ticker) {
             let record_timestamp = T::UnixTime::now().as_secs().saturated_into::<u64>();
             let schedule_timestamp = Self::next_checkpoints(ticker);
             if schedule_timestamp <= record_timestamp {
-                return Some(DueCheckpointData {
-                    schedule_timestamp,
-                    record_timestamp,
-                });
+                return Some(schedule_timestamp);
             }
         }
         None
@@ -1772,7 +1746,7 @@ impl<T: Trait> Module<T> {
     fn _update_checkpoint(ticker: &Ticker, user_did: IdentityId, balance: T::Balance) {
         if <TotalCheckpoints>::contains_key(ticker) {
             let checkpoint_count = Self::total_checkpoints_of(ticker);
-            let ticker_user_did_checkpont = (*ticker, user_did, checkpoint_count);
+            let ticker_user_did_count = (*ticker, user_did, checkpoint_count);
             if !<CheckpointBalance<T>>::contains_key(&ticker_user_did_count) {
                 <CheckpointBalance<T>>::insert(&ticker_user_did_count, balance);
                 UserCheckpoints::append(&(*ticker, user_did), checkpoint_count);
@@ -1826,9 +1800,9 @@ impl<T: Trait> Module<T> {
 
         let maybe_due_checkpoint = Self::is_checkpoint_due(ticker, to_did);
         Self::_update_checkpoint(ticker, to_did, current_to_balance);
-        if maybe_due_checkpoint.is_some() {
+        if let Some(timestamp) = maybe_due_checkpoint {
             // Record the scheduled checkpoint.
-            Self::_create_checkpoint(ticker, maybe_due_checkpoint);
+            Self::_create_checkpoint(ticker, timestamp);
         }
 
         // Increase total supply

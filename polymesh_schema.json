@@ -915,10 +915,6 @@
             "start": "u64",
             "period": "CalendarPeriod"
         },
-        "DueCheckpointData": {
-            "schedule_timestamp": "u64",
-            "record_timestamp": "u64"
-        },
         "InstructionStatus": {
             "_enum": {
                 "Unknown": "",
