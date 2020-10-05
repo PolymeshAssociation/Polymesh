@@ -673,6 +673,7 @@
         "MetaUrl": "Text",
         "MetaDescription": "Text",
         "MetaVersion": "u32",
+        "ExtVersion":"u32",
         "TemplateMetadata": {
             "url": "Option<MetaUrl>",
             "se_type": "SmartExtensionType",
