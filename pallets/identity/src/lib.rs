@@ -2192,7 +2192,7 @@ impl<T: Trait> IdentityTrait<T::AccountId> for Module<T> {
         });
     }
 
-    // /Provides the DID status for the given DID
+    /// Provides the DID status for the given DID
     fn has_valid_cdd(target_did: IdentityId) -> bool {
         Self::has_valid_cdd(target_did)
     }
