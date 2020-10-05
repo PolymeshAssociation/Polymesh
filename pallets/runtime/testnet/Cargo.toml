@@ -17,6 +17,7 @@ polymesh-primitives = { path = "../../../primitives", default-features = false }
 pallet-asset = { path = "../../asset", default-features = false }
 pallet-balances = { path = "../../balances", default-features = false }
 pallet-basic-sto = { path = "../../basic-sto", default-features = false }
+pallet-bridge = { path = "../../bridge", default-features = false }
 pallet-committee = { path = "../../committee", default-features = false }
 pallet-compliance-manager = { path = "../../compliance-manager", default-features = false }
 pallet-confidential = { path = "../../confidential", default-features = false }
@@ -126,6 +127,7 @@ std = [
     "pallet-babe/std",
     "pallet-balances/std",
     "pallet-basic-sto/std",
+    "pallet-bridge/std",
     "pallet-committee/std",
     "pallet-compliance-manager/std",
     "pallet-confidential/std",

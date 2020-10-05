@@ -3789,6 +3789,26 @@ dependencies = [
 ]
 
 [[package]]
+name = "pallet-bridge"
+version = "1.0.0"
+dependencies = [
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
+ "pallet-balances 0.1.0",
+ "pallet-identity",
+ "pallet-multisig",
+ "parity-scale-codec",
+ "polymesh-common-utilities",
+ "polymesh-primitives",
+ "polymesh-primitives-derive",
+ "serde",
+ "sp-core",
+ "sp-runtime",
+ "sp-std 2.0.0-rc6",
+]
+
+[[package]]
 name = "pallet-cdd-offchain-worker"
 version = "2.0.0"
 dependencies = [
@@ -5015,6 +5035,7 @@ dependencies = [
  "pallet-babe",
  "pallet-balances 0.1.0",
  "pallet-basic-sto",
+ "pallet-bridge",
  "pallet-cdd-offchain-worker",
  "pallet-committee",
  "pallet-compliance-manager",
@@ -5092,6 +5113,7 @@ dependencies = [
  "pallet-babe",
  "pallet-balances 0.1.0",
  "pallet-basic-sto",
+ "pallet-bridge",
  "pallet-cdd-offchain-worker",
  "pallet-committee",
  "pallet-compliance-manager",
@@ -5173,6 +5195,7 @@ dependencies = [
  "pallet-babe",
  "pallet-balances 0.1.0",
  "pallet-basic-sto",
+ "pallet-bridge",
  "pallet-cdd-offchain-worker",
  "pallet-committee",
  "pallet-compliance-manager",
