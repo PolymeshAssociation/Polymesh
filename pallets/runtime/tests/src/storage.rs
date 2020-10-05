@@ -18,6 +18,7 @@ use frame_support::{
 use pallet_asset as asset;
 use pallet_balances as balances;
 use pallet_basic_sto as sto;
+use pallet_bridge as bridge;
 use pallet_committee as committee;
 use pallet_compliance_manager as compliance_manager;
 use pallet_confidential as confidential;
@@ -43,7 +44,7 @@ use polymesh_primitives::{
     Authorization, AuthorizationData, CddId, Claim, IdentityId, InvestorUid, InvestorZKProofData,
     Permissions, PortfolioId, PortfolioNumber, Scope, Signatory, Ticker,
 };
-use polymesh_runtime_common::{bridge, cdd_check::CddChecker, dividend, exemption, voting};
+use polymesh_runtime_common::{cdd_check::CddChecker, dividend, exemption, voting};
 use smallvec::smallvec;
 use sp_core::{
     crypto::{key_types, Pair as PairTrait},

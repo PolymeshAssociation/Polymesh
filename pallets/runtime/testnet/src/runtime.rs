@@ -7,6 +7,7 @@ use codec::Encode;
 use pallet_asset as asset;
 use pallet_balances as balances;
 use pallet_basic_sto as sto;
+use pallet_bridge as bridge;
 use pallet_committee as committee;
 use pallet_compliance_manager::{self as compliance_manager, AssetComplianceResult};
 use pallet_group as group;
@@ -34,7 +35,6 @@ use polymesh_primitives::{
     IdentityId, Index, Moment, PortfolioId, SecondaryKey, Signatory, Signature, Ticker,
 };
 use polymesh_runtime_common::{
-    bridge,
     cdd_check::CddChecker,
     dividend, exemption,
     impls::{Author, CurrencyToVoteHandler},
