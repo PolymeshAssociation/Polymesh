@@ -1636,7 +1636,7 @@ impl<T: Trait> Module<T> {
         Self::_update_checkpoint(ticker, to_portfolio.did, to_total_balance);
         if let Some(timestamp) = maybe_due_checkpoint {
             // Record the scheduled checkpoint.
-            Self::_create_checkpoint(ticker, timestamp);
+            Self::_create_checkpoint(ticker, timestamp)?;
         }
 
         // reduce sender's balance
@@ -1799,7 +1799,7 @@ impl<T: Trait> Module<T> {
         Self::_update_checkpoint(ticker, to_did, current_to_balance);
         if let Some(timestamp) = maybe_due_checkpoint {
             // Record the scheduled checkpoint.
-            Self::_create_checkpoint(ticker, timestamp);
+            Self::_create_checkpoint(ticker, timestamp)?;
         }
 
         // Increase total supply
