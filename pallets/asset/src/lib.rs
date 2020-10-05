@@ -95,7 +95,6 @@ use frame_support::{
     traits::{Currency, Get, UnixTime},
     weights::Weight,
 };
-use frame_system::ensure_signed;
 use hex_literal::hex;
 use pallet_contracts::{ExecResult, Gas};
 use pallet_identity::{self as identity, PermissionedCallOriginData};
