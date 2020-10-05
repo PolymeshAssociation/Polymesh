@@ -4,13 +4,12 @@ use crate::{
     ext_builder::{ExtBuilder, MockProtocolBaseFees},
     pips_test::assert_balance,
     storage::{
-        account_from, add_secondary_key, make_account_without_cdd, provide_scope_claim,
+        add_secondary_key, make_account_without_cdd, provide_scope_claim,
         provide_scope_claim_to_multiple_parties, register_keyring_account, AccountId, TestStorage,
     },
 };
 
 use chrono::prelude::Utc;
-use codec::Encode;
 use frame_support::{
     assert_err, assert_noop, assert_ok, traits::Currency, IterableStorageMap, StorageDoubleMap,
     StorageMap,
@@ -35,8 +34,7 @@ use polymesh_common_utilities::{
 use polymesh_contracts::NonceBasedAddressDeterminer;
 use polymesh_primitives::{
     AssetIdentifier, AuthorizationData, Claim, Condition, ConditionType, Document, DocumentName,
-    IdentityId, InvestorUid, PortfolioId, Signatory, SmartExtension, SmartExtensionName,
-    SmartExtensionType, Ticker,
+    IdentityId, InvestorUid, PortfolioId, Signatory, SmartExtension, SmartExtensionType, Ticker,
 };
 use rand::Rng;
 use sp_io::hashing::keccak_256;

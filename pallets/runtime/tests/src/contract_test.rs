@@ -1,6 +1,6 @@
 use frame_support::{
-    assert_err, assert_ok, dispatch::DispatchResultWithPostInfo, storage::IterableStorageMap,
-    weights::GetDispatchInfo, StorageMap,
+    assert_err, assert_ok, dispatch::DispatchResultWithPostInfo, weights::GetDispatchInfo,
+    StorageMap,
 };
 use pallet_contracts::{ContractAddressFor, ContractInfoOf, Gas};
 use sp_runtime::{traits::Hash, Perbill};
@@ -163,7 +163,7 @@ fn check_put_code_functionality() {
         .execute_with(|| {
             let alice = AccountKeyring::Alice.public();
             // Create Alice account & the identity for her.
-            let (alice_signed, alice_did) = make_account_without_cdd(alice).unwrap();
+            let (_, alice_did) = make_account_without_cdd(alice).unwrap();
 
             // Get the balance of the Alice
             let alice_balance = System::account(alice).data.free;
@@ -208,7 +208,7 @@ fn check_instantiation_functionality() {
 
             let alice = AccountKeyring::Alice.public();
             // Create Alice account & the identity for her.
-            let (alice_signed, alice_did) = make_account_without_cdd(alice).unwrap();
+            let (_, alice_did) = make_account_without_cdd(alice).unwrap();
 
             create_se_template::<TestStorage>(alice, alice_did, instantiation_fee, code_hash, wasm);
 
@@ -218,7 +218,7 @@ fn check_instantiation_functionality() {
             // Bob will create a instance of it.
             let bob = AccountKeyring::Bob.public();
             // Create Alice account & the identity for her.
-            let (bob_signed, _) = make_account_without_cdd(bob).unwrap();
+            let (_, _) = make_account_without_cdd(bob).unwrap();
 
             // Get the balance of the Bob
             let bob_balance = System::account(bob).data.free;
@@ -560,10 +560,10 @@ fn validate_transfer_template_ownership_functionality() {
                 bob_did
             ));
 
-            assert!(matches!(
+            assert_eq!(
                 WrapperContracts::get_template_details(code_hash).owner,
                 bob_did
-            ));
+            );
         });
 }
 
@@ -581,7 +581,7 @@ fn check_transaction_rollback_functionality_for_put_code() {
             let instantiation_fee = 5000;
             let alice = AccountKeyring::Alice.public();
             // Create Alice account & the identity for her.
-            let (alice_signed, alice_did) = make_account_without_cdd(alice).unwrap();
+            let (alice_signed, _) = make_account_without_cdd(alice).unwrap();
 
             // Set payer in context
             TestStorage::set_payer_context(Some(alice));
@@ -625,7 +625,6 @@ fn check_transaction_rollback_functionality_for_instantiation() {
         .execute_with(|| {
             let input_data = hex!("0222FF18");
             let instantiation_fee = 10000000000;
-            let fee_collector = account_from(5000);
             let alice = AccountKeyring::Alice.public();
             // Create Alice account & the identity for her.
             let (_, alice_did) = make_account_without_cdd(alice).unwrap();
@@ -637,11 +636,6 @@ fn check_transaction_rollback_functionality_for_instantiation() {
 
             // Create template of se
             create_se_template::<TestStorage>(alice, alice_did, instantiation_fee, code_hash, wasm);
-
-            // Get the balance of Alice
-            let alice_balance = System::account(alice).data.free;
-            // Get Network fee collector balance
-            let fee_collector_balance = System::account(fee_collector).data.free;
 
             // create instance of contract
             assert_err!(
@@ -674,9 +668,7 @@ fn check_meta_url_functionality() {
         .set_protocol_base_fees(protocol_fee)
         .build()
         .execute_with(|| {
-            let input_data = hex!("0222FF18");
             let instantiation_fee = 10000000000;
-            let fee_collector = account_from(5000);
             let alice = AccountKeyring::Alice.public();
             // Create Alice account & the identity for her.
             let (alice_signed, alice_did) = make_account_without_cdd(alice).unwrap();

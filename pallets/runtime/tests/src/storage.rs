@@ -5,9 +5,7 @@ use super::ext_builder::{
 use codec::Encode;
 use cryptography::claim_proofs::{compute_cdd_id, compute_scope_id};
 use frame_support::{
-    assert_ok,
-    dispatch::DispatchResult,
-    impl_outer_dispatch, impl_outer_event, impl_outer_origin, parameter_types,
+    assert_ok, impl_outer_dispatch, impl_outer_event, impl_outer_origin, parameter_types,
     traits::{Currency, Imbalance, OnUnbalanced},
     weights::DispatchInfo,
     weights::{
