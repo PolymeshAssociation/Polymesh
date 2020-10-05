@@ -12,7 +12,6 @@ pallet-permissions = { path = "../permissions", default-features = false }
 pallet-settlement = { path = "../settlement", default-features = false  }
 polymesh-common-utilities = { path = "../common", default-features = false }
 polymesh-primitives = { path = "../../primitives", default-features = false }
-polymesh-primitives-derive = { path = "../../primitives_derive", default-features = false }
 
 serde = { version = "1.0.104", default-features = false }
 serde_derive = { version = "1.0.104", optional = true, default-features = false  }
@@ -51,4 +50,7 @@ std = [
 	"pallet-balances/std",
 	"polymesh-primitives/std",
 	"pallet-identity/std",
+	"pallet-asset/std",
+	"pallet-settlement/std",
+	"pallet-timestamp/std"
 ]

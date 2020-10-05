@@ -1475,14 +1475,13 @@ impl<T: Trait> Module<T> {
     /// See `Self::fetch_cdd`.
     #[inline]
     pub fn has_valid_cdd(claim_for: IdentityId) -> bool {
-        let trusted_cdd_providers = T::CddServiceProviders::get_members();
         // It will never happen in production but helpful during testing.
-        // TODO: Remove this condition
-        if trusted_cdd_providers.is_empty() {
+        #[cfg(feature = "no_cdd")]
+        if T::CddServiceProviders::get_members().is_empty() {
             return true;
         }
 
-        Self::fetch_cdd(claim_for, T::Moment::zero()).is_some()
+        Self::base_fetch_cdd(claim_for, T::Moment::zero(), None).is_some()
     }
 
     /// It returns the CDD identity which issued the current valid CDD claim for `claim_for`
@@ -1507,7 +1506,15 @@ impl<T: Trait> Module<T> {
             .checked_add(&leeway)
             .unwrap_or_default();
 
-        let active_cdds = T::CddServiceProviders::get_active_members();
+        // Supressing `mut` warning since we need mut in `runtime-benchmarks` feature but not otherwise.
+        #[allow(unused_mut)]
+        let mut active_cdds_temp = T::CddServiceProviders::get_active_members();
+
+        // For the benchmarks, self cdd claims are allowed and hence the claim target is added to the cdd providers list.
+        #[cfg(feature = "runtime-benchmarks")]
+        active_cdds_temp.push(claim_for);
+
+        let active_cdds = active_cdds_temp;
         let inactive_not_expired_cdds = T::CddServiceProviders::get_inactive_members()
             .into_iter()
             .filter(|cdd| !T::CddServiceProviders::is_member_expired(cdd, exp_with_leeway))
@@ -2235,6 +2242,16 @@ impl<T: Trait> IdentityTrait<T::AccountId> for Module<T> {
     /// Provides the DID status for the given DID
     fn has_valid_cdd(target_did: IdentityId) -> bool {
         Self::has_valid_cdd(target_did)
+    }
+
+    #[cfg(feature = "runtime-benchmarks")]
+    /// Creates a new DID with a CDD claim issued by self
+    fn create_did_with_cdd(target: T::AccountId) -> IdentityId {
+        let did = Self::_register_did(target, vec![], None).unwrap_or_default();
+        // Add CDD claim
+        let cdd_claim = Claim::CustomerDueDiligence(CddId::new(did, InvestorUid::default()));
+        Self::base_add_claim(did, cdd_claim, did, None);
+        did
     }
 }
 
