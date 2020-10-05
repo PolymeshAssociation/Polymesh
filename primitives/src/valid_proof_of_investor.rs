@@ -1,6 +1,4 @@
-use crate::{
-    CddId, Claim, IdentityId, InvestorZKProofData, Scope,
-};
+use crate::{CddId, Claim, IdentityId, InvestorZKProofData, Scope};
 use cryptography::claim_proofs::ProofPublicKey;
 use curve25519_dalek::ristretto::CompressedRistretto;
 
@@ -19,15 +17,15 @@ impl ValidProofOfInvestor {
             Claim::InvestorUniqueness(Scope::Ticker(ticker), scope_id, cdd_id) => {
                 let message = InvestorZKProofData::make_message(id, ticker.as_slice());
                 Self::verify_proof(cdd_id, id, scope_id, ticker.as_slice(), proof, &message)
-            },
+            }
             Claim::InvestorUniqueness(Scope::Identity(identity), scope_id, cdd_id) => {
                 let message = InvestorZKProofData::make_message(id, &identity.to_bytes());
                 Self::verify_proof(cdd_id, id, scope_id, &identity.to_bytes(), proof, &message)
-            },
+            }
             Claim::InvestorUniqueness(Scope::Custom(scope), scope_id, cdd_id) => {
                 let message = InvestorZKProofData::make_message(id, &scope);
                 Self::verify_proof(cdd_id, id, scope_id, &scope, proof, &message)
-            },
+            }
             _ => false,
         }
     }
@@ -88,7 +86,8 @@ mod tests {
             InvestorZKProofData::new(&investor_id, &investor_uid, &asset_ticker);
         let cdd_claim = InvestorZKProofData::make_cdd_claim(&investor_id, &investor_uid);
         let cdd_id = compute_cdd_id(&cdd_claim).compress().to_bytes().into();
-        let scope_claim = InvestorZKProofData::make_scope_claim(&asset_ticker.as_slice(), &investor_uid);
+        let scope_claim =
+            InvestorZKProofData::make_scope_claim(&asset_ticker.as_slice(), &investor_uid);
         let scope_id = compute_scope_id(&scope_claim).compress().to_bytes().into();
 
         let claim = Claim::InvestorUniqueness(Scope::Ticker(asset_ticker), scope_id, cdd_id);

@@ -142,7 +142,7 @@ fn scope_claims_we() {
     ));
 
     // 2. Investor adds its Confidential Scope claims.
-    let scope_claim = InvestorZKProofData::make_scope_claim(&ticker.as_slice(), &investor);
+    let scope_claim = InvestorZKProofData::make_scope_claim(&st_id.as_slice(), &investor);
     let scope_id = compute_scope_id(&scope_claim).compress().to_bytes().into();
 
     let inv_1_proof = InvestorZKProofData::new(&inv_did_1, &investor, &st_id);
@@ -238,7 +238,8 @@ fn scope_claims_we() {
         None,
     ));
 
-    let corrupted_scope_claim = InvestorZKProofData::make_scope_claim(&st2_id.as_slice(), &investor);
+    let corrupted_scope_claim =
+        InvestorZKProofData::make_scope_claim(&st2_id.as_slice(), &investor);
     let corrupted_scope_id = compute_scope_id(&corrupted_scope_claim)
         .compress()
         .to_bytes()
