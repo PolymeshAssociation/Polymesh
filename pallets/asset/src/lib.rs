@@ -121,7 +121,6 @@ use sp_runtime::{Deserialize, Serialize};
 use sp_std::{convert::TryFrom, prelude::*};
 
 type Portfolio<T> = pallet_portfolio::Module<T>;
-type CallPermissions<T> = pallet_permissions::Module<T>;
 
 /// The module's configuration trait.
 pub trait Trait:
@@ -625,9 +624,7 @@ decl_module! {
         /// * `ticker` - the ticker of the token.
         #[weight = T::DbWeight::get().reads_writes(4, 1) + 300_000_000]
         pub fn freeze(origin, ticker: Ticker) -> DispatchResult {
-            let sender = ensure_signed(origin)?;
-            CallPermissions::<T>::ensure_call_permissions(&sender)?;
-            let sender_did = Context::current_identity_or::<Identity<T>>(&sender)?;
+            let sender_did = Identity::<T>::ensure_origin_call_permissions(origin)?.primary_did;
 
             // verify the ownership of the token
             ensure!(Self::is_owner(&ticker, sender_did), Error::<T>::Unauthorized);
