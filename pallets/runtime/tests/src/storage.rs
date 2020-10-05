@@ -15,7 +15,6 @@ use frame_support::{
 };
 use pallet_asset as asset;
 use pallet_balances as balances;
-use pallet_basic_sto as sto;
 use pallet_committee as committee;
 use pallet_compliance_manager as compliance_manager;
 use pallet_confidential as confidential;
@@ -27,6 +26,7 @@ use pallet_portfolio as portfolio;
 use pallet_protocol_fee as protocol_fee;
 use pallet_settlement as settlement;
 use pallet_statistics as statistics;
+use pallet_sto as sto;
 use pallet_treasury as treasury;
 use pallet_utility;
 use polymesh_common_utilities::traits::{

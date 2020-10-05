@@ -59,17 +59,17 @@ pub struct Fundraiser<Balance, Moment> {
 /// Single tier of a tiered pricing model
 #[derive(Encode, Decode, Debug, Default, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct PriceTier<Balance> {
-    total: Balance,
-    price: Balance,
+    pub total: Balance,
+    pub price: Balance,
 }
 
 /// Single price tier of a `Fundraiser`.
 /// Similar to a `PriceTier` but with an extra field `remaining` for tracking the amount available for purchase in a tier.
 #[derive(Encode, Decode, Debug, Default, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct FundraiserTier<Balance> {
-    total: Balance,
-    price: Balance,
-    remaining: Balance,
+    pub total: Balance,
+    pub price: Balance,
+    pub remaining: Balance,
 }
 
 impl<Balance: Clone> Into<FundraiserTier<Balance>> for PriceTier<Balance> {
@@ -214,7 +214,8 @@ decl_module! {
 
         /// Purchase tokens from an ongoing offering.
         #[weight = 2_000_000_000]
-        pub fn invest(origin,
+        pub fn invest(
+            origin,
             investment_portfolio: PortfolioId,
             funding_portfolio: PortfolioId,
             offering_asset: Ticker,

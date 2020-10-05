@@ -16,8 +16,6 @@ mod asset_test;
 #[cfg(test)]
 mod balances_test;
 #[cfg(test)]
-mod basic_sto_test;
-#[cfg(test)]
 mod bridge;
 #[cfg(test)]
 mod committee_test;
@@ -47,6 +45,8 @@ mod settlement_test;
 mod staking;
 #[cfg(test)]
 mod statistics_test;
+#[cfg(test)]
+mod sto_test;
 #[cfg(test)]
 mod transaction_payment_test;
 #[cfg(test)]
