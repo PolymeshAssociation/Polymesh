@@ -17,7 +17,8 @@ jobs:
     docker:
       - image: maxsam4/rust
     environment:
-      VERBOSE: "1"
+      - VERBOSE: "1"
+      - RUSTFLAGS: -D warnings
     steps:
       - checkout
       - add_ssh_keys:
@@ -29,14 +30,14 @@ jobs:
           command: rustc --version > rust.version
       - restore_cache:
           keys:
-            - v3-release-cache-{{ checksum "./rust.version" }}-{{ checksum "./Cargo.lock" }}
-            - v3-release-cache-{{ checksum "./rust.version" }}
+            - v4-release-cache-{{ checksum "./rust.version" }}-{{ checksum "./Cargo.lock" }}
+            - v4-release-cache-{{ checksum "./rust.version" }}
       - run:
           name: Build release
           command: cargo +nightly build --release || cargo +nightly build -j 1 --release
           no_output_timeout: 4h
       - save_cache:
-          key: v3-release-cache-{{ checksum "./rust.version" }}-{{ checksum "./Cargo.lock" }}
+          key: v4-release-cache-{{ checksum "./rust.version" }}-{{ checksum "./Cargo.lock" }}
           paths:
             - "~/.cargo"
             - "./target"
@@ -44,7 +45,8 @@ jobs:
     docker:
       - image: maxsam4/rust
     environment:
-      VERBOSE: "1"
+      - VERBOSE: "1"
+      - RUSTFLAGS: -D warnings
     steps:
       - checkout
       - add_ssh_keys:
@@ -56,8 +58,8 @@ jobs:
           command: rustc --version > rust.version
       - restore_cache:
           keys:
-            - v9-test-cache-{{ checksum "./rust.version" }}-{{ checksum "./Cargo.lock" }}
-            - v9-test-cache-{{ checksum "./rust.version" }}
+            - v10-test-cache-{{ checksum "./rust.version" }}-{{ checksum "./Cargo.lock" }}
+            - v10-test-cache-{{ checksum "./rust.version" }}
       - run:
           name: Tests
           command: >-
@@ -81,7 +83,7 @@ jobs:
             --features default_identity
           no_output_timeout: 30m
       - save_cache:
-          key: v9-test-cache-{{ checksum "./rust.version" }}-{{ checksum "./Cargo.lock" }}
+          key: v10-test-cache-{{ checksum "./rust.version" }}-{{ checksum "./Cargo.lock" }}
           paths:
             - "~/.cargo"
             - "./target"

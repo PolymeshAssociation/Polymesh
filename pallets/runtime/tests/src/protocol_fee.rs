@@ -7,7 +7,6 @@ use frame_support::{assert_err, assert_ok};
 use polymesh_common_utilities::{
     protocol_fee::ProtocolOp, traits::transaction_payment::CddAndFeeDetails,
 };
-use polymesh_primitives::Signatory;
 use test_client::AccountKeyring;
 
 type Error = pallet_protocol_fee::Error<TestStorage>;
@@ -29,7 +28,6 @@ fn can_charge_fee_batch() {
         let _ =
             register_keyring_account_with_balance(AccountKeyring::Alice, PROTOCOL_OP_BASE_FEE * 10)
                 .unwrap();
-        let alice_signer = Signatory::Account(AccountKeyring::Alice.public());
         TestStorage::set_payer_context(Some(AccountKeyring::Alice.public()));
         assert_eq!(
             TestStorage::get_payer_from_context(),

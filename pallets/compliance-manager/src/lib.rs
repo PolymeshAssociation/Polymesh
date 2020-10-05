@@ -64,14 +64,11 @@
 //!  the default claim issuer.
 //! - [change_compliance_requirement](Module::change_compliance_requirement) - Updates a compliance requirement, based on its id.
 //! based on its id for a given asset.
-//! - [activate_implicit_requirement_checks](Module::activate_implicit_requirement_checks) - Activate the implicit requirement check.
-//! - [inactivate_implicit_requirement_checks](Module::inactivate_implicit_requirement_checks) - Make implicit requirement check skipped
-//! for a given ticker transaction.
 //!
 //! ### Public Functions
 //!
 //! - [verify_restriction](Module::verify_restriction) - Checks if a transfer is a valid transfer and returns the result
-//!
+
 #![cfg_attr(not(feature = "std"), no_std)]
 #![recursion_limit = "256"]
 
@@ -97,6 +94,7 @@ use polymesh_common_utilities::{
 };
 use polymesh_primitives::{
     proposition, Claim, ClaimType, Condition, ConditionType, IdentityId, Scope, Ticker,
+    TrustedIssuer,
 };
 use polymesh_primitives_derive::Migrate;
 
@@ -107,6 +105,8 @@ use sp_std::{
     convert::{From, TryFrom},
     prelude::*,
 };
+
+type CallPermissions<T> = pallet_permissions::Module<T>;
 
 /// The module's configuration trait.
 pub trait Trait:
@@ -123,27 +123,6 @@ pub trait Trait:
 }
 
 use polymesh_primitives::condition::ConditionOld;
-/// Implicit requirement status.
-#[cfg_attr(feature = "std", derive(Serialize, Deserialize, Debug))]
-#[derive(Encode, Decode, Clone, Copy, PartialEq, Eq)]
-pub enum ImplicitRequirementStatus {
-    /// It means all the implicit requirements will be checked
-    /// at the time of compliance check for a transfer of a given asset.
-    /// Ex - ConditionType::HasValidProofOfInvestor is a implicit requirement
-    /// for sender and receiver both.
-    ///
-    /// By default every asset has the implicit requirement active.
-    Active,
-    /// No implicit requirements will be checked during the asset transfer.
-    Inactive,
-}
-
-// Default implementation.
-impl Default for ImplicitRequirementStatus {
-    fn default() -> Self {
-        ImplicitRequirementStatus::Active
-    }
-}
 
 /// A compliance requirement.
 /// All sender and receiver conditions of the same compliance requirement must be true in order to execute the transfer.
@@ -157,6 +136,20 @@ pub struct ComplianceRequirement {
     pub receiver_conditions: Vec<Condition>,
     /// Unique identifier of the compliance requirement
     pub id: u32,
+}
+
+impl ComplianceRequirement {
+    /// Dedup `ClaimType`s in `TrustedFor::Specific`.
+    fn dedup(&mut self) {
+        let dedup_condition = |conds: &mut [Condition]| {
+            conds
+                .iter_mut()
+                .flat_map(|c| &mut c.issuers)
+                .for_each(|issuer| issuer.dedup())
+        };
+        dedup_condition(&mut self.sender_conditions);
+        dedup_condition(&mut self.receiver_conditions);
+    }
 }
 
 /// A compliance requirement along with its evaluation result
@@ -248,7 +241,7 @@ pub struct AssetComplianceResult {
     /// the result of other requirements.
     ///
     /// Implicit requirements result.
-    pub implicit_requirements_result: Option<ImplicitRequirementResult>,
+    pub implicit_requirements_result: ImplicitRequirementResult,
     // Final evaluation result of the asset compliance
     pub result: bool,
 }
@@ -262,7 +255,7 @@ impl From<AssetCompliance> for AssetComplianceResult {
                 .into_iter()
                 .map(ComplianceRequirementResult::from)
                 .collect(),
-            implicit_requirements_result: None,
+            implicit_requirements_result: ImplicitRequirementResult::default(),
             result: false,
         }
     }
@@ -285,10 +278,7 @@ decl_storage! {
         /// Asset compliance for a ticker (Ticker -> AssetCompliance)
         pub AssetCompliances get(fn asset_compliance): map hasher(blake2_128_concat) Ticker => AssetCompliance;
         /// List of trusted claim issuer Ticker -> Issuer Identity
-        pub TrustedClaimIssuer get(fn trusted_claim_issuer): map hasher(blake2_128_concat) Ticker => Vec<IdentityId>;
-        /// Status to switch on/off the implicit requirements.
-        /// By default it is active for every ticker.
-        pub ImplicitRequirements get(fn implicit_requirements_status): map hasher(blake2_128_concat) Ticker => ImplicitRequirementStatus;
+        pub TrustedClaimIssuer get(fn trusted_claim_issuer): map hasher(blake2_128_concat) Ticker => Vec<TrustedIssuer>;
     }
 }
 
@@ -312,10 +302,6 @@ decl_error! {
         DuplicateComplianceRequirements,
         /// The worst case scenario of the compliance requirement is too complex
         ComplianceRequirementTooComplex,
-        /// When implicit requirements are already active but still user tries to activate it.
-        ImplicitRequirementsAlreadyActive,
-        /// When implicit requirements are already inactive but still user tries to inactivate it.
-        ImplicitRequirementsAlreadyInactive
     }
 }
 
@@ -327,9 +313,12 @@ decl_module! {
         fn deposit_event() = default;
 
         fn on_runtime_upgrade() -> frame_support::weights::Weight {
-            use polymesh_primitives::migrate::migrate_map_rename;
+            use polymesh_primitives::migrate::{Empty, migrate_map, migrate_map_rename};
+            use polymesh_primitives::condition::TrustedIssuerOld;
 
             migrate_map_rename::<AssetComplianceOld, _>(b"ComplianceManager", b"AssetRulesMap", b"AssetCompliance", |_| None);
+
+            migrate_map::<Vec<TrustedIssuerOld>, _>(b"ComplianceManager", b"TrustedClaimIsuer", |_| Empty);
 
             1_000
         }
@@ -345,6 +334,7 @@ decl_module! {
         #[weight = T::DbWeight::get().reads_writes(1, 1) + 600_000_000 + 1_000_000 * u64::try_from(max(sender_conditions.len(), receiver_conditions.len())).unwrap_or_default()]
         pub fn add_compliance_requirement(origin, ticker: Ticker, sender_conditions: Vec<Condition>, receiver_conditions: Vec<Condition>) -> DispatchResult {
             let sender = ensure_signed(origin)?;
+            CallPermissions::<T>::ensure_call_permissions(&sender)?;
             let did = Context::current_identity_or::<Identity<T>>(&sender)?;
 
             ensure!(Self::is_owner(&ticker, did), Error::<T>::Unauthorized);
@@ -357,16 +347,16 @@ decl_module! {
                 id: Self::get_latest_requirement_id(ticker) + 1u32
             };
 
-            let mut asset_compliance = <AssetCompliances>::get(ticker);
+            let mut asset_compliance = AssetCompliances::get(ticker);
+            let reqs = &mut asset_compliance.requirements;
 
-            if !asset_compliance
-                .requirements
+            if !reqs
                 .iter()
                 .any(|requirement| requirement.sender_conditions == new_requirement.sender_conditions && requirement.receiver_conditions == new_requirement.receiver_conditions)
             {
-                asset_compliance.requirements.push(new_requirement.clone());
-                Self::verify_compliance_complexity(&asset_compliance.requirements, <TrustedClaimIssuer>::decode_len(ticker).unwrap_or_default())?;
-                <AssetCompliances>::insert(&ticker, asset_compliance);
+                reqs.push(new_requirement.clone());
+                Self::verify_compliance_complexity(&reqs, TrustedClaimIssuer::decode_len(ticker).unwrap_or_default())?;
+                AssetCompliances::insert(&ticker, asset_compliance);
                 Self::deposit_event(Event::ComplianceRequirementCreated(did, ticker, new_requirement));
             }
 
@@ -382,14 +372,15 @@ decl_module! {
         #[weight = T::DbWeight::get().reads_writes(1, 1) + 200_000_000]
         pub fn remove_compliance_requirement(origin, ticker: Ticker, id: u32) -> DispatchResult {
             let sender = ensure_signed(origin)?;
+            CallPermissions::<T>::ensure_call_permissions(&sender)?;
             let did = Context::current_identity_or::<Identity<T>>(&sender)?;
 
             ensure!(Self::is_owner(&ticker, did), Error::<T>::Unauthorized);
 
-            <AssetCompliances>::try_mutate(ticker, |asset_compliance| {
-                let before = asset_compliance.requirements.len();
-                asset_compliance.requirements.retain(|requirement| { requirement.id != id });
-                ensure!(before != asset_compliance.requirements.len(), Error::<T>::InvalidComplianceRequirementId);
+            AssetCompliances::try_mutate(ticker, |AssetCompliance { requirements, .. }| {
+                let before = requirements.len();
+                requirements.retain(|requirement| requirement.id != id);
+                ensure!(before != requirements.len(), Error::<T>::InvalidComplianceRequirementId);
                 Ok(()) as DispatchResult
             })?;
 
@@ -413,15 +404,21 @@ decl_module! {
         #[weight = T::DbWeight::get().reads_writes(1, 1) + 400_000_000 + 500_000 * u64::try_from(asset_compliance.len()).unwrap_or_default()]
         pub fn replace_asset_compliance(origin, ticker: Ticker, asset_compliance: Vec<ComplianceRequirement>) -> DispatchResult {
             let sender = ensure_signed(origin)?;
+            CallPermissions::<T>::ensure_call_permissions(&sender)?;
             let did = Context::current_identity_or::<Identity<T>>(&sender)?;
             ensure!(Self::is_owner(&ticker, did), Error::<T>::Unauthorized);
-            let mut asset_compliance_dedup = asset_compliance.clone();
-            asset_compliance_dedup.dedup_by_key(|r| r.id);
-            ensure!(asset_compliance.len() == asset_compliance_dedup.len(), Error::<T>::DuplicateComplianceRequirements);
-            Self::verify_compliance_complexity(&asset_compliance_dedup, <TrustedClaimIssuer>::decode_len(ticker).unwrap_or_default())?;
-            <AssetCompliances>::mutate(&ticker, |old_asset_compliance| {
-                old_asset_compliance.requirements = asset_compliance_dedup
-            });
+
+            // Ensure there are no duplicate requirement ids.
+            let mut asset_compliance = asset_compliance;
+            let start_len = asset_compliance.len();
+            asset_compliance.dedup_by_key(|r| r.id);
+            ensure!(start_len == asset_compliance.len(), Error::<T>::DuplicateComplianceRequirements);
+
+            // Dedup `ClaimType`s in `TrustedFor::Specific`.
+            asset_compliance.iter_mut().for_each(|r| r.dedup());
+
+            Self::verify_compliance_complexity(&asset_compliance, TrustedClaimIssuer::decode_len(ticker).unwrap_or_default())?;
+            AssetCompliances::mutate(&ticker, |old| old.requirements = asset_compliance.clone());
             Self::deposit_event(Event::AssetComplianceReplaced(did, ticker, asset_compliance));
             Ok(())
         }
@@ -434,17 +431,18 @@ decl_module! {
         #[weight = T::DbWeight::get().reads_writes(1, 1) + 100_000_000]
         pub fn reset_asset_compliance(origin, ticker: Ticker) -> DispatchResult {
             let sender = ensure_signed(origin)?;
+            CallPermissions::<T>::ensure_call_permissions(&sender)?;
             let did = Context::current_identity_or::<Identity<T>>(&sender)?;
             ensure!(Self::is_owner(&ticker, did), Error::<T>::Unauthorized);
 
-            <AssetCompliances>::remove(ticker);
+            AssetCompliances::remove(ticker);
 
             Self::deposit_event(Event::AssetComplianceReset(did, ticker));
 
             Ok(())
         }
 
-        /// It pauses the verification of conditions for `ticker` during transfers.
+        /// Pauses the verification of conditions for `ticker` during transfers.
         ///
         /// # Arguments
         /// * origin - Signer of the dispatchable. It should be the owner of the ticker
@@ -457,7 +455,7 @@ decl_module! {
             Ok(())
         }
 
-        /// It resumes the verification of conditions for `ticker` during transfers.
+        /// Resumes the verification of conditions for `ticker` during transfers.
         ///
         /// # Arguments
         /// * origin - Signer of the dispatchable. It should be the owner of the ticker
@@ -470,31 +468,29 @@ decl_module! {
             Ok(())
         }
 
-        /// To add the default trusted claim issuer for a given asset
-        /// Addition - When the given element is not exist
+        /// Adds another default trusted claim issuer at the ticker level.
         ///
         /// # Arguments
         /// * origin - Signer of the dispatchable. It should be the owner of the ticker.
         /// * ticker - Symbol of the asset.
         /// * trusted_issuer - IdentityId of the trusted claim issuer.
         #[weight = T::DbWeight::get().reads_writes(3, 1) + 300_000_000]
-        pub fn add_default_trusted_claim_issuer(origin, ticker: Ticker, trusted_issuer: IdentityId) -> DispatchResult {
+        pub fn add_default_trusted_claim_issuer(origin, ticker: Ticker, trusted_issuer: TrustedIssuer) -> DispatchResult {
             Self::verify_compliance_complexity(
-                &<AssetCompliances>::get(ticker).requirements,
-                <TrustedClaimIssuer>::decode_len(ticker).unwrap_or_default().saturating_add(1)
+                &AssetCompliances::get(ticker).requirements,
+                TrustedClaimIssuer::decode_len(ticker).unwrap_or_default().saturating_add(1)
             )?;
             Self::modify_default_trusted_claim_issuer(origin, ticker, trusted_issuer, true)
         }
 
-        /// To remove the default trusted claim issuer for a given asset
-        /// Removal - When the given element is already present
+        /// Removes the given `trusted_issuer` from the set of default trusted claim issuers at the ticker level.
         ///
         /// # Arguments
         /// * origin - Signer of the dispatchable. It should be the owner of the ticker.
         /// * ticker - Symbol of the asset.
         /// * trusted_issuer - IdentityId of the trusted claim issuer.
         #[weight = T::DbWeight::get().reads_writes(3, 1) + 300_000_000]
-        pub fn remove_default_trusted_claim_issuer(origin, ticker: Ticker, trusted_issuer: IdentityId) -> DispatchResult {
+        pub fn remove_default_trusted_claim_issuer(origin, ticker: Ticker, trusted_issuer: TrustedIssuer) -> DispatchResult {
             Self::modify_default_trusted_claim_issuer(origin, ticker, trusted_issuer, false)
         }
 
@@ -507,46 +503,28 @@ decl_module! {
         #[weight = T::DbWeight::get().reads_writes(2, 1) + 720_000_000]
         pub fn change_compliance_requirement(origin, ticker: Ticker, new_requirement: ComplianceRequirement) -> DispatchResult {
             let sender = ensure_signed(origin)?;
+            CallPermissions::<T>::ensure_call_permissions(&sender)?;
             let did = Context::current_identity_or::<Identity<T>>(&sender)?;
 
             ensure!(Self::is_owner(&ticker, did), Error::<T>::Unauthorized);
             ensure!(Self::get_latest_requirement_id(ticker) >= new_requirement.id, Error::<T>::InvalidComplianceRequirementId);
 
-            let mut asset_compliance = <AssetCompliances>::get(ticker);
-            if let Some(index) = asset_compliance
-                .requirements
-                .iter()
-                .position(|requirement| requirement.id == new_requirement.id)
+            let mut asset_compliance = AssetCompliances::get(ticker);
+            let reqs = &mut asset_compliance.requirements;
+            if let Some(req) = reqs
+                .iter_mut()
+                .find(|requirement| requirement.id == new_requirement.id)
             {
-                asset_compliance.requirements[index] = new_requirement.clone();
-                Self::verify_compliance_complexity(&asset_compliance.requirements, <TrustedClaimIssuer>::decode_len(ticker).unwrap_or_default())?;
-                <AssetCompliances>::insert(&ticker, asset_compliance);
+                let mut new_requirement = new_requirement;
+                new_requirement.dedup();
+
+                *req = new_requirement.clone();
+                Self::verify_compliance_complexity(&reqs, TrustedClaimIssuer::decode_len(ticker).unwrap_or_default())?;
+                AssetCompliances::insert(&ticker, asset_compliance);
                 Self::deposit_event(Event::ComplianceRequirementChanged(did, ticker, new_requirement));
             }
 
             Ok(())
-        }
-
-        /// Activate the implicit requirement check. Once it is active all the implicit requirements are in effect.
-        ///
-        /// # Arguments
-        /// * origin - Signer of the dispatchable. It should be the owner of the ticker.
-        /// * ticker - Symbol of the asset.
-        #[weight = T::DbWeight::get().reads_writes(2, 1) + 100_000_000]
-        pub fn activate_implicit_requirement_checks(origin, ticker: Ticker) -> DispatchResult {
-            // Pass new_status as `ImplicitRequirementStatus::Active`
-            Self::change_implicit_requirement_status(origin, ticker, ImplicitRequirementStatus::Active)
-        }
-
-        /// Inactivate the implicit requirement check. Once it is inactive all the implicit requirements are skipped.
-        ///
-        /// # Arguments
-        /// * origin - Signer of the dispatchable. It should be the owner of the ticker.
-        /// * ticker - Symbol of the asset.
-        #[weight = T::DbWeight::get().reads_writes(2, 1) + 100_000_000]
-        pub fn inactivate_implicit_requirement_checks(origin, ticker: Ticker) -> DispatchResult {
-            // Pass new_status as `ImplicitRequirementStatus::Active`
-            Self::change_implicit_requirement_status(origin, ticker, ImplicitRequirementStatus::Inactive)
         }
     }
 }
@@ -575,14 +553,11 @@ decl_event!(
         /// (caller DID, Ticker, ComplianceRequirement).
         ComplianceRequirementChanged(IdentityId, Ticker, ComplianceRequirement),
         /// Emitted when default claim issuer list for a given ticker gets added.
-        /// (caller DID, Ticker, New Claim issuer DID).
-        TrustedDefaultClaimIssuerAdded(IdentityId, Ticker, IdentityId),
+        /// (caller DID, Ticker, Added TrustedIssuer).
+        TrustedDefaultClaimIssuerAdded(IdentityId, Ticker, TrustedIssuer),
         /// Emitted when default claim issuer list for a given ticker get removed.
-        /// (caller DID, Ticker, Removed Claim issuer DID).
-        TrustedDefaultClaimIssuerRemoved(IdentityId, Ticker, IdentityId),
-        /// Emitted when implicit requirements status changed for a given ticker.
-        /// (caller DID, Ticker, New Status).
-        ImplicitRequirementStatusChanged(IdentityId, Ticker, ImplicitRequirementStatus),
+        /// (caller DID, Ticker, Removed TrustedIssuer).
+        TrustedDefaultClaimIssuerRemoved(IdentityId, Ticker, TrustedIssuer),
     }
 );
 
@@ -592,16 +567,17 @@ impl<T: Trait> Module<T> {
         T::Asset::is_owner(ticker, sender_did)
     }
 
-    /// It fetches all claims of `target` identity with type and scope from `claim` and generated
-    /// by any of `issuers`.
-    fn fetch_claims(target: IdentityId, claim: &Claim, issuers: &[IdentityId]) -> Vec<Claim> {
+    /// Fetches all claims of `target` identity with type
+    /// and scope from `claim` and generated by any of `issuers`.
+    fn fetch_claims(target: IdentityId, claim: &Claim, issuers: &[TrustedIssuer]) -> Vec<Claim> {
         let claim_type = claim.claim_type();
-        let scope = claim.as_scope().cloned();
+        let scope = claim.as_scope();
 
         issuers
             .iter()
+            .filter(|issuer| issuer.is_trusted_for(claim_type))
             .flat_map(|issuer| {
-                <identity::Module<T>>::fetch_claim(target, claim_type, *issuer, scope.clone())
+                Identity::<T>::fetch_claim(target, claim_type, issuer.issuer, scope.cloned())
                     .map(|id_claim| id_claim.claim)
             })
             .collect::<Vec<_>>()
@@ -610,7 +586,7 @@ impl<T: Trait> Module<T> {
     /// It fetches the `ConfidentialScopeClaim` of users `id` for the given ticker.
     /// Note that this vector could be 0 or 1 items.
     fn fetch_confidential_claims(id: IdentityId, ticker: &Ticker) -> Vec<Claim> {
-        let claim_type = ClaimType::InvestorZKProof;
+        let claim_type = ClaimType::InvestorUniqueness;
         // NOTE: Ticker length is less by design that IdentityId.
         let asset_scope = Scope::from(*ticker);
 
@@ -620,10 +596,10 @@ impl<T: Trait> Module<T> {
             .collect::<Vec<_>>()
     }
 
-    /// It fetches the proposition context for target `id` and specific `condition`.
+    /// Fetches the proposition context for target `id` and specific `condition`.
     ///
-    /// If `condition` does not define trusted issuers, it will use the default trusted issuer for
-    /// `ticker` asset.
+    /// If `condition` does not define trusted issuers,
+    /// the default trusted issuers for `ticker` is used instead.
     fn fetch_context(
         ticker: &Ticker,
         id: IdentityId,
@@ -636,18 +612,15 @@ impl<T: Trait> Module<T> {
             Self::trusted_claim_issuer(ticker)
         };
 
-        let claims = match condition.condition_type {
-            ConditionType::IsPresent(ref claim) => Self::fetch_claims(id, claim, &issuers),
-            ConditionType::IsAbsent(ref claim) => Self::fetch_claims(id, claim, &issuers),
-            ConditionType::IsAnyOf(ref claims) => claims
+        let claims = match &condition.condition_type {
+            ConditionType::IsPresent(claim) | ConditionType::IsAbsent(claim) => {
+                Self::fetch_claims(id, claim, &issuers)
+            }
+            ConditionType::IsAnyOf(claims) | ConditionType::IsNoneOf(claims) => claims
                 .iter()
                 .flat_map(|claim| Self::fetch_claims(id, claim, &issuers))
                 .collect::<Vec<_>>(),
-            ConditionType::IsNoneOf(ref claims) => claims
-                .iter()
-                .flat_map(|claim| Self::fetch_claims(id, claim, &issuers))
-                .collect::<Vec<_>>(),
-            ConditionType::HasValidProofOfInvestor(ref proof_ticker) => {
+            ConditionType::HasValidProofOfInvestor(proof_ticker) => {
                 Self::fetch_confidential_claims(id, proof_ticker)
             }
             ConditionType::IsIdentity(_) => vec![],
@@ -683,25 +656,21 @@ impl<T: Trait> Module<T> {
         proposition::run(&condition, &context)
     }
 
-    /// It loads a context for each condition in `conditions` and evaluates them.
-    /// It updates the internal result variable of every condition.
-    /// It returns the final result of all conditions combined.
+    /// Returns whether all conditions, in their proper context, hold when evaluated.
+    /// As a side-effect, each condition will be updated with its result,
+    /// implying strict (non-lazy) evaluation of the conditions.
     fn evaluate_conditions(
         ticker: &Ticker,
         did: IdentityId,
-        conditions: &mut Vec<ConditionResult>,
+        conditions: &mut [ConditionResult],
         primary_issuance_agent: Option<IdentityId>,
     ) -> bool {
-        let mut result = true;
-        for condition in conditions {
+        conditions.iter_mut().fold(true, |result, condition| {
             let context =
                 Self::fetch_context(ticker, did, &condition.condition, primary_issuance_agent);
             condition.result = proposition::run(&condition.condition, &context);
-            if !condition.result {
-                result = false;
-            }
-        }
-        result
+            result & condition.result
+        })
     }
 
     /// Pauses or resumes the asset compliance.
@@ -711,13 +680,12 @@ impl<T: Trait> Module<T> {
         pause: bool,
     ) -> DispatchResult {
         let sender = ensure_signed(origin)?;
+        CallPermissions::<T>::ensure_call_permissions(&sender)?;
         let did = Context::current_identity_or::<Identity<T>>(&sender)?;
 
         ensure!(Self::is_owner(&ticker, did), Error::<T>::Unauthorized);
 
-        <AssetCompliances>::mutate(&ticker, |asset_compliance| {
-            asset_compliance.paused = pause;
-        });
+        AssetCompliances::mutate(&ticker, |compliance| compliance.paused = pause);
 
         Ok(())
     }
@@ -726,13 +694,13 @@ impl<T: Trait> Module<T> {
     fn unsafe_modify_default_trusted_claim_issuer(
         caller_did: IdentityId,
         ticker: Ticker,
-        trusted_issuer: IdentityId,
+        trusted_issuer: TrustedIssuer,
         is_add_call: bool,
     ) {
-        TrustedClaimIssuer::mutate(ticker, |identity_list| {
+        TrustedClaimIssuer::mutate(ticker, |issuers| {
             if !is_add_call {
                 // remove the old one
-                identity_list.retain(|&ti| ti != trusted_issuer);
+                issuers.retain(|ti| ti != &trusted_issuer);
                 Self::deposit_event(Event::TrustedDefaultClaimIssuerRemoved(
                     caller_did,
                     ticker,
@@ -740,7 +708,7 @@ impl<T: Trait> Module<T> {
                 ));
             } else {
                 // New trusted issuer addition case
-                identity_list.push(trusted_issuer);
+                issuers.push(trusted_issuer.clone());
                 Self::deposit_event(Event::TrustedDefaultClaimIssuerAdded(
                     caller_did,
                     ticker,
@@ -753,16 +721,17 @@ impl<T: Trait> Module<T> {
     fn modify_default_trusted_claim_issuer(
         origin: T::Origin,
         ticker: Ticker,
-        trusted_issuer: IdentityId,
+        trusted_issuer: TrustedIssuer,
         is_add_call: bool,
     ) -> DispatchResult {
         let sender = ensure_signed(origin)?;
+        CallPermissions::<T>::ensure_call_permissions(&sender)?;
         let did = Context::current_identity_or::<Identity<T>>(&sender)?;
 
         ensure!(Self::is_owner(&ticker, did), Error::<T>::Unauthorized);
         // ensure whether the trusted issuer's did is register did or not
         ensure!(
-            <Identity<T>>::is_identity_exists(&trusted_issuer),
+            <Identity<T>>::is_identity_exists(&trusted_issuer.issuer),
             Error::<T>::DidNotExist
         );
         ensure!(
@@ -794,18 +763,16 @@ impl<T: Trait> Module<T> {
         let asset_compliance = Self::asset_compliance(ticker);
 
         let mut asset_compliance_with_results = AssetComplianceResult::from(asset_compliance);
-        // To know whether the given ticker has the implicit requirements active or not.
-        // if `yes` then it returns the `Some(ImplicitRequirementResult)` for the `from_did_opt` and `to_did_opt`.
-        // if `no` then it returns None.
-        asset_compliance_with_results.implicit_requirements_result =
-            Self::get_implicit_condition_result(ticker, from_did_opt, to_did_opt);
+        // It is to know the result of the scope claim (i.e investor does posses the valid `InvestorZKProof` claim or not).
+        let from_has_scope_claim = Self::has_scope_claim(ticker, from_did_opt);
+        let to_has_scope_claim = Self::has_scope_claim(ticker, to_did_opt);
+        // Assigning the implicit requirement result.
+        asset_compliance_with_results.implicit_requirements_result = ImplicitRequirementResult {
+            from_result: from_has_scope_claim,
+            to_result: to_has_scope_claim,
+        };
 
-        let implicit_result = asset_compliance_with_results
-            .implicit_requirements_result
-            .as_ref()
-            .map_or(true, |imp_result| {
-                imp_result.from_result && imp_result.to_result
-            });
+        let implicit_result = from_has_scope_claim && to_has_scope_claim;
 
         for requirements in &mut asset_compliance_with_results.requirements {
             if let Some(from_did) = from_did_opt {
@@ -844,22 +811,21 @@ impl<T: Trait> Module<T> {
         asset_compliance: &[ComplianceRequirement],
         default_issuer_count: usize,
     ) -> DispatchResult {
-        let mut complexity = 0usize;
-        for requirement in asset_compliance {
-            for condition in requirement
-                .sender_conditions
-                .iter()
-                .chain(requirement.receiver_conditions.iter())
-            {
+        let complexity = asset_compliance
+            .iter()
+            .flat_map(|requirement| {
+                requirement
+                    .sender_conditions
+                    .iter()
+                    .chain(requirement.receiver_conditions.iter())
+            })
+            .fold(0usize, |complexity, condition| {
                 let (claims, issuers) = condition.complexity();
-                if issuers == 0 {
-                    complexity =
-                        complexity.saturating_add(claims.saturating_mul(default_issuer_count));
-                } else {
-                    complexity = complexity.saturating_add(claims.saturating_mul(issuers));
-                }
-            }
-        }
+                complexity.saturating_add(claims.saturating_mul(match issuers {
+                    0 => default_issuer_count,
+                    _ => issuers,
+                }))
+            });
         if let Ok(complexity_u32) = u32::try_from(complexity) {
             if complexity_u32 <= T::MaxConditionComplexity::get() {
                 return Ok(());
@@ -868,27 +834,12 @@ impl<T: Trait> Module<T> {
         Err(Error::<T>::ComplianceRequirementTooComplex.into())
     }
 
-    /// Helper function for the RPC to know the result of the scope claim (i.e investor does posses the valid `InvestorZKProof` claim).
-    fn get_implicit_condition_result(
-        ticker: &Ticker,
-        from_did_opt: Option<IdentityId>,
-        to_did_opt: Option<IdentityId>,
-    ) -> Option<ImplicitRequirementResult> {
-        if Self::implicit_requirements_status(ticker) == ImplicitRequirementStatus::Active {
-            return Some(ImplicitRequirementResult {
-                from_result: Self::has_scope_claim(ticker, from_did_opt),
-                to_result: Self::has_scope_claim(ticker, to_did_opt),
-            });
-        }
-        None
-    }
-
     /// Helper function to know whether the given did has the valid scope claim or not.
     fn has_scope_claim(ticker: &Ticker, did_opt: Option<IdentityId>) -> bool {
         did_opt.map_or(false, |did| {
             // Generate the condition for `HasValidProofOfInvestor` condition type.
             let condition =
-                &Condition::new(ConditionType::HasValidProofOfInvestor(*ticker), vec![did]);
+                &Condition::from_dids(ConditionType::HasValidProofOfInvestor(*ticker), &[did]);
             Self::is_condition_satisfied(ticker, did, condition, None)
         })
     }
@@ -901,35 +852,6 @@ impl<T: Trait> Module<T> {
     ) -> bool {
         // Return the final boolean result.
         Self::has_scope_claim(ticker, to_did_opt) && Self::has_scope_claim(ticker, from_did_opt)
-    }
-
-    /// Change the implicit requirement status. Once active all the implicit requirements are in effect.
-    fn change_implicit_requirement_status(
-        origin: T::Origin,
-        ticker: Ticker,
-        new_status: ImplicitRequirementStatus,
-    ) -> DispatchResult {
-        let sender = ensure_signed(origin)?;
-        let did = Context::current_identity_or::<Identity<T>>(&sender)?;
-
-        // Ensure owner.
-        ensure!(Self::is_owner(&ticker, did), Error::<T>::Unauthorized);
-
-        let error = match new_status {
-            ImplicitRequirementStatus::Active => Error::<T>::ImplicitRequirementsAlreadyActive,
-            ImplicitRequirementStatus::Inactive => Error::<T>::ImplicitRequirementsAlreadyInactive,
-        };
-        // Current status should not be same as `new_status`
-        ensure!(
-            Self::implicit_requirements_status(&ticker) != new_status,
-            error
-        );
-
-        <ImplicitRequirements>::insert(ticker, new_status);
-        Self::deposit_event(Event::ImplicitRequirementStatusChanged(
-            did, ticker, new_status,
-        ));
-        Ok(())
     }
 }
 
@@ -957,10 +879,8 @@ impl<T: Trait> ComplianceManagerTrait<T::Balance> for Module<T> {
         // gets checked only once and if it is valid then its result is tied up with the conditions result.
         //
         // Note - Due to this check `ConditionType::HasValidProofOfInvestor` is an implicit transfer condition and it only
-        // lookup for the claims those are provided by the trusted_claim_issuers.
-        if Self::implicit_requirements_status(ticker) == ImplicitRequirementStatus::Active
-            && !Self::is_sender_and_receiver_has_valid_scope_claim(ticker, from_did_opt, to_did_opt)
-        {
+        // lookup for the claims those are provided by the user itself.
+        if !Self::is_sender_and_receiver_has_valid_scope_claim(ticker, from_did_opt, to_did_opt) {
             return Ok((
                 ERC1400_TRANSFER_FAILURE,
                 weight_for::weight_for_reading_asset_compliance::<T>(),

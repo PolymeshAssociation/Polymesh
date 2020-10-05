@@ -27,12 +27,12 @@
                 "Custom": "Vec<u8>"
             }
         },
-        "IdentifierType": {
+        "AssetIdentifier": {
             "_enum": {
-                "Cins": "",
-                "Cusip": "",
-                "Isin": "",
-                "Dti": ""
+                "CUSIP": "[u8; 9]",
+                "CINS": "[u8; 9]",
+                "ISIN": "[u8; 12]",
+                "LEI": "[u8; 20]"
             }
         },
         "AssetOwnershipRelation": {
@@ -43,7 +43,6 @@
             }
         },
         "AssetName": "Text",
-        "AssetIdentifier": "Text",
         "FundingRoundName": "Text",
         "VenueDetails": "Text",
         "SecurityToken": {
@@ -54,19 +53,17 @@
             "asset_type": "AssetType",
             "primary_issuance_agent": "Option<IdentityId>"
         },
-        "LinkedKeyInfo": {
-            "_enum": {
-                "Unique": "IdentityId",
-                "Group": "Vec<IdentityId>"
-            }
+        "PalletName": "Text",
+        "DispatchableName": "Text",
+        "PalletPermissions": {
+            "pallet_name": "PalletName",
+            "total": "bool",
+            "dispatchable_names": "Vec<DispatchableName>"
         },
-        "Permission": {
-            "_enum": [
-                "Full",
-                "Admin",
-                "Operator",
-                "SpendFunds"
-            ]
+        "Permissions": {
+            "asset": "Option<Vec<Ticker>>",
+            "extrinsic": "Option<Vec<PalletPermissions>>",
+            "portfolio": "Option<Vec<PortfolioNumber>>"
         },
         "Signatory": {
             "_enum": {
@@ -76,7 +73,7 @@
         },
         "SecondaryKey": {
             "signer": "Signatory",
-            "permissions": "Vec<Permission>"
+            "permissions": "Permissions"
         },
         "SecondaryKeyWithAuth": {
             "secondary_key": "SecondaryKey",
@@ -107,7 +104,7 @@
         },
         "KeyIdentityData": {
             "identity": "IdentityId",
-            "permissions": "Option<Vec<Permission>>"
+            "permissions": "Option<Permissions>"
         },
         "CountryCode": {
             "_enum": [
@@ -379,7 +376,7 @@
                 "Jurisdiction": "(CountryCode, Scope)",
                 "Exempted": "Scope",
                 "Blocked": "Scope",
-                "InvestorZKProof": "(Scope, ScopeId, CddId, InvestorZKProofData)",
+                "InvestorUniqueness": "(Scope, ScopeId, CddId)",
                 "NoData": ""
             }
         },
@@ -435,9 +432,19 @@
                 "Inactive": ""
             }
         },
+        "TrustedFor": {
+            "_enum": {
+                "Any": "",
+                "Specific": "Vec<ClaimType>"
+            }
+        },
+        "TrustedIssuer": {
+            "issuer": "IdentityId",
+            "trusted_for": "TrustedFor"
+        },
         "Condition": {
             "condition_type": "ConditionType",
-            "issuers": "Vec<IdentityId>"
+            "issuers": "Vec<TrustedIssuer>"
         },
         "ConditionResult": {
             "condition": "Condition",
@@ -504,6 +511,12 @@
             "voting_end": "Moment",
             "motions": "Vec<Motion>"
         },
+        "MaybeBlock": {
+            "_enum": {
+                "Some": "BlockNumber",
+                "None": ""
+            }
+        },
         "Url": "Text",
         "PipDescription": "Text",
         "PipsMetadata": {
@@ -511,7 +524,8 @@
             "url": "Option<Url>",
             "description": "Option<PipDescription>",
             "created_at": "BlockNumber",
-            "transaction_version": "u32"
+            "transaction_version": "u32",
+            "expiry": "MaybeBlock"
         },
         "Proposer": {
             "_enum": {
@@ -554,16 +568,20 @@
         "PolymeshVotes": {
             "index": "u32",
             "ayes": "Vec<(IdentityId, Balance)>",
-            "nays": "Vec<(IdentityId, Balance)>"
+            "nays": "Vec<(IdentityId, Balance)>",
+            "end": "BlockNumber",
+            "expiry": "MaybeBlock"
         },
         "PipId": "u32",
         "ProposalState": {
             "_enum": [
                 "Pending",
                 "Cancelled",
-                "Killed",
                 "Rejected",
-                "Referendum"
+                "Scheduled",
+                "Failed",
+                "Executed",
+                "Expired"
             ]
         },
         "ReferendumState": {
@@ -627,7 +645,7 @@
                 "TransferPrimaryIssuanceAgent": "Ticker",
                 "AddMultiSigSigner": "AccountId",
                 "TransferAssetOwnership": "Ticker",
-                "JoinIdentity": "Vec<Permission>",
+                "JoinIdentity": "Permissions",
                 "PortfolioCustody": "PortfolioId",
                 "Custom": "Ticker",
                 "NoData": ""
@@ -781,13 +799,7 @@
                 "ProposalNotFound": "Vec<u8>"
             }
         },
-        "Vote": {
-            "_enum": {
-                "None": "",
-                "Yes": "Balance",
-                "No": "Balance"
-            }
-        },
+        "Vote": "(bool, Balance)",
         "VoteByPip": {
             "pip": "PipId",
             "vote": "Vote"
@@ -862,7 +874,7 @@
             "identity_did": "IdentityId",
             "value": "Balance"
         },
-        "PortfolioName": "Vec<u8>",
+        "PortfolioName": "Text",
         "PortfolioNumber": "u64",
         "PortfolioKind": {
             "_enum": {
@@ -927,7 +939,8 @@
         "Venue": {
             "creator": "IdentityId",
             "instructions": "Vec<u64>",
-            "details": "Vec<u8>"
+            "details": "Vec<u8>",
+            "venue_type": "VenueType"
         },
         "Receipt": {
             "receipt_uid": "u64",

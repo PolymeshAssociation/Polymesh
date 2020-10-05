@@ -16,14 +16,14 @@
 use codec::{Decode, Encode};
 use frame_support::dispatch::{DispatchResult, DispatchResultWithPostInfo};
 use polymesh_primitives::{
-    AssetIdentifier, AssetName, AssetType, FundingRoundName, IdentifierType, IdentityId,
-    PortfolioId, SecurityToken, Ticker,
+    AssetIdentifier, AssetName, AssetType, FundingRoundName, IdentityId, PortfolioId, ScopeId,
+    SecurityToken, Ticker,
 };
 use sp_std::vec::Vec;
 
 pub const GAS_LIMIT: u64 = 1_000_000_000;
-/// This trait is used to call functions that accept transfer of a ticker or token ownership
-pub trait AcceptTransfer {
+/// This trait is used by the `identity` pallet to interact with the `pallet-asset`.
+pub trait AssetSubTrait {
     /// Accept and process a ticker transfer
     ///
     /// # Arguments
@@ -42,6 +42,14 @@ pub trait AcceptTransfer {
     /// * `to_did` did of the receiver
     /// * `auth_id` Authorization id of the authorization created by current token owner
     fn accept_asset_ownership_transfer(to_did: IdentityId, auth_id: u64) -> DispatchResult;
+
+    /// Update balance of given IdentityId under the scopeId.
+    ///
+    /// # Arguments
+    /// * `of` - The `ScopeId` of the given `IdentityId`.
+    /// * `target_did` - The `IdentityId` whose balance needs to be updated.
+    /// * `ticker`- Ticker of the asset whose count need to be updated for the given identity.
+    fn update_balance_of_scope_id(of: ScopeId, whom: IdentityId, ticker: Ticker) -> DispatchResult;
 }
 #[derive(Encode, Decode, Default, Clone, PartialEq, Debug)]
 pub struct IssueAssetItem<U> {
@@ -76,7 +84,7 @@ pub trait Trait<V, U> {
         total_supply: V,
         divisible: bool,
         asset_type: AssetType,
-        identifiers: Vec<(IdentifierType, AssetIdentifier)>,
+        identifiers: Vec<AssetIdentifier>,
         funding_round: Option<FundingRoundName>,
         is_confidential: bool,
     ) -> DispatchResult;

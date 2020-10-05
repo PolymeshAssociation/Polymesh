@@ -1,8 +1,10 @@
+use codec::{Decode, Encode};
 use grandpa::AuthorityId as GrandpaId;
 use im_online::sr25519::AuthorityId as ImOnlineId;
-use polymesh_common_utilities::{constants::currency::POLY, protocol_fee::ProtocolOp};
+use polymesh_common_utilities::{constants::currency::POLY, protocol_fee::ProtocolOp, GC_DID};
 use polymesh_primitives::{
-    AccountId, IdentityId, InvestorUid, PosRatio, Signatory, Signature, TickerRegistrationConfig,
+    AccountId, IdentityId, InvestorUid, PosRatio, Signatory, Signature, Ticker,
+    TickerRegistrationConfig,
 };
 use polymesh_runtime_develop::{
     self as general,
@@ -25,6 +27,10 @@ use sp_runtime::{
     traits::{IdentifyAccount, Verify},
     PerThing,
 };
+#[cfg(feature = "std")]
+use sp_runtime::{Deserialize, Serialize};
+
+use std::convert::TryInto;
 
 const STAGING_TELEMETRY_URL: &str = "wss://telemetry.polymesh.live/submit/";
 
@@ -116,6 +122,23 @@ fn polymath_props() -> Properties {
         .clone()
 }
 
+fn currency_codes() -> Vec<Ticker> {
+    // Fiat Currency Struct
+    #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+    #[derive(Encode, Decode, Clone, Debug, PartialEq, Eq)]
+    pub struct FiatCurrency<String> {
+        pub codes: Vec<String>,
+    }
+
+    let currency_file = include_str!("data/currency_symbols.json");
+    let currency_data: FiatCurrency<String> = serde_json::from_str(&currency_file).unwrap();
+    currency_data
+        .codes
+        .into_iter()
+        .map(|y| y.as_bytes().try_into().unwrap())
+        .collect()
+}
+
 fn general_testnet_genesis(
     initial_authorities: Vec<(
         AccountId,
@@ -137,21 +160,24 @@ fn general_testnet_genesis(
             code: general::WASM_BINARY.to_vec(),
             changes_trie_config: Default::default(),
         }),
-        asset: Some(GeneralConfig::AssetConfig {
-            ticker_registration_config: TickerRegistrationConfig {
-                max_ticker_length: 12,
-                registration_length: Some(5_184_000_000),
-            },
-            classic_migration_tconfig: TickerRegistrationConfig {
-                max_ticker_length: 12,
-                // TODO(centril): use values per product team wishes.
-                registration_length: Some(5_184_000_000),
-            },
-            // Always use the first id, whomever that may be.
-            classic_migration_contract_did: IdentityId::from(1),
-            // TODO(centril): fill with actual data from Ethereum.
-            classic_migration_tickers: vec![],
-        }),
+        asset: {
+            Some(GeneralConfig::AssetConfig {
+                ticker_registration_config: TickerRegistrationConfig {
+                    max_ticker_length: 12,
+                    registration_length: Some(5_184_000_000),
+                },
+                classic_migration_tconfig: TickerRegistrationConfig {
+                    max_ticker_length: 12,
+                    // TODO(centril): use values per product team wishes.
+                    registration_length: Some(5_184_000_000),
+                },
+                // Always use the first id, whomever that may be.
+                classic_migration_contract_did: IdentityId::from(1),
+                // TODO(centril): fill with actual data from Ethereum.
+                classic_migration_tickers: vec![],
+                reserved_country_currency_codes: currency_codes(),
+            })
+        },
         identity: {
             let initial_identities = vec![
                 // (primary_account_id, service provider did, target did, expiry time of CustomerDueDiligence claim i.e 10 days is ms)
@@ -300,6 +326,7 @@ fn general_testnet_genesis(
             default_enactment_period: generalTime::MINUTES,
             max_pip_skip_count: 1,
             active_pip_limit: 25,
+            pending_pip_expiry: <_>::default(),
         }),
         pallet_im_online: Some(GeneralConfig::ImOnlineConfig {
             slashing_params: general::OfflineSlashingParams {
@@ -333,6 +360,7 @@ fn general_testnet_genesis(
             vote_threshold: (1, 2),
             members: vec![],
             release_coordinator: IdentityId::from(6),
+            expires_after: <_>::default(),
             phantom: Default::default(),
         }),
         group_Instance2: Some(general::runtime::CddServiceProvidersConfig {
@@ -342,6 +370,7 @@ fn general_testnet_genesis(
                 IdentityId::from(1),
                 IdentityId::from(2),
                 IdentityId::from(6),
+                GC_DID,
             ],
             phantom: Default::default(),
         }),
@@ -355,6 +384,7 @@ fn general_testnet_genesis(
             vote_threshold: (1, 2),
             members: vec![],
             release_coordinator: IdentityId::from(3),
+            expires_after: <_>::default(),
             phantom: Default::default(),
         }),
         // Upgrade Committee:
@@ -367,6 +397,7 @@ fn general_testnet_genesis(
             vote_threshold: (1, 2),
             members: vec![],
             release_coordinator: IdentityId::from(4),
+            expires_after: <_>::default(),
             phantom: Default::default(),
         }),
         protocol_fee: Some(GeneralConfig::ProtocolFeeConfig {
@@ -505,21 +536,24 @@ fn alcyone_testnet_genesis(
             code: alcyone::WASM_BINARY.to_vec(),
             changes_trie_config: Default::default(),
         }),
-        asset: Some(AlcyoneConfig::AssetConfig {
-            ticker_registration_config: TickerRegistrationConfig {
-                max_ticker_length: 12,
-                registration_length: Some(5_184_000_000),
-            },
-            classic_migration_tconfig: TickerRegistrationConfig {
-                max_ticker_length: 12,
-                // TODO(centril): use values per product team wishes.
-                registration_length: Some(5_184_000_000),
-            },
-            // TODO(product_team): Assign to a real person.
-            classic_migration_contract_did: IdentityId::from(1),
-            // TODO(centril): fill with actual data from Ethereum.
-            classic_migration_tickers: vec![],
-        }),
+        asset: {
+            Some(AlcyoneConfig::AssetConfig {
+                ticker_registration_config: TickerRegistrationConfig {
+                    max_ticker_length: 12,
+                    registration_length: Some(5_184_000_000),
+                },
+                classic_migration_tconfig: TickerRegistrationConfig {
+                    max_ticker_length: 12,
+                    // TODO(centril): use values per product team wishes.
+                    registration_length: Some(5_184_000_000),
+                },
+                // TODO(product_team): Assign to a real person.
+                classic_migration_contract_did: IdentityId::from(1),
+                // TODO(centril): fill with actual data from Ethereum.
+                classic_migration_tickers: vec![],
+                reserved_country_currency_codes: currency_codes(),
+            })
+        },
         identity: {
             let initial_identities = vec![
                 // (primary_account_id, service provider did, target did, expiry time of CustomerDueDiligence claim i.e 10 days is ms)
@@ -673,6 +707,7 @@ fn alcyone_testnet_genesis(
             default_enactment_period: alcyoneTime::DAYS * 7,
             max_pip_skip_count: 1,
             active_pip_limit: 1000,
+            pending_pip_expiry: <_>::default(),
         }),
         pallet_im_online: Some(AlcyoneConfig::ImOnlineConfig {
             slashing_params: alcyone::OfflineSlashingParams {
@@ -704,6 +739,7 @@ fn alcyone_testnet_genesis(
             vote_threshold: (2, 3),
             members: vec![],
             release_coordinator: IdentityId::from(6),
+            expires_after: <_>::default(),
             phantom: Default::default(),
         }),
         group_Instance2: Some(alcyone::runtime::CddServiceProvidersConfig {
@@ -713,6 +749,7 @@ fn alcyone_testnet_genesis(
                 IdentityId::from(1),
                 IdentityId::from(2),
                 IdentityId::from(3),
+                GC_DID,
             ],
             phantom: Default::default(),
         }),
@@ -726,6 +763,7 @@ fn alcyone_testnet_genesis(
             vote_threshold: (1, 2),
             members: vec![],
             release_coordinator: IdentityId::from(4),
+            expires_after: <_>::default(),
             phantom: Default::default(),
         }),
         // Upgrade Committee:
@@ -738,6 +776,7 @@ fn alcyone_testnet_genesis(
             vote_threshold: (1, 2),
             members: vec![],
             release_coordinator: IdentityId::from(5),
+            expires_after: <_>::default(),
             phantom: Default::default(),
         }),
         protocol_fee: Some(AlcyoneConfig::ProtocolFeeConfig {

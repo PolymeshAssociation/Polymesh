@@ -84,7 +84,6 @@
 pub mod benchmarking;
 
 pub mod ethereum;
-
 use codec::{Decode, Encode};
 use core::result::Result as StdResult;
 use currency::*;
@@ -98,10 +97,10 @@ use frame_support::{
 use frame_system::ensure_signed;
 use hex_literal::hex;
 use pallet_contracts::{ExecResult, Gas};
-use pallet_identity as identity;
+use pallet_identity::{self as identity, PermissionedCallOriginData};
 use pallet_statistics::{self as statistics, Counter};
 use polymesh_common_utilities::{
-    asset::{AcceptTransfer, Trait as AssetTrait, GAS_LIMIT},
+    asset::{AssetSubTrait, Trait as AssetTrait, GAS_LIMIT},
     balances::Trait as BalancesTrait,
     compliance_manager::Trait as ComplianceManagerTrait,
     constants::*,
@@ -111,17 +110,18 @@ use polymesh_common_utilities::{
 };
 use polymesh_primitives::{
     AssetIdentifier, AssetName, AssetOwnershipRelation, AssetType, AuthorizationData,
-    AuthorizationError, Document, DocumentName, FundingRoundName, IdentifierType, IdentityId,
-    PortfolioId, RestrictionResult, SecurityToken, Signatory, SmartExtension, SmartExtensionName,
+    AuthorizationError, Document, DocumentName, FundingRoundName, IdentityId, PortfolioId,
+    RestrictionResult, ScopeId, SecurityToken, Signatory, SmartExtension, SmartExtensionName,
     SmartExtensionType, Ticker, TickerRegistration, TickerRegistrationConfig,
     TickerRegistrationStatus,
 };
-use sp_runtime::traits::{CheckedAdd, Saturating};
+use sp_runtime::traits::{CheckedAdd, Saturating, Zero};
 #[cfg(feature = "std")]
 use sp_runtime::{Deserialize, Serialize};
 use sp_std::{convert::TryFrom, prelude::*};
 
 type Portfolio<T> = pallet_portfolio::Module<T>;
+type CallPermissions<T> = pallet_permissions::Module<T>;
 
 /// The module's configuration trait.
 pub trait Trait:
@@ -196,8 +196,8 @@ decl_storage! {
         /// The total asset ticker balance per identity.
         /// (ticker, DID) -> Balance
         pub BalanceOf get(fn balance_of): double_map hasher(blake2_128_concat) Ticker, hasher(blake2_128_concat) IdentityId => T::Balance;
-        /// A map of pairs of a ticker name and an `IdentifierType` to asset identifiers.
-        pub Identifiers get(fn identifiers): map hasher(blake2_128_concat) (Ticker, IdentifierType) => AssetIdentifier;
+        /// A map of a ticker name and asset identifiers.
+        pub Identifiers get(fn identifiers): map hasher(blake2_128_concat) Ticker => Vec<AssetIdentifier>;
         /// Checkpoints created per token.
         /// (ticker) -> no. of checkpoints
         pub TotalCheckpoints get(fn total_checkpoints_of): map hasher(blake2_128_concat) Ticker => u64;
@@ -236,11 +236,23 @@ decl_storage! {
 
         /// Ticker registration details on Polymath Classic / Ethereum.
         pub ClassicTickers get(fn classic_ticker_registration): map hasher(blake2_128_concat) Ticker => Option<ClassicTickerRegistration>;
+        /// Balances get stored on the basis of the `ScopeId`.
+        /// Right now it is only helpful for the UI purposes but in future it can be used to do miracles on-chain.
+        /// (ScopeId, IdentityId) => Balance.
+        pub BalanceOfAtScope get(fn balance_of_at_scope): double_map hasher(identity) ScopeId, hasher(identity) IdentityId => T::Balance;
+        /// Store aggregate balance of those identities that has the same `ScopeId`.
+        /// (Ticker, ScopeId) => Balance.
+        pub AggregateBalance get(fn aggregate_balance_of): double_map hasher(blake2_128_concat) Ticker, hasher(identity) ScopeId => T::Balance;
+        /// Tracks the ScopeId of the identity for a given ticker.
+        /// (Ticker, IdentityId) => ScopeId.
+        pub ScopeIdOf get(fn scope_id_of): double_map hasher(blake2_128_concat) Ticker, hasher(identity) IdentityId => ScopeId;
+
     }
     add_extra_genesis {
         config(classic_migration_tickers): Vec<ClassicTickerImport>;
         config(classic_migration_tconfig): TickerRegistrationConfig<T::Moment>;
         config(classic_migration_contract_did): IdentityId;
+        config(reserved_country_currency_codes): Vec<Ticker>;
         build(|config: &GenesisConfig<T>| {
             let cm_did = SystematicIssuers::ClassicMigration.as_id();
             for import in &config.classic_migration_tickers {
@@ -259,6 +271,13 @@ decl_storage! {
                 };
                 ClassicTickers::insert(&import.ticker, classic_ticker);
             }
+
+            // Reserving country currency logic
+            let fiat_tickers_reservation_did = SystematicIssuers::FiatTickersReservation.as_id();
+            for currency_ticker in &config.reserved_country_currency_codes {
+                <Module<T>>::_register_ticker(&currency_ticker, fiat_tickers_reservation_did, None);
+            }
+
         });
     }
 }
@@ -274,6 +293,11 @@ decl_module! {
         /// initialize the default event for this module
         fn deposit_event() = default;
 
+        fn on_runtime_upgrade() -> frame_support::weights::Weight {
+            <Identifiers>::remove_all();
+            1_000
+        }
+
         /// This function is used to either register a new ticker or extend validity of an existing ticker.
         /// NB: Ticker validity does not get carry forward when renewing ticker.
         ///
@@ -282,8 +306,7 @@ decl_module! {
         /// * `ticker` ticker to register.
         #[weight = T::DbWeight::get().reads_writes(4, 3) + 500_000_000]
         pub fn register_ticker(origin, ticker: Ticker) -> DispatchResult {
-            let sender = ensure_signed(origin)?;
-            let to_did = Context::current_identity_or::<Identity<T>>(&sender)?;
+            let to_did = Identity::<T>::ensure_origin_call_permissions(origin)?.primary_did;
             let expiry = Self::ticker_registration_checks(&ticker, to_did, false, || Self::ticker_registration_config())?;
             T::ProtocolFee::charge_fee(ProtocolOp::AssetRegisterTicker)?;
             Self::_register_ticker(&ticker, to_did, expiry);
@@ -298,9 +321,7 @@ decl_module! {
         /// * `auth_id` Authorization ID of ticker transfer authorization.
         #[weight = T::DbWeight::get().reads_writes(4, 5) + 200_000_000]
         pub fn accept_ticker_transfer(origin, auth_id: u64) -> DispatchResult {
-            let sender = ensure_signed(origin)?;
-            let to_did = Context::current_identity_or::<Identity<T>>(&sender)?;
-
+            let to_did = Identity::<T>::ensure_origin_call_permissions(origin)?.primary_did;
             Self::_accept_ticker_transfer(to_did, auth_id)
         }
 
@@ -312,9 +333,7 @@ decl_module! {
         /// * `auth_id` Authorization ID of primary issuance agent transfer authorization.
         #[weight = 300_000_000]
         pub fn accept_primary_issuance_agent_transfer(origin, auth_id: u64) -> DispatchResult {
-            let sender = ensure_signed(origin)?;
-            let to_did = Context::current_identity_or::<Identity<T>>(&sender)?;
-
+            let to_did = Identity::<T>::ensure_origin_call_permissions(origin)?.primary_did;
             Self::_accept_primary_issuance_agent_transfer(to_did, auth_id)
         }
 
@@ -326,9 +345,7 @@ decl_module! {
         /// * `auth_id` Authorization ID of the token ownership transfer authorization.
         #[weight = T::DbWeight::get().reads_writes(4, 5) + 200_000_000]
         pub fn accept_asset_ownership_transfer(origin, auth_id: u64) -> DispatchResult {
-            let sender = ensure_signed(origin)?;
-            let to_did = Context::current_identity_or::<Identity<T>>(&sender)?;
-
+            let to_did = Identity::<T>::ensure_origin_call_permissions(origin)?.primary_did;
             Self::_accept_token_ownership_transfer(to_did, auth_id)
         }
 
@@ -356,11 +373,10 @@ decl_module! {
             total_supply: T::Balance,
             divisible: bool,
             asset_type: AssetType,
-            identifiers: Vec<(IdentifierType, AssetIdentifier)>,
+            identifiers: Vec<AssetIdentifier>,
             funding_round: Option<FundingRoundName>,
         ) -> DispatchResult {
-            let sender = ensure_signed(origin)?;
-            let did = Context::current_identity_or::<Identity<T>>(&sender)?;
+            let did = Identity::<T>::ensure_origin_call_permissions(origin)?.primary_did;
 
             Self::base_create_asset(did, name, ticker, total_supply, divisible, asset_type, identifiers, funding_round, false)
         }
@@ -373,6 +389,7 @@ decl_module! {
         #[weight = T::DbWeight::get().reads_writes(4, 1) + 300_000_000]
         pub fn freeze(origin, ticker: Ticker) -> DispatchResult {
             let sender = ensure_signed(origin)?;
+            CallPermissions::<T>::ensure_call_permissions(&sender)?;
             let sender_did = Context::current_identity_or::<Identity<T>>(&sender)?;
 
             // verify the ownership of the token
@@ -392,8 +409,7 @@ decl_module! {
         /// * `ticker` - the ticker of the frozen token.
         #[weight = T::DbWeight::get().reads_writes(4, 1) + 300_000_000]
         pub fn unfreeze(origin, ticker: Ticker) -> DispatchResult {
-            let sender = ensure_signed(origin)?;
-            let sender_did = Context::current_identity_or::<Identity<T>>(&sender)?;
+            let sender_did = Identity::<T>::ensure_origin_call_permissions(origin)?.primary_did;
 
             // verify the ownership of the token
             ensure!(Self::is_owner(&ticker, sender_did), Error::<T>::Unauthorized);
@@ -413,8 +429,7 @@ decl_module! {
         /// * `name` - the new name of the token.
         #[weight = T::DbWeight::get().reads_writes(2, 1) + 300_000_000]
         pub fn rename_asset(origin, ticker: Ticker, name: AssetName) -> DispatchResult {
-            let sender = ensure_signed(origin)?;
-            let sender_did = Context::current_identity_or::<Identity<T>>(&sender)?;
+            let sender_did = Identity::<T>::ensure_origin_call_permissions(origin)?.primary_did;
 
             // verify the ownership of the token
             ensure!(Self::is_owner(&ticker, sender_did), Error::<T>::Unauthorized);
@@ -433,8 +448,7 @@ decl_module! {
         /// * `ticker` Ticker of the token.
         #[weight = T::DbWeight::get().reads_writes(3, 2) + 400_000_000]
         pub fn create_checkpoint(origin, ticker: Ticker) -> DispatchResult {
-            let sender = ensure_signed(origin)?;
-            let did = Context::current_identity_or::<Identity<T>>(&sender)?;
+            let did = Identity::<T>::ensure_origin_call_permissions(origin)?.primary_did;
 
             ensure!(Self::is_owner(&ticker, did), Error::<T>::Unauthorized);
             let _ = Self::_create_checkpoint(&ticker)?;
@@ -451,8 +465,11 @@ decl_module! {
         /// * `value` Amount of tokens that get issued.
         #[weight = T::DbWeight::get().reads_writes(6, 3) + 800_000_000]
         pub fn issue(origin, ticker: Ticker, value: T::Balance) -> DispatchResult {
-            let sender = ensure_signed(origin)?;
-            let did = Context::current_identity_or::<Identity<T>>(&sender)?;
+            let PermissionedCallOriginData {
+                sender,
+                primary_did: did,
+                ..
+            } = Identity::<T>::ensure_origin_call_permissions(origin)?;
 
             ensure!(Self::is_owner(&ticker, did), Error::<T>::Unauthorized);
             let beneficiary = Self::token_details(&ticker).primary_issuance_agent.unwrap_or(did);
@@ -466,8 +483,7 @@ decl_module! {
         /// * `ticker` Ticker of the token.
         #[weight = T::DbWeight::get().reads_writes(2, 1) + 300_000_000]
         pub fn make_divisible(origin, ticker: Ticker) -> DispatchResult {
-            let sender = ensure_signed(origin)?;
-            let did = Context::current_identity_or::<Identity<T>>(&sender)?;
+            let did = Identity::<T>::ensure_origin_call_permissions(origin)?.primary_did;
 
             ensure!(Self::is_owner(&ticker, did), Error::<T>::Unauthorized);
             // Read the token details
@@ -490,8 +506,7 @@ decl_module! {
         /// `500_000_000 + 600_000 * documents.len()`
         #[weight = T::DbWeight::get().reads_writes(2, 1) + 500_000_000 + 600_000 * u64::try_from(documents.len()).unwrap_or_default()]
         pub fn add_documents(origin, documents: Vec<(DocumentName, Document)>, ticker: Ticker) -> DispatchResult {
-            let sender = ensure_signed(origin)?;
-            let did = Context::current_identity_or::<Identity<T>>(&sender)?;
+            let did = Identity::<T>::ensure_origin_call_permissions(origin)?.primary_did;
 
             ensure!(Self::is_owner(&ticker, did), Error::<T>::NotAnOwner);
 
@@ -516,8 +531,7 @@ decl_module! {
         /// `500_000_000 + 600_000 * do_ids.len()`
         #[weight = T::DbWeight::get().reads_writes(2, 1) + 500_000_000 + 600_000 * u64::try_from(doc_names.len()).unwrap_or_default()]
         pub fn remove_documents(origin, doc_names: Vec<DocumentName>, ticker: Ticker) -> DispatchResult {
-            let sender = ensure_signed(origin)?;
-            let did = Context::current_identity_or::<Identity<T>>(&sender)?;
+            let did = Identity::<T>::ensure_origin_call_permissions(origin)?.primary_did;
             ensure!(Self::is_owner(&ticker, did), Error::<T>::NotAnOwner);
 
             for document_name in doc_names {
@@ -538,8 +552,7 @@ decl_module! {
         pub fn set_funding_round(origin, ticker: Ticker, name: FundingRoundName) ->
             DispatchResult
         {
-            let sender = ensure_signed(origin)?;
-            let did = Context::current_identity_or::<Identity<T>>(&sender)?;
+            let did = Identity::<T>::ensure_origin_call_permissions(origin)?.primary_did;
             ensure!(Self::is_owner(&ticker, did), Error::<T>::NotAnOwner);
             <FundingRound>::insert(ticker, name.clone());
             Self::deposit_event(RawEvent::FundingRoundSet(did, ticker, name));
@@ -560,14 +573,15 @@ decl_module! {
         pub fn update_identifiers(
             origin,
             ticker: Ticker,
-            identifiers: Vec<(IdentifierType, AssetIdentifier)>
+            identifiers: Vec<AssetIdentifier>
         ) -> DispatchResult {
-            let sender = ensure_signed(origin)?;
-            let did = Context::current_identity_or::<Identity<T>>(&sender)?;
+            let did = Identity::<T>::ensure_origin_call_permissions(origin)?.primary_did;
             ensure!(Self::is_owner(&ticker, did), Error::<T>::Unauthorized);
-            for (typ, val) in &identifiers {
-                <Identifiers>::insert((ticker, typ.clone()), val.clone());
-            }
+            let identifiers: Vec<AssetIdentifier> = identifiers
+                .into_iter()
+                .filter_map(|identifier| identifier.validate())
+                .collect();
+            <Identifiers>::insert(ticker, identifiers.clone());
             Self::deposit_event(RawEvent::IdentifiersUpdated(did, ticker, identifiers));
             Ok(())
         }
@@ -580,9 +594,7 @@ decl_module! {
         /// * `extension_details` - Details of the smart extension.
         #[weight = T::DbWeight::get().reads_writes(2, 2) + 600_000_000]
         pub fn add_extension(origin, ticker: Ticker, extension_details: SmartExtension<T::AccountId>) -> DispatchResult {
-            let sender = ensure_signed(origin)?;
-            let my_did = Context::current_identity_or::<identity::Module<T>>(&sender)?;
-
+            let my_did = Identity::<T>::ensure_origin_call_permissions(origin)?.primary_did;
             ensure!(Self::is_owner(&ticker, my_did), Error::<T>::Unauthorized);
 
             // Verify the details of smart extension & store it
@@ -649,15 +661,14 @@ decl_module! {
             origin,
             ticker: Ticker,
         ) -> DispatchResult {
-            let sender = ensure_signed(origin)?;
-            let did = Context::current_identity_or::<Identity<T>>(&sender)?;
+            let did = Identity::<T>::ensure_origin_call_permissions(origin)?.primary_did;
             ensure!(Self::is_owner(&ticker, did), Error::<T>::Unauthorized);
             let mut old_primary_issuance_agent = None;
             <Tokens<T>>::mutate(&ticker, |token| {
                 old_primary_issuance_agent = token.primary_issuance_agent;
                 token.primary_issuance_agent = None
             });
-            Self::deposit_event(RawEvent::PrimaryIssuanceAgentTransfered(did, ticker, old_primary_issuance_agent, None));
+            Self::deposit_event(RawEvent::PrimaryIssuanceAgentTransferred(did, ticker, old_primary_issuance_agent, None));
             Ok(())
         }
 
@@ -713,8 +724,7 @@ decl_module! {
             }
 
             // Ensure we're signed & get did.
-            let sender = ensure_signed(origin)?;
-            let owner_did = Context::current_identity_or::<Identity<T>>(&sender)?;
+            let owner_did = Identity::<T>::ensure_origin_call_permissions(origin)?.primary_did;
 
             // Have the caller prove that they own *some* Ethereum account
             // by having the signed signature contain the `owner_did`.
@@ -771,7 +781,7 @@ decl_event! {
         AssetCreated(IdentityId, Ticker, Balance, bool, AssetType, IdentityId),
         /// Event emitted when a token identifiers are updated.
         /// caller DID, ticker, a vector of (identifier type, identifier value)
-        IdentifiersUpdated(IdentityId, Ticker, Vec<(IdentifierType, AssetIdentifier)>),
+        IdentifiersUpdated(IdentityId, Ticker, Vec<AssetIdentifier>),
         /// Event for change in divisibility.
         /// caller DID, ticker, divisibility
         DivisibilityChanged(IdentityId, Ticker, bool),
@@ -816,7 +826,7 @@ decl_event! {
         CheckpointCreated(IdentityId, Ticker, u64),
         /// An event emitted when the primary issuance agent of an asset is transferred.
         /// First DID is the old primary issuance agent and the second DID is the new primary issuance agent.
-        PrimaryIssuanceAgentTransfered(IdentityId, Ticker, Option<IdentityId>, Option<IdentityId>),
+        PrimaryIssuanceAgentTransferred(IdentityId, Ticker, Option<IdentityId>, Option<IdentityId>),
         /// A new document attached to an asset
         DocumentAdded(Ticker, DocumentName, Document),
         /// A document removed from an asset
@@ -965,15 +975,6 @@ impl<T: Trait> AssetTrait<T::Balance, T::AccountId> for Module<T> {
         T::MaxNumberOfTMExtensionForAsset::get()
     }
 
-    fn base_transfer(
-        from_portfolio: PortfolioId,
-        to_portfolio: PortfolioId,
-        ticker: &Ticker,
-        value: T::Balance,
-    ) -> DispatchResultWithPostInfo {
-        Self::base_transfer(from_portfolio, to_portfolio, ticker, value)
-    }
-
     fn unchecked_set_total_supply(
         did: IdentityId,
         ticker: Ticker,
@@ -985,6 +986,7 @@ impl<T: Trait> AssetTrait<T::Balance, T::AccountId> for Module<T> {
     fn is_divisible(ticker: Ticker) -> bool {
         Self::token_details(ticker).divisible
     }
+
     fn token_details(ticker: &Ticker) -> SecurityToken<T::Balance> {
         Self::token_details(ticker)
     }
@@ -997,7 +999,7 @@ impl<T: Trait> AssetTrait<T::Balance, T::AccountId> for Module<T> {
         total_supply: T::Balance,
         divisible: bool,
         asset_type: AssetType,
-        identifiers: Vec<(IdentifierType, AssetIdentifier)>,
+        identifiers: Vec<AssetIdentifier>,
         funding_round: Option<FundingRoundName>,
         is_confidential: bool,
     ) -> DispatchResult {
@@ -1013,9 +1015,18 @@ impl<T: Trait> AssetTrait<T::Balance, T::AccountId> for Module<T> {
             is_confidential,
         )
     }
+
+    fn base_transfer(
+        from_portfolio: PortfolioId,
+        to_portfolio: PortfolioId,
+        ticker: &Ticker,
+        value: T::Balance,
+    ) -> DispatchResultWithPostInfo {
+        Self::base_transfer(from_portfolio, to_portfolio, ticker, value)
+    }
 }
 
-impl<T: Trait> AcceptTransfer for Module<T> {
+impl<T: Trait> AssetSubTrait for Module<T> {
     fn accept_ticker_transfer(to_did: IdentityId, auth_id: u64) -> DispatchResult {
         Self::_accept_ticker_transfer(to_did, auth_id)
     }
@@ -1027,10 +1038,31 @@ impl<T: Trait> AcceptTransfer for Module<T> {
     fn accept_asset_ownership_transfer(to_did: IdentityId, auth_id: u64) -> DispatchResult {
         Self::_accept_token_ownership_transfer(to_did, auth_id)
     }
+
+    fn update_balance_of_scope_id(
+        of: ScopeId,
+        target_did: IdentityId,
+        ticker: Ticker,
+    ) -> DispatchResult {
+        let balance_at_scope = Self::balance_of_at_scope(of, target_did);
+        // Used `balance_at_scope` variable to skip re-updating the aggregate balance of the given identityId whom
+        // has the scope claim already.
+        if balance_at_scope == Zero::zero() {
+            let current_balance = Self::balance_of(ticker, target_did);
+            // Update the balance on the identityId under the given scopeId.
+            <BalanceOfAtScope<T>>::insert(of, target_did, current_balance);
+            // current aggregate balance + current identity balance is always less then the total_supply of given ticker.
+            <AggregateBalance<T>>::mutate(ticker, of, |bal| *bal = *bal + current_balance);
+        }
+        // Caches the `ScopeId` for a given IdentityId and ticker.
+        // this is needed to avoid the on-chain iteration of the claims to find the ScopeId.
+        <ScopeIdOf>::insert(ticker, target_did, of);
+        Ok(())
+    }
 }
 
 /// All functions in the decl_module macro become part of the public interface of the module
-/// If they are there, they are accessible via extrinsics calls whether they are public or not
+/// If they are there, they are accessible via extrinsic calls whether they are public or not
 /// However, in the impl module section (this, below) the functions can be public and private
 /// Private functions are internal to this module e.g.: _transfer
 /// Public functions can be called from other modules e.g.: lock and unlock (being called from the tcr module)
@@ -1324,11 +1356,42 @@ impl<T: Trait> Module<T> {
             value,
         );
 
+        // Update the storage on the basis of the `ScopeId`
+        let update_balance = |scope_id, did, update_balance, is_sender| {
+            // Calculate the new aggregate balance for given did.
+            // It should not underflow/overflow but still to be defensive.
+            let new_aggregate_balance = if is_sender {
+                Self::aggregate_balance_of(ticker, &scope_id).saturating_sub(value)
+            } else {
+                Self::aggregate_balance_of(ticker, &scope_id).saturating_add(value)
+            };
+
+            <AggregateBalance<T>>::insert(ticker, &scope_id, new_aggregate_balance);
+            <BalanceOfAtScope<T>>::insert(scope_id, did, update_balance);
+        };
+
+        let from_scope_id = Self::scope_id_of(ticker, &from_portfolio.did);
+        let to_scope_id = Self::scope_id_of(ticker, &to_portfolio.did);
+
+        update_balance(
+            from_scope_id,
+            from_portfolio.did,
+            updated_from_total_balance,
+            true,
+        );
+        update_balance(
+            to_scope_id,
+            to_portfolio.did,
+            updated_to_total_balance,
+            false,
+        );
+
         // Update statistic info.
+        // Using the aggregate balance to update the unique investor count.
         <statistics::Module<T>>::update_transfer_stats(
             ticker,
-            Some(updated_from_total_balance),
-            Some(updated_to_total_balance),
+            Some(Self::aggregate_balance_of(ticker, &from_scope_id)),
+            Some(Self::aggregate_balance_of(ticker, &to_scope_id)),
             value,
         );
 
@@ -1429,6 +1492,9 @@ impl<T: Trait> Module<T> {
         <Tokens<T>>::insert(ticker, token);
 
         // Update the investor count of an asset.
+        // Note - Not passing the scope_id based balance because at the time of mint PIA may not
+        // have the scope claim even it exists that doesn't matter as we are not respecting the compliance
+        // restriction for the mint.
         <statistics::Module<T>>::update_transfer_stats(
             &ticker,
             None,
@@ -1533,7 +1599,7 @@ impl<T: Trait> Module<T> {
             token.primary_issuance_agent = Some(to_did);
         });
 
-        Self::deposit_event(RawEvent::PrimaryIssuanceAgentTransfered(
+        Self::deposit_event(RawEvent::PrimaryIssuanceAgentTransferred(
             to_did,
             ticker,
             old_primary_issuance_agent,
@@ -1600,11 +1666,19 @@ impl<T: Trait> Module<T> {
         // 4 byte selector of verify_transfer - 0xD9386E41
         let selector = hex!("D9386E41");
         let balance_to = match to_did {
-            Some(did) => T::Balance::encode(&<BalanceOf<T>>::get(ticker, &did)),
+            Some(did) => {
+                let scope_id = Self::scope_id_of(ticker, &did);
+                // Using aggregate balance instead of individual identity balance.
+                T::Balance::encode(&Self::aggregate_balance_of(ticker, &scope_id))
+            }
             None => T::Balance::encode(&(0.into())),
         };
         let balance_from = match from_did {
-            Some(did) => T::Balance::encode(&<BalanceOf<T>>::get(ticker, &did)),
+            Some(did) => {
+                let scope_id = Self::scope_id_of(ticker, &did);
+                // Using aggregate balance instead of individual identity balance.
+                T::Balance::encode(&Self::aggregate_balance_of(ticker, &scope_id))
+            }
             None => T::Balance::encode(&(0.into())),
         };
         let encoded_to = Option::<IdentityId>::encode(&to_did);
@@ -1839,9 +1913,7 @@ impl<T: Trait> Module<T> {
         ticker: &Ticker,
         id: &T::AccountId,
     ) -> Result<IdentityId, DispatchError> {
-        let sender = ensure_signed(origin)?;
-        let did = Context::current_identity_or::<identity::Module<T>>(&sender)?;
-
+        let did = Identity::<T>::ensure_origin_call_permissions(origin)?.primary_did;
         ensure!(Self::is_owner(ticker, did), Error::<T>::Unauthorized);
         ensure!(
             <ExtensionDetails<T>>::contains_key((ticker, id)),
@@ -1886,7 +1958,7 @@ impl<T: Trait> Module<T> {
         total_supply: T::Balance,
         divisible: bool,
         asset_type: AssetType,
-        identifiers: Vec<(IdentifierType, AssetIdentifier)>,
+        identifiers: Vec<AssetIdentifier>,
         funding_round: Option<FundingRoundName>,
         is_confidential: bool,
     ) -> DispatchResult {
@@ -1935,7 +2007,7 @@ impl<T: Trait> Module<T> {
         // At this point all checks have been made; **only** storage changes follow!
         //==========================================================================
 
-        identity::Module::<T>::commit_token_did(token_did, ticker);
+        Identity::<T>::commit_token_did(token_did, ticker);
 
         // Register the ticker or finish its registration.
         if available {
@@ -1972,9 +2044,13 @@ impl<T: Trait> Module<T> {
         }
         <AssetOwnershipRelations>::insert(did, ticker, AssetOwnershipRelation::AssetOwned);
 
-        for (typ, val) in &identifiers {
-            <Identifiers>::insert((ticker, typ.clone()), val.clone());
-        }
+        let identifiers: Vec<AssetIdentifier> = identifiers
+            .into_iter()
+            .filter_map(|identifier| identifier.validate())
+            .collect();
+
+        <Identifiers>::insert(ticker, identifiers.clone());
+
         // Add funding round name.
         <FundingRound>::insert(ticker, funding_round.unwrap_or_default());
 

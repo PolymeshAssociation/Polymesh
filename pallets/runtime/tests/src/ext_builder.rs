@@ -6,7 +6,7 @@ use pallet_committee as committee;
 use pallet_group as group;
 use pallet_identity as identity;
 use pallet_pips as pips;
-use polymesh_common_utilities::{protocol_fee::ProtocolOp, traits::identity::LinkedKeyInfo};
+use polymesh_common_utilities::{protocol_fee::ProtocolOp, GC_DID};
 use polymesh_primitives::{Identity, IdentityId, PosRatio, TickerRegistrationConfig};
 use sp_core::sr25519::Public;
 use sp_io::TestExternalities;
@@ -231,7 +231,7 @@ impl ExtBuilder {
         accounts: &[Public],
     ) -> (
         Vec<(IdentityId, Identity<AccountId>)>,
-        Vec<(AccountId, LinkedKeyInfo)>,
+        Vec<(AccountId, IdentityId)>,
     ) {
         let identities = accounts
             .iter()
@@ -241,12 +241,7 @@ impl ExtBuilder {
         let key_links = accounts
             .into_iter()
             .enumerate()
-            .map(|(idx, key)| {
-                (
-                    *key,
-                    LinkedKeyInfo::Unique(IdentityId::from((idx + 1) as u128)),
-                )
-            })
+            .map(|(idx, key)| (*key, IdentityId::from((idx + 1) as u128)))
             .collect::<Vec<_>>();
 
         (identities, key_links)
@@ -282,7 +277,7 @@ impl ExtBuilder {
         // Identity genesis.
         identity::GenesisConfig::<TestStorage> {
             did_records: system_identities.clone(),
-            key_to_identity_ids: system_links,
+            secondary_keys: system_links,
             identities: vec![],
             ..Default::default()
         }
@@ -306,6 +301,7 @@ impl ExtBuilder {
             classic_migration_contract_did: IdentityId::from(1),
             classic_migration_tconfig: ticker_registration_config.clone(),
             ticker_registration_config,
+            reserved_country_currency_codes: vec![],
         }
         .assimilate_storage(&mut storage)
         .unwrap();
@@ -322,6 +318,7 @@ impl ExtBuilder {
                 id
             })
             .cloned()
+            .chain(core::iter::once(GC_DID))
             .collect::<Vec<_>>();
 
         group::GenesisConfig::<TestStorage, group::Instance2> {
@@ -380,6 +377,7 @@ impl ExtBuilder {
             default_enactment_period: 100,
             max_pip_skip_count: 1,
             active_pip_limit: 5,
+            pending_pip_expiry: <_>::default(),
         }
         .assimilate_storage(&mut storage)
         .unwrap();
