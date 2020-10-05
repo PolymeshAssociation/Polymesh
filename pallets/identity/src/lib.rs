@@ -71,6 +71,7 @@
 //! - `accept_authorization` - Accepts an authorization.
 //! - `add_secondary_keys_with_authorization` - Adds secondary keys to target identity `id`.
 //! - `revoke_offchain_authorization` - Revokes the `auth` off-chain authorization of `signer`.
+//! - `add_investor_uniqueness_claim` - Adds InvestorUniqueness claim for a given target identity.
 
 #![cfg_attr(not(feature = "std"), no_std)]
 #![recursion_limit = "256"]
@@ -90,7 +91,7 @@ use frame_support::{
     debug, decl_error, decl_module, decl_storage,
     dispatch::{DispatchError, DispatchResult, DispatchResultWithPostInfo},
     ensure,
-    traits::{ChangeMembers, Currency, GetCallMetadata, InitializeMembers},
+    traits::{ChangeMembers, Currency, EnsureOrigin, GetCallMetadata, InitializeMembers},
     weights::{DispatchClass, GetDispatchInfo, Pays, Weight},
     Blake2_128Concat, ReversibleStorageHasher, StorageDoubleMap,
 };
@@ -100,7 +101,7 @@ use polymesh_common_utilities::{
     constants::did::{SECURITY_TOKEN, USER},
     protocol_fee::{ChargeProtocolFee, ProtocolOp},
     traits::{
-        asset::AcceptTransfer,
+        asset::AssetSubTrait,
         group::{GroupTrait, InactiveMember},
         identity::{
             AuthorizationNonce, IdentityTrait, RawEvent, SecondaryKeyWithAuth,
@@ -111,13 +112,13 @@ use polymesh_common_utilities::{
         transaction_payment::{CddAndFeeDetails, ChargeTxFee},
         AccountCallPermissionsData, CheckAccountCallPermissions,
     },
-    Context, SystematicIssuers,
+    Context, SystematicIssuers, GC_DID,
 };
 use polymesh_primitives::{
     secondary_key, Authorization, AuthorizationData, AuthorizationError, AuthorizationType, CddId,
     Claim, ClaimType, DispatchableName, Identity as DidRecord, IdentityClaim, IdentityId,
-    InvestorUid, PalletName, Permissions, Scope, SecondaryKey, Signatory, Ticker,
-    ValidProofOfInvestor,
+    InvestorUid, InvestorZKProofData, PalletName, Permissions, Scope, SecondaryKey, Signatory,
+    Ticker, ValidProofOfInvestor,
 };
 use sp_core::sr25519::Signature;
 use sp_io::hashing::blake2_256;
@@ -341,17 +342,34 @@ decl_module! {
             target_account: T::AccountId,
             secondary_keys: Vec<secondary_key::api::SecondaryKey<T::AccountId>>
         ) -> DispatchResult {
-            // Sender has to be part of CDDProviders
             let cdd_id = Self::ensure_origin_call_permissions(origin)?.primary_did;
+            Self::base_cdd_register_did(cdd_id, target_account, secondary_keys)?;
+            Ok(())
+        }
 
-            let cdd_providers = T::CddServiceProviders::get_members();
-            ensure!(cdd_providers.contains(&cdd_id), Error::<T>::UnAuthorizedCddProvider);
-            // Register Identity and add claim.
-            let _new_id = Self::_register_did(
-                target_account,
-                secondary_keys,
-                Some(ProtocolOp::IdentityCddRegisterDid)
-            )?;
+        // TODO: Remove this before mainnet.
+        /// Registers a new Identity for the `target_account` and issues a CDD claim to it.
+        ///
+        /// # Failure
+        /// - `origin` has to be a active CDD provider. Inactive CDD providers cannot add new
+        /// claims.
+        /// - `target_account` (primary key of the new Identity) can be linked to just one and only
+        /// one identity.
+        ///
+        /// # Weight
+        /// `7_000_000_000
+        #[weight = (7_000_000_000, DispatchClass::Normal, Pays::Yes)]
+        pub fn mock_cdd_register_did(
+            origin,
+            target_account: T::AccountId,
+        ) -> DispatchResult {
+            let cdd_id = Self::ensure_origin_call_permissions(origin)?.primary_did;
+            let target_did = Self::base_cdd_register_did(cdd_id, target_account, vec![])?;
+
+            // Add CDD claim for the target
+            let cdd_claim = Claim::CustomerDueDiligence(CddId::new(target_did, target_did.to_bytes().into()));
+            Self::base_add_claim(target_did, cdd_claim, cdd_id, None);
+
             Ok(())
         }
 
@@ -545,25 +563,17 @@ decl_module! {
             claim: Claim,
             expiry: Option<T::Moment>,
         ) -> DispatchResult {
-            let issuer = Self::ensure_origin_call_permissions(origin)?.primary_did;
-            ensure!(<DidRecords<T>>::contains_key(target), Error::<T>::DidMustAlreadyExist);
+            let issuer = Self::ensure_signed_and_validate_claim_target(origin, target)?;
 
             match &claim {
-                Claim::CustomerDueDiligence(..) => Self::base_add_cdd_claim(target, claim, issuer, expiry)?,
-                Claim::InvestorZKProof(..) => {
-                    Self::base_add_confidential_scope_claim(
-                        target,
-                        claim.clone(),
-                        issuer,
-                        expiry,
-                    )?
-                },
+                Claim::CustomerDueDiligence(..) => Self::base_add_cdd_claim(target, claim, issuer, expiry),
+                Claim::InvestorUniqueness(..) => Err(Error::<T>::ClaimVariantNotAllowed.into()),
                 _ => {
                     T::ProtocolFee::charge_fee(ProtocolOp::IdentityAddClaim)?;
-                    Self::base_add_claim(target, claim, issuer, expiry)
+                    Self::base_add_claim(target, claim, issuer, expiry);
+                    Ok(())
                 }
-            };
-            Ok(())
+            }
         }
 
         /// Creates a call on behalf of another DID.
@@ -625,7 +635,7 @@ decl_module! {
             let scope = claim.as_scope().cloned();
 
             match &claim {
-                Claim::InvestorZKProof(..) => Self::revoke_confidential_scope_claim(target, claim_type, issuer, scope),
+                Claim::InvestorUniqueness(..) => Self::revoke_confidential_scope_claim(target, claim_type, issuer, scope),
                 _ => {
                     Self::base_revoke_claim(target, claim_type, issuer, scope);
                     Ok(())
@@ -790,11 +800,11 @@ decl_module! {
                 Signatory::Identity(did) => {
                     match auth.authorization_data {
                         AuthorizationData::TransferTicker(_) =>
-                            T::AcceptTransferTarget::accept_ticker_transfer(did, auth_id),
+                            T::AssetSubTraitTarget::accept_ticker_transfer(did, auth_id),
                         AuthorizationData::TransferPrimaryIssuanceAgent(_) =>
-                            T::AcceptTransferTarget::accept_primary_issuance_agent_transfer(did, auth_id),
+                            T::AssetSubTraitTarget::accept_primary_issuance_agent_transfer(did, auth_id),
                         AuthorizationData::TransferAssetOwnership(_) =>
-                            T::AcceptTransferTarget::accept_asset_ownership_transfer(did, auth_id),
+                            T::AssetSubTraitTarget::accept_asset_ownership_transfer(did, auth_id),
                         AuthorizationData::AddMultiSigSigner(_) =>
                             T::MultiSig::accept_multisig_signer(Signatory::from(did), auth_id),
                         AuthorizationData::JoinIdentity(_) =>
@@ -967,6 +977,63 @@ decl_module! {
             <RevokeOffChainAuthorization<T>>::insert((signer, auth), true);
             Ok(())
         }
+
+        /// Add `Claim::InvestorUniqueness` claim for a given target identity.
+        ///
+        /// # <weight>
+        ///  Weight of the this extrinsic is depend on the computation that used to validate
+        ///  the proof of claim, which will be a constant independent of user inputs.
+        /// # </weight>
+        ///
+        /// # Arguments
+        /// * origin - Who provides the claim to the user? In this case, it's the user's account id as the user provides.
+        /// * target - `IdentityId` to which the claim gets assigned.
+        /// * claim - `InvestorUniqueness` claim details.
+        /// * proof - To validate the self attestation.
+        /// * expiry - Expiry of claim.
+        ///
+        /// # Errors
+        /// * `DidMustAlreadyExist` Target should already been a part of the ecosystem.
+        /// * `ClaimVariantNotAllowed` When origin trying to pass claim variant other than `InvestorUniqueness`.
+        /// * `ConfidentialScopeClaimNotAllowed` When issuer is different from target or CDD_ID is invalid for given user.
+        /// * `InvalidScopeClaim When proof is invalid.
+        #[weight = 7_500_000_000]
+        pub fn add_investor_uniqueness_claim(origin, target: IdentityId, claim: Claim, proof: InvestorZKProofData, expiry: Option<T::Moment>) -> DispatchResult {
+            let issuer = Self::ensure_signed_and_validate_claim_target(origin, target)?;
+
+            // Validate proof and add claim only when the claim variant is `InvestorUniqueness` only
+            // otherwise throw and error.
+            match &claim {
+                Claim::InvestorUniqueness(..) => {
+                    Self::base_add_confidential_scope_claim(
+                        target,
+                        claim,
+                        issuer,
+                        proof,
+                        expiry,
+                    )
+                },
+                _ => Err(Error::<T>::ClaimVariantNotAllowed.into())
+            }
+        }
+
+        /// Assuming this is executed by the GC voting majority, adds a new cdd claim record.
+        #[weight = 950_000_000]
+        pub fn gc_add_cdd_claim(
+            origin,
+            target: IdentityId,
+            expiry: Option<T::Moment>,
+        ) -> DispatchResult {
+            T::GCVotingMajorityOrigin::ensure_origin(origin)?;
+            Self::base_add_cdd_claim(target, Claim::make_cdd_wildcard(), GC_DID, expiry)
+        }
+
+        /// Assuming this is executed by the GC voting majority, removes an existing cdd claim record.
+        #[weight = 500_000_000]
+        pub fn gc_revoke_cdd_claim(origin, target: IdentityId) {
+            T::GCVotingMajorityOrigin::ensure_origin(origin)?;
+            Self::base_revoke_claim(target, ClaimType::CustomerDueDiligence, GC_DID, None)
+        }
     }
 }
 
@@ -1038,6 +1105,8 @@ decl_error! {
         ConfidentialScopeClaimNotAllowed,
         /// Addition of a new scope claim gets invalidated.
         InvalidScopeClaim,
+        /// Try to add a claim variant using un-designated extrinsic.
+        ClaimVariantNotAllowed,
     }
 }
 
@@ -1437,11 +1506,15 @@ impl<T: Trait> Module<T> {
             .checked_add(&leeway)
             .unwrap_or_default();
 
-        #[cfg(feature = "runtime-benchmarks")]
-        let active_cdds = [T::CddServiceProviders::get_active_members()[..], claim_for].concat();
-        #[cfg(not(feature = "runtime-benchmarks"))]
-        let active_cdds = T::CddServiceProviders::get_active_members();
+        // Supressing `mut` warning since we need mut in `runtime-benchmarks` feature but not otherwise.
+        #[allow(unused_mut)]
+        let mut active_cdds_temp = T::CddServiceProviders::get_active_members();
 
+        // For the benchmarks, self cdd claims are allowed and hence the claim target is added to the cdd providers list.
+        #[cfg(feature = "runtime-benchmarks")]
+        active_cdds_temp.push(claim_for);
+
+        let active_cdds = active_cdds_temp;
         let inactive_not_expired_cdds = T::CddServiceProviders::get_inactive_members()
             .into_iter()
             .filter(|cdd| !T::CddServiceProviders::is_member_expired(cdd, exp_with_leeway))
@@ -1714,11 +1787,7 @@ impl<T: Trait> Module<T> {
         issuer: IdentityId,
         expiry: Option<T::Moment>,
     ) -> DispatchResult {
-        let cdd_providers = T::CddServiceProviders::get_members();
-        ensure!(
-            cdd_providers.contains(&issuer),
-            Error::<T>::UnAuthorizedCddProvider
-        );
+        Self::ensure_authorized_cdd_provider(issuer)?;
 
         Self::base_add_claim(target, claim, issuer, expiry);
         Ok(())
@@ -1734,6 +1803,7 @@ impl<T: Trait> Module<T> {
         target: IdentityId,
         claim: Claim,
         issuer: IdentityId,
+        proof: InvestorZKProofData,
         expiry: Option<T::Moment>,
     ) -> DispatchResult {
         // Only owner of the identity can add that confidential claim.
@@ -1742,7 +1812,7 @@ impl<T: Trait> Module<T> {
             Error::<T>::ConfidentialScopeClaimNotAllowed
         );
 
-        if let Claim::InvestorZKProof(_s, _s_id, cdd_id, _p) = &claim {
+        if let Claim::InvestorUniqueness(_s, _s_id, cdd_id) = &claim {
             // Verify the owner of that CDD_ID.
             ensure!(
                 Self::base_fetch_cdd(target, T::Moment::zero(), Some(*cdd_id)).is_some(),
@@ -1751,9 +1821,14 @@ impl<T: Trait> Module<T> {
         }
         // Verify the confidential claim.
         ensure!(
-            ValidProofOfInvestor::evaluate_claim(&claim, &target),
+            ValidProofOfInvestor::evaluate_claim(&claim, &target, &proof),
             Error::<T>::InvalidScopeClaim
         );
+
+        if let Claim::InvestorUniqueness(Scope::Ticker(scope), scope_id, _cdd_id) = &claim {
+            // Update the balance of the IdentityId under the ScopeId provided in claim data.
+            T::AssetSubTraitTarget::update_balance_of_scope_id(*scope_id, target, *scope)?
+        }
 
         Self::base_add_claim(target, claim, issuer, expiry);
         Ok(())
@@ -1848,6 +1923,19 @@ impl<T: Trait> Module<T> {
         for signer in signers {
             Self::unlink_account_key_from_did(&signer, did)
         }
+    }
+
+    /// Ensure that the origin is signed and that the given `target` is already in the system.
+    fn ensure_signed_and_validate_claim_target(
+        origin: T::Origin,
+        target: IdentityId,
+    ) -> StdResult<IdentityId, DispatchError> {
+        let primary_did = Self::ensure_origin_call_permissions(origin)?.primary_did;
+        ensure!(
+            <DidRecords<T>>::contains_key(target),
+            Error::<T>::DidMustAlreadyExist
+        );
+        Ok(primary_did)
     }
 }
 
@@ -2050,6 +2138,40 @@ impl<T: Trait> Module<T> {
         };
         Ok(origin_data)
     }
+
+    /// Ensures that the did is an active CDD Provider.
+    fn ensure_authorized_cdd_provider(did: IdentityId) -> DispatchResult {
+        ensure!(
+            T::CddServiceProviders::get_members().contains(&did),
+            Error::<T>::UnAuthorizedCddProvider
+        );
+        Ok(())
+    }
+
+    /// Ensures that the caller is an active CDD provider and creates a new did for the target.
+    /// This function returns the new did of the target.
+    ///
+    /// # Failure
+    /// - `origin` has to be a active CDD provider. Inactive CDD providers cannot add new
+    /// claims.
+    /// - `target_account` (primary key of the new Identity) can be linked to just one and only
+    /// one identity.
+    /// - External secondary keys can be linked to just one identity.
+    fn base_cdd_register_did(
+        caller_did: IdentityId,
+        target_account: T::AccountId,
+        secondary_keys: Vec<secondary_key::api::SecondaryKey<T::AccountId>>,
+    ) -> Result<IdentityId, DispatchError> {
+        // Sender has to be part of CDDProviders
+        Self::ensure_authorized_cdd_provider(caller_did)?;
+
+        // Register Identity
+        Self::_register_did(
+            target_account,
+            secondary_keys,
+            Some(ProtocolOp::IdentityCddRegisterDid),
+        )
+    }
 }
 
 impl<T: Trait> IdentityTrait<T::AccountId> for Module<T> {
@@ -2117,7 +2239,7 @@ impl<T: Trait> IdentityTrait<T::AccountId> for Module<T> {
         });
     }
 
-    // /Provides the DID status for the given DID
+    /// Provides the DID status for the given DID
     fn has_valid_cdd(target_did: IdentityId) -> bool {
         Self::has_valid_cdd(target_did)
     }

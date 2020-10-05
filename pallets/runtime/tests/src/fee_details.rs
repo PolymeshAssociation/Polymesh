@@ -2,7 +2,7 @@ use super::{
     storage::{get_last_auth_id, make_account_without_cdd, register_keyring_account, TestStorage},
     ExtBuilder,
 };
-use frame_support::{assert_err, assert_ok, StorageDoubleMap};
+use frame_support::{assert_err, assert_ok};
 use pallet_balances as balances;
 use pallet_identity as identity;
 use pallet_multisig as multisig;
@@ -25,7 +25,7 @@ fn cdd_checks() {
         .build()
         .execute_with(|| {
             // alice does not have cdd
-            let (alice_signed, alice_did) =
+            let (alice_signed, _) =
                 make_account_without_cdd(AccountKeyring::Alice.public()).unwrap();
             let alice_key_signatory = Signatory::Account(AccountKeyring::Alice.public());
             let alice_account_signatory = AccountId32::from(AccountKeyring::Alice.public().0);
@@ -34,7 +34,7 @@ fn cdd_checks() {
 
             // charlie has valid cdd
             let charlie_signed = Origin::signed(AccountKeyring::Charlie.public());
-            let charlie_did = register_keyring_account(AccountKeyring::Charlie).unwrap();
+            let _ = register_keyring_account(AccountKeyring::Charlie).unwrap();
             let charlie_account_signatory = AccountId32::from(AccountKeyring::Charlie.public().0);
 
             // register did bypasses cdd checks

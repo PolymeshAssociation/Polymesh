@@ -14,19 +14,16 @@
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
 use crate::*;
-use cryptography::claim_proofs::{compute_cdd_id, compute_scope_id};
+//use cryptography::claim_proofs::{compute_cdd_id, compute_scope_id};
 use frame_benchmarking::{account, benchmarks};
 use frame_support::traits::Currency;
 use frame_system::RawOrigin;
 use pallet_balances as balances;
-use polymesh_primitives::{
-    CddId, Claim, CountryCode, IdentityId, InvestorUid, InvestorZKProofData, Scope, SecondaryKey,
-};
-use sp_std::{iter, prelude::*};
+use polymesh_primitives::{Claim, CountryCode, IdentityId, InvestorUid, Scope};
+use sp_std::prelude::*;
 
 const SEED: u32 = 0;
 const MAX_USER_INDEX: u32 = 1_000;
-const NAME: &'static str = "caller";
 
 fn uid_from_name_and_idx(name: &'static str, u: u32) -> InvestorUid {
     InvestorUid::from((name, u).encode().as_slice())

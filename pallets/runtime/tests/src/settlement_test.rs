@@ -27,7 +27,6 @@ use frame_support::{assert_noop, assert_ok};
 use rand::{prelude::*, thread_rng};
 use sp_core::sr25519::Public;
 use sp_runtime::AnySignature;
-use sp_std::collections::btree_set::BTreeSet;
 use std::collections::HashMap;
 use std::convert::TryFrom;
 use test_client::AccountKeyring;
@@ -2392,31 +2391,27 @@ fn test_weights_for_settlement_transaction() {
                 alice_signed.clone(),
                 ticker,
                 vec![
-                    Condition {
-                        condition_type: ConditionType::IsPresent(Claim::Accredited(
-                            ticker_id.into()
-                        )),
-                        issuers: vec![eve_did]
-                    },
-                    Condition {
-                        condition_type: ConditionType::IsAbsent(Claim::BuyLockup(ticker_id.into())),
-                        issuers: vec![eve_did]
-                    }
+                    Condition::from_dids(
+                        ConditionType::IsPresent(Claim::Accredited(ticker_id.into())),
+                        &[eve_did]
+                    ),
+                    Condition::from_dids(
+                        ConditionType::IsAbsent(Claim::BuyLockup(ticker_id.into())),
+                        &[eve_did]
+                    )
                 ],
                 vec![
-                    Condition {
-                        condition_type: ConditionType::IsPresent(Claim::Accredited(
-                            ticker_id.into()
-                        )),
-                        issuers: vec![eve_did]
-                    },
-                    Condition {
-                        condition_type: ConditionType::IsAnyOf(vec![
+                    Condition::from_dids(
+                        ConditionType::IsPresent(Claim::Accredited(ticker_id.into())),
+                        &[eve_did]
+                    ),
+                    Condition::from_dids(
+                        ConditionType::IsAnyOf(vec![
                             Claim::BuyLockup(ticker_id.into()),
                             Claim::KnowYourCustomer(ticker_id.into())
                         ]),
-                        issuers: vec![eve_did]
-                    }
+                        &[eve_did]
+                    )
                 ]
             ));
 

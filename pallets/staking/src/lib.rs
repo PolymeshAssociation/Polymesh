@@ -3912,18 +3912,15 @@ where
             });
 
             if let Some(mut unapplied) = unapplied {
-                let nominators_len = unapplied.others.len() as u64;
+                // `unapplied.others` will always be an empty vector. So skipping consideration of
+                // nominators length (i.e nominators_len).
                 let reporters_len = details.reporters.len() as u64;
 
                 {
-                    let upper_bound = 1 /* Validator/NominatorSlashInEra */ + 2 /* fetch_spans */;
-                    let rw = upper_bound + nominators_len * upper_bound;
+                    let rw = 1 /* Validator/NominatorSlashInEra */ + 2 /* fetch_spans */;
                     add_db_reads_writes(rw, rw);
                 }
                 unapplied.reporters = details.reporters.clone();
-                // Polymesh-Note
-                // Empty the other stakers array so that only the validator is slashed and not its nominators.
-                unapplied.others = vec![];
                 if slash_defer_duration == 0 {
                     // apply right away.
                     slashing::apply_slash::<T>(unapplied);
@@ -3931,8 +3928,8 @@ where
                         let slash_cost = (6, 5);
                         let reward_cost = (2, 2);
                         add_db_reads_writes(
-                            (1 + nominators_len) * slash_cost.0 + reward_cost.0 * reporters_len,
-                            (1 + nominators_len) * slash_cost.1 + reward_cost.1 * reporters_len,
+                            slash_cost.0 + reward_cost.0 * reporters_len,
+                            slash_cost.1 + reward_cost.1 * reporters_len,
                         );
                     }
                 } else {

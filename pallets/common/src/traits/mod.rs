@@ -48,7 +48,7 @@ pub trait CommonTrait: frame_system::Trait + PermissionChecker {
         + From<u128>
         + From<Self::BlockNumber>;
 
-    type AcceptTransferTarget: asset::AcceptTransfer;
+    type AssetSubTraitTarget: asset::AssetSubTrait;
 
     type BlockRewardsReserve: BlockRewardsReserveCurrency<Self::Balance, NegativeImbalance<Self>>;
 }

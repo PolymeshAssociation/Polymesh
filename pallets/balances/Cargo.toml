@@ -56,4 +56,7 @@ std = [
 	"polymesh-primitives/std",
 	"pallet-transaction-payment/std"
 ]
-runtime-benchmarks = ["frame-benchmarking"]
+runtime-benchmarks = [
+	"frame-benchmarking",
+	"polymesh-common-utilities/runtime-benchmarks"
+]

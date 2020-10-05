@@ -82,7 +82,6 @@
 pub mod benchmarking;
 
 pub mod ethereum;
-
 use codec::{Decode, Encode};
 use core::result::Result as StdResult;
 use currency::*;
@@ -99,7 +98,7 @@ use pallet_contracts::{ExecResult, Gas};
 use pallet_identity::{self as identity, PermissionedCallOriginData};
 use pallet_statistics::{self as statistics, Counter};
 use polymesh_common_utilities::{
-    asset::{AcceptTransfer, Trait as AssetTrait, GAS_LIMIT},
+    asset::{AssetSubTrait, Trait as AssetTrait, GAS_LIMIT},
     balances::Trait as BalancesTrait,
     compliance_manager::Trait as ComplianceManagerTrait,
     constants::*,
@@ -109,10 +108,11 @@ use polymesh_common_utilities::{
 };
 use polymesh_primitives::{
     AssetIdentifier, AuthorizationData, AuthorizationError, Document, DocumentName, IdentityId,
-    PortfolioId, Signatory, SmartExtension, SmartExtensionName, SmartExtensionType, Ticker,
+    PortfolioId, ScopeId, Signatory, SmartExtension, SmartExtensionName, SmartExtensionType,
+    Ticker,
 };
 use polymesh_primitives_derive::VecU8StrongTyped;
-use sp_runtime::traits::{CheckedAdd, Saturating};
+use sp_runtime::traits::{CheckedAdd, Saturating, Zero};
 #[cfg(feature = "std")]
 use sp_runtime::{Deserialize, Serialize};
 use sp_std::{convert::TryFrom, prelude::*};
@@ -339,6 +339,17 @@ decl_storage! {
 
         /// Ticker registration details on Polymath Classic / Ethereum.
         pub ClassicTickers get(fn classic_ticker_registration): map hasher(blake2_128_concat) Ticker => Option<ClassicTickerRegistration>;
+        /// Balances get stored on the basis of the `ScopeId`.
+        /// Right now it is only helpful for the UI purposes but in future it can be used to do miracles on-chain.
+        /// (ScopeId, IdentityId) => Balance.
+        pub BalanceOfAtScope get(fn balance_of_at_scope): double_map hasher(identity) ScopeId, hasher(identity) IdentityId => T::Balance;
+        /// Store aggregate balance of those identities that has the same `ScopeId`.
+        /// (Ticker, ScopeId) => Balance.
+        pub AggregateBalance get(fn aggregate_balance_of): double_map hasher(blake2_128_concat) Ticker, hasher(identity) ScopeId => T::Balance;
+        /// Tracks the ScopeId of the identity for a given ticker.
+        /// (Ticker, IdentityId) => ScopeId.
+        pub ScopeIdOf get(fn scope_id_of): double_map hasher(blake2_128_concat) Ticker, hasher(identity) IdentityId => ScopeId;
+
     }
     add_extra_genesis {
         config(classic_migration_tickers): Vec<ClassicTickerImport>;
@@ -858,7 +869,7 @@ decl_module! {
                 old_primary_issuance_agent = token.primary_issuance_agent;
                 token.primary_issuance_agent = None
             });
-            Self::deposit_event(RawEvent::PrimaryIssuanceAgentTransfered(did, ticker, old_primary_issuance_agent, None));
+            Self::deposit_event(RawEvent::PrimaryIssuanceAgentTransferred(did, ticker, old_primary_issuance_agent, None));
             Ok(())
         }
 
@@ -1016,7 +1027,7 @@ decl_event! {
         CheckpointCreated(IdentityId, Ticker, u64),
         /// An event emitted when the primary issuance agent of an asset is transferred.
         /// First DID is the old primary issuance agent and the second DID is the new primary issuance agent.
-        PrimaryIssuanceAgentTransfered(IdentityId, Ticker, Option<IdentityId>, Option<IdentityId>),
+        PrimaryIssuanceAgentTransferred(IdentityId, Ticker, Option<IdentityId>, Option<IdentityId>),
         /// A new document attached to an asset
         DocumentAdded(Ticker, DocumentName, Document),
         /// A document removed from an asset
@@ -1175,7 +1186,7 @@ impl<T: Trait> AssetTrait<T::Balance, T::AccountId> for Module<T> {
     }
 }
 
-impl<T: Trait> AcceptTransfer for Module<T> {
+impl<T: Trait> AssetSubTrait for Module<T> {
     fn accept_ticker_transfer(to_did: IdentityId, auth_id: u64) -> DispatchResult {
         Self::_accept_ticker_transfer(to_did, auth_id)
     }
@@ -1187,10 +1198,31 @@ impl<T: Trait> AcceptTransfer for Module<T> {
     fn accept_asset_ownership_transfer(to_did: IdentityId, auth_id: u64) -> DispatchResult {
         Self::_accept_token_ownership_transfer(to_did, auth_id)
     }
+
+    fn update_balance_of_scope_id(
+        of: ScopeId,
+        target_did: IdentityId,
+        ticker: Ticker,
+    ) -> DispatchResult {
+        let balance_at_scope = Self::balance_of_at_scope(of, target_did);
+        // Used `balance_at_scope` variable to skip re-updating the aggregate balance of the given identityId whom
+        // has the scope claim already.
+        if balance_at_scope == Zero::zero() {
+            let current_balance = Self::balance_of(ticker, target_did);
+            // Update the balance on the identityId under the given scopeId.
+            <BalanceOfAtScope<T>>::insert(of, target_did, current_balance);
+            // current aggregate balance + current identity balance is always less then the total_supply of given ticker.
+            <AggregateBalance<T>>::mutate(ticker, of, |bal| *bal = *bal + current_balance);
+        }
+        // Caches the `ScopeId` for a given IdentityId and ticker.
+        // this is needed to avoid the on-chain iteration of the claims to find the ScopeId.
+        <ScopeIdOf>::insert(ticker, target_did, of);
+        Ok(())
+    }
 }
 
 /// All functions in the decl_module macro become part of the public interface of the module
-/// If they are there, they are accessible via extrinsics calls whether they are public or not
+/// If they are there, they are accessible via extrinsic calls whether they are public or not
 /// However, in the impl module section (this, below) the functions can be public and private
 /// Private functions are internal to this module e.g.: _transfer
 /// Public functions can be called from other modules e.g.: lock and unlock (being called from the tcr module)
@@ -1484,11 +1516,42 @@ impl<T: Trait> Module<T> {
             value,
         );
 
+        // Update the storage on the basis of the `ScopeId`
+        let update_balance = |scope_id, did, update_balance, is_sender| {
+            // Calculate the new aggregate balance for given did.
+            // It should not underflow/overflow but still to be defensive.
+            let new_aggregate_balance = if is_sender {
+                Self::aggregate_balance_of(ticker, &scope_id).saturating_sub(value)
+            } else {
+                Self::aggregate_balance_of(ticker, &scope_id).saturating_add(value)
+            };
+
+            <AggregateBalance<T>>::insert(ticker, &scope_id, new_aggregate_balance);
+            <BalanceOfAtScope<T>>::insert(scope_id, did, update_balance);
+        };
+
+        let from_scope_id = Self::scope_id_of(ticker, &from_portfolio.did);
+        let to_scope_id = Self::scope_id_of(ticker, &to_portfolio.did);
+
+        update_balance(
+            from_scope_id,
+            from_portfolio.did,
+            updated_from_total_balance,
+            true,
+        );
+        update_balance(
+            to_scope_id,
+            to_portfolio.did,
+            updated_to_total_balance,
+            false,
+        );
+
         // Update statistic info.
+        // Using the aggregate balance to update the unique investor count.
         <statistics::Module<T>>::update_transfer_stats(
             ticker,
-            Some(updated_from_total_balance),
-            Some(updated_to_total_balance),
+            Some(Self::aggregate_balance_of(ticker, &from_scope_id)),
+            Some(Self::aggregate_balance_of(ticker, &to_scope_id)),
             value,
         );
 
@@ -1589,6 +1652,9 @@ impl<T: Trait> Module<T> {
         <Tokens<T>>::insert(ticker, token);
 
         // Update the investor count of an asset.
+        // Note - Not passing the scope_id based balance because at the time of mint PIA may not
+        // have the scope claim even it exists that doesn't matter as we are not respecting the compliance
+        // restriction for the mint.
         <statistics::Module<T>>::update_transfer_stats(
             &ticker,
             None,
@@ -1693,7 +1759,7 @@ impl<T: Trait> Module<T> {
             token.primary_issuance_agent = Some(to_did);
         });
 
-        Self::deposit_event(RawEvent::PrimaryIssuanceAgentTransfered(
+        Self::deposit_event(RawEvent::PrimaryIssuanceAgentTransferred(
             to_did,
             ticker,
             old_primary_issuance_agent,
@@ -1760,11 +1826,19 @@ impl<T: Trait> Module<T> {
         // 4 byte selector of verify_transfer - 0xD9386E41
         let selector = hex!("D9386E41");
         let balance_to = match to_did {
-            Some(did) => T::Balance::encode(&<BalanceOf<T>>::get(ticker, &did)),
+            Some(did) => {
+                let scope_id = Self::scope_id_of(ticker, &did);
+                // Using aggregate balance instead of individual identity balance.
+                T::Balance::encode(&Self::aggregate_balance_of(ticker, &scope_id))
+            }
             None => T::Balance::encode(&(0.into())),
         };
         let balance_from = match from_did {
-            Some(did) => T::Balance::encode(&<BalanceOf<T>>::get(ticker, &did)),
+            Some(did) => {
+                let scope_id = Self::scope_id_of(ticker, &did);
+                // Using aggregate balance instead of individual identity balance.
+                T::Balance::encode(&Self::aggregate_balance_of(ticker, &scope_id))
+            }
             None => T::Balance::encode(&(0.into())),
         };
         let encoded_to = Option::<IdentityId>::encode(&to_did);

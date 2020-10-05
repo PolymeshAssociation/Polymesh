@@ -14,9 +14,9 @@ pub struct ValidProofOfInvestor;
 
 impl ValidProofOfInvestor {
     /// Evaluates if the claim is a valid proof.
-    pub fn evaluate_claim(claim: &Claim, id: &IdentityId) -> bool {
+    pub fn evaluate_claim(claim: &Claim, id: &IdentityId, proof: &InvestorZKProofData) -> bool {
         match claim {
-            Claim::InvestorZKProof(Scope::Ticker(ticker), scope_id, cdd_id, proof) => {
+            Claim::InvestorUniqueness(Scope::Ticker(ticker), scope_id, cdd_id) => {
                 let message = InvestorZKProofData::make_message(id, ticker);
                 Self::verify_proof(cdd_id, id, scope_id, ticker, proof, &message)
             }
@@ -87,8 +87,12 @@ mod tests {
         let scope_claim = InvestorZKProofData::make_scope_claim(&asset_ticker, &investor_uid);
         let scope_id = compute_scope_id(&scope_claim).compress().to_bytes().into();
 
-        let claim = Claim::InvestorZKProof(Scope::Ticker(asset_ticker), scope_id, cdd_id, proof);
+        let claim = Claim::InvestorUniqueness(Scope::Ticker(asset_ticker), scope_id, cdd_id);
 
-        assert!(ValidProofOfInvestor::evaluate_claim(&claim, &investor_id));
+        assert!(ValidProofOfInvestor::evaluate_claim(
+            &claim,
+            &investor_id,
+            &proof
+        ));
     }
 }
