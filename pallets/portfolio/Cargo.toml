@@ -26,7 +26,7 @@ sp-std = { package = "sp-std", git = "https://github.com/paritytech/substrate", 
 
 [features]
 equalize = []
-default = ["std", "equalize", "runtime-benchmarks"]
+default = ["std", "equalize"]
 no_std = []
 only-staking = []
 std = [
@@ -38,6 +38,4 @@ std = [
     "polymesh-primitives/std",
     "serde/std",
     "sp-std/std",
-]
-runtime-benchmarks = [
 ]

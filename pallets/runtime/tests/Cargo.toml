@@ -20,7 +20,7 @@ pallet-compliance-manager = { path = "../../compliance-manager", default-feature
 pallet-confidential = { path = "../../confidential", default-features = false }
 pallet-contracts = { git = "https://github.com/paritytech/substrate", tag = "v2.0.0-rc6", default-features = false }
 pallet-group = { path = "../../group", default-features = false }
-pallet-identity = { path = "../../identity", default-features = false }
+pallet-identity = { path = "../../identity", default-features = false, features = ["no_cdd"] }
 pallet-multisig = { path = "../../multisig", default-features = false }
 pallet-permissions = { path = "../../permissions", default-features = false }
 pallet-pips = { path = "../../pips", default-features = false }
@@ -85,7 +85,7 @@ libsecp256k1 = { version = "0.3.5", default-features = false }
 [features]
 equalize = []
 only-staking = []
-default = ["std", "equalize", "runtime-benchmarks"]
+default = ["std", "equalize"]
 std = [
     "cryptography/std",
     "frame-benchmarking/std",
@@ -130,8 +130,6 @@ std = [
     "substrate-test-utils",
     "test_client",
 ]
-
 runtime-benchmarks = [
-     "frame-benchmarking",
-     "pallet-identity/runtime-benchmarks"
+    "frame-benchmarking",
 ]
