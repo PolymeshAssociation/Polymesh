@@ -24,9 +24,6 @@ use sc_cli::{ChainSpec, RuntimeVersion};
 pub use sc_cli::{Result, SubstrateCli};
 use sc_service::config::Role;
 
-#[cfg(feature = "runtime-benchmarks")]
-use polymesh_runtime::runtime;
-
 impl SubstrateCli for Cli {
     fn impl_name() -> String {
         "Polymesh Node".into()
@@ -134,13 +131,19 @@ pub fn run() -> Result<()> {
             }
         }
         Some(Subcommand::Benchmark(cmd)) => {
-            let runtime = cli.create_runner(cmd)?;
-            let chain_spec = &runtime.config().chain_spec;
+            if cfg!(feature = "runtime-benchmarks") {
+                let runner = cli.create_runner(cmd)?;
+                let chain_spec = &runner.config().chain_spec;
 
-            if chain_spec.is_alcyone_network() {
-                runtime.sync_run(|config| cmd.run::<Block, service::AlcyoneExecutor>(config))
+                if chain_spec.is_alcyone_network() {
+                    runner.sync_run(|config| cmd.run::<Block, service::AlcyoneExecutor>(config))
+                } else {
+                    runner.sync_run(|config| cmd.run::<Block, service::GeneralExecutor>(config))
+                }
             } else {
-                runtime.sync_run(|config| cmd.run::<Block, service::GeneralExecutor>(config))
+                Err("Benchmarking wasn't enabled when building the node. \
+				You can enable it with `--features runtime-benchmarks`."
+                    .into())
             }
         }
     }

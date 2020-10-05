@@ -6,10 +6,10 @@ edition = "2018"
 
 [dependencies]
 # Ours
-polymesh-primitives-derive = { path = "../primitives_derive" }
+polymesh-primitives-derive = { path = "../primitives_derive", default-features = false }
 
 # Other
-serde = { version = "1.0.104", optional = true, features = ["derive"] }
+serde = { version = "1.0.104", optional = true, default-features = false, features = ["derive"] }
 
 # Crypto
 cryptography = { git = "https://github.com/PolymathNetwork/cryptography.git", branch = "develop", default-features = false }
@@ -60,4 +60,12 @@ std = [
 	"schnorrkel/std",
 	"blake2/std",
 	"blake2/simd",
+	"polymesh-primitives-derive/std",
+	"curve25519-dalek/std",
+	"sp-application-crypto/std"
+]
+
+runtime-benchmarks = [
+	"sp-io/disable_panic_handler",
+	"sp-io/disable_oom"
 ]

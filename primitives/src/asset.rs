@@ -13,7 +13,9 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
-use crate::{IdentityId, Ticker};
+#![allow(missing_docs)]
+
+use crate::IdentityId;
 use codec::{Decode, Encode};
 use polymesh_primitives_derive::VecU8StrongTyped;
 #[cfg(feature = "std")]
@@ -21,6 +23,7 @@ use serde::{Deserialize, Serialize};
 use sp_std::prelude::*;
 
 /// The type of an asset represented by a token.
+
 #[derive(Encode, Decode, Clone, Debug, PartialEq, Eq)]
 pub enum AssetType {
     EquityCommon,

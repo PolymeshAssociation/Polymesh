@@ -19,8 +19,6 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 #![feature(bool_to_option)]
 
-use blake2::{Blake2b, Digest};
-use curve25519_dalek::scalar::Scalar;
 use polymesh_primitives_derive::VecU8StrongTyped;
 #[cfg(feature = "std")]
 use sp_runtime::{Deserialize, Serialize};

@@ -36,15 +36,12 @@ frame-system = { git = "https://github.com/paritytech/substrate", default-featur
 pallet-timestamp = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0-rc6" }
 pallet-authorship = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0-rc6" }
 
-frame-benchmarking = { git = "https://github.com/paritytech/substrate", tag = "v2.0.0-rc6", optional = true }
-
 [features]
 equalize = []
 only-staking = []
-default = ["std", "equalize", "runtime-benchmarks"]
+default = ["std", "equalize"]
 no_std = []
 std = [
-    "frame-benchmarking/std",
     "frame-support/std",
     "frame-system/std",
     "pallet-asset/std",
@@ -64,10 +61,4 @@ std = [
     "sp-io/std",
     "sp-runtime/std",
     "sp-std/std",
-]
-
-runtime-benchmarks = [
-    "frame-benchmarking",
-    "pallet-asset/runtime-benchmarks",
-    "pallet-identity/runtime-benchmarks",
 ]
