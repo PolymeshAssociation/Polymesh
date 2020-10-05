@@ -32,7 +32,7 @@ pub mod config {
 
     pub type AssetConfig = asset::GenesisConfig<crate::Runtime>;
     pub type BalancesConfig = balances::GenesisConfig<crate::Runtime>;
-    pub type BridgeConfig = polymesh_runtime_common::bridge::GenesisConfig<crate::Runtime>;
+    pub type BridgeConfig = pallet_bridge::GenesisConfig<crate::Runtime>;
     pub type IdentityConfig = identity::GenesisConfig<crate::Runtime>;
     pub type StakingConfig = pallet_staking::GenesisConfig<crate::Runtime>;
     pub type PolymeshCommitteeConfig =
