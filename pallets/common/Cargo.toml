@@ -57,3 +57,4 @@ std = [
 	"polymesh-primitives/std",
 	"pallet-session/std",
 ]
+runtime-benchmarks = []
