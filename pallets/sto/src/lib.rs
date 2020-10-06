@@ -118,7 +118,7 @@ decl_error! {
         // Interacting with a fundraiser past the end `Moment`.
         FundraiserExpired,
         // Interacting with a fundraiser before the start `Moment`.
-        FundraiserNotStated,
+        FundraiserNotStarted,
         // Using an invalid venue
         InvalidVenue,
         // Using an invalid portfolio
@@ -166,6 +166,9 @@ decl_module! {
                 Error::<T>::InvalidVenue
             );
 
+            ensure!(raising_portfolio.did == did, Error::<T>::InvalidPortfolio);
+            ensure!(<PortfolioAssetBalances<T>>::contains_key(raising_portfolio, raising_asset), Error::<T>::InvalidPortfolio);
+
             ensure!(offering_portfolio.did == did, Error::<T>::InvalidPortfolio);
             ensure!(<PortfolioAssetBalances<T>>::contains_key(offering_portfolio, offering_asset), Error::<T>::InvalidPortfolio);
             let asset_balance = <PortfolioAssetBalances<T>>::get(offering_portfolio, offering_asset);
@@ -179,8 +182,7 @@ decl_module! {
                 .iter()
                 .map(|t| t.total)
                 .fold(0.into(), |total, x| total + x);
-
-            ensure!(offering_amount >= asset_balance, Error::<T>::InsufficientTokensRemaining);
+            ensure!(offering_amount <= asset_balance, Error::<T>::InsufficientTokensRemaining);
 
             let mut tiers = tiers;
             // (Stable) sort by price.
@@ -188,7 +190,6 @@ decl_module! {
 
             // TODO: Take custodial ownership of $sell_amount of $offering_token from primary issuance agent?
             let fundraiser_id = Self::fundraiser_count(offering_asset) + 1;
-            // TODO revise the defaults
             let fundraiser = Fundraiser {
                     offering_portfolio,
                     offering_asset,
@@ -199,7 +200,10 @@ decl_module! {
                     start: start.unwrap_or_else(Timestamp::<T>::get),
                     end,
                     frozen: false,
-                };
+            };
+            if let Some(end) = fundraiser.end {
+                ensure!(fundraiser.start < end, Error::<T>::FundraiserExpired);
+            }
             FundraiserCount::insert(offering_asset, fundraiser_id);
             <Fundraisers<T>>::insert(
                 offering_asset,
@@ -232,7 +236,7 @@ decl_module! {
 
             let now = Timestamp::<T>::get();
             let fundraiser = <Fundraisers<T>>::get(offering_asset, fundraiser_id).ok_or(Error::<T>::FundraiserNotFound)?;
-            ensure!(fundraiser.start <= now, Error::<T>::FundraiserNotStated);
+            ensure!(fundraiser.start <= now, Error::<T>::FundraiserNotStarted);
             if let Some(end) = fundraiser.end {
                 ensure!(end > now, Error::<T>::FundraiserExpired);
             }
@@ -338,7 +342,7 @@ decl_module! {
 
             let now = Timestamp::<T>::get();
             let fundraiser = <Fundraisers<T>>::get(offering_asset, fundraiser_id).ok_or(Error::<T>::FundraiserNotFound)?;
-            ensure!(fundraiser.start <= now, Error::<T>::FundraiserNotStated);
+            ensure!(fundraiser.start <= now, Error::<T>::FundraiserNotStarted);
             if let Some(end) = fundraiser.end {
                 ensure!(end > now, Error::<T>::FundraiserExpired);
             }
@@ -357,7 +361,7 @@ decl_module! {
 
             let now = Timestamp::<T>::get();
             let fundraiser = <Fundraisers<T>>::get(offering_asset, fundraiser_id).ok_or(Error::<T>::FundraiserNotFound)?;
-            ensure!(fundraiser.start <= now, Error::<T>::FundraiserNotStated);
+            ensure!(fundraiser.start <= now, Error::<T>::FundraiserNotStarted);
             if let Some(end) = fundraiser.end {
                 ensure!(end > now, Error::<T>::FundraiserExpired);
             }
@@ -376,7 +380,7 @@ decl_module! {
 
             let now = Timestamp::<T>::get();
             let fundraiser = <Fundraisers<T>>::get(offering_asset, fundraiser_id).ok_or(Error::<T>::FundraiserNotFound)?;
-            ensure!(fundraiser.start <= now, Error::<T>::FundraiserNotStated);
+            ensure!(fundraiser.start <= now, Error::<T>::FundraiserNotStarted);
             if let Some(end) = fundraiser.end {
                 ensure!(end > now, Error::<T>::FundraiserExpired);
             }

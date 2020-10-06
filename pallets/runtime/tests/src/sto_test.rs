@@ -8,22 +8,29 @@ use pallet_settlement::{self as settlement, Receipt, ReceiptDetails, VenueDetail
 use pallet_sto::{self as sto, Fundraiser, FundraiserTier, PriceTier};
 use polymesh_primitives::{PortfolioId, Ticker};
 
-use frame_support::assert_ok;
+use frame_support::{assert_ok, assert_err};
 use sp_std::convert::TryFrom;
 use test_client::AccountKeyring;
 
 type Origin = <TestStorage as frame_system::Trait>::Origin;
 type Asset = asset::Module<TestStorage>;
 type STO = sto::Module<TestStorage>;
+type Error = sto::Error<TestStorage>;
 type ComplianceManager = compliance_manager::Module<TestStorage>;
 type Settlement = settlement::Module<TestStorage>;
 type Timestamp = pallet_timestamp::Module<TestStorage>;
 
 #[test]
-fn basic_raise() {
+fn raise_happy_path_ext() {
     ExtBuilder::default()
         .build()
         .execute_with(|| raise_happy_path);
+}
+#[test]
+fn raise_unhappy_path_ext() {
+    ExtBuilder::default()
+        .build()
+        .execute_with(|| raise_unhappy_path());
 }
 
 fn raise_happy_path() {
@@ -49,7 +56,7 @@ fn raise_happy_path() {
     ));
 
     assert_ok!(Asset::create_asset(
-        bob_signed.clone(),
+        alice_signed.clone(),
         vec![0x01].into(),
         raise_ticker,
         1_000_000, // Total supply over the limit
@@ -57,6 +64,13 @@ fn raise_happy_path() {
         AssetType::default(),
         vec![],
         None,
+    ));
+
+    assert_ok!(Asset::unsafe_transfer(
+        PortfolioId::default_portfolio(alice_did),
+        PortfolioId::default_portfolio(bob_did),
+        &raise_ticker,
+        1_000_000
     ));
 
     // Add empty compliance requirements
@@ -67,7 +81,7 @@ fn raise_happy_path() {
         vec![]
     ));
     assert_ok!(ComplianceManager::add_compliance_requirement(
-        bob_signed.clone(),
+        alice_signed.clone(),
         raise_ticker,
         vec![],
         vec![]
@@ -79,7 +93,7 @@ fn raise_happy_path() {
         alice_signed.clone(),
         VenueDetails::default(),
         vec![alice],
-        VenueType::Other
+        VenueType::Sto
     ));
 
     let amount = 100u128;
@@ -181,5 +195,251 @@ fn raise_happy_path() {
     assert_eq!(
         Asset::balance_of(&raise_ticker, bob_did),
         bob_init_balance2 - amount
+    );
+}
+
+fn raise_unhappy_path() {
+    let alice_did = register_keyring_account(AccountKeyring::Alice).unwrap();
+    let alice_signed = Origin::signed(AccountKeyring::Alice.public());
+    let alice = AccountKeyring::Alice.public();
+    let bob_did = register_keyring_account(AccountKeyring::Bob).unwrap();
+    let bob_signed = Origin::signed(AccountKeyring::Bob.public());
+
+    let offering_ticker = Ticker::try_from(&[0x01][..]).unwrap();
+    let raise_ticker = Ticker::try_from(&[0x02][..]).unwrap();
+
+    // Offering asset not created
+    assert_err!(
+        STO::create_fundraiser(
+            alice_signed.clone(),
+            PortfolioId::default_portfolio(alice_did),
+            offering_ticker,
+            PortfolioId::default_portfolio(alice_did),
+            raise_ticker,
+            vec![PriceTier {
+                total: 1_000_000u128,
+                price: 1u128
+            }],
+            0,
+            None,
+            None,
+        ),
+        Error::Unauthorized
+    );
+
+    assert_ok!(Asset::create_asset(
+        alice_signed.clone(),
+        vec![0x01].into(),
+        offering_ticker,
+        1_000_000, // Total supply over the limit
+        true,
+        AssetType::default(),
+        vec![],
+        None,
+    ));
+
+    // Venue does not exist
+    assert_err!(
+        STO::create_fundraiser(
+            alice_signed.clone(),
+            PortfolioId::default_portfolio(alice_did),
+            offering_ticker,
+            PortfolioId::default_portfolio(alice_did),
+            raise_ticker,
+            vec![PriceTier {
+                total: 1_000_000u128,
+                price: 1u128
+            }],
+            0,
+            None,
+            None,
+        ),
+        Error::InvalidVenue
+    );
+
+    let bad_venue = Settlement::venue_counter();
+    assert_ok!(Settlement::create_venue(
+        bob_signed.clone(),
+        VenueDetails::default(),
+        vec![alice],
+        VenueType::Other
+    ));
+
+    // Venue not created by primary issuance agent
+    assert_err!(
+        STO::create_fundraiser(
+            alice_signed.clone(),
+            PortfolioId::default_portfolio(alice_did),
+            offering_ticker,
+            PortfolioId::default_portfolio(alice_did),
+            raise_ticker,
+            vec![PriceTier {
+                total: 1_000_000u128,
+                price: 1u128
+            }],
+            bad_venue,
+            None,
+            None,
+        ),
+        Error::InvalidVenue
+    );
+
+    let bad_venue = Settlement::venue_counter();
+    assert_ok!(Settlement::create_venue(
+        alice_signed.clone(),
+        VenueDetails::default(),
+        vec![alice],
+        VenueType::Other
+    ));
+
+    // Venue type not Sto
+    assert_err!(
+        STO::create_fundraiser(
+            alice_signed.clone(),
+            PortfolioId::default_portfolio(alice_did),
+            offering_ticker,
+            PortfolioId::default_portfolio(alice_did),
+            raise_ticker,
+            vec![PriceTier {
+                total: 1_000_000u128,
+                price: 1u128
+            }],
+            bad_venue,
+            None,
+            None,
+        ),
+        Error::InvalidVenue
+    );
+
+    let correct_venue = Settlement::venue_counter();
+    assert_ok!(Settlement::create_venue(
+        alice_signed.clone(),
+        VenueDetails::default(),
+        vec![alice],
+        VenueType::Sto
+    ));
+
+    // Raise asset not created
+    assert_err!(
+        STO::create_fundraiser(
+            alice_signed.clone(),
+            PortfolioId::default_portfolio(alice_did),
+            offering_ticker,
+            PortfolioId::default_portfolio(alice_did),
+            raise_ticker,
+            vec![PriceTier {
+                total: 1_000_000u128,
+                price: 1u128
+            }],
+            correct_venue,
+            None,
+            None,
+        ),
+        Error::InvalidPortfolio
+    );
+
+    assert_ok!(Asset::create_asset(
+        alice_signed.clone(),
+        vec![0x01].into(),
+        raise_ticker,
+        1_000_000, // Total supply over the limit
+        true,
+        AssetType::default(),
+        vec![],
+        None,
+    ));
+
+    assert_ok!(Asset::unsafe_transfer(
+        PortfolioId::default_portfolio(alice_did),
+        PortfolioId::default_portfolio(bob_did),
+        &raise_ticker,
+        1_000_000
+    ));
+
+    // Add empty compliance requirements
+    assert_ok!(ComplianceManager::add_compliance_requirement(
+        alice_signed.clone(),
+        offering_ticker,
+        vec![],
+        vec![]
+    ));
+    assert_ok!(ComplianceManager::add_compliance_requirement(
+        alice_signed.clone(),
+        raise_ticker,
+        vec![],
+        vec![]
+    ));
+
+    // No prices
+    assert_err!(
+        STO::create_fundraiser(
+            alice_signed.clone(),
+            PortfolioId::default_portfolio(alice_did),
+            offering_ticker,
+            PortfolioId::default_portfolio(alice_did),
+            raise_ticker,
+            vec![],
+            correct_venue,
+            None,
+            None,
+        ),
+        Error::InvalidPriceTiers
+    );
+
+    // Zero total
+    assert_err!(
+        STO::create_fundraiser(
+            alice_signed.clone(),
+            PortfolioId::default_portfolio(alice_did),
+            offering_ticker,
+            PortfolioId::default_portfolio(alice_did),
+            raise_ticker,
+            vec![PriceTier {
+                total: 0u128,
+                price: 1u128
+            }],
+            correct_venue,
+            None,
+            None,
+        ),
+        Error::InvalidPriceTiers
+    );
+
+    // Over offering
+    assert_err!(
+        STO::create_fundraiser(
+            alice_signed.clone(),
+            PortfolioId::default_portfolio(alice_did),
+            offering_ticker,
+            PortfolioId::default_portfolio(alice_did),
+            raise_ticker,
+            vec![PriceTier {
+                total: u128::MAX,
+                price: 1u128
+            }],
+            correct_venue,
+            None,
+            None,
+        ),
+        Error::InsufficientTokensRemaining
+    );
+
+    // Invalid time window
+    assert_err!(
+        STO::create_fundraiser(
+            alice_signed.clone(),
+            PortfolioId::default_portfolio(alice_did),
+            offering_ticker,
+            PortfolioId::default_portfolio(alice_did),
+            raise_ticker,
+            vec![PriceTier {
+                total: 100u128,
+                price: 1u128
+            }],
+            correct_venue,
+            Some(1),
+            Some(0),
+        ),
+        Error::FundraiserExpired
     );
 }
