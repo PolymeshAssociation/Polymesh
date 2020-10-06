@@ -20,6 +20,7 @@ sp-std = { git = "https://github.com/paritytech/substrate", default-features = f
 sp-runtime = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0-rc6" }
 frame-support = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0-rc6" }
 frame-system = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0-rc6" }
+pallet-scheduler = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0-rc6" }
 
 frame-benchmarking = { git = "https://github.com/paritytech/substrate", tag = "v2.0.0-rc6", optional = true }
 
@@ -38,6 +39,7 @@ std = [
     "pallet-balances/std",
     "pallet-identity/std",
     "pallet-multisig/std",
+    "pallet-scheduler/std",
     "polymesh-common-utilities/std",
     "polymesh-primitives/std",
     "serde/std",

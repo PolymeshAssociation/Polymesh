@@ -109,6 +109,7 @@ use frame_system::{self as system, ensure_signed};
 use pallet_balances as balances;
 use pallet_identity as identity;
 use pallet_multisig as multisig;
+use pallet_scheduler as scheduler;
 use polymesh_common_utilities::{
     traits::{balances::CheckCdd, identity::Trait as IdentityTrait, CommonTrait},
     Context, GC_DID,
