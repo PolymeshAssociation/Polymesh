@@ -750,7 +750,7 @@ pub fn provide_scope_claim(
     let proof: InvestorZKProofData = InvestorZKProofData::new(&claim_to, &investor_uid, &scope);
     let cdd_claim = InvestorZKProofData::make_cdd_claim(&claim_to, &investor_uid);
     let cdd_id = compute_cdd_id(&cdd_claim).compress().to_bytes().into();
-    let scope_claim = InvestorZKProofData::make_scope_claim(&scope, &investor_uid);
+    let scope_claim = InvestorZKProofData::make_scope_claim(&scope.as_slice(), &investor_uid);
     let scope_id = compute_scope_id(&scope_claim).compress().to_bytes().into();
 
     let signed_claim_to = Origin::signed(Identity::did_records(claim_to).primary_key);
