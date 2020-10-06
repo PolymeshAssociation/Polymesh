@@ -3,11 +3,11 @@ use super::{
     ExtBuilder,
 };
 use chrono::prelude::Utc;
-use frame_support::{assert_err, assert_noop, assert_ok, traits::Currency};
+use frame_support::{assert_err, assert_noop, assert_ok, traits::Currency, StorageDoubleMap};
 use pallet_asset::{self as asset, AssetName, AssetType, SecurityToken};
 use pallet_balances as balances;
 use pallet_compliance_manager::{
-    self as compliance_manager, AssetComplianceResult, ComplianceRequirement,
+    self as compliance_manager, AssetComplianceResult, AssetCompliances, ComplianceRequirement,
     ComplianceRequirementResult, Error as CMError, ImplicitRequirementResult,
 };
 use pallet_group as group;
@@ -364,19 +364,16 @@ fn should_replace_asset_compliance_we() {
         vec![]
     ));
 
-    let asset_compliance = ComplianceManager::asset_compliance(ticker);
-    assert_eq!(asset_compliance.requirements.len(), 1);
+    let asset_compliance = AssetCompliances::iter_prefix_values(ticker).collect::<Vec<_>>();
+    assert_eq!(asset_compliance.len(), 1);
 
     // Create three requirements with different requirement IDs.
-    let new_asset_compliance: Vec<ComplianceRequirement> =
-        std::iter::repeat(|id: u32| ComplianceRequirement {
+    let new_asset_compliance: Vec<ComplianceRequirement> = (1..=3)
+        .map(|id| ComplianceRequirement {
             sender_conditions: vec![],
             receiver_conditions: vec![],
             id,
         })
-        .take(3)
-        .enumerate()
-        .map(|(n, f)| f(n as u32))
         .collect();
 
     assert_ok!(ComplianceManager::replace_asset_compliance(
@@ -385,8 +382,9 @@ fn should_replace_asset_compliance_we() {
         new_asset_compliance.clone(),
     ));
 
-    let asset_compliance = ComplianceManager::asset_compliance(ticker);
-    assert_eq!(asset_compliance.requirements, new_asset_compliance);
+    let mut asset_compliance = AssetCompliances::iter_prefix_values(ticker).collect::<Vec<_>>();
+    asset_compliance.sort_by_key(|ac| ac.id);
+    assert_eq!(asset_compliance, new_asset_compliance);
 }
 
 #[test]
@@ -432,16 +430,16 @@ fn should_reset_asset_compliance_we() {
         vec![]
     ));
 
-    let asset_compliance = ComplianceManager::asset_compliance(ticker);
-    assert_eq!(asset_compliance.requirements.len(), 1);
+    let asset_compliance = AssetCompliances::iter_prefix_values(ticker).collect::<Vec<_>>();
+    assert_eq!(asset_compliance.len(), 1);
 
     assert_ok!(ComplianceManager::reset_asset_compliance(
         token_owner_signed.clone(),
         ticker
     ));
 
-    let asset_compliance_new = ComplianceManager::asset_compliance(ticker);
-    assert_eq!(asset_compliance_new.requirements.len(), 0);
+    let asset_compliance_new = AssetCompliances::iter_prefix_values(ticker).collect::<Vec<_>>();
+    assert_eq!(asset_compliance_new.len(), 0);
 }
 
 #[test]
@@ -1538,8 +1536,8 @@ fn should_limit_compliance_requirements_complexity_we() {
         CMError::<TestStorage>::ComplianceRequirementTooComplex
     );
 
-    let asset_compliance = ComplianceManager::asset_compliance(ticker);
-    assert_eq!(asset_compliance.requirements.len(), 1);
+    let asset_compliance = AssetCompliances::iter_prefix_values(ticker).collect::<Vec<_>>();
+    assert_eq!(asset_compliance.len(), 1);
 }
 
 #[test]
