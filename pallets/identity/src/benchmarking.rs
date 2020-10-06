@@ -79,7 +79,7 @@ benchmarks! {
         let cdd_claim = Claim::CustomerDueDiligence(cdd_id);
         Module::<T>::base_add_claim(did, cdd_claim, did, Some(666.into()));
 
-        let scope = Scope::Ticker(Ticker::unsafe_ticker([228u8,152,116,104,5,8,30,188,143,185,10,208]));
+        let scope = Scope::Custom([228u8,152,116,104,5,8,30,188,143,185,10,208].to_vec());
         let scope_did = IdentityId::from([2u8,72,20,154,7,96,116,105,155,74,227,252,172,18,200,203,137,107,200,210,194,71,250,41,108,172,100,107,223,114,182,101]);
         let conf_scope_claim = Claim::InvestorUniqueness(scope, scope_did, cdd_id);
 
