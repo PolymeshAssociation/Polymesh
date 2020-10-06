@@ -55,7 +55,7 @@ impl ValidProofOfInvestor {
 mod tests {
     use super::*;
     use crate::proposition::{exists, Proposition};
-    use crate::{Claim, Context, InvestorUid, InvestorZKProofData};
+    use crate::{Claim, Context, InvestorUid, InvestorZKProofData, Ticker};
     use cryptography::claim_proofs::{compute_cdd_id, compute_scope_id};
     use sp_std::convert::{From, TryFrom};
 
