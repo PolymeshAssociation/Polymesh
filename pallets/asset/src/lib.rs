@@ -1627,10 +1627,9 @@ impl<T: Trait> Module<T> {
             .checked_add(&value)
             .ok_or(Error::<T>::BalanceOverflow)?;
 
-        let maybe_due_checkpoint = Self::is_checkpoint_due(ticker);
         Self::_update_checkpoint(ticker, from_portfolio.did, from_total_balance);
         Self::_update_checkpoint(ticker, to_portfolio.did, to_total_balance);
-        if let Some(timestamp) = maybe_due_checkpoint {
+        if let Some(timestamp) = Self::is_checkpoint_due(ticker) {
             // Record the scheduled checkpoint.
             Self::_create_checkpoint(ticker, timestamp)?;
         }
@@ -1791,9 +1790,8 @@ impl<T: Trait> Module<T> {
             T::ProtocolFee::charge_fee(op)?;
         }
 
-        let maybe_due_checkpoint = Self::is_checkpoint_due(ticker);
         Self::_update_checkpoint(ticker, to_did, current_to_balance);
-        if let Some(timestamp) = maybe_due_checkpoint {
+        if let Some(timestamp) = Self::is_checkpoint_due(ticker) {
             // Record the scheduled checkpoint.
             Self::_create_checkpoint(ticker, timestamp)?;
         }

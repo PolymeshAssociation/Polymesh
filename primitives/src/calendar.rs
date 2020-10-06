@@ -145,16 +145,15 @@ impl CheckpointSchedule {
                 let date_time_now =
                     NaiveDateTime::from_timestamp(i64::try_from(now_as_secs_utc).ok()?, 0);
                 let date_now = date_time_now.date();
-                match variable_unit {
+                let date_next = match variable_unit {
                     VariableCalendarUnit::Month => {
                         // Convert the multiplier to match the type of month.
                         let multiplier = u32::try_from(multiplier).ok()?;
                         let year_diff = u32::try_from(date_now.year() - year_start).ok()?;
                         // Convert months to base 12.
                         let month_start_0_indexed = month_start - 1;
-                        let month_now_0_indexed = date_now.month() - 1;
                         let elapsed_months =
-                            year_diff * 12 + month_now_0_indexed - month_start_0_indexed;
+                            year_diff * 12 + date_now.month0() - month_start_0_indexed;
                         let elapsed_periods = elapsed_months / multiplier;
                         let next_period_months = multiplier * (elapsed_periods + 1);
                         // The month of the next period counting from the beginning of `year_start`.
@@ -174,13 +173,12 @@ impl CheckpointSchedule {
                             _ => 31,
                         };
                         let next_period_day = u32::min(day_start, max_month_days);
-                        let date_next = NaiveDate::from_ymd(
+                        NaiveDate::from_ymd(
                             i32::try_from(next_period_year).ok()?,
                             // Convert months back to calendar numbering.
                             next_period_month + 1,
                             next_period_day,
-                        );
-                        u64::try_from(date_next.and_time(date_time_start.time()).timestamp()).ok()
+                        )
                     }
                     VariableCalendarUnit::Year => {
                         // Convert the multiplier to match the type of year.
@@ -194,15 +192,15 @@ impl CheckpointSchedule {
                         } else {
                             day_start
                         };
-                        let date_next = NaiveDate::from_ymd(
+                        NaiveDate::from_ymd(
                             next_period_year,
-                            // Convert months back to calendar numbering.
+                            // Months are already in calendar numbering.
                             month_start,
                             next_period_day,
-                        );
-                        u64::try_from(date_next.and_time(date_time_start.time()).timestamp()).ok()
+                        )
                     }
-                }
+                };
+                u64::try_from(date_next.and_time(date_time_start.time()).timestamp()).ok()
             }
         }
     }
