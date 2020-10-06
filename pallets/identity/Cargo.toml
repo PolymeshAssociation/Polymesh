@@ -30,7 +30,7 @@ pallet-timestamp = { git = "https://github.com/paritytech/substrate", default-fe
 # Only in STD
 frame-benchmarking = { default-features = false, git = "https://github.com/paritytech/substrate", tag = "v2.0.0-rc6", optional = true }
 substrate-test-runtime-client = { git = "https://github.com/paritytech/substrate", tag = "v2.0.0-rc6", default-features = false, optional = true  }
-cryptography = { git = "https://github.com/PolymathNetwork/cryptography.git", branch = "master", default-features = false, optional = true }
+cryptography = { git = "https://github.com/PolymathNetwork/cryptography.git", branch = "develop", default-features = false, optional = true }
 
 schnorrkel = { version = "0.9.1", default-features = false, optional = true }
 
