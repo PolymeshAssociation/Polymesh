@@ -1,4 +1,4 @@
-use crate::{CddId, Claim, IdentityId, InvestorZKProofData, Scope};
+use crate::{CddId, Claim, IdentityId, InvestorZKProofData, Scope, Ticker};
 use cryptography::claim_proofs::ProofPublicKey;
 use curve25519_dalek::ristretto::CompressedRistretto;
 
