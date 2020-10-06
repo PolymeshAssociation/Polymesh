@@ -11,10 +11,15 @@ async function main() {
 
   const api = await reqImports.createApi();
 
+  let primary_dev_seed = await reqImports.generateRandomKey(api);
+  
+  let secondary_dev_seed = await reqImports.generateRandomKey(api);
+  
+
   const testEntities = await reqImports.initMain(api);
 
-  let primary_keys = await reqImports.generateKeys(api,2, "primary5");
-  let claim_keys = await reqImports.generateKeys(api, 2, "claim");
+  let primary_keys = await reqImports.generateKeys(api,2, primary_dev_seed );
+  let claim_keys = await reqImports.generateKeys(api, 2, secondary_dev_seed );
 
   let claim_issuer_dids = await reqImports.createIdentities(api, claim_keys, testEntities[0]);
 

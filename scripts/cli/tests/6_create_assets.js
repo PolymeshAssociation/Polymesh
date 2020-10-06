@@ -12,15 +12,17 @@ async function main() {
 
   const api = await reqImports.createApi();
 
+  let primary_dev_seed = await reqImports.generateRandomKey(api);
+
   const testEntities = await reqImports.initMain(api);
 
-  let primary_keys = await reqImports.generateKeys(api, 2, "primary6");
+  let primary_keys = await reqImports.generateKeys(api, 2, primary_dev_seed);
 
   let issuer_dids = await reqImports.createIdentities(api, primary_keys, testEntities[0]);
 
   await reqImports.distributePolyBatch( api, primary_keys, reqImports.transfer_amount, testEntities[0] );
 
-  await issueTokenPerDid(api, primary_keys, issuer_dids, "DEMOCA");
+  await issueTokenPerDid(api, primary_keys, issuer_dids);
 
   if (reqImports.fail_count > 0) {
     console.log("Failed");
@@ -32,10 +34,10 @@ async function main() {
   process.exit();
 }
 
-async function issueTokenPerDid(api, accounts, dids, prepend) {
+async function issueTokenPerDid(api, accounts, dids) {
 
   for (let i = 0; i < dids.length; i++) {
-    const ticker = `token${prepend}${i}`.toUpperCase();
+    const ticker = await reqImports.generateRandomTicker(api);
     assert( ticker.length <= 12, "Ticker cannot be longer than 12 characters");
 
     const transaction = api.tx.asset.createAsset(
