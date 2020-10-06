@@ -391,7 +391,8 @@
                 "Jurisdiction": "",
                 "Exempted": "",
                 "Blocked": "",
-                "NoType": ""
+                "InvestorUniqueness": "",
+                "NoData": ""
             }
         },
         "IdentityClaim": {
@@ -525,7 +526,7 @@
             "description": "Option<PipDescription>",
             "created_at": "BlockNumber",
             "transaction_version": "u32",
-            "expiry": "Option<BlockNumber>"
+            "expiry": "MaybeBlock"
         },
         "Proposer": {
             "_enum": {
@@ -570,7 +571,7 @@
             "ayes": "Vec<(IdentityId, Balance)>",
             "nays": "Vec<(IdentityId, Balance)>",
             "end": "BlockNumber",
-            "expiry": "Option<BlockNumber>"
+            "expiry": "MaybeBlock"
         },
         "PipId": "u32",
         "ProposalState": {
@@ -939,7 +940,8 @@
         "Venue": {
             "creator": "IdentityId",
             "instructions": "Vec<u64>",
-            "details": "Vec<u8>"
+            "details": "Vec<u8>",
+            "venue_type": "VenueType"
         },
         "Receipt": {
             "receipt_uid": "u64",

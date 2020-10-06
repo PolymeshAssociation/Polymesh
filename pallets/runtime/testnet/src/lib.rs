@@ -16,8 +16,9 @@ pub use pallet_im_online::OfflineSlashingParams;
 pub use runtime::{native_version, WASM_BINARY};
 
 pub use runtime::{
-    api, Asset, Authorship, Balances, Bridge, Contracts, ProtocolFee, Runtime, RuntimeApi,
-    SessionKeys, System, TargetBlockFullness, TransactionPayment, UncheckedExtrinsic,
+    api, Asset, Authorship, Balances, BalancesCall, Bridge, Call, CheckedExtrinsic, Contracts,
+    MinimumPeriod, ProtocolFee, Runtime, RuntimeApi, SessionKeys, SignedExtra, System, SystemCall,
+    TargetBlockFullness, TransactionPayment, UncheckedExtrinsic,
 };
 
 #[cfg(feature = "std")]
@@ -31,7 +32,7 @@ pub mod config {
 
     pub type AssetConfig = asset::GenesisConfig<crate::Runtime>;
     pub type BalancesConfig = balances::GenesisConfig<crate::Runtime>;
-    pub type BridgeConfig = polymesh_runtime_common::bridge::GenesisConfig<crate::Runtime>;
+    pub type BridgeConfig = pallet_bridge::GenesisConfig<crate::Runtime>;
     pub type IdentityConfig = identity::GenesisConfig<crate::Runtime>;
     pub type StakingConfig = pallet_staking::GenesisConfig<crate::Runtime>;
     pub type PolymeshCommitteeConfig =
@@ -45,6 +46,7 @@ pub mod config {
     pub type GenesisConfig = crate::runtime::GenesisConfig;
     pub type SessionConfig = pallet_session::GenesisConfig<crate::Runtime>;
     pub type ProtocolFeeConfig = protocol_fee::GenesisConfig<crate::Runtime>;
+    pub type GrandpaConfig = pallet_grandpa::GenesisConfig;
 }
 
 pub use sp_runtime::{Perbill, Permill};

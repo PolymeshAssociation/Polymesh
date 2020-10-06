@@ -16,6 +16,7 @@ use frame_support::{
 use pallet_asset as asset;
 use pallet_balances as balances;
 use pallet_basic_sto as sto;
+use pallet_bridge as bridge;
 use pallet_committee as committee;
 use pallet_compliance_manager as compliance_manager;
 use pallet_confidential as confidential;
@@ -41,7 +42,7 @@ use polymesh_primitives::{
     Authorization, AuthorizationData, CddId, Claim, IdentityId, InvestorUid, InvestorZKProofData,
     Permissions, PortfolioId, PortfolioNumber, Scope, Signatory, Ticker,
 };
-use polymesh_runtime_common::{bridge, cdd_check::CddChecker, dividend, exemption, voting};
+use polymesh_runtime_common::{cdd_check::CddChecker, dividend, exemption, voting};
 use smallvec::smallvec;
 use sp_core::{
     crypto::{key_types, Pair as PairTrait},
@@ -749,7 +750,7 @@ pub fn provide_scope_claim(
     let proof: InvestorZKProofData = InvestorZKProofData::new(&claim_to, &investor_uid, &scope);
     let cdd_claim = InvestorZKProofData::make_cdd_claim(&claim_to, &investor_uid);
     let cdd_id = compute_cdd_id(&cdd_claim).compress().to_bytes().into();
-    let scope_claim = InvestorZKProofData::make_scope_claim(&scope, &investor_uid);
+    let scope_claim = InvestorZKProofData::make_scope_claim(&scope.as_slice(), &investor_uid);
     let scope_id = compute_scope_id(&scope_claim).compress().to_bytes().into();
 
     let signed_claim_to = Origin::signed(Identity::did_records(claim_to).primary_key);
