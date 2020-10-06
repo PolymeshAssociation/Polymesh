@@ -600,8 +600,8 @@ decl_module! {
             Self::deposit_event(RawEvent::Transfer(
                 did,
                 ticker,
-                IdentityId::default(),
-                did,
+                PortfolioId::default(),
+                PortfolioId::default_portfolio(did),
                 total_supply
             ));
             Self::deposit_event(RawEvent::Issued(
@@ -1069,8 +1069,8 @@ decl_event! {
         AccountId = <T as frame_system::Trait>::AccountId,
     {
         /// Event for transfer of tokens.
-        /// caller DID, ticker, from DID, to DID, value
-        Transfer(IdentityId, Ticker, IdentityId, IdentityId, Balance),
+        /// caller DID, ticker, from portfolio, to portfolio, value
+        Transfer(IdentityId, Ticker, PortfolioId, PortfolioId, Balance),
         /// Event when an approval is made.
         /// caller DID, ticker, owner DID, spender DID, value
         Approval(IdentityId, Ticker, IdentityId, IdentityId, Balance),
@@ -1688,8 +1688,8 @@ impl<T: Trait> Module<T> {
         Self::deposit_event(RawEvent::Transfer(
             from_portfolio.did,
             *ticker,
-            from_portfolio.did,
-            to_portfolio.did,
+            from_portfolio,
+            to_portfolio,
             value,
         ));
         Ok(())
@@ -1823,8 +1823,8 @@ impl<T: Trait> Module<T> {
         Self::deposit_event(RawEvent::Transfer(
             Context::current_identity_or::<Identity<T>>(&caller)?,
             *ticker,
-            IdentityId::default(),
-            to_did,
+            PortfolioId::default(),
+            PortfolioId::default_portfolio(to_did),
             value,
         ));
         Self::deposit_event(RawEvent::Issued(
