@@ -32,6 +32,8 @@ frame-benchmarking = { default-features = false, git = "https://github.com/parit
 substrate-test-runtime-client = { git = "https://github.com/paritytech/substrate", tag = "v2.0.0-rc6", default-features = false, optional = true  }
 cryptography = { git = "https://github.com/PolymathNetwork/cryptography.git", branch = "master", default-features = false, optional = true }
 
+schnorrkel = { version = "0.9.1", default-features = false, optional = true }
+
 [features]
 equalize = []
 default = ["std", "equalize"]
@@ -60,5 +62,6 @@ std = [
 ]
 runtime-benchmarks = [
 	"frame-benchmarking",
-	"cryptography"
+	"cryptography",
+    "schnorrkel"
 ]

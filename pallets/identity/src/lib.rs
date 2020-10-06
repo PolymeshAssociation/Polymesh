@@ -1750,7 +1750,7 @@ impl<T: Trait> Module<T> {
     }
 
     /// It adds a new claim without any previous security check.
-    fn base_add_claim(
+    pub fn base_add_claim(
         target: IdentityId,
         claim: Claim,
         issuer: IdentityId,
@@ -2171,6 +2171,17 @@ impl<T: Trait> Module<T> {
             secondary_keys,
             Some(ProtocolOp::IdentityCddRegisterDid),
         )
+    }
+
+    #[cfg(feature = "runtime-benchmarks")]
+    /// Links a did with an identity
+    pub fn link_did(account: T::AccountId, did: IdentityId) {
+        let record = DidRecord {
+            primary_key: account.clone(),
+            ..Default::default()
+        };
+        KeyToIdentityIds::<T>::insert(&account, did);
+        DidRecords::<T>::insert(&did, record);
     }
 }
 

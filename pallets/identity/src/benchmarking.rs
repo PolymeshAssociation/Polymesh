@@ -14,13 +14,14 @@
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
 use crate::*;
-use cryptography::claim_proofs::{compute_cdd_id, compute_scope_id};
+//use cryptography::claim_proofs::{compute_cdd_id, compute_scope_id};
 use frame_benchmarking::{account, benchmarks};
-use frame_support::{debug, traits::Currency};
+use frame_support::traits::Currency;
 use frame_system::RawOrigin;
 use pallet_balances as balances;
-use polymesh_primitives::{Claim, CountryCode, IdentityId, InvestorUid, Scope};
+use polymesh_primitives::{Claim, CountryCode, IdentityId, InvestorUid, Scope, Ticker};
 use sp_std::prelude::*;
+use schnorrkel::Signature;
 
 const SEED: u32 = 0;
 const MAX_USER_INDEX: u32 = 1_000;
@@ -69,19 +70,22 @@ benchmarks! {
 
     add_investor_uniqueness_claim {
         let u in ...;
-        let (_, origin, origin_did) = make_account::<T>("caller", u);
-        let uid = uid_from_name_and_idx("caller", u);
-        let ticker = Ticker::try_from(vec![b'T'; 12].as_slice()).unwrap();
+        let (account, origin) = make_account_without_did::<T>("caller", u);
 
-        let scope_claim = InvestorZKProofData::make_scope_claim(&ticker, &uid);
-        let scope_id = compute_scope_id(&scope_claim).compress().to_bytes().into();
+        let did = IdentityId::from([152u8,25,31,70,229,131,2,22,68,84,54,151,136,3,105,122,94,58,182,27,30,137,81,212,254,154,230,123,171,97,74,95]);
+        Module::<T>::link_did(account.clone(), did);
 
-        let inv_proof = InvestorZKProofData::new(&origin_did, &uid, &ticker);
-        let cdd_claim = InvestorZKProofData::make_cdd_claim(&origin_did, &uid);
-        let cdd_id = compute_cdd_id(&cdd_claim).compress().to_bytes().into();
+        let cdd_id = CddId::from([102u8,210,32,212,213,80,255,99,142,30,202,20,220,131,109,106,137,12,137,191,123,156,212,20,215,87,23,42,84,181,128,73]);
+        let cdd_claim = Claim::CustomerDueDiligence(cdd_id);
+        Module::<T>::base_add_claim(did, cdd_claim, did, Some(666.into()));
 
-        let conf_scope_claim = Claim::InvestorUniqueness(ticker.into(), scope_id, cdd_id);
-    }: _(origin, origin_did, conf_scope_claim, inv_proof, Some(666.into()))
+        let scope = Scope::Ticker(Ticker::unsafe_ticker([228u8,152,116,104,5,8,30,188,143,185,10,208]));
+        let scope_did = IdentityId::from([2u8,72,20,154,7,96,116,105,155,74,227,252,172,18,200,203,137,107,200,210,194,71,250,41,108,172,100,107,223,114,182,101]);
+        let conf_scope_claim = Claim::InvestorUniqueness(scope, scope_did, cdd_id);
+
+        let inv_proof = InvestorZKProofData(Signature::from_bytes(&[216u8,224,57,254,200,45,150,202,12,108,226,233,148,213,237,7,35,150,142,18,127,146,162,19,161,164,95,67,181,100,156,25,201,210,209,165,182,74,184,145,230,255,215,144,223,100,100,147,226,58,142,92,103,153,153,204,123,120,133,113,218,51,208,132]).unwrap());
+
+    }: _(origin, did, conf_scope_claim, inv_proof, Some(666.into()))
 
     add_claim {
         let u in ...;
