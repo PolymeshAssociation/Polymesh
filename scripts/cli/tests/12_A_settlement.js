@@ -11,11 +11,9 @@ process.exitCode = 1;
  * This test is for the basic peer to peer transfer of tokens
  */
 
-const prepend = "ACME";
-
 async function main() {
   const api = await reqImports.createApi();
-  const ticker = `token${prepend}0`.toUpperCase();
+  const ticker = await reqImports.generateRandomTicker(api);
   const testEntities = await reqImports.initMain(api);
 
   let alice = testEntities[0];
@@ -33,7 +31,7 @@ async function main() {
     alice
   );
 
-  await reqImports.issueTokenPerDid(api, [alice], prepend);
+  await reqImports.issueTokenPerDid(api, [alice], ticker);
 
   await addComplianceRequirement(api, alice, ticker);
 

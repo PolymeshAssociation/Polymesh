@@ -130,6 +130,16 @@ const generateRandomEntity = async function (api) {
   return entity;
 }
 
+const generateRandomTicker = async function (api) {
+  let ticker = cryptoRandomString({length: 12, type: 'distinguishable'});
+  return ticker;
+}
+
+const generateRandomKey = async function (api) {
+  let ticker = cryptoRandomString({length: 12, type: 'alphanumeric'});
+  return ticker;
+}
+
 const blockTillPoolEmpty = async function (api) {
   let prev_block_pending = 0;
   let done_something = false;
@@ -282,8 +292,8 @@ async function authorizeJoinToIdentities(api, accounts, dids, secondary_accounts
 }
 
 // Creates a token for a did
-async function issueTokenPerDid(api, accounts, prepend) {
-  const ticker = `token${prepend}0`.toUpperCase();
+async function issueTokenPerDid(api, accounts, ticker) {
+
   assert(ticker.length <= 12, "Ticker cannot be longer than 12 characters");
 
   let nonceObj = { nonce: nonces.get(accounts[0].address) };
@@ -306,10 +316,9 @@ function tickerToDid(ticker) {
 }
 
 // Creates claim compliance for an asset
-async function createClaimCompliance(api, accounts, dids, prepend) {
-  const ticker = `token${prepend}0`.toUpperCase();
+async function createClaimCompliance(api, accounts, dids, ticker) {
+  
   assert(ticker.length <= 12, "Ticker cannot be longer than 12 characters");
-
 
   let senderConditions = senderConditions1(dids[1], { "Ticker": ticker });
   let receiverConditions = receiverConditions1(dids[1], { "Ticker": ticker });
@@ -460,8 +469,7 @@ async function jumpLightYears() {
   await api.tx.timestamp.set();
 }
 
-async function mintingAsset(api, minter, did, prepend) {
-  const ticker = `token${prepend}0`.toUpperCase();
+async function mintingAsset(api, minter, did, ticker) {
   let nonceObj = { nonce: nonces.get(minter.address) };
   const transaction = await api.tx.asset.issue(ticker, 100);
   const result = await sendTransaction(transaction, minter, nonceObj);
@@ -657,6 +665,8 @@ let reqImports = {
   rejectInstruction,
   claimReceipt,
   generateRandomEntity,
+  generateRandomTicker,
+  generateRandomKey,
 };
 
 export { reqImports };

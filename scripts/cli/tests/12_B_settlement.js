@@ -10,13 +10,10 @@ process.exitCode = 1;
  * This test checks the ability to do a manual STO receiving payment in an asset and reciepts
  */
 
-const prepend = "EUR";
-const prepend2 = "USD";
-
 async function main() {
   const api = await reqImports.createApi();
-  const ticker = `token${prepend}0`.toUpperCase();
-  const ticker2 = `token${prepend2}0`.toUpperCase();
+  const ticker = await reqImports.generateRandomTicker(api);
+  const ticker2 = await reqImports.generateRandomTicker(api);
   const testEntities = await reqImports.initMain(api);
 
   let alice = testEntities[0];
@@ -46,16 +43,16 @@ async function main() {
     alice
   );
 
-  await reqImports.issueTokenPerDid(api, [alice], prepend);
+  await reqImports.issueTokenPerDid(api, [alice], ticker);
 
-  await reqImports.issueTokenPerDid(api, [bob], prepend2);
+  await reqImports.issueTokenPerDid(api, [bob], ticker2);
 
   await reqImports.addComplianceRequirement(api, alice, ticker);
   await reqImports.addComplianceRequirement(api, bob, ticker2);
 
-  await reqImports.mintingAsset(api, alice, alice_did, prepend);
+  await reqImports.mintingAsset(api, alice, alice_did, ticker);
 
-  await reqImports.mintingAsset(api, bob, bob_did, prepend2);
+  await reqImports.mintingAsset(api, bob, bob_did, ticker2);
 
   let aliceACMEBalance = await api.query.asset.balanceOf(ticker, alice_did);
   let bobACMEBalance = await api.query.asset.balanceOf(ticker, bob_did);
