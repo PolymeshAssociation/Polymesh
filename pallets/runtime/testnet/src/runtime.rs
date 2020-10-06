@@ -38,8 +38,9 @@ use polymesh_runtime_common::{
     cdd_check::CddChecker,
     contracts_wrapper, dividend, exemption,
     impls::{Author, CurrencyToVoteHandler},
-    merge_active_and_inactive, sto_capped, voting, AvailableBlockRatio, BlockHashCount,
-    MaximumBlockLength, MaximumBlockWeight, NegativeImbalance,
+    merge_active_and_inactive, sto_capped, voting, AvailableBlockRatio, BlockExecutionWeight,
+    BlockHashCount, ExtrinsicBaseWeight, MaximumBlockLength, MaximumBlockWeight, NegativeImbalance,
+    RocksDbWeight,
 };
 
 use sp_api::impl_runtime_apis;
@@ -69,10 +70,7 @@ use sp_version::RuntimeVersion;
 use frame_support::{
     construct_runtime, debug, parameter_types,
     traits::{KeyOwnerProofSystem, Randomness, SplitTwoWays},
-    weights::{
-        constants::{BlockExecutionWeight, ExtrinsicBaseWeight, RocksDbWeight},
-        Weight, WeightToFeeCoefficient, WeightToFeeCoefficients, WeightToFeePolynomial,
-    },
+    weights::{Weight, WeightToFeeCoefficient, WeightToFeeCoefficients, WeightToFeePolynomial},
 };
 use pallet_contracts_rpc_runtime_api::ContractExecResult;
 use pallet_grandpa::{
@@ -89,6 +87,7 @@ use sp_version::NativeVersion;
 
 pub use balances::Call as BalancesCall;
 pub use frame_support::StorageValue;
+pub use frame_system::Call as SystemCall;
 pub use pallet_contracts::Gas;
 pub use pallet_staking::StakerStatus;
 pub use pallet_timestamp::Call as TimestampCall;
@@ -101,7 +100,7 @@ use smallvec::smallvec;
 #[cfg(feature = "std")]
 include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 
-//// Runtime version.
+/// Runtime version.
 pub const VERSION: RuntimeVersion = RuntimeVersion {
     spec_name: create_runtime_str!("polymesh"),
     impl_name: create_runtime_str!("polymath-polymesh"),
@@ -187,7 +186,7 @@ impl frame_system::Trait for Runtime {
     type OnKilledAccount = ();
     /// The data to be stored in an account.
     type AccountData = AccountData<Balance>;
-    type SystemWeightInfo = ();
+    type SystemWeightInfo = polymesh_weights::frame_system::WeightInfo;
 }
 
 parameter_types! {
@@ -301,7 +300,7 @@ impl pallet_timestamp::Trait for Runtime {
     type Moment = Moment;
     type OnTimestampSet = Babe;
     type MinimumPeriod = MinimumPeriod;
-    type WeightInfo = ();
+    type WeightInfo = polymesh_weights::pallet_timestamp::WeightInfo;
 }
 
 parameter_types! {
@@ -1207,16 +1206,45 @@ impl_runtime_apis! {
             highest_range_values: Vec<u32>,
             steps: Vec<u32>,
             repeat: u32,
+            extra: bool,
         ) -> Result<Vec<frame_benchmarking::BenchmarkBatch>, sp_runtime::RuntimeString> {
-            use frame_benchmarking::{Benchmarking, BenchmarkBatch, add_benchmark};
+            use frame_benchmarking::{Benchmarking, BenchmarkBatch, add_benchmark, TrackedStorageKey};
+
+            use frame_system_benchmarking::Module as SystemBench;
+            impl frame_system_benchmarking::Trait for Runtime {}
+
+            let whitelist: Vec<TrackedStorageKey> = vec![
+                // Block Number
+                hex_literal::hex!("26aa394eea5630e07c48ae0c9558cef702a5c1b19ab7a04f536c519aca4983ac").to_vec().into(),
+                // Total Issuance
+                hex_literal::hex!("c2261276cc9d1f8598ea4b6a74b15c2f57c875e4cff74148e4628f264b974c80").to_vec().into(),
+                // Execution Phase
+                hex_literal::hex!("26aa394eea5630e07c48ae0c9558cef7ff553b5a9862a516939d82b3d3d8661a").to_vec().into(),
+                // Event Count
+                hex_literal::hex!("26aa394eea5630e07c48ae0c9558cef70a98fdbe9ce6c55837576c60c7af3850").to_vec().into(),
+                // System Events
+                hex_literal::hex!("26aa394eea5630e07c48ae0c9558cef780d41e5e16056765bc8461851072c9d7").to_vec().into(),
+                // Treasury Account
+                hex_literal::hex!("26aa394eea5630e07c48ae0c9558cef7b99d880ec681799c0cf30e8886371da95ecffd7b6c0f78751baa9d281e0bfa3a6d6f646c70792f74727372790000000000000000000000000000000000000000").to_vec().into(),
+            ];
 
             let mut batches = Vec::<BenchmarkBatch>::new();
-            let params = (&pallet, &benchmark, &lowest_range_values, &highest_range_values, &steps, repeat);
+            let params = (
+                &pallet,
+                &benchmark,
+                &lowest_range_values,
+                &highest_range_values,
+                &steps,
+                repeat,
+                &whitelist,
+                extra,
+            );
 
-            add_benchmark!(params, batches, b"asset", Asset);
-            add_benchmark!(params, batches, b"identity", Identity);
-            add_benchmark!(params, batches, b"im-online", ImOnline);
-            add_benchmark!(params, batches, b"staking", Staking);
+            add_benchmark!(params, batches, pallet_asset, Asset);
+            add_benchmark!(params, batches, pallet_balances, Balances);
+            add_benchmark!(params, batches, pallet_identity, Identity);
+            add_benchmark!(params, batches, frame_system, SystemBench::<Runtime>);
+            add_benchmark!(params, batches, pallet_timestamp, Timestamp);
 
             if batches.is_empty() { return Err("Benchmark not found for this pallet.".into()) }
             Ok(batches)

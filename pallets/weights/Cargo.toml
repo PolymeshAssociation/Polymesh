@@ -1,0 +1,19 @@
+[package]
+name = "polymesh-weights"
+version = "0.1.0"
+authors = ["Polymath"]
+edition = "2018"
+
+[dependencies]
+frame-support = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0-rc6" }
+frame-system = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0-rc6" }
+pallet-timestamp = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0-rc6" }
+
+[features]
+default = ["std"]
+no_std = []
+std = [
+    "frame-support/std",
+    "pallet-timestamp/std",
+    "frame-system/std"
+]
