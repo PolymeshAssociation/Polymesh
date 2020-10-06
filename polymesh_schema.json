@@ -391,7 +391,8 @@
                 "Jurisdiction": "",
                 "Exempted": "",
                 "Blocked": "",
-                "NoType": ""
+                "InvestorUniqueness": "",
+                "NoData": ""
             }
         },
         "IdentityClaim": {
