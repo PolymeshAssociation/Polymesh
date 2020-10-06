@@ -1,10 +1,9 @@
-use crate::{scalar_blake2_from_bytes, IdentityId, InvestorUid, Ticker};
+use crate::{IdentityId, InvestorUid, Ticker};
 use cryptography::claim_proofs::{
-    build_scope_claim_proof_data, CDDClaimData, ProofKeyPair, ScopeClaimData,
+    build_scope_claim_proof_data, CddClaimData, ProofKeyPair, ScopeClaimData,
 };
 
 use blake2::{Blake2s, Digest};
-use curve25519_dalek::scalar::Scalar;
 use schnorrkel::Signature;
 
 use codec::{Decode, Encode, Error as CodecError, Input, Output};
@@ -22,46 +21,37 @@ impl InvestorZKProofData {
     pub fn new(did: &IdentityId, investor: &InvestorUid, ticker: &Ticker) -> Self {
         // Create CDD Claim and Scope claim.
         let cdd_claim = Self::make_cdd_claim(did, investor);
-        let scope_claim = Self::make_scope_claim(ticker, investor);
+        let scope_claim = Self::make_scope_claim(ticker.as_slice(), investor);
 
         // Create the scope claim proof
         let sc_proof = build_scope_claim_proof_data(&cdd_claim, &scope_claim);
         let pair = ProofKeyPair::from(sc_proof);
 
         // Generate the message and its ID match proof.
-        let message = Self::make_message(did, ticker);
+        let message = Self::make_message(did, ticker.as_slice());
         let proof = pair.generate_id_match_proof(&message[..]);
 
         Self(proof)
     }
 
     /// Returns the CDD claim of the given `investor_did` and `investor_uid`.
-    pub fn make_cdd_claim(investor_did: &IdentityId, investor_uid: &InvestorUid) -> CDDClaimData {
-        let investor_did = Scalar::from_bits(investor_did.to_bytes());
-        let investor_unique_id = scalar_blake2_from_bytes(&investor_uid);
-
-        CDDClaimData {
-            investor_did,
-            investor_unique_id,
-        }
+    pub fn make_cdd_claim(
+        investor_did: &IdentityId,
+        investor_unique_id: &InvestorUid,
+    ) -> CddClaimData {
+        CddClaimData::new(&investor_did.to_bytes(), &investor_unique_id.to_bytes())
     }
 
     /// Returns the Scope claim of the given `ticker` and `investor_uid`.
-    pub fn make_scope_claim(ticker: &Ticker, investor_uid: &InvestorUid) -> ScopeClaimData {
-        let scope_did = scalar_blake2_from_bytes(ticker.as_slice());
-        let investor_unique_id = scalar_blake2_from_bytes(&investor_uid);
-
-        ScopeClaimData {
-            scope_did,
-            investor_unique_id,
-        }
+    pub fn make_scope_claim(scope: &[u8], investor_unique_id: &InvestorUid) -> ScopeClaimData {
+        ScopeClaimData::new(scope, &investor_unique_id.to_bytes())
     }
 
     /// Returns the message used for testing the proof.
-    pub fn make_message(investor_did: &IdentityId, ticker: &Ticker) -> [u8; 32] {
+    pub fn make_message(investor_did: &IdentityId, scope: &[u8]) -> [u8; 32] {
         Blake2s::default()
             .chain(investor_did)
-            .chain(ticker.as_slice())
+            .chain(scope)
             .finalize()
             .into()
     }
