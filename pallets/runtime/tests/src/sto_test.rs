@@ -8,7 +8,7 @@ use pallet_settlement::{self as settlement, Receipt, ReceiptDetails, VenueDetail
 use pallet_sto::{self as sto, Fundraiser, FundraiserTier, PriceTier};
 use polymesh_primitives::{PortfolioId, Ticker};
 
-use frame_support::{assert_ok, assert_err};
+use frame_support::{assert_err, assert_ok};
 use sp_std::convert::TryFrom;
 use test_client::AccountKeyring;
 
@@ -16,6 +16,7 @@ type Origin = <TestStorage as frame_system::Trait>::Origin;
 type Asset = asset::Module<TestStorage>;
 type STO = sto::Module<TestStorage>;
 type Error = sto::Error<TestStorage>;
+type PortfolioError = pallet_portfolio::Error<TestStorage>;
 type ComplianceManager = compliance_manager::Module<TestStorage>;
 type Settlement = settlement::Module<TestStorage>;
 type Timestamp = pallet_timestamp::Module<TestStorage>;
@@ -159,7 +160,7 @@ fn raise_happy_path() {
         offering_ticker,
         fundraiser_id,
         amount.into(),
-        2u128,
+        Some(2u128),
         None
     ));
     assert_eq!(
@@ -421,7 +422,7 @@ fn raise_unhappy_path() {
             None,
             None,
         ),
-        Error::InsufficientTokensRemaining
+        PortfolioError::InsufficientPortfolioBalance
     );
 
     // Invalid time window
@@ -440,6 +441,6 @@ fn raise_unhappy_path() {
             Some(1),
             Some(0),
         ),
-        Error::FundraiserExpired
+        Error::InvalidOfferingWindow
     );
 }

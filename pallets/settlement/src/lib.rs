@@ -513,7 +513,7 @@ decl_module! {
             let sender = ensure_signed(origin)?;
             let did = Context::current_identity_or::<Identity<T>>(&sender)?;
             // Check if a venue exists and the sender is the creator of the venue
-            let mut venue = Self::venue_info(venue_id).ok_or(Error::<T>::Unauthorized)?;
+            let mut venue = Self::venue_info(venue_id).ok_or(Error::<T>::InvalidVenue)?;
             ensure!(venue.creator == did, Error::<T>::Unauthorized);
             if let Some(venue_details) = details {
                 venue.details = venue_details;
@@ -919,7 +919,7 @@ impl<T: Trait> Module<T> {
             Error::<T>::LegsCountExceededMaxLimit
         );
         // Check if a venue exists and the sender is the creator of the venue
-        let mut venue = Self::venue_info(venue_id).ok_or(Error::<T>::Unauthorized)?;
+        let mut venue = Self::venue_info(venue_id).ok_or(Error::<T>::InvalidVenue)?;
         ensure!(venue.creator == did, Error::<T>::Unauthorized);
 
         // Prepare data to store in storage

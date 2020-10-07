@@ -13,13 +13,14 @@ use frame_support::{
 };
 use frame_system::ensure_signed;
 use pallet_identity as identity;
-use pallet_portfolio::{PortfolioAssetBalances, Trait as PortfolioTrait};
+use pallet_portfolio::{self as portfolio, PortfolioAssetBalances, Trait as PortfolioTrait};
 use pallet_settlement::{
     self as settlement, Leg, ReceiptDetails, SettlementType, Trait as SettlementTrait, VenueInfo,
     VenueType,
 };
 use pallet_timestamp::{self as timestamp, Trait as TimestampTrait};
 use polymesh_common_utilities::{
+    portfolio::PortfolioSubTrait,
     traits::{asset::Trait as AssetTrait, identity::Trait as IdentityTrait},
     with_transaction, CommonTrait, Context,
 };
@@ -30,6 +31,7 @@ use sp_std::{collections::btree_set::BTreeSet, prelude::*};
 type Identity<T> = identity::Module<T>;
 type Settlement<T> = settlement::Module<T>;
 type Timestamp<T> = timestamp::Module<T>;
+type Portfolio<T> = portfolio::Module<T>;
 
 /// Details about the Fundraiser
 #[derive(Encode, Decode, Debug, Default, Clone, PartialEq, Eq, PartialOrd, Ord)]
@@ -59,7 +61,9 @@ pub struct Fundraiser<Balance, Moment> {
 /// Single tier of a tiered pricing model
 #[derive(Encode, Decode, Debug, Default, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct PriceTier<Balance> {
+    /// Total amount available
     pub total: Balance,
+    /// Price per unit
     pub price: Balance,
 }
 
@@ -67,8 +71,11 @@ pub struct PriceTier<Balance> {
 /// Similar to a `PriceTier` but with an extra field `remaining` for tracking the amount available for purchase in a tier.
 #[derive(Encode, Decode, Debug, Default, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct FundraiserTier<Balance> {
+    /// Total amount available
     pub total: Balance,
+    /// Price per unit
     pub price: Balance,
+    /// Total amount remaining for sale, set to `total` and decremented until `0`.
     pub remaining: Balance,
 }
 
@@ -115,16 +122,18 @@ decl_error! {
         FundraiserNotFound,
         /// Fundraiser is frozen
         FundraiserFrozen,
-        // Interacting with a fundraiser past the end `Moment`.
+        /// Interacting with a fundraiser past the end `Moment`.
         FundraiserExpired,
-        // Interacting with a fundraiser before the start `Moment`.
+        /// Interacting with a fundraiser before the start `Moment`.
         FundraiserNotStarted,
-        // Using an invalid venue
+        /// Using an invalid venue
         InvalidVenue,
-        // Using an invalid portfolio
+        /// Using an invalid portfolio
         InvalidPortfolio,
-        // An individual price tier was invalid or a set of price tiers was invalid
+        /// An individual price tier was invalid or a set of price tiers was invalid
         InvalidPriceTiers,
+        /// Window (start time, end time) has invalid parameters, e.g start time is after end time.
+        InvalidOfferingWindow,
     }
 }
 
@@ -166,12 +175,11 @@ decl_module! {
                 Error::<T>::InvalidVenue
             );
 
-            ensure!(raising_portfolio.did == did, Error::<T>::InvalidPortfolio);
+            <Portfolio<T>>::ensure_portfolio_custody(raising_portfolio, did)?;
             ensure!(<PortfolioAssetBalances<T>>::contains_key(raising_portfolio, raising_asset), Error::<T>::InvalidPortfolio);
 
-            ensure!(offering_portfolio.did == did, Error::<T>::InvalidPortfolio);
+            <Portfolio<T>>::ensure_portfolio_custody(offering_portfolio, did)?;
             ensure!(<PortfolioAssetBalances<T>>::contains_key(offering_portfolio, offering_asset), Error::<T>::InvalidPortfolio);
-            let asset_balance = <PortfolioAssetBalances<T>>::get(offering_portfolio, offering_asset);
 
             ensure!(
                 tiers.len() > 0 && tiers.iter().all(|t| t.total > 0.into()),
@@ -182,13 +190,9 @@ decl_module! {
                 .iter()
                 .map(|t| t.total)
                 .fold(0.into(), |total, x| total + x);
-            ensure!(offering_amount <= asset_balance, Error::<T>::InsufficientTokensRemaining);
 
-            let mut tiers = tiers;
-            // (Stable) sort by price.
-            tiers.sort_by_key(|a| a.price);
+            <Portfolio<T>>::lock_tokens(&offering_portfolio, &offering_asset, &offering_amount)?;
 
-            // TODO: Take custodial ownership of $sell_amount of $offering_token from primary issuance agent?
             let fundraiser_id = Self::fundraiser_count(offering_asset) + 1;
             let fundraiser = Fundraiser {
                     offering_portfolio,
@@ -201,18 +205,22 @@ decl_module! {
                     end,
                     frozen: false,
             };
+
             if let Some(end) = fundraiser.end {
-                ensure!(fundraiser.start < end, Error::<T>::FundraiserExpired);
+                ensure!(fundraiser.start < end, Error::<T>::InvalidOfferingWindow);
             }
+
             FundraiserCount::insert(offering_asset, fundraiser_id);
             <Fundraisers<T>>::insert(
                 offering_asset,
                 fundraiser_id,
                 fundraiser.clone()
             );
+
             Self::deposit_event(
                 RawEvent::FundraiserCreated(did, fundraiser)
             );
+
             Ok(())
         }
 
@@ -225,21 +233,22 @@ decl_module! {
             offering_asset: Ticker,
             fundraiser_id: u64,
             investment_amount: T::Balance,
-            max_price: T::Balance,
+            max_price: Option<T::Balance>,
             reciept: Option<ReceiptDetails<T::AccountId, T::OffChainSignature>>
         ) -> DispatchResult {
             let sender = ensure_signed(origin.clone())?;
             let did = Context::current_identity_or::<Identity<T>>(&sender)?;
 
-            ensure!(investment_portfolio.did == did, Error::<T>::InvalidPortfolio);
-            ensure!(funding_portfolio.did == did, Error::<T>::InvalidPortfolio);
+            <Portfolio<T>>::ensure_portfolio_custody(investment_portfolio, did)?;
+            <Portfolio<T>>::ensure_portfolio_custody(funding_portfolio, did)?;
 
             let now = Timestamp::<T>::get();
             let fundraiser = <Fundraisers<T>>::get(offering_asset, fundraiser_id).ok_or(Error::<T>::FundraiserNotFound)?;
-            ensure!(fundraiser.start <= now, Error::<T>::FundraiserNotStarted);
+            ensure!(!fundraiser.frozen, Error::<T>::FundraiserFrozen);
+            ensure!(fundraiser.start <= now, Error::<T>::FundraiserExpired);
             if let Some(end) = fundraiser.end {
-                ensure!(end > now, Error::<T>::FundraiserExpired);
-            }
+                ensure!(now < end, Error::<T>::FundraiserExpired);
+            };
 
             // Remaining tokens to fulfil the investment amount
             let mut remaining = investment_amount;
@@ -274,13 +283,16 @@ decl_module! {
                 remaining -= purchase_amount;
                 purchases.push((id, purchase_amount));
                 cost = cost.checked_add(
-                    &remaining
+                    &purchase_amount
                     .checked_mul(&tier.price)
                     .ok_or(Error::<T>::Overflow)?
                 ).ok_or(Error::<T>::Overflow)?;
             }
 
             ensure!(remaining == 0.into(), Error::<T>::InsufficientTokensRemaining);
+            if let Some(max_price) = max_price {
+                ensure!(cost <= max_price * investment_amount, Error::<T>::InsufficientTokensRemaining);
+            }
 
             let primary_issuance_agent = T::Asset::primary_issuance_agent(&offering_asset);
             let legs = vec![
@@ -319,7 +331,7 @@ decl_module! {
                     None => Settlement::<T>::authorize_instruction(origin, instruction_id, portfolios).map_err(|e| e.error)?,
                 };
 
-                let portfolios= vec![investment_portfolio, funding_portfolio].into_iter().collect::<BTreeSet<_>>();
+                let portfolios= vec![fundraiser.offering_portfolio, fundraiser.raising_portfolio].into_iter().collect::<BTreeSet<_>>();
                 Settlement::<T>::unsafe_authorize_instruction(primary_issuance_agent, instruction_id, portfolios)?;
 
                 <Fundraisers<T>>::mutate(offering_asset, fundraiser_id, |fundraiser| {
@@ -340,16 +352,13 @@ decl_module! {
             let did = Context::current_identity_or::<Identity<T>>(&sender)?;
             ensure!(T::Asset::primary_issuance_agent(&offering_asset) == did, Error::<T>::Unauthorized);
 
-            let now = Timestamp::<T>::get();
-            let fundraiser = <Fundraisers<T>>::get(offering_asset, fundraiser_id).ok_or(Error::<T>::FundraiserNotFound)?;
-            ensure!(fundraiser.start <= now, Error::<T>::FundraiserNotStarted);
-            if let Some(end) = fundraiser.end {
-                ensure!(end > now, Error::<T>::FundraiserExpired);
-            }
+            ensure!(<Fundraisers<T>>::contains_key(offering_asset, fundraiser_id), Error::<T>::FundraiserNotFound);
 
-            <Fundraisers<T>>::mutate(offering_asset, fundraiser_id, |fundraiser| if let Some(fundraiser) = fundraiser {
-            fundraiser.frozen = true
-            });
+            <Fundraisers<T>>::mutate(offering_asset, fundraiser_id, |fundraiser|
+                if let Some(fundraiser) = fundraiser {
+                    fundraiser.frozen = true
+                }
+            );
             Ok(())
         }
 
@@ -359,16 +368,13 @@ decl_module! {
             let did = Context::current_identity_or::<Identity<T>>(&sender)?;
             ensure!(T::Asset::primary_issuance_agent(&offering_asset) == did, Error::<T>::Unauthorized);
 
-            let now = Timestamp::<T>::get();
-            let fundraiser = <Fundraisers<T>>::get(offering_asset, fundraiser_id).ok_or(Error::<T>::FundraiserNotFound)?;
-            ensure!(fundraiser.start <= now, Error::<T>::FundraiserNotStarted);
-            if let Some(end) = fundraiser.end {
-                ensure!(end > now, Error::<T>::FundraiserExpired);
-            }
+            ensure!(<Fundraisers<T>>::contains_key(offering_asset, fundraiser_id), Error::<T>::FundraiserNotFound);
 
-            <Fundraisers<T>>::mutate(offering_asset, fundraiser_id, |fundraiser| if let Some(fundraiser) = fundraiser {
-            fundraiser.frozen = false
-            });
+            <Fundraisers<T>>::mutate(offering_asset, fundraiser_id, |fundraiser|
+                if let Some(fundraiser) = fundraiser {
+                    fundraiser.frozen = false
+                }
+            );
             Ok(())
         }
 
@@ -379,10 +385,14 @@ decl_module! {
             ensure!(T::Asset::primary_issuance_agent(&offering_asset) == did, Error::<T>::Unauthorized);
 
             let now = Timestamp::<T>::get();
-            let fundraiser = <Fundraisers<T>>::get(offering_asset, fundraiser_id).ok_or(Error::<T>::FundraiserNotFound)?;
-            ensure!(fundraiser.start <= now, Error::<T>::FundraiserNotStarted);
+            let fundraiser = <Fundraisers<T>>::get(offering_asset, fundraiser_id)
+                .ok_or(Error::<T>::FundraiserNotFound)?;
             if let Some(end) = fundraiser.end {
-                ensure!(end > now, Error::<T>::FundraiserExpired);
+                ensure!(now < end, Error::<T>::FundraiserExpired);
+            };
+
+            if let Some(end) = end {
+                ensure!(start < end, Error::<T>::InvalidOfferingWindow);
             }
 
             <Fundraisers<T>>::mutate(offering_asset, fundraiser_id, |fundraiser| {
@@ -394,5 +404,4 @@ decl_module! {
             Ok(())
         }
     }
-
 }
