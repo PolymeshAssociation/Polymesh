@@ -1177,7 +1177,7 @@ impl<T: Trait> Module<T> {
     fn prune_user_auths(legs: &Vec<(u64, Leg<T::Balance>)>, instruction_id: u64) {
         // We remove duplicates in memory before triggering storage actions
         let mut counter_parties = Vec::with_capacity(legs.len() * 2);
-        for (_id, leg) in legs {
+        for (_, leg) in legs {
             counter_parties.push(leg.from);
             counter_parties.push(leg.to);
         }
