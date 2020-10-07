@@ -321,11 +321,11 @@ fn general_testnet_genesis(
         }),
         pallet_pips: Some(GeneralConfig::PipsConfig {
             prune_historical_pips: false,
-            min_proposal_deposit: 0,
+            min_proposal_deposit: 5_000 * POLY,
+            quorum_threshold: 100_000,
+            proposal_duration: generalTime::MINUTES,
             proposal_cool_off_period: generalTime::MINUTES,
             default_enactment_period: generalTime::MINUTES,
-            max_pip_skip_count: 1,
-            active_pip_limit: 25,
         }),
         pallet_im_online: Some(GeneralConfig::ImOnlineConfig {
             slashing_params: general::OfflineSlashingParams {
@@ -344,9 +344,7 @@ fn general_testnet_genesis(
                 ..Default::default()
             },
         }),
-        // Governance Council:
         group_Instance1: Some(general::runtime::CommitteeMembershipConfig {
-            active_members_limit: 20,
             active_members: vec![
                 IdentityId::from(3),
                 IdentityId::from(4),
@@ -362,37 +360,12 @@ fn general_testnet_genesis(
             phantom: Default::default(),
         }),
         group_Instance2: Some(general::runtime::CddServiceProvidersConfig {
-            active_members_limit: u32::MAX,
             // sp1, sp2, first authority
             active_members: vec![
                 IdentityId::from(1),
                 IdentityId::from(2),
                 IdentityId::from(6),
             ],
-            phantom: Default::default(),
-        }),
-        // Technical Committee:
-        group_Instance3: Some(general::runtime::TechnicalCommitteeMembershipConfig {
-            active_members_limit: 20,
-            active_members: vec![IdentityId::from(3)],
-            phantom: Default::default(),
-        }),
-        committee_Instance3: Some(GeneralConfig::TechnicalCommitteeConfig {
-            vote_threshold: (1, 2),
-            members: vec![],
-            release_coordinator: IdentityId::from(3),
-            phantom: Default::default(),
-        }),
-        // Upgrade Committee:
-        group_Instance4: Some(general::runtime::UpgradeCommitteeMembershipConfig {
-            active_members_limit: 20,
-            active_members: vec![IdentityId::from(4)],
-            phantom: Default::default(),
-        }),
-        committee_Instance4: Some(GeneralConfig::UpgradeCommitteeConfig {
-            vote_threshold: (1, 2),
-            members: vec![],
-            release_coordinator: IdentityId::from(4),
             phantom: Default::default(),
         }),
         protocol_fee: Some(GeneralConfig::ProtocolFeeConfig {
@@ -697,11 +670,11 @@ fn alcyone_testnet_genesis(
         }),
         pallet_pips: Some(AlcyoneConfig::PipsConfig {
             prune_historical_pips: false,
-            min_proposal_deposit: 0,
+            min_proposal_deposit: 5_000 * POLY,
+            quorum_threshold: 100_000_000_000,
+            proposal_duration: alcyoneTime::DAYS * 7,
             proposal_cool_off_period: alcyoneTime::HOURS * 6,
             default_enactment_period: alcyoneTime::DAYS * 7,
-            max_pip_skip_count: 1,
-            active_pip_limit: 1000,
         }),
         pallet_im_online: Some(AlcyoneConfig::ImOnlineConfig {
             slashing_params: alcyone::OfflineSlashingParams {
@@ -721,7 +694,6 @@ fn alcyone_testnet_genesis(
             },
         }),
         group_Instance1: Some(alcyone::runtime::CommitteeMembershipConfig {
-            active_members_limit: 20,
             active_members: vec![
                 IdentityId::from(4),
                 IdentityId::from(5),
@@ -736,37 +708,12 @@ fn alcyone_testnet_genesis(
             phantom: Default::default(),
         }),
         group_Instance2: Some(alcyone::runtime::CddServiceProvidersConfig {
-            active_members_limit: u32::MAX,
             // sp1, sp2, sp3
             active_members: vec![
                 IdentityId::from(1),
                 IdentityId::from(2),
                 IdentityId::from(3),
             ],
-            phantom: Default::default(),
-        }),
-        // Technical Committee:
-        group_Instance3: Some(alcyone::runtime::TechnicalCommitteeMembershipConfig {
-            active_members_limit: 20,
-            active_members: vec![IdentityId::from(4)],
-            phantom: Default::default(),
-        }),
-        committee_Instance3: Some(alcyone::runtime::TechnicalCommitteeConfig {
-            vote_threshold: (1, 2),
-            members: vec![],
-            release_coordinator: IdentityId::from(4),
-            phantom: Default::default(),
-        }),
-        // Upgrade Committee:
-        group_Instance4: Some(alcyone::runtime::UpgradeCommitteeMembershipConfig {
-            active_members_limit: 20,
-            active_members: vec![IdentityId::from(5)],
-            phantom: Default::default(),
-        }),
-        committee_Instance4: Some(alcyone::runtime::UpgradeCommitteeConfig {
-            vote_threshold: (1, 2),
-            members: vec![],
-            release_coordinator: IdentityId::from(5),
             phantom: Default::default(),
         }),
         protocol_fee: Some(AlcyoneConfig::ProtocolFeeConfig {

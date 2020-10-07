@@ -17,8 +17,6 @@ use test_client::AccountKeyring;
 /// A prime number fee to test the split between multiple recipients.
 pub const PROTOCOL_OP_BASE_FEE: u128 = 41;
 
-pub const COOL_OFF_PERIOD: u64 = 100;
-
 struct BuilderVoteThreshold {
     pub numerator: u32,
     pub denominator: u32,
@@ -326,7 +324,6 @@ impl ExtBuilder {
             .collect::<Vec<_>>();
 
         group::GenesisConfig::<TestStorage, group::Instance2> {
-            active_members_limit: u32::MAX,
             active_members: cdd_ids,
             ..Default::default()
         }
@@ -348,7 +345,6 @@ impl ExtBuilder {
             .collect::<Vec<_>>();
 
         group::GenesisConfig::<TestStorage, group::Instance1> {
-            active_members_limit: u32::MAX,
             active_members: gc_ids.clone(),
             ..Default::default()
         }
@@ -377,10 +373,10 @@ impl ExtBuilder {
         pips::GenesisConfig::<TestStorage> {
             prune_historical_pips: false,
             min_proposal_deposit: 50,
-            proposal_cool_off_period: COOL_OFF_PERIOD,
+            quorum_threshold: 70,
+            proposal_duration: 10,
+            proposal_cool_off_period: 100,
             default_enactment_period: 100,
-            max_pip_skip_count: 1,
-            active_pip_limit: 5,
         }
         .assimilate_storage(&mut storage)
         .unwrap();

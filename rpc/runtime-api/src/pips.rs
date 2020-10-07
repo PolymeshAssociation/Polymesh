@@ -65,6 +65,7 @@ pub mod capped {
     #[cfg_attr(feature = "std", derive(Debug, Serialize, Deserialize))]
     #[cfg_attr(feature = "std", serde(rename_all = "camelCase"))]
     pub enum Vote {
+        None,
         Yes(u64),
         No(u64),
     }
@@ -75,8 +76,9 @@ pub mod capped {
     {
         fn from(core_vote: CoreVote<Balance>) -> Self {
             match core_vote {
-                CoreVote(true, amount) => Vote::Yes(amount.saturated_into()),
-                CoreVote(false, amount) => Vote::No(amount.saturated_into()),
+                CoreVote::None => Vote::None,
+                CoreVote::Yes(amount) => Vote::Yes(amount.saturated_into()),
+                CoreVote::No(amount) => Vote::No(amount.saturated_into()),
             }
         }
     }

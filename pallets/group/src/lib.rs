@@ -76,8 +76,8 @@
 
 use pallet_identity as identity;
 pub use polymesh_common_utilities::{
-    group::{GroupTrait, InactiveMember, MemberCount, RawEvent, Trait},
-    Context, GC_DID,
+    group::{GroupTrait, InactiveMember, RawEvent, Trait},
+    Context, SystematicIssuers, GC_DID,
 };
 use polymesh_primitives::IdentityId;
 
@@ -101,8 +101,6 @@ decl_storage! {
         pub ActiveMembers get(fn active_members) config(): Vec<IdentityId>;
         /// The current "inactive" membership, stored as an ordered Vec.
         pub InactiveMembers get(fn inactive_members): Vec<InactiveMember<T::Moment>>;
-        /// Limit of how many "active" members there can be.
-        pub ActiveMembersLimit get(fn active_members_limit) config(): u32;
     }
     add_extra_genesis {
         config(phantom): sp_std::marker::PhantomData<(T, I)>;
@@ -110,7 +108,6 @@ decl_storage! {
             use frame_support::traits::InitializeMembers;
 
             let mut members = config.active_members.clone();
-            assert!(members.len() as MemberCount <= config.active_members_limit);
             members.sort();
             T::MembershipInitialized::initialize_members(&members);
             <ActiveMembers<I>>::put(members);
@@ -126,17 +123,6 @@ decl_module! {
         type Error = Error<T, I>;
 
         fn deposit_event() = default;
-
-        /// Change this group's limit for how many concurrent active members they may be.
-        ///
-        /// # Arguments
-        /// * `limit` - the numer of active members there may be concurrently.
-        #[weight = (100_000_000, DispatchClass::Operational, Pays::Yes)]
-        pub fn set_active_members_limit(origin, limit: MemberCount) {
-            T::LimitOrigin::ensure_origin(origin)?;
-            let old = <ActiveMembersLimit<I>>::mutate(|slot| core::mem::replace(slot, limit));
-            Self::deposit_event(RawEvent::ActiveLimitChanged(GC_DID, limit, old));
-        }
 
         /// Disables a member at specific moment.
         ///
@@ -177,7 +163,6 @@ decl_module! {
             let mut members = <ActiveMembers<I>>::get();
             let location = members.binary_search(&who).err().ok_or(Error::<T, I>::DuplicateMember)?;
             members.insert(location, who);
-            Self::ensure_within_active_members_limit(&members)?;
             <ActiveMembers<I>>::put(&members);
 
             T::MembershipChanged::change_members_sorted(&[who], &[], &members[..]);
@@ -241,8 +226,6 @@ decl_module! {
         pub fn reset_members(origin, members: Vec<IdentityId>) {
             T::ResetOrigin::ensure_origin(origin)?;
 
-            Self::ensure_within_active_members_limit(&members)?;
-
             let mut new_members = members.clone();
             new_members.sort();
             <ActiveMembers<I>>::mutate(|m| {
@@ -302,22 +285,11 @@ decl_error! {
         /// Last member of the committee can not quit.
         LastMemberCannotQuit,
         /// Missing current DID
-        MissingCurrentIdentity,
-        /// The limit for the number of concurrent active members for this group has been exceeded.
-        ActiveMembersLimitExceeded,
+        MissingCurrentIdentity
     }
 }
 
 impl<T: Trait<I>, I: Instance> Module<T, I> {
-    /// Ensure that updating the active set to `members` will not exceed the set limit.
-    fn ensure_within_active_members_limit(members: &[IdentityId]) -> DispatchResult {
-        ensure!(
-            members.len() as MemberCount <= Self::active_members_limit(),
-            Error::<T, I>::ActiveMembersLimitExceeded
-        );
-        Ok(())
-    }
-
     /// Returns the current "active members" and any "valid member" whose revocation time-stamp is
     /// in the future.
     pub fn get_valid_members() -> Vec<IdentityId> {
