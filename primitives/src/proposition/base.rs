@@ -171,6 +171,17 @@ mod tests {
         TargetIdentity,
     };
     use std::convert::From;
+    use std::vec::IntoIter;
+
+    type Iter = IntoIter<Claim>;
+
+    fn mk_ctx(claims: Vec<Claim>) -> Context<Iter> {
+        Context {
+            claims: claims.into_iter(),
+            id: <_>::default(),
+            primary_issuance_agent: <_>::default(),
+        }
+    }
 
     #[test]
     fn existential_operators_test() {
@@ -178,18 +189,17 @@ mod tests {
         let did = IdentityId::from(1);
         let cdd_claim =
             Claim::CustomerDueDiligence(CddId::new(did, InvestorUid::from(b"UID1".as_ref())));
-        let context = Context {
-            claims: vec![cdd_claim.clone(), Claim::Affiliate(scope.clone())],
-            id: did,
-            ..Default::default()
-        };
+        let mut context = mk_ctx(vec![cdd_claim.clone(), Claim::Affiliate(scope.clone())]);
+        context.id = did;
 
         // Affiliate && CustommerDueDiligenge
         let affiliate_claim = Claim::Affiliate(scope);
-        let affiliate_and_cdd_pred =
-            proposition::exists(&affiliate_claim).and(proposition::exists(&cdd_claim));
+        let affiliate_and_cdd_pred = Proposition::<Iter>::and(
+            proposition::exists(&affiliate_claim),
+            proposition::exists(&cdd_claim),
+        );
 
-        assert_eq!(affiliate_and_cdd_pred.evaluate(&context), true);
+        assert_eq!(affiliate_and_cdd_pred.evaluate(context), true);
     }
 
     #[test]
@@ -203,23 +213,17 @@ mod tests {
             Claim::Jurisdiction(CountryCode::IN, scope.clone()),
         ];
 
-        let context = Context {
-            claims: vec![Claim::Jurisdiction(CountryCode::CA, scope.clone())],
-            ..Default::default()
-        };
+        let context = mk_ctx(vec![Claim::Jurisdiction(CountryCode::CA, scope.clone())]);
         let in_juridisction_pre = proposition::any(&valid_jurisdictions);
-        assert_eq!(in_juridisction_pre.evaluate(&context), true);
+        assert_eq!(in_juridisction_pre.evaluate(context), true);
 
         // 2. Check USA does not belong to {ESP, CAN, IND}.
-        let context = Context {
-            claims: vec![Claim::Jurisdiction(CountryCode::US, scope)],
-            ..Default::default()
-        };
-        assert_eq!(in_juridisction_pre.evaluate(&context), false);
+        let context = mk_ctx(vec![Claim::Jurisdiction(CountryCode::US, scope)]);
+        assert_eq!(in_juridisction_pre.evaluate(context.clone()), false);
 
         // 3. Check NOT in jurisdiction.
-        let not_in_jurisdiction_pre = proposition::not(in_juridisction_pre.clone());
-        assert_eq!(not_in_jurisdiction_pre.evaluate(&context), true);
+        let not_in_jurisdiction_pre = proposition::not::<_, Iter>(in_juridisction_pre.clone());
+        assert_eq!(not_in_jurisdiction_pre.evaluate(context), true);
     }
 
     #[test]
@@ -238,93 +242,66 @@ mod tests {
                 .into(),
         ];
 
-        // Valid case
-        let context = Context {
-            claims: vec![
-                Claim::Accredited(scope.clone()),
-                Claim::Jurisdiction(CountryCode::CA, scope.clone()),
-            ],
-            ..Default::default()
+        let check = |expected, context: &Context<Iter>| {
+            let out = !conditions
+                .iter()
+                .any(|condition| !proposition::run(&condition, context.clone()));
+            assert_eq!(out, expected);
         };
 
-        let out = !conditions
-            .iter()
-            .any(|condition| !proposition::run(&condition, &context));
-        assert_eq!(out, true);
+        // Valid case
+        let context = mk_ctx(vec![
+            Claim::Accredited(scope.clone()),
+            Claim::Jurisdiction(CountryCode::CA, scope.clone()),
+        ]);
+
+        check(true, &context);
 
         // Invalid case: `BuyLockup` is present.
-        let context = Context {
-            claims: vec![
-                Claim::Accredited(scope.clone()),
-                Claim::BuyLockup(scope.clone()),
-                Claim::Jurisdiction(CountryCode::CA, scope.clone()),
-            ],
-            ..Default::default()
-        };
-
-        let out = !conditions
-            .iter()
-            .any(|condition| !proposition::run(&condition, &context));
-        assert_eq!(out, false);
+        let context = mk_ctx(vec![
+            Claim::Accredited(scope.clone()),
+            Claim::BuyLockup(scope.clone()),
+            Claim::Jurisdiction(CountryCode::CA, scope.clone()),
+        ]);
+        check(false, &context);
 
         // Invalid case: Missing `Accredited`
-        let context = Context {
-            claims: vec![
-                Claim::BuyLockup(scope.clone()),
-                Claim::Jurisdiction(CountryCode::CA, scope.clone()),
-            ],
-            ..Default::default()
-        };
-
-        let out = !conditions
-            .iter()
-            .any(|condition| !proposition::run(&condition, &context));
-        assert_eq!(out, false);
+        let context = mk_ctx(vec![
+            Claim::BuyLockup(scope.clone()),
+            Claim::Jurisdiction(CountryCode::CA, scope.clone()),
+        ]);
+        check(false, &context);
 
         // Invalid case: Missing `Jurisdiction`
-        let context = Context {
-            claims: vec![
-                Claim::Accredited(scope.clone()),
-                Claim::Jurisdiction(CountryCode::ES, scope.clone()),
-            ],
-            ..Default::default()
-        };
-
-        let out = !conditions
-            .iter()
-            .any(|condition| !proposition::run(&condition, &context));
-        assert_eq!(out, false);
+        let context = mk_ctx(vec![
+            Claim::Accredited(scope.clone()),
+            Claim::Jurisdiction(CountryCode::ES, scope.clone()),
+        ]);
+        check(false, &context);
 
         // Check NoneOf
-        let context = Context {
-            claims: vec![
-                Claim::Accredited(scope.clone()),
-                Claim::Jurisdiction(CountryCode::CU, scope.clone()),
-            ],
-            ..Default::default()
-        };
-
-        let out = !conditions
-            .iter()
-            .any(|condition| !proposition::run(&condition, &context));
-        assert_eq!(out, false);
+        let context = mk_ctx(vec![
+            Claim::Accredited(scope.clone()),
+            Claim::Jurisdiction(CountryCode::CU, scope.clone()),
+        ]);
+        check(false, &context);
 
         let identity1 = IdentityId::from(1);
         let identity2 = IdentityId::from(2);
         assert!(proposition::run(
             &ConditionType::IsIdentity(TargetIdentity::PrimaryIssuanceAgent).into(),
-            &Context {
+            Context {
                 id: identity1,
                 primary_issuance_agent: Some(identity1),
-                ..Default::default()
+                claims: vec![].into_iter(),
             }
         ));
         assert!(proposition::run(
             &ConditionType::IsIdentity(TargetIdentity::Specific(identity1)).into(),
-            &Context {
+            Context {
                 id: identity1,
                 primary_issuance_agent: Some(identity2),
-                ..Default::default()
+                claims: vec![].into_iter(),
             }
         ));
     }

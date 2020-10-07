@@ -43,10 +43,9 @@ pub trait Proposition<C> {
     /// It generates a new proposition that represents the logical AND
     /// of two propositions: `Self` and `other`.
     #[inline]
-    fn and<B>(self, other: B) -> AndProposition<Self, B>
+    fn and<B: Proposition<C>>(self, other: B) -> AndProposition<Self, B>
     where
         Self: Sized,
-        B: Proposition<C> + Sized,
     {
         AndProposition::new(self, other)
     }
@@ -54,10 +53,9 @@ pub trait Proposition<C> {
     /// It generates a new proposition that represents the logical OR
     /// of two propositions: `Self` and `other`.
     #[inline]
-    fn or<B>(self, other: B) -> OrProposition<Self, B>
+    fn or<B: Proposition<C>>(self, other: B) -> OrProposition<Self, B>
     where
         Self: Sized,
-        B: Proposition<C> + Sized,
     {
         OrProposition::new(self, other)
     }
