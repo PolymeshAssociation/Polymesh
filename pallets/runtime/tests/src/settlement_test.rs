@@ -1,13 +1,12 @@
 use super::{
     storage::{
-        default_portfolio_btreeset, make_account_without_cdd,
-        provide_scope_claim_to_multiple_parties, register_keyring_account, user_portfolio_btreeset,
-        TestStorage,
+        default_portfolio_vec, make_account_without_cdd, provide_scope_claim_to_multiple_parties,
+        register_keyring_account, user_portfolio_vec, TestStorage,
     },
     ExtBuilder,
 };
 use codec::{Decode, Encode};
-use confidential_asset::{EncryptedAssetIdWrapper, MercatAccountId};
+use confidential_asset::MercatAccountId;
 use core::convert::{TryFrom, TryInto};
 use cryptography::{
     asset_proofs::{CommitmentWitness, ElgamalSecretKey},
@@ -16,8 +15,8 @@ use cryptography::{
         asset::AssetIssuer,
         transaction::{CtxMediator, CtxReceiver, CtxSender},
         Account, AccountCreatorInitializer, AssetTransactionIssuer, EncryptedAmount,
-        EncryptedAssetId, EncryptionKeys, FinalizedTransferTx, InitializedTransferTx, PubAccount,
-        PubAccountTx, SecAccount, TransferTransactionMediator, TransferTransactionReceiver,
+        EncryptionKeys, FinalizedTransferTx, InitializedTransferTx, PubAccount, PubAccountTx,
+        SecAccount, TransferTransactionMediator, TransferTransactionReceiver,
         TransferTransactionSender,
     },
     AssetId,
@@ -38,14 +37,12 @@ use pallet_settlement::{
 };
 use polymesh_primitives::{
     AssetOwnershipRelation, AssetType, AuthorizationData, Claim, Condition, ConditionType,
-    FundingRoundName, IdentifierType, IdentityId, PortfolioId, PortfolioName, SecurityToken,
-    Signatory, Ticker,
+    FundingRoundName, IdentityId, PortfolioId, PortfolioName, SecurityToken, Signatory, Ticker,
 };
 use rand::{prelude::*, thread_rng};
 use sp_core::sr25519::Public;
 use sp_runtime::traits::Zero;
 use sp_runtime::AnySignature;
-use sp_std::collections::btree_set::BTreeSet;
 use std::collections::HashMap;
 use std::prelude::*;
 use test_client::AccountKeyring;
@@ -211,7 +208,7 @@ fn basic_settlement() {
             assert_ok!(Settlement::authorize_instruction(
                 alice_signed.clone(),
                 instruction_counter,
-                default_portfolio_btreeset(alice_did)
+                default_portfolio_vec(alice_did)
             ));
 
             assert_eq!(Asset::balance_of(&ticker, alice_did), alice_init_balance);
@@ -219,7 +216,7 @@ fn basic_settlement() {
             assert_ok!(Settlement::authorize_instruction(
                 bob_signed.clone(),
                 instruction_counter,
-                default_portfolio_btreeset(bob_did)
+                default_portfolio_vec(bob_did)
             ));
 
             // Instruction should've settled
@@ -268,7 +265,7 @@ fn create_and_authorize_instruction() {
                     asset: ticker,
                     amount: amount
                 })],
-                default_portfolio_btreeset(alice_did)
+                default_portfolio_vec(alice_did)
             ));
 
             assert_eq!(Asset::balance_of(&ticker, alice_did), alice_init_balance);
@@ -292,7 +289,7 @@ fn create_and_authorize_instruction() {
             assert_ok!(Settlement::authorize_instruction(
                 bob_signed.clone(),
                 instruction_counter,
-                default_portfolio_btreeset(bob_did)
+                default_portfolio_vec(bob_did)
             ));
 
             // Instruction should've settled
@@ -342,7 +339,7 @@ fn overdraft_failure() {
                 Settlement::authorize_instruction(
                     alice_signed.clone(),
                     instruction_counter,
-                    default_portfolio_btreeset(alice_did)
+                    default_portfolio_vec(alice_did)
                 ),
                 Error::FailedToLockTokens
             );
@@ -459,7 +456,7 @@ fn token_swap() {
             assert_ok!(Settlement::authorize_instruction(
                 alice_signed.clone(),
                 instruction_counter,
-                default_portfolio_btreeset(alice_did)
+                default_portfolio_vec(alice_did)
             ));
 
             assert_eq!(
@@ -515,7 +512,7 @@ fn token_swap() {
             assert_ok!(Settlement::unauthorize_instruction(
                 alice_signed.clone(),
                 instruction_counter,
-                default_portfolio_btreeset(alice_did)
+                default_portfolio_vec(alice_did)
             ));
 
             assert_eq!(
@@ -566,7 +563,7 @@ fn token_swap() {
             assert_ok!(Settlement::authorize_instruction(
                 alice_signed.clone(),
                 instruction_counter,
-                default_portfolio_btreeset(alice_did)
+                default_portfolio_vec(alice_did)
             ));
 
             assert_eq!(
@@ -622,7 +619,7 @@ fn token_swap() {
             assert_ok!(Settlement::authorize_instruction(
                 bob_signed.clone(),
                 instruction_counter,
-                default_portfolio_btreeset(bob_did)
+                default_portfolio_vec(bob_did)
             ));
 
             // Instruction should've settled
@@ -794,7 +791,7 @@ fn claiming_receipt() {
             assert_ok!(Settlement::authorize_instruction(
                 alice_signed.clone(),
                 instruction_counter,
-                default_portfolio_btreeset(alice_did)
+                default_portfolio_vec(alice_did)
             ));
 
             assert_eq!(
@@ -1061,7 +1058,7 @@ fn claiming_receipt() {
             assert_ok!(Settlement::authorize_instruction(
                 bob_signed.clone(),
                 instruction_counter,
-                default_portfolio_btreeset(bob_did)
+                default_portfolio_vec(bob_did)
             ));
 
             // Instruction should've settled
@@ -1208,7 +1205,7 @@ fn settle_on_block() {
             assert_ok!(Settlement::authorize_instruction(
                 alice_signed.clone(),
                 instruction_counter,
-                default_portfolio_btreeset(alice_did)
+                default_portfolio_vec(alice_did)
             ));
 
             assert_eq!(
@@ -1264,7 +1261,7 @@ fn settle_on_block() {
             assert_ok!(Settlement::authorize_instruction(
                 bob_signed.clone(),
                 instruction_counter,
-                default_portfolio_btreeset(bob_did)
+                default_portfolio_vec(bob_did)
             ));
             assert_eq!(
                 Settlement::instruction_auths_pending(instruction_counter),
@@ -1471,7 +1468,7 @@ fn failed_execution() {
             assert_ok!(Settlement::authorize_instruction(
                 alice_signed.clone(),
                 instruction_counter,
-                default_portfolio_btreeset(alice_did)
+                default_portfolio_vec(alice_did)
             ));
 
             assert_eq!(
@@ -1527,7 +1524,7 @@ fn failed_execution() {
             assert_ok!(Settlement::authorize_instruction(
                 bob_signed.clone(),
                 instruction_counter,
-                default_portfolio_btreeset(bob_did)
+                default_portfolio_vec(bob_did)
             ));
             assert_eq!(
                 Settlement::instruction_auths_pending(instruction_counter),
@@ -1675,22 +1672,22 @@ fn venue_filtering() {
                 SettlementType::SettleOnBlock(block_number + 1),
                 None,
                 legs.clone(),
-                default_portfolio_btreeset(alice_did)
+                default_portfolio_vec(alice_did)
             ));
             assert_ok!(Settlement::authorize_instruction(
                 alice_signed.clone(),
                 instruction_counter,
-                default_portfolio_btreeset(alice_did)
+                default_portfolio_vec(alice_did)
             ));
             assert_ok!(Settlement::authorize_instruction(
                 bob_signed.clone(),
                 instruction_counter,
-                default_portfolio_btreeset(bob_did)
+                default_portfolio_vec(bob_did)
             ));
             assert_ok!(Settlement::authorize_instruction(
                 bob_signed.clone(),
                 instruction_counter + 1,
-                default_portfolio_btreeset(bob_did)
+                default_portfolio_vec(bob_did)
             ));
             next_block();
             assert_eq!(Asset::balance_of(&ticker, bob_did), 10);
@@ -1861,19 +1858,19 @@ fn basic_fuzzing() {
                         assert_ok!(Settlement::authorize_instruction(
                             signer.clone(),
                             instruction_counter,
-                            default_portfolio_btreeset(dids[i])
+                            default_portfolio_vec(dids[i])
                         ));
                         assert_ok!(Settlement::unauthorize_instruction(
                             signer.clone(),
                             instruction_counter,
-                            default_portfolio_btreeset(dids[i])
+                            default_portfolio_vec(dids[i])
                         ));
                     }
                 }
                 assert_ok!(Settlement::authorize_instruction(
                     signer.clone(),
                     instruction_counter,
-                    default_portfolio_btreeset(dids[i])
+                    default_portfolio_vec(dids[i])
                 ));
             }
 
@@ -1927,7 +1924,7 @@ fn basic_fuzzing() {
                 assert_ok!(Settlement::unauthorize_instruction(
                     signers[i].clone(),
                     instruction_counter,
-                    default_portfolio_btreeset(dids[i])
+                    default_portfolio_vec(dids[i])
                 ));
             }
 
@@ -2064,7 +2061,7 @@ fn claim_multiple_receipts_during_authorization() {
                             )
                         },
                     ],
-                    default_portfolio_btreeset(alice_did)
+                    default_portfolio_vec(alice_did)
                 ),
                 Error::ReceiptAlreadyClaimed
             );
@@ -2090,7 +2087,7 @@ fn claim_multiple_receipts_during_authorization() {
                         )
                     },
                 ],
-                default_portfolio_btreeset(alice_did)
+                default_portfolio_vec(alice_did)
             ));
 
             assert_eq!(
@@ -2146,7 +2143,7 @@ fn claim_multiple_receipts_during_authorization() {
             assert_ok!(Settlement::authorize_instruction(
                 bob_signed.clone(),
                 instruction_counter,
-                default_portfolio_btreeset(bob_did)
+                default_portfolio_vec(bob_did)
             ));
 
             // Instruction should've settled
@@ -2229,12 +2226,12 @@ fn overload_settle_on_block() {
                 assert_ok!(Settlement::authorize_instruction(
                     alice_signed.clone(),
                     instruction_counter + i,
-                    default_portfolio_btreeset(alice_did)
+                    default_portfolio_vec(alice_did)
                 ));
                 assert_ok!(Settlement::authorize_instruction(
                     bob_signed.clone(),
                     instruction_counter + i,
-                    default_portfolio_btreeset(bob_did)
+                    default_portfolio_vec(bob_did)
                 ));
             }
 
@@ -2319,7 +2316,7 @@ fn overload_settle_on_block() {
                 Settlement::authorize_instruction(
                     alice_signed.clone(),
                     instruction_counter + 2,
-                    default_portfolio_btreeset(alice_did)
+                    default_portfolio_vec(alice_did)
                 ),
                 Error::InstructionSettleBlockPassed
             );
@@ -2411,31 +2408,27 @@ fn test_weights_for_settlement_transaction() {
                 alice_signed.clone(),
                 ticker,
                 vec![
-                    Condition {
-                        condition_type: ConditionType::IsPresent(Claim::Accredited(
-                            ticker_id.into()
-                        )),
-                        issuers: vec![eve_did]
-                    },
-                    Condition {
-                        condition_type: ConditionType::IsAbsent(Claim::BuyLockup(ticker_id.into())),
-                        issuers: vec![eve_did]
-                    }
+                    Condition::from_dids(
+                        ConditionType::IsPresent(Claim::Accredited(ticker_id.into())),
+                        &[eve_did]
+                    ),
+                    Condition::from_dids(
+                        ConditionType::IsAbsent(Claim::BuyLockup(ticker_id.into())),
+                        &[eve_did]
+                    )
                 ],
                 vec![
-                    Condition {
-                        condition_type: ConditionType::IsPresent(Claim::Accredited(
-                            ticker_id.into()
-                        )),
-                        issuers: vec![eve_did]
-                    },
-                    Condition {
-                        condition_type: ConditionType::IsAnyOf(vec![
+                    Condition::from_dids(
+                        ConditionType::IsPresent(Claim::Accredited(ticker_id.into())),
+                        &[eve_did]
+                    ),
+                    Condition::from_dids(
+                        ConditionType::IsAnyOf(vec![
                             Claim::BuyLockup(ticker_id.into()),
                             Claim::KnowYourCustomer(ticker_id.into())
                         ]),
-                        issuers: vec![eve_did]
-                    }
+                        &[eve_did]
+                    )
                 ]
             ));
 
@@ -2495,14 +2488,14 @@ fn test_weights_for_settlement_transaction() {
             let weight_for_authorize_instruction_1 =
                 SettlementCall::<TestStorage>::authorize_instruction(
                     instruction_counter,
-                    default_portfolio_btreeset(alice_did),
+                    default_portfolio_vec(alice_did),
                 )
                 .get_dispatch_info()
                 .weight;
             let result_authorize_instruction_1 = Settlement::authorize_instruction(
                 alice_signed.clone(),
                 instruction_counter,
-                default_portfolio_btreeset(alice_did),
+                default_portfolio_vec(alice_did),
             );
             assert_ok!(result_authorize_instruction_1);
             assert_eq!(
@@ -2514,14 +2507,14 @@ fn test_weights_for_settlement_transaction() {
             let weight_for_authorize_instruction_2 =
                 SettlementCall::<TestStorage>::authorize_instruction(
                     instruction_counter,
-                    default_portfolio_btreeset(bob_did),
+                    default_portfolio_vec(bob_did),
                 )
                 .get_dispatch_info()
                 .weight;
             let result_authorize_instruction_2 = Settlement::authorize_instruction(
                 bob_signed.clone(),
                 instruction_counter,
-                default_portfolio_btreeset(bob_did),
+                default_portfolio_vec(bob_did),
             );
             assert_ok!(result_authorize_instruction_2);
             assert_eq!(Asset::balance_of(ticker, bob_did), 100);
@@ -2604,7 +2597,7 @@ fn cross_portfolio_settlement() {
             assert_ok!(Settlement::authorize_instruction(
                 alice_signed.clone(),
                 instruction_counter,
-                default_portfolio_btreeset(alice_did)
+                default_portfolio_vec(alice_did)
             ));
             assert_eq!(Asset::balance_of(&ticker, alice_did), alice_init_balance);
             assert_eq!(Asset::balance_of(&ticker, bob_did), bob_init_balance);
@@ -2628,7 +2621,7 @@ fn cross_portfolio_settlement() {
                 Settlement::authorize_instruction(
                     bob_signed.clone(),
                     instruction_counter,
-                    default_portfolio_btreeset(bob_did),
+                    default_portfolio_vec(bob_did),
                 ),
                 Error::NoPendingAuth
             );
@@ -2637,7 +2630,7 @@ fn cross_portfolio_settlement() {
             assert_ok!(Settlement::authorize_instruction(
                 bob_signed.clone(),
                 instruction_counter,
-                user_portfolio_btreeset(bob_did, num)
+                user_portfolio_vec(bob_did, num)
             ));
 
             // Instruction should've settled
@@ -2746,7 +2739,7 @@ fn multiple_portfolio_settlement() {
             assert_ok!(Settlement::authorize_instruction(
                 alice_signed.clone(),
                 instruction_counter,
-                default_portfolio_btreeset(alice_did)
+                default_portfolio_vec(alice_did)
             ));
             assert_eq!(Asset::balance_of(&ticker, alice_did), alice_init_balance);
             assert_eq!(Asset::balance_of(&ticker, bob_did), bob_init_balance);
@@ -2772,7 +2765,7 @@ fn multiple_portfolio_settlement() {
                 Settlement::authorize_instruction(
                     alice_signed.clone(),
                     instruction_counter,
-                    user_portfolio_btreeset(alice_did, alice_num)
+                    user_portfolio_vec(alice_did, alice_num)
                 ),
                 Error::FailedToLockTokens
             );
@@ -2789,7 +2782,7 @@ fn multiple_portfolio_settlement() {
             assert_ok!(Settlement::authorize_instruction(
                 alice_signed.clone(),
                 instruction_counter,
-                user_portfolio_btreeset(alice_did, alice_num)
+                user_portfolio_vec(alice_did, alice_num)
             ));
             assert_eq!(Asset::balance_of(&ticker, alice_did), alice_init_balance);
             assert_eq!(Asset::balance_of(&ticker, bob_did), bob_init_balance);
@@ -2822,16 +2815,14 @@ fn multiple_portfolio_settlement() {
             );
 
             // Bob approves the instruction with both of his portfolios in a single transaction
-            let set = vec![
+            let portfolios_vec = vec![
                 PortfolioId::default_portfolio(bob_did),
                 PortfolioId::user_portfolio(bob_did, bob_num),
-            ]
-            .into_iter()
-            .collect::<BTreeSet<_>>();
+            ];
             assert_ok!(Settlement::authorize_instruction(
                 bob_signed.clone(),
                 instruction_counter,
-                set
+                portfolios_vec
             ));
 
             // Instruction should've settled
@@ -2960,16 +2951,14 @@ fn multiple_custodian_settlement() {
             );
 
             // Alice approves the instruction from both of her portfolios
-            let set = vec![
+            let portfolios_vec = vec![
                 PortfolioId::default_portfolio(alice_did),
                 PortfolioId::user_portfolio(alice_did, alice_num),
-            ]
-            .into_iter()
-            .collect::<BTreeSet<_>>();
+            ];
             assert_ok!(Settlement::authorize_instruction(
                 alice_signed.clone(),
                 instruction_counter,
-                set.clone()
+                portfolios_vec.clone()
             ));
             assert_eq!(Asset::balance_of(&ticker, alice_did), alice_init_balance);
             assert_eq!(Asset::balance_of(&ticker, bob_did), bob_init_balance);
@@ -3009,14 +2998,16 @@ fn multiple_custodian_settlement() {
             assert_ok!(Identity::accept_authorization(bob_signed.clone(), auth_id2));
 
             // Bob fails to approve the instruction with both of his portfolios since he doesn't have custody for the second one
-            let set_bob = vec![
+            let portfolios_bob = vec![
                 PortfolioId::default_portfolio(bob_did),
                 PortfolioId::user_portfolio(bob_did, bob_num),
-            ]
-            .into_iter()
-            .collect::<BTreeSet<_>>();
+            ];
             assert_noop!(
-                Settlement::authorize_instruction(bob_signed.clone(), instruction_counter, set_bob),
+                Settlement::authorize_instruction(
+                    bob_signed.clone(),
+                    instruction_counter,
+                    portfolios_bob
+                ),
                 PortfolioError::UnauthorizedCustodian
             );
 
@@ -3024,12 +3015,16 @@ fn multiple_custodian_settlement() {
             assert_ok!(Settlement::authorize_instruction(
                 bob_signed.clone(),
                 instruction_counter,
-                default_portfolio_btreeset(bob_did)
+                default_portfolio_vec(bob_did)
             ));
 
             // Alice fails to unauthorize the instruction from both her portfolios since she doesn't have the custody
             assert_noop!(
-                Settlement::unauthorize_instruction(alice_signed.clone(), instruction_counter, set),
+                Settlement::unauthorize_instruction(
+                    alice_signed.clone(),
+                    instruction_counter,
+                    portfolios_vec
+                ),
                 PortfolioError::UnauthorizedCustodian
             );
 
@@ -3037,7 +3032,7 @@ fn multiple_custodian_settlement() {
             assert_ok!(Settlement::unauthorize_instruction(
                 alice_signed.clone(),
                 instruction_counter,
-                default_portfolio_btreeset(alice_did)
+                default_portfolio_vec(alice_did)
             ));
             assert_eq!(
                 Portfolio::locked_assets(PortfolioId::default_portfolio(alice_did), &ticker),
@@ -3045,16 +3040,14 @@ fn multiple_custodian_settlement() {
             );
 
             // Alice can authorize instruction from remaining portfolios since she has the custody
-            let set_final = vec![
+            let portfolios_final = vec![
                 PortfolioId::default_portfolio(alice_did),
                 PortfolioId::user_portfolio(bob_did, bob_num),
-            ]
-            .into_iter()
-            .collect::<BTreeSet<_>>();
+            ];
             assert_ok!(Settlement::authorize_instruction(
                 alice_signed.clone(),
                 instruction_counter,
-                set_final
+                portfolios_final
             ));
 
             // Instruction should've settled
@@ -3181,7 +3174,6 @@ pub fn create_account_and_mint_token(
         ..Default::default()
     };
     let ticker = Ticker::try_from(token.name.as_slice()).unwrap();
-    let identifiers = vec![(IdentifierType::default(), b"undefined".into())];
 
     assert_ok!(ConfidentialAsset::create_confidential_asset(
         Origin::signed(owner),
@@ -3189,7 +3181,7 @@ pub fn create_account_and_mint_token(
         ticker,
         true,
         token.asset_type.clone(),
-        identifiers.clone(),
+        vec![],
         Some(funding_round_name.clone()),
     ));
 
@@ -3403,7 +3395,7 @@ fn basic_confidential_settlement() {
                 Origin::signed(AccountKeyring::Alice.public()),
                 instruction_counter,
                 initialized_tx,
-                default_portfolio_btreeset(alice_did),
+                default_portfolio_vec(alice_did),
             ));
 
             // ------ Receiver authorizes.
@@ -3447,7 +3439,7 @@ fn basic_confidential_settlement() {
                 Origin::signed(AccountKeyring::Bob.public()),
                 instruction_counter,
                 finalized_tx,
-                default_portfolio_btreeset(bob_did),
+                default_portfolio_vec(bob_did),
             ));
 
             // ------ Mediator authorizes.
@@ -3491,7 +3483,7 @@ fn basic_confidential_settlement() {
                 Origin::signed(charlie),
                 instruction_counter,
                 justified_tx,
-                default_portfolio_btreeset(charlie_did),
+                default_portfolio_vec(charlie_did),
             ));
 
             // Instruction should've settled.

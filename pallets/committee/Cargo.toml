@@ -6,6 +6,7 @@ edition = "2018"
 
 [dependencies]
 polymesh-common-utilities = { path = "../common", default-features = false  }
+pallet-permissions = { path = "../permissions", default-features = false }
 polymesh-primitives = { path = "../../primitives", default-features = false  }
 pallet-identity = { path = "../identity", default-features = false  }
 
@@ -33,7 +34,7 @@ equalize = []
 default = ["std", "equalize"]
 no_std = []
 only-staking = []
-std = [ 
+std = [
 	"serde_derive",
 	"serde/std",
 	"codec/std",

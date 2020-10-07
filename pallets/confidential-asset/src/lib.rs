@@ -40,7 +40,7 @@ use polymesh_common_utilities::{
     CommonTrait, Context,
 };
 use polymesh_primitives::{
-    AssetIdentifier, AssetName, AssetType, FundingRoundName, IdentifierType, IdentityId, Ticker,
+    AssetIdentifier, AssetName, AssetType, FundingRoundName, IdentityId, Ticker,
 };
 use polymesh_primitives_derive::VecU8StrongTyped;
 use sp_runtime::{traits::Zero, SaturatedConversion};
@@ -203,7 +203,7 @@ decl_module! {
             ticker: Ticker,
             divisible: bool,
             asset_type: AssetType,
-            identifiers: Vec<(IdentifierType, AssetIdentifier)>,
+            identifiers: Vec<AssetIdentifier>,
             funding_round: Option<FundingRoundName>,
         ) -> DispatchResult {
             let primary_owner = ensure_signed(origin)?;

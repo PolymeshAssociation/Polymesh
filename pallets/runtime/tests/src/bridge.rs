@@ -1,5 +1,8 @@
 use super::{
-    storage::{register_keyring_account, register_keyring_account_with_balance, Call, TestStorage},
+    storage::{
+        get_last_auth_id, register_keyring_account, register_keyring_account_with_balance, Call,
+        TestStorage,
+    },
     ExtBuilder,
 };
 
@@ -7,19 +10,16 @@ use frame_support::{
     assert_err, assert_ok,
     traits::{Currency, OnInitialize},
     weights::Weight,
-    StorageDoubleMap,
 };
 use pallet_balances as balances;
-use pallet_identity as identity;
+use pallet_bridge::{self as bridge, BridgeTx, BridgeTxStatus};
 use pallet_multisig as multisig;
 use polymesh_primitives::Signatory;
-use polymesh_runtime_common::bridge::{self, BridgeTx, BridgeTxStatus};
 use test_client::AccountKeyring;
 
 type Bridge = bridge::Module<TestStorage>;
 type Error = bridge::Error<TestStorage>;
 type Balances = balances::Module<TestStorage>;
-type Authorizations = identity::Authorizations<TestStorage>;
 type MultiSig = multisig::Module<TestStorage>;
 type Origin = <TestStorage as frame_system::Trait>::Origin;
 type System = frame_system::Module<TestStorage>;
@@ -43,7 +43,7 @@ fn can_issue_to_identity() {
 }
 
 fn can_issue_to_identity_we() {
-    let alice_did = register_keyring_account_with_balance(AccountKeyring::Alice, 1_000).unwrap();
+    let _ = register_keyring_account_with_balance(AccountKeyring::Alice, 1_000).unwrap();
     let alice = Origin::signed(AccountKeyring::Alice.public());
 
     let bob_key = AccountKeyring::Bob.public();
@@ -65,24 +65,18 @@ fn can_issue_to_identity_we() {
     ));
 
     assert_eq!(MultiSig::ms_signs_required(controller), 2);
-    let last_authorization = |account| {
-        <Authorizations>::iter_prefix_values(Signatory::Account(account))
-            .next()
-            .unwrap()
-            .auth_id
-    };
 
     assert_ok!(MultiSig::accept_multisig_signer_as_key(
         bob.clone(),
-        last_authorization(bob_key)
+        get_last_auth_id(&Signatory::Account(bob_key))
     ));
     assert_ok!(MultiSig::accept_multisig_signer_as_key(
         charlie.clone(),
-        last_authorization(charlie_key)
+        get_last_auth_id(&Signatory::Account(charlie_key))
     ));
     assert_ok!(MultiSig::accept_multisig_signer_as_key(
         dave.clone(),
-        last_authorization(dave_key)
+        get_last_auth_id(&Signatory::Account(dave_key))
     ));
 
     assert_eq!(
@@ -153,8 +147,7 @@ fn can_issue_to_identity_we() {
 #[test]
 fn can_change_controller() {
     ExtBuilder::default().build().execute_with(|| {
-        let alice_did =
-            register_keyring_account_with_balance(AccountKeyring::Alice, 1_000).unwrap();
+        let _ = register_keyring_account_with_balance(AccountKeyring::Alice, 1_000).unwrap();
         let alice = Origin::signed(AccountKeyring::Alice.public());
 
         let bob_key = AccountKeyring::Bob.public();
@@ -176,24 +169,18 @@ fn can_change_controller() {
         ));
 
         assert_eq!(MultiSig::ms_signs_required(controller), 2);
-        let last_authorization = |account| {
-            <Authorizations>::iter_prefix_values(Signatory::Account(account))
-                .next()
-                .unwrap()
-                .auth_id
-        };
 
         assert_ok!(MultiSig::accept_multisig_signer_as_key(
             bob.clone(),
-            last_authorization(bob_key)
+            get_last_auth_id(&Signatory::Account(bob_key))
         ));
         assert_ok!(MultiSig::accept_multisig_signer_as_key(
             charlie.clone(),
-            last_authorization(charlie_key)
+            get_last_auth_id(&Signatory::Account(charlie_key))
         ));
         assert_ok!(MultiSig::accept_multisig_signer_as_key(
             dave.clone(),
-            last_authorization(dave_key)
+            get_last_auth_id(&Signatory::Account(dave_key))
         ));
 
         assert_eq!(
@@ -262,7 +249,7 @@ fn can_freeze_and_unfreeze_bridge() {
 }
 
 fn do_freeze_and_unfreeze_bridge() {
-    let alice_did = register_keyring_account_with_balance(AccountKeyring::Alice, 1_000).unwrap();
+    let _ = register_keyring_account_with_balance(AccountKeyring::Alice, 1_000).unwrap();
     let alice = Origin::signed(AccountKeyring::Alice.public());
 
     let bob_key = AccountKeyring::Bob.public();
@@ -278,20 +265,14 @@ fn do_freeze_and_unfreeze_bridge() {
     ));
 
     assert_eq!(MultiSig::ms_signs_required(controller), 2);
-    let last_authorization = |account| {
-        <Authorizations>::iter_prefix_values(Signatory::Account(account))
-            .next()
-            .unwrap()
-            .auth_id
-    };
 
     assert_ok!(MultiSig::accept_multisig_signer_as_key(
         bob.clone(),
-        last_authorization(bob_key)
+        get_last_auth_id(&Signatory::Account(bob_key))
     ));
     assert_ok!(MultiSig::accept_multisig_signer_as_key(
         charlie.clone(),
-        last_authorization(charlie_key)
+        get_last_auth_id(&Signatory::Account(charlie_key))
     ));
 
     assert_eq!(
@@ -390,7 +371,7 @@ fn can_timelock_txs() {
 }
 
 fn do_timelock_txs() {
-    let alice_did = register_keyring_account_with_balance(AccountKeyring::Alice, 1_000).unwrap();
+    let _ = register_keyring_account_with_balance(AccountKeyring::Alice, 1_000).unwrap();
     let alice = Origin::signed(AccountKeyring::Alice.public());
 
     let bob_key = AccountKeyring::Bob.public();
@@ -406,20 +387,14 @@ fn do_timelock_txs() {
     ));
 
     assert_eq!(MultiSig::ms_signs_required(controller), 1);
-    let last_authorization = |account| {
-        <Authorizations>::iter_prefix_values(Signatory::Account(account))
-            .next()
-            .unwrap()
-            .auth_id
-    };
 
     assert_ok!(MultiSig::accept_multisig_signer_as_key(
         bob.clone(),
-        last_authorization(bob_key)
+        get_last_auth_id(&Signatory::Account(bob_key))
     ));
     assert_ok!(MultiSig::accept_multisig_signer_as_key(
         charlie.clone(),
-        last_authorization(charlie_key)
+        get_last_auth_id(&Signatory::Account(charlie_key))
     ));
 
     assert_eq!(
@@ -504,7 +479,7 @@ fn can_rate_limit() {
 }
 
 fn do_rate_limit() {
-    let alice_did = register_keyring_account_with_balance(AccountKeyring::Alice, 1_000).unwrap();
+    let _ = register_keyring_account_with_balance(AccountKeyring::Alice, 1_000).unwrap();
     let alice = Origin::signed(AccountKeyring::Alice.public());
 
     let bob_key = AccountKeyring::Bob.public();
@@ -520,20 +495,14 @@ fn do_rate_limit() {
     ));
 
     assert_eq!(MultiSig::ms_signs_required(controller), 1);
-    let last_authorization = |account| {
-        <Authorizations>::iter_prefix_values(Signatory::Account(account))
-            .next()
-            .unwrap()
-            .auth_id
-    };
 
     assert_ok!(MultiSig::accept_multisig_signer_as_key(
         bob.clone(),
-        last_authorization(bob_key)
+        get_last_auth_id(&Signatory::Account(bob_key))
     ));
     assert_ok!(MultiSig::accept_multisig_signer_as_key(
         charlie.clone(),
-        last_authorization(charlie_key)
+        get_last_auth_id(&Signatory::Account(charlie_key))
     ));
 
     assert_eq!(
@@ -641,20 +610,14 @@ fn do_exempted() {
     ));
 
     assert_eq!(MultiSig::ms_signs_required(controller), 1);
-    let last_authorization = |account| {
-        <Authorizations>::iter_prefix_values(Signatory::Account(account))
-            .next()
-            .unwrap()
-            .auth_id
-    };
 
     assert_ok!(MultiSig::accept_multisig_signer_as_key(
         bob.clone(),
-        last_authorization(bob_key)
+        get_last_auth_id(&Signatory::Account(bob_key))
     ));
     assert_ok!(MultiSig::accept_multisig_signer_as_key(
         charlie.clone(),
-        last_authorization(charlie_key)
+        get_last_auth_id(&Signatory::Account(charlie_key))
     ));
     assert_eq!(
         MultiSig::ms_signers(controller, Signatory::Account(bob_key)),
@@ -743,7 +706,7 @@ fn can_force_mint() {
 
 fn do_force_mint() {
     let admin = Origin::from(frame_system::RawOrigin::Signed(Default::default()));
-    let alice_did = register_keyring_account_with_balance(AccountKeyring::Alice, 1_000).unwrap();
+    let _ = register_keyring_account_with_balance(AccountKeyring::Alice, 1_000).unwrap();
     let alice = Origin::signed(AccountKeyring::Alice.public());
 
     let bob_key = AccountKeyring::Bob.public();
@@ -759,20 +722,14 @@ fn do_force_mint() {
     ));
 
     assert_eq!(MultiSig::ms_signs_required(controller), 1);
-    let last_authorization = |account| {
-        <Authorizations>::iter_prefix_values(Signatory::Account(account))
-            .next()
-            .unwrap()
-            .auth_id
-    };
 
     assert_ok!(MultiSig::accept_multisig_signer_as_key(
         bob.clone(),
-        last_authorization(bob_key)
+        get_last_auth_id(&Signatory::Account(bob_key))
     ));
     assert_ok!(MultiSig::accept_multisig_signer_as_key(
         charlie.clone(),
-        last_authorization(charlie_key)
+        get_last_auth_id(&Signatory::Account(charlie_key))
     ));
 
     assert_eq!(

@@ -52,7 +52,11 @@ async function addSecondaryKeys( api, accounts, dids, secondary_accounts ) {
   for (let i = 0; i < accounts.length; i++) {
 
     // 1. Add Secondary Item to identity.
+<<<<<<< HEAD
     const transaction = api.tx.identity.addAuthorization({Account: secondary_accounts[i].publicKey}, {JoinIdentity: []}, null);
+=======
+    const transaction = api.tx.identity.addAuthorization({Account: secondary_accounts[i].publicKey}, {JoinIdentity: reqImports.totalPermissions}, null);
+>>>>>>> develop
     let tx = await reqImports.sendTx(accounts[i], transaction);
     if(tx !== -1) reqImports.fail_count--;
 
@@ -65,7 +69,11 @@ async function createMultiSig( api, alice, dids, numOfSigners ) {
     const transaction = api.tx.multiSig.createMultisig(dids, numOfSigners);
     let tx = await reqImports.sendTx(alice, transaction);
     if(tx !== -1) reqImports.fail_count--;
+<<<<<<< HEAD
   
+=======
+
+>>>>>>> develop
 }
 
 

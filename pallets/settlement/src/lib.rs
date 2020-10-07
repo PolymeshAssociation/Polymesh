@@ -631,13 +631,14 @@ decl_module! {
             settlement_type: SettlementType<T::BlockNumber>,
             valid_from: Option<T::Moment>,
             legs: Vec<Leg<T::Balance>>,
-            portfolios: BTreeSet<PortfolioId>
+            portfolios: Vec<PortfolioId>
         ) -> DispatchResultWithPostInfo {
             let sender = ensure_signed(origin.clone())?;
             let did = Context::current_identity_or::<Identity<T>>(&sender)?;
+            let portfolios_set = portfolios.into_iter().collect::<BTreeSet<_>>();
             let legs_count = legs.len();
             let instruction_id = Self::base_add_instruction(did, venue_id, settlement_type, valid_from, legs)?;
-            let authorization_weight = Self::authorize_instruction(origin, instruction_id, portfolios)?;
+            let authorization_weight = Self::authorize_instruction(origin, instruction_id, portfolios_set.into_iter().collect::<Vec<_>>())?;
             Ok(
                 Some(
                     weight_for::weight_for_instruction_creation::<T>(legs_count)
@@ -654,12 +655,13 @@ decl_module! {
         #[weight = weight_for::weight_for_authorize_instruction::<T>()
             + weight_for::weight_for_transfer::<T>() // Maximum weight for `execute_instruction()`.
         ]
-        pub fn authorize_instruction(origin, instruction_id: u64, portfolios: BTreeSet<PortfolioId>) -> DispatchResultWithPostInfo {
+        pub fn authorize_instruction(origin, instruction_id: u64, portfolios: Vec<PortfolioId>) -> DispatchResultWithPostInfo {
             let sender = ensure_signed(origin)?;
             let did = Context::current_identity_or::<Identity<T>>(&sender)?;
+            let portfolios_set = portfolios.into_iter().collect::<BTreeSet<_>>();
 
             // Authorize the instruction.
-            Self::unsafe_authorize_instruction(did, instruction_id, portfolios)?;
+            Self::unsafe_authorize_instruction(did, instruction_id, portfolios_set)?;
 
             // Execute the instruction if conditions are met.
             let auths_pending = Self::instruction_auths_pending(instruction_id);
@@ -674,14 +676,15 @@ decl_module! {
         /// * `instruction_id` - Instruction id to authorize.
         /// * `portfolios` - Portfolios that the sender controls and wants to authorize for this instruction.
         #[weight = weight_for::weight_for_authorize_instruction::<T>()
-            + weight_for::weight_for_transfer::<T>() // Maximum weight for `execute_instruction(), portfolios: BTreeSet<PortfolioId>
+            + weight_for::weight_for_transfer::<T>() // Maximum weight for `execute_instruction()`
         ]
-        pub fn authorize_confidential_instruction(origin, instruction_id: u64, data: MercatTxData, portfolios: BTreeSet<PortfolioId>) -> DispatchResultWithPostInfo {
+        pub fn authorize_confidential_instruction(origin, instruction_id: u64, data: MercatTxData, portfolios: Vec<PortfolioId>) -> DispatchResultWithPostInfo {
             let sender = ensure_signed(origin)?;
             let did = Context::current_identity_or::<Identity<T>>(&sender)?;
+            let portfolios_set = portfolios.into_iter().collect::<BTreeSet<_>>();
 
             // Authorize the instruction.
-            Self::unsafe_authorize_instruction(did, instruction_id, portfolios)?;
+            Self::unsafe_authorize_instruction(did, instruction_id, portfolios_set)?;
 
             MercatTxDataStorage::append(instruction_id, data);
             // Execute the instruction if conditions are met.
@@ -697,14 +700,15 @@ decl_module! {
         /// * `instruction_id` - Instruction id to unauthorize.
         /// * `portfolios` - Portfolios that the sender controls and wants to unauthorize for this instruction.
         #[weight = 25_000_000_000]
-        pub fn unauthorize_instruction(origin, instruction_id: u64, portfolios: BTreeSet<PortfolioId>) -> DispatchResult {
+        pub fn unauthorize_instruction(origin, instruction_id: u64, portfolios: Vec<PortfolioId>) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             let did = Context::current_identity_or::<Identity<T>>(&sender)?;
+            let portfolios_set = portfolios.into_iter().collect::<BTreeSet<_>>();
 
             Self::ensure_instruction_validity(instruction_id)?;
 
             // Unauthorize the instruction.
-            Self::unsafe_unauthorize_instruction(did, instruction_id, portfolios)
+            Self::unsafe_unauthorize_instruction(did, instruction_id, portfolios_set)
         }
 
         /// Rejects an existing instruction.
@@ -715,15 +719,16 @@ decl_module! {
         #[weight = weight_for::weight_for_reject_instruction::<T>()
             + weight_for::weight_for_transfer::<T>() // Maximum weight for `execute_instruction()`.
         ]
-        pub fn reject_instruction(origin, instruction_id: u64, portfolios: BTreeSet<PortfolioId>) -> DispatchResultWithPostInfo {
+        pub fn reject_instruction(origin, instruction_id: u64, portfolios: Vec<PortfolioId>) -> DispatchResultWithPostInfo {
             let sender = ensure_signed(origin)?;
             let did = Context::current_identity_or::<Identity<T>>(&sender)?;
+            let portfolios_set = portfolios.into_iter().collect::<BTreeSet<_>>();
 
             Self::ensure_instruction_validity(instruction_id)?;
 
             with_transaction(|| {
                 let mut portfolios_to_unauthorize = BTreeSet::new();
-                for portfolio in portfolios {
+                for portfolio in portfolios_set {
                     // Unauthorize the instruction if it was authorized earlier.
                     let user_auth_status = Self::user_auths(portfolio, instruction_id);
 
@@ -761,9 +766,10 @@ decl_module! {
         #[weight = weight_for::weight_for_authorize_with_receipts::<T>(u32::try_from(receipt_details.len()).unwrap_or_default())
             + weight_for::weight_for_transfer::<T>() // Maximum weight for `execute_instruction()`.
             ]
-        pub fn authorize_with_receipts(origin, instruction_id: u64, receipt_details: Vec<ReceiptDetails<T::AccountId, T::OffChainSignature>>, portfolios: BTreeSet<PortfolioId>) -> DispatchResultWithPostInfo {
+        pub fn authorize_with_receipts(origin, instruction_id: u64, receipt_details: Vec<ReceiptDetails<T::AccountId, T::OffChainSignature>>, portfolios: Vec<PortfolioId>) -> DispatchResultWithPostInfo {
             let sender = ensure_signed(origin)?;
             let did = Context::current_identity_or::<Identity<T>>(&sender)?;
+            let portfolios_set = portfolios.into_iter().collect::<BTreeSet<_>>();
 
             Self::ensure_instruction_validity(instruction_id)?;
 
@@ -777,8 +783,8 @@ decl_module! {
 
             let instruction_details = Self::instruction_details(instruction_id);
 
-            // Verify portfolio custodianship and check if it is a counter party with a pending or rejected authorization.
-            for portfolio in &portfolios {
+            // verify portfolio custodianship and check if it is a counter party with a pending or rejected authorization.
+            for portfolio in &portfolios_set {
                 T::Portfolio::ensure_portfolio_custody(*portfolio, did)?;
                 let user_auth = Self::user_auths(portfolio, instruction_id);
                 ensure!(
@@ -798,7 +804,7 @@ decl_module! {
 
                 let leg = Self::instruction_legs(&instruction_id, &receipt.leg_id);
                 let (from, to) = Self::leg_from_to(&leg)?;
-                ensure!(portfolios.contains(&from), Error::<T>::PortfolioMismatch);
+                ensure!(portfolios_set.contains(&from), Error::<T>::PortfolioMismatch);
                 let (asset, amount) = Self::leg_asset_and_amount(&leg)?;
                 let msg = Receipt {
                     receipt_uid: receipt.receipt_uid,
@@ -819,7 +825,7 @@ decl_module! {
                 let legs = <InstructionLegs<T>>::iter_prefix(instruction_id);
                 for (leg_id, leg_details) in legs.filter(|(_leg_id, leg_details)| {
                     match Self::leg_from_to(&leg_details) {
-                        Ok((from, _)) => portfolios.contains(&from),
+                        Ok((from, _)) => portfolios_set.contains(&from),
                         Err(_) => false
                     }
                 }) {
@@ -845,8 +851,8 @@ decl_module! {
             })?;
 
             // Update storage.
-            let auths_pending = Self::instruction_auths_pending(instruction_id).saturating_sub(u64::try_from(portfolios.len()).unwrap_or_default());
-            for portfolio in portfolios {
+            let auths_pending = Self::instruction_auths_pending(instruction_id).saturating_sub(u64::try_from(portfolios_set.len()).unwrap_or_default());
+            for portfolio in portfolios_set {
                 <UserAuths>::insert(portfolio, instruction_id, AuthorizationStatus::Authorized);
                 <AuthsReceived>::insert(instruction_id, portfolio, AuthorizationStatus::Authorized);
                 Self::deposit_event(RawEvent::InstructionAuthorized(did, portfolio, instruction_id));

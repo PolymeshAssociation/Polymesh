@@ -15,7 +15,7 @@
 
 use crate::{
     identity_id::IdentityId,
-    secondary_key::{Permission, Signatory},
+    secondary_key::{Permissions, Signatory},
     PortfolioId, Ticker,
 };
 use codec::{Decode, Encode};
@@ -46,7 +46,7 @@ pub enum AuthorizationData<AccountId> {
     TransferAssetOwnership(Ticker),
     /// Authorization to join an Identity
     /// Must be issued by the identity which is being joined
-    JoinIdentity(Vec<Permission>),
+    JoinIdentity(Permissions),
     /// Authorization to take custody of a portfolio
     PortfolioCustody(PortfolioId),
     /// Any other authorization

@@ -7,6 +7,7 @@ use codec::Encode;
 use pallet_asset as asset;
 use pallet_balances as balances;
 use pallet_basic_sto as sto;
+use pallet_bridge as bridge;
 use pallet_committee as committee;
 use pallet_compliance_manager::{self as compliance_manager, AssetComplianceResult};
 use pallet_confidential as confidential;
@@ -27,7 +28,7 @@ use pallet_utility as utility;
 use polymesh_common_utilities::{
     constants::currency::*,
     protocol_fee::ProtocolOp,
-    traits::{balances::AccountData, identity::Trait as IdentityTrait},
+    traits::{balances::AccountData, identity::Trait as IdentityTrait, PermissionChecker},
     CommonTrait,
 };
 use polymesh_primitives::{
@@ -35,12 +36,12 @@ use polymesh_primitives::{
     IdentityId, Index, Moment, PortfolioId, SecondaryKey, Signatory, Signature, Ticker,
 };
 use polymesh_runtime_common::{
-    bridge,
     cdd_check::CddChecker,
     contracts_wrapper, dividend, exemption,
     impls::{Author, CurrencyToVoteHandler},
-    merge_active_and_inactive, sto_capped, voting, AvailableBlockRatio, BlockHashCount,
-    MaximumBlockLength, MaximumBlockWeight, NegativeImbalance,
+    merge_active_and_inactive, sto_capped, voting, AvailableBlockRatio, BlockExecutionWeight,
+    BlockHashCount, ExtrinsicBaseWeight, MaximumBlockLength, MaximumBlockWeight, NegativeImbalance,
+    RocksDbWeight,
 };
 
 use sp_api::impl_runtime_apis;
@@ -70,10 +71,7 @@ use sp_version::RuntimeVersion;
 use frame_support::{
     construct_runtime, debug, parameter_types,
     traits::{KeyOwnerProofSystem, Randomness, SplitTwoWays},
-    weights::{
-        constants::{BlockExecutionWeight, ExtrinsicBaseWeight, RocksDbWeight},
-        Weight, WeightToFeeCoefficient, WeightToFeeCoefficients, WeightToFeePolynomial,
-    },
+    weights::{Weight, WeightToFeeCoefficient, WeightToFeeCoefficients, WeightToFeePolynomial},
 };
 use pallet_contracts_rpc_runtime_api::ContractExecResult;
 
@@ -90,6 +88,7 @@ use sp_version::NativeVersion;
 
 pub use balances::Call as BalancesCall;
 pub use frame_support::StorageValue;
+pub use frame_system::Call as SystemCall;
 pub use pallet_contracts::Gas;
 pub use pallet_staking::StakerStatus;
 pub use pallet_timestamp::Call as TimestampCall;
@@ -188,7 +187,7 @@ impl frame_system::Trait for Runtime {
     type OnKilledAccount = ();
     /// The data to be stored in an account.
     type AccountData = AccountData<Balance>;
-    type SystemWeightInfo = ();
+    type SystemWeightInfo = polymesh_weights::frame_system::WeightInfo;
 }
 
 parameter_types! {
@@ -274,7 +273,7 @@ impl pallet_transaction_payment::Trait for Runtime {
 
 impl CommonTrait for Runtime {
     type Balance = Balance;
-    type AcceptTransferTarget = Asset;
+    type AssetSubTraitTarget = Asset;
     type BlockRewardsReserve = balances::Module<Runtime>;
 }
 
@@ -285,6 +284,7 @@ impl balances::Trait for Runtime {
     type AccountStore = frame_system::Module<Runtime>;
     type Identity = Identity;
     type CddChecker = CddChecker<Runtime>;
+    type WeightInfo = ();
 }
 
 impl protocol_fee::Trait for Runtime {
@@ -301,7 +301,7 @@ impl pallet_timestamp::Trait for Runtime {
     type Moment = Moment;
     type OnTimestampSet = Babe;
     type MinimumPeriod = MinimumPeriod;
-    type WeightInfo = ();
+    type WeightInfo = polymesh_weights::pallet_timestamp::WeightInfo;
 }
 
 parameter_types! {
@@ -396,6 +396,7 @@ impl pallet_staking::Trait for Runtime {
     type MinSolutionScoreBump = MinSolutionScoreBump;
     type MaxNominatorRewardedPerValidator = MaxNominatorRewardedPerValidator;
     type UnsignedPriority = StakingUnsignedPriority;
+    type WeightInfo = ();
     type RequiredAddOrigin = frame_system::EnsureRoot<AccountId>;
     type RequiredRemoveOrigin = frame_system::EnsureRoot<AccountId>;
     type RequiredComplianceOrigin = frame_system::EnsureRoot<AccountId>;
@@ -525,6 +526,7 @@ where
             frame_system::CheckNonce::<Runtime>::from(nonce),
             frame_system::CheckWeight::<Runtime>::new(),
             pallet_transaction_payment::ChargeTransactionPayment::<Runtime>::from(tip),
+            pallet_permissions::StoreCallMetadata::<Runtime>::new(),
         );
         let raw_payload = SignedPayload::new(call, extra)
             .map_err(|e| {
@@ -701,6 +703,7 @@ impl IdentityTrait for Runtime {
     type Public = <MultiSignature as Verify>::Signer;
     type OffChainSignature = MultiSignature;
     type ProtocolFee = protocol_fee::Module<Runtime>;
+    type GCVotingMajorityOrigin = VMO<GovernanceCommittee>;
 }
 
 impl contracts_wrapper::Trait for Runtime {}
@@ -736,6 +739,11 @@ impl pallet_utility::Trait for Runtime {
 
 impl confidential::Trait for Runtime {
     type Event = Event;
+}
+
+impl PermissionChecker for Runtime {
+    type Call = Call;
+    type Checker = Identity;
 }
 
 // / A runtime transaction submitter for the cdd_offchain_worker
@@ -830,8 +838,9 @@ construct_runtime!(
         // Comment it in the favour of Testnet release
         // CddOffchainWorker: pallet_cdd_offchain_worker::{Module, Call, Storage, ValidateUnsigned, Event<T>}
         Portfolio: portfolio::{Module, Call, Storage, Event<T>},
-        Confidential: confidential::{Module, Call, Storage, Event },
-        ConfidentialAsset: pallet_confidential_asset::{Module, Call, Event<T>, Storage }
+        Confidential: confidential::{Module, Call, Storage, Event},
+        ConfidentialAsset: pallet_confidential_asset::{Module, Call, Event<T>, Storage },
+        Permissions: pallet_permissions::{Module, Storage},
     }
 );
 
@@ -854,6 +863,7 @@ pub type SignedExtra = (
     frame_system::CheckNonce<Runtime>,
     frame_system::CheckWeight<Runtime>,
     pallet_transaction_payment::ChargeTransactionPayment<Runtime>,
+    pallet_permissions::StoreCallMetadata<Runtime>,
 );
 /// Unchecked extrinsic type as expected by this runtime.
 pub type UncheckedExtrinsic = generic::UncheckedExtrinsic<Address, Call, Signature, SignedExtra>;
@@ -1234,16 +1244,45 @@ impl_runtime_apis! {
             highest_range_values: Vec<u32>,
             steps: Vec<u32>,
             repeat: u32,
+            extra: bool,
         ) -> Result<Vec<frame_benchmarking::BenchmarkBatch>, sp_runtime::RuntimeString> {
-            use frame_benchmarking::{Benchmarking, BenchmarkBatch, add_benchmark};
+            use frame_benchmarking::{Benchmarking, BenchmarkBatch, add_benchmark, TrackedStorageKey};
+
+            use frame_system_benchmarking::Module as SystemBench;
+            impl frame_system_benchmarking::Trait for Runtime {}
+
+            let whitelist: Vec<TrackedStorageKey> = vec![
+                // Block Number
+                hex_literal::hex!("26aa394eea5630e07c48ae0c9558cef702a5c1b19ab7a04f536c519aca4983ac").to_vec().into(),
+                // Total Issuance
+                hex_literal::hex!("c2261276cc9d1f8598ea4b6a74b15c2f57c875e4cff74148e4628f264b974c80").to_vec().into(),
+                // Execution Phase
+                hex_literal::hex!("26aa394eea5630e07c48ae0c9558cef7ff553b5a9862a516939d82b3d3d8661a").to_vec().into(),
+                // Event Count
+                hex_literal::hex!("26aa394eea5630e07c48ae0c9558cef70a98fdbe9ce6c55837576c60c7af3850").to_vec().into(),
+                // System Events
+                hex_literal::hex!("26aa394eea5630e07c48ae0c9558cef780d41e5e16056765bc8461851072c9d7").to_vec().into(),
+                // Treasury Account
+                hex_literal::hex!("26aa394eea5630e07c48ae0c9558cef7b99d880ec681799c0cf30e8886371da95ecffd7b6c0f78751baa9d281e0bfa3a6d6f646c70792f74727372790000000000000000000000000000000000000000").to_vec().into(),
+            ];
 
             let mut batches = Vec::<BenchmarkBatch>::new();
-            let params = (&pallet, &benchmark, &lowest_range_values, &highest_range_values, &steps, repeat);
+            let params = (
+                &pallet,
+                &benchmark,
+                &lowest_range_values,
+                &highest_range_values,
+                &steps,
+                repeat,
+                &whitelist,
+                extra,
+            );
 
-            add_benchmark!(params, batches, b"asset", Asset);
-            add_benchmark!(params, batches, b"identity", Identity);
-            add_benchmark!(params, batches, b"im-online", ImOnline);
-            add_benchmark!(params, batches, b"staking", Staking);
+            add_benchmark!(params, batches, pallet_asset, Asset);
+            add_benchmark!(params, batches, pallet_balances, Balances);
+            add_benchmark!(params, batches, pallet_identity, Identity);
+            add_benchmark!(params, batches, frame_system, SystemBench::<Runtime>);
+            add_benchmark!(params, batches, pallet_timestamp, Timestamp);
 
             if batches.is_empty() { return Err("Benchmark not found for this pallet.".into()) }
             Ok(batches)

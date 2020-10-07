@@ -17,9 +17,12 @@
 
 #![warn(missing_docs)]
 #![cfg_attr(not(feature = "std"), no_std)]
+#![feature(bool_to_option)]
 
-use blake2::{Blake2b, Digest};
-use curve25519_dalek::scalar::Scalar;
+use polymesh_primitives_derive::VecU8StrongTyped;
+#[cfg(feature = "std")]
+use sp_runtime::{Deserialize, Serialize};
+use sp_std::prelude::Vec;
 
 pub use codec::{Compact, Decode, Encode};
 pub use sp_runtime::{
@@ -27,9 +30,6 @@ pub use sp_runtime::{
     traits::{BlakeTwo256, Hash as HashT, IdentifyAccount, Member, Verify},
     MultiSignature,
 };
-
-#[cfg(feature = "std")]
-use sp_runtime::{Deserialize, Serialize};
 
 /// An index to a block.
 /// 32-bits will allow for 136 years of blocks assuming 1 block per second.
@@ -106,18 +106,6 @@ impl From<(u32, u32)> for PosRatio {
     }
 }
 
-/// It creates a scalar from the blake2_512 hash of `data` parameter.
-pub fn scalar_blake2_from_bytes(data: impl AsRef<[u8]>) -> Scalar {
-    let mut hash = [0u8; 64];
-    hash.copy_from_slice(
-        Blake2b::default()
-            .chain(data.as_ref())
-            .finalize()
-            .as_slice(),
-    );
-    Scalar::from_bytes_mod_order_wide(&hash)
-}
-
 /// The balance of an account.
 /// 128-bits (or 38 significant decimal figures) will allow for 10m currency (10^7) at a resolution
 /// to all for one second's worth of an annualised 50% reward be paid to a unit holder (10^11 unit
@@ -140,6 +128,10 @@ pub use sp_runtime::OpaqueExtrinsic as UncheckedExtrinsic;
 /// Utility byte container where equality comparison are ignored case.
 pub mod ignored_case_string;
 pub use ignored_case_string::IgnoredCaseString;
+
+/// Asset identifiers.
+pub mod asset_identifier;
+pub use asset_identifier::AssetIdentifier;
 
 /// Role for identities.
 pub mod identity_role;
@@ -178,14 +170,20 @@ pub mod migrate;
 
 /// This module contains entities related with secondary keys.
 pub mod secondary_key;
-pub use secondary_key::{Permission, SecondaryKey, Signatory};
+pub use secondary_key::{
+    AssetPermissions, ExtrinsicPermissions, PalletPermissions, Permissions, PortfolioPermissions,
+    SecondaryKey, Signatory,
+};
+
+/// Subset type.
+pub mod subset;
+pub use subset::{LatticeOrd, LatticeOrdering, SubsetRestriction};
 
 /// Generic asset data types.
 pub mod asset;
 pub use asset::{
-    AssetIdentifier, AssetName, AssetOwnershipRelation, AssetType, FocusedBalances,
-    FundingRoundName, IdentifierType, RestrictionResult, SecurityToken, SignData,
-    TickerRegistration, TickerRegistrationConfig, TickerRegistrationStatus,
+    AssetName, AssetOwnershipRelation, AssetType, FundingRoundName, RestrictionResult,
+    SecurityToken, TickerRegistration, TickerRegistrationConfig, TickerRegistrationStatus,
 };
 
 /// Generic authorization data types for all two step processes
@@ -210,14 +208,15 @@ pub use document::{Document, DocumentHash, DocumentName, DocumentUri};
 
 /// Rules for claims.
 pub mod condition;
-pub use condition::{Condition, ConditionType, TargetIdentity};
+pub use condition::{Condition, ConditionType, TargetIdentity, TrustedFor, TrustedIssuer};
 
 /// Predicate calculation for Claims.
 pub mod proposition;
-pub use proposition::{
-    AndProposition, Context, NotProposition, OrProposition, Proposition,
-    ValidProofOfInvestorProposition,
-};
+pub use proposition::{AndProposition, Context, NotProposition, OrProposition, Proposition};
+
+/// For confidential stuff.
+pub mod valid_proof_of_investor;
+pub use valid_proof_of_investor::ValidProofOfInvestor;
 
 /// Represents custom transaction errors.
 #[repr(u8)]
@@ -240,6 +239,20 @@ pub struct Beneficiary<Balance> {
     /// Amount requested to this beneficiary.
     pub amount: Balance,
 }
+
+/// The name of a pallet.
+#[derive(
+    Decode, Encode, Clone, Debug, Default, Hash, PartialEq, Eq, PartialOrd, Ord, VecU8StrongTyped,
+)]
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+pub struct PalletName(pub Vec<u8>);
+
+/// The name of a function within a pallet.
+#[derive(
+    Decode, Encode, Clone, Debug, Default, Hash, PartialEq, Eq, PartialOrd, Ord, VecU8StrongTyped,
+)]
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+pub struct DispatchableName(pub Vec<u8>);
 
 #[cfg(test)]
 mod tests {

@@ -15,19 +15,21 @@ pallet-confidential-asset = { path = "../../confidential-asset", default-feature
 pallet-confidential = { path = "../../confidential", default-features = false }
 pallet-balances = { path = "../../balances", default-features = false }
 pallet-basic-sto = { path = "../../basic-sto", default-features = false }
+pallet-bridge = { path = "../../bridge", default-features = false }
 pallet-cdd-offchain-worker = { path = "../../cdd-offchain-worker", default-features = false }
 pallet-committee = { path = "../../committee", default-features = false }
 pallet-compliance-manager = { path = "../../compliance-manager", default-features = false }
 pallet-contracts = { git = "https://github.com/paritytech/substrate", tag = "v2.0.0-rc6", default-features = false }
 pallet-group = { path = "../../group", default-features = false }
-pallet-identity = { path = "../../identity", default-features = false }
+pallet-identity = { path = "../../identity", default-features = false, features = ["no_cdd"] }
 pallet-multisig = { path = "../../multisig", default-features = false }
+pallet-permissions = { path = "../../permissions", default-features = false }
 pallet-pips = { path = "../../pips", default-features = false }
 pallet-portfolio = { path = "../../portfolio", default-features = false }
 pallet-protocol-fee = { path = "../../protocol-fee", default-features = false }
 pallet-settlement = { path = "../../settlement", default-features = false }
 pallet-staking = { path = "../../staking", default-features = false }
-pallet-staking-reward-curve = { path = "../../staking/reward-curve", default-features = false }
+pallet-staking-reward-curve = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0-rc6" }
 pallet-statistics = { path = "../../statistics", default-features = false }
 pallet-transaction-payment = { path = "../../transaction-payment", default-features = false }
 pallet-treasury = { path = "../../treasury", default-features = false }
@@ -51,6 +53,7 @@ smallvec = "1.4.1"
 lazy_static = "1.4.0"
 parking_lot = "=0.10.2"
 env_logger = "0.7"
+serde_json = '1.0.48'
 
 # Substrate
 codec = { package = "parity-scale-codec", version = "1.2.0", default-features = false, features = ["derive"] }
@@ -83,7 +86,7 @@ libsecp256k1 = { version = "0.3.5", default-features = false }
 [features]
 equalize = []
 only-staking = []
-default = ["std", "equalize", "runtime-benchmarks"]
+default = ["std", "equalize"]
 std = [
     "cryptography/std",
     "frame-benchmarking/std",
@@ -97,6 +100,7 @@ std = [
     "pallet-babe/std",
     "pallet-balances/std",
     "pallet-basic-sto/std",
+    "pallet-bridge/std",
     "pallet-cdd-offchain-worker/std",
     "pallet-committee/std",
     "pallet-compliance-manager/std",
@@ -105,11 +109,11 @@ std = [
     "pallet-group/std",
     "pallet-identity/std",
     "pallet-multisig/std",
+    "pallet-permissions/std",
     "pallet-pips/std",
     "pallet-portfolio/std",
     "pallet-randomness-collective-flip/std",
     "pallet-session/std",
-    "pallet-staking-reward-curve/std",
     "pallet-staking/std",
     "pallet-statistics/std",
     "pallet-timestamp/std",
@@ -129,8 +133,6 @@ std = [
     "substrate-test-utils",
     "test_client",
 ]
-
 runtime-benchmarks = [
-     "frame-benchmarking",
-     "pallet-identity/runtime-benchmarks"
+    "frame-benchmarking",
 ]

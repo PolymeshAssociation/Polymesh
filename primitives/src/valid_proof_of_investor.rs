@@ -1,38 +1,22 @@
-use crate::{
-    scalar_blake2_from_bytes, CddId, Claim, Context, IdentityId, InvestorZKProofData, Proposition,
-    Ticker,
-};
+use crate::{CddId, Claim, IdentityId, InvestorZKProofData, Scope, Ticker};
 use cryptography::claim_proofs::ProofPublicKey;
-use curve25519_dalek::{ristretto::CompressedRistretto, scalar::Scalar};
+use curve25519_dalek::ristretto::CompressedRistretto;
 
 // ZKProofs claims
 // =========================================================
 
-/// Proposition that checks if any of its internal claims exists in context.
+/// Data structure used to check if any of its internal claims exist in context.
 #[derive(Clone)]
 #[cfg_attr(feature = "std", derive(Debug))]
-pub struct ValidProofOfInvestorProposition {
-    /// The Investor proof should be associated to this ticker.
-    pub ticker: Ticker,
-}
+pub struct ValidProofOfInvestor;
 
-impl Proposition for ValidProofOfInvestorProposition {
-    /// Evaluate proposition against `context`.
-    fn evaluate(&self, context: &Context) -> bool {
-        context
-            .claims
-            .iter()
-            .any(|claim| self.evaluate_claim(claim, context))
-    }
-}
-
-impl ValidProofOfInvestorProposition {
+impl ValidProofOfInvestor {
     /// Evaluates if the claim is a valid proof.
-    fn evaluate_claim(&self, claim: &Claim, context: &Context) -> bool {
+    pub fn evaluate_claim(claim: &Claim, id: &IdentityId, proof: &InvestorZKProofData) -> bool {
         match claim {
-            Claim::InvestorZKProof(ref _ticker_scope, ref scope_id, ref cdd_id, ref proof) => {
-                let message = InvestorZKProofData::make_message(&context.id, &self.ticker);
-                Self::verify_proof(cdd_id, &context.id, scope_id, &self.ticker, proof, &message)
+            Claim::InvestorUniqueness(Scope::Ticker(ticker), scope_id, cdd_id) => {
+                let message = InvestorZKProofData::make_message(id, ticker);
+                Self::verify_proof(cdd_id, id, scope_id, ticker, proof, &message)
             }
             _ => false,
         }
@@ -47,14 +31,16 @@ impl ValidProofOfInvestorProposition {
         proof: &InvestorZKProofData,
         message: impl AsRef<[u8]>,
     ) -> bool {
-        let investor = Scalar::from_bits(investor_raw.to_bytes());
-        let scope_did = scalar_blake2_from_bytes(ticker.as_slice());
-
         if let Some(cdd_id) = CompressedRistretto::from_slice(cdd_id_raw.as_slice()).decompress() {
             if let Some(scope_id) =
                 CompressedRistretto::from_slice(scope_id_raw.as_bytes()).decompress()
             {
-                let verifier = ProofPublicKey::new(cdd_id, investor, scope_id, scope_did);
+                let verifier = ProofPublicKey::new(
+                    cdd_id,
+                    investor_raw.as_bytes(),
+                    scope_id,
+                    ticker.as_slice(),
+                );
                 return verifier.verify_id_match_proof(message.as_ref(), &proof.0);
             }
         }
@@ -66,10 +52,8 @@ impl ValidProofOfInvestorProposition {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{
-        proposition::{exists, has_valid_proof_of_investor},
-        Claim, Context, InvestorUid, InvestorZKProofData, Scope,
-    };
+    use crate::proposition::{exists, Proposition};
+    use crate::{Claim, Context, InvestorUid, InvestorZKProofData};
     use cryptography::claim_proofs::{compute_cdd_id, compute_scope_id};
     use sp_std::convert::{From, TryFrom};
 
@@ -80,8 +64,7 @@ mod tests {
         let asset_ticker = Ticker::try_from(b"1".as_ref()).unwrap();
 
         let exists_affiliate_claim = Claim::Affiliate(Scope::Ticker(asset_ticker));
-        let proposition =
-            exists(&exists_affiliate_claim).and(has_valid_proof_of_investor(asset_ticker));
+        let proposition = exists(&exists_affiliate_claim);
 
         let context = Context {
             claims: vec![],
@@ -95,7 +78,7 @@ mod tests {
             id: investor_id,
             primary_issuance_agent: None,
         };
-        assert_eq!(proposition.evaluate(&context), false);
+        assert_eq!(proposition.evaluate(&context), true);
 
         let proof: InvestorZKProofData =
             InvestorZKProofData::new(&investor_id, &investor_uid, &asset_ticker);
@@ -104,14 +87,12 @@ mod tests {
         let scope_claim = InvestorZKProofData::make_scope_claim(&asset_ticker, &investor_uid);
         let scope_id = compute_scope_id(&scope_claim).compress().to_bytes().into();
 
-        let context = Context {
-            claims: vec![
-                Claim::Affiliate(Scope::Ticker(asset_ticker)),
-                Claim::InvestorZKProof(Scope::Ticker(asset_ticker), scope_id, cdd_id, proof),
-            ],
-            id: investor_id,
-            primary_issuance_agent: None,
-        };
-        assert_eq!(proposition.evaluate(&context), true);
+        let claim = Claim::InvestorUniqueness(Scope::Ticker(asset_ticker), scope_id, cdd_id);
+
+        assert!(ValidProofOfInvestor::evaluate_claim(
+            &claim,
+            &investor_id,
+            &proof
+        ));
     }
 }

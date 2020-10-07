@@ -17,6 +17,7 @@
 
 //! Test utilities
 use chrono::prelude::Utc;
+use frame_support::traits::KeyOwnerProofSystem;
 use frame_support::{
     assert_ok,
     dispatch::DispatchResult,
@@ -32,22 +33,21 @@ use pallet_group as group;
 use pallet_identity as identity;
 use pallet_protocol_fee as protocol_fee;
 use pallet_staking::{self as staking, *};
-
 use polymesh_common_utilities::traits::{
-    asset::AcceptTransfer,
+    asset::AssetSubTrait,
     balances::{AccountData, CheckCdd},
     group::{GroupTrait, InactiveMember},
-    identity::{LinkedKeyInfo, Trait as IdentityTrait},
+    identity::Trait as IdentityTrait,
     multisig::MultiSigSubTrait,
     portfolio::PortfolioSubTrait,
     transaction_payment::{CddAndFeeDetails, ChargeTxFee},
-    CommonTrait,
+    CommonTrait, PermissionChecker,
 };
 use polymesh_primitives::{
-    AuthorizationData, Claim, IdentityId, InvestorUid, Moment, PortfolioId, Signatory, Ticker,
+    Authorization, AuthorizationData, Claim, IdentityId, InvestorUid, Moment, Permissions,
+    PortfolioId, ScopeId, Signatory, Ticker,
 };
 use sp_core::H256;
-use sp_io;
 use sp_npos_elections::{
     build_support_map, evaluate_support, reduce, ElectionScore, ExtendedBalance, StakedAssignment,
     VoteWeight,
@@ -57,7 +57,7 @@ use sp_runtime::{
     testing::{Header, TestSignature, TestXt, UintAuthorityId},
     traits::{Convert, IdentityLookup, SaturatedConversion, Zero},
     transaction_validity::{InvalidTransaction, TransactionValidity, ValidTransaction},
-    Perbill,
+    KeyTypeId, Perbill,
 };
 use sp_staking::{
     offence::{OffenceDetails, OnOffenceHandler},
@@ -268,7 +268,7 @@ impl frame_system::Trait for Test {
 
 impl CommonTrait for Test {
     type Balance = Balance;
-    type AcceptTransferTarget = Test;
+    type AssetSubTraitTarget = Test;
     type BlockRewardsReserve = balances::Module<Test>;
 }
 
@@ -279,6 +279,7 @@ impl balances::Trait for Test {
     type AccountStore = System;
     type Identity = identity::Module<Test>;
     type CddChecker = Test;
+    type WeightInfo = ();
 }
 
 parameter_types! {
@@ -369,6 +370,7 @@ impl IdentityTrait for Test {
     type Public = UintAuthorityId;
     type OffChainSignature = TestSignature;
     type ProtocolFee = protocol_fee::Module<Test>;
+    type GCVotingMajorityOrigin = frame_system::EnsureRoot<AccountId>;
 }
 
 impl CddAndFeeDetails<AccountId, Call> for Test {
@@ -438,7 +440,7 @@ impl GroupTrait<Moment> for Test {
     }
 }
 
-impl AcceptTransfer for Test {
+impl AssetSubTrait for Test {
     fn accept_ticker_transfer(_: IdentityId, _: u64) -> DispatchResult {
         Ok(())
     }
@@ -446,6 +448,9 @@ impl AcceptTransfer for Test {
         Ok(())
     }
     fn accept_asset_ownership_transfer(_: IdentityId, _: u64) -> DispatchResult {
+        Ok(())
+    }
+    fn update_balance_of_scope_id(_: ScopeId, _: IdentityId, _: Ticker) -> DispatchResult {
         Ok(())
     }
 }
@@ -470,15 +475,15 @@ impl PortfolioSubTrait<Balance> for Test {
     fn accept_portfolio_custody(_: IdentityId, _: u64) -> DispatchResult {
         unimplemented!()
     }
-    fn ensure_portfolio_custody(portfolio: PortfolioId, custodian: IdentityId) -> DispatchResult {
+    fn ensure_portfolio_custody(_: PortfolioId, _: IdentityId) -> DispatchResult {
         unimplemented!()
     }
 
-    fn lock_tokens(portfolio: &PortfolioId, ticker: &Ticker, amount: &Balance) -> DispatchResult {
+    fn lock_tokens(_: &PortfolioId, _: &Ticker, _: &Balance) -> DispatchResult {
         unimplemented!()
     }
 
-    fn unlock_tokens(portfolio: &PortfolioId, ticker: &Ticker, amount: &Balance) -> DispatchResult {
+    fn unlock_tokens(_: &PortfolioId, _: &Ticker, _: &Balance) -> DispatchResult {
         unimplemented!()
     }
 }
@@ -492,14 +497,15 @@ impl CheckCdd<AccountId> for Test {
     }
 }
 
+impl PermissionChecker for Test {
+    type Call = Call;
+    type Checker = Identity;
+}
+
 parameter_types! {
     pub const EpochDuration: u64 = 10;
     pub const ExpectedBlockTime: u64 = 1;
 }
-
-use frame_support::traits::KeyOwnerProofSystem;
-use polymesh_runtime_develop::runtime::{Historical, Offences};
-use sp_runtime::KeyTypeId;
 
 impl From<pallet_babe::Call<Test>> for Call {
     fn from(_: pallet_babe::Call<Test>) -> Self {
@@ -597,6 +603,7 @@ impl Trait for Test {
     type RequiredComplianceOrigin = frame_system::EnsureRoot<AccountId>;
     type RequiredCommissionOrigin = frame_system::EnsureRoot<AccountId>;
     type RequiredChangeHistoryDepthOrigin = frame_system::EnsureRoot<AccountId>;
+    type WeightInfo = ();
 }
 
 impl<LocalCall> frame_system::offchain::SendTransactionTypes<LocalCall> for Test
@@ -917,23 +924,35 @@ pub(crate) fn active_era() -> EraIndex {
 }
 
 pub fn provide_did_to_user(account: AccountId) -> bool {
-    match Identity::key_to_identity_ids(account) {
-        None => {
-            let cdd = Origin::signed(1005);
-            assert!(
-                Identity::cdd_register_did(cdd.clone(), account, vec![]).is_ok(),
-                "Error in registering the DID"
-            );
-
-            let did = Identity::get_identity(&account).expect("DID not find in the storage");
-            assert!(
-                Identity::add_claim(cdd.clone(), did, Claim::make_cdd_wildcard(), None).is_ok(),
-                "Error CDD Claim cannot be added to DID"
-            );
-            true
-        }
-        _ => false,
+    if <identity::KeyToIdentityIds<Test>>::contains_key(&account) {
+        return false;
     }
+    let cdd_account_id = 1005;
+    let cdd = Origin::signed(cdd_account_id);
+    assert!(
+        <identity::KeyToIdentityIds<Test>>::contains_key(&cdd_account_id),
+        "CDD provider account not mapped to identity"
+    );
+    let cdd_did = <identity::KeyToIdentityIds<Test>>::get(&cdd_account_id);
+    assert!(
+        <identity::DidRecords<Test>>::contains_key(&cdd_did),
+        "CDD provider identity has no DID record"
+    );
+    let cdd_did_record = <identity::DidRecords<Test>>::get(&cdd_did);
+    assert!(
+        cdd_did_record.primary_key == cdd_account_id,
+        "CDD identity primary key mismatch"
+    );
+    assert!(
+        Identity::cdd_register_did(cdd.clone(), account, vec![]).is_ok(),
+        "Error in registering the DID"
+    );
+    let did = Identity::get_identity(&account).expect("DID not find in the storage");
+    assert!(
+        Identity::add_claim(cdd.clone(), did, Claim::make_cdd_wildcard(), None).is_ok(),
+        "Error CDD Claim cannot be added to DID"
+    );
+    true
 }
 
 pub fn add_secondary_key(stash_key: AccountId, to_secondary_key: AccountId) {
@@ -943,18 +962,13 @@ pub fn add_secondary_key(stash_key: AccountId, to_secondary_key: AccountId) {
             Identity::add_authorization(
                 Origin::signed(stash_key),
                 Signatory::Account(to_secondary_key),
-                AuthorizationData::JoinIdentity(vec![]),
+                AuthorizationData::JoinIdentity(Permissions::default()),
                 None
             )
             .is_ok(),
             "Error in providing the authorization"
         );
-        let auth_id = <identity::Authorizations<Test>>::iter_prefix_values(Signatory::Account(
-            to_secondary_key,
-        ))
-        .next()
-        .unwrap()
-        .auth_id;
+        let auth_id = get_last_auth_id(&Signatory::Account(to_secondary_key));
         assert_ok!(Identity::join_identity_as_key(
             Origin::signed(to_secondary_key),
             auth_id
@@ -963,14 +977,7 @@ pub fn add_secondary_key(stash_key: AccountId, to_secondary_key: AccountId) {
 }
 
 pub fn get_identity(key: AccountId) -> bool {
-    let mut have_id = false;
-    if let Some(linked_key_info) = <identity::KeyToIdentityIds<Test>>::get(key) {
-        have_id = match linked_key_info {
-            LinkedKeyInfo::Unique(_id) => true,
-            LinkedKeyInfo::Group(_id) => true,
-        };
-    }
-    have_id
+    <identity::KeyToIdentityIds<Test>>::contains_key(&key)
 }
 
 fn check_ledgers() {
@@ -1557,4 +1564,18 @@ pub fn create_did_and_add_claim_with_expiry(stash: AccountId, expiry: u64) {
         Claim::make_cdd_wildcard(),
         Some(expiry.into())
     ));
+}
+
+// `iter_prefix_values` has no guarantee that it will iterate in a sequential
+// order. However, we need the latest `auth_id`. Which is why we search for the claim
+// with the highest `auth_id`.
+pub fn get_last_auth(signatory: &Signatory<AccountId>) -> Authorization<AccountId, u64> {
+    <identity::Authorizations<Test>>::iter_prefix_values(signatory)
+        .into_iter()
+        .max_by_key(|x| x.auth_id)
+        .expect("there are no authorizations")
+}
+
+pub fn get_last_auth_id(signatory: &Signatory<AccountId>) -> u64 {
+    get_last_auth(signatory).auth_id
 }
