@@ -13,22 +13,20 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
-use crate::*;
-use chrono::prelude::Utc;
 use codec::Encode;
 use frame_support::{
     assert_ok,
     dispatch::DispatchResult,
     impl_outer_dispatch, impl_outer_origin, parameter_types,
     traits::{Currency, FindAuthor, Get},
-    weights::{DispatchInfo, Weight},
+    weights::{DispatchInfo, Weight, RuntimeDbWeight},
 };
-use frame_system::EnsureSignedBy;
 use pallet_cdd_offchain_worker::{crypto, Trait};
 use pallet_group as group;
+use pallet_portfolio as portfolio;
 use pallet_identity::{self as identity};
 use pallet_protocol_fee as protocol_fee;
-use pallet_staking::{EraIndex, Exposure, ExposureOf, StakerStatus, StashOf};
+use pallet_staking::{EraIndex, Exposure, ExposureOf, StakerStatus};
 use polymesh_common_utilities::traits::{
     asset::AssetSubTrait,
     balances::{AccountData, CheckCdd},
@@ -36,38 +34,39 @@ use polymesh_common_utilities::traits::{
     identity::Trait as IdentityTrait,
     multisig::MultiSigSubTrait,
     transaction_payment::{CddAndFeeDetails, ChargeTxFee},
-    CommonTrait,
+    CommonTrait, PermissionChecker,
+    portfolio::PortfolioSubTrait
 };
-use polymesh_primitives::{IdentityId, Signatory};
+use polymesh_primitives::{IdentityId, Signatory, Ticker, PortfolioId, InvestorUid, ScopeId, Signature };
 use sp_core::{
     crypto::{key_types, Pair as PairTrait},
-    offchain::{testing, OffchainExt, TransactionPoolExt},
     sr25519::Pair,
-    testing::KeyStore,
-    traits::KeystoreExt,
     H256,
 };
 use sp_runtime::curve::PiecewiseLinear;
 use sp_runtime::transaction_validity::{InvalidTransaction, TransactionValidity, ValidTransaction};
 use sp_runtime::{
-    testing::{sr25519::Public, Header, TestXt, UintAuthorityId},
+    testing::{Header, TestXt, UintAuthorityId},
     traits::{
-        Convert, Extrinsic as ExtrinsicsT, IdentityLookup, OpaqueKeys, SaturatedConversion, Verify,
-        Zero,
+        Convert, Extrinsic as ExtrinsicT, IdentityLookup, OpaqueKeys, SaturatedConversion, Verify,
+        ConvertInto, IdentifyAccount
     },
-    AnySignature, KeyTypeId, Perbill,
+    KeyTypeId, Perbill, MultiSignature, MultiSigner
 };
+use frame_system::offchain::*;
 use sp_staking::SessionIndex;
 use std::{
     cell::RefCell,
     collections::{BTreeMap, HashSet},
 };
 use test_client::AccountKeyring;
+use frame_support::traits::KeyOwnerProofSystem;
+use sp_std::convert::From;
 
-pub type AccountId = <AnySignature as Verify>::Signer;
+pub type AccountId = <<Signature as Verify>::Signer as IdentifyAccount>::AccountId;
 pub type BlockNumber = u64;
 pub type Balance = u128;
-type OffChainSignature = AnySignature;
+type OffChainSignature = MultiSignature;
 type Moment = <Test as pallet_timestamp::Trait>::Moment;
 
 impl_outer_origin! {
@@ -78,7 +77,8 @@ impl_outer_dispatch! {
     pub enum Call for Test where origin: Origin {
         identity::Identity,
         pallet_staking::Staking,
-        cddoffchainworker::CddOffchainWorker,
+        pallet_babe::Babe,
+        self::CddOffchainWorker,
     }
 }
 
@@ -108,6 +108,9 @@ thread_local! {
     static EXPECTED_BLOCK_TIME: RefCell<u64> = RefCell::new(0);
     static COOLING_INTERVAL: RefCell<u64> = RefCell::new(0);
     static BUFFER_INTERVAL: RefCell<u64> = RefCell::new(0);
+    static ELECTION_LOOKAHEAD: RefCell<BlockNumber> = RefCell::new(0);
+    static MAX_ITERATIONS: RefCell<u32> = RefCell::new(0);
+    static EXTRINSIC_BASE_WEIGHT: RefCell<u64> = RefCell::new(0);
 }
 
 pub struct BondingDuration;
@@ -174,7 +177,7 @@ impl pallet_session::SessionHandler<AccountId> for TestSessionHandler {
     fn on_disabled(validator_index: usize) {
         SESSION.with(|d| {
             let mut d = d.borrow_mut();
-            let value = d.0[validator_index];
+            let value = d.0[validator_index].clone();
             d.1.insert(value);
         })
     }
@@ -197,35 +200,87 @@ impl FindAuthor<AccountId> for Author11 {
     }
 }
 
-// Workaround for https://github.com/rust-lang/rust/issues/26925 . Remove when sorted.
 #[derive(Clone, PartialEq, Eq, Debug)]
 pub struct Test;
+
 parameter_types! {
     pub const BlockHashCount: u64 = 250;
     pub const MaximumBlockWeight: Weight = 1024;
     pub const MaximumBlockLength: u32 = 2 * 1024;
     pub const AvailableBlockRatio: Perbill = Perbill::one();
+    pub const MaximumExtrinsicWeight: u64 = 2800;
+    pub const BlockExecutionWeight: u64 = 10;
+    pub ExtrinsicBaseWeight: u64 = EXTRINSIC_BASE_WEIGHT.with(|v| *v.borrow());
+    pub const DbWeight: RuntimeDbWeight = RuntimeDbWeight {
+        read: 10,
+        write: 100,
+    };
 }
+
+pub struct TestAppCrypto;
+
+impl AppCrypto<<Signature as Verify>::Signer, Signature> for TestAppCrypto {
+    type RuntimeAppPublic = crypto::SignerId;
+    type GenericSignature = sp_core::sr25519::Signature;
+    type GenericPublic = sp_core::sr25519::Public;
+}
+
 impl frame_system::Trait for Test {
-    type Origin = Origin;
-    type Index = u64;
-    type BlockNumber = BlockNumber;
-    type Call = Call;
-    type Hash = H256;
-    type Hashing = ::sp_runtime::traits::BlakeTwo256;
+    /// The basic call filter to use in dispatchable.
+    type BaseCallFilter = ();
+    /// The identifier used to distinguish between accounts.
     type AccountId = AccountId;
+    /// The aggregated dispatch type that is available for extrinsics.
+    type Call = Call;
+    /// The lookup mechanism to get account ID from whatever is passed in dispatchers.
     type Lookup = IdentityLookup<Self::AccountId>;
+    /// The index type for storing how many extrinsics an account has signed.
+    type Index = u64;
+    /// The index type for blocks.
+    type BlockNumber = BlockNumber;
+    /// The type for hashing blocks and tries.
+    type Hash = H256;
+    /// The hashing algorithm used.
+    type Hashing = ::sp_runtime::traits::BlakeTwo256;
+    /// The header type.
     type Header = Header;
+    /// The ubiquitous event type.
     type Event = ();
+    /// The ubiquitous origin type.
+    type Origin = Origin;
+    /// Maximum number of block number to block hash mappings to keep (oldest pruned first).
     type BlockHashCount = BlockHashCount;
+    /// Maximum weight of each block.
     type MaximumBlockWeight = MaximumBlockWeight;
-    type AvailableBlockRatio = AvailableBlockRatio;
+    /// Maximum size of all encoded transactions (in bytes) that are allowed in one block.
     type MaximumBlockLength = MaximumBlockLength;
+    /// Portion of the block weight that is available to all normal transactions.
+    type AvailableBlockRatio = AvailableBlockRatio;
+    /// Version of the runtime.
     type Version = ();
+    /// Converts a module to the index of the module in `construct_runtime!`.
+    ///
+    /// This type is being generated by `construct_runtime!`.
     type ModuleToIndex = ();
-    type AccountData = AccountData<Balance>;
+    /// What to do if a new account is created.
     type OnNewAccount = ();
+    /// What to do if an account is fully reaped from the system.
     type OnKilledAccount = ();
+    /// The data to be stored in an account.
+    type AccountData = AccountData<<Test as CommonTrait>::Balance>;
+    /// The weight of database operations that the runtime can invoke.
+    type DbWeight = DbWeight;
+    /// The weight of the overhead invoked on the block import process, independent of the
+    /// extrinsics included in that block.
+    type BlockExecutionWeight = BlockExecutionWeight;
+    /// The base weight of any extrinsic processed by the runtime, independent of the
+    /// logic of that extrinsic. (Signature verification, nonce increment, fee, etc...)
+    type ExtrinsicBaseWeight = ExtrinsicBaseWeight;
+    /// The maximum weight that a single extrinsic of `Normal` dispatch class can have,
+    /// independent of the logic of that extrinsics. (Roughly max block weight - average on
+    /// initialize cost).
+    type MaximumExtrinsicWeight = MaximumExtrinsicWeight;
+    type SystemWeightInfo = ();
 }
 
 impl CommonTrait for Test {
@@ -247,24 +302,18 @@ impl pallet_balances::Trait for Test {
     type AccountStore = frame_system::Module<Test>;
     type Identity = identity::Module<Test>;
     type CddChecker = Test;
-}
-
-parameter_types! {
-    pub const One: AccountId = AccountId::from(AccountKeyring::Dave);
-    pub const Two: AccountId = AccountId::from(AccountKeyring::Dave);
-    pub const Three: AccountId = AccountId::from(AccountKeyring::Dave);
-    pub const Four: AccountId = AccountId::from(AccountKeyring::Dave);
-    pub const Five: AccountId = AccountId::from(AccountKeyring::Dave);
+    type WeightInfo = ();
 }
 
 impl group::Trait<group::Instance2> for Test {
     type Event = ();
-    type AddOrigin = EnsureSignedBy<One, AccountId>;
-    type RemoveOrigin = EnsureSignedBy<Two, AccountId>;
-    type SwapOrigin = EnsureSignedBy<Three, AccountId>;
-    type ResetOrigin = EnsureSignedBy<Four, AccountId>;
-    type MembershipInitialized = ();
-    type MembershipChanged = ();
+    type LimitOrigin = frame_system::EnsureRoot<AccountId>;
+    type AddOrigin = frame_system::EnsureRoot<AccountId>;
+    type RemoveOrigin = frame_system::EnsureRoot<AccountId>;
+    type SwapOrigin = frame_system::EnsureRoot<AccountId>;
+    type ResetOrigin = frame_system::EnsureRoot<AccountId>;
+    type MembershipInitialized = identity::Module<Test>;
+    type MembershipChanged = identity::Module<Test>;
 }
 
 impl protocol_fee::Trait for Test {
@@ -273,17 +322,24 @@ impl protocol_fee::Trait for Test {
     type OnProtocolFeePayment = ();
 }
 
+impl PermissionChecker for Test {
+    type Call = Call;
+    type Checker = Identity;
+}
+
 impl IdentityTrait for Test {
     type Event = ();
     type Proposal = Call;
     type MultiSig = Test;
+    type Portfolio = portfolio::Module<Test>;
     type CddServiceProviders = group::Module<Test, group::Instance2>;
     type Balances = pallet_balances::Module<Test>;
     type ChargeTxFeeTarget = Test;
     type CddHandler = Test;
-    type Public = AccountId;
+    type Public = <MultiSignature as Verify>::Signer;
     type OffChainSignature = OffChainSignature;
     type ProtocolFee = protocol_fee::Module<Test>;
+    type GCVotingMajorityOrigin = frame_system::EnsureRoot<AccountId>;
 }
 
 impl CddAndFeeDetails<AccountId, Call> for Test {
@@ -348,17 +404,26 @@ impl GroupTrait<Moment> for Test {
             .collect::<Vec<_>>()
     }
 
-    fn is_member_expired(member: &InactiveMember<Moment>, now: Moment) -> bool {
+    fn is_member_expired(_member: &InactiveMember<Moment>, _now: Moment) -> bool {
         false
     }
 }
 
 impl AssetSubTrait for Test {
     fn accept_ticker_transfer(_: IdentityId, _: u64) -> DispatchResult {
-        Ok(())
+        unimplemented!()
     }
+
+    fn accept_primary_issuance_agent_transfer(_: IdentityId, _: u64) -> DispatchResult {
+        unimplemented!()
+    }
+    
     fn accept_asset_ownership_transfer(_: IdentityId, _: u64) -> DispatchResult {
-        Ok(())
+        unimplemented!()
+    }
+
+    fn update_balance_of_scope_id(_of: ScopeId, _whom: IdentityId, _ticker: Ticker) -> DispatchResult {
+        unimplemented!()
     }
 }
 
@@ -409,15 +474,45 @@ parameter_types! {
     pub const UncleGenerations: u64 = 0;
     pub const DisabledValidatorsThreshold: Perbill = Perbill::from_percent(25);
 }
+
+thread_local! {
+    pub static FORCE_SESSION_END: RefCell<bool> = RefCell::new(false);
+    pub static SESSION_LENGTH: RefCell<u64> = RefCell::new(2);
+}
+
+pub struct TestShouldEndSession;
+impl pallet_session::ShouldEndSession<BlockNumber> for TestShouldEndSession {
+    fn should_end_session(now: BlockNumber) -> bool {
+        let l = SESSION_LENGTH.with(|l| *l.borrow());
+        now % l == 0
+            || FORCE_SESSION_END.with(|l| {
+                let r = *l.borrow();
+                *l.borrow_mut() = false;
+                r
+            })
+    }
+}
+
+pub struct TestSessionManager;
+impl pallet_session::SessionManager<AccountId> for TestSessionManager {
+    fn end_session(_: SessionIndex) {}
+    fn start_session(_: SessionIndex) {}
+    fn new_session(_: SessionIndex) -> Option<Vec<AccountId>> {
+        None
+    }
+}
+
 impl pallet_session::Trait for Test {
     type Event = ();
     type ValidatorId = AccountId;
-    type ValidatorIdOf = StashOf<Test>;
-    type ShouldEndSession = pallet_session::PeriodicSessions<Period, Offset>;
-    type SessionManager = Staking;
+    type ValidatorIdOf = ConvertInto;
+    type ShouldEndSession = TestShouldEndSession;
+    type NextSessionRotation = ();
+    type SessionManager = TestSessionManager;
     type SessionHandler = TestSessionHandler;
     type Keys = UintAuthorityId;
     type DisabledValidatorsThreshold = DisabledValidatorsThreshold;
+    type WeightInfo = ();
 }
 
 impl pallet_session::historical::Trait for Test {
@@ -439,12 +534,24 @@ impl pallet_timestamp::Trait for Test {
     type Moment = u64;
     type OnTimestampSet = ();
     type MinimumPeriod = MinimumPeriod;
+    type WeightInfo = ();
 }
 
 impl pallet_babe::Trait for Test {
     type EpochDuration = EpochDuration;
     type ExpectedBlockTime = ExpectedBlockTime;
     type EpochChangeTrigger = pallet_babe::ExternalTrigger;
+
+    type KeyOwnerProofSystem = ();
+    type KeyOwnerProof = <Self::KeyOwnerProofSystem as KeyOwnerProofSystem<(
+        KeyTypeId,
+        pallet_babe::AuthorityId,
+    )>>::Proof;
+    type KeyOwnerIdentification = <Self::KeyOwnerProofSystem as KeyOwnerProofSystem<(
+        KeyTypeId,
+        pallet_babe::AuthorityId,
+    )>>::IdentificationTuple;
+    type HandleEquivocation = pallet_babe::EquivocationHandler<Self::KeyOwnerIdentification, ()>;
 }
 
 pallet_staking_reward_curve::build! {
@@ -462,19 +569,27 @@ parameter_types! {
     pub const RewardCurve: &'static PiecewiseLinear<'static> = &I_NPOS;
     pub const MaxNominatorRewardedPerValidator: u32 = 64;
     pub const SlashDeferDuration: EraIndex = 0;
+    pub const UnsignedPriority: u64 = 1 << 20;
+    pub const MinSolutionScoreBump: Perbill = Perbill::zero();
 }
 
-parameter_types! {
-    pub const OneThousand: Public = account_from(1000);
-    pub const TwoThousand: Public = account_from(2000);
-    pub const ThreeThousand: Public = account_from(3000);
-    pub const FourThousand: Public = account_from(4000);
-    pub const FiveThousand: Public = account_from(5000);
+pub struct ElectionLookahead;
+impl Get<BlockNumber> for ElectionLookahead {
+    fn get() -> BlockNumber {
+        ELECTION_LOOKAHEAD.with(|v| *v.borrow())
+    }
+}
+
+pub struct MaxIterations;
+impl Get<u32> for MaxIterations {
+    fn get() -> u32 {
+        MAX_ITERATIONS.with(|v| *v.borrow())
+    }
 }
 
 impl pallet_staking::Trait for Test {
-    type Currency = pallet_balances::Module<Self>;
-    // type Time = pallet_timestamp::Module<Self>;
+    type Currency = Balances;
+    type UnixTime = Timestamp;
     type CurrencyToVote = CurrencyToVoteHandler;
     type RewardRemainder = ();
     type Event = ();
@@ -486,22 +601,60 @@ impl pallet_staking::Trait for Test {
     type SlashCancelOrigin = frame_system::EnsureRoot<Self::AccountId>;
     type SessionInterface = Self;
     type RewardCurve = RewardCurve;
+    type NextNewSession = Session;
+    type ElectionLookahead = ElectionLookahead;
+    type Call = Call;
+    type MaxIterations = MaxIterations;
+    type MinSolutionScoreBump = MinSolutionScoreBump;
     type MaxNominatorRewardedPerValidator = MaxNominatorRewardedPerValidator;
+    type UnsignedPriority = UnsignedPriority;
     type RequiredAddOrigin = frame_system::EnsureRoot<AccountId>;
-    type RequiredRemoveOrigin = EnsureSignedBy<TwoThousand, Self::AccountId>;
-    type RequiredComplianceOrigin = EnsureSignedBy<ThreeThousand, Self::AccountId>;
-    type RequiredCommissionOrigin = EnsureSignedBy<FourThousand, Self::AccountId>;
-    type RequiredChangeHistoryDepthOrigin = EnsureSignedBy<FiveThousand, Self::AccountId>;
+    type RequiredRemoveOrigin = frame_system::EnsureRoot<AccountId>;
+    type RequiredComplianceOrigin = frame_system::EnsureRoot<AccountId>;
+    type RequiredCommissionOrigin = frame_system::EnsureRoot<AccountId>;
+    type RequiredChangeHistoryDepthOrigin = frame_system::EnsureRoot<AccountId>;
+    type WeightInfo = ();
+}
+
+impl portfolio::Trait for Test {
+    type Event = ();
 }
 
 pub type Extrinsic = TestXt<Call, ()>;
 
 impl Trait for Test {
-    type SignerId = UintAuthorityId;
+    type AuthorityId = TestAppCrypto;
     type Event = ();
     type Call = Call;
     type CoolingInterval = CoolingInterval;
     type BufferInterval = BufferInterval;
+    type UnsignedPriority = UnsignedPriority;
+    type StakingInterface = Staking;
+}
+
+impl SigningTypes for Test {
+	type Public = <Signature as Verify>::Signer;
+	type Signature = Signature;
+}
+
+impl<LocalCall> SendTransactionTypes<LocalCall> for Test where
+	Call: From<LocalCall>,
+{
+	type OverarchingCall = Call;
+	type Extrinsic = Extrinsic;
+}
+
+impl<LocalCall> CreateSignedTransaction<LocalCall> for Test where
+	Call: From<LocalCall>,
+{
+	fn create_transaction<C: AppCrypto<Self::Public, Self::Signature>>(
+		call: Call,
+		_public: <Signature as Verify>::Signer,
+		_account: AccountId,
+		nonce: u64,
+	) -> Option<(Call, <Extrinsic as ExtrinsicT>::SignaturePayload)> {
+		Some((call, (nonce, ())))
+	}
 }
 
 pub struct ExtBuilder {
@@ -577,7 +730,7 @@ impl ExtBuilder {
             .map(|x| ((x + 1) * 10 + 1) as u64)
             .collect::<Vec<_>>();
 
-        let account_key_ring: BTreeMap<u64, Public> = [
+        let account_key_ring: BTreeMap<u64, AccountId> = [
             1, 2, 3, 4, 10, 11, 20, 21, 30, 31, 40, 41, 100, 101, 999, 1005,
         ]
         .iter()
@@ -586,64 +739,16 @@ impl ExtBuilder {
 
         pallet_balances::GenesisConfig::<Test> {
             balances: vec![
-                (AccountKeyring::Alice.public(), 10 * balance_factor),
-                (AccountKeyring::Bob.public(), 20 * balance_factor),
-                (AccountKeyring::Charlie.public(), 300 * balance_factor),
-                (AccountKeyring::Dave.public(), 400 * balance_factor),
-                (
-                    account_key_ring.get(&1).unwrap().clone(),
-                    10 * balance_factor,
-                ),
-                (
-                    account_key_ring.get(&2).unwrap().clone(),
-                    20 * balance_factor,
-                ),
-                (
-                    account_key_ring.get(&3).unwrap().clone(),
-                    300 * balance_factor,
-                ),
-                (
-                    account_key_ring.get(&4).unwrap().clone(),
-                    400 * balance_factor,
-                ),
-                (account_key_ring.get(&10).unwrap().clone(), balance_factor),
-                (
-                    account_key_ring.get(&11).unwrap().clone(),
-                    balance_factor * 1000,
-                ),
-                (account_key_ring.get(&20).unwrap().clone(), balance_factor),
-                (
-                    account_key_ring.get(&21).unwrap().clone(),
-                    balance_factor * 2000,
-                ),
-                (account_key_ring.get(&30).unwrap().clone(), balance_factor),
-                (
-                    account_key_ring.get(&31).unwrap().clone(),
-                    balance_factor * 2000,
-                ),
-                (account_key_ring.get(&40).unwrap().clone(), balance_factor),
-                (
-                    account_key_ring.get(&41).unwrap().clone(),
-                    balance_factor * 2000,
-                ),
-                (
-                    account_key_ring.get(&100).unwrap().clone(),
-                    2000 * balance_factor,
-                ),
-                (
-                    account_key_ring.get(&101).unwrap().clone(),
-                    2000 * balance_factor,
-                ),
-                // This allow us to have a total_payout different from 0.
-                (
-                    account_key_ring.get(&999).unwrap().clone(),
-                    1_000_000_000_000,
-                ),
+                (MultiSigner::from(AccountKeyring::Alice.public()).into_account(), 10 * balance_factor),
+                (MultiSigner::from(AccountKeyring::Bob.public()).into_account(), 20 * balance_factor),
+                (MultiSigner::from(AccountKeyring::Charlie.public()).into_account(), 300 * balance_factor),
+                (MultiSigner::from(AccountKeyring::Dave.public()).into_account(), 400 * balance_factor),
             ],
         }
         .assimilate_storage(&mut storage);
 
         group::GenesisConfig::<Test, group::Instance2> {
+            active_members_limit: u32::MAX,
             active_members: vec![IdentityId::from(1), IdentityId::from(2)],
             phantom: Default::default(),
         }
@@ -651,42 +756,13 @@ impl ExtBuilder {
 
         let _ = identity::GenesisConfig::<Test> {
             identities: vec![
-                /// (primary_account_id, service provider did, target did, expiry time of CustomerDueDiligence claim i.e 10 days is ms)
-                /// Provide Identity
-                (
-                    account_key_ring.get(&1005).unwrap().clone(),
-                    IdentityId::from(1),
-                    IdentityId::from(1),
-                    None,
-                ),
+                // (primary_account_id, service provider did, target did, expiry time of CustomerDueDiligence claim i.e 10 days is ms)
+                // Provide Identity
                 (
                     account_key_ring.get(&11).unwrap().clone(),
                     IdentityId::from(1),
-                    IdentityId::from(11),
-                    None,
-                ),
-                (
-                    account_key_ring.get(&21).unwrap().clone(),
                     IdentityId::from(1),
-                    IdentityId::from(21),
-                    None,
-                ),
-                (
-                    account_key_ring.get(&31).unwrap().clone(),
-                    IdentityId::from(1),
-                    IdentityId::from(31),
-                    None,
-                ),
-                (
-                    account_key_ring.get(&41).unwrap().clone(),
-                    IdentityId::from(1),
-                    IdentityId::from(41),
-                    None,
-                ),
-                (
-                    account_key_ring.get(&101).unwrap().clone(),
-                    IdentityId::from(1),
-                    IdentityId::from(101),
+                    InvestorUid::from(b"uid1".as_ref()),
                     None,
                 ),
             ],
@@ -714,33 +790,15 @@ impl ExtBuilder {
                     balance_factor * 1000,
                     StakerStatus::<AccountId>::Validator,
                 ),
+                // nominator
                 (
                     account_key_ring.get(&21).unwrap().clone(),
                     account_key_ring.get(&20).unwrap().clone(),
-                    stake_21,
-                    StakerStatus::<AccountId>::Validator,
-                ),
-                (
-                    account_key_ring.get(&31).unwrap().clone(),
-                    account_key_ring.get(&30).unwrap().clone(),
-                    stake_31,
-                    StakerStatus::<AccountId>::Validator,
-                ),
-                (
-                    account_key_ring.get(&41).unwrap().clone(),
-                    account_key_ring.get(&40).unwrap().clone(),
-                    balance_factor * 1000,
-                    status_41,
-                ),
-                // nominator
-                (
-                    account_key_ring.get(&101).unwrap().clone(),
-                    account_key_ring.get(&100).unwrap().clone(),
                     balance_factor * 500,
                     StakerStatus::<AccountId>::Nominator(nominated),
                 ),
             ],
-            validator_count: 2,
+            validator_count: 1,
             minimum_validator_count: 0,
             invulnerables: vec![],
             slash_reward_fraction: Perbill::from_percent(10),
@@ -776,6 +834,7 @@ pub type Identity = identity::Module<Test>;
 pub type Balances = pallet_balances::Module<Test>;
 pub type Group = group::Module<Test, group::Instance2>;
 pub type Staking = pallet_staking::Module<Test>;
+pub type Babe = pallet_babe::Module<Test>;
 
 pub fn account_from(id: u64) -> AccountId {
     let mut enc_id_vec = id.encode();
@@ -784,7 +843,7 @@ pub fn account_from(id: u64) -> AccountId {
     let mut enc_id = [0u8; 32];
     enc_id.copy_from_slice(enc_id_vec.as_slice());
 
-    Pair::from_seed(&enc_id).public()
+    MultiSigner::from(Pair::from_seed(&enc_id).public()).into_account()
 }
 
 pub fn create_did_and_add_claim(stash: AccountId, expiry: u64) {
@@ -792,7 +851,6 @@ pub fn create_did_and_add_claim(stash: AccountId, expiry: u64) {
     assert_ok!(Identity::cdd_register_did(
         Origin::signed(account_from(1005)),
         stash,
-        Some(expiry.saturated_into::<Moment>()),
         vec![]
     ));
 }

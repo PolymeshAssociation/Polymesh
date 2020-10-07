@@ -55,5 +55,5 @@ mod treasury_test;
 mod utility_test;
 #[cfg(test)]
 mod voting_test;
-
-// mod cdd_offchain_worker;
+#[cfg(test)]
+mod cdd_offchain_worker; 

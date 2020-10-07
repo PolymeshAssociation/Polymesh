@@ -157,7 +157,6 @@ std = [
     "polymesh-primitives/std",
     "polymesh-runtime-common/std",
     "pallet-cdd-offchain-worker/std",
-    "rustc-hex/std",
     "polymesh-weights/std",
     "serde/std",
     "sp-api/std",
