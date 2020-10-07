@@ -7,23 +7,22 @@ let { reqImports } = require("../util/init.js");
 // Sets the default exit code to fail unless the script runs successfully
 process.exitCode = 1;
 
-const prepend = "DEMOAT";
-
 async function main() {
 
   const api = await reqImports.createApi();
-  const ticker = `token${prepend}0`.toUpperCase();
+  const ticker = await reqImports.generateRandomTicker(api);
   const asset_did = reqImports.tickerToDid(ticker);
+  let primary_dev_seed = await reqImports.generateRandomKey(api);
 
   const testEntities = await reqImports.initMain(api);
 
-  let primary_keys = await reqImports.generateKeys( api, 3, "primary8" );
+  let primary_keys = await reqImports.generateKeys( api, 3, primary_dev_seed );
 
   let issuer_dids = await reqImports.createIdentities( api, primary_keys, testEntities[0] );
 
   await reqImports.distributePolyBatch( api, primary_keys, reqImports.transfer_amount, testEntities[0] );
 
-  await reqImports.issueTokenPerDid( api, primary_keys, prepend);
+  await reqImports.issueTokenPerDid( api, primary_keys, ticker);
 
   // receiverRules Claim
   await reqImports.addClaimsToDids( api, primary_keys, issuer_dids[2], "Exempted", { "Ticker": ticker }, null );
@@ -34,12 +33,9 @@ async function main() {
   // issuer Claim
   await reqImports.addClaimsToDids( api, primary_keys, issuer_dids[0], "Exempted", { "Ticker": ticker }, null );
 
-  await reqImports.createClaimCompliance( api, primary_keys, issuer_dids, prepend );
+  await reqImports.createClaimCompliance( api, primary_keys, issuer_dids, ticker );
 
-  await mintingAsset( api, primary_keys[0], prepend );
-
-  // TODO: Use settlement module
-  // await assetTransfer( api, primary_keys[0], issuer_dids[2], prepend );
+  await mintingAsset( api, primary_keys[0], ticker );
 
   if (reqImports.fail_count > 0) {
     console.log("Failed");
@@ -51,25 +47,12 @@ async function main() {
   process.exit();
 }
 
-async function mintingAsset(api, minter, prepend) {
-  const ticker = `token${prepend}0`.toUpperCase();
+async function mintingAsset(api, minter, ticker) {
+  
   const transaction = await api.tx.asset.issue(ticker, 100);
   let tx = await reqImports.sendTx(minter, transaction);
   if(tx !== -1) reqImports.fail_count--;
 
 }
-
-// TODO: Use settlement module
-// async function assetTransfer(api, from_account, did, prepend) {
-//     const ticker = `token${prepend}0`.toUpperCase();
-//     let nonceObj = {nonce: reqImports.nonces.get(from_account)};
-//     const transaction = await api.tx.asset.transfer(ticker, did, 100);
-//     const result = await reqImports.sendTransaction(transaction, from_account, nonceObj);
-//     const passed = result.findRecord('system', 'ExtrinsicSuccess');
-//     if (passed) reqImports.fail_count--;
-
-//     reqImports.nonces.set( from_account.address, reqImports.nonces.get(from_account.address).addn(1));
-
-// }
 
 main().catch(console.error);

@@ -13,14 +13,10 @@ async function main() {
   const testEntities = await reqImports.initMain(api);
 
   let alice = testEntities[0];
-  let relay = testEntities[4];
-
-  let alice_did = JSON.parse(
-    await reqImports.keyToIdentityIds(api, alice.publicKey)
-  );
+  let relay = testEntities[1];
 
   await acceptMultisigSignerAsKey(api, relay, 9);
-
+  
   await reqImports.distributePolyBatch( api, [relay], reqImports.transfer_amount, alice );
 
   await bridgeTransfer(api, relay, alice);
@@ -45,17 +41,12 @@ async function sleep(ms) {
 
 async function acceptMultisigSignerAsKey(api, signer, authId) {
   // 1. Change Controller
-  let nonceObj = { nonce: reqImports.nonces.get(signer.address) };
 
   const transaction = api.tx.multiSig.acceptMultisigSignerAsKey(authId);
 
   let tx = await reqImports.sendTx(signer, transaction);
   if(tx !== -1) reqImports.fail_count--;
 
-  reqImports.nonces.set(
-    signer.address,
-    reqImports.nonces.get(signer.address).addn(1)
-  );
 }
 
 //  Propose Bridge Transaction
@@ -77,31 +68,19 @@ async function bridgeTransfer(api, signer, alice) {
 
 async function freezeTransaction(api, signer, alice) {
 
-  let nonceObj = { nonce: reqImports.nonces.get(signer.address) };
   const transaction = api.tx.bridge.freeze();
 
   let tx = await reqImports.sendTx(signer, transaction);
   if(tx !== -1) reqImports.fail_count--;
 
-  reqImports.nonces.set(
-    signer.address,
-    reqImports.nonces.get(signer.address).addn(1)
-  );
-
 }
 
 async function unfreezeTransaction(api, signer) {
 
-  let nonceObj = { nonce: reqImports.nonces.get(signer.address) };
   const transaction = api.tx.bridge.unfreeze();
 
   let tx = await reqImports.sendTx(signer, transaction);
   if(tx !== -1) reqImports.fail_count--;
-
-  reqImports.nonces.set(
-    signer.address,
-    reqImports.nonces.get(signer.address).addn(1)
-  );
 
 }
 
