@@ -332,20 +332,14 @@ decl_module! {
         /// * sender_conditions - Sender transfer conditions.
         /// * receiver_conditions - Receiver transfer conditions.
         #[weight = T::DbWeight::get().reads_writes(1, 1) + 600_000_000 + 1_000_000 * u64::try_from(max(sender_conditions.len(), receiver_conditions.len())).unwrap_or_default()]
-        pub fn add_compliance_requirement(origin, ticker: Ticker, sender_conditions: Vec<Condition>, receiver_conditions: Vec<Condition>) -> DispatchResult {
-            let sender = ensure_signed(origin)?;
-            CallPermissions::<T>::ensure_call_permissions(&sender)?;
-            let did = Context::current_identity_or::<Identity<T>>(&sender)?;
+        pub fn add_compliance_requirement(origin, ticker: Ticker, sender_conditions: Vec<Condition>, receiver_conditions: Vec<Condition>) {
+            let did = Self::ensure_can_modify_rules(origin, ticker)?;
 
-            ensure!(Self::is_owner(&ticker, did), Error::<T>::Unauthorized);
             <<T as IdentityTrait>::ProtocolFee>::charge_fee(
                 ProtocolOp::ComplianceManagerAddComplianceRequirement
             )?;
-            let mut new_requirement = ComplianceRequirement {
-                sender_conditions,
-                receiver_conditions,
-                id: Self::get_latest_requirement_id(ticker) + 1u32
-            };
+            let id = Self::get_latest_requirement_id(ticker) + 1u32;
+            let mut new_requirement = ComplianceRequirement { sender_conditions, receiver_conditions, id };
             new_requirement.dedup();
 
             let mut asset_compliance = AssetCompliances::get(ticker);
@@ -360,8 +354,6 @@ decl_module! {
                 AssetCompliances::insert(&ticker, asset_compliance);
                 Self::deposit_event(Event::ComplianceRequirementCreated(did, ticker, new_requirement));
             }
-
-            Ok(())
         }
 
         /// Removes a compliance requirement from an asset's compliance.
@@ -371,12 +363,8 @@ decl_module! {
         /// * ticker - Symbol of the asset
         /// * id - Compliance requirement id which is need to be removed
         #[weight = T::DbWeight::get().reads_writes(1, 1) + 200_000_000]
-        pub fn remove_compliance_requirement(origin, ticker: Ticker, id: u32) -> DispatchResult {
-            let sender = ensure_signed(origin)?;
-            CallPermissions::<T>::ensure_call_permissions(&sender)?;
-            let did = Context::current_identity_or::<Identity<T>>(&sender)?;
-
-            ensure!(Self::is_owner(&ticker, did), Error::<T>::Unauthorized);
+        pub fn remove_compliance_requirement(origin, ticker: Ticker, id: u32) {
+            let did = Self::ensure_can_modify_rules(origin, ticker)?;
 
             AssetCompliances::try_mutate(ticker, |AssetCompliance { requirements, .. }| {
                 let before = requirements.len();
@@ -386,8 +374,6 @@ decl_module! {
             })?;
 
             Self::deposit_event(Event::ComplianceRequirementRemoved(did, ticker, id));
-
-            Ok(())
         }
 
         /// Replaces an asset's compliance by ticker with a new compliance.
@@ -403,11 +389,8 @@ decl_module! {
         /// # Weight
         /// `read_and_write_weight + 100_000_000 + 500_000 * asset_compliance.len()`
         #[weight = T::DbWeight::get().reads_writes(1, 1) + 400_000_000 + 500_000 * u64::try_from(asset_compliance.len()).unwrap_or_default()]
-        pub fn replace_asset_compliance(origin, ticker: Ticker, asset_compliance: Vec<ComplianceRequirement>) -> DispatchResult {
-            let sender = ensure_signed(origin)?;
-            CallPermissions::<T>::ensure_call_permissions(&sender)?;
-            let did = Context::current_identity_or::<Identity<T>>(&sender)?;
-            ensure!(Self::is_owner(&ticker, did), Error::<T>::Unauthorized);
+        pub fn replace_asset_compliance(origin, ticker: Ticker, asset_compliance: Vec<ComplianceRequirement>) {
+            let did = Self::ensure_can_modify_rules(origin, ticker)?;
 
             // Ensure there are no duplicate requirement ids.
             let mut asset_compliance = asset_compliance;
@@ -421,7 +404,6 @@ decl_module! {
             Self::verify_compliance_complexity(&asset_compliance, ticker, 0)?;
             AssetCompliances::mutate(&ticker, |old| old.requirements = asset_compliance.clone());
             Self::deposit_event(Event::AssetComplianceReplaced(did, ticker, asset_compliance));
-            Ok(())
         }
 
         /// Removes an asset's compliance
@@ -430,17 +412,10 @@ decl_module! {
         /// * origin - Signer of the dispatchable. It should be the owner of the ticker
         /// * ticker - Symbol of the asset
         #[weight = T::DbWeight::get().reads_writes(1, 1) + 100_000_000]
-        pub fn reset_asset_compliance(origin, ticker: Ticker) -> DispatchResult {
-            let sender = ensure_signed(origin)?;
-            CallPermissions::<T>::ensure_call_permissions(&sender)?;
-            let did = Context::current_identity_or::<Identity<T>>(&sender)?;
-            ensure!(Self::is_owner(&ticker, did), Error::<T>::Unauthorized);
-
+        pub fn reset_asset_compliance(origin, ticker: Ticker) {
+            let did = Self::ensure_can_modify_rules(origin, ticker)?;
             AssetCompliances::remove(ticker);
-
             Self::deposit_event(Event::AssetComplianceReset(did, ticker));
-
-            Ok(())
         }
 
         /// Pauses the verification of conditions for `ticker` during transfers.
@@ -449,11 +424,9 @@ decl_module! {
         /// * origin - Signer of the dispatchable. It should be the owner of the ticker
         /// * ticker - Symbol of the asset
         #[weight = T::DbWeight::get().reads_writes(1, 1) + 100_000_000]
-        pub fn pause_asset_compliance(origin, ticker: Ticker) -> DispatchResult {
-            Self::pause_resume_asset_compliance(origin, ticker, true)?;
-            let current_did = Context::current_identity::<Identity<T>>().ok_or_else(|| Error::<T>::MissingCurrentIdentity)?;
-            Self::deposit_event(Event::AssetCompliancePaused(current_did, ticker));
-            Ok(())
+        pub fn pause_asset_compliance(origin, ticker: Ticker) {
+            let did = Self::pause_resume_asset_compliance(origin, ticker, true)?;
+            Self::deposit_event(Event::AssetCompliancePaused(did, ticker));
         }
 
         /// Resumes the verification of conditions for `ticker` during transfers.
@@ -462,11 +435,9 @@ decl_module! {
         /// * origin - Signer of the dispatchable. It should be the owner of the ticker
         /// * ticker - Symbol of the asset
         #[weight = T::DbWeight::get().reads_writes(1, 1) + 100_000_000]
-        pub fn resume_asset_compliance(origin, ticker: Ticker) -> DispatchResult {
-            Self::pause_resume_asset_compliance(origin, ticker, false)?;
-            let current_did = Context::current_identity::<Identity<T>>().ok_or_else(|| Error::<T>::MissingCurrentIdentity)?;
-            Self::deposit_event(Event::AssetComplianceResumed(current_did, ticker));
-            Ok(())
+        pub fn resume_asset_compliance(origin, ticker: Ticker) {
+            let did = Self::pause_resume_asset_compliance(origin, ticker, false)?;
+            Self::deposit_event(Event::AssetComplianceResumed(did, ticker));
         }
 
         /// Adds another default trusted claim issuer at the ticker level.
@@ -474,55 +445,60 @@ decl_module! {
         /// # Arguments
         /// * origin - Signer of the dispatchable. It should be the owner of the ticker.
         /// * ticker - Symbol of the asset.
-        /// * trusted_issuer - IdentityId of the trusted claim issuer.
+        /// * issuer - IdentityId of the trusted claim issuer.
         #[weight = T::DbWeight::get().reads_writes(3, 1) + 300_000_000]
-        pub fn add_default_trusted_claim_issuer(origin, ticker: Ticker, trusted_issuer: TrustedIssuer) -> DispatchResult {
-            Self::verify_compliance_complexity(&AssetCompliances::get(ticker).requirements, ticker, 1)?;
-            Self::modify_default_trusted_claim_issuer(origin, ticker, trusted_issuer, true)
+        pub fn add_default_trusted_claim_issuer(origin, ticker: Ticker, issuer: TrustedIssuer) {
+            let did = Self::ensure_can_modify_rules(origin, ticker)?;
+            ensure!(<Identity<T>>::is_identity_exists(&issuer.issuer), Error::<T>::DidNotExist);
+            TrustedClaimIssuer::try_mutate(ticker, |issuers| {
+                ensure!(!issuers.contains(&issuer), Error::<T>::IncorrectOperationOnTrustedIssuer);
+                Self::base_verify_compliance_complexity(&AssetCompliances::get(ticker).requirements, issuers.len() + 1)?;
+                issuers.push(issuer.clone());
+                Ok(()) as DispatchResult
+            })?;
+            Self::deposit_event(Event::TrustedDefaultClaimIssuerAdded(did, ticker, issuer));
         }
 
-        /// Removes the given `trusted_issuer` from the set of default trusted claim issuers at the ticker level.
+        /// Removes the given `issuer` from the set of default trusted claim issuers at the ticker level.
         ///
         /// # Arguments
         /// * origin - Signer of the dispatchable. It should be the owner of the ticker.
         /// * ticker - Symbol of the asset.
-        /// * trusted_issuer - IdentityId of the trusted claim issuer.
+        /// * issuer - IdentityId of the trusted claim issuer.
         #[weight = T::DbWeight::get().reads_writes(3, 1) + 300_000_000]
-        pub fn remove_default_trusted_claim_issuer(origin, ticker: Ticker, trusted_issuer: TrustedIssuer) -> DispatchResult {
-            Self::modify_default_trusted_claim_issuer(origin, ticker, trusted_issuer, false)
+        pub fn remove_default_trusted_claim_issuer(origin, ticker: Ticker, issuer: TrustedIssuer) {
+            let did = Self::ensure_can_modify_rules(origin, ticker)?;
+            TrustedClaimIssuer::try_mutate(ticker, |issuers| {
+                let len = issuers.len();
+                issuers.retain(|ti| ti != &issuer);
+                ensure!(len != issuers.len(), Error::<T>::IncorrectOperationOnTrustedIssuer);
+                Ok(()) as DispatchResult
+            })?;
+            Self::deposit_event(Event::TrustedDefaultClaimIssuerRemoved(did, ticker, issuer));
         }
 
-        /// Change/Modify an existing compliance requirement of a given ticker
+        /// Modify an existing compliance requirement of a given ticker.
         ///
         /// # Arguments
         /// * origin - Signer of the dispatchable. It should be the owner of the ticker.
         /// * ticker - Symbol of the asset.
-        /// * new_requirement - Compliance requirement.
+        /// * new_req - Compliance requirement.
         #[weight = T::DbWeight::get().reads_writes(2, 1) + 720_000_000]
-        pub fn change_compliance_requirement(origin, ticker: Ticker, new_requirement: ComplianceRequirement) -> DispatchResult {
-            let sender = ensure_signed(origin)?;
-            CallPermissions::<T>::ensure_call_permissions(&sender)?;
-            let did = Context::current_identity_or::<Identity<T>>(&sender)?;
-
-            ensure!(Self::is_owner(&ticker, did), Error::<T>::Unauthorized);
-            ensure!(Self::get_latest_requirement_id(ticker) >= new_requirement.id, Error::<T>::InvalidComplianceRequirementId);
+        pub fn change_compliance_requirement(origin, ticker: Ticker, new_req: ComplianceRequirement) {
+            let did = Self::ensure_can_modify_rules(origin, ticker)?;
+            ensure!(Self::get_latest_requirement_id(ticker) >= new_req.id, Error::<T>::InvalidComplianceRequirementId);
 
             let mut asset_compliance = AssetCompliances::get(ticker);
             let reqs = &mut asset_compliance.requirements;
-            if let Some(req) = reqs
-                .iter_mut()
-                .find(|requirement| requirement.id == new_requirement.id)
-            {
-                let mut new_requirement = new_requirement;
-                new_requirement.dedup();
+            if let Some(req) = reqs.iter_mut().find(|req| req.id == new_req.id) {
+                let mut new_req = new_req;
+                new_req.dedup();
 
-                *req = new_requirement.clone();
+                *req = new_req.clone();
                 Self::verify_compliance_complexity(&reqs, ticker, 0)?;
                 AssetCompliances::insert(&ticker, asset_compliance);
-                Self::deposit_event(Event::ComplianceRequirementChanged(did, ticker, new_requirement));
+                Self::deposit_event(Event::ComplianceRequirementChanged(did, ticker, new_req));
             }
-
-            Ok(())
         }
     }
 }
@@ -560,6 +536,18 @@ decl_event!(
 );
 
 impl<T: Trait> Module<T> {
+    /// Ensure that `origin` can modify `ticker`'s compliance rules.
+    fn ensure_can_modify_rules(
+        origin: T::Origin,
+        ticker: Ticker,
+    ) -> Result<IdentityId, DispatchError> {
+        let sender = ensure_signed(origin)?;
+        CallPermissions::<T>::ensure_call_permissions(&sender)?;
+        let did = Context::current_identity_or::<Identity<T>>(&sender)?;
+        ensure!(Self::is_owner(&ticker, did), Error::<T>::Unauthorized);
+        Ok(did)
+    }
+
     /// Returns true if `sender_did` is the owner of `ticker` asset.
     fn is_owner(ticker: &Ticker, sender_did: IdentityId) -> bool {
         T::Asset::is_owner(ticker, sender_did)
@@ -676,71 +664,13 @@ impl<T: Trait> Module<T> {
         origin: T::Origin,
         ticker: Ticker,
         pause: bool,
-    ) -> DispatchResult {
-        let sender = ensure_signed(origin)?;
-        CallPermissions::<T>::ensure_call_permissions(&sender)?;
-        let did = Context::current_identity_or::<Identity<T>>(&sender)?;
-
-        ensure!(Self::is_owner(&ticker, did), Error::<T>::Unauthorized);
-
+    ) -> Result<IdentityId, DispatchError> {
+        let did = Self::ensure_can_modify_rules(origin, ticker)?;
         AssetCompliances::mutate(&ticker, |compliance| compliance.paused = pause);
-
-        Ok(())
+        Ok(did)
     }
 
-    /// Updates the default trusted claim issuer for a given ticket.
-    fn unsafe_modify_default_trusted_claim_issuer(
-        caller_did: IdentityId,
-        ticker: Ticker,
-        trusted_issuer: TrustedIssuer,
-        is_add_call: bool,
-    ) {
-        TrustedClaimIssuer::mutate(ticker, |issuers| {
-            if !is_add_call {
-                // remove the old one
-                issuers.retain(|ti| ti != &trusted_issuer);
-                Self::deposit_event(Event::TrustedDefaultClaimIssuerRemoved(
-                    caller_did,
-                    ticker,
-                    trusted_issuer,
-                ));
-            } else {
-                // New trusted issuer addition case
-                issuers.push(trusted_issuer.clone());
-                Self::deposit_event(Event::TrustedDefaultClaimIssuerAdded(
-                    caller_did,
-                    ticker,
-                    trusted_issuer,
-                ));
-            }
-        });
-    }
-
-    fn modify_default_trusted_claim_issuer(
-        origin: T::Origin,
-        ticker: Ticker,
-        trusted_issuer: TrustedIssuer,
-        is_add_call: bool,
-    ) -> DispatchResult {
-        let sender = ensure_signed(origin)?;
-        CallPermissions::<T>::ensure_call_permissions(&sender)?;
-        let did = Context::current_identity_or::<Identity<T>>(&sender)?;
-
-        ensure!(Self::is_owner(&ticker, did), Error::<T>::Unauthorized);
-        // ensure whether the trusted issuer's did is register did or not
-        ensure!(
-            <Identity<T>>::is_identity_exists(&trusted_issuer.issuer),
-            Error::<T>::DidNotExist
-        );
-        ensure!(
-            Self::trusted_claim_issuer(&ticker).contains(&trusted_issuer) != is_add_call,
-            Error::<T>::IncorrectOperationOnTrustedIssuer
-        );
-        Self::unsafe_modify_default_trusted_claim_issuer(did, ticker, trusted_issuer, is_add_call);
-        Ok(())
-    }
-
-    // TODO: Cache the latest_requirement_id to avoid loading of all compliance requirements in memory.
+    /// Compute the id of the last requirement in a `ticker`'s compliance rules.
     fn get_latest_requirement_id(ticker: Ticker) -> u32 {
         Self::asset_compliance(ticker)
             .requirements
@@ -805,18 +735,25 @@ impl<T: Trait> Module<T> {
         asset_compliance_with_results
     }
 
-    /// Verify that `asset_compliance`,
-    /// with `default_issuer_count_add` number of default issuers to add,
+    /// Verify that `asset_compliance`, with `add` number of default issuers to add,
     /// is within the maximum condition complexity allowed.
     fn verify_compliance_complexity(
         asset_compliance: &[ComplianceRequirement],
         ticker: Ticker,
-        default_issuer_count_add: usize,
+        add: usize,
     ) -> DispatchResult {
-        let default_issuer_count = TrustedClaimIssuer::decode_len(ticker)
+        let count = TrustedClaimIssuer::decode_len(ticker)
             .unwrap_or_default()
-            .saturating_add(default_issuer_count_add);
+            .saturating_add(add);
+        Self::base_verify_compliance_complexity(asset_compliance, count)
+    }
 
+    /// Verify that `asset_compliance`, with `default_issuer_count` number of default issuers,
+    /// is within the maximum condition complexity allowed.
+    fn base_verify_compliance_complexity(
+        asset_compliance: &[ComplianceRequirement],
+        default_issuer_count: usize,
+    ) -> DispatchResult {
         let complexity = asset_compliance
             .iter()
             .flat_map(|requirement| {
