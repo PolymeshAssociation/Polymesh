@@ -1,13 +1,21 @@
 use crate::{
     committee_test::root,
+    contract_test::{compile_module, create_contract_instance, create_se_template},
     ext_builder::{ExtBuilder, MockProtocolBaseFees},
     pips_test::assert_balance,
     storage::{
-        account_from, add_secondary_key, make_account_without_cdd, provide_scope_claim,
+        add_secondary_key, make_account_without_cdd, provide_scope_claim,
         provide_scope_claim_to_multiple_parties, register_keyring_account, AccountId, TestStorage,
     },
 };
-use frame_support::IterableStorageMap;
+
+use chrono::prelude::Utc;
+use frame_support::{
+    assert_err, assert_noop, assert_ok, traits::Currency, IterableStorageMap, StorageDoubleMap,
+    StorageMap,
+};
+use hex_literal::hex;
+use ink_primitives::hash as FunctionSelectorHasher;
 use pallet_asset::ethereum;
 use pallet_asset::{
     self as asset, AssetOwnershipRelation, AssetType, ClassicTickerImport,
@@ -16,27 +24,20 @@ use pallet_asset::{
 };
 use pallet_balances as balances;
 use pallet_compliance_manager as compliance_manager;
+use pallet_contracts::ContractAddressFor;
 use pallet_identity as identity;
 use pallet_statistics as statistics;
 use polymesh_common_utilities::{
     compliance_manager::Trait, constants::*, protocol_fee::ProtocolOp, traits::balances::Memo,
     traits::CddAndFeeDetails as _, SystematicIssuers,
 };
+use polymesh_contracts::NonceBasedAddressDeterminer;
 use polymesh_primitives::{
     AssetIdentifier, AuthorizationData, Claim, Condition, ConditionType, Document, DocumentName,
-    IdentityId, InvestorUid, PortfolioId, Signatory, SmartExtension, SmartExtensionName,
-    SmartExtensionType, Ticker,
+    IdentityId, InvestorUid, PortfolioId, Signatory, SmartExtension, SmartExtensionType, Ticker,
 };
-use sp_io::hashing::keccak_256;
-
-use chrono::prelude::Utc;
-use frame_support::{
-    assert_err, assert_noop, assert_ok, dispatch::DispatchResult, traits::Currency,
-    StorageDoubleMap, StorageMap,
-};
-use hex_literal::hex;
-use ink_primitives::hash as FunctionSelectorHasher;
 use rand::Rng;
+use sp_io::hashing::keccak_256;
 use sp_runtime::AnySignature;
 use std::convert::{TryFrom, TryInto};
 use test_client::AccountKeyring;
@@ -68,20 +69,33 @@ macro_rules! assert_revoke_claim {
     };
 }
 
-fn smart_extension_addition(
-    account_id: AccountId,
-    extension_name: SmartExtensionName,
-    signer: Origin,
-    ticker: Ticker,
-) -> DispatchResult {
-    let extension_details = SmartExtension {
-        extension_type: SmartExtensionType::TransferManager,
-        extension_name: extension_name,
-        extension_id: account_id,
-        is_archive: false,
-    };
+fn setup_se_template<T>(
+    creator: AccountId,
+    creator_did: IdentityId,
+    create_instance: bool,
+) -> AccountId
+where
+    T: frame_system::Trait<Hash = sp_core::H256>,
+{
+    let (wasm, code_hash) = compile_module::<TestStorage>("flipper").unwrap();
 
-    Asset::add_extension(signer, ticker, extension_details.clone())
+    let input_data = hex!("0222FF18");
+
+    if create_instance {
+        // Create SE template.
+        create_se_template::<TestStorage>(creator, creator_did, 0, code_hash, wasm);
+    }
+
+    // Create SE instance.
+    assert_ok!(create_contract_instance::<TestStorage>(
+        creator, code_hash, 0, false
+    ));
+
+    NonceBasedAddressDeterminer::<TestStorage>::contract_address_for(
+        &code_hash,
+        &input_data.to_vec(),
+        &creator,
+    )
 }
 
 #[test]
@@ -938,8 +952,9 @@ fn add_extension_successfully() {
         .set_max_tms_allowed(2)
         .build()
         .execute_with(|| {
-            let owner_signed = Origin::signed(AccountKeyring::Dave.public());
-            let _ = register_keyring_account(AccountKeyring::Dave).unwrap();
+            let dave = AccountKeyring::Dave.public();
+            // Create did and singed version of dave account.
+            let (owner_signed, dave_did) = make_account_without_cdd(dave).unwrap();
 
             // Expected token entry
             let token = SecurityToken {
@@ -949,7 +964,6 @@ fn add_extension_successfully() {
                 asset_type: AssetType::default(),
                 ..Default::default()
             };
-
             let ticker = Ticker::try_from(token.name.as_slice()).unwrap();
             assert!(!<DidRecords>::contains_key(
                 Identity::get_token_did(&ticker).unwrap()
@@ -968,48 +982,34 @@ fn add_extension_successfully() {
             ));
 
             // Add smart extension
-            let extension_name_1: SmartExtensionName = b"PTM1".into();
-            let extension_name_2 = b"PTM2".into();
-            let extension_name_3 = b"PTM3".into();
-            let extension_id_1 = account_from(1);
-            let extension_id_2 = account_from(2);
-            let extension_id_3 = account_from(3);
+            let extension_name = b"PTM".into();
+            let extension_id = setup_se_template::<TestStorage>(dave, dave_did, true);
 
-            assert_ok!(smart_extension_addition(
-                extension_id_1,
-                extension_name_1.clone(),
+            let extension_details = SmartExtension {
+                extension_type: SmartExtensionType::TransferManager,
+                extension_name,
+                extension_id: extension_id.clone(),
+                is_archive: false,
+            };
+
+            assert_ok!(Asset::add_extension(
                 owner_signed.clone(),
-                ticker
-            ));
-            assert_ok!(smart_extension_addition(
-                extension_id_2,
-                extension_name_2,
-                owner_signed.clone(),
-                ticker
+                ticker,
+                extension_details.clone(),
             ));
 
             // verify the data within the runtime
             assert_eq!(
-                Asset::extension_details((ticker, extension_id_1)).extension_name,
-                extension_name_1
+                Asset::extension_details((ticker, extension_id)),
+                extension_details
             );
             assert_eq!(
                 (Asset::extensions((ticker, SmartExtensionType::TransferManager))).len(),
-                2
+                1
             );
             assert_eq!(
                 (Asset::extensions((ticker, SmartExtensionType::TransferManager)))[0],
-                extension_id_1
-            );
-
-            assert_err!(
-                smart_extension_addition(
-                    extension_id_3,
-                    extension_name_3,
-                    owner_signed.clone(),
-                    ticker
-                ),
-                AssetError::MaximumTMExtensionLimitReached
+                extension_id
             );
         });
 }
@@ -1020,8 +1020,8 @@ fn add_same_extension_should_fail() {
         .set_max_tms_allowed(10)
         .build()
         .execute_with(|| {
-            let owner_signed = Origin::signed(AccountKeyring::Dave.public());
-            let owner_did = register_keyring_account(AccountKeyring::Dave).unwrap();
+            let dave = AccountKeyring::Dave.public();
+            let (owner_signed, owner_did) = make_account_without_cdd(dave).unwrap();
 
             // Expected token entry
             let token = SecurityToken {
@@ -1052,7 +1052,7 @@ fn add_same_extension_should_fail() {
 
             // Add smart extension
             let extension_name = b"PTM".into();
-            let extension_id = AccountKeyring::Bob.public();
+            let extension_id = setup_se_template::<TestStorage>(dave, owner_did, true);
 
             let extension_details = SmartExtension {
                 extension_type: SmartExtensionType::TransferManager,
@@ -1090,378 +1090,393 @@ fn add_same_extension_should_fail() {
 
 #[test]
 fn should_successfully_archive_extension() {
-    ExtBuilder::default().build().execute_with(|| {
-        let owner_signed = Origin::signed(AccountKeyring::Dave.public());
-        let owner_did = register_keyring_account(AccountKeyring::Dave).unwrap();
+    ExtBuilder::default()
+        .set_max_tms_allowed(10)
+        .build()
+        .execute_with(|| {
+            let dave = AccountKeyring::Dave.public();
+            let (owner_signed, owner_did) = make_account_without_cdd(dave).unwrap();
 
-        // Expected token entry
-        let token = SecurityToken {
-            name: b"TEST".into(),
-            owner_did,
-            total_supply: 1_000_000,
-            divisible: true,
-            asset_type: AssetType::default(),
-            ..Default::default()
-        };
+            // Expected token entry
+            let token = SecurityToken {
+                name: b"TEST".into(),
+                owner_did,
+                total_supply: 1_000_000,
+                divisible: true,
+                asset_type: AssetType::default(),
+                ..Default::default()
+            };
 
-        let ticker = Ticker::try_from(token.name.as_slice()).unwrap();
-        assert!(!<DidRecords>::contains_key(
-            Identity::get_token_did(&ticker).unwrap()
-        ));
-        let identifier_value1 = b"037833100";
-        let identifiers = vec![AssetIdentifier::cusip(*identifier_value1).unwrap()];
-        assert_ok!(Asset::create_asset(
-            owner_signed.clone(),
-            token.name.clone(),
-            ticker,
-            token.total_supply,
-            true,
-            token.asset_type.clone(),
-            identifiers.clone(),
-            None,
-        ));
-        // Add smart extension
-        let extension_name = b"STO".into();
-        let extension_id = AccountKeyring::Bob.public();
+            let ticker = Ticker::try_from(token.name.as_slice()).unwrap();
+            assert!(!<DidRecords>::contains_key(
+                Identity::get_token_did(&ticker).unwrap()
+            ));
+            let identifier_value1 = b"037833100";
+            let identifiers = vec![AssetIdentifier::cusip(*identifier_value1).unwrap()];
+            assert_ok!(Asset::create_asset(
+                owner_signed.clone(),
+                token.name.clone(),
+                ticker,
+                token.total_supply,
+                true,
+                token.asset_type.clone(),
+                identifiers.clone(),
+                None,
+            ));
+            // Add smart extension
+            let extension_name = b"STO".into();
+            let extension_id = setup_se_template::<TestStorage>(dave, owner_did, true);
 
-        let extension_details = SmartExtension {
-            extension_type: SmartExtensionType::Offerings,
-            extension_name,
-            extension_id: extension_id.clone(),
-            is_archive: false,
-        };
+            let extension_details = SmartExtension {
+                extension_type: SmartExtensionType::Offerings,
+                extension_name,
+                extension_id: extension_id.clone(),
+                is_archive: false,
+            };
 
-        assert_ok!(Asset::add_extension(
-            owner_signed.clone(),
-            ticker,
-            extension_details.clone()
-        ));
+            assert_ok!(Asset::add_extension(
+                owner_signed.clone(),
+                ticker,
+                extension_details.clone()
+            ));
 
-        // verify the data within the runtime
-        assert_eq!(
-            Asset::extension_details((ticker, extension_id)),
-            extension_details
-        );
-        assert_eq!(
-            (Asset::extensions((ticker, SmartExtensionType::Offerings))).len(),
-            1
-        );
-        assert_eq!(
-            (Asset::extensions((ticker, SmartExtensionType::Offerings)))[0],
-            extension_id
-        );
+            // verify the data within the runtime
+            assert_eq!(
+                Asset::extension_details((ticker, extension_id)),
+                extension_details
+            );
+            assert_eq!(
+                (Asset::extensions((ticker, SmartExtensionType::Offerings))).len(),
+                1
+            );
+            assert_eq!(
+                (Asset::extensions((ticker, SmartExtensionType::Offerings)))[0],
+                extension_id
+            );
 
-        assert_ok!(Asset::archive_extension(
-            owner_signed.clone(),
-            ticker,
-            extension_id
-        ));
+            assert_ok!(Asset::archive_extension(
+                owner_signed.clone(),
+                ticker,
+                extension_id
+            ));
 
-        assert_eq!(
-            (Asset::extension_details((ticker, extension_id))).is_archive,
-            true
-        );
-    });
+            assert_eq!(
+                (Asset::extension_details((ticker, extension_id))).is_archive,
+                true
+            );
+        });
 }
 
 #[test]
 fn should_fail_to_archive_an_already_archived_extension() {
-    ExtBuilder::default().build().execute_with(|| {
-        let owner_signed = Origin::signed(AccountKeyring::Dave.public());
-        let owner_did = register_keyring_account(AccountKeyring::Dave).unwrap();
+    ExtBuilder::default()
+        .set_max_tms_allowed(10)
+        .build()
+        .execute_with(|| {
+            let dave = AccountKeyring::Dave.public();
+            let (owner_signed, owner_did) = make_account_without_cdd(dave).unwrap();
 
-        // Expected token entry
-        let token = SecurityToken {
-            name: b"TEST".into(),
-            owner_did,
-            total_supply: 1_000_000,
-            divisible: true,
-            asset_type: AssetType::default(),
-            ..Default::default()
-        };
+            // Expected token entry
+            let token = SecurityToken {
+                name: b"TEST".into(),
+                owner_did,
+                total_supply: 1_000_000,
+                divisible: true,
+                asset_type: AssetType::default(),
+                ..Default::default()
+            };
 
-        let ticker = Ticker::try_from(token.name.as_slice()).unwrap();
-        assert!(!<DidRecords>::contains_key(
-            Identity::get_token_did(&ticker).unwrap()
-        ));
-        let identifier_value1 = b"037833100";
-        let identifiers = vec![AssetIdentifier::cusip(*identifier_value1).unwrap()];
-        assert_ok!(Asset::create_asset(
-            owner_signed.clone(),
-            token.name.clone(),
-            ticker,
-            token.total_supply,
-            true,
-            token.asset_type.clone(),
-            identifiers.clone(),
-            None,
-        ));
-        // Add smart extension
-        let extension_name = b"STO".into();
-        let extension_id = AccountKeyring::Bob.public();
+            let ticker = Ticker::try_from(token.name.as_slice()).unwrap();
+            assert!(!<DidRecords>::contains_key(
+                Identity::get_token_did(&ticker).unwrap()
+            ));
+            let identifier_value1 = b"037833100";
+            let identifiers = vec![AssetIdentifier::cusip(*identifier_value1).unwrap()];
+            assert_ok!(Asset::create_asset(
+                owner_signed.clone(),
+                token.name.clone(),
+                ticker,
+                token.total_supply,
+                true,
+                token.asset_type.clone(),
+                identifiers.clone(),
+                None,
+            ));
+            // Add smart extension
+            let extension_name = b"STO".into();
+            let extension_id = setup_se_template::<TestStorage>(dave, owner_did, true);
 
-        let extension_details = SmartExtension {
-            extension_type: SmartExtensionType::Offerings,
-            extension_name,
-            extension_id: extension_id.clone(),
-            is_archive: false,
-        };
+            let extension_details = SmartExtension {
+                extension_type: SmartExtensionType::Offerings,
+                extension_name,
+                extension_id: extension_id.clone(),
+                is_archive: false,
+            };
 
-        assert_ok!(Asset::add_extension(
-            owner_signed.clone(),
-            ticker,
-            extension_details.clone()
-        ));
+            assert_ok!(Asset::add_extension(
+                owner_signed.clone(),
+                ticker,
+                extension_details.clone()
+            ));
 
-        // verify the data within the runtime
-        assert_eq!(
-            Asset::extension_details((ticker, extension_id)),
-            extension_details
-        );
-        assert_eq!(
-            (Asset::extensions((ticker, SmartExtensionType::Offerings))).len(),
-            1
-        );
-        assert_eq!(
-            (Asset::extensions((ticker, SmartExtensionType::Offerings)))[0],
-            extension_id
-        );
+            // verify the data within the runtime
+            assert_eq!(
+                Asset::extension_details((ticker, extension_id)),
+                extension_details
+            );
+            assert_eq!(
+                (Asset::extensions((ticker, SmartExtensionType::Offerings))).len(),
+                1
+            );
+            assert_eq!(
+                (Asset::extensions((ticker, SmartExtensionType::Offerings)))[0],
+                extension_id
+            );
 
-        assert_ok!(Asset::archive_extension(
-            owner_signed.clone(),
-            ticker,
-            extension_id
-        ));
+            assert_ok!(Asset::archive_extension(
+                owner_signed.clone(),
+                ticker,
+                extension_id
+            ));
 
-        assert_eq!(
-            (Asset::extension_details((ticker, extension_id))).is_archive,
-            true
-        );
+            assert_eq!(
+                (Asset::extension_details((ticker, extension_id))).is_archive,
+                true
+            );
 
-        assert_err!(
-            Asset::archive_extension(owner_signed.clone(), ticker, extension_id),
-            AssetError::AlreadyArchived
-        );
-    });
+            assert_err!(
+                Asset::archive_extension(owner_signed.clone(), ticker, extension_id),
+                AssetError::AlreadyArchived
+            );
+        });
 }
 
 #[test]
 fn should_fail_to_archive_a_non_existent_extension() {
-    ExtBuilder::default().build().execute_with(|| {
-        let owner_signed = Origin::signed(AccountKeyring::Dave.public());
-        let owner_did = register_keyring_account(AccountKeyring::Dave).unwrap();
+    ExtBuilder::default()
+        .set_max_tms_allowed(10)
+        .build()
+        .execute_with(|| {
+            let owner_signed = Origin::signed(AccountKeyring::Dave.public());
+            let owner_did = register_keyring_account(AccountKeyring::Dave).unwrap();
 
-        // Expected token entry
-        let token = SecurityToken {
-            name: b"TEST".into(),
-            owner_did,
-            total_supply: 1_000_000,
-            divisible: true,
-            asset_type: AssetType::default(),
-            ..Default::default()
-        };
+            // Expected token entry
+            let token = SecurityToken {
+                name: b"TEST".into(),
+                owner_did,
+                total_supply: 1_000_000,
+                divisible: true,
+                asset_type: AssetType::default(),
+                ..Default::default()
+            };
 
-        let ticker = Ticker::try_from(token.name.as_slice()).unwrap();
-        assert!(!<DidRecords>::contains_key(
-            Identity::get_token_did(&ticker).unwrap()
-        ));
-        let identifier_value1 = b"037833100";
-        let identifiers = vec![AssetIdentifier::cusip(*identifier_value1).unwrap()];
-        assert_ok!(Asset::create_asset(
-            owner_signed.clone(),
-            token.name.clone(),
-            ticker,
-            token.total_supply,
-            true,
-            token.asset_type.clone(),
-            identifiers.clone(),
-            None,
-        ));
-        // Add smart extension
-        let extension_id = AccountKeyring::Bob.public();
+            let ticker = Ticker::try_from(token.name.as_slice()).unwrap();
+            assert!(!<DidRecords>::contains_key(
+                Identity::get_token_did(&ticker).unwrap()
+            ));
+            let identifier_value1 = b"037833100";
+            let identifiers = vec![AssetIdentifier::cusip(*identifier_value1).unwrap()];
+            assert_ok!(Asset::create_asset(
+                owner_signed.clone(),
+                token.name.clone(),
+                ticker,
+                token.total_supply,
+                true,
+                token.asset_type.clone(),
+                identifiers.clone(),
+                None,
+            ));
+            // Add smart extension
+            let extension_id = AccountKeyring::Bob.public();
 
-        assert_err!(
-            Asset::archive_extension(owner_signed.clone(), ticker, extension_id),
-            AssetError::NoSuchSmartExtension
-        );
-    });
+            assert_err!(
+                Asset::archive_extension(owner_signed.clone(), ticker, extension_id),
+                AssetError::NoSuchSmartExtension
+            );
+        });
 }
 
 #[test]
 fn should_successfuly_unarchive_an_extension() {
-    ExtBuilder::default().build().execute_with(|| {
-        let owner_signed = Origin::signed(AccountKeyring::Dave.public());
-        let owner_did = register_keyring_account(AccountKeyring::Dave).unwrap();
+    ExtBuilder::default()
+        .set_max_tms_allowed(10)
+        .build()
+        .execute_with(|| {
+            let dave = AccountKeyring::Dave.public();
+            let (owner_signed, owner_did) = make_account_without_cdd(dave).unwrap();
 
-        // Expected token entry
-        let token = SecurityToken {
-            name: b"TEST".into(),
-            owner_did,
-            total_supply: 1_000_000,
-            divisible: true,
-            asset_type: AssetType::default(),
-            ..Default::default()
-        };
+            // Expected token entry
+            let token = SecurityToken {
+                name: b"TEST".into(),
+                owner_did,
+                total_supply: 1_000_000,
+                divisible: true,
+                asset_type: AssetType::default(),
+                ..Default::default()
+            };
 
-        let ticker = Ticker::try_from(token.name.as_slice()).unwrap();
-        assert!(!<DidRecords>::contains_key(
-            Identity::get_token_did(&ticker).unwrap()
-        ));
-        let identifier_value1 = b"037833100";
-        let identifiers = vec![AssetIdentifier::cusip(*identifier_value1).unwrap()];
-        assert_ok!(Asset::create_asset(
-            owner_signed.clone(),
-            token.name.clone(),
-            ticker,
-            token.total_supply,
-            true,
-            token.asset_type.clone(),
-            identifiers.clone(),
-            None,
-        ));
-        // Add smart extension
-        let extension_name = b"STO".into();
-        let extension_id = AccountKeyring::Bob.public();
+            let ticker = Ticker::try_from(token.name.as_slice()).unwrap();
+            assert!(!<DidRecords>::contains_key(
+                Identity::get_token_did(&ticker).unwrap()
+            ));
+            let identifier_value1 = b"037833100";
+            let identifiers = vec![AssetIdentifier::cusip(*identifier_value1).unwrap()];
+            assert_ok!(Asset::create_asset(
+                owner_signed.clone(),
+                token.name.clone(),
+                ticker,
+                token.total_supply,
+                true,
+                token.asset_type.clone(),
+                identifiers.clone(),
+                None,
+            ));
+            // Add smart extension
+            let extension_name = b"STO".into();
+            let extension_id = setup_se_template::<TestStorage>(dave, owner_did, true);
 
-        let extension_details = SmartExtension {
-            extension_type: SmartExtensionType::Offerings,
-            extension_name,
-            extension_id: extension_id.clone(),
-            is_archive: false,
-        };
+            let extension_details = SmartExtension {
+                extension_type: SmartExtensionType::Offerings,
+                extension_name,
+                extension_id: extension_id.clone(),
+                is_archive: false,
+            };
 
-        assert_ok!(Asset::add_extension(
-            owner_signed.clone(),
-            ticker,
-            extension_details.clone()
-        ));
+            assert_ok!(Asset::add_extension(
+                owner_signed.clone(),
+                ticker,
+                extension_details.clone()
+            ));
 
-        // verify the data within the runtime
-        assert_eq!(
-            Asset::extension_details((ticker, extension_id)),
-            extension_details
-        );
-        assert_eq!(
-            (Asset::extensions((ticker, SmartExtensionType::Offerings))).len(),
-            1
-        );
-        assert_eq!(
-            (Asset::extensions((ticker, SmartExtensionType::Offerings)))[0],
-            extension_id
-        );
+            // verify the data within the runtime
+            assert_eq!(
+                Asset::extension_details((ticker, extension_id)),
+                extension_details
+            );
+            assert_eq!(
+                (Asset::extensions((ticker, SmartExtensionType::Offerings))).len(),
+                1
+            );
+            assert_eq!(
+                (Asset::extensions((ticker, SmartExtensionType::Offerings)))[0],
+                extension_id
+            );
 
-        assert_ok!(Asset::archive_extension(
-            owner_signed.clone(),
-            ticker,
-            extension_id
-        ));
+            assert_ok!(Asset::archive_extension(
+                owner_signed.clone(),
+                ticker,
+                extension_id
+            ));
 
-        assert_eq!(
-            (Asset::extension_details((ticker, extension_id))).is_archive,
-            true
-        );
+            assert_eq!(
+                (Asset::extension_details((ticker, extension_id))).is_archive,
+                true
+            );
 
-        assert_ok!(Asset::unarchive_extension(
-            owner_signed.clone(),
-            ticker,
-            extension_id
-        ));
-        assert_eq!(
-            (Asset::extension_details((ticker, extension_id))).is_archive,
-            false
-        );
-    });
+            assert_ok!(Asset::unarchive_extension(
+                owner_signed.clone(),
+                ticker,
+                extension_id
+            ));
+            assert_eq!(
+                (Asset::extension_details((ticker, extension_id))).is_archive,
+                false
+            );
+        });
 }
 
 #[test]
 fn should_fail_to_unarchive_an_already_unarchived_extension() {
-    ExtBuilder::default().build().execute_with(|| {
-        let owner_signed = Origin::signed(AccountKeyring::Dave.public());
-        let owner_did = register_keyring_account(AccountKeyring::Dave).unwrap();
+    ExtBuilder::default()
+        .set_max_tms_allowed(10)
+        .build()
+        .execute_with(|| {
+            let dave = AccountKeyring::Dave.public();
+            let (owner_signed, owner_did) = make_account_without_cdd(dave).unwrap();
 
-        // Expected token entry
-        let token = SecurityToken {
-            name: b"TEST".into(),
-            owner_did,
-            total_supply: 1_000_000,
-            divisible: true,
-            asset_type: AssetType::default(),
-            ..Default::default()
-        };
+            // Expected token entry
+            let token = SecurityToken {
+                name: b"TEST".into(),
+                owner_did,
+                total_supply: 1_000_000,
+                divisible: true,
+                asset_type: AssetType::default(),
+                ..Default::default()
+            };
 
-        let ticker = Ticker::try_from(token.name.as_slice()).unwrap();
-        assert!(!<DidRecords>::contains_key(
-            Identity::get_token_did(&ticker).unwrap()
-        ));
-        let identifier_value1 = b"037833100";
-        let identifiers = vec![AssetIdentifier::cusip(*identifier_value1).unwrap()];
-        assert_ok!(Asset::create_asset(
-            owner_signed.clone(),
-            token.name.clone(),
-            ticker,
-            token.total_supply,
-            true,
-            token.asset_type.clone(),
-            identifiers.clone(),
-            None,
-        ));
-        // Add smart extension
-        let extension_name = b"STO".into();
-        let extension_id = AccountKeyring::Bob.public();
+            let ticker = Ticker::try_from(token.name.as_slice()).unwrap();
+            assert!(!<DidRecords>::contains_key(
+                Identity::get_token_did(&ticker).unwrap()
+            ));
+            let identifier_value1 = b"037833100";
+            let identifiers = vec![AssetIdentifier::cusip(*identifier_value1).unwrap()];
+            assert_ok!(Asset::create_asset(
+                owner_signed.clone(),
+                token.name.clone(),
+                ticker,
+                token.total_supply,
+                true,
+                token.asset_type.clone(),
+                identifiers.clone(),
+                None,
+            ));
+            // Add smart extension
+            let extension_name = b"STO".into();
+            let extension_id = setup_se_template::<TestStorage>(dave, owner_did, true);
 
-        let extension_details = SmartExtension {
-            extension_type: SmartExtensionType::Offerings,
-            extension_name,
-            extension_id: extension_id.clone(),
-            is_archive: false,
-        };
+            let extension_details = SmartExtension {
+                extension_type: SmartExtensionType::Offerings,
+                extension_name,
+                extension_id: extension_id.clone(),
+                is_archive: false,
+            };
 
-        assert_ok!(Asset::add_extension(
-            owner_signed.clone(),
-            ticker,
-            extension_details.clone(),
-        ));
+            assert_ok!(Asset::add_extension(
+                owner_signed.clone(),
+                ticker,
+                extension_details.clone(),
+            ));
 
-        // verify the data within the runtime
-        assert_eq!(
-            Asset::extension_details((ticker, extension_id)),
-            extension_details
-        );
-        assert_eq!(
-            (Asset::extensions((ticker, SmartExtensionType::Offerings))).len(),
-            1
-        );
-        assert_eq!(
-            (Asset::extensions((ticker, SmartExtensionType::Offerings)))[0],
-            extension_id
-        );
+            // verify the data within the runtime
+            assert_eq!(
+                Asset::extension_details((ticker, extension_id)),
+                extension_details
+            );
+            assert_eq!(
+                (Asset::extensions((ticker, SmartExtensionType::Offerings))).len(),
+                1
+            );
+            assert_eq!(
+                (Asset::extensions((ticker, SmartExtensionType::Offerings)))[0],
+                extension_id
+            );
 
-        assert_ok!(Asset::archive_extension(
-            owner_signed.clone(),
-            ticker,
-            extension_id
-        ));
+            assert_ok!(Asset::archive_extension(
+                owner_signed.clone(),
+                ticker,
+                extension_id
+            ));
 
-        assert_eq!(
-            (Asset::extension_details((ticker, extension_id))).is_archive,
-            true
-        );
+            assert_eq!(
+                (Asset::extension_details((ticker, extension_id))).is_archive,
+                true
+            );
 
-        assert_ok!(Asset::unarchive_extension(
-            owner_signed.clone(),
-            ticker,
-            extension_id
-        ));
-        assert_eq!(
-            (Asset::extension_details((ticker, extension_id))).is_archive,
-            false
-        );
+            assert_ok!(Asset::unarchive_extension(
+                owner_signed.clone(),
+                ticker,
+                extension_id
+            ));
+            assert_eq!(
+                (Asset::extension_details((ticker, extension_id))).is_archive,
+                false
+            );
 
-        assert_err!(
-            Asset::unarchive_extension(owner_signed.clone(), ticker, extension_id),
-            AssetError::AlreadyUnArchived
-        );
-    });
+            assert_err!(
+                Asset::unarchive_extension(owner_signed.clone(), ticker, extension_id),
+                AssetError::AlreadyUnArchived
+            );
+        });
 }
 
 #[test]
@@ -1881,6 +1896,8 @@ fn test_weights_for_is_valid_transfer() {
                 Claim::KnowYourCustomer(ticker_id.into())
             );
 
+            let extension_id_1 = setup_se_template::<TestStorage>(alice, alice_did, true);
+
             // Add Tms
             assert_ok!(Asset::add_extension(
                 alice_signed.clone(),
@@ -1888,10 +1905,12 @@ fn test_weights_for_is_valid_transfer() {
                 SmartExtension {
                     extension_type: SmartExtensionType::TransferManager,
                     extension_name: b"ABC".into(),
-                    extension_id: account_from(1),
+                    extension_id: extension_id_1,
                     is_archive: false
                 }
             ));
+
+            let extension_id_2 = setup_se_template::<TestStorage>(alice, alice_did, false);
 
             assert_ok!(Asset::add_extension(
                 alice_signed.clone(),
@@ -1899,7 +1918,7 @@ fn test_weights_for_is_valid_transfer() {
                 SmartExtension {
                     extension_type: SmartExtensionType::TransferManager,
                     extension_name: b"ABC".into(),
-                    extension_id: account_from(2),
+                    extension_id: extension_id_2,
                     is_archive: false
                 }
             ));
@@ -2012,7 +2031,7 @@ fn check_functionality_of_remove_extension() {
                 None,
             ));
 
-            let extension_id = account_from(1);
+            let extension_id = setup_se_template::<TestStorage>(alice, alice_did, true);
 
             // Add Tms
             assert_ok!(Asset::add_extension(
@@ -2204,6 +2223,7 @@ fn classic_ticker_genesis_works() {
             ..standard_config
         },
         reserved_country_currency_codes: vec![],
+        versions: vec![],
     };
 
     // Define expected ticker data after genesis.
@@ -2392,6 +2412,7 @@ fn classic_ticker_claim_works() {
         },
         classic_migration_contract_did: 0.into(),
         reserved_country_currency_codes: vec![],
+        versions: vec![],
     };
 
     // Define the fees and initial balance.
