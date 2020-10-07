@@ -24,11 +24,7 @@ mod custom_types {
     )]
     #[cfg_attr(
         feature = "std",
-        derive(
-            TypeInfo,
-            Debug,
-            ink_core::storage::traits::StorageLayout
-        )
+        derive(TypeInfo, Debug, ink_core::storage::traits::StorageLayout)
     )]
     pub struct IdentityId([u8; 32]);
 
