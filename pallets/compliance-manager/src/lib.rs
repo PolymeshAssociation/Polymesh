@@ -355,7 +355,7 @@ decl_module! {
                 .any(|requirement| requirement.sender_conditions == new_requirement.sender_conditions && requirement.receiver_conditions == new_requirement.receiver_conditions)
             {
                 reqs.push(new_requirement.clone());
-                Self::verify_compliance_complexity(&reqs, TrustedClaimIssuer::decode_len(ticker).unwrap_or_default())?;
+                Self::verify_compliance_complexity(&reqs, ticker, 0)?;
                 AssetCompliances::insert(&ticker, asset_compliance);
                 Self::deposit_event(Event::ComplianceRequirementCreated(did, ticker, new_requirement));
             }
@@ -417,7 +417,7 @@ decl_module! {
             // Dedup `ClaimType`s in `TrustedFor::Specific`.
             asset_compliance.iter_mut().for_each(|r| r.dedup());
 
-            Self::verify_compliance_complexity(&asset_compliance, TrustedClaimIssuer::decode_len(ticker).unwrap_or_default())?;
+            Self::verify_compliance_complexity(&asset_compliance, ticker, 0)?;
             AssetCompliances::mutate(&ticker, |old| old.requirements = asset_compliance.clone());
             Self::deposit_event(Event::AssetComplianceReplaced(did, ticker, asset_compliance));
             Ok(())
@@ -476,10 +476,7 @@ decl_module! {
         /// * trusted_issuer - IdentityId of the trusted claim issuer.
         #[weight = T::DbWeight::get().reads_writes(3, 1) + 300_000_000]
         pub fn add_default_trusted_claim_issuer(origin, ticker: Ticker, trusted_issuer: TrustedIssuer) -> DispatchResult {
-            Self::verify_compliance_complexity(
-                &AssetCompliances::get(ticker).requirements,
-                TrustedClaimIssuer::decode_len(ticker).unwrap_or_default().saturating_add(1)
-            )?;
+            Self::verify_compliance_complexity(&AssetCompliances::get(ticker).requirements, ticker, 1)?;
             Self::modify_default_trusted_claim_issuer(origin, ticker, trusted_issuer, true)
         }
 
@@ -519,7 +516,7 @@ decl_module! {
                 new_requirement.dedup();
 
                 *req = new_requirement.clone();
-                Self::verify_compliance_complexity(&reqs, TrustedClaimIssuer::decode_len(ticker).unwrap_or_default())?;
+                Self::verify_compliance_complexity(&reqs, ticker, 0)?;
                 AssetCompliances::insert(&ticker, asset_compliance);
                 Self::deposit_event(Event::ComplianceRequirementChanged(did, ticker, new_requirement));
             }
@@ -807,10 +804,18 @@ impl<T: Trait> Module<T> {
         asset_compliance_with_results
     }
 
+    /// Verify that `asset_compliance`,
+    /// with `default_issuer_count_add` number of default issuers to add,
+    /// is within the maximum condition complexity allowed.
     fn verify_compliance_complexity(
         asset_compliance: &[ComplianceRequirement],
-        default_issuer_count: usize,
+        ticker: Ticker,
+        default_issuer_count_add: usize,
     ) -> DispatchResult {
+        let default_issuer_count = TrustedClaimIssuer::decode_len(ticker)
+            .unwrap_or_default()
+            .saturating_add(default_issuer_count_add);
+
         let complexity = asset_compliance
             .iter()
             .flat_map(|requirement| {
