@@ -5,6 +5,8 @@ use ink_lang as ink;
 mod custom_types {
     use ink_core::storage::traits::{PackedLayout, SpreadLayout};
     use scale::{Decode, Encode};
+    #[cfg(feature = "std")]
+    use scale_info::TypeInfo;
 
     #[derive(
         Decode,
@@ -23,7 +25,7 @@ mod custom_types {
     #[cfg_attr(
         feature = "std",
         derive(
-            ::scale_info::TypeInfo,
+            TypeInfo,
             Debug,
             ink_core::storage::traits::StorageLayout
         )
@@ -41,7 +43,7 @@ mod custom_types {
     }
 
     #[derive(Decode, Encode, PartialEq, Ord, Eq, PartialOrd)]
-    #[cfg_attr(feature = "std", derive(::scale_info::TypeInfo, Debug))]
+    #[cfg_attr(feature = "std", derive(TypeInfo, Debug))]
     pub enum RestrictionResult {
         Valid,
         Invalid,
@@ -134,10 +136,10 @@ mod percentage_transfer_manager {
             from: Option<IdentityId>,
             to: Option<IdentityId>,
             value: Balance,
-            balance_from: Balance,
+            _balance_from: Balance,
             balance_to: Balance,
             total_supply: Balance,
-            current_holder_count: u64,
+            _current_holder_count: u64,
         ) -> RestrictionResult {
             if from == None && self.allow_primary_issuance
                 || self.is_exempted_or_not(&(to.unwrap_or_default()))

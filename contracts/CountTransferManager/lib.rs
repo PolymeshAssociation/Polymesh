@@ -4,9 +4,11 @@ use ink_lang as ink;
 
 mod custom_types {
     use scale::{Decode, Encode};
+    #[cfg(feature = "std")]
+    use scale_info::TypeInfo;
 
     #[derive(Decode, Encode, PartialEq, Ord, Eq, PartialOrd, Copy, Hash, Clone, Default)]
-    #[cfg_attr(feature = "std", derive(::scale_info::TypeInfo, Debug))]
+    #[cfg_attr(feature = "std", derive(TypeInfo, Debug))]
     pub struct IdentityId([u8; 32]);
 
     impl From<u128> for IdentityId {
@@ -20,7 +22,7 @@ mod custom_types {
     }
 
     #[derive(Decode, Encode, PartialEq, Ord, Eq, PartialOrd)]
-    #[cfg_attr(feature = "std", derive(::scale_info::TypeInfo, Debug))]
+    #[cfg_attr(feature = "std", derive(TypeInfo, Debug))]
     pub enum RestrictionResult {
         Valid,
         Invalid,
