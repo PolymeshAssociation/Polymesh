@@ -1164,13 +1164,28 @@ impl<T: Trait> Module<T> {
         <InstructionLegs<T>>::remove_prefix(instruction_id);
         <InstructionDetails<T>>::remove(instruction_id);
         <InstructionLegStatus<T>>::remove_prefix(instruction_id);
-        <InstructionAuthsPending>::remove(instruction_id);
-        <AuthsReceived>::remove_prefix(instruction_id);
-        // NB UserAuths mapping is not cleared
+        InstructionAuthsPending::remove(instruction_id);
+        AuthsReceived::remove_prefix(instruction_id);
+        Self::prune_user_auths(&legs, instruction_id);
+
         (
             instructions_processed,
             weight_for_execution.saturating_add(T::DbWeight::get().writes(5)),
         )
+    }
+
+    fn prune_user_auths(legs: &Vec<(u64, Leg<T::Balance>)>, instruction_id: u64) {
+        // We remove duplicates in memory before triggering storage actions
+        let mut counter_parties = Vec::with_capacity(legs.len() * 2);
+        for (_id, leg) in legs {
+            counter_parties.push(leg.from);
+            counter_parties.push(leg.to);
+        }
+        counter_parties.sort();
+        counter_parties.dedup();
+        for counter_party in counter_parties {
+            UserAuths::remove(counter_party, instruction_id);
+        }
     }
 
     pub fn unsafe_authorize_instruction(
