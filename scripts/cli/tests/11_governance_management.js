@@ -17,11 +17,14 @@ async function main() {
   const testEntities = await reqImports.initMain(api);
 
   let alice = testEntities[0];
-  let bob = testEntities[1];
-  let govCommittee1 = testEntities[5];
-  let govCommittee2 = testEntities[6];
+  let bob = await reqImports.generateRandomEntity(api);
+  let govCommittee1 = testEntities[2];
+  let govCommittee2 = testEntities[3];
 
   await reqImports.createIdentities(api, [bob, govCommittee1, govCommittee2], alice);
+
+  // Bob needs some funds to use.
+  await reqImports.distributePolyBatch(api, [bob], reqImports.transfer_amount, alice);
 
   await sendTx(alice, api.tx.staking.bond(bob.publicKey, 20000, "Staked"));
 

@@ -12,7 +12,7 @@ polymesh-primitives-derive = { path = "../primitives_derive", default-features =
 serde = { version = "1.0.104", optional = true, default-features = false, features = ["derive"] }
 
 # Crypto
-cryptography = { git = "https://github.com/PolymathNetwork/cryptography.git", branch = "master", default-features = false }
+cryptography = { git = "https://github.com/PolymathNetwork/cryptography.git", branch = "develop", default-features = false }
 curve25519-dalek = { version = "2", default-features = false, features = ["nightly"] }
 schnorrkel = { version = "0.9.1", default-features = false }
 blake2 = { version = "0.9.0", default-features = false }
