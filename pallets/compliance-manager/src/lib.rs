@@ -341,11 +341,12 @@ decl_module! {
             <<T as IdentityTrait>::ProtocolFee>::charge_fee(
                 ProtocolOp::ComplianceManagerAddComplianceRequirement
             )?;
-            let new_requirement = ComplianceRequirement {
+            let mut new_requirement = ComplianceRequirement {
                 sender_conditions,
                 receiver_conditions,
                 id: Self::get_latest_requirement_id(ticker) + 1u32
             };
+            new_requirement.dedup();
 
             let mut asset_compliance = AssetCompliances::get(ticker);
             let reqs = &mut asset_compliance.requirements;
