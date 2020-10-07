@@ -13,7 +13,7 @@ serde = { version = "1.0.104", optional = true, features = ["derive"] }
 polymesh-derive = { path = "../../../primitives_derive", default-features = false, package = "polymesh-primitives-derive"}
 scale-info = { version = "0.3", default-features = false, features = ["derive"], optional = true }
 derive_more = { version = "0.99", default-features = false, features = ["from", "display"] }
-sp-io = { git = "https://github.com/paritytech/substrate/", package = "sp-io", tag = "v2.0.0-rc6", default-features = false, features = ["disable_panic_handler", "disable_oom", "disable_allocator"] }
+sp-io = { git = "https://github.com/paritytech/substrate/", tag = "v2.0.0-rc6", default-features = false, features = ["disable_panic_handler", "disable_oom", "disable_allocator"] }
 
 [dependencies.type-metadata]
 git = "https://github.com/type-metadata/type-metadata.git"

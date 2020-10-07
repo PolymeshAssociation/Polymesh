@@ -17,6 +17,7 @@ pallet-identity = { path = "../identity", default-features = false }
 pallet-permissions = { path = "../permissions", default-features = false }
 pallet-portfolio = { path = "../portfolio", default-features = false }
 pallet-statistics = { path = "../statistics", default-features = false }
+polymesh-contracts = { path = "../contracts", default-features = false }
 
 # Other
 serde = { version = "1.0.104", default-features = false }
@@ -45,15 +46,14 @@ libsecp256k1 = { version = "0.3.5", default-features = false, features = ["hmac"
 frame-benchmarking = { default-features = false, git = "https://github.com/paritytech/substrate", tag = "v2.0.0-rc6", optional = true }
 
 [features]
-equalize = []
-default = ["std", "equalize", "runtime-benchmarks"]
+default = ["std"]
 no_std = []
-only-staking = []
 std = [
     "codec/std",
     "frame-support/std",
     "frame-system/std",
     "pallet-balances/std",
+    "polymesh-contracts/std",
     "pallet-contracts/std",
     "pallet-portfolio/std",
     "pallet-session/std",
@@ -69,7 +69,9 @@ std = [
     "sp-runtime/std",
     "sp-std/std",
     "sp-version/std",
+    "sp-arithmetic/std"
 ]
 runtime-benchmarks = [
     "frame-benchmarking",
+
 ]

@@ -129,7 +129,7 @@ pub trait Trait: CommonTrait + pallet_timestamp::Trait + balances::Trait {
 
     type Public: IdentifyAccount<AccountId = Self::AccountId>;
     type OffChainSignature: Verify<Signer = Self::Public> + Member + Decode + Encode;
-    type ProtocolFee: ChargeProtocolFee<Self::AccountId>;
+    type ProtocolFee: ChargeProtocolFee<Self::AccountId, Self::Balance>;
 
     /// Origin for Governance Committee voting majority origin.
     type GCVotingMajorityOrigin: EnsureOrigin<Self::Origin>;
@@ -238,6 +238,10 @@ pub trait IdentityTrait<AccountId> {
     /// It is used when we remove a member from CDD providers or Governance Committee.
     fn revoke_systematic_cdd_claims(targets: &[IdentityId], issuer: SystematicIssuers);
 
-    // Provides the DID status for the given DID
+    /// Provides the DID status for the given DID
     fn has_valid_cdd(target_did: IdentityId) -> bool;
+
+    #[cfg(feature = "runtime-benchmarks")]
+    /// Creates a new did and attaches a CDD claim to it.
+    fn create_did_with_cdd(target: AccountId) -> IdentityId;
 }

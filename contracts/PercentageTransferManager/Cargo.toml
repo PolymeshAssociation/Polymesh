@@ -5,20 +5,14 @@ authors = ["Polymath Inc <satyam@polymath.network>"]
 edition = "2018"
 
 [dependencies]
-ink_abi = { tag = "v2.1.0",  git = "https://github.com/paritytech/ink", package = "ink_abi", default-features = false, features = ["derive"], optional = true }
-ink_primitives = { tag = "v2.1.0", git = "https://github.com/paritytech/ink", package = "ink_primitives", default-features = false }
-ink_core = { tag = "v2.1.0", git = "https://github.com/paritytech/ink", package = "ink_core", default-features = false }
-ink_lang = { tag = "v2.1.0", git = "https://github.com/paritytech/ink", package = "ink_lang", default-features = false }
-ink_prelude = { tag = "v2.1.0", git = "https://github.com/paritytech/ink", package = "ink_prelude", default-features = false }
+ink_metadata = {  git = "https://github.com/paritytech/ink", rev = "31276d89e75bab4d9060166d85f5439b2411eba1", package = "ink_metadata", default-features = false, features = ["derive"], optional = true }
+ink_primitives = {  git = "https://github.com/paritytech/ink", rev = "31276d89e75bab4d9060166d85f5439b2411eba1", package = "ink_primitives", default-features = false }
+ink_core = { git = "https://github.com/paritytech/ink", rev = "31276d89e75bab4d9060166d85f5439b2411eba1", package = "ink_core", default-features = false }
+ink_lang = { git = "https://github.com/paritytech/ink", rev = "31276d89e75bab4d9060166d85f5439b2411eba1", package = "ink_lang", default-features = false }
+ink_prelude = { tag = "v2.1.0", git = "https://github.com/paritytech/ink", rev = "31276d89e75bab4d9060166d85f5439b2411eba1", package = "ink_prelude", default-features = false }
 
-scale = { package = "parity-scale-codec", version = "1.1", default-features = false, features = ["derive"] }
-
-[dependencies.type-metadata]
-git = "https://github.com/type-metadata/type-metadata.git"
-rev = "02eae9f35c40c943b56af5b60616219f2b72b47d"
-default-features = false
-features = ["derive"]
-optional = true
+scale = { package = "parity-scale-codec", version = "1.3", default-features = false, features = ["derive"] }
+scale-info = { version = "0.3", default-features = false, features = ["derive"], optional = true }
 
 [lib]
 name = "percentage_transfer_manager"
@@ -31,37 +25,18 @@ crate-type = [
 ]
 
 [features]
-default = ["test-env"]
+default = ["std"]
 std = [
-    "ink_abi/std",
+    "ink_metadata",
+    "ink_metadata/std",
     "ink_core/std",
+    "ink_lang/std",
     "ink_primitives/std",
     "scale/std",
-    "type-metadata/std",
-    "ink_prelude/std"
-]
-test-env = [
-    "std",
-    "ink_lang/test-env"
-]
-ink-generate-abi = [
-    "std",
-    "ink_abi",
-    "type-metadata",
-    "ink_core/ink-generate-abi",
-    "ink_lang/ink-generate-abi"
+    "scale-info",
+    "scale-info/std",
 ]
 ink-as-dependency = []
 
-[profile.release]
-panic = "abort"
-lto = true
-opt-level = "z"
-
 [workspace]
-members = [
-	".ink/abi_gen"
-]
-exclude = [
-	".ink"
-]
+members = []

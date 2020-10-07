@@ -6,6 +6,7 @@ use crate::{
 use codec::Encode;
 use pallet_asset as asset;
 use pallet_balances as balances;
+use pallet_bridge as bridge;
 use pallet_committee as committee;
 use pallet_compliance_manager::{self as compliance_manager, AssetComplianceResult};
 use pallet_confidential as confidential;
@@ -35,12 +36,12 @@ use polymesh_primitives::{
     IdentityId, Index, Moment, PortfolioId, SecondaryKey, Signatory, Signature, Ticker,
 };
 use polymesh_runtime_common::{
-    bridge,
     cdd_check::CddChecker,
-    contracts_wrapper, dividend, exemption,
+    dividend, exemption,
     impls::{Author, CurrencyToVoteHandler},
-    merge_active_and_inactive, sto_capped, voting, AvailableBlockRatio, BlockHashCount,
-    MaximumBlockLength, MaximumBlockWeight, NegativeImbalance,
+    merge_active_and_inactive, sto_capped, voting, AvailableBlockRatio, BlockExecutionWeight,
+    BlockHashCount, ExtrinsicBaseWeight, MaximumBlockLength, MaximumBlockWeight, NegativeImbalance,
+    RocksDbWeight,
 };
 
 use sp_api::impl_runtime_apis;
@@ -70,10 +71,7 @@ use sp_version::RuntimeVersion;
 use frame_support::{
     construct_runtime, debug, parameter_types,
     traits::{KeyOwnerProofSystem, Randomness, SplitTwoWays},
-    weights::{
-        constants::{BlockExecutionWeight, ExtrinsicBaseWeight, RocksDbWeight},
-        Weight, WeightToFeeCoefficient, WeightToFeeCoefficients, WeightToFeePolynomial,
-    },
+    weights::{Weight, WeightToFeeCoefficient, WeightToFeeCoefficients, WeightToFeePolynomial},
 };
 use pallet_contracts_rpc_runtime_api::ContractExecResult;
 
@@ -90,6 +88,7 @@ use sp_version::NativeVersion;
 
 pub use balances::Call as BalancesCall;
 pub use frame_support::StorageValue;
+pub use frame_system::Call as SystemCall;
 pub use pallet_contracts::Gas;
 pub use pallet_staking::StakerStatus;
 pub use pallet_timestamp::Call as TimestampCall;
@@ -188,7 +187,7 @@ impl frame_system::Trait for Runtime {
     type OnKilledAccount = ();
     /// The data to be stored in an account.
     type AccountData = AccountData<Balance>;
-    type SystemWeightInfo = ();
+    type SystemWeightInfo = polymesh_weights::frame_system::WeightInfo;
 }
 
 parameter_types! {
@@ -302,7 +301,7 @@ impl pallet_timestamp::Trait for Runtime {
     type Moment = Moment;
     type OnTimestampSet = Babe;
     type MinimumPeriod = MinimumPeriod;
-    type WeightInfo = ();
+    type WeightInfo = polymesh_weights::pallet_timestamp::WeightInfo;
 }
 
 parameter_types! {
@@ -474,7 +473,7 @@ impl pallet_pips::Trait for Runtime {
 
 parameter_types! {
     pub const TombstoneDeposit: Balance = DOLLARS;
-    pub const RentByteFee: Balance = DOLLARS;
+    pub const RentByteFee: Balance = 0; // Assigning zero to switch off the rent logic in the contracts;
     pub const RentDepositOffset: Balance = 300 * DOLLARS;
     pub const SurchargeReward: Balance = 150 * DOLLARS;
 }
@@ -484,7 +483,7 @@ impl pallet_contracts::Trait for Runtime {
     type Randomness = RandomnessCollectiveFlip;
     type Currency = Balances;
     type Event = Event;
-    type DetermineContractAddress = pallet_contracts::SimpleAddressDeterminer<Runtime>;
+    type DetermineContractAddress = polymesh_contracts::NonceBasedAddressDeterminer<Runtime>;
     type TrieIdGenerator = pallet_contracts::TrieIdFromParentCounter<Runtime>;
     type RentPayment = ();
     type SignedClaimHandicap = pallet_contracts::DefaultSignedClaimHandicap;
@@ -702,7 +701,14 @@ impl IdentityTrait for Runtime {
     type GCVotingMajorityOrigin = VMO<GovernanceCommittee>;
 }
 
-impl contracts_wrapper::Trait for Runtime {}
+parameter_types! {
+    pub const NetworkShareInFee: Perbill = Perbill::from_percent(0);
+}
+
+impl polymesh_contracts::Trait for Runtime {
+    type Event = Event;
+    type NetworkShareInFee = NetworkShareInFee;
+}
 
 impl exemption::Trait for Runtime {
     type Event = Event;
@@ -801,8 +807,8 @@ construct_runtime!(
         MultiSig: multisig::{Module, Call, Storage, Event<T>},
 
         // Contracts
-        Contracts: pallet_contracts::{Module, Call, Config, Storage, Event<T>},
-        // ContractsWrapper: contracts_wrapper::{Module, Call, Storage},
+        BaseContracts: pallet_contracts::{Module, Config, Storage, Event<T>},
+        Contracts: polymesh_contracts::{Module, Call, Storage, Event<T>},
 
         // Polymesh Governance Committees
         Treasury: treasury::{Module, Call, Event<T>},
@@ -1033,7 +1039,7 @@ impl_runtime_apis! {
             input_data: Vec<u8>,
         ) -> ContractExecResult {
             let (exec_result, gas_consumed) =
-                Contracts::bare_call(origin, dest.into(), value, gas_limit, input_data);
+            BaseContracts::bare_call(origin, dest.into(), value, gas_limit, input_data);
             match exec_result {
                 Ok(v) => ContractExecResult::Success {
                     flags: v.flags.bits(),
@@ -1048,13 +1054,13 @@ impl_runtime_apis! {
             address: AccountId,
             key: [u8; 32],
         ) -> pallet_contracts_primitives::GetStorageResult {
-            Contracts::get_storage(address, key)
+            BaseContracts::get_storage(address, key)
         }
 
         fn rent_projection(
             address: AccountId,
         ) -> pallet_contracts_primitives::RentProjectionResult<BlockNumber> {
-            Contracts::rent_projection(address)
+            BaseContracts::rent_projection(address)
         }
     }
 
@@ -1239,16 +1245,45 @@ impl_runtime_apis! {
             highest_range_values: Vec<u32>,
             steps: Vec<u32>,
             repeat: u32,
+            extra: bool,
         ) -> Result<Vec<frame_benchmarking::BenchmarkBatch>, sp_runtime::RuntimeString> {
-            use frame_benchmarking::{Benchmarking, BenchmarkBatch, add_benchmark};
+            use frame_benchmarking::{Benchmarking, BenchmarkBatch, add_benchmark, TrackedStorageKey};
+
+            use frame_system_benchmarking::Module as SystemBench;
+            impl frame_system_benchmarking::Trait for Runtime {}
+
+            let whitelist: Vec<TrackedStorageKey> = vec![
+                // Block Number
+                hex_literal::hex!("26aa394eea5630e07c48ae0c9558cef702a5c1b19ab7a04f536c519aca4983ac").to_vec().into(),
+                // Total Issuance
+                hex_literal::hex!("c2261276cc9d1f8598ea4b6a74b15c2f57c875e4cff74148e4628f264b974c80").to_vec().into(),
+                // Execution Phase
+                hex_literal::hex!("26aa394eea5630e07c48ae0c9558cef7ff553b5a9862a516939d82b3d3d8661a").to_vec().into(),
+                // Event Count
+                hex_literal::hex!("26aa394eea5630e07c48ae0c9558cef70a98fdbe9ce6c55837576c60c7af3850").to_vec().into(),
+                // System Events
+                hex_literal::hex!("26aa394eea5630e07c48ae0c9558cef780d41e5e16056765bc8461851072c9d7").to_vec().into(),
+                // Treasury Account
+                hex_literal::hex!("26aa394eea5630e07c48ae0c9558cef7b99d880ec681799c0cf30e8886371da95ecffd7b6c0f78751baa9d281e0bfa3a6d6f646c70792f74727372790000000000000000000000000000000000000000").to_vec().into(),
+            ];
 
             let mut batches = Vec::<BenchmarkBatch>::new();
-            let params = (&pallet, &benchmark, &lowest_range_values, &highest_range_values, &steps, repeat);
+            let params = (
+                &pallet,
+                &benchmark,
+                &lowest_range_values,
+                &highest_range_values,
+                &steps,
+                repeat,
+                &whitelist,
+                extra,
+            );
 
-            add_benchmark!(params, batches, b"asset", Asset);
-            add_benchmark!(params, batches, b"identity", Identity);
-            add_benchmark!(params, batches, b"im-online", ImOnline);
-            add_benchmark!(params, batches, b"staking", Staking);
+            add_benchmark!(params, batches, pallet_asset, Asset);
+            add_benchmark!(params, batches, pallet_balances, Balances);
+            add_benchmark!(params, batches, pallet_identity, Identity);
+            add_benchmark!(params, batches, frame_system, SystemBench::<Runtime>);
+            add_benchmark!(params, batches, pallet_timestamp, Timestamp);
 
             if batches.is_empty() { return Err("Benchmark not found for this pallet.".into()) }
             Ok(batches)

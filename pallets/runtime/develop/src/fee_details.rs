@@ -15,9 +15,9 @@
 
 use crate::{runtime, Runtime};
 
+use pallet_bridge as bridge;
 use pallet_identity as identity;
 use pallet_multisig as multisig;
-use polymesh_runtime_common::bridge;
 
 use polymesh_common_utilities::{traits::transaction_payment::CddAndFeeDetails, Context};
 use polymesh_primitives::{AccountId, AuthorizationData, IdentityId, Signatory, TransactionError};
@@ -142,7 +142,7 @@ impl CddAndFeeDetails<AccountId, Call> for CddHandler {
         Context::set_current_payer::<Identity>(payer);
     }
 
-    /// Fetches fee payer for further payements (forwareded calls)
+    /// Fetches fee payer for further payments (forwarded calls)
     fn get_payer_from_context() -> Option<AccountId> {
         Context::current_payer::<Identity>()
     }

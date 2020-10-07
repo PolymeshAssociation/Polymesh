@@ -1,12 +1,12 @@
 use super::ext_builder::{
-    EXTRINSIC_BASE_WEIGHT, MAX_NO_OF_LEGS, MAX_NO_OF_TM_ALLOWED, TRANSACTION_BYTE_FEE,
-    WEIGHT_TO_FEE,
+    EXTRINSIC_BASE_WEIGHT, MAX_NO_OF_LEGS, MAX_NO_OF_TM_ALLOWED, NETWORK_FEE_SHARE,
+    TRANSACTION_BYTE_FEE, WEIGHT_TO_FEE,
 };
 use codec::Encode;
 use cryptography::claim_proofs::{compute_cdd_id, compute_scope_id};
 use frame_support::{
     assert_ok, impl_outer_dispatch, impl_outer_event, impl_outer_origin, parameter_types,
-    traits::Currency,
+    traits::{Currency, Imbalance, OnUnbalanced},
     weights::DispatchInfo,
     weights::{
         RuntimeDbWeight, WeightToFeeCoefficient, WeightToFeeCoefficients, WeightToFeePolynomial,
@@ -15,6 +15,7 @@ use frame_support::{
 };
 use pallet_asset as asset;
 use pallet_balances as balances;
+use pallet_bridge as bridge;
 use pallet_committee as committee;
 use pallet_compliance_manager as compliance_manager;
 use pallet_confidential as confidential;
@@ -41,7 +42,7 @@ use polymesh_primitives::{
     Authorization, AuthorizationData, CddId, Claim, IdentityId, InvestorUid, InvestorZKProofData,
     Permissions, PortfolioId, PortfolioNumber, Scope, Signatory, Ticker,
 };
-use polymesh_runtime_common::{bridge, cdd_check::CddChecker, dividend, exemption, voting};
+use polymesh_runtime_common::{cdd_check::CddChecker, dividend, exemption, voting};
 use smallvec::smallvec;
 use sp_core::{
     crypto::{key_types, Pair as PairTrait},
@@ -93,6 +94,7 @@ impl_outer_dispatch! {
         asset::Asset,
         frame_system::System,
         pallet_utility::Utility,
+        polymesh_contracts::WrapperContracts,
         self::Committee,
         self::DefaultCommittee,
     }
@@ -125,6 +127,7 @@ impl_outer_event! {
         pallet_utility,
         portfolio<T>,
         confidential,
+        polymesh_contracts<T>,
     }
 }
 
@@ -161,6 +164,20 @@ parameter_types! {
         read: 10,
         write: 100,
     };
+    pub FeeCollector: AccountId = account_from(5000);
+}
+
+pub type NegativeImbalance<T> =
+    <balances::Module<T> as Currency<<T as frame_system::Trait>::AccountId>>::NegativeImbalance;
+
+pub struct DealWithFees<T>(sp_std::marker::PhantomData<T>);
+
+impl OnUnbalanced<NegativeImbalance<TestStorage>> for DealWithFees<TestStorage> {
+    fn on_nonzero_unbalanced(amount: NegativeImbalance<TestStorage>) {
+        let target = account_from(5000);
+        let positive_imbalance = Balances::deposit_creating(&target, amount.peek());
+        let _ = amount.offset(positive_imbalance).map_err(|_| 4); // random value mapped for error
+    }
 }
 
 impl frame_system::Trait for TestStorage {
@@ -250,6 +267,15 @@ impl pallet_timestamp::Trait for TestStorage {
     type OnTimestampSet = ();
     type MinimumPeriod = MinimumPeriod;
     type WeightInfo = ();
+}
+
+parameter_types! {
+    pub NetworkShareInFee: Perbill = NETWORK_FEE_SHARE.with(|v| *v.borrow());
+}
+
+impl polymesh_contracts::Trait for TestStorage {
+    type Event = Event;
+    type NetworkShareInFee = NetworkShareInFee;
 }
 
 impl multisig::Trait for TestStorage {
@@ -413,7 +439,7 @@ impl pallet_contracts::Trait for TestStorage {
     type Randomness = Randomness;
     type Currency = Balances;
     type Event = Event;
-    type DetermineContractAddress = pallet_contracts::SimpleAddressDeterminer<TestStorage>;
+    type DetermineContractAddress = polymesh_contracts::NonceBasedAddressDeterminer<TestStorage>;
     type TrieIdGenerator = pallet_contracts::TrieIdFromParentCounter<TestStorage>;
     type RentPayment = ();
     type SignedClaimHandicap = SignedClaimHandicap;
@@ -441,7 +467,7 @@ impl compliance_manager::Trait for TestStorage {
 impl protocol_fee::Trait for TestStorage {
     type Event = Event;
     type Currency = Balances;
-    type OnProtocolFeePayment = ();
+    type OnProtocolFeePayment = DealWithFees<TestStorage>;
 }
 
 impl portfolio::Trait for TestStorage {
@@ -592,6 +618,7 @@ pub type DefaultCommittee = committee::Module<TestStorage, committee::DefaultIns
 pub type Utility = pallet_utility::Module<TestStorage>;
 pub type System = frame_system::Module<TestStorage>;
 pub type Portfolio = portfolio::Module<TestStorage>;
+pub type WrapperContracts = polymesh_contracts::Module<TestStorage>;
 pub type ComplianceManager = compliance_manager::Module<TestStorage>;
 
 pub fn make_account(
@@ -749,7 +776,7 @@ pub fn provide_scope_claim(
     let proof: InvestorZKProofData = InvestorZKProofData::new(&claim_to, &investor_uid, &scope);
     let cdd_claim = InvestorZKProofData::make_cdd_claim(&claim_to, &investor_uid);
     let cdd_id = compute_cdd_id(&cdd_claim).compress().to_bytes().into();
-    let scope_claim = InvestorZKProofData::make_scope_claim(&scope, &investor_uid);
+    let scope_claim = InvestorZKProofData::make_scope_claim(&scope.as_slice(), &investor_uid);
     let scope_id = compute_scope_id(&scope_claim).compress().to_bytes().into();
 
     let signed_claim_to = Origin::signed(Identity::did_records(claim_to).primary_key);
