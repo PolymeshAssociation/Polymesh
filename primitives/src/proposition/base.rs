@@ -14,7 +14,7 @@ pub struct TargetIdentityProposition<'a> {
     pub identity: &'a IdentityId,
 }
 
-impl<'a> Proposition for TargetIdentityProposition<'a> {
+impl Proposition for TargetIdentityProposition<'_> {
     #[inline]
     fn evaluate(&self, context: &Context) -> bool {
         context.id == *self.identity
@@ -40,10 +40,10 @@ pub struct ExistentialProposition<'a> {
     pub claim: &'a Claim,
 }
 
-impl<'a> Proposition for ExistentialProposition<'a> {
+impl Proposition for ExistentialProposition<'_> {
     fn evaluate(&self, context: &Context) -> bool {
         match &self.claim {
-            Claim::CustomerDueDiligence(ref cdd_id) if cdd_id.is_wildcard() => {
+            Claim::CustomerDueDiligence(cdd_id) if cdd_id.is_wildcard() => {
                 self.evaluate_cdd_claim_wildcard(context)
             }
             _ => self.evaluate_regular_claim(context),
@@ -51,13 +51,13 @@ impl<'a> Proposition for ExistentialProposition<'a> {
     }
 }
 
-impl<'a> ExistentialProposition<'a> {
+impl ExistentialProposition<'_> {
     /// The wildcard search only double-checks if any CDD claim is in the context.
     fn evaluate_cdd_claim_wildcard(&self, context: &Context) -> bool {
-        context.claims.iter().any(|ctx_claim| match ctx_claim {
-            Claim::CustomerDueDiligence(..) => true,
-            _ => false,
-        })
+        context
+            .claims
+            .iter()
+            .any(|ctx_claim| matches!(ctx_claim, Claim::CustomerDueDiligence(..)))
     }
 
     /// In regular claim evaluation, the data of the claim has to match too.
@@ -187,7 +187,7 @@ pub struct AnyProposition<'a> {
     pub claims: &'a [Claim],
 }
 
-impl<'a> Proposition for AnyProposition<'a> {
+impl Proposition for AnyProposition<'_> {
     /// Evaluate proposition against `context`.
     fn evaluate(&self, context: &Context) -> bool {
         context.claims.iter().any(|ctx_claim| {

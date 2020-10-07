@@ -103,13 +103,13 @@ pub fn equals<'a>(
 
 /// It creates a proposition to evaluate the existential of `claim` in the context.
 #[inline]
-pub fn exists(claim: &'_ Claim) -> ExistentialProposition<'_> {
+pub fn exists(claim: &Claim) -> ExistentialProposition<'_> {
     ExistentialProposition { claim }
 }
 
 /// It creates a proposition to evaluate if any of `claims` are found in the context.
 #[inline]
-pub fn any(claims: &'_ [Claim]) -> AnyProposition<'_> {
+pub fn any(claims: &[Claim]) -> AnyProposition<'_> {
     AnyProposition { claims }
 }
 
@@ -130,13 +130,13 @@ pub fn has_scope_claim_exists(context: &Context) -> bool {
 
 /// Helper function to run propositions from a context.
 pub fn run(condition: &Condition, context: &Context) -> bool {
-    match condition.condition_type {
-        ConditionType::IsPresent(ref claim) => exists(claim).evaluate(context),
-        ConditionType::IsAbsent(ref claim) => not(exists(claim)).evaluate(context),
-        ConditionType::IsAnyOf(ref claims) => any(claims).evaluate(context),
-        ConditionType::IsNoneOf(ref claims) => not(any(claims)).evaluate(context),
+    match &condition.condition_type {
+        ConditionType::IsPresent(claim) => exists(claim).evaluate(context),
+        ConditionType::IsAbsent(claim) => not(exists(claim)).evaluate(context),
+        ConditionType::IsAnyOf(claims) => any(claims).evaluate(context),
+        ConditionType::IsNoneOf(claims) => not(any(claims)).evaluate(context),
         ConditionType::HasValidProofOfInvestor(..) => has_scope_claim_exists(context),
-        ConditionType::IsIdentity(ref id) => {
+        ConditionType::IsIdentity(id) => {
             equals(id, &context.primary_issuance_agent.unwrap_or_default()).evaluate(context)
         }
     }
