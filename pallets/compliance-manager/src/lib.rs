@@ -72,6 +72,9 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 #![recursion_limit = "256"]
 
+extern crate alloc;
+
+use alloc::borrow::Cow;
 use codec::{Decode, Encode};
 use core::result::Result;
 use frame_support::{
@@ -574,7 +577,7 @@ impl<T: Trait> Module<T> {
 
     /// It fetches the `ConfidentialScopeClaim` of users `id` for the given ticker.
     /// Note that this vector could be 0 or 1 items.
-    fn fetch_confidential_claims(id: IdentityId, ticker: &Ticker) -> Vec<Claim> {
+    fn fetch_confidential_claims(id: IdentityId, ticker: &Ticker) -> impl Iterator<Item = Claim> {
         let claim_type = ClaimType::InvestorUniqueness;
         // NOTE: Ticker length is less by design that IdentityId.
         let asset_scope = Scope::from(*ticker);
@@ -582,37 +585,62 @@ impl<T: Trait> Module<T> {
         <identity::Module<T>>::fetch_claim(id, claim_type, id, Some(asset_scope))
             .into_iter()
             .map(|id_claim| id_claim.claim)
-            .collect::<Vec<_>>()
+    }
+
+    /// Fetches the trusted issuers for a certain `condition` if it defines one,
+    /// or falls back to `ticker`'s default ones otherwise.
+    fn fetch_issuers<'a>(ticker: &Ticker, condition: &'a Condition) -> Cow<'a, [TrustedIssuer]> {
+        if condition.issuers.is_empty() {
+            Cow::Owned(Self::trusted_claim_issuer(ticker))
+        } else {
+            Cow::Borrowed(&condition.issuers)
+        }
     }
 
     /// Fetches the proposition context for target `id` and specific `condition`.
-    ///
-    /// If `condition` does not define trusted issuers,
-    /// the default trusted issuers for `ticker` is used instead.
-    fn fetch_context(
-        ticker: &Ticker,
+    /// The set of trusted issuers are taken from `issuers`.
+    fn fetch_context<'a>(
         id: IdentityId,
-        condition: &Condition,
+        issuers: &'a [TrustedIssuer],
+        condition: &'a Condition,
         primary_issuance_agent: Option<IdentityId>,
-    ) -> proposition::Context {
-        let issuers = if !condition.issuers.is_empty() {
-            condition.issuers.clone()
-        } else {
-            Self::trusted_claim_issuer(ticker)
-        };
+    ) -> proposition::Context<impl 'a + Iterator<Item = Claim>> {
+        enum Iter<I1, I2, I3> {
+            I1(I1),
+            I2(I2),
+            I3(I3),
+            I4,
+        }
+        impl<I1, I2, I3> Iterator for Iter<I1, I2, I3>
+        where
+            I1: Iterator<Item = Claim>,
+            I2: Iterator<Item = Claim>,
+            I3: Iterator<Item = Claim>,
+        {
+            type Item = Claim;
+            fn next(&mut self) -> Option<Self::Item> {
+                match self {
+                    Self::I1(i) => i.next(),
+                    Self::I2(i) => i.next(),
+                    Self::I3(i) => i.next(),
+                    Self::I4 => None,
+                }
+            }
+        }
 
         let claims = match &condition.condition_type {
             ConditionType::IsPresent(claim) | ConditionType::IsAbsent(claim) => {
-                Self::fetch_claims(id, claim, &issuers).collect::<Vec<_>>()
+                Iter::I1(Self::fetch_claims(id, claim, issuers))
             }
-            ConditionType::IsAnyOf(claims) | ConditionType::IsNoneOf(claims) => claims
-                .iter()
-                .flat_map(|claim| Self::fetch_claims(id, claim, &issuers))
-                .collect::<Vec<_>>(),
+            ConditionType::IsAnyOf(claims) | ConditionType::IsNoneOf(claims) => Iter::I2(
+                claims
+                    .iter()
+                    .flat_map(move |claim| Self::fetch_claims(id, claim, issuers)),
+            ),
             ConditionType::HasValidProofOfInvestor(proof_ticker) => {
-                Self::fetch_confidential_claims(id, proof_ticker)
+                Iter::I3(Self::fetch_confidential_claims(id, proof_ticker))
             }
-            ConditionType::IsIdentity(_) => vec![],
+            ConditionType::IsIdentity(_) => Iter::I4,
         };
 
         proposition::Context {
@@ -641,8 +669,10 @@ impl<T: Trait> Module<T> {
         condition: &Condition,
         primary_issuance_agent: Option<IdentityId>,
     ) -> bool {
-        let context = Self::fetch_context(ticker, did, &condition, primary_issuance_agent);
-        proposition::run(&condition, &context)
+        let issuers = Self::fetch_issuers(ticker, condition);
+        let context =
+            Self::fetch_context(did, issuers.as_ref(), &condition, primary_issuance_agent);
+        proposition::run(&condition, context)
     }
 
     /// Returns whether all conditions, in their proper context, hold when evaluated.
@@ -655,9 +685,10 @@ impl<T: Trait> Module<T> {
         primary_issuance_agent: Option<IdentityId>,
     ) -> bool {
         conditions.iter_mut().fold(true, |result, condition| {
-            let context =
-                Self::fetch_context(ticker, did, &condition.condition, primary_issuance_agent);
-            condition.result = proposition::run(&condition.condition, &context);
+            let cond = &condition.condition;
+            let issuers = Self::fetch_issuers(ticker, cond);
+            let context = Self::fetch_context(did, issuers.as_ref(), cond, primary_issuance_agent);
+            condition.result = proposition::run(cond, context);
             result & condition.result
         })
     }
@@ -812,7 +843,6 @@ impl<T: Trait> ComplianceManagerTrait<T::Balance> for Module<T> {
     ) -> Result<(u8, Weight), DispatchError> {
         // Transfer is valid if ALL receiver AND sender conditions of ANY asset conditions are valid.
         let asset_compliance = Self::asset_compliance(ticker);
-        let mut requirement_count: usize = 0;
         if asset_compliance.paused {
             return Ok((
                 ERC1400_TRANSFER_SUCCESS,
@@ -826,6 +856,11 @@ impl<T: Trait> ComplianceManagerTrait<T::Balance> for Module<T> {
         //
         // Note - Due to this check `ConditionType::HasValidProofOfInvestor` is an implicit transfer condition and it only
         // lookup for the claims those are provided by the user itself.
+        let mut requirement_count: usize = 0;
+        let verify_weight = |count| {
+            weight_for::weight_for_verify_restriction::<T>(u64::try_from(count).unwrap_or(0))
+        };
+
         if !Self::is_sender_and_receiver_has_valid_scope_claim(ticker, from_did_opt, to_did_opt) {
             return Ok((
                 ERC1400_TRANSFER_FAILURE,
@@ -855,20 +890,10 @@ impl<T: Trait> ComplianceManagerTrait<T::Balance> for Module<T> {
                     primary_issuance_agent,
                 ) {
                     // All conditions satisfied, return early
-                    return Ok((
-                        ERC1400_TRANSFER_SUCCESS,
-                        weight_for::weight_for_verify_restriction::<T>(
-                            u64::try_from(requirement_count).unwrap_or(0),
-                        ),
-                    ));
+                    return Ok((ERC1400_TRANSFER_SUCCESS, verify_weight(requirement_count)));
                 }
             }
         }
-        Ok((
-            ERC1400_TRANSFER_FAILURE,
-            weight_for::weight_for_verify_restriction::<T>(
-                u64::try_from(requirement_count).unwrap_or(0),
-            ),
-        ))
+        Ok((ERC1400_TRANSFER_FAILURE, verify_weight(requirement_count)))
     }
 }

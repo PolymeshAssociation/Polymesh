@@ -19,15 +19,11 @@ use codec::{Decode, Encode};
 use sp_std::prelude::*;
 
 /// Context using during an `Proposition` evaluation.
-///
-/// # TODO
-///  - Use a lazy access to claims. It could be part of the optimization
-///  process of CDD claims.
 #[derive(Encode, Decode, Clone, Default)]
 #[cfg_attr(feature = "std", derive(Debug))]
-pub struct Context {
+pub struct Context<C> {
     /// Proposition evaluation will use those claims.
-    pub claims: Vec<Claim>,
+    pub claims: C,
     /// Identity of this context.
     /// It could be the sender DID during the evaluation of sender's conditions or
     /// the receiver DID on a receiver's condition evaluation.
@@ -40,9 +36,9 @@ pub struct Context {
 // ==================================
 
 /// It allows composition and evaluation of claims based on a context.
-pub trait Proposition {
+pub trait Proposition<C> {
     /// Evaluates this proposition based on `context`.
-    fn evaluate(&self, context: &Context) -> bool;
+    fn evaluate(&self, context: Context<C>) -> bool;
 
     /// It generates a new proposition that represents the logical AND
     /// of two propositions: `Self` and `other`.
@@ -50,7 +46,7 @@ pub trait Proposition {
     fn and<B>(self, other: B) -> AndProposition<Self, B>
     where
         Self: Sized,
-        B: Proposition + Sized,
+        B: Proposition<C> + Sized,
     {
         AndProposition::new(self, other)
     }
@@ -61,7 +57,7 @@ pub trait Proposition {
     fn or<B>(self, other: B) -> OrProposition<Self, B>
     where
         Self: Sized,
-        B: Proposition + Sized,
+        B: Proposition<C> + Sized,
     {
         OrProposition::new(self, other)
     }
@@ -115,26 +111,23 @@ pub fn any(claims: &[Claim]) -> AnyProposition<'_> {
 
 /// It create a negate proposition of `proposition`.
 #[inline]
-pub fn not<P>(proposition: P) -> NotProposition<P>
-where
-    P: Proposition + Sized,
-{
+pub fn not<P: Proposition<C>, C>(proposition: P) -> NotProposition<P> {
     NotProposition::new(proposition)
 }
 
 /// Checks whether the length of the vector of claims of a given context object is > 0.
 #[inline]
-pub fn has_scope_claim_exists(context: &Context) -> bool {
-    context.claims.len() > 0
+pub fn has_scope_claim_exists(context: Context<impl Iterator<Item = impl Sized>>) -> bool {
+    context.claims.count() > 0
 }
 
 /// Helper function to run propositions from a context.
-pub fn run(condition: &Condition, context: &Context) -> bool {
+pub fn run<C: Iterator<Item = Claim>>(condition: &Condition, context: Context<C>) -> bool {
     match &condition.condition_type {
         ConditionType::IsPresent(claim) => exists(claim).evaluate(context),
-        ConditionType::IsAbsent(claim) => not(exists(claim)).evaluate(context),
+        ConditionType::IsAbsent(claim) => not::<_, C>(exists(claim)).evaluate(context),
         ConditionType::IsAnyOf(claims) => any(claims).evaluate(context),
-        ConditionType::IsNoneOf(claims) => not(any(claims)).evaluate(context),
+        ConditionType::IsNoneOf(claims) => not::<_, C>(any(claims)).evaluate(context),
         ConditionType::HasValidProofOfInvestor(..) => has_scope_claim_exists(context),
         ConditionType::IsIdentity(id) => {
             equals(id, &context.primary_issuance_agent.unwrap_or_default()).evaluate(context)

@@ -14,9 +14,9 @@ pub struct TargetIdentityProposition<'a> {
     pub identity: &'a IdentityId,
 }
 
-impl Proposition for TargetIdentityProposition<'_> {
+impl<C> Proposition<C> for TargetIdentityProposition<'_> {
     #[inline]
-    fn evaluate(&self, context: &Context) -> bool {
+    fn evaluate(&self, context: Context<C>) -> bool {
         context.id == *self.identity
     }
 }
@@ -40,32 +40,16 @@ pub struct ExistentialProposition<'a> {
     pub claim: &'a Claim,
 }
 
-impl Proposition for ExistentialProposition<'_> {
-    fn evaluate(&self, context: &Context) -> bool {
+impl<C: Iterator<Item = Claim>> Proposition<C> for ExistentialProposition<'_> {
+    fn evaluate(&self, mut context: Context<C>) -> bool {
         match &self.claim {
-            Claim::CustomerDueDiligence(cdd_id) if cdd_id.is_wildcard() => {
-                self.evaluate_cdd_claim_wildcard(context)
-            }
-            _ => self.evaluate_regular_claim(context),
+            // The wildcard search only double-checks if any CDD claim is in the context.
+            Claim::CustomerDueDiligence(cdd_id) if cdd_id.is_wildcard() => context
+                .claims
+                .any(|ctx_claim| matches!(ctx_claim, Claim::CustomerDueDiligence(..))),
+            // In regular claim evaluation, the data of the claim has to match too.
+            _ => context.claims.any(|ctx_claim| &ctx_claim == self.claim),
         }
-    }
-}
-
-impl ExistentialProposition<'_> {
-    /// The wildcard search only double-checks if any CDD claim is in the context.
-    fn evaluate_cdd_claim_wildcard(&self, context: &Context) -> bool {
-        context
-            .claims
-            .iter()
-            .any(|ctx_claim| matches!(ctx_claim, Claim::CustomerDueDiligence(..)))
-    }
-
-    /// In regular claim evaluation, the data of the claim has to match too.
-    fn evaluate_regular_claim(&self, context: &Context) -> bool {
-        context
-            .claims
-            .iter()
-            .any(|ctx_claim| ctx_claim == self.claim)
     }
 }
 
@@ -75,36 +59,28 @@ impl ExistentialProposition<'_> {
 /// A composition proposition of two others using logical AND operator.
 #[derive(Encode, Decode, Clone)]
 #[cfg_attr(feature = "std", derive(Debug))]
-pub struct AndProposition<P1, P2>
-where
-    P1: Proposition + Sized,
-    P2: Proposition + Sized,
-{
+pub struct AndProposition<P1, P2> {
     lhs: P1,
     rhs: P2,
 }
 
-impl<P1, P2> AndProposition<P1, P2>
-where
-    P1: Proposition + Sized,
-    P2: Proposition + Sized,
-{
+impl<P1, P2> AndProposition<P1, P2> {
     /// Create a new `AndProposition` over propositions `lhs` and `rhs`.
     #[inline]
     pub fn new(lhs: P1, rhs: P2) -> Self {
-        AndProposition { lhs, rhs }
+        Self { lhs, rhs }
     }
 }
 
-impl<P1, P2> Proposition for AndProposition<P1, P2>
+impl<P1, P2, C: Clone> Proposition<C> for AndProposition<P1, P2>
 where
-    P1: Proposition + Sized,
-    P2: Proposition + Sized,
+    P1: Proposition<C>,
+    P2: Proposition<C>,
 {
     /// Evaluate proposition against `context`.
     #[inline]
-    fn evaluate(&self, context: &Context) -> bool {
-        self.lhs.evaluate(context) && self.rhs.evaluate(context)
+    fn evaluate(&self, context: Context<C>) -> bool {
+        self.lhs.evaluate(context.clone()) && self.rhs.evaluate(context)
     }
 }
 
@@ -114,36 +90,28 @@ where
 /// A composition proposition of two others using logical OR operator.
 #[derive(Encode, Decode, Clone)]
 #[cfg_attr(feature = "std", derive(Debug))]
-pub struct OrProposition<P1, P2>
-where
-    P1: Proposition + Sized,
-    P2: Proposition + Sized,
-{
+pub struct OrProposition<P1, P2> {
     lhs: P1,
     rhs: P2,
 }
 
-impl<P1, P2> OrProposition<P1, P2>
-where
-    P1: Proposition + Sized,
-    P2: Proposition + Sized,
-{
+impl<P1, P2> OrProposition<P1, P2> {
     /// Create a new `OrProposition` over propositions `lhs` and `rhs`.
     #[inline]
     pub fn new(lhs: P1, rhs: P2) -> Self {
-        OrProposition { lhs, rhs }
+        Self { lhs, rhs }
     }
 }
 
-impl<P1, P2> Proposition for OrProposition<P1, P2>
+impl<P1, P2, C: Clone> Proposition<C> for OrProposition<P1, P2>
 where
-    P1: Proposition + Sized,
-    P2: Proposition + Sized,
+    P1: Proposition<C>,
+    P2: Proposition<C>,
 {
     /// Evaluate proposition against `context`.
     #[inline]
-    fn evaluate(&self, context: &Context) -> bool {
-        self.lhs.evaluate(context) || self.rhs.evaluate(context)
+    fn evaluate(&self, context: Context<C>) -> bool {
+        self.lhs.evaluate(context.clone()) || self.rhs.evaluate(context)
     }
 }
 
@@ -153,25 +121,22 @@ where
 /// proposition that returns a logical NOT of other proposition.
 #[derive(Encode, Decode, Clone)]
 #[cfg_attr(feature = "std", derive(Debug))]
-pub struct NotProposition<P: Proposition + Sized> {
+pub struct NotProposition<P> {
     proposition: P,
 }
 
-impl<P> NotProposition<P>
-where
-    P: Proposition + Sized,
-{
+impl<P> NotProposition<P> {
     /// Create a new `OrProposition` over proposition `proposition`.
     #[inline]
     pub fn new(proposition: P) -> Self {
-        NotProposition { proposition }
+        Self { proposition }
     }
 }
 
-impl<P: Proposition + Sized> Proposition for NotProposition<P> {
+impl<P: Proposition<C>, C> Proposition<C> for NotProposition<P> {
     /// Evaluate proposition against `context`.
     #[inline]
-    fn evaluate(&self, context: &Context) -> bool {
+    fn evaluate(&self, context: Context<C>) -> bool {
         !self.proposition.evaluate(context)
     }
 }
@@ -187,13 +152,13 @@ pub struct AnyProposition<'a> {
     pub claims: &'a [Claim],
 }
 
-impl Proposition for AnyProposition<'_> {
+impl<C: Iterator<Item = Claim>> Proposition<C> for AnyProposition<'_> {
     /// Evaluate proposition against `context`.
-    fn evaluate(&self, context: &Context) -> bool {
-        context.claims.iter().any(|ctx_claim| {
+    fn evaluate(&self, mut context: Context<C>) -> bool {
+        context.claims.any(|ctx_claim| {
             self.claims
                 .iter()
-                .any(|valid_claim| ctx_claim == valid_claim)
+                .any(|valid_claim| &ctx_claim == valid_claim)
         })
     }
 }
