@@ -4,7 +4,7 @@ use im_online::sr25519::AuthorityId as ImOnlineId;
 use pallet_asset::TickerRegistrationConfig;
 use polymesh_common_utilities::{constants::currency::POLY, protocol_fee::ProtocolOp, GC_DID};
 use polymesh_primitives::{
-    AccountId, IdentityId, InvestorUid, PosRatio, Signatory, Signature, Ticker,
+    AccountId, IdentityId, InvestorUid, PosRatio, Signatory, Signature, SmartExtensionType, Ticker,
 };
 use polymesh_runtime_develop::{
     self as general,
@@ -171,6 +171,11 @@ fn general_testnet_genesis(
                     // TODO(centril): use values per product team wishes.
                     registration_length: Some(5_184_000_000),
                 },
+                versions: vec![
+                    (SmartExtensionType::TransferManager, 5000),
+                    (SmartExtensionType::Offerings, 5000),
+                    (SmartExtensionType::SmartWallet, 5000),
+                ],
                 // Always use the first id, whomever that may be.
                 classic_migration_contract_did: IdentityId::from(1),
                 // TODO(centril): fill with actual data from Ethereum.
@@ -547,6 +552,11 @@ fn alcyone_testnet_genesis(
                     // TODO(centril): use values per product team wishes.
                     registration_length: Some(5_184_000_000),
                 },
+                versions: vec![
+                    (SmartExtensionType::TransferManager, 5000),
+                    (SmartExtensionType::Offerings, 5000),
+                    (SmartExtensionType::SmartWallet, 5000),
+                ],
                 // TODO(product_team): Assign to a real person.
                 classic_migration_contract_did: IdentityId::from(1),
                 // TODO(centril): fill with actual data from Ethereum.

@@ -3,15 +3,13 @@
 use ink_lang as ink;
 
 mod custom_types {
-    use ink_core::storage::Flush;
     use scale::{Decode, Encode};
+    #[cfg(feature = "std")]
+    use scale_info::TypeInfo;
 
     #[derive(Decode, Encode, PartialEq, Ord, Eq, PartialOrd, Copy, Hash, Clone, Default)]
-    #[cfg_attr(feature = "ink-generate-abi", derive(type_metadata::Metadata))]
-    #[cfg_attr(feature = "std", derive(Debug))]
+    #[cfg_attr(feature = "std", derive(TypeInfo, Debug))]
     pub struct IdentityId([u8; 32]);
-
-    impl Flush for IdentityId {}
 
     impl From<u128> for IdentityId {
         fn from(id: u128) -> Self {
@@ -24,8 +22,7 @@ mod custom_types {
     }
 
     #[derive(Decode, Encode, PartialEq, Ord, Eq, PartialOrd)]
-    #[cfg_attr(feature = "ink-generate-abi", derive(type_metadata::Metadata))]
-    #[cfg_attr(feature = "std", derive(Debug))]
+    #[cfg_attr(feature = "std", derive(TypeInfo, Debug))]
     pub enum RestrictionResult {
         Valid,
         Invalid,
@@ -33,16 +30,17 @@ mod custom_types {
     }
 }
 
-#[ink::contract(version = "0.1.0")]
+#[ink::contract]
 mod count_transfer_manager {
     use crate::custom_types::{IdentityId, RestrictionResult};
-    use ink_core::{env, storage};
-    use ink_prelude::format;
     pub type Counter = u64;
+
+    #[cfg(not(feature = "ink-as-dependency"))]
+    use ink_core::storage::lazy::Lazy;
 
     /// Event emitted when maximum holders set
     #[ink(event)]
-    struct SetMaximumHolders {
+    pub struct SetMaximumHolders {
         #[ink(topic)]
         new_holder_count: Counter,
         #[ink(topic)]
@@ -51,39 +49,42 @@ mod count_transfer_manager {
 
     /// Struct that contains the storage items of this smart contract.
     #[ink(storage)]
-    struct CountTransferManagerStorage {
+    #[derive(Default)]
+    pub struct CountTransferManagerStorage {
         /// No. of maximum holders a ticker can have.
-        max_holders: storage::Value<Counter>,
+        max_holders: Counter,
         /// Owner of the smart contract. It has the special privileges over other callers
-        owner: storage::Value<AccountId>,
+        owner: Lazy<AccountId>,
     }
 
     impl CountTransferManagerStorage {
         /// Constructor use to set the no. of maximum holder count a
         /// ticker can have.
         #[ink(constructor)]
-        fn new(&mut self, max_holders: Counter) {
-            self.owner.set(self.env().caller());
-            self.max_holders.set(max_holders);
+        pub fn new(max_holders: Counter) -> Self {
+            Self {
+                max_holders,
+                owner: Lazy::new(Self::env().caller()),
+            }
         }
 
         /// Sets number of max holders
         /// # Arguments
         /// * max_holders No. of maximum holders
         #[ink(message)]
-        fn set_max_holders(&mut self, max_holders: Counter) {
+        pub fn set_max_holders(&mut self, max_holders: Counter) {
             self.ensure_owner(self.env().caller());
             self.env().emit_event(SetMaximumHolders {
-                new_holder_count: *self.max_holders.get(),
+                new_holder_count: self.max_holders,
                 old_holder_count: max_holders,
             });
-            self.max_holders.set(max_holders);
+            self.max_holders = max_holders;
         }
 
         /// Returns number of max holders
         #[ink(message)]
-        fn get_max_holders(&self) -> Counter {
-            *self.max_holders.get()
+        pub fn get_max_holders(&self) -> Counter {
+            self.max_holders
         }
 
         /// This function is used to verify transfers initiated by the
@@ -101,21 +102,18 @@ mod count_transfer_manager {
         /// * `total_supply` - Total supply of the asset
         /// * `current_holder_count - Total no. of investors of a ticker.
         #[ink(message)]
-        fn verify_transfer(
+        pub fn verify_transfer(
             &self,
-            from: Option<IdentityId>,
-            to: Option<IdentityId>,
+            _from: Option<IdentityId>,
+            _to: Option<IdentityId>,
             value: Balance,
             balance_from: Balance,
             balance_to: Balance,
-            total_supply: Balance,
+            _total_supply: Balance,
             current_holder_count: Counter,
         ) -> RestrictionResult {
             // Strict checking only the cases where no. of holders get increases.
-            if *self.max_holders.get() == current_holder_count
-                && balance_to == 0
-                && balance_from > value
-            {
+            if self.max_holders == current_holder_count && balance_to == 0 && balance_from > value {
                 return RestrictionResult::Invalid; // INVALID
             }
             RestrictionResult::Valid // VALID
@@ -123,12 +121,12 @@ mod count_transfer_manager {
 
         /// Simply returns the current value of `owner`.
         #[ink(message)]
-        fn owner(&self) -> AccountId {
-            *self.owner.get()
+        pub fn owner(&self) -> AccountId {
+            *Lazy::get(&self.owner)
         }
 
         fn ensure_owner(&self, owner: AccountId) {
-            assert!(owner == *self.owner.get(), "Not Authorized");
+            assert!(owner == self.owner(), "Not Authorized");
         }
     }
 
@@ -136,13 +134,34 @@ mod count_transfer_manager {
     mod tests {
         /// Imports all the definitions from the outer scope so we can use them here.
         use super::*;
-        use ink_core::env::test::*;
-        type EnvTypes = ink_core::env::DefaultEnvTypes;
+        use ink_core::env::{call, test};
+        type Accounts = test::DefaultAccounts<EnvTypes>;
+        const CALLEE: [u8; 32] = [7; 32];
+
+        fn set_sender(sender: AccountId) {
+            test::push_execution_context::<EnvTypes>(
+                sender,
+                CALLEE.into(),
+                1000000,
+                1000000,
+                test::CallData::new(call::Selector::new([0x00; 4])), // dummy
+            );
+        }
+
+        fn set_from_owner() {
+            let accounts = default_accounts();
+            set_sender(accounts.alice);
+        }
+
+        fn default_accounts() -> Accounts {
+            test::default_accounts().expect("Test environment is expected to be initialized.")
+        }
 
         /// We test if the default constructor does its job.
         #[test]
         fn constructor_initialization_check() {
-            let default_accounts = default_accounts::<EnvTypes>().unwrap();
+            let default_accounts = default_accounts();
+            set_from_owner();
             let count_transfer_manager = CountTransferManagerStorage::new(5000u64);
             assert_eq!(count_transfer_manager.get_max_holders(), 5000u64);
             assert_eq!(count_transfer_manager.owner(), default_accounts.alice);
@@ -150,9 +169,9 @@ mod count_transfer_manager {
 
         #[test]
         fn verify_transfer_check() {
-            let default_accounts = default_accounts::<EnvTypes>().unwrap();
             let alice_did = IdentityId::from(1);
             let bob_did = IdentityId::from(2);
+            set_from_owner();
             let mut count_transfer_manager = CountTransferManagerStorage::new(5u64);
             assert_eq!(count_transfer_manager.get_max_holders(), 5u64);
 
