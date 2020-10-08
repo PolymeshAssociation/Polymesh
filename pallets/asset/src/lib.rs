@@ -109,9 +109,9 @@ use polymesh_common_utilities::{
     CommonTrait, Context, SystematicIssuers,
 };
 use polymesh_primitives::{
-    calendar::CheckpointSchedule, AssetIdentifier, AuthorizationData, AuthorizationError, Document, DocumentName, IdentityId,
-    MetaVersion as ExtVersion, PortfolioId, ScopeId, Signatory, SmartExtension, SmartExtensionName,
-    SmartExtensionType, Ticker,
+    calendar::CheckpointSchedule, AssetIdentifier, AuthorizationData, AuthorizationError, Document,
+    DocumentName, IdentityId, MetaVersion as ExtVersion, PortfolioId, ScopeId, Signatory,
+    SmartExtension, SmartExtensionName, SmartExtensionType, Ticker,
 };
 use polymesh_primitives_derive::VecU8StrongTyped;
 use sp_runtime::traits::{CheckedAdd, SaturatedConversion, Saturating, Zero};
