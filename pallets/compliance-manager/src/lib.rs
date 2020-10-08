@@ -608,45 +608,26 @@ impl<T: Trait> Module<T> {
         condition: &'a Condition,
         primary_issuance_agent: Option<IdentityId>,
     ) -> proposition::Context<impl 'a + Iterator<Item = Claim>> {
-        enum Iter<I1, I2, I3> {
-            I1(I1),
-            I2(I2),
-            I3(I3),
-            I4,
-        }
-        impl<I1, I2, I3> Iterator for Iter<I1, I2, I3>
-        where
-            I1: Iterator<Item = Claim>,
-            I2: Iterator<Item = Claim>,
-            I3: Iterator<Item = Claim>,
-        {
-            type Item = Claim;
-            fn next(&mut self) -> Option<Self::Item> {
-                match self {
-                    Self::I1(i) => i.next(),
-                    Self::I2(i) => i.next(),
-                    Self::I3(i) => i.next(),
-                    Self::I4 => None,
-                }
-            }
-        }
+        // Because of `-> impl Iterator`, we need to return a **single type** in each of the branches below.
+        // To do this, we use `Either<Either<MatchArm1, MatchArm2>, Either<MatchArm3, MatchArm4>>`,
+        // equivalent to a 4-variant enum with iterators in each variant corresponding to the branches below.
+        // For example, `Left(Left(arm1))` and `Right(Left(arm3))` correspond to arms 1 and 3 respectively.
+        use either::Either::{Left, Right};
 
         let claims = match &condition.condition_type {
-            ConditionType::IsPresent(claim) | ConditionType::IsAbsent(claim) => Iter::I1(
+            ConditionType::IsPresent(claim) | ConditionType::IsAbsent(claim) => Left(Left(
                 Self::fetch_claims(id, claim, Self::issuers_for(ticker, condition, slot)),
-            ),
+            )),
             ConditionType::IsAnyOf(claims) | ConditionType::IsNoneOf(claims) => {
                 let issuers = Self::issuers_for(ticker, condition, slot);
-                Iter::I2(
-                    claims
-                        .iter()
-                        .flat_map(move |claim| Self::fetch_claims(id, claim, issuers)),
-                )
+                Left(Right(claims.iter().flat_map(move |claim| {
+                    Self::fetch_claims(id, claim, issuers)
+                })))
             }
             ConditionType::HasValidProofOfInvestor(proof_ticker) => {
-                Iter::I3(Self::fetch_confidential_claims(id, proof_ticker))
+                Right(Left(Self::fetch_confidential_claims(id, proof_ticker)))
             }
-            ConditionType::IsIdentity(_) => Iter::I4,
+            ConditionType::IsIdentity(_) => Right(Right(core::iter::empty())),
         };
 
         proposition::Context {
