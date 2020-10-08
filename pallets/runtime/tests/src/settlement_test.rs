@@ -44,7 +44,6 @@ use sp_core::sr25519::Public;
 use sp_runtime::traits::Zero;
 use sp_runtime::AnySignature;
 use std::collections::HashMap;
-use std::prelude::*;
 use test_client::AccountKeyring;
 
 type Identity = identity::Module<TestStorage>;
@@ -3084,13 +3083,12 @@ fn multiple_custodian_settlement() {
 /// the account creation proofs (to be submitted to the chain).
 pub fn gen_account(
     tx_id: u32,
-    seed: [u8; 32],
+    mut rng: &mut StdRng,
     token_name: &[u8],
     valid_asset_ids: Vec<AssetId>,
 ) -> (SecAccount, PubAccountTx) {
     // These are the encryptions keys used by MERCAT and are different from the signing keys
     // that Polymesh uses.
-    let mut rng = StdRng::from_seed(seed);
     let elg_secret = ElgamalSecretKey::new(Scalar::random(&mut rng));
     let elg_pub = elg_secret.get_public_key();
     let enc_keys = EncryptionKeys {
@@ -3101,7 +3099,11 @@ pub fn gen_account(
     let asset_id = AssetId {
         id: *Ticker::try_from(token_name).unwrap().as_bytes(),
     };
-    let asset_id_witness = CommitmentWitness::from((asset_id.clone().into(), &mut rng));
+
+    let mut seed = [0u8; 32];
+    rng.fill(&mut seed);
+    let mut new_rng = StdRng::from_seed(seed);
+    let asset_id_witness = CommitmentWitness::from((asset_id.clone().into(), &mut new_rng));
     let secret_account = SecAccount {
         enc_keys,
         asset_id_witness,
@@ -3119,13 +3121,14 @@ pub fn gen_account(
 /// encrypted balance of zero.
 pub fn init_account(
     tx_id: u32,
-    seed: [u8; 32],
+    mut rng: &mut StdRng,
     token_name: &[u8],
     owner: Public,
     did: IdentityId,
 ) -> (SecAccount, MercatAccountId, PubAccount, EncryptedAmount) {
     let valid_asset_ids = ConfidentialAsset::confidential_tickers();
-    let (scrt_account, mercat_account_tx) = gen_account(tx_id, seed, token_name, valid_asset_ids);
+    let (scrt_account, mercat_account_tx) =
+        gen_account(tx_id, &mut rng, token_name, valid_asset_ids);
 
     assert_ok!(ConfidentialAsset::validate_mercat_account(
         Origin::signed(owner),
@@ -3154,7 +3157,7 @@ pub fn create_account_and_mint_token(
     total_supply: u128,
     token_name: Vec<u8>,
     tx_id: u32,
-    seed: [u8; 32],
+    mut rng: &mut StdRng,
 ) -> (
     u32,
     SecAccount,
@@ -3192,7 +3195,8 @@ pub fn create_account_and_mint_token(
 
     let valid_asset_ids = ConfidentialAsset::confidential_tickers();
 
-    let (scrt_account, mercat_account_tx) = gen_account(tx_id, seed, &token_name, valid_asset_ids);
+    let (scrt_account, mercat_account_tx) =
+        gen_account(tx_id, &mut rng, &token_name, valid_asset_ids);
 
     assert_ok!(ConfidentialAsset::validate_mercat_account(
         Origin::signed(owner),
@@ -3201,9 +3205,6 @@ pub fn create_account_and_mint_token(
 
     // ------------- Computations that will happen in owner's Wallet ----------
     let amount: u32 = token.total_supply.try_into().unwrap(); // mercat amounts are 32 bit integers.
-    let mut new_seed = seed;
-    new_seed[0] += 1;
-    let mut rng = StdRng::from_seed(new_seed);
     let issuer_account = Account {
         scrt: scrt_account.clone(),
         pblc: mercat_account_tx.pub_account.clone(),
@@ -3268,16 +3269,17 @@ fn basic_confidential_settlement() {
         .set_max_legs_allowed(500)
         .build()
         .execute_with(|| {
+            // The rest of rngs are built from it. Its initial value can be set using proptest.
+            let mut rng = StdRng::from_seed([10u8; 32]);
+
             // Setting:
             //   - Alice is the token issuer.
             //   - Alice is also the sender of the token.
             //   - Bob is the receiver of the token.
             //   - Charlie is the mediator.
             //   - Eve is the CDD provider.
-            let alice_signed = Origin::signed(AccountKeyring::Alice.public());
             let alice_did = register_keyring_account(AccountKeyring::Alice).unwrap();
 
-            let bob_signed = Origin::signed(AccountKeyring::Bob.public());
             let bob_did = register_keyring_account(AccountKeyring::Bob).unwrap();
 
             let charlie = AccountKeyring::Charlie.public();
@@ -3300,29 +3302,23 @@ fn basic_confidential_settlement() {
                 alice_did,
                 total_supply,
                 token_name.to_vec(),
-                0,          // transaction id: not important in this test.
-                [10u8; 32], // seed. TODO: replace all these seeds with rng. Use `proptest`
+                0, // transaction id: not important in this test.
+                &mut rng,
             );
 
             // Create accounts for Bob, and Charlie.
             let tx_id = tx_id + 1;
             let (bob_secret_account, bob_account_id, bob_public_account, _) = init_account(
                 tx_id,
-                [12u8; 32], // seed. TODO: replace all these seeds with rng
+                &mut rng,
                 token_name,
                 AccountKeyring::Bob.public(),
                 bob_did,
             );
 
             let tx_id = tx_id + 1;
-            let (charlie_secret_account, charlie_account_id, charlie_public_account, _) =
-                init_account(
-                    tx_id,
-                    [13u8; 32], // seed. TODO: replace all these seeds with rng
-                    token_name,
-                    charlie,
-                    charlie_did,
-                );
+            let (charlie_secret_account, _, charlie_public_account, _) =
+                init_account(tx_id, &mut rng, token_name, charlie, charlie_did);
 
             // Mediator creates a venue
             let venue_counter = Settlement::venue_counter();
@@ -3370,7 +3366,6 @@ fn basic_confidential_settlement() {
             // ----- Sender authorizes.
             // Sender computes the proofs in the wallet.
             println!("-------------> Alice is going to authorize.");
-            let mut rng = StdRng::from_seed([14u8; 32]);
             let tx_id = tx_id + 1;
             let initialized_tx = MercatTxData::InitializedTransfer(
                 CtxSender {}

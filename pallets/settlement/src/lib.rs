@@ -66,7 +66,6 @@ use sp_runtime::traits::{Verify, Zero};
 use sp_std::{collections::btree_set::BTreeSet, convert::TryFrom, prelude::*};
 
 pub mod rng;
-use rng::native_rng;
 
 type Identity<T> = identity::Module<T>;
 type ConfidentialAsset<T> = confidential_asset::Module<T>;
@@ -1376,7 +1375,7 @@ impl<T: Trait> Module<T> {
                             instruction_id,
                         ));
                     }
-                    Err((leg_id, reason)) => {
+                    Err((leg_id, _reason)) => {
                         Self::deposit_event(RawEvent::LegFailedExecution(
                             SettlementDID.as_id(),
                             instruction_id,
