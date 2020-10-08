@@ -561,6 +561,10 @@ decl_module! {
                 primary_issuance_agent: Some(did),
             };
             <Tokens<T>>::insert(&ticker, token);
+            // NB - At the time of asset creation it is obvious that asset issuer/ primary issuance agent will not have
+            // `InvestorUniqueness` claim. So we are skipping the scope claim based stats update as
+            // those data points will get added in to the system whenever asset issuer/ primary issuance agent
+            // have InvestorUniqueness claim.
             <BalanceOf<T>>::insert(ticker, did, total_supply);
             Portfolio::<T>::set_default_portfolio_balance(did, &ticker, total_supply);
             <AssetOwnershipRelations>::insert(did, ticker, AssetOwnershipRelation::AssetOwned);
@@ -2029,7 +2033,6 @@ impl<T: Trait> Module<T> {
         // native currency value should be `0` as no funds need to transfer to the smart extension
         // We are passing arbitrary high `gas_limit` value to make sure extension's function execute successfully
         // TODO: Once gas estimate function will be introduced, arbitrary gas value will be replaced by the estimated gas
-        // TODO(centril): what to do with `_gas_spent`?
         let (res, _gas_spent) =
             Self::call_extension(extension_caller, dest, 0.into(), GAS_LIMIT, encoded_data);
         if let Ok(is_allowed) = res {
