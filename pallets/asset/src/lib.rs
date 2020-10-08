@@ -108,8 +108,8 @@ use polymesh_common_utilities::{
 };
 use polymesh_primitives::{
     AssetIdentifier, AuthorizationData, AuthorizationError, Document, DocumentName, IdentityId,
-    PortfolioId, ScopeId, Signatory, SmartExtension, SmartExtensionName, SmartExtensionType,
-    Ticker,
+    MetaVersion as ExtVersion, PortfolioId, ScopeId, Signatory, SmartExtension, SmartExtensionName,
+    SmartExtensionType, Ticker,
 };
 use polymesh_primitives_derive::VecU8StrongTyped;
 use sp_runtime::traits::{CheckedAdd, Saturating, Zero};
@@ -127,7 +127,7 @@ pub trait Trait:
     + IdentityTrait
     + pallet_session::Trait
     + statistics::Trait
-    + pallet_contracts::Trait
+    + polymesh_contracts::Trait
     + pallet_portfolio::Trait
 {
     /// The overarching event type.
@@ -339,6 +339,8 @@ decl_storage! {
 
         /// Ticker registration details on Polymath Classic / Ethereum.
         pub ClassicTickers get(fn classic_ticker_registration): map hasher(blake2_128_concat) Ticker => Option<ClassicTickerRegistration>;
+        /// Supported extension version.
+        pub CompatibleSmartExtVersion get(fn compatible_extension_version): map hasher(blake2_128_concat) SmartExtensionType => ExtVersion;
         /// Balances get stored on the basis of the `ScopeId`.
         /// Right now it is only helpful for the UI purposes but in future it can be used to do miracles on-chain.
         /// (ScopeId, IdentityId) => Balance.
@@ -349,13 +351,14 @@ decl_storage! {
         /// Tracks the ScopeId of the identity for a given ticker.
         /// (Ticker, IdentityId) => ScopeId.
         pub ScopeIdOf get(fn scope_id_of): double_map hasher(blake2_128_concat) Ticker, hasher(identity) IdentityId => ScopeId;
-
     }
     add_extra_genesis {
         config(classic_migration_tickers): Vec<ClassicTickerImport>;
         config(classic_migration_tconfig): TickerRegistrationConfig<T::Moment>;
         config(classic_migration_contract_did): IdentityId;
         config(reserved_country_currency_codes): Vec<Ticker>;
+        /// Smart Extension supported version at genesis.
+        config(versions): Vec<(SmartExtensionType, ExtVersion)>;
         build(|config: &GenesisConfig<T>| {
             let cm_did = SystematicIssuers::ClassicMigration.as_id();
             for import in &config.classic_migration_tickers {
@@ -380,6 +383,12 @@ decl_storage! {
             for currency_ticker in &config.reserved_country_currency_codes {
                 <Module<T>>::_register_ticker(&currency_ticker, fiat_tickers_reservation_did, None);
             }
+            config.versions
+                .iter()
+                .filter(|(t, _)| !<CompatibleSmartExtVersion>::contains_key(&t))
+                .for_each(|(se_type, ver)| {
+                    CompatibleSmartExtVersion::insert(se_type, ver);
+            });
 
         });
     }
@@ -869,10 +878,12 @@ decl_module! {
 
             // Verify the details of smart extension & store it
             ensure!(!<ExtensionDetails<T>>::contains_key((ticker, &extension_details.extension_id)), Error::<T>::ExtensionAlreadyPresent);
-
+            // Ensure the version compatibility with the asset.
+            ensure!(Self::is_ext_compatible(&extension_details.extension_type, &extension_details.extension_id), Error::<T>::IncompatibleExtensionVersion);
             // Ensure the hard limit on the count of maximum transfer manager an asset can have.
             Self::ensure_max_limit_for_tm_extension(&extension_details.extension_type, &ticker)?;
 
+            // Update the storage
             <ExtensionDetails<T>>::insert((ticker, &extension_details.extension_id), extension_details.clone());
             <Extensions<T>>::mutate((ticker, &extension_details.extension_type), |ids| {
                 ids.push(extension_details.extension_id.clone())
@@ -1195,6 +1206,8 @@ decl_error! {
         AssetAlreadyDivisible,
         /// Number of Transfer Manager extensions attached to an asset is equal to MaxNumberOfTMExtensionForAsset.
         MaximumTMExtensionLimitReached,
+        /// Given smart extension is not compatible with the asset.
+        IncompatibleExtensionVersion,
         /// An invalid Ethereum `EcdsaSignature`.
         InvalidEthereumSignature,
         /// The given ticker is not a classic one.
@@ -1513,7 +1526,10 @@ impl<T: Trait> Module<T> {
             let current_holder_count = <statistics::Module<T>>::investor_count_per_asset(ticker);
             let tms = Self::extensions((ticker, SmartExtensionType::TransferManager))
                 .into_iter()
-                .filter(|tm| !Self::extension_details((ticker, tm)).is_archive)
+                .filter(|tm| {
+                    !Self::extension_details((ticker, tm)).is_archive
+                        && Self::is_ext_compatible(&SmartExtensionType::TransferManager, &tm)
+                })
                 .collect::<Vec<T::AccountId>>();
             let tm_count = u32::try_from(tms.len()).unwrap_or_default();
             if !tms.is_empty() {
@@ -2128,6 +2144,13 @@ impl<T: Trait> Module<T> {
             Error::<T>::TotalSupplyAboveLimit
         );
         Ok(())
+    }
+
+    // Return bool to know whether the given extension is compatible with the supported version of asset.
+    fn is_ext_compatible(ext_type: &SmartExtensionType, extension_id: &T::AccountId) -> bool {
+        // Access version.
+        let ext_version = <polymesh_contracts::Module<T>>::extension_info(extension_id).version;
+        Self::compatible_extension_version(ext_type) == ext_version
     }
 
     /// Ensure the number of attached transfer manager extension should be < `MaxNumberOfTMExtensionForAsset`.

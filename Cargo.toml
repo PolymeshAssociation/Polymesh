@@ -44,6 +44,8 @@ members = [
     "pallets/transaction-payment",
     "pallets/treasury",
     "pallets/utility",
+    "pallets/contracts",
+    "node-rpc",
     "pallets/weights",
     "primitives",
     "primitives_derive",
