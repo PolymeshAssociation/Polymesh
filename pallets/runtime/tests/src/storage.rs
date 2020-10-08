@@ -1,6 +1,6 @@
 use super::ext_builder::{
-    EXTRINSIC_BASE_WEIGHT, MAX_NO_OF_LEGS, MAX_NO_OF_TM_ALLOWED, NETWORK_FEE_SHARE,
-    TRANSACTION_BYTE_FEE, WEIGHT_TO_FEE,
+    EXTRINSIC_BASE_WEIGHT, MAX_NO_OF_LEGS, MAX_NO_OF_TM_ALLOWED, MIN_CHECKPOINT_DURATION,
+    NETWORK_FEE_SHARE, TRANSACTION_BYTE_FEE, WEIGHT_TO_FEE,
 };
 use codec::Encode;
 use cryptography::claim_proofs::{compute_cdd_id, compute_scope_id};
@@ -478,6 +478,7 @@ impl portfolio::Trait for TestStorage {
 
 parameter_types! {
     pub MaxNumberOfTMExtensionForAsset: u32 = MAX_NO_OF_TM_ALLOWED.with(|v| *v.borrow());
+    pub MinCheckpointDurationSecs: u64 = MIN_CHECKPOINT_DURATION.with(|v| *v.borrow());
 }
 
 impl asset::Trait for TestStorage {
@@ -485,6 +486,8 @@ impl asset::Trait for TestStorage {
     type Currency = balances::Module<TestStorage>;
     type ComplianceManager = compliance_manager::Module<TestStorage>;
     type MaxNumberOfTMExtensionForAsset = MaxNumberOfTMExtensionForAsset;
+    type UnixTime = pallet_timestamp::Module<TestStorage>;
+    type MinCheckpointDurationSecs = MinCheckpointDurationSecs;
 }
 
 parameter_types! {
