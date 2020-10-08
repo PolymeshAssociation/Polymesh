@@ -81,7 +81,6 @@ use frame_support::{
     traits::Get,
     weights::Weight,
 };
-use frame_system::ensure_signed;
 use pallet_identity as identity;
 use polymesh_common_utilities::{
     asset::Trait as AssetTrait,
@@ -90,7 +89,6 @@ use polymesh_common_utilities::{
     constants::*,
     identity::Trait as IdentityTrait,
     protocol_fee::{ChargeProtocolFee, ProtocolOp},
-    Context,
 };
 use polymesh_primitives::{
     proposition, Claim, ClaimType, Condition, ConditionType, IdentityId, Scope, Ticker,
@@ -105,8 +103,6 @@ use sp_std::{
     convert::{From, TryFrom},
     prelude::*,
 };
-
-type CallPermissions<T> = pallet_permissions::Module<T>;
 
 /// The module's configuration trait.
 pub trait Trait:
@@ -541,9 +537,7 @@ impl<T: Trait> Module<T> {
         origin: T::Origin,
         ticker: Ticker,
     ) -> Result<IdentityId, DispatchError> {
-        let sender = ensure_signed(origin)?;
-        CallPermissions::<T>::ensure_call_permissions(&sender)?;
-        let did = Context::current_identity_or::<Identity<T>>(&sender)?;
+        let did = Identity::<T>::ensure_origin_call_permissions(origin)?.primary_did;
         ensure!(Self::is_owner(&ticker, did), Error::<T>::Unauthorized);
         Ok(did)
     }
