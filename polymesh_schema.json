@@ -391,7 +391,8 @@
                 "Jurisdiction": "",
                 "Exempted": "",
                 "Blocked": "",
-                "NoType": ""
+                "InvestorUniqueness": "",
+                "NoData": ""
             }
         },
         "IdentityClaim": {
@@ -659,6 +660,7 @@
             "_enum": {
                 "TransferManager": "",
                 "Offerings": "",
+                "SmartWallet": "",
                 "Custom": "Vec<u8>"
             }
         },
@@ -668,6 +670,22 @@
             "extension_name": "SmartExtensionName",
             "extension_id": "AccountId",
             "is_archive": "bool"
+        },
+        "MetaUrl": "Text",
+        "MetaDescription": "Text",
+        "MetaVersion": "u32",
+        "ExtVersion":"u32",
+        "TemplateMetadata": {
+            "url": "Option<MetaUrl>",
+            "se_type": "SmartExtensionType",
+            "usage_fee": "Balance",
+            "description": "MetaDescription",
+            "version": "MetaVersion"
+        },
+        "TemplateDetails": {
+            "instantiation_fee": "Balance",
+            "owner": "IdentityId",
+            "frozen": "bool"
         },
         "ProportionMatch": {
             "_enum": [
@@ -997,6 +1015,10 @@
             "block_number": "BlockNumber",
             "nominators": "Vec<AccountId>",
             "public": "H256"
+        },
+        "ExtensionAttributes": {
+            "usage_fee": "Balance",
+            "version":"MetaVersion"
         }
     },
     "rpc": {

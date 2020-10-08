@@ -41,6 +41,7 @@ pallet-transaction-payment = { path = "../../transaction-payment", default-featu
 pallet-treasury = { path = "../../treasury", default-features = false }
 pallet-utility = { path = "../../utility", default-features = false }
 pallet-cdd-offchain-worker = { path = "../../cdd-offchain-worker", default-features = false }
+polymesh-contracts = { path = "../../contracts", default-features = false }
 
 # RPC
 node-rpc-runtime-api = { path = "../../../rpc/runtime-api", default-features = false }
@@ -173,7 +174,8 @@ std = [
     "sp-staking/std",
     "sp-std/std",
     "sp-transaction-pool/std",
-    "sp-version/std"
+    "sp-version/std",
+    "polymesh-contracts/std"
 ]
 runtime-benchmarks = [
     "frame-benchmarking",
