@@ -700,6 +700,7 @@ impl IdentityTrait for Runtime {
     type OffChainSignature = MultiSignature;
     type ProtocolFee = protocol_fee::Module<Runtime>;
     type GCVotingMajorityOrigin = VMO<GovernanceCommittee>;
+    type CorporateActionLink = CorporateAction;
 }
 
 parameter_types! {
@@ -709,6 +710,10 @@ parameter_types! {
 impl polymesh_contracts::Trait for Runtime {
     type Event = Event;
     type NetworkShareInFee = NetworkShareInFee;
+}
+
+impl pallet_corporate_actions::Trait for Runtime {
+    type Event = Event;
 }
 
 impl exemption::Trait for Runtime {
@@ -860,6 +865,7 @@ construct_runtime!(
         Confidential: confidential::{Module, Call, Storage, Event},
         Permissions: pallet_permissions::{Module, Storage},
         Scheduler: pallet_scheduler::{Module, Call, Storage, Event<T>},
+        CorporateAction: pallet_corporate_actions::{Module, Call, Storage, Event},
     }
 );
 

@@ -37,7 +37,7 @@ use polymesh_common_utilities::traits::{
     asset::AssetSubTrait,
     balances::{AccountData, CheckCdd},
     group::{GroupTrait, InactiveMember},
-    identity::Trait as IdentityTrait,
+    identity::{CorporateActionLink, Trait as IdentityTrait},
     multisig::MultiSigSubTrait,
     portfolio::PortfolioSubTrait,
     transaction_payment::{CddAndFeeDetails, ChargeTxFee},
@@ -373,6 +373,7 @@ impl IdentityTrait for Test {
     type OffChainSignature = TestSignature;
     type ProtocolFee = protocol_fee::Module<Test>;
     type GCVotingMajorityOrigin = frame_system::EnsureRoot<AccountId>;
+    type CorporateActionLink = Test;
 }
 
 impl CddAndFeeDetails<AccountId, Call> for Test {
@@ -453,6 +454,12 @@ impl AssetSubTrait for Test {
         Ok(())
     }
     fn update_balance_of_scope_id(_: ScopeId, _: IdentityId, _: Ticker) -> DispatchResult {
+        Ok(())
+    }
+}
+
+impl CorporateActionLink for Test {
+    fn accept_corporate_action_agent_transfer(_: IdentityId, _: u64) -> DispatchResult {
         Ok(())
     }
 }

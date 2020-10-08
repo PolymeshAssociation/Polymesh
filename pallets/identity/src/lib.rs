@@ -75,6 +75,7 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 #![recursion_limit = "256"]
+#![feature(or_patterns)]
 
 pub mod types;
 pub use types::{DidRecords as RpcDidRecords, DidStatus, PermissionedCallOriginData};
@@ -104,7 +105,7 @@ use polymesh_common_utilities::{
         asset::AssetSubTrait,
         group::{GroupTrait, InactiveMember},
         identity::{
-            AuthorizationNonce, IdentityTrait, RawEvent, SecondaryKeyWithAuth,
+            AuthorizationNonce, CorporateActionLink, IdentityTrait, RawEvent, SecondaryKeyWithAuth,
             TargetIdAuthorization, Trait,
         },
         multisig::MultiSigSubTrait,
@@ -793,46 +794,34 @@ decl_module! {
                 .map(|a| (a, signer_did))
                 .or_else(|_| Self::ensure_authorization(&signer_key, auth_id).map(|a| (a, signer_key)))?;
 
-            match signer {
-                Signatory::Identity(did) => {
-                    match auth.authorization_data {
-                        AuthorizationData::TransferTicker(_) =>
-                            T::AssetSubTraitTarget::accept_ticker_transfer(did, auth_id),
-                        AuthorizationData::TransferPrimaryIssuanceAgent(_) =>
-                            T::AssetSubTraitTarget::accept_primary_issuance_agent_transfer(did, auth_id),
-                        AuthorizationData::TransferAssetOwnership(_) =>
-                            T::AssetSubTraitTarget::accept_asset_ownership_transfer(did, auth_id),
-                        AuthorizationData::AddMultiSigSigner(_) =>
-                            T::MultiSig::accept_multisig_signer(Signatory::from(did), auth_id),
-                        AuthorizationData::JoinIdentity(_) =>
-                            Self::join_identity(Signatory::from(did), auth_id),
-                        AuthorizationData::PortfolioCustody(..) =>
-                            T::Portfolio::accept_portfolio_custody(did, auth_id),
-                        AuthorizationData::RotatePrimaryKey(..)
-                        | AuthorizationData::AttestPrimaryKeyRotation(..)
-                        | AuthorizationData::Custom(..)
-                        | AuthorizationData::NoData =>
-                            Err(Error::<T>::UnknownAuthorization.into())
-                    }
-                },
-                Signatory::Account(key) => {
-                    match auth.authorization_data {
-                        AuthorizationData::AddMultiSigSigner(_) =>
-                            T::MultiSig::accept_multisig_signer(Signatory::Account(key), auth_id),
-                        AuthorizationData::RotatePrimaryKey(_identityid) =>
-                            Self::accept_primary_key_rotation(key , auth_id, None),
-                        AuthorizationData::JoinIdentity(_) =>
-                            Self::join_identity(Signatory::Account(key), auth_id),
-                        AuthorizationData::TransferTicker(..)
-                        | AuthorizationData::TransferPrimaryIssuanceAgent(..)
-                        | AuthorizationData::TransferAssetOwnership(..)
-                        | AuthorizationData::AttestPrimaryKeyRotation(..)
-                        | AuthorizationData::PortfolioCustody(..)
-                        | AuthorizationData::Custom(..)
-                        | AuthorizationData::NoData =>
-                            Err(Error::<T>::UnknownAuthorization.into())
-                    }
-                }
+            match (signer, auth.authorization_data) {
+                (sig, AuthorizationData::AddMultiSigSigner(_)) => T::MultiSig::accept_multisig_signer(sig, auth_id),
+                (sig, AuthorizationData::JoinIdentity(_)) => Self::join_identity(sig, auth_id),
+                (Signatory::Identity(did), AuthorizationData::TransferTicker(_)) =>
+                    T::AssetSubTraitTarget::accept_ticker_transfer(did, auth_id),
+                (Signatory::Identity(did), AuthorizationData::TransferPrimaryIssuanceAgent(_)) =>
+                    T::AssetSubTraitTarget::accept_primary_issuance_agent_transfer(did, auth_id),
+                (Signatory::Identity(did), AuthorizationData::TransferCorporateActionAgent(_)) =>
+                    T::CorporateActionLink::accept_corporate_action_agent_transfer(did, auth_id),
+                (Signatory::Identity(did), AuthorizationData::TransferAssetOwnership(_)) =>
+                    T::AssetSubTraitTarget::accept_asset_ownership_transfer(did, auth_id),
+                (Signatory::Identity(did), AuthorizationData::PortfolioCustody(_)) =>
+                    T::Portfolio::accept_portfolio_custody(did, auth_id),
+                (Signatory::Account(key), AuthorizationData::RotatePrimaryKey(_)) =>
+                    Self::accept_primary_key_rotation(key , auth_id, None),
+                (_,
+                    AuthorizationData::AttestPrimaryKeyRotation(..)
+                    | AuthorizationData::Custom(..)
+                    | AuthorizationData::NoData
+                )
+                | (Signatory::Identity(_), AuthorizationData::RotatePrimaryKey(..))
+                | (Signatory::Account(_),
+                    AuthorizationData::TransferTicker(..)
+                    | AuthorizationData::TransferPrimaryIssuanceAgent(..)
+                    | AuthorizationData::TransferCorporateActionAgent(..)
+                    | AuthorizationData::TransferAssetOwnership(..)
+                    | AuthorizationData::PortfolioCustody(..)
+                ) => Err(Error::<T>::UnknownAuthorization.into())
             }
         }
 
@@ -1994,25 +1983,7 @@ impl<T: Trait> Module<T> {
         authorization_data: AuthorizationData<T::AccountId>,
         type_of_auth: AuthorizationType,
     ) -> bool {
-        type_of_auth
-            == match authorization_data {
-                AuthorizationData::AttestPrimaryKeyRotation(..) => {
-                    AuthorizationType::AttestPrimaryKeyRotation
-                }
-                AuthorizationData::RotatePrimaryKey(..) => AuthorizationType::RotatePrimaryKey,
-                AuthorizationData::TransferTicker(..) => AuthorizationType::TransferTicker,
-                AuthorizationData::TransferPrimaryIssuanceAgent(..) => {
-                    AuthorizationType::TransferPrimaryIssuanceAgent
-                }
-                AuthorizationData::AddMultiSigSigner(..) => AuthorizationType::AddMultiSigSigner,
-                AuthorizationData::TransferAssetOwnership(..) => {
-                    AuthorizationType::TransferAssetOwnership
-                }
-                AuthorizationData::JoinIdentity(..) => AuthorizationType::JoinIdentity,
-                AuthorizationData::PortfolioCustody(..) => AuthorizationType::PortfolioCustody,
-                AuthorizationData::Custom(..) => AuthorizationType::Custom,
-                AuthorizationData::NoData => AuthorizationType::NoData,
-            }
+        type_of_auth == authorization_data.auth_type()
     }
 
     pub fn get_did_status(dids: Vec<IdentityId>) -> Vec<DidStatus> {

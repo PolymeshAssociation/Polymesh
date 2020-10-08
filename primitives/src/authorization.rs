@@ -54,6 +54,32 @@ pub enum AuthorizationData<AccountId> {
     Custom(Ticker),
     /// No authorization data
     NoData,
+    /// Authorization to transfer a token's corporate action agent (CAA).
+    /// Must be issued by the current owner of the token.
+    TransferCorporateActionAgent(Ticker),
+}
+
+impl<T> AuthorizationData<T> {
+    /// Returns the `AuthorizationType` of this auth data.
+    pub fn auth_type(&self) -> AuthorizationType {
+        match self {
+            Self::AttestPrimaryKeyRotation(..) => AuthorizationType::AttestPrimaryKeyRotation,
+            Self::RotatePrimaryKey(..) => AuthorizationType::RotatePrimaryKey,
+            Self::TransferTicker(..) => AuthorizationType::TransferTicker,
+            Self::TransferPrimaryIssuanceAgent(..) => {
+                AuthorizationType::TransferPrimaryIssuanceAgent
+            }
+            Self::TransferCorporateActionAgent(..) => {
+                AuthorizationType::TransferCorporateActionAgent
+            }
+            Self::AddMultiSigSigner(..) => AuthorizationType::AddMultiSigSigner,
+            Self::TransferAssetOwnership(..) => AuthorizationType::TransferAssetOwnership,
+            Self::JoinIdentity(..) => AuthorizationType::JoinIdentity,
+            Self::PortfolioCustody(..) => AuthorizationType::PortfolioCustody,
+            Self::Custom(..) => AuthorizationType::Custom,
+            Self::NoData => AuthorizationType::NoData,
+        }
+    }
 }
 
 /// Type of authorization.
@@ -80,6 +106,8 @@ pub enum AuthorizationType {
     Custom,
     /// Undefined authorization.
     NoData,
+    /// Authorization to transfer a token's corporate action agent (CAA).
+    TransferCorporateActionAgent,
 }
 
 impl<AccountId> Default for AuthorizationData<AccountId> {

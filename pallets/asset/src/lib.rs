@@ -1830,7 +1830,7 @@ impl<T: Trait> Module<T> {
         }
     }
 
-    fn is_owner(ticker: &Ticker, did: IdentityId) -> bool {
+    pub fn is_owner(ticker: &Ticker, did: IdentityId) -> bool {
         Self::_is_owner(ticker, did)
     }
 
