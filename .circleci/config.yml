@@ -2,7 +2,7 @@ version: 2
 jobs:
   lint:
     docker:
-      - image: maxsam4/rust
+      - image: polymathnet/rust:nightly-2020-09-28
     environment:
       VERBOSE: "1"
     steps:
@@ -15,7 +15,7 @@ jobs:
           command: ./scripts/rustfmt.sh
   build:
     docker:
-      - image: maxsam4/rust
+      - image: polymathnet/rust:nightly-2020-09-28
     environment:
       - VERBOSE: "1"
       - RUSTFLAGS: -D warnings
@@ -43,7 +43,7 @@ jobs:
             - "./target"
   test:
     docker:
-      - image: maxsam4/rust
+      - image: polymathnet/rust:nightly-2020-09-28
     environment:
       - VERBOSE: "1"
       - RUSTFLAGS: -D warnings
@@ -89,7 +89,7 @@ jobs:
             - "./target"
   cli:
     docker:
-      - image: maxsam4/rust
+      - image: polymathnet/rust:nightly-2020-09-28
     environment:
       VERBOSE: "1"
     steps:
@@ -130,7 +130,7 @@ jobs:
             - "./scripts/cli/node_modules"
   clippy:
     docker:
-      - image: maxsam4/rust
+      - image: polymathnet/rust:nightly-2020-09-28
     environment:
       VERBOSE: "1"
     steps:
