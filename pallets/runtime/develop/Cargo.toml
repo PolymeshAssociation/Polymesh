@@ -37,6 +37,7 @@ pallet-statistics = { path = "../../statistics", default-features = false }
 pallet-transaction-payment = { path = "../../transaction-payment", default-features = false }
 pallet-treasury = { path = "../../treasury", default-features = false }
 pallet-utility = { path = "../../utility", default-features = false }
+polymesh-contracts = { path = "../../contracts", default-features = false }
 
 # Others
 serde = { version = "1.0.104", default-features = false }
@@ -167,7 +168,8 @@ std = [
     "sp-staking/std",
     "sp-std/std",
     "sp-transaction-pool/std",
-    "sp-version/std"
+    "sp-version/std",
+    "polymesh-contracts/std",
 ]
 
 runtime-benchmarks = [

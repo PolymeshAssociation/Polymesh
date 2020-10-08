@@ -18,7 +18,7 @@ sp-runtime = { git = "https://github.com/paritytech/substrate", default-features
 # 
 frame-system = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0-rc6" }
 frame-support = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0-rc6" }
- 
+
 sp-application-crypto = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0-rc6" }
 
 [features]
