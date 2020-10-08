@@ -699,10 +699,7 @@ decl_module! {
         /// - `InsufficientPortfolioBalance` If the PIA's default portfolio doesn't have enough free balance
         #[weight = T::DbWeight::get().reads_writes(6, 3) + 800_000_000]
         pub fn redeem(origin, ticker: Ticker, value: T::Balance) -> DispatchResult {
-            let PermissionedCallOriginData {
-                primary_did: did,
-                ..
-            } = Identity::<T>::ensure_origin_call_permissions(origin)?;
+            let did = Identity::<T>::ensure_origin_call_permissions(origin)?.primary_did;
 
             // Makes sure that the sender is the PIA or the token owner and returns the pia address
             let pia = Self::ensure_pia_or_owner(&ticker, did)?;

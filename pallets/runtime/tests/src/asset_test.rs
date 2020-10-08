@@ -11,8 +11,7 @@ use crate::{
 
 use chrono::prelude::Utc;
 use frame_support::{
-    assert_err, assert_noop, assert_ok, IterableStorageMap, StorageDoubleMap,
-    StorageMap,
+    assert_err, assert_noop, assert_ok, IterableStorageMap, StorageDoubleMap, StorageMap,
 };
 use hex_literal::hex;
 use ink_primitives::hash as FunctionSelectorHasher;
