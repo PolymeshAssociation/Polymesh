@@ -48,6 +48,7 @@
 
 use frame_support::{
     decl_error, decl_event, decl_module, decl_storage, dispatch::DispatchResult, ensure,
+    traits::UnixTime,
 };
 use frame_system::ensure_signed;
 use pallet_asset::{self as asset, BalanceOf, Trait as AssetTrait};
@@ -58,7 +59,9 @@ use polymesh_common_utilities::{
     CommonTrait, Context,
 };
 use polymesh_primitives::{IdentityId, Signatory, Ticker};
-use sp_runtime::traits::{CheckedAdd, CheckedDiv, CheckedMul, CheckedSub, Zero};
+use sp_runtime::traits::{
+    CheckedAdd, CheckedDiv, CheckedMul, CheckedSub, SaturatedConversion, Zero,
+};
 use sp_std::prelude::*;
 
 /// The module's configuration trait.
@@ -145,7 +148,9 @@ decl_module! {
                 if count > 0 {
                     count
                 } else {
-                    <asset::Module<T>>::_create_checkpoint(&ticker)?;
+                    let now_as_secs =
+                        <T as AssetTrait>::UnixTime::now().as_secs().saturated_into::<u64>();
+                    <asset::Module<T>>::_create_checkpoint(&ticker, now_as_secs)?;
                     <asset::TotalCheckpoints>::get(&ticker)
                 }
             };

@@ -5,6 +5,8 @@ authors = ["Polymath"]
 edition = "2018"
 
 [dependencies]
+chrono = {version = "0.4.18", default-features = false }
+
 # Ours
 polymesh-primitives-derive = { path = "../primitives_derive", default-features = false }
 
@@ -42,30 +44,32 @@ u64_backend = [ "cryptography/u64_backend", "schnorrkel/u64_backend"]
 avx2_backend = [ "cryptography/avx2_backend", "schnorrkel/u64_backend"]
 
 no_std = [
-	"cryptography/no_std"
+    "cryptography/no_std"
 ]
 
 std = [
-	"codec/std",
-	"sp-core/std",
-	"serde",
-	"sp-std/std",
-	"sp-version/std",
-	"sp-runtime/std",
-	"frame-support/std",
-	"frame-system/std",
-	"sp-io/std",
-	# Crypto
-	"cryptography/std",
-	"schnorrkel/std",
-	"blake2/std",
-	"blake2/simd",
-	"polymesh-primitives-derive/std",
-	"curve25519-dalek/std",
-	"sp-application-crypto/std"
+    "chrono/std",
+    "codec/std",
+    "frame-support/std",
+    "frame-system/std",
+    "serde",
+    "sp-core/std",
+    "sp-io/std",
+    "sp-runtime/std",
+    "sp-std/std",
+    "sp-version/std",
+
+    # Crypto
+    "blake2/simd",
+    "blake2/std",
+    "cryptography/std",
+    "curve25519-dalek/std",
+    "polymesh-primitives-derive/std",
+    "schnorrkel/std",
+    "sp-application-crypto/std"
 ]
 
 runtime-benchmarks = [
-	"sp-io/disable_panic_handler",
-	"sp-io/disable_oom"
+    "sp-io/disable_panic_handler",
+    "sp-io/disable_oom"
 ]

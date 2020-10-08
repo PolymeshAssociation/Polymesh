@@ -5312,7 +5312,8 @@ name = "polymesh-primitives"
 version = "2.0.0"
 dependencies = [
  "blake2",
- "cryptography 0.1.0 (git+https://github.com/PolymathNetwork/cryptography.git?branch=substrate-2)",
+ "chrono",
+ "cryptography",
  "curve25519-dalek 2.1.0",
  "frame-support",
  "frame-system",

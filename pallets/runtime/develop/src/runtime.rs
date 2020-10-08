@@ -661,6 +661,7 @@ impl portfolio::Trait for Runtime {
 
 parameter_types! {
     pub const MaxNumberOfTMExtensionForAsset: u32 = 5;
+    pub const MinCheckpointDurationSecs: u64 = 30;
 }
 
 impl asset::Trait for Runtime {
@@ -668,6 +669,8 @@ impl asset::Trait for Runtime {
     type Currency = Balances;
     type ComplianceManager = compliance_manager::Module<Runtime>;
     type MaxNumberOfTMExtensionForAsset = MaxNumberOfTMExtensionForAsset;
+    type UnixTime = pallet_timestamp::Module<Runtime>;
+    type MinCheckpointDurationSecs = MinCheckpointDurationSecs;
 }
 
 parameter_types! {
