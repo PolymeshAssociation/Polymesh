@@ -611,14 +611,14 @@ fn token_swap() {
                     PortfolioId::default_portfolio(alice_did),
                     instruction_counter
                 ),
-                AuthorizationStatus::Authorized
+                AuthorizationStatus::Unknown
             );
             assert_eq!(
                 Settlement::user_auths(
                     PortfolioId::default_portfolio(bob_did),
                     instruction_counter
                 ),
-                AuthorizationStatus::Authorized
+                AuthorizationStatus::Unknown
             );
             assert_eq!(
                 Portfolio::locked_assets(PortfolioId::default_portfolio(alice_did), &ticker),
@@ -1050,14 +1050,14 @@ fn claiming_receipt() {
                     PortfolioId::default_portfolio(alice_did),
                     instruction_counter
                 ),
-                AuthorizationStatus::Authorized
+                AuthorizationStatus::Unknown
             );
             assert_eq!(
                 Settlement::user_auths(
                     PortfolioId::default_portfolio(bob_did),
                     instruction_counter
                 ),
-                AuthorizationStatus::Authorized
+                AuthorizationStatus::Unknown
             );
             assert_eq!(
                 Portfolio::locked_assets(PortfolioId::default_portfolio(alice_did), &ticker),
@@ -1308,14 +1308,14 @@ fn settle_on_block() {
                     PortfolioId::default_portfolio(alice_did),
                     instruction_counter
                 ),
-                AuthorizationStatus::Authorized
+                AuthorizationStatus::Unknown
             );
             assert_eq!(
                 Settlement::user_auths(
                     PortfolioId::default_portfolio(bob_did),
                     instruction_counter
                 ),
-                AuthorizationStatus::Authorized
+                AuthorizationStatus::Unknown
             );
             assert_eq!(
                 Portfolio::locked_assets(PortfolioId::default_portfolio(alice_did), &ticker),
@@ -1571,14 +1571,14 @@ fn failed_execution() {
                     PortfolioId::default_portfolio(alice_did),
                     instruction_counter
                 ),
-                AuthorizationStatus::Authorized
+                AuthorizationStatus::Unknown
             );
             assert_eq!(
                 Settlement::user_auths(
                     PortfolioId::default_portfolio(bob_did),
                     instruction_counter
                 ),
-                AuthorizationStatus::Authorized
+                AuthorizationStatus::Unknown
             );
             assert_eq!(
                 Portfolio::locked_assets(PortfolioId::default_portfolio(alice_did), &ticker),
@@ -2135,14 +2135,14 @@ fn claim_multiple_receipts_during_authorization() {
                     PortfolioId::default_portfolio(alice_did),
                     instruction_counter
                 ),
-                AuthorizationStatus::Authorized
+                AuthorizationStatus::Unknown
             );
             assert_eq!(
                 Settlement::user_auths(
                     PortfolioId::default_portfolio(bob_did),
                     instruction_counter
                 ),
-                AuthorizationStatus::Authorized
+                AuthorizationStatus::Unknown
             );
             assert_eq!(
                 Portfolio::locked_assets(PortfolioId::default_portfolio(alice_did), &ticker),
