@@ -491,6 +491,7 @@ parameter_types! {
 }
 
 impl bridge::Trait for TestStorage {
+    type Origin = Origin;
     type Event = Event;
     type Proposal = Call;
     type MaxTimelockedTxsPerBlock = MaxTimelockedTxsPerBlock;

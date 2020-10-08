@@ -646,6 +646,7 @@ parameter_types! {
 }
 
 impl bridge::Trait for Runtime {
+    type Origin = Origin;
     type Event = Event;
     type Proposal = Call;
     type MaxTimelockedTxsPerBlock = MaxTimelockedTxsPerBlock;

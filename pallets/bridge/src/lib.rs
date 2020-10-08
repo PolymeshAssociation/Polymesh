@@ -102,10 +102,13 @@ use frame_support::{
     dispatch::{DispatchError, DispatchResult},
     ensure,
     storage::StorageDoubleMap,
-    traits::{Currency, Get},
+    traits::{
+        schedule::{DispatchTime, LOWEST_PRIORITY},
+        Currency, Get,
+    },
     weights::{DispatchClass, Pays, Weight},
 };
-use frame_system::{self as system, ensure_signed};
+use frame_system::{self as system, ensure_none, ensure_signed, RawOrigin};
 use pallet_balances as balances;
 use pallet_identity as identity;
 use pallet_multisig as multisig;
@@ -120,8 +123,12 @@ use sp_runtime::traits::{CheckedAdd, One, SaturatedConversion, Zero};
 use sp_std::{convert::TryFrom, prelude::*};
 
 type Identity<T> = identity::Module<T>;
+type Scheduler<T> = scheduler::Module<T>;
 
-pub trait Trait: multisig::Trait {
+pub trait Trait: multisig::Trait + scheduler::Trait {
+    /// A type for identity-mapping the Origin type. Needed for trait constraint satisfaction.
+    type Origin: Into<Result<RawOrigin<Self::AccountId>, <Self as Trait>::Origin>>
+        + Into<<Self as scheduler::Trait>::Origin>;
     type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
     type Proposal: From<Call<Self>> + Into<<Self as IdentityTrait>::Proposal>;
     /// The maximum number of timelocked bridge transactions that can be scheduled to be
@@ -394,7 +401,7 @@ decl_event! {
 }
 
 decl_module! {
-    pub struct Module<T: Trait> for enum Call where origin: T::Origin {
+    pub struct Module<T: Trait> for enum Call where origin: <T as Trait>::Origin {
         type Error = Error<T>;
 
         const MaxTimelockedTxsPerBlock: u32 = T::MaxTimelockedTxsPerBlock::get();
@@ -574,6 +581,19 @@ decl_module! {
             Ok(())
         }
 
+        /// An internal call to handle a scheduled timelocked bridge transaction.
+        #[weight = (
+            400_000_000,
+            DispatchClass::Operational,
+            Pays::Yes
+        )]
+        fn handle_scheduled_bridge_tx(origin, bridge_tx: BridgeTx<T::AccountId, T::Balance>) ->
+            DispatchResult
+        {
+            ensure_none(origin)?;
+            let _ = Self::handle_bridge_tx_now(bridge_tx, false);
+            Ok(())
+        }
     }
 }
 
@@ -701,6 +721,17 @@ impl<T: Trait> Module<T> {
         );
         tx_details.execution_block = unlock_block_number;
         <BridgeTxDetails<T>>::insert(&bridge_tx.recipient, &bridge_tx.nonce, tx_details);
+
+        // FIXME
+        let call = Call::<T>::handle_bridge_tx(bridge_tx.clone());
+        Scheduler::<T>::schedule(
+            RawOrigin::None.into(),
+            DispatchTime::At(unlock_block_number),
+            None,
+            LOWEST_PRIORITY,
+            call,
+        );
+
         <TimelockedTxs<T>>::mutate(&unlock_block_number, |txs| {
             txs.push(bridge_tx.clone());
         });
