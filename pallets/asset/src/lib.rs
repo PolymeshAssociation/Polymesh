@@ -44,7 +44,7 @@
 //! - `controller_transfer` - Forces a transfer between two DID.
 //! - `create_checkpoint` - Function used to create the checkpoint.
 //! - `issue` - Function is used to issue(or mint) new tokens to the primary issuance agent.
-//! - `redeem` - Redeems tokens from PIA's default portfolio.
+//! - `redeem` - Redeems tokens from PIA's (Primary Issuance Agent) default portfolio.
 //! - `make_divisible` - Change the divisibility of the token to divisible. Only called by the token owner.
 //! - `can_transfer` - Checks whether a transaction with given parameters can take place or not.
 //! - `add_documents` - Add documents for a given token, Only be called by the token owner.
@@ -667,7 +667,7 @@ decl_module! {
         }
 
         /// Function is used to issue(or mint) new tokens to the primary issuance agent.
-        /// It can be executed by the token owner or the PIA
+        /// It can be executed by the token owner or the PIA.
         ///
         /// # Arguments
         /// * `origin` Secondary key of token owner.
@@ -681,7 +681,7 @@ decl_module! {
                 ..
             } = Identity::<T>::ensure_origin_call_permissions(origin)?;
 
-            // Makes sure that the sender is the PIA or the token owner and returns the pia address
+            // Ensure that the sender is the PIA or the token owner and returns the PIA address.
             let beneficiary = Self::ensure_pia_or_owner(&ticker, did)?;
             Self::_mint(&ticker, sender, beneficiary, value, Some(ProtocolOp::AssetIssue))
         }
@@ -701,7 +701,7 @@ decl_module! {
         pub fn redeem(origin, ticker: Ticker, value: T::Balance) -> DispatchResult {
             let did = Identity::<T>::ensure_origin_call_permissions(origin)?.primary_did;
 
-            // Makes sure that the sender is the PIA or the token owner and returns the pia address
+            // Ensure that the sender is the PIA or the token owner and returns the PIA address.
             let pia = Self::ensure_pia_or_owner(&ticker, did)?;
 
             // Granularity check
@@ -1648,10 +1648,11 @@ impl<T: Trait> Module<T> {
     ) {
         // Calculate the new aggregate balance for given did.
         // It should not underflow/overflow but still to be defensive.
+        let aggregate_balance = Self::aggregate_balance_of(ticker, &scope_id);
         let new_aggregate_balance = if is_sender {
-            Self::aggregate_balance_of(ticker, &scope_id).saturating_sub(value)
+            aggregate_balance.saturating_sub(value)
         } else {
-            Self::aggregate_balance_of(ticker, &scope_id).saturating_add(value)
+            aggregate_balance.saturating_add(value)
         };
 
         <AggregateBalance<T>>::insert(ticker, &scope_id, new_aggregate_balance);
@@ -1662,16 +1663,11 @@ impl<T: Trait> Module<T> {
         ticker: &Ticker,
         did: IdentityId,
     ) -> Result<IdentityId, DispatchError> {
-        if let Some(pia) = Self::token_details(&ticker).primary_issuance_agent {
-            ensure!(
-                did == pia || Self::is_owner(&ticker, did),
-                Error::<T>::Unauthorized
-            );
-            return Ok(pia);
-        } else {
-            ensure!(Self::is_owner(&ticker, did), Error::<T>::Unauthorized);
-            return Ok(did);
-        }
+        Self::token_details(&ticker)
+            .primary_issuance_agent
+            .filter(|pia| *pia == did)
+            .or_else(|| Self::is_owner(&ticker, did).then(|| did))
+            .ok_or_else(|| Error::<T>::Unauthorized.into())
     }
 
     pub fn _create_checkpoint(ticker: &Ticker) -> DispatchResult {
