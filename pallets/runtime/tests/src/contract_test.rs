@@ -13,6 +13,7 @@ use crate::{
 use codec::Encode;
 use hex_literal::hex;
 use pallet_balances as balances;
+use pallet_permissions as permissions;
 use polymesh_common_utilities::{protocol_fee::ProtocolOp, traits::CddAndFeeDetails};
 use polymesh_contracts::MetadataOfTemplate;
 use polymesh_contracts::{Call as ContractsCall, NonceBasedAddressDeterminer};
@@ -30,6 +31,7 @@ type Origin = <TestStorage as frame_system::Trait>::Origin;
 type Contracts = pallet_contracts::Module<TestStorage>;
 type WrapperContractsError = polymesh_contracts::Error<TestStorage>;
 type ProtocolFeeError = pallet_protocol_fee::Error<TestStorage>;
+type PermissionError = permissions::Error<TestStorage>;
 
 /// Load a given wasm module represented by a .wat file and returns a wasm binary contents along
 /// with it's hash.
@@ -362,7 +364,7 @@ fn check_behavior_when_instantiation_fee_changes() {
             // Should fail as sender is not the template owner
             assert_err!(
                 WrapperContracts::change_template_fees(
-                    Origin::signed(AccountKeyring::Dave.public()),
+                    Origin::signed(AccountKeyring::Bob.public()),
                     code_hash,
                     Some(new_instantiation_fee),
                     None,
@@ -550,7 +552,7 @@ fn validate_transfer_template_ownership_functionality() {
                     code_hash,
                     bob_did
                 ),
-                WrapperContractsError::UnAuthorizedOrigin
+                PermissionError::UnauthorizedCaller
             );
 
             // Successfully transfer ownership to the other DID.
