@@ -14,17 +14,20 @@
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
 use codec::Encode;
+use frame_support::traits::KeyOwnerProofSystem;
 use frame_support::{
     assert_ok,
     dispatch::DispatchResult,
     impl_outer_dispatch, impl_outer_origin, parameter_types,
     traits::{Currency, FindAuthor, Get},
-    weights::{DispatchInfo, Weight, RuntimeDbWeight},
+    weights::{DispatchInfo, RuntimeDbWeight, Weight},
+    StorageDoubleMap, StorageMap,
 };
-use pallet_cdd_offchain_worker::{crypto, Trait};
+use frame_system::offchain::*;
+use pallet_cdd_offchain_worker::crypto;
 use pallet_group as group;
-use pallet_portfolio as portfolio;
 use pallet_identity::{self as identity};
+use pallet_portfolio as portfolio;
 use pallet_protocol_fee as protocol_fee;
 use pallet_staking::{EraIndex, Exposure, ExposureOf, StakerStatus};
 use polymesh_common_utilities::traits::{
@@ -33,14 +36,17 @@ use polymesh_common_utilities::traits::{
     group::{GroupTrait, InactiveMember},
     identity::Trait as IdentityTrait,
     multisig::MultiSigSubTrait,
+    portfolio::PortfolioSubTrait,
     transaction_payment::{CddAndFeeDetails, ChargeTxFee},
     CommonTrait, PermissionChecker,
-    portfolio::PortfolioSubTrait
 };
-use polymesh_primitives::{IdentityId, Signatory, Ticker, PortfolioId, InvestorUid, ScopeId, Signature };
+use polymesh_primitives::{
+    Authorization, AuthorizationData, CddId, Claim, IdentityId, InvestorUid, Permissions,
+    PortfolioId, ScopeId, Signatory, Ticker,
+};
 use sp_core::{
     crypto::{key_types, Pair as PairTrait},
-    sr25519::Pair,
+    sr25519::{Pair, Signature},
     H256,
 };
 use sp_runtime::curve::PiecewiseLinear;
@@ -48,26 +54,24 @@ use sp_runtime::transaction_validity::{InvalidTransaction, TransactionValidity, 
 use sp_runtime::{
     testing::{Header, TestXt, UintAuthorityId},
     traits::{
-        Convert, Extrinsic as ExtrinsicT, IdentityLookup, OpaqueKeys, SaturatedConversion, Verify,
-        ConvertInto, IdentifyAccount
+        Convert, ConvertInto, Extrinsic as ExtrinsicT, IdentifyAccount, IdentityLookup, OpaqueKeys,
+        SaturatedConversion, Verify,
     },
-    KeyTypeId, Perbill, MultiSignature, MultiSigner
+    KeyTypeId, Perbill,
 };
-use frame_system::offchain::*;
 use sp_staking::SessionIndex;
+use sp_std::convert::From;
 use std::{
     cell::RefCell,
     collections::{BTreeMap, HashSet},
 };
 use test_client::AccountKeyring;
-use frame_support::traits::KeyOwnerProofSystem;
-use sp_std::convert::From;
 
 pub type AccountId = <<Signature as Verify>::Signer as IdentifyAccount>::AccountId;
 pub type BlockNumber = u64;
 pub type Balance = u128;
-type OffChainSignature = MultiSignature;
-type Moment = <Test as pallet_timestamp::Trait>::Moment;
+type OffChainSignature = Signature;
+pub type Moment = <Test as pallet_timestamp::Trait>::Moment;
 
 impl_outer_origin! {
     pub enum Origin for Test  where system = frame_system {}
@@ -78,7 +82,7 @@ impl_outer_dispatch! {
         identity::Identity,
         pallet_staking::Staking,
         pallet_babe::Babe,
-        self::CddOffchainWorker,
+        pallet_cdd_offchain_worker::CddOffchainWorker,
     }
 }
 
@@ -217,9 +221,9 @@ parameter_types! {
     };
 }
 
-pub struct TestAppCrypto;
+pub struct TestAppCryptoId;
 
-impl AppCrypto<<Signature as Verify>::Signer, Signature> for TestAppCrypto {
+impl AppCrypto<<Signature as Verify>::Signer, Signature> for TestAppCryptoId {
     type RuntimeAppPublic = crypto::SignerId;
     type GenericSignature = sp_core::sr25519::Signature;
     type GenericPublic = sp_core::sr25519::Public;
@@ -336,7 +340,7 @@ impl IdentityTrait for Test {
     type Balances = pallet_balances::Module<Test>;
     type ChargeTxFeeTarget = Test;
     type CddHandler = Test;
-    type Public = <MultiSignature as Verify>::Signer;
+    type Public = <Signature as Verify>::Signer;
     type OffChainSignature = OffChainSignature;
     type ProtocolFee = protocol_fee::Module<Test>;
     type GCVotingMajorityOrigin = frame_system::EnsureRoot<AccountId>;
@@ -362,7 +366,7 @@ impl ChargeTxFee for Test {
 
 impl GroupTrait<Moment> for Test {
     fn get_members() -> Vec<IdentityId> {
-        return Group::active_members();
+        return CddServiceProvider::active_members();
     }
 
     fn get_inactive_members() -> Vec<InactiveMember<Moment>> {
@@ -417,12 +421,16 @@ impl AssetSubTrait for Test {
     fn accept_primary_issuance_agent_transfer(_: IdentityId, _: u64) -> DispatchResult {
         unimplemented!()
     }
-    
+
     fn accept_asset_ownership_transfer(_: IdentityId, _: u64) -> DispatchResult {
         unimplemented!()
     }
 
-    fn update_balance_of_scope_id(_of: ScopeId, _whom: IdentityId, _ticker: Ticker) -> DispatchResult {
+    fn update_balance_of_scope_id(
+        _of: ScopeId,
+        _whom: IdentityId,
+        _ticker: Ticker,
+    ) -> DispatchResult {
         unimplemented!()
     }
 }
@@ -431,14 +439,14 @@ impl MultiSigSubTrait<AccountId> for Test {
     fn accept_multisig_signer(_: Signatory<AccountId>, _: u64) -> DispatchResult {
         unimplemented!()
     }
-    fn get_key_signers(multisig: &AccountId) -> Vec<AccountId> {
+    fn get_key_signers(_multisig: &AccountId) -> Vec<AccountId> {
         unimplemented!()
     }
-    fn is_multisig(account: &AccountId) -> bool {
+    fn is_multisig(_account: &AccountId) -> bool {
         unimplemented!()
     }
-    fn is_signer(key: &AccountId) -> bool {
-        unimplemented!()
+    fn is_signer(_key: &AccountId) -> bool {
+        false
     }
 }
 
@@ -446,24 +454,32 @@ impl PortfolioSubTrait<Balance> for Test {
     fn accept_portfolio_custody(_: IdentityId, _: u64) -> DispatchResult {
         unimplemented!()
     }
-    fn ensure_portfolio_custody(portfolio: PortfolioId, custodian: IdentityId) -> DispatchResult {
+    fn ensure_portfolio_custody(_portfolio: PortfolioId, _custodian: IdentityId) -> DispatchResult {
         unimplemented!()
     }
 
-    fn lock_tokens(portfolio: &PortfolioId, ticker: &Ticker, amount: &Balance) -> DispatchResult {
+    fn lock_tokens(
+        _portfolio: &PortfolioId,
+        _ticker: &Ticker,
+        _amount: &Balance,
+    ) -> DispatchResult {
         unimplemented!()
     }
 
-    fn unlock_tokens(portfolio: &PortfolioId, ticker: &Ticker, amount: &Balance) -> DispatchResult {
+    fn unlock_tokens(
+        _portfolio: &PortfolioId,
+        _ticker: &Ticker,
+        _amount: &Balance,
+    ) -> DispatchResult {
         unimplemented!()
     }
 }
 
 impl CheckCdd<AccountId> for Test {
-    fn check_key_cdd(key: &AccountId) -> bool {
+    fn check_key_cdd(_key: &AccountId) -> bool {
         true
     }
-    fn get_key_cdd_did(key: &AccountId) -> Option<IdentityId> {
+    fn get_key_cdd_did(_key: &AccountId) -> Option<IdentityId> {
         None
     }
 }
@@ -622,8 +638,8 @@ impl portfolio::Trait for Test {
 
 pub type Extrinsic = TestXt<Call, ()>;
 
-impl Trait for Test {
-    type AuthorityId = TestAppCrypto;
+impl pallet_cdd_offchain_worker::Trait for Test {
+    type AuthorityId = TestAppCryptoId;
     type Event = ();
     type Call = Call;
     type CoolingInterval = CoolingInterval;
@@ -633,28 +649,30 @@ impl Trait for Test {
 }
 
 impl SigningTypes for Test {
-	type Public = <Signature as Verify>::Signer;
-	type Signature = Signature;
+    type Public = <Signature as Verify>::Signer;
+    type Signature = Signature;
 }
 
-impl<LocalCall> SendTransactionTypes<LocalCall> for Test where
-	Call: From<LocalCall>,
+impl<LocalCall> SendTransactionTypes<LocalCall> for Test
+where
+    Call: From<LocalCall>,
 {
-	type OverarchingCall = Call;
-	type Extrinsic = Extrinsic;
+    type OverarchingCall = Call;
+    type Extrinsic = Extrinsic;
 }
 
-impl<LocalCall> CreateSignedTransaction<LocalCall> for Test where
-	Call: From<LocalCall>,
+impl<LocalCall> CreateSignedTransaction<LocalCall> for Test
+where
+    Call: From<LocalCall>,
 {
-	fn create_transaction<C: AppCrypto<Self::Public, Self::Signature>>(
-		call: Call,
-		_public: <Signature as Verify>::Signer,
-		_account: AccountId,
-		nonce: u64,
-	) -> Option<(Call, <Extrinsic as ExtrinsicT>::SignaturePayload)> {
-		Some((call, (nonce, ())))
-	}
+    fn create_transaction<C: AppCrypto<Self::Public, Self::Signature>>(
+        call: Call,
+        _public: <Signature as Verify>::Signer,
+        _account: AccountId,
+        nonce: u64,
+    ) -> Option<(Call, <Extrinsic as ExtrinsicT>::SignaturePayload)> {
+        Some((call, (nonce, ())))
+    }
 }
 
 pub struct ExtBuilder {
@@ -665,6 +683,7 @@ pub struct ExtBuilder {
     epoch_duration: u64,
     cooling_interval: u64,
     buffer_interval: u64,
+    cdd_providers: Vec<AccountId>,
 }
 
 impl Default for ExtBuilder {
@@ -677,6 +696,7 @@ impl Default for ExtBuilder {
             epoch_duration: 10,
             cooling_interval: 3,
             buffer_interval: 0,
+            cdd_providers: vec![],
         }
     }
 }
@@ -710,6 +730,11 @@ impl ExtBuilder {
         self.buffer_interval = buffer_interval;
         self
     }
+    /// It sets `providers` as CDD providers.
+    pub fn cdd_providers(mut self, providers: Vec<AccountId>) -> Self {
+        self.cdd_providers = providers;
+        self
+    }
     pub fn set_associated_consts(&self) {
         BONDING_DURATION.with(|v| *v.borrow_mut() = self.bonding_duration);
         SESSION_PER_ERA.with(|v| *v.borrow_mut() = self.session_per_era);
@@ -737,27 +762,50 @@ impl ExtBuilder {
         .map(|id| (*id, account_from(*id)))
         .collect();
 
-        pallet_balances::GenesisConfig::<Test> {
+        let _ = pallet_balances::GenesisConfig::<Test> {
             balances: vec![
-                (MultiSigner::from(AccountKeyring::Alice.public()).into_account(), 10 * balance_factor),
-                (MultiSigner::from(AccountKeyring::Bob.public()).into_account(), 20 * balance_factor),
-                (MultiSigner::from(AccountKeyring::Charlie.public()).into_account(), 300 * balance_factor),
-                (MultiSigner::from(AccountKeyring::Dave.public()).into_account(), 400 * balance_factor),
+                (AccountKeyring::Alice.public(), 10 * balance_factor),
+                (AccountKeyring::Bob.public(), 20 * balance_factor),
+                (AccountKeyring::Charlie.public(), 300 * balance_factor),
+                (AccountKeyring::Dave.public(), 400 * balance_factor),
+                (
+                    account_key_ring.get(&11).unwrap().clone(),
+                    1500 * balance_factor,
+                ),
+                (
+                    account_key_ring.get(&21).unwrap().clone(),
+                    1000 * balance_factor,
+                ),
+                (
+                    account_key_ring.get(&20).unwrap().clone(),
+                    1000 * balance_factor,
+                ),
+                (
+                    account_key_ring.get(&10).unwrap().clone(),
+                    1000 * balance_factor,
+                ),
             ],
         }
         .assimilate_storage(&mut storage);
 
-        group::GenesisConfig::<Test, group::Instance2> {
-            active_members_limit: u32::MAX,
-            active_members: vec![IdentityId::from(1), IdentityId::from(2)],
-            phantom: Default::default(),
-        }
-        .assimilate_storage(&mut storage);
-
-        let _ = identity::GenesisConfig::<Test> {
-            identities: vec![
-                // (primary_account_id, service provider did, target did, expiry time of CustomerDueDiligence claim i.e 10 days is ms)
-                // Provide Identity
+        let mut system_ids = self
+            .cdd_providers
+            .clone()
+            .into_iter()
+            .enumerate()
+            .map(|(index, prov)| {
+                (
+                    prov,
+                    IdentityId::from(1),
+                    IdentityId::from((100 + index) as u128),
+                    InvestorUid::from(b"abc".as_ref()),
+                    None,
+                )
+            })
+            .collect::<Vec<_>>();
+        system_ids = system_ids
+            .into_iter()
+            .chain(vec![
                 (
                     account_key_ring.get(&11).unwrap().clone(),
                     IdentityId::from(1),
@@ -765,14 +813,49 @@ impl ExtBuilder {
                     InvestorUid::from(b"uid1".as_ref()),
                     None,
                 ),
+                (
+                    account_key_ring.get(&21).unwrap().clone(),
+                    IdentityId::from(1),
+                    IdentityId::from(2),
+                    InvestorUid::from(b"uid2".as_ref()),
+                    None,
+                ),
+            ])
+            .collect::<Vec<_>>();
+
+        let _ = identity::GenesisConfig::<Test> {
+            identities: system_ids.clone(),
+            secondary_keys: vec![
+                (
+                    account_key_ring.get(&10).unwrap().clone(),
+                    IdentityId::from(1),
+                ),
+                (
+                    account_key_ring.get(&20).unwrap().clone(),
+                    IdentityId::from(2),
+                ),
             ],
             ..Default::default()
         }
         .assimilate_storage(&mut storage);
 
-        let stake_21 = 1000;
-        let stake_31 = 1;
-        let status_41 = StakerStatus::<AccountId>::Idle;
+        let mut members = system_ids
+            .into_iter()
+            .filter(|(acc, _, _, _, _)| {
+                (self.cdd_providers.iter().find(|key| *key == acc)).is_some()
+            })
+            .map(|(_, _, id, _, _)| id)
+            .collect::<Vec<_>>();
+
+        members.push(IdentityId::from(1));
+
+        let _ = group::GenesisConfig::<Test, group::Instance2> {
+            active_members_limit: u32::MAX,
+            active_members: members,
+            phantom: Default::default(),
+        }
+        .assimilate_storage(&mut storage);
+
         let nominated = if self.nominate {
             vec![
                 account_key_ring.get(&11).unwrap().clone(),
@@ -832,7 +915,7 @@ pub type Session = pallet_session::Module<Test>;
 pub type Timestamp = pallet_timestamp::Module<Test>;
 pub type Identity = identity::Module<Test>;
 pub type Balances = pallet_balances::Module<Test>;
-pub type Group = group::Module<Test, group::Instance2>;
+pub type CddServiceProvider = group::Module<Test, group::Instance2>;
 pub type Staking = pallet_staking::Module<Test>;
 pub type Babe = pallet_babe::Module<Test>;
 
@@ -843,14 +926,84 @@ pub fn account_from(id: u64) -> AccountId {
     let mut enc_id = [0u8; 32];
     enc_id.copy_from_slice(enc_id_vec.as_slice());
 
-    MultiSigner::from(Pair::from_seed(&enc_id).public()).into_account()
+    Pair::from_seed(&enc_id).public()
 }
 
-pub fn create_did_and_add_claim(stash: AccountId, expiry: u64) {
-    Balances::make_free_balance_be(&account_from(1005), 1_000_000);
-    assert_ok!(Identity::cdd_register_did(
-        Origin::signed(account_from(1005)),
-        stash,
-        vec![]
-    ));
+pub fn make_account(
+    id: AccountId,
+    uid: InvestorUid,
+    expiry: Option<Moment>,
+) -> Result<(<Test as frame_system::Trait>::Origin, IdentityId), &'static str> {
+    make_account_with_balance(id, uid, expiry, 1_000_000)
+}
+
+/// It creates an Account and registers its DID and its InvestorUid.
+pub fn make_account_with_balance(
+    id: AccountId,
+    uid: InvestorUid,
+    expiry: Option<Moment>,
+    balance: <Test as CommonTrait>::Balance,
+) -> Result<(<Test as frame_system::Trait>::Origin, IdentityId), &'static str> {
+    let signed_id = Origin::signed(id.clone());
+    Balances::make_free_balance_be(&id, balance);
+
+    // If we have CDD providers, first of them executes the registration.
+    let cdd_providers = CddServiceProvider::get_members();
+    let did = match cdd_providers.into_iter().nth(0) {
+        Some(cdd_provider) => {
+            let cdd_acc = Identity::did_records(&cdd_provider).primary_key;
+            let _ = Identity::cdd_register_did(Origin::signed(cdd_acc), id, vec![])
+                .map_err(|_| "CDD register DID failed")?;
+
+            // Add CDD Claim
+            let did = Identity::get_identity(&id).unwrap();
+            let cdd_claim = Claim::CustomerDueDiligence(CddId::new(did, uid));
+            Identity::add_claim(Origin::signed(cdd_acc), did, cdd_claim, expiry)
+                .map_err(|_| "CDD provider cannot add the CDD claim")?;
+            did
+        }
+        _ => {
+            let _ = Identity::register_did(signed_id.clone(), uid, vec![])
+                .map_err(|_| "Register DID failed")?;
+            Identity::get_identity(&id).unwrap()
+        }
+    };
+
+    Ok((signed_id, did))
+}
+
+pub fn add_secondary_key(stash_key: AccountId, to_secondary_key: AccountId) {
+    if !get_identity(to_secondary_key) {
+        let _did = Identity::get_identity(&stash_key).unwrap();
+        assert!(
+            Identity::add_authorization(
+                Origin::signed(stash_key),
+                Signatory::Account(to_secondary_key),
+                AuthorizationData::JoinIdentity(Permissions::default()),
+                None
+            )
+            .is_ok(),
+            "Error in providing the authorization"
+        );
+        let auth_id = get_last_auth_id(&Signatory::Account(to_secondary_key));
+        assert_ok!(Identity::join_identity_as_key(
+            Origin::signed(to_secondary_key),
+            auth_id
+        ));
+    }
+}
+
+pub fn get_last_auth(signatory: &Signatory<AccountId>) -> Authorization<AccountId, u64> {
+    <identity::Authorizations<Test>>::iter_prefix_values(signatory)
+        .into_iter()
+        .max_by_key(|x| x.auth_id)
+        .expect("there are no authorizations")
+}
+
+pub fn get_last_auth_id(signatory: &Signatory<AccountId>) -> u64 {
+    get_last_auth(signatory).auth_id
+}
+
+pub fn get_identity(key: AccountId) -> bool {
+    <identity::KeyToIdentityIds<Test>>::contains_key(&key)
 }

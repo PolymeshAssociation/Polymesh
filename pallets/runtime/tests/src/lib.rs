@@ -20,6 +20,8 @@ mod basic_sto_test;
 #[cfg(test)]
 mod bridge;
 #[cfg(test)]
+mod cdd_offchain_worker;
+#[cfg(test)]
 mod committee_test;
 #[cfg(test)]
 mod compliance_manager_test;
@@ -55,5 +57,3 @@ mod treasury_test;
 mod utility_test;
 #[cfg(test)]
 mod voting_test;
-#[cfg(test)]
-mod cdd_offchain_worker; 

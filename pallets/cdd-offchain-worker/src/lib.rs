@@ -60,7 +60,7 @@ pub mod crypto {
     use super::{Signature, Verify, KEY_TYPE};
     use frame_system::offchain::AppCrypto;
 
-    mod sr25519_app {
+    pub mod sr25519_app {
         use sp_application_crypto::{app_crypto, sr25519};
         app_crypto!(sr25519, super::KEY_TYPE);
     }
@@ -102,9 +102,9 @@ pub trait Trait: CreateSignedTransaction<Call<Self>> {
 /// data required to submit a transaction.
 #[derive(Encode, Decode, Clone, PartialEq, Eq, RuntimeDebug)]
 pub struct Payload<Public, BlockNumber, AccountId> {
-    block_number: BlockNumber,
-    nominators: Vec<AccountId>,
-    public: Public,
+    pub block_number: BlockNumber,
+    pub nominators: Vec<AccountId>,
+    pub public: Public,
 }
 
 impl<T: SigningTypes> SignedPayload<T> for Payload<T::Public, T::BlockNumber, T::AccountId> {
@@ -152,7 +152,7 @@ decl_module! {
         /// they don't charge fees, we still don't want a single block to contain unlimited
         /// number of such transactions.
         #[weight = (10_000_000, DispatchClass::Operational, Pays::Yes)]
-        fn submit_unsigned_invalidate_nominators_with_signed_payload(origin, payload: Payload<T::Public, T::BlockNumber, T::AccountId>, _signature: T::Signature) -> DispatchResult {
+        pub fn submit_unsigned_invalidate_nominators_with_signed_payload(origin, payload: Payload<T::Public, T::BlockNumber, T::AccountId>, _signature: T::Signature) -> DispatchResult {
             // This is an unsigned transaction so origin should be none
             ensure_none(origin)?;
             // apply a sanity check to know whether the length of target list is greater than 0 or not.
@@ -196,7 +196,7 @@ decl_error! {
 impl<T: Trait> Module<T> {
     /// Helper function to generate the unsigned transaction to remove
     /// the expired cdd'ed nominators.
-    fn remove_invalidate_nominators(block_number: T::BlockNumber) -> DispatchResult {
+    pub fn remove_invalidate_nominators(block_number: T::BlockNumber) -> DispatchResult {
         debug::native::info!("Execution of invalidate nominators function starts");
         // First we validate whether the transaction proposer is validator or not.
         // if yes then only the invalidate nominators get fetched & transaction get proposed otherwise not.
