@@ -5,9 +5,9 @@ authors = ["Anonymous"]
 edition = "2018"
 
 [dependencies]
-sp-api = { git = 'https://github.com/paritytech/substrate', default_features = false, tag = "v2.0.0-rc6"}
-sp-runtime = { git = 'https://github.com/paritytech/substrate', default_features = false,  tag = "v2.0.0-rc6"}
-frame-support = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0-rc6" }
+sp-api = { git = 'https://github.com/paritytech/substrate', default_features = false, tag = "v2.0.0"}
+sp-runtime = { git = 'https://github.com/paritytech/substrate', default_features = false,  tag = "v2.0.0"}
+frame-support = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0" }
 
 [dev-dependencies]
 serde_json = "1.0.48"
