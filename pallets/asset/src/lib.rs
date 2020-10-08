@@ -290,25 +290,6 @@ pub struct ClassicTickerRegistration {
     pub is_created: bool,
 }
 
-/// A single record of a scheduled checkpoint.
-///
-/// A checkpoint of an asset is recorded as soon as there is a transaction involving that asset
-/// following the time when the checkpoint was due. Thus checkpoints are recorded lazily and any
-/// upcoming checkpoints are not going to be recorded or even scheduled for some time at all if
-/// transactions are absent during that time.
-#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[derive(Encode, Decode, Clone, Debug, Default, PartialEq, Eq)]
-pub struct CheckpointRecord<Balance> {
-    /// The time when the checkpoint is due to be recorded.
-    schedule_timestamp: u64,
-    /// The actual time when the checkpoint record is created.
-    record_timestamp: u64,
-    /// The balance at the checkpoint.
-    balance: Balance,
-    /// The total asset supply.
-    total_supply: Balance,
-}
-
 decl_storage! {
     trait Store for Module<T: Trait> as Asset {
         /// Ticker registration details.
@@ -696,7 +677,12 @@ decl_module! {
             ensure!(Self::is_owner(&ticker, did), Error::<T>::Unauthorized);
             let now_as_secs = T::UnixTime::now().as_secs().saturated_into::<u64>();
             let _ = Self::_create_checkpoint(&ticker, now_as_secs)?;
-            Self::deposit_event(RawEvent::CheckpointCreated(did, ticker, Self::total_checkpoints_of(&ticker)));
+            Self::deposit_event(RawEvent::CheckpointCreated(
+                did,
+                ticker,
+                Self::total_checkpoints_of(&ticker),
+                now_as_secs
+            ));
             Ok(())
         }
 
@@ -1145,8 +1131,8 @@ decl_event! {
         /// caller DID, ticker, AccountId
         ExtensionUnArchived(IdentityId, Ticker, AccountId),
         /// Emitted event for Checkpoint creation.
-        /// caller DID. ticker, checkpoint count.
-        CheckpointCreated(IdentityId, Ticker, u64),
+        /// caller DID. ticker, checkpoint count, checkpoint timestamp.
+        CheckpointCreated(IdentityId, Ticker, u64, u64),
         /// An event emitted when the primary issuance agent of an asset is transferred.
         /// First DID is the old primary issuance agent and the second DID is the new primary issuance agent.
         PrimaryIssuanceAgentTransferred(IdentityId, Ticker, Option<IdentityId>, Option<IdentityId>),
@@ -1644,12 +1630,12 @@ impl<T: Trait> Module<T> {
             .checked_add(&value)
             .ok_or(Error::<T>::BalanceOverflow)?;
 
-        Self::_update_checkpoint(ticker, from_portfolio.did, from_total_balance);
-        Self::_update_checkpoint(ticker, to_portfolio.did, to_total_balance);
         if let Some(timestamp) = Self::is_checkpoint_due(ticker) {
             // Record the scheduled checkpoint.
             Self::_create_checkpoint(ticker, timestamp)?;
         }
+        Self::_update_checkpoint(ticker, from_portfolio.did, from_total_balance);
+        Self::_update_checkpoint(ticker, to_portfolio.did, to_total_balance);
 
         // reduce sender's balance
         <BalanceOf<T>>::insert(ticker, &from_portfolio.did, updated_from_total_balance);
@@ -1807,11 +1793,11 @@ impl<T: Trait> Module<T> {
             T::ProtocolFee::charge_fee(op)?;
         }
 
-        Self::_update_checkpoint(ticker, to_did, current_to_balance);
         if let Some(timestamp) = Self::is_checkpoint_due(ticker) {
             // Record the scheduled checkpoint.
             Self::_create_checkpoint(ticker, timestamp)?;
         }
+        Self::_update_checkpoint(ticker, to_did, current_to_balance);
 
         // Increase total supply
         token.total_supply = updated_total_supply;
