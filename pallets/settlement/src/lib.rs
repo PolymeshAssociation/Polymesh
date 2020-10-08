@@ -1126,26 +1126,25 @@ impl<T: Trait> Module<T> {
                 SettlementDID.as_id(),
                 instruction_id,
             ));
+            result = DispatchResult::Err(Error::<T>::InstructionFailed.into());
             weight_for::weight_for_execute_instruction_if_auth_pending::<T>()
         } else {
             let mut transaction_weight = 0;
-            // All authorizations received, instruction should be settled.
-            let mut failed = false;
             // Verify that the venue still has the required permissions for the tokens involved.
             let tickers: BTreeSet<Ticker> = legs.iter().map(|leg| leg.1.asset).collect();
             let venue_id = Self::instruction_details(instruction_id).venue_id;
             for ticker in &tickers {
                 if Self::venue_filtering(ticker) && !Self::venue_allow_list(ticker, venue_id) {
-                    failed = true;
                     Self::deposit_event(RawEvent::VenueUnauthorized(
                         SettlementDID.as_id(),
                         *ticker,
                         venue_id,
                     ));
+                    result = DispatchResult::Err(Error::<T>::UnauthorizedVenue.into());
                 }
             }
 
-            if !failed {
+            if result.is_ok() {
                 match with_transaction(|| {
                     for (leg_id, leg_details) in legs.iter().filter(|(leg_id, _)| {
                         let status = Self::instruction_leg_status(instruction_id, leg_id);
