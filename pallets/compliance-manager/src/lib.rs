@@ -72,9 +72,6 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 #![recursion_limit = "256"]
 
-extern crate alloc;
-
-use alloc::borrow::Cow;
 use codec::{Decode, Encode};
 use core::result::Result;
 use frame_support::{
@@ -587,21 +584,27 @@ impl<T: Trait> Module<T> {
             .map(|id_claim| id_claim.claim)
     }
 
-    /// Fetches the trusted issuers for a certain `condition` if it defines one,
-    /// or falls back to `ticker`'s default ones otherwise.
-    fn fetch_issuers<'a>(ticker: &Ticker, condition: &'a Condition) -> Cow<'a, [TrustedIssuer]> {
+    /// Returns trusted issuers specified in `condition` if any,
+    /// or otherwise returns the default trusted issuers for `ticker`.
+    /// Defaults are cached in `slot`.
+    fn issuers_for<'a>(
+        ticker: &Ticker,
+        condition: &'a Condition,
+        slot: &'a mut Option<Vec<TrustedIssuer>>,
+    ) -> &'a [TrustedIssuer] {
         if condition.issuers.is_empty() {
-            Cow::Owned(Self::trusted_claim_issuer(ticker))
+            slot.get_or_insert_with(|| Self::trusted_claim_issuer(ticker))
         } else {
-            Cow::Borrowed(&condition.issuers)
+            &condition.issuers
         }
     }
 
     /// Fetches the proposition context for target `id` and specific `condition`.
-    /// The set of trusted issuers are taken from `issuers`.
+    /// Default trusted issuers, if fetched, are cached in `slot`.
     fn fetch_context<'a>(
         id: IdentityId,
-        issuers: &'a [TrustedIssuer],
+        ticker: &Ticker,
+        slot: &'a mut Option<Vec<TrustedIssuer>>,
         condition: &'a Condition,
         primary_issuance_agent: Option<IdentityId>,
     ) -> proposition::Context<impl 'a + Iterator<Item = Claim>> {
@@ -629,14 +632,17 @@ impl<T: Trait> Module<T> {
         }
 
         let claims = match &condition.condition_type {
-            ConditionType::IsPresent(claim) | ConditionType::IsAbsent(claim) => {
-                Iter::I1(Self::fetch_claims(id, claim, issuers))
-            }
-            ConditionType::IsAnyOf(claims) | ConditionType::IsNoneOf(claims) => Iter::I2(
-                claims
-                    .iter()
-                    .flat_map(move |claim| Self::fetch_claims(id, claim, issuers)),
+            ConditionType::IsPresent(claim) | ConditionType::IsAbsent(claim) => Iter::I1(
+                Self::fetch_claims(id, claim, Self::issuers_for(ticker, condition, slot)),
             ),
+            ConditionType::IsAnyOf(claims) | ConditionType::IsNoneOf(claims) => {
+                let issuers = Self::issuers_for(ticker, condition, slot);
+                Iter::I2(
+                    claims
+                        .iter()
+                        .flat_map(move |claim| Self::fetch_claims(id, claim, issuers)),
+                )
+            }
             ConditionType::HasValidProofOfInvestor(proof_ticker) => {
                 Iter::I3(Self::fetch_confidential_claims(id, proof_ticker))
             }
@@ -657,8 +663,9 @@ impl<T: Trait> Module<T> {
         conditions: &[Condition],
         primary_issuance_agent: Option<IdentityId>,
     ) -> bool {
+        let slot = &mut None;
         conditions.iter().all(|condition| {
-            Self::is_condition_satisfied(ticker, did, condition, primary_issuance_agent)
+            Self::is_condition_satisfied(ticker, did, condition, primary_issuance_agent, slot)
         })
     }
 
@@ -668,10 +675,9 @@ impl<T: Trait> Module<T> {
         did: IdentityId,
         condition: &Condition,
         primary_issuance_agent: Option<IdentityId>,
+        slot: &mut Option<Vec<TrustedIssuer>>,
     ) -> bool {
-        let issuers = Self::fetch_issuers(ticker, condition);
-        let context =
-            Self::fetch_context(did, issuers.as_ref(), &condition, primary_issuance_agent);
+        let context = Self::fetch_context(did, ticker, slot, &condition, primary_issuance_agent);
         proposition::run(&condition, context)
     }
 
@@ -686,8 +692,8 @@ impl<T: Trait> Module<T> {
     ) -> bool {
         conditions.iter_mut().fold(true, |result, condition| {
             let cond = &condition.condition;
-            let issuers = Self::fetch_issuers(ticker, cond);
-            let context = Self::fetch_context(did, issuers.as_ref(), cond, primary_issuance_agent);
+            let issuers = &mut None;
+            let context = Self::fetch_context(did, ticker, issuers, cond, primary_issuance_agent);
             condition.result = proposition::run(cond, context);
             result & condition.result
         })
@@ -817,7 +823,7 @@ impl<T: Trait> Module<T> {
             // Generate the condition for `HasValidProofOfInvestor` condition type.
             let condition =
                 &Condition::from_dids(ConditionType::HasValidProofOfInvestor(*ticker), &[did]);
-            Self::is_condition_satisfied(ticker, did, condition, None)
+            Self::is_condition_satisfied(ticker, did, condition, None, &mut None)
         })
     }
 
