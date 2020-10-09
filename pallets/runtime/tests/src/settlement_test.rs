@@ -6,7 +6,7 @@ use super::{
     ExtBuilder,
 };
 use codec::{Decode, Encode};
-use confidential_asset::MercatAccountId;
+use confidential_asset::{MercatAccountId, InitializedAssetTxWrapper};
 use core::convert::{TryFrom, TryInto};
 use cryptography::{
     asset_proofs::{CommitmentWitness, ElgamalSecretKey},
@@ -3220,7 +3220,7 @@ pub fn create_account_and_mint_token(
         Origin::signed(owner),
         ticker,
         amount.into(), // convert to u128
-        initialized_asset_tx,
+        InitializedAssetTxWrapper::from(initialized_asset_tx.encode()),
     ));
 
     // ------------------------- Ensuring that the asset details are set correctly

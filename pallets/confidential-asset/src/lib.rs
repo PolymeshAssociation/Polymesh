@@ -55,12 +55,12 @@ pub trait Trait: frame_system::Trait + IdentityTrait + statistics::Trait {
     type NonConfidentialAsset: AssetTrait<Self::Balance, Self::AccountId>;
 }
 
-/// Wrapper for Ciphertexts that correspond to `EncryptionPubKey`.
+/// Wrapper for Elgamal Encryption keys that correspond to `EncryptionPubKey`.
 #[derive(Encode, Decode, Clone, Debug, PartialEq, Eq, VecU8StrongTyped, Default)]
 pub struct EncryptionPubKeyWrapper(pub Vec<u8>);
 
 impl EncryptionPubKeyWrapper {
-    /// Unwraps the value so that it can be passed to meract library.
+    /// Unwraps the value so that it can be passed to mercat library.
     pub fn to_mercat<T: Trait>(&self) -> Result<EncryptionPubKey, Error<T>> {
         let mut data: &[u8] = &self.0;
         EncryptionPubKey::decode(&mut data).map_err(|_| Error::<T>::UnwrapMercatDataError)
@@ -75,7 +75,7 @@ impl EncryptionPubKeyWrapper {
 pub struct EncryptedAssetIdWrapper(pub Vec<u8>);
 
 impl EncryptedAssetIdWrapper {
-    /// Unwraps the value so that it can be passed to meract library.
+    /// Unwraps the value so that it can be passed to mercat library.
     pub fn to_mercat<T: Trait>(&self) -> Result<EncryptedAssetId, Error<T>> {
         let mut data: &[u8] = &self.0;
         EncryptedAssetId::decode(&mut data).map_err(|_| Error::<T>::UnwrapMercatDataError)
@@ -119,6 +119,19 @@ impl MercatAccount {
             enc_asset_id: self.encrypted_asset_id.to_mercat()?,
             owner_enc_pub_key: self.encryption_pub_key.to_mercat()?,
         })
+    }
+}
+
+
+/// Wrapper for the asset issuance proof that correspond to `InitializedAssetTx`.
+#[derive(Encode, Decode, Clone, Debug, PartialEq, Eq, VecU8StrongTyped, Default)]
+pub struct InitializedAssetTxWrapper(pub Vec<u8>);
+
+impl InitializedAssetTxWrapper {
+    /// Unwraps the value so that it can be passed to mercat library.
+    pub fn to_mercat<T: Trait>(&self) -> Result<InitializedAssetTx, Error<T>> {
+        let mut data: &[u8] = &self.0;
+        InitializedAssetTx::decode(&mut data).map_err(|_| Error::<T>::UnwrapMercatDataError)
     }
 }
 
@@ -265,7 +278,7 @@ decl_module! {
             origin,
             ticker: Ticker,
             total_supply: T::Balance,
-            asset_mint_proof: InitializedAssetTx,
+            asset_mint_proof: InitializedAssetTxWrapper,
         ) -> DispatchResult {
             let owner = ensure_signed(origin)?;
             let owner_did = Context::current_identity_or::<Identity<T>>(&owner)?;
@@ -309,6 +322,7 @@ decl_module! {
                 Error::<T>::TotalSupplyAboveU32Limit
             );
 
+            let asset_mint_proof = asset_mint_proof.to_mercat::<T>()?;
             let account_id = MercatAccountId::from(asset_mint_proof.account_id.encode());
             let new_encrypted_balance = AssetValidator{}
                                         .verify_asset_transaction(

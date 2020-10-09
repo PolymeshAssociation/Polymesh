@@ -21,6 +21,7 @@
             "encrypted_asset_id": "EncryptedAssetIdWrapper",
             "encryption_pub_key": "EncryptionPubKeyWrapper"
         },
+        "InitializedAssetTxWrapper": "Text",
         "AssetType": {
             "_enum": {
                 "EquityCommon": "",

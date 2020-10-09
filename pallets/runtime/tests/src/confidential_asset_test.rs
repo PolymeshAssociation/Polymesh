@@ -3,7 +3,7 @@ use super::{
     ExtBuilder,
 };
 use codec::{Decode, Encode};
-use confidential_asset::{EncryptedAssetIdWrapper, MercatAccountId};
+use confidential_asset::{EncryptedAssetIdWrapper, MercatAccountId, InitializedAssetTxWrapper};
 use core::convert::{TryFrom, TryInto};
 use cryptography::{
     asset_proofs::{CommitmentWitness, ElgamalSecretKey},
@@ -314,7 +314,7 @@ fn issuers_can_create_and_mint_tokens() {
             Origin::signed(owner),
             ticker,
             amount.into(), // convert to u128
-            initialized_asset_tx,
+            InitializedAssetTxWrapper::from(&initialized_asset_tx.encode()),
         )
         .unwrap();
 
