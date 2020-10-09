@@ -20,6 +20,7 @@ use frame_support::traits::Currency;
 use frame_system::RawOrigin;
 use pallet_balances as balances;
 use polymesh_primitives::{Claim, CountryCode, IdentityId, InvestorUid, Scope, Ticker};
+use polymesh_common_utilities::traits::identity::Trait as IdentityTrait;
 use sp_std::prelude::*;
 use schnorrkel::Signature;
 
@@ -57,16 +58,20 @@ benchmarks! {
         let u in 1 .. MAX_USER_INDEX => ();
     }
 
-    // register_did {
-    //     let u in ...;
-    //     // Number of secondary items.
-    //     let i in 0 .. 50;
-    //     let origin = make_account_without_did::<T>(NAME, u).1;
-    //     let uid = uid_from_name_and_idx(NAME, u);
-    //     let secondary_keys: Vec<SecondaryKey<T::AccountId>> = iter::repeat(Default::default())
-    //         .take(i as usize)
-    //         .collect();
-    // }: _(origin, uid, secondary_keys)
+    cdd_register_did {
+        let u in ...;
+        // Number of secondary items.
+        let i in 0 .. 50;
+
+        let (_, origin, origin_did) = make_account::<T>("caller", u);
+        <T as IdentityTrait>::CddServiceProviders::add_member(origin_did);
+
+        let account: T::AccountId = account("target", u, SEED);
+
+        let secondary_keys: Vec<secondary_key::api::SecondaryKey<T::AccountId>> = iter::repeat(Default::default())
+            .take(i as usize)
+            .collect();
+    }: _(origin, account, secondary_keys)
 
     add_investor_uniqueness_claim {
         let u in ...;

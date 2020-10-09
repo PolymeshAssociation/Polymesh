@@ -410,6 +410,12 @@ impl GroupTrait<Moment> for Test {
         unimplemented!();
     }
 
+    fn add_member(
+        _who: IdentityId,
+    ) -> DispatchResult {
+        unimplemented!()
+    }
+
     fn get_active_members() -> Vec<IdentityId> {
         Self::get_members()
     }
