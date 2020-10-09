@@ -941,7 +941,7 @@
         "MercatTxData": {
             "InitializedTransfer": "Text",
             "FinalizedTransfer": "Text",
-            "JustifiedTransfer": "Text",
+            "JustifiedTransfer": "Text"
         },
         "NonConfidentialLeg": {
             "from": "PortfolioId",
