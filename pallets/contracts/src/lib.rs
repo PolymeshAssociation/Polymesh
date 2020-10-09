@@ -24,13 +24,12 @@ use frame_support::{
     ensure,
     traits::Get,
 };
-use frame_system::ensure_signed;
 use pallet_contracts::{BalanceOf, CodeHash, ContractAddressFor, Gas, Schedule};
 use pallet_identity as identity;
 use polymesh_common_utilities::{
     identity::Trait as IdentityTrait,
     protocol_fee::{ChargeProtocolFee, ProtocolOp},
-    with_transaction, Context,
+    with_transaction,
 };
 use polymesh_primitives::{
     ExtensionAttributes, IdentityId, MetaUrl, TemplateDetails, TemplateMetadata,
@@ -185,8 +184,7 @@ decl_module! {
             instantiation_fee: BalanceOf<T>,
             code: Vec<u8>
         ) -> DispatchResult {
-            let sender = ensure_signed(origin.clone())?;
-            let did = Context::current_identity_or::<Identity<T>>(&sender)?;
+            let did = Identity::<T>::ensure_origin_call_permissions(origin.clone())?.primary_did;
 
             // Save metadata related to the SE template
             // Generate the code_hash here as well because there is no way
@@ -240,7 +238,7 @@ decl_module! {
             data: Vec<u8>,
             max_fee: BalanceOf<T>
         ) -> DispatchResultWithPostInfo {
-            let sender = ensure_signed(origin.clone())?;
+            let sender = Identity::<T>::ensure_origin_call_permissions(origin.clone())?.sender;
             // Access the meta details of SE template
             let template_details = Self::get_template_details(code_hash);
 
@@ -391,10 +389,9 @@ impl<T: Trait> Module<T> {
         origin: T::Origin,
         code_hash: CodeHash<T>,
     ) -> Result<(IdentityId, TemplateDetails<BalanceOf<T>>), DispatchError> {
-        // Ensure the transaction is signed.
-        let sender = ensure_signed(origin.clone())?;
-        // Get the DID of the sender.
-        let did = Context::current_identity_or::<Identity<T>>(&sender)?;
+        // Ensure the transaction is signed and ensure `origin` has the required permission to
+        // execute the dispatchable.
+        let did = Identity::<T>::ensure_origin_call_permissions(origin.clone())?.primary_did;
         // Validate whether the template exists or not for a given code_hash.
         ensure!(
             <TemplateInfo<T>>::contains_key(code_hash),

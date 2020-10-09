@@ -237,6 +237,7 @@ parameter_types! {
     pub const MaximumBlockWeight: Weight = 1024;
     pub const MaximumBlockLength: u32 = 2 * 1024;
     pub const AvailableBlockRatio: Perbill = Perbill::one();
+    pub const MaxLocks: u32 = 50;
 }
 impl frame_system::Trait for Test {
     type BaseCallFilter = ();
@@ -259,7 +260,7 @@ impl frame_system::Trait for Test {
     type AvailableBlockRatio = AvailableBlockRatio;
     type MaximumBlockLength = MaximumBlockLength;
     type Version = ();
-    type ModuleToIndex = ();
+    type PalletInfo = ();
     type AccountData = AccountData<Balance>;
     type OnNewAccount = ();
     type OnKilledAccount = ();
@@ -280,6 +281,7 @@ impl balances::Trait for Test {
     type Identity = identity::Module<Test>;
     type CddChecker = Test;
     type WeightInfo = ();
+    type MaxLocks = MaxLocks;
 }
 
 parameter_types! {
@@ -514,6 +516,7 @@ impl From<pallet_babe::Call<Test>> for Call {
 }
 
 impl pallet_babe::Trait for Test {
+    type WeightInfo = ();
     type EpochDuration = EpochDuration;
     type ExpectedBlockTime = ExpectedBlockTime;
     type EpochChangeTrigger = pallet_babe::ExternalTrigger;

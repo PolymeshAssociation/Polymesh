@@ -7,11 +7,11 @@ edition = "2018"
 [dependencies]
 codec = { package = "parity-scale-codec", version = "1.2.0" }
 serde = { version = "1.0.104", features = ["derive"] }
-jsonrpc-core = "14.0.5"
-jsonrpc-core-client = "14.0.5"
-jsonrpc-derive = "14.0.5"
-sp-runtime = { git = 'https://github.com/paritytech/substrate', default_features = false, tag = "v2.0.0-rc6" }
-sp-blockchain = { git = 'https://github.com/paritytech/substrate', default_features = false, tag = "v2.0.0-rc6"}
-sp-api = { git = 'https://github.com/paritytech/substrate', default_features = false, tag = "v2.0.0-rc6"}
+jsonrpc-core = "15.0.0"
+jsonrpc-core-client = "15.0.0"
+jsonrpc-derive = "15.0.0"
+sp-runtime = { git = 'https://github.com/paritytech/substrate', default_features = false, tag = "v2.0.0" }
+sp-blockchain = { git = 'https://github.com/paritytech/substrate', default_features = false, tag = "v2.0.0"}
+sp-api = { git = 'https://github.com/paritytech/substrate', default_features = false, tag = "v2.0.0"}
 
 pallet-staking-rpc-runtime-api = { version = "2.0.0", path = "./runtime-api" }
