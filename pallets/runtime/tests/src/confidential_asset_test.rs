@@ -391,7 +391,10 @@ fn account_create_tx() {
 
         assert_eq!(stored_account.encrypted_asset_id, wrapped_enc_asset_id,);
         assert_eq!(
-            stored_account.encryption_pub_key,
+            stored_account
+                .encryption_pub_key
+                .to_mercat::<TestStorage>()
+                .unwrap(),
             mercat_account_tx.pub_account.owner_enc_pub_key,
         );
 

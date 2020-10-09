@@ -13,6 +13,14 @@
             "uri": "DocumentUri",
             "content_hash": "DocumentHash"
         },
+        "EncryptedAssetIdWrapper": "Text",
+        "EncryptedBalanceWrapper": "Text",
+        "MercatAccountId": "Text",
+        "EncryptionPubKeyWrapper": "Text",
+        "MercatAccount": {
+            "encrypted_asset_id": "EncryptedAssetIdWrapper",
+            "encryption_pub_key": "EncryptionPubKeyWrapper"
+        },
         "AssetType": {
             "_enum": {
                 "EquityCommon": "",
@@ -930,11 +938,28 @@
             "created_at": "Option<Moment>",
             "valid_from": "Option<Moment>"
         },
-        "Leg": {
+        "MercatTxData": {
+            "InitializedTransfer": "Text",
+            "FinalizedTransfer": "Text",
+            "JustifiedTransfer": "Text",
+        },
+        "NonConfidentialLeg": {
             "from": "PortfolioId",
             "to": "PortfolioId",
             "asset": "Ticker",
             "amount": "Balance"
+        },
+        "ConfidentialLeg": {
+            "from": "PortfolioId",
+            "to": "PortfolioId",
+            "mediator": "PortfolioId",
+            "from_account_id": "MercatAccountId",
+            "to_account_id": "MercatAccountId"
+        },
+        "Leg": {
+            "NonConfidentialLeg": "NonConfidentialLeg",
+            "ConfidentialLeg": "ConfidentialLeg",
+            "Undefined": ""
         },
         "Venue": {
             "creator": "IdentityId",

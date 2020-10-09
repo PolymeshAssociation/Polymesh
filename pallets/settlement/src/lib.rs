@@ -507,7 +507,6 @@ decl_storage! {
         /// The storage for mercat transaction proofs.
         /// The key is the instruction_id.
         MercatTxDataStorage get(fn mercat_tx_data): map hasher(twox_64_concat) u64 => Vec<MercatTxData>;
-        //MercatTxDataStorage get(fn mercat_tx_data): double_map hasher(twox_64_concat) u64 => Vec<MercatTxData>;
     }
 }
 

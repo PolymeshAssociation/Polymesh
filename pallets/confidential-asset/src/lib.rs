@@ -55,6 +55,18 @@ pub trait Trait: frame_system::Trait + IdentityTrait + statistics::Trait {
     type NonConfidentialAsset: AssetTrait<Self::Balance, Self::AccountId>;
 }
 
+/// Wrapper for Ciphertexts that correspond to `EncryptionPubKey`.
+#[derive(Encode, Decode, Clone, Debug, PartialEq, Eq, VecU8StrongTyped, Default)]
+pub struct EncryptionPubKeyWrapper(pub Vec<u8>);
+
+impl EncryptionPubKeyWrapper {
+    /// Unwraps the value so that it can be passed to meract library.
+    pub fn to_mercat<T: Trait>(&self) -> Result<EncryptionPubKey, Error<T>> {
+        let mut data: &[u8] = &self.0;
+        EncryptionPubKey::decode(&mut data).map_err(|_| Error::<T>::UnwrapMercatDataError)
+    }
+}
+
 /// Wrapper for Ciphertexts that correspond to `EncryptedAssetId`.
 /// This is needed since `mercat::asset_proofs::elgamal_encryption::CipherText` implements
 /// Encode and Decode, instead of deriving them. As a result, the `EncodeLike` operator is
@@ -97,7 +109,7 @@ impl EncryptedBalanceWrapper {
 #[derive(Encode, Decode, Clone, Debug, PartialEq, Eq, Default)]
 pub struct MercatAccount {
     pub encrypted_asset_id: EncryptedAssetIdWrapper,
-    pub encryption_pub_key: EncryptionPubKey,
+    pub encryption_pub_key: EncryptionPubKeyWrapper,
 }
 
 impl MercatAccount {
@@ -105,7 +117,7 @@ impl MercatAccount {
     pub fn to_mercat<T: Trait>(&self) -> Result<PubAccount, Error<T>> {
         Ok(PubAccount {
             enc_asset_id: self.encrypted_asset_id.to_mercat()?,
-            owner_enc_pub_key: self.encryption_pub_key,
+            owner_enc_pub_key: self.encryption_pub_key.to_mercat()?,
         })
     }
 }
@@ -161,10 +173,11 @@ decl_module! {
             let valid_asset_ids = convert_asset_ids(Self::confidential_tickers());
             AccountValidator{}.verify(&tx, &valid_asset_ids).map_err(|_| Error::<T>::InvalidAccountCreationProof)?;
             let wrapped_enc_asset_id = EncryptedAssetIdWrapper::from(tx.pub_account.enc_asset_id.encode());
+            let wrapped_enc_pub_key = EncryptionPubKeyWrapper::from(tx.pub_account.owner_enc_pub_key.encode());
             let account_id = MercatAccountId(wrapped_enc_asset_id.0.clone());
             <MercatAccounts>::insert(&owner_id, &account_id, MercatAccount {
                 encrypted_asset_id: wrapped_enc_asset_id,
-                encryption_pub_key: tx.pub_account.owner_enc_pub_key,
+                encryption_pub_key: wrapped_enc_pub_key,
             });
             let wrapped_enc_balance = EncryptedBalanceWrapper::from(tx.initial_balance.encode());
             <MercatAccountBalance>::insert(&owner_id, &account_id, wrapped_enc_balance.clone());
