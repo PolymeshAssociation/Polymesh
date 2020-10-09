@@ -31,7 +31,7 @@ fn raise_happy_path_ext() {
 fn raise_unhappy_path_ext() {
     ExtBuilder::default()
         .build()
-        .execute_with(|| raise_unhappy_path());
+        .execute_with(raise_unhappy_path);
 }
 
 fn raise_happy_path() {
