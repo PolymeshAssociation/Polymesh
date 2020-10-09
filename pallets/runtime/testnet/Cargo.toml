@@ -84,6 +84,7 @@ pallet-timestamp = { git = "https://github.com/paritytech/substrate", default-fe
 pallet-babe = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0-rc6" }
 pallet-authority-discovery = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0-rc6" }
 pallet-randomness-collective-flip = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0-rc6" }
+pallet-scheduler = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0-rc6" }
 
 frame-system = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0-rc6" }
 frame-support = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0-rc6" }
@@ -143,6 +144,7 @@ std = [
     "pallet-protocol-fee-rpc-runtime-api/std",
     "pallet-protocol-fee/std",
     "pallet-randomness-collective-flip/std",
+    "pallet-scheduler/std",
     "pallet-session/std",
     "pallet-settlement/std",
     "pallet-staking-rpc-runtime-api/std",

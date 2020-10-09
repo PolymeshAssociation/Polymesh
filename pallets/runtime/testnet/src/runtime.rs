@@ -646,10 +646,12 @@ parameter_types! {
 }
 
 impl bridge::Trait for Runtime {
-    type Origin = Origin;
     type Event = Event;
     type Proposal = Call;
     type MaxTimelockedTxsPerBlock = MaxTimelockedTxsPerBlock;
+    type Scheduler = Scheduler;
+    type SchedulerOrigin = OriginCaller;
+    type SchedulerCall = Call;
 }
 
 impl portfolio::Trait for Runtime {
@@ -741,6 +743,22 @@ impl pallet_utility::Trait for Runtime {
 impl PermissionChecker for Runtime {
     type Call = Call;
     type Checker = Identity;
+}
+
+parameter_types! {
+    pub MaximumSchedulerWeight: Weight = Perbill::from_percent(80) * MaximumBlockWeight::get();
+    pub const MaxScheduledPerBlock: u32 = 50;
+}
+
+impl pallet_scheduler::Trait for Runtime {
+    type Event = Event;
+    type Origin = Origin;
+    type PalletsOrigin = OriginCaller;
+    type Call = Call;
+    type MaximumWeight = MaximumSchedulerWeight;
+    type ScheduleOrigin = EnsureRoot<AccountId>;
+//    type MaxScheduledPerBlock = MaxScheduledPerBlock;
+    type WeightInfo = ();
 }
 
 construct_runtime!(

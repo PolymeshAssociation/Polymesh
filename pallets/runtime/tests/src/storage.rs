@@ -9,10 +9,12 @@ use frame_support::{
     traits::{Currency, Imbalance, OnUnbalanced},
     weights::DispatchInfo,
     weights::{
-        RuntimeDbWeight, WeightToFeeCoefficient, WeightToFeeCoefficients, WeightToFeePolynomial,
+        RuntimeDbWeight, Weight, WeightToFeeCoefficient, WeightToFeeCoefficients,
+        WeightToFeePolynomial,
     },
     StorageDoubleMap,
 };
+use frame_system::EnsureRoot;
 use pallet_asset as asset;
 use pallet_balances as balances;
 use pallet_basic_sto as sto;
@@ -97,6 +99,7 @@ impl_outer_dispatch! {
         polymesh_contracts::WrapperContracts,
         self::Committee,
         self::DefaultCommittee,
+        pallet_scheduler::Scheduler,
     }
 }
 
@@ -128,6 +131,7 @@ impl_outer_event! {
         portfolio<T>,
         confidential,
         polymesh_contracts<T>,
+        pallet_scheduler<T>,
     }
 }
 
@@ -351,11 +355,11 @@ impl pallet_transaction_payment::Trait for TestStorage {
 
 impl group::Trait<group::DefaultInstance> for TestStorage {
     type Event = Event;
-    type LimitOrigin = frame_system::EnsureRoot<AccountId>;
-    type AddOrigin = frame_system::EnsureRoot<AccountId>;
-    type RemoveOrigin = frame_system::EnsureRoot<AccountId>;
-    type SwapOrigin = frame_system::EnsureRoot<AccountId>;
-    type ResetOrigin = frame_system::EnsureRoot<AccountId>;
+    type LimitOrigin = EnsureRoot<AccountId>;
+    type AddOrigin = EnsureRoot<AccountId>;
+    type RemoveOrigin = EnsureRoot<AccountId>;
+    type SwapOrigin = EnsureRoot<AccountId>;
+    type ResetOrigin = EnsureRoot<AccountId>;
     type MembershipInitialized = committee::Module<TestStorage, committee::Instance1>;
     type MembershipChanged = committee::Module<TestStorage, committee::Instance1>;
 }
@@ -363,22 +367,22 @@ impl group::Trait<group::DefaultInstance> for TestStorage {
 /// PolymeshCommittee as an instance of group
 impl group::Trait<group::Instance1> for TestStorage {
     type Event = Event;
-    type LimitOrigin = frame_system::EnsureRoot<AccountId>;
-    type AddOrigin = frame_system::EnsureRoot<AccountId>;
-    type RemoveOrigin = frame_system::EnsureRoot<AccountId>;
-    type SwapOrigin = frame_system::EnsureRoot<AccountId>;
-    type ResetOrigin = frame_system::EnsureRoot<AccountId>;
+    type LimitOrigin = EnsureRoot<AccountId>;
+    type AddOrigin = EnsureRoot<AccountId>;
+    type RemoveOrigin = EnsureRoot<AccountId>;
+    type SwapOrigin = EnsureRoot<AccountId>;
+    type ResetOrigin = EnsureRoot<AccountId>;
     type MembershipInitialized = committee::Module<TestStorage, committee::Instance1>;
     type MembershipChanged = committee::Module<TestStorage, committee::Instance1>;
 }
 
 impl group::Trait<group::Instance2> for TestStorage {
     type Event = Event;
-    type LimitOrigin = frame_system::EnsureRoot<AccountId>;
-    type AddOrigin = frame_system::EnsureRoot<AccountId>;
-    type RemoveOrigin = frame_system::EnsureRoot<AccountId>;
-    type SwapOrigin = frame_system::EnsureRoot<AccountId>;
-    type ResetOrigin = frame_system::EnsureRoot<AccountId>;
+    type LimitOrigin = EnsureRoot<AccountId>;
+    type AddOrigin = EnsureRoot<AccountId>;
+    type RemoveOrigin = EnsureRoot<AccountId>;
+    type SwapOrigin = EnsureRoot<AccountId>;
+    type ResetOrigin = EnsureRoot<AccountId>;
     type MembershipInitialized = identity::Module<TestStorage>;
     type MembershipChanged = identity::Module<TestStorage>;
 }
@@ -403,7 +407,7 @@ impl committee::Trait<committee::Instance1> for TestStorage {
 impl committee::Trait<committee::DefaultInstance> for TestStorage {
     type Origin = Origin;
     type Proposal = Call;
-    type CommitteeOrigin = frame_system::EnsureRoot<AccountId>;
+    type CommitteeOrigin = EnsureRoot<AccountId>;
     type Event = Event;
     type MotionDuration = MotionDuration;
 }
@@ -491,10 +495,12 @@ parameter_types! {
 }
 
 impl bridge::Trait for TestStorage {
-    type Origin = Origin;
     type Event = Event;
     type Proposal = Call;
     type MaxTimelockedTxsPerBlock = MaxTimelockedTxsPerBlock;
+    type Scheduler = Scheduler;
+    type SchedulerOrigin = OriginCaller;
+    type SchedulerCall = Call;
 }
 
 impl exemption::Trait for TestStorage {
@@ -579,7 +585,7 @@ impl dividend::Trait for TestStorage {
 
 impl pips::Trait for TestStorage {
     type Currency = balances::Module<Self>;
-    type CommitteeOrigin = frame_system::EnsureRoot<AccountId>;
+    type CommitteeOrigin = EnsureRoot<AccountId>;
     type VotingMajorityOrigin = VMO<committee::Instance1>;
     type GovernanceCommittee = Committee;
     type TechnicalCommitteeVMO = VMO<committee::Instance3>;
@@ -602,6 +608,22 @@ impl PermissionChecker for TestStorage {
     type Checker = Identity;
 }
 
+parameter_types! {
+    pub MaximumSchedulerWeight: Weight = Perbill::from_percent(80) * MaximumBlockWeight::get();
+    pub const MaxScheduledPerBlock: u32 = 50;
+}
+
+impl pallet_scheduler::Trait for TestStorage {
+    type Event = Event;
+    type Origin = Origin;
+    type PalletsOrigin = OriginCaller;
+    type Call = Call;
+    type MaximumWeight = MaximumSchedulerWeight;
+    type ScheduleOrigin = EnsureRoot<AccountId>;
+    //    type MaxScheduledPerBlock = MaxScheduledPerBlock;
+    type WeightInfo = ();
+}
+
 // Publish type alias for each module
 pub type Identity = identity::Module<TestStorage>;
 pub type Pips = pips::Module<TestStorage>;
@@ -621,6 +643,7 @@ pub type System = frame_system::Module<TestStorage>;
 pub type Portfolio = portfolio::Module<TestStorage>;
 pub type WrapperContracts = polymesh_contracts::Module<TestStorage>;
 pub type ComplianceManager = compliance_manager::Module<TestStorage>;
+pub type Scheduler = pallet_scheduler::Module<TestStorage>;
 
 pub fn make_account(
     id: AccountId,

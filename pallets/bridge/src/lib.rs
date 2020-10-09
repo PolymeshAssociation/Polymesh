@@ -103,12 +103,13 @@ use frame_support::{
     ensure,
     storage::StorageDoubleMap,
     traits::{
-        schedule::{DispatchTime, LOWEST_PRIORITY},
+        schedule::{Anon as ScheduleAnon, DispatchTime, LOWEST_PRIORITY},
         Currency, Get,
     },
     weights::{DispatchClass, Pays, Weight},
+    Parameter,
 };
-use frame_system::{self as system, ensure_none, ensure_signed, RawOrigin};
+use frame_system::{self as system, ensure_root, ensure_signed, RawOrigin};
 use pallet_balances as balances;
 use pallet_identity as identity;
 use pallet_multisig as multisig;
@@ -119,22 +120,26 @@ use polymesh_common_utilities::{
 };
 use polymesh_primitives::{IdentityId, Permissions, Signatory};
 use sp_core::H256;
-use sp_runtime::traits::{CheckedAdd, One, SaturatedConversion, Zero};
+use sp_runtime::traits::{CheckedAdd, Dispatchable, One, SaturatedConversion, Zero};
 use sp_std::{convert::TryFrom, prelude::*};
 
 type Identity<T> = identity::Module<T>;
-type Scheduler<T> = scheduler::Module<T>;
 
 pub trait Trait: multisig::Trait + scheduler::Trait {
-    /// A type for identity-mapping the Origin type. Needed for trait constraint satisfaction.
-    type Origin: Into<Result<RawOrigin<Self::AccountId>, <Self as Trait>::Origin>>
-        + Into<<Self as scheduler::Trait>::Origin>;
     type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
     type Proposal: From<Call<Self>> + Into<<Self as IdentityTrait>::Proposal>;
     /// The maximum number of timelocked bridge transactions that can be scheduled to be
     /// executed in a single block. Any excess bridge transactions are scheduled in later
     /// blocks.
     type MaxTimelockedTxsPerBlock: Get<u32>;
+    /// Scheduler of timelocked bridge transactions.
+    type Scheduler: ScheduleAnon<Self::BlockNumber, Self::SchedulerCall, Self::SchedulerOrigin>;
+    /// A type for identity-mapping the `Origin` type. Used by the scheduler.
+    type SchedulerOrigin: From<RawOrigin<Self::AccountId>>;
+    /// A call type for identity-mapping the `Call` enum type. Used by the scheduler.
+    type SchedulerCall: Parameter
+        + Dispatchable<Origin = <Self as frame_system::Trait>::Origin>
+        + From<Call<Self>>;
 }
 
 /// The status of a bridge transaction.
@@ -401,7 +406,7 @@ decl_event! {
 }
 
 decl_module! {
-    pub struct Module<T: Trait> for enum Call where origin: <T as Trait>::Origin {
+    pub struct Module<T: Trait> for enum Call where origin: <T as frame_system::Trait>::Origin {
         type Error = Error<T>;
 
         const MaxTimelockedTxsPerBlock: u32 = T::MaxTimelockedTxsPerBlock::get();
@@ -590,7 +595,7 @@ decl_module! {
         fn handle_scheduled_bridge_tx(origin, bridge_tx: BridgeTx<T::AccountId, T::Balance>) ->
             DispatchResult
         {
-            ensure_none(origin)?;
+            ensure_root(origin)?;
             let _ = Self::handle_bridge_tx_now(bridge_tx, false);
             Ok(())
         }
@@ -723,14 +728,14 @@ impl<T: Trait> Module<T> {
         <BridgeTxDetails<T>>::insert(&bridge_tx.recipient, &bridge_tx.nonce, tx_details);
 
         // FIXME
-        let call = Call::<T>::handle_bridge_tx(bridge_tx.clone());
-        Scheduler::<T>::schedule(
-            RawOrigin::None.into(),
+        let call = Call::<T>::handle_scheduled_bridge_tx(bridge_tx.clone()).into();
+        T::Scheduler::schedule(
             DispatchTime::At(unlock_block_number),
             None,
             LOWEST_PRIORITY,
+            RawOrigin::Root.into(),
             call,
-        );
+        )?;
 
         <TimelockedTxs<T>>::mutate(&unlock_block_number, |txs| {
             txs.push(bridge_tx.clone());
