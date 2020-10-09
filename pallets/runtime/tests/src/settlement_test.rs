@@ -3127,7 +3127,7 @@ pub fn init_account(
     did: IdentityId,
 ) -> (SecAccount, MercatAccountId, PubAccount, EncryptedAmount) {
     let valid_asset_ids = ConfidentialAsset::confidential_tickers();
-    let (scrt_account, mercat_account_tx) =
+    let (secret_account, mercat_account_tx) =
         gen_account(tx_id, &mut rng, token_name, valid_asset_ids);
 
     assert_ok!(ConfidentialAsset::validate_mercat_account(
@@ -3137,7 +3137,7 @@ pub fn init_account(
 
     let account_id = MercatAccountId::from(mercat_account_tx.pub_account.enc_asset_id.encode());
     (
-        scrt_account,
+        secret_account,
         account_id.clone(),
         ConfidentialAsset::mercat_accounts(did, account_id.clone())
             .to_mercat::<TestStorage>()
@@ -3170,7 +3170,7 @@ pub fn create_account_and_mint_token(
     let token = SecurityToken {
         name: token_name.clone().into(),
         owner_did,
-        total_supply: total_supply,
+        total_supply,
         divisible: false,
         asset_type: AssetType::default(),
         primary_issuance_agent: Some(owner_did),
@@ -3195,7 +3195,7 @@ pub fn create_account_and_mint_token(
 
     let valid_asset_ids = ConfidentialAsset::confidential_tickers();
 
-    let (scrt_account, mercat_account_tx) =
+    let (secret_account, mercat_account_tx) =
         gen_account(tx_id, &mut rng, &token_name, valid_asset_ids);
 
     assert_ok!(ConfidentialAsset::validate_mercat_account(
@@ -3206,7 +3206,7 @@ pub fn create_account_and_mint_token(
     // ------------- Computations that will happen in owner's Wallet ----------
     let amount: u32 = token.total_supply.try_into().unwrap(); // mercat amounts are 32 bit integers.
     let issuer_account = Account {
-        scrt: scrt_account.clone(),
+        scrt: secret_account.clone(),
         pblc: mercat_account_tx.pub_account.clone(),
     };
 
@@ -3245,13 +3245,17 @@ pub fn create_account_and_mint_token(
     let stored_balance = ConfidentialAsset::mercat_account_balance(owner_did, account_id.clone())
         .to_mercat::<TestStorage>()
         .unwrap();
-    let stored_balance = scrt_account.enc_keys.scrt.decrypt(&stored_balance).unwrap();
+    let stored_balance = secret_account
+        .enc_keys
+        .scrt
+        .decrypt(&stored_balance)
+        .unwrap();
 
     assert_eq!(stored_balance, amount);
 
     (
         tx_id,
-        scrt_account,
+        secret_account,
         account_id.clone(),
         ConfidentialAsset::mercat_accounts(owner_did, account_id.clone())
             .to_mercat::<TestStorage>()
