@@ -410,9 +410,7 @@ impl GroupTrait<Moment> for Test {
         unimplemented!();
     }
 
-    fn add_member(
-        _who: IdentityId,
-    ) -> DispatchResult {
+    fn add_member(_who: IdentityId) -> DispatchResult {
         unimplemented!()
     }
 

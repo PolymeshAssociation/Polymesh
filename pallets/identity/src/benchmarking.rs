@@ -19,13 +19,14 @@ use frame_benchmarking::{account, benchmarks};
 use frame_support::traits::Currency;
 use frame_system::RawOrigin;
 use pallet_balances as balances;
-use polymesh_primitives::{Claim, CountryCode, IdentityId, InvestorUid, Scope, Ticker};
-use polymesh_common_utilities::traits::identity::Trait as IdentityTrait;
-use sp_std::prelude::*;
+use polymesh_primitives::{
+    AuthorizationData, Claim, CountryCode, IdentityId, InvestorUid, Permissions, Scope, Signatory,
+};
+// use polymesh_common_utilities::traits::identity::Trait as IdentityTrait;
 use schnorrkel::Signature;
+use sp_std::prelude::*;
 
 const SEED: u32 = 0;
-const MAX_USER_INDEX: u32 = 1_000;
 
 fn uid_from_name_and_idx(name: &'static str, u: u32) -> InvestorUid {
     InvestorUid::from((name, u).encode().as_slice())
@@ -52,30 +53,109 @@ fn make_account<T: Trait>(
     (account, origin, did)
 }
 
+fn make_cdd_account<T: Trait>(u: u32) -> (T::AccountId, RawOrigin<T::AccountId>, IdentityId) {
+    let (cdd_account, cdd_origin, cdd_did) = make_account::<T>("cdd", u);
+    T::CddServiceProviders::add_member(cdd_did).unwrap();
+    (cdd_account, cdd_origin, cdd_did)
+}
+
 benchmarks! {
-    _ {
-        // User account seed.
-        let u in 1 .. MAX_USER_INDEX => ();
-    }
+    _ {}
+
+    register_did {
+        // Number of secondary items.
+        let i in 0 .. 50;
+        make_cdd_account::<T>(SEED);
+        let (_, origin) = make_account_without_did::<T>("caller", SEED);
+        let uid = uid_from_name_and_idx("caller", SEED);
+
+        let mut secondary_keys: Vec<secondary_key::api::SecondaryKey<T::AccountId>> = Vec::with_capacity(i as usize);
+        for x in 0..i {
+            secondary_keys.push(secondary_key::api::SecondaryKey {
+                signer: Signatory::Account(account("key", x, SEED)),
+                ..Default::default()
+            });
+        }
+    }: _(origin, uid, secondary_keys)
 
     cdd_register_did {
-        let u in ...;
         // Number of secondary items.
         let i in 0 .. 50;
 
-        let (_, origin, origin_did) = make_account::<T>("caller", u);
-        <T as IdentityTrait>::CddServiceProviders::add_member(origin_did);
+        let (_, origin, origin_did) = make_cdd_account::<T>(SEED);
 
-        let account: T::AccountId = account("target", u, SEED);
+        let target: T::AccountId = account("target", SEED, SEED);
 
-        let secondary_keys: Vec<secondary_key::api::SecondaryKey<T::AccountId>> = iter::repeat(Default::default())
-            .take(i as usize)
-            .collect();
-    }: _(origin, account, secondary_keys)
+        let mut secondary_keys: Vec<secondary_key::api::SecondaryKey<T::AccountId>> = Vec::with_capacity(i as usize);
+        for x in 0..i {
+            secondary_keys.push(secondary_key::api::SecondaryKey {
+                signer: Signatory::Account(account("key", x, SEED)),
+                ..Default::default()
+            });
+        }
+    }: _(origin, target, secondary_keys)
+
+    mock_cdd_register_did {
+        let (_, origin, origin_did) = make_cdd_account::<T>(SEED);
+
+        let target: T::AccountId = account("target", SEED, SEED);
+    }: _(origin, target)
+
+    invalidate_cdd_claims {
+        // NB: This function loops over all cdd claims issued by the cdd provider.
+        // Therefore, it's unbounded in complexity. However, this can only be called by governance.
+        // Hence, the weight is for best case scenario
+
+        let (_, _, cdd_did) = make_cdd_account::<T>(SEED);
+
+    }: _(RawOrigin::Root, cdd_did, 0.into(), None)
+
+    remove_secondary_keys {
+        // Number of secondary items.
+        let i in 0 .. 50;
+
+        let (_, cdd_origin, cdd_did) = make_cdd_account::<T>(SEED);
+
+        let (target_account, target_origin, target_did) = make_account::<T>("target", SEED);
+
+        let mut signatories = Vec::with_capacity(i as usize);
+        for x in 0..i {
+            let signer = Signatory::Account(account("key", x, SEED));
+            signatories.push(signer.clone());
+            Module::<T>::unsafe_join_identity(target_did, Permissions::default(), signer)?;
+        }
+    }: _(target_origin, signatories)
+
+    accept_primary_key {
+        let (_, cdd_origin, cdd_did) = make_cdd_account::<T>(SEED);
+
+        let (_, target_origin, target_did) = make_account::<T>("target", SEED);
+
+        let (new_key, new_key_origin) = make_account_without_did::<T>("key", SEED);
+
+        let cdd_auth_id =  Module::<T>::add_auth(
+            cdd_did,
+            Signatory::Account(new_key.clone()),
+            AuthorizationData::AttestPrimaryKeyRotation(target_did),
+            None,
+        );
+
+        Module::<T>::change_cdd_requirement_for_mk_rotation(
+            RawOrigin::Root.into(),
+            true
+        )?;
+
+        let owner_auth_id =  Module::<T>::add_auth(
+            target_did,
+            Signatory::Account(new_key),
+            AuthorizationData::RotatePrimaryKey(target_did),
+            None,
+        );
+
+    }: _(new_key_origin, owner_auth_id, Some(cdd_auth_id))
 
     add_investor_uniqueness_claim {
-        let u in ...;
-        let (account, origin) = make_account_without_did::<T>("caller", u);
+        let (account, origin) = make_account_without_did::<T>("caller", SEED);
 
         let did = IdentityId::from([152u8,25,31,70,229,131,2,22,68,84,54,151,136,3,105,122,94,58,182,27,30,137,81,212,254,154,230,123,171,97,74,95]);
         Module::<T>::link_did(account.clone(), did);
@@ -93,8 +173,7 @@ benchmarks! {
     }: _(origin, did, conf_scope_claim, inv_proof, Some(666.into()))
 
     add_claim {
-        let u in ...;
-        let (_, origin, origin_did) = make_account::<T>("caller", u);
-        let (_, _, target_did) = make_account::<T>("target", u);
+        let (_, origin, origin_did) = make_account::<T>("caller", SEED);
+        let (_, _, target_did) = make_account::<T>("target", SEED);
     }: _(origin, target_did, Claim::Jurisdiction(CountryCode::BB, Scope::Identity(origin_did)), Some(666.into()))
 }

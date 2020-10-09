@@ -642,9 +642,7 @@ impl<T: Trait<I>, I: Instance> GroupTrait<T::Moment> for Module<T, I> {
         unimplemented!()
     }
 
-    fn add_member(
-        _who: IdentityId,
-    ) -> DispatchResult {
+    fn add_member(_who: IdentityId) -> DispatchResult {
         unimplemented!()
     }
 }

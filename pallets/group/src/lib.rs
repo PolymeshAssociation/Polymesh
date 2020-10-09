@@ -436,7 +436,10 @@ impl<T: Trait<I>, I: Instance> GroupTrait<T::Moment> for Module<T, I> {
     /// Adds a new member to the group
     fn add_member(who: IdentityId) -> DispatchResult {
         let mut members = <ActiveMembers<I>>::get();
-        let location = members.binary_search(&who).err().ok_or(Error::<T, I>::DuplicateMember)?;
+        let location = members
+            .binary_search(&who)
+            .err()
+            .ok_or(Error::<T, I>::DuplicateMember)?;
         members.insert(location, who);
         Self::ensure_within_active_members_limit(&members)?;
         <ActiveMembers<I>>::put(&members);
