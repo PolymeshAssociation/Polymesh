@@ -472,7 +472,6 @@ decl_module! {
         #[weight = 900_000_000]
         pub fn accept_primary_key(origin, rotation_auth_id: u64, optional_cdd_auth_id: Option<u64>) -> DispatchResult {
             let sender = ensure_signed(origin)?;
-            CallPermissions::<T>::ensure_call_permissions(&sender)?;
             Self::accept_primary_key_rotation(sender, rotation_auth_id, optional_cdd_auth_id)
         }
 
@@ -564,7 +563,7 @@ decl_module! {
 
             // 1.2. Check that current_did is a secondary key of target_did
             ensure!(
-                Self::is_signer_authorized(current_did, &Signatory::Identity(target_did)),
+                Self::is_signer_authorized(target_did, &Signatory::Identity(current_did)),
                 Error::<T>::CurrentIdentityCannotBeForwarded
             );
 
@@ -2153,6 +2152,12 @@ impl<T: Trait> Module<T> {
         };
         KeyToIdentityIds::<T>::insert(&account, did);
         DidRecords::<T>::insert(&did, record);
+    }
+
+    #[cfg(feature = "runtime-benchmarks")]
+    /// Sets the current did in the context
+    pub fn set_context_did(did: Option<IdentityId>) {
+        Context::set_current_identity::<Self>(did);
     }
 }
 

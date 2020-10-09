@@ -27,7 +27,6 @@ use schnorrkel::Signature;
 use sp_std::prelude::*;
 
 const SEED: u32 = 0;
-
 fn uid_from_name_and_idx(name: &'static str, u: u32) -> InvestorUid {
     InvestorUid::from((name, u).encode().as_slice())
 }
@@ -114,8 +113,6 @@ benchmarks! {
         // Number of secondary items.
         let i in 0 .. 50;
 
-        let (_, cdd_origin, cdd_did) = make_cdd_account::<T>(SEED);
-
         let (target_account, target_origin, target_did) = make_account::<T>("target", SEED);
 
         let mut signatories = Vec::with_capacity(i as usize);
@@ -128,9 +125,7 @@ benchmarks! {
 
     accept_primary_key {
         let (_, cdd_origin, cdd_did) = make_cdd_account::<T>(SEED);
-
         let (_, target_origin, target_did) = make_account::<T>("target", SEED);
-
         let (new_key, new_key_origin) = make_account_without_did::<T>("key", SEED);
 
         let cdd_auth_id =  Module::<T>::add_auth(
@@ -139,7 +134,6 @@ benchmarks! {
             AuthorizationData::AttestPrimaryKeyRotation(target_did),
             None,
         );
-
         Module::<T>::change_cdd_requirement_for_mk_rotation(
             RawOrigin::Root.into(),
             true
@@ -151,8 +145,66 @@ benchmarks! {
             AuthorizationData::RotatePrimaryKey(target_did),
             None,
         );
-
     }: _(new_key_origin, owner_auth_id, Some(cdd_auth_id))
+
+    change_cdd_requirement_for_mk_rotation {}: _(RawOrigin::Root, true)
+
+    join_identity_as_key {
+        let (_, _, target_did) = make_account::<T>("target", SEED);
+        let (new_key, new_key_origin) = make_account_without_did::<T>("key", SEED);
+
+        let auth_id =  Module::<T>::add_auth(
+            target_did,
+            Signatory::Account(new_key),
+            AuthorizationData::JoinIdentity(Permissions::default()),
+            None,
+        );
+    }: _(new_key_origin, auth_id)
+
+    join_identity_as_identity {
+        let (_, _, target_did) = make_account::<T>("target", SEED);
+        let (_, new_key_origin, new_identity) = make_account::<T>("key", SEED);
+
+        let auth_id =  Module::<T>::add_auth(
+            target_did,
+            Signatory::Identity(new_identity),
+            AuthorizationData::JoinIdentity(Permissions::default()),
+            None,
+        );
+    }: _(new_key_origin, auth_id)
+
+    leave_identity_as_key {
+        let (_, _, target_did) = make_account::<T>("target", SEED);
+        let (new_key, new_key_origin) = make_account_without_did::<T>("key", SEED);
+
+        Module::<T>::unsafe_join_identity(target_did, Permissions::default(), Signatory::Account(new_key))?;
+
+    }: _(new_key_origin)
+
+    leave_identity_as_identity {
+        let (_, _, target_did) = make_account::<T>("target", SEED);
+        let (_, new_key_origin, new_did) = make_account::<T>("key", SEED);
+
+        Module::<T>::unsafe_join_identity(target_did, Permissions::default(), Signatory::Identity(new_did))?;
+
+    }: _(new_key_origin, target_did)
+
+    add_claim {
+        let (_, origin, origin_did) = make_account::<T>("caller", SEED);
+        let (_, _, target_did) = make_account::<T>("target", SEED);
+    }: _(origin, target_did, Claim::Jurisdiction(CountryCode::BB, Scope::Identity(origin_did)), Some(666.into()))
+
+    forwarded_call {
+        // NB: We'll need to modify the weight manually to account for the weight of the boxed proposal
+        let (_, _, target_did) = make_account::<T>("target", SEED);
+        let (new_account, new_key_origin, new_did) = make_account::<T>("key", SEED);
+
+        let call: T::Proposal = frame_system::Call::<T>::remark(vec![]).into();
+        let boxed_proposal = Box::new(call);
+
+        Module::<T>::unsafe_join_identity(target_did, Permissions::default(), Signatory::Identity(new_did))?;
+        Module::<T>::set_context_did(Some(new_did));
+    }: _(new_key_origin, target_did, boxed_proposal)
 
     add_investor_uniqueness_claim {
         let (account, origin) = make_account_without_did::<T>("caller", SEED);
@@ -172,8 +224,5 @@ benchmarks! {
 
     }: _(origin, did, conf_scope_claim, inv_proof, Some(666.into()))
 
-    add_claim {
-        let (_, origin, origin_did) = make_account::<T>("caller", SEED);
-        let (_, _, target_did) = make_account::<T>("target", SEED);
-    }: _(origin, target_did, Claim::Jurisdiction(CountryCode::BB, Scope::Identity(origin_did)), Some(666.into()))
+
 }

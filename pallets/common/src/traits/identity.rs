@@ -113,7 +113,8 @@ pub trait Trait: CommonTrait + pallet_timestamp::Trait + balances::Trait {
     type Proposal: Parameter
         + Dispatchable<Origin = <Self as frame_system::Trait>::Origin, PostInfo = PostDispatchInfo>
         + GetCallMetadata
-        + GetDispatchInfo;
+        + GetDispatchInfo
+        + From<frame_system::Call<Self>>;
     /// MultiSig module
     type MultiSig: MultiSigSubTrait<Self::AccountId>;
     /// Portfolio module. Required to accept portfolio custody transfers.
