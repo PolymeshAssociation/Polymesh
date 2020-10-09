@@ -18,7 +18,7 @@ pallet-cdd-offchain-worker = { path = "../../cdd-offchain-worker", default-featu
 pallet-committee = { path = "../../committee", default-features = false }
 pallet-compliance-manager = { path = "../../compliance-manager", default-features = false }
 pallet-confidential = { path = "../../confidential", default-features = false }
-pallet-contracts = { git = "https://github.com/paritytech/substrate", tag = "v2.0.0-rc6", default-features = false }
+pallet-contracts = { git = "https://github.com/paritytech/substrate", tag = "v2.0.0", default-features = false }
 pallet-group = { path = "../../group", default-features = false }
 pallet-identity = { path = "../../identity", default-features = false, features = ["no_cdd"] }
 pallet-multisig = { path = "../../multisig", default-features = false }
@@ -28,7 +28,7 @@ pallet-portfolio = { path = "../../portfolio", default-features = false }
 pallet-protocol-fee = { path = "../../protocol-fee", default-features = false }
 pallet-settlement = { path = "../../settlement", default-features = false }
 pallet-staking = { path = "../../staking", default-features = false }
-pallet-staking-reward-curve = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0-rc6" }
+pallet-staking-reward-curve = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0" }
 pallet-statistics = { path = "../../statistics", default-features = false }
 pallet-transaction-payment = { path = "../../transaction-payment", default-features = false }
 pallet-treasury = { path = "../../treasury", default-features = false }
@@ -39,7 +39,7 @@ polymesh-contracts = { path = "../../contracts", default-features = false }
 pallet-group-rpc-runtime-api = { path = "../../group/rpc/runtime-api", default-features = false }
 
 # Crypto
-cryptography = { git = "https://github.com/PolymathNetwork/cryptography.git", branch = "develop", default-features = false }
+cryptography = { git = "https://github.com/PolymathNetwork/cryptography.git", branch = "substrate-2", default-features = false }
 
 # Runtime
 polymesh-runtime-develop = { path = "../develop" }
@@ -57,29 +57,29 @@ serde_json = '1.0.48'
 
 # Substrate
 codec = { package = "parity-scale-codec", version = "1.2.0", default-features = false, features = ["derive"] }
-sp-core = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0-rc6" }
-sp-std = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0-rc6" }
-sp-io = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0-rc6" }
-sp-runtime = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0-rc6" }
-sp-arithmetic = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0-rc6" }
-sp-staking = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0-rc6" }
-sp-npos-elections = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0-rc6"}
-frame-support = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0-rc6" }
-frame-system = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0-rc6" }
+sp-core = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0" }
+sp-std = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0" }
+sp-io = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0" }
+sp-runtime = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0" }
+sp-arithmetic = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0" }
+sp-staking = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0" }
+sp-npos-elections = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0"}
+frame-support = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0" }
+frame-system = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0" }
 
-pallet-timestamp = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0-rc6" }
-pallet-authorship = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0-rc6" }
-pallet-session = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0-rc6", features = ["historical"] }
-pallet-randomness-collective-flip = { git = "https://github.com/paritytech/substrate/", default-features = false, tag = "v2.0.0-rc6" }
-pallet-babe = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0-rc6" }
-pallet-scheduler = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0-rc6" }
+pallet-timestamp = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0" }
+pallet-authorship = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0" }
+pallet-session = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0", features = ["historical"] }
+pallet-randomness-collective-flip = { git = "https://github.com/paritytech/substrate/", default-features = false, tag = "v2.0.0" }
+pallet-babe = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0" }
+pallet-scheduler = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0" }
 
 ink_primitives = { git = "https://github.com/paritytech/ink", tag = "v2.1.0", default-features = false }
 
-frame-benchmarking = { git = "https://github.com/paritytech/substrate", tag = "v2.0.0-rc6", optional = true }
+frame-benchmarking = { git = "https://github.com/paritytech/substrate", tag = "v2.0.0", optional = true }
 
-test_client = { package = "substrate-test-runtime-client", git = "https://github.com/paritytech/substrate", tag = "v2.0.0-rc6", optional = true }
-substrate-test-utils = { git = "https://github.com/paritytech/substrate", tag = "v2.0.0-rc6", optional = true }
+test_client = { package = "substrate-test-runtime-client", git = "https://github.com/paritytech/substrate", tag = "v2.0.0", optional = true }
+substrate-test-utils = { git = "https://github.com/paritytech/substrate", tag = "v2.0.0", optional = true }
 
 [dev-dependencies]
 libsecp256k1 = { version = "0.3.5", default-features = false }
