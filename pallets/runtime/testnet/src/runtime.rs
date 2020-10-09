@@ -640,14 +640,9 @@ impl multisig::Trait for Runtime {
     type Event = Event;
 }
 
-parameter_types! {
-    pub const MaxTimelockedTxsPerBlock: u32 = 10;
-}
-
 impl bridge::Trait for Runtime {
     type Event = Event;
     type Proposal = Call;
-    type MaxTimelockedTxsPerBlock = MaxTimelockedTxsPerBlock;
     type Scheduler = Scheduler;
     type SchedulerOrigin = OriginCaller;
     type SchedulerCall = Call;

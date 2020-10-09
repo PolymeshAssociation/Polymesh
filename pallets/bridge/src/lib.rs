@@ -104,7 +104,7 @@ use frame_support::{
     storage::StorageDoubleMap,
     traits::{
         schedule::{Anon as ScheduleAnon, DispatchTime, LOWEST_PRIORITY},
-        Currency, Get,
+        Currency,
     },
     weights::{DispatchClass, Pays, Weight},
     Parameter,
@@ -120,7 +120,7 @@ use polymesh_common_utilities::{
 };
 use polymesh_primitives::{IdentityId, Permissions, Signatory};
 use sp_core::H256;
-use sp_runtime::traits::{CheckedAdd, Dispatchable, One, SaturatedConversion, Zero};
+use sp_runtime::traits::{CheckedAdd, Dispatchable, Zero};
 use sp_std::{convert::TryFrom, prelude::*};
 
 type Identity<T> = identity::Module<T>;
@@ -128,10 +128,6 @@ type Identity<T> = identity::Module<T>;
 pub trait Trait: multisig::Trait + scheduler::Trait {
     type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
     type Proposal: From<Call<Self>> + Into<<Self as IdentityTrait>::Proposal>;
-    /// The maximum number of timelocked bridge transactions that can be scheduled to be
-    /// executed in a single block. Any excess bridge transactions are scheduled in later
-    /// blocks.
-    type MaxTimelockedTxsPerBlock: Get<u32>;
     /// Scheduler of timelocked bridge transactions.
     type Scheduler: ScheduleAnon<Self::BlockNumber, Self::SchedulerCall, Self::SchedulerOrigin>;
     /// A type for identity-mapping the `Origin` type. Used by the scheduler.
@@ -231,11 +227,9 @@ pub mod weight_for {
     /// * Write operation - 2
     /// * Base value - 500_000_000
     /// </weight>
-    pub(crate) fn handle_bridge_tx_later<T: Trait>(count: u64) -> Weight {
+    pub(crate) fn handle_bridge_tx_later<T: Trait>() -> Weight {
         let db = T::DbWeight::get();
-        db.reads_writes(4, 2)
-            .saturating_add(500_000_000) // base value
-            .saturating_add(count.saturating_mul(500_00)) // for one loop
+        db.reads_writes(4, 2).saturating_add(500_000_000) // base value
     }
 }
 
@@ -403,8 +397,6 @@ decl_module! {
     pub struct Module<T: Trait> for enum Call where origin: <T as frame_system::Trait>::Origin {
         type Error = Error<T>;
 
-        const MaxTimelockedTxsPerBlock: u32 = T::MaxTimelockedTxsPerBlock::get();
-
         fn deposit_event() = default;
 
         fn on_runtime_upgrade() -> Weight {
@@ -446,11 +438,6 @@ decl_module! {
 
             // TODO: compute an appropriate weight taking into account the size of the drained map.
             0
-        }
-
-        /// Issues tokens in timelocked transactions.
-        fn on_initialize(block_number: T::BlockNumber) -> Weight {
-            Self::handle_timelocked_txs(block_number)
         }
 
         /// Changes the controller account as admin.
@@ -749,23 +736,15 @@ impl<T: Trait> Module<T> {
         }
 
         let current_block_number = <system::Module<T>>::block_number();
-        let mut unlock_block_number =
+        let unlock_block_number =
             current_block_number + timelock + T::BlockNumber::from(2u32.pow(already_tried.into()));
-        let max_timelocked_txs_per_block = T::MaxTimelockedTxsPerBlock::get() as usize;
-        let old_unlock_count_number = unlock_block_number;
-        while Self::timelocked_txs(unlock_block_number).len() >= max_timelocked_txs_per_block {
-            unlock_block_number += One::one();
-        }
-        let calculated_weight = weight_for::handle_bridge_tx_later::<T>(
-            (unlock_block_number - old_unlock_count_number).saturated_into::<u64>(),
-        );
         tx_details.execution_block = unlock_block_number;
         <BridgeTxDetails<T>>::insert(&bridge_tx.recipient, &bridge_tx.nonce, tx_details);
 
         // Schedule the transaction as a dispatchable call.
         let call = Call::<T>::handle_scheduled_bridge_tx(bridge_tx.clone()).into();
         // FIXME: handle errors.
-        if Err(e) = T::Scheduler::schedule(
+        if let Err(e) = T::Scheduler::schedule(
             DispatchTime::At(unlock_block_number),
             None,
             LOWEST_PRIORITY,
@@ -782,23 +761,7 @@ impl<T: Trait> Module<T> {
             ));
         }
 
-        Ok(calculated_weight)
-    }
-
-    /// Handles the timelocked transactions that are set to unlock at the given block number.
-    fn handle_timelocked_txs(block_number: T::BlockNumber) -> Weight {
-        let mut weight = 0;
-        let txs = <TimelockedTxs<T>>::take(block_number);
-        for tx in txs {
-            weight += match Self::handle_bridge_tx_now(tx, false) {
-                Ok(weight) => weight,
-                Err(e) => {
-                    sp_runtime::print(e);
-                    Zero::zero()
-                }
-            };
-        }
-        weight
+        Ok(weight_for::handle_bridge_tx_later::<T>())
     }
 
     /// Proposes a bridge transaction. The bridge controller must be set.

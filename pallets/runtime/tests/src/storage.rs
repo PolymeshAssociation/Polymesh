@@ -495,14 +495,12 @@ impl asset::Trait for TestStorage {
 }
 
 parameter_types! {
-    pub const MaxTimelockedTxsPerBlock: u32 = 10;
     pub const BlockRangeForTimelock: BlockNumber = 1000;
 }
 
 impl bridge::Trait for TestStorage {
     type Event = Event;
     type Proposal = Call;
-    type MaxTimelockedTxsPerBlock = MaxTimelockedTxsPerBlock;
     type Scheduler = Scheduler;
     type SchedulerOrigin = OriginCaller;
     type SchedulerCall = Call;
