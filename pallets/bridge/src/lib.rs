@@ -341,12 +341,6 @@ decl_storage! {
         /// transaction proposal during which the admin key can freeze the transaction.
         Timelock get(fn timelock) config(): T::BlockNumber;
 
-        /// The list of timelocked transactions with the block numbers in which those transactions
-        /// become unlocked. Pending transactions are also included here to be retried
-        /// automatically.
-        TimelockedTxs get(fn timelocked_txs):
-            map hasher(twox_64_concat) T::BlockNumber => Vec<BridgeTx<T::AccountId, T::Balance>>;
-
         /// The maximum number of bridged POLYX per identity within a set interval of
         /// blocks. Fields: POLYX amount and the block interval duration.
         BridgeLimit get(fn bridge_limit) config(): (T::Balance, T::BlockNumber);
@@ -418,14 +412,10 @@ decl_module! {
 
             let now = frame_system::Module::<T>::block_number();
 
+            // Migrate timelocked transactions.
             StorageKeyIterator::<T::BlockNumber, Vec::<BridgeTx<T::AccountId, T::Balance>>, Twox64Concat>::new(b"Bridge", b"TimelockedTxs")
                 .drain()
                 .filter_map(|(block_number, txs)| {
-//                     let txs = Vec::<BridgeTx<T::AccountId, T::Balance>>::decode(&mut txs)
-//                         .unwrap_or_default();
-// //                    let block_number = Zero::zero();
-//                     let block_number = T::BlockNumber::decode(&mut block_number)
-//                         .unwrap_or_default();
                     // Schedule only for future blocks.
                     if block_number > now {
                         let calls: Vec<_> = txs
@@ -442,13 +432,15 @@ decl_module! {
                 .for_each(|(block_number, calls)| {
                     // FIXME: handle errors.
                     for call in calls {
-                        let _ = T::Scheduler::schedule(
+                        if let Err(e) = T::Scheduler::schedule(
                             DispatchTime::At(block_number),
                             None,
                             LOWEST_PRIORITY,
                             RawOrigin::Root.into(),
                             call,
-                        );
+                        ) {
+                            sp_runtime::print(e);
+                        }
                     }
                 });
 
@@ -773,20 +765,22 @@ impl<T: Trait> Module<T> {
         // Schedule the transaction as a dispatchable call.
         let call = Call::<T>::handle_scheduled_bridge_tx(bridge_tx.clone()).into();
         // FIXME: handle errors.
-        T::Scheduler::schedule(
+        if Err(e) = T::Scheduler::schedule(
             DispatchTime::At(unlock_block_number),
             None,
             LOWEST_PRIORITY,
             RawOrigin::Root.into(),
             call,
-        )?;
-
-        let current_did = Context::current_identity::<Identity<T>>().unwrap_or_else(|| GC_DID);
-        Self::deposit_event(RawEvent::BridgeTxScheduled(
-            current_did,
-            bridge_tx,
-            unlock_block_number,
-        ));
+        ) {
+            sp_runtime::print(e);
+        } else {
+            let current_did = Context::current_identity::<Identity<T>>().unwrap_or_else(|| GC_DID);
+            Self::deposit_event(RawEvent::BridgeTxScheduled(
+                current_did,
+                bridge_tx,
+                unlock_block_number,
+            ));
+        }
 
         Ok(calculated_weight)
     }
