@@ -305,8 +305,7 @@ fn general_testnet_genesis(
         pallet_staking: Some(GeneralConfig::StakingConfig {
             minimum_validator_count: 1,
             validator_count: 2,
-            validator_commission_cap:
-                PerThing::from_rational_approximation(1u64, 4u64),
+            validator_commission_cap: PerThing::from_rational_approximation(1u64, 4u64),
             stakers: initial_authorities
                 .iter()
                 .map(|x| {

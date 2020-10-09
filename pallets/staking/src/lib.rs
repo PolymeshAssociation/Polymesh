@@ -1301,7 +1301,7 @@ decl_storage! {
         /// The map from (wannabe) validators to the status of compliance.
         pub PermissionedValidators get(fn permissioned_validators):
             map hasher(twox_64_concat) T::AccountId => bool;
-        
+
         // Polymesh-Note: Polymesh specific changes to allow flexibility in commission.
         /// Every validator has commission that should be in the range [0, Cap].
         pub ValidatorCommissionCap get(fn validator_commission_cap) config(): Perbill;
@@ -2149,7 +2149,7 @@ decl_module! {
         /// committee is allowed to change this value.
         ///
         /// # Arguments
-        /// * `new_cap` the new commission cap. 
+        /// * `new_cap` the new commission cap.
         #[weight = (800_000_000, Operational, Pays::Yes)]
         pub fn set_commission_cap(origin, new_cap: Perbill) {
             T::RequiredCommissionOrigin::ensure_origin(origin.clone())?;
