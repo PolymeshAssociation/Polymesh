@@ -4,21 +4,34 @@ use crate::{
     fee_details::CddHandler,
 };
 use codec::Encode;
+use frame_support::{
+    construct_runtime, debug, parameter_types,
+    traits::{KeyOwnerProofSystem, Randomness, SplitTwoWays},
+    weights::{Weight, WeightToFeeCoefficient, WeightToFeeCoefficients, WeightToFeePolynomial},
+};
+use frame_system::EnsureRoot;
 use pallet_asset as asset;
 use pallet_balances as balances;
 use pallet_basic_sto as sto;
 use pallet_bridge as bridge;
 use pallet_committee as committee;
 use pallet_compliance_manager::{self as compliance_manager, AssetComplianceResult};
+use pallet_contracts_rpc_runtime_api::ContractExecResult;
+use pallet_grandpa::{
+    fg_primitives, AuthorityId as GrandpaId, AuthorityList as GrandpaAuthorityList,
+};
 use pallet_group as group;
 use pallet_identity::{
     self as identity,
     types::{AssetDidResult, CddStatus, DidRecords, DidStatus, KeyIdentityData},
 };
+use pallet_im_online::sr25519::AuthorityId as ImOnlineId;
 use pallet_multisig as multisig;
 use pallet_pips::{HistoricalVotingByAddress, HistoricalVotingById, Vote, VoteCount};
 use pallet_portfolio as portfolio;
 use pallet_protocol_fee as protocol_fee;
+use pallet_protocol_fee_rpc_runtime_api::CappedFee;
+use pallet_session::historical as pallet_session_historical;
 use pallet_settlement as settlement;
 use pallet_statistics as statistics;
 pub use pallet_transaction_payment::{Multiplier, RuntimeDispatchInfo, TargetedFeeAdjustment};
@@ -42,13 +55,14 @@ use polymesh_runtime_common::{
     BlockHashCount, ExtrinsicBaseWeight, MaximumBlockLength, MaximumBlockWeight, NegativeImbalance,
     RocksDbWeight,
 };
-
 use sp_api::impl_runtime_apis;
+use sp_authority_discovery::AuthorityId as AuthorityDiscoveryId;
 use sp_core::{
     crypto::KeyTypeId,
     u32_trait::{_1, _2, _3, _4},
     OpaqueMetadata,
 };
+use sp_inherents::{CheckInherentsResult, InherentData};
 use sp_runtime::transaction_validity::{
     TransactionPriority, TransactionSource, TransactionValidity,
 };
@@ -63,27 +77,9 @@ use sp_runtime::{
     ApplyExtrinsicResult, MultiSignature, Perbill,
 };
 use sp_std::prelude::*;
-use sp_version::RuntimeVersion;
-
-// Comment in the favour of not using the Offchain worker
-//use pallet_cdd_offchain_worker::crypto::SignerId as CddOffchainWorkerId;
-use frame_support::{
-    construct_runtime, debug, parameter_types,
-    traits::{KeyOwnerProofSystem, Randomness, SplitTwoWays},
-    weights::{Weight, WeightToFeeCoefficient, WeightToFeeCoefficients, WeightToFeePolynomial},
-};
-use pallet_contracts_rpc_runtime_api::ContractExecResult;
-use pallet_grandpa::{
-    fg_primitives, AuthorityId as GrandpaId, AuthorityList as GrandpaAuthorityList,
-};
-
-use pallet_im_online::sr25519::AuthorityId as ImOnlineId;
-use pallet_protocol_fee_rpc_runtime_api::CappedFee;
-use pallet_session::historical as pallet_session_historical;
-use sp_authority_discovery::AuthorityId as AuthorityDiscoveryId;
-use sp_inherents::{CheckInherentsResult, InherentData};
 #[cfg(feature = "std")]
 use sp_version::NativeVersion;
+use sp_version::RuntimeVersion;
 
 pub use balances::Call as BalancesCall;
 pub use frame_support::StorageValue;
@@ -388,7 +384,7 @@ impl pallet_staking::Trait for Runtime {
     type SessionsPerEra = SessionsPerEra;
     type BondingDuration = BondingDuration;
     type SlashDeferDuration = SlashDeferDuration;
-    type SlashCancelOrigin = frame_system::EnsureRoot<AccountId>;
+    type SlashCancelOrigin = EnsureRoot<AccountId>;
     type SessionInterface = Self;
     type RewardCurve = RewardCurve;
     type NextNewSession = Session;
@@ -398,11 +394,11 @@ impl pallet_staking::Trait for Runtime {
     type MinSolutionScoreBump = MinSolutionScoreBump;
     type MaxNominatorRewardedPerValidator = MaxNominatorRewardedPerValidator;
     type UnsignedPriority = StakingUnsignedPriority;
-    type RequiredAddOrigin = frame_system::EnsureRoot<AccountId>;
-    type RequiredRemoveOrigin = frame_system::EnsureRoot<AccountId>;
-    type RequiredComplianceOrigin = frame_system::EnsureRoot<AccountId>;
-    type RequiredCommissionOrigin = frame_system::EnsureRoot<AccountId>;
-    type RequiredChangeHistoryDepthOrigin = frame_system::EnsureRoot<AccountId>;
+    type RequiredAddOrigin = EnsureRoot<AccountId>;
+    type RequiredRemoveOrigin = EnsureRoot<AccountId>;
+    type RequiredComplianceOrigin = EnsureRoot<AccountId>;
+    type RequiredCommissionOrigin = EnsureRoot<AccountId>;
+    type RequiredChangeHistoryDepthOrigin = EnsureRoot<AccountId>;
     type WeightInfo = ();
 }
 
@@ -425,11 +421,11 @@ impl committee::Trait<GovernanceCommittee> for Runtime {
 /// PolymeshCommittee as an instance of group
 impl group::Trait<group::Instance1> for Runtime {
     type Event = Event;
-    type LimitOrigin = frame_system::EnsureRoot<AccountId>;
-    type AddOrigin = frame_system::EnsureRoot<AccountId>;
-    type RemoveOrigin = frame_system::EnsureRoot<AccountId>;
-    type SwapOrigin = frame_system::EnsureRoot<AccountId>;
-    type ResetOrigin = frame_system::EnsureRoot<AccountId>;
+    type LimitOrigin = EnsureRoot<AccountId>;
+    type AddOrigin = EnsureRoot<AccountId>;
+    type RemoveOrigin = EnsureRoot<AccountId>;
+    type SwapOrigin = EnsureRoot<AccountId>;
+    type ResetOrigin = EnsureRoot<AccountId>;
     type MembershipInitialized = PolymeshCommittee;
     type MembershipChanged = PolymeshCommittee;
 }
@@ -446,7 +442,7 @@ macro_rules! committee_config {
         }
         impl group::Trait<group::$instance> for Runtime {
             type Event = Event;
-            type LimitOrigin = frame_system::EnsureRoot<AccountId>;
+            type LimitOrigin = EnsureRoot<AccountId>;
             // Can manage its own addition, deletion, and swapping of membership...
             type AddOrigin = VMO<committee::$instance>;
             type RemoveOrigin = VMO<committee::$instance>;
@@ -464,7 +460,7 @@ committee_config!(UpgradeCommittee, Instance4);
 
 impl pallet_pips::Trait for Runtime {
     type Currency = Balances;
-    type CommitteeOrigin = frame_system::EnsureRoot<AccountId>;
+    type CommitteeOrigin = EnsureRoot<AccountId>;
     type VotingMajorityOrigin = VMO<GovernanceCommittee>;
     type GovernanceCommittee = PolymeshCommittee;
     type TechnicalCommitteeVMO = VMO<committee::Instance3>;
@@ -600,7 +596,7 @@ impl pallet_im_online::Trait for Runtime {
     type UnsignedPriority = ImOnlineUnsignedPriority;
     type ReportUnresponsiveness = Offences;
     type SessionDuration = SessionDuration;
-    type CommitteeOrigin = frame_system::EnsureRoot<AccountId>;
+    type CommitteeOrigin = EnsureRoot<AccountId>;
 }
 
 impl pallet_grandpa::Trait for Runtime {
@@ -730,11 +726,11 @@ impl dividend::Trait for Runtime {
 /// CddProviders instance of group
 impl group::Trait<group::Instance2> for Runtime {
     type Event = Event;
-    type LimitOrigin = frame_system::EnsureRoot<AccountId>;
-    type AddOrigin = frame_system::EnsureRoot<AccountId>;
-    type RemoveOrigin = frame_system::EnsureRoot<AccountId>;
-    type SwapOrigin = frame_system::EnsureRoot<AccountId>;
-    type ResetOrigin = frame_system::EnsureRoot<AccountId>;
+    type LimitOrigin = EnsureRoot<AccountId>;
+    type AddOrigin = EnsureRoot<AccountId>;
+    type RemoveOrigin = EnsureRoot<AccountId>;
+    type SwapOrigin = EnsureRoot<AccountId>;
+    type ResetOrigin = EnsureRoot<AccountId>;
     type MembershipInitialized = Identity;
     type MembershipChanged = Identity;
 }
@@ -833,6 +829,7 @@ construct_runtime!(
         Utility: utility::{Module, Call, Storage, Event},
         Portfolio: portfolio::{Module, Call, Storage, Event<T>},
         Permissions: pallet_permissions::{Module},
+        Scheduler: pallet_scheduler::{Module, Call, Storage, Event<T>},
     }
 );
 

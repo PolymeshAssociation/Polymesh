@@ -413,6 +413,49 @@ decl_module! {
 
         fn deposit_event() = default;
 
+        fn on_runtime_upgrade() -> Weight {
+            use frame_support::{migration::StorageKeyIterator, Twox64Concat};
+
+            let now = frame_system::Module::<T>::block_number();
+
+            StorageKeyIterator::<T::BlockNumber, Vec::<BridgeTx<T::AccountId, T::Balance>>, Twox64Concat>::new(b"Bridge", b"TimelockedTxs")
+                .drain()
+                .filter_map(|(block_number, txs)| {
+//                     let txs = Vec::<BridgeTx<T::AccountId, T::Balance>>::decode(&mut txs)
+//                         .unwrap_or_default();
+// //                    let block_number = Zero::zero();
+//                     let block_number = T::BlockNumber::decode(&mut block_number)
+//                         .unwrap_or_default();
+                    // Schedule only for future blocks.
+                    if block_number > now {
+                        let calls: Vec<_> = txs
+                            .into_iter()
+                            .map(|tx| {
+                                Call::<T>::handle_scheduled_bridge_tx(tx).into()
+                            })
+                            .collect();
+                        Some((block_number, calls))
+                    } else {
+                        None
+                    }
+                })
+                .for_each(|(block_number, calls)| {
+                    // FIXME: handle errors.
+                    for call in calls {
+                        let _ = T::Scheduler::schedule(
+                            DispatchTime::At(block_number),
+                            None,
+                            LOWEST_PRIORITY,
+                            RawOrigin::Root.into(),
+                            call,
+                        );
+                    }
+                });
+
+            // TODO: compute an appropriate weight taking into account the size of the drained map.
+            0
+        }
+
         /// Issues tokens in timelocked transactions.
         fn on_initialize(block_number: T::BlockNumber) -> Weight {
             Self::handle_timelocked_txs(block_number)
@@ -588,7 +631,7 @@ decl_module! {
 
         /// An internal call to handle a scheduled timelocked bridge transaction.
         #[weight = (
-            400_000_000,
+            500_000_000,
             DispatchClass::Operational,
             Pays::Yes
         )]
@@ -596,7 +639,7 @@ decl_module! {
             DispatchResult
         {
             ensure_root(origin)?;
-            let _ = Self::handle_bridge_tx_now(bridge_tx, false);
+            let _ = Self::handle_bridge_tx_now(bridge_tx, false)?;
             Ok(())
         }
     }
@@ -727,8 +770,9 @@ impl<T: Trait> Module<T> {
         tx_details.execution_block = unlock_block_number;
         <BridgeTxDetails<T>>::insert(&bridge_tx.recipient, &bridge_tx.nonce, tx_details);
 
-        // FIXME
+        // Schedule the transaction as a dispatchable call.
         let call = Call::<T>::handle_scheduled_bridge_tx(bridge_tx.clone()).into();
+        // FIXME: handle errors.
         T::Scheduler::schedule(
             DispatchTime::At(unlock_block_number),
             None,
@@ -737,9 +781,6 @@ impl<T: Trait> Module<T> {
             call,
         )?;
 
-        <TimelockedTxs<T>>::mutate(&unlock_block_number, |txs| {
-            txs.push(bridge_tx.clone());
-        });
         let current_did = Context::current_identity::<Identity<T>>().unwrap_or_else(|| GC_DID);
         Self::deposit_event(RawEvent::BridgeTxScheduled(
             current_did,

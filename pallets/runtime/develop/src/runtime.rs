@@ -44,12 +44,27 @@ use polymesh_runtime_common::{
     RocksDbWeight,
 };
 
+use frame_support::{
+    construct_runtime, debug, parameter_types,
+    traits::{KeyOwnerProofSystem, Randomness, SplitTwoWays},
+    weights::{Weight, WeightToFeeCoefficient, WeightToFeeCoefficients, WeightToFeePolynomial},
+};
+use frame_system::EnsureRoot;
+use pallet_contracts_rpc_runtime_api::ContractExecResult;
+use pallet_grandpa::{
+    fg_primitives, AuthorityId as GrandpaId, AuthorityList as GrandpaAuthorityList,
+};
+use pallet_im_online::sr25519::AuthorityId as ImOnlineId;
+use pallet_protocol_fee_rpc_runtime_api::CappedFee;
+use pallet_session::historical as pallet_session_historical;
 use sp_api::impl_runtime_apis;
+use sp_authority_discovery::AuthorityId as AuthorityDiscoveryId;
 use sp_core::{
     crypto::KeyTypeId,
     u32_trait::{_1, _2, _4},
     OpaqueMetadata,
 };
+use sp_inherents::{CheckInherentsResult, InherentData};
 use sp_runtime::transaction_validity::{
     TransactionPriority, TransactionSource, TransactionValidity,
 };
@@ -64,31 +79,13 @@ use sp_runtime::{
     ApplyExtrinsicResult, MultiSignature, Perbill,
 };
 use sp_std::prelude::*;
-use sp_version::RuntimeVersion;
-
-// Comment in the favour of not using the Offchain worker
-//use pallet_cdd_offchain_worker::crypto::SignerId as CddOffchainWorkerId;
-use frame_support::{
-    construct_runtime, debug, parameter_types,
-    traits::{KeyOwnerProofSystem, Randomness, SplitTwoWays},
-    weights::{Weight, WeightToFeeCoefficient, WeightToFeeCoefficients, WeightToFeePolynomial},
-};
-use pallet_contracts_rpc_runtime_api::ContractExecResult;
-
-use pallet_grandpa::{
-    fg_primitives, AuthorityId as GrandpaId, AuthorityList as GrandpaAuthorityList,
-};
-use pallet_im_online::sr25519::AuthorityId as ImOnlineId;
-use pallet_protocol_fee_rpc_runtime_api::CappedFee;
-use pallet_session::historical as pallet_session_historical;
-use sp_authority_discovery::AuthorityId as AuthorityDiscoveryId;
-use sp_inherents::{CheckInherentsResult, InherentData};
 #[cfg(feature = "std")]
 use sp_version::NativeVersion;
+use sp_version::RuntimeVersion;
 
 pub use balances::Call as BalancesCall;
 pub use frame_support::StorageValue;
-pub use frame_system::{Call as SystemCall, EnsureRoot};
+pub use frame_system::Call as SystemCall;
 pub use pallet_contracts::Gas;
 pub use pallet_staking::StakerStatus;
 pub use pallet_timestamp::Call as TimestampCall;
