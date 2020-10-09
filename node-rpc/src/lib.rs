@@ -38,7 +38,8 @@ use polymesh_primitives::{
 };
 use sc_client_api::light::{Fetcher, RemoteBlockchain};
 use sc_consensus_babe::Epoch;
-use sc_rpc::DenyUnsafe;
+use sc_finality_grandpa::FinalityProofProvider;
+use sc_rpc::{DenyUnsafe, SubscriptionTaskExecutor};
 use sp_api::ProvideRuntimeApi;
 use sp_block_builder::BlockBuilder;
 use sp_blockchain::{Error as BlockChainError, HeaderBackend, HeaderMetadata};
@@ -72,19 +73,21 @@ pub struct BabeDeps {
 }
 
 /// Dependencies for GRANDPA
-pub struct GrandpaDeps {
+pub struct GrandpaDeps<B> {
     /// Voting round info.
     pub shared_voter_state: sc_finality_grandpa::SharedVoterState,
     /// Authority set info.
     pub shared_authority_set: sc_finality_grandpa::SharedAuthoritySet<Hash, BlockNumber>,
     /// Receives notifications about justification events from Grandpa.
     pub justification_stream: sc_finality_grandpa::GrandpaJustificationStream<Block>,
-    /// Subscription manager to keep track of pubsub subscribers.
-    pub subscriptions: jsonrpc_pubsub::manager::SubscriptionManager,
+    /// Executor to drive the subscription manager in the Grandpa RPC handler.
+    pub subscription_executor: SubscriptionTaskExecutor,
+    /// Finality proof provider.
+    pub finality_provider: Arc<FinalityProofProvider<B, Block>>,
 }
 
 /// Full client dependencies
-pub struct FullDeps<C, P, SC> {
+pub struct FullDeps<C, P, SC, B> {
     /// The client instance to use.
     pub client: Arc<C>,
     /// Transaction pool instance.
@@ -96,11 +99,11 @@ pub struct FullDeps<C, P, SC> {
     /// BABE specific dependencies.
     pub babe: BabeDeps,
     /// GRANDPA specific dependencies.
-    pub grandpa: GrandpaDeps,
+    pub grandpa: GrandpaDeps<B>,
 }
 
 /// Instantiate all RPC extensions.
-pub fn create_full<C, P, UE, SC>(deps: FullDeps<C, P, SC>) -> RpcExtension
+pub fn create_full<C, P, UE, SC, B>(deps: FullDeps<C, P, SC, B>) -> RpcExtension
 where
     C: ProvideRuntimeApi<Block>,
     C: HeaderBackend<Block> + HeaderMetadata<Block, Error = BlockChainError>,
@@ -129,6 +132,8 @@ where
     P: TransactionPool + Sync + Send + 'static,
     UE: codec::Codec + Send + Sync + 'static,
     SC: SelectChain<Block> + 'static,
+    B: sc_client_api::Backend<Block> + Send + Sync + 'static,
+    B::State: sc_client_api::backend::StateBackend<sp_runtime::traits::HashFor<Block>>,
 {
     use frame_rpc_system::{FullSystem, SystemApi};
     use node_rpc::compliance_manager::{ComplianceManager, ComplianceManagerApi};
@@ -163,7 +168,8 @@ where
         shared_voter_state,
         shared_authority_set,
         justification_stream,
-        subscriptions,
+        subscription_executor,
+        finality_provider,
     } = grandpa;
 
     io.extend_with(SystemApi::to_delegate(FullSystem::new(
@@ -189,7 +195,8 @@ where
         shared_authority_set,
         shared_voter_state,
         justification_stream,
-        subscriptions,
+        subscription_executor,
+        finality_provider,
     )));
     io.extend_with(StakingApi::to_delegate(Staking::new(client.clone())));
     io.extend_with(PipsApi::to_delegate(Pips::new(client.clone())));

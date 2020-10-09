@@ -18,7 +18,6 @@
 #![recursion_limit = "256"]
 
 pub mod cdd_check;
-pub mod contracts_wrapper;
 pub mod dividend;
 pub mod exemption;
 pub mod impls;

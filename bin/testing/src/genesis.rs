@@ -131,7 +131,7 @@ pub fn config_endowed(support_changes_trie: bool, extra_endowed: Vec<AccountId>)
                         account,
                         IdentityId::from(1usize as u128),
                         IdentityId::from(i as u128),
-                        InvestorUid::from([1u8; 32]),
+                        InvestorUid::from([1u8; 16]),
                         None,
                     )
                 })
@@ -144,7 +144,7 @@ pub fn config_endowed(support_changes_trie: bool, extra_endowed: Vec<AccountId>)
                     get_account_id_from_seed::<sr25519::Public>(&format!("random-user//{}", i)),
                     IdentityId::from(1usize as u128),
                     IdentityId::from((i + initial_len) as u128),
-                    InvestorUid::from([1u8; 32]),
+                    InvestorUid::from([1u8; 16]),
                     None,
                 ))
             }
