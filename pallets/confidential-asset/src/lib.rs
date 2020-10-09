@@ -330,7 +330,6 @@ decl_module! {
 }
 
 impl<T: Trait> Module<T> {
-    /// TODO: wrapper around MercatAccountBalance. Can be removed if I can call the storage function directly from settlement pallet.
     pub fn update_mercat_account_balance(
         owner_did: &IdentityId,
         account_id: &MercatAccountId,

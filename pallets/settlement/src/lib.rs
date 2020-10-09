@@ -1303,7 +1303,6 @@ impl<T: Trait> Module<T> {
                                     ));
                                 }
 
-                                // TODO: change the `MercatTxDataStorage` to make this type of query cleaner.
                                 let tx_data = tx_data.remove(2);
                                 let decoded_justified_tx = match tx_data {
                                     MercatTxData::JustifiedTransfer(finalized) => {

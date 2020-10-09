@@ -338,14 +338,13 @@ fn issuers_can_create_and_mint_tokens() {
             })
         );
 
-        // TODO uncomment before merge
-        // // -------------------------- Ensure that the account balance is set properly.
-        // let account_id = MercatAccountId::from(mercat_account_tx.pub_account.enc_asset_id.encode());
-        // let stored_balance = ConfidentialAsset::mercat_account_balance(owner_did, account_id);
-        // let stored_balance = EncryptedAmount::decode(&mut &stored_balance.0[..]).unwrap();
-        // let stored_balance = scrt_account.enc_keys.scrt.decrypt(&stored_balance).unwrap();
+        // -------------------------- Ensure that the account balance is set properly.
+        let account_id = MercatAccountId::from(mercat_account_tx.pub_account.enc_asset_id.encode());
+        let stored_balance = ConfidentialAsset::mercat_account_balance(owner_did, account_id);
+        let stored_balance = EncryptedAmount::decode(&mut &stored_balance.0[..]).unwrap();
+        let stored_balance = scrt_account.enc_keys.scrt.decrypt(&stored_balance).unwrap();
 
-        // assert_eq!(stored_balance, amount);
+        assert_eq!(stored_balance, amount);
     })
 }
 
