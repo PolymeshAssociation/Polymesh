@@ -1569,7 +1569,7 @@ impl<T: Trait> Module<T> {
             return Self::balance_at_checkpoint((
                 ticker,
                 did,
-                Self::find_ceiling(&user_checkpoints, at),
+                *Self::find_ceiling(&user_checkpoints, &at),
             ));
         }
         // User has no checkpoint data.
@@ -1578,30 +1578,13 @@ impl<T: Trait> Module<T> {
         Self::balance_of(&ticker, &did)
     }
 
-    fn find_ceiling(arr: &[u64], key: u64) -> u64 {
-        // This function assumes that key <= last element of the array,
-        // the array consists of unique sorted elements,
-        // array len > 0
-        let mut end = arr.len();
-        let mut start = 0;
-        let mut mid = (start + end) / 2;
-
-        while mid != 0 && end >= start {
-            // Due to our assumptions, we can even remove end >= start condition from here
-            if key > arr[mid - 1] && key <= arr[mid] {
-                // This condition and the fact that key <= last element of the array mean that
-                // start should never become greater than end.
-                return arr[mid];
-            } else if key > arr[mid] {
-                start = mid + 1;
-            } else {
-                end = mid;
-            }
-            mid = (start + end) / 2;
-        }
-
-        // This should only be reached when mid becomes 0.
-        arr[0]
+    /// Find the least element `<= key` in in `arr`.
+    ///
+    /// Assumes that key <= last element of the array,
+    /// the array consists of unique sorted elements,
+    /// and that array len > 0.
+    fn find_ceiling<'a, E: Ord>(arr: &'a [E], key: &E) -> &'a E {
+        &arr[arr.binary_search(key).map_or_else(|i| i, |i| i)]
     }
 
     pub fn _is_valid_transfer(
