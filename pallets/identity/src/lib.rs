@@ -786,15 +786,12 @@ decl_module! {
             let sender = ensure_signed(origin)?;
             let signer_key = Signatory::Account(sender.clone());
             let signer_did = Context::current_identity_or::<Self>(&sender)
-                .map_or_else(
-                    |_error| signer_key.clone(),
-                    Signatory::from);
+                .map_or_else(|_error| signer_key.clone(), Signatory::from);
 
             // Get auth by key or by id.
-            let (auth, signer) = Self::maybe_authorization(&signer_did, auth_id)
+            let (auth, signer) = Self::ensure_authorization(&signer_did, auth_id)
                 .map(|a| (a, signer_did))
-                .or_else(|| Self::maybe_authorization(&signer_key, auth_id).map(|a| (a, signer_key)))
-                .ok_or_else(||Error::<T>::AuthorizationDoesNotExist)?;
+                .or_else(|_| Self::ensure_authorization(&signer_key, auth_id).map(|a| (a, signer_key)))?;
 
             match signer {
                 Signatory::Identity(did) => {
@@ -1073,8 +1070,6 @@ decl_error! {
         SenderMustHoldClaimIssuerKey,
         /// Current identity cannot be forwarded, it is not a secondary key of target identity.
         CurrentIdentityCannotBeForwarded,
-        /// The authorization does not exist.
-        AuthorizationDoesNotExist,
         /// The offchain authorization has expired.
         AuthorizationExpired,
         /// The target DID has no valid CDD.
@@ -1130,12 +1125,7 @@ impl<T: Trait> Module<T> {
 
     /// Accepts an auth to join an identity as a signer
     pub fn join_identity(signer: Signatory<T::AccountId>, auth_id: u64) -> DispatchResult {
-        ensure!(
-            <Authorizations<T>>::contains_key(&signer, auth_id),
-            AuthorizationError::Invalid
-        );
-
-        let auth = <Authorizations<T>>::get(&signer, auth_id);
+        let auth = Self::ensure_authorization(&signer, auth_id)?;
 
         let permissions = match auth.authorization_data {
             AuthorizationData::JoinIdentity(permissions) => Ok(permissions),
@@ -1243,12 +1233,7 @@ impl<T: Trait> Module<T> {
         target: Signatory<T::AccountId>,
         auth_id: u64,
     ) -> DispatchResult {
-        ensure!(
-            Self::has_authorization(&target, auth_id),
-            AuthorizationError::Invalid
-        );
-
-        let auth = <Authorizations<T>>::get(&target, auth_id);
+        let auth = Self::ensure_authorization(&target, auth_id)?;
         ensure!(auth.authorized_by == from, AuthorizationError::Unauthorized);
         if let Some(expiry) = auth.expiry {
             let now = <pallet_timestamp::Module<T>>::get();
@@ -1266,12 +1251,11 @@ impl<T: Trait> Module<T> {
         Ok(())
     }
 
-    fn ensure_authorization(
+    pub fn ensure_authorization(
         target: &Signatory<T::AccountId>,
         auth_id: u64,
-    ) -> Result<Authorization<T::AccountId, T::Moment>, Error<T>> {
-        Self::maybe_authorization(target, auth_id)
-            .ok_or_else(|| Error::<T>::AuthorizationDoesNotExist)
+    ) -> Result<Authorization<T::AccountId, T::Moment>, DispatchError> {
+        Self::maybe_authorization(target, auth_id).ok_or_else(|| AuthorizationError::Invalid.into())
     }
 
     fn maybe_authorization(

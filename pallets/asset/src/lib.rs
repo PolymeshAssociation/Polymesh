@@ -109,9 +109,9 @@ use polymesh_common_utilities::{
     CommonTrait, Context, SystematicIssuers,
 };
 use polymesh_primitives::{
-    calendar::CheckpointSchedule, AssetIdentifier, AuthorizationData, AuthorizationError, Document,
-    DocumentName, IdentityId, MetaVersion as ExtVersion, PortfolioId, ScopeId, Signatory,
-    SmartExtension, SmartExtensionName, SmartExtensionType, Ticker,
+    calendar::CheckpointSchedule, AssetIdentifier, AuthorizationData, Document, DocumentName,
+    IdentityId, MetaVersion as ExtVersion, PortfolioId, ScopeId, Signatory, SmartExtension,
+    SmartExtensionName, SmartExtensionType, Ticker,
 };
 use polymesh_primitives_derive::VecU8StrongTyped;
 use sp_runtime::traits::{CheckedAdd, SaturatedConversion, Saturating, Zero};
@@ -625,7 +625,7 @@ decl_module! {
             ensure!(<Tokens<T>>::contains_key(&ticker), Error::<T>::NoSuchAsset);
 
             ensure!(!Self::frozen(&ticker), Error::<T>::AlreadyFrozen);
-            <Frozen>::insert(&ticker, true);
+            Frozen::insert(&ticker, true);
             Self::deposit_event(RawEvent::AssetFrozen(sender_did, ticker));
             Ok(())
         }
@@ -644,7 +644,7 @@ decl_module! {
             ensure!(<Tokens<T>>::contains_key(&ticker), Error::<T>::NoSuchAsset);
 
             ensure!(Self::frozen(&ticker), Error::<T>::NotFrozen);
-            <Frozen>::insert(&ticker, false);
+            Frozen::insert(&ticker, false);
             Self::deposit_event(RawEvent::AssetUnfrozen(sender_did, ticker));
             Ok(())
         }
@@ -1950,12 +1950,7 @@ impl<T: Trait> Module<T> {
 
     /// Accept and process a ticker transfer.
     pub fn _accept_ticker_transfer(to_did: IdentityId, auth_id: u64) -> DispatchResult {
-        ensure!(
-            <identity::Authorizations<T>>::contains_key(Signatory::from(to_did), auth_id),
-            AuthorizationError::Invalid
-        );
-
-        let auth = <identity::Authorizations<T>>::get(Signatory::from(to_did), auth_id);
+        let auth = <Identity<T>>::ensure_authorization(&to_did.into(), auth_id)?;
 
         let ticker = match auth.authorization_data {
             AuthorizationData::TransferTicker(ticker) => ticker,
@@ -1968,11 +1963,7 @@ impl<T: Trait> Module<T> {
         );
         let ticker_details = Self::ticker_registration(&ticker);
 
-        <identity::Module<T>>::consume_auth(
-            ticker_details.owner,
-            Signatory::from(to_did),
-            auth_id,
-        )?;
+        <Identity<T>>::consume_auth(ticker_details.owner, Signatory::from(to_did), auth_id)?;
 
         Self::transfer_ticker(ticker, to_did, ticker_details.owner);
         ClassicTickers::remove(&ticker); // Not a classic ticker anymore if it was.
@@ -1992,12 +1983,7 @@ impl<T: Trait> Module<T> {
         to_did: IdentityId,
         auth_id: u64,
     ) -> DispatchResult {
-        ensure!(
-            <identity::Authorizations<T>>::contains_key(Signatory::from(to_did), auth_id),
-            AuthorizationError::Invalid
-        );
-
-        let auth = <identity::Authorizations<T>>::get(Signatory::from(to_did), auth_id);
+        let auth = <Identity<T>>::ensure_authorization(&to_did.into(), auth_id)?;
 
         let ticker = match auth.authorization_data {
             AuthorizationData::TransferPrimaryIssuanceAgent(ticker) => ticker,
@@ -2005,7 +1991,7 @@ impl<T: Trait> Module<T> {
         };
 
         let token = <Tokens<T>>::get(&ticker);
-        <identity::Module<T>>::consume_auth(token.owner_did, Signatory::from(to_did), auth_id)?;
+        <Identity<T>>::consume_auth(token.owner_did, Signatory::from(to_did), auth_id)?;
 
         let mut old_primary_issuance_agent = None;
         <Tokens<T>>::mutate(&ticker, |token| {
@@ -2025,12 +2011,7 @@ impl<T: Trait> Module<T> {
 
     /// Accept and process a token ownership transfer.
     pub fn _accept_token_ownership_transfer(to_did: IdentityId, auth_id: u64) -> DispatchResult {
-        ensure!(
-            <identity::Authorizations<T>>::contains_key(Signatory::from(to_did), auth_id),
-            AuthorizationError::Invalid
-        );
-
-        let auth = <identity::Authorizations<T>>::get(Signatory::from(to_did), auth_id);
+        let auth = <Identity<T>>::ensure_authorization(&to_did.into(), auth_id)?;
 
         let ticker = match auth.authorization_data {
             AuthorizationData::TransferAssetOwnership(ticker) => ticker,
@@ -2042,22 +2023,14 @@ impl<T: Trait> Module<T> {
         let token_details = Self::token_details(&ticker);
         let ticker_details = Self::ticker_registration(&ticker);
 
-        <identity::Module<T>>::consume_auth(
-            token_details.owner_did,
-            Signatory::from(to_did),
-            auth_id,
-        )?;
+        <Identity<T>>::consume_auth(token_details.owner_did, Signatory::from(to_did), auth_id)?;
 
         <AssetOwnershipRelations>::remove(ticker_details.owner, ticker);
 
         <AssetOwnershipRelations>::insert(to_did, ticker, AssetOwnershipRelation::AssetOwned);
 
-        <Tickers<T>>::mutate(&ticker, |tr| {
-            tr.owner = to_did;
-        });
-        <Tokens<T>>::mutate(&ticker, |tr| {
-            tr.owner_did = to_did;
-        });
+        <Tickers<T>>::mutate(&ticker, |tr| tr.owner = to_did);
+        <Tokens<T>>::mutate(&ticker, |tr| tr.owner_did = to_did);
 
         Self::deposit_event(RawEvent::AssetOwnershipTransferred(
             to_did,
@@ -2243,7 +2216,7 @@ impl<T: Trait> Module<T> {
         // Validate the transfer
         let (is_transfer_success, weight_for_transfer) = Self::_is_valid_transfer(
             &ticker,
-            <identity::Module<T>>::did_records(from_portfolio.did).primary_key,
+            <Identity<T>>::did_records(from_portfolio.did).primary_key,
             from_portfolio,
             to_portfolio,
             value,
