@@ -15,20 +15,16 @@
 
 #![cfg(feature = "runtime-benchmarks")]
 use crate::*;
-//use cryptography::claim_proofs::{compute_cdd_id, compute_scope_id};
 use frame_benchmarking::{account, benchmarks};
 use frame_support::traits::Currency;
 use frame_system::RawOrigin;
 use pallet_balances as balances;
+use polymesh_common_utilities::traits::identity::TargetIdAuthorization;
 use polymesh_primitives::{
     AuthorizationData, Claim, CountryCode, IdentityId, InvestorUid, Permissions, Scope, Signatory,
 };
-// use polymesh_common_utilities::traits::identity::Trait as IdentityTrait;
-use polymesh_common_utilities::traits::identity::TargetIdAuthorization;
 use schnorrkel::Signature;
 use sp_std::prelude::*;
-//use sp_keyring::AccountKeyring;
-//use sp_core::H512;
 
 const SEED: u32 = 0;
 fn uid_from_name_and_idx(name: &'static str, u: u32) -> InvestorUid {
@@ -195,9 +191,7 @@ benchmarks! {
         );
     }: _(new_key_origin, owner_auth_id, Some(cdd_auth_id))
 
-    change_cdd_requirement_for_mk_rotation {
-        // NB: Override weight manually and mark this as operational tx
-    }: _(RawOrigin::Root, true)
+    change_cdd_requirement_for_mk_rotation {change_cdd_requirement_for_mk_rotation}: _(RawOrigin::Root, true)
 
     join_identity_as_key {
         let (_, _, target_did) = make_account::<T>("target", SEED);
@@ -245,7 +239,8 @@ benchmarks! {
     }: _(origin, target_did, Claim::Jurisdiction(CountryCode::BB, Scope::Identity(origin_did)), Some(666.into()))
 
     forwarded_call {
-        // NB: We'll need to modify the weight manually to account for the weight of the boxed proposal
+        // NB: The automated weight calculation does not account for weight of the transaction being forwarded.
+        // The weight of the forwarded call must be added to the weight calculated by this benchmark.
         let (_, _, target_did) = make_account::<T>("target", SEED);
         let (new_account, new_key_origin, new_did) = make_account::<T>("key", SEED);
 
@@ -292,10 +287,14 @@ benchmarks! {
         );
     }: _(origin, Signatory::Identity(did), auth_id)
 
-    // TODO: accept_authorization
+    // TODO: accept_authorization. The worst case of `accept_authorization` will be whatever authorization type takes most resources.
+    // A defensive weight has been hardcoded for now but it should be updated once we've done benchmarks for all auth types.
 
     // TODO: fix this.
-    // Account keyring is not available in no_std
+    // Account keyring is not available in no_std so it's not possible to sign data directly.
+    // However, substrate injects the required functions as host functions in WASM.
+    // We need to setup some helper functions to access those.
+    // A defensive weight has been hardcoded for now.
     // add_secondary_keys_with_authorization {
     //     // Number of keys.
     //     let n in 0 .. 8;
