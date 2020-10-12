@@ -196,6 +196,7 @@ impl_outer_dispatch! {
     pub enum Call for Test where origin: Origin {
         staking::Staking,
         pallet_pips::Pips,
+        frame_system::System,
     }
 }
 
@@ -373,6 +374,7 @@ impl IdentityTrait for Test {
     type OffChainSignature = TestSignature;
     type ProtocolFee = protocol_fee::Module<Test>;
     type GCVotingMajorityOrigin = frame_system::EnsureRoot<AccountId>;
+    type WeightInfo = polymesh_weights::pallet_identity::WeightInfo;
 }
 
 impl CddAndFeeDetails<AccountId, Call> for Test {
