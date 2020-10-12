@@ -596,10 +596,7 @@ decl_module! {
 
         /// Marks the specified claim as revoked.
         #[weight = 500_000_000]
-        pub fn revoke_claim(origin,
-            target: IdentityId,
-            claim: Claim,
-        ) -> DispatchResult {
+        pub fn revoke_claim(origin, target: IdentityId, claim: Claim) -> DispatchResult {
             let issuer = Self::ensure_origin_call_permissions(origin)?.primary_did;
             let claim_type = claim.claim_type();
             let scope = claim.as_scope().cloned();

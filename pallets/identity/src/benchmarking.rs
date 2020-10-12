@@ -13,6 +13,7 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
+#![cfg(feature = "runtime-benchmarks")]
 use crate::*;
 //use cryptography::claim_proofs::{compute_cdd_id, compute_scope_id};
 use frame_benchmarking::{account, benchmarks};
@@ -23,8 +24,11 @@ use polymesh_primitives::{
     AuthorizationData, Claim, CountryCode, IdentityId, InvestorUid, Permissions, Scope, Signatory,
 };
 // use polymesh_common_utilities::traits::identity::Trait as IdentityTrait;
+use polymesh_common_utilities::traits::identity::TargetIdAuthorization;
 use schnorrkel::Signature;
 use sp_std::prelude::*;
+//use sp_keyring::AccountKeyring;
+//use sp_core::H512;
 
 const SEED: u32 = 0;
 fn uid_from_name_and_idx(name: &'static str, u: u32) -> InvestorUid {
@@ -56,6 +60,50 @@ fn make_cdd_account<T: Trait>(u: u32) -> (T::AccountId, RawOrigin<T::AccountId>,
     let (cdd_account, cdd_origin, cdd_did) = make_account::<T>("cdd", u);
     T::CddServiceProviders::add_member(cdd_did).unwrap();
     (cdd_account, cdd_origin, cdd_did)
+}
+
+fn setup_investor_uniqueness_claim<T: Trait>(
+    name: &'static str,
+) -> (
+    T::AccountId,
+    RawOrigin<T::AccountId>,
+    IdentityId,
+    Claim,
+    InvestorZKProofData,
+) {
+    let (account, origin) = make_account_without_did::<T>(name, SEED);
+
+    let did = IdentityId::from([
+        152u8, 25, 31, 70, 229, 131, 2, 22, 68, 84, 54, 151, 136, 3, 105, 122, 94, 58, 182, 27, 30,
+        137, 81, 212, 254, 154, 230, 123, 171, 97, 74, 95,
+    ]);
+    Module::<T>::link_did(account.clone(), did);
+
+    let cdd_id = CddId::from([
+        102u8, 210, 32, 212, 213, 80, 255, 99, 142, 30, 202, 20, 220, 131, 109, 106, 137, 12, 137,
+        191, 123, 156, 212, 20, 215, 87, 23, 42, 84, 181, 128, 73,
+    ]);
+    let cdd_claim = Claim::CustomerDueDiligence(cdd_id);
+    Module::<T>::base_add_claim(did, cdd_claim, did, Some(666.into()));
+
+    let scope = Scope::Custom([228u8, 152, 116, 104, 5, 8, 30, 188, 143, 185, 10, 208].to_vec());
+    let scope_did = IdentityId::from([
+        2u8, 72, 20, 154, 7, 96, 116, 105, 155, 74, 227, 252, 172, 18, 200, 203, 137, 107, 200,
+        210, 194, 71, 250, 41, 108, 172, 100, 107, 223, 114, 182, 101,
+    ]);
+    let conf_scope_claim = Claim::InvestorUniqueness(scope, scope_did, cdd_id);
+
+    let inv_proof = InvestorZKProofData(
+        Signature::from_bytes(&[
+            216u8, 224, 57, 254, 200, 45, 150, 202, 12, 108, 226, 233, 148, 213, 237, 7, 35, 150,
+            142, 18, 127, 146, 162, 19, 161, 164, 95, 67, 181, 100, 156, 25, 201, 210, 209, 165,
+            182, 74, 184, 145, 230, 255, 215, 144, 223, 100, 100, 147, 226, 58, 142, 92, 103, 153,
+            153, 204, 123, 120, 133, 113, 218, 51, 208, 132,
+        ])
+        .unwrap(),
+    );
+
+    (account, origin, did, conf_scope_claim, inv_proof)
 }
 
 benchmarks! {
@@ -147,7 +195,9 @@ benchmarks! {
         );
     }: _(new_key_origin, owner_auth_id, Some(cdd_auth_id))
 
-    change_cdd_requirement_for_mk_rotation {}: _(RawOrigin::Root, true)
+    change_cdd_requirement_for_mk_rotation {
+        // NB: Override weight manually and mark this as operational tx
+    }: _(RawOrigin::Root, true)
 
     join_identity_as_key {
         let (_, _, target_did) = make_account::<T>("target", SEED);
@@ -206,23 +256,93 @@ benchmarks! {
         Module::<T>::set_context_did(Some(new_did));
     }: _(new_key_origin, target_did, boxed_proposal)
 
+    revoke_claim {
+        let (_, origin, did, conf_scope_claim, inv_proof) = setup_investor_uniqueness_claim::<T>("caller");
+        Module::<T>::add_investor_uniqueness_claim(origin.clone().into(), did, conf_scope_claim.clone(), inv_proof, Some(666.into()))?;
+    }: _(origin, did, conf_scope_claim)
+
+    set_permission_to_signer {
+        let (_, did_origin, target_did) = make_account::<T>("target", SEED);
+        let (new_key, new_key_origin) = make_account_without_did::<T>("key", SEED);
+        let signatory = Signatory::Account(new_key);
+
+        Module::<T>::unsafe_join_identity(target_did, Permissions::empty(), signatory.clone())?;
+    }: _(did_origin, signatory, Permissions::default().into())
+
+    freeze_secondary_keys {
+        let (_, origin, _) = make_account::<T>("caller", SEED);
+    }: _(origin)
+
+    unfreeze_secondary_keys {
+        let (_, origin, _) = make_account::<T>("caller", SEED);
+        Module::<T>::freeze_secondary_keys(origin.clone().into())?;
+    }: _(origin)
+
+    add_authorization {
+        let (_, origin, did) = make_account::<T>("caller", SEED);
+    }: _(origin, Signatory::Identity(did), AuthorizationData::JoinIdentity(Permissions::default()), Some(666.into()))
+
+    remove_authorization {
+        let (_, origin, did) = make_account::<T>("caller", SEED);
+        let auth_id =  Module::<T>::add_auth(
+            did,
+            Signatory::Identity(did),
+            AuthorizationData::JoinIdentity(Permissions::default()),
+            Some(666.into()),
+        );
+    }: _(origin, Signatory::Identity(did), auth_id)
+
+    // TODO: accept_authorization
+
+    // TODO: fix this.
+    // Account keyring is not available in no_std
+    // add_secondary_keys_with_authorization {
+    //     // Number of keys.
+    //     let n in 0 .. 8;
+
+    //     let (_, origin, did) = make_account::<T>("caller", SEED);
+
+    //     let expires_at = 600u64;
+    //     let authorization = TargetIdAuthorization::<u64> {
+    //         target_id: did.clone(),
+    //         nonce: Module::<T>::offchain_authorization_nonce(did),
+    //         expires_at,
+    //     };
+    //     let auth_encoded = authorization.encode();
+
+    //     let accounts = [
+    //         AccountKeyring::Alice,
+    //         AccountKeyring::Bob,
+    //         AccountKeyring::Charlie,
+    //         AccountKeyring::Dave,
+    //         AccountKeyring::Eve,
+    //         AccountKeyring::Ferdie,
+    //         AccountKeyring::One,
+    //         AccountKeyring::Two
+    //     ];
+
+    //     let secondary_keys_with_auth = accounts.into_iter().enumerate().take(n as usize).map(|(i, acc)| {
+    //         let (_, _, key_did) = make_account::<T>("key", i as u32);
+    //         let sig = H512::from(acc.sign(&auth_encoded));
+    //         SecondaryKeyWithAuth {
+    //             secondary_key: SecondaryKey::from(key_did).into(),
+    //             auth_signature: sig,
+    //         }
+    //     }).collect::<Vec<_>>();
+
+    // }: _(origin, secondary_keys_with_auth, expires_at)
+
+    revoke_offchain_authorization {
+        let (_, origin, did) = make_account::<T>("caller", SEED);
+
+        let authorization = TargetIdAuthorization::<T::Moment> {
+            target_id: did.clone(),
+            nonce: Module::<T>::offchain_authorization_nonce(did),
+            expires_at: 600.into(),
+        };
+    }: _(origin, Signatory::Identity(did), authorization)
+
     add_investor_uniqueness_claim {
-        let (account, origin) = make_account_without_did::<T>("caller", SEED);
-
-        let did = IdentityId::from([152u8,25,31,70,229,131,2,22,68,84,54,151,136,3,105,122,94,58,182,27,30,137,81,212,254,154,230,123,171,97,74,95]);
-        Module::<T>::link_did(account.clone(), did);
-
-        let cdd_id = CddId::from([102u8,210,32,212,213,80,255,99,142,30,202,20,220,131,109,106,137,12,137,191,123,156,212,20,215,87,23,42,84,181,128,73]);
-        let cdd_claim = Claim::CustomerDueDiligence(cdd_id);
-        Module::<T>::base_add_claim(did, cdd_claim, did, Some(666.into()));
-
-        let scope = Scope::Custom([228u8,152,116,104,5,8,30,188,143,185,10,208].to_vec());
-        let scope_did = IdentityId::from([2u8,72,20,154,7,96,116,105,155,74,227,252,172,18,200,203,137,107,200,210,194,71,250,41,108,172,100,107,223,114,182,101]);
-        let conf_scope_claim = Claim::InvestorUniqueness(scope, scope_did, cdd_id);
-
-        let inv_proof = InvestorZKProofData(Signature::from_bytes(&[216u8,224,57,254,200,45,150,202,12,108,226,233,148,213,237,7,35,150,142,18,127,146,162,19,161,164,95,67,181,100,156,25,201,210,209,165,182,74,184,145,230,255,215,144,223,100,100,147,226,58,142,92,103,153,153,204,123,120,133,113,218,51,208,132]).unwrap());
-
+        let (_, origin, did, conf_scope_claim, inv_proof) = setup_investor_uniqueness_claim::<T>("caller");
     }: _(origin, did, conf_scope_claim, inv_proof, Some(666.into()))
-
-
 }
