@@ -4333,8 +4333,8 @@ dependencies = [
 [[package]]
 name = "pallet-im-online"
 version = "2.0.0"
+source = "git+https://github.com/paritytech/substrate?tag=v2.0.0#a200cdb93c6af5763b9c7bf313fa708764ac88ca"
 dependencies = [
- "frame-benchmarking",
  "frame-support",
  "frame-system",
  "pallet-authorship",
@@ -4352,8 +4352,8 @@ dependencies = [
 [[package]]
 name = "pallet-im-online"
 version = "2.0.0"
-source = "git+https://github.com/paritytech/substrate?tag=v2.0.0#a200cdb93c6af5763b9c7bf313fa708764ac88ca"
 dependencies = [
+ "frame-benchmarking",
  "frame-support",
  "frame-system",
  "pallet-authorship",
@@ -5292,7 +5292,7 @@ version = "2.0.0"
 dependencies = [
  "blake2",
  "chrono",
- "cryptography",
+ "cryptography 0.1.0 (git+https://github.com/PolymathNetwork/cryptography.git?branch=substrate-2)",
  "curve25519-dalek 2.1.0",
  "frame-support",
  "frame-system",
