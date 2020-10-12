@@ -8,7 +8,7 @@ use pallet_settlement::{self as settlement, Receipt, ReceiptDetails, VenueDetail
 use pallet_sto::{self as sto, Fundraiser, FundraiserTier, PriceTier};
 use polymesh_primitives::{PortfolioId, Ticker};
 
-use frame_support::{assert_err, assert_ok};
+use frame_support::{assert_err, assert_ok, assert_noop};
 use sp_std::convert::TryFrom;
 use test_client::AccountKeyring;
 
@@ -25,22 +25,24 @@ type Timestamp = pallet_timestamp::Module<TestStorage>;
 fn raise_happy_path_ext() {
     ExtBuilder::default()
         .build()
-        .execute_with(|| raise_happy_path);
+        .execute_with(raise_happy_path);
 }
 #[test]
 fn raise_unhappy_path_ext() {
     ExtBuilder::default()
         .build()
-        .execute_with(|| raise_unhappy_path());
+        .execute_with(raise_unhappy_path);
 }
 
 fn raise_happy_path() {
     let alice_did = register_keyring_account(AccountKeyring::Alice).unwrap();
     let alice_signed = Origin::signed(AccountKeyring::Alice.public());
     let alice = AccountKeyring::Alice.public();
+    let alice_portfolio = PortfolioId::default_portfolio(alice_did);
     let bob_did = register_keyring_account(AccountKeyring::Bob).unwrap();
     let bob_signed = Origin::signed(AccountKeyring::Bob.public());
-    let bob = AccountKeyring::Bob.public();
+    let _bob = AccountKeyring::Bob.public();
+    let bob_portfolio = PortfolioId::default_portfolio(bob_did);
 
     // Register tokens
     let offering_ticker = Ticker::try_from(&[0x01][..]).unwrap();
@@ -68,8 +70,8 @@ fn raise_happy_path() {
     ));
 
     assert_ok!(Asset::unsafe_transfer(
-        PortfolioId::default_portfolio(alice_did),
-        PortfolioId::default_portfolio(bob_did),
+        alice_portfolio,
+        bob_portfolio,
         &raise_ticker,
         1_000_000
     ));
@@ -98,18 +100,18 @@ fn raise_happy_path() {
     ));
 
     let amount = 100u128;
-    let alice_init_balance = Asset::balance_of(&offering_ticker, alice_did);
-    let bob_init_balance = Asset::balance_of(&offering_ticker, bob_did);
-    let alice_init_balance2 = Asset::balance_of(&raise_ticker, alice_did);
-    let bob_init_balance2 = Asset::balance_of(&raise_ticker, bob_did);
+    let alice_init_offering = Asset::balance_of(&offering_ticker, alice_did);
+    let bob_init_offering = Asset::balance_of(&offering_ticker, bob_did);
+    let alice_init_raise = Asset::balance_of(&raise_ticker, alice_did);
+    let bob_init_raise = Asset::balance_of(&raise_ticker, bob_did);
 
     // Alice starts a fundraiser
     let fundraiser_id = STO::fundraiser_count(offering_ticker);
     assert_ok!(STO::create_fundraiser(
         alice_signed.clone(),
-        PortfolioId::default_portfolio(alice_did),
+        alice_portfolio,
         offering_ticker,
-        PortfolioId::default_portfolio(alice_did),
+        alice_portfolio,
         raise_ticker,
         vec![PriceTier {
             total: 1_000_000u128,
@@ -120,11 +122,12 @@ fn raise_happy_path() {
         None,
     ));
     assert_eq!(
-        STO::fundraisers(offering_ticker, 1),
+        STO::fundraisers(offering_ticker, fundraiser_id),
         Some(Fundraiser {
-            offering_portfolio: PortfolioId::default_portfolio(alice_did),
+            creator: alice_did,
+            offering_portfolio: alice_portfolio,
             offering_asset: offering_ticker,
-            raising_portfolio: PortfolioId::default_portfolio(alice_did),
+            raising_portfolio: alice_portfolio,
             raising_asset: raise_ticker,
             tiers: vec![FundraiserTier {
                 total: 1_000_000u128,
@@ -140,35 +143,37 @@ fn raise_happy_path() {
 
     assert_eq!(
         Asset::balance_of(&offering_ticker, alice_did),
-        alice_init_balance
+        alice_init_offering
     );
     assert_eq!(
         Asset::balance_of(&offering_ticker, bob_did),
-        bob_init_balance
+        bob_init_offering
     );
     assert_eq!(
         Asset::balance_of(&raise_ticker, alice_did),
-        alice_init_balance2
+        alice_init_raise
     );
-    assert_eq!(Asset::balance_of(&raise_ticker, bob_did), bob_init_balance2);
+    assert_eq!(Asset::balance_of(&raise_ticker, bob_did), bob_init_raise);
 
     // Bob invests in Alice's fundraiser
     assert_ok!(STO::invest(
         bob_signed.clone(),
-        PortfolioId::default_portfolio(bob_did),
-        PortfolioId::default_portfolio(bob_did),
+        bob_portfolio,
+        bob_portfolio,
         offering_ticker,
         fundraiser_id,
         amount.into(),
         Some(2u128),
         None
     ));
+
     assert_eq!(
         STO::fundraisers(offering_ticker, 1),
         Some(Fundraiser {
-            offering_portfolio: PortfolioId::default_portfolio(alice_did),
+            creator: alice_did,
+            offering_portfolio: alice_portfolio,
             offering_asset: offering_ticker,
-            raising_portfolio: PortfolioId::default_portfolio(alice_did),
+            raising_portfolio: alice_portfolio,
             raising_asset: raise_ticker,
             tiers: vec![FundraiserTier {
                 total: 1_000_000u128,
@@ -181,21 +186,22 @@ fn raise_happy_path() {
             frozen: false
         })
     );
+
     assert_eq!(
         Asset::balance_of(&offering_ticker, alice_did),
-        alice_init_balance - amount
+        alice_init_offering - amount
     );
     assert_eq!(
         Asset::balance_of(&offering_ticker, bob_did),
-        bob_init_balance + amount
+        bob_init_offering + amount
     );
     assert_eq!(
         Asset::balance_of(&raise_ticker, alice_did),
-        alice_init_balance2 + amount
+        alice_init_raise + amount
     );
     assert_eq!(
         Asset::balance_of(&raise_ticker, bob_did),
-        bob_init_balance2 - amount
+        bob_init_raise - amount
     );
 }
 
@@ -203,19 +209,22 @@ fn raise_unhappy_path() {
     let alice_did = register_keyring_account(AccountKeyring::Alice).unwrap();
     let alice_signed = Origin::signed(AccountKeyring::Alice.public());
     let alice = AccountKeyring::Alice.public();
+    let alice_portfolio = PortfolioId::default_portfolio(alice_did);
     let bob_did = register_keyring_account(AccountKeyring::Bob).unwrap();
     let bob_signed = Origin::signed(AccountKeyring::Bob.public());
+    let _bob = AccountKeyring::Bob.public();
+    let bob_portfolio = PortfolioId::default_portfolio(bob_did);
 
-    let offering_ticker = Ticker::try_from(&[0x01][..]).unwrap();
-    let raise_ticker = Ticker::try_from(&[0x02][..]).unwrap();
+    let offering_ticker = Ticker::try_from(&[0x03][..]).unwrap();
+    let raise_ticker = Ticker::try_from(&[0x04][..]).unwrap();
 
     // Offering asset not created
-    assert_err!(
+    assert_noop!(
         STO::create_fundraiser(
             alice_signed.clone(),
-            PortfolioId::default_portfolio(alice_did),
+            alice_portfolio,
             offering_ticker,
-            PortfolioId::default_portfolio(alice_did),
+            alice_portfolio,
             raise_ticker,
             vec![PriceTier {
                 total: 1_000_000u128,
@@ -240,12 +249,12 @@ fn raise_unhappy_path() {
     ));
 
     // Venue does not exist
-    assert_err!(
+    assert_noop!(
         STO::create_fundraiser(
             alice_signed.clone(),
-            PortfolioId::default_portfolio(alice_did),
+            alice_portfolio,
             offering_ticker,
-            PortfolioId::default_portfolio(alice_did),
+            alice_portfolio,
             raise_ticker,
             vec![PriceTier {
                 total: 1_000_000u128,
@@ -267,12 +276,12 @@ fn raise_unhappy_path() {
     ));
 
     // Venue not created by primary issuance agent
-    assert_err!(
+    assert_noop!(
         STO::create_fundraiser(
             alice_signed.clone(),
-            PortfolioId::default_portfolio(alice_did),
+            alice_portfolio,
             offering_ticker,
-            PortfolioId::default_portfolio(alice_did),
+            alice_portfolio,
             raise_ticker,
             vec![PriceTier {
                 total: 1_000_000u128,
@@ -294,12 +303,12 @@ fn raise_unhappy_path() {
     ));
 
     // Venue type not Sto
-    assert_err!(
+    assert_noop!(
         STO::create_fundraiser(
             alice_signed.clone(),
-            PortfolioId::default_portfolio(alice_did),
+            alice_portfolio,
             offering_ticker,
-            PortfolioId::default_portfolio(alice_did),
+            alice_portfolio,
             raise_ticker,
             vec![PriceTier {
                 total: 1_000_000u128,
@@ -321,12 +330,12 @@ fn raise_unhappy_path() {
     ));
 
     // Raise asset not created
-    assert_err!(
+    assert_noop!(
         STO::create_fundraiser(
             alice_signed.clone(),
-            PortfolioId::default_portfolio(alice_did),
+            alice_portfolio,
             offering_ticker,
-            PortfolioId::default_portfolio(alice_did),
+            alice_portfolio,
             raise_ticker,
             vec![PriceTier {
                 total: 1_000_000u128,
@@ -351,8 +360,8 @@ fn raise_unhappy_path() {
     ));
 
     assert_ok!(Asset::unsafe_transfer(
-        PortfolioId::default_portfolio(alice_did),
-        PortfolioId::default_portfolio(bob_did),
+        alice_portfolio,
+        bob_portfolio,
         &raise_ticker,
         1_000_000
     ));
@@ -372,12 +381,12 @@ fn raise_unhappy_path() {
     ));
 
     // No prices
-    assert_err!(
+    assert_noop!(
         STO::create_fundraiser(
             alice_signed.clone(),
-            PortfolioId::default_portfolio(alice_did),
+            alice_portfolio,
             offering_ticker,
-            PortfolioId::default_portfolio(alice_did),
+            alice_portfolio,
             raise_ticker,
             vec![],
             correct_venue,
@@ -388,12 +397,12 @@ fn raise_unhappy_path() {
     );
 
     // Zero total
-    assert_err!(
+    assert_noop!(
         STO::create_fundraiser(
             alice_signed.clone(),
-            PortfolioId::default_portfolio(alice_did),
+            alice_portfolio,
             offering_ticker,
-            PortfolioId::default_portfolio(alice_did),
+            alice_portfolio,
             raise_ticker,
             vec![PriceTier {
                 total: 0u128,
@@ -407,12 +416,12 @@ fn raise_unhappy_path() {
     );
 
     // Over offering
-    assert_err!(
+    assert_noop!(
         STO::create_fundraiser(
             alice_signed.clone(),
-            PortfolioId::default_portfolio(alice_did),
+            alice_portfolio,
             offering_ticker,
-            PortfolioId::default_portfolio(alice_did),
+            alice_portfolio,
             raise_ticker,
             vec![PriceTier {
                 total: u128::MAX,
@@ -426,12 +435,12 @@ fn raise_unhappy_path() {
     );
 
     // Invalid time window
-    assert_err!(
+    assert_noop!(
         STO::create_fundraiser(
             alice_signed.clone(),
-            PortfolioId::default_portfolio(alice_did),
+            alice_portfolio,
             offering_ticker,
-            PortfolioId::default_portfolio(alice_did),
+            alice_portfolio,
             raise_ticker,
             vec![PriceTier {
                 total: 100u128,

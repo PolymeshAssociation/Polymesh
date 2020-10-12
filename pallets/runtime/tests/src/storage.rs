@@ -284,7 +284,7 @@ impl multisig::Trait for TestStorage {
 
 parameter_types! {
     pub const MaxScheduledInstructionLegsPerBlock: u32 = 500;
-    pub MaxLegsInAInstruction: u32 = MAX_NO_OF_LEGS.with(|v| *v.borrow());
+    pub const MaxLegsInAInstruction: u32 = 20;
 }
 
 impl settlement::Trait for TestStorage {

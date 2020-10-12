@@ -36,6 +36,8 @@ type Portfolio<T> = portfolio::Module<T>;
 /// Details about the Fundraiser
 #[derive(Encode, Decode, Debug, Default, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Fundraiser<Balance, Moment> {
+    /// The primary issuance agent that created the `Fundraiser`
+    pub creator: IdentityId,
     /// Portfolio containing the asset being offered
     pub offering_portfolio: PortfolioId,
     /// Asset being offered
@@ -191,26 +193,28 @@ decl_module! {
                 .map(|t| t.total)
                 .fold(0.into(), |total, x| total + x);
 
+            let start = start.unwrap_or_else(Timestamp::<T>::get);
+            if let Some(end) = end {
+                ensure!(start < end, Error::<T>::InvalidOfferingWindow);
+            }
+
             <Portfolio<T>>::lock_tokens(&offering_portfolio, &offering_asset, &offering_amount)?;
 
-            let fundraiser_id = Self::fundraiser_count(offering_asset) + 1;
+            let fundraiser_id = Self::fundraiser_count(offering_asset);
             let fundraiser = Fundraiser {
+                    creator: did,
                     offering_portfolio,
                     offering_asset,
                     raising_portfolio,
                     raising_asset,
                     tiers: tiers.into_iter().map(Into::into).collect(),
                     venue_id,
-                    start: start.unwrap_or_else(Timestamp::<T>::get),
+                    start,
                     end,
                     frozen: false,
             };
 
-            if let Some(end) = fundraiser.end {
-                ensure!(fundraiser.start < end, Error::<T>::InvalidOfferingWindow);
-            }
-
-            FundraiserCount::insert(offering_asset, fundraiser_id);
+            FundraiserCount::insert(offering_asset, fundraiser_id + 1);
             <Fundraisers<T>>::insert(
                 offering_asset,
                 fundraiser_id,
@@ -294,12 +298,11 @@ decl_module! {
                 ensure!(cost <= max_price * investment_amount, Error::<T>::InsufficientTokensRemaining);
             }
 
-            let primary_issuance_agent = T::Asset::primary_issuance_agent(&offering_asset);
             let legs = vec![
                 Leg {
                     from: fundraiser.offering_portfolio,
                     to: investment_portfolio,
-                    asset: offering_asset,
+                    asset: fundraiser.offering_asset,
                     amount: investment_amount
                 },
                 Leg {
@@ -312,7 +315,7 @@ decl_module! {
 
             with_transaction(|| {
                let instruction_id = Settlement::<T>::base_add_instruction(
-                    primary_issuance_agent,
+                    fundraiser.creator,
                     fundraiser.venue_id,
                     SettlementType::SettleOnAuthorization,
                     None,
@@ -332,7 +335,7 @@ decl_module! {
                 };
 
                 let portfolios= vec![fundraiser.offering_portfolio, fundraiser.raising_portfolio].into_iter().collect::<BTreeSet<_>>();
-                Settlement::<T>::unsafe_authorize_instruction(primary_issuance_agent, instruction_id, portfolios)?;
+                Settlement::<T>::unsafe_authorize_instruction(fundraiser.creator, instruction_id, portfolios)?;
 
                 <Fundraisers<T>>::mutate(offering_asset, fundraiser_id, |fundraiser| {
                     if let Some(fundraiser) = fundraiser {
@@ -401,6 +404,29 @@ decl_module! {
                     fundraiser.end = end;
                 }
             });
+            Ok(())
+        }
+
+        #[weight = 1_000]
+        pub fn stop(origin, offering_asset: Ticker, fundraiser_id: u64) -> DispatchResult {
+            let sender = ensure_signed(origin)?;
+            let did = Context::current_identity_or::<Identity<T>>(&sender)?;
+
+            let fundraiser = <Fundraisers<T>>::get(offering_asset, fundraiser_id)
+                .ok_or(Error::<T>::FundraiserNotFound)?;
+
+            ensure!(
+                T::Asset::primary_issuance_agent(&offering_asset) == did ||fundraiser.creator == did,
+                Error::<T>::Unauthorized
+            );
+
+            let remaining_amount: T::Balance = fundraiser.tiers
+                .iter()
+                .map(|t| t.remaining)
+                .fold(0.into(), |remaining, x| remaining + x);
+
+            <Portfolio<T>>::unlock_tokens(&fundraiser.offering_portfolio, &fundraiser.offering_asset, &remaining_amount)?;
+            <Fundraisers<T>>::remove(offering_asset, fundraiser_id);
             Ok(())
         }
     }
