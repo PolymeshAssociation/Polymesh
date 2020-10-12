@@ -7,10 +7,10 @@ use pallet_group as group;
 use pallet_identity as identity;
 use pallet_pips as pips;
 use polymesh_common_utilities::{protocol_fee::ProtocolOp, GC_DID};
-use polymesh_primitives::{Identity, IdentityId, PosRatio};
+use polymesh_primitives::{Identity, IdentityId, PosRatio, SmartExtensionType};
 use sp_core::sr25519::Public;
 use sp_io::TestExternalities;
-use sp_runtime::Storage;
+use sp_runtime::{Perbill, Storage};
 use std::{cell::RefCell, convert::From, iter};
 use test_client::AccountKeyring;
 
@@ -51,6 +51,7 @@ impl Default for MockProtocolBaseFees {
             ProtocolOp::IdentityAddSecondaryKeysWithAuthorization,
             ProtocolOp::PipsPropose,
             ProtocolOp::VotingAddBallot,
+            ProtocolOp::ContractsPutCode,
         ];
         let fees = ops
             .into_iter()
@@ -81,10 +82,15 @@ pub struct ExtBuilder {
     governance_committee_vote_threshold: BuilderVoteThreshold,
     protocol_base_fees: MockProtocolBaseFees,
     protocol_coefficient: PosRatio,
+    /// Percentage fee share of a network (treasury + validators) in instantiation fee
+    /// of a smart extension.
+    network_fee_share: Perbill,
     /// Maximum number of transfer manager an asset can have.
     max_no_of_tm_allowed: u32,
     /// Maximum number of legs a instruction can have.
     max_no_of_legs: u32,
+    /// The minimum duration for a checkpoint period, in seconds.
+    min_checkpoint_duration: u64,
     adjust: Option<Box<dyn FnOnce(&mut Storage)>>,
 }
 
@@ -92,8 +98,10 @@ thread_local! {
     pub static EXTRINSIC_BASE_WEIGHT: RefCell<u64> = RefCell::new(0);
     pub static TRANSACTION_BYTE_FEE: RefCell<u128> = RefCell::new(0);
     pub static WEIGHT_TO_FEE: RefCell<u128> = RefCell::new(0);
+    pub static NETWORK_FEE_SHARE: RefCell<Perbill> = RefCell::new(Perbill::from_percent(0));
     pub static MAX_NO_OF_TM_ALLOWED: RefCell<u32> = RefCell::new(0);
     pub static MAX_NO_OF_LEGS: RefCell<u32> = RefCell::new(0); // default value
+    pub static MIN_CHECKPOINT_DURATION: RefCell<u64> = RefCell::new(0);
 }
 
 impl ExtBuilder {
@@ -190,6 +198,12 @@ impl ExtBuilder {
         self
     }
 
+    /// Assigning the fee share in the instantiation fee
+    pub fn network_fee_share(mut self, share: Perbill) -> Self {
+        self.network_fee_share = share;
+        self
+    }
+
     /// Provide a closure `with` to run on the storage for final adjustments.
     pub fn adjust(mut self, with: Box<dyn FnOnce(&mut Storage)>) -> Self {
         self.adjust = Some(with);
@@ -200,8 +214,10 @@ impl ExtBuilder {
         EXTRINSIC_BASE_WEIGHT.with(|v| *v.borrow_mut() = self.extrinsic_base_weight);
         TRANSACTION_BYTE_FEE.with(|v| *v.borrow_mut() = self.transaction_byte_fee);
         WEIGHT_TO_FEE.with(|v| *v.borrow_mut() = self.weight_to_fee);
+        NETWORK_FEE_SHARE.with(|v| *v.borrow_mut() = self.network_fee_share);
         MAX_NO_OF_TM_ALLOWED.with(|v| *v.borrow_mut() = self.max_no_of_tm_allowed);
         MAX_NO_OF_LEGS.with(|v| *v.borrow_mut() = self.max_no_of_legs);
+        MIN_CHECKPOINT_DURATION.with(|v| *v.borrow_mut() = self.min_checkpoint_duration);
     }
 
     fn make_balances(&self) -> Vec<(Public, u128)> {
@@ -262,7 +278,7 @@ impl ExtBuilder {
 
         let _root = AccountKeyring::Alice.public();
 
-        // Create Identitys.
+        // Create Identities.
         let mut system_accounts = self
             .cdd_providers
             .iter()
@@ -297,6 +313,11 @@ impl ExtBuilder {
             registration_length: Some(10000),
         };
         asset::GenesisConfig::<TestStorage> {
+            versions: vec![
+                (SmartExtensionType::TransferManager, 5000),
+                (SmartExtensionType::Offerings, 5000),
+                (SmartExtensionType::SmartWallet, 5000),
+            ],
             classic_migration_tickers: vec![],
             classic_migration_contract_did: IdentityId::from(1),
             classic_migration_tconfig: ticker_registration_config.clone(),

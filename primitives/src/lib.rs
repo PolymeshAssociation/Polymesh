@@ -208,7 +208,10 @@ pub use ticker::Ticker;
 
 /// This module defines types used by smart extensions
 pub mod smart_extension;
-pub use smart_extension::{SmartExtension, SmartExtensionName, SmartExtensionType};
+pub use smart_extension::{
+    ExtensionAttributes, MetaUrl, MetaVersion, SmartExtension, SmartExtensionName,
+    SmartExtensionType, TemplateDetails, TemplateMetadata,
+};
 
 pub mod document;
 pub use document::{Document, DocumentHash, DocumentName, DocumentUri};
@@ -224,6 +227,9 @@ pub use proposition::{AndProposition, Context, NotProposition, OrProposition, Pr
 /// For confidential stuff.
 pub mod valid_proof_of_investor;
 pub use valid_proof_of_investor::ValidProofOfInvestor;
+
+/// Timekeeping and checkpoints.
+pub mod calendar;
 
 /// Represents custom transaction errors.
 #[repr(u8)]
