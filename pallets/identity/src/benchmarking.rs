@@ -102,23 +102,30 @@ fn setup_investor_uniqueness_claim<T: Trait>(
     (account, origin, did, conf_scope_claim, inv_proof)
 }
 
+fn generate_secondary_keys<T: Trait>(
+    n: usize,
+) -> Vec<secondary_key::api::SecondaryKey<T::AccountId>> {
+    let mut secondary_keys = Vec::with_capacity(n);
+    for x in 0..n {
+        secondary_keys.push(secondary_key::api::SecondaryKey {
+            signer: Signatory::Account(account("key", x as u32, SEED)),
+            ..Default::default()
+        });
+    }
+    secondary_keys
+}
+
 benchmarks! {
     _ {}
 
     register_did {
         // Number of secondary items.
         let i in 0 .. 50;
+
         make_cdd_account::<T>(SEED);
         let (_, origin) = make_account_without_did::<T>("caller", SEED);
         let uid = uid_from_name_and_idx("caller", SEED);
-
-        let mut secondary_keys: Vec<secondary_key::api::SecondaryKey<T::AccountId>> = Vec::with_capacity(i as usize);
-        for x in 0..i {
-            secondary_keys.push(secondary_key::api::SecondaryKey {
-                signer: Signatory::Account(account("key", x, SEED)),
-                ..Default::default()
-            });
-        }
+        let secondary_keys = generate_secondary_keys::<T>(i as usize);
     }: _(origin, uid, secondary_keys)
 
     cdd_register_did {
@@ -126,16 +133,8 @@ benchmarks! {
         let i in 0 .. 50;
 
         let (_, origin, origin_did) = make_cdd_account::<T>(SEED);
-
         let target: T::AccountId = account("target", SEED, SEED);
-
-        let mut secondary_keys: Vec<secondary_key::api::SecondaryKey<T::AccountId>> = Vec::with_capacity(i as usize);
-        for x in 0..i {
-            secondary_keys.push(secondary_key::api::SecondaryKey {
-                signer: Signatory::Account(account("key", x, SEED)),
-                ..Default::default()
-            });
-        }
+        let secondary_keys = generate_secondary_keys::<T>(i as usize);
     }: _(origin, target, secondary_keys)
 
     mock_cdd_register_did {
@@ -191,7 +190,7 @@ benchmarks! {
         );
     }: _(new_key_origin, owner_auth_id, Some(cdd_auth_id))
 
-    change_cdd_requirement_for_mk_rotation {change_cdd_requirement_for_mk_rotation}: _(RawOrigin::Root, true)
+    change_cdd_requirement_for_mk_rotation {}: _(RawOrigin::Root, true)
 
     join_identity_as_key {
         let (_, _, target_did) = make_account::<T>("target", SEED);

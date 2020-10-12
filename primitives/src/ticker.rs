@@ -104,12 +104,6 @@ impl Ticker {
     pub fn iter(&self) -> sp_std::slice::Iter<'_, u8> {
         self.0.iter()
     }
-
-    /// Returns a ticker that may not be in upper case
-    #[inline]
-    pub fn unsafe_ticker(raw: [u8; TICKER_LEN]) -> Ticker {
-        Ticker(raw)
-    }
 }
 
 #[cfg(test)]
