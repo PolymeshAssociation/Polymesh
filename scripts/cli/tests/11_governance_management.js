@@ -17,22 +17,26 @@ async function main() {
   const testEntities = await reqImports.initMain(api);
 
   let alice = testEntities[0];
+  let dave = await reqImports.generateRandomEntity(api);
   let bob = await reqImports.generateRandomEntity(api);
   let govCommittee1 = testEntities[2];
   let govCommittee2 = testEntities[3];
 
-  await reqImports.createIdentities(api, [bob, govCommittee1, govCommittee2], alice);
+  await reqImports.createIdentities(api, [bob, dave, govCommittee1, govCommittee2], alice);
 
-  // Bob needs some funds to use.
-  await reqImports.distributePolyBatch(api, [bob], reqImports.transfer_amount, alice);
+  // Bob and Dave needs some funds to use.
+  await reqImports.distributePolyBatch(api, [bob, dave], reqImports.transfer_amount, alice);
 
-  await sendTx(alice, api.tx.staking.bond(bob.publicKey, 20000, "Staked"));
-
+  await sendTx(dave, api.tx.staking.bond(bob.publicKey, 20000, "Staked"));
   // Create a PIP which is then amended.
   const setLimit = api.tx.pips.setActivePipLimit(42);
+  // Create a PIP, but first placing the cool-off period.
+  await sendTx(alice, api.tx.sudo.sudo(api.tx.pips.setProposalCoolOffPeriod(10)));
   await sendTx(bob, api.tx.pips.propose(setLimit, 10000000000, "google.com", "first"));
-  await sendTx(bob, api.tx.pips.amendProposal(0, "www.facebook.com", null));
 
+  let pipCount = await api.query.pips.activePipCount();
+  await sendTx(bob, api.tx.pips.amendProposal(pipCount - 1, "www.facebook.com", null));
+ 
   // Create a PIP, but first remove the cool-off period.
   await sendTx(alice, api.tx.sudo.sudo(api.tx.pips.setProposalCoolOffPeriod(0)));
   await sendTx(bob, api.tx.pips.propose(setLimit, 10000000000, "google.com", "second"));
@@ -42,14 +46,14 @@ async function main() {
 
   // Snapshot and approve second PIP.
   await sendTx(govCommittee1, api.tx.pips.snapshot());
-  const approvePIP = api.tx.pips.enactSnapshotResults([[1, { "Approve": "" }]]);
+  pipCount = await api.query.pips.activePipCount();
+  const approvePIP = api.tx.pips.enactSnapshotResults([[pipCount - 1, { "Approve": "" }]]);
   const voteApprove = api.tx.polymeshCommittee.voteOrPropose(true, approvePIP);
   await sendTx(govCommittee1, voteApprove);
   await sendTx(govCommittee2, voteApprove);
 
   // Finally reschedule, demonstrating that it had been scheduled.
-  await sendTx(alice, api.tx.pips.rescheduleExecution(1, null));
-
+  await sendTx(alice, api.tx.pips.rescheduleExecution(pipCount - 1, null));
   if (reqImports.fail_count > 0) {
     console.log("Failed");
   } else {
