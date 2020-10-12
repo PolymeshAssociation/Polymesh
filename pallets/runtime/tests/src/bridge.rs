@@ -339,7 +339,7 @@ fn do_freeze_and_unfreeze_bridge() {
     );
     // It will be 0 as txn has to wait for 1 more block to execute.
     assert_eq!(next_block(), 0);
-    assert_eq!(next_block(), 700800360);
+    assert_eq!(next_block(), 500000210);
 
     // Now the tokens are issued.
     assert_eq!(alices_balance(), starting_alices_balance + amount);
