@@ -8,6 +8,7 @@ edition = "2018"
 frame-support = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0" }
 frame-system = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0" }
 pallet-timestamp = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0" }
+pallet-identity = { path = "../identity", default-features = false  }
 
 [features]
 default = ["std"]
@@ -15,5 +16,6 @@ no_std = []
 std = [
     "frame-support/std",
     "pallet-timestamp/std",
-    "frame-system/std"
+    "frame-system/std",
+    "pallet-identity/std"
 ]

@@ -29,7 +29,7 @@ use frame_support::{
     decl_event,
     dispatch::PostDispatchInfo,
     traits::{Currency, EnsureOrigin, GetCallMetadata},
-    weights::GetDispatchInfo,
+    weights::{GetDispatchInfo, Weight},
     Parameter,
 };
 use polymesh_primitives::{
@@ -105,6 +105,30 @@ pub struct SecondaryKeyWithAuth<AccountId> {
     pub auth_signature: H512,
 }
 
+pub trait WeightInfo {
+    fn register_did(i: u32) -> Weight;
+    fn cdd_register_did(i: u32) -> Weight;
+    fn mock_cdd_register_did() -> Weight;
+    fn invalidate_cdd_claims() -> Weight;
+    fn remove_secondary_keys(i: u32) -> Weight;
+    fn accept_primary_key() -> Weight;
+    fn change_cdd_requirement_for_mk_rotation() -> Weight;
+    fn join_identity_as_key() -> Weight;
+    fn join_identity_as_identity() -> Weight;
+    fn leave_identity_as_key() -> Weight;
+    fn leave_identity_as_identity() -> Weight;
+    fn add_claim() -> Weight;
+    fn forwarded_call() -> Weight;
+    fn revoke_claim() -> Weight;
+    fn set_permission_to_signer() -> Weight;
+    fn freeze_secondary_keys() -> Weight;
+    fn unfreeze_secondary_keys() -> Weight;
+    fn add_authorization() -> Weight;
+    fn remove_authorization() -> Weight;
+    fn revoke_offchain_authorization() -> Weight;
+    fn add_investor_uniqueness_claim() -> Weight;
+}
+
 /// The module's configuration trait.
 pub trait Trait: CommonTrait + pallet_timestamp::Trait + balances::Trait {
     /// The overarching event type.
@@ -134,6 +158,9 @@ pub trait Trait: CommonTrait + pallet_timestamp::Trait + balances::Trait {
 
     /// Origin for Governance Committee voting majority origin.
     type GCVotingMajorityOrigin: EnsureOrigin<Self::Origin>;
+
+    /// Weight information for extrinsics in the identity pallet.
+    type WeightInfo: WeightInfo;
 }
 
 // rustfmt adds a comma after Option<Moment> in NewAuthorization and it breaks compilation

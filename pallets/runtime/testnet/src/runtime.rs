@@ -704,6 +704,7 @@ impl IdentityTrait for Runtime {
     type OffChainSignature = MultiSignature;
     type ProtocolFee = protocol_fee::Module<Runtime>;
     type GCVotingMajorityOrigin = VMO<GovernanceCommittee>;
+    type WeightInfo = polymesh_weights::pallet_identity::WeightInfo;
 }
 
 parameter_types! {
