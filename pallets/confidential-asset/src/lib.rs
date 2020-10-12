@@ -29,6 +29,7 @@ use cryptography::{
     },
     AssetId,
 };
+use base64;
 use frame_support::{
     decl_error, decl_event, decl_module, decl_storage, dispatch::DispatchResult, ensure,
 };
@@ -122,15 +123,28 @@ impl MercatAccount {
     }
 }
 
+/// Wrapper for the mercat account proof that correspond to base64 encoding of `PubAccountTx`.
+/// Since this is received as input from user and is a binary data, the `Vec<u8>` will be a base64 encoded.
+#[derive(Encode, Decode, Clone, Debug, PartialEq, Eq, VecU8StrongTyped, Default)]
+pub struct PubAccountTxWrapper(pub Vec<u8>);
+
+impl PubAccountTxWrapper {
+    /// Unwraps the value so that it can be passed to mercat library.
+    pub fn to_mercat<T: Trait>(&self) -> Result<PubAccountTx, Error<T>> {
+        let mut data: &[u8] = &base64::decode(self.0.clone()).map_err(|_| Error::<T>::UnwrapMercatDataError)?;
+        PubAccountTx::decode(&mut data).map_err(|_| Error::<T>::UnwrapMercatDataError)
+    }
+}
 
 /// Wrapper for the asset issuance proof that correspond to `InitializedAssetTx`.
+/// Since this is received as input from user and is a binary data, the `Vec<u8>` will be a base64 encoded.
 #[derive(Encode, Decode, Clone, Debug, PartialEq, Eq, VecU8StrongTyped, Default)]
 pub struct InitializedAssetTxWrapper(pub Vec<u8>);
 
 impl InitializedAssetTxWrapper {
     /// Unwraps the value so that it can be passed to mercat library.
     pub fn to_mercat<T: Trait>(&self) -> Result<InitializedAssetTx, Error<T>> {
-        let mut data: &[u8] = &self.0;
+        let mut data: &[u8] = &base64::decode(self.0.clone()).map_err(|_| Error::<T>::UnwrapMercatDataError)?;
         InitializedAssetTx::decode(&mut data).map_err(|_| Error::<T>::UnwrapMercatDataError)
     }
 }
@@ -178,10 +192,11 @@ decl_module! {
         /// * `BadOrigin` if `origin` isn't signed.
         #[weight = 1_000_000_000]
         pub fn validate_mercat_account(origin,
-            tx: PubAccountTx,
+            tx: PubAccountTxWrapper,
         ) -> DispatchResult {
             let owner_acc = ensure_signed(origin)?;
             let owner_id = Context::current_identity_or::<Identity<T>>(&owner_acc)?;
+            let tx = tx.to_mercat::<T>()?;
 
             let valid_asset_ids = convert_asset_ids(Self::confidential_tickers());
             AccountValidator{}.verify(&tx, &valid_asset_ids).map_err(|_| Error::<T>::InvalidAccountCreationProof)?;

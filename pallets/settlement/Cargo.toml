@@ -32,6 +32,7 @@ frame-support = { git = "https://github.com/paritytech/substrate", default-featu
 cryptography = { git = "https://github.com/PolymathNetwork/cryptography.git", branch = "develop", default-features = false }
 rand_core = { version = "0.5", default-features = false }
 rand = { version = "0.7.3", default-features = false, optional = true }
+base64 = { version = "0.12.1", default-features = false, features = ["alloc"] }
 
 [features]
 equalize = []

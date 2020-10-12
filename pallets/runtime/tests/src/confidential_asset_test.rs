@@ -3,7 +3,8 @@ use super::{
     ExtBuilder,
 };
 use codec::{Decode, Encode};
-use confidential_asset::{EncryptedAssetIdWrapper, MercatAccountId, InitializedAssetTxWrapper};
+use confidential_asset::{EncryptedAssetIdWrapper, MercatAccountId, InitializedAssetTxWrapper, PubAccountTxWrapper};
+use base64;
 use core::convert::{TryFrom, TryInto};
 use cryptography::{
     asset_proofs::{CommitmentWitness, ElgamalSecretKey},
@@ -285,7 +286,7 @@ fn issuers_can_create_and_mint_tokens() {
 
         ConfidentialAsset::validate_mercat_account(
             Origin::signed(owner),
-            mercat_account_tx.clone(),
+            PubAccountTxWrapper::from(base64::encode(mercat_account_tx.clone().encode())),
         )
         .unwrap();
 
@@ -314,7 +315,7 @@ fn issuers_can_create_and_mint_tokens() {
             Origin::signed(owner),
             ticker,
             amount.into(), // convert to u128
-            InitializedAssetTxWrapper::from(&initialized_asset_tx.encode()),
+            InitializedAssetTxWrapper::from(base64::encode(&initialized_asset_tx.encode())),
         )
         .unwrap();
 
@@ -379,7 +380,7 @@ fn account_create_tx() {
         // Wallet submits the transaction to the chain for verification.
         ConfidentialAsset::validate_mercat_account(
             Origin::signed(alice),
-            mercat_account_tx.clone(),
+            PubAccountTxWrapper::from(base64::encode(mercat_account_tx.clone().encode())),
         )
         .unwrap();
 

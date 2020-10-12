@@ -39,6 +39,7 @@ use cryptography::mercat::{
     transaction::TransactionValidator, EncryptedAmount, JustifiedTransferTx, PubAccount,
     TransferTransactionVerifier,
 };
+use base64;
 use frame_support::{
     decl_error, decl_event, decl_module, decl_storage,
     dispatch::{DispatchError, DispatchResult, DispatchResultWithPostInfo},
@@ -89,6 +90,8 @@ pub trait Trait:
 }
 
 /// The wrapper for confidential transfer data which includes proofs and other related info from mercat library.
+/// Since the values of this type are received as input from user and they are binary data, the `Vec<u8>` will
+/// be a base64 encoded value.
 #[derive(Encode, Decode, Clone, Debug, PartialEq, Eq)]
 pub enum MercatTxData {
     // The buyer (i.e., the sender), will submit this.
@@ -1305,8 +1308,18 @@ impl<T: Trait> Module<T> {
                                 let tx_data = tx_data.remove(2);
                                 let decoded_justified_tx = match tx_data {
                                     MercatTxData::JustifiedTransfer(finalized) => {
-                                        let mut data: &[u8] = &finalized;
-                                        JustifiedTransferTx::decode(&mut data).unwrap()
+                                        let result = base64::decode(&finalized);
+                                        if result.is_ok() {
+                                            let mut data: &[u8] = &result.unwrap();
+                                            let result = JustifiedTransferTx::decode(&mut data);
+                                            if result.is_ok() {
+                                                result.unwrap()
+                                            } else {
+                                                return Err((leg_id, FailureReason::GetMercatMediatorData));
+                                            }
+                                        } else {
+                                            return Err((leg_id, FailureReason::GetMercatMediatorData));
+                                        }
                                     }
                                     _ => {
                                         return Err((leg_id, FailureReason::GetMercatMediatorData));
@@ -1572,13 +1585,8 @@ impl<T: Trait> Module<T> {
                             )
                             .ok();
                         }
-                        Leg::ConfidentialLeg(_) => {
-                            // TODO: should I dispatch error at this point since the function does not have an error type?
-                            // return Err(Error::<T>::ConfidentialModeNotSupportedYet.into())
-                        }
-                        Leg::Undefined => {
-                            // TODO: should I dispatch error at this point since the function does not have an error type?
-                            // return Err(Error::<T>::UndefinedLeg.into())
+                        _ => {
+                            // unchecked function. Won't raise error.
                         }
                     }
                 }
