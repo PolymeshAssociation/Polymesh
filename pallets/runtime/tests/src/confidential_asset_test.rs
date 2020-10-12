@@ -2,9 +2,11 @@ use super::{
     storage::{register_keyring_account, TestStorage},
     ExtBuilder,
 };
-use codec::{Decode, Encode};
-use confidential_asset::{EncryptedAssetIdWrapper, MercatAccountId, InitializedAssetTxWrapper, PubAccountTxWrapper};
 use base64;
+use codec::{Decode, Encode};
+use confidential_asset::{
+    EncryptedAssetIdWrapper, InitializedAssetTxWrapper, MercatAccountId, PubAccountTxWrapper,
+};
 use core::convert::{TryFrom, TryInto};
 use cryptography::{
     asset_proofs::{CommitmentWitness, ElgamalSecretKey},

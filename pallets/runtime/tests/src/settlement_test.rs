@@ -5,9 +5,9 @@ use super::{
     },
     ExtBuilder,
 };
-use codec::{Decode, Encode};
 use base64;
-use confidential_asset::{MercatAccountId, InitializedAssetTxWrapper, PubAccountTxWrapper};
+use codec::{Decode, Encode};
+use confidential_asset::{InitializedAssetTxWrapper, MercatAccountId, PubAccountTxWrapper};
 use core::convert::{TryFrom, TryInto};
 use cryptography::{
     asset_proofs::{CommitmentWitness, ElgamalSecretKey},
@@ -3390,7 +3390,8 @@ fn basic_confidential_settlement() {
                         )
                         .unwrap()
                         .encode(),
-                ).into_bytes()
+                )
+                .into_bytes(),
             );
             // Sender authorizes the instruction and passes in the proofs.
             assert_ok!(Settlement::authorize_confidential_instruction(
@@ -3435,7 +3436,8 @@ fn basic_confidential_settlement() {
                         )
                         .unwrap()
                         .encode(),
-                ).into_bytes()
+                )
+                .into_bytes(),
             );
 
             // Receiver submits the proof to the chain.
@@ -3481,7 +3483,8 @@ fn basic_confidential_settlement() {
                         )
                         .unwrap()
                         .encode(),
-                ).into_bytes()
+                )
+                .into_bytes(),
             );
 
             println!("-------------> This should trigger the execution");

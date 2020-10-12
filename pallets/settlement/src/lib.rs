@@ -34,12 +34,12 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 #![recursion_limit = "256"]
 
+use base64;
 use codec::{Decode, Encode};
 use cryptography::mercat::{
     transaction::TransactionValidator, EncryptedAmount, JustifiedTransferTx, PubAccount,
     TransferTransactionVerifier,
 };
-use base64;
 use frame_support::{
     decl_error, decl_event, decl_module, decl_storage,
     dispatch::{DispatchError, DispatchResult, DispatchResultWithPostInfo},
@@ -1315,10 +1315,16 @@ impl<T: Trait> Module<T> {
                                             if result.is_ok() {
                                                 result.unwrap()
                                             } else {
-                                                return Err((leg_id, FailureReason::GetMercatMediatorData));
+                                                return Err((
+                                                    leg_id,
+                                                    FailureReason::GetMercatMediatorData,
+                                                ));
                                             }
                                         } else {
-                                            return Err((leg_id, FailureReason::GetMercatMediatorData));
+                                            return Err((
+                                                leg_id,
+                                                FailureReason::GetMercatMediatorData,
+                                            ));
                                         }
                                     }
                                     _ => {

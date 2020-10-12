@@ -19,6 +19,7 @@
 //! Polymesh blockchain.
 #![cfg_attr(not(feature = "std"), no_std)]
 
+use base64;
 use codec::{Decode, Encode};
 use cryptography::{
     mercat::{
@@ -29,7 +30,6 @@ use cryptography::{
     },
     AssetId,
 };
-use base64;
 use frame_support::{
     decl_error, decl_event, decl_module, decl_storage, dispatch::DispatchResult, ensure,
 };
@@ -131,7 +131,8 @@ pub struct PubAccountTxWrapper(pub Vec<u8>);
 impl PubAccountTxWrapper {
     /// Unwraps the value so that it can be passed to mercat library.
     pub fn to_mercat<T: Trait>(&self) -> Result<PubAccountTx, Error<T>> {
-        let mut data: &[u8] = &base64::decode(self.0.clone()).map_err(|_| Error::<T>::UnwrapMercatDataError)?;
+        let mut data: &[u8] =
+            &base64::decode(self.0.clone()).map_err(|_| Error::<T>::UnwrapMercatDataError)?;
         PubAccountTx::decode(&mut data).map_err(|_| Error::<T>::UnwrapMercatDataError)
     }
 }
@@ -144,7 +145,8 @@ pub struct InitializedAssetTxWrapper(pub Vec<u8>);
 impl InitializedAssetTxWrapper {
     /// Unwraps the value so that it can be passed to mercat library.
     pub fn to_mercat<T: Trait>(&self) -> Result<InitializedAssetTx, Error<T>> {
-        let mut data: &[u8] = &base64::decode(self.0.clone()).map_err(|_| Error::<T>::UnwrapMercatDataError)?;
+        let mut data: &[u8] =
+            &base64::decode(self.0.clone()).map_err(|_| Error::<T>::UnwrapMercatDataError)?;
         InitializedAssetTx::decode(&mut data).map_err(|_| Error::<T>::UnwrapMercatDataError)
     }
 }
