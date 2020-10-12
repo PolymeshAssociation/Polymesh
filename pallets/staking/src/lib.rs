@@ -98,7 +98,7 @@
 //! An account can become a validator candidate via the
 //! [`validate`](./enum.Call.html#variant.validate) call
 //! But only those validators are in effect whose compliance status is active via
-//! [`add_permissioned_validator`](./enum.Call.html#variant.validate) call & there _stash_ accounts has valid CDD claim.
+//! [`add_permissioned_validator_entity`](./enum.Call.html#variant.validate) call & there _stash_ accounts has valid CDD claim.
 //! Compliance status can only provided by the [`T::RequiredAddOrigin`].
 //!
 //! #### Nomination
@@ -315,7 +315,7 @@ use frame_system::{
 };
 use pallet_identity as identity;
 use pallet_session::historical;
-use polymesh_common_utilities::{identity::Trait as IdentityTrait, Context};
+use polymesh_common_utilities::{identity::Trait as IdentityTrait, Context, GC_DID};
 use polymesh_primitives::IdentityId;
 use sp_npos_elections::{
     build_support_map, evaluate_support, generate_solution_type, is_score_better, seq_phragmen,
@@ -805,6 +805,8 @@ where
         <pallet_session::historical::Module<T>>::prune_up_to(up_to);
     }
 }
+
+type Identity<T> = identity::Module<T>;
 
 pub mod weight {
     use super::*;
@@ -1315,9 +1317,9 @@ decl_storage! {
         /// forcing into account.
         pub IsCurrentSessionFinal get(fn is_current_session_final): bool = false;
 
-        /// The map from (wannabe) validators to the status of compliance.
-        pub PermissionedValidators get(fn permissioned_validators):
-            map hasher(twox_64_concat) T::AccountId => bool;
+        /// Allowed entities who shows interests to run operators/validator node.
+        pub PermissionedEntities get(fn permissioned_entities):
+            map hasher(twox_64_concat) IdentityId => bool;
 
         /// Commission rate to be used by all validators.
         pub ValidatorCommission get(fn validator_commission) config(): Commission;
@@ -1340,6 +1342,7 @@ decl_storage! {
                     T::Currency::free_balance(&stash) >= balance,
                     "Stash does not have enough balance to bond."
                 );
+                let entity_id = <Identity<T>>::get_identity(&stash).expect("Stash should have a valid identity");
                 let _ = <Module<T>>::bond(
                     T::Origin::from(Some(stash.clone()).into()),
                     T::Lookup::unlookup(controller.clone()),
@@ -1356,10 +1359,13 @@ decl_storage! {
                             T::Origin::from(Some(controller.clone()).into()),
                             prefs,
                         ).expect("Unable to add to Validator list");
-                        <Module<T>>::add_permissioned_validator(
-                            frame_system::RawOrigin::Root.into(),
-                            stash.clone()
-                        )
+                        if !<Module<T>>::permissioned_entities(entity_id) {
+                            let _ = <Module<T>>::add_permissioned_validator_entity(
+                                frame_system::RawOrigin::Root.into(),
+                                entity_id
+                            );
+                        }
+                        Ok(())
                     },
                     StakerStatus::Nominator(votes) => {
                         <Module<T>>::nominate(
@@ -1404,9 +1410,11 @@ decl_event!(
         /// from the unlocking queue. [stash, amount]
         Withdrawn(AccountId, Balance),
         /// An entity has issued a candidacy. See the transaction for who.
-        PermissionedValidatorAdded(Option<IdentityId>, AccountId),
+        /// GC identity , Entity identity.
+        PermissionedEntityAdded(IdentityId, IdentityId),
         /// The given member was removed. See the transaction for who.
-        PermissionedValidatorRemoved(Option<IdentityId>, AccountId),
+        /// GC identity , Entity identity.
+        PermissionedEntityRemoved(IdentityId, IdentityId),
         /// Remove the nominators from the valid nominators when there CDD expired.
         /// Caller, Stash accountId of nominators
         InvalidatedNominators(IdentityId, AccountId, Vec<AccountId>),
@@ -1497,7 +1505,13 @@ decl_error! {
         /// Updates with same value.
         NoChange,
         /// Updates with same value.
-        InvalidCommission
+        InvalidCommission,
+        /// Given potential entity has invalid identity.
+        InvalidEntityIdentity,
+        /// Stash is not a part of any allowed entities.
+        StashNotAllowed,
+        /// Stash doesn't have a identityId.
+        InvalidStashKey
     }
 }
 
@@ -2081,40 +2095,39 @@ decl_module! {
             ValidatorCount::mutate(|n| *n += factor * *n);
         }
 
-        /// Governance committee on 2/3 rds majority can introduce a new potential validator
-        /// to the pool of validators. Staking module uses `PermissionedValidators` to ensure
-        /// validators have completed KYB compliance and considers them for validation.
+        /// Governance committee on 2/3 rds majority can introduce a new potential entity
+        /// to the pool of complianced entities who can run validators. Staking module uses `PermissionedEntities`
+        /// to ensure validators have completed KYB compliance and considers them for validation.
         ///
         /// # Arguments
         /// * origin Required origin for adding a potential validator.
-        /// * validator Stash AccountId of the validator.
+        /// * entity IdentityId of an entity who shows interests to run validators.
         #[weight = 750_000_000]
-        pub fn add_permissioned_validator(origin, validator: T::AccountId) {
+        pub fn add_permissioned_validator_entity(origin, entity: IdentityId) {
             T::RequiredAddOrigin::ensure_origin(origin)?;
-            ensure!(!Self::permissioned_validators(&validator), Error::<T>::AlreadyExists);
-            // Change validator status to be Permissioned
-            <PermissionedValidators<T>>::insert(&validator, true);
-            let validator_id = <identity::Module<T>>::get_identity(&validator);
-            Self::deposit_event(RawEvent::PermissionedValidatorAdded(validator_id, validator));
+            ensure!(!Self::permissioned_entities(&entity), Error::<T>::AlreadyExists);
+            // Validate the cdd status of the entity.
+            ensure!(<Identity<T>>::has_valid_cdd(entity), Error::<T>::InvalidEntityIdentity);
+            // Change entity status to be Permissioned
+            <PermissionedEntities>::insert(&entity, true);
+            Self::deposit_event(RawEvent::PermissionedEntityAdded(GC_DID, entity));
         }
 
-        /// Remove a validator from the pool of validators. Effects are known in the next session.
-        /// Staking module checks `PermissionedValidators` to ensure validators have
+        /// Remove an entity from the pool of (wannable) entity validators. Effects are known in the next session.
+        /// Staking module checks `PermissionedEntities` to ensure validators have
         /// completed KYB compliance
         ///
         /// # Arguments
         /// * origin Required origin for removing a potential validator.
-        /// * validator Stash AccountId of the validator.
+        /// * entity IdentityId of an entity who shows interests to run validators.
         #[weight = 750_000_000]
-        pub fn remove_permissioned_validator(origin, validator: T::AccountId) {
-            T::RequiredRemoveOrigin::ensure_origin(origin.clone())?;
-            let caller = ensure_signed(origin)?;
-            let caller_id = Context::current_identity_or::<T::Identity>(&caller).ok();
-            ensure!(Self::permissioned_validators(&validator), Error::<T>::NotExists);
-            // Change validator status to be Non-Permissioned
-            <PermissionedValidators<T>>::insert(&validator, false);
+        pub fn remove_permissioned_validator_entity(origin, entity: IdentityId) {
+            T::RequiredRemoveOrigin::ensure_origin(origin)?;
+            ensure!(Self::permissioned_entities(&entity), Error::<T>::NotExists);
+            // Change entity status to be Non-Permissioned
+            <PermissionedEntities>::insert(&entity, false);
 
-            Self::deposit_event(RawEvent::PermissionedValidatorRemoved(caller_id, validator));
+            Self::deposit_event(RawEvent::PermissionedEntityRemoved(GC_DID, entity));
         }
 
         /// Validate the nominators CDD expiry time.
@@ -3397,8 +3410,7 @@ impl<T: Trait> Module<T> {
         let mut all_validators = Vec::new();
         for (validator, _) in <Validators<T>>::iter() {
             if Self::is_active_balance_above_min_bond(&validator)
-                && Self::is_validator_or_nominator_compliant(&validator)
-                && Self::permissioned_validators(&validator)
+                && Self::is_validator_compliant(&validator)
             {
                 // append self vote
                 let self_vote = (
@@ -3412,7 +3424,7 @@ impl<T: Trait> Module<T> {
         }
 
         let nominator_votes = <Nominators<T>>::iter()
-            .filter(|(nominator, _)| Self::is_validator_or_nominator_compliant(&nominator))
+            .filter(|(nominator, _)| Self::is_nominator_compliant(&nominator))
             .map(|(nominator, nominations)| {
                 let Nominations {
                     submitted_in,
@@ -3581,12 +3593,16 @@ impl<T: Trait> Module<T> {
         false
     }
 
-    /// Is the stash account one of the permissioned validators?
-    pub fn is_validator_or_nominator_compliant(stash: &T::AccountId) -> bool {
-        if let Some(validator_identity) = <identity::Module<T>>::get_identity(&stash) {
-            return <identity::Module<T>>::has_valid_cdd(validator_identity);
-        }
-        false
+    /// Is nominator's stash account is compliant or not.
+    pub fn is_nominator_compliant(stash: &T::AccountId) -> bool {
+        <Identity<T>>::get_identity(&stash).map_or(false, |id| <Identity<T>>::has_valid_cdd(id))
+    }
+
+    /// Is validator's stash account is compliant or not.
+    pub fn is_validator_compliant(stash: &T::AccountId) -> bool {
+        <Identity<T>>::get_identity(&stash).map_or(false, |id| {
+            <Identity<T>>::has_valid_cdd(id) && Self::permissioned_entities(id)
+        })
     }
 
     /// Return reward curve points

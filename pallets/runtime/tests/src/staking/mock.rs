@@ -1073,10 +1073,13 @@ pub fn bond_validator(stash: AccountId, ctrl: AccountId, val: Balance) {
         val,
         RewardDestination::Controller,
     ));
-    assert_ok!(Staking::add_permissioned_validator(
-        frame_system::RawOrigin::Root.into(),
-        stash
-    ));
+    let entity_id = Identity::get_identity(&stash).unwrap();
+    if !Staking::permissioned_entities(entity_id) {
+        assert_ok!(Staking::add_permissioned_validator_entity(
+            frame_system::RawOrigin::Root.into(),
+            entity_id
+        ));
+    }
     assert_ok!(Staking::validate(
         Origin::signed(ctrl),
         ValidatorPrefs::default()
