@@ -23,6 +23,7 @@ type Balances = balances::Module<TestStorage>;
 type MultiSig = multisig::Module<TestStorage>;
 type Origin = <TestStorage as frame_system::Trait>::Origin;
 type System = frame_system::Module<TestStorage>;
+type Scheduler = pallet_scheduler::Module<TestStorage>;
 
 macro_rules! assert_tx_approvals {
     ($address:expr, $proposal_id:expr, $num_approvals:expr) => {{
@@ -326,7 +327,7 @@ fn do_freeze_and_unfreeze_bridge() {
         BridgeTxStatus::Timelocked
     );
     // Weight calculation when bridge is freezed
-    assert_eq!(next_block(), 500000240);
+    assert_eq!(next_block(), 500000210);
     // Unfreeze the bridge.
     assert_ok!(Bridge::unfreeze(admin.clone()));
     assert!(!Bridge::frozen());
@@ -357,7 +358,7 @@ fn next_block() -> Weight {
     let block_number = System::block_number() + 1;
     System::set_block_number(block_number);
     // Call the timelocked tx handler.
-    let weight = Bridge::on_initialize(block_number);
+    let weight = Scheduler::on_initialize(block_number);
     return weight;
 }
 
@@ -438,10 +439,6 @@ fn do_timelock_txs() {
         BridgeTxStatus::Timelocked
     );
     assert_eq!(
-        Bridge::timelocked_txs(unlock_block_number),
-        vec![bridge_tx.clone()]
-    );
-    assert_eq!(
         Bridge::bridge_tx_details(AccountKeyring::Alice.public(), &1).status,
         BridgeTxStatus::Timelocked
     );
@@ -457,7 +454,6 @@ fn do_timelock_txs() {
     assert_eq!(alices_balance(), starting_alices_balance);
     next_block();
     assert_eq!(System::block_number(), unlock_block_number);
-    assert!(Bridge::timelocked_txs(unlock_block_number).is_empty());
     assert_eq!(alices_balance(), starting_alices_balance + amount);
     assert_eq!(
         Bridge::bridge_tx_details(AccountKeyring::Alice.public(), &1).execution_block,
@@ -542,10 +538,6 @@ fn do_rate_limit() {
         BridgeTxStatus::Timelocked
     );
     assert_eq!(
-        Bridge::timelocked_txs(unlock_block_number),
-        vec![bridge_tx.clone()]
-    );
-    assert_eq!(
         Bridge::bridge_tx_details(AccountKeyring::Alice.public(), &1).status,
         BridgeTxStatus::Timelocked
     );
@@ -575,7 +567,6 @@ fn do_rate_limit() {
     next_block();
     next_block();
     // Mint successful after limit is increased
-    assert!(Bridge::timelocked_txs(unlock_block_number).is_empty());
     assert_eq!(alices_balance(), starting_alices_balance + amount);
     assert_eq!(
         Bridge::bridge_tx_details(AccountKeyring::Alice.public(), &1).status,
@@ -655,10 +646,6 @@ fn do_exempted() {
         BridgeTxStatus::Timelocked
     );
     assert_eq!(
-        Bridge::timelocked_txs(unlock_block_number),
-        vec![bridge_tx.clone()]
-    );
-    assert_eq!(
         Bridge::bridge_tx_details(AccountKeyring::Alice.public(), &1).status,
         BridgeTxStatus::Timelocked
     );
@@ -687,7 +674,6 @@ fn do_exempted() {
     next_block();
     next_block();
     // Mint successful after exemption
-    assert!(Bridge::timelocked_txs(unlock_block_number).is_empty());
     assert_eq!(alices_balance(), starting_alices_balance + amount);
     assert_eq!(
         Bridge::bridge_tx_details(AccountKeyring::Alice.public(), &1).status,
@@ -769,10 +755,6 @@ fn do_force_mint() {
         BridgeTxStatus::Timelocked
     );
     assert_eq!(
-        Bridge::timelocked_txs(unlock_block_number),
-        vec![bridge_tx.clone()]
-    );
-    assert_eq!(
         Bridge::bridge_tx_details(AccountKeyring::Alice.public(), &1).status,
         BridgeTxStatus::Timelocked
     );
@@ -795,7 +777,6 @@ fn do_force_mint() {
         bridge_tx.clone()
     ));
     // Mint successful after force handle
-    assert!(Bridge::timelocked_txs(unlock_block_number).is_empty());
     assert_eq!(alices_balance(), starting_alices_balance + amount);
     assert_eq!(
         Bridge::bridge_tx_details(AccountKeyring::Alice.public(), &1).execution_block,
