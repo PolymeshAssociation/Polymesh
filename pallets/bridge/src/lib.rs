@@ -120,7 +120,7 @@ use polymesh_common_utilities::{
 };
 use polymesh_primitives::{IdentityId, Permissions, Signatory};
 use sp_core::H256;
-use sp_runtime::traits::{CheckedAdd, Dispatchable, Zero};
+use sp_runtime::traits::{CheckedAdd, Dispatchable, One, Zero};
 use sp_std::{convert::TryFrom, prelude::*};
 
 type Identity<T> = identity::Module<T>;
@@ -409,17 +409,14 @@ decl_module! {
                 .drain()
                 .filter_map(|(block_number, txs)| {
                     // Schedule only for future blocks.
-                    if block_number > now {
-                        let calls: Vec<_> = txs
-                            .into_iter()
-                            .map(|tx| {
-                                Call::<T>::handle_scheduled_bridge_tx(tx).into()
-                            })
-                            .collect();
-                        Some((block_number, calls))
-                    } else {
-                        None
-                    }
+                    let block_number = T::BlockNumber::max(block_number, now + One::one());
+                    let calls: Vec<_> = txs
+                        .into_iter()
+                        .map(|tx| {
+                            Call::<T>::handle_scheduled_bridge_tx(tx).into()
+                        })
+                        .collect();
+                    Some((block_number, calls))
                 })
                 .for_each(|(block_number, calls)| {
                     // FIXME: handle errors.
