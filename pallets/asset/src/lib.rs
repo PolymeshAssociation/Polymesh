@@ -1431,8 +1431,7 @@ impl<T: Trait> AssetSubTrait for Module<T> {
 impl<T: Trait> Module<T> {
     // Public immutables
     pub fn _is_owner(ticker: &Ticker, did: IdentityId) -> bool {
-        let token = Self::token_details(ticker);
-        token.owner_did == did
+        Self::token_details(ticker).owner_did == did
     }
 
     fn maybe_ticker(ticker: &Ticker) -> Option<TickerRegistration<T::Moment>> {
@@ -1990,8 +1989,7 @@ impl<T: Trait> Module<T> {
             _ => return Err(Error::<T>::NoPrimaryIssuanceAgentTransferAuth.into()),
         };
 
-        let token = <Tokens<T>>::get(&ticker);
-        <Identity<T>>::consume_auth(token.owner_did, Signatory::from(to_did), auth_id)?;
+        Self::consume_auth_by_owner(&ticker, to_did, auth_id)?;
 
         let mut old_primary_issuance_agent = None;
         <Tokens<T>>::mutate(&ticker, |token| {
@@ -2019,26 +2017,29 @@ impl<T: Trait> Module<T> {
         };
 
         ensure!(<Tokens<T>>::contains_key(&ticker), Error::<T>::NoSuchAsset);
+        Self::consume_auth_by_owner(&ticker, to_did, auth_id)?;
 
-        let token_details = Self::token_details(&ticker);
         let ticker_details = Self::ticker_registration(&ticker);
-
-        <Identity<T>>::consume_auth(token_details.owner_did, Signatory::from(to_did), auth_id)?;
-
         <AssetOwnershipRelations>::remove(ticker_details.owner, ticker);
 
         <AssetOwnershipRelations>::insert(to_did, ticker, AssetOwnershipRelation::AssetOwned);
 
         <Tickers<T>>::mutate(&ticker, |tr| tr.owner = to_did);
-        <Tokens<T>>::mutate(&ticker, |tr| tr.owner_did = to_did);
+        let owner =
+            <Tokens<T>>::mutate(&ticker, |tr| core::mem::replace(&mut tr.owner_did, to_did));
 
-        Self::deposit_event(RawEvent::AssetOwnershipTransferred(
-            to_did,
-            ticker,
-            token_details.owner_did,
-        ));
+        Self::deposit_event(RawEvent::AssetOwnershipTransferred(to_did, ticker, owner));
 
         Ok(())
+    }
+
+    pub fn consume_auth_by_owner(
+        ticker: &Ticker,
+        to_did: IdentityId,
+        auth_id: u64,
+    ) -> DispatchResult {
+        let owner = Self::token_details(ticker).owner_did;
+        <Identity<T>>::consume_auth(owner, Signatory::from(to_did), auth_id)
     }
 
     pub fn verify_restriction(
