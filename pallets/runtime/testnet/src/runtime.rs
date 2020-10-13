@@ -559,14 +559,14 @@ impl treasury::Trait for Runtime {
 
 parameter_types! {
     pub const MaxScheduledInstructionLegsPerBlock: u32 = 500;
-    pub const MaxLegsInAInstruction: u32 = 20;
+    pub const MaxLegsInAnInstruction: u32 = 20;
 }
 
 impl settlement::Trait for Runtime {
     type Event = Event;
     type Asset = Asset;
     type MaxScheduledInstructionLegsPerBlock = MaxScheduledInstructionLegsPerBlock;
-    type MaxLegsInAInstruction = MaxLegsInAInstruction;
+    type MaxLegsInAnInstruction = MaxLegsInAnInstruction;
 }
 
 impl sto::Trait for Runtime {
@@ -700,6 +700,11 @@ impl IdentityTrait for Runtime {
     type GCVotingMajorityOrigin = VMO<GovernanceCommittee>;
 }
 
+impl pallet_confidential_asset::Trait for Runtime {
+    type NonConfidentialAsset = Asset;
+    type Event = Event;
+}
+
 impl contracts_wrapper::Trait for Runtime {}
 
 impl exemption::Trait for Runtime {
@@ -800,6 +805,7 @@ construct_runtime!(
         ProtocolFee: protocol_fee::{Module, Call, Storage, Event<T>, Config<T>},
         Utility: utility::{Module, Call, Storage, Event},
         Portfolio: portfolio::{Module, Call, Storage, Event<T>},
+        ConfidentialAsset: pallet_confidential_asset::{Module, Call, Event<T>, Storage },
         Permissions: pallet_permissions::{Module},
     }
 );

@@ -560,14 +560,14 @@ impl treasury::Trait for Runtime {
 
 parameter_types! {
     pub const MaxScheduledInstructionLegsPerBlock: u32 = 500;
-    pub const MaxLegsInAInstruction: u32 = 20;
+    pub const MaxLegsInAnInstruction: u32 = 20;
 }
 
 impl settlement::Trait for Runtime {
     type Event = Event;
     type Asset = Asset;
     type MaxScheduledInstructionLegsPerBlock = MaxScheduledInstructionLegsPerBlock;
-    type MaxLegsInAInstruction = MaxLegsInAInstruction;
+    type MaxLegsInAnInstruction = MaxLegsInAnInstruction;
 }
 
 impl sto::Trait for Runtime {
@@ -665,6 +665,11 @@ impl asset::Trait for Runtime {
     type Currency = Balances;
     type ComplianceManager = compliance_manager::Module<Runtime>;
     type MaxNumberOfTMExtensionForAsset = MaxNumberOfTMExtensionForAsset;
+}
+
+impl pallet_confidential_asset::Trait for Runtime {
+    type Event = Event;
+    type NonConfidentialAsset = Asset;
 }
 
 parameter_types! {
@@ -834,6 +839,7 @@ construct_runtime!(
         // CddOffchainWorker: pallet_cdd_offchain_worker::{Module, Call, Storage, ValidateUnsigned, Event<T>}
         Portfolio: portfolio::{Module, Call, Storage, Event<T>},
         Confidential: confidential::{Module, Call, Storage, Event},
+        ConfidentialAsset: pallet_confidential_asset::{Module, Call, Event<T>, Storage },
         Permissions: pallet_permissions::{Module, Storage},
     }
 );

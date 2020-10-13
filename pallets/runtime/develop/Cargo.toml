@@ -35,6 +35,7 @@ pallet-staking = { path = "../../staking", default-features = false }
 pallet-staking-reward-curve = { git = "https://github.com/paritytech/substrate", default-features = false, tag = "v2.0.0-rc6" }
 pallet-statistics = { path = "../../statistics", default-features = false }
 pallet-transaction-payment = { path = "../../transaction-payment", default-features = false }
+pallet-confidential-asset = { path = "../../confidential-asset", default-features = false }
 pallet-treasury = { path = "../../treasury", default-features = false }
 pallet-utility = { path = "../../utility", default-features = false }
 
@@ -148,6 +149,9 @@ std = [
     "pallet-transaction-payment/std",
     "pallet-treasury/std",
     "pallet-utility/std",
+
+    # RPC
+    "pallet-confidential-asset/std",
     "polymesh-common-utilities/std",
     "polymesh-primitives/std",
     "polymesh-runtime-common/std",

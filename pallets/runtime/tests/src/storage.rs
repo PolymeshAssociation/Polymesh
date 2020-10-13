@@ -261,14 +261,14 @@ impl multisig::Trait for TestStorage {
 
 parameter_types! {
     pub const MaxScheduledInstructionLegsPerBlock: u32 = 500;
-    pub MaxLegsInAInstruction: u32 = MAX_NO_OF_LEGS.with(|v| *v.borrow());
+    pub MaxLegsInAnInstruction: u32 = MAX_NO_OF_LEGS.with(|v| *v.borrow());
 }
 
 impl settlement::Trait for TestStorage {
     type Event = Event;
     type Asset = asset::Module<TestStorage>;
     type MaxScheduledInstructionLegsPerBlock = MaxScheduledInstructionLegsPerBlock;
-    type MaxLegsInAInstruction = MaxLegsInAInstruction;
+    type MaxLegsInAnInstruction = MaxLegsInAnInstruction;
 }
 
 impl sto::Trait for TestStorage {
@@ -569,7 +569,7 @@ impl confidential::Trait for TestStorage {
 }
 
 impl confidential_asset::Trait for TestStorage {
-    type Asset = asset::Module<TestStorage>;
+    type NonConfidentialAsset = asset::Module<TestStorage>;
     type Event = Event;
 }
 
