@@ -2094,6 +2094,11 @@ impl<T: Trait> Module<T> {
         Ok(origin_data)
     }
 
+    /// Ensure `origin` is signed and permissioned for this call, returning its DID.
+    pub fn ensure_perms(origin: T::Origin) -> Result<IdentityId, DispatchError> {
+        Self::ensure_origin_call_permissions(origin).map(|x| x.primary_did)
+    }
+
     /// Ensures that the did is an active CDD Provider.
     fn ensure_authorized_cdd_provider(did: IdentityId) -> DispatchResult {
         ensure!(
