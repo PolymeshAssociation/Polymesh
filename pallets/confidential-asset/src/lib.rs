@@ -132,7 +132,7 @@ impl PubAccountTxWrapper {
     /// Unwraps the value so that it can be passed to mercat library.
     pub fn to_mercat<T: Trait>(&self) -> Result<PubAccountTx, Error<T>> {
         let mut data: &[u8] =
-            &base64::decode(self.0.clone()).map_err(|_| Error::<T>::UnwrapMercatDataError)?;
+            &base64::decode(&self.0[..]).map_err(|_| Error::<T>::DecodeBase64Error)?;
         PubAccountTx::decode(&mut data).map_err(|_| Error::<T>::UnwrapMercatDataError)
     }
 }
@@ -146,7 +146,7 @@ impl InitializedAssetTxWrapper {
     /// Unwraps the value so that it can be passed to mercat library.
     pub fn to_mercat<T: Trait>(&self) -> Result<InitializedAssetTx, Error<T>> {
         let mut data: &[u8] =
-            &base64::decode(self.0.clone()).map_err(|_| Error::<T>::UnwrapMercatDataError)?;
+            &base64::decode(&self.0[..]).map_err(|_| Error::<T>::DecodeBase64Error)?;
         InitializedAssetTx::decode(&mut data).map_err(|_| Error::<T>::UnwrapMercatDataError)
     }
 }
@@ -407,6 +407,9 @@ decl_error! {
 
         /// Error during the converting of wrapped data types into mercat data types.
         UnwrapMercatDataError,
+
+        /// Error during the decoding base64 values.
+        DecodeBase64Error,
 
         /// Mercat library has rejected the asset issuance proofs.
         InvalidAccountMintProof,

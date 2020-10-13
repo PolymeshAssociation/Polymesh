@@ -425,6 +425,8 @@ decl_event!(
 decl_error! {
     /// Errors for the Settlement module.
     pub enum Error for Module<T: Trait> {
+        /// We only support one confidential transfer per instruction at the moment.
+        MoreThanOneConfidentialLeg,
         /// Certain transfer modes are not yet supported in confidential modes.
         ConfidentialModeNotSupportedYet,
         /// Transaction proof failed to verify.
@@ -608,6 +610,11 @@ decl_module! {
         ) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             let did = Context::current_identity_or::<Identity<T>>(&sender)?;
+
+            if Self::count_confidential_legs(&legs) > 1 {
+                return Err(Error::<T>::MoreThanOneConfidentialLeg.into())
+            }
+
             Self::base_add_instruction(did, venue_id, settlement_type, valid_from, legs)?;
 
             Ok(())
@@ -636,6 +643,11 @@ decl_module! {
         ) -> DispatchResultWithPostInfo {
             let sender = ensure_signed(origin.clone())?;
             let did = Context::current_identity_or::<Identity<T>>(&sender)?;
+
+            if Self::count_confidential_legs(&legs) > 1 {
+                return Err(Error::<T>::MoreThanOneConfidentialLeg.into())
+            }
+
             let portfolios_set = portfolios.into_iter().collect::<BTreeSet<_>>();
             let legs_count = legs.len();
             let instruction_id = Self::base_add_instruction(did, venue_id, settlement_type, valid_from, legs)?;
@@ -1171,7 +1183,7 @@ impl<T: Trait> Module<T> {
                             T::Portfolio::unlock_tokens(&from, &asset, &amount)?;
                         }
                         Leg::ConfidentialLeg(_) => {
-                            return Err(Error::<T>::ConfidentialModeNotSupportedYet.into())
+                            // Confidential legs do not need locking/unlocking.
                         }
                         Leg::Undefined => return Err(Error::<T>::UndefinedLeg.into()),
                     }
@@ -1464,23 +1476,18 @@ impl<T: Trait> Module<T> {
                             // rustc fails to infer return type of `with_transaction` if you use ?/map_err here.
                             return Err(DispatchError::from(Error::<T>::FailedToLockTokens));
                         }
-                        <InstructionLegStatus<T>>::insert(
-                            instruction_id,
-                            leg_id,
-                            LegStatus::ExecutionPending,
-                        );
                     }
-                    Leg::ConfidentialLeg(_) => {
-                        <InstructionLegStatus<T>>::insert(
-                            instruction_id,
-                            leg_id,
-                            LegStatus::ExecutionPending,
-                        );
-                    }
+                    Leg::ConfidentialLeg(_) => {}
                     Leg::Undefined => {
                         return Err(DispatchError::from(Error::<T>::UndefinedLeg));
                     }
                 }
+
+                <InstructionLegStatus<T>>::insert(
+                    instruction_id,
+                    leg_id,
+                    LegStatus::ExecutionPending,
+                );
             }
             Ok(())
         })?;
@@ -1611,5 +1618,14 @@ impl<T: Trait> Module<T> {
         } else {
             Zero::zero()
         }
+    }
+
+    fn count_confidential_legs(legs: &Vec<Leg<T::Balance>>) -> usize {
+        legs.iter().filter(|leg| {
+          match leg {
+            Leg::ConfidentialLeg(_) => true,
+            _ => false
+          }  
+        }).collect::<Vec<&Leg<T::Balance>>>().len()
     }
 }
