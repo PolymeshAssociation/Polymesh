@@ -695,11 +695,11 @@
         },
         "AuthorizationNonce": "u64",
         "Counter": "u64",
-        "Commission": {	
-            "_enum": {	
-                "Individual": "",	
-                "Global": "u32"	
-            }	
+        "Commission": {
+            "_enum": {
+                "Individual": "",
+                "Global": "u32"
+            }
         },
         "RestrictionResult": {
             "_enum": [
