@@ -17,10 +17,14 @@ type ComplianceManager = compliance_manager::Module<TestStorage>;
 type Voting = voting::Module<TestStorage>;
 type Error = voting::Error<TestStorage>;
 type Origin = <TestStorage as frame_system::Trait>::Origin;
+type Timestamp = pallet_timestamp::Module<TestStorage>;
 
 #[test]
 fn add_ballot() {
     ExtBuilder::default().build().execute_with(|| {
+        let now = Utc::now().timestamp() as u64;
+        Timestamp::set_timestamp(now);
+
         let token_owner_acc = Origin::signed(AccountKeyring::Alice.public());
         let token_owner_did = register_keyring_account(AccountKeyring::Alice).unwrap();
         let tokenholder_acc = Origin::signed(AccountKeyring::Bob.public());
@@ -49,9 +53,6 @@ fn add_ballot() {
         ));
 
         assert_ok!(Asset::create_checkpoint(token_owner_acc.clone(), ticker,));
-
-        let now = Utc::now().timestamp() as u64;
-        <pallet_timestamp::Module<TestStorage>>::set_timestamp(now);
 
         let motion1 = Motion {
             title: vec![0x01].into(),
@@ -180,6 +181,9 @@ fn add_ballot() {
 #[test]
 fn cancel_ballot() {
     ExtBuilder::default().build().execute_with(|| {
+        let now = Utc::now().timestamp() as u64;
+        Timestamp::set_timestamp(now);
+
         let token_owner_acc = Origin::signed(AccountKeyring::Alice.public());
         let token_owner_did = register_keyring_account(AccountKeyring::Alice).unwrap();
         let tokenholder_acc = Origin::signed(AccountKeyring::Bob.public());
@@ -208,9 +212,6 @@ fn cancel_ballot() {
         ));
 
         assert_ok!(Asset::create_checkpoint(token_owner_acc.clone(), ticker,));
-
-        let now = Utc::now().timestamp() as u64;
-        <pallet_timestamp::Module<TestStorage>>::set_timestamp(now);
 
         let motion1 = Motion {
             title: vec![0x01].into(),

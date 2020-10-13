@@ -1,7 +1,7 @@
 {
     "types": {
         "IdentityId": "[u8; 32]",
-        "InvestorUid": "[u8; 32]",
+        "InvestorUid": "[u8; 16]",
         "Ticker": "[u8; 12]",
         "CddId": "[u8; 32]",
         "ScopeId": "[u8; 32]",
@@ -773,6 +773,7 @@
                 "AssetRegisterTicker",
                 "AssetIssue",
                 "AssetAddDocument",
+                "AssetCheckpoint",
                 "AssetCreateAsset",
                 "DividendNew",
                 "ComplianceManagerAddComplianceRequirement",
@@ -912,6 +913,25 @@
             "initial_message": "[u8; 32]",
             "final_response": "Vec<u8>",
             "max_two_exp": "u32"
+        },
+        "CalendarUnit": {
+            "_enum": [
+                "Second",
+                "Minute",
+                "Hour",
+                "Day",
+                "Week",
+                "Month",
+                "Year"
+            ]
+        },
+        "CalendarPeriod": {
+            "unit": "CalendarUnit",
+            "multiplier": "u64"
+        },
+        "CheckpointSchedule": {
+            "start": "u64",
+            "period": "CalendarPeriod"
         },
         "InstructionStatus": {
             "_enum": {
