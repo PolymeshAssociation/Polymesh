@@ -249,10 +249,10 @@ decl_module! {
             let now = Timestamp::<T>::get();
             let fundraiser = <Fundraisers<T>>::get(offering_asset, fundraiser_id).ok_or(Error::<T>::FundraiserNotFound)?;
             ensure!(!fundraiser.frozen, Error::<T>::FundraiserFrozen);
-            ensure!(fundraiser.start <= now, Error::<T>::FundraiserExpired);
-            if let Some(end) = fundraiser.end {
-                ensure!(now < end, Error::<T>::FundraiserExpired);
-            };
+            ensure!(
+                fundraiser.start <= now && fundraiser.end.filter(|e| now >= e).is_none(),
+                Error::<T>::FundraiserExpired
+            );
 
             // Remaining tokens to fulfil the investment amount
             let mut remaining = investment_amount;
