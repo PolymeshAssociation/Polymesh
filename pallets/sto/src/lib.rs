@@ -288,10 +288,10 @@ decl_module! {
             let now = Timestamp::<T>::get();
             let fundraiser = <Fundraisers<T>>::get(offering_asset, fundraiser_id).ok_or(Error::<T>::FundraiserNotFound)?;
             ensure!(!fundraiser.frozen, Error::<T>::FundraiserFrozen);
-            ensure!(fundraiser.start <= now, Error::<T>::FundraiserExpired);
-            if let Some(end) = fundraiser.end {
-                ensure!(now < end, Error::<T>::FundraiserExpired);
-            };
+            ensure!(
+                fundraiser.start <= now && fundraiser.end.filter(|e| now >= e).is_none(),
+                Error::<T>::FundraiserExpired
+            );
 
             // Remaining tokens to fulfil the investment amount
             let mut remaining = investment_amount;
@@ -320,11 +320,10 @@ decl_module! {
 
                 remaining -= purchase_amount;
                 purchases.push((id, purchase_amount));
-                cost = cost.checked_add(
-                    &purchase_amount
+                cost = purchase_amount
                     .checked_mul(&tier.price)
-                    .ok_or(Error::<T>::Overflow)?
-                ).ok_or(Error::<T>::Overflow)?;
+                    .and_then(|pa| cost.checked_add(&pa))
+                    .ok_or(Error::<T>::Overflow)?;
             }
 
             ensure!(remaining == 0.into(), Error::<T>::InsufficientTokensRemaining);
