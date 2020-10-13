@@ -37,6 +37,33 @@ macro_rules! assert_session_era {
     };
 }
 
+macro_rules! assert_present_entity {
+    ($acc_id:expr) => {
+        assert_eq!(
+            Staking::permissioned_entities(Identity::get_identity($acc_id).unwrap()),
+            true
+        );
+    };
+}
+
+macro_rules! assert_absent_entity {
+    ($acc_id:expr) => {
+        assert_eq!(
+            Staking::permissioned_entities(Identity::get_identity($acc_id).unwrap()),
+            false
+        );
+    };
+}
+
+macro_rules! assert_add_permissioned_validator {
+    ($acc_id:expr) => {
+        assert_ok!(Staking::add_permissioned_validator_entity(
+            frame_system::RawOrigin::Root.into(),
+            Identity::get_identity($acc_id).unwrap()
+        ));
+    };
+}
+
 mod mock;
 use mock::*;
 
@@ -397,10 +424,7 @@ fn staking_should_work() {
                 1500,
                 RewardDestination::Controller
             ));
-            assert_ok!(Staking::add_permissioned_validator_entity(
-                frame_system::RawOrigin::Root.into(),
-                Identity::get_identity(&3).unwrap()
-            ));
+            assert_add_permissioned_validator!(&3);
             assert_ok!(Staking::validate(
                 Origin::signed(4),
                 ValidatorPrefs::default()
@@ -1914,10 +1938,7 @@ fn switching_roles() {
             1000,
             RewardDestination::Controller
         ));
-        assert_ok!(Staking::add_permissioned_validator_entity(
-            frame_system::RawOrigin::Root.into(),
-            Identity::get_identity(&5).unwrap()
-        ));
+        assert_add_permissioned_validator!(&5);
         assert_ok!(Staking::validate(
             Origin::signed(6),
             ValidatorPrefs::default()
@@ -1928,10 +1949,7 @@ fn switching_roles() {
         // with current nominators 10 and 5 have the most stake
         assert_eq_uvec!(validator_controllers(), vec![6, 10]);
 
-        assert_ok!(Staking::add_permissioned_validator_entity(
-            frame_system::RawOrigin::Root.into(),
-            Identity::get_identity(&1).unwrap()
-        ));
+        assert_add_permissioned_validator!(&1);
         // 2 decides to be a validator. Consequences:
         assert_ok!(Staking::validate(
             Origin::signed(2),
@@ -2075,10 +2093,7 @@ fn bond_with_little_staked_value_bounded() {
                 RewardDestination::Controller
             ));
             add_secondary_key(1, 2);
-            assert_ok!(Staking::add_permissioned_validator_entity(
-                frame_system::RawOrigin::Root.into(),
-                Identity::get_identity(&1).unwrap()
-            ));
+            assert_add_permissioned_validator!(&1);
             assert_ok!(Staking::validate(
                 Origin::signed(2),
                 ValidatorPrefs::default()
@@ -5234,22 +5249,10 @@ fn should_add_permissioned_validators() {
         provide_did_to_user(10);
         provide_did_to_user(20);
 
-        assert_ok!(Staking::add_permissioned_validator_entity(
-            frame_system::RawOrigin::Root.into(),
-            Identity::get_identity(&acc_10).unwrap()
-        ));
-        assert_ok!(Staking::add_permissioned_validator_entity(
-            frame_system::RawOrigin::Root.into(),
-            Identity::get_identity(&acc_20).unwrap()
-        ));
-        assert_eq!(
-            Staking::permissioned_entities(Identity::get_identity(&acc_10).unwrap()),
-            true
-        );
-        assert_eq!(
-            Staking::permissioned_entities(Identity::get_identity(&acc_20).unwrap()),
-            true
-        );
+        assert_add_permissioned_validator!(&acc_10);
+        assert_add_permissioned_validator!(&acc_20);
+        assert_present_entity!(&acc_10);
+        assert_present_entity!(&acc_20);
     });
 }
 
@@ -5264,32 +5267,17 @@ fn should_remove_permissioned_validators() {
         provide_did_to_user(20);
         provide_did_to_user(30);
 
-        assert_ok!(Staking::add_permissioned_validator_entity(
-            frame_system::RawOrigin::Root.into(),
-            Identity::get_identity(&acc_10).unwrap()
-        ));
-        assert_ok!(Staking::add_permissioned_validator_entity(
-            frame_system::RawOrigin::Root.into(),
-            Identity::get_identity(&acc_20).unwrap()
-        ));
+        assert_add_permissioned_validator!(&acc_10);
+        assert_add_permissioned_validator!(&acc_20);
 
         assert_ok!(Staking::remove_permissioned_validator_entity(
             Origin::signed(2000),
             Identity::get_identity(&acc_20).unwrap()
         ));
 
-        assert_eq!(
-            Staking::permissioned_entities(&Identity::get_identity(&acc_10).unwrap()),
-            true
-        );
-        assert_eq!(
-            Staking::permissioned_entities(&Identity::get_identity(&acc_20).unwrap()),
-            false
-        );
-        assert_eq!(
-            Staking::permissioned_entities(&Identity::get_identity(&acc_30).unwrap()),
-            false
-        );
+        assert_present_entity!(&acc_10);
+        assert_absent_entity!(&acc_20);
+        assert_absent_entity!(&acc_30);
     });
 }
 
@@ -5444,8 +5432,8 @@ fn test_with_multiple_validators_from_entity() {
             // add new validator
             bond_validator(50, 51, 500000);
 
-            // Add other stash and cntrl to the same did.
-            // 60 stash and 61 cntrl.
+            // Add other stash and controller to the same did.
+            // 60 stash and 61 controller.
             add_secondary_key(50, 60);
             add_secondary_key(50, 61);
 
@@ -5457,10 +5445,7 @@ fn test_with_multiple_validators_from_entity() {
             ));
             let entity_id = Identity::get_identity(&60).unwrap();
             if !Staking::permissioned_entities(entity_id) {
-                assert_ok!(Staking::add_permissioned_validator_entity(
-                    frame_system::RawOrigin::Root.into(),
-                    entity_id
-                ));
+                assert_add_permissioned_validator!(&60);
             }
             assert_ok!(Staking::validate(
                 Origin::signed(61),

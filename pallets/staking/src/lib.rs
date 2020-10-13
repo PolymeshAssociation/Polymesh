@@ -309,6 +309,7 @@ use frame_support::{
         DispatchClass::Operational,
         Pays, Weight,
     },
+    ReversibleStorageHasher, Twox64Concat,
 };
 use frame_system::{
     self as system, ensure_none, ensure_root, ensure_signed, offchain::SendTransactionTypes,
@@ -1132,11 +1133,12 @@ enum Releases {
     V2_0_0,
     V3_0_0,
     V4_0_0,
+    V5_0_0,
 }
 
 impl Default for Releases {
     fn default() -> Self {
-        Releases::V4_0_0
+        Releases::V5_0_0
     }
 }
 
@@ -1317,7 +1319,7 @@ decl_storage! {
         /// forcing into account.
         pub IsCurrentSessionFinal get(fn is_current_session_final): bool = false;
 
-        /// Allowed entities who shows interests to run operators/validator node.
+        /// Entities that are allowed to run operator/validator nodes.
         pub PermissionedEntities get(fn permissioned_entities):
             map hasher(twox_64_concat) IdentityId => bool;
 
@@ -1330,8 +1332,8 @@ decl_storage! {
         /// True if network has been upgraded to this version.
         /// Storage version of the pallet.
         ///
-        /// This is set to v3.0.0 for new networks.
-        StorageVersion build(|_: &GenesisConfig<T>| Releases::V4_0_0): Releases;
+        /// This is set to v5.0.0 for new networks.
+        StorageVersion build(|_: &GenesisConfig<T>| Releases::V5_0_0): Releases;
     }
     add_extra_genesis {
         config(stakers):
@@ -1510,7 +1512,7 @@ decl_error! {
         InvalidEntityIdentity,
         /// Stash is not a part of any allowed entities.
         StashNotAllowed,
-        /// Stash doesn't have a identityId.
+        /// Stash doesn't have a DID.
         InvalidStashKey
     }
 }
@@ -1556,6 +1558,23 @@ decl_module! {
         type Error = Error<T>;
 
         fn deposit_event() = default;
+
+        fn on_runtime_upgrade() -> Weight {
+            use frame_support::storage::migration::{ StorageIterator, put_storage_value };
+
+            if StorageVersion::get() == Releases::V4_0_0 {
+                StorageIterator::<()>::new(b"Staking", b"PermissionedValidators")
+                    .drain()
+                    .filter_map(|(key, value)| {
+                        T::AccountId::decode(&mut Twox64Concat::reverse(&key)).map_or(None, |id| {
+                            Some((<Identity<T>>::get_identity(&id).unwrap_or_default(), value))
+                        })
+                    })
+                    .for_each(|(key, value)| put_storage_value(b"Staking", b"PermissionedEntities", &key.as_bytes(), value));
+                StorageVersion::put(Releases::V5_0_0);
+            }
+            1_000
+        }
 
         /// sets `ElectionStatus` to `Open(now)` where `now` is the block number at which the
         /// election window has opened, if we are at the last session and less blocks than
@@ -2109,7 +2128,7 @@ decl_module! {
             // Validate the cdd status of the entity.
             ensure!(<Identity<T>>::has_valid_cdd(entity), Error::<T>::InvalidEntityIdentity);
             // Change entity status to be Permissioned
-            <PermissionedEntities>::insert(&entity, true);
+            PermissionedEntities::insert(&entity, true);
             Self::deposit_event(RawEvent::PermissionedEntityAdded(GC_DID, entity));
         }
 
@@ -2125,7 +2144,7 @@ decl_module! {
             T::RequiredRemoveOrigin::ensure_origin(origin)?;
             ensure!(Self::permissioned_entities(&entity), Error::<T>::NotExists);
             // Change entity status to be Non-Permissioned
-            <PermissionedEntities>::insert(&entity, false);
+            PermissionedEntities::insert(&entity, false);
 
             Self::deposit_event(RawEvent::PermissionedEntityRemoved(GC_DID, entity));
         }
@@ -3593,12 +3612,12 @@ impl<T: Trait> Module<T> {
         false
     }
 
-    /// Is nominator's stash account is compliant or not.
+    /// Is nominator's `stash` account compliant?
     pub fn is_nominator_compliant(stash: &T::AccountId) -> bool {
-        <Identity<T>>::get_identity(&stash).map_or(false, |id| <Identity<T>>::has_valid_cdd(id))
+        <Identity<T>>::get_identity(&stash).map_or(false, <Identity<T>>::has_valid_cdd)
     }
 
-    /// Is validator's stash account is compliant or not.
+    /// Is validator's `stash` account compliant?
     pub fn is_validator_compliant(stash: &T::AccountId) -> bool {
         <Identity<T>>::get_identity(&stash).map_or(false, |id| {
             <Identity<T>>::has_valid_cdd(id) && Self::permissioned_entities(id)
