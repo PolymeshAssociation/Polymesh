@@ -315,7 +315,7 @@ use frame_system::{
 };
 use pallet_identity as identity;
 use pallet_session::historical;
-use polymesh_common_utilities::{identity::Trait as IdentityTrait, Context};
+use polymesh_common_utilities::{identity::Trait as IdentityTrait, Context, GC_DID};
 use polymesh_primitives::IdentityId;
 use sp_npos_elections::{
     build_support_map, evaluate_support, generate_solution_type, is_score_better, seq_phragmen,
@@ -1419,7 +1419,7 @@ decl_event!(
         InvalidatedNominators(IdentityId, AccountId, Vec<AccountId>),
         /// When commission cap get updated.
         /// (old value, new value)
-        CommissionCapUpdated(Option<IdentityId>, Perbill, Perbill),
+        CommissionCapUpdated(IdentityId, Perbill, Perbill),
         /// Min bond threshold was updated (new value).
         MinimumBondThresholdUpdated(Option<IdentityId>, Balance),
     }
@@ -1548,8 +1548,10 @@ decl_module! {
 
         /// Sets the value for `ValidatorCommissionCap` from the old storage variant i.e `ValidatorCommission`.
         fn on_runtime_upgrade() -> Weight {
+            use frame_support::migration::take_storage_value;
+
             if StorageVersion::get() == Releases::V4_0_0 {
-                if let Commission::Global(commision) = ValidatorCommission::take() {
+                if let Some(Commission::Global(commision)) = take_storage_value(b"Staking", b"ValidatorCommission", &[]) {
                     ValidatorCommissionCap::put(commision);
                 } else {
                     ValidatorCommissionCap::put(Perbill::from_percent(100));
@@ -2190,7 +2192,6 @@ decl_module! {
         #[weight = (800_000_000, Operational, Pays::Yes)]
         pub fn set_commission_cap(origin, new_cap: Perbill) {
             T::RequiredCommissionOrigin::ensure_origin(origin.clone())?;
-            let id = <identity::Module<T>>::get_identity(&ensure_signed(origin)?);
 
             let old_cap = Self::validator_commission_cap();
             ensure!(old_cap != new_cap, Error::<T>::NoChange);
@@ -2198,7 +2199,7 @@ decl_module! {
             // Update the validator prefs as per the `new_cap`.
             // if `prefs.commission` of validator is > `new_cap`, it sets commission = new_cap.
             Self::update_validator_prefs(new_cap);
-            Self::deposit_event(RawEvent::CommissionCapUpdated(id, old_cap, new_cap));
+            Self::deposit_event(RawEvent::CommissionCapUpdated(GC_DID, old_cap, new_cap));
         }
 
         /// Changes min bond value to be used in bond(). Only Governance
