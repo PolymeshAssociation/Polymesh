@@ -1433,6 +1433,7 @@ impl<T: Trait> Module<T> {
         <InstructionLegStatus<T>>::remove_prefix(instruction_id);
         <InstructionAuthsPending>::remove(instruction_id);
         <AuthsReceived>::remove_prefix(instruction_id);
+        MercatTxDataStorage::remove(instruction_id);
         // NB UserAuths mapping is not cleared.
         (
             instructions_processed,
@@ -1621,11 +1622,12 @@ impl<T: Trait> Module<T> {
     }
 
     fn count_confidential_legs(legs: &Vec<Leg<T::Balance>>) -> usize {
-        legs.iter().filter(|leg| {
-          match leg {
-            Leg::ConfidentialLeg(_) => true,
-            _ => false
-          }  
-        }).collect::<Vec<&Leg<T::Balance>>>().len()
+        legs.iter()
+            .filter(|leg| match leg {
+                Leg::ConfidentialLeg(_) => true,
+                _ => false,
+            })
+            .collect::<Vec<&Leg<T::Balance>>>()
+            .len()
     }
 }
