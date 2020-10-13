@@ -5636,6 +5636,7 @@ dependencies = [
  "polymesh-primitives-derive",
  "polymesh-runtime-common",
  "polymesh-runtime-develop",
+ "polymesh-weights",
  "rand 0.7.3",
  "serde",
  "serde_json",
@@ -5658,6 +5659,7 @@ version = "0.1.0"
 dependencies = [
  "frame-support",
  "frame-system",
+ "pallet-corporate-actions",
  "pallet-timestamp",
 ]
 

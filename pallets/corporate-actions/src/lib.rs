@@ -43,6 +43,7 @@ use frame_support::{
     decl_error, decl_event, decl_module, decl_storage,
     dispatch::{DispatchError, DispatchResult},
     ensure,
+    weights::Weight,
 };
 use pallet_asset as asset;
 use pallet_identity as identity;
@@ -83,10 +84,20 @@ pub struct TargetIdentities {
     treatment: TargetTreatment,
 }
 
+/// Weight abstraction for the corporate actions module.
+pub trait WeightInfo {
+    fn set_default_targets(targets: &TargetIdentities) -> Weight;
+    fn set_default_withholding_tax() -> Weight;
+    fn set_did_withholding_tax() -> Weight;
+}
+
 /// The module's configuration trait.
 pub trait Trait: frame_system::Trait + BalancesTrait + IdentityTrait + asset::Trait {
     /// The overarching event type.
     type Event: From<Event> + Into<<Self as frame_system::Trait>::Event>;
+
+    /// Weight information for extrinsics in the corporate actions pallet.
+    type WeightInfo: WeightInfo;
 }
 
 type Identity<T> = identity::Module<T>;
@@ -137,7 +148,7 @@ decl_module! {
         /// initialize the default event for this module
         fn deposit_event() = default;
 
-        #[weight = 999_999_999_999]
+        #[weight = <T as Trait>::WeightInfo::set_default_targets(&targets)]
         fn set_default_targets(origin, ticker: Ticker, targets: TargetIdentities) {
             // Verify authorization + all identities are token holders.
             let caa = Self::ensure_ca_agent(origin, ticker)?;
@@ -163,7 +174,7 @@ decl_module! {
         /// ## Arguments
         /// - `ticker` that the withholding tax will apply to.
         /// - `tax` that should be withheld when distributing dividends, etc.
-        #[weight = 999_999_999_999]
+        #[weight = <T as Trait>::WeightInfo::set_default_withholding_tax()]
         fn set_default_withholding_tax(origin, ticker: Ticker, tax: Permill) {
             let caa = Self::ensure_ca_agent(origin, ticker)?;
             let old = DefaultWitholdingTax::mutate(ticker, |slot| mem::replace(slot, tax));
@@ -178,7 +189,7 @@ decl_module! {
         /// - `ticker` that the withholding tax will apply to.
         /// - `taxed_did` that will have its withholding tax updated.
         /// - `tax` that should be withheld when distributing dividends, etc.
-        #[weight = 999_999_999_999]
+        #[weight = <T as Trait>::WeightInfo::set_did_withholding_tax()]
         fn set_did_withholding_tax(origin, ticker: Ticker, taxed_did: IdentityId, tax: Option<Permill>) {
             // Verify authorization + `taxed_did` is token holder.
             let caa = Self::ensure_ca_agent(origin, ticker)?;
