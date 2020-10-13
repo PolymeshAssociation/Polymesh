@@ -286,11 +286,10 @@ decl_module! {
 
                 remaining -= purchase_amount;
                 purchases.push((id, purchase_amount));
-                cost = cost.checked_add(
-                    &purchase_amount
+                cost = purchase_amount
                     .checked_mul(&tier.price)
-                    .ok_or(Error::<T>::Overflow)?
-                ).ok_or(Error::<T>::Overflow)?;
+                    .and_then(|pa| cost.checked_add(&pa))
+                    .ok_or(Error::<T>::Overflow)?;
             }
 
             ensure!(remaining == 0.into(), Error::<T>::InsufficientTokensRemaining);
