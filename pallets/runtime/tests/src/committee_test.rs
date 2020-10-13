@@ -1,7 +1,7 @@
 use super::{
     ext_builder::{ExtBuilder, COOL_OFF_PERIOD},
     storage::{
-        fast_forward_blocks, get_identity_id, register_keyring_account, Call, EventTest,
+        fast_forward_blocks, get_identity_id, register_keyring_account, root, Call, EventTest,
         TestStorage,
     },
 };
@@ -89,10 +89,6 @@ fn prepare_proposal(ring: AccountKeyring) {
 
 fn check_scheduled(id: PipId) {
     assert_eq!(Pips::proposals(id).unwrap().state, ProposalState::Scheduled);
-}
-
-pub fn root() -> Origin {
-    Origin::from(frame_system::RawOrigin::Root)
 }
 
 fn enact_snapshot_results_call() -> Call {

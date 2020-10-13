@@ -58,7 +58,7 @@ macro_rules! assert_absent_entity {
 macro_rules! assert_add_permissioned_validator {
     ($acc_id:expr) => {
         assert_ok!(Staking::add_permissioned_validator_entity(
-            frame_system::RawOrigin::Root.into(),
+            root(),
             Identity::get_identity($acc_id).unwrap()
         ));
     };
@@ -69,6 +69,7 @@ use mock::*;
 
 use pallet_staking::*;
 
+use super::storage::root;
 use chrono::prelude::Utc;
 use codec::Decode;
 use frame_support::{

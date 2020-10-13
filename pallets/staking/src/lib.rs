@@ -309,7 +309,7 @@ use frame_support::{
         DispatchClass::Operational,
         Pays, Weight,
     },
-    ReversibleStorageHasher, Twox64Concat,
+    Twox64Concat,
 };
 use frame_system::{
     self as system, ensure_none, ensure_root, ensure_signed, offchain::SendTransactionTypes,
@@ -1560,17 +1560,12 @@ decl_module! {
         fn deposit_event() = default;
 
         fn on_runtime_upgrade() -> Weight {
-            use frame_support::storage::migration::{ StorageIterator, put_storage_value };
+            use polymesh_primitives::migrate::migrate_map_keys_and_value;
 
             if StorageVersion::get() == Releases::V4_0_0 {
-                StorageIterator::<()>::new(b"Staking", b"PermissionedValidators")
-                    .drain()
-                    .filter_map(|(key, value)| {
-                        T::AccountId::decode(&mut Twox64Concat::reverse(&key)).map_or(None, |id| {
-                            Some((<Identity<T>>::get_identity(&id).unwrap_or_default(), value))
-                        })
-                    })
-                    .for_each(|(key, value)| put_storage_value(b"Staking", b"PermissionedEntities", &key.as_bytes(), value));
+                migrate_map_keys_and_value::<_,_,Twox64Concat,T::AccountId,IdentityId,_>(b"Staking", b"PermissionedValidators", b"PermissionedEntities", |k: T::AccountId, v: bool| {
+                    (<Identity<T>>::get_identity(&k).unwrap_or_default(), v)
+                });
                 StorageVersion::put(Releases::V5_0_0);
             }
             1_000

@@ -814,3 +814,7 @@ pub fn provide_scope_claim_to_multiple_parties(
         provide_scope_claim(*id, ticker, uid, cdd_provider);
     });
 }
+
+pub fn root() -> Origin {
+    Origin::from(frame_system::RawOrigin::Root)
+}

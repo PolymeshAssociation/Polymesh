@@ -87,6 +87,37 @@ pub fn migrate_map_rename<T: Migrate, C: FnMut(&[u8]) -> T::Context>(
         .for_each(|(key, new)| put_storage_value(module, new_item, &key, new));
 }
 
+/// Migrate the key & value of a map `KO, VO` to key & value of type `KN, VN` via `map`.
+/// The map is located in `module::item` and the new map will migrate to `module::new_item`.
+/// This assumes that the hashers are all the same, which is the common case.
+pub fn migrate_map_keys_and_value<VO, VN, H, KO, KN, F>(
+    module: &[u8],
+    item: &[u8],
+    new_item: &[u8],
+    mut map: F,
+) where
+    F: FnMut(KO, VO) -> (KN, VN),
+    VO: Decode + Encode,
+    VN: Encode + Decode,
+    H: ReversibleStorageHasher,
+    KO: Decode,
+    KN: Decode + Encode,
+{
+    let old_map = StorageIterator::<VO>::new(module, item)
+        .drain()
+        .collect::<Vec<(Vec<u8>, VO)>>();
+
+    for (raw_key, value) in old_map.into_iter() {
+        let unhashed_key = H::reverse(&raw_key);
+        if let Ok(ko) = KO::decode(&mut H::reverse(unhashed_key)) {
+            let (kn, vn) = map(ko, value);
+            let kn = kn.using_encoded(H::hash);
+            let kn = kn.as_ref();
+            put_storage_value(module, new_item, &kn, vn);
+        }
+    }
+}
+
 /// Migrate the keys of a double map `K1, K2` to keys of type `KN1, KN2` via `map`.
 /// The double map is located in `module::item` and the value of type `V` is ontouched.
 /// This assumes that the hashers are all the same, which is the common case.
