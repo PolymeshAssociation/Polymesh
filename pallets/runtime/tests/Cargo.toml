@@ -107,6 +107,7 @@ std = [
     "pallet-committee/std",
     "pallet-compliance-manager/std",
     "pallet-contracts/std",
+    "pallet-corporate-actions/std",
     "polymesh-weights/std",
     "pallet-group-rpc-runtime-api/std",
     "pallet-group/std",

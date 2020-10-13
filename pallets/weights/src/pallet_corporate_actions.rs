@@ -3,6 +3,9 @@ use pallet_corporate_actions::TargetIdentities;
 
 pub struct WeightInfo;
 impl pallet_corporate_actions::WeightInfo for WeightInfo {
+    fn reset_caa() -> Weight {
+        999_999_999_999
+    }
     fn set_default_targets(_: &TargetIdentities) -> Weight {
         999_999_999_999
     }

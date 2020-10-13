@@ -79,13 +79,14 @@ impl Default for TargetTreatment {
 #[derive(Clone, PartialEq, Eq, Encode, Decode, Default, Debug)]
 pub struct TargetIdentities {
     /// The specified identities either relevant or irrelevant, depending on `treatment`, for CAs.
-    identities: Vec<IdentityId>,
+    pub identities: Vec<IdentityId>,
     /// How should `identities` be treated?
-    treatment: TargetTreatment,
+    pub treatment: TargetTreatment,
 }
 
 /// Weight abstraction for the corporate actions module.
 pub trait WeightInfo {
+    fn reset_caa() -> Weight;
     fn set_default_targets(targets: &TargetIdentities) -> Weight;
     fn set_default_withholding_tax() -> Weight;
     fn set_did_withholding_tax() -> Weight;
@@ -148,8 +149,36 @@ decl_module! {
         /// initialize the default event for this module
         fn deposit_event() = default;
 
+        /// Reset the CAA of `ticker` to its owner.
+        ///
+        /// ## Arguments
+        /// - `ticker` for which the CAA is reset.
+        ///
+        /// ## Errors
+        /// - `BadOrigin` if not signed
+        /// - `Unauthorized` if `origin` isn't `ticker`'s owner.
+        #[weight = <T as Trait>::WeightInfo::reset_caa()]
+        pub fn reset_caa(origin, ticker: Ticker) {
+            let did = <Asset<T>>::ensure_perms_owner(origin, &ticker)?;
+            Self::change_caa_agent(did, ticker, None);
+        }
+
+        /// Set the default CA `TargetIdentities` to `targets`.
+        ///
+        /// Each DID included in `target.identities` must hold a non-zero balance in `ticker`.
+        /// If not, the error `NotTokenHolder` occurs.
+        ///
+        /// ## Arguments
+        /// - `ticker` for which the default identities are changing.
+        /// - `targets` the default target identities for a CA.
+        ///
+        /// ## Errors
+        /// - `BadOrigin` if not signed
+        /// - `UnauthorizedAsAgent` if `origin` is not `ticker`'s sole CAA (owner is not necessarily the CAA).
+        /// - `NotTokenHolder` if any identities in `targets` hold no balance of `ticker`,
+        ///     that is `∃ did \in targets.identities. 0 ≡ balance(ticker, did)`.
         #[weight = <T as Trait>::WeightInfo::set_default_targets(&targets)]
-        fn set_default_targets(origin, ticker: Ticker, targets: TargetIdentities) {
+        pub fn set_default_targets(origin, ticker: Ticker, targets: TargetIdentities) {
             // Verify authorization + all identities are token holders.
             let caa = Self::ensure_ca_agent(origin, ticker)?;
             for did in &targets.identities {
@@ -174,8 +203,12 @@ decl_module! {
         /// ## Arguments
         /// - `ticker` that the withholding tax will apply to.
         /// - `tax` that should be withheld when distributing dividends, etc.
+        ///
+        /// ## Errors
+        /// - `BadOrigin` if not signed
+        /// - `UnauthorizedAsAgent` if `origin` is not `ticker`'s sole CAA (owner is not necessarily the CAA).
         #[weight = <T as Trait>::WeightInfo::set_default_withholding_tax()]
-        fn set_default_withholding_tax(origin, ticker: Ticker, tax: Permill) {
+        pub fn set_default_withholding_tax(origin, ticker: Ticker, tax: Permill) {
             let caa = Self::ensure_ca_agent(origin, ticker)?;
             let old = DefaultWitholdingTax::mutate(ticker, |slot| mem::replace(slot, tax));
             Self::deposit_event(Event::DefaultWithholdingTaxChanged(caa, ticker, old, tax));
@@ -189,8 +222,13 @@ decl_module! {
         /// - `ticker` that the withholding tax will apply to.
         /// - `taxed_did` that will have its withholding tax updated.
         /// - `tax` that should be withheld when distributing dividends, etc.
+        ///
+        /// ## Errors
+        /// - `BadOrigin` if not signed
+        /// - `UnauthorizedAsAgent` if `origin` is not `ticker`'s sole CAA (owner is not necessarily the CAA).
+        /// - `NotTokenHolder` if `taxed_did` holds zero balance in `ticker`.
         #[weight = <T as Trait>::WeightInfo::set_did_withholding_tax()]
-        fn set_did_withholding_tax(origin, ticker: Ticker, taxed_did: IdentityId, tax: Option<Permill>) {
+        pub fn set_did_withholding_tax(origin, ticker: Ticker, taxed_did: IdentityId, tax: Option<Permill>) {
             // Verify authorization + `taxed_did` is token holder.
             let caa = Self::ensure_ca_agent(origin, ticker)?;
             Self::ensure_token_holder(ticker, taxed_did)?;
@@ -232,30 +270,36 @@ decl_error! {
 
 impl<T: Trait> CorporateActionLink for Module<T> {
     fn accept_corporate_action_agent_transfer(did: IdentityId, auth_id: u64) -> DispatchResult {
-        // Ensure we have authorization to transfer to `did`
+        // Ensure we have authorization to transfer to `did`...
         let auth = <Identity<T>>::ensure_authorization(&did.into(), auth_id)?;
         let ticker = match auth.authorization_data {
             AuthorizationData::TransferCorporateActionAgent(ticker) => ticker,
             _ => return Err(Error::<T>::NoCAATransferAuth.into()),
         };
         <Asset<T>>::consume_auth_by_owner(&ticker, did, auth_id)?;
-
-        // Transfer CAA status to `did`.
-        let old_caa = Agent::mutate(ticker, |caa| mem::replace(caa, Some(did)))
-            .unwrap_or_else(|| <Asset<T>>::token_details(ticker).owner_did);
-
-        // Emit event.
-        Self::deposit_event(Event::CAATransferred(did, ticker, old_caa, did));
+        // ..and then transfer.
+        Self::change_caa_agent(did, ticker, Some(did));
         Ok(())
     }
 }
 
 impl<T: Trait> Module<T> {
+    /// Change `ticker`'s CAA to `new_caa` and emit an event.
+    fn change_caa_agent(did: IdentityId, ticker: Ticker, new_caa: Option<IdentityId>) {
+        // Transfer CAA status to `did`.
+        let owner = || <Asset<T>>::token_details(ticker).owner_did;
+        let old_caa = Agent::mutate(ticker, |caa| mem::replace(caa, new_caa)).unwrap_or_else(owner);
+
+        // Emit event.
+        let new_caa = new_caa.unwrap_or_else(owner);
+        Self::deposit_event(Event::CAATransferred(did, ticker, old_caa, new_caa));
+    }
+
     /// Ensure that `origin` is authorized as a CA agent of the asset `ticker`.
     /// When `origin` is unsigned, `BadOrigin` occurs.
     /// Otherwise, should the DID not be the CAA of `ticker`, `UnauthorizedAsAgent` occurs.
     fn ensure_ca_agent(origin: T::Origin, ticker: Ticker) -> Result<IdentityId, DispatchError> {
-        let did = Identity::<T>::ensure_origin_call_permissions(origin)?.primary_did;
+        let did = <Identity<T>>::ensure_perms(origin)?;
         ensure!(
             Self::agent(ticker)
                 .map_or_else(|| <Asset<T>>::is_owner(&ticker, did), |caa| caa == did),
