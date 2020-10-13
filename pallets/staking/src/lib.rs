@@ -282,9 +282,9 @@
 #![recursion_limit = "128"]
 #![cfg_attr(not(feature = "std"), no_std)]
 
-#[cfg(any(feature = "runtime-benchmarks"))]
+#[cfg(feature = "runtime-benchmarks")]
 pub mod benchmarking;
-#[cfg(any(feature = "runtime-benchmarks"))]
+#[cfg(feature = "runtime-benchmarks")]
 pub mod testing_utils;
 
 pub mod inflation;
@@ -1427,6 +1427,8 @@ decl_error! {
         NotController,
         /// Not a stash account.
         NotStash,
+        /// Not selected as a nominator.
+        NotNominator,
         /// Stash is already bonded.
         AlreadyBonded,
         /// Controller is already paired.
@@ -1938,26 +1940,41 @@ decl_module! {
             // the threshold value of timestamp i.e current_timestamp + Bonding duration
             // then nominator is added into the nominator pool.
 
-            if let Some(nominate_identity) = <identity::Module<T>>::get_identity(stash) {
-                let leeway = Self::get_bonding_duration_period() as u32;
-                if <identity::Module<T>>::fetch_cdd(nominate_identity, leeway.into()).is_some() {
-                    let targets = targets.into_iter()
-                        .take(MAX_NOMINATIONS)
-                        .map(T::Lookup::lookup)
-                        .collect::<result::Result<Vec<T::AccountId>, _>>()?;
+            // if let Some(nominate_identity) = <identity::Module<T>>::get_identity(stash) {
+            //     let leeway = Self::get_bonding_duration_period() as u32;
+            //     if <identity::Module<T>>::fetch_cdd(nominate_identity, leeway.into()).is_some() {
+            //         let targets = targets.into_iter()
+            //             .take(MAX_NOMINATIONS)
+            //             .map(T::Lookup::lookup)
+            //             .collect::<result::Result<Vec<T::AccountId>, _>>()?;
 
-                    let nominations = Nominations {
-                        targets: targets.clone(),
-                        // initial nominations are considered submitted at era 0. See `Nominations` doc
-                        submitted_in: Self::current_era().unwrap_or(0),
-                        suppressed: false,
-                    };
+            //         let nominations = Nominations {
+            //             targets: targets.clone(),
+            //             // initial nominations are considered submitted at era 0. See `Nominations` doc
+            //             submitted_in: Self::current_era().unwrap_or(0),
+            //             suppressed: false,
+            //         };
 
-                    <Validators<T>>::remove(stash);
-                    <Nominators<T>>::insert(stash, &nominations);
-                    Self::deposit_event(RawEvent::Nominated(nominate_identity, stash.clone(), targets));
-                }
-            }
+            //         <Validators<T>>::remove(stash);
+            //         <Nominators<T>>::insert(stash, &nominations);
+            //         Self::deposit_event(RawEvent::Nominated(nominate_identity, stash.clone(), targets));
+            //     }
+            // }
+
+            let targets = targets.into_iter()
+                .take(MAX_NOMINATIONS)
+                .map(T::Lookup::lookup)
+                .collect::<result::Result<Vec<T::AccountId>, _>>()?;
+
+            let nominations = Nominations {
+                targets: targets.clone(),
+                // initial nominations are considered submitted at era 0. See `Nominations` doc
+                submitted_in: Self::current_era().unwrap_or(0),
+                suppressed: false,
+            };
+
+            <Validators<T>>::remove(stash);
+            <Nominators<T>>::insert(stash, &nominations);
         }
 
         /// Declare no desire to either validate or nominate.
@@ -2174,16 +2191,7 @@ decl_module! {
         #[weight = (800_000_000, Operational, Pays::Yes)]
         pub fn enable_individual_commissions(origin) {
             T::RequiredCommissionOrigin::ensure_origin(origin.clone())?;
-            let key = ensure_signed(origin)?;
-            let id = <identity::Module<T>>::get_identity(&key);
-
-            // Ensure individual commissions are not already enabled
-            if let Commission::Global(_) = <ValidatorCommission>::get() {
-                <ValidatorCommission>::put(Commission::Individual);
-                Self::deposit_event(RawEvent::IndividualCommissionEnabled(id));
-            } else {
-                return Err(Error::<T>::AlreadyEnabled.into());
-            }
+            <ValidatorCommission>::put(Commission::Individual);
         }
 
         /// Changes commission rate which applies to all validators. Only Governance
@@ -2216,11 +2224,7 @@ decl_module! {
         #[weight = (750_000_000, Operational, Pays::Yes)]
         pub fn set_min_bond_threshold(origin, new_value: BalanceOf<T>) {
             T::RequiredCommissionOrigin::ensure_origin(origin.clone())?;
-            let key = ensure_signed(origin)?;
-            let id = <identity::Module<T>>::get_identity(&key);
-
             <MinimumBondThreshold<T>>::put(new_value);
-            Self::deposit_event(RawEvent::MinimumBondThresholdUpdated(id, new_value));
         }
 
         /// Force there to be no new eras indefinitely.
@@ -2391,6 +2395,13 @@ decl_module! {
             ensure!(Self::era_election_status().is_closed(), Error::<T>::CallNotAllowed);
             ensure_signed(origin)?;
             Self::do_payout_stakers(validator_stash, era)
+        }
+
+        #[weight = 100]
+        pub fn payout_staker(origin, staker_stash: T::AccountId, validator_stash: T::AccountId, era: EraIndex) -> DispatchResult {
+            ensure!(Self::era_election_status().is_closed(), Error::<T>::CallNotAllowed);
+            ensure_signed(origin)?;
+            Self::do_payout_staker(staker_stash, validator_stash, era)
         }
 
         /// Rebond a portion of the stash scheduled to be unlocked.
@@ -2808,6 +2819,112 @@ impl<T: Trait> Module<T> {
             }
         }
 
+        Ok(())
+    }
+
+    fn do_payout_staker(
+        staker_stash: T::AccountId,
+        validator_stash: T::AccountId,
+        era: EraIndex,
+    ) -> DispatchResult {
+        // Validate input data
+        let current_era = CurrentEra::get().ok_or(Error::<T>::InvalidEraToReward)?;
+        ensure!(era <= current_era, Error::<T>::InvalidEraToReward);
+        let history_depth = Self::history_depth();
+        ensure!(
+            era >= current_era.saturating_sub(history_depth),
+            Error::<T>::InvalidEraToReward
+        );
+
+        // Note: if era has no reward to be claimed, era may be future. better not to update
+        // `ledger.claimed_rewards` in this case.
+        let era_payout =
+            <ErasValidatorReward<T>>::get(&era).ok_or_else(|| Error::<T>::InvalidEraToReward)?;
+
+        let controller = Self::bonded(&staker_stash).ok_or(Error::<T>::NotStash)?;
+        let mut ledger = <Ledger<T>>::get(&controller).ok_or_else(|| Error::<T>::NotController)?;
+
+        ledger
+            .claimed_rewards
+            .retain(|&x| x >= current_era.saturating_sub(history_depth));
+        match ledger.claimed_rewards.binary_search(&era) {
+            Ok(_) => return Err(Error::<T>::AlreadyClaimed.into()),
+            Err(pos) => ledger.claimed_rewards.insert(pos, era),
+        }
+
+        let exposure = <ErasStakersClipped<T>>::get(&era, &validator_stash);
+
+        /* Input data seems good, no errors allowed after this point */
+
+        <Ledger<T>>::insert(&controller, &ledger);
+
+        // Get Era reward points. It has TOTAL and INDIVIDUAL
+        // Find the fraction of the era reward that belongs to the validator
+        // Take that fraction of the eras rewards to split to nominator and validator
+        //
+        // Then look at the validator, figure out the proportion of their reward
+        // which goes to them and each of their nominators.
+
+        let era_reward_points = <ErasRewardPoints<T>>::get(&era);
+        let total_reward_points = era_reward_points.total;
+        let validator_reward_points = era_reward_points
+            .individual
+            .get(&validator_stash)
+            .copied()
+            .unwrap_or_else(Zero::zero);
+
+        // Nothing to do if they have no reward points.
+        if validator_reward_points.is_zero() {
+            return Ok(());
+        }
+
+        // This is the fraction of the total reward that the validator and the
+        // nominators will get.
+        let validator_total_reward_part =
+            Perbill::from_rational_approximation(validator_reward_points, total_reward_points);
+
+        // This is how much validator + nominators are entitled to.
+        let validator_total_payout = validator_total_reward_part * era_payout;
+
+        let validator_prefs = Self::eras_validator_prefs(&era, &validator_stash);
+        // Validator first gets a cut off the top.
+        let validator_commission = validator_prefs.commission;
+        let validator_commission_payout = validator_commission * validator_total_payout;
+
+        let validator_leftover_payout = validator_total_payout - validator_commission_payout;
+
+        if staker_stash == validator_stash {
+            // Now let's calculate how this is split to the validator.
+            let validator_exposure_part =
+                Perbill::from_rational_approximation(exposure.own, exposure.total);
+            let validator_staking_payout = validator_exposure_part * validator_leftover_payout;
+
+            // We can now make total validator payout:
+            if let Some(imbalance) = Self::make_payout(
+                &validator_stash,
+                validator_staking_payout + validator_commission_payout,
+            ) {
+                Self::deposit_event(RawEvent::Reward(validator_stash, imbalance.peek()));
+            }
+        } else {
+            // Lets now calculate how this is split to the nominators.
+            // Reward only the clipped exposures. Note this is not necessarily sorted.
+            let nominator = exposure
+                .others
+                .iter()
+                .find(|nominator_details| nominator_details.who == staker_stash)
+                .ok_or(Error::<T>::NotNominator)?;
+
+            let nominator_exposure_part =
+                Perbill::from_rational_approximation(nominator.value, exposure.total);
+
+            let nominator_reward: BalanceOf<T> =
+                nominator_exposure_part * validator_leftover_payout;
+            // We can now make nominator payout:
+            if let Some(imbalance) = Self::make_payout(&nominator.who, nominator_reward) {
+                Self::deposit_event(RawEvent::Reward(nominator.who.clone(), imbalance.peek()));
+            }
+        }
         Ok(())
     }
 
@@ -3583,10 +3700,11 @@ impl<T: Trait> Module<T> {
 
     /// Is the stash account one of the permissioned validators?
     pub fn is_validator_or_nominator_compliant(stash: &T::AccountId) -> bool {
-        if let Some(validator_identity) = <identity::Module<T>>::get_identity(&stash) {
-            return <identity::Module<T>>::has_valid_cdd(validator_identity);
-        }
-        false
+        // if let Some(validator_identity) = <identity::Module<T>>::get_identity(&stash) {
+        //     return <identity::Module<T>>::has_valid_cdd(validator_identity);
+        // }
+        // false
+        true
     }
 
     /// Return reward curve points

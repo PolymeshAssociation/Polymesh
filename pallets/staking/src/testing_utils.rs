@@ -38,7 +38,7 @@ pub fn create_funded_user<T: Trait>(
     balance_factor: u32,
 ) -> T::AccountId {
     let user = account(string, n, SEED);
-    let balance = T::Currency::minimum_balance() * balance_factor.into();
+    let balance = (T::Currency::minimum_balance() + 10000.into()) * balance_factor.into();
     T::Currency::make_free_balance_be(&user, balance);
     // ensure T::CurrencyToVote will work correctly.
     T::Currency::issue(balance);
@@ -55,7 +55,8 @@ pub fn create_stash_controller<T: Trait>(
     let controller_lookup: <T::Lookup as StaticLookup>::Source =
         T::Lookup::unlookup(controller.clone());
     let reward_destination = RewardDestination::Staked;
-    let amount = T::Currency::minimum_balance() * (balance_factor / 10).max(1).into();
+    let amount =
+        (T::Currency::minimum_balance() + 10000.into()) * (balance_factor / 10).max(1).into();
     Staking::<T>::bond(
         RawOrigin::Signed(stash.clone()).into(),
         controller_lookup,
@@ -77,7 +78,8 @@ pub fn create_stash_and_dead_controller<T: Trait>(
     let controller_lookup: <T::Lookup as StaticLookup>::Source =
         T::Lookup::unlookup(controller.clone());
     let reward_destination = RewardDestination::Controller;
-    let amount = T::Currency::minimum_balance() * (balance_factor / 10).max(1).into();
+    let amount =
+        (T::Currency::minimum_balance() + 10000.into()) * (balance_factor / 10).max(1).into();
     Staking::<T>::bond(
         RawOrigin::Signed(stash.clone()).into(),
         controller_lookup,

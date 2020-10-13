@@ -460,7 +460,7 @@ pallet_staking_reward_curve::build! {
 
 parameter_types! {
     pub const RewardCurve: &'static PiecewiseLinear<'static> = &I_NPOS;
-    pub const MaxNominatorRewardedPerValidator: u32 = 64;
+    pub const MaxNominatorRewardedPerValidator: u32 = 20000;
     pub const SlashDeferDuration: EraIndex = 0;
 }
 
