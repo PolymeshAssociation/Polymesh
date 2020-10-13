@@ -52,7 +52,7 @@ use polymesh_common_utilities::{
     identity::Trait as IdentityTrait,
 };
 use polymesh_primitives::{AuthorizationData, IdentityId, Ticker};
-use sp_arithmetic::{traits::Zero, Permill};
+use sp_arithmetic::Permill;
 #[cfg(feature = "std")]
 use sp_runtime::{Deserialize, Serialize};
 use sp_std::prelude::*;
@@ -160,13 +160,10 @@ decl_module! {
         #[weight = <T as Trait>::WeightInfo::reset_caa()]
         pub fn reset_caa(origin, ticker: Ticker) {
             let did = <Asset<T>>::ensure_perms_owner(origin, &ticker)?;
-            Self::change_caa_agent(did, ticker, None);
+            Self::change_ca_agent(did, ticker, None);
         }
 
         /// Set the default CA `TargetIdentities` to `targets`.
-        ///
-        /// Each DID included in `target.identities` must hold a non-zero balance in `ticker`.
-        /// If not, the error `NotTokenHolder` occurs.
         ///
         /// ## Arguments
         /// - `ticker` for which the default identities are changing.
@@ -175,15 +172,9 @@ decl_module! {
         /// ## Errors
         /// - `BadOrigin` if not signed
         /// - `UnauthorizedAsAgent` if `origin` is not `ticker`'s sole CAA (owner is not necessarily the CAA).
-        /// - `NotTokenHolder` if any identities in `targets` hold no balance of `ticker`,
-        ///     that is `∃ did \in targets.identities. 0 ≡ balance(ticker, did)`.
         #[weight = <T as Trait>::WeightInfo::set_default_targets(&targets)]
         pub fn set_default_targets(origin, ticker: Ticker, targets: TargetIdentities) {
-            // Verify authorization + all identities are token holders.
             let caa = Self::ensure_ca_agent(origin, ticker)?;
-            for did in &targets.identities {
-                Self::ensure_token_holder(ticker, *did)?;
-            }
 
             // Dedup any DIDs in `targets` to optimize iteration later.
             let new = {
@@ -226,14 +217,9 @@ decl_module! {
         /// ## Errors
         /// - `BadOrigin` if not signed
         /// - `UnauthorizedAsAgent` if `origin` is not `ticker`'s sole CAA (owner is not necessarily the CAA).
-        /// - `NotTokenHolder` if `taxed_did` holds zero balance in `ticker`.
         #[weight = <T as Trait>::WeightInfo::set_did_withholding_tax()]
         pub fn set_did_withholding_tax(origin, ticker: Ticker, taxed_did: IdentityId, tax: Option<Permill>) {
-            // Verify authorization + `taxed_did` is token holder.
             let caa = Self::ensure_ca_agent(origin, ticker)?;
-            Self::ensure_token_holder(ticker, taxed_did)?;
-
-            // Commit + emit event.
             let old = DidWitholdingTax::mutate(ticker, taxed_did, |slot| mem::replace(slot, tax));
             Self::deposit_event(Event::DidWithholdingTaxChanged(caa, ticker, taxed_did, old, tax));
         }
@@ -261,8 +247,6 @@ decl_error! {
     pub enum Error for Module<T: Trait> {
         /// The signer is not authorized to act as a CAA for this asset.
         UnauthorizedAsAgent,
-        /// DID is not a holder of the given asset.
-        NotTokenHolder,
         /// The authorization type is not to transfer the CAA to another DID.
         NoCAATransferAuth
     }
@@ -278,14 +262,14 @@ impl<T: Trait> CorporateActionLink for Module<T> {
         };
         <Asset<T>>::consume_auth_by_owner(&ticker, did, auth_id)?;
         // ..and then transfer.
-        Self::change_caa_agent(did, ticker, Some(did));
+        Self::change_ca_agent(did, ticker, Some(did));
         Ok(())
     }
 }
 
 impl<T: Trait> Module<T> {
     /// Change `ticker`'s CAA to `new_caa` and emit an event.
-    fn change_caa_agent(did: IdentityId, ticker: Ticker, new_caa: Option<IdentityId>) {
+    fn change_ca_agent(did: IdentityId, ticker: Ticker, new_caa: Option<IdentityId>) {
         // Transfer CAA status to `did`.
         let owner = || <Asset<T>>::token_details(ticker).owner_did;
         let old_caa = Agent::mutate(ticker, |caa| mem::replace(caa, new_caa)).unwrap_or_else(owner);
@@ -306,14 +290,5 @@ impl<T: Trait> Module<T> {
             Error::<T>::UnauthorizedAsAgent
         );
         Ok(did)
-    }
-
-    /// Ensure that `did` is a token holder of `ticker`.
-    fn ensure_token_holder(ticker: Ticker, did: IdentityId) -> DispatchResult {
-        ensure!(
-            <Asset<T>>::balance_of(ticker, did) > T::Balance::zero(),
-            Error::<T>::NotTokenHolder
-        );
-        Ok(())
     }
 }

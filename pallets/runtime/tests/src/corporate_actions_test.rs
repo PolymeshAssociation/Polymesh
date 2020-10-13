@@ -189,24 +189,23 @@ fn only_owner_caa_invite() {
 }
 
 #[test]
-fn not_holder() {
+fn not_holder_works() {
     test(|ticker, [owner, _, other]| {
-        assert_noop!(
-            CA::set_did_withholding_tax(owner.signer(), ticker, other.did, None),
-            Error::NotTokenHolder
-        );
+        assert_ok!(CA::set_did_withholding_tax(
+            owner.signer(),
+            ticker,
+            other.did,
+            None
+        ));
 
-        assert_noop!(
-            CA::set_default_targets(
-                owner.signer(),
-                ticker,
-                TargetIdentities {
-                    treatment: Exclude,
-                    identities: vec![other.did],
-                }
-            ),
-            Error::NotTokenHolder
-        );
+        assert_ok!(CA::set_default_targets(
+            owner.signer(),
+            ticker,
+            TargetIdentities {
+                treatment: Exclude,
+                identities: vec![other.did],
+            }
+        ));
     });
 }
 
