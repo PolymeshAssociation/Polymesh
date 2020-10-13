@@ -1499,8 +1499,8 @@ decl_error! {
         NotExists,
         /// Updates with same value.
         NoChange,
-        /// Updates with same value.
-        InvalidCommission
+        /// Validator prefs are not in valid range.
+        InvalidValidatorCommission
     }
 }
 
@@ -1914,7 +1914,7 @@ decl_module! {
 
             ensure!(ledger.active >= <MinimumBondThreshold<T>>::get(), Error::<T>::InsufficientValue);
             // Polymesh-Note - It is used to check whether the passed commission is <= commission cap.
-            ensure!(prefs.commission <= Self::validator_commission_cap(), Error::<T>::InvalidCommission);
+            ensure!(prefs.commission <= Self::validator_commission_cap(), Error::<T>::InvalidValidatorCommission);
 
             <Nominators<T>>::remove(stash);
             <Validators<T>>::insert(stash, prefs);
