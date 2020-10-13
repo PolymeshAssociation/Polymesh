@@ -3305,7 +3305,8 @@ fn basic_confidential_settlement() {
             let ticker = Ticker::try_from(&token_name[..]).unwrap();
 
             // Create an account for Alice and mint 10,000,000 tokens to ACME.
-            let total_supply = 1_1000_000;
+            // let total_supply = 1_1000_000;
+            let total_supply = 5;
             let (
                 tx_id,
                 alice_secret_account,
@@ -3323,7 +3324,12 @@ fn basic_confidential_settlement() {
 
             // Create accounts for Bob, and Charlie.
             let tx_id = tx_id + 1;
-            let (bob_secret_account, bob_account_id, bob_public_account, _) = init_account(
+            let (
+                bob_secret_account,
+                bob_account_id,
+                bob_public_account,
+                bob_encrypted_init_balance,
+            ) = init_account(
                 tx_id,
                 &mut rng,
                 token_name,
@@ -3382,24 +3388,26 @@ fn basic_confidential_settlement() {
             // Sender computes the proofs in the wallet.
             println!("-------------> Alice is going to authorize.");
             let tx_id = tx_id + 1;
-            let initialized_tx = MercatTxData::InitializedTransfer(Base64Vec::new(
-                CtxSender {}
-                    .create_transaction(
-                        tx_id,
-                        &Account {
-                            pblc: alice_public_account.clone(),
-                            scrt: alice_secret_account.clone(),
-                        },
-                        &alice_encrypted_init_balance,
-                        &bob_public_account,
-                        &charlie_public_account.owner_enc_pub_key,
-                        &[],
-                        amount,
-                        &mut rng,
-                    )
-                    .unwrap()
-                    .encode(),
-            ));
+            let sender_data = CtxSender {}
+                .create_transaction(
+                    tx_id,
+                    &Account {
+                        pblc: alice_public_account.clone(),
+                        scrt: alice_secret_account.clone(),
+                    },
+                    &alice_encrypted_init_balance,
+                    &bob_public_account,
+                    &charlie_public_account.owner_enc_pub_key,
+                    &[],
+                    amount,
+                    &mut rng,
+                )
+                .unwrap();
+            let alice_encrypted_transfer_amount = sender_data.memo.enc_amount_using_sndr;
+            let bob_encrypted_transfer_amount = sender_data.memo.enc_amount_using_rcvr;
+            let initialized_tx = MercatTxData::InitializedTransfer(
+                Base64Vec::new(sender_data.encode()).into_bytes(),
+            );
             // Sender authorizes the instruction and passes in the proofs.
             assert_ok!(Settlement::authorize_confidential_instruction(
                 Origin::signed(AccountKeyring::Alice.public()),
@@ -3502,22 +3510,29 @@ fn basic_confidential_settlement() {
                 ConfidentialAsset::mercat_account_balance(alice_did, alice_account_id)
                     .to_mercat::<TestStorage>()
                     .unwrap();
-            let new_alice_balance = alice_secret_account
-                .enc_keys
-                .scrt
-                .decrypt(&new_alice_balance)
-                .unwrap();
-            assert_eq!(new_alice_balance as u128, total_supply - amount as u128);
+            let expected_alice_balance =
+                alice_encrypted_init_balance - alice_encrypted_transfer_amount;
+            assert_eq!(new_alice_balance, expected_alice_balance);
+
+            // let new_alice_balance = alice_secret_account
+            //     .enc_keys
+            //     .scrt
+            //     .decrypt(&new_alice_balance)
+            //     .unwrap();
+            // assert_eq!(new_alice_balance as u128, total_supply - amount as u128);
 
             let new_bob_balance =
                 ConfidentialAsset::mercat_account_balance(bob_did, bob_account_id)
                     .to_mercat::<TestStorage>()
                     .unwrap();
-            let new_bob_balance = bob_secret_account
-                .enc_keys
-                .scrt
-                .decrypt(&new_bob_balance)
-                .unwrap();
-            assert_eq!(new_bob_balance, amount);
+
+            let expected_bob_balance = bob_encrypted_init_balance + bob_encrypted_transfer_amount;
+            assert_eq!(new_bob_balance, expected_bob_balance);
+            // let new_bob_balance = bob_secret_account
+            //     .enc_keys
+            //     .scrt
+            //     .decrypt(&new_bob_balance)
+            //     .unwrap();
+            // assert_eq!(new_bob_balance, amount);
         });
 }

@@ -36,8 +36,8 @@
 
 use codec::{Decode, Encode};
 use cryptography::mercat::{
-    transaction::TransactionValidator, EncryptedAmount, JustifiedTransferTx, PubAccount,
-    TransferTransactionVerifier,
+    transaction::TransactionValidator, EncryptedAmount, InitializedTransferTx, JustifiedTransferTx,
+    PubAccount, TransferTransactionVerifier,
 };
 use frame_support::{
     decl_error, decl_event, decl_module, decl_storage,
@@ -432,6 +432,8 @@ decl_error! {
         ConfidentialModeNotSupportedYet,
         /// Transaction proof failed to verify.
         InvalidMercatTransferProof,
+        /// Failed to maintain confidential transaction's ordering state.
+        InvalidMercatOrderingState,
         /// Undefined leg type.
         UndefinedLeg,
         /// Confidential legs do not have asset and amounts.
@@ -700,7 +702,27 @@ decl_module! {
             // Authorize the instruction.
             Self::unsafe_authorize_instruction(did, instruction_id, portfolios_set)?;
 
-            MercatTxDataStorage::append(instruction_id, data);
+            MercatTxDataStorage::append(instruction_id, data.clone());
+
+            // Update the transaction sender's ordering state.
+            if let MercatTxData::InitializedTransfer(tx_data) =  data {
+                let result = base64::decode(&tx_data);
+                if result.is_ok() {
+                    let mut d: &[u8] = &result.unwrap();
+                    let tx = InitializedTransferTx::decode(&mut d);
+                    if tx.is_ok() {
+                        let tx = tx.unwrap();
+                        // Temporarily store the current pending state as this instruction's pending state.
+                        <ConfidentialAsset<T>>::set_tx_pending_state(&did, &tx.memo.sndr_account_id, instruction_id)?;
+                        <ConfidentialAsset<T>>::add_pending_outgoing_balance(&did, &tx.memo.sndr_account_id, tx.memo.enc_amount_using_sndr)?;
+                    } else {
+                        return Err(Error::<T>::InvalidMercatOrderingState.into());
+                    }
+                } else {
+                    return Err(Error::<T>::InvalidMercatOrderingState.into());
+                }
+            }
+
             // Execute the instruction if conditions are met.
             let auths_pending = Self::instruction_auths_pending(instruction_id);
             let weight_for_instruction_execution = Self::is_instruction_executed(auths_pending, Self::instruction_details(instruction_id).settlement_type, instruction_id);
@@ -1183,8 +1205,26 @@ impl<T: Trait> Module<T> {
                             let (from, _) = Self::leg_from_to(&leg_details)?;
                             T::Portfolio::unlock_tokens(&from, &asset, &amount)?;
                         }
-                        Leg::ConfidentialLeg(_) => {
+                        Leg::ConfidentialLeg(leg) => {
                             // Confidential legs do not need locking/unlocking.
+                            // Transaction has failed update the sender's pending state.
+                            let tx_data = &Self::mercat_tx_data(instruction_id)[0];
+                            match tx_data {
+                                MercatTxData::InitializedTransfer(init_data) => {
+                                    let result = base64::decode(&init_data);
+                                    if result.is_ok() {
+                                        let mut data: &[u8] = &result.unwrap();
+                                        let result =
+                                            InitializedTransferTx::decode(&mut data).unwrap();
+                                        <ConfidentialAsset<T>>::add_failed_outgoing_balance(
+                                            &leg.from.did,
+                                            &leg.from_account_id,
+                                            result.memo.enc_amount_using_sndr,
+                                        )?;
+                                    }
+                                }
+                                _ => return Err(Error::<T>::InvalidMercatOrderingState.into()),
+                            };
                         }
                         Leg::Undefined => return Err(Error::<T>::UndefinedLeg.into()),
                     }
@@ -1235,6 +1275,7 @@ impl<T: Trait> Module<T> {
         Ok(())
     }
 
+    // Get the public MERCAT account and the current on-chain balance.
     fn get_account_and_balance(
         did: &IdentityId,
         account_id: &MercatAccountId,
@@ -1243,6 +1284,18 @@ impl<T: Trait> Module<T> {
             <ConfidentialAsset<T>>::mercat_accounts(did, account_id).to_mercat::<T>()?,
             <ConfidentialAsset<T>>::mercat_account_balance(did, account_id).to_mercat::<T>()?,
         ))
+    }
+
+    // Get the public MERCAT account and the pending on-chain balance.
+    fn get_pending_state(
+        did: &IdentityId,
+        account_id: &MercatAccountId,
+        instruction_id: u64,
+    ) -> Result<EncryptedAmount, DispatchError> {
+        Ok(
+            <ConfidentialAsset<T>>::mercat_tx_pending_state((did, account_id, instruction_id))
+                .to_mercat::<T>()?,
+        )
     }
 
     fn execute_instruction(instruction_id: u64) -> (u32, Weight) {
@@ -1289,6 +1342,7 @@ impl<T: Trait> Module<T> {
                 InsufficientMercatAuthorizations,
                 GetMercatAccount,
                 GetMercatMediatorData,
+                ConfidentialTransferValidation,
             }
 
             if !failed {
@@ -1311,12 +1365,6 @@ impl<T: Trait> Module<T> {
                             }
                             Leg::ConfidentialLeg(leg) => {
                                 let mut tx_data = Self::mercat_tx_data(instruction_id);
-                                if tx_data.len() != 3 {
-                                    return Err((
-                                        leg_id,
-                                        FailureReason::InsufficientMercatAuthorizations,
-                                    ));
-                                }
 
                                 let tx_data = tx_data.remove(2);
                                 let decoded_justified_tx = match tx_data {
@@ -1341,50 +1389,105 @@ impl<T: Trait> Module<T> {
                                         }
                                     }
                                     _ => {
-                                        return Err((leg_id, FailureReason::GetMercatMediatorData));
+                                        return Err((
+                                            leg_id,
+                                            FailureReason::InsufficientMercatAuthorizations,
+                                        ));
                                     }
                                 };
 
                                 // Read the mercat_accounts from the confidential-asset pallet.
-                                if let Ok((from_mercat, from_mercat_balance)) =
-                                    Self::get_account_and_balance(
-                                        &leg.from.did,
-                                        &leg.from_account_id,
-                                    )
-                                {
+                                if let Ok(from_mercat_pending_state) = Self::get_pending_state(
+                                    &leg.from.did,
+                                    &leg.from_account_id,
+                                    instruction_id,
+                                ) {
                                     if let Ok((to_mercat, to_mercat_balance)) =
                                         Self::get_account_and_balance(
                                             &leg.to.did,
                                             &leg.to_account_id,
                                         )
                                     {
-                                        // Verify the proofs.
-                                        let mut rng = rng::Rng::default();
-                                        let result = TransactionValidator {}.verify_transaction(
-                                            &decoded_justified_tx,
-                                            &from_mercat,
-                                            &from_mercat_balance,
-                                            &to_mercat,
-                                            &to_mercat_balance,
-                                            &[],
-                                            &mut rng,
-                                        );
-                                        if let Ok((new_sender_balance, new_receiver_balance)) =
-                                            result
-                                        {
-                                            <ConfidentialAsset<T>>::update_mercat_account_balance(
-                                                &leg.from.did,
-                                                &leg.from_account_id,
-                                                new_sender_balance,
-                                            );
-                                            <ConfidentialAsset<T>>::update_mercat_account_balance(
-                                                &leg.to.did,
-                                                &leg.to_account_id,
-                                                new_receiver_balance,
-                                            );
+                                        // Get sender's current balance.
+                                        if let Ok((from_mercat, _)) = Self::get_account_and_balance(
+                                            &leg.from.did,
+                                            &leg.from_account_id,
+                                        ) {
+                                            // Verify the proofs.
+                                            let mut rng = rng::Rng::default();
+                                            let result = TransactionValidator {}
+                                                .verify_transaction(
+                                                    &decoded_justified_tx,
+                                                    &from_mercat,
+                                                    &from_mercat_pending_state,
+                                                    &to_mercat,
+                                                    &to_mercat_balance, // If the only reason we need this is updating balance, we should remove it.
+                                                    &[],
+                                                    &mut rng,
+                                                );
+
+                                            if let Ok((_, _)) = result {
+                                                let result = <ConfidentialAsset<T>>::mercat_account_withdraw_amount(
+                                                    &leg.from.did,
+                                                    &leg.from_account_id,
+                                                    decoded_justified_tx
+                                                        .finalized_data
+                                                        .init_data
+                                                        .memo
+                                                        .enc_amount_using_sndr,
+                                                );
+
+                                                // This could be a problem, if we fail to update the storage, but other storage is updated.
+                                                if result.is_err() {
+                                                    return Err((
+                                                        leg_id,
+                                                        FailureReason::GetMercatAccount,
+                                                    ));
+                                                }
+
+                                                let result = <ConfidentialAsset<T>>::mercat_account_deposit_amount(
+                                                    &leg.to.did,
+                                                    &leg.to_account_id,
+                                                    decoded_justified_tx
+                                                        .finalized_data
+                                                        .init_data
+                                                        .memo
+                                                        .enc_amount_using_rcvr,
+                                                );
+
+                                                // There's no need to keep a copy of the pending state anymore.
+                                                <ConfidentialAsset<T>>::remove_tx_pending_state(
+                                                    &leg.from.did,
+                                                    &leg.from_account_id,
+                                                    instruction_id,
+                                                );
+
+                                                // This could be a problem, if we fail to update the storage, but other storage is updated.
+                                                if result.is_err() {
+                                                    return Err((
+                                                        leg_id,
+                                                        FailureReason::GetMercatAccount,
+                                                    ));
+                                                }
+                                            } else {
+                                                // Upon transaction validation failure, update the failed outgoing accumulator.
+                                                let _result = <ConfidentialAsset<T>>::add_failed_outgoing_balance(
+                                                    &leg.from.did,
+                                                    &leg.from_account_id,
+                                                    decoded_justified_tx
+                                                        .finalized_data
+                                                        .init_data
+                                                        .memo
+                                                        .enc_amount_using_sndr,
+                                                );
+                                                return Err((
+                                                    leg_id,
+                                                    FailureReason::ConfidentialTransferValidation,
+                                                ));
+                                            }
                                         } else {
                                             return Err((leg_id, FailureReason::GetMercatAccount));
-                                        }
+                                        };
                                     } else {
                                         return Err((leg_id, FailureReason::GetMercatAccount));
                                     }
