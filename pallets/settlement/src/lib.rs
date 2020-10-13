@@ -1019,13 +1019,10 @@ impl<T: Trait> Module<T> {
             let (temp_legs_executed, temp_weight_for_initialize) =
                 Self::execute_instruction(*scheduled_tx);
             legs_executed += temp_legs_executed;
-            weight_for_initialize += match temp_weight_for_initialize
-                .map(|info| info.actual_weight.unwrap_or(0))
-                .map_err(|error| error.post_info.actual_weight.unwrap_or(0))
-            {
-                Ok(weight) => weight,
-                Err(weight) => weight,
-            };
+            weight_for_initialize += temp_weight_for_initialize
+                .map(|info| info.actual_weight)
+                .unwrap_or_else(|error| error.post_info.actual_weight)
+                .unwrap_or(0);
         }
         weight_for_initialize
     }
@@ -1194,24 +1191,16 @@ impl<T: Trait> Module<T> {
         <InstructionAuthsPending>::remove(instruction_id);
         <AuthsReceived>::remove_prefix(instruction_id);
         // NB UserAuths mapping is not cleared
+
+        let post_info = PostDispatchInfo {
+            actual_weight: Some(weight_for_execution.saturating_add(T::DbWeight::get().writes(5))),
+            pays_fee: Default::default(),
+        };
         (
             instructions_processed,
             result
-                .map(|_| PostDispatchInfo {
-                    actual_weight: Some(
-                        weight_for_execution.saturating_add(T::DbWeight::get().writes(5)),
-                    ),
-                    pays_fee: Default::default(),
-                })
-                .map_err(|error| DispatchErrorWithPostInfo {
-                    post_info: PostDispatchInfo {
-                        actual_weight: Some(
-                            weight_for_execution.saturating_add(T::DbWeight::get().writes(5)),
-                        ),
-                        pays_fee: Default::default(),
-                    },
-                    error,
-                }),
+                .map(|_| post_info)
+                .map_err(|error| DispatchErrorWithPostInfo { post_info, error }),
         )
     }
 

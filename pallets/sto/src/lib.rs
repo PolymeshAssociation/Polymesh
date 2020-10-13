@@ -1,8 +1,24 @@
 // Copyright (c) 2020 Polymath
 
-//! # STO Module
+//! # Sto Module
 //!
-//! This is a proof of concept module. It is not meant to be used in the real world in its' current state.
+//! Sto module creates and manages security token offerings
+//!
+//! ## Overview
+//!
+//! Primary issuance agent's can create and manage fundraisers of assets.
+//! Fundraisers are of fixed supply, with optional expiry and tiered pricing.
+//! Fundraisers allow a single payment asset, known as the raising asset.
+//! Investors can invest through on-chain balance or off-chain receipts.
+//!
+//! ## Dispatchable Functions
+//!
+//! - `create_fundraiser` - Create a new fundraiser.
+//! - `invest` - Invest in a fundraiser.
+//! - `freeze_fundraiser` - Freeze a fundraiser.
+//! - `unfreeze_fundraiser` - Unfreeze a fundraiser.
+//! - `modify_fundraiser_window` - Modify the time window a fundraiser is active.
+//! - `stop` - stop a fundraiser.
 
 #![cfg_attr(not(feature = "std"), no_std)]
 #![recursion_limit = "256"]
@@ -154,7 +170,19 @@ decl_module! {
 
         fn deposit_event() = default;
 
-        /// Create a new offering. A fixed amount of pre-minted tokens are put up for sale at the specified tiered rate.
+        /// Create a new fundraiser.
+        ///
+        /// * `offering_portfolio` - Portfolio containing the `offering_asset`.
+        /// * `offering_asset` - Asset being offered.
+        /// * `raising_portfolio` - Portfolio containing the `raising_asset`.
+        /// * `raising_asset` - Asset being exchanged for `offering_asset` on investment.
+        /// * `tiers` - Price tiers to charge investors on investment.
+        /// * `venue_id` - Venue to handle settlement.
+        /// * `start` - Fundraiser start time, if `None` the fundraiser will start immediately.
+        /// * `end` - Fundraiser end time, if `None` the fundraiser will never expire.
+        ///
+        /// # Weight
+        /// `800_000_000` placeholder
         #[weight = 800_000_000]
         pub fn create_fundraiser(
             origin,
@@ -228,7 +256,18 @@ decl_module! {
             Ok(())
         }
 
-        /// Purchase tokens from an ongoing offering.
+        /// Invest in a fundraiser.
+        ///
+        /// * `investment_portfolio` - Portfolio that `offering_asset` will be deposited in.
+        /// * `funding_portfolio` - Portfolio that will fund the investment.
+        /// * `offering_asset` - Asset to invest in.
+        /// * `fundraiser_id` - ID of the fundraiser to invest in.
+        /// * `investment_amount` - Amount of `offering_asset` to invest in.
+        /// * `max_price` - Maximum price to pay per unit of `offering_asset`, If `None`there are no constraints on price.
+        /// * `receipt` - Off-chain receipt to use instead of on-chain balance in `funding_portfolio`.
+        /// 
+        /// # Weight
+        /// `2_000_000_000` placeholder
         #[weight = 2_000_000_000]
         pub fn invest(
             origin,
@@ -238,7 +277,7 @@ decl_module! {
             fundraiser_id: u64,
             investment_amount: T::Balance,
             max_price: Option<T::Balance>,
-            reciept: Option<ReceiptDetails<T::AccountId, T::OffChainSignature>>
+            receipt: Option<ReceiptDetails<T::AccountId, T::OffChainSignature>>
         ) -> DispatchResult {
             let sender = ensure_signed(origin.clone())?;
             let did = Context::current_identity_or::<Identity<T>>(&sender)?;
@@ -264,15 +303,10 @@ decl_module! {
             // Tuple of (tier_id, amount to purchase from that tier).
             let mut purchases = Vec::new();
 
-            for (id, tier) in fundraiser.tiers.iter().enumerate() {
+            for (id, tier) in fundraiser.tiers.iter().enumerate().filter(|(_, tier)| tier.remaining == 0.into()) {
                 // fulfilled the investment amount
                 if remaining == 0.into() {
                     break
-                }
-
-                // tier is exhausted, move on
-                if tier.remaining == 0.into() {
-                    continue
                 }
 
                 // Check if this tier can fulfil the remaining investment amount.
@@ -324,11 +358,11 @@ decl_module! {
 
                 let portfolios = vec![investment_portfolio, funding_portfolio];
 
-                match reciept {
-                    Some(reciept) => Settlement::<T>::authorize_with_receipts(
+                match receipt {
+                    Some(receipt) => Settlement::<T>::authorize_with_receipts(
                         origin,
                         instruction_id,
-                        vec![reciept],
+                        vec![receipt],
                         portfolios
                     ).map_err(|e| e.error)?,
                     None => Settlement::<T>::authorize_instruction(origin, instruction_id, portfolios).map_err(|e| e.error)?,
@@ -349,38 +383,43 @@ decl_module! {
             })
         }
 
+        /// Freeze a fundraiser.
+        ///
+        /// * `offering_asset` - Asset to freeze.
+        /// * `fundraiser_id` - ID of the fundraiser to freeze.
+        ///
+        /// # Weight
+        /// `1_000` placeholder
         #[weight = 1_000]
         pub fn freeze_fundraiser(origin, offering_asset: Ticker, fundraiser_id: u64) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             let did = Context::current_identity_or::<Identity<T>>(&sender)?;
-            ensure!(T::Asset::primary_issuance_agent(&offering_asset) == did, Error::<T>::Unauthorized);
-
-            ensure!(<Fundraisers<T>>::contains_key(offering_asset, fundraiser_id), Error::<T>::FundraiserNotFound);
-
-            <Fundraisers<T>>::mutate(offering_asset, fundraiser_id, |fundraiser|
-                if let Some(fundraiser) = fundraiser {
-                    fundraiser.frozen = true
-                }
-            );
-            Ok(())
+            Self::set_frozen(did, offering_asset, fundraiser_id, true)?;
         }
 
+        /// Unfreeze a fundraiser.
+        ///
+        /// * `offering_asset` - Asset to unfreeze.
+        /// * `fundraiser_id` - ID of the fundraiser to unfreeze.
+        ///
+        /// # Weight
+        /// `1_000` placeholder
         #[weight = 1_000]
         pub fn unfreeze_fundraiser(origin, offering_asset: Ticker, fundraiser_id: u64) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             let did = Context::current_identity_or::<Identity<T>>(&sender)?;
-            ensure!(T::Asset::primary_issuance_agent(&offering_asset) == did, Error::<T>::Unauthorized);
-
-            ensure!(<Fundraisers<T>>::contains_key(offering_asset, fundraiser_id), Error::<T>::FundraiserNotFound);
-
-            <Fundraisers<T>>::mutate(offering_asset, fundraiser_id, |fundraiser|
-                if let Some(fundraiser) = fundraiser {
-                    fundraiser.frozen = false
-                }
-            );
-            Ok(())
+            Self::set_frozen(did, offering_asset, fundraiser_id, false)?;
         }
 
+        /// Modify the time window a fundraiser is active
+        ///
+        /// * `offering_asset` - Asset to modify.
+        /// * `fundraiser_id` - ID of the fundraiser to modify.
+        /// * `start` - New start of the fundraiser.
+        /// * `end` - New end of the fundraiser to modify.
+        ///
+        /// # Weight
+        /// `1_000` placeholder
         #[weight = 1_000]
         pub fn modify_fundraiser_window(origin, offering_asset: Ticker, fundraiser_id: u64, start: T::Moment, end: Option<T::Moment>) -> DispatchResult {
             let sender = ensure_signed(origin)?;
@@ -407,6 +446,13 @@ decl_module! {
             Ok(())
         }
 
+        /// Stop a fundraiser.
+        ///
+        /// * `offering_asset` - Asset to stop.
+        /// * `fundraiser_id` - ID of the fundraiser to stop.
+        ///
+        /// # Weight
+        /// `1_000` placeholder
         #[weight = 1_000]
         pub fn stop(origin, offering_asset: Ticker, fundraiser_id: u64) -> DispatchResult {
             let sender = ensure_signed(origin)?;
@@ -430,4 +476,19 @@ decl_module! {
             Ok(())
         }
     }
+}
+
+impl<T: Trait> Module<T> {
+
+    fn set_frozen(did: IdentityId, offering_asset: Ticker, fundraiser_id: u64, frozen: bool) -> DispatchResult {
+        ensure!(T::Asset::primary_issuance_agent(&offering_asset) == did, Error::<T>::Unauthorized);
+        ensure!(<Fundraisers<T>>::contains_key(offering_asset, fundraiser_id), Error::<T>::FundraiserNotFound);
+        <Fundraisers<T>>::mutate(offering_asset, fundraiser_id, |fundraiser|
+            if let Some(fundraiser) = fundraiser {
+                fundraiser.frozen = frozen
+            }
+        );
+        Ok(())
+    }
+
 }

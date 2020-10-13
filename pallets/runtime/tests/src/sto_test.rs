@@ -8,7 +8,7 @@ use pallet_settlement::{self as settlement, Receipt, ReceiptDetails, VenueDetail
 use pallet_sto::{self as sto, Fundraiser, FundraiserTier, PriceTier};
 use polymesh_primitives::{PortfolioId, Ticker};
 
-use frame_support::{assert_err, assert_ok, assert_noop};
+use frame_support::{assert_err, assert_noop, assert_ok};
 use sp_std::convert::TryFrom;
 use test_client::AccountKeyring;
 
@@ -23,9 +23,7 @@ type Timestamp = pallet_timestamp::Module<TestStorage>;
 
 #[test]
 fn raise_happy_path_ext() {
-    ExtBuilder::default()
-        .build()
-        .execute_with(raise_happy_path);
+    ExtBuilder::default().build().execute_with(raise_happy_path);
 }
 #[test]
 fn raise_unhappy_path_ext() {
