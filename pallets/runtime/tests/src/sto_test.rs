@@ -4,7 +4,7 @@ use super::{
 };
 use pallet_asset::{self as asset, AssetType};
 use pallet_compliance_manager as compliance_manager;
-use pallet_settlement::{self as settlement, Receipt, ReceiptDetails, VenueDetails, VenueType};
+use pallet_settlement::{self as settlement, VenueDetails, VenueType};
 use pallet_sto::{self as sto, Fundraiser, FundraiserTier, PriceTier};
 use polymesh_primitives::{PortfolioId, Ticker};
 
