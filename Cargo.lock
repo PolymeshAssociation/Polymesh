@@ -4128,6 +4128,7 @@ dependencies = [
 name = "pallet-compliance-manager"
 version = "0.1.0"
 dependencies = [
+ "either",
  "frame-support",
  "frame-system",
  "pallet-identity",

@@ -1529,11 +1529,12 @@ fn should_limit_compliance_requirements_complexity_we() {
     ));
 
     // Complexity = 30*1 + 15*2 = 60
+    let other_did = register_keyring_account(AccountKeyring::Bob).unwrap();
     assert_noop!(
         ComplianceManager::add_default_trusted_claim_issuer(
             token_owner_signed.clone(),
             ticker,
-            token_owner_did.into(),
+            other_did.into(),
         ),
         CMError::<TestStorage>::ComplianceRequirementTooComplex
     );
