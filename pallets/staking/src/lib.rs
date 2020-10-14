@@ -1337,14 +1337,13 @@ decl_storage! {
     }
     add_extra_genesis {
         config(stakers):
-            Vec<(T::AccountId, T::AccountId, BalanceOf<T>, StakerStatus<T::AccountId>)>;
+            Vec<(IdentityId, T::AccountId, T::AccountId, BalanceOf<T>, StakerStatus<T::AccountId>)>;
         build(|config: &GenesisConfig<T>| {
-            for &(ref stash, ref controller, balance, ref status) in &config.stakers {
+            for &(entity_did, ref stash, ref controller, balance, ref status) in &config.stakers {
                 assert!(
                     T::Currency::free_balance(&stash) >= balance,
                     "Stash does not have enough balance to bond."
                 );
-                let entity_id = <Identity<T>>::get_identity(&stash).expect("Stash should have a valid identity");
                 let _ = <Module<T>>::bond(
                     T::Origin::from(Some(stash.clone()).into()),
                     T::Lookup::unlookup(controller.clone()),
@@ -1361,11 +1360,11 @@ decl_storage! {
                             T::Origin::from(Some(controller.clone()).into()),
                             prefs,
                         ).expect("Unable to add to Validator list");
-                        if !<Module<T>>::permissioned_entities(entity_id) {
-                            let _ = <Module<T>>::add_permissioned_validator_entity(
+                        if !<Module<T>>::permissioned_entities(&entity_did) {
+                            <Module<T>>::add_permissioned_validator_entity(
                                 frame_system::RawOrigin::Root.into(),
-                                entity_id
-                            );
+                                entity_did
+                            ).expect("Unable to add to an entity in allowed entity list");
                         }
                         Ok(())
                     },
@@ -2110,7 +2109,7 @@ decl_module! {
         }
 
         /// Governance committee on 2/3 rds majority can introduce a new potential entity
-        /// to the pool of complianced entities who can run validators. Staking module uses `PermissionedEntities`
+        /// to the pool of permissioned entities who can run validators. Staking module uses `PermissionedEntities`
         /// to ensure validators have completed KYB compliance and considers them for validation.
         ///
         /// # Arguments
@@ -2127,7 +2126,7 @@ decl_module! {
             Self::deposit_event(RawEvent::PermissionedEntityAdded(GC_DID, entity));
         }
 
-        /// Remove an entity from the pool of (wannable) entity validators. Effects are known in the next session.
+        /// Remove an entity from the pool of (wannabe) entity validators. Effects are known in the next session.
         /// Staking module checks `PermissionedEntities` to ensure validators have
         /// completed KYB compliance
         ///

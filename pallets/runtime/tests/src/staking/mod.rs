@@ -67,9 +67,6 @@ macro_rules! assert_add_permissioned_validator {
 mod mock;
 use mock::*;
 
-use pallet_staking::*;
-
-use super::storage::root;
 use chrono::prelude::Utc;
 use codec::Decode;
 use frame_support::{
@@ -79,6 +76,7 @@ use frame_support::{
     StorageMap,
 };
 use pallet_balances::Error as BalancesError;
+use pallet_staking::*;
 use sp_npos_elections::ElectionScore;
 use sp_runtime::{
     assert_eq_error_rate,

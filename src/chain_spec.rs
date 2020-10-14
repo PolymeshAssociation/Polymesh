@@ -154,6 +154,7 @@ fn general_testnet_genesis(
 ) -> GeneralConfig::GenesisConfig {
     const STASH: u128 = 5_000_000 * POLY;
     const ENDOWMENT: u128 = 100_000_000 * POLY;
+    let stakers;
 
     GeneralConfig::GenesisConfig {
         frame_system: Some(GeneralConfig::SystemConfig {
@@ -249,7 +250,20 @@ fn general_testnet_genesis(
                     (x.0.clone(), IdentityId::from(identity_counter))
                 })
                 .collect::<Vec<_>>();
-
+            stakers = authority_identities
+                .iter()
+                .cloned()
+                .zip(initial_authorities.iter().cloned())
+                .map(|((_, _, did, _, _), x)| {
+                    (
+                        did,
+                        x.0.clone(),
+                        x.1.clone(),
+                        STASH,
+                        general::StakerStatus::Validator,
+                    )
+                })
+                .collect::<Vec<_>>();
             Some(GeneralConfig::IdentityConfig {
                 identities: all_identities,
                 secondary_keys,
@@ -308,17 +322,7 @@ fn general_testnet_genesis(
             validator_commission: alcyone::Commission::Global(
                 PerThing::from_rational_approximation(1u64, 4u64),
             ),
-            stakers: initial_authorities
-                .iter()
-                .map(|x| {
-                    (
-                        x.0.clone(),
-                        x.1.clone(),
-                        STASH,
-                        general::StakerStatus::Validator,
-                    )
-                })
-                .collect(),
+            stakers,
             invulnerables: initial_authorities.iter().map(|x| x.0.clone()).collect(),
             slash_reward_fraction: general::Perbill::from_percent(10),
             min_bond_threshold: 5_000_000_000_000,
@@ -535,6 +539,7 @@ fn alcyone_testnet_genesis(
 ) -> AlcyoneConfig::GenesisConfig {
     const STASH: u128 = 5_000_000 * POLY;
     const ENDOWMENT: u128 = 100_000_000 * POLY;
+    let stakers;
 
     AlcyoneConfig::GenesisConfig {
         frame_system: Some(AlcyoneConfig::SystemConfig {
@@ -637,7 +642,20 @@ fn alcyone_testnet_genesis(
                     (x.0.clone(), IdentityId::from(identity_counter))
                 })
                 .collect::<Vec<_>>();
-
+            stakers = authority_identities
+                .iter()
+                .cloned()
+                .zip(initial_authorities.iter().cloned())
+                .map(|((_, _, did, _, _), x)| {
+                    (
+                        did,
+                        x.0.clone(),
+                        x.1.clone(),
+                        STASH,
+                        general::StakerStatus::Validator,
+                    )
+                })
+                .collect::<Vec<_>>();
             Some(AlcyoneConfig::IdentityConfig {
                 identities: all_identities,
                 secondary_keys,
@@ -694,17 +712,7 @@ fn alcyone_testnet_genesis(
             minimum_validator_count: 1,
             validator_count: initial_authorities.len() as u32,
             validator_commission: alcyone::Commission::Global(PerThing::zero()),
-            stakers: initial_authorities
-                .iter()
-                .map(|x| {
-                    (
-                        x.0.clone(),
-                        x.1.clone(),
-                        STASH,
-                        alcyone::StakerStatus::Validator,
-                    )
-                })
-                .collect(),
+            stakers,
             invulnerables: initial_authorities.iter().map(|x| x.0.clone()).collect(),
             slash_reward_fraction: alcyone::Perbill::from_percent(10),
             min_bond_threshold: 5_000_000_000_000,
