@@ -152,6 +152,8 @@ decl_error! {
         InvalidPriceTiers,
         /// Window (start time, end time) has invalid parameters, e.g start time is after end time.
         InvalidOfferingWindow,
+        /// Price of an investment exceeded the max price
+        MaxPriceExceeded,
     }
 }
 
@@ -205,11 +207,8 @@ decl_module! {
                 Error::<T>::InvalidVenue
             );
 
-            <Portfolio<T>>::ensure_portfolio_custody(raising_portfolio, did)?;
-            ensure!(<PortfolioAssetBalances<T>>::contains_key(raising_portfolio, raising_asset), Error::<T>::InvalidPortfolio);
-
-            <Portfolio<T>>::ensure_portfolio_custody(offering_portfolio, did)?;
-            ensure!(<PortfolioAssetBalances<T>>::contains_key(offering_portfolio, offering_asset), Error::<T>::InvalidPortfolio);
+            Self::ensure_custody_and_asset(did, raising_portfolio, raising_asset);
+            Self::ensure_custody_and_asset(did, offering_portfolio, offering_asset);
 
             ensure!(
                 tiers.len() > 0 && tiers.iter().all(|t| t.total > 0.into()),
@@ -265,7 +264,7 @@ decl_module! {
         /// * `investment_amount` - Amount of `offering_asset` to invest in.
         /// * `max_price` - Maximum price to pay per unit of `offering_asset`, If `None`there are no constraints on price.
         /// * `receipt` - Off-chain receipt to use instead of on-chain balance in `funding_portfolio`.
-        /// 
+        ///
         /// # Weight
         /// `2_000_000_000` placeholder
         #[weight = 2_000_000_000]
@@ -327,9 +326,10 @@ decl_module! {
             }
 
             ensure!(remaining == 0.into(), Error::<T>::InsufficientTokensRemaining);
-            if let Some(max_price) = max_price {
-                ensure!(cost <= max_price * investment_amount, Error::<T>::InsufficientTokensRemaining);
-            }
+            ensure!(
+                max_price.map(|max_price| cost <= max_price * investment_amount).unwrap_or(true),
+                Error::<T>::MaxPriceExceeded
+            );
 
             let legs = vec![
                 Leg {
@@ -478,16 +478,38 @@ decl_module! {
 }
 
 impl<T: Trait> Module<T> {
-
-    fn set_frozen(did: IdentityId, offering_asset: Ticker, fundraiser_id: u64, frozen: bool) -> DispatchResult {
-        ensure!(T::Asset::primary_issuance_agent(&offering_asset) == did, Error::<T>::Unauthorized);
-        ensure!(<Fundraisers<T>>::contains_key(offering_asset, fundraiser_id), Error::<T>::FundraiserNotFound);
-        <Fundraisers<T>>::mutate(offering_asset, fundraiser_id, |fundraiser|
+    fn set_frozen(
+        did: IdentityId,
+        offering_asset: Ticker,
+        fundraiser_id: u64,
+        frozen: bool,
+    ) -> DispatchResult {
+        ensure!(
+            T::Asset::primary_issuance_agent(&offering_asset) == did,
+            Error::<T>::Unauthorized
+        );
+        ensure!(
+            <Fundraisers<T>>::contains_key(offering_asset, fundraiser_id),
+            Error::<T>::FundraiserNotFound
+        );
+        <Fundraisers<T>>::mutate(offering_asset, fundraiser_id, |fundraiser| {
             if let Some(fundraiser) = fundraiser {
                 fundraiser.frozen = frozen
             }
-        );
+        });
         Ok(())
     }
 
+    fn ensure_custody_and_asset(
+        did: IdentityId,
+        portfolio: PortfolioId,
+        asset: Ticker,
+    ) -> DispatchResult {
+        <Portfolio<T>>::ensure_portfolio_custody(portfolio, did)?;
+        ensure!(
+            <PortfolioAssetBalances<T>>::contains_key(portfolio, asset),
+            Error::<T>::InvalidPortfolio
+        );
+        Ok(())
+    }
 }
