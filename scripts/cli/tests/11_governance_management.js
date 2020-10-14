@@ -22,6 +22,7 @@ async function main() {
   let govCommittee1 = testEntities[2];
   let govCommittee2 = testEntities[3];
 
+  await sendTx(alice, api.tx.sudo.sudo(api.tx.pips.setDefaultEnactmentPeriod(10)));
   await reqImports.createIdentities(api, [bob, dave, govCommittee1, govCommittee2], alice);
 
   // Bob and Dave needs some funds to use.
@@ -32,13 +33,16 @@ async function main() {
   const setLimit = api.tx.pips.setActivePipLimit(42);
   // Create a PIP, but first placing the cool-off period.
   await sendTx(alice, api.tx.sudo.sudo(api.tx.pips.setProposalCoolOffPeriod(10)));
+
+  let pipCount = await api.query.pips.pipIdSequence();
   await sendTx(bob, api.tx.pips.propose(setLimit, 10000000000, "google.com", "first"));
 
-  let pipCount = await api.query.pips.activePipCount();
-  await sendTx(bob, api.tx.pips.amendProposal(pipCount - 1, "www.facebook.com", null));
+  await sendTx(bob, api.tx.pips.amendProposal(pipCount, "www.facebook.com", null));
  
   // Create a PIP, but first remove the cool-off period.
   await sendTx(alice, api.tx.sudo.sudo(api.tx.pips.setProposalCoolOffPeriod(0)));
+
+  pipCount = await api.query.pips.pipIdSequence();
   await sendTx(bob, api.tx.pips.propose(setLimit, 10000000000, "google.com", "second"));
 
   // GC needs some funds to use.
@@ -46,14 +50,13 @@ async function main() {
 
   // Snapshot and approve second PIP.
   await sendTx(govCommittee1, api.tx.pips.snapshot());
-  pipCount = await api.query.pips.activePipCount();
-  const approvePIP = api.tx.pips.enactSnapshotResults([[pipCount - 1, { "Approve": "" }]]);
+  const approvePIP = api.tx.pips.enactSnapshotResults([[pipCount, { "Approve": "" }]]);
   const voteApprove = api.tx.polymeshCommittee.voteOrPropose(true, approvePIP);
   await sendTx(govCommittee1, voteApprove);
   await sendTx(govCommittee2, voteApprove);
 
   // Finally reschedule, demonstrating that it had been scheduled.
-  await sendTx(alice, api.tx.pips.rescheduleExecution(pipCount - 1, null));
+  await sendTx(alice, api.tx.pips.rescheduleExecution(pipCount, null));
   if (reqImports.fail_count > 0) {
     console.log("Failed");
   } else {
