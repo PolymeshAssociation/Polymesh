@@ -177,7 +177,7 @@ decl_module! {
         /// # Additional functionality
         /// 1. Allow origin to pass some meta-details related to template code.
         /// 2. Charge protocol fee for deploying the template.
-        #[weight = 50_000_000.saturating_add(pallet_contracts::Call::<T>::put_code(code.clone()).get_dispatch_info().weight)]
+        #[weight = 50_000_000.saturating_add(pallet_contracts::Call::<T>::put_code(code.to_vec()).get_dispatch_info().weight)]
         pub fn put_code(
             origin,
             meta_info: TemplateMetadata<BalanceOf<T>>,
