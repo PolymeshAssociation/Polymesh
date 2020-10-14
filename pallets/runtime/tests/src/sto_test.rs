@@ -8,9 +8,10 @@ use pallet_settlement::{self as settlement, Receipt, ReceiptDetails, VenueDetail
 use pallet_sto::{self as sto, Fundraiser, FundraiserTier, PriceTier};
 use polymesh_primitives::{PortfolioId, Ticker};
 
-use frame_support::{assert_err, assert_noop, assert_ok};
+use frame_support::{assert_noop, assert_ok};
 use sp_std::convert::TryFrom;
 use test_client::AccountKeyring;
+use sp_runtime::DispatchError;
 
 type Origin = <TestStorage as frame_system::Trait>::Origin;
 type Asset = asset::Module<TestStorage>;
@@ -32,7 +33,7 @@ fn raise_unhappy_path_ext() {
         .execute_with(raise_unhappy_path);
 }
 
-fn create_asset<Balance>(origin: Origin, ticker: Ticker, supply: Balance) {
+fn create_asset(origin: Origin, ticker: Ticker, supply: u128) {
     assert_ok!(Asset::create_asset(
         origin,
         vec![0x01].into(),
@@ -208,7 +209,7 @@ fn raise_unhappy_path() {
     let offering_ticker = Ticker::try_from(&[0x03][..]).unwrap();
     let raise_ticker = Ticker::try_from(&[0x04][..]).unwrap();
 
-    let check_fundraiser = |tiers, venue, error| {
+    let check_fundraiser = |tiers, venue, error: DispatchError| {
         assert_noop!(
             STO::create_fundraiser(
                 alice_signed.clone(),
@@ -242,11 +243,11 @@ fn raise_unhappy_path() {
     }];
 
     let check_venue = |id| {
-        check_fundraiser(default_tiers.clone(), id, Error::InvalidVenue);
+        check_fundraiser(default_tiers.clone(), id, Error::InvalidVenue.into());
     };
 
     // Offering asset not created
-    check_fundraiser(default_tiers.clone(), 0, Error::Unauthorized);
+    check_fundraiser(default_tiers.clone(), 0, Error::Unauthorized.into());
 
     create_asset(alice_signed.clone(), offering_ticker, 1_000_000);
 
@@ -269,7 +270,7 @@ fn raise_unhappy_path() {
     check_fundraiser(
         default_tiers.clone(),
         correct_venue,
-        Error::InvalidPortfolio,
+        Error::InvalidPortfolio.into(),
     );
 
     create_asset(alice_signed.clone(), raise_ticker, 1_000_000);
@@ -285,7 +286,7 @@ fn raise_unhappy_path() {
     empty_compliance(alice_signed.clone(), raise_ticker);
 
     // No prices
-    check_fundraiser(vec![], correct_venue, Error::InvalidPriceTiers);
+    check_fundraiser(vec![], correct_venue, Error::InvalidPriceTiers.into());
 
     // Zero total
     check_fundraiser(
@@ -294,7 +295,7 @@ fn raise_unhappy_path() {
             price: 1u128,
         }],
         correct_venue,
-        Error::InvalidPriceTiers,
+        Error::InvalidPriceTiers.into(),
     );
 
     check_fundraiser(
@@ -303,7 +304,7 @@ fn raise_unhappy_path() {
             price: 1u128,
         }],
         correct_venue,
-        Error::InsufficientPortfolioBalance,
+        PortfolioError::InsufficientPortfolioBalance.into(),
     );
 
     // Invalid time window

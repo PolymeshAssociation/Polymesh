@@ -207,11 +207,11 @@ decl_module! {
                 Error::<T>::InvalidVenue
             );
 
-            Self::ensure_custody_and_asset(did, raising_portfolio, raising_asset);
-            Self::ensure_custody_and_asset(did, offering_portfolio, offering_asset);
+            Self::ensure_custody_and_asset(did, raising_portfolio, raising_asset)?;
+            Self::ensure_custody_and_asset(did, offering_portfolio, offering_asset)?;
 
             ensure!(
-                tiers.len() > 0 && tiers.iter().all(|t| t.total > 0.into()),
+                tiers.len() > 0 && tiers.len() <= 10 && tiers.iter().all(|t| t.total > 0.into()),
                 Error::<T>::InvalidPriceTiers
             );
 
@@ -288,7 +288,7 @@ decl_module! {
             let fundraiser = <Fundraisers<T>>::get(offering_asset, fundraiser_id).ok_or(Error::<T>::FundraiserNotFound)?;
             ensure!(!fundraiser.frozen, Error::<T>::FundraiserFrozen);
             ensure!(
-                fundraiser.start <= now && fundraiser.end.filter(|e| now >= e).is_none(),
+                fundraiser.start <= now && fundraiser.end.filter(|e| now >= *e).is_none(),
                 Error::<T>::FundraiserExpired
             );
 
@@ -393,7 +393,7 @@ decl_module! {
         pub fn freeze_fundraiser(origin, offering_asset: Ticker, fundraiser_id: u64) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             let did = Context::current_identity_or::<Identity<T>>(&sender)?;
-            Self::set_frozen(did, offering_asset, fundraiser_id, true)?;
+            Self::set_frozen(did, offering_asset, fundraiser_id, true)
         }
 
         /// Unfreeze a fundraiser.
@@ -407,7 +407,7 @@ decl_module! {
         pub fn unfreeze_fundraiser(origin, offering_asset: Ticker, fundraiser_id: u64) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             let did = Context::current_identity_or::<Identity<T>>(&sender)?;
-            Self::set_frozen(did, offering_asset, fundraiser_id, false)?;
+            Self::set_frozen(did, offering_asset, fundraiser_id, false)
         }
 
         /// Modify the time window a fundraiser is active
