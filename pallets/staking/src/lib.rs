@@ -1361,10 +1361,9 @@ decl_storage! {
                             prefs,
                         ).expect("Unable to add to Validator list");
                         if !<Module<T>>::permissioned_entities(&entity_did) {
-                            <Module<T>>::add_permissioned_validator_entity(
-                                frame_system::RawOrigin::Root.into(),
-                                entity_did
-                            ).expect("Unable to add to an entity in allowed entity list");
+                            // Adding entity directly in the storage by assuming entity_did is CDD'ed
+                            PermissionedEntities::insert(&entity_did, true);
+                            <Module<T>>::deposit_event(RawEvent::PermissionedEntityAdded(GC_DID, entity_did));
                         }
                         Ok(())
                     },
