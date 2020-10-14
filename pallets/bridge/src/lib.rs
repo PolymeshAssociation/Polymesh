@@ -407,19 +407,11 @@ decl_module! {
             // Migrate timelocked transactions.
             StorageKeyIterator::<T::BlockNumber, Vec::<BridgeTx<T::AccountId, T::Balance>>, Twox64Concat>::new(b"Bridge", b"TimelockedTxs")
                 .drain()
-                .map(|(block_number, txs)| {
+                .for_each(|(block_number, txs)| {
                     // Schedule only for future blocks.
                     let block_number = T::BlockNumber::max(block_number, now + One::one());
-                    let calls_txs = txs
-                        .into_iter()
-                        .map(|tx| {
-                            (Call::<T>::handle_scheduled_bridge_tx(tx.clone()).into(), tx)
-                        });
-                    (block_number, calls_txs)
-                })
-                .for_each(|(block_number, calls_txs)| {
-                    for (call, tx) in calls_txs {
-                        Self::schedule_call(block_number, call, tx);
+                    for tx in txs {
+                        Self::schedule_call(block_number, tx);
                     }
                 });
 
@@ -728,9 +720,7 @@ impl<T: Trait> Module<T> {
         tx_details.execution_block = unlock_block_number;
         <BridgeTxDetails<T>>::insert(&bridge_tx.recipient, &bridge_tx.nonce, tx_details);
 
-        // Schedule the transaction as a dispatchable call.
-        let call = Call::<T>::handle_scheduled_bridge_tx(bridge_tx.clone()).into();
-        Self::schedule_call(unlock_block_number, call, bridge_tx);
+        Self::schedule_call(unlock_block_number, bridge_tx);
 
         Ok(weight_for::handle_bridge_tx_later::<T>())
     }
@@ -819,14 +809,12 @@ impl<T: Trait> Module<T> {
         Ok(())
     }
 
-    /// Schedules a timelocked transaction call with constant arguments and emits an event on success
-    /// or prints an error message on failure.
+    /// Schedules a timelocked transaction call with constant arguments and emits an event on success or
+    /// prints an error message on failure.
     // TODO: handle errors.
-    fn schedule_call(
-        block_number: T::BlockNumber,
-        call: T::SchedulerCall,
-        bridge_tx: BridgeTx<T::AccountId, T::Balance>,
-    ) {
+    fn schedule_call(block_number: T::BlockNumber, bridge_tx: BridgeTx<T::AccountId, T::Balance>) {
+        // Schedule the transaction as a dispatchable call.
+        let call = Call::<T>::handle_scheduled_bridge_tx(bridge_tx.clone()).into();
         if let Err(e) = T::Scheduler::schedule(
             DispatchTime::At(block_number),
             None,
