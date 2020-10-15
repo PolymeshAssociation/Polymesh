@@ -4,9 +4,6 @@ module.exports = require("../util/init.js");
 
 let { reqImports } = require("../util/init.js");
 
-// Import the test keyring (already has dev keys for Alice, Bob, Charlie, Eve & Ferdie)
-const testKeyring = require('@polkadot/keyring/testing');
-
 // Sets the default exit code to fail unless the script runs successfully
 process.exitCode = 1;
 
@@ -34,15 +31,15 @@ async function main() {
   // Create a PIP, but first placing the cool-off period.
   await sendTx(alice, api.tx.sudo.sudo(api.tx.pips.setProposalCoolOffPeriod(10)));
 
-  let pipCount = await api.query.pips.pipIdSequence();
+  let firstPipCount = await api.query.pips.pipIdSequence();
   await sendTx(bob, api.tx.pips.propose(setLimit, 10000000000, "google.com", "first"));
 
-  await sendTx(bob, api.tx.pips.amendProposal(pipCount, "www.facebook.com", null));
+  await sendTx(bob, api.tx.pips.amendProposal(firstPipCount, "www.facebook.com", null));
  
   // Create a PIP, but first remove the cool-off period.
   await sendTx(alice, api.tx.sudo.sudo(api.tx.pips.setProposalCoolOffPeriod(0)));
 
-  pipCount = await api.query.pips.pipIdSequence();
+  let secondPipCount = await api.query.pips.pipIdSequence();
   await sendTx(bob, api.tx.pips.propose(setLimit, 10000000000, "google.com", "second"));
 
   // GC needs some funds to use.
@@ -50,13 +47,19 @@ async function main() {
 
   // Snapshot and approve second PIP.
   await sendTx(govCommittee1, api.tx.pips.snapshot());
-  const approvePIP = api.tx.pips.enactSnapshotResults([[pipCount, { "Approve": "" }]]);
+  const approvePIP = api.tx.pips.enactSnapshotResults([[secondPipCount, { "Approve": "" }]]);
   const voteApprove = api.tx.polymeshCommittee.voteOrPropose(true, approvePIP);
   await sendTx(govCommittee1, voteApprove);
   await sendTx(govCommittee2, voteApprove);
 
+  // Reject the first PIP
+  const rejectPIP = api.tx.pips.rejectProposal(firstPipCount);
+  const voteReject = api.tx.polymeshCommittee.voteOrPropose(true, rejectPIP);
+  await sendTx(govCommittee1, voteReject);
+  await sendTx(govCommittee2, voteReject);
+
   // Finally reschedule, demonstrating that it had been scheduled.
-  await sendTx(alice, api.tx.pips.rescheduleExecution(pipCount, null));
+  await sendTx(alice, api.tx.pips.rescheduleExecution(secondPipCount, null));
   if (reqImports.fail_count > 0) {
     console.log("Failed");
   } else {
