@@ -474,11 +474,12 @@ decl_module! {
 
 impl<T: Trait> Module<T> {
     fn set_frozen(
-        did: IdentityId,
+        origin: T::Origin,
         offering_asset: Ticker,
         fundraiser_id: u64,
         frozen: bool,
     ) -> DispatchResult {
+        let did = Identity::<T>::ensure_perms(origin)?;
         ensure!(
             T::Asset::primary_issuance_agent(&offering_asset) == did,
             Error::<T>::Unauthorized
