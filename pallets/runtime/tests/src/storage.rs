@@ -1,6 +1,6 @@
 use super::ext_builder::{
-    EXTRINSIC_BASE_WEIGHT, MAX_NO_OF_TM_ALLOWED, MIN_CHECKPOINT_DURATION, NETWORK_FEE_SHARE,
-    TRANSACTION_BYTE_FEE, WEIGHT_TO_FEE,
+    EXTRINSIC_BASE_WEIGHT, MAX_NO_OF_LEGS, MAX_NO_OF_TM_ALLOWED, MIN_CHECKPOINT_DURATION,
+    NETWORK_FEE_SHARE, TRANSACTION_BYTE_FEE, WEIGHT_TO_FEE,
 };
 use codec::Encode;
 use cryptography::claim_proofs::{compute_cdd_id, compute_scope_id};
@@ -286,7 +286,7 @@ impl multisig::Trait for TestStorage {
 
 parameter_types! {
     pub const MaxScheduledInstructionLegsPerBlock: u32 = 500;
-    pub const MaxLegsInAInstruction: u32 = 20;
+    pub MaxLegsInAInstruction: u32 = MAX_NO_OF_LEGS.with(|v| *v.borrow());
 }
 
 impl settlement::Trait for TestStorage {

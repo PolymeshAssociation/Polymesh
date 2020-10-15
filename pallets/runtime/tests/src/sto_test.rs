@@ -24,11 +24,15 @@ type Timestamp = pallet_timestamp::Module<TestStorage>;
 
 #[test]
 fn raise_happy_path_ext() {
-    ExtBuilder::default().build().execute_with(raise_happy_path);
+    ExtBuilder::default()
+        .set_max_legs_allowed(2)
+        .build()
+        .execute_with(raise_happy_path);
 }
 #[test]
 fn raise_unhappy_path_ext() {
     ExtBuilder::default()
+        .set_max_legs_allowed(2)
         .build()
         .execute_with(raise_unhappy_path);
 }

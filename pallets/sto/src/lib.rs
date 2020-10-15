@@ -302,7 +302,7 @@ decl_module! {
             // Tuple of (tier_id, amount to purchase from that tier).
             let mut purchases = Vec::new();
 
-            for (id, tier) in fundraiser.tiers.iter().enumerate().filter(|(_, tier)| tier.remaining == 0.into()) {
+            for (id, tier) in fundraiser.tiers.iter().enumerate().filter(|(_, tier)| tier.remaining > 0.into()) {
                 // fulfilled the investment amount
                 if remaining == 0.into() {
                     break
