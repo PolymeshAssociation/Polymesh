@@ -48,15 +48,11 @@ async function main() {
   // Snapshot and approve second PIP.
   await sendTx(govCommittee1, api.tx.pips.snapshot());
   const approvePIP = api.tx.pips.enactSnapshotResults([[secondPipCount, { "Approve": "" }]]);
-  const voteApprove = api.tx.polymeshCommittee.voteOrPropose(true, approvePIP);
-  await sendTx(govCommittee1, voteApprove);
-  await sendTx(govCommittee2, voteApprove);
+  await voteResult(api, approvePIP, [govCommittee1, govCommittee2]);
 
   // Reject the first PIP
   const rejectPIP = api.tx.pips.rejectProposal(firstPipCount);
-  const voteReject = api.tx.polymeshCommittee.voteOrPropose(true, rejectPIP);
-  await sendTx(govCommittee1, voteReject);
-  await sendTx(govCommittee2, voteReject);
+  await voteResult(api, rejectPIP, [govCommittee1, govCommittee2]);
 
   // Finally reschedule, demonstrating that it had been scheduled.
   await sendTx(alice, api.tx.pips.rescheduleExecution(secondPipCount, null));
@@ -76,6 +72,13 @@ async function sendTx(signer, tx) {
   const passed = result.findRecord('system', 'ExtrinsicSuccess');
   if (passed) reqImports.fail_count--;
   reqImports.nonces.set(signer.address, reqImports.nonces.get(signer.address).addn(1));
+}
+
+async function voteResult(api, tx, signers) {
+  const vote = api.tx.polymeshCommittee.voteOrPropose(true, tx);
+  for (let i = 0; i < signers.length; i++) {
+    await sendTx(signers[i], vote);
+  }
 }
 
 main().catch(console.error);
