@@ -447,8 +447,7 @@ decl_module! {
         /// `1_000` placeholder
         #[weight = 1_000]
         pub fn stop(origin, offering_asset: Ticker, fundraiser_id: u64) -> DispatchResult {
-            let sender = ensure_signed(origin)?;
-            let did = Context::current_identity_or::<Identity<T>>(&sender)?;
+            let did = Identity::<T>::ensure_perms(origin)?;
 
             let fundraiser = <Fundraisers<T>>::get(offering_asset, fundraiser_id)
                 .ok_or(Error::<T>::FundraiserNotFound)?;
