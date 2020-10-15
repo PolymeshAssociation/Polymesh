@@ -357,6 +357,7 @@ decl_module! {
         /// - `UnauthorizedAsAgent` if `origin` is not `ticker`'s sole CAA (owner is not necessarily the CAA).
         /// - `LocalCAIdOverflow` in the unlikely event that so many CAs were created for this `ticker`,
         ///   that integer overflow would have occured if instead allowed.
+        /// - `DuplicateDidTax` if a DID is included more than once in `wt`.
         #[weight = <T as Trait>::WeightInfo::initiate_corporate_action()]
         pub fn initiate_corporate_action(
             origin,
@@ -384,6 +385,15 @@ decl_module! {
             let next_id = local_id.0.checked_add(1).map(LocalCAId).ok_or(Error::<T>::LocalCAIdOverflow)?;
             let id = CAId { ticker, local_id };
 
+            // Ensure there are no duplicates in withholding tax overrides.
+            let mut wt = wt;
+            if let Some(wt) = &mut wt {
+                let before = wt.len();
+                wt.sort_unstable_by_key(|&(did, _)| did);
+                wt.dedup_by_key(|&mut (did, _)| did);
+                ensure!(before == wt.len(), Error::<T>::DuplicateDidTax);
+            }
+
             // Create a checkpoint at `record_date`, if any.
             if let Some(record_date) = record_date {
                 <Asset<T>>::_create_checkpoint_emit(ticker, record_date, caa)?;
@@ -397,15 +407,7 @@ decl_module! {
                 .map(|t| t.dedup())
                 .unwrap_or_else(|| Self::default_target_identities(ticker));
             let dwt = default_wt.unwrap_or_else(|| Self::default_withholding_tax(ticker));
-            let wt = match wt {
-                None => Self::did_withholding_tax(ticker),
-                Some(mut wt) => {
-                    // Nuke duplicates.
-                    wt.sort_unstable_by_key(|&(did, _)| did);
-                    wt.dedup_by_key(|&mut (did, _)| did);
-                    wt
-                },
-            };
+            let wt = wt.unwrap_or_else(|| Self::did_withholding_tax(ticker));
 
             // Commit CA to storage.
             CorporateActions::insert(ticker, id.local_id, CorporateAction {
@@ -467,6 +469,9 @@ decl_error! {
         /// There have been too many CAs for this ticker and the ID would overflow.
         /// This won't occur in practice.
         LocalCAIdOverflow,
+        /// A withholding tax override for a given DID was specified more than once.
+        /// The chain refused to make a choice, and hence there was an error.
+        DuplicateDidTax,
     }
 }
 

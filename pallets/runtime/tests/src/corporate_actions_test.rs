@@ -463,6 +463,15 @@ fn initiate_corporate_action_did_tax() {
 }
 
 #[test]
+#[should_panic]
+fn initiate_corporate_action_did_tax_dupe() {
+    test(|ticker, [owner, foo, bar]| {
+        let wt = Some(vec![(bar.did, P75), (foo.did, P0), (bar.did, P50)]);
+        basic_ca(owner, ticker, None, None, wt);
+    });
+}
+
+#[test]
 fn initiate_corporate_action_targets() {
     test(|ticker, [owner, foo, bar]| {
         let ca = |targets| basic_ca(owner, ticker, targets, None, None).targets;
