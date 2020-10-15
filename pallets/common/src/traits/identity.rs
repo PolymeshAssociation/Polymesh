@@ -106,7 +106,7 @@ pub struct SecondaryKeyWithAuth<AccountId> {
 }
 
 /// The link between the identity and corporate actions pallet for handling CAA transfer authorization.
-pub trait CorporateActionLink {
+pub trait IdentityToCorporateAction {
     /// Accept CAA transfer to `did` with `auth_id` as authorization id.
     fn accept_corporate_action_agent_transfer(did: IdentityId, auth_id: u64) -> DispatchResult;
 }
@@ -141,7 +141,7 @@ pub trait Trait: CommonTrait + pallet_timestamp::Trait + balances::Trait {
     type GCVotingMajorityOrigin: EnsureOrigin<Self::Origin>;
 
     /// Negotiates between Corporate Actions and the Identity pallet.
-    type CorporateActionLink: CorporateActionLink;
+    type CorporateAction: IdentityToCorporateAction;
 }
 
 // rustfmt adds a comma after Option<Moment> in NewAuthorization and it breaks compilation

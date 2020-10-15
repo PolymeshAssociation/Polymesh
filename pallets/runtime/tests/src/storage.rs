@@ -429,7 +429,7 @@ impl IdentityTrait for TestStorage {
     type OffChainSignature = OffChainSignature;
     type ProtocolFee = protocol_fee::Module<TestStorage>;
     type GCVotingMajorityOrigin = VMO<committee::Instance1>;
-    type CorporateActionLink = CorporateActions;
+    type CorporateAction = CorporateActions;
 }
 
 parameter_types! {

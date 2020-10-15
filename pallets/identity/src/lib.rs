@@ -105,8 +105,8 @@ use polymesh_common_utilities::{
         asset::AssetSubTrait,
         group::{GroupTrait, InactiveMember},
         identity::{
-            AuthorizationNonce, CorporateActionLink, IdentityTrait, RawEvent, SecondaryKeyWithAuth,
-            TargetIdAuthorization, Trait,
+            AuthorizationNonce, IdentityToCorporateAction, IdentityTrait, RawEvent,
+            SecondaryKeyWithAuth, TargetIdAuthorization, Trait,
         },
         multisig::MultiSigSubTrait,
         portfolio::PortfolioSubTrait,
@@ -802,7 +802,7 @@ decl_module! {
                 (Signatory::Identity(did), AuthorizationData::TransferPrimaryIssuanceAgent(_)) =>
                     T::AssetSubTraitTarget::accept_primary_issuance_agent_transfer(did, auth_id),
                 (Signatory::Identity(did), AuthorizationData::TransferCorporateActionAgent(_)) =>
-                    T::CorporateActionLink::accept_corporate_action_agent_transfer(did, auth_id),
+                    T::CorporateAction::accept_corporate_action_agent_transfer(did, auth_id),
                 (Signatory::Identity(did), AuthorizationData::TransferAssetOwnership(_)) =>
                     T::AssetSubTraitTarget::accept_asset_ownership_transfer(did, auth_id),
                 (Signatory::Identity(did), AuthorizationData::PortfolioCustody(_)) =>

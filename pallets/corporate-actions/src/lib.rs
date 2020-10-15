@@ -47,8 +47,8 @@ use frame_support::{
 use pallet_asset as asset;
 use pallet_identity as identity;
 use polymesh_common_utilities::{
-    balances::Trait as BalancesTrait, identity::CorporateActionLink,
-    identity::Trait as IdentityTrait,
+    balances::Trait as BalancesTrait,
+    identity::{IdentityToCorporateAction, Trait as IdentityTrait},
 };
 use polymesh_primitives::{AuthorizationData, IdentityId, Ticker};
 use sp_arithmetic::Permill;
@@ -123,7 +123,7 @@ decl_storage! {
 
         /// The default amount of tax to withhold ("withholding tax", WT) for this ticker when distributing dividends.
         ///
-        /// To understand withholding tax, for example, let's assume that you hold ACME shares.
+        /// To understand withholding tax, e.g., let's assume that you hold ACME shares.
         /// ACME now decides to distribute 100 SEK to Alice.
         /// Alice lives in Sweden, so Skatteverket (the Swedish tax authority) wants 30% of that.
         /// Then those 100 * 30% are withheld from Alice, and ACME will send them to Skatteverket.
@@ -247,7 +247,7 @@ decl_error! {
     }
 }
 
-impl<T: Trait> CorporateActionLink for Module<T> {
+impl<T: Trait> IdentityToCorporateAction for Module<T> {
     fn accept_corporate_action_agent_transfer(did: IdentityId, auth_id: u64) -> DispatchResult {
         // Ensure we have authorization to transfer to `did`...
         let auth = <Identity<T>>::ensure_authorization(&did.into(), auth_id)?;

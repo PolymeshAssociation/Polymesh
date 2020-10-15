@@ -700,7 +700,7 @@ impl IdentityTrait for Runtime {
     type OffChainSignature = MultiSignature;
     type ProtocolFee = protocol_fee::Module<Runtime>;
     type GCVotingMajorityOrigin = VMO<GovernanceCommittee>;
-    type CorporateActionLink = CorporateAction;
+    type CorporateAction = CorporateAction;
 }
 
 parameter_types! {
