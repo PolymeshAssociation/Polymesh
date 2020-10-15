@@ -491,6 +491,27 @@ impl<T: Trait> Module<T> {
 
         Ok(())
     }
+
+    /// Reduces the balance of a portfolio.
+    /// Throws an error if enough free balance is not available.
+    pub fn reduce_portfolio_balance(
+        portfolio: &PortfolioId,
+        ticker: &Ticker,
+        amount: &<T as CommonTrait>::Balance,
+    ) -> DispatchResult {
+        // Ensure portfolio has enough free balance
+        let total_balance = Self::portfolio_asset_balances(&portfolio, ticker);
+        let locked_balance = Self::locked_assets(&portfolio, ticker);
+        let remaining_balance = total_balance
+            .checked_sub(amount)
+            .filter(|rb| rb >= &locked_balance)
+            .ok_or(Error::<T>::InsufficientPortfolioBalance)?;
+
+        // Update portfolio balance
+        <PortfolioAssetBalances<T>>::insert(portfolio, ticker, remaining_balance);
+
+        Ok(())
+    }
 }
 
 impl<T: Trait> PortfolioSubTrait<T::Balance> for Module<T> {
