@@ -7,7 +7,9 @@ use super::{
 };
 use base64;
 use codec::{Decode, Encode};
-use confidential_asset::{InitializedAssetTxWrapper, MercatAccountId, PubAccountTxWrapper};
+use confidential_asset::{
+    EncryptedAssetIdWrapper, InitializedAssetTxWrapper, MercatAccountId, PubAccountTxWrapper,
+};
 use core::convert::{TryFrom, TryInto};
 use cryptography::{
     asset_proofs::{CommitmentWitness, ElgamalSecretKey},
@@ -3133,10 +3135,14 @@ pub fn init_account(
 
     assert_ok!(ConfidentialAsset::validate_mercat_account(
         Origin::signed(owner),
-        PubAccountTxWrapper::from(base64::encode(mercat_account_tx.clone().encode()))
+        PubAccountTxWrapper::from(mercat_account_tx.clone())
     ));
 
-    let account_id = MercatAccountId::from(mercat_account_tx.pub_account.enc_asset_id.encode());
+    let account_id = MercatAccountId(
+        EncryptedAssetIdWrapper::from(mercat_account_tx.pub_account.enc_asset_id)
+            .0
+            .clone(),
+    );
     (
         secret_account,
         account_id.clone(),
@@ -3201,7 +3207,7 @@ pub fn create_account_and_mint_token(
 
     assert_ok!(ConfidentialAsset::validate_mercat_account(
         Origin::signed(owner),
-        PubAccountTxWrapper::from(base64::encode(mercat_account_tx.clone().encode()))
+        PubAccountTxWrapper::from(mercat_account_tx.clone())
     ));
 
     // ------------- Computations that will happen in owner's Wallet ----------
@@ -3221,7 +3227,7 @@ pub fn create_account_and_mint_token(
         Origin::signed(owner),
         ticker,
         amount.into(), // convert to u128
-        InitializedAssetTxWrapper::from(base64::encode(initialized_asset_tx.encode())),
+        InitializedAssetTxWrapper::from(initialized_asset_tx),
     ));
 
     // ------------------------- Ensuring that the asset details are set correctly
@@ -3242,7 +3248,11 @@ pub fn create_account_and_mint_token(
     );
 
     // -------------------------- Ensure the encrypted balance matches the minted amount.
-    let account_id = MercatAccountId::from(mercat_account_tx.pub_account.enc_asset_id.encode());
+    let account_id = MercatAccountId(
+        EncryptedAssetIdWrapper::from(mercat_account_tx.pub_account.enc_asset_id)
+            .0
+            .clone(),
+    );
     let stored_balance = ConfidentialAsset::mercat_account_balance(owner_did, account_id.clone())
         .to_mercat::<TestStorage>()
         .unwrap();

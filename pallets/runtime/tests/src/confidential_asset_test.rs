@@ -2,8 +2,6 @@ use super::{
     storage::{register_keyring_account, TestStorage},
     ExtBuilder,
 };
-use base64;
-use codec::{Decode, Encode};
 use confidential_asset::{
     EncryptedAssetIdWrapper, InitializedAssetTxWrapper, MercatAccountId, PubAccountTxWrapper,
 };
@@ -13,8 +11,8 @@ use cryptography::{
     mercat::{
         account::{convert_asset_ids, AccountCreator},
         asset::AssetIssuer,
-        Account, AccountCreatorInitializer, AssetTransactionIssuer, EncryptedAmount,
-        EncryptionKeys, PubAccountTx, SecAccount,
+        Account, AccountCreatorInitializer, AssetTransactionIssuer, EncryptionKeys, PubAccountTx,
+        SecAccount,
     },
     AssetId,
 };
@@ -288,7 +286,7 @@ fn issuers_can_create_and_mint_tokens() {
 
         ConfidentialAsset::validate_mercat_account(
             Origin::signed(owner),
-            PubAccountTxWrapper::from(base64::encode(mercat_account_tx.clone().encode())),
+            PubAccountTxWrapper::from(mercat_account_tx.clone()),
         )
         .unwrap();
 
@@ -317,7 +315,7 @@ fn issuers_can_create_and_mint_tokens() {
             Origin::signed(owner),
             ticker,
             amount.into(), // convert to u128
-            InitializedAssetTxWrapper::from(base64::encode(&initialized_asset_tx.encode())),
+            InitializedAssetTxWrapper::from(initialized_asset_tx),
         )
         .unwrap();
 
@@ -342,9 +340,15 @@ fn issuers_can_create_and_mint_tokens() {
         );
 
         // -------------------------- Ensure that the account balance is set properly.
-        let account_id = MercatAccountId::from(mercat_account_tx.pub_account.enc_asset_id.encode());
-        let stored_balance = ConfidentialAsset::mercat_account_balance(owner_did, account_id);
-        let stored_balance = EncryptedAmount::decode(&mut &stored_balance.0[..]).unwrap();
+        let account_id = MercatAccountId(
+            EncryptedAssetIdWrapper::from(mercat_account_tx.pub_account.enc_asset_id)
+                .0
+                .clone(),
+        );
+
+        let stored_balance = ConfidentialAsset::mercat_account_balance(owner_did, account_id)
+            .to_mercat::<TestStorage>()
+            .unwrap();
         let stored_balance = scrt_account.enc_keys.scrt.decrypt(&stored_balance).unwrap();
 
         assert_eq!(stored_balance, amount);
@@ -382,17 +386,17 @@ fn account_create_tx() {
         // Wallet submits the transaction to the chain for verification.
         ConfidentialAsset::validate_mercat_account(
             Origin::signed(alice),
-            PubAccountTxWrapper::from(base64::encode(mercat_account_tx.clone().encode())),
+            PubAccountTxWrapper::from(mercat_account_tx.clone()),
         )
         .unwrap();
 
         // Ensure that the transaction was verified and that MERCAT account is created on the chain.
         let wrapped_enc_asset_id =
-            EncryptedAssetIdWrapper::from(mercat_account_tx.pub_account.enc_asset_id.encode());
-        let account_id = MercatAccountId::from(mercat_account_tx.pub_account.enc_asset_id.encode());
+            EncryptedAssetIdWrapper::from(mercat_account_tx.pub_account.enc_asset_id);
+        let account_id = MercatAccountId(wrapped_enc_asset_id.0.clone());
         let stored_account = ConfidentialAsset::mercat_accounts(alice_id, account_id.clone());
 
-        assert_eq!(stored_account.encrypted_asset_id, wrapped_enc_asset_id,);
+        assert_eq!(stored_account.encrypted_asset_id, wrapped_enc_asset_id);
         assert_eq!(
             stored_account
                 .encryption_pub_key
@@ -402,8 +406,9 @@ fn account_create_tx() {
         );
 
         // Ensure that the account has an initial balance of zero.
-        let stored_balance = ConfidentialAsset::mercat_account_balance(alice_id, account_id);
-        let stored_balance = EncryptedAmount::decode(&mut &stored_balance.0[..]).unwrap();
+        let stored_balance = ConfidentialAsset::mercat_account_balance(alice_id, account_id)
+            .to_mercat::<TestStorage>()
+            .unwrap();
         let stored_balance = scrt_account.enc_keys.scrt.decrypt(&stored_balance).unwrap();
         assert_eq!(stored_balance, 0);
     });
