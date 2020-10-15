@@ -389,9 +389,7 @@ decl_module! {
         /// `1_000` placeholder
         #[weight = 1_000]
         pub fn freeze_fundraiser(origin, offering_asset: Ticker, fundraiser_id: u64) -> DispatchResult {
-            let sender = ensure_signed(origin)?;
-            let did = Context::current_identity_or::<Identity<T>>(&sender)?;
-            Self::set_frozen(did, offering_asset, fundraiser_id, true)
+            Self::set_frozen(origin, offering_asset, fundraiser_id, true)
         }
 
         /// Unfreeze a fundraiser.
