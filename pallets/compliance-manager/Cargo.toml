@@ -17,6 +17,7 @@ pallet-permissions = { path = "../permissions", default-features = false }
 # Other
 serde = { version = "1.0.104", default-features = false }
 serde_derive = { version = "1.0.104", optional = true, default-features = false}
+either = { version = "1.6.1", default-features = false }
 
 # Substrate
 codec = { package = "parity-scale-codec", version = "1.2.0", default-features = false, features = ["derive"] }
