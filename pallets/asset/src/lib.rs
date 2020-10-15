@@ -46,7 +46,7 @@
 //! - `create_checkpoint_schedule` - Creates a checkpoint schedule.
 //! - `remove_checkpoint_schedule` - Removes a checkpoint schedule.
 //! - `issue` - Function is used to issue(or mint) new tokens to the primary issuance agent.
-//! - `controller_redeem` - Forces a redemption of an DID's tokens. Can only be called by token owner.
+//! - `redeem` - Redeems tokens from PIA's (Primary Issuance Agent) default portfolio.
 //! - `make_divisible` - Change the divisibility of the token to divisible. Only called by the token owner.
 //! - `can_transfer` - Checks whether a transaction with given parameters can take place or not.
 //! - `add_documents` - Add documents for a given token, Only be called by the token owner.
@@ -768,7 +768,7 @@ decl_module! {
         }
 
         /// Function is used to issue(or mint) new tokens to the primary issuance agent.
-        /// It can only be executed by the token owner.
+        /// It can be executed by the token owner or the PIA.
         ///
         /// # Arguments
         /// * `origin` Secondary key of token owner.
@@ -782,9 +782,75 @@ decl_module! {
                 ..
             } = Identity::<T>::ensure_origin_call_permissions(origin)?;
 
-            ensure!(Self::is_owner(&ticker, did), Error::<T>::Unauthorized);
-            let beneficiary = Self::token_details(&ticker).primary_issuance_agent.unwrap_or(did);
+            // Ensure that the sender is the PIA or the token owner and returns the PIA address.
+            let beneficiary = Self::ensure_pia_or_owner(&ticker, did)?;
             Self::_mint(&ticker, sender, beneficiary, value, Some(ProtocolOp::AssetIssue))
+        }
+
+        /// Redeems existing tokens by reducing the balance of the PIA's default portfolio and the total supply of the token
+        ///
+        /// # Arguments
+        /// * `origin` Secondary key of token owner.
+        /// * `ticker` Ticker of the token.
+        /// * `value` Amount of tokens to redeem.
+        ///
+        /// # Errors
+        /// - `Unauthorized` If called by someone other than the token owner or the PIA
+        /// - `InvalidGranularity` If the amount is not divisible by 10^6 for non-divisible tokens
+        /// - `InsufficientPortfolioBalance` If the PIA's default portfolio doesn't have enough free balance
+        #[weight = T::DbWeight::get().reads_writes(6, 3) + 800_000_000]
+        pub fn redeem(origin, ticker: Ticker, value: T::Balance) -> DispatchResult {
+            let did = Identity::<T>::ensure_origin_call_permissions(origin)?.primary_did;
+
+            // Ensure that the sender is the PIA or the token owner and returns the PIA address.
+            let pia = Self::ensure_pia_or_owner(&ticker, did)?;
+
+            // Granularity check
+            ensure!(
+                Self::check_granularity(&ticker, value),
+                Error::<T>::InvalidGranularity
+            );
+
+            // Reduce PIA's portfolio balance. This makes sure that the PIA has enough unlocked tokens.
+            let pia_portfolio = PortfolioId::default_portfolio(pia);
+            Portfolio::<T>::reduce_portfolio_balance(&pia_portfolio, &ticker, &value)?;
+
+            let current_balance = Self::balance_of(ticker, pia);
+            Self::_update_checkpoint(&ticker, pia, current_balance);
+            let updated_balance = current_balance - value;
+
+            // Update identity balances and total supply
+            <BalanceOf<T>>::insert(ticker, &pia, updated_balance);
+            <Tokens<T>>::mutate(ticker, |token| token.total_supply -= value);
+
+            // Update scope balances
+            let scope_id = Self::scope_id_of(ticker, &pia);
+            Self::update_scope_balance(&ticker, value, scope_id, pia, updated_balance, true);
+
+            // Update statistic info.
+            // Using the aggregate balance to update the unique investor count.
+            <statistics::Module<T>>::update_transfer_stats(
+                &ticker,
+                Some(Self::aggregate_balance_of(ticker, &scope_id)),
+                None,
+                value,
+            );
+
+            Self::deposit_event(RawEvent::Transfer(
+                did,
+                ticker,
+                pia_portfolio,
+                PortfolioId::default(),
+                value
+            ));
+            Self::deposit_event(RawEvent::Redeemed(
+                did,
+                ticker,
+                pia,
+                value
+            ));
+
+            Ok(())
         }
 
         /// Makes an indivisible token divisible. Only called by the token owner.
@@ -1653,30 +1719,20 @@ impl<T: Trait> Module<T> {
             value,
         );
 
-        // Update the storage on the basis of the `ScopeId`
-        let update_balance = |scope_id, did, update_balance, is_sender| {
-            // Calculate the new aggregate balance for given did.
-            // It should not underflow/overflow but still to be defensive.
-            let new_aggregate_balance = if is_sender {
-                Self::aggregate_balance_of(ticker, &scope_id).saturating_sub(value)
-            } else {
-                Self::aggregate_balance_of(ticker, &scope_id).saturating_add(value)
-            };
-
-            <AggregateBalance<T>>::insert(ticker, &scope_id, new_aggregate_balance);
-            <BalanceOfAtScope<T>>::insert(scope_id, did, update_balance);
-        };
-
         let from_scope_id = Self::scope_id_of(ticker, &from_portfolio.did);
         let to_scope_id = Self::scope_id_of(ticker, &to_portfolio.did);
 
-        update_balance(
+        Self::update_scope_balance(
+            ticker,
+            value,
             from_scope_id,
             from_portfolio.did,
             updated_from_total_balance,
             true,
         );
-        update_balance(
+        Self::update_scope_balance(
+            ticker,
+            value,
             to_scope_id,
             to_portfolio.did,
             updated_to_total_balance,
@@ -1700,6 +1756,39 @@ impl<T: Trait> Module<T> {
             value,
         ));
         Ok(())
+    }
+
+    /// Updates scope balances after a transfer
+    pub fn update_scope_balance(
+        ticker: &Ticker,
+        value: T::Balance,
+        scope_id: ScopeId,
+        did: IdentityId,
+        updated_balance: T::Balance,
+        is_sender: bool,
+    ) {
+        // Calculate the new aggregate balance for given did.
+        // It should not underflow/overflow but still to be defensive.
+        let aggregate_balance = Self::aggregate_balance_of(ticker, &scope_id);
+        let new_aggregate_balance = if is_sender {
+            aggregate_balance.saturating_sub(value)
+        } else {
+            aggregate_balance.saturating_add(value)
+        };
+
+        <AggregateBalance<T>>::insert(ticker, &scope_id, new_aggregate_balance);
+        <BalanceOfAtScope<T>>::insert(scope_id, did, updated_balance);
+    }
+
+    pub fn ensure_pia_or_owner(
+        ticker: &Ticker,
+        did: IdentityId,
+    ) -> Result<IdentityId, DispatchError> {
+        Self::token_details(&ticker)
+            .primary_issuance_agent
+            .filter(|pia| *pia == did)
+            .or_else(|| Self::is_owner(&ticker, did).then(|| did))
+            .ok_or_else(|| Error::<T>::Unauthorized.into())
     }
 
     /// Creates a checkpoint.
