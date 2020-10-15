@@ -689,7 +689,7 @@ decl_module! {
 
             ensure!(Self::is_owner(&ticker, did), Error::<T>::Unauthorized);
             let now_as_secs = T::UnixTime::now().as_secs().saturated_into::<u64>();
-            let _ = Self::_create_checkpoint(
+            Self::_create_checkpoint(
                 &ticker,
                 DueCheckpointTimestamps { scheduled: now_as_secs, now: None }
             )?;
@@ -727,6 +727,8 @@ decl_module! {
                 Error::<T>::CheckpointScheduleAlreadyExists
             );
             let now_as_secs = T::UnixTime::now().as_secs().saturated_into::<u64>();
+            // Compute the next timestamp which can happen at the present moment, covering the
+            // corner case when schedule.start = now_as_secs.
             let timestamp = schedule.next_checkpoint(now_as_secs)
                 .ok_or(Error::<T>::FailedToComputeNextCheckpoint)?;
             // Check the lower limit of the checkpoint period duration by computing the next
@@ -736,9 +738,18 @@ decl_module! {
                 Error::<T>::CheckpointDurationTooShort
             );
             T::ProtocolFee::charge_fee(ProtocolOp::AssetCreateCheckpointSchedule)?;
-            NextCheckpoints::insert(&ticker, timestamp);
             // Assign the schedule.
             CheckpointSchedules::insert(&ticker, schedule.clone());
+            if timestamp <= now_as_secs {
+                // Create the first checkpoint.
+                Self::_create_checkpoint(
+                    &ticker,
+                    DueCheckpointTimestamps { scheduled: timestamp, now: Some(now_as_secs) }
+                )?;
+            } else {
+                // Schedule the first checkpoint in the future.
+                NextCheckpoints::insert(&ticker, timestamp);
+            }
             Self::deposit_event(RawEvent::CheckpointScheduleCreated(
                 ticker,
                 primary_did,
@@ -1828,8 +1839,9 @@ impl<T: Trait> Module<T> {
         if let Some(now) = timestamps.now {
             // Update the next checkpoint if a schedule exists for the ticker.
             if CheckpointSchedules::contains_key(ticker) {
+                // Compute the next timestamp that is guaranteed to be in the future.
                 let next_timestamp = Self::checkpoint_schedules(ticker)
-                    .next_checkpoint(now)
+                    .next_checkpoint(now + 1)
                     .ok_or(Error::<T>::FailedToComputeNextCheckpoint)?;
                 NextCheckpoints::insert(ticker, next_timestamp);
             }
