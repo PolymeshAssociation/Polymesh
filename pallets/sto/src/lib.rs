@@ -414,9 +414,7 @@ decl_module! {
         /// `1_000` placeholder
         #[weight = 1_000]
         pub fn modify_fundraiser_window(origin, offering_asset: Ticker, fundraiser_id: u64, start: T::Moment, end: Option<T::Moment>) -> DispatchResult {
-            let sender = ensure_signed(origin)?;
-            let did = Context::current_identity_or::<Identity<T>>(&sender)?;
-            ensure!(T::Asset::primary_issuance_agent(&offering_asset) == did, Error::<T>::Unauthorized);
+            let did = Self::ensure_perms_pia(did, &offering_asset)?;
 
             let now = Timestamp::<T>::get();
             let fundraiser = <Fundraisers<T>>::get(offering_asset, fundraiser_id)
