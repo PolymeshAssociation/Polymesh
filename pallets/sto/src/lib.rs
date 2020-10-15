@@ -276,8 +276,7 @@ decl_module! {
             max_price: Option<T::Balance>,
             receipt: Option<ReceiptDetails<T::AccountId, T::OffChainSignature>>
         ) -> DispatchResult {
-            let sender = ensure_signed(origin.clone())?;
-            let did = Context::current_identity_or::<Identity<T>>(&sender)?;
+            let did = Identity::<T>::ensure_perms(origin)?;
 
             <Portfolio<T>>::ensure_portfolio_custody(investment_portfolio, did)?;
             <Portfolio<T>>::ensure_portfolio_custody(funding_portfolio, did)?;
