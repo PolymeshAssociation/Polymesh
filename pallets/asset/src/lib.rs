@@ -738,7 +738,8 @@ decl_module! {
             T::ProtocolFee::charge_fee(ProtocolOp::AssetCreateCheckpointSchedule)?;
             // Assign the schedule.
             CheckpointSchedules::insert(&ticker, schedule.clone());
-            // In case the start is now, create the first checkpoint immediately.
+            // In case the start is now, create the first checkpoint immediately. Otherwise schedule
+            // the first checkpoint in the future.
             if schedule.start == now_as_secs {
                 Self::_create_checkpoint(
                     &ticker,
