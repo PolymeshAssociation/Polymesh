@@ -344,6 +344,8 @@ decl_module! {
             ];
 
             with_transaction(|| {
+                <Portfolio<T>>::unlock_tokens(&fundraiser.offering_portfolio, &fundraiser.offering_asset, &investment_amount)?;
+
                let instruction_id = Settlement::<T>::base_add_instruction(
                     fundraiser.creator,
                     fundraiser.venue_id,
@@ -414,7 +416,7 @@ decl_module! {
         /// `1_000` placeholder
         #[weight = 1_000]
         pub fn modify_fundraiser_window(origin, offering_asset: Ticker, fundraiser_id: u64, start: T::Moment, end: Option<T::Moment>) -> DispatchResult {
-            let did = Self::ensure_perms_pia(did, &offering_asset)?;
+            let did = Self::ensure_perms_pia(origin, &offering_asset)?;
 
             let now = Timestamp::<T>::get();
             let fundraiser = <Fundraisers<T>>::get(offering_asset, fundraiser_id)

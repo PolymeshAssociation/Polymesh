@@ -116,25 +116,30 @@ fn raise_happy_path() {
         None,
         None,
     ));
-    assert_eq!(
-        STO::fundraisers(offering_ticker, fundraiser_id),
-        Some(Fundraiser {
-            creator: alice_did,
-            offering_portfolio: alice_portfolio,
-            offering_asset: offering_ticker,
-            raising_portfolio: alice_portfolio,
-            raising_asset: raise_ticker,
-            tiers: vec![FundraiserTier {
-                total: 1_000_000u128,
-                remaining: 1_000_000u128,
-                price: 1u128
-            }],
-            venue_id: venue_counter,
-            start: Timestamp::get(),
-            end: None,
-            frozen: false
-        })
-    );
+
+    let check_fundraiser = |remaining| {
+        assert_eq!(
+            STO::fundraisers(offering_ticker, fundraiser_id),
+            Some(Fundraiser {
+                creator: alice_did,
+                offering_portfolio: alice_portfolio,
+                offering_asset: offering_ticker,
+                raising_portfolio: alice_portfolio,
+                raising_asset: raise_ticker,
+                tiers: vec![FundraiserTier {
+                    total: 1_000_000u128,
+                    remaining,
+                    price: 1u128
+                }],
+                venue_id: venue_counter,
+                start: Timestamp::get(),
+                end: None,
+                frozen: false
+            })
+        );
+    };
+
+    check_fundraiser(1_000_000u128);
 
     assert_eq!(
         Asset::balance_of(&offering_ticker, alice_did),
@@ -162,25 +167,7 @@ fn raise_happy_path() {
         None
     ));
 
-    assert_eq!(
-        STO::fundraisers(offering_ticker, 1),
-        Some(Fundraiser {
-            creator: alice_did,
-            offering_portfolio: alice_portfolio,
-            offering_asset: offering_ticker,
-            raising_portfolio: alice_portfolio,
-            raising_asset: raise_ticker,
-            tiers: vec![FundraiserTier {
-                total: 1_000_000u128,
-                remaining: (1_000_000 - amount).into(),
-                price: 1u128
-            }],
-            venue_id: venue_counter,
-            start: Timestamp::get(),
-            end: None,
-            frozen: false
-        })
-    );
+    check_fundraiser(1_000_000u128 - amount);
 
     assert_eq!(
         Asset::balance_of(&offering_ticker, alice_did),
