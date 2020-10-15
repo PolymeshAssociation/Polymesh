@@ -69,18 +69,18 @@ mod tests {
         let proposition = exists(&exists_affiliate_claim);
 
         let context = Context {
-            claims: vec![],
+            claims: vec![].into_iter(),
             id: investor_id,
             primary_issuance_agent: None,
         };
-        assert_eq!(proposition.evaluate(&context), false);
+        assert_eq!(proposition.evaluate(context), false);
 
         let context = Context {
-            claims: vec![Claim::Affiliate(Scope::Ticker(asset_ticker))],
+            claims: vec![Claim::Affiliate(Scope::Ticker(asset_ticker))].into_iter(),
             id: investor_id,
             primary_issuance_agent: None,
         };
-        assert_eq!(proposition.evaluate(&context), true);
+        assert_eq!(proposition.evaluate(context), true);
 
         let proof: InvestorZKProofData =
             InvestorZKProofData::new(&investor_id, &investor_uid, &asset_ticker);

@@ -14,9 +14,9 @@ pub struct TargetIdentityProposition<'a> {
     pub identity: &'a IdentityId,
 }
 
-impl<'a> Proposition for TargetIdentityProposition<'a> {
+impl<C> Proposition<C> for TargetIdentityProposition<'_> {
     #[inline]
-    fn evaluate(&self, context: &Context) -> bool {
+    fn evaluate(&self, context: Context<C>) -> bool {
         context.id == *self.identity
     }
 }
@@ -40,32 +40,16 @@ pub struct ExistentialProposition<'a> {
     pub claim: &'a Claim,
 }
 
-impl<'a> Proposition for ExistentialProposition<'a> {
-    fn evaluate(&self, context: &Context) -> bool {
+impl<C: Iterator<Item = Claim>> Proposition<C> for ExistentialProposition<'_> {
+    fn evaluate(&self, mut context: Context<C>) -> bool {
         match &self.claim {
-            Claim::CustomerDueDiligence(ref cdd_id) if cdd_id.is_wildcard() => {
-                self.evaluate_cdd_claim_wildcard(context)
-            }
-            _ => self.evaluate_regular_claim(context),
+            // The wildcard search only double-checks if any CDD claim is in the context.
+            Claim::CustomerDueDiligence(cdd_id) if cdd_id.is_wildcard() => context
+                .claims
+                .any(|ctx_claim| matches!(ctx_claim, Claim::CustomerDueDiligence(..))),
+            // In regular claim evaluation, the data of the claim has to match too.
+            _ => context.claims.any(|ctx_claim| &ctx_claim == self.claim),
         }
-    }
-}
-
-impl<'a> ExistentialProposition<'a> {
-    /// The wildcard search only double-checks if any CDD claim is in the context.
-    fn evaluate_cdd_claim_wildcard(&self, context: &Context) -> bool {
-        context.claims.iter().any(|ctx_claim| match ctx_claim {
-            Claim::CustomerDueDiligence(..) => true,
-            _ => false,
-        })
-    }
-
-    /// In regular claim evaluation, the data of the claim has to match too.
-    fn evaluate_regular_claim(&self, context: &Context) -> bool {
-        context
-            .claims
-            .iter()
-            .any(|ctx_claim| ctx_claim == self.claim)
     }
 }
 
@@ -75,36 +59,28 @@ impl<'a> ExistentialProposition<'a> {
 /// A composition proposition of two others using logical AND operator.
 #[derive(Encode, Decode, Clone)]
 #[cfg_attr(feature = "std", derive(Debug))]
-pub struct AndProposition<P1, P2>
-where
-    P1: Proposition + Sized,
-    P2: Proposition + Sized,
-{
+pub struct AndProposition<P1, P2> {
     lhs: P1,
     rhs: P2,
 }
 
-impl<P1, P2> AndProposition<P1, P2>
-where
-    P1: Proposition + Sized,
-    P2: Proposition + Sized,
-{
+impl<P1, P2> AndProposition<P1, P2> {
     /// Create a new `AndProposition` over propositions `lhs` and `rhs`.
     #[inline]
     pub fn new(lhs: P1, rhs: P2) -> Self {
-        AndProposition { lhs, rhs }
+        Self { lhs, rhs }
     }
 }
 
-impl<P1, P2> Proposition for AndProposition<P1, P2>
+impl<P1, P2, C: Clone> Proposition<C> for AndProposition<P1, P2>
 where
-    P1: Proposition + Sized,
-    P2: Proposition + Sized,
+    P1: Proposition<C>,
+    P2: Proposition<C>,
 {
     /// Evaluate proposition against `context`.
     #[inline]
-    fn evaluate(&self, context: &Context) -> bool {
-        self.lhs.evaluate(context) && self.rhs.evaluate(context)
+    fn evaluate(&self, context: Context<C>) -> bool {
+        self.lhs.evaluate(context.clone()) && self.rhs.evaluate(context)
     }
 }
 
@@ -114,36 +90,28 @@ where
 /// A composition proposition of two others using logical OR operator.
 #[derive(Encode, Decode, Clone)]
 #[cfg_attr(feature = "std", derive(Debug))]
-pub struct OrProposition<P1, P2>
-where
-    P1: Proposition + Sized,
-    P2: Proposition + Sized,
-{
+pub struct OrProposition<P1, P2> {
     lhs: P1,
     rhs: P2,
 }
 
-impl<P1, P2> OrProposition<P1, P2>
-where
-    P1: Proposition + Sized,
-    P2: Proposition + Sized,
-{
+impl<P1, P2> OrProposition<P1, P2> {
     /// Create a new `OrProposition` over propositions `lhs` and `rhs`.
     #[inline]
     pub fn new(lhs: P1, rhs: P2) -> Self {
-        OrProposition { lhs, rhs }
+        Self { lhs, rhs }
     }
 }
 
-impl<P1, P2> Proposition for OrProposition<P1, P2>
+impl<P1, P2, C: Clone> Proposition<C> for OrProposition<P1, P2>
 where
-    P1: Proposition + Sized,
-    P2: Proposition + Sized,
+    P1: Proposition<C>,
+    P2: Proposition<C>,
 {
     /// Evaluate proposition against `context`.
     #[inline]
-    fn evaluate(&self, context: &Context) -> bool {
-        self.lhs.evaluate(context) || self.rhs.evaluate(context)
+    fn evaluate(&self, context: Context<C>) -> bool {
+        self.lhs.evaluate(context.clone()) || self.rhs.evaluate(context)
     }
 }
 
@@ -153,25 +121,22 @@ where
 /// proposition that returns a logical NOT of other proposition.
 #[derive(Encode, Decode, Clone)]
 #[cfg_attr(feature = "std", derive(Debug))]
-pub struct NotProposition<P: Proposition + Sized> {
+pub struct NotProposition<P> {
     proposition: P,
 }
 
-impl<P> NotProposition<P>
-where
-    P: Proposition + Sized,
-{
+impl<P> NotProposition<P> {
     /// Create a new `OrProposition` over proposition `proposition`.
     #[inline]
     pub fn new(proposition: P) -> Self {
-        NotProposition { proposition }
+        Self { proposition }
     }
 }
 
-impl<P: Proposition + Sized> Proposition for NotProposition<P> {
+impl<P: Proposition<C>, C> Proposition<C> for NotProposition<P> {
     /// Evaluate proposition against `context`.
     #[inline]
-    fn evaluate(&self, context: &Context) -> bool {
+    fn evaluate(&self, context: Context<C>) -> bool {
         !self.proposition.evaluate(context)
     }
 }
@@ -187,13 +152,13 @@ pub struct AnyProposition<'a> {
     pub claims: &'a [Claim],
 }
 
-impl<'a> Proposition for AnyProposition<'a> {
+impl<C: Iterator<Item = Claim>> Proposition<C> for AnyProposition<'_> {
     /// Evaluate proposition against `context`.
-    fn evaluate(&self, context: &Context) -> bool {
-        context.claims.iter().any(|ctx_claim| {
+    fn evaluate(&self, mut context: Context<C>) -> bool {
+        context.claims.any(|ctx_claim| {
             self.claims
                 .iter()
-                .any(|valid_claim| ctx_claim == valid_claim)
+                .any(|valid_claim| &ctx_claim == valid_claim)
         })
     }
 }
@@ -206,6 +171,17 @@ mod tests {
         TargetIdentity,
     };
     use std::convert::From;
+    use std::vec::IntoIter;
+
+    type Iter = IntoIter<Claim>;
+
+    fn mk_ctx(claims: Vec<Claim>) -> Context<Iter> {
+        Context {
+            claims: claims.into_iter(),
+            id: <_>::default(),
+            primary_issuance_agent: <_>::default(),
+        }
+    }
 
     #[test]
     fn existential_operators_test() {
@@ -213,18 +189,17 @@ mod tests {
         let did = IdentityId::from(1);
         let cdd_claim =
             Claim::CustomerDueDiligence(CddId::new(did, InvestorUid::from(b"UID1".as_ref())));
-        let context = Context {
-            claims: vec![cdd_claim.clone(), Claim::Affiliate(scope.clone())],
-            id: did,
-            ..Default::default()
-        };
+        let mut context = mk_ctx(vec![cdd_claim.clone(), Claim::Affiliate(scope.clone())]);
+        context.id = did;
 
         // Affiliate && CustommerDueDiligenge
         let affiliate_claim = Claim::Affiliate(scope);
-        let affiliate_and_cdd_pred =
-            proposition::exists(&affiliate_claim).and(proposition::exists(&cdd_claim));
+        let affiliate_and_cdd_pred = Proposition::<Iter>::and(
+            proposition::exists(&affiliate_claim),
+            proposition::exists(&cdd_claim),
+        );
 
-        assert_eq!(affiliate_and_cdd_pred.evaluate(&context), true);
+        assert_eq!(affiliate_and_cdd_pred.evaluate(context), true);
     }
 
     #[test]
@@ -238,23 +213,17 @@ mod tests {
             Claim::Jurisdiction(CountryCode::IN, scope.clone()),
         ];
 
-        let context = Context {
-            claims: vec![Claim::Jurisdiction(CountryCode::CA, scope.clone())],
-            ..Default::default()
-        };
+        let context = mk_ctx(vec![Claim::Jurisdiction(CountryCode::CA, scope.clone())]);
         let in_juridisction_pre = proposition::any(&valid_jurisdictions);
-        assert_eq!(in_juridisction_pre.evaluate(&context), true);
+        assert_eq!(in_juridisction_pre.evaluate(context), true);
 
         // 2. Check USA does not belong to {ESP, CAN, IND}.
-        let context = Context {
-            claims: vec![Claim::Jurisdiction(CountryCode::US, scope)],
-            ..Default::default()
-        };
-        assert_eq!(in_juridisction_pre.evaluate(&context), false);
+        let context = mk_ctx(vec![Claim::Jurisdiction(CountryCode::US, scope)]);
+        assert_eq!(in_juridisction_pre.evaluate(context.clone()), false);
 
         // 3. Check NOT in jurisdiction.
-        let not_in_jurisdiction_pre = proposition::not(in_juridisction_pre.clone());
-        assert_eq!(not_in_jurisdiction_pre.evaluate(&context), true);
+        let not_in_jurisdiction_pre = proposition::not::<_, Iter>(in_juridisction_pre.clone());
+        assert_eq!(not_in_jurisdiction_pre.evaluate(context), true);
     }
 
     #[test]
@@ -273,93 +242,66 @@ mod tests {
                 .into(),
         ];
 
-        // Valid case
-        let context = Context {
-            claims: vec![
-                Claim::Accredited(scope.clone()),
-                Claim::Jurisdiction(CountryCode::CA, scope.clone()),
-            ],
-            ..Default::default()
+        let check = |expected, context: &Context<Iter>| {
+            let out = !conditions
+                .iter()
+                .any(|condition| !proposition::run(&condition, context.clone()));
+            assert_eq!(out, expected);
         };
 
-        let out = !conditions
-            .iter()
-            .any(|condition| !proposition::run(&condition, &context));
-        assert_eq!(out, true);
+        // Valid case
+        let context = mk_ctx(vec![
+            Claim::Accredited(scope.clone()),
+            Claim::Jurisdiction(CountryCode::CA, scope.clone()),
+        ]);
+
+        check(true, &context);
 
         // Invalid case: `BuyLockup` is present.
-        let context = Context {
-            claims: vec![
-                Claim::Accredited(scope.clone()),
-                Claim::BuyLockup(scope.clone()),
-                Claim::Jurisdiction(CountryCode::CA, scope.clone()),
-            ],
-            ..Default::default()
-        };
-
-        let out = !conditions
-            .iter()
-            .any(|condition| !proposition::run(&condition, &context));
-        assert_eq!(out, false);
+        let context = mk_ctx(vec![
+            Claim::Accredited(scope.clone()),
+            Claim::BuyLockup(scope.clone()),
+            Claim::Jurisdiction(CountryCode::CA, scope.clone()),
+        ]);
+        check(false, &context);
 
         // Invalid case: Missing `Accredited`
-        let context = Context {
-            claims: vec![
-                Claim::BuyLockup(scope.clone()),
-                Claim::Jurisdiction(CountryCode::CA, scope.clone()),
-            ],
-            ..Default::default()
-        };
-
-        let out = !conditions
-            .iter()
-            .any(|condition| !proposition::run(&condition, &context));
-        assert_eq!(out, false);
+        let context = mk_ctx(vec![
+            Claim::BuyLockup(scope.clone()),
+            Claim::Jurisdiction(CountryCode::CA, scope.clone()),
+        ]);
+        check(false, &context);
 
         // Invalid case: Missing `Jurisdiction`
-        let context = Context {
-            claims: vec![
-                Claim::Accredited(scope.clone()),
-                Claim::Jurisdiction(CountryCode::ES, scope.clone()),
-            ],
-            ..Default::default()
-        };
-
-        let out = !conditions
-            .iter()
-            .any(|condition| !proposition::run(&condition, &context));
-        assert_eq!(out, false);
+        let context = mk_ctx(vec![
+            Claim::Accredited(scope.clone()),
+            Claim::Jurisdiction(CountryCode::ES, scope.clone()),
+        ]);
+        check(false, &context);
 
         // Check NoneOf
-        let context = Context {
-            claims: vec![
-                Claim::Accredited(scope.clone()),
-                Claim::Jurisdiction(CountryCode::CU, scope.clone()),
-            ],
-            ..Default::default()
-        };
-
-        let out = !conditions
-            .iter()
-            .any(|condition| !proposition::run(&condition, &context));
-        assert_eq!(out, false);
+        let context = mk_ctx(vec![
+            Claim::Accredited(scope.clone()),
+            Claim::Jurisdiction(CountryCode::CU, scope.clone()),
+        ]);
+        check(false, &context);
 
         let identity1 = IdentityId::from(1);
         let identity2 = IdentityId::from(2);
         assert!(proposition::run(
             &ConditionType::IsIdentity(TargetIdentity::PrimaryIssuanceAgent).into(),
-            &Context {
+            Context {
                 id: identity1,
                 primary_issuance_agent: Some(identity1),
-                ..Default::default()
+                claims: vec![].into_iter(),
             }
         ));
         assert!(proposition::run(
             &ConditionType::IsIdentity(TargetIdentity::Specific(identity1)).into(),
-            &Context {
+            Context {
                 id: identity1,
                 primary_issuance_agent: Some(identity2),
-                ..Default::default()
+                claims: vec![].into_iter(),
             }
         ));
     }
