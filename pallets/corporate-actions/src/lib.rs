@@ -396,6 +396,9 @@ decl_module! {
 
             // Create a checkpoint at `record_date`, if any.
             if let Some(record_date) = record_date {
+                // TODO(Centril): This immediately creates a checkpoint, but we want to schedule.
+                // However, checkpoint scheduling needs some changes to support CAs.
+                // Also, we need to consider checkpoint ID reservation.
                 <Asset<T>>::_create_checkpoint_emit(ticker, record_date, caa)?;
             }
 
