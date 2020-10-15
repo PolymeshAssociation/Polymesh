@@ -197,9 +197,7 @@ decl_module! {
             start: Option<T::Moment>,
             end: Option<T::Moment>,
         ) -> DispatchResult {
-            let sender = ensure_signed(origin)?;
-            let did = Context::current_identity_or::<Identity<T>>(&sender)?;
-            ensure!(T::Asset::primary_issuance_agent(&offering_asset) == did, Error::<T>::Unauthorized);
+            let did = Self::ensure_perms_pia(origin)?;
 
             let venue = VenueInfo::get(venue_id).ok_or(Error::<T>::InvalidVenue)?;
             ensure!(
