@@ -946,17 +946,17 @@
                 "ExecutionToBeSkipped": "(AccountId, u64)"
             }
         },
-        "AuthorizationStatus": {
+        "AffirmationStatus": {
             "_enum": {
                 "Unknown": "",
                 "Pending": "",
-                "Authorized": "",
+                "Affirmed": "",
                 "Rejected": ""
             }
         },
         "SettlementType": {
             "_enum": {
-                "SettleOnAuthorization": "",
+                "SettleOnAffirmation": "",
                 "SettleOnBlock": "BlockNumber"
             }
         },

@@ -23,7 +23,7 @@
 //! - `create_venue` - Registers a new venue.
 //! - `add_instruction` - Adds a new instruction.
 //! - `affirm_instruction` - Provides affirmation to an existing instruction.
-//! - `deny_instruction` - Deny an existing instruction.
+//! - `withdraw_instruction` - Deny an existing instruction.
 //! - `reject_instruction` - Rejects an existing instruction.
 //! - `claim_receipt` - Claims a signed receipt.
 //! - `unclaim_receipt` - Unclaims a previously claimed receipt.
@@ -133,7 +133,7 @@ impl<AccountId> Default for LegStatus<AccountId> {
     }
 }
 
-/// Status of a affirmation
+/// Status of an affirmation
 #[derive(Encode, Decode, Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub enum AffirmationStatus {
     /// Invalid affirmation
@@ -298,7 +298,7 @@ pub mod weight_for {
     pub fn weight_for_reject_instruction<T: Trait>() -> Weight {
         T::DbWeight::get()
             .reads_writes(3, 2) // weight for read and writes
-            .saturating_add(500_000_000) // Lump-sum weight for `unsafe_deny_instruction()`
+            .saturating_add(500_000_000) // Lump-sum weight for `unsafe_withdraw_instruction()`
     }
 
     pub fn weight_for_transfer<T: Trait>() -> Weight {
@@ -429,7 +429,7 @@ decl_storage! {
         AffirmsReceived get(fn affirms_received): double_map hasher(twox_64_concat) u64, hasher(twox_64_concat) PortfolioId => AffirmationStatus;
         /// Helps a user track their pending instructions and affirmations (only needed for UI).
         /// (counter_party, instruction_id) -> AffirmationStatus
-        UserAffirms get(fn user_affirms): double_map hasher(twox_64_concat) PortfolioId, hasher(twox_64_concat) u64 => AffirmationStatus;
+        UserAffirmations get(fn user_affirmations): double_map hasher(twox_64_concat) PortfolioId, hasher(twox_64_concat) u64 => AffirmationStatus;
         /// Tracks redemption of receipts. (signer, receipt_uid) -> receipt_used
         ReceiptsUsed get(fn receipts_used): double_map hasher(twox_64_concat) T::AccountId, hasher(blake2_128_concat) u64 => bool;
         /// Tracks if a token has enabled filtering venues that can create instructions involving their token. Ticker -> filtering_enabled
@@ -484,7 +484,9 @@ decl_module! {
             // NB: Venue counter starts with 1.
             let venue_counter = Self::venue_counter();
             <VenueInfo>::insert(venue_counter, venue.clone());
-            signers.iter().for_each(|signer| {<VenueSigners<T>>::insert(venue_counter, signer, true)});
+            for signer in signers {
+                <VenueSigners<T>>::insert(venue_counter, signer, true);
+            }
             <VenueCounter>::put(venue_counter + 1);
             <UserVenues>::append(did, venue_counter);
             Self::deposit_event(RawEvent::VenueCreated(did, venue_counter, venue.details, venue.venue_type));
@@ -522,7 +524,7 @@ decl_module! {
         /// # Arguments
         /// * `venue_id` - ID of the venue this instruction belongs to.
         /// * `settlement_type` - Defines if the instruction should be settled
-        ///    immediately after receiving all affirms or waiting till a specific block.
+        ///    immediately after receiving all affirmations or waiting till a specific block.
         /// * `valid_from` - Optional date from which people can interact with this instruction.
         /// * `legs` - Legs included in this instruction.
         ///
@@ -541,15 +543,15 @@ decl_module! {
             Ok(())
         }
 
-        /// Adds and provide affirmation to a new instruction.
+        /// Adds and affirms a new instruction.
         ///
         /// # Arguments
         /// * `venue_id` - ID of the venue this instruction belongs to.
         /// * `settlement_type` - Defines if the instruction should be settled
-        ///    immediately after receiving all affirms or waiting till a specific block.
+        ///    immediately after receiving all affirmations or waiting till a specific block.
         /// * `valid_from` - Optional date from which people can interact with this instruction.
         /// * `legs` - Legs included in this instruction.
-        /// * `portfolios` - Portfolios that the sender controls and wants to affirm this instruction
+        /// * `portfolios` - Portfolios that the sender controls and wants to use in this affirmations.
         #[weight = weight_for::weight_for_instruction_creation::<T>(legs.len())
             + weight_for::weight_for_affirmation_instruction::<T>()
             + weight_for::weight_for_transfer::<T>()
@@ -603,12 +605,12 @@ decl_module! {
         /// * `instruction_id` - Instruction id to deny.
         /// * `portfolios` - Portfolios that the sender controls and wants to deny for this instruction
         #[weight = 25_000_000_000]
-        pub fn deny_instruction(origin, instruction_id: u64, portfolios: Vec<PortfolioId>) -> DispatchResult {
+        pub fn withdraw_instruction(origin, instruction_id: u64, portfolios: Vec<PortfolioId>) -> DispatchResult {
             let did = Self::ensure_origin_perm_and_instruction_validity(origin, instruction_id)?;
             let portfolios_set = portfolios.into_iter().collect::<BTreeSet<_>>();
 
             // Deny an instruction
-            Self::unsafe_deny_instruction(did, instruction_id, portfolios_set)
+            Self::unsafe_withdraw_instruction(did, instruction_id, portfolios_set)
         }
 
         /// Rejects an existing instruction.
@@ -627,19 +629,19 @@ decl_module! {
                 let mut portfolios_to_be_deny = BTreeSet::new();
                 for portfolio in portfolios_set {
                     // Deny an instruction if it was affirmed earlier.
-                    let user_auth_status = Self::user_affirms(portfolio, instruction_id);
+                    let userr_affirmation_status = Self::user_affirmations(portfolio, instruction_id);
 
-                    match user_auth_status {
+                    match userr_affirmation_status {
                         AffirmationStatus::Affirmed => { portfolios_to_be_deny.insert(portfolio); },
                         AffirmationStatus::Pending => T::Portfolio::ensure_portfolio_custody(portfolio, did)?,
                         _ => return Err(DispatchError::from(Error::<T>::NoPendingAffirm))
                     };
 
                     // Updates storage
-                    <UserAffirms>::insert(portfolio, instruction_id, AffirmationStatus::Rejected);
+                    <UserAffirmations>::insert(portfolio, instruction_id, AffirmationStatus::Rejected);
                     <AffirmsReceived>::insert(instruction_id, portfolio, AffirmationStatus::Rejected);
                 }
-                Self::unsafe_deny_instruction(did, instruction_id, portfolios_to_be_deny)?;
+                Self::unsafe_withdraw_instruction(did, instruction_id, portfolios_to_be_deny)?;
                 Ok(())
             })?;
 
@@ -680,9 +682,9 @@ decl_module! {
             // verify portfolio custodianship and check if it is a counter party with a pending or rejected affirmation
             for portfolio in &portfolios_set {
                 T::Portfolio::ensure_portfolio_custody(*portfolio, did)?;
-                let user_auth = Self::user_affirms(portfolio, instruction_id);
+                let userr_affirmation = Self::user_affirmations(portfolio, instruction_id);
                 ensure!(
-                    user_auth == AffirmationStatus::Pending || user_auth == AffirmationStatus::Rejected,
+                    userr_affirmation == AffirmationStatus::Pending || userr_affirmation == AffirmationStatus::Rejected,
                     Error::<T>::NoPendingAffirm
                 );
             }
@@ -739,7 +741,7 @@ decl_module! {
             // Update storage
             let affirms_pending = Self::instruction_affirms_pending(instruction_id).saturating_sub(u64::try_from(portfolios_set.len()).unwrap_or_default());
             for portfolio in portfolios_set {
-                <UserAffirms>::insert(portfolio, instruction_id, AffirmationStatus::Affirmed);
+                <UserAffirmations>::insert(portfolio, instruction_id, AffirmationStatus::Affirmed);
                 <AffirmsReceived>::insert(instruction_id, portfolio, AffirmationStatus::Affirmed);
                 Self::deposit_event(RawEvent::InstructionAffirmed(did, portfolio, instruction_id));
             }
@@ -923,7 +925,7 @@ impl<T: Trait> Module<T> {
 
         // write data to storage
         for counter_party in &counter_parties {
-            <UserAffirms>::insert(
+            <UserAffirmations>::insert(
                 counter_party,
                 instruction_counter,
                 AffirmationStatus::Pending,
@@ -991,7 +993,7 @@ impl<T: Trait> Module<T> {
         weight_for_initialize
     }
 
-    fn unsafe_deny_instruction(
+    fn unsafe_withdraw_instruction(
         did: IdentityId,
         instruction_id: u64,
         portfolios: BTreeSet<PortfolioId>,
@@ -1000,7 +1002,7 @@ impl<T: Trait> Module<T> {
         for portfolio in &portfolios {
             T::Portfolio::ensure_portfolio_custody(*portfolio, did)?;
             ensure!(
-                Self::user_affirms(portfolio, instruction_id) == AffirmationStatus::Affirmed,
+                Self::user_affirmations(portfolio, instruction_id) == AffirmationStatus::Affirmed,
                 Error::<T>::InstructionNotAffirmed
             );
         }
@@ -1038,7 +1040,7 @@ impl<T: Trait> Module<T> {
 
         // Updates storage
         for portfolio in &portfolios {
-            <UserAffirms>::insert(portfolio, instruction_id, AffirmationStatus::Pending);
+            <UserAffirmations>::insert(portfolio, instruction_id, AffirmationStatus::Pending);
             <AffirmsReceived>::remove(instruction_id, portfolio);
             Self::deposit_event(RawEvent::InstructionDenied(did, *portfolio, instruction_id));
         }
@@ -1149,7 +1151,7 @@ impl<T: Trait> Module<T> {
         <InstructionLegStatus<T>>::remove_prefix(instruction_id);
         InstructionAffirmsPending::remove(instruction_id);
         AffirmsReceived::remove_prefix(instruction_id);
-        Self::prune_user_affirms(&legs, instruction_id);
+        Self::prune_user_affirmations(&legs, instruction_id);
 
         (
             instructions_processed,
@@ -1157,7 +1159,7 @@ impl<T: Trait> Module<T> {
         )
     }
 
-    fn prune_user_affirms(legs: &Vec<(u64, Leg<T::Balance>)>, instruction_id: u64) {
+    fn prune_user_affirmations(legs: &Vec<(u64, Leg<T::Balance>)>, instruction_id: u64) {
         // We remove duplicates in memory before triggering storage actions
         let mut counter_parties = Vec::with_capacity(legs.len() * 2);
         for (_, leg) in legs {
@@ -1167,7 +1169,7 @@ impl<T: Trait> Module<T> {
         counter_parties.sort();
         counter_parties.dedup();
         for counter_party in counter_parties {
-            UserAffirms::remove(counter_party, instruction_id);
+            UserAffirmations::remove(counter_party, instruction_id);
         }
     }
 
@@ -1179,9 +1181,10 @@ impl<T: Trait> Module<T> {
         Self::ensure_instruction_validity(instruction_id)?;
         // checks portfolio's custodian and if it is a counter party with a pending or rejected affirmation
         for portfolio in &portfolios {
-            let user_auth = Self::user_affirms(portfolio, instruction_id);
+            let userr_affirmation = Self::user_affirmations(portfolio, instruction_id);
             ensure!(
-                user_auth == AffirmationStatus::Pending || user_auth == AffirmationStatus::Rejected,
+                userr_affirmation == AffirmationStatus::Pending
+                    || userr_affirmation == AffirmationStatus::Rejected,
                 Error::<T>::NoPendingAffirm
             );
             T::Portfolio::ensure_portfolio_custody(*portfolio, did)?;
@@ -1215,7 +1218,7 @@ impl<T: Trait> Module<T> {
 
         // Updates storage
         for portfolio in &portfolios {
-            <UserAffirms>::insert(portfolio, instruction_id, AffirmationStatus::Affirmed);
+            <UserAffirmations>::insert(portfolio, instruction_id, AffirmationStatus::Affirmed);
             <AffirmsReceived>::insert(instruction_id, portfolio, AffirmationStatus::Affirmed);
             Self::deposit_event(RawEvent::InstructionAffirmed(
                 did,
