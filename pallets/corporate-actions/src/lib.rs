@@ -90,6 +90,15 @@ pub struct TargetIdentities {
     pub treatment: TargetTreatment,
 }
 
+impl TargetIdentities {
+    /// Sort and deduplicate all identities.
+    fn dedup(mut self) -> Self {
+        self.identities.sort_unstable();
+        self.identities.dedup();
+        self
+    }
+}
+
 /// The kind of a `CorporateAction`.
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[derive(Copy, Clone, PartialEq, Eq, Encode, Decode, Debug)]
@@ -281,12 +290,7 @@ decl_module! {
             let caa = Self::ensure_ca_agent(origin, ticker)?;
 
             // Dedup any DIDs in `targets` to optimize iteration later.
-            let new = {
-                let mut ts = targets;
-                ts.identities.sort_unstable();
-                ts.identities.dedup();
-                ts
-            };
+            let new = targets.dedup();
 
             // Commit + emit event.
             DefaultTargetIdentities::mutate(ticker, |slot| *slot = new.clone());
@@ -389,7 +393,9 @@ decl_module! {
             CAIdSequence::insert(ticker, next_id);
 
             // Use asset level defaults if data not provided here.
-            let targets = targets.unwrap_or_else(|| Self::default_target_identities(ticker));
+            let targets = targets
+                .map(|t| t.dedup())
+                .unwrap_or_else(|| Self::default_target_identities(ticker));
             let dwt = default_wt.unwrap_or_else(|| Self::default_withholding_tax(ticker));
             let wt = match wt {
                 None => Self::did_withholding_tax(ticker),

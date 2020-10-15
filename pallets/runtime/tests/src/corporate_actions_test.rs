@@ -466,18 +466,18 @@ fn initiate_corporate_action_did_tax() {
 fn initiate_corporate_action_targets() {
     test(|ticker, [owner, foo, bar]| {
         let ca = |targets| basic_ca(owner, ticker, targets, None, None).targets;
-
-        let t1 = TargetIdentities {
-            treatment: Include,
-            identities: vec![foo.did],
+        let ids = |treatment, identities| TargetIdentities {
+            treatment,
+            identities,
         };
+
+        let t1 = ids(Include, vec![foo.did]);
         assert_ok!(CA::set_default_targets(owner.signer(), ticker, t1.clone()));
         assert_eq!(ca(None), t1);
 
-        let t2 = TargetIdentities {
-            treatment: Exclude,
-            identities: vec![bar.did],
-        };
-        assert_eq!(ca(Some(t2.clone())), t2);
+        assert_eq!(
+            ca(Some(ids(Exclude, vec![bar.did, foo.did, bar.did]))),
+            ids(Exclude, vec![foo.did, bar.did]),
+        );
     });
 }
