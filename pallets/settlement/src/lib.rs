@@ -23,7 +23,7 @@
 //! - `create_venue` - Registers a new venue.
 //! - `add_instruction` - Adds a new instruction.
 //! - `affirm_instruction` - Provides affirmation to an existing instruction.
-//! - `withdraw_instruction` - Deny an existing instruction.
+//! - `withdraw_affirmation` - Withdraw an existing affirmation to given instruction.
 //! - `reject_instruction` - Rejects an existing instruction.
 //! - `claim_receipt` - Claims a signed receipt.
 //! - `unclaim_receipt` - Unclaims a previously claimed receipt.
@@ -342,8 +342,8 @@ decl_event!(
         ),
         /// An instruction has been affirmed (did, portfolio, instruction_id)
         InstructionAffirmed(IdentityId, PortfolioId, u64),
-        /// An instruction has been denied (did, portfolio, instruction_id)
-        InstructionDenied(IdentityId, PortfolioId, u64),
+        /// An affirmation has been withdrawn (did, portfolio, instruction_id)
+        AffirmationWithdrawn(IdentityId, PortfolioId, u64),
         /// An instruction has been rejected (did, instruction_id)
         InstructionRejected(IdentityId, u64),
         /// A receipt has been claimed (did, instruction_id, leg_id, receipt_uid, signer)
@@ -599,17 +599,17 @@ decl_module! {
             Ok(Some(weight_for::weight_for_affirmation_instruction::<T>() + weight_for_instruction_execution).into())
         }
 
-        /// Deny an existing instruction.
+        /// Withdraw an affirmation for a given instruction.
         ///
         /// # Arguments
-        /// * `instruction_id` - Instruction id to deny.
-        /// * `portfolios` - Portfolios that the sender controls and wants to deny for this instruction
+        /// * `instruction_id` - Instruction id for that affirmation get withdrawn.
+        /// * `portfolios` - Portfolios that the sender controls and wants to withdraw affirmation.
         #[weight = 25_000_000_000]
-        pub fn withdraw_instruction(origin, instruction_id: u64, portfolios: Vec<PortfolioId>) -> DispatchResult {
+        pub fn withdraw_affirmation(origin, instruction_id: u64, portfolios: Vec<PortfolioId>) -> DispatchResult {
             let did = Self::ensure_origin_perm_and_instruction_validity(origin, instruction_id)?;
             let portfolios_set = portfolios.into_iter().collect::<BTreeSet<_>>();
 
-            // Deny an instruction
+            // Withdraw an affirmation.
             Self::unsafe_withdraw_instruction(did, instruction_id, portfolios_set)
         }
 
@@ -628,10 +628,10 @@ decl_module! {
             with_transaction(|| {
                 let mut portfolios_to_be_deny = BTreeSet::new();
                 for portfolio in portfolios_set {
-                    // Deny an instruction if it was affirmed earlier.
-                    let userr_affirmation_status = Self::user_affirmations(portfolio, instruction_id);
+                    // Withdraw an affirmation if it was affirmed earlier.
+                    let user_affirmation_status = Self::user_affirmations(portfolio, instruction_id);
 
-                    match userr_affirmation_status {
+                    match user_affirmation_status {
                         AffirmationStatus::Affirmed => { portfolios_to_be_deny.insert(portfolio); },
                         AffirmationStatus::Pending => T::Portfolio::ensure_portfolio_custody(portfolio, did)?,
                         _ => return Err(DispatchError::from(Error::<T>::NoPendingAffirm))
@@ -1042,7 +1042,7 @@ impl<T: Trait> Module<T> {
         for portfolio in &portfolios {
             <UserAffirmations>::insert(portfolio, instruction_id, AffirmationStatus::Pending);
             <AffirmsReceived>::remove(instruction_id, portfolio);
-            Self::deposit_event(RawEvent::InstructionDenied(did, *portfolio, instruction_id));
+            Self::deposit_event(RawEvent::AffirmationWithdrawn(did, *portfolio, instruction_id));
         }
 
         <InstructionAffirmsPending>::mutate(instruction_id, |affirms_pending| {

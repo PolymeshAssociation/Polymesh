@@ -492,7 +492,7 @@ fn token_swap() {
             assert_eq!(Asset::balance_of(&ticker2, alice_did), alice_init_balance2);
             assert_eq!(Asset::balance_of(&ticker2, bob_did), bob_init_balance2);
 
-            assert_ok!(Settlement::withdraw_instruction(
+            assert_ok!(Settlement::withdraw_affirmation(
                 alice_signed.clone(),
                 instruction_counter,
                 default_portfolio_vec(alice_did)
@@ -1843,7 +1843,7 @@ fn basic_fuzzing() {
                             instruction_counter,
                             default_portfolio_vec(dids[i])
                         ));
-                        assert_ok!(Settlement::withdraw_instruction(
+                        assert_ok!(Settlement::withdraw_affirmation(
                             signer.clone(),
                             instruction_counter,
                             default_portfolio_vec(dids[i])
@@ -1904,7 +1904,7 @@ fn basic_fuzzing() {
             if fail {
                 let mut rng = thread_rng();
                 let i = rng.gen_range(0, 4);
-                assert_ok!(Settlement::withdraw_instruction(
+                assert_ok!(Settlement::withdraw_affirmation(
                     signers[i].clone(),
                     instruction_counter,
                     default_portfolio_vec(dids[i])
@@ -2999,7 +2999,7 @@ fn multiple_custodian_settlement() {
 
             // Alice fails to deny the instruction from both her portfolios since she doesn't have the custody
             assert_noop!(
-                Settlement::withdraw_instruction(
+                Settlement::withdraw_affirmation(
                     alice_signed.clone(),
                     instruction_counter,
                     portfolios_vec
@@ -3008,7 +3008,7 @@ fn multiple_custodian_settlement() {
             );
 
             // Alice can deny instruction from the portfolio she has custody of
-            assert_ok!(Settlement::withdraw_instruction(
+            assert_ok!(Settlement::withdraw_affirmation(
                 alice_signed.clone(),
                 instruction_counter,
                 default_portfolio_vec(alice_did)
