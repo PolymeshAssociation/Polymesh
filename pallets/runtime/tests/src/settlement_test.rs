@@ -5,7 +5,6 @@ use super::{
     },
     ExtBuilder,
 };
-use base64;
 use codec::{Decode, Encode};
 use confidential_asset::{
     EncryptedAssetIdWrapper, InitializedAssetTxWrapper, MercatAccountId, PubAccountTxWrapper,
@@ -34,9 +33,9 @@ use pallet_confidential_asset as confidential_asset;
 use pallet_identity as identity;
 use pallet_portfolio::MovePortfolioItem;
 use pallet_settlement::{
-    self as settlement, weight_for, AuthorizationStatus, Call as SettlementCall, ConfidentialLeg,
-    Instruction, InstructionStatus, Leg, LegStatus, MercatTxData, NonConfidentialLeg, Receipt,
-    ReceiptDetails, SettlementType, VenueDetails, VenueType,
+    self as settlement, weight_for, AuthorizationStatus, Base64Vec, Call as SettlementCall,
+    ConfidentialLeg, Instruction, InstructionStatus, Leg, LegStatus, MercatTxData,
+    NonConfidentialLeg, Receipt, ReceiptDetails, SettlementType, VenueDetails, VenueType,
 };
 use polymesh_primitives::{
     AssetOwnershipRelation, AssetType, AuthorizationData, Claim, Condition, ConditionType,
@@ -3382,27 +3381,24 @@ fn basic_confidential_settlement() {
             // Sender computes the proofs in the wallet.
             println!("-------------> Alice is going to authorize.");
             let tx_id = tx_id + 1;
-            let initialized_tx = MercatTxData::InitializedTransfer(
-                base64::encode(
-                    CtxSender {}
-                        .create_transaction(
-                            tx_id,
-                            &Account {
-                                pblc: alice_public_account.clone(),
-                                scrt: alice_secret_account.clone(),
-                            },
-                            &alice_encrypted_init_balance,
-                            &bob_public_account,
-                            &charlie_public_account.owner_enc_pub_key,
-                            &[],
-                            amount,
-                            &mut rng,
-                        )
-                        .unwrap()
-                        .encode(),
-                )
-                .into_bytes(),
-            );
+            let initialized_tx = MercatTxData::InitializedTransfer(Base64Vec::new(
+                CtxSender {}
+                    .create_transaction(
+                        tx_id,
+                        &Account {
+                            pblc: alice_public_account.clone(),
+                            scrt: alice_secret_account.clone(),
+                        },
+                        &alice_encrypted_init_balance,
+                        &bob_public_account,
+                        &charlie_public_account.owner_enc_pub_key,
+                        &[],
+                        amount,
+                        &mut rng,
+                    )
+                    .unwrap()
+                    .encode(),
+            ));
             // Sender authorizes the instruction and passes in the proofs.
             assert_ok!(Settlement::authorize_confidential_instruction(
                 Origin::signed(AccountKeyring::Alice.public()),
@@ -3421,7 +3417,7 @@ fn basic_confidential_settlement() {
 
             let decoded_initialized_tx = match tx_data {
                 MercatTxData::InitializedTransfer(init) => {
-                    let mut data: &[u8] = &base64::decode(&init).unwrap();
+                    let mut data: &[u8] = &init.decode::<TestStorage>().unwrap();
                     InitializedTransferTx::decode(&mut data).unwrap()
                 }
                 _ => {
@@ -3431,24 +3427,21 @@ fn basic_confidential_settlement() {
             };
 
             // Receiver computes the proofs in the wallet.
-            let finalized_tx = MercatTxData::FinalizedTransfer(
-                base64::encode(
-                    CtxReceiver {}
-                        .finalize_transaction(
-                            tx_id,
-                            decoded_initialized_tx,
-                            Account {
-                                pblc: bob_public_account.clone(),
-                                scrt: bob_secret_account.clone(),
-                            },
-                            amount,
-                            &mut rng,
-                        )
-                        .unwrap()
-                        .encode(),
-                )
-                .into_bytes(),
-            );
+            let finalized_tx = MercatTxData::FinalizedTransfer(Base64Vec::new(
+                CtxReceiver {}
+                    .finalize_transaction(
+                        tx_id,
+                        decoded_initialized_tx,
+                        Account {
+                            pblc: bob_public_account.clone(),
+                            scrt: bob_secret_account.clone(),
+                        },
+                        amount,
+                        &mut rng,
+                    )
+                    .unwrap()
+                    .encode(),
+            ));
 
             // Receiver submits the proof to the chain.
             assert_ok!(Settlement::authorize_confidential_instruction(
@@ -3467,7 +3460,7 @@ fn basic_confidential_settlement() {
             let tx_data = tx_data.remove(1);
             let decoded_finalized_tx = match tx_data {
                 MercatTxData::FinalizedTransfer(finalized) => {
-                    let mut data: &[u8] = &base64::decode(&finalized).unwrap();
+                    let mut data: &[u8] = &finalized.decode::<TestStorage>().unwrap();
                     FinalizedTransferTx::decode(&mut data).unwrap()
                 }
                 _ => {
@@ -3476,26 +3469,23 @@ fn basic_confidential_settlement() {
             };
 
             // Mediator verifies the proofs in the wallet.
-            let justified_tx = MercatTxData::JustifiedTransfer(
-                base64::encode(
-                    CtxMediator {}
-                        .justify_transaction(
-                            decoded_finalized_tx,
-                            &charlie_secret_account.enc_keys,
-                            &alice_public_account,
-                            &alice_encrypted_init_balance,
-                            &bob_public_account,
-                            &[],
-                            AssetId {
-                                id: *ticker.as_bytes(),
-                            },
-                            &mut rng,
-                        )
-                        .unwrap()
-                        .encode(),
-                )
-                .into_bytes(),
-            );
+            let justified_tx = MercatTxData::JustifiedTransfer(Base64Vec::new(
+                CtxMediator {}
+                    .justify_transaction(
+                        decoded_finalized_tx,
+                        &charlie_secret_account.enc_keys,
+                        &alice_public_account,
+                        &alice_encrypted_init_balance,
+                        &bob_public_account,
+                        &[],
+                        AssetId {
+                            id: *ticker.as_bytes(),
+                        },
+                        &mut rng,
+                    )
+                    .unwrap()
+                    .encode(),
+            ));
 
             println!("-------------> This should trigger the execution");
             assert_ok!(Settlement::authorize_confidential_instruction(
