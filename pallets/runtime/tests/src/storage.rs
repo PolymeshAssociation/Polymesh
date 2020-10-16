@@ -22,6 +22,7 @@ use pallet_bridge as bridge;
 use pallet_committee as committee;
 use pallet_compliance_manager as compliance_manager;
 use pallet_confidential as confidential;
+use pallet_corporate_actions as corporate_actions;
 use pallet_group as group;
 use pallet_identity as identity;
 use pallet_multisig as multisig;
@@ -132,6 +133,7 @@ impl_outer_event! {
         confidential,
         polymesh_contracts<T>,
         pallet_scheduler<T>,
+        corporate_actions,
     }
 }
 
@@ -427,6 +429,7 @@ impl IdentityTrait for TestStorage {
     type OffChainSignature = OffChainSignature;
     type ProtocolFee = protocol_fee::Module<TestStorage>;
     type GCVotingMajorityOrigin = VMO<committee::Instance1>;
+    type CorporateAction = CorporateActions;
 }
 
 parameter_types! {
@@ -504,6 +507,11 @@ impl bridge::Trait for TestStorage {
     type Scheduler = Scheduler;
     type SchedulerOrigin = OriginCaller;
     type SchedulerCall = Call;
+}
+
+impl corporate_actions::Trait for TestStorage {
+    type Event = Event;
+    type WeightInfo = polymesh_weights::pallet_corporate_actions::WeightInfo;
 }
 
 impl exemption::Trait for TestStorage {
@@ -646,6 +654,7 @@ pub type System = frame_system::Module<TestStorage>;
 pub type Portfolio = portfolio::Module<TestStorage>;
 pub type WrapperContracts = polymesh_contracts::Module<TestStorage>;
 pub type ComplianceManager = compliance_manager::Module<TestStorage>;
+pub type CorporateActions = corporate_actions::Module<TestStorage>;
 pub type Scheduler = pallet_scheduler::Module<TestStorage>;
 
 pub fn make_account(

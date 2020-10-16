@@ -28,6 +28,8 @@ mod confidential_test;
 #[cfg(test)]
 mod contract_test;
 #[cfg(test)]
+mod corporate_actions_test;
+#[cfg(test)]
 mod dividend_test;
 #[cfg(test)]
 mod fee_details;

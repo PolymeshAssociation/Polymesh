@@ -27,7 +27,7 @@ use crate::{
 use codec::{Decode, Encode};
 use frame_support::{
     decl_event,
-    dispatch::PostDispatchInfo,
+    dispatch::{DispatchResult, PostDispatchInfo},
     traits::{Currency, EnsureOrigin, GetCallMetadata},
     weights::GetDispatchInfo,
     Parameter,
@@ -105,6 +105,12 @@ pub struct SecondaryKeyWithAuth<AccountId> {
     pub auth_signature: H512,
 }
 
+/// The link between the identity and corporate actions pallet for handling CAA transfer authorization.
+pub trait IdentityToCorporateAction {
+    /// Accept CAA transfer to `did` with `auth_id` as authorization id.
+    fn accept_corporate_action_agent_transfer(did: IdentityId, auth_id: u64) -> DispatchResult;
+}
+
 /// The module's configuration trait.
 pub trait Trait: CommonTrait + pallet_timestamp::Trait + balances::Trait {
     /// The overarching event type.
@@ -133,6 +139,9 @@ pub trait Trait: CommonTrait + pallet_timestamp::Trait + balances::Trait {
 
     /// Origin for Governance Committee voting majority origin.
     type GCVotingMajorityOrigin: EnsureOrigin<Self::Origin>;
+
+    /// Negotiates between Corporate Actions and the Identity pallet.
+    type CorporateAction: IdentityToCorporateAction;
 }
 
 // rustfmt adds a comma after Option<Moment> in NewAuthorization and it breaks compilation
