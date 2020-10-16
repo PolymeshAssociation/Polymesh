@@ -37,19 +37,19 @@ macro_rules! assert_session_era {
     };
 }
 
-macro_rules! assert_present_entity {
+macro_rules! assert_present_identity {
     ($acc_id:expr) => {
         assert_eq!(
-            Staking::permissioned_entities(Identity::get_identity($acc_id).unwrap()),
+            Staking::permissioned_identity(Identity::get_identity($acc_id).unwrap()),
             true
         );
     };
 }
 
-macro_rules! assert_absent_entity {
+macro_rules! assert_absent_identity {
     ($acc_id:expr) => {
         assert_eq!(
-            Staking::permissioned_entities(Identity::get_identity($acc_id).unwrap()),
+            Staking::permissioned_identity(Identity::get_identity($acc_id).unwrap()),
             false
         );
     };
@@ -57,7 +57,7 @@ macro_rules! assert_absent_entity {
 
 macro_rules! assert_add_permissioned_validator {
     ($acc_id:expr) => {
-        assert_ok!(Staking::add_permissioned_validator_entity(
+        assert_ok!(Staking::add_permissioned_validator(
             root(),
             Identity::get_identity($acc_id).unwrap()
         ));
@@ -5250,8 +5250,8 @@ fn should_add_permissioned_validators() {
 
         assert_add_permissioned_validator!(&acc_10);
         assert_add_permissioned_validator!(&acc_20);
-        assert_present_entity!(&acc_10);
-        assert_present_entity!(&acc_20);
+        assert_present_identity!(&acc_10);
+        assert_present_identity!(&acc_20);
     });
 }
 
@@ -5269,14 +5269,14 @@ fn should_remove_permissioned_validators() {
         assert_add_permissioned_validator!(&acc_10);
         assert_add_permissioned_validator!(&acc_20);
 
-        assert_ok!(Staking::remove_permissioned_validator_entity(
+        assert_ok!(Staking::remove_permissioned_validator(
             Origin::signed(2000),
             Identity::get_identity(&acc_20).unwrap()
         ));
 
-        assert_present_entity!(&acc_10);
-        assert_absent_entity!(&acc_20);
-        assert_absent_entity!(&acc_30);
+        assert_present_identity!(&acc_10);
+        assert_absent_identity!(&acc_20);
+        assert_absent_identity!(&acc_30);
     });
 }
 
@@ -5443,7 +5443,7 @@ fn test_with_multiple_validators_from_entity() {
                 RewardDestination::Controller,
             ));
             let entity_id = Identity::get_identity(&60).unwrap();
-            if !Staking::permissioned_entities(entity_id) {
+            if !Staking::permissioned_identity(entity_id) {
                 assert_add_permissioned_validator!(&60);
             }
             assert_ok!(Staking::validate(

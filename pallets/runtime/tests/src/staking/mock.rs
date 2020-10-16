@@ -1094,8 +1094,8 @@ pub fn bond_validator(stash: AccountId, ctrl: AccountId, val: Balance) {
         RewardDestination::Controller,
     ));
     let entity_id = Identity::get_identity(&stash).unwrap();
-    if !Staking::permissioned_entities(entity_id) {
-        assert_ok!(Staking::add_permissioned_validator_entity(
+    if !Staking::permissioned_identity(entity_id) {
+        assert_ok!(Staking::add_permissioned_validator(
             frame_system::RawOrigin::Root.into(),
             entity_id
         ));
