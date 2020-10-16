@@ -2710,8 +2710,12 @@ fn next_checkpoint_is_updated_we() {
         FixedOrVariableCalendarUnit::Fixed(secs) => secs,
         _ => panic!("period should be fixed"),
     };
-    Timestamp::set_timestamp(start);
-    assert_eq!(start, <TestStorage as asset::Trait>::UnixTime::now());
+    let start_millisecs = start * 1000;
+    Timestamp::set_timestamp(start_millisecs);
+    assert_eq!(
+        start_millisecs,
+        <TestStorage as asset::Trait>::UnixTime::now()
+    );
     let alice_signed = Origin::signed(AccountKeyring::Alice.public());
     let alice_did = register_keyring_account(AccountKeyring::Alice).unwrap();
     let bob_did = register_keyring_account(AccountKeyring::Bob).unwrap();
@@ -2735,23 +2739,41 @@ fn next_checkpoint_is_updated_we() {
         ticker,
         schedule
     ));
-    assert_eq!(start + period_secs, Asset::next_checkpoints(&ticker));
     assert_eq!(1, Asset::total_checkpoints_of(&ticker));
+    assert_eq!(start, Asset::checkpoint_timestamps(1));
     assert_eq!(total_supply, Asset::total_supply_at(&(ticker, 1)));
     assert_eq!(total_supply, Asset::get_balance_at(ticker, alice_did, 1));
     assert_eq!(0, Asset::get_balance_at(ticker, bob_did, 1));
-    // Prepare to trigger the next checkpoint.
-    Timestamp::set_timestamp(start + period_secs);
-    // Populate the checkpoint balance and update the next checkpoint timestamp.
+    assert_eq!(
+        Some(start + period_secs),
+        Asset::checkpoint_schedules(ticker).next_checkpoint(start)
+    );
+    assert_eq!(start + period_secs, Asset::next_checkpoints(&ticker));
+    let checkpoint2_secs = start_millisecs + period_secs * 1000;
+    // Make a transaction before the next timestamp.
+    Timestamp::set_timestamp(checkpoint2_secs - 1000);
     assert_ok!(Asset::unsafe_transfer(
         PortfolioId::default_portfolio(alice_did),
         PortfolioId::default_portfolio(bob_did),
         &ticker,
         total_supply / 2,
     ));
+    // Make another transaction at the checkpoint. The updates are applied after the checkpoint is
+    // recorded.
+    Timestamp::set_timestamp(checkpoint2_secs);
+    assert_ok!(Asset::unsafe_transfer(
+        PortfolioId::default_portfolio(alice_did),
+        PortfolioId::default_portfolio(bob_did),
+        &ticker,
+        // After this transfer Alice's balance is 0.
+        total_supply / 2,
+    ));
+    // The balance after checkpoint 2.
+    assert_eq!(0, Asset::balance_of(&ticker, alice_did));
+    // Balances at checkpoint 2.
     assert_eq!(start + 2 * period_secs, Asset::next_checkpoints(&ticker));
     assert_eq!(2, Asset::total_checkpoints_of(&ticker));
-    assert_eq!(total_supply, Asset::get_balance_at(ticker, alice_did, 2));
+    assert_eq!(start + period_secs, Asset::checkpoint_timestamps(2));
     assert_eq!(
         total_supply / 2,
         Asset::get_balance_at(ticker, alice_did, 2)
