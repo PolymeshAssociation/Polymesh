@@ -37,10 +37,35 @@ macro_rules! assert_session_era {
     };
 }
 
+macro_rules! assert_present_identity {
+    ($acc_id:expr) => {
+        assert_eq!(
+            Staking::permissioned_identity(Identity::get_identity($acc_id).unwrap()),
+            true
+        );
+    };
+}
+
+macro_rules! assert_absent_identity {
+    ($acc_id:expr) => {
+        assert_eq!(
+            Staking::permissioned_identity(Identity::get_identity($acc_id).unwrap()),
+            false
+        );
+    };
+}
+
+macro_rules! assert_add_permissioned_validator {
+    ($acc_id:expr) => {
+        assert_ok!(Staking::add_permissioned_validator(
+            root(),
+            Identity::get_identity($acc_id).unwrap()
+        ));
+    };
+}
+
 mod mock;
 use mock::*;
-
-use pallet_staking::*;
 
 use chrono::prelude::Utc;
 use codec::Decode;
@@ -51,6 +76,7 @@ use frame_support::{
     StorageMap,
 };
 use pallet_balances::Error as BalancesError;
+use pallet_staking::*;
 use sp_npos_elections::ElectionScore;
 use sp_runtime::{
     assert_eq_error_rate,
@@ -397,10 +423,7 @@ fn staking_should_work() {
                 1500,
                 RewardDestination::Controller
             ));
-            assert_ok!(Staking::add_permissioned_validator(
-                frame_system::RawOrigin::Root.into(),
-                3
-            ));
+            assert_add_permissioned_validator!(&3);
             assert_ok!(Staking::validate(
                 Origin::signed(4),
                 ValidatorPrefs::default()
@@ -1914,10 +1937,7 @@ fn switching_roles() {
             1000,
             RewardDestination::Controller
         ));
-        assert_ok!(Staking::add_permissioned_validator(
-            frame_system::RawOrigin::Root.into(),
-            5
-        ));
+        assert_add_permissioned_validator!(&5);
         assert_ok!(Staking::validate(
             Origin::signed(6),
             ValidatorPrefs::default()
@@ -1928,10 +1948,7 @@ fn switching_roles() {
         // with current nominators 10 and 5 have the most stake
         assert_eq_uvec!(validator_controllers(), vec![6, 10]);
 
-        assert_ok!(Staking::add_permissioned_validator(
-            frame_system::RawOrigin::Root.into(),
-            1
-        ));
+        assert_add_permissioned_validator!(&1);
         // 2 decides to be a validator. Consequences:
         assert_ok!(Staking::validate(
             Origin::signed(2),
@@ -2075,10 +2092,7 @@ fn bond_with_little_staked_value_bounded() {
                 RewardDestination::Controller
             ));
             add_secondary_key(1, 2);
-            assert_ok!(Staking::add_permissioned_validator(
-                frame_system::RawOrigin::Root.into(),
-                1
-            ));
+            assert_add_permissioned_validator!(&1);
             assert_ok!(Staking::validate(
                 Origin::signed(2),
                 ValidatorPrefs::default()
@@ -5231,16 +5245,13 @@ fn should_add_permissioned_validators() {
         let acc_10 = 10;
         let acc_20 = 20;
 
-        assert_ok!(Staking::add_permissioned_validator(
-            frame_system::RawOrigin::Root.into(),
-            acc_10.clone()
-        ));
-        assert_ok!(Staking::add_permissioned_validator(
-            frame_system::RawOrigin::Root.into(),
-            acc_20.clone()
-        ));
-        assert_eq!(Staking::permissioned_validators(acc_10), true);
-        assert_eq!(Staking::permissioned_validators(acc_20), true);
+        provide_did_to_user(10);
+        provide_did_to_user(20);
+
+        assert_add_permissioned_validator!(&acc_10);
+        assert_add_permissioned_validator!(&acc_20);
+        assert_present_identity!(&acc_10);
+        assert_present_identity!(&acc_20);
     });
 }
 
@@ -5251,24 +5262,21 @@ fn should_remove_permissioned_validators() {
         let acc_20 = 20;
         let acc_30 = 30;
 
-        assert_ok!(Staking::add_permissioned_validator(
-            frame_system::RawOrigin::Root.into(),
-            acc_10
-        ));
-        assert_ok!(Staking::add_permissioned_validator(
-            frame_system::RawOrigin::Root.into(),
-            acc_20
-        ));
+        provide_did_to_user(10);
+        provide_did_to_user(20);
+        provide_did_to_user(30);
+
+        assert_add_permissioned_validator!(&acc_10);
+        assert_add_permissioned_validator!(&acc_20);
 
         assert_ok!(Staking::remove_permissioned_validator(
             Origin::signed(2000),
-            acc_20
+            Identity::get_identity(&acc_20).unwrap()
         ));
 
-        assert_eq!(Staking::permissioned_validators(&acc_10), true);
-        assert_eq!(Staking::permissioned_validators(&acc_20), false);
-
-        assert_eq!(Staking::permissioned_validators(&acc_30), false);
+        assert_present_identity!(&acc_10);
+        assert_absent_identity!(&acc_20);
+        assert_absent_identity!(&acc_30);
     });
 }
 
@@ -5409,4 +5417,43 @@ fn voting_for_pip_overlays_with_staking() {
         // Error, because we don't have 101 tokens to bond.
         assert_noop!(alice_proposal(1), Error::InsufficientDeposit);
     });
+}
+
+#[test]
+fn test_with_multiple_validators_from_entity() {
+    ExtBuilder::default()
+        .validator_count(5)
+        .minimum_validator_count(5)
+        .build()
+        .execute_with(|| {
+            start_era(1);
+
+            // add new validator
+            bond_validator(50, 51, 500000);
+
+            // Add other stash and controller to the same did.
+            // 60 stash and 61 controller.
+            add_secondary_key(50, 60);
+            add_secondary_key(50, 61);
+
+            assert_ok!(Staking::bond(
+                Origin::signed(60),
+                61,
+                700000,
+                RewardDestination::Controller,
+            ));
+            let entity_id = Identity::get_identity(&60).unwrap();
+            if !Staking::permissioned_identity(entity_id) {
+                assert_add_permissioned_validator!(&60);
+            }
+            assert_ok!(Staking::validate(
+                Origin::signed(61),
+                ValidatorPrefs::default()
+            ));
+
+            start_era(2);
+
+            assert!(Session::validators().contains(&50));
+            assert!(Session::validators().contains(&60));
+        });
 }

@@ -1,7 +1,7 @@
 use super::{
-    committee_test::{gc_vmo, root, set_members},
+    committee_test::{gc_vmo, set_members},
     storage::{
-        fast_forward_blocks, get_identity_id, register_keyring_account, Call, EventTest,
+        fast_forward_blocks, get_identity_id, register_keyring_account, root, Call, EventTest,
         TestStorage,
     },
     ExtBuilder,
