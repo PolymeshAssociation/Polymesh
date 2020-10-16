@@ -101,7 +101,7 @@ decl_module! {
             let sender = ensure_signed(origin)?;
             CallPermissions::<T>::ensure_call_permissions(&sender)?;
             let did = Context::current_identity_or::<Identity<T>>(&sender)?;
-            ensure!(T::Asset::primary_issuance_agent(&offering_token) == did, Error::<T>::Unauthorized);
+            ensure!(T::Asset::primary_issuance_agent_or_owner(&offering_token) == did, Error::<T>::Unauthorized);
             // TODO: Take custodial ownership of $sell_amount of $offering_token from primary issuance agent?
             let fundraiser_id = Self::fundraiser_count(offering_token) + 1;
             <Fundraisers<T>>::insert(
@@ -135,7 +135,7 @@ decl_module! {
                 .saturating_add((ONE_UNIT - 1).into())
                 / ONE_UNIT.into();
 
-            let primary_issuance_agent = T::Asset::primary_issuance_agent(&offering_token);
+            let primary_issuance_agent = T::Asset::primary_issuance_agent_or_owner(&offering_token);
             let legs = vec![
                 Leg {
                     // TODO: Replace with did that actually hold the offering token
