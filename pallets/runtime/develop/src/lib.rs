@@ -9,7 +9,7 @@ pub use fee_details::CddHandler;
 pub mod constants;
 
 #[cfg(feature = "std")]
-pub use pallet_staking::{Commission, StakerStatus};
+pub use pallet_staking::StakerStatus;
 
 pub use pallet_im_online::OfflineSlashingParams;
 #[cfg(feature = "std")]
