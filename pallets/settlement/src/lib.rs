@@ -1042,7 +1042,11 @@ impl<T: Trait> Module<T> {
         for portfolio in &portfolios {
             <UserAffirmations>::insert(portfolio, instruction_id, AffirmationStatus::Pending);
             <AffirmsReceived>::remove(instruction_id, portfolio);
-            Self::deposit_event(RawEvent::AffirmationWithdrawn(did, *portfolio, instruction_id));
+            Self::deposit_event(RawEvent::AffirmationWithdrawn(
+                did,
+                *portfolio,
+                instruction_id,
+            ));
         }
 
         <InstructionAffirmsPending>::mutate(instruction_id, |affirms_pending| {
