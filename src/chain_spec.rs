@@ -319,9 +319,7 @@ fn general_testnet_genesis(
         pallet_staking: Some(GeneralConfig::StakingConfig {
             minimum_validator_count: 1,
             validator_count: 2,
-            validator_commission: alcyone::Commission::Global(
-                PerThing::from_rational_approximation(1u64, 4u64),
-            ),
+            validator_commission_cap: PerThing::from_rational_approximation(1u64, 4u64),
             stakers,
             invulnerables: initial_authorities.iter().map(|x| x.0.clone()).collect(),
             slash_reward_fraction: general::Perbill::from_percent(10),
@@ -711,7 +709,7 @@ fn alcyone_testnet_genesis(
         pallet_staking: Some(AlcyoneConfig::StakingConfig {
             minimum_validator_count: 1,
             validator_count: initial_authorities.len() as u32,
-            validator_commission: alcyone::Commission::Global(PerThing::zero()),
+            validator_commission_cap: PerThing::zero(),
             stakers,
             invulnerables: initial_authorities.iter().map(|x| x.0.clone()).collect(),
             slash_reward_fraction: alcyone::Perbill::from_percent(10),

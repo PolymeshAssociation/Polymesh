@@ -1351,7 +1351,7 @@ impl<T: Trait> AssetTrait<T::Balance, T::AccountId> for Module<T> {
         Self::balance_of(ticker, &who)
     }
 
-    // Get the total supply of an asset `id`
+    /// Get the total supply of an asset `id`
     fn total_supply(ticker: &Ticker) -> T::Balance {
         Self::token_details(ticker).total_supply
     }
@@ -1360,11 +1360,17 @@ impl<T: Trait> AssetTrait<T::Balance, T::AccountId> for Module<T> {
         Self::get_balance_at(*ticker, did, at)
     }
 
-    fn primary_issuance_agent(ticker: &Ticker) -> IdentityId {
+    /// Returns the PIA if it's assigned or else the owner of the token
+    fn primary_issuance_agent_or_owner(ticker: &Ticker) -> IdentityId {
         let token_details = Self::token_details(ticker);
         token_details
             .primary_issuance_agent
             .unwrap_or(token_details.owner_did)
+    }
+
+    /// Returns the PIA of the token
+    fn primary_issuance_agent(ticker: &Ticker) -> Option<IdentityId> {
+        Self::token_details(ticker).primary_issuance_agent
     }
 
     fn max_number_of_tm_extension() -> u32 {

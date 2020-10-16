@@ -22,7 +22,7 @@
 // dispatchable gets modified.
 // - Introduce `validate_cdd_expiry_nominators()` to remove the nominators from the potential nominators list
 // when there CDD check get expired.
-// - Commission can be individual or global.
+// - Commission are capped.
 // - Validators stash account should stake a minimum bonding amount to be a potential validator.
 
 //! # Staking Module
@@ -485,7 +485,8 @@ pub struct ValidatorPrefs {
     pub commission: Perbill,
 }
 
-// Polymesh-Note: Polymesh specific changes to allow flexibility in commission
+// TODO: Need to be removed before mainnet launch.
+// Keeping this to support the `on_runtime_upgrade`.
 /// Commission can be set globally or by validator
 #[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
@@ -1323,8 +1324,9 @@ decl_storage! {
         pub PermissionedIdentity get(fn permissioned_identity):
             map hasher(twox_64_concat) IdentityId => bool;
 
-        /// Commission rate to be used by all validators.
-        pub ValidatorCommission get(fn validator_commission) config(): Commission;
+        // Polymesh-Note: Polymesh specific changes to allow flexibility in commission.
+        /// Every validator has commission that should be in the range [0, Cap].
+        pub ValidatorCommissionCap get(fn validator_commission_cap) config(): Perbill;
 
         /// The minimum amount with which a validator can bond.
         pub MinimumBondThreshold get(fn min_bond_threshold) config(): BalanceOf<T>;
@@ -1353,9 +1355,8 @@ decl_storage! {
                 let _ = match status {
                     StakerStatus::Validator => {
                         let mut prefs = ValidatorPrefs::default();
-                        if let Commission::Global(commission) = config.validator_commission {
-                            prefs.commission = commission;
-                        }
+                        // Setting the cap value here.
+                        prefs.commission = config.validator_commission_cap;
                         <Module<T>>::validate(
                             T::Origin::from(Some(controller.clone()).into()),
                             prefs,
@@ -1418,11 +1419,9 @@ decl_event!(
         /// Remove the nominators from the valid nominators when there CDD expired.
         /// Caller, Stash accountId of nominators
         InvalidatedNominators(IdentityId, AccountId, Vec<AccountId>),
-        /// Individual commissions are enabled.
-        IndividualCommissionEnabled(Option<IdentityId>),
-        /// When changes to commission are made and global commission is in effect.
+        /// When commission cap get updated.
         /// (old value, new value)
-        GlobalCommissionUpdated(Option<IdentityId>, Perbill, Perbill),
+        CommissionCapUpdated(IdentityId, Perbill, Perbill),
         /// Min bond threshold was updated (new value).
         MinimumBondThresholdUpdated(Option<IdentityId>, Balance),
     }
@@ -1500,18 +1499,16 @@ decl_error! {
         AlreadyExists,
         /// Permissioned validator not exists.
         NotExists,
-        /// Individual commissions already enabled.
-        AlreadyEnabled,
         /// Updates with same value.
         NoChange,
-        /// Updates with same value.
-        InvalidCommission,
         /// Given potential validator identity is invalid.
         InvalidValidatorIdentity,
         /// Stash is not a part of any allowed identities.
         StashNotAllowed,
         /// Stash doesn't have a DID.
-        InvalidStashKey
+        InvalidStashKey,
+        /// Validator prefs are not in valid range.
+        InvalidValidatorCommission
     }
 }
 
@@ -1559,11 +1556,19 @@ decl_module! {
 
         fn on_runtime_upgrade() -> Weight {
             use polymesh_primitives::migrate::migrate_map_keys_and_value;
+            use frame_support::storage::migration::take_storage_value;
 
             if StorageVersion::get() == Releases::V4_0_0 {
                 migrate_map_keys_and_value::<_,_,Twox64Concat,T::AccountId,IdentityId,_>(b"Staking", b"PermissionedValidators", b"PermissionedIdentity", |k: T::AccountId, v: bool| {
                     (<Identity<T>>::get_identity(&k).unwrap_or_default(), v)
                 });
+
+                // Sets the value for `ValidatorCommissionCap` from the old storage variant i.e `ValidatorCommission`.
+                if let Some(Commission::Global(commision)) = take_storage_value(b"Staking", b"ValidatorCommission", &[]) {
+                    ValidatorCommissionCap::put(commision);
+                } else {
+                    ValidatorCommissionCap::put(Perbill::from_percent(100));
+                }
                 StorageVersion::put(Releases::V5_0_0);
             }
             1_000
@@ -1921,10 +1926,8 @@ decl_module! {
             let stash = &ledger.stash;
 
             ensure!(ledger.active >= <MinimumBondThreshold<T>>::get(), Error::<T>::InsufficientValue);
-            // Polymesh-Note - It is used to check whether the passed commission is same as global.
-            if let Commission::Global(commission) = <ValidatorCommission>::get() {
-                ensure!(prefs.commission == commission, Error::<T>::InvalidCommission);
-            }
+            // Polymesh-Note - It is used to check whether the passed commission is <= commission cap.
+            ensure!(prefs.commission <= Self::validator_commission_cap(), Error::<T>::InvalidValidatorCommission);
 
             <Nominators<T>>::remove(stash);
             <Validators<T>>::insert(stash, prefs);
@@ -2193,44 +2196,22 @@ decl_module! {
             Self::deposit_event(RawEvent::InvalidatedNominators(caller_id, caller, expired_nominators));
         }
 
-        /// Enables individual commissions. This can be set only once. Once individual commission
-        /// rates are enabled, there's no going back.  Only Governance committee is allowed to
-        /// change this value.
-        #[weight = (800_000_000, Operational, Pays::Yes)]
-        pub fn enable_individual_commissions(origin) {
-            T::RequiredCommissionOrigin::ensure_origin(origin.clone())?;
-            let key = ensure_signed(origin)?;
-            let id = <identity::Module<T>>::get_identity(&key);
-
-            // Ensure individual commissions are not already enabled
-            if let Commission::Global(_) = <ValidatorCommission>::get() {
-                <ValidatorCommission>::put(Commission::Individual);
-                Self::deposit_event(RawEvent::IndividualCommissionEnabled(id));
-            } else {
-                return Err(Error::<T>::AlreadyEnabled.into());
-            }
-        }
-
         /// Changes commission rate which applies to all validators. Only Governance
         /// committee is allowed to change this value.
         ///
         /// # Arguments
-        /// * `new_value` the new commission to be used for reward calculations
+        /// * `new_cap` the new commission cap.
         #[weight = (800_000_000, Operational, Pays::Yes)]
-        pub fn set_global_commission(origin, new_value: Perbill) {
+        pub fn set_commission_cap(origin, new_cap: Perbill) {
             T::RequiredCommissionOrigin::ensure_origin(origin.clone())?;
-            let key = ensure_signed(origin)?;
-            let id = <identity::Module<T>>::get_identity(&key);
 
-            // Ensure individual commissions are not already enabled
-            if let Commission::Global(old_value) = <ValidatorCommission>::get() {
-                ensure!(old_value != new_value, Error::<T>::NoChange);
-                <ValidatorCommission>::put(Commission::Global(new_value));
-                Self::update_validator_prefs(new_value);
-                Self::deposit_event(RawEvent::GlobalCommissionUpdated(id, old_value, new_value));
-            } else {
-                return Err(Error::<T>::AlreadyEnabled.into())
-            }
+            let old_cap = Self::validator_commission_cap();
+            ensure!(old_cap != new_cap, Error::<T>::NoChange);
+            <ValidatorCommissionCap>::put(new_cap);
+            // Update the validator prefs as per the `new_cap`.
+            // if `prefs.commission` of validator is > `new_cap`, it sets commission = new_cap.
+            Self::update_validator_prefs(new_cap);
+            Self::deposit_event(RawEvent::CommissionCapUpdated(GC_DID, old_cap, new_cap));
         }
 
         /// Changes min bond value to be used in bond(). Only Governance
@@ -3667,7 +3648,11 @@ impl<T: Trait> Module<T> {
             .collect::<Vec<T::AccountId>>();
 
         for v in validators {
-            <Validators<T>>::mutate(v, |prefs| prefs.commission = commission);
+            <Validators<T>>::mutate(v, |prefs| {
+                if prefs.commission > commission {
+                    prefs.commission = commission
+                }
+            });
         }
     }
 
