@@ -22,6 +22,7 @@ members = [
     "pallets/common",
     "pallets/compliance-manager",
     "pallets/confidential",
+    "pallets/corporate-actions",
     "pallets/group",
     "pallets/group/rpc",
     "pallets/group/rpc/runtime-api",
