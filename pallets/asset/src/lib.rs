@@ -86,6 +86,7 @@ pub mod ethereum;
 
 use arrayvec::ArrayVec;
 use codec::{Decode, Encode};
+use core::mem;
 use core::result::Result as StdResult;
 use currency::*;
 use frame_support::{
@@ -109,9 +110,9 @@ use polymesh_common_utilities::{
     CommonTrait, Context, SystematicIssuers,
 };
 use polymesh_primitives::{
-    calendar::CheckpointSchedule, AssetIdentifier, AuthorizationData, AuthorizationError, Document,
-    DocumentName, IdentityId, MetaVersion as ExtVersion, PortfolioId, ScopeId, Signatory,
-    SmartExtension, SmartExtensionName, SmartExtensionType, Ticker,
+    calendar::CheckpointSchedule, AssetIdentifier, AuthorizationData, Document, DocumentName,
+    IdentityId, MetaVersion as ExtVersion, PortfolioId, ScopeId, Signatory, SmartExtension,
+    SmartExtensionName, SmartExtensionType, Ticker,
 };
 use polymesh_primitives_derive::VecU8StrongTyped;
 use sp_runtime::traits::{CheckedAdd, SaturatedConversion, Saturating, Zero};
@@ -627,14 +628,11 @@ decl_module! {
         /// * `ticker` - the ticker of the token.
         #[weight = T::DbWeight::get().reads_writes(4, 1) + 300_000_000]
         pub fn freeze(origin, ticker: Ticker) -> DispatchResult {
-            let sender_did = Identity::<T>::ensure_origin_call_permissions(origin)?.primary_did;
-
-            // verify the ownership of the token
-            ensure!(Self::is_owner(&ticker, sender_did), Error::<T>::Unauthorized);
-            ensure!(<Tokens<T>>::contains_key(&ticker), Error::<T>::NoSuchAsset);
-
+            // Verify the ownership of the token
+            let sender_did = Self::ensure_perms_owner(origin, &ticker)?;
+            Self::ensure_asset_exists(&ticker)?;
             ensure!(!Self::frozen(&ticker), Error::<T>::AlreadyFrozen);
-            <Frozen>::insert(&ticker, true);
+            Frozen::insert(&ticker, true);
             Self::deposit_event(RawEvent::AssetFrozen(sender_did, ticker));
             Ok(())
         }
@@ -646,14 +644,11 @@ decl_module! {
         /// * `ticker` - the ticker of the frozen token.
         #[weight = T::DbWeight::get().reads_writes(4, 1) + 300_000_000]
         pub fn unfreeze(origin, ticker: Ticker) -> DispatchResult {
-            let sender_did = Identity::<T>::ensure_origin_call_permissions(origin)?.primary_did;
-
-            // verify the ownership of the token
-            ensure!(Self::is_owner(&ticker, sender_did), Error::<T>::Unauthorized);
-            ensure!(<Tokens<T>>::contains_key(&ticker), Error::<T>::NoSuchAsset);
-
+            // Verify the ownership of the token
+            let sender_did = Self::ensure_perms_owner(origin, &ticker)?;
+            Self::ensure_asset_exists(&ticker)?;
             ensure!(Self::frozen(&ticker), Error::<T>::NotFrozen);
-            <Frozen>::insert(&ticker, false);
+            Frozen::insert(&ticker, false);
             Self::deposit_event(RawEvent::AssetUnfrozen(sender_did, ticker));
             Ok(())
         }
@@ -666,12 +661,9 @@ decl_module! {
         /// * `name` - the new name of the token.
         #[weight = T::DbWeight::get().reads_writes(2, 1) + 300_000_000]
         pub fn rename_asset(origin, ticker: Ticker, name: AssetName) -> DispatchResult {
-            let sender_did = Identity::<T>::ensure_origin_call_permissions(origin)?.primary_did;
-
-            // verify the ownership of the token
-            ensure!(Self::is_owner(&ticker, sender_did), Error::<T>::Unauthorized);
-            ensure!(<Tokens<T>>::contains_key(&ticker), Error::<T>::NoSuchAsset);
-
+            // Verify the ownership of the token
+            let sender_did = Self::ensure_perms_owner(origin, &ticker)?;
+            Self::ensure_asset_exists(&ticker)?;
             <Tokens<T>>::mutate(&ticker, |token| token.name = name.clone());
             Self::deposit_event(RawEvent::AssetRenamed(sender_did, ticker, name));
             Ok(())
@@ -685,9 +677,7 @@ decl_module! {
         /// * `ticker` Ticker of the token.
         #[weight = T::DbWeight::get().reads_writes(3, 2) + 400_000_000]
         pub fn create_checkpoint(origin, ticker: Ticker) -> DispatchResult {
-            let did = Identity::<T>::ensure_origin_call_permissions(origin)?.primary_did;
-
-            ensure!(Self::is_owner(&ticker, did), Error::<T>::Unauthorized);
+            let did = Self::ensure_perms_owner(origin, &ticker)?;
             let now_as_secs = T::UnixTime::now().as_secs().saturated_into::<u64>();
             Self::_create_checkpoint(
                 &ticker,
@@ -720,8 +710,7 @@ decl_module! {
             ticker: Ticker,
             schedule: CheckpointSchedule
         ) -> DispatchResult {
-            let primary_did = Identity::<T>::ensure_origin_call_permissions(origin)?.primary_did;
-            ensure!(Self::is_owner(&ticker, primary_did), Error::<T>::Unauthorized);
+            let primary_did = Self::ensure_perms_owner(origin, &ticker)?;
             ensure!(
                 !CheckpointSchedules::contains_key(&ticker),
                 Error::<T>::CheckpointScheduleAlreadyExists
@@ -774,8 +763,7 @@ decl_module! {
             origin,
             ticker: Ticker,
         ) -> DispatchResult {
-            let primary_did = Identity::<T>::ensure_origin_call_permissions(origin)?.primary_did;
-            ensure!(Self::is_owner(&ticker, primary_did), Error::<T>::Unauthorized);
+            let primary_did = Self::ensure_perms_owner(origin, &ticker)?;
             ensure!(
                 CheckpointSchedules::contains_key(&ticker),
                 Error::<T>::NoCheckpointSchedule
@@ -803,12 +791,12 @@ decl_module! {
         pub fn issue(origin, ticker: Ticker, value: T::Balance) -> DispatchResult {
             let PermissionedCallOriginData {
                 sender,
-                primary_did: did,
+                primary_did,
                 ..
             } = Identity::<T>::ensure_origin_call_permissions(origin)?;
 
             // Ensure that the sender is the PIA or the token owner and returns the PIA address.
-            let beneficiary = Self::ensure_pia_or_owner(&ticker, did)?;
+            let beneficiary = Self::ensure_pia_or_owner(&ticker, primary_did)?;
             Self::_mint(&ticker, sender, beneficiary, value, Some(ProtocolOp::AssetIssue))
         }
 
@@ -885,9 +873,7 @@ decl_module! {
         /// * `ticker` Ticker of the token.
         #[weight = T::DbWeight::get().reads_writes(2, 1) + 300_000_000]
         pub fn make_divisible(origin, ticker: Ticker) -> DispatchResult {
-            let did = Identity::<T>::ensure_origin_call_permissions(origin)?.primary_did;
-
-            ensure!(Self::is_owner(&ticker, did), Error::<T>::Unauthorized);
+            let did = Self::ensure_perms_owner(origin, &ticker)?;
             // Read the token details
             let mut token = Self::token_details(&ticker);
             ensure!(!token.divisible, Error::<T>::AssetAlreadyDivisible);
@@ -977,8 +963,7 @@ decl_module! {
             ticker: Ticker,
             identifiers: Vec<AssetIdentifier>
         ) -> DispatchResult {
-            let did = Identity::<T>::ensure_origin_call_permissions(origin)?.primary_did;
-            ensure!(Self::is_owner(&ticker, did), Error::<T>::Unauthorized);
+            let did = Self::ensure_perms_owner(origin, &ticker)?;
             let identifiers: Vec<AssetIdentifier> = identifiers
                 .into_iter()
                 .filter_map(|identifier| identifier.validate())
@@ -996,8 +981,7 @@ decl_module! {
         /// * `extension_details` - Details of the smart extension.
         #[weight = T::DbWeight::get().reads_writes(2, 2) + 600_000_000]
         pub fn add_extension(origin, ticker: Ticker, extension_details: SmartExtension<T::AccountId>) -> DispatchResult {
-            let my_did = Identity::<T>::ensure_origin_call_permissions(origin)?.primary_did;
-            ensure!(Self::is_owner(&ticker, my_did), Error::<T>::Unauthorized);
+            let my_did = Self::ensure_perms_owner(origin, &ticker)?;
 
             // Verify the details of smart extension & store it
             ensure!(!<ExtensionDetails<T>>::contains_key((ticker, &extension_details.extension_id)), Error::<T>::ExtensionAlreadyPresent);
@@ -1065,14 +1049,9 @@ decl_module! {
             origin,
             ticker: Ticker,
         ) -> DispatchResult {
-            let did = Identity::<T>::ensure_origin_call_permissions(origin)?.primary_did;
-            ensure!(Self::is_owner(&ticker, did), Error::<T>::Unauthorized);
-            let mut old_primary_issuance_agent = None;
-            <Tokens<T>>::mutate(&ticker, |token| {
-                old_primary_issuance_agent = token.primary_issuance_agent;
-                token.primary_issuance_agent = None
-            });
-            Self::deposit_event(RawEvent::PrimaryIssuanceAgentTransferred(did, ticker, old_primary_issuance_agent, None));
+            let did = Self::ensure_perms_owner(origin, &ticker)?;
+            let old_pia = <Tokens<T>>::mutate(&ticker, |t| mem::replace(&mut t.primary_issuance_agent, None));
+            Self::deposit_event(RawEvent::PrimaryIssuanceAgentTransferred(did, ticker, old_pia, None));
             Ok(())
         }
 
@@ -1454,10 +1433,31 @@ impl<T: Trait> AssetSubTrait for Module<T> {
 /// Public functions can be called from other modules e.g.: lock and unlock (being called from the tcr module)
 /// All functions in the impl module section are not part of public interface because they are not part of the Call enum.
 impl<T: Trait> Module<T> {
+    /// Ensure that `origin` is permissioned for this call and that its identity is `ticker`'s owner.
+    pub fn ensure_perms_owner(
+        origin: T::Origin,
+        ticker: &Ticker,
+    ) -> Result<IdentityId, DispatchError> {
+        let did = Identity::<T>::ensure_perms(origin)?;
+        Self::ensure_owner(ticker, did)?;
+        Ok(did)
+    }
+
+    /// Ensure that `did` is the owner of `ticker`.
+    pub fn ensure_owner(ticker: &Ticker, did: IdentityId) -> DispatchResult {
+        ensure!(Self::is_owner(ticker, did), Error::<T>::Unauthorized);
+        Ok(())
+    }
+
+    /// Ensure that `ticker` is a valid created asset.
+    fn ensure_asset_exists(ticker: &Ticker) -> DispatchResult {
+        ensure!(<Tokens<T>>::contains_key(&ticker), Error::<T>::NoSuchAsset);
+        Ok(())
+    }
+
     // Public immutables
     pub fn _is_owner(ticker: &Ticker, did: IdentityId) -> bool {
-        let token = Self::token_details(ticker);
-        token.owner_did == did
+        Self::token_details(ticker).owner_did == did
     }
 
     fn maybe_ticker(ticker: &Ticker) -> Option<TickerRegistration<T::Moment>> {
@@ -1595,7 +1595,7 @@ impl<T: Trait> Module<T> {
             return Self::balance_at_checkpoint((
                 ticker,
                 did,
-                Self::find_ceiling(&user_checkpoints, at),
+                *Self::find_ceiling(&user_checkpoints, &at),
             ));
         }
         // User has no checkpoint data.
@@ -1604,30 +1604,13 @@ impl<T: Trait> Module<T> {
         Self::balance_of(&ticker, &did)
     }
 
-    fn find_ceiling(arr: &[u64], key: u64) -> u64 {
-        // This function assumes that key <= last element of the array,
-        // the array consists of unique sorted elements,
-        // array len > 0
-        let mut end = arr.len();
-        let mut start = 0;
-        let mut mid = (start + end) / 2;
-
-        while mid != 0 && end >= start {
-            // Due to our assumptions, we can even remove end >= start condition from here
-            if key > arr[mid - 1] && key <= arr[mid] {
-                // This condition and the fact that key <= last element of the array mean that
-                // start should never become greater than end.
-                return arr[mid];
-            } else if key > arr[mid] {
-                start = mid + 1;
-            } else {
-                end = mid;
-            }
-            mid = (start + end) / 2;
-        }
-
-        // This should only be reached when mid becomes 0.
-        arr[0]
+    /// Find the least element `<= key` in in `arr`.
+    ///
+    /// Assumes that key <= last element of the array,
+    /// the array consists of unique sorted elements,
+    /// and that array len > 0.
+    fn find_ceiling<'a, E: Ord>(arr: &'a [E], key: &E) -> &'a E {
+        &arr[arr.binary_search(key).map_or_else(|i| i, |i| i)]
     }
 
     pub fn _is_valid_transfer(
@@ -1889,7 +1872,7 @@ impl<T: Trait> Module<T> {
         }
     }
 
-    fn is_owner(ticker: &Ticker, did: IdentityId) -> bool {
+    pub fn is_owner(ticker: &Ticker, did: IdentityId) -> bool {
         Self::_is_owner(ticker, did)
     }
 
@@ -1991,12 +1974,7 @@ impl<T: Trait> Module<T> {
 
     /// Accept and process a ticker transfer.
     pub fn _accept_ticker_transfer(to_did: IdentityId, auth_id: u64) -> DispatchResult {
-        ensure!(
-            <identity::Authorizations<T>>::contains_key(Signatory::from(to_did), auth_id),
-            AuthorizationError::Invalid
-        );
-
-        let auth = <identity::Authorizations<T>>::get(Signatory::from(to_did), auth_id);
+        let auth = <Identity<T>>::ensure_authorization(&to_did.into(), auth_id)?;
 
         let ticker = match auth.authorization_data {
             AuthorizationData::TransferTicker(ticker) => ticker,
@@ -2009,11 +1987,7 @@ impl<T: Trait> Module<T> {
         );
         let ticker_details = Self::ticker_registration(&ticker);
 
-        <identity::Module<T>>::consume_auth(
-            ticker_details.owner,
-            Signatory::from(to_did),
-            auth_id,
-        )?;
+        <Identity<T>>::consume_auth(ticker_details.owner, Signatory::from(to_did), auth_id)?;
 
         Self::transfer_ticker(ticker, to_did, ticker_details.owner);
         ClassicTickers::remove(&ticker); // Not a classic ticker anymore if it was.
@@ -2033,20 +2007,14 @@ impl<T: Trait> Module<T> {
         to_did: IdentityId,
         auth_id: u64,
     ) -> DispatchResult {
-        ensure!(
-            <identity::Authorizations<T>>::contains_key(Signatory::from(to_did), auth_id),
-            AuthorizationError::Invalid
-        );
-
-        let auth = <identity::Authorizations<T>>::get(Signatory::from(to_did), auth_id);
+        let auth = <Identity<T>>::ensure_authorization(&to_did.into(), auth_id)?;
 
         let ticker = match auth.authorization_data {
             AuthorizationData::TransferPrimaryIssuanceAgent(ticker) => ticker,
             _ => return Err(Error::<T>::NoPrimaryIssuanceAgentTransferAuth.into()),
         };
 
-        let token = <Tokens<T>>::get(&ticker);
-        <identity::Module<T>>::consume_auth(token.owner_did, Signatory::from(to_did), auth_id)?;
+        Self::consume_auth_by_owner(&ticker, to_did, auth_id)?;
 
         let mut old_primary_issuance_agent = None;
         <Tokens<T>>::mutate(&ticker, |token| {
@@ -2066,47 +2034,36 @@ impl<T: Trait> Module<T> {
 
     /// Accept and process a token ownership transfer.
     pub fn _accept_token_ownership_transfer(to_did: IdentityId, auth_id: u64) -> DispatchResult {
-        ensure!(
-            <identity::Authorizations<T>>::contains_key(Signatory::from(to_did), auth_id),
-            AuthorizationError::Invalid
-        );
-
-        let auth = <identity::Authorizations<T>>::get(Signatory::from(to_did), auth_id);
+        let auth = <Identity<T>>::ensure_authorization(&to_did.into(), auth_id)?;
 
         let ticker = match auth.authorization_data {
             AuthorizationData::TransferAssetOwnership(ticker) => ticker,
             _ => return Err(Error::<T>::NotTickerOwnershipTransferAuth.into()),
         };
 
-        ensure!(<Tokens<T>>::contains_key(&ticker), Error::<T>::NoSuchAsset);
+        Self::ensure_asset_exists(&ticker)?;
+        Self::consume_auth_by_owner(&ticker, to_did, auth_id)?;
 
-        let token_details = Self::token_details(&ticker);
         let ticker_details = Self::ticker_registration(&ticker);
-
-        <identity::Module<T>>::consume_auth(
-            token_details.owner_did,
-            Signatory::from(to_did),
-            auth_id,
-        )?;
-
         <AssetOwnershipRelations>::remove(ticker_details.owner, ticker);
 
         <AssetOwnershipRelations>::insert(to_did, ticker, AssetOwnershipRelation::AssetOwned);
 
-        <Tickers<T>>::mutate(&ticker, |tr| {
-            tr.owner = to_did;
-        });
-        <Tokens<T>>::mutate(&ticker, |tr| {
-            tr.owner_did = to_did;
-        });
+        <Tickers<T>>::mutate(&ticker, |tr| tr.owner = to_did);
+        let owner = <Tokens<T>>::mutate(&ticker, |tr| mem::replace(&mut tr.owner_did, to_did));
 
-        Self::deposit_event(RawEvent::AssetOwnershipTransferred(
-            to_did,
-            ticker,
-            token_details.owner_did,
-        ));
+        Self::deposit_event(RawEvent::AssetOwnershipTransferred(to_did, ticker, owner));
 
         Ok(())
+    }
+
+    pub fn consume_auth_by_owner(
+        ticker: &Ticker,
+        to_did: IdentityId,
+        auth_id: u64,
+    ) -> DispatchResult {
+        let owner = Self::token_details(ticker).owner_did;
+        <Identity<T>>::consume_auth(owner, Signatory::from(to_did), auth_id)
     }
 
     pub fn verify_restriction(
@@ -2284,7 +2241,7 @@ impl<T: Trait> Module<T> {
         // Validate the transfer
         let (is_transfer_success, weight_for_transfer) = Self::_is_valid_transfer(
             &ticker,
-            <identity::Module<T>>::did_records(from_portfolio.did).primary_key,
+            <Identity<T>>::did_records(from_portfolio.did).primary_key,
             from_portfolio,
             to_portfolio,
             value,
@@ -2374,8 +2331,7 @@ impl<T: Trait> Module<T> {
         ticker: &Ticker,
         id: &T::AccountId,
     ) -> Result<IdentityId, DispatchError> {
-        let did = Identity::<T>::ensure_origin_call_permissions(origin)?.primary_did;
-        ensure!(Self::is_owner(ticker, did), Error::<T>::Unauthorized);
+        let did = Self::ensure_perms_owner(origin, ticker)?;
         ensure!(
             <ExtensionDetails<T>>::contains_key((ticker, id)),
             Error::<T>::NoSuchSmartExtension
