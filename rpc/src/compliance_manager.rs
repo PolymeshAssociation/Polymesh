@@ -41,7 +41,6 @@ pub trait ComplianceManagerApi<BlockHash, AccountId, T> {
         ticker: Ticker,
         from_did: Option<IdentityId>,
         to_did: Option<IdentityId>,
-        primary_issuance_agent: Option<IdentityId>,
         at: Option<BlockHash>,
     ) -> Result<AssetComplianceResult>;
 }
@@ -78,7 +77,6 @@ where
         ticker: Ticker,
         from_did: Option<IdentityId>,
         to_did: Option<IdentityId>,
-        primary_issuance_agent: Option<IdentityId>,
         at: Option<<Block as BlockT>::Hash>,
     ) -> Result<AssetComplianceResult> {
         let api = self.client.runtime_api();
@@ -86,7 +84,7 @@ where
                 // If the block hash is not supplied assume the best block.
                 self.client.info().best_hash));
 
-        api.can_transfer(&at, ticker, from_did, to_did, primary_issuance_agent)
+        api.can_transfer(&at, ticker, from_did, to_did)
             .map_err(|e| RpcError {
                 code: ErrorCode::ServerError(1),
                 message: "Unable to fetch transfer status from compliance manager.".into(),
