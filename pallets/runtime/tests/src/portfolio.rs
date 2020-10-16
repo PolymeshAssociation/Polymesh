@@ -391,7 +391,7 @@ fn can_take_custody_of_portfolios() {
         // Can not accept an invalid auth
         assert_noop!(
             Identity::accept_authorization(bob_signed.clone(), auth_id + 1),
-            pallet_identity::Error::<TestStorage>::AuthorizationDoesNotExist
+            AuthorizationError::Invalid
         );
 
         // Can accept a valid custody transfer auth

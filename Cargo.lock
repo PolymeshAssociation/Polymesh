@@ -4250,6 +4250,33 @@ dependencies = [
 ]
 
 [[package]]
+name = "pallet-corporate-actions"
+version = "0.1.0"
+dependencies = [
+ "frame-support",
+ "frame-system",
+ "libsecp256k1",
+ "pallet-asset",
+ "pallet-balances 0.1.0",
+ "pallet-identity",
+ "pallet-session",
+ "pallet-timestamp",
+ "parity-scale-codec",
+ "polymesh-common-utilities",
+ "polymesh-primitives",
+ "polymesh-primitives-derive",
+ "serde",
+ "serde_derive",
+ "sp-api",
+ "sp-arithmetic",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+ "sp-std",
+ "sp-version",
+]
+
+[[package]]
 name = "pallet-finality-tracker"
 version = "2.0.0"
 source = "git+https://github.com/paritytech/substrate?tag=v2.0.0#a200cdb93c6af5763b9c7bf313fa708764ac88ca"
@@ -5421,6 +5448,7 @@ dependencies = [
  "pallet-contracts",
  "pallet-contracts-primitives",
  "pallet-contracts-rpc-runtime-api",
+ "pallet-corporate-actions",
  "pallet-finality-tracker",
  "pallet-grandpa",
  "pallet-group",
@@ -5500,6 +5528,7 @@ dependencies = [
  "pallet-contracts",
  "pallet-contracts-primitives",
  "pallet-contracts-rpc-runtime-api",
+ "pallet-corporate-actions",
  "pallet-finality-tracker",
  "pallet-grandpa",
  "pallet-group",
@@ -5579,6 +5608,7 @@ dependencies = [
  "pallet-compliance-manager",
  "pallet-confidential",
  "pallet-contracts",
+ "pallet-corporate-actions",
  "pallet-group",
  "pallet-group-rpc-runtime-api",
  "pallet-identity",
@@ -5606,6 +5636,7 @@ dependencies = [
  "polymesh-primitives-derive",
  "polymesh-runtime-common",
  "polymesh-runtime-develop",
+ "polymesh-weights",
  "rand 0.7.3",
  "serde",
  "serde_json",
@@ -5628,6 +5659,7 @@ version = "0.1.0"
 dependencies = [
  "frame-support",
  "frame-system",
+ "pallet-corporate-actions",
  "pallet-timestamp",
 ]
 

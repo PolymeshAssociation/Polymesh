@@ -649,7 +649,8 @@
                 "JoinIdentity": "Permissions",
                 "PortfolioCustody": "PortfolioId",
                 "Custom": "Ticker",
-                "NoData": ""
+                "NoData": "",
+                "TransferCorporateActionAgent": "Ticker"
             }
         },
         "AuthIdentifier": {
@@ -674,7 +675,7 @@
         "MetaUrl": "Text",
         "MetaDescription": "Text",
         "MetaVersion": "u32",
-        "ExtVersion":"u32",
+        "ExtVersion": "u32",
         "TemplateMetadata": {
             "url": "Option<MetaUrl>",
             "se_type": "SmartExtensionType",
@@ -1033,7 +1034,17 @@
         },
         "ExtensionAttributes": {
             "usage_fee": "Balance",
-            "version":"MetaVersion"
+            "version": "MetaVersion"
+        },
+        "TargetIdentities": {
+            "identities": "Vec<IdentitityId>",
+            "treatment": "TargetTreatment"
+        },
+        "TargetTreatment": {
+            "_enum": [
+                "Include",
+                "Exclude"
+            ]
         }
     },
     "rpc": {
